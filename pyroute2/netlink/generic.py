@@ -82,21 +82,13 @@ class marshal(object):
         with self.lock:
             self.set_buffer(self.sock.recv(4096))
             self.buf.seek(0)
-            self.header = self.nlmsg_header()
+            self.header = nlmsg(self.buf)
+            self.header['typeString'] = self.reverse.get(self.header["type"],
+                                                         None)
             return self.parse()
 
     def parse(self):
         pass
-
-    def nlmsg_header(self):
-        """
-        Get netlink message header
-        """
-        data = struct.unpack("IHHII", self.buf.read(16))
-        fields = ("length", "type", "flags", "sequence_number", "pid")
-        header = dict(zip(fields, data))
-        header["typeString"] = self.reverse.get(header["type"], None)
-        return header
 
     def nla_header(self):
         """
