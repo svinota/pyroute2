@@ -8,6 +8,7 @@ import io
 
 from pyroute2.common import map_namespace
 from pyroute2.common import unpack
+from pyroute2.common import hexdump
 
 
 ##  Netlink family
@@ -32,10 +33,6 @@ NETLINK_GENERIC = 16
 # leave room for NETLINK_DM (DM Events)
 NETLINK_SCSITRANSPORT = 18   # SCSI Transports
 (NETLINK_NAMES, NETLINK_VALUES) = map_namespace("NETLINK", globals())
-
-
-def hexdump(payload):
-    return ":".join("{0:02x}".format(ord(c)) for c in payload)
 
 
 NLMSG_ALIGNTO = 4

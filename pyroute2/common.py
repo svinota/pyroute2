@@ -36,6 +36,13 @@ def map_namespace(prefix, ns):
     return (by_name, by_value)
 
 
+def hexdump(payload):
+    """
+    Represent byte string as hex -- for debug purposes
+    """
+    return ":".join("{0:02x}".format(ord(c)) for c in payload)
+
+
 def unpack(buf, fmt, fields):
     """
     Unpack the byte stream into dictionary, using sctruct.unpack, e.g.:
