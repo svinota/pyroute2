@@ -1,33 +1,12 @@
 
-from pyroute2.common import map_namespace
+from socket import AF_INET
+from socket import AF_INET6
 from pyroute2.common import t_ip4ad
 from pyroute2.common import t_ip6ad
 from pyroute2.common import t_none
 from pyroute2.common import t_uint32
 from pyroute2.netlink.generic import nlmsg
 
-
-class rtmsg(nlmsg):
-    """
-    Routing update message
-
-    struct rtmsg {
-        unsigned char rtm_family;   /* Address family of route */
-        unsigned char rtm_dst_len;  /* Length of destination */
-        unsigned char rtm_src_len;  /* Length of source */
-        unsigned char rtm_tos;      /* TOS filter */
-
-        unsigned char rtm_table;    /* Routing table ID */
-        unsigned char rtm_protocol; /* Routing protocol; see below */
-        unsigned char rtm_scope;    /* See below */
-        unsigned char rtm_type;     /* See below */
-
-        unsigned int  rtm_flags;
-    };
-    """
-    fmt = "BBBBBBBBI"
-    fields = ("family", "dst_len", "src_len", "tos", "table",
-              "proto", "scope", "type", "flags")
 
 ## route attributes
 RTA_UNSPEC = 0
@@ -47,9 +26,6 @@ RTA_CACHEINFO = 12  # FIXME: kernel://include/linux/rtnetlink.h:320,
 RTA_SESSION = 13
 RTA_MP_ALGO = 14    # no longer used
 RTA_TABLE = 15
-
-(RTA_NAMES, RTA_VALUES) = map_namespace("RTA", globals())
-
 
 ## rtmsg.type
 RTN_UNSPEC = 0
@@ -99,6 +75,7 @@ RTM_F_NOTIFY = 0x100    # Notify user of route change
 RTM_F_CLONED = 0x200    # This route is cloned
 RTM_F_EQUALIZE = 0x400    # Multipath equalizer: NI
 RTM_F_PREFIX = 0x800    # Prefix addresses
+
 t_rta_attr = {RTA_UNSPEC:    (t_none,    "none"),
               RTA_DST:       (t_ip4ad,   "dst_prefix"),
               RTA_SRC:       (t_ip4ad,   "src_prefix"),
@@ -132,3 +109,34 @@ t_rta6_attr = {RTA_UNSPEC:    (t_none,    "none"),
                RTA_SESSION:   (t_none,    "session"),
                RTA_MP_ALGO:   (t_none,    "mp_algo"),  # no longer used
                RTA_TABLE:     (t_uint32,  "table")}
+
+
+class rtmsg(nlmsg):
+    """
+    Routing update message
+
+    struct rtmsg {
+        unsigned char rtm_family;   /* Address family of route */
+        unsigned char rtm_dst_len;  /* Length of destination */
+        unsigned char rtm_src_len;  /* Length of source */
+        unsigned char rtm_tos;      /* TOS filter */
+
+        unsigned char rtm_table;    /* Routing table ID */
+        unsigned char rtm_protocol; /* Routing protocol; see below */
+        unsigned char rtm_scope;    /* See below */
+        unsigned char rtm_type;     /* See below */
+
+        unsigned int  rtm_flags;
+    };
+    """
+    fmt = "BBBBBBBBI"
+    fields = ("family", "dst_len", "src_len", "tos", "table",
+              "proto", "scope", "type", "flags")
+    attr_map = None
+
+    def setup(self):
+        self['type'] = 'route'
+        if self['family'] == AF_INET:
+            self.attr_map = t_rta_attr
+        elif self['family'] == AF_INET6:
+            self.attr_map = t_rta6_attr

@@ -1,5 +1,6 @@
 import struct
 
+from pyroute2.arp import ARPHRD_VALUES
 from pyroute2.common import map_namespace
 from pyroute2.common import t_l2ad
 from pyroute2.common import t_asciiz
@@ -7,21 +8,6 @@ from pyroute2.common import t_none
 from pyroute2.common import t_uint8
 from pyroute2.common import t_uint32
 from pyroute2.netlink.generic import nlmsg
-
-
-class ifinfmsg(nlmsg):
-    """
-    Network interface message
-    struct ifinfomsg {
-        unsigned char  ifi_family; /* AF_UNSPEC */
-        unsigned short ifi_type;   /* Device type */
-        int            ifi_index;  /* Interface index */
-        unsigned int   ifi_flags;  /* Device flags  */
-        unsigned int   ifi_change; /* change mask */
-    };
-    """
-    fmt = "BHiII"
-    fields = ("family", "ifi_type", "index", "flags", "change")
 
 
 ##
@@ -72,7 +58,6 @@ IF_OPER_DORMANT = 5
 IF_OPER_UP = 6
 
 (IF_OPER_NAMES, IF_OPER_VALUES) = map_namespace("IF_OPER", globals())
-(IFLA_NAMES, IFLA_VALUES) = map_namespace("IFLA", globals())
 
 
 t_ifla_attr = {IFLA_UNSPEC:    (t_none,        "none"),
@@ -89,22 +74,21 @@ t_ifla_attr = {IFLA_UNSPEC:    (t_none,        "none"),
                IFLA_MAP:       (t_ifmap,       "ifmap")}
 
 
-## netdevice flags
-# FIXME: to something with it, please
-iff = {}
-iff["UP"] = 0x1    # interface is up
-iff["BROADCAST"] = 0x2    # broadcast address valid
-iff["DEBUG"] = 0x4    # turn on debugging
-iff["LOOPBACK"] = 0x8    # is a loopback net
-iff["POINTOPOINT"] = 0x10    # interface is has p-p link
-iff["NOTRAILERS"] = 0x20    # avoid use of trailers
-iff["RUNNING"] = 0x40    # resources allocated
-iff["NOARP"] = 0x80    # no ARP protocol
-iff["PROMISC"] = 0x100    # receive all packets
-iff["ALLMULTI"] = 0x200    # receive all multicast packets
-iff["MASTER"] = 0x400    # master of a load balancer
-iff["SLAVE"] = 0x800    # slave of a load balancer
-iff["MULTICAST"] = 0x1000  # supports multicast
-iff["PORTSEL"] = 0x2000  # can set media type
-iff["AUTOMEDIA"] = 0x4000  # auto media select active
-iff["DYNAMIC"] = 0x8000  # dialup device with changing addresses
+class ifinfmsg(nlmsg):
+    """
+    Network interface message
+    struct ifinfomsg {
+        unsigned char  ifi_family; /* AF_UNSPEC */
+        unsigned short ifi_type;   /* Device type */
+        int            ifi_index;  /* Interface index */
+        unsigned int   ifi_flags;  /* Device flags  */
+        unsigned int   ifi_change; /* change mask */
+    };
+    """
+    fmt = "BHiII"
+    fields = ("family", "ifi_type", "index", "flags", "change")
+
+    def setup(self):
+        self['type'] = 'link'
+        self['ifi_type'] = ARPHRD_VALUES[self['ifi_type']][7:]
+        self.attr_map = t_ifla_attr

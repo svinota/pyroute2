@@ -54,6 +54,10 @@ class nlmsg(dict):
     def __init__(self, buf, length=None):
         dict.__init__(self)
         self.update(unpack(buf, self.fmt, self.fields))
+        self.setup()
+
+    def setup(self):
+        pass
 
 
 class marshal(object):

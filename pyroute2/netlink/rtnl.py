@@ -4,25 +4,17 @@ RTNL protocol implementation
 import copy
 import time
 
-from socket import AF_INET
-from pyroute2.arp import ARPHRD_VALUES
 from pyroute2.common import map_namespace
 from pyroute2.netlink.generic import marshal
 # link messages
 from pyroute2.netlink.rtmsg.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtmsg.ifinfmsg import t_ifla_attr
 # address messages
 from pyroute2.netlink.rtmsg.ifaddrmsg import ifaddrmsg
-from pyroute2.netlink.rtmsg.ifaddrmsg import t_ifa_attr
-from pyroute2.netlink.rtmsg.ifaddrmsg import t_ifa6_attr
 # route messages
 from pyroute2.netlink.rtmsg.rtmsg import rtmsg
-from pyroute2.netlink.rtmsg.rtmsg import t_rta_attr
-from pyroute2.netlink.rtmsg.rtmsg import t_rta6_attr
 # arp cache messages
 from pyroute2.netlink.rtmsg.ndmsg import ndmsg
-from pyroute2.netlink.rtmsg.ndmsg import t_nda_attr
-from pyroute2.netlink.rtmsg.ndmsg import t_nda6_attr
+
 
 ##  RTnetlink multicast groups
 RTNLGRP_NONE = 0x0
@@ -45,7 +37,6 @@ RTNLGRP_DECnet_RULE = 0x8000
 RTNLGRP_NOP4 = 0x10000
 RTNLGRP_IPV6_PREFIX = 0x20000
 RTNLGRP_IPV6_RULE = 0x40000
-(RTNLGRP_NAMES, RTNLGRP_VALUES) = map_namespace("RTNLGRP", globals())
 
 ## Types of messages
 #RTM_BASE = 16
@@ -85,6 +76,15 @@ RTM_GETNEIGHTBL = 66
 RTM_SETNEIGHTBL = 67
 (RTM_NAMES, RTM_VALUES) = map_namespace("RTM", globals())
 
+t_msg_map = {RTM_NEWLINK:  ifinfmsg,
+             RTM_DELLINK:  ifinfmsg,
+             RTM_NEWADDR:  ifaddrmsg,
+             RTM_DELADDR:  ifaddrmsg,
+             RTM_NEWROUTE: rtmsg,
+             RTM_DELROUTE: rtmsg,
+             RTM_NEWNEIGH: ndmsg,
+             RTM_DELNEIGH: ndmsg}
+
 
 class marshal_rtnl(marshal):
 
@@ -100,36 +100,12 @@ class marshal_rtnl(marshal):
             event["header"] = copy.copy(self.header)
             event["header"]["msg_hex"] = self.msg_hex
             event["header"]["timestamp"] = time.asctime()
-        attr_map = {}
-        if self.header['type'] <= RTM_DELLINK:
-            event.update(ifinfmsg(self.buf))
-            event['ifi_type'] = ARPHRD_VALUES[event['ifi_type']][7:]
-            event['type'] = 'link'
-            attr_map = t_ifla_attr
-        elif self.header['type'] <= RTM_DELADDR:
-            event.update(ifaddrmsg(self.buf))
-            event['type'] = 'addr'
-            if event['family'] == AF_INET:
-                attr_map = t_ifa_attr
-            else:
-                attr_map = t_ifa6_attr
-        elif self.header['type'] <= RTM_DELROUTE:
-            event.update(rtmsg(self.buf))
-            event['type'] = 'route'
-            if event['family'] == AF_INET:
-                attr_map = t_rta_attr
-            else:
-                attr_map = t_rta6_attr
-        elif self.header['type'] <= RTM_GETNEIGH:
-            event.update(ndmsg(self.buf))
-            event['type'] = 'neigh'
-            if event['family'] == AF_INET:
-                attr_map = t_nda_attr
-            else:
-                attr_map = t_nda6_attr
-        else:
-            pass
-        for i in self.get_next_attr(attr_map):
+
+        if self.header['type'] in t_msg_map:
+            parsed = t_msg_map[self.header['type']](self.buf)
+            event.update(parsed)
+
+        for i in self.get_next_attr(parsed.attr_map):
             if type(i[0]) is str:
                 event["attributes"].append(i)
             else:

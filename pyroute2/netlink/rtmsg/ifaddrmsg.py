@@ -1,27 +1,11 @@
 
-from pyroute2.common import map_namespace
+from socket import AF_INET
+from socket import AF_INET6
 from pyroute2.common import t_ip4ad
 from pyroute2.common import t_ip6ad
 from pyroute2.common import t_asciiz
 from pyroute2.common import t_none
 from pyroute2.netlink.generic import nlmsg
-
-
-class ifaddrmsg(nlmsg):
-    """
-    IP address information
-
-    struct ifaddrmsg {
-       unsigned char ifa_family;    /* Address type */
-       unsigned char ifa_prefixlen; /* Prefixlength of address */
-       unsigned char ifa_flags;     /* Address flags */
-       unsigned char ifa_scope;     /* Address scope */
-       int           ifa_index;     /* Interface index */
-    };
-
-    """
-    fmt = "BBBBI"
-    fields = ("family", "prefixlen", "flags", "scope", "index")
 
 ## address attributes
 #
@@ -39,7 +23,6 @@ IFA_BROADCAST = 4
 IFA_ANYCAST = 5
 IFA_CACHEINFO = 6
 IFA_MULTICAST = 7
-(IFA_NAMES, IFA_VALUES) = map_namespace("IFA_", globals())
 
 t_ifa_attr = {IFA_UNSPEC:     (t_none,    "none"),
               IFA_ADDRESS:    (t_ip4ad,   "address"),
@@ -55,3 +38,28 @@ t_ifa6_attr = {IFA_UNSPEC:     (t_none,    "none"),
                IFA_ADDRESS:    (t_ip6ad,   "address"),
                IFA_LABEL:      (t_asciiz,  "dev"),
                IFA_CACHEINFO:  (t_none,    "cacheinfo")}
+
+
+class ifaddrmsg(nlmsg):
+    """
+    IP address information
+
+    struct ifaddrmsg {
+       unsigned char ifa_family;    /* Address type */
+       unsigned char ifa_prefixlen; /* Prefixlength of address */
+       unsigned char ifa_flags;     /* Address flags */
+       unsigned char ifa_scope;     /* Address scope */
+       int           ifa_index;     /* Interface index */
+    };
+
+    """
+    fmt = "BBBBI"
+    fields = ("family", "prefixlen", "flags", "scope", "index")
+    attr_map = None
+
+    def setup(self):
+        self['type'] = 'addr'
+        if self['family'] == AF_INET:
+            self.attr_map = t_ifa_attr
+        elif self['family'] == AF_INET6:
+            self.attr_map = t_ifa6_attr

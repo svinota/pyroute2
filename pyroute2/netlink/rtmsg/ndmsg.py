@@ -1,10 +1,31 @@
 
-from pyroute2.common import map_namespace
+from socket import AF_INET
+from socket import AF_INET6
 from pyroute2.common import t_ip4ad
 from pyroute2.common import t_ip6ad
 from pyroute2.common import t_l2ad
 from pyroute2.common import t_none
 from pyroute2.netlink.generic import nlmsg
+
+
+## neighbor attributes
+NDA_UNSPEC = 0
+NDA_DST = 1
+NDA_LLADDR = 2
+NDA_CACHEINFO = 3
+NDA_PROBES = 4
+
+t_nda_attr = {NDA_UNSPEC:    (t_none,    "none"),
+              NDA_DST:       (t_ip4ad,   "dest"),
+              NDA_LLADDR:    (t_l2ad,    "lladdr"),
+              NDA_CACHEINFO: (t_none,    "cacheinfo"),
+              NDA_PROBES:    (t_none,    "probes")}
+
+t_nda6_attr = {NDA_UNSPEC:    (t_none,    "none"),
+               NDA_DST:       (t_ip6ad,   "dest"),
+               NDA_LLADDR:    (t_l2ad,    "lladdr"),
+               NDA_CACHEINFO: (t_none,    "cacheinfo"),
+               NDA_PROBES:    (t_none,    "probes")}
 
 
 class ndmsg(nlmsg):
@@ -29,23 +50,11 @@ class ndmsg(nlmsg):
     """
     fmt = "BiHBB"
     fields = ("family", "ifindex", "state", "flags", "ndm_type")
+    attr_map = None
 
-## neighbor attributes
-NDA_UNSPEC = 0
-NDA_DST = 1
-NDA_LLADDR = 2
-NDA_CACHEINFO = 3
-NDA_PROBES = 4
-(NDA_NAMES, NDA_VALUES) = map_namespace("NDA", globals())
-
-t_nda_attr = {NDA_UNSPEC:    (t_none,    "none"),
-              NDA_DST:       (t_ip4ad,   "dest"),
-              NDA_LLADDR:    (t_l2ad,    "lladdr"),
-              NDA_CACHEINFO: (t_none,    "cacheinfo"),
-              NDA_PROBES:    (t_none,    "probes")}
-
-t_nda6_attr = {NDA_UNSPEC:    (t_none,    "none"),
-               NDA_DST:       (t_ip6ad,   "dest"),
-               NDA_LLADDR:    (t_l2ad,    "lladdr"),
-               NDA_CACHEINFO: (t_none,    "cacheinfo"),
-               NDA_PROBES:    (t_none,    "probes")}
+    def setup(self):
+        self['type'] = 'neigh'
+        if self['family'] == AF_INET:
+            self.attr_map = t_nda_attr
+        elif self['family'] == AF_INET6:
+            self.attr_map = t_nda6_attr
