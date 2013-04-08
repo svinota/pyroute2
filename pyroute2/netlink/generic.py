@@ -7,6 +7,7 @@ import os
 import io
 
 from pyroute2.common import map_namespace
+from pyroute2.common import unpack
 
 
 ##  Netlink family
@@ -44,16 +45,16 @@ def NLMSG_ALIGN(l):
     return (l + NLMSG_ALIGNTO - 1) & ~ (NLMSG_ALIGNTO - 1)
 
 
-def unpack(buf, fmt, fields):
-    data = buf.read(struct.calcsize(fmt))
-    return dict(zip(fields, struct.unpack(fmt, data)))
-
-
 class nlmsg(dict):
+    """
+    Base class for parsing structures like message headers
+    and so on. The 'length' attribute in constructor is to
+    comply with attribute mapping API and is ignored.
+    """
     fmt = "IHHII"
     fields = ("length", "type", "flags", "sequence_number", "pid")
 
-    def __init__(self, buf):
+    def __init__(self, buf, length=None):
         dict.__init__(self)
         self.update(unpack(buf, self.fmt, self.fields))
 

@@ -1,4 +1,6 @@
-
+"""
+RTNL protocol implementation
+"""
 import struct
 import copy
 import time
@@ -6,6 +8,13 @@ import time
 from socket import AF_INET
 from pyroute2.arp import ARPHRD_VALUES
 from pyroute2.common import map_namespace
+from pyroute2.common import t_ip4ad
+from pyroute2.common import t_ip6ad
+from pyroute2.common import t_l2ad
+from pyroute2.common import t_asciiz
+from pyroute2.common import t_none
+from pyroute2.common import t_uint8
+from pyroute2.common import t_uint32
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import marshal
 
@@ -71,51 +80,23 @@ RTM_SETNEIGHTBL = 67
 (RTM_NAMES, RTM_VALUES) = map_namespace("RTM", globals())
 
 
-def t_ip6ad(buf, length):
-    r = struct.unpack("=BBBBBBBBBBBBBBBB", buf.read(16))
-    return "%x%x:%x%x:%x%x:%x%x:%x%x:%x%x:%x%x:%x%x" % \
-           (r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8],
-            r[9], r[10], r[11], r[12], r[13], r[14], r[15])
-
-
-def t_ip4ad(buf, length):
-    r = struct.unpack("=BBBB", buf.read(4))
-    return "%u.%u.%u.%u" % (r[0], r[1], r[2], r[3])
-
-
-def t_l2ad(buf, length):
-    r = struct.unpack("=BBBBBB", buf.read(6))
-    return "%x:%x:%x:%x:%x:%x" % (r[0], r[1], r[2], r[3], r[4], r[5])
-
-
-def t_asciiz(buf, length):
-    return buf.read(length - 1)
-
-
-def t_none(buf, length):
-    return None
-
-
-def t_uint8(buf, length):
-    return struct.unpack("=B", buf.read(1))[0]
-
-
-def t_uint16(buf, length):
-    return struct.unpack("=H", buf.read(2))[0]
-
-
-def t_uint32(buf, length):
-    return struct.unpack("=I", buf.read(4))[0]
-
-
+##
+# RTNL-specific buffer reading "t_" routines
+#
 def t_state(buf, length):
+    """
+    Read 8 bit and return interface state as a string
+    """
     return IF_OPER_VALUES[struct.unpack("=B", buf.read(1))[0]][8:]
 
 
-def t_ifmap(buf, length):
-    data = struct.unpack("QQQHBB", buf.read(28))
-    fields = ("mem_start", "mem_end", "base_addr", "irq", "dma", "port")
-    return dict(zip(fields, data))
+class t_ifmap(nlmsg):
+    """
+    Interface map structure. This class can be used in
+    the attribute mapping, since nlmsg supports this API.
+    """
+    fmt = "QQQHBB"
+    fiels = ("mem_start", "mem_end", "base_addr", "irq", "dma", "port")
 
 
 class ndmsg(nlmsg):
