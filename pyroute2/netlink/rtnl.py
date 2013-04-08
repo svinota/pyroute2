@@ -117,6 +117,12 @@ t_nda_attr = {NDA_UNSPEC:    (t_none,    "none"),
               NDA_CACHEINFO: (t_none,    "cacheinfo"),
               NDA_PROBES:    (t_none,    "probes")}
 
+t_nda6_attr = {NDA_UNSPEC:    (t_none,    "none"),
+               NDA_DST:       (t_ip6ad,   "dest"),
+               NDA_LLADDR:    (t_l2ad,    "lladdr"),
+               NDA_CACHEINFO: (t_none,    "cacheinfo"),
+               NDA_PROBES:    (t_none,    "probes")}
+
 
 class ifinfmsg(nlmsg):
     fmt = "BHiII"
@@ -370,7 +376,10 @@ class marshal_rtnl(marshal):
         elif self.header['type'] <= RTM_GETNEIGH:
             event.update(ndmsg(self.buf))
             event['type'] = 'neigh'
-            attr_map = t_nda_attr
+            if event['family'] == AF_INET:
+                attr_map = t_nda_attr
+            else:
+                attr_map = t_nda6_attr
         else:
             pass
         for i in self.get_next_attr(attr_map):
