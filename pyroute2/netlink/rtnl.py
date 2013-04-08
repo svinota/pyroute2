@@ -338,7 +338,9 @@ t_rta6_attr = {RTA_UNSPEC:    (t_none,    "none"),
 
 class marshal_rtnl(marshal):
 
-    reverse = RTM_VALUES
+    def __init__(self, sock=None):
+        marshal.__init__(self, sock)
+        self.reverse = RTM_VALUES
 
     def parse(self):
         event = {"attributes": [],
