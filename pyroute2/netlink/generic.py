@@ -66,6 +66,9 @@ class marshal(object):
         # message at once
         self.buf = None
         self.header = None
+        self.debug = True
+        self.msg_raw = None
+        self.msg_hex = None
 
     def set_buffer(self, init=b""):
         self.buf = io.BytesIO()
@@ -79,6 +82,11 @@ class marshal(object):
         with self.lock:
             self.set_buffer(self.sock.recv(4096))
             self.buf.seek(0)
+            if self.debug:
+                raw = self.buf.read()
+                self.msg_raw = raw
+                self.msg_hex = hexdump(raw)
+                self.buf.seek(0)
             self.header = nlmsg(self.buf)
             self.header['typeString'] = self.reverse.get(self.header["type"],
                                                          None)

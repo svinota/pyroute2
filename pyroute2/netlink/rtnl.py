@@ -351,8 +351,11 @@ class marshal_rtnl(marshal):
     def parse(self):
         event = {"attributes": [],
                  "unparsed": [],
-                 "header": copy.copy(self.header),
-                 "timestamp": time.asctime()}
+                 "header": copy.copy(self.header)}
+        if self.debug:
+            event["header"] = copy.copy(self.header)
+            event["header"]["msg_hex"] = self.msg_hex
+            event["header"]["timestamp"] = time.asctime()
         attr_map = {}
         if self.header['type'] <= RTM_DELLINK:
             event.update(ifinfmsg(self.buf))
