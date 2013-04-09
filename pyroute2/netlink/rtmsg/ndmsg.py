@@ -1,6 +1,7 @@
 
 from socket import AF_INET
 from socket import AF_INET6
+from socket import AF_BRIDGE
 from pyroute2.common import t_ip4ad
 from pyroute2.common import t_ip6ad
 from pyroute2.common import t_l2ad
@@ -58,3 +59,7 @@ class ndmsg(nlmsg):
             self.attr_map = t_nda_attr
         elif self['family'] == AF_INET6:
             self.attr_map = t_nda6_attr
+        elif self['family'] == AF_BRIDGE:
+            self.attr_map = t_nda_attr
+        else:
+            raise Exception("Bad protocol %s in ndmsg" % (self['family']))
