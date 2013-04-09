@@ -1,6 +1,5 @@
 
 import socket
-import struct
 import threading
 import traceback
 import os
@@ -60,7 +59,41 @@ class nlmsg(dict):
         pass
 
 
-class marshal(object):
+class nla_parser(object):
+
+    def get_next_attr(self, attr_map):
+        while (self.buf.tell() - self.position) < self.length:
+            position = self.buf.tell()
+            header = unpack(self.buf, "HH", ("length", "type"))
+            name = None
+            attr = None
+            if header['type'] in attr_map:
+                attr_parser = attr_map[header['type']]
+                name = attr_parser[1]
+                try:
+                    attr = attr_parser[0](self.buf, header['length'] - 4)
+                except Exception:
+                    traceback.print_exc()
+            else:
+                name = header['type']
+                self.buf.seek(position)
+                attr = hexdump(self.buf.read(header['length']))
+            self.buf.seek(position + NLMSG_ALIGN(header['length']), 0)
+            yield (name, attr)
+
+
+class nested(list, nla_parser):
+
+    def __init__(self, buf, length):
+        list.__init__(self)
+        self.buf = buf
+        self.length = length
+        self.position = self.buf.tell()
+        for i in self.get_next_attr(self.attr_map):
+            self.append(i)
+
+
+class marshal(nla_parser):
 
     def __init__(self, sock=None):
         self.sock = sock
@@ -73,6 +106,8 @@ class marshal(object):
         self.debug = True
         self.msg_raw = None
         self.msg_hex = None
+        self.length = 0
+        self.position = 0
 
     def set_buffer(self, init=b""):
         self.buf = io.BytesIO()
@@ -92,41 +127,14 @@ class marshal(object):
                 self.msg_hex = hexdump(raw)
                 self.buf.seek(0)
             self.header = nlmsg(self.buf)
+            self.length = self.header['length']
+            self.position = 0
             self.header['typeString'] = self.reverse.get(self.header["type"],
                                                          None)
             return self.parse()
 
     def parse(self):
         pass
-
-    def nla_header(self):
-        """
-        Get netlink attribute header
-        """
-        data = struct.unpack("HH", self.buf.read(4))
-        fields = ("length", "type")
-        header = dict(zip(fields, data))
-        return header
-
-    def get_next_attr(self, attr_map):
-        while self.buf.tell() < self.header['length']:
-            position = self.buf.tell()
-            header = self.nla_header()
-            name = None
-            attr = None
-            if header['type'] in attr_map:
-                attr_parser = attr_map[header['type']]
-                name = attr_parser[1]
-                try:
-                    attr = attr_parser[0](self.buf, header['length'] - 4)
-                except Exception:
-                    traceback.print_exc()
-            else:
-                name = header['type']
-                self.buf.seek(position + 4)
-                attr = hexdump(self.buf.read(header['length'] - 4))
-            self.buf.seek(position + NLMSG_ALIGN(header['length']), 0)
-            yield (name, attr)
 
 
 class nlsocket(socket.socket):

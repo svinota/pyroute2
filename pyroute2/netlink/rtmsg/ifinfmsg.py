@@ -8,6 +8,7 @@ from pyroute2.common import t_none
 from pyroute2.common import t_uint8
 from pyroute2.common import t_uint32
 from pyroute2.netlink.generic import nlmsg
+from pyroute2.netlink.generic import nested
 
 
 ##
@@ -50,6 +51,21 @@ class t_ifstats64(t_ifstats):
     fmt = "QQQQQQQQQQQQQQQQQQQQQQQ"
 
 
+IFLA_INFO_UNSPEC = 0
+IFLA_INFO_KIND = 1
+IFLA_INFO_DATA = 2
+IFLA_INFO_XSTATS = 3
+
+
+class t_ifinfo(nested):
+    """
+    Parse IFLA_LINKINFO attribute
+    """
+    attr_map = {IFLA_INFO_UNSPEC:      (t_none,    "none"),
+                IFLA_INFO_KIND:        (t_asciiz,  "kind"),
+                IFLA_INFO_DATA:        (t_none,    "data"),
+                IFLA_INFO_XSTATS:      (t_none,    "xstats")}
+
 ## link attributes
 IFLA_UNSPEC = 0
 IFLA_ADDRESS = 1
@@ -77,7 +93,7 @@ IFLA_VFINFO_LIST = 22
 IFLA_STATS64 = 23
 IFLA_VF_PORTS = 24
 IFLA_PORT_SELF = 25
-IFLA_AF_SPEC = 26
+IFLA_AF_SPEC = 27
 IFLA_GROUP = 27
 IFLA_NET_NS_FD = 28
 IFLA_EXT_MASK = 29
@@ -102,6 +118,7 @@ t_ifla_attr = {IFLA_UNSPEC:         (t_none,        "none"),
                IFLA_IFNAME:         (t_asciiz,      "dev"),
                IFLA_MTU:            (t_uint32,      "mtu"),
                IFLA_LINK:           (t_uint32,      "link"),
+               IFLA_MASTER:         (t_uint32,      "master"),
                IFLA_QDISC:          (t_asciiz,      "qdisc"),
                IFLA_STATS:          (t_ifstats,     "stats"),
                IFLA_STATS64:        (t_ifstats64,   "stats64"),
@@ -109,6 +126,7 @@ t_ifla_attr = {IFLA_UNSPEC:         (t_none,        "none"),
                IFLA_TXQLEN:         (t_uint32,      "txqlen"),
                IFLA_LINKMODE:       (t_uint8,       "linkmode"),
                IFLA_MAP:            (t_ifmap,       "ifmap"),
+               IFLA_LINKINFO:       (t_ifinfo,      "linkinfo"),
                IFLA_GROUP:          (t_uint32,      "group"),
                IFLA_PROMISCUITY:    (t_uint32,      "promiscuity"),
                IFLA_NUM_TX_QUEUES:  (t_uint32,      "tx queues"),
