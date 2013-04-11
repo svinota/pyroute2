@@ -96,6 +96,8 @@ class marshal_rtnl(marshal):
         event = {"attributes": [],
                  "unparsed": [],
                  "header": copy.copy(self.header)}
+        attr_map = {}
+
         if self.debug:
             event["header"] = copy.copy(self.header)
             event["header"]["msg_hex"] = self.msg_hex
@@ -103,9 +105,10 @@ class marshal_rtnl(marshal):
 
         if self.header['type'] in t_msg_map:
             parsed = t_msg_map[self.header['type']](self.buf)
+            attr_map = parsed.attr_map
             event.update(parsed)
 
-        for i in self.get_next_attr(parsed.attr_map):
+        for i in self.get_next_attr(attr_map):
             if type(i[0]) is str:
                 event["attributes"].append(i)
             else:
