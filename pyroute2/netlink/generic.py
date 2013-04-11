@@ -65,6 +65,8 @@ class nla_parser(object):
         while (self.buf.tell() - self.position) < self.length:
             position = self.buf.tell()
             header = unpack(self.buf, "HH", ("length", "type"))
+            if header['length'] < 4:
+                header['length'] = 4
             name = None
             attr = None
             if header['type'] in attr_map:
