@@ -80,7 +80,7 @@ class nla_parser(object):
                 name = header['type']
                 self.buf.seek(position)
                 attr = hexdump(self.buf.read(header['length']))
-            self.buf.seek(position + NLMSG_ALIGN(header['length']), 0)
+            self.buf.seek(position + NLMSG_ALIGN(header['length']))
             yield (name, attr)
 
 
