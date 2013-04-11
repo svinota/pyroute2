@@ -1,5 +1,6 @@
 
 import socket
+import struct
 import threading
 import traceback
 import os
@@ -50,10 +51,25 @@ class nlmsg(dict):
     fmt = "IHHII"
     fields = ("length", "type", "flags", "sequence_number", "pid")
 
-    def __init__(self, buf, length=None):
+    def __init__(self, buf=None, length=None):
         dict.__init__(self)
-        self.update(unpack(buf, self.fmt, self.fields))
-        self.setup()
+        self.buf = buf
+        try:
+            self.update(self.unpack())
+            self.setup()
+        except:
+            import traceback
+            traceback.print_exc()
+            for i in self.fields:
+                self[i] = 0
+
+    def unpack(self):
+        return dict(zip(self.fields,
+                        struct.unpack(self.fmt,
+                                      self.buf.read(struct.calcsize(self.fmt)))))
+
+    def pack(self):
+        self.buf.write(struct.pack(self.fmt, *([self[i] for i in self.fields])))
 
     def setup(self):
         pass
