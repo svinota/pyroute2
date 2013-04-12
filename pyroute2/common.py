@@ -36,11 +36,12 @@ def map_namespace(prefix, ns):
     return (by_name, by_value)
 
 
-def hexdump(payload):
+def hexdump(payload, length=0):
     """
     Represent byte string as hex -- for debug purposes
     """
-    return ":".join("{0:02x}".format(ord(c)) for c in payload)
+    return ":".join("{0:02x}".format(ord(c))
+                    for c in payload[:length] or payload)
 
 
 def unpack(buf, fmt, fields):
