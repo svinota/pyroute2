@@ -7,11 +7,12 @@ import Queue
 import os
 import io
 
-from socket import AF_INET
+from socket import AF_UNSPEC
 from pyroute2.netlink.generic import nlsocket
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import NETLINK_ROUTE
 from pyroute2.netlink.rtnl import marshal_rtnl
+from pyroute2.netlink.rtmsg.rtmsg import rtmsg
 from pyroute2.netlink.rtmsg.ndmsg import ndmsg
 from pyroute2.netlink.rtmsg.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtmsg.ifaddrmsg import ifaddrmsg
@@ -24,6 +25,7 @@ from pyroute2.netlink.rtnl import RTNLGRP_NEIGH
 from pyroute2.netlink.rtnl import RTM_GETNEIGH
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.netlink.rtnl import RTM_GETADDR
+from pyroute2.netlink.rtnl import RTM_GETROUTE
 
 
 ## Netlink message flags values (nlmsghdr.flags)
@@ -151,9 +153,8 @@ class iproute(object):
                 result.append(msg)
         return result
 
-    def nlm_request(self, msg_class, msg_type,
-                    msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
-                    msg_family=AF_INET):
+    def nlm_request(self, msg_class, msg_type, msg_family=AF_UNSPEC,
+                    msg_flags=NLM_F_DUMP | NLM_F_REQUEST, msg_fields=None):
         header = nlmsg()
         header['sequence_number'] = self.nonce()
         header['pid'] = os.getpid()
@@ -162,6 +163,9 @@ class iproute(object):
         header['flags'] = msg_flags
         msg = msg_class()
         msg['family'] = msg_family
+        if isinstance(msg_fields, dict):
+            for i in msg_fields.keys():
+                msg[i] = msg_fields[i]
         buf = io.BytesIO()
         header.buf = buf
         msg.buf = buf
@@ -171,13 +175,22 @@ class iproute(object):
         buf.seek(0)
         buf.write(struct.pack("I", l))
         self.socket.sendto(buf.getvalue(), (0, 0))
-        return self.get(header['sequence_number'])
+        result = self.get(header['sequence_number'])
+        for i in result:
+            del i['header']
+        return result
 
-    def get_all_links(self):
+    def get_all_links(self, family=AF_UNSPEC):
         return self.nlm_request(ifinfmsg, RTM_GETLINK)
 
-    def get_all_neighbors(self, family=AF_INET):
-        return self.nlm_request(ndmsg, RTM_GETNEIGH, msg_family=family)
+    def get_all_neighbors(self, family=AF_UNSPEC):
+        return self.nlm_request(ndmsg, RTM_GETNEIGH, family)
 
-    def get_all_addr(self, family=AF_INET):
-        return self.nlm_request(ifaddrmsg, RTM_GETADDR, msg_family=family)
+    def get_all_addr(self, family=AF_UNSPEC):
+        return self.nlm_request(ifaddrmsg, RTM_GETADDR, family)
+
+    def get_all_routes(self, family=AF_UNSPEC, table=254):
+        routes = self.nlm_request(rtmsg, RTM_GETROUTE, family,
+                                  msg_fields={"table": table})
+        return [i for i in routes if
+               [k for k in i['attributes'] if k[0] == 'dst_prefix']]
