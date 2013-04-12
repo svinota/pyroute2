@@ -64,12 +64,13 @@ class nlmsg(dict):
                 self[i] = 0
 
     def unpack(self):
+        size = struct.calcsize(self.fmt)
         return dict(zip(self.fields,
-                        struct.unpack(self.fmt,
-                                      self.buf.read(struct.calcsize(self.fmt)))))
+                        struct.unpack(self.fmt, self.buf.read(size))))
 
     def pack(self):
-        self.buf.write(struct.pack(self.fmt, *([self[i] for i in self.fields])))
+        self.buf.write(struct.pack(self.fmt,
+                                   *([self[i] for i in self.fields])))
 
     def setup(self):
         pass
@@ -148,7 +149,8 @@ class marshal(nla_parser):
             while self.offset < self.total:
                 self.buf.seek(self.offset)
                 self.header = nlmsg(self.buf)
-                self.header['typeString'] = self.reverse.get(self.header["type"], None)
+                msg_type = self.header['type']
+                self.header['typeString'] = self.reverse.get(msg_type, None)
                 self.header["timestamp"] = time.asctime()
                 self.length = self.header['length']
                 if self.debug:
@@ -164,8 +166,8 @@ class marshal(nla_parser):
                     event['unparsed'] = []
                 attr_map = {}
 
-                if self.header['type'] in self.msg_map:
-                    parsed = self.msg_map[self.header['type']](self.buf)
+                if msg_type in self.msg_map:
+                    parsed = self.msg_map[msg_type](self.buf)
                     attr_map = parsed.attr_map
                     event.update(parsed)
 
