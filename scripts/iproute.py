@@ -115,11 +115,12 @@ class iproute_io(threading.Thread):
 
 
 class iproute(object):
-    def __init__(self):
+    def __init__(self, debug=False):
         self.io_thread = iproute_io()
         self.io_thread.start()
         self.listeners = self.io_thread.listeners
         self.socket = self.io_thread.socket
+        self.debug = debug
         self.__nonce = 1
 
     def nonce(self):
@@ -176,8 +177,9 @@ class iproute(object):
         buf.write(struct.pack("I", l))
         self.socket.sendto(buf.getvalue(), (0, 0))
         result = self.get(header['sequence_number'])
-        for i in result:
-            del i['header']
+        if not self.debug:
+            for i in result:
+                del i['header']
         return result
 
     def get_all_links(self, family=AF_UNSPEC):

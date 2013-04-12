@@ -121,7 +121,7 @@ class marshal(nla_parser):
         # message at once
         self.buf = None
         self.header = None
-        self.debug = False
+        self.debug = True
         self.msg_raw = None
         self.msg_hex = None
         self.length = 0
