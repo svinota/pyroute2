@@ -60,6 +60,13 @@ def unpack(buf, fmt, fields):
 # ALL these routines should accept buffer and length, though not all
 # require the length parameter -- that's requirement of API
 #
+def t_hex(buf, length):
+    """
+    Dump NLA in hex
+    """
+    return (length, hexdump(buf.read(length)))
+
+
 def t_ip6ad(buf, length=None):
     """
     Read 16 bytes from buffer and return IPv6 address as a string
