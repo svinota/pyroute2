@@ -148,7 +148,8 @@ class iproute(object):
         result = []
         while True:
             msg = self.listeners[key].get()
-            result.append(msg)
+            if msg['header']['type'] != NLMSG_DONE:
+                result.append(msg)
             if (msg['header']['type'] == NLMSG_DONE) or \
                (not msg['header']['flags'] & NLM_F_MULTI):
                 break
