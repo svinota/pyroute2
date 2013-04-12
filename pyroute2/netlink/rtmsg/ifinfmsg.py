@@ -1,7 +1,10 @@
 import struct
 
+from socket import AF_INET
+from socket import AF_INET6
 from pyroute2.arp import ARPHRD_VALUES
 from pyroute2.common import map_namespace
+from pyroute2.common import t_hex
 from pyroute2.common import t_l2ad
 from pyroute2.common import t_asciiz
 from pyroute2.common import t_none
@@ -66,6 +69,47 @@ class t_ifinfo(nested):
                 IFLA_INFO_DATA:        (t_none,    "data"),
                 IFLA_INFO_XSTATS:      (t_none,    "xstats")}
 
+
+class t_ipv4_devconf(nlmsg):
+    fmt = "I" * 26
+    #  ./include/linux/inetdevice.h: struct ipv4_devconf
+    fields = ("sysctl",
+              "forwarding",
+              "mc_forwarding",
+              "proxy_arp",
+              "accept_redirects",
+              "secure_redirects",
+              "send_redirects",
+              "shared_media",
+              "rp_filter",
+              "accept_source_route",
+              "bootp_relay",
+              "log_martians",
+              "tag",
+              "arp_filter",
+              "medium_id",
+              "disable_xfrm",
+              "disable_policy",
+              "force_igmp_version",
+              "arp_announce",
+              "arp_ignore",
+              "promote_secondaries",
+              "arp_accept",
+              "arp_notify",
+              "accept_local",
+              "src_valid_mark",
+              "proxy_arp_pvlan",
+              "route_localnet")
+
+
+class t_af_spec(nested):
+    """
+    Parse IFLA_AF_SPEC structure
+    """
+    attr_map = {AF_INET:        (t_ipv4_devconf,     "AF_INET"),
+                AF_INET6:       (t_hex,              "AF_INET6")}
+
+
 ## link attributes
 IFLA_UNSPEC = 0
 IFLA_ADDRESS = 1
@@ -93,7 +137,7 @@ IFLA_VFINFO_LIST = 22
 IFLA_STATS64 = 23
 IFLA_VF_PORTS = 24
 IFLA_PORT_SELF = 25
-IFLA_AF_SPEC = 27
+IFLA_AF_SPEC = 26
 IFLA_GROUP = 27
 IFLA_NET_NS_FD = 28
 IFLA_EXT_MASK = 29
@@ -128,6 +172,7 @@ t_ifla_attr = {IFLA_UNSPEC:         (t_none,        "none"),
                IFLA_MAP:            (t_ifmap,       "ifmap"),
                IFLA_LINKINFO:       (t_ifinfo,      "linkinfo"),
                IFLA_GROUP:          (t_uint32,      "group"),
+               IFLA_AF_SPEC:        (t_af_spec,     "af_spec"),
                IFLA_PROMISCUITY:    (t_uint32,      "promiscuity"),
                IFLA_NUM_TX_QUEUES:  (t_uint32,      "tx queues"),
                IFLA_NUM_RX_QUEUES:  (t_uint32,      "rx queues")}
