@@ -3,6 +3,8 @@ import socket
 import struct
 import threading
 import traceback
+import time
+import copy
 import os
 import io
 
@@ -76,7 +78,7 @@ class nlmsg(dict):
 class nla_parser(object):
 
     def get_next_attr(self, attr_map):
-        while (self.buf.tell() - self.position) < self.length:
+        while (self.buf.tell() - self.offset) < self.length:
             position = self.buf.tell()
             header = unpack(self.buf, "HH", ("length", "type"))
             if header['length'] < 4:
@@ -104,7 +106,7 @@ class nested(list, nla_parser):
         list.__init__(self)
         self.buf = buf
         self.length = length
-        self.position = self.buf.tell()
+        self.offset = self.buf.tell()
         for i in self.get_next_attr(self.attr_map):
             self.append(i)
 
@@ -114,20 +116,24 @@ class marshal(nla_parser):
     def __init__(self, sock=None):
         self.sock = sock
         self.lock = threading.Lock()
-        self.reverse = {}
         # one marshal instance can be used to parse one
         # message at once
         self.buf = None
         self.header = None
-        self.debug = True
+        self.debug = False
         self.msg_raw = None
         self.msg_hex = None
         self.length = 0
+        self.total = 0
         self.position = 0
+        self.offset = 0
+        self.reverse = self.reverse or {}
+        self.msg_map = self.msg_map or {}
 
     def set_buffer(self, init=b""):
         self.buf = io.BytesIO()
         self.buf.write(init)
+        self.total = len(init)
 
     def send(self):
         with self.lock:
@@ -135,22 +141,45 @@ class marshal(nla_parser):
 
     def recv(self):
         with self.lock:
-            self.set_buffer(self.sock.recv(4096))
-            self.buf.seek(0)
-            if self.debug:
-                raw = self.buf.read()
-                self.msg_raw = raw
-                self.msg_hex = hexdump(raw)
-                self.buf.seek(0)
-            self.header = nlmsg(self.buf)
-            self.length = self.header['length']
-            self.position = 0
-            self.header['typeString'] = self.reverse.get(self.header["type"],
-                                                         None)
-            return self.parse()
+            self.set_buffer(self.sock.recv(16384))
+            self.offset = 0
+            result = []
 
-    def parse(self):
-        pass
+            while self.offset < self.total:
+                self.buf.seek(self.offset)
+                self.header = nlmsg(self.buf)
+                self.header['typeString'] = self.reverse.get(self.header["type"], None)
+                self.header["timestamp"] = time.asctime()
+                self.length = self.header['length']
+                if self.debug:
+                    save = self.buf.tell()
+                    self.buf.seek(self.offset)
+                    raw = self.buf.read(self.length)
+                    self.header['hex'] = hexdump(raw)
+                    self.buf.seek(save)
+
+                event = {"attributes": [],
+                         "header": copy.copy(self.header)}
+                if self.debug:
+                    event['unparsed'] = []
+                attr_map = {}
+
+                if self.header['type'] in self.msg_map:
+                    parsed = self.msg_map[self.header['type']](self.buf)
+                    attr_map = parsed.attr_map
+                    event.update(parsed)
+
+                    for i in self.get_next_attr(attr_map):
+                        if type(i[0]) is str:
+                            event["attributes"].append(i)
+                        else:
+                            if self.debug:
+                                event["unparsed"].append(i)
+
+                self.offset = self.offset + self.length
+                result.append(event)
+
+            return result
 
 
 class nlsocket(socket.socket):

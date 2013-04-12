@@ -1,8 +1,6 @@
 """
 RTNL protocol implementation
 """
-import copy
-import time
 
 from pyroute2.common import map_namespace
 from pyroute2.netlink.generic import marshal
@@ -76,42 +74,14 @@ RTM_GETNEIGHTBL = 66
 RTM_SETNEIGHTBL = 67
 (RTM_NAMES, RTM_VALUES) = map_namespace("RTM", globals())
 
-t_msg_map = {RTM_NEWLINK:  ifinfmsg,
-             RTM_DELLINK:  ifinfmsg,
-             RTM_NEWADDR:  ifaddrmsg,
-             RTM_DELADDR:  ifaddrmsg,
-             RTM_NEWROUTE: rtmsg,
-             RTM_DELROUTE: rtmsg,
-             RTM_NEWNEIGH: ndmsg,
-             RTM_DELNEIGH: ndmsg}
-
 
 class marshal_rtnl(marshal):
-
-    def __init__(self, sock=None):
-        marshal.__init__(self, sock)
-        self.reverse = RTM_VALUES
-
-    def parse(self):
-        event = {"attributes": [],
-                 "unparsed": [],
-                 "header": copy.copy(self.header)}
-        attr_map = {}
-
-        if self.debug:
-            event["header"] = copy.copy(self.header)
-            event["header"]["msg_hex"] = self.msg_hex
-            event["header"]["timestamp"] = time.asctime()
-
-        if self.header['type'] in t_msg_map:
-            parsed = t_msg_map[self.header['type']](self.buf)
-            attr_map = parsed.attr_map
-            event.update(parsed)
-
-        for i in self.get_next_attr(attr_map):
-            if type(i[0]) is str:
-                event["attributes"].append(i)
-            else:
-                event["unparsed"].append(i)
-
-        return event
+    reverse = RTM_VALUES
+    msg_map = {RTM_NEWLINK:  ifinfmsg,
+               RTM_DELLINK:  ifinfmsg,
+               RTM_NEWADDR:  ifaddrmsg,
+               RTM_DELADDR:  ifaddrmsg,
+               RTM_NEWROUTE: rtmsg,
+               RTM_DELROUTE: rtmsg,
+               RTM_NEWNEIGH: ndmsg,
+               RTM_DELNEIGH: ndmsg}
