@@ -36,11 +36,12 @@ def map_namespace(prefix, ns):
     return (by_name, by_value)
 
 
-def hexdump(payload):
+def hexdump(payload, length=0):
     """
     Represent byte string as hex -- for debug purposes
     """
-    return ":".join("{0:02x}".format(ord(c)) for c in payload)
+    return ":".join("{0:02x}".format(ord(c))
+                    for c in payload[:length] or payload)
 
 
 def unpack(buf, fmt, fields):
@@ -59,6 +60,13 @@ def unpack(buf, fmt, fields):
 # ALL these routines should accept buffer and length, though not all
 # require the length parameter -- that's requirement of API
 #
+def t_hex(buf, length):
+    """
+    Dump NLA in hex
+    """
+    return (length, hexdump(buf.read(length)))
+
+
 def t_ip6ad(buf, length=None):
     """
     Read 16 bytes from buffer and return IPv6 address as a string
