@@ -148,10 +148,10 @@ class iproute(object):
         result = []
         while True:
             msg = self.listeners[key].get()
-            if msg['header']['type'] == NLMSG_DONE:
+            result.append(msg)
+            if (msg['header']['type'] == NLMSG_DONE) or \
+               (not msg['header']['flags'] & NLM_F_MULTI):
                 break
-            if msg['header']['flags'] & NLM_F_MULTI:
-                result.append(msg)
         return result
 
     def nlm_request(self, msg_class, msg_type, msg_family=AF_UNSPEC,
