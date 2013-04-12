@@ -34,7 +34,7 @@ class t_ifstats(nlmsg):
     """
     Interface statistics
     """
-    fmt = "IIIIIIIIIIIIIIIIIIIIIII"
+    fmt = "I" * 23
     fields = ("rx_packets", "tx_packets", "rx_bytes", "tx_bytes",
               "rx_errors", "tx_errors", "rx_dropped", "tx_dropped",
               "multicast", "collisions", "rx_length_errors", "rx_over_errors",
@@ -48,7 +48,7 @@ class t_ifstats64(t_ifstats):
     """
     Interface statistics, 64bit version
     """
-    fmt = "QQQQQQQQQQQQQQQQQQQQQQQ"
+    fmt = "Q" * 23
 
 
 IFLA_INFO_UNSPEC = 0
