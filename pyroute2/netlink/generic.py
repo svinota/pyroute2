@@ -58,8 +58,6 @@ class nlmsg(dict):
             self.update(self.unpack())
             self.setup()
         except:
-            import traceback
-            traceback.print_exc()
             for i in self.fields:
                 self[i] = 0
 
