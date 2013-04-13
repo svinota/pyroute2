@@ -66,11 +66,85 @@ class t_ifinfo(nested):
     """
     attr_map = {IFLA_INFO_UNSPEC:      (t_none,    "none"),
                 IFLA_INFO_KIND:        (t_asciiz,  "kind"),
-                IFLA_INFO_DATA:        (t_none,    "data"),
-                IFLA_INFO_XSTATS:      (t_none,    "xstats")}
+                IFLA_INFO_DATA:        (t_hex,     "data"),
+                IFLA_INFO_XSTATS:      (t_hex,     "xstats")}
 
 
-class t_ipv4_devconf(nlmsg):
+class t_ipv6_cache_info(nlmsg):
+    # ./include/uapi/linux/if_link.h: struct ifla_cacheinfo
+    fmt = "I" * 4
+    fields = ("max_reasm_len", "tstamp", "reachable_time", "retrans_time")
+
+
+class t_ipv6_devconf(nlmsg):
+    # ./include/uapi/linux/ipv6.h
+    # DEVCONF_
+    fmt = "I" * 30
+    fields = ("forwarding",
+              "hop_limit",
+              "mtu",
+              "accept_ra",
+              "accept_redirects",
+              "autoconf",
+              "dad_transmits",
+              "router_solicitations",
+              "router_solicitation_interval",
+              "router_solicitation_delay",
+              "use_tempaddr",
+              "temp_valid_lft",
+              "temp_prefered_lft",
+              "regen_max_retry",
+              "max_desync_factor",
+              "max_addresses",
+              "force_mld_version",
+              "accept_ra_defrtr",
+              "accept_ra_pinfo",
+              "accept_ra_rtr_pref",
+              "router_probe_interval",
+              "accept_ra_rt_info_max_plen",
+              "proxy_ndp",
+              "optimistic_dad",
+              "accept_source_route",
+              "mc_forwarding",
+              "disable_ipv6",
+              "accept_dad",
+              "force_tllao",
+              "ndisc_notify")
+
+
+class t_ipv6_devstats(nlmsg):
+    fmt = ""
+    fields = ("")
+
+
+class t_ipv6_conf(nlmsg):
+    def unpack(self):
+        # read IFLA_AF_SPEC for IPv6
+        # ./net/ipv6/addrconf.c: inet6_fill_ifla6_attrs()
+        result = {}
+        anfang = self.buf.tell()
+        # read flags, IFLA_INET6_FLAGS, 32bit
+        #  result['flags'] = struct.unpack("I", self.buf.read(4))[0]
+        # read cache info
+        #  result['cache_info'] = t_ipv6_cache_info(self.buf)
+
+        # unfortunately, instead if u32 + u32*4 we get here u32*8
+        # and it is not clear, what's there
+        result['uncoded_01'] = t_hex(self.buf, 8*4)
+        # read IFLA_INET6_CONF
+        result['devconf'] = t_ipv6_devconf(self.buf)
+
+        # read the rest, not decoded yet
+        result['uncoded_02'] = t_hex(self.buf,
+                                     self.length - self.buf.tell() + anfang)
+        # read IFLA_INET6_STATS
+        # self['ipv6_stats'] = t_ipv6_devstats(self.buf)
+        # read IFLA_INET6_ICMP6STATS
+        # self['icmp6_stats'] = t_ipv6_icmpstats(self.buf)
+        return result
+
+
+class t_ipv4_conf(nlmsg):
     fmt = "I" * 26
     #  ./include/linux/inetdevice.h: struct ipv4_devconf
     fields = ("sysctl",
@@ -106,8 +180,8 @@ class t_af_spec(nested):
     """
     Parse IFLA_AF_SPEC structure
     """
-    attr_map = {AF_INET:        (t_ipv4_devconf,     "AF_INET"),
-                AF_INET6:       (t_hex,              "AF_INET6")}
+    attr_map = {AF_INET:        (t_ipv4_conf,     "AF_INET"),
+                AF_INET6:       (t_ipv6_conf,     "AF_INET6")}
 
 
 ## link attributes
