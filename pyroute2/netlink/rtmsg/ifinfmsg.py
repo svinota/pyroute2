@@ -70,6 +70,62 @@ class t_ifinfo(nested):
                 IFLA_INFO_XSTATS:      (t_hex,     "xstats")}
 
 
+IPSTATS_MIB_NUM = 0
+# frequently written fields in fast path, kept in same cache line
+IPSTATS_MIB_INPKTS = 1  # InReceives
+IPSTATS_MIB_INOCTETS = 2  # InOctets
+IPSTATS_MIB_INDELIVERS = 3  # InDelivers
+IPSTATS_MIB_OUTFORWDATAGRAMS = 4  # OutForwDatagrams
+IPSTATS_MIB_OUTPKTS = 5  # OutRequests
+IPSTATS_MIB_OUTOCTETS = 6  # OutOctets
+# other fields
+IPSTATS_MIB_INHDRERRORS = 7  # InHdrErrors
+IPSTATS_MIB_INTOOBIGERRORS = 8  # InTooBigErrors
+IPSTATS_MIB_INNOROUTES = 9  # InNoRoutes
+IPSTATS_MIB_INADDRERRORS = 10  # InAddrErrors
+IPSTATS_MIB_INUNKNOWNPROTOS = 11  # InUnknownProtos
+IPSTATS_MIB_INTRUNCATEDPKTS = 12  # InTruncatedPkts
+IPSTATS_MIB_INDISCARDS = 13  # InDiscards
+IPSTATS_MIB_OUTDISCARDS = 14  # OutDiscards
+IPSTATS_MIB_OUTNOROUTES = 15  # OutNoRoutes
+IPSTATS_MIB_REASMTIMEOUT = 16  # ReasmTimeout
+IPSTATS_MIB_REASMREQDS = 17  # ReasmReqds
+IPSTATS_MIB_REASMOKS = 18  # ReasmOKs
+IPSTATS_MIB_REASMFAILS = 19  # ReasmFails
+IPSTATS_MIB_FRAGOKS = 20  # FragOKs
+IPSTATS_MIB_FRAGFAILS = 21  # FragFails
+IPSTATS_MIB_FRAGCREATES = 22  # FragCreates
+IPSTATS_MIB_INMCASTPKTS = 23  # InMcastPkts
+IPSTATS_MIB_OUTMCASTPKTS = 24  # OutMcastPkts
+IPSTATS_MIB_INBCASTPKTS = 25  # InBcastPkts
+IPSTATS_MIB_OUTBCASTPKTS = 26  # OutBcastPkts
+IPSTATS_MIB_INMCASTOCTETS = 27  # InMcastOctets
+IPSTATS_MIB_OUTMCASTOCTETS = 28  # OutMcastOctets
+IPSTATS_MIB_INBCASTOCTETS = 29  # InBcastOctets
+IPSTATS_MIB_OUTBCASTOCTETS = 30  # OutBcastOctets
+(IPSTATS_MIB_NAMES, IPSTATS_MIB_VALUES) = map_namespace("IPSTATS_MIB",
+                                                        globals())
+
+
+class t_ipv6_stats(nlmsg):
+    fmt = "I" * len(IPSTATS_MIB_NAMES.keys())
+    fields = [i[12:].lower() for i in IPSTATS_MIB_NAMES.keys()]
+
+
+ICMP6_MIB_NUM = 0
+ICMP6_MIB_INMSGS = 1  # InMsgs
+ICMP6_MIB_INERRORS = 2  # InErrors
+ICMP6_MIB_OUTMSGS = 3  # OutMsgs
+ICMP6_MIB_OUTERRORS = 4  # OutErrors
+(ICMP6_MIB_NAMES, ICMP6_MIB_VALUES) = map_namespace("ICMP6_MIB",
+                                                    globals())
+
+
+class t_icmp6_stats(nlmsg):
+    fmt = "Q" * len(ICMP6_MIB_NAMES.keys())
+    fields = [i[10:].lower() for i in ICMP6_MIB_NAMES.keys()]
+
+
 class t_ipv6_cache_info(nlmsg):
     # ./include/uapi/linux/if_link.h: struct ifla_cacheinfo
     fmt = "I" * 4
@@ -117,31 +173,24 @@ class t_ipv6_devstats(nlmsg):
     fields = ("")
 
 
-class t_ipv6_conf(nlmsg):
-    def unpack(self):
-        # read IFLA_AF_SPEC for IPv6
-        # ./net/ipv6/addrconf.c: inet6_fill_ifla6_attrs()
-        result = {}
-        anfang = self.buf.tell()
-        # read flags, IFLA_INET6_FLAGS, 32bit
-        #  result['flags'] = struct.unpack("I", self.buf.read(4))[0]
-        # read cache info
-        #  result['cache_info'] = t_ipv6_cache_info(self.buf)
+IFLA_INET6_UNSPEC = 0
+IFLA_INET6_FLAGS = 1
+IFLA_INET6_CONF = 2
+IFLA_INET6_STATS = 3
+IFLA_INET6_MCAST = 4
+IFLA_INET6_CACHEINFO = 5
+IFLA_INET6_ICMP6STATS = 6
 
-        # unfortunately, instead if u32 + u32*4 we get here u32*8
-        # and it is not clear, what's there
-        result['uncoded_01'] = t_hex(self.buf, 8*4)
-        # read IFLA_INET6_CONF
-        result['devconf'] = t_ipv6_devconf(self.buf)
 
-        # read the rest, not decoded yet
-        result['uncoded_02'] = t_hex(self.buf,
-                                     self.length - self.buf.tell() + anfang)
-        # read IFLA_INET6_STATS
-        # self['ipv6_stats'] = t_ipv6_devstats(self.buf)
-        # read IFLA_INET6_ICMP6STATS
-        # self['icmp6_stats'] = t_ipv6_icmpstats(self.buf)
-        return result
+class t_ipv6_conf(nested):
+    # read IFLA_AF_SPEC for IPv6
+    # ./net/ipv6/addrconf.c: inet6_fill_ifla6_attrs()
+    attr_map = {IFLA_INET6_FLAGS:      (t_uint32,          "flags"),
+                IFLA_INET6_CONF:       (t_ipv6_devconf,    "devconf"),
+                IFLA_INET6_STATS:      (t_ipv6_stats,      "ipv6 stats"),
+                IFLA_INET6_MCAST:      (t_hex,             "mc"),
+                IFLA_INET6_CACHEINFO:  (t_ipv6_cache_info, "cache info"),
+                IFLA_INET6_ICMP6STATS: (t_icmp6_stats,     "icmp6 stats")}
 
 
 class t_ipv4_conf(nlmsg):
