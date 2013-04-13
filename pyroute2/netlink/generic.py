@@ -56,6 +56,7 @@ class nlmsg(dict):
     def __init__(self, buf=None, length=None):
         dict.__init__(self)
         self.buf = buf
+        self.length = length
         try:
             self.update(self.unpack())
             self.setup()
