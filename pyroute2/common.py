@@ -64,7 +64,7 @@ def t_hex(buf, length):
     """
     Dump NLA in hex
     """
-    return (length, hexdump(buf.read(length)))
+    return hexdump(buf.read(length))
 
 
 def t_ip6ad(buf, length=None):
