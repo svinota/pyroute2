@@ -2,6 +2,7 @@
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_BRIDGE
+from pyroute2.common import t_hex
 from pyroute2.common import t_ip4ad
 from pyroute2.common import t_ip6ad
 from pyroute2.common import t_l2ad
@@ -19,14 +20,14 @@ NDA_PROBES = 4
 t_nda_attr = {NDA_UNSPEC:    (t_none,    "none"),
               NDA_DST:       (t_ip4ad,   "dest"),
               NDA_LLADDR:    (t_l2ad,    "lladdr"),
-              NDA_CACHEINFO: (t_none,    "cacheinfo"),
-              NDA_PROBES:    (t_none,    "probes")}
+              NDA_CACHEINFO: (t_hex,    "cacheinfo"),
+              NDA_PROBES:    (t_hex,    "probes")}
 
 t_nda6_attr = {NDA_UNSPEC:    (t_none,    "none"),
                NDA_DST:       (t_ip6ad,   "dest"),
                NDA_LLADDR:    (t_l2ad,    "lladdr"),
-               NDA_CACHEINFO: (t_none,    "cacheinfo"),
-               NDA_PROBES:    (t_none,    "probes")}
+               NDA_CACHEINFO: (t_hex,    "cacheinfo"),
+               NDA_PROBES:    (t_hex,    "probes")}
 
 
 class ndmsg(nlmsg):
