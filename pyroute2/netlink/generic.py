@@ -2,16 +2,14 @@
 import socket
 import struct
 import threading
-import traceback
 import time
-import copy
 import os
 import io
 
-from pyroute2.common import map_namespace
-from pyroute2.common import unpack
 from pyroute2.common import hexdump
-
+from socket import AF_INET
+from socket import AF_INET6
+from socket import AF_BRIDGE
 
 ##  Netlink family
 #
@@ -34,7 +32,6 @@ NETLINK_KOBJECT_UEVENT = 15  # Kernel messages to userspace
 NETLINK_GENERIC = 16
 # leave room for NETLINK_DM (DM Events)
 NETLINK_SCSITRANSPORT = 18   # SCSI Transports
-(NETLINK_NAMES, NETLINK_VALUES) = map_namespace("NETLINK", globals())
 
 
 NLMSG_ALIGNTO = 4
@@ -44,76 +41,225 @@ def NLMSG_ALIGN(l):
     return (l + NLMSG_ALIGNTO - 1) & ~ (NLMSG_ALIGNTO - 1)
 
 
-class nlmsg(dict):
+class nlmsg_base(dict):
     """
-    Base class for parsing structures like message headers
-    and so on. The 'length' attribute in constructor is to
-    comply with attribute mapping API and is ignored.
+    Netlink message structure
+
+    | header | data |
+
+    header:
+        + length
+        + type
+        * flags
+        * sequence number
+        * pid
+
+    +: for any message or attribute
+    *: only for base packet
+
+    data:
+        + data-specific struct
+        + NLA
+        + NLA
+        + ...
+
+    Each NLA has the same structure, as the base class.
+    Header is to be decoded into 'header' dict field. All
+    the data will be decoded into corresponding fields.
+
+    Example:
+
+    nlmsg = {'header': {'length': ...,
+                        'type': ..., ...},
+             'family': ...,
+             'prefixlen': ...,
+             'flags': ...,
+             'scope': ...,
+             'index': ...,
+             'attrs': [{'header': {'length': ...,
+                                   'type': ...},
+                        'address': ...},
+                       {'header': {'length': ...,
+                                   'type': ...},
+                        'local': ...},
+                       {'header': {'length': ...,
+                                   'type': ...},
+                        'dev': ...},
+                       {'header': {'length': ...,
+                                   'type': ...},
+                        'broadcast': ...},
+                       {'header': {'length': ...,
+                                   'type': ...},
+                        'cacheinfo': ...}]}
+
+    Normally, headers should be stripped avay. To review
+    them, turn on the debug mode.
+    """
+
+    fmt = ""        # data format string, see struct
+    fields = ()     # data field names, to build a dictionary
+    header = None   # optional header class
+    nla_map = {}    # NLA mapping
+
+    def __init__(self, buf=None, length=None, parent=None):
+        dict.__init__(self)
+        for i in self.fields:
+            self[i] = 0  # FIXME: only for number values
+        self.buf = buf
+        self.length = length
+        self.nla_offset = 0
+        if self.header is not None:
+            self['header'] = self.header(self.buf)
+        self.register_nlas()
+
+    def decode(self):
+        # read the header
+        if self.header is not None:
+            self['header'].decode()
+            # debug timestamp
+            self['header']['timestamp'] = time.asctime()
+            # update length from header
+            # it can not be less than 4
+            self.length = max(self['header']['length'], 4)
+        # read the data
+        size = struct.calcsize(self.fmt)
+        self.update(dict(zip(self.fields,
+                         struct.unpack(self.fmt, self.buf.read(size)))))
+        # read NLA chain
+        self.nla_offset = self.buf.tell()
+        self.decode_nlas()
+        from pprint import pprint
+        pprint(self)
+
+    def encode(self):
+        # write the header
+        if self.header is not None:
+            self['header'].encode()
+        self.buf.write(struct.pack(self.fmt,
+                                   *([self[i] for i in self.fields])))
+
+    def getvalue(self):
+        return self
+
+    def register_nlas(self):
+        # clean up NLA mappings
+        self.t_nla_map = {}
+        self.r_nla_map = {}
+
+        # create enumeration
+        types = enumerate((i[0] for i in self.nla_map))
+        # that's a little bit tricky, but to reduce
+        # the required amount of code in modules, we have
+        # to jump over the head
+        zipped = [(i[1][0], i[0][0], i[0][1]) for i in
+                  zip(self.nla_map, types)]
+
+        for (key, name, nla_class) in zipped:
+            # normalize NLA name
+            #
+            # why we do it? we have to save original names,
+            # to ease matching with the kernel code.
+            normalized = name[name.find("_") + 1:].lower()
+            # lookup NLA class
+            nla_class = getattr(self, nla_class)
+            # update mappings
+            self.t_nla_map[key] = (nla_class, normalized)
+            self.r_nla_map[normalized] = (nla_class, key)
+
+    def decode_nlas(self):
+        self['attrs'] = []
+        while (self.buf.tell() - self.nla_offset) < self.length:
+            init = self.buf.tell()
+            # pick the length and the type
+            (length, msg_type) = struct.unpack("HH", self.buf.read(4))
+            # rewind to the beginning
+            self.buf.seek(init)
+
+            # we have a mapping for this NLA
+            if msg_type in self.t_nla_map:
+                # get the class
+                msg_class = self.t_nla_map[msg_type][0]
+                # and the name
+                msg_name = self.t_nla_map[msg_type][1]
+                try:
+                    # decode NLA
+                    nla = msg_class(self.buf, length, self)
+                    nla.decode()
+                    self['attrs'].append((msg_name, nla.getvalue()))
+                except:
+                    import traceback
+                    traceback.print_exc()
+                    self.buf.seek(init)
+                    self['attrs'].append((msg_name,
+                                          hexdump(self.buf.read(length))))
+
+            # fix the offset
+            self.buf.seek(init + NLMSG_ALIGN(length))
+
+class nla_header(nlmsg_base):
+    fmt = "HH"
+    fields = ("length", "type")
+
+class nlmsg_scalar(object):
+    value = None
+    header = nla_header
+
+    def __init__(self, buf=None, length=None, parent=None):
+        self.buf = buf
+        self.parent = parent
+        self.header = nla_header(self.buf)
+
+    def decode(self):
+        self.header.decode()
+        self.length = max(self.header['length'], 4)
+
+    def getvalue(self):
+        return self.value
+
+
+class nlmsg_header(nlmsg_base):
+    """
+    Common netlink message header
     """
     fmt = "IHHII"
     fields = ("length", "type", "flags", "sequence_number", "pid")
 
-    def __init__(self, buf=None, length=None):
-        dict.__init__(self)
-        self.buf = buf
-        self.length = length
-        try:
-            self.update(self.unpack())
-            self.setup()
-        except:
-            for i in self.fields:
-                self[i] = 0
 
-    def unpack(self):
-        size = struct.calcsize(self.fmt)
-        return dict(zip(self.fields,
-                        struct.unpack(self.fmt, self.buf.read(size))))
-
-    def pack(self):
-        self.buf.write(struct.pack(self.fmt,
-                                   *([self[i] for i in self.fields])))
-
-    def setup(self):
-        pass
+class nlmsg_atoms(nlmsg_base):
+    """
+    """
+    class ipaddr(nlmsg_scalar):
+        def decode(self):
+            nlmsg_scalar.decode(self)
+            # FIXME: check for AF_BRIDGE
+            if self.parent['family'] in (AF_INET, AF_BRIDGE):
+                r = struct.unpack("=BBBB", self.buf.read(4))
+                self.value = "%u.%u.%u.%u" % (r[0], r[1], r[2], r[3])
+            elif self.parent['family'] == AF_INET6:
+                r = struct.unpack("=BBBBBBBBBBBBBBBB", self.buf.read(16))
+                self.value = "%x%x:%x%x:%x%x:%x%x:%x%x:%x%x:%x%x:%x%x" % \
+                             (r[0], r[1], r[2], r[3], r[4], r[5], r[6],
+                              r[7], r[8], r[9], r[10], r[11], r[12],
+                              r[13], r[14], r[15])
 
 
-class nla_parser(object):
+    class l2addr(nlmsg_scalar):
+        def decode(self):
+            nlmsg_scalar.decode(self)
+            r = struct.unpack("=BBBBBB", self.buf.read(6))
+            self.value = "%x:%x:%x:%x:%x:%x" % (r[0], r[1], r[2],
+                                                r[3], r[4], r[5])
 
-    def get_next_attr(self, attr_map):
-        while (self.buf.tell() - self.offset) < self.length:
-            position = self.buf.tell()
-            header = unpack(self.buf, "HH", ("length", "type"))
-            if header['length'] < 4:
-                header['length'] = 4
-            name = None
-            attr = None
-            if header['type'] in attr_map:
-                attr_parser = attr_map[header['type']]
-                name = attr_parser[1]
-                try:
-                    attr = attr_parser[0](self.buf, header['length'] - 4)
-                except Exception:
-                    traceback.print_exc()
-            else:
-                name = header['type']
-                self.buf.seek(position)
-                attr = hexdump(self.buf.read(header['length']))
-            self.buf.seek(position + NLMSG_ALIGN(header['length']))
-            yield (name, attr)
+    class hex(nlmsg_scalar):
+        def decode(self):
+            nlmsg_scalar.decode(self)
+            self.value = hexdump(self.buf.read(self.length))
+
+class nlmsg(nlmsg_atoms):
+    header = nlmsg_header
 
 
-class nested(list, nla_parser):
-
-    def __init__(self, buf, length):
-        list.__init__(self)
-        self.buf = buf
-        self.length = length
-        self.offset = self.buf.tell()
-        for i in self.get_next_attr(self.attr_map):
-            self.append(i)
-
-
-class marshal(nla_parser):
+class marshal(object):
 
     def __init__(self, sock=None):
         self.sock = sock
@@ -121,66 +267,29 @@ class marshal(nla_parser):
         # one marshal instance can be used to parse one
         # message at once
         self.buf = None
-        self.header = None
-        self.debug = True
-        self.msg_raw = None
-        self.msg_hex = None
-        self.length = 0
-        self.total = 0
-        self.position = 0
-        self.offset = 0
-        self.reverse = self.reverse or {}
         self.msg_map = self.msg_map or {}
 
     def set_buffer(self, init=b""):
         self.buf = io.BytesIO()
         self.buf.write(init)
-        self.total = len(init)
-
-    def send(self):
-        with self.lock:
-            pass
+        self.buf.seek(0)
+        return len(init)
 
     def recv(self):
         with self.lock:
-            self.set_buffer(self.sock.recv(16384))
-            self.offset = 0
+            total = self.set_buffer(self.sock.recv(16384))
+            offset = 0
             result = []
 
-            while self.offset < self.total:
-                self.buf.seek(self.offset)
-                self.header = nlmsg(self.buf)
-                msg_type = self.header['type']
-                self.header['typeString'] = self.reverse.get(msg_type, None)
-                self.header["timestamp"] = time.asctime()
-                self.length = self.header['length']
-                if self.debug:
-                    save = self.buf.tell()
-                    self.buf.seek(self.offset)
-                    raw = self.buf.read(self.length)
-                    self.header['hex'] = hexdump(raw)
-                    self.buf.seek(save)
-
-                event = {"attributes": [],
-                         "header": copy.copy(self.header)}
-                if self.debug:
-                    event['unparsed'] = []
-                attr_map = {}
-
-                if msg_type in self.msg_map:
-                    parsed = self.msg_map[msg_type](self.buf)
-                    attr_map = parsed.attr_map
-                    event.update(parsed)
-
-                    for i in self.get_next_attr(attr_map):
-                        if type(i[0]) is str:
-                            event["attributes"].append(i)
-                        else:
-                            if self.debug:
-                                event["unparsed"].append(i)
-
-                self.offset = self.offset + self.length
-                result.append(event)
+            while offset < total:
+                # pick type and length
+                (length, msg_type) = struct.unpack("IH", self.buf.read(6))
+                self.buf.seek(offset)
+                msg_class = self.msg_map[msg_type]
+                msg = msg_class(self.buf)
+                msg.decode()
+                offset += msg.length
+                result.append(msg)
 
             return result
 

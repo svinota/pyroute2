@@ -2,14 +2,13 @@
 RTNL protocol implementation
 """
 
-from pyroute2.common import map_namespace
 from pyroute2.netlink.generic import marshal
 # link messages
-from pyroute2.netlink.rtmsg.ifinfmsg import ifinfmsg
+#from pyroute2.netlink.rtmsg.ifinfmsg import ifinfmsg
 # address messages
-from pyroute2.netlink.rtmsg.ifaddrmsg import ifaddrmsg
+# from pyroute2.netlink.rtmsg.ifaddrmsg import ifaddrmsg
 # route messages
-from pyroute2.netlink.rtmsg.rtmsg import rtmsg
+# from pyroute2.netlink.rtmsg.rtmsg import rtmsg
 # arp cache messages
 from pyroute2.netlink.rtmsg.ndmsg import ndmsg
 
@@ -72,16 +71,8 @@ RTM_GETANYCAST = 62
 RTM_NEWNEIGHTBL = 64
 RTM_GETNEIGHTBL = 66
 RTM_SETNEIGHTBL = 67
-(RTM_NAMES, RTM_VALUES) = map_namespace("RTM", globals())
 
 
 class marshal_rtnl(marshal):
-    reverse = RTM_VALUES
-    msg_map = {RTM_NEWLINK:  ifinfmsg,
-               RTM_DELLINK:  ifinfmsg,
-               RTM_NEWADDR:  ifaddrmsg,
-               RTM_DELADDR:  ifaddrmsg,
-               RTM_NEWROUTE: rtmsg,
-               RTM_DELROUTE: rtmsg,
-               RTM_NEWNEIGH: ndmsg,
+    msg_map = {RTM_NEWNEIGH: ndmsg,
                RTM_DELNEIGH: ndmsg}

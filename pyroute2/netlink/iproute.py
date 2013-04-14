@@ -12,10 +12,10 @@ from pyroute2.netlink.generic import nlsocket
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import NETLINK_ROUTE
 from pyroute2.netlink.rtnl import marshal_rtnl
-from pyroute2.netlink.rtmsg.rtmsg import rtmsg
+#from pyroute2.netlink.rtmsg.rtmsg import rtmsg
 from pyroute2.netlink.rtmsg.ndmsg import ndmsg
-from pyroute2.netlink.rtmsg.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtmsg.ifaddrmsg import ifaddrmsg
+#from pyroute2.netlink.rtmsg.ifinfmsg import ifinfmsg
+#from pyroute2.netlink.rtmsg.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl import RTNLGRP_IPV4_IFADDR
 from pyroute2.netlink.rtnl import RTNLGRP_IPV6_IFADDR
 from pyroute2.netlink.rtnl import RTNLGRP_IPV4_ROUTE
@@ -157,43 +157,40 @@ class iproute(object):
 
     def nlm_request(self, msg_class, msg_type, msg_family=AF_UNSPEC,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST, msg_fields=None):
-        header = nlmsg()
-        header['sequence_number'] = self.nonce()
-        header['pid'] = os.getpid()
-        self.listeners[header['sequence_number']] = Queue.Queue()
-        header['type'] = msg_type
-        header['flags'] = msg_flags
-        msg = msg_class()
+        buf = io.BytesIO()
+        msg = msg_class(buf)
+        nonce = self.nonce()
+        self.listeners[nonce] = Queue.Queue()
+        msg['header']['sequence_number'] = nonce
+        msg['header']['pid'] = os.getpid()
+        msg['header']['type'] = msg_type
+        msg['header']['flags'] = msg_flags
         msg['family'] = msg_family
         if isinstance(msg_fields, dict):
             for i in msg_fields.keys():
                 msg[i] = msg_fields[i]
-        buf = io.BytesIO()
-        header.buf = buf
-        msg.buf = buf
-        header.pack()
-        msg.pack()
+        msg.encode()
         l = buf.tell()
         buf.seek(0)
         buf.write(struct.pack("I", l))
         self.socket.sendto(buf.getvalue(), (0, 0))
-        result = self.get(header['sequence_number'])
+        result = self.get(nonce)
         if not self.debug:
             for i in result:
                 del i['header']
         return result
 
-    def get_all_links(self, family=AF_UNSPEC):
-        return self.nlm_request(ifinfmsg, RTM_GETLINK)
+    #def get_all_links(self, family=AF_UNSPEC):
+    #    return self.nlm_request(ifinfmsg, RTM_GETLINK)
 
     def get_all_neighbors(self, family=AF_UNSPEC):
         return self.nlm_request(ndmsg, RTM_GETNEIGH, family)
 
-    def get_all_addr(self, family=AF_UNSPEC):
-        return self.nlm_request(ifaddrmsg, RTM_GETADDR, family)
+    #def get_all_addr(self, family=AF_UNSPEC):
+    #    return self.nlm_request(ifaddrmsg, RTM_GETADDR, family)
 
-    def get_all_routes(self, family=AF_UNSPEC, table=254):
-        routes = self.nlm_request(rtmsg, RTM_GETROUTE, family,
-                                  msg_fields={"table": table})
-        return [i for i in routes if
-               [k for k in i['attributes'] if k[0] == 'dst_prefix']]
+    #def get_all_routes(self, family=AF_UNSPEC, table=254):
+    #    routes = self.nlm_request(rtmsg, RTM_GETROUTE, family,
+    #                              msg_fields={"table": table})
+    #    return [i for i in routes if
+    #           [k for k in i['attributes'] if k[0] == 'dst_prefix']]
