@@ -317,11 +317,14 @@ class marshal(object):
                 msg_class = self.msg_map.get(msg_type, nlmsg)
                 msg = msg_class(self.buf)
                 msg.decode()
+                self.fix_message(msg)
                 offset += msg.length
                 result.append(msg)
 
             return result
 
+    def fix_message(self, msg):
+        pass
 
 class nlsocket(socket.socket):
 
