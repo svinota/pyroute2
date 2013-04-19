@@ -280,6 +280,14 @@ class nlmsg(nlmsg_atoms):
     header = nlmsg_header
 
 
+class nla(nlmsg_atoms):
+    header = nla_header
+
+    def decode(self):
+        nlmsg_atoms.decode(self)
+        del self['header']
+
+
 class marshal(object):
 
     def __init__(self, sock=None):
