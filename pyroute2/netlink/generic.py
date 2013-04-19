@@ -106,13 +106,14 @@ class nlmsg_base(dict):
         for i in self.fields:
             self[i] = 0  # FIXME: only for number values
         self.buf = buf
-        self.length = length
-        self.nla_offset = 0
+        self.length = length or 0
+        self.offset = 0
         if self.header is not None:
             self['header'] = self.header(self.buf)
         self.register_nlas()
 
     def decode(self):
+        self.offset = self.buf.tell()
         # read the header
         if self.header is not None:
             self['header'].decode()
@@ -126,10 +127,7 @@ class nlmsg_base(dict):
         self.update(dict(zip(self.fields,
                          struct.unpack(self.fmt, self.buf.read(size)))))
         # read NLA chain
-        self.nla_offset = self.buf.tell()
         self.decode_nlas()
-        from pprint import pprint
-        pprint(self)
 
     def encode(self):
         # write the header
@@ -168,12 +166,14 @@ class nlmsg_base(dict):
 
     def decode_nlas(self):
         self['attrs'] = []
-        while (self.buf.tell() - self.nla_offset) < self.length:
+        while self.buf.tell() < (self.offset + self.length):
             init = self.buf.tell()
             # pick the length and the type
             (length, msg_type) = struct.unpack("HH", self.buf.read(4))
             # rewind to the beginning
             self.buf.seek(init)
+            length = min(max(length, 4),
+                         (self.length - self.buf.tell() + self.offset))
 
             # we have a mapping for this NLA
             if msg_type in self.t_nla_map:
