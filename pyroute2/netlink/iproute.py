@@ -131,6 +131,12 @@ class iproute(object):
             self.__nonce += 1
         return self.__nonce
 
+    def monitor(self, operate=True):
+        if operate:
+            self.listeners[0] = Queue.Queue()
+        else:
+            del self.listeners[0]
+
     def stop(self):
         msg = cmdmsg(io.BytesIO())
         msg['command'] = IPRCMD_STOP
