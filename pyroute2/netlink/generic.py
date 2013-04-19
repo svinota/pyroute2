@@ -306,7 +306,7 @@ class marshal(object):
                 # pick type and length
                 (length, msg_type) = struct.unpack("IH", self.buf.read(6))
                 self.buf.seek(offset)
-                msg_class = self.msg_map[msg_type]
+                msg_class = self.msg_map.get(msg_type, nlmsg)
                 msg = msg_class(self.buf)
                 msg.decode()
                 offset += msg.length
