@@ -1,11 +1,6 @@
 
-from socket import AF_INET
-from socket import AF_INET6
-from pyroute2.common import t_ip4ad
-from pyroute2.common import t_ip6ad
-from pyroute2.common import t_asciiz
-from pyroute2.common import t_none
 from pyroute2.netlink.generic import nlmsg
+from pyroute2.netlink.generic import nla
 
 ## address attributes
 #
@@ -15,29 +10,6 @@ from pyroute2.netlink.generic import nlmsg
 # but for point-to-point IFA_ADDRESS is DESTINATION address,
 # local address is supplied in IFA_LOCAL attribute.
 #
-IFA_UNSPEC = 0
-IFA_ADDRESS = 1
-IFA_LOCAL = 2
-IFA_LABEL = 3
-IFA_BROADCAST = 4
-IFA_ANYCAST = 5
-IFA_CACHEINFO = 6
-IFA_MULTICAST = 7
-
-t_ifa_attr = {IFA_UNSPEC:     (t_none,    "none"),
-              IFA_ADDRESS:    (t_ip4ad,   "address"),
-              IFA_LOCAL:      (t_ip4ad,   "local"),
-              IFA_LABEL:      (t_asciiz,  "dev"),
-              IFA_BROADCAST:  (t_ip4ad,   "broadcast"),
-              IFA_ANYCAST:    (t_ip4ad,   "anycast"),
-              IFA_CACHEINFO:  (t_none,    "cacheinfo"),
-              IFA_MULTICAST:  (t_ip4ad,   "multycast")}
-
-
-t_ifa6_attr = {IFA_UNSPEC:     (t_none,    "none"),
-               IFA_ADDRESS:    (t_ip6ad,   "address"),
-               IFA_LABEL:      (t_asciiz,  "dev"),
-               IFA_CACHEINFO:  (t_none,    "cacheinfo")}
 
 
 class ifaddrmsg(nlmsg):
@@ -53,13 +25,25 @@ class ifaddrmsg(nlmsg):
     };
 
     """
-    fmt = "BBBBI"
-    fields = ("family", "prefixlen", "flags", "scope", "index")
-    attr_map = None
+    fmt = 'BBBBI'
+    fields = ('family',
+              'prefixlen',
+              'flags',
+              'scope',
+              'index')
 
-    def setup(self):
-        self['type'] = 'addr'
-        if self['family'] == AF_INET:
-            self.attr_map = t_ifa_attr
-        elif self['family'] == AF_INET6:
-            self.attr_map = t_ifa6_attr
+    nla_map = (('IFA_UNSPEC',  'hex'),
+               ('IFA_ADDRESS', 'ipaddr'),
+               ('IFA_LOCAL', 'ipaddr'),
+               ('IFA_LABEL', 'asciiz'),
+               ('IFA_BROADCAST', 'ipaddr'),
+               ('IFA_ANYCAST', 'ipaddr'),
+               ('IFA_CACHEINFO', 'cacheinfo'),
+               ('IFA_MULTICAST', 'ipaddr'))
+
+    class cacheinfo(nla):
+        fmt = "I" * 4
+        fields = ('ifa_prefered',
+                  'ifa_valid',
+                  'cstamp',
+                  'tstamp')

@@ -12,10 +12,10 @@ from pyroute2.netlink.generic import nlsocket
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import NETLINK_ROUTE
 from pyroute2.netlink.rtnl import marshal_rtnl
-#from pyroute2.netlink.rtmsg.rtmsg import rtmsg
+from pyroute2.netlink.rtmsg.rtmsg import rtmsg
 from pyroute2.netlink.rtmsg.ndmsg import ndmsg
-#from pyroute2.netlink.rtmsg.ifinfmsg import ifinfmsg
-#from pyroute2.netlink.rtmsg.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink.rtmsg.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtmsg.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl import RTNLGRP_IPV4_IFADDR
 from pyroute2.netlink.rtnl import RTNLGRP_IPV6_IFADDR
 from pyroute2.netlink.rtnl import RTNLGRP_IPV4_ROUTE
@@ -140,7 +140,7 @@ class iproute(object):
     def stop(self):
         msg = cmdmsg(io.BytesIO())
         msg['command'] = IPRCMD_STOP
-        msg.pack()
+        msg.encode()
         os.write(self.io_thread.control, msg.buf.getvalue())
 
     def get(self, key=0, blocking=True):
@@ -184,17 +184,17 @@ class iproute(object):
                 del i['header']
         return result
 
-    #def get_all_links(self, family=AF_UNSPEC):
-    #    return self.nlm_request(ifinfmsg, RTM_GETLINK)
+    def get_all_links(self, family=AF_UNSPEC):
+        return self.nlm_request(ifinfmsg, RTM_GETLINK)
 
     def get_all_neighbors(self, family=AF_UNSPEC):
         return self.nlm_request(ndmsg, RTM_GETNEIGH, family)
 
-    #def get_all_addr(self, family=AF_UNSPEC):
-    #    return self.nlm_request(ifaddrmsg, RTM_GETADDR, family)
+    def get_all_addr(self, family=AF_UNSPEC):
+        return self.nlm_request(ifaddrmsg, RTM_GETADDR, family)
 
-    #def get_all_routes(self, family=AF_UNSPEC, table=254):
-    #    routes = self.nlm_request(rtmsg, RTM_GETROUTE, family,
-    #                              msg_fields={"table": table})
-    #    return [i for i in routes if
-    #           [k for k in i['attributes'] if k[0] == 'dst_prefix']]
+    def get_all_routes(self, family=AF_UNSPEC, table=254):
+        routes = self.nlm_request(rtmsg, RTM_GETROUTE, family,
+                                  msg_fields={"table": table})
+        return [i for i in routes if
+               [k for k in i['attrs'] if k[0] == 'dst']]

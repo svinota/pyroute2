@@ -1,5 +1,6 @@
 
 from pyroute2.netlink.generic import nlmsg
+from pyroute2.netlink.generic import nla
 
 
 class ndmsg(nlmsg):
@@ -42,5 +43,12 @@ class ndmsg(nlmsg):
     nla_map = (('NDA_UNSPEC', 'hex'),
                ('NDA_DST', 'ipaddr'),
                ('NDA_LLADDR', 'l2addr'),
-               ('NDA_CACHEINFO', 'hex'),
-               ('NDA_PROBES', 'hex'))
+               ('NDA_CACHEINFO', 'cacheinfo'),
+               ('NDA_PROBES', 'uint32'))
+
+    class cacheinfo(nla):
+        fmt = "I" * 4
+        fields = ('ndm_confirmed',
+                  'ndm_used',
+                  'ndm_updated',
+                  'ndm_refcnt')
