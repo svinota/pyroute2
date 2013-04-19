@@ -228,6 +228,21 @@ class nlmsg_header(nlmsg_base):
 class nlmsg_atoms(nlmsg_base):
     """
     """
+    class none(nlmsg_scalar):
+        def decode(self):
+            nlmsg_scalar.decode(self)
+            self.value = None
+
+    class uint8(nlmsg_scalar):
+        def decode(self):
+            nlmsg_scalar.decode(self)
+            self.value = struct.unpack("=B", self.buf.read(1))[0]
+
+    class uint32(nlmsg_scalar):
+        def decode(self):
+            nlmsg_scalar.decode(self)
+            self.value = struct.unpack("=I", self.buf.read(4))[0]
+
     class ipaddr(nlmsg_scalar):
         def decode(self):
             nlmsg_scalar.decode(self)
@@ -254,6 +269,12 @@ class nlmsg_atoms(nlmsg_base):
         def decode(self):
             nlmsg_scalar.decode(self)
             self.value = hexdump(self.buf.read(self.length))
+
+    class asciiz(nlmsg_scalar):
+        def decode(self):
+            nlmsg_scalar.decode(self)
+            self.value = self.buf.read(self.length - 5)
+
 
 class nlmsg(nlmsg_atoms):
     header = nlmsg_header
