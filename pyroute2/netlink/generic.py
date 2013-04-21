@@ -2,14 +2,10 @@
 import socket
 import struct
 import threading
-import time
 import os
 import io
 
 from pyroute2.common import hexdump
-from socket import AF_INET
-from socket import AF_INET6
-from socket import AF_BRIDGE
 
 ##  Netlink family
 #
@@ -39,6 +35,10 @@ NLMSG_ALIGNTO = 4
 
 def NLMSG_ALIGN(l):
     return (l + NLMSG_ALIGNTO - 1) & ~ (NLMSG_ALIGNTO - 1)
+
+
+class NotInitialized(Exception):
+    pass
 
 
 class nlmsg_base(dict):
@@ -97,7 +97,8 @@ class nlmsg_base(dict):
     """
 
     fmt = ""        # data format string, see struct
-    fields = ()     # data field names, to build a dictionary
+    fields = ('value', )     # data field names, to build a dictionary
+    t_fields = NotInitialized
     header = None   # optional header class
     nla_map = {}    # NLA mapping
 
@@ -105,39 +106,89 @@ class nlmsg_base(dict):
         dict.__init__(self)
         for i in self.fields:
             self[i] = 0  # FIXME: only for number values
-        self.buf = buf
+        self.buf = buf or io.BytesIO()
         self.length = length or 0
+        self.parent = parent
         self.offset = 0
+        self['attrs'] = []
+        self['value'] = NotInitialized
         if self.header is not None:
             self['header'] = self.header(self.buf)
+        self.register_fields()
         self.register_nlas()
+
+    def reserve(self):
+        self.buf.seek(struct.calcsize(self.fmt), 1)
 
     def decode(self):
         self.offset = self.buf.tell()
         # read the header
         if self.header is not None:
             self['header'].decode()
-            # debug timestamp
-            self['header']['timestamp'] = time.asctime()
             # update length from header
             # it can not be less than 4
             self.length = max(self['header']['length'], 4)
+            if self.fmt == "s":
+                self.fmt = "%is" % (self.length - 4)
+            elif self.fmt == "z":
+                self.fmt = "%is" % (self.length - 5)
         # read the data
         size = struct.calcsize(self.fmt)
         self.update(dict(zip(self.fields,
                          struct.unpack(self.fmt, self.buf.read(size)))))
         # read NLA chain
         self.decode_nlas()
+        if len(self['attrs']) == 0:
+            del self['attrs']
+        if self['value'] is NotInitialized:
+            del self['value']
 
     def encode(self):
+        #
+        init = self.buf.tell()
         # write the header
         if self.header is not None:
+            self['header'].reserve()
+        if self.fmt == "s":
+            length = len(self.fields[0]) + 4
+            self.fmt = "%is" % (length)
+        elif self.fmt == "z":
+            length = len(self.fields[0]) + 5
+            self.fmt = "%is" % (length)
+        payload = struct.pack(self.fmt, *([self[i] for i in self.fields]))
+        diff = NLMSG_ALIGN(len(payload)) - len(payload)
+        self.buf.write(payload)
+        self.buf.write(b'\0' * diff)
+        # write NLA chain
+        self.encode_nlas()
+        # calculate the size and write it
+        if self.header is not None:
+            save = self.buf.tell()
+            self['header']['length'] = save - init
+            self.buf.seek(init)
             self['header'].encode()
-        self.buf.write(struct.pack(self.fmt,
-                                   *([self[i] for i in self.fields])))
+            self.buf.seek(save)
 
     def getvalue(self):
-        return self
+        if 'value' in self:
+            return self['value']
+        else:
+            return self
+
+    def register_fields(self):
+        if self.t_fields is NotInitialized:
+            return
+
+        fields = []
+        fmt = []
+
+        for i in self.t_fields:
+            fmt.append(i[1])
+            if (i[1].find('x') == -1) and (i[0] != '__pad'):
+                fields.append(i[0])
+
+        self.fmt = ''.join(fmt)
+        self.fields = tuple(fields)
 
     def register_nlas(self):
         # clean up NLA mappings
@@ -157,15 +208,29 @@ class nlmsg_base(dict):
             #
             # why we do it? we have to save original names,
             # to ease matching with the kernel code.
-            normalized = name[name.find("_") + 1:].lower()
+            normalized = name  # FIXME[name.find("_") + 1:].lower()
             # lookup NLA class
             nla_class = getattr(self, nla_class)
             # update mappings
             self.t_nla_map[key] = (nla_class, normalized)
             self.r_nla_map[normalized] = (nla_class, key)
 
+    def encode_nlas(self):
+        for i in self['attrs']:
+            if i[0] in self.r_nla_map:
+                msg_class = self.r_nla_map[i[0]][0]
+                msg_type = self.r_nla_map[i[0]][1]
+                try:
+                    # encode NLA
+                    nla = msg_class(self.buf)
+                    nla['header']['type'] = msg_type
+                    nla['value'] = i[1]
+                    nla.encode()
+                except:
+                    import traceback
+                    traceback.print_exc()
+
     def decode_nlas(self):
-        self['attrs'] = []
         while self.buf.tell() < (self.offset + self.length):
             init = self.buf.tell()
             # pick the length and the type
@@ -202,21 +267,8 @@ class nla_header(nlmsg_base):
     fields = ("length", "type")
 
 
-class nlmsg_scalar(object):
-    value = None
+class nla_base(nlmsg_base):
     header = nla_header
-
-    def __init__(self, buf=None, length=None, parent=None):
-        self.buf = buf
-        self.parent = parent
-        self.header = nla_header(self.buf)
-
-    def decode(self):
-        self.header.decode()
-        self.length = max(self.header['length'], 4)
-
-    def getvalue(self):
-        return self.value
 
 
 class nlmsg_header(nlmsg_base):
@@ -230,66 +282,75 @@ class nlmsg_header(nlmsg_base):
 class nlmsg_atoms(nlmsg_base):
     """
     """
-    class none(nlmsg_scalar):
-        def decode(self):
-            nlmsg_scalar.decode(self)
-            self.value = None
+    class none(nla_base):
 
-    class uint8(nlmsg_scalar):
         def decode(self):
-            nlmsg_scalar.decode(self)
-            self.value = struct.unpack("=B", self.buf.read(1))[0]
+            nla_base.decode(self)
+            self['value'] = None
 
-    class uint32(nlmsg_scalar):
-        def decode(self):
-            nlmsg_scalar.decode(self)
-            self.value = struct.unpack("=I", self.buf.read(4))[0]
+    class uint8(nla_base):
+        fmt = "=B"
 
-    class ipaddr(nlmsg_scalar):
-        def decode(self):
-            nlmsg_scalar.decode(self)
-            # FIXME: check for AF_BRIDGE
-            if self.parent['family'] in (AF_INET, AF_BRIDGE):
-                r = struct.unpack("=BBBB", self.buf.read(4))
-                self.value = "%u.%u.%u.%u" % (r[0], r[1], r[2], r[3])
-            elif self.parent['family'] == AF_INET6:
-                r = struct.unpack("=BBBBBBBBBBBBBBBB", self.buf.read(16))
-                self.value = "%x%x:%x%x:%x%x:%x%x:%x%x:%x%x:%x%x:%x%x" % \
-                             (r[0], r[1], r[2], r[3], r[4], r[5], r[6],
-                              r[7], r[8], r[9], r[10], r[11], r[12],
-                              r[13], r[14], r[15])
+    class uint16(nla_base):
+        fmt = "=H"
 
-    class l2addr(nlmsg_scalar):
-        def decode(self):
-            nlmsg_scalar.decode(self)
-            r = struct.unpack("=BBBBBB", self.buf.read(6))
-            self.value = "%x:%x:%x:%x:%x:%x" % (r[0], r[1], r[2],
-                                                r[3], r[4], r[5])
+    class uint32(nla_base):
+        fmt = "=I"
 
-    class hex(nlmsg_scalar):
-        def decode(self):
-            nlmsg_scalar.decode(self)
-            self.value = hexdump(self.buf.read(self.length))
+    class ipaddr(nla_base):
+        fmt = "s"
 
-    class asciiz(nlmsg_scalar):
         def decode(self):
-            nlmsg_scalar.decode(self)
-            self.value = self.buf.read(self.length - 5)
+            nla_base.decode(self)
+            self['value'] = socket.inet_ntop(self.parent['family'],
+                                             self['value'])
+
+    class l2addr(nla_base):
+        fmt = "=6s"
+
+        def decode(self):
+            nla_base.decode(self)
+            self['value'] = ':'.join('%02x' % (ord(i)) for i in self['value'])
+
+    class hex(nla_base):
+        fmt = "s"
+
+        def decode(self):
+            nla_base.decode(self)
+            self['value'] = hexdump(self['value'])
+
+    class asciiz(nla_base):
+        fmt = "z"
+
+
+class nla(nla_base, nlmsg_atoms):
+    header = nla_header
+
+    def decode(self):
+        nla_base.decode(self)
+        del self['header']
 
 
 class nlmsg(nlmsg_atoms):
     header = nlmsg_header
 
 
-class nla(nlmsg_atoms):
-    header = nla_header
+class genlmsg(nlmsg):
+    fmt = 'BBH'
+    fields = ('cmd',
+              'version',
+              'reserved')
 
-    def decode(self):
-        nlmsg_atoms.decode(self)
-        del self['header']
+
+class ctrlmsg(genlmsg):
+    nla_map = (('CTRL_ATTR_UNSPEC', 'none'),
+               ('CTRL_ATTR_FAMILY_ID', 'uint16'),
+               ('CTRL_ATTR_FAMILY_NAME', 'asciiz'))
 
 
 class marshal(object):
+
+    msg_map = {}
 
     def __init__(self, sock=None):
         self.sock = sock
@@ -326,6 +387,7 @@ class marshal(object):
 
     def fix_message(self, msg):
         pass
+
 
 class nlsocket(socket.socket):
 

@@ -1,8 +1,5 @@
-import struct
-
 from pyroute2.netlink.generic import nla
 from pyroute2.netlink.generic import nlmsg
-from pyroute2.netlink.generic import nlmsg_scalar
 
 states = ('UNKNOWN',
           'NOTPRESENT',
@@ -67,11 +64,12 @@ class ifinfmsg(nlmsg):
                ('IFLA_NUM_TX_QUEUES', 'uint32'),
                ('IFLA_NUM_RX_QUEUES', 'uint32'))
 
-    class state(nlmsg_scalar):
+    class state(nla):
+        fmt = "=B"
+
         def decode(self):
-            nlmsg_scalar.decode(self)
-            self.value = state_by_code[struct.unpack("=B",
-                                                     self.buf.read(1))[0]]
+            nla.decode(self)
+            self["value"] = state_by_code[self["value"]]
 
     class ifstats(nla):
         fmt = "I" * 23
