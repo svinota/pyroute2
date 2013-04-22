@@ -156,7 +156,7 @@ class taskstats(netlink):
         netlink.__init__(self)
         # FIXME
         self.io_thread.marshal.msg_map[GENL_ID_CTRL] = ctrlmsg
-        self.prid = self.get_protocol_id("TASKSTATS")
+        self.prid = self.get_protocol_id('TASKSTATS')
         self.io_thread.marshal.msg_map[self.prid] = taskstatsmsg
 
     def get_protocol_id(self, prid):

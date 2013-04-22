@@ -41,8 +41,8 @@ IPRCMD_STOP = 4
 
 
 class cmdmsg(nlmsg):
-    fmt = "HHH"
-    fields = ("command", "v1", "v2")
+    fmt = 'HHH'
+    fields = ('command', 'v1', 'v2')
 
 
 class netlink_io(threading.Thread):
@@ -107,9 +107,9 @@ class netlink(object):
         self.__nonce = 1
 
     def nonce(self):
-        """
+        '''
         Increment netlink protocol nonce (there is no need to call it directly)
-        """
+        '''
         if self.__nonce == 0xffffffff:
             self.__nonce = 1
         else:
@@ -129,9 +129,9 @@ class netlink(object):
         os.write(self.io_thread.control, msg.buf.getvalue())
 
     def get(self, key=0, blocking=True):
-        """
+        '''
         Get a message from a queue
-        """
+        '''
         assert key in self.listeners
 
         result = []

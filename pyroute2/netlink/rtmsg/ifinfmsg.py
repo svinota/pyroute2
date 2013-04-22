@@ -13,7 +13,7 @@ state_by_code = dict(enumerate(states))
 
 
 class ifinfmsg(nlmsg):
-    """
+    '''
     Network interface message
     struct ifinfomsg {
         unsigned char  ifi_family; /* AF_UNSPEC */
@@ -22,13 +22,13 @@ class ifinfmsg(nlmsg):
         unsigned int   ifi_flags;  /* Device flags  */
         unsigned int   ifi_change; /* change mask */
     };
-    """
-    fmt = "BHiII"
-    fields = ("family",
-              "ifi_type",
-              "index",
-              "flags",
-              "change")
+    '''
+    fmt = 'BHiII'
+    fields = ('family',
+              'ifi_type',
+              'index',
+              'flags',
+              'change')
 
     nla_map = (('IFLA_UNSPEC', 'none'),
                ('IFLA_ADDRESS', 'l2addr'),
@@ -65,44 +65,44 @@ class ifinfmsg(nlmsg):
                ('IFLA_NUM_RX_QUEUES', 'uint32'))
 
     class state(nla):
-        fmt = "=B"
+        fmt = '=B'
 
         def decode(self):
             nla.decode(self)
-            self["value"] = state_by_code[self["value"]]
+            self['value'] = state_by_code[self['value']]
 
     class ifstats(nla):
-        fmt = "I" * 23
-        fields = ("rx_packets",
-                  "tx_packets",
-                  "rx_bytes",
-                  "tx_bytes",
-                  "rx_errors",
-                  "tx_errors",
-                  "rx_dropped",
-                  "tx_dropped",
-                  "multicast",
-                  "collisions",
-                  "rx_length_errors",
-                  "rx_over_errors",
-                  "rx_crc_errors",
-                  "rx_frame_errors",
-                  "rx_fifo_errors",
-                  "rx_missed_errors",
-                  "tx_aborted_errors",
-                  "tx_carrier_errors",
-                  "tx_fifo_errors",
-                  "tx_heartbeat_errors",
-                  "tx_window_errors",
-                  "rx_compressed",
-                  "tx_compressed")
+        fmt = 'I' * 23
+        fields = ('rx_packets',
+                  'tx_packets',
+                  'rx_bytes',
+                  'tx_bytes',
+                  'rx_errors',
+                  'tx_errors',
+                  'rx_dropped',
+                  'tx_dropped',
+                  'multicast',
+                  'collisions',
+                  'rx_length_errors',
+                  'rx_over_errors',
+                  'rx_crc_errors',
+                  'rx_frame_errors',
+                  'rx_fifo_errors',
+                  'rx_missed_errors',
+                  'tx_aborted_errors',
+                  'tx_carrier_errors',
+                  'tx_fifo_errors',
+                  'tx_heartbeat_errors',
+                  'tx_window_errors',
+                  'rx_compressed',
+                  'tx_compressed')
 
     class ifstats64(ifstats):
-        fmt = "Q" * 23
+        fmt = 'Q' * 23
 
     class ifmap(nla):
-        fmt = "QQQHBB"
-        fields = ("mem_start", "mem_end", "base_addr", "irq", "dma", "port")
+        fmt = 'QQQHBB'
+        fields = ('mem_start', 'mem_end', 'base_addr', 'irq', 'dma', 'port')
 
     class ifinfo(nla):
         nla_map = (('IFLA_INFO_UNSPEC', 'none'),
@@ -124,35 +124,35 @@ class ifinfmsg(nlmsg):
                    ('AF_INET6', 'inet6'))
 
         class inet(nla):
-            fmt = "I" * 26
+            fmt = 'I' * 26
             #  ./include/linux/inetdevice.h: struct ipv4_devconf
-            fields = ("sysctl",
-                      "forwarding",
-                      "mc_forwarding",
-                      "proxy_arp",
-                      "accept_redirects",
-                      "secure_redirects",
-                      "send_redirects",
-                      "shared_media",
-                      "rp_filter",
-                      "accept_source_route",
-                      "bootp_relay",
-                      "log_martians",
-                      "tag",
-                      "arp_filter",
-                      "medium_id",
-                      "disable_xfrm",
-                      "disable_policy",
-                      "force_igmp_version",
-                      "arp_announce",
-                      "arp_ignore",
-                      "promote_secondaries",
-                      "arp_accept",
-                      "arp_notify",
-                      "accept_local",
-                      "src_valid_mark",
-                      "proxy_arp_pvlan",
-                      "route_localnet")
+            fields = ('sysctl',
+                      'forwarding',
+                      'mc_forwarding',
+                      'proxy_arp',
+                      'accept_redirects',
+                      'secure_redirects',
+                      'send_redirects',
+                      'shared_media',
+                      'rp_filter',
+                      'accept_source_route',
+                      'bootp_relay',
+                      'log_martians',
+                      'tag',
+                      'arp_filter',
+                      'medium_id',
+                      'disable_xfrm',
+                      'disable_policy',
+                      'force_igmp_version',
+                      'arp_announce',
+                      'arp_ignore',
+                      'promote_secondaries',
+                      'arp_accept',
+                      'arp_notify',
+                      'accept_local',
+                      'src_valid_mark',
+                      'proxy_arp_pvlan',
+                      'route_localnet')
 
         class inet6(nla):
             nla_map = (('IFLA_INET6_UNSPEC', 'none'),
@@ -166,48 +166,48 @@ class ifinfmsg(nlmsg):
             class ipv6_devconf(nla):
                 # ./include/uapi/linux/ipv6.h
                 # DEVCONF_
-                fmt = "I" * 30
-                fields = ("forwarding",
-                          "hop_limit",
-                          "mtu",
-                          "accept_ra",
-                          "accept_redirects",
-                          "autoconf",
-                          "dad_transmits",
-                          "router_solicitations",
-                          "router_solicitation_interval",
-                          "router_solicitation_delay",
-                          "use_tempaddr",
-                          "temp_valid_lft",
-                          "temp_prefered_lft",
-                          "regen_max_retry",
-                          "max_desync_factor",
-                          "max_addresses",
-                          "force_mld_version",
-                          "accept_ra_defrtr",
-                          "accept_ra_pinfo",
-                          "accept_ra_rtr_pref",
-                          "router_probe_interval",
-                          "accept_ra_rt_info_max_plen",
-                          "proxy_ndp",
-                          "optimistic_dad",
-                          "accept_source_route",
-                          "mc_forwarding",
-                          "disable_ipv6",
-                          "accept_dad",
-                          "force_tllao",
-                          "ndisc_notify")
+                fmt = 'I' * 30
+                fields = ('forwarding',
+                          'hop_limit',
+                          'mtu',
+                          'accept_ra',
+                          'accept_redirects',
+                          'autoconf',
+                          'dad_transmits',
+                          'router_solicitations',
+                          'router_solicitation_interval',
+                          'router_solicitation_delay',
+                          'use_tempaddr',
+                          'temp_valid_lft',
+                          'temp_prefered_lft',
+                          'regen_max_retry',
+                          'max_desync_factor',
+                          'max_addresses',
+                          'force_mld_version',
+                          'accept_ra_defrtr',
+                          'accept_ra_pinfo',
+                          'accept_ra_rtr_pref',
+                          'router_probe_interval',
+                          'accept_ra_rt_info_max_plen',
+                          'proxy_ndp',
+                          'optimistic_dad',
+                          'accept_source_route',
+                          'mc_forwarding',
+                          'disable_ipv6',
+                          'accept_dad',
+                          'force_tllao',
+                          'ndisc_notify')
 
             class ipv6_cache_info(nla):
                 # ./include/uapi/linux/if_link.h: struct ifla_cacheinfo
-                fmt = "I" * 4
-                fields = ("max_reasm_len",
-                          "tstamp",
-                          "reachable_time",
-                          "retrans_time")
+                fmt = 'I' * 4
+                fields = ('max_reasm_len',
+                          'tstamp',
+                          'reachable_time',
+                          'retrans_time')
 
             class ipv6_stats(nla):
-                fmt = "I" * 31
+                fmt = 'I' * 31
                 fields = ('inoctets',
                           'fragcreates',
                           'indiscards',
@@ -241,7 +241,7 @@ class ifinfmsg(nlmsg):
                           'outmcastoctets')
 
             class icmp6_stats(nla):
-                fmt = "Q" * 5
+                fmt = 'Q' * 5
                 fields = ('num',
                           'inerrors',
                           'outmsgs',

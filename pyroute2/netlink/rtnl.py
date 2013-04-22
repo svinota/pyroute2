@@ -1,6 +1,6 @@
-"""
+'''
 RTNL protocol implementation
-"""
+'''
 
 from pyroute2.common import map_namespace
 from pyroute2.netlink.generic import marshal
@@ -72,7 +72,7 @@ RTM_GETANYCAST = 62
 RTM_NEWNEIGHTBL = 64
 RTM_GETNEIGHTBL = 66
 RTM_SETNEIGHTBL = 67
-(RTM_NAMES, RTM_VALUES) = map_namespace("RTM", globals())
+(RTM_NAMES, RTM_VALUES) = map_namespace('RTM', globals())
 
 
 class marshal_rtnl(marshal):

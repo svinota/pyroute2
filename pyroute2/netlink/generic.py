@@ -42,20 +42,28 @@ class NotInitialized(Exception):
 
 
 class nlmsg_base(dict):
-    """
+    '''
+    Netlink base class. You do not need to inherit it directly, unless
+    you're inventing completely new protocol structure.
+
+    Use nlmsg or nla classes.
+
+    ...
+
     Netlink message structure
 
     | header | data |
 
-    header:
-        + length
-        + type
-        * flags
-        * sequence number
-        * pid
+    nlmsg header:
+        + uint32 length
+        + uint16 type
+        + uint16 flags
+        + uint32 sequence number
+        + uint32 pid
 
-    +: for any message or attribute
-    *: only for base packet
+    nla header:
+        + uint16 length
+        + uint16 type
 
     data:
         + data-specific struct
@@ -63,44 +71,46 @@ class nlmsg_base(dict):
         + NLA
         + ...
 
-    Each NLA has the same structure, as the base class.
-    Header is to be decoded into 'header' dict field. All
-    the data will be decoded into corresponding fields.
+    To describe data, you can use one of the ways:
 
-    Example:
+    1. 'fmt' and 'fields' class atributes, e.g.:
 
-    nlmsg = {'header': {'length': ...,
-                        'type': ..., ...},
-             'family': ...,
-             'prefixlen': ...,
-             'flags': ...,
-             'scope': ...,
-             'index': ...,
-             'attrs': [{'header': {'length': ...,
-                                   'type': ...},
-                        'address': ...},
-                       {'header': {'length': ...,
-                                   'type': ...},
-                        'local': ...},
-                       {'header': {'length': ...,
-                                   'type': ...},
-                        'dev': ...},
-                       {'header': {'length': ...,
-                                   'type': ...},
-                        'broadcast': ...},
-                       {'header': {'length': ...,
-                                   'type': ...},
-                        'cacheinfo': ...}]}
+        fmt = 'HH'
+        fields = ('length',
+                  'type')
 
-    Normally, headers should be stripped avay. To review
-    them, turn on the debug mode.
-    """
+        this will decode/encode two 16bit unsigned integers
+        into/from fields 'length' and 'type'.
 
-    fmt = ""        # data format string, see struct
-    fields = ('value', )     # data field names, to build a dictionary
-    t_fields = NotInitialized
-    header = None   # optional header class
-    nla_map = {}    # NLA mapping
+    2. 't_fields' attribute, e.g.:
+
+        t_fields = (('length', 'H'),
+                    ('type', 'H'))
+
+        will do the same.
+
+    NLAs are decoded/encoded according to 'nla_map':
+
+        nla_map = (('NDA_UNSPEC', 'none'),
+                   ('NDA_DST', 'ipaddr'),
+                   ('NDA_LLADDR', 'l2addr'),
+                   ('NDA_CACHEINFO', 'cacheinfo'),
+                   ('NDA_PROBES', 'uint32'))
+    
+    Please note, that 'nla_map' creates implied enumeration from
+    its fields. In the example above NDA_UNSPEC == 0 and
+    NDA_PROBES == 4. These numbers will be used as uint16 'type'
+    in NLA header.
+
+    List of public types as 'none', 'uint32', 'ipaddr', 'asciiz'
+    you can read in nlmsg_atoms class.
+    '''
+
+    fmt = ''                    # data format string, see struct
+    fields = ('value', )        # data field names, to build a dictionary
+    t_fields = NotInitialized   #
+    header = None               # optional header class
+    nla_map = {}                # NLA mapping
 
     def __init__(self, buf=None, length=None, parent=None):
         dict.__init__(self)
@@ -118,6 +128,11 @@ class nlmsg_base(dict):
         self.register_nlas()
 
     def reserve(self):
+        '''
+        Reserve space in the buffer for data. This can be used
+        to skip encoding of the header until some fields will
+        be known.
+        '''
         self.buf.seek(struct.calcsize(self.fmt), 1)
 
     def decode(self):
@@ -128,10 +143,10 @@ class nlmsg_base(dict):
             # update length from header
             # it can not be less than 4
             self.length = max(self['header']['length'], 4)
-            if self.fmt == "s":
-                self.fmt = "%is" % (self.length - 4)
-            elif self.fmt == "z":
-                self.fmt = "%is" % (self.length - 5)
+            if self.fmt == 's':
+                self.fmt = '%is' % (self.length - 4)
+            elif self.fmt == 'z':
+                self.fmt = '%is' % (self.length - 5)
         # read the data
         size = struct.calcsize(self.fmt)
         self.update(dict(zip(self.fields,
@@ -144,17 +159,16 @@ class nlmsg_base(dict):
             del self['value']
 
     def encode(self):
-        #
         init = self.buf.tell()
-        # write the header
+        # reserve space for the header
         if self.header is not None:
             self['header'].reserve()
-        if self.fmt == "s":
+        if self.fmt == 's':
             length = len(self.fields[0]) + 4
-            self.fmt = "%is" % (length)
-        elif self.fmt == "z":
+            self.fmt = '%is' % (length)
+        elif self.fmt == 'z':
             length = len(self.fields[0]) + 5
-            self.fmt = "%is" % (length)
+            self.fmt = '%is' % (length)
         payload = struct.pack(self.fmt, *([self[i] for i in self.fields]))
         diff = NLMSG_ALIGN(len(payload)) - len(payload)
         self.buf.write(payload)
@@ -170,12 +184,19 @@ class nlmsg_base(dict):
             self.buf.seek(save)
 
     def getvalue(self):
+        '''
+        Atomic NLAs return their value in the 'value' field,
+        not as a dictionary. Complex NLAs return whole dictionary.
+        '''
         if 'value' in self:
             return self['value']
         else:
             return self
 
     def register_fields(self):
+        '''
+        Convert 't_fields' attribute into 'fmt' and 'fields'.
+        '''
         if self.t_fields is NotInitialized:
             return
 
@@ -191,6 +212,10 @@ class nlmsg_base(dict):
         self.fields = tuple(fields)
 
     def register_nlas(self):
+        '''
+        Convert 'nla_map' tuple into two dictionaries for mapping
+        and reverse mapping of NLA types.
+        '''
         # clean up NLA mappings
         self.t_nla_map = {}
         self.r_nla_map = {}
@@ -204,16 +229,11 @@ class nlmsg_base(dict):
                   zip(self.nla_map, types)]
 
         for (key, name, nla_class) in zipped:
-            # normalize NLA name
-            #
-            # why we do it? we have to save original names,
-            # to ease matching with the kernel code.
-            normalized = name  # FIXME[name.find("_") + 1:].lower()
             # lookup NLA class
             nla_class = getattr(self, nla_class)
             # update mappings
-            self.t_nla_map[key] = (nla_class, normalized)
-            self.r_nla_map[normalized] = (nla_class, key)
+            self.t_nla_map[key] = (nla_class, name)
+            self.r_nla_map[name] = (nla_class, key)
 
     def encode_nlas(self):
         for i in self['attrs']:
@@ -227,6 +247,7 @@ class nlmsg_base(dict):
                     nla['value'] = i[1]
                     nla.encode()
                 except:
+                    # FIXME
                     import traceback
                     traceback.print_exc()
 
@@ -234,7 +255,7 @@ class nlmsg_base(dict):
         while self.buf.tell() < (self.offset + self.length):
             init = self.buf.tell()
             # pick the length and the type
-            (length, msg_type) = struct.unpack("HH", self.buf.read(4))
+            (length, msg_type) = struct.unpack('HH', self.buf.read(4))
             # rewind to the beginning
             self.buf.seek(init)
             length = min(max(length, 4),
@@ -252,6 +273,7 @@ class nlmsg_base(dict):
                     nla.decode()
                     self['attrs'].append((msg_name, nla.getvalue()))
                 except:
+                    # FIXME
                     import traceback
                     traceback.print_exc()
                     self.buf.seek(init)
@@ -263,8 +285,8 @@ class nlmsg_base(dict):
 
 
 class nla_header(nlmsg_base):
-    fmt = "HH"
-    fields = ("length", "type")
+    fmt = 'HH'
+    fields = ('length', 'type')
 
 
 class nla_base(nlmsg_base):
@@ -272,33 +294,45 @@ class nla_base(nlmsg_base):
 
 
 class nlmsg_header(nlmsg_base):
-    """
+    '''
     Common netlink message header
-    """
-    fmt = "IHHII"
-    fields = ("length", "type", "flags", "sequence_number", "pid")
+    '''
+    fmt = 'IHHII'
+    fields = ('length', 'type', 'flags', 'sequence_number', 'pid')
 
 
 class nlmsg_atoms(nlmsg_base):
-    """
-    """
+    '''
+    A collection of base NLA types
+    '''
     class none(nla_base):
-
+        '''
+        'none' type is used to skip decoding of NLA. You can
+        also use 'hex' type to dump NLA's content.
+        '''
         def decode(self):
             nla_base.decode(self)
             self['value'] = None
 
     class uint8(nla_base):
-        fmt = "=B"
+        fmt = '=B'
 
     class uint16(nla_base):
-        fmt = "=H"
+        fmt = '=H'
 
     class uint32(nla_base):
-        fmt = "=I"
+        fmt = '=I'
 
     class ipaddr(nla_base):
-        fmt = "s"
+        '''
+        This class is used to decode IP addresses according to
+        the family. Socket library currently supports only two
+        families, AF_INET and AF_INET6.
+
+        We do not specify here the string size, it will be 
+        calculated in runtime.
+        '''
+        fmt = 's'
 
         def decode(self):
             nla_base.decode(self)
@@ -306,36 +340,53 @@ class nlmsg_atoms(nlmsg_base):
                                              self['value'])
 
     class l2addr(nla_base):
-        fmt = "=6s"
+        '''
+        Decode MAC address.
+        '''
+        fmt = '=6s'
 
         def decode(self):
             nla_base.decode(self)
             self['value'] = ':'.join('%02x' % (ord(i)) for i in self['value'])
 
     class hex(nla_base):
-        fmt = "s"
+        '''
+        Represent NLA's content with header as hex string.
+        '''
+        fmt = 's'
 
         def decode(self):
             nla_base.decode(self)
             self['value'] = hexdump(self['value'])
 
     class asciiz(nla_base):
-        fmt = "z"
+        '''
+        Zero-terminated string.
+        '''
+        # FIXME: move z-string hacks from general decode here?
+        fmt = 'z'
 
 
 class nla(nla_base, nlmsg_atoms):
-    header = nla_header
-
+    '''
+    Main NLA class
+    '''
     def decode(self):
         nla_base.decode(self)
         del self['header']
 
 
 class nlmsg(nlmsg_atoms):
+    '''
+    Main netlink message class
+    '''
     header = nlmsg_header
 
 
 class genlmsg(nlmsg):
+    '''
+    Generic netlink message
+    '''
     fmt = 'BBH'
     fields = ('cmd',
               'version',
@@ -343,12 +394,19 @@ class genlmsg(nlmsg):
 
 
 class ctrlmsg(genlmsg):
+    '''
+    Netlink control message
+    '''
+    # FIXME: to be extended
     nla_map = (('CTRL_ATTR_UNSPEC', 'none'),
                ('CTRL_ATTR_FAMILY_ID', 'uint16'),
                ('CTRL_ATTR_FAMILY_NAME', 'asciiz'))
 
 
 class marshal(object):
+    '''
+    Generic marshalling class
+    '''
 
     msg_map = {}
 
@@ -360,7 +418,7 @@ class marshal(object):
         self.buf = None
         self.msg_map = self.msg_map or {}
 
-    def set_buffer(self, init=b""):
+    def set_buffer(self, init=b''):
         self.buf = io.BytesIO()
         self.buf.write(init)
         self.buf.seek(0)
@@ -374,7 +432,7 @@ class marshal(object):
 
             while offset < total:
                 # pick type and length
-                (length, msg_type) = struct.unpack("IH", self.buf.read(6))
+                (length, msg_type) = struct.unpack('IH', self.buf.read(6))
                 self.buf.seek(offset)
                 msg_class = self.msg_map.get(msg_type, nlmsg)
                 msg = msg_class(self.buf)
@@ -390,6 +448,9 @@ class marshal(object):
 
 
 class nlsocket(socket.socket):
+    '''
+    Generic netlink socket
+    '''
 
     def __init__(self, family=NETLINK_GENERIC):
         socket.socket.__init__(self, socket.AF_NETLINK,

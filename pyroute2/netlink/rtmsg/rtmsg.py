@@ -4,7 +4,7 @@ from pyroute2.netlink.generic import nla
 
 
 class rtmsg(nlmsg):
-    """
+    '''
     Routing update message
 
     struct rtmsg {
@@ -20,18 +20,18 @@ class rtmsg(nlmsg):
 
         unsigned int  rtm_flags;
     };
-    """
-    fmt = "BBBBBBBBI"
+    '''
+    fmt = 'BBBBBBBBI'
 
-    fields = ("family",
-              "dst_len",
-              "src_len",
-              "tos",
-              "table",
-              "proto",
-              "scope",
-              "type",
-              "flags")
+    fields = ('family',
+              'dst_len',
+              'src_len',
+              'tos',
+              'table',
+              'proto',
+              'scope',
+              'type',
+              'flags')
 
     nla_map = (('RTA_UNSPEC', 'none'),
                ('RTA_DST', 'ipaddr'),
@@ -51,7 +51,7 @@ class rtmsg(nlmsg):
                ('RTA_TABLE', 'uint32'))
 
     class cacheinfo(nla):
-        fmt = "IIiIIIII"
+        fmt = 'IIiIIIII'
         fields = ('rta_clntref',
                   'rta_lastuse',
                   'rta_expires',

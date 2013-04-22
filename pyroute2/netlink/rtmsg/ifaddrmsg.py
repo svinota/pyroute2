@@ -13,7 +13,7 @@ from pyroute2.netlink.generic import nla
 
 
 class ifaddrmsg(nlmsg):
-    """
+    '''
     IP address information
 
     struct ifaddrmsg {
@@ -24,7 +24,7 @@ class ifaddrmsg(nlmsg):
        int           ifa_index;     /* Interface index */
     };
 
-    """
+    '''
     fmt = 'BBBBI'
     fields = ('family',
               'prefixlen',
@@ -42,7 +42,7 @@ class ifaddrmsg(nlmsg):
                ('IFA_MULTICAST', 'ipaddr'))
 
     class cacheinfo(nla):
-        fmt = "I" * 4
+        fmt = 'I' * 4
         fields = ('ifa_prefered',
                   'ifa_valid',
                   'cstamp',

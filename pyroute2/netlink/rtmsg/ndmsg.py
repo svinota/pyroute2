@@ -4,7 +4,7 @@ from pyroute2.netlink.generic import nla
 
 
 class ndmsg(nlmsg):
-    """
+    '''
     ARP cache update message
 
     struct ndmsg {
@@ -22,14 +22,14 @@ class ndmsg(nlmsg):
         __u32         ndm_updated;
         __u32         ndm_refcnt;
     };
-    """
-    fmt = "BiHBB"
+    '''
+    fmt = 'BiHBB'
 
-    fields = ("family",
-              "ifindex",
-              "state",
-              "flags",
-              "ndm_type")
+    fields = ('family',
+              'ifindex',
+              'state',
+              'flags',
+              'ndm_type')
 
     # Please note, that nla_map creates implicit
     # enumeration. In this case it will be:
@@ -47,7 +47,7 @@ class ndmsg(nlmsg):
                ('NDA_PROBES', 'uint32'))
 
     class cacheinfo(nla):
-        fmt = "I" * 4
+        fmt = 'I' * 4
         fields = ('ndm_confirmed',
                   'ndm_used',
                   'ndm_updated',
