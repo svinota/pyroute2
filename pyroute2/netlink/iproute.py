@@ -118,4 +118,4 @@ class iproute(netlink):
         msg['table'] = table
         routes = self.nlm_request(msg, RTM_GETROUTE)
         return [i for i in routes if
-               [k for k in i['attrs'] if k[0] == 'dst']]
+               [k for k in i['attrs'] if k[0] == 'RTA_DST']]
