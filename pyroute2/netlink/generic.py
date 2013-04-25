@@ -122,6 +122,7 @@ class nlmsg_base(dict):
         self.offset = 0
         self['attrs'] = []
         self['value'] = NotInitialized
+        self.value = NotInitialized
         if self.header is not None:
             self['header'] = self.header(self.buf)
         self.register_fields()
@@ -185,12 +186,23 @@ class nlmsg_base(dict):
             self['header'].encode()
             self.buf.seek(save)
 
+    def setvalue(self, value):
+        if type(value) is dict:
+            self.update(value)
+        else:
+            self['value'] = value
+            self.value = value
+
     def getvalue(self):
         '''
         Atomic NLAs return their value in the 'value' field,
         not as a dictionary. Complex NLAs return whole dictionary.
         '''
-        if 'value' in self:
+        if self.value != NotInitialized:
+            # value decoded by custom decoder
+            return self.value
+        elif 'value' in self:
+            # raw value got by generic decoder
             return self['value']
         else:
             return self
@@ -314,7 +326,7 @@ class nlmsg_atoms(nlmsg_base):
         '''
         def decode(self):
             nla_base.decode(self)
-            self['value'] = None
+            self.value = None
 
     class uint8(nla_base):
         fmt = '=B'
