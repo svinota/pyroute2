@@ -77,6 +77,46 @@ RTM_GETNEIGHTBL = 66
 RTM_SETNEIGHTBL = 67
 (RTM_NAMES, RTM_VALUES) = map_namespace('RTM', globals())
 
+rtypes = {'RTN_UNSPEC': 0,
+          'RTN_UNICAST': 1,      # Gateway or direct route
+          'RTN_LOCAL': 2,        # Accept locally
+          'RTN_BROADCAST': 3,    # Accept locally as broadcast
+                                 # send as broadcast
+          'RTN_ANYCAST': 4,      # Accept locally as broadcast,
+                                 # but send as unicast
+          'RTN_MULTICAST': 5,    # Multicast route
+          'RTN_BLACKHOLE': 6,    # Drop
+          'RTN_UNREACHABLE': 7,  # Destination is unreachable
+          'RTN_PROHIBIT': 8,     # Administratively prohibited
+          'RTN_THROW': 9,        # Not in this table
+          'RTN_NAT': 10,         # Translate this address
+          'RTN_XRESOLVE': 11}    # Use external resolver
+
+rtprotos = {'RTPROT_UNSPEC': 0,
+            'RTPROT_REDIRECT': 1,  # Route installed by ICMP redirects;
+                                   # not used by current IPv4
+            'RTPROT_KERNEL': 2,    # Route installed by kernel
+            'RTPROT_BOOT': 3,      # Route installed during boot
+            'RTPROT_STATIC': 4,    # Route installed by administrator
+            # Values of protocol >= RTPROT_STATIC are not
+            # interpreted by kernel;
+            # keep in sync with iproute2 !
+            'RTPROT_GATED': 8,      # gated
+            'RTPROT_RA': 9,         # RDISC/ND router advertisements
+            'RTPROT_MRT': 10,       # Merit MRT
+            'RTPROT_ZEBRA': 11,     # Zebra
+            'RTPROT_BIRD': 12,      # BIRD
+            'RTPROT_DNROUTED': 13,  # DECnet routing daemon
+            'RTPROT_XORP': 14,      # XORP
+            'RTPROT_NTK': 15,       # Netsukuku
+            'RTPROT_DHCP': 16}      # DHCP client
+
+rtscopes = {'RT_SCOPE_UNIVERSE': 0,
+            'RT_SCOPE_SITE': 200,
+            'RT_SCOPE_LINK': 253,
+            'RT_SCOPE_HOST': 254,
+            'RT_SCOPE_NOWHERE': 255}
+
 
 class marshal_rtnl(marshal):
     msg_map = {RTM_NEWLINK: ifinfmsg,
@@ -105,16 +145,99 @@ class iproute(netlink):
         RTNLGRP_NEIGH |\
         RTNLGRP_LINK
 
+    # 8<---------------------------------------------------------------
+    # listing methods
+    #
     def get_all_links(self, family=AF_UNSPEC):
+        '''
+        Get all network interfaces sepcifications.
+        '''
         msg = ifinfmsg()
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETLINK)
 
     def get_all_neighbors(self, family=AF_UNSPEC):
+        '''
+        Retrieve ARP cache records.
+        '''
         msg = ndmsg()
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETNEIGH)
 
+    def get_all_addr(self, family=AF_UNSPEC):
+        '''
+        Get all addresses.
+        '''
+        msg = ifaddrmsg()
+        msg['family'] = family
+        return self.nlm_request(msg, RTM_GETADDR)
+
+    def get_all_routes(self, family=AF_UNSPEC, table=-1):
+        '''
+        Get all routes. You can specify the table. There
+        are 255 routing classes (tables), and the kernel
+        returns all the routes on each request. So the
+        routine filters routes from full output. By default,
+        table == -1, which means that one should get all
+        tables.
+        '''
+        # moreover, the kernel returns records without
+        # RTA_DST, which I don't know how to interpret :)
+
+        msg = rtmsg()
+        msg['family'] = family
+        # msg['table'] = table  # you can specify the table
+                                # here, but the kernel will
+                                # ignore this setting
+        routes = self.nlm_request(msg, RTM_GETROUTE)
+        return [k for k in [i for i in routes if 'attrs' in i]
+                if [l for l in k['attrs'] if l[0] == 'RTA_DST'] and
+                (k['table'] == table or table == -1)]
+    # 8<---------------------------------------------------------------
+
+    # 8<---------------------------------------------------------------
+    # add/delete methods
+    #
+    def add_addr(self, interface, address, mask=24, family=AF_INET):
+        '''
+        Add an address to an interface.
+        '''
+        return self._del_add_addr(interface, address, mask, family,
+                                  operation=RTM_NEWADDR)
+
+    def del_addr(self, interface, address, mask=24, family=AF_INET):
+        '''
+        Remove an address from an interface.
+        '''
+        return self._del_add_addr(interface, address, mask, family,
+                                  operation=RTM_DELADDR)
+
+    def add_route(self, prefix, mask, table=254, rtype='RTN_UNICAST',
+                  rtproto='RTPROT_STATIC', rtscope='RT_SCOPE_UNIVERSE',
+                  interface=None, gateway=None,
+                  family=AF_INET):
+        '''
+        Create a route.
+        '''
+        return self._del_add_route(prefix, mask, table, rtype, rtproto,
+                                   rtscope, interface, gateway, family,
+                                   operation=RTM_NEWROUTE)
+
+    def del_route(self, prefix, mask, table=254, rtype='RTN_UNICAST',
+                  rtproto='RTPROT_STATIC', rtscope='RT_SCOPE_UNIVERSE',
+                  interface=None, gateway=None,
+                  family=AF_INET):
+        '''
+        Delete a route.
+        '''
+        return self._del_add_route(prefix, mask, table, rtype, rtproto,
+                                   rtscope, interface, gateway, family,
+                                   operation=RTM_DELROUTE)
+    # 8<---------------------------------------------------------------
+
+    # 8<---------------------------------------------------------------
+    # private methods
+    #
     def _del_add_addr(self, interface, address, mask=24, family=AF_INET,
                       operation=RTM_NEWADDR):
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
@@ -130,23 +253,27 @@ class iproute(netlink):
             msg['attrs'] = (('IFA_ADDRESS', address), )
         return self.nlm_request(msg, msg_type=operation, msg_flags=flags)
 
-    def add_addr(self, interface, address, mask=24, family=AF_INET):
-        return self._del_add_addr(interface, address, mask, family,
-                                  operation=RTM_NEWADDR)
-    
-    def del_addr(self, interface, address, mask=24, family=AF_INET):
-        return self._del_add_addr(interface, address, mask, family,
-                                  operation=RTM_DELADDR)
+    def _del_add_route(self, prefix, mask,
+                       table=254, rtype='RTN_UNICAST',
+                       rtproto='RTPROT_STATIC', rtscope='RT_SCOPE_UNIVERSE',
+                       interface=None, gateway=None,
+                       family=AF_INET, operation=RTM_NEWROUTE):
 
-    def get_all_addr(self, family=AF_UNSPEC):
-        msg = ifaddrmsg()
-        msg['family'] = family
-        return self.nlm_request(msg, RTM_GETADDR)
-
-    def get_all_routes(self, family=AF_UNSPEC, table=254):
+        flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = rtmsg()
-        msg['family'] = family
         msg['table'] = table
-        routes = self.nlm_request(msg, RTM_GETROUTE)
-        return [i for i in routes if
-               [k for k in i['attrs'] if k[0] == 'RTA_DST']]
+        msg['family'] = family
+        msg['proto'] = rtprotos[rtproto]
+        msg['type'] = rtypes[rtype]
+        msg['scope'] = rtscopes[rtscope]
+        msg['dst_len'] = mask
+        msg['attrs'] = [('RTA_DST', prefix),
+                        ('RTA_TABLE', table)]
+        if interface is not None:
+            msg['attrs'].append(('RTA_OIF', interface))
+        if gateway is not None:
+            msg['attrs'].append(('RTA_GATEWAY', gateway))
+
+        return self.nlm_request(msg, msg_type=operation,
+                                msg_flags=flags)
+    # 8<---------------------------------------------------------------
