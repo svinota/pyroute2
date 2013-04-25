@@ -96,7 +96,7 @@ class nlmsg_base(dict):
                    ('NDA_LLADDR', 'l2addr'),
                    ('NDA_CACHEINFO', 'cacheinfo'),
                    ('NDA_PROBES', 'uint32'))
-    
+
     Please note, that 'nla_map' creates implied enumeration from
     its fields. In the example above NDA_UNSPEC == 0 and
     NDA_PROBES == 4. These numbers will be used as uint16 'type'
@@ -239,7 +239,7 @@ class nlmsg_base(dict):
         # that's a little bit tricky, but to reduce
         # the required amount of code in modules, we have
         # to jump over the head
-        zipped = [(i[1][0], i[0][0], i[0][1]) for i in
+        zipped = [(k[1][0], k[0][0], k[0][1]) for k in
                   zip(self.nla_map, types)]
 
         for (key, name, nla_class) in zipped:
@@ -343,7 +343,7 @@ class nlmsg_atoms(nlmsg_base):
         the family. Socket library currently supports only two
         families, AF_INET and AF_INET6.
 
-        We do not specify here the string size, it will be 
+        We do not specify here the string size, it will be
         calculated in runtime.
         '''
         fmt = 's'
@@ -363,7 +363,7 @@ class nlmsg_atoms(nlmsg_base):
         fmt = '=6s'
 
         def encode(self):
-            self['value'] = ''.join((chr(int(i,16)) for i in
+            self['value'] = ''.join((chr(int(i, 16)) for i in
                                      self.value.split(':')))
             nla_base.encode(self)
 
