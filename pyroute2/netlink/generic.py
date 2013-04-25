@@ -151,6 +151,8 @@ class nlmsg_base(dict):
         size = struct.calcsize(self.fmt)
         self.update(dict(zip(self.fields,
                          struct.unpack(self.fmt, self.buf.read(size)))))
+        # align NLA chain start
+        self.buf.seek(NLMSG_ALIGN(self.buf.tell()))
         # read NLA chain
         self.decode_nlas()
         if len(self['attrs']) == 0:
