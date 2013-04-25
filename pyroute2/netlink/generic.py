@@ -244,9 +244,9 @@ class nlmsg_base(dict):
                 msg_type = self.r_nla_map[i[0]][1]
                 try:
                     # encode NLA
-                    nla = msg_class(self.buf)
+                    nla = msg_class(self.buf, parent=self)
                     nla['header']['type'] = msg_type
-                    nla['value'] = i[1]
+                    nla.setvalue(i[1])
                     nla.encode()
                 except:
                     # FIXME
