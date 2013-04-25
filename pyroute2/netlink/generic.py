@@ -348,10 +348,13 @@ class nlmsg_atoms(nlmsg_base):
         '''
         fmt = 's'
 
+        def encode(self):
+            self['value'] = socket.inet_pton(self.parent['family'], self.value)
+            nla_base.encode(self)
+
         def decode(self):
             nla_base.decode(self)
-            self['value'] = socket.inet_ntop(self.parent['family'],
-                                             self['value'])
+            self.value = socket.inet_ntop(self.parent['family'], self['value'])
 
     class l2addr(nla_base):
         '''
@@ -359,9 +362,14 @@ class nlmsg_atoms(nlmsg_base):
         '''
         fmt = '=6s'
 
+        def encode(self):
+            self['value'] = ''.join((chr(int(i,16)) for i in
+                                     self.value.split(':')))
+            nla_base.encode(self)
+
         def decode(self):
             nla_base.decode(self)
-            self['value'] = ':'.join('%02x' % (ord(i)) for i in self['value'])
+            self.value = ':'.join('%02x' % (ord(i)) for i in self['value'])
 
     class hex(nla_base):
         '''
@@ -371,7 +379,7 @@ class nlmsg_atoms(nlmsg_base):
 
         def decode(self):
             nla_base.decode(self)
-            self['value'] = hexdump(self['value'])
+            self.value = hexdump(self['value'])
 
     class asciiz(nla_base):
         '''
