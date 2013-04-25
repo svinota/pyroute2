@@ -1,6 +1,12 @@
 
+from socket import AF_INET
+from socket import AF_INET6
 from socket import AF_UNSPEC
 from pyroute2.netlink import netlink
+from pyroute2.netlink import NLM_F_REQUEST
+from pyroute2.netlink import NLM_F_ACK
+from pyroute2.netlink import NLM_F_CREATE
+from pyroute2.netlink import NLM_F_EXCL
 from pyroute2.netlink.generic import NETLINK_ROUTE
 from pyroute2.netlink.generic import marshal
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
@@ -87,6 +93,8 @@ class marshal_rtnl(marshal):
             msg['event'] = RTM_VALUES[msg['header']['type']]
         except:
             pass
+
+
 class iproute(netlink):
     marshal = marshal_rtnl
     family = NETLINK_ROUTE
@@ -106,6 +114,29 @@ class iproute(netlink):
         msg = ndmsg()
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETNEIGH)
+
+    def _del_add_addr(self, interface, address, mask=24, family=AF_INET,
+                      operation=RTM_NEWADDR):
+        flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        msg = ifaddrmsg()
+        msg['index'] = interface
+        msg['family'] = family
+        msg['prefixlen'] = mask
+        msg['scope'] = 0xfe
+        if family == AF_INET:
+            msg['attrs'] = (('IFA_LOCAL', address),
+                            ('IFA_ADDRESS', address))
+        elif family == AF_INET6:
+            msg['attrs'] = (('IFA_ADDRESS', address), )
+        return self.nlm_request(msg, msg_type=operation, msg_flags=flags)
+
+    def add_addr(self, interface, address, mask=24, family=AF_INET):
+        return self._del_add_addr(interface, address, mask, family,
+                                  operation=RTM_NEWADDR)
+    
+    def del_addr(self, interface, address, mask=24, family=AF_INET):
+        return self._del_add_addr(interface, address, mask, family,
+                                  operation=RTM_DELADDR)
 
     def get_all_addr(self, family=AF_UNSPEC):
         msg = ifaddrmsg()
