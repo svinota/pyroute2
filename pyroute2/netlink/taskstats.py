@@ -1,10 +1,10 @@
 
 from pyroute2.netlink import netlink
 from pyroute2.netlink import NLM_F_REQUEST
+from pyroute2.netlink import marshal
 from pyroute2.netlink.generic import nla
 from pyroute2.netlink.generic import genlmsg
 from pyroute2.netlink.generic import ctrlmsg
-from pyroute2.netlink.generic import marshal as mrsh
 
 TASKSTATS_CMD_UNSPEC = 0      # Reserved
 TASKSTATS_CMD_GET = 1         # user->kernel request/get-response
@@ -150,7 +150,7 @@ class taskstatsmsg(genlmsg):
 
 class taskstats(netlink):
 
-    marshal = mrsh
+    marshal = marshal
 
     def __init__(self):
         netlink.__init__(self)

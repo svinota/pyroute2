@@ -1,13 +1,14 @@
 import threading
 import select
+import struct
+import socket
 import Queue
 import os
 import io
 
-from pyroute2.netlink.generic import nlsocket
+from pyroute2.netlink.generic import cmdmsg
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import NETLINK_GENERIC
-from pyroute2.netlink.generic import marshal as mrsh
 
 
 ## Netlink message flags values (nlmsghdr.flags)
@@ -40,16 +41,86 @@ IPRCMD_UNREGISTER = 3
 IPRCMD_STOP = 4
 
 
-class cmdmsg(nlmsg):
-    fmt = 'HHH'
-    fields = ('command', 'v1', 'v2')
+class netlink_error(socket.error):
+    def __init__(self, code, msg=None):
+        msg = msg or os.strerror(code)
+        super(netlink_error, self).__init__(code, msg)
+        self.code = code
+
+
+class marshal(object):
+    '''
+    Generic marshalling class
+    '''
+
+    msg_map = {}
+
+    def __init__(self, sock=None):
+        self.sock = sock
+        self.lock = threading.Lock()
+        # one marshal instance can be used to parse one
+        # message at once
+        self.buf = None
+        self.msg_map = self.msg_map or {}
+
+    def set_buffer(self, init=b''):
+        self.buf = io.BytesIO()
+        self.buf.write(init)
+        self.buf.seek(0)
+        return len(init)
+
+    def recv(self):
+        with self.lock:
+            total = self.set_buffer(self.sock.recv(16384))
+            offset = 0
+            result = []
+
+            while offset < total:
+                # pick type and length
+                (length, msg_type) = struct.unpack('IH', self.buf.read(6))
+                error = None
+                if msg_type == NLMSG_ERROR:
+                    self.buf.seek(16)
+                    code = abs(struct.unpack('i', self.buf.read(4))[0])
+                    if code > 0:
+                        error = netlink_error(code)
+
+                self.buf.seek(offset)
+                msg_class = self.msg_map.get(msg_type, nlmsg)
+                msg = msg_class(self.buf)
+                msg.decode()
+                msg['header']['error'] = error
+                self.fix_message(msg)
+                offset += msg.length
+                result.append(msg)
+
+            return result
+
+    def fix_message(self, msg):
+        pass
+
+
+class netlink_socket(socket.socket):
+    '''
+    Generic netlink socket
+    '''
+
+    def __init__(self, family=NETLINK_GENERIC):
+        socket.socket.__init__(self, socket.AF_NETLINK,
+                               socket.SOCK_DGRAM, family)
+        self.pid = os.getpid()
+        self.groups = None
+
+    def bind(self, groups=0):
+        self.groups = groups
+        socket.socket.bind(self, (self.pid, self.groups))
 
 
 class netlink_io(threading.Thread):
     def __init__(self, marshal, family, groups):
         threading.Thread.__init__(self)
         self.setDaemon(True)
-        self.socket = nlsocket(family)
+        self.socket = netlink_socket(family)
         self.socket.bind(groups)
         self.marshal = marshal(self.socket)
         self.listeners = {}
@@ -96,7 +167,7 @@ class netlink(object):
 
     family = NETLINK_GENERIC
     groups = 0
-    marshal = mrsh
+    marshal = marshal
 
     def __init__(self, debug=False):
         self.io_thread = netlink_io(self.marshal, self.family, self.groups)
@@ -137,6 +208,8 @@ class netlink(object):
         result = []
         while True:
             msg = self.listeners[key].get()
+            if msg['header']['error'] is not None:
+                raise msg['header']['error']
             if msg['header']['type'] != NLMSG_DONE:
                 result.append(msg)
             if (msg['header']['type'] == NLMSG_DONE) or \

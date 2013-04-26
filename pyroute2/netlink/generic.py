@@ -1,8 +1,6 @@
 
 import socket
 import struct
-import threading
-import os
 import io
 
 from pyroute2.common import hexdump
@@ -425,61 +423,6 @@ class ctrlmsg(genlmsg):
                ('CTRL_ATTR_FAMILY_NAME', 'asciiz'))
 
 
-class marshal(object):
-    '''
-    Generic marshalling class
-    '''
-
-    msg_map = {}
-
-    def __init__(self, sock=None):
-        self.sock = sock
-        self.lock = threading.Lock()
-        # one marshal instance can be used to parse one
-        # message at once
-        self.buf = None
-        self.msg_map = self.msg_map or {}
-
-    def set_buffer(self, init=b''):
-        self.buf = io.BytesIO()
-        self.buf.write(init)
-        self.buf.seek(0)
-        return len(init)
-
-    def recv(self):
-        with self.lock:
-            total = self.set_buffer(self.sock.recv(16384))
-            offset = 0
-            result = []
-
-            while offset < total:
-                # pick type and length
-                (length, msg_type) = struct.unpack('IH', self.buf.read(6))
-                self.buf.seek(offset)
-                msg_class = self.msg_map.get(msg_type, nlmsg)
-                msg = msg_class(self.buf)
-                msg.decode()
-                self.fix_message(msg)
-                offset += msg.length
-                result.append(msg)
-
-            return result
-
-    def fix_message(self, msg):
-        pass
-
-
-class nlsocket(socket.socket):
-    '''
-    Generic netlink socket
-    '''
-
-    def __init__(self, family=NETLINK_GENERIC):
-        socket.socket.__init__(self, socket.AF_NETLINK,
-                               socket.SOCK_DGRAM, family)
-        self.pid = os.getpid()
-        self.groups = None
-
-    def bind(self, groups=0):
-        self.groups = groups
-        socket.socket.bind(self, (self.pid, self.groups))
+class cmdmsg(nlmsg):
+    fmt = 'HHH'
+    fields = ('command', 'v1', 'v2')
