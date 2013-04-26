@@ -17,4 +17,15 @@ Example usage::
 
     from pyroute2 import iproute
     ip = iproute()
-    links = ip.get_links()
+        # lookup interface by name
+    dev = ip.link_lookup(ifname='eth0')[0]
+        # bring it down
+    ip.link('set', dev, state='down')
+        # change interface MAC address and rename it
+    ip.link('set', dev, address='00:11:22:33:44:55', ifname='bala')
+        # add primary IP address
+    ip.addr('add', dev, address='10.0.0.1', mask=24)
+        # add secondary IP address
+    ip.addr('add', dev, address='10.0.0.2', mask=24)
+        # bring it up
+    ip.link('set', dev, state='up')
