@@ -5,6 +5,7 @@ from socket import AF_UNSPEC
 from pyroute2.netlink import netlink
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_ACK
+from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NLM_F_EXCL
 from pyroute2.netlink.generic import NETLINK_ROUTE
@@ -81,9 +82,9 @@ rtypes = {'RTN_UNSPEC': 0,
           'RTN_UNICAST': 1,      # Gateway or direct route
           'RTN_LOCAL': 2,        # Accept locally
           'RTN_BROADCAST': 3,    # Accept locally as broadcast
-                                 # send as broadcast
+          #                        send as broadcast
           'RTN_ANYCAST': 4,      # Accept locally as broadcast,
-                                 # but send as unicast
+          #                        but send as unicast
           'RTN_MULTICAST': 5,    # Multicast route
           'RTN_BLACKHOLE': 6,    # Drop
           'RTN_UNREACHABLE': 7,  # Destination is unreachable
@@ -94,7 +95,7 @@ rtypes = {'RTN_UNSPEC': 0,
 
 rtprotos = {'RTPROT_UNSPEC': 0,
             'RTPROT_REDIRECT': 1,  # Route installed by ICMP redirects;
-                                   # not used by current IPv4
+            #                        not used by current IPv4
             'RTPROT_KERNEL': 2,    # Route installed by kernel
             'RTPROT_BOOT': 3,      # Route installed during boot
             'RTPROT_STATIC': 4,    # Route installed by administrator
@@ -146,17 +147,28 @@ class iproute(netlink):
         RTNLGRP_LINK
 
     # 8<---------------------------------------------------------------
-    # listing methods
     #
-    def get_all_links(self, family=AF_UNSPEC):
+    # Listing methods
+    #
+    def get_links(self, links=None, family=AF_UNSPEC):
         '''
-        Get all network interfaces sepcifications.
+        Get network interfaces sepcifications.
         '''
-        msg = ifinfmsg()
-        msg['family'] = family
-        return self.nlm_request(msg, RTM_GETLINK)
+        result = []
+        links = links or ['all']
+        msg_flags = NLM_F_REQUEST | NLM_F_DUMP
+        if type(links) not in (list, tuple, set):
+            links = [links]
+        for index in links:
+            msg = ifinfmsg()
+            msg['family'] = family
+            if index != 'all':
+                msg['index'] = index
+                msg_flags = NLM_F_REQUEST
+            result.extend(self.nlm_request(msg, RTM_GETLINK, msg_flags))
+        return result
 
-    def get_all_neighbors(self, family=AF_UNSPEC):
+    def get_neighbors(self, family=AF_UNSPEC):
         '''
         Retrieve ARP cache records.
         '''
@@ -164,7 +176,7 @@ class iproute(netlink):
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETNEIGH)
 
-    def get_all_addr(self, family=AF_UNSPEC):
+    def get_addr(self, family=AF_UNSPEC):
         '''
         Get all addresses.
         '''
@@ -172,7 +184,7 @@ class iproute(netlink):
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETADDR)
 
-    def get_all_routes(self, family=AF_UNSPEC, table=-1):
+    def get_routes(self, family=AF_UNSPEC, table=-1):
         '''
         Get all routes. You can specify the table. There
         are 255 routing classes (tables), and the kernel
@@ -196,75 +208,150 @@ class iproute(netlink):
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
-    # add/delete "shortcuts"
+    #
+    # Shortcuts
     #
     def addr_add(self, *argv, **kwarg):
         '''
-        Add an address to an interface.
+        Add an address to an interface
         '''
-        return self.addr("add", *argv, **kwarg)
+        return self.addr('add', *argv, **kwarg)
 
     def addr_del(self, *argv, **kwarg):
         '''
-        Remove an address from an interface.
+        Remove an address from an interface
         '''
-        return self.addr("delete", *argv, **kwarg)
+        return self.addr('delete', *argv, **kwarg)
 
     def route_add(self, *argv, **kwarg):
         '''
-        Create a route.
+        Create a route
         '''
-        return self.route("add", *argv, **kwarg)
+        return self.route('add', *argv, **kwarg)
 
     def route_del(self, *argv, **kwarg):
         '''
-        Delete a route.
+        Delete a route
         '''
-        return self.route("delete", *argv, **kwarg)
+        return self.route('delete', *argv, **kwarg)
+
+    def link_up(self, dev):
+        '''
+        Switch an interface up
+        '''
+        self.link('set', dev, state='up')
+
+    def link_down(self, dev):
+        '''
+        Switch an interface down
+        '''
+        self.link('set', dev, state='down')
+
+    def link_rename(self, dev, name):
+        '''
+        Rename an interface
+        '''
+        self.link('set', dev, state='down')
+        self.link('set', dev, ifname=name)
+        self.link('set', dev, state='up')
+
+    def link_remove(self, dev):
+        '''
+        Remove an interface
+        '''
+        self.link('delete', dev)
+
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
-    # general add/delete methods
     #
-    def link(self, action, interface, flags=None, change=None,
-             address=None, broadcast=None, mtu=None, name=None):
+    # General low-level configuration methods
+    #
+    def link(self, action, interface, **kwarg):
         '''
-        Debug routine
+        Link operations.
+
+        * action -- set, add or delete
+        * interface -- device index
+        * **kwarg -- keywords, NLA
+
+        Example:
+
+        dev = 62  # interface index
+        ip.link("set", dev, state="down")
+        ip.link("set", dev, address="00:11:22:33:44:55", name="bala")
+        ip.link("set", dev, mtu=1000, txqlen=2000)
+        ip.link("set", dev, state="up")
+
+        Keywords "state", "flags" and "mask" are reserved. State can
+        be "up" or "down", it is a shortcut:
+
+        state="up":   flags=1, mask=1
+        state="down": flags=0, mask=0
+
+        For more flags grep IFF_ in the kernel code, until we write
+        human-readable flag resolver.
+
+        Other keywords are from ifinfmsg.nla_map, look into the
+        corresponding module. You can use the form "ifname" as well
+        as "IFLA_IFNAME" and so on, so that's equal:
+
+        ip.link("set", dev, mtu=1000)
+        ip.link("set", dev, IFLA_MTU=1000)
+
+        You can also delete interface with:
+
+        ip.link("delete", dev)
         '''
 
-        actions = {"set": RTM_SETLINK,
-                   "add": RTM_NEWLINK,
-                   "delete": RTM_DELLINK}
+        actions = {'set': RTM_SETLINK,      # almost all operations
+                   'add': RTM_NEWLINK,      # no idea, how to use it :)
+                   'delete': RTM_DELLINK}   # remove interface
         action = actions.get(action, action)
 
         msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = ifinfmsg()
         msg['index'] = interface
-        if flags:
-            msg['flags'] = flags
 
-        if change:
-            msg['change'] = change
+        flags = kwarg.pop('flags', 0)
+        mask = kwarg.pop('mask', 0)
 
-        if address:
-            msg['attrs'].append(('IFLA_ADDRESS', address))
+        if 'state' in kwarg:
+            mask = 1                  # IFF_UP mask
+            if kwarg['state'].lower() == 'up':
+                flags = 1             # 0 (down) or 1 (up)
+            del kwarg['state']
 
-        if broadcast:
-            msg['attrs'].append(('IFLA_BROADCAST', broadcast))
+        msg['flags'] = flags
+        msg['change'] = mask
 
-        if mtu:
-            msg['attrs'].append(('IFLA_MTU', mtu))
-
-        if name:
-            msg['attrs'].append(('IFLA_IFNAME', name))
+        for key in kwarg:
+            nla = key.upper()
+            if not nla.startswith('IFLA_'):
+                nla = 'IFLA_%s' % (nla)
+            msg['attrs'].append((nla, kwarg[key]))
 
         return self.nlm_request(msg, msg_type=action, msg_flags=msg_flags)
 
-    def addr(self, action, interface, address, mask=24,
-                      family=AF_INET):
+    def addr(self, action, interface, address, mask=24, family=AF_INET):
+        '''
+        Address operations
 
-        actions = {"add": RTM_NEWADDR,
-                   "delete": RTM_DELADDR}
+        * action -- add, delete
+        * interface -- device index
+        * address -- IPv4 or IPv6 address
+        * mask -- address mask
+        * family -- socket.AF_INET for IPv4 or socket.AF_INET6 for IPv6
+
+        Example:
+
+        dev = 62
+        ip.addr("add", dev, address="10.0.0.1", mask=24)
+        ip.addr("add", dev, address="10.0.0.2", mask=24)
+        '''
+
+        actions = {'add': RTM_NEWADDR,
+                   'delete': RTM_DELADDR}
         action = actions.get(action, action)
 
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
@@ -280,13 +367,31 @@ class iproute(netlink):
             msg['attrs'] = (('IFA_ADDRESS', address), )
         return self.nlm_request(msg, msg_type=action, msg_flags=flags)
 
-    def route(self, action, prefix, mask,table=254,
-                       rtype='RTN_UNICAST', rtproto='RTPROT_STATIC',
-                       rtscope='RT_SCOPE_UNIVERSE', interface=None,
-                       gateway=None, family=AF_INET):
+    def route(self, action, prefix, mask, table=254,
+              rtype='RTN_UNICAST', rtproto='RTPROT_STATIC',
+              rtscope='RT_SCOPE_UNIVERSE', interface=None,
+              gateway=None, family=AF_INET):
+        '''
+        Route operations
 
-        actions = {"add": RTM_NEWROUTE,
-                   "delete": RTM_DELROUTE}
+        * action -- add, delete
+        * prefix -- route prefix
+        * mask -- route prefix mask
+        * table -- routing table to use (default: 254)
+        * rtype -- route type (default: "RTN_UNICAST")
+        * rtproto -- routing protocol (default: "RTPROT_STATIC")
+        * rtscope -- routing scope (default: "RT_SCOPE_UNIVERSE")
+        * interface -- via device
+        * gateway -- via address
+        * family -- socket.AF_INET (default) or socket.AF_INET6
+
+        Example:
+
+        ip.route("add", prefix="10.0.0.0", mask=24, gateway="192.168.0.1")
+        '''
+
+        actions = {'add': RTM_NEWROUTE,
+                   'delete': RTM_DELROUTE}
         action = actions.get(action, action)
 
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL

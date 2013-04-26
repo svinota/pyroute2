@@ -108,7 +108,7 @@ class nlmsg_base(dict):
 
     fmt = ''                    # data format string, see struct
     fields = ('value', )        # data field names, to build a dictionary
-    t_fields = NotInitialized   #
+    t_fields = NotInitialized
     header = None               # optional header class
     nla_map = {}                # NLA mapping
 
