@@ -196,50 +196,77 @@ class iproute(netlink):
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
-    # add/delete methods
+    # add/delete "shortcuts"
     #
-    def add_addr(self, interface, address, mask=24, family=AF_INET):
+    def addr_add(self, *argv, **kwarg):
         '''
         Add an address to an interface.
         '''
-        return self._del_add_addr(interface, address, mask, family,
-                                  operation=RTM_NEWADDR)
+        return self.addr("add", *argv, **kwarg)
 
-    def del_addr(self, interface, address, mask=24, family=AF_INET):
+    def addr_del(self, *argv, **kwarg):
         '''
         Remove an address from an interface.
         '''
-        return self._del_add_addr(interface, address, mask, family,
-                                  operation=RTM_DELADDR)
+        return self.addr("delete", *argv, **kwarg)
 
-    def add_route(self, prefix, mask, table=254, rtype='RTN_UNICAST',
-                  rtproto='RTPROT_STATIC', rtscope='RT_SCOPE_UNIVERSE',
-                  interface=None, gateway=None,
-                  family=AF_INET):
+    def route_add(self, *argv, **kwarg):
         '''
         Create a route.
         '''
-        return self._del_add_route(prefix, mask, table, rtype, rtproto,
-                                   rtscope, interface, gateway, family,
-                                   operation=RTM_NEWROUTE)
+        return self.route("add", *argv, **kwarg)
 
-    def del_route(self, prefix, mask, table=254, rtype='RTN_UNICAST',
-                  rtproto='RTPROT_STATIC', rtscope='RT_SCOPE_UNIVERSE',
-                  interface=None, gateway=None,
-                  family=AF_INET):
+    def route_del(self, *argv, **kwarg):
         '''
         Delete a route.
         '''
-        return self._del_add_route(prefix, mask, table, rtype, rtproto,
-                                   rtscope, interface, gateway, family,
-                                   operation=RTM_DELROUTE)
+        return self.route("delete", *argv, **kwarg)
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
-    # private methods
+    # general add/delete methods
     #
-    def _del_add_addr(self, interface, address, mask=24, family=AF_INET,
-                      operation=RTM_NEWADDR):
+    def link(self, action, interface, flags=None, change=None,
+             address=None, broadcast=None, mtu=None, name=None):
+        '''
+        Debug routine
+        '''
+
+        actions = {"set": RTM_SETLINK,
+                   "add": RTM_NEWLINK,
+                   "delete": RTM_DELLINK}
+        action = actions.get(action, action)
+
+        msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        msg = ifinfmsg()
+        msg['index'] = interface
+        if flags:
+            msg['flags'] = flags
+
+        if change:
+            msg['change'] = change
+
+        if address:
+            msg['attrs'].append(('IFLA_ADDRESS', address))
+
+        if broadcast:
+            msg['attrs'].append(('IFLA_BROADCAST', broadcast))
+
+        if mtu:
+            msg['attrs'].append(('IFLA_MTU', mtu))
+
+        if name:
+            msg['attrs'].append(('IFLA_IFNAME', name))
+
+        return self.nlm_request(msg, msg_type=action, msg_flags=msg_flags)
+
+    def addr(self, action, interface, address, mask=24,
+                      family=AF_INET):
+
+        actions = {"add": RTM_NEWADDR,
+                   "delete": RTM_DELADDR}
+        action = actions.get(action, action)
+
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = ifaddrmsg()
         msg['index'] = interface
@@ -251,13 +278,16 @@ class iproute(netlink):
                             ('IFA_ADDRESS', address))
         elif family == AF_INET6:
             msg['attrs'] = (('IFA_ADDRESS', address), )
-        return self.nlm_request(msg, msg_type=operation, msg_flags=flags)
+        return self.nlm_request(msg, msg_type=action, msg_flags=flags)
 
-    def _del_add_route(self, prefix, mask,
-                       table=254, rtype='RTN_UNICAST',
-                       rtproto='RTPROT_STATIC', rtscope='RT_SCOPE_UNIVERSE',
-                       interface=None, gateway=None,
-                       family=AF_INET, operation=RTM_NEWROUTE):
+    def route(self, action, prefix, mask,table=254,
+                       rtype='RTN_UNICAST', rtproto='RTPROT_STATIC',
+                       rtscope='RT_SCOPE_UNIVERSE', interface=None,
+                       gateway=None, family=AF_INET):
+
+        actions = {"add": RTM_NEWROUTE,
+                   "delete": RTM_DELROUTE}
+        action = actions.get(action, action)
 
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = rtmsg()
@@ -274,6 +304,6 @@ class iproute(netlink):
         if gateway is not None:
             msg['attrs'].append(('RTA_GATEWAY', gateway))
 
-        return self.nlm_request(msg, msg_type=operation,
+        return self.nlm_request(msg, msg_type=action,
                                 msg_flags=flags)
     # 8<---------------------------------------------------------------

@@ -67,9 +67,13 @@ class ifinfmsg(nlmsg):
     class state(nla):
         fmt = '=B'
 
+        def encode(self):
+            self['value'] = state_by_name[self.value]
+            nla.encode(self)
+
         def decode(self):
             nla.decode(self)
-            self['value'] = state_by_code[self['value']]
+            self.value = state_by_code[self['value']]
 
     class ifstats(nla):
         fmt = 'I' * 23
