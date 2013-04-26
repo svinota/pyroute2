@@ -261,6 +261,60 @@ class iproute(netlink):
         '''
         self.link('delete', dev)
 
+    def link_names(self):
+        '''
+        Lookup all interface names. The routine returns a list of
+        tuples (index, name).
+        '''
+        return self.link_filter('IFLA_IFNAME')
+
+    def link_filter(self, name):
+        '''
+        Show some NLA values for all interfaces.
+
+        Example:
+
+        ip.link_filter("ifname")
+        ip.link_filter("address")
+
+        You can supply NLA name in both forms -- "IFLA_ADDRESS" and
+        "address" is the same.
+
+        Return format is a list of tuples (index, nla_value).
+        '''
+        name = name.upper()
+        if not name.startswith('IFLA_'):
+            name = 'IFLA_%s' % (name)
+
+        return [(l[0], ([m[1] for m in l[1] if m[0] == name] or [None])[0])
+                for l in [(k['index'], k['attrs'])
+                for k in [i for i in self.get_links() if 'attrs' in i]]]
+
+    def link_lookup(self, **kwarg):
+        '''
+        Lookup interface index (indeces) by first level NLA
+        value.
+
+        Example:
+
+        ip.link_lookup(address="52:54:00:9d:4e:3d")
+        ip.link_lookup(ifname="lo")
+        ip.link_lookup(operstate="UP")
+
+        Please note, that link_lookup() returns list, not one
+        value.
+        '''
+        name = kwarg.keys()[0]
+        value = kwarg[name]
+
+        name = str(name).upper()
+        if not name.startswith('IFLA_'):
+            name = 'IFLA_%s' % (name)
+
+        return [k['index'] for k in
+                [i for i in self.get_links() if 'attrs' in i] if
+                [l for l in k['attrs'] if l[0] == name and l[1] == value]]
+
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
