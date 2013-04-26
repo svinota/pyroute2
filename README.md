@@ -5,15 +5,17 @@ Python network configuration library
 
 PyRoute2 uses Netlink protocol to communicate with the Linux kernel
 and get all the information about network objects -- interfaces, routes,
-addresses, ARP cache entries and so on. You can also add and delete
-routes and addresses.
+addresses, ARP cache entries and so on. Some of network objects can be
+also modified.
 
-TODO:
+TODO
+====
 
  * VLAN linkinfo data
  * bridge info: see `./net/bridge/br_netlink.c:br_fill_ifinfo()`
 
-Example usage::
+Example usage
+=============
 
     from pyroute2 import iproute
     ip = iproute()
@@ -29,3 +31,21 @@ Example usage::
     ip.addr('add', dev, address='10.0.0.2', mask=24)
         # bring it up
     ip.link('set', dev, state='up')
+
+
+Installation
+============
+
+make install
+
+
+Requires
+========
+
+Python >= 2.6
+
+Links
+=====
+
+ * home: https://github.com/svinota/pyroute2
+ * bugs: https://github.com/svinota/pyroute2/issues
