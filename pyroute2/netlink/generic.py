@@ -118,6 +118,7 @@ class nlmsg_base(dict):
         self.length = length or 0
         self.parent = parent
         self.offset = 0
+        self.prefix = None
         self['attrs'] = []
         self['value'] = NotInitialized
         self.value = NotInitialized
@@ -125,6 +126,29 @@ class nlmsg_base(dict):
             self['header'] = self.header(self.buf)
         self.register_fields()
         self.register_nlas()
+
+    def nla2name(self, name):
+        '''
+        Convert NLA name into human-friendly name
+
+        Example: IFLA_ADDRESS -> address
+
+        Requires self.prefix to be set
+        '''
+        return name[(name.find(self.prefix) + 1) * len(self.prefix):].lower()
+
+    def name2nla(self, name):
+        '''
+        Convert human-friendly name into NLA name
+
+        Example: address -> IFLA_ADDRESS
+
+        Requires self.prefix to be set
+        '''
+        name = name.upper()
+        if name.find(self.prefix) == -1:
+            name = "%s%s" % (self.prefix, name)
+        return name
 
     def reserve(self):
         '''
