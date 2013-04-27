@@ -368,7 +368,7 @@ class iproute(netlink):
         msg['index'] = interface
 
         flags = kwarg.pop('flags', 0)
-        mask = kwarg.pop('mask', 0)
+        mask = kwarg.pop('mask', 0) or kwarg.pop('change', 0)
 
         if 'state' in kwarg:
             mask = 1                  # IFF_UP mask
