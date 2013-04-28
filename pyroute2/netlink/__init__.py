@@ -159,6 +159,8 @@ class netlink_io(threading.Thread):
                 elif fd[0] == self.socket.fileno():
                     for msg in self.marshal.recv():
                         key = msg['header']['sequence_number']
+                        if key not in self.listeners:
+                            key = 0
                         if key in self.listeners:
                             self.listeners[key].put(msg)
 
