@@ -105,6 +105,15 @@ class interface(dotkeys):
             self.__updated[key] = self[key]
         dotkeys.__setitem__(self, key, value)
 
+    def rollback(self):
+        for i in self['ipaddr'].added:
+            self['ipaddr'].remove(i, track=False)
+        for i in self['ipaddr'].removed:
+            self['ipaddr'].add(i, track=False)
+        for i in tuple(self.__updated.keys()):
+            self[i] = self.__updated[i]
+            del self.__updated[i]
+
     def commit(self):
         e = None
         try:
