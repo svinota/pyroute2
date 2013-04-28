@@ -131,9 +131,10 @@ class interface(dotkeys):
                     self['ipaddr'].add(i, track=False)
                 # apply old attributes
                 request = {}
-                for key in self.__updated:
+                for key in tuple(self.__updated.keys()):
                     if key in self.fields:
                         request[key] = self.__updated[key]
+                        del self.__updated[key]
                 self.ip.link('set', self['index'], **request)
             except:
                 pass
