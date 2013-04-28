@@ -105,6 +105,18 @@ class interface(dotkeys):
             self.__updated[key] = self[key]
         dotkeys.__setitem__(self, key, value)
 
+    def review(self):
+        response = {'ipaddr': [],
+                    'attrs': {}}
+        for i in self['ipaddr'].added:
+            response['ipaddr'].append('+%s/%s' % tuple(i))
+        for i in self['ipaddr'].removed:
+            response['ipaddr'].append('-%s/%s' % tuple(i))
+        for i in tuple(self.__updated.keys()):
+            response['attrs'][i] = '%s -> %s' % (self.__updated[i],
+                                                 self[i])
+        return response
+
     def rollback(self):
         for i in self['ipaddr'].added:
             self['ipaddr'].remove(i, track=False)
