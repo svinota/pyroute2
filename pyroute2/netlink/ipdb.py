@@ -196,12 +196,6 @@ class ipdb(dotkeys):
     def __init__(self, ipr=None):
         self.ip = ipr or iproute()
 
-        # start monitoring thread
-        self.ip.monitor()
-        self.mthread = threading.Thread(target=self.monitor)
-        self.mthread.setDaemon(True)
-        self.mthread.start()
-
         # caches
         self.ipaddr = {}
         self.routes = {}
@@ -210,6 +204,12 @@ class ipdb(dotkeys):
         # load information on startup
         self.update_links(self.ip.get_links())
         self.update_addr(self.ip.get_addr())
+
+        # start monitoring thread
+        self.ip.monitor()
+        self.mthread = threading.Thread(target=self.monitor)
+        self.mthread.setDaemon(True)
+        self.mthread.start()
 
     def update_links(self, links):
         for dev in links:
