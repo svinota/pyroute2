@@ -4,18 +4,21 @@ pyroute2
 Python network configuration library
 
 PyRoute2 uses Netlink protocol to communicate with the Linux kernel
-and get all the information about network objects -- interfaces, routes,
-addresses, ARP cache entries and so on. Some of network objects can be
-also modified.
+and get/set all the information kernel network objects.
 
-TODO
+todo
 ====
 
  * VLAN linkinfo data
  * bridge info: see `./net/bridge/br_netlink.c:br_fill_ifinfo()`
+ * traffic control -- work with queue disciplines
 
-Example usage
-=============
+iproute
+=======
+
+Old-style library, that provides access to rtnetlink as is. It
+helps you to retrieve and change almost all the data, available
+through rtnetlink.
 
     from pyroute2 import iproute
     ip = iproute()
@@ -32,19 +35,68 @@ Example usage
         # bring it up
     ip.link('set', dev, state='up')
 
+ipdb
+====
 
-Installation
+Experimental module, that provides high-level API to network
+configuration. It represents network objects as a transactional
+database with commit/rollback. It is far not production ready,
+so be prepared for surprises and API changes.
+
+    from pyroute2 import ipdb
+    ip = ipdb()
+    ip.eth0.down()
+    ip.eth0.address = '00:11:22:33:44:55'
+    ip.eth0.ifname = 'bala'
+    ip.eth0.ipaddr.add(('10.0.0.1', 24))
+    ip.eth0.ipaddr.add(('10.0.0.2', 24))
+    ip.eth0.commit()
+    ip.bala.up()
+
+Actually, the form like 'ip.eth0.address' is an eye-candy. The
+ipdb objects are dictionaries, so you can write the code above
+as that:
+
+    ip['eth0'].down()
+    ip['eth0']['address'] = '00:11:22:33:44:55'
+    ip['eth0']['ifname'] = 'bala'
+    ...
+
+
+taskstats
+=========
+
+All that you should know about taskstats, is that you should not
+use it. But if you have to, ok:
+
+    import os
+    from pyroute2 import taskstats
+    ts = taskstats()
+    ts.get_pid_stat(os.getpid())
+
+It is not implemented normally yet, but some methods are already
+usable.
+
+installation
 ============
 
 make install
 
-
-Requires
+requires
 ========
 
 Python >= 2.6
 
-Links
+changes
+=======
+
+ * 0.1.2
+  * initial ipdb version
+  * iproute fixes
+ * 0.1.1
+  * initial release, iproute module
+
+links
 =====
 
  * home: https://github.com/svinota/pyroute2
