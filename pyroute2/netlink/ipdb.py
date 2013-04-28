@@ -29,21 +29,26 @@ class upset(set):
 
     def __init__(self):
         set.__init__(self)
-        self.commit()
+        self.added = set()
+        self.removed = set()
+        self.values = {}
 
     def commit(self):
+        for i in self.removed:
+            del self.values[i]
         self.added = set()
         self.removed = set()
 
-    def add(self, item, track=True):
+    def add(self, key, value=None, track=True):
         if track:
-            self.added.add(item)
-        set.add(self, item)
+            self.added.add(key)
+        self.values[key] = value
+        set.add(self, key)
 
-    def remove(self, item, track=True):
+    def remove(self, key, value=None, track=True):
         if track:
-            self.removed.add(item)
-        set.remove(self, item)
+            self.removed.add(key)
+        set.remove(self, key)
 
 
 class dotkeys(dict):
@@ -235,7 +240,7 @@ class ipdb(dotkeys):
                 nla.append(addr['prefixlen'])
                 method = getattr(self.ipaddr[addr['index']], action)
                 try:
-                    method(tuple(nla), track=False)
+                    method(key=tuple(nla), value=addr, track=False)
                 except:
                     import traceback
                     traceback.print_exc()
