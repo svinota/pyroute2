@@ -77,7 +77,7 @@ class interface(dotkeys):
         dev.prefix = 'IFLA_'
         self.parent = parent
         self.fields = [dev.nla2name(i) for i in nla_fields]
-        self.__updated = set()
+        self.__updated = {}
         self.load(dev)
 
     def load(self, dev):
@@ -96,27 +96,53 @@ class interface(dotkeys):
             if item in self:
                 del self[item]
         self.old_name = self['ifname']
-        self.__updated = set()
+        self.__updated = {}
         if self.parent is not None:
             self['ipaddr'] = self.parent.ipaddr[self['index']]
 
     def __setitem__(self, key, value):
-        self.__updated.add(key)
+        if key in self:
+            self.__updated[key] = self[key]
         dotkeys.__setitem__(self, key, value)
 
     def commit(self):
-        request = {}
-        for key in self.__updated:
-            if key in self.fields:
-                request[key] = self[key]
-        for i in self['ipaddr'].added:
-            self.ip.addr_add(self['index'], i[0], i[1])
-        for i in self['ipaddr'].removed:
-            self.ip.addr_del(self['index'], i[0], i[1])
+        e = None
+        try:
+            # commit IP address changes
+            for i in self['ipaddr'].added:
+                self.ip.addr_add(self['index'], i[0], i[1])
+            for i in self['ipaddr'].removed:
+                self.ip.addr_del(self['index'], i[0], i[1])
+            # commit interface changes
+            request = {}
+            for key in self.__updated:
+                if key in self.fields:
+                    request[key] = self[key]
+            self.ip.link('set', self['index'], **request)
+        except Exception as e:
+            # something went wrong: roll the transaction back
+            try:
+                # remove all added and add all removed
+                for i in self['ipaddr'].added:
+                    self.ip.addr_del(self['index'], i[0], i[1])
+                    self['ipaddr'].remove(i, track=False)
+                for i in self['ipaddr'].removed:
+                    self.ip.addr_add(self['index'], i[0], i[1])
+                    self['ipaddr'].add(i, track=False)
+                # apply old attributes
+                request = {}
+                for key in self.__updated:
+                    if key in self.fields:
+                        request[key] = self.__updated[key]
+                self.ip.link('set', self['index'], **request)
+            except:
+                pass
+        # flush IP address changes
         self['ipaddr'].commit()
-        response = self.ip.link('set', self['index'], **request)
+        # re-load interface information
         self.load(self.ip.get_links(self['index'])[0])
-        return response
+        if e is not None:
+            raise e
 
     def up(self):
         self.ip.link('set', self['index'], state='up')
