@@ -13,7 +13,8 @@ Quick start:
     ip['bala'].up()
 '''
 import threading
-
+from socket import AF_INET
+from socket import AF_INET6
 from pyroute2.netlink.iproute import iproute
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
@@ -22,6 +23,27 @@ nla_fields.append('flags')
 nla_fields.append('mask')
 nla_fields.append('change')
 nla_fields.append('state')
+
+
+class upset(set):
+
+    def __init__(self):
+        set.__init__(self)
+        self.commit()
+
+    def commit(self):
+        self.added = set()
+        self.removed = set()
+
+    def add(self, item, track=True):
+        if track:
+            self.added.add(item)
+        set.add(self, item)
+
+    def remove(self, item, track=True):
+        if track:
+            self.removed.add(item)
+        set.remove(self, item)
 
 
 class dotkeys(dict):
@@ -33,20 +55,18 @@ class dotkeys(dict):
             return dict.__getattribute__(self, key)
 
     def __setattr__(self, key, value):
-        print(type(self), key, value)
-        if key[-10:] != '__reserved':
-            if key not in self.__reserved:
-                self[key] = value
-                return
-        dict.__setattr__(self, key, value)
+        if key in self:
+            self[key] = value
+        else:
+            dict.__setattr__(self, key, value)
 
     def __delattr__(self, key):
         if key in self:
             del self[key]
 
 
-class interface(dict):
-    def __init__(self, dev, ipr=None):
+class interface(dotkeys):
+    def __init__(self, dev, ipr=None, parent=None):
         self.ip = ipr
         self.cleanup = ('af_spec',
                         'attrs',
@@ -55,6 +75,7 @@ class interface(dict):
                         'stats',
                         'stats64')
         dev.prefix = 'IFLA_'
+        self.parent = parent
         self.fields = [dev.nla2name(i) for i in nla_fields]
         self.__updated = set()
         self.load(dev)
@@ -76,6 +97,8 @@ class interface(dict):
                 del self[item]
         self.old_name = self['ifname']
         self.__updated = set()
+        if self.parent is not None:
+            self['ipaddr'] = self.parent.ipaddr[self['index']]
 
     def __setitem__(self, key, value):
         self.__updated.add(key)
@@ -86,6 +109,11 @@ class interface(dict):
         for key in self.__updated:
             if key in self.fields:
                 request[key] = self[key]
+        for i in self['ipaddr'].added:
+            self.ip.addr_add(self['index'], i[0], i[1])
+        for i in self['ipaddr'].removed:
+            self.ip.addr_del(self['index'], i[0], i[1])
+        self['ipaddr'].commit()
         response = self.ip.link('set', self['index'], **request)
         self.load(self.ip.get_links(self['index'])[0])
         return response
@@ -110,7 +138,7 @@ class interface(dict):
         self.ip.link('delete', self['index'])
 
 
-class ipdb(dict):
+class ipdb(dotkeys):
     '''
     The class that maintains information about network setup
     of the host. Monitoring netlink events allows it to react
@@ -119,7 +147,6 @@ class ipdb(dict):
 
     def __init__(self, ipr=None):
         self.ip = ipr or iproute()
-        self.lock = threading.Lock()
 
         # start monitoring thread
         self.ip.monitor()
@@ -127,14 +154,43 @@ class ipdb(dict):
         self.mthread.setDaemon(True)
         self.mthread.start()
 
-        # load information on startup
-        self.update(self.ip.get_links())
+        # caches
+        self.ipaddr = {}
+        self.routes = {}
+        self.neighbors = {}
 
-    def update(self, links):
-        with self.lock:
-            for dev in links:
-                i = self[dev['index']] = interface(dev, self.ip)
-                self[i['ifname']] = i
+        # load information on startup
+        self.update_links(self.ip.get_links())
+        self.update_addr(self.ip.get_addr())
+
+    def update_links(self, links):
+        for dev in links:
+            if dev['index'] not in self.ipaddr:
+                self.ipaddr[dev['index']] = upset()
+            i = self[dev['index']] = interface(dev, self.ip, self)
+            self[i['ifname']] = i
+
+    def get_addr_nla(self, msg):
+        nla = None
+        if msg['family'] == AF_INET:
+            nla = [i[1] for i in msg['attrs']
+                   if i[0] == 'IFA_LOCAL']
+        elif msg['family'] == AF_INET6:
+            nla = [i[1] for i in msg['attrs']
+                   if i[0] == 'IFA_ADDRESS']
+        return nla
+
+    def update_addr(self, addrs, action='add'):
+        for addr in addrs:
+            nla = self.get_addr_nla(addr)
+            if nla is not None:
+                nla.append(addr['prefixlen'])
+                method = getattr(self.ipaddr[addr['index']], action)
+                try:
+                    method(tuple(nla), track=False)
+                except:
+                    import traceback
+                    traceback.print_exc()
 
     def monitor(self):
         while True:
@@ -142,14 +198,21 @@ class ipdb(dict):
             for msg in messages:
                 if msg['event'] == 'RTM_NEWLINK':
                     index = msg['index']
-                    # get old name
-                    old_name = self[index].old_name
-                    # load message
-                    self[index].load(msg)
-                    # check for new name
-                    if self[index]['ifname'] != old_name:
-                        del self[old_name]
-                        self[self[index]['ifname']] = self[index]
+                    if index in self:
+                        # get old name
+                        old_name = self[index].old_name
+                        # load message
+                        self[index].load(msg)
+                        # check for new name
+                        if self[index]['ifname'] != old_name:
+                            del self[old_name]
+                            self[self[index]['ifname']] = self[index]
+                    else:
+                        self.update_links([msg])
                 elif msg['event'] == 'RTM_DELLINK':
-                    del self[msg['index']['ifname']]
+                    del self[self[msg['index']]['ifname']]
                     del self[msg['index']]
+                elif msg['event'] == 'RTM_NEWADDR':
+                    self.update_addr([msg], 'add')
+                elif msg['event'] == 'RTM_DELADDR':
+                    self.update_addr([msg], 'remove')
