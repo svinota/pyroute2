@@ -91,7 +91,37 @@ class dotkeys(dict):
 
 
 class interface(dotkeys):
+    '''
+    Objects of this class represent network interface and
+    all related objects:
+        * addresses
+        * (todo) neighbors
+        * (todo) routes
+
+    Interfaces provide transactional model and can act as
+    context managers. Any attribute change implicitly
+    starts a transaction. The transaction can be managed
+    with three methods:
+        * review() -- review changes
+        * rollback() -- drop all the changes
+        * commit() -- try to apply changes
+
+    If anything will go wrong during transaction commit,
+    it will be rolled back authomatically and an
+    exception will be raised. Failed transaction review
+    will be attached to the exception.
+    '''
     def __init__(self, dev, ipr=None, parent=None):
+        '''
+        One can use interface objects standalone as
+        well as in connection with ipdb object. Standalone
+        usage, though, is discouraged.
+
+        Parameters:
+            * dev -- RTM_NEWLINK message
+            * ipd -- iproute() reference
+            * parent -- ipdb() reference
+        '''
         self.ip = ipr
         self.cleanup = ('af_spec',
                         'attrs',
@@ -116,6 +146,9 @@ class interface(dotkeys):
             self.last_error = e
 
     def load(self, dev):
+        '''
+        Update the interface info from RTM_NEWLINK message.
+        '''
         dev.prefix = 'IFLA_'
         # invalidate old info
         for key in tuple(self.keys()):
@@ -141,6 +174,10 @@ class interface(dotkeys):
         dotkeys.__setitem__(self, key, value)
 
     def review(self):
+        '''
+        Review the changes that are not commited yet. Output
+        format can be changed later.
+        '''
         response = {'ipaddr': [],
                     'attrs': {}}
         for i in self['ipaddr'].added:
@@ -153,6 +190,9 @@ class interface(dotkeys):
         return response
 
     def rollback(self):
+        '''
+        Drop all not applied changes and rollback transaction.
+        '''
         for i in self['ipaddr'].added:
             self['ipaddr'].remove(i, track=False)
         for i in self['ipaddr'].removed:
@@ -163,6 +203,10 @@ class interface(dotkeys):
             del self._updated[i]
 
     def commit(self):
+        '''
+        Commit transaction. In the case of exception all
+        changes applied during commit will be reverted.
+        '''
         e = None
         transaction = copy.deepcopy(self.review())
         try:
@@ -206,9 +250,19 @@ class interface(dotkeys):
             raise e
 
     def up(self):
+        '''
+        Shortcut: change interface state to 'up'.
+
+        Requres commit.
+        '''
         self['flags'] |= 1
 
     def down(self):
+        '''
+        Shortcut: change interface state to 'down'.
+
+        Requires commit.
+        '''
         self['flags'] &= ~(self['flags'] & 1)
 
 
@@ -217,9 +271,21 @@ class ipdb(dotkeys):
     The class that maintains information about network setup
     of the host. Monitoring netlink events allows it to react
     immediately. It uses no polling.
+
+    No methods of the class should be called directly.
     '''
 
     def __init__(self, ipr=None):
+        '''
+        Parameters:
+            * ipr -- iproute() reference
+
+        If you do not provide iproute instance, ipdb will
+        start it automatically. Please note, that there can
+        be only one iproute instance per process. Actually,
+        you can start two and more iproute instances, but
+        only the first one will receive anything.
+        '''
         self.ip = ipr or iproute()
 
         # caches
@@ -239,6 +305,9 @@ class ipdb(dotkeys):
         self._mthread.start()
 
     def update_links(self, links):
+        '''
+        Rebuild links index from list of RTM_NEWLINK messages.
+        '''
         for dev in links:
             if dev['index'] not in self.ipaddr:
                 self.ipaddr[dev['index']] = upset()
@@ -246,6 +315,9 @@ class ipdb(dotkeys):
             self[i['ifname']] = i
 
     def update_addr(self, addrs, action='add'):
+        '''
+        Update interface list of an interface.
+        '''
         for addr in addrs:
             nla = get_addr_nla(addr)
             if nla is not None:
@@ -257,6 +329,11 @@ class ipdb(dotkeys):
                     pass
 
     def monitor(self):
+        '''
+        Main monitoring cycle. It gets messages from the
+        default iproute queue and updates objects in the
+        database.
+        '''
         while True:
             messages = self.ip.get()
             for msg in messages:
