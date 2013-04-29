@@ -53,6 +53,11 @@ class upset(set):
         self.added = set()
         self.removed = set()
 
+    def pop(self, track=True):
+        item = set.pop(self)
+        if track:
+            self.removed.add(item)
+
     def add(self, key, value=None, track=True):
         if track:
             self.added.add(key)
