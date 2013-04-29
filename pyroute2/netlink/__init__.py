@@ -205,11 +205,11 @@ class netlink(object):
         '''
         Get a message from a queue
         '''
-        assert key in self.listeners
+        queue = self.listeners[key]
 
         result = []
         while True:
-            msg = self.listeners[key].get()
+            msg = queue.get()
             if msg['header']['error'] is not None:
                 raise msg['header']['error']
             if msg['header']['type'] != NLMSG_DONE:
@@ -217,6 +217,16 @@ class netlink(object):
             if (msg['header']['type'] == NLMSG_DONE) or \
                (not msg['header']['flags'] & NLM_F_MULTI):
                 break
+        # not default queue
+        if key != 0:
+            # delete the queue
+            del self.listeners[key]
+            # get remaining messages from the queue and
+            # re-route them to queue 0 or drop
+            while not queue.empty():
+                msg = queue.get()
+                if 0 in self.listeners:
+                    self.listeners[0].put(msg)
         return result
 
     def nlm_request(self, msg, msg_type,
