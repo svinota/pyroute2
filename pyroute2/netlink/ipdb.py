@@ -100,10 +100,10 @@ class interface(dotkeys):
                         'stats',
                         'stats64')
         dev.prefix = 'IFLA_'
-        self.parent = parent
         self.last_error = None
-        self.fields = [dev.nla2name(i) for i in nla_fields]
-        self.__updated = {}
+        self._parent = parent
+        self._fields = [dev.nla2name(i) for i in nla_fields]
+        self._updated = {}
         self.load(dev)
 
     def __enter__(self):
@@ -122,22 +122,22 @@ class interface(dotkeys):
             del self[key]
         # load new info
         self.update(dev)
-        self.__attrs = set()
+        self._attrs = set()
         for (name, value) in dev['attrs']:
             norm = dev.nla2name(name)
-            self.__attrs.add(norm)
+            self._attrs.add(norm)
             self[norm] = value
         for item in self.cleanup:
             if item in self:
                 del self[item]
         self.old_name = self['ifname']
-        self.__updated = {}
-        if self.parent is not None:
-            self['ipaddr'] = self.parent.ipaddr[self['index']]
+        self._updated = {}
+        if self._parent is not None:
+            self['ipaddr'] = self._parent.ipaddr[self['index']]
 
     def __setitem__(self, key, value):
         if key in self:
-            self.__updated[key] = self[key]
+            self._updated[key] = self[key]
         dotkeys.__setitem__(self, key, value)
 
     def review(self):
@@ -147,8 +147,8 @@ class interface(dotkeys):
             response['ipaddr'].append('+%s/%s' % tuple(i))
         for i in self['ipaddr'].removed:
             response['ipaddr'].append('-%s/%s' % tuple(i))
-        for i in tuple(self.__updated.keys()):
-            response['attrs'][i] = '%s -> %s' % (self.__updated[i],
+        for i in tuple(self._updated.keys()):
+            response['attrs'][i] = '%s -> %s' % (self._updated[i],
                                                  self[i])
         return response
 
@@ -158,9 +158,9 @@ class interface(dotkeys):
         for i in self['ipaddr'].removed:
             self['ipaddr'].add(i, track=False)
         self['ipaddr'].cleanup()
-        for i in tuple(self.__updated.keys()):
-            self[i] = self.__updated[i]
-            del self.__updated[i]
+        for i in tuple(self._updated.keys()):
+            self[i] = self._updated[i]
+            del self._updated[i]
 
     def commit(self):
         e = None
@@ -174,8 +174,8 @@ class interface(dotkeys):
                 self.ip.addr_del(self['index'], i[0], i[1])
             # commit interface changes
             request = {}
-            for key in self.__updated:
-                if key in self.fields:
+            for key in self._updated:
+                if key in self._fields:
                     request[key] = self[key]
             self.ip.link('set', self['index'], **request)
             # flush IP address changes
@@ -190,10 +190,10 @@ class interface(dotkeys):
                     self.ip.addr_add(self['index'], i[0], i[1])
                 # apply old attributes
                 request = {}
-                for key in tuple(self.__updated.keys()):
-                    if key in self.fields:
-                        request[key] = self.__updated[key]
-                        del self.__updated[key]
+                for key in tuple(self._updated.keys()):
+                    if key in self._fields:
+                        request[key] = self._updated[key]
+                        del self._updated[key]
                 self.ip.link('set', self['index'], **request)
                 # rollback IP address tracking
                 self['ipaddr'].cleanup()
@@ -234,9 +234,9 @@ class ipdb(dotkeys):
         # start monitoring thread
         self.ip.monitor()
         self.ip.mirror()
-        self.mthread = threading.Thread(target=self.monitor)
-        self.mthread.setDaemon(True)
-        self.mthread.start()
+        self._mthread = threading.Thread(target=self.monitor)
+        self._mthread.setDaemon(True)
+        self._mthread.start()
 
     def update_links(self, links):
         for dev in links:
