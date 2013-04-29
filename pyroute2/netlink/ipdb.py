@@ -12,6 +12,7 @@ Quick start:
     ip['eth0'].commit()
     ip['bala'].up()
 '''
+import copy
 import threading
 from socket import AF_INET
 from socket import AF_INET6
@@ -25,17 +26,30 @@ nla_fields.append('change')
 nla_fields.append('state')
 
 
+def get_addr_nla(msg):
+    nla = None
+    if msg['family'] == AF_INET:
+        nla = [i[1] for i in msg['attrs']
+               if i[0] == 'IFA_LOCAL'][0]
+    elif msg['family'] == AF_INET6:
+        nla = [i[1] for i in msg['attrs']
+               if i[0] == 'IFA_ADDRESS'][0]
+    return nla
+
+
 class upset(set):
 
     def __init__(self):
         set.__init__(self)
-        self.added = set()
-        self.removed = set()
+        self.cleanup()
         self.values = {}
 
     def commit(self):
         for i in self.removed:
             del self.values[i]
+        self.cleanup()
+
+    def cleanup(self):
         self.added = set()
         self.removed = set()
 
@@ -48,6 +62,7 @@ class upset(set):
     def remove(self, key, value=None, track=True):
         if track:
             self.removed.add(key)
+        # do not remove the value: it will be kept for rollback
         set.remove(self, key)
 
 
@@ -127,15 +142,18 @@ class interface(dotkeys):
             self['ipaddr'].remove(i, track=False)
         for i in self['ipaddr'].removed:
             self['ipaddr'].add(i, track=False)
+        self['ipaddr'].cleanup()
         for i in tuple(self.__updated.keys()):
             self[i] = self.__updated[i]
             del self.__updated[i]
 
     def commit(self):
         e = None
+        transaction = copy.deepcopy(self.review())
         try:
             # commit IP address changes
             for i in self['ipaddr'].added:
+                # add address
                 self.ip.addr_add(self['index'], i[0], i[1])
             for i in self['ipaddr'].removed:
                 self.ip.addr_del(self['index'], i[0], i[1])
@@ -145,16 +163,16 @@ class interface(dotkeys):
                 if key in self.fields:
                     request[key] = self[key]
             self.ip.link('set', self['index'], **request)
+            # flush IP address changes
+            self['ipaddr'].commit()
         except Exception as e:
             # something went wrong: roll the transaction back
             try:
                 # remove all added and add all removed
                 for i in self['ipaddr'].added:
                     self.ip.addr_del(self['index'], i[0], i[1])
-                    self['ipaddr'].remove(i, track=False)
                 for i in self['ipaddr'].removed:
                     self.ip.addr_add(self['index'], i[0], i[1])
-                    self['ipaddr'].add(i, track=False)
                 # apply old attributes
                 request = {}
                 for key in tuple(self.__updated.keys()):
@@ -162,13 +180,14 @@ class interface(dotkeys):
                         request[key] = self.__updated[key]
                         del self.__updated[key]
                 self.ip.link('set', self['index'], **request)
+                # rollback IP address tracking
+                self['ipaddr'].cleanup()
             except:
                 pass
-        # flush IP address changes
-        self['ipaddr'].commit()
         # re-load interface information
         self.load(self.ip.get_links(self['index'])[0])
         if e is not None:
+            e.transaction = transaction
             raise e
 
     def up(self):
@@ -212,6 +231,7 @@ class ipdb(dotkeys):
 
         # start monitoring thread
         self.ip.monitor()
+        self.ip.mirror()
         self.mthread = threading.Thread(target=self.monitor)
         self.mthread.setDaemon(True)
         self.mthread.start()
@@ -223,33 +243,22 @@ class ipdb(dotkeys):
             i = self[dev['index']] = interface(dev, self.ip, self)
             self[i['ifname']] = i
 
-    def get_addr_nla(self, msg):
-        nla = None
-        if msg['family'] == AF_INET:
-            nla = [i[1] for i in msg['attrs']
-                   if i[0] == 'IFA_LOCAL']
-        elif msg['family'] == AF_INET6:
-            nla = [i[1] for i in msg['attrs']
-                   if i[0] == 'IFA_ADDRESS']
-        return nla
-
     def update_addr(self, addrs, action='add'):
         for addr in addrs:
-            nla = self.get_addr_nla(addr)
+            nla = get_addr_nla(addr)
             if nla is not None:
-                nla.append(addr['prefixlen'])
                 method = getattr(self.ipaddr[addr['index']], action)
                 try:
-                    method(key=tuple(nla), value=addr, track=False)
+                    method(key=(nla, addr['prefixlen']),
+                           value=addr, track=False)
                 except:
-                    import traceback
-                    traceback.print_exc()
+                    pass
 
     def monitor(self):
         while True:
             messages = self.ip.get()
             for msg in messages:
-                if msg['event'] == 'RTM_NEWLINK':
+                if msg.get('event', None) == 'RTM_NEWLINK':
                     index = msg['index']
                     if index in self:
                         # get old name
@@ -262,10 +271,10 @@ class ipdb(dotkeys):
                             self[self[index]['ifname']] = self[index]
                     else:
                         self.update_links([msg])
-                elif msg['event'] == 'RTM_DELLINK':
+                elif msg.get('event', None) == 'RTM_DELLINK':
                     del self[self[msg['index']]['ifname']]
                     del self[msg['index']]
-                elif msg['event'] == 'RTM_NEWADDR':
+                elif msg.get('event', None) == 'RTM_NEWADDR':
                     self.update_addr([msg], 'add')
-                elif msg['event'] == 'RTM_DELADDR':
+                elif msg.get('event', None) == 'RTM_DELADDR':
                     self.update_addr([msg], 'remove')
