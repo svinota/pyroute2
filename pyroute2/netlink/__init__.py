@@ -3,6 +3,7 @@ import select
 import struct
 import socket
 import Queue
+import copy
 import os
 import io
 
@@ -124,6 +125,7 @@ class netlink_io(threading.Thread):
         self.socket.bind(groups)
         self.marshal = marshal(self.socket)
         self.listeners = {}
+        self.mirror = False
         self.poll = select.poll()
         (self.ctlr, self.control) = os.pipe()
         self.register(self.ctlr)
@@ -161,6 +163,8 @@ class netlink_io(threading.Thread):
                         key = msg['header']['sequence_number']
                         if key not in self.listeners:
                             key = 0
+                        if self.mirror and key != 0:
+                            self.listeners[0].put(copy.deepcopy(msg))
                         if key in self.listeners:
                             self.listeners[key].put(msg)
 
@@ -188,6 +192,9 @@ class netlink(object):
         else:
             self.__nonce += 1
         return self.__nonce
+
+    def mirror(self, operate=True):
+        self.io_thread.mirror = operate
 
     def monitor(self, operate=True):
         if operate:
