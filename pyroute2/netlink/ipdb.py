@@ -206,23 +206,10 @@ class interface(dotkeys):
             raise e
 
     def up(self):
-        self.ip.link('set', self['index'], state='up')
+        self['flags'] |= 1
 
     def down(self):
-        self.saved_flags = self['flags']
-        self.ip.link('set', self['index'], state='down')
-
-    def restore(self):
-        self.ip.link('set', self['index'],
-                     flags=self.saved_flags, mask=0xffff)
-
-    def rename(self, name):
-        self.down()
-        self.ip.link('set', self['index'], ifname=name)
-        self.restore()
-
-    def remove(self):
-        self.ip.link('delete', self['index'])
+        self['flags'] &= ~(self['flags'] & 1)
 
 
 class ipdb(dotkeys):
