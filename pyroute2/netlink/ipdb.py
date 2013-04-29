@@ -96,9 +96,19 @@ class interface(dotkeys):
                         'stats64')
         dev.prefix = 'IFLA_'
         self.parent = parent
+        self.last_error = None
         self.fields = [dev.nla2name(i) for i in nla_fields]
         self.__updated = {}
         self.load(dev)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            self.commit()
+        except Exception as e:
+            self.last_error = e
 
     def load(self, dev):
         dev.prefix = 'IFLA_'
