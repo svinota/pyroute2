@@ -83,7 +83,7 @@ Also, interface objects can operate as context managers:
         i.address = '00:11:22:33:44:55'
         i.ifname = 'vpn'
         i.ipaddr.add(('10.0.0.1', 24))
-        ...
+        i.ipaddr.add(('10.0.0.1', 24))
 
 On exit, the context manager will authomatically commit the
 transaction.
@@ -115,6 +115,12 @@ Python >= 2.6
 changes
 =======
 
+ * 0.1.3
+  * ipdb: context manager interface
+  * ipdb: [fix] correctly handle ip addr changes in transaction
+  * ipdb: [fix] make up()/down() methods transactional [#1]
+  * iproute: mirror packets to 0 queue
+  * iproute: [fix] handle primary ip address removal response
  * 0.1.2
   * initial ipdb version
   * iproute fixes
@@ -126,3 +132,4 @@ links
 
  * home: https://github.com/svinota/pyroute2
  * bugs: https://github.com/svinota/pyroute2/issues
+ * pypi: https://pypi.python.org/pypi/pyroute2
