@@ -7,5 +7,5 @@ from pyroute2 import iproute
 ip = iproute()
 ip.monitor()
 while True:
-    print("-----------------------------------------------------------------")
-    pprint.pprint(ip.get())
+    print("--------------------------------------------------------------")
+    pprint.pprint(ip.get(interruptible=True))

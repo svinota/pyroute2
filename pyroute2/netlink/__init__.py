@@ -292,15 +292,27 @@ class netlink(object):
         msg.encode()
         os.write(self.io_thread.control, msg.buf.getvalue())
 
-    def get(self, key=0, blocking=True):
+    def get(self, key=0, interruptible=False):
         '''
         Get a message from a queue
+
+        * key -- message queue number
+        * interruptible -- catch ctrl-c
+
+        Please note, that setting interruptible=True will cause
+        polling overhead. Python starts implied poll cycle, if
+        timeout is set.
         '''
         queue = self.listeners[key]
-
+        if interruptible:
+            tot = 31536000
+        else:
+            tot = None
         result = []
         while True:
-            msg = queue.get()
+            # timeout is set to catch ctrl-c
+            # Bug-Url: http://bugs.python.org/issue1360
+            msg = queue.get(block=True, timeout=tot)
             if msg['header']['error'] is not None:
                 raise msg['header']['error']
             if msg['header']['type'] != NLMSG_DONE:
@@ -315,7 +327,7 @@ class netlink(object):
             # get remaining messages from the queue and
             # re-route them to queue 0 or drop
             while not queue.empty():
-                msg = queue.get()
+                msg = queue.get(bloc=True, timeout=tot)
                 if 0 in self.listeners:
                     self.listeners[0].put(msg)
         return result
