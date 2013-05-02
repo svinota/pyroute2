@@ -129,7 +129,6 @@ class server(threading.Thread):
         threading.Thread.__init__(self)
         self.setDaemon(True)
         self.clients = []
-        self._rlist = []
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind(url)
         self.socket.listen(10)
@@ -137,6 +136,7 @@ class server(threading.Thread):
         self.uuid = uuid.uuid4()
         self.control = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.control.bind(b'\0%s' % (self.uuid))
+        self._rlist = []
         self._rlist.append(self.control)
         self._rlist.append(self.socket)
         self._stop = False
@@ -154,22 +154,22 @@ class server(threading.Thread):
 
 
 class iothread(threading.Thread):
-    def __init__(self, marshal):
+    def __init__(self, marshal, send_method=None):
         threading.Thread.__init__(self)
         self.setDaemon(True)
         self._rlist = []
         self._wlist = []
         self._xlist = []
+        self.send = send_method
         self.marshal = marshal()
         self.listeners = {}
-        self._netlinks = {}
+        self.netlink = None
         self.uuid = uuid.uuid4()
         self.mirror = False
         self.control = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.control.bind(b'\0%s' % (self.uuid))
         self._rlist.append(self.control)
         self._stop = False
-
 
     def parse(self, data):
         '''
@@ -199,71 +199,83 @@ class iothread(threading.Thread):
             if key in self.listeners:
                 self.listeners[key].put(msg)
 
-    def stop(self):
+    def command(self, cmd, v1=0, v2=0):
         msg = cmdmsg(io.BytesIO())
-        msg['command'] = IPRCMD_STOP
+        msg['command'] = cmd
         msg.encode()
-        self.control.sendto(msg.buf.getvalue(), self.control.getsockname())
+        return self.control.sendto(msg.buf.getvalue(),
+                                   self.control.getsockname())
+
+    def stop(self):
+        return self.command(IPRCMD_STOP)
 
     def reload(self):
-        msg = cmdmsg(io.BytesIO())
-        msg['command'] = IPRCMD_RELOAD
-        msg.encode()
-        self.control.sendto(msg.buf.getvalue(), self.control.getsockname())
+        return self.command(IPRCMD_RELOAD)
 
-    def add_netlink(self, family, groups):
-        nl = netlink_socket(family)
-        nl.bind(groups)
-        self._netlinks[nl] = (family, groups)
-        self._rlist.append(nl)
+    def set_netlink(self, family, groups):
+        if self.netlink is not None:
+            self.netlink.close()
+        self.netlink = netlink_socket(family)
+        self.netlink.bind(groups)
+        self._rlist.append(self.netlink)
         self.reload()
-
-    def remove_netlink(self, family, groups):
-        nl = [i[0] for i in self._netlinks.items() if i[1] == (family, groups)]
-        del self._netlinks[nl]
-        self._rlist.pop(self._rlist.index(nl))
-        self.reload()
+        return self.netlink
 
     def add_server(self, url):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect(url)
         self._rlist.append(sock)
+        self.reload()
         return sock
 
     def add_client(self, sock):
+        self._rlist.append(sock)
         self._wlist.append(sock)
+        self.reload()
+        return sock
 
     def remove_client(self, sock):
         self._wlist.pop(self._wlist.index(sock))
+        return sock
 
     def run(self):
         while not self._stop:
             [rlist, wlist, xlist] = select.select(self._rlist, [], [])
             for fd in rlist:
                 data = fd.recv(16384)
+                if data == '':
+                    # socket is closed on the other side
+                    if fd in self._rlist:
+                        self._rlist.pop(self._rlist.index(fd))
+                    if fd in self._wlist:
+                        self._wlist.pop(self._wlist.index(fd))
+                    continue
                 if fd == self.control:
                     # FIXME move it to specific marshal
                     buf = io.BytesIO()
                     buf.write(data)
                     buf.seek(0)
                     cmd = cmdmsg(buf)
+                    cmd.decode()
                     if cmd['command'] == IPRCMD_STOP:
                         self._stop = True
                         break
                     elif cmd['command'] == IPRCMD_RELOAD:
                         pass
 
-                elif fd in self._netlinks:
-                    data = fd.recv(16384)
-                    for sock in self._wlist:
-                        sock.send(data)
+                else:
+                    if self.netlink == fd:
+                        for sock in self._wlist:
+                            sock.send(data)
+                    elif self.netlink is not None:
+                        self.send(data)
                     self.parse(data)
 
 
 class netlink(object):
     '''
     Main netlink messaging class. It automatically spawns threads
-    to monitor ZMQ and netlink I/O, creates and destroys message
+    to monitor network and netlink I/O, creates and destroys message
     queues.
 
     It can operate in three modes:
@@ -272,7 +284,7 @@ class netlink(object):
      * client mode
 
     By default, it starts in local system only mode. To start a
-    server, you should call netlink.add_server(url). The method
+    server, you should call netlink.serve(url). The method
     can be called several times to listen on specific interfaces
     and/or ports.
 
@@ -283,34 +295,26 @@ class netlink(object):
     in the future.
 
     Urls should be specified in the form:
-        scheme://host:PUSH/PULL_port:PUB/SUB_port
+        (host, port)
 
     E.g.:
-        nl = netlink(host='tcp://127.0.0.1:7001:7002')
-
-    Why two ports? Netlink is asynchronous datagram protocol
-    like UDP, where both sides can send and receive messages.
-    There is no sessions, the message relevance is reflected
-    in sequence_number field, that acts like a cookie. To
-    make it possible to work transparently over networks with
-    SNAT/DNAT, it is simpler to use two TCP connections, one
-    to send messages with PUSH and one to wait for PUB/SUB
-    broadcasts.
+        nl = netlink(host=('127.0.0.1', 7000))
     '''
 
     family = NETLINK_GENERIC
     groups = 0
     marshal = marshal
 
-    def __init__(self, debug=False, host='localsystem'):
+    def __init__(self, debug=False, host='localsystem', interruptible=False):
         self.server = host
-        self.iothread = iothread(self.marshal)
+        self.iothread = iothread(self.marshal, self.send)
+        self.listeners = self.iothread.listeners
+        self.interruptible = interruptible
         if host == 'localsystem':
-            self.socket = self.iothread.add_netlink(self.family, self.groups)
+            self.socket = self.iothread.set_netlink(self.family, self.groups)
         else:
             self.socket = self.iothread.add_server(self.server)
         self.iothread.start()
-        self.listeners = self.iothread.listeners
         self.debug = debug
         self._nonce = 1
         self.servers = {}
@@ -322,7 +326,8 @@ class netlink(object):
 
     def serve(self, url):
         self.servers[url] = server(url, self.iothread)
-       
+        self.servers[url].start()
+
     def nonce(self):
         '''
         Increment netlink protocol nonce (there is no need to
@@ -358,7 +363,6 @@ class netlink(object):
         else:
             del self.listeners[0]
 
-
     def get(self, key=0, interruptible=False):
         '''
         Get a message from a queue
@@ -371,6 +375,7 @@ class netlink(object):
         timeout is set.
         '''
         queue = self.listeners[key]
+        interruptible = interruptible or self.interruptible
         if interruptible:
             tot = 31536000
         else:
