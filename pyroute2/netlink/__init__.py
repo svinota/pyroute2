@@ -136,9 +136,9 @@ class server(threading.Thread):
         self.uuid = uuid.uuid4()
         self.control = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.control.bind(b'\0%s' % (self.uuid))
-        self._rlist = []
-        self._rlist.append(self.control)
-        self._rlist.append(self.socket)
+        self._rlist = set()
+        self._rlist.add(self.control)
+        self._rlist.add(self.socket)
         self._stop = False
 
     def run(self):
@@ -157,18 +157,20 @@ class iothread(threading.Thread):
     def __init__(self, marshal, send_method=None):
         threading.Thread.__init__(self)
         self.setDaemon(True)
-        self._rlist = []
-        self._wlist = []
-        self._xlist = []
+        self._rlist = set()
+        self._wlist = set()
+        self._xlist = set()
         self.send = send_method
         self.marshal = marshal()
         self.listeners = {}
         self.netlink = None
+        self.clients = set()
+        self.uplinks = set()
         self.uuid = uuid.uuid4()
         self.mirror = False
         self.control = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.control.bind(b'\0%s' % (self.uuid))
-        self._rlist.append(self.control)
+        self._rlist.add(self.control)
         self._stop = False
 
     def parse(self, data):
@@ -213,29 +215,50 @@ class iothread(threading.Thread):
         return self.command(IPRCMD_RELOAD)
 
     def set_netlink(self, family, groups):
+        '''
+        [re]set netlink connection and reload I/O cycle.
+        '''
         if self.netlink is not None:
+            self._rlist.remove(self.netlink)
             self.netlink.close()
         self.netlink = netlink_socket(family)
         self.netlink.bind(groups)
-        self._rlist.append(self.netlink)
+        self._rlist.add(self.netlink)
         self.reload()
         return self.netlink
 
-    def add_server(self, url):
+    def add_uplink(self, url):
+        '''
+        Add an uplink server to get information from
+        '''
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect(url)
-        self._rlist.append(sock)
+        self._rlist.add(sock)
+        self.uplinks.add(sock)
+        self.reload()
+        return sock
+
+    def remove_uplink(self, sock):
+        self._rlist.remove(sock)
+        self.uplinks.remove(sock)
         self.reload()
         return sock
 
     def add_client(self, sock):
-        self._rlist.append(sock)
-        self._wlist.append(sock)
+        '''
+        Add a client connection. Should not be called
+        manually, but only on a client connect.
+        '''
+        self._rlist.add(sock)
+        self._wlist.add(sock)
+        self.clients.add(sock)
         self.reload()
         return sock
 
     def remove_client(self, sock):
-        self._wlist.pop(self._wlist.index(sock))
+        self._rlist.remove(sock)
+        self._wlist.remove(sock)
+        self.clients.remove(sock)
         return sock
 
     def run(self):
@@ -243,13 +266,7 @@ class iothread(threading.Thread):
             [rlist, wlist, xlist] = select.select(self._rlist, [], [])
             for fd in rlist:
                 data = fd.recv(16384)
-                if data == '':
-                    # socket is closed on the other side
-                    if fd in self._rlist:
-                        self._rlist.pop(self._rlist.index(fd))
-                    if fd in self._wlist:
-                        self._wlist.pop(self._wlist.index(fd))
-                    continue
+
                 if fd == self.control:
                     # FIXME move it to specific marshal
                     buf = io.BytesIO()
@@ -264,12 +281,25 @@ class iothread(threading.Thread):
                         pass
 
                 else:
-                    if self.netlink == fd:
-                        for sock in self._wlist:
+                    if fd == self.netlink:
+                        # a packet from local netlink
+                        for sock in self.clients:
                             sock.send(data)
-                    elif self.netlink is not None:
-                        self.send(data)
-                    self.parse(data)
+                        self.parse(data)
+                    elif fd in self.clients:
+                        # a packet from a client
+                        if data == '':
+                            # client socket is closed:
+                            self.remove_client(fd)
+                        else:
+                            self.send(data)
+                    elif fd in self.uplinks:
+                        # a packet from an uplink
+                        if data == '':
+                            # uplink closed connection
+                            self.remove_uplink(fd)
+                        else:
+                            self.parse(data)
 
 
 class netlink(object):
@@ -313,7 +343,7 @@ class netlink(object):
         if host == 'localsystem':
             self.socket = self.iothread.set_netlink(self.family, self.groups)
         else:
-            self.socket = self.iothread.add_server(self.server)
+            self.socket = self.iothread.add_uplink(self.server)
         self.iothread.start()
         self.debug = debug
         self._nonce = 1
