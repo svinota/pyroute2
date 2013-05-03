@@ -124,35 +124,6 @@ class netlink_socket(socket.socket):
         socket.socket.bind(self, (self.pid, self.groups))
 
 
-class server(threading.Thread):
-    def __init__(self, url, iothread):
-        threading.Thread.__init__(self)
-        self.setDaemon(True)
-        self.clients = []
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.bind(url)
-        self.socket.listen(10)
-        self.iothread = iothread
-        self.uuid = uuid.uuid4()
-        self.control = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-        self.control.bind(b'\0%s' % (self.uuid))
-        self._rlist = set()
-        self._rlist.add(self.control)
-        self._rlist.add(self.socket)
-        self._stop = False
-
-    def run(self):
-        while not self._stop:
-            [rlist, wlist, xlist] = select.select(self._rlist, [], [])
-            for fd in rlist:
-                if fd == self.control:
-                    self._stop = True
-                    break
-                else:
-                    (client, addr) = fd.accept()
-                    self.iothread.add_client(client)
-
-
 class iothread(threading.Thread):
     def __init__(self, marshal, send_method=None):
         threading.Thread.__init__(self)
@@ -166,6 +137,7 @@ class iothread(threading.Thread):
         self.netlink = None
         self.clients = set()
         self.uplinks = set()
+        self.servers = set()
         self.uuid = uuid.uuid4()
         self.mirror = False
         self.control = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
@@ -227,18 +199,48 @@ class iothread(threading.Thread):
         self.reload()
         return self.netlink
 
-    def add_uplink(self, url):
+    def add_server(self, address):
+        '''
+        Add a server socket to listen for clients on
+        '''
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(address)
+        sock.listen(16)
+        self._rlist.add(sock)
+        self.servers.add(sock)
+        self.reload()
+        return sock
+
+    def remove_server(self, sock=None, address=None):
+        assert sock or address
+        if address:
+            for sock in self.servers:
+                if sock.getsockname() == address:
+                    break
+        assert sock
+        self._rlist.remove(sock)
+        self.servers.remove(sock)
+        self.reload()
+        return sock
+
+    def add_uplink(self, address):
         '''
         Add an uplink server to get information from
         '''
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect(url)
+        sock.connect(address)
         self._rlist.add(sock)
         self.uplinks.add(sock)
         self.reload()
         return sock
 
-    def remove_uplink(self, sock):
+    def remove_uplink(self, sock=None, address=None):
+        assert sock or address
+        if address:
+            for sock in self.uplinks:
+                if sock.getsockname() == address:
+                    break
+        assert sock
         self._rlist.remove(sock)
         self.uplinks.remove(sock)
         self.reload()
@@ -265,6 +267,13 @@ class iothread(threading.Thread):
         while not self._stop:
             [rlist, wlist, xlist] = select.select(self._rlist, [], [])
             for fd in rlist:
+
+                if fd in self.servers:
+                    # incoming client connection
+                    (client, addr) = fd.accept()
+                    self.add_client(client)
+                    continue
+
                 data = fd.recv(16384)
 
                 if fd == self.control:
@@ -280,26 +289,27 @@ class iothread(threading.Thread):
                     elif cmd['command'] == IPRCMD_RELOAD:
                         pass
 
-                else:
-                    if fd == self.netlink:
-                        # a packet from local netlink
-                        for sock in self.clients:
-                            sock.send(data)
+                elif fd == self.netlink:
+                    # a packet from local netlink
+                    for sock in self.clients:
+                        sock.send(data)
+                    self.parse(data)
+
+                elif fd in self.clients:
+                    # a packet from a client
+                    if data == '':
+                        # client socket is closed:
+                        self.remove_client(fd)
+                    else:
+                        self.send(data)
+
+                elif fd in self.uplinks:
+                    # a packet from an uplink
+                    if data == '':
+                        # uplink closed connection
+                        self.remove_uplink(fd)
+                    else:
                         self.parse(data)
-                    elif fd in self.clients:
-                        # a packet from a client
-                        if data == '':
-                            # client socket is closed:
-                            self.remove_client(fd)
-                        else:
-                            self.send(data)
-                    elif fd in self.uplinks:
-                        # a packet from an uplink
-                        if data == '':
-                            # uplink closed connection
-                            self.remove_uplink(fd)
-                        else:
-                            self.parse(data)
 
 
 class netlink(object):
@@ -349,14 +359,13 @@ class netlink(object):
         self._nonce = 1
         self.servers = {}
 
-    def shutdown(self, url=None):
-        url = url or self.servers.keys()[0]
-        self.servers[url].stop()
-        del self.servers[url]
+    def shutdown(self, address=None):
+        address = address or self.servers.keys()[0]
+        self.iothread.remove_server(self.servers[address])
+        del self.servers[address]
 
-    def serve(self, url):
-        self.servers[url] = server(url, self.iothread)
-        self.servers[url].start()
+    def serve(self, address):
+        self.servers[address] = self.iothread.add_server(address)
 
     def nonce(self):
         '''
