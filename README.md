@@ -7,129 +7,61 @@ PyRoute2 uses Netlink protocol to communicate with the Linux kernel
 and get/set all the information kernel network objects.
 
 todo
-====
+----
 
- * VLAN linkinfo data
- * bridge info: see `./net/bridge/br_netlink.c:br_fill_ifinfo()`
- * traffic control -- work with queue disciplines
+* remote: sasl authentication
+* rtnl: VLAN linkinfo data
+* rtnl: bridge info: see `./net/bridge/br_netlink.c:br_fill_ifinfo()`
+* rtnl: traffic control -- work with queue disciplines
 
-iproute
-=======
+sample
+------
 
-Old-style library, that provides access to rtnetlink as is. It
-helps you to retrieve and change almost all the data, available
-through rtnetlink.
+More samples you can read in the project documentation. Here is
+just a small snippet::
 
     from pyroute2 import iproute
     ip = iproute()
-        # lookup interface by name
-    dev = ip.link_lookup(ifname='tap0')[0]
-        # bring it down
-    ip.link('set', dev, state='down')
-        # change interface MAC address and rename it
-    ip.link('set', dev, address='00:11:22:33:44:55', ifname='vpn')
-        # add primary IP address
-    ip.addr('add', dev, address='10.0.0.1', mask=24)
-        # add secondary IP address
-    ip.addr('add', dev, address='10.0.0.2', mask=24)
-        # bring it up
-    ip.link('set', dev, state='up')
+    print ip.get_links()
 
-ipdb
-====
-
-Experimental module, that provides high-level API to network
-configuration. It represents network objects as a transactional
-database with commit/rollback. It is far not production ready,
-so be prepared for surprises and API changes.
-
-    from pyroute2 import ipdb
-    ip = ipdb()
-    ip.tap0.down()
-    ip.tap0.address = '00:11:22:33:44:55'
-    ip.tap0.ifname = 'vpn'
-    ip.tap0.ipaddr.add(('10.0.0.1', 24))
-    ip.tap0.ipaddr.add(('10.0.0.2', 24))
-    ip.tap0.commit()
-    ip.vpn.up()
-
-If you want to review and/or rollback the transaction, you can
-use code like that:
-
-    from pprint import pprint
-    ...
-    pprint(ip.tap0.review())
-        {'attrs': {'address': 'da:72:48:6b:13:c8 -> 00:11:22:33:44:55',
-                   'ifname': 'tap0 -> vpn'},
-         'ipaddr': ['+10.0.0.4/24',
-                    '+10.0.0.5/24',
-                    '+10.0.0.2/24',
-                    '+10.0.0.3/24',
-                    '+10.0.0.1/24']}
-    ip.tap0.rollback()
-
-Actually, the form like 'ip.tap0.address' is an eye-candy. The
-ipdb objects are dictionaries, so you can write the code above
-as that:
-
-    ip['tap0'].down()
-    ip['tap0']['address'] = '00:11:22:33:44:55'
-    ip['tap0']['ifname'] = 'vpn'
-    ...
-
-Also, interface objects can operate as context managers:
-
-    with ip.tap0 as i:
-        i.address = '00:11:22:33:44:55'
-        i.ifname = 'vpn'
-        i.ipaddr.add(('10.0.0.1', 24))
-        i.ipaddr.add(('10.0.0.1', 24))
-
-On exit, the context manager will authomatically commit the
-transaction.
-
-taskstats
-=========
-
-All that you should know about taskstats, is that you should not
-use it. But if you have to, ok:
-
-    import os
-    from pyroute2 import taskstats
-    ts = taskstats()
-    ts.get_pid_stat(os.getpid())
-
-It is not implemented normally yet, but some methods are already
-usable.
+The project contains several modules for different types of
+netlink messages, not only RTNL.
 
 installation
-============
+------------
 
-make install
+`make install` or `easy_install pyroute2`
 
 requires
-========
+--------
 
 Python >= 2.6
 
-changes
-=======
+changelog
+---------
 
- * 0.1.3
-  * ipdb: context manager interface
-  * ipdb: [fix] correctly handle ip addr changes in transaction
-  * ipdb: [fix] make up()/down() methods transactional [#1]
-  * iproute: mirror packets to 0 queue
-  * iproute: [fix] handle primary ip address removal response
- * 0.1.2
-  * initial ipdb version
-  * iproute fixes
- * 0.1.1
-  * initial release, iproute module
+* 0.1.4
+    * netlink: remote netlink access
+    * netlink: SSL/TLS server/client auth support
+    * netlink: tcp and unix transports
+    * docs: started sphinx docs
+* 0.1.3
+    * ipdb: context manager interface
+    * ipdb: [fix] correctly handle ip addr changes in transaction
+    * ipdb: [fix] make up()/down() methods transactional [#1]
+    * iproute: mirror packets to 0 queue
+    * iproute: [fix] handle primary ip address removal response
+* 0.1.2
+    * initial ipdb version
+    * iproute fixes
+* 0.1.1
+    * initial release, iproute module
 
 links
-=====
+-----
 
- * home: https://github.com/svinota/pyroute2
- * bugs: https://github.com/svinota/pyroute2/issues
- * pypi: https://pypi.python.org/pypi/pyroute2
+* home: https://github.com/svinota/pyroute2
+* bugs: https://github.com/svinota/pyroute2/issues
+* pypi: https://pypi.python.org/pypi/pyroute2
+* docs: http://peet.spb.ru/pyroute2/
+

@@ -17,7 +17,7 @@
 # 	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 version ?= "0.1"
-release ?= "0.1.3"
+release ?= "0.1.4"
 python ?= "python"
 
 ifdef root
@@ -34,6 +34,7 @@ all:
 
 clean: clean-version
 	rm -rf dist build MANIFEST
+	rm -f docs/general.rst
 	find . -name "*pyc" -exec rm -f "{}" \;
 
 check:
@@ -42,16 +43,21 @@ check:
 		pyflakes $$i || exit 1; \
 		done
 
-setup.py:
+setup.py docs/conf.py:
 	gawk -v version=${version} -v release=${release} -v flavor=${flavor}\
 		-f configure.gawk $@.in >$@
 
 clean-version:
 	rm -f setup.py
+	rm -f docs/conf.py
 
 force-version: clean-version update-version
 
-update-version: setup.py
+update-version: setup.py docs/conf.py
+
+docs: clean force-version
+	cp README.md docs/general.rst
+	make -C docs html
 
 upload: clean force-version
 	${python} setup.py sdist upload 
