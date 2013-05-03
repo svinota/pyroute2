@@ -1,4 +1,6 @@
+import traceback
 import threading
+import urlparse
 import select
 import struct
 import socket
@@ -7,10 +9,41 @@ import copy
 import os
 import io
 import uuid
+import ssl
 
 from pyroute2.netlink.generic import cmdmsg
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import NETLINK_GENERIC
+
+
+def _monkey_handshake(self):
+    ##
+    #
+    # We have to close incoming connection on handshake error.
+    # But if the handshake method is called from the SSLSocket
+    # constructor, there is no way to close it: we loose all
+    # the references to the failed connection, except the
+    # traceback.
+    #
+    # Using traceback (via sys.exc_info()) can lead to
+    # unpredictable consequences with GC. So we have two more
+    # choices:
+    # 1. use monkey-patch for do_handshake()
+    # 2. call it separately.
+    #
+    # The latter complicates the code by extra checks, that
+    # will not be needed most of the time. So the monkey-patch
+    # is cheaper.
+    #
+    ##
+    try:
+        self._sslobj.do_handshake()
+    except Exception as e:
+        self._sock.close()
+        raise e
+
+
+ssl.SSLSocket.do_handshake = _monkey_handshake
 
 
 ## Netlink message flags values (nlmsghdr.flags)
@@ -124,6 +157,13 @@ class netlink_socket(socket.socket):
         socket.socket.bind(self, (self.pid, self.groups))
 
 
+class ssl_credentials(object):
+    def __init__(self, key, cert, ca):
+        self.key = key
+        self.cert = cert
+        self.ca = ca
+
+
 class iothread(threading.Thread):
     def __init__(self, marshal, send_method=None):
         threading.Thread.__init__(self)
@@ -138,12 +178,47 @@ class iothread(threading.Thread):
         self.clients = set()
         self.uplinks = set()
         self.servers = set()
+        self.ssl_keys = {}
         self.uuid = uuid.uuid4()
         self.mirror = False
         self.control = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.control.bind(b'\0%s' % (self.uuid))
         self._rlist.add(self.control)
         self._stop = False
+
+    def _get_socket(self, url, server_side):
+        assert type(url) is str
+        target = urlparse.urlparse(url)
+
+        if target.scheme == 'unix':
+            if target.hostname[0] == '\0':
+                address = target.hostname
+            else:
+                address = ''.join(('/', target.hostname, target.path))
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        else:
+            address = (socket.gethostbyname(target.hostname), target.port)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        if target.scheme not in ('tcp', 'unix'):
+            if target.scheme == 'ssl':
+                proto = ssl.PROTOCOL_SSLv3
+            elif target.scheme == 'tls':
+                proto = ssl.PROTOCOL_TLSv1
+            else:
+                raise Exception('unsupported scheme')
+
+            if url not in self.ssl_keys:
+                raise Exception('SSL/TLS keys are not provided')
+
+            sock = ssl.wrap_socket(sock,
+                                   keyfile=self.ssl_keys[url].key,
+                                   certfile=self.ssl_keys[url].cert,
+                                   ca_certs=self.ssl_keys[url].ca,
+                                   server_side=server_side,
+                                   cert_reqs=ssl.CERT_REQUIRED,
+                                   ssl_version=proto)
+        return (sock, address)
 
     def parse(self, data):
         '''
@@ -199,11 +274,11 @@ class iothread(threading.Thread):
         self.reload()
         return self.netlink
 
-    def add_server(self, address):
+    def add_server(self, url):
         '''
         Add a server socket to listen for clients on
         '''
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        (sock, address) = self._get_socket(url, server_side=False)
         sock.bind(address)
         sock.listen(16)
         self._rlist.add(sock)
@@ -223,11 +298,11 @@ class iothread(threading.Thread):
         self.reload()
         return sock
 
-    def add_uplink(self, address):
+    def add_uplink(self, url):
         '''
         Add an uplink server to get information from
         '''
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        (sock, address) = self._get_socket(url, server_side=False)
         sock.connect(address)
         self._rlist.add(sock)
         self.uplinks.add(sock)
@@ -270,8 +345,14 @@ class iothread(threading.Thread):
 
                 if fd in self.servers:
                     # incoming client connection
-                    (client, addr) = fd.accept()
-                    self.add_client(client)
+                    try:
+                        (client, addr) = fd.accept()
+                        self.add_client(client)
+                    except ssl.SSLError:
+                        # FIXME log SSL errors
+                        pass
+                    except:
+                        traceback.print_exc()
                     continue
 
                 data = fd.recv(16384)
@@ -345,11 +426,15 @@ class netlink(object):
     groups = 0
     marshal = marshal
 
-    def __init__(self, debug=False, host='localsystem', interruptible=False):
+    def __init__(self, debug=False, host='localsystem', interruptible=False,
+                 key=None, cert=None, ca=None):
         self.server = host
         self.iothread = iothread(self.marshal, self.send)
         self.listeners = self.iothread.listeners
+        self.ssl_keys = self.iothread.ssl_keys
         self.interruptible = interruptible
+        if key:
+            self.ssl_keys[host] = ssl_credentials(key, cert, ca)
         if host == 'localsystem':
             self.socket = self.iothread.set_netlink(self.family, self.groups)
         else:
@@ -359,13 +444,17 @@ class netlink(object):
         self._nonce = 1
         self.servers = {}
 
-    def shutdown(self, address=None):
-        address = address or self.servers.keys()[0]
-        self.iothread.remove_server(self.servers[address])
-        del self.servers[address]
+    def shutdown(self, url=None):
+        url = url or self.servers.keys()[0]
+        self.iothread.remove_server(self.servers[url])
+        if url in self.ssl_keys:
+            del self.ssl_keys[url]
+        del self.servers[url]
 
-    def serve(self, address):
-        self.servers[address] = self.iothread.add_server(address)
+    def serve(self, url, key=None, cert=None, ca=None):
+        if key:
+            self.ssl_keys[url] = ssl_credentials(key, cert, ca)
+        self.servers[url] = self.iothread.add_server(url)
 
     def nonce(self):
         '''

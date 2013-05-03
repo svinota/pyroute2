@@ -275,7 +275,8 @@ class ipdb(dotkeys):
     No methods of the class should be called directly.
     '''
 
-    def __init__(self, ipr=None, host='localsystem'):
+    def __init__(self, ipr=None, host='localsystem',
+                 key=None, cert=None, ca=None):
         '''
         Parameters:
             * ipr -- iproute() reference
@@ -286,7 +287,7 @@ class ipdb(dotkeys):
         you can start two and more iproute instances, but
         only the first one will receive anything.
         '''
-        self.ip = ipr or iproute(host=host)
+        self.ip = ipr or iproute(host=host, key=key, cert=cert, ca=ca)
 
         # caches
         self.ipaddr = {}
