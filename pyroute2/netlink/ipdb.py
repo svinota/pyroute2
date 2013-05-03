@@ -12,7 +12,6 @@ Quick start:
     ip['eth0'].commit()
     ip['bala'].up()
 '''
-import zmq
 import copy
 import threading
 from socket import AF_INET
@@ -276,7 +275,7 @@ class ipdb(dotkeys):
     No methods of the class should be called directly.
     '''
 
-    def __init__(self, ipr=None, ctx=None, host=None):
+    def __init__(self, ipr=None, host='localsystem'):
         '''
         Parameters:
             * ipr -- iproute() reference
@@ -287,13 +286,7 @@ class ipdb(dotkeys):
         you can start two and more iproute instances, but
         only the first one will receive anything.
         '''
-        self.ctx = ctx
-
-        if (host is not None) and (ipr is None):
-            if ctx is None:
-                self.ctx = zmq.Context()
-            ipr = iproute(ctx=self.ctx, host=host)
-        self.ip = ipr or iproute()
+        self.ip = ipr or iproute(host=host)
 
         # caches
         self.ipaddr = {}
