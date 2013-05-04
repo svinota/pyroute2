@@ -336,7 +336,10 @@ class ipdb(dotkeys):
         database.
         '''
         while True:
-            messages = self.ip.get()
+            try:
+                messages = self.ip.get()
+            except:
+                continue
             for msg in messages:
                 if msg.get('event', None) == 'RTM_NEWLINK':
                     index = msg['index']
