@@ -40,7 +40,7 @@ Python >= 2.6
 changelog
 ---------
 
-* 0.1.4
+* 0.1.4 -- not released yet
     * netlink: remote netlink access
     * netlink: SSL/TLS server/client auth support
     * netlink: tcp and unix transports
