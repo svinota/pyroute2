@@ -165,16 +165,16 @@ class ssl_credentials(object):
 
 
 class iothread(threading.Thread):
-    def __init__(self, marshal, send_method=None):
+    def __init__(self, send_method=None):
         threading.Thread.__init__(self)
         self.setDaemon(True)
         self._rlist = set()
         self._wlist = set()
         self._xlist = set()
         self.send = send_method
-        self.marshal = marshal()
+        self.marshals = {}
         self.listeners = {}
-        self.netlink = None
+        self.netlinks = set()
         self.clients = set()
         self.uplinks = set()
         self.servers = set()
@@ -220,7 +220,7 @@ class iothread(threading.Thread):
                                    ssl_version=proto)
         return (sock, address)
 
-    def parse(self, data):
+    def parse(self, data, marshal):
         '''
         Parse and enqueue messages. A message can be
         retrieved from netlink socket as well as from a
@@ -239,7 +239,7 @@ class iothread(threading.Thread):
 
         # TODO: create a hook for custom cmdmsg?
 
-        for msg in self.marshal.parse(data):
+        for msg in marshal.parse(data):
             key = msg['header']['sequence_number']
             if key not in self.listeners:
                 key = 0
@@ -261,18 +261,27 @@ class iothread(threading.Thread):
     def reload(self):
         return self.command(IPRCMD_RELOAD)
 
-    def set_netlink(self, family, groups):
+    def add_netlink(self, family, groups):
         '''
-        [re]set netlink connection and reload I/O cycle.
+        Add netlink connection and reload I/O cycle.
         '''
-        if self.netlink is not None:
-            self._rlist.remove(self.netlink)
-            self.netlink.close()
-        self.netlink = netlink_socket(family)
-        self.netlink.bind(groups)
-        self._rlist.add(self.netlink)
+        sock = netlink_socket(family)
+        sock.bind(groups)
+        self._rlist.add(sock)
+        self.netlinks.add(sock)
         self.reload()
-        return self.netlink
+        return sock
+
+    def remove_netlink(self, family, groups):
+        sock = None
+        for sock in self.netlinks:
+            if (sock.family, sock.groups) == (family, groups):
+                break
+        assert sock
+        self.netlinks.remove(sock)
+        self._rlist.remove(sock)
+        sock.close()
+        return sock
 
     def add_server(self, url):
         '''
@@ -370,11 +379,11 @@ class iothread(threading.Thread):
                     elif cmd['command'] == IPRCMD_RELOAD:
                         pass
 
-                elif fd == self.netlink:
+                elif fd in self.netlinks:
                     # a packet from local netlink
                     for sock in self.clients:
                         sock.send(data)
-                    self.parse(data)
+                    self.parse(data, self.marshals[fd])
 
                 elif fd in self.clients:
                     # a packet from a client
@@ -390,7 +399,7 @@ class iothread(threading.Thread):
                         # uplink closed connection
                         self.remove_uplink(fd)
                     else:
-                        self.parse(data)
+                        self.parse(data, self.marshals[fd])
 
 
 class netlink(object):
@@ -429,16 +438,17 @@ class netlink(object):
     def __init__(self, debug=False, host='localsystem', interruptible=False,
                  key=None, cert=None, ca=None):
         self.server = host
-        self.iothread = iothread(self.marshal, self.send)
+        self.iothread = iothread(self.send)
         self.listeners = self.iothread.listeners
         self.ssl_keys = self.iothread.ssl_keys
         self.interruptible = interruptible
         if key:
             self.ssl_keys[host] = ssl_credentials(key, cert, ca)
         if host == 'localsystem':
-            self.socket = self.iothread.set_netlink(self.family, self.groups)
+            self.socket = self.iothread.add_netlink(self.family, self.groups)
         else:
             self.socket = self.iothread.add_uplink(self.server)
+        self.iothread.marshals[self.socket] = self.marshal()
         self.iothread.start()
         self.debug = debug
         self._nonce = 1
