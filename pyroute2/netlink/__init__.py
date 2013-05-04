@@ -6,14 +6,16 @@ import struct
 import socket
 import Queue
 import copy
+import time
 import os
 import io
 import uuid
 import ssl
 
-from pyroute2.netlink.generic import cmdmsg
+from pyroute2.netlink.generic import ctrlmsg
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import NETLINK_GENERIC
+from pyroute2.netlink.generic import NETLINK_UNUSED
 
 
 def _monkey_handshake(self):
@@ -75,6 +77,7 @@ IPRCMD_REGISTER = 2
 IPRCMD_UNREGISTER = 3
 IPRCMD_STOP = 4
 IPRCMD_RELOAD = 5
+IPRCMD_ROUTE = 6
 
 
 class netlink_error(socket.error):
@@ -165,26 +168,33 @@ class ssl_credentials(object):
 
 
 class iothread(threading.Thread):
-    def __init__(self, send_method=None):
+    def __init__(self):
         threading.Thread.__init__(self)
         self.setDaemon(True)
+        # fd lists for select()
         self._rlist = set()
         self._wlist = set()
         self._xlist = set()
-        self.send = send_method
-        self.marshals = {}
-        self.listeners = {}
-        self.netlinks = set()
-        self.clients = set()
-        self.uplinks = set()
-        self.servers = set()
-        self.ssl_keys = {}
-        self.uuid = uuid.uuid4()
+        self._stop = False
+        # routing
+        self.rtable = {}          # {client_socket: send_method, ...}
+        self.families = {}        # {family_id: send_method, ...}
+        self.marshals = {}        # {netlink_socket: marshal, ...}
+        self.listeners = {}       # {int: Queue(), int: Queue()...}
+        self.netlinks = set()     # set(socket, socket...)
+        self.clients = set()      # set(socket, socket...)
+        self.uplinks = set()      # set(socket, socket...)
+        self.servers = set()      # set(socket, socket...)
+        self.ssl_keys = {}        # {url: ssl_credentials(), url:...}
         self.mirror = False
+        # control socket, for in-process communication only
+        self.uuid = uuid.uuid4()
         self.control = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.control.bind(b'\0%s' % (self.uuid))
         self._rlist.add(self.control)
-        self._stop = False
+        # debug
+        self.record = False
+        self.backlog = []
 
     def _get_socket(self, url, server_side):
         assert type(url) is str
@@ -220,6 +230,44 @@ class iothread(threading.Thread):
                                    ssl_version=proto)
         return (sock, address)
 
+    def route(self, sock, data):
+        # message type, offset 4 bytes, length 2 bytes
+        mtype = struct.unpack('H', data[4:6])[0]
+        # use NETLINK_UNUSED as inter-pyroute2
+        # FIXME log routing failures
+        if mtype == NETLINK_UNUSED:
+            #
+            # Control messages
+            #
+            cmd = self.parse_control(data)
+            if cmd['cmd'] == IPRCMD_ROUTE:
+                #
+                # Route request
+                #
+                family = cmd.get_attr('CTRL_ATTR_FAMILY_ID')[0]
+                if family in self.families:
+                    send = self.families[family]
+                    self.rtable[sock] = send
+                # TODO
+                # * subscribe requests
+                # * ...
+
+        else:
+            #
+            # Data messages
+            #
+            if sock in self.rtable:
+                send = self.rtable[sock]
+                send(data)
+
+    def parse_control(self, data):
+        buf = io.BytesIO()
+        buf.write(data)
+        buf.seek(0)
+        cmd = ctrlmsg(buf)
+        cmd.decode()
+        return cmd
+
     def parse(self, data, marshal):
         '''
         Parse and enqueue messages. A message can be
@@ -237,9 +285,9 @@ class iothread(threading.Thread):
         put the message into default 0 queue, if it exists.
         '''
 
-        # TODO: create a hook for custom cmdmsg?
-
         for msg in marshal.parse(data):
+            if self.record:
+                self.backlog.append((time.asctime(), msg))
             key = msg['header']['sequence_number']
             if key not in self.listeners:
                 key = 0
@@ -248,9 +296,10 @@ class iothread(threading.Thread):
             if key in self.listeners:
                 self.listeners[key].put(msg)
 
-    def command(self, cmd, v1=0, v2=0):
-        msg = cmdmsg(io.BytesIO())
-        msg['command'] = cmd
+    def command(self, cmd):
+        msg = ctrlmsg(io.BytesIO())
+        msg['header']['type'] = NETLINK_UNUSED
+        msg['cmd'] = cmd
         msg.encode()
         return self.control.sendto(msg.buf.getvalue(),
                                    self.control.getsockname())
@@ -352,8 +401,11 @@ class iothread(threading.Thread):
             [rlist, wlist, xlist] = select.select(self._rlist, [], [])
             for fd in rlist:
 
+                ##
+                #
+                # Incoming client connections
+                #
                 if fd in self.servers:
-                    # incoming client connection
                     try:
                         (client, addr) = fd.accept()
                         self.add_client(client)
@@ -364,42 +416,69 @@ class iothread(threading.Thread):
                         traceback.print_exc()
                     continue
 
+                ##
+                #
+                # Receive data from already open connection
+                #
+                # FIXME max length
                 data = fd.recv(16384)
+                if self.record:
+                    self.backlog.append((time.asctime(), data))
 
+                ##
+                #
+                # Control socket, only type == NETLINK_UNUSED
+                #
                 if fd == self.control:
                     # FIXME move it to specific marshal
-                    buf = io.BytesIO()
-                    buf.write(data)
-                    buf.seek(0)
-                    cmd = cmdmsg(buf)
-                    cmd.decode()
-                    if cmd['command'] == IPRCMD_STOP:
+                    cmd = self.parse_control(data)
+                    if cmd['cmd'] == IPRCMD_STOP:
                         self._stop = True
                         break
-                    elif cmd['command'] == IPRCMD_RELOAD:
+                    elif cmd['cmd'] == IPRCMD_RELOAD:
                         pass
 
+                ##
+                #
+                # Incoming packet from local netlink
+                #
                 elif fd in self.netlinks:
-                    # a packet from local netlink
+                    # retranslate to all clients
+                    # FIXME what about subscriptions?
                     for sock in self.clients:
                         sock.send(data)
+                    # parse message locally
                     self.parse(data, self.marshals[fd])
 
+                ##
+                #
+                # Incoming packet from remote client
+                #
                 elif fd in self.clients:
-                    # a packet from a client
                     if data == '':
-                        # client socket is closed:
+                        # client closed connection
                         self.remove_client(fd)
                     else:
-                        self.send(data)
+                        try:
+                            self.route(fd, data)
+                        except:
+                            # drop packet on any error
+                            traceback.print_exc()
 
+                ##
+                #
+                # Incoming packet from remote uplink
+                #
                 elif fd in self.uplinks:
-                    # a packet from an uplink
                     if data == '':
                         # uplink closed connection
                         self.remove_uplink(fd)
                     else:
-                        self.parse(data, self.marshals[fd])
+                        try:
+                            self.parse(data, self.marshals[fd])
+                        except:
+                            # drop packet on any error
+                            pass
 
 
 class netlink(object):
@@ -438,7 +517,7 @@ class netlink(object):
     def __init__(self, debug=False, host='localsystem', interruptible=False,
                  key=None, cert=None, ca=None):
         self.server = host
-        self.iothread = iothread(self.send)
+        self.iothread = iothread()
         self.listeners = self.iothread.listeners
         self.ssl_keys = self.iothread.ssl_keys
         self.interruptible = interruptible
@@ -448,11 +527,21 @@ class netlink(object):
             self.socket = self.iothread.add_netlink(self.family, self.groups)
         else:
             self.socket = self.iothread.add_uplink(self.server)
+            self.request_route()
         self.iothread.marshals[self.socket] = self.marshal()
+        self.iothread.families[self.family] = self.send
         self.iothread.start()
         self.debug = debug
         self._nonce = 1
         self.servers = {}
+
+    def request_route(self):
+        rmsg = ctrlmsg()
+        rmsg['header']['type'] = NETLINK_UNUSED
+        rmsg['cmd'] = IPRCMD_ROUTE
+        rmsg['attrs'] = (('CTRL_ATTR_FAMILY_ID', self.family), )
+        rmsg.encode()
+        self.socket.send(rmsg.buf.getvalue())
 
     def shutdown(self, url=None):
         url = url or self.servers.keys()[0]

@@ -215,6 +215,12 @@ class nlmsg_base(dict):
             self['value'] = value
             self.value = value
 
+    def get_attr(self, attr):
+        '''
+        Return attr by name
+        '''
+        return [i[1] for i in self['attrs'] if i[0] == attr]
+
     def getvalue(self):
         '''
         Atomic NLAs return their value in the 'value' field,
@@ -445,8 +451,3 @@ class ctrlmsg(genlmsg):
     nla_map = (('CTRL_ATTR_UNSPEC', 'none'),
                ('CTRL_ATTR_FAMILY_ID', 'uint16'),
                ('CTRL_ATTR_FAMILY_NAME', 'asciiz'))
-
-
-class cmdmsg(nlmsg):
-    fmt = 'HHH'
-    fields = ('command', 'v1', 'v2')
