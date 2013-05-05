@@ -199,8 +199,10 @@ class iothread(threading.Thread):
     def _get_socket(self, url, server_side):
         assert type(url) is str
         target = urlparse.urlparse(url)
+        use_ssl = False
+        ssl_version = 2
 
-        if target.scheme == 'unix':
+        if target.scheme[:4] == 'unix':
             if target.hostname[0] == '\0':
                 address = target.hostname
             else:
@@ -210,14 +212,15 @@ class iothread(threading.Thread):
             address = (socket.gethostbyname(target.hostname), target.port)
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        if target.scheme not in ('tcp', 'unix'):
-            if target.scheme == 'ssl':
-                proto = ssl.PROTOCOL_SSLv3
-            elif target.scheme == 'tls':
-                proto = ssl.PROTOCOL_TLSv1
-            else:
-                raise Exception('unsupported scheme')
+        if target.scheme.find('ssl') >= 0:
+            ssl_version = ssl.PROTOCOL_SSLv3
+            use_ssl = True
 
+        if target.scheme.find('tls') >= 0:
+            ssl_version = ssl.PROTOCOL_TLSv1
+            use_ssl = True
+
+        if use_ssl:
             if url not in self.ssl_keys:
                 raise Exception('SSL/TLS keys are not provided')
 
@@ -227,7 +230,7 @@ class iothread(threading.Thread):
                                    ca_certs=self.ssl_keys[url].ca,
                                    server_side=server_side,
                                    cert_reqs=ssl.CERT_REQUIRED,
-                                   ssl_version=proto)
+                                   ssl_version=ssl_version)
         return (sock, address)
 
     def route(self, sock, data):
