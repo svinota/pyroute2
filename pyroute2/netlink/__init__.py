@@ -199,17 +199,18 @@ class iothread(threading.Thread):
     def _get_socket(self, url, server_side):
         assert type(url) is str
         target = urlparse.urlparse(url)
+        hostname = target.hostname or ''
         use_ssl = False
         ssl_version = 2
 
         if target.scheme[:4] == 'unix':
-            if target.hostname[0] == '\0':
-                address = target.hostname
+            if hostname and hostname[0] == '\0':
+                address = hostname
             else:
-                address = ''.join(('/', target.hostname, target.path))
+                address = ''.join((hostname, target.path))
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         else:
-            address = (socket.gethostbyname(target.hostname), target.port)
+            address = (socket.gethostbyname(hostname), target.port)
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         if target.scheme.find('ssl') >= 0:
