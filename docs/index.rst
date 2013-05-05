@@ -3,14 +3,16 @@
 pyroute2 netlink library
 ========================
 
-General information about the library (README.md):
+General information about the library (README.md)
+-------------------------------------------------
 
 .. toctree::
     :maxdepth: 2
 
     general
 
-Modules description, sample code, usecases:
+Modules description, sample code, usecases
+------------------------------------------
 
 .. toctree::
     :maxdepth: 2

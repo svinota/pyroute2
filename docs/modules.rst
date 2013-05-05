@@ -11,7 +11,7 @@ iproute
 
 Old-style library, that provides access to rtnetlink as is. It
 helps you to retrieve and change almost all the data, available
-through rtnetlink.::
+through rtnetlink::
 
     from pyroute2 import iproute
     ip = iproute()
@@ -47,7 +47,7 @@ so be prepared for surprises and API changes.::
     ip.vpn.up()
 
 If you want to review and/or rollback the transaction, you can
-use code like that:::
+use code like that::
 
     from pprint import pprint
     ...
@@ -63,14 +63,14 @@ use code like that:::
 
 Actually, the form like 'ip.tap0.address' is an eye-candy. The
 ipdb objects are dictionaries, so you can write the code above
-as that:::
+as that::
 
     ip['tap0'].down()
     ip['tap0']['address'] = '00:11:22:33:44:55'
     ip['tap0']['ifname'] = 'vpn'
     ...
 
-Also, interface objects can operate as context managers:::
+Also, interface objects can operate as context managers::
 
     with ip.tap0 as i:
         i.address = '00:11:22:33:44:55'
@@ -85,7 +85,7 @@ taskstats
 ---------
 
 All that you should know about taskstats, is that you should not
-use it. But if you have to, ok:::
+use it. But if you have to, ok::
 
     import os
     from pyroute2 import taskstats
