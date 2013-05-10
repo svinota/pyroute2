@@ -181,7 +181,6 @@ class iothread(threading.Thread):
         self.families = {}        # {family_id: send_method, ...}
         self.marshals = {}        # {netlink_socket: marshal, ...}
         self.listeners = {}       # {int: Queue(), int: Queue()...}
-        self.netlinks = set()     # set(socket, socket...)
         self.clients = set()      # set(socket, socket...)
         self.uplinks = set()      # set(socket, socket...)
         self.servers = set()      # set(socket, socket...)
@@ -234,12 +233,22 @@ class iothread(threading.Thread):
                                    ssl_version=ssl_version)
         return (sock, address)
 
+    def distribute(self, data):
+        """
+        Send message to all clients. Called from self.route()
+        """
+        for sock in self.clients:
+            sock.send(data)
+
     def route(self, sock, data):
+        """
+        Route message
+        """
         # message type, offset 4 bytes, length 2 bytes
         mtype = struct.unpack('H', data[4:6])[0]
         # use NETLINK_UNUSED as inter-pyroute2
         # FIXME log routing failures
-        if mtype == NETLINK_UNUSED:
+        if (mtype == NETLINK_UNUSED) and (sock in self.clients):
             #
             # Control messages
             #
@@ -314,28 +323,6 @@ class iothread(threading.Thread):
     def reload(self):
         return self.command(IPRCMD_RELOAD)
 
-    def add_netlink(self, family, groups):
-        '''
-        Add netlink connection and reload I/O cycle.
-        '''
-        sock = netlink_socket(family)
-        sock.bind(groups)
-        self._rlist.add(sock)
-        self.netlinks.add(sock)
-        self.reload()
-        return sock
-
-    def remove_netlink(self, family, groups):
-        sock = None
-        for sock in self.netlinks:
-            if (sock.family, sock.groups) == (family, groups):
-                break
-        assert sock
-        self.netlinks.remove(sock)
-        self._rlist.remove(sock)
-        sock.close()
-        return sock
-
     def add_server(self, url):
         '''
         Add a server socket to listen for clients on
@@ -360,24 +347,30 @@ class iothread(threading.Thread):
         self.reload()
         return sock
 
-    def add_uplink(self, url):
+    def add_uplink(self, url=None, family=None, groups=None):
         '''
-        Add an uplink server to get information from
+        Add an uplink to get information from:
+
+        * url -- remote serve
+        * family and groups -- netlink
         '''
-        (sock, address) = self._get_socket(url, server_side=False)
-        sock.connect(address)
+        if url is not None:
+            (sock, address) = self._get_socket(url, server_side=False)
+            sock.connect(address)
+        elif (family is not None) and \
+             (groups is not None):
+            sock = netlink_socket(family)
+            sock.bind(groups)
+        else:
+            raise Exception("uplink type not supported")
         self._rlist.add(sock)
         self.uplinks.add(sock)
+        self.rtable[sock] = self.distribute
         self.reload()
         return sock
 
-    def remove_uplink(self, sock=None, address=None):
-        assert sock or address
-        if address:
-            for sock in self.uplinks:
-                if sock.getsockname() == address:
-                    break
-        assert sock
+    def remove_uplink(self, sock):
+        assert sock in self.uplinks
         self._rlist.remove(sock)
         self.uplinks.remove(sock)
         self.reload()
@@ -444,18 +437,6 @@ class iothread(threading.Thread):
 
                 ##
                 #
-                # Incoming packet from local netlink
-                #
-                elif fd in self.netlinks:
-                    # retranslate to all clients
-                    # FIXME what about subscriptions?
-                    for sock in self.clients:
-                        sock.send(data)
-                    # parse message locally
-                    self.parse(data, self.marshals[fd])
-
-                ##
-                #
                 # Incoming packet from remote client
                 #
                 elif fd in self.clients:
@@ -471,13 +452,14 @@ class iothread(threading.Thread):
 
                 ##
                 #
-                # Incoming packet from remote uplink
+                # Incoming packet from uplink
                 #
                 elif fd in self.uplinks:
                     if data == '':
                         # uplink closed connection
                         self.remove_uplink(fd)
                     else:
+                        self.route(fd, data)
                         try:
                             self.parse(data, self.marshals[fd])
                         except:
@@ -528,9 +510,10 @@ class netlink(object):
         if key:
             self.ssl_keys[host] = ssl_credentials(key, cert, ca)
         if host == 'localsystem':
-            self.socket = self.iothread.add_netlink(self.family, self.groups)
+            self.socket = self.iothread.add_uplink(family=self.family,
+                                                   groups=self.groups)
         else:
-            self.socket = self.iothread.add_uplink(self.server)
+            self.socket = self.iothread.add_uplink(url=self.server)
             self.request_route()
         self.iothread.marshals[self.socket] = self.marshal()
         self.iothread.families[self.family] = self.send
