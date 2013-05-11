@@ -130,6 +130,7 @@ class interface(dotkeys):
         '''
         self.ip = ipr
         self.cleanup = ('header',
+                        'linkinfo',
                         'af_spec',
                         'attrs',
                         'event',
@@ -161,7 +162,8 @@ class interface(dotkeys):
         '''
         [property] Link to the parent interface -- if it exists
         '''
-        return self._parent.get(self['master'], None)
+        if 'master' in self:
+            return self._parent.get(self['master'], None)
 
     @property
     def if_slaves(self):
@@ -181,17 +183,24 @@ class interface(dotkeys):
             norm = dev.nla2name(name)
             self._attrs.add(norm)
             self[norm] = value
-        for item in self.cleanup:
-            if item in self:
-                del self[item]
         # save ifname for transaction
         self.old_name = self['ifname']
         self._updated = {}
+        # load interface kind
+        linkinfo = dev.get_attr('IFLA_LINKINFO')
+        if linkinfo:
+            kind = linkinfo[0].get_attr('IFLA_INFO_KIND')
+            if kind:
+                self['kind'] = kind[0]
         # the rest is possible only when interface
         # is used in IPDB, not standalone
         if self._parent is not None:
             # load IP addresses from IPDB
             self['ipaddr'] = self._parent.ipaddr[self['index']]
+        # finally, cleanup all not needed
+        for item in self.cleanup:
+            if item in self:
+                del self[item]
 
     def __setitem__(self, key, value):
         if key in self:
@@ -347,7 +356,8 @@ class ipdb(dotkeys):
         Update slaves list -- only after update IPDB!
         '''
         for msg in links:
-            master = msg.get_attr('IFLA_MASTER')
+            master = msg.get_attr('IFLA_MASTER') or \
+                msg.get_attr('IFLA_LINK')
             if master:
                 master = self[master[0]]
                 index = msg['index']
