@@ -86,10 +86,10 @@ class dotkeys(dict):
         return [i for i in self if type(i) == str and _var_name.match(i)]
 
     def __getattribute__(self, key):
-        if key in self:
-            return self[key]
-        else:
+        try:
             return dict.__getattribute__(self, key)
+        except AttributeError:
+            return self[key]
 
     def __setattr__(self, key, value):
         if key in self:
