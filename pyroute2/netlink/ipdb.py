@@ -135,7 +135,11 @@ class interface(dotkeys):
         self._parent = parent
         self._fields = [dev.nla2name(i) for i in nla_fields]
         self._updated = {}
+        self._slaves = dotkeys()
         self.load(dev)
+
+    def __hash__(self):
+        return self['index']
 
     def __enter__(self):
         return self
@@ -145,6 +149,14 @@ class interface(dotkeys):
             self.commit()
         except Exception as e:
             self.last_error = e
+
+    @property
+    def if_master(self):
+        return self._parent[self['master']]
+
+    @property
+    def if_slaves(self):
+        return self._slaves
 
     def load(self, dev):
         '''
@@ -160,9 +172,13 @@ class interface(dotkeys):
         for item in self.cleanup:
             if item in self:
                 del self[item]
+        # save ifname for transaction
         self.old_name = self['ifname']
         self._updated = {}
+        # the rest is possible only when interface
+        # is used in IPDB, not standalone
         if self._parent is not None:
+            # load IP addresses from IPDB
             self['ipaddr'] = self._parent.ipaddr[self['index']]
 
     def __setitem__(self, key, value):
@@ -292,7 +308,9 @@ class ipdb(dotkeys):
         self.neighbors = {}
 
         # load information on startup
-        self.update_links(self.ip.get_links())
+        links = self.ip.get_links()
+        self.update_links(links)
+        self.update_slaves(links)
         self.update_addr(self.ip.get_addr())
 
         # start monitoring thread
@@ -311,6 +329,27 @@ class ipdb(dotkeys):
                 self.ipaddr[dev['index']] = upset()
             i = self[dev['index']] = interface(dev, self.ip, self)
             self[i['ifname']] = i
+
+    def update_slaves(self, links):
+        '''
+        Update slaves list -- only after update IPDB!
+        '''
+        for msg in links:
+            master = msg.get_attr('IFLA_MASTER')
+            if master:
+                master = self[master[0]]
+                index = msg['index']
+                name = msg.get_attr('IFLA_IFNAME')[0]
+                if msg['event'] == 'RTM_NEWLINK':
+                    master._slaves[index] = self[msg['index']]
+                    master._slaves[name] = self[msg['index']]
+                elif msg['event'] == 'RTM_DELLINK':
+                    if index in master._slaves:
+                        del master._slaves[index]
+                    if name in master._slaves:
+                        del master._slaves[name]
+                    if 'master' in self[msg['index']]:
+                        del self[msg['index']]['master']
 
     def update_addr(self, addrs, action='add'):
         '''
@@ -347,13 +386,18 @@ class ipdb(dotkeys):
                         self[index].load(msg)
                         # check for new name
                         if self[index]['ifname'] != old_name:
+                            # FIXME catch exception
                             del self[old_name]
                             self[self[index]['ifname']] = self[index]
                     else:
                         self.update_links([msg])
+                    self.update_slaves([msg])
                 elif msg.get('event', None) == 'RTM_DELLINK':
-                    del self[self[msg['index']]['ifname']]
-                    del self[msg['index']]
+                    self.update_slaves([msg])
+                    if msg['change'] == 0xffffffff:
+                        # FIXME catch exception
+                        del self[self[msg['index']]['ifname']]
+                        del self[msg['index']]
                 elif msg.get('event', None) == 'RTM_NEWADDR':
                     self.update_addr([msg], 'add')
                 elif msg.get('event', None) == 'RTM_DELADDR':
