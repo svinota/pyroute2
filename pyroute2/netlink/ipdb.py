@@ -151,10 +151,6 @@ class interface(dotkeys):
         Update the interface info from RTM_NEWLINK message.
         '''
         dev.prefix = 'IFLA_'
-        # invalidate old info
-        for key in tuple(self.keys()):
-            del self[key]
-        # load new info
         self.update(dev)
         self._attrs = set()
         for (name, value) in dev['attrs']:
