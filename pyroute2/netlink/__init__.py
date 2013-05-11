@@ -537,6 +537,37 @@ class netlink(object):
             del self.ssl_keys[url]
         del self.servers[url]
 
+    def get_servers(self):
+        return self._get_sockets(self.iothread.servers, 'local')
+
+    def get_clients(self):
+        return self._get_sockets(self.iothread.clients, 'remote')
+
+    def _get_sockets(self, sockets, mode):
+        ret = []
+        for i in sockets:
+            url = ''
+            if i.family == socket.AF_UNIX:
+                url = 'unix'
+            if type(i) == ssl.SSLSocket:
+                if url:
+                    url += '+'
+                if i.ssl_version == ssl.PROTOCOL_SSLv3:
+                    url += 'ssl'
+                elif i.ssl_version == ssl.PROTOCOL_TLSv1:
+                    url += 'tls'
+            if not url:
+                url = 'tcp'
+            if i.family == socket.AF_UNIX:
+                url += '://%s' % (i.getsockname())
+            else:
+                if mode == 'local':
+                    url += '://%s:%i' % (i.getsockname())
+                elif mode == 'remote':
+                    url += '://%s:%i' % (i.getpeername())
+            ret.append(url)
+        return ret
+
     def serve(self, url, key=None, cert=None, ca=None):
         if key:
             self.ssl_keys[url] = ssl_credentials(key, cert, ca)
