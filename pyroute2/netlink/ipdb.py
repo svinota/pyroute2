@@ -329,6 +329,10 @@ class ipdb(dotkeys):
         '''
         self.ip = ipr or iproute(host=host, key=key, cert=cert, ca=ca)
 
+        # resolvers
+        self.by_name = dotkeys()
+        self.by_index = dotkeys()
+
         # caches
         self.ipaddr = {}
         self.routes = {}
@@ -347,6 +351,12 @@ class ipdb(dotkeys):
         self._mthread.setDaemon(True)
         self._mthread.start()
 
+    def __dir__(self):
+        ret = dotkeys.__dir__(self)
+        ret.append('by_name')
+        ret.append('by_index')
+        return ret
+
     def update_links(self, links):
         '''
         Rebuild links index from list of RTM_NEWLINK messages.
@@ -354,8 +364,12 @@ class ipdb(dotkeys):
         for dev in links:
             if dev['index'] not in self.ipaddr:
                 self.ipaddr[dev['index']] = upset()
-            i = self[dev['index']] = interface(dev, self.ip, self)
-            self[i['ifname']] = i
+            i = \
+                self.by_index[dev['index']] = \
+                self[dev['index']] = \
+                interface(dev, self.ip, self)
+            self[i['ifname']] = \
+                self.by_name[i['ifname']] = i
 
     def update_slaves(self, links):
         '''
@@ -415,8 +429,11 @@ class ipdb(dotkeys):
                         # check for new name
                         if self[index]['ifname'] != old_name:
                             # FIXME catch exception
+                            # FIXME isolate dict updates
                             del self[old_name]
+                            del self.by_name[old_name]
                             self[self[index]['ifname']] = self[index]
+                            self.by_name[self[index]['ifname']] = self[index]
                     else:
                         self.update_links([msg])
                     self.update_slaves([msg])
@@ -424,6 +441,8 @@ class ipdb(dotkeys):
                     self.update_slaves([msg])
                     if msg['change'] == 0xffffffff:
                         # FIXME catch exception
+                        del self.by_name[self[msg['index']]['ifname']]
+                        del self.by_index[msg['index']]
                         del self[self[msg['index']]['ifname']]
                         del self[msg['index']]
                 elif msg.get('event', None) == 'RTM_NEWADDR':
