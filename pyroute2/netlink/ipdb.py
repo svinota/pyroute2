@@ -430,15 +430,17 @@ class ipdb(dotkeys):
                     index = msg['index']
                     if index in self:
                         # get old name
-                        old_name = self[index].old_name
+                        old = self[index].old_name
                         # load message
                         self[index].load(msg)
                         # check for new name
-                        if self[index]['ifname'] != old_name:
+                        if self[index]['ifname'] != old:
                             # FIXME catch exception
                             # FIXME isolate dict updates
-                            del self[old_name]
-                            del self.by_name[old_name]
+                            if self[old].if_master:
+                                del self[old].if_master.if_slaves[old]
+                            del self[old]
+                            del self.by_name[old]
                             self[self[index]['ifname']] = self[index]
                             self.by_name[self[index]['ifname']] = self[index]
                     else:
