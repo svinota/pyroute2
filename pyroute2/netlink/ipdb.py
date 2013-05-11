@@ -123,7 +123,8 @@ class interface(dotkeys):
             * parent -- ipdb() reference
         '''
         self.ip = ipr
-        self.cleanup = ('af_spec',
+        self.cleanup = ('header',
+                        'af_spec',
                         'attrs',
                         'event',
                         'map',
