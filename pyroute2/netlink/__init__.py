@@ -196,10 +196,23 @@ class ssl_credentials(object):
         self.ca = ca
 
 
+class masq_record(object):
+    def __init__(self, seq, pid, socket):
+        self.seq = seq
+        self.pid = pid
+        self.socket = socket
+
+    def __repr__(self):
+        return "%s, %s, %s" % (_repr_sockets([self.socket], 'remote'),
+                               self.pid, self.seq)
+
+
 class iothread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self.setDaemon(True)
+        self.pid = os.getpid()
+        self._nonce = 0
         # fd lists for select()
         self._rlist = set()
         self._wlist = set()
@@ -210,6 +223,7 @@ class iothread(threading.Thread):
         self.families = {}        # {family_id: send_method, ...}
         self.marshals = {}        # {netlink_socket: marshal, ...}
         self.listeners = {}       # {int: Queue(), int: Queue()...}
+        self.masquerade = {}      # {int: masq_record()...}
         self.clients = set()      # set(socket, socket...)
         self.uplinks = set()      # set(socket, socket...)
         self.servers = set()      # set(socket, socket...)
@@ -262,19 +276,53 @@ class iothread(threading.Thread):
                                    ssl_version=ssl_version)
         return (sock, address)
 
+    def nonce(self):
+        if self._nonce == 0xffffffff:
+            self._nonce = 1
+        else:
+            self._nonce += 1
+        return self._nonce
+
     def distribute(self, data):
         """
         Send message to all clients. Called from self.route()
         """
-        for sock in self.clients:
-            sock.send(data)
+        data.seek(8)
+        # read sequence number and pid
+        seq, pid = struct.unpack('II', data.read(8))
+        # default target -- broadcast
+        target = None
+        # if it is a unicast response
+        if pid == self.pid:
+            # lookup masquerade table
+            target = self.masquerade.get(seq, None)
+        # there is valid masquerade record
+        if target is not None:
+            # fill up client's pid and seq
+            offset = 0
+            # ... but -- for each message in the packet :)
+            while offset < data.length:
+                # write the data
+                data.seek(offset + 8)
+                data.write(struct.pack('II', target.seq, target.pid))
+                # skip to the next message
+                data.seek(offset)
+                length = struct.unpack('I', data.read(4))[0]
+                offset += length
+
+            target.socket.send(data.getvalue())
+        else:
+            # otherwise, broadcast packet
+            for sock in self.clients:
+                sock.send(data.getvalue())
 
     def route(self, sock, data):
         """
         Route message
         """
+        data.seek(4)
         # message type, offset 4 bytes, length 2 bytes
-        mtype = struct.unpack('H', data[4:6])[0]
+        mtype = struct.unpack('H', data.read(2))[0]
         # use NETLINK_UNUSED as inter-pyroute2
         # FIXME log routing failures
         if (mtype == NETLINK_UNUSED) and (sock in self.clients):
@@ -298,15 +346,25 @@ class iothread(threading.Thread):
             #
             # Data messages
             #
+            if sock in self.clients:
+                # create masquerade record for client's messages
+                # 1. generate nonce
+                nonce = self.nonce()
+                # 2. save masquerade record, invalidating old one
+                data.seek(8)
+                seq, pid = struct.unpack('II', data.read(8))
+                self.masquerade[nonce] = masq_record(seq, pid, sock)
+                # 3. overwrite seq and pid
+                data.seek(8)
+                data.write(struct.pack('II', nonce, self.pid))
+
             if sock in self.rtable:
                 send = self.rtable[sock]
                 send(data)
 
     def parse_control(self, data):
-        buf = io.BytesIO()
-        buf.write(data)
-        buf.seek(0)
-        cmd = ctrlmsg(buf)
+        data.seek(0)
+        cmd = ctrlmsg(data)
         cmd.decode()
         return cmd
 
@@ -447,7 +505,9 @@ class iothread(threading.Thread):
                 # Receive data from already open connection
                 #
                 # FIXME max length
-                data = fd.recv(16384)
+                data = io.BytesIO()
+                data.length = data.write(fd.recv(16384))
+                data.seek(0)
                 if self.record:
                     self.backlog.append((time.asctime(), data))
 
@@ -469,7 +529,7 @@ class iothread(threading.Thread):
                 # Incoming packet from remote client
                 #
                 elif fd in self.clients:
-                    if data == '':
+                    if data.length == 0:
                         # client closed connection
                         self.remove_client(fd)
                     else:
@@ -484,13 +544,13 @@ class iothread(threading.Thread):
                 # Incoming packet from uplink
                 #
                 elif fd in self.uplinks:
-                    if data == '':
+                    if data.length == 0:
                         # uplink closed connection
                         self.remove_uplink(fd)
                     else:
                         self.route(fd, data)
                         try:
-                            self.parse(data, self.marshals[fd])
+                            self.parse(data.getvalue(), self.marshals[fd])
                         except:
                             # drop packet on any error
                             pass
@@ -658,10 +718,11 @@ class netlink(object):
         Send a buffer or to the local kernel, or to
         the server, depending on the setup.
         '''
+        data = buf.getvalue()
         if self.server == 'localsystem':
-            self.socket.sendto(buf, (0, 0))
+            self.socket.sendto(data, (0, 0))
         else:
-            self.socket.send(buf)
+            self.socket.send(data)
 
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST):
@@ -677,7 +738,7 @@ class netlink(object):
         msg['header']['type'] = msg_type
         msg['header']['flags'] = msg_flags
         msg.encode()
-        self.send(msg.buf.getvalue())
+        self.send(msg.buf)
         result = self.get(nonce)
         if not self.debug:
             for i in result:
