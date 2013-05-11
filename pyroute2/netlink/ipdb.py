@@ -169,7 +169,11 @@ class interface(dotkeys):
         [property] Link to the parent interface -- if it exists
         '''
         if 'master' in self:
+            # bridge ports
             return self._parent.get(self['master'], None)
+        elif 'link' in self:
+            # vlan ports
+            return self._parent.get(self['link'], None)
 
     @property
     def if_slaves(self):
