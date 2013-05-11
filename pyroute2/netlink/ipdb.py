@@ -27,13 +27,19 @@ nla_fields.append('state')
 
 
 def get_addr_nla(msg):
+    '''
+    Incosistency in Linux IP addressing scheme is that
+    IPv4 uses IFA_LOCAL to store interface's ip address,
+    and IPv6 uses for the same IFA_ADDRESS.
+
+    IPv4 sets IFA_ADDRESS to == IFA_LOCAL or to a
+    tunneling endpoint.
+    '''
     nla = None
     if msg['family'] == AF_INET:
-        nla = [i[1] for i in msg['attrs']
-               if i[0] == 'IFA_LOCAL'][0]
+        nla = msg.get_attr('IFA_LOCAL')[0]
     elif msg['family'] == AF_INET6:
-        nla = [i[1] for i in msg['attrs']
-               if i[0] == 'IFA_ADDRESS'][0]
+        nla = msg.get_attr('IFA_ADDRESS')[0]
     return nla
 
 
@@ -152,10 +158,16 @@ class interface(dotkeys):
 
     @property
     def if_master(self):
-        return self._parent[self['master']]
+        '''
+        [property] Link to the parent interface -- if it exists
+        '''
+        return self._parent.get(self['master'], None)
 
     @property
     def if_slaves(self):
+        '''
+        [property] Dictionary of slave interfaces
+        '''
         return self._slaves
 
     def load(self, dev):
