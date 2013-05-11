@@ -202,6 +202,9 @@ class interface(dotkeys):
             kind = linkinfo[0].get_attr('IFLA_INFO_KIND')
             if kind:
                 self['kind'] = kind[0]
+                if kind[0] == 'vlan':
+                    data = linkinfo[0].get_attr('IFLA_INFO_DATA')[0]
+                    self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')[0]
         # the rest is possible only when interface
         # is used in IPDB, not standalone
         if self._parent is not None:
