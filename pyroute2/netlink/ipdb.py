@@ -12,6 +12,7 @@ Quick start:
     ip['eth0'].commit()
     ip['bala'].up()
 '''
+import re
 import copy
 import threading
 from socket import AF_INET
@@ -24,6 +25,8 @@ nla_fields.append('flags')
 nla_fields.append('mask')
 nla_fields.append('change')
 nla_fields.append('state')
+
+_var_name = re.compile('^[a-zA-Z_]+[a-zA-Z_0-9]*$')
 
 
 def get_addr_nla(msg):
@@ -78,6 +81,9 @@ class upset(set):
 
 
 class dotkeys(dict):
+
+    def __dir__(self):
+        return [i for i in self if type(i) == str and _var_name.match(i)]
 
     def __getattribute__(self, key):
         if key in self:
