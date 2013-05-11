@@ -10,7 +10,6 @@ todo
 ----
 
 * remote: sasl authentication
-* rtnl: VLAN linkinfo data
 * rtnl: bridge info: see `./net/bridge/br_netlink.c:br_fill_ifinfo()`
 * rtnl: traffic control -- work with queue disciplines
 
