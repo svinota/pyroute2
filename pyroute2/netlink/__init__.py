@@ -80,6 +80,35 @@ IPRCMD_RELOAD = 5
 IPRCMD_ROUTE = 6
 
 
+def _repr_sockets(sockets, mode):
+    '''
+    Represent socket as a text string
+    '''
+    ret = []
+    for i in sockets:
+        url = ''
+        if i.family == socket.AF_UNIX:
+            url = 'unix'
+        if type(i) == ssl.SSLSocket:
+            if url:
+                url += '+'
+            if i.ssl_version == ssl.PROTOCOL_SSLv3:
+                url += 'ssl'
+            elif i.ssl_version == ssl.PROTOCOL_TLSv1:
+                url += 'tls'
+        if not url:
+            url = 'tcp'
+        if i.family == socket.AF_UNIX:
+            url += '://%s' % (i.getsockname())
+        else:
+            if mode == 'local':
+                url += '://%s:%i' % (i.getsockname())
+            elif mode == 'remote':
+                url += '://%s:%i' % (i.getpeername())
+        ret.append(url)
+    return ret
+
+
 class netlink_error(socket.error):
     def __init__(self, code, msg=None):
         msg = msg or os.strerror(code)
@@ -538,35 +567,10 @@ class netlink(object):
         del self.servers[url]
 
     def get_servers(self):
-        return self._get_sockets(self.iothread.servers, 'local')
+        return _repr_sockets(self.iothread.servers, 'local')
 
     def get_clients(self):
-        return self._get_sockets(self.iothread.clients, 'remote')
-
-    def _get_sockets(self, sockets, mode):
-        ret = []
-        for i in sockets:
-            url = ''
-            if i.family == socket.AF_UNIX:
-                url = 'unix'
-            if type(i) == ssl.SSLSocket:
-                if url:
-                    url += '+'
-                if i.ssl_version == ssl.PROTOCOL_SSLv3:
-                    url += 'ssl'
-                elif i.ssl_version == ssl.PROTOCOL_TLSv1:
-                    url += 'tls'
-            if not url:
-                url = 'tcp'
-            if i.family == socket.AF_UNIX:
-                url += '://%s' % (i.getsockname())
-            else:
-                if mode == 'local':
-                    url += '://%s:%i' % (i.getsockname())
-                elif mode == 'remote':
-                    url += '://%s:%i' % (i.getpeername())
-            ret.append(url)
-        return ret
+        return _repr_sockets(self.iothread.clients, 'remote')
 
     def serve(self, url, key=None, cert=None, ca=None):
         if key:
