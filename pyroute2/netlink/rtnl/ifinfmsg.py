@@ -111,8 +111,33 @@ class ifinfmsg(nlmsg):
     class ifinfo(nla):
         nla_map = (('IFLA_INFO_UNSPEC', 'none'),
                    ('IFLA_INFO_KIND', 'asciiz'),
-                   ('IFLA_INFO_DATA', 'hex'),
+                   ('IFLA_INFO_DATA', 'info_data'),
                    ('IFLA_INFO_XSTATS', 'hex'))
+
+        def info_data(self):
+            '''
+            The function returns appropriate IFLA_INFO_DATA
+            type according to IFLA_INFO_KIND info. Return
+            'hex' type for all unknown kind's and when the
+            kind is not known.
+            '''
+            kind = self.get_attr('IFLA_INFO_KIND')
+            if kind:
+                if kind[0] == 'vlan':
+                    return self.vlan_data
+            return self.hex
+
+        class vlan_data(nla):
+            nla_map = (('IFLA_VLAN_UNSPEC', 'none'),
+                       ('IFLA_VLAN_ID', 'uint16'),
+                       ('IFLA_VLAN_FLAGS', 'vlan_flags'),
+                       ('IFLA_VLAN_EGRESS_QOS', 'hex'),
+                       ('IFLA_VLAN_INGRESS_QOS', 'hex'))
+
+            class vlan_flags(nla):
+                fmt = 'II'
+                fields = ('flags',
+                          'mask')
 
     class af_spec(nla):
         nla_map = (('AF_UNSPEC', 'none'),
