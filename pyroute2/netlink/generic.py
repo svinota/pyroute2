@@ -1,6 +1,7 @@
 
 import socket
 import struct
+import types
 import io
 
 from pyroute2.common import hexdump
@@ -263,12 +264,12 @@ class nlmsg_base(dict):
         self.r_nla_map = {}
 
         # create enumeration
-        types = enumerate((i[0] for i in self.nla_map))
+        nla_types = enumerate((i[0] for i in self.nla_map))
         # that's a little bit tricky, but to reduce
         # the required amount of code in modules, we have
         # to jump over the head
         zipped = [(k[1][0], k[0][0], k[0][1]) for k in
-                  zip(self.nla_map, types)]
+                  zip(self.nla_map, nla_types)]
 
         for (key, name, nla_class) in zipped:
             # lookup NLA class
@@ -307,6 +308,10 @@ class nlmsg_base(dict):
             if msg_type in self.t_nla_map:
                 # get the class
                 msg_class = self.t_nla_map[msg_type][0]
+                # is it a class or a function?
+                if isinstance(msg_class, types.MethodType):
+                    # if it is a function -- use it to get the class
+                    msg_class = msg_class()
                 # and the name
                 msg_name = self.t_nla_map[msg_type][1]
                 try:
