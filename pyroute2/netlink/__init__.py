@@ -215,6 +215,7 @@ class iothread(threading.Thread):
         self.pid = os.getpid()
         self._nonce = 0
         self._stop = False
+        self._reload_event = threading.Event()
         # fd lists for select()
         self._rlist = set()
         self._wlist = set()
@@ -368,7 +369,7 @@ class iothread(threading.Thread):
                 self._stop = True
             elif cmd['cmd'] == IPRCMD_RELOAD:
                 # Reload io cycle
-                pass
+                self._reload_event.set()
 
         ##
         #
@@ -441,7 +442,14 @@ class iothread(threading.Thread):
         return self.command(IPRCMD_STOP)
 
     def reload(self):
-        return self.command(IPRCMD_RELOAD)
+        '''
+        Reload I/O cycle. Warning: this method should be never
+        called from iothread, as it will not return.
+        '''
+        self._reload_event.clear()
+        ret = self.command(IPRCMD_RELOAD)
+        self._reload_event.wait()
+        return ret
 
     def add_server(self, url):
         '''
@@ -504,7 +512,6 @@ class iothread(threading.Thread):
         self._rlist.add(sock)
         self._wlist.add(sock)
         self.clients.add(sock)
-        self.reload()
         return sock
 
     def remove_client(self, sock):
