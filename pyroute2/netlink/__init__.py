@@ -201,6 +201,7 @@ class masq_record(object):
         self.seq = seq
         self.pid = pid
         self.socket = socket
+        self.ctime = time.time()
 
     def __repr__(self):
         return "%s, %s, %s" % (_repr_sockets([self.socket], 'remote'),
@@ -213,11 +214,11 @@ class iothread(threading.Thread):
         self.setDaemon(True)
         self.pid = os.getpid()
         self._nonce = 0
+        self._stop = False
         # fd lists for select()
         self._rlist = set()
         self._wlist = set()
         self._xlist = set()
-        self._stop = False
         # routing
         self.rtable = {}          # {client_socket: send_method, ...}
         self.families = {}        # {family_id: send_method, ...}
@@ -234,9 +235,22 @@ class iothread(threading.Thread):
         self.control = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.control.bind(b'\0%s' % (self.uuid))
         self._rlist.add(self.control)
+        # masquerade cache expiration
+        self._expire_thread = threading.Thread(target=self._expire_masq)
+        self._expire_thread.setDaemon(True)
+        self._expire_thread.start()
         # debug
         self.record = False
         self.backlog = []
+
+    def _expire_masq(self):
+        while not self._stop:
+            # expire masquerade records
+            ts = time.time()
+            for i in tuple(self.masquerade.keys()):
+                if (ts - self.masquerade[i].ctime) > 60:
+                    del self.masquerade[i]
+            time.sleep(60)
 
     def _get_socket(self, url, server_side):
         assert type(url) is str
