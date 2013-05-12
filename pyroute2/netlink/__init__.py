@@ -576,61 +576,58 @@ class netlink(object):
     to monitor network and netlink I/O, creates and destroys message
     queues.
 
-    It can operate in three modes:
-     * local system only
-     * server mode
-     * client mode
+    By default, netlink class connects to the local netlink socket
+    on startup. If you prefer to connect to another host, use::
+        
+        nl = netlink(host='tcp://remote.01host:7000')
 
-    By default, it starts in local system only mode. To start a
-    server, you should call netlink.serve(url). The method
-    can be called several times to listen on specific interfaces
-    and/or ports.
+    It is possible to connect to uplinks after the startup::
 
-    Alternatively, you can start the object in the client mode.
-    In that case you should provide server url in the host
-    parameter. You can not mix server and client modes, so
-    message proxy/relay not possible yet. This will be fixed
-    in the future.
+        nl = netlink(do_connect=False)
+        nl.connect('tcp://remote.01host:7000')
 
-    Urls should be specified in the form:
-        (host, port)
-
-    E.g.:
-        nl = netlink(host=('127.0.0.1', 7000))
+    To act as a server, call serve()::
+        
+        nl = netlink(do_connect=False)
+        nl.connect('localsystem')
+        nl.serve('unix:///tmp/pyroute')
     '''
 
     family = NETLINK_GENERIC
     groups = 0
     marshal = marshal
 
-    def __init__(self, debug=False, host='localsystem', interruptible=False,
-                 key=None, cert=None, ca=None):
-        self.server = host
+    def __init__(self, debug=False, interruptible=False, do_connect=True,
+                 host='localsystem', key=None, cert=None, ca=None):
         self.iothread = iothread()
         self.listeners = self.iothread.listeners
         self.ssl_keys = self.iothread.ssl_keys
         self.interruptible = interruptible
-        if key:
-            self.ssl_keys[host] = ssl_credentials(key, cert, ca)
-        if host == 'localsystem':
-            self.socket = self.iothread.add_uplink(family=self.family,
-                                                   groups=self.groups)
-        else:
-            self.socket = self.iothread.add_uplink(url=self.server)
-            self.request_route()
-        self.iothread.marshals[self.socket] = self.marshal()
+        self.sockets = set()
+        self.servers = {}
         self.iothread.families[self.family] = self.send
         self.iothread.start()
         self.debug = debug
-        self.servers = {}
+        if do_connect:
+            self.connect(host, key, cert, ca)
 
-    def request_route(self):
-        rmsg = ctrlmsg()
-        rmsg['header']['type'] = NETLINK_UNUSED
-        rmsg['cmd'] = IPRCMD_ROUTE
-        rmsg['attrs'] = (('CTRL_ATTR_FAMILY_ID', self.family), )
-        rmsg.encode()
-        self.socket.send(rmsg.buf.getvalue())
+    def connect(self, host='localsystem', key=None, cert=None, ca=None):
+        if key:
+            self.ssl_keys[host] = ssl_credentials(key, cert, ca)
+        if host == 'localsystem':
+            sock = self.iothread.add_uplink(family=self.family,
+                                            groups=self.groups)
+        else:
+            sock = self.iothread.add_uplink(url=host)
+            smsg = ctrlmsg()
+            smsg['header']['type'] = NETLINK_UNUSED
+            smsg['header']['pid'] = os.getpid()
+            smsg['cmd'] = IPRCMD_ROUTE
+            smsg['attrs'] = (('CTRL_ATTR_FAMILY_ID', self.family), )
+            smsg.encode()
+            sock.send(smsg.buf.getvalue())
+        self.iothread.marshals[sock] = self.marshal()
+        self.sockets.add(sock)
 
     def shutdown(self, url=None):
         url = url or self.servers.keys()[0]
@@ -721,10 +718,11 @@ class netlink(object):
         the server, depending on the setup.
         '''
         data = buf.getvalue()
-        if self.server == 'localsystem':
-            self.socket.sendto(data, (0, 0))
-        else:
-            self.socket.send(data)
+        for sock in self.sockets:
+            if isinstance(sock, netlink_socket):
+                sock.sendto(data, (0, 0))
+            else:
+                sock.send(data)
 
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST):
