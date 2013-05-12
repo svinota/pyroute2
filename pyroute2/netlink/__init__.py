@@ -204,8 +204,8 @@ class masq_record(object):
         self.ctime = time.time()
 
     def __repr__(self):
-        return "%s, %s, %s" % (_repr_sockets([self.socket], 'remote'),
-                               self.pid, self.seq)
+        return "%s, %s, %s, %s" % (_repr_sockets([self.socket], 'remote'),
+                                   self.pid, self.seq, time.ctime(self.ctime))
 
 
 class iothread(threading.Thread):
