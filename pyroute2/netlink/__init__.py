@@ -329,6 +329,8 @@ class iothread(threading.Thread):
             # otherwise, broadcast packet
             for sock in self.clients:
                 sock.send(data.getvalue())
+            # return True -- this packet should be parsed
+            return True
 
     def route(self, sock, data):
         """
@@ -337,17 +339,16 @@ class iothread(threading.Thread):
         data.seek(4)
         # message type, offset 4 bytes, length 2 bytes
         mtype = struct.unpack('H', data.read(2))[0]
-        # use NETLINK_UNUSED as inter-pyroute2
         # FIXME log routing failures
+
+        ##
+        #
+        # NETLINK_UNUSED as inter-pyroute2
+        #
         if (mtype == NETLINK_UNUSED) and (sock in self.clients):
-            #
-            # Control messages
-            #
             cmd = self.parse_control(data)
             if cmd['cmd'] == IPRCMD_ROUTE:
-                #
-                # Route request
-                #
+                # routing request
                 family = cmd.get_attr('CTRL_ATTR_FAMILY_ID')[0]
                 if family in self.families:
                     send = self.families[family]
@@ -356,10 +357,24 @@ class iothread(threading.Thread):
                 # * subscribe requests
                 # * ...
 
+        ##
+        #
+        # NETLINK_UNUSED as intra-pyroute2
+        #
+        elif (mtype == NETLINK_UNUSED) and (sock == self.control):
+            cmd = self.parse_control(data)
+            if cmd['cmd'] == IPRCMD_STOP:
+                # Stop iothread
+                self._stop = True
+            elif cmd['cmd'] == IPRCMD_RELOAD:
+                # Reload io cycle
+                pass
+
+        ##
+        #
+        # Data messages
+        #
         else:
-            #
-            # Data messages
-            #
             if sock in self.clients:
                 # create masquerade record for client's messages
                 # 1. generate nonce
@@ -373,8 +388,12 @@ class iothread(threading.Thread):
                 data.write(struct.pack('II', nonce, self.pid))
 
             if sock in self.rtable:
-                send = self.rtable[sock]
-                send(data)
+                if self.rtable[sock](data):
+                    try:
+                        self.parse(data.getvalue(), self.marshals[sock])
+                    except:
+                        # drop packet on any error
+                        pass
 
     def parse_control(self, data):
         data.seek(0)
@@ -521,53 +540,27 @@ class iothread(threading.Thread):
                 # FIXME max length
                 data = io.BytesIO()
                 data.length = data.write(fd.recv(16384))
-                data.seek(0)
-                if self.record:
-                    self.backlog.append((time.asctime(), data))
 
                 ##
                 #
-                # Control socket, only type == NETLINK_UNUSED
+                # Close socket
                 #
-                if fd == self.control:
-                    # FIXME move it to specific marshal
-                    cmd = self.parse_control(data)
-                    if cmd['cmd'] == IPRCMD_STOP:
-                        self._stop = True
-                        break
-                    elif cmd['cmd'] == IPRCMD_RELOAD:
-                        pass
-
-                ##
-                #
-                # Incoming packet from remote client
-                #
-                elif fd in self.clients:
-                    if data.length == 0:
-                        # client closed connection
+                if data.length == 0:
+                    if fd in self.clients:
                         self.remove_client(fd)
-                    else:
-                        try:
-                            self.route(fd, data)
-                        except:
-                            # drop packet on any error
-                            traceback.print_exc()
+                    elif fd in self.uplinks:
+                        self.remove_uplink(fd)
+                    continue
 
                 ##
                 #
-                # Incoming packet from uplink
+                # Route the data
                 #
-                elif fd in self.uplinks:
-                    if data.length == 0:
-                        # uplink closed connection
-                        self.remove_uplink(fd)
-                    else:
-                        self.route(fd, data)
-                        try:
-                            self.parse(data.getvalue(), self.marshals[fd])
-                        except:
-                            # drop packet on any error
-                            pass
+                if self.record:
+                    self.backlog.append((time.asctime(),
+                                         fd.getsockname(),
+                                         data))
+                self.route(fd, data)
 
 
 class netlink(object):
