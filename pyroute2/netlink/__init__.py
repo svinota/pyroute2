@@ -622,7 +622,6 @@ class netlink(object):
         self.iothread.families[self.family] = self.send
         self.iothread.start()
         self.debug = debug
-        self._nonce = 1
         self.servers = {}
 
     def request_route(self):
@@ -650,17 +649,6 @@ class netlink(object):
         if key:
             self.ssl_keys[url] = ssl_credentials(key, cert, ca)
         self.servers[url] = self.iothread.add_server(url)
-
-    def nonce(self):
-        '''
-        Increment netlink protocol nonce (there is no need to
-        call it directly)
-        '''
-        if self._nonce == 0xffffffff:
-            self._nonce = 1
-        else:
-            self._nonce += 1
-        return self._nonce
 
     def mirror(self, operate=True):
         '''
@@ -745,7 +733,7 @@ class netlink(object):
         fields, and wait for response.
         '''
         # FIXME make it thread safe, yeah
-        nonce = self.nonce()
+        nonce = self.iothread.nonce()
         self.listeners[nonce] = Queue.Queue()
         msg['header']['sequence_number'] = nonce
         msg['header']['pid'] = os.getpid()
