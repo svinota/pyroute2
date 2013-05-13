@@ -32,6 +32,37 @@ NETLINK_SCSITRANSPORT = 18   # SCSI Transports
 NLMSG_ALIGNTO = 4
 
 
+class NetlinkDecodeError(Exception):
+    '''
+    Base decode error class.
+
+    Incapsulates underlying error for the following analysis
+    '''
+    def __init__(self, exception):
+        self.exception = exception
+
+
+class NetlinkHeaderDecodeError(NetlinkDecodeError):
+    '''
+    The error occured while decoding a header
+    '''
+    pass
+
+
+class NetlinkDataDecodeError(NetlinkDecodeError):
+    '''
+    The error occured while decoding the message fields
+    '''
+    pass
+
+
+class NetlinkNLADecodeError(NetlinkDecodeError):
+    '''
+    The error occured while decoding NLA chain
+    '''
+    pass
+
+
 def NLMSG_ALIGN(l):
     return (l + NLMSG_ALIGNTO - 1) & ~ (NLMSG_ALIGNTO - 1)
 
@@ -161,24 +192,34 @@ class nlmsg_base(dict):
 
     def decode(self):
         self.offset = self.buf.tell()
-        # read the header
+        # decode the header
         if self.header is not None:
-            self['header'].decode()
-            # update length from header
-            # it can not be less than 4
-            self.length = max(self['header']['length'], 4)
-            if self.fmt == 's':
-                self.fmt = '%is' % (self.length - 4)
-            elif self.fmt == 'z':
-                self.fmt = '%is' % (self.length - 5)
-        # read the data
-        size = struct.calcsize(self.fmt)
-        self.update(dict(zip(self.fields,
-                         struct.unpack(self.fmt, self.buf.read(size)))))
-        # align NLA chain start
-        self.buf.seek(NLMSG_ALIGN(self.buf.tell()))
-        # read NLA chain
-        self.decode_nlas()
+            try:
+                self['header'].decode()
+                # update length from header
+                # it can not be less than 4
+                self.length = max(self['header']['length'], 4)
+                if self.fmt == 's':
+                    self.fmt = '%is' % (self.length - 4)
+                elif self.fmt == 'z':
+                    self.fmt = '%is' % (self.length - 5)
+            except Exception as e:
+                raise NetlinkHeaderDecodeError(e)
+        # decode the data
+        try:
+            size = struct.calcsize(self.fmt)
+            self.update(dict(zip(self.fields,
+                             struct.unpack(self.fmt, self.buf.read(size)))))
+        except Exception as e:
+            raise NetlinkDataDecodeError(e)
+        # decode NLA
+        try:
+            # align NLA chain start
+            self.buf.seek(NLMSG_ALIGN(self.buf.tell()))
+            # read NLA chain
+            self.decode_nlas()
+        except Exception as e:
+            raise NetlinkNLADecodeError(e)
         if len(self['attrs']) == 0:
             del self['attrs']
         if self['value'] is NotInitialized:
