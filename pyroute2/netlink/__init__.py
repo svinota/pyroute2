@@ -285,7 +285,7 @@ class iothread(threading.Thread):
         '''
         save = None
         while not self._stop:
-            (buf, marshal) = self.buffers.get()
+            (buf, marshal, sock) = self.buffers.get()
             if save is not None:
                 # concatenate buffers
                 buf.seek(0)
@@ -309,7 +309,7 @@ class iothread(threading.Thread):
                 offset += length
             # feed buffer to the parser
             try:
-                self.parse(buf.getvalue(), marshal)
+                self.parse(buf.getvalue(), marshal, sock)
             except:
                 traceback.print_exc()
 
@@ -462,7 +462,7 @@ class iothread(threading.Thread):
 
             if sock in self.rtable:
                 if self.rtable[sock](data):
-                    self.buffers.put((data, self.marshals[sock]))
+                    self.buffers.put((data, self.marshals[sock], sock))
 
     def parse_control(self, data):
         data.seek(0)
@@ -470,7 +470,7 @@ class iothread(threading.Thread):
         cmd.decode()
         return cmd
 
-    def parse(self, data, marshal):
+    def parse(self, data, marshal, sock):
         '''
         Parse and enqueue messages. A message can be
         retrieved from netlink socket as well as from a
@@ -491,6 +491,7 @@ class iothread(threading.Thread):
             if self.record:
                 self.backlog.append((time.asctime(), msg))
             key = msg['header']['sequence_number']
+            msg['header']['host'] = _repr_sockets([sock], 'remote')[0]
             if key not in self.listeners:
                 key = 0
             if self.mirror and key != 0:
