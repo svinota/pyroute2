@@ -161,8 +161,16 @@ class marshal(object):
                 self.buf.seek(offset)
                 msg_class = self.msg_map.get(msg_type, nlmsg)
                 msg = msg_class(self.buf)
-                msg.decode()
-                msg['header']['error'] = error
+                try:
+                    msg.decode()
+                    msg['header']['error'] = error
+                except NetlinkHeaderDecodeError as e:
+                    # in the case of header decoding error,
+                    # create an empty message
+                    msg = nlmsg()
+                    msg['header']['error'] = e
+                except NetlinkDecodeError as e:
+                    msg['header']['error'] = e
                 self.fix_message(msg)
                 offset += msg.length
                 result.append(msg)
