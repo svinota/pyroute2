@@ -105,6 +105,10 @@ def _repr_sockets(sockets, mode):
     ret = []
     for i in sockets:
         url = ''
+        if isinstance(i, netlink_socket):
+            ret.append('netlink://%s' % (i.family))
+            continue
+
         if i.family == socket.AF_UNIX:
             url = 'unix'
         if type(i) == ssl.SSLSocket:
