@@ -455,4 +455,9 @@ class ctrlmsg(genlmsg):
     # FIXME: to be extended
     nla_map = (('CTRL_ATTR_UNSPEC', 'none'),
                ('CTRL_ATTR_FAMILY_ID', 'uint16'),
-               ('CTRL_ATTR_FAMILY_NAME', 'asciiz'))
+               ('CTRL_ATTR_FAMILY_NAME', 'asciiz'),
+               ('CTRL_ATTR_VERSION', 'hex'),
+               ('CTRL_ATTR_HDRSIZE', 'hex'),
+               ('CTRL_ATTR_MAXATTR', 'hex'),
+               ('CTRL_ATTR_OPS', 'hex'),
+               ('CTRL_ATTR_MCAST_GROUPS', 'hex'))
