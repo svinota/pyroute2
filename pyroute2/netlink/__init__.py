@@ -763,6 +763,7 @@ class netlink(object):
         '''
         queue = self.listeners[key]
         result = []
+        hosts = len(self.sockets)
         while True:
             # timeout should alse be set to catch ctrl-c
             # Bug-Url: http://bugs.python.org/issue1360
@@ -778,6 +779,8 @@ class netlink(object):
                 result.append(msg)
             if (msg['header']['type'] == NLMSG_DONE) or \
                (not msg['header']['flags'] & NLM_F_MULTI):
+                hosts -= 1
+            if hosts == 0:
                 break
         self._remove_queue(key)
         return result
