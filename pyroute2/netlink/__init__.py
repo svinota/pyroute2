@@ -240,11 +240,53 @@ class iothread(threading.Thread):
         self._expire_thread = threading.Thread(target=self._expire_masq)
         self._expire_thread.setDaemon(True)
         self._expire_thread.start()
+        # buffers reassembling
+        self.buffers = Queue.Queue()
+        self._feed_thread = threading.Thread(target=self._feed_buffers)
+        self._feed_thread.setDaemon(True)
+        self._feed_thread.start()
         # debug
         self.record = False
         self.backlog = []
 
+    def _feed_buffers(self):
+        '''
+        Beckground thread to feed reassembled buffers to the parser
+        '''
+        save = None
+        while not self._stop:
+            (buf, marshal) = self.buffers.get()
+            if save is not None:
+                # concatenate buffers
+                buf.seek(0)
+                save.write(buf.read())
+                save.length += buf.length
+                # discard save
+                buf = save
+                save = None
+            offset = 0
+            while offset < buf.length:
+                buf.seek(offset)
+                length = struct.unpack('I', buf.read(4))[0]
+                if offset + length > buf.length:
+                    # create save buffer
+                    buf.seek(offset)
+                    save = io.BytesIO()
+                    save.length = save.write(buf.read())
+                    # truncate the buffer
+                    buf.truncate(offset)
+                    break
+                offset += length
+            # feed buffer to the parser
+            try:
+                self.parse(buf.getvalue(), marshal)
+            except:
+                traceback.print_exc()
+
     def _expire_masq(self):
+        '''
+        Background thread that expires masquerade cache entries
+        '''
         while not self._stop:
             # expire masquerade records
             ts = time.time()
@@ -390,11 +432,7 @@ class iothread(threading.Thread):
 
             if sock in self.rtable:
                 if self.rtable[sock](data):
-                    try:
-                        self.parse(data.getvalue(), self.marshals[sock])
-                    except:
-                        # drop packet on any error
-                        pass
+                    self.buffers.put((data, self.marshals[sock]))
 
     def parse_control(self, data):
         data.seek(0)
@@ -578,7 +616,7 @@ class netlink(object):
 
     By default, netlink class connects to the local netlink socket
     on startup. If you prefer to connect to another host, use::
-        
+
         nl = netlink(host='tcp://remote.01host:7000')
 
     It is possible to connect to uplinks after the startup::
@@ -587,7 +625,7 @@ class netlink(object):
         nl.connect('tcp://remote.01host:7000')
 
     To act as a server, call serve()::
-        
+
         nl = netlink(do_connect=False)
         nl.connect('localsystem')
         nl.serve('unix:///tmp/pyroute')
