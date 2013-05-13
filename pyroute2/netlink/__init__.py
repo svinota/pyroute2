@@ -14,8 +14,26 @@ import ssl
 
 from pyroute2.netlink.generic import ctrlmsg
 from pyroute2.netlink.generic import nlmsg
+from pyroute2.netlink.generic import NetlinkDecodeError
+from pyroute2.netlink.generic import NetlinkHeaderDecodeError
 from pyroute2.netlink.generic import NETLINK_GENERIC
 from pyroute2.netlink.generic import NETLINK_UNUSED
+
+
+class NetlinkError(Exception):
+    '''
+    Base netlink error
+    '''
+    # FIXME move to a dedicated module
+    pass
+
+
+class NetlinkQueueEmpty(NetlinkError):
+    '''
+    Timeout reached on a message queue polling
+    '''
+    def __init__(self, key):
+        self.key = key
 
 
 def _monkey_handshake(self):
@@ -643,12 +661,12 @@ class netlink(object):
     groups = 0
     marshal = marshal
 
-    def __init__(self, debug=False, interruptible=False, do_connect=True,
+    def __init__(self, debug=False, timeout=3, do_connect=True,
                  host='localsystem', key=None, cert=None, ca=None):
+        self._timeout = timeout
         self.iothread = iothread()
         self.listeners = self.iothread.listeners
         self.ssl_keys = self.iothread.ssl_keys
-        self.interruptible = interruptible
         self.sockets = set()
         self.servers = {}
         self.iothread.families[self.family] = self.send
@@ -717,45 +735,47 @@ class netlink(object):
         else:
             del self.listeners[0]
 
-    def get(self, key=0, interruptible=False):
+    def _remove_queue(self, key):
         '''
-        Get a message from a queue
-
-        * key -- message queue number
-        * interruptible -- catch ctrl-c
-
-        Please note, that setting interruptible=True will cause
-        polling overhead. Python starts implied poll cycle, if
-        timeout is set.
+        Flush the queue to the default one and remove it
         '''
         queue = self.listeners[key]
-        interruptible = interruptible or self.interruptible
-        if interruptible:
-            tot = 31536000
-        else:
-            tot = None
-        result = []
-        while True:
-            # timeout is set to catch ctrl-c
-            # Bug-Url: http://bugs.python.org/issue1360
-            msg = queue.get(block=True, timeout=tot)
-            if msg['header']['error'] is not None:
-                raise msg['header']['error']
-            if msg['header']['type'] != NLMSG_DONE:
-                result.append(msg)
-            if (msg['header']['type'] == NLMSG_DONE) or \
-               (not msg['header']['flags'] & NLM_F_MULTI):
-                break
-        # not default queue
+        # only not the default queue
         if key != 0:
             # delete the queue
             del self.listeners[key]
             # get remaining messages from the queue and
             # re-route them to queue 0 or drop
             while not queue.empty():
-                msg = queue.get(bloc=True, timeout=tot)
+                msg = queue.get()
                 if 0 in self.listeners:
                     self.listeners[0].put(msg)
+
+    def get(self, key=0):
+        '''
+        Get a message from a queue
+
+        * key -- message queue number
+        '''
+        queue = self.listeners[key]
+        result = []
+        while True:
+            # timeout should alse be set to catch ctrl-c
+            # Bug-Url: http://bugs.python.org/issue1360
+            try:
+                msg = queue.get(block=True, timeout=self._timeout)
+            except Queue.Empty:
+                self._remove_queue(key)
+                raise NetlinkQueueEmpty(key)
+            if msg['header']['error'] is not None:
+                self._remove_queue(key)
+                raise msg['header']['error']
+            if msg['header']['type'] != NLMSG_DONE:
+                result.append(msg)
+            if (msg['header']['type'] == NLMSG_DONE) or \
+               (not msg['header']['flags'] & NLM_F_MULTI):
+                break
+        self._remove_queue(key)
         return result
 
     def send(self, buf):
