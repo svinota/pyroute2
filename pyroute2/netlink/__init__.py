@@ -672,7 +672,7 @@ class netlink(object):
         self.iothread = iothread()
         self.listeners = self.iothread.listeners
         self.ssl_keys = self.iothread.ssl_keys
-        self.sockets = set()
+        self._sockets = set()
         self.servers = {}
         self.iothread.families[self.family] = self.send
         self.iothread.start()
@@ -696,7 +696,7 @@ class netlink(object):
             smsg.encode()
             sock.send(smsg.buf.getvalue())
         self.iothread.marshals[sock] = self.marshal()
-        self.sockets.add(sock)
+        self._sockets.add(sock)
 
     def shutdown(self, url=None):
         url = url or self.servers.keys()[0]
@@ -710,6 +710,9 @@ class netlink(object):
 
     def get_clients(self):
         return _repr_sockets(self.iothread.clients, 'remote')
+
+    def get_sockets(self):
+        return _repr_sockets(self._sockets, 'remote')
 
     def serve(self, url, key=None, cert=None, ca=None):
         if key:
@@ -764,7 +767,7 @@ class netlink(object):
         '''
         queue = self.listeners[key]
         result = []
-        hosts = len(self.sockets)
+        hosts = len(self._sockets)
         while True:
             # timeout should alse be set to catch ctrl-c
             # Bug-Url: http://bugs.python.org/issue1360
@@ -792,7 +795,7 @@ class netlink(object):
         the server, depending on the setup.
         '''
         data = buf.getvalue()
-        for sock in self.sockets:
+        for sock in self._sockets:
             if isinstance(sock, netlink_socket):
                 sock.sendto(data, (0, 0))
             else:
