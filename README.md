@@ -39,6 +39,13 @@ Python >= 2.6
 changelog
 ---------
 
+* 0.1.5
+    * netlink: dedicated io buffering thread
+    * netlink: messages reassembling
+    * netlink: multi-uplink remote
+    * netlink: masquerade remote requests
+    * ipdb: represent interfaces hierarchy
+    * iproute: decode VLAN info
 * 0.1.4
     * netlink: remote netlink access
     * netlink: SSL/TLS server/client auth support
