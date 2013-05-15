@@ -1,3 +1,4 @@
+import struct
 
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import nla
@@ -54,13 +55,18 @@ class tcmsg(nlmsg):
                         ('requeues', 'I'),
                         ('overlimits', 'I'))
 
-    def get_options(self):
+    def get_options(self, length, msg_type, buf):
         kind = self.get_attr('TCA_KIND')
         if kind:
             if kind[0] == 'pfifo_fast':
                 return self.options_pfifo_fast
             elif kind[0] == 'tbf':
                 return self.options_tbf
+            elif kind[0] == 'sfq':
+                if length >= struct.calcsize(self.options_sfq_v1.fmt):
+                    return self.options_sfq_v1
+                else:
+                    return self.options_sfq_v0
         return self.hex
 
     class options_pfifo_fast(nla):
@@ -89,3 +95,33 @@ class tcmsg(nlmsg):
                         ('limit', 'I'),
                         ('buffer', 'I'),
                         ('mtu', 'I'))
+
+    class options_sfq_v0(nla):
+        t_fields = (('quantum', 'I'),
+                    ('perturb_period', 'i'),
+                    ('limit', 'I'),
+                    ('divisor', 'I'),
+                    ('flows', 'I'))
+
+    class options_sfq_v1(nla):
+        t_fields = (('quantum', 'I'),
+                    ('perturb_period', 'i'),
+                    ('limit_v0', 'I'),
+                    ('divisor', 'I'),
+                    ('flows', 'I'),
+                    ('depth', 'I'),
+                    ('headdrop', 'I'),
+                    ('limit_v1', 'I'),
+                    ('qth_min', 'I'),
+                    ('qth_max', 'I'),
+                    ('Wlog', 'B'),
+                    ('Plog', 'B'),
+                    ('Scell_log', 'B'),
+                    ('flags', 'B'),
+                    ('max_P', 'I'),
+                    ('prob_drop', 'I'),
+                    ('forced_drop', 'I'),
+                    ('prob_mark', 'I'),
+                    ('forced_mark', 'I'),
+                    ('prob_mark_head', 'I'),
+                    ('forced_mark_head', 'I'))
