@@ -144,6 +144,7 @@ class nlmsg_base(dict):
 
     def __init__(self, buf=None, length=None, parent=None):
         dict.__init__(self)
+        self.register_fields()
         for i in self.fields:
             self[i] = 0  # FIXME: only for number values
         self.buf = buf or io.BytesIO()
@@ -156,7 +157,6 @@ class nlmsg_base(dict):
         self.value = NotInitialized
         if self.header is not None:
             self['header'] = self.header(self.buf)
-        self.register_fields()
         self.register_nlas()
 
     def nla2name(self, name):
