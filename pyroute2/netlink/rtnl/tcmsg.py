@@ -59,8 +59,33 @@ class tcmsg(nlmsg):
         if kind:
             if kind[0] == 'pfifo_fast':
                 return self.options_pfifo_fast
+            elif kind[0] == 'tbf':
+                return self.options_tbf
         return self.hex
 
     class options_pfifo_fast(nla):
         fmt = 'i' + 'B' * 16
         fields = tuple(['bands'] + ['mark_%02i' % (i) for i in range(1, 17)])
+
+    class options_tbf(nla):
+        nla_map = (('TCA_TBF_UNSPEC', 'none'),
+                   ('TCA_TBF_PARMS', 'parms'),
+                   ('TCA_TBF_RTAB', 'hex'),
+                   ('TCA_TBF_PTAB', 'hex'))
+
+        class parms(nla):
+            t_fields = (('rate_cell_log', 'B'),
+                        ('rate___reserved', 'B'),
+                        ('rate_overhead', 'H'),
+                        ('rate_cell_align', 'h'),
+                        ('rate_mpu', 'H'),
+                        ('rate', 'I'),
+                        ('peak_cell_log', 'B'),
+                        ('peak___reserved', 'B'),
+                        ('peak_overhead', 'H'),
+                        ('peak_cell_align', 'h'),
+                        ('peak_mpu', 'H'),
+                        ('peak', 'I'),
+                        ('limit', 'I'),
+                        ('buffer', 'I'),
+                        ('mtu', 'I'))
