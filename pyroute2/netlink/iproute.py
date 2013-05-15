@@ -10,6 +10,7 @@ from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NLM_F_EXCL
 from pyroute2.netlink import marshal
 from pyroute2.netlink.generic import NETLINK_ROUTE
+from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -127,7 +128,9 @@ class marshal_rtnl(marshal):
                RTM_NEWROUTE: rtmsg,
                RTM_DELROUTE: rtmsg,
                RTM_NEWNEIGH: ndmsg,
-               RTM_DELNEIGH: ndmsg}
+               RTM_DELNEIGH: ndmsg,
+               RTM_NEWQDISC: tcmsg,
+               RTM_DELQDISC: tcmsg}
 
     def fix_message(self, msg):
         try:
@@ -144,12 +147,18 @@ class iproute(netlink):
         RTNLGRP_IPV4_ROUTE |\
         RTNLGRP_IPV6_ROUTE |\
         RTNLGRP_NEIGH |\
-        RTNLGRP_LINK
+        RTNLGRP_LINK |\
+        RTNLGRP_TC
 
     # 8<---------------------------------------------------------------
     #
     # Listing methods
     #
+    def get_qdiscs(self, family=AF_UNSPEC):
+        msg = tcmsg()
+        msg['family'] = family
+        return self.nlm_request(msg, RTM_GETQDISC)
+
     def get_links(self, links=None, family=AF_UNSPEC):
         '''
         Get network interfaces sepcifications.
