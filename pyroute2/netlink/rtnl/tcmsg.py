@@ -67,11 +67,82 @@ class tcmsg(nlmsg):
                     return self.options_sfq_v1
                 else:
                     return self.options_sfq_v0
+            elif kind[0] == 'u32':
+                return self.options_u32
+
         return self.hex
+
+    class options_u32(nla):
+        nla_map = (('TCA_U32_UNSPEC', 'none'),
+                   ('TCA_U32_CLASSID', 'uint32'),
+                   ('TCA_U32_HASH', 'uint32'),
+                   ('TCA_U32_LINK', 'hex'),
+                   ('TCA_U32_DIVISOR', 'uint32'),
+                   ('TCA_U32_SEL', 'u32_sel'),
+                   ('TCA_U32_POLICE', 'u32_police'),
+                   ('TCA_U32_ACT', 'hex'),
+                   ('TCA_U32_INDEV', 'hex'),
+                   ('TCA_U32_PCNT', 'u32_pcnt'),
+                   ('TCA_U32_MARK', 'u32_mark'))
+
+        class u32_police(nla):
+            nla_map = (('TCA_POLICE_UNSPEC', 'none'),
+                       ('TCA_POLICE_TBF', 'police_tbf'),
+                       ('TCA_POLICE_RATE', 'hex'),
+                       ('TCA_POLICE_PEAKRATE', 'hex'),
+                       ('TCA_POLICE_AVRATE', 'hex'),
+                       ('TCA_POLICE_RESULT', 'hex'))
+
+            class police_tbf(nla):
+                t_fields = (('index', 'I'),
+                            ('action', 'i'),
+                            ('limit', 'I'),
+                            ('burst', 'I'),
+                            ('mtu', 'I'),
+                            ('rate_cell_log', 'B'),
+                            ('rate___reserved', 'B'),
+                            ('rate_overhead', 'H'),
+                            ('rate_cell_align', 'h'),
+                            ('rate_mpu', 'H'),
+                            ('rate', 'I'),
+                            ('peak_cell_log', 'B'),
+                            ('peak___reserved', 'B'),
+                            ('peak_overhead', 'H'),
+                            ('peak_cell_align', 'h'),
+                            ('peak_mpu', 'H'),
+                            ('peak', 'I'),
+                            ('refcnt', 'i'),
+                            ('bindcnt', 'i'),
+                            ('capab', 'I'))
+
+        class u32_sel(nla):
+            t_fields = (('flags', 'B'),
+                        ('offshift', 'B'),
+                        ('nkeys', 'B'),
+                        ('offmask', 'H'),  # FIXME: be16
+                        ('off', 'H'),
+                        ('offoff', 'h'),
+                        ('hoff', 'h'),
+                        ('hmask', 'I'),  # FIXME: be32
+                        ('key_mask', 'I'),  # FIXME: be32
+                        ('key_val', 'I'),  # FIXME: be32
+                        ('key_off', 'i'),
+                        ('key_offmask', 'i'))
+
+        class u32_mark(nla):
+            t_fields = (('val', 'I'),
+                        ('mask', 'I'),
+                        ('success', 'I'))
+
+        class u32_pcnt(nla):
+            t_fields = (('rcnt', 'Q'),
+                        ('rhit', 'Q'),
+                        ('kcnts', 'Q'))
 
     class options_pfifo_fast(nla):
         fmt = 'i' + 'B' * 16
-        fields = tuple(['bands'] + ['mark_%02i' % (i) for i in range(1, 17)])
+        fields = tuple(['bands'] + ['mark_%02i' % (i) for i in
+                                    range(1, 17)])
 
     class options_tbf(nla):
         nla_map = (('TCA_TBF_UNSPEC', 'none'),
