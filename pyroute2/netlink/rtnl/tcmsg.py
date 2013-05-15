@@ -4,6 +4,38 @@ from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import nla
 
 
+class nla_plus_police(nla):
+    class police(nla):
+        nla_map = (('TCA_POLICE_UNSPEC', 'none'),
+                   ('TCA_POLICE_TBF', 'police_tbf'),
+                   ('TCA_POLICE_RATE', 'hex'),
+                   ('TCA_POLICE_PEAKRATE', 'hex'),
+                   ('TCA_POLICE_AVRATE', 'hex'),
+                   ('TCA_POLICE_RESULT', 'hex'))
+
+        class police_tbf(nla):
+            t_fields = (('index', 'I'),
+                        ('action', 'i'),
+                        ('limit', 'I'),
+                        ('burst', 'I'),
+                        ('mtu', 'I'),
+                        ('rate_cell_log', 'B'),
+                        ('rate___reserved', 'B'),
+                        ('rate_overhead', 'H'),
+                        ('rate_cell_align', 'h'),
+                        ('rate_mpu', 'H'),
+                        ('rate', 'I'),
+                        ('peak_cell_log', 'B'),
+                        ('peak___reserved', 'B'),
+                        ('peak_overhead', 'H'),
+                        ('peak_cell_align', 'h'),
+                        ('peak_mpu', 'H'),
+                        ('peak', 'I'),
+                        ('refcnt', 'i'),
+                        ('bindcnt', 'i'),
+                        ('capab', 'I'))
+
+
 class tcmsg(nlmsg):
     t_fields = (('family', 'B'),
                 ('pad1', 'B'),
@@ -69,51 +101,31 @@ class tcmsg(nlmsg):
                     return self.options_sfq_v0
             elif kind[0] == 'u32':
                 return self.options_u32
+            elif kind[0] == 'fw':
+                return self.options_fw
 
         return self.hex
 
-    class options_u32(nla):
+    class options_fw(nla_plus_police):
+        nla_map = (('TCA_FW_UNSPEC', 'none'),
+                   ('TCA_FW_CLASSID', 'uint32'),
+                   ('TCA_FW_POLICE', 'police'),
+                   ('TCA_FW_INDEV', 'hex'),
+                   ('TCA_FW_ACT', 'hex'),
+                   ('TCA_FW_MASK', 'hex'))
+
+    class options_u32(nla_plus_police):
         nla_map = (('TCA_U32_UNSPEC', 'none'),
                    ('TCA_U32_CLASSID', 'uint32'),
                    ('TCA_U32_HASH', 'uint32'),
                    ('TCA_U32_LINK', 'hex'),
                    ('TCA_U32_DIVISOR', 'uint32'),
                    ('TCA_U32_SEL', 'u32_sel'),
-                   ('TCA_U32_POLICE', 'u32_police'),
+                   ('TCA_U32_POLICE', 'police'),
                    ('TCA_U32_ACT', 'hex'),
                    ('TCA_U32_INDEV', 'hex'),
                    ('TCA_U32_PCNT', 'u32_pcnt'),
                    ('TCA_U32_MARK', 'u32_mark'))
-
-        class u32_police(nla):
-            nla_map = (('TCA_POLICE_UNSPEC', 'none'),
-                       ('TCA_POLICE_TBF', 'police_tbf'),
-                       ('TCA_POLICE_RATE', 'hex'),
-                       ('TCA_POLICE_PEAKRATE', 'hex'),
-                       ('TCA_POLICE_AVRATE', 'hex'),
-                       ('TCA_POLICE_RESULT', 'hex'))
-
-            class police_tbf(nla):
-                t_fields = (('index', 'I'),
-                            ('action', 'i'),
-                            ('limit', 'I'),
-                            ('burst', 'I'),
-                            ('mtu', 'I'),
-                            ('rate_cell_log', 'B'),
-                            ('rate___reserved', 'B'),
-                            ('rate_overhead', 'H'),
-                            ('rate_cell_align', 'h'),
-                            ('rate_mpu', 'H'),
-                            ('rate', 'I'),
-                            ('peak_cell_log', 'B'),
-                            ('peak___reserved', 'B'),
-                            ('peak_overhead', 'H'),
-                            ('peak_cell_align', 'h'),
-                            ('peak_mpu', 'H'),
-                            ('peak', 'I'),
-                            ('refcnt', 'i'),
-                            ('bindcnt', 'i'),
-                            ('capab', 'I'))
 
         class u32_sel(nla):
             t_fields = (('flags', 'B'),
