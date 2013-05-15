@@ -352,7 +352,7 @@ class nlmsg_base(dict):
                 # is it a class or a function?
                 if isinstance(msg_class, types.MethodType):
                     # if it is a function -- use it to get the class
-                    msg_class = msg_class()
+                    msg_class = msg_class(length, msg_type, self.buf)
                 # and the name
                 msg_name = self.t_nla_map[msg_type][1]
                 try:

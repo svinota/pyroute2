@@ -114,7 +114,7 @@ class ifinfmsg(nlmsg):
                    ('IFLA_INFO_DATA', 'info_data'),
                    ('IFLA_INFO_XSTATS', 'hex'))
 
-        def info_data(self):
+        def info_data(self, *argv, **kwarg):
             '''
             The function returns appropriate IFLA_INFO_DATA
             type according to IFLA_INFO_KIND info. Return
