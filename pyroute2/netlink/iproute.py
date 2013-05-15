@@ -130,7 +130,9 @@ class marshal_rtnl(marshal):
                RTM_NEWNEIGH: ndmsg,
                RTM_DELNEIGH: ndmsg,
                RTM_NEWQDISC: tcmsg,
-               RTM_DELQDISC: tcmsg}
+               RTM_DELQDISC: tcmsg,
+               RTM_NEWTFILTER: tcmsg,
+               RTM_DELTFILTER: tcmsg}
 
     def fix_message(self, msg):
         try:
@@ -158,6 +160,14 @@ class iproute(netlink):
         msg = tcmsg()
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETQDISC)
+
+    def get_filters(self, family=AF_UNSPEC, index=0, handle=0, parent=0):
+        msg = tcmsg()
+        msg['family'] = family
+        msg['index'] = index
+        msg['handle'] = handle
+        msg['parent'] = parent
+        return self.nlm_request(msg, RTM_GETTFILTER)
 
     def get_links(self, links=None, family=AF_UNSPEC):
         '''
