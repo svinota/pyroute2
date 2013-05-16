@@ -324,6 +324,10 @@ class nlmsg_base(dict):
             if i[0] in self.r_nla_map:
                 msg_class = self.r_nla_map[i[0]][0]
                 msg_type = self.r_nla_map[i[0]][1]
+                # is it a class or a function?
+                if isinstance(msg_class, types.MethodType):
+                    # if it is a function -- use it to get the class
+                    msg_class = msg_class()
                 try:
                     # encode NLA
                     nla = msg_class(self.buf, parent=self)
