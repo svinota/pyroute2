@@ -79,6 +79,9 @@ RTM_GETNEIGHTBL = 66
 RTM_SETNEIGHTBL = 67
 (RTM_NAMES, RTM_VALUES) = map_namespace('RTM', globals())
 
+TC_H_INGRESS = 0xfffffff1
+TC_H_ROOT = 0xffffffff
+
 rtypes = {'RTN_UNSPEC': 0,
           'RTN_UNICAST': 1,      # Gateway or direct route
           'RTN_LOCAL': 2,        # Accept locally
@@ -438,6 +441,26 @@ class iproute(netlink):
                             ('IFA_ADDRESS', address))
         elif family == AF_INET6:
             msg['attrs'] = (('IFA_ADDRESS', address), )
+        return self.nlm_request(msg, msg_type=action, msg_flags=flags)
+
+    def qdisc(self, action, index, kind, handle, family=AF_UNSPEC):
+        '''
+        '''
+        actions = {'add': RTM_NEWQDISC,
+                   'delete': RTM_DELQDISC}
+        action = actions.get(action, action)
+
+        flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        msg = tcmsg()
+        msg['index'] = index
+        msg['family'] = family
+        msg['handle'] = handle
+        if kind == 'ingress':
+            msg['parent'] = TC_H_INGRESS
+        else:
+            msg['parent'] = TC_H_ROOT
+        msg['attrs'] = (('TCA_KIND', kind),
+                        ('TCA_OPTIONS', None))
         return self.nlm_request(msg, msg_type=action, msg_flags=flags)
 
     def route(self, action, prefix, mask, table=254,
