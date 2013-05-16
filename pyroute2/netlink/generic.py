@@ -231,15 +231,17 @@ class nlmsg_base(dict):
         if self.header is not None:
             self['header'].reserve()
         if self.fmt == 's':
-            length = len(self.fields[0]) + 4
+            length = len(self['value'])
             self.fmt = '%is' % (length)
         elif self.fmt == 'z':
-            length = len(self.fields[0]) + 5
+            length = len(self['value']) + 1
             self.fmt = '%is' % (length)
-        payload = struct.pack(self.fmt, *([self[i] for i in self.fields]))
-        diff = NLMSG_ALIGN(len(payload)) - len(payload)
-        self.buf.write(payload)
-        self.buf.write(b'\0' * diff)
+        if self.getvalue() is not None:
+            payload = struct.pack(self.fmt,
+                                  *([self[i] for i in self.fields]))
+            diff = NLMSG_ALIGN(len(payload)) - len(payload)
+            self.buf.write(payload)
+            self.buf.write(b'\0' * diff)
         # write NLA chain
         self.encode_nlas()
         # calculate the size and write it
