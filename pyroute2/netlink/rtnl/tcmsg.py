@@ -87,15 +87,18 @@ class tcmsg(nlmsg):
                         ('requeues', 'I'),
                         ('overlimits', 'I'))
 
-    def get_options(self, length, msg_type, buf):
+    def get_options(self, *argv, **kwarg):
         kind = self.get_attr('TCA_KIND')
         if kind:
-            if kind[0] == 'pfifo_fast':
+            if kind[0] == 'ingress':
+                return self.options_ingress
+            elif kind[0] == 'pfifo_fast':
                 return self.options_pfifo_fast
             elif kind[0] == 'tbf':
                 return self.options_tbf
             elif kind[0] == 'sfq':
-                if length >= struct.calcsize(self.options_sfq_v1.fmt):
+                if kwarg.get('length', 0) >= \
+                        struct.calcsize(self.options_sfq_v1.fmt):
                     return self.options_sfq_v1
                 else:
                     return self.options_sfq_v0
@@ -105,6 +108,9 @@ class tcmsg(nlmsg):
                 return self.options_fw
 
         return self.hex
+
+    class options_ingress(nla):
+        fmt = 'I'
 
     class options_fw(nla_plus_police):
         nla_map = (('TCA_FW_UNSPEC', 'none'),
