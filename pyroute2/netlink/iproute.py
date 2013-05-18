@@ -135,6 +135,8 @@ class marshal_rtnl(marshal):
                RTM_DELNEIGH: ndmsg,
                RTM_NEWQDISC: tcmsg,
                RTM_DELQDISC: tcmsg,
+               RTM_NEWTCLASS: tcmsg,
+               RTM_DELTCLASS: tcmsg,
                RTM_NEWTFILTER: tcmsg,
                RTM_DELTFILTER: tcmsg}
 
@@ -172,6 +174,12 @@ class iproute(netlink):
         msg['handle'] = handle
         msg['parent'] = parent
         return self.nlm_request(msg, RTM_GETTFILTER)
+
+    def get_classes(self, family=AF_UNSPEC, index=0):
+        msg = tcmsg()
+        msg['family'] = family
+        msg['index'] = index
+        return self.nlm_request(msg, RTM_GETTCLASS)
 
     def get_links(self, links=None, family=AF_UNSPEC):
         '''
