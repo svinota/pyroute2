@@ -245,9 +245,14 @@ class nlmsg_base(dict):
         elif self.fmt == 'z':
             length = len(self['value']) + 1
             self.fmt = '%is' % (length)
-        if self.getvalue() is not None:
-            payload = struct.pack(self.fmt,
-                                  *([self[i] for i in self.fields]))
+        if self.fmt and (self.getvalue() is not None):
+            try:
+                payload = struct.pack(self.fmt,
+                                      *([self[i] for i in self.fields]))
+            except Exception as e:
+                print("Failed attributes:")
+                print([self[i] for i in self.fields])
+                raise e
             diff = NLMSG_ALIGN(len(payload)) - len(payload)
             self.buf.write(payload)
             self.buf.write(b'\0' * diff)
