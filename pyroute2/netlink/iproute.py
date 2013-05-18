@@ -11,6 +11,7 @@ from pyroute2.netlink import NLM_F_EXCL
 from pyroute2.netlink import marshal
 from pyroute2.netlink.generic import NETLINK_ROUTE
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
+from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -405,7 +406,7 @@ class iproute(netlink):
             nla = key.upper()
             if not nla.startswith('IFLA_'):
                 nla = 'IFLA_%s' % (nla)
-            msg['attrs'].append((nla, kwarg[key]))
+            msg['attrs'].append([nla, kwarg[key]])
 
         return self.nlm_request(msg, msg_type=action, msg_flags=msg_flags)
 
@@ -437,13 +438,13 @@ class iproute(netlink):
         msg['prefixlen'] = mask
         msg['scope'] = 0xfe
         if family == AF_INET:
-            msg['attrs'] = (('IFA_LOCAL', address),
-                            ('IFA_ADDRESS', address))
+            msg['attrs'] = [['IFA_LOCAL', address],
+                            ['IFA_ADDRESS', address]]
         elif family == AF_INET6:
-            msg['attrs'] = (('IFA_ADDRESS', address), )
+            msg['attrs'] = [['IFA_ADDRESS', address]]
         return self.nlm_request(msg, msg_type=action, msg_flags=flags)
 
-    def qdisc(self, action, index, kind, handle, family=AF_UNSPEC):
+    def qdisc(self, action, kind, interface, handle, **kwarg):
         '''
         '''
         actions = {'add': RTM_NEWQDISC,
@@ -452,15 +453,19 @@ class iproute(netlink):
 
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = tcmsg()
-        msg['index'] = index
-        msg['family'] = family
+        msg['index'] = interface
         msg['handle'] = handle
+        opts = None
         if kind == 'ingress':
             msg['parent'] = TC_H_INGRESS
-        else:
+        elif kind == 'tbf':
             msg['parent'] = TC_H_ROOT
-        msg['attrs'] = (('TCA_KIND', kind),
-                        ('TCA_OPTIONS', None))
+            if kwarg:
+                parameters = get_tbf_parameters(kwarg)
+                opts = {'attrs': [['TCA_TBF_PARMS', parameters],
+                                  ['TCA_TBF_RTAB', True]]}
+        msg['attrs'] = [['TCA_KIND', kind],
+                        ['TCA_OPTIONS', opts]]
         return self.nlm_request(msg, msg_type=action, msg_flags=flags)
 
     def route(self, action, prefix, mask, table=254,
@@ -498,12 +503,12 @@ class iproute(netlink):
         msg['type'] = rtypes[rtype]
         msg['scope'] = rtscopes[rtscope]
         msg['dst_len'] = mask
-        msg['attrs'] = [('RTA_DST', prefix),
-                        ('RTA_TABLE', table)]
+        msg['attrs'] = [['RTA_DST', prefix],
+                        ['RTA_TABLE', table]]
         if interface is not None:
-            msg['attrs'].append(('RTA_OIF', interface))
+            msg['attrs'].append(['RTA_OIF', interface])
         if gateway is not None:
-            msg['attrs'].append(('RTA_GATEWAY', gateway))
+            msg['attrs'].append(['RTA_GATEWAY', gateway])
 
         return self.nlm_request(msg, msg_type=action,
                                 msg_flags=flags)

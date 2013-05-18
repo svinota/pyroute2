@@ -350,6 +350,7 @@ class nlmsg_base(dict):
                     nla['header']['type'] = msg_type
                     nla.setvalue(i[1])
                     nla.encode()
+                    i[1] = nla
                 except:
                     # FIXME
                     import traceback

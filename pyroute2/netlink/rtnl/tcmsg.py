@@ -3,6 +3,65 @@ import struct
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import nla
 
+LINKLAYER_UNSPEC = 0
+LINKLAYER_ETHERNET = 1
+LINKLAYER_ATM = 2
+
+ATM_CELL_SIZE = 53
+ATM_CELL_PAYLOAD = 48
+
+TIME_UNITS_PER_SEC = 1000000
+
+_psched = open('/proc/net/psched', 'r')
+[_t2us, _us2t, _clock_res, _wee] = [int(i, 16) for i in
+                                    _psched.read().split()]
+_clock_factor = float(_clock_res) / TIME_UNITS_PER_SEC
+_tick_in_usec = float(_t2us) / _us2t * _clock_factor
+
+
+def _time2tick(t):
+    # The current code is ported from tc utility
+    return t * _tick_in_usec
+
+
+def _calc_xmittime(rate, size):
+    # The current code is ported from tc utility
+    return _time2tick(TIME_UNITS_PER_SEC * (float(size) / rate))
+
+
+def get_tbf_parameters(kwarg):
+    # rate and burst are required
+    rate = kwarg['rate']
+    burst = kwarg['burst']
+
+    # if peak, mtu is required
+    peak = kwarg.get('peak', 0)
+    mtu = kwarg.get('mtu', 0)
+    if peak:
+        assert mtu
+
+    # limit OR latency is required
+    limit = kwarg.get('limit', None)
+    latency = kwarg.get('latency', None)
+    assert limit or latency
+
+    # calculate limit from latency
+    if limit is None:
+        rate_limit = rate * float(latency) /\
+            TIME_UNITS_PER_SEC + burst
+        if peak:
+            peak_limit = peak * float(latency) /\
+                TIME_UNITS_PER_SEC + mtu
+            if rate_limit > peak_limit:
+                rate_limit = peak_limit
+        limit = rate_limit
+
+    # fill parameters
+    return {'rate': rate,
+            'mtu': mtu,
+            'buffer': _calc_xmittime(rate, burst),
+            'limit': limit}
+
 
 class nla_plus_police(nla):
     class police(nla):
@@ -165,8 +224,8 @@ class tcmsg(nlmsg):
     class options_tbf(nla):
         nla_map = (('TCA_TBF_UNSPEC', 'none'),
                    ('TCA_TBF_PARMS', 'parms'),
-                   ('TCA_TBF_RTAB', 'hex'),
-                   ('TCA_TBF_PTAB', 'hex'))
+                   ('TCA_TBF_RTAB', 'rtab'),
+                   ('TCA_TBF_PTAB', 'ptab'))
 
         class parms(nla):
             t_fields = (('rate_cell_log', 'B'),
@@ -184,6 +243,73 @@ class tcmsg(nlmsg):
                         ('limit', 'I'),
                         ('buffer', 'I'),
                         ('mtu', 'I'))
+
+            def adjust_size(self, size, mpu, linklayer):
+                # The current code is ported from tc utility
+                if size < mpu:
+                    size = mpu
+
+                if linklayer == LINKLAYER_ATM:
+                    cells = size / ATM_CELL_PAYLOAD
+                    if size % ATM_CELL_PAYLOAD > 0:
+                        cells += 1
+                    size = cells * ATM_CELL_SIZE
+
+                return size
+
+            def calc_rtab(self, kind):
+                # The current code is ported from tc utility
+                rtab = []
+                mtu = self['mtu'] or 2047
+                cell_log = self['%s_cell_log' % (kind)]
+                mpu = self['%s_mpu' % (kind)]
+                rate = self['rate']
+
+                # calculate cell_log
+                if cell_log == 0:
+                    while (mtu >> cell_log) > 255:
+                        cell_log += 1
+
+                # fill up the table
+                for i in range(256):
+                    size = self.adjust_size((i + 1) << cell_log,
+                                            mpu,
+                                            LINKLAYER_ETHERNET)
+                    rtab.append(_calc_xmittime(rate, size))
+
+                self['%s_cell_align' % (kind)] = -1
+                self['%s_cell_log' % (kind)] = cell_log
+                return struct.pack('I' * 256, *rtab)
+
+            def encode(self):
+                self.rtab = None
+                self.ptab = None
+                if self['rate']:
+                    self.rtab = self.calc_rtab('rate')
+                if self['peak']:
+                    self.ptab = self.calc_ptab('peak')
+                nla.encode(self)
+
+        class rtab(nla):
+            fmt = 's'
+            kind = 'rtab'
+
+            def encode(self):
+                parms = self.parent.get_attr('TCA_TBF_PARMS')
+                if parms:
+                    self['value'] = getattr(parms[0], self.kind)
+                nla.encode(self)
+
+            def decode(self):
+                nla.decode(self)
+                parms = self.parent.get_attr('TCA_TBF_PARMS')
+                if parms:
+                    rtab = struct.unpack('I' * (len(self['value']) / 4),
+                                         self['value'])
+                    setattr(parms[0], self.kind, rtab)
+
+        class ptab(rtab):
+            kind = 'ptab'
 
     class options_sfq_v0(nla):
         t_fields = (('quantum', 'I'),
