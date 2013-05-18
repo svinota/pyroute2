@@ -159,6 +159,15 @@ class nlmsg_base(dict):
             self['header'] = self.header(self.buf)
         self.register_nlas()
 
+    def __eq__(self, value):
+        '''
+        Having nla, we are able to use it in operations like::
+
+            if nla == 'some value':
+                ...
+        '''
+        return self.getvalue() == value
+
     def nla2name(self, name):
         '''
         Convert NLA name into human-friendly name
