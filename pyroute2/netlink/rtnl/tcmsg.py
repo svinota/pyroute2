@@ -59,10 +59,23 @@ def get_tbf_parameters(kwarg):
         limit = rate_limit
 
     # fill parameters
-    return {'rate': rate,
-            'mtu': mtu,
-            'buffer': _calc_xmittime(rate, burst),
-            'limit': limit}
+    return [['TCA_TBF_PARMS', {'rate': rate,
+                               'mtu': mtu,
+                               'buffer': _calc_xmittime(rate, burst),
+                               'limit': limit}],
+            ['TCA_TBF_RTAB', True]]
+
+
+def get_htb_parameters(kwarg):
+    rate2quantum = kwarg.get('r2q', 0xa)
+    version = kwarg.get('version', 3)
+    defcls = kwarg.get('default', 0x10)
+    ret = [['TCA_HTB_INIT', {'debug': 0,
+                             'defcls': defcls,
+                             'direct_pkts': 0,
+                             'rate2quantum': rate2quantum,
+                             'version': version}]]
+    return ret
 
 
 class nla_plus_rtab(nla):

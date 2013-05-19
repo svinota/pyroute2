@@ -11,6 +11,7 @@ from pyroute2.netlink import NLM_F_EXCL
 from pyroute2.netlink import marshal
 from pyroute2.netlink.generic import NETLINK_ROUTE
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
+from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
@@ -469,9 +470,15 @@ class iproute(netlink):
         elif kind == 'tbf':
             msg['parent'] = TC_H_ROOT
             if kwarg:
-                parameters = get_tbf_parameters(kwarg)
-                opts = {'attrs': [['TCA_TBF_PARMS', parameters],
-                                  ['TCA_TBF_RTAB', True]]}
+                # kwarg is empty for delete
+                attrs = get_tbf_parameters(kwarg)
+                opts = {'attrs': attrs}
+        elif kind == 'htb':
+            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
+            if kwarg:
+                # kwarg is empty for delete
+                attrs = get_htb_parameters(kwarg)
+                opts = {'attrs': attrs}
         msg['attrs'] = [['TCA_KIND', kind],
                         ['TCA_OPTIONS', opts]]
         return self.nlm_request(msg, msg_type=action, msg_flags=flags)
