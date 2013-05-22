@@ -111,28 +111,34 @@ def get_htb_parameters(kwarg):
     rate = _get_rate(kwarg.get('rate', None))
     ceil = _get_rate(kwarg.get('ceil', 0)) or rate
     #
-    mtu = kwarg.get('mtu', 10)
-    mpu = kwarg.get('mpu', 10)
-    overhead = kwarg.get('overhead', 10)
+    prio = kwarg.get('prio', 0)
+    mtu = kwarg.get('mtu', 1600)
+    mpu = kwarg.get('mpu', 0)
+    overhead = kwarg.get('overhead', 0)
     # linklayer = kwarg.get('linklayer', None)
-    quantum = kwarg.get('quantum', 10)
+    quantum = kwarg.get('quantum', 0)
     #
     burst = kwarg.get('burst', None) or \
         kwarg.get('maxburst', None) or \
         kwarg.get('buffer', None)
-    if rate is not None and burst is None:
-        burst = rate / _get_hz() + mtu
+    if rate is not None:
+        if burst is None:
+            burst = rate / _get_hz() + mtu
+        burst = _calc_xmittime(rate, burst)
     cburst = kwarg.get('cburst', None) or \
         kwarg.get('cmaxburst', None) or \
         kwarg.get('cbuffer', None)
-    if ceil is not None and cburst is None:
-        cburst = ceil / _get_hz() + mtu
+    if ceil is not None:
+        if cburst is None:
+            cburst = ceil / _get_hz() + mtu
+        cburst = _calc_xmittime(ceil, cburst)
 
     if parent is not None:
         # HTB class
         ret = [['TCA_HTB_PARMS', {'buffer': burst,
                                   'cbuffer': cburst,
                                   'quantum': quantum,
+                                  'prio': prio,
                                   'rate': rate,
                                   'ceil': ceil,
                                   'ceil_overhead': overhead,
@@ -194,10 +200,12 @@ class nla_plus_rtab(nla):
         def encode(self):
             self.rtab = None
             self.ptab = None
-            if self['rate']:
+            if self.get('rate', False):
                 self.rtab = self.calc_rtab('rate')
-            if self['peak']:
-                self.ptab = self.calc_ptab('peak')
+            if self.get('peak', False):
+                self.ptab = self.calc_rtab('peak')
+            if self.get('ceil', False):
+                self.ctab = self.calc_rtab('ceil')
             nla.encode(self)
 
     class rtab(nla):
