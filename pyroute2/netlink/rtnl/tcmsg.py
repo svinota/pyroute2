@@ -1,5 +1,9 @@
+import re
+import os
 import struct
 
+from pyroute2.common import time_suffixes
+from pyroute2.common import rate_suffixes
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import nla
 
@@ -19,6 +23,38 @@ _psched = open('/proc/net/psched', 'r')
  _wee] = [int(i, 16) for i in _psched.read().split()]
 _clock_factor = float(_clock_res) / TIME_UNITS_PER_SEC
 _tick_in_usec = float(_t2us) / _us2t * _clock_factor
+_first_letter = re.compile('[^0-9]+')
+
+
+def _get_hz():
+    if _clock_res == 1000000:
+        return _wee
+    else:
+        return os.environ.get('HZ', 1000)
+
+
+def _get_by_suffix(value, default, func):
+    if not isinstance(value, basestring):
+        return value
+    pos = _first_letter.search(value)
+    if pos is None:
+        suffix = default
+    else:
+        pos = pos.start()
+        value, suffix = value[:pos], value[pos:]
+    value = int(value)
+    return func(value, suffix)
+
+
+def _get_time(lat):
+    return _get_by_suffix(lat, 'ms',
+                          lambda x, y: (x * TIME_UNITS_PER_SEC) /
+                          time_suffixes[y])
+
+
+def _get_rate(rate):
+    return _get_by_suffix(rate, 'bit',
+                          lambda x, y: (x * rate_suffixes[y]) / 8)
 
 
 def _time2tick(t):
@@ -33,18 +69,18 @@ def _calc_xmittime(rate, size):
 
 def get_tbf_parameters(kwarg):
     # rate and burst are required
-    rate = kwarg['rate']
+    rate = _get_rate(kwarg['rate'])
     burst = kwarg['burst']
 
     # if peak, mtu is required
-    peak = kwarg.get('peak', 0)
+    peak = _get_rate(kwarg.get('peak', 0))
     mtu = kwarg.get('mtu', 0)
     if peak:
         assert mtu
 
     # limit OR latency is required
     limit = kwarg.get('limit', None)
-    latency = kwarg.get('latency', None)
+    latency = _get_time(kwarg.get('latency', None))
     assert limit or latency
 
     # calculate limit from latency
