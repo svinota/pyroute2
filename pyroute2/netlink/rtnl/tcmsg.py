@@ -106,11 +106,49 @@ def get_htb_parameters(kwarg):
     rate2quantum = kwarg.get('r2q', 0xa)
     version = kwarg.get('version', 3)
     defcls = kwarg.get('default', 0x10)
-    ret = [['TCA_HTB_INIT', {'debug': 0,
-                             'defcls': defcls,
-                             'direct_pkts': 0,
-                             'rate2quantum': rate2quantum,
-                             'version': version}]]
+    parent = kwarg.get('parent', None)
+    #
+    rate = _get_rate(kwarg.get('rate', None))
+    ceil = _get_rate(kwarg.get('ceil', 0)) or rate
+    #
+    mtu = kwarg.get('mtu', 10)
+    mpu = kwarg.get('mpu', 10)
+    overhead = kwarg.get('overhead', 10)
+    # linklayer = kwarg.get('linklayer', None)
+    quantum = kwarg.get('quantum', 10)
+    #
+    burst = kwarg.get('burst', None) or \
+        kwarg.get('maxburst', None) or \
+        kwarg.get('buffer', None)
+    if rate is not None and burst is None:
+        burst = rate / _get_hz() + mtu
+    cburst = kwarg.get('cburst', None) or \
+        kwarg.get('cmaxburst', None) or \
+        kwarg.get('cbuffer', None)
+    if ceil is not None and cburst is None:
+        cburst = ceil / _get_hz() + mtu
+
+    if parent is not None:
+        # HTB class
+        ret = [['TCA_HTB_PARMS', {'buffer': burst,
+                                  'cbuffer': cburst,
+                                  'quantum': quantum,
+                                  'rate': rate,
+                                  'ceil': ceil,
+                                  'ceil_overhead': overhead,
+                                  'rate_overhead': overhead,
+                                  'rate_mpu': mpu,
+                                  'ceil_mpu': mpu}],
+               ['TCA_HTB_RTAB', True],
+               ['TCA_HTB_CTAB', True]]
+
+    else:
+        # HTB root
+        ret = [['TCA_HTB_INIT', {'debug': 0,
+                                 'defcls': defcls,
+                                 'direct_pkts': 0,
+                                 'rate2quantum': rate2quantum,
+                                 'version': version}]]
     return ret
 
 
