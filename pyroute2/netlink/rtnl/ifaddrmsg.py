@@ -25,12 +25,11 @@ class ifaddrmsg(nlmsg):
     };
 
     '''
-    fmt = 'BBBBI'
-    fields = ('family',
-              'prefixlen',
-              'flags',
-              'scope',
-              'index')
+    fields = (('family', 'B'),
+              ('prefixlen', 'B'),
+              ('flags', 'B'),
+              ('scope', 'B'),
+              ('index', 'I'))
 
     nla_map = (('IFA_UNSPEC',  'hex'),
                ('IFA_ADDRESS', 'ipaddr'),
@@ -42,8 +41,7 @@ class ifaddrmsg(nlmsg):
                ('IFA_MULTICAST', 'ipaddr'))
 
     class cacheinfo(nla):
-        fmt = 'I' * 4
-        fields = ('ifa_prefered',
-                  'ifa_valid',
-                  'cstamp',
-                  'tstamp')
+        fields = (('ifa_prefered', 'I'),
+                  ('ifa_valid', 'I'),
+                  ('cstamp', 'I'),
+                  ('tstamp', 'I'))

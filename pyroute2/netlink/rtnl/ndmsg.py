@@ -23,13 +23,11 @@ class ndmsg(nlmsg):
         __u32         ndm_refcnt;
     };
     '''
-    fmt = 'BiHBB'
-
-    fields = ('family',
-              'ifindex',
-              'state',
-              'flags',
-              'ndm_type')
+    fields = (('family', 'B'),
+              ('ifindex', 'i'),
+              ('state', 'H'),
+              ('flags', 'B'),
+              ('ndm_type', 'B'))
 
     # Please note, that nla_map creates implicit
     # enumeration. In this case it will be:
@@ -40,15 +38,14 @@ class ndmsg(nlmsg):
     # NDA_CACHEINFO = 3
     # NDA_PROBES = 4
     #
-    nla_map = (('NDA_UNSPEC', 'hex'),
+    nla_map = (('NDA_UNSPEC', 'none'),
                ('NDA_DST', 'ipaddr'),
                ('NDA_LLADDR', 'l2addr'),
                ('NDA_CACHEINFO', 'cacheinfo'),
                ('NDA_PROBES', 'uint32'))
 
     class cacheinfo(nla):
-        fmt = 'I' * 4
-        fields = ('ndm_confirmed',
-                  'ndm_used',
-                  'ndm_updated',
-                  'ndm_refcnt')
+        fields = (('ndm_confirmed', 'I'),
+                  ('ndm_used', 'I'),
+                  ('ndm_updated', 'I'),
+                  ('ndm_refcnt', 'I'))

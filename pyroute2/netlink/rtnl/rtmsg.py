@@ -21,17 +21,15 @@ class rtmsg(nlmsg):
         unsigned int  rtm_flags;
     };
     '''
-    fmt = 'BBBBBBBBI'
-
-    fields = ('family',
-              'dst_len',
-              'src_len',
-              'tos',
-              'table',
-              'proto',
-              'scope',
-              'type',
-              'flags')
+    fields = (('family', 'B'),
+              ('dst_len', 'B'),
+              ('src_len', 'B'),
+              ('tos', 'B'),
+              ('table', 'B'),
+              ('proto', 'B'),
+              ('scope', 'B'),
+              ('type', 'B'),
+              ('flags', 'I'))
 
     nla_map = (('RTA_UNSPEC', 'none'),
                ('RTA_DST', 'ipaddr'),
@@ -51,12 +49,11 @@ class rtmsg(nlmsg):
                ('RTA_TABLE', 'uint32'))
 
     class cacheinfo(nla):
-        fmt = 'IIiIIIII'
-        fields = ('rta_clntref',
-                  'rta_lastuse',
-                  'rta_expires',
-                  'rta_error',
-                  'rta_used',
-                  'rta_id',
-                  'rta_ts',
-                  'rta_tsage')
+        fields = (('rta_clntref', 'I'),
+                  ('rta_lastuse', 'I'),
+                  ('rta_expires', 'i'),
+                  ('rta_error', 'I'),
+                  ('rta_used', 'I'),
+                  ('rta_id', 'I'),
+                  ('rta_ts', 'I'),
+                  ('rta_tsage', 'I'))

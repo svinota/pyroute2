@@ -10,6 +10,29 @@ states = ('UNKNOWN',
           'UP')
 state_by_name = dict(((i[1], i[0]) for i in enumerate(states)))
 state_by_code = dict(enumerate(states))
+stats_names = ('rx_packets',
+               'tx_packets',
+               'rx_bytes',
+               'tx_bytes',
+               'rx_errors',
+               'tx_errors',
+               'rx_dropped',
+               'tx_dropped',
+               'multicast',
+               'collisions',
+               'rx_length_errors',
+               'rx_over_errors',
+               'rx_crc_errors',
+               'rx_frame_errors',
+               'rx_fifo_errors',
+               'rx_missed_errors',
+               'tx_aborted_errors',
+               'tx_carrier_errors',
+               'tx_fifo_errors',
+               'tx_heartbeat_errors',
+               'tx_window_errors',
+               'rx_compressed',
+               'tx_compressed')
 
 
 class ifinfmsg(nlmsg):
@@ -23,12 +46,12 @@ class ifinfmsg(nlmsg):
         unsigned int   ifi_change; /* change mask */
     };
     '''
-    fmt = 'BHiII'
-    fields = ('family',
-              'ifi_type',
-              'index',
-              'flags',
-              'change')
+    fields = (('family', 'B'),
+              ('__align', 'B'),
+              ('ifi_type', 'H'),
+              ('index', 'i'),
+              ('flags', 'I'),
+              ('change', 'I'))
 
     nla_map = (('IFLA_UNSPEC', 'none'),
                ('IFLA_ADDRESS', 'l2addr'),
@@ -65,7 +88,7 @@ class ifinfmsg(nlmsg):
                ('IFLA_NUM_RX_QUEUES', 'uint32'))
 
     class state(nla):
-        fmt = '=B'
+        fields = (('value', 'B'), )
 
         def encode(self):
             self['value'] = state_by_name[self.value]
@@ -76,37 +99,18 @@ class ifinfmsg(nlmsg):
             self.value = state_by_code[self['value']]
 
     class ifstats(nla):
-        fmt = 'I' * 23
-        fields = ('rx_packets',
-                  'tx_packets',
-                  'rx_bytes',
-                  'tx_bytes',
-                  'rx_errors',
-                  'tx_errors',
-                  'rx_dropped',
-                  'tx_dropped',
-                  'multicast',
-                  'collisions',
-                  'rx_length_errors',
-                  'rx_over_errors',
-                  'rx_crc_errors',
-                  'rx_frame_errors',
-                  'rx_fifo_errors',
-                  'rx_missed_errors',
-                  'tx_aborted_errors',
-                  'tx_carrier_errors',
-                  'tx_fifo_errors',
-                  'tx_heartbeat_errors',
-                  'tx_window_errors',
-                  'rx_compressed',
-                  'tx_compressed')
+        fields = [(i, 'I') for i in stats_names]
 
-    class ifstats64(ifstats):
-        fmt = 'Q' * 23
+    class ifstats64(nla):
+        fields = [(i, 'Q') for i in stats_names]
 
     class ifmap(nla):
-        fmt = 'QQQHBB'
-        fields = ('mem_start', 'mem_end', 'base_addr', 'irq', 'dma', 'port')
+        fields = (('mem_start', 'Q'),
+                  ('mem_end', 'Q'),
+                  ('base_addr', 'Q'),
+                  ('irq', 'Q'),
+                  ('dma', 'Q'),
+                  ('port', 'Q'))
 
     class ifinfo(nla):
         nla_map = (('IFLA_INFO_UNSPEC', 'none'),
@@ -135,9 +139,8 @@ class ifinfmsg(nlmsg):
                        ('IFLA_VLAN_INGRESS_QOS', 'hex'))
 
             class vlan_flags(nla):
-                fmt = 'II'
-                fields = ('flags',
-                          'mask')
+                fields = (('flags', 'I'),
+                          ('mask', 'I'))
 
     class af_spec(nla):
         nla_map = (('AF_UNSPEC', 'none'),
@@ -153,35 +156,35 @@ class ifinfmsg(nlmsg):
                    ('AF_INET6', 'inet6'))
 
         class inet(nla):
-            fmt = 'I' * 26
             #  ./include/linux/inetdevice.h: struct ipv4_devconf
-            fields = ('sysctl',
-                      'forwarding',
-                      'mc_forwarding',
-                      'proxy_arp',
-                      'accept_redirects',
-                      'secure_redirects',
-                      'send_redirects',
-                      'shared_media',
-                      'rp_filter',
-                      'accept_source_route',
-                      'bootp_relay',
-                      'log_martians',
-                      'tag',
-                      'arp_filter',
-                      'medium_id',
-                      'disable_xfrm',
-                      'disable_policy',
-                      'force_igmp_version',
-                      'arp_announce',
-                      'arp_ignore',
-                      'promote_secondaries',
-                      'arp_accept',
-                      'arp_notify',
-                      'accept_local',
-                      'src_valid_mark',
-                      'proxy_arp_pvlan',
-                      'route_localnet')
+            field_names = ('sysctl',
+                           'forwarding',
+                           'mc_forwarding',
+                           'proxy_arp',
+                           'accept_redirects',
+                           'secure_redirects',
+                           'send_redirects',
+                           'shared_media',
+                           'rp_filter',
+                           'accept_source_route',
+                           'bootp_relay',
+                           'log_martians',
+                           'tag',
+                           'arp_filter',
+                           'medium_id',
+                           'disable_xfrm',
+                           'disable_policy',
+                           'force_igmp_version',
+                           'arp_announce',
+                           'arp_ignore',
+                           'promote_secondaries',
+                           'arp_accept',
+                           'arp_notify',
+                           'accept_local',
+                           'src_valid_mark',
+                           'proxy_arp_pvlan',
+                           'route_localnet')
+            fields = [(i, 'I') for i in field_names]
 
         class inet6(nla):
             nla_map = (('IFLA_INET6_UNSPEC', 'none'),
@@ -195,84 +198,82 @@ class ifinfmsg(nlmsg):
             class ipv6_devconf(nla):
                 # ./include/uapi/linux/ipv6.h
                 # DEVCONF_
-                fmt = 'I' * 30
-                fields = ('forwarding',
-                          'hop_limit',
-                          'mtu',
-                          'accept_ra',
-                          'accept_redirects',
-                          'autoconf',
-                          'dad_transmits',
-                          'router_solicitations',
-                          'router_solicitation_interval',
-                          'router_solicitation_delay',
-                          'use_tempaddr',
-                          'temp_valid_lft',
-                          'temp_prefered_lft',
-                          'regen_max_retry',
-                          'max_desync_factor',
-                          'max_addresses',
-                          'force_mld_version',
-                          'accept_ra_defrtr',
-                          'accept_ra_pinfo',
-                          'accept_ra_rtr_pref',
-                          'router_probe_interval',
-                          'accept_ra_rt_info_max_plen',
-                          'proxy_ndp',
-                          'optimistic_dad',
-                          'accept_source_route',
-                          'mc_forwarding',
-                          'disable_ipv6',
-                          'accept_dad',
-                          'force_tllao',
-                          'ndisc_notify')
+                field_names = ('forwarding',
+                               'hop_limit',
+                               'mtu',
+                               'accept_ra',
+                               'accept_redirects',
+                               'autoconf',
+                               'dad_transmits',
+                               'router_solicitations',
+                               'router_solicitation_interval',
+                               'router_solicitation_delay',
+                               'use_tempaddr',
+                               'temp_valid_lft',
+                               'temp_prefered_lft',
+                               'regen_max_retry',
+                               'max_desync_factor',
+                               'max_addresses',
+                               'force_mld_version',
+                               'accept_ra_defrtr',
+                               'accept_ra_pinfo',
+                               'accept_ra_rtr_pref',
+                               'router_probe_interval',
+                               'accept_ra_rt_info_max_plen',
+                               'proxy_ndp',
+                               'optimistic_dad',
+                               'accept_source_route',
+                               'mc_forwarding',
+                               'disable_ipv6',
+                               'accept_dad',
+                               'force_tllao',
+                               'ndisc_notify')
+                fields = [(i, 'I') for i in field_names]
 
             class ipv6_cache_info(nla):
                 # ./include/uapi/linux/if_link.h: struct ifla_cacheinfo
-                fmt = 'I' * 4
-                fields = ('max_reasm_len',
-                          'tstamp',
-                          'reachable_time',
-                          'retrans_time')
+                fields = (('max_reasm_len', 'I'),
+                          ('tstamp', 'I'),
+                          ('reachable_time', 'I'),
+                          ('retrans_time', 'I'))
 
             class ipv6_stats(nla):
-                fmt = 'I' * 31
-                fields = ('inoctets',
-                          'fragcreates',
-                          'indiscards',
-                          'num',
-                          'outoctets',
-                          'outnoroutes',
-                          'inbcastoctets',
-                          'outforwdatagrams',
-                          'outpkts',
-                          'reasmtimeout',
-                          'inhdrerrors',
-                          'reasmreqds',
-                          'fragfails',
-                          'outmcastpkts',
-                          'inaddrerrors',
-                          'inmcastpkts',
-                          'reasmfails',
-                          'outdiscards',
-                          'outbcastoctets',
-                          'inmcastoctets',
-                          'inpkts',
-                          'fragoks',
-                          'intoobigerrors',
-                          'inunknownprotos',
-                          'intruncatedpkts',
-                          'outbcastpkts',
-                          'reasmoks',
-                          'inbcastpkts',
-                          'innoroutes',
-                          'indelivers',
-                          'outmcastoctets')
+                field_names = ('inoctets',
+                               'fragcreates',
+                               'indiscards',
+                               'num',
+                               'outoctets',
+                               'outnoroutes',
+                               'inbcastoctets',
+                               'outforwdatagrams',
+                               'outpkts',
+                               'reasmtimeout',
+                               'inhdrerrors',
+                               'reasmreqds',
+                               'fragfails',
+                               'outmcastpkts',
+                               'inaddrerrors',
+                               'inmcastpkts',
+                               'reasmfails',
+                               'outdiscards',
+                               'outbcastoctets',
+                               'inmcastoctets',
+                               'inpkts',
+                               'fragoks',
+                               'intoobigerrors',
+                               'inunknownprotos',
+                               'intruncatedpkts',
+                               'outbcastpkts',
+                               'reasmoks',
+                               'inbcastpkts',
+                               'innoroutes',
+                               'indelivers',
+                               'outmcastoctets')
+                fields = [(i, 'I') for i in field_names]
 
             class icmp6_stats(nla):
-                fmt = 'Q' * 5
-                fields = ('num',
-                          'inerrors',
-                          'outmsgs',
-                          'outerrors',
-                          'inmsgs')
+                fields = (('num', 'Q'),
+                          ('inerrors', 'Q'),
+                          ('outmsgs', 'Q'),
+                          ('outerrors', 'Q'),
+                          ('inmsgs', 'Q'))

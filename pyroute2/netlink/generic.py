@@ -105,23 +105,11 @@ class nlmsg_base(dict):
         + NLA
         + ...
 
-    To describe data, you can use one of the ways:
+    To describe data, use python struct notation:
 
-    1. 'fmt' and 'fields' class atributes, e.g.:
+        fields = (('length', 'H'),
+                  ('type', 'H'))
 
-        fmt = 'HH'
-        fields = ('length',
-                  'type')
-
-        this will decode/encode two 16bit unsigned integers
-        into/from fields 'length' and 'type'.
-
-    2. 't_fields' attribute, e.g.:
-
-        t_fields = (('length', 'H'),
-                    ('type', 'H'))
-
-        will do the same.
 
     NLAs are decoded/encoded according to 'nla_map':
 
@@ -140,17 +128,14 @@ class nlmsg_base(dict):
     you can read in nlmsg_atoms class.
     '''
 
-    fmt = ''                    # data format string, see struct
-    fields = ('value', )        # data field names, to build a dictionary
-    t_fields = NotInitialized
-    header = None               # optional header class
-    nla_map = {}                # NLA mapping
+    fields = []                  # data field names, to build a dictionary
+    header = None                # optional header class
+    nla_map = {}                 # NLA mapping
 
     def __init__(self, buf=None, length=None, parent=None):
         dict.__init__(self)
-        self.register_fields()
         for i in self.fields:
-            self[i] = 0  # FIXME: only for number values
+            self[i[0]] = 0  # FIXME: only for number values
         self.buf = buf or io.BytesIO()
         self.length = length or 0
         self.parent = parent
@@ -201,7 +186,10 @@ class nlmsg_base(dict):
         to skip encoding of the header until some fields will
         be known.
         '''
-        self.buf.seek(struct.calcsize(self.fmt), 1)
+        size = 0
+        for i in self.fields:
+            size += struct.calcsize(i[1])
+        self.buf.seek(size, 1)
 
     def decode(self):
         self.offset = self.buf.tell()
@@ -212,32 +200,32 @@ class nlmsg_base(dict):
                 # update length from header
                 # it can not be less than 4
                 self.length = max(self['header']['length'], 4)
-                if self.fmt == 's':
-                    self.fmt = '%is' % (self.length - 4)
-                elif self.fmt == 'z':
-                    self.fmt = '%is' % (self.length - 5)
             except Exception as e:
                 raise NetlinkHeaderDecodeError(e)
         # decode the data
         try:
-            _fmt = self.fmt
-            _fields = self.fields
-            next_stop = True
-            while next_stop:
-                next_fmt = _fmt
-                next_fields = _fields
-                next_stop = _fmt_letters.search(_fmt)
-                if next_stop is not None:
-                    position = next_stop.start() + 1
-                    next_fmt = _fmt[:position]
-                    fields_count = len(_letters.split(next_fmt)) - 1
-                    next_fields = _fields[:fields_count]
-                    # shift _fmt and _fields
-                    _fmt = _fmt[position:]
-                    _fields = _fields[fields_count:]
-                size = struct.calcsize(next_fmt)
-                values = struct.unpack(next_fmt, self.buf.read(size))
-                self.update(dict(zip(next_fields, values)))
+            for i in self.fields:
+                name = i[0]
+                fmt = i[1]
+
+                # 's' and 'z' can be used only in connection with
+                # length, encoded in the header
+                if fmt == 's':
+                    fmt = '%is' % (self.length - 4)
+                elif fmt == 'z':
+                    fmt = '%is' % (self.length - 5)
+
+                size = struct.calcsize(fmt)
+                raw = self.buf.read(size)
+
+                # FIXME: adjust string size again
+                if fmt[-1] == 's':
+                    fmt = '%is' % (len(raw))
+                value = struct.unpack(fmt, raw)
+                if len(value) == 1:
+                    self[name] = value[0]
+                else:
+                    self[name] = value
 
         except Exception as e:
             raise NetlinkDataDecodeError(e)
@@ -259,33 +247,24 @@ class nlmsg_base(dict):
         # reserve space for the header
         if self.header is not None:
             self['header'].reserve()
-        if self.fmt == 's':
-            length = len(self['value'])
-            self.fmt = '%is' % (length)
-        elif self.fmt == 'z':
-            length = len(self['value']) + 1
-            self.fmt = '%is' % (length)
-        if self.fmt and (self.getvalue() is not None):
+
+        if self.getvalue() is not None:
             try:
                 payload = b''
-                _fmt = self.fmt
-                _fields = self.fields
-                next_stop = True
-                while next_stop:
-                    next_fmt = _fmt
-                    next_stop = _fmt_letters.search(_fmt)
-                    if next_stop is not None:
-                        position = next_stop.start() + 1
-                        next_fmt = _fmt[:position]
-                        fields_count = len(_letters.split(next_fmt)) - 1
-                        # shift _fmt and _fields
-                        _fmt = _fmt[position:]
-                        _fields = _fields[fields_count:]
-                    payload += struct.pack(next_fmt,
-                                           *[self[i] for i in _fields])
+                for i in self.fields:
+                    name = i[0]
+                    fmt = i[1]
+
+                    if fmt == 's':
+                        length = len(self[name])
+                        fmt = '%is' % (length)
+                    elif fmt == 'z':
+                        length = len(self[name]) + 1
+                        fmt = '%is' % (length)
+
+                    payload += struct.pack(fmt, self[name])
+
             except Exception as e:
-                print("Failed attributes:")
-                print([self[i] for i in self.fields])
                 raise e
             diff = NLMSG_ALIGN(len(payload)) - len(payload)
             self.buf.write(payload)
@@ -321,29 +300,12 @@ class nlmsg_base(dict):
         if self.value != NotInitialized:
             # value decoded by custom decoder
             return self.value
-        elif 'value' in self:
+
+        if 'value' in self and self['value'] != NotInitialized:
             # raw value got by generic decoder
             return self['value']
-        else:
-            return self
 
-    def register_fields(self):
-        '''
-        Convert 't_fields' attribute into 'fmt' and 'fields'.
-        '''
-        if self.t_fields is NotInitialized:
-            return
-
-        fields = []
-        fmt = []
-
-        for i in self.t_fields:
-            fmt.append(i[1])
-            if (i[1].find('x') == -1) and (i[0] != '__pad'):
-                fields.append(i[0])
-
-        self.fmt = ''.join(fmt)
-        self.fields = tuple(fields)
+        return self
 
     def register_nlas(self):
         '''
@@ -428,8 +390,8 @@ class nlmsg_base(dict):
 
 
 class nla_header(nlmsg_base):
-    fmt = 'HH'
-    fields = ('length', 'type')
+    fields = (('length', 'H'),
+              ('type', 'H'))
 
 
 class nla_base(nlmsg_base):
@@ -440,8 +402,11 @@ class nlmsg_header(nlmsg_base):
     '''
     Common netlink message header
     '''
-    fmt = 'IHHII'
-    fields = ('length', 'type', 'flags', 'sequence_number', 'pid')
+    fields = (('length', 'I'),
+              ('type', 'H'),
+              ('flags', 'H'),
+              ('sequence_number', 'I'),
+              ('pid', 'I'))
 
 
 class nlmsg_atoms(nlmsg_base):
@@ -458,13 +423,13 @@ class nlmsg_atoms(nlmsg_base):
             self.value = None
 
     class uint8(nla_base):
-        fmt = '=B'
+        fields = [('value', 'B')]
 
     class uint16(nla_base):
-        fmt = '=H'
+        fields = [('value', 'H')]
 
     class uint32(nla_base):
-        fmt = '=I'
+        fields = [('value', 'I')]
 
     class ipaddr(nla_base):
         '''
@@ -475,7 +440,7 @@ class nlmsg_atoms(nlmsg_base):
         We do not specify here the string size, it will be
         calculated in runtime.
         '''
-        fmt = 's'
+        fields = [('value', 's')]
 
         def encode(self):
             self['value'] = socket.inet_pton(self.parent['family'], self.value)
@@ -489,7 +454,7 @@ class nlmsg_atoms(nlmsg_base):
         '''
         Decode MAC address.
         '''
-        fmt = '=6s'
+        fields = [('value', '=6s')]
 
         def encode(self):
             self['value'] = ''.join((chr(int(i, 16)) for i in
@@ -504,7 +469,7 @@ class nlmsg_atoms(nlmsg_base):
         '''
         Represent NLA's content with header as hex string.
         '''
-        fmt = 's'
+        fields = [('value', 's')]
 
         def decode(self):
             nla_base.decode(self)
@@ -515,7 +480,7 @@ class nlmsg_atoms(nlmsg_base):
         Zero-terminated string.
         '''
         # FIXME: move z-string hacks from general decode here?
-        fmt = 'z'
+        fields = [('value', 'z')]
 
 
 class nla(nla_base, nlmsg_atoms):
@@ -538,10 +503,9 @@ class genlmsg(nlmsg):
     '''
     Generic netlink message
     '''
-    fmt = 'BBH'
-    fields = ('cmd',
-              'version',
-              'reserved')
+    fields = (('cmd', 'B'),
+              ('version', 'B'),
+              ('reserved', 'H'))
 
 
 class ctrlmsg(genlmsg):

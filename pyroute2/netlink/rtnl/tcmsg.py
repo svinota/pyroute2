@@ -284,7 +284,7 @@ class nla_plus_rtab(nla):
             nla.encode(self)
 
     class rtab(nla):
-        fmt = 's'
+        fields = (('value', 's'), )
 
         def encode(self):
             parms = self.parent.get_attr('TCA_TBF_PARMS') or \
@@ -321,36 +321,36 @@ class nla_plus_police(nla):
                    ('TCA_POLICE_RESULT', 'hex'))
 
         class police_tbf(nla):
-            t_fields = (('index', 'I'),
-                        ('action', 'i'),
-                        ('limit', 'I'),
-                        ('burst', 'I'),
-                        ('mtu', 'I'),
-                        ('rate_cell_log', 'B'),
-                        ('rate___reserved', 'B'),
-                        ('rate_overhead', 'H'),
-                        ('rate_cell_align', 'h'),
-                        ('rate_mpu', 'H'),
-                        ('rate', 'I'),
-                        ('peak_cell_log', 'B'),
-                        ('peak___reserved', 'B'),
-                        ('peak_overhead', 'H'),
-                        ('peak_cell_align', 'h'),
-                        ('peak_mpu', 'H'),
-                        ('peak', 'I'),
-                        ('refcnt', 'i'),
-                        ('bindcnt', 'i'),
-                        ('capab', 'I'))
+            fields = (('index', 'I'),
+                      ('action', 'i'),
+                      ('limit', 'I'),
+                      ('burst', 'I'),
+                      ('mtu', 'I'),
+                      ('rate_cell_log', 'B'),
+                      ('rate___reserved', 'B'),
+                      ('rate_overhead', 'H'),
+                      ('rate_cell_align', 'h'),
+                      ('rate_mpu', 'H'),
+                      ('rate', 'I'),
+                      ('peak_cell_log', 'B'),
+                      ('peak___reserved', 'B'),
+                      ('peak_overhead', 'H'),
+                      ('peak_cell_align', 'h'),
+                      ('peak_mpu', 'H'),
+                      ('peak', 'I'),
+                      ('refcnt', 'i'),
+                      ('bindcnt', 'i'),
+                      ('capab', 'I'))
 
 
 class tcmsg(nlmsg):
-    t_fields = (('family', 'B'),
-                ('pad1', 'B'),
-                ('pad2', 'H'),
-                ('index', 'i'),
-                ('handle', 'I'),
-                ('parent', 'I'),
-                ('info', 'I'))
+    fields = (('family', 'B'),
+              ('pad1', 'B'),
+              ('pad2', 'H'),
+              ('index', 'i'),
+              ('handle', 'I'),
+              ('parent', 'I'),
+              ('info', 'I'))
 
     nla_map = (('TCA_UNSPEC', 'none'),
                ('TCA_KIND', 'asciiz'),
@@ -363,14 +363,14 @@ class tcmsg(nlmsg):
                ('TCA_STAB', 'hex'))
 
     class stats(nla):
-        t_fields = (('bytes', 'Q'),
-                    ('packets', 'I'),
-                    ('drop', 'I'),
-                    ('overlimits', 'I'),
-                    ('bps', 'I'),
-                    ('pps', 'I'),
-                    ('qlen', 'I'),
-                    ('backlog', 'I'))
+        fields = (('bytes', 'Q'),
+                  ('packets', 'I'),
+                  ('drop', 'I'),
+                  ('overlimits', 'I'),
+                  ('bps', 'I'),
+                  ('pps', 'I'),
+                  ('qlen', 'I'),
+                  ('backlog', 'I'))
 
     class stats2(nla):
         nla_map = (('TCA_STATS_UNSPEC', 'none'),
@@ -380,19 +380,19 @@ class tcmsg(nlmsg):
                    ('TCA_STATS_APP', 'hex'))
 
         class basic(nla):
-            t_fields = (('bytes', 'Q'),
-                        ('packets', 'Q'))
+            fields = (('bytes', 'Q'),
+                      ('packets', 'Q'))
 
         class rate_est(nla):
-            t_fields = (('bps', 'I'),
-                        ('pps', 'I'))
+            fields = (('bps', 'I'),
+                      ('pps', 'I'))
 
         class queue(nla):
-            t_fields = (('qlen', 'I'),
-                        ('backlog', 'I'),
-                        ('drops', 'I'),
-                        ('requeues', 'I'),
-                        ('overlimits', 'I'))
+            fields = (('qlen', 'I'),
+                      ('backlog', 'I'),
+                      ('drops', 'I'),
+                      ('requeues', 'I'),
+                      ('overlimits', 'I'))
 
     def get_xstats(self, *argv, **kwarg):
         kind = self.get_attr('TCA_KIND')
@@ -402,11 +402,11 @@ class tcmsg(nlmsg):
         return self.hex
 
     class xstats_htb(nla):
-        t_fields = (('lends', 'I'),
-                    ('borrows', 'I'),
-                    ('giants', 'I'),
-                    ('tokens', 'I'),
-                    ('ctokens', 'I'))
+        fields = (('lends', 'I'),
+                  ('borrows', 'I'),
+                  ('giants', 'I'),
+                  ('tokens', 'I'),
+                  ('ctokens', 'I'))
 
     def get_options(self, *argv, **kwarg):
         kind = self.get_attr('TCA_KIND')
@@ -432,7 +432,7 @@ class tcmsg(nlmsg):
         return self.hex
 
     class options_ingress(nla):
-        fmt = 'I'
+        fields = (('value', 'I'), )
 
     class options_htb(nla_plus_rtab):
         nla_map = (('TCA_HTB_UNSPEC', 'none'),
@@ -442,30 +442,30 @@ class tcmsg(nlmsg):
                    ('TCA_HTB_RTAB', 'rtab'))
 
         class htb_glob(nla):
-            t_fields = (('version', 'I'),
-                        ('rate2quantum', 'I'),
-                        ('defcls', 'I'),
-                        ('debug', 'I'),
-                        ('direct_pkts', 'I'))
+            fields = (('version', 'I'),
+                      ('rate2quantum', 'I'),
+                      ('defcls', 'I'),
+                      ('debug', 'I'),
+                      ('direct_pkts', 'I'))
 
         class htb_parms(nla_plus_rtab.parms):
-            t_fields = (('rate_cell_log', 'B'),
-                        ('rate___reserved', 'B'),
-                        ('rate_overhead', 'H'),
-                        ('rate_cell_align', 'h'),
-                        ('rate_mpu', 'H'),
-                        ('rate', 'I'),
-                        ('ceil_cell_log', 'B'),
-                        ('ceil___reserved', 'B'),
-                        ('ceil_overhead', 'H'),
-                        ('ceil_cell_align', 'h'),
-                        ('ceil_mpu', 'H'),
-                        ('ceil', 'I'),
-                        ('buffer', 'I'),
-                        ('cbuffer', 'I'),
-                        ('quantum', 'I'),
-                        ('level', 'I'),
-                        ('prio', 'I'))
+            fields = (('rate_cell_log', 'B'),
+                      ('rate___reserved', 'B'),
+                      ('rate_overhead', 'H'),
+                      ('rate_cell_align', 'h'),
+                      ('rate_mpu', 'H'),
+                      ('rate', 'I'),
+                      ('ceil_cell_log', 'B'),
+                      ('ceil___reserved', 'B'),
+                      ('ceil_overhead', 'H'),
+                      ('ceil_cell_align', 'h'),
+                      ('ceil_mpu', 'H'),
+                      ('ceil', 'I'),
+                      ('buffer', 'I'),
+                      ('cbuffer', 'I'),
+                      ('quantum', 'I'),
+                      ('level', 'I'),
+                      ('prio', 'I'))
 
     class options_fw(nla_plus_police):
         nla_map = (('TCA_FW_UNSPEC', 'none'),
@@ -489,34 +489,48 @@ class tcmsg(nlmsg):
                    ('TCA_U32_MARK', 'u32_mark'))
 
         class u32_sel(nla):
-            t_fields = (('flags', 'B'),
-                        ('offshift', 'B'),
-                        ('nkeys', 'B'),
-                        ('__align', 'B'),
-                        ('offmask', '>h'),  # FIXME: be16
-                        ('off', 'H'),
-                        ('offoff', 'h'),
-                        ('hoff', 'h'),
-                        ('hmask', '>i'),  # FIXME: be32
-                        ('key_mask', '>i'),  # FIXME: be32
-                        ('key_val', '>i'),  # FIXME: be32
-                        ('key_off', 'i'),
-                        ('key_offmask', 'i'))
+            fields = (('flags', 'B'),
+                      ('offshift', 'B'),
+                      ('nkeys', 'B'),
+                      ('__align', 'B'),
+                      ('offmask', '>H'),
+                      ('off', 'H'),
+                      ('offoff', 'h'),
+                      ('hoff', 'h'),
+                      ('hmask', '>I'),
+                      ('key_mask', '>I'),
+                      ('key_val', '>I'),
+                      ('key_off', 'i'),
+                      ('key_offmask', 'i'))
 
         class u32_mark(nla):
-            t_fields = (('val', 'I'),
-                        ('mask', 'I'),
-                        ('success', 'I'))
+            fields = (('val', 'I'),
+                      ('mask', 'I'),
+                      ('success', 'I'))
 
         class u32_pcnt(nla):
-            t_fields = (('rcnt', 'Q'),
-                        ('rhit', 'Q'),
-                        ('kcnts', 'Q'))
+            fields = (('rcnt', 'Q'),
+                      ('rhit', 'Q'),
+                      ('kcnts', 'Q'))
 
     class options_pfifo_fast(nla):
-        fmt = 'i' + 'B' * 16
-        fields = tuple(['bands'] + ['mark_%02i' % (i) for i in
-                                    range(1, 17)])
+        fields = (('bands', 'i'),
+                  ('mark_01', 'B'),
+                  ('mark_02', 'B'),
+                  ('mark_03', 'B'),
+                  ('mark_04', 'B'),
+                  ('mark_05', 'B'),
+                  ('mark_06', 'B'),
+                  ('mark_07', 'B'),
+                  ('mark_08', 'B'),
+                  ('mark_09', 'B'),
+                  ('mark_10', 'B'),
+                  ('mark_11', 'B'),
+                  ('mark_12', 'B'),
+                  ('mark_13', 'B'),
+                  ('mark_14', 'B'),
+                  ('mark_15', 'B'),
+                  ('mark_16', 'B'))
 
     class options_tbf(nla_plus_rtab):
         nla_map = (('TCA_TBF_UNSPEC', 'none'),
@@ -525,48 +539,48 @@ class tcmsg(nlmsg):
                    ('TCA_TBF_PTAB', 'ptab'))
 
         class tbf_parms(nla_plus_rtab.parms):
-            t_fields = (('rate_cell_log', 'B'),
-                        ('rate___reserved', 'B'),
-                        ('rate_overhead', 'H'),
-                        ('rate_cell_align', 'h'),
-                        ('rate_mpu', 'H'),
-                        ('rate', 'I'),
-                        ('peak_cell_log', 'B'),
-                        ('peak___reserved', 'B'),
-                        ('peak_overhead', 'H'),
-                        ('peak_cell_align', 'h'),
-                        ('peak_mpu', 'H'),
-                        ('peak', 'I'),
-                        ('limit', 'I'),
-                        ('buffer', 'I'),
-                        ('mtu', 'I'))
+            fields = (('rate_cell_log', 'B'),
+                      ('rate___reserved', 'B'),
+                      ('rate_overhead', 'H'),
+                      ('rate_cell_align', 'h'),
+                      ('rate_mpu', 'H'),
+                      ('rate', 'I'),
+                      ('peak_cell_log', 'B'),
+                      ('peak___reserved', 'B'),
+                      ('peak_overhead', 'H'),
+                      ('peak_cell_align', 'h'),
+                      ('peak_mpu', 'H'),
+                      ('peak', 'I'),
+                      ('limit', 'I'),
+                      ('buffer', 'I'),
+                      ('mtu', 'I'))
 
     class options_sfq_v0(nla):
-        t_fields = (('quantum', 'I'),
-                    ('perturb_period', 'i'),
-                    ('limit', 'I'),
-                    ('divisor', 'I'),
-                    ('flows', 'I'))
+        fields = (('quantum', 'I'),
+                  ('perturb_period', 'i'),
+                  ('limit', 'I'),
+                  ('divisor', 'I'),
+                  ('flows', 'I'))
 
     class options_sfq_v1(nla):
-        t_fields = (('quantum', 'I'),
-                    ('perturb_period', 'i'),
-                    ('limit_v0', 'I'),
-                    ('divisor', 'I'),
-                    ('flows', 'I'),
-                    ('depth', 'I'),
-                    ('headdrop', 'I'),
-                    ('limit_v1', 'I'),
-                    ('qth_min', 'I'),
-                    ('qth_max', 'I'),
-                    ('Wlog', 'B'),
-                    ('Plog', 'B'),
-                    ('Scell_log', 'B'),
-                    ('flags', 'B'),
-                    ('max_P', 'I'),
-                    ('prob_drop', 'I'),
-                    ('forced_drop', 'I'),
-                    ('prob_mark', 'I'),
-                    ('forced_mark', 'I'),
-                    ('prob_mark_head', 'I'),
-                    ('forced_mark_head', 'I'))
+        fields = (('quantum', 'I'),
+                  ('perturb_period', 'i'),
+                  ('limit_v0', 'I'),
+                  ('divisor', 'I'),
+                  ('flows', 'I'),
+                  ('depth', 'I'),
+                  ('headdrop', 'I'),
+                  ('limit_v1', 'I'),
+                  ('qth_min', 'I'),
+                  ('qth_max', 'I'),
+                  ('Wlog', 'B'),
+                  ('Plog', 'B'),
+                  ('Scell_log', 'B'),
+                  ('flags', 'B'),
+                  ('max_P', 'I'),
+                  ('prob_drop', 'I'),
+                  ('forced_drop', 'I'),
+                  ('prob_mark', 'I'),
+                  ('forced_mark', 'I'),
+                  ('prob_mark_head', 'I'),
+                  ('forced_mark_head', 'I'))

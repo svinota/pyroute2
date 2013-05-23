@@ -70,47 +70,47 @@ class tcmd(genlmsg):
 
 
 class tstats(nla):
-    t_fields = (('version', 'H'),                           # 2
-                ('ac_exitcode', 'I'),                       # 4
-                ('ac_flag', 'B'),                           # 1
-                ('ac_nice', 'B'),                           # 1 --- 8
-                ('cpu_count', 'Q'),                         # 8
-                ('cpu_delay_total', 'Q'),                   # 8
-                ('blkio_count', 'Q'),                       # 8
-                ('blkio_delay_total', 'Q'),                 # 8
-                ('swapin_count', 'Q'),                      # 8
-                ('swapin_delay_total', 'Q'),                # 8
-                ('cpu_run_real_total', 'Q'),                # 8
-                ('cpu_run_virtual_total', 'Q'),             # 8
-                ('ac_comm', '32s'),                         # 32 +++ 112
-                ('ac_sched', 'B'),                          # 1
-                ('__pad', '5x'),                            # 5 --- 8 (!)
-                ('ac_uid', 'I'),                            # 4  +++ 120
-                ('ac_gid', 'I'),                            # 4
-                ('ac_pid', 'I'),                            # 4
-                ('ac_ppid', 'I'),                           # 4
-                ('ac_btime', 'I'),                          # 4  +++ 136
-                ('ac_etime', 'Q'),                          # 8  +++ 144
-                ('ac_utime', 'Q'),                          # 8
-                ('ac_stime', 'Q'),                          # 8
-                ('ac_minflt', 'Q'),                         # 8
-                ('ac_majflt', 'Q'),                         # 8
-                ('coremem', 'Q'),                           # 8
-                ('virtmem', 'Q'),                           # 8
-                ('hiwater_rss', 'Q'),                       # 8
-                ('hiwater_vm', 'Q'),                        # 8
-                ('read_char', 'Q'),                         # 8
-                ('write_char', 'Q'),                        # 8
-                ('read_syscalls', 'Q'),                     # 8
-                ('write_syscalls', 'Q'),                    # 8
-                ('read_bytes', 'Q'),                        # ...
-                ('write_bytes', 'Q'),
-                ('cancelled_write_bytes', 'Q'),
-                ('nvcsw', 'Q'),
-                ('nivcsw', 'Q'),
-                ('ac_utimescaled', 'Q'),
-                ('ac_stimescaled', 'Q'),
-                ('cpu_scaled_run_real_total', 'Q'))
+    fields = (('version', 'H'),                           # 2
+              ('ac_exitcode', 'I'),                       # 4
+              ('ac_flag', 'B'),                           # 1
+              ('ac_nice', 'B'),                           # 1 --- 8
+              ('cpu_count', 'Q'),                         # 8
+              ('cpu_delay_total', 'Q'),                   # 8
+              ('blkio_count', 'Q'),                       # 8
+              ('blkio_delay_total', 'Q'),                 # 8
+              ('swapin_count', 'Q'),                      # 8
+              ('swapin_delay_total', 'Q'),                # 8
+              ('cpu_run_real_total', 'Q'),                # 8
+              ('cpu_run_virtual_total', 'Q'),             # 8
+              ('ac_comm', '32s'),                         # 32 +++ 112
+              ('ac_sched', 'B'),                          # 1
+              ('__pad', '5x'),                            # 5 --- 8 (!)
+              ('ac_uid', 'I'),                            # 4  +++ 120
+              ('ac_gid', 'I'),                            # 4
+              ('ac_pid', 'I'),                            # 4
+              ('ac_ppid', 'I'),                           # 4
+              ('ac_btime', 'I'),                          # 4  +++ 136
+              ('ac_etime', 'Q'),                          # 8  +++ 144
+              ('ac_utime', 'Q'),                          # 8
+              ('ac_stime', 'Q'),                          # 8
+              ('ac_minflt', 'Q'),                         # 8
+              ('ac_majflt', 'Q'),                         # 8
+              ('coremem', 'Q'),                           # 8
+              ('virtmem', 'Q'),                           # 8
+              ('hiwater_rss', 'Q'),                       # 8
+              ('hiwater_vm', 'Q'),                        # 8
+              ('read_char', 'Q'),                         # 8
+              ('write_char', 'Q'),                        # 8
+              ('read_syscalls', 'Q'),                     # 8
+              ('write_syscalls', 'Q'),                    # 8
+              ('read_bytes', 'Q'),                        # ...
+              ('write_bytes', 'Q'),
+              ('cancelled_write_bytes', 'Q'),
+              ('nvcsw', 'Q'),
+              ('nivcsw', 'Q'),
+              ('ac_utimescaled', 'Q'),
+              ('ac_stimescaled', 'Q'),
+              ('cpu_scaled_run_real_total', 'Q'))
 
     def decode(self):
         nla.decode(self)
