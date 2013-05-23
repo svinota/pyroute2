@@ -497,11 +497,24 @@ class tcmsg(nlmsg):
                       ('off', 'H'),
                       ('offoff', 'h'),
                       ('hoff', 'h'),
-                      ('hmask', '>I'),
-                      ('key_mask', '>I'),
-                      ('key_val', '>I'),
-                      ('key_off', 'i'),
-                      ('key_offmask', 'i'))
+                      ('hmask', '>I'))
+
+            class u32_key(nlmsg):
+                header = None
+                fields = (('key_mask', '>I'),
+                          ('key_val', '>I'),
+                          ('key_off', 'i'),
+                          ('key_offmask', 'i'))
+
+            def decode(self):
+                nla.decode(self)
+                self['keys'] = []
+                nkeys = self['nkeys']
+                while nkeys:
+                    key = self.u32_key(self.buf)
+                    key.decode()
+                    self['keys'].append(key)
+                    nkeys -= 1
 
         class u32_mark(nla):
             fields = (('val', 'I'),
