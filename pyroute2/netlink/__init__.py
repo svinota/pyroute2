@@ -692,7 +692,7 @@ class netlink(object):
             smsg['header']['type'] = NETLINK_UNUSED
             smsg['header']['pid'] = os.getpid()
             smsg['cmd'] = IPRCMD_ROUTE
-            smsg['attrs'] = (('CTRL_ATTR_FAMILY_ID', self.family), )
+            smsg['attrs'] = [['CTRL_ATTR_FAMILY_ID', self.family]]
             smsg.encode()
             sock.send(smsg.buf.getvalue())
         self.iothread.marshals[sock] = self.marshal()
