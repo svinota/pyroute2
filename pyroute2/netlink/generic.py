@@ -3,8 +3,12 @@ import socket
 import struct
 import types
 import io
+import re
 
 from pyroute2.common import hexdump
+
+_letters = re.compile('[A-Za-z]')
+_fmt_letters = re.compile('[^!><@=][!><@=]')
 
 ##  Netlink family
 #
@@ -216,9 +220,25 @@ class nlmsg_base(dict):
                 raise NetlinkHeaderDecodeError(e)
         # decode the data
         try:
-            size = struct.calcsize(self.fmt)
-            self.update(dict(zip(self.fields,
-                             struct.unpack(self.fmt, self.buf.read(size)))))
+            _fmt = self.fmt
+            _fields = self.fields
+            next_stop = True
+            while next_stop:
+                next_fmt = _fmt
+                next_fields = _fields
+                next_stop = _fmt_letters.search(_fmt)
+                if next_stop is not None:
+                    position = next_stop.start() + 1
+                    next_fmt = _fmt[:position]
+                    fields_count = len(_letters.split(next_fmt)) - 1
+                    next_fields = _fields[:fields_count]
+                    # shift _fmt and _fields
+                    _fmt = _fmt[position:]
+                    _fields = _fields[fields_count:]
+                size = struct.calcsize(next_fmt)
+                values = struct.unpack(next_fmt, self.buf.read(size))
+                self.update(dict(zip(next_fields, values)))
+
         except Exception as e:
             raise NetlinkDataDecodeError(e)
         # decode NLA
@@ -247,8 +267,22 @@ class nlmsg_base(dict):
             self.fmt = '%is' % (length)
         if self.fmt and (self.getvalue() is not None):
             try:
-                payload = struct.pack(self.fmt,
-                                      *([self[i] for i in self.fields]))
+                payload = b''
+                _fmt = self.fmt
+                _fields = self.fields
+                next_stop = True
+                while next_stop:
+                    next_fmt = _fmt
+                    next_stop = _fmt_letters.search(_fmt)
+                    if next_stop is not None:
+                        position = next_stop.start() + 1
+                        next_fmt = _fmt[:position]
+                        fields_count = len(_letters.split(next_fmt)) - 1
+                        # shift _fmt and _fields
+                        _fmt = _fmt[position:]
+                        _fields = _fields[fields_count:]
+                    payload += struct.pack(next_fmt,
+                                           *[self[i] for i in _fields])
             except Exception as e:
                 print("Failed attributes:")
                 print([self[i] for i in self.fields])

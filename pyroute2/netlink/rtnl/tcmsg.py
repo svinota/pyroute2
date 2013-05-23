@@ -492,13 +492,14 @@ class tcmsg(nlmsg):
             t_fields = (('flags', 'B'),
                         ('offshift', 'B'),
                         ('nkeys', 'B'),
-                        ('offmask', 'H'),  # FIXME: be16
+                        ('__align', 'B'),
+                        ('offmask', '>h'),  # FIXME: be16
                         ('off', 'H'),
                         ('offoff', 'h'),
                         ('hoff', 'h'),
-                        ('hmask', 'I'),  # FIXME: be32
-                        ('key_mask', 'I'),  # FIXME: be32
-                        ('key_val', 'I'),  # FIXME: be32
+                        ('hmask', '>i'),  # FIXME: be32
+                        ('key_mask', '>i'),  # FIXME: be32
+                        ('key_val', '>i'),  # FIXME: be32
                         ('key_off', 'i'),
                         ('key_offmask', 'i'))
 
