@@ -2,6 +2,7 @@ import re
 import os
 import struct
 
+from pyroute2.common import size_suffixes
 from pyroute2.common import time_suffixes
 from pyroute2.common import rate_suffixes
 from pyroute2.netlink.generic import nlmsg
@@ -13,6 +14,10 @@ LINKLAYER_ATM = 2
 
 ATM_CELL_SIZE = 53
 ATM_CELL_PAYLOAD = 48
+
+TC_RED_ECN = 1
+TC_RED_HARDDROP = 2
+TC_RED_ADAPTATIVE = 4
 
 TIME_UNITS_PER_SEC = 1000000
 
@@ -46,6 +51,11 @@ def _get_by_suffix(value, default, func):
     return func(value, suffix)
 
 
+def _get_size(size):
+    return _get_by_suffix(size, 'b',
+                          lambda x, y: x * size_suffixes[y])
+
+
 def _get_time(lat):
     return _get_by_suffix(lat, 'ms',
                           lambda x, y: (x * TIME_UNITS_PER_SEC) /
@@ -65,6 +75,36 @@ def _time2tick(t):
 def _calc_xmittime(rate, size):
     # The current code is ported from tc utility
     return _time2tick(TIME_UNITS_PER_SEC * (float(size) / rate))
+
+
+def _red_eval_ewma(qmin, burst, avpkt):
+    # The current code is ported from tc utility
+    wlog = 1
+    W = 0.5
+    a = float(burst) + 1 - float(qmin) / avpkt
+    assert a < 1
+
+    while wlog < 32:
+        wlog += 1
+        W /= 2
+        if (a <= (1 - pow(1 - W, burst)) / W):
+            return wlog
+    return -1
+
+
+def _red_eval_P(qmin, qmax, probability):
+    # The current code is ported from tc utility
+    i = qmax - qmin
+    assert i > 0
+    assert i < 32
+
+    probability /= i
+    while i < 32:
+        i += 1
+        if probability > 1:
+            break
+        probability *= 2
+    return i
 
 
 def get_tbf_parameters(kwarg):
@@ -95,11 +135,46 @@ def get_tbf_parameters(kwarg):
         limit = rate_limit
 
     # fill parameters
-    return [['TCA_TBF_PARMS', {'rate': rate,
-                               'mtu': mtu,
-                               'buffer': _calc_xmittime(rate, burst),
-                               'limit': limit}],
-            ['TCA_TBF_RTAB', True]]
+    return {'attrs': [['TCA_TBF_PARMS', {'rate': rate,
+                                         'mtu': mtu,
+                                         'buffer': _calc_xmittime(rate, burst),
+                                         'limit': limit}],
+                      ['TCA_TBF_RTAB', True]]}
+
+
+def get_sfq_parameters(kwarg):
+    kwarg['quantum'] = _get_size(kwarg.get('quantum', 0))
+    kwarg['perturb_period'] = kwarg.get('perturb', 0) or \
+        kwarg.get('perturb_period', 0)
+    limit = kwarg['limit'] = kwarg.get('limit', 0) or \
+        kwarg.get('redflowlimit', 0)
+    qth_min = kwarg.get('min', 0)
+    qth_max = kwarg.get('max', 0)
+    avpkt = kwarg.get('avpkt', 1000)
+    probability = kwarg.get('probability', 0.02)
+    ecn = kwarg.get('ecn', False)
+    harddrop = kwarg.get('harddrop', False)
+    kwarg['flags'] = kwarg.get('flags', 0)
+    if ecn:
+        kwarg['flags'] |= TC_RED_ECN
+    if harddrop:
+        kwarg['flags'] |= TC_RED_HARDDROP
+    if kwarg.get('redflowlimit'):
+        qth_max = qth_max or limit / 4
+        qth_min = qth_min or qth_max / 3
+        kwarg['burst'] = kwarg['burst'] or \
+            (2 * qth_min + qth_max) / (3 * avpkt)
+        assert limit > qth_max
+        assert qth_max > qth_min
+        kwarg['qth_min'] = qth_min
+        kwarg['qth_max'] = qth_max
+        kwarg['Wlog'] = _red_eval_ewma(qth_min, kwarg['burst'], avpkt)
+        kwarg['Plog'] = _red_eval_P(qth_min, qth_max, probability)
+        assert kwarg['Wlog'] >= 0
+        assert kwarg['Plog'] >= 0
+        kwarg['max_P'] = int(probability * pow(2, 23))
+
+    return kwarg
 
 
 def get_htb_parameters(kwarg):
@@ -155,7 +230,7 @@ def get_htb_parameters(kwarg):
                                  'direct_pkts': 0,
                                  'rate2quantum': rate2quantum,
                                  'version': version}]]
-    return ret
+    return {'attrs': ret}
 
 
 class nla_plus_rtab(nla):
