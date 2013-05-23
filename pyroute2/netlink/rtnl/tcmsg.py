@@ -506,6 +506,17 @@ class tcmsg(nlmsg):
                           ('key_off', 'i'),
                           ('key_offmask', 'i'))
 
+            def encode(self):
+                self['nkeys'] = len(self['keys'])
+                assert self['nkeys']
+                start = self.buf.tell()
+                nla.encode(self)
+                for i in self['keys']:
+                    key = self.u32_key(self.buf)
+                    key.update(i)
+                    key.encode()
+                self.update_length(start)
+
             def decode(self):
                 nla.decode(self)
                 self['keys'] = []
