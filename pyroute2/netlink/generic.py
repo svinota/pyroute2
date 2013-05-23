@@ -240,7 +240,8 @@ class nlmsg_base(dict):
             # align NLA chain start
             self.buf.seek(NLMSG_ALIGN(self.buf.tell()))
             # read NLA chain
-            self.decode_nlas()
+            if self.nla_map:
+                self.decode_nlas()
         except Exception as e:
             raise NetlinkNLADecodeError(e)
         if len(self['attrs']) == 0:
