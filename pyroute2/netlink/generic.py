@@ -277,14 +277,18 @@ class nlmsg_base(dict):
             self.buf.write(payload)
             self.buf.write(b'\0' * diff)
         # write NLA chain
-        self.encode_nlas()
+        if self.nla_map:
+            self.encode_nlas()
         # calculate the size and write it
         if self.header is not None:
-            save = self.buf.tell()
-            self['header']['length'] = save - init
-            self.buf.seek(init)
-            self['header'].encode()
-            self.buf.seek(save)
+            self.update_length(init)
+
+    def update_length(self, start):
+        save = self.buf.tell()
+        self['header']['length'] = save - start
+        self.buf.seek(start)
+        self['header'].encode()
+        self.buf.seek(save)
 
     def setvalue(self, value):
         if type(value) is dict:
