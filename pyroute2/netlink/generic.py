@@ -217,15 +217,21 @@ class nlmsg_base(dict):
 
                 size = struct.calcsize(fmt)
                 raw = self.buf.read(size)
+                actual_size = len(raw)
 
                 # FIXME: adjust string size again
                 if fmt[-1] == 's':
-                    fmt = '%is' % (len(raw))
-                value = struct.unpack(fmt, raw)
-                if len(value) == 1:
-                    self[name] = value[0]
+                    size = actual_size
+                    fmt = '%is' % (actual_size)
+                if size == actual_size:
+                    value = struct.unpack(fmt, raw)
+                    if len(value) == 1:
+                        self[name] = value[0]
+                    else:
+                        self[name] = value
                 else:
-                    self[name] = value
+                    # FIXME: log an error
+                    pass
 
         except Exception as e:
             raise NetlinkDataDecodeError(e)
