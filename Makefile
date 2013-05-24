@@ -59,6 +59,10 @@ docs: clean force-version
 	cp README.md docs/general.rst
 	make -C docs html
 
+test:
+	@flake8 .
+	@nosetests -v
+
 upload: clean force-version
 	${python} setup.py sdist upload 
 
