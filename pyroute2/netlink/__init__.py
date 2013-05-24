@@ -245,6 +245,7 @@ class iothread(threading.Thread):
         self.pid = os.getpid()
         self._nonce = 0
         self._stop = False
+        self._stop_event = threading.Event()
         self._reload_event = threading.Event()
         # fd lists for select()
         self._rlist = set()
@@ -259,12 +260,15 @@ class iothread(threading.Thread):
         self.clients = set()      # set(socket, socket...)
         self.uplinks = set()      # set(socket, socket...)
         self.servers = set()      # set(socket, socket...)
+        self.controls = set()     # set(socket, socket...)
         self.ssl_keys = {}        # {url: ssl_credentials(), url:...}
         self.mirror = False
+        self.allow_rctl = False
         # control socket, for in-process communication only
         self.uuid = uuid.uuid4()
         self.control = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.control.bind(b'\0%s' % (self.uuid))
+        self.controls.add(self.control)
         self._rlist.add(self.control)
         # masquerade cache expiration
         self._expire_thread = threading.Thread(target=self._expire_masq)
@@ -416,9 +420,23 @@ class iothread(threading.Thread):
 
         ##
         #
+        # NETLINK_UNUSED as intra-pyroute2
+        #
+        if (mtype == NETLINK_UNUSED) and (sock in self.controls):
+            cmd = self.parse_control(data)
+            if cmd['cmd'] == IPRCMD_STOP:
+                # Stop iothread
+                self._stop = True
+                self._stop_event.set()
+            elif cmd['cmd'] == IPRCMD_RELOAD:
+                # Reload io cycle
+                self._reload_event.set()
+
+        ##
+        #
         # NETLINK_UNUSED as inter-pyroute2
         #
-        if (mtype == NETLINK_UNUSED) and (sock in self.clients):
+        elif (mtype == NETLINK_UNUSED) and (sock in self.clients):
             cmd = self.parse_control(data)
             if cmd['cmd'] == IPRCMD_ROUTE:
                 # routing request
@@ -429,19 +447,6 @@ class iothread(threading.Thread):
                 # TODO
                 # * subscribe requests
                 # * ...
-
-        ##
-        #
-        # NETLINK_UNUSED as intra-pyroute2
-        #
-        elif (mtype == NETLINK_UNUSED) and (sock == self.control):
-            cmd = self.parse_control(data)
-            if cmd['cmd'] == IPRCMD_STOP:
-                # Stop iothread
-                self._stop = True
-            elif cmd['cmd'] == IPRCMD_RELOAD:
-                # Reload io cycle
-                self._reload_event.set()
 
         ##
         #
@@ -583,6 +588,8 @@ class iothread(threading.Thread):
         self._rlist.add(sock)
         self._wlist.add(sock)
         self.clients.add(sock)
+        if self.allow_rctl:
+            self.controls.add(sock)
         return sock
 
     def remove_client(self, sock):
@@ -685,6 +692,16 @@ class netlink(object):
         if do_connect:
             self.connect(host, key, cert, ca)
 
+    def _remote_cmd(self, sock, cmd, attrs=None):
+        attrs = attrs or []
+        smsg = ctrlmsg()
+        smsg['header']['type'] = NETLINK_UNUSED
+        smsg['header']['pid'] = os.getpid()
+        smsg['cmd'] = cmd
+        smsg['attrs'] = attrs
+        smsg.encode()
+        sock.send(smsg.buf.getvalue())
+
     def connect(self, host='localsystem', key=None, cert=None, ca=None):
         if key:
             self.ssl_keys[host] = ssl_credentials(key, cert, ca)
@@ -693,22 +710,11 @@ class netlink(object):
                                             groups=self.groups)
         else:
             sock = self.iothread.add_uplink(url=host)
-            smsg = ctrlmsg()
-            smsg['header']['type'] = NETLINK_UNUSED
-            smsg['header']['pid'] = os.getpid()
-            smsg['cmd'] = IPRCMD_ROUTE
-            smsg['attrs'] = [['CTRL_ATTR_FAMILY_ID', self.family]]
-            smsg.encode()
-            sock.send(smsg.buf.getvalue())
+            self._remote_cmd(sock=sock,
+                             cmd=IPRCMD_ROUTE,
+                             attrs=[['CTRL_ATTR_FAMILY_ID', self.family]])
         self.iothread.marshals[sock] = self.marshal()
         self._sockets.add(sock)
-
-    def shutdown(self, url=None):
-        url = url or self.servers.keys()[0]
-        self.iothread.remove_server(self.servers[url])
-        if url in self.ssl_keys:
-            del self.ssl_keys[url]
-        del self.servers[url]
 
     def get_servers(self):
         return _repr_sockets(self.iothread.servers, 'local')
