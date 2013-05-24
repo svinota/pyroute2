@@ -525,6 +525,8 @@ class iothread(threading.Thread):
         Add a server socket to listen for clients on
         '''
         (sock, address) = self._get_socket(url, server_side=False)
+        if sock.family == socket.AF_INET:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(address)
         sock.listen(16)
         self._rlist.add(sock)
