@@ -1,4 +1,5 @@
 
+from socket import htons
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
@@ -14,6 +15,7 @@ from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_sfq_parameters
+from pyroute2.netlink.rtnl.tcmsg import get_u32_parameters
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -454,12 +456,9 @@ class iproute(netlink):
             msg['attrs'] = [['IFA_ADDRESS', address]]
         return self.nlm_request(msg, msg_type=action, msg_flags=flags)
 
-    def qdisc(self, action, kind, interface, handle, **kwarg):
+    def tc(self, action, kind, interface, handle, **kwarg):
         '''
         '''
-        actions = {'add': RTM_NEWQDISC,
-                   'delete': RTM_DELQDISC}
-        action = actions.get(action, action)
 
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = tcmsg()
@@ -483,6 +482,13 @@ class iproute(netlink):
             if kwarg:
                 # kwarg is empty for delete
                 opts = get_sfq_parameters(kwarg)
+        elif kind == 'u32':
+            msg['parent'] = kwarg.get('parent')
+            msg['info'] = htons(kwarg.get('protocol', 0) & 0xffff) |\
+                ((kwarg.get('prio', 0) << 16) & 0xffff0000)
+            if kwarg:
+                # kwarg is empty for delete
+                opts = get_u32_parameters(kwarg)
         msg['attrs'] = [['TCA_KIND', kind],
                         ['TCA_OPTIONS', opts]]
         return self.nlm_request(msg, msg_type=action, msg_flags=flags)

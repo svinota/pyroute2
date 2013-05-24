@@ -107,6 +107,11 @@ def _red_eval_P(qmin, qmax, probability):
     return i
 
 
+def get_u32_parameters(kwarg):
+    return {'attrs': [['TCA_U32_CLASSID', kwarg['target']],
+                      ['TCA_U32_SEL', {'keys': kwarg['keys']}]]}
+
+
 def get_tbf_parameters(kwarg):
     # rate and burst are required
     rate = _get_rate(kwarg['rate'])
@@ -507,13 +512,91 @@ class tcmsg(nlmsg):
                           ('key_offmask', 'i'))
 
             def encode(self):
-                self['nkeys'] = len(self['keys'])
-                assert self['nkeys']
+                '''
+                'keys': ['0x0006/0x00ff+8',
+                         '0x0000/0xffc0+2',
+                         '0x5/0xf+0',
+                         '0x10/0xff+33']
+
+                => 00060000/00ff0000 + 8
+                   05000000/0f00ffc0 + 0
+                   00100000/00ff0000 + 32
+
+                '''
+
+                def cut_field(key, separator):
+                    '''
+                    split a field from the end of the string
+                    '''
+                    field = '0'
+                    pos = key.find(separator)
+                    new_key = key
+                    if pos > 0:
+                        field = key[pos + 1:]
+                        new_key = key[:pos]
+                    return (new_key, field)
+
+                # 'header' array to pack keys to
+                header = [(0, 0) for i in range(256)]
+
+                # iterate keys and pack them to the 'header'
+                for key in self['keys']:
+                    # TODO: filter
+                    (key, nh) = cut_field(key, '@')  # FIXME: do not ignore nh
+                    (key, offset) = cut_field(key, '+')
+                    offset = int(offset, 0)
+                    # a little trick: if you provide /00ff+8, that
+                    # really means /ff+9, so we should take it into
+                    # account
+                    (key, mask) = cut_field(key, '/')
+                    if mask[:2] == '0x':
+                        mask = mask[2:]
+                        while True:
+                            if mask[:2] == '00':
+                                offset += 1
+                                mask = mask[2:]
+                            else:
+                                break
+                        mask = '0x' + mask
+                    mask = int(mask, 0)
+                    value = int(key, 0)
+                    bits = 24
+                    for bmask in struct.unpack('4B', struct.pack('>I', mask)):
+                        if bmask > 0:
+                            bvalue = (value & (bmask << bits)) >> bits
+                            header[offset] = (bvalue, bmask)
+                            offset += 1
+                        bits -= 8
+
+                # recalculate keys from 'header'
+                keys = []
+                key = None
+                value = 0
+                mask = 0
+                for offset in range(256):
+                    (bvalue, bmask) = header[offset]
+                    if bmask > 0 and key is None:
+                        key = self.u32_key(self.buf)
+                        key['key_off'] = offset
+                        key['key_mask'] = 0
+                        key['key_val'] = 0
+                        bits = 24
+                    if key is not None and bits >= 0:
+                        key['key_mask'] |= bmask << bits
+                        key['key_val'] |= bvalue << bits
+                        bits -= 8
+                        if (bits < 0 or offset == 255):
+                            keys.append(key)
+                            key = None
+
+                assert keys
+                self['nkeys'] = len(keys)
+                # FIXME: do not hardcode flags :)
+                self['flags'] = 1
                 start = self.buf.tell()
+
                 nla.encode(self)
-                for i in self['keys']:
-                    key = self.u32_key(self.buf)
-                    key.update(i)
+                for key in keys:
                     key.encode()
                 self.update_length(start)
 
