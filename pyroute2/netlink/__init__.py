@@ -719,6 +719,28 @@ class netlink(object):
     def get_sockets(self):
         return _repr_sockets(self._sockets, 'remote')
 
+    def shutdown_servers(self, *urls):
+        self._shutdown_sockets(self.iothread.servers, 'local',
+                               self.iothread.remove_server, *urls)
+
+    def shutdown_clients(self, *urls):
+        self._shutdown_sockets(self.iothread.clients, 'remote',
+                               self.iothread.remove_client, *urls)
+
+    def shutdown_sockets(self, *urls):
+        self._shutdown_sockets(self._sockets, 'remote',
+                               self.iothread.remove_uplink, *urls)
+
+    def _shutdown_sockets(self, sockets, way, func, *urls):
+        for sock in tuple(sockets):
+            if (_repr_sockets([sock], way)[0] in urls) or not urls:
+                sock.close()
+                sockets.remove(sock)
+                try:
+                    func(sock)
+                except:
+                    pass
+
     def serve(self, url, key=None, cert=None, ca=None):
         if key:
             self.ssl_keys[url] = ssl_credentials(key, cert, ca)
