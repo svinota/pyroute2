@@ -615,7 +615,10 @@ class iothread(threading.Thread):
                 #
                 # FIXME max length
                 data = io.BytesIO()
-                data.length = data.write(fd.recv(16384))
+                try:
+                    data.length = data.write(fd.recv(16384))
+                except:
+                    continue
 
                 ##
                 #
