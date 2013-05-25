@@ -536,4 +536,5 @@ class ctrlmsg(genlmsg):
                ('CTRL_ATTR_HDRSIZE', 'hex'),
                ('CTRL_ATTR_MAXATTR', 'hex'),
                ('CTRL_ATTR_OPS', 'hex'),
-               ('CTRL_ATTR_MCAST_GROUPS', 'hex'))
+               ('CTRL_ATTR_MCAST_GROUPS', 'hex'),
+               ('IPR_ATTR_SECRET', 'asciiz'))
