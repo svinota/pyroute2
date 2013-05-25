@@ -1,6 +1,7 @@
 import traceback
 import threading
 import urlparse
+import logging
 import select
 import struct
 import socket
@@ -90,12 +91,52 @@ NLMSG_OVERRUN = 0x4    # Data lost
 NLMSG_MIN_TYPE = 0x10    # < 0x10: reserved control messages
 NLMSG_MAX_LEN = 0xffff  # Max message length
 
-IPRCMD_NOOP = 1
-IPRCMD_REGISTER = 2
-IPRCMD_UNREGISTER = 3
-IPRCMD_STOP = 4
+IPRCMD_NOOP = 0
+IPRCMD_STOP = 1
+IPRCMD_ACK = 2
+IPRCMD_ERR = 3
+IPRCMD_REGISTER = 4
 IPRCMD_RELOAD = 5
 IPRCMD_ROUTE = 6
+
+
+def _get_socket(url, server_side, ssl_keys=None):
+    assert type(url) is str
+    target = urlparse.urlparse(url)
+    hostname = target.hostname or ''
+    use_ssl = False
+    ssl_version = 2
+
+    if target.scheme[:4] == 'unix':
+        if hostname and hostname[0] == '\0':
+            address = hostname
+        else:
+            address = ''.join((hostname, target.path))
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    else:
+        address = (socket.gethostbyname(hostname), target.port)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    if target.scheme.find('ssl') >= 0:
+        ssl_version = ssl.PROTOCOL_SSLv3
+        use_ssl = True
+
+    if target.scheme.find('tls') >= 0:
+        ssl_version = ssl.PROTOCOL_TLSv1
+        use_ssl = True
+
+    if use_ssl:
+        if url not in ssl_keys:
+            raise Exception('SSL/TLS keys are not provided')
+
+        sock = ssl.wrap_socket(sock,
+                               keyfile=ssl_keys[url].key,
+                               certfile=ssl_keys[url].cert,
+                               ca_certs=ssl_keys[url].ca,
+                               server_side=server_side,
+                               cert_reqs=ssl.CERT_REQUIRED,
+                               ssl_version=ssl_version)
+    return (sock, address)
 
 
 def _repr_sockets(sockets, mode):
@@ -245,6 +286,8 @@ class iothread(threading.Thread):
         self.pid = os.getpid()
         self._nonce = 0
         self._stop = False
+        self._run_event = threading.Event()
+        self._sctl_event = threading.Event()
         self._stop_event = threading.Event()
         self._reload_event = threading.Event()
         # fd lists for select()
@@ -263,13 +306,18 @@ class iothread(threading.Thread):
         self.controls = set()     # set(socket, socket...)
         self.ssl_keys = {}        # {url: ssl_credentials(), url:...}
         self.mirror = False
-        self.allow_rctl = False
+        # secret; write non-zero byte as terminator
+        self.secret = os.urandom(15)
+        self.secret += '\xff'
         # control socket, for in-process communication only
         self.uuid = uuid.uuid4()
-        self.control = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-        self.control.bind(b'\0%s' % (self.uuid))
-        self.controls.add(self.control)
-        self._rlist.add(self.control)
+        self.sctl = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sctl.bind(b'\0%s' % (self.uuid))
+        self.sctl.listen(1)
+        self.servers.add(self.sctl)
+        self._rlist.add(self.sctl)
+        self._sctl_thread = threading.Thread(target=self._sctl)
+        self._sctl_thread.start()
         # masquerade cache expiration
         self._expire_thread = threading.Thread(target=self._expire_masq)
         self._expire_thread.setDaemon(True)
@@ -282,6 +330,28 @@ class iothread(threading.Thread):
         # debug
         self.record = False
         self.backlog = []
+
+    def _sctl(self):
+        self.control = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.control.connect(b'\0%s' % (self.uuid))
+        msg = ctrlmsg()
+        msg['header']['type'] = NETLINK_UNUSED
+        msg['cmd'] = IPRCMD_REGISTER
+        msg['attrs'] = [['IPR_ATTR_SECRET', self.secret]]
+        msg.encode()
+        self._run_event.wait()
+        self.control.send(msg.buf.getvalue())
+        buf = io.BytesIO()
+        buf.write(self.control.recv(256))
+        buf.seek(0)
+        msg = ctrlmsg(buf)
+        msg.decode()
+        if msg['cmd'] == IPRCMD_ACK:
+            self._sctl_event.set()
+        else:
+            logging.error("got err for sctl, shutting down")
+            # FIXME: shutdown all
+            self._stop = True
 
     def _feed_buffers(self):
         '''
@@ -328,44 +398,6 @@ class iothread(threading.Thread):
                 if (ts - self.masquerade[i].ctime) > 60:
                     del self.masquerade[i]
             time.sleep(60)
-
-    def _get_socket(self, url, server_side):
-        assert type(url) is str
-        target = urlparse.urlparse(url)
-        hostname = target.hostname or ''
-        use_ssl = False
-        ssl_version = 2
-
-        if target.scheme[:4] == 'unix':
-            if hostname and hostname[0] == '\0':
-                address = hostname
-            else:
-                address = ''.join((hostname, target.path))
-            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        else:
-            address = (socket.gethostbyname(hostname), target.port)
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        if target.scheme.find('ssl') >= 0:
-            ssl_version = ssl.PROTOCOL_SSLv3
-            use_ssl = True
-
-        if target.scheme.find('tls') >= 0:
-            ssl_version = ssl.PROTOCOL_TLSv1
-            use_ssl = True
-
-        if use_ssl:
-            if url not in self.ssl_keys:
-                raise Exception('SSL/TLS keys are not provided')
-
-            sock = ssl.wrap_socket(sock,
-                                   keyfile=self.ssl_keys[url].key,
-                                   certfile=self.ssl_keys[url].cert,
-                                   ca_certs=self.ssl_keys[url].ca,
-                                   server_side=server_side,
-                                   cert_reqs=ssl.CERT_REQUIRED,
-                                   ssl_version=ssl_version)
-        return (sock, address)
 
     def nonce(self):
         if self._nonce == 0xffffffff:
@@ -423,20 +455,30 @@ class iothread(threading.Thread):
         # NETLINK_UNUSED as intra-pyroute2
         #
         if (mtype == NETLINK_UNUSED) and (sock in self.controls):
+            rsp = ctrlmsg()
+            rsp['header']['type'] = NETLINK_UNUSED
+            rsp['cmd'] = IPRCMD_ERR
             cmd = self.parse_control(data)
             if cmd['cmd'] == IPRCMD_STOP:
                 # Stop iothread
                 self._stop = True
                 self._stop_event.set()
+                rsp['cmd'] = IPRCMD_ACK
             elif cmd['cmd'] == IPRCMD_RELOAD:
                 # Reload io cycle
                 self._reload_event.set()
+                rsp['cmd'] = IPRCMD_ACK
+            rsp.encode()
+            sock.send(rsp.buf.getvalue())
 
         ##
         #
         # NETLINK_UNUSED as inter-pyroute2
         #
         elif (mtype == NETLINK_UNUSED) and (sock in self.clients):
+            rsp = ctrlmsg()
+            rsp['header']['type'] = NETLINK_UNUSED
+            rsp['cmd'] = IPRCMD_ERR
             cmd = self.parse_control(data)
             if cmd['cmd'] == IPRCMD_ROUTE:
                 # routing request
@@ -444,9 +486,18 @@ class iothread(threading.Thread):
                 if family in self.families:
                     send = self.families[family]
                     self.rtable[sock] = send
+                    rsp['cmd'] = IPRCMD_ACK
                 # TODO
                 # * subscribe requests
                 # * ...
+            elif cmd['cmd'] == IPRCMD_REGISTER:
+                # auth request
+                secret = cmd.get_attr('IPR_ATTR_SECRET')[0]
+                if secret == self.secret:
+                    self.controls.add(sock)
+                    rsp['cmd'] = IPRCMD_ACK
+            rsp.encode()
+            sock.send(rsp.buf.getvalue())
 
         ##
         #
@@ -504,13 +555,16 @@ class iothread(threading.Thread):
             if key in self.listeners:
                 self.listeners[key].put(msg)
 
-    def command(self, cmd):
+    def command(self, cmd, attrs=[]):
         msg = ctrlmsg(io.BytesIO())
         msg['header']['type'] = NETLINK_UNUSED
         msg['cmd'] = cmd
+        msg['attrs'] = attrs
         msg.encode()
-        return self.control.sendto(msg.buf.getvalue(),
-                                   self.control.getsockname())
+        self.control.send(msg.buf.getvalue())
+        rsp = ctrlmsg(self.control.recv(256))
+        rsp.decode()
+        return rsp
 
     def stop(self):
         return self.command(IPRCMD_STOP)
@@ -522,14 +576,16 @@ class iothread(threading.Thread):
         '''
         self._reload_event.clear()
         ret = self.command(IPRCMD_RELOAD)
-        self._reload_event.wait()
+        # wait max 3 seconds for reload
+        # FIXME: timeout should be configurable
+        assert self._reload_event.wait(3)
         return ret
 
     def add_server(self, url):
         '''
         Add a server socket to listen for clients on
         '''
-        (sock, address) = self._get_socket(url, server_side=False)
+        (sock, address) = _get_socket(url, server_side=False)
         if sock.family == socket.AF_INET:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(address)
@@ -551,32 +607,19 @@ class iothread(threading.Thread):
         self.reload()
         return sock
 
-    def add_uplink(self, url=None, family=None, groups=None):
-        '''
-        Add an uplink to get information from:
-
-        * url -- remote serve
-        * family and groups -- netlink
-        '''
-        if url is not None:
-            (sock, address) = self._get_socket(url, server_side=False)
-            sock.connect(address)
-        elif (family is not None) and \
-             (groups is not None):
-            sock = netlink_socket(family)
-            sock.bind(groups)
-        else:
-            raise Exception("uplink type not supported")
+    def add_uplink(self, sock, marshal):
         self._rlist.add(sock)
         self.uplinks.add(sock)
         self.rtable[sock] = self.distribute
+        self.marshals[sock] = marshal()
         self.reload()
         return sock
 
     def remove_uplink(self, sock):
-        assert sock in self.uplinks
         self._rlist.remove(sock)
         self.uplinks.remove(sock)
+        del self.rtable[sock]
+        del self.marshals[sock]
         self.reload()
         return sock
 
@@ -588,8 +631,6 @@ class iothread(threading.Thread):
         self._rlist.add(sock)
         self._wlist.add(sock)
         self.clients.add(sock)
-        if self.allow_rctl:
-            self.controls.add(sock)
         return sock
 
     def remove_client(self, sock):
@@ -598,9 +639,20 @@ class iothread(threading.Thread):
         self.clients.remove(sock)
         return sock
 
+    def start(self):
+        threading.Thread.start(self)
+        if not self._sctl_event.wait(3):
+            self._stop = True
+            raise Exception('failed to establish control connection')
+
     def run(self):
+        self._run_event.set()
         while not self._stop:
-            [rlist, wlist, xlist] = select.select(self._rlist, [], [])
+            try:
+                [rlist, wlist, xlist] = select.select(self._rlist, [], [])
+            except:
+                # FIXME: log exceptions
+                continue
             for fd in rlist:
 
                 ##
@@ -703,18 +755,31 @@ class netlink(object):
         sock.send(smsg.buf.getvalue())
 
     def connect(self, host='localsystem', key=None, cert=None, ca=None):
+        sock = None
         if key:
             self.ssl_keys[host] = ssl_credentials(key, cert, ca)
-        if host == 'localsystem':
-            sock = self.iothread.add_uplink(family=self.family,
-                                            groups=self.groups)
+        try:
+            if host == 'localsystem':
+                sock = netlink_socket(self.family)
+                sock.bind(self.groups)
+            else:
+                (sock, addr) = _get_socket(url=host,
+                                           server_side=False,
+                                           ssl_keys=self.ssl_keys)
+                sock.connect(addr)
+                self._remote_cmd(sock=sock,
+                                 cmd=IPRCMD_ROUTE,
+                                 attrs=[['CTRL_ATTR_FAMILY_ID', self.family]])
+                rsp = ctrlmsg(sock.recv(28))
+                rsp.decode()
+                assert rsp['cmd'] == IPRCMD_ACK
+        except Exception as e:
+            if host in self.ssl_keys:
+                del self.ssl_keys[host]
+            raise e
         else:
-            sock = self.iothread.add_uplink(url=host)
-            self._remote_cmd(sock=sock,
-                             cmd=IPRCMD_ROUTE,
-                             attrs=[['CTRL_ATTR_FAMILY_ID', self.family]])
-        self.iothread.marshals[sock] = self.marshal()
-        self._sockets.add(sock)
+            self.iothread.add_uplink(sock, self.marshal)
+            self._sockets.add(sock)
 
     def get_servers(self):
         return _repr_sockets(self.iothread.servers, 'local')
