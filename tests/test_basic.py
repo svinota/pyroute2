@@ -1,4 +1,5 @@
 import os
+import uuid
 import socket
 import subprocess
 from pyroute2 import iproute
@@ -148,3 +149,16 @@ class TestData(object):
     def test_routes(self):
         assert len(_get_ip_route()) == \
             len(self.ip.get_routes(family=socket.AF_INET, table=255))
+
+
+class TestRemoteData(TestData):
+
+    def setup(self):
+        url = 'unix://\0%s' % (uuid.uuid4())
+        allow_connect = Event()
+        target = Process(target=_run_remote_uplink,
+                         args=(url, allow_connect))
+        target.daemon = True
+        target.start()
+        allow_connect.wait()
+        self.ip = iproute(host=url)
