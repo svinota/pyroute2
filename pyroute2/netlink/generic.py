@@ -256,6 +256,7 @@ class nlmsg_base(dict):
 
     def encode(self):
         init = self.buf.tell()
+        diff = 0
         # reserve space for the header
         if self.header is not None:
             self['header'].reserve()
@@ -283,14 +284,15 @@ class nlmsg_base(dict):
             self.buf.write(b'\0' * diff)
         # write NLA chain
         if self.nla_map:
+            diff = 0
             self.encode_nlas()
         # calculate the size and write it
         if self.header is not None:
-            self.update_length(init)
+            self.update_length(init, diff)
 
-    def update_length(self, start):
+    def update_length(self, start, diff):
         save = self.buf.tell()
-        self['header']['length'] = save - start
+        self['header']['length'] = save - start - diff
         self.buf.seek(start)
         self['header'].encode()
         self.buf.seek(save)
