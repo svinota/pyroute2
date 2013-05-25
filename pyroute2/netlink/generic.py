@@ -136,6 +136,11 @@ class nlmsg_base(dict):
         dict.__init__(self)
         for i in self.fields:
             self[i[0]] = 0  # FIXME: only for number values
+        if isinstance(buf, basestring):
+            b = io.BytesIO()
+            b.write(buf)
+            b.seek(0)
+            buf = b
         self.buf = buf or io.BytesIO()
         self.length = length or 0
         self.parent = parent
