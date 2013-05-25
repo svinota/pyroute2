@@ -1,8 +1,43 @@
 import os
+import socket
+import subprocess
 from pyroute2 import iproute
-from pyroute2.netlink import IPRCMD_STOP
 from multiprocessing import Event
 from multiprocessing import Process
+
+
+def _get_ip_addr():
+    out = subprocess.check_output(['ip', '-o', 'ad']).split('\n')
+    ret = []
+    for string in out:
+        fields = string.split()
+        if len(fields) >= 5 and fields[2][:4] == 'inet':
+            ret.append(fields[3])
+    return ret
+
+
+def _get_ip_link():
+    ret = []
+    out = subprocess.check_output(['ip', '-o', 'li']).split('\n')
+    for string in out:
+        fields = string.split()
+        if len(fields) >= 2:
+            ret.append([fields[1][:-1]])
+    return ret
+
+
+def _get_ip_route():
+    ret = []
+    out = subprocess.check_output(['ip',
+                                   '-4',
+                                   'ro',
+                                   'li',
+                                   'ta',
+                                   '255']).split('\n')
+    for string in out:
+        if len(string):
+            ret.append(string)
+    return ret
 
 
 def _run_remote_uplink(url, allow_connect):
@@ -13,10 +48,19 @@ def _run_remote_uplink(url, allow_connect):
     ip.iothread._stop_event.wait()
 
 
+def _assert_servers(ip, num):
+    assert len(ip.get_servers()) == num
+    assert len(ip.iothread.servers) == num
+
+
+def _assert_clients(ip, num):
+    assert len(ip.get_clients()) == num
+    assert len(ip.iothread.clients) == num
+
+
 def _assert_uplinks(ip, num):
     assert len(ip.get_sockets()) == num
     assert len(ip.iothread.uplinks) == num
-    assert len(ip.iothread._rlist) >= num + 1
 
 
 class TestSetup(object):
@@ -35,19 +79,37 @@ class TestSetup(object):
         ip.shutdown_sockets()
         _assert_uplinks(ip, 0)
 
+    def test_serve(self):
+        url = 'unix://\0nose_tests_socket'
+        ip = iproute()
+        _assert_uplinks(ip, 1)
+        _assert_servers(ip, 1)
+        _assert_clients(ip, 1)
+        ip.serve(url)
+        _assert_uplinks(ip, 1)
+        _assert_servers(ip, 2)
+        _assert_clients(ip, 1)
+        ip.shutdown_servers(url)
+        _assert_uplinks(ip, 1)
+        _assert_servers(ip, 1)
+        _assert_clients(ip, 1)
+        ip.shutdown_sockets()
+        _assert_uplinks(ip, 0)
+        _assert_servers(ip, 1)
+        _assert_clients(ip, 1)
 
-class TestUplinks(object):
+
+class TestSetupUplinks(object):
 
     def _test_remote(self, url):
         allow_connect = Event()
-        target = Process(target=_run_remote_uplink, args=(url, allow_connect))
+        target = Process(target=_run_remote_uplink,
+                         args=(url, allow_connect))
+        target.daemon = True
         target.start()
         allow_connect.wait()
         ip = iproute(host=url)
         _assert_uplinks(ip, 1)
-        # time.sleep(1)
-        ip._remote_cmd(sock=tuple(ip._sockets)[0], cmd=IPRCMD_STOP)
-        target.join()
         ip.shutdown_sockets()
         _assert_uplinks(ip, 0)
 
@@ -66,3 +128,23 @@ class TestUplinks(object):
 
     def test_tcp_remote(self):
         self._test_remote('tcp://127.0.0.1:9821')
+
+
+class TestData(object):
+    ip = None
+
+    def setup(self):
+        self.ip = iproute()
+
+    def teardown(self):
+        self.ip.shutdown_sockets()
+
+    def test_addr(self):
+        assert len(_get_ip_addr()) == len(self.ip.get_addr())
+
+    def test_links(self):
+        assert len(_get_ip_link()) == len(self.ip.get_links())
+
+    def test_routes(self):
+        assert len(_get_ip_route()) == \
+            len(self.ip.get_routes(family=socket.AF_INET, table=255))
