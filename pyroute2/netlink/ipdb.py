@@ -335,6 +335,7 @@ class ipdb(dotkeys):
         only the first one will receive anything.
         '''
         self.ip = ipr or iproute(host=host, key=key, cert=cert, ca=ca)
+        self._stop = False
 
         # resolvers
         self.by_name = dotkeys()
@@ -363,6 +364,11 @@ class ipdb(dotkeys):
         ret.append('by_name')
         ret.append('by_index')
         return ret
+
+    def shutdown(self):
+        self._stop = True
+        self.ip.get_links()
+        self.ip.shutdown_sockets()
 
     def update_links(self, links):
         '''
@@ -420,7 +426,7 @@ class ipdb(dotkeys):
         default iproute queue and updates objects in the
         database.
         '''
-        while True:
+        while not self._stop:
             try:
                 messages = self.ip.get()
             except:
