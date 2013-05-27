@@ -1,44 +1,13 @@
 import os
 import uuid
 import socket
-import subprocess
 from pyroute2 import iproute
 from multiprocessing import Event
 from multiprocessing import Process
-
-
-def _get_ip_addr():
-    out = subprocess.check_output(['ip', '-o', 'ad']).split('\n')
-    ret = []
-    for string in out:
-        fields = string.split()
-        if len(fields) >= 5 and fields[2][:4] == 'inet':
-            ret.append(fields[3])
-    return ret
-
-
-def _get_ip_link():
-    ret = []
-    out = subprocess.check_output(['ip', '-o', 'li']).split('\n')
-    for string in out:
-        fields = string.split()
-        if len(fields) >= 2:
-            ret.append([fields[1][:-1]])
-    return ret
-
-
-def _get_ip_route():
-    ret = []
-    out = subprocess.check_output(['ip',
-                                   '-4',
-                                   'ro',
-                                   'li',
-                                   'ta',
-                                   '255']).split('\n')
-    for string in out:
-        if len(string):
-            ret.append(string)
-    return ret
+# test imports
+from utils import get_ip_addr
+from utils import get_ip_link
+from utils import get_ip_route
 
 
 def _run_remote_uplink(url, allow_connect):
@@ -141,13 +110,13 @@ class TestData(object):
         self.ip.shutdown_sockets()
 
     def test_addr(self):
-        assert len(_get_ip_addr()) == len(self.ip.get_addr())
+        assert len(get_ip_addr()) == len(self.ip.get_addr())
 
     def test_links(self):
-        assert len(_get_ip_link()) == len(self.ip.get_links())
+        assert len(get_ip_link()) == len(self.ip.get_links())
 
     def test_routes(self):
-        assert len(_get_ip_route()) == \
+        assert len(get_ip_route()) == \
             len(self.ip.get_routes(family=socket.AF_INET, table=255))
 
 

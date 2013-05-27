@@ -1,7 +1,9 @@
 from pyroute2 import ipdb
+# tests imports
+from utils import get_ip_addr
 
 
-class TestSetup(object):
+class TestBasic(object):
     ip = None
 
     def setup(self):
@@ -22,3 +24,7 @@ class TestSetup(object):
     def test_idx_types(self):
         assert all(isinstance(i, int) for i in self.ip.by_index.keys())
         assert all(isinstance(i, basestring) for i in self.ip.by_name.keys())
+
+    def test_ips(self):
+        for name in self.ip.by_name:
+            assert len(self.ip[name]['ipaddr']) == len(get_ip_addr(name))
