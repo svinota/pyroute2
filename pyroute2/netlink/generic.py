@@ -162,6 +162,7 @@ class nlmsg_base(dict):
         '''
         return self.getvalue() == value
 
+    @classmethod
     def nla2name(self, name):
         '''
         Convert NLA name into human-friendly name
@@ -172,6 +173,7 @@ class nlmsg_base(dict):
         '''
         return name[(name.find(self.prefix) + 1) * len(self.prefix):].lower()
 
+    @classmethod
     def name2nla(self, name):
         '''
         Convert human-friendly name into NLA name

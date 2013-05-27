@@ -46,6 +46,8 @@ class ifinfmsg(nlmsg):
         unsigned int   ifi_change; /* change mask */
     };
     '''
+    prefix = 'IFLA_'
+
     fields = (('family', 'B'),
               ('__align', 'B'),
               ('ifi_type', 'H'),
