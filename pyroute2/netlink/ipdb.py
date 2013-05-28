@@ -475,8 +475,26 @@ class interface(dotkeys):
             request['linkinfo'] = {'attrs': [['IFLA_INFO_KIND',
                                               self['kind']]]}
             self._parent._links_event.clear()
-            # on failure just raise -- do not drop() anything
-            self.ip.link('add', self['index'], **request)
+            try:
+                self.ip.link('add', self['index'], **request)
+            except Exception as e:
+                # on failure, invalidate the interface and detach it
+                # from the parent
+                # 1. drop the iproute() link
+                self.ip = None
+                # 2. clean up ipdb
+                self._parent.detach(self['index'])
+                self._parent.detach(self['ifname'])
+                # 3. invalidate the interface
+                self._direct_state.acquire()
+                for i in tuple(self.keys()):
+                    del self[i]
+                self._direct_state.release()
+                # 4. the rest
+                self._mode = 'invalid'
+                # raise the exception
+                raise e
+
             # all is OK till now, so continue
             # we do not know what to load, so load everything
             self.ip.get_links()
@@ -641,16 +659,39 @@ class ipdb(dotkeys):
         self.ip.get_links()
         self.ip.shutdown()
 
-    def create(self, kind, **kwarg):
+    def create(self, kind, ifname, **kwarg):
+        '''
+        Create an interface. Arguments 'kind' and 'ifname' are
+        required.
+
+        * kind -- interface type, can be of:
+          * bridge
+          * bond
+          * vlan
+          * tun
+          * dummy
+        * ifname -- interface name
+
+        Different interface kinds can require different
+        arguments for creation.
+
+        FIXME: this should be documented.
+        '''
         i = interface(ipr=self.ip, parent=self, mode='snapshot')
         i['kind'] = kind
         i['index'] = kwarg.get('index', 0)
-        if 'ifname' in kwarg:
-            self.by_name[kwarg['ifname']] = self[kwarg['ifname']] = i
+        i['ifname'] = ifname
+        self.by_name[i['ifname']] = self[i['ifname']] = i
         i.update(kwarg)
         i._mode = self.mode
-        tid = i.begin()
-        return tid, i
+        i.begin()
+        return i
+
+    def detach(self, item):
+        if item in self:
+            del self[item]
+            if item in self.ipaddr:
+                del self.ipaddr[item]
 
     def update_links(self, links):
         '''

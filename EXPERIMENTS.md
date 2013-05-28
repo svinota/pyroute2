@@ -7,35 +7,30 @@ This file contains features not described in the documentation and are
 ipdb.create()
 -------------
 
-Creates an interface with an open transaction (implemented)::
+Creates an interface with an open transaction::
 
     from pyroute2 import ipdb
     ip = ipdb(mode='explicit')
-    tid, interface = ip.create('dummy', ifname='bala')
-    interface.address = '00:11:22:33:44:55'
-    interface.add_ip('10.0.0.1', 24)
-    interface.add_ip('10.0.0.2', 24)
-    interface.up()
-    interface.commit(tid)
+    i = ip.create(kind='dummy', ifname='bala')
+    i.address = '00:11:22:33:44:55'
+    i.add_ip('10.0.0.1', 24)
+    i.add_ip('10.0.0.2', 24)
+    i.up()
+    i.commit()
 
 Issues:
 
  * 'direct' mode?
- * should we provide **kwarg, or transaction is enough?
- * what to do on creation time failure?
- * what to do, if creation OK, but transaction fails?
+ * (+) should we provide **kwarg, or transaction is enough? (ok)
+ * (+) what to do on creation time failure? (invalidate interface)
+ * (+) what to do, if creation OK, but transaction fails? (as usual, drop())
 
-Possible variant::
+As a context manager::
 
     from pyroute2 import ipdb
     ip = ipdb(mode='explicit')
-    with ip.create('dummy', ifname='bala') as interface:
-        interface.address = '00:11:22:33:44:55'
-        interface.add_ip('10.0.0.1', 24)
-        interface.add_ip('10.0.0.2', 24)
-        interface.up()
-
-Issues:
-
- * then we need to remove `tid` from the `create()` results
-
+    with ip.create(kind='dummy', ifname='bala') as i:
+        i.address = '00:11:22:33:44:55'
+        i.add_ip('10.0.0.1', 24)
+        i.add_ip('10.0.0.2', 24)
+        i.up()
