@@ -37,29 +37,47 @@ database with commit/rollback. It is far not production ready,
 so be prepared for surprises and API changes.::
 
     from pyroute2 import ipdb
-    ip = ipdb()
+    ip = ipdb(mode='direct')
     ip.tap0.down()
     ip.tap0.address = '00:11:22:33:44:55'
     ip.tap0.ifname = 'vpn'
-    ip.tap0.ipaddr.add(('10.0.0.1', 24))
-    ip.tap0.ipaddr.add(('10.0.0.2', 24))
-    ip.tap0.commit()
     ip.vpn.up()
+    ip.vpn.add_ip('10.0.0.1', 24)
+    ip.vpn.add_ip('10.0.0.2', 24)
 
-If you want to review and/or rollback the transaction, you can
-use code like that::
+IPDB has several operating modes:
 
-    from pprint import pprint
-    ...
-    pprint(ip.tap0.review())
-        {'attrs': {'address': 'da:72:48:6b:13:c8 -> 00:11:22:33:44:55',
-                   'ifname': 'tap0 -> vpn'},
-         'ipaddr': ['+10.0.0.4/24',
-                    '+10.0.0.5/24',
-                    '+10.0.0.2/24',
-                    '+10.0.0.3/24',
-                    '+10.0.0.1/24']}
-    ip.tap0.rollback()
+ * 'direct' -- any change goes immediately to the OS level
+ * 'implicit' (default) -- the first change starts an implicit
+   transaction, that have to be committed
+ * 'explicit' -- you have to begin() a transaction prior to
+   make any change
+ * 'snapshot' -- no changes will go to the OS in any case
+
+The default is to use implicit transaction. This behaviour can
+be changed in the future, so use 'mode' argument when creating
+IPDB instances. The sample session with explicit transactions::
+
+    In [1]: from pyroute2 import ipdb
+    In [2]: ip = ipdb(mode='explicit')
+    In [3]: ip.tap0.begin()
+        Out[3]: UUID('7a637a44-8935-4395-b5e7-0ce40d31d937')
+    In [4]: ip.tap0.up()
+    In [5]: ip.tap0.address = '00:11:22:33:44:55'
+    In [6]: ip.tap0.add_ip('10.0.0.1', 24)
+    In [7]: ip.tap0.add_ip('10.0.0.2', 24)
+    In [8]: ip.tap0.review()
+        Out[8]:
+        {'+ipaddr': set([('10.0.0.2', 24), ('10.0.0.1', 24)]),
+         '-ipaddr': set([]),
+         'address': '00:11:22:33:44:55',
+         'flags': 4099}
+    In [9]: ip.tap0.commit()
+
+
+Note, that you can `review()` the `last()` transaction, and
+`commit()` or `drop()` it. Also, multiple `self._transactions`
+are supported, use uuid returned by `begin()` to identify them.
 
 Actually, the form like 'ip.tap0.address' is an eye-candy. The
 ipdb objects are dictionaries, so you can write the code above
@@ -67,18 +85,18 @@ as that::
 
     ip['tap0'].down()
     ip['tap0']['address'] = '00:11:22:33:44:55'
-    ip['tap0']['ifname'] = 'vpn'
     ...
 
-Also, interface objects can operate as context managers::
+Also, interface objects in transactional mode can operate as
+context managers::
 
     with ip.tap0 as i:
         i.address = '00:11:22:33:44:55'
         i.ifname = 'vpn'
-        i.ipaddr.add(('10.0.0.1', 24))
-        i.ipaddr.add(('10.0.0.1', 24))
+        i.add_ip('10.0.0.1', 24)
+        i.add_ip('10.0.0.1', 24)
 
-On exit, the context manager will authomatically commit the
+On exit, the context manager will authomatically `commit()` the
 transaction.
 
 taskstats
