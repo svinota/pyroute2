@@ -17,7 +17,8 @@ import uuid
 import threading
 from socket import AF_INET
 from socket import AF_INET6
-from pyroute2.netlink import netlink_error
+from pyroute2.netlink import NetlinkSocketError
+from pyroute2.netlink import NetlinkQueueEmpty
 from pyroute2.netlink.iproute import iproute
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
@@ -142,11 +143,20 @@ class rwState(object):
 
 
 class IPDBError(Exception):
-    pass
+    message = None
+
+    def __init__(self, message=None, error=None):
+        message = message or self.message
+        Exception.__init__(self, message)
+        self.cause = error
+
+
+class IPDBUnrecoverableError(IPDBError):
+    message = 'unrecoverable IPDB error, restart the instance'
 
 
 class IPDBTransactionRequired(IPDBError):
-    pass
+    message = 'begin() a transaction first'
 
 
 def update(f):
@@ -422,8 +432,11 @@ class interface(dotkeys):
         '''
         self._parent._addr_event.clear()
         self['ipaddr'].clear()
-        self.ip.get_links(self['index'])
-        self.ip.get_addr()
+        try:
+            self.ip.get_links(self['index'])
+            self.ip.get_addr()
+        except NetlinkQueueEmpty as e:
+            raise IPDBUnrecoverableError('lost netlink', e)
         self._parent._addr_event.wait()
 
     def commit(self, tid=None, transaction=None, rollback=False):
@@ -448,7 +461,7 @@ class interface(dotkeys):
                 # it is OK, no need to roll back
                 try:
                     self.ip.addr_del(self['index'], i[0], i[1])
-                except netlink_error as x:
+                except NetlinkSocketError as x:
                     # bypass only errno 99, 'Cannot assign address'
                     if x.errno != 99:
                         raise x

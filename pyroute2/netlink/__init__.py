@@ -29,6 +29,16 @@ class NetlinkError(Exception):
     pass
 
 
+class NetlinkSocketError(socket.error):
+    '''
+    Socket error
+    '''
+    def __init__(self, code, msg=None):
+        msg = msg or os.strerror(code)
+        super(NetlinkSocketError, self).__init__(code, msg)
+        self.code = code
+
+
 class NetlinkQueueEmpty(NetlinkError):
     '''
     Timeout reached on a message queue polling
@@ -172,13 +182,6 @@ def _repr_sockets(sockets, mode):
     return ret
 
 
-class netlink_error(socket.error):
-    def __init__(self, code, msg=None):
-        msg = msg or os.strerror(code)
-        super(netlink_error, self).__init__(code, msg)
-        self.code = code
-
-
 class marshal(object):
     '''
     Generic marshalling class
@@ -219,7 +222,7 @@ class marshal(object):
                     self.buf.seek(16)
                     code = abs(struct.unpack('i', self.buf.read(4))[0])
                     if code > 0:
-                        error = netlink_error(code)
+                        error = NetlinkSocketError(code)
 
                 self.buf.seek(offset)
                 msg_class = self.msg_map.get(msg_type, nlmsg)
