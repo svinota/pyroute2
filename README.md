@@ -39,6 +39,11 @@ Python >= 2.6
 changelog
 ---------
 
+* 0.1.6
+    * netlink: tc ingress, sfq, tbf, htb, u32 partial support
+    * ipdb: completely re-implemented transactional model (see docs)
+    * generic: internal fields declaration API changed for nlmsg
+    * tests: first unit tests committed
 * 0.1.5
     * netlink: dedicated io buffering thread
     * netlink: messages reassembling
