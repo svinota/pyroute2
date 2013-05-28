@@ -193,6 +193,28 @@ def update(f):
     return decorated
 
 
+class IPLinkRequest(dict):
+
+    def __init__(self, interface=None):
+        dict.__init__(self)
+        if interface:
+            self.update(interface)
+
+    def update(self, interface):
+        for key in interface:
+            if interface[key] is not None:
+                self[key] = interface[key]
+
+    def __setitem__(self, key, value):
+        if key == 'kind':
+            key = 'IFLA_LINKINFO'
+            value = {'attrs': [['IFLA_INFO_KIND', value]]}
+        elif key == 'vlan_id':
+            key = 'IFLA_INFO_DATA'
+            value = {'attrs': [['IFLA_VLAN_ID', value]]}
+        dict.__setitem__(self, key, value)
+
+
 class interface(dotkeys):
     '''
     Objects of this class represent network interface and
@@ -471,9 +493,7 @@ class interface(dotkeys):
 
         # if the interface does not exist, create it first ;)
         if not self._exists:
-            request = dict(self)
-            request['linkinfo'] = {'attrs': [['IFLA_INFO_KIND',
-                                              self['kind']]]}
+            request = IPLinkRequest(self)
             self._parent._links_event.clear()
             try:
                 self.ip.link('add', self['index'], **request)
@@ -522,7 +542,7 @@ class interface(dotkeys):
                 self.ip.addr_add(self['index'], i[0], i[1])
 
             # commit interface changes
-            request = {}
+            request = IPLinkRequest()
             for key in added:
                 if key in nla_fields:
                     request[key] = added[key]
