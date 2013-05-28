@@ -17,6 +17,7 @@ import uuid
 import threading
 from socket import AF_INET
 from socket import AF_INET6
+from pyroute2.netlink import netlink_error
 from pyroute2.netlink.iproute import iproute
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
@@ -151,6 +152,7 @@ class IPDBTransactionRequired(IPDBError):
 def update(f):
     def decorated(self, *argv, **kwarg):
         # obtain update lock
+        tid = None
         with self._snapshot_lock:
             # fix the pass-through mode:
             with self._direct_state:
@@ -158,7 +160,7 @@ def update(f):
                 if not kwarg['direct']:
                     # 1. begin transaction for 'direct' type
                     if self._mode == 'direct':
-                        self.begin()
+                        tid = self.begin()
                     # 2. begin transaction, if there is none
                     elif self._mode == 'implicit':
                         if not self._tids:
@@ -175,10 +177,9 @@ def update(f):
                         raise IPDBError('transaction mode not supported')
                     # now that the transaction _is_ open
                 f(self, *argv, **kwarg)
-                if not kwarg['direct']:
-                    # close the transaction for 'direct' type
-                    if self._mode == 'direct':
-                        self.commit()
+        if tid:
+            # close the transaction for 'direct' type
+            self.commit(tid)
     return decorated
 
 
@@ -415,12 +416,24 @@ class interface(dotkeys):
         '''
         del self._transactions[self._tids.pop()]
 
+    def reload(self):
+        '''
+        Reload interface information
+        '''
+        self._parent._addr_event.clear()
+        self['ipaddr'].clear()
+        self.ip.get_links(self['index'])
+        self.ip.get_addr()
+        self._parent._addr_event.wait()
+
     def commit(self, tid=None, transaction=None, rollback=False):
         '''
         Commit transaction. In the case of exception all
         changes applied during commit will be reverted.
         '''
         e = None
+        added = None
+        removed = None
         snapshot = self.pick()
         if tid:
             transaction = self._transactions[tid]
@@ -430,7 +443,15 @@ class interface(dotkeys):
             # commit IP address changes
             removed = self - transaction
             for i in removed['ipaddr']:
-                self.ip.addr_del(self['index'], i[0], i[1])
+                # When you remove a primary IP addr, all subnetwork
+                # can be removed. In this case you will fail, but
+                # it is OK, no need to roll back
+                try:
+                    self.ip.addr_del(self['index'], i[0], i[1])
+                except netlink_error as x:
+                    # bypass only errno 99, 'Cannot assign address'
+                    if x.errno != 99:
+                        raise x
 
             added = transaction - self
             for i in added['ipaddr']:
@@ -449,7 +470,31 @@ class interface(dotkeys):
         except Exception as e:
             # something went wrong: roll the transaction back
             if not rollback:
-                # self.load(self.ip.get_links(self['index'])[0])
+                self.reload()
+                # 8<-----------------------------------------
+                # That's a hack, but we have to use it, since
+                # OS response can be not so fast
+                # * inject added IPs directly into self
+                # * wipe removed IPs from the interface data
+                #
+                # This info will be used to properly roll back
+                # changes.
+                #
+                # Still, there is a possibility that the
+                # rollback will run even before IP addrs will
+                # be assigned. But we can not cope with that.
+                self._direct_state.acquire()
+                if removed:
+                    for i in removed['ipaddr']:
+                        try:
+                            self['ipaddr'].remove(i)
+                        except KeyError:
+                            pass
+                if added:
+                    for i in added['ipaddr']:
+                        self['ipaddr'].add(i)
+                self._direct_state.release()
+                # 8<-----------------------------------------
                 self.commit(transaction=snapshot, rollback=True)
             else:
                 # somethig went wrong during automatic rollback.
@@ -463,7 +508,7 @@ class interface(dotkeys):
             # drop last transaction in any case
             self.drop()
             # re-load interface information
-            # self.load(self.ip.get_links(self['index'])[0])
+            self.reload()
 
         # raise exception for failed transaction
         if e is not None:
@@ -521,6 +566,9 @@ class ipdb(dotkeys):
         self.routes = {}
         self.neighbors = {}
         self.old_names = {}
+
+        # update events
+        self._addr_event = threading.Event()
 
         # load information on startup
         links = self.ip.get_links()
@@ -595,6 +643,7 @@ class ipdb(dotkeys):
                     method(key=(nla, addr['prefixlen']), raw=addr)
                 except:
                     pass
+        self._addr_event.set()
 
     def monitor(self):
         '''
