@@ -298,7 +298,9 @@ class interface(dotkeys):
         return self['index']
 
     def __enter__(self):
-        self.begin()
+        assert self._mode in ('implicit', 'explicit')
+        if not self._tids:
+            self.begin()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -306,6 +308,7 @@ class interface(dotkeys):
             self.commit()
         except Exception as e:
             self.last_error = e
+            raise e
 
     def __repr__(self):
         res = {}
