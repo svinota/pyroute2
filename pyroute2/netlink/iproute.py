@@ -418,7 +418,8 @@ class iproute(netlink):
             nla = key.upper()
             if not nla.startswith('IFLA_'):
                 nla = 'IFLA_%s' % (nla)
-            msg['attrs'].append([nla, kwarg[key]])
+            if kwarg[key] is not None:
+                msg['attrs'].append([nla, kwarg[key]])
 
         return self.nlm_request(msg, msg_type=action, msg_flags=msg_flags)
 
