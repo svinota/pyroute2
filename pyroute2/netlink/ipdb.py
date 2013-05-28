@@ -236,6 +236,7 @@ class interface(dotkeys):
                         'stats',
                         'stats64')
         self.last_error = None
+        self._exists = False
         self._direct_state = rwState()
         self._parent = parent
         self._tids = []
@@ -246,6 +247,11 @@ class interface(dotkeys):
         # local setup: direct state is required
         self._direct_state.acquire()
         self['ipaddr'] = ipset()
+        for i in nla_fields:
+            self[i] = None
+        self['flags'] = 0
+        for i in ('state', 'change', 'mask'):
+            del self[i]
         self._direct_state.release()
         # 8<-----------------------------------
         if dev is not None:
@@ -301,6 +307,13 @@ class interface(dotkeys):
         except Exception as e:
             self.last_error = e
 
+    def __repr__(self):
+        res = {}
+        for i in self:
+            if self[i] is not None:
+                res[i] = self[i]
+        return res.__repr__()
+
     @property
     def if_master(self):
         '''
@@ -328,6 +341,7 @@ class interface(dotkeys):
         changes directly into the interface data.
         '''
         self._direct_state.acquire()
+        self._exists = True
         self.update(dev)
         self._attrs = set()
         for (name, value) in dev['attrs']:
@@ -447,11 +461,27 @@ class interface(dotkeys):
         e = None
         added = None
         removed = None
-        snapshot = self.pick()
         if tid:
             transaction = self._transactions[tid]
         else:
             transaction = transaction or self.last()
+
+        # if the interface does not exist, create it first ;)
+        if not self._exists:
+            request = dict(self)
+            request['linkinfo'] = {'attrs': [['IFLA_INFO_KIND',
+                                              self['kind']]]}
+            self._parent._links_event.clear()
+            # on failure just raise -- do not drop() anything
+            self.ip.link('add', self['index'], **request)
+            # all is OK till now, so continue
+            # we do not know what to load, so load everything
+            self.ip.get_links()
+            self._parent._links_event.wait()
+
+        # now we have our index and IP set and all other stuff
+        snapshot = self.pick()
+
         try:
             # commit IP address changes
             removed = self - transaction
@@ -582,6 +612,7 @@ class ipdb(dotkeys):
 
         # update events
         self._addr_event = threading.Event()
+        self._links_event = threading.Event()
 
         # load information on startup
         links = self.ip.get_links()
@@ -607,6 +638,17 @@ class ipdb(dotkeys):
         self.ip.get_links()
         self.ip.shutdown()
 
+    def create(self, kind, **kwarg):
+        i = interface(ipr=self.ip, parent=self, mode='snapshot')
+        i['kind'] = kind
+        i['index'] = kwarg.get('index', 0)
+        if 'ifname' in kwarg:
+            self.by_name[kwarg['ifname']] = self[kwarg['ifname']] = i
+        i.update(kwarg)
+        i._mode = self.mode
+        tid = i.begin()
+        return tid, i
+
     def update_links(self, links):
         '''
         Rebuild links index from list of RTM_NEWLINK messages.
@@ -617,7 +659,9 @@ class ipdb(dotkeys):
             i = \
                 self.by_index[dev['index']] = \
                 self[dev['index']] = \
-                interface(dev, self.ip, self, mode=self.mode)
+                self.get(dev.get_attr('IFLA_IFNAME')[0], None) or \
+                interface(ipr=self.ip, parent=self, mode=self.mode)
+            i.load(dev)
             self[i['ifname']] = \
                 self.by_name[i['ifname']] = i
             self.old_names[dev['index']] = i['ifname']
@@ -693,6 +737,8 @@ class ipdb(dotkeys):
                     else:
                         self.update_links([msg])
                     self.update_slaves([msg])
+                    # what about removal?
+                    self._links_event.set()
                 elif msg.get('event', None) == 'RTM_DELLINK':
                     self.update_slaves([msg])
                     if msg['change'] == 0xffffffff:
