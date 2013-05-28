@@ -605,7 +605,7 @@ class ipdb(dotkeys):
     def shutdown(self):
         self._stop = True
         self.ip.get_links()
-        self.ip.shutdown_sockets()
+        self.ip.shutdown()
 
     def update_links(self, links):
         '''

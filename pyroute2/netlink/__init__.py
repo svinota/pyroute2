@@ -794,12 +794,16 @@ class netlink(object):
         return _repr_sockets(self._sockets, 'remote')
 
     def shutdown_servers(self, *urls):
-        self._shutdown_sockets(self.iothread.servers, 'local',
-                               self.iothread.remove_server, *urls)
+        self._shutdown_sockets([i for i in self.iothread.servers
+                                if _repr_sockets([i], 'remote') !=
+                                _repr_sockets([self.iothread.sctl], 'remote')],
+                               'local', self.iothread.remove_server, *urls)
 
     def shutdown_clients(self, *urls):
-        self._shutdown_sockets(self.iothread.clients, 'remote',
-                               self.iothread.remove_client, *urls)
+        self._shutdown_sockets([i for i in self.iothread.clients
+                                if _repr_sockets([i], 'remote') !=
+                                _repr_sockets([self.iothread.sctl], 'remote')],
+                               'remote', self.iothread.remove_client, *urls)
 
     def shutdown_sockets(self, *urls):
         self._shutdown_sockets(self._sockets, 'remote',
@@ -814,6 +818,12 @@ class netlink(object):
                     func(sock)
                 except:
                     pass
+
+    def shutdown(self):
+        self.shutdown_sockets()
+        self.shutdown_clients()
+        self.shutdown_servers()
+        self._remote_cmd(self.iothread.control, IPRCMD_STOP)
 
     def serve(self, url, key=None, cert=None, ca=None):
         if key:

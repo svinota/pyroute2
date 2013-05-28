@@ -12,10 +12,10 @@ from utils import get_ip_route
 
 def _run_remote_uplink(url, allow_connect):
     ip = iproute()
-    ip.iothread.allow_rctl = True
     ip.serve(url)
     allow_connect.set()
     ip.iothread._stop_event.wait()
+    ip.shutdown()
 
 
 def _assert_servers(ip, num):
@@ -40,6 +40,7 @@ class TestSetup(object):
         _assert_uplinks(ip, 1)
         ip.shutdown_sockets()
         _assert_uplinks(ip, 0)
+        ip.shutdown()
 
     def test_noautoconnect(self):
         ip = iproute(do_connect=False)
@@ -48,6 +49,7 @@ class TestSetup(object):
         _assert_uplinks(ip, 1)
         ip.shutdown_sockets()
         _assert_uplinks(ip, 0)
+        ip.shutdown()
 
     def test_serve(self):
         url = 'unix://\0nose_tests_socket'
@@ -67,6 +69,7 @@ class TestSetup(object):
         _assert_uplinks(ip, 0)
         _assert_servers(ip, 1)
         _assert_clients(ip, 1)
+        ip.shutdown()
 
 
 class TestSetupUplinks(object):
@@ -82,6 +85,7 @@ class TestSetupUplinks(object):
         _assert_uplinks(ip, 1)
         ip.shutdown_sockets()
         _assert_uplinks(ip, 0)
+        ip.shutdown()
 
     def test_unix_abstract_remote(self):
         self._test_remote('unix://\0nose_tests_socket')
@@ -101,13 +105,12 @@ class TestSetupUplinks(object):
 
 
 class TestData(object):
-    ip = None
 
     def setup(self):
         self.ip = iproute()
 
     def teardown(self):
-        self.ip.shutdown_sockets()
+        self.ip.shutdown()
 
     def test_addr(self):
         assert len(get_ip_addr()) == len(self.ip.get_addr())
