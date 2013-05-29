@@ -39,6 +39,12 @@ Python >= 2.6
 changelog
 ---------
 
+* 0.1.7
+    * ipdb: interface creation: dummy, bond, bridge, vlan
+    * ipdb: if\_slaves interface obsoleted
+    * ipdb: 'direct' mode
+    * iproute: code refactored
+    * examples: create() examples committed
 * 0.1.6
     * netlink: tc ingress, sfq, tbf, htb, u32 partial support
     * ipdb: completely re-implemented transactional model (see docs)

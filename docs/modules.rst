@@ -99,6 +99,17 @@ context managers::
 On exit, the context manager will authomatically `commit()` the
 transaction.
 
+IPDB can also create interfaces::
+
+    with ip.create(kind='bridge', ifname='control') as i:
+        i.add_port(ip.eth1)
+        i.add_port(ip.eth2)
+        i.add_ip('10.0.0.1/24')  # the same as i.add_ip('10.0.0.1', 24)
+
+Right now IPDB supports creation of `dummy`, `bond`, `bridge`
+and `vlan` interfaces. VLAN creation requires also `link` and
+`vlan_id` parameters, see example scripts.
+
 taskstats
 ---------
 
