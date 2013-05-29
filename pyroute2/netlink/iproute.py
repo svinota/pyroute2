@@ -166,37 +166,55 @@ class iproute(netlink):
     #
     # Listing methods
     #
-    def get_qdiscs(self, family=AF_UNSPEC):
+    def get_qdiscs(self):
+        '''
+        Get all queue disciplines
+        '''
         msg = tcmsg()
-        msg['family'] = family
+        msg['family'] = AF_UNSPEC
         return self.nlm_request(msg, RTM_GETQDISC)
 
-    def get_filters(self, family=AF_UNSPEC, index=0, handle=0, parent=0):
+    def get_filters(self, index=0, handle=0, parent=0):
+        '''
+        Get filters
+        '''
         msg = tcmsg()
-        msg['family'] = family
+        msg['family'] = AF_UNSPEC
         msg['index'] = index
         msg['handle'] = handle
         msg['parent'] = parent
         return self.nlm_request(msg, RTM_GETTFILTER)
 
-    def get_classes(self, family=AF_UNSPEC, index=0):
+    def get_classes(self, index=0):
+        '''
+        Get classes
+        '''
         msg = tcmsg()
-        msg['family'] = family
+        msg['family'] = AF_UNSPEC
         msg['index'] = index
         return self.nlm_request(msg, RTM_GETTCLASS)
 
-    def get_links(self, links=None, family=AF_UNSPEC):
+    def get_links(self, *argv):
         '''
-        Get network interfaces sepcifications.
+        Get network interfaces.
+
+        By default returns all interfaces. Arguments vector
+        can contain interface indices or a special keyword
+        'all':
+
+        ip.get_links()
+        ip.get_links('all')
+        ip.get_links(1, 2, 3)
+
+        interfaces = [1, 2, 3]
+        ip.get_links(*interfaces)
         '''
         result = []
-        links = links or ['all']
+        links = argv or ['all']
         msg_flags = NLM_F_REQUEST | NLM_F_DUMP
-        if type(links) not in (list, tuple, set):
-            links = [links]
         for index in links:
             msg = ifinfmsg()
-            msg['family'] = family
+            msg['family'] = AF_UNSPEC
             if index != 'all':
                 msg['index'] = index
                 msg_flags = NLM_F_REQUEST
@@ -246,84 +264,35 @@ class iproute(netlink):
     #
     # Shortcuts
     #
-    def addr_add(self, *argv, **kwarg):
-        '''
-        Add an address to an interface
-        '''
-        return self.addr('add', *argv, **kwarg)
-
-    def addr_del(self, *argv, **kwarg):
-        '''
-        Remove an address from an interface
-        '''
-        return self.addr('delete', *argv, **kwarg)
-
-    def route_add(self, *argv, **kwarg):
-        '''
-        Create a route
-        '''
-        return self.route('add', *argv, **kwarg)
-
-    def route_del(self, *argv, **kwarg):
-        '''
-        Delete a route
-        '''
-        return self.route('delete', *argv, **kwarg)
-
-    def link_up(self, dev):
+    # addr_add(), addr_del(), route_add(), route_del() shortcuts are
+    # removed due to redundancy. Only link shortcuts are left here for
+    # now. Possibly, they should be moved to a separate module.
+    #
+    def link_up(self, index):
         '''
         Switch an interface up
         '''
-        self.link('set', dev, state='up')
+        self.link('set', index, state='up')
 
-    def link_down(self, dev):
+    def link_down(self, index):
         '''
         Switch an interface down
         '''
-        self.link('set', dev, state='down')
+        self.link('set', index, state='down')
 
-    def link_rename(self, dev, name):
+    def link_rename(self, index, name):
         '''
         Rename an interface
         '''
-        self.link('set', dev, state='down')
-        self.link('set', dev, ifname=name)
-        self.link('set', dev, state='up')
+        self.link('set', index, state='down')
+        self.link('set', index, ifname=name)
+        self.link('set', index, state='up')
 
-    def link_remove(self, dev):
+    def link_remove(self, index):
         '''
         Remove an interface
         '''
-        self.link('delete', dev)
-
-    def link_names(self):
-        '''
-        Lookup all interface names. The routine returns a list of
-        tuples (index, name).
-        '''
-        return self.link_filter('IFLA_IFNAME')
-
-    def link_filter(self, name):
-        '''
-        Show some NLA values for all interfaces.
-
-        Example:
-
-        ip.link_filter("ifname")
-        ip.link_filter("address")
-
-        You can supply NLA name in both forms -- "IFLA_ADDRESS" and
-        "address" is the same.
-
-        Return format is a list of tuples (index, nla_value).
-        '''
-        name = name.upper()
-        if not name.startswith('IFLA_'):
-            name = 'IFLA_%s' % (name)
-
-        return [(l[0], ([m[1] for m in l[1] if m[0] == name] or [None])[0])
-                for l in [(k['index'], k['attrs'])
-                for k in [i for i in self.get_links() if 'attrs' in i]]]
+        self.link('delete', index)
 
     def link_lookup(self, **kwarg):
         '''
@@ -349,28 +318,27 @@ class iproute(netlink):
         return [k['index'] for k in
                 [i for i in self.get_links() if 'attrs' in i] if
                 [l for l in k['attrs'] if l[0] == name and l[1] == value]]
-
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
     #
     # General low-level configuration methods
     #
-    def link(self, action, interface, **kwarg):
+    def link(self, action, **kwarg):
         '''
         Link operations.
 
         * action -- set, add or delete
-        * interface -- device index
+        * index -- device index
         * **kwarg -- keywords, NLA
 
         Example:
 
-        dev = 62  # interface index
-        ip.link("set", dev, state="down")
-        ip.link("set", dev, address="00:11:22:33:44:55", name="bala")
-        ip.link("set", dev, mtu=1000, txqlen=2000)
-        ip.link("set", dev, state="up")
+        index = 62  # interface index
+        ip.link("set", index, state="down")
+        ip.link("set", index, address="00:11:22:33:44:55", name="bala")
+        ip.link("set", index, mtu=1000, txqlen=2000)
+        ip.link("set", index, state="up")
 
         Keywords "state", "flags" and "mask" are reserved. State can
         be "up" or "down", it is a shortcut:
@@ -385,12 +353,12 @@ class iproute(netlink):
         corresponding module. You can use the form "ifname" as well
         as "IFLA_IFNAME" and so on, so that's equal:
 
-        ip.link("set", dev, mtu=1000)
-        ip.link("set", dev, IFLA_MTU=1000)
+        ip.link("set", index, mtu=1000)
+        ip.link("set", index, IFLA_MTU=1000)
 
         You can also delete interface with:
 
-        ip.link("delete", dev)
+        ip.link("delete", index)
         '''
 
         actions = {'set': RTM_SETLINK,      # almost all operations
@@ -400,7 +368,8 @@ class iproute(netlink):
 
         msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = ifinfmsg()
-        msg['index'] = interface
+        # index is required
+        msg['index'] = kwarg.get('index')
 
         flags = kwarg.pop('flags', 0)
         mask = kwarg.pop('mask', 0) or kwarg.pop('change', 0)
@@ -423,21 +392,21 @@ class iproute(netlink):
 
         return self.nlm_request(msg, msg_type=action, msg_flags=msg_flags)
 
-    def addr(self, action, interface, address, mask=24, family=AF_INET):
+    def addr(self, action, index, address, mask=24, family=AF_INET):
         '''
         Address operations
 
         * action -- add, delete
-        * interface -- device index
+        * index -- device index
         * address -- IPv4 or IPv6 address
         * mask -- address mask
         * family -- socket.AF_INET for IPv4 or socket.AF_INET6 for IPv6
 
         Example:
 
-        dev = 62
-        ip.addr("add", dev, address="10.0.0.1", mask=24)
-        ip.addr("add", dev, address="10.0.0.2", mask=24)
+        index = 62
+        ip.addr("add", index, address="10.0.0.1", mask=24)
+        ip.addr("add", index, address="10.0.0.2", mask=24)
         '''
 
         actions = {'add': RTM_NEWADDR,
@@ -446,7 +415,7 @@ class iproute(netlink):
 
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = ifaddrmsg()
-        msg['index'] = interface
+        msg['index'] = index
         msg['family'] = family
         msg['prefixlen'] = mask
         msg['scope'] = 0xfe
@@ -457,13 +426,15 @@ class iproute(netlink):
             msg['attrs'] = [['IFA_ADDRESS', address]]
         return self.nlm_request(msg, msg_type=action, msg_flags=flags)
 
-    def tc(self, action, kind, interface, handle, **kwarg):
+    def tc(self, action, kind, index, handle, **kwarg):
         '''
         '''
+        # FIXME: there should be some documentation
+        # TODO tags: tc[0.1.7]
 
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = tcmsg()
-        msg['index'] = interface
+        msg['index'] = index
         msg['handle'] = handle
         opts = None
         if kind == 'ingress':
@@ -496,7 +467,7 @@ class iproute(netlink):
 
     def route(self, action, prefix, mask, table=254,
               rtype='RTN_UNICAST', rtproto='RTPROT_STATIC',
-              rtscope='RT_SCOPE_UNIVERSE', interface=None,
+              rtscope='RT_SCOPE_UNIVERSE', index=None,
               gateway=None, family=AF_INET):
         '''
         Route operations
@@ -508,7 +479,7 @@ class iproute(netlink):
         * rtype -- route type (default: "RTN_UNICAST")
         * rtproto -- routing protocol (default: "RTPROT_STATIC")
         * rtscope -- routing scope (default: "RT_SCOPE_UNIVERSE")
-        * interface -- via device
+        * index -- via device index
         * gateway -- via address
         * family -- socket.AF_INET (default) or socket.AF_INET6
 
@@ -531,8 +502,8 @@ class iproute(netlink):
         msg['dst_len'] = mask
         msg['attrs'] = [['RTA_DST', prefix],
                         ['RTA_TABLE', table]]
-        if interface is not None:
-            msg['attrs'].append(['RTA_OIF', interface])
+        if index is not None:
+            msg['attrs'].append(['RTA_OIF', index])
         if gateway is not None:
             msg['attrs'].append(['RTA_GATEWAY', gateway])
 

@@ -505,7 +505,7 @@ class interface(dotkeys):
             request = IPLinkRequest(self)
             self._parent._links_event.clear()
             try:
-                self.ip.link('add', self['index'], **request)
+                self.ip.link('add', **request)
             except Exception as e:
                 # on failure, invalidate the interface and detach it
                 # from the parent
@@ -540,7 +540,7 @@ class interface(dotkeys):
                 # can be removed. In this case you will fail, but
                 # it is OK, no need to roll back
                 try:
-                    self.ip.addr_del(self['index'], i[0], i[1])
+                    self.ip.addr('delete', self['index'], i[0], i[1])
                 except NetlinkSocketError as x:
                     # bypass only errno 99, 'Cannot assign address'
                     if x.errno != 99:
@@ -548,7 +548,7 @@ class interface(dotkeys):
 
             added = transaction - self
             for i in added['ipaddr']:
-                self.ip.addr_add(self['index'], i[0], i[1])
+                self.ip.addr('add', self['index'], i[0], i[1])
 
             # commit interface changes
             request = IPLinkRequest()
@@ -558,7 +558,7 @@ class interface(dotkeys):
 
             # apply changes only if there is something to apply
             if request:
-                self.ip.link('set', self['index'], **request)
+                self.ip.link('set', index=self['index'], **request)
 
         except Exception as e:
             # something went wrong: roll the transaction back
