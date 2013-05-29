@@ -6,7 +6,6 @@ interfaces
  * (+) ip addresses add/remove
  * create interfaces:
    * (+) dummy
-   * (-) [0.1.7] tun/tap
    * (+) bridge
    * (+) bond
    * (+) vlan
@@ -34,7 +33,7 @@ specific ipdb
 =============
 
  * transaction modes
-   * (-) [0.1.7] direct mode: changes go immediately to the OS
+   * (+) direct mode: changes go immediately to the OS
    * (+) implicit mode: the first change starts the transaction
    * (+) explicit mode: one have to start the transaction first
 

@@ -159,6 +159,10 @@ class IPDBTransactionRequired(IPDBError):
     message = 'begin() a transaction first'
 
 
+class IPDBModeError(IPDBError):
+    message = 'wrong transaction mode for the operation'
+
+
 def update(f):
     def decorated(self, *argv, **kwarg):
         # obtain update lock
@@ -336,7 +340,9 @@ class interface(dotkeys):
         return self['index']
 
     def __enter__(self):
-        assert self._mode in ('implicit', 'explicit')
+        # FIXME: use a bitmask?
+        if self._mode not in ('implicit', 'explicit'):
+            raise IPDBModeError()
         if not self._tids:
             self.begin()
         return self
