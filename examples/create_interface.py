@@ -1,7 +1,7 @@
 '''
 Example: python ./examples/create_interface.py
 
-Creates bond master interface.
+Creates dummy interface.
 '''
 from pyroute2 import ipdb
 
@@ -22,7 +22,7 @@ try:
     #  * dummy
     #  * vlan -- see /examples/create_vlan.py
     #
-    bond = ip.create(kind='bond', ifname='bond,james')
+    bond = ip.create(kind='dummy', ifname='dummy_name')
     bond.commit()
 
 finally:

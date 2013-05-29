@@ -48,7 +48,7 @@ def get_addr_nla(msg):
     return nla
 
 
-class ipset(set):
+class LinkedSet(set):
 
     def __init__(self, *argv, **kwarg):
         set.__init__(self, *argv, **kwarg)
@@ -68,7 +68,7 @@ class ipset(set):
         set.remove(self, key)
 
     def connect(self, link):
-        assert isinstance(link, ipset)
+        assert isinstance(link, LinkedSet)
         self.links.append(link)
 
 
@@ -271,11 +271,11 @@ class interface(dotkeys):
         self._tids = []
         self._transactions = {}
         self._mode = mode
-        self._slaves = dotkeys()
         self._snapshot_lock = threading.RLock()
         # local setup: direct state is required
         self._direct_state.acquire()
-        self['ipaddr'] = ipset()
+        self['ipaddr'] = LinkedSet()
+        self['ports'] = LinkedSet()
         for i in nla_fields:
             self[i] = None
         self['flags'] = 0
@@ -302,9 +302,11 @@ class interface(dotkeys):
             for key in tuple(self.keys()):
                 if key in nla_fields:
                     res[key] = self[key]
-            res['ipaddr'] = ipset(self['ipaddr'])
+            res['ipaddr'] = LinkedSet(self['ipaddr'])
+            res['ports'] = LinkedSet(self['ports'])
             if self._parent is not None and not detached:
                 self['ipaddr'].connect(res['ipaddr'])
+                self['ports'].connect(res['ports'])
             return res
 
     def __sub__(self, pif):
@@ -319,9 +321,13 @@ class interface(dotkeys):
                 res[key] = self[key]
         self._direct_state.release()
         # ip addresses
-        ipaddr = ipset(self['ipaddr'] - pif['ipaddr'])
+        ipaddr = LinkedSet(self['ipaddr'] - pif['ipaddr'])
+        # ports
+        ports = LinkedSet(self['ports'] - pif['ports'])
         if ipaddr:
             res['ipaddr'] = ipaddr
+        if ports:
+            res['ports'] = ports
 
         return res
 
@@ -359,13 +365,6 @@ class interface(dotkeys):
         elif 'link' in self:
             # vlan ports
             return self._parent.get(self['link'], None)
-
-    @property
-    def if_slaves(self):
-        '''
-        [property] Dictionary of slave interfaces
-        '''
-        return self._slaves
 
     def load(self, dev):
         '''
@@ -436,6 +435,23 @@ class interface(dotkeys):
         else:
             self['ipaddr'].remove((ip, mask))
 
+    @update
+    def add_port(self, port, direct):
+        if not direct:
+            transaction = self.last()
+            transaction.add_port(port)
+        else:
+            self['ports'].add(port)
+
+    @update
+    def del_port(self, port, direct):
+        if not direct:
+            transaction = self.last()
+            if port in transaction['ports']:
+                transaction.del_port(port)
+        else:
+            self['ports'].remove(port)
+
     def begin(self):
         '''
         Start new transaction
@@ -465,7 +481,10 @@ class interface(dotkeys):
         removed = self - self.last()
         added['-ipaddr'] = removed['ipaddr']
         added['+ipaddr'] = added['ipaddr']
+        added['-ports'] = removed['ports']
+        added['+ports'] = added['ports']
         del added['ipaddr']
+        del added['ports']
         return added
 
     def drop(self):
@@ -533,8 +552,11 @@ class interface(dotkeys):
         snapshot = self.pick()
 
         try:
-            # commit IP address changes
             removed = self - transaction
+            added = transaction - self
+
+            # 8<---------------------------------------------
+            # IP address changes
             for i in removed['ipaddr']:
                 # When you remove a primary IP addr, all subnetwork
                 # can be removed. In this case you will fail, but
@@ -546,11 +568,20 @@ class interface(dotkeys):
                     if x.errno != 99:
                         raise x
 
-            added = transaction - self
             for i in added['ipaddr']:
                 self.ip.addr('add', self['index'], i[0], i[1])
+            # 8<---------------------------------------------
+            # Interface slaves
+            for i in removed['ports']:
+                # detach the port
+                self.ip.link('set', index=i, master=0)
 
-            # commit interface changes
+            for i in added['ports']:
+                # enslave the port
+                self.ip.link('set', index=i, master=self['index'])
+
+            # 8<---------------------------------------------
+            # Interface changes
             request = IPLinkRequest()
             for key in added:
                 if key in nla_fields:
@@ -559,6 +590,7 @@ class interface(dotkeys):
             # apply changes only if there is something to apply
             if request:
                 self.ip.link('set', index=self['index'], **request)
+            # 8<---------------------------------------------
 
         except Exception as e:
             # something went wrong: roll the transaction back
@@ -728,7 +760,7 @@ class ipdb(dotkeys):
         '''
         for dev in links:
             if dev['index'] not in self.ipaddr:
-                self.ipaddr[dev['index']] = ipset()
+                self.ipaddr[dev['index']] = LinkedSet()
             i = \
                 self.by_index[dev['index']] = \
                 self[dev['index']] = \
@@ -749,17 +781,24 @@ class ipdb(dotkeys):
             if master:
                 master = self[master[0]]
                 index = msg['index']
-                name = msg.get_attr('IFLA_IFNAME')[0]
                 if msg['event'] == 'RTM_NEWLINK':
-                    master._slaves[index] = self[msg['index']]
-                    master._slaves[name] = self[msg['index']]
+                    # TODO tags: ipdb
+                    # The code serves one particular case, when
+                    # an enslaved interface is set to belong to
+                    # another master. In this case there will be
+                    # no 'RTM_DELLINK', only 'RTM_NEWLINK', and
+                    # we can end up in a broken state, when two
+                    # masters refers to the same slave
+                    for device in self.by_index:
+                        if index in self[device]['ports']:
+                            self[device]['ports'].remove(index)
+                    # FIXME: move this to a dedicated method
+                    master['ports'].add(index)
                 elif msg['event'] == 'RTM_DELLINK':
-                    if index in master._slaves:
-                        del master._slaves[index]
-                    if name in master._slaves:
-                        del master._slaves[name]
-                    if 'master' in self[msg['index']]:
-                        del self[msg['index']]['master']
+                    # TODO tags: ipdb
+                    # FIXME: move this to a dedicated method
+                    if index in master['ports']:
+                        master['ports'].remove(index)
 
     def update_addr(self, addrs, action='add'):
         '''
@@ -798,8 +837,6 @@ class ipdb(dotkeys):
                         if self[index]['ifname'] != old:
                             # FIXME catch exception
                             # FIXME isolate dict updates
-                            if self[old].if_master:
-                                del self[old].if_master.if_slaves[old]
                             del self[old]
                             del self.by_name[old]
                             if index in self.old_names:
