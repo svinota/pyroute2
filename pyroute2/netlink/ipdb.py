@@ -163,11 +163,12 @@ def update(f):
     def decorated(self, *argv, **kwarg):
         # obtain update lock
         tid = None
+        direct = True
         with self._snapshot_lock:
             # fix the pass-through mode:
             with self._direct_state:
-                kwarg['direct'] = self._direct_state.is_set()
-                if not kwarg['direct']:
+                direct = self._direct_state.is_set()
+                if not direct:
                     # 1. begin transaction for 'direct' type
                     if self._mode == 'direct':
                         tid = self.begin()
@@ -181,12 +182,12 @@ def update(f):
                             raise IPDBTransactionRequired()
                     # 4. transactions can not require transactions :)
                     elif self._mode == 'snapshot':
-                        kwarg['direct'] = True
+                        direct = True
                     # do not support other modes
                     else:
                         raise IPDBError('transaction mode not supported')
                     # now that the transaction _is_ open
-                f(self, *argv, **kwarg)
+                f(self, direct, *argv, **kwarg)
         if tid:
             # close the transaction for 'direct' type
             self.commit(tid)
@@ -402,7 +403,7 @@ class interface(dotkeys):
         self._direct_state.release()
 
     @update
-    def __setitem__(self, key, value, direct):
+    def __setitem__(self, direct, key, value):
         if not direct:
             transaction = self.last()
             transaction[key] = value
@@ -410,7 +411,7 @@ class interface(dotkeys):
             dotkeys.__setitem__(self, key, value)
 
     @update
-    def __delitem__(self, key, direct):
+    def __delitem__(self, direct, key):
         if not direct:
             transaction = self.last()
             if key in transaction:
@@ -419,7 +420,10 @@ class interface(dotkeys):
             dotkeys.__delitem__(self, key)
 
     @update
-    def add_ip(self, ip, mask, direct):
+    def add_ip(self, direct, ip, mask=None):
+        if mask is None:
+            ip, mask = ip.split('/')
+            mask = int(mask, 0)
         if not direct:
             transaction = self.last()
             transaction.add_ip(ip, mask)
@@ -427,7 +431,10 @@ class interface(dotkeys):
             self['ipaddr'].add((ip, mask))
 
     @update
-    def del_ip(self, ip, mask, direct):
+    def del_ip(self, direct, ip, mask=None):
+        if mask is None:
+            ip, mask = ip.split('/')
+            mask = int(mask, 0)
         if not direct:
             transaction = self.last()
             if (ip, mask) in transaction['ipaddr']:
@@ -436,7 +443,9 @@ class interface(dotkeys):
             self['ipaddr'].remove((ip, mask))
 
     @update
-    def add_port(self, port, direct):
+    def add_port(self, direct, port):
+        if isinstance(port, interface):
+            port = port['index']
         if not direct:
             transaction = self.last()
             transaction.add_port(port)
@@ -444,7 +453,9 @@ class interface(dotkeys):
             self['ports'].add(port)
 
     @update
-    def del_port(self, port, direct):
+    def del_port(self, direct, port):
+        if isinstance(port, interface):
+            port = port['index']
         if not direct:
             transaction = self.last()
             if port in transaction['ports']:
