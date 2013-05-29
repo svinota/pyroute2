@@ -541,7 +541,7 @@ class tcmsg(nlmsg):
 
                 # iterate keys and pack them to the 'header'
                 for key in self['keys']:
-                    # TODO: filter
+                    # TODO tags: filter
                     (key, nh) = cut_field(key, '@')  # FIXME: do not ignore nh
                     (key, offset) = cut_field(key, '+')
                     offset = int(offset, 0)

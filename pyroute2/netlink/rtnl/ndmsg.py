@@ -15,7 +15,6 @@ class ndmsg(nlmsg):
         __u8          ndm_type;
     };
 
-    TODO:
     struct nda_cacheinfo {
         __u32         ndm_confirmed;
         __u32         ndm_used;

@@ -490,7 +490,8 @@ class iothread(threading.Thread):
                     send = self.families[family]
                     self.rtable[sock] = send
                     rsp['cmd'] = IPRCMD_ACK
-                # TODO
+                # TODO tags: remote
+                #
                 # * subscribe requests
                 # * ...
             elif cmd['cmd'] == IPRCMD_REGISTER:
