@@ -674,7 +674,6 @@ class ipdb(dotkeys):
         self.ip.monitor()
         self.ip.mirror()
         self._mthread = threading.Thread(target=self.monitor)
-        self._mthread.setDaemon(True)
         self._mthread.start()
 
     def __dir__(self):
@@ -687,6 +686,7 @@ class ipdb(dotkeys):
         self._stop = True
         self.ip.get_links()
         self.ip.shutdown()
+        self._mthread.join()
 
     def create(self, kind, ifname, **kwarg):
         '''
