@@ -1,3 +1,8 @@
+'''
+Example: python ./examples/create_interface.py
+
+Creates bond master interface.
+'''
 from pyroute2 import ipdb
 
 ip = ipdb()
