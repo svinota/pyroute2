@@ -207,12 +207,19 @@ class IPLinkRequest(dict):
 
     def __setitem__(self, key, value):
         if key == 'kind':
-            key = 'IFLA_LINKINFO'
-            value = {'attrs': [['IFLA_INFO_KIND', value]]}
+            if 'IFLA_LINKINFO' not in self:
+                self['IFLA_LINKINFO'] = {'attrs': []}
+            nla = ['IFLA_INFO_KIND', value]
+            # FIXME: we need to replace, not add
+            self['IFLA_LINKINFO']['attrs'].append(nla)
         elif key == 'vlan_id':
-            key = 'IFLA_INFO_DATA'
-            value = {'attrs': [['IFLA_VLAN_ID', value]]}
-        dict.__setitem__(self, key, value)
+            if 'IFLA_LINKINFO' not in self:
+                self['IFLA_LINKINFO'] = {'attrs': []}
+            nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_VLAN_ID', value]]}]
+            # FIXME: we need to replace, not add
+            self['IFLA_LINKINFO']['attrs'].append(nla)
+        else:
+            dict.__setitem__(self, key, value)
 
 
 class interface(dotkeys):
