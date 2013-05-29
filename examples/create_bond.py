@@ -17,6 +17,9 @@ try:
         # enslave two interfaces: tap0 and tap1
         i.add_port(ip.tap0.index)
         i.add_port(ip.tap1.index)
+        # make an example more scary: add IPs to the bond,james
+        i.add_ip('10.251.0.1', 24)
+        i.add_ip('10.251.0.2', 24)
 
 finally:
     ip.shutdown()
