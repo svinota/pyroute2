@@ -217,23 +217,24 @@ class nlmsg_base(dict):
 
                 # 's' and 'z' can be used only in connection with
                 # length, encoded in the header
-                if fmt == 's':
+                if i[1] in ('s', 'z'):
                     fmt = '%is' % (self.length - 4)
-                elif fmt == 'z':
-                    fmt = '%is' % (self.length - 5)
 
                 size = struct.calcsize(fmt)
                 raw = self.buf.read(size)
                 actual_size = len(raw)
 
                 # FIXME: adjust string size again
-                if fmt[-1] == 's':
+                if i[1] in ('s', 'z'):
                     size = actual_size
                     fmt = '%is' % (actual_size)
                 if size == actual_size:
                     value = struct.unpack(fmt, raw)
                     if len(value) == 1:
                         self[name] = value[0]
+                        # cut zero-byte from z-strings
+                        if i[1] == 'z' and self[name][-1] == '\0':
+                            self[name] = self[name][:-1]
                     else:
                         self[name] = value
                 else:
