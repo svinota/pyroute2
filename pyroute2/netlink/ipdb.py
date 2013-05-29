@@ -311,11 +311,13 @@ class interface(dotkeys):
         '''
         '''
         res = interface(ipr=self.ip, mode='snapshot')
+        self._direct_state.acquire()
         # simple keys
         for key in self:
             if (key in nla_fields) and \
                     ((key not in pif) or (self[key] != pif[key])):
                 res[key] = self[key]
+        self._direct_state.release()
         # ip addresses
         ipaddr = ipset(self['ipaddr'] - pif['ipaddr'])
         if ipaddr:
