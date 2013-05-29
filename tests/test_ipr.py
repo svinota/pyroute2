@@ -99,6 +99,11 @@ class TestSetupUplinks(object):
             if e.errno != 2:  # no such file or directory
                 raise e
         self._test_remote(url)
+        try:
+            os.remove(sck)
+        except OSError as e:
+            if e.errno != 2:
+                raise e
 
     def test_tcp_remote(self):
         self._test_remote('tcp://127.0.0.1:9821')
