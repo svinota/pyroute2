@@ -110,10 +110,11 @@ IPRCMD_RELOAD = 5
 IPRCMD_ROUTE = 6
 
 
-def _get_socket(url, server_side, ssl_keys=None):
+def _get_socket(url, server_side=False, ssl_keys=None):
     assert type(url) is str
     target = urlparse.urlparse(url)
     hostname = target.hostname or ''
+    ssl_keys = ssl_keys or {}
     use_ssl = False
     ssl_version = 2
 
@@ -589,7 +590,8 @@ class iothread(threading.Thread):
         '''
         Add a server socket to listen for clients on
         '''
-        (sock, address) = _get_socket(url, server_side=False)
+        (sock, address) = _get_socket(url, server_side=True,
+                                      ssl_keys=self.ssl_keys)
         if sock.family == socket.AF_INET:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(address)
@@ -796,8 +798,8 @@ class netlink(object):
 
     def shutdown_servers(self, *urls):
         self._shutdown_sockets([i for i in self.iothread.servers
-                                if _repr_sockets([i], 'remote') !=
-                                _repr_sockets([self.iothread.sctl], 'remote')],
+                                if _repr_sockets([i], 'local') !=
+                                _repr_sockets([self.iothread.sctl], 'local')],
                                'local', self.iothread.remove_server, *urls)
 
     def shutdown_clients(self, *urls):
