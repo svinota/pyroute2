@@ -2,3 +2,5 @@
 *.pyc
 docs/general.rst
 docs/_build
+tests/htmlcov
+tests/.coverage

@@ -35,6 +35,8 @@ all:
 clean: clean-version
 	rm -rf dist build MANIFEST
 	rm -f docs/general.rst
+	rm -f  tests/.coverage
+	rm -rf tests/htmlcov
 	find . -name "*pyc" -exec rm -f "{}" \;
 
 check:
@@ -61,10 +63,14 @@ docs: clean force-version
 
 test:
 	@flake8 .
-	@cd tests; nosetests -v; cd ..
+	@cd tests; \
+		coverage run --omit='/usr/*' `which nosetests` -v; \
+		coverage report; \
+		coverage html; \
+		cd ..
 
 upload: clean force-version
-	${python} setup.py sdist upload 
+	${python} setup.py sdist upload
 
 dist: clean force-version
 	${python} setup.py sdist
