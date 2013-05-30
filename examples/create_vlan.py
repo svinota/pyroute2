@@ -30,4 +30,4 @@ try:
         i.mtu = 1400
 
 finally:
-    ip.shutdown()
+    ip.release()

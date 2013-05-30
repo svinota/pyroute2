@@ -26,4 +26,4 @@ try:
     bond.commit()
 
 finally:
-    ip.shutdown()
+    ip.release()

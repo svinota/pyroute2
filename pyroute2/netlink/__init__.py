@@ -821,6 +821,10 @@ class netlink(object):
                     pass
 
     def shutdown(self):
+        # FIXME: warn on deprecated call
+        self.release()
+
+    def release(self):
         self.shutdown_sockets()
         self.shutdown_clients()
         self.shutdown_servers()

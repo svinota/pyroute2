@@ -732,9 +732,13 @@ class ipdb(dotkeys):
         return ret
 
     def shutdown(self):
+        # FIXME: warn on deprecated call
+        self.release()
+
+    def release(self):
         self._stop = True
         self.ip.get_links()
-        self.ip.shutdown()
+        self.ip.release()
         self._mthread.join()
 
     def create(self, kind, ifname, **kwarg):

@@ -5,7 +5,7 @@ Creates bond interface.
 '''
 from pyroute2 import ipdb
 
-ip = ipdb()
+ip = ipdb(mode='explicit')
 
 try:
 
@@ -22,4 +22,4 @@ try:
         i.add_ip('10.251.0.2/24')
 
 finally:
-    ip.shutdown()
+    ip.release()
