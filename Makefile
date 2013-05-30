@@ -61,7 +61,7 @@ docs: clean force-version
 
 test:
 	@flake8 .
-	@nosetests -v
+	@cd tests; nosetests -v; cd ..
 
 upload: clean force-version
 	${python} setup.py sdist upload 

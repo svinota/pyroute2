@@ -3,9 +3,9 @@ Example: python ./examples/create_bond.py
 
 Creates bond interface.
 '''
-from pyroute2 import ipdb
+from pyroute2 import IPDB
 
-ip = ipdb(mode='explicit')
+ip = IPDB(mode='explicit')
 
 try:
 

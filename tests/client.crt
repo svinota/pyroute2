@@ -1,0 +1,72 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 2 (0x2)
+        Signature Algorithm: sha1WithRSAEncryption
+        Issuer: C=CZ, ST=JMR, L=Brno, O=RedHat, OU=OU, CN=CN/name=NAME/emailAddress=peet@redhat.com
+        Validity
+            Not Before: May  3 13:19:33 2013 GMT
+            Not After : May  1 13:19:33 2023 GMT
+        Subject: C=CZ, ST=JMR, L=Brno, O=RedHat, OU=OU, CN=42385f48-5d52-4b7d-9ae9-93e11e74921d/name=NAME/emailAddress=peet@redhat.com
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (1024 bit)
+                Modulus:
+                    00:af:bb:33:41:8a:d0:60:1e:1c:7c:5e:2d:41:9b:
+                    3c:9f:d6:3e:f7:d8:59:20:39:64:3f:b7:f7:f0:94:
+                    c6:30:90:c4:cc:01:3b:e3:07:38:15:31:94:24:0c:
+                    fd:79:7b:66:99:a4:97:77:cc:ba:21:6b:fe:9c:10:
+                    8d:8f:d2:3a:a9:d4:f3:f4:88:cc:90:1b:72:7c:78:
+                    30:bc:5a:8c:3d:0d:de:e0:0f:7b:4a:7c:08:7b:9e:
+                    64:90:5f:cc:3c:68:a5:60:10:71:1b:32:00:50:6c:
+                    0f:32:0b:25:50:c8:0d:81:33:0b:db:52:4e:bb:6c:
+                    18:10:3e:d1:07:c0:68:43:1f
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            Netscape Comment: 
+                Easy-RSA Generated Certificate
+            X509v3 Subject Key Identifier: 
+                00:27:16:79:50:8B:26:EF:E3:C0:D9:4B:E9:6E:3F:9C:A1:16:AB:6C
+            X509v3 Authority Key Identifier: 
+                keyid:D5:26:1C:C8:8E:2E:25:A4:79:CE:55:71:6F:49:82:C7:0A:3F:FA:35
+                DirName:/C=CZ/ST=JMR/L=Brno/O=RedHat/OU=OU/CN=CN/name=NAME/emailAddress=peet@redhat.com
+                serial:E6:EA:93:10:E3:A9:AB:A7
+
+            X509v3 Extended Key Usage: 
+                TLS Web Client Authentication
+            X509v3 Key Usage: 
+                Digital Signature
+    Signature Algorithm: sha1WithRSAEncryption
+        67:61:bc:ea:52:96:95:3b:0f:50:e3:77:a6:15:56:9a:e2:1e:
+        13:42:84:61:ee:10:8c:3d:23:6b:15:f8:4a:a8:76:7b:3c:6a:
+        3e:7c:ca:d3:75:da:05:e2:9d:53:6c:ed:57:43:de:8a:8b:12:
+        82:d6:6b:c2:da:27:41:08:00:e8:26:3d:21:35:86:eb:9b:5a:
+        51:97:1f:8a:10:e2:aa:44:80:64:7c:a1:4d:ba:ef:f2:f4:ea:
+        7c:87:32:66:f0:65:a6:04:98:ca:1a:4c:9e:f3:5f:7d:51:8c:
+        ee:92:01:c2:54:c7:bf:9b:8c:8c:94:af:7f:80:67:f7:f4:64:
+        34:ad
+-----BEGIN CERTIFICATE-----
+MIID3zCCA0igAwIBAgIBAjANBgkqhkiG9w0BAQUFADCBhDELMAkGA1UEBhMCQ1ox
+DDAKBgNVBAgTA0pNUjENMAsGA1UEBxMEQnJubzEPMA0GA1UEChMGUmVkSGF0MQsw
+CQYDVQQLEwJPVTELMAkGA1UEAxMCQ04xDTALBgNVBCkTBE5BTUUxHjAcBgkqhkiG
+9w0BCQEWD3BlZXRAcmVkaGF0LmNvbTAeFw0xMzA1MDMxMzE5MzNaFw0yMzA1MDEx
+MzE5MzNaMIGmMQswCQYDVQQGEwJDWjEMMAoGA1UECBMDSk1SMQ0wCwYDVQQHEwRC
+cm5vMQ8wDQYDVQQKEwZSZWRIYXQxCzAJBgNVBAsTAk9VMS0wKwYDVQQDEyQ0MjM4
+NWY0OC01ZDUyLTRiN2QtOWFlOS05M2UxMWU3NDkyMWQxDTALBgNVBCkTBE5BTUUx
+HjAcBgkqhkiG9w0BCQEWD3BlZXRAcmVkaGF0LmNvbTCBnzANBgkqhkiG9w0BAQEF
+AAOBjQAwgYkCgYEAr7szQYrQYB4cfF4tQZs8n9Y+99hZIDlkP7f38JTGMJDEzAE7
+4wc4FTGUJAz9eXtmmaSXd8y6IWv+nBCNj9I6qdTz9IjMkBtyfHgwvFqMPQ3e4A97
+SnwIe55kkF/MPGilYBBxGzIAUGwPMgslUMgNgTML21JOu2wYED7RB8BoQx8CAwEA
+AaOCATswggE3MAkGA1UdEwQCMAAwLQYJYIZIAYb4QgENBCAWHkVhc3ktUlNBIEdl
+bmVyYXRlZCBDZXJ0aWZpY2F0ZTAdBgNVHQ4EFgQUACcWeVCLJu/jwNlL6W4/nKEW
+q2wwgbkGA1UdIwSBsTCBroAU1SYcyI4uJaR5zlVxb0mCxwo/+jWhgYqkgYcwgYQx
+CzAJBgNVBAYTAkNaMQwwCgYDVQQIEwNKTVIxDTALBgNVBAcTBEJybm8xDzANBgNV
+BAoTBlJlZEhhdDELMAkGA1UECxMCT1UxCzAJBgNVBAMTAkNOMQ0wCwYDVQQpEwRO
+QU1FMR4wHAYJKoZIhvcNAQkBFg9wZWV0QHJlZGhhdC5jb22CCQDm6pMQ46mrpzAT
+BgNVHSUEDDAKBggrBgEFBQcDAjALBgNVHQ8EBAMCB4AwDQYJKoZIhvcNAQEFBQAD
+gYEAZ2G86lKWlTsPUON3phVWmuIeE0KEYe4QjD0jaxX4Sqh2ezxqPnzK03XaBeKd
+U2ztV0PeiosSgtZrwtonQQgA6CY9ITWG65taUZcfihDiqkSAZHyhTbrv8vTqfIcy
+ZvBlpgSYyhpMnvNffVGM7pIBwlTHv5uMjJSvf4Bn9/RkNK0=
+-----END CERTIFICATE-----

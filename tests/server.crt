@@ -1,0 +1,74 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 1 (0x1)
+        Signature Algorithm: sha1WithRSAEncryption
+        Issuer: C=CZ, ST=JMR, L=Brno, O=RedHat, OU=OU, CN=CN/name=NAME/emailAddress=peet@redhat.com
+        Validity
+            Not Before: May  3 13:19:29 2013 GMT
+            Not After : May  1 13:19:29 2023 GMT
+        Subject: C=CZ, ST=JMR, L=Brno, O=RedHat, OU=OU, CN=CN/name=NAME/emailAddress=peet@redhat.com
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (1024 bit)
+                Modulus:
+                    00:d0:c5:8a:b5:0c:66:13:71:31:5a:99:1e:46:3b:
+                    f8:6e:d7:91:fa:f9:33:55:d5:67:e2:f4:ef:d7:75:
+                    2b:2c:1a:32:d3:4e:e7:f2:dd:7f:f7:2b:d8:b9:c2:
+                    cd:89:d7:aa:a4:3e:99:59:05:f0:bc:56:13:09:0d:
+                    bf:3d:ef:6c:0e:9c:dc:26:91:3c:9d:f7:be:4f:20:
+                    13:81:cf:27:07:af:61:4a:59:dc:1c:05:73:4d:89:
+                    4a:0f:35:0a:e7:bb:65:d1:67:d2:13:5a:ad:e7:46:
+                    72:71:01:0c:90:b2:c1:4a:fa:13:34:14:8c:34:64:
+                    69:db:c4:e9:4f:98:27:88:b1
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            Netscape Cert Type: 
+                SSL Server
+            Netscape Comment: 
+                Easy-RSA Generated Server Certificate
+            X509v3 Subject Key Identifier: 
+                9C:CF:B5:A2:ED:7D:EE:32:91:CC:32:47:53:1F:13:0E:5D:AA:96:FB
+            X509v3 Authority Key Identifier: 
+                keyid:D5:26:1C:C8:8E:2E:25:A4:79:CE:55:71:6F:49:82:C7:0A:3F:FA:35
+                DirName:/C=CZ/ST=JMR/L=Brno/O=RedHat/OU=OU/CN=CN/name=NAME/emailAddress=peet@redhat.com
+                serial:E6:EA:93:10:E3:A9:AB:A7
+
+            X509v3 Extended Key Usage: 
+                TLS Web Server Authentication
+            X509v3 Key Usage: 
+                Digital Signature, Key Encipherment
+    Signature Algorithm: sha1WithRSAEncryption
+        87:8d:8d:31:ec:d5:cf:31:07:58:d2:dc:38:07:74:a6:8c:65:
+        c6:eb:ef:27:93:c3:92:e3:85:44:a0:ca:3c:da:66:db:12:85:
+        0d:af:3a:56:6e:32:02:60:71:24:83:81:f3:1a:31:4e:39:78:
+        e6:40:78:73:60:e5:ce:ee:a1:a7:90:77:5b:93:c8:d2:51:7d:
+        b0:96:7c:eb:3c:0b:2e:c0:8e:52:fc:bd:10:aa:62:c5:fe:74:
+        f3:a9:39:00:83:59:c6:79:78:ba:bc:46:57:0d:9c:19:e3:a8:
+        39:4b:17:21:32:ab:75:5f:11:99:46:79:8e:3e:2a:6b:07:99:
+        e9:a4
+-----BEGIN CERTIFICATE-----
+MIID1zCCA0CgAwIBAgIBATANBgkqhkiG9w0BAQUFADCBhDELMAkGA1UEBhMCQ1ox
+DDAKBgNVBAgTA0pNUjENMAsGA1UEBxMEQnJubzEPMA0GA1UEChMGUmVkSGF0MQsw
+CQYDVQQLEwJPVTELMAkGA1UEAxMCQ04xDTALBgNVBCkTBE5BTUUxHjAcBgkqhkiG
+9w0BCQEWD3BlZXRAcmVkaGF0LmNvbTAeFw0xMzA1MDMxMzE5MjlaFw0yMzA1MDEx
+MzE5MjlaMIGEMQswCQYDVQQGEwJDWjEMMAoGA1UECBMDSk1SMQ0wCwYDVQQHEwRC
+cm5vMQ8wDQYDVQQKEwZSZWRIYXQxCzAJBgNVBAsTAk9VMQswCQYDVQQDEwJDTjEN
+MAsGA1UEKRMETkFNRTEeMBwGCSqGSIb3DQEJARYPcGVldEByZWRoYXQuY29tMIGf
+MA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDQxYq1DGYTcTFamR5GO/hu15H6+TNV
+1Wfi9O/XdSssGjLTTufy3X/3K9i5ws2J16qkPplZBfC8VhMJDb8972wOnNwmkTyd
+975PIBOBzycHr2FKWdwcBXNNiUoPNQrnu2XRZ9ITWq3nRnJxAQyQssFK+hM0FIw0
+ZGnbxOlPmCeIsQIDAQABo4IBVTCCAVEwCQYDVR0TBAIwADARBglghkgBhvhCAQEE
+BAMCBkAwNAYJYIZIAYb4QgENBCcWJUVhc3ktUlNBIEdlbmVyYXRlZCBTZXJ2ZXIg
+Q2VydGlmaWNhdGUwHQYDVR0OBBYEFJzPtaLtfe4ykcwyR1MfEw5dqpb7MIG5BgNV
+HSMEgbEwga6AFNUmHMiOLiWkec5VcW9JgscKP/o1oYGKpIGHMIGEMQswCQYDVQQG
+EwJDWjEMMAoGA1UECBMDSk1SMQ0wCwYDVQQHEwRCcm5vMQ8wDQYDVQQKEwZSZWRI
+YXQxCzAJBgNVBAsTAk9VMQswCQYDVQQDEwJDTjENMAsGA1UEKRMETkFNRTEeMBwG
+CSqGSIb3DQEJARYPcGVldEByZWRoYXQuY29tggkA5uqTEOOpq6cwEwYDVR0lBAww
+CgYIKwYBBQUHAwEwCwYDVR0PBAQDAgWgMA0GCSqGSIb3DQEBBQUAA4GBAIeNjTHs
+1c8xB1jS3DgHdKaMZcbr7yeTw5LjhUSgyjzaZtsShQ2vOlZuMgJgcSSDgfMaMU45
+eOZAeHNg5c7uoaeQd1uTyNJRfbCWfOs8Cy7AjlL8vRCqYsX+dPOpOQCDWcZ5eLq8
+RlcNnBnjqDlLFyEyq3VfEZlGeY4+KmsHmemk
+-----END CERTIFICATE-----

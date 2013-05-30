@@ -1,8 +1,8 @@
 
-from pyroute2.netlink.iproute import iproute
-from pyroute2.netlink.ipdb import ipdb
-from pyroute2.netlink.taskstats import taskstats
+from pyroute2.netlink.iproute import IPRoute
+from pyroute2.netlink.ipdb import IPDB
+from pyroute2.netlink.taskstats import TaskStats
 
-make_pep8_happy = iproute
-make_pep8_happy = ipdb
-make_pep8_happy = taskstats
+make_pep8_happy = IPRoute
+make_pep8_happy = IPDB
+make_pep8_happy = TaskStats

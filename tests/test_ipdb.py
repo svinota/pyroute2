@@ -1,4 +1,4 @@
-from pyroute2 import ipdb
+from pyroute2 import IPDB
 # tests imports
 from utils import get_ip_addr
 
@@ -7,10 +7,10 @@ class TestBasic(object):
     ip = None
 
     def setup(self):
-        self.ip = ipdb()
+        self.ip = IPDB()
 
     def teardown(self):
-        self.ip.shutdown()
+        self.ip.release()
 
     def test_simple(self):
         assert self.ip.keys() > 0

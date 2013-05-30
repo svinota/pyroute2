@@ -1,7 +1,7 @@
 
-from pyroute2.netlink import netlink
+from pyroute2.netlink import Netlink
+from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import marshal
 from pyroute2.netlink.generic import nla
 from pyroute2.netlink.generic import genlmsg
 from pyroute2.netlink.generic import ctrlmsg
@@ -148,12 +148,12 @@ class taskstatsmsg(genlmsg):
             pass
 
 
-class taskstats(netlink):
+class TaskStats(Netlink):
 
-    marshal = marshal
+    marshal = Marshal
 
     def __init__(self):
-        netlink.__init__(self)
+        Netlink.__init__(self)
         # FIXME
         self.io_thread.marshal.msg_map[GENL_ID_CTRL] = ctrlmsg
         self.prid = self.get_protocol_id('TASKSTATS')

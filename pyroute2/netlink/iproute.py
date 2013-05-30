@@ -3,13 +3,13 @@ from socket import htons
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
-from pyroute2.netlink import netlink
+from pyroute2.netlink import Netlink
+from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NLM_F_EXCL
-from pyroute2.netlink import marshal
 from pyroute2.netlink.generic import NETLINK_ROUTE
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
@@ -128,7 +128,7 @@ rtscopes = {'RT_SCOPE_UNIVERSE': 0,
             'RT_SCOPE_NOWHERE': 255}
 
 
-class marshal_rtnl(marshal):
+class MarshalRtnl(Marshal):
     msg_map = {RTM_NEWLINK: ifinfmsg,
                RTM_DELLINK: ifinfmsg,
                RTM_NEWADDR: ifaddrmsg,
@@ -151,8 +151,8 @@ class marshal_rtnl(marshal):
             pass
 
 
-class iproute(netlink):
-    marshal = marshal_rtnl
+class IPRoute(Netlink):
+    marshal = MarshalRtnl
     family = NETLINK_ROUTE
     groups = RTNLGRP_IPV4_IFADDR |\
         RTNLGRP_IPV6_IFADDR |\

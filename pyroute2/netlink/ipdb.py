@@ -20,7 +20,7 @@ from socket import AF_INET
 from socket import AF_INET6
 from pyroute2.netlink import NetlinkSocketError
 from pyroute2.netlink import NetlinkQueueEmpty
-from pyroute2.netlink.iproute import iproute
+from pyroute2.netlink.iproute import IPRoute
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
 nla_fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
@@ -71,6 +71,9 @@ class LinkedSet(set):
     def connect(self, link):
         assert isinstance(link, LinkedSet)
         self.links.append(link)
+
+    def __repr__(self):
+        return repr(list(self))
 
 
 class dotkeys(dict):
@@ -257,7 +260,7 @@ class interface(dotkeys):
 
         Parameters:
             * dev -- RTM_NEWLINK message
-            * ipd -- iproute() reference
+            * ipd -- IPRoute() reference
             * parent -- ipdb() reference
         '''
         self.ip = ipr
@@ -546,7 +549,7 @@ class interface(dotkeys):
             except Exception as e:
                 # on failure, invalidate the interface and detach it
                 # from the parent
-                # 1. drop the iproute() link
+                # 1. drop the IPRoute() link
                 self.ip = None
                 # 2. clean up ipdb
                 self._parent.detach(self['index'])
@@ -675,7 +678,7 @@ class interface(dotkeys):
         self['flags'] &= ~(self['flags'] & 1)
 
 
-class ipdb(dotkeys):
+class IPDB(dotkeys):
     '''
     The class that maintains information about network setup
     of the host. Monitoring netlink events allows it to react
@@ -688,7 +691,7 @@ class ipdb(dotkeys):
                  key=None, cert=None, ca=None):
         '''
         Parameters:
-            * ipr -- iproute() reference
+            * ipr -- IPRoute() reference
 
         If you do not provide iproute instance, ipdb will
         start it automatically. Please note, that there can
@@ -696,7 +699,7 @@ class ipdb(dotkeys):
         you can start two and more iproute instances, but
         only the first one will receive anything.
         '''
-        self.ip = ipr or iproute(host=host, key=key, cert=cert, ca=ca)
+        self.ip = ipr or IPRoute(host=host, key=key, cert=cert, ca=ca)
         self.mode = mode
         self._stop = False
 
@@ -724,6 +727,7 @@ class ipdb(dotkeys):
         self.ip.monitor()
         self.ip.mirror()
         self._mthread = threading.Thread(target=self.monitor)
+        self._mthread.setDaemon(True)
         self._mthread.start()
 
     def __dir__(self):
@@ -740,6 +744,9 @@ class ipdb(dotkeys):
         self.release()
 
     def release(self):
+        '''
+        Shutdown monitoring thread and release iproute.
+        '''
         self._stop = True
         self.ip.get_links()
         self.ip.release()

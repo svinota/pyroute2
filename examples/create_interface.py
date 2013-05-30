@@ -3,9 +3,9 @@ Example: python ./examples/create_interface.py
 
 Creates dummy interface.
 '''
-from pyroute2 import ipdb
+from pyroute2 import IPDB
 
-ip = ipdb()
+ip = IPDB()
 
 try:
 
