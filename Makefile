@@ -64,9 +64,11 @@ docs: clean force-version
 test:
 	@flake8 .
 	@cd tests; \
-		coverage run --omit='/usr/*' `which nosetests` -v; \
-		coverage report; \
-		coverage html; \
+		nosetests -v \
+			--with-coverage \
+			--cover-package=pyroute2 \
+			--cover-erase \
+			--cover-html; \
 		cd ..
 
 upload: clean force-version
