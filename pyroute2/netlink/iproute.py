@@ -272,27 +272,25 @@ class IPRoute(Netlink):
         '''
         Switch an interface up
         '''
-        self.link('set', index, state='up')
+        self.link('set', index=index, state='up')
 
     def link_down(self, index):
         '''
         Switch an interface down
         '''
-        self.link('set', index, state='down')
+        self.link('set', index=index, state='down')
 
     def link_rename(self, index, name):
         '''
         Rename an interface
         '''
-        self.link('set', index, state='down')
-        self.link('set', index, ifname=name)
-        self.link('set', index, state='up')
+        self.link('set', index=index, ifname=name)
 
     def link_remove(self, index):
         '''
         Remove an interface
         '''
-        self.link('delete', index)
+        self.link('delete', index=index)
 
     def link_lookup(self, **kwarg):
         '''
