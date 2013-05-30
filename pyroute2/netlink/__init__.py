@@ -823,7 +823,10 @@ class netlink(object):
                     pass
 
     def shutdown(self):
-        # FIXME: warn on deprecated call
+        '''
+        Deprecated: use Netlink.release() instead
+        '''
+        logging.warn('IPDB: using deprecated call "shutdown()"')
         self.release()
 
     def release(self):

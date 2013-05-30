@@ -14,6 +14,7 @@ Quick start:
 '''
 import re
 import uuid
+import logging
 import threading
 from socket import AF_INET
 from socket import AF_INET6
@@ -732,7 +733,10 @@ class ipdb(dotkeys):
         return ret
 
     def shutdown(self):
-        # FIXME: warn on deprecated call
+        '''
+        Deprecated: use ipdb.release() instead.
+        '''
+        logging.warn('IPDB: using deprecated call "shutdown()"')
         self.release()
 
     def release(self):
