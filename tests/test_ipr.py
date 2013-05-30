@@ -2,12 +2,22 @@ import os
 import uuid
 import socket
 from pyroute2 import IPRoute
+from pyroute2.netlink import NetlinkSocketError
 from multiprocessing import Event
 from multiprocessing import Process
-# test imports
+from utils import require_user
 from utils import get_ip_addr
 from utils import get_ip_link
 from utils import get_ip_route
+from utils import create_link
+from utils import setup_dummy
+from utils import remove_dummy
+
+
+def _run_remote_client(url, func, key=None, cert=None, ca=None):
+    ip = IPRoute(host=url, key=key, cert=cert, ca=ca)
+    getattr(ip, func)()
+    ip.release()
 
 
 def _run_remote_uplink(url, allow_connect, key=None, cert=None, ca=None):
@@ -86,6 +96,19 @@ class TestSetup(object):
         return self.test_serve(url, key, cert, ca)
 
 
+class TestServerSide(object):
+
+    def testServer(self):
+        url = 'unix://\0%s' % (uuid.uuid4())
+        ip = IPRoute()
+        ip.serve(url)
+        target = Process(target=_run_remote_client,
+                         args=(url, 'get_links'))
+        target.start()
+        target.join()
+        ip.release()
+
+
 class TestSetupUplinks(object):
 
     def _test_remote(self, url):
@@ -125,17 +148,75 @@ class TestSetupUplinks(object):
 
 class TestData(object):
 
+    @classmethod
+    def setup_class(cls):
+        setup_dummy()
+
+    @classmethod
+    def teardown_class(cls):
+        remove_dummy()
+
     def setup(self):
         self.ip = IPRoute()
+        self.dev = self.ip.link_lookup(ifname='dummyX')
 
     def teardown(self):
         self.ip.release()
+
+    def test_add_addr(self):
+        require_user('root')
+        dev = self.dev[0]
+        self.ip.addr('add', dev, address='172.16.16.1', mask=24)
+        assert '172.16.16.1/24' in get_ip_addr()
+
+    def test_remove_link(self):
+        require_user('root')
+        create_link('bala', 'dummy')
+        dev = self.ip.link_lookup(ifname='bala')[0]
+        try:
+            self.ip.link_remove(dev)
+        except NetlinkSocketError:
+            pass
+        assert len(self.ip.link_lookup(ifname='bala')) == 0
+
+    def test_updown_link(self):
+        require_user('root')
+        dev = self.dev[0]
+        assert not (self.ip.get_links(dev)[0]['flags'] & 1)
+        try:
+            self.ip.link_up(dev)
+        except NetlinkSocketError:
+            pass
+        assert self.ip.get_links(dev)[0]['flags'] & 1
+        try:
+            self.ip.link_down(dev)
+        except NetlinkSocketError:
+            pass
+        assert not (self.ip.get_links(dev)[0]['flags'] & 1)
+
+    def test_rename_link(self):
+        require_user('root')
+        dev = self.dev[0]
+        try:
+            self.ip.link_rename(dev, 'bala')
+        except NetlinkSocketError:
+            pass
+        assert len(self.ip.link_lookup(ifname='bala')) == 1
+        try:
+            self.ip.link_rename(dev, 'dummyX')
+        except NetlinkSocketError:
+            pass
+        assert len(self.ip.link_lookup(ifname='dummyX')) == 1
 
     def test_addr(self):
         assert len(get_ip_addr()) == len(self.ip.get_addr())
 
     def test_links(self):
         assert len(get_ip_link()) == len(self.ip.get_links())
+
+    def test_one_link(self):
+        lo = self.ip.get_links(1)[0]
+        assert lo.get_attr('IFLA_IFNAME')[0] == 'lo'
 
     def test_routes(self):
         assert len(get_ip_route()) == \
@@ -153,12 +234,14 @@ class TestRemoteData(TestData):
         target.start()
         allow_connect.wait()
         self.ip = IPRoute(host=url)
+        self.dev = self.ip.link_lookup(ifname='dummyX')
 
 
 class TestSSLData(TestData):
+    ssl_proto = 'ssl'
 
     def setup(self):
-        url = 'unix+ssl://\0%s' % (uuid.uuid4())
+        url = 'unix+%s://\0%s' % (self.ssl_proto, uuid.uuid4())
         allow_connect = Event()
         target = Process(target=_run_remote_uplink,
                          args=(url,
@@ -173,3 +256,8 @@ class TestSSLData(TestData):
                           key='client.key',
                           cert='client.crt',
                           ca='ca.crt')
+        self.dev = self.ip.link_lookup(ifname='dummyX')
+
+
+class TestTLSData(TestSSLData):
+    ssl_proto = 'tls'
