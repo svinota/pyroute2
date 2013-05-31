@@ -1,17 +1,11 @@
 pyroute2
 ========
 
-Python network configuration library
+Python netlink library. The main goal of the project is to
+implement complete NETLINK\_ROUTE family as well as several
+other families (NETLINK\_NETFILTER etc.)
 
-PyRoute2 uses Netlink protocol to communicate with the Linux kernel
-and get/set all the information kernel network objects.
-
-todo
-----
-
-* remote: sasl authentication
-* rtnl: bridge info: see `./net/bridge/br_netlink.c:br_fill_ifinfo()`
-* rtnl: traffic control -- work with queue disciplines
+Current feature status see in STATUS.md
 
 sample
 ------
@@ -19,9 +13,16 @@ sample
 More samples you can read in the project documentation. Here is
 just a small snippet::
 
-    from pyroute2 import iproute
-    ip = iproute()
+    from pyroute2 import IPRoute
+
+    # get access to the netlink socket
+    ip = IPRoute()
+
+    # print interfaces
     print ip.get_links()
+
+    # stop working with netlink and release all sockets
+    ip.release()
 
 The project contains several modules for different types of
 netlink messages, not only RTNL.
@@ -39,6 +40,9 @@ Python >= 2.6
 changelog
 ---------
 
+* master
+    * complete refactoring of class names
+    * tests: code coverage
 * 0.1.7
     * ipdb: interface creation: dummy, bond, bridge, vlan
     * ipdb: if\_slaves interface obsoleted

@@ -9,8 +9,10 @@ interfaces
    * (+) bridge
    * (+) bond
    * (+) vlan
+   * (!) tap -- can not be created with netlink (TODO: prepare kernel patch?)
    * ...
  * (+) bridge and bond ports add/remove
+ * (-) bridge management: STP setup (net/bridge/br_netlink.c:br_fill_ifinfo())
  * routing: only low-level functions yet, no docs
    * ...
 
@@ -50,14 +52,23 @@ message types
    * (+) get stats for pid
    * (-) get stats for tgid
    * (-) subscribe for taskstats events
- * IPTABLES
+ * NETLINK_NETFILTER
    * (-) [0.2.0] planned
- * IPQ etc.
-   * (-) [0.2.1] planned
+ * ...
+
+remote netlink
+==============
+
+ * authentication
+   * (+) TLSv1
+   * (+) SSLv3
+   * (-) SASL
 
 testing
 =======
 
  * (+) unit tests: started
- * (-) read/write access: interfaces and addresses changes
- * (-) coverage
+ * (+) read/write access: interfaces and addresses changes
+ * (+) coverage
+
+Coverage status: http://peet.spb.ru/pyroute2.coverage/

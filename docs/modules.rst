@@ -6,15 +6,15 @@ pyroute2 modules
 The library provides several modules, that operates on different
 layers.
 
-iproute
+IPRoute
 -------
 
 Old-style library, that provides access to rtnetlink as is. It
 helps you to retrieve and change almost all the data, available
 through rtnetlink::
 
-    from pyroute2 import iproute
-    ip = iproute()
+    from pyroute2 import IPRoute
+    ip = IPRoute()
         # lookup interface by name
     dev = ip.link_lookup(ifname='tap0')[0]
         # bring it down
@@ -28,7 +28,7 @@ through rtnetlink::
         # bring it up
     ip.link('set', dev, state='up')
 
-ipdb
+IPDB
 ----
 
 Experimental module, that provides high-level API to network
@@ -36,8 +36,8 @@ configuration. It represents network objects as a transactional
 database with commit/rollback. It is far not production ready,
 so be prepared for surprises and API changes.::
 
-    from pyroute2 import ipdb
-    ip = ipdb(mode='direct')
+    from pyroute2 import IPDB
+    ip = IPDB(mode='direct')
     ip.tap0.down()
     ip.tap0.address = '00:11:22:33:44:55'
     ip.tap0.ifname = 'vpn'
@@ -58,8 +58,8 @@ The default is to use implicit transaction. This behaviour can
 be changed in the future, so use 'mode' argument when creating
 IPDB instances. The sample session with explicit transactions::
 
-    In [1]: from pyroute2 import ipdb
-    In [2]: ip = ipdb(mode='explicit')
+    In [1]: from pyroute2 import IPDB
+    In [2]: ip = IPDB(mode='explicit')
     In [3]: ip.tap0.begin()
         Out[3]: UUID('7a637a44-8935-4395-b5e7-0ce40d31d937')
     In [4]: ip.tap0.up()
@@ -80,7 +80,7 @@ Note, that you can `review()` the `last()` transaction, and
 are supported, use uuid returned by `begin()` to identify them.
 
 Actually, the form like 'ip.tap0.address' is an eye-candy. The
-ipdb objects are dictionaries, so you can write the code above
+IPDB objects are dictionaries, so you can write the code above
 as that::
 
     ip['tap0'].down()
@@ -110,15 +110,15 @@ Right now IPDB supports creation of `dummy`, `bond`, `bridge`
 and `vlan` interfaces. VLAN creation requires also `link` and
 `vlan_id` parameters, see example scripts.
 
-taskstats
+TaskStats
 ---------
 
-All that you should know about taskstats, is that you should not
+All that you should know about TaskStats, is that you should not
 use it. But if you have to, ok::
 
     import os
-    from pyroute2 import taskstats
-    ts = taskstats()
+    from pyroute2 import TaskStats
+    ts = TaskStats()
     ts.get_pid_stat(os.getpid())
 
 It is not implemented normally yet, but some methods are already

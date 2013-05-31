@@ -5,7 +5,7 @@ remote netlink
 
 Remote netlink allows you to communicate through the network
 directly with the kernel of the remote system. E.g., running
-on one node, the iproute module can allow you to monitor all
+on one node, the IPRoute module can allow you to monitor all
 the network events on other node.
 
 Remote netlink does not provide an API to create a messages on
@@ -38,8 +38,8 @@ Create keys::
 
 Sample server::
 
-    from pyroute2 import iproute
-    ip = iproute()
+    from pyroute2 import IPRoute
+    ip = IPRoute()
     ip.serve('tls://0.0.0.0:7000',
              key='server.key',
              cert='server.crt',
@@ -48,10 +48,10 @@ Sample server::
 
 Sample client. Actually, you can use as a server or a client any
 class, that is derived from base netlink class or build on the top
-of it -- iproute, ipdb, taskstats etc.::
+of it -- IPRoute, IPDB, TaskStats etc.::
 
-    from pyroute2 import ipdb
-    ip = ipdb(host='tls://remote.host:7000',
+    from pyroute2 import IPDB
+    ip = IPDB(host='tls://remote.host:7000',
               key='client.key',
               cert='client.crt',
               ca='ca.crt')
@@ -61,10 +61,10 @@ of it -- iproute, ipdb, taskstats etc.::
         i.ipaddr.add(('10.0.0.2', 24))
         i.ifname = 'vpn'
 
-Or a sample with iproute::
+Or a sample with IPRoute::
 
-    from pyroute2 import iproute
-    ip = iproute(host='tls://remote.host:7000',
+    from pyroute2 import IPRoute
+    ip = IPRoute(host='tls://remote.host:7000',
               key='client.key',
               cert='client.crt',
               ca='ca.crt')
