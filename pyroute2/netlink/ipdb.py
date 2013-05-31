@@ -729,6 +729,12 @@ class IPDB(dotkeys):
         self._mthread.setDaemon(True)
         self._mthread.start()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.release()
+
     def __dir__(self):
         ret = dotkeys.__dir__(self)
         ret.append('by_name')
