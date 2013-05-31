@@ -354,11 +354,13 @@ class interface(dotkeys):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        try:
-            self.commit()
-        except Exception as e:
-            self.last_error = e
-            raise e
+        # apply transaction only if there was no error
+        if exc_type is None:
+            try:
+                self.commit()
+            except Exception as e:
+                self.last_error = e
+                raise e
 
     def __repr__(self):
         res = {}
