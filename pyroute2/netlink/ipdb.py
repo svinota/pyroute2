@@ -98,6 +98,8 @@ class dotkeys(dict):
     def __delattr__(self, key):
         if key in self:
             del self[key]
+        else:
+            dict.__delattr__(self, key)
 
 
 class rwState(object):
