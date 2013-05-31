@@ -25,17 +25,9 @@ class NetlinkError(Exception):
     '''
     Base netlink error
     '''
-    # FIXME move to a dedicated module
-    pass
-
-
-class NetlinkSocketError(socket.error):
-    '''
-    Socket error
-    '''
     def __init__(self, code, msg=None):
         msg = msg or os.strerror(code)
-        super(NetlinkSocketError, self).__init__(code, msg)
+        super(NetlinkError, self).__init__(code, msg)
         self.code = code
 
 
@@ -223,7 +215,7 @@ class Marshal(object):
                     self.buf.seek(16)
                     code = abs(struct.unpack('i', self.buf.read(4))[0])
                     if code > 0:
-                        error = NetlinkSocketError(code)
+                        error = NetlinkError(code)
 
                 self.buf.seek(offset)
                 msg_class = self.msg_map.get(msg_type, nlmsg)

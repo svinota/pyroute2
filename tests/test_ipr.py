@@ -2,7 +2,7 @@ import os
 import uuid
 import socket
 from pyroute2 import IPRoute
-from pyroute2.netlink import NetlinkSocketError
+from pyroute2.netlink import NetlinkError
 from multiprocessing import Event
 from multiprocessing import Process
 from utils import require_user
@@ -175,7 +175,7 @@ class TestData(object):
         dev = self.ip.link_lookup(ifname='bala')[0]
         try:
             self.ip.link_remove(dev)
-        except NetlinkSocketError:
+        except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname='bala')) == 0
 
@@ -185,12 +185,12 @@ class TestData(object):
         assert not (self.ip.get_links(dev)[0]['flags'] & 1)
         try:
             self.ip.link_up(dev)
-        except NetlinkSocketError:
+        except NetlinkError:
             pass
         assert self.ip.get_links(dev)[0]['flags'] & 1
         try:
             self.ip.link_down(dev)
-        except NetlinkSocketError:
+        except NetlinkError:
             pass
         assert not (self.ip.get_links(dev)[0]['flags'] & 1)
 
@@ -199,12 +199,12 @@ class TestData(object):
         dev = self.dev[0]
         try:
             self.ip.link_rename(dev, 'bala')
-        except NetlinkSocketError:
+        except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname='bala')) == 1
         try:
             self.ip.link_rename(dev, 'dummyX')
-        except NetlinkSocketError:
+        except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname='dummyX')) == 1
 

@@ -18,7 +18,7 @@ import logging
 import threading
 from socket import AF_INET
 from socket import AF_INET6
-from pyroute2.netlink import NetlinkSocketError
+from pyroute2.netlink import NetlinkError
 from pyroute2.netlink import NetlinkQueueEmpty
 from pyroute2.netlink.iproute import IPRoute
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -30,6 +30,27 @@ nla_fields.append('change')
 nla_fields.append('state')
 
 _var_name = re.compile('^[a-zA-Z_]+[a-zA-Z_0-9]*$')
+
+
+class IPDBError(Exception):
+    message = None
+
+    def __init__(self, message=None, error=None):
+        message = message or self.message
+        Exception.__init__(self, message)
+        self.cause = error
+
+
+class IPDBUnrecoverableError(IPDBError):
+    message = 'unrecoverable IPDB error, restart the instance'
+
+
+class IPDBTransactionRequired(IPDBError):
+    message = 'begin() a transaction first'
+
+
+class IPDBModeError(IPDBError):
+    message = 'wrong transaction mode for the operation'
 
 
 def get_addr_nla(msg):
@@ -146,27 +167,6 @@ class rwState(object):
             self._no_readers.wait()
             self._state = False
             self._lock.release()
-
-
-class IPDBError(Exception):
-    message = None
-
-    def __init__(self, message=None, error=None):
-        message = message or self.message
-        Exception.__init__(self, message)
-        self.cause = error
-
-
-class IPDBUnrecoverableError(IPDBError):
-    message = 'unrecoverable IPDB error, restart the instance'
-
-
-class IPDBTransactionRequired(IPDBError):
-    message = 'begin() a transaction first'
-
-
-class IPDBModeError(IPDBError):
-    message = 'wrong transaction mode for the operation'
 
 
 def update(f):
@@ -585,9 +585,9 @@ class interface(dotkeys):
                 # it is OK, no need to roll back
                 try:
                     self.ip.addr('delete', self['index'], i[0], i[1])
-                except NetlinkSocketError as x:
+                except NetlinkError as x:
                     # bypass only errno 99, 'Cannot assign address'
-                    if x.errno != 99:
+                    if x.code != 99:
                         raise x
 
             for i in added['ipaddr']:
