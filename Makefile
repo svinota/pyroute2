@@ -65,7 +65,7 @@ docs: clean force-version
 test:
 	@flake8 .
 	@cd tests; \
-		nosetests -v \
+		nosetests -v --pdb --pdb-failures \
 			--with-coverage \
 			--cover-package=pyroute2 \
 			--cover-erase \
