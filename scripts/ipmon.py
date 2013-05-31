@@ -2,10 +2,10 @@
 
 import pprint
 
-from pyroute2 import iproute
+from pyroute2 import IPRoute
 
-ip = iproute()
+ip = IPRoute()
 ip.monitor()
 while True:
     print("--------------------------------------------------------------")
-    pprint.pprint(ip.get(interruptible=True))
+    pprint.pprint(ip.get())
