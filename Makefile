@@ -37,6 +37,7 @@ clean: clean-version
 	rm -f docs/general.rst
 	rm -f  tests/.coverage
 	rm -rf tests/htmlcov
+	rm -rf tests/cover
 	find . -name "*pyc" -exec rm -f "{}" \;
 
 check:
