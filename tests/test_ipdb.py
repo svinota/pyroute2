@@ -241,7 +241,7 @@ class TestDirect(object):
 
     def test_context_fail(self):
         try:
-            with self.ip.dummyX as i:
+            with self.ip.lo as i:
                 i.down()
         except IPDBModeError:
             pass
@@ -259,13 +259,13 @@ class TestDirect(object):
 
     def test_exceptions_last(self):
         try:
-            self.ip.dummyX.last()
+            self.ip.lo.last()
         except IPDBTransactionRequired:
             pass
 
     def test_exception_review(self):
         try:
-            self.ip.dummyX.review()
+            self.ip.lo.review()
         except IPDBTransactionRequired:
             pass
 
@@ -297,7 +297,7 @@ class TestMisc(object):
     def test_context_exception_in_code(self):
         try:
             with IPDB(mode='explicit') as ip:
-                with ip.dummyX as i:
+                with ip.lo as i:
                     i.add_ip('172.16.9.1/24')
                     # normally, this code is never reached
                     # but we should test it anyway
@@ -310,9 +310,10 @@ class TestMisc(object):
         # check that the netlink socket is properly closed
         # and transaction was really dropped
         with IPDB() as ip:
-            assert ('172.16.9.1', 24) not in ip.dummyX.ipaddr
+            assert ('172.16.9.1', 24) not in ip.lo.ipaddr
 
     def test_context_exception_in_transaction(self):
+        require_user('root')
         try:
             with IPDB(mode='explicit') as ip:
                 with ip.dummyX as i:
@@ -330,21 +331,21 @@ class TestMisc(object):
         with IPDB(mode='explicit') as i:
             # transaction required
             try:
-                i.dummyX.up()
+                i.lo.up()
             except IPDBTransactionRequired:
                 pass
 
         with IPDB(mode='implicit') as i:
             # transaction aut-begin()
-            assert len(i.dummyX._tids) == 0
-            i.dummyX.up()
-            assert len(i.dummyX._tids) == 1
-            i.dummyX.drop()
-            assert len(i.dummyX._tids) == 0
+            assert len(i.lo._tids) == 0
+            i.lo.up()
+            assert len(i.lo._tids) == 1
+            i.lo.drop()
+            assert len(i.lo._tids) == 0
 
         with IPDB(mode='invalid') as i:
             # transaction mode not supported
             try:
-                i.dummyX.up()
+                i.lo.up()
             except IPDBError:
                 pass
