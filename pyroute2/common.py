@@ -1,6 +1,7 @@
 '''
 Common utilities
 '''
+import re
 
 size_suffixes = {'b': 1,
                  'k': 1024,
@@ -47,6 +48,34 @@ rate_suffixes = {'bit': 1,
 ##
 # General purpose
 #
+class Dotkeys(dict):
+    var_name = re.compile('^[a-zA-Z_]+[a-zA-Z_0-9]*$')
+
+    def __dir__(self):
+        return [i for i in self if
+                type(i) == str and self.var_name.match(i)]
+
+    def __getattribute__(self, key, *argv):
+        try:
+            return dict.__getattribute__(self, key)
+        except AttributeError as e:
+            if key == '__deepcopy__':
+                raise e
+            return self[key]
+
+    def __setattr__(self, key, value):
+        if key in self:
+            self[key] = value
+        else:
+            dict.__setattr__(self, key, value)
+
+    def __delattr__(self, key):
+        if key in self:
+            del self[key]
+        else:
+            dict.__delattr__(self, key)
+
+
 def map_namespace(prefix, ns):
     '''
     Take the namespace prefix, list all constants and build two

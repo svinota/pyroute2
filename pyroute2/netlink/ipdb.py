@@ -12,12 +12,12 @@ Quick start:
     ip['eth0'].commit()
     ip['bala'].up()
 '''
-import re
 import uuid
 import logging
 import threading
 from socket import AF_INET
 from socket import AF_INET6
+from pyroute2.common import Dotkeys
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink import NetlinkQueueEmpty
 from pyroute2.netlink.iproute import IPRoute
@@ -28,8 +28,6 @@ nla_fields.append('flags')
 nla_fields.append('mask')
 nla_fields.append('change')
 nla_fields.append('state')
-
-_var_name = re.compile('^[a-zA-Z_]+[a-zA-Z_0-9]*$')
 
 
 class IPDBError(Exception):
@@ -95,32 +93,6 @@ class LinkedSet(set):
 
     def __repr__(self):
         return repr(list(self))
-
-
-class dotkeys(dict):
-
-    def __dir__(self):
-        return [i for i in self if type(i) == str and _var_name.match(i)]
-
-    def __getattribute__(self, key, *argv):
-        try:
-            return dict.__getattribute__(self, key)
-        except AttributeError as e:
-            if key == '__deepcopy__':
-                raise e
-            return self[key]
-
-    def __setattr__(self, key, value):
-        if key in self:
-            self[key] = value
-        else:
-            dict.__setattr__(self, key, value)
-
-    def __delattr__(self, key):
-        if key in self:
-            del self[key]
-        else:
-            dict.__delattr__(self, key)
 
 
 class rwState(object):
@@ -233,7 +205,7 @@ class IPLinkRequest(dict):
             dict.__setitem__(self, key, value)
 
 
-class interface(dotkeys):
+class interface(Dotkeys):
     '''
     Objects of this class represent network interface and
     all related objects:
@@ -419,7 +391,7 @@ class interface(dotkeys):
             transaction = self.last()
             transaction[key] = value
         else:
-            dotkeys.__setitem__(self, key, value)
+            Dotkeys.__setitem__(self, key, value)
 
     @update
     def __delitem__(self, direct, key):
@@ -428,7 +400,7 @@ class interface(dotkeys):
             if key in transaction:
                 del transaction[key]
         else:
-            dotkeys.__delitem__(self, key)
+            Dotkeys.__delitem__(self, key)
 
     @update
     def add_ip(self, direct, ip, mask=None):
@@ -679,7 +651,7 @@ class interface(dotkeys):
         self['flags'] &= ~(self['flags'] & 1)
 
 
-class IPDB(dotkeys):
+class IPDB(Dotkeys):
     '''
     The class that maintains information about network setup
     of the host. Monitoring netlink events allows it to react
@@ -705,8 +677,8 @@ class IPDB(dotkeys):
         self._stop = False
 
         # resolvers
-        self.by_name = dotkeys()
-        self.by_index = dotkeys()
+        self.by_name = Dotkeys()
+        self.by_index = Dotkeys()
 
         # caches
         self.ipaddr = {}
@@ -738,7 +710,7 @@ class IPDB(dotkeys):
         self.release()
 
     def __dir__(self):
-        ret = dotkeys.__dir__(self)
+        ret = Dotkeys.__dir__(self)
         ret.append('by_name')
         ret.append('by_index')
         return ret
