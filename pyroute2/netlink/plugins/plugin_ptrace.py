@@ -169,10 +169,8 @@ class SyscallTracer(Application):
                 event = self.debugger.waitSyscall()
                 process = event.process
             except ProcessExit, event:
-                self.processExited(event)
                 continue
             except ProcessSignal, event:
-                event.display()
                 process.syscall(event.signum)
                 continue
             except NewProcessEvent, event:
