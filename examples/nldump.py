@@ -16,6 +16,7 @@ ip = IPRoute()
 q = ip.connect('ptrace://%s' % ' '.join(sys.argv[1:]), no_stdout=True)
 while True:
     try:
-        pprint(ip.get(q, do_raise=False))
+        for msg in ip.get(q, raw=True):
+            pprint(msg)
     except Empty:
         break

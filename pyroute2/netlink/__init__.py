@@ -909,7 +909,7 @@ class Netlink(object):
                 if 0 in self.listeners:
                     self.listeners[0].put(msg)
 
-    def get(self, key=0, do_raise=True):
+    def get(self, key=0, raw=False):
         '''
         Get a message from a queue
 
@@ -931,10 +931,10 @@ class Netlink(object):
             # terminator for persisten queues
             if msg is None:
                 raise Queue.Empty()
-            if (msg['header']['error'] is not None) and do_raise:
+            if (msg['header']['error'] is not None) and (not raw):
                 self._remove_queue(key)
                 raise msg['header']['error']
-            if msg['header']['type'] != NLMSG_DONE:
+            if (msg['header']['type'] != NLMSG_DONE) or raw:
                 result.append(msg)
             if (msg['header']['type'] == NLMSG_DONE) or \
                (not msg['header']['flags'] & NLM_F_MULTI):

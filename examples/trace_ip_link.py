@@ -13,6 +13,6 @@ ip = IPRoute()
 q = ip.connect('ptrace://ip link show')
 while True:
     try:
-        pprint(ip.get(q, do_raise=False))
+        pprint(ip.get(q, raw=True))
     except Empty:
         break
