@@ -300,6 +300,7 @@ class IOThread(threading.Thread):
         self.uplinks = set()      # set(socket, socket...)
         self.servers = set()      # set(socket, socket...)
         self.controls = set()     # set(socket, socket...)
+        self.broadcast = set()    # set(socket, socket...)
         self.ssl_keys = {}        # {url: ssl_credentials(), url:...}
         self.mirror = False
         # secret; write non-zero byte as terminator
@@ -432,7 +433,7 @@ class IOThread(threading.Thread):
             target.socket.send(data.getvalue())
         else:
             # otherwise, broadcast packet
-            for sock in self.clients:
+            for sock in self.broadcast:
                 sock.send(data.getvalue())
             # return True -- this packet should be parsed
             return True
@@ -482,6 +483,7 @@ class IOThread(threading.Thread):
                 if family in self.families:
                     send = self.families[family]
                     self.rtable[sock] = send
+                    self.broadcast.add(sock)
                     rsp['cmd'] = IPRCMD_ACK
                 # TODO tags: remote
                 #
@@ -635,6 +637,8 @@ class IOThread(threading.Thread):
         self._rlist.remove(sock)
         self._wlist.remove(sock)
         self.clients.remove(sock)
+        if sock in self.broadcast:
+            self.broadcast.remove(sock)
         return sock
 
     def start(self):
