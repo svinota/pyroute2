@@ -206,7 +206,8 @@ class TestExplicit(object):
             i.add_ip('172.16.8.1', 24)
             i.add_ip('172.16.8.2', 24)
 
-        i.reload()
+        self.ip._links_event.wait()
+        self.ip._addr_event.wait()
         assert 'bala' in self.ip
         assert ('172.16.8.1', 24) in self.ip.bala.ipaddr
         assert ('172.16.8.2', 24) in self.ip.bala.ipaddr
