@@ -890,6 +890,8 @@ class Netlink(object):
             try:
                 msg = queue.get(block=True, timeout=self._timeout)
             except Queue.Empty:
+                if key == 0:
+                    continue
                 self._remove_queue(key)
                 raise NetlinkQueueEmpty(key)
             if msg['header']['error'] is not None:
