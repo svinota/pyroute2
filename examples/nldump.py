@@ -1,3 +1,7 @@
+#!/usr/bin/python
+'''
+Slightly more complicate example, than trace_ip_link.
+'''
 import sys
 from pyroute2 import IPRoute
 from Queue import Empty
