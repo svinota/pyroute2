@@ -15,16 +15,17 @@ Implement plugins for non-netlink data sources:
 ptrace sockets
 --------------
 
+(implemented)
+
 Launch a program and analyze netlink traffic::
 
     ip = IPRoute()
     ip.connect('ptrace://ip link show')
-    while True:  # ?!
-        print(ip.get())
-
-Issues:
-
- * catch program exit?
+    while True:
+        try:
+            print(ip.get())
+        except Empty:
+            break
 
 iptables sockets
 ----------------

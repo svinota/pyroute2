@@ -31,14 +31,6 @@ class NetlinkError(Exception):
         self.code = code
 
 
-class NetlinkQueueEmpty(NetlinkError):
-    '''
-    Timeout reached on a message queue polling
-    '''
-    def __init__(self, key):
-        self.key = key
-
-
 def _monkey_handshake(self):
     ##
     #
@@ -102,8 +94,23 @@ IPRCMD_RELOAD = 5
 IPRCMD_ROUTE = 6
 
 
+def _get_plugin(url):
+    scheme, command = url.split('://')
+    name = 'plugin_%s' % (scheme)
+    plugins = __import__('pyroute2.netlink.plugins',
+                         globals(),
+                         locals(),
+                         [name],
+                         -1)
+    plugin = getattr(plugins, name)
+    return (plugin.plugin_init['type'],
+            plugin.plugin_init['create'],
+            command)
+
+
 def _get_socket(url, server_side=False, ssl_keys=None):
-    assert type(url) is str
+    assert url[:6] in ('tcp://', 'ssl://', 'tls://') or \
+        url[:11] in ('unix+ssl://', 'unix+tls://') or url[:7] == 'unix://'
     target = urlparse.urlparse(url)
     hostname = target.hostname or ''
     ssl_keys = ssl_keys or {}
@@ -281,6 +288,7 @@ class IOThread(threading.Thread):
         self.setDaemon(True)
         self.pid = os.getpid()
         self._nonce = 0
+        self._nonce_lock = threading.Lock()
         self._stop = False
         self._run_event = threading.Event()
         self._sctl_event = threading.Event()
@@ -397,11 +405,12 @@ class IOThread(threading.Thread):
             time.sleep(60)
 
     def nonce(self):
-        if self._nonce == 0xffffffff:
-            self._nonce = 1
-        else:
-            self._nonce += 1
-        return self._nonce
+        with self._nonce_lock:
+            if self._nonce == 0xffffffff:
+                self._nonce = 1
+            else:
+                self._nonce += 1
+            return self._nonce
 
     def distribute(self, data):
         """
@@ -756,7 +765,13 @@ class Netlink(object):
         smsg.encode()
         sock.send(smsg.buf.getvalue())
 
-    def connect(self, host='localsystem', key=None, cert=None, ca=None):
+    def connect(self,
+                host='localsystem',
+                key=None,
+                cert=None,
+                ca=None,
+                **kwarg):
+        assert isinstance(host, basestring)
         sock = None
         if key:
             self.ssl_keys[host] = ssl_credentials(key, cert, ca)
@@ -765,13 +780,28 @@ class Netlink(object):
                 sock = NetlinkSocket(self.family)
                 sock.bind(self.groups)
             else:
-                (sock, addr) = _get_socket(url=host,
-                                           server_side=False,
-                                           ssl_keys=self.ssl_keys)
-                sock.connect(addr)
+                try:
+                    # built-in connection types
+                    (sock, addr) = _get_socket(url=host,
+                                               server_side=False,
+                                               ssl_keys=self.ssl_keys)
+                    sock.connect(addr)
+                except AssertionError:
+                    # try to load a plugin
+                    (ctype, create, command) = _get_plugin(host)
+                    if ctype == 'queue':
+                        nonce = self.iothread.nonce()
+                        self.listeners[nonce] = create(command,
+                                                       self.marshal,
+                                                       **kwarg)
+                        return nonce
+                    else:
+                        raise Exception('plugin not supported')
+
                 self._remote_cmd(sock=sock,
                                  cmd=IPRCMD_ROUTE,
-                                 attrs=[['CTRL_ATTR_FAMILY_ID', self.family]])
+                                 attrs=[['CTRL_ATTR_FAMILY_ID',
+                                         self.family]])
                 rsp = ctrlmsg(sock.recv(28))
                 rsp.decode()
                 assert rsp['cmd'] == IPRCMD_ACK
@@ -879,7 +909,7 @@ class Netlink(object):
                 if 0 in self.listeners:
                     self.listeners[0].put(msg)
 
-    def get(self, key=0):
+    def get(self, key=0, do_raise=True):
         '''
         Get a message from a queue
 
@@ -893,12 +923,15 @@ class Netlink(object):
             # Bug-Url: http://bugs.python.org/issue1360
             try:
                 msg = queue.get(block=True, timeout=self._timeout)
-            except Queue.Empty:
-                if key == 0:
+            except Queue.Empty as e:
+                if key == 0 or hasattr(queue, 'persist'):
                     continue
                 self._remove_queue(key)
-                raise NetlinkQueueEmpty(key)
-            if msg['header']['error'] is not None:
+                raise e
+            # terminator for persisten queues
+            if msg is None:
+                raise Queue.Empty()
+            if (msg['header']['error'] is not None) and do_raise:
                 self._remove_queue(key)
                 raise msg['header']['error']
             if msg['header']['type'] != NLMSG_DONE:
@@ -908,7 +941,8 @@ class Netlink(object):
                 hosts -= 1
             if hosts == 0:
                 break
-        self._remove_queue(key)
+        if not hasattr(queue, 'persist'):
+            self._remove_queue(key)
         return result
 
     def send(self, buf):

@@ -1,12 +1,12 @@
 '''
-The code is ported from python-ptrace's strace.py
+The code is based on python-ptrace's strace.py
 '''
 import io
-import sys
 import socket
 import struct
+import Queue
+import threading
 from pyroute2.common import Dotkeys
-from pyroute2.common import hexdump
 
 from ptrace.debugger import PtraceDebugger
 from ptrace.debugger import Application
@@ -19,12 +19,12 @@ from ptrace.func_call import FunctionCallOptions
 
 
 class SyscallTracer(Application):
-    def __init__(self):
+    def __init__(self, command, marshal, no_stdout):
         Application.__init__(self)
         options = {'pid': None,
                    'fork': True,
                    'trace_exec': True,
-                   'no_stdout': False,
+                   'no_stdout': no_stdout,
                    'type': False,
                    'name': False,
                    'string_length': 256,
@@ -34,7 +34,10 @@ class SyscallTracer(Application):
                    'show_ip': False,
                    'enter': False}
         self.options = Dotkeys(options)
-        self.program = sys.argv[1:]
+        self.program = command.split()
+        self.marshal = marshal()
+        self.queue = Queue.Queue()
+        self.queue.persist = True
         self.processOptions()
         self.monitor = set()
 
@@ -82,6 +85,8 @@ class SyscallTracer(Application):
 #
                     # get msghdr
                     addr = syscall.arguments[1].value
+                    # total length
+                    total = syscall.result
                     # use P for size_t, hoping it will work on 32bit :)
                     mf = 'PIPPPPi'
                     ml = struct.calcsize(mf)
@@ -103,22 +108,24 @@ class SyscallTracer(Application):
                          iov_len) = struct.unpack(vf,
                                                   process.readBytes(addr, vl))
                         # read iov and store it in the buffer
-                        buf.write(process.readBytes(iov_base, iov_len))
+                        length = min(total, iov_len)
+                        buf.write(process.readBytes(iov_base, length))
+                        total -= length
+                        if total <= 0:
+                            # FIXME: it should never be < 0
+                            break
 # 8<------------------------------------------------------------
                 else:
                     # just read this damn buffer
                     addr = syscall.arguments[1].value
-                    length = syscall.arguments[2].value
+                    length = syscall.result
                     buf.write(process.readBytes(addr, length))
-                print(hexdump(buf.getvalue()))
+                for msg in self.marshal.parse(buf.getvalue()):
+                    msg['header']['syscall'] = syscall.name
+                    self.queue.put(msg)
 
         # Break at next syscall
         process.syscall()
-
-    def processExited(self, event):
-        # Display syscall which has not exited
-        state = event.process.syscall_state
-        print state
 
     def prepareProcess(self, process):
         process.syscall()
@@ -182,11 +189,22 @@ class SyscallTracer(Application):
         self.debugger = PtraceDebugger()
         try:
             self.runDebugger()
-        except ProcessExit as e:
-            self.processExited(e)
-        except Exception as e:
+        except ProcessExit:
+            pass
+        except Exception:
             import traceback
             traceback.print_exc()
         self.debugger.quit()
+        self.queue.put(None)
 
-SyscallTracer().main()
+
+def _create(command, marshal, **kwarg):
+    #
+    tracer = SyscallTracer(command, marshal, kwarg.get('no_stdout', False))
+    thread = threading.Thread(target=tracer.main)
+    thread.start()
+    return tracer.queue
+
+
+plugin_init = {'create': _create,
+               'type': 'queue'}

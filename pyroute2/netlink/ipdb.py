@@ -17,9 +17,9 @@ import logging
 import threading
 from socket import AF_INET
 from socket import AF_INET6
+from Queue import Empty
 from pyroute2.common import Dotkeys
 from pyroute2.netlink import NetlinkError
-from pyroute2.netlink import NetlinkQueueEmpty
 from pyroute2.netlink.iproute import IPRoute
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
@@ -496,7 +496,7 @@ class interface(Dotkeys):
         try:
             self.ip.get_links(self['index'])
             self.ip.get_addr()
-        except NetlinkQueueEmpty as e:
+        except Empty as e:
             raise IPDBUnrecoverableError('lost netlink', e)
         self._parent._addr_event.wait()
 
