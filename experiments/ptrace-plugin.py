@@ -1,9 +1,12 @@
 '''
 The code is ported from python-ptrace's strace.py
 '''
+import io
 import sys
 import socket
+import struct
 from pyroute2.common import Dotkeys
+from pyroute2.common import hexdump
 
 from ptrace.debugger import PtraceDebugger
 from ptrace.debugger import Application
@@ -49,13 +52,65 @@ class SyscallTracer(Application):
                     self.monitor.remove(syscall.arguments[0].value)
             # get buffers
             elif syscall.name in ('recv',
-                                  'send',
                                   'recvmsg',
+                                  'recvfrom',
+                                  'send',
                                   'sendmsg',
                                   'sendto') and \
                     syscall.arguments[0].value in self.monitor:
-                print syscall.name
-                print syscall.arguments
+                buf = io.BytesIO()
+                # get buffer
+                if syscall.name in ('recvmsg', 'sendmsg'):
+# 8<------------------------------------------------------------
+#
+# man recv(2)
+#
+# struct msghdr {
+#   void         *msg_name;       /* optional address */
+#   socklen_t     msg_namelen;    /* size of address */
+#   struct iovec *msg_iov;        /* scatter/gather array */
+#   size_t        msg_iovlen;     /* # elements in msg_iov */
+#   void         *msg_control;    /* ancillary data, see below */
+#   size_t        msg_controllen; /* ancillary data buffer len */
+#   int           msg_flags;      /* flags on received message */
+# };
+#
+# struct iovec {                  /* Scatter/gather array items */
+#   void  *iov_base;              /* Starting address */
+#   size_t iov_len;               /* Number of bytes to transfer */
+# };
+#
+                    # get msghdr
+                    addr = syscall.arguments[1].value
+                    # use P for size_t, hoping it will work on 32bit :)
+                    mf = 'PIPPPPi'
+                    ml = struct.calcsize(mf)
+                    (msg_name,
+                     msg_namelen,
+                     msg_iov,
+                     msg_iovlen,
+                     msg_control,
+                     msg_controllen,
+                     msg_flags) = struct.unpack(mf,
+                                                process.readBytes(addr, ml))
+                    # iterate msg_iov
+                    vf = 'PP'
+                    vl = struct.calcsize(vf)
+                    for i in range(msg_iovlen):
+                        # next iov msg header
+                        addr = msg_iov + vl * i
+                        (iov_base,
+                         iov_len) = struct.unpack(vf,
+                                                  process.readBytes(addr, vl))
+                        # read iov and store it in the buffer
+                        buf.write(process.readBytes(iov_base, iov_len))
+# 8<------------------------------------------------------------
+                else:
+                    # just read this damn buffer
+                    addr = syscall.arguments[1].value
+                    length = syscall.arguments[2].value
+                    buf.write(process.readBytes(addr, length))
+                print(hexdump(buf.getvalue()))
 
         # Break at next syscall
         process.syscall()
