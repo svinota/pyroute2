@@ -930,6 +930,7 @@ class Netlink(object):
                 raise e
             # terminator for persisten queues
             if msg is None:
+                self._remove_queue(key)
                 raise Queue.Empty()
             if (msg['header']['error'] is not None) and (not raw):
                 self._remove_queue(key)
@@ -939,7 +940,7 @@ class Netlink(object):
             if (msg['header']['type'] == NLMSG_DONE) or \
                (not msg['header']['flags'] & NLM_F_MULTI):
                 hosts -= 1
-            if hosts == 0:
+            if hosts == 0 or raw:
                 break
         if not hasattr(queue, 'persist'):
             self._remove_queue(key)
