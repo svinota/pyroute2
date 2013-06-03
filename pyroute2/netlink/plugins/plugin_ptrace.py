@@ -5,6 +5,7 @@ import io
 import socket
 import struct
 import Queue
+import logging
 import threading
 from pyroute2.common import Dotkeys
 
@@ -19,9 +20,9 @@ from ptrace.func_call import FunctionCallOptions
 
 
 class SyscallTracer(Application):
-    def __init__(self, command, marshal, no_stdout):
+    def __init__(self, command, pid, marshal, no_stdout):
         Application.__init__(self)
-        options = {'pid': None,
+        options = {'pid': pid,
                    'fork': True,
                    'trace_exec': True,
                    'no_stdout': no_stdout,
@@ -34,7 +35,10 @@ class SyscallTracer(Application):
                    'show_ip': False,
                    'enter': False}
         self.options = Dotkeys(options)
-        self.program = command.split()
+        if isinstance(command, basestring):
+            self.program = command.split()
+        else:
+            self.program = None
         self.marshal = marshal()
         self.queue = Queue.Queue()
         self.queue.persist = True
@@ -54,13 +58,14 @@ class SyscallTracer(Application):
                 if syscall.arguments[0].value in self.monitor:
                     self.monitor.remove(syscall.arguments[0].value)
             # get buffers
-            elif syscall.name in ('recv',
-                                  'recvmsg',
-                                  'recvfrom',
-                                  'send',
-                                  'sendmsg',
-                                  'sendto') and \
-                    syscall.arguments[0].value in self.monitor:
+            elif (syscall.name in ('recv',
+                                   'recvmsg',
+                                   'recvfrom',
+                                   'send',
+                                   'sendmsg',
+                                   'sendto')) and \
+                    ((syscall.arguments[0].value in self.monitor) or \
+                     (self.options.pid is not None)):
                 buf = io.BytesIO()
                 # get buffer
                 if syscall.name in ('recvmsg', 'sendmsg'):
@@ -198,7 +203,18 @@ class SyscallTracer(Application):
 
 def _create(command, marshal, **kwarg):
     #
-    tracer = SyscallTracer(command, marshal, kwarg.get('no_stdout', False))
+    try:
+        pid = int(command)
+        command = None
+        logging.warn('attaching to the running process')
+        logging.warn('all socket syscalls will be monitored')
+        logging.warn('probably you will get total mess')
+    except ValueError:
+        pid = None
+    tracer = SyscallTracer(command,
+                           pid,
+                           marshal,
+                           kwarg.get('no_stdout', False))
     thread = threading.Thread(target=tracer.main)
     thread.start()
     return tracer.queue
