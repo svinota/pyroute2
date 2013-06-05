@@ -30,12 +30,16 @@ netlink messages, not only RTNL.
 installation
 ------------
 
-`make install` or `easy_install pyroute2`
+`make install` or `pip install pyroute2`
 
 requires
 --------
 
 Python >= 2.6
+
+  * test reqs (optional): **python-coverage**, **python-nose**
+  * plugin reqs (optional):
+    * ptrace: **python-ptrace**
 
 changelog
 ---------
