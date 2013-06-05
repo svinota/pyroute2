@@ -1,7 +1,7 @@
 import os
 import pwd
 import subprocess
-from unittest import SkipTest
+from nose.plugins.skip import SkipTest
 
 
 def require_user(user):
