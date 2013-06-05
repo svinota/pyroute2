@@ -64,7 +64,7 @@ class SyscallTracer(Application):
                                    'send',
                                    'sendmsg',
                                    'sendto')) and \
-                    ((syscall.arguments[0].value in self.monitor) or \
+                    ((syscall.arguments[0].value in self.monitor) or
                      (self.options.pid is not None)):
                 buf = io.BytesIO()
                 # get buffer
