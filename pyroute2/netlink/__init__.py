@@ -586,7 +586,8 @@ class IOThread(threading.Thread):
         ret = self.command(IPRCMD_RELOAD)
         # wait max 3 seconds for reload
         # FIXME: timeout should be configurable
-        assert self._reload_event.wait(3)
+        self._reload_event.wait(3)
+        assert self._reload_event.is_set()
         return ret
 
     def add_server(self, url):
@@ -652,7 +653,8 @@ class IOThread(threading.Thread):
 
     def start(self):
         threading.Thread.start(self)
-        if not self._sctl_event.wait(3):
+        self._sctl_event.wait(3)
+        if not self._sctl_event.is_set():
             self._stop = True
             raise Exception('failed to establish control connection')
 
