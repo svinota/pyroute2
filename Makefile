@@ -28,6 +28,10 @@ ifdef lib
 	override lib := "--install-lib=${lib}"
 endif
 
+ifdef coverage
+	override coverage := "--cover-html"
+endif
+
 
 all:
 	@echo targets: dist, install
@@ -68,8 +72,8 @@ test:
 		nosetests -v --pdb --pdb-failures \
 			--with-coverage \
 			--cover-package=pyroute2 \
-			--cover-erase \
-			--cover-html; \
+			${coverage} \
+			--cover-erase; \
 		cd ..
 
 upload: clean force-version
