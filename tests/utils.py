@@ -34,11 +34,17 @@ def remove_dummy():
     remove_link('dummyX')
 
 
+def _check_output(*argv):
+    # we can not use check_output, as it does not exist in 2.6
+    process = subprocess.Popen(argv, stdout=subprocess.PIPE)
+    return process.communicate()[0].split('\n')
+
+
 def get_ip_addr(interface=None):
     argv = ['ip', '-o', 'ad']
     if interface:
         argv.extend(['li', 'dev', interface])
-    out = subprocess.check_output(argv).split('\n')
+    out = _check_output(*argv)
     ret = []
     for string in out:
         fields = string.split()
@@ -49,7 +55,7 @@ def get_ip_addr(interface=None):
 
 def get_ip_link():
     ret = []
-    out = subprocess.check_output(['ip', '-o', 'li']).split('\n')
+    out = _check_output('ip', '-o', 'li')
     for string in out:
         fields = string.split()
         if len(fields) >= 2:
@@ -59,12 +65,7 @@ def get_ip_link():
 
 def get_ip_route():
     ret = []
-    out = subprocess.check_output(['ip',
-                                   '-4',
-                                   'ro',
-                                   'li',
-                                   'ta',
-                                   '255']).split('\n')
+    out = _check_output('ip', '-4', 'ro', 'li', 'ta', '255')
     for string in out:
         if len(string):
             ret.append(string)
