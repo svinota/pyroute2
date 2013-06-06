@@ -44,9 +44,12 @@ Python >= 2.6
 changelog
 ---------
 
-* master
+* 0.1.8
     * complete refactoring of class names
-    * tests: code coverage
+    * Python 2.6 compatibility issues
+    * tests: code coverage, multiple code fixes
+    * plugins: ptrace message source
+    * packaging: RH package
 * 0.1.7
     * ipdb: interface creation: dummy, bond, bridge, vlan
     * ipdb: if\_slaves interface obsoleted
