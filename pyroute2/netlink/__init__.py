@@ -6,7 +6,6 @@ import select
 import struct
 import socket
 import Queue
-import copy
 import time
 import os
 import io
@@ -558,8 +557,11 @@ class IOThread(threading.Thread):
             msg['header']['host'] = _repr_sockets([sock], 'remote')[0]
             if key not in self.listeners:
                 key = 0
-            if self.mirror and key != 0:
-                self.listeners[0].put(copy.deepcopy(msg))
+            if self.mirror and (key != 0) and (msg.raw is not None):
+                # On Python 2.6 it can fail due to class fabrics
+                # in nlmsg definitions, so parse it again. It should
+                # not be much slower than copy.deepcopy()
+                self.listeners[0].put(marshal.parse(msg.raw)[0])
             if key in self.listeners:
                 self.listeners[key].put(msg)
 

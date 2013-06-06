@@ -142,6 +142,7 @@ class nlmsg_base(dict):
             b.seek(0)
             buf = b
         self.buf = buf or io.BytesIO()
+        self.raw = None
         self.length = length or 0
         self.parent = parent
         self.offset = 0
@@ -207,6 +208,10 @@ class nlmsg_base(dict):
                 # update length from header
                 # it can not be less than 4
                 self.length = max(self['header']['length'], 4)
+                save = self.buf.tell()
+                self.buf.seek(self.offset)
+                self.raw = self.buf.read(self.length)
+                self.buf.seek(save)
             except Exception as e:
                 raise NetlinkHeaderDecodeError(e)
         # decode the data
