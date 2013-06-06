@@ -20,6 +20,9 @@ from pyroute2.netlink.generic import NETLINK_GENERIC
 from pyroute2.netlink.generic import NETLINK_UNUSED
 
 
+_QUEUE_MAXSIZE = 4096
+
+
 class NetlinkError(Exception):
     '''
     Base netlink error
@@ -561,9 +564,17 @@ class IOThread(threading.Thread):
                 # On Python 2.6 it can fail due to class fabrics
                 # in nlmsg definitions, so parse it again. It should
                 # not be much slower than copy.deepcopy()
-                self.listeners[0].put(marshal.parse(msg.raw)[0])
+                try:
+                    self.listeners[0].put_nowait(marshal.parse(msg.raw)[0])
+                except Queue.Full:
+                    # FIXME: log this
+                    pass
             if key in self.listeners:
-                self.listeners[key].put(msg)
+                try:
+                    self.listeners[key].put_nowait(msg)
+                except Queue.Full:
+                    # FIXME: log this
+                    pass
 
     def command(self, cmd, attrs=[]):
         msg = ctrlmsg(io.BytesIO())
@@ -893,7 +904,7 @@ class Netlink(object):
         Netlink.get(0) or just Netlink.get().
         '''
         if operate:
-            self.listeners[0] = Queue.Queue()
+            self.listeners[0] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
         else:
             del self.listeners[0]
 
@@ -970,7 +981,7 @@ class Netlink(object):
         '''
         # FIXME make it thread safe, yeah
         nonce = self.iothread.nonce()
-        self.listeners[nonce] = Queue.Queue()
+        self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
         msg['header']['sequence_number'] = nonce
         msg['header']['pid'] = os.getpid()
         msg['header']['type'] = msg_type
