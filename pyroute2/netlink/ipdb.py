@@ -76,36 +76,38 @@ class LinkedSet(set):
 
     def __init__(self, *argv, **kwarg):
         set.__init__(self, *argv, **kwarg)
-        self.sync = threading.Condition()
+        self.lock = threading.Lock()
+        self.threshold = threading.Condition()
         self._ct = None
         self.raw = {}
         self.links = []
 
-    def recharge(self, value):
+    def set_threshold(self, value):
         self._ct = value
 
-    def countdown(self):
-        with self.sync:
+    def check_threshold(self):
+        with self.threshold:
             if self._ct is not None:
-                if self._ct > 1:
-                    self._ct -= 1
-                else:
+                if len(self) == self._ct:
                     self._ct = None
-                    self.sync.notify_all()
+                    self.threshold.notify_all()
 
     def add(self, key, raw=None):
-        self.raw[key] = raw
-        set.add(self, key)
-        for link in self.links:
-            link.add(key, raw)
-        self.countdown()
+        with self.lock:
+            if key not in self:
+                self.raw[key] = raw
+                set.add(self, key)
+                for link in self.links:
+                    link.add(key, raw)
+            self.check_threshold()
 
     def remove(self, key, raw=None):
-        for link in self.links:
-            if key in link:
-                link.remove(key)
-        set.remove(self, key)
-        self.countdown()
+        with self.lock:
+            set.remove(self, key)
+            for link in self.links:
+                if key in link:
+                    link.remove(key)
+            self.check_threshold()
 
     def connect(self, link):
         assert isinstance(link, LinkedSet)
@@ -591,13 +593,17 @@ class interface(Dotkeys):
             removed = self - transaction
             added = transaction - self
 
-            changed_addrs = len(removed['ipaddr']) + len(added['ipaddr'])
-            changed_ports = len(removed['ports']) + len(added['ports'])
+            addrs_wm = len(self['ipaddr']) - \
+                len(removed['ipaddr']) + \
+                len(added['ipaddr'])
+            ports_wm = len(self['ports']) - \
+                len(removed['ports']) + \
+                len(added['ports'])
 
             # 8<---------------------------------------------
             # IP address changes
-            with self['ipaddr'].sync:
-                self['ipaddr'].recharge(changed_addrs)
+            with self['ipaddr'].threshold:
+                self['ipaddr'].set_threshold(addrs_wm)
 
                 for i in removed['ipaddr']:
                     # When you remove a primary IP addr, all subnetwork
@@ -613,13 +619,13 @@ class interface(Dotkeys):
                 for i in added['ipaddr']:
                     self.ip.addr('add', self['index'], i[0], i[1])
 
-                if changed_addrs > 0:
-                    self['ipaddr'].sync.wait(3)
+                if removed['ipaddr'] or added['ipaddr']:
+                    self['ipaddr'].threshold.wait(3)
 
             # 8<---------------------------------------------
             # Interface slaves
-            with self['ports'].sync:
-                self['ports'].recharge(changed_ports)
+            with self['ports'].threshold:
+                self['ports'].set_threshold(ports_wm)
 
                 for i in removed['ports']:
                     # detach the port
@@ -629,8 +635,8 @@ class interface(Dotkeys):
                     # enslave the port
                     self.ip.link('set', index=i, master=self['index'])
 
-                if changed_ports > 0:
-                    self['ports'].sync.wait(3)
+                if removed['ports'] or added['ports']:
+                    self['ports'].threshold.wait(3)
 
             # 8<---------------------------------------------
             # Interface changes
@@ -678,8 +684,8 @@ class interface(Dotkeys):
                 # that's the worst case, but it is still possible,
                 # since we have no locks on OS level.
                 self.drop()
-                self['ipaddr'].recharge(None)
-                self['ports'].recharge(None)
+                self['ipaddr'].set_threshold(None)
+                self['ports'].set_threshold(None)
                 raise e
 
         # if it is not a rollback turn
