@@ -841,9 +841,12 @@ class IPDB(Dotkeys):
                 self.by_name[i['ifname']] = i
             self.old_names[dev['index']] = i['ifname']
 
-    def _lookup_master(self, index):
-        master = self[index].if_master
-        if not master and _ANCIENT_PLATFORM:
+    def _lookup_master(self, msg):
+        index = msg['index']
+        master = msg.get_attr('IFLA_MASTER') or msg.get_attr('IFLA_LINK')
+        if master:
+            master = master[0]
+        elif _ANCIENT_PLATFORM:
             # FIXME: do something with it, please
             # if the master is not reported by netlink, lookup it
             # through /sys:
@@ -855,6 +858,8 @@ class IPDB(Dotkeys):
             master = int(f.read())
             f.close()
             self[index].set_item('master', master)
+        else:
+            master = None
 
         return self.get(master, None)
 
@@ -863,7 +868,8 @@ class IPDB(Dotkeys):
         Update slaves list -- only after update IPDB!
         '''
         for msg in links:
-            master = self._lookup_master(msg['index'])
+            master = self._lookup_master(msg)
+            # there IS a master for the interface
             if master is not None:
                 index = msg['index']
                 if msg['event'] == 'RTM_NEWLINK':
