@@ -14,6 +14,7 @@ Quick start:
 '''
 import uuid
 import logging
+import platform
 import threading
 from socket import AF_INET
 from socket import AF_INET6
@@ -28,6 +29,9 @@ nla_fields.append('flags')
 nla_fields.append('mask')
 nla_fields.append('change')
 nla_fields.append('state')
+
+
+_ANCIENT_PLATFORM = platform.dist()[:2] == ('redhat', '6.4')
 
 
 class IPDBError(Exception):
@@ -383,6 +387,16 @@ class interface(Dotkeys):
         for item in self.cleanup:
             if item in self:
                 del self[item]
+        self._direct_state.release()
+
+    def set_item(self, key, value):
+        self._direct_state.acquire()
+        self[key] = value
+        self._direct_state.release()
+
+    def del_item(self, key):
+        self._direct_state.acquire()
+        del self[key]
         self._direct_state.release()
 
     @update
@@ -782,15 +796,30 @@ class IPDB(Dotkeys):
                 self.by_name[i['ifname']] = i
             self.old_names[dev['index']] = i['ifname']
 
+    def _lookup_master(self, index):
+        master = self[index].if_master
+        if not master and _ANCIENT_PLATFORM:
+            # if the master is not reported by netlink, lookup it
+            # through /sys:
+            try:
+                f = open('/sys/class/net/%s/brport/bridge/ifindex' %
+                         (self[index]['ifname']), 'r')
+            except IOError:
+                return
+            master = int(f.read())
+            f.close()
+            self[index].set_item('master', master)
+
+        return master
+
     def update_slaves(self, links):
         '''
         Update slaves list -- only after update IPDB!
         '''
         for msg in links:
-            master = msg.get_attr('IFLA_MASTER') or \
-                msg.get_attr('IFLA_LINK')
-            if master:
-                master = self[master[0]]
+            master = self._lookup_master(msg['index'])
+            if master is not None:
+                master = self[master]
                 index = msg['index']
                 if msg['event'] == 'RTM_NEWLINK':
                     # TODO tags: ipdb
