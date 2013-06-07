@@ -484,6 +484,10 @@ class interface(Dotkeys):
             if port in transaction['ports']:
                 transaction.del_port(port)
         else:
+            # FIXME: do something with it, please
+            if self._parent and _ANCIENT_PLATFORM and \
+                    'master' in self._parent[port]:
+                self._parent[port].del_item('master')
             self['ports'].remove(port)
 
     def begin(self):
