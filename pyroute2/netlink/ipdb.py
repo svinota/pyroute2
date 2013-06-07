@@ -151,6 +151,10 @@ def update(f):
         tid = None
         direct = True
         with self._snapshot_lock:
+            dcall = kwarg.pop('direct', False)
+            if dcall:
+                self._direct_state.acquire()
+
             # fix the pass-through mode:
             with self._direct_state:
                 direct = self._direct_state.is_set()
@@ -174,6 +178,10 @@ def update(f):
                         raise IPDBError('transaction mode not supported')
                     # now that the transaction _is_ open
                 f(self, direct, *argv, **kwarg)
+
+            if dcall:
+                self._direct_state.release()
+
         if tid:
             # close the transaction for 'direct' type
             self.commit(tid)
@@ -831,14 +839,11 @@ class IPDB(Dotkeys):
                     # masters refers to the same slave
                     for device in self.by_index:
                         if index in self[device]['ports']:
-                            self[device]['ports'].remove(index)
-                    # FIXME: move this to a dedicated method
-                    master['ports'].add(index)
+                            self[device].del_port(index, direct=True)
+                    master.add_port(index, direct=True)
                 elif msg['event'] == 'RTM_DELLINK':
-                    # TODO tags: ipdb
-                    # FIXME: move this to a dedicated method
                     if index in master['ports']:
-                        master['ports'].remove(index)
+                        master.del_port(index, direct=True)
 
     def update_addr(self, addrs, action='add'):
         '''
