@@ -88,7 +88,6 @@ class TestExplicit(object):
         self.ip.dummyX.ifname = 'bala'
         self.ip.dummyX.commit()
 
-        self.ip._links_event.wait()
         assert 'bala' in self.ip
         assert 'dummyX' not in self.ip
 
@@ -97,7 +96,6 @@ class TestExplicit(object):
         self.ip.bala.ifname = 'dummyX'
         self.ip.bala.commit()
 
-        self.ip._links_event.wait()
         assert 'bala' not in self.ip
         assert 'dummyX' in self.ip
 
@@ -138,6 +136,7 @@ class TestExplicit(object):
         i = self.ip.create(kind='dummy', ifname='bala')
         i.add_ip('172.16.14.1/24')
         i.commit()
+        assert ('172.16.14.1', 24) in self.ip.bala.ipaddr
         assert '172.16.14.1/24' in get_ip_addr(interface='bala')
         remove_link('bala')
 
@@ -146,6 +145,7 @@ class TestExplicit(object):
         assert 'bala' not in self.ip
         with self.ip.create(kind='dummy', ifname='bala') as i:
             i.add_ip('172.16.14.1/24')
+        assert ('172.16.14.1', 24) in self.ip.bala.ipaddr
         assert '172.16.14.1/24' in get_ip_addr(interface='bala')
         remove_link('bala')
 
@@ -163,7 +163,7 @@ class TestExplicit(object):
             i.add_port(self.ip.bala_port1)
             i.add_ip('172.16.15.1/24')
 
-        self.ip._links_event.wait()
+        assert ('172.16.15.1', 24) in self.ip.bala.ipaddr
         assert '172.16.15.1/24' in get_ip_addr(interface='bala')
         assert self.ip.bala_port0.if_master == self.ip.bala.index
         assert self.ip.bala_port1.if_master == self.ip.bala.index
@@ -173,10 +173,10 @@ class TestExplicit(object):
             i.del_port(self.ip.bala_port1)
             i.del_ip('172.16.15.1/24')
 
-        self.ip._links_event.wait()
+        assert ('172.16.15.1', 24) not in self.ip.bala.ipaddr
         assert '172.16.15.1/24' not in get_ip_addr(interface='bala')
-        #assert self.ip.bala_port0.if_master is None
-        #assert self.ip.bala_port1.if_master is None
+        assert self.ip.bala_port0.if_master is None
+        assert self.ip.bala_port1.if_master is None
 
         remove_link('bala_port0')
         remove_link('bala_port1')
@@ -206,11 +206,11 @@ class TestExplicit(object):
             i.add_ip('172.16.8.1', 24)
             i.add_ip('172.16.8.2', 24)
 
-        self.ip._links_event.wait()
-        self.ip._addr_event.wait()
         assert 'bala' in self.ip
         assert ('172.16.8.1', 24) in self.ip.bala.ipaddr
         assert ('172.16.8.2', 24) in self.ip.bala.ipaddr
+        assert '172.16.8.1/24' in get_ip_addr(interface='bala')
+        assert '172.16.8.2/24' in get_ip_addr(interface='bala')
 
         if i._mode == 'explicit':
             i.begin()
@@ -219,9 +219,10 @@ class TestExplicit(object):
         i.del_ip('172.16.8.2', 24)
         i.commit()
 
-        i.reload()
         assert ('172.16.8.1', 24) not in self.ip.bala.ipaddr
         assert ('172.16.8.2', 24) not in self.ip.bala.ipaddr
+        assert '172.16.8.1/24' not in get_ip_addr(interface='bala')
+        assert '172.16.8.2/24' not in get_ip_addr(interface='bala')
 
         remove_link('bala')
 
