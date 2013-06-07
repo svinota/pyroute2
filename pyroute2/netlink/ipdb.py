@@ -77,20 +77,25 @@ class LinkedSet(set):
     def __init__(self, *argv, **kwarg):
         set.__init__(self, *argv, **kwarg)
         self.lock = threading.Lock()
-        self.threshold = threading.Condition()
+        self.target = threading.Condition()
         self._ct = None
         self.raw = {}
         self.links = []
 
-    def set_threshold(self, value):
-        self._ct = value
+    def set_target(self, value):
+        if value is None:
+            self._ct = None
+        elif isinstance(value, (list, tuple, set)):
+            self._ct = set(value)
+        else:
+            raise TypeError('unsupported target type')
 
-    def check_threshold(self):
-        with self.threshold:
+    def check_target(self):
+        with self.target:
             if self._ct is not None:
-                if len(self) == self._ct:
+                if self == self._ct:
                     self._ct = None
-                    self.threshold.notify_all()
+                    self.target.notify_all()
 
     def add(self, key, raw=None):
         with self.lock:
@@ -99,7 +104,7 @@ class LinkedSet(set):
                 set.add(self, key)
                 for link in self.links:
                     link.add(key, raw)
-            self.check_threshold()
+            self.check_target()
 
     def remove(self, key, raw=None):
         with self.lock:
@@ -107,7 +112,7 @@ class LinkedSet(set):
             for link in self.links:
                 if key in link:
                     link.remove(key)
-            self.check_threshold()
+            self.check_target()
 
     def connect(self, link):
         assert isinstance(link, LinkedSet)
@@ -593,17 +598,10 @@ class interface(Dotkeys):
             removed = snapshot - transaction
             added = transaction - snapshot
 
-            addrs_wm = len(self['ipaddr']) - \
-                len(removed['ipaddr']) + \
-                len(added['ipaddr'])
-            ports_wm = len(self['ports']) - \
-                len(removed['ports']) + \
-                len(added['ports'])
-
             # 8<---------------------------------------------
             # IP address changes
-            with self['ipaddr'].threshold:
-                self['ipaddr'].set_threshold(addrs_wm)
+            with self['ipaddr'].target:
+                self['ipaddr'].set_target(transaction['ipaddr'])
 
                 for i in removed['ipaddr']:
                     # When you remove a primary IP addr, all subnetwork
@@ -620,12 +618,12 @@ class interface(Dotkeys):
                     self.ip.addr('add', self['index'], i[0], i[1])
 
                 if removed['ipaddr'] or added['ipaddr']:
-                    self['ipaddr'].threshold.wait(3)
+                    self['ipaddr'].target.wait(3)
 
             # 8<---------------------------------------------
             # Interface slaves
-            with self['ports'].threshold:
-                self['ports'].set_threshold(ports_wm)
+            with self['ports'].target:
+                self['ports'].set_target(transaction['ports'])
 
                 for i in removed['ports']:
                     # detach the port
@@ -636,7 +634,7 @@ class interface(Dotkeys):
                     self.ip.link('set', index=i, master=self['index'])
 
                 if removed['ports'] or added['ports']:
-                    self['ports'].threshold.wait(3)
+                    self['ports'].target.wait(3)
 
             # 8<---------------------------------------------
             # Interface changes
@@ -684,8 +682,8 @@ class interface(Dotkeys):
                 # that's the worst case, but it is still possible,
                 # since we have no locks on OS level.
                 self.drop()
-                self['ipaddr'].set_threshold(None)
-                self['ports'].set_threshold(None)
+                self['ipaddr'].set_target(None)
+                self['ports'].set_target(None)
                 raise e
 
         # if it is not a rollback turn
