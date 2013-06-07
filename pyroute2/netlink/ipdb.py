@@ -347,7 +347,7 @@ class interface(Dotkeys):
         [property] Link to the parent interface -- if it exists
         '''
         ret = [self[i] for i in ('link', 'master')
-               if isinstance(self[i], int)] or [None]
+               if (i in self) and isinstance(self[i], int)] or [None]
         return ret[0]
 
     def load(self, dev):
