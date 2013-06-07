@@ -747,7 +747,6 @@ class IPDB(Dotkeys):
         self.old_names = {}
 
         # update events
-        self._addr_event = threading.Event()
         self._links_event = threading.Event()
 
         # load information on startup
@@ -895,7 +894,6 @@ class IPDB(Dotkeys):
                     method(key=(nla, addr['prefixlen']), raw=addr)
                 except:
                     pass
-        self._addr_event.set()
 
     def monitor(self):
         '''
