@@ -590,8 +590,8 @@ class interface(Dotkeys):
         snapshot = self.pick()
 
         try:
-            removed = self - transaction
-            added = transaction - self
+            removed = snapshot - transaction
+            added = transaction - snapshot
 
             addrs_wm = len(self['ipaddr']) - \
                 len(removed['ipaddr']) + \
