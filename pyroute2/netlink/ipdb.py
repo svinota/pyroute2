@@ -845,6 +845,7 @@ class IPDB(Dotkeys):
     def _lookup_master(self, index):
         master = self[index].if_master
         if not master and _ANCIENT_PLATFORM:
+            # FIXME: do something with it, please
             # if the master is not reported by netlink, lookup it
             # through /sys:
             try:
@@ -856,7 +857,7 @@ class IPDB(Dotkeys):
             f.close()
             self[index].set_item('master', master)
 
-        return master
+        return self.get(master, None)
 
     def update_slaves(self, links):
         '''
@@ -865,7 +866,6 @@ class IPDB(Dotkeys):
         for msg in links:
             master = self._lookup_master(msg['index'])
             if master is not None:
-                master = self[master]
                 index = msg['index']
                 if msg['event'] == 'RTM_NEWLINK':
                     # TODO tags: ipdb
