@@ -13,6 +13,10 @@ def remove_link(name):
     if os.getuid() != 0:
         return
     subprocess.call(['ip', 'link', 'del', 'dev', name])
+    while True:
+        links = get_ip_link()
+        if name not in links:
+            break
 
 
 def create_link(name, kind):
