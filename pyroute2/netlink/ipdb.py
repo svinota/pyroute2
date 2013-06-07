@@ -887,6 +887,17 @@ class IPDB(Dotkeys):
                 elif msg['event'] == 'RTM_DELLINK':
                     if index in master['ports']:
                         master.del_port(index, direct=True)
+            # there is NO masters for the interface, clean them if any
+            else:
+                device = self[msg['index']]
+                master = device.if_master
+                if master is not None:
+                    if 'master' in device:
+                        device.del_item('master')
+                    if 'link' in device:
+                        device.del_item('link')
+                    if master in self:
+                        self[master].del_port(msg['index'], direct=True)
 
     def update_addr(self, addrs, action='add'):
         '''
