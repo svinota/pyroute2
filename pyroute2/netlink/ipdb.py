@@ -76,20 +76,36 @@ class LinkedSet(set):
 
     def __init__(self, *argv, **kwarg):
         set.__init__(self, *argv, **kwarg)
+        self.sync = threading.Condition()
+        self._ct = None
         self.raw = {}
         self.links = []
+
+    def recharge(self, value):
+        self._ct = value
+
+    def countdown(self):
+        with self.sync:
+            if self._ct is not None:
+                if self._ct > 1:
+                    self._ct -= 1
+                else:
+                    self._ct = None
+                    self.sync.notify_all()
 
     def add(self, key, raw=None):
         self.raw[key] = raw
         set.add(self, key)
         for link in self.links:
             link.add(key, raw)
+        self.countdown()
 
     def remove(self, key, raw=None):
         for link in self.links:
             if key in link:
                 link.remove(key)
         set.remove(self, key)
+        self.countdown()
 
     def connect(self, link):
         assert isinstance(link, LinkedSet)
@@ -267,6 +283,7 @@ class interface(Dotkeys):
         self._transactions = {}
         self._mode = mode
         self._snapshot_lock = threading.RLock()
+        self._load_event = threading.Event()
         # local setup: direct state is required
         self._direct_state.acquire()
         self['ipaddr'] = LinkedSet()
@@ -396,6 +413,7 @@ class interface(Dotkeys):
             if item in self:
                 del self[item]
         self._direct_state.release()
+        self._load_event.set()
 
     def set_item(self, key, value):
         self._direct_state.acquire()
@@ -513,14 +531,12 @@ class interface(Dotkeys):
         '''
         Reload interface information
         '''
-        self._parent._addr_event.clear()
-        self['ipaddr'].clear()
+        self._load_event.clear()
         try:
             self.ip.get_links(self['index'])
-            self.ip.get_addr()
         except Empty as e:
             raise IPDBUnrecoverableError('lost netlink', e)
-        self._parent._addr_event.wait()
+        self._load_event.wait()
 
     def commit(self, tid=None, transaction=None, rollback=False):
         '''
@@ -571,30 +587,46 @@ class interface(Dotkeys):
             removed = self - transaction
             added = transaction - self
 
+            changed_addrs = len(removed['ipaddr']) + len(added['ipaddr'])
+            changed_ports = len(removed['ports']) + len(added['ports'])
+
             # 8<---------------------------------------------
             # IP address changes
-            for i in removed['ipaddr']:
-                # When you remove a primary IP addr, all subnetwork
-                # can be removed. In this case you will fail, but
-                # it is OK, no need to roll back
-                try:
-                    self.ip.addr('delete', self['index'], i[0], i[1])
-                except NetlinkError as x:
-                    # bypass only errno 99, 'Cannot assign address'
-                    if x.code != 99:
-                        raise x
+            with self['ipaddr'].sync:
+                self['ipaddr'].recharge(changed_addrs)
 
-            for i in added['ipaddr']:
-                self.ip.addr('add', self['index'], i[0], i[1])
+                for i in removed['ipaddr']:
+                    # When you remove a primary IP addr, all subnetwork
+                    # can be removed. In this case you will fail, but
+                    # it is OK, no need to roll back
+                    try:
+                        self.ip.addr('delete', self['index'], i[0], i[1])
+                    except NetlinkError as x:
+                        # bypass only errno 99, 'Cannot assign address'
+                        if x.code != 99:
+                            raise x
+
+                for i in added['ipaddr']:
+                    self.ip.addr('add', self['index'], i[0], i[1])
+
+                if changed_addrs > 0:
+                    self['ipaddr'].sync.wait(3)
+
             # 8<---------------------------------------------
             # Interface slaves
-            for i in removed['ports']:
-                # detach the port
-                self.ip.link('set', index=i, master=0)
+            with self['ports'].sync:
+                self['ports'].recharge(changed_ports)
 
-            for i in added['ports']:
-                # enslave the port
-                self.ip.link('set', index=i, master=self['index'])
+                for i in removed['ports']:
+                    # detach the port
+                    self.ip.link('set', index=i, master=0)
+
+                for i in added['ports']:
+                    # enslave the port
+                    self.ip.link('set', index=i, master=self['index'])
+
+                if changed_ports > 0:
+                    self['ports'].sync.wait(3)
 
             # 8<---------------------------------------------
             # Interface changes
@@ -642,6 +674,8 @@ class interface(Dotkeys):
                 # that's the worst case, but it is still possible,
                 # since we have no locks on OS level.
                 self.drop()
+                self['ipaddr'].recharge(None)
+                self['ports'].recharge(None)
                 raise e
 
         # if it is not a rollback turn
