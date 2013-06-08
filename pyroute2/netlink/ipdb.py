@@ -122,50 +122,30 @@ class LinkedSet(set):
         return repr(list(self))
 
 
-class rwState(object):
+class State(object):
 
-    def __init__(self):
-        self._rlock = threading.Lock()
-        self._wlock = threading.Lock()
-        self._lock = threading.Lock()
-        self._readers = 0
-        self._no_readers = threading.Event()
-        self._no_readers.set()
-        self._state = False
+    def __init__(self, lock=None):
+        self.lock = lock or threading.Lock()
+        self.flag = 0
+
+    def acquire(self):
+        self.lock.acquire()
+        self.flag += 1
+
+    def release(self):
+        assert self.flag > 0
+        self.flag -= 1
+        self.lock.release()
+
+    def is_set(self):
+        return self.flag
 
     def __enter__(self):
-        self.reader_acquire()
+        self.acquire()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.reader_release()
-
-    def reader_acquire(self):
-        with self._wlock:
-            with self._rlock:
-                self._no_readers.clear()
-                self._readers += 1
-
-    def reader_release(self):
-        with self._rlock:
-            assert self._readers > 0
-            self._readers -= 1
-            if self._readers == 0:
-                self._no_readers.set()
-
-    def is_set(self):
-        return self._state
-
-    def acquire(self):
-        self._lock.acquire()
-        self._no_readers.wait()
-        self._state = True
-
-    def release(self):
-        with self._wlock:
-            self._no_readers.wait()
-            self._state = False
-            self._lock.release()
+        self.release()
 
 
 def update(f):
@@ -173,34 +153,32 @@ def update(f):
         # obtain update lock
         tid = None
         direct = True
-        with self._snapshot_lock:
+        with self._write_lock:
             dcall = kwarg.pop('direct', False)
             if dcall:
                 self._direct_state.acquire()
 
-            # fix the pass-through mode:
-            with self._direct_state:
-                direct = self._direct_state.is_set()
-                if not direct:
-                    # 1. begin transaction for 'direct' type
-                    if self._mode == 'direct':
-                        tid = self.begin()
-                    # 2. begin transaction, if there is none
-                    elif self._mode == 'implicit':
-                        if not self._tids:
-                            self.begin()
-                    # 3. require open transaction for 'explicit' type
-                    elif self._mode == 'explicit':
-                        if not self._tids:
-                            raise IPDBTransactionRequired()
-                    # 4. transactions can not require transactions :)
-                    elif self._mode == 'snapshot':
-                        direct = True
-                    # do not support other modes
-                    else:
-                        raise IPDBError('transaction mode not supported')
-                    # now that the transaction _is_ open
-                f(self, direct, *argv, **kwarg)
+            direct = self._direct_state.is_set()
+            if not direct:
+                # 1. begin transaction for 'direct' type
+                if self._mode == 'direct':
+                    tid = self.begin()
+                # 2. begin transaction, if there is none
+                elif self._mode == 'implicit':
+                    if not self._tids:
+                        self.begin()
+                # 3. require open transaction for 'explicit' type
+                elif self._mode == 'explicit':
+                    if not self._tids:
+                        raise IPDBTransactionRequired()
+                # 4. transactions can not require transactions :)
+                elif self._mode == 'snapshot':
+                    direct = True
+                # do not support other modes
+                else:
+                    raise IPDBError('transaction mode not supported')
+                # now that the transaction _is_ open
+            f(self, direct, *argv, **kwarg)
 
             if dcall:
                 self._direct_state.release()
@@ -284,23 +262,23 @@ class interface(Dotkeys):
                         'stats64')
         self.last_error = None
         self._exists = False
-        self._direct_state = rwState()
         self._parent = parent
         self._tids = []
         self._transactions = {}
         self._mode = mode
-        self._snapshot_lock = threading.RLock()
+        self._write_lock = threading.RLock()
+        self._direct_state = State(self._write_lock)
         self._load_event = threading.Event()
+        # 8<-----------------------------------
         # local setup: direct state is required
-        self._direct_state.acquire()
-        self['ipaddr'] = LinkedSet()
-        self['ports'] = LinkedSet()
-        for i in nla_fields:
-            self[i] = None
-        self['flags'] = 0
-        for i in ('state', 'change', 'mask'):
-            del self[i]
-        self._direct_state.release()
+        with self._direct_state:
+            self['ipaddr'] = LinkedSet()
+            self['ports'] = LinkedSet()
+            for i in nla_fields:
+                self[i] = None
+            self['flags'] = 0
+            for i in ('state', 'change', 'mask'):
+                del self[i]
         # 8<-----------------------------------
         if dev is not None:
             self.load(dev)
@@ -316,7 +294,7 @@ class interface(Dotkeys):
         The reason behind this logic is that snapshots can be
         used as transactions.
         '''
-        with self._snapshot_lock:
+        with self._write_lock:
             res = interface(ipr=self.ip, mode='snapshot')
             for key in tuple(self.keys()):
                 if key in nla_fields:
@@ -332,13 +310,13 @@ class interface(Dotkeys):
         '''
         '''
         res = interface(ipr=self.ip, mode='snapshot')
-        self._direct_state.acquire()
-        # simple keys
-        for key in self:
-            if (key in nla_fields) and \
-                    ((key not in pif) or (self[key] != pif[key])):
-                res[key] = self[key]
-        self._direct_state.release()
+        with self._direct_state:
+            # simple keys
+            for key in self:
+                if (key in nla_fields) and \
+                        ((key not in pif) or (self[key] != pif[key])):
+                    res[key] = self[key]
+
         # ip addresses
         ipaddr = LinkedSet(self['ipaddr'] - pif['ipaddr'])
         # ports
@@ -393,44 +371,42 @@ class interface(Dotkeys):
         This call always bypasses open transactions, loading
         changes directly into the interface data.
         '''
-        self._direct_state.acquire()
-        self._exists = True
-        self.update(dev)
-        self._attrs = set()
-        for (name, value) in dev['attrs']:
-            norm = ifinfmsg.nla2name(name)
-            self._attrs.add(norm)
-            self[norm] = value
-        # load interface kind
-        linkinfo = dev.get_attr('IFLA_LINKINFO')
-        if linkinfo:
-            kind = linkinfo[0].get_attr('IFLA_INFO_KIND')
-            if kind:
-                self['kind'] = kind[0]
-                if kind[0] == 'vlan':
-                    data = linkinfo[0].get_attr('IFLA_INFO_DATA')[0]
-                    self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')[0]
-        # the rest is possible only when interface
-        # is used in IPDB, not standalone
-        if self._parent is not None:
-            # connect IP address set from IPDB
-            self['ipaddr'] = self._parent.ipaddr[self['index']]
-        # finally, cleanup all not needed
-        for item in self.cleanup:
-            if item in self:
-                del self[item]
-        self._direct_state.release()
-        self._load_event.set()
+        with self._direct_state:
+            self._exists = True
+            self.update(dev)
+            self._attrs = set()
+            for (name, value) in dev['attrs']:
+                norm = ifinfmsg.nla2name(name)
+                self._attrs.add(norm)
+                self[norm] = value
+            # load interface kind
+            linkinfo = dev.get_attr('IFLA_LINKINFO')
+            if linkinfo:
+                kind = linkinfo[0].get_attr('IFLA_INFO_KIND')
+                if kind:
+                    self['kind'] = kind[0]
+                    if kind[0] == 'vlan':
+                        data = linkinfo[0].get_attr('IFLA_INFO_DATA')[0]
+                        self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')[0]
+            # the rest is possible only when interface
+            # is used in IPDB, not standalone
+            if self._parent is not None:
+                # connect IP address set from IPDB
+                self['ipaddr'] = self._parent.ipaddr[self['index']]
+            # finally, cleanup all not needed
+            for item in self.cleanup:
+                if item in self:
+                    del self[item]
+
+            self._load_event.set()
 
     def set_item(self, key, value):
-        self._direct_state.acquire()
-        self[key] = value
-        self._direct_state.release()
+        with self._direct_state:
+            self[key] = value
 
     def del_item(self, key):
-        self._direct_state.acquire()
-        del self[key]
-        self._direct_state.release()
+        with self._direct_state:
+            del self[key]
 
     @update
     def __setitem__(self, direct, key, value):
@@ -577,10 +553,9 @@ class interface(Dotkeys):
                 self._parent.detach(self['index'])
                 self._parent.detach(self['ifname'])
                 # 3. invalidate the interface
-                self._direct_state.acquire()
-                for i in tuple(self.keys()):
-                    del self[i]
-                self._direct_state.release()
+                with self._direct_state:
+                    for i in tuple(self.keys()):
+                        del self[i]
                 # 4. the rest
                 self._mode = 'invalid'
                 # raise the exception
@@ -664,17 +639,16 @@ class interface(Dotkeys):
                 # Still, there is a possibility that the
                 # rollback will run even before IP addrs will
                 # be assigned. But we can not cope with that.
-                self._direct_state.acquire()
-                if removed:
-                    for i in removed['ipaddr']:
-                        try:
-                            self['ipaddr'].remove(i)
-                        except KeyError:
-                            pass
-                if added:
-                    for i in added['ipaddr']:
-                        self['ipaddr'].add(i)
-                self._direct_state.release()
+                with self._direct_state:
+                    if removed:
+                        for i in removed['ipaddr']:
+                            try:
+                                self['ipaddr'].remove(i)
+                            except KeyError:
+                                pass
+                    if added:
+                        for i in added['ipaddr']:
+                            self['ipaddr'].add(i)
                 # 8<-----------------------------------------
                 self.commit(transaction=snapshot, rollback=True)
             else:
