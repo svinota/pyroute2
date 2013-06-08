@@ -221,7 +221,7 @@ class Marshal(object):
                 (length, msg_type) = struct.unpack('IH', self.buf.read(6))
                 error = None
                 if msg_type == NLMSG_ERROR:
-                    self.buf.seek(16)
+                    self.buf.seek(offset + 16)
                     code = abs(struct.unpack('i', self.buf.read(4))[0])
                     if code > 0:
                         error = NetlinkError(code)
