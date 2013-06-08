@@ -1,4 +1,5 @@
 import os
+import re
 import pwd
 import subprocess
 from nose.plugins.skip import SkipTest
@@ -42,6 +43,16 @@ def _check_output(*argv):
     # we can not use check_output, as it does not exist in 2.6
     process = subprocess.Popen(argv, stdout=subprocess.PIPE)
     return process.communicate()[0].split('\n')
+
+
+def grep(command, pattern=None):
+    out = _check_output(*command.split())
+    ret = []
+    reg = re.compile(pattern)
+    for string in out:
+        if reg.search(string):
+            ret.append(string)
+    return ret
 
 
 def get_ip_addr(interface=None):
