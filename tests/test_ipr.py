@@ -5,11 +5,13 @@ from pyroute2 import IPRoute
 from pyroute2.netlink import NetlinkError
 from multiprocessing import Event
 from multiprocessing import Process
+from utils import grep
 from utils import require_user
 from utils import get_ip_addr
 from utils import get_ip_link
 from utils import get_ip_route
 from utils import create_link
+from utils import remove_link
 from utils import setup_dummy
 from utils import remove_dummy
 
@@ -178,6 +180,19 @@ class TestData(object):
         except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname='bala')) == 0
+
+    def test_route(self):
+        require_user('root')
+        create_link('bala', 'dummy')
+        dev = self.ip.link_lookup(ifname='bala')[0]
+        self.ip.link('set', index=dev, state='up')
+        self.ip.addr('add', dev, address='172.16.26.2', mask=24)
+        self.ip.route('add',
+                      prefix='172.16.0.0',
+                      mask=24,
+                      gateway='172.16.26.1')
+        assert grep('ip route show', pattern='172.16.0.0/24.*172.16.26.1')
+        remove_link('bala')
 
     def test_updown_link(self):
         require_user('root')
