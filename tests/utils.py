@@ -28,18 +28,12 @@ def create_link(name, kind):
         return
     subprocess.call(['ip', 'link', 'add', 'dev', name, 'type', kind])
 
+    for i in range(20):
+        links = get_ip_link()
+        if name in links:
+            return
 
-def setup_dummy():
-    if os.getuid() != 0:
-        return
-    create_link('dummyX', 'dummy')
-    for i in range(1, 20):
-        ip = '172.16.13.%i/24' % (i)
-        subprocess.call(['ip', 'addr', 'add', 'dev', 'dummyX', ip])
-
-
-def remove_dummy():
-    remove_link('dummyX')
+    raise Exception("interface not created")
 
 
 def _check_output(*argv):

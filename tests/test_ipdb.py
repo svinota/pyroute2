@@ -4,7 +4,7 @@ from pyroute2.netlink.ipdb import IPDBModeError
 from pyroute2.netlink.ipdb import IPDBUnrecoverableError
 from pyroute2.netlink.ipdb import IPDBTransactionRequired
 from pyroute2.netlink import NetlinkError
-from utils import setup_dummy
+from utils import create_link
 from utils import remove_link
 from utils import require_user
 from utils import get_ip_addr
@@ -19,12 +19,13 @@ class TestExplicit(object):
     mode = 'explicit'
 
     def setup(self):
-        setup_dummy()
+        create_link('dummyX', 'dummy')
         self.ip = IPDB(mode=self.mode)
 
     def teardown(self):
         self.ip.release()
         remove_link('dummyX')
+        remove_link('bala')
 
     def test_simple(self):
         assert self.ip.keys() > 0
@@ -134,19 +135,19 @@ class TestExplicit(object):
         require_user('root')
         assert 'bala' not in self.ip
         i = self.ip.create(kind='dummy', ifname='bala')
-        i.add_ip('172.16.14.1/24')
+        i.add_ip('172.16.0.1/24')
         i.commit()
-        assert ('172.16.14.1', 24) in self.ip.bala.ipaddr
-        assert '172.16.14.1/24' in get_ip_addr(interface='bala')
+        assert ('172.16.0.1', 24) in self.ip.bala.ipaddr
+        assert '172.16.0.1/24' in get_ip_addr(interface='bala')
         remove_link('bala')
 
     def test_create_context(self):
         require_user('root')
         assert 'bala' not in self.ip
         with self.ip.create(kind='dummy', ifname='bala') as i:
-            i.add_ip('172.16.14.1/24')
-        assert ('172.16.14.1', 24) in self.ip.bala.ipaddr
-        assert '172.16.14.1/24' in get_ip_addr(interface='bala')
+            i.add_ip('172.16.0.1/24')
+        assert ('172.16.0.1', 24) in self.ip.bala.ipaddr
+        assert '172.16.0.1/24' in get_ip_addr(interface='bala')
         remove_link('bala')
 
     def test_create_bond(self):
@@ -161,20 +162,20 @@ class TestExplicit(object):
         with self.ip.create(kind='bond', ifname='bala') as i:
             i.add_port(self.ip.bala_port0)
             i.add_port(self.ip.bala_port1)
-            i.add_ip('172.16.15.1/24')
+            i.add_ip('172.16.0.1/24')
 
-        assert ('172.16.15.1', 24) in self.ip.bala.ipaddr
-        assert '172.16.15.1/24' in get_ip_addr(interface='bala')
+        assert ('172.16.0.1', 24) in self.ip.bala.ipaddr
+        assert '172.16.0.1/24' in get_ip_addr(interface='bala')
         assert self.ip.bala_port0.if_master == self.ip.bala.index
         assert self.ip.bala_port1.if_master == self.ip.bala.index
 
         with self.ip.bala as i:
             i.del_port(self.ip.bala_port0)
             i.del_port(self.ip.bala_port1)
-            i.del_ip('172.16.15.1/24')
+            i.del_ip('172.16.0.1/24')
 
-        assert ('172.16.15.1', 24) not in self.ip.bala.ipaddr
-        assert '172.16.15.1/24' not in get_ip_addr(interface='bala')
+        assert ('172.16.0.1', 24) not in self.ip.bala.ipaddr
+        assert '172.16.0.1/24' not in get_ip_addr(interface='bala')
         assert self.ip.bala_port0.if_master is None
         assert self.ip.bala_port1.if_master is None
 
@@ -203,26 +204,26 @@ class TestExplicit(object):
         assert 'bala' not in self.ip
 
         with self.ip.create(kind='dummy', ifname='bala') as i:
-            i.add_ip('172.16.8.1', 24)
-            i.add_ip('172.16.8.2', 24)
+            i.add_ip('172.16.0.1', 24)
+            i.add_ip('172.16.0.2', 24)
 
         assert 'bala' in self.ip
-        assert ('172.16.8.1', 24) in self.ip.bala.ipaddr
-        assert ('172.16.8.2', 24) in self.ip.bala.ipaddr
-        assert '172.16.8.1/24' in get_ip_addr(interface='bala')
-        assert '172.16.8.2/24' in get_ip_addr(interface='bala')
+        assert ('172.16.0.1', 24) in self.ip.bala.ipaddr
+        assert ('172.16.0.2', 24) in self.ip.bala.ipaddr
+        assert '172.16.0.1/24' in get_ip_addr(interface='bala')
+        assert '172.16.0.2/24' in get_ip_addr(interface='bala')
 
         if i._mode == 'explicit':
             i.begin()
 
-        i.del_ip('172.16.8.1', 24)
-        i.del_ip('172.16.8.2', 24)
+        i.del_ip('172.16.0.1', 24)
+        i.del_ip('172.16.0.2', 24)
         i.commit()
 
-        assert ('172.16.8.1', 24) not in self.ip.bala.ipaddr
-        assert ('172.16.8.2', 24) not in self.ip.bala.ipaddr
-        assert '172.16.8.1/24' not in get_ip_addr(interface='bala')
-        assert '172.16.8.2/24' not in get_ip_addr(interface='bala')
+        assert ('172.16.0.1', 24) not in self.ip.bala.ipaddr
+        assert ('172.16.0.2', 24) not in self.ip.bala.ipaddr
+        assert '172.16.0.1/24' not in get_ip_addr(interface='bala')
+        assert '172.16.0.2/24' not in get_ip_addr(interface='bala')
 
         remove_link('bala')
 
@@ -234,7 +235,7 @@ class TestImplicit(TestExplicit):
 class TestDirect(object):
 
     def setup(self):
-        setup_dummy()
+        create_link('dummyX', 'dummy')
         self.ip = IPDB(mode='direct')
 
     def teardown(self):
@@ -275,7 +276,7 @@ class TestDirect(object):
 class TestMisc(object):
 
     def setup(self):
-        setup_dummy()
+        create_link('dummyX', 'dummy')
 
     def teardown(self):
         remove_link('dummyX')
@@ -316,17 +317,22 @@ class TestMisc(object):
 
     def test_context_exception_in_transaction(self):
         require_user('root')
+
+        with IPDB(mode='explicit') as ip:
+            with ip.dummyX as i:
+                i.add_ip('172.16.0.1/24')
+
         try:
             with IPDB(mode='explicit') as ip:
                 with ip.dummyX as i:
                     i.add_ip('172.16.9.1/24')
-                    i.del_ip('172.16.13.1/24')
+                    i.del_ip('172.16.0.1/24')
                     i.address = '11:22:33:44:55:66'
         except NetlinkError:
             pass
 
         with IPDB() as ip:
-            assert ('172.16.13.1', 24) in ip.dummyX.ipaddr
+            assert ('172.16.0.1', 24) in ip.dummyX.ipaddr
             assert ('172.16.9.1', 24) not in ip.dummyX.ipaddr
 
     def test_modes(self):
