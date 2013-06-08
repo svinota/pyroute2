@@ -13,7 +13,10 @@ def require_user(user):
 def remove_link(name):
     if os.getuid() != 0:
         return
-    subprocess.call(['ip', 'link', 'del', 'dev', name])
+    with open(os.devnull, 'w') as fnull:
+        subprocess.call(['ip', 'link', 'del', 'dev', name],
+                        stdout=fnull,
+                        stderr=fnull)
     while True:
         links = get_ip_link()
         if name not in links:
