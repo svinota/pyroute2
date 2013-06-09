@@ -33,8 +33,19 @@ class NetlinkError(Exception):
         self.code = code
 
 
+##
+# FIXME: achtung, monkeypatch!
+#
+# Android QPython 2.7 platform has no AF_UNIX, so add some
+# invalid value just not to fail on checks.
+#
+if not hasattr(socket, 'AF_UNIX'):
+    socket.AF_UNIX = 65535
+
+
 def _monkey_handshake(self):
     ##
+    # FIXME: achtung, monkeypatch!
     #
     # We have to close incoming connection on handshake error.
     # But if the handshake method is called from the SSLSocket
@@ -62,6 +73,8 @@ def _monkey_handshake(self):
 
 ssl.SSLSocket.do_handshake = _monkey_handshake
 
+
+AF_PIPE = 255  # Right now AF_MAX == 40
 
 ## Netlink message flags values (nlmsghdr.flags)
 #
@@ -164,6 +177,8 @@ def _repr_sockets(sockets, mode):
 
         if i.family == socket.AF_UNIX:
             url = 'unix'
+        elif i.family == AF_PIPE:
+            url = 'pipe'
         if type(i) == ssl.SSLSocket:
             if url:
                 url += '+'
@@ -175,6 +190,8 @@ def _repr_sockets(sockets, mode):
             url = 'tcp'
         if i.family == socket.AF_UNIX:
             url += '://%s' % (i.getsockname())
+        elif i.family == AF_PIPE:
+            url += '://%i,%i' % (i.getsockname())
         else:
             if mode == 'local':
                 url += '://%s:%i' % (i.getsockname())
@@ -249,6 +266,42 @@ class Marshal(object):
         pass
 
 
+class PipeSocket(object):
+    '''
+    Socket-like object for one-system IPC.
+
+    It is netlink-specific, since relies on length value
+    provided in the first four bytes of each message.
+    '''
+
+    family = AF_PIPE
+
+    def __init__(self, rfd, wfd):
+        self.rfd = rfd
+        self.wfd = wfd
+
+    def send(self, data):
+        os.write(self.wfd, data)
+
+    def recv(self, buf):
+        ret = os.read(self.rfd, 4)
+        length = struct.unpack('I', ret)[0]
+        ret += os.read(self.rfd, length - 4)
+        return ret
+
+    def getsockname(self):
+        return self.rfd, self.wfd
+
+    def fileno(self):
+        return self.rfd
+
+
+def pairPipeSockets():
+    pipe0_r, pipe0_w = os.pipe()
+    pipe1_r, pipe1_w = os.pipe()
+    return PipeSocket(pipe0_r, pipe1_w), PipeSocket(pipe1_r, pipe0_w)
+
+
 class NetlinkSocket(socket.socket):
     '''
     Generic netlink socket
@@ -316,13 +369,10 @@ class IOThread(threading.Thread):
         # secret; write non-zero byte as terminator
         self.secret = os.urandom(15)
         self.secret += '\xff'
-        # control socket, for in-process communication only
         self.uuid = uuid.uuid4()
-        self.sctl = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.sctl.bind(b'\0%s' % (self.uuid))
-        self.sctl.listen(1)
-        self.servers.add(self.sctl)
-        self._rlist.add(self.sctl)
+        # control in-process communication only
+        self.sctl, self.control = pairPipeSockets()
+        self.add_client(self.sctl)
         self._sctl_thread = threading.Thread(target=self._sctl)
         self._sctl_thread.start()
         # masquerade cache expiration
@@ -339,8 +389,6 @@ class IOThread(threading.Thread):
         self.backlog = []
 
     def _sctl(self):
-        self.control = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.control.connect(b'\0%s' % (self.uuid))
         msg = ctrlmsg()
         msg['header']['type'] = NETLINK_UNUSED
         msg['cmd'] = IPRCMD_REGISTER
