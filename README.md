@@ -10,8 +10,8 @@ Current feature status see in STATUS.md
 sample
 ------
 
-More samples you can read in the project documentation. Here is
-just a small snippet::
+More samples you can read in the project documentation.
+Low-level interface::
 
     from pyroute2 import IPRoute
 
@@ -23,6 +23,20 @@ just a small snippet::
 
     # stop working with netlink and release all sockets
     ip.release()
+
+High-level transactional interface, IPDB:
+
+    from pyroute2 import IPDB
+    # local network settings
+    ip = IPDB()
+    # create bridge and add ports and addresses
+    # transaction will be started with `with` statement
+    # and will be committed at the end of the block
+    with ip.create(kind='bridge', ifname='rhev') as i:
+        i.add_port(ip.em1)
+        i.add_port(ip.em2)
+        i.add_ip('10.0.0.2/24')
+
 
 The project contains several modules for different types of
 netlink messages, not only RTNL.
@@ -44,6 +58,12 @@ Python >= 2.6
 changelog
 ---------
 
+* 0.1.9
+    * tests: all races fixed
+    * ipdb: half-sync commit(): wait for IPs and ports lists update
+    * netlink: use pipes for in-process communication
+    * Python 2.6 compatibility issue: remove copy.deepcopy() usage
+    * QPython 2.7 for Android: works
 * 0.1.8
     * complete refactoring of class names
     * Python 2.6 compatibility issues
