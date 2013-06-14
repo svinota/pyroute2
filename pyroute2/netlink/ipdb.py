@@ -625,7 +625,7 @@ class interface(Dotkeys):
 
             # 8<---------------------------------------------
             # Interface removal
-            if 'removal' in added:
+            if added.get('removal'):
                 self.ip.link('delete', index=self['index'])
                 self.drop()
                 self._mode = 'invalid'
