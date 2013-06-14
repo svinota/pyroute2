@@ -151,7 +151,7 @@ class TestExplicit(object):
         assert ('172.16.0.1', 24) in self.ip.bala.ipaddr
         assert '172.16.0.1/24' in get_ip_addr(interface='bala')
 
-    def test_create_bond(self):
+    def _create_master(self, kind):
         require_user('root')
         assert 'bala' not in self.ip
         assert 'bala_port0' not in self.ip
@@ -160,7 +160,7 @@ class TestExplicit(object):
         self.ip.create(kind='dummy', ifname='bala_port0').commit()
         self.ip.create(kind='dummy', ifname='bala_port1').commit()
 
-        with self.ip.create(kind='bond', ifname='bala') as i:
+        with self.ip.create(kind=kind, ifname='bala') as i:
             i.add_port(self.ip.bala_port0)
             i.add_port(self.ip.bala_port1)
             i.add_ip('172.16.0.1/24')
@@ -179,6 +179,12 @@ class TestExplicit(object):
         assert '172.16.0.1/24' not in get_ip_addr(interface='bala')
         assert self.ip.bala_port0.if_master is None
         assert self.ip.bala_port1.if_master is None
+
+    def test_create_bridge(self):
+        self._create_master('bridge')
+
+    def test_create_bond(self):
+        self._create_master('bond')
 
     def test_create_vlan(self):
         require_user('root')
