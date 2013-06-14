@@ -886,7 +886,8 @@ class IPDB(Dotkeys):
                         device.del_item('master')
                     if 'link' in device:
                         device.del_item('link')
-                    if master in self:
+                    if (master in self) and \
+                            (msg['index'] in self[master].ports):
                         self[master].del_port(msg['index'], direct=True)
 
     def update_addr(self, addrs, action='add'):
