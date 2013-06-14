@@ -610,6 +610,7 @@ class interface(Dotkeys):
                     self.ip.link('set', index=i, master=self['index'])
 
                 if removed['ports'] or added['ports']:
+                    self.ip.get_links(*(removed['ports'] | added['ports']))
                     self['ports'].target.wait(3)
 
             # 8<---------------------------------------------
