@@ -1,5 +1,6 @@
 import Queue
 from pyroute2 import IPRoute
+from utils import conflict_arch
 
 
 class TestPtrace(object):
@@ -11,7 +12,7 @@ class TestPtrace(object):
         self.ip.release()
 
     def test_launch(self):
-
+        conflict_arch('arm')
         queue = self.ip.connect('ptrace://ip link show', no_stdout=True)
         while True:
             try:

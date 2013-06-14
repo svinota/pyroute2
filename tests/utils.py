@@ -1,8 +1,14 @@
 import os
 import re
 import pwd
+import platform
 import subprocess
 from nose.plugins.skip import SkipTest
+
+
+def conflict_arch(arch):
+    if platform.machine().find(arch) >= 0:
+        raise SkipTest('conflict with architecture %s' % (arch))
 
 
 def require_user(user):
