@@ -24,8 +24,11 @@ class TestExplicit(object):
 
     def teardown(self):
         self.ip.release()
+        remove_link('bala_port0')
+        remove_link('bala_port1')
         remove_link('dummyX')
         remove_link('bala')
+        remove_link('bv101')
 
     def test_simple(self):
         assert self.ip.keys() > 0
@@ -139,7 +142,6 @@ class TestExplicit(object):
         i.commit()
         assert ('172.16.0.1', 24) in self.ip.bala.ipaddr
         assert '172.16.0.1/24' in get_ip_addr(interface='bala')
-        remove_link('bala')
 
     def test_create_context(self):
         require_user('root')
@@ -148,7 +150,6 @@ class TestExplicit(object):
             i.add_ip('172.16.0.1/24')
         assert ('172.16.0.1', 24) in self.ip.bala.ipaddr
         assert '172.16.0.1/24' in get_ip_addr(interface='bala')
-        remove_link('bala')
 
     def test_create_bond(self):
         require_user('root')
@@ -179,10 +180,6 @@ class TestExplicit(object):
         assert self.ip.bala_port0.if_master is None
         assert self.ip.bala_port1.if_master is None
 
-        remove_link('bala_port0')
-        remove_link('bala_port1')
-        remove_link('bala')
-
     def test_create_vlan(self):
         require_user('root')
         assert 'bala' not in self.ip
@@ -196,8 +193,6 @@ class TestExplicit(object):
                        vlan_id=101).commit()
 
         assert self.ip.bv101.if_master == self.ip.bala.index
-        remove_link('bv101')
-        remove_link('bala')
 
     def test_remove_secondaries(self):
         require_user('root')
@@ -224,8 +219,6 @@ class TestExplicit(object):
         assert ('172.16.0.2', 24) not in self.ip.bala.ipaddr
         assert '172.16.0.1/24' not in get_ip_addr(interface='bala')
         assert '172.16.0.2/24' not in get_ip_addr(interface='bala')
-
-        remove_link('bala')
 
 
 class TestImplicit(TestExplicit):
