@@ -29,6 +29,7 @@ nla_fields.append('flags')
 nla_fields.append('mask')
 nla_fields.append('change')
 nla_fields.append('state')
+nla_fields.append('removal')
 
 
 _ANCIENT_PLATFORM = platform.dist()[:2] == ('redhat', '6.4')
@@ -621,6 +622,14 @@ class interface(Dotkeys):
             # apply changes only if there is something to apply
             if request:
                 self.ip.link('set', index=self['index'], **request)
+
+            # 8<---------------------------------------------
+            # Interface removal
+            if 'removal' in added:
+                self.ip.link('delete', index=self['index'])
+                self.drop()
+                self._mode = 'invalid'
+                return
             # 8<---------------------------------------------
 
         except Exception as e:
@@ -687,6 +696,9 @@ class interface(Dotkeys):
         Requires commit.
         '''
         self['flags'] &= ~(self['flags'] & 1)
+
+    def remove(self):
+        self['removal'] = True
 
 
 class IPDB(Dotkeys):
