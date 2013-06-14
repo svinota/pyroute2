@@ -6,6 +6,8 @@ from nose.plugins.skip import SkipTest
 
 
 def require_user(user):
+    if bool(os.environ.get('PYROUTE2_TESTS_RO', False)):
+        raise SkipTest('read-only tests requested')
     if pwd.getpwuid(os.getuid()).pw_name != user:
         raise SkipTest('required user %s' % (user))
 
