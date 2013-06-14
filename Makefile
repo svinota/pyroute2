@@ -32,6 +32,14 @@ ifdef coverage
 	override coverage := "--cover-html"
 endif
 
+ifdef pdb
+	override pdb := "--pdb"
+endif
+
+ifdef pdbf
+	override pdbf := "--pdb-failures"
+endif
+
 
 all:
 	@echo targets: dist, install
@@ -69,7 +77,7 @@ docs: clean force-version
 test:
 	@flake8 .
 	@export PYTHONPATH=`pwd`; cd tests; \
-		nosetests -v --pdb --pdb-failures \
+		nosetests -v ${pdb} ${pdbf} \
 			--with-coverage \
 			--cover-package=pyroute2 \
 			${coverage} \
