@@ -1,8 +1,4 @@
 from pyroute2 import IPDB
-from pyroute2.netlink.ipdb import IPDBError
-from pyroute2.netlink.ipdb import IPDBModeError
-from pyroute2.netlink.ipdb import IPDBUnrecoverableError
-from pyroute2.netlink.ipdb import IPDBTransactionRequired
 from pyroute2.netlink import NetlinkError
 from utils import create_link
 from utils import remove_link
@@ -245,7 +241,7 @@ class TestDirect(object):
         try:
             with self.ip.lo as i:
                 i.down()
-        except IPDBModeError:
+        except TypeError:
             pass
 
     def test_updown(self):
@@ -262,13 +258,13 @@ class TestDirect(object):
     def test_exceptions_last(self):
         try:
             self.ip.lo.last()
-        except IPDBTransactionRequired:
+        except TypeError:
             pass
 
     def test_exception_review(self):
         try:
             self.ip.lo.review()
-        except IPDBTransactionRequired:
+        except TypeError:
             pass
 
 
@@ -291,7 +287,7 @@ class TestMisc(object):
         ip.ip._sockets = tuple()
         try:
             ip.lo.reload()
-        except IPDBUnrecoverableError:
+        except IOError:
             pass
         del s
         ip.ip.release()
@@ -339,7 +335,7 @@ class TestMisc(object):
             # transaction required
             try:
                 i.lo.up()
-            except IPDBTransactionRequired:
+            except TypeError:
                 pass
 
         with IPDB(mode='implicit') as i:
@@ -354,5 +350,5 @@ class TestMisc(object):
             # transaction mode not supported
             try:
                 i.lo.up()
-            except IPDBError:
+            except TypeError:
                 pass

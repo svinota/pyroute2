@@ -16,9 +16,9 @@ import uuid
 import logging
 import platform
 import threading
+from Queue import Empty
 from socket import AF_INET
 from socket import AF_INET6
-from Queue import Empty
 from pyroute2.common import Dotkeys
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.iproute import IPRoute
@@ -33,27 +33,6 @@ nla_fields.append('removal')
 
 
 _ANCIENT_PLATFORM = platform.dist()[:2] == ('redhat', '6.4')
-
-
-class IPDBError(Exception):
-    message = None
-
-    def __init__(self, message=None, error=None):
-        message = message or self.message
-        Exception.__init__(self, message)
-        self.cause = error
-
-
-class IPDBUnrecoverableError(IPDBError):
-    message = 'unrecoverable IPDB error, restart the instance'
-
-
-class IPDBTransactionRequired(IPDBError):
-    message = 'begin() a transaction first'
-
-
-class IPDBModeError(IPDBError):
-    message = 'wrong transaction mode for the operation'
 
 
 def get_addr_nla(msg):
@@ -171,13 +150,13 @@ def update(f):
                 # 3. require open transaction for 'explicit' type
                 elif self._mode == 'explicit':
                     if not self._tids:
-                        raise IPDBTransactionRequired()
+                        raise TypeError('start a transaction first')
                 # 4. transactions can not require transactions :)
                 elif self._mode == 'snapshot':
                     direct = True
                 # do not support other modes
                 else:
-                    raise IPDBError('transaction mode not supported')
+                    raise TypeError('transaction mode not supported')
                 # now that the transaction _is_ open
             f(self, direct, *argv, **kwarg)
 
@@ -335,7 +314,7 @@ class interface(Dotkeys):
     def __enter__(self):
         # FIXME: use a bitmask?
         if self._mode not in ('implicit', 'explicit'):
-            raise IPDBModeError()
+            raise TypeError('context managers require a transactional mode')
         if not self._tids:
             self.begin()
         return self
@@ -490,7 +469,8 @@ class interface(Dotkeys):
         Return last open transaction
         '''
         if not self._tids:
-            raise IPDBTransactionRequired()
+            raise TypeError('start a transaction first')
+
         return self._transactions[self._tids[-1]]
 
     def review(self):
@@ -498,7 +478,8 @@ class interface(Dotkeys):
         Review last open transaction
         '''
         if not self._tids:
-            raise IPDBTransactionRequired()
+            raise TypeError('start a transaction first')
+
         added = self.last() - self
         removed = self - self.last()
         added['-ipaddr'] = removed['ipaddr']
@@ -522,8 +503,8 @@ class interface(Dotkeys):
         self._load_event.clear()
         try:
             self.ip.get_links(self['index'])
-        except Empty as e:
-            raise IPDBUnrecoverableError('lost netlink', e)
+        except Empty:
+            raise IOError('lost netlink connection')
         self._load_event.wait()
 
     def commit(self, tid=None, transaction=None, rollback=False):
@@ -747,7 +728,6 @@ class IPDB(Dotkeys):
         self.update_addr(self.ip.get_addr())
 
         # start monitoring thread
-        self.ip.monitor()
         self.ip.mirror()
         self._mthread = threading.Thread(target=self.monitor)
         self._mthread.setDaemon(True)
