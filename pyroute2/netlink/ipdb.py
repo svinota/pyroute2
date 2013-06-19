@@ -59,26 +59,29 @@ class LinkedSet(set):
 
     def __init__(self, *argv, **kwarg):
         set.__init__(self, *argv, **kwarg)
-        self.lock = threading.Lock()
-        self.target = threading.Condition()
+        self.lock = threading.RLock()
+        self.target = threading.Event()
         self._ct = None
         self.raw = {}
         self.links = []
 
     def set_target(self, value):
-        if value is None:
-            self._ct = None
-        elif isinstance(value, (list, tuple, set)):
-            self._ct = set(value)
-        else:
-            raise TypeError('unsupported target type')
+        with self.lock:
+            if value is None:
+                self._ct = None
+                self.target.clear()
+            elif isinstance(value, (list, tuple, set)):
+                self._ct = set(value)
+                self.target.clear()
+            else:
+                raise TypeError('unsupported target type')
 
     def check_target(self):
-        with self.target:
+        with self.lock:
             if self._ct is not None:
                 if self == self._ct:
                     self._ct = None
-                    self.target.notify_all()
+                    self.target.set()
 
     def add(self, key, raw=None):
         with self.lock:
@@ -560,42 +563,42 @@ class interface(Dotkeys):
 
             # 8<---------------------------------------------
             # IP address changes
-            with self['ipaddr'].target:
-                self['ipaddr'].set_target(transaction['ipaddr'])
+            self['ipaddr'].set_target(transaction['ipaddr'])
 
-                for i in removed['ipaddr']:
-                    # When you remove a primary IP addr, all subnetwork
-                    # can be removed. In this case you will fail, but
-                    # it is OK, no need to roll back
-                    try:
-                        self.ip.addr('delete', self['index'], i[0], i[1])
-                    except NetlinkError as x:
-                        # bypass only errno 99, 'Cannot assign address'
-                        if x.code != 99:
-                            raise x
+            for i in removed['ipaddr']:
+                # When you remove a primary IP addr, all subnetwork
+                # can be removed. In this case you will fail, but
+                # it is OK, no need to roll back
+                try:
+                    self.ip.addr('delete', self['index'], i[0], i[1])
+                except NetlinkError as x:
+                    # bypass only errno 99, 'Cannot assign address'
+                    if x.code != 99:
+                        raise x
 
-                for i in added['ipaddr']:
-                    self.ip.addr('add', self['index'], i[0], i[1])
+            for i in added['ipaddr']:
+                self.ip.addr('add', self['index'], i[0], i[1])
 
-                if removed['ipaddr'] or added['ipaddr']:
-                    self['ipaddr'].target.wait(_SYNC_TIMEOUT)
+            if removed['ipaddr'] or added['ipaddr']:
+                self['ipaddr'].target.wait(_SYNC_TIMEOUT)
+                assert self['ipaddr'].target.is_set()
 
             # 8<---------------------------------------------
             # Interface slaves
-            with self['ports'].target:
-                self['ports'].set_target(transaction['ports'])
+            self['ports'].set_target(transaction['ports'])
 
-                for i in removed['ports']:
-                    # detach the port
-                    self.ip.link('set', index=i, master=0)
+            for i in removed['ports']:
+                # detach the port
+                self.ip.link('set', index=i, master=0)
 
-                for i in added['ports']:
-                    # enslave the port
-                    self.ip.link('set', index=i, master=self['index'])
+            for i in added['ports']:
+                # enslave the port
+                self.ip.link('set', index=i, master=self['index'])
 
-                if removed['ports'] or added['ports']:
-                    self.ip.get_links(*(removed['ports'] | added['ports']))
-                    self['ports'].target.wait(_SYNC_TIMEOUT)
+            if removed['ports'] or added['ports']:
+                self.ip.get_links(*(removed['ports'] | added['ports']))
+                self['ports'].target.wait(_SYNC_TIMEOUT)
+                assert self['ports'].target.is_set()
 
             # 8<---------------------------------------------
             # Interface changes
