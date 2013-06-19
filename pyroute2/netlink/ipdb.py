@@ -653,7 +653,19 @@ class interface(Dotkeys):
                 self.drop()
                 self['ipaddr'].set_target(None)
                 self['ports'].set_target(None)
-                raise e
+                # reload all the database -- it can take a long time,
+                # but it is required since we have no idea, what is
+                # the result of the failure
+                #
+                # ACHTUNG: database reload is asynchronous, so after
+                # getting RuntimeError() from commit(), take a seat
+                # and rest for a while. It is an extremal case, it
+                # should not became at all, and there is no sync.
+                self.ip.get_links()
+                self.ip.get_addr()
+                x = RuntimeError()
+                x.cause = e
+                raise x
 
         # if it is not a rollback turn
         if not rollback:
