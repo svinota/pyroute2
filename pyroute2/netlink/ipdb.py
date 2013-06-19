@@ -36,6 +36,25 @@ _ANCIENT_PLATFORM = platform.dist()[:2] == ('redhat', '6.4')
 # ports etc. That's not total commit() timeout.
 _SYNC_TIMEOUT = 3
 
+_FAIL_COMMIT = 0b00000001
+_FAIL_ROLLBACK = 0b00000010
+_FAIL_MASK = 0b11111111
+
+
+def clear_fail_bit(bit):
+    global _FAIL_MASK
+    _FAIL_MASK &= ~(_FAIL_MASK & bit)
+
+
+def set_fail_bit(bit):
+    global _FAIL_MASK
+    _FAIL_MASK |= bit
+
+
+def set_ancient(flag):
+    global _ANCIENT_PLATFORM
+    _ANCIENT_PLATFORM = flag
+
 
 def get_addr_nla(msg):
     '''
@@ -621,6 +640,11 @@ class interface(Dotkeys):
                 return
             # 8<---------------------------------------------
 
+            if rollback:
+                assert _FAIL_ROLLBACK & _FAIL_MASK
+            else:
+                assert _FAIL_COMMIT & _FAIL_MASK
+
         except Exception as e:
             # something went wrong: roll the transaction back
             if not rollback:
@@ -825,9 +849,7 @@ class IPDB(Dotkeys):
     def _lookup_master(self, msg):
         index = msg['index']
         master = msg.get_attr('IFLA_MASTER') or msg.get_attr('IFLA_LINK')
-        if master:
-            master = master[0]
-        elif _ANCIENT_PLATFORM:
+        if _ANCIENT_PLATFORM:
             # FIXME: do something with it, please
             # if the master is not reported by netlink, lookup it
             # through /sys:
@@ -839,6 +861,8 @@ class IPDB(Dotkeys):
             master = int(f.read())
             f.close()
             self[index].set_item('master', master)
+        elif master:
+            master = master[0]
         else:
             master = None
 

@@ -1,5 +1,10 @@
 from pyroute2 import IPDB
 from pyroute2.netlink import NetlinkError
+from pyroute2.netlink.ipdb import clear_fail_bit
+from pyroute2.netlink.ipdb import set_fail_bit
+from pyroute2.netlink.ipdb import set_ancient
+from pyroute2.netlink.ipdb import _FAIL_COMMIT
+from pyroute2.netlink.ipdb import _FAIL_ROLLBACK
 from utils import create_link
 from utils import remove_link
 from utils import require_user
@@ -114,6 +119,119 @@ class TestExplicit(object):
         self.ip.dummyX.down()
         self.ip.dummyX.commit()
         assert not (self.ip.dummyX.flags & 1)
+
+    def test_ancient_bridge(self):
+        require_user('root')
+
+        # create ports
+        with self.ip.create(kind='dummy', ifname='bala_port0'):
+            pass
+        with self.ip.create(kind='dummy', ifname='bala_port1'):
+            pass
+        assert 'bala_port0' in self.ip
+        assert 'bala_port1' in self.ip
+
+        set_ancient(True)
+
+        # create bridge
+        try:
+            with self.ip.create(kind='bridge', ifname='bala') as i:
+                i.add_ip('172.16.0.1/24')
+                i.add_ip('172.16.0.2/24')
+                i.add_port(self.ip.bala_port0)
+                i.add_port(self.ip.bala_port1)
+        finally:
+            set_ancient(False)
+
+        assert 'bala' in self.ip
+        assert 'bala_port0' in self.ip
+        assert 'bala_port1' in self.ip
+        assert ('172.16.0.1', 24) in self.ip.bala.ipaddr
+        assert ('172.16.0.2', 24) in self.ip.bala.ipaddr
+        assert self.ip.bala_port0.index in self.ip.bala.ports
+        assert self.ip.bala_port1.index in self.ip.bala.ports
+
+    def test_cfail_rollback(self):
+        require_user('root')
+
+        # create ports
+        with self.ip.create(kind='dummy', ifname='bala_port0'):
+            pass
+        with self.ip.create(kind='dummy', ifname='bala_port1'):
+            pass
+        assert 'bala_port0' in self.ip
+        assert 'bala_port1' in self.ip
+
+        # commits should fail
+        clear_fail_bit(_FAIL_COMMIT)
+        clear_fail_bit(_FAIL_ROLLBACK)
+        try:
+            # create bridge
+            with self.ip.create(kind='bridge', ifname='bala') as i:
+                i.add_ip('172.16.0.1/24')
+                i.add_ip('172.16.0.2/24')
+                i.add_port(self.ip.bala_port0)
+                i.add_port(self.ip.bala_port1)
+
+        except RuntimeError:
+            pass
+
+        finally:
+            # set bit again
+            set_fail_bit(_FAIL_COMMIT)
+            set_fail_bit(_FAIL_ROLLBACK)
+
+        # expected results:
+        # 1. interface created
+        # 2. no addresses
+        # 3. no ports
+        assert 'bala' in self.ip
+        assert 'bala_port0' in self.ip
+        assert 'bala_port1' in self.ip
+        assert ('172.16.0.1', 24) not in self.ip.bala.ipaddr
+        assert ('172.16.0.2', 24) not in self.ip.bala.ipaddr
+        assert self.ip.bala_port0.index not in self.ip.bala.ports
+        assert self.ip.bala_port1.index not in self.ip.bala.ports
+
+    def test_cfail_commit(self):
+        require_user('root')
+
+        # create ports
+        with self.ip.create(kind='dummy', ifname='bala_port0'):
+            pass
+        with self.ip.create(kind='dummy', ifname='bala_port1'):
+            pass
+        assert 'bala_port0' in self.ip
+        assert 'bala_port1' in self.ip
+
+        # commits should fail
+        clear_fail_bit(_FAIL_COMMIT)
+        try:
+            # create bridge
+            with self.ip.create(kind='bridge', ifname='bala') as i:
+                i.add_ip('172.16.0.1/24')
+                i.add_ip('172.16.0.2/24')
+                i.add_port(self.ip.bala_port0)
+                i.add_port(self.ip.bala_port1)
+
+        except AssertionError:
+            pass
+
+        finally:
+            # set bit again
+            set_fail_bit(_FAIL_COMMIT)
+
+        # expected results:
+        # 1. interface created
+        # 2. no addresses
+        # 3. no ports
+        assert 'bala' in self.ip
+        assert 'bala_port0' in self.ip
+        assert 'bala_port1' in self.ip
+        assert ('172.16.0.1', 24) not in self.ip.bala.ipaddr
+        assert ('172.16.0.2', 24) not in self.ip.bala.ipaddr
+        assert self.ip.bala_port0.index not in self.ip.bala.ports
+        assert self.ip.bala_port1.index not in self.ip.bala.ports
 
     def test_create_fail(self):
         require_user('root')
