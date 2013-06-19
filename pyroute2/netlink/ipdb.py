@@ -384,7 +384,10 @@ class interface(Dotkeys):
                 if item in self:
                     del self[item]
 
-            self._load_event.set()
+            self.sync()
+
+    def sync(self):
+        self._load_event.set()
 
     def set_item(self, key, value):
         with self._direct_state:
@@ -929,6 +932,7 @@ class IPDB(Dotkeys):
                     self.update_slaves([msg])
                     if msg['change'] == 0xffffffff:
                         # FIXME catch exception
+                        self[msg['index']].sync()
                         del self.by_name[self[msg['index']]['ifname']]
                         del self.by_index[msg['index']]
                         del self.old_names[msg['index']]
