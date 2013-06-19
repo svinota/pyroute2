@@ -612,7 +612,10 @@ class interface(Dotkeys):
             # 8<---------------------------------------------
             # Interface removal
             if added.get('removal'):
+                self._load_event.clear()
                 self.ip.link('delete', index=self['index'])
+                self._load_event.wait(_SYNC_TIMEOUT)
+                assert self._load_event.is_set()
                 self.drop()
                 self._mode = 'invalid'
                 return
