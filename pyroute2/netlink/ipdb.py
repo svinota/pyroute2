@@ -13,7 +13,6 @@ Quick start:
     ip['bala'].up()
 '''
 import uuid
-import logging
 import platform
 import threading
 from Queue import Empty
@@ -70,11 +69,9 @@ class LinkedSet(set):
             if value is None:
                 self._ct = None
                 self.target.clear()
-            elif isinstance(value, (list, tuple, set)):
+            else:
                 self._ct = set(value)
                 self.target.clear()
-            else:
-                raise TypeError('unsupported target type')
 
     def check_target(self):
         with self.lock:
@@ -225,7 +222,7 @@ class interface(Dotkeys):
     exception will be raised. Failed transaction review
     will be attached to the exception.
     '''
-    def __init__(self, dev=None, ipr=None, parent=None, mode='direct'):
+    def __init__(self, ipr=None, parent=None, mode='direct'):
         '''
         One can use interface objects standalone as
         well as in connection with ipdb object. Standalone
@@ -266,8 +263,6 @@ class interface(Dotkeys):
             for i in ('state', 'change', 'mask'):
                 del self[i]
         # 8<-----------------------------------
-        if dev is not None:
-            self.load(dev)
 
     def pick(self, detached=True):
         '''
@@ -754,13 +749,6 @@ class IPDB(Dotkeys):
         ret.append('by_index')
         return ret
 
-    def shutdown(self):
-        '''
-        Deprecated: use ipdb.release() instead.
-        '''
-        logging.warn('IPDB: using deprecated call "shutdown()"')
-        self.release()
-
     def release(self):
         '''
         Shutdown monitoring thread and release iproute.
@@ -801,8 +789,6 @@ class IPDB(Dotkeys):
     def detach(self, item):
         if item in self:
             del self[item]
-            if item in self.ipaddr:
-                del self.ipaddr[item]
 
     def update_links(self, links):
         '''
