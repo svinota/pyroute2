@@ -33,11 +33,7 @@ ifdef coverage
 endif
 
 ifdef pdb
-	override pdb := "--pdb"
-endif
-
-ifdef pdbf
-	override pdbf := "--pdb-failures"
+	override pdb := --pdb --pdb-failures
 endif
 
 
@@ -77,7 +73,7 @@ docs: clean force-version
 test:
 	@flake8 .
 	@export PYTHONPATH=`pwd`; cd tests; \
-		nosetests -v ${pdb} ${pdbf} \
+		nosetests -v ${pdb} \
 			--with-coverage \
 			--cover-package=pyroute2 \
 			${coverage} \
