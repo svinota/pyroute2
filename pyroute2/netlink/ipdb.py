@@ -33,6 +33,9 @@ nla_fields.append('removal')
 
 
 _ANCIENT_PLATFORM = platform.dist()[:2] == ('redhat', '6.4')
+# How long should we wait on EACH commit() checkpoint: for ipaddr,
+# ports etc. That's not total commit() timeout.
+_SYNC_TIMEOUT = 3
 
 
 def get_addr_nla(msg):
@@ -575,7 +578,7 @@ class interface(Dotkeys):
                     self.ip.addr('add', self['index'], i[0], i[1])
 
                 if removed['ipaddr'] or added['ipaddr']:
-                    self['ipaddr'].target.wait(3)
+                    self['ipaddr'].target.wait(_SYNC_TIMEOUT)
 
             # 8<---------------------------------------------
             # Interface slaves
@@ -592,7 +595,7 @@ class interface(Dotkeys):
 
                 if removed['ports'] or added['ports']:
                     self.ip.get_links(*(removed['ports'] | added['ports']))
-                    self['ports'].target.wait(3)
+                    self['ports'].target.wait(_SYNC_TIMEOUT)
 
             # 8<---------------------------------------------
             # Interface changes
