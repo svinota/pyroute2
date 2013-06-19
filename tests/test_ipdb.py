@@ -257,13 +257,18 @@ class TestExplicit(object):
         assert ('172.16.0.1', 24) in self.ip.bala.ipaddr
         assert '172.16.0.1/24' in get_ip_addr(interface='bala')
 
-    def test_create_context(self):
+    def test_create_and_remove(self):
         require_user('root')
         assert 'bala' not in self.ip
+
         with self.ip.create(kind='dummy', ifname='bala') as i:
             i.add_ip('172.16.0.1/24')
         assert ('172.16.0.1', 24) in self.ip.bala.ipaddr
         assert '172.16.0.1/24' in get_ip_addr(interface='bala')
+
+        with self.ip.bala as i:
+            i.remove()
+        assert 'bala' not in self.ip
 
     def _create_master(self, kind):
         require_user('root')
