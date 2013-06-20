@@ -132,7 +132,7 @@ class nlmsg_base(dict):
     header = None                # optional header class
     nla_map = {}                 # NLA mapping
 
-    def __init__(self, buf=None, length=None, parent=None):
+    def __init__(self, buf=None, length=None, parent=None, debug=False):
         dict.__init__(self)
         for i in self.fields:
             self[i[0]] = 0  # FIXME: only for number values
@@ -143,6 +143,7 @@ class nlmsg_base(dict):
             buf = b
         self.buf = buf or io.BytesIO()
         self.raw = None
+        self.debug = debug
         self.length = length or 0
         self.parent = parent
         self.offset = 0
@@ -212,6 +213,10 @@ class nlmsg_base(dict):
                 self.buf.seek(self.offset)
                 self.raw = self.buf.read(self.length)
                 self.buf.seek(save)
+                if self.debug:
+                    self['header']['raw'] = hexdump(self.raw)
+                    self['header']['offset'] = self.offset
+                    self['header']['length'] = self.length
             except Exception as e:
                 raise NetlinkHeaderDecodeError(e)
         # decode the data
@@ -226,6 +231,7 @@ class nlmsg_base(dict):
                     fmt = '%is' % (self.length - 4)
 
                 size = struct.calcsize(fmt)
+                offset = self.buf.tell()
                 raw = self.buf.read(size)
                 actual_size = len(raw)
 
@@ -242,6 +248,12 @@ class nlmsg_base(dict):
                             self[name] = self[name][:-1]
                     else:
                         self[name] = value
+
+                    if self.debug and name != 'value':
+                        self[name] = {'value': self[name],
+                                      'header': {'offset': offset,
+                                                 'length': actual_size}}
+
                 else:
                     # FIXME: log an error
                     pass
@@ -398,18 +410,26 @@ class nlmsg_base(dict):
                     msg_class = msg_class(buf=self.buf, length=length)
                 # and the name
                 msg_name = self.t_nla_map[msg_type][1]
+
                 try:
                     # decode NLA
-                    nla = msg_class(self.buf, length, self)
+                    nla = msg_class(self.buf, length, self, debug=self.debug)
                     nla.decode()
-                    self['attrs'].append((msg_name, nla.getvalue()))
+                    msg_value = nla.getvalue()
                 except:
                     # FIXME
-                    import traceback
-                    traceback.print_exc()
                     self.buf.seek(init)
+                    msg_value = hexdump(self.buf.read(length))
+
+                if self.debug:
                     self['attrs'].append((msg_name,
-                                          hexdump(self.buf.read(length))))
+                                          msg_value,
+                                          msg_type,
+                                          length,
+                                          init))
+                else:
+                    self['attrs'].append((msg_name,
+                                          msg_value))
 
             # fix the offset
             self.buf.seek(init + NLMSG_ALIGN(length))
@@ -515,7 +535,8 @@ class nla(nla_base, nlmsg_atoms):
     '''
     def decode(self):
         nla_base.decode(self)
-        del self['header']
+        if not self.debug:
+            del self['header']
 
 
 class nlmsg(nlmsg_atoms):

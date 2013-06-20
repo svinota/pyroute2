@@ -207,6 +207,7 @@ class Marshal(object):
     '''
 
     msg_map = {}
+    debug = False
 
     def __init__(self):
         self.lock = threading.Lock()
@@ -245,7 +246,7 @@ class Marshal(object):
 
                 self.buf.seek(offset)
                 msg_class = self.msg_map.get(msg_type, nlmsg)
-                msg = msg_class(self.buf)
+                msg = msg_class(self.buf, debug=self.debug)
                 try:
                     msg.decode()
                     msg['header']['error'] = error
@@ -815,6 +816,7 @@ class Netlink(object):
         self.iothread.families[self.family] = self.send
         self.iothread.start()
         self.debug = debug
+        self.marshal.debug = debug
         if do_connect:
             self.connect(host, key, cert, ca)
 
