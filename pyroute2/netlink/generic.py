@@ -214,6 +214,7 @@ class nlmsg_base(dict):
                 self.raw = self.buf.read(self.length)
                 self.buf.seek(save)
                 if self.debug:
+                    self['header']['class'] = self.__class__.__name__
                     self['header']['raw'] = hexdump(self.raw)
                     self['header']['offset'] = self.offset
                     self['header']['length'] = self.length
