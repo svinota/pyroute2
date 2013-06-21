@@ -110,9 +110,9 @@ class ifinfmsg(nlmsg):
         fields = (('mem_start', 'Q'),
                   ('mem_end', 'Q'),
                   ('base_addr', 'Q'),
-                  ('irq', 'Q'),
-                  ('dma', 'Q'),
-                  ('port', 'Q'))
+                  ('irq', 'H'),
+                  ('dma', 'B'),
+                  ('port', 'B'))
 
     class ifinfo(nla):
         nla_map = (('IFLA_INFO_UNSPEC', 'none'),
