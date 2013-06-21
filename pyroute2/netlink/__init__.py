@@ -100,6 +100,11 @@ NLMSG_OVERRUN = 0x4    # Data lost
 NLMSG_MIN_TYPE = 0x10    # < 0x10: reserved control messages
 NLMSG_MAX_LEN = 0xffff  # Max message length
 
+mtypes = {1: 'NLMSG_NOOP',
+          2: 'NLMSG_ERROR',
+          3: 'NLMSG_DONE',
+          4: 'NLMSG_OVERRUN'}
+
 IPRCMD_NOOP = 0
 IPRCMD_STOP = 1
 IPRCMD_ACK = 2
@@ -257,6 +262,9 @@ class Marshal(object):
                     msg['header']['error'] = e
                 except NetlinkDecodeError as e:
                     msg['header']['error'] = e
+                mtype = msg['header'].get('type', None)
+                if mtype in (1, 2, 3, 4):
+                    msg['event'] = mtypes.get(mtype, 'none')
                 self.fix_message(msg)
                 offset += msg.length
                 result.append(msg)
