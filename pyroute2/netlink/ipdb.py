@@ -220,7 +220,7 @@ class IPLinkRequest(dict):
             dict.__setitem__(self, key, value)
 
 
-class interface(Dotkeys):
+class Interface(Dotkeys):
     '''
     Objects of this class represent network interface and
     all related objects:
@@ -295,7 +295,7 @@ class interface(Dotkeys):
         used as transactions.
         '''
         with self._write_lock:
-            res = interface(ipr=self.ip, mode='snapshot')
+            res = Interface(ipr=self.ip, mode='snapshot')
             for key in tuple(self.keys()):
                 if key in nla_fields:
                     res[key] = self[key]
@@ -309,7 +309,7 @@ class interface(Dotkeys):
     def __sub__(self, pif):
         '''
         '''
-        res = interface(ipr=self.ip, mode='snapshot')
+        res = Interface(ipr=self.ip, mode='snapshot')
         with self._direct_state:
             # simple keys
             for key in self:
@@ -453,7 +453,7 @@ class interface(Dotkeys):
 
     @update
     def add_port(self, direct, port):
-        if isinstance(port, interface):
+        if isinstance(port, Interface):
             port = port['index']
         if not direct:
             transaction = self.last()
@@ -463,7 +463,7 @@ class interface(Dotkeys):
 
     @update
     def del_port(self, direct, port):
-        if isinstance(port, interface):
+        if isinstance(port, Interface):
             port = port['index']
         if not direct:
             transaction = self.last()
@@ -815,7 +815,7 @@ class IPDB(Dotkeys):
 
         FIXME: this should be documented.
         '''
-        i = interface(ipr=self.ip, parent=self, mode='snapshot')
+        i = Interface(ipr=self.ip, parent=self, mode='snapshot')
         i['kind'] = kind
         i['index'] = kwarg.get('index', 0)
         i['ifname'] = ifname
@@ -840,7 +840,7 @@ class IPDB(Dotkeys):
                 self.by_index[dev['index']] = \
                 self[dev['index']] = \
                 self.get(dev.get_attr('IFLA_IFNAME')[0], None) or \
-                interface(ipr=self.ip, parent=self, mode=self.mode)
+                Interface(ipr=self.ip, parent=self, mode=self.mode)
             i.load(dev)
             self[i['ifname']] = \
                 self.by_name[i['ifname']] = i
