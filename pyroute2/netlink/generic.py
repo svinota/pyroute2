@@ -113,11 +113,11 @@ class nlmsg_base(dict):
 
     NLAs are decoded/encoded according to 'nla_map':
 
-        nla_map = (('NDA_UNSPEC', 'none'),
-                   ('NDA_DST', 'ipaddr'),
-                   ('NDA_LLADDR', 'l2addr'),
-                   ('NDA_CACHEINFO', 'cacheinfo'),
-                   ('NDA_PROBES', 'uint32'))
+        nla_map = [['NDA_UNSPEC', 'none'],
+                   ['NDA_DST', 'ipaddr'],
+                   ['NDA_LLADDR', 'l2addr'],
+                   ['NDA_CACHEINFO', 'cacheinfo'],
+                   ['NDA_PROBES', 'uint32']]
 
     Please note, that 'nla_map' creates implied enumeration from
     its fields. In the example above NDA_UNSPEC == 0 and
