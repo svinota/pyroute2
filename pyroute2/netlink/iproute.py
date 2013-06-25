@@ -382,9 +382,7 @@ class IPRoute(Netlink):
         msg['change'] = mask
 
         for key in kwarg:
-            nla = key.upper()
-            if not nla.startswith('IFLA_'):
-                nla = 'IFLA_%s' % (nla)
+            nla = ifinfmsg.name2nla(key)
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
