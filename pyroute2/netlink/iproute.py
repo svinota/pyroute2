@@ -461,23 +461,26 @@ class IPRoute(Netlink):
                         ['TCA_OPTIONS', opts]]
         return self.nlm_request(msg, msg_type=action, msg_flags=flags)
 
-    def route(self, action, prefix, mask, table=254,
-              rtype='RTN_UNICAST', rtproto='RTPROT_STATIC',
-              rtscope='RT_SCOPE_UNIVERSE', index=None,
-              gateway=None, family=AF_INET):
+    def route(self, action, prefix, mask, rtype='RTN_UNICAST',
+              rtproto='RTPROT_STATIC', rtscope='RT_SCOPE_UNIVERSE',
+              index=None, family=AF_INET, **kwarg):
         '''
         Route operations
 
         * action -- add, delete
         * prefix -- route prefix
         * mask -- route prefix mask
-        * table -- routing table to use (default: 254)
         * rtype -- route type (default: "RTN_UNICAST")
         * rtproto -- routing protocol (default: "RTPROT_STATIC")
         * rtscope -- routing scope (default: "RT_SCOPE_UNIVERSE")
         * index -- via device index
-        * gateway -- via address
         * family -- socket.AF_INET (default) or socket.AF_INET6
+
+        `pyroute2/netlink/rtnl/rtmsg.py` rtmsg.nla_map:
+        * table -- routing table to use (default: 254)
+        * gateway -- via address
+        * prefsrc -- preferred source IP address
+        etc.
 
         Example:
 
@@ -490,18 +493,21 @@ class IPRoute(Netlink):
 
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = rtmsg()
-        msg['table'] = table
+        # table is mandatory; by default == 254
+        # if table is not defined in kwarg, save it there
+        # also for nla_attr:
+        msg['table'] = kwarg['table'] = kwarg.get('table', 254)
         msg['family'] = family
         msg['proto'] = rtprotos[rtproto]
         msg['type'] = rtypes[rtype]
         msg['scope'] = rtscopes[rtscope]
         msg['dst_len'] = mask
-        msg['attrs'] = [['RTA_DST', prefix],
-                        ['RTA_TABLE', table]]
-        if index is not None:
-            msg['attrs'].append(['RTA_OIF', index])
-        if gateway is not None:
-            msg['attrs'].append(['RTA_GATEWAY', gateway])
+        msg['attrs'] = [['RTA_DST', prefix]]
+
+        for key in kwarg:
+            nla = rtmsg.name2nla(key)
+            if kwarg[key] is not None:
+                msg['attrs'].append([nla, kwarg[key]])
 
         return self.nlm_request(msg, msg_type=action,
                                 msg_flags=flags)

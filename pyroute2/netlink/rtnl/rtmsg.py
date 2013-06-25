@@ -21,6 +21,8 @@ class rtmsg(nlmsg):
         unsigned int  rtm_flags;
     };
     '''
+    prefix = 'RTA_'
+
     fields = (('family', 'B'),
               ('dst_len', 'B'),
               ('src_len', 'B'),
