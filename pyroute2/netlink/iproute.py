@@ -237,27 +237,35 @@ class IPRoute(Netlink):
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETADDR)
 
-    def get_routes(self, family=AF_UNSPEC, table=-1):
+    def get_routes(self, family=AF_UNSPEC, **kwarg):
         '''
         Get all routes. You can specify the table. There
         are 255 routing classes (tables), and the kernel
         returns all the routes on each request. So the
-        routine filters routes from full output. By default,
-        table == -1, which means that one should get all
-        tables.
-        '''
-        # moreover, the kernel returns records without
-        # RTA_DST, which I don't know how to interpret :)
+        routine filters routes from full output.
 
+        Example:
+
+        ip.get_routes()  # get all the routes for all families
+        ip.get_routes(family=AF_INET6)  # get only IPv6 routes
+        ip.get_routes(table=254)  # get routes from 254 table
+        '''
+
+        kwarg['table'] = kwarg.get('table', None)
         msg = rtmsg()
         msg['family'] = family
-        # msg['table'] = table  # you can specify the table
-                                # here, but the kernel will
-                                # ignore this setting
-        routes = self.nlm_request(msg, RTM_GETROUTE)
-        return [k for k in [i for i in routes if 'attrs' in i]
-                if [l for l in k['attrs'] if l[0] == 'RTA_DST'] and
-                (k['table'] == table or table == -1)]
+        # you can specify the table here, but the kernel
+        # will ignore this setting
+        msg['table'] = kwarg['table'] or 0
+
+        for key in kwarg:
+            nla = rtmsg.name2nla(key)
+            if kwarg[key] is not None:
+                msg['attrs'].append([nla, kwarg[key]])
+
+        return [x for x in self.nlm_request(msg, RTM_GETROUTE)
+                if x.get_attr('RTA_TABLE')[0] == kwarg['table'] or
+                kwarg['table'] is None]
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
