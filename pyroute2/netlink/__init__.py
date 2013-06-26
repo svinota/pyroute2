@@ -304,6 +304,10 @@ class PipeSocket(object):
     def fileno(self):
         return self.rfd
 
+    def close(self):
+        os.close(self.rfd)
+        os.close(self.wfd)
+
 
 def pairPipeSockets():
     pipe0_r, pipe0_w = os.pipe()
@@ -353,7 +357,6 @@ class IOThread(threading.Thread):
         self.pid = os.getpid()
         self._nonce = 0
         self._nonce_lock = threading.Lock()
-        self._stop = False
         self._run_event = threading.Event()
         self._sctl_event = threading.Event()
         self._stop_event = threading.Event()
@@ -415,15 +418,17 @@ class IOThread(threading.Thread):
         else:
             logging.error("got err for sctl, shutting down")
             # FIXME: shutdown all
-            self._stop = True
+            self._stop_event.set()
 
     def _feed_buffers(self):
         '''
         Beckground thread to feed reassembled buffers to the parser
         '''
         save = None
-        while not self._stop:
+        while True:
             (buf, marshal, sock) = self.buffers.get()
+            if self._stop_event.is_set():
+                return
             if save is not None:
                 # concatenate buffers
                 buf.seek(0)
@@ -455,13 +460,15 @@ class IOThread(threading.Thread):
         '''
         Background thread that expires masquerade cache entries
         '''
-        while not self._stop:
+        while True:
             # expire masquerade records
             ts = time.time()
             for i in tuple(self.masquerade.keys()):
                 if (ts - self.masquerade[i].ctime) > 60:
                     del self.masquerade[i]
-            time.sleep(60)
+            self._stop_event.wait(60)
+            if self._stop_event.is_set():
+                return
 
     def nonce(self):
         with self._nonce_lock:
@@ -525,10 +532,20 @@ class IOThread(threading.Thread):
             rsp['cmd'] = IPRCMD_ERR
             cmd = self.parse_control(data)
             if cmd['cmd'] == IPRCMD_STOP:
-                # Stop iothread
-                self._stop = True
-                self._stop_event.set()
+                # Last 'hello'
                 rsp['cmd'] = IPRCMD_ACK
+                rsp.encode()
+                sock.send(rsp.buf.getvalue())
+                # Stop iothread -- shutdown sequence
+                self._stop_event.set()
+                self._rlist.remove(self.sctl)
+                self._wlist.remove(self.sctl)
+                self.sctl.close()
+                self.control.close()
+                self.buffers.put((None, None, None))
+                self._feed_thread.join()
+                self._expire_thread.join()
+                return
             elif cmd['cmd'] == IPRCMD_RELOAD:
                 # Reload io cycle
                 self._reload_event.set()
@@ -651,7 +668,10 @@ class IOThread(threading.Thread):
         return rsp
 
     def stop(self):
-        return self.command(IPRCMD_STOP)
+        try:
+            self.command(IPRCMD_STOP)
+        except OSError:
+            pass
 
     def reload(self):
         '''
@@ -730,13 +750,14 @@ class IOThread(threading.Thread):
     def start(self):
         threading.Thread.start(self)
         self._sctl_event.wait(3)
+        self._sctl_thread.join()
         if not self._sctl_event.is_set():
-            self._stop = True
-            raise Exception('failed to establish control connection')
+            self._stop_event.set()
+            raise RuntimeError('failed to establish control connection')
 
     def run(self):
         self._run_event.set()
-        while not self._stop:
+        while not self._stop_event.is_set():
             try:
                 [rlist, wlist, xlist] = select.select(self._rlist, [], [])
             except:
@@ -934,7 +955,8 @@ class Netlink(object):
         self.shutdown_sockets()
         self.shutdown_clients()
         self.shutdown_servers()
-        self._remote_cmd(self.iothread.control, IPRCMD_STOP)
+        self.iothread.stop()
+        self.iothread.join()
 
     def serve(self, url, key=None, cert=None, ca=None):
         if key:
