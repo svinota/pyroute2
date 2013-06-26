@@ -921,13 +921,6 @@ class Netlink(object):
                 except:
                     pass
 
-    def shutdown(self):
-        '''
-        Deprecated: use Netlink.release() instead
-        '''
-        logging.warn('IPDB: using deprecated call "shutdown()"')
-        self.release()
-
     def release(self):
         '''
         Shutdown all threads and release netlink sockets
