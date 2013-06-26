@@ -17,7 +17,7 @@
 # 	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 version ?= "0.1"
-release ?= "0.1.9"
+release ?= "0.1.10"
 python ?= "python"
 
 ifdef root
@@ -43,6 +43,7 @@ all:
 clean: clean-version
 	rm -rf dist build MANIFEST
 	rm -f docs/general.rst
+	rm -f docs/changelog.rst
 	rm -f  tests/.coverage
 	rm -rf tests/htmlcov
 	rm -rf tests/cover
@@ -68,6 +69,7 @@ update-version: setup.py docs/conf.py
 
 docs: clean force-version
 	cp README.md docs/general.rst
+	cp CHANGELOG.md docs/changelog.rst
 	make -C docs html
 
 test:

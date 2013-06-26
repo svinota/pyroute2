@@ -10,6 +10,7 @@ General information about the library (README.md)
     :maxdepth: 2
 
     general
+    changelog
 
 Modules description, sample code, usecases
 ------------------------------------------
