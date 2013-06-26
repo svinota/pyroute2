@@ -614,7 +614,13 @@ class IOThread(threading.Thread):
             if self.record:
                 self.backlog.append((time.asctime(), msg))
             key = msg['header']['sequence_number']
-            msg['header']['host'] = _repr_sockets([sock], 'remote')[0]
+            try:
+                msg['header']['host'] = _repr_sockets([sock], 'remote')[0]
+            except socket.error:
+                # on shutdown, we can get here socket.error
+                # in this case add just an empty string
+                msg['header']['host'] = ''
+
             if key not in self.listeners:
                 key = 0
             if self.mirror and (key != 0) and (msg.raw is not None):
