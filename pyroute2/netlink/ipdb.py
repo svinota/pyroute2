@@ -220,7 +220,156 @@ class IPLinkRequest(dict):
             dict.__setitem__(self, key, value)
 
 
-class Interface(Dotkeys):
+class Transactional(Dotkeys):
+    '''
+    An utility class that implements common transactional logic.
+    '''
+    def __init__(self, ipr=None, parent=None, mode='direct'):
+        self.ip = ipr
+        self.uid = uuid.uuid4()
+        self.last_error = None
+        self._fields = []
+        self._tids = []
+        self._transactions = {}
+        self._mode = mode
+        self._parent = parent
+        self._write_lock = threading.RLock()
+        self._direct_state = State(self._write_lock)
+        self._linked_sets = set()
+
+    def pick(self, detached=True):
+        '''
+        Get a snapshot of the object. Can be of two
+        types:
+            * detached=True -- (default) "true" snapshot
+            * detached=False -- keep ip addr set updated from OS
+
+        Please note, that "updated" doesn't mean "in sync".
+        The reason behind this logic is that snapshots can be
+        used as transactions.
+        '''
+        with self._write_lock:
+            res = self.__class__(ipr=self.ip, mode='snapshot')
+            for key in tuple(self.keys()):
+                if key in nla_fields:
+                    res[key] = self[key]
+            for key in self._linked_sets:
+                res[key] = LinkedSet(self[key])
+                if self._parent is not None and not detached:
+                    self[key].connect(res[key])
+            return res
+
+    def __enter__(self):
+        # FIXME: use a bitmask?
+        if self._mode not in ('implicit', 'explicit'):
+            raise TypeError('context managers require a transactional mode')
+        if not self._tids:
+            self.begin()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # apply transaction only if there was no error
+        if exc_type is None:
+            try:
+                self.commit()
+            except Exception as e:
+                self.last_error = e
+                raise e
+
+    def __repr__(self):
+        res = {}
+        for i in self:
+            if self[i] is not None:
+                res[i] = self[i]
+        return res.__repr__()
+
+    def __sub__(self, vs):
+        '''
+        '''
+        res = self.__class__(ipr=self.ip, mode='snapshot')
+        with self._direct_state:
+            # simple keys
+            for key in self:
+                if (key in self._fields) and \
+                        ((key not in vs) or (self[key] != vs[key])):
+                    res[key] = self[key]
+        for key in self._linked_sets:
+            diff = LinkedSet(self[key] - vs[key])
+            if diff:
+                res[key] = diff
+        return res
+
+    def commit(self, *args, **kwarg):
+        pass
+
+    def begin(self):
+        '''
+        Start new transaction
+        '''
+        # keep snapshot's ip addr set updated from the OS
+        # it is required by the commit logic
+        t = self.pick(detached=False)
+        self._transactions[t.uid] = t
+        self._tids.append(t.uid)
+        return t.uid
+
+    def last(self):
+        '''
+        Return last open transaction
+        '''
+        if not self._tids:
+            raise TypeError('start a transaction first')
+
+        return self._transactions[self._tids[-1]]
+
+    def review(self):
+        '''
+        Review last open transaction
+        '''
+        if not self._tids:
+            raise TypeError('start a transaction first')
+
+        added = self.last() - self
+        removed = self - self.last()
+        for key in self._linked_sets:
+            added['-{}'.format(key)] = removed[key]
+            added['+{}'.format(key)] = added[key]
+            del added[key]
+        return added
+
+    def drop(self):
+        '''
+        Drop all not applied changes and rollback transaction.
+        '''
+        del self._transactions[self._tids.pop()]
+
+    @update
+    def __setitem__(self, direct, key, value):
+        if not direct:
+            transaction = self.last()
+            transaction[key] = value
+        else:
+            Dotkeys.__setitem__(self, key, value)
+
+    @update
+    def __delitem__(self, direct, key):
+        if not direct:
+            transaction = self.last()
+            if key in transaction:
+                del transaction[key]
+        else:
+            Dotkeys.__delitem__(self, key)
+
+    def set_item(self, key, value):
+        with self._direct_state:
+            self[key] = value
+
+    def del_item(self, key):
+        with self._direct_state:
+            del self[key]
+
+
+class Interface(Transactional):
     '''
     Objects of this class represent network interface and
     all related objects:
@@ -252,8 +401,7 @@ class Interface(Dotkeys):
             * ipd -- IPRoute() reference
             * parent -- ipdb() reference
         '''
-        self.ip = ipr
-        self.uid = uuid.uuid4()
+        Transactional.__init__(self, ipr, parent, mode)
         self.cleanup = ('header',
                         'linkinfo',
                         'af_spec',
@@ -262,15 +410,13 @@ class Interface(Dotkeys):
                         'map',
                         'stats',
                         'stats64')
-        self.last_error = None
+        self.ingress = None
+        self.egress = None
         self._exists = False
-        self._parent = parent
-        self._tids = []
-        self._transactions = {}
-        self._mode = mode
-        self._write_lock = threading.RLock()
-        self._direct_state = State(self._write_lock)
+        self._fields = nla_fields
         self._load_event = threading.Event()
+        self._linked_sets.add('ipaddr')
+        self._linked_sets.add('ports')
         # 8<-----------------------------------
         # local setup: direct state is required
         with self._direct_state:
@@ -283,77 +429,8 @@ class Interface(Dotkeys):
                 del self[i]
         # 8<-----------------------------------
 
-    def pick(self, detached=True):
-        '''
-        Get a snapshot of the interface state. Can be of two
-        types:
-            * detached=True -- (default) "true" snapshot
-            * detached=False -- keep ip addr set updated from OS
-
-        Please note, that "updated" doesn't mean "in sync".
-        The reason behind this logic is that snapshots can be
-        used as transactions.
-        '''
-        with self._write_lock:
-            res = Interface(ipr=self.ip, mode='snapshot')
-            for key in tuple(self.keys()):
-                if key in nla_fields:
-                    res[key] = self[key]
-            res['ipaddr'] = LinkedSet(self['ipaddr'])
-            res['ports'] = LinkedSet(self['ports'])
-            if self._parent is not None and not detached:
-                self['ipaddr'].connect(res['ipaddr'])
-                self['ports'].connect(res['ports'])
-            return res
-
-    def __sub__(self, pif):
-        '''
-        '''
-        res = Interface(ipr=self.ip, mode='snapshot')
-        with self._direct_state:
-            # simple keys
-            for key in self:
-                if (key in nla_fields) and \
-                        ((key not in pif) or (self[key] != pif[key])):
-                    res[key] = self[key]
-
-        # ip addresses
-        ipaddr = LinkedSet(self['ipaddr'] - pif['ipaddr'])
-        # ports
-        ports = LinkedSet(self['ports'] - pif['ports'])
-        if ipaddr:
-            res['ipaddr'] = ipaddr
-        if ports:
-            res['ports'] = ports
-
-        return res
-
     def __hash__(self):
         return self['index']
-
-    def __enter__(self):
-        # FIXME: use a bitmask?
-        if self._mode not in ('implicit', 'explicit'):
-            raise TypeError('context managers require a transactional mode')
-        if not self._tids:
-            self.begin()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        # apply transaction only if there was no error
-        if exc_type is None:
-            try:
-                self.commit()
-            except Exception as e:
-                self.last_error = e
-                raise e
-
-    def __repr__(self):
-        res = {}
-        for i in self:
-            if self[i] is not None:
-                res[i] = self[i]
-        return res.__repr__()
 
     @property
     def if_master(self):
@@ -403,31 +480,6 @@ class Interface(Dotkeys):
     def sync(self):
         self._load_event.set()
 
-    def set_item(self, key, value):
-        with self._direct_state:
-            self[key] = value
-
-    def del_item(self, key):
-        with self._direct_state:
-            del self[key]
-
-    @update
-    def __setitem__(self, direct, key, value):
-        if not direct:
-            transaction = self.last()
-            transaction[key] = value
-        else:
-            Dotkeys.__setitem__(self, key, value)
-
-    @update
-    def __delitem__(self, direct, key):
-        if not direct:
-            transaction = self.last()
-            if key in transaction:
-                del transaction[key]
-        else:
-            Dotkeys.__delitem__(self, key)
-
     @update
     def add_ip(self, direct, ip, mask=None):
         if mask is None:
@@ -475,49 +527,6 @@ class Interface(Dotkeys):
                     'master' in self._parent[port]:
                 self._parent[port].del_item('master')
             self['ports'].remove(port)
-
-    def begin(self):
-        '''
-        Start new transaction
-        '''
-        # keep snapshot's ip addr set updated from the OS
-        # it is required by the commit logic
-        t = self.pick(detached=False)
-        self._transactions[t.uid] = t
-        self._tids.append(t.uid)
-        return t.uid
-
-    def last(self):
-        '''
-        Return last open transaction
-        '''
-        if not self._tids:
-            raise TypeError('start a transaction first')
-
-        return self._transactions[self._tids[-1]]
-
-    def review(self):
-        '''
-        Review last open transaction
-        '''
-        if not self._tids:
-            raise TypeError('start a transaction first')
-
-        added = self.last() - self
-        removed = self - self.last()
-        added['-ipaddr'] = removed['ipaddr']
-        added['+ipaddr'] = added['ipaddr']
-        added['-ports'] = removed['ports']
-        added['+ports'] = added['ports']
-        del added['ipaddr']
-        del added['ports']
-        return added
-
-    def drop(self):
-        '''
-        Drop all not applied changes and rollback transaction.
-        '''
-        del self._transactions[self._tids.pop()]
 
     def reload(self):
         '''
