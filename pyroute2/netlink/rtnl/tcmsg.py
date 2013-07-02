@@ -368,6 +368,9 @@ class nla_plus_police(nla):
 
 
 class tcmsg(nlmsg):
+
+    prefix = 'TCA_'
+
     fields = (('family', 'B'),
               ('pad1', 'B'),
               ('pad2', 'H'),

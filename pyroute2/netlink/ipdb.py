@@ -22,7 +22,9 @@ from pyroute2.common import Dotkeys
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.iproute import IPRoute
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.tcmsg import tcmsg
 
+tc_fields = [tcmsg.nla2name(i[0]) for i in tcmsg.nla_map]
 nla_fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
 nla_fields.append('flags')
 nla_fields.append('mask')
@@ -367,6 +369,23 @@ class Transactional(Dotkeys):
     def del_item(self, key):
         with self._direct_state:
             del self[key]
+
+
+class TrafficControl(Transactional):
+    '''
+    '''
+    def __init__(self, ipr=None, parent=None, mode='direct'):
+        Transactional.__init__(self, ipr, parent, mode)
+        self._fields = tc_fields
+
+    def set_filter(self, kind, **kwarg):
+        pass
+
+    def set_control(self, kind, **kwarg):
+        pass
+
+    def remove(self):
+        pass
 
 
 class Interface(Transactional):
