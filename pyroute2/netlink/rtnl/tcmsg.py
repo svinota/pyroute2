@@ -539,6 +539,7 @@ class tcmsg(nlmsg):
                 # 'header' array to pack keys to
                 header = [(0, 0) for i in range(256)]
 
+                keys = []
                 # iterate keys and pack them to the 'header'
                 for key in self['keys']:
                     # TODO tags: filter
@@ -561,6 +562,12 @@ class tcmsg(nlmsg):
                     mask = int(mask, 0)
                     value = int(key, 0)
                     bits = 24
+                    if mask == 0 and value == 0:
+                        key = self.u32_key(self.buf)
+                        key['key_off'] = offset
+                        key['key_mask'] = mask
+                        key['key_val'] = value
+                        keys.append(key)
                     for bmask in struct.unpack('4B', struct.pack('>I', mask)):
                         if bmask > 0:
                             bvalue = (value & (bmask << bits)) >> bits
@@ -569,7 +576,6 @@ class tcmsg(nlmsg):
                         bits -= 8
 
                 # recalculate keys from 'header'
-                keys = []
                 key = None
                 value = 0
                 mask = 0
