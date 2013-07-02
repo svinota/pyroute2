@@ -74,7 +74,7 @@ def _time2tick(t):
 
 def _calc_xmittime(rate, size):
     # The current code is ported from tc utility
-    return _time2tick(TIME_UNITS_PER_SEC * (float(size) / rate))
+    return round(_time2tick(TIME_UNITS_PER_SEC * (float(size) / rate)))
 
 
 def _red_eval_ewma(qmin, burst, avpkt):
@@ -107,12 +107,7 @@ def _red_eval_P(qmin, qmax, probability):
     return i
 
 
-def get_u32_parameters(kwarg):
-    return {'attrs': [['TCA_U32_CLASSID', kwarg['target']],
-                      ['TCA_U32_SEL', {'keys': kwarg['keys']}]]}
-
-
-def get_tbf_parameters(kwarg):
+def _get_rate_parameters(kwarg):
     # rate and burst are required
     rate = _get_rate(kwarg['rate'])
     burst = kwarg['burst']
@@ -126,7 +121,7 @@ def get_tbf_parameters(kwarg):
     # limit OR latency is required
     limit = kwarg.get('limit', None)
     latency = _get_time(kwarg.get('latency', None))
-    assert limit or latency
+    assert limit is not None or latency is not None
 
     # calculate limit from latency
     if limit is None:
@@ -139,12 +134,34 @@ def get_tbf_parameters(kwarg):
                 rate_limit = peak_limit
         limit = rate_limit
 
+    return {'rate': rate,
+            'mtu': mtu,
+            'buffer': _calc_xmittime(rate, burst),
+            'limit': limit}
+
+
+def get_tbf_parameters(kwarg):
+    parms = _get_rate_parameters(kwarg)
     # fill parameters
-    return {'attrs': [['TCA_TBF_PARMS', {'rate': rate,
-                                         'mtu': mtu,
-                                         'buffer': _calc_xmittime(rate, burst),
-                                         'limit': limit}],
+    return {'attrs': [['TCA_TBF_PARMS', parms],
                       ['TCA_TBF_RTAB', True]]}
+
+
+def get_u32_parameters(kwarg):
+    ret = {'attrs': []}
+
+    if kwarg.get('rate'):
+        tbfp = _get_rate_parameters(kwarg)
+        tbfp['burst'] = tbfp['buffer']
+        tbfp['action'] = 2
+        police = [['TCA_POLICE_TBF', tbfp],
+                  ['TCA_POLICE_RATE', True]]
+        ret['attrs'].append(['TCA_U32_POLICE', {'attrs': police}])
+
+    ret['attrs'].append(['TCA_U32_CLASSID', kwarg['target']])
+    ret['attrs'].append(['TCA_U32_SEL', {'keys': kwarg['keys']}])
+
+    return ret
 
 
 def get_sfq_parameters(kwarg):
@@ -293,7 +310,8 @@ class nla_plus_rtab(nla):
 
         def encode(self):
             parms = self.parent.get_attr('TCA_TBF_PARMS') or \
-                self.parent.get_attr('TCA_HTB_PARMS')
+                self.parent.get_attr('TCA_HTB_PARMS') or \
+                self.parent.get_attr('TCA_POLICE_TBF')
             if parms:
                 self.value = getattr(parms[0], self.__class__.__name__)
                 self['value'] = struct.pack('I' * 256, *self.value)
@@ -302,7 +320,8 @@ class nla_plus_rtab(nla):
         def decode(self):
             nla.decode(self)
             parms = self.parent.get_attr('TCA_TBF_PARMS') or \
-                self.parent.get_attr('TCA_HTB_PARMS')
+                self.parent.get_attr('TCA_HTB_PARMS') or \
+                self.parent.get_attr('TCA_POLICE_TBF')
             if parms:
                 rtab = struct.unpack('I' * (len(self['value']) / 4),
                                      self['value'])
@@ -317,15 +336,15 @@ class nla_plus_rtab(nla):
 
 
 class nla_plus_police(nla):
-    class police(nla):
+    class police(nla_plus_rtab):
         nla_map = (('TCA_POLICE_UNSPEC', 'none'),
                    ('TCA_POLICE_TBF', 'police_tbf'),
-                   ('TCA_POLICE_RATE', 'hex'),
-                   ('TCA_POLICE_PEAKRATE', 'hex'),
-                   ('TCA_POLICE_AVRATE', 'hex'),
-                   ('TCA_POLICE_RESULT', 'hex'))
+                   ('TCA_POLICE_RATE', 'rtab'),
+                   ('TCA_POLICE_PEAKRATE', 'ptab'),
+                   ('TCA_POLICE_AVRATE', 'uint32'),
+                   ('TCA_POLICE_RESULT', 'uint32'))
 
-        class police_tbf(nla):
+        class police_tbf(nla_plus_rtab.parms):
             fields = (('index', 'I'),
                       ('action', 'i'),
                       ('limit', 'I'),
