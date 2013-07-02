@@ -465,8 +465,9 @@ class IPRoute(Netlink):
             if kwarg:
                 # kwarg is empty for delete
                 opts = get_u32_parameters(kwarg)
-        msg['attrs'] = [['TCA_KIND', kind],
-                        ['TCA_OPTIONS', opts]]
+        msg['attrs'] = [['TCA_KIND', kind]]
+        if opts is not None:
+            msg['attrs'].append(['TCA_OPTIONS', opts])
         return self.nlm_request(msg, msg_type=action, msg_flags=flags)
 
     def route(self, action, prefix, mask, rtype='RTN_UNICAST',
