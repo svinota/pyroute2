@@ -311,7 +311,7 @@ class nlmsg_base(dict):
         if self.header is not None:
             self.update_length(init, diff)
 
-    def update_length(self, start, diff):
+    def update_length(self, start, diff=0):
         save = self.buf.tell()
         self['header']['length'] = save - start - diff
         self.buf.seek(start)
