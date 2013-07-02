@@ -312,8 +312,8 @@ class nla_plus_rtab(nla):
             parms = self.parent.get_attr('TCA_TBF_PARMS') or \
                 self.parent.get_attr('TCA_HTB_PARMS') or \
                 self.parent.get_attr('TCA_POLICE_TBF')
-            if parms:
-                self.value = getattr(parms[0], self.__class__.__name__)
+            if parms is not None:
+                self.value = getattr(parms, self.__class__.__name__)
                 self['value'] = struct.pack('I' * 256, *self.value)
             nla.encode(self)
 
@@ -322,11 +322,11 @@ class nla_plus_rtab(nla):
             parms = self.parent.get_attr('TCA_TBF_PARMS') or \
                 self.parent.get_attr('TCA_HTB_PARMS') or \
                 self.parent.get_attr('TCA_POLICE_TBF')
-            if parms:
+            if parms is not None:
                 rtab = struct.unpack('I' * (len(self['value']) / 4),
                                      self['value'])
                 self.value = rtab
-                setattr(parms[0], self.__class__.__name__, rtab)
+                setattr(parms, self.__class__.__name__, rtab)
 
     class ptab(rtab):
         pass
@@ -423,9 +423,8 @@ class tcmsg(nlmsg):
 
     def get_xstats(self, *argv, **kwarg):
         kind = self.get_attr('TCA_KIND')
-        if kind:
-            if kind[0] == 'htb':
-                return self.xstats_htb
+        if kind == 'htb':
+            return self.xstats_htb
         return self.hex
 
     class xstats_htb(nla):
@@ -437,25 +436,23 @@ class tcmsg(nlmsg):
 
     def get_options(self, *argv, **kwarg):
         kind = self.get_attr('TCA_KIND')
-        if kind:
-            if kind[0] == 'ingress':
-                return self.options_ingress
-            elif kind[0] == 'pfifo_fast':
-                return self.options_pfifo_fast
-            elif kind[0] == 'tbf':
-                return self.options_tbf
-            elif kind[0] == 'sfq':
-                if kwarg.get('length', 0) >= \
-                        struct.calcsize(self.options_sfq_v1.fmt):
-                    return self.options_sfq_v1
-                else:
-                    return self.options_sfq_v0
-            elif kind[0] == 'htb':
-                return self.options_htb
-            elif kind[0] == 'u32':
-                return self.options_u32
-            elif kind[0] == 'fw':
-                return self.options_fw
+        if kind == 'ingress':
+            return self.options_ingress
+        elif kind == 'pfifo_fast':
+            return self.options_pfifo_fast
+        elif kind == 'tbf':
+            return self.options_tbf
+        elif kind == 'sfq':
+            if kwarg.get('length', 0) >= self.options_sfq_v1.get_size():
+                return self.options_sfq_v1
+            else:
+                return self.options_sfq_v0
+        elif kind == 'htb':
+            return self.options_htb
+        elif kind == 'u32':
+            return self.options_u32
+        elif kind == 'fw':
+            return self.options_fw
         return self.hex
 
     class options_ingress(nla):

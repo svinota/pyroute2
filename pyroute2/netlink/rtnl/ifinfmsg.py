@@ -128,9 +128,8 @@ class ifinfmsg(nlmsg):
             kind is not known.
             '''
             kind = self.get_attr('IFLA_INFO_KIND')
-            if kind:
-                if kind[0] == 'vlan':
-                    return self.vlan_data
+            if kind == 'vlan':
+                return self.vlan_data
             return self.hex
 
         class vlan_data(nla):

@@ -327,7 +327,17 @@ class nlmsg_base(dict):
 
     def get_attr(self, attr):
         '''
-        Return attr by name
+        Return first attr by name or None
+        '''
+        attrs = self.get_attrs(attr)
+        if attrs:
+            return attrs[0]
+        else:
+            return None
+
+    def get_attrs(self, attr):
+        '''
+        Return attrs by name
         '''
         return [i[1] for i in self['attrs'] if i[0] == attr]
 

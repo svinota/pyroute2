@@ -224,7 +224,7 @@ class TestData(object):
 
     def test_one_link(self):
         lo = self.ip.get_links(1)[0]
-        assert lo.get_attr('IFLA_IFNAME')[0] == 'lo'
+        assert lo.get_attr('IFLA_IFNAME') == 'lo'
 
     def test_routes(self):
         assert len(get_ip_route()) == \

@@ -69,9 +69,9 @@ def get_addr_nla(msg):
     '''
     nla = None
     if msg['family'] == AF_INET:
-        nla = msg.get_attr('IFA_LOCAL')[0]
+        nla = msg.get_attr('IFA_LOCAL')
     elif msg['family'] == AF_INET6:
-        nla = msg.get_attr('IFA_ADDRESS')[0]
+        nla = msg.get_attr('IFA_ADDRESS')
     return nla
 
 
@@ -477,13 +477,13 @@ class Interface(Transactional):
                 self[norm] = value
             # load interface kind
             linkinfo = dev.get_attr('IFLA_LINKINFO')
-            if linkinfo:
-                kind = linkinfo[0].get_attr('IFLA_INFO_KIND')
-                if kind:
-                    self['kind'] = kind[0]
-                    if kind[0] == 'vlan':
-                        data = linkinfo[0].get_attr('IFLA_INFO_DATA')[0]
-                        self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')[0]
+            if linkinfo is not None:
+                kind = linkinfo.get_attr('IFLA_INFO_KIND')
+                if kind is not None:
+                    self['kind'] = kind
+                    if kind == 'vlan':
+                        data = linkinfo.get_attr('IFLA_INFO_DATA')
+                        self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
             # the rest is possible only when interface
             # is used in IPDB, not standalone
             if self._parent is not None:
@@ -867,7 +867,7 @@ class IPDB(Dotkeys):
             i = \
                 self.by_index[dev['index']] = \
                 self[dev['index']] = \
-                self.get(dev.get_attr('IFLA_IFNAME')[0], None) or \
+                self.get(dev.get_attr('IFLA_IFNAME'), None) or \
                 Interface(ipr=self.ip, parent=self, mode=self.mode)
             i.load(dev)
             self[i['ifname']] = \
@@ -890,7 +890,7 @@ class IPDB(Dotkeys):
             f.close()
             self[index].set_item('master', master)
         elif master:
-            master = master[0]
+            master = master
         else:
             master = None
 
