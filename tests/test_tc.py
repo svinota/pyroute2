@@ -21,20 +21,27 @@ class BasicTest(object):
         self.ip.link('delete', index=self.interface)
         self.ip.release()
 
+    def get_qdisc(self):
+        # get qdiscs list and filter out our interface
+        qds = [x for x in self.ip.get_qdiscs() if x['index'] == self.interface]
+        if qds:
+            return qds[0]
+        else:
+            return None
+
 
 class TestIngress(BasicTest):
 
     def test_simple(self):
         self.ip.tc(RTM_NEWQDISC, 'ingress', self.interface, 0xffff0000)
-        # get qdiscs list and filter out our interface
-        qds = [x for x in self.ip.get_qdiscs() if x['index'] == self.interface]
+        qds = self.get_qdisc()
         # assert the list is not empty
         assert qds
         # assert there is the ingress queue
-        assert qds[0].get_attr('TCA_KIND') == 'ingress'
+        assert qds.get_attr('TCA_KIND') == 'ingress'
         # assert it has proper handle and parent
-        assert qds[0]['handle'] == 0xffff0000
-        assert qds[0]['parent'] == TC_H_INGRESS
+        assert qds['handle'] == 0xffff0000
+        assert qds['parent'] == TC_H_INGRESS
 
     def test_filter(self):
         self.test_simple()
@@ -67,9 +74,22 @@ class TestSfq(BasicTest):
 
     def test_sfq(self):
         self.ip.tc(RTM_NEWQDISC, 'sfq', self.interface, 0, perturb=10)
-        qds = [x for x in self.ip.get_qdiscs() if x['index'] == self.interface]
-        if qds:
-            qds = qds[0]
+        qds = self.get_qdisc()
         assert qds
         assert qds.get_attr('TCA_KIND') == 'sfq'
         assert qds.get_attr('TCA_OPTIONS')['perturb_period'] == 10
+
+
+class TestTbf(BasicTest):
+
+    def test_tbf(self):
+        self.ip.tc(RTM_NEWQDISC, 'tbf', self.interface, 0,
+                   rate='220kbit',
+                   latency='50ms',
+                   burst=1540)
+        qds = self.get_qdisc()
+        assert qds
+        assert qds.get_attr('TCA_KIND') == 'tbf'
+        parms = qds.get_attr('TCA_OPTIONS').get_attr('TCA_TBF_PARMS')
+        assert parms
+        assert parms['rate'] == 27500
