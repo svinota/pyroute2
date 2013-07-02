@@ -165,6 +165,13 @@ class nlmsg_base(dict):
         return self.getvalue() == value
 
     @classmethod
+    def get_size(self):
+        size = 0
+        for field in self.fields:
+            size += struct.calcsize(field[1])
+        return size
+
+    @classmethod
     def nla2name(self, name):
         '''
         Convert NLA name into human-friendly name
