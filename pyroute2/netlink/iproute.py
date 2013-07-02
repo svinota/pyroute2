@@ -340,11 +340,11 @@ class IPRoute(Netlink):
 
         Example:
 
-        index = 62  # interface index
-        ip.link("set", index, state="down")
-        ip.link("set", index, address="00:11:22:33:44:55", name="bala")
-        ip.link("set", index, mtu=1000, txqlen=2000)
-        ip.link("set", index, state="up")
+        x = 62  # interface index
+        ip.link("set", index=x, state="down")
+        ip.link("set", index=x, address="00:11:22:33:44:55", name="bala")
+        ip.link("set", index=x, mtu=1000, txqlen=2000)
+        ip.link("set", index=x, state="up")
 
         Keywords "state", "flags" and "mask" are reserved. State can
         be "up" or "down", it is a shortcut:
@@ -359,12 +359,12 @@ class IPRoute(Netlink):
         corresponding module. You can use the form "ifname" as well
         as "IFLA_IFNAME" and so on, so that's equal:
 
-        ip.link("set", index, mtu=1000)
-        ip.link("set", index, IFLA_MTU=1000)
+        ip.link("set", index=x, mtu=1000)
+        ip.link("set", index=x, IFLA_MTU=1000)
 
         You can also delete interface with:
 
-        ip.link("delete", index)
+        ip.link("delete", index=x)
         '''
 
         actions = {'set': RTM_SETLINK,      # almost all operations
