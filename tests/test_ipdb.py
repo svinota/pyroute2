@@ -405,15 +405,15 @@ class TestMisc(object):
 
     def test_break_netlink(self):
         ip = IPDB()
-        s = tuple(ip.ip._sockets)[0]
+        s = tuple(ip.nl._sockets)[0]
         s.close()
-        ip.ip._sockets = tuple()
+        ip.nl._sockets = tuple()
         try:
             ip.lo.reload()
         except IOError:
             pass
         del s
-        ip.ip.release()
+        ip.nl.release()
 
     def test_context_exception_in_code(self):
         try:

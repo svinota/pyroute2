@@ -224,15 +224,15 @@ class Transactional(Dotkeys):
     '''
     An utility class that implements common transactional logic.
     '''
-    def __init__(self, ipr=None, parent=None, mode='direct'):
-        self.ip = ipr
+    def __init__(self, nl=None, ipdb=None, mode='direct'):
+        self.nl = nl
         self.uid = uuid.uuid4()
+        self.ipdb = ipdb
         self.last_error = None
         self._fields = []
         self._tids = []
         self._transactions = {}
         self._mode = mode
-        self._parent = parent
         self._write_lock = threading.RLock()
         self._direct_state = State(self._write_lock)
         self._linked_sets = set()
@@ -249,13 +249,13 @@ class Transactional(Dotkeys):
         used as transactions.
         '''
         with self._write_lock:
-            res = self.__class__(ipr=self.ip, mode='snapshot')
+            res = self.__class__(nl=self.nl, mode='snapshot')
             for key in tuple(self.keys()):
                 if key in nla_fields:
                     res[key] = self[key]
             for key in self._linked_sets:
                 res[key] = LinkedSet(self[key])
-                if self._parent is not None and not detached:
+                if self.ipdb is not None and not detached:
                     self[key].connect(res[key])
             return res
 
@@ -286,7 +286,7 @@ class Transactional(Dotkeys):
     def __sub__(self, vs):
         '''
         '''
-        res = self.__class__(ipr=self.ip, mode='snapshot')
+        res = self.__class__(nl=self.nl, mode='snapshot')
         with self._direct_state:
             # simple keys
             for key in self:
@@ -372,9 +372,14 @@ class Transactional(Dotkeys):
 class TrafficControl(Transactional):
     '''
     '''
-    def __init__(self, ipr=None, parent=None, mode='direct'):
-        Transactional.__init__(self, ipr, parent, mode)
+    def __init__(self, nl=None, ipdb=None, mode='direct'):
+        Transactional.__init__(self, nl, ipdb, mode)
         self._fields = tc_fields
+
+    def load(self, msg):
+        with self._direct_state:
+            self.update(msg)
+            self['kind'] = msg.get_attr('TCA_KIND')
 
     def set_filter(self, kind, **kwarg):
         pass
@@ -407,18 +412,18 @@ class Interface(Transactional):
     exception will be raised. Failed transaction review
     will be attached to the exception.
     '''
-    def __init__(self, ipr=None, parent=None, mode='direct'):
+    def __init__(self, nl=None, ipdb=None, mode='direct'):
         '''
         One can use interface objects standalone as
         well as in connection with ipdb object. Standalone
         usage, though, is discouraged.
 
         Parameters:
-            * dev -- RTM_NEWLINK message
-            * ipd -- IPRoute() reference
-            * parent -- ipdb() reference
+            * nl   -- IPRoute() reference
+            * ipdb -- ipdb() reference
+            * mode -- transaction mode
         '''
-        Transactional.__init__(self, ipr, parent, mode)
+        Transactional.__init__(self, nl, ipdb, mode)
         self.cleanup = ('header',
                         'linkinfo',
                         'af_spec',
@@ -484,9 +489,9 @@ class Interface(Transactional):
                         self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
             # the rest is possible only when interface
             # is used in IPDB, not standalone
-            if self._parent is not None:
+            if self.ipdb is not None:
                 # connect IP address set from IPDB
-                self['ipaddr'] = self._parent.ipaddr[self['index']]
+                self['ipaddr'] = self.ipdb.ipaddr[self['index']]
             # finally, cleanup all not needed
             for item in self.cleanup:
                 if item in self:
@@ -540,9 +545,9 @@ class Interface(Transactional):
                 transaction.del_port(port)
         else:
             # FIXME: do something with it, please
-            if self._parent and _ANCIENT_PLATFORM and \
-                    'master' in self._parent[port]:
-                self._parent[port].del_item('master')
+            if self.ipdb and _ANCIENT_PLATFORM and \
+                    'master' in self.ipdb[port]:
+                self.ipdb[port].del_item('master')
             self['ports'].remove(port)
 
     def reload(self):
@@ -551,7 +556,7 @@ class Interface(Transactional):
         '''
         self._load_event.clear()
         try:
-            self.ip.get_links(self['index'])
+            self.nl.get_links(self['index'])
         except Empty:
             raise IOError('lost netlink connection')
         self._load_event.wait()
@@ -572,17 +577,17 @@ class Interface(Transactional):
         # if the interface does not exist, create it first ;)
         if not self._exists:
             request = IPLinkRequest(self)
-            self._parent._links_event.clear()
+            self.ipdb._links_event.clear()
             try:
-                self.ip.link('add', **request)
+                self.nl.link('add', **request)
             except Exception as e:
                 # on failure, invalidate the interface and detach it
                 # from the parent
                 # 1. drop the IPRoute() link
-                self.ip = None
+                self.nl = None
                 # 2. clean up ipdb
-                self._parent.detach(self['index'])
-                self._parent.detach(self['ifname'])
+                self.ipdb.detach(self['index'])
+                self.ipdb.detach(self['ifname'])
                 # 3. invalidate the interface
                 with self._direct_state:
                     for i in tuple(self.keys()):
@@ -594,8 +599,8 @@ class Interface(Transactional):
 
             # all is OK till now, so continue
             # we do not know what to load, so load everything
-            self.ip.get_links()
-            self._parent._links_event.wait()
+            self.nl.get_links()
+            self.ipdb._links_event.wait()
 
         # now we have our index and IP set and all other stuff
         snapshot = self.pick()
@@ -613,14 +618,14 @@ class Interface(Transactional):
                 # can be removed. In this case you will fail, but
                 # it is OK, no need to roll back
                 try:
-                    self.ip.addr('delete', self['index'], i[0], i[1])
+                    self.nl.addr('delete', self['index'], i[0], i[1])
                 except NetlinkError as x:
                     # bypass only errno 99, 'Cannot assign address'
                     if x.code != 99:
                         raise x
 
             for i in added['ipaddr']:
-                self.ip.addr('add', self['index'], i[0], i[1])
+                self.nl.addr('add', self['index'], i[0], i[1])
 
             if removed['ipaddr'] or added['ipaddr']:
                 self['ipaddr'].target.wait(_SYNC_TIMEOUT)
@@ -632,14 +637,14 @@ class Interface(Transactional):
 
             for i in removed['ports']:
                 # detach the port
-                self.ip.link('set', index=i, master=0)
+                self.nl.link('set', index=i, master=0)
 
             for i in added['ports']:
                 # enslave the port
-                self.ip.link('set', index=i, master=self['index'])
+                self.nl.link('set', index=i, master=self['index'])
 
             if removed['ports'] or added['ports']:
-                self.ip.get_links(*(removed['ports'] | added['ports']))
+                self.nl.get_links(*(removed['ports'] | added['ports']))
                 self['ports'].target.wait(_SYNC_TIMEOUT)
                 assert self['ports'].target.is_set()
 
@@ -652,13 +657,13 @@ class Interface(Transactional):
 
             # apply changes only if there is something to apply
             if request:
-                self.ip.link('set', index=self['index'], **request)
+                self.nl.link('set', index=self['index'], **request)
 
             # 8<---------------------------------------------
             # Interface removal
             if added.get('removal'):
                 self._load_event.clear()
-                self.ip.link('delete', index=self['index'])
+                self.nl.link('delete', index=self['index'])
                 self._load_event.wait(_SYNC_TIMEOUT)
                 assert self._load_event.is_set()
                 self.drop()
@@ -714,8 +719,8 @@ class Interface(Transactional):
                 # getting RuntimeError() from commit(), take a seat
                 # and rest for a while. It is an extremal case, it
                 # should not became at all, and there is no sync.
-                self.ip.get_links()
-                self.ip.get_addr()
+                self.nl.get_links()
+                self.nl.get_addr()
                 x = RuntimeError()
                 x.cause = e
                 raise x
@@ -761,11 +766,11 @@ class IPDB(Dotkeys):
     No methods of the class should be called directly.
     '''
 
-    def __init__(self, ipr=None, host='localsystem', mode='implicit',
+    def __init__(self, nl=None, host='localsystem', mode='implicit',
                  key=None, cert=None, ca=None):
         '''
         Parameters:
-            * ipr -- IPRoute() reference
+            * nl -- IPRoute() reference
 
         If you do not provide iproute instance, ipdb will
         start it automatically. Please note, that there can
@@ -773,7 +778,7 @@ class IPDB(Dotkeys):
         you can start two and more iproute instances, but
         only the first one will receive anything.
         '''
-        self.ip = ipr or IPRoute(host=host, key=key, cert=cert, ca=ca)
+        self.nl = nl or IPRoute(host=host, key=key, cert=cert, ca=ca)
         self.mode = mode
         self._stop = False
 
@@ -791,13 +796,13 @@ class IPDB(Dotkeys):
         self._links_event = threading.Event()
 
         # load information on startup
-        links = self.ip.get_links()
+        links = self.nl.get_links()
         self.update_links(links)
         self.update_slaves(links)
-        self.update_addr(self.ip.get_addr())
+        self.update_addr(self.nl.get_addr())
 
         # start monitoring thread
-        self.ip.mirror()
+        self.nl.mirror()
         self._mthread = threading.Thread(target=self.monitor)
         self._mthread.setDaemon(True)
         self._mthread.start()
@@ -819,8 +824,8 @@ class IPDB(Dotkeys):
         Shutdown monitoring thread and release iproute.
         '''
         self._stop = True
-        self.ip.get_links()
-        self.ip.release()
+        self.nl.get_links()
+        self.nl.release()
         self._mthread.join()
 
     def create(self, kind, ifname, **kwarg):
@@ -841,7 +846,7 @@ class IPDB(Dotkeys):
 
         FIXME: this should be documented.
         '''
-        i = Interface(ipr=self.ip, parent=self, mode='snapshot')
+        i = Interface(nl=self.nl, ipdb=self, mode='snapshot')
         i['kind'] = kind
         i['index'] = kwarg.get('index', 0)
         i['ifname'] = ifname
@@ -866,7 +871,7 @@ class IPDB(Dotkeys):
                 self.by_index[dev['index']] = \
                 self[dev['index']] = \
                 self.get(dev.get_attr('IFLA_IFNAME'), None) or \
-                Interface(ipr=self.ip, parent=self, mode=self.mode)
+                Interface(nl=self.nl, ipdb=self, mode=self.mode)
             i.load(dev)
             self[i['ifname']] = \
                 self.by_name[i['ifname']] = i
@@ -952,7 +957,7 @@ class IPDB(Dotkeys):
         '''
         while not self._stop:
             try:
-                messages = self.ip.get()
+                messages = self.nl.get()
             except:
                 continue
             for msg in messages:
