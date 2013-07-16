@@ -3,14 +3,12 @@ Experimental IP database module. Please, do not use it
 unless you understand what are you doing.
 
 Quick start:
-    from pyroute2.netlink.ipdb import ipdb
-    ip = ipdb()
-    ip['eth0'].down()
+    from pyroute2 import IPDB
+    ip = IPDB()
     ip['eth0']['address'] = '00:11:22:33:44:55'
     ip['eth0']['ifname'] = 'bala'
     ip['eth0']['txqlen'] = 2000
     ip['eth0'].commit()
-    ip['bala'].up()
 '''
 import uuid
 import platform
