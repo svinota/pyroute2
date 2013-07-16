@@ -166,13 +166,17 @@ class IPRoute(Netlink):
     #
     # Listing methods
     #
-    def get_qdiscs(self):
+    def get_qdiscs(self, index=None):
         '''
         Get all queue disciplines
         '''
         msg = tcmsg()
         msg['family'] = AF_UNSPEC
-        return self.nlm_request(msg, RTM_GETQDISC)
+        ret = self.nlm_request(msg, RTM_GETQDISC)
+        if index is None:
+            return ret
+        else:
+            return [x for x in ret if x['index'] == index]
 
     def get_filters(self, index=0, handle=0, parent=0):
         '''
