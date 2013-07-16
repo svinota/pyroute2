@@ -53,6 +53,7 @@ class TestIngress(BasicTest):
         self.ip.tc(RTM_NEWTFILTER, 'u32', self.interface, 0,
                    protocol=socket.AF_INET,
                    parent=0xffff0000,
+                   action='drop',
                    target=0x1,
                    rate='10kbit',
                    burst=10240,

@@ -151,9 +151,16 @@ def get_u32_parameters(kwarg):
     ret = {'attrs': []}
 
     if kwarg.get('rate'):
+        # if no limit specified, set it to zero to make
+        # the next call happy
+        kwarg['limit'] = kwarg.get('limit', 0)
         tbfp = _get_rate_parameters(kwarg)
+        # create an alias -- while TBF uses 'buffer', rate
+        # policy uses 'burst'
         tbfp['burst'] = tbfp['buffer']
-        tbfp['action'] = 2
+        # action resolver
+        actions = nla_plus_police.police.police_tbf.actions
+        tbfp['action'] = actions[kwarg['action']]
         police = [['TCA_POLICE_TBF', tbfp],
                   ['TCA_POLICE_RATE', True]]
         ret['attrs'].append(['TCA_U32_POLICE', {'attrs': police}])
@@ -365,6 +372,13 @@ class nla_plus_police(nla):
                       ('refcnt', 'i'),
                       ('bindcnt', 'i'),
                       ('capab', 'I'))
+
+            actions = {'unspec': -1,     # TC_POLICE_UNSPEC
+                       'ok': 0,          # TC_POLICE_OK
+                       'reclassify': 1,  # TC_POLICE_RECLASSIFY
+                       'shot': 2,        # TC_POLICE_SHOT
+                       'drop': 2,        # TC_POLICE_SHOT
+                       'pipe': 3}        # TC_POLICE_PIPE
 
 
 class tcmsg(nlmsg):

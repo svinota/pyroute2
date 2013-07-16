@@ -330,11 +330,11 @@ class IPRoute(Netlink):
     #
     # General low-level configuration methods
     #
-    def link(self, action, **kwarg):
+    def link(self, command, **kwarg):
         '''
         Link operations.
 
-        * action -- set, add or delete
+        * command -- set, add or delete
         * index -- device index
         * **kwarg -- keywords, NLA
 
@@ -367,10 +367,10 @@ class IPRoute(Netlink):
         ip.link("delete", index=x)
         '''
 
-        actions = {'set': RTM_SETLINK,      # almost all operations
-                   'add': RTM_NEWLINK,      # no idea, how to use it :)
-                   'delete': RTM_DELLINK}   # remove interface
-        action = actions.get(action, action)
+        commands = {'set': RTM_SETLINK,      # almost all operations
+                    'add': RTM_NEWLINK,      # no idea, how to use it :)
+                    'delete': RTM_DELLINK}   # remove interface
+        command = commands.get(command, command)
 
         msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = ifinfmsg()
@@ -394,13 +394,13 @@ class IPRoute(Netlink):
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
-        return self.nlm_request(msg, msg_type=action, msg_flags=msg_flags)
+        return self.nlm_request(msg, msg_type=command, msg_flags=msg_flags)
 
-    def addr(self, action, index, address, mask=24, family=AF_INET):
+    def addr(self, command, index, address, mask=24, family=AF_INET):
         '''
         Address operations
 
-        * action -- add, delete
+        * command -- add, delete
         * index -- device index
         * address -- IPv4 or IPv6 address
         * mask -- address mask
@@ -413,9 +413,9 @@ class IPRoute(Netlink):
         ip.addr("add", index, address="10.0.0.2", mask=24)
         '''
 
-        actions = {'add': RTM_NEWADDR,
-                   'delete': RTM_DELADDR}
-        action = actions.get(action, action)
+        commands = {'add': RTM_NEWADDR,
+                    'delete': RTM_DELADDR}
+        command = commands.get(command, command)
 
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = ifaddrmsg()
@@ -428,9 +428,9 @@ class IPRoute(Netlink):
                             ['IFA_ADDRESS', address]]
         elif family == AF_INET6:
             msg['attrs'] = [['IFA_ADDRESS', address]]
-        return self.nlm_request(msg, msg_type=action, msg_flags=flags)
+        return self.nlm_request(msg, msg_type=command, msg_flags=flags)
 
-    def tc(self, action, kind, index, handle, **kwarg):
+    def tc(self, command, kind, index, handle, **kwarg):
         '''
         '''
         # FIXME: there should be some documentation
@@ -468,15 +468,15 @@ class IPRoute(Netlink):
         msg['attrs'] = [['TCA_KIND', kind]]
         if opts is not None:
             msg['attrs'].append(['TCA_OPTIONS', opts])
-        return self.nlm_request(msg, msg_type=action, msg_flags=flags)
+        return self.nlm_request(msg, msg_type=command, msg_flags=flags)
 
-    def route(self, action, prefix, mask, rtype='RTN_UNICAST',
+    def route(self, command, prefix, mask, rtype='RTN_UNICAST',
               rtproto='RTPROT_STATIC', rtscope='RT_SCOPE_UNIVERSE',
               index=None, family=AF_INET, **kwarg):
         '''
         Route operations
 
-        * action -- add, delete
+        * command -- add, delete
         * prefix -- route prefix
         * mask -- route prefix mask
         * rtype -- route type (default: "RTN_UNICAST")
@@ -496,9 +496,9 @@ class IPRoute(Netlink):
         ip.route("add", prefix="10.0.0.0", mask=24, gateway="192.168.0.1")
         '''
 
-        actions = {'add': RTM_NEWROUTE,
-                   'delete': RTM_DELROUTE}
-        action = actions.get(action, action)
+        commands = {'add': RTM_NEWROUTE,
+                    'delete': RTM_DELROUTE}
+        command = commands.get(command, command)
 
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = rtmsg()
@@ -518,6 +518,6 @@ class IPRoute(Netlink):
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
-        return self.nlm_request(msg, msg_type=action,
+        return self.nlm_request(msg, msg_type=command,
                                 msg_flags=flags)
     # 8<---------------------------------------------------------------
