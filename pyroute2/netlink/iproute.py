@@ -5,6 +5,7 @@ from socket import AF_INET6
 from socket import AF_UNSPEC
 from pyroute2.netlink import Netlink
 from pyroute2.netlink import Marshal
+from pyroute2.netlink import NetlinkSocket
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_DUMP
@@ -87,6 +88,14 @@ RTM_SETNEIGHTBL = 67
 TC_H_INGRESS = 0xfffffff1
 TC_H_ROOT = 0xffffffff
 
+RTNL_GROUPS = RTNLGRP_IPV4_IFADDR |\
+    RTNLGRP_IPV6_IFADDR |\
+    RTNLGRP_IPV4_ROUTE |\
+    RTNLGRP_IPV6_ROUTE |\
+    RTNLGRP_NEIGH |\
+    RTNLGRP_LINK |\
+    RTNLGRP_TC
+
 rtypes = {'RTN_UNSPEC': 0,
           'RTN_UNICAST': 1,      # Gateway or direct route
           'RTN_LOCAL': 2,        # Accept locally
@@ -151,16 +160,18 @@ class MarshalRtnl(Marshal):
             pass
 
 
+class IPRSocket(NetlinkSocket):
+
+    def __init__(self):
+        NetlinkSocket.__init__(self, NETLINK_ROUTE)
+        self.marshal = MarshalRtnl()
+        self.bind(RTNL_GROUPS)
+
+
 class IPRoute(Netlink):
     marshal = MarshalRtnl
     family = NETLINK_ROUTE
-    groups = RTNLGRP_IPV4_IFADDR |\
-        RTNLGRP_IPV6_IFADDR |\
-        RTNLGRP_IPV4_ROUTE |\
-        RTNLGRP_IPV6_ROUTE |\
-        RTNLGRP_NEIGH |\
-        RTNLGRP_LINK |\
-        RTNLGRP_TC
+    groups = RTNL_GROUPS
 
     # 8<---------------------------------------------------------------
     #

@@ -324,11 +324,15 @@ class NetlinkSocket(socket.socket):
         socket.socket.__init__(self, socket.AF_NETLINK,
                                socket.SOCK_DGRAM, family)
         self.pid = os.getpid()
-        self.groups = None
+        self.groups = 0
+        self.marshal = None
 
     def bind(self, groups=0):
         self.groups = groups
         socket.socket.bind(self, (self.pid, self.groups))
+
+    def get(self):
+        return self.marshal.parse(self.recv(16384))
 
 
 class ssl_credentials(object):
