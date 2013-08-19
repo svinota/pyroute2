@@ -1073,6 +1073,7 @@ class Netlink(object):
         msg['header']['type'] = msg_type
         msg['header']['flags'] = msg_flags
         msg.encode()
+        #msg.dump()
         self.send(msg.buf)
         result = self.get(nonce)
         if not self.debug:

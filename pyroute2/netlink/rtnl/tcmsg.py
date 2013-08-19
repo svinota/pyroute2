@@ -77,6 +77,13 @@ def _calc_xmittime(rate, size):
     return round(_time2tick(TIME_UNITS_PER_SEC * (float(size) / rate)))
 
 
+def _percent2u32(pct):
+    '''xlate a percentage to an uint32 value
+    0% -> 0
+    100% -> 2**32 - 1'''
+    return int((2**32 - 1)*pct/100)
+
+
 def _red_eval_ewma(qmin, burst, avpkt):
     # The current code is ported from tc utility
     wlog = 1
@@ -170,6 +177,12 @@ def get_u32_parameters(kwarg):
 
     return ret
 
+def get_fw_parameters(kwarg):
+    ret = {'attrs': []}
+
+    kwarg['classid'] = kwarg.get('classid', 0)
+    ret['attrs'].append(['TCA_FW_CLASSID', kwarg['classid']])
+    return ret
 
 def get_sfq_parameters(kwarg):
     kwarg['quantum'] = _get_size(kwarg.get('quantum', 0))
@@ -260,6 +273,28 @@ def get_htb_parameters(kwarg):
                                  'rate2quantum': rate2quantum,
                                  'version': version}]]
     return {'attrs': ret}
+
+
+def get_netem_parameters(kwarg):
+    delay = _time2tick(kwarg.get('delay', 0)) # in microsecond
+    limit = kwarg.get('limit', 1000) # fifo limit (packets) see netem.c:230
+    loss = _percent2u32(kwarg.get('loss', 0)) # int percentage
+    gap = kwarg.get('gap', 0)
+    duplicate = kwarg.get('duplicate', 0)
+    jitter = kwarg.get('jitter', 0)
+    # TODO
+    # correlation (delay, loss, duplicate)
+    # reorder (probability, correlation)
+    # corrupt (probability, correlation)
+    # delay distribution (dist_size, dist_data)
+    return {
+            'delay': delay,
+            'limit': limit,
+            'loss': loss,
+            'gap': gap,
+            'duplicate': duplicate,
+            'jitter': jitter,
+        }
 
 
 class nla_plus_rtab(nla):
@@ -463,6 +498,8 @@ class tcmsg(nlmsg):
                 return self.options_sfq_v0
         elif kind == 'htb':
             return self.options_htb
+        elif kind == 'netem':
+            return self.options_netem
         elif kind == 'u32':
             return self.options_u32
         elif kind == 'fw':
@@ -504,6 +541,16 @@ class tcmsg(nlmsg):
                       ('quantum', 'I'),
                       ('level', 'I'),
                       ('prio', 'I'))
+
+    class options_netem(nla):
+        fields = (
+                ('delay', 'I'),
+                ('limit', 'I'),
+                ('loss', 'I'),
+                ('gap', 'I'),
+                ('duplicate', 'I'),
+                ('jitter', 'I'),
+                )
 
     class options_fw(nla_plus_police):
         nla_map = (('TCA_FW_UNSPEC', 'none'),
