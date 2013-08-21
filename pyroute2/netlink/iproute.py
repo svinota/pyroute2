@@ -165,7 +165,9 @@ class IPRSocket(NetlinkSocket):
     def __init__(self):
         NetlinkSocket.__init__(self, NETLINK_ROUTE)
         self.marshal = MarshalRtnl()
-        self.bind(RTNL_GROUPS)
+
+    def bind(self, groups=RTNL_GROUPS):
+        NetlinkSocket.bind(self, groups)
 
 
 class IPRoute(Netlink):
