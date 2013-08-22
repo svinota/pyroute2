@@ -1,6 +1,13 @@
 changelog
 =========
 
+* 0.1.11
+    * netlink: get qdiscs for particular interface
+    * netlink: IPRSocket threadless objects
+    * rtnl: u32 policy setup
+    * iproute: filter actions, such as `ok`, `drop` and so on
+    * iproute: changed syntax of commands, `action` → `command`
+    * tests: htb, tbf tests added
 * 0.1.10
     * [fix]: #8 -- default route fix, routes filtering
     * [fix]: #9 -- add/delete route routine improved
