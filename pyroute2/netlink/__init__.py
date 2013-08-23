@@ -356,7 +356,7 @@ class masq_record(object):
 
 class IOThread(threading.Thread):
     def __init__(self):
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, name='Netlink I/O')
         self.setDaemon(True)
         self.pid = os.getpid()
         self._nonce = 0
@@ -389,15 +389,18 @@ class IOThread(threading.Thread):
         # control in-process communication only
         self.sctl, self.control = pairPipeSockets()
         self.add_client(self.sctl)
-        self._sctl_thread = threading.Thread(target=self._sctl)
+        self._sctl_thread = threading.Thread(target=self._sctl,
+                                             name='IPC init')
         self._sctl_thread.start()
         # masquerade cache expiration
-        self._expire_thread = threading.Thread(target=self._expire_masq)
+        self._expire_thread = threading.Thread(target=self._expire_masq,
+                                               name='Masquerade cache')
         self._expire_thread.setDaemon(True)
         self._expire_thread.start()
         # buffers reassembling
         self.buffers = Queue.Queue()
-        self._feed_thread = threading.Thread(target=self._feed_buffers)
+        self._feed_thread = threading.Thread(target=self._feed_buffers,
+                                             name='Reasm and parsing')
         self._feed_thread.setDaemon(True)
         self._feed_thread.start()
         # debug
@@ -426,7 +429,7 @@ class IOThread(threading.Thread):
 
     def _feed_buffers(self):
         '''
-        Beckground thread to feed reassembled buffers to the parser
+        Background thread to feed reassembled buffers to the parser
         '''
         save = None
         while True:
