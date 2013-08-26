@@ -146,6 +146,10 @@ class TestSetupUplinks(object):
         self._test_remote('tcp://127.0.0.1:9821')
 
 
+def _callback(msg, obj):
+    obj.cb_counter += 1
+
+
 class TestData(object):
 
     def setup(self):
@@ -201,6 +205,29 @@ class TestData(object):
         except NetlinkError:
             pass
         assert not (self.ip.get_links(dev)[0]['flags'] & 1)
+
+    def test_callbacks_positive(self):
+        require_user('root')
+        dev = self.dev[0]
+
+        self.cb_counter = 0
+        self.ip.register_callback(_callback,
+                                  lambda x: x.get('index', None) == dev,
+                                  (self, ))
+        self.test_updown_link()
+        assert self.cb_counter > 0
+        self.ip.unregister_callback(_callback)
+
+    def test_callbacks_negative(self):
+        require_user('root')
+
+        self.cb_counter = 0
+        self.ip.register_callback(_callback,
+                                  lambda x: x.get('index', None) == 'nonsence',
+                                  (self, ))
+        self.test_updown_link()
+        assert self.cb_counter == 0
+        self.ip.unregister_callback(_callback)
 
     def test_rename_link(self):
         require_user('root')
