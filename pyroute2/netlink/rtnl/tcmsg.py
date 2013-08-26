@@ -281,21 +281,53 @@ def get_netem_parameters(kwarg):
     loss = _percent2u32(kwarg.get('loss', 0)) # int percentage
     gap = kwarg.get('gap', 0)
     duplicate = kwarg.get('duplicate', 0)
-    jitter = kwarg.get('jitter', 0)
-    # TODO
-    # correlation (delay, loss, duplicate)
-    # reorder (probability, correlation)
-    # corrupt (probability, correlation)
-    # delay distribution (dist_size, dist_data)
-    return {
-            'delay': delay,
-            'limit': limit,
-            'loss': loss,
-            'gap': gap,
-            'duplicate': duplicate,
-            'jitter': jitter,
-        }
+    jitter = _time2tick(kwarg.get('jitter', 0)) # in microsecond
+    opts = {
+        'delay': delay,
+        'limit': limit,
+        'loss': loss,
+        'gap': gap,
+        'duplicate': duplicate,
+        'jitter': jitter,
+        'attrs': []
+    }
 
+    # correlation (delay, loss, duplicate)
+    delay_corr = _percent2u32(kwarg.get('delay_corr', 0))
+    loss_corr = _percent2u32(kwarg.get('loss_corr', 0))
+    dup_corr = _percent2u32(kwarg.get('dup_corr', 0))
+    if delay_corr or loss_corr or dup_corr:
+        # delay_corr requires that both jitter and delay are != 0
+        if delay_corr and not (delay and jitter):
+            raise Exception("delay correlation requirs delay and jitter to be set")
+        opts['attrs'].append(['TCA_NETEM_CORR',
+            {
+                'delay_corr': delay_corr,
+                'loss_corr': loss_corr,
+                'dup_corr': dup_corr,
+            }])
+    # reorder (probability, correlation)
+    prob_reorder = _percent2u32(kwarg.get('prob_reorder', 0))
+    corr_reorder = _percent2u32(kwarg.get('corr_reorder', 0))
+    if prob_reorder:
+        opts['attrs'].append(['TCA_NETEM_REORDER',
+            {
+                'prob_reorder': prob_reorder,
+                'corr_reorder': corr_reorder,
+            }])
+    # corrupt (probability, correlation)
+    prob_corrupt = _percent2u32(kwarg.get('prob_corrupt', 0))
+    corr_corrupt = _percent2u32(kwarg.get('corr_corrupt', 0))
+    if prob_corrupt:
+        opts['attrs'].append(['TCA_NETEM_CORRUPT',
+            {
+                'prob_corrupt': prob_corrupt,
+                'corr_corrupt': corr_corrupt,
+            }])
+
+    # TODO
+    # delay distribution (dist_size, dist_data)
+    return opts
 
 class nla_plus_rtab(nla):
     class parms(nla):
@@ -543,6 +575,16 @@ class tcmsg(nlmsg):
                       ('prio', 'I'))
 
     class options_netem(nla):
+        nla_map = (
+                ('TCA_NETEM_UNSPEC', 'none'),
+                ('TCA_NETEM_CORR', 'netem_corr'),
+                ('TCA_NETEM_DELAY_DIST', 'none'),
+                ('TCA_NETEM_REORDER', 'netem_reorder'),
+                ('TCA_NETEM_CORRUPT', 'netem_corrupt'),
+                ('TCA_NETEM_LOSS', 'none'),
+                ('TCA_NETEM_RATE', 'none'),
+        )
+
         fields = (
                 ('delay', 'I'),
                 ('limit', 'I'),
@@ -550,7 +592,29 @@ class tcmsg(nlmsg):
                 ('gap', 'I'),
                 ('duplicate', 'I'),
                 ('jitter', 'I'),
-                )
+        )
+
+        class netem_corr(nla):
+            '''correlation'''
+            fields = (
+                ('delay_corr', 'I'),
+                ('loss_corr', 'I'),
+                ('dup_corr', 'I'),
+            )
+
+        class netem_reorder(nla):
+            '''reorder has probability and correlation'''
+            fields = (
+                ('prob_reorder', 'I'),
+                ('corr_reorder', 'I'),
+            )
+
+        class netem_corrupt(nla):
+            '''corruption has probability and correlation'''
+            fields = (
+                ('prob_corrupt', 'I'),
+                ('corr_corrupt', 'I'),
+            )
 
     class options_fw(nla_plus_police):
         nla_map = (('TCA_FW_UNSPEC', 'none'),
