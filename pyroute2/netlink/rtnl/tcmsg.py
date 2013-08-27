@@ -77,6 +77,13 @@ def _calc_xmittime(rate, size):
     return round(_time2tick(TIME_UNITS_PER_SEC * (float(size) / rate)))
 
 
+def _percent2u32(pct):
+    '''xlate a percentage to an uint32 value
+    0% -> 0
+    100% -> 2**32 - 1'''
+    return int((2**32 - 1)*pct/100)
+
+
 def _red_eval_ewma(qmin, burst, avpkt):
     # The current code is ported from tc utility
     wlog = 1
@@ -170,6 +177,12 @@ def get_u32_parameters(kwarg):
 
     return ret
 
+def get_fw_parameters(kwarg):
+    ret = {'attrs': []}
+
+    kwarg['classid'] = kwarg.get('classid', 0)
+    ret['attrs'].append(['TCA_FW_CLASSID', kwarg['classid']])
+    return ret
 
 def get_sfq_parameters(kwarg):
     kwarg['quantum'] = _get_size(kwarg.get('quantum', 0))
@@ -261,6 +274,60 @@ def get_htb_parameters(kwarg):
                                  'version': version}]]
     return {'attrs': ret}
 
+
+def get_netem_parameters(kwarg):
+    delay = _time2tick(kwarg.get('delay', 0)) # in microsecond
+    limit = kwarg.get('limit', 1000) # fifo limit (packets) see netem.c:230
+    loss = _percent2u32(kwarg.get('loss', 0)) # int percentage
+    gap = kwarg.get('gap', 0)
+    duplicate = kwarg.get('duplicate', 0)
+    jitter = _time2tick(kwarg.get('jitter', 0)) # in microsecond
+    opts = {
+        'delay': delay,
+        'limit': limit,
+        'loss': loss,
+        'gap': gap,
+        'duplicate': duplicate,
+        'jitter': jitter,
+        'attrs': []
+    }
+
+    # correlation (delay, loss, duplicate)
+    delay_corr = _percent2u32(kwarg.get('delay_corr', 0))
+    loss_corr = _percent2u32(kwarg.get('loss_corr', 0))
+    dup_corr = _percent2u32(kwarg.get('dup_corr', 0))
+    if delay_corr or loss_corr or dup_corr:
+        # delay_corr requires that both jitter and delay are != 0
+        if delay_corr and not (delay and jitter):
+            raise Exception("delay correlation requirs delay and jitter to be set")
+        opts['attrs'].append(['TCA_NETEM_CORR',
+            {
+                'delay_corr': delay_corr,
+                'loss_corr': loss_corr,
+                'dup_corr': dup_corr,
+            }])
+    # reorder (probability, correlation)
+    prob_reorder = _percent2u32(kwarg.get('prob_reorder', 0))
+    corr_reorder = _percent2u32(kwarg.get('corr_reorder', 0))
+    if prob_reorder:
+        opts['attrs'].append(['TCA_NETEM_REORDER',
+            {
+                'prob_reorder': prob_reorder,
+                'corr_reorder': corr_reorder,
+            }])
+    # corrupt (probability, correlation)
+    prob_corrupt = _percent2u32(kwarg.get('prob_corrupt', 0))
+    corr_corrupt = _percent2u32(kwarg.get('corr_corrupt', 0))
+    if prob_corrupt:
+        opts['attrs'].append(['TCA_NETEM_CORRUPT',
+            {
+                'prob_corrupt': prob_corrupt,
+                'corr_corrupt': corr_corrupt,
+            }])
+
+    # TODO
+    # delay distribution (dist_size, dist_data)
+    return opts
 
 class nla_plus_rtab(nla):
     class parms(nla):
@@ -463,6 +530,8 @@ class tcmsg(nlmsg):
                 return self.options_sfq_v0
         elif kind == 'htb':
             return self.options_htb
+        elif kind == 'netem':
+            return self.options_netem
         elif kind == 'u32':
             return self.options_u32
         elif kind == 'fw':
@@ -504,6 +573,48 @@ class tcmsg(nlmsg):
                       ('quantum', 'I'),
                       ('level', 'I'),
                       ('prio', 'I'))
+
+    class options_netem(nla):
+        nla_map = (
+                ('TCA_NETEM_UNSPEC', 'none'),
+                ('TCA_NETEM_CORR', 'netem_corr'),
+                ('TCA_NETEM_DELAY_DIST', 'none'),
+                ('TCA_NETEM_REORDER', 'netem_reorder'),
+                ('TCA_NETEM_CORRUPT', 'netem_corrupt'),
+                ('TCA_NETEM_LOSS', 'none'),
+                ('TCA_NETEM_RATE', 'none'),
+        )
+
+        fields = (
+                ('delay', 'I'),
+                ('limit', 'I'),
+                ('loss', 'I'),
+                ('gap', 'I'),
+                ('duplicate', 'I'),
+                ('jitter', 'I'),
+        )
+
+        class netem_corr(nla):
+            '''correlation'''
+            fields = (
+                ('delay_corr', 'I'),
+                ('loss_corr', 'I'),
+                ('dup_corr', 'I'),
+            )
+
+        class netem_reorder(nla):
+            '''reorder has probability and correlation'''
+            fields = (
+                ('prob_reorder', 'I'),
+                ('corr_reorder', 'I'),
+            )
+
+        class netem_corrupt(nla):
+            '''corruption has probability and correlation'''
+            fields = (
+                ('prob_corrupt', 'I'),
+                ('corr_corrupt', 'I'),
+            )
 
     class options_fw(nla_plus_police):
         nla_map = (('TCA_FW_UNSPEC', 'none'),
