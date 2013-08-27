@@ -284,6 +284,7 @@ def get_netem_parameters(kwarg):
     gap = kwarg.get('gap', 0)
     duplicate = kwarg.get('duplicate', 0)
     jitter = _time2tick(kwarg.get('jitter', 0))  # in microsecond
+
     opts = {
         'delay': delay,
         'limit': limit,
@@ -303,6 +304,14 @@ def get_netem_parameters(kwarg):
         if delay_corr and not (delay and jitter):
             raise Exception('delay correlation requires delay'
                             ' and jitter to be set')
+        # loss correlation and loss
+        if loss_corr and not loss:
+            raise Exception('loss correlation requires loss to be set')
+        # duplicate correlation and duplicate
+        if dup_corr and not duplicate:
+            raise Exception('duplicate correlation requires '
+                            'duplicate to be set')
+
         opts['attrs'].append(['TCA_NETEM_CORR', {'delay_corr': delay_corr,
                                                  'loss_corr': loss_corr,
                                                  'dup_corr': dup_corr}])
@@ -310,10 +319,19 @@ def get_netem_parameters(kwarg):
     # reorder (probability, correlation)
     prob_reorder = _percent2u32(kwarg.get('prob_reorder', 0))
     corr_reorder = _percent2u32(kwarg.get('corr_reorder', 0))
-    if prob_reorder:
+    if prob_reorder != 0:
+        # gap defaults to 1 if equal to 0
+        if gap == 0:
+            opts['gap'] = gap = 1
         opts['attrs'].append(['TCA_NETEM_REORDER',
                              {'prob_reorder': prob_reorder,
                               'corr_reorder': corr_reorder}])
+    else:
+        if gap != 0:
+            raise Exception('gap can only be set when prob_reorder is set')
+        elif corr_reorder != 0:
+            raise Exception('corr_reorder can only be set when '
+                            'prob_reorder is set')
 
     # corrupt (probability, correlation)
     prob_corrupt = _percent2u32(kwarg.get('prob_corrupt', 0))
@@ -322,6 +340,9 @@ def get_netem_parameters(kwarg):
         opts['attrs'].append(['TCA_NETEM_CORRUPT',
                              {'prob_corrupt': prob_corrupt,
                               'corr_corrupt': corr_corrupt}])
+    elif corr_corrupt != 0:
+        raise Exception('corr_corrupt can only be set when '
+                        'prob_corrupt is set')
 
     # TODO
     # delay distribution (dist_size, dist_data)
