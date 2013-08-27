@@ -382,6 +382,7 @@ class IOThread(threading.Thread):
         self.broadcast = set()    # set(socket, socket...)
         self.ssl_keys = {}        # {url: ssl_credentials(), url:...}
         self.mirror = False
+        self.callbacks = []       # [(predicate, callback, args), ...]
         # secret; write non-zero byte as terminator
         self.secret = os.urandom(15)
         self.secret += '\xff'
@@ -645,6 +646,14 @@ class IOThread(threading.Thread):
                 # in this case add just an empty string
                 msg['header']['host'] = ''
 
+            # 8<--------------------------------------------------------------
+            # message filtering
+            # right now it is simply iterating callback list
+            for cr in self.callbacks:
+                if cr[0](msg):
+                    cr[1](msg, *cr[2])
+
+            # 8<--------------------------------------------------------------
             if key not in self.listeners:
                 key = 0
             if self.mirror and (key != 0) and (msg.raw is not None):
@@ -993,6 +1002,55 @@ class Netlink(object):
             self.listeners[0] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
         else:
             del self.listeners[0]
+
+    def register_callback(self, callback, predicate=lambda x: True, args=None):
+        '''
+        Register a callback to run on a message arrival.
+
+        Callback is the function that will be called with the
+        message as the first argument. Predicate is the optional
+        callable object, that returns True or False. Upon True,
+        the callback will be called. Upon False it will not.
+        Args is a list or tuple of arguments.
+
+        Simplest example, assume ipr is the IPRoute() instance::
+
+            # create a simplest callback that will print messages
+            def cb(msg):
+                print(msg)
+
+            # register callback for any message:
+            ipr.register_callback(cb)
+
+        More complex example, with filtering::
+
+            # Set object's attribute after the message key
+            def cb(msg, obj):
+                obj.some_attr = msg["some key"]
+
+            # Register the callback only for the loopback device, index 1:
+            ipr.register_callback(cb,
+                                  lambda x: x.get('index', None) == 1,
+                                  (self, ))
+
+        Please note: you do **not** need to register the default 0 queue
+        to invoke callbacks on broadcast messages. Callbacks are
+        iterated **before** messages get enqueued.
+        '''
+        if args is None:
+            args = []
+        self.iothread.callbacks.append((predicate, callback, args))
+
+    def unregister_callback(self, callback):
+        '''
+        Remove the first reference to the function from the callback
+        register
+        '''
+        cb = tuple(self.iothread.callbacks)
+        for cr in cb:
+            if cr[1] == callback:
+                self.iothread.callbacks.pop(cb.index(cr))
+                return
 
     def _remove_queue(self, key):
         '''

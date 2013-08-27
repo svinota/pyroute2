@@ -49,6 +49,20 @@ rate_suffixes = {'bit': 1,
 # General purpose
 #
 class Dotkeys(dict):
+    '''
+    This is a sick-minded hack of dict, intended to be an eye-candy.
+    It allows to get dict's items byt dot reference:
+
+    ipdb["lo"] == ipdb.lo
+    ipdb["eth0"] == ipdb.eth0
+
+    Obviously, it will not work for some cases, like unicode names
+    of interfaces and so on. Beside of that, it introduces some
+    complexity.
+
+    But it simplifies live for old-school admins, who works with good
+    old "lo", "eth0", and like that naming schemes.
+    '''
     var_name = re.compile('^[a-zA-Z_]+[a-zA-Z_0-9]*$')
 
     def __dir__(self):
