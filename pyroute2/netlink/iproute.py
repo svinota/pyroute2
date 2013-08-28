@@ -17,6 +17,8 @@ from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_sfq_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_u32_parameters
+from pyroute2.netlink.rtnl.tcmsg import get_netem_parameters
+from pyroute2.netlink.rtnl.tcmsg import get_fw_parameters
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -470,6 +472,11 @@ class IPRoute(Netlink):
             if kwarg:
                 # kwarg is empty for delete
                 opts = get_htb_parameters(kwarg)
+        elif kind == 'netem':
+            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
+            if kwarg:
+                # kwarg is empty for delete
+                opts = get_netem_parameters(kwarg)
         elif kind == 'sfq':
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
             if kwarg:
@@ -482,6 +489,14 @@ class IPRoute(Netlink):
             if kwarg:
                 # kwarg is empty for delete
                 opts = get_u32_parameters(kwarg)
+        elif kind == 'fw':
+            msg['parent'] = kwarg.get('parent')
+            msg['info'] = htons(kwarg.get('protocol', 0) & 0xffff) |\
+                ((kwarg.get('prio', 0) << 16) & 0xffff0000)
+            if kwarg:
+                # kwarg is empty for delete
+                opts = get_fw_parameters(kwarg)
+
         msg['attrs'] = [['TCA_KIND', kind]]
         if opts is not None:
             msg['attrs'].append(['TCA_OPTIONS', opts])
