@@ -367,6 +367,17 @@ class nlmsg_base(dict):
         '''
         Convert 'nla_map' tuple into two dictionaries for mapping
         and reverse mapping of NLA types.
+        ex: given
+        nla_map = (('TCA_HTB_UNSPEC', 'none'),
+                   ('TCA_HTB_PARMS', 'htb_parms'),
+                   ('TCA_HTB_INIT', 'htb_glob'))
+        creates:
+        t_nla_map = {0: (<class 'pyroute2...none'>, 'TCA_HTB_UNSPEC'),
+                     1: (<class 'pyroute2...htb_parms'>, 'TCA_HTB_PARMS'),
+                     2: (<class 'pyroute2...htb_glob'>, 'TCA_HTB_INIT')}
+        r_nla_map = {'TCA_HTB_UNSPEC': (<class 'pyroute2...none'>, 0),
+                     'TCA_HTB_PARMS': (<class 'pyroute2...htb_parms'>, 1),
+                     'TCA_HTB_INIT': (<class 'pyroute2...htb_glob'>, 2)}
         '''
         # clean up NLA mappings
         self.t_nla_map = {}
