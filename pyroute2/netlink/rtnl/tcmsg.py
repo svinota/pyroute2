@@ -180,9 +180,19 @@ def get_u32_parameters(kwarg):
 
 def get_fw_parameters(kwarg):
     ret = {'attrs': []}
+    attrs_map = (
+        ('classid', 'TCA_FW_CLASSID'),
+        ('act', 'TCA_FW_ACT'),
+        ('police', 'TCA_FW_POLICE'),
+        ('indev', 'TCA_FW_INDEV'),
+        ('mask', 'TCA_FW_MASK'),
+    )
 
-    kwarg['classid'] = kwarg.get('classid', 0)
-    ret['attrs'].append(['TCA_FW_CLASSID', kwarg['classid']])
+    for k, v in attrs_map:
+        r = kwarg.get(k, None)
+        if r is not None:
+            ret['attrs'].append([v, r])
+
     return ret
 
 
@@ -629,10 +639,10 @@ class tcmsg(nlmsg):
     class options_fw(nla_plus_police):
         nla_map = (('TCA_FW_UNSPEC', 'none'),
                    ('TCA_FW_CLASSID', 'uint32'),
-                   ('TCA_FW_POLICE', 'police'),
-                   ('TCA_FW_INDEV', 'hex'),
-                   ('TCA_FW_ACT', 'hex'),
-                   ('TCA_FW_MASK', 'hex'))
+                   ('TCA_FW_POLICE', 'police'),  # TODO string?
+                   ('TCA_FW_INDEV', 'hex'),  # TODO string
+                   ('TCA_FW_ACT', 'hex'),  # TODO
+                   ('TCA_FW_MASK', 'uint32'))
 
     class options_u32(nla_plus_police):
         nla_map = (('TCA_U32_UNSPEC', 'none'),
