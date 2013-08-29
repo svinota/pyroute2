@@ -229,6 +229,7 @@ class Transactional(Dotkeys):
         self.uid = uuid.uuid4()
         self.ipdb = ipdb
         self.last_error = None
+        self._callbacks = []
         self._fields = []
         self._tids = []
         self._transactions = {}
@@ -236,6 +237,14 @@ class Transactional(Dotkeys):
         self._write_lock = threading.RLock()
         self._direct_state = State(self._write_lock)
         self._linked_sets = set()
+
+    def register_callback(self, callback):
+        self._callbacks.append(callback)
+
+    def unregister_callback(self, callback):
+        for cb in self._callbacks:
+            if callback == cb:
+                self._callbacks.pop(self._callbacks.index(cb))
 
     def pick(self, detached=True):
         '''
@@ -674,6 +683,14 @@ class Interface(Transactional):
             if rollback:
                 assert _FAIL_ROLLBACK & _FAIL_MASK
             else:
+
+                # 8<-----------------------------------------
+                # Iterate callback chain
+                for cb in self._callbacks:
+                    # An exception will rollback the transaction
+                    cb(snapshot, transaction)
+                # 8<-----------------------------------------
+
                 assert _FAIL_COMMIT & _FAIL_MASK
 
         except Exception as e:

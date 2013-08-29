@@ -69,6 +69,70 @@ class TestExplicit(object):
         del self.ip.newattr
         assert 'newattr' not in dir(self.ip)
 
+    def test_callback_positive(self):
+        require_user('root')
+        assert 'dummyX' in self.ip
+
+        # test callback, that adds an address by itself --
+        # just to check the possibility
+        def cb(snapshot, transaction):
+            self.ip.nl.addr('add',
+                            self.ip.dummyX.index,
+                            address='172.16.22.1',
+                            mask=24)
+
+        # register callback and check CB chain length
+        self.ip.dummyX.register_callback(cb)
+        assert len(self.ip.dummyX._callbacks) == 1
+
+        # create a transaction and commit it
+        if self.ip.dummyX._mode == 'explicit':
+            self.ip.dummyX.begin()
+        self.ip.dummyX.add_ip('172.16.21.1/24')
+        self.ip.dummyX.commit()
+
+        # added address should be there
+        assert ('172.16.21.1', 24) in self.ip.dummyX.ipaddr
+        # and the one, added by the callback, too
+        assert ('172.16.22.1', 24) in self.ip.dummyX.ipaddr
+
+        # unregister callback
+        self.ip.dummyX.unregister_callback(cb)
+        assert len(self.ip.dummyX._callbacks) == 0
+
+    def test_callback_negative(self):
+        require_user('root')
+        assert 'dummyX' in self.ip
+
+        # test exception to differentiate
+        class CBException(Exception):
+            pass
+
+        # test callback, that always fail
+        def cb(snapshot, transaction):
+            raise CBException()
+
+        # register callback and check CB chain length
+        self.ip.dummyX.register_callback(cb)
+        assert len(self.ip.dummyX._callbacks) == 1
+
+        # create a transaction and commit it; should fail
+        # 'cause of the callback
+        if self.ip.dummyX._mode == 'explicit':
+            self.ip.dummyX.begin()
+        self.ip.dummyX.add_ip('172.16.21.1/24')
+        try:
+            self.ip.dummyX.commit()
+        except CBException:
+            pass
+
+        # added address should be removed
+        assert ('172.16.21.1', 24) not in self.ip.dummyX.ipaddr
+
+        # unregister callback
+        self.ip.dummyX.unregister_callback(cb)
+        assert len(self.ip.dummyX._callbacks) == 0
+
     def test_review(self):
         assert len(self.ip.lo._tids) == 0
         if self.ip.lo._mode == 'explicit':
