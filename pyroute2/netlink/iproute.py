@@ -496,8 +496,11 @@ class IPRoute(Netlink):
             if kwarg:
                 # kwarg is empty for delete
                 opts = get_fw_parameters(kwarg)
+        else:
+            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
 
-        msg['attrs'] = [['TCA_KIND', kind]]
+        if kind is not None:
+            msg['attrs'] = [['TCA_KIND', kind]]
         if opts is not None:
             msg['attrs'].append(['TCA_OPTIONS', opts])
         return self.nlm_request(msg, msg_type=command, msg_flags=flags)
