@@ -1,6 +1,10 @@
 changelog
 =========
 
+* 0.1.12
+    * ipdb: transaction commit callbacks
+    * iproute: delete root qdisc (@chantra)
+    * iproute: netem qdisc management (@chantra)
 * 0.1.11
     * netlink: get qdiscs for particular interface
     * netlink: IPRSocket threadless objects
