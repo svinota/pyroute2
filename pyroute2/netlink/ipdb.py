@@ -784,7 +784,7 @@ class IPDB(Dotkeys):
     '''
 
     def __init__(self, nl=None, host='localsystem', mode='implicit',
-                 key=None, cert=None, ca=None):
+                 key=None, cert=None, ca=None, iclass=Interface):
         '''
         Parameters:
             * nl -- IPRoute() reference
@@ -798,6 +798,7 @@ class IPDB(Dotkeys):
         self.nl = nl or IPRoute(host=host, key=key, cert=cert, ca=ca)
         self.mode = mode
         self._stop = False
+        self.iclass = iclass
 
         # resolvers
         self.by_name = Dotkeys()
@@ -863,7 +864,7 @@ class IPDB(Dotkeys):
 
         FIXME: this should be documented.
         '''
-        i = Interface(nl=self.nl, ipdb=self, mode='snapshot')
+        i = self.iclass(nl=self.nl, ipdb=self, mode='snapshot')
         i['kind'] = kind
         i['index'] = kwarg.get('index', 0)
         i['ifname'] = ifname
@@ -888,7 +889,7 @@ class IPDB(Dotkeys):
                 self.by_index[dev['index']] = \
                 self[dev['index']] = \
                 self.get(dev.get_attr('IFLA_IFNAME'), None) or \
-                Interface(nl=self.nl, ipdb=self, mode=self.mode)
+                self.iclass(nl=self.nl, ipdb=self, mode=self.mode)
             i.load(dev)
             self[i['ifname']] = \
                 self.by_name[i['ifname']] = i
