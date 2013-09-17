@@ -513,9 +513,14 @@ class Interface(Transactional):
 
     @update
     def add_ip(self, direct, ip, mask=None):
+        # split mask
         if mask is None:
             ip, mask = ip.split('/')
             mask = int(mask, 0)
+        # FIXME: make it more generic
+        # skip IPv6 link-local addresses
+        if ip[:4] == 'fe80' and mask == 64:
+            return
         if not direct:
             transaction = self.last()
             transaction.add_ip(ip, mask)
