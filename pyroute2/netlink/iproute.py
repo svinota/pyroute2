@@ -415,7 +415,7 @@ class IPRoute(Netlink):
 
         return self.nlm_request(msg, msg_type=command, msg_flags=msg_flags)
 
-    def addr(self, command, index, address, mask=24, family=AF_INET):
+    def addr(self, command, index, address, mask=24, family=None):
         '''
         Address operations
 
@@ -437,6 +437,13 @@ class IPRoute(Netlink):
         command = commands.get(command, command)
 
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+
+        # try to guess family, if it is not forced
+        if family is None and address.find(":") > -1:
+            family = AF_INET6
+        else:
+            family = AF_INET
+
         msg = ifaddrmsg()
         msg['index'] = index
         msg['family'] = family
