@@ -725,7 +725,15 @@ class Interface(Transactional):
                         for i in added['ipaddr']:
                             self['ipaddr'].add(i)
                 # 8<-----------------------------------------
-                self.commit(transaction=snapshot, rollback=True)
+                ret = self.commit(transaction=snapshot, rollback=True)
+                # if some error was returned by the internal
+                # closure, substitute the initial one
+                if ret is not None:
+                    e = ret
+            elif isinstance(e, NetlinkError) and getattr(e, 'code', 0) == 1:
+                # It is <Operation not permitted>, catched in
+                # rollback. So return it -- see ~5 lines above
+                return e
             else:
                 # somethig went wrong during automatic rollback.
                 # that's the worst case, but it is still possible,
