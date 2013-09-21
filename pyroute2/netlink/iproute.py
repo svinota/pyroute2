@@ -396,8 +396,8 @@ class IPRoute(Netlink):
         # index is required
         msg['index'] = kwarg.get('index')
 
-        flags = kwarg.pop('flags', 0)
-        mask = kwarg.pop('mask', 0) or kwarg.pop('change', 0)
+        flags = kwarg.pop('flags', 0) or 0
+        mask = kwarg.pop('mask', 0) or kwarg.pop('change', 0) or 0
 
         if 'state' in kwarg:
             mask = 1                  # IFF_UP mask

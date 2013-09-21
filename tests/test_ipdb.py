@@ -143,8 +143,8 @@ class TestExplicit(object):
         assert len(r['-ipaddr']) == 0
         assert len(r['+ports']) == 0
         assert len(r['-ports']) == 0
-        # flags, +/-ipaddr, +/-ports
-        assert len([i for i in r if r[i] is not None]) == 5
+        # +/-ipaddr, +/-ports
+        assert len([i for i in r if r[i] is not None]) == 4
         self.ip.lo.drop()
 
     def test_rename(self):

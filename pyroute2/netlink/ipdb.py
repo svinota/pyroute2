@@ -455,7 +455,6 @@ class Interface(Transactional):
             self['ports'] = LinkedSet()
             for i in nla_fields:
                 self[i] = None
-            self['flags'] = 0
             for i in ('state', 'change', 'mask'):
                 del self[i]
         # 8<-----------------------------------
