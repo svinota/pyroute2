@@ -34,6 +34,11 @@ class TestExplicit(object):
     def test_simple(self):
         assert self.ip.keys() > 0
 
+    def test_empty_transaction(self):
+        assert 'lo' in self.ip
+        with self.ip.lo as i:
+            assert isinstance(i.mtu, int)
+
     def test_idx_len(self):
         assert len(self.ip.by_name.keys()) == len(self.ip.by_index.keys())
 

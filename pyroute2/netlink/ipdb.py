@@ -669,7 +669,7 @@ class Interface(Transactional):
                     request[key] = added[key]
 
             # apply changes only if there is something to apply
-            if request:
+            if any([request[x] is not None for x in request]):
                 self.nl.link('set', index=self['index'], **request)
 
             # 8<---------------------------------------------
