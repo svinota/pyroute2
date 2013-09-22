@@ -1,3 +1,31 @@
+'''
+iproute module
+==============
+
+`iproute` module provides low-level API to RTNetlink protocol
+via `IPRoute` and `IPRSocket` classes as well as all required
+constants.
+
+threaded vs. threadless architecture
+------------------------------------
+
+Please note, that objects of `IPRoute` class implicitly start
+three threads:
+
+ * Netlink I/O thread -- main thread that performs all Netlink I/O
+ * Reasm and parsing thread -- thread that reassembles messages and
+   parses them into dict-like structures
+ * Masquerade cache thread -- `IPRoute` objects can be connected
+   together, and in this case header masquerading should be performed
+   on netlink packets; the thread performs masquerade cache expiration
+
+In most cases it should be ok, `IPRoute` uses no daemonic threads and
+explicit `release()` call is provided to stop all the threads. Beside
+of that, the architecture provides packet buffering.
+
+But if you do not like implicit threads, you can use simplest
+threadless RTNetlink interface, `IPRSocket`.
+'''
 
 from socket import htons
 from socket import AF_INET
@@ -156,6 +184,7 @@ class MarshalRtnl(Marshal):
                RTM_DELTFILTER: tcmsg}
 
     def fix_message(self, msg):
+        # FIXME: pls do something with it
         try:
             msg['event'] = RTM_VALUES[msg['header']['type']]
         except:
@@ -163,6 +192,12 @@ class MarshalRtnl(Marshal):
 
 
 class IPRSocket(NetlinkSocket):
+    '''
+    Simple threadless RTNetlink socket. Quite useful, if you want only
+    watch RTNetlink events. Please note, that using this objects you
+    are responsible to handle packets asap -- netlink protocol just
+    drops messages when they're processed too slowly.
+    '''
 
     def __init__(self):
         NetlinkSocket.__init__(self, NETLINK_ROUTE)
@@ -173,6 +208,10 @@ class IPRSocket(NetlinkSocket):
 
 
 class IPRoute(Netlink):
+    '''
+    You can think of this class in some way as of plain old iproute2
+    utility.
+    '''
     marshal = MarshalRtnl
     family = NETLINK_ROUTE
     groups = RTNL_GROUPS
@@ -183,7 +222,8 @@ class IPRoute(Netlink):
     #
     def get_qdiscs(self, index=None):
         '''
-        Get all queue disciplines
+        Get all queue disciplines for all interfaces or for specified
+        one.
         '''
         msg = tcmsg()
         msg['family'] = AF_UNSPEC
@@ -195,7 +235,7 @@ class IPRoute(Netlink):
 
     def get_filters(self, index=0, handle=0, parent=0):
         '''
-        Get filters
+        Get filters for specified interface, handle and parent.
         '''
         msg = tcmsg()
         msg['family'] = AF_UNSPEC
@@ -206,7 +246,7 @@ class IPRoute(Netlink):
 
     def get_classes(self, index=0):
         '''
-        Get classes
+        Get classes for specified interface.
         '''
         msg = tcmsg()
         msg['family'] = AF_UNSPEC
@@ -297,19 +337,21 @@ class IPRoute(Netlink):
     #
     def link_up(self, index):
         '''
-        Switch an interface up
+        Switch an interface up unconditionally.
         '''
         self.link('set', index=index, state='up')
 
     def link_down(self, index):
         '''
-        Switch an interface down
+        Switch an interface down unconditilnally.
         '''
         self.link('set', index=index, state='down')
 
     def link_rename(self, index, name):
         '''
-        Rename an interface
+        Rename an interface. Please note, that the interface must be
+        in the `DOWN` state in order to be renamed, otherwise you
+        will get an error.
         '''
         self.link('set', index=index, ifname=name)
 
@@ -456,12 +498,105 @@ class IPRoute(Netlink):
             msg['attrs'] = [['IFA_ADDRESS', address]]
         return self.nlm_request(msg, msg_type=command, msg_flags=flags)
 
-    def tc(self, command, kind, index, handle, **kwarg):
+    def tc(self, command, kind, index, handle=0, **kwarg):
         '''
-        '''
-        # FIXME: there should be some documentation
-        # TODO tags: tc[0.1.7]
+        "Swiss knife" for traffic control. With the method you can
+        add, delete or modify qdiscs, classes and filters.
 
+        Command can be one of ("add", "del", "add-class", "del-class",
+        "add-filter", "del-filter") (see `commands` dict in the code).
+
+        Kind is a string identifier -- "sfq", "htb", "u32", "netem" and
+        so on.
+
+        Handle is an integer value. Traditional iproute2 notation, like
+        "1:0", actually represents two parts in one four-bytes integer::
+
+            1:0    ->    0x10000
+            1:1    ->    0x10001
+            ff:0   ->   0xff0000
+            ffff:1 -> 0xffff0001
+
+        By default, handle is 0, so you can add simple classless
+        queues w/o need to specify handle. Ingress queue causes
+        handle to be 0xffff0000.
+
+        So, to set up sfq queue on interface 1, the function call
+        will be like that::
+
+            ip = IPRoute()
+            ip.tc("add", "sfq", 1)
+
+        Instead of string commands ("add", "del"...), you can use also
+        module constants, `RTM_NEWQDISC`, `RTM_DELQDISC` and so on::
+
+            ip = IPRoute()
+            ip.tc(RTM_NEWQDISC, "sfq", 1)
+
+        More complex example with htb qdisc, lets assume eth0 == 2::
+
+            #            u32 -->    +--> htb 1:10 --> sfq 10:0
+            #           /          /
+            #          /          /
+            # eth0 -- htb 1:0 -- htb 1:1
+            #          \          \
+            #           \          \
+            #            u32 -->    +--> htb 1:20 --> sfq 20:0
+
+            eth0 = 2
+            # add root queue 1:0
+            ip.tc("add", "htb", eth0, 0x10000, default=0x200000)
+
+            # root class 1:1
+            ip.tc("add-class", "htb", eth0, 0x10001,
+                  parent=0x10000,
+                  rate="256kbit",
+                  burst=1024 * 6)
+
+            # two branches: 1:10 and 1:20
+            ip.tc("add-class", "htb", eth0, 0x10010,
+                  parent=0x10001,
+                  rate="192kbit",
+                  burst=1024 * 6,
+                  prio=1)
+            ip.tc("add-class", "htb", eht0, 0x10020,
+                  parent=0x10001,
+                  rate="128kbit",
+                  burst=1024 * 6,
+                  prio=2)
+
+            # two leaves: 10:0 and 20:0
+            ip.tc("add", "sfq", eth0, 0x100000,
+                  parent=0x10010,
+                  perturb=10)
+            ip.tc("add", "sfq", eth0, 0x200000,
+                  parent=0x10020,
+                  perturb=10)
+
+            # two filters: one to load packets into 1:10 and the
+            # second to 1:20
+            ip.tc("add-filter", "u32", eth0,
+                  parent=0x10000,
+                  prio=10,
+                  protocol=socket.AF_INET,
+                  target=0x10010,
+                  keys=["0x0006/0x00ff+8", "0x0000/0xffc0+2"])
+            ip.tc("add-filter", "u32", eth0,
+                  parent=0x10000,
+                  prio=10,
+                  protocol=socket.AF_INET,
+                  target=0x10020,
+                  keys=["0x5/0xf+0", "0x10/0xff+33"])
+        '''
+
+        commands = {'add': RTM_NEWQDISC,
+                    'del': RTM_DELQDISC,
+                    'delete': RTM_DELQDISC,
+                    'add-class': RTM_NEWTCLASS,
+                    'del-class': RTM_DELTCLASS,
+                    'add-filter': RTM_NEWTFILTER,
+                    'del-filter': RTM_DELTFILTER}
+        command = commands.get(command, command)
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = tcmsg()
         msg['index'] = index
@@ -469,6 +604,7 @@ class IPRoute(Netlink):
         opts = None
         if kind == 'ingress':
             msg['parent'] = TC_H_INGRESS
+            msg['handle'] = 0xffff0000
         elif kind == 'tbf':
             msg['parent'] = TC_H_ROOT
             if kwarg:
