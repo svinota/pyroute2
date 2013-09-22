@@ -12,12 +12,12 @@ threaded vs. threadless architecture
 Please note, that objects of `IPRoute` class implicitly start
 three threads:
 
- * Netlink I/O thread -- main thread that performs all Netlink I/O
- * Reasm and parsing thread -- thread that reassembles messages and
-   parses them into dict-like structures
- * Masquerade cache thread -- `IPRoute` objects can be connected
-   together, and in this case header masquerading should be performed
-   on netlink packets; the thread performs masquerade cache expiration
+* Netlink I/O thread -- main thread that performs all Netlink I/O
+* Reasm and parsing thread -- thread that reassembles messages and
+  parses them into dict-like structures
+* Masquerade cache thread -- `IPRoute` objects can be connected
+  together, and in this case header masquerading should be performed
+  on netlink packets; the thread performs masquerade cache expiration
 
 In most cases it should be ok, `IPRoute` uses no daemonic threads and
 explicit `release()` call is provided to stop all the threads. Beside
@@ -25,6 +25,9 @@ of that, the architecture provides packet buffering.
 
 But if you do not like implicit threads, you can use simplest
 threadless RTNetlink interface, `IPRSocket`.
+
+classes
+-------
 '''
 
 from socket import htons
@@ -259,14 +262,14 @@ class IPRoute(Netlink):
 
         By default returns all interfaces. Arguments vector
         can contain interface indices or a special keyword
-        'all':
+        'all'::
 
-        ip.get_links()
-        ip.get_links('all')
-        ip.get_links(1, 2, 3)
+            ip.get_links()
+            ip.get_links('all')
+            ip.get_links(1, 2, 3)
 
-        interfaces = [1, 2, 3]
-        ip.get_links(*interfaces)
+            interfaces = [1, 2, 3]
+            ip.get_links(*interfaces)
         '''
         result = []
         links = argv or ['all']
@@ -303,11 +306,11 @@ class IPRoute(Netlink):
         returns all the routes on each request. So the
         routine filters routes from full output.
 
-        Example:
+        Example::
 
-        ip.get_routes()  # get all the routes for all families
-        ip.get_routes(family=AF_INET6)  # get only IPv6 routes
-        ip.get_routes(table=254)  # get routes from 254 table
+            ip.get_routes()  # get all the routes for all families
+            ip.get_routes(family=AF_INET6)  # get only IPv6 routes
+            ip.get_routes(table=254)  # get routes from 254 table
         '''
 
         kwarg['table'] = kwarg.get('table', None)
@@ -366,11 +369,11 @@ class IPRoute(Netlink):
         Lookup interface index (indeces) by first level NLA
         value.
 
-        Example:
+        Example::
 
-        ip.link_lookup(address="52:54:00:9d:4e:3d")
-        ip.link_lookup(ifname="lo")
-        ip.link_lookup(operstate="UP")
+            ip.link_lookup(address="52:54:00:9d:4e:3d")
+            ip.link_lookup(ifname="lo")
+            ip.link_lookup(operstate="UP")
 
         Please note, that link_lookup() returns list, not one
         value.
@@ -397,35 +400,35 @@ class IPRoute(Netlink):
 
         * command -- set, add or delete
         * index -- device index
-        * **kwarg -- keywords, NLA
+        * \*\*kwarg -- keywords, NLA
 
-        Example:
+        Example::
 
-        x = 62  # interface index
-        ip.link("set", index=x, state="down")
-        ip.link("set", index=x, address="00:11:22:33:44:55", name="bala")
-        ip.link("set", index=x, mtu=1000, txqlen=2000)
-        ip.link("set", index=x, state="up")
+            x = 62  # interface index
+            ip.link("set", index=x, state="down")
+            ip.link("set", index=x, address="00:11:22:33:44:55", name="bala")
+            ip.link("set", index=x, mtu=1000, txqlen=2000)
+            ip.link("set", index=x, state="up")
 
         Keywords "state", "flags" and "mask" are reserved. State can
-        be "up" or "down", it is a shortcut:
+        be "up" or "down", it is a shortcut::
 
-        state="up":   flags=1, mask=1
-        state="down": flags=0, mask=0
+            state="up":   flags=1, mask=1
+            state="down": flags=0, mask=0
 
-        For more flags grep IFF_ in the kernel code, until we write
+        For more flags grep IFF in the kernel code, until we write
         human-readable flag resolver.
 
         Other keywords are from ifinfmsg.nla_map, look into the
         corresponding module. You can use the form "ifname" as well
-        as "IFLA_IFNAME" and so on, so that's equal:
+        as "IFLA_IFNAME" and so on, so that's equal::
 
-        ip.link("set", index=x, mtu=1000)
-        ip.link("set", index=x, IFLA_MTU=1000)
+            ip.link("set", index=x, mtu=1000)
+            ip.link("set", index=x, IFLA_MTU=1000)
 
-        You can also delete interface with:
+        You can also delete interface with::
 
-        ip.link("delete", index=x)
+            ip.link("delete", index=x)
         '''
 
         commands = {'set': RTM_SETLINK,      # almost all operations
@@ -467,11 +470,11 @@ class IPRoute(Netlink):
         * mask -- address mask
         * family -- socket.AF_INET for IPv4 or socket.AF_INET6 for IPv6
 
-        Example:
+        Example::
 
-        index = 62
-        ip.addr("add", index, address="10.0.0.1", mask=24)
-        ip.addr("add", index, address="10.0.0.2", mask=24)
+            index = 62
+            ip.addr("add", index, address="10.0.0.1", mask=24)
+            ip.addr("add", index, address="10.0.0.2", mask=24)
         '''
 
         commands = {'add': RTM_NEWADDR,
@@ -503,14 +506,15 @@ class IPRoute(Netlink):
         "Swiss knife" for traffic control. With the method you can
         add, delete or modify qdiscs, classes and filters.
 
+        * command -- add or delete qdisc, class, filter.
+        * kind -- a string identifier -- "sfq", "htb", "u32" and so on.
+        * handle -- an integer value, see note below
+        
         Command can be one of ("add", "del", "add-class", "del-class",
         "add-filter", "del-filter") (see `commands` dict in the code).
-
-        Kind is a string identifier -- "sfq", "htb", "u32", "netem" and
-        so on.
-
-        Handle is an integer value. Traditional iproute2 notation, like
-        "1:0", actually represents two parts in one four-bytes integer::
+ 
+        Handle notice: traditional iproute2 notation, like "1:0", actually
+        represents two parts in one four-bytes integer::
 
             1:0    ->    0x10000
             1:1    ->    0x10001
@@ -535,13 +539,13 @@ class IPRoute(Netlink):
 
         More complex example with htb qdisc, lets assume eth0 == 2::
 
-            #            u32 -->    +--> htb 1:10 --> sfq 10:0
-            #           /          /
-            #          /          /
+            #          u32 -->    +--> htb 1:10 --> sfq 10:0
+            #          |          |
+            #          |          |
             # eth0 -- htb 1:0 -- htb 1:1
-            #          \          \
-            #           \          \
-            #            u32 -->    +--> htb 1:20 --> sfq 20:0
+            #          |          |
+            #          |          |
+            #          u32 -->    +--> htb 1:20 --> sfq 20:0
 
             eth0 = 2
             # add root queue 1:0
@@ -664,14 +668,16 @@ class IPRoute(Netlink):
         * family -- socket.AF_INET (default) or socket.AF_INET6
 
         `pyroute2/netlink/rtnl/rtmsg.py` rtmsg.nla_map:
+
         * table -- routing table to use (default: 254)
         * gateway -- via address
         * prefsrc -- preferred source IP address
+
         etc.
 
-        Example:
+        Example::
 
-        ip.route("add", prefix="10.0.0.0", mask=24, gateway="192.168.0.1")
+            ip.route("add", prefix="10.0.0.0", mask=24, gateway="192.168.0.1")
         '''
 
         commands = {'add': RTM_NEWROUTE,

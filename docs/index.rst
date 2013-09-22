@@ -21,7 +21,13 @@ Modules description, sample code, usecases
     modules
     remote
 
+Modules autodocs
+----------------
 
+.. toctree::
+    :maxdepth: 2
+
+    iproute
 
 Indices and tables
 ==================

@@ -70,7 +70,7 @@ update-version: setup.py docs/conf.py
 docs: clean force-version
 	cp README.md docs/general.rst
 	cp CHANGELOG.md docs/changelog.rst
-	make -C docs html
+	export PYTHONPATH=`pwd`; make -C docs html
 
 test:
 	@flake8 .
