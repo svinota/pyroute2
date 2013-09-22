@@ -170,6 +170,13 @@ rtscopes = {'RT_SCOPE_UNIVERSE': 0,
             'RT_SCOPE_NOWHERE': 255}
 
 
+def transform_handle(handle):
+    if isinstance(handle, basestring):
+        (major, minor) = [int(x, 16) for x in handle.split(':')]
+        handle = (major << 8 * 2) | minor
+    return handle
+
+
 class MarshalRtnl(Marshal):
     msg_map = {RTM_NEWLINK: ifinfmsg,
                RTM_DELLINK: ifinfmsg,
@@ -508,11 +515,11 @@ class IPRoute(Netlink):
 
         * command -- add or delete qdisc, class, filter.
         * kind -- a string identifier -- "sfq", "htb", "u32" and so on.
-        * handle -- an integer value, see note below
-        
+        * handle -- integer or string
+
         Command can be one of ("add", "del", "add-class", "del-class",
         "add-filter", "del-filter") (see `commands` dict in the code).
- 
+
         Handle notice: traditional iproute2 notation, like "1:0", actually
         represents two parts in one four-bytes integer::
 
@@ -521,9 +528,10 @@ class IPRoute(Netlink):
             ff:0   ->   0xff0000
             ffff:1 -> 0xffff0001
 
-        By default, handle is 0, so you can add simple classless
-        queues w/o need to specify handle. Ingress queue causes
-        handle to be 0xffff0000.
+        For pyroute2 tc() you can use both forms: integer like 0xffff0000
+        or string like 'ffff:0000'. By default, handle is 0, so you can add
+        simple classless queues w/o need to specify handle. Ingress queue
+        causes handle to be 0xffff0000.
 
         So, to set up sfq queue on interface 1, the function call
         will be like that::
@@ -603,6 +611,11 @@ class IPRoute(Netlink):
         command = commands.get(command, command)
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = tcmsg()
+        # transform handle, parent and target, if needed:
+        handle = transform_handle(handle)
+        for item in ('parent', 'target', 'default'):
+            if item in kwarg and kwarg[item] is not None:
+                kwarg[item] = transform_handle(kwarg[item])
         msg['index'] = index
         msg['handle'] = handle
         opts = None

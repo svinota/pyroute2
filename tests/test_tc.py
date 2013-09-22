@@ -105,18 +105,18 @@ class TestHtb(BasicTest):
 
     def test_htb(self):
         # 8<-----------------------------------------------------
-        # root queue
-        self.ip.tc(RTM_NEWQDISC, 'htb', self.interface, 0x10000,
-                   default=0x200000)
+        # root queue, '1:0' handle notation
+        self.ip.tc(RTM_NEWQDISC, 'htb', self.interface, '1:0',
+                   default='20:0')
 
         qds = self.get_qdiscs()
         assert len(qds) == 1
         assert qds[0].get_attr('TCA_KIND') == 'htb'
 
         # 8<-----------------------------------------------------
-        # classes
-        self.ip.tc(RTM_NEWTCLASS, 'htb', self.interface, 0x10001,
-                   parent=0x10000,
+        # classes, both string and int handle notation
+        self.ip.tc(RTM_NEWTCLASS, 'htb', self.interface, '1:1',
+                   parent='1:0',
                    rate='256kbit',
                    burst=1024 * 6)
         self.ip.tc(RTM_NEWTCLASS, 'htb', self.interface, 0x10010,
@@ -124,8 +124,8 @@ class TestHtb(BasicTest):
                    rate='192kbit',
                    burst=1024 * 6,
                    prio=1)
-        self.ip.tc(RTM_NEWTCLASS, 'htb', self.interface, 0x10020,
-                   parent=0x10001,
+        self.ip.tc(RTM_NEWTCLASS, 'htb', self.interface, '1:20',
+                   parent='1:1',
                    rate='128kbit',
                    burst=1024 * 6,
                    prio=2)
@@ -133,9 +133,9 @@ class TestHtb(BasicTest):
         assert len(cls) == 3
 
         # 8<-----------------------------------------------------
-        # leaves
-        self.ip.tc(RTM_NEWQDISC, 'sfq', self.interface, 0x100000,
-                   parent=0x10010,
+        # leaves, both string and int handle notation
+        self.ip.tc(RTM_NEWQDISC, 'sfq', self.interface, '10:0',
+                   parent='1:10',
                    perturb=10)
         self.ip.tc(RTM_NEWQDISC, 'sfq', self.interface, 0x200000,
                    parent=0x10020,
@@ -145,12 +145,12 @@ class TestHtb(BasicTest):
         assert types == set(('htb', 'sfq'))
 
         # 8<-----------------------------------------------------
-        # filters
-        self.ip.tc(RTM_NEWTFILTER, 'u32', self.interface, 0,
-                   parent=0x10000,
+        # filters, both string and int handle notation
+        self.ip.tc(RTM_NEWTFILTER, 'u32', self.interface, '0:0',
+                   parent='1:0',
                    prio=10,
                    protocol=socket.AF_INET,
-                   target=0x10010,
+                   target='1:10',
                    keys=['0x0006/0x00ff+8', '0x0000/0xffc0+2'])
         self.ip.tc(RTM_NEWTFILTER, 'u32', self.interface, 0,
                    parent=0x10000,
