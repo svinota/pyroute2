@@ -172,7 +172,7 @@ rtscopes = {'RT_SCOPE_UNIVERSE': 0,
 
 def transform_handle(handle):
     if isinstance(handle, basestring):
-        (major, minor) = [int(x, 16) for x in handle.split(':')]
+        (major, minor) = [int(x if x else '0', 16) for x in handle.split(':')]
         handle = (major << 8 * 2) | minor
     return handle
 

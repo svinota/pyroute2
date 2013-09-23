@@ -106,7 +106,7 @@ class TestHtb(BasicTest):
     def test_htb(self):
         # 8<-----------------------------------------------------
         # root queue, '1:0' handle notation
-        self.ip.tc(RTM_NEWQDISC, 'htb', self.interface, '1:0',
+        self.ip.tc(RTM_NEWQDISC, 'htb', self.interface, '1:',
                    default='20:0')
 
         qds = self.get_qdiscs()
@@ -134,7 +134,7 @@ class TestHtb(BasicTest):
 
         # 8<-----------------------------------------------------
         # leaves, both string and int handle notation
-        self.ip.tc(RTM_NEWQDISC, 'sfq', self.interface, '10:0',
+        self.ip.tc(RTM_NEWQDISC, 'sfq', self.interface, '10:',
                    parent='1:10',
                    perturb=10)
         self.ip.tc(RTM_NEWQDISC, 'sfq', self.interface, 0x200000,
