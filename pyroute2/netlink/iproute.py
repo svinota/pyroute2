@@ -45,6 +45,7 @@ from pyroute2.netlink import NLM_F_EXCL
 from pyroute2.netlink.generic import NETLINK_ROUTE
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
+from pyroute2.netlink.rtnl.tcmsg import get_htb_class_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_sfq_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_u32_parameters
@@ -625,36 +626,33 @@ class IPRoute(Netlink):
         elif kind == 'tbf':
             msg['parent'] = TC_H_ROOT
             if kwarg:
-                # kwarg is empty for delete
                 opts = get_tbf_parameters(kwarg)
         elif kind == 'htb':
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
             if kwarg:
-                # kwarg is empty for delete
-                opts = get_htb_parameters(kwarg)
+                if command in (RTM_NEWQDISC, RTM_DELQDISC):
+                    opts = get_htb_parameters(kwarg)
+                elif command in (RTM_NEWTCLASS, RTM_DELTCLASS):
+                    opts = get_htb_class_parameters(kwarg)
         elif kind == 'netem':
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
             if kwarg:
-                # kwarg is empty for delete
                 opts = get_netem_parameters(kwarg)
         elif kind == 'sfq':
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
             if kwarg:
-                # kwarg is empty for delete
                 opts = get_sfq_parameters(kwarg)
         elif kind == 'u32':
             msg['parent'] = kwarg.get('parent')
             msg['info'] = htons(kwarg.get('protocol', 0) & 0xffff) |\
                 ((kwarg.get('prio', 0) << 16) & 0xffff0000)
             if kwarg:
-                # kwarg is empty for delete
                 opts = get_u32_parameters(kwarg)
         elif kind == 'fw':
             msg['parent'] = kwarg.get('parent')
             msg['info'] = htons(kwarg.get('protocol', 0) & 0xffff) |\
                 ((kwarg.get('prio', 0) << 16) & 0xffff0000)
             if kwarg:
-                # kwarg is empty for delete
                 opts = get_fw_parameters(kwarg)
         else:
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)

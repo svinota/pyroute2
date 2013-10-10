@@ -231,60 +231,59 @@ def get_sfq_parameters(kwarg):
     return kwarg
 
 
-def get_htb_parameters(kwarg):
-    rate2quantum = kwarg.get('r2q', 0xa)
-    version = kwarg.get('version', 3)
-    defcls = kwarg.get('default', 0x10)
-    parent = kwarg.get('parent', None)
-    #
-    rate = _get_rate(kwarg.get('rate', None))
-    ceil = _get_rate(kwarg.get('ceil', 0)) or rate
+def get_htb_class_parameters(kwarg):
     #
     prio = kwarg.get('prio', 0)
     mtu = kwarg.get('mtu', 1600)
     mpu = kwarg.get('mpu', 0)
     overhead = kwarg.get('overhead', 0)
-    # linklayer = kwarg.get('linklayer', None)
     quantum = kwarg.get('quantum', 0)
     #
+    rate = _get_rate(kwarg.get('rate', None))
+    ceil = _get_rate(kwarg.get('ceil', 0)) or rate
+
     burst = kwarg.get('burst', None) or \
         kwarg.get('maxburst', None) or \
         kwarg.get('buffer', None)
+
     if rate is not None:
         if burst is None:
             burst = rate / _get_hz() + mtu
         burst = _calc_xmittime(rate, burst)
+
     cburst = kwarg.get('cburst', None) or \
         kwarg.get('cmaxburst', None) or \
         kwarg.get('cbuffer', None)
+
     if ceil is not None:
         if cburst is None:
             cburst = ceil / _get_hz() + mtu
         cburst = _calc_xmittime(ceil, cburst)
 
-    if parent is not None:
-        # HTB class
-        ret = [['TCA_HTB_PARMS', {'buffer': burst,
-                                  'cbuffer': cburst,
-                                  'quantum': quantum,
-                                  'prio': prio,
-                                  'rate': rate,
-                                  'ceil': ceil,
-                                  'ceil_overhead': overhead,
-                                  'rate_overhead': overhead,
-                                  'rate_mpu': mpu,
-                                  'ceil_mpu': mpu}],
-               ['TCA_HTB_RTAB', True],
-               ['TCA_HTB_CTAB', True]]
+    return {'attrs': [['TCA_HTB_PARMS', {'buffer': burst,
+                                         'cbuffer': cburst,
+                                         'quantum': quantum,
+                                         'prio': prio,
+                                         'rate': rate,
+                                         'ceil': ceil,
+                                         'ceil_overhead': overhead,
+                                         'rate_overhead': overhead,
+                                         'rate_mpu': mpu,
+                                         'ceil_mpu': mpu}],
+                      ['TCA_HTB_RTAB', True],
+                      ['TCA_HTB_CTAB', True]]}
 
-    else:
-        # HTB root
-        ret = [['TCA_HTB_INIT', {'debug': 0,
-                                 'defcls': defcls,
-                                 'direct_pkts': 0,
-                                 'rate2quantum': rate2quantum,
-                                 'version': version}]]
-    return {'attrs': ret}
+
+def get_htb_parameters(kwarg):
+    rate2quantum = kwarg.get('r2q', 0xa)
+    version = kwarg.get('version', 3)
+    defcls = kwarg.get('default', 0x10)
+
+    return {'attrs': [['TCA_HTB_INIT', {'debug': 0,
+                                        'defcls': defcls,
+                                        'direct_pkts': 0,
+                                        'rate2quantum': rate2quantum,
+                                        'version': version}]]}
 
 
 def get_netem_parameters(kwarg):
