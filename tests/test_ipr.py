@@ -10,6 +10,7 @@ from utils import require_user
 from utils import get_ip_addr
 from utils import get_ip_link
 from utils import get_ip_route
+from utils import get_ip_rules
 from utils import create_link
 from utils import remove_link
 
@@ -242,6 +243,12 @@ class TestData(object):
         except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname='dummyX')) == 1
+
+    def test_rules(self):
+        assert len(get_ip_rules('-4')) == \
+            len(self.ip.get_rules(socket.AF_INET))
+        assert len(get_ip_rules('-6')) == \
+            len(self.ip.get_rules(socket.AF_INET6))
 
     def test_addr(self):
         assert len(get_ip_addr()) == len(self.ip.get_addr())

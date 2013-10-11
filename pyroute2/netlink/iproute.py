@@ -37,6 +37,8 @@ from socket import AF_UNSPEC
 from pyroute2.netlink import Netlink
 from pyroute2.netlink import Marshal
 from pyroute2.netlink import NetlinkSocket
+from pyroute2.netlink import NLM_F_ATOMIC
+from pyroute2.netlink import NLM_F_ROOT
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_DUMP
@@ -185,6 +187,8 @@ class MarshalRtnl(Marshal):
                RTM_DELADDR: ifaddrmsg,
                RTM_NEWROUTE: rtmsg,
                RTM_DELROUTE: rtmsg,
+               RTM_NEWRULE: rtmsg,
+               RTM_DELRULE: rtmsg,
                RTM_NEWNEIGH: ndmsg,
                RTM_DELNEIGH: ndmsg,
                RTM_NEWQDISC: tcmsg,
@@ -306,6 +310,20 @@ class IPRoute(Netlink):
         msg = ifaddrmsg()
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETADDR)
+
+    def get_rules(self, family=AF_UNSPEC):
+        '''
+        Get all rules.
+        You can specify inet family, by default return rules for all families.
+
+        Example::
+            ip.get_rules() # get all the rules for all families
+            ip.get_routes(family=AF_INET6)  # get only IPv6 rules
+        '''
+        msg = ndmsg()
+        msg['family'] = family
+        msg_flags = NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC
+        return self.nlm_request(msg, RTM_GETRULE, msg_flags)
 
     def get_routes(self, family=AF_UNSPEC, **kwarg):
         '''
