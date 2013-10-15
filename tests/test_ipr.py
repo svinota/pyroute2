@@ -21,6 +21,17 @@ def _run_remote_client(url, func, key=None, cert=None, ca=None):
     ip.release()
 
 
+def _run_proxy_uplink(url, target, allow_connect,
+                      s_key=None, s_cert=None,
+                      t_key=None, t_cert=None,
+                      ca=None):
+    ip = IPRoute(host=target, key=t_key, cert=t_cert, ca=ca)
+    ip.serve(url, key=s_key, cert=s_cert, ca=ca)
+    allow_connect.set()
+    ip.iothread._stop_event.wait()
+    ip.release()
+
+
 def _run_remote_uplink(url, allow_connect, key=None, cert=None, ca=None):
     ip = IPRoute()
     ip.serve(url, key=key, cert=cert, ca=ca)
@@ -263,6 +274,32 @@ class TestData(object):
     def test_routes(self):
         assert len(get_ip_route()) == \
             len(self.ip.get_routes(family=socket.AF_INET, table=255))
+
+
+class TestProxyData(TestData):
+
+    def setup(self):
+        create_link('dummyX', 'dummy')
+        t_url = 'unix://\0%s' % (uuid.uuid4())
+        p_url = 'unix://\0%s' % (uuid.uuid4())
+        allow_connect = Event()
+
+        target = Process(target=_run_remote_uplink,
+                         args=(t_url, allow_connect))
+        target.daemon = True
+        target.start()
+        allow_connect.wait()
+        allow_connect.clear()
+
+        proxy = Process(target=_run_proxy_uplink,
+                        args=(p_url, t_url, allow_connect))
+        proxy.daemon = True
+        proxy.start()
+        allow_connect.wait()
+        allow_connect.clear()
+
+        self.ip = IPRoute(host=p_url)
+        self.dev = self.ip.link_lookup(ifname='dummyX')
 
 
 class TestRemoteData(TestData):
