@@ -125,7 +125,8 @@ class SyscallTracer(Application):
                     addr = syscall.arguments[1].value
                     length = syscall.result
                     buf.write(process.readBytes(addr, length))
-                for msg in self.marshal.parse(buf.getvalue()):
+                buf.length = len(buf.getvalue())
+                for msg in self.marshal.parse(buf):
                     msg['header']['syscall'] = syscall.name
                     self.queue.put(msg)
 

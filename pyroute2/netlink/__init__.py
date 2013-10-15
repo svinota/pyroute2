@@ -218,40 +218,31 @@ class Marshal(object):
         self.lock = threading.Lock()
         # one marshal instance can be used to parse one
         # message at once
-        self.buf = None
         self.msg_map = self.msg_map or {}
-
-    def set_buffer(self, init=b''):
-        '''
-        Set the buffer and return the data length
-        '''
-        self.buf = io.BytesIO()
-        self.buf.write(init)
-        self.buf.seek(0)
-        return len(init)
 
     def parse(self, data):
         '''
         Parse the data in the buffer
         '''
         with self.lock:
-            total = self.set_buffer(data)
+            total = data.length
+            data.seek(0)
             offset = 0
             result = []
 
             while offset < total:
                 # pick type and length
-                (length, msg_type) = struct.unpack('IH', self.buf.read(6))
+                (length, msg_type) = struct.unpack('IH', data.read(6))
                 error = None
                 if msg_type == NLMSG_ERROR:
-                    self.buf.seek(offset + 16)
-                    code = abs(struct.unpack('i', self.buf.read(4))[0])
+                    data.seek(offset + 16)
+                    code = abs(struct.unpack('i', data.read(4))[0])
                     if code > 0:
                         error = NetlinkError(code)
 
-                self.buf.seek(offset)
+                data.seek(offset)
                 msg_class = self.msg_map.get(msg_type, nlmsg)
-                msg = msg_class(self.buf, debug=self.debug)
+                msg = msg_class(data, debug=self.debug)
                 try:
                     msg.decode()
                     msg['header']['error'] = error
@@ -292,7 +283,7 @@ class PipeSocket(object):
     def send(self, data):
         os.write(self.wfd, data)
 
-    def recv(self, buf):
+    def recv(self, length=0, flags=0):
         ret = os.read(self.rfd, 4)
         length = struct.unpack('I', ret)[0]
         ret += os.read(self.rfd, length - 4)
@@ -332,7 +323,9 @@ class NetlinkSocket(socket.socket):
         socket.socket.bind(self, (self.pid, self.groups))
 
     def get(self):
-        return self.marshal.parse(self.recv(16384))
+        data = io.BytesIO()
+        data.length = data.write(self.recv(16384))
+        return self.marshal.parse(data)
 
 
 class ssl_credentials(object):
@@ -375,6 +368,7 @@ class IOThread(threading.Thread):
         self.marshals = {}        # {netlink_socket: marshal, ...}
         self.listeners = {}       # {int: Queue(), int: Queue()...}
         self.masquerade = {}      # {int: masq_record()...}
+        self.recv_methods = {}    # {socket: recv_method, ...}
         self.clients = set()      # set(socket, socket...)
         self.uplinks = set()      # set(socket, socket...)
         self.servers = set()      # set(socket, socket...)
@@ -432,11 +426,13 @@ class IOThread(threading.Thread):
         '''
         Background thread to feed reassembled buffers to the parser
         '''
-        save = None
+        save_buffers = {}
         while True:
             (buf, marshal, sock) = self.buffers.get()
             if self._stop_event.is_set():
                 return
+
+            save = save_buffers.get(sock, None)
             if save is not None:
                 # concatenate buffers
                 buf.seek(0)
@@ -444,25 +440,48 @@ class IOThread(threading.Thread):
                 save.length += buf.length
                 # discard save
                 buf = save
-                save = None
+                del save_buffers[sock]
+
             offset = 0
             while offset < buf.length:
                 buf.seek(offset)
                 length = struct.unpack('I', buf.read(4))[0]
+
                 if offset + length > buf.length:
                     # create save buffer
                     buf.seek(offset)
                     save = io.BytesIO()
                     save.length = save.write(buf.read())
+                    save_buffers[sock] = save
                     # truncate the buffer
                     buf.truncate(offset)
                     break
+
+                if sock in self.clients:
+                    # create masquerade record for client's messages
+                    # 1. generate nonce
+                    nonce = self.nonce()
+                    # 2. save masquerade record, invalidating old one
+                    buf.seek(offset + 8)
+                    seq, pid = struct.unpack('II', buf.read(8))
+                    self.masquerade[nonce] = masq_record(seq, pid, sock)
+                    # 3. overwrite seq and pid
+                    buf.seek(offset + 8)
+                    buf.write(struct.pack('II', nonce, self.pid))
+
+                buf.seek(offset)
+                data = io.BytesIO()
+                data.write(buf.read(length))
+                data.length = length
+                if sock in self.rtable:
+                    # FIXME: catch exceptions level above
+                    if self.rtable[sock](data):
+                        try:
+                            self.parse(data, marshal, sock)
+                        except:
+                            traceback.print_exc()
+
                 offset += length
-            # feed buffer to the parser
-            try:
-                self.parse(buf.getvalue(), marshal, sock)
-            except:
-                traceback.print_exc()
 
     def _expire_masq(self):
         '''
@@ -596,21 +615,19 @@ class IOThread(threading.Thread):
         # Data messages
         #
         else:
-            if sock in self.clients:
-                # create masquerade record for client's messages
-                # 1. generate nonce
-                nonce = self.nonce()
-                # 2. save masquerade record, invalidating old one
-                data.seek(8)
-                seq, pid = struct.unpack('II', data.read(8))
-                self.masquerade[nonce] = masq_record(seq, pid, sock)
-                # 3. overwrite seq and pid
-                data.seek(8)
-                data.write(struct.pack('II', nonce, self.pid))
+            self.buffers.put((data, self.marshals.get(sock, None), sock))
 
-            if sock in self.rtable:
-                if self.rtable[sock](data):
-                    self.buffers.put((data, self.marshals[sock], sock))
+    def recv(self, fd, buf):
+        ret = buf.write(fd.recv(16384))
+        return ret, {}
+
+    def send(self, buf):
+        data = buf.getvalue()
+        for sock in self.uplinks:
+            if isinstance(sock, NetlinkSocket):
+                sock.sendto(data, (0, 0))
+            else:
+                sock.send(data)
 
     def parse_control(self, data):
         data.seek(0)
@@ -661,7 +678,9 @@ class IOThread(threading.Thread):
                 # in nlmsg definitions, so parse it again. It should
                 # not be much slower than copy.deepcopy()
                 try:
-                    self.listeners[0].put_nowait(marshal.parse(msg.raw)[0])
+                    raw = io.BytesIO()
+                    raw.length = raw.write(msg.raw)
+                    self.listeners[0].put_nowait(marshal.parse(raw)[0])
                 except Queue.Full:
                     # FIXME: log this
                     pass
@@ -783,7 +802,7 @@ class IOThread(threading.Thread):
 
                 ##
                 #
-                # Incoming client connections
+                # Incoming remote connections
                 #
                 if fd in self.servers:
                     try:
@@ -803,8 +822,12 @@ class IOThread(threading.Thread):
                 # FIXME max length
                 data = io.BytesIO()
                 try:
-                    data.length = data.write(fd.recv(16384))
+                    # recv method
+                    recv = self.recv_methods.get(fd, self.recv)
+                    # fill the routing info and get the data
+                    data.length, rinfo = recv(fd, data)
                 except:
+                    traceback.print_exc()
                     continue
 
                 ##
@@ -864,7 +887,7 @@ class Netlink(object):
         self.ssl_keys = self.iothread.ssl_keys
         self._sockets = set()
         self.servers = {}
-        self.iothread.families[self.family] = self.send
+        self.iothread.families[self.family] = self.iothread.send
         self.iothread.start()
         self.debug = debug
         self.marshal.debug = debug
@@ -1105,18 +1128,6 @@ class Netlink(object):
             self._remove_queue(key)
         return result
 
-    def send(self, buf):
-        '''
-        Send a buffer or to the local kernel, or to
-        the server, depending on the setup.
-        '''
-        data = buf.getvalue()
-        for sock in self._sockets:
-            if isinstance(sock, NetlinkSocket):
-                sock.sendto(data, (0, 0))
-            else:
-                sock.send(data)
-
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST):
         '''
@@ -1131,7 +1142,7 @@ class Netlink(object):
         msg['header']['type'] = msg_type
         msg['header']['flags'] = msg_flags
         msg.encode()
-        self.send(msg.buf)
+        self.iothread.send(msg.buf)
         result = self.get(nonce)
         if not self.debug:
             for i in result:
