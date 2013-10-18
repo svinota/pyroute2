@@ -22,6 +22,10 @@ from pyroute2.netlink.generic import NETLINK_UNUSED
 
 _QUEUE_MAXSIZE = 4096
 
+REALM_NONE = 0x0
+REALM_DEFAULT = 0x10001
+MASK_DEFAULT = 0xffff0000
+
 
 class NetlinkError(Exception):
     '''
@@ -363,8 +367,7 @@ class IOThread(threading.Thread):
         self._wlist = set()
         self._xlist = set()
         # routing
-        self.rtable = {}          # {client_socket: send_method, ...}
-        self.families = {}        # {family_id: send_method, ...}
+        self.xtable = {}          # {(realm, mask): socket, ...}
         self.marshals = {}        # {netlink_socket: marshal, ...}
         self.listeners = {}       # {int: Queue(), int: Queue()...}
         self.masquerade = {}      # {int: masq_record()...}
@@ -373,7 +376,6 @@ class IOThread(threading.Thread):
         self.uplinks = set()      # set(socket, socket...)
         self.servers = set()      # set(socket, socket...)
         self.controls = set()     # set(socket, socket...)
-        self.broadcast = set()    # set(socket, socket...)
         self.ssl_keys = {}        # {url: ssl_credentials(), url:...}
         self.mirror = False
         self.callbacks = []       # [(predicate, callback, args), ...]
@@ -411,7 +413,7 @@ class IOThread(threading.Thread):
         self._run_event.wait()
         self.control.send(msg.buf.getvalue())
         buf = io.BytesIO()
-        buf.write(self.control.recv(256))
+        buf.write(self.control.recv())
         buf.seek(0)
         msg = ctrlmsg(buf)
         msg.decode()
@@ -432,17 +434,25 @@ class IOThread(threading.Thread):
             if self._stop_event.is_set():
                 return
 
+            buf.seek(0)
+            if sock in self.clients:
+                realm = struct.unpack('I', buf.read(4))[0]
+                start = 4
+            else:
+                realm = REALM_NONE
+                start = 0
+
             save = save_buffers.get(sock, None)
             if save is not None:
                 # concatenate buffers
-                buf.seek(0)
+                buf.seek(start)
                 save.write(buf.read())
                 save.length += buf.length
                 # discard save
                 buf = save
                 del save_buffers[sock]
 
-            offset = 0
+            offset = start
             while offset < buf.length:
                 buf.seek(offset)
                 length = struct.unpack('I', buf.read(4))[0]
@@ -473,13 +483,14 @@ class IOThread(threading.Thread):
                 data = io.BytesIO()
                 data.write(buf.read(length))
                 data.length = length
-                if sock in self.rtable:
-                    # FIXME: catch exceptions level above
-                    if self.rtable[sock](data):
-                        try:
-                            self.parse(data, marshal, sock)
-                        except:
-                            traceback.print_exc()
+
+                for ((target, mask), value) in tuple(self.xtable.items()):
+                    if realm & mask == target:
+                        self.xtable[(target, mask)][1](data, realm)
+                        break
+                else:
+                    if self.distribute(data):
+                        self.parse(data, marshal, sock)
 
                 offset += length
 
@@ -512,7 +523,7 @@ class IOThread(threading.Thread):
         data.seek(8)
         # read sequence number and pid
         seq, pid = struct.unpack('II', data.read(8))
-        # default target -- broadcast
+        # default target -- local processing
         target = None
         # if it is a unicast response
         if pid == self.pid:
@@ -534,9 +545,6 @@ class IOThread(threading.Thread):
 
             target.socket.send(data.getvalue())
         else:
-            # otherwise, broadcast packet
-            for sock in self.broadcast:
-                sock.send(data.getvalue())
             # return True -- this packet should be parsed
             return True
 
@@ -544,8 +552,12 @@ class IOThread(threading.Thread):
         """
         Route message
         """
-        data.seek(4)
-        # message type, offset 4 bytes, length 2 bytes
+        if sock in self.clients:
+            data.seek(8)  # realm + length
+        else:
+            data.seek(4)  # length
+
+        # message type, offset 4(+4) bytes, length 2 bytes
         mtype = struct.unpack('H', data.read(2))[0]
         # FIXME log routing failures
 
@@ -591,12 +603,8 @@ class IOThread(threading.Thread):
             cmd = self.parse_control(data)
             if cmd['cmd'] == IPRCMD_ROUTE:
                 # routing request
-                family = cmd.get_attr('CTRL_ATTR_FAMILY_ID')
-                if family in self.families:
-                    send = self.families[family]
-                    self.rtable[sock] = send
-                    self.broadcast.add(sock)
-                    rsp['cmd'] = IPRCMD_ACK
+                # noop for now
+                rsp['cmd'] = IPRCMD_ACK
                 # TODO tags: remote
                 #
                 # * subscribe requests
@@ -618,19 +626,22 @@ class IOThread(threading.Thread):
             self.buffers.put((data, self.marshals.get(sock, None), sock))
 
     def recv(self, fd, buf):
-        ret = buf.write(fd.recv(16384))
+        ret = 0
+        if isinstance(fd, PipeSocket):
+            ret += buf.write(struct.pack('I', REALM_NONE))
+        ret += buf.write(fd.recv(16384))
         return ret, {}
 
-    def send(self, buf):
+    def send(self, buf, realm=REALM_DEFAULT):
         data = buf.getvalue()
         for sock in self.uplinks:
             if isinstance(sock, NetlinkSocket):
                 sock.sendto(data, (0, 0))
             else:
-                sock.send(data)
+                sock.send(struct.pack('I', realm) + data)
 
     def parse_control(self, data):
-        data.seek(0)
+        data.seek(4)
         cmd = ctrlmsg(data)
         cmd.decode()
         return cmd
@@ -698,7 +709,7 @@ class IOThread(threading.Thread):
         msg['attrs'] = attrs
         msg.encode()
         self.control.send(msg.buf.getvalue())
-        rsp = ctrlmsg(self.control.recv(256))
+        rsp = ctrlmsg(self.control.recv())
         rsp.decode()
         return rsp
 
@@ -748,10 +759,14 @@ class IOThread(threading.Thread):
         self.reload()
         return sock
 
-    def add_uplink(self, sock, marshal):
+    def add_uplink(self, sock, marshal,
+                   realm=REALM_DEFAULT,
+                   mask=MASK_DEFAULT,
+                   send=None):
+        send = send or self.send
         self._rlist.add(sock)
         self.uplinks.add(sock)
-        self.rtable[sock] = self.distribute
+        self.xtable[(realm, mask)] = (sock, send)
         self.marshals[sock] = marshal()
         self.reload()
         return sock
@@ -759,8 +774,10 @@ class IOThread(threading.Thread):
     def remove_uplink(self, sock):
         self._rlist.remove(sock)
         self.uplinks.remove(sock)
-        del self.rtable[sock]
         del self.marshals[sock]
+        for (key, value) in tuple(self.xtable.items()):
+            if value[0] == sock:
+                del self.xtable[key]
         self.reload()
         return sock
 
@@ -778,8 +795,6 @@ class IOThread(threading.Thread):
         self._rlist.remove(sock)
         self._wlist.remove(sock)
         self.clients.remove(sock)
-        if sock in self.broadcast:
-            self.broadcast.remove(sock)
         return sock
 
     def start(self):
@@ -799,7 +814,6 @@ class IOThread(threading.Thread):
                 # FIXME: log exceptions
                 continue
             for fd in rlist:
-
                 ##
                 #
                 # Incoming remote connections
@@ -887,7 +901,6 @@ class Netlink(object):
         self.ssl_keys = self.iothread.ssl_keys
         self._sockets = set()
         self.servers = {}
-        self.iothread.families[self.family] = self.iothread.send
         self.iothread.start()
         self.debug = debug
         self.marshal.debug = debug
@@ -902,13 +915,15 @@ class Netlink(object):
         smsg['cmd'] = cmd
         smsg['attrs'] = attrs
         smsg.encode()
-        sock.send(smsg.buf.getvalue())
+        sock.send(struct.pack('I', REALM_NONE) + smsg.buf.getvalue())
 
     def connect(self,
                 host='localsystem',
                 key=None,
                 cert=None,
                 ca=None,
+                realm=REALM_DEFAULT,
+                mask=MASK_DEFAULT,
                 **kwarg):
         assert isinstance(host, basestring)
         sock = None
@@ -949,7 +964,10 @@ class Netlink(object):
                 del self.ssl_keys[host]
             raise e
         else:
-            self.iothread.add_uplink(sock, self.marshal)
+            self.iothread.add_uplink(sock,
+                                     self.marshal,
+                                     realm & mask,
+                                     mask)
             self._sockets.add(sock)
 
     def get_servers(self):
@@ -1129,7 +1147,8 @@ class Netlink(object):
         return result
 
     def nlm_request(self, msg, msg_type,
-                    msg_flags=NLM_F_DUMP | NLM_F_REQUEST):
+                    msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
+                    realm=REALM_DEFAULT):
         '''
         Send netlink request, filling common message
         fields, and wait for response.
@@ -1142,7 +1161,7 @@ class Netlink(object):
         msg['header']['type'] = msg_type
         msg['header']['flags'] = msg_flags
         msg.encode()
-        self.iothread.send(msg.buf)
+        self.iothread.send(msg.buf, realm)
         result = self.get(nonce)
         if not self.debug:
             for i in result:
