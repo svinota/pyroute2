@@ -484,13 +484,7 @@ class IOThread(threading.Thread):
                 data.write(buf.read(length))
                 data.length = length
 
-                for ((target, mask), value) in tuple(self.xtable.items()):
-                    if realm & mask == target:
-                        self.xtable[(target, mask)][1](data, realm)
-                        break
-                else:
-                    if self.distribute(data):
-                        self.parse(data, marshal, sock)
+                self.send(data, realm, marshal, sock)
 
                 offset += length
 
@@ -632,13 +626,21 @@ class IOThread(threading.Thread):
         ret += buf.write(fd.recv(16384))
         return ret, {}
 
-    def send(self, buf, realm=REALM_DEFAULT):
-        data = buf.getvalue()
-        for sock in self.uplinks:
-            if isinstance(sock, NetlinkSocket):
-                sock.sendto(data, (0, 0))
+    def send(self, data, realm=REALM_DEFAULT, marshal=None, sock=None):
+        '''
+        realm == REALM_NONE: resonse, to be distributed or parsed
+        realm >  REALM_NONE: request
+        '''
+        if realm == REALM_NONE:
+            if self.distribute(data):
+                self.parse(data, marshal, sock)
+        else:
+            for ((target, mask), value) in tuple(self.xtable.items()):
+                if realm & mask == target:
+                    self.xtable[(target, mask)][1](data.getvalue(), realm)
+                    break
             else:
-                sock.send(struct.pack('I', realm) + data)
+                pass
 
     def parse_control(self, data):
         data.seek(4)
@@ -763,7 +765,8 @@ class IOThread(threading.Thread):
                    realm=REALM_DEFAULT,
                    mask=MASK_DEFAULT,
                    send=None):
-        send = send or self.send
+        if send is None:
+            send = lambda d, r: None
         self._rlist.add(sock)
         self.uplinks.add(sock)
         self.xtable[(realm, mask)] = (sock, send)
@@ -959,15 +962,23 @@ class Netlink(object):
                 rsp = ctrlmsg(sock.recv(28))
                 rsp.decode()
                 assert rsp['cmd'] == IPRCMD_ACK
+
         except Exception as e:
             if host in self.ssl_keys:
                 del self.ssl_keys[host]
             raise e
+
         else:
+            if isinstance(sock, NetlinkSocket):
+                send = lambda d, r: sock.sendto(d, (0, 0))
+            else:
+                send = lambda d, r: sock.send(struct.pack('I', r) + d)
+
             self.iothread.add_uplink(sock,
                                      self.marshal,
                                      realm & mask,
-                                     mask)
+                                     mask,
+                                     send)
             self._sockets.add(sock)
 
     def get_servers(self):
