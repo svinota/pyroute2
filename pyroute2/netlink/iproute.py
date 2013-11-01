@@ -733,4 +733,73 @@ class IPRoute(Netlink):
 
         return self.nlm_request(msg, msg_type=command,
                                 msg_flags=flags)
+
+    def rule(self, command, table, priority=32000, rtype='RTN_UNICAST',
+             rtscope='RT_SCOPE_UNIVERSE', family=AF_INET, src=None):
+        '''
+        Rule operations
+
+        * command  - add, delete
+        * table    - 0 < table id < 253
+        * priority - 0 < rule's priority < 32766
+        * rtype    - type of rule, default 'RTN_UNICAST'
+        * rtscope  - routing scope, default RT_SCOPE_UNIVERSE
+                     (RT_SCOPE_UNIVERSE|RT_SCOPE_SITE|\
+                      RT_SCOPE_LINK|RT_SCOPE_HOST|RT_SCOPE_NOWHERE)
+        * family   - rule's family (socket.AF_INET (default) or
+                     socket.AF_INET6)
+        * src      - IP source for Source Based (Policy Based) routing's rule
+
+        Example::
+            ip.rule('add', 10, 32000)
+
+        Will create::
+            #ip ru sh
+            ...
+            32000: from all lookup 10
+            ....
+
+        Example::
+            iproute.rule('add', 11, 32001, 'RTN_UNREACHABLE')
+
+        Will create::
+            #ip ru sh
+            ...
+            32001: from all lookup 11 unreachable
+            ....
+
+        Example::
+            iproute.rule('add', 14, 32004, src='10.64.75.141')
+
+        Will create::
+            #ip ru sh
+            ...
+            32004: from 10.64.75.141 lookup 14
+            ...
+        '''
+        if table < 0 or table > 254:
+            raise 'unsupported table number'
+
+        commands = {'add': RTM_NEWRULE,
+                    'delete': RTM_DELRULE}
+        command = commands.get(command, command)
+
+        msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        msg = rtmsg()
+        msg['table'] = table
+        msg['family'] = family
+        msg['type'] = rtypes[rtype]
+        msg['scope'] = rtscopes[rtscope]
+        msg['attrs'] = [['RTA_TABLE', table]]
+        msg['attrs'].append(['RTA_PRIORITY', priority])
+        msg['dst_len'] = 0
+        msg['src_len'] = 0
+        if src is not None:
+            msg['attrs'].append(['RTA_SRC', src])
+            addr_len = {
+                AF_INET6: 128,
+                AF_INET:  32}[family]
+            msg['src_len'] = addr_len
+        return self.nlm_request(msg, msg_type=command,
+                                msg_flags=msg_flags)
     # 8<---------------------------------------------------------------
