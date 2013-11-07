@@ -71,9 +71,11 @@ class tcmd(genlmsg):
 
 class tstats(nla):
     fields = (('version', 'H'),                           # 2
+              ('__pad', '2x'),                            # 2 --- 4
               ('ac_exitcode', 'I'),                       # 4
               ('ac_flag', 'B'),                           # 1
-              ('ac_nice', 'B'),                           # 1 --- 8
+              ('ac_nice', 'B'),                           # 1 --- 10
+              ('__pad', '6x'),                            # 6 --- 16
               ('cpu_count', 'Q'),                         # 8
               ('cpu_delay_total', 'Q'),                   # 8
               ('blkio_count', 'Q'),                       # 8
@@ -84,7 +86,7 @@ class tstats(nla):
               ('cpu_run_virtual_total', 'Q'),             # 8
               ('ac_comm', '32s'),                         # 32 +++ 112
               ('ac_sched', 'B'),                          # 1
-              ('__pad', '5x'),                            # 5 --- 8 (!)
+              ('__pad', '7x'),                            # 1 --- 8 (!)
               ('ac_uid', 'I'),                            # 4  +++ 120
               ('ac_gid', 'I'),                            # 4
               ('ac_pid', 'I'),                            # 4
@@ -155,15 +157,15 @@ class TaskStats(Netlink):
     def __init__(self):
         Netlink.__init__(self)
         # FIXME
-        self.io_thread.marshal.msg_map[GENL_ID_CTRL] = ctrlmsg
+        self.iothread.marshals.values()[0].msg_map[GENL_ID_CTRL] = ctrlmsg
         self.prid = self.get_protocol_id('TASKSTATS')
-        self.io_thread.marshal.msg_map[self.prid] = taskstatsmsg
+        self.iothread.marshals.values()[0].msg_map[self.prid] = taskstatsmsg
 
     def get_protocol_id(self, prid):
         msg = ctrlmsg()
         msg['cmd'] = CTRL_CMD_GETFAMILY
         msg['version'] = 1
-        msg['attrs'].append(('CTRL_ATTR_FAMILY_NAME', prid))
+        msg['attrs'].append(['CTRL_ATTR_FAMILY_NAME', prid])
         response = self.nlm_request(msg, GENL_ID_CTRL,
                                     msg_flags=NLM_F_REQUEST)[0]
         prid = [i[1] for i in response['attrs']
@@ -174,7 +176,7 @@ class TaskStats(Netlink):
         msg = tcmd()
         msg['cmd'] = TASKSTATS_CMD_GET
         msg['version'] = 1
-        msg['attrs'].append(('TASKSTATS_CMD_ATTR_PID', pid))
+        msg['attrs'].append(['TASKSTATS_CMD_ATTR_PID', pid])
         return self.nlm_request(msg, self.prid, msg_flags=NLM_F_REQUEST)
 
     def get_mask_stat(self, mask):
