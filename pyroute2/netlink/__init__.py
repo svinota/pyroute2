@@ -1120,7 +1120,7 @@ class Netlink(object):
                 if 0 in self.listeners:
                     self.listeners[0].put(msg)
 
-    def get(self, key=0, raw=False):
+    def get(self, key=0, raw=False, timeout=None):
         '''
         Get a message from a queue
 
@@ -1129,17 +1129,18 @@ class Netlink(object):
         queue = self.listeners[key]
         result = []
         hosts = len(self._sockets)
+        timeout = timeout or self._timeout
         while True:
-            # timeout should alse be set to catch ctrl-c
+            # timeout should also be set to catch ctrl-c
             # Bug-Url: http://bugs.python.org/issue1360
             try:
-                msg = queue.get(block=True, timeout=self._timeout)
+                msg = queue.get(block=True, timeout=timeout)
             except Queue.Empty as e:
                 if key == 0 or hasattr(queue, 'persist'):
                     continue
                 self._remove_queue(key)
                 raise e
-            # terminator for persisten queues
+            # terminator for persistent queues
             if msg is None:
                 self._remove_queue(key)
                 raise Queue.Empty()
@@ -1159,7 +1160,8 @@ class Netlink(object):
 
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
-                    realm=REALM_DEFAULT):
+                    realm=REALM_DEFAULT,
+                    response_timeout=None):
         '''
         Send netlink request, filling common message
         fields, and wait for response.
@@ -1173,7 +1175,7 @@ class Netlink(object):
         msg['header']['flags'] = msg_flags
         msg.encode()
         self.iothread.send(msg.buf, realm)
-        result = self.get(nonce)
+        result = self.get(nonce, timeout=response_timeout)
         if not self.debug:
             for i in result:
                 del i['header']
