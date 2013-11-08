@@ -130,6 +130,7 @@ class nlmsg_base(dict):
 
     fields = []                  # data field names, to build a dictionary
     header = None                # optional header class
+    pack = None                  # pack pragma
     nla_map = {}                 # NLA mapping
 
     def __init__(self, buf=None, length=None, parent=None, debug=False):
@@ -229,22 +230,31 @@ class nlmsg_base(dict):
                 raise NetlinkHeaderDecodeError(e)
         # decode the data
         try:
-            for i in self.fields:
-                name = i[0]
-                fmt = i[1]
+            if self.pack == 'struct':
+                names = []
+                formats = []
+                for field in self.fields:
+                    names.append(field[0])
+                    formats.append(field[1])
+                fields = ((','.join(names), ''.join(formats)), )
+            else:
+                fields = self.fields
+
+            for field in fields:
+                name = field[0]
+                fmt = field[1]
 
                 # 's' and 'z' can be used only in connection with
                 # length, encoded in the header
-                if i[1] in ('s', 'z'):
+                if field[1] in ('s', 'z'):
                     fmt = '%is' % (self.length - 4)
 
                 size = struct.calcsize(fmt)
-                offset = self.buf.tell()
                 raw = self.buf.read(size)
                 actual_size = len(raw)
 
                 # FIXME: adjust string size again
-                if i[1] in ('s', 'z'):
+                if field[1] in ('s', 'z'):
                     size = actual_size
                     fmt = '%is' % (actual_size)
                 if size == actual_size:
@@ -252,15 +262,10 @@ class nlmsg_base(dict):
                     if len(value) == 1:
                         self[name] = value[0]
                         # cut zero-byte from z-strings
-                        if i[1] == 'z' and self[name][-1] == '\0':
+                        if field[1] == 'z' and self[name][-1] == '\0':
                             self[name] = self[name][:-1]
                     else:
-                        self[name] = value
-
-                    if self.debug and name != 'value':
-                        self[name] = {'value': self[name],
-                                      'header': {'offset': offset,
-                                                 'length': actual_size}}
+                        self.update(dict(zip(name.split(","), value)))
 
                 else:
                     # FIXME: log an error
