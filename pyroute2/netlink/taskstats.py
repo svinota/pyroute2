@@ -1,4 +1,5 @@
 
+import Queue
 from pyroute2.netlink import Netlink
 from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLM_F_REQUEST
@@ -65,8 +66,8 @@ class tcmd(genlmsg):
     nla_map = (('TASKSTATS_CMD_ATTR_UNSPEC', 'none'),
                ('TASKSTATS_CMD_ATTR_PID', 'uint32'),
                ('TASKSTATS_CMD_ATTR_TGID', 'uint32'),
-               ('TASKSTATS_CMD_ATTR_REGISTER_CPUMASK', 'uint32'),
-               ('TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK', 'uint32'))
+               ('TASKSTATS_CMD_ATTR_REGISTER_CPUMASK', 'asciiz'),
+               ('TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK', 'asciiz'))
 
 
 class tstats(nla):
@@ -172,11 +173,52 @@ class TaskStats(Netlink):
         return prid
 
     def get_pid_stat(self, pid):
+        '''
+        Get taskstats for a process. Pid should be an integer.
+        '''
         msg = tcmd()
         msg['cmd'] = TASKSTATS_CMD_GET
         msg['version'] = 1
         msg['attrs'].append(['TASKSTATS_CMD_ATTR_PID', pid])
-        return self.nlm_request(msg, self.prid, msg_flags=NLM_F_REQUEST)
+        return self.nlm_request(msg,
+                                self.prid,
+                                msg_flags=NLM_F_REQUEST)
 
-    def get_mask_stat(self, mask):
-        pass
+    def _register_mask(self, cmd, mask):
+        msg = tcmd()
+        msg['cmd'] = TASKSTATS_CMD_GET
+        msg['version'] = 1
+        msg['attrs'].append([cmd, mask])
+        try:
+            self.nlm_request(msg,
+                             self.prid,
+                             msg_flags=NLM_F_REQUEST,
+                             response_timeout=0.1)
+        except Queue.Empty:
+            pass
+
+    def register_mask(self, mask):
+        '''
+        Start the accounting for a processors by a mask. Mask is
+        a string, e.g.::
+            0,1 -- first two CPUs
+            0-4,6-10 -- CPUs from 0 to 4 and from 6 to 10
+
+        When the accounting is turned on, on can receive messages
+        with get() routine.
+
+        Though the kernel has a procedure, that cleans up accounting,
+        when it is not used, it is recommended to run deregister_mask()
+        before process exit.
+        '''
+        self.monitor(True)
+        self._register_mask('TASKSTATS_CMD_ATTR_REGISTER_CPUMASK',
+                            mask)
+
+    def deregister_mask(self, mask):
+        '''
+        Stop the accounting.
+        '''
+        self.monitor(False)
+        self._register_mask('TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK',
+                            mask)
