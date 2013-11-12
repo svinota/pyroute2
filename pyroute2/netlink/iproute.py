@@ -495,6 +495,7 @@ class IPRoute(Netlink):
         * address -- IPv4 or IPv6 address
         * mask -- address mask
         * family -- socket.AF_INET for IPv4 or socket.AF_INET6 for IPv6
+        * scope -- the address scope, see /etc/iproute2/rt_scopes
 
         Example::
 
