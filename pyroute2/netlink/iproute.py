@@ -486,7 +486,7 @@ class IPRoute(Netlink):
 
         return self.nlm_request(msg, msg_type=command, msg_flags=msg_flags)
 
-    def addr(self, command, index, address, mask=24, family=None):
+    def addr(self, command, index, address, mask=24, family=None, scope=0):
         '''
         Address operations
 
@@ -519,7 +519,7 @@ class IPRoute(Netlink):
         msg['index'] = index
         msg['family'] = family
         msg['prefixlen'] = mask
-        msg['scope'] = 0xfe
+        msg['scope'] = scope
         if family == AF_INET:
             msg['attrs'] = [['IFA_LOCAL', address],
                             ['IFA_ADDRESS', address]]
