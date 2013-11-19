@@ -1,5 +1,8 @@
 
-import Queue
+try:
+    import Queue
+except ImportError:
+    import queue as Queue
 from pyroute2.netlink import Netlink
 from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLM_F_REQUEST

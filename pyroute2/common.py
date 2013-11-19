@@ -2,6 +2,13 @@
 Common utilities
 '''
 import re
+import sys
+
+try:
+    basestring = basestring
+except NameError:
+    basestring = (str, bytes)
+
 
 size_suffixes = {'b': 1,
                  'k': 1024,
@@ -122,5 +129,9 @@ def hexdump(payload, length=0):
     '''
     Represent byte string as hex -- for debug purposes
     '''
-    return ':'.join('{0:02x}'.format(ord(c))
-                    for c in payload[:length] or payload)
+    if sys.version[0] == '3':
+        return ':'.join('{0:02x}'.format(c)
+                        for c in payload[:length] or payload)
+    else:
+        return ':'.join('{0:02x}'.format(ord(c))
+                        for c in payload[:length] or payload)

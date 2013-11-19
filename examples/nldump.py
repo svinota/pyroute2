@@ -7,8 +7,8 @@ from pyroute2 import IPRoute
 from Queue import Empty
 
 if len(sys.argv) < 2:
-    print 'choose program to run, e.g.:'
-    print '%s ip link show' % (sys.argv[0])
+    print('choose program to run, e.g.:')
+    print('%s ip link show' % (sys.argv[0]))
     sys.exit(0)
 
 ip = IPRoute(debug=True)

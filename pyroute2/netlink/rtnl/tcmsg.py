@@ -5,8 +5,10 @@ import struct
 from pyroute2.common import size_suffixes
 from pyroute2.common import time_suffixes
 from pyroute2.common import rate_suffixes
+from pyroute2.common import basestring
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import nla
+
 
 LINKLAYER_UNSPEC = 0
 LINKLAYER_ETHERNET = 1

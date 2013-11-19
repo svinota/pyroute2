@@ -8,6 +8,7 @@ import Queue
 import logging
 import threading
 from pyroute2.common import Dotkeys
+from pyroute2.common import basestring
 
 from ptrace.debugger import PtraceDebugger
 from ptrace.debugger import Application
@@ -174,15 +175,15 @@ class SyscallTracer(Application):
             try:
                 event = self.debugger.waitSyscall()
                 process = event.process
-            except ProcessExit, event:
+            except ProcessExit as event:
                 continue
-            except ProcessSignal, event:
+            except ProcessSignal as event:
                 process.syscall(event.signum)
                 continue
-            except NewProcessEvent, event:
+            except NewProcessEvent as event:
                 self.newProcess(event)
                 continue
-            except ProcessExecution, event:
+            except ProcessExecution as event:
                 self.processExecution(event)
                 continue
 

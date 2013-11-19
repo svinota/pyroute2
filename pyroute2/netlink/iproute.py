@@ -58,6 +58,7 @@ from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
+from pyroute2.common import basestring
 from pyroute2.common import map_namespace
 
 
@@ -404,7 +405,7 @@ class IPRoute(Netlink):
         Please note, that link_lookup() returns list, not one
         value.
         '''
-        name = kwarg.keys()[0]
+        name = tuple(kwarg.keys())[0]
         value = kwarg[name]
 
         name = str(name).upper()

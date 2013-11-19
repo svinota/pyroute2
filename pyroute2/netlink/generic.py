@@ -2,10 +2,12 @@
 import socket
 import struct
 import types
+import sys
 import io
 import re
 
 from pyroute2.common import hexdump
+from pyroute2.common import basestring
 
 _letters = re.compile('[A-Za-z]')
 _fmt_letters = re.compile('[^!><@=][!><@=]')
@@ -262,7 +264,8 @@ class nlmsg_base(dict):
                     if len(value) == 1:
                         self[name] = value[0]
                         # cut zero-byte from z-strings
-                        if field[1] == 'z' and self[name][-1] == '\0':
+                        # 0x00 -- python3; '\0' -- python2
+                        if field[1] == 'z' and self[name][-1] in (0x00, '\0'):
                             self[name] = self[name][:-1]
                     else:
                         self.update(dict(zip(name.split(","), value)))
@@ -300,15 +303,27 @@ class nlmsg_base(dict):
                 for i in self.fields:
                     name = i[0]
                     fmt = i[1]
+                    value = self[name]
 
                     if fmt == 's':
-                        length = len(self[name])
+                        length = len(value)
                         fmt = '%is' % (length)
                     elif fmt == 'z':
-                        length = len(self[name]) + 1
+                        length = len(value) + 1
                         fmt = '%is' % (length)
 
-                    payload += struct.pack(fmt, self[name])
+                    # in python3 we should force it
+                    if sys.version[0] == '3':
+                        if isinstance(value, str):
+                            value = bytes(value, 'utf-8')
+                        elif isinstance(value, float):
+                            value = int(value)
+
+                    try:
+                        payload += struct.pack(fmt, value)
+                    except Exception as e:
+                        print(fmt, value, type(value))
+                        raise e
 
             except Exception as e:
                 raise e
@@ -543,7 +558,7 @@ class nlmsg_atoms(nlmsg_base):
 
         def decode(self):
             nla_base.decode(self)
-            self.value = ':'.join('%02x' % (ord(i)) for i in self['value'])
+            self.value = ':'.join('%02x' % (i) for i in self['value'])
 
     class hex(nla_base):
         '''
@@ -561,6 +576,19 @@ class nlmsg_atoms(nlmsg_base):
         '''
         # FIXME: move z-string hacks from general decode here?
         fields = [('value', 'z')]
+
+        def encode(self):
+            if isinstance(self['value'], str) and sys.version[0] == '3':
+                self['value'] = bytes(self['value'], 'utf-8')
+            nla_base.encode(self)
+
+        def decode(self):
+            nla_base.decode(self)
+            try:
+                assert sys.version[0] == '3'
+                self.value = self['value'].decode('utf-8')
+            except (AssertionError, UnicodeDecodeError):
+                self.value = self['value']
 
 
 class nla(nla_base, nlmsg_atoms):

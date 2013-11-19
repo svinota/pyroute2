@@ -1,16 +1,15 @@
 import traceback
 import threading
-import urlparse
 import logging
 import select
 import struct
 import socket
-import Queue
 import time
 import os
 import io
 import uuid
 import ssl
+import sys
 
 from pyroute2.netlink.generic import ctrlmsg
 from pyroute2.netlink.generic import nlmsg
@@ -18,7 +17,16 @@ from pyroute2.netlink.generic import NetlinkDecodeError
 from pyroute2.netlink.generic import NetlinkHeaderDecodeError
 from pyroute2.netlink.generic import NETLINK_GENERIC
 from pyroute2.netlink.generic import NETLINK_UNUSED
+from pyroute2.common import basestring
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
 
+try:
+    import Queue
+except ImportError:
+    import queue as Queue
 
 _QUEUE_MAXSIZE = 4096
 
@@ -197,15 +205,19 @@ def _repr_sockets(sockets, mode):
                 url += 'tls'
         if not url:
             url = 'tcp'
+
+        sname = i.getsockname()
         if i.family == socket.AF_UNIX:
-            url += '://%s' % (i.getsockname())
+            if sys.version[0] == '3':
+                sname = sname.decode('utf-8')
+            url += '://%s' % (sname)
         elif i.family == AF_PIPE:
-            url += '://%i,%i' % (i.getsockname())
+            url += '://%i,%i' % (sname)
         else:
             if mode == 'local':
-                url += '://%s:%i' % (i.getsockname())
+                url += '://%s:%i' % (sname)
             elif mode == 'remote':
-                url += '://%s:%i' % (i.getpeername())
+                url += '://%s:%i' % (sname)
         ret.append(url)
     return ret
 
@@ -381,7 +393,7 @@ class IOThread(threading.Thread):
         self.callbacks = []       # [(predicate, callback, args), ...]
         # secret; write non-zero byte as terminator
         self.secret = os.urandom(15)
-        self.secret += '\xff'
+        self.secret += b'\xff'
         self.uuid = uuid.uuid4()
         # control in-process communication only
         self.sctl, self.control = pairPipeSockets()

@@ -13,7 +13,11 @@ Quick start:
 import uuid
 import platform
 import threading
-from Queue import Empty
+try:
+    from Queue import Empty
+except ImportError:
+    from queue import Empty
+
 from socket import AF_INET
 from socket import AF_INET6
 from pyroute2.common import Dotkeys
@@ -579,7 +583,7 @@ class Interface(Transactional):
         Commit transaction. In the case of exception all
         changes applied during commit will be reverted.
         '''
-        e = None
+        error = None
         added = None
         removed = None
         if tid:
@@ -728,7 +732,9 @@ class Interface(Transactional):
                 # if some error was returned by the internal
                 # closure, substitute the initial one
                 if ret is not None:
-                    e = ret
+                    error = ret
+                else:
+                    error = e
             elif isinstance(e, NetlinkError) and getattr(e, 'code', 0) == 1:
                 # It is <Operation not permitted>, catched in
                 # rollback. So return it -- see ~5 lines above
@@ -762,9 +768,9 @@ class Interface(Transactional):
             self.reload()
 
         # raise exception for failed transaction
-        if e is not None:
-            e.transaction = transaction
-            raise e
+        if error is not None:
+            error.transaction = transaction
+            raise error
 
     def up(self):
         '''

@@ -17,4 +17,7 @@ ip.serve('tls://localhost:7000',
          cert='server.crt',
          ca='ca.crt')
 
-raw_input("return >> ")
+try:
+    raw_input("return >> ")
+except NameError:
+    input("return >> ")

@@ -1,4 +1,5 @@
 from pyroute2 import IPDB
+from pyroute2.common import basestring
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.ipdb import clear_fail_bit
 from pyroute2.netlink.ipdb import set_fail_bit
@@ -32,7 +33,7 @@ class TestExplicit(object):
         remove_link('bv101')
 
     def test_simple(self):
-        assert self.ip.keys() > 0
+        assert len(list(self.ip.keys())) > 0
 
     def test_empty_transaction(self):
         assert 'lo' in self.ip

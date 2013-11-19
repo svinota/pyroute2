@@ -47,7 +47,8 @@ def create_link(name, kind):
 def _check_output(*argv):
     # we can not use check_output, as it does not exist in 2.6
     process = subprocess.Popen(argv, stdout=subprocess.PIPE)
-    return process.communicate()[0].split('\n')
+    ret = process.communicate()
+    return ret[0].decode('ascii').split('\n')
 
 
 def grep(command, pattern=None):
