@@ -636,4 +636,14 @@ class ctrlmsg(genlmsg):
                ('CTRL_ATTR_MAXATTR', 'hex'),
                ('CTRL_ATTR_OPS', 'hex'),
                ('CTRL_ATTR_MCAST_GROUPS', 'hex'),
-               ('IPR_ATTR_SECRET', 'asciiz'))
+               ('IPR_ATTR_SECRET', 'asciiz'),
+               ('IPR_ATTR_HOST', 'asciiz'),
+               ('IPR_ATTR_ADDR', 'uint32'),
+               ('IPR_ATTR_ERROR', 'asciiz'))
+
+
+class envmsg(nlmsg):
+    fields = (('dst', 'I'),
+              ('src', 'I'))
+
+    nla_map = (('IPR_ATTR_CDATA', 'cdata'),)
