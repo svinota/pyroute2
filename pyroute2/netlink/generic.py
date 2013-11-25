@@ -352,7 +352,7 @@ class nlmsg_base(dict):
             self['value'] = value
             self.value = value
 
-    def get_attr(self, attr):
+    def get_attr(self, attr, default=None):
         '''
         Return first attr by name or None
         '''
@@ -360,7 +360,7 @@ class nlmsg_base(dict):
         if attrs:
             return attrs[0]
         else:
-            return None
+            return default
 
     def get_attrs(self, attr):
         '''
