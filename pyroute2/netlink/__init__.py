@@ -13,11 +13,12 @@ import sys
 
 from pyroute2.netlink.generic import ctrlmsg
 from pyroute2.netlink.generic import nlmsg
+from pyroute2.netlink.generic import envmsg
 from pyroute2.netlink.generic import NetlinkDecodeError
 from pyroute2.netlink.generic import NetlinkHeaderDecodeError
 from pyroute2.netlink.generic import NETLINK_GENERIC
 from pyroute2.netlink.generic import NETLINK_UNUSED
-from pyroute2.common import basestring
+from pyroute2.netlink.generic import NETLINK_USERSOCK
 try:
     import urlparse
 except ImportError:
@@ -33,6 +34,8 @@ _QUEUE_MAXSIZE = 4096
 REALM_NONE = 0x0
 REALM_DEFAULT = 0x10001
 MASK_DEFAULT = 0xffff0000
+
+C_ADDR_START = 3
 
 
 class NetlinkError(Exception):
@@ -124,6 +127,8 @@ IPRCMD_ERR = 3
 IPRCMD_REGISTER = 4
 IPRCMD_RELOAD = 5
 IPRCMD_ROUTE = 6
+IPRCMD_CONNECT = 7
+IPRCMD_DISCONNECT = 8
 
 
 def _get_plugin(url):
@@ -352,9 +357,11 @@ class ssl_credentials(object):
 
 
 class masq_record(object):
-    def __init__(self, seq, pid, socket):
+    def __init__(self, seq, pid, src, dst, socket):
         self.seq = seq
         self.pid = pid
+        self.src = src
+        self.dst = dst
         self.socket = socket
         self.ctime = time.time()
 
@@ -364,16 +371,29 @@ class masq_record(object):
 
 
 class IOThread(threading.Thread):
-    def __init__(self):
-        threading.Thread.__init__(self, name='Netlink I/O')
-        self.setDaemon(True)
+    def __init__(self,
+                 addr=0x01000000,
+                 mask=0xff000000,
+                 sys_mask=0x00ff0000,
+                 con_mask=0x0000ffff):
+        threading.Thread.__init__(self, name='Netlink I/O core')
+        #self.setDaemon(True)
         self.pid = os.getpid()
         self._nonce = 0
         self._nonce_lock = threading.Lock()
+        self._addr_lock = threading.Lock()
         self._run_event = threading.Event()
         self._sctl_event = threading.Event()
         self._stop_event = threading.Event()
         self._reload_event = threading.Event()
+        # new address scheme
+        self.addr = addr
+        self.mask = mask
+        self.sys_mask = sys_mask
+        self.con_mask = con_mask
+        self.default_sys = {'netlink': 0x00010000}
+        self.active_sys = {}
+        self.active_conn = {}
         # fd lists for select()
         self._rlist = set()
         self._wlist = set()
@@ -389,8 +409,6 @@ class IOThread(threading.Thread):
         self.servers = set()      # set(socket, socket...)
         self.controls = set()     # set(socket, socket...)
         self.ssl_keys = {}        # {url: ssl_credentials(), url:...}
-        self.mirror = False
-        self.callbacks = []       # [(predicate, callback, args), ...]
         # secret; write non-zero byte as terminator
         self.secret = os.urandom(15)
         self.secret += b'\xff'
@@ -404,17 +422,21 @@ class IOThread(threading.Thread):
         # masquerade cache expiration
         self._expire_thread = threading.Thread(target=self._expire_masq,
                                                name='Masquerade cache')
-        self._expire_thread.setDaemon(True)
+        #self._expire_thread.setDaemon(True)
         self._expire_thread.start()
-        # buffers reassembling
-        self.buffers = Queue.Queue()
-        self._feed_thread = threading.Thread(target=self._feed_buffers,
-                                             name='Reasm and parsing')
-        self._feed_thread.setDaemon(True)
-        self._feed_thread.start()
-        # debug
-        self.record = False
-        self.backlog = []
+
+    def alloc_addr(self, system, block=False):
+        with self._addr_lock:
+            if system not in self.active_sys:
+                self.active_sys[system] = list(range(C_ADDR_START,
+                                                     self.con_mask - 1))
+            return system | self.active_sys[system].pop(0)
+
+    def dealloc_addr(self, addr):
+        with self._addr_lock:
+            system = addr & self.sys_mask
+            local = addr & self.con_mask
+            self.active_sys[system].append(local)
 
     def _sctl(self):
         msg = ctrlmsg()
@@ -435,70 +457,6 @@ class IOThread(threading.Thread):
             logging.error("got err for sctl, shutting down")
             # FIXME: shutdown all
             self._stop_event.set()
-
-    def _feed_buffers(self):
-        '''
-        Background thread to feed reassembled buffers to the parser
-        '''
-        save_buffers = {}
-        while True:
-            (buf, marshal, sock) = self.buffers.get()
-            if self._stop_event.is_set():
-                return
-
-            buf.seek(0)
-            if sock in self.clients:
-                realm = struct.unpack('I', buf.read(4))[0]
-                start = 4
-            else:
-                realm = REALM_NONE
-                start = 0
-
-            save = save_buffers.get(sock, None)
-            if save is not None:
-                # concatenate buffers
-                buf.seek(start)
-                save.write(buf.read())
-                save.length += buf.length
-                # discard save
-                buf = save
-                del save_buffers[sock]
-
-            offset = start
-            while offset < buf.length:
-                buf.seek(offset)
-                length = struct.unpack('I', buf.read(4))[0]
-
-                if offset + length > buf.length:
-                    # create save buffer
-                    buf.seek(offset)
-                    save = io.BytesIO()
-                    save.length = save.write(buf.read())
-                    save_buffers[sock] = save
-                    # truncate the buffer
-                    buf.truncate(offset)
-                    break
-
-                if sock in self.clients:
-                    # create masquerade record for client's messages
-                    # 1. generate nonce
-                    nonce = self.nonce()
-                    # 2. save masquerade record, invalidating old one
-                    buf.seek(offset + 8)
-                    seq, pid = struct.unpack('II', buf.read(8))
-                    self.masquerade[nonce] = masq_record(seq, pid, sock)
-                    # 3. overwrite seq and pid
-                    buf.seek(offset + 8)
-                    buf.write(struct.pack('II', nonce, self.pid))
-
-                buf.seek(offset)
-                data = io.BytesIO()
-                data.write(buf.read(length))
-                data.length = length
-
-                self.send(data, realm, marshal, sock)
-
-                offset += length
 
     def _expire_masq(self):
         '''
@@ -522,50 +480,16 @@ class IOThread(threading.Thread):
                 self._nonce += 1
             return self._nonce
 
-    def distribute(self, data):
-        """
-        Send message to all clients. Called from self.route()
-        """
-        data.seek(8)
-        # read sequence number and pid
-        seq, pid = struct.unpack('II', data.read(8))
-        # default target -- local processing
-        target = None
-        # if it is a unicast response
-        if pid == self.pid:
-            # lookup masquerade table
-            target = self.masquerade.get(seq, None)
-        # there is valid masquerade record
-        if target is not None:
-            # fill up client's pid and seq
-            offset = 0
-            # ... but -- for each message in the packet :)
-            while offset < data.length:
-                # write the data
-                data.seek(offset + 8)
-                data.write(struct.pack('II', target.seq, target.pid))
-                # skip to the next message
-                data.seek(offset)
-                length = struct.unpack('I', data.read(4))[0]
-                offset += length
-
-            target.socket.send(data.getvalue())
-        else:
-            # return True -- this packet should be parsed
-            return True
-
     def route(self, sock, data):
         """
         Route message
         """
-        if sock in self.clients:
-            data.seek(8)  # realm + length
-        else:
-            data.seek(4)  # length
-
-        # message type, offset 4(+4) bytes, length 2 bytes
-        mtype = struct.unpack('H', data.read(2))[0]
-        # FIXME log routing failures
+        data.seek(0)
+        (length,
+         mtype,
+         flags,
+         seq,
+         pid) = struct.unpack('IHHII', data.read(16))
 
         ##
         #
@@ -574,6 +498,7 @@ class IOThread(threading.Thread):
         if (mtype == NETLINK_UNUSED) and (sock in self.controls):
             rsp = ctrlmsg()
             rsp['header']['type'] = NETLINK_UNUSED
+            rsp['header']['sequence_number'] = seq
             rsp['cmd'] = IPRCMD_ERR
             cmd = self.parse_control(data)
             if cmd['cmd'] == IPRCMD_STOP:
@@ -587,14 +512,44 @@ class IOThread(threading.Thread):
                 self._wlist.remove(self.sctl)
                 self.sctl.close()
                 self.control.close()
-                self.buffers.put((None, None, None))
-                self._feed_thread.join()
                 self._expire_thread.join()
                 return
             elif cmd['cmd'] == IPRCMD_RELOAD:
                 # Reload io cycle
                 self._reload_event.set()
                 rsp['cmd'] = IPRCMD_ACK
+            elif cmd['cmd'] == IPRCMD_DISCONNECT:
+                # drop a connection, identified by an addr
+                try:
+                    addr = cmd.get_attr('IPR_ATTR_ADDR')
+                    self.deregister_link(addr)
+                    rsp['cmd'] = IPRCMD_ACK
+                    self._reload_event.set()
+                except Exception as e:
+                    rsp['attrs'] = [['IPR_ATTR_ERROR', str(e)]]
+
+            elif cmd['cmd'] == IPRCMD_CONNECT:
+                # connect to a system
+                rsp['attrs'] = []
+                try:
+                    target = urlparse.urlparse(cmd.get_attr('IPR_ATTR_HOST'))
+                    if target.scheme == 'netlink':
+                        new_sock = NetlinkSocket(int(target.hostname))
+                        new_sock.bind(int(target.port))
+                        sys = cmd.get_attr('IPR_ATTR_SYS',
+                                           self.default_sys[target.scheme])
+                        send = lambda d, s: new_sock.sendto(self.gate(d, s),
+                                                            (0, 0))
+                        addr = self.alloc_addr(sys)
+                        rsp['attrs'].append(['IPR_ATTR_ADDR', addr])
+                        self.register_link(addr, new_sock, send)
+                        rsp['cmd'] = IPRCMD_ACK
+                        self._reload_event.set()
+                    else:
+                        raise Exception('scheme not supported')
+                except Exception as e:
+                    rsp['attrs'].append(['IPR_ATTR_ERROR',
+                                         traceback.format_exc()])
             rsp.encode()
             sock.send(rsp.buf.getvalue())
 
@@ -605,6 +560,7 @@ class IOThread(threading.Thread):
         elif (mtype == NETLINK_UNUSED) and (sock in self.clients):
             rsp = ctrlmsg()
             rsp['header']['type'] = NETLINK_UNUSED
+            rsp['header']['sequence_number'] = seq
             rsp['cmd'] = IPRCMD_ERR
             cmd = self.parse_control(data)
             if cmd['cmd'] == IPRCMD_ROUTE:
@@ -621,6 +577,7 @@ class IOThread(threading.Thread):
                 if secret == self.secret:
                     self.controls.add(sock)
                     rsp['cmd'] = IPRCMD_ACK
+
             rsp.encode()
             sock.send(rsp.buf.getvalue())
 
@@ -628,93 +585,82 @@ class IOThread(threading.Thread):
         #
         # Data messages
         #
+        elif mtype == NETLINK_USERSOCK:
+            envelope = self.parse_envelope(data)
+            if envelope['dst'] in self.active_conn:
+                self.active_conn[envelope['dst']]['send'](envelope, sock)
+            else:
+                # unknown destination
+                rsp = ctrlmsg()
+                rsp['header']['type'] = NETLINK_UNUSED
+                rsp['cmd'] = IPRCMD_ERR
+                rsp['attrs'] = [['IPR_ATTR_ERROR', 'unknown destination']]
+                rsp.encode()
+                sock.send(rsp.buf.getvalue())
         else:
-            self.buffers.put((data, self.marshals.get(sock, None), sock))
+            # extract masq info
+            target = self.masquerade.get(seq, None)
+            if target is not None:
+                offset = 0
+                while offset < data.length:
+                    data.seek(offset)
+                    (length,
+                     mtype,
+                     flags,
+                     seq,
+                     pid) = struct.unpack('IHHII', data.read(16))
+                    data.seek(offset + 8)
+                    data.write(struct.pack('II',
+                                           target.seq,
+                                           target.pid))
+                    # skip to the next in chunk
+                    offset += length
+                # envelope data
+                envelope = envmsg()
+                envelope['header']['sequence_number'] = target.seq
+                envelope['header']['pid'] = target.pid
+                envelope['header']['type'] = NETLINK_USERSOCK
+                envelope['dst'] = target.src
+                envelope['src'] = target.dst
+                envelope['attrs'] = [['IPR_ATTR_CDATA',
+                                      data.getvalue()]]
+                envelope.encode()
+                # target
+                target.socket.send(envelope.buf.getvalue())
 
     def recv(self, fd, buf):
         ret = 0
-        if isinstance(fd, PipeSocket):
-            ret += buf.write(struct.pack('I', REALM_NONE))
         ret += buf.write(fd.recv(16384))
         return ret, {}
 
-    def send(self, data, realm=REALM_DEFAULT, marshal=None, sock=None):
-        '''
-        realm == REALM_NONE: resonse, to be distributed or parsed
-        realm >  REALM_NONE: request
-        '''
-        if realm == REALM_NONE:
-            if self.distribute(data):
-                self.parse(data, marshal, sock)
-        else:
-            for ((target, mask), value) in tuple(self.xtable.items()):
-                if realm & mask == target:
-                    self.xtable[(target, mask)][1](data.getvalue(), realm)
-                    break
-            else:
-                pass
+    def gate(self, envelope, sock):
+        # 1. get data
+        data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
+        # 2. register way back
+        nonce = self.nonce()
+        seq = envelope['header']['sequence_number']
+        pid = envelope['header']['pid']
+        src = envelope['src']
+        dst = envelope['dst']
+        masq = masq_record(seq, pid, src, dst, sock)
+        self.masquerade[nonce] = masq
+        self.active_conn[envelope['dst']]['sroute'][nonce] = masq
+        data.seek(8)
+        data.write(struct.pack('II', nonce, self.pid))
+        # 3. return data
+        return data.getvalue()
+
+    def parse_envelope(self, data):
+        data.seek(0)
+        envelope = envmsg(data)
+        envelope.decode()
+        return envelope
 
     def parse_control(self, data):
-        data.seek(4)
+        data.seek(0)
         cmd = ctrlmsg(data)
         cmd.decode()
         return cmd
-
-    def parse(self, data, marshal, sock):
-        '''
-        Parse and enqueue messages. A message can be
-        retrieved from netlink socket as well as from a
-        remote system, and it should be properly enqueued
-        to make it available for Netlink.get() method.
-
-        If IOThread.mirror is set, all messages will be also
-        copied (mirrored) to the default 0 queue. Please
-        make sure that 0 queue exists, before setting
-        IOThread.mirror to True.
-
-        If there is no such queue for received
-        sequence_number, leave sequence_number intact, but
-        put the message into default 0 queue, if it exists.
-        '''
-
-        for msg in marshal.parse(data):
-            if self.record:
-                self.backlog.append((time.asctime(), msg))
-            key = msg['header']['sequence_number']
-            try:
-                msg['header']['host'] = _repr_sockets([sock], 'remote')[0]
-            except socket.error:
-                # on shutdown, we can get here socket.error
-                # in this case add just an empty string
-                msg['header']['host'] = ''
-
-            # 8<--------------------------------------------------------------
-            # message filtering
-            # right now it is simply iterating callback list
-            for cr in self.callbacks:
-                if cr[0](msg):
-                    cr[1](msg, *cr[2])
-
-            # 8<--------------------------------------------------------------
-            if key not in self.listeners:
-                key = 0
-            if self.mirror and (key != 0) and (msg.raw is not None):
-                # On Python 2.6 it can fail due to class fabrics
-                # in nlmsg definitions, so parse it again. It should
-                # not be much slower than copy.deepcopy()
-                try:
-                    raw = io.BytesIO()
-                    raw.length = raw.write(msg.raw)
-                    self.listeners[0].put_nowait(marshal.parse(raw)[0])
-                except Queue.Full:
-                    # FIXME: log this
-                    pass
-            if key in self.listeners:
-                try:
-                    self.listeners[key].put_nowait(msg)
-                except Queue.Full:
-                    # FIXME: log this
-                    pass
 
     def command(self, cmd, attrs=[]):
         msg = ctrlmsg(io.BytesIO())
@@ -746,55 +692,18 @@ class IOThread(threading.Thread):
         assert self._reload_event.is_set()
         return ret
 
-    def add_server(self, url):
-        '''
-        Add a server socket to listen for clients on
-        '''
-        (sock, address) = _get_socket(url, server_side=True,
-                                      ssl_keys=self.ssl_keys)
-        if sock.family == socket.AF_INET:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(address)
-        sock.listen(16)
+    def register_link(self, addr, sock, send):
         self._rlist.add(sock)
-        self.servers.add(sock)
-        self.reload()
+        self.active_conn[addr] = {'sock': sock,
+                                  'send': send,
+                                  'sroute': {}}
         return sock
 
-    def remove_server(self, sock=None, address=None):
-        assert sock or address
-        if address:
-            for sock in self.servers:
-                if sock.getsockname() == address:
-                    break
-        assert sock
+    def deregister_link(self, addr):
+        sock = self.active_conn[addr]['sock']
+        sock.close()
         self._rlist.remove(sock)
-        self.servers.remove(sock)
-        self.reload()
-        return sock
-
-    def add_uplink(self, sock, marshal,
-                   realm=REALM_DEFAULT,
-                   mask=MASK_DEFAULT,
-                   send=None):
-        if send is None:
-            send = lambda d, r: None
-        self._rlist.add(sock)
-        self.uplinks.add(sock)
-        self.xtable[(realm, mask)] = (sock, send)
-        self.marshals[sock] = marshal()
-        self.reload()
-        return sock
-
-    def remove_uplink(self, sock):
-        self._rlist.remove(sock)
-        self.uplinks.remove(sock)
-        del self.marshals[sock]
-        for (key, value) in tuple(self.xtable.items()):
-            if value[0] == sock:
-                del self.xtable[key]
-        self.reload()
-        return sock
+        del self.active_conn[addr]
 
     def add_client(self, sock):
         '''
@@ -874,14 +783,10 @@ class IOThread(threading.Thread):
                 #
                 # Route the data
                 #
-                if self.record:
-                    self.backlog.append((time.asctime(),
-                                         fd.getsockname(),
-                                         data))
                 self.route(fd, data)
 
 
-class Netlink(object):
+class Netlink(threading.Thread):
     '''
     Main netlink messaging class. It automatically spawns threads
     to monitor network and netlink I/O, creates and destroys message
@@ -899,8 +804,7 @@ class Netlink(object):
 
     To act as a server, call serve()::
 
-        nl = Netlink(do_connect=False)
-        nl.connect('localsystem')
+        nl = Netlink()
         nl.serve('unix:///tmp/pyroute')
     '''
 
@@ -909,18 +813,173 @@ class Netlink(object):
     marshal = Marshal
 
     def __init__(self, debug=False, timeout=3, do_connect=True,
-                 host='localsystem', key=None, cert=None, ca=None):
+                 host=None, key=None, cert=None, ca=None):
+        threading.Thread.__init__(self, name='Netlink API')
         self._timeout = timeout
         self.iothread = IOThread()
-        self.listeners = self.iothread.listeners
-        self.ssl_keys = self.iothread.ssl_keys
-        self._sockets = set()
-        self.servers = {}
-        self.iothread.start()
+        self.realms = set()     # set(addr, addr, ...)
+        self.listeners = {}     # {nonce: Queue(), ...}
+        self.callbacks = []     # [(predicate, callback, args), ...]
         self.debug = debug
         self.marshal.debug = debug
+        self.marshal = self.marshal()
+        self.buffers = Queue.Queue()
+        self.mirror = False
+        self.host = host or 'netlink://%i:%i' % (self.family, self.groups)
+        self._run_event = threading.Event()
+        self._stop_event = threading.Event()
+        self._feed_thread = threading.Thread(target=self._feed_buffers,
+                                             name='Reasm and parsing')
+        #self._feed_thread.setDaemon(True)
+        self._feed_thread.start()
+        #self.setDaemon(True)
+        self.start()
+        self._run_event.wait()
         if do_connect:
-            self.connect(host, key, cert, ca)
+            self.connect()
+
+    def run(self):
+        # 1. run iothread
+        self.iothread.start()
+        # 2. connect to iothread
+        self._brs, self.bridge = pairPipeSockets()
+        #import rpdb2
+        #rpdb2.start_embedded_debugger("bala")
+        self.iothread.add_client(self._brs)
+        self.iothread.reload()
+
+        msg = ctrlmsg()
+        msg['header']['type'] = NETLINK_UNUSED
+        msg['cmd'] = IPRCMD_REGISTER
+        msg['attrs'] = [['IPR_ATTR_SECRET', self.iothread.secret]]
+        msg.encode()
+
+        self.bridge.send(msg.buf.getvalue())
+        # assume iothread is up and running...
+        buf = io.BytesIO()
+        buf.write(self.bridge.recv())
+        buf.seek(0)
+
+        msg = ctrlmsg(buf)
+        msg.decode()
+
+        if msg['cmd'] == IPRCMD_ACK:
+            self._run_event.set()
+        else:
+            return
+
+        # 3. start to monitor it
+        while not self._stop_event.is_set():
+            try:
+                [rlist, wlist, xlist] = select.select([self.bridge], [], [])
+            except:
+                continue
+            for fd in rlist:
+                data = io.BytesIO()
+                try:
+                    data = fd.recv()
+                except:
+                    continue
+
+                # put data in the queue
+                self.buffers.put(data)
+
+    def _feed_buffers(self):
+        '''
+        Background thread to feed reassembled buffers to the parser
+        '''
+        save = None
+        while True:
+            buf = io.BytesIO()
+            buf.length = buf.write(self.buffers.get())
+            if self._stop_event.is_set():
+                return
+
+            buf.seek(0)
+
+            if save is not None:
+                # concatenate buffers
+                buf.seek(0)
+                save.write(buf.read())
+                save.length += buf.length
+                # discard save
+                buf = save
+                save = None
+
+            offset = 0
+            while offset < buf.length:
+                buf.seek(offset)
+                (length,
+                 mtype,
+                 flags) = struct.unpack('IHH', buf.read(8))
+
+                if offset + length > buf.length:
+                    # create save buffer
+                    buf.seek(offset)
+                    save = io.BytesIO()
+                    save.length = save.write(buf.read())
+                    # truncate the buffer
+                    buf.truncate(offset)
+                    break
+
+                buf.seek(offset)
+                data = io.BytesIO()
+                data.write(buf.read(length))
+                data.length = length
+                data.seek(0)
+
+                if mtype == NETLINK_UNUSED:
+                    # control traffic
+                    cmd = ctrlmsg(data)
+                    cmd.decode()
+                    seq = cmd['header']['sequence_number']
+                    if seq in self.listeners:
+                        self.listeners[seq].put(cmd)
+                elif mtype == NETLINK_USERSOCK:
+                    # data traffic
+                    envelope = envmsg(data)
+                    envelope.decode()
+                    buf = io.BytesIO()
+                    buf.length = buf.write(envelope.get_attr('IPR_ATTR_CDATA'))
+                    buf.seek(0)
+                    self.parse(buf)
+
+                offset += length
+
+    def parse(self, data):
+
+        for msg in self.marshal.parse(data):
+            key = msg['header']['sequence_number']
+
+            # 8<--------------------------------------------------------------
+            # message filtering
+            # right now it is simply iterating callback list
+            for cr in self.callbacks:
+                if cr[0](msg):
+                    cr[1](msg, *cr[2])
+
+            # 8<--------------------------------------------------------------
+            if key not in self.listeners:
+                key = 0
+
+            if self.mirror and (key != 0) and (msg.raw is not None):
+                # On Python 2.6 it can fail due to class fabrics
+                # in nlmsg definitions, so parse it again. It should
+                # not be much slower than copy.deepcopy()
+                try:
+                    raw = io.BytesIO()
+                    raw.length = raw.write(msg.raw)
+                    self.listeners[0].put_nowait(self.marshal.parse(raw)[0])
+                except Queue.Full:
+                    # FIXME: log this
+                    pass
+
+            if key in self.listeners:
+                try:
+                    self.listeners[key].put_nowait(msg)
+                except Queue.Full:
+                    # FIXME: log this
+                    pass
 
     def _remote_cmd(self, sock, cmd, attrs=None):
         attrs = attrs or []
@@ -932,116 +991,66 @@ class Netlink(object):
         smsg.encode()
         sock.send(struct.pack('I', REALM_NONE) + smsg.buf.getvalue())
 
-    def connect(self,
-                host='localsystem',
-                key=None,
-                cert=None,
-                ca=None,
-                realm=REALM_DEFAULT,
-                mask=MASK_DEFAULT,
-                **kwarg):
-        assert isinstance(host, basestring)
-        sock = None
-        if key:
-            self.ssl_keys[host] = ssl_credentials(key, cert, ca)
-        try:
-            if host == 'localsystem':
-                sock = NetlinkSocket(self.family)
-                sock.bind(self.groups)
-            else:
-                try:
-                    # built-in connection types
-                    (sock, addr) = _get_socket(url=host,
-                                               server_side=False,
-                                               ssl_keys=self.ssl_keys)
-                    sock.connect(addr)
-                except AssertionError:
-                    # try to load a plugin
-                    (ctype, create, command) = _get_plugin(host)
-                    if ctype == 'queue':
-                        nonce = self.iothread.nonce()
-                        self.listeners[nonce] = create(command,
-                                                       self.marshal,
-                                                       **kwarg)
-                        return nonce
-                    else:
-                        raise Exception('plugin not supported')
-
-                self._remote_cmd(sock=sock,
-                                 cmd=IPRCMD_ROUTE,
-                                 attrs=[['CTRL_ATTR_FAMILY_ID',
-                                         self.family]])
-                rsp = ctrlmsg(sock.recv(28))
-                rsp.decode()
-                assert rsp['cmd'] == IPRCMD_ACK
-
-        except Exception as e:
-            if host in self.ssl_keys:
-                del self.ssl_keys[host]
-            raise e
-
+    def command(self, cmd, attrs=[], expect=None):
+        nonce = self.iothread.nonce()
+        self.listeners[nonce] = Queue.Queue()
+        msg = ctrlmsg(io.BytesIO())
+        msg['header']['type'] = NETLINK_UNUSED
+        msg['header']['sequence_number'] = nonce
+        msg['cmd'] = cmd
+        msg['attrs'] = attrs
+        msg.encode()
+        self.bridge.send(msg.buf.getvalue())
+        rsp = self.listeners[nonce].get()
+        del self.listeners[nonce]
+        assert rsp['cmd'] == IPRCMD_ACK
+        if expect is not None:
+            return rsp.get_attr(expect)
         else:
-            if isinstance(sock, NetlinkSocket):
-                send = lambda d, r: sock.sendto(d, (0, 0))
-            else:
-                send = lambda d, r: sock.send(struct.pack('I', r) + d)
+            return None
 
-            self.iothread.add_uplink(sock,
-                                     self.marshal,
-                                     realm & mask,
-                                     mask,
-                                     send)
-            self._sockets.add(sock)
+    def serve(self, url):
+        return self.command(IPRCMD_SERVE,
+                            [['IPR_ATTR_HOST', url]])
 
-    def get_servers(self):
-        return _repr_sockets(self.iothread.servers, 'local')
+    def shutdown(self, url):
+        return self.command(IPRCMD_SHUTDOWN,
+                            [['IPR_ATTR_HOST', url]])
 
-    def get_clients(self):
-        return _repr_sockets(self.iothread.clients, 'remote')
+    def connect(self, host=None):
+        if host is None:
+            host = self.host
+        realm = self.command(IPRCMD_CONNECT,
+                             [['IPR_ATTR_HOST', host]],
+                             expect='IPR_ATTR_ADDR')
+        self.realms.add(realm)
+        return realm
 
-    def get_sockets(self):
-        return _repr_sockets(self._sockets, 'remote')
-
-    def shutdown_servers(self, *urls):
-        self._shutdown_sockets([i for i in self.iothread.servers
-                                if _repr_sockets([i], 'local') !=
-                                _repr_sockets([self.iothread.sctl], 'local')],
-                               'local', self.iothread.remove_server, *urls)
-
-    def shutdown_clients(self, *urls):
-        self._shutdown_sockets([i for i in self.iothread.clients
-                                if _repr_sockets([i], 'remote') !=
-                                _repr_sockets([self.iothread.sctl], 'remote')],
-                               'remote', self.iothread.remove_client, *urls)
-
-    def shutdown_sockets(self, *urls):
-        self._shutdown_sockets(self._sockets, 'remote',
-                               self.iothread.remove_uplink, *urls)
-
-    def _shutdown_sockets(self, sockets, way, func, *urls):
-        for sock in tuple(sockets):
-            if (_repr_sockets([sock], way)[0] in urls) or not urls:
-                sock.close()
-                sockets.remove(sock)
-                try:
-                    func(sock)
-                except:
-                    pass
+    def disconnect(self, realm=None):
+        if realm is None:
+            realm = self.realms.pop()
+        ret = self.command(IPRCMD_DISCONNECT,
+                           [['IPR_ATTR_ADDR', realm]])
+        self.realms.remove(realm)
+        return ret
 
     def release(self):
         '''
         Shutdown all threads and release netlink sockets
         '''
-        self.shutdown_sockets()
-        self.shutdown_clients()
-        self.shutdown_servers()
+        for realm in tuple(self.realms):
+            self.disconnect(realm)
         self.iothread.stop()
         self.iothread.join()
 
-    def serve(self, url, key=None, cert=None, ca=None):
-        if key:
-            self.ssl_keys[url] = ssl_credentials(key, cert, ca)
-        self.servers[url] = self.iothread.add_server(url)
+        self._stop_event.set()
+        self._brs.send("")
+        self._brs.close()
+        self.join()
+        self.bridge.close()
+
+        self.buffers.put("")
+        self._feed_thread.join()
 
     def mirror(self, operate=True):
         '''
@@ -1050,7 +1059,7 @@ class Netlink(object):
         default 0 queue.
         '''
         self.monitor(operate)
-        self.iothread.mirror = operate
+        self.mirror = operate
 
     def monitor(self, operate=True):
         '''
@@ -1103,17 +1112,17 @@ class Netlink(object):
         '''
         if args is None:
             args = []
-        self.iothread.callbacks.append((predicate, callback, args))
+        self.callbacks.append((predicate, callback, args))
 
     def unregister_callback(self, callback):
         '''
         Remove the first reference to the function from the callback
         register
         '''
-        cb = tuple(self.iothread.callbacks)
+        cb = tuple(self.callbacks)
         for cr in cb:
             if cr[1] == callback:
-                self.iothread.callbacks.pop(cb.index(cr))
+                self.callbacks.pop(cb.index(cr))
                 return
 
     def _remove_queue(self, key):
@@ -1140,7 +1149,6 @@ class Netlink(object):
         '''
         queue = self.listeners[key]
         result = []
-        hosts = len(self._sockets)
         timeout = timeout or self._timeout
         while True:
             # timeout should also be set to catch ctrl-c
@@ -1163,8 +1171,8 @@ class Netlink(object):
                 result.append(msg)
             if (msg['header']['type'] == NLMSG_DONE) or \
                (not msg['header']['flags'] & NLM_F_MULTI):
-                hosts -= 1
-            if hosts == 0 or raw:
+                break
+            if raw:
                 break
         if not hasattr(queue, 'persist'):
             self._remove_queue(key)
@@ -1179,16 +1187,27 @@ class Netlink(object):
         fields, and wait for response.
         '''
         # FIXME make it thread safe, yeah
-        nonce = self.iothread.nonce()
-        self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
-        msg['header']['sequence_number'] = nonce
-        msg['header']['pid'] = os.getpid()
-        msg['header']['type'] = msg_type
-        msg['header']['flags'] = msg_flags
-        msg.encode()
-        self.iothread.send(msg.buf, realm)
-        result = self.get(nonce, timeout=response_timeout)
-        if not self.debug:
-            for i in result:
-                del i['header']
-        return result
+        ret = []
+        for realm in self.realms:
+            nonce = self.iothread.nonce()
+            self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
+            msg['header']['sequence_number'] = nonce
+            msg['header']['pid'] = os.getpid()
+            msg['header']['type'] = msg_type
+            msg['header']['flags'] = msg_flags
+            msg.encode()
+            envelope = envmsg()
+            envelope['header']['sequence_number'] = nonce
+            envelope['header']['pid'] = os.getpid()
+            envelope['header']['type'] = NETLINK_USERSOCK
+            envelope['dst'] = realm
+            envelope['src'] = 0
+            envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
+            envelope.encode()
+            self.bridge.send(envelope.buf.getvalue())
+            result = self.get(nonce, timeout=response_timeout)
+            if not self.debug:
+                for i in result:
+                    del i['header']
+            ret.extend(result)
+        return ret
