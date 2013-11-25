@@ -570,6 +570,12 @@ class nlmsg_atoms(nlmsg_base):
             nla_base.decode(self)
             self.value = hexdump(self['value'])
 
+    class cdata(nla_base):
+        '''
+        Binary data
+        '''
+        fields = [('value', 's')]
+
     class asciiz(nla_base):
         '''
         Zero-terminated string.
