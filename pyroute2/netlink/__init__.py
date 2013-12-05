@@ -129,6 +129,8 @@ IPRCMD_RELOAD = 5
 IPRCMD_ROUTE = 6
 IPRCMD_CONNECT = 7
 IPRCMD_DISCONNECT = 8
+IPRCMD_SERVE = 9
+IPRCMD_SHUTDOWN = 10
 
 
 def _get_plugin(url):
@@ -356,18 +358,40 @@ class ssl_credentials(object):
         self.ca = ca
 
 
-class masq_record(object):
-    def __init__(self, seq, pid, src, dst, socket):
-        self.seq = seq
-        self.pid = pid
+class Layer(object):
+
+    def __init__(self, raw):
+        if isinstance(raw, nlmsg):
+            self.length = raw['header']['length']
+            self.mtype = raw['header']['type']
+            self.flags = raw['header']['flags']
+            self.nonce = raw['header']['sequence_number']
+            self.pid = raw['header']['pid']
+        else:
+            init = raw.tell()
+            (self.length,
+             self.mtype,
+             self.flags,
+             self.nonce,
+             self.pid) = struct.unpack('IHHII', raw.read(16))
+            raw.seek(init)
+
+
+class MasqRecord(object):
+
+    def __init__(self, dst, src, socket):
         self.src = src
         self.dst = dst
+        self.envelope = None
+        self.data = None
         self.socket = socket
         self.ctime = time.time()
 
-    def __repr__(self):
-        return "%s, %s, %s, %s" % (_repr_sockets([self.socket], 'remote'),
-                                   self.pid, self.seq, time.ctime(self.ctime))
+    def add_envelope(self, envelope):
+        self.envelope = Layer(envelope)
+
+    def add_data(self, data):
+        self.data = Layer(data)
 
 
 class IOThread(threading.Thread):
@@ -391,7 +415,8 @@ class IOThread(threading.Thread):
         self.mask = mask
         self.sys_mask = sys_mask
         self.con_mask = con_mask
-        self.default_sys = {'netlink': 0x00010000}
+        self.default_sys = {'netlink': 0x00010000,
+                            'tcp': 0x00010000}
         self.active_sys = {}
         self.active_conn = {}
         # fd lists for select()
@@ -402,7 +427,7 @@ class IOThread(threading.Thread):
         self.xtable = {}          # {(realm, mask): socket, ...}
         self.marshals = {}        # {netlink_socket: marshal, ...}
         self.listeners = {}       # {int: Queue(), int: Queue()...}
-        self.masquerade = {}      # {int: masq_record()...}
+        self.masquerade = {}      # {int: MasqRecord()...}
         self.recv_methods = {}    # {socket: recv_method, ...}
         self.clients = set()      # set(socket, socket...)
         self.uplinks = set()      # set(socket, socket...)
@@ -518,6 +543,28 @@ class IOThread(threading.Thread):
                 # Reload io cycle
                 self._reload_event.set()
                 rsp['cmd'] = IPRCMD_ACK
+
+            elif cmd['cmd'] == IPRCMD_SERVE:
+                rsp['attrs'] = []
+                url = cmd.get_attr('IPR_ATTR_HOST')
+                (new_sock, addr) = _get_socket(url, server_side=True,
+                                               ssl_keys=self.ssl_keys)
+                new_sock.bind(addr)
+                new_sock.listen(16)
+                self._rlist.add(new_sock)
+                self.servers.add(new_sock)
+                self._reload_event.set()
+                rsp['cmd'] = IPRCMD_ACK
+
+            elif cmd['cmd'] == IPRCMD_SHUTDOWN:
+                url = cmd.get_attr('IPR_ATTR_HOST')
+                for old_sock in self.servers:
+                    if _repr_sockets([old_sock]) == [url]:
+                        self._rlist.remove(old_sock)
+                        self.servers.remove(old_sock)
+                        self._reload_event.set()
+                        rsp['cmd'] = IPRCMD_ACK
+
             elif cmd['cmd'] == IPRCMD_DISCONNECT:
                 # drop a connection, identified by an addr
                 try:
@@ -532,21 +579,35 @@ class IOThread(threading.Thread):
                 # connect to a system
                 rsp['attrs'] = []
                 try:
-                    target = urlparse.urlparse(cmd.get_attr('IPR_ATTR_HOST'))
+                    url = cmd.get_attr('IPR_ATTR_HOST')
+                    target = urlparse.urlparse(url)
                     if target.scheme == 'netlink':
                         new_sock = NetlinkSocket(int(target.hostname))
                         new_sock.bind(int(target.port))
                         sys = cmd.get_attr('IPR_ATTR_SYS',
                                            self.default_sys[target.scheme])
-                        send = lambda d, s: new_sock.sendto(self.gate(d, s),
-                                                            (0, 0))
+                        send = lambda d, s:\
+                            new_sock.sendto(self.gate_untag(d, s), (0, 0))
                         addr = self.alloc_addr(sys)
                         rsp['attrs'].append(['IPR_ATTR_ADDR', addr])
                         self.register_link(addr, new_sock, send)
                         rsp['cmd'] = IPRCMD_ACK
                         self._reload_event.set()
                     else:
-                        raise Exception('scheme not supported')
+                        (new_sock, addr) = _get_socket(url,
+                                                       server_side=False,
+                                                       ssl_keys=self.ssl_keys)
+                        new_sock.connect(addr)
+                        sys = cmd.get_attr('IPR_ATTR_SYS',
+
+                                           self.default_sys[target.scheme])
+                        send = lambda d, s:\
+                            new_sock.send(self.gate_forward(d, s))
+                        addr = self.alloc_addr(sys)
+                        rsp['attrs'].append(['IPR_ATTR_ADDR', addr])
+                        self.register_link(addr, new_sock, send)
+                        rsp['cmd'] = IPRCMD_ACK
+                        self._reload_event.set()
                 except Exception as e:
                     rsp['attrs'].append(['IPR_ATTR_ERROR',
                                          traceback.format_exc()])
@@ -587,8 +648,16 @@ class IOThread(threading.Thread):
         #
         elif mtype == NETLINK_USERSOCK:
             envelope = self.parse_envelope(data)
+            nonce = envelope['header']['sequence_number']
             if envelope['dst'] in self.active_conn:
                 self.active_conn[envelope['dst']]['send'](envelope, sock)
+            elif nonce in self.masquerade:
+                target = self.masquerade[nonce]
+                self.data.seek(8)
+                self.data.write(struct.pack('II',
+                                            target.envelope.nonce,
+                                            target.envelope.pid))
+                target.socket.send(data.getvalue())
             else:
                 # unknown destination
                 rsp = ctrlmsg()
@@ -611,14 +680,14 @@ class IOThread(threading.Thread):
                      pid) = struct.unpack('IHHII', data.read(16))
                     data.seek(offset + 8)
                     data.write(struct.pack('II',
-                                           target.seq,
-                                           target.pid))
+                                           target.data.nonce,
+                                           target.data.pid))
                     # skip to the next in chunk
                     offset += length
                 # envelope data
                 envelope = envmsg()
-                envelope['header']['sequence_number'] = target.seq
-                envelope['header']['pid'] = target.pid
+                envelope['header']['sequence_number'] = target.envelope.nonce
+                envelope['header']['pid'] = target.envelope.pid
                 envelope['header']['type'] = NETLINK_USERSOCK
                 envelope['dst'] = target.src
                 envelope['src'] = target.dst
@@ -633,16 +702,34 @@ class IOThread(threading.Thread):
         ret += buf.write(fd.recv(16384))
         return ret, {}
 
-    def gate(self, envelope, sock):
+    def gate_forward(self, envelope, sock):
         # 1. get data
         data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
         # 2. register way back
         nonce = self.nonce()
-        seq = envelope['header']['sequence_number']
-        pid = envelope['header']['pid']
         src = envelope['src']
         dst = envelope['dst']
-        masq = masq_record(seq, pid, src, dst, sock)
+        masq = MasqRecord(dst, src, sock)
+        masq.add_envelope(envelope)
+        masq.add_data(data)
+        self.masquerade[nonce] = masq
+        self.active_conn[envelope['dst']]['sroute'][nonce] = masq
+        envelope['header']['sequence_number'] = nonce
+        envelope['header']['pid'] = os.getpid()
+        envelope.encode()
+        # 3. return data
+        return envelope.buf.getvalue()
+
+    def gate_untag(self, envelope, sock):
+        # 1. get data
+        data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
+        # 2. register way back
+        nonce = self.nonce()
+        src = envelope['src']
+        dst = envelope['dst']
+        masq = MasqRecord(dst, src, sock)
+        masq.add_envelope(envelope)
+        masq.add_data(data)
         self.masquerade[nonce] = masq
         self.active_conn[envelope['dst']]['sroute'][nonce] = masq
         data.seek(8)
