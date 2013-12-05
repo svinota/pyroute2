@@ -471,14 +471,14 @@ class nlmsg_base(dict):
                     msg_value = hexdump(self.buf.read(length))
 
                 if self.debug:
-                    self['attrs'].append((msg_name,
+                    self['attrs'].append([msg_name,
                                           msg_value,
                                           msg_type,
                                           length,
-                                          init))
+                                          init])
                 else:
-                    self['attrs'].append((msg_name,
-                                          msg_value))
+                    self['attrs'].append([msg_name,
+                                          msg_value])
 
             # fix the offset
             self.buf.seek(init + NLMSG_ALIGN(length))
