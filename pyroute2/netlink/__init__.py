@@ -1096,7 +1096,7 @@ class Netlink(threading.Thread):
         else:
             return None
 
-    def serve(self, url):
+    def serve(self, url, key=None, cert=None, ca=None):
         return self.command(IPRCMD_SERVE,
                             [['IPR_ATTR_HOST', url]])
 
