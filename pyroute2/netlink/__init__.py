@@ -1032,10 +1032,15 @@ class Netlink(threading.Thread):
                     # data traffic
                     envelope = envmsg(data)
                     envelope.decode()
-                    buf = io.BytesIO()
-                    buf.length = buf.write(envelope.get_attr('IPR_ATTR_CDATA'))
-                    buf.seek(0)
-                    self.parse(buf)
+                    try:
+                        buf = io.BytesIO()
+                        buf.length = buf.write(envelope.
+                                               get_attr('IPR_ATTR_CDATA'))
+                        buf.seek(0)
+                        self.parse(buf)
+                    except AttributeError:
+                        # now silently drop bad packet
+                        pass
 
                 offset += length
 
