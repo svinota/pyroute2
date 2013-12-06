@@ -273,7 +273,7 @@ class TestData(object):
             len(self.ip.get_routes(family=socket.AF_INET, table=255))
 
 
-class _TestProxyData(TestData):
+class TestProxyData(TestData):
 
     def setup(self):
         create_link('dummyX', 'dummy')
@@ -299,7 +299,7 @@ class _TestProxyData(TestData):
         self.dev = self.ip.link_lookup(ifname='dummyX')
 
 
-class _TestRemoteData(TestData):
+class TestRemoteData(TestData):
 
     def setup(self):
         create_link('dummyX', 'dummy')
