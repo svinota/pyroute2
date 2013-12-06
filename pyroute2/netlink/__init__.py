@@ -717,6 +717,7 @@ class IOThread(threading.Thread):
         self.active_conn[envelope['dst']]['sroute'][nonce] = masq
         envelope['header']['sequence_number'] = nonce
         envelope['header']['pid'] = os.getpid()
+        envelope.buf.seek(0)
         envelope.encode()
         # 3. return data
         return envelope.buf.getvalue()
