@@ -872,7 +872,11 @@ class IOThread(threading.Thread):
                 #
                 # Route the data
                 #
-                self.route(fd, data)
+                try:
+                    self.route(fd, data)
+                except Exception:
+                    # FIXME: silently drop all exceptions yet
+                    pass
 
 
 class Netlink(threading.Thread):
