@@ -18,7 +18,6 @@ from pyroute2.netlink.generic import NetlinkDecodeError
 from pyroute2.netlink.generic import NetlinkHeaderDecodeError
 from pyroute2.netlink.generic import NETLINK_GENERIC
 from pyroute2.netlink.generic import NETLINK_UNUSED
-from pyroute2.netlink.generic import NETLINK_USERSOCK
 try:
     import urlparse
 except ImportError:
@@ -112,6 +111,7 @@ NLMSG_NOOP = 0x1    # Nothing
 NLMSG_ERROR = 0x2    # Error
 NLMSG_DONE = 0x3    # End of a dump
 NLMSG_OVERRUN = 0x4    # Data lost
+NLMSG_TRANSPORT = 0x9    # Custom message type for NL as a transport
 NLMSG_MIN_TYPE = 0x10    # < 0x10: reserved control messages
 NLMSG_MAX_LEN = 0xffff  # Max message length
 
@@ -647,7 +647,7 @@ class IOThread(threading.Thread):
         #
         # Data messages
         #
-        elif mtype == NETLINK_USERSOCK:
+        elif mtype == NLMSG_TRANSPORT:
             envelope = self.parse_envelope(data)
             nonce = envelope['header']['sequence_number']
             if envelope['dst'] in self.active_conn:
@@ -689,7 +689,7 @@ class IOThread(threading.Thread):
                 envelope = envmsg()
                 envelope['header']['sequence_number'] = target.envelope.nonce
                 envelope['header']['pid'] = target.envelope.pid
-                envelope['header']['type'] = NETLINK_USERSOCK
+                envelope['header']['type'] = NLMSG_TRANSPORT
                 envelope['dst'] = target.src
                 envelope['src'] = target.dst
                 envelope['attrs'] = [['IPR_ATTR_CDATA',
@@ -1028,7 +1028,7 @@ class Netlink(threading.Thread):
                     seq = cmd['header']['sequence_number']
                     if seq in self.listeners:
                         self.listeners[seq].put(cmd)
-                elif mtype == NETLINK_USERSOCK:
+                elif mtype == NLMSG_TRANSPORT:
                     # data traffic
                     envelope = envmsg(data)
                     envelope.decode()
@@ -1297,7 +1297,7 @@ class Netlink(threading.Thread):
             envelope = envmsg()
             envelope['header']['sequence_number'] = nonce
             envelope['header']['pid'] = os.getpid()
-            envelope['header']['type'] = NETLINK_USERSOCK
+            envelope['header']['type'] = NLMSG_TRANSPORT
             envelope['dst'] = realm
             envelope['src'] = 0
             envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
