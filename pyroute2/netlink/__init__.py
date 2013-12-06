@@ -654,10 +654,10 @@ class IOThread(threading.Thread):
                 self.active_conn[envelope['dst']]['send'](envelope, sock)
             elif nonce in self.masquerade:
                 target = self.masquerade[nonce]
-                self.data.seek(8)
-                self.data.write(struct.pack('II',
-                                            target.envelope.nonce,
-                                            target.envelope.pid))
+                data.seek(8)
+                data.write(struct.pack('II',
+                                       target.envelope.nonce,
+                                       target.envelope.pid))
                 target.socket.send(data.getvalue())
             else:
                 # unknown destination
