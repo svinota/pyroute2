@@ -17,7 +17,6 @@ from pyroute2.netlink.generic import envmsg
 from pyroute2.netlink.generic import NetlinkDecodeError
 from pyroute2.netlink.generic import NetlinkHeaderDecodeError
 from pyroute2.netlink.generic import NETLINK_GENERIC
-from pyroute2.netlink.generic import NETLINK_UNUSED
 try:
     import urlparse
 except ImportError:
@@ -111,7 +110,8 @@ NLMSG_NOOP = 0x1    # Nothing
 NLMSG_ERROR = 0x2    # Error
 NLMSG_DONE = 0x3    # End of a dump
 NLMSG_OVERRUN = 0x4    # Data lost
-NLMSG_TRANSPORT = 0x9    # Custom message type for NL as a transport
+NLMSG_CONTROL = 0xe    # Custom message type for messaging control
+NLMSG_TRANSPORT = 0xf    # Custom message type for NL as a transport
 NLMSG_MIN_TYPE = 0x10    # < 0x10: reserved control messages
 NLMSG_MAX_LEN = 0xffff  # Max message length
 
@@ -466,7 +466,7 @@ class IOThread(threading.Thread):
 
     def _sctl(self):
         msg = ctrlmsg()
-        msg['header']['type'] = NETLINK_UNUSED
+        msg['header']['type'] = NLMSG_CONTROL
         msg['cmd'] = IPRCMD_REGISTER
         msg['attrs'] = [['IPR_ATTR_SECRET', self.secret]]
         msg.encode()
@@ -519,11 +519,11 @@ class IOThread(threading.Thread):
 
         ##
         #
-        # NETLINK_UNUSED as intra-pyroute2
+        # NLMSG_CONTROL as intra-pyroute2
         #
-        if (mtype == NETLINK_UNUSED) and (sock in self.controls):
+        if (mtype == NLMSG_CONTROL) and (sock in self.controls):
             rsp = ctrlmsg()
-            rsp['header']['type'] = NETLINK_UNUSED
+            rsp['header']['type'] = NLMSG_CONTROL
             rsp['header']['sequence_number'] = seq
             rsp['cmd'] = IPRCMD_ERR
             cmd = self.parse_control(data)
@@ -617,11 +617,11 @@ class IOThread(threading.Thread):
 
         ##
         #
-        # NETLINK_UNUSED as inter-pyroute2
+        # NLMSG_CONTROL as inter-pyroute2
         #
-        elif (mtype == NETLINK_UNUSED) and (sock in self.clients):
+        elif (mtype == NLMSG_CONTROL) and (sock in self.clients):
             rsp = ctrlmsg()
-            rsp['header']['type'] = NETLINK_UNUSED
+            rsp['header']['type'] = NLMSG_CONTROL
             rsp['header']['sequence_number'] = seq
             rsp['cmd'] = IPRCMD_ERR
             cmd = self.parse_control(data)
@@ -662,7 +662,7 @@ class IOThread(threading.Thread):
             else:
                 # unknown destination
                 rsp = ctrlmsg()
-                rsp['header']['type'] = NETLINK_UNUSED
+                rsp['header']['type'] = NLMSG_CONTROL
                 rsp['cmd'] = IPRCMD_ERR
                 rsp['attrs'] = [['IPR_ATTR_ERROR', 'unknown destination']]
                 rsp.encode()
@@ -753,7 +753,7 @@ class IOThread(threading.Thread):
 
     def command(self, cmd, attrs=[]):
         msg = ctrlmsg(io.BytesIO())
-        msg['header']['type'] = NETLINK_UNUSED
+        msg['header']['type'] = NLMSG_CONTROL
         msg['cmd'] = cmd
         msg['attrs'] = attrs
         msg.encode()
@@ -942,7 +942,7 @@ class Netlink(threading.Thread):
         self.iothread.reload()
 
         msg = ctrlmsg()
-        msg['header']['type'] = NETLINK_UNUSED
+        msg['header']['type'] = NLMSG_CONTROL
         msg['cmd'] = IPRCMD_REGISTER
         msg['attrs'] = [['IPR_ATTR_SECRET', self.iothread.secret]]
         msg.encode()
@@ -1021,7 +1021,7 @@ class Netlink(threading.Thread):
                 data.length = length
                 data.seek(0)
 
-                if mtype == NETLINK_UNUSED:
+                if mtype == NLMSG_CONTROL:
                     # control traffic
                     cmd = ctrlmsg(data)
                     cmd.decode()
@@ -1082,7 +1082,7 @@ class Netlink(threading.Thread):
     def _remote_cmd(self, sock, cmd, attrs=None):
         attrs = attrs or []
         smsg = ctrlmsg()
-        smsg['header']['type'] = NETLINK_UNUSED
+        smsg['header']['type'] = NLMSG_CONTROL
         smsg['header']['pid'] = os.getpid()
         smsg['cmd'] = cmd
         smsg['attrs'] = attrs
@@ -1093,7 +1093,7 @@ class Netlink(threading.Thread):
         nonce = self.iothread.nonce()
         self.listeners[nonce] = Queue.Queue()
         msg = ctrlmsg(io.BytesIO())
-        msg['header']['type'] = NETLINK_UNUSED
+        msg['header']['type'] = NLMSG_CONTROL
         msg['header']['sequence_number'] = nonce
         msg['cmd'] = cmd
         msg['attrs'] = attrs
