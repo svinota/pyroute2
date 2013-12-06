@@ -416,7 +416,8 @@ class IOThread(threading.Thread):
         self.sys_mask = sys_mask
         self.con_mask = con_mask
         self.default_sys = {'netlink': 0x00010000,
-                            'tcp': 0x00010000}
+                            'tcp': 0x00010000,
+                            'unix': 0x00010000}
         self.active_sys = {}
         self.active_conn = {}
         # fd lists for select()
