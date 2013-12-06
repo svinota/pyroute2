@@ -1,0 +1,146 @@
+pyroute2 messaging
+==================
+
+Preface
+-------
+
+In a general Netlink model, there are several Netlink families.
+Within each family can be implemented several types of messages,
+starting from minimal message type 0x10 (NLMSG_MIN_TYPE). The
+families are set up when socket(2) with the protocol parameter.
+
+It is not possible to set up Netlink families using TCP/IP sockets,
+that's why we should use a Netlink message type from a reserved
+range (0x0 ... 0x10) to reliably identify Netlink messages used
+as a data transport.
+
+Another issue is the control of messaging system parts. It can be
+done with the same messages, but carrying different flags, or with
+another message type. Right now pyroute2 implements the first
+approach.
+
+Right now reserved Netlink messages are::
+
+    NLMSG_NOOP = 0x1       # Nothing
+    NLMSG_ERROR = 0x2      # Error
+    NLMSG_DONE = 0x3       # End of a dump
+    NLMSG_OVERRUN = 0x4    # Data lost
+    NLMSG_MIN_TYPE = 0x10
+
+The proposed value from Netlink transport messages::
+
+    NLMSG_CONTROL = 0xe
+    NLMSG_TRANSPORT = 0xf
+
+
+Messaging system parts
+----------------------
+
+Messaging broker
+^^^^^^^^^^^^^^^^
+
+Main service, that holds connections to other brokers as well as
+connections to the system Netlink sockets.
+
+From the perspective of the broker, all messages can be:
+
+* control messages
+* messages to be untagged
+* messages to be forwarded
+* messages to be tagged
+
+It works like VLANs. All Netlink messages on the wire between
+clients and brokers should be incapsulated into transport messages,
+"envelope" (see protocol spec below). Messages to a local Netlink
+socket should be "untagged", the envelope should be removed, and
+the data should be sent. Messages from a local Netlink socket should
+be "tagged", prepended with the envelope, and then should be sent
+to a recepient.
+
+Message routing
+"""""""""""""""
+
+There are several cases of message flows:
+
+* A request: destination should be known to the broker.
+* A response: responses are tracked by sequence_number in the Netlink
+  header.
+* A message that should be delivered to subscribers.
+
+Messaging client
+^^^^^^^^^^^^^^^^
+
+A client should work with one broker at a time. All requests should
+be sent to and through this broker.
+
+Protocols
+---------
+
+Control messages
+^^^^^^^^^^^^^^^^
+
+Control messages have the same structure as generic Netlink
+messages::
+
+    struct genlmsghdr {
+        __u8    cmd;
+        __u8    version;
+        __u16   reserved;
+    };
+
+The cmd field can contain values::
+
+    IPRCMD_NOOP = 0
+    IPRCMD_STOP = 1         # stop the broker
+    IPRCMD_ACK = 2          # command ack
+    IPRCMD_ERR = 3          # command err
+    IPRCMD_REGISTER = 4     # register socket as control
+    IPRCMD_RELOAD = 5       # reload broker I/O loop
+    IPRCMD_ROUTE = 6        # deprecated
+    IPRCMD_CONNECT = 7      # create connection
+    IPRCMD_DISCONNECT = 8   # drop connection
+    IPRCMD_SERVE = 9        # start listening
+    IPRCMD_SHUTDOWN = 10    # stop listening
+
+IPRCMD_STOP
+"""""""""""
+
+Should result in complete stop of the broker, closing all client
+and server sockets, dropping all connections.
+
+IPRCMD_ACK, IPRCMD_ERR
+""""""""""""""""""""""
+
+All commands, except IPRCMD_STOP, MUST be responded by the broker
+in two ways: either with IPRCMD_ACK on success, or with IPRCMD_ERR
+on error.
+
+In the last case, broker CAN provide debug info with optional
+IPR_ATTR_ERROR nla (ascii z-terminated string).
+
+IPRCMD_CONNECT
+""""""""""""""
+
+Create a connection to a remote broker or to the system Netlink
+socket. This command MUST carry IPR_ATTR_HOST nla (ascii string)
+with the URL of the target. Supported URLs:
+
+* `netlink://<family>:<groups>`
+* `tcp://host:port`
+* `ssl://host:port`
+* `tls://host:port`
+* `unix://path`
+* `unix+ssl://path`
+* `unix+tls://path`
+
+The `netlink` are to connect the broker to a local Netlink socket.
+
+Short note about unix sockets: it is possible to provide '\0' as the
+first byte of the path. Then the socket will be created in the
+abstract namespace, instead of the filesystem.
+
+The broker MUST provide IPR_ATTR_ADDR nla (uint32) in the case of
+successful connection. The address MUST be used in the transport
+messages to specify destination.
+
+
