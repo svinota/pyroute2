@@ -997,7 +997,7 @@ class Netlink(threading.Thread):
         self.marshal.debug = debug
         self.marshal = self.marshal()
         self.buffers = Queue.Queue()
-        self.mirror = False
+        self._mirror = False
         self.host = host or 'netlink://%i:%i' % (self.family, self.groups)
         self._run_event = threading.Event()
         self._stop_event = threading.Event()
@@ -1146,7 +1146,7 @@ class Netlink(threading.Thread):
             if key not in self.listeners:
                 key = 0
 
-            if self.mirror and (key != 0) and (msg.raw is not None):
+            if self._mirror and (key != 0) and (msg.raw is not None):
                 # On Python 2.6 it can fail due to class fabrics
                 # in nlmsg definitions, so parse it again. It should
                 # not be much slower than copy.deepcopy()
@@ -1224,7 +1224,7 @@ class Netlink(threading.Thread):
         default 0 queue.
         '''
         self.monitor(operate)
-        self.mirror = operate
+        self._mirror = operate
 
     def monitor(self, operate=True):
         '''
