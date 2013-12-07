@@ -801,7 +801,7 @@ class IPDB(Dotkeys):
     No methods of the class should be called directly.
     '''
 
-    def __init__(self, nl=None, host='localsystem', mode='implicit',
+    def __init__(self, nl=None, host=None, mode='implicit',
                  key=None, cert=None, ca=None, iclass=Interface):
         '''
         Parameters:
