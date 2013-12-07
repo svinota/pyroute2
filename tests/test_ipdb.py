@@ -473,7 +473,7 @@ class TestMisc(object):
         with IPDB() as ip:
             assert ip.lo.index == 1
 
-    def test_break_netlink(self):
+    def _test_break_netlink(self):
         ip = IPDB()
         s = tuple(ip.nl._sockets)[0]
         s.close()
