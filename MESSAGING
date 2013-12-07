@@ -16,8 +16,9 @@ as a data transport.
 
 Another issue is the control of messaging system parts. It can be
 done with the same messages, but carrying different flags, or with
-another message type. Right now pyroute2 implements the first
-approach.
+another message type. Right now pyroute2 implements the second
+approach: control messages are incapsulated into normal transport
+messages.
 
 Right now reserved Netlink messages are::
 
@@ -44,7 +45,6 @@ connections to the system Netlink sockets.
 
 From the perspective of the broker, all messages can be:
 
-* control messages
 * messages to be untagged
 * messages to be forwarded
 * messages to be tagged
@@ -56,6 +56,10 @@ socket should be "untagged", the envelope should be removed, and
 the data should be sent. Messages from a local Netlink socket should
 be "tagged", prepended with the envelope, and then should be sent
 to a recepient.
+
+Control messages should me tagged and untagged in the same way, as
+the normal messages, but the target for untagged messages is not the
+Netlink socket, but the broker itself.
 
 Message routing
 """""""""""""""
@@ -76,6 +80,19 @@ be sent to and through this broker.
 Protocols
 ---------
 
+Transport messages
+^^^^^^^^^^^^^^^^^^
+
+Envelope header structure::
+
+    struct envmsghdr {
+        uint32  dst;
+        uint32  src;
+    };
+
+The transport messages can carry binary NLA IPR_ATTR_CDATA with
+the same format as ascii string: 4 bytes length, no zero-terminator.
+
 Control messages
 ^^^^^^^^^^^^^^^^
 
@@ -83,9 +100,9 @@ Control messages have the same structure as generic Netlink
 messages::
 
     struct genlmsghdr {
-        __u8    cmd;
-        __u8    version;
-        __u16   reserved;
+        uint8   cmd;
+        uint8   version;
+        uint16  reserved;
     };
 
 The cmd field can contain values::

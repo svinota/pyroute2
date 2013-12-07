@@ -470,12 +470,22 @@ class IOThread(threading.Thread):
         msg['cmd'] = IPRCMD_REGISTER
         msg['attrs'] = [['IPR_ATTR_SECRET', self.secret]]
         msg.encode()
+        envelope = envmsg()
+        envelope['header']['type'] = NLMSG_TRANSPORT
+        envelope['header']['flags'] = 1
+        envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
+        envelope.encode()
+
         self._run_event.wait()
-        self.control.send(msg.buf.getvalue())
+        self.control.send(envelope.buf.getvalue())
+
         buf = io.BytesIO()
         buf.write(self.control.recv())
         buf.seek(0)
-        msg = ctrlmsg(buf)
+        envelope = envmsg(buf)
+        envelope.decode()
+        data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
+        msg = ctrlmsg(data)
         msg.decode()
         if msg['cmd'] == IPRCMD_ACK:
             self._sctl_event.set()
@@ -506,32 +516,36 @@ class IOThread(threading.Thread):
                 self._nonce += 1
             return self._nonce
 
-    def route(self, sock, data):
-        """
-        Route message
-        """
-        data.seek(0)
-        (length,
-         mtype,
-         flags,
-         seq,
-         pid) = struct.unpack('IHHII', data.read(16))
+    def route_control(self, sock, data):
+        # open envelope
+        envelope = self.parse_envelope(data)
+        pid = envelope['header']['pid']
+        nonce = envelope['header']['sequence_number']
+        src = envelope['src']
+        dst = envelope['dst']
+        data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
+        cmd = self.parse_control(data)
+        rsp = ctrlmsg()
+        rsp['header']['type'] = NLMSG_CONTROL
+        rsp['header']['sequence_number'] = nonce
+        rsp['cmd'] = IPRCMD_ERR
+        rsp['attrs'] = []
 
-        ##
-        #
-        # NLMSG_CONTROL as intra-pyroute2
-        #
-        if (mtype == NLMSG_CONTROL) and (sock in self.controls):
-            rsp = ctrlmsg()
-            rsp['header']['type'] = NLMSG_CONTROL
-            rsp['header']['sequence_number'] = seq
-            rsp['cmd'] = IPRCMD_ERR
-            cmd = self.parse_control(data)
+        if sock in self.controls:
             if cmd['cmd'] == IPRCMD_STOP:
                 # Last 'hello'
                 rsp['cmd'] = IPRCMD_ACK
                 rsp.encode()
-                sock.send(rsp.buf.getvalue())
+                ne = envmsg()
+                ne['header']['sequence_number'] = nonce
+                ne['header']['pid'] = pid
+                ne['header']['type'] = NLMSG_TRANSPORT
+                ne['header']['flags'] = 1
+                ne['dst'] = src
+                ne['src'] = dst
+                ne['attrs'] = [['IPR_ATTR_CDATA', rsp.buf.getvalue()]]
+                ne.encode()
+                sock.send(ne.buf.getvalue())
                 # Stop iothread -- shutdown sequence
                 self._stop_event.set()
                 self._rlist.remove(self.sctl)
@@ -540,13 +554,13 @@ class IOThread(threading.Thread):
                 self.control.close()
                 self._expire_thread.join()
                 return
+
             elif cmd['cmd'] == IPRCMD_RELOAD:
                 # Reload io cycle
                 self._reload_event.set()
                 rsp['cmd'] = IPRCMD_ACK
 
             elif cmd['cmd'] == IPRCMD_SERVE:
-                rsp['attrs'] = []
                 url = cmd.get_attr('IPR_ATTR_HOST')
                 (new_sock, addr) = _get_socket(url, server_side=True,
                                                ssl_keys=self.ssl_keys)
@@ -578,7 +592,6 @@ class IOThread(threading.Thread):
 
             elif cmd['cmd'] == IPRCMD_CONNECT:
                 # connect to a system
-                rsp['attrs'] = []
                 try:
                     url = cmd.get_attr('IPR_ATTR_HOST')
                     target = urlparse.urlparse(url)
@@ -612,91 +625,105 @@ class IOThread(threading.Thread):
                 except Exception as e:
                     rsp['attrs'].append(['IPR_ATTR_ERROR',
                                          traceback.format_exc()])
-            rsp.encode()
-            sock.send(rsp.buf.getvalue())
+        elif sock in self.clients:
+            #elif cmd['cmd'] == IPRCMD_SUBSCRIBE:
+            #    offset = cmd.get_attr('IPR_ATTR_OFFSET')
+            #    pattern = cmd.get_attr('IPR_ATTR_CDATA')
+            #    self.subscribe[offset, pattern] = socket
 
-        ##
-        #
-        # NLMSG_CONTROL as inter-pyroute2
-        #
-        elif (mtype == NLMSG_CONTROL) and (sock in self.clients):
-            rsp = ctrlmsg()
-            rsp['header']['type'] = NLMSG_CONTROL
-            rsp['header']['sequence_number'] = seq
-            rsp['cmd'] = IPRCMD_ERR
-            cmd = self.parse_control(data)
-            if cmd['cmd'] == IPRCMD_ROUTE:
-                # routing request
-                # noop for now
-                rsp['cmd'] = IPRCMD_ACK
-                # TODO tags: remote
-                #
-                # * subscribe requests
-                # * ...
-            elif cmd['cmd'] == IPRCMD_REGISTER:
+            if cmd['cmd'] == IPRCMD_REGISTER:
                 # auth request
                 secret = cmd.get_attr('IPR_ATTR_SECRET')
                 if secret == self.secret:
                     self.controls.add(sock)
                     rsp['cmd'] = IPRCMD_ACK
 
-            rsp.encode()
-            sock.send(rsp.buf.getvalue())
+        rsp.encode()
+        ne = envmsg()
+        ne['header']['sequence_number'] = nonce
+        ne['header']['pid'] = pid
+        ne['header']['type'] = NLMSG_TRANSPORT
+        ne['header']['flags'] = 1
+        ne['dst'] = src
+        ne['src'] = dst
+        ne['attrs'] = [['IPR_ATTR_CDATA', rsp.buf.getvalue()]]
+        ne.encode()
+        sock.send(ne.buf.getvalue())
 
-        ##
-        #
-        # Data messages
-        #
-        elif mtype == NLMSG_TRANSPORT:
-            envelope = self.parse_envelope(data)
-            nonce = envelope['header']['sequence_number']
-            if envelope['dst'] in self.active_conn:
-                self.active_conn[envelope['dst']]['send'](envelope, sock)
-            elif nonce in self.masquerade:
-                target = self.masquerade[nonce]
-                data.seek(8)
-                data.write(struct.pack('II',
-                                       target.envelope.nonce,
-                                       target.envelope.pid))
-                target.socket.send(data.getvalue())
-            else:
-                # unknown destination
-                rsp = ctrlmsg()
-                rsp['header']['type'] = NLMSG_CONTROL
-                rsp['cmd'] = IPRCMD_ERR
-                rsp['attrs'] = [['IPR_ATTR_ERROR', 'unknown destination']]
-                rsp.encode()
-                sock.send(rsp.buf.getvalue())
+    def route_data(self, sock, data):
+        envelope = self.parse_envelope(data)
+        nonce = envelope['header']['sequence_number']
+        if envelope['dst'] in self.active_conn:
+            self.active_conn[envelope['dst']]['send'](envelope, sock)
+
+        elif nonce in self.masquerade:
+            target = self.masquerade[nonce]
+            data.seek(8)
+            data.write(struct.pack('II',
+                                   target.envelope.nonce,
+                                   target.envelope.pid))
+            target.socket.send(data.getvalue())
+
         else:
-            # extract masq info
-            target = self.masquerade.get(seq, None)
-            if target is not None:
-                offset = 0
-                while offset < data.length:
-                    data.seek(offset)
-                    (length,
-                     mtype,
-                     flags,
-                     seq,
-                     pid) = struct.unpack('IHHII', data.read(16))
-                    data.seek(offset + 8)
-                    data.write(struct.pack('II',
-                                           target.data.nonce,
-                                           target.data.pid))
-                    # skip to the next in chunk
-                    offset += length
-                # envelope data
-                envelope = envmsg()
-                envelope['header']['sequence_number'] = target.envelope.nonce
-                envelope['header']['pid'] = target.envelope.pid
-                envelope['header']['type'] = NLMSG_TRANSPORT
-                envelope['dst'] = target.src
-                envelope['src'] = target.dst
-                envelope['attrs'] = [['IPR_ATTR_CDATA',
-                                      data.getvalue()]]
-                envelope.encode()
-                # target
-                target.socket.send(envelope.buf.getvalue())
+            # unknown destination
+            pass
+            # rsp = ctrlmsg()
+            # rsp['header']['type'] = NLMSG_CONTROL
+            # rsp['cmd'] = IPRCMD_ERR
+            # rsp['attrs'] = [['IPR_ATTR_ERROR',
+            #                  'unknown destination']]
+            # rsp.encode()
+            # sock.send(rsp.buf.getvalue())
+
+    def route_local(self, sock, data, seq):
+        # extract masq info
+        target = self.masquerade.get(seq, None)
+        if target is not None:
+            offset = 0
+            while offset < data.length:
+                data.seek(offset)
+                (length,
+                 mtype,
+                 flags,
+                 seq,
+                 pid) = struct.unpack('IHHII', data.read(16))
+                data.seek(offset + 8)
+                data.write(struct.pack('II',
+                                       target.data.nonce,
+                                       target.data.pid))
+                # skip to the next in chunk
+                offset += length
+            # envelope data
+            envelope = envmsg()
+            envelope['header']['sequence_number'] = target.envelope.nonce
+            envelope['header']['pid'] = target.envelope.pid
+            envelope['header']['type'] = NLMSG_TRANSPORT
+            envelope['dst'] = target.src
+            envelope['src'] = target.dst
+            envelope['attrs'] = [['IPR_ATTR_CDATA',
+                                  data.getvalue()]]
+            envelope.encode()
+            # target
+            target.socket.send(envelope.buf.getvalue())
+
+    def route(self, sock, data):
+        """
+        Route message
+        """
+        data.seek(0)
+        (length,
+         mtype,
+         flags,
+         seq,
+         pid) = struct.unpack('IHHII', data.read(16))
+
+        if mtype == NLMSG_TRANSPORT:
+            if flags == 1:
+                return self.route_control(sock, data)
+            else:
+                return self.route_data(sock, data)
+        else:
+            return self.route_local(sock, data, seq)
 
     def recv(self, fd, buf):
         ret = 0
@@ -757,8 +784,16 @@ class IOThread(threading.Thread):
         msg['cmd'] = cmd
         msg['attrs'] = attrs
         msg.encode()
-        self.control.send(msg.buf.getvalue())
-        rsp = ctrlmsg(self.control.recv())
+        envelope = envmsg()
+        envelope['header']['type'] = NLMSG_TRANSPORT
+        envelope['header']['flags'] = 1
+        envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
+        envelope.encode()
+        self.control.send(envelope.buf.getvalue())
+        envelope = envmsg(self.control.recv())
+        envelope.decode()
+        data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
+        rsp = ctrlmsg(data)
         rsp.decode()
         return rsp
 
@@ -910,6 +945,7 @@ class Netlink(threading.Thread):
         threading.Thread.__init__(self, name='Netlink API')
         self._timeout = timeout
         self.iothread = IOThread()
+        self.default_realm = 0
         self.realms = set()     # set(addr, addr, ...)
         self.listeners = {}     # {nonce: Queue(), ...}
         self.callbacks = []     # [(predicate, callback, args), ...]
@@ -929,7 +965,7 @@ class Netlink(threading.Thread):
         self.start()
         self._run_event.wait()
         if do_connect:
-            self.connect()
+            self.default_realm = self.connect()
 
     def run(self):
         # 1. run iothread
@@ -946,14 +982,22 @@ class Netlink(threading.Thread):
         msg['cmd'] = IPRCMD_REGISTER
         msg['attrs'] = [['IPR_ATTR_SECRET', self.iothread.secret]]
         msg.encode()
+        envelope = envmsg()
+        envelope['header']['type'] = NLMSG_TRANSPORT
+        envelope['header']['flags'] = 1
+        envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
+        envelope.encode()
 
-        self.bridge.send(msg.buf.getvalue())
+        self.bridge.send(envelope.buf.getvalue())
         # assume iothread is up and running...
         buf = io.BytesIO()
         buf.write(self.bridge.recv())
         buf.seek(0)
 
-        msg = ctrlmsg(buf)
+        envelope = envmsg(buf)
+        envelope.decode()
+        data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
+        msg = ctrlmsg(data)
         msg.decode()
 
         if msg['cmd'] == IPRCMD_ACK:
@@ -1021,26 +1065,24 @@ class Netlink(threading.Thread):
                 data.length = length
                 data.seek(0)
 
-                if mtype == NLMSG_CONTROL:
-                    # control traffic
-                    cmd = ctrlmsg(data)
-                    cmd.decode()
-                    seq = cmd['header']['sequence_number']
-                    if seq in self.listeners:
-                        self.listeners[seq].put(cmd)
-                elif mtype == NLMSG_TRANSPORT:
-                    # data traffic
-                    envelope = envmsg(data)
-                    envelope.decode()
-                    try:
-                        buf = io.BytesIO()
-                        buf.length = buf.write(envelope.
-                                               get_attr('IPR_ATTR_CDATA'))
-                        buf.seek(0)
+                # data traffic
+                envelope = envmsg(data)
+                envelope.decode()
+                nonce = envelope['header']['sequence_number']
+                try:
+                    buf = io.BytesIO()
+                    buf.length = buf.write(envelope.
+                                           get_attr('IPR_ATTR_CDATA'))
+                    buf.seek(0)
+                    if flags == 1:
+                        msg = ctrlmsg(buf)
+                        msg.decode()
+                        self.listeners[nonce].put_nowait(msg)
+                    else:
                         self.parse(buf)
-                    except AttributeError:
-                        # now silently drop bad packet
-                        pass
+                except AttributeError:
+                    # now silently drop bad packet
+                    pass
 
                 offset += length
 
@@ -1079,28 +1121,11 @@ class Netlink(threading.Thread):
                     # FIXME: log this
                     pass
 
-    def _remote_cmd(self, sock, cmd, attrs=None):
-        attrs = attrs or []
-        smsg = ctrlmsg()
-        smsg['header']['type'] = NLMSG_CONTROL
-        smsg['header']['pid'] = os.getpid()
-        smsg['cmd'] = cmd
-        smsg['attrs'] = attrs
-        smsg.encode()
-        sock.send(struct.pack('I', REALM_NONE) + smsg.buf.getvalue())
-
     def command(self, cmd, attrs=[], expect=None):
-        nonce = self.iothread.nonce()
-        self.listeners[nonce] = Queue.Queue()
         msg = ctrlmsg(io.BytesIO())
-        msg['header']['type'] = NLMSG_CONTROL
-        msg['header']['sequence_number'] = nonce
         msg['cmd'] = cmd
         msg['attrs'] = attrs
-        msg.encode()
-        self.bridge.send(msg.buf.getvalue())
-        rsp = self.listeners[nonce].get()
-        del self.listeners[nonce]
+        rsp = self.nlm_request(msg, NLMSG_CONTROL, 0, 1)[0]
         assert rsp['cmd'] == IPRCMD_ACK
         if expect is not None:
             return rsp.get_attr(expect)
@@ -1124,9 +1149,7 @@ class Netlink(threading.Thread):
         self.realms.add(realm)
         return realm
 
-    def disconnect(self, realm=None):
-        if realm is None:
-            realm = self.realms.pop()
+    def disconnect(self, realm):
         ret = self.command(IPRCMD_DISCONNECT,
                            [['IPR_ATTR_ADDR', realm]])
         self.realms.remove(realm)
@@ -1262,7 +1285,8 @@ class Netlink(threading.Thread):
             if msg is None:
                 self._remove_queue(key)
                 raise Queue.Empty()
-            if (msg['header']['error'] is not None) and (not raw):
+            if (msg['header'].get('error', None) is not None) and\
+                    (not raw):
                 self._remove_queue(key)
                 raise msg['header']['error']
             if (msg['header']['type'] != NLMSG_DONE) or raw:
@@ -1278,34 +1302,34 @@ class Netlink(threading.Thread):
 
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
-                    realm=REALM_DEFAULT,
+                    env_flags=0,
+                    realm=None,
                     response_timeout=None):
         '''
         Send netlink request, filling common message
         fields, and wait for response.
         '''
         # FIXME make it thread safe, yeah
-        ret = []
-        for realm in self.realms:
-            nonce = self.iothread.nonce()
-            self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
-            msg['header']['sequence_number'] = nonce
-            msg['header']['pid'] = os.getpid()
-            msg['header']['type'] = msg_type
-            msg['header']['flags'] = msg_flags
-            msg.encode()
-            envelope = envmsg()
-            envelope['header']['sequence_number'] = nonce
-            envelope['header']['pid'] = os.getpid()
-            envelope['header']['type'] = NLMSG_TRANSPORT
-            envelope['dst'] = realm
-            envelope['src'] = 0
-            envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
-            envelope.encode()
-            self.bridge.send(envelope.buf.getvalue())
-            result = self.get(nonce, timeout=response_timeout)
-            if not self.debug:
-                for i in result:
-                    del i['header']
-            ret.extend(result)
-        return ret
+        realm = realm or self.default_realm
+        nonce = self.iothread.nonce()
+        self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
+        msg['header']['sequence_number'] = nonce
+        msg['header']['pid'] = os.getpid()
+        msg['header']['type'] = msg_type
+        msg['header']['flags'] = msg_flags
+        msg.encode()
+        envelope = envmsg()
+        envelope['header']['sequence_number'] = nonce
+        envelope['header']['pid'] = os.getpid()
+        envelope['header']['type'] = NLMSG_TRANSPORT
+        envelope['header']['flags'] = env_flags
+        envelope['dst'] = realm
+        envelope['src'] = 0
+        envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
+        envelope.encode()
+        self.bridge.send(envelope.buf.getvalue())
+        result = self.get(nonce, timeout=response_timeout)
+        if not self.debug:
+            for i in result:
+                del i['header']
+        return result
