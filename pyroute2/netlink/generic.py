@@ -639,7 +639,14 @@ class ctrlmsg(genlmsg):
                ('IPR_ATTR_SECRET', 'asciiz'),
                ('IPR_ATTR_HOST', 'asciiz'),
                ('IPR_ATTR_ADDR', 'uint32'),
-               ('IPR_ATTR_ERROR', 'asciiz'))
+               ('IPR_ATTR_ERROR', 'asciiz'),
+               ('IPR_ATTR_CID', 'uint32'),
+               ('IPR_ATTR_KEY', 'u32key'))
+
+    class u32key(nla):
+        fields = (('offset', 'I'),
+                  ('key', 'I'),
+                  ('mask', 'I'))
 
 
 class envmsg(nlmsg):

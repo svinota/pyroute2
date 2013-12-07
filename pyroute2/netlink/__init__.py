@@ -131,6 +131,8 @@ IPRCMD_CONNECT = 7
 IPRCMD_DISCONNECT = 8
 IPRCMD_SERVE = 9
 IPRCMD_SHUTDOWN = 10
+IPRCMD_SUBSCRIBE = 11
+IPRCMD_UNSUBSCRIBE = 12
 
 
 def _get_plugin(url):
@@ -435,6 +437,8 @@ class IOThread(threading.Thread):
         self.servers = set()      # set(socket, socket...)
         self.controls = set()     # set(socket, socket...)
         self.ssl_keys = {}        # {url: ssl_credentials(), url:...}
+        self.subscribe = {}
+        self._cids = list(range(1024))
         # secret; write non-zero byte as terminator
         self.secret = os.urandom(15)
         self.secret += b'\xff'
@@ -450,6 +454,15 @@ class IOThread(threading.Thread):
                                                name='Masquerade cache')
         #self._expire_thread.setDaemon(True)
         self._expire_thread.start()
+
+    def alloc_cid(self):
+        try:
+            return self._cids.pop()
+        except IndexError:
+            return None
+
+    def dealloc_cid(self, cid):
+        self._cids.append(cid)
 
     def alloc_addr(self, system, block=False):
         with self._addr_lock:
@@ -625,13 +638,27 @@ class IOThread(threading.Thread):
                 except Exception as e:
                     rsp['attrs'].append(['IPR_ATTR_ERROR',
                                          traceback.format_exc()])
-        elif sock in self.clients:
-            #elif cmd['cmd'] == IPRCMD_SUBSCRIBE:
-            #    offset = cmd.get_attr('IPR_ATTR_OFFSET')
-            #    pattern = cmd.get_attr('IPR_ATTR_CDATA')
-            #    self.subscribe[offset, pattern] = socket
+        if sock in self.clients:
+            if cmd['cmd'] == IPRCMD_SUBSCRIBE:
+                cid = self.alloc_cid()
+                if cid is not None:
+                    self.subscribe[cid] = {'socket': sock,
+                                           'keys': []}
+                    for key in cmd.get_attrs('IPR_ATTR_KEY'):
+                        target = (key['offset'],
+                                  key['key'],
+                                  key['mask'])
+                        self.subscribe[cid]['keys'].append(target)
+                    rsp['cmd'] = IPRCMD_ACK
 
-            if cmd['cmd'] == IPRCMD_REGISTER:
+            elif cmd['cmd'] == IPRCMD_UNSUBSCRIBE:
+                cid = cmd.get_attr('IPR_ATTR_CID')
+                if cid in self.subscribe:
+                    del self.subscribe[cid]
+                    self.dealloc_cid()
+                    rsp['cmd'] = IPRCMD_ACK
+
+            elif cmd['cmd'] == IPRCMD_REGISTER:
                 # auth request
                 secret = cmd.get_attr('IPR_ATTR_SECRET')
                 if secret == self.secret:
@@ -675,10 +702,27 @@ class IOThread(threading.Thread):
             # rsp.encode()
             # sock.send(rsp.buf.getvalue())
 
+    def filter_u32(self, u32, data):
+        for offset, key, mask in u32['keys']:
+            data.seek(offset)
+            compare = struct.unpack('I', data.read(4))[0]
+            if compare & mask != key:
+                return
+        # envelope data
+        envelope = envmsg()
+        envelope['header']['type'] = NLMSG_TRANSPORT
+        envelope['attrs'] = [['IPR_ATTR_CDATA',
+                              data.getvalue()]]
+        envelope.encode()
+        u32['socket'].send(envelope.buf.getvalue())
+
     def route_local(self, sock, data, seq):
         # extract masq info
         target = self.masquerade.get(seq, None)
-        if target is not None:
+        if target is None:
+            for cid, u32 in self.subscribe.items():
+                self.filter_u32(u32, data)
+        else:
             offset = 0
             while offset < data.length:
                 data.seek(offset)
@@ -923,12 +967,12 @@ class Netlink(threading.Thread):
     By default, netlink class connects to the local netlink socket
     on startup. If you prefer to connect to another host, use::
 
-        nl = Netlink(host='tcp://remote.01host:7000')
+        nl = Netlink(host='tcp://remote.host:7000')
 
     It is possible to connect to uplinks after the startup::
 
         nl = Netlink(do_connect=False)
-        nl.connect('tcp://remote.01host:7000')
+        nl.connect('tcp://remote.host:7000')
 
     To act as a server, call serve()::
 
@@ -940,7 +984,7 @@ class Netlink(threading.Thread):
     groups = 0
     marshal = Marshal
 
-    def __init__(self, debug=False, timeout=3, do_connect=True,
+    def __init__(self, debug=False, timeout=3000, do_connect=True,
                  host=None, key=None, cert=None, ca=None):
         threading.Thread.__init__(self, name='Netlink API')
         self._timeout = timeout
@@ -1194,7 +1238,13 @@ class Netlink(threading.Thread):
         '''
         if operate:
             self.listeners[0] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
+            self.cid = self.command(IPRCMD_SUBSCRIBE,
+                                    [['IPR_ATTR_KEY', {'offset': 8,
+                                                       'key': 0,
+                                                       'mask': 0}]])
         else:
+            self.command(IPRCMD_UNSUBSCRIBE,
+                         [['IPR_ATTR_CID', self.cid]])
             del self.listeners[0]
 
     def register_callback(self, callback, predicate=lambda x: True, args=None):
