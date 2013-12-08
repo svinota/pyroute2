@@ -54,12 +54,11 @@ def _assert_uplinks(ip, num):
 
 class TestSetup(object):
 
-    def _test_simple(self):
+    def test_simple(self):
         ip = IPRoute()
         _assert_uplinks(ip, 1)
-        ip.shutdown_sockets()
-        _assert_uplinks(ip, 0)
         ip.release()
+        _assert_uplinks(ip, 0)
 
     def test_noautoconnect(self):
         ip = IPRoute(do_connect=False)
@@ -70,34 +69,35 @@ class TestSetup(object):
         _assert_uplinks(ip, 0)
         ip.release()
 
-    def _test_serve(self, url=None, key=None, cert=None, ca=None):
+    def test_serve(self, url=None, key=None, cert=None, ca=None):
         url = url or 'unix://\0nose_tests_socket'
         ip = IPRoute()
-        _assert_uplinks(ip, 1)
-        _assert_servers(ip, 0)
-        _assert_clients(ip, 1)
         ip.serve(url, key=key, cert=cert, ca=ca)
-        _assert_uplinks(ip, 1)
-        _assert_servers(ip, 1)
-        _assert_clients(ip, 1)
-        ip.shutdown_servers(url)
-        _assert_uplinks(ip, 1)
-        _assert_servers(ip, 0)
-        _assert_clients(ip, 1)
-        ip.shutdown_sockets()
-        _assert_uplinks(ip, 0)
-        _assert_servers(ip, 0)
-        _assert_clients(ip, 1)
+        ip.shutdown(url)
         ip.release()
 
-    def _test_serve_ssl(self):
+    def test_serve_tls(self):
+        url = 'tls://127.0.0.1:9876'
+        key = 'server.key'
+        cert = 'server.crt'
+        ca = 'ca.crt'
+        return self.test_serve(url, key, cert, ca)
+
+    def test_serve_unix_tls(self):
+        url = 'unix+tls://\0nose_tests_socket'
+        key = 'server.key'
+        cert = 'server.crt'
+        ca = 'ca.crt'
+        return self.test_serve(url, key, cert, ca)
+
+    def test_serve_ssl(self):
         url = 'ssl://127.0.0.1:9876'
         key = 'server.key'
         cert = 'server.crt'
         ca = 'ca.crt'
         return self.test_serve(url, key, cert, ca)
 
-    def _test_serve_unix_ssl(self):
+    def test_serve_unix_ssl(self):
         url = 'unix+ssl://\0nose_tests_socket'
         key = 'server.key'
         cert = 'server.crt'
@@ -105,7 +105,7 @@ class TestSetup(object):
         return self.test_serve(url, key, cert, ca)
 
 
-class _TestServerSide(object):
+class TestServerSide(object):
 
     def testServer(self):
         url = 'unix://\0%s' % (uuid.uuid4())
@@ -118,7 +118,7 @@ class _TestServerSide(object):
         ip.release()
 
 
-class _TestSetupUplinks(object):
+class TestSetupUplinks(object):
 
     def _test_remote(self, url):
         allow_connect = Event()
@@ -128,9 +128,6 @@ class _TestSetupUplinks(object):
         target.start()
         allow_connect.wait()
         ip = IPRoute(host=url)
-        _assert_uplinks(ip, 1)
-        ip.shutdown_sockets()
-        _assert_uplinks(ip, 0)
         ip.release()
 
     def test_unix_abstract_remote(self):

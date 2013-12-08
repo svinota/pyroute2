@@ -516,8 +516,8 @@ class IOThread(threading.Thread):
 
             elif cmd['cmd'] == IPRCMD_SHUTDOWN:
                 url = cmd.get_attr('IPR_ATTR_HOST')
-                for old_sock in self.servers:
-                    if _repr_sockets([old_sock]) == [url]:
+                for old_sock in tuple(self.servers):
+                    if _repr_sockets([old_sock], 'local') == [url]:
                         self._rlist.remove(old_sock)
                         self.servers.remove(old_sock)
                         self._reload_event.set()
