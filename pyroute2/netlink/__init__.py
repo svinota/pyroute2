@@ -1,6 +1,5 @@
 import traceback
 import threading
-import logging
 import select
 import struct
 import socket
@@ -135,26 +134,12 @@ IPRCMD_SUBSCRIBE = 11
 IPRCMD_UNSUBSCRIBE = 12
 
 
-def _get_plugin(url):
-    scheme, command = url.split('://')
-    name = 'plugin_%s' % (scheme)
-    plugins = __import__('pyroute2.netlink.plugins',
-                         globals(),
-                         locals(),
-                         [name],
-                         -1)
-    plugin = getattr(plugins, name)
-    return (plugin.plugin_init['type'],
-            plugin.plugin_init['create'],
-            command)
-
-
-def _get_socket(url, server_side=False, ssl_keys=None):
+def _get_socket(url, server_side=False,
+                key=None, cert=None, ca=None):
     assert url[:6] in ('tcp://', 'ssl://', 'tls://') or \
         url[:11] in ('unix+ssl://', 'unix+tls://') or url[:7] == 'unix://'
     target = urlparse.urlparse(url)
     hostname = target.hostname or ''
-    ssl_keys = ssl_keys or {}
     use_ssl = False
     ssl_version = 2
 
@@ -177,13 +162,13 @@ def _get_socket(url, server_side=False, ssl_keys=None):
         use_ssl = True
 
     if use_ssl:
-        if url not in ssl_keys:
-            raise Exception('SSL/TLS keys are not provided')
+
+        assert key and cert and ca
 
         sock = ssl.wrap_socket(sock,
-                               keyfile=ssl_keys[url].key,
-                               certfile=ssl_keys[url].cert,
-                               ca_certs=ssl_keys[url].ca,
+                               keyfile=key,
+                               certfile=cert,
+                               ca_certs=ca,
                                server_side=server_side,
                                cert_reqs=ssl.CERT_REQUIRED,
                                ssl_version=ssl_version)
@@ -353,13 +338,6 @@ class NetlinkSocket(socket.socket):
         return self.marshal.parse(data)
 
 
-class ssl_credentials(object):
-    def __init__(self, key, cert, ca):
-        self.key = key
-        self.cert = cert
-        self.ca = ca
-
-
 class Layer(object):
 
     def __init__(self, raw):
@@ -405,21 +383,20 @@ class IOThread(threading.Thread):
         threading.Thread.__init__(self, name='Netlink I/O core')
         #self.setDaemon(True)
         self.pid = os.getpid()
-        self._nonce = 0
-        self._nonce_lock = threading.Lock()
         self._addr_lock = threading.Lock()
         self._run_event = threading.Event()
         self._sctl_event = threading.Event()
         self._stop_event = threading.Event()
         self._reload_event = threading.Event()
-        # new address scheme
-        self.addr = addr
-        self.mask = mask
         self.sys_mask = sys_mask
         self.con_mask = con_mask
         self.default_sys = {'netlink': 0x00010000,
                             'tcp': 0x00010000,
-                            'unix': 0x00010000}
+                            'unix': 0x00010000,
+                            'unix+ssl': 0x00010000,
+                            'unix+tls': 0x00010000,
+                            'ssl': 0x00010000,
+                            'tls': 0x00010000}
         self.active_sys = {}
         self.active_conn = {}
         # fd lists for select()
@@ -427,18 +404,14 @@ class IOThread(threading.Thread):
         self._wlist = set()
         self._xlist = set()
         # routing
-        self.xtable = {}          # {(realm, mask): socket, ...}
-        self.marshals = {}        # {netlink_socket: marshal, ...}
-        self.listeners = {}       # {int: Queue(), int: Queue()...}
         self.masquerade = {}      # {int: MasqRecord()...}
         self.recv_methods = {}    # {socket: recv_method, ...}
         self.clients = set()      # set(socket, socket...)
-        self.uplinks = set()      # set(socket, socket...)
         self.servers = set()      # set(socket, socket...)
         self.controls = set()     # set(socket, socket...)
-        self.ssl_keys = {}        # {url: ssl_credentials(), url:...}
         self.subscribe = {}
-        self._cids = list(range(1024))
+        self._cid = list(range(1024))
+        self._nonce = list(range(0xffff))
         # secret; write non-zero byte as terminator
         self.secret = os.urandom(15)
         self.secret += b'\xff'
@@ -446,23 +419,12 @@ class IOThread(threading.Thread):
         # control in-process communication only
         self.sctl, self.control = pairPipeSockets()
         self.add_client(self.sctl)
-        self._sctl_thread = threading.Thread(target=self._sctl,
-                                             name='IPC init')
-        self._sctl_thread.start()
+        self.controls.add(self.sctl)
         # masquerade cache expiration
         self._expire_thread = threading.Thread(target=self._expire_masq,
                                                name='Masquerade cache')
         #self._expire_thread.setDaemon(True)
         self._expire_thread.start()
-
-    def alloc_cid(self):
-        try:
-            return self._cids.pop()
-        except IndexError:
-            return None
-
-    def dealloc_cid(self, cid):
-        self._cids.append(cid)
 
     def alloc_addr(self, system, block=False):
         with self._addr_lock:
@@ -477,36 +439,6 @@ class IOThread(threading.Thread):
             local = addr & self.con_mask
             self.active_sys[system].append(local)
 
-    def _sctl(self):
-        msg = ctrlmsg()
-        msg['header']['type'] = NLMSG_CONTROL
-        msg['cmd'] = IPRCMD_REGISTER
-        msg['attrs'] = [['IPR_ATTR_SECRET', self.secret]]
-        msg.encode()
-        envelope = envmsg()
-        envelope['header']['type'] = NLMSG_TRANSPORT
-        envelope['header']['flags'] = 1
-        envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
-        envelope.encode()
-
-        self._run_event.wait()
-        self.control.send(envelope.buf.getvalue())
-
-        buf = io.BytesIO()
-        buf.write(self.control.recv())
-        buf.seek(0)
-        envelope = envmsg(buf)
-        envelope.decode()
-        data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
-        msg = ctrlmsg(data)
-        msg.decode()
-        if msg['cmd'] == IPRCMD_ACK:
-            self._sctl_event.set()
-        else:
-            logging.error("got err for sctl, shutting down")
-            # FIXME: shutdown all
-            self._stop_event.set()
-
     def _expire_masq(self):
         '''
         Background thread that expires masquerade cache entries
@@ -517,17 +449,10 @@ class IOThread(threading.Thread):
             for i in tuple(self.masquerade.keys()):
                 if (ts - self.masquerade[i].ctime) > 60:
                     del self.masquerade[i]
+                    self._nonce.append(i)
             self._stop_event.wait(60)
             if self._stop_event.is_set():
                 return
-
-    def nonce(self):
-        with self._nonce_lock:
-            if self._nonce == 0xffffffff:
-                self._nonce = 1
-            else:
-                self._nonce += 1
-            return self._nonce
 
     def route_control(self, sock, data):
         # open envelope
@@ -575,8 +500,13 @@ class IOThread(threading.Thread):
 
             elif cmd['cmd'] == IPRCMD_SERVE:
                 url = cmd.get_attr('IPR_ATTR_HOST')
+                key = cmd.get_attr('IPR_ATTR_SSL_KEY')
+                cert = cmd.get_attr('IPR_ATTR_SSL_CERT')
+                ca = cmd.get_attr('IPR_ATTR_SSL_CA')
                 (new_sock, addr) = _get_socket(url, server_side=True,
-                                               ssl_keys=self.ssl_keys)
+                                               key=key,
+                                               cert=cert,
+                                               ca=ca)
                 new_sock.bind(addr)
                 new_sock.listen(16)
                 self._rlist.add(new_sock)
@@ -607,6 +537,9 @@ class IOThread(threading.Thread):
                 # connect to a system
                 try:
                     url = cmd.get_attr('IPR_ATTR_HOST')
+                    key = cmd.get_attr('IPR_ATTR_SSL_KEY')
+                    cert = cmd.get_attr('IPR_ATTR_SSL_CERT')
+                    ca = cmd.get_attr('IPR_ATTR_SSL_CA')
                     target = urlparse.urlparse(url)
                     if target.scheme == 'netlink':
                         new_sock = NetlinkSocket(int(target.hostname))
@@ -623,7 +556,9 @@ class IOThread(threading.Thread):
                     else:
                         (new_sock, addr) = _get_socket(url,
                                                        server_side=False,
-                                                       ssl_keys=self.ssl_keys)
+                                                       key=key,
+                                                       cert=cert,
+                                                       ca=ca)
                         new_sock.connect(addr)
                         sys = cmd.get_attr('IPR_ATTR_SYS',
 
@@ -635,13 +570,13 @@ class IOThread(threading.Thread):
                         self.register_link(addr, new_sock, send)
                         rsp['cmd'] = IPRCMD_ACK
                         self._reload_event.set()
-                except Exception as e:
+                except Exception:
                     rsp['attrs'].append(['IPR_ATTR_ERROR',
                                          traceback.format_exc()])
         if sock in self.clients:
             if cmd['cmd'] == IPRCMD_SUBSCRIBE:
-                cid = self.alloc_cid()
-                if cid is not None:
+                try:
+                    cid = self._cid.pop()
                     self.subscribe[cid] = {'socket': sock,
                                            'keys': []}
                     for key in cmd.get_attrs('IPR_ATTR_KEY'):
@@ -650,12 +585,15 @@ class IOThread(threading.Thread):
                                   key['mask'])
                         self.subscribe[cid]['keys'].append(target)
                     rsp['cmd'] = IPRCMD_ACK
+                except Exception:
+                    rsp['attrs'].append(['IPR_ATTR_ERROR',
+                                         traceback.format_exc()])
 
             elif cmd['cmd'] == IPRCMD_UNSUBSCRIBE:
                 cid = cmd.get_attr('IPR_ATTR_CID')
                 if cid in self.subscribe:
                     del self.subscribe[cid]
-                    self.dealloc_cid()
+                    self._cid.append(cid)
                     rsp['cmd'] = IPRCMD_ACK
 
             elif cmd['cmd'] == IPRCMD_REGISTER:
@@ -778,14 +716,13 @@ class IOThread(threading.Thread):
         # 1. get data
         data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
         # 2. register way back
-        nonce = self.nonce()
+        nonce = self._nonce.pop()
         src = envelope['src']
         dst = envelope['dst']
         masq = MasqRecord(dst, src, sock)
         masq.add_envelope(envelope)
         masq.add_data(data)
         self.masquerade[nonce] = masq
-        self.active_conn[envelope['dst']]['sroute'][nonce] = masq
         envelope['header']['sequence_number'] = nonce
         envelope['header']['pid'] = os.getpid()
         envelope.buf.seek(0)
@@ -797,14 +734,13 @@ class IOThread(threading.Thread):
         # 1. get data
         data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
         # 2. register way back
-        nonce = self.nonce()
+        nonce = self._nonce.pop()
         src = envelope['src']
         dst = envelope['dst']
         masq = MasqRecord(dst, src, sock)
         masq.add_envelope(envelope)
         masq.add_data(data)
         self.masquerade[nonce] = masq
-        self.active_conn[envelope['dst']]['sroute'][nonce] = masq
         data.seek(8)
         data.write(struct.pack('II', nonce, self.pid))
         # 3. return data
@@ -863,8 +799,7 @@ class IOThread(threading.Thread):
     def register_link(self, addr, sock, send):
         self._rlist.add(sock)
         self.active_conn[addr] = {'sock': sock,
-                                  'send': send,
-                                  'sroute': {}}
+                                  'send': send}
         return sock
 
     def deregister_link(self, addr):
@@ -888,14 +823,6 @@ class IOThread(threading.Thread):
         self._wlist.remove(sock)
         self.clients.remove(sock)
         return sock
-
-    def start(self):
-        threading.Thread.start(self)
-        self._sctl_event.wait(3)
-        self._sctl_thread.join()
-        if not self._sctl_event.is_set():
-            self._stop_event.set()
-            raise RuntimeError('failed to establish control connection')
 
     def run(self):
         self._run_event.set()
@@ -943,8 +870,6 @@ class IOThread(threading.Thread):
                 if data.length == 0:
                     if fd in self.clients:
                         self.remove_client(fd)
-                    elif fd in self.uplinks:
-                        self.remove_uplink(fd)
                     continue
 
                 ##
@@ -984,7 +909,7 @@ class Netlink(threading.Thread):
     groups = 0
     marshal = Marshal
 
-    def __init__(self, debug=False, timeout=3000, do_connect=True,
+    def __init__(self, debug=False, timeout=3, do_connect=True,
                  host=None, key=None, cert=None, ca=None):
         threading.Thread.__init__(self, name='Netlink API')
         self._timeout = timeout
@@ -994,6 +919,8 @@ class Netlink(threading.Thread):
         self.listeners = {}     # {nonce: Queue(), ...}
         self.callbacks = []     # [(predicate, callback, args), ...]
         self.debug = debug
+        self._nonce = 0
+        self._nonce_lock = threading.Lock()
         self.marshal.debug = debug
         self.marshal = self.marshal()
         self.buffers = Queue.Queue()
@@ -1009,7 +936,7 @@ class Netlink(threading.Thread):
         self.start()
         self._run_event.wait()
         if do_connect:
-            self.default_realm = self.connect()
+            self.default_realm = self.connect(host, key, cert, ca)
 
     def run(self):
         # 1. run iothread
@@ -1176,19 +1103,25 @@ class Netlink(threading.Thread):
         else:
             return None
 
-    def serve(self, url, key=None, cert=None, ca=None):
+    def serve(self, url, key='', cert='', ca=''):
         return self.command(IPRCMD_SERVE,
-                            [['IPR_ATTR_HOST', url]])
+                            [['IPR_ATTR_HOST', url],
+                             ['IPR_ATTR_SSL_KEY', key],
+                             ['IPR_ATTR_SSL_CERT', cert],
+                             ['IPR_ATTR_SSL_CA', ca]])
 
     def shutdown(self, url):
         return self.command(IPRCMD_SHUTDOWN,
                             [['IPR_ATTR_HOST', url]])
 
-    def connect(self, host=None):
+    def connect(self, host=None, key='', cert='', ca=''):
         if host is None:
             host = self.host
         realm = self.command(IPRCMD_CONNECT,
-                             [['IPR_ATTR_HOST', host]],
+                             [['IPR_ATTR_HOST', host],
+                              ['IPR_ATTR_SSL_KEY', key],
+                              ['IPR_ATTR_SSL_CERT', cert],
+                              ['IPR_ATTR_SSL_CA', ca]],
                              expect='IPR_ATTR_ADDR')
         self.realms.add(realm)
         return realm
@@ -1350,6 +1283,14 @@ class Netlink(threading.Thread):
             self._remove_queue(key)
         return result
 
+    def nonce(self):
+        with self._nonce_lock:
+            if self._nonce == 0xffffffff:
+                self._nonce = 1
+            else:
+                self._nonce += 1
+            return self._nonce
+
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
                     env_flags=0,
@@ -1361,7 +1302,7 @@ class Netlink(threading.Thread):
         '''
         # FIXME make it thread safe, yeah
         realm = realm or self.default_realm
-        nonce = self.iothread.nonce()
+        nonce = self.nonce()
         self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
         msg['header']['sequence_number'] = nonce
         msg['header']['pid'] = os.getpid()

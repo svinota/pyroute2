@@ -314,7 +314,7 @@ class TestRemoteData(TestData):
         self.dev = self.ip.link_lookup(ifname='dummyX')
 
 
-class _TestSSLData(TestData):
+class TestSSLData(TestData):
     ssl_proto = 'ssl'
 
     def setup(self):
@@ -337,5 +337,5 @@ class _TestSSLData(TestData):
         self.dev = self.ip.link_lookup(ifname='dummyX')
 
 
-class _TestTLSData(_TestSSLData):
+class TestTLSData(TestSSLData):
     ssl_proto = 'tls'
