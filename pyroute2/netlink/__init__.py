@@ -585,6 +585,7 @@ class IOThread(threading.Thread):
                                   key['mask'])
                         self.subscribe[cid]['keys'].append(target)
                     rsp['cmd'] = IPRCMD_ACK
+                    rsp['attrs'].append(['IPR_ATTR_CID', cid])
                 except Exception:
                     rsp['attrs'].append(['IPR_ATTR_ERROR',
                                          traceback.format_exc()])
@@ -919,6 +920,7 @@ class Netlink(threading.Thread):
         self.listeners = {}     # {nonce: Queue(), ...}
         self.callbacks = []     # [(predicate, callback, args), ...]
         self.debug = debug
+        self.cid = None
         self._nonce = 0
         self._nonce_lock = threading.Lock()
         self.marshal.debug = debug
@@ -1141,15 +1143,17 @@ class Netlink(threading.Thread):
         Netlink.monitor(). They can be fetched by
         Netlink.get(0) or just Netlink.get().
         '''
-        if operate:
+        if operate and self.cid is None:
             self.listeners[0] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
             self.cid = self.command(IPRCMD_SUBSCRIBE,
                                     [['IPR_ATTR_KEY', {'offset': 8,
                                                        'key': 0,
-                                                       'mask': 0}]])
+                                                       'mask': 0}]],
+                                    expect='IPR_ATTR_CID')
         else:
             self.command(IPRCMD_UNSUBSCRIBE,
                          [['IPR_ATTR_CID', self.cid]])
+            self.cid = None
             del self.listeners[0]
 
     def register_callback(self, callback, predicate=lambda x: True, args=None):

@@ -57,6 +57,8 @@ class TestSetup(object):
     def test_simple(self):
         ip = IPRoute()
         _assert_uplinks(ip, 1)
+        ip.monitor()
+        ip.monitor(False)
         ip.release()
         _assert_uplinks(ip, 0)
 
