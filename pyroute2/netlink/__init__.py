@@ -943,38 +943,10 @@ class Netlink(threading.Thread):
         self.iothread.start()
         # 2. connect to iothread
         self._brs, self.bridge = pairPipeSockets()
-        #import rpdb2
-        #rpdb2.start_embedded_debugger("bala")
         self.iothread.add_client(self._brs)
+        self.iothread.controls.add(self._brs)
         self.iothread.reload()
-
-        msg = ctrlmsg()
-        msg['header']['type'] = NLMSG_CONTROL
-        msg['cmd'] = IPRCMD_REGISTER
-        msg['attrs'] = [['IPR_ATTR_SECRET', self.iothread.secret]]
-        msg.encode()
-        envelope = envmsg()
-        envelope['header']['type'] = NLMSG_TRANSPORT
-        envelope['header']['flags'] = 1
-        envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
-        envelope.encode()
-
-        self.bridge.send(envelope.buf.getvalue())
-        # assume iothread is up and running...
-        buf = io.BytesIO()
-        buf.write(self.bridge.recv())
-        buf.seek(0)
-
-        envelope = envmsg(buf)
-        envelope.decode()
-        data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
-        msg = ctrlmsg(data)
-        msg.decode()
-
-        if msg['cmd'] == IPRCMD_ACK:
-            self._run_event.set()
-        else:
-            return
+        self._run_event.set()
 
         # 3. start to monitor it
         while not self._stop_event.is_set():
