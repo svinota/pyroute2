@@ -260,10 +260,9 @@ class Netlink(threading.Thread):
         for realm in tuple(self.realms):
             self.disconnect(realm)
         self.iothread.stop()
-        self.iothread.join()
 
         self._stop_event.set()
-        self._brs.send("")
+        self._brs.send(struct.pack('I', 4))
         self._brs.close()
         self.join()
         self.bridge.close()

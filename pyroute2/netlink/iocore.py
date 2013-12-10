@@ -347,11 +347,6 @@ class IOCore(threading.Thread):
                 sock.send(ne.buf.getvalue())
                 # Stop iothread -- shutdown sequence
                 self._stop_event.set()
-                self._rlist.remove(self.sctl)
-                self._wlist.remove(self.sctl)
-                self.sctl.close()
-                self.control.close()
-                self._expire_thread.join()
                 return
 
             elif cmd['cmd'] == IPRCMD_RELOAD:
@@ -644,6 +639,7 @@ class IOCore(threading.Thread):
             self.command(IPRCMD_STOP)
         except OSError:
             pass
+        self.join()
 
     def reload(self):
         '''
@@ -743,3 +739,10 @@ class IOCore(threading.Thread):
                 except Exception:
                     # FIXME: silently drop all exceptions yet
                     pass
+
+        # shutdown sequence
+        self._rlist.remove(self.sctl)
+        self._wlist.remove(self.sctl)
+        self.sctl.close()
+        self.control.close()
+        self._expire_thread.join()
