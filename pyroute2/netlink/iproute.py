@@ -34,7 +34,6 @@ from socket import htons
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
-from pyroute2.netlink import Netlink
 from pyroute2.netlink import Marshal
 from pyroute2.netlink import NetlinkSocket
 from pyroute2.netlink import NLM_F_ATOMIC
@@ -44,6 +43,7 @@ from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NLM_F_EXCL
+from pyroute2.netlink.client import Netlink
 from pyroute2.netlink.generic import NETLINK_ROUTE
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters

@@ -3,9 +3,9 @@ try:
     import Queue
 except ImportError:
     import queue as Queue
-from pyroute2.netlink import Netlink
 from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLM_F_REQUEST
+from pyroute2.netlink.client import Netlink
 from pyroute2.netlink.generic import nla
 from pyroute2.netlink.generic import genlmsg
 from pyroute2.netlink.generic import ctrlmsg

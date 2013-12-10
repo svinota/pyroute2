@@ -9,6 +9,8 @@ try:
 except NameError:
     basestring = (str, bytes)
 
+AF_PIPE = 255  # Right now AF_MAX == 40
+
 
 size_suffixes = {'b': 1,
                  'k': 1024,
