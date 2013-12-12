@@ -12,6 +12,7 @@ import ssl
 
 from pyroute2.common import AF_PIPE
 from pyroute2.netlink import NetlinkSocket
+from pyroute2.netlink import NLMSG_NOOP
 from pyroute2.netlink import NLMSG_CONTROL
 from pyroute2.netlink import NLMSG_TRANSPORT
 from pyroute2.netlink import IPRCMD_ERR
@@ -33,6 +34,13 @@ try:
     import urlparse
 except ImportError:
     import urllib.parse as urlparse
+
+try:
+    import Queue
+except ImportError:
+    import queue as Queue
+_QUEUE_MAXSIZE = 4096
+
 
 C_ADDR_START = 3
 
@@ -271,6 +279,7 @@ class IOCore(threading.Thread):
         self.servers = set()      # set(socket, socket...)
         self.controls = set()     # set(socket, socket...)
         self.subscribe = {}
+        self.queue = Queue.Queue(_QUEUE_MAXSIZE)
         self._cid = list(range(1024))
         self._nonce = list(range(0xffff))
         # secret; write non-zero byte as terminator
@@ -286,6 +295,9 @@ class IOCore(threading.Thread):
                                                name='Masquerade cache')
         #self._expire_thread.setDaemon(True)
         self._expire_thread.start()
+        self._dequeue_thread = threading.Thread(target=self._dequeue,
+                                                name='Buffer queue')
+        self._dequeue_thread.start()
 
     def alloc_addr(self, system, block=False):
         with self._addr_lock:
@@ -299,6 +311,16 @@ class IOCore(threading.Thread):
             system = addr & self.sys_mask
             local = addr & self.con_mask
             self.active_sys[system].append(local)
+
+    def _dequeue(self):
+        '''
+        Background thread that serves the buffer
+        '''
+        while not self._stop_event.is_set():
+            try:
+                self.route(*self.queue.get())
+            except:
+                pass
 
     def _expire_masq(self):
         '''
@@ -347,6 +369,8 @@ class IOCore(threading.Thread):
                 sock.send(ne.buf.getvalue())
                 # Stop iothread -- shutdown sequence
                 self._stop_event.set()
+                self.queue.put(None)
+                self.control.send(struct.pack('I', 4))
                 return
 
             elif cmd['cmd'] == IPRCMD_RELOAD:
@@ -367,7 +391,7 @@ class IOCore(threading.Thread):
                 new_sock.listen(16)
                 self._rlist.add(new_sock)
                 self.servers.add(new_sock)
-                self._reload_event.set()
+                self.noop()
                 rsp['cmd'] = IPRCMD_ACK
 
             elif cmd['cmd'] == IPRCMD_SHUTDOWN:
@@ -376,7 +400,7 @@ class IOCore(threading.Thread):
                     if _repr_sockets([old_sock], 'local') == [url]:
                         self._rlist.remove(old_sock)
                         self.servers.remove(old_sock)
-                        self._reload_event.set()
+                        self.noop()
                         rsp['cmd'] = IPRCMD_ACK
 
             elif cmd['cmd'] == IPRCMD_DISCONNECT:
@@ -385,7 +409,7 @@ class IOCore(threading.Thread):
                     addr = cmd.get_attr('IPR_ATTR_ADDR')
                     self.deregister_link(addr)
                     rsp['cmd'] = IPRCMD_ACK
-                    self._reload_event.set()
+                    self.noop()
                 except Exception as e:
                     rsp['attrs'] = [['IPR_ATTR_ERROR', str(e)]]
 
@@ -408,7 +432,7 @@ class IOCore(threading.Thread):
                         rsp['attrs'].append(['IPR_ATTR_ADDR', addr])
                         self.register_link(addr, new_sock, send)
                         rsp['cmd'] = IPRCMD_ACK
-                        self._reload_event.set()
+                        self.noop()
                     else:
                         (new_sock, addr) = _get_socket(url,
                                                        server_side=False,
@@ -425,7 +449,7 @@ class IOCore(threading.Thread):
                         rsp['attrs'].append(['IPR_ATTR_ADDR', addr])
                         self.register_link(addr, new_sock, send)
                         rsp['cmd'] = IPRCMD_ACK
-                        self._reload_event.set()
+                        self.noop()
                 except Exception:
                     rsp['attrs'].append(['IPR_ATTR_ERROR',
                                          traceback.format_exc()])
@@ -561,6 +585,8 @@ class IOCore(threading.Thread):
                 return self.route_control(sock, data)
             else:
                 return self.route_data(sock, data)
+        elif mtype == NLMSG_NOOP:
+            return
         else:
             return self.route_local(sock, data, seq)
 
@@ -614,6 +640,12 @@ class IOCore(threading.Thread):
         cmd = ctrlmsg(data)
         cmd.decode()
         return cmd
+
+    def noop(self):
+        msg = ctrlmsg()
+        msg['header']['type'] = NLMSG_NOOP
+        msg.encode()
+        self.control.send(msg.buf.getvalue())
 
     def command(self, cmd, attrs=[]):
         msg = ctrlmsg(io.BytesIO())
@@ -689,6 +721,7 @@ class IOCore(threading.Thread):
                 [rlist, wlist, xlist] = select.select(self._rlist, [], [])
             except:
                 # FIXME: log exceptions
+                traceback.print_exc()
                 continue
             for fd in rlist:
                 ##
@@ -735,7 +768,7 @@ class IOCore(threading.Thread):
                 # Route the data
                 #
                 try:
-                    self.route(fd, data)
+                    self.queue.put((fd, data))
                 except Exception:
                     # FIXME: silently drop all exceptions yet
                     pass
@@ -746,3 +779,4 @@ class IOCore(threading.Thread):
         self.sctl.close()
         self.control.close()
         self._expire_thread.join()
+        self._dequeue_thread.join()
