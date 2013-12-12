@@ -413,6 +413,31 @@ class Netlink(threading.Thread):
                 self._nonce += 1
             return self._nonce
 
+    def nlm_push(self, msg,
+                 msg_type=None,
+                 msg_flags=None,
+                 env_flags=None,
+                 realm=0,
+                 nonce=0):
+        msg['header']['sequence_number'] = nonce
+        msg['header']['pid'] = os.getpid()
+        if msg_type is not None:
+            msg['header']['type'] = msg_type
+        if msg_flags is not None:
+            msg['header']['flags'] = msg_flags
+        msg.encode()
+        envelope = envmsg()
+        envelope['header']['sequence_number'] = nonce
+        envelope['header']['pid'] = os.getpid()
+        envelope['header']['type'] = NLMSG_TRANSPORT
+        if env_flags is not None:
+            envelope['header']['flags'] = env_flags
+        envelope['dst'] = realm
+        envelope['src'] = 0
+        envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
+        envelope.encode()
+        self.bridge.send(envelope.buf.getvalue())
+
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
                     env_flags=0,
@@ -426,21 +451,7 @@ class Netlink(threading.Thread):
         realm = realm or self.default_realm
         nonce = self.nonce()
         self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
-        msg['header']['sequence_number'] = nonce
-        msg['header']['pid'] = os.getpid()
-        msg['header']['type'] = msg_type
-        msg['header']['flags'] = msg_flags
-        msg.encode()
-        envelope = envmsg()
-        envelope['header']['sequence_number'] = nonce
-        envelope['header']['pid'] = os.getpid()
-        envelope['header']['type'] = NLMSG_TRANSPORT
-        envelope['header']['flags'] = env_flags
-        envelope['dst'] = realm
-        envelope['src'] = 0
-        envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
-        envelope.encode()
-        self.bridge.send(envelope.buf.getvalue())
+        self.nlm_push(msg, msg_type, msg_flags, env_flags, realm, nonce)
         result = self.get(nonce, timeout=response_timeout)
         if not self.debug:
             for i in result:

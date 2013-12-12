@@ -512,7 +512,9 @@ class IOCore(threading.Thread):
 
         else:
             # unknown destination
-            pass
+            data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
+            for cid, u32 in self.subscribe.items():
+                self.filter_u32(u32, data)
             # rsp = ctrlmsg()
             # rsp['header']['type'] = NLMSG_CONTROL
             # rsp['cmd'] = IPRCMD_ERR

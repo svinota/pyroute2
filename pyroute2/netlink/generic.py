@@ -139,12 +139,6 @@ class nlmsg_base(dict):
         dict.__init__(self)
         for i in self.fields:
             self[i[0]] = 0  # FIXME: only for number values
-        if isinstance(buf, basestring):
-            b = io.BytesIO()
-            b.write(buf)
-            b.seek(0)
-            buf = b
-        self.buf = buf or io.BytesIO()
         self.raw = None
         self.debug = debug
         self.length = length or 0
@@ -154,9 +148,20 @@ class nlmsg_base(dict):
         self['attrs'] = []
         self['value'] = NotInitialized
         self.value = NotInitialized
+        self.register_nlas()
+        self.reset(buf)
         if self.header is not None:
             self['header'] = self.header(self.buf)
-        self.register_nlas()
+
+    def reset(self, buf=None):
+        if isinstance(buf, basestring):
+            b = io.BytesIO()
+            b.write(buf)
+            b.seek(0)
+            buf = b
+        self.buf = buf or io.BytesIO()
+        if 'header' in self:
+            self['header'].buf = self.buf
 
     def __eq__(self, value):
         '''
