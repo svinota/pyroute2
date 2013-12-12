@@ -552,13 +552,15 @@ class nlmsg_atoms(nlmsg_base):
         fields = [('value', '=6s')]
 
         def encode(self):
-            self['value'] = ''.join((chr(int(i, 16)) for i in
-                                     self.value.split(':')))
+            self['value'] = struct.pack('BBBBBB',
+                                        *[int(i, 16) for i in
+                                          self.value.split(':')])
             nla_base.encode(self)
 
         def decode(self):
             nla_base.decode(self)
-            self.value = ':'.join('%02x' % (i) for i in self['value'])
+            self.value = ':'.join('%02x' % (i) for i in
+                                  struct.unpack('BBBBBB', self['value']))
 
     class hex(nla_base):
         '''
