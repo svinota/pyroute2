@@ -87,7 +87,7 @@ ssl.SSLSocket.do_handshake = _monkey_handshake
 
 def _get_socket(url, server_side=False,
                 key=None, cert=None, ca=None):
-    assert url[:6] in ('tcp://', 'ssl://', 'tls://') or \
+    assert url[:6] in ('udp://', 'tcp://', 'ssl://', 'tls://') or \
         url[:11] in ('unix+ssl://', 'unix+tls://') or url[:7] == 'unix://'
     target = urlparse.urlparse(url)
     hostname = target.hostname or ''
@@ -100,6 +100,9 @@ def _get_socket(url, server_side=False,
         else:
             address = ''.join((hostname, target.path))
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    elif target.scheme[:3] == 'udp':
+        address = (socket.gethostbyname(hostname), target.port)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     else:
         address = (socket.gethostbyname(hostname), target.port)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -149,7 +152,10 @@ def _repr_sockets(sockets, mode):
             elif i.ssl_version == ssl.PROTOCOL_TLSv1:
                 url += 'tls'
         if not url:
-            url = 'tcp'
+            if i.type == socket.SOCK_DGRAM:
+                url = 'udp'
+            else:
+                url = 'tcp'
 
         sname = i.getsockname()
         if i.family == socket.AF_UNIX:
@@ -261,6 +267,7 @@ class IOCore(threading.Thread):
         self.con_mask = con_mask
         self.default_sys = {'netlink': 0x00010000,
                             'tcp': 0x00010000,
+                            'udp': 0x00010000,
                             'unix': 0x00010000,
                             'unix+ssl': 0x00010000,
                             'unix+tls': 0x00010000,
@@ -388,9 +395,10 @@ class IOCore(threading.Thread):
                                                cert=cert,
                                                ca=ca)
                 new_sock.bind(addr)
-                new_sock.listen(16)
+                if new_sock.type == socket.SOCK_STREAM:
+                    new_sock.listen(16)
+                    self.servers.add(new_sock)
                 self._rlist.add(new_sock)
-                self.servers.add(new_sock)
                 self.noop()
                 rsp['cmd'] = IPRCMD_ACK
 
@@ -428,11 +436,24 @@ class IOCore(threading.Thread):
                                            self.default_sys[target.scheme])
                         send = lambda d, s:\
                             new_sock.sendto(self.gate_untag(d, s), (0, 0))
-                        addr = self.alloc_addr(sys)
-                        rsp['attrs'].append(['IPR_ATTR_ADDR', addr])
-                        self.register_link(addr, new_sock, send)
+                        realm = self.alloc_addr(sys)
+                        rsp['attrs'].append(['IPR_ATTR_ADDR', realm])
+                        self.register_link(realm, new_sock, send)
                         rsp['cmd'] = IPRCMD_ACK
                         self.noop()
+                    elif target.scheme == 'udp':
+                        (new_sock, addr) = _get_socket(url,
+                                                       server_side=False)
+                        sys = cmd.get_attr('IPR_ATTR_SYS',
+                                           self.default_sys[target.scheme])
+                        send = lambda d, s:\
+                            new_sock.sendto(self.gate_forward(d, s), addr)
+                        realm = self.alloc_addr(sys)
+                        rsp['attrs'].append(['IPR_ATTR_ADDR', realm])
+                        self.register_link(realm, new_sock, send)
+                        rsp['cmd'] = IPRCMD_ACK
+                        self.noop()
+                        print("connected", addr, new_sock)
                     else:
                         (new_sock, addr) = _get_socket(url,
                                                        server_side=False,
@@ -445,9 +466,9 @@ class IOCore(threading.Thread):
                                            self.default_sys[target.scheme])
                         send = lambda d, s:\
                             new_sock.send(self.gate_forward(d, s))
-                        addr = self.alloc_addr(sys)
-                        rsp['attrs'].append(['IPR_ATTR_ADDR', addr])
-                        self.register_link(addr, new_sock, send)
+                        realm = self.alloc_addr(sys)
+                        rsp['attrs'].append(['IPR_ATTR_ADDR', realm])
+                        self.register_link(realm, new_sock, send)
                         rsp['cmd'] = IPRCMD_ACK
                         self.noop()
                 except Exception:
