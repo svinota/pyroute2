@@ -21,3 +21,5 @@ try:
     raw_input("return >> ")
 except NameError:
     input("return >> ")
+
+ip.release()

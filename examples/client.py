@@ -17,3 +17,4 @@ ip = IPRoute(host='tls://localhost:7000',
              ca='ca.crt')
 
 pprint(ip.get_addr())
+ip.release()
