@@ -453,7 +453,9 @@ class Netlink(threading.Thread):
         self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
         self.nlm_push(msg, msg_type, msg_flags, env_flags, realm, nonce)
         result = self.get(nonce, timeout=response_timeout)
-        if not self.debug:
-            for i in result:
-                del i['header']
+        for msg in result:
+            # reset message buffer, make it ready for encoding back
+            msg.reset()
+            if not self.debug:
+                del msg['header']
         return result

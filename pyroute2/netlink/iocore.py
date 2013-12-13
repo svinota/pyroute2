@@ -453,7 +453,6 @@ class IOCore(threading.Thread):
                         self.register_link(realm, new_sock, send)
                         rsp['cmd'] = IPRCMD_ACK
                         self.noop()
-                        print("connected", addr, new_sock)
                     else:
                         (new_sock, addr) = _get_socket(url,
                                                        server_side=False,
