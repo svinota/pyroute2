@@ -256,7 +256,7 @@ class IOCore(threading.Thread):
                  sys_mask=0x00ff0000,
                  con_mask=0x0000ffff):
         threading.Thread.__init__(self, name='Netlink I/O core')
-        #self.setDaemon(True)
+        self.setDaemon(True)
         self.pid = os.getpid()
         self._addr_lock = threading.Lock()
         self._run_event = threading.Event()
@@ -300,10 +300,11 @@ class IOCore(threading.Thread):
         # masquerade cache expiration
         self._expire_thread = threading.Thread(target=self._expire_masq,
                                                name='Masquerade cache')
-        #self._expire_thread.setDaemon(True)
+        self._expire_thread.setDaemon(True)
         self._expire_thread.start()
         self._dequeue_thread = threading.Thread(target=self._dequeue,
                                                 name='Buffer queue')
+        self._dequeue_thread.setDaemon(True)
         self._dequeue_thread.start()
 
     def alloc_addr(self, system, block=False):

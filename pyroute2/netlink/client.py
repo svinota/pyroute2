@@ -79,9 +79,9 @@ class Netlink(threading.Thread):
         self._stop_event = threading.Event()
         self._feed_thread = threading.Thread(target=self._feed_buffers,
                                              name='Reasm and parsing')
-        #self._feed_thread.setDaemon(True)
+        self._feed_thread.setDaemon(True)
         self._feed_thread.start()
-        #self.setDaemon(True)
+        self.setDaemon(True)
         self.start()
         self._run_event.wait()
         if do_connect:
