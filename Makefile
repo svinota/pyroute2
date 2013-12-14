@@ -16,8 +16,8 @@
 # 	along with PyVFS; if not, write to the Free Software
 # 	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-version ?= "0.1"
-release ?= "0.1.12"
+version ?= "0.2"
+release ?= "0.2.1"
 python ?= "python"
 
 ifdef root

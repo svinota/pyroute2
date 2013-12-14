@@ -1,5 +1,9 @@
 .. remote:
 
+.. warning::
+    This chapter becomes deprecated and outdated. More
+    details in pyroute2 messaging.
+
 remote netlink
 ==============
 

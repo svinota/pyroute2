@@ -20,6 +20,7 @@ Modules description, sample code, usecases
 
     modules
     remote
+    messaging
 
 Modules autodocs
 ----------------
