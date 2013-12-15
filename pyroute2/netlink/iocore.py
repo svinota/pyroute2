@@ -26,7 +26,7 @@ from pyroute2.netlink import IPRCMD_DISCONNECT
 from pyroute2.netlink import IPRCMD_UNSUBSCRIBE
 from pyroute2.netlink import IPRCMD_SUBSCRIBE
 from pyroute2.netlink import IPRCMD_REGISTER
-from pyroute2.netlink.generic import ctrlmsg
+from pyroute2.netlink.generic import mgmtmsg
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import envmsg
 
@@ -354,7 +354,7 @@ class IOCore(threading.Thread):
         dst = envelope['dst']
         data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
         cmd = self.parse_control(data)
-        rsp = ctrlmsg()
+        rsp = mgmtmsg()
         rsp['header']['type'] = NLMSG_CONTROL
         rsp['header']['sequence_number'] = nonce
         rsp['cmd'] = IPRCMD_ERR
@@ -536,13 +536,6 @@ class IOCore(threading.Thread):
             data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
             for cid, u32 in self.subscribe.items():
                 self.filter_u32(u32, data)
-            # rsp = ctrlmsg()
-            # rsp['header']['type'] = NLMSG_CONTROL
-            # rsp['cmd'] = IPRCMD_ERR
-            # rsp['attrs'] = [['IPR_ATTR_ERROR',
-            #                  'unknown destination']]
-            # rsp.encode()
-            # sock.send(rsp.buf.getvalue())
 
     def filter_u32(self, u32, data):
         for offset, key, mask in u32['keys']:
@@ -660,18 +653,18 @@ class IOCore(threading.Thread):
 
     def parse_control(self, data):
         data.seek(0)
-        cmd = ctrlmsg(data)
+        cmd = mgmtmsg(data)
         cmd.decode()
         return cmd
 
     def noop(self):
-        msg = ctrlmsg()
+        msg = mgmtmsg()
         msg['header']['type'] = NLMSG_NOOP
         msg.encode()
         self.control.send(msg.buf.getvalue())
 
     def command(self, cmd, attrs=[]):
-        msg = ctrlmsg(io.BytesIO())
+        msg = mgmtmsg(io.BytesIO())
         msg['header']['type'] = NLMSG_CONTROL
         msg['cmd'] = cmd
         msg['attrs'] = attrs
@@ -685,7 +678,7 @@ class IOCore(threading.Thread):
         envelope = envmsg(self.control.recv())
         envelope.decode()
         data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
-        rsp = ctrlmsg(data)
+        rsp = mgmtmsg(data)
         rsp.decode()
         return rsp
 

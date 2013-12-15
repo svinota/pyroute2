@@ -642,8 +642,14 @@ class ctrlmsg(genlmsg):
                ('CTRL_ATTR_HDRSIZE', 'hex'),
                ('CTRL_ATTR_MAXATTR', 'hex'),
                ('CTRL_ATTR_OPS', 'hex'),
-               ('CTRL_ATTR_MCAST_GROUPS', 'hex'),
-               ('IPR_ATTR_SECRET', 'asciiz'),
+               ('CTRL_ATTR_MCAST_GROUPS', 'hex'))
+
+
+class mgmtmsg(ctrlmsg):
+    '''
+    Messaging system control messages
+    '''
+    nla_map = (('IPR_ATTR_SECRET', 'asciiz'),
                ('IPR_ATTR_HOST', 'asciiz'),
                ('IPR_ATTR_SSL_KEY', 'asciiz'),
                ('IPR_ATTR_SSL_CERT', 'asciiz'),

@@ -20,7 +20,7 @@ from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.iocore import pairPipeSockets
 from pyroute2.netlink.iocore import IOCore
-from pyroute2.netlink.generic import ctrlmsg
+from pyroute2.netlink.generic import mgmtmsg
 from pyroute2.netlink.generic import envmsg
 from pyroute2.netlink.generic import NETLINK_GENERIC
 
@@ -167,7 +167,7 @@ class Netlink(threading.Thread):
                                            get_attr('IPR_ATTR_CDATA'))
                     buf.seek(0)
                     if flags == 1:
-                        msg = ctrlmsg(buf)
+                        msg = mgmtmsg(buf)
                         msg.decode()
                         self.listeners[nonce].put_nowait(msg)
                     else:
@@ -214,7 +214,7 @@ class Netlink(threading.Thread):
                     pass
 
     def command(self, cmd, attrs=[], expect=None):
-        msg = ctrlmsg(io.BytesIO())
+        msg = mgmtmsg(io.BytesIO())
         msg['cmd'] = cmd
         msg['attrs'] = attrs
         rsp = self.nlm_request(msg, NLMSG_CONTROL, 0, 1)[0]
