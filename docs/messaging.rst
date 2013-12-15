@@ -113,3 +113,92 @@ Client monitors events::
         print(msg)
 
     ipr.release()
+
+Building blocks
+---------------
+
+General scheme::
+
+    API (client) <--> Broker <--> Broker <-...
+                        ^
+                        |
+                        v
+                  Target service
+
+Brokers:
+
+* Route packets
+* Buffer packets and manage channels bandwidth
+* Tag/untag packets
+* Manage connections with other brokers and services
+* Provide management API
+
+Clients:
+
+* Encode/decode packets to/from services
+* Tag/untag packets into/from the transport protocol
+* Manage connected brokers via management API
+
+Services:
+
+* Get untagged packets from clients via brokers
+* Issue responses
+* Issue broadcasts
+
+Transport protocol
+^^^^^^^^^^^^^^^^^^
+
+All the packets between clients and brokers should be incapsulated
+into the transport protocol messages. Each transport message consists of::
+
+    struct nlhdr {
+        uint32 length;
+        uint16 type;
+        uint16 flags;
+        uint32 sequence_number;
+        uint32 pid;
+    };
+
+    struct envmsghdr {
+        uint32 dst;  /* target subsystem addr */
+        uint32 src;  /* not used yet */
+    };
+
+    struct nla_hdr {
+        uint16 length;
+        uint16 type;  /* == 0; now it is the only NLA for envmsg */
+    };
+
+.. warning:
+    Message format is not final yet and will become a standard after
+    discussions.
+
+Then follows binary data of incapsulated messages. Length type of
+uint16 limits data to 65535 bytes. Fragmentation and reassembling
+of larger messages is up to client and service; brokers have nothing
+to do with message reassembling.
+
+Control protocol
+^^^^^^^^^^^^^^^^
+
+Control messages go between clients and brokers incapsulated in the
+transport messages; `flags` field of nlhdr should be set to 1.
+
+Control message format::
+
+    struct nlhdr {
+        uint32 length;
+        uint16 type;
+        uint16 flags;
+        uint32 sequence_number;
+        uint32 pid;
+    };
+
+    struct genlmsghdr {
+        uint8 cmd;
+        uint8 version;
+        uint16 reserved;
+    }
+
+    array of NLAs
+
