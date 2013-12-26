@@ -657,7 +657,8 @@ class mgmtmsg(ctrlmsg):
                ('IPR_ATTR_ADDR', 'uint32'),
                ('IPR_ATTR_ERROR', 'asciiz'),
                ('IPR_ATTR_CID', 'uint32'),
-               ('IPR_ATTR_KEY', 'u32key'))
+               ('IPR_ATTR_KEY', 'u32key'),
+               ('IPR_ATTR_UUID', 'asciiz'))
 
     class u32key(nla):
         fields = (('offset', 'I'),
@@ -667,6 +668,8 @@ class mgmtmsg(ctrlmsg):
 
 class envmsg(nlmsg):
     fields = (('dst', 'I'),
-              ('src', 'I'))
+              ('src', 'I'),
+              ('ttl', 'H'),
+              ('reserved', 'H'))
 
     nla_map = (('IPR_ATTR_CDATA', 'cdata'),)

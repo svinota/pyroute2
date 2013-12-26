@@ -11,8 +11,8 @@ import sys
 import ssl
 
 from pyroute2.common import AF_PIPE
+from pyroute2.netlink import Marshal
 from pyroute2.netlink import NetlinkSocket
-from pyroute2.netlink import NLMSG_NOOP
 from pyroute2.netlink import NLMSG_CONTROL
 from pyroute2.netlink import NLMSG_TRANSPORT
 from pyroute2.netlink import IPRCMD_ERR
@@ -26,6 +26,9 @@ from pyroute2.netlink import IPRCMD_DISCONNECT
 from pyroute2.netlink import IPRCMD_UNSUBSCRIBE
 from pyroute2.netlink import IPRCMD_SUBSCRIBE
 from pyroute2.netlink import IPRCMD_REGISTER
+from pyroute2.netlink import IPRCMD_PROVIDE
+from pyroute2.netlink import IPRCMD_REMOVE
+from pyroute2.netlink import IPRCMD_DISCOVER
 from pyroute2.netlink.generic import mgmtmsg
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import envmsg
@@ -85,7 +88,7 @@ def _monkey_handshake(self):
 ssl.SSLSocket.do_handshake = _monkey_handshake
 
 
-def _get_socket(url, server_side=False,
+def _get_socket(url, server=False,
                 key=None, cert=None, ca=None):
     assert url[:6] in ('udp://', 'tcp://', 'ssl://', 'tls://') or \
         url[:11] in ('unix+ssl://', 'unix+tls://') or url[:7] == 'unix://'
@@ -123,7 +126,7 @@ def _get_socket(url, server_side=False,
                                keyfile=key,
                                certfile=cert,
                                ca_certs=ca,
-                               server_side=server_side,
+                               server_side=server,
                                cert_reqs=ssl.CERT_REQUIRED,
                                ssl_version=ssl_version)
     return (sock, address)
@@ -213,6 +216,19 @@ def pairPipeSockets():
     return PipeSocket(pipe0_r, pipe1_w), PipeSocket(pipe1_r, pipe0_w)
 
 
+class Link(object):
+
+    def __init__(self, uid, realm, sock, keep, remote):
+        self.uid = uid
+        self.realm = realm
+        self.sock = sock
+        self.keep = keep
+        self.remote = remote
+
+    def gate(self, data, socket):
+        pass
+
+
 class Layer(object):
 
     def __init__(self, raw):
@@ -249,7 +265,11 @@ class MasqRecord(object):
         self.data = Layer(data)
 
 
-class IOCore(threading.Thread):
+class MarshalEnv(Marshal):
+    msg_map = {NLMSG_TRANSPORT: envmsg}
+
+
+class IOBroker(threading.Thread):
     def __init__(self,
                  addr=0x01000000,
                  mask=0xff000000,
@@ -263,6 +283,9 @@ class IOCore(threading.Thread):
         self._sctl_event = threading.Event()
         self._stop_event = threading.Event()
         self._reload_event = threading.Event()
+        self.addr = addr
+        self.mask = mask
+        self.marshal = MarshalEnv()
         self.sys_mask = sys_mask
         self.con_mask = con_mask
         self.default_sys = {'netlink': 0x00010000,
@@ -272,9 +295,13 @@ class IOCore(threading.Thread):
                             'unix+ssl': 0x00010000,
                             'unix+tls': 0x00010000,
                             'ssl': 0x00010000,
-                            'tls': 0x00010000}
+                            'tls': 0x00010000,
+                            'default': 0x00010000}
         self.active_sys = {}
-        self.active_conn = {}
+        self.local = {}
+        self.links = {}
+        self.remote = {}
+        self.discover = {}
         # fd lists for select()
         self._rlist = set()
         self._wlist = set()
@@ -286,6 +313,7 @@ class IOCore(threading.Thread):
         self.servers = set()      # set(socket, socket...)
         self.controls = set()     # set(socket, socket...)
         self.subscribe = {}
+        self.providers = {}
         self.queue = Queue.Queue(_QUEUE_MAXSIZE)
         self._cid = list(range(1024))
         self._nonce = list(range(0xffff))
@@ -312,7 +340,7 @@ class IOCore(threading.Thread):
             if system not in self.active_sys:
                 self.active_sys[system] = list(range(C_ADDR_START,
                                                      self.con_mask - 1))
-            return system | self.active_sys[system].pop(0)
+            return self.addr | system | self.active_sys[system].pop(0)
 
     def dealloc_addr(self, addr):
         with self._addr_lock:
@@ -328,7 +356,7 @@ class IOCore(threading.Thread):
             try:
                 self.route(*self.queue.get())
             except:
-                pass
+                traceback.print_exc()
 
     def _expire_masq(self):
         '''
@@ -345,9 +373,7 @@ class IOCore(threading.Thread):
             if self._stop_event.is_set():
                 return
 
-    def route_control(self, sock, data):
-        # open envelope
-        envelope = self.parse_envelope(data)
+    def route_control(self, sock, envelope):
         pid = envelope['header']['pid']
         nonce = envelope['header']['sequence_number']
         src = envelope['src']
@@ -391,7 +417,7 @@ class IOCore(threading.Thread):
                 key = cmd.get_attr('IPR_ATTR_SSL_KEY')
                 cert = cmd.get_attr('IPR_ATTR_SSL_CERT')
                 ca = cmd.get_attr('IPR_ATTR_SSL_CA')
-                (new_sock, addr) = _get_socket(url, server_side=True,
+                (new_sock, addr) = _get_socket(url, server=True,
                                                key=key,
                                                cert=cert,
                                                ca=ca)
@@ -415,12 +441,24 @@ class IOCore(threading.Thread):
             elif cmd['cmd'] == IPRCMD_DISCONNECT:
                 # drop a connection, identified by an addr
                 try:
-                    addr = cmd.get_attr('IPR_ATTR_ADDR')
-                    self.deregister_link(addr)
+                    uid = cmd.get_attr('IPR_ATTR_UUID')
+                    self.deregister_link(uid)
                     rsp['cmd'] = IPRCMD_ACK
                     self.noop()
                 except Exception as e:
                     rsp['attrs'] = [['IPR_ATTR_ERROR', str(e)]]
+
+            elif cmd['cmd'] == IPRCMD_PROVIDE:
+                url = cmd.get_attr('IPR_ATTR_HOST')
+                if url not in self.providers:
+                    self.providers[url] = sock
+                    rsp['cmd'] = IPRCMD_ACK
+
+            elif cmd['cmd'] == IPRCMD_REMOVE:
+                url = cmd.get_attr('IPR_ATTR_HOST')
+                if self.providers.get(url, None) == sock:
+                    del self.providers[url]
+                    rsp['cmd'] = IPRCMD_ACK
 
             elif cmd['cmd'] == IPRCMD_CONNECT:
                 # connect to a system
@@ -429,48 +467,72 @@ class IOCore(threading.Thread):
                     key = cmd.get_attr('IPR_ATTR_SSL_KEY')
                     cert = cmd.get_attr('IPR_ATTR_SSL_CERT')
                     ca = cmd.get_attr('IPR_ATTR_SSL_CA')
+                    sys = cmd.get_attr('IPR_ATTR_SYS',
+                                       self.default_sys['default'])
+
                     target = urlparse.urlparse(url)
-                    if target.scheme == 'netlink':
+                    peer = self.addr
+                    established = False
+                    uid = str(uuid.uuid4())
+
+                    if url in self.providers:
+                        new_sock = self.providers[url]
+                        established = True
+                        realm = self.alloc_addr(sys)
+                        gate = lambda d, s:\
+                            new_sock.send(self.gate_local(d, s))
+
+                    elif target.scheme == 'netlink':
                         new_sock = NetlinkSocket(int(target.hostname))
                         new_sock.bind(int(target.port))
-                        sys = cmd.get_attr('IPR_ATTR_SYS',
-                                           self.default_sys[target.scheme])
-                        send = lambda d, s:\
-                            new_sock.sendto(self.gate_untag(d, s), (0, 0))
                         realm = self.alloc_addr(sys)
-                        rsp['attrs'].append(['IPR_ATTR_ADDR', realm])
-                        self.register_link(realm, new_sock, send)
-                        rsp['cmd'] = IPRCMD_ACK
-                        self.noop()
+                        gate = lambda d, s:\
+                            new_sock.sendto(self.gate_untag(d, s),
+                                            (0, 0))
+
                     elif target.scheme == 'udp':
                         (new_sock, addr) = _get_socket(url,
-                                                       server_side=False)
-                        sys = cmd.get_attr('IPR_ATTR_SYS',
-                                           self.default_sys[target.scheme])
-                        send = lambda d, s:\
-                            new_sock.sendto(self.gate_forward(d, s), addr)
-                        realm = self.alloc_addr(sys)
-                        rsp['attrs'].append(['IPR_ATTR_ADDR', realm])
-                        self.register_link(realm, new_sock, send)
-                        rsp['cmd'] = IPRCMD_ACK
-                        self.noop()
+                                                       server=False)
+                        realm = 0
+                        gate = lambda d, s:\
+                            new_sock.sendto(self.gate_forward(d, s),
+                                            addr)
+
                     else:
                         (new_sock, addr) = _get_socket(url,
-                                                       server_side=False,
+                                                       server=False,
                                                        key=key,
                                                        cert=cert,
                                                        ca=ca)
                         new_sock.connect(addr)
-                        sys = cmd.get_attr('IPR_ATTR_SYS',
+                        # stream sockets provide the peer announce
+                        buf = io.BytesIO()
+                        buf.length = buf.write(new_sock.recv(16384))
+                        buf.seek(0)
+                        msg = envmsg(buf)
+                        msg.decode()
+                        buf = io.BytesIO()
+                        buf.length = buf.write(msg.get_attr('IPR_ATTR_CDATA'))
+                        buf.seek(0)
+                        msg = mgmtmsg(buf)
+                        msg.decode()
+                        peer = msg.get_attr('IPR_ATTR_ADDR')
 
-                                           self.default_sys[target.scheme])
-                        send = lambda d, s:\
+                        realm = 0
+                        gate = lambda d, s:\
                             new_sock.send(self.gate_forward(d, s))
-                        realm = self.alloc_addr(sys)
-                        rsp['attrs'].append(['IPR_ATTR_ADDR', realm])
-                        self.register_link(realm, new_sock, send)
-                        rsp['cmd'] = IPRCMD_ACK
-                        self.noop()
+
+                    link = self.register_link(uid=uid,
+                                              realm=realm,
+                                              sock=new_sock,
+                                              established=established)
+                    link.gate = gate
+                    self.discover[url] = realm
+                    rsp['attrs'].append(['IPR_ATTR_UUID', uid])
+                    rsp['attrs'].append(['IPR_ATTR_ADDR', peer])
+                    rsp['cmd'] = IPRCMD_ACK
+                    self.noop()
+
                 except Exception:
                     rsp['attrs'].append(['IPR_ATTR_ERROR',
                                          traceback.format_exc()])
@@ -491,6 +553,12 @@ class IOCore(threading.Thread):
                     rsp['attrs'].append(['IPR_ATTR_ERROR',
                                          traceback.format_exc()])
 
+            elif cmd['cmd'] == IPRCMD_DISCOVER:
+                url = cmd.get_attr('IPR_ATTR_HOST')
+                if url in self.discover:
+                    rsp['attrs'].append(['IPR_ATTR_ADDR', self.discover[url]])
+                    rsp['cmd'] = IPRCMD_ACK
+
             elif cmd['cmd'] == IPRCMD_UNSUBSCRIBE:
                 cid = cmd.get_attr('IPR_ATTR_CID')
                 if cid in self.subscribe:
@@ -510,29 +578,39 @@ class IOCore(threading.Thread):
         ne['header']['sequence_number'] = nonce
         ne['header']['pid'] = pid
         ne['header']['type'] = NLMSG_TRANSPORT
-        ne['header']['flags'] = 1
+        ne['header']['flags'] = 3
         ne['dst'] = src
         ne['src'] = dst
         ne['attrs'] = [['IPR_ATTR_CDATA', rsp.buf.getvalue()]]
         ne.encode()
         sock.send(ne.buf.getvalue())
 
-    def route_data(self, sock, data):
-        envelope = self.parse_envelope(data)
+    def route_forward(self, sock, envelope):
+        # nothing special, just broadcast packet
+        envelope['ttl'] -= 1
+        if envelope['ttl'] > 0:
+            for uid in self.remote:
+                self.remote[uid].gate(envelope, sock)
+
+    def route_data(self, sock, envelope):
         nonce = envelope['header']['sequence_number']
-        if envelope['dst'] in self.active_conn:
-            self.active_conn[envelope['dst']]['send'](envelope, sock)
+        if envelope['dst'] in self.local:
+            try:
+                self.local[envelope['dst']].gate(envelope, sock)
+            except:
+                traceback.print_exc()
 
         elif nonce in self.masquerade:
             target = self.masquerade[nonce]
-            data.seek(8)
-            data.write(struct.pack('II',
-                                   target.envelope.nonce,
-                                   target.envelope.pid))
-            target.socket.send(data.getvalue())
+            envelope['header']['sequence_number'] = target.envelope.nonce
+            envelope['pid'] = target.envelope.pid
+            envelope.reset()
+            envelope.encode()
+            target.socket.send(envelope.buf.getvalue())
 
         else:
-            # unknown destination
+            # FIXME fix it, please, or kill with fire
+            # there should be no data repack
             data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
             for cid, u32 in self.subscribe.items():
                 self.filter_u32(u32, data)
@@ -551,7 +629,10 @@ class IOCore(threading.Thread):
         envelope.encode()
         u32['socket'].send(envelope.buf.getvalue())
 
-    def route_local(self, sock, data, seq):
+    def route_netlink(self, sock, data):
+        data.seek(8)
+        seq = struct.unpack('I', data.read(4))[0]
+
         # extract masq info
         target = self.masquerade.get(seq, None)
         if target is None:
@@ -589,38 +670,55 @@ class IOCore(threading.Thread):
         """
         Route message
         """
-        data.seek(0)
-        (length,
-         mtype,
-         flags,
-         seq,
-         pid) = struct.unpack('IHHII', data.read(16))
+        if isinstance(sock, NetlinkSocket):
+            # netlink packets from the local system
+            return self.route_netlink(sock, data)
 
-        if mtype == NLMSG_TRANSPORT:
-            if flags == 1:
-                return self.route_control(sock, data)
+        for envelope in self.marshal.parse(data):
+            if envelope['dst'] & self.mask != self.addr:
+                # FORWARD
+                # a packet for a remote system
+                self.route_forward(sock, envelope)
             else:
-                return self.route_data(sock, data)
-        elif mtype == NLMSG_NOOP:
-            return
-        else:
-            return self.route_local(sock, data, seq)
+                # INPUT
+                # a packet for a local system
+                if envelope['header']['flags'] == 2:
+                    # noop packets (drop)
+                    continue
+                if envelope['header']['flags'] == 1:
+                    # control packets
+                    self.route_control(sock, envelope)
+                else:
+                    # transport packets
+                    self.route_data(sock, envelope)
 
     def recv(self, fd, buf):
         ret = 0
         ret += buf.write(fd.recv(16384))
         return ret, {}
 
-    def gate_forward(self, envelope, sock):
-        # 1. get data
-        data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
+    def gate_local(self, envelope, sock):
         # 2. register way back
         nonce = self._nonce.pop()
         src = envelope['src']
         dst = envelope['dst']
         masq = MasqRecord(dst, src, sock)
         masq.add_envelope(envelope)
-        masq.add_data(data)
+        self.masquerade[nonce] = masq
+        envelope['header']['sequence_number'] = nonce
+        envelope['header']['pid'] = os.getpid()
+        envelope.buf.seek(0)
+        envelope.encode()
+        # 3. return data
+        return envelope.buf.getvalue()
+
+    def gate_forward(self, envelope, sock):
+        # 2. register way back
+        nonce = self._nonce.pop()
+        src = envelope['src']
+        dst = envelope['dst']
+        masq = MasqRecord(dst, src, sock)
+        masq.add_envelope(envelope)
         self.masquerade[nonce] = masq
         envelope['header']['sequence_number'] = nonce
         envelope['header']['pid'] = os.getpid()
@@ -658,8 +756,9 @@ class IOCore(threading.Thread):
         return cmd
 
     def noop(self):
-        msg = mgmtmsg()
-        msg['header']['type'] = NLMSG_NOOP
+        msg = envmsg()
+        msg['header']['type'] = NLMSG_TRANSPORT
+        msg['header']['flags'] = 2
         msg.encode()
         self.control.send(msg.buf.getvalue())
 
@@ -670,6 +769,7 @@ class IOCore(threading.Thread):
         msg['attrs'] = attrs
         msg.encode()
         envelope = envmsg()
+        envelope['dst'] = self.addr
         envelope['header']['type'] = NLMSG_TRANSPORT
         envelope['header']['flags'] = 1
         envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
@@ -702,17 +802,36 @@ class IOCore(threading.Thread):
         assert self._reload_event.is_set()
         return ret
 
-    def register_link(self, addr, sock, send):
-        self._rlist.add(sock)
-        self.active_conn[addr] = {'sock': sock,
-                                  'send': send}
-        return sock
+    def register_link(self, uid, realm, sock,
+                      established=False, remote=False):
+        if not established:
+            self._rlist.add(sock)
 
-    def deregister_link(self, addr):
-        sock = self.active_conn[addr]['sock']
-        sock.close()
-        self._rlist.remove(sock)
-        del self.active_conn[addr]
+        link = Link(uid, realm, sock, established, remote)
+        self.links[uid] = link
+        if realm > 0:
+            self.local[realm] = link
+        else:
+            self.remote[uid] = link
+        return link
+
+    def deregister_link(self, uid=None, fd=None):
+        if fd is not None:
+            for (uid, link) in self.links.items():
+                if link.sock == fd:
+                    break
+
+        link = self.links[uid]
+
+        if not link.keep:
+            link.sock.close()
+            self._rlist.remove(link.sock)
+
+        del self.links[link.uid]
+        if link.realm > 0:
+            del self.local[link.realm]
+        else:
+            del self.remote[link.uid]
 
     def add_client(self, sock):
         '''
@@ -748,6 +867,22 @@ class IOCore(threading.Thread):
                     try:
                         (client, addr) = fd.accept()
                         self.add_client(client)
+                        # announce address
+                        rsp = mgmtmsg()
+                        rsp['header']['type'] = NLMSG_CONTROL
+                        rsp['cmd'] = IPRCMD_ACK
+                        rsp['attrs'] = [['IPR_ATTR_ADDR', self.addr]]
+                        rsp.encode()
+                        ne = envmsg()
+                        ne['dst'] = 0xffffffff & self.mask  # broadcast
+                        ne['header']['pid'] = os.getpid()
+                        ne['header']['type'] = NLMSG_TRANSPORT
+                        ne['header']['flags'] = 3
+                        ne['attrs'] = [['IPR_ATTR_CDATA',
+                                        rsp.buf.getvalue()]]
+                        ne.encode()
+                        client.send(ne.buf.getvalue())
+
                     except ssl.SSLError:
                         # FIXME log SSL errors
                         pass
@@ -777,6 +912,8 @@ class IOCore(threading.Thread):
                 if data.length == 0:
                     if fd in self.clients:
                         self.remove_client(fd)
+                    else:
+                        self.deregister_link(fd=fd)
                     continue
 
                 ##

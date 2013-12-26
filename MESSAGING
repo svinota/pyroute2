@@ -18,9 +18,10 @@ Another issue is the control of messaging system parts. It can be
 done with the same messages, but carrying different flags, or with
 another message type. Right now pyroute2 implements the second
 approach: control messages are incapsulated into normal transport
-messages.
+messages, that allows uniform relay model both for data and
+control messages.
 
-Right now reserved Netlink messages are::
+Right now reserved Netlink message types are::
 
     NLMSG_NOOP = 0x1       # Nothing
     NLMSG_ERROR = 0x2      # Error
