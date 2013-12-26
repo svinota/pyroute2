@@ -356,7 +356,7 @@ class IOBroker(threading.Thread):
             try:
                 self.route(*self.queue.get())
             except:
-                traceback.print_exc()
+                pass
 
     def _expire_masq(self):
         '''
@@ -742,12 +742,6 @@ class IOBroker(threading.Thread):
         data.write(struct.pack('II', nonce, self.pid))
         # 3. return data
         return data.getvalue()
-
-    def parse_envelope(self, data):
-        data.seek(0)
-        envelope = envmsg(data)
-        envelope.decode()
-        return envelope
 
     def parse_control(self, data):
         data.seek(0)
