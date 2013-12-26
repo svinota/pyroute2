@@ -16,7 +16,7 @@ from utils import remove_link
 
 
 def _run_remote_client(url, func, key=None, cert=None, ca=None):
-    ip = IPRoute(host=url, key=key, cert=cert, ca=ca)
+    ip = IPRoute(addr=0x02000000, host=url, key=key, cert=cert, ca=ca)
     getattr(ip, func)()
     ip.release()
 
@@ -33,7 +33,7 @@ def _run_proxy_uplink(url, target, allow_connect,
 
 
 def _run_remote_uplink(url, allow_connect, key=None, cert=None, ca=None):
-    ip = IPRoute()
+    ip = IPRoute(addr=0x02000000)
     ip.serve(url, key=key, cert=cert, ca=ca)
     allow_connect.set()
     ip.iothread._stop_event.wait()
@@ -49,7 +49,7 @@ def _assert_clients(ip, num):
 
 
 def _assert_uplinks(ip, num):
-    assert len(ip.realms) == num
+    assert len(ip.uids) == num
 
 
 class TestSetup(object):
@@ -62,7 +62,7 @@ class TestSetup(object):
         ip.release()
         _assert_uplinks(ip, 0)
 
-    def test_noautoconnect(self):
+    def _test_noautoconnect(self):
         ip = IPRoute(do_connect=False)
         _assert_uplinks(ip, 0)
         addr = ip.connect()
@@ -272,7 +272,7 @@ class TestData(object):
             len(self.ip.get_routes(family=socket.AF_INET, table=255))
 
 
-class TestProxyData(TestData):
+class _TestProxyData(TestData):
 
     def setup(self):
         create_link('dummyX', 'dummy')
