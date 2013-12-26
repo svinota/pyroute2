@@ -5,3 +5,4 @@ docs/_build
 tests/htmlcov
 tests/cover
 tests/.coverage
+output.html
