@@ -30,8 +30,8 @@ from pyroute2.netlink import IPRCMD_PROVIDE
 from pyroute2.netlink import IPRCMD_REMOVE
 from pyroute2.netlink import IPRCMD_DISCOVER
 from pyroute2.netlink.generic import mgmtmsg
-from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import envmsg
+from pyroute2.iocore.addrpool import AddrPool
 
 try:
     import urlparse
@@ -218,9 +218,9 @@ def pairPipeSockets():
 
 class Link(object):
 
-    def __init__(self, uid, realm, sock, keep, remote):
+    def __init__(self, uid, port, sock, keep, remote):
         self.uid = uid
-        self.realm = realm
+        self.port = port
         self.sock = sock
         self.keep = keep
         self.remote = remote
@@ -232,34 +232,25 @@ class Link(object):
 class Layer(object):
 
     def __init__(self, raw):
-        if isinstance(raw, nlmsg):
-            self.length = raw['header']['length']
-            self.mtype = raw['header']['type']
-            self.flags = raw['header']['flags']
-            self.nonce = raw['header']['sequence_number']
-            self.pid = raw['header']['pid']
-        else:
-            init = raw.tell()
-            (self.length,
-             self.mtype,
-             self.flags,
-             self.nonce,
-             self.pid) = struct.unpack('IHHII', raw.read(16))
-            raw.seek(init)
+        init = raw.tell()
+        (self.length,
+         self.mtype,
+         self.flags,
+         self.nonce,
+         self.pid) = struct.unpack('IHHII', raw.read(16))
+        raw.seek(init)
 
 
 class MasqRecord(object):
 
-    def __init__(self, dst, src, socket):
-        self.src = src
-        self.dst = dst
+    def __init__(self, socket):
         self.envelope = None
         self.data = None
         self.socket = socket
         self.ctime = time.time()
 
     def add_envelope(self, envelope):
-        self.envelope = Layer(envelope)
+        self.envelope = envelope
 
     def add_data(self, data):
         self.data = Layer(data)
@@ -272,31 +263,18 @@ class MarshalEnv(Marshal):
 class IOBroker(threading.Thread):
     def __init__(self,
                  addr=0x01000000,
-                 mask=0xff000000,
-                 sys_mask=0x00ff0000,
-                 con_mask=0x0000ffff):
+                 broadcast=0xffffffff):
         threading.Thread.__init__(self, name='Netlink I/O core')
         self.setDaemon(True)
         self.pid = os.getpid()
-        self._addr_lock = threading.Lock()
         self._run_event = threading.Event()
         self._sctl_event = threading.Event()
         self._stop_event = threading.Event()
         self._reload_event = threading.Event()
         self.addr = addr
-        self.mask = mask
+        self.broadcast = broadcast
         self.marshal = MarshalEnv()
-        self.sys_mask = sys_mask
-        self.con_mask = con_mask
-        self.default_sys = {'netlink': 0x00010000,
-                            'tcp': 0x00010000,
-                            'udp': 0x00010000,
-                            'unix': 0x00010000,
-                            'unix+ssl': 0x00010000,
-                            'unix+tls': 0x00010000,
-                            'ssl': 0x00010000,
-                            'tls': 0x00010000,
-                            'default': 0x00010000}
+        self.ports = AddrPool()
         self.active_sys = {}
         self.local = {}
         self.links = {}
@@ -335,18 +313,11 @@ class IOBroker(threading.Thread):
         self._dequeue_thread.setDaemon(True)
         self._dequeue_thread.start()
 
-    def alloc_addr(self, system, block=False):
-        with self._addr_lock:
-            if system not in self.active_sys:
-                self.active_sys[system] = list(range(C_ADDR_START,
-                                                     self.con_mask - 1))
-            return self.addr | system | self.active_sys[system].pop(0)
+    def alloc_addr(self):
+        return self.ports.alloc()
 
     def dealloc_addr(self, addr):
-        with self._addr_lock:
-            system = addr & self.sys_mask
-            local = addr & self.con_mask
-            self.active_sys[system].append(local)
+        self.ports.free(addr)
 
     def _dequeue(self):
         '''
@@ -378,6 +349,8 @@ class IOBroker(threading.Thread):
         nonce = envelope['header']['sequence_number']
         src = envelope['src']
         dst = envelope['dst']
+        sport = envelope['sport']
+        dport = envelope['dport']
         data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
         cmd = self.parse_control(data)
         rsp = mgmtmsg()
@@ -398,6 +371,8 @@ class IOBroker(threading.Thread):
                 ne['header']['flags'] = 1
                 ne['dst'] = src
                 ne['src'] = dst
+                ne['dport'] = sport
+                ne['sport'] = dport
                 ne['attrs'] = [['IPR_ATTR_CDATA', rsp.buf.getvalue()]]
                 ne.encode()
                 sock.send(ne.buf.getvalue())
@@ -467,25 +442,22 @@ class IOBroker(threading.Thread):
                     key = cmd.get_attr('IPR_ATTR_SSL_KEY')
                     cert = cmd.get_attr('IPR_ATTR_SSL_CERT')
                     ca = cmd.get_attr('IPR_ATTR_SSL_CA')
-                    sys = cmd.get_attr('IPR_ATTR_SYS',
-                                       self.default_sys['default'])
 
                     target = urlparse.urlparse(url)
                     peer = self.addr
+                    remote = False
                     established = False
                     uid = str(uuid.uuid4())
 
                     if url in self.providers:
                         new_sock = self.providers[url]
                         established = True
-                        realm = self.alloc_addr(sys)
                         gate = lambda d, s:\
                             new_sock.send(self.gate_local(d, s))
 
                     elif target.scheme == 'netlink':
                         new_sock = NetlinkSocket(int(target.hostname))
                         new_sock.bind(int(target.port))
-                        realm = self.alloc_addr(sys)
                         gate = lambda d, s:\
                             new_sock.sendto(self.gate_untag(d, s),
                                             (0, 0))
@@ -493,10 +465,10 @@ class IOBroker(threading.Thread):
                     elif target.scheme == 'udp':
                         (new_sock, addr) = _get_socket(url,
                                                        server=False)
-                        realm = 0
                         gate = lambda d, s:\
                             new_sock.sendto(self.gate_forward(d, s),
                                             addr)
+                        remote = True
 
                     else:
                         (new_sock, addr) = _get_socket(url,
@@ -505,6 +477,7 @@ class IOBroker(threading.Thread):
                                                        cert=cert,
                                                        ca=ca)
                         new_sock.connect(addr)
+                        remote = True
                         # stream sockets provide the peer announce
                         buf = io.BytesIO()
                         buf.length = buf.write(new_sock.recv(16384))
@@ -518,16 +491,17 @@ class IOBroker(threading.Thread):
                         msg.decode()
                         peer = msg.get_attr('IPR_ATTR_ADDR')
 
-                        realm = 0
                         gate = lambda d, s:\
                             new_sock.send(self.gate_forward(d, s))
 
+                    port = self.alloc_addr()
                     link = self.register_link(uid=uid,
-                                              realm=realm,
+                                              port=port,
                                               sock=new_sock,
-                                              established=established)
+                                              established=established,
+                                              remote=remote)
                     link.gate = gate
-                    self.discover[url] = realm
+                    self.discover[url] = port
                     rsp['attrs'].append(['IPR_ATTR_UUID', uid])
                     rsp['attrs'].append(['IPR_ATTR_ADDR', peer])
                     rsp['cmd'] = IPRCMD_ACK
@@ -581,6 +555,8 @@ class IOBroker(threading.Thread):
         ne['header']['flags'] = 3
         ne['dst'] = src
         ne['src'] = dst
+        ne['dport'] = sport
+        ne['sport'] = dport
         ne['attrs'] = [['IPR_ATTR_CDATA', rsp.buf.getvalue()]]
         ne.encode()
         sock.send(ne.buf.getvalue())
@@ -594,16 +570,18 @@ class IOBroker(threading.Thread):
 
     def route_data(self, sock, envelope):
         nonce = envelope['header']['sequence_number']
-        if envelope['dst'] in self.local:
+        if envelope['dport'] in self.local:
             try:
-                self.local[envelope['dst']].gate(envelope, sock)
+                self.local[envelope['dport']].gate(envelope, sock)
             except:
                 traceback.print_exc()
 
         elif nonce in self.masquerade:
             target = self.masquerade[nonce]
-            envelope['header']['sequence_number'] = target.envelope.nonce
-            envelope['pid'] = target.envelope.pid
+            envelope['header']['sequence_number'] = \
+                target.envelope['header']['sequence_number']
+            envelope['header']['pid'] = \
+                target.envelope['header']['pid']
             envelope.reset()
             envelope.encode()
             target.socket.send(envelope.buf.getvalue())
@@ -655,11 +633,15 @@ class IOBroker(threading.Thread):
                 offset += length
             # envelope data
             envelope = envmsg()
-            envelope['header']['sequence_number'] = target.envelope.nonce
-            envelope['header']['pid'] = target.envelope.pid
+            envelope['header']['sequence_number'] = \
+                target.envelope['header']['sequence_number']
+            envelope['header']['pid'] = \
+                target.envelope['header']['pid']
             envelope['header']['type'] = NLMSG_TRANSPORT
-            envelope['dst'] = target.src
-            envelope['src'] = target.dst
+            envelope['dst'] = target.envelope['src']
+            envelope['src'] = target.envelope['dst']
+            envelope['dport'] = target.envelope['sport']
+            envelope['sport'] = target.envelope['dport']
             envelope['attrs'] = [['IPR_ATTR_CDATA',
                                   data.getvalue()]]
             envelope.encode()
@@ -675,7 +657,7 @@ class IOBroker(threading.Thread):
             return self.route_netlink(sock, data)
 
         for envelope in self.marshal.parse(data):
-            if envelope['dst'] & self.mask != self.addr:
+            if envelope['dst'] != self.addr:
                 # FORWARD
                 # a packet for a remote system
                 self.route_forward(sock, envelope)
@@ -700,10 +682,8 @@ class IOBroker(threading.Thread):
     def gate_local(self, envelope, sock):
         # 2. register way back
         nonce = self._nonce.pop()
-        src = envelope['src']
-        dst = envelope['dst']
-        masq = MasqRecord(dst, src, sock)
-        masq.add_envelope(envelope)
+        masq = MasqRecord(sock)
+        masq.add_envelope(envelope.copy())
         self.masquerade[nonce] = masq
         envelope['header']['sequence_number'] = nonce
         envelope['header']['pid'] = os.getpid()
@@ -715,10 +695,9 @@ class IOBroker(threading.Thread):
     def gate_forward(self, envelope, sock):
         # 2. register way back
         nonce = self._nonce.pop()
-        src = envelope['src']
-        dst = envelope['dst']
-        masq = MasqRecord(dst, src, sock)
-        masq.add_envelope(envelope)
+        masq = MasqRecord(sock)
+        # copy envelope! original will be modified
+        masq.add_envelope(envelope.copy())
         self.masquerade[nonce] = masq
         envelope['header']['sequence_number'] = nonce
         envelope['header']['pid'] = os.getpid()
@@ -732,10 +711,8 @@ class IOBroker(threading.Thread):
         data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
         # 2. register way back
         nonce = self._nonce.pop()
-        src = envelope['src']
-        dst = envelope['dst']
-        masq = MasqRecord(dst, src, sock)
-        masq.add_envelope(envelope)
+        masq = MasqRecord(sock)
+        masq.add_envelope(envelope.copy())
         masq.add_data(data)
         self.masquerade[nonce] = masq
         data.seek(8)
@@ -751,6 +728,7 @@ class IOBroker(threading.Thread):
 
     def noop(self):
         msg = envmsg()
+        msg['dst'] = self.addr
         msg['header']['type'] = NLMSG_TRANSPORT
         msg['header']['flags'] = 2
         msg.encode()
@@ -796,17 +774,17 @@ class IOBroker(threading.Thread):
         assert self._reload_event.is_set()
         return ret
 
-    def register_link(self, uid, realm, sock,
+    def register_link(self, uid, port, sock,
                       established=False, remote=False):
         if not established:
             self._rlist.add(sock)
 
-        link = Link(uid, realm, sock, established, remote)
+        link = Link(uid, port, sock, established, remote)
         self.links[uid] = link
-        if realm > 0:
-            self.local[realm] = link
-        else:
+        if remote:
             self.remote[uid] = link
+        else:
+            self.local[port] = link
         return link
 
     def deregister_link(self, uid=None, fd=None):
@@ -822,10 +800,10 @@ class IOBroker(threading.Thread):
             self._rlist.remove(link.sock)
 
         del self.links[link.uid]
-        if link.realm > 0:
-            del self.local[link.realm]
-        else:
+        if link.remote:
             del self.remote[link.uid]
+        else:
+            del self.local[link.port]
 
     def add_client(self, sock):
         '''
@@ -868,7 +846,7 @@ class IOBroker(threading.Thread):
                         rsp['attrs'] = [['IPR_ATTR_ADDR', self.addr]]
                         rsp.encode()
                         ne = envmsg()
-                        ne['dst'] = 0xffffffff & self.mask  # broadcast
+                        ne['dst'] = self.broadcast
                         ne['header']['pid'] = os.getpid()
                         ne['header']['type'] = NLMSG_TRANSPORT
                         ne['header']['flags'] = 3

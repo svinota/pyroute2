@@ -40,14 +40,14 @@ class IOCore(threading.Thread):
     do_connect = False
     name = 'Core API'
 
-    def __init__(self, debug=False, timeout=3, do_connect=None,
+    def __init__(self, debug=False, timeout=3000, do_connect=None,
                  host=None, key=None, cert=None, ca=None,
-                 addr=0x01000000, mask=0xff000000):
+                 addr=0x01000000):
         threading.Thread.__init__(self, name=self.name)
         self._timeout = timeout
-        self.iothread = IOBroker(addr=addr, mask=mask)
-        self.default_dst = addr
-        self.default_realm = 0
+        self.iothread = IOBroker(addr=addr)
+        self.default_broker = addr
+        self.default_dport = 0
         self.uids = set()
         self.listeners = {}     # {nonce: Queue(), ...}
         self.callbacks = []     # [(predicate, callback, args), ...]
@@ -76,8 +76,8 @@ class IOCore(threading.Thread):
         if self.do_connect:
             (self.default_link,
              self.default_peer) = self.connect(self.host, key, cert, ca)
-            self.default_realm = self.discover(self.default_peer,
-                                               default_target)
+            self.default_dport = self.discover(default_target,
+                                               self.default_peer)
 
     def run(self):
         # 1. run iothread
@@ -208,12 +208,12 @@ class IOCore(threading.Thread):
                     # FIXME: log this
                     pass
 
-    def command(self, cmd, attrs=[], expect=None, dst=None):
-        dst = dst or self.default_dst
+    def command(self, cmd, attrs=[], expect=None, addr=None):
+        addr = addr or self.default_broker
         msg = mgmtmsg(io.BytesIO())
         msg['cmd'] = cmd
         msg['attrs'] = attrs
-        rsp = self.nlm_request(msg, NLMSG_CONTROL, 0, 1, dst)[0]
+        rsp = self.nlm_request(msg, NLMSG_CONTROL, 0, 1, addr)[0]
         assert rsp['cmd'] == IPRCMD_ACK
         if expect is not None:
             if type(expect) not in (list, tuple):
@@ -226,11 +226,11 @@ class IOCore(threading.Thread):
         else:
             return None
 
-    def discover(self, target, url):
+    def discover(self, url, addr=None):
         return self.command(IPRCMD_DISCOVER,
                             [['IPR_ATTR_HOST', url]],
                             expect='IPR_ATTR_ADDR',
-                            dst=target)
+                            addr=addr)
 
     def provide(self, url):
         self.command(IPRCMD_PROVIDE, [['IPR_ATTR_HOST', url]])
@@ -239,17 +239,20 @@ class IOCore(threading.Thread):
     def remove(self, url):
         return self.command(IPRCMD_REMOVE, [['IPR_ATTR_HOST', url]])
 
-    def serve(self, url, key='', cert='', ca=''):
+    def serve(self, url, key='', cert='', ca='', addr=None):
         return self.command(IPRCMD_SERVE,
                             [['IPR_ATTR_HOST', url],
                              ['IPR_ATTR_SSL_KEY', key],
                              ['IPR_ATTR_SSL_CERT', cert],
-                             ['IPR_ATTR_SSL_CA', ca]])
+                             ['IPR_ATTR_SSL_CA', ca]],
+                            addr=addr)
 
-    def shutdown(self, url):
-        return self.command(IPRCMD_SHUTDOWN, [['IPR_ATTR_HOST', url]])
+    def shutdown(self, url, addr=None):
+        return self.command(IPRCMD_SHUTDOWN,
+                            [['IPR_ATTR_HOST', url]],
+                            addr=addr)
 
-    def connect(self, host=None, key='', cert='', ca='', dst=None):
+    def connect(self, host=None, key='', cert='', ca='', addr=None):
         host = host or self.host
         (uid,
          peer) = self.command(IPRCMD_CONNECT,
@@ -258,13 +261,15 @@ class IOCore(threading.Thread):
                                ['IPR_ATTR_SSL_CERT', cert],
                                ['IPR_ATTR_SSL_CA', ca]],
                               expect=['IPR_ATTR_UUID',
-                                      'IPR_ATTR_ADDR'])
+                                      'IPR_ATTR_ADDR'],
+                              addr=addr)
         self.uids.add(uid)
         return uid, peer
 
-    def disconnect(self, uid):
+    def disconnect(self, uid, addr=None):
         ret = self.command(IPRCMD_DISCONNECT,
-                           [['IPR_ATTR_UUID', uid]])
+                           [['IPR_ATTR_UUID', uid]],
+                           addr=addr)
         self.uids.remove(uid)
         return ret
 
@@ -430,7 +435,7 @@ class IOCore(threading.Thread):
                 self._nonce += 1
             return self._nonce
 
-    def push(self, realm, msg,
+    def push(self, addr, port, msg,
              env_flags=None,
              nonce=0):
         envelope = envmsg()
@@ -439,8 +444,9 @@ class IOCore(threading.Thread):
         envelope['header']['type'] = NLMSG_TRANSPORT
         if env_flags is not None:
             envelope['header']['flags'] = env_flags
-        envelope['dst'] = realm
-        envelope['src'] = self.default_dst
+        envelope['dst'] = addr
+        envelope['src'] = self.default_broker
+        envelope['dport'] = port
         envelope['ttl'] = 16
         envelope['attrs'] = [['IPR_ATTR_CDATA', msg]]
         envelope.encode()
@@ -448,17 +454,20 @@ class IOCore(threading.Thread):
 
     def request(self, msg,
                 env_flags=0,
-                realm=None,
+                addr=None,
+                port=None,
                 response_timeout=None):
-        realm = realm or self.default_realm
-        self.nlm_push(msg, env_flags, realm)
+        port = port or self.default_dport
+        addr = addr or self.default_broker
+        self.nlm_push(msg, env_flags, addr, port)
         return self.get(0, timeout=response_timeout)
 
     def nlm_push(self, msg,
                  msg_type=None,
                  msg_flags=None,
                  env_flags=None,
-                 realm=0,
+                 addr=0,
+                 port=0,
                  nonce=0):
         msg['header']['sequence_number'] = nonce
         msg['header']['pid'] = os.getpid()
@@ -467,22 +476,23 @@ class IOCore(threading.Thread):
         if msg_flags is not None:
             msg['header']['flags'] = msg_flags
         msg.encode()
-        self.push(realm, msg.buf.getvalue(), env_flags, nonce)
+        self.push(addr, port, msg.buf.getvalue(), env_flags, nonce)
 
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
                     env_flags=0,
-                    realm=None,
+                    addr=None,
+                    port=None,
                     response_timeout=None):
         '''
         Send netlink request, filling common message
         fields, and wait for response.
         '''
-        # FIXME make it thread safe, yeah
-        realm = realm or self.default_realm
+        port = port or self.default_dport
+        addr = addr or self.default_peer
         nonce = self.nonce()
         self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
-        self.nlm_push(msg, msg_type, msg_flags, env_flags, realm, nonce)
+        self.nlm_push(msg, msg_type, msg_flags, env_flags, addr, port, nonce)
         result = self.get(nonce, timeout=response_timeout)
         for msg in result:
             # reset message buffer, make it ready for encoding back

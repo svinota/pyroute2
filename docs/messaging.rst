@@ -50,82 +50,81 @@ Server::
 Client::
 
     from pyroute2 import IPRoute
+    from pprint import pprint
 
     ipr = IPRoute(host='tcp://localhost:9824')
-    print(ipr.get_addr())
+    pprint(ipr.get_addr())
     ipr.release()
 
 PUSH/PULL model
 ---------------
 
-Server gets events from client and print them::
+Server gets event from client and prints it::
 
-    from pyroute2 import IPRoute
+    from pyroute2 import IOCore
 
-    ipr = IPRoute(do_connect=False)
-    ipr.serve('udp://localhost:9824')
-    ipr.monitor()
+    ioc = IOCore(addr=0x2)
+    ioc.serve('tcp://localhost:9824')
+    ioc.provide('push')  # just arbitrary string ID of the service
+    ioc.monitor()
 
-    while True:
-        msg = ipr.get(raw=True)  # raw=True -- don't wait NLMSG_DONE
-        print(msg)
+    msg = ioc.get()
+    print(msg)
 
-    ip.release()
+    ioc.release()
 
-Client pushes messages::
+Client pushes arbitrary data as a string::
 
-    from pyroute2 import IPRoute
+    from pyroute2 import IOCore
 
-    ipr = IPRoute()
-    addr = ipr.connect('udp://localhost:9824')
+    ipr = IOCore(addr=0x4)
+    (uid, addr) = ioc.connect('tcp://localhost:9824')
+    port = ioc.discover(addr, 'push')  # service ID from ioc.provide()
 
-    for msg in ipr.get_addr():
-        ipr.nlm_push(msg, realm=addr)
-
-    ipr.disconnect(addr)
-    ipr.release()
-
-SUBSCRIBE
----------
-
-Server provides events from OS level::
-
-    from pyroute2 import IPRoute
-
-    ipr = IPRoute()
-    ipr.serve('ssl://localhost:9824',
-              key='server.key',
-              cert='server.crt',
-              ca='ca.crt')
-    ...  # wait for some event to exit
-    ipr.release()
-
-Client monitors events::
-
-    from pyroute2 import IPRoute
-
-    ipr = IPRoute(host='ssl://localhost:9824',
-                  key='client.key',
-                  cert='client.crt',
-                  ca='ca.crt')
-    while True:
-        msg = ipr.get()
-        print(msg)
+    ioc.push(addr, port, 'hello, world!')
 
     ipr.release()
+
 
 Building blocks
 ---------------
 
 General scheme::
 
-    API (client) <--> Broker <--> Broker <-...
-                        ^
-                        |
-                        v
-                  Target service
+    Service code
+     ^
+     |
+     | (1)
+     |
+     v
+    IOCore   IOCore
+     ^        ^
+     |        |
+     | (2)    |
+     |        |
+     v        v
+      IOBroker  <-- (3) --> Linux kernel
+          ^
+          |
+          | (4)
+          |
+          v
+      IOBroker  ...
 
-Brokers:
+
+Protocols:
+
+1. API calls
+2. Transport netlink
+3. Netlink
+4. Transport netlink
+
+.. note::
+    Netlink gate is integrated into IOBroker by historical reason:
+    pyroute2 was started as a one-host netlink library. Later this
+    code will be isolated as a service.
+
+IOBrokers:
 
 * Route packets
 * Buffer packets and manage channels bandwidth
@@ -133,7 +132,7 @@ Brokers:
 * Manage connections with other brokers and services
 * Provide management API
 
-Clients:
+IOCores:
 
 * Encode/decode packets to/from services
 * Tag/untag packets into/from the transport protocol
@@ -143,10 +142,10 @@ Services:
 
 * Get untagged packets from clients via brokers
 * Issue responses
-* Issue broadcasts
+* Issue requests to other services
 
-Transport protocol
-^^^^^^^^^^^^^^^^^^
+Transport netlink
+^^^^^^^^^^^^^^^^^
 
 All the packets between clients and brokers should be incapsulated
 into the transport protocol messages. Each transport message consists of::
@@ -160,8 +159,12 @@ into the transport protocol messages. Each transport message consists of::
     };
 
     struct envmsghdr {
-        uint32 dst;  /* target subsystem addr */
-        uint32 src;  /* not used yet */
+        uint32 dst;    /* destination node */
+        uint32 src;    /* source node */
+        uint32 dport;  /* destination service */
+        uint32 sport;  /* source service */
+        uint16 ttl;
+        uint16 flags;
     };
 
     struct nla_hdr {
@@ -170,7 +173,7 @@ into the transport protocol messages. Each transport message consists of::
     };
 
 .. warning:
-    Message format is not final yet and will become a standard after
+    Message format is not final yet and will become stable after
     discussions.
 
 Then follows binary data of incapsulated messages. Length type of
@@ -182,9 +185,10 @@ Control protocol
 ^^^^^^^^^^^^^^^^
 
 Control messages go between clients and brokers incapsulated in the
-transport messages; `flags` field of nlhdr should be set to 1.
+transport messages; `flags` field of nlhdr should be set to 1 (request)
+or 3 (response)
 
-Control message format::
+Control message format is the same as for generic netlink packets::
 
     struct nlhdr {
         uint32 length;
@@ -200,5 +204,5 @@ Control message format::
         uint16 reserved;
     }
 
-    array of NLAs
+    [ array of NLA ]
 

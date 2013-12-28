@@ -153,6 +153,14 @@ class nlmsg_base(dict):
         if self.header is not None:
             self['header'] = self.header(self.buf)
 
+    def copy(self):
+        buf = io.BytesIO()
+        buf.length = buf.write(self.raw)
+        buf.seek(0)
+        ret = type(self)(buf)
+        ret.decode()
+        return ret
+
     def reset(self, buf=None):
         if isinstance(buf, basestring):
             b = io.BytesIO()
@@ -669,7 +677,9 @@ class mgmtmsg(ctrlmsg):
 class envmsg(nlmsg):
     fields = (('dst', 'I'),
               ('src', 'I'),
+              ('dport', 'I'),
+              ('sport', 'I'),
               ('ttl', 'H'),
-              ('reserved', 'H'))
+              ('flags', 'H'))
 
     nla_map = (('IPR_ATTR_CDATA', 'cdata'),)
