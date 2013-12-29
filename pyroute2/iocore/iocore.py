@@ -22,6 +22,8 @@ from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.generic import mgmtmsg
 from pyroute2.netlink.generic import envmsg
+from pyroute2.iocore import NLT_CONTROL
+from pyroute2.iocore import NLT_RESPONSE
 from pyroute2.iocore.broker import pairPipeSockets
 from pyroute2.iocore.broker import IOBroker
 
@@ -40,7 +42,7 @@ class IOCore(threading.Thread):
     do_connect = False
     name = 'Core API'
 
-    def __init__(self, debug=False, timeout=3000, do_connect=None,
+    def __init__(self, debug=False, timeout=3, do_connect=None,
                  host=None, key=None, cert=None, ca=None,
                  addr=0x01000000):
         threading.Thread.__init__(self, name=self.name)
@@ -158,7 +160,8 @@ class IOCore(threading.Thread):
                     buf.length = buf.write(envelope.
                                            get_attr('IPR_ATTR_CDATA'))
                     buf.seek(0)
-                    if flags == 3:
+                    if ((flags & NLT_CONTROL) and
+                            (flags & NLT_RESPONSE)):
                         msg = mgmtmsg(buf)
                         msg.decode()
                         self.listeners[nonce].put_nowait(msg)
@@ -213,7 +216,7 @@ class IOCore(threading.Thread):
         msg = mgmtmsg(io.BytesIO())
         msg['cmd'] = cmd
         msg['attrs'] = attrs
-        rsp = self.nlm_request(msg, NLMSG_CONTROL, 0, 1, addr)[0]
+        rsp = self.nlm_request(msg, NLMSG_CONTROL, 0, NLT_CONTROL, addr)[0]
         assert rsp['cmd'] == IPRCMD_ACK
         if expect is not None:
             if type(expect) not in (list, tuple):
@@ -435,9 +438,10 @@ class IOCore(threading.Thread):
                 self._nonce += 1
             return self._nonce
 
-    def push(self, addr, port, msg,
+    def push(self, host, msg,
              env_flags=None,
              nonce=0):
+        addr, port = host
         envelope = envmsg()
         envelope['header']['sequence_number'] = nonce
         envelope['header']['pid'] = os.getpid()
@@ -476,7 +480,7 @@ class IOCore(threading.Thread):
         if msg_flags is not None:
             msg['header']['flags'] = msg_flags
         msg.encode()
-        self.push(addr, port, msg.buf.getvalue(), env_flags, nonce)
+        self.push((addr, port), msg.buf.getvalue(), env_flags, nonce)
 
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST,

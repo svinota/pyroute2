@@ -31,6 +31,10 @@ from pyroute2.netlink import IPRCMD_REMOVE
 from pyroute2.netlink import IPRCMD_DISCOVER
 from pyroute2.netlink.generic import mgmtmsg
 from pyroute2.netlink.generic import envmsg
+from pyroute2.iocore import NLT_CONTROL
+from pyroute2.iocore import NLT_NOOP
+from pyroute2.iocore import NLT_RESPONSE
+from pyroute2.iocore import NLT_DGRAM
 from pyroute2.iocore.addrpool import AddrPool
 
 try:
@@ -368,7 +372,7 @@ class IOBroker(threading.Thread):
                 ne['header']['sequence_number'] = nonce
                 ne['header']['pid'] = pid
                 ne['header']['type'] = NLMSG_TRANSPORT
-                ne['header']['flags'] = 1
+                ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
                 ne['dst'] = src
                 ne['src'] = dst
                 ne['dport'] = sport
@@ -529,6 +533,7 @@ class IOBroker(threading.Thread):
 
             elif cmd['cmd'] == IPRCMD_DISCOVER:
                 url = cmd.get_attr('IPR_ATTR_HOST')
+                print(url, self.discover)
                 if url in self.discover:
                     rsp['attrs'].append(['IPR_ATTR_ADDR', self.discover[url]])
                     rsp['cmd'] = IPRCMD_ACK
@@ -552,7 +557,7 @@ class IOBroker(threading.Thread):
         ne['header']['sequence_number'] = nonce
         ne['header']['pid'] = pid
         ne['header']['type'] = NLMSG_TRANSPORT
-        ne['header']['flags'] = 3
+        ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
         ne['dst'] = src
         ne['src'] = dst
         ne['dport'] = sport
@@ -565,8 +570,13 @@ class IOBroker(threading.Thread):
         # nothing special, just broadcast packet
         envelope['ttl'] -= 1
         if envelope['ttl'] > 0:
-            for uid in self.remote:
-                self.remote[uid].gate(envelope, sock)
+            flags = envelope['header']['flags']
+            for (uid, link) in self.remote.items():
+                # by default, send packets only via SOCK_STREAM,
+                # and use SOCK_DGRAM only upon request
+                if ((link.sock.type == socket.SOCK_STREAM) or
+                        (link.sock.type & flags & NLT_DGRAM)):
+                    self.remote[uid].gate(envelope, sock)
 
     def route_data(self, sock, envelope):
         nonce = envelope['header']['sequence_number']
@@ -664,10 +674,11 @@ class IOBroker(threading.Thread):
             else:
                 # INPUT
                 # a packet for a local system
-                if envelope['header']['flags'] == 2:
+                if envelope['header']['flags'] & NLT_NOOP:
                     # noop packets (drop)
                     continue
-                if envelope['header']['flags'] == 1:
+                if ((envelope['header']['flags'] & NLT_CONTROL) and not
+                        (envelope['header']['flags'] & NLT_RESPONSE)):
                     # control packets
                     self.route_control(sock, envelope)
                 else:
@@ -730,7 +741,7 @@ class IOBroker(threading.Thread):
         msg = envmsg()
         msg['dst'] = self.addr
         msg['header']['type'] = NLMSG_TRANSPORT
-        msg['header']['flags'] = 2
+        msg['header']['flags'] = NLT_NOOP
         msg.encode()
         self.control.send(msg.buf.getvalue())
 
@@ -743,7 +754,7 @@ class IOBroker(threading.Thread):
         envelope = envmsg()
         envelope['dst'] = self.addr
         envelope['header']['type'] = NLMSG_TRANSPORT
-        envelope['header']['flags'] = 1
+        envelope['header']['flags'] = NLT_CONTROL
         envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
         envelope.encode()
         self.control.send(envelope.buf.getvalue())
@@ -849,7 +860,7 @@ class IOBroker(threading.Thread):
                         ne['dst'] = self.broadcast
                         ne['header']['pid'] = os.getpid()
                         ne['header']['type'] = NLMSG_TRANSPORT
-                        ne['header']['flags'] = 3
+                        ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
                         ne['attrs'] = [['IPR_ATTR_CDATA',
                                         rsp.buf.getvalue()]]
                         ne.encode()
