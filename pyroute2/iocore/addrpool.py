@@ -7,7 +7,7 @@ class AddrPool(object):
     '''
     cell = 0xffffffffffffffff
 
-    def __init__(self, minaddr=0, maxaddr=0xff):
+    def __init__(self, minaddr=0xf, maxaddr=0xffffff):
         self.cell_size = 0  # in bits
         mx = self.cell
         while mx:

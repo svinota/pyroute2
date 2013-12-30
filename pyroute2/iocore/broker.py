@@ -279,6 +279,7 @@ class IOBroker(threading.Thread):
         self.broadcast = broadcast
         self.marshal = MarshalEnv()
         self.ports = AddrPool()
+        self.nonces = AddrPool()
         self.active_sys = {}
         self.local = {}
         self.links = {}
@@ -298,7 +299,6 @@ class IOBroker(threading.Thread):
         self.providers = {}
         self.queue = Queue.Queue(_QUEUE_MAXSIZE)
         self._cid = list(range(1024))
-        self._nonce = list(range(0xffff))
         # secret; write non-zero byte as terminator
         self.secret = os.urandom(15)
         self.secret += b'\xff'
@@ -343,7 +343,7 @@ class IOBroker(threading.Thread):
             for i in tuple(self.masquerade.keys()):
                 if (ts - self.masquerade[i].ctime) > 60:
                     del self.masquerade[i]
-                    self._nonce.append(i)
+                    self.nonces.free(i)
             self._stop_event.wait(60)
             if self._stop_event.is_set():
                 return
@@ -691,7 +691,7 @@ class IOBroker(threading.Thread):
 
     def gate_local(self, envelope, sock):
         # 2. register way back
-        nonce = self._nonce.pop()
+        nonce = self.nonces.alloc()
         masq = MasqRecord(sock)
         masq.add_envelope(envelope.copy())
         self.masquerade[nonce] = masq
@@ -704,7 +704,7 @@ class IOBroker(threading.Thread):
 
     def gate_forward(self, envelope, sock):
         # 2. register way back
-        nonce = self._nonce.pop()
+        nonce = self.nonces.alloc()
         masq = MasqRecord(sock)
         # copy envelope! original will be modified
         masq.add_envelope(envelope.copy())
@@ -720,7 +720,7 @@ class IOBroker(threading.Thread):
         # 1. get data
         data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
         # 2. register way back
-        nonce = self._nonce.pop()
+        nonce = self.nonces.alloc()
         masq = MasqRecord(sock)
         masq.add_envelope(envelope.copy())
         masq.add_data(data)
