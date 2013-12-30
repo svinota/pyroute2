@@ -2,7 +2,10 @@
 Common utilities
 '''
 import re
+import os
+import time
 import sys
+import struct
 
 try:
     basestring = basestring
@@ -125,6 +128,37 @@ def map_namespace(prefix, ns):
     by_name = dict([(i, ns[i]) for i in ns.keys() if i.startswith(prefix)])
     by_value = dict([(ns[i], i) for i in ns.keys() if i.startswith(prefix)])
     return (by_name, by_value)
+
+
+def fnv1(data):
+    '''
+    FNV1 -- 32bit hash
+
+    @param data: input
+    @type data: bytes
+
+    @return: 32bit int hash
+    @rtype: int
+
+    See: http://www.isthe.com/chongo/tech/comp/fnv/index.html
+    '''
+    hval = 0x811c9dc5
+    for i in range(len(data)):
+        hval *= 0x01000193
+        hval ^= struct.unpack('B', data[i])[0]
+    return hval & 0xffffffff
+
+
+def uuid32():
+    '''
+    Return 32bit UUID, based on the current time and pid.
+
+    @return: 32bit int uuid
+    @rtype: int
+    '''
+    return fnv1(struct.pack('QQ',
+                            int(time.time() * 1000),
+                            os.getpid()))
 
 
 def hexdump(payload, length=0):

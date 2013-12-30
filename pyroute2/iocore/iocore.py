@@ -4,6 +4,7 @@ import struct
 import os
 import io
 
+from pyroute2.common import uuid32
 from pyroute2.netlink import NLMSG_CONTROL
 from pyroute2.netlink import NLMSG_TRANSPORT
 from pyroute2.netlink import IPRCMD_ACK
@@ -44,8 +45,9 @@ class IOCore(threading.Thread):
 
     def __init__(self, debug=False, timeout=3, do_connect=None,
                  host=None, key=None, cert=None, ca=None,
-                 addr=0x01000000):
+                 addr=None):
         threading.Thread.__init__(self, name=self.name)
+        addr = addr or uuid32()
         self._timeout = timeout
         self.iothread = IOBroker(addr=addr)
         self.default_broker = addr

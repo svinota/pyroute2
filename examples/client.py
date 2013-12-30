@@ -14,8 +14,7 @@ from pprint import pprint
 ip = IPRoute(host='tls://localhost:7000',
              key='client.key',
              cert='client.crt',
-             ca='ca.crt',
-             addr=0x2)
+             ca='ca.crt')
 
 pprint(ip.get_addr())
 ip.release()

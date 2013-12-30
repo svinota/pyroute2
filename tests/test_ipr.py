@@ -16,7 +16,7 @@ from utils import remove_link
 
 
 def _run_remote_client(url, func, key=None, cert=None, ca=None):
-    ip = IPRoute(addr=0x02000000, host=url, key=key, cert=cert, ca=ca)
+    ip = IPRoute(host=url, key=key, cert=cert, ca=ca)
     getattr(ip, func)()
     ip.release()
 
@@ -33,7 +33,7 @@ def _run_proxy_uplink(url, target, allow_connect,
 
 
 def _run_remote_uplink(url, allow_connect, key=None, cert=None, ca=None):
-    ip = IPRoute(addr=0x02000000)
+    ip = IPRoute()
     ip.serve(url, key=key, cert=cert, ca=ca)
     allow_connect.set()
     ip.iothread._stop_event.wait()
