@@ -52,8 +52,6 @@ requires
 Python >= 2.6
 
   * test reqs (optional): **python-coverage**, **python-nose**
-  * plugin reqs (optional):
-    * ptrace: **python-ptrace**
 
 links
 -----
