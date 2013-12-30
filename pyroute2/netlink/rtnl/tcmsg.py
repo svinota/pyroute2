@@ -414,9 +414,9 @@ class nla_plus_rtab(nla):
         fields = (('value', 's'), )
 
         def encode(self):
-            parms = self.parent.get_attr('TCA_TBF_PARMS') or \
-                self.parent.get_attr('TCA_HTB_PARMS') or \
-                self.parent.get_attr('TCA_POLICE_TBF')
+            parms = self.parent.get_encoded('TCA_TBF_PARMS') or \
+                self.parent.get_encoded('TCA_HTB_PARMS') or \
+                self.parent.get_encoded('TCA_POLICE_TBF')
             if parms is not None:
                 self.value = getattr(parms, self.__class__.__name__)
                 self['value'] = struct.pack('I' * 256, *self.value)

@@ -533,7 +533,6 @@ class IOBroker(threading.Thread):
 
             elif cmd['cmd'] == IPRCMD_DISCOVER:
                 url = cmd.get_attr('IPR_ATTR_HOST')
-                print(url, self.discover)
                 if url in self.discover:
                     rsp['attrs'].append(['IPR_ATTR_ADDR', self.discover[url]])
                     rsp['cmd'] = IPRCMD_ACK

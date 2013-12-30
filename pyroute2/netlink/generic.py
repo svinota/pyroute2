@@ -365,21 +365,29 @@ class nlmsg_base(dict):
             self['value'] = value
             self.value = value
 
-    def get_attr(self, attr, default=None):
+    def get_encoded(self, attr, default=None):
         '''
-        Return first attr by name or None
+        Return the first encoded NLA by name
         '''
-        attrs = self.get_attrs(attr)
+        return self.get_attr(attr, default, 'encoded')
+
+    def get_attr(self, attr, default=None, fmt='raw'):
+        '''
+        Return the first attr by name or None
+        '''
+        attrs = self.get_attrs(attr, fmt)
         if attrs:
             return attrs[0]
         else:
             return default
 
-    def get_attrs(self, attr):
+    def get_attrs(self, attr, fmt='raw'):
         '''
         Return attrs by name
         '''
-        return [i[1] for i in self['attrs'] if i[0] == attr]
+        fmt_map = {'raw': 1,
+                   'encoded': 2}
+        return [i[fmt_map[fmt]] for i in self['attrs'] if i[0] == attr]
 
     def getvalue(self):
         '''
@@ -446,7 +454,10 @@ class nlmsg_base(dict):
                     nla['header']['type'] = msg_type
                     nla.setvalue(i[1])
                     nla.encode()
-                    i[1] = nla
+                    if len(i) == 2:
+                        i.append(nla)
+                    elif len(i) == 3:
+                        i[2] = nla
                 except:
                     # FIXME
                     import traceback
