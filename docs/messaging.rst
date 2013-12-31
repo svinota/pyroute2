@@ -63,7 +63,7 @@ Server gets event from client and prints it::
 
     from pyroute2 import IOCore
 
-    ioc = IOCore(addr=0x2)
+    ioc = IOCore()
     ioc.serve('tcp://localhost:9824')
     ioc.provide('push')  # just arbitrary string ID of the service
     ioc.monitor()
@@ -77,11 +77,11 @@ Client pushes arbitrary data as a string::
 
     from pyroute2 import IOCore
 
-    ipr = IOCore(addr=0x4)
+    ipr = IOCore()
     (uid, addr) = ioc.connect('tcp://localhost:9824')
-    port = ioc.discover(addr, 'push')  # service ID from ioc.provide()
+    port = ioc.discover('push', addr)  # service ID from ioc.provide()
 
-    ioc.push(addr, port, 'hello, world!')
+    ioc.push((addr, port), 'hello, world!')
 
     ipr.release()
 
@@ -160,11 +160,11 @@ into the transport protocol messages. Each transport message consists of::
 
     struct envmsghdr {
         uint32 dst;    /* destination node */
-        uint32 src;    /* source node */
         uint32 dport;  /* destination service */
+        uint32 src;    /* source node */
         uint32 sport;  /* source service */
-        uint16 ttl;
-        uint16 flags;
+        uint16 ttl;    /* ttl, decreased on each hop */
+        uint16 reserved;
     };
 
     struct nla_hdr {

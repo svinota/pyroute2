@@ -687,10 +687,10 @@ class mgmtmsg(ctrlmsg):
 
 class envmsg(nlmsg):
     fields = (('dst', 'I'),
-              ('src', 'I'),
               ('dport', 'I'),
+              ('src', 'I'),
               ('sport', 'I'),
               ('ttl', 'H'),
-              ('flags', 'H'))
+              ('reserved', 'H'))
 
     nla_map = (('IPR_ATTR_CDATA', 'cdata'),)
