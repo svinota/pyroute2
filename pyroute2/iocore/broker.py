@@ -566,6 +566,10 @@ class IOBroker(threading.Thread):
         sock.send(ne.buf.getvalue())
 
     def route_forward(self, sock, envelope):
+        nonce = envelope['header']['sequence_number']
+        if nonce in self.masquerade:
+            self.unmasq(nonce, envelope)
+
         # nothing special, just broadcast packet
         envelope['ttl'] -= 1
         if envelope['ttl'] > 0:
@@ -577,6 +581,16 @@ class IOBroker(threading.Thread):
                         (link.sock.type & flags & NLT_DGRAM)):
                     self.remote[uid].gate(envelope, sock)
 
+    def unmasq(self, nonce, envelope):
+        target = self.masquerade[nonce]
+        envelope['header']['sequence_number'] = \
+            target.envelope['header']['sequence_number']
+        envelope['header']['pid'] = \
+            target.envelope['header']['pid']
+        envelope.reset()
+        envelope.encode()
+        target.socket.send(envelope.buf.getvalue())
+
     def route_data(self, sock, envelope):
         nonce = envelope['header']['sequence_number']
         if envelope['dport'] in self.local:
@@ -586,14 +600,7 @@ class IOBroker(threading.Thread):
                 traceback.print_exc()
 
         elif nonce in self.masquerade:
-            target = self.masquerade[nonce]
-            envelope['header']['sequence_number'] = \
-                target.envelope['header']['sequence_number']
-            envelope['header']['pid'] = \
-                target.envelope['header']['pid']
-            envelope.reset()
-            envelope.encode()
-            target.socket.send(envelope.buf.getvalue())
+            self.unmasq(nonce, envelope)
 
         else:
             # FIXME fix it, please, or kill with fire
