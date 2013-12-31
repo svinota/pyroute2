@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.2.2
+    * iocore: new component
+    * iocore: separate IOCore and IOBroker
+    * iocore: change from peer-to-peer to flat addresses
+    * iocore: REP/REQ, PUSH/PULL
+    * iocore: support for UDP PUSH/PULL
+    * iocore: AddrPool component for addresses and nonces
+    * generic: allow multiple re-encoding
 * 0.1.12
     * ipdb: transaction commit callbacks
     * iproute: delete root qdisc (@chantra)
