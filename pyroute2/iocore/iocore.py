@@ -65,8 +65,8 @@ class IOCore(threading.Thread):
             self.marshal = self.marshal()
         self.buffers = Queue.Queue()
         self._mirror = False
-        default_target = 'netlink://%i:%i' % (self.family, self.groups)
-        self.host = host or default_target
+        self.default_target = 'netlink://%i:%i' % (self.family, self.groups)
+        self.host = host or self.default_target
         self._run_event = threading.Event()
         self._stop_event = threading.Event()
         self._feed_thread = threading.Thread(target=self._feed_buffers,
@@ -81,7 +81,7 @@ class IOCore(threading.Thread):
         if self.do_connect:
             (self.default_link,
              self.default_peer) = self.connect(self.host, key, cert, ca)
-            self.default_dport = self.discover(default_target,
+            self.default_dport = self.discover(self.default_target,
                                                self.default_peer)
 
     def run(self):
@@ -274,22 +274,26 @@ class IOCore(threading.Thread):
                               expect=['IPR_ATTR_UUID',
                                       'IPR_ATTR_ADDR'],
                               addr=addr)
-        self.uids.add(uid)
+        self.uids.add((uid, addr))
         return uid, peer
 
     def disconnect(self, uid, addr=None):
         ret = self.command(IPRCMD_DISCONNECT,
                            [['IPR_ATTR_UUID', uid]],
                            addr=addr)
-        self.uids.remove(uid)
+        self.uids.remove((uid, addr))
         return ret
 
     def release(self):
         '''
         Shutdown all threads and release netlink sockets
         '''
-        for uid in tuple(self.uids):
-            self.disconnect(uid)
+        for (uid, addr) in tuple(self.uids):
+            try:
+                self.disconnect(uid, addr=addr)
+            except Queue.Empty as e:
+                if addr == self.default_broker:
+                    raise e
         self.iothread.stop()
 
         self._stop_event.set()

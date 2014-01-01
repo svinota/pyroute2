@@ -21,22 +21,13 @@ def _run_remote_client(url, func, key=None, cert=None, ca=None):
     ip.release()
 
 
-def _run_proxy_uplink(url, target, allow_connect,
-                      s_key=None, s_cert=None,
-                      t_key=None, t_cert=None,
-                      ca=None):
-    ip = IPRoute(host=target, key=t_key, cert=t_cert, ca=ca)
-    ip.serve(url, key=s_key, cert=s_cert, ca=ca)
-    allow_connect.set()
-    ip.iothread._stop_event.wait()
-    ip.release()
-
-
-def _run_remote_uplink(url, allow_connect, key=None, cert=None, ca=None):
+def _run_remote_uplink(url, connect, release,
+                       key=None, cert=None, ca=None):
     ip = IPRoute()
     ip.serve(url, key=key, cert=cert, ca=ca)
-    allow_connect.set()
-    ip.iothread._stop_event.wait()
+    ip.iothread.secret = 'bala'
+    connect.set()
+    release.wait()
     ip.release()
 
 
@@ -123,14 +114,16 @@ class TestServerSide(object):
 class TestSetupUplinks(object):
 
     def _test_remote(self, url):
-        allow_connect = Event()
+        connect = Event()
+        release = Event()
         target = Process(target=_run_remote_uplink,
-                         args=(url, allow_connect))
+                         args=(url, connect, release))
         target.daemon = True
         target.start()
-        allow_connect.wait()
+        connect.wait()
         ip = IPRoute(host=url)
         ip.release()
+        release.set()
 
     def test_unix_abstract_remote(self):
         self._test_remote('unix://\0nose_tests_socket')
@@ -162,11 +155,13 @@ class TestData(object):
 
     def setup(self):
         create_link('dummyX', 'dummy')
+        self.release = Event()
         self.ip = IPRoute()
         self.dev = self.ip.link_lookup(ifname='dummyX')
 
     def teardown(self):
         self.ip.release()
+        self.release.set()
         remove_link('dummyX')
         remove_link('bala')
 
@@ -272,29 +267,38 @@ class TestData(object):
             len(self.ip.get_routes(family=socket.AF_INET, table=255))
 
 
-class _TestProxyData(TestData):
+class TestProxyData(TestData):
 
     def setup(self):
         create_link('dummyX', 'dummy')
         t_url = 'unix://\0%s' % (uuid.uuid4())
         p_url = 'unix://\0%s' % (uuid.uuid4())
-        allow_connect = Event()
+        self.connect = Event()
+        self.release = Event()
 
         target = Process(target=_run_remote_uplink,
-                         args=(t_url, allow_connect))
+                         args=(t_url, self.connect, self.release))
         target.daemon = True
         target.start()
-        allow_connect.wait()
-        allow_connect.clear()
+        self.connect.wait()
+        self.connect.clear()
 
-        proxy = Process(target=_run_proxy_uplink,
-                        args=(p_url, t_url, allow_connect))
+        proxy = Process(target=_run_remote_uplink,
+                        args=(p_url, self.connect, self.release))
         proxy.daemon = True
         proxy.start()
-        allow_connect.wait()
-        allow_connect.clear()
+        self.connect.wait()
+        self.connect.clear()
 
-        self.ip = IPRoute(host=p_url)
+        self.ip = IPRoute(do_connect=False)
+        link, proxy = self.ip.connect(p_url)
+        self.ip.register('bala', proxy)
+        link, host = self.ip.connect(t_url, addr=proxy)
+        service = self.ip.discover(self.ip.default_target, addr=host)
+
+        self.ip.default_peer = host
+        self.ip.default_dport = service
+
         self.dev = self.ip.link_lookup(ifname='dummyX')
 
 
@@ -303,12 +307,13 @@ class TestRemoteData(TestData):
     def setup(self):
         create_link('dummyX', 'dummy')
         url = 'unix://\0%s' % (uuid.uuid4())
-        allow_connect = Event()
+        self.connect = Event()
+        self.release = Event()
         target = Process(target=_run_remote_uplink,
-                         args=(url, allow_connect))
+                         args=(url, self.connect, self.release))
         target.daemon = True
         target.start()
-        allow_connect.wait()
+        self.connect.wait()
         self.ip = IPRoute(host=url)
         self.dev = self.ip.link_lookup(ifname='dummyX')
 
@@ -319,16 +324,18 @@ class TestSSLData(TestData):
     def setup(self):
         create_link('dummyX', 'dummy')
         url = 'unix+%s://\0%s' % (self.ssl_proto, uuid.uuid4())
-        allow_connect = Event()
+        self.connect = Event()
+        self.release = Event()
         target = Process(target=_run_remote_uplink,
                          args=(url,
-                               allow_connect,
+                               self.connect,
+                               self.release,
                                'server.key',
                                'server.crt',
                                'ca.crt'))
         target.daemon = True
         target.start()
-        allow_connect.wait()
+        self.connect.wait()
         self.ip = IPRoute(host=url,
                           key='client.key',
                           cert='client.crt',
