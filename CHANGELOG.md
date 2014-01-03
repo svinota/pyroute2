@@ -1,6 +1,8 @@
 changelog
 =========
 
+* 0.2.3
+    * [fix]: #28 -- bundle issue
 * 0.2.2
     * iocore: new component
     * iocore: separate IOCore and IOBroker
