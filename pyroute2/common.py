@@ -130,9 +130,9 @@ def map_namespace(prefix, ns):
     return (by_name, by_value)
 
 
-def fnv1(data):
+def _fnv1_python2(data):
     '''
-    FNV1 -- 32bit hash
+    FNV1 -- 32bit hash, python2 version
 
     @param data: input
     @type data: bytes
@@ -147,6 +147,31 @@ def fnv1(data):
         hval *= 0x01000193
         hval ^= struct.unpack('B', data[i])[0]
     return hval & 0xffffffff
+
+
+def _fnv1_python3(data):
+    '''
+    FNV1 -- 32bit hash, python3 version
+
+    @param data: input
+    @type data: bytes
+
+    @return: 32bit int hash
+    @rtype: int
+
+    See: http://www.isthe.com/chongo/tech/comp/fnv/index.html
+    '''
+    hval = 0x811c9dc5
+    for i in range(len(data)):
+        hval *= 0x01000193
+        hval ^= data[i]
+    return hval & 0xffffffff
+
+
+if sys.version[0] == '3':
+    fnv1 = _fnv1_python3
+else:
+    fnv1 = _fnv1_python2
 
 
 def uuid32():

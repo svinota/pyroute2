@@ -15,7 +15,7 @@ class AddrPool(object):
             self.cell_size += 1
         self.cell_size *= 8
         # calculate, how many ints we need to bitmap all addresses
-        cells = (maxaddr - minaddr) / self.cell_size + 1
+        cells = int((maxaddr - minaddr) / self.cell_size + 1)
         # generate array
         self.addr_map = [self.cell for x in range(cells)]
         self.minaddr = minaddr
