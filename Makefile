@@ -49,12 +49,6 @@ clean: clean-version
 	rm -rf tests/cover
 	find . -name "*pyc" -exec rm -f "{}" \;
 
-check:
-	for i in pyroute2 ; \
-		do pep8 $$i || exit 1; \
-		pyflakes $$i || exit 1; \
-		done
-
 setup.py docs/conf.py:
 	gawk -v version=${version} -v release=${release} -v flavor=${flavor}\
 		-f configure.gawk $@.in >$@
@@ -73,7 +67,7 @@ docs: clean force-version
 	export PYTHONPATH=`pwd`; make -C docs html
 
 test:
-	@flake8 .
+	@flake8 --exclude=docs .
 	@export PYTHONPATH=`pwd`; cd tests; \
 		nosetests$$PYVERSION -v ${pdb} \
 			--with-coverage \
