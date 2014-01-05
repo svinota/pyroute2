@@ -147,6 +147,20 @@ class TestSetupUplinks(object):
         self._test_remote('tcp://127.0.0.1:9821')
 
 
+class TestMisc(object):
+
+    def setup(self):
+        self.ip = IPRoute()
+
+    def teardown(self):
+        self.ip.release()
+
+    def test_addrpool_expand(self):
+        # see coverage
+        for i in range(100):
+            self.ip.get_addr()
+
+
 def _callback(msg, obj):
     obj.cb_counter += 1
 

@@ -15,12 +15,12 @@ class AddrPool(object):
             self.cell_size += 1
         self.cell_size *= 8
         # calculate, how many ints we need to bitmap all addresses
-        cells = int((maxaddr - minaddr) / self.cell_size + 1)
-        # generate array
-        self.addr_map = [self.cell for x in range(cells)]
+        self.cells = int((maxaddr - minaddr) / self.cell_size + 1)
+        # initial array
+        self.addr_map = [self.cell]
         self.minaddr = minaddr
         self.maxaddr = maxaddr
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
 
     def alloc(self):
         with self.lock:
@@ -37,13 +37,21 @@ class AddrPool(object):
                         bit += 1
                     return (base * self.cell_size + bit) + self.minaddr
                 base += 1
-            raise KeyError('no free address available')
+            # no free address available
+            if len(self.addr_map) < self.cells:
+                # create new cell to allocate address from
+                self.addr_map.append(self.cell)
+                return self.alloc()
+            else:
+                raise KeyError('no free address available')
 
     def free(self, addr):
         with self.lock:
             addr -= self.minaddr
             base = addr / self.cell_size
             bit = addr % self.cell_size
+            if len(self.addr_map) <= base:
+                raise KeyError('address is not allocated')
             if self.addr_map[base] & (1 << bit):
                 raise KeyError('address is not allocated')
             self.addr_map[base] ^= 1 << bit
