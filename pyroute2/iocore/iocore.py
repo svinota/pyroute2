@@ -26,6 +26,7 @@ from pyroute2.netlink.generic import mgmtmsg
 from pyroute2.netlink.generic import envmsg
 from pyroute2.iocore import NLT_CONTROL
 from pyroute2.iocore import NLT_RESPONSE
+from pyroute2.iocore import NLT_EXCEPTION
 from pyroute2.iocore.broker import pairPipeSockets
 from pyroute2.iocore.broker import IOBroker
 
@@ -179,7 +180,12 @@ class IOCore(threading.Thread):
     def parse(self, envelope, data):
 
         if self.marshal is None:
-            msgs = [data.getvalue()]
+            if envelope['header']['flags'] & NLT_EXCEPTION:
+                msgs = [{'error': RuntimeError(data.getvalue()),
+                         'data': None}]
+            else:
+                msgs = [{'error': None,
+                         'data': data.getvalue()}]
         else:
             msgs = self.marshal.parse(data)
 
@@ -434,7 +440,10 @@ class IOCore(threading.Thread):
                 self._remove_queue(key)
                 raise e
             if self.marshal is None:
-                return [msg]
+                if msg.get('error', None) is not None:
+                    raise msg['error']
+                else:
+                    return [msg.get('data', msg)]
             # terminator for persistent queues
             if msg is None:
                 self._remove_queue(key)

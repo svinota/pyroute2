@@ -1,10 +1,9 @@
 from pyroute2.iocore.template import public
-from pyroute2.iocore.template import Server
-from pyroute2.iocore.template import Client
+from pyroute2.iocore.template import Node
 
 
 # define test echo server
-class MyServer(Server):
+class MyServer(Node):
 
     @public
     def echo(self, msg):
@@ -13,8 +12,11 @@ class MyServer(Server):
 
 # start server and client
 url = 'tcp://localhost:9824/service'
-s = MyServer(url)
-c = Client(url)
+node1 = MyServer()
+node1.serve(url)
+
+node2 = Node()
+proxy = node2.connect(url)
 
 # request echo call
-print(c.echo('test'))
+print(proxy.echo('test'))

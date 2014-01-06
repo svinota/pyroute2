@@ -1,20 +1,38 @@
+import uuid
 from pyroute2.iocore.template import public
-from pyroute2.iocore.template import Server
-from pyroute2.iocore.template import Client
+from pyroute2.iocore.template import Node
 
 
-class MyServer(Server):
+class MyServer(Node):
 
     @public
     def echo(self, msg):
         return '%s passed' % (msg)
 
+    @public
+    def error(self):
+        raise RuntimeError('test exception')
+
 
 class TestMessaging(object):
 
-    def test_req_rep(self):
-        url = 'tcp://localhost:9824/service'
-        MyServer(url)
-        c = Client(url)
+    def setup(self):
+        url = 'unix://\0%s/service' % (uuid.uuid4())
+        self.node1 = MyServer()
+        self.node1.serve(url)
 
-        assert c.echo('test') == 'test passed'
+        self.node2 = Node()
+        self.proxy = self.node2.connect(url)
+
+    def teardown(self):
+        self.node2.shutdown()
+        self.node1.shutdown()
+
+    def test_req_rep(self):
+        assert self.proxy.echo('test') == 'test passed'
+
+    def test_exception(self):
+        try:
+            self.proxy.error()
+        except RuntimeError:
+            pass

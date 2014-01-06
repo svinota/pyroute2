@@ -1,5 +1,6 @@
 import traceback
 import urlparse
+import cPickle as pickle
 from pyroute2 import IOCore
 from pyroute2.iocore import NLT_EXCEPTION
 
@@ -10,30 +11,57 @@ def public(func):
         src = envelope['src']
         sport = envelope['sport']
         try:
-            ret = func(self, msg)
+            argv, kwarg = pickle.loads(msg['data'])
+            ret = func(self, *argv, **kwarg)
             flags = 0
         except:
             ret = traceback.format_exc()
             flags = NLT_EXCEPTION
-        self.push((src, sport), ret, flags, nonce)
+        self._ioc.push((src, sport), ret, flags, nonce)
         return True
 
     reply.public = True
     return reply
 
 
-class Server(IOCore):
+class ProxyInterface(object):
 
-    def __init__(self, hosts=None):
-        IOCore.__init__(self)
-        # start serve
-        if type(hosts) not in (tuple, list):
-            hosts = [hosts]
+    def __init__(self, ioc, host):
+        self._ioc = ioc
+        path = urlparse.urlparse(host).path
+        link, self._addr = self._ioc.connect(host)
+        self._port = self._ioc.discover(path, self._addr)
 
-        for item in hosts:
-            resource = urlparse.urlparse(item)
-            self.serve(item)
-            self.provide(resource.path)
+    def __getattribute__(self, key, *argv):
+        try:
+            return object.__getattribute__(self, key)
+        except AttributeError:
+            def call(*argv, **kwarg):
+                # pickle argv and kwarg
+                msg = pickle.dumps((argv, kwarg))
+                return self._ioc.request(msg,
+                                         addr=self._addr,
+                                         port=self._port,
+                                         cname=key)[0]
+            return call
+
+
+def predicate(name):
+    return lambda e, x: e.get_attr('IPR_ATTR_CNAME') == name
+
+
+class Node(object):
+
+    def __init__(self, serve=None):
+        self._ioc = IOCore()
+
+        # start services
+        serve = serve or []
+        if type(serve) not in (tuple, list, set):
+            serve = [serve]
+
+        for host in serve:
+            self.serve(host)
 
         # register public methods
         for name in dir(self):
@@ -41,33 +69,15 @@ class Server(IOCore):
             public = getattr(item, 'public', False)
 
             if public:
-                save = name
+                self._ioc.register_callback(item, predicate(name))
 
-                def predicate(e, x):
-                    return e.get_attr('IPR_ATTR_CNAME') == save
+    def serve(self, host):
+        path = urlparse.urlparse(host).path
+        self._ioc.serve(host)
+        self._ioc.provide(path)
 
-                self.register_callback(item, predicate)
+    def connect(self, host):
+        return ProxyInterface(self._ioc, host)
 
-    @public
-    def echo(self, msg):
-        return "passed: %s" % (msg)
-
-
-class Client(object):
-
-    def __init__(self, host):
-        self.ioc = IOCore()
-        resource = urlparse.urlparse(host)
-        link, self.addr = self.ioc.connect(host)
-        self.port = self.ioc.discover(resource.path, self.addr)
-
-    def __getattribute__(self, key, *argv):
-        try:
-            return object.__getattribute__(self, key)
-        except AttributeError:
-            def call(msg):
-                return self.ioc.request(msg,
-                                        addr=self.addr,
-                                        port=self.port,
-                                        cname=key)[0]
-            return call
+    def shutdown(self):
+        self._ioc.release()
