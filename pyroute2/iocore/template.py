@@ -54,6 +54,7 @@ class Node(object):
 
     def __init__(self, serve=None):
         self._ioc = IOCore()
+        self.namespaces = set()
 
         # start services
         serve = serve or []
@@ -63,9 +64,12 @@ class Node(object):
         for host in serve:
             self.serve(host)
 
+    def register(self, namespace):
+        namespace._ioc = self._ioc
+        self.namespaces.add(namespace)
         # register public methods
-        for name in dir(self):
-            item = getattr(self, name, None)
+        for name in dir(namespace):
+            item = getattr(namespace, name, None)
             public = getattr(item, 'public', False)
 
             if public:

@@ -3,7 +3,7 @@ from pyroute2.iocore.template import Node
 
 
 # define test echo server
-class MyServer(Node):
+class Namespace(object):
 
     @public
     def echo(self, msg):
@@ -12,7 +12,8 @@ class MyServer(Node):
 
 # start server and client
 url = 'tcp://localhost:9824/service'
-node1 = MyServer()
+node1 = Node()
+node1.register(Namespace())
 node1.serve(url)
 
 node2 = Node()

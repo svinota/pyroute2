@@ -3,7 +3,7 @@ from pyroute2.iocore.template import public
 from pyroute2.iocore.template import Node
 
 
-class MyServer(Node):
+class Namespace(object):
 
     @public
     def echo(self, msg):
@@ -18,7 +18,8 @@ class TestMessaging(object):
 
     def setup(self):
         url = 'unix://\0%s/service' % (uuid.uuid4())
-        self.node1 = MyServer()
+        self.node1 = Node()
+        self.node1.register(Namespace())
         self.node1.serve(url)
 
         self.node2 = Node()
