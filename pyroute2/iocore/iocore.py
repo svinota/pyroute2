@@ -168,28 +168,39 @@ class IOCore(threading.Thread):
                         msg = mgmtmsg(buf)
                         msg.decode()
                         self.listeners[nonce].put_nowait(msg)
-                    elif self.marshal is None:
-                        msg = envelope.get_attr('IPR_ATTR_CDATA')
-                        self.listeners[0].put_nowait(msg)
                     else:
-                        self.parse(buf)
+                        self.parse(envelope, buf)
                 except AttributeError:
                     # now silently drop bad packet
                     pass
 
                 offset += length
 
-    def parse(self, data):
+    def parse(self, envelope, data):
 
-        for msg in self.marshal.parse(data):
-            key = msg['header']['sequence_number']
+        if self.marshal is None:
+            msgs = [data.getvalue()]
+        else:
+            msgs = self.marshal.parse(data)
+
+        for msg in msgs:
+            try:
+                key = msg['header']['sequence_number']
+            except (TypeError, KeyError):
+                key = 0
 
             # 8<--------------------------------------------------------------
             # message filtering
             # right now it is simply iterating callback list
+            skip = False
+
             for cr in self.callbacks:
-                if cr[0](msg):
-                    cr[1](msg, *cr[2])
+                if cr[0](envelope, msg):
+                    if cr[1](envelope, msg, *cr[2]) is not None:
+                        skip = True
+
+            if skip:
+                continue
 
             # 8<--------------------------------------------------------------
             if key not in self.listeners:
@@ -337,7 +348,8 @@ class IOCore(threading.Thread):
             self.cid = None
             del self.listeners[0]
 
-    def register_callback(self, callback, predicate=lambda x: True, args=None):
+    def register_callback(self, callback,
+                          predicate=lambda e, x: True, args=None):
         '''
         Register a callback to run on a message arrival.
 
@@ -350,7 +362,7 @@ class IOCore(threading.Thread):
         Simplest example, assume ipr is the IPRoute() instance::
 
             # create a simplest callback that will print messages
-            def cb(msg):
+            def cb(env, msg):
                 print(msg)
 
             # register callback for any message:
@@ -359,12 +371,12 @@ class IOCore(threading.Thread):
         More complex example, with filtering::
 
             # Set object's attribute after the message key
-            def cb(msg, obj):
+            def cb(env, msg, obj):
                 obj.some_attr = msg["some key"]
 
             # Register the callback only for the loopback device, index 1:
             ipr.register_callback(cb,
-                                  lambda x: x.get('index', None) == 1,
+                                  lambda e, x: x.get('index', None) == 1,
                                   (self, ))
 
         Please note: you do **not** need to register the default 0 queue
@@ -452,7 +464,8 @@ class IOCore(threading.Thread):
 
     def push(self, host, msg,
              env_flags=None,
-             nonce=0):
+             nonce=0,
+             cname=None):
         addr, port = host
         envelope = envmsg()
         envelope['header']['sequence_number'] = nonce
@@ -465,6 +478,8 @@ class IOCore(threading.Thread):
         envelope['dport'] = port
         envelope['ttl'] = 16
         envelope['attrs'] = [['IPR_ATTR_CDATA', msg]]
+        if cname is not None:
+            envelope['attrs'].append(['IPR_ATTR_CNAME', cname])
         envelope.encode()
         self.bridge.send(envelope.buf.getvalue())
 
@@ -472,11 +487,14 @@ class IOCore(threading.Thread):
                 env_flags=0,
                 addr=None,
                 port=None,
+                nonce=0,
+                cname=None,
                 response_timeout=None):
         port = port or self.default_dport
         addr = addr or self.default_broker
-        self.nlm_push(msg, env_flags, addr, port)
-        return self.get(0, timeout=response_timeout)
+        self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
+        self.push((addr, port), msg, env_flags, nonce, cname)
+        return self.get(nonce, timeout=response_timeout)
 
     def nlm_push(self, msg,
                  msg_type=None,

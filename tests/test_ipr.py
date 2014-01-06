@@ -161,7 +161,7 @@ class TestMisc(object):
             self.ip.get_addr()
 
 
-def _callback(msg, obj):
+def _callback(envelope, msg, obj):
     obj.cb_counter += 1
 
 
@@ -229,7 +229,7 @@ class TestData(object):
 
         self.cb_counter = 0
         self.ip.register_callback(_callback,
-                                  lambda x: x.get('index', None) == dev,
+                                  lambda e, x: x.get('index', None) == dev,
                                   (self, ))
         self.test_updown_link()
         assert self.cb_counter > 0
@@ -240,7 +240,7 @@ class TestData(object):
 
         self.cb_counter = 0
         self.ip.register_callback(_callback,
-                                  lambda x: x.get('index', None) == 'nonsence',
+                                  lambda e, x: x.get('index', None) == 'bala',
                                   (self, ))
         self.test_updown_link()
         assert self.cb_counter == 0

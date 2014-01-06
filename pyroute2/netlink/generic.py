@@ -693,4 +693,5 @@ class envmsg(nlmsg):
               ('ttl', 'H'),
               ('reserved', 'H'))
 
-    nla_map = (('IPR_ATTR_CDATA', 'cdata'),)
+    nla_map = (('IPR_ATTR_CDATA', 'cdata'),
+               ('IPR_ATTR_CNAME', 'asciiz'))
