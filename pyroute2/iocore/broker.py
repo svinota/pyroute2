@@ -568,7 +568,7 @@ class IOBroker(threading.Thread):
     def route_forward(self, sock, envelope):
         nonce = envelope['header']['sequence_number']
         if nonce in self.masquerade:
-            self.unmasq(nonce, envelope)
+            return self.unmasq(nonce, envelope)
 
         # nothing special, just broadcast packet
         envelope['ttl'] -= 1
