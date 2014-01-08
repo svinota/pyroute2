@@ -73,7 +73,6 @@ class IOCore(threading.Thread):
         self._feed_thread = threading.Thread(target=self._feed_buffers,
                                              name='Reasm and parsing')
         self._feed_thread.setDaemon(True)
-        self._feed_thread.start()
         self.setDaemon(True)
         self.start()
         self._run_event.wait()
@@ -86,6 +85,7 @@ class IOCore(threading.Thread):
                                                self.default_peer)
 
     def run(self):
+        self._feed_thread.start()
         # 1. run iothread
         self.iothread.start()
         # 2. connect to iothread

@@ -311,11 +311,9 @@ class IOBroker(threading.Thread):
         self._expire_thread = threading.Thread(target=self._expire_masq,
                                                name='Masquerade cache')
         self._expire_thread.setDaemon(True)
-        self._expire_thread.start()
         self._dequeue_thread = threading.Thread(target=self._dequeue,
                                                 name='Buffer queue')
         self._dequeue_thread.setDaemon(True)
-        self._dequeue_thread.start()
 
     def alloc_addr(self):
         return self.ports.alloc()
@@ -839,6 +837,8 @@ class IOBroker(threading.Thread):
         return sock
 
     def run(self):
+        self._expire_thread.start()
+        self._dequeue_thread.start()
         self._run_event.set()
         while not self._stop_event.is_set():
             try:
