@@ -1,5 +1,6 @@
 *.swp
 *.pyc
+*~
 docs/general.rst
 docs/_build
 tests/htmlcov
