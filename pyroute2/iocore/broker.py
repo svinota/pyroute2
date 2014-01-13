@@ -575,9 +575,19 @@ class IOBroker(threading.Thread):
             for (uid, link) in self.remote.items():
                 # by default, send packets only via SOCK_STREAM,
                 # and use SOCK_DGRAM only upon request
-                if ((link.sock.type == socket.SOCK_STREAM) or
-                        (link.sock.type & flags & NLT_DGRAM)):
-                    self.remote[uid].gate(envelope, sock)
+
+                # skip STREAM sockets if NLT_DGRAM is requested
+                if ((link.sock.type == socket.SOCK_STREAM) and
+                        (flags & NLT_DGRAM)):
+                    continue
+
+                # skip DGRAM sockets if NLT_DGRAM is not requested
+                if ((link.sock.type == socket.SOCK_DGRAM) and
+                        not (flags & NLT_DGRAM)):
+                    continue
+
+                # in any other case -- send packet
+                self.remote[uid].gate(envelope, sock)
 
     def unmasq(self, nonce, envelope):
         target = self.masquerade[nonce]
