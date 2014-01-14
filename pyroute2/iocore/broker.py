@@ -379,6 +379,8 @@ class IOBroker(threading.Thread):
                 ne.encode()
                 sock.send(ne.buf.getvalue())
                 # Stop iothread -- shutdown sequence
+                for sock in self.servers:
+                    sock.close()
                 self._stop_event.set()
                 self.queue.put(None)
                 self.control.send(struct.pack('I', 4))
@@ -403,7 +405,7 @@ class IOBroker(threading.Thread):
                 new_sock.bind(addr)
                 if new_sock.type == socket.SOCK_STREAM:
                     new_sock.listen(16)
-                    self.servers.add(new_sock)
+                self.servers.add(new_sock)
                 self._rlist.add(new_sock)
                 self.noop()
                 rsp['cmd'] = IPRCMD_ACK
@@ -864,7 +866,7 @@ class IOBroker(threading.Thread):
                 #
                 # Incoming remote connections
                 #
-                if fd in self.servers:
+                if (fd in self.servers) and (fd.type == socket.SOCK_STREAM):
                     try:
                         (client, addr) = fd.accept()
                         self.add_client(client)
