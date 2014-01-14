@@ -1,4 +1,3 @@
-import uuid
 from pyroute2.iocore import NLT_DGRAM
 from pyroute2.iocore.template import public
 from pyroute2.iocore.template import Node
@@ -37,11 +36,15 @@ class TestPush(object):
         self.proxy_tcp.push('test1')
         assert self.node1.get() == 'test1'
 
+    def test_udp_push(self):
+        self.proxy_udp.push('test2')
+        assert self.node1.get() == 'test2'
+
 
 class TestMessaging(object):
 
     def setup(self):
-        url = 'unix://\0%s/service' % (uuid.uuid4())
+        url = 'unix://\0one_test_socket/service'
         self.node1 = Node()
         self.node1.register(Namespace())
         self.node1.serve(url)
