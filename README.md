@@ -1,14 +1,20 @@
 pyroute2
 ========
 
-Python netlink library. The main goal of the project is to
-implement complete NETLINK\_ROUTE family as well as several
-other families (NETLINK\_NETFILTER etc.)
+Pyroute2 is a pure Python netlink and messaging library. It
+requires only Python stdlib, no 3rd party libraries. Later
+it can change, but the deps tree will remain as simple, as
+it is possible.
 
-Current feature status see in STATUS.md
+The library contains all you need to build either one-node,
+or distributed netlink-related solutions. It consists of two
+major parts:
 
-sample
-------
+* Netlink parsers: NETLINK\_ROUTE, TASKSTATS, etc.
+* Messaging infrastructure: broker, clients, etc.
+
+RTNETLINK sample
+----------------
 
 More samples you can read in the project documentation.
 Low-level interface::
@@ -40,6 +46,40 @@ High-level transactional interface, IPDB::
 
 The project contains several modules for different types of
 netlink messages, not only RTNL.
+
+messaging sample
+----------------
+
+Server side::
+
+    from pyroute2.iocore.template import Node
+    from pyroute2.iocore.template import public
+
+
+    class Namespace(object):
+
+        @public
+        def echo(self, msg):
+            return '%s passed' % (msg)
+
+    node = Node()
+    node.register(Namespace())
+    node.serve('tcp://localhost:9824')
+
+    # wait for exit -- activity will be done in the
+    # background thread
+    raw_input(' hit return to exit >> ')
+
+Client side::
+
+    from pyroute2.iocore.template import Node
+
+    node = Node()
+    proxy = node.connect('tcp://localhost:9824')
+    print(proxy.echo('test'))
+
+
+It will print out `test passed`.
 
 installation
 ------------
