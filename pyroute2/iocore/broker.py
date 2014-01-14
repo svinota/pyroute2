@@ -398,6 +398,8 @@ class IOBroker(threading.Thread):
                                                key=key,
                                                cert=cert,
                                                ca=ca)
+                new_sock.setsockopt(socket.SOL_SOCKET,
+                                    socket.SO_REUSEADDR, 1)
                 new_sock.bind(addr)
                 if new_sock.type == socket.SOCK_STREAM:
                     new_sock.listen(16)
