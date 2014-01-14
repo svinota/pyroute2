@@ -52,8 +52,8 @@ messaging sample
 
 Server side::
 
-    from pyroute2.iocore.template import Node
-    from pyroute2.iocore.template import public
+    from pyroute2.rpc import Node
+    from pyroute2.rpc import public
 
 
     class Namespace(object):
@@ -72,7 +72,7 @@ Server side::
 
 Client side::
 
-    from pyroute2.iocore.template import Node
+    from pyroute2.rpc import Node
 
     node = Node()
     proxy = node.connect('tcp://localhost:9824')

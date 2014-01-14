@@ -1,5 +1,5 @@
-from pyroute2.iocore.template import public
-from pyroute2.iocore.template import Node
+from pyroute2.rpc import public
+from pyroute2.rpc import Node
 
 
 # define test echo server

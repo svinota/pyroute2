@@ -6,8 +6,8 @@ Please note, that "server" or "client" role is not a
 property of the node, it is just a way you use it.
 '''
 import sys
-from pyroute2.iocore.template import Node
-from pyroute2.iocore.template import public
+from pyroute2.rpc import Node
+from pyroute2.rpc import public
 
 
 class Namespace(object):

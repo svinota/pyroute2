@@ -1,6 +1,6 @@
 from pyroute2.iocore import NLT_DGRAM
-from pyroute2.iocore.template import public
-from pyroute2.iocore.template import Node
+from pyroute2.rpc import public
+from pyroute2.rpc import Node
 
 
 class Namespace(object):
