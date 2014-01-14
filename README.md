@@ -1,8 +1,8 @@
 pyroute2
 ========
 
-Pyroute2 is a pure Python netlink and messaging library. It
-requires only Python stdlib, no 3rd party libraries. Later
+Pyroute2 is a pure Python netlink and messaging/RPC library.
+It requires only Python stdlib, no 3rd party libraries. Later
 it can change, but the deps tree will remain as simple, as
 it is possible.
 
@@ -47,8 +47,12 @@ High-level transactional interface, IPDB::
 The project contains several modules for different types of
 netlink messages, not only RTNL.
 
-messaging sample
-----------------
+RPC sample
+----------
+
+Actually, either side can act as a server or a client, there
+is no pre-defined roles. But for simplicity, they're referred
+here as "server" and "client".
 
 Server side::
 
@@ -57,13 +61,25 @@ Server side::
 
 
     class Namespace(object):
+        '''
+        This class acts as a namespace, that contains
+        methods to be published via RPC. Any method,
+        available through RPC, must be marked as @public.
+        '''
 
         @public
         def echo(self, msg):
+            '''
+            Simple echo method, that returns a modified
+            string.
+            '''
             return '%s passed' % (msg)
 
+    # start the RPC node and register the namespace
     node = Node()
     node.register(Namespace())
+
+    # listen for network connections
     node.serve('tcp://localhost:9824')
 
     # wait for exit -- activity will be done in the
@@ -74,8 +90,11 @@ Client side::
 
     from pyroute2.rpc import Node
 
+    # start the RPC node and connect to the 'server'
     node = Node()
     proxy = node.connect('tcp://localhost:9824')
+
+    # call a remote method through the proxy instance
     print(proxy.echo('test'))
 
 
