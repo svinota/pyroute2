@@ -3,6 +3,7 @@ import urlparse
 import cPickle as pickle
 from pyroute2 import IOCore
 from pyroute2.iocore import NLT_EXCEPTION
+from pyroute2.iocore import NLT_DGRAM
 
 
 def public(func):
@@ -24,13 +25,28 @@ def public(func):
     return reply
 
 
-class ProxyInterface(object):
+class Interface(object):
 
     def __init__(self, ioc, host):
         self._ioc = ioc
-        path = urlparse.urlparse(host).path
+        self._res = urlparse.urlparse(host)
         link, self._addr = self._ioc.connect(host)
-        self._port = self._ioc.discover(path, self._addr)
+        self._port = self._ioc.discover(self._res.path, self._addr)
+
+
+class PushInterface(Interface):
+
+    def __init__(self, ioc, host, dgram, flags=None):
+        Interface.__init__(self, ioc, host)
+        self.flags = flags
+        if (dgram is not None) and (self.flags == NLT_DGRAM):
+            self._ioc.connect(dgram)
+
+    def push(self, msg):
+        self._ioc.push((self._addr, self._port), msg, self.flags)
+
+
+class ReqRepInterface(Interface):
 
     def __getattribute__(self, key, *argv):
         try:
@@ -55,6 +71,7 @@ class Node(object):
     def __init__(self, serve=None):
         self._ioc = IOCore()
         self.namespaces = set()
+        self.resources = set()
 
         # start services
         serve = serve or []
@@ -78,10 +95,27 @@ class Node(object):
     def serve(self, host):
         path = urlparse.urlparse(host).path
         self._ioc.serve(host)
-        self._ioc.provide(path)
+        if path not in self.resources:
+            self.resources.add(path)
+            self._ioc.provide(path)
+
+    def get(self):
+        return self._ioc.get()[0]
+
+    def monitor(self):
+        self._ioc.monitor()
 
     def connect(self, host):
-        return ProxyInterface(self._ioc, host)
+        '''
+        Return REQ/REP interface to another node
+        '''
+        return ReqRepInterface(self._ioc, host)
+
+    def target(self, host, dgram=None, flags=None):
+        '''
+        Return PUSH interface to another node
+        '''
+        return PushInterface(self._ioc, host, dgram, flags)
 
     def shutdown(self):
         self._ioc.release()
