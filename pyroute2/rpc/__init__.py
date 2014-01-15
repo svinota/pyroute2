@@ -85,6 +85,7 @@ class Node(object):
         namespace._ioc = self._ioc
         self.namespaces.add(namespace)
         # register public methods
+        # .. _ioc-callbacks:
         for name in dir(namespace):
             item = getattr(namespace, name, None)
             public = getattr(item, 'public', False)

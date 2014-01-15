@@ -198,6 +198,7 @@ class IOCore(threading.Thread):
             # 8<--------------------------------------------------------------
             # message filtering
             # right now it is simply iterating callback list
+            # .. _ioc-callbacks:
             skip = False
 
             for cr in self.callbacks:
@@ -255,6 +256,7 @@ class IOCore(threading.Thread):
                             addr=addr)
 
     def discover(self, url, addr=None):
+        # .. _ioc-discover:
         return self.command(IPRCMD_DISCOVER,
                             [['IPR_ATTR_HOST', url]],
                             expect='IPR_ATTR_ADDR',

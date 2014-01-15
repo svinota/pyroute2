@@ -534,6 +534,7 @@ class IOBroker(threading.Thread):
                                          traceback.format_exc()])
 
             elif cmd['cmd'] == IPRCMD_DISCOVER:
+                # .. _ioc-discover:
                 url = cmd.get_attr('IPR_ATTR_HOST')
                 if url in self.discover:
                     rsp['attrs'].append(['IPR_ATTR_ADDR', self.discover[url]])
@@ -871,6 +872,7 @@ class IOBroker(threading.Thread):
                         (client, addr) = fd.accept()
                         self.add_client(client)
                         # announce address
+                        # .. _ioc-connect:
                         rsp = mgmtmsg()
                         rsp['header']['type'] = NLMSG_CONTROL
                         rsp['cmd'] = IPRCMD_ACK
