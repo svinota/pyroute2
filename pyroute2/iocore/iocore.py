@@ -40,6 +40,7 @@ class IOCore(threading.Thread):
 
     marshal = None
     name = 'Core API'
+    default_target = None
 
     def __init__(self, debug=False, timeout=3, do_connect=False,
                  host=None, key=None, cert=None, ca=None,
@@ -72,11 +73,11 @@ class IOCore(threading.Thread):
         self.start()
         self._run_event.wait()
         if do_connect:
-            host = urlparse.urlparse(host)
+            path = urlparse.urlparse(host).path
             (self.default_link,
              self.default_peer) = self.connect(self.host,
                                                key, cert, ca)
-            self.default_dport = self.discover(host.path,
+            self.default_dport = self.discover(self.default_target or path,
                                                self.default_peer)
 
     def run(self):
