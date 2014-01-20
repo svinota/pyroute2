@@ -462,8 +462,9 @@ class IOBroker(threading.Thread):
                             new_sock.send(self.gate_local(d, s))
 
                     elif target.scheme == 'netlink':
-                        new_sock = NetlinkSocket(int(target.hostname))
-                        new_sock.bind(int(target.port))
+                        res = target.path.split("/")
+                        new_sock = NetlinkSocket(int(res[1]))
+                        new_sock.bind(int(res[2]))
                         gate = lambda d, s:\
                             new_sock.sendto(self.gate_untag(d, s),
                                             (0, 0))
@@ -507,7 +508,7 @@ class IOBroker(threading.Thread):
                                               established=established,
                                               remote=remote)
                     link.gate = gate
-                    self.discover[url] = port
+                    self.discover[target.path] = port
                     rsp['attrs'].append(['IPR_ATTR_UUID', uid])
                     rsp['attrs'].append(['IPR_ATTR_ADDR', peer])
                     rsp['cmd'] = IPRCMD_ACK
@@ -606,6 +607,7 @@ class IOBroker(threading.Thread):
 
     def route_data(self, sock, envelope):
         nonce = envelope['header']['sequence_number']
+
         if envelope['dport'] in self.local:
             try:
                 self.local[envelope['dport']].gate(envelope, sock)

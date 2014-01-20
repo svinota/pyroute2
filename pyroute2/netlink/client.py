@@ -1,4 +1,7 @@
 from pyroute2.netlink import Marshal
+import os
+from pyroute2.netlink import NLM_F_DUMP
+from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.generic import NETLINK_GENERIC
 from pyroute2.iocore.iocore import IOCore
 
@@ -28,4 +31,36 @@ class Netlink(IOCore):
     groups = 0
     marshal = Marshal
     name = 'Netlink API'
-    do_connect = True
+
+    def __init__(self, debug=False, timeout=3, do_connect=True,
+                 host=None, key=None, cert=None, ca=None, addr=None):
+        self.default_target = '/%i/%i' % (self.family, self.groups)
+        host = host or 'netlink://'
+        host = '%s%s' % (host, self.default_target)
+        IOCore.__init__(self, debug, timeout, do_connect,
+                        host, key, cert, ca, addr)
+
+    def nlm_request(self, msg, msg_type,
+                    msg_flags=NLM_F_DUMP | NLM_F_REQUEST):
+        '''
+        Send netlink request, filling common message
+        fields, and wait for response.
+        '''
+        nonce = self.nonce()
+        msg['header']['sequence_number'] = nonce
+        msg['header']['pid'] = os.getpid()
+        msg['header']['type'] = msg_type
+        msg['header']['flags'] = msg_flags
+        msg.encode()
+
+        result = self.request(msg.buf.getvalue(),
+                              addr=self.default_peer,
+                              nonce=nonce)
+
+        for msg in result:
+            # reset message buffer, make it ready for encoding back
+            msg.reset()
+            if not self.debug:
+                del msg['header']
+
+        return result

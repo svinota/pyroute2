@@ -1,4 +1,3 @@
-import os
 import uuid
 import socket
 from pyroute2 import IPRoute
@@ -127,21 +126,6 @@ class TestSetupUplinks(object):
 
     def test_unix_abstract_remote(self):
         self._test_remote('unix://\0nose_tests_socket')
-
-    def test_unix_remote(self):
-        sck = './nose_tests_socket'
-        url = 'unix://' + sck
-        try:
-            os.remove(sck)
-        except OSError as e:
-            if e.errno != 2:  # no such file or directory
-                raise e
-        self._test_remote(url)
-        try:
-            os.remove(sck)
-        except OSError as e:
-            if e.errno != 2:
-                raise e
 
     def test_tcp_remote(self):
         self._test_remote('tcp://127.0.0.1:9821')

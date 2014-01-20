@@ -1,3 +1,4 @@
+import urlparse
 import threading
 import select
 import struct
@@ -20,8 +21,6 @@ from pyroute2.netlink import IPRCMD_REMOVE
 from pyroute2.netlink import IPRCMD_DISCOVER
 from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NLM_F_MULTI
-from pyroute2.netlink import NLM_F_DUMP
-from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.generic import mgmtmsg
 from pyroute2.netlink.generic import envmsg
 from pyroute2.iocore import NLT_CONTROL
@@ -39,13 +38,10 @@ _QUEUE_MAXSIZE = 4096
 
 class IOCore(threading.Thread):
 
-    family = 0
-    groups = 0
     marshal = None
-    do_connect = False
     name = 'Core API'
 
-    def __init__(self, debug=False, timeout=3, do_connect=None,
+    def __init__(self, debug=False, timeout=3, do_connect=False,
                  host=None, key=None, cert=None, ca=None,
                  addr=None):
         threading.Thread.__init__(self, name=self.name)
@@ -66,8 +62,7 @@ class IOCore(threading.Thread):
             self.marshal = self.marshal()
         self.buffers = Queue.Queue()
         self._mirror = False
-        self.default_target = 'netlink://%i:%i' % (self.family, self.groups)
-        self.host = host or self.default_target
+        self.host = host
         self._run_event = threading.Event()
         self._stop_event = threading.Event()
         self._feed_thread = threading.Thread(target=self._feed_buffers,
@@ -76,12 +71,12 @@ class IOCore(threading.Thread):
         self.setDaemon(True)
         self.start()
         self._run_event.wait()
-        if do_connect is not None:
-            self.do_connect = do_connect
-        if self.do_connect:
+        if do_connect:
+            host = urlparse.urlparse(host)
             (self.default_link,
-             self.default_peer) = self.connect(self.host, key, cert, ca)
-            self.default_dport = self.discover(self.default_target,
+             self.default_peer) = self.connect(self.host,
+                                               key, cert, ca)
+            self.default_dport = self.discover(host.path,
                                                self.default_peer)
 
     def run(self):
@@ -180,11 +175,14 @@ class IOCore(threading.Thread):
     def parse(self, envelope, data):
 
         if self.marshal is None:
+            nonce = envelope['header']['sequence_number']
             if envelope['header']['flags'] & NLT_EXCEPTION:
-                msgs = [{'error': RuntimeError(data.getvalue()),
+                msgs = [{'header': {'sequence_number': nonce},
+                         'error': RuntimeError(data.getvalue()),
                          'data': None}]
             else:
-                msgs = [{'error': None,
+                msgs = [{'header': {'sequence_number': nonce},
+                         'error': None,
                          'data': data.getvalue()}]
         else:
             msgs = self.marshal.parse(data)
@@ -237,7 +235,11 @@ class IOCore(threading.Thread):
         msg = mgmtmsg(io.BytesIO())
         msg['cmd'] = cmd
         msg['attrs'] = attrs
-        rsp = self.nlm_request(msg, NLMSG_CONTROL, 0, NLT_CONTROL, addr)[0]
+        msg['header']['type'] = NLMSG_CONTROL
+        msg.encode()
+        rsp = self.request(msg.buf.getvalue(),
+                           env_flags=NLT_CONTROL,
+                           addr=addr)[0]
         assert rsp['cmd'] == IPRCMD_ACK
         if expect is not None:
             if type(expect) not in (list, tuple):
@@ -498,50 +500,12 @@ class IOCore(threading.Thread):
                 env_flags=0,
                 addr=None,
                 port=None,
-                nonce=0,
+                nonce=None,
                 cname=None,
                 response_timeout=None):
+        nonce = nonce or self.nonce()
         port = port or self.default_dport
         addr = addr or self.default_broker
         self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
         self.push((addr, port), msg, env_flags, nonce, cname)
         return self.get(nonce, timeout=response_timeout)
-
-    def nlm_push(self, msg,
-                 msg_type=None,
-                 msg_flags=None,
-                 env_flags=None,
-                 addr=0,
-                 port=0,
-                 nonce=0):
-        msg['header']['sequence_number'] = nonce
-        msg['header']['pid'] = os.getpid()
-        if msg_type is not None:
-            msg['header']['type'] = msg_type
-        if msg_flags is not None:
-            msg['header']['flags'] = msg_flags
-        msg.encode()
-        self.push((addr, port), msg.buf.getvalue(), env_flags, nonce)
-
-    def nlm_request(self, msg, msg_type,
-                    msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
-                    env_flags=0,
-                    addr=None,
-                    port=None,
-                    response_timeout=None):
-        '''
-        Send netlink request, filling common message
-        fields, and wait for response.
-        '''
-        port = port or self.default_dport
-        addr = addr or self.default_peer
-        nonce = self.nonce()
-        self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
-        self.nlm_push(msg, msg_type, msg_flags, env_flags, addr, port, nonce)
-        result = self.get(nonce, timeout=response_timeout)
-        for msg in result:
-            # reset message buffer, make it ready for encoding back
-            msg.reset()
-            if not self.debug:
-                del msg['header']
-        return result
