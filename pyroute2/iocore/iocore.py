@@ -1,6 +1,5 @@
 import urlparse
 import threading
-import select
 import struct
 import os
 import io
@@ -36,7 +35,7 @@ except ImportError:
 _QUEUE_MAXSIZE = 4096
 
 
-class IOCore(threading.Thread):
+class IOCore(object):
 
     marshal = None
     name = 'Core API'
@@ -45,7 +44,6 @@ class IOCore(threading.Thread):
     def __init__(self, debug=False, timeout=3, do_connect=False,
                  host=None, key=None, cert=None, ca=None,
                  addr=None):
-        threading.Thread.__init__(self, name=self.name)
         addr = addr or uuid32()
         self._timeout = timeout
         self.iothread = IOBroker(addr=addr)
@@ -57,6 +55,7 @@ class IOCore(threading.Thread):
         self.debug = debug
         self.cid = None
         self._nonce = 0
+        self.save = None
         self._nonce_lock = threading.Lock()
         if self.marshal is not None:
             self.marshal.debug = debug
@@ -66,10 +65,6 @@ class IOCore(threading.Thread):
         self.host = host
         self._run_event = threading.Event()
         self._stop_event = threading.Event()
-        self._feed_thread = threading.Thread(target=self._feed_buffers,
-                                             name='Reasm and parsing')
-        self._feed_thread.setDaemon(True)
-        self.setDaemon(True)
         self.start()
         self._run_event.wait()
         if do_connect:
@@ -80,98 +75,81 @@ class IOCore(threading.Thread):
             self.default_dport = self.discover(self.default_target or path,
                                                self.default_peer)
 
-    def run(self):
-        self._feed_thread.start()
+    def start(self):
         # 1. run iothread
         self.iothread.start()
         # 2. connect to iothread
         self._brs, self.bridge = pairPipeSockets()
         self.iothread.add_client(self._brs)
         self.iothread.controls.add(self._brs)
-        self.iothread.reload()
+        self.iothread.ioloop.register(self._brs,
+                                      self.iothread.route,
+                                      defer=True)
+        self.iothread.ioloop.register(self.bridge,
+                                      self._route,
+                                      defer=True)
         self._run_event.set()
 
-        # 3. start to monitor it
-        while not self._stop_event.is_set():
-            try:
-                [rlist, wlist, xlist] = select.select([self.bridge], [], [])
-            except:
-                continue
-            for fd in rlist:
-                data = io.BytesIO()
-                try:
-                    data = fd.recv()
-                except:
-                    continue
+    def _route(self, sock, raw):
+        buf = io.BytesIO()
+        buf.length = buf.write(raw)
+        if self._stop_event.is_set():
+            return
 
-                # put data in the queue
-                self.buffers.put(data)
+        buf.seek(0)
 
-    def _feed_buffers(self):
-        '''
-        Background thread to feed reassembled buffers to the parser
-        '''
-        save = None
-        while True:
-            buf = io.BytesIO()
-            buf.length = buf.write(self.buffers.get())
-            if self._stop_event.is_set():
-                return
-
+        if self.save is not None:
+            # concatenate buffers
             buf.seek(0)
+            self.save.write(buf.read())
+            self.save.length += buf.length
+            # discard save
+            buf = self.save
+            self.save = None
 
-            if save is not None:
-                # concatenate buffers
+        offset = 0
+        while offset < buf.length:
+            buf.seek(offset)
+            (length,
+             mtype,
+             flags) = struct.unpack('IHH', buf.read(8))
+
+            if offset + length > buf.length:
+                # create save buffer
+                buf.seek(offset)
+                self.save = io.BytesIO()
+                self.save.length = self.save.write(buf.read())
+                # truncate the buffer
+                buf.truncate(offset)
+                break
+
+            buf.seek(offset)
+            data = io.BytesIO()
+            data.write(buf.read(length))
+            data.length = length
+            data.seek(0)
+
+            # data traffic
+            envelope = envmsg(data)
+            envelope.decode()
+            nonce = envelope['header']['sequence_number']
+            try:
+                buf = io.BytesIO()
+                buf.length = buf.write(envelope.
+                                       get_attr('IPR_ATTR_CDATA'))
                 buf.seek(0)
-                save.write(buf.read())
-                save.length += buf.length
-                # discard save
-                buf = save
-                save = None
+                if ((flags & NLT_CONTROL) and
+                        (flags & NLT_RESPONSE)):
+                    msg = mgmtmsg(buf)
+                    msg.decode()
+                    self.listeners[nonce].put_nowait(msg)
+                else:
+                    self.parse(envelope, buf)
+            except AttributeError:
+                # now silently drop bad packet
+                pass
 
-            offset = 0
-            while offset < buf.length:
-                buf.seek(offset)
-                (length,
-                 mtype,
-                 flags) = struct.unpack('IHH', buf.read(8))
-
-                if offset + length > buf.length:
-                    # create save buffer
-                    buf.seek(offset)
-                    save = io.BytesIO()
-                    save.length = save.write(buf.read())
-                    # truncate the buffer
-                    buf.truncate(offset)
-                    break
-
-                buf.seek(offset)
-                data = io.BytesIO()
-                data.write(buf.read(length))
-                data.length = length
-                data.seek(0)
-
-                # data traffic
-                envelope = envmsg(data)
-                envelope.decode()
-                nonce = envelope['header']['sequence_number']
-                try:
-                    buf = io.BytesIO()
-                    buf.length = buf.write(envelope.
-                                           get_attr('IPR_ATTR_CDATA'))
-                    buf.seek(0)
-                    if ((flags & NLT_CONTROL) and
-                            (flags & NLT_RESPONSE)):
-                        msg = mgmtmsg(buf)
-                        msg.decode()
-                        self.listeners[nonce].put_nowait(msg)
-                    else:
-                        self.parse(envelope, buf)
-                except AttributeError:
-                    # now silently drop bad packet
-                    pass
-
-                offset += length
+            offset += length
 
     def parse(self, envelope, data):
 
@@ -316,16 +294,12 @@ class IOCore(threading.Thread):
             except Queue.Empty as e:
                 if addr == self.default_broker:
                     raise e
-        self.iothread.stop()
+        self.iothread.shutdown()
 
         self._stop_event.set()
         self._brs.send(struct.pack('I', 4))
         self._brs.close()
-        self.join()
         self.bridge.close()
-
-        self.buffers.put("")
-        self._feed_thread.join()
 
     def mirror(self, operate=True):
         '''

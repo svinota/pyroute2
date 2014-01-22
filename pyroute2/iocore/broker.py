@@ -1,8 +1,8 @@
 import traceback
 import threading
-import select
 import socket
 import struct
+import errno
 import time
 import os
 import io
@@ -35,6 +35,7 @@ from pyroute2.iocore import NLT_CONTROL
 from pyroute2.iocore import NLT_NOOP
 from pyroute2.iocore import NLT_RESPONSE
 from pyroute2.iocore import NLT_DGRAM
+from pyroute2.iocore.loop import IOLoop
 from pyroute2.iocore.addrpool import AddrPool
 
 try:
@@ -42,23 +43,8 @@ try:
 except ImportError:
     import urllib.parse as urlparse
 
-try:
-    import Queue
-except ImportError:
-    import queue as Queue
-_QUEUE_MAXSIZE = 4096
-
 
 C_ADDR_START = 3
-
-##
-# FIXME: achtung, monkeypatch!
-#
-# Android QPython 2.7 platform has no AF_UNIX, so add some
-# invalid value just not to fail on checks.
-#
-if not hasattr(socket, 'AF_UNIX'):
-    socket.AF_UNIX = 65535
 
 
 def _monkey_handshake(self):
@@ -264,12 +250,10 @@ class MarshalEnv(Marshal):
     msg_map = {NLMSG_TRANSPORT: envmsg}
 
 
-class IOBroker(threading.Thread):
+class IOBroker(object):
     def __init__(self,
                  addr=0x01000000,
                  broadcast=0xffffffff):
-        threading.Thread.__init__(self, name='Netlink I/O core')
-        self.setDaemon(True)
         self.pid = os.getpid()
         self._run_event = threading.Event()
         self._sctl_event = threading.Event()
@@ -297,7 +281,6 @@ class IOBroker(threading.Thread):
         self.controls = set()     # set(socket, socket...)
         self.subscribe = {}
         self.providers = {}
-        self.queue = Queue.Queue(_QUEUE_MAXSIZE)
         self._cid = list(range(1024))
         # secret; write non-zero byte as terminator
         self.secret = os.urandom(15)
@@ -311,25 +294,35 @@ class IOBroker(threading.Thread):
         self._expire_thread = threading.Thread(target=self._expire_masq,
                                                name='Masquerade cache')
         self._expire_thread.setDaemon(True)
-        self._dequeue_thread = threading.Thread(target=self._dequeue,
-                                                name='Buffer queue')
-        self._dequeue_thread.setDaemon(True)
+        self.ioloop = IOLoop()
+        self.ioloop.register(self.sctl, self.route, defer=True)
+
+    def handle_connect(self, fd, event):
+        (client, addr) = fd.accept()
+        self.add_client(client)
+        # announce address
+        # .. _ioc-connect:
+        rsp = mgmtmsg()
+        rsp['header']['type'] = NLMSG_CONTROL
+        rsp['cmd'] = IPRCMD_ACK
+        rsp['attrs'] = [['IPR_ATTR_ADDR', self.addr]]
+        rsp.encode()
+        ne = envmsg()
+        ne['dst'] = self.broadcast
+        ne['header']['pid'] = os.getpid()
+        ne['header']['type'] = NLMSG_TRANSPORT
+        ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
+        ne['attrs'] = [['IPR_ATTR_CDATA',
+                        rsp.buf.getvalue()]]
+        ne.encode()
+        client.send(ne.buf.getvalue())
+        self.ioloop.register(client, self.route, defer=True)
 
     def alloc_addr(self):
         return self.ports.alloc()
 
     def dealloc_addr(self, addr):
         self.ports.free(addr)
-
-    def _dequeue(self):
-        '''
-        Background thread that serves the buffer
-        '''
-        while not self._stop_event.is_set():
-            try:
-                self.route(*self.queue.get())
-            except:
-                pass
 
     def _expire_masq(self):
         '''
@@ -379,16 +372,11 @@ class IOBroker(threading.Thread):
                 ne.encode()
                 sock.send(ne.buf.getvalue())
                 # Stop iothread -- shutdown sequence
-                for sock in self.servers:
-                    sock.close()
-                self._stop_event.set()
-                self.queue.put(None)
-                self.control.send(struct.pack('I', 4))
-                return
+                return self.shutdown()
 
             elif cmd['cmd'] == IPRCMD_RELOAD:
                 # Reload io cycle
-                self._reload_event.set()
+                self.iothread.reload()
                 rsp['cmd'] = IPRCMD_ACK
 
             elif cmd['cmd'] == IPRCMD_SERVE:
@@ -405,9 +393,14 @@ class IOBroker(threading.Thread):
                 new_sock.bind(addr)
                 if new_sock.type == socket.SOCK_STREAM:
                     new_sock.listen(16)
+                    self.ioloop.register(new_sock,
+                                         self.handle_connect)
+                else:
+                    self.ioloop.register(new_sock,
+                                         self.route,
+                                         defer=True)
                 self.servers.add(new_sock)
                 self._rlist.add(new_sock)
-                self.noop()
                 rsp['cmd'] = IPRCMD_ACK
 
             elif cmd['cmd'] == IPRCMD_SHUTDOWN:
@@ -416,16 +409,15 @@ class IOBroker(threading.Thread):
                     if _repr_sockets([old_sock], 'local') == [url]:
                         self._rlist.remove(old_sock)
                         self.servers.remove(old_sock)
-                        self.noop()
+                        self.ioloop.unregister(old_sock)
                         rsp['cmd'] = IPRCMD_ACK
 
             elif cmd['cmd'] == IPRCMD_DISCONNECT:
                 # drop a connection, identified by an addr
                 try:
                     uid = cmd.get_attr('IPR_ATTR_UUID')
-                    self.deregister_link(uid)
+                    old_sock = self.deregister_link(uid)
                     rsp['cmd'] = IPRCMD_ACK
-                    self.noop()
                 except Exception as e:
                     rsp['attrs'] = [['IPR_ATTR_ERROR', str(e)]]
 
@@ -511,8 +503,14 @@ class IOBroker(threading.Thread):
                     self.discover[target.path] = port
                     rsp['attrs'].append(['IPR_ATTR_UUID', uid])
                     rsp['attrs'].append(['IPR_ATTR_ADDR', peer])
+                    try:
+                        self.ioloop.register(new_sock,
+                                             self.route,
+                                             defer=True)
+                    except Exception as e:
+                        if e.errno != errno.EEXIST:
+                            raise e
                     rsp['cmd'] = IPRCMD_ACK
-                    self.noop()
 
                 except Exception:
                     rsp['attrs'].append(['IPR_ATTR_ERROR',
@@ -679,10 +677,20 @@ class IOBroker(threading.Thread):
             # target
             target.socket.send(envelope.buf.getvalue())
 
-    def route(self, sock, data):
+    def route(self, sock, raw):
         """
         Route message
         """
+        data = io.BytesIO()
+        data.length = data.write(raw)
+
+        if data.length == 0 and self.ioloop.unregister(sock):
+            if sock in self.clients:
+                self.remove_client(sock)
+            else:
+                self.deregister_link(fd=sock)
+            return
+
         if isinstance(sock, NetlinkSocket):
             # netlink packets from the local system
             return self.route_netlink(sock, data)
@@ -791,7 +799,6 @@ class IOBroker(threading.Thread):
             self.command(IPRCMD_STOP)
         except OSError:
             pass
-        self.join()
 
     def reload(self):
         '''
@@ -836,6 +843,7 @@ class IOBroker(threading.Thread):
             del self.remote[link.uid]
         else:
             del self.local[link.port]
+        return link.sock
 
     def add_client(self, sock):
         '''
@@ -853,90 +861,18 @@ class IOBroker(threading.Thread):
         self.clients.remove(sock)
         return sock
 
-    def run(self):
+    def start(self):
         self._expire_thread.start()
-        self._dequeue_thread.start()
+        self.ioloop.start()
         self._run_event.set()
-        while not self._stop_event.is_set():
-            try:
-                [rlist, wlist, xlist] = select.select(self._rlist, [], [])
-            except:
-                # FIXME: log exceptions
-                traceback.print_exc()
-                continue
-            for fd in rlist:
-                ##
-                #
-                # Incoming remote connections
-                #
-                if (fd in self.servers) and (fd.type == socket.SOCK_STREAM):
-                    try:
-                        (client, addr) = fd.accept()
-                        self.add_client(client)
-                        # announce address
-                        # .. _ioc-connect:
-                        rsp = mgmtmsg()
-                        rsp['header']['type'] = NLMSG_CONTROL
-                        rsp['cmd'] = IPRCMD_ACK
-                        rsp['attrs'] = [['IPR_ATTR_ADDR', self.addr]]
-                        rsp.encode()
-                        ne = envmsg()
-                        ne['dst'] = self.broadcast
-                        ne['header']['pid'] = os.getpid()
-                        ne['header']['type'] = NLMSG_TRANSPORT
-                        ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
-                        ne['attrs'] = [['IPR_ATTR_CDATA',
-                                        rsp.buf.getvalue()]]
-                        ne.encode()
-                        client.send(ne.buf.getvalue())
 
-                    except ssl.SSLError:
-                        # FIXME log SSL errors
-                        pass
-                    except:
-                        traceback.print_exc()
-                    continue
-
-                ##
-                #
-                # Receive data from already open connection
-                #
-                # FIXME max length
-                data = io.BytesIO()
-                try:
-                    # recv method
-                    recv = self.recv_methods.get(fd, self.recv)
-                    # fill the routing info and get the data
-                    data.length, rinfo = recv(fd, data)
-                except:
-                    traceback.print_exc()
-                    continue
-
-                ##
-                #
-                # Close socket
-                #
-                if data.length == 0:
-                    if fd in self.clients:
-                        self.remove_client(fd)
-                    else:
-                        self.deregister_link(fd=fd)
-                    continue
-
-                ##
-                #
-                # Route the data
-                #
-                try:
-                    self.queue.put((fd, data))
-                except Exception:
-                    # FIXME: silently drop all exceptions yet
-                    pass
-
+    def shutdown(self):
+        self._stop_event.set()
+        for sock in self.servers:
+            sock.close()
         # shutdown sequence
-        self._rlist.remove(self.sctl)
-        self._wlist.remove(self.sctl)
         self.sctl.close()
         self.control.close()
+        self.ioloop.shutdown()
+        self.ioloop.join()
         self._expire_thread.join()
-        self._dequeue_thread.join()
