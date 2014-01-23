@@ -32,7 +32,6 @@ from pyroute2.netlink import IPRCMD_DISCOVER
 from pyroute2.netlink.generic import mgmtmsg
 from pyroute2.netlink.generic import envmsg
 from pyroute2.iocore import NLT_CONTROL
-from pyroute2.iocore import NLT_NOOP
 from pyroute2.iocore import NLT_RESPONSE
 from pyroute2.iocore import NLT_DGRAM
 from pyroute2.iocore.loop import IOLoop
@@ -253,10 +252,9 @@ class MarshalEnv(Marshal):
 class IOBroker(object):
     def __init__(self,
                  addr=0x01000000,
-                 broadcast=0xffffffff):
+                 broadcast=0xffffffff,
+                 ioloop=None):
         self.pid = os.getpid()
-        self._run_event = threading.Event()
-        self._sctl_event = threading.Event()
         self._stop_event = threading.Event()
         self._reload_event = threading.Event()
         self.addr = addr
@@ -286,16 +284,11 @@ class IOBroker(object):
         self.secret = os.urandom(15)
         self.secret += b'\xff'
         self.uuid = uuid.uuid4()
-        # control in-process communication only
-        self.sctl, self.control = pairPipeSockets()
-        self.add_client(self.sctl)
-        self.controls.add(self.sctl)
         # masquerade cache expiration
         self._expire_thread = threading.Thread(target=self._expire_masq,
                                                name='Masquerade cache')
         self._expire_thread.setDaemon(True)
-        self.ioloop = IOLoop()
-        self.ioloop.register(self.sctl, self.route, defer=True)
+        self.ioloop = ioloop or IOLoop()
 
     def handle_connect(self, fd, event):
         (client, addr) = fd.accept()
@@ -376,7 +369,7 @@ class IOBroker(object):
 
             elif cmd['cmd'] == IPRCMD_RELOAD:
                 # Reload io cycle
-                self.iothread.reload()
+                self.ioloop.reload()
                 rsp['cmd'] = IPRCMD_ACK
 
             elif cmd['cmd'] == IPRCMD_SERVE:
@@ -447,6 +440,8 @@ class IOBroker(object):
                     established = False
                     uid = str(uuid.uuid4())
 
+                    route = self.route
+
                     if url in self.providers:
                         new_sock = self.providers[url]
                         established = True
@@ -460,6 +455,7 @@ class IOBroker(object):
                         gate = lambda d, s:\
                             new_sock.sendto(self.gate_untag(d, s),
                                             (0, 0))
+                        route = self.route_netlink
 
                     elif target.scheme == 'udp':
                         (new_sock, addr) = _get_socket(url,
@@ -504,8 +500,7 @@ class IOBroker(object):
                     rsp['attrs'].append(['IPR_ATTR_UUID', uid])
                     rsp['attrs'].append(['IPR_ATTR_ADDR', peer])
                     try:
-                        self.ioloop.register(new_sock,
-                                             self.route,
+                        self.ioloop.register(new_sock, route,
                                              defer=True)
                     except Exception as e:
                         if e.errno != errno.EEXIST:
@@ -636,7 +631,9 @@ class IOBroker(object):
         envelope.encode()
         u32['socket'].send(envelope.buf.getvalue())
 
-    def route_netlink(self, sock, data):
+    def route_netlink(self, sock, raw):
+        data = io.BytesIO()
+        data.length = data.write(raw)
         data.seek(8)
         seq = struct.unpack('I', data.read(4))[0]
 
@@ -691,10 +688,6 @@ class IOBroker(object):
                 self.deregister_link(fd=sock)
             return
 
-        if isinstance(sock, NetlinkSocket):
-            # netlink packets from the local system
-            return self.route_netlink(sock, data)
-
         for envelope in self.marshal.parse(data):
             if envelope['dst'] != self.addr:
                 # FORWARD
@@ -703,9 +696,6 @@ class IOBroker(object):
             else:
                 # INPUT
                 # a packet for a local system
-                if envelope['header']['flags'] & NLT_NOOP:
-                    # noop packets (drop)
-                    continue
                 if ((envelope['header']['flags'] & NLT_CONTROL) and not
                         (envelope['header']['flags'] & NLT_RESPONSE)):
                     # control packets
@@ -766,53 +756,6 @@ class IOBroker(object):
         cmd.decode()
         return cmd
 
-    def noop(self):
-        msg = envmsg()
-        msg['dst'] = self.addr
-        msg['header']['type'] = NLMSG_TRANSPORT
-        msg['header']['flags'] = NLT_NOOP
-        msg.encode()
-        self.control.send(msg.buf.getvalue())
-
-    def command(self, cmd, attrs=[]):
-        msg = mgmtmsg(io.BytesIO())
-        msg['header']['type'] = NLMSG_CONTROL
-        msg['cmd'] = cmd
-        msg['attrs'] = attrs
-        msg.encode()
-        envelope = envmsg()
-        envelope['dst'] = self.addr
-        envelope['header']['type'] = NLMSG_TRANSPORT
-        envelope['header']['flags'] = NLT_CONTROL
-        envelope['attrs'] = [['IPR_ATTR_CDATA', msg.buf.getvalue()]]
-        envelope.encode()
-        self.control.send(envelope.buf.getvalue())
-        envelope = envmsg(self.control.recv())
-        envelope.decode()
-        data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
-        rsp = mgmtmsg(data)
-        rsp.decode()
-        return rsp
-
-    def stop(self):
-        try:
-            self.command(IPRCMD_STOP)
-        except OSError:
-            pass
-
-    def reload(self):
-        '''
-        Reload I/O cycle. Warning: this method should be never
-        called from IOThread, as it will not return.
-        '''
-        self._reload_event.clear()
-        ret = self.command(IPRCMD_RELOAD)
-        # wait max 3 seconds for reload
-        # FIXME: timeout should be configurable
-        self._reload_event.wait(3)
-        assert self._reload_event.is_set()
-        return ret
-
     def register_link(self, uid, port, sock,
                       established=False, remote=False):
         if not established:
@@ -864,15 +807,12 @@ class IOBroker(object):
     def start(self):
         self._expire_thread.start()
         self.ioloop.start()
-        self._run_event.set()
 
     def shutdown(self):
         self._stop_event.set()
         for sock in self.servers:
             sock.close()
         # shutdown sequence
-        self.sctl.close()
-        self.control.close()
         self.ioloop.shutdown()
         self.ioloop.join()
         self._expire_thread.join()

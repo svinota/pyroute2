@@ -25,6 +25,7 @@ from pyroute2.netlink.generic import envmsg
 from pyroute2.iocore import NLT_CONTROL
 from pyroute2.iocore import NLT_RESPONSE
 from pyroute2.iocore import NLT_EXCEPTION
+from pyroute2.iocore.loop import IOLoop
 from pyroute2.iocore.broker import pairPipeSockets
 from pyroute2.iocore.broker import IOBroker
 
@@ -46,7 +47,6 @@ class IOCore(object):
                  addr=None):
         addr = addr or uuid32()
         self._timeout = timeout
-        self.iothread = IOBroker(addr=addr)
         self.default_broker = addr
         self.default_dport = 0
         self.uids = set()
@@ -63,10 +63,20 @@ class IOCore(object):
         self.buffers = Queue.Queue()
         self._mirror = False
         self.host = host
-        self._run_event = threading.Event()
-        self._stop_event = threading.Event()
-        self.start()
-        self._run_event.wait()
+
+        self.ioloop = IOLoop()
+
+        self.iobroker = IOBroker(addr=addr, ioloop=self.ioloop)
+        self.iobroker.start()
+        self._brs, self.bridge = pairPipeSockets()
+        self.iobroker.add_client(self._brs)
+        self.iobroker.controls.add(self._brs)
+        self.ioloop.register(self._brs,
+                             self.iobroker.route,
+                             defer=True)
+        self.ioloop.register(self.bridge,
+                             self._route,
+                             defer=True)
         if do_connect:
             path = urlparse.urlparse(host).path
             (self.default_link,
@@ -75,27 +85,9 @@ class IOCore(object):
             self.default_dport = self.discover(self.default_target or path,
                                                self.default_peer)
 
-    def start(self):
-        # 1. run iothread
-        self.iothread.start()
-        # 2. connect to iothread
-        self._brs, self.bridge = pairPipeSockets()
-        self.iothread.add_client(self._brs)
-        self.iothread.controls.add(self._brs)
-        self.iothread.ioloop.register(self._brs,
-                                      self.iothread.route,
-                                      defer=True)
-        self.iothread.ioloop.register(self.bridge,
-                                      self._route,
-                                      defer=True)
-        self._run_event.set()
-
     def _route(self, sock, raw):
         buf = io.BytesIO()
         buf.length = buf.write(raw)
-        if self._stop_event.is_set():
-            return
-
         buf.seek(0)
 
         if self.save is not None:
@@ -294,9 +286,8 @@ class IOCore(object):
             except Queue.Empty as e:
                 if addr == self.default_broker:
                     raise e
-        self.iothread.shutdown()
+        self.iobroker.shutdown()
 
-        self._stop_event.set()
         self._brs.send(struct.pack('I', 4))
         self._brs.close()
         self.bridge.close()

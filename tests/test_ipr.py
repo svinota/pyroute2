@@ -24,7 +24,7 @@ def _run_remote_uplink(url, connect, release,
                        key=None, cert=None, ca=None):
     ip = IPRoute()
     ip.serve(url, key=key, cert=cert, ca=ca)
-    ip.iothread.secret = 'bala'
+    ip.iobroker.secret = 'bala'
     connect.set()
     release.wait()
     ip.release()
