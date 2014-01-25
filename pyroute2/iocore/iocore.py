@@ -28,6 +28,7 @@ from pyroute2.iocore import NLT_EXCEPTION
 from pyroute2.iocore.loop import IOLoop
 from pyroute2.iocore.broker import pairPipeSockets
 from pyroute2.iocore.broker import IOBroker
+from pyroute2.iocore.addrpool import AddrPool
 
 try:
     import Queue
@@ -54,7 +55,7 @@ class IOCore(object):
         self.callbacks = []     # [(predicate, callback, args), ...]
         self.debug = debug
         self.cid = None
-        self._nonce = 0
+        self.nonce = AddrPool()
         self.save = None
         self._nonce_lock = threading.Lock()
         if self.marshal is not None:
@@ -381,6 +382,7 @@ class IOCore(object):
         queue = self.listeners[key]
         # only not the default queue
         if key != 0:
+            self.nonce.free(key)
             # delete the queue
             del self.listeners[key]
             # get remaining messages from the queue and
@@ -433,14 +435,6 @@ class IOCore(object):
             self._remove_queue(key)
         return result
 
-    def nonce(self):
-        with self._nonce_lock:
-            if self._nonce == 0xffffffff:
-                self._nonce = 1
-            else:
-                self._nonce += 1
-            return self._nonce
-
     def push(self, host, msg,
              env_flags=None,
              nonce=0,
@@ -469,7 +463,7 @@ class IOCore(object):
                 nonce=None,
                 cname=None,
                 response_timeout=None):
-        nonce = nonce or self.nonce()
+        nonce = nonce or self.nonce.alloc()
         port = port or self.default_dport
         addr = addr or self.default_broker
         self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)

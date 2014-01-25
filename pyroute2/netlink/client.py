@@ -46,7 +46,7 @@ class Netlink(IOCore):
         Send netlink request, filling common message
         fields, and wait for response.
         '''
-        nonce = self.nonce()
+        nonce = self.nonce.alloc()
         msg['header']['sequence_number'] = nonce
         msg['header']['pid'] = os.getpid()
         msg['header']['type'] = msg_type

@@ -19,6 +19,8 @@ class IOLoop(threading.Thread):
         self.buffers = Queue.Queue()
         self._dequeue_thread = threading.Thread(target=self._dequeue,
                                                 name='Buffers queue')
+        self.setDaemon(True)
+        self._dequeue_thread.setDaemon(True)
 
     def _dequeue(self):
         while True:
