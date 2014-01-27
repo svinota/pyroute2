@@ -156,23 +156,29 @@ def get_tbf_parameters(kwarg):
                       ['TCA_TBF_RTAB', True]]}
 
 
+def _get_filter_police_parameter(kwarg):
+    # if no limit specified, set it to zero to make
+    # the next call happy
+    kwarg['limit'] = kwarg.get('limit', 0)
+    tbfp = _get_rate_parameters(kwarg)
+    # create an alias -- while TBF uses 'buffer', rate
+    # policy uses 'burst'
+    tbfp['burst'] = tbfp['buffer']
+    # action resolver
+    actions = nla_plus_police.police.police_tbf.actions
+    tbfp['action'] = actions[kwarg.get('action', 'reclassify')]
+    police = [['TCA_POLICE_TBF', tbfp],
+              ['TCA_POLICE_RATE', True]]
+    return police
+
 def get_u32_parameters(kwarg):
     ret = {'attrs': []}
 
     if kwarg.get('rate'):
-        # if no limit specified, set it to zero to make
-        # the next call happy
-        kwarg['limit'] = kwarg.get('limit', 0)
-        tbfp = _get_rate_parameters(kwarg)
-        # create an alias -- while TBF uses 'buffer', rate
-        # policy uses 'burst'
-        tbfp['burst'] = tbfp['buffer']
-        # action resolver
-        actions = nla_plus_police.police.police_tbf.actions
-        tbfp['action'] = actions[kwarg['action']]
-        police = [['TCA_POLICE_TBF', tbfp],
-                  ['TCA_POLICE_RATE', True]]
-        ret['attrs'].append(['TCA_U32_POLICE', {'attrs': police}])
+        ret['attrs'].append([
+            'TCA_U32_POLICE',
+            {'attrs': _get_filter_police_parameter(kwarg)}
+        ])
 
     ret['attrs'].append(['TCA_U32_CLASSID', kwarg['target']])
     ret['attrs'].append(['TCA_U32_SEL', {'keys': kwarg['keys']}])
@@ -185,10 +191,16 @@ def get_fw_parameters(kwarg):
     attrs_map = (
         ('classid', 'TCA_FW_CLASSID'),
         ('act', 'TCA_FW_ACT'),
-        ('police', 'TCA_FW_POLICE'),
+        #('police', 'TCA_FW_POLICE'), # Handled in _get_filter_police_parameter
         ('indev', 'TCA_FW_INDEV'),
         ('mask', 'TCA_FW_MASK'),
     )
+ 
+    if kwarg.get('rate'):
+        ret['attrs'].append([
+            'TCA_FW_POLICE',
+            {'attrs': _get_filter_police_parameter(kwarg)}
+        ])
 
     for k, v in attrs_map:
         r = kwarg.get(k, None)
