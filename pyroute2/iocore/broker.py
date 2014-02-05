@@ -260,8 +260,8 @@ class IOBroker(object):
         self.addr = addr
         self.broadcast = broadcast
         self.marshal = MarshalEnv()
-        self.ports = AddrPool()
-        self.nonces = AddrPool()
+        self.ports = AddrPool(minaddr=0xff)
+        self.nonces = AddrPool(minaddr=0xfff)
         self.active_sys = {}
         self.local = {}
         self.links = {}
@@ -554,8 +554,9 @@ class IOBroker(object):
         ne['header']['pid'] = pid
         ne['header']['type'] = NLMSG_TRANSPORT
         ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
-        ne['dst'] = src
+        # ne['dst'] = src
         ne['src'] = dst
+        ne['ttl'] = 16
         ne['dport'] = sport
         ne['sport'] = dport
         ne['attrs'] = [['IPR_ATTR_CDATA', rsp.buf.getvalue()]]
@@ -564,12 +565,14 @@ class IOBroker(object):
 
     def route_forward(self, sock, envelope):
         nonce = envelope['header']['sequence_number']
-        if nonce in self.masquerade:
-            return self.unmasq(nonce, envelope)
 
-        # nothing special, just broadcast packet
         envelope['ttl'] -= 1
-        if envelope['ttl'] > 0:
+        if envelope['ttl'] <= 0:
+            return
+
+        if (envelope['dst'] == 0) and (nonce in self.masquerade):
+            return self.unmasq(nonce, envelope)
+        else:
             flags = envelope['header']['flags']
             for (uid, link) in self.remote.items():
                 # by default, send packets only via SOCK_STREAM,
@@ -664,8 +667,9 @@ class IOBroker(object):
             envelope['header']['pid'] = \
                 target.envelope['header']['pid']
             envelope['header']['type'] = NLMSG_TRANSPORT
-            envelope['dst'] = target.envelope['src']
+            # envelope['dst'] = target.envelope['src']
             envelope['src'] = target.envelope['dst']
+            envelope['ttl'] = 16
             envelope['dport'] = target.envelope['sport']
             envelope['sport'] = target.envelope['dport']
             envelope['attrs'] = [['IPR_ATTR_CDATA',

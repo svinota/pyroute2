@@ -48,7 +48,7 @@ class AddrPool(object):
     def free(self, addr):
         with self.lock:
             addr -= self.minaddr
-            base = addr / self.cell_size
+            base = addr // self.cell_size
             bit = addr % self.cell_size
             if len(self.addr_map) <= base:
                 raise KeyError('address is not allocated')

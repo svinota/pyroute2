@@ -41,12 +41,13 @@ class Netlink(IOCore):
                         host, key, cert, ca, addr)
 
     def nlm_request(self, msg, msg_type,
-                    msg_flags=NLM_F_DUMP | NLM_F_REQUEST):
+                    msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
+                    terminate=None):
         '''
         Send netlink request, filling common message
         fields, and wait for response.
         '''
-        nonce = self.nonce()
+        nonce = self.nonce.alloc()
         msg['header']['sequence_number'] = nonce
         msg['header']['pid'] = os.getpid()
         msg['header']['type'] = msg_type
@@ -55,7 +56,8 @@ class Netlink(IOCore):
 
         result = self.request(msg.buf.getvalue(),
                               addr=self.default_peer,
-                              nonce=nonce)
+                              nonce=nonce,
+                              terminate=terminate)
 
         for msg in result:
             # reset message buffer, make it ready for encoding back
