@@ -12,7 +12,7 @@ class IOLoop(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self, name="IOLoop")
         fd, self.control = os.pipe()
-        self._stop = False
+        self._stop_flag = False
         self.fds = {}
         self.poll = select.epoll()
         self.register(fd, lambda fd, event: os.read(fd, 1))
@@ -26,7 +26,7 @@ class IOLoop(threading.Thread):
         while True:
             cb, fd, data, argv, kwarg = self.buffers.get()
 
-            if self._stop:
+            if self._stop_flag:
                 break
 
             try:
@@ -35,13 +35,13 @@ class IOLoop(threading.Thread):
                 traceback.print_exc()
 
     def shutdown(self):
-        self._stop = True
+        self._stop_flag = True
         self.reload()
         self.buffers.put((None, None, None, None, None))
         self._dequeue_thread.join()
 
     def reload(self):
-        os.write(self.control, 's')
+        os.write(self.control, b's')
 
     def register(self, fd, cb, argv=[], kwarg={}, defer=False):
         if isinstance(fd, int):
@@ -78,7 +78,7 @@ class IOLoop(threading.Thread):
         while True:
             fds = self.poll.poll()
 
-            if self._stop:
+            if self._stop_flag:
                 break
 
             for (fdno, event) in fds:

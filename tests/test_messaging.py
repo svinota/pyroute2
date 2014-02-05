@@ -34,11 +34,11 @@ class TestPush(object):
 
     def test_tcp_push(self):
         self.proxy_tcp.push('test1')
-        assert self.node1.get() == 'test1'
+        assert self.node1.get() == b'test1'
 
     def test_udp_push(self):
         self.proxy_udp.push('test2')
-        assert self.node1.get() == 'test2'
+        assert self.node1.get() == b'test2'
 
 
 class TestMessaging(object):
@@ -57,7 +57,7 @@ class TestMessaging(object):
         self.node1.shutdown()
 
     def test_req_rep(self):
-        assert self.proxy.echo('test') == 'test passed'
+        assert self.proxy.echo('test') == b'test passed'
 
     def test_exception(self):
         try:

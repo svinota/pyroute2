@@ -1,4 +1,3 @@
-import urlparse
 import struct
 import copy
 import os
@@ -35,6 +34,11 @@ try:
 except ImportError:
     import queue as Queue
 _QUEUE_MAXSIZE = 4096
+
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
 
 
 class IOCore(object):
@@ -396,7 +400,8 @@ class IOCore(object):
             # Bug-Url: http://bugs.python.org/issue1360
             try:
                 msg = queue.get(block=True, timeout=timeout)
-            except Queue.Empty as e:
+            except Queue.Empty as x:
+                e = x
                 if key == 0:
                     continue
                 else:

@@ -1,9 +1,15 @@
 import traceback
-import urlparse
-import cPickle as pickle
 from pyroute2 import IOCore
 from pyroute2.iocore import NLT_EXCEPTION
 from pyroute2.iocore import NLT_DGRAM
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 
 def public(func):
