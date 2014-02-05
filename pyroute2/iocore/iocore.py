@@ -292,6 +292,8 @@ class IOCore(object):
                 if addr == self.default_broker:
                     raise e
         self.iobroker.shutdown()
+        self.ioloop.shutdown()
+        self.ioloop.join()
 
         self._brs.send(struct.pack('I', 4))
         self._brs.close()

@@ -817,6 +817,4 @@ class IOBroker(object):
         for sock in self.servers:
             sock.close()
         # shutdown sequence
-        self.ioloop.shutdown()
-        self.ioloop.join()
         self._expire_thread.join()
