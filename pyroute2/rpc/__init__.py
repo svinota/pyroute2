@@ -9,7 +9,6 @@ from pyroute2.iocore import NLT_DGRAM
 def public(func):
     def reply(self, envelope, msg):
         nonce = envelope['header']['sequence_number']
-        src = envelope['src']
         sport = envelope['sport']
         try:
             argv, kwarg = pickle.loads(msg['data'])
@@ -18,7 +17,7 @@ def public(func):
         except:
             ret = traceback.format_exc()
             flags = NLT_EXCEPTION
-        self._ioc.push((src, sport), ret, flags, nonce)
+        self._ioc.push((0, sport), ret, flags, nonce)
         return True
 
     reply.public = True

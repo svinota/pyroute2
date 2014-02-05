@@ -260,8 +260,8 @@ class IOBroker(object):
         self.addr = addr
         self.broadcast = broadcast
         self.marshal = MarshalEnv()
-        self.ports = AddrPool()
-        self.nonces = AddrPool()
+        self.ports = AddrPool(minaddr=0xff)
+        self.nonces = AddrPool(minaddr=0xfff)
         self.active_sys = {}
         self.local = {}
         self.links = {}
@@ -733,8 +733,8 @@ class IOBroker(object):
         # copy envelope! original will be modified
         masq.add_envelope(envelope.copy())
         self.masquerade[nonce] = masq
-        #envelope['header']['sequence_number'] = nonce
-        #envelope['header']['pid'] = os.getpid()
+        envelope['header']['sequence_number'] = nonce
+        envelope['header']['pid'] = os.getpid()
         envelope.buf.seek(0)
         envelope.encode()
         # 3. return data
