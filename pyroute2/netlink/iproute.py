@@ -36,6 +36,7 @@ from socket import AF_INET6
 from socket import AF_UNSPEC
 from pyroute2.netlink import Marshal
 from pyroute2.netlink import NetlinkSocket
+from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC
 from pyroute2.netlink import NLM_F_ROOT
 from pyroute2.netlink import NLM_F_REQUEST
@@ -527,7 +528,11 @@ class IPRoute(Netlink):
                             ['IFA_ADDRESS', address]]
         elif family == AF_INET6:
             msg['attrs'] = [['IFA_ADDRESS', address]]
-        return self.nlm_request(msg, msg_type=command, msg_flags=flags)
+        terminate = lambda x: x['header']['type'] == NLMSG_ERROR
+        return self.nlm_request(msg,
+                                msg_type=command,
+                                msg_flags=flags,
+                                terminate=terminate)
 
     def tc(self, command, kind, index, handle=0, **kwarg):
         '''

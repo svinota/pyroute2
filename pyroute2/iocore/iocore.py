@@ -1,6 +1,6 @@
 import urlparse
-import threading
 import struct
+import copy
 import os
 import io
 
@@ -57,7 +57,6 @@ class IOCore(object):
         self.cid = None
         self.nonce = AddrPool()
         self.save = None
-        self._nonce_lock = threading.Lock()
         if self.marshal is not None:
             self.marshal.debug = debug
             self.marshal = self.marshal()
@@ -149,12 +148,17 @@ class IOCore(object):
         if self.marshal is None:
             nonce = envelope['header']['sequence_number']
             if envelope['header']['flags'] & NLT_EXCEPTION:
-                msgs = [{'header': {'sequence_number': nonce},
-                         'error': RuntimeError(data.getvalue()),
+                error = RuntimeError(data.getvalue())
+                msgs = [{'header': {'sequence_number': nonce,
+                                    'type': 0,
+                                    'flags': 0,
+                                    'error': error},
                          'data': None}]
             else:
-                msgs = [{'header': {'sequence_number': nonce},
-                         'error': None,
+                msgs = [{'header': {'sequence_number': nonce,
+                                    'type': 0,
+                                    'flags': 0,
+                                    'error': None},
                          'data': data.getvalue()}]
         else:
             msgs = self.marshal.parse(data)
@@ -375,24 +379,7 @@ class IOCore(object):
                 self.callbacks.pop(cb.index(cr))
                 return
 
-    def _remove_queue(self, key):
-        '''
-        Flush the queue to the default one and remove it
-        '''
-        queue = self.listeners[key]
-        # only not the default queue
-        if key != 0:
-            self.nonce.free(key)
-            # delete the queue
-            del self.listeners[key]
-            # get remaining messages from the queue and
-            # re-route them to queue 0 or drop
-            while not queue.empty():
-                msg = queue.get()
-                if 0 in self.listeners:
-                    self.listeners[0].put(msg)
-
-    def get(self, key=0, raw=False, timeout=None):
+    def get(self, key=0, raw=False, timeout=None, terminate=None):
         '''
         Get a message from a queue
 
@@ -400,39 +387,60 @@ class IOCore(object):
         '''
         queue = self.listeners[key]
         result = []
-        timeout = timeout or self._timeout
+        e = None
+        timeout = (timeout or self._timeout) if (key != 0) else 0xffff
         while True:
             # timeout should also be set to catch ctrl-c
             # Bug-Url: http://bugs.python.org/issue1360
             try:
                 msg = queue.get(block=True, timeout=timeout)
             except Queue.Empty as e:
-                if key == 0 or hasattr(queue, 'persist'):
+                if key == 0:
                     continue
-                self._remove_queue(key)
-                raise e
-            if self.marshal is None:
-                if msg.get('error', None) is not None:
-                    raise msg['error']
                 else:
-                    return [msg.get('data', msg)]
-            # terminator for persistent queues
-            if msg is None:
-                self._remove_queue(key)
-                raise Queue.Empty()
-            if (msg['header'].get('error', None) is not None) and\
-                    (not raw):
-                self._remove_queue(key)
-                raise msg['header']['error']
-            if (msg['header']['type'] != NLMSG_DONE) or raw:
-                result.append(msg)
-            if (msg['header']['type'] == NLMSG_DONE) or \
-               (not msg['header']['flags'] & NLM_F_MULTI):
+                    break
+
+            if (terminate is not None) and terminate(msg):
                 break
-            if raw:
+
+            # exceptions
+            if msg['header'].get('error', None) is not None:
+                e = msg['header']['error']
+
+            # RPC
+            if self.marshal is None:
+                data = msg.get('data', msg)
+            else:
+                data = msg
+
+            # Netlink
+            if (msg['header']['type'] != NLMSG_DONE):
+                result.append(data)
+
+            # break the loop if any
+            if (key == 0) or (e is not None):
                 break
-        if not hasattr(queue, 'persist'):
-            self._remove_queue(key)
+
+            # wait for NLMSG_DONE if NLM_F_MULTI
+            if (terminate is None) and (
+                    (msg['header']['type'] == NLMSG_DONE) or
+                    (not msg['header']['flags'] & NLM_F_MULTI)):
+                break
+
+        if key != 0:
+            # delete the queue
+            del self.listeners[key]
+            self.nonce.free(key)
+            # get remaining messages from the queue and
+            # re-route them to queue 0 or drop
+            while not queue.empty():
+                msg = queue.get()
+                if 0 in self.listeners:
+                    self.listeners[0].put(msg)
+
+        if e is not None:
+            raise e
+
         return result
 
     def push(self, host, msg,
@@ -462,10 +470,13 @@ class IOCore(object):
                 port=None,
                 nonce=None,
                 cname=None,
-                response_timeout=None):
+                response_timeout=None,
+                terminate=None):
         nonce = nonce or self.nonce.alloc()
         port = port or self.default_dport
         addr = addr or self.default_broker
         self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
         self.push((addr, port), msg, env_flags, nonce, cname)
-        return self.get(nonce, timeout=response_timeout)
+        return self.get(nonce,
+                        timeout=response_timeout,
+                        terminate=terminate)
