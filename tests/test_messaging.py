@@ -22,7 +22,7 @@ class TestPush(object):
         self.node1 = Node()
         self.node1.serve(url_tcp)
         self.node1.serve(url_udp)
-        self.node1.monitor()
+        self.node1.mirror()
 
         self.node2 = Node()
         self.proxy_tcp = self.node2.target(url_tcp)

@@ -183,17 +183,17 @@ class IOCore(object):
             if key not in self.listeners:
                 key = 0
 
-            if self._mirror and (key != 0) and (msg.raw is not None):
+            if self._mirror and (key != 0):
                 # On Python 2.6 it can fail due to class fabrics
                 # in nlmsg definitions, so parse it again. It should
                 # not be much slower than copy.deepcopy()
-                try:
+                if getattr(msg, 'raw', None) is not None:
                     raw = io.BytesIO()
                     raw.length = raw.write(msg.raw)
-                    self.listeners[0].put_nowait(self.marshal.parse(raw)[0])
-                except Queue.Full:
-                    # FIXME: log this
-                    pass
+                    new = self.marshal.parse(raw)[0]
+                else:
+                    new = copy.deepcopy(msg)
+                self.listeners[0].put_nowait(new)
 
             if key in self.listeners:
                 try:

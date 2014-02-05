@@ -103,8 +103,8 @@ class Node(object):
     def get(self):
         return self._ioc.get()[0]
 
-    def monitor(self):
-        self._ioc.monitor()
+    def mirror(self):
+        self._ioc.mirror()
 
     def connect(self, host):
         '''
