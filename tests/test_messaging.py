@@ -1,6 +1,26 @@
+from pyroute2.netlink import IPRCMD_STOP
 from pyroute2.iocore import NLT_DGRAM
 from pyroute2.rpc import public
 from pyroute2.rpc import Node
+from pyroute2 import IOCore
+
+
+class TestIOBroker(object):
+
+    def test_stop(self):
+        ioc1 = IOCore()
+        ioc1.iobroker.secret = 'bala'
+        ioc1.serve('tcp://localhost:9824')
+
+        ioc2 = IOCore()
+        host = ioc2.connect('tcp://localhost:9824')
+        ioc2.register('bala', host[1])
+        ioc2.command(IPRCMD_STOP, addr=host[1])
+
+        assert ioc1.iobroker._stop_event.is_set()
+
+        ioc1.release()
+        ioc2.release()
 
 
 class Namespace(object):
