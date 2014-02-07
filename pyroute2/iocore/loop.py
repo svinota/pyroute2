@@ -1,4 +1,5 @@
 import os
+import socket
 import select
 import traceback
 import threading
@@ -62,7 +63,11 @@ class IOLoop(threading.Thread):
         self.reload()
 
     def unregister(self, fd):
-        fdno = fd.fileno()
+        try:
+            fdno = fd.fileno()
+        except socket.error:
+            return False
+
         assert fdno != self.control
 
         if fdno in self.fds:
