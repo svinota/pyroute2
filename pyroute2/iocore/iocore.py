@@ -4,6 +4,7 @@ import os
 import io
 
 from pyroute2.common import uuid32
+from pyroute2.common import debug
 from pyroute2.netlink import NLMSG_CONTROL
 from pyroute2.netlink import NLMSG_TRANSPORT
 from pyroute2.netlink import IPRCMD_ACK
@@ -89,6 +90,7 @@ class IOCore(object):
             self.default_dport = self.discover(self.default_target or path,
                                                self.default_peer)
 
+    @debug
     def _route(self, sock, raw):
         buf = io.BytesIO()
         buf.length = buf.write(raw)
@@ -147,6 +149,7 @@ class IOCore(object):
 
             offset += length
 
+    @debug
     def parse(self, envelope, data):
 
         if self.marshal is None:
@@ -385,6 +388,7 @@ class IOCore(object):
                 self.callbacks.pop(cb.index(cr))
                 return
 
+    @debug
     def get(self, key=0, raw=False, timeout=None, terminate=None):
         '''
         Get a message from a queue
@@ -450,6 +454,7 @@ class IOCore(object):
 
         return result
 
+    @debug
     def push(self, host, msg,
              env_flags=None,
              nonce=0,
