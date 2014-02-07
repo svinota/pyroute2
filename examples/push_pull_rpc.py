@@ -2,7 +2,6 @@
 Push/pull using RPC
 '''
 from pyroute2.rpc import Node
-from pyroute2.iocore import NLT_DGRAM
 
 # create the first endpoint, serve two sockets
 ioc1 = Node()
