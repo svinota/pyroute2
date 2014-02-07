@@ -273,7 +273,6 @@ class IOBroker(object):
         self._xlist = set()
         # routing
         self.masquerade = {}      # {int: MasqRecord()...}
-        self.recv_methods = {}    # {socket: recv_method, ...}
         self.clients = set()      # set(socket, socket...)
         self.servers = set()      # set(socket, socket...)
         self.controls = set()     # set(socket, socket...)
@@ -707,11 +706,6 @@ class IOBroker(object):
                 else:
                     # transport packets
                     self.route_data(sock, envelope)
-
-    def recv(self, fd, buf):
-        ret = 0
-        ret += buf.write(fd.recv(16384))
-        return ret, {}
 
     def gate_local(self, envelope, sock):
         # 2. register way back
