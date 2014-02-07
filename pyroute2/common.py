@@ -6,6 +6,9 @@ import os
 import time
 import sys
 import struct
+import logging
+import threading
+import traceback
 
 try:
     basestring = basestring
@@ -55,6 +58,41 @@ rate_suffixes = {'bit': 1,
                  'GBps': 8000000000,
                  'TiBps': 8 * 1024 * 1024 * 1024 * 1024,
                  'TBps': 8000000000000}
+
+
+##
+# Debug
+#
+_log_configured = False
+
+
+def debug(f):
+    '''
+    Debug decorator, that logs all the function calls
+    '''
+    if os.environ.get('DEBUG', None) is None:
+        return f
+
+    global _log_configured
+    if not _log_configured:
+        _log_configured = True
+        filename = os.environ.get('DEBUG_FILE', None)
+        logging.basicConfig(filename=filename,
+                            level=logging.DEBUG)
+
+    def wrap(*argv, **kwarg):
+        tid = id(threading.current_thread())
+        bt = ''.join(traceback.format_stack()[:-1])
+        logging.debug("%s %s: bt: %s" % (tid, f.__name__, bt))
+        logging.debug("%s %s: call: %s; %s" % (tid,
+                                               f.__name__,
+                                               argv,
+                                               kwarg))
+        ret = f(*argv, **kwarg)
+        logging.debug("%s %s: ret: %s" % (tid, f.__name__, ret))
+        return ret
+
+    return wrap
 
 
 ##
