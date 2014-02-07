@@ -1,3 +1,9 @@
+'''
+Push/pull using raw IOCore
+
+tcp -- control connection
+udp -- data push
+'''
 from pyroute2 import IOCore
 from pyroute2.iocore import NLT_DGRAM
 
