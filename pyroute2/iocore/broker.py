@@ -411,7 +411,8 @@ class IOBroker(object):
                     old_sock = self.deregister_link(uid)
                     rsp['cmd'] = IPRCMD_ACK
                 except Exception as e:
-                    rsp['attrs'] = [['IPR_ATTR_ERROR', str(e)]]
+                    rsp['attrs'] = [['IPR_ATTR_ERROR',
+                                     traceback.format_exc()]]
 
             elif cmd['cmd'] == IPRCMD_PROVIDE:
                 url = cmd.get_attr('IPR_ATTR_HOST')
