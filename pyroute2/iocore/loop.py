@@ -53,7 +53,10 @@ class IOLoop(threading.Thread):
 
         if defer:
             def wrap(fd, event, *argv, **kwarg):
-                data = fd.recv(16384)
+                try:
+                    data = fd.recv(16384)
+                except OSError:
+                    data = ''
                 self.buffers.put((cb, fd, data, argv, kwarg))
             self.fds[fdno] = [wrap, fd, argv, kwarg]
         else:
