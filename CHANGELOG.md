@@ -1,6 +1,12 @@
 changelog
 =========
 
+* 0.2.6
+    * rpc: initial version, REQ/REP, PUSH/PULL
+    * iocore: shared IOLoop
+    * iocore: AddrPool usage
+    * iproute: policing in FW filter
+    * python3 compatibility issues fixed
 * 0.2.4
     * python3 compatibility issues fixed, tests passed
 * 0.2.3
