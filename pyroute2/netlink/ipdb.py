@@ -287,7 +287,7 @@ class Transactional(Dotkeys):
                 self.commit()
             except Exception as e:
                 self.last_error = e
-                raise e
+                raise
 
     def __repr__(self):
         res = {}
@@ -597,7 +597,7 @@ class Interface(Transactional):
             self.ipdb._links_event.clear()
             try:
                 self.nl.link('add', **request)
-            except Exception as e:
+            except Exception:
                 # on failure, invalidate the interface and detach it
                 # from the parent
                 # 1. drop the IPRoute() link
@@ -612,7 +612,7 @@ class Interface(Transactional):
                 # 4. the rest
                 self._mode = 'invalid'
                 # raise the exception
-                raise e
+                raise
 
             # all is OK till now, so continue
             # we do not know what to load, so load everything
@@ -639,7 +639,7 @@ class Interface(Transactional):
                 except NetlinkError as x:
                     # bypass only errno 99, 'Cannot assign address'
                     if x.code != 99:
-                        raise x
+                        raise
 
             for i in added['ipaddr']:
                 self.nl.addr('add', self['index'], i[0], i[1])

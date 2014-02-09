@@ -1,4 +1,5 @@
-
+import traceback
+import logging
 import socket
 import struct
 import types
@@ -311,35 +312,35 @@ class nlmsg_base(dict):
             self['header'].reserve()
 
         if self.getvalue() is not None:
-            try:
-                payload = b''
-                for i in self.fields:
-                    name = i[0]
-                    fmt = i[1]
-                    value = self[name]
 
-                    if fmt == 's':
-                        length = len(value)
-                        fmt = '%is' % (length)
-                    elif fmt == 'z':
-                        length = len(value) + 1
-                        fmt = '%is' % (length)
+            payload = b''
+            for i in self.fields:
+                name = i[0]
+                fmt = i[1]
+                value = self[name]
 
-                    # in python3 we should force it
-                    if sys.version[0] == '3':
-                        if isinstance(value, str):
-                            value = bytes(value, 'utf-8')
-                        elif isinstance(value, float):
-                            value = int(value)
+                if fmt == 's':
+                    length = len(value)
+                    fmt = '%is' % (length)
+                elif fmt == 'z':
+                    length = len(value) + 1
+                    fmt = '%is' % (length)
 
-                    try:
-                        payload += struct.pack(fmt, value)
-                    except Exception as e:
-                        print(fmt, value, type(value))
-                        raise e
+                # in python3 we should force it
+                if sys.version[0] == '3':
+                    if isinstance(value, str):
+                        value = bytes(value, 'utf-8')
+                    elif isinstance(value, float):
+                        value = int(value)
 
-            except Exception as e:
-                raise e
+                try:
+                    payload += struct.pack(fmt, value)
+                except struct.error:
+                    logging.error(traceback.format_exc())
+                    logging.error("error pack: %s %s %s" %
+                                  (fmt, value, type(value)))
+                    raise
+
             diff = NLMSG_ALIGN(len(payload)) - len(payload)
             self.buf.write(payload)
             self.buf.write(b'\0' * diff)
@@ -448,20 +449,19 @@ class nlmsg_base(dict):
                 if isinstance(msg_class, types.MethodType):
                     # if it is a function -- use it to get the class
                     msg_class = msg_class()
+                # encode NLA
+                nla = msg_class(self.buf, parent=self)
+                nla['header']['type'] = msg_type
+                nla.setvalue(i[1])
                 try:
-                    # encode NLA
-                    nla = msg_class(self.buf, parent=self)
-                    nla['header']['type'] = msg_type
-                    nla.setvalue(i[1])
                     nla.encode()
+                except:
+                    raise
+                else:
                     if len(i) == 2:
                         i.append(nla)
                     elif len(i) == 3:
                         i[2] = nla
-                except:
-                    # FIXME
-                    import traceback
-                    traceback.print_exc()
 
     def decode_nlas(self):
         while self.buf.tell() < (self.offset + self.length):
@@ -484,15 +484,17 @@ class nlmsg_base(dict):
                 # and the name
                 msg_name = self.t_nla_map[msg_type][1]
 
+                # decode NLA
+                nla = msg_class(self.buf, length, self,
+                                debug=self.debug)
                 try:
-                    # decode NLA
-                    nla = msg_class(self.buf, length, self, debug=self.debug)
                     nla.decode()
-                    msg_value = nla.getvalue()
                 except:
                     # FIXME
                     self.buf.seek(init)
                     msg_value = hexdump(self.buf.read(length))
+                else:
+                    msg_value = nla.getvalue()
 
                 if self.debug:
                     self['attrs'].append([msg_name,
