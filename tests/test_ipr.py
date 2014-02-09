@@ -12,14 +12,6 @@ from utils import create_link
 from utils import remove_link
 
 
-def _assert_servers(ip, num):
-    pass
-
-
-def _assert_clients(ip, num):
-    pass
-
-
 def _assert_uplinks(ip, num):
     assert len(ip.uids) == num
 
@@ -80,6 +72,20 @@ class TestSetup(object):
 
 
 class TestSetupRemote(object):
+
+    def test_ssl_fail(self):
+        url = 'localhost:9824'
+        uplink = IPRoute()
+        uplink.serve('ssl://%s' % (url),
+                     key='server.key',
+                     cert='server.crt',
+                     ca='ca.crt')
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect(('localhost', 9824))
+        s.send('test')
+        s.close()
+        uplink.release()
 
     def test_server(self):
         url = 'unix://\0%s' % (uuid.uuid4())

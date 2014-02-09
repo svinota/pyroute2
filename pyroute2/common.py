@@ -74,6 +74,10 @@ def debug(f):
         return f
 
     global _log_configured
+    # some nosetests bug prevents the rest of this function
+    # being marked as "covered", despite it really IS; so
+    # FIXME: trace and file nosetests bug
+    # possibly related to the log capture
     if not _log_configured:
         _log_configured = True
         filename = os.environ.get('DEBUG_FILE', None)
