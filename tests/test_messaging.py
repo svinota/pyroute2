@@ -1,5 +1,6 @@
 from pyroute2.netlink import IPRCMD_STOP
 from pyroute2.netlink import IPRCMD_RELOAD
+from pyroute2.netlink import IPRCMD_SUBSCRIBE
 from pyroute2.iocore import NLT_DGRAM
 from pyroute2.rpc import public
 from pyroute2.rpc import Node
@@ -26,6 +27,28 @@ class TestIOBroker(object):
 
     def test_reload(self):
         self.ioc2.command(IPRCMD_RELOAD, addr=self.host[1])
+
+    def test_provide_remove(self):
+        self.ioc2.provide('/dala')
+        self.ioc2.remove('/dala')
+
+    def test_fail_disconnect(self):
+        try:
+            self.ioc2.disconnect('invalid_uid')
+        except AssertionError:
+            pass
+
+    def test_fail_connect(self):
+        try:
+            self.ioc2.connect('unix://\0invalid_socket')
+        except AssertionError:
+            pass
+
+    def test_fail_subscribe(self):
+        try:
+            self.ioc2.command(IPRCMD_SUBSCRIBE)
+        except AssertionError:
+            pass
 
 
 class Namespace(object):
