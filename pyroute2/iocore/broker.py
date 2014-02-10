@@ -7,7 +7,6 @@ import time
 import os
 import io
 import uuid
-import sys
 import ssl
 
 from pyroute2.common import AF_PIPE
@@ -121,50 +120,6 @@ def _get_socket(url, server=False,
     return (sock, address)
 
 
-def _repr_sockets(sockets, mode):
-    '''
-    Represent socket as a text string
-    '''
-    ret = []
-    for i in sockets:
-        url = ''
-        if isinstance(i, NetlinkSocket):
-            ret.append('netlink://%s' % (i.family))
-            continue
-
-        if i.family == socket.AF_UNIX:
-            url = 'unix'
-        elif i.family == AF_PIPE:
-            url = 'pipe'
-        if type(i) == ssl.SSLSocket:
-            if url:
-                url += '+'
-            if i.ssl_version == ssl.PROTOCOL_SSLv3:
-                url += 'ssl'
-            elif i.ssl_version == ssl.PROTOCOL_TLSv1:
-                url += 'tls'
-        if not url:
-            if i.type == socket.SOCK_DGRAM:
-                url = 'udp'
-            else:
-                url = 'tcp'
-
-        sname = i.getsockname()
-        if i.family == socket.AF_UNIX:
-            if sys.version[0] == '3':
-                sname = sname.decode('utf-8')
-            url += '://%s' % (sname)
-        elif i.family == AF_PIPE:
-            url += '://%i,%i' % (sname)
-        else:
-            if mode == 'local':
-                url += '://%s:%i' % (sname)
-            elif mode == 'remote':
-                url += '://%s:%i' % (sname)
-        ret.append(url)
-    return ret
-
-
 class PipeSocket(object):
     '''
     Socket-like object for one-system IPC.
@@ -276,6 +231,7 @@ class IOBroker(object):
         self.clients = set()      # set(socket, socket...)
         self.servers = set()      # set(socket, socket...)
         self.controls = set()     # set(socket, socket...)
+        self.sockets = {}
         self.subscribe = {}
         self.providers = {}
         self._cid = list(range(1024))
@@ -393,16 +349,21 @@ class IOBroker(object):
                                          defer=True)
                 self.servers.add(new_sock)
                 self._rlist.add(new_sock)
+                self.sockets[url] = new_sock
                 rsp['cmd'] = IPRCMD_ACK
 
             elif cmd['cmd'] == IPRCMD_SHUTDOWN:
                 url = cmd.get_attr('IPR_ATTR_HOST')
-                for old_sock in tuple(self.servers):
-                    if _repr_sockets([old_sock], 'local') == [url]:
-                        self._rlist.remove(old_sock)
-                        self.servers.remove(old_sock)
-                        self.ioloop.unregister(old_sock)
-                        rsp['cmd'] = IPRCMD_ACK
+                try:
+                    old_sock = self.sockets[url]
+                    del self.sockets[url]
+                    self._rlist.remove(old_sock)
+                    self.servers.remove(old_sock)
+                    self.ioloop.unregister(old_sock)
+                    rsp['cmd'] = IPRCMD_ACK
+                except Exception as e:
+                    rsp['attrs'] = [['IPR_ATTR_ERROR',
+                                     traceback.format_exc()]]
 
             elif cmd['cmd'] == IPRCMD_DISCONNECT:
                 # drop a connection, identified by an addr
