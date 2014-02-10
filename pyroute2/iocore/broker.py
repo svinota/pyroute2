@@ -2,7 +2,6 @@ import traceback
 import threading
 import socket
 import struct
-import errno
 import time
 import os
 import io
@@ -11,35 +10,18 @@ import ssl
 
 from pyroute2.common import AF_PIPE
 from pyroute2.netlink import Marshal
-from pyroute2.netlink import NetlinkSocket
 from pyroute2.netlink import NLMSG_CONTROL
 from pyroute2.netlink import NLMSG_TRANSPORT
 from pyroute2.netlink import IPRCMD_ERR
-from pyroute2.netlink import IPRCMD_STOP
 from pyroute2.netlink import IPRCMD_ACK
-from pyroute2.netlink import IPRCMD_RELOAD
-from pyroute2.netlink import IPRCMD_SERVE
-from pyroute2.netlink import IPRCMD_SHUTDOWN
-from pyroute2.netlink import IPRCMD_CONNECT
-from pyroute2.netlink import IPRCMD_DISCONNECT
-from pyroute2.netlink import IPRCMD_UNSUBSCRIBE
-from pyroute2.netlink import IPRCMD_SUBSCRIBE
-from pyroute2.netlink import IPRCMD_REGISTER
-from pyroute2.netlink import IPRCMD_PROVIDE
-from pyroute2.netlink import IPRCMD_REMOVE
-from pyroute2.netlink import IPRCMD_DISCOVER
 from pyroute2.netlink.generic import mgmtmsg
 from pyroute2.netlink.generic import envmsg
 from pyroute2.iocore import NLT_CONTROL
 from pyroute2.iocore import NLT_RESPONSE
 from pyroute2.iocore import NLT_DGRAM
+from pyroute2.iocore import modules
 from pyroute2.iocore.loop import IOLoop
 from pyroute2.iocore.addrpool import AddrPool
-
-try:
-    import urlparse
-except ImportError:
-    import urllib.parse as urlparse
 
 
 C_ADDR_START = 3
@@ -74,50 +56,6 @@ def _monkey_handshake(self):
 
 
 ssl.SSLSocket.do_handshake = _monkey_handshake
-
-
-def _get_socket(url, server=False,
-                key=None, cert=None, ca=None):
-    assert url[:6] in ('udp://', 'tcp://', 'ssl://', 'tls://') or \
-        url[:11] in ('unix+ssl://', 'unix+tls://') or url[:7] == 'unix://'
-    target = urlparse.urlparse(url)
-    hostname = target.hostname or ''
-    use_ssl = False
-    ssl_version = 2
-
-    if target.scheme[:4] == 'unix':
-        if hostname and hostname[0] == '\0':
-            address = hostname
-        else:
-            address = ''.join((hostname, target.path))
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    elif target.scheme[:3] == 'udp':
-        address = (socket.gethostbyname(hostname), target.port)
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    else:
-        address = (socket.gethostbyname(hostname), target.port)
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    if target.scheme.find('ssl') >= 0:
-        ssl_version = ssl.PROTOCOL_SSLv3
-        use_ssl = True
-
-    if target.scheme.find('tls') >= 0:
-        ssl_version = ssl.PROTOCOL_TLSv1
-        use_ssl = True
-
-    if use_ssl:
-
-        assert key and cert and ca
-
-        sock = ssl.wrap_socket(sock,
-                               keyfile=key,
-                               certfile=cert,
-                               ca_certs=ca,
-                               server_side=server,
-                               cert_reqs=ssl.CERT_REQUIRED,
-                               ssl_version=ssl_version)
-    return (sock, address)
 
 
 class PipeSocket(object):
@@ -234,6 +172,11 @@ class IOBroker(object):
         self.sockets = {}
         self.subscribe = {}
         self.providers = {}
+        # modules
+        self.root_modules = dict(((x.target, x.command) for x
+                                  in modules.privileged))
+        self.user_modules = dict(((x.target, x.command) for x
+                                  in modules.user))
         self._cid = list(range(1024))
         # secret; write non-zero byte as terminator
         self.secret = os.urandom(15)
@@ -290,7 +233,7 @@ class IOBroker(object):
     def route_control(self, sock, envelope):
         pid = envelope['header']['pid']
         nonce = envelope['header']['sequence_number']
-        src = envelope['src']
+        # src = envelope['src']
         dst = envelope['dst']
         sport = envelope['sport']
         dport = envelope['dport']
@@ -303,211 +246,26 @@ class IOBroker(object):
         rsp['attrs'] = []
 
         if sock in self.controls:
-            if cmd['cmd'] == IPRCMD_STOP:
-                # Last 'hello'
+            try:
+                ret = self.root_modules[cmd['cmd']](self, sock,
+                                                    envelope,
+                                                    cmd, rsp)
+                if ret is not None:
+                    return ret
                 rsp['cmd'] = IPRCMD_ACK
-                rsp.encode()
-                ne = envmsg()
-                ne['header']['sequence_number'] = nonce
-                ne['header']['pid'] = pid
-                ne['header']['type'] = NLMSG_TRANSPORT
-                ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
-                ne['dst'] = src
-                ne['src'] = dst
-                ne['dport'] = sport
-                ne['sport'] = dport
-                ne['attrs'] = [['IPR_ATTR_CDATA', rsp.buf.getvalue()]]
-                ne.encode()
-                sock.send(ne.buf.getvalue())
-                # Stop iothread -- shutdown sequence
-                return self.shutdown()
+            except Exception:
+                rsp['attrs'] = [['IPR_ATTR_ERROR',
+                                 traceback.format_exc()]]
 
-            elif cmd['cmd'] == IPRCMD_RELOAD:
-                # Reload io cycle
-                self.ioloop.reload()
+        elif sock in self.clients:
+            try:
+                self.user_modules[cmd['cmd']](self, sock,
+                                              envelope,
+                                              cmd, rsp)
                 rsp['cmd'] = IPRCMD_ACK
-
-            elif cmd['cmd'] == IPRCMD_SERVE:
-                url = cmd.get_attr('IPR_ATTR_HOST')
-                key = cmd.get_attr('IPR_ATTR_SSL_KEY')
-                cert = cmd.get_attr('IPR_ATTR_SSL_CERT')
-                ca = cmd.get_attr('IPR_ATTR_SSL_CA')
-                (new_sock, addr) = _get_socket(url, server=True,
-                                               key=key,
-                                               cert=cert,
-                                               ca=ca)
-                new_sock.setsockopt(socket.SOL_SOCKET,
-                                    socket.SO_REUSEADDR, 1)
-                new_sock.bind(addr)
-                if new_sock.type == socket.SOCK_STREAM:
-                    new_sock.listen(16)
-                    self.ioloop.register(new_sock,
-                                         self.handle_connect)
-                else:
-                    self.ioloop.register(new_sock,
-                                         self.route,
-                                         defer=True)
-                self.servers.add(new_sock)
-                self._rlist.add(new_sock)
-                self.sockets[url] = new_sock
-                rsp['cmd'] = IPRCMD_ACK
-
-            elif cmd['cmd'] == IPRCMD_SHUTDOWN:
-                url = cmd.get_attr('IPR_ATTR_HOST')
-                try:
-                    old_sock = self.sockets[url]
-                    del self.sockets[url]
-                    self._rlist.remove(old_sock)
-                    self.servers.remove(old_sock)
-                    self.ioloop.unregister(old_sock)
-                    rsp['cmd'] = IPRCMD_ACK
-                except Exception as e:
-                    rsp['attrs'] = [['IPR_ATTR_ERROR',
-                                     traceback.format_exc()]]
-
-            elif cmd['cmd'] == IPRCMD_DISCONNECT:
-                # drop a connection, identified by an addr
-                try:
-                    uid = cmd.get_attr('IPR_ATTR_UUID')
-                    old_sock = self.deregister_link(uid)
-                    rsp['cmd'] = IPRCMD_ACK
-                except Exception as e:
-                    rsp['attrs'] = [['IPR_ATTR_ERROR',
-                                     traceback.format_exc()]]
-
-            elif cmd['cmd'] == IPRCMD_PROVIDE:
-                url = cmd.get_attr('IPR_ATTR_HOST')
-                if url not in self.providers:
-                    self.providers[url] = sock
-                    rsp['cmd'] = IPRCMD_ACK
-
-            elif cmd['cmd'] == IPRCMD_REMOVE:
-                url = cmd.get_attr('IPR_ATTR_HOST')
-                if self.providers.get(url, None) == sock:
-                    del self.providers[url]
-                    rsp['cmd'] = IPRCMD_ACK
-
-            elif cmd['cmd'] == IPRCMD_CONNECT:
-                # connect to a system
-                try:
-                    url = cmd.get_attr('IPR_ATTR_HOST')
-                    key = cmd.get_attr('IPR_ATTR_SSL_KEY')
-                    cert = cmd.get_attr('IPR_ATTR_SSL_CERT')
-                    ca = cmd.get_attr('IPR_ATTR_SSL_CA')
-
-                    target = urlparse.urlparse(url)
-                    peer = self.addr
-                    remote = False
-                    established = False
-                    uid = str(uuid.uuid4())
-
-                    route = self.route
-
-                    if url in self.providers:
-                        new_sock = self.providers[url]
-                        established = True
-                        gate = lambda d, s:\
-                            new_sock.send(self.gate_local(d, s))
-
-                    elif target.scheme == 'netlink':
-                        res = target.path.split("/")
-                        new_sock = NetlinkSocket(int(res[1]))
-                        new_sock.bind(int(res[2]))
-                        gate = lambda d, s:\
-                            new_sock.sendto(self.gate_untag(d, s),
-                                            (0, 0))
-                        route = self.route_netlink
-
-                    elif target.scheme == 'udp':
-                        (new_sock, addr) = _get_socket(url,
-                                                       server=False)
-                        gate = lambda d, s:\
-                            new_sock.sendto(self.gate_forward(d, s),
-                                            addr)
-                        remote = True
-
-                    else:
-                        (new_sock, addr) = _get_socket(url,
-                                                       server=False,
-                                                       key=key,
-                                                       cert=cert,
-                                                       ca=ca)
-                        new_sock.connect(addr)
-                        remote = True
-                        # stream sockets provide the peer announce
-                        buf = io.BytesIO()
-                        buf.length = buf.write(new_sock.recv(16384))
-                        buf.seek(0)
-                        msg = envmsg(buf)
-                        msg.decode()
-                        buf = io.BytesIO()
-                        buf.length = buf.write(msg.get_attr('IPR_ATTR_CDATA'))
-                        buf.seek(0)
-                        msg = mgmtmsg(buf)
-                        msg.decode()
-                        peer = msg.get_attr('IPR_ATTR_ADDR')
-
-                        gate = lambda d, s:\
-                            new_sock.send(self.gate_forward(d, s))
-
-                    port = self.alloc_addr()
-                    link = self.register_link(uid=uid,
-                                              port=port,
-                                              sock=new_sock,
-                                              established=established,
-                                              remote=remote)
-                    link.gate = gate
-                    self.discover[target.path] = port
-                    rsp['attrs'].append(['IPR_ATTR_UUID', uid])
-                    rsp['attrs'].append(['IPR_ATTR_ADDR', peer])
-                    try:
-                        self.ioloop.register(new_sock, route,
-                                             defer=True)
-                    except Exception as e:
-                        if e.errno != errno.EEXIST:
-                            raise e
-                    rsp['cmd'] = IPRCMD_ACK
-
-                except Exception:
-                    rsp['attrs'].append(['IPR_ATTR_ERROR',
-                                         traceback.format_exc()])
-        if sock in self.clients:
-            if cmd['cmd'] == IPRCMD_SUBSCRIBE:
-                try:
-                    cid = self._cid.pop()
-                    self.subscribe[cid] = {'socket': sock,
-                                           'keys': []}
-                    for key in cmd.get_attrs('IPR_ATTR_KEY'):
-                        target = (key['offset'],
-                                  key['key'],
-                                  key['mask'])
-                        self.subscribe[cid]['keys'].append(target)
-                    rsp['cmd'] = IPRCMD_ACK
-                    rsp['attrs'].append(['IPR_ATTR_CID', cid])
-                except Exception:
-                    rsp['attrs'].append(['IPR_ATTR_ERROR',
-                                         traceback.format_exc()])
-
-            elif cmd['cmd'] == IPRCMD_DISCOVER:
-                # .. _ioc-discover:
-                url = cmd.get_attr('IPR_ATTR_HOST')
-                if url in self.discover:
-                    rsp['attrs'].append(['IPR_ATTR_ADDR', self.discover[url]])
-                    rsp['cmd'] = IPRCMD_ACK
-
-            elif cmd['cmd'] == IPRCMD_UNSUBSCRIBE:
-                cid = cmd.get_attr('IPR_ATTR_CID')
-                if cid in self.subscribe:
-                    del self.subscribe[cid]
-                    self._cid.append(cid)
-                    rsp['cmd'] = IPRCMD_ACK
-
-            elif cmd['cmd'] == IPRCMD_REGISTER:
-                # auth request
-                secret = cmd.get_attr('IPR_ATTR_SECRET')
-                if secret == self.secret:
-                    self.controls.add(sock)
-                    rsp['cmd'] = IPRCMD_ACK
+            except Exception:
+                rsp['attrs'] = [['IPR_ATTR_ERROR',
+                                 traceback.format_exc()]]
 
         rsp.encode()
         ne = envmsg()
