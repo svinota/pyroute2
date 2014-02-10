@@ -83,7 +83,7 @@ class TestSetupRemote(object):
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(('localhost', 9824))
-        s.send('test')
+        s.send(b'test')
         s.close()
         uplink.release()
 
