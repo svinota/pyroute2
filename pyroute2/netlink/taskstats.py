@@ -134,7 +134,7 @@ class taskstatsmsg(genlmsg):
     class stats(tstats):
         pass  # FIXME: optimize me!
 
-    class aggr_pid(nla):
+    class aggr_id(nla):
         nla_map = (('TASKSTATS_TYPE_UNSPEC', 'none'),
                    ('TASKSTATS_TYPE_PID', 'uint32'),
                    ('TASKSTATS_TYPE_TGID', 'uint32'),
@@ -143,14 +143,11 @@ class taskstatsmsg(genlmsg):
         class stats(tstats):
             pass
 
-    class aggr_tgid(nla):
-        nla_map = (('TASKSTATS_TYPE_UNSPEC', 'none'),
-                   ('TASKSTATS_TYPE_PID', 'uint32'),
-                   ('TASKSTATS_TYPE_TGID', 'uint32'),
-                   ('TASKSTATS_TYPE_STATS', 'stats'))
+    class aggr_pid(aggr_id):
+        pass
 
-        class stats(tstats):
-            pass
+    class aggr_tgid(aggr_id):
+        pass
 
 
 class TaskStats(Netlink):
