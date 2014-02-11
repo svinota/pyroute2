@@ -1,7 +1,9 @@
 from pyroute2.netlink import IPRCMD_REMOVE
+from pyroute2.iocore.utils import access
 
 
 target = IPRCMD_REMOVE
+level = access.ADMIN
 
 
 def command(broker, sock, env, cmd, rsp):

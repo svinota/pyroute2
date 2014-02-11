@@ -6,6 +6,12 @@ except ImportError:
     import urllib.parse as urlparse
 
 
+class access(object):
+    ANY = 0xffffffff
+    USER = 0x1
+    ADMIN = 0x2
+
+
 def get_socket(url, server=False,
                key=None, cert=None, ca=None):
     assert url[:6] in ('udp://', 'tcp://', 'ssl://', 'tls://') or \

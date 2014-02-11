@@ -32,6 +32,14 @@ class TestIOBroker(object):
         self.ioc2.provide('/dala')
         self.ioc2.remove('/dala')
 
+    def test_fail_access(self):
+        self.ioc2.unregister(self.host[1])
+        try:
+            self.ioc2.command(IPRCMD_STOP, addr=self.host[1])
+        except AssertionError:
+            pass
+        self.ioc2.register('bala', self.host[1])
+
     def test_fail_disconnect(self):
         try:
             self.ioc2.disconnect('invalid_uid')

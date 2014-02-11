@@ -1,9 +1,11 @@
 import socket
 from pyroute2.iocore.utils import get_socket
 from pyroute2.netlink import IPRCMD_SERVE
+from pyroute2.iocore.utils import access
 
 
 target = IPRCMD_SERVE
+level = access.ADMIN
 
 
 def command(broker, sock, env, cmd, rsp):

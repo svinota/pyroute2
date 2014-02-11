@@ -6,6 +6,7 @@ from pyroute2.netlink import IPRCMD_CONNECT
 from pyroute2.netlink.generic import envmsg
 from pyroute2.netlink.generic import mgmtmsg
 from pyroute2.iocore.utils import get_socket
+from pyroute2.iocore.utils import access
 try:
     import urlparse
 except ImportError:
@@ -13,6 +14,7 @@ except ImportError:
 
 
 target = IPRCMD_CONNECT
+level = access.ADMIN
 
 
 def command(broker, sock, env, cmd, rsp):

@@ -19,10 +19,10 @@ from pyroute2.netlink.generic import envmsg
 from pyroute2.iocore import NLT_CONTROL
 from pyroute2.iocore import NLT_RESPONSE
 from pyroute2.iocore import NLT_DGRAM
-from pyroute2.iocore import modules
+from pyroute2.iocore.modules import modules
 from pyroute2.iocore.loop import IOLoop
 from pyroute2.iocore.addrpool import AddrPool
-
+from pyroute2.iocore.utils import access
 
 C_ADDR_START = 3
 
@@ -172,11 +172,12 @@ class IOBroker(object):
         self.sockets = {}
         self.subscribe = {}
         self.providers = {}
-        # modules
-        self.root_modules = dict(((x.target, x.command) for x
-                                  in modules.privileged))
-        self.user_modules = dict(((x.target, x.command) for x
-                                  in modules.user))
+        # modules = { IPRCMD_STOP: {'access': access.ADMIN,
+        #                           'command': <function>},
+        #             IPRCMD_...: ...
+        self.modules = dict(((x.target, {'access': x.level,
+                                         'command': x.command})
+                             for x in modules))
         self._cid = list(range(1024))
         # secret; write non-zero byte as terminator
         self.secret = os.urandom(15)
@@ -239,33 +240,29 @@ class IOBroker(object):
         dport = envelope['dport']
         data = io.BytesIO(envelope.get_attr('IPR_ATTR_CDATA'))
         cmd = self.parse_control(data)
+        module = cmd['cmd']
         rsp = mgmtmsg()
         rsp['header']['type'] = NLMSG_CONTROL
         rsp['header']['sequence_number'] = nonce
         rsp['cmd'] = IPRCMD_ERR
         rsp['attrs'] = []
 
+        rights = 0
         if sock in self.controls:
-            try:
-                ret = self.root_modules[cmd['cmd']](self, sock,
-                                                    envelope,
-                                                    cmd, rsp)
-                if ret is not None:
-                    return ret
-                rsp['cmd'] = IPRCMD_ACK
-            except Exception:
-                rsp['attrs'] = [['IPR_ATTR_ERROR',
-                                 traceback.format_exc()]]
-
+            rights = access.ADMIN
         elif sock in self.clients:
-            try:
-                self.user_modules[cmd['cmd']](self, sock,
-                                              envelope,
-                                              cmd, rsp)
-                rsp['cmd'] = IPRCMD_ACK
-            except Exception:
-                rsp['attrs'] = [['IPR_ATTR_ERROR',
-                                 traceback.format_exc()]]
+            rights = access.USER
+        try:
+            if rights & self.modules[module]['access']:
+                self.modules[module]['command'](self, sock, envelope,
+                                                cmd, rsp)
+            else:
+                raise IOError(13, 'Permission denied')
+
+            rsp['cmd'] = IPRCMD_ACK
+        except Exception:
+            rsp['attrs'] = [['IPR_ATTR_ERROR',
+                             traceback.format_exc()]]
 
         rsp.encode()
         ne = envmsg()
@@ -273,7 +270,6 @@ class IOBroker(object):
         ne['header']['pid'] = pid
         ne['header']['type'] = NLMSG_TRANSPORT
         ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
-        # ne['dst'] = src
         ne['src'] = dst
         ne['ttl'] = 16
         ne['dport'] = sport

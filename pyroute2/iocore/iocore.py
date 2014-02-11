@@ -10,6 +10,7 @@ from pyroute2.netlink import NLMSG_TRANSPORT
 from pyroute2.netlink import IPRCMD_ACK
 from pyroute2.netlink import IPRCMD_SERVE
 from pyroute2.netlink import IPRCMD_REGISTER
+from pyroute2.netlink import IPRCMD_UNREGISTER
 from pyroute2.netlink import IPRCMD_SHUTDOWN
 from pyroute2.netlink import IPRCMD_CONNECT
 from pyroute2.netlink import IPRCMD_DISCONNECT
@@ -234,6 +235,9 @@ class IOCore(object):
                 return ret
         else:
             return None
+
+    def unregister(self, addr=None):
+        return self.command(IPRCMD_UNREGISTER, addr=addr)
 
     def register(self, secret, addr=None):
         return self.command(IPRCMD_REGISTER,

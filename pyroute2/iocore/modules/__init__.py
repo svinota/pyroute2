@@ -10,21 +10,18 @@ from . import subscribe
 from . import discover
 from . import unsubscribe
 from . import register
+from . import unregister
 
-privileged = [connect,
-              disconnect,
-              provide,
-              reload,
-              remove,
-              serve,
-              shutdown,
-              stop,
-              subscribe,
-              discover,
-              unsubscribe,
-              register]
-
-user = [subscribe,
-        discover,
-        unsubscribe,
-        register]
+modules = [connect,
+           disconnect,
+           provide,
+           reload,
+           remove,
+           serve,
+           shutdown,
+           stop,
+           subscribe,
+           discover,
+           unsubscribe,
+           register,
+           unregister]

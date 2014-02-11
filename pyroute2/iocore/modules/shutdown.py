@@ -1,7 +1,9 @@
 from pyroute2.netlink import IPRCMD_SHUTDOWN
+from pyroute2.iocore.utils import access
 
 
 target = IPRCMD_SHUTDOWN
+level = access.ADMIN
 
 
 def command(broker, sock, env, cmd, rsp):

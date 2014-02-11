@@ -4,9 +4,11 @@ from pyroute2.netlink import IPRCMD_STOP
 from pyroute2.netlink.generic import envmsg
 from pyroute2.iocore import NLT_CONTROL
 from pyroute2.iocore import NLT_RESPONSE
+from pyroute2.iocore.utils import access
 
 
 target = IPRCMD_STOP
+level = access.ADMIN
 
 
 def command(broker, sock, env, cmd, rsp):
