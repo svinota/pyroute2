@@ -427,19 +427,6 @@ class IOBroker(object):
                     # transport packets
                     self.route_data(sock, envelope)
 
-    def gate_local(self, envelope, sock):
-        # 2. register way back
-        nonce = self.nonces.alloc()
-        masq = MasqRecord(sock)
-        masq.add_envelope(envelope.copy())
-        self.masquerade[nonce] = masq
-        envelope['header']['sequence_number'] = nonce
-        envelope['header']['pid'] = os.getpid()
-        envelope.buf.seek(0)
-        envelope.encode()
-        # 3. return data
-        return envelope.buf.getvalue()
-
     def gate_forward(self, envelope, sock):
         # 2. register way back
         nonce = self.nonces.alloc()

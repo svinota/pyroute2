@@ -33,7 +33,7 @@ def command(broker, sock, env, cmd, rsp):
         new_sock = broker.providers[url]
         established = True
         gate = lambda d, s:\
-            new_sock.send(broker.gate_local(d, s))
+            new_sock.send(broker.gate_forward(d, s))
 
     elif target.scheme == 'netlink':
         res = target.path.split("/")
