@@ -123,13 +123,53 @@ class Layer(object):
         raw.seek(init)
 
 
-class MasqRecord(object):
+class Cache(threading.Thread):
+
+    def __init__(self, stop_event):
+        threading.Thread.__init__(self)
+        self.stop_event = stop_event
+        self.maps = []
+        self.cb = {}
+
+    def register_map(self, m, cb=None):
+        self.maps.append(m)
+        if cb:
+            self.cb[id(m)] = cb
+
+    def unregister_map(self, m):
+        self.maps.remove(m)
+
+    def run(self):
+        while True:
+            # expire masquerade records
+            ts = time.time()
+            for m in self.maps:
+                for k in tuple(m.keys()):
+                    if (ts - m[k].ctime) > 60:
+                        del m[k]
+                        if self.cb.get(id(m)):
+                            self.cb[id(m)](k)
+            self.stop_event.wait(60)
+            if self.stop_event.is_set():
+                return
+
+
+class CacheRecord(object):
+
+    def __init__(self, data):
+        self.data = data
+        self.ctime = time.time()
+
+    def __eq__(self, mit):
+        return self.data == mit
+
+
+class MasqRecord(CacheRecord):
 
     def __init__(self, socket):
+        CacheRecord.__init__(self, None)
         self.envelope = None
-        self.data = None
         self.socket = socket
-        self.ctime = time.time()
 
     def add_envelope(self, envelope):
         self.envelope = envelope
@@ -184,8 +224,8 @@ class IOBroker(object):
         self.secret += b'\xff'
         self.uuid = uuid.uuid4()
         # masquerade cache expiration
-        self._expire_thread = threading.Thread(target=self._expire_masq,
-                                               name='Masquerade cache')
+        self._expire_thread = Cache(self._stop_event)
+        self._expire_thread.register_map(self.masquerade, self.nonces.free)
         self._expire_thread.setDaemon(True)
         self.ioloop = ioloop or IOLoop()
 
@@ -215,21 +255,6 @@ class IOBroker(object):
 
     def dealloc_addr(self, addr):
         self.ports.free(addr)
-
-    def _expire_masq(self):
-        '''
-        Background thread that expires masquerade cache entries
-        '''
-        while True:
-            # expire masquerade records
-            ts = time.time()
-            for i in tuple(self.masquerade.keys()):
-                if (ts - self.masquerade[i].ctime) > 60:
-                    del self.masquerade[i]
-                    self.nonces.free(i)
-            self._stop_event.wait(60)
-            if self._stop_event.is_set():
-                return
 
     def route_control(self, sock, envelope):
         pid = envelope['header']['pid']
