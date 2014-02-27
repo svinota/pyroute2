@@ -9,6 +9,7 @@ import uuid
 import ssl
 
 from pyroute2.common import AF_PIPE
+from pyroute2.common import uuid32
 from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLMSG_CONTROL
 from pyroute2.netlink import NLMSG_TRANSPORT
@@ -206,6 +207,7 @@ class IOBroker(object):
         self._xlist = set()
         # routing
         self.masquerade = {}      # {int: MasqRecord()...}
+        self.packet_ids = {}      # {int: CacheRecord()...}
         self.clients = set()      # set(socket, socket...)
         self.servers = set()      # set(socket, socket...)
         self.controls = set()     # set(socket, socket...)
@@ -226,6 +228,7 @@ class IOBroker(object):
         # masquerade cache expiration
         self._expire_thread = Cache(self._stop_event)
         self._expire_thread.register_map(self.masquerade, self.nonces.free)
+        self._expire_thread.register_map(self.packet_ids)
         self._expire_thread.setDaemon(True)
         self.ioloop = ioloop or IOLoop()
 
@@ -241,6 +244,7 @@ class IOBroker(object):
         rsp.encode()
         ne = envmsg()
         ne['dst'] = self.broadcast
+        ne['id'] = uuid32()
         ne['header']['pid'] = os.getpid()
         ne['header']['type'] = NLMSG_TRANSPORT
         ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
@@ -297,6 +301,7 @@ class IOBroker(object):
         ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
         ne['src'] = dst
         ne['ttl'] = 16
+        ne['id'] = uuid32()
         ne['dport'] = sport
         ne['sport'] = dport
         ne['attrs'] = [['IPR_ATTR_CDATA', rsp.buf.getvalue()]]
@@ -410,6 +415,7 @@ class IOBroker(object):
             # envelope['dst'] = target.envelope['src']
             envelope['src'] = target.envelope['dst']
             envelope['ttl'] = 16
+            envelope['id'] = uuid32()
             envelope['dport'] = target.envelope['sport']
             envelope['sport'] = target.envelope['dport']
             envelope['attrs'] = [['IPR_ATTR_CDATA',
@@ -433,6 +439,13 @@ class IOBroker(object):
             return
 
         for envelope in self.marshal.parse(data):
+            if envelope['id'] in self.packet_ids:
+                # drop duplicated packets
+                continue
+            else:
+                # register packet id
+                self.packet_ids[envelope['id']] = CacheRecord(None)
+
             if envelope['dst'] != self.addr:
                 # FORWARD
                 # a packet for a remote system
