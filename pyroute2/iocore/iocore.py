@@ -1,5 +1,6 @@
 import struct
 import copy
+import uuid
 import os
 import io
 
@@ -474,7 +475,7 @@ class IOCore(object):
         envelope['src'] = self.default_broker
         envelope['dport'] = port
         envelope['ttl'] = 16
-        envelope['id'] = uuid32()
+        envelope['id'] = uuid.uuid4().bytes
         envelope['attrs'] = [['IPR_ATTR_CDATA', msg]]
         if cname is not None:
             envelope['attrs'].append(['IPR_ATTR_CNAME', cname])

@@ -9,7 +9,6 @@ import uuid
 import ssl
 
 from pyroute2.common import AF_PIPE
-from pyroute2.common import uuid32
 from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLMSG_CONTROL
 from pyroute2.netlink import NLMSG_TRANSPORT
@@ -244,7 +243,7 @@ class IOBroker(object):
         rsp.encode()
         ne = envmsg()
         ne['dst'] = self.broadcast
-        ne['id'] = uuid32()
+        ne['id'] = uuid.uuid4().bytes
         ne['header']['pid'] = os.getpid()
         ne['header']['type'] = NLMSG_TRANSPORT
         ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
@@ -301,7 +300,7 @@ class IOBroker(object):
         ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
         ne['src'] = dst
         ne['ttl'] = 16
-        ne['id'] = uuid32()
+        ne['id'] = uuid.uuid4().bytes
         ne['dport'] = sport
         ne['sport'] = dport
         ne['attrs'] = [['IPR_ATTR_CDATA', rsp.buf.getvalue()]]
@@ -376,6 +375,7 @@ class IOBroker(object):
         envelope['header']['type'] = NLMSG_TRANSPORT
         envelope['attrs'] = [['IPR_ATTR_CDATA',
                               data.getvalue()]]
+        envelope['id'] = uuid.uuid4().bytes
         envelope.encode()
         u32['socket'].send(envelope.buf.getvalue())
 
@@ -415,7 +415,7 @@ class IOBroker(object):
             # envelope['dst'] = target.envelope['src']
             envelope['src'] = target.envelope['dst']
             envelope['ttl'] = 16
-            envelope['id'] = uuid32()
+            envelope['id'] = uuid.uuid4().bytes
             envelope['dport'] = target.envelope['sport']
             envelope['sport'] = target.envelope['dport']
             envelope['attrs'] = [['IPR_ATTR_CDATA',

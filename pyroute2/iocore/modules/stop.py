@@ -1,3 +1,4 @@
+import uuid
 from pyroute2.netlink import NLMSG_TRANSPORT
 from pyroute2.netlink import IPRCMD_ACK
 from pyroute2.netlink import IPRCMD_STOP
@@ -22,6 +23,7 @@ def command(broker, sock, env, cmd, rsp):
     ne['header']['flags'] = NLT_CONTROL | NLT_RESPONSE
     ne['dst'] = env['src']
     ne['src'] = env['dst']
+    ne['id'] = uuid.uuid4().bytes
     ne['dport'] = env['sport']
     ne['sport'] = env['dport']
     ne['attrs'] = [['IPR_ATTR_CDATA', rsp.buf.getvalue()]]

@@ -694,7 +694,7 @@ class envmsg(nlmsg):
               ('sport', 'I'),
               ('ttl', 'H'),
               ('reserved', 'H'),
-              ('id', 'I'))
+              ('id', '16s'))
 
     nla_map = (('IPR_ATTR_CDATA', 'cdata'),
                ('IPR_ATTR_CNAME', 'asciiz'))
