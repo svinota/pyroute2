@@ -13,6 +13,7 @@ setup(name='pyroute2',
       license='GPLv2+',
       packages=['pyroute2',
                 'pyroute2.iocore',
+                'pyroute2.iocore.modules',
                 'pyroute2.netlink',
                 'pyroute2.netlink.rtnl'],
       classifiers=['License :: OSI Approved :: GNU General Public ' +
