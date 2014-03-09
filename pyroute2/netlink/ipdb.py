@@ -839,7 +839,7 @@ class IPDB(Dotkeys):
 
         # start monitoring thread
         self.nl.mirror()
-        self._mthread = threading.Thread(target=self.monitor)
+        self._mthread = threading.Thread(target=self.serve_forever)
         self._mthread.setDaemon(True)
         self._mthread.start()
 
@@ -985,7 +985,7 @@ class IPDB(Dotkeys):
                 except:
                     pass
 
-    def monitor(self):
+    def serve_forever(self):
         '''
         Main monitoring cycle. It gets messages from the
         default iproute queue and updates objects in the
