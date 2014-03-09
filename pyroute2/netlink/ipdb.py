@@ -246,7 +246,7 @@ class Transactional(Dotkeys):
         self._callbacks.append(callback)
 
     def unregister_callback(self, callback):
-        for cb in self._callbacks:
+        for cb in tuple(self._callbacks):
             if callback == cb:
                 self._callbacks.pop(self._callbacks.index(cb))
 
