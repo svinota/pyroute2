@@ -817,6 +817,7 @@ class IPDB(Dotkeys):
         self.mode = mode
         self._stop = False
         self.iclass = iclass
+        self._callbacks = []
 
         # resolvers
         self.by_name = Dotkeys()
@@ -854,6 +855,14 @@ class IPDB(Dotkeys):
         ret.append('by_name')
         ret.append('by_index')
         return ret
+
+    def register_callback(self, callback):
+        self._callbacks.append(callback)
+
+    def unregister_callback(self, callback):
+        for cb in tuple(self._callbacks):
+            if callback == cb:
+                self._callbacks.pop(self._callbacks.index(cb))
 
     def release(self):
         '''
@@ -997,8 +1006,8 @@ class IPDB(Dotkeys):
             except:
                 continue
             for msg in messages:
+                index = msg.get('index', None)
                 if msg.get('event', None) == 'RTM_NEWLINK':
-                    index = msg['index']
                     if index in self:
                         # get old name
                         old = self.old_names[index]
@@ -1034,3 +1043,12 @@ class IPDB(Dotkeys):
                     self.update_addr([msg], 'add')
                 elif msg.get('event', None) == 'RTM_DELADDR':
                     self.update_addr([msg], 'remove')
+
+                # run callbacks
+                for cb in self._callbacks:
+                    t = threading.Thread(name="callback %s" % (id(cb)),
+                                         target=cb,
+                                         args=(self,
+                                               self.get(index, None),
+                                               msg['event']))
+                    t.start()
