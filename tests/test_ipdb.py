@@ -421,7 +421,7 @@ class TestExplicit(object):
 class TestImplicit(TestExplicit):
     mode = 'implicit'
 
-    def test_generic_callback(self):
+    def _test_generic_callback(self):
         require_user('root')
 
         def cb(ipdb, obj, action):
@@ -433,6 +433,8 @@ class TestImplicit(TestExplicit):
 
         # create bridge
         self.ip.create(kind='bridge', ifname='bala_br').commit()
+        # wait the bridge to be created
+        time.sleep(1)
         # register callback
         self.ip.register_callback(cb)
         # create ports
@@ -440,7 +442,7 @@ class TestImplicit(TestExplicit):
         self.ip.create(kind='dummy', ifname='bala_port1').commit()
         # sleep for some time -- that's an async task
         # FIXME
-        time.sleep(1)
+        time.sleep(3)
         # check that ports are attached
         assert self.ip.bala_port0.index in self.ip.bala_br.ports
         assert self.ip.bala_port1.index in self.ip.bala_br.ports
