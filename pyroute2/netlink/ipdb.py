@@ -906,6 +906,27 @@ class IPDB(object):
         if item in self.interfaces:
             del self.interfaces[item]
 
+    def wait_interface(self, action='RTM_NEWLINK', **kwarg):
+        event = threading.Event()
+
+        def cb(self, port, _action):
+            if _action != action:
+                return
+            for key in kwarg:
+                if port.get(key, None) != kwarg[key]:
+                    return
+            event.set()
+
+        # register callback prior to other things
+        self.register_callback(cb)
+        # inspect existing interfaces, as if they were created
+        for index in self.by_index:
+            cb(self, self.by_index[index], 'RTM_NEWLINK')
+        # ok, wait the event
+        event.wait()
+        # unregister callback
+        self.unregister_callback(cb)
+
     def update_links(self, links):
         '''
         Rebuild links index from list of RTM_NEWLINK messages.
