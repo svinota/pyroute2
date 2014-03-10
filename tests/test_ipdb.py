@@ -29,7 +29,6 @@ class TestExplicit(object):
         self.ip.release()
         remove_link('bala_port0')
         remove_link('bala_port1')
-        remove_link('bala_br')
         remove_link('dummyX')
         remove_link('bala')
         remove_link('bv101')
@@ -430,39 +429,34 @@ class TestExplicit(object):
 class TestImplicit(TestExplicit):
     mode = 'implicit'
 
-    def _test_generic_callback(self):
+    def test_generic_callback(self):
         require_user('root')
 
         def cb(ipdb, obj, action):
             if action == 'RTM_NEWLINK' and \
-                    obj['ifname'].startswith('bala_port') and \
-                    len(ipdb.bala_br._transactions) == 0:
-                ipdb.bala_br.add_port(obj)
-                ipdb.bala_br.commit()
+                    obj['ifname'].startswith('bala_port'):
+                with ipdb.exclusive:
+                    ipdb.interfaces.bala.add_port(obj)
+                    ipdb.interfaces.bala.commit()
 
         # create bridge
-        self.ip.create(kind='bridge', ifname='bala_br').commit()
+        self.ip.create(kind='bridge', ifname='bala').commit()
         # wait the bridge to be created
-        time.sleep(1)
+        self.ip.wait_interface(ifname='bala')
         # register callback
         self.ip.register_callback(cb)
         # create ports
         self.ip.create(kind='dummy', ifname='bala_port0').commit()
         self.ip.create(kind='dummy', ifname='bala_port1').commit()
-        # sleep for some time -- that's an async task
-        # FIXME
-        time.sleep(3)
+        # sleep for interfaces
+        self.ip.wait_interface(ifname='bala_port0')
+        self.ip.wait_interface(ifname='bala_port1')
+        time.sleep(1)
         # check that ports are attached
-        assert self.ip.bala_port0.index in self.ip.bala_br.ports
-        assert self.ip.bala_port1.index in self.ip.bala_br.ports
-
-        # remove the stuff
-        self.ip.bala_port0.remove()
-        self.ip.bala_port0.commit()
-        self.ip.bala_port1.remove()
-        self.ip.bala_port1.commit()
-        self.ip.bala_br.remove()
-        self.ip.bala_br.commit()
+        assert self.ip.interfaces.bala_port0.index in \
+            self.ip.interfaces.bala.ports
+        assert self.ip.interfaces.bala_port1.index in \
+            self.ip.interfaces.bala.ports
 
 
 class TestDirect(object):
