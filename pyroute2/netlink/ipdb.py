@@ -831,6 +831,7 @@ class IPDB(object):
 
         # update events
         self._links_event = threading.Event()
+        self.exclusive = threading.RLock()
 
         # load information on startup
         links = self.nl.get_links()
