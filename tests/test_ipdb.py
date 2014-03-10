@@ -1,3 +1,4 @@
+import time
 from pyroute2 import IPDB
 from pyroute2.common import basestring
 from pyroute2.netlink import NetlinkError
@@ -28,6 +29,7 @@ class TestExplicit(object):
         self.ip.release()
         remove_link('bala_port0')
         remove_link('bala_port1')
+        remove_link('bala_br')
         remove_link('dummyX')
         remove_link('bala')
         remove_link('bv101')
@@ -418,6 +420,38 @@ class TestExplicit(object):
 
 class TestImplicit(TestExplicit):
     mode = 'implicit'
+
+    def test_generic_callback(self):
+        require_user('root')
+
+        def cb(ipdb, obj, action):
+            if action == 'RTM_NEWLINK' and \
+                    obj['ifname'].startswith('bala_port') and \
+                    len(ipdb.bala_br._transactions) == 0:
+                ipdb.bala_br.add_port(obj)
+                ipdb.bala_br.commit()
+
+        # create bridge
+        self.ip.create(kind='bridge', ifname='bala_br').commit()
+        # register callback
+        self.ip.register_callback(cb)
+        # create ports
+        self.ip.create(kind='dummy', ifname='bala_port0').commit()
+        self.ip.create(kind='dummy', ifname='bala_port1').commit()
+        # sleep for some time -- that's an async task
+        # FIXME
+        time.sleep(1)
+        # check that ports are attached
+        assert self.ip.bala_port0.index in self.ip.bala_br.ports
+        assert self.ip.bala_port1.index in self.ip.bala_br.ports
+
+        # remove the stuff
+        self.ip.bala_port0.remove()
+        self.ip.bala_port0.commit()
+        self.ip.bala_port1.remove()
+        self.ip.bala_port1.commit()
+        self.ip.bala_br.remove()
+        self.ip.bala_br.commit()
 
 
 class TestDirect(object):
