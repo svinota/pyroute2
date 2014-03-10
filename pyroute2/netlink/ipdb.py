@@ -818,6 +818,7 @@ class IPDB(Dotkeys):
         self._stop = False
         self.iclass = iclass
         self._callbacks = []
+        self._cb_threads = set()
 
         # resolvers
         self.by_name = Dotkeys()
@@ -1052,3 +1053,10 @@ class IPDB(Dotkeys):
                                                self.get(index, None),
                                                msg['event']))
                     t.start()
+                    self._cb_threads.add(t)
+
+                # occasionally join cb threads
+                for t in tuple(self._cb_threads):
+                    t.join(0)
+                    if not t.is_alive():
+                        self._cb_threads.remove(t)
