@@ -14,19 +14,19 @@ helps you to retrieve and change almost all the data, available
 through rtnetlink::
 
     from pyroute2 import IPRoute
-    ip = IPRoute()
+    ipr = IPRoute()
         # lookup interface by name
-    dev = ip.link_lookup(ifname='tap0')[0]
+    dev = ipr.link_lookup(ifname='tap0')[0]
         # bring it down
-    ip.link('set', dev, state='down')
+    ipr.link('set', dev, state='down')
         # change interface MAC address and rename it
-    ip.link('set', dev, address='00:11:22:33:44:55', ifname='vpn')
+    ipr.link('set', dev, address='00:11:22:33:44:55', ifname='vpn')
         # add primary IP address
-    ip.addr('add', dev, address='10.0.0.1', mask=24)
+    ipr.addr('add', dev, address='10.0.0.1', mask=24)
         # add secondary IP address
-    ip.addr('add', dev, address='10.0.0.2', mask=24)
+    ipr.addr('add', dev, address='10.0.0.2', mask=24)
         # bring it up
-    ip.link('set', dev, state='up')
+    ipr.link('set', dev, state='up')
 
 IPDB
 ----
@@ -38,12 +38,13 @@ so be prepared for surprises and API changes.::
 
     from pyroute2 import IPDB
     ip = IPDB(mode='direct')
-    ip.tap0.down()
-    ip.tap0.address = '00:11:22:33:44:55'
-    ip.tap0.ifname = 'vpn'
-    ip.vpn.up()
-    ip.vpn.add_ip('10.0.0.1', 24)
-    ip.vpn.add_ip('10.0.0.2', 24)
+    ifdb = ip.interfaces
+    ifdb.tap0.down()
+    ifdb.tap0.address = '00:11:22:33:44:55'
+    ifdb.tap0.ifname = 'vpn'
+    ifdb.vpn.up()
+    ifdb.vpn.add_ip('10.0.0.1', 24)
+    ifdb.vpn.add_ip('10.0.0.2', 24)
 
 IPDB has several operating modes:
 
@@ -60,19 +61,20 @@ IPDB instances. The sample session with explicit transactions::
 
     In [1]: from pyroute2 import IPDB
     In [2]: ip = IPDB(mode='explicit')
-    In [3]: ip.tap0.begin()
+    In [3]: ifdb = ip.interfaces
+    In [4]: ifdb.tap0.begin()
         Out[3]: UUID('7a637a44-8935-4395-b5e7-0ce40d31d937')
-    In [4]: ip.tap0.up()
-    In [5]: ip.tap0.address = '00:11:22:33:44:55'
-    In [6]: ip.tap0.add_ip('10.0.0.1', 24)
-    In [7]: ip.tap0.add_ip('10.0.0.2', 24)
-    In [8]: ip.tap0.review()
+    In [5]: ifdb.tap0.up()
+    In [6]: ifdb.tap0.address = '00:11:22:33:44:55'
+    In [7]: ifdb.tap0.add_ip('10.0.0.1', 24)
+    In [8]: ifdb.tap0.add_ip('10.0.0.2', 24)
+    In [9]: ifdb.tap0.review()
         Out[8]:
         {'+ipaddr': set([('10.0.0.2', 24), ('10.0.0.1', 24)]),
          '-ipaddr': set([]),
          'address': '00:11:22:33:44:55',
          'flags': 4099}
-    In [9]: ip.tap0.commit()
+    In [10]: ifdb.tap0.commit()
 
 
 Note, that you can `review()` the `last()` transaction, and
@@ -83,14 +85,14 @@ Actually, the form like 'ip.tap0.address' is an eye-candy. The
 IPDB objects are dictionaries, so you can write the code above
 as that::
 
-    ip['tap0'].down()
-    ip['tap0']['address'] = '00:11:22:33:44:55'
+    ip.interfaces['tap0'].down()
+    ip.interfaces['tap0']['address'] = '00:11:22:33:44:55'
     ...
 
 Also, interface objects in transactional mode can operate as
 context managers::
 
-    with ip.tap0 as i:
+    with ip.interfaces.tap0 as i:
         i.address = '00:11:22:33:44:55'
         i.ifname = 'vpn'
         i.add_ip('10.0.0.1', 24)
@@ -102,8 +104,8 @@ transaction.
 IPDB can also create interfaces::
 
     with ip.create(kind='bridge', ifname='control') as i:
-        i.add_port(ip.eth1)
-        i.add_port(ip.eth2)
+        i.add_port(ip.interfaces.eth1)
+        i.add_port(ip.interfaces.eth2)
         i.add_ip('10.0.0.1/24')  # the same as i.add_ip('10.0.0.1', 24)
 
 Right now IPDB supports creation of `dummy`, `bond`, `bridge`

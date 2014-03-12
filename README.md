@@ -39,8 +39,8 @@ High-level transactional interface, IPDB::
     # transaction will be started with `with` statement
     # and will be committed at the end of the block
     with ip.create(kind='bridge', ifname='rhev') as i:
-        i.add_port(ip.em1)
-        i.add_port(ip.em2)
+        i.add_port(ip.interfaces.em1)
+        i.add_port(ip.interfaces.em2)
         i.add_ip('10.0.0.2/24')
 
 

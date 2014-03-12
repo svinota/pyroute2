@@ -59,7 +59,7 @@ of it -- IPRoute, IPDB, TaskStats etc.::
               key='client.key',
               cert='client.crt',
               ca='ca.crt')
-    with ip.tap0 as i:
+    with ip.interfaces.tap0 as i:
         i.address = '00:11:22:33:44:55'
         i.ipaddr.add(('10.0.0.1', 24))
         i.ipaddr.add(('10.0.0.2', 24))
@@ -69,9 +69,9 @@ Or a sample with IPRoute::
 
     from pyroute2 import IPRoute
     ip = IPRoute(host='tls://remote.host:7000',
-              key='client.key',
-              cert='client.crt',
-              ca='ca.crt')
+                 key='client.key',
+                 cert='client.crt',
+                 ca='ca.crt')
     print ip.get_links()
 
 why use ssl/tls?
@@ -108,43 +108,18 @@ packet routing engine
     internal. You can skip it, unless you wanna extend pyroute2
     functionality.
 
-Internal pyroute2 routing engine is implemented in `iothread` class.
-It works with incoming packets as follows::
+.. warning::
+    Outdated.
 
-    select() → ready to read socket object
-
-    is it incoming client connection?
-        yes:
-            establish the connection or drop it on error
-
-    is it the in-process control socket?
-        yes:
-            parse control message, stop or reload the engine
-
-    is it local netlink socket?
-        yes:
-            retranslate packet to clients
-            parse the message
-
-    is it remote client connection?
-        yes:
-            route client packet
-
-    is it remote uplink connection?
-        yes:
-            parse the message
-
-
-Client connection routing::
-
-    is the message type NETLINK_UNUSED?
-        yes:
-            parse control message
-        no:
-            route message to the netlink socket
+FIXME: describe the new scheme
 
 protocol
 --------
+
+.. warning::
+    Outdated.
+
+FIXME: describe the new scheme
 
 Using pyroute2, you have nothing to do with underlying internals,
 you're just using API. But if you wanna write software to

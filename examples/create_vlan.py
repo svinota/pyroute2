@@ -15,7 +15,8 @@ try:
         master = ip[sys.argv[1]]['index']
     else:
         # Or use tap0 interface as an example
-        master = ip.tap0.index  # or the same: master = ip['tap0']['index']
+        master = ip.interfaces.tap0.index 
+        # or the same: master = ip.interfaces['tap0']['index']
 
     with ip.create(kind='vlan', ifname='v101', link=master, vlan_id=101) as i:
         # Arguments for ip.create() are executed before the transaction,
