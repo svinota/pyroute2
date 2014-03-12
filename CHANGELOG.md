@@ -1,6 +1,11 @@
 changelog
 =========
 
+* 0.2.7
+    * ipdb: use separate namespaces for utility functions and other stuff
+    * ipdb: generic callbacks (see also IPDB.wait_interface())
+    * iocore: initial multipath support 
+    * iocore: use of 16byte uuid4 for packet ids
 * 0.2.6
     * rpc: initial version, REQ/REP, PUSH/PULL
     * iocore: shared IOLoop
