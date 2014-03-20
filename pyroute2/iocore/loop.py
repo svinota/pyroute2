@@ -84,7 +84,10 @@ class IOLoop(threading.Thread):
     def run(self):
         self._dequeue_thread.start()
         while True:
-            fds = self.poll.poll()
+            try:
+                fds = self.poll.poll()
+            except IOError:
+                continue
 
             if self._stop_flag:
                 break
