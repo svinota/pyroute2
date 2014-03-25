@@ -438,7 +438,7 @@ class IOBroker(object):
                 self.deregister_link(fd=sock)
             return
 
-        for envelope in self.marshal.parse(data):
+        for envelope in self.marshal.parse(data, sock):
             if envelope['id'] in self.packet_ids:
                 # drop duplicated packets
                 continue

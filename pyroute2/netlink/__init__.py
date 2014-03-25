@@ -83,10 +83,13 @@ class Marshal(object):
         # one marshal instance can be used to parse one
         # message at once
         self.msg_map = self.msg_map or {}
+        self.defragmentation = {}
 
-    def parse(self, data):
+    def parse(self, data, sock=None):
         '''
         Parse the data in the buffer
+
+        If socket is provided, support defragmentation
         '''
         with self.lock:
             total = data.length
@@ -94,17 +97,38 @@ class Marshal(object):
             offset = 0
             result = []
 
+            if sock in self.defragmentation:
+                save = self.defragmentation[sock]
+                save.write(data.read())
+                save.length += data.length
+                # discard save
+                data = save
+                del self.defragmentation[sock]
+                data.seek(0)
+
             while offset < total:
                 # pick type and length
                 (length, msg_type) = struct.unpack('IH', data.read(6))
+                data.seek(offset)
+                # if length + offset is greater than
+                # remaining size, save the buffer for
+                # defragmentation
+                if (sock is not None) and (length + offset > data.length):
+                    # create save buffer
+                    self.defragmentation[sock] = save = io.BytesIO()
+                    save.length = save.write(data.read())
+                    # truncate data
+                    data.truncate(offset)
+                    break
+
                 error = None
                 if msg_type == NLMSG_ERROR:
                     data.seek(offset + 16)
                     code = abs(struct.unpack('i', data.read(4))[0])
                     if code > 0:
                         error = NetlinkError(code)
+                    data.seek(offset)
 
-                data.seek(offset)
                 msg_class = self.msg_map.get(msg_type, nlmsg)
                 msg = msg_class(data, debug=self.debug)
                 try:
