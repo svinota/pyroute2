@@ -7,6 +7,7 @@ from utils import require_user
 from utils import get_ip_addr
 from utils import get_ip_link
 from utils import get_ip_route
+from utils import get_ip_default_routes
 from utils import get_ip_rules
 from utils import create_link
 from utils import remove_link
@@ -239,6 +240,10 @@ class TestData(object):
     def test_one_link(self):
         lo = self.ip.get_links(1)[0]
         assert lo.get_attr('IFLA_IFNAME') == 'lo'
+
+    def test_default_routes(self):
+        assert len(get_ip_default_routes()) == \
+            len(self.ip.get_default_routes(family=socket.AF_INET, table=254))
 
     def test_routes(self):
         assert len(get_ip_route()) == \

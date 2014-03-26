@@ -84,6 +84,15 @@ def get_ip_link():
     return ret
 
 
+def get_ip_default_routes():
+    ret = []
+    out = _check_output('ip', '-4', 'ro')
+    for string in out:
+        if 'default' in string:
+            ret.append(string)
+    return ret
+
+
 def get_ip_route():
     ret = []
     out = _check_output('ip', '-4', 'ro', 'li', 'ta', '255')

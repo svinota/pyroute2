@@ -366,6 +366,15 @@ class IPRoute(Netlink):
     # removed due to redundancy. Only link shortcuts are left here for
     # now. Possibly, they should be moved to a separate module.
     #
+    def get_default_routes(self, family=AF_UNSPEC, table=None):
+        '''
+        Get default routes
+        '''
+        # according to iproute2/ip/iproute.c:print_route()
+        return [x for x in self.get_routes(family, table=table)
+                if (x.get_attr('RTA_DST', None) is None and
+                    x['dst_len'] == 0)]
+
     def link_up(self, index):
         '''
         Switch an interface up unconditionally.
