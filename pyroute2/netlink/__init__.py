@@ -92,7 +92,6 @@ class Marshal(object):
         If socket is provided, support defragmentation
         '''
         with self.lock:
-            total = data.length
             data.seek(0)
             offset = 0
             result = []
@@ -106,7 +105,7 @@ class Marshal(object):
                 del self.defragmentation[sock]
                 data.seek(0)
 
-            while offset < total:
+            while offset < data.length:
                 # pick type and length
                 (length, msg_type) = struct.unpack('IH', data.read(6))
                 data.seek(offset)
