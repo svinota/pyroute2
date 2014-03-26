@@ -29,6 +29,7 @@ from pyroute2.iocore import NLT_RESPONSE
 from pyroute2.iocore import NLT_EXCEPTION
 from pyroute2.iocore.loop import IOLoop
 from pyroute2.iocore.broker import pairPipeSockets
+from pyroute2.iocore.broker import MarshalEnv
 from pyroute2.iocore.broker import IOBroker
 from pyroute2.iocore.addrpool import AddrPool
 
@@ -63,6 +64,7 @@ class IOCore(object):
         self.debug = debug
         self.cid = None
         self.nonce = AddrPool()
+        self.emarshal = MarshalEnv()
         self.save = None
         if self.marshal is not None:
             self.marshal.debug = debug
@@ -94,45 +96,13 @@ class IOCore(object):
 
     @debug
     def _route(self, sock, raw):
-        buf = io.BytesIO()
-        buf.length = buf.write(raw)
-        buf.seek(0)
+        data = io.BytesIO()
+        data.length = data.write(raw)
 
-        if self.save is not None:
-            # concatenate buffers
-            buf.seek(0)
-            self.save.write(buf.read())
-            self.save.length += buf.length
-            # discard save
-            buf = self.save
-            self.save = None
+        for envelope in self.emarshal.parse(data, sock):
 
-        offset = 0
-        while offset < buf.length:
-            buf.seek(offset)
-            (length,
-             mtype,
-             flags) = struct.unpack('IHH', buf.read(8))
-
-            if offset + length > buf.length:
-                # create save buffer
-                buf.seek(offset)
-                self.save = io.BytesIO()
-                self.save.length = self.save.write(buf.read())
-                # truncate the buffer
-                buf.truncate(offset)
-                break
-
-            buf.seek(offset)
-            data = io.BytesIO()
-            data.write(buf.read(length))
-            data.length = length
-            data.seek(0)
-
-            # data traffic
-            envelope = envmsg(data)
-            envelope.decode()
             nonce = envelope['header']['sequence_number']
+            flags = envelope['header']['flags']
             try:
                 buf = io.BytesIO()
                 buf.length = buf.write(envelope.
@@ -148,8 +118,6 @@ class IOCore(object):
             except AttributeError:
                 # now silently drop bad packet
                 pass
-
-            offset += length
 
     @debug
     def parse(self, envelope, data):
