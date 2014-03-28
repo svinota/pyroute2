@@ -250,6 +250,14 @@ class TestData(object):
             len(self.ip.get_routes(family=socket.AF_INET, table=255))
 
 
+class TestForkData(TestData):
+
+    def setup(self):
+        create_link('dummyX', 'dummy')
+        self.ip = IPRoute(fork=True)
+        self.dev = self.ip.link_lookup(ifname='dummyX')
+
+
 class TestProxyData(TestData):
 
     def setup(self):
