@@ -4,6 +4,7 @@ import uuid
 import os
 import io
 
+from multiprocessing import Process
 from pyroute2.common import uuid32
 from pyroute2.common import debug
 from pyroute2.netlink import NLMSG_CONTROL
@@ -20,6 +21,7 @@ from pyroute2.netlink import IPRCMD_SUBSCRIBE
 from pyroute2.netlink import IPRCMD_PROVIDE
 from pyroute2.netlink import IPRCMD_REMOVE
 from pyroute2.netlink import IPRCMD_DISCOVER
+from pyroute2.netlink import IPRCMD_STOP
 from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NLM_F_MULTI
 from pyroute2.netlink.generic import mgmtmsg
@@ -53,7 +55,7 @@ class IOCore(object):
 
     def __init__(self, debug=False, timeout=3, do_connect=False,
                  host=None, key=None, cert=None, ca=None,
-                 addr=None):
+                 addr=None, fork=False, secret=None):
         addr = addr or uuid32()
         self._timeout = timeout
         self.default_broker = addr
@@ -75,14 +77,34 @@ class IOCore(object):
 
         self.ioloop = IOLoop()
 
-        self.iobroker = IOBroker(addr=addr, ioloop=self.ioloop)
-        self.iobroker.start()
         self._brs, self.bridge = pairPipeSockets()
-        self.iobroker.add_client(self._brs)
-        self.iobroker.controls.add(self._brs)
-        self.ioloop.register(self._brs,
-                             self.iobroker.route,
-                             defer=True)
+        # To fork or not to fork?
+        #
+        # It depends on how you gonna use RT netlink sockets
+        # in your application. Performance can also differ,
+        # and sometimes forked broker can even speedup your
+        # application -- keep in mind Python's GIL
+        if fork:
+            # Start the I/O broker in a separate process,
+            # so you can use multiple RT netlink sockets in
+            # one application -- it does matter, if your
+            # application already uses some RT netlink
+            # library and you want to smoothly try and
+            # migrate to the pyroute2
+            self.forked_broker = Process(target=self._start_broker,
+                                         args=(fork, secret))
+            self.forked_broker.start()
+        else:
+            # Start I/O broker as an embedded object, so
+            # the RT netlink socket will be opened in the
+            # same process. Technically, you can open
+            # multiple RT netlink sockets within one process,
+            # but only the first one will receive all the
+            # answers -- so effectively only one socket per
+            # process can be used.
+            self.forked_broker = None
+            self._start_broker(fork, secret)
+        self.ioloop.start()
         self.ioloop.register(self.bridge,
                              self._route,
                              defer=True)
@@ -93,6 +115,14 @@ class IOCore(object):
                                                key, cert, ca)
             self.default_dport = self.discover(self.default_target or path,
                                                self.default_peer)
+
+    def _start_broker(self, fork=False, secret=None):
+        iobroker = IOBroker(addr=self.default_broker,
+                            ioloop=None if fork else self.ioloop,
+                            control=self._brs, secret=secret)
+        iobroker.start()
+        if fork:
+            iobroker._stop_event.wait()
 
     @debug
     def _route(self, sock, raw):
@@ -271,7 +301,9 @@ class IOCore(object):
             except Queue.Empty as e:
                 if addr == self.default_broker:
                     raise e
-        self.iobroker.shutdown()
+        self.command(IPRCMD_STOP)
+        if self.forked_broker:
+            self.forked_broker.join()
         self.ioloop.shutdown()
         self.ioloop.join()
 

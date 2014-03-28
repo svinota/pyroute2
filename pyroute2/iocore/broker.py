@@ -186,7 +186,9 @@ class IOBroker(object):
     def __init__(self,
                  addr=0x01000000,
                  broadcast=0xffffffff,
-                 ioloop=None):
+                 ioloop=None,
+                 control=None,
+                 secret=None):
         self.pid = os.getpid()
         self._stop_event = threading.Event()
         self._reload_event = threading.Event()
@@ -221,15 +223,27 @@ class IOBroker(object):
                              for x in modules))
         self._cid = list(range(1024))
         # secret; write non-zero byte as terminator
-        self.secret = os.urandom(15)
-        self.secret += b'\xff'
+        if secret:
+            self.secret = secret
+        else:
+            self.secret = os.urandom(15)
+            self.secret += b'\xff'
         self.uuid = uuid.uuid4()
         # masquerade cache expiration
         self._expire_thread = Cache(self._stop_event)
         self._expire_thread.register_map(self.masquerade, self.nonces.free)
         self._expire_thread.register_map(self.packet_ids)
         self._expire_thread.setDaemon(True)
-        self.ioloop = ioloop or IOLoop()
+        if ioloop:
+            self.ioloop = ioloop
+            self.standalone = False
+        else:
+            self.ioloop = IOLoop()
+            self.standalone = True
+        if control:
+            self.add_client(control)
+            self.controls.add(control)
+            self.ioloop.register(control, self.route, defer=True)
 
     def handle_connect(self, fd, event):
         (client, addr) = fd.accept()
@@ -545,7 +559,8 @@ class IOBroker(object):
 
     def start(self):
         self._expire_thread.start()
-        self.ioloop.start()
+        if self.standalone:
+            self.ioloop.start()
 
     def shutdown(self):
         self._stop_event.set()
@@ -553,3 +568,6 @@ class IOBroker(object):
             sock.close()
         # shutdown sequence
         self._expire_thread.join()
+        if self.standalone:
+            self.ioloop.shutdown()
+            self.ioloop.join()

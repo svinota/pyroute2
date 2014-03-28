@@ -33,12 +33,13 @@ class Netlink(IOCore):
     name = 'Netlink API'
 
     def __init__(self, debug=False, timeout=3, do_connect=True,
-                 host=None, key=None, cert=None, ca=None, addr=None):
+                 host=None, key=None, cert=None, ca=None, addr=None,
+                 fork=False):
         self.default_target = '/%i/%i' % (self.family, self.groups)
         host = host or 'netlink://'
         host = '%s%s' % (host, self.default_target)
         IOCore.__init__(self, debug, timeout, do_connect,
-                        host, key, cert, ca, addr)
+                        host, key, cert, ca, addr, fork)
 
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
