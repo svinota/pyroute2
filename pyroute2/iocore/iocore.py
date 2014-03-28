@@ -223,7 +223,8 @@ class IOCore(object):
         rsp = self.request(msg.buf.getvalue(),
                            env_flags=NLT_CONTROL,
                            addr=addr)[0]
-        assert rsp['cmd'] == IPRCMD_ACK
+        if rsp['cmd'] != IPRCMD_ACK:
+            raise RuntimeError(rsp.get_attr('IPR_ATTR_ERROR'))
         if expect is not None:
             if type(expect) not in (list, tuple):
                 return rsp.get_attr(expect)
