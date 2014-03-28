@@ -20,6 +20,18 @@ class TestIOBroker(object):
         self.ioc2.release()
         self.ioc1.release()
 
+    def test_err_connect(self):
+        try:
+            self.ioc1.connect('tcp://localhost:404')
+        except RuntimeError:
+            pass
+
+    def test_err_discover(self):
+        try:
+            self.ioc1.discover('non_existent')
+        except RuntimeError:
+            pass
+
     def _test_stop(self):
         #
         # FIXME
@@ -39,26 +51,26 @@ class TestIOBroker(object):
         self.ioc2.unregister(self.host[1])
         try:
             self.ioc2.command(IPRCMD_STOP, addr=self.host[1])
-        except AssertionError:
+        except RuntimeError:
             pass
         self.ioc2.register('bala', self.host[1])
 
     def test_fail_disconnect(self):
         try:
             self.ioc2.disconnect('invalid_uid')
-        except AssertionError:
+        except RuntimeError:
             pass
 
     def test_fail_connect(self):
         try:
             self.ioc2.connect('unix://\0invalid_socket')
-        except AssertionError:
+        except RuntimeError:
             pass
 
     def test_fail_subscribe(self):
         try:
             self.ioc2.command(IPRCMD_SUBSCRIBE)
-        except AssertionError:
+        except RuntimeError:
             pass
 
 
