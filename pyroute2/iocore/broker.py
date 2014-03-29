@@ -303,6 +303,7 @@ class IOBroker(object):
                 raise IOError(13, 'Permission denied')
 
             rsp['cmd'] = IPRCMD_ACK
+            rsp['attrs'].append(['IPR_ATTR_SOURCE', cmd['cmd']])
         except Exception:
             rsp['attrs'] = [['IPR_ATTR_ERROR', traceback.format_exc()]]
 
