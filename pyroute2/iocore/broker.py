@@ -192,6 +192,7 @@ class IOBroker(object):
         self.pid = os.getpid()
         self._stop_event = threading.Event()
         self._reload_event = threading.Event()
+        self.shutdown_flag = threading.Event()
         self.addr = addr
         self.broadcast = broadcast
         self.marshal = MarshalEnv()
@@ -303,8 +304,7 @@ class IOBroker(object):
 
             rsp['cmd'] = IPRCMD_ACK
         except Exception:
-            rsp['attrs'] = [['IPR_ATTR_ERROR',
-                             traceback.format_exc()]]
+            rsp['attrs'] = [['IPR_ATTR_ERROR', traceback.format_exc()]]
 
         rsp.encode()
         ne = envmsg()
@@ -320,6 +320,9 @@ class IOBroker(object):
         ne['attrs'] = [['IPR_ATTR_CDATA', rsp.buf.getvalue()]]
         ne.encode()
         sock.send(ne.buf.getvalue())
+
+        if self.shutdown_flag.is_set():
+            self.shutdown()
 
     def route_forward(self, sock, envelope):
         nonce = envelope['header']['sequence_number']
