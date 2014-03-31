@@ -800,7 +800,8 @@ class IPDB(object):
     '''
 
     def __init__(self, nl=None, host=None, mode='implicit',
-                 key=None, cert=None, ca=None, iclass=Interface):
+                 key=None, cert=None, ca=None, iclass=Interface,
+                 fork=False):
         '''
         Parameters:
             * nl -- IPRoute() reference
@@ -811,7 +812,11 @@ class IPDB(object):
         you can start two and more iproute instances, but
         only the first one will receive anything.
         '''
-        self.nl = nl or IPRoute(host=host, key=key, cert=cert, ca=ca)
+        self.nl = nl or IPRoute(host=host,
+                                key=key,
+                                cert=cert,
+                                ca=ca,
+                                fork=fork)
         self.mode = mode
         self.iclass = iclass
         self._stop = False

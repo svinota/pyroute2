@@ -426,6 +426,13 @@ class TestExplicit(object):
         assert '172.16.0.2/24' not in get_ip_addr(interface='bala')
 
 
+class TestFork(TestExplicit):
+
+    def setup(self):
+        create_link('dummyX', 'dummy')
+        self.ip = IPDB(mode=self.mode, fork=True)
+
+
 class TestImplicit(TestExplicit):
     mode = 'implicit'
 
