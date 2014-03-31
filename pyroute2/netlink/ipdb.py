@@ -23,6 +23,7 @@ from socket import AF_INET6
 from pyroute2.common import Dotkeys
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.iproute import IPRoute
+from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 
@@ -790,6 +791,57 @@ class Interface(Transactional):
         self['removal'] = True
 
 
+class Route(Transactional):
+
+    def __init__(self, *argv, **kwarg):
+        Transactional.__init__(self, *argv, **kwarg)
+        self.cleanup = ('attrs',
+                        'event')
+
+    def load(self, msg):
+        with self._direct_state:
+            self.update(msg)
+            # merge key
+            for (name, value) in msg['attrs']:
+                norm = rtmsg.nla2name(name)
+                self[norm] = value
+            self['dst'] = '%s/%s' % (msg.get_attr('RTA_DST', '0'),
+                                     msg['dst_len'])
+            # finally, cleanup all not needed
+            for item in self.cleanup:
+                if item in self:
+                    del self[item]
+
+
+class RoutingTables(object):
+
+    def __init__(self):
+        self.tables = dict()
+
+    def add(self, route):
+        table = route.get('table', 254)
+        if table not in self.tables:
+            self.tables[table] = dict()
+        self.tables[table][route['dst']] = route
+
+    def remove(self, key, table=None):
+        del self.tables[table or 254][key]
+
+    def get(self, dst, table=None):
+        table = table or 254
+        return self.tables[table][dst]
+
+    def __getattr__(self, key):
+        return self.get(key)
+
+    def __setattribute__(self, key, value):
+        assert key == value['dst']
+        return self.add(value)
+
+    def __delattribute__(self, key):
+        return self.remove(key)
+
+
 class IPDB(object):
     '''
     The class that maintains information about network setup
@@ -823,12 +875,12 @@ class IPDB(object):
 
         # resolvers
         self.interfaces = Dotkeys()
+        self.routes = RoutingTables()
         self.by_name = Dotkeys()
         self.by_index = Dotkeys()
 
         # caches
         self.ipaddr = {}
-        self.routes = {}
         self.neighbors = {}
         self.old_names = {}
 
@@ -841,6 +893,8 @@ class IPDB(object):
         self.update_links(links)
         self.update_slaves(links)
         self.update_addr(self.nl.get_addr())
+        routes = self.nl.get_routes()
+        self.update_routes(routes)
 
         # start monitoring thread
         self.nl.mirror()
@@ -929,6 +983,12 @@ class IPDB(object):
         event.wait()
         # unregister callback
         self.unregister_callback(cb)
+
+    def update_routes(self, routes):
+        for msg in routes:
+            route = Route(nl=self.nl, ipdb=self, mode=self.mode)
+            route.load(msg)
+            self.routes.add(route)
 
     def update_links(self, links):
         '''
@@ -1072,6 +1132,10 @@ class IPDB(object):
                     self.update_addr([msg], 'add')
                 elif msg.get('event', None) == 'RTM_DELADDR':
                     self.update_addr([msg], 'remove')
+                elif msg.get('event', None) == 'RTM_NEWROUTE':
+                    self.update_routes([msg])
+                elif msg.get('event', None) == 'RTM_DELROUTE':
+                    pass
 
                 # run callbacks
                 for cb in self._callbacks:
