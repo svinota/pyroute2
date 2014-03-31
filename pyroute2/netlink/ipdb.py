@@ -485,10 +485,8 @@ class Interface(Transactional):
         with self._direct_state:
             self._exists = True
             self.update(dev)
-            self._attrs = set()
             for (name, value) in dev['attrs']:
                 norm = ifinfmsg.nla2name(name)
-                self._attrs.add(norm)
                 self[norm] = value
             # load interface kind
             linkinfo = dev.get_attr('IFLA_LINKINFO')
