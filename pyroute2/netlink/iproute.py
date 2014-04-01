@@ -341,6 +341,7 @@ class IPRoute(Netlink):
             ip.get_routes(table=254)  # get routes from 254 table
         '''
 
+        msg_flags = NLM_F_DUMP | NLM_F_REQUEST
         kwarg['table'] = kwarg.get('table', None)
         msg = rtmsg()
         msg['family'] = family
@@ -348,12 +349,21 @@ class IPRoute(Netlink):
         # will ignore this setting
         msg['table'] = kwarg['table'] or 0
 
+        # get a particular route
+        if kwarg.get('dst', None) is not None:
+            dlen = 32 if family == AF_INET else \
+                128 if family == AF_INET6 else 0
+            msg_flags = NLM_F_REQUEST
+            msg['dst_len'] = kwarg.get('dst_len', dlen)
+
         for key in kwarg:
             nla = rtmsg.name2nla(key)
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
-        return [x for x in self.nlm_request(msg, RTM_GETROUTE)
+        return [x for x in self.nlm_request(msg,
+                                            RTM_GETROUTE,
+                                            msg_flags)
                 if x.get_attr('RTA_TABLE') == kwarg['table'] or
                 kwarg['table'] is None]
     # 8<---------------------------------------------------------------

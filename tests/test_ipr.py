@@ -160,6 +160,14 @@ class TestData(object):
             pass
         assert len(self.ip.link_lookup(ifname='bala')) == 0
 
+    def test_get_route(self):
+        if not self.ip.get_default_routes(table=254):
+            return
+        rts = self.ip.get_routes(family=socket.AF_INET,
+                                 dst='8.8.8.8',
+                                 table=254)
+        assert len(rts) > 0
+
     def test_route(self):
         require_user('root')
         create_link('bala', 'dummy')
