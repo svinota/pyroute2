@@ -28,12 +28,6 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 
 tc_fields = [tcmsg.nla2name(i[0]) for i in tcmsg.nla_map]
-nla_fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
-nla_fields.append('flags')
-nla_fields.append('mask')
-nla_fields.append('change')
-nla_fields.append('state')
-nla_fields.append('removal')
 
 
 _ANCIENT_PLATFORM = platform.dist()[:2] == ('redhat', '6.4')
@@ -265,7 +259,7 @@ class Transactional(Dotkeys):
         with self._write_lock:
             res = self.__class__(nl=self.nl, mode='snapshot')
             for key in tuple(self.keys()):
-                if key in nla_fields:
+                if key in self._fields:
                     res[key] = self[key]
             for key in self._linked_sets:
                 res[key] = LinkedSet(self[key])
@@ -449,7 +443,12 @@ class Interface(Transactional):
         self.ingress = None
         self.egress = None
         self._exists = False
-        self._fields = nla_fields
+        self._fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
+        self._fields.append('flags')
+        self._fields.append('mask')
+        self._fields.append('change')
+        self._fields.append('state')
+        self._fields.append('removal')
         self._load_event = threading.Event()
         self._linked_sets.add('ipaddr')
         self._linked_sets.add('ports')
@@ -458,7 +457,7 @@ class Interface(Transactional):
         with self._direct_state:
             self['ipaddr'] = LinkedSet()
             self['ports'] = LinkedSet()
-            for i in nla_fields:
+            for i in self._fields:
                 self[i] = None
             for i in ('state', 'change', 'mask'):
                 del self[i]
@@ -668,7 +667,7 @@ class Interface(Transactional):
             # Interface changes
             request = IPLinkRequest()
             for key in added:
-                if key in nla_fields:
+                if key in self._fields:
                     request[key] = added[key]
 
             # apply changes only if there is something to apply
