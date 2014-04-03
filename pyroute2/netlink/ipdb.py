@@ -853,15 +853,7 @@ class Route(Transactional):
         self._load_event.set()
 
     def reload(self):
-        try:
-            self.nl.get_routes()
-        except KeyError:
-            # FIXME
-            # it interferes with IPDB loop now, but it doesn't
-            # matter yet
-            pass
-        except Empty:
-            raise IOError('lost netlink connection')
+        # do NOT call get_routes() here, it can cause race condition
         self._load_event.wait()
 
     def commit(self, tid=None, transaction=None, rollback=False):
