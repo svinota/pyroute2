@@ -938,6 +938,7 @@ class RoutingTables(dict):
         if table not in self.tables:
             self.tables[table] = dict()
         self.tables[table][route['dst']] = route
+        route.begin()
         return route
 
     def load(self, msg):
