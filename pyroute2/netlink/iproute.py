@@ -361,9 +361,8 @@ class IPRoute(Netlink):
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
-        return [x for x in self.nlm_request(msg,
-                                            RTM_GETROUTE,
-                                            msg_flags)
+        routes = self.nlm_request(msg, RTM_GETROUTE, msg_flags)
+        return [x for x in routes
                 if x.get_attr('RTA_TABLE') == kwarg['table'] or
                 kwarg['table'] is None]
     # 8<---------------------------------------------------------------
