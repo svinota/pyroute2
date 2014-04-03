@@ -247,8 +247,8 @@ class Transactional(Dotkeys):
     '''
     An utility class that implements common transactional logic.
     '''
-    def __init__(self, nl=None, ipdb=None, mode='direct'):
-        self.nl = nl
+    def __init__(self, ipdb, mode=None):
+        self.nl = ipdb.nl
         self.uid = uuid.uuid4()
         self.ipdb = ipdb
         self.last_error = None
@@ -256,7 +256,7 @@ class Transactional(Dotkeys):
         self._fields = []
         self._tids = []
         self._transactions = {}
-        self._mode = mode
+        self._mode = mode or ipdb.mode
         self._write_lock = threading.RLock()
         self._direct_state = State(self._write_lock)
         self._linked_sets = set()
@@ -281,13 +281,13 @@ class Transactional(Dotkeys):
         used as transactions.
         '''
         with self._write_lock:
-            res = self.__class__(nl=self.nl, mode='snapshot')
+            res = self.__class__(ipdb=self.ipdb, mode='snapshot')
             for key in tuple(self.keys()):
                 if key in self._fields:
                     res[key] = self[key]
             for key in self._linked_sets:
                 res[key] = LinkedSet(self[key])
-                if self.ipdb is not None and not detached:
+                if not detached:
                     self[key].connect(res[key])
             return res
 
@@ -318,7 +318,7 @@ class Transactional(Dotkeys):
     def __sub__(self, vs):
         '''
         '''
-        res = self.__class__(nl=self.nl, mode='snapshot')
+        res = self.__class__(ipdb=self.ipdb, mode='snapshot')
         with self._direct_state:
             # simple keys
             for key in self:
@@ -404,8 +404,8 @@ class Transactional(Dotkeys):
 class TrafficControl(Transactional):
     '''
     '''
-    def __init__(self, nl=None, ipdb=None, mode='direct'):
-        Transactional.__init__(self, nl, ipdb, mode)
+    def __init__(self, ipdb, mode=None):
+        Transactional.__init__(self, ipdb, mode)
         self._fields = tc_fields
 
     def load(self, msg):
@@ -444,7 +444,7 @@ class Interface(Transactional):
     exception will be raised. Failed transaction review
     will be attached to the exception.
     '''
-    def __init__(self, nl=None, ipdb=None, mode='direct'):
+    def __init__(self, ipdb, mode=None):
         '''
         One can use interface objects standalone as
         well as in connection with ipdb object. Standalone
@@ -455,7 +455,7 @@ class Interface(Transactional):
             * ipdb -- ipdb() reference
             * mode -- transaction mode
         '''
-        Transactional.__init__(self, nl, ipdb, mode)
+        Transactional.__init__(self, ipdb, mode)
         self.cleanup = ('header',
                         'linkinfo',
                         'af_spec',
@@ -584,7 +584,7 @@ class Interface(Transactional):
                 transaction.del_port(port)
         else:
             # FIXME: do something with it, please
-            if self.ipdb and _ANCIENT_PLATFORM and \
+            if _ANCIENT_PLATFORM and \
                     'master' in self.ipdb.interfaces[port]:
                 self.ipdb.interfaces[port].del_item('master')
             self['ports'].remove(port)
@@ -816,8 +816,8 @@ class Interface(Transactional):
 
 class Route(Transactional):
 
-    def __init__(self, *argv, **kwarg):
-        Transactional.__init__(self, *argv, **kwarg)
+    def __init__(self, ipdb, mode=None):
+        Transactional.__init__(self, ipdb, mode)
         self._exists = False
         self._load_event = threading.Event()
         self._fields = [rtmsg.nla2name(i[0]) for i in rtmsg.nla_map]
@@ -913,7 +913,7 @@ class Route(Transactional):
 
 class RoutingTables(dict):
 
-    def __init__(self, ipdb=None):
+    def __init__(self, ipdb):
         dict.__init__(self)
         self.ipdb = ipdb
         self.tables = dict()
@@ -924,9 +924,7 @@ class RoutingTables(dict):
         '''
         table = spec.get('table', 254)
         assert 'dst' in spec
-        route = Route(nl=self.ipdb.nl,
-                      ipdb=self.ipdb,
-                      mode=self.ipdb.mode)
+        route = Route(self.ipdb)
         route.update(spec)
         if table not in self.tables:
             self.tables[table] = dict()
@@ -952,9 +950,7 @@ class RoutingTables(dict):
             ret = self.tables[table][key]
             ret.load(msg)
         else:
-            ret = Route(nl=self.ipdb.nl,
-                        ipdb=self.ipdb,
-                        mode=self.ipdb.mode)
+            ret = Route(ipdb=self.ipdb)
             ret.load(msg)
             self.tables[table][key] = ret
         return ret
@@ -1099,7 +1095,7 @@ class IPDB(object):
 
         FIXME: this should be documented.
         '''
-        i = self.iclass(nl=self.nl, ipdb=self, mode='snapshot')
+        i = self.iclass(ipdb=self, mode='snapshot')
         i['kind'] = kind
         i['index'] = kwarg.get('index', 0)
         i['ifname'] = ifname
@@ -1149,7 +1145,7 @@ class IPDB(object):
                 self.by_index[dev['index']] = \
                 self.interfaces[dev['index']] = \
                 self.interfaces.get(dev.get_attr('IFLA_IFNAME'), None) or \
-                self.iclass(nl=self.nl, ipdb=self, mode=self.mode)
+                self.iclass(ipdb=self)
             i.load(dev)
             self.interfaces[i['ifname']] = \
                 self.by_name[i['ifname']] = i
