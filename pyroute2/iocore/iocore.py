@@ -65,7 +65,8 @@ class IOCore(object):
         self.callbacks = []     # [(predicate, callback, args), ...]
         self.debug = debug
         self.cid = None
-        self.nonce = AddrPool()
+        self.cmd_nonce = AddrPool(minaddr=0xf, maxaddr=0xfffe)
+        self.nonce = AddrPool(minaddr=0xffff, maxaddr=0xffffffff)
         self.emarshal = MarshalEnv()
         self.save = None
         if self.marshal is not None:
@@ -222,6 +223,7 @@ class IOCore(object):
         msg.encode()
         rsp = self.request(msg.buf.getvalue(),
                            env_flags=NLT_CONTROL,
+                           nonce_pool=self.cmd_nonce,
                            addr=addr)[0]
         if rsp['cmd'] != IPRCMD_ACK:
             raise RuntimeError(rsp.get_attr('IPR_ATTR_ERROR'))
@@ -395,12 +397,14 @@ class IOCore(object):
                 return
 
     @debug
-    def get(self, key=0, raw=False, timeout=None, terminate=None):
+    def get(self, key=0, raw=False, timeout=None, terminate=None,
+            nonce_pool=None):
         '''
         Get a message from a queue
 
         * key -- message queue number
         '''
+        nonce_pool = nonce_pool or self.nonce
         queue = self.listeners[key]
         result = []
         e = None
@@ -447,7 +451,7 @@ class IOCore(object):
         if key != 0:
             # delete the queue
             del self.listeners[key]
-            self.nonce.free(key)
+            nonce_pool.free(key)
             # get remaining messages from the queue and
             # re-route them to queue 0 or drop
             while not queue.empty():
@@ -488,14 +492,17 @@ class IOCore(object):
                 addr=None,
                 port=None,
                 nonce=None,
+                nonce_pool=None,
                 cname=None,
                 response_timeout=None,
                 terminate=None):
-        nonce = nonce or self.nonce.alloc()
+        nonce_pool = nonce_pool or self.nonce
+        nonce = nonce or nonce_pool.alloc()
         port = port or self.default_dport
         addr = addr or self.default_broker
         self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
         self.push((addr, port), msg, env_flags, nonce, cname)
         return self.get(nonce,
+                        nonce_pool=nonce_pool,
                         timeout=response_timeout,
                         terminate=terminate)

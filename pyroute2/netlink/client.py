@@ -58,6 +58,7 @@ class Netlink(IOCore):
         result = self.request(msg.buf.getvalue(),
                               addr=self.default_peer,
                               nonce=nonce,
+                              nonce_pool=self.nonce,
                               terminate=terminate)
 
         for msg in result:
