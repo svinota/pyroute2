@@ -3,12 +3,47 @@ import re
 import pwd
 import platform
 import subprocess
+from pyroute2 import IPDB
 from nose.plugins.skip import SkipTest
 
 
 def conflict_arch(arch):
     if platform.machine().find(arch) >= 0:
         raise SkipTest('conflict with architecture %s' % (arch))
+
+
+def require_8021q():
+    with IPDB(fork=True) as ip:
+        ip.create(kind='dummy', ifname='test_req').commit()
+        try:
+            ip.create(kind='vlan',
+                      ifname='test_vlan',
+                      link=ip.interfaces.test_req.index,
+                      vlan_id=101).commit()
+        except Exception as e:
+            if e.code == 95:
+                raise SkipTest('required 8021q support')
+            else:
+                raise
+        finally:
+            ip.interfaces.test_req.remove()
+            ip.interfaces.test_req.commit()
+
+
+def require_capability(dev):
+    # FIXME
+    # we should not use IPDB here
+    with IPDB(fork=True) as ip:
+        try:
+            ip.create(kind=dev, ifname='test_req').commit()
+        except Exception as e:
+            # code 95 'operation not supported'
+            if e.code == 95:
+                raise SkipTest('required capability <%s>' % (dev))
+            else:
+                raise
+        ip.interfaces.test_req.remove()
+        ip.interfaces.test_req.commit()
 
 
 def require_user(user):
