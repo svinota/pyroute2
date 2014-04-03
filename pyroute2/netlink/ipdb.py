@@ -5,10 +5,11 @@ unless you understand what are you doing.
 Quick start:
     from pyroute2 import IPDB
     ip = IPDB()
-    ip['eth0']['address'] = '00:11:22:33:44:55'
-    ip['eth0']['ifname'] = 'bala'
-    ip['eth0']['txqlen'] = 2000
-    ip['eth0'].commit()
+    ip.interfaces['eth0']['address'] = '00:11:22:33:44:55'
+    ip.interfaces['eth0']['ifname'] = 'bala'
+    ip.interfaces['eth0']['txqlen'] = 2000
+    ip.interfaces['eth0'].commit()
+    ip.routes.add({'dst': 'default', 'gateway': '10.0.0.1'}).commit()
 '''
 import uuid
 import platform
