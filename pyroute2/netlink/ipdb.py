@@ -340,10 +340,13 @@ class Transactional(Dotkeys):
         '''
         # keep snapshot's ip addr set updated from the OS
         # it is required by the commit logic
-        t = self.pick(detached=False)
-        self._transactions[t.uid] = t
-        self._tids.append(t.uid)
-        return t.uid
+        with self.ipdb.exclusive:
+            if self.ipdb._stop:
+                raise RuntimeError("Can't start transaction on released IPDB")
+            t = self.pick(detached=False)
+            self._transactions[t.uid] = t
+            self._tids.append(t.uid)
+            return t.uid
 
     def last(self):
         '''
@@ -1072,10 +1075,11 @@ class IPDB(object):
         '''
         Shutdown monitoring thread and release iproute.
         '''
-        self._stop = True
-        self.nl.get_links()
-        self.nl.release()
-        self._mthread.join()
+        with self.exclusive:
+            self._stop = True
+            self.nl.get_links()
+            self.nl.release()
+            self._mthread.join()
 
     def create(self, kind, ifname, **kwarg):
         '''

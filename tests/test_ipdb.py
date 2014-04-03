@@ -539,6 +539,14 @@ class TestMisc(object):
     def teardown(self):
         remove_link('dummyX')
 
+    def test_fail_released(self):
+        ip = IPDB()
+        ip.release()
+        try:
+            ip.interfaces.lo.up()
+        except RuntimeError:
+            pass
+
     def test_context_manager(self):
         with IPDB() as ip:
             assert ip.interfaces.lo.index == 1
