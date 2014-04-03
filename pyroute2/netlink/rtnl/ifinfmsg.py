@@ -130,6 +130,8 @@ class ifinfmsg(nlmsg):
             kind = self.get_attr('IFLA_INFO_KIND')
             if kind == 'vlan':
                 return self.vlan_data
+            elif kind == 'bond':
+                return self.bond_data
             return self.hex
 
         class vlan_data(nla):
@@ -142,6 +144,11 @@ class ifinfmsg(nlmsg):
             class vlan_flags(nla):
                 fields = (('flags', 'I'),
                           ('mask', 'I'))
+
+        class bond_data(nla):
+            nla_map = (('IFLA_BOND_UNSPEC', 'none'),
+                       ('IFLA_BOND_MODE', 'uint8'),
+                       ('IFLA_BOND_ACTIVE_SLAVE', 'uint32'))
 
     class af_spec(nla):
         nla_map = (('AF_UNSPEC', 'none'),
