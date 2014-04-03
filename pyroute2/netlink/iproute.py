@@ -39,6 +39,7 @@ from pyroute2.netlink import NetlinkSocket
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC
 from pyroute2.netlink import NLM_F_ROOT
+from pyroute2.netlink import NLM_F_REPLACE
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_DUMP
@@ -706,9 +707,11 @@ class IPRoute(Netlink):
             msg['attrs'].append(['TCA_OPTIONS', opts])
         return self.nlm_request(msg, msg_type=command, msg_flags=flags)
 
-    def route(self, command, prefix, mask, rtype='RTN_UNICAST',
-              rtproto='RTPROT_STATIC', rtscope='RT_SCOPE_UNIVERSE',
-              index=None, family=AF_INET, **kwarg):
+    def route(self, command,
+              rtype='RTN_UNICAST',
+              rtproto='RTPROT_STATIC',
+              rtscope='RT_SCOPE_UNIVERSE',
+              **kwarg):
         '''
         Route operations
 
@@ -731,25 +734,36 @@ class IPRoute(Netlink):
 
         Example::
 
-            ip.route("add", prefix="10.0.0.0", mask=24, gateway="192.168.0.1")
+            ip.route("add", dst="10.0.0.0", mask=24, gateway="192.168.0.1")
         '''
 
-        commands = {'add': RTM_NEWROUTE,
-                    'delete': RTM_DELROUTE}
-        command = commands.get(command, command)
-
-        flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        # 8<----------------------------------------------------
+        # FIXME
+        # flags should be moved to some more general place
+        flags_base = NLM_F_REQUEST | NLM_F_ACK
+        flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
+        flags_replace = flags_base | NLM_F_REPLACE
+        # 8<----------------------------------------------------
+        commands = {'add': (RTM_NEWROUTE, flags_make),
+                    'set': (RTM_NEWROUTE, flags_replace),
+                    'delete': (RTM_DELROUTE, flags_make)}
+        (command, flags) = commands.get(command, command)
         msg = rtmsg()
         # table is mandatory; by default == 254
         # if table is not defined in kwarg, save it there
         # also for nla_attr:
-        msg['table'] = kwarg['table'] = kwarg.get('table', 254)
-        msg['family'] = family
+        msg['table'] = kwarg.get('table', 254)
+        msg['family'] = kwarg.get('family', AF_INET)
         msg['proto'] = rtprotos[rtproto]
         msg['type'] = rtypes[rtype]
         msg['scope'] = rtscopes[rtscope]
-        msg['dst_len'] = mask
-        msg['attrs'] = [['RTA_DST', prefix]]
+        msg['dst_len'] = kwarg.get('dst_len', None) or \
+            kwarg.get('mask', 0)
+        msg['attrs'] = []
+        # FIXME
+        # deprecated "prefix" support:
+        if 'prefix' in kwarg:
+            kwarg['dst'] = kwarg['prefix']
 
         for key in kwarg:
             nla = rtmsg.name2nla(key)
