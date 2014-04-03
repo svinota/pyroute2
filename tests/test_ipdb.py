@@ -7,6 +7,7 @@ from pyroute2.netlink.ipdb import set_fail_bit
 from pyroute2.netlink.ipdb import set_ancient
 from pyroute2.netlink.ipdb import _FAIL_COMMIT
 from pyroute2.netlink.ipdb import _FAIL_ROLLBACK
+from utils import grep
 from utils import create_link
 from utils import remove_link
 from utils import require_user
@@ -174,6 +175,29 @@ class TestExplicit(object):
 
         assert 'bala' not in self.ip.interfaces
         assert 'dummyX' in self.ip.interfaces
+
+    def test_routes(self):
+        require_user('root')
+        assert '172.16.0.0/24' not in self.ip.routes
+
+        # create a route
+        with self.ip.routes.add({'dst': '172.16.0.0/24',
+                                 'gateway': '127.0.0.1'}) as r:
+            pass
+        assert '172.16.0.0/24' in self.ip.routes
+        assert grep('ip ro', pattern='172.16.0.0/24.*127.0.0.1')
+
+        # change a route
+        with self.ip.routes['172.16.0.0/24'] as r:
+            r.gateway = '127.0.0.2'
+        assert self.ip.routes['172.16.0.0/24'].gateway == '127.0.0.2'
+        assert grep('ip ro', pattern='172.16.0.0/24.*127.0.0.2')
+
+        # delete a route
+        with self.ip.routes['172.16.0.0/24'] as r:
+            r.remove()
+        assert '172.16.0.0/24' not in self.ip.routes
+        assert not grep('ip ro', pattern='172.16.0.0/24')
 
     def test_updown(self):
         require_user('root')

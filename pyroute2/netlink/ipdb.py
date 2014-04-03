@@ -18,6 +18,7 @@ try:
 except ImportError:
     from queue import Empty
 
+from socket import AF_UNSPEC
 from socket import AF_INET
 from socket import AF_INET6
 from pyroute2.common import Dotkeys
@@ -190,17 +191,39 @@ def update(f):
     return decorated
 
 
-class IPLinkRequest(dict):
+class IPRequest(dict):
 
-    def __init__(self, interface=None):
+    def __init__(self, obj=None):
         dict.__init__(self)
-        if interface:
-            self.update(interface)
+        if obj is not None:
+            self.update(obj)
 
-    def update(self, interface):
-        for key in interface:
-            if interface[key] is not None:
-                self[key] = interface[key]
+    def update(self, obj):
+        for key in obj:
+            if obj[key] is not None:
+                self[key] = obj[key]
+
+
+class IPRouteRequest(IPRequest):
+
+    def __setitem__(self, key, value):
+        if (key == 'dst') and (value != 'default'):
+            value = value.split('/')
+            if len(value) == 1:
+                dst = value[0]
+                mask = 0
+            elif len(value) == 2:
+                dst = value[0]
+                mask = int(value[1])
+            else:
+                raise ValueError('wrong destination')
+            dict.__setitem__(self, 'dst', dst)
+            dict.__setitem__(self, 'dst_len', mask)
+        elif key != 'dst':
+            dict.__setitem__(self, key, value)
+
+
+class IPLinkRequest(IPRequest):
 
     def __setitem__(self, key, value):
         if key == 'kind':
@@ -794,50 +817,184 @@ class Route(Transactional):
 
     def __init__(self, *argv, **kwarg):
         Transactional.__init__(self, *argv, **kwarg)
+        self._exists = False
+        self._load_event = threading.Event()
+        self._fields = [rtmsg.nla2name(i[0]) for i in rtmsg.nla_map]
+        self._fields.append('flags')
+        self._fields.append('src_len')
+        self._fields.append('dst_len')
+        self._fields.append('table')
+        self._fields.append('removal')
         self.cleanup = ('attrs',
                         'event')
 
     def load(self, msg):
         with self._direct_state:
+            self._exists = True
             self.update(msg)
             # merge key
             for (name, value) in msg['attrs']:
                 norm = rtmsg.nla2name(name)
                 self[norm] = value
-            self['dst'] = '%s/%s' % (msg.get_attr('RTA_DST', '0'),
-                                     msg['dst_len'])
+            if msg.get_attr('RTA_DST', None) is not None:
+                dst = '%s/%s' % (msg.get_attr('RTA_DST'),
+                                 msg['dst_len'])
+            else:
+                dst = 'default'
+            self['dst'] = dst
             # finally, cleanup all not needed
             for item in self.cleanup:
                 if item in self:
                     del self[item]
 
+            self.sync()
 
-class RoutingTables(object):
+    def sync(self):
+        self._load_event.set()
 
-    def __init__(self):
+    def reload(self):
+        try:
+            self.nl.get_routes()
+        except KeyError:
+            # FIXME
+            # it interferes with IPDB loop now, but it doesn't
+            # matter yet
+            pass
+        except Empty:
+            raise IOError('lost netlink connection')
+        self._load_event.wait()
+
+    def commit(self, tid=None, transaction=None, rollback=False):
+        self._load_event.clear()
+        error = None
+
+        if tid:
+            transaction = self._transactions[tid]
+        else:
+            transaction = transaction or self.last()
+
+        # create a new route
+        if not self._exists:
+            try:
+                self.nl.route('add', **IPRouteRequest(self))
+            except Exception:
+                self.nl = None
+                self.ipdb.routes.remove(self)
+                raise
+
+        # work on existing route
+        snapshot = self.pick()
+        try:
+            # route set
+            request = IPRouteRequest(transaction - snapshot)
+            if any([request[x] is not None for x in request]):
+                self.nl.route('set', **IPRouteRequest(transaction))
+
+            if transaction.get('removal'):
+                self.nl.route('delete', **IPRouteRequest(snapshot))
+
+        except Exception as e:
+            if not rollback:
+                ret = self.commit(transaction=snapshot, rollback=True)
+                if ret is not None:
+                    error = ret
+                else:
+                    error = e
+            else:
+                self.drop()
+                x = RuntimeError()
+                x.cause = e
+                raise x
+
+        if not rollback:
+            self.drop()
+            self.reload()
+
+        if error is not None:
+            error.transaction = transaction
+            raise error
+
+    def remove(self):
+        self['removal'] = True
+
+
+class RoutingTables(dict):
+
+    def __init__(self, ipdb=None):
+        dict.__init__(self)
+        self.ipdb = ipdb
         self.tables = dict()
 
-    def add(self, route):
-        table = route.get('table', 254)
+    def add(self, spec):
+        '''
+        Create a route from a dictionary
+        '''
+        table = spec.get('table', 254)
+        assert 'dst' in spec
+        route = Route(nl=self.ipdb.nl,
+                      ipdb=self.ipdb,
+                      mode=self.ipdb.mode)
+        route.update(spec)
         if table not in self.tables:
             self.tables[table] = dict()
         self.tables[table][route['dst']] = route
+        return route
 
-    def remove(self, key, table=None):
-        del self.tables[table or 254][key]
+    def load(self, msg):
+        '''
+        Loads an existing route from a rtmsg
+        '''
+        table = msg.get('table', 254)
+        if table not in self.tables:
+            self.tables[table] = dict()
+
+        dst = msg.get_attr('RTA_DST', None)
+        if dst is None:
+            key = 'default'
+        else:
+            key = '%s/%s' % (dst, msg.get('dst_len', 0))
+
+        if key in self.tables[table]:
+            ret = self.tables[table][key]
+            ret.load(msg)
+        else:
+            ret = Route(nl=self.ipdb.nl,
+                        ipdb=self.ipdb,
+                        mode=self.ipdb.mode)
+            ret.load(msg)
+            self.tables[table][key] = ret
+        return ret
+
+    def remove(self, route, table=None):
+        if isinstance(route, Route):
+            table = route.get('table', 254)
+            route = route.get('dst', 'default')
+        else:
+            table = table or 254
+        del self.tables[table][route]
 
     def get(self, dst, table=None):
         table = table or 254
         return self.tables[table][dst]
 
-    def __getattr__(self, key):
+    def keys(self, table=254, family=AF_UNSPEC):
+        return [x['dst'] for x in self.tables[table].values()
+                if (x['family'] == family) or (family == AF_UNSPEC)]
+
+    def has_key(self, key, table=254):
+        return key in self.tables[table]
+
+    def __contains__(self, key):
+        return key in self.tables[254]
+
+    def __getitem__(self, key):
         return self.get(key)
 
-    def __setattribute__(self, key, value):
+    def __setitem__(self, key, value):
         assert key == value['dst']
         return self.add(value)
 
-    def __delattribute__(self, key):
+    def __delitem__(self, key):
         return self.remove(key)
 
 
@@ -874,7 +1031,7 @@ class IPDB(object):
 
         # resolvers
         self.interfaces = Dotkeys()
-        self.routes = RoutingTables()
+        self.routes = RoutingTables(ipdb=self)
         self.by_name = Dotkeys()
         self.by_index = Dotkeys()
 
@@ -985,9 +1142,7 @@ class IPDB(object):
 
     def update_routes(self, routes):
         for msg in routes:
-            route = Route(nl=self.nl, ipdb=self, mode=self.mode)
-            route.load(msg)
-            self.routes.add(route)
+            self.routes.load(msg)
 
     def update_links(self, links):
         '''
@@ -1134,7 +1289,18 @@ class IPDB(object):
                 elif msg.get('event', None) == 'RTM_NEWROUTE':
                     self.update_routes([msg])
                 elif msg.get('event', None) == 'RTM_DELROUTE':
-                    pass
+                    table = msg.get('table', 254)
+                    dst = msg.get_attr('RTA_DST', False)
+                    if not dst:
+                        key = 'default'
+                    else:
+                        key = '%s/%s' % (dst, msg.get('dst_len', 0))
+                    try:
+                        route = self.routes.tables[table][key]
+                        del self.routes.tables[table][key]
+                        route.sync()
+                    except KeyError:
+                        pass
 
                 # run callbacks
                 for cb in self._callbacks:
