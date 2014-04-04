@@ -13,21 +13,13 @@ def conflict_arch(arch):
 
 
 def require_8021q():
-    with IPDB(fork=True) as ip:
-        ip.create(kind='dummy', ifname='test_req').commit()
-        try:
-            ip.create(kind='vlan',
-                      ifname='test_vlan',
-                      link=ip.interfaces.test_req.index,
-                      vlan_id=101).commit()
-        except Exception as e:
-            if e.code == 95:
-                raise SkipTest('missing 8021q support')
-            else:
-                raise
-        finally:
-            ip.interfaces.test_req.remove()
-            ip.interfaces.test_req.commit()
+    try:
+        os.stat('/proc/net/vlan/config')
+    except OSError as e:
+        # errno 2 'No such file or directory'
+        if e.errno == 2:
+            raise SkipTest('missing 8021q support, or module is not loaded')
+        raise
 
 
 def require_capability(dev):
