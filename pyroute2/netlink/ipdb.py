@@ -830,6 +830,7 @@ class Route(Transactional):
         self._fields.append('table')
         self._fields.append('removal')
         self.cleanup = ('attrs',
+                        'header',
                         'event')
 
     def load(self, msg):
