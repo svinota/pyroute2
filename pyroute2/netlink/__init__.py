@@ -163,7 +163,9 @@ class Marshal(object):
 # so we can use the rest to midify pid field.
 #
 # See also libnl library, lib/socket.c:generate_local_port()
-sockets = AddrPool(minaddr=0x400000, maxaddr=0xffffffff)
+sockets = AddrPool(minaddr=0x0,
+                   maxaddr=0x3ff,
+                   reverse=True)
 # 8<-----------------------------------------------------------
 
 
@@ -176,14 +178,14 @@ class NetlinkSocket(socket.socket):
         socket.socket.__init__(self, socket.AF_NETLINK,
                                socket.SOCK_DGRAM, family)
         global sockets
-        self.pid = os.getpid()
+        self.pid = os.getpid() & 0x3fffff
         self.modifier = sockets.alloc()
         self.groups = 0
         self.marshal = None
 
     def bind(self, groups=0):
         self.groups = groups
-        socket.socket.bind(self, (self.pid | self.modifier,
+        socket.socket.bind(self, (self.pid + (self.modifier << 22),
                                   self.groups))
 
     def get(self):
