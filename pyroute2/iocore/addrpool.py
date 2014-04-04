@@ -7,9 +7,10 @@ class AddrPool(object):
     '''
     cell = 0xffffffffffffffff
 
-    def __init__(self, minaddr=0xf, maxaddr=0xffffff):
+    def __init__(self, minaddr=0xf, maxaddr=0xffffff, reverse=False):
         self.cell_size = 0  # in bits
         mx = self.cell
+        self.reverse = reverse
         while mx:
             mx >>= 8
             self.cell_size += 1
@@ -35,7 +36,19 @@ class AddrPool(object):
                             self.addr_map[base] ^= 1 << bit
                             break
                         bit += 1
-                    return (base * self.cell_size + bit) + self.minaddr
+                    ret = (base * self.cell_size + bit)
+
+                    if self.reverse:
+                        ret = self.maxaddr - ret
+                    else:
+                        ret = ret + self.minaddr
+
+                    if self.minaddr <= ret <= self.maxaddr:
+                        return ret
+                    else:
+                        self.free(ret)
+                        raise KeyError('no free address available')
+
                 base += 1
             # no free address available
             if len(self.addr_map) < self.cells:
@@ -47,7 +60,10 @@ class AddrPool(object):
 
     def free(self, addr):
         with self.lock:
-            addr -= self.minaddr
+            if self.reverse:
+                addr = self.maxaddr - addr
+            else:
+                addr -= self.minaddr
             base = addr // self.cell_size
             bit = addr % self.cell_size
             if len(self.addr_map) <= base:
