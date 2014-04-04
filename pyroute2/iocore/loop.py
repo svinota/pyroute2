@@ -1,6 +1,7 @@
 import os
 import socket
 import select
+import logging
 import traceback
 import threading
 try:
@@ -33,7 +34,7 @@ class IOLoop(threading.Thread):
             try:
                 cb(fd, data, *argv, **kwarg)
             except:
-                traceback.print_exc()
+                logging.warning(traceback.format_exc())
 
     def shutdown(self):
         self._stop_flag = True
@@ -99,4 +100,4 @@ class IOLoop(threading.Thread):
                 except KeyError:
                     pass
                 except:
-                    traceback.print_exc()
+                    logging.warning(traceback.format_exc())
