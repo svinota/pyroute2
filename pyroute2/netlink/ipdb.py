@@ -1020,7 +1020,9 @@ class IPDB(object):
         self.mode = mode
         self.iclass = iclass
         self._stop = False
-        self._callbacks = []
+        # see also 'register_callback'
+        self._post_callbacks = []
+        self._pre_callbacks = []
         self._cb_threads = set()
 
         # resolvers
@@ -1058,19 +1060,75 @@ class IPDB(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.release()
 
-    #def __dir__(self):
-    #    ret = Dotkeys.__dir__(self)
-    #    ret.append('by_name')
-    #    ret.append('by_index')
-    #    return ret
+    def register_callback(self, callback, mode='post'):
+        '''
+        IPDB callbacks are routines executed on a RT netlink
+        message arrival. There are two types of callbacks:
+        "post" and "pre" callbacks.
 
-    def register_callback(self, callback):
-        self._callbacks.append(callback)
+        ...
 
-    def unregister_callback(self, callback):
-        for cb in tuple(self._callbacks):
+        "Post" callbacks are executed after the message is
+        processed by IPDB and all corresponding objects are
+        created or deleted. Using ipdb reference in "post"
+        callbacks you will access the most up-to-date state
+        of the IP database.
+
+        "Post" callbacks are executed asynchronously in
+        separate threads. These threads can work as long
+        as you want them to. Callback threads are joined
+        occasionally, so for a short time there can exist
+        stopped threads.
+
+        ...
+
+        "Pre" callbacks are synchronous routines, executed
+        before the message gets processed by IPDB. It gives
+        you the way to patch arriving messages, but also
+        places a restriction: until the callback exits, the
+        main event IPDB loop is blocked.
+
+        Normally, only "post" callbacks are required. But in
+        some specific cases "pre" also can be useful.
+
+        ...
+
+        The routine, `register_callback()`, takes two arguments:
+        1. callback function
+        2. mode (optional, default="post")
+
+        The callback should be a routine, that accepts three
+        arguments::
+
+            cb(ipdb, msg, action)
+
+        1. ipdb is a reference to IPDB instance, that invokes
+           the callback.
+        2. msg is a message arrived
+        3. action is just a msg['event'] field
+
+        E.g., to work on a new interface, you should catch
+        action == 'RTM_NEWLINK' and with the interface index
+        (arrived in msg['index']) get it from IPDB::
+
+            index = msg['index']
+            interface = ipdb.interfaces[index]
+        '''
+        if mode == 'post':
+            self._post_callbacks.append(callback)
+        elif mode == 'pre':
+            self._pre_callbacks.append(callback)
+
+    def unregister_callback(self, callback, mode='post'):
+        if mode == 'post':
+            cbchain = self._post_callbacks
+        elif mode == 'pre':
+            cbchain = self._pre_callbacks
+        else:
+            raise KeyError('Unknown callback mode')
+        for cb in tuple(cbchain):
             if callback == cb:
-                self._callbacks.pop(self._callbacks.index(cb))
+                cbchain.pop(cbchain.index(cb))
 
     def release(self):
         '''
@@ -1117,9 +1175,10 @@ class IPDB(object):
     def wait_interface(self, action='RTM_NEWLINK', **kwarg):
         event = threading.Event()
 
-        def cb(self, port, _action):
+        def cb(self, msg, _action):
             if _action != action:
                 return
+            port = self.interfaces[msg['index']]
             for key in kwarg:
                 if port.get(key, None) != kwarg[key]:
                     return
@@ -1242,6 +1301,14 @@ class IPDB(object):
             except:
                 continue
             for msg in messages:
+                # run pre-callbacks
+                # NOTE: pre-callbacks are synchronous
+                for cb in self._pre_callbacks:
+                    try:
+                        cb(self, msg, msg['event'])
+                    except:
+                        pass
+
                 index = msg.get('index', None)
                 if msg.get('event', None) == 'RTM_NEWLINK':
                     if index in self.interfaces:
@@ -1297,14 +1364,12 @@ class IPDB(object):
                     except KeyError:
                         pass
 
-                # run callbacks
-                for cb in self._callbacks:
+                # run post-callbacks
+                # NOTE: post-callbacks are asynchronous
+                for cb in self._post_callbacks:
                     t = threading.Thread(name="callback %s" % (id(cb)),
                                          target=cb,
-                                         args=(self,
-                                               self.interfaces.get(index,
-                                                                   None),
-                                               msg['event']))
+                                         args=(self, msg, msg['event']))
                     t.start()
                     self._cb_threads.add(t)
 

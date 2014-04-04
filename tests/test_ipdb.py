@@ -468,14 +468,34 @@ class TestFork(TestExplicit):
 class TestImplicit(TestExplicit):
     mode = 'implicit'
 
-    def test_generic_callback(self):
+    def test_generic_pre_callback(self):
+        require_user('root')
+
+        def cb(ipdb, msg, action):
+            if action == 'RTM_NEWLINK':
+                # fake the incoming message
+                msg['flags'] = 1234
+
+        # register callback
+        self.ip.register_callback(cb, mode='pre')
+        # create an interface bala
+        self.ip.create(kind='dummy', ifname='bala').commit()
+        # assert flags
+        assert self.ip.interfaces.bala.flags == 1234
+        # cleanup
+        self.ip.unregister_callback(cb, mode='pre')
+        self.ip.interfaces.bala.remove()
+        self.ip.interfaces.bala.commit()
+
+    def test_generic_post_callback(self):
         require_user('root')
         require_capability('bridge')
 
-        def cb(ipdb, obj, action):
+        def cb(ipdb, msg, action):
             if action == 'RTM_NEWLINK' and \
-                    obj['ifname'].startswith('bala_port'):
+                    msg.get_attr('IFLA_IFNAME', '').startswith('bala_port'):
                 with ipdb.exclusive:
+                    obj = ipdb.interfaces[msg['index']]
                     ipdb.interfaces.bala.add_port(obj)
                     ipdb.interfaces.bala.commit()
 
@@ -497,6 +517,8 @@ class TestImplicit(TestExplicit):
             self.ip.interfaces.bala.ports
         assert self.ip.interfaces.bala_port1.index in \
             self.ip.interfaces.bala.ports
+        # unregister callback
+        self.ip.unregister_callback(cb)
 
 
 class TestDirect(object):
