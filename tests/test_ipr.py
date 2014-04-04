@@ -27,6 +27,18 @@ class TestSetup(object):
         ip.release()
         _assert_uplinks(ip, 0)
 
+    def test_multiple_instances(self):
+        # run two instances from parent
+        # and two instances from child
+        ip1 = IPRoute()
+        ip2 = IPRoute()
+        ip3 = IPRoute(fork=True)
+        ip4 = IPRoute(fork=True)
+        ip1.release()
+        ip2.release()
+        ip3.release()
+        ip4.release()
+
     def _test_noautoconnect(self):
         ip = IPRoute(do_connect=False)
         _assert_uplinks(ip, 0)

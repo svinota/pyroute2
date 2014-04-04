@@ -4,6 +4,7 @@ import socket
 import os
 import io
 
+from pyroute2.iocore.addrpool import AddrPool  # FIXME: move to common
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import NetlinkDecodeError
 from pyroute2.netlink.generic import NetlinkHeaderDecodeError
@@ -153,6 +154,19 @@ class Marshal(object):
         pass
 
 
+# 8<-----------------------------------------------------------
+# Singleton, containing possible modifiers to the NetlinkSocket
+# bind() call.
+#
+# Normally, you can open only one netlink connection for one
+# process, but there is a hack. Current PID_MAX_LIMIT is 2^22,
+# so we can use the rest to midify pid field.
+#
+# See also libnl library, lib/socket.c:generate_local_port()
+sockets = AddrPool(minaddr=0x400000, maxaddr=0xffffffff)
+# 8<-----------------------------------------------------------
+
+
 class NetlinkSocket(socket.socket):
     '''
     Generic netlink socket
@@ -161,15 +175,23 @@ class NetlinkSocket(socket.socket):
     def __init__(self, family=NETLINK_GENERIC):
         socket.socket.__init__(self, socket.AF_NETLINK,
                                socket.SOCK_DGRAM, family)
+        global sockets
         self.pid = os.getpid()
+        self.modifier = sockets.alloc()
         self.groups = 0
         self.marshal = None
 
     def bind(self, groups=0):
         self.groups = groups
-        socket.socket.bind(self, (self.pid, self.groups))
+        socket.socket.bind(self, (self.pid | self.modifier,
+                                  self.groups))
 
     def get(self):
         data = io.BytesIO()
         data.length = data.write(self.recv(16384))
         return self.marshal.parse(data)
+
+    def close(self):
+        global sockets
+        sockets.free(self.modifier)
+        socket.socket.close(self)
