@@ -22,7 +22,7 @@ def require_8021q():
                       vlan_id=101).commit()
         except Exception as e:
             if e.code == 95:
-                raise SkipTest('required 8021q support')
+                raise SkipTest('missing 8021q support')
             else:
                 raise
         finally:
@@ -39,7 +39,7 @@ def require_capability(dev):
         except Exception as e:
             # code 95 'operation not supported'
             if e.code == 95:
-                raise SkipTest('required capability <%s>' % (dev))
+                raise SkipTest('missing capability <%s>' % (dev))
             else:
                 raise
         ip.interfaces.test_req.remove()

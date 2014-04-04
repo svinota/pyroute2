@@ -2,10 +2,22 @@ import socket
 from utils import require_user
 from pyroute2 import IPRoute
 from pyroute2 import protocols
+from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.iproute import RTM_NEWQDISC
 from pyroute2.netlink.iproute import RTM_NEWTFILTER
 from pyroute2.netlink.iproute import RTM_NEWTCLASS
 from pyroute2.netlink.iproute import TC_H_INGRESS
+from nose.plugins.skip import SkipTest
+
+
+def try_qd(qd, call, *argv, **kwarg):
+    try:
+        call(*argv, **kwarg)
+    except NetlinkError as e:
+        # code 2 'no such file or directory)
+        if e.code == 2:
+            raise SkipTest('missing traffic control <%s>' % (qd))
+        raise
 
 
 class BasicTest(object):
@@ -80,7 +92,8 @@ class TestIngress(BasicTest):
 class TestSfq(BasicTest):
 
     def test_sfq(self):
-        self.ip.tc(RTM_NEWQDISC, 'sfq', self.interface, 0, perturb=10)
+        try_qd('sfq', self.ip.tc,
+               RTM_NEWQDISC, 'sfq', self.interface, 0, perturb=10)
         qds = self.get_qdisc()
         assert qds
         assert qds.get_attr('TCA_KIND') == 'sfq'
@@ -90,10 +103,11 @@ class TestSfq(BasicTest):
 class TestTbf(BasicTest):
 
     def test_tbf(self):
-        self.ip.tc(RTM_NEWQDISC, 'tbf', self.interface, 0,
-                   rate='220kbit',
-                   latency='50ms',
-                   burst=1540)
+        try_qd('tbf', self.ip.tc,
+               RTM_NEWQDISC, 'tbf', self.interface, 0,
+               rate='220kbit',
+               latency='50ms',
+               burst=1540)
         qds = self.get_qdisc()
         assert qds
         assert qds.get_attr('TCA_KIND') == 'tbf'
@@ -107,8 +121,9 @@ class TestHtb(BasicTest):
     def test_htb(self):
         # 8<-----------------------------------------------------
         # root queue, '1:0' handle notation
-        self.ip.tc(RTM_NEWQDISC, 'htb', self.interface, '1:',
-                   default='20:0')
+        try_qd('htb', self.ip.tc,
+               RTM_NEWQDISC, 'htb', self.interface, '1:',
+               default='20:0')
 
         qds = self.get_qdiscs()
         assert len(qds) == 1
@@ -116,31 +131,36 @@ class TestHtb(BasicTest):
 
         # 8<-----------------------------------------------------
         # classes, both string and int handle notation
-        self.ip.tc(RTM_NEWTCLASS, 'htb', self.interface, '1:1',
-                   parent='1:0',
-                   rate='256kbit',
-                   burst=1024 * 6)
-        self.ip.tc(RTM_NEWTCLASS, 'htb', self.interface, 0x10010,
-                   parent=0x10001,
-                   rate='192kbit',
-                   burst=1024 * 6,
-                   prio=1)
-        self.ip.tc(RTM_NEWTCLASS, 'htb', self.interface, '1:20',
-                   parent='1:1',
-                   rate='128kbit',
-                   burst=1024 * 6,
-                   prio=2)
+        try_qd('htb', self.ip.tc,
+               RTM_NEWTCLASS, 'htb', self.interface, '1:1',
+               parent='1:0',
+               rate='256kbit',
+               burst=1024 * 6)
+        try_qd('htb', self.ip.tc,
+               RTM_NEWTCLASS, 'htb', self.interface, 0x10010,
+               parent=0x10001,
+               rate='192kbit',
+               burst=1024 * 6,
+               prio=1)
+        try_qd('htb', self.ip.tc,
+               RTM_NEWTCLASS, 'htb', self.interface, '1:20',
+               parent='1:1',
+               rate='128kbit',
+               burst=1024 * 6,
+               prio=2)
         cls = self.ip.get_classes(index=self.interface)
         assert len(cls) == 3
 
         # 8<-----------------------------------------------------
         # leaves, both string and int handle notation
-        self.ip.tc(RTM_NEWQDISC, 'sfq', self.interface, '10:',
-                   parent='1:10',
-                   perturb=10)
-        self.ip.tc(RTM_NEWQDISC, 'sfq', self.interface, 0x200000,
-                   parent=0x10020,
-                   perturb=10)
+        try_qd('sfq', self.ip.tc,
+               RTM_NEWQDISC, 'sfq', self.interface, '10:',
+               parent='1:10',
+               perturb=10)
+        try_qd('sfq', self.ip.tc,
+               RTM_NEWQDISC, 'sfq', self.interface, 0x200000,
+               parent=0x10020,
+               perturb=10)
         qds = self.get_qdiscs()
         types = set([x.get_attr('TCA_KIND') for x in qds])
         assert types == set(('htb', 'sfq'))
@@ -152,18 +172,20 @@ class TestHtb(BasicTest):
         # numbers, as defined in protocols module. Do not provide
         # here socket.AF_INET and so on.
         #
-        self.ip.tc(RTM_NEWTFILTER, 'u32', self.interface, '0:0',
-                   parent='1:0',
-                   prio=10,
-                   protocol=protocols.ETH_P_IP,
-                   target='1:10',
-                   keys=['0x0006/0x00ff+8', '0x0000/0xffc0+2'])
-        self.ip.tc(RTM_NEWTFILTER, 'u32', self.interface, 0,
-                   parent=0x10000,
-                   prio=10,
-                   protocol=protocols.ETH_P_IP,
-                   target=0x10020,
-                   keys=['0x5/0xf+0', '0x10/0xff+33'])
+        try_qd('u32', self.ip.tc,
+               RTM_NEWTFILTER, 'u32', self.interface, '0:0',
+               parent='1:0',
+               prio=10,
+               protocol=protocols.ETH_P_IP,
+               target='1:10',
+               keys=['0x0006/0x00ff+8', '0x0000/0xffc0+2'])
+        try_qd('u32', self.ip.tc,
+               RTM_NEWTFILTER, 'u32', self.interface, 0,
+               parent=0x10000,
+               prio=10,
+               protocol=protocols.ETH_P_IP,
+               target=0x10020,
+               keys=['0x5/0xf+0', '0x10/0xff+33'])
         # 2 filters + 2 autogenerated
         fls = self.ip.get_filters(index=self.interface)
         assert len(fls) == 4
