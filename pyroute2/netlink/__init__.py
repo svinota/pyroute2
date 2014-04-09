@@ -179,14 +179,26 @@ class NetlinkSocket(socket.socket):
                                socket.SOCK_DGRAM, family)
         global sockets
         self.pid = os.getpid() & 0x3fffff
-        self.modifier = sockets.alloc()
+        self.modifier = 0
         self.groups = 0
         self.marshal = None
 
     def bind(self, groups=0):
         self.groups = groups
-        socket.socket.bind(self, (self.pid + (self.modifier << 22),
-                                  self.groups))
+        # scan all the range till the first available port
+        for i in range(1024):
+            try:
+                self.modifier = sockets.alloc()
+                socket.socket.bind(self,
+                                   (self.pid + (self.modifier << 22),
+                                    self.groups))
+                break
+            except socket.error:
+                # pass occupied sockets
+                pass
+        else:
+            # raise "address in use" -- to be compatible
+            raise socket.error(98, 'Address already in use')
 
     def get(self):
         data = io.BytesIO()
