@@ -1,6 +1,13 @@
 changelog
 =========
 
+* 0.2.8
+    * netlink: allow multiple NetlinkSocket allocation from one process
+    * netlink: fix defragmentation for netlink-over-tcp
+    * iocore: support forked IOCore and IOBroker as a separate process
+    * ipdb: generic callbacks support
+    * ipdb: routing support
+    * rtnl: #30 -- support IFLA_INFO_DATA for bond interfaces
 * 0.2.7
     * ipdb: use separate namespaces for utility functions and other stuff
     * ipdb: generic callbacks (see also IPDB.wait_interface())
