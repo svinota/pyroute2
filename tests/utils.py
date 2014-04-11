@@ -32,6 +32,8 @@ def require_capability(dev):
             # code 95 'operation not supported'
             if e.code == 95:
                 raise SkipTest('missing capability <%s>' % (dev))
+            elif e.code == 1:
+                raise SkipTest('not enough permissions')
             else:
                 raise
         ip.interfaces.test_req.remove()
