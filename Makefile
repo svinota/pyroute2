@@ -69,6 +69,7 @@ docs: clean force-version
 test:
 	@flake8 --exclude=docs .
 	@export PYTHONPATH=`pwd`; cd tests; \
+		[ "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && ulimit -n 2048; \
 		nosetests$$PYVERSION -v ${pdb} \
 			--with-coverage \
 			--cover-package=pyroute2 \
