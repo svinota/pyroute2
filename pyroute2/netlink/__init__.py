@@ -174,28 +174,38 @@ class NetlinkSocket(socket.socket):
     Generic netlink socket
     '''
 
-    def __init__(self, family=NETLINK_GENERIC):
+    def __init__(self, family=NETLINK_GENERIC, port=None):
         socket.socket.__init__(self, socket.AF_NETLINK,
                                socket.SOCK_DGRAM, family)
         global sockets
         self.pid = os.getpid() & 0x3fffff
-        self.modifier = 0
+        self.port = port
+        self.fixed = self.port is not None
         self.groups = 0
         self.marshal = None
 
     def bind(self, groups=0):
         self.groups = groups
-        # scan all the range till the first available port
+        # if we have pre-defined port, use it strictly
+        if self.fixed:
+            socket.socket.bind(self, (self.pid + (self.port << 22),
+                               self.groups))
+            return
+
+        # if we have no pre-defined port, scan all the
+        # range till the first available port
         for i in range(1024):
             try:
-                self.modifier = sockets.alloc()
+                self.port = sockets.alloc()
                 socket.socket.bind(self,
-                                   (self.pid + (self.modifier << 22),
+                                   (self.pid + (self.port << 22),
                                     self.groups))
-                break
-            except socket.error:
-                # pass occupied sockets
-                pass
+                # if we're here, bind() done successfully, just exit
+                return
+            except socket.error as e:
+                # pass occupied sockets, raise other exceptions
+                if e.errno != 98:
+                    raise
         else:
             # raise "address in use" -- to be compatible
             raise socket.error(98, 'Address already in use')
@@ -207,5 +217,7 @@ class NetlinkSocket(socket.socket):
 
     def close(self):
         global sockets
-        sockets.free(self.modifier)
+        assert self.port is not None
+        if not self.fixed:
+            sockets.free(self.port)
         socket.socket.close(self)
