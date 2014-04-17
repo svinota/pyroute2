@@ -192,7 +192,8 @@ def get_fw_parameters(kwarg):
     attrs_map = (
         ('classid', 'TCA_FW_CLASSID'),
         ('act', 'TCA_FW_ACT'),
-        #('police', 'TCA_FW_POLICE'), # Handled in _get_filter_police_parameter
+        # ('police', 'TCA_FW_POLICE'),
+        # Handled in _get_filter_police_parameter
         ('indev', 'TCA_FW_INDEV'),
         ('mask', 'TCA_FW_MASK'),
     )

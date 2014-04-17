@@ -64,7 +64,7 @@ from pyroute2.common import basestring
 from pyroute2.common import map_namespace
 
 
-##  RTnetlink multicast groups
+#  RTnetlink multicast groups
 RTNLGRP_NONE = 0x0
 RTNLGRP_LINK = 0x1
 RTNLGRP_NOTIFY = 0x2
@@ -86,8 +86,8 @@ RTNLGRP_NOP4 = 0x10000
 RTNLGRP_IPV6_PREFIX = 0x20000
 RTNLGRP_IPV6_RULE = 0x40000
 
-## Types of messages
-#RTM_BASE = 16
+# Types of messages
+# RTM_BASE = 16
 RTM_NEWLINK = 16
 RTM_DELLINK = 17
 RTM_GETLINK = 18

@@ -1,6 +1,6 @@
 from pyroute2.common import map_namespace
 
-## ARP protocol HARDWARE identifiers.
+# ARP protocol HARDWARE identifiers.
 ARPHRD_NETROM = 0    # from KA9Q: NET/ROM pseudo
 ARPHRD_ETHER = 1    # Ethernet 10Mbps
 ARPHRD_EETHER = 2    # Experimental Ethernet
@@ -17,7 +17,7 @@ ARPHRD_IEEE1394 = 24    # IEEE 1394 IPv4 - RFC 2734
 ARPHRD_EUI64 = 27    # EUI-64
 ARPHRD_INFINIBAND = 32    # InfiniBand
 
-## Dummy types for non ARP hardware
+# Dummy types for non ARP hardware
 ARPHRD_SLIP = 256
 ARPHRD_CSLIP = 257
 ARPHRD_SLIP6 = 258
@@ -50,12 +50,12 @@ ARPHRD_HIPPI = 780    # High Performance Parallel Interface
 ARPHRD_ASH = 781    # Nexus 64Mbps Ash
 ARPHRD_ECONET = 782    # Acorn Econet
 ARPHRD_IRDA = 783    # Linux-IrDA
-## ARP works differently on different FC media .. so
+# ARP works differently on different FC media .. so
 ARPHRD_FCPP = 784    # Point to point fibrechannel
 ARPHRD_FCAL = 785    # Fibrechannel arbitrated loop
 ARPHRD_FCPL = 786    # Fibrechannel public loop
 ARPHRD_FCFABRIC = 787    # Fibrechannel fabric
-## 787->799 reserved for fibrechannel media types
+# 787->799 reserved for fibrechannel media types
 ARPHRD_IEEE802_TR = 800    # Magic type ident for TR
 ARPHRD_IEEE80211 = 801    # IEEE 802.11
 ARPHRD_IEEE80211_PRISM = 802    # IEEE 802.11 + Prism2 header

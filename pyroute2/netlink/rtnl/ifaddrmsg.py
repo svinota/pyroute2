@@ -2,7 +2,7 @@
 from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import nla
 
-## address attributes
+# address attributes
 #
 # Important comment:
 # IFA_ADDRESS is prefix address, rather than local interface address.

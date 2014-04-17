@@ -21,7 +21,7 @@ class NetlinkError(Exception):
         self.code = code
 
 
-## Netlink message flags values (nlmsghdr.flags)
+# Netlink message flags values (nlmsghdr.flags)
 #
 NLM_F_REQUEST = 1    # It is request message.
 NLM_F_MULTI = 2    # Multipart message, terminated by NLMSG_DONE

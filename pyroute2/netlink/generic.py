@@ -13,7 +13,7 @@ from pyroute2.common import basestring
 _letters = re.compile('[A-Za-z]')
 _fmt_letters = re.compile('[^!><@=][!><@=]')
 
-##  Netlink family
+#  Netlink family
 #
 NETLINK_ROUTE = 0            # Routing/device hook
 NETLINK_UNUSED = 1           # Unused number

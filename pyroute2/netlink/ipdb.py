@@ -32,7 +32,8 @@ from pyroute2.netlink.rtnl.tcmsg import tcmsg
 tc_fields = [tcmsg.nla2name(i[0]) for i in tcmsg.nla_map]
 
 
-_ANCIENT_PLATFORM = platform.dist()[:2] == ('redhat', '6.4')
+_ANCIENT_PLATFORM = (platform.dist()[0] in ('redhat', 'centos') and
+                     platform.dist()[1].startswith('6.'))
 # How long should we wait on EACH commit() checkpoint: for ipaddr,
 # ports etc. That's not total commit() timeout.
 _SYNC_TIMEOUT = 3
@@ -367,8 +368,8 @@ class Transactional(Dotkeys):
         added = self.last() - self
         removed = self - self.last()
         for key in self._linked_sets:
-            added['-{}'.format(key)] = removed[key]
-            added['+{}'.format(key)] = added[key]
+            added['-%s' % (key)] = removed[key]
+            added['+%s' % (key)] = added[key]
             del added[key]
         return added
 
@@ -698,7 +699,7 @@ class Interface(Transactional):
                     request[key] = added[key]
 
             # apply changes only if there is something to apply
-            if any([request[x] is not None for x in request]):
+            if any([request[item] is not None for item in request]):
                 self.nl.link('set', index=self['index'], **request)
 
             # 8<---------------------------------------------
