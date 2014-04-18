@@ -3,7 +3,7 @@ import re
 import pwd
 import platform
 import subprocess
-from pyroute2 import compat
+from pyroute2.netlink.ipdb import compat
 from nose.plugins.skip import SkipTest
 
 

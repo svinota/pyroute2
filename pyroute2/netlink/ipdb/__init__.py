@@ -23,9 +23,9 @@ except ImportError:
 from socket import AF_UNSPEC
 from socket import AF_INET
 from socket import AF_INET6
-from pyroute2 import compat
 from pyroute2.common import Dotkeys
 from pyroute2.netlink import NetlinkError
+from pyroute2.netlink.ipdb import compat
 from pyroute2.netlink.iproute import IPRoute
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg

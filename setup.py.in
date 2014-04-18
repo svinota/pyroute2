@@ -15,6 +15,7 @@ setup(name='pyroute2',
                 'pyroute2.iocore',
                 'pyroute2.iocore.modules',
                 'pyroute2.netlink',
+                'pyroute2.netlink.ipdb',
                 'pyroute2.netlink.rtnl'],
       classifiers=['License :: OSI Approved :: GNU General Public ' +
                    'License v2 or later (GPLv2+)',
