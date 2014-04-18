@@ -605,6 +605,11 @@ class Interface(Transactional):
             transaction = self.last()
             transaction.add_port(port)
         else:
+            # FIXME: do something with it, please
+            if _ANCIENT_PLATFORM and \
+                    'master' not in self.ipdb.interfaces[port]:
+                self.ipdb.interfaces[port].set_item('master',
+                                                    self['index'])
             self['ports'].add(port)
 
     @update
