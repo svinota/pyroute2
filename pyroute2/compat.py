@@ -7,6 +7,24 @@ import os
 import subprocess
 _BONDING_MASTERS = '/sys/class/net/bonding_masters'
 _BONDING_SLAVES = '/sys/class/net/%s/bonding/slaves'
+_BRIDGE_MASTER = '/sys/class/net/%s/brport/bridge/ifindex'
+_BONDING_MASTER = '/sys/class/net/%s/master/ifindex'
+
+
+def get_master(name):
+    f = None
+
+    for i in (_BRIDGE_MASTER, _BONDING_MASTER):
+        try:
+            f = open(i % (name))
+            break
+        except IOError:
+            pass
+
+    if f is not None:
+        master = int(f.read())
+        f.close()
+        return master
 
 
 def create_bridge(name):

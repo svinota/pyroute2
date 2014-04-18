@@ -1282,16 +1282,7 @@ class IPDB(object):
         master = msg.get_attr('IFLA_MASTER') or msg.get_attr('IFLA_LINK')
 
         if (master is None) and _ANCIENT_PLATFORM:
-            # FIXME: do something with it, please
-            # if the master is not reported by netlink, lookup it
-            # through /sys:
-            try:
-                f = open('/sys/class/net/%s/brport/bridge/ifindex' %
-                         (self.interfaces[index]['ifname']), 'r')
-            except IOError:
-                return
-            master = int(f.read())
-            f.close()
+            master = compat.get_master(self.interfaces[index]['ifname'])
             self.interfaces[index].set_item('master', master)
 
         return self.interfaces.get(master, None)
