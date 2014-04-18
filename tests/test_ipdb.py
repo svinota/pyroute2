@@ -12,7 +12,8 @@ from utils import create_link
 from utils import remove_link
 from utils import require_user
 from utils import require_8021q
-from utils import require_capability
+from utils import require_bond
+from utils import require_bridge
 from utils import get_ip_addr
 
 
@@ -224,7 +225,7 @@ class TestExplicit(object):
 
     def _test_ancient_bridge(self):
         require_user('root')
-        require_capability('bridge')
+        require_bridge()
 
         # create ports
         with self.ip.create(kind='dummy', ifname='bala_port0'):
@@ -258,7 +259,7 @@ class TestExplicit(object):
 
     def test_cfail_rollback(self):
         require_user('root')
-        require_capability('bridge')
+        require_bridge()
 
         # create ports
         with self.ip.create(kind='dummy', ifname='bala_port0'):
@@ -303,7 +304,7 @@ class TestExplicit(object):
 
     def test_cfail_commit(self):
         require_user('root')
-        require_capability('bridge')
+        require_bridge()
 
         # create ports
         with self.ip.create(kind='dummy', ifname='bala_port0'):
@@ -413,11 +414,11 @@ class TestExplicit(object):
         assert self.ip.interfaces.bala_port1.if_master is None
 
     def test_create_bridge(self):
-        require_capability('bridge')
+        require_bridge()
         self._create_master('bridge')
 
     def test_create_bond(self):
-        require_capability('bond')
+        require_bond()
         self._create_master('bond')
 
     def test_create_vlan(self):
@@ -494,7 +495,7 @@ class TestImplicit(TestExplicit):
 
     def test_generic_post_callback(self):
         require_user('root')
-        require_capability('bridge')
+        require_bridge()
 
         def cb(ipdb, msg, action):
             if action == 'RTM_NEWLINK' and \

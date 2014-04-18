@@ -3,7 +3,6 @@ import re
 import pwd
 import platform
 import subprocess
-from pyroute2 import IPDB
 from pyroute2 import compat
 from nose.plugins.skip import SkipTest
 
@@ -23,29 +22,18 @@ def require_8021q():
         raise
 
 
-def require_capability(dev):
-    # FIXME
-    # we should not use IPDB here
-    if dev == 'bridge':
-        compat.create_bridge('test_req')
-        if not grep('ip link show', 'test_req'):
-            raise SkipTest('can not create <%s>' % (dev))
-        compat.del_bridge('test_req')
-        return
+def require_bridge():
+    compat.create_bridge('test_req')
+    if not grep('ip link show', 'test_req'):
+        raise SkipTest('can not create <bridge>')
+    compat.del_bridge('test_req')
 
-    with IPDB(fork=True) as ip:
-        try:
-            ip.create(kind=dev, ifname='test_req').commit()
-        except Exception as e:
-            # code 95 'operation not supported'
-            if e.code == 95:
-                raise SkipTest('missing capability <%s>' % (dev))
-            elif e.code == 1:
-                raise SkipTest('not enough permissions')
-            else:
-                raise
-        ip.interfaces.test_req.remove()
-        ip.interfaces.test_req.commit()
+
+def require_bond():
+    compat.create_bond('test_req')
+    if not grep('ip link show', 'test_req'):
+        raise SkipTest('can not create <bond>')
+    compat.del_bond('test_req')
 
 
 def require_user(user):
