@@ -655,14 +655,7 @@ class Interface(Transactional):
             request = IPLinkRequest(self)
             self.ipdb._links_event.clear()
             try:
-                # transparently support ancient platforms
-                if _ANCIENT_PLATFORM and self['kind'] == 'bridge':
-                    compat.create_bridge(self['ifname'])
-                elif _ANCIENT_PLATFORM and self['kind'] == 'bond':
-                    compat.create_bond(self['ifname'])
-                else:
-                    # the normal case for any modern kernel
-                    self.nl.link('add', **request)
+                compat.fix_create_link(self.nl, request)
             except Exception:
                 # on failure, invalidate the interface and detach it
                 # from the parent
@@ -720,25 +713,11 @@ class Interface(Transactional):
 
             for i in removed['ports']:
                 # detach the port
-                if _ANCIENT_PLATFORM and self['kind'] == 'bridge':
-                    compat.del_bridge_port(self['ifname'],
-                                           self.ipdb.interfaces[i].ifname)
-                elif _ANCIENT_PLATFORM and self['kind'] == 'bond':
-                    compat.del_bond_port(self['ifname'],
-                                         self.ipdb.interfaces[i].ifname)
-                else:
-                    self.nl.link('set', index=i, master=0)
+                compat.fix_del_port(self.nl, self, self.ipdb.interfaces[i])
 
             for i in added['ports']:
                 # enslave the port
-                if _ANCIENT_PLATFORM and self['kind'] == 'bridge':
-                    compat.add_bridge_port(self['ifname'],
-                                           self.ipdb.interfaces[i].ifname)
-                elif _ANCIENT_PLATFORM and self['kind'] == 'bond':
-                    compat.add_bond_port(self['ifname'],
-                                         self.ipdb.interfaces[i].ifname)
-                else:
-                    self.nl.link('set', index=i, master=self['index'])
+                compat.fix_add_port(self.nl, self, self.ipdb.interfaces[i])
 
             if removed['ports'] or added['ports']:
                 self.nl.get_links(*(removed['ports'] | added['ports']))
@@ -760,12 +739,7 @@ class Interface(Transactional):
             # Interface removal
             if added.get('removal'):
                 self._load_event.clear()
-                if _ANCIENT_PLATFORM and self['kind'] == 'bridge':
-                    compat.del_bridge(self['ifname'])
-                elif _ANCIENT_PLATFORM and self['kind'] == 'bond':
-                    compat.del_bond(self['ifname'])
-                else:
-                    self.nl.link('delete', index=self['index'])
+                compat.fix_del_link(self.nl, self)
                 self._load_event.wait(_SYNC_TIMEOUT)
                 assert self._load_event.is_set()
                 self.drop()
