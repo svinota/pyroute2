@@ -15,6 +15,16 @@ _ANCIENT_PLATFORM = (platform.dist()[0] in ('redhat', 'centos') and
                      platform.dist()[1].startswith('6.'))
 
 
+def fix_del_master(port):
+    if _ANCIENT_PLATFORM and 'master' in port:
+        port.del_item('master')
+
+
+def fix_add_master(port, master):
+    if _ANCIENT_PLATFORM and 'master' not in port:
+        port.set_item('master', master['index'])
+
+
 def fix_check_link(nl, index):
     if _ANCIENT_PLATFORM:
         # swith mirror off

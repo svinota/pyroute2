@@ -13,7 +13,6 @@ Quick start:
 '''
 import os
 import uuid
-import platform
 import threading
 try:
     from Queue import Empty
@@ -34,8 +33,6 @@ from pyroute2.netlink.rtnl.tcmsg import tcmsg
 tc_fields = [tcmsg.nla2name(i[0]) for i in tcmsg.nla_map]
 
 
-_ANCIENT_PLATFORM = (platform.dist()[0] in ('redhat', 'centos') and
-                     platform.dist()[1].startswith('6.'))
 # How long should we wait on EACH commit() checkpoint: for ipaddr,
 # ports etc. That's not total commit() timeout.
 _SYNC_TIMEOUT = 3
@@ -599,11 +596,7 @@ class Interface(Transactional):
             transaction = self.last()
             transaction.add_port(port)
         else:
-            # FIXME: do something with it, please
-            if _ANCIENT_PLATFORM and \
-                    'master' not in self.ipdb.interfaces[port]:
-                self.ipdb.interfaces[port].set_item('master',
-                                                    self['index'])
+            compat.fix_add_master(self.ipdb.interfaces[port], self)
             self['ports'].add(port)
 
     @update
@@ -615,10 +608,8 @@ class Interface(Transactional):
             if port in transaction['ports']:
                 transaction.del_port(port)
         else:
+            compat.fix_del_master(self.ipdb.interfaces[port])
             # FIXME: do something with it, please
-            if _ANCIENT_PLATFORM and \
-                    'master' in self.ipdb.interfaces[port]:
-                self.ipdb.interfaces[port].del_item('master')
             self['ports'].remove(port)
 
     def reload(self):
