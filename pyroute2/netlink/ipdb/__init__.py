@@ -617,10 +617,15 @@ class Interface(Transactional):
         Reload interface information
         '''
         self._load_event.clear()
-        try:
-            self.nl.get_links(self['index'])
-        except Empty:
-            raise IOError('lost netlink connection')
+        for i in range(3):
+            try:
+                self.nl.get_links(self['index'])
+                break
+            except NetlinkError as e:
+                if e.code != 22:  # Invalid argument, try again
+                    raise
+            except Empty:
+                raise IOError('lost netlink connection')
         self._load_event.wait()
 
     def commit(self, tid=None, transaction=None, rollback=False):
