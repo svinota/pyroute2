@@ -4,7 +4,6 @@ from pyroute2.common import basestring
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.ipdb import clear_fail_bit
 from pyroute2.netlink.ipdb import set_fail_bit
-from pyroute2.netlink.ipdb import set_ancient
 from pyroute2.netlink.ipdb import _FAIL_COMMIT
 from pyroute2.netlink.ipdb import _FAIL_ROLLBACK
 from utils import grep
@@ -222,40 +221,6 @@ class TestExplicit(object):
         self.ip.interfaces.dummyX.down()
         self.ip.interfaces.dummyX.commit()
         assert not (self.ip.interfaces.dummyX.flags & 1)
-
-    def _test_ancient_bridge(self):
-        require_user('root')
-        require_bridge()
-
-        # create ports
-        with self.ip.create(kind='dummy', ifname='bala_port0'):
-            pass
-        with self.ip.create(kind='dummy', ifname='bala_port1'):
-            pass
-        assert 'bala_port0' in self.ip.interfaces
-        assert 'bala_port1' in self.ip.interfaces
-
-        set_ancient(True)
-
-        # create bridge
-        try:
-            with self.ip.create(kind='bridge', ifname='bala') as i:
-                i.add_ip('172.16.0.1/24')
-                i.add_ip('172.16.0.2/24')
-                i.add_port(self.ip.interfaces.bala_port0)
-                i.add_port(self.ip.interfaces.bala_port1)
-        finally:
-            set_ancient(False)
-
-        assert 'bala' in self.ip.interfaces
-        assert 'bala_port0' in self.ip.interfaces
-        assert 'bala_port1' in self.ip.interfaces
-        assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
-        assert ('172.16.0.2', 24) in self.ip.interfaces.bala.ipaddr
-        assert self.ip.interfaces.bala_port0.index in \
-            self.ip.interfaces.bala.ports
-        assert self.ip.interfaces.bala_port1.index in \
-            self.ip.interfaces.bala.ports
 
     def test_cfail_rollback(self):
         require_user('root')

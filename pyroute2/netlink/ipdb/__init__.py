@@ -55,11 +55,6 @@ def set_fail_bit(bit):
     _FAIL_MASK |= bit
 
 
-def set_ancient(flag):
-    global _ANCIENT_PLATFORM
-    _ANCIENT_PLATFORM = flag
-
-
 def get_interface_type(name):
     '''
     Utility function to get interface type
