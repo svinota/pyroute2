@@ -1280,7 +1280,8 @@ class IPDB(object):
     def _lookup_master(self, msg):
         index = msg['index']
         master = msg.get_attr('IFLA_MASTER') or msg.get_attr('IFLA_LINK')
-        if _ANCIENT_PLATFORM:
+
+        if (master is None) and _ANCIENT_PLATFORM:
             # FIXME: do something with it, please
             # if the master is not reported by netlink, lookup it
             # through /sys:
@@ -1292,10 +1293,6 @@ class IPDB(object):
             master = int(f.read())
             f.close()
             self.interfaces[index].set_item('master', master)
-        elif master:
-            master = master
-        else:
-            master = None
 
         return self.interfaces.get(master, None)
 
