@@ -320,7 +320,6 @@ class IOCore(object):
         received messages will be copied (mirrored) into the
         default 0 queue.
         '''
-        self.monitor(operate)
         self._mirror = operate
 
     def monitor(self, operate=True):

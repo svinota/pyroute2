@@ -1110,6 +1110,7 @@ class IPDB(object):
         self.update_routes(routes)
 
         # start monitoring thread
+        self.nl.monitor()
         self.nl.mirror()
         self._mthread = threading.Thread(target=self.serve_forever)
         self._mthread.setDaemon(True)
