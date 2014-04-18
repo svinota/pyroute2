@@ -1252,12 +1252,10 @@ class IPDB(object):
 
     def _lookup_master(self, msg):
         index = msg['index']
-        master = msg.get_attr('IFLA_MASTER') or msg.get_attr('IFLA_LINK')
-
-        if (master is None) and _ANCIENT_PLATFORM:
-            master = compat.get_master(self.interfaces[index]['ifname'])
-            self.interfaces[index].set_item('master', master)
-
+        master = msg.get_attr('IFLA_MASTER') or \
+            msg.get_attr('IFLA_LINK')
+        if (master is None):
+            master = compat.fix_lookup_master(self.interfaces[index])
         return self.interfaces.get(master, None)
 
     def update_slaves(self, links):
@@ -1359,21 +1357,8 @@ class IPDB(object):
                             self.old_names[index] = ifname
                     else:
                         # 8<-------------------------------------
-                        if _ANCIENT_PLATFORM:
-                            # swith mirror off
-                            self.nl.mirror(False)
-                            # check, if the link really exits --
-                            # on some old kernels you can receive
-                            # broadcast RTM_NEWLINK after the link
-                            # was deleted
-                            try:
-                                self.nl.get_links(index)
-                            except NetlinkError as e:
-                                if e.code == 19:  # No such device
-                                    # just drop this message then
-                                    continue
-                            finally:
-                                self.nl.mirror(True)
+                        if compat.fix_check_link(self.nl, index):
+                            continue
                         # 8<-------------------------------------
 
                         # just create new interface object
