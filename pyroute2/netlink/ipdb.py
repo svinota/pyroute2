@@ -1413,17 +1413,17 @@ class IPDB(object):
                 elif msg.get('event', None) == 'RTM_DELLINK':
                     try:
                         self.update_slaves([msg])
+                        if msg['change'] == 0xffffffff:
+                            # FIXME catch exception
+                            ifname = self.interfaces[msg['index']]['ifname']
+                            self.interfaces[msg['index']].sync()
+                            del self.by_name[ifname]
+                            del self.by_index[msg['index']]
+                            del self.old_names[msg['index']]
+                            del self.interfaces[ifname]
+                            del self.interfaces[msg['index']]
                     except KeyError:
                         pass
-                    if msg['change'] == 0xffffffff:
-                        # FIXME catch exception
-                        ifname = self.interfaces[msg['index']]['ifname']
-                        self.interfaces[msg['index']].sync()
-                        del self.by_name[ifname]
-                        del self.by_index[msg['index']]
-                        del self.old_names[msg['index']]
-                        del self.interfaces[ifname]
-                        del self.interfaces[msg['index']]
                 elif msg.get('event', None) == 'RTM_NEWADDR':
                     self.update_addr([msg], 'add')
                 elif msg.get('event', None) == 'RTM_DELADDR':
