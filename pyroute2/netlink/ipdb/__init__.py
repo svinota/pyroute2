@@ -264,8 +264,7 @@ class IPLinkRequest(IPRequest):
             nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_VLAN_ID', value]]}]
             # FIXME: we need to replace, not add
             self['IFLA_LINKINFO']['attrs'].append(nla)
-        else:
-            dict.__setitem__(self, key, value)
+        dict.__setitem__(self, key, value)
 
 
 class Transactional(Dotkeys):
