@@ -5,6 +5,8 @@ and pre-historical platforms like RHEL 6.5
 '''
 import os
 import subprocess
+_BONDING_MASTERS = '/sys/class/net/bonding_masters'
+_BONDING_SLAVES = '/sys/class/net/%s/bonding/slaves'
 
 
 def create_bridge(name):
@@ -15,7 +17,8 @@ def create_bridge(name):
 
 
 def create_bond(name):
-    pass
+    with open(_BONDING_MASTERS, 'w') as f:
+        f.write('+%s' % (name))
 
 
 def del_bridge(name):
@@ -26,7 +29,8 @@ def del_bridge(name):
 
 
 def del_bond(name):
-    pass
+    with open(_BONDING_MASTERS, 'w') as f:
+        f.write('-%s' % (name))
 
 
 def add_bridge_port(master, port):
@@ -44,8 +48,10 @@ def del_bridge_port(master, port):
 
 
 def add_bond_port(master, port):
-    pass
+    with open(_BONDING_SLAVES % (master), 'w') as f:
+        f.write('+%s' % (port))
 
 
 def del_bond_port(master, port):
-    pass
+    with open(_BONDING_SLAVES % (master), 'w') as f:
+        f.write('-%s' % (port))
