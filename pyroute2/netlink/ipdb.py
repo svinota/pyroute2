@@ -1386,20 +1386,21 @@ class IPDB(object):
                             self.old_names[index] = ifname
                     else:
                         # 8<-------------------------------------
-                        # swith mirror off
-                        self.nl.mirror(False)
-                        # check, if the link really exits --
-                        # on some old kernels you can receive
-                        # broadcast RTM_NEWLINK after the link
-                        # was deleted
-                        try:
-                            self.nl.get_links(index)
-                        except NetlinkError as e:
-                            if e.code == 19:  # No such device
-                                # just drop this message then
-                                continue
-                        finally:
-                            self.nl.mirror(True)
+                        if _ANCIENT_PLATFORM:
+                            # swith mirror off
+                            self.nl.mirror(False)
+                            # check, if the link really exits --
+                            # on some old kernels you can receive
+                            # broadcast RTM_NEWLINK after the link
+                            # was deleted
+                            try:
+                                self.nl.get_links(index)
+                            except NetlinkError as e:
+                                if e.code == 19:  # No such device
+                                    # just drop this message then
+                                    continue
+                            finally:
+                                self.nl.mirror(True)
                         # 8<-------------------------------------
 
                         # just create new interface object
