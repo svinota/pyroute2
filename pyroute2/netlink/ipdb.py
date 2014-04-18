@@ -1293,9 +1293,9 @@ class IPDB(object):
         '''
         for msg in links:
             master = self._lookup_master(msg)
+            index = msg['index']
             # there IS a master for the interface
             if master is not None:
-                index = msg['index']
                 if msg['event'] == 'RTM_NEWLINK':
                     # TODO tags: ipdb
                     # The code serves one particular case, when
@@ -1315,6 +1315,12 @@ class IPDB(object):
             # there is NO masters for the interface, clean them if any
             else:
                 device = self.interfaces[msg['index']]
+
+                # clean device from ports
+                for master in self.by_index:
+                    if index in self.interfaces[master]['ports']:
+                        self.interfaces[master].del_port(index,
+                                                         direct=True)
                 master = device.if_master
                 if master is not None:
                     if 'master' in device:
