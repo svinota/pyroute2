@@ -256,6 +256,11 @@ class IPLinkRequest(IPRequest):
             nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_VLAN_ID', value]]}]
             # FIXME: we need to replace, not add
             self['IFLA_LINKINFO']['attrs'].append(nla)
+        elif key == 'bond_mode':
+            if 'IFLA_LINKINFO' not in self:
+                self['IFLA_LINKINFO'] = {'attrs': []}
+            nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_BOND_MODE', value]]}]
+            self['IFLA_LINKINFO']['attrs'].append(nla)
         dict.__setitem__(self, key, value)
 
 
