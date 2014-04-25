@@ -962,7 +962,7 @@ class RoutingTables(dict):
     def __init__(self, ipdb):
         dict.__init__(self)
         self.ipdb = ipdb
-        self.tables = dict()
+        self.tables = {254: {}}
 
     def add(self, spec):
         '''
