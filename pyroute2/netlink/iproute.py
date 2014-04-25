@@ -271,7 +271,7 @@ class IPRoute(Netlink):
         msg['index'] = index
         return self.nlm_request(msg, RTM_GETTCLASS)
 
-    def get_links(self, *argv):
+    def get_links(self, *argv, **kwarg):
         '''
         Get network interfaces.
 
@@ -291,7 +291,7 @@ class IPRoute(Netlink):
         msg_flags = NLM_F_REQUEST | NLM_F_DUMP
         for index in links:
             msg = ifinfmsg()
-            msg['family'] = AF_UNSPEC
+            msg['family'] = kwarg.get('family', AF_UNSPEC)
             if index != 'all':
                 msg['index'] = index
                 msg_flags = NLM_F_REQUEST
