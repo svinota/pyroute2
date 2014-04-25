@@ -1064,7 +1064,6 @@ class IPDB(object):
         # caches
         self.ipaddr = {}
         self.neighbors = {}
-        self.old_names = {}
 
         # update events
         self._links_event = threading.Event()
@@ -1244,7 +1243,6 @@ class IPDB(object):
             i.load(dev)
             self.interfaces[i['ifname']] = \
                 self.by_name[i['ifname']] = i
-            self.old_names[dev['index']] = i['ifname']
 
     def _lookup_master(self, msg):
         index = msg['index']
@@ -1336,7 +1334,7 @@ class IPDB(object):
                 if msg.get('event', None) == 'RTM_NEWLINK':
                     if index in self.interfaces:
                         # get old name
-                        old = self.old_names[index]
+                        old = self.interfaces[index]['ifname']
                         # load interface from the message
                         self.interfaces[index].load(msg)
                         # check for new name
@@ -1345,12 +1343,9 @@ class IPDB(object):
                             # FIXME isolate dict updates
                             del self.interfaces[old]
                             del self.by_name[old]
-                            if index in self.old_names:
-                                del self.old_names[index]
                             ifname = self.interfaces[index]['ifname']
                             self.interfaces[ifname] = self.interfaces[index]
                             self.by_name[ifname] = self.interfaces[index]
-                            self.old_names[index] = ifname
                     else:
                         # 8<-------------------------------------
                         if compat.fix_check_link(self.nl, index):
@@ -1371,7 +1366,6 @@ class IPDB(object):
                             self.interfaces[msg['index']].sync()
                             del self.by_name[ifname]
                             del self.by_index[msg['index']]
-                            del self.old_names[msg['index']]
                             del self.interfaces[ifname]
                             del self.interfaces[msg['index']]
                     except KeyError:
