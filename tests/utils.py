@@ -23,14 +23,20 @@ def require_8021q():
 
 
 def require_bridge():
-    compat.create_bridge('test_req')
+    try:
+        compat.create_bridge('test_req')
+    except OSError:
+        raise SkipTest('can not create <bridge>')
     if not grep('ip link show', 'test_req'):
         raise SkipTest('can not create <bridge>')
     compat.del_bridge('test_req')
 
 
 def require_bond():
-    compat.create_bond('test_req')
+    try:
+        compat.create_bond('test_req')
+    except IOError:
+        raise SkipTest('can not create <bond>')
     if not grep('ip link show', 'test_req'):
         raise SkipTest('can not create <bond>')
     compat.del_bond('test_req')
