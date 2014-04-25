@@ -497,6 +497,7 @@ class Interface(Transactional):
         self._fields.append('change')
         self._fields.append('state')
         self._fields.append('removal')
+        self._fields.append('flicker')
         self._load_event = threading.Event()
         self._linked_sets.add('ipaddr')
         self._linked_sets.add('ports')
@@ -733,13 +734,20 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # Interface removal
-            if added.get('removal'):
+            if added.get('removal') or added.get('flicker'):
                 self._load_event.clear()
+                if added.get('flicker'):
+                    self.ipdb.flicker.add(self['index'])
                 compat.fix_del_link(self.nl, self)
                 self._load_event.wait(_SYNC_TIMEOUT)
                 assert self._load_event.is_set()
+                if added.get('flicker'):
+                    self.ipdb.flicker.remove(self['index'])
+                    self._exists = False
+                    self.set_item('flicker', True)
+                if added.get('removal'):
+                    self._mode = 'invalid'
                 self.drop()
-                self._mode = 'invalid'
                 return
             # 8<---------------------------------------------
 
@@ -846,6 +854,9 @@ class Interface(Transactional):
     def remove(self):
         self['removal'] = True
 
+    def flicker(self):
+        self['flicker'] = True
+
 
 class Route(Transactional):
 
@@ -866,6 +877,7 @@ class Route(Transactional):
     def load(self, msg):
         with self._direct_state:
             self._exists = True
+            self['flicker'] = None
             self.update(msg)
             # merge key
             for (name, value) in msg['attrs']:
@@ -1062,6 +1074,7 @@ class IPDB(object):
         self.by_index = Dotkeys()
 
         # caches
+        self.flicker = set()
         self.ipaddr = {}
         self.neighbors = {}
 
@@ -1071,8 +1084,10 @@ class IPDB(object):
 
         # load information on startup
         links = self.nl.get_links()
-        self.update_links(links)
-        self.update_slaves(links)
+        for link in links:
+            self.device_put(link, skip_slaves=True)
+        for link in links:
+            self.update_slaves(link)
         self.update_addr(self.nl.get_addr())
         routes = self.nl.get_routes()
         self.update_routes(routes)
@@ -1188,15 +1203,91 @@ class IPDB(object):
 
         FIXME: this should be documented.
         '''
-        i = self.iclass(ipdb=self, mode='snapshot')
-        i['kind'] = kind
-        i['index'] = kwarg.get('index', 0)
-        i['ifname'] = ifname
-        self.by_name[i['ifname']] = self.interfaces[i['ifname']] = i
-        i.update(kwarg)
-        i._mode = self.mode
-        i.begin()
-        return i
+        # check for existing interface
+        if ((ifname in self.interfaces) and
+                (self.interfaces[ifname]['flicker'])):
+            device = self.interfaces[ifname]
+        else:
+            device = \
+                self.by_name[ifname] = \
+                self.interfaces[ifname] = \
+                self.iclass(ipdb=self, mode='snapshot')
+            device['kind'] = kind
+            device['index'] = kwarg.get('index', 0)
+            device['ifname'] = ifname
+            device.update(kwarg)
+            device._mode = self.mode
+        device.begin()
+        return device
+
+    def device_del(self, msg):
+        # check for flicker devices
+        if (msg.get('index', None) in self.flicker):
+            return
+        try:
+            self.update_slaves(msg)
+            if msg['change'] == 0xffffffff:
+                # FIXME catch exception
+                ifname = self.interfaces[msg['index']]['ifname']
+                self.interfaces[msg['index']].sync()
+                del self.by_name[ifname]
+                del self.by_index[msg['index']]
+                del self.interfaces[ifname]
+                del self.interfaces[msg['index']]
+                del self.ipaddr[msg['index']]
+        except KeyError:
+            pass
+
+    def device_put(self, msg, skip_slaves=False):
+        # check, if a record exists
+        index = msg.get('index', None)
+        ifname = msg.get_attr('IFLA_IFNAME', None)
+        # scenario #1: no matches for both: new interface
+        # scenario #2: ifname exists, index doesn't: index changed
+        # scenario #3: index exists, ifname doesn't: name changed
+        # scenario #4: both exist: assume simple update and
+        # an optional name change
+        if ((index not in self.interfaces) and
+                (ifname not in self.interfaces)):
+            # scenario #1, new interface
+            if compat.fix_check_link(self.nl, index):
+                return
+            device = \
+                self.by_index[index] = \
+                self.interfaces[index] = \
+                self.interfaces[ifname] = \
+                self.by_name[ifname] = self.iclass(ipdb=self)
+        elif ((index not in self.interfaces) and
+                (ifname in self.interfaces)):
+            # scenario #2, index change
+            old_index = self.interfaces[ifname]['index']
+            device = \
+                self.interfaces[index] = \
+                self.by_index[index] = self.interfaces[ifname]
+            if old_index in self.ipaddr:
+                self.ipaddr[index] = self.ipaddr[old_index]
+                del self.interfaces[old_index]
+                del self.by_index[old_index]
+                del self.ipaddr[old_index]
+        else:
+            # scenario #3, interface rename
+            # scenario #4, assume rename
+            old_name = self.interfaces[index]['ifname']
+            if old_name != ifname:
+                # unlink old name
+                del self.interfaces[old_name]
+                del self.by_name[old_name]
+            device = \
+                self.interfaces[ifname] = \
+                self.by_name[ifname] = self.interfaces[index]
+
+        if index not in self.ipaddr:
+            # for interfaces, created by IPDB
+            self.ipaddr[index] = LinkedSet()
+
+        device.load(msg)
+        if not skip_slaves:
+            self.update_slaves(msg)
 
     def detach(self, item):
         if item in self.interfaces:
@@ -1228,22 +1319,6 @@ class IPDB(object):
         for msg in routes:
             self.routes.load(msg)
 
-    def update_links(self, links):
-        '''
-        Rebuild links index from list of RTM_NEWLINK messages.
-        '''
-        for dev in links:
-            if dev['index'] not in self.ipaddr:
-                self.ipaddr[dev['index']] = LinkedSet()
-            i = \
-                self.by_index[dev['index']] = \
-                self.interfaces[dev['index']] = \
-                self.interfaces.get(dev.get_attr('IFLA_IFNAME'), None) or \
-                self.iclass(ipdb=self)
-            i.load(dev)
-            self.interfaces[i['ifname']] = \
-                self.by_name[i['ifname']] = i
-
     def _lookup_master(self, msg):
         index = msg['index']
         master = msg.get_attr('IFLA_MASTER') or \
@@ -1252,50 +1327,49 @@ class IPDB(object):
             master = compat.fix_lookup_master(self.interfaces[index])
         return self.interfaces.get(master, None)
 
-    def update_slaves(self, links):
+    def update_slaves(self, msg):
         '''
         Update slaves list -- only after update IPDB!
         '''
-        for msg in links:
-            master = self._lookup_master(msg)
-            index = msg['index']
-            # there IS a master for the interface
-            if master is not None:
-                if msg['event'] == 'RTM_NEWLINK':
-                    # TODO tags: ipdb
-                    # The code serves one particular case, when
-                    # an enslaved interface is set to belong to
-                    # another master. In this case there will be
-                    # no 'RTM_DELLINK', only 'RTM_NEWLINK', and
-                    # we can end up in a broken state, when two
-                    # masters refers to the same slave
-                    for device in self.by_index:
-                        if index in self.interfaces[device]['ports']:
-                            self.interfaces[device].del_port(index,
-                                                             direct=True)
-                    master.add_port(index, direct=True)
-                elif msg['event'] == 'RTM_DELLINK':
-                    if index in master['ports']:
-                        master.del_port(index, direct=True)
-            # there is NO masters for the interface, clean them if any
-            else:
-                device = self.interfaces[msg['index']]
+        master = self._lookup_master(msg)
+        index = msg['index']
+        # there IS a master for the interface
+        if master is not None:
+            if msg['event'] == 'RTM_NEWLINK':
+                # TODO tags: ipdb
+                # The code serves one particular case, when
+                # an enslaved interface is set to belong to
+                # another master. In this case there will be
+                # no 'RTM_DELLINK', only 'RTM_NEWLINK', and
+                # we can end up in a broken state, when two
+                # masters refers to the same slave
+                for device in self.by_index:
+                    if index in self.interfaces[device]['ports']:
+                        self.interfaces[device].del_port(index,
+                                                         direct=True)
+                master.add_port(index, direct=True)
+            elif msg['event'] == 'RTM_DELLINK':
+                if index in master['ports']:
+                    master.del_port(index, direct=True)
+        # there is NO masters for the interface, clean them if any
+        else:
+            device = self.interfaces[msg['index']]
 
-                # clean device from ports
-                for master in self.by_index:
-                    if index in self.interfaces[master]['ports']:
-                        self.interfaces[master].del_port(index,
-                                                         direct=True)
-                master = device.if_master
-                if master is not None:
-                    if 'master' in device:
-                        device.del_item('master')
-                    if 'link' in device:
-                        device.del_item('link')
-                    if (master in self.interfaces) and \
-                            (msg['index'] in self.interfaces[master].ports):
-                        self.interfaces[master].del_port(msg['index'],
-                                                         direct=True)
+            # clean device from ports
+            for master in self.by_index:
+                if index in self.interfaces[master]['ports']:
+                    self.interfaces[master].del_port(index,
+                                                     direct=True)
+            master = device.if_master
+            if master is not None:
+                if 'master' in device:
+                    device.del_item('master')
+                if 'link' in device:
+                    device.del_item('link')
+                if (master in self.interfaces) and \
+                        (msg['index'] in self.interfaces[master].ports):
+                    self.interfaces[master].del_port(msg['index'],
+                                                     direct=True)
 
     def update_addr(self, addrs, action='add'):
         '''
@@ -1330,46 +1404,11 @@ class IPDB(object):
                     except:
                         pass
 
-                index = msg.get('index', None)
                 if msg.get('event', None) == 'RTM_NEWLINK':
-                    if index in self.interfaces:
-                        # get old name
-                        old = self.interfaces[index]['ifname']
-                        # load interface from the message
-                        self.interfaces[index].load(msg)
-                        # check for new name
-                        if self.interfaces[index]['ifname'] != old:
-                            # FIXME catch exception
-                            # FIXME isolate dict updates
-                            del self.interfaces[old]
-                            del self.by_name[old]
-                            ifname = self.interfaces[index]['ifname']
-                            self.interfaces[ifname] = self.interfaces[index]
-                            self.by_name[ifname] = self.interfaces[index]
-                    else:
-                        # 8<-------------------------------------
-                        if compat.fix_check_link(self.nl, index):
-                            continue
-                        # 8<-------------------------------------
-
-                        # just create new interface object
-                        self.update_links([msg])
-                    self.update_slaves([msg])
-                    # what about removal?
+                    self.device_put(msg)
                     self._links_event.set()
                 elif msg.get('event', None) == 'RTM_DELLINK':
-                    try:
-                        self.update_slaves([msg])
-                        if msg['change'] == 0xffffffff:
-                            # FIXME catch exception
-                            ifname = self.interfaces[msg['index']]['ifname']
-                            self.interfaces[msg['index']].sync()
-                            del self.by_name[ifname]
-                            del self.by_index[msg['index']]
-                            del self.interfaces[ifname]
-                            del self.interfaces[msg['index']]
-                    except KeyError:
-                        pass
+                    self.device_del(msg)
                 elif msg.get('event', None) == 'RTM_NEWADDR':
                     self.update_addr([msg], 'add')
                 elif msg.get('event', None) == 'RTM_DELADDR':
