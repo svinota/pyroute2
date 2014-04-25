@@ -376,7 +376,10 @@ class nlmsg_base(dict):
         '''
         Return the first attr by name or None
         '''
-        attrs = self.get_attrs(attr, fmt)
+        try:
+            attrs = self.get_attrs(attr, fmt)
+        except KeyError:
+            return default
         if attrs:
             return attrs[0]
         else:
