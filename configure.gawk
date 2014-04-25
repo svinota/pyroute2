@@ -2,7 +2,7 @@ BEGIN {
     conf["VERSION"] = version
     conf["RELEASE"] = release
     conf["alt", "PACKAGER"] = "Peter V. Saveliev <peet@altlinux.org>"
-    conf["rh", "PACKAGER"] = "Peter V. Saveliev <peet@redhat.com>"
+    conf["rh", "PACKAGER"] = "Peter V. Saveliev <peter@svinota.eu>"
 }
 
 {
