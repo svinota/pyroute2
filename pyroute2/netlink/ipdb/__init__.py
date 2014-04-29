@@ -1,14 +1,29 @@
 '''
-Experimental IP database module. Please, do not use it
-unless you understand what are you doing.
+IPDB module
+===========
 
-Quick start:
+Experimental IP database module. Provides high-level interface
+to the IPRoute functionality.
+
+Basically, IPDB is a transactional database, containing records,
+representing network stack objects. Any change in the database
+is not reflected immediately in OS (unless you ask for that
+explicitly), but waits until commit() is called.
+
+Quick start::
+
     from pyroute2 import IPDB
+    # several IPDB instances are supported within on process
     ip = IPDB()
-    ip.interfaces['eth0']['address'] = '00:11:22:33:44:55'
-    ip.interfaces['eth0']['ifname'] = 'bala'
-    ip.interfaces['eth0']['txqlen'] = 2000
-    ip.interfaces['eth0'].commit()
+
+    # commit is called automatically upon the exit from `with`
+    # statement
+    with ip.interfaces.eth0 as i:
+        i.address = '00:11:22:33:44:55'
+        i.ifname = 'bala'
+        i.txqlen = 2000
+
+    # basic routing support
     ip.routes.add({'dst': 'default', 'gateway': '10.0.0.1'}).commit()
 '''
 import os
@@ -206,6 +221,7 @@ def update(f):
         if tid:
             # close the transaction for 'direct' type
             self.commit(tid)
+    decorated.__doc__ = f.__doc__
     return decorated
 
 
@@ -294,8 +310,8 @@ class Transactional(Dotkeys):
         '''
         Get a snapshot of the object. Can be of two
         types:
-            * detached=True -- (default) "true" snapshot
-            * detached=False -- keep ip addr set updated from OS
+        * detached=True -- (default) "true" snapshot
+        * detached=False -- keep ip addr set updated from OS
 
         Please note, that "updated" doesn't mean "in sync".
         The reason behind this logic is that snapshots can be
@@ -451,17 +467,17 @@ class Interface(Transactional):
     '''
     Objects of this class represent network interface and
     all related objects:
-        * addresses
-        * (todo) neighbors
-        * (todo) routes
+    * addresses
+    * (todo) neighbors
+    * (todo) routes
 
     Interfaces provide transactional model and can act as
     context managers. Any attribute change implicitly
     starts a transaction. The transaction can be managed
     with three methods:
-        * review() -- review changes
-        * rollback() -- drop all the changes
-        * commit() -- try to apply changes
+    * review() -- review changes
+    * rollback() -- drop all the changes
+    * commit() -- try to apply changes
 
     If anything will go wrong during transaction commit,
     it will be rolled back authomatically and an
@@ -470,14 +486,9 @@ class Interface(Transactional):
     '''
     def __init__(self, ipdb, mode=None):
         '''
-        One can use interface objects standalone as
-        well as in connection with ipdb object. Standalone
-        usage, though, is discouraged.
-
         Parameters:
-            * nl   -- IPRoute() reference
-            * ipdb -- ipdb() reference
-            * mode -- transaction mode
+        * ipdb -- ipdb() reference
+        * mode -- transaction mode
         '''
         Transactional.__init__(self, ipdb, mode)
         self.cleanup = ('header',
@@ -568,6 +579,9 @@ class Interface(Transactional):
 
     @update
     def add_ip(self, direct, ip, mask=None):
+        '''
+        Add IP address to an interface
+        '''
         # split mask
         if mask is None:
             ip, mask = ip.split('/')
@@ -584,6 +598,9 @@ class Interface(Transactional):
 
     @update
     def del_ip(self, direct, ip, mask=None):
+        '''
+        Delete IP address from an interface
+        '''
         if mask is None:
             ip, mask = ip.split('/')
             mask = int(mask, 0)
@@ -596,6 +613,9 @@ class Interface(Transactional):
 
     @update
     def add_port(self, direct, port):
+        '''
+        Add a slave port to a bridge or bonding
+        '''
         if isinstance(port, Interface):
             port = port['index']
         if not direct:
@@ -607,6 +627,9 @@ class Interface(Transactional):
 
     @update
     def del_port(self, direct, port):
+        '''
+        Remove a slave port from a bridge or bonding
+        '''
         if isinstance(port, Interface):
             port = port['index']
         if not direct:
@@ -837,21 +860,20 @@ class Interface(Transactional):
 
     def up(self):
         '''
-        Shortcut: change interface state to 'up'.
-
-        Requres commit.
+        Shortcut: change the interface state to 'up'.
         '''
         self['flags'] |= 1
 
     def down(self):
         '''
-        Shortcut: change interface state to 'down'.
-
-        Requires commit.
+        Shortcut: change the interface state to 'down'.
         '''
         self['flags'] &= ~(self['flags'] & 1)
 
     def remove(self):
+        '''
+        Shortcut: marks the interface for removal
+        '''
         self['removal'] = True
 
     def flicker(self):
@@ -1328,9 +1350,8 @@ class IPDB(object):
         return self.interfaces.get(master, None)
 
     def update_slaves(self, msg):
-        '''
-        Update slaves list -- only after update IPDB!
-        '''
+        # Update slaves list -- only after update IPDB!
+
         master = self._lookup_master(msg)
         index = msg['index']
         # there IS a master for the interface
@@ -1372,9 +1393,8 @@ class IPDB(object):
                                                      direct=True)
 
     def update_addr(self, addrs, action='add'):
-        '''
-        Update interface list of an interface.
-        '''
+        # Update address list of an interface.
+
         for addr in addrs:
             nla = get_addr_nla(addr)
             if nla is not None:
@@ -1389,6 +1409,9 @@ class IPDB(object):
         Main monitoring cycle. It gets messages from the
         default iproute queue and updates objects in the
         database.
+
+        .. note::
+            Should not be called manually.
         '''
         while not self._stop:
             try:

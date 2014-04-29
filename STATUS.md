@@ -71,4 +71,4 @@ testing
  * (+) read/write access: interfaces and addresses changes
  * (+) coverage
 
-Coverage status: http://peet.spb.ru/pyroute2.coverage/
+Coverage status: http://pyroute2.org/coverage/

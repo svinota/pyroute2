@@ -29,6 +29,7 @@ Modules autodocs
     :maxdepth: 2
 
     iproute
+    ipdb
 
 Indices and tables
 ==================
