@@ -502,6 +502,7 @@ class Interface(Transactional):
         self.ingress = None
         self.egress = None
         self._exists = False
+        self._flicker = False
         self._fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
         self._fields.append('flags')
         self._fields.append('mask')
@@ -544,6 +545,7 @@ class Interface(Transactional):
         '''
         with self._direct_state:
             self._exists = True
+            self._flicker = False
             self.update(dev)
             for (name, value) in dev['attrs']:
                 norm = ifinfmsg.nla2name(name)
@@ -767,7 +769,7 @@ class Interface(Transactional):
                 if added.get('flicker'):
                     self.ipdb.flicker.remove(self['index'])
                     self._exists = False
-                    self.set_item('flicker', True)
+                    self._flicker = True
                 if added.get('removal'):
                     self._mode = 'invalid'
                 self.drop()
@@ -899,7 +901,6 @@ class Route(Transactional):
     def load(self, msg):
         with self._direct_state:
             self._exists = True
-            self['flicker'] = None
             self.update(msg)
             # merge key
             for (name, value) in msg['attrs']:
@@ -1227,7 +1228,7 @@ class IPDB(object):
         '''
         # check for existing interface
         if ((ifname in self.interfaces) and
-                (self.interfaces[ifname]['flicker'])):
+                (self.interfaces[ifname]._flicker)):
             device = self.interfaces[ifname]
         else:
             device = \
@@ -1245,6 +1246,7 @@ class IPDB(object):
     def device_del(self, msg):
         # check for flicker devices
         if (msg.get('index', None) in self.flicker):
+            self.interfaces[msg['index']].sync()
             return
         try:
             self.update_slaves(msg)
