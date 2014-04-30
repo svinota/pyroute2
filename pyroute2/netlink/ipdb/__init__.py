@@ -657,7 +657,7 @@ class Interface(Transactional):
                     raise
             except Empty:
                 raise IOError('lost netlink connection')
-        self._load_event.wait()
+        self._load_event.wait(_SYNC_TIMEOUT)
 
     def commit(self, tid=None, transaction=None, rollback=False):
         '''
@@ -698,7 +698,7 @@ class Interface(Transactional):
             # all is OK till now, so continue
             # we do not know what to load, so load everything
             self.nl.get_links()
-            self.ipdb._links_event.wait()
+            self.ipdb._links_event.wait(_SYNC_TIMEOUT)
 
         # now we have our index and IP set and all other stuff
         snapshot = self.pick()
