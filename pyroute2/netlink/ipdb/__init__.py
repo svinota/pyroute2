@@ -685,7 +685,22 @@ class Interface(Transactional):
             request = IPLinkRequest(self)
             self.ipdb._links_event.clear()
             try:
-                compat.fix_create_link(self.nl, request)
+                # 8<----------------------------------------------------
+                # ACHTUNG: hack for old platforms
+                if request.get('address', None) == '00:00:00:00:00:00':
+                    del request['address']
+                    del request['broadcast']
+                # 8<----------------------------------------------------
+                try:
+                    compat.fix_create_link(self.nl, request)
+                except NetlinkError as x:
+                    # Operation not supported
+                    if x.code == 95 and request.get('index', 0) != 0:
+                        # ACHTUNG: hack for old platforms
+                        request['index'] = 0
+                        compat.fix_create_link(self.nl, request)
+                    else:
+                        raise
             except Exception:
                 # on failure, invalidate the interface and detach it
                 # from the parent
