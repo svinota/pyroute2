@@ -186,6 +186,7 @@ class State(object):
 def update(f):
     def decorated(self, *argv, **kwarg):
         # obtain update lock
+        ret = None
         tid = None
         direct = True
         with self._write_lock:
@@ -213,7 +214,7 @@ def update(f):
                 else:
                     raise TypeError('transaction mode not supported')
                 # now that the transaction _is_ open
-            f(self, direct, *argv, **kwarg)
+            ret = f(self, direct, *argv, **kwarg)
 
             if dcall:
                 self._direct_state.release()
@@ -221,6 +222,8 @@ def update(f):
         if tid:
             # close the transaction for 'direct' type
             self.commit(tid)
+
+        return ret
     decorated.__doc__ = f.__doc__
     return decorated
 
@@ -591,12 +594,13 @@ class Interface(Transactional):
         # FIXME: make it more generic
         # skip IPv6 link-local addresses
         if ip[:4] == 'fe80' and mask == 64:
-            return
+            return self
         if not direct:
             transaction = self.last()
             transaction.add_ip(ip, mask)
         else:
             self['ipaddr'].add((ip, mask))
+        return self
 
     @update
     def del_ip(self, direct, ip, mask=None):
@@ -612,6 +616,7 @@ class Interface(Transactional):
                 transaction.del_ip(ip, mask)
         else:
             self['ipaddr'].remove((ip, mask))
+        return self
 
     @update
     def add_port(self, direct, port):
@@ -626,6 +631,7 @@ class Interface(Transactional):
         else:
             compat.fix_add_master(self.ipdb.interfaces[port], self)
             self['ports'].add(port)
+        return self
 
     @update
     def del_port(self, direct, port):
@@ -642,6 +648,7 @@ class Interface(Transactional):
             compat.fix_del_master(self.ipdb.interfaces[port])
             # FIXME: do something with it, please
             self['ports'].remove(port)
+        return self
 
     def reload(self):
         '''
@@ -658,6 +665,7 @@ class Interface(Transactional):
             except Empty:
                 raise IOError('lost netlink connection')
         self._load_event.wait(_SYNC_TIMEOUT)
+        return self
 
     def commit(self, tid=None, transaction=None, rollback=False):
         '''
@@ -773,7 +781,7 @@ class Interface(Transactional):
                 if added.get('removal'):
                     self._mode = 'invalid'
                 self.drop()
-                return
+                return self
             # 8<---------------------------------------------
 
             if rollback:
@@ -819,7 +827,7 @@ class Interface(Transactional):
                 ret = self.commit(transaction=snapshot, rollback=True)
                 # if some error was returned by the internal
                 # closure, substitute the initial one
-                if ret is not None:
+                if isinstance(ret, Exception):
                     error = ret
                 else:
                     error = e
@@ -860,23 +868,28 @@ class Interface(Transactional):
             error.transaction = transaction
             raise error
 
+        return self
+
     def up(self):
         '''
         Shortcut: change the interface state to 'up'.
         '''
         self['flags'] |= 1
+        return self
 
     def down(self):
         '''
         Shortcut: change the interface state to 'down'.
         '''
         self['flags'] &= ~(self['flags'] & 1)
+        return self
 
     def remove(self):
         '''
         Mark the interface for removal
         '''
         self['removal'] = True
+        return self
 
     def shadow(self):
         '''
@@ -889,6 +902,7 @@ class Interface(Transactional):
         shadow state", in this case re-creation will fail.
         '''
         self['flicker'] = True
+        return self
 
 
 class Route(Transactional):
@@ -934,6 +948,7 @@ class Route(Transactional):
     def reload(self):
         # do NOT call get_routes() here, it can cause race condition
         self._load_event.wait()
+        return self
 
     def commit(self, tid=None, transaction=None, rollback=False):
         self._load_event.clear()
@@ -967,7 +982,7 @@ class Route(Transactional):
         except Exception as e:
             if not rollback:
                 ret = self.commit(transaction=snapshot, rollback=True)
-                if ret is not None:
+                if isinstance(ret, Exception):
                     error = ret
                 else:
                     error = e
@@ -985,8 +1000,11 @@ class Route(Transactional):
             error.transaction = transaction
             raise error
 
+        return self
+
     def remove(self):
         self['removal'] = True
+        return self
 
 
 class RoutingTables(dict):

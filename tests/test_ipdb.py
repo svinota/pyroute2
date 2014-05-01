@@ -439,6 +439,19 @@ class TestFork(TestExplicit):
 class TestImplicit(TestExplicit):
     mode = 'implicit'
 
+    def test_chain(self):
+        require_user('root')
+        i = self.ip.create(ifname='bala', kind='dummy')
+        i.commit().up().commit()
+        assert self.ip.interfaces.bala.flags & 1
+
+        i.add_ip('172.16.0.1/24').down().commit()
+        assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
+        assert not (self.ip.interfaces.bala.flags & 1)
+
+        i.remove().commit()
+        assert 'bala' not in self.ip.interfaces
+
     def test_generic_pre_callback(self):
         require_user('root')
 
