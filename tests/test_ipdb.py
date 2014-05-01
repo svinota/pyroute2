@@ -206,6 +206,31 @@ class TestExplicit(object):
         assert '172.16.0.0/24' not in self.ip.routes
         assert not grep('ip ro', pattern='172.16.0.0/24')
 
+    def _test_shadow(self, kind):
+        a = self.ip.create(ifname='bala', kind=kind).commit()
+        if a._mode == 'explicit':
+            a.begin()
+        a.shadow().commit()
+        assert 'bala' in self.ip.interfaces
+        assert not grep('ip link', pattern='bala')
+        b = self.ip.create(ifname='bala', kind=kind).commit()
+        assert a == b
+        assert grep('ip link', pattern='bala')
+
+    def test_shadow_bond(self):
+        require_user('root')
+        require_bond()
+        self._test_shadow('bond')
+
+    def test_shadow_bridge(self):
+        require_user('root')
+        require_bridge()
+        self._test_shadow('bridge')
+
+    def test_shadow_dummy(self):
+        require_user('root')
+        self._test_shadow('dummy')
+
     def test_updown(self):
         require_user('root')
         assert not (self.ip.interfaces.dummyX.flags & 1)
