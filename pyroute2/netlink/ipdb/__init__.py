@@ -874,11 +874,20 @@ class Interface(Transactional):
 
     def remove(self):
         '''
-        Shortcut: marks the interface for removal
+        Mark the interface for removal
         '''
         self['removal'] = True
 
-    def flicker(self):
+    def shadow(self):
+        '''
+        Remove the interface from the OS, but leave it in the
+        database. When one will try to re-create interface with
+        the same name, all the old saved attributes will apply
+        to the new interface, incl. MAC-address and even the
+        interface index. Please be aware, that the interface
+        index can be reused by OS while the interface is "in the
+        shadow state", in this case re-creation will fail.
+        '''
         self['flicker'] = True
 
 
