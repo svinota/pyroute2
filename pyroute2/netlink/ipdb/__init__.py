@@ -435,6 +435,14 @@ class Transactional(Dotkeys):
         else:
             Dotkeys.__delitem__(self, key)
 
+    def option(self, key, value):
+        self[key] = value
+        return self
+
+    def unset(self, key):
+        del self[key]
+        return self
+
     def set_item(self, key, value):
         with self._direct_state:
             self[key] = value
