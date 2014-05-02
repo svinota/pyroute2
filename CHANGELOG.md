@@ -1,6 +1,13 @@
 changelog
 =========
 
+* 0.2.9
+    * ipdb: support bridges and bonding interfaces on RHEL
+    * ipdb: "shadow" interfaces (still in alpha state)
+    * ipdb: minor fixes on routing and compat issues
+    * ipdb: as a separate package (sub-module)
+    * docs: include ipdb autodocs
+    * rpc: include in setup.py
 * 0.2.8
     * netlink: allow multiple NetlinkSocket allocation from one process
     * netlink: fix defragmentation for netlink-over-tcp
