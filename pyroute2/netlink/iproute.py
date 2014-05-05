@@ -343,12 +343,12 @@ class IPRoute(Netlink):
         '''
 
         msg_flags = NLM_F_DUMP | NLM_F_REQUEST
-        kwarg['table'] = kwarg.get('table', None)
         msg = rtmsg()
         msg['family'] = family
         # you can specify the table here, but the kernel
         # will ignore this setting
-        msg['table'] = kwarg['table'] or 0
+        table = kwarg.get('table', 0)
+        msg['table'] = table if table <= 255 else 252
 
         # get a particular route
         if kwarg.get('dst', None) is not None:
@@ -364,8 +364,8 @@ class IPRoute(Netlink):
 
         routes = self.nlm_request(msg, RTM_GETROUTE, msg_flags)
         return [x for x in routes
-                if x.get_attr('RTA_TABLE') == kwarg['table'] or
-                kwarg['table'] is None]
+                if x.get_attr('RTA_TABLE') == table or
+                kwarg.get('table', None) is None]
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
@@ -752,7 +752,8 @@ class IPRoute(Netlink):
         # table is mandatory; by default == 254
         # if table is not defined in kwarg, save it there
         # also for nla_attr:
-        msg['table'] = kwarg.get('table', 254)
+        table = kwarg.get('table', 254)
+        msg['table'] = table if table <= 255 else 252
         msg['family'] = kwarg.get('family', AF_INET)
         msg['proto'] = rtprotos[rtproto]
         msg['type'] = rtypes[rtype]
