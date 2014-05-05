@@ -1161,6 +1161,12 @@ class IPDB(object):
         self._links_event = threading.Event()
         self.exclusive = threading.RLock()
 
+        # we have to move it here 'cause of stupid
+        # python bug in RHEL6.5, that is yet to be
+        # investigated
+        self.nl.monitor()
+        self.nl.mirror()
+
         # load information on startup
         links = self.nl.get_links()
         for link in links:
@@ -1172,8 +1178,6 @@ class IPDB(object):
         self.update_routes(routes)
 
         # start monitoring thread
-        self.nl.monitor()
-        self.nl.mirror()
         self._mthread = threading.Thread(target=self.serve_forever)
         self._mthread.setDaemon(True)
         self._mthread.start()
