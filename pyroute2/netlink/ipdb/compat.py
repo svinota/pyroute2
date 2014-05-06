@@ -4,6 +4,7 @@ provides compatibility functions to run IPDB on ancient
 and pre-historical platforms like RHEL 6.5
 '''
 import os
+import time
 import platform
 import subprocess
 from pyroute2.netlink import NetlinkError
@@ -11,6 +12,7 @@ _BONDING_MASTERS = '/sys/class/net/bonding_masters'
 _BONDING_SLAVES = '/sys/class/net/%s/bonding/slaves'
 _BRIDGE_MASTER = '/sys/class/net/%s/brport/bridge/ifindex'
 _BONDING_MASTER = '/sys/class/net/%s/master/ifindex'
+_ANCIENT_BARRIER = 0.3
 _ANCIENT_PLATFORM = (platform.dist()[0] in ('redhat', 'centos') and
                      platform.dist()[1].startswith('6.'))
 
@@ -77,8 +79,10 @@ def fix_lookup_master(interface):
 def fix_del_link(nl, link):
     if link['kind'] == 'bridge':
         del_bridge(link['ifname'])
+        time.sleep(_ANCIENT_BARRIER)
     elif link['kind'] == 'bond':
         del_bond(link['ifname'])
+        time.sleep(_ANCIENT_BARRIER)
     else:
         nl.link('delete', index=link['index'])
 
@@ -108,8 +112,10 @@ def fix_create_link(nl, link):
     # transparently support ancient platforms
     if link['kind'] == 'bridge':
         create_bridge(link['ifname'])
+        time.sleep(_ANCIENT_BARRIER)
     elif link['kind'] == 'bond':
         create_bond(link['ifname'])
+        time.sleep(_ANCIENT_BARRIER)
     else:
         # the normal case for any modern kernel
         nl.link('add', **link)
