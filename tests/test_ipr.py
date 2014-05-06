@@ -142,7 +142,7 @@ class TestMisc(object):
     def test_nla_compare(self):
         lvalue = self.ip.get_links()
         rvalue = self.ip.get_links()
-        assert not lvalue is rvalue
+        assert lvalue is not rvalue
         assert lvalue == rvalue
         assert lvalue != 42
 
