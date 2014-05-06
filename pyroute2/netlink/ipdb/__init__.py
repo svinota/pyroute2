@@ -1460,8 +1460,8 @@ class IPDB(object):
         for addr in addrs:
             nla = get_addr_nla(addr)
             if nla is not None:
-                method = getattr(self.ipaddr[addr['index']], action)
                 try:
+                    method = getattr(self.ipaddr[addr['index']], action)
                     method(key=(nla, addr['prefixlen']), raw=addr)
                 except:
                     pass
