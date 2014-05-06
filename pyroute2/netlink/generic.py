@@ -172,14 +172,25 @@ class nlmsg_base(dict):
         if 'header' in self:
             self['header'].buf = self.buf
 
-    def __eq__(self, value):
+    def __eq__(self, rvalue):
         '''
         Having nla, we are able to use it in operations like::
 
             if nla == 'some value':
                 ...
         '''
-        return self.getvalue() == value
+        lvalue = self.getvalue()
+        if lvalue is self:
+            for key in self:
+                try:
+                    assert self.get(key) == rvalue.get(key)
+                except Exception:
+                    # on any error -- is not equal
+                    return False
+                else:
+                    return True
+        else:
+            return lvalue == rvalue
 
     @classmethod
     def get_size(self):

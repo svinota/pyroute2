@@ -139,6 +139,13 @@ class TestMisc(object):
         for i in range(100):
             self.ip.get_addr()
 
+    def test_nla_compare(self):
+        lvalue = self.ip.get_links()
+        rvalue = self.ip.get_links()
+        assert not lvalue is rvalue
+        assert lvalue == rvalue
+        assert lvalue != 42
+
 
 def _callback(envelope, msg, obj):
     obj.cb_counter += 1
