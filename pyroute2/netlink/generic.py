@@ -187,8 +187,7 @@ class nlmsg_base(dict):
                 except Exception:
                     # on any error -- is not equal
                     return False
-                else:
-                    return True
+            return True
         else:
             return lvalue == rvalue
 
