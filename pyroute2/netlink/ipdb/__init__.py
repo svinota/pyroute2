@@ -705,7 +705,9 @@ class Interface(Transactional):
                     # Operation not supported
                     if x.code == 95 and request.get('index', 0) != 0:
                         # ACHTUNG: hack for old platforms
-                        request['index'] = 0
+                        request = IPLinkRequest({'ifname': self['ifname'],
+                                                 'kind': self['kind'],
+                                                 'index': 0})
                         compat.fix_create_link(self.nl, request)
                     else:
                         raise
