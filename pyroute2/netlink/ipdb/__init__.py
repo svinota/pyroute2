@@ -730,8 +730,7 @@ class Interface(Transactional):
 
             # all is OK till now, so continue
             # we do not know what to load, so load everything
-            self.nl.get_links()
-            self.ipdb._links_event.wait(_SYNC_TIMEOUT)
+            self.ipdb.wait_interface(ifname=self['ifname'])
 
         # now we have our index and IP set and all other stuff
         snapshot = self.pick()
