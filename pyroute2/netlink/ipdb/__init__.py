@@ -1387,7 +1387,11 @@ class IPDB(object):
         def cb(self, msg, _action):
             if _action != action:
                 return
-            port = self.interfaces[msg['index']]
+            try:
+                port = self.interfaces[msg['index']]
+            except KeyError:
+                return
+
             for key in kwarg:
                 if port.get(key, None) != kwarg[key]:
                     return
