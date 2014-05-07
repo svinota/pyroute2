@@ -411,7 +411,23 @@ class TestExplicit(object):
         require_bond()
         self._create_master('bond')
 
-    def test_create_vlan(self):
+    def test_create_vlan_by_interface(self):
+        require_user('root')
+        require_8021q()
+        assert 'bala' not in self.ip.interfaces
+        assert 'bv101' not in self.ip.interfaces
+
+        self.ip.create(kind='dummy',
+                       ifname='bala').commit()
+        self.ip.create(kind='vlan',
+                       ifname='bv101',
+                       link=self.ip.interfaces.bala,
+                       vlan_id=101).commit()
+
+        assert self.ip.interfaces.bv101.if_master == \
+            self.ip.interfaces.bala.index
+
+    def test_create_vlan_by_index(self):
         require_user('root')
         require_8021q()
         assert 'bala' not in self.ip.interfaces

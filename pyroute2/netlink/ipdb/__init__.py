@@ -1297,10 +1297,12 @@ class IPDB(object):
                 self.by_name[ifname] = \
                 self.interfaces[ifname] = \
                 self.iclass(ipdb=self, mode='snapshot')
+            device.update(kwarg)
+            if isinstance(kwarg.get('link', None), Interface):
+                device['link'] = kwarg['link']['index']
             device['kind'] = kind
             device['index'] = kwarg.get('index', 0)
             device['ifname'] = ifname
-            device.update(kwarg)
             device._mode = self.mode
         device.begin()
         return device
