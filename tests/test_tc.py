@@ -79,11 +79,19 @@ class TestIngress(BasicTest):
         # assert there is one police rule:
         prs = [x for x in fls
                if x.get_attr('TCA_OPTIONS') is not None and
-               x.get_attr('TCA_OPTIONS').get_attr('TCA_U32_POLICE')
-               is not None][0]
+               (x.get_attr('TCA_OPTIONS').get_attr('TCA_U32_POLICE')
+                is not None or
+                x.get_attr('TCA_OPTIONS').get_attr('TCA_U32_ACT')
+                is not None)][0]
         # assert the police rule has specified parameters
         options = prs.get_attr('TCA_OPTIONS')
         police_u32 = options.get_attr('TCA_U32_POLICE')
+        # on modern kernels there is no TCA_U32_POLICE under
+        # TCA_OPTIONS, but there is TCA_U32_ACT
+        if police_u32 is None:
+            police_u32 = options.get_attr('TCA_U32_ACT').\
+                get_attr('TCA_ACT_PRIO_0').\
+                get_attr('TCA_ACT_OPTIONS')
         police_tbf = police_u32.get_attr('TCA_POLICE_TBF')
         assert police_tbf['rate'] == 1250
         assert police_tbf['mtu'] == 2040

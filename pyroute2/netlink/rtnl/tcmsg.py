@@ -10,6 +10,8 @@ from pyroute2.netlink.generic import nlmsg
 from pyroute2.netlink.generic import nla
 
 
+TCA_ACT_MAX_PRIO = 32
+
 LINKLAYER_UNSPEC = 0
 LINKLAYER_ETHERNET = 1
 LINKLAYER_ATM = 2
@@ -454,7 +456,31 @@ class nla_plus_rtab(nla):
         pass
 
 
-class nla_plus_police(nla):
+class nla_plus_stats2(object):
+    class stats2(nla):
+        nla_map = (('TCA_STATS_UNSPEC', 'none'),
+                   ('TCA_STATS_BASIC', 'basic'),
+                   ('TCA_STATS_RATE_EST', 'rate_est'),
+                   ('TCA_STATS_QUEUE', 'queue'),
+                   ('TCA_STATS_APP', 'hex'))
+
+        class basic(nla):
+            fields = (('bytes', 'Q'),
+                      ('packets', 'Q'))
+
+        class rate_est(nla):
+            fields = (('bps', 'I'),
+                      ('pps', 'I'))
+
+        class queue(nla):
+            fields = (('qlen', 'I'),
+                      ('backlog', 'I'),
+                      ('drops', 'I'),
+                      ('requeues', 'I'),
+                      ('overlimits', 'I'))
+
+
+class nla_plus_police(object):
     class police(nla_plus_rtab):
         nla_map = (('TCA_POLICE_UNSPEC', 'none'),
                    ('TCA_POLICE_TBF', 'police_tbf'),
@@ -493,7 +519,7 @@ class nla_plus_police(nla):
                        'pipe': 3}        # TC_POLICE_PIPE
 
 
-class tcmsg(nlmsg):
+class tcmsg(nlmsg, nla_plus_stats2):
 
     prefix = 'TCA_'
 
@@ -524,28 +550,6 @@ class tcmsg(nlmsg):
                   ('pps', 'I'),
                   ('qlen', 'I'),
                   ('backlog', 'I'))
-
-    class stats2(nla):
-        nla_map = (('TCA_STATS_UNSPEC', 'none'),
-                   ('TCA_STATS_BASIC', 'basic'),
-                   ('TCA_STATS_RATE_EST', 'rate_est'),
-                   ('TCA_STATS_QUEUE', 'queue'),
-                   ('TCA_STATS_APP', 'hex'))
-
-        class basic(nla):
-            fields = (('bytes', 'Q'),
-                      ('packets', 'Q'))
-
-        class rate_est(nla):
-            fields = (('bps', 'I'),
-                      ('pps', 'I'))
-
-        class queue(nla):
-            fields = (('qlen', 'I'),
-                      ('backlog', 'I'),
-                      ('drops', 'I'),
-                      ('requeues', 'I'),
-                      ('overlimits', 'I'))
 
     def get_xstats(self, *argv, **kwarg):
         kind = self.get_attr('TCA_KIND')
@@ -651,7 +655,7 @@ class tcmsg(nlmsg):
             fields = (('prob_corrupt', 'I'),
                       ('corr_corrupt', 'I'))
 
-    class options_fw(nla_plus_police):
+    class options_fw(nla, nla_plus_police):
         nla_map = (('TCA_FW_UNSPEC', 'none'),
                    ('TCA_FW_CLASSID', 'uint32'),
                    ('TCA_FW_POLICE', 'police'),  # TODO string?
@@ -659,7 +663,7 @@ class tcmsg(nlmsg):
                    ('TCA_FW_ACT', 'hex'),  # TODO
                    ('TCA_FW_MASK', 'uint32'))
 
-    class options_u32(nla_plus_police):
+    class options_u32(nla, nla_plus_police):
         nla_map = (('TCA_U32_UNSPEC', 'none'),
                    ('TCA_U32_CLASSID', 'uint32'),
                    ('TCA_U32_HASH', 'uint32'),
@@ -667,10 +671,21 @@ class tcmsg(nlmsg):
                    ('TCA_U32_DIVISOR', 'uint32'),
                    ('TCA_U32_SEL', 'u32_sel'),
                    ('TCA_U32_POLICE', 'police'),
-                   ('TCA_U32_ACT', 'hex'),
+                   ('TCA_U32_ACT', 'tca_act_prio'),
                    ('TCA_U32_INDEV', 'hex'),
                    ('TCA_U32_PCNT', 'u32_pcnt'),
                    ('TCA_U32_MARK', 'u32_mark'))
+
+        class tca_act_prio(nla):
+            nla_map = tuple([('TCA_ACT_PRIO_%i' % x, 'tca_act') for x
+                             in range(TCA_ACT_MAX_PRIO)])
+
+            class tca_act(nla, nla_plus_police, nla_plus_stats2):
+                nla_map = (('TCA_ACT_UNSPEC', 'none'),
+                           ('TCA_ACT_KIND', 'asciiz'),
+                           ('TCA_ACT_OPTIONS', 'police'),
+                           ('TCA_ACT_INDEX', 'hex'),
+                           ('TCA_ACT_STATS', 'stats2'))
 
         class u32_sel(nla):
             fields = (('flags', 'B'),
