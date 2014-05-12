@@ -1,6 +1,11 @@
 changelog
 =========
 
+* 0.2.10
+    * ipdb: command chaining
+    * ipdb: fix for RHEL6.5 Python "optimizations"
+    * rtnl: support TCA_U32_ACT
+    * [fix]: #32 -- NLA comparison
 * 0.2.9
     * ipdb: support bridges and bonding interfaces on RHEL
     * ipdb: "shadow" interfaces (still in alpha state)
