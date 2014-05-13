@@ -680,219 +680,221 @@ class Interface(Transactional):
         Commit transaction. In the case of exception all
         changes applied during commit will be reverted.
         '''
-        error = None
-        added = None
-        removed = None
-        if tid:
-            transaction = self._transactions[tid]
-        else:
-            transaction = transaction or self.last()
+        with self.ipdb.exclusive:
+            error = None
+            added = None
+            removed = None
+            if tid:
+                transaction = self._transactions[tid]
+            else:
+                transaction = transaction or self.last()
 
-        # if the interface does not exist, create it first ;)
-        if not self._exists:
-            request = IPLinkRequest(self)
-            self.ipdb._links_event.clear()
-            try:
-                # 8<----------------------------------------------------
-                # ACHTUNG: hack for old platforms
-                if request.get('address', None) == '00:00:00:00:00:00':
-                    del request['address']
-                    del request['broadcast']
-                # 8<----------------------------------------------------
+            # if the interface does not exist, create it first ;)
+            if not self._exists:
+                request = IPLinkRequest(self)
+                self.ipdb._links_event.clear()
                 try:
-                    compat.fix_create_link(self.nl, request)
-                except NetlinkError as x:
-                    # Operation not supported
-                    if x.code == 95 and request.get('index', 0) != 0:
-                        # ACHTUNG: hack for old platforms
-                        request = IPLinkRequest({'ifname': self['ifname'],
-                                                 'kind': self['kind'],
-                                                 'index': 0})
+                    # 8<----------------------------------------------------
+                    # ACHTUNG: hack for old platforms
+                    if request.get('address', None) == '00:00:00:00:00:00':
+                        del request['address']
+                        del request['broadcast']
+                    # 8<----------------------------------------------------
+                    try:
                         compat.fix_create_link(self.nl, request)
-                    else:
-                        raise
-            except Exception:
-                # on failure, invalidate the interface and detach it
-                # from the parent
-                # 1. drop the IPRoute() link
-                self.nl = None
-                # 2. clean up ipdb
-                self.ipdb.detach(self['index'])
-                self.ipdb.detach(self['ifname'])
-                # 3. invalidate the interface
-                with self._direct_state:
-                    for i in tuple(self.keys()):
-                        del self[i]
-                # 4. the rest
-                self._mode = 'invalid'
-                # raise the exception
-                raise
-
-            # all is OK till now, so continue
-            # we do not know what to load, so load everything
-            self.ipdb.wait_interface(ifname=self['ifname'])
-
-        # now we have our index and IP set and all other stuff
-        snapshot = self.pick()
-
-        try:
-            removed = snapshot - transaction
-            added = transaction - snapshot
-
-            # 8<---------------------------------------------
-            # IP address changes
-            self['ipaddr'].set_target(transaction['ipaddr'])
-
-            for i in removed['ipaddr']:
-                # When you remove a primary IP addr, all subnetwork
-                # can be removed. In this case you will fail, but
-                # it is OK, no need to roll back
-                try:
-                    self.nl.addr('delete', self['index'], i[0], i[1])
-                except NetlinkError as x:
-                    # bypass only errno 99, 'Cannot assign address'
-                    if x.code != 99:
-                        raise
-
-            for i in added['ipaddr']:
-                self.nl.addr('add', self['index'], i[0], i[1])
-
-            if removed['ipaddr'] or added['ipaddr']:
-                self['ipaddr'].target.wait(_SYNC_TIMEOUT)
-                assert self['ipaddr'].target.is_set()
-
-            # 8<---------------------------------------------
-            # Interface slaves
-            self['ports'].set_target(transaction['ports'])
-
-            for i in removed['ports']:
-                # detach the port
-                compat.fix_del_port(self.nl, self, self.ipdb.interfaces[i])
-
-            for i in added['ports']:
-                # enslave the port
-                compat.fix_add_port(self.nl, self, self.ipdb.interfaces[i])
-
-            if removed['ports'] or added['ports']:
-                self.nl.get_links(*(removed['ports'] | added['ports']))
-                self['ports'].target.wait(_SYNC_TIMEOUT)
-                assert self['ports'].target.is_set()
-
-            # 8<---------------------------------------------
-            # Interface changes
-            request = IPLinkRequest()
-            for key in added:
-                if key in self._fields:
-                    request[key] = added[key]
-
-            # apply changes only if there is something to apply
-            if any([request[item] is not None for item in request]):
-                self.nl.link('set', index=self['index'], **request)
-
-            # 8<---------------------------------------------
-            # Interface removal
-            if added.get('removal') or added.get('flicker'):
-                self._load_event.clear()
-                if added.get('flicker'):
-                    self.ipdb.flicker.add(self['index'])
-                compat.fix_del_link(self.nl, self)
-                self._load_event.wait(_SYNC_TIMEOUT)
-                assert self._load_event.is_set()
-                if added.get('flicker'):
-                    self.ipdb.flicker.remove(self['index'])
-                    self._exists = False
-                    self._flicker = True
-                if added.get('removal'):
+                    except NetlinkError as x:
+                        # Operation not supported
+                        if x.code == 95 and request.get('index', 0) != 0:
+                            # ACHTUNG: hack for old platforms
+                            request = IPLinkRequest({'ifname': self['ifname'],
+                                                     'kind': self['kind'],
+                                                     'index': 0})
+                            compat.fix_create_link(self.nl, request)
+                        else:
+                            raise
+                except Exception:
+                    # on failure, invalidate the interface and detach it
+                    # from the parent
+                    # 1. drop the IPRoute() link
+                    self.nl = None
+                    # 2. clean up ipdb
+                    self.ipdb.detach(self['index'])
+                    self.ipdb.detach(self['ifname'])
+                    # 3. invalidate the interface
+                    with self._direct_state:
+                        for i in tuple(self.keys()):
+                            del self[i]
+                    # 4. the rest
                     self._mode = 'invalid'
-                self.drop()
-                return self
-            # 8<---------------------------------------------
+                    # raise the exception
+                    raise
 
-            if rollback:
-                assert _FAIL_ROLLBACK & _FAIL_MASK
-            else:
+                # all is OK till now, so continue
+                # we do not know what to load, so load everything
+                self.ipdb.wait_interface(ifname=self['ifname'])
 
-                # 8<-----------------------------------------
-                # Iterate callback chain
-                for cb in self._callbacks:
-                    # An exception will rollback the transaction
-                    cb(snapshot, transaction)
-                # 8<-----------------------------------------
+            # now we have our index and IP set and all other stuff
+            snapshot = self.pick()
 
-                assert _FAIL_COMMIT & _FAIL_MASK
+            try:
+                removed = snapshot - transaction
+                added = transaction - snapshot
 
-        except Exception as e:
-            # something went wrong: roll the transaction back
-            if not rollback:
-                self.reload()
-                # 8<-----------------------------------------
-                # That's a hack, but we have to use it, since
-                # OS response can be not so fast
-                # * inject added IPs directly into self
-                # * wipe removed IPs from the interface data
-                #
-                # This info will be used to properly roll back
-                # changes.
-                #
-                # Still, there is a possibility that the
-                # rollback will run even before IP addrs will
-                # be assigned. But we can not cope with that.
-                with self._direct_state:
-                    if removed:
-                        for i in removed['ipaddr']:
-                            try:
-                                self['ipaddr'].remove(i)
-                            except KeyError:
-                                pass
-                    if added:
-                        for i in added['ipaddr']:
-                            self['ipaddr'].add(i)
-                # 8<-----------------------------------------
-                ret = self.commit(transaction=snapshot, rollback=True)
-                # if some error was returned by the internal
-                # closure, substitute the initial one
-                if isinstance(ret, Exception):
-                    error = ret
+                # 8<---------------------------------------------
+                # IP address changes
+                self['ipaddr'].set_target(transaction['ipaddr'])
+
+                for i in removed['ipaddr']:
+                    # When you remove a primary IP addr, all subnetwork
+                    # can be removed. In this case you will fail, but
+                    # it is OK, no need to roll back
+                    try:
+                        self.nl.addr('delete', self['index'], i[0], i[1])
+                    except NetlinkError as x:
+                        # bypass only errno 99, 'Cannot assign address'
+                        if x.code != 99:
+                            raise
+
+                for i in added['ipaddr']:
+                    self.nl.addr('add', self['index'], i[0], i[1])
+
+                if removed['ipaddr'] or added['ipaddr']:
+                    self['ipaddr'].target.wait(_SYNC_TIMEOUT)
+                    assert self['ipaddr'].target.is_set()
+
+                # 8<---------------------------------------------
+                # Interface slaves
+                self['ports'].set_target(transaction['ports'])
+
+                for i in removed['ports']:
+                    # detach the port
+                    compat.fix_del_port(self.nl, self, self.ipdb.interfaces[i])
+
+                for i in added['ports']:
+                    # enslave the port
+                    compat.fix_add_port(self.nl, self, self.ipdb.interfaces[i])
+
+                if removed['ports'] or added['ports']:
+                    self.nl.get_links(*(removed['ports'] | added['ports']))
+                    self['ports'].target.wait(_SYNC_TIMEOUT)
+                    assert self['ports'].target.is_set()
+
+                # 8<---------------------------------------------
+                # Interface changes
+                request = IPLinkRequest()
+                for key in added:
+                    if key in self._fields:
+                        request[key] = added[key]
+
+                # apply changes only if there is something to apply
+                if any([request[item] is not None for item in request]):
+                    self.nl.link('set', index=self['index'], **request)
+
+                # 8<---------------------------------------------
+                # Interface removal
+                if added.get('removal') or added.get('flicker'):
+                    self._load_event.clear()
+                    if added.get('flicker'):
+                        self.ipdb.flicker.add(self['index'])
+                    compat.fix_del_link(self.nl, self)
+                    self._load_event.wait(_SYNC_TIMEOUT)
+                    assert self._load_event.is_set()
+                    if added.get('flicker'):
+                        self.ipdb.flicker.remove(self['index'])
+                        self._exists = False
+                        self._flicker = True
+                    if added.get('removal'):
+                        self._mode = 'invalid'
+                    self.drop()
+                    return self
+                # 8<---------------------------------------------
+
+                if rollback:
+                    assert _FAIL_ROLLBACK & _FAIL_MASK
                 else:
-                    error = e
-            elif isinstance(e, NetlinkError) and getattr(e, 'code', 0) == 1:
-                # It is <Operation not permitted>, catched in
-                # rollback. So return it -- see ~5 lines above
-                return e
-            else:
-                # somethig went wrong during automatic rollback.
-                # that's the worst case, but it is still possible,
-                # since we have no locks on OS level.
+
+                    # 8<-----------------------------------------
+                    # Iterate callback chain
+                    for cb in self._callbacks:
+                        # An exception will rollback the transaction
+                        cb(snapshot, transaction)
+                    # 8<-----------------------------------------
+
+                    assert _FAIL_COMMIT & _FAIL_MASK
+
+            except Exception as e:
+                # something went wrong: roll the transaction back
+                if not rollback:
+                    self.reload()
+                    # 8<-----------------------------------------
+                    # That's a hack, but we have to use it, since
+                    # OS response can be not so fast
+                    # * inject added IPs directly into self
+                    # * wipe removed IPs from the interface data
+                    #
+                    # This info will be used to properly roll back
+                    # changes.
+                    #
+                    # Still, there is a possibility that the
+                    # rollback will run even before IP addrs will
+                    # be assigned. But we can not cope with that.
+                    with self._direct_state:
+                        if removed:
+                            for i in removed['ipaddr']:
+                                try:
+                                    self['ipaddr'].remove(i)
+                                except KeyError:
+                                    pass
+                        if added:
+                            for i in added['ipaddr']:
+                                self['ipaddr'].add(i)
+                    # 8<-----------------------------------------
+                    ret = self.commit(transaction=snapshot, rollback=True)
+                    # if some error was returned by the internal
+                    # closure, substitute the initial one
+                    if isinstance(ret, Exception):
+                        error = ret
+                    else:
+                        error = e
+                elif isinstance(e, NetlinkError) and \
+                        getattr(e, 'code', 0) == 1:
+                    # It is <Operation not permitted>, catched in
+                    # rollback. So return it -- see ~5 lines above
+                    return e
+                else:
+                    # somethig went wrong during automatic rollback.
+                    # that's the worst case, but it is still possible,
+                    # since we have no locks on OS level.
+                    self.drop()
+                    self['ipaddr'].set_target(None)
+                    self['ports'].set_target(None)
+                    # reload all the database -- it can take a long time,
+                    # but it is required since we have no idea, what is
+                    # the result of the failure
+                    #
+                    # ACHTUNG: database reload is asynchronous, so after
+                    # getting RuntimeError() from commit(), take a seat
+                    # and rest for a while. It is an extremal case, it
+                    # should not became at all, and there is no sync.
+                    self.nl.get_links()
+                    self.nl.get_addr()
+                    x = RuntimeError()
+                    x.cause = e
+                    raise x
+
+            # if it is not a rollback turn
+            if not rollback:
+                # drop last transaction in any case
                 self.drop()
-                self['ipaddr'].set_target(None)
-                self['ports'].set_target(None)
-                # reload all the database -- it can take a long time,
-                # but it is required since we have no idea, what is
-                # the result of the failure
-                #
-                # ACHTUNG: database reload is asynchronous, so after
-                # getting RuntimeError() from commit(), take a seat
-                # and rest for a while. It is an extremal case, it
-                # should not became at all, and there is no sync.
-                self.nl.get_links()
-                self.nl.get_addr()
-                x = RuntimeError()
-                x.cause = e
-                raise x
+                # re-load interface information
+                self.reload()
 
-        # if it is not a rollback turn
-        if not rollback:
-            # drop last transaction in any case
-            self.drop()
-            # re-load interface information
-            self.reload()
+            # raise exception for failed transaction
+            if error is not None:
+                error.transaction = transaction
+                raise error
 
-        # raise exception for failed transaction
-        if error is not None:
-            error.transaction = transaction
-            raise error
-
-        return self
+            return self
 
     def up(self):
         '''
@@ -1287,24 +1289,25 @@ class IPDB(object):
 
         FIXME: this should be documented.
         '''
-        # check for existing interface
-        if ((ifname in self.interfaces) and
-                (self.interfaces[ifname]._flicker)):
-            device = self.interfaces[ifname]
-        else:
-            device = \
-                self.by_name[ifname] = \
-                self.interfaces[ifname] = \
-                self.iclass(ipdb=self, mode='snapshot')
-            device.update(kwarg)
-            if isinstance(kwarg.get('link', None), Interface):
-                device['link'] = kwarg['link']['index']
-            device['kind'] = kind
-            device['index'] = kwarg.get('index', 0)
-            device['ifname'] = ifname
-            device._mode = self.mode
-        device.begin()
-        return device
+        with self.exclusive:
+            # check for existing interface
+            if ((ifname in self.interfaces) and
+                    (self.interfaces[ifname]._flicker)):
+                device = self.interfaces[ifname]
+            else:
+                device = \
+                    self.by_name[ifname] = \
+                    self.interfaces[ifname] = \
+                    self.iclass(ipdb=self, mode='snapshot')
+                device.update(kwarg)
+                if isinstance(kwarg.get('link', None), Interface):
+                    device['link'] = kwarg['link']['index']
+                device['kind'] = kind
+                device['index'] = kwarg.get('index', 0)
+                device['ifname'] = ifname
+                device._mode = self.mode
+            device.begin()
+            return device
 
     def device_del(self, msg):
         # check for flicker devices
