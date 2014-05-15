@@ -111,6 +111,7 @@ def get_addr_nla(msg):
 
 
 class LinkedSet(set):
+    target_filter = lambda self, x: True
 
     def __init__(self, *argv, **kwarg):
         set.__init__(self, *argv, **kwarg)
@@ -132,7 +133,8 @@ class LinkedSet(set):
     def check_target(self):
         with self.lock:
             if self._ct is not None:
-                if self == self._ct:
+                if set(filter(self.target_filter, self)) == \
+                        set(filter(self.target_filter, self._ct)):
                     self._ct = None
                     self.target.set()
 
@@ -159,6 +161,10 @@ class LinkedSet(set):
 
     def __repr__(self):
         return repr(list(self))
+
+
+class IPaddrSet(LinkedSet):
+    target_filter = lambda self, x: not ((x[0][:4] == 'fe80') and (x[1] == 64))
 
 
 class State(object):
@@ -531,7 +537,7 @@ class Interface(Transactional):
         # 8<-----------------------------------
         # local setup: direct state is required
         with self._direct_state:
-            self['ipaddr'] = LinkedSet()
+            self['ipaddr'] = IPaddrSet()
             self['ports'] = LinkedSet()
             for i in self._fields:
                 self[i] = None
@@ -1406,7 +1412,7 @@ class IPDB(object):
 
         if index not in self.ipaddr:
             # for interfaces, created by IPDB
-            self.ipaddr[index] = LinkedSet()
+            self.ipaddr[index] = IPaddrSet()
 
         device.load(msg)
         if not skip_slaves:
