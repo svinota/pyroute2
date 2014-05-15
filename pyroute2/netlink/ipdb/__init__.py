@@ -57,6 +57,10 @@ _FAIL_ROLLBACK = 0b00000010
 _FAIL_MASK = 0b11111111
 
 
+class CommitException(Exception):
+    pass
+
+
 def clear_fail_bit(bit):
     global _FAIL_MASK
     _FAIL_MASK &= ~(_FAIL_MASK & bit)
@@ -762,7 +766,8 @@ class Interface(Transactional):
 
                 if removed['ipaddr'] or added['ipaddr']:
                     self['ipaddr'].target.wait(_SYNC_TIMEOUT)
-                    assert self['ipaddr'].target.is_set()
+                    if not self['ipaddr'].target.is_set():
+                        raise CommitException('ipaddr target is not set')
 
                 # 8<---------------------------------------------
                 # Interface slaves
@@ -779,7 +784,8 @@ class Interface(Transactional):
                 if removed['ports'] or added['ports']:
                     self.nl.get_links(*(removed['ports'] | added['ports']))
                     self['ports'].target.wait(_SYNC_TIMEOUT)
-                    assert self['ports'].target.is_set()
+                    if not self['ports'].target.is_set():
+                        raise CommitException('ports target is not set')
 
                 # 8<---------------------------------------------
                 # Interface changes
