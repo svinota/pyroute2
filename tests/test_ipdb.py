@@ -106,6 +106,10 @@ class TestExplicit(object):
         self.ip.interfaces.dummyX.add_ip('172.16.21.1/24')
         self.ip.interfaces.dummyX.commit()
 
+        # the second address added w/o watchdogs,
+        # so we have to wait
+        time.sleep(1)
+
         # added address should be there
         assert ('172.16.21.1', 24) in self.ip.interfaces.dummyX.ipaddr
         # and the one, added by the callback, too
