@@ -297,6 +297,8 @@ class Transactional(Dotkeys):
     '''
     An utility class that implements common transactional logic.
     '''
+    _fields_cmp = {}
+
     def __init__(self, ipdb, mode=None):
         self.nl = ipdb.nl
         self.uid = uuid.uuid4()
@@ -306,6 +308,7 @@ class Transactional(Dotkeys):
         self._fields = []
         self._tids = []
         self._transactions = {}
+        self._targets = {}
         self._mode = mode or ipdb.mode
         self._write_lock = threading.RLock()
         self._direct_state = State(self._write_lock)
@@ -433,7 +436,13 @@ class Transactional(Dotkeys):
         if not direct:
             transaction = self.last()
             transaction[key] = value
+            transaction._targets[key] = threading.Event()
         else:
+            for tn in self._transactions.values():
+                if key in tn._targets:
+                    if self._fields_cmp.\
+                            get(key, lambda x, y: x == y)(value, tn[key]):
+                        tn._targets[key].set()
             Dotkeys.__setitem__(self, key, value)
 
     @update
@@ -505,6 +514,8 @@ class Interface(Transactional):
     exception will be raised. Failed transaction review
     will be attached to the exception.
     '''
+    _fields_cmp = {'flags': lambda x, y: x & y}
+
     def __init__(self, ipdb, mode=None):
         '''
         Parameters:
@@ -524,13 +535,12 @@ class Interface(Transactional):
         self.egress = None
         self._exists = False
         self._flicker = False
+        self._virtual_fields = ('removal', 'flicker', 'state')
         self._fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
         self._fields.append('flags')
         self._fields.append('mask')
         self._fields.append('change')
-        self._fields.append('state')
-        self._fields.append('removal')
-        self._fields.append('flicker')
+        self._fields.extend(self._virtual_fields)
         self._load_event = threading.Event()
         self._linked_sets.add('ipaddr')
         self._linked_sets.add('ports')
@@ -566,7 +576,8 @@ class Interface(Transactional):
         '''
         with self._direct_state:
             self._exists = True
-            self.update(dev)
+            for (name, value) in dev.items():
+                self[name] = value
             for (name, value) in dev['attrs']:
                 norm = ifinfmsg.nla2name(name)
                 self[norm] = value
@@ -803,6 +814,14 @@ class Interface(Transactional):
                 # apply changes only if there is something to apply
                 if any([request[item] is not None for item in request]):
                     self.nl.link('set', index=self['index'], **request)
+                    self.reload()
+
+                # wait for targets
+                for key, target in transaction._targets.items():
+                    if key not in self._virtual_fields:
+                        target.wait(_SYNC_TIMEOUT)
+                        if not target.is_set():
+                            raise CommitException('target %s is not set' % key)
 
                 # 8<---------------------------------------------
                 # Interface removal
@@ -898,8 +917,6 @@ class Interface(Transactional):
             if not rollback:
                 # drop last transaction in any case
                 self.drop()
-                # re-load interface information
-                self.reload()
 
             # raise exception for failed transaction
             if error is not None:
