@@ -556,7 +556,6 @@ class Interface(Transactional):
         '''
         with self._direct_state:
             self._exists = True
-            self._flicker = False
             self.update(dev)
             for (name, value) in dev['attrs']:
                 norm = ifinfmsg.nla2name(name)
@@ -689,6 +688,9 @@ class Interface(Transactional):
             else:
                 transaction = transaction or self.last()
 
+            # create watchdog
+            wd = self.ipdb.watchdog(ifname=self['ifname'])
+
             # if the interface does not exist, create it first ;)
             if not self._exists:
                 request = IPLinkRequest(self)
@@ -731,7 +733,7 @@ class Interface(Transactional):
 
                 # all is OK till now, so continue
                 # we do not know what to load, so load everything
-                self.ipdb.wait_interface(ifname=self['ifname'])
+                wd.wait()
 
             # now we have our index and IP set and all other stuff
             snapshot = self.pick()
@@ -793,16 +795,14 @@ class Interface(Transactional):
                 # 8<---------------------------------------------
                 # Interface removal
                 if added.get('removal') or added.get('flicker'):
-                    self._load_event.clear()
+                    wd = self.ipdb.watchdog(action='RTM_DELLINK',
+                                            ifname=self['ifname'])
                     if added.get('flicker'):
-                        self.ipdb.flicker.add(self['index'])
-                    compat.fix_del_link(self.nl, self)
-                    self._load_event.wait(_SYNC_TIMEOUT)
-                    assert self._load_event.is_set()
-                    if added.get('flicker'):
-                        self.ipdb.flicker.remove(self['index'])
-                        self._exists = False
                         self._flicker = True
+                    compat.fix_del_link(self.nl, self)
+                    wd.wait()
+                    if added.get('flicker'):
+                        self._exists = False
                     if added.get('removal'):
                         self._mode = 'invalid'
                     self.drop()
@@ -1116,6 +1116,32 @@ class RoutingTables(dict):
         return self.remove(key)
 
 
+class Watchdog(object):
+    def __init__(self, ipdb, action, kwarg):
+        self.event = threading.Event()
+        self.ipdb = ipdb
+
+        def cb(ipdb, msg, _action):
+            if _action != action:
+                return
+
+            for key in kwarg:
+                if (msg.get(key, None) != kwarg[key]) and \
+                        (msg.get_attr(msg.name2nla(key)) != kwarg[key]):
+                    return
+            self.event.set()
+        self.cb = cb
+        # register callback prior to other things
+        self.ipdb.register_callback(self.cb)
+
+    def wait(self, timeout=_SYNC_TIMEOUT):
+        self.event.wait(timeout=timeout)
+        self.cancel()
+
+    def cancel(self):
+        self.ipdb.unregister_callback(self.cb)
+
+
 class IPDB(object):
     '''
     The class that maintains information about network setup
@@ -1156,7 +1182,6 @@ class IPDB(object):
         self.by_index = Dotkeys()
 
         # caches
-        self.flicker = set()
         self.ipaddr = {}
         self.neighbors = {}
 
@@ -1294,6 +1319,7 @@ class IPDB(object):
             if ((ifname in self.interfaces) and
                     (self.interfaces[ifname]._flicker)):
                 device = self.interfaces[ifname]
+                device._flicker = False
             else:
                 device = \
                     self.by_name[ifname] = \
@@ -1311,7 +1337,8 @@ class IPDB(object):
 
     def device_del(self, msg):
         # check for flicker devices
-        if (msg.get('index', None) in self.flicker):
+        if (msg.get('index', None) in self.interfaces) and \
+                self.interfaces[msg['index']]._flicker:
             self.interfaces[msg['index']].sync()
             return
         try:
@@ -1383,31 +1410,8 @@ class IPDB(object):
         if item in self.interfaces:
             del self.interfaces[item]
 
-    def wait_interface(self, action='RTM_NEWLINK', **kwarg):
-        event = threading.Event()
-
-        def cb(self, msg, _action):
-            if _action != action:
-                return
-            try:
-                port = self.interfaces[msg['index']]
-            except KeyError:
-                return
-
-            for key in kwarg:
-                if port.get(key, None) != kwarg[key]:
-                    return
-            event.set()
-
-        # register callback prior to other things
-        self.register_callback(cb)
-        # inspect existing interfaces, as if they were created
-        for index in self.by_index:
-            cb(self, self.by_index[index], 'RTM_NEWLINK')
-        # ok, wait the event
-        event.wait()
-        # unregister callback
-        self.unregister_callback(cb)
+    def watchdog(self, action='RTM_NEWLINK', **kwarg):
+        return Watchdog(self, action, kwarg)
 
     def update_routes(self, routes):
         for msg in routes:

@@ -524,18 +524,19 @@ class TestImplicit(TestExplicit):
                     ipdb.interfaces.bala.add_port(obj)
                     ipdb.interfaces.bala.commit()
 
+        wd0 = self.ip.watchdog(ifname='bala')
+        wd1 = self.ip.watchdog(ifname='bala_port0')
+        wd2 = self.ip.watchdog(ifname='bala_port1')
         # create bridge
         self.ip.create(kind='bridge', ifname='bala').commit()
-        # wait the bridge to be created
-        self.ip.wait_interface(ifname='bala')
+        wd0.wait()
         # register callback
         self.ip.register_callback(cb)
         # create ports
         self.ip.create(kind='dummy', ifname='bala_port0').commit()
         self.ip.create(kind='dummy', ifname='bala_port1').commit()
-        # sleep for interfaces
-        self.ip.wait_interface(ifname='bala_port0')
-        self.ip.wait_interface(ifname='bala_port1')
+        wd1.wait()
+        wd2.wait()
         time.sleep(1)
         # check that ports are attached
         assert self.ip.interfaces.bala_port0.index in \
