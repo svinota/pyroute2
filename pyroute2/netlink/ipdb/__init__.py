@@ -50,7 +50,7 @@ tc_fields = [tcmsg.nla2name(i[0]) for i in tcmsg.nla_map]
 
 # How long should we wait on EACH commit() checkpoint: for ipaddr,
 # ports etc. That's not total commit() timeout.
-_SYNC_TIMEOUT = 3
+_SYNC_TIMEOUT = 5
 
 _FAIL_COMMIT = 0b00000001
 _FAIL_ROLLBACK = 0b00000010
