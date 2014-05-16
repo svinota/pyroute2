@@ -376,7 +376,7 @@ class TestExplicit(object):
             i.remove()
         assert 'bala' not in self.ip.interfaces
 
-    def _create_master(self, kind):
+    def _create_master(self, kind, **kwarg):
         require_user('root')
         assert 'bala' not in self.ip.interfaces
         assert 'bala_port0' not in self.ip.interfaces
@@ -385,7 +385,7 @@ class TestExplicit(object):
         self.ip.create(kind='dummy', ifname='bala_port0').commit()
         self.ip.create(kind='dummy', ifname='bala_port1').commit()
 
-        with self.ip.create(kind=kind, ifname='bala') as i:
+        with self.ip.create(kind=kind, ifname='bala', **kwarg) as i:
             i.add_port(self.ip.interfaces.bala_port0)
             i.add_port(self.ip.interfaces.bala_port1)
             i.add_ip('172.16.0.1/24')
@@ -414,6 +414,10 @@ class TestExplicit(object):
     def test_create_bond(self):
         require_bond()
         self._create_master('bond')
+
+    def test_create_bond2(self):
+        require_bond()
+        self._create_master('bond', bond_mode=2)
 
     def test_create_vlan_by_interface(self):
         require_user('root')
