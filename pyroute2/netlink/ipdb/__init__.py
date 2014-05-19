@@ -28,6 +28,7 @@ Quick start::
 '''
 import os
 import uuid
+import socket
 import threading
 try:
     from Queue import Empty
@@ -777,6 +778,10 @@ class Interface(Transactional):
                     except NetlinkError as x:
                         # bypass only errno 99, 'Cannot assign address'
                         if x.code != 99:
+                            raise
+                    except socket.error as x:
+                        # bypass illegal IP requests
+                        if not x.message.startswith('illegal IP'):
                             raise
 
                 for i in added['ipaddr']:

@@ -1,4 +1,5 @@
 import time
+import socket
 from pyroute2 import IPDB
 from pyroute2.common import basestring
 from pyroute2.netlink import NetlinkError
@@ -338,6 +339,25 @@ class TestExplicit(object):
             self.ip.interfaces.bala.ports
         assert self.ip.interfaces.bala_port1.index not in \
             self.ip.interfaces.bala.ports
+
+    def test_fail_ipaddr(self):
+        require_user('root')
+        assert 'bala' not in self.ip.interfaces
+        i = self.ip.create(ifname='bala', kind='dummy').commit()
+        assert not len(i.ipaddr)
+        if i._mode == 'explicit':
+            i.begin()
+        i.add_ip('123.456.789.1024/153')
+        try:
+            i.commit()
+        except socket.error as e:
+            if not e.message.startswith('illegal IP'):
+                raise
+        assert not len(i.ipaddr)
+        if i._mode == 'explicit':
+            i.begin()
+        i.remove().commit()
+        assert 'bala' not in self.ip.interfaces
 
     def test_create_fail(self):
         require_user('root')
