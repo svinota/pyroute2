@@ -857,30 +857,6 @@ class Interface(Transactional):
             except Exception as e:
                 # something went wrong: roll the transaction back
                 if not rollback:
-                    self.reload()
-                    # 8<-----------------------------------------
-                    # That's a hack, but we have to use it, since
-                    # OS response can be not so fast
-                    # * inject added IPs directly into self
-                    # * wipe removed IPs from the interface data
-                    #
-                    # This info will be used to properly roll back
-                    # changes.
-                    #
-                    # Still, there is a possibility that the
-                    # rollback will run even before IP addrs will
-                    # be assigned. But we can not cope with that.
-                    with self._direct_state:
-                        if removed:
-                            for i in removed['ipaddr']:
-                                try:
-                                    self['ipaddr'].remove(i)
-                                except KeyError:
-                                    pass
-                        if added:
-                            for i in added['ipaddr']:
-                                self['ipaddr'].add(i)
-                    # 8<-----------------------------------------
                     ret = self.commit(transaction=snapshot, rollback=True)
                     # if some error was returned by the internal
                     # closure, substitute the initial one
