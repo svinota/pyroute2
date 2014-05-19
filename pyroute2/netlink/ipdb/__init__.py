@@ -204,6 +204,7 @@ except ImportError:
 from socket import AF_UNSPEC
 from socket import AF_INET
 from socket import AF_INET6
+from pyroute2.common import dqn2int
 from pyroute2.common import Dotkeys
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.ipdb import compat
@@ -785,7 +786,10 @@ class Interface(Transactional):
         # split mask
         if mask is None:
             ip, mask = ip.split('/')
-            mask = int(mask, 0)
+            if mask.find('.') > -1:
+                mask = dqn2int(mask)
+            else:
+                mask = int(mask, 0)
         # FIXME: make it more generic
         # skip IPv6 link-local addresses
         if ip[:4] == 'fe80' and mask == 64:
@@ -804,7 +808,10 @@ class Interface(Transactional):
         '''
         if mask is None:
             ip, mask = ip.split('/')
-            mask = int(mask, 0)
+            if mask.find('.') > -1:
+                mask = dqn2int(mask)
+            else:
+                mask = int(mask, 0)
         if not direct:
             transaction = self.last()
             if (ip, mask) in transaction['ipaddr']:

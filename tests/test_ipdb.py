@@ -374,6 +374,15 @@ class TestExplicit(object):
         assert i._mode == 'invalid'
         assert 'bala' not in self.ip.interfaces
 
+    def test_create_dqn(self):
+        require_user('root')
+        assert 'bala' not in self.ip.interfaces
+        i = self.ip.create(kind='dummy', ifname='bala')
+        i.add_ip('172.16.0.1/255.255.255.0')
+        i.commit()
+        assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
+        assert '172.16.0.1/24' in get_ip_addr(interface='bala')
+
     def test_create_plain(self):
         require_user('root')
         assert 'bala' not in self.ip.interfaces

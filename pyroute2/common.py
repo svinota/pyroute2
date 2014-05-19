@@ -6,6 +6,7 @@ import os
 import time
 import sys
 import struct
+import socket
 import logging
 import threading
 import traceback
@@ -226,6 +227,13 @@ def uuid32():
     return fnv1(struct.pack('QQ',
                             int(time.time() * 1000),
                             os.getpid()))
+
+
+def dqn2int(mask):
+    '''
+    IPv4 dotted quad notation to int mask conversion
+    '''
+    return bin(struct.unpack('>L', socket.inet_aton(mask))[0]).count('1')
 
 
 def hexdump(payload, length=0):
