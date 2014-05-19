@@ -709,13 +709,14 @@ class Interface(Transactional):
             else:
                 transaction = transaction or self.last()
 
-            # create watchdog
-            wd = self.ipdb.watchdog(ifname=self['ifname'])
-
             # if the interface does not exist, create it first ;)
             if not self._exists:
                 request = IPLinkRequest(self)
                 self.ipdb._links_event.clear()
+
+                # create watchdog
+                wd = self.ipdb.watchdog(ifname=self['ifname'])
+
                 try:
                     # 8<----------------------------------------------------
                     # ACHTUNG: hack for old platforms
