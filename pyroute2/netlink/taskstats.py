@@ -1,3 +1,18 @@
+'''
+TaskStats module
+================
+
+All that you should know about TaskStats, is that you should not
+use it. But if you have to, ok::
+
+    import os
+    from pyroute2 import TaskStats
+    ts = TaskStats()
+    ts.get_pid_stat(os.getpid())
+
+It is not implemented normally yet, but some methods are already
+usable.
+'''
 
 try:
     import Queue

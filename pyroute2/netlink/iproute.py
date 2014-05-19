@@ -1,23 +1,37 @@
 '''
-iproute module
+IPRoute module
 ==============
 
 `iproute` module provides low-level API to RTNetlink protocol
 via `IPRoute` and `IPRSocket` classes as well as all required
 constants.
 
+iproute quickstart
+------------------
+
+**pyroute2.IPRoute** in two words::
+
+    $ sudo pip install pyroute2
+    $ cat >example.py <<EOF
+    > from pyroute2 import IPRoute
+    > ip = IPRoute()
+    > print([x.get_attr('IFLA_IFNAME') for x in ip.get_links()])
+    > EOF
+    $ python example.py
+    ['lo', 'p6p1', 'wlan0', 'virbr0', 'virbr0-nic']
+
 threaded vs. threadless architecture
 ------------------------------------
 
-Please note, that objects of `IPRoute` class implicitly start
-three threads:
+Please note, that objects of `IPRoute` class implicitly starts
+several threads:
 
-* Netlink I/O thread -- main thread that performs all Netlink I/O
-* Reasm and parsing thread -- thread that reassembles messages and
-  parses them into dict-like structures
-* Masquerade cache thread -- `IPRoute` objects can be connected
-  together, and in this case header masquerading should be performed
-  on netlink packets; the thread performs masquerade cache expiration
+* I/O Loop -- main thread that performs all Netlink I/O and clusterization
+* Main thread -- thread that reassembles messages and parses them into
+  dict-like structures
+* Cache thread -- `IPRoute` objects can be connected together, and in
+  this case header masquerading should be performed on netlink packets;
+  the thread performs masquerade cache expiration
 
 In most cases it should be ok, `IPRoute` uses no daemonic threads and
 explicit `release()` call is provided to stop all the threads. Beside
@@ -211,10 +225,57 @@ class MarshalRtnl(Marshal):
 
 class IPRSocket(NetlinkSocket):
     '''
-    Simple threadless RTNetlink socket. Quite useful, if you want only
-    watch RTNetlink events. Please note, that using this objects you
-    are responsible to handle packets asap -- netlink protocol just
-    drops messages when they're processed too slowly.
+    The simplest class, that connects together the netlink parser and
+    a generic Python socket implementation. Provides method get() to
+    receive the next message from netlink socket and parse it. It is
+    just simple socket-like class, it implements no buffering or
+    like that. It spawns no additional threads, leaving this up to
+    developers.
+
+    Please note, that netlink is an asynchronous protocol with
+    non-guaranteed delivery. You should be fast enough to get all the
+    messages in time. If the message flow rate is higher than the
+    speed you parse them with, exceeding messages will be dropped.
+
+    *Usage*
+
+    Threadless RT netlink monitoring with blocking I/O calls:
+
+        >>> from pyroute2.netlink.iproute import IPRSocket
+        >>> from pprint import pprint
+        >>> s = IPRSocket()
+        >>> s.bind()
+        >>> pprint(s.get())
+        [{'attrs': [('RTA_TABLE', 254),
+                    ('RTA_DST', '2a00:1450:4009:808::1002'),
+                    ('RTA_GATEWAY', 'fe80:52:0:2282::1fe'),
+                    ('RTA_OIF', 2),
+                    ('RTA_PRIORITY', 0),
+                    ('RTA_CACHEINFO', {'rta_clntref': 0,
+                                       'rta_error': 0,
+                                       'rta_expires': 0,
+                                       'rta_id': 0,
+                                       'rta_lastuse': 5926,
+                                       'rta_ts': 0,
+                                       'rta_tsage': 0,
+                                       'rta_used': 1})],
+          'dst_len': 128,
+          'event': 'RTM_DELROUTE',
+          'family': 10,
+          'flags': 512,
+          'header': {'error': None,
+                     'flags': 0,
+                     'length': 128,
+                     'pid': 0,
+                     'sequence_number': 0,
+                     'type': 25},
+          'proto': 9,
+          'scope': 0,
+          'src_len': 0,
+          'table': 254,
+          'tos': 0,
+          'type': 1}]
+        >>>
     '''
 
     def __init__(self):
@@ -222,6 +283,11 @@ class IPRSocket(NetlinkSocket):
         self.marshal = MarshalRtnl()
 
     def bind(self, groups=RTNL_GROUPS):
+        '''
+        It is required to call *IPRSocket.bind()* after creation.
+        The call subscribes the NetlinkSocket to default RTNL
+        groups (`RTNL_GROUPS`) or to a requested group set.
+        '''
         NetlinkSocket.bind(self, groups)
 
 
@@ -229,6 +295,105 @@ class IPRoute(Netlink):
     '''
     You can think of this class in some way as of plain old iproute2
     utility.
+
+    It is an old-style library, that provides access to rtnetlink as is.
+    It helps you to retrieve and change almost all the data, available
+    through rtnetlink::
+
+        from pyroute2 import IPRoute
+        ipr = IPRoute()
+            # lookup interface by name
+        dev = ipr.link_lookup(ifname='tap0')[0]
+            # bring it down
+        ipr.link('set', dev, state='down')
+            # change interface MAC address and rename it
+        ipr.link('set', dev, address='00:11:22:33:44:55', ifname='vpn')
+            # add primary IP address
+        ipr.addr('add', dev, address='10.0.0.1', mask=24)
+            # add secondary IP address
+        ipr.addr('add', dev, address='10.0.0.2', mask=24)
+            # bring it up
+        ipr.link('set', dev, state='up')
+
+    *Usage*
+
+    IPRoute objects allows not only simple monitoring or querying
+    of RT netlink, but also clusterization of IPRoute instances.
+    Simple local sample:
+
+        >>> from pyroute2 import IPRoute
+        >>> from pprint import pprint
+        >>> ip = IPRoute()
+        >>> ip.monitor()
+        >>> pprint(ip.get())
+        [{'attrs': [('RTA_TABLE', 255),
+                    ('RTA_DST', 'ff02::1:2'),
+                    ('RTA_OIF', 3),
+                    ('RTA_PRIORITY', 0),
+                    ('RTA_CACHEINFO', {'rta_clntref': 1,
+                                       'rta_error': 0,
+                                       'rta_expires': 0,
+                                       'rta_id': 0,
+                                       'rta_lastuse': 0,
+                                       'rta_ts': 0,
+                                       'rta_tsage': 0,
+                                       'rta_used': 0})],
+          'dst_len': 128,
+          'event': 'RTM_NEWROUTE',
+          'family': 10,
+          'flags': 512,
+          'header': {'error': None,
+                     'flags': 0,
+                     'host': 'netlink://16',
+                     'length': 108,
+                     'pid': 0,
+                     'sequence_number': 0,
+                     'type': 24},
+          'proto': 0,
+          'scope': 0,
+          'src_len': 0,
+          'table': 255,
+          'tos': 0,
+          'type': 1}]
+        >>>
+
+    IPRoute objects have many methods to get the information
+    about Linux network objects:
+
+        >>> pprint(ip.get_routes()[0])
+        {'attrs': [('RTA_TABLE', 254),
+                   ('RTA_GATEWAY', '10.34.131.254'),
+                   ('RTA_OIF', 2)],
+         'dst_len': 0,
+         'event': 'RTM_NEWROUTE',
+         'family': 2,
+         'flags': 0,
+         'proto': 4,
+         'scope': 0,
+         'src_len': 0,
+         'table': 254,
+         'tos': 0,
+         'type': 1}
+        >>> pprint(ip.get_neighbors()[0])
+        {'attrs': [('NDA_DST', 'ff02::2'),
+                   ('NDA_LLADDR', '33:33:00:00:00:02'),
+                   ('NDA_PROBES', 0),
+                   ('NDA_CACHEINFO', {'ndm_confirmed': 309550224,
+                                      'ndm_refcnt': 0,
+                                      'ndm_updated': 309544224,
+                                      'ndm_used': 309544224})],
+         'event': 'RTM_NEWNEIGH',
+         'family': 10,
+         'flags': 0,
+         'ifindex': 33554432,
+         'ndm_type': 64,
+         'state': 0}
+        >>>
+
+    But IPRoute objects start additional threads to implement
+    transparent authentication, message reassembling and so on.
+    Sometimes it can become an overkill for simple projects, in
+    these cases consider usage of IPRSocket.
     '''
     marshal = MarshalRtnl
     family = NETLINK_ROUTE

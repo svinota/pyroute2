@@ -2,15 +2,15 @@
 IPDB module
 ===========
 
-Experimental IP database module. Provides high-level interface
-to the IPRoute functionality.
-
 Basically, IPDB is a transactional database, containing records,
 representing network stack objects. Any change in the database
 is not reflected immediately in OS (unless you ask for that
 explicitly), but waits until commit() is called.
 
-Quick start::
+quickstart
+----------
+
+Simple tutorial::
 
     from pyroute2 import IPDB
     # several IPDB instances are supported within on process
@@ -25,6 +25,172 @@ Quick start::
 
     # basic routing support
     ip.routes.add({'dst': 'default', 'gateway': '10.0.0.1'}).commit()
+
+IPDB uses IPRoute as a transport, and monitors all broadcast
+netlink messages from the kernel, thus keeping the database
+up-to-date in an asynchronous manner. IPDB inherits `dict`
+class, and has two keys::
+
+    >>> from pyroute2 import IPDB
+    >>> ip = IPDB()
+    >>> ip.by_name.keys()
+    ['bond0', 'lo', 'em1', 'wlan0', 'dummy0', 'virbr0-nic', 'virbr0']
+    >>> ip.by_index.keys()
+    [32, 1, 2, 3, 4, 5, 8]
+    >>> ip.interfaces.keys()
+    [32,
+     1,
+     2,
+     3,
+     4,
+     5,
+     8,
+     'lo',
+     'em1',
+     'wlan0',
+     'bond0',
+     'dummy0',
+     'virbr0-nic',
+     'virbr0']
+    >>> ip.interfaces['em1']['address']
+    'f0:de:f1:93:94:0d'
+    >>> ip.interfaces['em1']['ipaddr']
+    [('10.34.131.210', 23),
+     ('2620:52:0:2282:f2de:f1ff:fe93:940d', 64),
+     ('fe80::f2de:f1ff:fe93:940d', 64)]
+    >>>
+
+One can address objects in IPDB not only with dict notation, but
+with dot notation also:
+
+    >>> ip.interfaces.em1.address
+    'f0:de:f1:93:94:0d'
+    >>> ip.interfaces.em1.ipaddr
+    [('10.34.131.210', 23),
+     ('2620:52:0:2282:f2de:f1ff:fe93:940d', 64),
+     ('fe80::f2de:f1ff:fe93:940d', 64)]
+    ```
+
+It is up to you, which way to choose. The former, being more flexible,
+is better for developers, the latter, the shorter form -- for system
+administrators.
+
+
+The library has also IPDB module. It is a database synchronized with
+the kernel, containing some of the information. It can be used also
+to set up IP settings in a transactional manner:
+
+    >>> from pyroute2 import IPDB
+    >>> from pprint import pprint
+    >>> ip = IPDB()
+    >>> pprint(ip.by_name.keys())
+    ['bond0',
+     'lo',
+     'vnet0',
+     'em1',
+     'wlan0',
+     'macvtap0',
+     'dummy0',
+     'virbr0-nic',
+     'virbr0']
+    >>> ip.interfaces.lo
+    {'promiscuity': 0,
+     'operstate': 'UNKNOWN',
+     'qdisc': 'noqueue',
+     'group': 0,
+     'family': 0,
+     'index': 1,
+     'linkmode': 0,
+     'ipaddr': [('127.0.0.1', 8), ('::1', 128)],
+     'mtu': 65536,
+     'broadcast': '00:00:00:00:00:00',
+     'num_rx_queues': 1,
+     'txqlen': 0,
+     'ifi_type': 772,
+     'address': '00:00:00:00:00:00',
+     'flags': 65609,
+     'ifname': 'lo',
+     'num_tx_queues': 1,
+     'ports': [],
+     'change': 0}
+    >>>
+
+transaction modes
+-----------------
+IPDB has several operating modes:
+
+ * 'direct' -- any change goes immediately to the OS level
+ * 'implicit' (default) -- the first change starts an implicit
+   transaction, that have to be committed
+ * 'explicit' -- you have to begin() a transaction prior to
+   make any change
+ * 'snapshot' -- no changes will go to the OS in any case
+
+The default is to use implicit transaction. This behaviour can
+be changed in the future, so use 'mode' argument when creating
+IPDB instances.
+
+The sample session with explicit transactions::
+
+    In [1]: from pyroute2 import IPDB
+    In [2]: ip = IPDB(mode='explicit')
+    In [3]: ifdb = ip.interfaces
+    In [4]: ifdb.tap0.begin()
+        Out[3]: UUID('7a637a44-8935-4395-b5e7-0ce40d31d937')
+    In [5]: ifdb.tap0.up()
+    In [6]: ifdb.tap0.address = '00:11:22:33:44:55'
+    In [7]: ifdb.tap0.add_ip('10.0.0.1', 24)
+    In [8]: ifdb.tap0.add_ip('10.0.0.2', 24)
+    In [9]: ifdb.tap0.review()
+        Out[8]:
+        {'+ipaddr': set([('10.0.0.2', 24), ('10.0.0.1', 24)]),
+         '-ipaddr': set([]),
+         'address': '00:11:22:33:44:55',
+         'flags': 4099}
+    In [10]: ifdb.tap0.commit()
+
+
+Note, that you can `review()` the `last()` transaction, and
+`commit()` or `drop()` it. Also, multiple `self._transactions`
+are supported, use uuid returned by `begin()` to identify them.
+
+Actually, the form like 'ip.tap0.address' is an eye-candy. The
+IPDB objects are dictionaries, so you can write the code above
+as that::
+
+    ip.interfaces['tap0'].down()
+    ip.interfaces['tap0']['address'] = '00:11:22:33:44:55'
+    ...
+
+context managers
+----------------
+
+Also, interface objects in transactional mode can operate as
+context managers::
+
+    with ip.interfaces.tap0 as i:
+        i.address = '00:11:22:33:44:55'
+        i.ifname = 'vpn'
+        i.add_ip('10.0.0.1', 24)
+        i.add_ip('10.0.0.1', 24)
+
+On exit, the context manager will authomatically `commit()` the
+transaction.
+
+interface creation
+------------------
+
+IPDB can also create interfaces::
+
+    with ip.create(kind='bridge', ifname='control') as i:
+        i.add_port(ip.interfaces.eth1)
+        i.add_port(ip.interfaces.eth2)
+        i.add_ip('10.0.0.1/24')  # the same as i.add_ip('10.0.0.1', 24)
+
+Right now IPDB supports creation of `dummy`, `bond`, `bridge`
+and `vlan` interfaces. VLAN creation requires also `link` and
+`vlan_id` parameters, see example scripts.
+
 '''
 import os
 import uuid

@@ -18,18 +18,11 @@ Modules description, sample code, usecases
 .. toctree::
     :maxdepth: 2
 
-    modules
-    remote
-    messaging
-
-Modules autodocs
-----------------
-
-.. toctree::
-    :maxdepth: 2
-
     iproute
     ipdb
+    taskstats
+    remote
+    messaging
 
 Indices and tables
 ==================
