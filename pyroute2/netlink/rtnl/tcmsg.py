@@ -78,7 +78,7 @@ def _time2tick(t):
 
 def _calc_xmittime(rate, size):
     # The current code is ported from tc utility
-    return round(_time2tick(TIME_UNITS_PER_SEC * (float(size) / rate)))
+    return int(round(_time2tick(TIME_UNITS_PER_SEC * (float(size) / rate))))
 
 
 def _percent2u32(pct):
@@ -145,10 +145,10 @@ def _get_rate_parameters(kwarg):
                 rate_limit = peak_limit
         limit = rate_limit
 
-    return {'rate': rate,
+    return {'rate': int(rate),
             'mtu': mtu,
             'buffer': _calc_xmittime(rate, burst),
-            'limit': limit}
+            'limit': int(limit)}
 
 
 def get_tbf_parameters(kwarg):
@@ -435,7 +435,8 @@ class nla_plus_rtab(nla):
                 self.parent.get_encoded('TCA_POLICE_TBF')
             if parms is not None:
                 self.value = getattr(parms, self.__class__.__name__)
-                self['value'] = struct.pack('I' * 256, *self.value)
+                self['value'] = struct.pack('I' * 256,
+                                            *(int(x) for x in self.value))
             nla.encode(self)
 
         def decode(self):
