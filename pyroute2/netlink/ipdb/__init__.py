@@ -954,7 +954,7 @@ class Interface(Transactional):
                             raise
                     except socket.error as x:
                         # bypass illegal IP requests
-                        if not x.message.startswith('illegal IP'):
+                        if not x.args[0].startswith('illegal IP'):
                             raise
 
                 for i in added['ipaddr']:

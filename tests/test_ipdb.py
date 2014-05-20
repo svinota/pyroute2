@@ -351,7 +351,7 @@ class TestExplicit(object):
         try:
             i.commit()
         except socket.error as e:
-            if not e.message.startswith('illegal IP'):
+            if not e.args[0].startswith('illegal IP'):
                 raise
         assert not len(i.ipaddr)
         if i._mode == 'explicit':
