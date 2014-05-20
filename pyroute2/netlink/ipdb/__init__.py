@@ -241,10 +241,24 @@ def set_fail_bit(bit):
 
 def get_interface_type(name):
     '''
-    Utility function to get interface type
+    Utility function to get interface type.
+
+    Unfortunately, we can not rely on RTNL or even ioctl().
+    RHEL doesn't support interface type in RTNL and doesn't
+    provide extended (private) interface flags via ioctl().
+
+    Args:
+        * name (str): interface name
+
+    Returns:
+        * False -- sysfs info unavailable
+        * None -- type not known
+        * str -- interface type:
+            * 'bond'
+            * 'bridge'
     '''
-    # we can not even rely on ioctl(), since RHEL does not support
-    # extended (private) interface flags :(((
+    # FIXME: support all interface types? Right now it is
+    # not needed
     try:
         ifattrs = os.listdir('/sys/class/net/%s/' % (name))
     except OSError as e:
@@ -263,12 +277,21 @@ def get_interface_type(name):
 
 def get_addr_nla(msg):
     '''
+    Utility function to get NLA, containing the interface
+    address.
+
     Incosistency in Linux IP addressing scheme is that
     IPv4 uses IFA_LOCAL to store interface's ip address,
     and IPv6 uses for the same IFA_ADDRESS.
 
     IPv4 sets IFA_ADDRESS to == IFA_LOCAL or to a
     tunneling endpoint.
+
+    Args:
+        * msg (nlmsg): RTM\_.*ADDR message
+
+    Returns:
+        * nla (nla): IFA_LOCAL for IPv4 and IFA_ADDRESS for IPv6
     '''
     nla = None
     if msg['family'] == AF_INET:
@@ -279,6 +302,15 @@ def get_addr_nla(msg):
 
 
 class LinkedSet(set):
+    '''
+    Utility class, used by `Interface` to track ip addresses
+    and ports. Called "linked" as it automatically updates all
+    instances, linked with it.
+
+    Target filter is a function, that returns `True` if a set
+    member should be counted in target checks (target methods
+    see below), or `False` if it should be ignored.
+    '''
     target_filter = lambda self, x: True
 
     def __init__(self, *argv, **kwarg):
@@ -290,6 +322,14 @@ class LinkedSet(set):
         self.links = []
 
     def set_target(self, value):
+        '''
+        Set target state for the object and clear the target
+        event. Once the target is reached, the event will be
+        set, see also: `check_target()`
+
+        Args:
+            * value (set): the target state to compare with
+        '''
         with self.lock:
             if value is None:
                 self._ct = None
@@ -299,6 +339,11 @@ class LinkedSet(set):
                 self.target.clear()
 
     def check_target(self):
+        '''
+        Check the target state and set the target event in the
+        case the state is reached. Called from mutators, `add()`
+        and `remove()`
+        '''
         with self.lock:
             if self._ct is not None:
                 if set(filter(self.target_filter, self)) == \
@@ -307,6 +352,18 @@ class LinkedSet(set):
                     self.target.set()
 
     def add(self, key, raw=None):
+        '''
+        Add an item to the set and all connected instances,
+        check the target state.
+
+        Args:
+            * key: any hashable object
+            * raw (optional): raw representation of the object
+
+        Raw representation is not required. It can be used, e.g.,
+        to store RTM_NEWADDR RTNL messages along with
+        human-readable ip addr representation.
+        '''
         with self.lock:
             if key not in self:
                 self.raw[key] = raw
@@ -316,6 +373,10 @@ class LinkedSet(set):
             self.check_target()
 
     def remove(self, key, raw=None):
+        '''
+        Remove an item from the set and all connected instances,
+        check the target state.
+        '''
         with self.lock:
             set.remove(self, key)
             for link in self.links:
@@ -324,6 +385,10 @@ class LinkedSet(set):
             self.check_target()
 
     def connect(self, link):
+        '''
+        Connect a LinkedSet instance to this one. Connected
+        sets will be updated together with this instance.
+        '''
         assert isinstance(link, LinkedSet)
         self.links.append(link)
 
@@ -332,6 +397,11 @@ class LinkedSet(set):
 
 
 class IPaddrSet(LinkedSet):
+    '''
+    LinkedSet child class with different target filter. The
+    filter ignores link local IPv6 addresses when sets and checks
+    the target.
+    '''
     target_filter = lambda self, x: not ((x[0][:4] == 'fe80') and (x[1] == 64))
 
 
@@ -420,6 +490,10 @@ class IPRequest(dict):
 
 
 class IPRouteRequest(IPRequest):
+    '''
+    Utility class, that converts human-readable dictionary
+    into RTNL route request.
+    '''
 
     def __setitem__(self, key, value):
         if (key == 'dst') and (value != 'default'):
@@ -439,6 +513,10 @@ class IPRouteRequest(IPRequest):
 
 
 class IPLinkRequest(IPRequest):
+    '''
+    Utility class, that converts human-readable dictionary
+    into RTNL link request.
+    '''
 
     def __setitem__(self, key, value):
         if key == 'kind':
@@ -463,7 +541,7 @@ class IPLinkRequest(IPRequest):
 
 class Transactional(Dotkeys):
     '''
-    An utility class that implements common transactional logic.
+    Utility class that implements common transactional logic.
     '''
     _fields_cmp = {}
 
@@ -537,8 +615,6 @@ class Transactional(Dotkeys):
         return res.__repr__()
 
     def __sub__(self, vs):
-        '''
-        '''
         res = self.__class__(ipdb=self.ipdb, mode='snapshot')
         with self._direct_state:
             # simple keys
@@ -640,8 +716,6 @@ class Transactional(Dotkeys):
 
 
 class TrafficControl(Transactional):
-    '''
-    '''
     def __init__(self, ipdb, mode=None):
         Transactional.__init__(self, ipdb, mode)
         self._fields = tc_fields
