@@ -172,6 +172,46 @@ class nlmsg_base(dict):
         if 'header' in self:
             self['header'].buf = self.buf
 
+    def __ops(self, rvalue, op0, op1):
+        lvalue = self.getvalue()
+        res = self.__class__()
+        for key in lvalue:
+            if key not in ('header', 'attrs'):
+                if op0 == '__sub__':
+                    # operator -, complement
+                    if (key not in rvalue) or (lvalue[key] != rvalue[key]):
+                        res[key] = lvalue[key]
+                elif op0 == '__and__':
+                    # operator &, intersection
+                    if (key in rvalue) and (lvalue[key] == rvalue[key]):
+                        res[key] = lvalue[key]
+        if 'attrs' in lvalue:
+            res['attrs'] = []
+            for attr in lvalue['attrs']:
+                if isinstance(attr[1], nla):
+                    diff = getattr(attr[1], op0)(rvalue.get_attr(attr[0]))
+                    if diff is not None:
+                        res['attrs'].append([attr[0], diff])
+                else:
+                    if getattr(rvalue.get_attr(attr[0]), op1)(attr[1]):
+                        res['attrs'].append(attr)
+        if not len(res):
+            return None
+        else:
+            if 'header' in res:
+                del res['header']
+            if 'value' in res:
+                del res['value']
+            if 'attrs' in res and not len(res['attrs']):
+                del res['attrs']
+            return res
+
+    def __sub__(self, rvalue):
+        return self.__ops(rvalue, '__sub__', '__ne__')
+
+    def __and__(self, rvalue):
+        return self.__ops(rvalue, '__and__', '__eq__')
+
     def __eq__(self, rvalue):
         '''
         Having nla, we are able to use it in operations like::

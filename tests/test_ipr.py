@@ -166,6 +166,25 @@ class TestData(object):
         remove_link('dummyX')
         remove_link('bala')
 
+    def test_nla_operators(self):
+        require_user('root')
+        dev = self.dev[0]
+        self.ip.addr('add', dev, address='172.16.0.1', mask=24)
+        self.ip.addr('add', dev, address='172.16.0.2', mask=24)
+        r = [x for x in self.ip.get_addr() if x['index'] == dev]
+        complement = r[0] - r[1]
+        intersection = r[0] & r[1]
+
+        assert complement.get_attr('IFA_ADDRESS') == '172.16.0.1'
+        assert complement.get_attr('IFA_LABEL') is None
+        assert complement['prefixlen'] == 0
+        assert complement['index'] == 0
+
+        assert intersection.get_attr('IFA_ADDRESS') is None
+        assert intersection.get_attr('IFA_LABEL') == 'dummyX'
+        assert intersection['prefixlen'] == 24
+        assert intersection['index'] == dev
+
     def test_add_addr(self):
         require_user('root')
         dev = self.dev[0]
