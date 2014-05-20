@@ -45,6 +45,7 @@ clean: clean-version
 	rm -rf dist build MANIFEST
 	rm -f docs/general.rst
 	rm -f docs/changelog.rst
+	rm -rf docs/_build/html
 	rm -f  tests/.coverage
 	rm -rf tests/htmlcov
 	rm -rf tests/cover
