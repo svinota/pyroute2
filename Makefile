@@ -18,7 +18,7 @@
 
 version ?= "0.2"
 release ?= "0.2.10"
-python ?= "python"
+python ?= "/usr/bin/python"
 nosetests ?= "/usr/bin/nosetests"
 
 ifdef root
