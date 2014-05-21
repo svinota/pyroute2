@@ -13,3 +13,4 @@ def command(broker, sock, env, cmd, rsp):
     broker._rlist.remove(old_sock)
     broker.servers.remove(old_sock)
     broker.ioloop.unregister(old_sock)
+    old_sock.close()
