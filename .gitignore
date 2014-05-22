@@ -7,6 +7,8 @@ docs/_build
 tests/htmlcov
 tests/cover
 tests/.coverage
+tests/*key
+tests/*crt
 output.html
 setup.py
 docs/conf.py

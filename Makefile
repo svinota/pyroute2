@@ -49,6 +49,8 @@ clean: clean-version
 	rm -f  tests/.coverage
 	rm -rf tests/htmlcov
 	rm -rf tests/cover
+	rm -f tests/*key
+	rm -f tests/*crt
 	find . -name "*pyc" -exec rm -f "{}" \;
 
 setup.py docs/conf.py:
@@ -70,6 +72,8 @@ docs: clean force-version
 
 test:
 	@flake8 --exclude=docs .
+	@cp -f examples/*key tests
+	@cp -f examples/*crt tests
 	@export PYTHONPATH=`pwd`; cd tests; \
 		[ "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && ulimit -n 4096; \
 		${python} -W error ${nosetests} -v ${pdb} \
