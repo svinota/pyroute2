@@ -43,7 +43,7 @@ class Netlink(IOCore):
 
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
-                    terminate=None):
+                    terminate=None, response_timeout=None):
         '''
         Send netlink request, filling common message
         fields, and wait for response.
@@ -59,7 +59,8 @@ class Netlink(IOCore):
                               addr=self.default_peer,
                               nonce=nonce,
                               nonce_pool=self.nonce,
-                              terminate=terminate)
+                              terminate=terminate,
+                              response_timeout=response_timeout)
 
         for msg in result:
             # reset message buffer, make it ready for encoding back

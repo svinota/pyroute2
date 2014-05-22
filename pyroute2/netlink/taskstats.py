@@ -205,6 +205,7 @@ class TaskStats(Netlink):
         msg['version'] = 1
         msg['attrs'].append([cmd, mask])
         try:
+            # there is no response to this request
             self.nlm_request(msg,
                              self.prid,
                              msg_flags=NLM_F_REQUEST,
