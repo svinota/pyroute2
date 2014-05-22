@@ -172,6 +172,20 @@ class nlmsg_base(dict):
         if 'header' in self:
             self['header'].buf = self.buf
 
+    def _strip_one(self, name):
+        for i in tuple(self['attrs']):
+            if i[0] == name:
+                self['attrs'].remove(i)
+        return self
+
+    def strip(self, attrs):
+        if isinstance(attrs, basestring):
+            self._strip_one(attrs)
+        else:
+            for name in attrs:
+                self._strip_one(name)
+        return self
+
     def __ops(self, rvalue, op0, op1):
         lvalue = self.getvalue()
         res = self.__class__()
