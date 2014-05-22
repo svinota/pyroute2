@@ -15,3 +15,10 @@ ip.create(ifname='bo0', kind='bond', bond_mode=2).\
     option('mtu', 1400).\
     up().\
     commit()
+
+for i in ('bo0p0', 'bo0p1', 'bo0'):
+    try:
+        ip.interfaces[i].remove().commit()
+    except:
+        pass
+ip.release()

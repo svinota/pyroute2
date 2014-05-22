@@ -30,17 +30,30 @@ def cb(ipdb, msg, action):
 
 # create IPDB instance
 ip = IPDB()
+# create watchdogs
+wd0 = ip.watchdog(ifname='br0')
+wd1 = ip.watchdog(ifname='bala_port0')
+wd2 = ip.watchdog(ifname='bala_port1')
 # create bridge
 ip.create(kind='bridge', ifname='br0').commit()
 # wait the bridge to be created
-ip.wait_interface(ifname='br0')
+wd0.wait()
 # register callback
 ip.register_callback(cb)
 # create ports
 ip.create(kind='dummy', ifname='bala_port0').commit()
 ip.create(kind='dummy', ifname='bala_port1').commit()
 # sleep for interfaces
-ip.wait_interface(ifname='bala_port0')
-ip.wait_interface(ifname='bala_port1')
-input(" >> ")
+wd1.wait()
+wd2.wait()
+
+ip.unregister_callback(cb)
+
+# cleanup
+for i in ('bala_port0', 'bala_port1', 'br0'):
+    try:
+        ip.interfaces[i].remove().commit()
+    except:
+        pass
+
 ip.release()

@@ -16,3 +16,4 @@ ret = ts.get_pid_stat(int(pid))[0]
 print(hexdump(ret.raw))
 # parsed structure
 print(ret)
+ts.release()

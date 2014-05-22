@@ -22,8 +22,12 @@ try:
     #  * dummy
     #  * vlan -- see /examples/create_vlan.py
     #
-    bond = ip.create(kind='dummy', ifname='dummy_name')
-    bond.commit()
+    dummy = ip.create(kind='dummy', ifname='dummy_name')
+    dummy.commit()
 
 finally:
+    try:
+        dummy.remove().commit()
+    except:
+        pass
     ip.release()

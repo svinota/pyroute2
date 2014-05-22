@@ -14,3 +14,5 @@ with ip.routes['172.16.0.0/24'] as r:
 # remove
 with ip.routes['172.16.0.0/24'] as r:
     r.remove()
+
+ip.release()
