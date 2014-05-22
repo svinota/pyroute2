@@ -95,3 +95,7 @@ class TestExamples(object):
     def test_taskstats(self):
         require_user('root')
         self.launcher('taskstats.py')
+
+    def test_pmonitor(self):
+        require_user('root')
+        self.launcher('pmonitor.py', 'server.py')
