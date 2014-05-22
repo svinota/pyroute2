@@ -193,8 +193,14 @@ class nlmsg_base(dict):
                     if diff is not None:
                         res['attrs'].append([attr[0], diff])
                 else:
-                    if getattr(rvalue.get_attr(attr[0]), op1)(attr[1]):
-                        res['attrs'].append(attr)
+                    if op0 == '__sub__':
+                        # operator -, complement
+                        if rvalue.get_attr(attr[0]) != attr[1]:
+                            res['attrs'].append(attr)
+                    elif op0 == '__and__':
+                        # operator &, intersection
+                        if rvalue.get_attr(attr[0]) == attr[1]:
+                            res['attrs'].append(attr)
         if not len(res):
             return None
         else:
