@@ -547,6 +547,7 @@ class Transactional(Dotkeys):
 
     def __init__(self, ipdb, mode=None):
         self.nl = ipdb.nl
+        self.nlmsg = None
         self.uid = uuid.uuid4()
         self.ipdb = ipdb
         self.last_error = None
@@ -818,6 +819,7 @@ class Interface(Transactional):
         '''
         with self._direct_state:
             self._exists = True
+            self.nlmsg = dev
             for (name, value) in dev.items():
                 self[name] = value
             for (name, value) in dev['attrs']:
