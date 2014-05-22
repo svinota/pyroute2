@@ -33,6 +33,7 @@ _psched = open('/proc/net/psched', 'r')
 _clock_factor = float(_clock_res) / TIME_UNITS_PER_SEC
 _tick_in_usec = float(_t2us) / _us2t * _clock_factor
 _first_letter = re.compile('[^0-9]+')
+_psched.close()
 
 
 def _get_hz():

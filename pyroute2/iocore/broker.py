@@ -559,6 +559,7 @@ class IOBroker(object):
         self._rlist.remove(sock)
         self._wlist.remove(sock)
         self.clients.remove(sock)
+        sock.close()
         return sock
 
     def start(self):

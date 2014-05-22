@@ -57,7 +57,11 @@ def command(broker, sock, env, cmd, rsp):
                                       key=key,
                                       cert=cert,
                                       ca=ca)
-        new_sock.connect(addr)
+        try:
+            new_sock.connect(addr)
+        except Exception:
+            new_sock.close()
+            raise
         remote = True
         # stream sockets provide the peer announce
         buf = io.BytesIO()
