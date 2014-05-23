@@ -17,7 +17,7 @@
 # 	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 version ?= "0.2"
-release ?= "0.2.10"
+release ?= "0.2.11"
 python ?= "/usr/bin/python"
 nosetests ?= "/usr/bin/nosetests"
 

@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.2.11
+    * ipdb: watchdogs to sync on RTNL events
+    * ipdb: fix commit errors
+    * generic: NLA operations, complement and intersection
+    * docs: more autodocs in the code
+    * tests: -W error: more strict testing now
+    * tests: cover examples by the integration testing cycle
+    * with -W error many resource leaks were fixed
 * 0.2.10
     * ipdb: command chaining
     * ipdb: fix for RHEL6.5 Python "optimizations"
