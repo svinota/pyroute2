@@ -26,3 +26,6 @@ print('\n8<--------------------- intersection')
 pprint(a[0] & a[1])
 
 interface.remove().commit()
+
+ip.release()
+ipdb.release()

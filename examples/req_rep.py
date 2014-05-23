@@ -21,3 +21,6 @@ proxy = node2.connect(url)
 
 # request echo call
 print(proxy.echo('test'))
+
+node1.shutdown()
+node2.shutdown()

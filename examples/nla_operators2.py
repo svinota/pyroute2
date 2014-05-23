@@ -21,3 +21,5 @@ pprint((i.nlmsg - prev_state).strip(('IFLA_AF_SPEC',
                                      'IFLA_MAP')))
 
 i.remove().commit()
+
+ip.release()
