@@ -1,12 +1,15 @@
 import os
 import sys
 import time
-import importlib
 import subprocess
 from utils import require_user
 from utils import require_8021q
 from utils import require_bridge
 from utils import require_bond
+try:
+    import importlib
+except ImportError:
+    importlib = None
 
 
 class TestExamples(object):
@@ -29,11 +32,20 @@ class TestExamples(object):
                                      stdout=subprocess.PIPE,
                                      stderr=fnull)
                 time.sleep(1)
-            importlib.import_module(client)
+            if importlib is not None:
+                importlib.import_module(client)
+            else:
+                c = subprocess.Popen([sys.executable, client + '.py'],
+                                     stdin=fnull,
+                                     stdout=subprocess.PIPE,
+                                     stderr=fnull)
+                c.communicate()
             if server is not None:
                 s.stdin.write(b'\n')
                 s.communicate()
                 assert s.returncode == 0
+            if importlib is None:
+                assert c.returncode == 0
 
     def test_client_server(self):
         self.launcher('client', server='server.py')
