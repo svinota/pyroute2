@@ -6,6 +6,9 @@ from utils import require_user
 from utils import require_8021q
 from utils import require_bridge
 from utils import require_bond
+from nose.plugins.skip import SkipTest
+from pyroute2.netlink import NetlinkError
+
 try:
     import importlib
 except ImportError:
@@ -104,8 +107,20 @@ class TestExamples(object):
 
     def test_taskstats(self):
         require_user('root')
-        self.launcher('taskstats')
+        try:
+            self.launcher('taskstats')
+        except NetlinkError as x:
+            if x.code == 2:
+                raise SkipTest('missing taskstats support')
+            else:
+                raise
 
     def test_pmonitor(self):
         require_user('root')
-        self.launcher('pmonitor', server='server.py')
+        try:
+            self.launcher('pmonitor', server='server.py')
+        except NetlinkError as x:
+            if x.code == 2:
+                raise SkipTest('missing taskstats support')
+            else:
+                raise
