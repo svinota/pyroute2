@@ -481,6 +481,19 @@ class nla_plus_stats2(object):
                       ('requeues', 'I'),
                       ('overlimits', 'I'))
 
+    class stats2_hfsc(stats2):
+        nla_map = (('TCA_STATS_UNSPEC', 'none'),
+                   ('TCA_STATS_BASIC', 'basic'),
+                   ('TCA_STATS_RATE_EST', 'rate_est'),
+                   ('TCA_STATS_QUEUE', 'queue'),
+                   ('TCA_STATS_APP', 'stats_app_hfsc'))
+
+        class stats_app_hfsc(nla):
+            fields = (('work', 'Q'),  # total work done
+                      ('rtwork', 'Q'),  # total work done by real-time criteria
+                      ('period', 'I'),  # current period
+                      ('level', 'I'))  # class level in hierarchy
+
 
 class nla_plus_police(object):
     class police(nla_plus_rtab):
@@ -540,7 +553,7 @@ class tcmsg(nlmsg, nla_plus_stats2):
                ('TCA_XSTATS', 'get_xstats'),
                ('TCA_RATE', 'hex'),
                ('TCA_FCNT', 'hex'),
-               ('TCA_STATS2', 'stats2'),
+               ('TCA_STATS2', 'get_stats2'),
                ('TCA_STAB', 'hex'))
 
     class stats(nla):
@@ -552,6 +565,12 @@ class tcmsg(nlmsg, nla_plus_stats2):
                   ('pps', 'I'),
                   ('qlen', 'I'),
                   ('backlog', 'I'))
+
+    def get_stats2(self, *argv, **kwarg):
+        kind = self.get_attr('TCA_KIND')
+        if kind == 'hfsc':
+            return self.stats2_hfsc
+        return self.stats2
 
     def get_xstats(self, *argv, **kwarg):
         kind = self.get_attr('TCA_KIND')
@@ -579,6 +598,8 @@ class tcmsg(nlmsg, nla_plus_stats2):
                 return self.options_sfq_v1
             else:
                 return self.options_sfq_v0
+        elif kind == 'hfsc':
+            return self.options_hfsc
         elif kind == 'htb':
             return self.options_htb
         elif kind == 'netem':
@@ -591,6 +612,20 @@ class tcmsg(nlmsg, nla_plus_stats2):
 
     class options_ingress(nla):
         fields = (('value', 'I'), )
+
+    class options_hfsc(nla):
+        nla_map = (('TCA_HFSC_UNSPEC', 'hfsc_qopt'),
+                   ('TCA_HFSC_RSC', 'hfsc_curve'),  # real-time curve
+                   ('TCA_HFSC_FSC', 'hfsc_curve'),  # link-share curve
+                   ('TCA_HFSC_USC', 'hfsc_curve'))  # upper-limit curve
+
+        class hfsc_qopt(nla):
+            fields = (('defcls', 'H'),)  # default class
+
+        class hfsc_curve(nla):
+            fields = (('m1', 'I'),  # slope of the first segment in bps
+                      ('d', 'I'),  # x-projection of the first segment in us
+                      ('m2', 'I'))  # slope of the second segment in bps
 
     class options_htb(nla_plus_rtab):
         nla_map = (('TCA_HTB_UNSPEC', 'none'),
