@@ -352,7 +352,10 @@ class nlmsg_base(dict):
                         if field[1] == 'z' and self[name][-1] in (0x00, '\0'):
                             self[name] = self[name][:-1]
                     else:
-                        self.update(dict(zip(name.split(","), value)))
+                        if ',' in name:
+                            self.update(dict(zip(name.split(","), value)))
+                        else:
+                            self[name] = value
 
                 else:
                     # FIXME: log an error

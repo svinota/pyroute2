@@ -824,22 +824,7 @@ class tcmsg(nlmsg, nla_plus_stats2):
 
     class options_pfifo_fast(nla):
         fields = (('bands', 'i'),
-                  ('mark_01', 'B'),
-                  ('mark_02', 'B'),
-                  ('mark_03', 'B'),
-                  ('mark_04', 'B'),
-                  ('mark_05', 'B'),
-                  ('mark_06', 'B'),
-                  ('mark_07', 'B'),
-                  ('mark_08', 'B'),
-                  ('mark_09', 'B'),
-                  ('mark_10', 'B'),
-                  ('mark_11', 'B'),
-                  ('mark_12', 'B'),
-                  ('mark_13', 'B'),
-                  ('mark_14', 'B'),
-                  ('mark_15', 'B'),
-                  ('mark_16', 'B'))
+                  ('priomap', '16B'))
 
     class options_tbf(nla_plus_rtab):
         nla_map = (('TCA_TBF_UNSPEC', 'none'),
