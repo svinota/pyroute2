@@ -92,3 +92,6 @@ dist: clean force-version
 install: clean force-version
 	${python} setup.py install ${root} ${lib}
 
+testdeps:
+	pip install coverage
+	pip install flake8
