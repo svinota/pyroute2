@@ -75,7 +75,10 @@ test:
 	@cp -f examples/*key tests
 	@cp -f examples/*crt tests
 	@export PYTHONPATH=`pwd`; cd tests; \
-		[ "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && ulimit -n 4096; \
+		[ "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && { \
+			ulimit -n 4096; \
+			[ "$$TRAVIS" = "true" ] && . $$VIRTUAL_ENV/bin/activate ; \
+		}; \
 		${python} -W error ${nosetests} -v ${pdb} \
 			--with-coverage \
 			--cover-package=pyroute2 \
