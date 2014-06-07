@@ -18,8 +18,6 @@
 
 version ?= "0.2"
 release ?= "0.2.11"
-python ?= "/usr/bin/python"
-nosetests ?= "/usr/bin/nosetests"
 
 ifdef root
 	override root := "--root=${root}"
@@ -71,20 +69,31 @@ docs: clean force-version
 	export PYTHONPATH=`pwd`; make -C docs html
 
 test:
-	@flake8 --exclude=docs .
-	@cp -f examples/*key tests
-	@cp -f examples/*crt tests
 	@export PYTHONPATH=`pwd`; cd tests; \
+		[ -z "$$VIRTUAL_ENV" ] || \
+			. $$VIRTUAL_ENV/bin/activate && \
+			echo "Running in Virtualenv" ; \
 		[ "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && { \
-			ulimit -n 4096; \
-			[ "$$TRAVIS" = "true" ] && . $$VIRTUAL_ENV/bin/activate ; \
-		}; \
-		${python} -W error ${nosetests} -v ${pdb} \
+			echo "Running as root" ; \
+			ulimit -n 4096 ; \
+			modprobe dummy 2>/dev/null ||: ; \
+			modprobe bonding 2>/dev/null ||: ; \
+			modprobe 8021q 2>/dev/null ||: ; \
+		} ; \
+		echo "8<----------------------------------" ; \
+		echo "python: `which python` [`python --version 2>&1`]" ; \
+		echo "flake8: `which flake8` [`flake8 --version 2>&1`]" ; \
+		echo "nosetests: `which nosetests` [`nosetests --version 2>&1`]" ; \
+		echo "8<----------------------------------" ; \
+		flake8 --exclude=docs .. && echo "flake8 ... ok" || exit 250; \
+		cp -f ../examples/*key . ; \
+		cp -f ../examples/*crt . ; \
+		python -W error `which nosetests` -v ${pdb} \
 			--with-coverage \
 			--cover-package=pyroute2 \
 			${coverage} \
-			--cover-erase; \
-		cd ..
+			--cover-erase || exit 251; \
+		cd .. ;
 
 upload: clean force-version
 	${python} setup.py sdist upload
