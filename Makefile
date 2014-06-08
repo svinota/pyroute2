@@ -18,6 +18,7 @@
 
 version ?= "0.2"
 release ?= "0.2.11"
+python ?= "python"
 
 ifdef root
 	override root := "--root=${root}"
@@ -71,7 +72,8 @@ docs: clean force-version
 test:
 	@export PYTHONPATH=`pwd`; cd tests; \
 		[ -z "$$VIRTUAL_ENV" ] || \
-			. $$VIRTUAL_ENV/bin/activate && \
+			. $$VIRTUAL_ENV/bin/activate ; \
+		[ -z "$$VIRTUAL_ENV" ] || \
 			echo "Running in Virtualenv" ; \
 		[ "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && { \
 			echo "Running as root" ; \
@@ -89,7 +91,7 @@ test:
 		[ -z "$$TRAVIS" ] && { \
 			cp -f ../examples/*key . ; \
 			cp -f ../examples/*crt . ; \
-			python -W error `which nosetests` -v ${pdb} \
+			${python} -W error `which nosetests` -v ${pdb} \
 			--with-coverage \
 			--cover-package=pyroute2 \
 			${coverage} \
