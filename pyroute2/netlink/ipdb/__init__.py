@@ -1069,6 +1069,9 @@ class Interface(Transactional):
                 # apply changes only if there is something to apply
                 if any([request[item] is not None for item in request]):
                     self.nl.link('set', index=self['index'], **request)
+
+                # reload interface to hit targets
+                if transaction._targets:
                     self.reload()
 
                 # wait for targets
