@@ -828,7 +828,7 @@ class IPRoute(Netlink):
                 kwarg[item] = transform_handle(kwarg[item])
         msg['index'] = index
         msg['handle'] = handle
-        opts = None
+        opts = kwarg.get('opts', None)
         if kind == 'ingress':
             msg['parent'] = TC_H_INGRESS
             msg['handle'] = 0xffff0000
