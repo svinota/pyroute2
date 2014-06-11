@@ -404,7 +404,10 @@ class nlmsg_base(dict):
                         value = int(value)
 
                 try:
-                    payload += struct.pack(fmt, value)
+                    if type(value) in (list, tuple, set):
+                        payload += struct.pack(fmt, *value)
+                    else:
+                        payload += struct.pack(fmt, value)
                 except struct.error:
                     logging.error(traceback.format_exc())
                     logging.error("error pack: %s %s %s" %
