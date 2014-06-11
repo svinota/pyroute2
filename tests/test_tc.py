@@ -97,6 +97,17 @@ class TestIngress(BasicTest):
         assert police_tbf['mtu'] == 2040
 
 
+class TestPfifo(BasicTest):
+
+    def test_pfifo(self):
+        try_qd('pfifo_fast', self.ip.tc,
+               RTM_NEWQDISC, 'pfifo_fast', self.interface, 0)
+        qds = self.get_qdisc()
+        assert qds
+        assert qds.get_attr('TCA_KIND') == 'pfifo_fast'
+        assert isinstance(qds.get_attr('TCA_OPTIONS')['priomap'], tuple)
+
+
 class TestSfq(BasicTest):
 
     def test_sfq(self):
