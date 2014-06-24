@@ -183,6 +183,7 @@ class NetlinkSocket(socket.socket):
         self.fixed = self.port is not None
         self.groups = 0
         self.marshal = None
+        self.bound = False
 
     def bind(self, groups=0):
         self.groups = groups
@@ -201,6 +202,7 @@ class NetlinkSocket(socket.socket):
                                    (self.pid + (self.port << 22),
                                     self.groups))
                 # if we're here, bind() done successfully, just exit
+                self.bound = True
                 return
             except socket.error as e:
                 # pass occupied sockets, raise other exceptions
@@ -217,7 +219,8 @@ class NetlinkSocket(socket.socket):
 
     def close(self):
         global sockets
-        assert self.port is not None
-        if not self.fixed:
-            sockets.free(self.port)
+        if self.bound:
+            assert self.port is not None
+            if not self.fixed:
+                sockets.free(self.port)
         socket.socket.close(self)
