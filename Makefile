@@ -83,7 +83,7 @@ test:
 			modprobe 8021q 2>/dev/null ||: ; \
 		} ; \
 		echo "8<----------------------------------" ; \
-		echo "python: `which python` [`python --version 2>&1`]" ; \
+		echo "python: `which ${python}` [`${python} --version 2>&1`]" ; \
 		echo "flake8: `which flake8` [`flake8 --version 2>&1`]" ; \
 		echo "nosetests: `which nosetests` [`nosetests --version 2>&1`]" ; \
 		echo "8<----------------------------------" ; \
