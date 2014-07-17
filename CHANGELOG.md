@@ -1,6 +1,11 @@
 changelog
 =========
 
+* 0.2.12
+    * [fix]: #33 -- release resources only for bound sockets
+    * [fix]: #37 -- fix commit targets
+    * rtnl: HFSC support
+    * rtnl: priomap fixed
 * 0.2.11
     * ipdb: watchdogs to sync on RTNL events
     * ipdb: fix commit errors
