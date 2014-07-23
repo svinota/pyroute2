@@ -940,8 +940,8 @@ class IPRoute(Netlink):
                                 msg_flags=flags)
 
     def rule(self, command, table, priority=32000, rtype='RTN_UNICAST',
-             rtscope='RT_SCOPE_UNIVERSE', family=AF_INET, src=None, src_len=None, 
-                dst=None, dst_len=None):
+             rtscope='RT_SCOPE_UNIVERSE', family=AF_INET, src=None,
+             src_len=None, dst=None, dst_len=None):
         '''
         Rule operations
 
@@ -998,7 +998,7 @@ class IPRoute(Netlink):
         msg['scope'] = rtscopes[rtscope]
         msg['attrs'] = [['RTA_TABLE', table]]
         msg['attrs'].append(['RTA_PRIORITY', priority])
-        addr_len = { AF_INET6: 128, AF_INET:  32}[family]
+        addr_len = {AF_INET6: 128, AF_INET:  32}[family]
         if(dst_len is not None and dst_len >= 0 and dst_len <= addr_len):
             msg['dst_len'] = dst_len
         else:
