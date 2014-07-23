@@ -940,7 +940,8 @@ class IPRoute(Netlink):
                                 msg_flags=flags)
 
     def rule(self, command, table, priority=32000, rtype='RTN_UNICAST',
-             rtscope='RT_SCOPE_UNIVERSE', family=AF_INET, src=None):
+             rtscope='RT_SCOPE_UNIVERSE', family=AF_INET, src=None,
+             src_len=None, dst=None, dst_len=None):
         '''
         Rule operations
 
@@ -997,14 +998,24 @@ class IPRoute(Netlink):
         msg['scope'] = rtscopes[rtscope]
         msg['attrs'] = [['RTA_TABLE', table]]
         msg['attrs'].append(['RTA_PRIORITY', priority])
-        msg['dst_len'] = 0
-        msg['src_len'] = 0
+        addr_len = {AF_INET6: 128, AF_INET:  32}[family]
+        if(dst_len is not None and dst_len >= 0 and dst_len <= addr_len):
+            msg['dst_len'] = dst_len
+        else:
+            msg['dst_len'] = 0
+        if(src_len is not None and src_len >= 0 and src_len <= addr_len):
+            msg['src_len'] = src_len
+        else:
+            msg['src_len'] = 0
         if src is not None:
             msg['attrs'].append(['RTA_SRC', src])
-            addr_len = {
-                AF_INET6: 128,
-                AF_INET:  32}[family]
-            msg['src_len'] = addr_len
+            if src_len is None:
+                msg['src_len'] = addr_len
+        if dst is not None:
+            msg['attrs'].append(['RTA_DST', dst])
+            if dst_len is None:
+                msg['dst_len'] = addr_len
+
         return self.nlm_request(msg, msg_type=command,
                                 msg_flags=msg_flags)
     # 8<---------------------------------------------------------------
