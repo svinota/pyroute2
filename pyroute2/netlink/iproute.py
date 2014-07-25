@@ -955,7 +955,7 @@ class IPRoute(Netlink):
         * family   - rule's family (socket.AF_INET (default) or
                      socket.AF_INET6)
         * src      - IP source for Source Based (Policy Based) routing's rule
-        * dst      - IP source for Destination Based (Policy Based) routing's rule
+        * dst      - IP for Destination Based (Policy Based) routing's rule
         * src_len  - Mask for Source Based (Policy Based) routing's rule
         * dst_len  - Mask for Destination Based (Policy Based) routing's rule
 
@@ -1003,8 +1003,6 @@ class IPRoute(Netlink):
             ...
             32006: from 10.64.75.141 fwmark 0xa lookup 15
             ...
-
-
         '''
         if table < 0 or table > 254:
             raise 'unsupported table number'
@@ -1021,7 +1019,7 @@ class IPRoute(Netlink):
         msg['scope'] = rtscopes[rtscope]
         msg['attrs'] = [['RTA_TABLE', table]]
         msg['attrs'].append(['RTA_PRIORITY', priority])
-        if fwmark != None:
+        if fwmark is not None:
             msg['attrs'].append(['RTA_PROTOINFO', fwmark])
         addr_len = {AF_INET6: 128, AF_INET:  32}[family]
         if(dst_len is not None and dst_len >= 0 and dst_len <= addr_len):
