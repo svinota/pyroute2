@@ -43,7 +43,7 @@ class rtmsg(nlmsg):
                ('RTA_PREFSRC', 'ipaddr'),
                ('RTA_METRICS', 'uint32'),
                ('RTA_MULTIPATH', 'hex'),
-               ('RTA_PROTOINFO', 'hex'),
+               ('RTA_PROTOINFO', 'uint32'),
                ('RTA_FLOW', 'hex'),
                ('RTA_CACHEINFO', 'cacheinfo'),
                ('RTA_SESSION', 'hex'),

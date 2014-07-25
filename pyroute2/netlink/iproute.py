@@ -941,7 +941,7 @@ class IPRoute(Netlink):
 
     def rule(self, command, table, priority=32000, rtype='RTN_UNICAST',
              rtscope='RT_SCOPE_UNIVERSE', family=AF_INET, src=None,
-             src_len=None, dst=None, dst_len=None):
+             src_len=None, dst=None, dst_len=None, fwmark=None):
         '''
         Rule operations
 
@@ -955,6 +955,9 @@ class IPRoute(Netlink):
         * family   - rule's family (socket.AF_INET (default) or
                      socket.AF_INET6)
         * src      - IP source for Source Based (Policy Based) routing's rule
+        * dst      - IP for Destination Based (Policy Based) routing's rule
+        * src_len  - Mask for Source Based (Policy Based) routing's rule
+        * dst_len  - Mask for Destination Based (Policy Based) routing's rule
 
         Example::
             ip.rule('add', 10, 32000)
@@ -982,6 +985,24 @@ class IPRoute(Netlink):
             ...
             32004: from 10.64.75.141 lookup 14
             ...
+
+        Example::
+            iproute.rule('add', 15, 32005, dst='10.64.75.141', dst_len=24)
+
+        Will create::
+            #ip ru sh
+            ...
+            32005: from 10.64.75.141/24 lookup 15
+            ...
+
+        Example::
+            iproute.rule('add', 15, 32006, dst='10.64.75.141', fwmark=10)
+
+        Will create::
+            #ip ru sh
+            ...
+            32006: from 10.64.75.141 fwmark 0xa lookup 15
+            ...
         '''
         if table < 0 or table > 254:
             raise 'unsupported table number'
@@ -998,6 +1019,8 @@ class IPRoute(Netlink):
         msg['scope'] = rtscopes[rtscope]
         msg['attrs'] = [['RTA_TABLE', table]]
         msg['attrs'].append(['RTA_PRIORITY', priority])
+        if fwmark is not None:
+            msg['attrs'].append(['RTA_PROTOINFO', fwmark])
         addr_len = {AF_INET6: 128, AF_INET:  32}[family]
         if(dst_len is not None and dst_len >= 0 and dst_len <= addr_len):
             msg['dst_len'] = dst_len
