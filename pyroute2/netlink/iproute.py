@@ -600,6 +600,23 @@ class IPRoute(Netlink):
         return [k['index'] for k in
                 [i for i in self.get_links() if 'attrs' in i] if
                 [l for l in k['attrs'] if l[0] == name and l[1] == value]]
+
+    def flush_routes(self, *argv, **kwarg):
+        '''
+        Flush routes. Arguments are the same as for `get_routes()`
+        routine. Actually, this routine implements a pipe from
+        `get_routes()` to `nlm_request()`.
+        '''
+        flags = NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST
+        ret = []
+        debug = self.debug
+        self.debug = True
+        for route in self.get_routes(*argv, **kwarg):
+            ret.append(self.nlm_request(route,
+                                        msg_type=RTM_DELROUTE,
+                                        msg_flags=flags))
+        self.debug = debug
+        return ret
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------

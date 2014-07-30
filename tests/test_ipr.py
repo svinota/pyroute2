@@ -209,6 +209,37 @@ class TestData(object):
                                  table=254)
         assert len(rts) > 0
 
+    def test_flush_routes(self):
+        require_user('root')
+        create_link('bala', 'dummy')
+        dev = self.ip.link_lookup(ifname='bala')[0]
+        self.ip.link('set', index=dev, state='up')
+        self.ip.addr('add', dev, address='172.16.0.2', mask=24)
+        self.ip.route('add',
+                      prefix='172.16.1.0',
+                      mask=24,
+                      gateway='172.16.0.1',
+                      table=100)
+        self.ip.route('add',
+                      prefix='172.16.2.0',
+                      mask=24,
+                      gateway='172.16.0.1',
+                      table=100)
+
+        assert grep('ip route show table 100',
+                    pattern='172.16.1.0/24.*172.16.0.1')
+        assert grep('ip route show table 100',
+                    pattern='172.16.2.0/24.*172.16.0.1')
+
+        self.ip.flush_routes(table=100)
+
+        assert not grep('ip route show table 100',
+                        pattern='172.16.1.0/24.*172.16.0.1')
+        assert not grep('ip route show table 100',
+                        pattern='172.16.2.0/24.*172.16.0.1')
+
+        remove_link('bala')
+
     def test_route_table_2048(self):
         require_user('root')
         create_link('bala', 'dummy')
