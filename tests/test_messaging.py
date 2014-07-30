@@ -115,9 +115,8 @@ class TestMessaging(object):
 
     def setup(self):
         url = 'unix://\0one_test_socket/service'
-        self.node1 = Node()
+        self.node1 = Node(serve=url)
         self.node1.register(Namespace())
-        self.node1.serve(url)
 
         self.node2 = Node()
         self.proxy = self.node2.connect(url)
