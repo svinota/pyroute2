@@ -541,7 +541,7 @@ class IPRoute(Netlink):
     # removed due to redundancy. Only link shortcuts are left here for
     # now. Possibly, they should be moved to a separate module.
     #
-    def get_default_routes(self, family=AF_UNSPEC, table=None):
+    def get_default_routes(self, family=AF_UNSPEC, table=254):
         '''
         Get default routes
         '''
