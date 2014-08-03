@@ -141,6 +141,8 @@ RTM_SETNEIGHTBL = 67
 TC_H_INGRESS = 0xfffffff1
 TC_H_ROOT = 0xffffffff
 
+DEFAULT_TABLE = 254
+
 RTNL_GROUPS = RTNLGRP_IPV4_IFADDR |\
     RTNLGRP_IPV6_IFADDR |\
     RTNLGRP_IPV4_ROUTE |\
@@ -512,7 +514,7 @@ class IPRoute(Netlink):
         msg['family'] = family
         # you can specify the table here, but the kernel
         # will ignore this setting
-        table = kwarg.get('table', 0)
+        table = kwarg.get('table', DEFAULT_TABLE)
         msg['table'] = table if table <= 255 else 252
 
         # get a particular route
@@ -541,7 +543,7 @@ class IPRoute(Netlink):
     # removed due to redundancy. Only link shortcuts are left here for
     # now. Possibly, they should be moved to a separate module.
     #
-    def get_default_routes(self, family=AF_UNSPEC, table=254):
+    def get_default_routes(self, family=AF_UNSPEC, table=DEFAULT_TABLE):
         '''
         Get default routes
         '''
@@ -603,7 +605,8 @@ class IPRoute(Netlink):
 
     def flush_routes(self, *argv, **kwarg):
         '''
-        Flush routes. Arguments are the same as for `get_routes()`
+        Flush routes -- purge route records from a table.
+        Arguments are the same as for `get_routes()`
         routine. Actually, this routine implements a pipe from
         `get_routes()` to `nlm_request()`.
         '''
@@ -611,6 +614,7 @@ class IPRoute(Netlink):
         ret = []
         debug = self.debug
         self.debug = True
+        kwarg['table'] = kwarg.get('table', DEFAULT_TABLE)
         for route in self.get_routes(*argv, **kwarg):
             ret.append(self.nlm_request(route,
                                         msg_type=RTM_DELROUTE,
