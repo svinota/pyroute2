@@ -221,10 +221,28 @@ class IOCore(object):
         msg['attrs'] = attrs
         msg['header']['type'] = NLMSG_CONTROL
         msg.encode()
-        rsp = self.request(msg.buf.getvalue(),
-                           env_flags=NLT_CONTROL,
-                           nonce_pool=self.cmd_nonce,
-                           addr=addr)[0]
+
+        # try to send a command 3 times
+        for _ in range(3):
+            try:
+                rsp = self.request(msg.buf.getvalue(),
+                                   env_flags=NLT_CONTROL,
+                                   nonce_pool=self.cmd_nonce,
+                                   addr=addr)[0]
+            except Queue.Empty:
+                # if there is no reply, try again
+                # rsp variable will be initialized
+                continue
+
+            # if there is a reply, continue execution
+            # (break the loop)
+            break
+
+        else:
+            # if there was no break -- raise Queue.Empty()
+            # for compatibility
+            raise Queue.Empty()
+
         if rsp['cmd'] != IPRCMD_ACK:
             raise RuntimeError(rsp.get_attr('IPR_ATTR_ERROR'))
         if expect is not None:
