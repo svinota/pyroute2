@@ -34,7 +34,7 @@ class TestExamples(object):
                                      stdin=subprocess.PIPE,
                                      stdout=subprocess.PIPE,
                                      stderr=fnull)
-                time.sleep(3)
+                time.sleep(1)
             if importlib is not None:
                 importlib.import_module(client)
             else:
