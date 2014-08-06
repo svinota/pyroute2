@@ -4,9 +4,15 @@ from pyroute2.netlink.iproute import IPRoute
 from pyroute2.netlink.ipdb import IPDB
 from pyroute2.netlink.taskstats import TaskStats
 from pyroute2.iocore.iocore import IOCore
+from pyroute2.iocore import TimeoutError
+from pyroute2.netlink import NetlinkError
 
-make_pep8_happy = IPRSocket
-make_pep8_happy = IPRoute
-make_pep8_happy = IPDB
-make_pep8_happy = TaskStats
-make_pep8_happy = IOCore
+modules = [IPRSocket,
+           IPRoute,
+           IPDB,
+           TaskStats,
+           IOCore,
+           TimeoutError,
+           NetlinkError]
+
+__all__ = [getattr(module, '__name__') for module in modules]
