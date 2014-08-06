@@ -1,3 +1,4 @@
+import time
 from pyroute2.netlink import IPRCMD_STOP
 from pyroute2.netlink import IPRCMD_RELOAD
 from pyroute2.netlink import IPRCMD_SUBSCRIBE
@@ -5,6 +6,7 @@ from pyroute2.iocore import NLT_DGRAM
 from pyroute2.rpc import public
 from pyroute2.rpc import Node
 from pyroute2 import IOCore
+from pyroute2 import TimeoutError
 
 
 class TestIOBroker(object):
@@ -81,6 +83,10 @@ class Namespace(object):
         return '%s passed' % (msg)
 
     @public
+    def sleep(self, t):
+        time.sleep(t)
+
+    @public
     def error(self):
         raise RuntimeError('test exception')
 
@@ -119,7 +125,7 @@ class TestMessaging(object):
         self.node1.register(Namespace())
 
         self.node2 = Node()
-        self.proxy = self.node2.connect(url)
+        self.proxy = self.node2.connect(url, timeout=1)
 
     def teardown(self):
         self.node2.shutdown()
@@ -127,6 +133,17 @@ class TestMessaging(object):
 
     def test_req_rep(self):
         assert self.proxy.echo('test') == b'test passed'
+
+    def test_timeout_fail(self):
+        try:
+            self.proxy.sleep(2)
+            raise Exception("Timeout isn't reached")
+        except TimeoutError:
+            pass
+
+    def test_timeout_ok(self):
+        self.proxy._timeout = 10
+        self.proxy.sleep(2)
 
     def test_exception(self):
         try:

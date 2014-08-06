@@ -32,8 +32,9 @@ def public(func):
 
 class Interface(object):
 
-    def __init__(self, ioc, host):
+    def __init__(self, ioc, host, timeout=3):
         self._ioc = ioc
+        self._timeout = timeout
         self._res = urlparse.urlparse(host)
         link, self._addr = self._ioc.connect(host)
         self._port = self._ioc.discover(self._res.path, self._addr)
@@ -63,7 +64,8 @@ class ReqRepInterface(Interface):
                 return self._ioc.request(msg,
                                          addr=self._addr,
                                          port=self._port,
-                                         cname=key)[0]
+                                         cname=key,
+                                         response_timeout=self._timeout)[0]
             return call
 
 
@@ -112,11 +114,11 @@ class Node(object):
         self._ioc.monitor()
         self._ioc.mirror()
 
-    def connect(self, host):
+    def connect(self, host, timeout=3):
         '''
         Return REQ/REP interface to another node
         '''
-        return ReqRepInterface(self._ioc, host)
+        return ReqRepInterface(self._ioc, host, timeout)
 
     def target(self, host, dgram=None, flags=None):
         '''
