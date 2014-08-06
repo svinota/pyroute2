@@ -14,10 +14,7 @@ It is not implemented normally yet, but some methods are already
 usable.
 '''
 
-try:
-    import Queue
-except ImportError:
-    import queue as Queue
+from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.client import Netlink
@@ -210,7 +207,7 @@ class TaskStats(Netlink):
                              self.prid,
                              msg_flags=NLM_F_REQUEST,
                              response_timeout=0.1)
-        except Queue.Empty:
+        except TimeoutError:
             pass
 
     def register_mask(self, mask):

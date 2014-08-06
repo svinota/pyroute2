@@ -7,6 +7,7 @@ import io
 from multiprocessing import Process
 from pyroute2.common import uuid32
 from pyroute2.common import debug
+from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NLMSG_CONTROL
 from pyroute2.netlink import NLMSG_TRANSPORT
 from pyroute2.netlink import IPRCMD_ACK
@@ -319,7 +320,7 @@ class IOCore(object):
         for (uid, addr) in tuple(self.uids):
             try:
                 self.disconnect(uid, addr=addr)
-            except Queue.Empty as e:
+            except TimeoutError as e:
                 if addr == self.default_broker:
                     raise e
         self.command(IPRCMD_STOP)
@@ -431,8 +432,8 @@ class IOCore(object):
             # Bug-Url: http://bugs.python.org/issue1360
             try:
                 msg = queue.get(block=True, timeout=timeout)
-            except Queue.Empty as x:
-                e = x
+            except Queue.Empty:
+                e = TimeoutError()
                 if key == 0:
                     continue
                 else:

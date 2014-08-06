@@ -196,16 +196,13 @@ import os
 import uuid
 import socket
 import threading
-try:
-    from Queue import Empty
-except ImportError:
-    from queue import Empty
 
 from socket import AF_UNSPEC
 from socket import AF_INET
 from socket import AF_INET6
 from pyroute2.common import dqn2int
 from pyroute2.common import Dotkeys
+from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.ipdb import compat
 from pyroute2.netlink.iproute import IPRoute
@@ -940,7 +937,7 @@ class Interface(Transactional):
             except NetlinkError as e:
                 if e.code != 22:  # Invalid argument, try again
                     raise
-            except Empty:
+            except TimeoutError:
                 raise IOError('lost netlink connection')
         self._load_event.wait(_SYNC_TIMEOUT)
         return self
