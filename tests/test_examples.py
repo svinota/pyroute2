@@ -72,6 +72,10 @@ class TestExamples(object):
         require_8021q()
         self.launcher('create_vlan')
 
+    def test_ip_monitor(self):
+        require_user('root')
+        self.launcher('create_interface', server='ip_monitor.py')
+
     def test_ioc_client_server(self):
         self.launcher('ioc_client', server='ioc_server.py')
 
