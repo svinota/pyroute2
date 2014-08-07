@@ -8,3 +8,4 @@ from pprint import pprint
 ip = IPRSocket()
 ip.bind()
 pprint(ip.get())
+ip.close()
