@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-import subprocess
+from threading import Thread
 from utils import require_user
 from utils import require_8021q
 from utils import require_bridge
@@ -9,15 +9,12 @@ from utils import require_bond
 from nose.plugins.skip import SkipTest
 from pyroute2.netlink import NetlinkError
 
-try:
-    import importlib
-except ImportError:
-    importlib = None
-
-# FIXME: for some unknown reason, this particular module
-# has multiple issues with Python 3.2
-if sys.version[:3] == '3.2':
+# FIXME: launcher doesn't work in Python < 3.3
+if sys.version[:3] != '3.3':
     raise SkipTest('https://github.com/svinota/pyroute2/issues/42')
+
+from importlib import import_module
+from queue import Queue
 
 
 class TestExamples(object):
@@ -28,35 +25,52 @@ class TestExamples(object):
         newdir = os.getcwd()
         if newdir not in sys.path:
             sys.path.append(newdir)
+        self.feedback = Queue()
+        self.pr, self.pw = os.pipe()
+        __builtins__['pr2_sync'] = self.pr
 
     def teardown(self):
         os.chdir(self.pwd)
+        os.close(self.pr)
+        os.close(self.pw)
 
     def launcher(self, client, server=None):
-        with open(os.devnull, 'w') as fnull:
-            if server is not None:
-                s = subprocess.Popen([sys.executable, server],
-                                     stdin=subprocess.PIPE,
-                                     stdout=subprocess.PIPE,
-                                     stderr=fnull)
-                time.sleep(1)
-            if importlib is not None:
-                importlib.import_module(client)
-            else:
-                c = subprocess.Popen([sys.executable, client + '.py'],
-                                     stdin=fnull,
-                                     stdout=subprocess.PIPE,
-                                     stderr=fnull)
-                c.communicate()
-            if server is not None:
-                s.stdin.write(b'\n')
-                s.communicate()
-                assert s.returncode == 0
-            if importlib is None:
-                assert c.returncode == 0
+
+        client_error = None
+        server_error = None
+
+        def wrapper(parent, symbol):
+            try:
+                import_module(symbol)
+                parent.feedback.put(None)
+            except Exception as e:
+                parent.feedback.put(e)
+
+        if server is not None:
+            s = Thread(target=wrapper, args=(self, server, ))
+            s.start()
+            time.sleep(1)
+
+        c = Thread(target=wrapper, args=(self, client, ))
+        c.start()
+        client_error = self.feedback.get()
+
+        if server is not None:
+            os.write(self.pw, b'q')
+            server_error = self.feedback.get()
+            s.join()
+
+        c.join()
+
+        if any((client_error, server_error)):
+            print("client error:")
+            print(client_error)
+            print("server error:")
+            print(server_error)
+            raise RuntimeError
 
     def test_client_server(self):
-        self.launcher('client', server='server.py')
+        self.launcher('client', server='server')
 
     def test_create_bond(self):
         require_user('root')
@@ -74,10 +88,10 @@ class TestExamples(object):
 
     def test_ip_monitor(self):
         require_user('root')
-        self.launcher('create_interface', server='ip_monitor.py')
+        self.launcher('create_interface', server='ip_monitor')
 
     def test_ioc_client_server(self):
-        self.launcher('ioc_client', server='ioc_server.py')
+        self.launcher('ioc_client', server='ioc_server')
 
     def test_ipdb_autobr(self):
         require_user('root')
@@ -127,7 +141,7 @@ class TestExamples(object):
     def test_pmonitor(self):
         require_user('root')
         try:
-            self.launcher('pmonitor', server='server.py')
+            self.launcher('pmonitor', server='server')
         except NetlinkError as x:
             if x.code == 2:
                 raise SkipTest('missing taskstats support')
