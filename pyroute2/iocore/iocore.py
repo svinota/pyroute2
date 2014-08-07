@@ -327,8 +327,6 @@ class IOCore(object):
         if self.forked_broker:
             self.forked_broker.join()
         self.ioloop.shutdown()
-        self.ioloop.join()
-
         self._brs.send(struct.pack('I', 4))
         self._brs.close()
         self.bridge.close()

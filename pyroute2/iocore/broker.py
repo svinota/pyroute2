@@ -575,4 +575,3 @@ class IOBroker(object):
         self._expire_thread.join()
         if self.standalone:
             self.ioloop.shutdown()
-            self.ioloop.join()

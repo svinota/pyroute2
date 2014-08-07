@@ -13,11 +13,11 @@ except ImportError:
 class IOLoop(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self, name="IOLoop")
-        fd, self.control = os.pipe()
+        self.fd, self.control = os.pipe()
         self._stop_flag = False
         self.fds = {}
         self.poll = select.epoll()
-        self.register(fd, lambda fd, event: os.read(fd, 1))
+        self.register(self.fd, lambda f, event: os.read(f, 1))
         self.buffers = Queue.Queue()
         self._dequeue_thread = threading.Thread(target=self._dequeue,
                                                 name='Buffers queue')
@@ -41,6 +41,12 @@ class IOLoop(threading.Thread):
         self.reload()
         self.buffers.put((None, None, None, None, None))
         self._dequeue_thread.join()
+        # wait the main loop to exit
+        self.join()
+        # close own file descriptors
+        os.close(self.control)
+        os.close(self.fd)
+        self.poll.close()
 
     def reload(self):
         os.write(self.control, b's')
