@@ -577,6 +577,7 @@ class nlmsg_base(dict):
             except:
                 # FIXME
                 self.buf.seek(init)
+                msg_name = 'UNKNOWN'
                 msg_value = hexdump(self.buf.read(length))
             else:
                 msg_value = nla.getvalue()
