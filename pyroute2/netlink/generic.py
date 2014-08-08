@@ -501,13 +501,21 @@ class nlmsg_base(dict):
         self.t_nla_map = {}
         self.r_nla_map = {}
 
-        # create enumeration
-        nla_types = enumerate((i[0] for i in self.nla_map))
-        # that's a little bit tricky, but to reduce
-        # the required amount of code in modules, we have
-        # to jump over the head
-        zipped = [(k[1][0], k[0][0], k[0][1]) for k in
-                  zip(self.nla_map, nla_types)]
+        # work only on non-empty mappings
+        if not self.nla_map:
+            return
+
+        # detect, whether we have pre-defined keys
+        if len(self.nla_map[0]) == 2:
+            # create enumeration
+            nla_types = enumerate((i[0] for i in self.nla_map))
+            # that's a little bit tricky, but to reduce
+            # the required amount of code in modules, we have
+            # to jump over the head
+            zipped = [(k[1][0], k[0][0], k[0][1]) for k in
+                      zip(self.nla_map, nla_types)]
+        else:
+            zipped = self.nla_map
 
         for (key, name, nla_class) in zipped:
             # lookup NLA class
