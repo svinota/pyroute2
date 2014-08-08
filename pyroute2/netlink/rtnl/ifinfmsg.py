@@ -1,5 +1,6 @@
 from pyroute2.netlink.generic import nla
 from pyroute2.netlink.generic import nlmsg
+from pyroute2.netlink.rtnl.iw_event import iw_event
 
 states = ('UNKNOWN',
           'NOTPRESENT',
@@ -66,7 +67,7 @@ class ifinfmsg(nlmsg):
                ('IFLA_COST', 'hex'),
                ('IFLA_PRIORITY', 'hex'),
                ('IFLA_MASTER', 'uint32'),
-               ('IFLA_WIRELESS', 'hex'),
+               ('IFLA_WIRELESS', 'wireless'),
                ('IFLA_PROTINFO', 'hex'),
                ('IFLA_TXQLEN', 'uint32'),
                ('IFLA_MAP', 'ifmap'),
@@ -88,6 +89,9 @@ class ifinfmsg(nlmsg):
                ('IFLA_PROMISCUITY', 'uint32'),
                ('IFLA_NUM_TX_QUEUES', 'uint32'),
                ('IFLA_NUM_RX_QUEUES', 'uint32'))
+
+    class wireless(iw_event):
+        pass
 
     class state(nla):
         fields = (('value', 'B'), )
