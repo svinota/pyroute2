@@ -550,6 +550,7 @@ class nlmsg_base(dict):
     def decode_nlas(self):
         while self.buf.tell() < (self.offset + self.length):
             init = self.buf.tell()
+            nla = None
             # pick the length and the type
             (length, msg_type) = struct.unpack('HH', self.buf.read(4))
             # rewind to the beginning
@@ -571,24 +572,24 @@ class nlmsg_base(dict):
                 # decode NLA
                 nla = msg_class(self.buf, length, self,
                                 debug=self.debug)
-                try:
-                    nla.decode()
-                except:
-                    # FIXME
-                    self.buf.seek(init)
-                    msg_value = hexdump(self.buf.read(length))
-                else:
-                    msg_value = nla.getvalue()
+            try:
+                nla.decode()
+            except:
+                # FIXME
+                self.buf.seek(init)
+                msg_value = hexdump(self.buf.read(length))
+            else:
+                msg_value = nla.getvalue()
 
-                if self.debug:
-                    self['attrs'].append([msg_name,
-                                          msg_value,
-                                          msg_type,
-                                          length,
-                                          init])
-                else:
-                    self['attrs'].append([msg_name,
-                                          msg_value])
+            if self.debug:
+                self['attrs'].append([msg_name,
+                                      msg_value,
+                                      msg_type,
+                                      length,
+                                      init])
+            else:
+                self['attrs'].append([msg_name,
+                                      msg_value])
 
             # fix the offset
             self.buf.seek(init + NLMSG_ALIGN(length))
