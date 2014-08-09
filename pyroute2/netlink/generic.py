@@ -84,51 +84,6 @@ class nlmsg_base(dict):
     you're inventing completely new protocol structure.
 
     Use nlmsg or nla classes.
-
-    ...
-
-    Netlink message structure
-
-    | header | data |
-
-    nlmsg header:
-        + uint32 length
-        + uint16 type
-        + uint16 flags
-        + uint32 sequence number
-        + uint32 pid
-
-    nla header:
-        + uint16 length
-        + uint16 type
-
-    data:
-        + data-specific struct
-        + NLA
-        + NLA
-        + ...
-
-    To describe data, use python struct notation:
-
-        fields = (('length', 'H'),
-                  ('type', 'H'))
-
-
-    NLAs are decoded/encoded according to 'nla_map':
-
-        nla_map = [['NDA_UNSPEC', 'none'],
-                   ['NDA_DST', 'ipaddr'],
-                   ['NDA_LLADDR', 'l2addr'],
-                   ['NDA_CACHEINFO', 'cacheinfo'],
-                   ['NDA_PROBES', 'uint32']]
-
-    Please note, that 'nla_map' creates implied enumeration from
-    its fields. In the example above NDA_UNSPEC == 0 and
-    NDA_PROBES == 4. These numbers will be used as uint16 'type'
-    in NLA header.
-
-    List of public types as 'none', 'uint32', 'ipaddr', 'asciiz'
-    you can read in nlmsg_atoms class.
     '''
 
     fields = []                  # data field names, to build a dictionary

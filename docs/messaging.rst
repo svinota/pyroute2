@@ -1,6 +1,6 @@
 .. messaging:
 
-pyroute2 as a messaging system
+Pyroute2 as a messaging system
 ==============================
 
 It is possible to use pyroute2 library as a messaging system.

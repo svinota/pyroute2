@@ -12,6 +12,14 @@ General information about the library (README.md)
     general
     changelog
 
+Netlink protocol: developer's guide
+-----------------------------------
+
+.. toctree::
+    :maxdepth: 2
+
+    netlink
+
 Modules description, sample code, usecases
 ------------------------------------------
 

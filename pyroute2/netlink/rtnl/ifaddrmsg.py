@@ -5,10 +5,10 @@ from pyroute2.netlink.generic import nla
 # address attributes
 #
 # Important comment:
-# IFA_ADDRESS is prefix address, rather than local interface address.
-# It makes no difference for normally configured broadcast interfaces,
-# but for point-to-point IFA_ADDRESS is DESTINATION address,
-# local address is supplied in IFA_LOCAL attribute.
+# For IPv4, IFA_ADDRESS is a prefix address, not a local interface
+# address. It makes no difference for normal interfaces, but
+# for point-to-point ones IFA_ADDRESS means DESTINATION address,
+# and the local address is supplied in IFA_LOCAL attribute.
 #
 
 

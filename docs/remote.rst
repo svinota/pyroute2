@@ -4,7 +4,7 @@
     This chapter becomes deprecated and outdated. More
     details in pyroute2 messaging.
 
-remote netlink
+Remote netlink
 ==============
 
 Remote netlink allows you to communicate through the network
