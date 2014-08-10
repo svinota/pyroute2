@@ -118,5 +118,5 @@ links
 * home: https://github.com/svinota/pyroute2
 * bugs: https://github.com/svinota/pyroute2/issues
 * pypi: https://pypi.python.org/pypi/pyroute2
-* docs: http://pyroute2.org/docs/
+* docs: http://docs.pyroute2.org/
 * list: https://groups.google.com/d/forum/pyroute2-dev
