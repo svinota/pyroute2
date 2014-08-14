@@ -143,9 +143,9 @@ def get_master(name):
 
 def create_bridge(name):
     with open(os.devnull, 'w') as fnull:
-        subprocess.call(['brctl', 'addbr', name],
-                        stdout=fnull,
-                        stderr=fnull)
+        subprocess.check_call(['brctl', 'addbr', name],
+                              stdout=fnull,
+                              stderr=fnull)
 
 
 def create_bond(name):
@@ -155,9 +155,9 @@ def create_bond(name):
 
 def del_bridge(name):
     with open(os.devnull, 'w') as fnull:
-        subprocess.call(['brctl', 'delbr', name],
-                        stdout=fnull,
-                        stderr=fnull)
+        subprocess.check_call(['brctl', 'delbr', name],
+                              stdout=fnull,
+                              stderr=fnull)
 
 
 def del_bond(name):
@@ -167,16 +167,16 @@ def del_bond(name):
 
 def add_bridge_port(master, port):
     with open(os.devnull, 'w') as fnull:
-        subprocess.call(['brctl', 'addif', master, port],
-                        stdout=fnull,
-                        stderr=fnull)
+        subprocess.check_call(['brctl', 'addif', master, port],
+                              stdout=fnull,
+                              stderr=fnull)
 
 
 def del_bridge_port(master, port):
     with open(os.devnull, 'w') as fnull:
-        subprocess.call(['brctl', 'delif', master, port],
-                        stdout=fnull,
-                        stderr=fnull)
+        subprocess.check_call(['brctl', 'delif', master, port],
+                              stdout=fnull,
+                              stderr=fnull)
 
 
 def add_bond_port(master, port):
