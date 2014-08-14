@@ -88,13 +88,15 @@ test:
 		echo "nosetests: `which nosetests` [`nosetests --version 2>&1`]" ; \
 		echo "8<----------------------------------" ; \
 		flake8 --exclude=docs .. && echo "flake8 ... ok" || exit 250; \
-		cp -f ../examples/*key . ; \
-		cp -f ../examples/*crt . ; \
-		${python} -W error `which nosetests` -v ${pdb} \
-		--with-coverage \
-		--cover-package=pyroute2 \
-		${coverage} \
-		--cover-erase || exit 251; \
+		[ -z "$$TRAVIS" ] && { \
+			cp -f ../examples/*key . ; \
+			cp -f ../examples/*crt . ; \
+			${python} -W error `which nosetests` -v ${pdb} \
+			--with-coverage \
+			--cover-package=pyroute2 \
+			${coverage} \
+			--cover-erase || exit 251; \
+		} ; \
 		cd .. ;
 
 upload: clean force-version
