@@ -17,7 +17,7 @@
 # 	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 version ?= "0.2"
-release ?= "0.2.12"
+release ?= "0.2.13"
 python ?= "python"
 
 ifdef root

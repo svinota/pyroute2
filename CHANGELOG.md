@@ -1,6 +1,15 @@
 changelog
 =========
 
+* 0.2.13
+    * [fix]: #43 -- pipe leak in the main I/O loop
+    * tests: integrate examples, import into tests
+    * iocore: use own TimeoutException instead of Queue.Empty
+    * iproute: default routing table = 254
+    * iproute: flush_routes() routine
+    * iproute: fwmark parameter for rule() routine
+    * iproute: destination and mask for rules
+    * docs: netlink development guide
 * 0.2.12
     * [fix]: #33 -- release resources only for bound sockets
     * [fix]: #37 -- fix commit targets
