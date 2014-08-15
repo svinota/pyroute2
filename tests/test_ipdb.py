@@ -3,6 +3,7 @@ import socket
 from pyroute2 import IPDB
 from pyroute2.common import basestring
 from pyroute2.netlink import NetlinkError
+from pyroute2.netlink.ipdb import CreateException
 from pyroute2.netlink.ipdb import clear_fail_bit
 from pyroute2.netlink.ipdb import set_fail_bit
 from pyroute2.netlink.ipdb import _FAIL_COMMIT
@@ -382,6 +383,24 @@ class TestExplicit(object):
         i.commit()
         assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
         assert '172.16.0.1/24' in get_ip_addr(interface='bala')
+
+    def _create_double(self, kind):
+        require_user('root')
+        assert 'bala' not in self.ip.interfaces
+        self.ip.create(kind=kind, ifname='bala')
+        try:
+            self.ip.create(kind=kind, ifname='bala')
+        except CreateException:
+            pass
+
+    def test_create_double_dummy(self):
+        self._create_double('dummy')
+
+    def test_create_double_bridge(self):
+        self._create_double('bridge')
+
+    def test_create_double_bond(self):
+        self._create_double('bond')
 
     def test_create_plain(self):
         require_user('root')

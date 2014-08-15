@@ -226,6 +226,10 @@ class CommitException(Exception):
     pass
 
 
+class CreateException(Exception):
+    pass
+
+
 def clear_fail_bit(bit):
     global _FAIL_MASK
     _FAIL_MASK &= ~(_FAIL_MASK & bit)
@@ -1576,10 +1580,13 @@ class IPDB(object):
         '''
         with self.exclusive:
             # check for existing interface
-            if ((ifname in self.interfaces) and
-                    (self.interfaces[ifname]._flicker)):
-                device = self.interfaces[ifname]
-                device._flicker = False
+            if ifname in self.interfaces:
+                if self.interfaces[ifname]._flicker:
+                    device = self.interfaces[ifname]
+                    device._flicker = False
+                else:
+                    raise CreateException("interface %s exists" %
+                                          ifname)
             else:
                 device = \
                     self.by_name[ifname] = \
