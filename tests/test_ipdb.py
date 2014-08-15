@@ -387,9 +387,9 @@ class TestExplicit(object):
     def _create_double(self, kind):
         require_user('root')
         assert 'bala' not in self.ip.interfaces
-        self.ip.create(kind=kind, ifname='bala')
+        self.ip.create(kind=kind, ifname='bala').commit()
         try:
-            self.ip.create(kind=kind, ifname='bala')
+            self.ip.create(kind=kind, ifname='bala').commit()
         except CreateException:
             pass
 
