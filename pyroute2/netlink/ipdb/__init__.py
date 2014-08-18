@@ -321,6 +321,7 @@ class LinkedSet(set):
         self._ct = None
         self.raw = {}
         self.links = []
+        self.exclusive = set()
 
     def set_target(self, value):
         '''
@@ -352,7 +353,7 @@ class LinkedSet(set):
                     self._ct = None
                     self.target.set()
 
-    def add(self, key, raw=None):
+    def add(self, key, raw=None, cascade=False):
         '''
         Add an item to the set and all connected instances,
         check the target state.
@@ -366,24 +367,40 @@ class LinkedSet(set):
         human-readable ip addr representation.
         '''
         with self.lock:
+            if cascade and (key in self.exclusive):
+                return
             if key not in self:
                 self.raw[key] = raw
                 set.add(self, key)
                 for link in self.links:
-                    link.add(key, raw)
+                    link.add(key, raw, cascade=True)
             self.check_target()
 
-    def remove(self, key, raw=None):
+    def remove(self, key, raw=None, cascade=False):
         '''
         Remove an item from the set and all connected instances,
         check the target state.
         '''
         with self.lock:
+            if cascade and (key in self.exclusive):
+                return
             set.remove(self, key)
             for link in self.links:
                 if key in link:
-                    link.remove(key)
+                    link.remove(key, cascade=True)
             self.check_target()
+
+    def unlink(self, key):
+        '''
+        Exclude key from cascade updates.
+        '''
+        self.exclusive.add(key)
+
+    def relink(self, key):
+        '''
+        Do not ignore key on cascade updates.
+        '''
+        self.exclusive.remove(key)
 
     def connect(self, link):
         '''
@@ -875,6 +892,7 @@ class Interface(Transactional):
             transaction = self.last()
             transaction.add_ip(ip, mask)
         else:
+            self['ipaddr'].unlink((ip, mask))
             self['ipaddr'].add((ip, mask))
         return self
 
@@ -894,6 +912,7 @@ class Interface(Transactional):
             if (ip, mask) in transaction['ipaddr']:
                 transaction.del_ip(ip, mask)
         else:
+            self['ipaddr'].unlink((ip, mask))
             self['ipaddr'].remove((ip, mask))
         return self
 
@@ -908,6 +927,7 @@ class Interface(Transactional):
             transaction = self.last()
             transaction.add_port(port)
         else:
+            self['ports'].unlink(port)
             compat.fix_add_master(self.ipdb.interfaces[port], self)
             self['ports'].add(port)
         return self
@@ -924,6 +944,7 @@ class Interface(Transactional):
             if port in transaction['ports']:
                 transaction.del_port(port)
         else:
+            self['ports'].unlink(port)
             compat.fix_del_master(self.ipdb.interfaces[port])
             # FIXME: do something with it, please
             self['ports'].remove(port)
