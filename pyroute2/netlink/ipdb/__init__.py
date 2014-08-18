@@ -1560,7 +1560,7 @@ class IPDB(object):
             self.nl.release()
             self._mthread.join()
 
-    def create(self, kind, ifname, **kwarg):
+    def create(self, kind, ifname, reuse=False, **kwarg):
         '''
         Create an interface. Arguments 'kind' and 'ifname' are
         required.
@@ -1572,6 +1572,7 @@ class IPDB(object):
           * tun
           * dummy
         * ifname -- interface name
+        * reuse -- if such interface exists, return it anyway
 
         Different interface kinds can require different
         arguments for creation.
@@ -1581,7 +1582,7 @@ class IPDB(object):
         with self.exclusive:
             # check for existing interface
             if ifname in self.interfaces:
-                if self.interfaces[ifname]._flicker:
+                if self.interfaces[ifname]._flicker or reuse:
                     device = self.interfaces[ifname]
                     device._flicker = False
                 else:

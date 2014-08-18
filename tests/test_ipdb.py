@@ -384,6 +384,24 @@ class TestExplicit(object):
         assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
         assert '172.16.0.1/24' in get_ip_addr(interface='bala')
 
+    def test_create_double_reuse(self):
+        require_user('root')
+        assert 'bala' not in self.ip.interfaces
+        # create an interface
+        i1 = self.ip.create(kind='dummy', ifname='bala').commit()
+        try:
+            # this call should fail on the very first step:
+            # `bala` interface already exists
+            self.ip.create(kind='dummy', ifname='bala')
+        except CreateException:
+            pass
+        # add `reuse` keyword -- now should pass
+        i2 = self.ip.create(kind='dummy',
+                            ifname='bala',
+                            reuse=True).commit()
+        # assert that we have got references to the same interface
+        assert i1 == i2
+
     def _create_double(self, kind):
         require_user('root')
         assert 'bala' not in self.ip.interfaces
