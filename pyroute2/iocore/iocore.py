@@ -437,12 +437,12 @@ class IOCore(object):
                 else:
                     break
 
-            if (terminate is not None) and terminate(msg):
-                break
-
             # exceptions
             if msg['header'].get('error', None) is not None:
                 e = msg['header']['error']
+
+            if (terminate is not None) and terminate(msg):
+                break
 
             # RPC
             if self.marshal is None:

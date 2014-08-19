@@ -191,6 +191,27 @@ class TestData(object):
         self.ip.addr('add', dev, address='172.16.0.1', mask=24)
         assert '172.16.0.1/24' in get_ip_addr()
 
+    def test_fail_not_permitted(self):
+        try:
+            self.ip.addr('add',
+                         self.dev[0],
+                         address='172.16.0.1',
+                         mask=24)
+        except NetlinkError as e:
+            if e.code != 1:  # Operation not permitted
+                raise
+
+    def test_fail_no_such_device(self):
+        dev = sorted([i['index'] for i in self.ip.get_links()])[-1] + 10
+        try:
+            self.ip.addr('add',
+                         dev,
+                         address='172.16.0.1',
+                         mask=24)
+        except NetlinkError as e:
+            if e.code != 19:  # No such device
+                raise
+
     def test_remove_link(self):
         require_user('root')
         create_link('bala', 'dummy')
