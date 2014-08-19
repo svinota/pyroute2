@@ -1081,9 +1081,9 @@ class Interface(Transactional):
                     if not self['ports'].target.is_set():
                         raise CommitException('ports target is not set')
                     # force master field on ports
-                    # for port in self['ports']:
-                    #     self.ipdb.interfaces[port].set_item('master',
-                    #                                         self['index'])
+                    for port in added['ports']:
+                        self.ipdb.interfaces[port].set_item('master',
+                                                            self['index'])
 
                 # 8<---------------------------------------------
                 # Interface changes
