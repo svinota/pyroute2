@@ -574,6 +574,7 @@ class Transactional(Dotkeys):
         self._tids = []
         self._transactions = {}
         self._targets = {}
+        self._local_targets = {}
         self._mode = mode or ipdb.mode
         self._write_lock = threading.RLock()
         self._direct_state = State(self._write_lock)
@@ -697,19 +698,34 @@ class Transactional(Dotkeys):
     @update
     def __setitem__(self, direct, key, value):
         if not direct:
+            # automatically set target on the last transaction,
+            # which must be started prior to that call
             transaction = self.last()
             transaction[key] = value
             transaction._targets[key] = threading.Event()
         else:
+            # update on local targets
+            if key in self._local_targets:
+                func = self._fields_cmp.get(key, lambda x, y: x == y)
+                if func(value, self._local_targets[key].value):
+                    self._local_targets[key].set()
+
+            # cascade update on nested targets
             for tn in self._transactions.values():
                 if key in tn._targets:
                     if self._fields_cmp.\
                             get(key, lambda x, y: x == y)(value, tn[key]):
                         tn._targets[key].set()
+
+            # and, finally, set the item :)
             Dotkeys.__setitem__(self, key, value)
 
     @update
     def __delitem__(self, direct, key):
+        # firstly set targets
+        self[key] = None
+
+        # then continue with delete
         if not direct:
             transaction = self.last()
             if key in transaction:
@@ -724,6 +740,13 @@ class Transactional(Dotkeys):
     def unset(self, key):
         del self[key]
         return self
+
+    def set_target(self, key, value):
+        self._local_targets[key] = threading.Event()
+        self._local_targets[key].value = value
+
+    def mirror_target(self, key_from, key_to):
+        self._local_targets[key_to] = self._local_targets[key_from]
 
     def set_item(self, key, value):
         with self._direct_state:
@@ -1069,21 +1092,36 @@ class Interface(Transactional):
 
                 for i in removed['ports']:
                     # detach the port
-                    compat.fix_del_port(self.nl, self, self.ipdb.interfaces[i])
+                    port = self.ipdb.interfaces[i]
+                    port.set_target('master', None)
+                    port.mirror_target('master', 'link')
+                    compat.fix_del_port(self.nl, self, port)
 
                 for i in added['ports']:
                     # enslave the port
-                    compat.fix_add_port(self.nl, self, self.ipdb.interfaces[i])
+                    port = self.ipdb.interfaces[i]
+                    port.set_target('master', self['index'])
+                    port.mirror_target('master', 'link')
+                    compat.fix_add_port(self.nl, self, port)
 
                 if removed['ports'] or added['ports']:
                     self.nl.get_links(*(removed['ports'] | added['ports']))
                     self['ports'].target.wait(_SYNC_TIMEOUT)
                     if not self['ports'].target.is_set():
                         raise CommitException('ports target is not set')
-                    # force master field on ports
-                    for port in added['ports']:
-                        self.ipdb.interfaces[port].set_item('master',
-                                                            self['index'])
+                    # wait for proper targets on ports
+                    for i in list(added['ports']) + list(removed['ports']):
+                        port = self.ipdb.interfaces[i]
+                        target = port._local_targets['master']
+                        target.wait(_SYNC_TIMEOUT)
+                        del port._local_targets['master']
+                        del port._local_targets['link']
+                        if not target.is_set():
+                            raise CommitException('master target failed')
+                        if i in added['ports']:
+                            assert port.if_master == self['index']
+                        else:
+                            assert port.if_master != self['index']
 
                 # 8<---------------------------------------------
                 # Interface changes
