@@ -1,6 +1,12 @@
 changelog
 =========
 
+* 0.2.14
+    * [fix]: #44 -- incorrect netlink exceptions proxying
+    * [fix]: #45 -- multiple issues with device targets
+    * [fix]: #46 -- consistent exceptions
+    * ipdb: LinkedSet cascade updates fixed
+    * ipdb: allow to reuse existing interface in `create()`
 * 0.2.13
     * [fix]: #43 -- pipe leak in the main I/O loop
     * tests: integrate examples, import into tests
