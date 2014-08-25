@@ -39,6 +39,11 @@ def replace(r):
 
 
 @bypass
+def fix_timeout(timeout):
+    time.sleep(timeout)
+
+
+@bypass
 def fix_del_master(port):
     if 'master' in port:
         port.del_item('master')

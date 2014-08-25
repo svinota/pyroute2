@@ -1118,6 +1118,8 @@ class Interface(Transactional):
                         del port._local_targets['link']
                         if not target.is_set():
                             raise CommitException('master target failed')
+                        # RHEL 6.5 compat fix
+                        compat.fix_timeout(_SYNC_TIMEOUT)
                         if i in added['ports']:
                             assert port.if_master == self['index']
                         else:
