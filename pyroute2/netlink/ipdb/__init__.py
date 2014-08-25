@@ -1109,6 +1109,11 @@ class Interface(Transactional):
                     self['ports'].target.wait(_SYNC_TIMEOUT)
                     if not self['ports'].target.is_set():
                         raise CommitException('ports target is not set')
+
+                    # RHEL 6.5 compat fix -- an explicit timeout
+                    # it gives a time for all the messages to pass
+                    compat.fix_timeout(1)
+
                     # wait for proper targets on ports
                     for i in list(added['ports']) + list(removed['ports']):
                         port = self.ipdb.interfaces[i]
@@ -1118,8 +1123,6 @@ class Interface(Transactional):
                         del port._local_targets['link']
                         if not target.is_set():
                             raise CommitException('master target failed')
-                        # RHEL 6.5 compat fix
-                        compat.fix_timeout(_SYNC_TIMEOUT)
                         if i in added['ports']:
                             assert port.if_master == self['index']
                         else:
