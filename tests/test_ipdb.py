@@ -360,6 +360,43 @@ class TestExplicit(object):
         i.remove().commit()
         assert 'bala' not in self.ip.interfaces
 
+    def _test_ipv(self, ipv, kind):
+        require_user('root')
+
+        i = self.ip.create(kind=kind, ifname='bala').commit()
+        if self.ip.interfaces.bala._mode == 'explicit':
+            self.ip.interfaces.bala.begin()
+
+        if ipv == 4:
+            addr = '172.16.0.1/24'
+        elif ipv == 6:
+            addr = 'fdb3:84e5:4ff4:55e4::1/64'
+        else:
+            raise Exception('bad IP version')
+
+        i.add_ip(addr).commit()
+        pre_target = addr.split('/')
+        target = (pre_target[0], int(pre_target[1]))
+        assert target in i['ipaddr']
+
+    def test_ipv4_dummy(self):
+        self._test_ipv(4, 'dummy')
+
+    def test_ipv4_bond(self):
+        self._test_ipv(4, 'bond')
+
+    def test_ipv4_bridge(self):
+        self._test_ipv(4, 'bridge')
+
+    def test_ipv6_dummy(self):
+        self._test_ipv(6, 'dummy')
+
+    def test_ipv6_bond(self):
+        self._test_ipv(6, 'bond')
+
+    def test_ipv6_bridge(self):
+        self._test_ipv(6, 'bridge')
+
     def test_create_fail(self):
         require_user('root')
         assert 'bala' not in self.ip.interfaces

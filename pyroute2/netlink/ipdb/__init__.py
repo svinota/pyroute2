@@ -1082,6 +1082,21 @@ class Interface(Transactional):
                     self.nl.addr('add', self['index'], i[0], i[1])
 
                 if removed['ipaddr'] or added['ipaddr']:
+                    # 8<--------------------------------------
+                    # bond and bridge interfaces do not send
+                    # IPv6 address updates, when are down
+                    #
+                    # beside of that, bridge interfaces are
+                    # down by default, so they never send
+                    # address updates from beginning
+                    #
+                    # so if we need, force address load
+                    #
+                    # FIXME: probably, we should handle other
+                    # types as well
+                    if self['kind'] in ('bond', 'bridge'):
+                        self.nl.get_addr()
+                    # 8<--------------------------------------
                     self['ipaddr'].target.wait(_SYNC_TIMEOUT)
                     if not self['ipaddr'].target.is_set():
                         raise CommitException('ipaddr target is not set')
