@@ -155,12 +155,16 @@ def create_bond(name):
 
 def del_bridge(name):
     with open(os.devnull, 'w') as fnull:
+        subprocess.check_call(['ip', 'link', 'set',
+                               'dev', name, 'down'])
         subprocess.check_call(['brctl', 'delbr', name],
                               stdout=fnull,
                               stderr=fnull)
 
 
 def del_bond(name):
+    subprocess.check_call(['ip', 'link', 'set',
+                           'dev', name, 'down'])
     with open(_BONDING_MASTERS, 'w') as f:
         f.write('-%s' % (name))
 
