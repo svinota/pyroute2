@@ -712,7 +712,7 @@ class Transactional(Dotkeys):
 
             # cascade update on nested targets
             for tn in self._transactions.values():
-                if key in tn._targets:
+                if (key in tn._targets) and (key in tn):
                     if self._fields_cmp.\
                             get(key, lambda x, y: x == y)(value, tn[key]):
                         tn._targets[key].set()
