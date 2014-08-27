@@ -194,6 +194,7 @@ and `vlan` interfaces. VLAN creation requires also `link` and
 '''
 import os
 import uuid
+import time
 import socket
 import threading
 
@@ -1080,6 +1081,30 @@ class Interface(Transactional):
 
                 for i in added['ipaddr']:
                     self.nl.addr('add', self['index'], i[0], i[1])
+
+                    # 8<--------------------------------------
+                    # FIXME: kernel bug, sometimes `addr add` for
+                    # bond interfaces returns success, but does
+                    # really nothing
+
+                    if self['kind'] == 'bond':
+                        while True:
+                            try:
+                                # dirtiest hack, but we have to use it here
+                                time.sleep(0.1)
+                                self.nl.addr('add', self['index'], i[0], i[1])
+                            # continue to try to add the address
+                            # until the kernel reports `file exists`
+                            #
+                            # a stupid solution, but must help
+                            except NetlinkError as e:
+                                if e.code == 17:
+                                    break
+                                else:
+                                    raise
+                            except Exception:
+                                raise
+                    # 8<--------------------------------------
 
                 if removed['ipaddr'] or added['ipaddr']:
                     # 8<--------------------------------------
