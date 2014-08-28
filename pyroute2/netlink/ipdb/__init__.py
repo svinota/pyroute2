@@ -725,7 +725,6 @@ class Transactional(Dotkeys):
                             get(key, lambda x, y: x == y)(value, tn[key]):
                         tn._targets[key].set()
 
-
     @update
     def __delitem__(self, direct, key):
         # firstly set targets
