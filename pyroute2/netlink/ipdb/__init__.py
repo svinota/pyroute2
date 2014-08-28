@@ -340,6 +340,10 @@ class LinkedSet(set):
             else:
                 self._ct = set(value)
                 self.target.clear()
+                # immediately check, if the target already
+                # reached -- otherwise you will miss the
+                # target forever
+                self.check_target()
 
     def check_target(self):
         '''
