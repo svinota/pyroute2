@@ -705,6 +705,9 @@ class Transactional(Dotkeys):
             transaction[key] = value
             transaction._targets[key] = threading.Event()
         else:
+            # set the item
+            Dotkeys.__setitem__(self, key, value)
+
             # update on local targets
             if key in self._local_targets:
                 func = self._fields_cmp.get(key, lambda x, y: x == y)
@@ -718,8 +721,6 @@ class Transactional(Dotkeys):
                             get(key, lambda x, y: x == y)(value, tn[key]):
                         tn._targets[key].set()
 
-            # and, finally, set the item :)
-            Dotkeys.__setitem__(self, key, value)
 
     @update
     def __delitem__(self, direct, key):
