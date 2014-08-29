@@ -852,7 +852,7 @@ class Interface(Transactional):
         '''
         [property] Link to the parent interface -- if it exists
         '''
-        ret = [self[i] for i in ('link', 'master')
+        ret = [self[i] for i in ('master', 'link')
                if (i in self) and isinstance(self[i], int)] or [None]
         return ret[0]
 
