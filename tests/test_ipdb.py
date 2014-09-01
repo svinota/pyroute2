@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import time
 import socket
 from pyroute2 import IPDB
@@ -32,7 +34,7 @@ class TestExplicit(object):
 
     def teardown(self):
         for name in ('bala_port0', 'bala_port1', 'dummyX',
-                     'bala', 'bv101'):
+                     'bala', 'bala_host', 'bv101', 'bv102'):
             try:
                 with self.ip.interfaces[name] as i:
                     i.remove()
@@ -85,6 +87,26 @@ class TestExplicit(object):
         del self.ip.interfaces.newitem
         del self.ip.interfaces.newattr
         assert 'newattr' not in dir(self.ip.interfaces)
+
+    def test_vlan_slave_bridge(self):
+        # https://github.com/svinota/pyroute2/issues/58
+        # based on the code by Petr Horáček
+        require_user('root')
+        dX = self.ip.create(ifname='bala_host', kind='dummy').commit()
+        vX101 = self.ip.create(ifname='bv101', kind='vlan',
+                               link=dX, vlan_id=101).commit()
+        vX102 = self.ip.create(ifname='bv102', kind='vlan',
+                               link=dX, vlan_id=102).commit()
+        with self.ip.create(ifname='bala', kind='bridge') as i:
+            i.add_port(vX101)
+            i.add_port(vX102['index'])
+
+        assert vX101['index'] in self.ip.interfaces['bala']['ports']
+        assert vX102['index'] in self.ip.interfaces.bala.ports
+        assert vX101['link'] == dX['index']
+        assert vX102['link'] == dX['index']
+        assert vX101['master'] == self.ip.interfaces['bala']['index']
+        assert vX102['master'] == self.ip.interfaces.bala.index
 
     def test_callback_positive(self):
         require_user('root')
