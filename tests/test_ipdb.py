@@ -535,7 +535,7 @@ class TestExplicit(object):
                        link=self.ip.interfaces.bala,
                        vlan_id=101).commit()
 
-        assert self.ip.interfaces.bv101.if_master == \
+        assert self.ip.interfaces.bv101.link == \
             self.ip.interfaces.bala.index
 
     def test_create_vlan_by_index(self):
@@ -551,7 +551,7 @@ class TestExplicit(object):
                        link=self.ip.interfaces.bala.index,
                        vlan_id=101).commit()
 
-        assert self.ip.interfaces.bv101.if_master == \
+        assert self.ip.interfaces.bv101.link == \
             self.ip.interfaces.bala.index
 
     def test_remove_secondaries(self):

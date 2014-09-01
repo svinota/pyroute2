@@ -852,9 +852,7 @@ class Interface(Transactional):
         '''
         [property] Link to the parent interface -- if it exists
         '''
-        ret = [self[i] for i in ('master', 'link')
-               if (i in self) and isinstance(self[i], int)] or [None]
-        return ret[0]
+        return self.get('master', None)
 
     def load(self, dev):
         '''
@@ -956,7 +954,6 @@ class Interface(Transactional):
             transaction.add_port(port)
         else:
             self['ports'].unlink(port)
-            compat.fix_add_master(self.ipdb.interfaces[port], self)
             self['ports'].add(port)
         return self
 
@@ -973,8 +970,6 @@ class Interface(Transactional):
                 transaction.del_port(port)
         else:
             self['ports'].unlink(port)
-            compat.fix_del_master(self.ipdb.interfaces[port])
-            # FIXME: do something with it, please
             self['ports'].remove(port)
         return self
 
@@ -1783,6 +1778,7 @@ class IPDB(object):
             self.ipaddr[index] = IPaddrSet()
 
         device.load(msg)
+
         if not skip_slaves:
             self.update_slaves(msg)
 
@@ -1799,8 +1795,7 @@ class IPDB(object):
 
     def _lookup_master(self, msg):
         index = msg['index']
-        master = msg.get_attr('IFLA_MASTER') or \
-            msg.get_attr('IFLA_LINK')
+        master = msg.get_attr('IFLA_MASTER')
         if (master is None):
             master = compat.fix_lookup_master(self.interfaces[index])
         return self.interfaces.get(master, None)
@@ -1841,8 +1836,6 @@ class IPDB(object):
             if master is not None:
                 if 'master' in device:
                     device.del_item('master')
-                if 'link' in device:
-                    device.del_item('link')
                 if (master in self.interfaces) and \
                         (msg['index'] in self.interfaces[master].ports):
                     self.interfaces[master].del_port(msg['index'],

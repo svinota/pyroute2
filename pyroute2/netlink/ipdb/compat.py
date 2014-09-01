@@ -44,18 +44,6 @@ def fix_timeout(timeout):
 
 
 @bypass
-def fix_del_master(port):
-    if 'master' in port:
-        port.del_item('master')
-
-
-@bypass
-def fix_add_master(port, master):
-    if 'master' not in port:
-        port.set_item('master', master['index'])
-
-
-@bypass
 def fix_check_link(nl, index):
     # swith mirror off
     nl.mirror(False)
