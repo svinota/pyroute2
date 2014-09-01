@@ -72,14 +72,14 @@ def _get_rate(rate):
                           lambda x, y: (x * rate_suffixes[y]) / 8)
 
 
-def _time2tick(t):
+def _time2tick(time):
     # The current code is ported from tc utility
-    return t * _tick_in_usec
+    return int(time) * _tick_in_usec
 
 
 def _calc_xmittime(rate, size):
     # The current code is ported from tc utility
-    return int(round(_time2tick(TIME_UNITS_PER_SEC * (float(size) / rate))))
+    return int(_time2tick(TIME_UNITS_PER_SEC * (float(size) / rate)))
 
 
 def _percent2u32(pct):
@@ -398,7 +398,7 @@ class nla_plus_rtab(nla):
             mtu = self.get('mtu', 0) or 1600
             cell_log = self['%s_cell_log' % (kind)]
             mpu = self['%s_mpu' % (kind)]
-            rate = self['rate']
+            rate = self.get(kind, 'rate')
 
             # calculate cell_log
             if cell_log == 0:
