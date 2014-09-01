@@ -40,6 +40,8 @@ class TestExplicit(object):
                     i.remove()
             except KeyError:
                 pass
+            except RuntimeError:
+                pass
             except NetlinkError as e:
                 if e.code != 19:  # No such device
                     raise
