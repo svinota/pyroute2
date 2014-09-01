@@ -193,6 +193,7 @@ and `vlan` interfaces. VLAN creation requires also `link` and
 
 '''
 import os
+import sys
 import uuid
 import time
 import socket
@@ -1578,7 +1579,8 @@ class IPDB(object):
 
         # start monitoring thread
         self._mthread = threading.Thread(target=self.serve_forever)
-        self._mthread.setDaemon(True)
+        if hasattr(sys, 'ps1'):
+            self._mthread.setDaemon(True)
         self._mthread.start()
 
     def __enter__(self):

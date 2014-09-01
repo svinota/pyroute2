@@ -7,6 +7,7 @@ import os
 import io
 import uuid
 import ssl
+import sys
 
 from pyroute2.common import AF_PIPE
 from pyroute2.netlink import Marshal
@@ -234,7 +235,8 @@ class IOBroker(object):
         self._expire_thread = Cache(self._stop_event)
         self._expire_thread.register_map(self.masquerade, self.nonces.free)
         self._expire_thread.register_map(self.packet_ids)
-        self._expire_thread.setDaemon(True)
+        if hasattr(sys, 'ps1'):
+            self._expire_thread.setDaemon(True)
         if ioloop:
             self.ioloop = ioloop
             self.standalone = False
