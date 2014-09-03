@@ -692,10 +692,11 @@ class RtnlSocket(PipeSocket):
                 ifname = msg.get_attr('IFLA_IFNAME')
                 master = compat_get_master(ifname)
                 if master is not None:
-                    msg.reset()
                     msg['attrs'].append(['IFLA_MASTER', master])
-                    msg.encode()
+                msg.reset()
+                msg.encode()
                 data += msg.buf.getvalue()
+                del msg
         return data
 
     def proxy_setlink(self, data, addr, msg):
