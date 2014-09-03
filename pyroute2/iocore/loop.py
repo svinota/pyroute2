@@ -53,7 +53,10 @@ class IOLoop(threading.Thread):
     def reload(self):
         os.write(self.control, b's')
 
-    def register(self, fd, cb, argv=[], kwarg={}, defer=False):
+    def register(self, fd, cb, argv=[], kwarg={},
+                 defer=False, proxy=None):
+
+        # get FD number
         if isinstance(fd, int):
             fdno = fd
         else:
@@ -61,12 +64,25 @@ class IOLoop(threading.Thread):
         assert fdno != self.control
 
         if defer:
-            def wrap(fd, event, *argv, **kwarg):
-                try:
-                    data = fd.recv(16384)
-                except OSError:
-                    data = ''
-                self.buffers.put((cb, fd, data, argv, kwarg))
+            # speed optimization
+            if proxy is not None:
+                # use proxy to get the next message
+                def wrap(fd, event, *argv, **kwarg):
+                    try:
+                        data = proxy.get(fd, 16384)
+                    except OSError:
+                        # EOF
+                        data = ''
+                    self.buffers.put((cb, fd, data, argv, kwarg))
+            else:
+                # or get it directly from the socket
+                def wrap(fd, event, *argv, **kwarg):
+                    try:
+                        data = fd.recv(16384)
+                    except OSError:
+                        # EOF
+                        data = ''
+                    self.buffers.put((cb, fd, data, argv, kwarg))
             self.fds[fdno] = [wrap, fd, argv, kwarg]
         else:
             self.fds[fdno] = [cb, fd, argv, kwarg]

@@ -1,5 +1,5 @@
 
-from pyroute2.netlink.iproute import IPRSocket
+from pyroute2.netlink.rtnl import IPRSocket
 from pyroute2.netlink.iproute import IPRoute
 from pyroute2.netlink.ipdb import IPDB
 from pyroute2.netlink.taskstats import TaskStats

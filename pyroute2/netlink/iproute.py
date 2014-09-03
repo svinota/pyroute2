@@ -48,7 +48,6 @@ from socket import htons
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
-from pyroute2.netlink import NetlinkSocket
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC
 from pyroute2.netlink import NLM_F_ROOT
@@ -113,74 +112,6 @@ def transform_handle(handle):
         (major, minor) = [int(x if x else '0', 16) for x in handle.split(':')]
         handle = (major << 8 * 2) | minor
     return handle
-
-
-class IPRSocket(NetlinkSocket):
-    '''
-    The simplest class, that connects together the netlink parser and
-    a generic Python socket implementation. Provides method get() to
-    receive the next message from netlink socket and parse it. It is
-    just simple socket-like class, it implements no buffering or
-    like that. It spawns no additional threads, leaving this up to
-    developers.
-
-    Please note, that netlink is an asynchronous protocol with
-    non-guaranteed delivery. You should be fast enough to get all the
-    messages in time. If the message flow rate is higher than the
-    speed you parse them with, exceeding messages will be dropped.
-
-    *Usage*
-
-    Threadless RT netlink monitoring with blocking I/O calls:
-
-        >>> from pyroute2.netlink.iproute import IPRSocket
-        >>> from pprint import pprint
-        >>> s = IPRSocket()
-        >>> s.bind()
-        >>> pprint(s.get())
-        [{'attrs': [('RTA_TABLE', 254),
-                    ('RTA_DST', '2a00:1450:4009:808::1002'),
-                    ('RTA_GATEWAY', 'fe80:52:0:2282::1fe'),
-                    ('RTA_OIF', 2),
-                    ('RTA_PRIORITY', 0),
-                    ('RTA_CACHEINFO', {'rta_clntref': 0,
-                                       'rta_error': 0,
-                                       'rta_expires': 0,
-                                       'rta_id': 0,
-                                       'rta_lastuse': 5926,
-                                       'rta_ts': 0,
-                                       'rta_tsage': 0,
-                                       'rta_used': 1})],
-          'dst_len': 128,
-          'event': 'RTM_DELROUTE',
-          'family': 10,
-          'flags': 512,
-          'header': {'error': None,
-                     'flags': 0,
-                     'length': 128,
-                     'pid': 0,
-                     'sequence_number': 0,
-                     'type': 25},
-          'proto': 9,
-          'scope': 0,
-          'src_len': 0,
-          'table': 254,
-          'tos': 0,
-          'type': 1}]
-        >>>
-    '''
-
-    def __init__(self):
-        NetlinkSocket.__init__(self, NETLINK_ROUTE)
-        self.marshal = MarshalRtnl()
-
-    def bind(self, groups=RTNL_GROUPS):
-        '''
-        It is required to call *IPRSocket.bind()* after creation.
-        The call subscribes the NetlinkSocket to default RTNL
-        groups (`RTNL_GROUPS`) or to a requested group set.
-        '''
-        NetlinkSocket.bind(self, groups)
 
 
 class IPRoute(Netlink):

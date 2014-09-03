@@ -98,8 +98,8 @@ def command(broker, sock, env, cmd, rsp):
     try:
         broker.ioloop.register(new_sock, route, defer=True)
         if hasattr(new_sock, 'bypass'):
-            for s in new_sock.bypass:
-                broker.ioloop.register(s, route, defer=True)
+            broker.ioloop.register(new_sock.bypass, route, defer=True,
+                                   proxy=new_sock)
     except Exception as e:
         if e.errno != errno.EEXIST:
             raise e

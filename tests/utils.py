@@ -3,7 +3,10 @@ import re
 import pwd
 import platform
 import subprocess
-from pyroute2.netlink.ipdb import compat
+from pyroute2.netlink.rtnl import compat_create_bridge
+from pyroute2.netlink.rtnl import compat_create_bond
+from pyroute2.netlink.rtnl import compat_del_bridge
+from pyroute2.netlink.rtnl import compat_del_bond
 from nose.plugins.skip import SkipTest
 
 
@@ -24,22 +27,22 @@ def require_8021q():
 
 def require_bridge():
     try:
-        compat.create_bridge('test_req')
+        compat_create_bridge('test_req')
     except OSError:
         raise SkipTest('can not create <bridge>')
     if not grep('ip link show', 'test_req'):
         raise SkipTest('can not create <bridge>')
-    compat.del_bridge('test_req')
+    compat_del_bridge('test_req')
 
 
 def require_bond():
     try:
-        compat.create_bond('test_req')
+        compat_create_bond('test_req')
     except IOError:
         raise SkipTest('can not create <bond>')
     if not grep('ip link show', 'test_req'):
         raise SkipTest('can not create <bond>')
-    compat.del_bond('test_req')
+    compat_del_bond('test_req')
 
 
 def require_user(user):

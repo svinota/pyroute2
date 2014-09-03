@@ -336,10 +336,17 @@ Please notice, that NLA list *MUST* be mutable.
 
 import os
 import io
+import time
+import struct
+import socket
+import platform
+import subprocess
 from pyroute2.netlink import Marshal
 from pyroute2.netlink import NetlinkSocket
+from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.common import map_namespace
 from pyroute2.common import PipeSocket
+from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink.generic import NETLINK_ROUTE
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
@@ -347,6 +354,12 @@ from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
+
+_ANCIENT_BARRIER = 0.3
+_BONDING_MASTERS = '/sys/class/net/bonding_masters'
+_BONDING_SLAVES = '/sys/class/net/%s/bonding/slaves'
+_BRIDGE_MASTER = '/sys/class/net/%s/brport/bridge/ifindex'
+_BONDING_MASTER = '/sys/class/net/%s/master/ifindex'
 
 #  RTnetlink multicast groups
 RTNLGRP_NONE = 0x0
@@ -465,6 +478,7 @@ rtscopes = {'RT_SCOPE_UNIVERSE': 0,
 class MarshalRtnl(Marshal):
     msg_map = {RTM_NEWLINK: ifinfmsg,
                RTM_DELLINK: ifinfmsg,
+               RTM_SETLINK: ifinfmsg,
                RTM_NEWADDR: ifaddrmsg,
                RTM_DELADDR: ifaddrmsg,
                RTM_NEWROUTE: rtmsg,
@@ -488,32 +502,352 @@ class MarshalRtnl(Marshal):
             pass
 
 
+class IPRSocket(NetlinkSocket):
+    '''
+    The simplest class, that connects together the netlink parser and
+    a generic Python socket implementation. Provides method get() to
+    receive the next message from netlink socket and parse it. It is
+    just simple socket-like class, it implements no buffering or
+    like that. It spawns no additional threads, leaving this up to
+    developers.
+
+    Please note, that netlink is an asynchronous protocol with
+    non-guaranteed delivery. You should be fast enough to get all the
+    messages in time. If the message flow rate is higher than the
+    speed you parse them with, exceeding messages will be dropped.
+
+    *Usage*
+
+    Threadless RT netlink monitoring with blocking I/O calls:
+
+        >>> from pyroute2.netlink.iproute import IPRSocket
+        >>> from pprint import pprint
+        >>> s = IPRSocket()
+        >>> s.bind()
+        >>> pprint(s.get())
+        [{'attrs': [('RTA_TABLE', 254),
+                    ('RTA_DST', '2a00:1450:4009:808::1002'),
+                    ('RTA_GATEWAY', 'fe80:52:0:2282::1fe'),
+                    ('RTA_OIF', 2),
+                    ('RTA_PRIORITY', 0),
+                    ('RTA_CACHEINFO', {'rta_clntref': 0,
+                                       'rta_error': 0,
+                                       'rta_expires': 0,
+                                       'rta_id': 0,
+                                       'rta_lastuse': 5926,
+                                       'rta_ts': 0,
+                                       'rta_tsage': 0,
+                                       'rta_used': 1})],
+          'dst_len': 128,
+          'event': 'RTM_DELROUTE',
+          'family': 10,
+          'flags': 512,
+          'header': {'error': None,
+                     'flags': 0,
+                     'length': 128,
+                     'pid': 0,
+                     'sequence_number': 0,
+                     'type': 25},
+          'proto': 9,
+          'scope': 0,
+          'src_len': 0,
+          'table': 254,
+          'tos': 0,
+          'type': 1}]
+        >>>
+    '''
+
+    def __init__(self):
+        NetlinkSocket.__init__(self, NETLINK_ROUTE)
+        self.marshal = MarshalRtnl()
+
+    def bind(self, groups=RTNL_GROUPS):
+        '''
+        It is required to call *IPRSocket.bind()* after creation.
+        The call subscribes the NetlinkSocket to default RTNL
+        groups (`RTNL_GROUPS`) or to a requested group set.
+        '''
+        NetlinkSocket.bind(self, groups)
+
+
 class RtnlSocket(PipeSocket):
 
     def __init__(self):
         rfd, wfd = os.pipe()
         PipeSocket.__init__(self, rfd, wfd)
         self.marshal = MarshalRtnl()
-        self.map = {}
-        self.bypass = [NetlinkSocket(NETLINK_ROUTE), ]
+        self.in_map = {RTM_NEWLINK: self.proxy_getlink}
+        self.out_map = {RTM_NEWLINK: self.proxy_newlink,
+                        RTM_SETLINK: self.proxy_setlink,
+                        RTM_DELLINK: self.proxy_dellink}
+        self.bypass = NetlinkSocket(NETLINK_ROUTE)
+        self.iprs = IPRSocket()
+        self.ancient = (platform.dist()[0] in ('redhat', 'centos') and
+                        platform.dist()[1].startswith('6.'))
+
+    def name_by_id(self, index):
+        msg = ifinfmsg()
+        msg['family'] = socket.AF_UNSPEC
+        msg['header']['type'] = RTM_GETLINK
+        msg['header']['flags'] = NLM_F_REQUEST
+        msg['header']['pid'] = os.getpid()
+        msg['header']['sequence_number'] = 1
+        msg['index'] = index
+        msg.encode()
+
+        self.iprs.sendto(msg.buf.getvalue(), (0, 0))
+        return self.iprs.get()[0].get_attr('IFLA_IFNAME')
 
     def bind(self, *argv, **kwarg):
-        for sock in self.bypass:
-            sock.bind(*argv, **kwarg)
+        #
+        # just proxy bind call -- PipeSocket by itself
+        # doesn't need any bind() routine
+        #
+        self.bypass.bind(*argv, **kwarg)
+
+    def get(self, fd, size):
+        '''
+        IOCore proxy protocol part
+        '''
+        data = fd.recv(size)
+        #
+        # extract type w/o parsing the message -- otherwise
+        # we will repack every message
+        #
+        if len(data) < 6:
+            return data
+
+        mtype = struct.unpack('H', data[4:6])[0]
+        if mtype in self.in_map:
+            #
+            # call an external hook
+            #
+            bio = io.BytesIO()
+            bio.length = bio.write(data)
+            msgs = self.marshal.parse(bio)
+            return self.in_map[mtype](data, msgs)
+
+        return data
 
     def sendto(self, data, addr):
-        bio = io.BytesIO()
-        bio.length = bio.write(data)
-        msg = self.marshal.parse(bio)[0]
-        if msg['header']['type'] in self.map:
-            ret = self[map](data)
-            if ret is not None:
-                self.send(ret)
+        mtype = struct.unpack('H', data[4:6])[0]
+        if mtype in self.out_map:
+            #
+            # call an external hook
+            #
+            bio = io.BytesIO()
+            bio.length = bio.write(data)
+            msg = self.marshal.parse(bio)[0]
+            self.out_map[mtype](data, addr, msg)
         else:
-            for sock in self.bypass:
-                sock.sendto(data, addr)
+            #
+            # else send the data to the bypass socket
+            #
+            self.bypass.sendto(data, addr)
 
     def close(self):
-        for sock in self.bypass:
-            sock.close()
+        self.bypass.close()
+        self.iprs.close()
         PipeSocket.close(self)
+
+    ##
+    # proxy hooks
+    #
+    def proxy_newlink(self, data, addr, msg):
+        if self.ancient:
+            # get the interface kind
+            linkinfo = msg.get_attr('IFLA_LINKINFO')
+            if linkinfo is not None:
+                kind = linkinfo.get_attr('IFLA_INFO_KIND')
+                # not covered types pass to the system
+                if kind not in ('bridge', 'bond'):
+                    return self.bypass.sendto(data, addr)
+                ##
+                # otherwise, create a valid answer --
+                # NLMSG_ERROR with code 0 (no error)
+                ##
+                # FIXME: intercept and return valid RTM_NEWLINK
+                ##
+                response = ifinfmsg()
+                response['header']['type'] = NLMSG_ERROR
+                response['header']['sequence_number'] = \
+                    msg['header']['sequence_number']
+                # route the request
+                if kind == 'bridge':
+                    compat_create_bridge(msg.get_attr('IFLA_IFNAME'))
+                elif kind == 'bond':
+                    compat_create_bond(msg.get_attr('IFLA_IFNAME'))
+                # while RTM_NEWLINK is not intercepted -- sleep
+                time.sleep(_ANCIENT_BARRIER)
+                response.encode()
+                self.send(response.buf.getvalue())
+        else:
+            # else just send the packet
+            self.bypass.sendto(data, addr)
+
+    def proxy_getlink(self, data, msgs):
+        if self.ancient:
+            data = b''
+            for msg in msgs:
+                ifname = msg.get_attr('IFLA_IFNAME')
+                master = compat_get_master(ifname)
+                if master is not None:
+                    msg.reset()
+                    msg['attrs'].append(['IFLA_MASTER', master])
+                    msg.encode()
+                data += msg.buf.getvalue()
+        return data
+
+    def proxy_setlink(self, data, addr, msg):
+        # is it a port setup?
+        master = msg.get_attr('IFLA_MASTER')
+        if self.ancient and master is not None:
+            response = ifinfmsg()
+            response['header']['type'] = NLMSG_ERROR
+            response['header']['sequence_number'] = \
+                msg['header']['sequence_number']
+            ifname = self.name_by_id(msg['index'])
+            if master == 0:
+                # port delete
+                # 1. get the current master
+                m = self.name_by_id(compat_get_master(ifname))
+                # 2. get the type of the master
+                kind = compat_get_type(m)
+                # 3. delete the port
+                if kind == 'bridge':
+                    compat_del_bridge_port(m, ifname)
+                elif kind == 'bond':
+                    compat_del_bond_port(m, ifname)
+            else:
+                # port add
+                # 1. get the name of the master
+                m = self.name_by_id(master)
+                # 2. get the type of the master
+                kind = compat_get_type(m)
+                # 3. add the port
+                if kind == 'bridge':
+                    compat_add_bridge_port(m, ifname)
+                elif kind == 'bond':
+                    compat_add_bond_port(m, ifname)
+            response.encode()
+            self.send(response.buf.getvalue())
+        self.bypass.sendto(data, addr)
+
+    def proxy_dellink(self, data, addr, msg):
+        if self.ancient:
+            # get the interface kind
+            kind = compat_get_type(msg.get_attr('IFLA_IFNAME'))
+
+            # not covered types pass to the system
+            if kind not in ('bridge', 'bond'):
+                return self.bypass.sendto(data, addr)
+            ##
+            # otherwise, create a valid answer --
+            # NLMSG_ERROR with code 0 (no error)
+            ##
+            # FIXME: intercept and return valid RTM_NEWLINK
+            ##
+            response = ifinfmsg()
+            response['header']['type'] = NLMSG_ERROR
+            response['header']['sequence_number'] = \
+                msg['header']['sequence_number']
+            # route the request
+            if kind == 'bridge':
+                compat_del_bridge(msg.get_attr('IFLA_IFNAME'))
+            elif kind == 'bond':
+                compat_del_bond(msg.get_attr('IFLA_IFNAME'))
+            # while RTM_NEWLINK is not intercepted -- sleep
+            time.sleep(_ANCIENT_BARRIER)
+            response.encode()
+            self.send(response.buf.getvalue())
+        else:
+            # else just send the packet
+            self.bypass.sendto(data, addr)
+
+
+def compat_get_type(name):
+    ##
+    # is it bridge?
+    try:
+        open('/sys/class/net/%s/bridge/stp_state' % name, 'r')
+        return 'bridge'
+    except IOError:
+        pass
+    ##
+    # is it bond?
+    try:
+        open('/sys/class/net/%s/bonding/mode' % name, 'r')
+        return 'bond'
+    except IOError:
+        pass
+    ##
+    # don't care
+    return 'unknown'
+
+
+def compat_create_bridge(name):
+    with open(os.devnull, 'w') as fnull:
+        subprocess.check_call(['brctl', 'addbr', name],
+                              stdout=fnull,
+                              stderr=fnull)
+
+
+def compat_create_bond(name):
+    with open(_BONDING_MASTERS, 'w') as f:
+        f.write('+%s' % (name))
+
+
+def compat_del_bridge(name):
+    with open(os.devnull, 'w') as fnull:
+        subprocess.check_call(['ip', 'link', 'set',
+                               'dev', name, 'down'])
+        subprocess.check_call(['brctl', 'delbr', name],
+                              stdout=fnull,
+                              stderr=fnull)
+
+
+def compat_del_bond(name):
+    subprocess.check_call(['ip', 'link', 'set',
+                           'dev', name, 'down'])
+    with open(_BONDING_MASTERS, 'w') as f:
+        f.write('-%s' % (name))
+
+
+def compat_add_bridge_port(master, port):
+    with open(os.devnull, 'w') as fnull:
+        subprocess.check_call(['brctl', 'addif', master, port],
+                              stdout=fnull,
+                              stderr=fnull)
+
+
+def compat_del_bridge_port(master, port):
+    with open(os.devnull, 'w') as fnull:
+        subprocess.check_call(['brctl', 'delif', master, port],
+                              stdout=fnull,
+                              stderr=fnull)
+
+
+def compat_add_bond_port(master, port):
+    with open(_BONDING_SLAVES % (master), 'w') as f:
+        f.write('+%s' % (port))
+
+
+def compat_del_bond_port(master, port):
+    with open(_BONDING_SLAVES % (master), 'w') as f:
+        f.write('-%s' % (port))
+
+
+def compat_get_master(name):
+    f = None
+
+    for i in (_BRIDGE_MASTER, _BONDING_MASTER):
+        try:
+            f = open(i % (name))
+            break
+        except IOError:
+            pass
+
+    if f is not None:
+        master = int(f.read())
+        f.close()
+        return master
