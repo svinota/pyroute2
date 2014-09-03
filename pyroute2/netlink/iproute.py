@@ -48,7 +48,6 @@ from socket import htons
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
-from pyroute2.netlink import Marshal
 from pyroute2.netlink import NetlinkSocket
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC
@@ -61,7 +60,36 @@ from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NLM_F_EXCL
 from pyroute2.netlink.client import Netlink
 from pyroute2.netlink.generic import NETLINK_ROUTE
-from pyroute2.netlink.rtnl.tcmsg import tcmsg
+from pyroute2.netlink.rtnl import RTNL_GROUPS
+from pyroute2.netlink.rtnl import RTM_NEWADDR
+from pyroute2.netlink.rtnl import RTM_GETADDR
+from pyroute2.netlink.rtnl import RTM_DELADDR
+from pyroute2.netlink.rtnl import RTM_NEWLINK
+from pyroute2.netlink.rtnl import RTM_GETLINK
+from pyroute2.netlink.rtnl import RTM_DELLINK
+from pyroute2.netlink.rtnl import RTM_NEWQDISC
+from pyroute2.netlink.rtnl import RTM_GETQDISC
+from pyroute2.netlink.rtnl import RTM_DELQDISC
+from pyroute2.netlink.rtnl import RTM_NEWTFILTER
+from pyroute2.netlink.rtnl import RTM_GETTFILTER
+from pyroute2.netlink.rtnl import RTM_DELTFILTER
+from pyroute2.netlink.rtnl import RTM_NEWTCLASS
+from pyroute2.netlink.rtnl import RTM_GETTCLASS
+from pyroute2.netlink.rtnl import RTM_DELTCLASS
+from pyroute2.netlink.rtnl import RTM_GETNEIGH
+from pyroute2.netlink.rtnl import RTM_NEWRULE
+from pyroute2.netlink.rtnl import RTM_GETRULE
+from pyroute2.netlink.rtnl import RTM_DELRULE
+from pyroute2.netlink.rtnl import RTM_NEWROUTE
+from pyroute2.netlink.rtnl import RTM_GETROUTE
+from pyroute2.netlink.rtnl import RTM_DELROUTE
+from pyroute2.netlink.rtnl import RTM_SETLINK
+from pyroute2.netlink.rtnl import TC_H_INGRESS
+from pyroute2.netlink.rtnl import TC_H_ROOT
+from pyroute2.netlink.rtnl import rtprotos
+from pyroute2.netlink.rtnl import rtypes
+from pyroute2.netlink.rtnl import rtscopes
+from pyroute2.netlink.rtnl import MarshalRtnl
 from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_htb_class_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
@@ -69,127 +97,15 @@ from pyroute2.netlink.rtnl.tcmsg import get_sfq_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_u32_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_netem_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_fw_parameters
+from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
 from pyroute2.common import basestring
-from pyroute2.common import map_namespace
-
-
-#  RTnetlink multicast groups
-RTNLGRP_NONE = 0x0
-RTNLGRP_LINK = 0x1
-RTNLGRP_NOTIFY = 0x2
-RTNLGRP_NEIGH = 0x4
-RTNLGRP_TC = 0x8
-RTNLGRP_IPV4_IFADDR = 0x10
-RTNLGRP_IPV4_MROUTE = 0x20
-RTNLGRP_IPV4_ROUTE = 0x40
-RTNLGRP_IPV4_RULE = 0x80
-RTNLGRP_IPV6_IFADDR = 0x100
-RTNLGRP_IPV6_MROUTE = 0x200
-RTNLGRP_IPV6_ROUTE = 0x400
-RTNLGRP_IPV6_IFINFO = 0x800
-RTNLGRP_DECnet_IFADDR = 0x1000
-RTNLGRP_NOP2 = 0x2000
-RTNLGRP_DECnet_ROUTE = 0x4000
-RTNLGRP_DECnet_RULE = 0x8000
-RTNLGRP_NOP4 = 0x10000
-RTNLGRP_IPV6_PREFIX = 0x20000
-RTNLGRP_IPV6_RULE = 0x40000
-
-# Types of messages
-# RTM_BASE = 16
-RTM_NEWLINK = 16
-RTM_DELLINK = 17
-RTM_GETLINK = 18
-RTM_SETLINK = 19
-RTM_NEWADDR = 20
-RTM_DELADDR = 21
-RTM_GETADDR = 22
-RTM_NEWROUTE = 24
-RTM_DELROUTE = 25
-RTM_GETROUTE = 26
-RTM_NEWNEIGH = 28
-RTM_DELNEIGH = 29
-RTM_GETNEIGH = 30
-RTM_NEWRULE = 32
-RTM_DELRULE = 33
-RTM_GETRULE = 34
-RTM_NEWQDISC = 36
-RTM_DELQDISC = 37
-RTM_GETQDISC = 38
-RTM_NEWTCLASS = 40
-RTM_DELTCLASS = 41
-RTM_GETTCLASS = 42
-RTM_NEWTFILTER = 44
-RTM_DELTFILTER = 45
-RTM_GETTFILTER = 46
-RTM_NEWACTION = 48
-RTM_DELACTION = 49
-RTM_GETACTION = 50
-RTM_NEWPREFIX = 52
-RTM_GETMULTICAST = 58
-RTM_GETANYCAST = 62
-RTM_NEWNEIGHTBL = 64
-RTM_GETNEIGHTBL = 66
-RTM_SETNEIGHTBL = 67
-(RTM_NAMES, RTM_VALUES) = map_namespace('RTM', globals())
-
-TC_H_INGRESS = 0xfffffff1
-TC_H_ROOT = 0xffffffff
 
 DEFAULT_TABLE = 254
-
-RTNL_GROUPS = RTNLGRP_IPV4_IFADDR |\
-    RTNLGRP_IPV6_IFADDR |\
-    RTNLGRP_IPV4_ROUTE |\
-    RTNLGRP_IPV6_ROUTE |\
-    RTNLGRP_NEIGH |\
-    RTNLGRP_LINK |\
-    RTNLGRP_TC
-
-rtypes = {'RTN_UNSPEC': 0,
-          'RTN_UNICAST': 1,      # Gateway or direct route
-          'RTN_LOCAL': 2,        # Accept locally
-          'RTN_BROADCAST': 3,    # Accept locally as broadcast
-          #                        send as broadcast
-          'RTN_ANYCAST': 4,      # Accept locally as broadcast,
-          #                        but send as unicast
-          'RTN_MULTICAST': 5,    # Multicast route
-          'RTN_BLACKHOLE': 6,    # Drop
-          'RTN_UNREACHABLE': 7,  # Destination is unreachable
-          'RTN_PROHIBIT': 8,     # Administratively prohibited
-          'RTN_THROW': 9,        # Not in this table
-          'RTN_NAT': 10,         # Translate this address
-          'RTN_XRESOLVE': 11}    # Use external resolver
-
-rtprotos = {'RTPROT_UNSPEC': 0,
-            'RTPROT_REDIRECT': 1,  # Route installed by ICMP redirects;
-            #                        not used by current IPv4
-            'RTPROT_KERNEL': 2,    # Route installed by kernel
-            'RTPROT_BOOT': 3,      # Route installed during boot
-            'RTPROT_STATIC': 4,    # Route installed by administrator
-            # Values of protocol >= RTPROT_STATIC are not
-            # interpreted by kernel;
-            # keep in sync with iproute2 !
-            'RTPROT_GATED': 8,      # gated
-            'RTPROT_RA': 9,         # RDISC/ND router advertisements
-            'RTPROT_MRT': 10,       # Merit MRT
-            'RTPROT_ZEBRA': 11,     # Zebra
-            'RTPROT_BIRD': 12,      # BIRD
-            'RTPROT_DNROUTED': 13,  # DECnet routing daemon
-            'RTPROT_XORP': 14,      # XORP
-            'RTPROT_NTK': 15,       # Netsukuku
-            'RTPROT_DHCP': 16}      # DHCP client
-
-rtscopes = {'RT_SCOPE_UNIVERSE': 0,
-            'RT_SCOPE_SITE': 200,
-            'RT_SCOPE_LINK': 253,
-            'RT_SCOPE_HOST': 254,
-            'RT_SCOPE_NOWHERE': 255}
 
 
 def transform_handle(handle):
@@ -197,32 +113,6 @@ def transform_handle(handle):
         (major, minor) = [int(x if x else '0', 16) for x in handle.split(':')]
         handle = (major << 8 * 2) | minor
     return handle
-
-
-class MarshalRtnl(Marshal):
-    msg_map = {RTM_NEWLINK: ifinfmsg,
-               RTM_DELLINK: ifinfmsg,
-               RTM_NEWADDR: ifaddrmsg,
-               RTM_DELADDR: ifaddrmsg,
-               RTM_NEWROUTE: rtmsg,
-               RTM_DELROUTE: rtmsg,
-               RTM_NEWRULE: rtmsg,
-               RTM_DELRULE: rtmsg,
-               RTM_NEWNEIGH: ndmsg,
-               RTM_DELNEIGH: ndmsg,
-               RTM_NEWQDISC: tcmsg,
-               RTM_DELQDISC: tcmsg,
-               RTM_NEWTCLASS: tcmsg,
-               RTM_DELTCLASS: tcmsg,
-               RTM_NEWTFILTER: tcmsg,
-               RTM_DELTFILTER: tcmsg}
-
-    def fix_message(self, msg):
-        # FIXME: pls do something with it
-        try:
-            msg['event'] = RTM_VALUES[msg['header']['type']]
-        except:
-            pass
 
 
 class IPRSocket(NetlinkSocket):

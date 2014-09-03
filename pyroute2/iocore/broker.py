@@ -9,12 +9,12 @@ import uuid
 import ssl
 import sys
 
-from pyroute2.common import AF_PIPE
 from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLMSG_CONTROL
 from pyroute2.netlink import NLMSG_TRANSPORT
 from pyroute2.netlink import IPRCMD_ERR
 from pyroute2.netlink import IPRCMD_ACK
+from pyroute2.common import PipeSocket
 from pyroute2.netlink.generic import mgmtmsg
 from pyroute2.netlink.generic import envmsg
 from pyroute2.iocore import NLT_CONTROL
@@ -57,40 +57,6 @@ def _monkey_handshake(self):
 
 
 ssl.SSLSocket.do_handshake = _monkey_handshake
-
-
-class PipeSocket(object):
-    '''
-    Socket-like object for one-system IPC.
-
-    It is netlink-specific, since relies on length value
-    provided in the first four bytes of each message.
-    '''
-
-    family = AF_PIPE
-
-    def __init__(self, rfd, wfd):
-        self.rfd = rfd
-        self.wfd = wfd
-
-    def send(self, data):
-        os.write(self.wfd, data)
-
-    def recv(self, length=0, flags=0):
-        ret = os.read(self.rfd, 4)
-        length = struct.unpack('I', ret)[0]
-        ret += os.read(self.rfd, length - 4)
-        return ret
-
-    def getsockname(self):
-        return self.rfd, self.wfd
-
-    def fileno(self):
-        return self.rfd
-
-    def close(self):
-        os.close(self.rfd)
-        os.close(self.wfd)
 
 
 def pairPipeSockets():

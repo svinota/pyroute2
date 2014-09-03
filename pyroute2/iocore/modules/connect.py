@@ -5,6 +5,8 @@ from pyroute2.netlink import NetlinkSocket
 from pyroute2.netlink import IPRCMD_CONNECT
 from pyroute2.netlink.generic import envmsg
 from pyroute2.netlink.generic import mgmtmsg
+from pyroute2.netlink.generic import NETLINK_ROUTE
+from pyroute2.netlink.rtnl import RtnlSocket
 from pyroute2.iocore.utils import get_socket
 from pyroute2.iocore.utils import access
 try:
@@ -39,7 +41,11 @@ def command(broker, sock, env, cmd, rsp):
 
     elif target.scheme == 'netlink':
         res = target.path.split("/")
-        new_sock = NetlinkSocket(int(res[1]))
+        family = int(res[1])
+        if family == NETLINK_ROUTE:
+            new_sock = RtnlSocket()
+        else:
+            new_sock = NetlinkSocket(int(res[1]))
         new_sock.bind(int(res[2]))
         gate = lambda d, s:\
             new_sock.sendto(broker.gate_untag(d, s), (0, 0))
@@ -90,8 +96,10 @@ def command(broker, sock, env, cmd, rsp):
     rsp['attrs'].append(['IPR_ATTR_UUID', uid])
     rsp['attrs'].append(['IPR_ATTR_ADDR', peer])
     try:
-        broker.ioloop.register(new_sock, route,
-                               defer=True)
+        broker.ioloop.register(new_sock, route, defer=True)
+        if hasattr(new_sock, 'bypass'):
+            for s in new_sock.bypass:
+                broker.ioloop.register(s, route, defer=True)
     except Exception as e:
         if e.errno != errno.EEXIST:
             raise e
