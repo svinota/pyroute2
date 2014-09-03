@@ -1021,7 +1021,7 @@ class Interface(Transactional):
                         del request['broadcast']
                     # 8<----------------------------------------------------
                     try:
-                        compat.fix_create_link(self.nl, request)
+                        self.nl.link('add', **request)
                     except NetlinkError as x:
                         # Operation not supported
                         if x.code == 95 and request.get('index', 0) != 0:
@@ -1029,7 +1029,7 @@ class Interface(Transactional):
                             request = IPLinkRequest({'ifname': self['ifname'],
                                                      'kind': self['kind'],
                                                      'index': 0})
-                            compat.fix_create_link(self.nl, request)
+                            self.nl.link('add', **request)
                         else:
                             raise
                 except Exception:
@@ -1135,14 +1135,16 @@ class Interface(Transactional):
                     port = self.ipdb.interfaces[i]
                     port.set_target('master', None)
                     port.mirror_target('master', 'link')
-                    compat.fix_del_port(self.nl, self, port)
+                    self.nl.link('set', index=port['index'], master=0)
 
                 for i in added['ports']:
                     # enslave the port
                     port = self.ipdb.interfaces[i]
                     port.set_target('master', self['index'])
                     port.mirror_target('master', 'link')
-                    compat.fix_add_port(self.nl, self, port)
+                    self.nl.link('set',
+                                 index=port['index'],
+                                 master=self['index'])
 
                 if removed['ports'] or added['ports']:
                     self.nl.get_links(*(removed['ports'] | added['ports']))
@@ -1197,7 +1199,7 @@ class Interface(Transactional):
                                             ifname=self['ifname'])
                     if added.get('flicker'):
                         self._flicker = True
-                    compat.fix_del_link(self.nl, self)
+                    self.nl.link('delete', **self)
                     wd.wait()
                     if added.get('flicker'):
                         self._exists = False
@@ -1796,10 +1798,7 @@ class IPDB(object):
             self.routes.load(msg)
 
     def _lookup_master(self, msg):
-        index = msg['index']
         master = msg.get_attr('IFLA_MASTER')
-        if (master is None):
-            master = compat.fix_lookup_master(self.interfaces[index])
         return self.interfaces.get(master, None)
 
     def update_slaves(self, msg):
