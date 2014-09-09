@@ -707,6 +707,13 @@ class ctrlmsg(genlmsg):
                ('CTRL_ATTR_MCAST_GROUPS', 'hex'))
 
 
+class cdatamsg(genlmsg):
+    '''
+    Simplest netlink CDATA container
+    '''
+    nla_map = (('IPR_ATTR_CDATA', 'cdata'), )
+
+
 class mgmtmsg(ctrlmsg):
     '''
     Messaging system control messages
