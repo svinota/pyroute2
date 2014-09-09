@@ -204,6 +204,7 @@ from socket import AF_INET
 from socket import AF_INET6
 from pyroute2.common import dqn2int
 from pyroute2.common import Dotkeys
+from pyroute2.common import basestring
 from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.ipdb import compat
@@ -520,6 +521,10 @@ class IPRouteRequest(IPRequest):
     '''
 
     def __setitem__(self, key, value):
+        # fix family
+        if isinstance(value, basestring) and value.find(':') >= 0:
+            self['family'] = AF_INET6
+        # work on the rest
         if (key == 'dst') and (value != 'default'):
             value = value.split('/')
             if len(value) == 1:
