@@ -584,6 +584,8 @@ class Transactional(Dotkeys):
         self._fields = []
         self._tids = []
         self._transactions = {}
+        self._sids = []
+        self._snapshots = {}
         self._targets = {}
         self._local_targets = {}
         self._mode = mode or ipdb.mode
@@ -662,19 +664,47 @@ class Transactional(Dotkeys):
     def commit(self, *args, **kwarg):
         pass
 
+    def last_snapshot_id(self):
+        return self._sids[-1]
+
+    def revert(self, sid):
+        self._transactions[sid] = self._snapshots[sid]
+        self._tids.append(sid)
+        self._sids.remove(sid)
+        del self._snapshots[sid]
+        return self
+
+    def snapshot(self):
+        '''
+        Create new snapshot
+        '''
+        return self._begin(mapping=self._snapshots,
+                           ids=self._sids,
+                           detached=True)
+
     def begin(self):
         '''
         Start new transaction
         '''
+        return self._begin(mapping=self._transactions,
+                           ids=self._tids,
+                           detached=False)
+
+    def _begin(self, mapping, ids, detached):
         # keep snapshot's ip addr set updated from the OS
         # it is required by the commit logic
         with self.ipdb.exclusive:
             if self.ipdb._stop:
                 raise RuntimeError("Can't start transaction on released IPDB")
-            t = self.pick(detached=False)
-            self._transactions[t.uid] = t
-            self._tids.append(t.uid)
+            t = self.pick(detached=detached)
+            mapping[t.uid] = t
+            ids.append(t.uid)
             return t.uid
+
+    def last_snapshot(self):
+        if not self._sids:
+            raise TypeError('create a snapshot first')
+        return self._snapshots[self._sids[-1]]
 
     def last(self):
         '''

@@ -384,6 +384,51 @@ class TestExplicit(object):
         i.remove().commit()
         assert 'bala' not in self.ip.interfaces
 
+    def test_snapshots(self):
+        assert 'dummyX' in self.ip.interfaces
+        # set it up
+        with self.ip.interfaces.dummyX as i:
+            i.add_ip('172.16.0.1/24')
+            i.up()
+
+        # check it
+        assert ('172.16.0.1', 24) in self.ip.interfaces.dummyX.ipaddr
+        assert self.ip.interfaces.dummyX.flags & 1
+
+        # make a snapshot
+        s = self.ip.interfaces.dummyX.snapshot()
+        i = self.ip.interfaces.dummyX
+
+        # check it
+        assert i.last_snapshot_id() == s
+
+        # unset the interface
+        with self.ip.interfaces.dummyX as i:
+            i.del_ip('172.16.0.1/24')
+            i.down()
+
+        # we can not rename the interface while it is up,
+        # so do it in two turns
+        with self.ip.interfaces.dummyX as i:
+            i.ifname = 'dummyY'
+
+        # check it
+        assert 'dummyY' in self.ip.interfaces
+        assert 'dummyX' not in self.ip.interfaces
+        y = self.ip.interfaces.dummyY
+        assert i == y
+        assert ('172.16.0.1', 24) not in y.ipaddr
+        assert not (y.flags & 1)
+
+        # revert snapshot
+        y.revert(s).commit()
+
+        # check it
+        assert 'dummyY' not in self.ip.interfaces
+        assert 'dummyX' in self.ip.interfaces
+        assert ('172.16.0.1', 24) in self.ip.interfaces.dummyX.ipaddr
+        assert self.ip.interfaces.dummyX.flags & 1
+
     def _test_ipv(self, ipv, kind):
         require_user('root')
 
