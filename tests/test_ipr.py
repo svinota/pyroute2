@@ -202,6 +202,7 @@ class TestData(object):
                 raise
 
     def test_fail_no_such_device(self):
+        require_user('root')
         dev = sorted([i['index'] for i in self.ip.get_links()])[-1] + 10
         try:
             self.ip.addr('add',

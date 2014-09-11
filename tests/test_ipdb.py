@@ -386,6 +386,8 @@ class TestExplicit(object):
         assert 'bala' not in self.ip.interfaces
 
     def test_json_dump(self):
+        require_user('root')
+
         # set up the interface
         with self.ip.create(kind='dummy', ifname='bala_port1') as i:
             i.add_ip('172.16.0.1/24')
@@ -423,6 +425,8 @@ class TestExplicit(object):
         assert self.ip.interfaces.bala_port1.flags & 1
 
     def test_snapshots(self):
+        require_user('root')
+
         # set up the interface
         with self.ip.interfaces.dummyX as i:
             i.add_ip('172.16.0.1/24')
@@ -586,7 +590,6 @@ class TestExplicit(object):
         assert 'bala' not in self.ip.interfaces
 
     def _create_master(self, kind, **kwarg):
-        require_user('root')
         assert 'bala' not in self.ip.interfaces
         assert 'bala_port0' not in self.ip.interfaces
         assert 'bala_port1' not in self.ip.interfaces
@@ -617,14 +620,17 @@ class TestExplicit(object):
         assert self.ip.interfaces.bala_port1.if_master is None
 
     def test_create_bridge(self):
+        require_user('root')
         require_bridge()
         self._create_master('bridge')
 
     def test_create_bond(self):
+        require_user('root')
         require_bond()
         self._create_master('bond')
 
     def test_create_bond2(self):
+        require_user('root')
         require_bond()
         self._create_master('bond', bond_mode=2)
 
