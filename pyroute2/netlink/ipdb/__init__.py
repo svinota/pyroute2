@@ -661,6 +661,22 @@ class Transactional(Dotkeys):
                 res[key] = diff
         return res
 
+    def dump(self, not_none=True):
+        with self._write_lock:
+            res = {}
+            for key in self:
+                if self[key] is not None and key[0] != '_':
+                    if isinstance(self[key], Transactional):
+                        res[key] = self[key].dump()
+                    elif isinstance(self[key], LinkedSet):
+                        res[key] = tuple(self[key])
+                    else:
+                        res[key] = self[key]
+            return res
+
+    def load(self, data):
+        pass
+
     def commit(self, *args, **kwarg):
         pass
 
@@ -804,7 +820,7 @@ class TrafficControl(Transactional):
         Transactional.__init__(self, ipdb, mode)
         self._fields = tc_fields
 
-    def load(self, msg):
+    def load_netlink(self, msg):
         with self._direct_state:
             self.update(msg)
             self['kind'] = msg.get_attr('TCA_KIND')
@@ -891,7 +907,27 @@ class Interface(Transactional):
         '''
         return self.get('master', None)
 
-    def load(self, dev):
+    def load(self, data):
+        with self._write_lock:
+            template = self.__class__(ipdb=self.ipdb, mode='snapshot')
+            template.load_dict(data)
+            self._transactions[template.uid] = template
+            self._tids.append(template.uid)
+            return self
+
+    def load_dict(self, data):
+        with self._direct_state:
+            for key in data:
+                if key == 'ipaddr':
+                    for addr in data[key]:
+                        self.add_ip(*addr)
+                elif key == 'ports':
+                    for port in data[key]:
+                        self.add_port(port)
+                else:
+                    self[key] = data[key]
+
+    def load_netlink(self, dev):
         '''
         Update the interface info from RTM_NEWLINK message.
 
@@ -1363,7 +1399,7 @@ class Route(Transactional):
                         'header',
                         'event')
 
-    def load(self, msg):
+    def load_netlink(self, msg):
         with self._direct_state:
             self._exists = True
             self.update(msg)
@@ -1470,7 +1506,7 @@ class RoutingTables(dict):
         route.begin()
         return route
 
-    def load(self, msg):
+    def load_netlink(self, msg):
         '''
         Loads an existing route from a rtmsg
         '''
@@ -1486,10 +1522,10 @@ class RoutingTables(dict):
 
         if key in self.tables[table]:
             ret = self.tables[table][key]
-            ret.load(msg)
+            ret.load_netlink(msg)
         else:
             ret = Route(ipdb=self.ipdb)
-            ret.load(msg)
+            ret.load_netlink(msg)
             self.tables[table][key] = ret
         return ret
 
@@ -1817,7 +1853,7 @@ class IPDB(object):
             # for interfaces, created by IPDB
             self.ipaddr[index] = IPaddrSet()
 
-        device.load(msg)
+        device.load_netlink(msg)
 
         if not skip_slaves:
             self.update_slaves(msg)
@@ -1831,7 +1867,7 @@ class IPDB(object):
 
     def update_routes(self, routes):
         for msg in routes:
-            self.routes.load(msg)
+            self.routes.load_netlink(msg)
 
     def _lookup_master(self, msg):
         master = msg.get_attr('IFLA_MASTER')
