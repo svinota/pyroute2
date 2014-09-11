@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import json
 import time
 import socket
 from pyroute2 import IPDB
@@ -384,9 +385,45 @@ class TestExplicit(object):
         i.remove().commit()
         assert 'bala' not in self.ip.interfaces
 
+    def test_json_dump(self):
+        # set up the interface
+        with self.ip.create(kind='dummy', ifname='bala_port1') as i:
+            i.add_ip('172.16.0.1/24')
+            i.add_ip('172.16.0.2/24')
+            i.up()
+
+        # make a backup
+        backup = self.ip.interfaces.bala_port1.dump()
+        assert isinstance(backup, dict)
+
+        # remove index -- make it portable
+        del backup['index']
+        # serialize
+        backup = json.dumps(backup)
+
+        # remove the interface
+        with self.ip.interfaces.bala_port1 as i:
+            i.remove()
+
+        # create again, but with different name
+        self.ip.create(kind='dummy', ifname='bala_port2').commit()
+
+        # load the backup
+        # 1. prepare to the restore: bring it down
+        with self.ip.interfaces.bala_port2 as i:
+            i.down()
+        # 2. please notice, the interface will be renamed after the backup
+        self.ip.interfaces.bala_port2.load(json.loads(backup)).commit()
+
+        # check :)
+        assert 'bala_port1' in self.ip.interfaces
+        assert 'bala_port2' not in self.ip.interfaces
+        assert ('172.16.0.1', 24) in self.ip.interfaces.bala_port1.ipaddr
+        assert ('172.16.0.1', 24) in self.ip.interfaces.bala_port1.ipaddr
+        assert self.ip.interfaces.bala_port1.flags & 1
+
     def test_snapshots(self):
-        assert 'dummyX' in self.ip.interfaces
-        # set it up
+        # set up the interface
         with self.ip.interfaces.dummyX as i:
             i.add_ip('172.16.0.1/24')
             i.up()
