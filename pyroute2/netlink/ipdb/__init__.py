@@ -668,11 +668,12 @@ class Transactional(Dotkeys):
         return self._sids[-1]
 
     def revert(self, sid):
-        self._transactions[sid] = self._snapshots[sid]
-        self._tids.append(sid)
-        self._sids.remove(sid)
-        del self._snapshots[sid]
-        return self
+        with self.ipdb.exclusive:
+            self._transactions[sid] = self._snapshots[sid]
+            self._tids.append(sid)
+            self._sids.remove(sid)
+            del self._snapshots[sid]
+            return self
 
     def snapshot(self):
         '''
