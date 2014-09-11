@@ -44,8 +44,8 @@ class TestExplicit(object):
             except RuntimeError:
                 pass
             except NetlinkError as e:
-                if e.code != 19:  # No such device
-                    raise
+                if e.code not in (17, 19):  # File exists (?wtf)
+                    raise                   # No such device
         self.ip.release()
 
     def test_simple(self):
