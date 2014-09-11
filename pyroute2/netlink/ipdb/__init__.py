@@ -920,6 +920,8 @@ class Interface(Transactional):
             for key in data:
                 if key == 'ipaddr':
                     for addr in data[key]:
+                        if isinstance(addr, basestring):
+                            addr = (addr, )
                         self.add_ip(*addr)
                 elif key == 'ports':
                     for port in data[key]:
