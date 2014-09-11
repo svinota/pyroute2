@@ -193,10 +193,7 @@ class TestData(object):
 
     def test_fail_not_permitted(self):
         try:
-            self.ip.addr('add',
-                         self.dev[0],
-                         address='172.16.0.1',
-                         mask=24)
+            self.ip.addr('add', 1, address='172.16.0.1', mask=24)
         except NetlinkError as e:
             if e.code != 1:  # Operation not permitted
                 raise
