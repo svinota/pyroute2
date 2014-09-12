@@ -7,6 +7,7 @@ from pyroute2 import IPDB
 from pyroute2.common import basestring
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.ipdb import CreateException
+from pyroute2.netlink.ipdb import CommitException
 from pyroute2.netlink.ipdb import clear_fail_bit
 from pyroute2.netlink.ipdb import set_fail_bit
 from pyroute2.netlink.ipdb import _FAIL_COMMIT
@@ -421,8 +422,55 @@ class TestExplicit(object):
         assert 'bala_port1' in self.ip.interfaces
         assert 'bala_port2' not in self.ip.interfaces
         assert ('172.16.0.1', 24) in self.ip.interfaces.bala_port1.ipaddr
-        assert ('172.16.0.1', 24) in self.ip.interfaces.bala_port1.ipaddr
+        assert ('172.16.0.2', 24) in self.ip.interfaces.bala_port1.ipaddr
         assert self.ip.interfaces.bala_port1.flags & 1
+
+    def test_freeze(self):
+        require_user('root')
+
+        # set up the interface
+        with self.ip.interfaces.dummyX as i:
+            i.add_ip('172.16.0.1/24')
+            i.add_ip('172.16.1.1/24')
+            i.up()
+
+        # check
+        assert ('172.16.0.1', 24) in self.ip.interfaces.dummyX.ipaddr
+        assert ('172.16.1.1', 24) in self.ip.interfaces.dummyX.ipaddr
+        assert self.ip.interfaces.dummyX.flags & 1
+
+        # freeze
+        self.ip.interfaces.dummyX.freeze()
+
+        # change the interface somehow
+        i2 = IPDB()
+        try:
+            with i2.interfaces.dummyX as i:
+                for addr in i.ipaddr:
+                    i.del_ip(*addr)
+                i.down()
+        except CommitException:
+            pass
+
+        # check the interface is still set up
+        assert ('172.16.0.1', 24) in self.ip.interfaces.dummyX.ipaddr
+        assert ('172.16.1.1', 24) in self.ip.interfaces.dummyX.ipaddr
+        assert self.ip.interfaces.dummyX.flags & 1
+
+        # unfreeze
+        self.ip.interfaces.dummyX.freeze(False)
+
+        # change the interface
+        with i2.interfaces.dummyX as i:
+            for addr in i.ipaddr:
+                i.del_ip(*addr)
+        # release
+        i2.release()
+
+        # should be up, but w/o addresses
+        assert ('172.16.0.1', 24) not in self.ip.interfaces.dummyX.ipaddr
+        assert ('172.16.1.1', 24) not in self.ip.interfaces.dummyX.ipaddr
+        assert self.ip.interfaces.dummyX.flags & 1
 
     def test_snapshots(self):
         require_user('root')

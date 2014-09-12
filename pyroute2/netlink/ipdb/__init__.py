@@ -886,6 +886,7 @@ class Interface(Transactional):
         self._load_event = threading.Event()
         self._linked_sets.add('ipaddr')
         self._linked_sets.add('ports')
+        self._freeze = None
         # 8<-----------------------------------
         # local setup: direct state is required
         with self._direct_state:
@@ -906,6 +907,23 @@ class Interface(Transactional):
         [property] Link to the parent interface -- if it exists
         '''
         return self.get('master', None)
+
+    def freeze(self, f=True):
+        if f:
+            dump = self.dump()
+
+            def cb(ipdb, msg, action):
+                if msg.get('index', -1) == dump['index']:
+                    with ipdb.exclusive:
+                        self.load(dump)
+                        self.commit()
+
+            self._freeze = cb
+            self.ipdb.register_callback(self._freeze)
+        else:
+            self.ipdb.unregister_callback(self._freeze)
+            self._freeze = None
+        return self
 
     def load(self, data):
         with self._write_lock:
