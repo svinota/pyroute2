@@ -197,6 +197,11 @@ class TestData(object):
         except NetlinkError as e:
             if e.code != 1:  # Operation not permitted
                 raise
+        finally:
+            try:
+                self.ip.addr('delete', 1, address='172.16.0.1', mask=24)
+            except:
+                pass
 
     def test_fail_no_such_device(self):
         require_user('root')
