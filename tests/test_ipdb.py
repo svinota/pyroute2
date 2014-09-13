@@ -35,8 +35,8 @@ class TestExplicit(object):
         self.ip = IPDB(mode=self.mode)
 
     def teardown(self):
-        for name in ('bala_port0', 'bala_port1', 'dummyX',
-                     'bala', 'bala_host', 'bv101', 'bv102'):
+        for name in ('bala', 'bala_port0', 'bala_port1', 'dummyX',
+                     'bala_host', 'bv101', 'bv102'):
             try:
                 with self.ip.interfaces[name] as i:
                     i.remove()
