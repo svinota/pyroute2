@@ -552,6 +552,12 @@ class IPLinkRequest(IPRequest):
     '''
 
     def __setitem__(self, key, value):
+        try:
+            if isinstance(value, unicode):
+                value = value.encode('ascii')
+        except NameError:
+            pass
+
         if key == 'kind':
             if 'IFLA_LINKINFO' not in self:
                 self['IFLA_LINKINFO'] = {'attrs': []}
