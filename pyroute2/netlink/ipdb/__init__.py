@@ -225,6 +225,10 @@ _FAIL_ROLLBACK = 0b00000010
 _FAIL_MASK = 0b11111111
 
 
+class DeprecationException(Exception):
+    pass
+
+
 class CommitException(Exception):
     pass
 
@@ -580,7 +584,7 @@ class Transactional(Dotkeys):
         self.uid = uuid.uuid4()
         self.ipdb = ipdb
         self.last_error = None
-        self._callbacks = []
+        self._commit_hooks = []
         self._fields = []
         self._tids = []
         self._transactions = {}
@@ -594,12 +598,23 @@ class Transactional(Dotkeys):
         self._linked_sets = set()
 
     def register_callback(self, callback):
-        self._callbacks.append(callback)
+        raise DeprecationException("deprecated since 0.2.15;"
+                                   "use `register_commit_hook()`")
+
+    def register_commit_hook(self, hook):
+        # FIXME: write docs
+        self._commit_hooks.append(hook)
 
     def unregister_callback(self, callback):
-        for cb in tuple(self._callbacks):
-            if callback == cb:
-                self._callbacks.pop(self._callbacks.index(cb))
+        raise DeprecationException("deprecated since 0.2.15;"
+                                   "use `unregister_commit_hook()`")
+
+    def unregister_commit_hook(self, hook):
+        # FIXME: write docs
+        with self._write_lock:
+            for cb in tuple(self._commit_hooks):
+                if hook == cb:
+                    self._commit_hooks.pop(self._commit_hooks.index(cb))
 
     def pick(self, detached=True):
         '''
@@ -1327,9 +1342,9 @@ class Interface(Transactional):
 
                     # 8<-----------------------------------------
                     # Iterate callback chain
-                    for cb in self._callbacks:
+                    for ch in self._commit_hooks:
                         # An exception will rollback the transaction
-                        cb(snapshot, transaction)
+                        ch(self.dump(), snapshot.dump(), transaction.dump())
                     # 8<-----------------------------------------
 
                     assert _FAIL_COMMIT & _FAIL_MASK

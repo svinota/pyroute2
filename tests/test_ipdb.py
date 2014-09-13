@@ -112,21 +112,21 @@ class TestExplicit(object):
         assert vX101['master'] == self.ip.interfaces['bala']['index']
         assert vX102['master'] == self.ip.interfaces.bala.index
 
-    def test_callback_positive(self):
+    def test_commit_hook_positive(self):
         require_user('root')
         assert 'dummyX' in self.ip.interfaces
 
         # test callback, that adds an address by itself --
         # just to check the possibility
-        def cb(snapshot, transaction):
+        def cb(interface, snapshot, transaction):
             self.ip.nl.addr('add',
                             self.ip.interfaces.dummyX.index,
                             address='172.16.22.1',
                             mask=24)
 
         # register callback and check CB chain length
-        self.ip.interfaces.dummyX.register_callback(cb)
-        assert len(self.ip.interfaces.dummyX._callbacks) == 1
+        self.ip.interfaces.dummyX.register_commit_hook(cb)
+        assert len(self.ip.interfaces.dummyX._commit_hooks) == 1
 
         # create a transaction and commit it
         if self.ip.interfaces.dummyX._mode == 'explicit':
@@ -144,10 +144,10 @@ class TestExplicit(object):
         assert ('172.16.22.1', 24) in self.ip.interfaces.dummyX.ipaddr
 
         # unregister callback
-        self.ip.interfaces.dummyX.unregister_callback(cb)
-        assert len(self.ip.interfaces.dummyX._callbacks) == 0
+        self.ip.interfaces.dummyX.unregister_commit_hook(cb)
+        assert len(self.ip.interfaces.dummyX._commit_hooks) == 0
 
-    def test_callback_negative(self):
+    def test_commit_hook_negative(self):
         require_user('root')
         assert 'dummyX' in self.ip.interfaces
 
@@ -156,12 +156,12 @@ class TestExplicit(object):
             pass
 
         # test callback, that always fail
-        def cb(snapshot, transaction):
+        def cb(interface, snapshot, transaction):
             raise CBException()
 
         # register callback and check CB chain length
-        self.ip.interfaces.dummyX.register_callback(cb)
-        assert len(self.ip.interfaces.dummyX._callbacks) == 1
+        self.ip.interfaces.dummyX.register_commit_hook(cb)
+        assert len(self.ip.interfaces.dummyX._commit_hooks) == 1
 
         # create a transaction and commit it; should fail
         # 'cause of the callback
@@ -177,8 +177,8 @@ class TestExplicit(object):
         assert ('172.16.21.1', 24) not in self.ip.interfaces.dummyX.ipaddr
 
         # unregister callback
-        self.ip.interfaces.dummyX.unregister_callback(cb)
-        assert len(self.ip.interfaces.dummyX._callbacks) == 0
+        self.ip.interfaces.dummyX.unregister_commit_hook(cb)
+        assert len(self.ip.interfaces.dummyX._commit_hooks) == 0
 
     def test_review(self):
         assert len(self.ip.interfaces.lo._tids) == 0
