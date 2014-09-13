@@ -747,11 +747,17 @@ class Transactional(Dotkeys):
             del added[key]
         return added
 
-    def drop(self):
+    def drop(self, tid=None):
         '''
-        Drop all not applied changes and rollback transaction.
+        Drop a transaction.
         '''
-        del self._transactions[self._tids.pop()]
+        with self.ipdb.exclusive:
+            if isinstance(tid, Transactional):
+                tid = tid.uid
+            elif tid is None:
+                tid = self._tids[-1]
+            self._tids.pop(self._tids.index(tid))
+            del self._transactions[tid]
 
     @update
     def __setitem__(self, direct, key, value):
@@ -1092,10 +1098,14 @@ class Interface(Transactional):
             error = None
             added = None
             removed = None
+            drop = True
             if tid:
                 transaction = self._transactions[tid]
             else:
-                transaction = transaction or self.last()
+                if transaction:
+                    drop = False
+                else:
+                    transaction = self.last()
 
             # if the interface does not exist, create it first ;)
             if not self._exists:
@@ -1297,7 +1307,8 @@ class Interface(Transactional):
                         self._exists = False
                     if added.get('removal'):
                         self._mode = 'invalid'
-                    self.drop()
+                    if drop:
+                        self.drop()
                     return self
                 # 8<---------------------------------------------
 
@@ -1333,7 +1344,8 @@ class Interface(Transactional):
                     # somethig went wrong during automatic rollback.
                     # that's the worst case, but it is still possible,
                     # since we have no locks on OS level.
-                    self.drop()
+                    if drop:
+                        self.drop()
                     self['ipaddr'].set_target(None)
                     self['ports'].set_target(None)
                     # reload all the database -- it can take a long time,
@@ -1351,7 +1363,7 @@ class Interface(Transactional):
                     raise x
 
             # if it is not a rollback turn
-            if not rollback:
+            if drop and not rollback:
                 # drop last transaction in any case
                 self.drop()
 
