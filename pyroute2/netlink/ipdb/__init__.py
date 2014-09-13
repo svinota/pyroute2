@@ -914,30 +914,39 @@ class Interface(Transactional):
         '''
         return self.get('master', None)
 
-    def freeze(self, f=True):
-        if f:
-            dump = self.dump()
+    def freeze(self):
+        dump = self.dump()
 
-            def cb(ipdb, msg, action):
-                if msg.get('index', -1) == dump['index']:
-                    with ipdb.exclusive:
-                        self.load(dump)
-                        self.commit()
+        def cb(ipdb, msg, action):
+            if msg.get('index', -1) == dump['index']:
+                with ipdb.exclusive:
+                    tr = self.load(dump)
+                    for _ in range(3):
+                        try:
+                            self.commit(transaction=tr)
+                        except (CommitException, RuntimeError):
+                            # ignore here both CommitExceptions
+                            # and RuntimeErrors (aka rollback errors),
+                            # since ususally it is a races between
+                            # 3d party setup and freeze; just
+                            # sliently try again for several times
+                            continue
+                        break
 
-            self._freeze = cb
-            self.ipdb.register_callback(self._freeze)
-        else:
-            self.ipdb.unregister_callback(self._freeze)
-            self._freeze = None
+        self._freeze = cb
+        self.ipdb.register_callback(self._freeze)
+        return self
+
+    def unfreeze(self):
+        self.ipdb.unregister_callback(self._freeze)
+        self._freeze = None
         return self
 
     def load(self, data):
         with self._write_lock:
             template = self.__class__(ipdb=self.ipdb, mode='snapshot')
             template.load_dict(data)
-            self._transactions[template.uid] = template
-            self._tids.append(template.uid)
-            return self
+            return template
 
     def load_dict(self, data):
         with self._direct_state:
