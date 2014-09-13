@@ -4,10 +4,10 @@ import json
 import time
 import socket
 from pyroute2 import IPDB
+from pyroute2 import IPRoute
 from pyroute2.common import basestring
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.ipdb import CreateException
-from pyroute2.netlink.ipdb import CommitException
 from pyroute2.netlink.ipdb import clear_fail_bit
 from pyroute2.netlink.ipdb import set_fail_bit
 from pyroute2.netlink.ipdb import _FAIL_COMMIT
@@ -429,46 +429,66 @@ class TestExplicit(object):
     def test_freeze(self):
         require_user('root')
 
+        interface = self.ip.interfaces.dummyX
+
         # set up the interface
-        with self.ip.interfaces.dummyX as i:
+        with interface as i:
             i.add_ip('172.16.0.1/24')
             i.add_ip('172.16.1.1/24')
             i.up()
 
         # check
-        assert ('172.16.0.1', 24) in self.ip.interfaces.dummyX.ipaddr
-        assert ('172.16.1.1', 24) in self.ip.interfaces.dummyX.ipaddr
-        assert self.ip.interfaces.dummyX.flags & 1
+        assert ('172.16.0.1', 24) in interface.ipaddr
+        assert ('172.16.1.1', 24) in interface.ipaddr
+        assert interface.flags & 1
+
+        # assert routine
+        def probe():
+            # The freeze results are dynamic: it is not a real freeze,
+            # it is a restore routine. So it takes time for results
+            # to stabilize
+            err = None
+            for _ in range(3):
+                err = None
+                interface.ipaddr.set_target((('172.16.0.1', 24),
+                                             ('172.16.1.1', 24)))
+                interface.ipaddr.target.wait()
+                try:
+                    assert ('172.16.0.1', 24) in interface.ipaddr
+                    assert ('172.16.1.1', 24) in interface.ipaddr
+                    assert interface.flags & 1
+                    break
+                except AssertionError as e:
+                    err = e
+                    continue
+                except Exception as e:
+                    err = e
+                    break
+            if err is not None:
+                interface.unfreeze()
+                i2.release()
+                raise err
 
         # freeze
-        self.ip.interfaces.dummyX.freeze()
+        interface.freeze()
 
         # change the interface somehow
-        i2 = IPDB()
-        try:
-            with i2.interfaces.dummyX as i:
-                for addr in i.ipaddr:
-                    i.del_ip(*addr)
-                i.down()
-        except CommitException:
-            pass
-
-        # check the interface is still set up
-        assert ('172.16.0.1', 24) in self.ip.interfaces.dummyX.ipaddr
-        assert ('172.16.1.1', 24) in self.ip.interfaces.dummyX.ipaddr
-        assert self.ip.interfaces.dummyX.flags & 1
+        i2 = IPRoute()
+        i2.addr('delete', interface.index, '172.16.0.1', 24)
+        i2.addr('delete', interface.index, '172.16.1.1', 24)
+        probe()
 
         # unfreeze
-        self.ip.interfaces.dummyX.freeze(False)
+        self.ip.interfaces.dummyX.unfreeze()
 
-        # change the interface
-        with i2.interfaces.dummyX as i:
-            for addr in i.ipaddr:
-                i.del_ip(*addr)
+        i2.addr('delete', interface.index, '172.16.0.1', 24)
+        i2.addr('delete', interface.index, '172.16.1.1', 24)
         # release
         i2.release()
 
         # should be up, but w/o addresses
+        interface.ipaddr.set_target(set())
+        interface.ipaddr.target.wait(3)
         assert ('172.16.0.1', 24) not in self.ip.interfaces.dummyX.ipaddr
         assert ('172.16.1.1', 24) not in self.ip.interfaces.dummyX.ipaddr
         assert self.ip.interfaces.dummyX.flags & 1
