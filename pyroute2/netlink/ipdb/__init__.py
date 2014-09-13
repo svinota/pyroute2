@@ -1751,7 +1751,9 @@ class IPDB(object):
             raise KeyError('Unknown callback mode')
         for cb in tuple(cbchain):
             if callback == cb:
-                cbchain.pop(cbchain.index(cb))
+                for t in tuple(self._cb_threads):
+                    t.join(3)
+                return cbchain.pop(cbchain.index(cb))
 
     def release(self):
         '''
