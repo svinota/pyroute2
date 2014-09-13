@@ -416,7 +416,8 @@ class TestExplicit(object):
         with self.ip.interfaces.bala_port2 as i:
             i.down()
         # 2. please notice, the interface will be renamed after the backup
-        self.ip.interfaces.bala_port2.load(json.loads(backup)).commit()
+        t = self.ip.interfaces.bala_port2.load(json.loads(backup))
+        self.ip.interfaces.bala_port2.commit(transaction=t)
 
         # check :)
         assert 'bala_port1' in self.ip.interfaces
