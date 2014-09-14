@@ -348,9 +348,11 @@ from pyroute2.common import map_namespace
 from pyroute2.common import PipeSocket
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink.generic import NETLINK_ROUTE
+from pyroute2.netlink.rtnl.errmsg import errmsg
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
+from pyroute2.netlink.rtnl.brmsg import brmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
@@ -419,6 +421,9 @@ RTM_GETANYCAST = 62
 RTM_NEWNEIGHTBL = 64
 RTM_GETNEIGHTBL = 66
 RTM_SETNEIGHTBL = 67
+# custom message types
+RTM_GETBRIDGE = 88
+RTM_SETBRIDGE = 89
 (RTM_NAMES, RTM_VALUES) = map_namespace('RTM', globals())
 
 TC_H_INGRESS = 0xfffffff1
@@ -492,7 +497,9 @@ class MarshalRtnl(Marshal):
                RTM_NEWTCLASS: tcmsg,
                RTM_DELTCLASS: tcmsg,
                RTM_NEWTFILTER: tcmsg,
-               RTM_DELTFILTER: tcmsg}
+               RTM_DELTFILTER: tcmsg,
+               RTM_GETBRIDGE: brmsg,
+               RTM_SETBRIDGE: brmsg}
 
     def fix_message(self, msg):
         # FIXME: pls do something with it
@@ -579,7 +586,8 @@ class RtnlSocket(PipeSocket):
         self.in_map = {RTM_NEWLINK: self.proxy_getlink}
         self.out_map = {RTM_NEWLINK: self.proxy_newlink,
                         RTM_SETLINK: self.proxy_setlink,
-                        RTM_DELLINK: self.proxy_dellink}
+                        RTM_DELLINK: self.proxy_dellink,
+                        RTM_SETBRIDGE: self.proxy_setbr}
         self.bypass = NetlinkSocket(NETLINK_ROUTE)
         self.iprs = IPRSocket()
         self.ancient = (platform.dist()[0] in ('redhat', 'centos') and
@@ -699,6 +707,24 @@ class RtnlSocket(PipeSocket):
                 del msg
         return data
 
+    def proxy_setbr(self, data, addr, msg):
+        #
+        name = msg.get_attr('IFBR_IFNAME')
+        code = 0
+        # iterate commands:
+        for (cmd, value) in msg.get_attr('IFBR_COMMANDS',
+                                         {'attrs': []})['attrs']:
+            cmd = brmsg.nla2name(cmd)
+            code = compat_set_bridge(name, cmd, value) or code
+
+        response = errmsg()
+        response['header']['type'] = NLMSG_ERROR
+        response['header']['sequence_number'] = \
+            msg['header']['sequence_number']
+        response['code'] = code
+        response.encode()
+        self.send(response.buf.getvalue())
+
     def proxy_setlink(self, data, addr, msg):
         # is it a port setup?
         master = msg.get_attr('IFLA_MASTER')
@@ -785,6 +811,12 @@ def compat_get_type(name):
     # don't care
     return 'unknown'
 
+
+def compat_set_bridge(name, cmd, value):
+    with open(os.devnull, 'w') as fnull:
+        return subprocess.call(['brctl', cmd, name, str(value)],
+                               stdout=fnull,
+                               stderr=fnull)
 
 def compat_create_bridge(name):
     with open(os.devnull, 'w') as fnull:
