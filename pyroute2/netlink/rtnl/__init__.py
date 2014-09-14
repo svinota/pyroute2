@@ -818,6 +818,7 @@ def compat_set_bridge(name, cmd, value):
                                stdout=fnull,
                                stderr=fnull)
 
+
 def compat_create_bridge(name):
     with open(os.devnull, 'w') as fnull:
         subprocess.check_call(['brctl', 'addbr', name],

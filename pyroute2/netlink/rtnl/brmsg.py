@@ -17,7 +17,7 @@ class brmsg(nlmsg):
                ('IFBR_PORTINFO', 'portinfo'),
                ('IFBR_IFNAME', 'asciiz'),
                ('IFBR_COMMANDS', 'commands'))
-               
+
     class portinfo(nla):
         fields = (('index', 'I'),
                   ('prio', 'B'),
