@@ -27,10 +27,5 @@ class brmsg(nlmsg):
         nla_map = (('IFBRPI_IFNAME', 'asciiz'))
 
     class commands(nla):
-        nla_map = (('IFBR_SETAGEING', 'uint32'),
-                   ('IFBR_SETGCINT', 'uint32'),
-                   ('IFBR_SETFD', 'uint32'),
-                   ('IFBR_SETHELLO', 'uint32'),
-                   ('IFBR_SETMAXAGE', 'uint32'),
-                   ('IFBR_SETBRIDGEPRIO', 'uint32'),
-                   ('IFBR_STP', 'uint32'))
+        nla_map = (('IFBR_STP_STATE', 'uint32'),
+                   ('IFBR_MAX_AGE', 'uint32'))

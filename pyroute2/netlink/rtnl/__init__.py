@@ -837,6 +837,8 @@ def compat_get_type(name):
 
 
 def compat_set_bond(name, cmd, value):
+    # FIXME: join with bridge
+    # FIXME: use internal IO, not bash
     t = 'echo %s >/sys/class/net/%s/bonding/%s'
     with open(os.devnull, 'w') as fnull:
         return subprocess.call(['bash', '-c', t % (value, name, cmd)],
@@ -845,8 +847,9 @@ def compat_set_bond(name, cmd, value):
 
 
 def compat_set_bridge(name, cmd, value):
+    t = 'echo %s >/sys/class/net/%s/bridge/%s'
     with open(os.devnull, 'w') as fnull:
-        return subprocess.call(['brctl', cmd, name, str(value)],
+        return subprocess.call(['bash', '-c', t % (value, name, cmd)],
                                stdout=fnull,
                                stderr=fnull)
 
