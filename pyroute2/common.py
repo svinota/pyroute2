@@ -229,6 +229,21 @@ def uuid32():
                             os.getpid()))
 
 
+def list_subnet(dqn, mask, family=socket.AF_INET):
+    '''
+    List all IPs in the network
+    '''
+    if family != socket.AF_INET:
+        raise NotImplementedError('please report the issue')
+
+    ret = []
+    net = struct.unpack('>I', socket.inet_pton(family, dqn))[0]
+    shift = 32 - mask
+    for host in range(1, 2 ** shift):
+        ret.append(socket.inet_ntop(family, struct.pack('>I', net | host)))
+    return ret
+
+
 def dqn2int(mask):
     '''
     IPv4 dotted quad notation to int mask conversion
