@@ -212,6 +212,8 @@ from pyroute2.netlink.iproute import IPRoute
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
+from pyroute2.netlink.rtnl.brmsg import brmsg
+from pyroute2.netlink.rtnl.bomsg import bomsg
 
 tc_fields = [tcmsg.nla2name(i[0]) for i in tcmsg.nla_map]
 
@@ -552,12 +554,18 @@ class IPLinkRequest(IPRequest):
     '''
 
     def __setitem__(self, key, value):
+        # there must be no "None" values in the request
+        if value is None:
+            return
+
+        # all the values must be in ascii
         try:
             if isinstance(value, unicode):
                 value = value.encode('ascii')
         except NameError:
             pass
 
+        # set up specific keys
         if key == 'kind':
             if 'IFLA_LINKINFO' not in self:
                 self['IFLA_LINKINFO'] = {'attrs': []}
@@ -905,10 +913,23 @@ class Interface(Transactional):
         self._exists = False
         self._flicker = False
         self._virtual_fields = ('removal', 'flicker', 'state')
-        self._fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
-        self._fields.append('flags')
-        self._fields.append('mask')
-        self._fields.append('change')
+        self._xfields = {'common': [ifinfmsg.nla2name(i[0]) for i
+                                    in ifinfmsg.nla_map],
+                         'bridge': [brmsg.nla2name(i[0]) for i
+                                    in brmsg.commands.nla_map],
+                         'bond': [bomsg.nla2name(i[0]) for i
+                                  in bomsg.commands.nla_map]}
+        self._xfields['bridge'].append('index')
+        self._xfields['bond'].append('index')
+        self._xfields['common'].append('index')
+        self._xfields['common'].append('flags')
+        self._xfields['common'].append('mask')
+        self._xfields['common'].append('change')
+        self._xfields['common'].append('kind')
+        self._xfields['common'].append('vlan_id')
+        self._xfields['common'].append('bond_mode')
+        for ftype in self._xfields:
+            self._fields += self._xfields[ftype]
         self._fields.extend(self._virtual_fields)
         self._load_event = threading.Event()
         self._linked_sets.add('ipaddr')
@@ -995,28 +1016,33 @@ class Interface(Transactional):
             self.nlmsg = dev
             for (name, value) in dev.items():
                 self[name] = value
-            for (name, value) in dev['attrs']:
-                norm = ifinfmsg.nla2name(name)
-                self[norm] = value
-            # load interface kind
-            linkinfo = dev.get_attr('IFLA_LINKINFO')
-            if linkinfo is not None:
-                kind = linkinfo.get_attr('IFLA_INFO_KIND')
-                if kind is not None:
-                    self['kind'] = kind
-                    if kind == 'vlan':
-                        data = linkinfo.get_attr('IFLA_INFO_DATA')
-                        self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
-            # the rest is possible only when interface
-            # is used in IPDB, not standalone
-            if self.ipdb is not None:
-                # connect IP address set from IPDB
-                self['ipaddr'] = self.ipdb.ipaddr[self['index']]
-            # load the interface type
-            if 'kind' not in self:
-                kind = get_interface_type(self['ifname'])
-                if kind is not False:
-                    self['kind'] = kind
+            if dev['event'] == 'RTM_NEWLINK':
+                for (name, value) in dev['attrs']:
+                    norm = ifinfmsg.nla2name(name)
+                    self[norm] = value
+                # load interface kind
+                linkinfo = dev.get_attr('IFLA_LINKINFO')
+                if linkinfo is not None:
+                    kind = linkinfo.get_attr('IFLA_INFO_KIND')
+                    if kind is not None:
+                        self['kind'] = kind
+                        if kind == 'vlan':
+                            data = linkinfo.get_attr('IFLA_INFO_DATA')
+                            self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
+                # the rest is possible only when interface
+                # is used in IPDB, not standalone
+                if self.ipdb is not None:
+                    # connect IP address set from IPDB
+                    self['ipaddr'] = self.ipdb.ipaddr[self['index']]
+                # load the interface type
+                if 'kind' not in self:
+                    kind = get_interface_type(self['ifname'])
+                    if kind is not False:
+                        self['kind'] = kind
+            elif dev['event'] == 'RTM_SETBRIDGE':
+                for (name, value) in dev.get_attr('IFBR_COMMANDS')['attrs']:
+                    norm = brmsg.nla2name(name)
+                    self[norm] = value
             # finally, cleanup all not needed
             for item in self.cleanup:
                 if item in self:
@@ -1119,6 +1145,13 @@ class Interface(Transactional):
         self._load_event.wait(_SYNC_TIMEOUT)
         return self
 
+    def filter(self, ftype):
+        ret = {}
+        for key in self:
+            if key in self._xfields[ftype]:
+                ret[key] = self[key]
+        return ret
+
     def commit(self, tid=None, transaction=None, rollback=False):
         '''
         Commit transaction. In the case of exception all
@@ -1139,7 +1172,7 @@ class Interface(Transactional):
 
             # if the interface does not exist, create it first ;)
             if not self._exists:
-                request = IPLinkRequest(self)
+                request = IPLinkRequest(self.filter('common'))
                 self.ipdb._links_event.clear()
 
                 # create watchdog
@@ -1306,12 +1339,14 @@ class Interface(Transactional):
                 # Interface changes
                 request = IPLinkRequest()
                 for key in added:
-                    if key in self._fields:
+                    if key in self._xfields['common']:
                         request[key] = added[key]
+                request['index'] = self['index']
 
                 # apply changes only if there is something to apply
-                if any([request[item] is not None for item in request]):
-                    self.nl.link('set', index=self['index'], **request)
+                if any([request[item] is not None for item in request
+                        if item != 'index']):
+                    self.nl.link('set', **request)
 
                 # reload interface to hit targets
                 if transaction._targets:
@@ -1937,6 +1972,10 @@ class IPDB(object):
         master = msg.get_attr('IFLA_MASTER')
         return self.interfaces.get(master, None)
 
+    def update_bridge(self, msg):
+        if msg['index'] in self.interfaces:
+            self.interfaces.load_netlink(msg)
+
     def update_slaves(self, msg):
         # Update slaves list -- only after update IPDB!
 
@@ -2018,6 +2057,8 @@ class IPDB(object):
                     self._links_event.set()
                 elif msg.get('event', None) == 'RTM_DELLINK':
                     self.device_del(msg)
+                elif msg.get('event', None) == 'RTM_SETBRIDGE':
+                    self.update_bridge(msg)
                 elif msg.get('event', None) == 'RTM_NEWADDR':
                     self.update_addr([msg], 'add')
                 elif msg.get('event', None) == 'RTM_DELADDR':
