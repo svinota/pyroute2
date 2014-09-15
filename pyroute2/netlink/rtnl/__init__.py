@@ -704,9 +704,18 @@ class RtnlSocket(PipeSocket):
             data = b''
             for msg in msgs:
                 ifname = msg.get_attr('IFLA_IFNAME')
+                # fix master
                 master = compat_get_master(ifname)
                 if master is not None:
                     msg['attrs'].append(['IFLA_MASTER', master])
+                # fix linkinfo
+                li = msg.get_attr('IFLA_LINKINFO')
+                if li is not None:
+                    kind = li.get_attr('IFLA_INFO_KIND')
+                    name = msg.get_attr('IFLA_IFNAME')
+                    if (kind is None) and (name is not None):
+                        kind = get_interface_type(kind)
+                        li['attrs'].append(['IFLA_INFO_KIND', kind])
                 msg.reset()
                 msg.encode()
                 data += msg.buf.getvalue()
@@ -814,6 +823,42 @@ class RtnlSocket(PipeSocket):
         else:
             # else just send the packet
             self.bypass.sendto(data, addr)
+
+
+def get_interface_type(name):
+    '''
+    Utility function to get interface type.
+
+    Unfortunately, we can not rely on RTNL or even ioctl().
+    RHEL doesn't support interface type in RTNL and doesn't
+    provide extended (private) interface flags via ioctl().
+
+    Args:
+        * name (str): interface name
+
+    Returns:
+        * False -- sysfs info unavailable
+        * None -- type not known
+        * str -- interface type:
+            * 'bond'
+            * 'bridge'
+    '''
+    # FIXME: support all interface types? Right now it is
+    # not needed
+    try:
+        ifattrs = os.listdir('/sys/class/net/%s/' % (name))
+    except OSError as e:
+        if e.errno == 2:
+            return False
+        else:
+            raise
+
+    if 'bonding' in ifattrs:
+        return 'bond'
+    elif 'bridge' in ifattrs:
+        return 'bridge'
+    else:
+        return None
 
 
 def compat_get_type(name):
