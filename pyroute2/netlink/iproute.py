@@ -84,7 +84,9 @@ from pyroute2.netlink.rtnl import RTM_GETROUTE
 from pyroute2.netlink.rtnl import RTM_DELROUTE
 from pyroute2.netlink.rtnl import RTM_SETLINK
 from pyroute2.netlink.rtnl import RTM_SETBRIDGE
+from pyroute2.netlink.rtnl import RTM_GETBRIDGE
 from pyroute2.netlink.rtnl import RTM_SETBOND
+from pyroute2.netlink.rtnl import RTM_GETBOND
 from pyroute2.netlink.rtnl import TC_H_INGRESS
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rtprotos
@@ -305,6 +307,18 @@ class IPRoute(Netlink):
         msg = ifaddrmsg()
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETADDR)
+
+    def get_bond(self, index, name):
+        msg = bomsg()
+        msg['index'] = index
+        msg['attrs'] = [['IFBO_IFNAME', name]]
+        return self.nlm_request(msg, RTM_GETBOND)
+
+    def get_bridge(self, index, name):
+        msg = brmsg()
+        msg['index'] = index
+        msg['attrs'] = [['IFBR_IFNAME', name]]
+        return self.nlm_request(msg, RTM_GETBRIDGE)
 
     def get_rules(self, family=AF_UNSPEC):
         '''

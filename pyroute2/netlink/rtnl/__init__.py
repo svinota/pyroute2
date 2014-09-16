@@ -593,7 +593,9 @@ class RtnlSocket(PipeSocket):
                         RTM_SETLINK: self.proxy_setlink,
                         RTM_DELLINK: self.proxy_dellink,
                         RTM_SETBRIDGE: self.proxy_setbr,
-                        RTM_SETBOND: self.proxy_setbo}
+                        RTM_GETBRIDGE: self.proxy_getbr,
+                        RTM_SETBOND: self.proxy_setbo,
+                        RTM_GETBOND: self.proxy_getbo}
         self.bypass = NetlinkSocket(NETLINK_ROUTE)
         self.iprs = IPRSocket()
         self.ancient = (platform.dist()[0] in ('redhat', 'centos') and
@@ -722,13 +724,55 @@ class RtnlSocket(PipeSocket):
                 del msg
         return data
 
+    def proxy_getbo(self, data, addr, msg):
+        t = '/sys/class/net/%s/bonding/%s'
+        name = msg.get_attr('IFBO_IFNAME')
+        commands = []
+        response = bomsg()
+        response['header']['type'] = RTM_SETBOND
+        response['header']['sequence_number'] = \
+            msg['header']['sequence_number']
+        response['index'] = msg['index']
+        response['attrs'] = [['IFBO_COMMANDS', {'attrs': commands}]]
+        for cmd, _ in bomsg.commands.nla_map:
+            try:
+                with open(t % (name, bomsg.nla2name(cmd)), 'r') as f:
+                    value = f.read()
+                if cmd == 'IFBO_MODE':
+                    value = value.split()[1]
+                commands.append([cmd, int(value)])
+            except:
+                pass
+        response.encode()
+        self.send(response.buf.getvalue())
+
+    def proxy_getbr(self, data, addr, msg):
+        t = '/sys/class/net/%s/bridge/%s'
+        name = msg.get_attr('IFBR_IFNAME')
+        commands = []
+        response = brmsg()
+        response['header']['type'] = RTM_SETBRIDGE
+        response['header']['sequence_number'] = \
+            msg['header']['sequence_number']
+        response['index'] = msg['index']
+        response['attrs'] = [['IFBR_COMMANDS', {'attrs': commands}]]
+        for cmd, _ in brmsg.commands.nla_map:
+            try:
+                with open(t % (name, brmsg.nla2name(cmd)), 'r') as f:
+                    value = f.read()
+                commands.append([cmd, int(value)])
+            except:
+                pass
+        response.encode()
+        self.send(response.buf.getvalue())
+
     def proxy_setbo(self, data, addr, msg):
         #
         name = msg.get_attr('IFBO_IFNAME')
         code = 0
         #
         for (cmd, value) in msg.get_attr('IFBO_COMMANDS',
-                                         {'attrs': []})['attrs']:
+                                         {'attrs': []}).get('attrs', []):
             cmd = bomsg.nla2name(cmd)
             code = compat_set_bond(name, cmd, value) or code
 
@@ -746,7 +790,7 @@ class RtnlSocket(PipeSocket):
         code = 0
         # iterate commands:
         for (cmd, value) in msg.get_attr('IFBR_COMMANDS',
-                                         {'attrs': []})['attrs']:
+                                         {'attrs': []}).get('attrs', []):
             cmd = brmsg.nla2name(cmd)
             code = compat_set_bridge(name, cmd, value) or code
 
