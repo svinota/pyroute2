@@ -547,6 +547,36 @@ class IPRouteRequest(IPRequest):
             dict.__setitem__(self, key, value)
 
 
+class CBRequest(IPRequest):
+    '''
+    FIXME
+    '''
+    commands = None
+    msg = None
+
+    def __init__(self, *argv, **kwarg):
+        self['commands'] = {'attrs': []}
+
+    def __setitem__(self, key, value):
+        if value is None:
+            return
+        if key in self.commands:
+            self['commands']['attrs'].\
+                append([self.msg.name2nla(key), value])
+        else:
+            dict.__setitem__(self, key, value)
+
+
+class BridgeRequest(CBRequest):
+    commands = [brmsg.nla2name(i[0]) for i in brmsg.commands.nla_map]
+    msg = brmsg
+
+
+class BondRequest(CBRequest):
+    commands = [bomsg.nla2name(i[0]) for i in bomsg.commands.nla_map]
+    msg = bomsg
+
+
 class IPLinkRequest(IPRequest):
     '''
     Utility class, that converts human-readable dictionary
@@ -1004,6 +1034,28 @@ class Interface(Transactional):
                 else:
                     self[key] = data[key]
 
+    def load_bridge(self):
+        '''
+        '''
+        with self._direct_state:
+            dev = self.nl.get_bridge(self['index'], self['ifname'])[0]
+            attrs = dev.get_attr('IFBO_COMMANDS',
+                                 {'attrs': []}).get('attrs', [])
+            for (name, value) in attrs:
+                norm = brmsg.nla2name(name)
+                self[norm] = value
+
+    def load_bond(self):
+        '''
+        '''
+        with self._direct_state:
+            dev = self.nl.get_bond(self['index'], self['ifname'])[0]
+            attrs = dev.get_attr('IFBO_COMMANDS',
+                                 {'attrs': []}).get('attrs', [])
+            for (name, value) in attrs:
+                norm = bomsg.nla2name(name)
+                self[norm] = value
+
     def load_netlink(self, dev):
         '''
         Update the interface info from RTM_NEWLINK message.
@@ -1016,33 +1068,33 @@ class Interface(Transactional):
             self.nlmsg = dev
             for (name, value) in dev.items():
                 self[name] = value
-            if dev['event'] == 'RTM_NEWLINK':
-                for (name, value) in dev['attrs']:
-                    norm = ifinfmsg.nla2name(name)
-                    self[norm] = value
-                # load interface kind
-                linkinfo = dev.get_attr('IFLA_LINKINFO')
-                if linkinfo is not None:
-                    kind = linkinfo.get_attr('IFLA_INFO_KIND')
-                    if kind is not None:
-                        self['kind'] = kind
-                        if kind == 'vlan':
-                            data = linkinfo.get_attr('IFLA_INFO_DATA')
-                            self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
-                # the rest is possible only when interface
-                # is used in IPDB, not standalone
-                if self.ipdb is not None:
-                    # connect IP address set from IPDB
-                    self['ipaddr'] = self.ipdb.ipaddr[self['index']]
-                # load the interface type
-                if 'kind' not in self:
-                    kind = get_interface_type(self['ifname'])
-                    if kind is not False:
-                        self['kind'] = kind
-            elif dev['event'] == 'RTM_SETBRIDGE':
-                for (name, value) in dev.get_attr('IFBR_COMMANDS')['attrs']:
-                    norm = brmsg.nla2name(name)
-                    self[norm] = value
+            for (name, value) in dev['attrs']:
+                norm = ifinfmsg.nla2name(name)
+                self[norm] = value
+            # load interface kind
+            linkinfo = dev.get_attr('IFLA_LINKINFO')
+            if linkinfo is not None:
+                kind = linkinfo.get_attr('IFLA_INFO_KIND')
+                if kind is not None:
+                    self['kind'] = kind
+                    if kind == 'vlan':
+                        data = linkinfo.get_attr('IFLA_INFO_DATA')
+                        self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
+            # the rest is possible only when interface
+            # is used in IPDB, not standalone
+            if self.ipdb is not None:
+                # connect IP address set from IPDB
+                self['ipaddr'] = self.ipdb.ipaddr[self['index']]
+            # load the interface type
+            if 'kind' not in self:
+                kind = get_interface_type(self['ifname'])
+                if kind is not False:
+                    self['kind'] = kind
+            # poll bridge & bond info
+            if self.get('kind', None) == 'bridge':
+                self.load_bridge()
+            elif self.get('kind', None) == 'bond':
+                self.load_bond()
             # finally, cleanup all not needed
             for item in self.cleanup:
                 if item in self:
@@ -1347,6 +1399,30 @@ class Interface(Transactional):
                 if any([request[item] is not None for item in request
                         if item != 'index']):
                     self.nl.link('set', **request)
+
+                # bridge changes
+                if self['kind'] == 'bridge':
+                    brq = BridgeRequest()
+                    for key in added:
+                        if key in self._xfields['bridge']:
+                            brq[key] = added[key]
+
+                    brq['index'] = self['index']
+                    brq['ifname'] = self['ifname']
+                    self.nl.setbr(**brq)
+                    self.load_bridge()
+
+                # bridge changes
+                if self['kind'] == 'bond':
+                    boq = BondRequest()
+                    for key in added:
+                        if key in self._xfields['bond']:
+                            boq[key] = added[key]
+
+                    boq['index'] = self['index']
+                    boq['ifname'] = self['ifname']
+                    self.nl.setbo(**boq)
+                    self.load_bond()
 
                 # reload interface to hit targets
                 if transaction._targets:
@@ -1972,10 +2048,6 @@ class IPDB(object):
         master = msg.get_attr('IFLA_MASTER')
         return self.interfaces.get(master, None)
 
-    def update_bridge(self, msg):
-        if msg['index'] in self.interfaces:
-            self.interfaces.load_netlink(msg)
-
     def update_slaves(self, msg):
         # Update slaves list -- only after update IPDB!
 
@@ -2057,8 +2129,6 @@ class IPDB(object):
                     self._links_event.set()
                 elif msg.get('event', None) == 'RTM_DELLINK':
                     self.device_del(msg)
-                elif msg.get('event', None) == 'RTM_SETBRIDGE':
-                    self.update_bridge(msg)
                 elif msg.get('event', None) == 'RTM_NEWADDR':
                     self.update_addr([msg], 'add')
                 elif msg.get('event', None) == 'RTM_DELADDR':

@@ -37,16 +37,21 @@ class TestExplicit(object):
     def teardown(self):
         for name in ('bala', 'bala_port0', 'bala_port1', 'dummyX',
                      'bala_host', 'bv101', 'bv102'):
-            try:
-                with self.ip.interfaces[name] as i:
-                    i.remove()
-            except KeyError:
+            for _ in range(3):
+                try:
+                    with self.ip.interfaces[name] as i:
+                        i.remove()
+                    break
+                except KeyError:
+                    break
+                except RuntimeError:
+                    break
+                except NetlinkError as e:
+                    print("NetlinkError: %s" % (e))
+                    continue
+            else:
+                # log an error
                 pass
-            except RuntimeError:
-                pass
-            except NetlinkError as e:
-                if e.code not in (17, 19):  # File exists (?wtf)
-                    raise                   # No such device
         self.ip.release()
 
     def test_simple(self):
