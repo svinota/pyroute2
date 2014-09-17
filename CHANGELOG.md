@@ -1,6 +1,15 @@
 changelog
 =========
 
+* 0.2.15
+    * ipdb: fr #63 -- interface settings freeze
+    * ipdb: fr #50, #51 -- bridge & bond options (initial version)
+    * RHEL7 support
+    * [fix]: #52 -- HTB: correct rtab compilation
+    * [fix]: #53 -- RHEL6.5 bridge races
+    * [fix]: #55 -- IPv6 on bridges
+    * [fix]: #58 -- vlans as bridge ports
+    * [fix]: #59 -- threads sync in iocore
 * 0.2.14
     * [fix]: #44 -- incorrect netlink exceptions proxying
     * [fix]: #45 -- multiple issues with device targets
