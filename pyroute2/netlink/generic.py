@@ -359,7 +359,14 @@ class nlmsg_base(dict):
                         if field[1] == 'z' and self[name][-1] in (0x00, '\0'):
                             self[name] = self[name][:-1]
                     else:
-                        self[name] = value
+                        if self.pack == 'struct':
+                            names = name.split(',')
+                            values = list(value)
+                            for name in names:
+                                if name[0] != '_':
+                                    self[name] = values.pop(0)
+                        else:
+                            self[name] = value
 
                 else:
                     # FIXME: log an error
@@ -411,7 +418,9 @@ class nlmsg_base(dict):
                         value = int(value)
 
                 try:
-                    if type(value) in (list, tuple, set):
+                    if fmt[-1] == 'x':
+                        payload += struct.pack(fmt)
+                    elif type(value) in (list, tuple, set):
                         payload += struct.pack(fmt, *value)
                     else:
                         payload += struct.pack(fmt, value)
