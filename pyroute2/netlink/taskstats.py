@@ -15,66 +15,19 @@ usable.
 '''
 
 from pyroute2.iocore import TimeoutError
-from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.client import Netlink
 from pyroute2.netlink.generic import nla
 from pyroute2.netlink.generic import genlmsg
 from pyroute2.netlink.generic import ctrlmsg
+from pyroute2.netlink.generic import GENL_ID_CTRL
+from pyroute2.netlink.generic import CTRL_CMD_GETFAMILY
+from pyroute2.netlink.generic import CTRL_ATTR_FAMILY_ID
+from pyroute2.netlink.generic import CTRL_ATTR_FAMILY_NAME
 
 TASKSTATS_CMD_UNSPEC = 0      # Reserved
 TASKSTATS_CMD_GET = 1         # user->kernel request/get-response
 TASKSTATS_CMD_NEW = 2
-
-NLMSG_MIN_TYPE = 0x10
-
-GENL_NAMSIZ = 16    # length of family name
-GENL_MIN_ID = NLMSG_MIN_TYPE
-GENL_MAX_ID = 1023
-
-GENL_ADMIN_PERM = 0x01
-GENL_CMD_CAP_DO = 0x02
-GENL_CMD_CAP_DUMP = 0x04
-GENL_CMD_CAP_HASPOL = 0x08
-
-#
-# List of reserved static generic netlink identifiers:
-#
-GENL_ID_GENERATE = 0
-GENL_ID_CTRL = NLMSG_MIN_TYPE
-
-#
-# Controller
-#
-
-CTRL_CMD_UNSPEC = 0x0
-CTRL_CMD_NEWFAMILY = 0x1
-CTRL_CMD_DELFAMILY = 0x2
-CTRL_CMD_GETFAMILY = 0x3
-CTRL_CMD_NEWOPS = 0x4
-CTRL_CMD_DELOPS = 0x5
-CTRL_CMD_GETOPS = 0x6
-CTRL_CMD_NEWMCAST_GRP = 0x7
-CTRL_CMD_DELMCAST_GRP = 0x8
-CTRL_CMD_GETMCAST_GRP = 0x9  # unused
-
-
-CTRL_ATTR_UNSPEC = 0x0
-CTRL_ATTR_FAMILY_ID = 0x1
-CTRL_ATTR_FAMILY_NAME = 0x2
-CTRL_ATTR_VERSION = 0x3
-CTRL_ATTR_HDRSIZE = 0x4
-CTRL_ATTR_MAXATTR = 0x5
-CTRL_ATTR_OPS = 0x6
-CTRL_ATTR_MCAST_GROUPS = 0x7
-
-CTRL_ATTR_OP_UNSPEC = 0x0
-CTRL_ATTR_OP_ID = 0x1
-CTRL_ATTR_OP_FLAGS = 0x2
-
-CTRL_ATTR_MCAST_GRP_UNSPEC = 0x0
-CTRL_ATTR_MCAST_GRP_NAME = 0x1
-CTRL_ATTR_MCAST_GRP_ID = 0x2
 
 
 class tcmd(genlmsg):
@@ -163,8 +116,6 @@ class taskstatsmsg(genlmsg):
 
 
 class TaskStats(Netlink):
-
-    marshal = Marshal
 
     def __init__(self):
         Netlink.__init__(self)
