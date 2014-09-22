@@ -16,14 +16,9 @@ usable.
 
 from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink.client import Netlink
+from pyroute2.netlink.client import GenericNetlink
 from pyroute2.netlink.generic import nla
 from pyroute2.netlink.generic import genlmsg
-from pyroute2.netlink.generic import ctrlmsg
-from pyroute2.netlink.generic import GENL_ID_CTRL
-from pyroute2.netlink.generic import CTRL_CMD_GETFAMILY
-from pyroute2.netlink.generic import CTRL_ATTR_FAMILY_ID
-from pyroute2.netlink.generic import CTRL_ATTR_FAMILY_NAME
 
 TASKSTATS_CMD_UNSPEC = 0      # Reserved
 TASKSTATS_CMD_GET = 1         # user->kernel request/get-response
@@ -115,25 +110,10 @@ class taskstatsmsg(genlmsg):
         pass
 
 
-class TaskStats(Netlink):
+class TaskStats(GenericNetlink):
 
     def __init__(self):
-        Netlink.__init__(self)
-        # FIXME
-        self.marshal.msg_map[GENL_ID_CTRL] = ctrlmsg
-        self.prid = self.get_protocol_id('TASKSTATS')
-        self.marshal.msg_map[self.prid] = taskstatsmsg
-
-    def get_protocol_id(self, prid):
-        msg = ctrlmsg()
-        msg['cmd'] = CTRL_CMD_GETFAMILY
-        msg['version'] = 1
-        msg['attrs'].append(['CTRL_ATTR_FAMILY_NAME', prid])
-        response = self.nlm_request(msg, GENL_ID_CTRL,
-                                    msg_flags=NLM_F_REQUEST)[0]
-        prid = [i[1] for i in response['attrs']
-                if i[0] == 'CTRL_ATTR_FAMILY_ID'][0]
-        return prid
+        GenericNetlink.__init__(self, 'TASKSTATS', taskstatsmsg)
 
     def get_pid_stat(self, pid):
         '''

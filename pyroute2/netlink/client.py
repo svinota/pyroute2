@@ -2,7 +2,10 @@ from pyroute2.netlink import Marshal
 import os
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_REQUEST
+from pyroute2.netlink.generic import ctrlmsg
 from pyroute2.netlink.generic import NETLINK_GENERIC
+from pyroute2.netlink.generic import GENL_ID_CTRL
+from pyroute2.netlink.generic import CTRL_CMD_GETFAMILY
 from pyroute2.iocore.iocore import IOCore
 
 
@@ -69,3 +72,23 @@ class Netlink(IOCore):
                 del msg['header']
 
         return result
+
+
+class GenericNetlink(Netlink):
+
+    def __init__(self, proto, msg_class):
+        Netlink.__init__(self)
+        self.marshal.msg_map[GENL_ID_CTRL] = ctrlmsg
+        self.prid = self.get_protocol_id(proto)
+        self.marshal.msg_map[self.prid] = msg_class
+
+    def get_protocol_id(self, prid):
+        msg = ctrlmsg()
+        msg['cmd'] = CTRL_CMD_GETFAMILY
+        msg['version'] = 1
+        msg['attrs'].append(['CTRL_ATTR_FAMILY_NAME', prid])
+        response = self.nlm_request(msg, GENL_ID_CTRL,
+                                    msg_flags=NLM_F_REQUEST)[0]
+        prid = [i[1] for i in response['attrs']
+                if i[0] == 'CTRL_ATTR_FAMILY_ID'][0]
+        return prid
