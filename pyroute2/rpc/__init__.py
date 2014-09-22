@@ -23,7 +23,7 @@ def public(func):
         except:
             ret = traceback.format_exc()
             flags = NLT_EXCEPTION
-        self._ioc.push((0, sport), ret, flags, nonce)
+        self._ioc.push(ret, (0, sport), flags, nonce)
         return True
 
     reply.public = True
@@ -49,7 +49,7 @@ class PushInterface(Interface):
             self._ioc.connect(dgram)
 
     def push(self, msg):
-        self._ioc.push((self._addr, self._port), msg, self.flags)
+        self._ioc.push(msg, (self._addr, self._port), self.flags)
 
 
 class ReqRepInterface(Interface):

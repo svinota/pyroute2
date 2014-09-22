@@ -17,7 +17,7 @@ ioc2 = IOCore()
 (uid, addr) = ioc2.connect('tcp://localhost:9824')
 ioc2.connect('udp://localhost:9824')
 port = ioc2.discover('push', addr)
-ioc2.push((addr, port), 'hello, world!', NLT_DGRAM)
+ioc2.push('hello, world!', (addr, port), NLT_DGRAM)
 
 print('waiting message from client')
 ioc1.monitor()

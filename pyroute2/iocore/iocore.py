@@ -481,11 +481,11 @@ class IOCore(object):
         return result
 
     @debug
-    def push(self, host, msg,
+    def push(self, msg, host=None,
              env_flags=None,
              nonce=0,
              cname=None):
-        addr, port = host
+        addr, port = host or (self.default_broker, self.default_dport)
         envelope = envmsg()
         envelope['header']['sequence_number'] = nonce
         envelope['header']['pid'] = os.getpid()
@@ -517,7 +517,7 @@ class IOCore(object):
         port = port or self.default_dport
         addr = addr or self.default_broker
         self.listeners[nonce] = Queue.Queue(maxsize=_QUEUE_MAXSIZE)
-        self.push((addr, port), msg, env_flags, nonce, cname)
+        self.push(msg, (addr, port), env_flags, nonce, cname)
         return self.get(nonce,
                         nonce_pool=nonce_pool,
                         timeout=response_timeout,
