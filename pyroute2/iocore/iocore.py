@@ -56,12 +56,13 @@ class IOCore(object):
 
     def __init__(self, debug=False, timeout=3, do_connect=False,
                  host=None, key=None, cert=None, ca=None,
-                 addr=None, fork=False, secret=None):
+                 addr=None, fork=False, secret=None, pid=None):
         addr = addr or uuid32()
         self._timeout = timeout
         self.default_broker = addr
         self.default_dport = 0
         self.uids = set()
+        self.pid = pid
         self.listeners = {}     # {nonce: Queue(), ...}
         self.callbacks = []     # [(predicate, callback, args), ...]
         self.debug = debug
@@ -294,12 +295,15 @@ class IOCore(object):
 
     def connect(self, host=None, key='', cert='', ca='', addr=None):
         host = host or self.host
+        attrs = [['IPR_ATTR_HOST', host],
+                 ['IPR_ATTR_SSL_KEY', key],
+                 ['IPR_ATTR_SSL_CERT', cert],
+                 ['IPR_ATTR_SSL_CA', ca]]
+        if self.pid is not None:
+            attrs.append(['IPR_ATTR_PID', self.pid])
         (uid,
          peer) = self.command(IPRCMD_CONNECT,
-                              [['IPR_ATTR_HOST', host],
-                               ['IPR_ATTR_SSL_KEY', key],
-                               ['IPR_ATTR_SSL_CERT', cert],
-                               ['IPR_ATTR_SSL_CA', ca]],
+                              attrs,
                               expect=['IPR_ATTR_UUID',
                                       'IPR_ATTR_ADDR'],
                               addr=addr)

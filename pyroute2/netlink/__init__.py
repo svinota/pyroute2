@@ -174,23 +174,30 @@ class NetlinkSocket(socket.socket):
     Generic netlink socket
     '''
 
-    def __init__(self, family=NETLINK_GENERIC, port=None):
+    def __init__(self, family=NETLINK_GENERIC, port=None, pid=None):
         socket.socket.__init__(self, socket.AF_NETLINK,
                                socket.SOCK_DGRAM, family)
         global sockets
-        self.pid = os.getpid() & 0x3fffff
+        self.epid = None
         self.port = port
         self.fixed = self.port is not None
+        if pid is None:
+            self.pid = os.getpid() & 0x3fffff
+        elif pid == 0:
+            self.pid = os.getpid()
+            self.fixed = True
+            self.port = 0
+        else:
+            self.pid = pid
         self.groups = 0
         self.marshal = None
-        self.bound = False
 
     def bind(self, groups=0):
         self.groups = groups
         # if we have pre-defined port, use it strictly
         if self.fixed:
-            socket.socket.bind(self, (self.pid + (self.port << 22),
-                               self.groups))
+            self.epid = self.pid + (self.port << 22)
+            socket.socket.bind(self, (self.epid, self.groups))
             return
 
         # if we have no pre-defined port, scan all the
@@ -198,11 +205,9 @@ class NetlinkSocket(socket.socket):
         for i in range(1024):
             try:
                 self.port = sockets.alloc()
-                socket.socket.bind(self,
-                                   (self.pid + (self.port << 22),
-                                    self.groups))
+                self.epid = self.pid + (self.port << 22)
+                socket.socket.bind(self, (self.epid, self.groups))
                 # if we're here, bind() done successfully, just exit
-                self.bound = True
                 return
             except socket.error as e:
                 # pass occupied sockets, raise other exceptions
@@ -219,8 +224,9 @@ class NetlinkSocket(socket.socket):
 
     def close(self):
         global sockets
-        if self.bound:
+        if self.epid is not None:
             assert self.port is not None
             if not self.fixed:
                 sockets.free(self.port)
+            self.epid = None
         socket.socket.close(self)

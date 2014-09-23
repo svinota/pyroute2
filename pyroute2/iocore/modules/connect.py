@@ -24,6 +24,7 @@ def command(broker, sock, env, cmd, rsp):
     key = cmd.get_attr('IPR_ATTR_SSL_KEY')
     cert = cmd.get_attr('IPR_ATTR_SSL_CERT')
     ca = cmd.get_attr('IPR_ATTR_SSL_CA')
+    pid = cmd.get_attr('IPR_ATTR_PID')
 
     target = urlparse.urlparse(url)
     peer = broker.addr
@@ -45,7 +46,7 @@ def command(broker, sock, env, cmd, rsp):
         if family == NETLINK_ROUTE:
             new_sock = RtnlSocket()
         else:
-            new_sock = NetlinkSocket(int(res[1]))
+            new_sock = NetlinkSocket(int(res[1]), pid=pid)
         new_sock.bind(int(res[2]))
         gate = lambda d, s:\
             new_sock.sendto(broker.gate_untag(d, s), (0, 0))

@@ -37,12 +37,13 @@ class Netlink(IOCore):
 
     def __init__(self, debug=False, timeout=3, do_connect=True,
                  host=None, key=None, cert=None, ca=None, addr=None,
-                 fork=False):
+                 fork=False, pid=None):
         self.default_target = '/%i/%i' % (self.family, self.groups)
         host = host or 'netlink://'
         host = '%s%s' % (host, self.default_target)
         IOCore.__init__(self, debug, timeout, do_connect,
-                        host, key, cert, ca, addr, fork)
+                        host, key, cert, ca, addr, fork,
+                        pid=pid)
 
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
@@ -76,8 +77,8 @@ class Netlink(IOCore):
 
 class GenericNetlink(Netlink):
 
-    def __init__(self, proto, msg_class):
-        Netlink.__init__(self)
+    def __init__(self, proto, msg_class, pid=None):
+        Netlink.__init__(self, pid=pid)
         self.marshal.msg_map[GENL_ID_CTRL] = ctrlmsg
         self.prid = self.get_protocol_id(proto)
         self.marshal.msg_map[self.prid] = msg_class
