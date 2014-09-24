@@ -179,14 +179,14 @@ class NetlinkSocket(socket.socket):
                                socket.SOCK_DGRAM, family)
         global sockets
         self.epid = None
-        self.port = port
-        self.fixed = self.port is not None
+        self.port = 0
+        self.fixed = True
         if pid is None:
             self.pid = os.getpid() & 0x3fffff
+            self.port = port
+            self.fixed = self.port is not None
         elif pid == 0:
             self.pid = os.getpid()
-            self.fixed = True
-            self.port = 0
         else:
             self.pid = pid
         self.groups = 0
