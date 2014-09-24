@@ -1,14 +1,15 @@
 from pyroute2.common import hexdump
 from pyroute2.netlink.ipq import IPQ
 from pyroute2.netlink.ipq import NF_ACCEPT
+from dpkt.ip import IP
 
 ip = IPQ()
-ip.monitor()
 try:
     while True:
         msg = ip.get()[0]
+        print("\n")
         print(hexdump(msg.raw))
-        print(msg)
+        print(repr(IP(msg['payload'])))
         ip.verdict(msg['packet_id'], NF_ACCEPT)
 except:
     pass

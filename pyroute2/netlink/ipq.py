@@ -54,7 +54,8 @@ class ipq_packet_msg(ipq_base_msg):
               ('hw_addrlen', 'B'),
               ('hw_addr', '6B'),
               ('__pad', '9x'),
-              ('data_len', 'I'))
+              ('data_len', 'I'),
+              ('__pad', '4x'))
 
 
 class ipq_mode_msg(nlmsg):
@@ -97,6 +98,9 @@ class IPQ(Netlink):
         msg['header']['flags'] = NLM_F_REQUEST
         msg.encode()
         self.push(msg.buf.getvalue())
+
+        # turn on monitoring
+        self.monitor()
 
     def verdict(self, seq, v):
         msg = ipq_verdict_msg()
