@@ -12,11 +12,13 @@ major parts:
 * Netlink protocol implementations.
 * Messaging infrastructure: broker, clients, etc.
 
-RTNETLINK sample
+rtnetlink sample
 ----------------
 
 More samples you can read in the project documentation.
-The lowest possible layer, simple socket interface::
+The lowest possible layer, simple socket interface. This
+socket supports normal socket API and can be used in
+poll/select::
 
     from pyroute2 import IPRSocket
 
@@ -33,7 +35,9 @@ The lowest possible layer, simple socket interface::
     ip.close()
 
 
-Low-level iproute utility::
+Low-level iproute utility. The utility uses implicit
+threads, so notice `ip.release()` call -- it is required
+to sync threads before exit::
 
     from pyroute2 import IPRoute
 
@@ -47,7 +51,8 @@ Low-level iproute utility::
     ip.release()
 
 
-High-level transactional interface, IPDB::
+High-level transactional interface, IPDB, `release()`
+call is also required::
 
     from pyroute2 import IPDB
     # local network settings
@@ -55,10 +60,15 @@ High-level transactional interface, IPDB::
     # create bridge and add ports and addresses
     # transaction will be started with `with` statement
     # and will be committed at the end of the block
-    with ip.create(kind='bridge', ifname='rhev') as i:
-        i.add_port(ip.interfaces.em1)
-        i.add_port(ip.interfaces.em2)
-        i.add_ip('10.0.0.2/24')
+    try:
+        with ip.create(kind='bridge', ifname='rhev') as i:
+            i.add_port(ip.interfaces.em1)
+            i.add_port(ip.interfaces.em2)
+            i.add_ip('10.0.0.2/24')
+    except Exception as e:
+        print(e)
+    finally:
+        ip.release()
 
 
 The project contains several modules for different types of

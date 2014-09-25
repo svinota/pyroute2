@@ -183,7 +183,7 @@ p.first {
     margin: 2px;
 }
 
-dl.class {
+dl.class, dl.exception {
     border-bottom: 1px dashed #ccc;
 }
 

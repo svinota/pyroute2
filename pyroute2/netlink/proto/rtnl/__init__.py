@@ -1,6 +1,6 @@
 '''
-RTNL: NETLINK\_ROUTE
-====================
+RTNetlink: network setup
+========================
 
 RTNL is a netlink protocol, used to get and set information
 about different network objects -- addresses, routes, interfaces
@@ -28,6 +28,11 @@ etc. -- please refer to the corresponding source.
 
 Other objects types require different structures, sometimes really
 complex. All these structures are described in sources.
+
+---------------------------
+
+Module contents:
+
 '''
 
 import os

@@ -11,6 +11,7 @@ General information about the library (README.md)
 
     general
     changelog
+    migration
 
 Netlink protocols
 -----------------

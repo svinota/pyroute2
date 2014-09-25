@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.3.1
+    * module structure refactored
+    * new protocol: ipq
+    * new protocol: nfnetlink / nf-queue
+    * new protocol: generic
+    * threadless sockets for all the protocols
+* 0.2.16
+    * prepare the transition to 0.3.x
 * 0.2.15
     * ipdb: fr #63 -- interface settings freeze
     * ipdb: fr #50, #51 -- bridge & bond options (initial version)
