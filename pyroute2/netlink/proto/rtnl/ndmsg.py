@@ -1,6 +1,6 @@
 
-from pyroute2.netlink.generic import nlmsg
-from pyroute2.netlink.generic import nla
+from pyroute2.netlink import nlmsg
+from pyroute2.netlink import nla
 
 
 class ndmsg(nlmsg):

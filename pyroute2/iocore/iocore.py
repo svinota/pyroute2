@@ -25,8 +25,8 @@ from pyroute2.netlink import IPRCMD_DISCOVER
 from pyroute2.netlink import IPRCMD_STOP
 from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NLM_F_MULTI
-from pyroute2.netlink.generic import mgmtmsg
-from pyroute2.netlink.generic import envmsg
+from pyroute2.netlink import mgmtmsg
+from pyroute2.netlink import envmsg
 from pyroute2.iocore import NLT_CONTROL
 from pyroute2.iocore import NLT_RESPONSE
 from pyroute2.iocore import NLT_EXCEPTION

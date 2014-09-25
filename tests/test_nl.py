@@ -1,6 +1,6 @@
 import socket
 from utils import require_user
-from pyroute2.netlink import NetlinkSocket
+from pyroute2.netlink.nlsocket import NetlinkSocket
 
 
 class TestNL(object):

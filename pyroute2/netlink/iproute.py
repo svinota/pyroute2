@@ -57,56 +57,56 @@ from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NLM_F_EXCL
+from pyroute2.netlink import NETLINK_ROUTE
 from pyroute2.netlink.client import Netlink
-from pyroute2.netlink.generic import NETLINK_ROUTE
-from pyroute2.netlink.rtnl import RTNL_GROUPS
-from pyroute2.netlink.rtnl import RTM_NEWADDR
-from pyroute2.netlink.rtnl import RTM_GETADDR
-from pyroute2.netlink.rtnl import RTM_DELADDR
-from pyroute2.netlink.rtnl import RTM_NEWLINK
-from pyroute2.netlink.rtnl import RTM_GETLINK
-from pyroute2.netlink.rtnl import RTM_DELLINK
-from pyroute2.netlink.rtnl import RTM_NEWQDISC
-from pyroute2.netlink.rtnl import RTM_GETQDISC
-from pyroute2.netlink.rtnl import RTM_DELQDISC
-from pyroute2.netlink.rtnl import RTM_NEWTFILTER
-from pyroute2.netlink.rtnl import RTM_GETTFILTER
-from pyroute2.netlink.rtnl import RTM_DELTFILTER
-from pyroute2.netlink.rtnl import RTM_NEWTCLASS
-from pyroute2.netlink.rtnl import RTM_GETTCLASS
-from pyroute2.netlink.rtnl import RTM_DELTCLASS
-from pyroute2.netlink.rtnl import RTM_GETNEIGH
-from pyroute2.netlink.rtnl import RTM_NEWRULE
-from pyroute2.netlink.rtnl import RTM_GETRULE
-from pyroute2.netlink.rtnl import RTM_DELRULE
-from pyroute2.netlink.rtnl import RTM_NEWROUTE
-from pyroute2.netlink.rtnl import RTM_GETROUTE
-from pyroute2.netlink.rtnl import RTM_DELROUTE
-from pyroute2.netlink.rtnl import RTM_SETLINK
-from pyroute2.netlink.rtnl import RTM_SETBRIDGE
-from pyroute2.netlink.rtnl import RTM_GETBRIDGE
-from pyroute2.netlink.rtnl import RTM_SETBOND
-from pyroute2.netlink.rtnl import RTM_GETBOND
-from pyroute2.netlink.rtnl import TC_H_INGRESS
-from pyroute2.netlink.rtnl import TC_H_ROOT
-from pyroute2.netlink.rtnl import rtprotos
-from pyroute2.netlink.rtnl import rtypes
-from pyroute2.netlink.rtnl import rtscopes
-from pyroute2.netlink.rtnl import MarshalRtnl
-from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_htb_class_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_sfq_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_u32_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_netem_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_fw_parameters
-from pyroute2.netlink.rtnl.tcmsg import tcmsg
-from pyroute2.netlink.rtnl.rtmsg import rtmsg
-from pyroute2.netlink.rtnl.ndmsg import ndmsg
-from pyroute2.netlink.rtnl.brmsg import brmsg
-from pyroute2.netlink.rtnl.bomsg import bomsg
-from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink.proto.rtnl import RTNL_GROUPS
+from pyroute2.netlink.proto.rtnl import RTM_NEWADDR
+from pyroute2.netlink.proto.rtnl import RTM_GETADDR
+from pyroute2.netlink.proto.rtnl import RTM_DELADDR
+from pyroute2.netlink.proto.rtnl import RTM_NEWLINK
+from pyroute2.netlink.proto.rtnl import RTM_GETLINK
+from pyroute2.netlink.proto.rtnl import RTM_DELLINK
+from pyroute2.netlink.proto.rtnl import RTM_NEWQDISC
+from pyroute2.netlink.proto.rtnl import RTM_GETQDISC
+from pyroute2.netlink.proto.rtnl import RTM_DELQDISC
+from pyroute2.netlink.proto.rtnl import RTM_NEWTFILTER
+from pyroute2.netlink.proto.rtnl import RTM_GETTFILTER
+from pyroute2.netlink.proto.rtnl import RTM_DELTFILTER
+from pyroute2.netlink.proto.rtnl import RTM_NEWTCLASS
+from pyroute2.netlink.proto.rtnl import RTM_GETTCLASS
+from pyroute2.netlink.proto.rtnl import RTM_DELTCLASS
+from pyroute2.netlink.proto.rtnl import RTM_GETNEIGH
+from pyroute2.netlink.proto.rtnl import RTM_NEWRULE
+from pyroute2.netlink.proto.rtnl import RTM_GETRULE
+from pyroute2.netlink.proto.rtnl import RTM_DELRULE
+from pyroute2.netlink.proto.rtnl import RTM_NEWROUTE
+from pyroute2.netlink.proto.rtnl import RTM_GETROUTE
+from pyroute2.netlink.proto.rtnl import RTM_DELROUTE
+from pyroute2.netlink.proto.rtnl import RTM_SETLINK
+from pyroute2.netlink.proto.rtnl import RTM_SETBRIDGE
+from pyroute2.netlink.proto.rtnl import RTM_GETBRIDGE
+from pyroute2.netlink.proto.rtnl import RTM_SETBOND
+from pyroute2.netlink.proto.rtnl import RTM_GETBOND
+from pyroute2.netlink.proto.rtnl import TC_H_INGRESS
+from pyroute2.netlink.proto.rtnl import TC_H_ROOT
+from pyroute2.netlink.proto.rtnl import rtprotos
+from pyroute2.netlink.proto.rtnl import rtypes
+from pyroute2.netlink.proto.rtnl import rtscopes
+from pyroute2.netlink.proto.rtnl import MarshalRtnl
+from pyroute2.netlink.proto.rtnl.tcmsg import get_htb_parameters
+from pyroute2.netlink.proto.rtnl.tcmsg import get_htb_class_parameters
+from pyroute2.netlink.proto.rtnl.tcmsg import get_tbf_parameters
+from pyroute2.netlink.proto.rtnl.tcmsg import get_sfq_parameters
+from pyroute2.netlink.proto.rtnl.tcmsg import get_u32_parameters
+from pyroute2.netlink.proto.rtnl.tcmsg import get_netem_parameters
+from pyroute2.netlink.proto.rtnl.tcmsg import get_fw_parameters
+from pyroute2.netlink.proto.rtnl.tcmsg import tcmsg
+from pyroute2.netlink.proto.rtnl.rtmsg import rtmsg
+from pyroute2.netlink.proto.rtnl.ndmsg import ndmsg
+from pyroute2.netlink.proto.rtnl.brmsg import brmsg
+from pyroute2.netlink.proto.rtnl.bomsg import bomsg
+from pyroute2.netlink.proto.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.proto.rtnl.ifaddrmsg import ifaddrmsg
 
 from pyroute2.common import basestring
 
@@ -771,7 +771,7 @@ class IPRoute(Netlink):
         * index -- via device index
         * family -- socket.AF_INET (default) or socket.AF_INET6
 
-        `pyroute2/netlink/rtnl/rtmsg.py` rtmsg.nla_map:
+        `pyroute2/netlink/proto/rtnl/rtmsg.py` rtmsg.nla_map:
 
         * table -- routing table to use (default: 254)
         * gateway -- via address

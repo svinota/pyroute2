@@ -1,5 +1,5 @@
-from pyroute2.netlink.generic import nla
-from pyroute2.netlink.generic import nlmsg
+from pyroute2.netlink import nla
+from pyroute2.netlink import nlmsg
 
 
 class brmsg(nlmsg):

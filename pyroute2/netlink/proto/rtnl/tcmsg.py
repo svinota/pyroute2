@@ -6,8 +6,8 @@ from pyroute2.common import size_suffixes
 from pyroute2.common import time_suffixes
 from pyroute2.common import rate_suffixes
 from pyroute2.common import basestring
-from pyroute2.netlink.generic import nlmsg
-from pyroute2.netlink.generic import nla
+from pyroute2.netlink import nlmsg
+from pyroute2.netlink import nla
 
 
 TCA_ACT_MAX_PRIO = 32

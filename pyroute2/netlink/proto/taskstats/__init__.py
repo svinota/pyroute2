@@ -16,9 +16,9 @@ usable.
 
 from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NLM_F_REQUEST
+from pyroute2.netlink import nla
+from pyroute2.netlink import genlmsg
 from pyroute2.netlink.client import GenericNetlink
-from pyroute2.netlink.generic import nla
-from pyroute2.netlink.generic import genlmsg
 
 TASKSTATS_CMD_UNSPEC = 0      # Reserved
 TASKSTATS_CMD_GET = 1         # user->kernel request/get-response

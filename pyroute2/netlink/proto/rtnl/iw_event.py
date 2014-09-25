@@ -1,4 +1,4 @@
-from pyroute2.netlink.generic import nla
+from pyroute2.netlink import nla
 
 
 class iw_event(nla):

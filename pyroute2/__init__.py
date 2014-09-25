@@ -1,8 +1,8 @@
 
-from pyroute2.netlink.rtnl import IPRSocket
 from pyroute2.netlink.iproute import IPRoute
 from pyroute2.netlink.ipdb import IPDB
-from pyroute2.netlink.taskstats import TaskStats
+from pyroute2.netlink.proto.rtnl import IPRSocket
+from pyroute2.netlink.proto.taskstats import TaskStats
 from pyroute2.iocore.iocore import IOCore
 from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NetlinkError

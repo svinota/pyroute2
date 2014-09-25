@@ -11,10 +11,10 @@ class TestLnst(object):
         from pyroute2.netlink import NLM_F_MATCH
         from pyroute2.netlink import NLMSG_DONE
         from pyroute2.netlink import NLMSG_ERROR
+        from pyroute2.netlink import nlmsg
         from pyroute2.netlink.iproute import RTM_GETLINK
         from pyroute2.netlink.iproute import RTM_NEWLINK
-        from pyroute2.netlink.generic import nlmsg
-        from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+        from pyroute2.netlink.proto.rtnl.ifinfmsg import ifinfmsg
 
         ip = IPRSocket()
         ip.bind()

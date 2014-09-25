@@ -1,8 +1,8 @@
-from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLM_F_REQUEST
+from pyroute2.netlink import NETLINK_FIREWALL
+from pyroute2.netlink import nlmsg
+from pyroute2.netlink.nlsocket import Marshal
 from pyroute2.netlink.client import Netlink
-from pyroute2.netlink.generic import nlmsg
-from pyroute2.netlink.generic import NETLINK_FIREWALL
 
 # constants
 IFNAMSIZ = 16

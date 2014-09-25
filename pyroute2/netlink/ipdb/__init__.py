@@ -209,11 +209,11 @@ from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.ipdb import compat
 from pyroute2.netlink.iproute import IPRoute
-from pyroute2.netlink.rtnl.rtmsg import rtmsg
-from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtnl.tcmsg import tcmsg
-from pyroute2.netlink.rtnl.brmsg import brmsg
-from pyroute2.netlink.rtnl.bomsg import bomsg
+from pyroute2.netlink.proto.rtnl.rtmsg import rtmsg
+from pyroute2.netlink.proto.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.proto.rtnl.tcmsg import tcmsg
+from pyroute2.netlink.proto.rtnl.brmsg import brmsg
+from pyroute2.netlink.proto.rtnl.bomsg import bomsg
 
 tc_fields = [tcmsg.nla2name(i[0]) for i in tcmsg.nla_map]
 

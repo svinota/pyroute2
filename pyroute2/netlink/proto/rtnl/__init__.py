@@ -101,11 +101,11 @@ Pyroute2 netlink description syntax
 
 To simplify the development, pyroute2 provides an easy way to
 describe packet structure. As an example, you can take the
-ifaddrmsg description -- `pyroute2/netlink/rtnl/ifaddrmsg.py`.
+ifaddrmsg description -- `pyroute2/netlink/proto/rtnl/ifaddrmsg.py`.
 
 To describe a packet, you need to inherit from `nlmsg` class::
 
-    from pyroute2.netlink.generic import nlmsg
+    from pyroute2.netlink import nlmsg
 
     class foo_msg(nlmsg):
         fields = ( ... )
@@ -193,7 +193,7 @@ There are several pre-defined NLA types, that you will get with
 * cdata   # just a binary string
 * asciiz  # zero-terminated ASCII string
 
-Please refer to `pyroute2/netlink/generic.py` for details.
+Please refer to `pyroute2/netlink/__init__.py` for details.
 
 You can also make your own NLA descriptions::
 
@@ -297,7 +297,7 @@ The code::
     from pyroute2.netlink import NLM_F_CREATE
     from pyroute2.netlink import NLM_F_EXCL
     from pyroute2.netlink.iproute import RTM_NEWADDR
-    from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+    from pyroute2.netlink.proto.rtnl.ifaddrmsg import ifaddrmsg
 
     ##
     # add an addr to an interface
@@ -341,21 +341,21 @@ import struct
 import socket
 import platform
 import subprocess
-from pyroute2.netlink import Marshal
-from pyroute2.netlink import NetlinkSocket
-from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.common import map_namespace
 from pyroute2.common import PipeSocket
+from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLMSG_ERROR
-from pyroute2.netlink.generic import NETLINK_ROUTE
-from pyroute2.netlink.rtnl.errmsg import errmsg
-from pyroute2.netlink.rtnl.tcmsg import tcmsg
-from pyroute2.netlink.rtnl.rtmsg import rtmsg
-from pyroute2.netlink.rtnl.ndmsg import ndmsg
-from pyroute2.netlink.rtnl.bomsg import bomsg
-from pyroute2.netlink.rtnl.brmsg import brmsg
-from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink import NETLINK_ROUTE
+from pyroute2.netlink.nlsocket import Marshal
+from pyroute2.netlink.nlsocket import NetlinkSocket
+from pyroute2.netlink.proto.rtnl.errmsg import errmsg
+from pyroute2.netlink.proto.rtnl.tcmsg import tcmsg
+from pyroute2.netlink.proto.rtnl.rtmsg import rtmsg
+from pyroute2.netlink.proto.rtnl.ndmsg import ndmsg
+from pyroute2.netlink.proto.rtnl.bomsg import bomsg
+from pyroute2.netlink.proto.rtnl.brmsg import brmsg
+from pyroute2.netlink.proto.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.proto.rtnl.ifaddrmsg import ifaddrmsg
 
 
 _ANCIENT_BARRIER = 0.3

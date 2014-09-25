@@ -9,17 +9,17 @@ import uuid
 import ssl
 import sys
 
-from pyroute2.netlink import Marshal
 from pyroute2.netlink import NLMSG_CONTROL
 from pyroute2.netlink import NLMSG_TRANSPORT
 from pyroute2.netlink import IPRCMD_ERR
 from pyroute2.netlink import IPRCMD_ACK
+from pyroute2.netlink import mgmtmsg
+from pyroute2.netlink import envmsg
 from pyroute2.common import PipeSocket
-from pyroute2.netlink.generic import mgmtmsg
-from pyroute2.netlink.generic import envmsg
 from pyroute2.iocore import NLT_CONTROL
 from pyroute2.iocore import NLT_RESPONSE
 from pyroute2.iocore import NLT_DGRAM
+from pyroute2.netlink.nlsocket import Marshal
 from pyroute2.iocore.modules import modules
 from pyroute2.iocore.loop import IOLoop
 from pyroute2.iocore.addrpool import AddrPool

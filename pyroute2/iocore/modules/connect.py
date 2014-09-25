@@ -1,12 +1,12 @@
 import io
 import errno
 import uuid
-from pyroute2.netlink import NetlinkSocket
 from pyroute2.netlink import IPRCMD_CONNECT
-from pyroute2.netlink.generic import envmsg
-from pyroute2.netlink.generic import mgmtmsg
-from pyroute2.netlink.generic import NETLINK_ROUTE
-from pyroute2.netlink.rtnl import RtnlSocket
+from pyroute2.netlink import NETLINK_ROUTE
+from pyroute2.netlink import envmsg
+from pyroute2.netlink import mgmtmsg
+from pyroute2.netlink.nlsocket import NetlinkSocket
+from pyroute2.netlink.proto.rtnl import RtnlSocket
 from pyroute2.iocore.utils import get_socket
 from pyroute2.iocore.utils import access
 try:
