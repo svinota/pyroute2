@@ -4,7 +4,6 @@ from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import ctrlmsg
 from pyroute2.netlink.client import Netlink
 from pyroute2.netlink.nlsocket import NetlinkSocket
-from pyroute2.netlink.nlsocket import Marshal
 
 
 class GenericNetlinkSocket(NetlinkSocket):

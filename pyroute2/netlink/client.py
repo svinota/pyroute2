@@ -1,9 +1,6 @@
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NETLINK_GENERIC
-from pyroute2.netlink import GENL_ID_CTRL
-from pyroute2.netlink import CTRL_CMD_GETFAMILY
-from pyroute2.netlink import ctrlmsg
 from pyroute2.iocore.iocore import IOCore
 from pyroute2.netlink.nlsocket import Marshal
 
