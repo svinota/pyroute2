@@ -54,7 +54,6 @@ class Netlink(IOCore):
         '''
         nonce = self.nonce.alloc()
         msg['header']['sequence_number'] = nonce
-        msg['header']['pid'] = os.getpid()
         msg['header']['type'] = msg_type
         msg['header']['flags'] = msg_flags
         msg.encode()
