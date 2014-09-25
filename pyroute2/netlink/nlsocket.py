@@ -121,6 +121,10 @@ class NetlinkSocket(socket.socket):
         socket.socket.__init__(self, socket.AF_NETLINK,
                                socket.SOCK_DGRAM, family)
         global sockets
+
+        # 8<-----------------------------------------
+        # PID init is here only for compatibility,
+        # later it will be completely moved to bind()
         self.epid = None
         self.port = 0
         self.fixed = True
@@ -132,10 +136,16 @@ class NetlinkSocket(socket.socket):
             self.pid = os.getpid()
         else:
             self.pid = pid
+        # 8<-----------------------------------------
         self.groups = 0
-        self.marshal = None
+        self.marshal = Marshal()
 
-    def bind(self, groups=0):
+    def bind(self, groups=0, pid=None):
+        if pid is not None:
+            self.port = 0
+            self.fixed = True
+            self.pid = pid or os.getpid()
+
         self.groups = groups
         # if we have pre-defined port, use it strictly
         if self.fixed:
