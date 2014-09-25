@@ -1,4 +1,3 @@
-import os
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NETLINK_GENERIC
