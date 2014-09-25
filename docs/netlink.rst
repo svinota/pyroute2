@@ -1,4 +1,4 @@
 .. netlink:
 
-.. automodule:: pyroute2.netlink.rtnl
-
+.. automodule:: pyroute2.netlink
+    :members:

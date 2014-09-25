@@ -12,23 +12,27 @@ General information about the library (README.md)
     general
     changelog
 
-Netlink protocol: developer's guide
------------------------------------
+Netlink protocols
+-----------------
 
 .. toctree::
     :maxdepth: 2
 
     netlink
+    rtnl
+    generic
+    taskstats
+    ipq
+    nfqueue
 
-Modules description, sample code, usecases
-------------------------------------------
+Utilities
+---------
 
 .. toctree::
     :maxdepth: 2
 
     iproute
     ipdb
-    taskstats
     remote
     messaging
 
