@@ -144,10 +144,10 @@ class NetlinkSocket(socket.socket):
         '''
         Register netlink encoding/decoding policy. Can
         be specified in two ways:
-        `nlsocket.register_policy(MSG_ID, msg_class)` to
-        register one particular rule, or
-        `nlsocket.register_policy({MSG_ID1: msg_class})` to
-        register many rules at once.
+        `nlsocket.register_policy(MSG_ID, msg_class)`
+        to register one particular rule, or
+        `nlsocket.register_policy({MSG_ID1: msg_class})`
+        to register several rules at once.
         E.g.::
 
             policy = {RTM_NEWLINK: ifinfmsg,
@@ -177,7 +177,7 @@ class NetlinkSocket(socket.socket):
         * list or tuple of ints -- remove all given
         * dict -- remove policies by keys from dict
 
-        In the last case the routing will ignore dict values,
+        In the last case the routine will ignore dict values,
         it is implemented so just to make it compatible with
         `get_policy_map()` return value.
         '''
