@@ -5,6 +5,8 @@ from pyroute2.netlink.proto.rtnl import IPRSocket
 from pyroute2.netlink.proto.taskstats import TaskStats
 from pyroute2.netlink.proto.ipq import IPQSocket
 from pyroute2.netlink.proto.ipq import IPQ
+from pyroute2.netlink.proto.generic import GenericNetlinkSocket
+from pyroute2.netlink.proto.generic import GenericNetlink
 from pyroute2.iocore.iocore import IOCore
 from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NetlinkError
@@ -15,6 +17,8 @@ modules = [IPRSocket,
            TaskStats,
            IPQSocket,
            IPQ,
+           GenericNetlinkSocket,
+           GenericNetlink,
            IOCore,
            TimeoutError,
            NetlinkError]
