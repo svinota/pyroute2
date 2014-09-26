@@ -7,6 +7,7 @@ Describe
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NETLINK_FIREWALL
 from pyroute2.netlink import nlmsg
+from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.nlsocket import Marshal
 from pyroute2.netlink.client import Netlink
 
@@ -86,6 +87,30 @@ class MarshalIPQ(Marshal):
     msg_map = {IPQM_MODE: ipq_mode_msg,
                IPQM_VERDICT: ipq_verdict_msg,
                IPQM_PACKET: ipq_packet_msg}
+
+
+class IPQSocket(NetlinkSocket):
+    '''
+    Low-level socket interface. Provides all the
+    usual socket does, can be used in poll/select,
+    doesn't create any implicit threads.
+    '''
+
+    def bind(self, mode=IPQ_COPY_PACKET):
+        '''
+        Bind the socket and performs IPQ mode configuration.
+        The only parameter is mode, the default value is
+        IPQ_COPY_PACKET (copy all the packet data).
+        '''
+        NetlinkSocket.bind(self, groups=0, pid=0)
+        self.register_policy(MarshalIPQ.msg_map)
+        msg = ipq_mode_msg()
+        msg['value'] = mode
+        msg['range'] = IPQ_MAX_PAYLOAD
+        msg['header']['type'] = IPQM_MODE
+        msg['header']['flags'] = NLM_F_REQUEST
+        msg.encode()
+        self.sendto(msg.buf.getvalue(), (0, 0))
 
 
 class IPQ(Netlink):
