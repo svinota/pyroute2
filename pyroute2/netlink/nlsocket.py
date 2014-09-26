@@ -140,7 +140,88 @@ class NetlinkSocket(socket.socket):
         self.groups = 0
         self.marshal = Marshal()
 
+    def register_policy(self, policy, msg_class=None):
+        '''
+        Register netlink encoding/decoding policy. Can
+        be specified in two ways:
+        `nlsocket.register_policy(MSG_ID, msg_class)` to
+        register one particular rule, or
+        `nlsocket.register_policy({MSG_ID1: msg_class})` to
+        register many rules at once.
+        E.g.::
+
+            policy = {RTM_NEWLINK: ifinfmsg,
+                      RTM_DELLINK: ifinfmsg,
+                      RTM_NEWADDR: ifaddrmsg,
+                      RTM_DELADDR: ifaddrmsg}
+            nlsocket.register_policy(policy)
+
+        One can call `register_policy()` as many times,
+        as one want to -- it will just extend the current
+        policy scheme, not replace it.
+        '''
+        if isinstance(policy, int) and msg_class is not None:
+            policy = {policy: msg_class}
+
+        assert isinstance(policy, dict)
+        for key in policy:
+            self.marshal.msg_map[key] = policy[key]
+
+        return self.marshal.msg_map
+
+    def unregister_policy(self, policy):
+        '''
+        Unregister policy. Policy can be:
+
+        * int -- then it will just remove one policy
+        * list or tuple of ints -- remove all given
+        * dict -- remove policies by keys from dict
+
+        In the last case the routing will ignore dict values,
+        it is implemented so just to make it compatible with
+        `get_policy_map()` return value.
+        '''
+        if isinstance(policy, int):
+            policy = [policy]
+        elif isinstance(policy, dict):
+            policy = list(policy)
+
+        assert isinstance(policy, (tuple, list, set))
+
+        for key in policy:
+            del self.marshal.msg_map[key]
+
+        return self.marshal.msg_map
+
+    def get_policy_map(self, policy=None):
+        '''
+        Return policy for a given message type or for all
+        message types. Policy parameter can be either int,
+        or a list of ints. Always return dictionary.
+        '''
+        if policy is None:
+            return self.marshal.msg_map
+
+        if isinstance(policy, int):
+            policy = [policy]
+
+        assert isinstance(policy, (list, tuple, set))
+
+        ret = {}
+        for key in policy:
+            ret[key] = self.marshal.msg_map[key]
+
+        return ret
+
     def bind(self, groups=0, pid=None):
+        '''
+        Bind the socket to given multicast groups, using
+        given pid.
+
+        * If pid is None, use automatic port allocation
+        * If pid == 0, use process' pid
+        * If pid == <int>, use the value instead of pid
+        '''
         if pid is not None:
             self.port = 0
             self.fixed = True
@@ -171,11 +252,17 @@ class NetlinkSocket(socket.socket):
             raise socket.error(98, 'Address already in use')
 
     def get(self):
+        '''
+        Get parsed messages list.
+        '''
         data = io.BytesIO()
         data.length = data.write(self.recv(16384))
         return self.marshal.parse(data)
 
     def close(self):
+        '''
+        Correctly close the socket and free all resources.
+        '''
         global sockets
         if self.epid is not None:
             assert self.port is not None
