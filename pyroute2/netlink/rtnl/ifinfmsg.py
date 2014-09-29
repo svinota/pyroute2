@@ -1,6 +1,6 @@
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
-from pyroute2.netlink.proto.rtnl.iw_event import iw_event
+from pyroute2.netlink.rtnl.iw_event import iw_event
 
 states = ('UNKNOWN',
           'NOTPRESENT',

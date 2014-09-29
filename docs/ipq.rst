@@ -1,4 +1,4 @@
 .. ipq:
 
-.. automodule:: pyroute2.netlink.proto.ipq
+.. automodule:: pyroute2.netlink.ipq
     :members:

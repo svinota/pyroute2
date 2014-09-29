@@ -15,7 +15,7 @@ from pyroute2 import IPDB
 # it means that they're executed after any other
 # action on a message arrival.
 #
-# More details read in pyroute2/netlink/ipdb.py
+# More details read in pyroute2.ipdb
 #
 def cb(ipdb, msg, action):
     if action == 'RTM_NEWLINK' and \

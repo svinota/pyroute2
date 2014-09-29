@@ -1,6 +1,6 @@
 .. ipdb:
 
-.. automodule:: pyroute2.netlink.ipdb
+.. automodule:: pyroute2.ipdb
     :members:
 
 

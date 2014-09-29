@@ -3,10 +3,10 @@ from utils import require_user
 from pyroute2 import IPRoute
 from pyroute2 import protocols
 from pyroute2.netlink import NetlinkError
-from pyroute2.netlink.iproute import RTM_NEWQDISC
-from pyroute2.netlink.iproute import RTM_NEWTFILTER
-from pyroute2.netlink.iproute import RTM_NEWTCLASS
-from pyroute2.netlink.iproute import TC_H_INGRESS
+from pyroute2.iproute import RTM_NEWQDISC
+from pyroute2.iproute import RTM_NEWTFILTER
+from pyroute2.iproute import RTM_NEWTCLASS
+from pyroute2.iproute import TC_H_INGRESS
 from nose.plugins.skip import SkipTest
 
 

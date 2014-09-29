@@ -9,11 +9,11 @@ from pyroute2 import IPDB
 from pyroute2 import IPRoute
 from pyroute2.common import basestring
 from pyroute2.netlink import NetlinkError
-from pyroute2.netlink.ipdb import CreateException
-from pyroute2.netlink.ipdb import clear_fail_bit
-from pyroute2.netlink.ipdb import set_fail_bit
-from pyroute2.netlink.ipdb import _FAIL_COMMIT
-from pyroute2.netlink.ipdb import _FAIL_ROLLBACK
+from pyroute2.ipdb import CreateException
+from pyroute2.ipdb import clear_fail_bit
+from pyroute2.ipdb import set_fail_bit
+from pyroute2.ipdb import _FAIL_COMMIT
+from pyroute2.ipdb import _FAIL_ROLLBACK
 from utils import grep
 from utils import create_link
 from utils import remove_link

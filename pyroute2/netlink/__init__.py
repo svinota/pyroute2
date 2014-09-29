@@ -74,7 +74,7 @@ packets
 
 To simplify the development, pyroute2 provides an easy way to
 describe packet structure. As an example, you can take the
-ifaddrmsg description -- `pyroute2/netlink/proto/rtnl/ifaddrmsg.py`.
+ifaddrmsg description -- `pyroute2/netlink/rtnl/ifaddrmsg.py`.
 
 To describe a packet, you need to inherit from `nlmsg` class::
 
@@ -280,8 +280,8 @@ The code::
     from pyroute2.netlink import NLM_F_ACK
     from pyroute2.netlink import NLM_F_CREATE
     from pyroute2.netlink import NLM_F_EXCL
-    from pyroute2.netlink.iproute import RTM_NEWADDR
-    from pyroute2.netlink.proto.rtnl.ifaddrmsg import ifaddrmsg
+    from pyroute2.iproute import RTM_NEWADDR
+    from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
     ##
     # add an addr to an interface

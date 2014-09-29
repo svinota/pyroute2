@@ -49,14 +49,14 @@ from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NETLINK_ROUTE
 from pyroute2.netlink.nlsocket import Marshal
 from pyroute2.netlink.nlsocket import NetlinkSocket
-from pyroute2.netlink.proto.rtnl.errmsg import errmsg
-from pyroute2.netlink.proto.rtnl.tcmsg import tcmsg
-from pyroute2.netlink.proto.rtnl.rtmsg import rtmsg
-from pyroute2.netlink.proto.rtnl.ndmsg import ndmsg
-from pyroute2.netlink.proto.rtnl.bomsg import bomsg
-from pyroute2.netlink.proto.rtnl.brmsg import brmsg
-from pyroute2.netlink.proto.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.proto.rtnl.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink.rtnl.errmsg import errmsg
+from pyroute2.netlink.rtnl.tcmsg import tcmsg
+from pyroute2.netlink.rtnl.rtmsg import rtmsg
+from pyroute2.netlink.rtnl.ndmsg import ndmsg
+from pyroute2.netlink.rtnl.bomsg import bomsg
+from pyroute2.netlink.rtnl.brmsg import brmsg
+from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
 
 _ANCIENT_BARRIER = 0.3
@@ -233,7 +233,7 @@ class IPRSocket(NetlinkSocket):
 
     Threadless RT netlink monitoring with blocking I/O calls:
 
-        >>> from pyroute2.netlink.iproute import IPRSocket
+        >>> from pyroute2 import IPRSocket
         >>> from pprint import pprint
         >>> s = IPRSocket()
         >>> s.bind()

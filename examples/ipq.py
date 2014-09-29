@@ -1,6 +1,6 @@
 from pyroute2.common import hexdump
-from pyroute2.netlink.proto.ipq import IPQ
-from pyroute2.netlink.proto.ipq import NF_ACCEPT
+from pyroute2.netlink.ipq import IPQ
+from pyroute2.netlink.ipq import NF_ACCEPT
 from dpkt.ip import IP
 
 ip = IPQ()

@@ -1,6 +1,6 @@
 .. iproute:
 
-.. automodule:: pyroute2.netlink.iproute
+.. automodule:: pyroute2.iproute
     :members:
 
 

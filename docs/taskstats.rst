@@ -1,4 +1,4 @@
 .. taskstats:
 
-.. automodule:: pyroute2.netlink.proto.taskstats
+.. automodule:: pyroute2.netlink.taskstats
     :members:
