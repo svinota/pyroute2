@@ -264,7 +264,7 @@ class NetlinkSocket(socket.socket):
         '''
         data = io.BytesIO()
         data.length = data.write(self.recv(16384))
-        return self.marshal.parse(data)
+        return self.marshal.parse(data, self)
 
     def close(self):
         '''
