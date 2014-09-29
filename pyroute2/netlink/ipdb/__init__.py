@@ -208,6 +208,7 @@ from pyroute2.common import basestring
 from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.ipdb import compat
+from pyroute2.netlink.iproute import IFF_MASK
 from pyroute2.netlink.iproute import IPRoute
 from pyroute2.netlink.proto.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.proto.rtnl.ifinfmsg import ifinfmsg
@@ -921,7 +922,7 @@ class Interface(Transactional):
     exception will be raised. Failed transaction review
     will be attached to the exception.
     '''
-    _fields_cmp = {'flags': lambda x, y: x & y}
+    _fields_cmp = {'flags': lambda x, y: x & y & IFF_MASK == y & IFF_MASK}
 
     def __init__(self, ipdb, mode=None):
         '''
