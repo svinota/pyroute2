@@ -258,12 +258,12 @@ class NetlinkSocket(socket.socket):
             # raise "address in use" -- to be compatible
             raise socket.error(98, 'Address already in use')
 
-    def get(self):
+    def get(self, bufsize=16384):
         '''
         Get parsed messages list.
         '''
         data = io.BytesIO()
-        data.length = data.write(self.recv(16384))
+        data.length = data.write(self.recv(bufsize))
         return self.marshal.parse(data, self)
 
     def close(self):
