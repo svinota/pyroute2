@@ -1,8 +1,15 @@
 import io
 import os
 import struct
-import socket
 import threading
+
+from socket import AF_NETLINK
+from socket import SOCK_DGRAM
+from socket import MSG_PEEK
+from socket import SOL_SOCKET
+from socket import SO_RCVBUF
+from socket import socket
+from socket import error as SocketError
 
 from pyroute2.iocore.addrpool import AddrPool  # FIXME: move to common
 from pyroute2.common import DEFAULT_RCVBUF
@@ -120,14 +127,13 @@ sockets = AddrPool(minaddr=0x0,
 # 8<-----------------------------------------------------------
 
 
-class NetlinkSocket(socket.socket):
+class NetlinkSocket(socket):
     '''
     Generic netlink socket
     '''
 
     def __init__(self, family=NETLINK_GENERIC, port=None, pid=None):
-        socket.socket.__init__(self, socket.AF_NETLINK,
-                               socket.SOCK_DGRAM, family)
+        socket.__init__(self, AF_NETLINK, SOCK_DGRAM, family)
         global sockets
 
         # 8<-----------------------------------------
@@ -239,7 +245,7 @@ class NetlinkSocket(socket.socket):
         # if we have pre-defined port, use it strictly
         if self.fixed:
             self.epid = self.pid + (self.port << 22)
-            socket.socket.bind(self, (self.epid, self.groups))
+            socket.bind(self, (self.epid, self.groups))
             return
 
         # if we have no pre-defined port, scan all the
@@ -248,21 +254,35 @@ class NetlinkSocket(socket.socket):
             try:
                 self.port = sockets.alloc()
                 self.epid = self.pid + (self.port << 22)
-                socket.socket.bind(self, (self.epid, self.groups))
+                socket.bind(self, (self.epid, self.groups))
                 # if we're here, bind() done successfully, just exit
                 return
-            except socket.error as e:
+            except SocketError as e:
                 # pass occupied sockets, raise other exceptions
                 if e.errno != 98:
                     raise
         else:
             # raise "address in use" -- to be compatible
-            raise socket.error(98, 'Address already in use')
+            raise SocketError(98, 'Address already in use')
 
     def get(self, bufsize=DEFAULT_RCVBUF):
         '''
         Get parsed messages list.
+
+        The `bufsize` parameter can be:
+
+        * -1: bufsize will be calculated from the first 4 bytes of
+              the network data
+        * 0: bufsize will be calculated from SO_RCVBUF sockopt
+        * int >= 0: just a bufsize
         '''
+        if bufsize == -1:
+            # get bufsize from the network data
+            bufsize = struct.unpack("I", self.recv(4, MSG_PEEK))[0]
+        elif bufsize == 0:
+            # get bufsize from SO_RCVBUF
+            bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
+
         data = io.BytesIO()
         data.length = data.write(self.recv(bufsize))
         return self.marshal.parse(data, self)
@@ -277,4 +297,4 @@ class NetlinkSocket(socket.socket):
             if not self.fixed:
                 sockets.free(self.port)
             self.epid = None
-        socket.socket.close(self)
+        socket.close(self)
