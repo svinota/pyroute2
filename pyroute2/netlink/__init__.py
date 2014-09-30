@@ -1177,7 +1177,9 @@ class mgmtmsg(ctrlmsg):
                ('IPR_ATTR_KEY', 'u32key'),
                ('IPR_ATTR_UUID', 'asciiz'),
                ('IPR_ATTR_SOURCE', 'uint32'),
-               ('IPR_ATTR_PID', 'uint32'))
+               ('IPR_ATTR_PID', 'uint32'),
+               ('IPR_ATTR_SNDBUF', 'uint32'),
+               ('IPR_ATTR_RCVBUF', 'uint32'))
 
     class u32key(nla):
         fields = (('offset', 'I'),

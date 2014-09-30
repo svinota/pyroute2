@@ -5,6 +5,7 @@ import socket
 import threading
 
 from pyroute2.iocore.addrpool import AddrPool  # FIXME: move to common
+from pyroute2.common import DEFAULT_RCVBUF
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import mtypes
 from pyroute2.netlink import NetlinkError
@@ -258,7 +259,7 @@ class NetlinkSocket(socket.socket):
             # raise "address in use" -- to be compatible
             raise socket.error(98, 'Address already in use')
 
-    def get(self, bufsize=16384):
+    def get(self, bufsize=DEFAULT_RCVBUF):
         '''
         Get parsed messages list.
         '''

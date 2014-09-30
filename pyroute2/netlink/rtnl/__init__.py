@@ -315,12 +315,18 @@ class RtnlSocket(PipeSocket):
         self.iprs.sendto(msg.buf.getvalue(), (0, 0))
         return self.iprs.get()[0].get_attr('IFLA_IFNAME')
 
+    def getsockopt(self, *argv, **kwarg):
+        return self.bypass.getsockopt(*argv, **kwarg)
+
+    def setsockopt(self, *argv, **kwarg):
+        return self.bypass.setsockopt(*argv, **kwarg)
+
     def bind(self, *argv, **kwarg):
         #
         # just proxy bind call -- PipeSocket by itself
         # doesn't need any bind() routine
         #
-        self.bypass.bind(*argv, **kwarg)
+        return self.bypass.bind(*argv, **kwarg)
 
     def get(self, fd, size):
         '''

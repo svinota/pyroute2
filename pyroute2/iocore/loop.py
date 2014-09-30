@@ -1,10 +1,14 @@
 import os
 import sys
-import socket
 import select
 import logging
 import traceback
 import threading
+
+from socket import SO_RCVBUF
+from socket import SOL_SOCKET
+from socket import error as SocketError
+from pyroute2.common import DEFAULT_RCVBUF
 try:
     import Queue
 except ImportError:
@@ -17,6 +21,7 @@ class IOLoop(threading.Thread):
         self.fd, self.control = os.pipe()
         self._stop_flag = False
         self.fds = {}
+        self.rcvbuf = {}
         self.poll = select.epoll()
         self.register(self.fd, lambda f, event: os.read(f, 1))
         self.buffers = Queue.Queue()
@@ -56,11 +61,15 @@ class IOLoop(threading.Thread):
     def register(self, fd, cb, argv=[], kwarg={},
                  defer=False, proxy=None):
 
-        # get FD number
+        # get FD number and set rcvbuf
         if isinstance(fd, int):
             fdno = fd
+            self.rcvbuf[fdno] = DEFAULT_RCVBUF
         else:
             fdno = fd.fileno()
+            # SO_RCVBUF // 2: see man 7 socket
+            self.rcvbuf[fdno] = fd.getsockopt(SOL_SOCKET,
+                                              SO_RCVBUF) // 2
         assert fdno != self.control
 
         if defer:
@@ -69,7 +78,7 @@ class IOLoop(threading.Thread):
                 # use proxy to get the next message
                 def wrap(fd, event, *argv, **kwarg):
                     try:
-                        data = proxy.get(fd, 16384)
+                        data = proxy.get(fd, self.rcvbuf[fdno])
                     except OSError:
                         # EOF
                         data = ''
@@ -78,7 +87,7 @@ class IOLoop(threading.Thread):
                 # or get it directly from the socket
                 def wrap(fd, event, *argv, **kwarg):
                     try:
-                        data = fd.recv(16384)
+                        data = fd.recv(self.rcvbuf[fdno])
                     except OSError:
                         # EOF
                         data = ''
@@ -93,7 +102,7 @@ class IOLoop(threading.Thread):
     def unregister(self, fd):
         try:
             fdno = fd.fileno()
-        except socket.error:
+        except SocketError:
             return False
 
         assert fdno != self.control

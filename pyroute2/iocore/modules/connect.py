@@ -1,6 +1,9 @@
 import io
 import errno
 import uuid
+from socket import SOL_SOCKET
+from socket import SO_SNDBUF
+from socket import SO_RCVBUF
 from pyroute2.netlink import IPRCMD_CONNECT
 from pyroute2.netlink import NETLINK_ROUTE
 from pyroute2.netlink import envmsg
@@ -25,6 +28,8 @@ def command(broker, sock, env, cmd, rsp):
     cert = cmd.get_attr('IPR_ATTR_SSL_CERT')
     ca = cmd.get_attr('IPR_ATTR_SSL_CA')
     pid = cmd.get_attr('IPR_ATTR_PID')
+    sndbuf = cmd.get_attr('IPR_ATTR_SNDBUF', 32768)
+    rcvbuf = cmd.get_attr('IPR_ATTR_RCVBUF', 1024 * 1024)
 
     target = urlparse.urlparse(url)
     peer = broker.addr
@@ -47,6 +52,8 @@ def command(broker, sock, env, cmd, rsp):
             new_sock = RtnlSocket()
         else:
             new_sock = NetlinkSocket(int(res[1]), pid=pid)
+        new_sock.setsockopt(SOL_SOCKET, SO_SNDBUF, sndbuf)
+        new_sock.setsockopt(SOL_SOCKET, SO_RCVBUF, rcvbuf)
         new_sock.bind(int(res[2]))
         gate = lambda d, s:\
             new_sock.sendto(broker.gate_untag(d, s), (0, 0))

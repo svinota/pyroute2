@@ -6,10 +6,16 @@ import os
 import time
 import sys
 import struct
-import socket
 import logging
 import threading
 import traceback
+
+from socket import AF_INET
+from socket import SO_RCVBUF
+from socket import SOL_SOCKET
+from socket import inet_pton
+from socket import inet_ntop
+from socket import inet_aton
 
 try:
     basestring = basestring
@@ -17,6 +23,7 @@ except NameError:
     basestring = (str, bytes)
 
 AF_PIPE = 255  # Right now AF_MAX == 40
+DEFAULT_RCVBUF = 16384
 
 
 size_suffixes = {'b': 1,
@@ -229,18 +236,18 @@ def uuid32():
                             os.getpid()))
 
 
-def list_subnet(dqn, mask, family=socket.AF_INET):
+def list_subnet(dqn, mask, family=AF_INET):
     '''
     List all IPs in the network
     '''
-    if family != socket.AF_INET:
+    if family != AF_INET:
         raise NotImplementedError('please report the issue')
 
     ret = []
-    net = struct.unpack('>I', socket.inet_pton(family, dqn))[0]
+    net = struct.unpack('>I', inet_pton(family, dqn))[0]
     shift = 32 - mask
     for host in range(1, 2 ** shift):
-        ret.append(socket.inet_ntop(family, struct.pack('>I', net | host)))
+        ret.append(inet_ntop(family, struct.pack('>I', net | host)))
     return ret
 
 
@@ -248,7 +255,7 @@ def dqn2int(mask):
     '''
     IPv4 dotted quad notation to int mask conversion
     '''
-    return bin(struct.unpack('>L', socket.inet_aton(mask))[0]).count('1')
+    return bin(struct.unpack('>L', inet_aton(mask))[0]).count('1')
 
 
 def hexdump(payload, length=0):
@@ -276,6 +283,8 @@ class PipeSocket(object):
     def __init__(self, rfd, wfd):
         self.rfd = rfd
         self.wfd = wfd
+        # DEFAULT_RCVBUF * 2: see man 7 socket
+        self.options = {SOL_SOCKET: {SO_RCVBUF: DEFAULT_RCVBUF * 2}}
 
     def send(self, data):
         return os.write(self.wfd, data)
@@ -291,6 +300,12 @@ class PipeSocket(object):
 
     def getsockname(self):
         return self.rfd, self.wfd
+
+    def getsockopt(self, level, option):
+        try:
+            return self.options[level][option]
+        except KeyError:
+            raise NotImplementedError()
 
     def fileno(self):
         return self.rfd
