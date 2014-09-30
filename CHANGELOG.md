@@ -1,6 +1,8 @@
 changelog
 =========
 
+* 0.2.16
+    * the last 0.2.x release, see http://docs.pyroute2.org/migration.html
 * 0.2.15
     * ipdb: fr #63 -- interface settings freeze
     * ipdb: fr #50, #51 -- bridge & bond options (initial version)
