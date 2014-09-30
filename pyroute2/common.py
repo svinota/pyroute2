@@ -11,6 +11,9 @@ import logging
 import threading
 import traceback
 
+logging.warning("The 0.2.x branch become deprecated.")
+logging.warning("Details: http://docs.pyroute2.org/migration.html")
+
 try:
     basestring = basestring
 except NameError:

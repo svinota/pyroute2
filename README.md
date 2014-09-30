@@ -1,3 +1,13 @@
+Deprecation notice
+==================
+
+Please be aware, that 0.2.16 is the last version of the 0.2.x
+branch. All subsequent releases will be of the 0.3.x branch.
+
+The main difference between 0.2.x and 0.3.x is the module layout.
+Refer to http://docs.pyroute2.org/migration.html to see, how to
+change the existing code to comply the new layout.
+
 pyroute2
 ========
 
