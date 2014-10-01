@@ -20,6 +20,7 @@ from pyroute2.netlink import NetlinkDecodeError
 from pyroute2.netlink import NetlinkHeaderDecodeError
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NETLINK_GENERIC
+from pyroute2.netlink import NLM_F_REQUEST
 
 
 class Marshal(object):
@@ -264,6 +265,24 @@ class NetlinkSocket(socket):
         else:
             # raise "address in use" -- to be compatible
             raise SocketError(98, 'Address already in use')
+
+    def put(self, msg, msg_type,
+            msg_flags=NLM_F_REQUEST,
+            addr=(0, 0),
+            msg_seq=0,
+            msg_pid=None):
+        '''
+        '''
+        msg_class = self.marshal.msg_map[msg_type]
+        if msg_pid is None:
+            msg_pid = os.getpid()
+        msg = msg_class(msg)
+        msg['header']['type'] = msg_type
+        msg['header']['flags'] = msg_flags
+        msg['header']['sequence_number'] = msg_seq
+        msg['header']['pid'] = msg_pid
+        msg.encode()
+        self.sendto(msg.buf.getvalue(), addr)
 
     def get(self, bufsize=DEFAULT_RCVBUF):
         '''
