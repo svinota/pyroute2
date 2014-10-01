@@ -559,6 +559,9 @@ class nlmsg_base(dict):
             b.write(buf)
             b.seek(0)
             buf = b
+        if isinstance(buf, dict):
+            self.setvalue(buf)
+            buf = None
         self.buf = buf or io.BytesIO()
         if 'header' in self:
             self['header'].buf = self.buf
