@@ -24,7 +24,7 @@ Netlink protocols
     generic
     taskstats
     ipq
-    nfqueue
+    nfnetlink
 
 Utilities
 ---------

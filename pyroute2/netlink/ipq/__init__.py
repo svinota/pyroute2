@@ -2,7 +2,14 @@
 IPQ -- userspace firewall
 =========================
 
-Describe
+Netlink family for dealing with `QUEUE` iptables
+target. All the packets routed to the target
+`QUEUE` should be handled by a userspace program
+and the program should response with a verdict.
+E.g., the verdict can be `NF_DROP` and in that
+case the packet will be silently dropped, or
+`NF_ACCEPT`, and the packet will be pass the
+rule.
 '''
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NETLINK_FIREWALL
@@ -112,8 +119,29 @@ class IPQSocket(NetlinkSocket):
         msg.encode()
         self.sendto(msg.buf.getvalue(), (0, 0))
 
+    def verdict(self, seq, v):
+        '''
+        Issue a verdict `v` for a packet `seq`.
+        '''
+        msg = ipq_verdict_msg()
+        msg['value'] = v
+        msg['id'] = seq
+        msg['data_len'] = 0
+        msg['header']['type'] = IPQM_VERDICT
+        msg['header']['flags'] = NLM_F_REQUEST
+        msg.encode()
+        self.sendto(msg.buf.getvalue(), (0, 0))
+
 
 class IPQ(Netlink):
+    '''
+    Cluster client with the same capabilities
+    as IPQSocket, but has a transparent packet
+    buffer and can work as a part of the pyroute2
+    messaging system. Thus, it implicitly starts
+    background threads that must be stopped
+    prior to exit with `IPQ.release()`.
+    '''
 
     family = NETLINK_FIREWALL
     marshal = MarshalIPQ
@@ -134,6 +162,9 @@ class IPQ(Netlink):
         self.monitor()
 
     def verdict(self, seq, v):
+        '''
+        Issue a verdict `v` for a packet `seq`.
+        '''
         msg = ipq_verdict_msg()
         msg['value'] = v
         msg['id'] = seq
