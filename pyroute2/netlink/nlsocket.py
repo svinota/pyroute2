@@ -143,6 +143,8 @@ class NetlinkSocket(socket):
         self.epid = None
         self.port = 0
         self.fixed = True
+        self.backlog = {}
+        self.lock = threading.Lock()
         if pid is None:
             self.pid = os.getpid() & 0x3fffff
             self.port = port
@@ -295,20 +297,25 @@ class NetlinkSocket(socket):
         To fix that, use `msg_seq` -- the response must contain the
         same `msg['header']['sequence_number']` value.
         '''
-        msg_class = self.marshal.msg_map[msg_type]
-        if msg_pid is None:
-            msg_pid = os.getpid()
-        msg = msg_class(msg)
-        msg['header']['type'] = msg_type
-        msg['header']['flags'] = msg_flags
-        msg['header']['sequence_number'] = msg_seq
-        msg['header']['pid'] = msg_pid
-        msg.encode()
-        self.sendto(msg.buf.getvalue(), addr)
+        with self.lock:
+            msg_class = self.marshal.msg_map[msg_type]
+            if msg_pid is None:
+                msg_pid = os.getpid()
+            msg = msg_class(msg)
+            msg['header']['type'] = msg_type
+            msg['header']['flags'] = msg_flags
+            msg['header']['sequence_number'] = msg_seq
+            msg['header']['pid'] = msg_pid
+            msg.encode()
+            self.sendto(msg.buf.getvalue(), addr)
 
-    def get(self, bufsize=DEFAULT_RCVBUF):
+    def get(self, bufsize=DEFAULT_RCVBUF, msg_seq=None):
         '''
-        Get parsed messages list.
+        Get parsed messages list. If `msg_seq` is given, return
+        only messages with that `msg['header']['sequence_number']`,
+        saving all other messages into `self.backlog`.
+
+        The routine is thread-safe.
 
         The `bufsize` parameter can be:
 
@@ -317,16 +324,52 @@ class NetlinkSocket(socket):
         * 0: bufsize will be calculated from SO_RCVBUF sockopt
         * int >= 0: just a bufsize
         '''
-        if bufsize == -1:
-            # get bufsize from the network data
-            bufsize = struct.unpack("I", self.recv(4, MSG_PEEK))[0]
-        elif bufsize == 0:
-            # get bufsize from SO_RCVBUF
-            bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
+        with self.lock:
+            if bufsize == -1:
+                # get bufsize from the network data
+                bufsize = struct.unpack("I", self.recv(4, MSG_PEEK))[0]
+            elif bufsize == 0:
+                # get bufsize from SO_RCVBUF
+                bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
 
-        data = io.BytesIO()
-        data.length = data.write(self.recv(bufsize))
-        return self.marshal.parse(data, self)
+            ret = []
+            while not ret:
+                if msg_seq is None and self.backlog:
+                    # load backlog, if there is valid
+                    # content in it
+                    for key in tuple(self.backlog):
+                        ret.extend(self.backlog[key])
+                        del self.backlog[key]
+                elif msg_seq in self.backlog:
+                    ret.extend(self.backlog[msg_seq])
+                    del self.backlog[msg_seq]
+                    # now, if `ret` is not empty, the
+                    # routine will exit (`while not ret`)
+                else:
+                    # if we are still missing messages to
+                    # return, wait for them on the socket
+                    data = io.BytesIO()
+                    data.length = data.write(self.recv(bufsize))
+                    msgs = self.marshal.parse(data, self)
+
+                    # we have here a list of messages from
+                    # the socket
+                    if msg_seq is None:
+                        # if all messages are requested, just
+                        # extend the return list
+                        ret.extend(msgs)
+                    else:
+                        # else -- save all into the backlog and
+                        # return only the required sequence number
+                        for msg in msgs:
+                            seq = msg['header']['sequence_number']
+                            if seq == msg_seq:
+                                ret.append(msg)
+                            else:
+                                if seq not in self.backlog:
+                                    self.backlog[seq] = []
+                                self.backlog[seq].append(msg)
+            return ret
 
     def close(self):
         '''
