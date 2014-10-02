@@ -293,7 +293,7 @@ class NetlinkSocket(socket):
         Please notice, that the return value of `s.get()` can be
         not the result of `s.put()`, but any broadcast message.
         To fix that, use `msg_seq` -- the response must contain the
-        same `msg_seq` value.
+        same `msg['header']['sequence_number']` value.
         '''
         msg_class = self.marshal.msg_map[msg_type]
         if msg_pid is None:
