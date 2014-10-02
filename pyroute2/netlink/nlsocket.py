@@ -272,6 +272,28 @@ class NetlinkSocket(socket):
             msg_seq=0,
             msg_pid=None):
         '''
+        Construct a message from a dictionary and send it to
+        the socket. Parameters:
+
+        * msg -- the message in the dictionary format
+        * msg_type -- the message type
+        * msg_flags -- the message flags to use in the request
+        * addr -- `sendto()` addr, default `(0, 0)`
+        * msg_seq -- sequence number to use
+        * msg_pid -- pid to use, if `None` -- use os.getpid()
+
+        Example::
+
+            s = IPRSocket()
+            s.bind()
+            s.put({'index': 1}, RTM_GETLINK)
+            s.get()
+            s.close()
+
+        Please notice, that the return value of `s.get()` can be
+        not the result of `s.put()`, but any broadcast message.
+        To fix that, use `msg_seq` -- the response must contain the
+        same `msg_seq` value.
         '''
         msg_class = self.marshal.msg_map[msg_type]
         if msg_pid is None:
