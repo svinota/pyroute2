@@ -546,6 +546,18 @@ class NetlinkSocket(socket):
                     # into the backlog
                     #
                     self.backlog_lock.release()
+                    ##
+                    #
+                    # Control the timeout. We should not be within the
+                    # function more than TIMEOUT seconds. All the locks
+                    # MUST be released here.
+                    #
+                    if time.time() - ctime > self.get_timeout:
+                        if self.get_timeout_exception:
+                            raise self.get_timeout_exception()
+                        else:
+                            return ret
+                    #
                     if self.read_lock.acquire(False):
                         # If the socket is free to read from, occupy
                         # it and wait for the data
@@ -620,15 +632,6 @@ class NetlinkSocket(socket):
                     # Stage 2. END
                     #
                     # 8<-------------------------------------------------------
-                ##
-                #
-                # Control the timeout. We should not be within the function
-                # more than TIMEOUT seconds. All the lock must be release here.
-                if time.time() - ctime > self.get_timeout:
-                    if self.get_timeout_exception:
-                        raise self.get_timeout_exception()
-                    else:
-                        return ret
 
             return ret
 
