@@ -1920,7 +1920,8 @@ class IPDB(object):
         '''
         with self.exclusive:
             self._stop = True
-            self.nl.put({'index': 1}, RTM_GETLINK)
+            for _ in range(3):
+                self.nl.put({'index': 1}, RTM_GETLINK)
             self._mthread.join()
             self.nl.release()
 
