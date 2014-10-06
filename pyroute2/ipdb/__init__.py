@@ -1797,7 +1797,7 @@ class IPDB(object):
                                 cert=cert,
                                 ca=ca,
                                 fork=fork)
-        self.nl.s.monitor = True
+        self.nl.monitor = True
         self.mode = mode
         self.iclass = iclass
         self._stop = False

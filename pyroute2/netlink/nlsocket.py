@@ -24,6 +24,7 @@ from pyroute2.netlink import NetlinkHeaderDecodeError
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NETLINK_GENERIC
+from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_MULTI
 from pyroute2.netlink import NLM_F_REQUEST
 
@@ -199,6 +200,7 @@ class NetlinkSocket(socket):
         # 8<-----------------------------------------
         # PID init is here only for compatibility,
         # later it will be completely moved to bind()
+        self.addr_pool = AddrPool(minaddr=0xff)
         self.epid = None
         self.port = 0
         self.fixed = True
@@ -223,6 +225,11 @@ class NetlinkSocket(socket):
         # 8<-----------------------------------------
         self.groups = 0
         self.marshal = Marshal()
+
+    def release(self):
+        logging.warning("The `release()` call is deprecated")
+        logging.warning("Use `close()` instead")
+        self.close()
 
     def register_callback(self, callback,
                           predicate=lambda e, x: True, args=None):
@@ -636,6 +643,33 @@ class NetlinkSocket(socket):
                     # 8<-------------------------------------------------------
 
             return ret
+
+    def nlm_request(self, msg, msg_type,
+                    msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+                    terminate=None):
+        msg_seq = self.addr_pool.alloc()
+        with self.lock[msg_seq]:
+            try:
+                self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
+                ret = self.get(msg_seq=msg_seq, terminate=terminate)
+                return ret
+            except:
+                print(msg_type, msg_flags, msg)
+                raise
+            finally:
+                # Ban this msg_seq for 5 rounds
+                #
+                # It's a long story. Modern kernels for RTM_SET.* operations
+                # always return NLMSG_ERROR(0) == success, even not setting
+                # NLM_F_MULTY flag on other response messages and thus w/o
+                # any NLMSG_DONE. So, how to detect the response end? One
+                # can not rely on NLMSG_ERROR on old kernels, but we have to
+                # support them too. Ty, we just ban msg_seq for several rounds,
+                # and NLMSG_ERROR, being received, will become orphaned and
+                # just dropped.
+                #
+                # Hack, but true.
+                self.addr_pool.free(msg_seq, ban=5)
 
     def close(self):
         '''

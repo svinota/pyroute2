@@ -48,7 +48,6 @@ from socket import htons
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
-from pyroute2.common import AddrPool
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC
 from pyroute2.netlink import NLM_F_ROOT
@@ -155,7 +154,7 @@ def transform_handle(handle):
     return handle
 
 
-class IPRoute(object):
+class IPRoute(IPRSocket):
     '''
     You can think of this class in some way as of plain old iproute2
     utility.
@@ -261,54 +260,8 @@ class IPRoute(object):
     '''
 
     def __init__(self, *argv, **kwarg):
-        self.s = IPRSocket()
-        self.addr_pool = AddrPool(minaddr=0xff)
-        self.s.bind()
-
-    def put(self, *argv, **kwarg):
-        return self.s.put(*argv, **kwarg)
-
-    def get(self, *argv, **kwarg):
-        return self.s.get(*argv, **kwarg)
-
-    def requeue(self, msgs, msg_seq=0):
-        self.s.requeue(msgs, msg_seq)
-
-    def release(self):
-        self.s.close()
-
-    def nlm_request(self, msg, msg_type,
-                    msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-                    terminate=None):
-        msg_seq = self.addr_pool.alloc()
-        with self.s.lock[msg_seq]:
-            try:
-                self.s.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
-                ret = self.s.get(msg_seq=msg_seq, terminate=terminate)
-                return ret
-            except:
-                print(msg_type, msg_flags, msg)
-                raise
-            finally:
-                # Ban this msg_seq for 5 rounds
-                #
-                # It's a long story. Modern kernels for RTM_SET.* operations
-                # always return NLMSG_ERROR(0) == success, even not setting
-                # NLM_F_MULTY flag on other response messages and thus w/o
-                # any NLMSG_DONE. So, how to detect the response end? One
-                # can not rely on NLMSG_ERROR on old kernels, but we have to
-                # support them too. Ty, we just ban msg_seq for several rounds,
-                # and NLMSG_ERROR, being received, will become orphaned and
-                # just dropped.
-                #
-                # Hack, but true.
-                self.addr_pool.free(msg_seq, ban=5)
-
-    def register_callback(self, *argv, **kwarg):
-        return self.s.register_callback(*argv, **kwarg)
-
-    def unregister_callback(self, *argv, **kwarg):
-        return self.s.unregister_callback(*argv, **kwarg)
+        IPRSocket.__init__(self)
+        self.bind()
 
     # 8<---------------------------------------------------------------
     #
