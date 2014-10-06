@@ -196,6 +196,7 @@ import os
 import uuid
 import time
 import socket
+import logging
 import traceback
 import threading
 
@@ -1067,7 +1068,6 @@ class Interface(Transactional):
         changes directly into the interface data.
         '''
         with self._direct_state:
-            print("LOAD %s" % (self['ifname']))
             self._exists = True
             self.nlmsg = dev
             for (name, value) in dev.items():
@@ -1226,7 +1226,6 @@ class Interface(Transactional):
 
             # if the interface does not exist, create it first ;)
             if not self._exists:
-                print("CREATE")
                 request = IPLinkRequest(self.filter('common'))
                 self.ipdb._links_event.clear()
 
@@ -1760,7 +1759,6 @@ class Watchdog(object):
                 if (msg.get(key, None) != kwarg[key]) and \
                         (msg.get_attr(msg.name2nla(key)) != kwarg[key]):
                     return
-            print("set wd for %s" % (action))
             self.event.set()
         self.cb = cb
         # register callback prior to other things
@@ -2120,13 +2118,9 @@ class IPDB(object):
         '''
         while not self._stop:
             try:
-                print("GET")
                 messages = self.nl.get()
-                print("DONE")
             except:
-                import time
-                import traceback
-                traceback.print_exc()
+                logging.warning(traceback.format_exc())
                 time.sleep(3)
                 continue
             for msg in messages:

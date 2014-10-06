@@ -453,7 +453,6 @@ class NetlinkSocket(socket):
         ctime = time.time()
 
         with self.lock[msg_seq]:
-            # print("have lock")
             if bufsize == -1:
                 # get bufsize from the network data
                 bufsize = struct.unpack("I", self.recv(4, MSG_PEEK))[0]
