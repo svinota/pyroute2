@@ -11,6 +11,7 @@ class AddrPool(object):
         self.cell_size = 0  # in bits
         mx = self.cell
         self.reverse = reverse
+        self.ban = []
         while mx:
             mx >>= 8
             self.cell_size += 1
@@ -25,6 +26,14 @@ class AddrPool(object):
 
     def alloc(self):
         with self.lock:
+            # gc self.ban:
+            for item in tuple(self.ban):
+                if item['counter'] == 0:
+                    self.free(item['addr'])
+                    self.ban.remove(item)
+                else:
+                    item['counter'] -= 1
+
             # iterate through addr_map
             base = 0
             for cell in self.addr_map:
@@ -58,16 +67,20 @@ class AddrPool(object):
             else:
                 raise KeyError('no free address available')
 
-    def free(self, addr):
+    def free(self, addr, ban=0):
         with self.lock:
-            if self.reverse:
-                addr = self.maxaddr - addr
+            if ban != 0:
+                self.ban.append({'addr': addr,
+                                 'counter': ban})
             else:
-                addr -= self.minaddr
-            base = addr // self.cell_size
-            bit = addr % self.cell_size
-            if len(self.addr_map) <= base:
-                raise KeyError('address is not allocated')
-            if self.addr_map[base] & (1 << bit):
-                raise KeyError('address is not allocated')
-            self.addr_map[base] ^= 1 << bit
+                if self.reverse:
+                    addr = self.maxaddr - addr
+                else:
+                    addr -= self.minaddr
+                base = addr // self.cell_size
+                bit = addr % self.cell_size
+                if len(self.addr_map) <= base:
+                    raise KeyError('address is not allocated')
+                if self.addr_map[base] & (1 << bit):
+                    raise KeyError('address is not allocated')
+                self.addr_map[base] ^= 1 << bit
