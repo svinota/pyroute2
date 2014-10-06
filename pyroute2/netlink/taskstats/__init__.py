@@ -112,7 +112,10 @@ class taskstatsmsg(genlmsg):
 class TaskStats(GenericNetlinkSocket):
 
     def __init__(self):
-        GenericNetlinkSocket.__init__(self, 'TASKSTATS', taskstatsmsg)
+        GenericNetlinkSocket.__init__(self)
+
+    def bind(self):
+        GenericNetlinkSocket.bind(self, 'TASKSTATS', taskstatsmsg)
 
     def get_pid_stat(self, pid):
         '''
