@@ -1922,11 +1922,9 @@ class IPDB(object):
         '''
         with self.exclusive:
             self._stop = True
-            print("put getlink")
             self.nl.put({'index': 1}, RTM_GETLINK)
-            print("join")
             self._mthread.join()
-            print("release done")
+            self.nl.release()
 
     def create(self, kind, ifname, reuse=False, **kwarg):
         '''
