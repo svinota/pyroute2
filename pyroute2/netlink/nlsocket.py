@@ -1,6 +1,9 @@
 import io
 import os
+import time
 import struct
+import logging
+import traceback
 import threading
 
 from socket import AF_NETLINK
@@ -11,7 +14,7 @@ from socket import SO_RCVBUF
 from socket import socket
 from socket import error as SocketError
 
-from pyroute2.iocore.addrpool import AddrPool  # FIXME: move to common
+from pyroute2.common import AddrPool
 from pyroute2.common import DEFAULT_RCVBUF
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import mtypes
@@ -19,7 +22,9 @@ from pyroute2.netlink import NetlinkError
 from pyroute2.netlink import NetlinkDecodeError
 from pyroute2.netlink import NetlinkHeaderDecodeError
 from pyroute2.netlink import NLMSG_ERROR
+from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NETLINK_GENERIC
+from pyroute2.netlink import NLM_F_MULTI
 from pyroute2.netlink import NLM_F_REQUEST
 
 
@@ -128,6 +133,60 @@ sockets = AddrPool(minaddr=0x0,
 # 8<-----------------------------------------------------------
 
 
+class LockProxy(object):
+
+    def __init__(self, factory, key):
+        self.factory = factory
+        self.refcount = 0
+        self.key = key
+        self.internal = threading.Lock()
+        self.lock = factory.klass()
+
+    def acquire(self, *argv, **kwarg):
+        with self.internal:
+            self.refcount += 1
+            return self.lock.acquire()
+
+    def release(self):
+        with self.internal:
+            self.refcount -= 1
+            if (self.refcount == 0) and (self.key != 0):
+                try:
+                    del self.factory.locks[self.key]
+                except KeyError:
+                    pass
+            return self.lock.release()
+
+    def __enter__(self):
+        self.acquire()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.release()
+
+
+class LockFactory(object):
+
+    def __init__(self, klass=threading.RLock):
+        self.klass = klass
+        self.locks = {0: LockProxy(self, 0)}
+
+    def __enter__(self):
+        self.locks[0].acquire()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.locks[0].release()
+
+    def __getitem__(self, key):
+        if key is None:
+            key = 0
+        if key not in self.locks:
+            self.locks[key] = LockProxy(self, key)
+        return self.locks[key]
+
+    def __delitem__(self, key):
+        del self.locks[key]
+
+
 class NetlinkSocket(socket):
     '''
     Generic netlink socket
@@ -143,8 +202,16 @@ class NetlinkSocket(socket):
         self.epid = None
         self.port = 0
         self.fixed = True
-        self.backlog = {}
-        self.lock = threading.Lock()
+        self.backlog = {0: []}
+        self.requests = {}
+        self.monitor = False
+        self.callbacks = []     # [(predicate, callback, args), ...]
+        self.backlog_lock = threading.Lock()
+        self.read_lock = threading.Lock()
+        self.request_lock = threading.Lock()
+        self.lock = LockFactory()
+        self.get_timeout = 3
+        self.get_timeout_exception = None
         if pid is None:
             self.pid = os.getpid() & 0x3fffff
             self.port = port
@@ -156,6 +223,56 @@ class NetlinkSocket(socket):
         # 8<-----------------------------------------
         self.groups = 0
         self.marshal = Marshal()
+
+    def register_callback(self, callback,
+                          predicate=lambda e, x: True, args=None):
+        '''
+        Register a callback to run on a message arrival.
+
+        Callback is the function that will be called with the
+        message as the first argument. Predicate is the optional
+        callable object, that returns True or False. Upon True,
+        the callback will be called. Upon False it will not.
+        Args is a list or tuple of arguments.
+
+        Simplest example, assume ipr is the IPRoute() instance::
+
+            # create a simplest callback that will print messages
+            def cb(env, msg):
+                print(msg)
+
+            # register callback for any message:
+            ipr.register_callback(cb)
+
+        More complex example, with filtering::
+
+            # Set object's attribute after the message key
+            def cb(env, msg, obj):
+                obj.some_attr = msg["some key"]
+
+            # Register the callback only for the loopback device, index 1:
+            ipr.register_callback(cb,
+                                  lambda e, x: x.get('index', None) == 1,
+                                  (self, ))
+
+        Please note: you do **not** need to register the default 0 queue
+        to invoke callbacks on broadcast messages. Callbacks are
+        iterated **before** messages get enqueued.
+        '''
+        if args is None:
+            args = []
+        self.callbacks.append((predicate, callback, args))
+
+    def unregister_callback(self, callback):
+        '''
+        Remove the first reference to the function from the callback
+        register
+        '''
+        cb = tuple(self.callbacks)
+        for cr in cb:
+            if cr[1] == callback:
+                self.callbacks.pop(cb.index(cr))
+                return
 
     def register_policy(self, policy, msg_class=None):
         '''
@@ -297,7 +414,11 @@ class NetlinkSocket(socket):
         To fix that, use `msg_seq` -- the response must contain the
         same `msg['header']['sequence_number']` value.
         '''
-        with self.lock:
+        if msg_seq != 0:
+            self.lock[msg_seq].acquire()
+        try:
+            if msg_seq not in self.backlog:
+                self.backlog[msg_seq] = []
             msg_class = self.marshal.msg_map[msg_type]
             if msg_pid is None:
                 msg_pid = os.getpid()
@@ -308,8 +429,13 @@ class NetlinkSocket(socket):
             msg['header']['pid'] = msg_pid
             msg.encode()
             self.sendto(msg.buf.getvalue(), addr)
+        except:
+            raise
+        finally:
+            if msg_seq != 0:
+                self.lock[msg_seq].release()
 
-    def get(self, bufsize=DEFAULT_RCVBUF, msg_seq=None):
+    def get(self, bufsize=DEFAULT_RCVBUF, msg_seq=0, terminate=None):
         '''
         Get parsed messages list. If `msg_seq` is given, return
         only messages with that `msg['header']['sequence_number']`,
@@ -324,7 +450,10 @@ class NetlinkSocket(socket):
         * 0: bufsize will be calculated from SO_RCVBUF sockopt
         * int >= 0: just a bufsize
         '''
-        with self.lock:
+        ctime = time.time()
+
+        with self.lock[msg_seq]:
+            # print("have lock")
             if bufsize == -1:
                 # get bufsize from the network data
                 bufsize = struct.unpack("I", self.recv(4, MSG_PEEK))[0]
@@ -333,42 +462,175 @@ class NetlinkSocket(socket):
                 bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
 
             ret = []
-            while not ret:
-                if msg_seq is None and self.backlog:
-                    # load backlog, if there is valid
+            enough = True
+            while not enough or not ret:
+                # 8<-----------------------------------------------------------
+                #
+                # This stage changes the backlog, so use mutex to
+                # prevent side changes
+                self.backlog_lock.acquire()
+                ##
+                # Stage 1. BEGIN
+                #
+                # 8<-----------------------------------------------------------
+                #
+                # Check backlog and return already collected
+                # messages.
+                #
+                if msg_seq == 0 and self.backlog[0]:
+                    # Zero queue.
+                    #
+                    # Load the backlog, if there is valid
                     # content in it
-                    for key in tuple(self.backlog):
-                        ret.extend(self.backlog[key])
-                        del self.backlog[key]
-                elif msg_seq in self.backlog:
-                    ret.extend(self.backlog[msg_seq])
-                    del self.backlog[msg_seq]
-                    # now, if `ret` is not empty, the
-                    # routine will exit (`while not ret`)
-                else:
-                    # if we are still missing messages to
-                    # return, wait for them on the socket
-                    data = io.BytesIO()
-                    data.length = data.write(self.recv(bufsize))
-                    msgs = self.marshal.parse(data, self)
+                    ret.extend(self.backlog[0])
+                    self.backlog[0] = []
+                    # Next iteration
+                    self.backlog_lock.release()
+                elif self.backlog.get(msg_seq, None):
+                    # Any other msg_seq.
+                    #
+                    # Collect messages up to the terminator.
+                    # Terminator conditions:
+                    #  * NLMSG_ERROR != 0
+                    #  * NLMSG_DONE
+                    #  * terminate() function (if defined)
+                    #  * not NLM_F_MULTI
+                    #
+                    # Please note, that if terminator not occured,
+                    # more `recv()` rounds CAN be required.
+                    for msg in tuple(self.backlog[msg_seq]):
 
-                    # we have here a list of messages from
-                    # the socket
-                    if msg_seq is None:
-                        # if all messages are requested, just
-                        # extend the return list
-                        ret.extend(msgs)
-                    else:
-                        # else -- save all into the backlog and
-                        # return only the required sequence number
+                        # Drop the message from the backlog, if any
+                        self.backlog[msg_seq].remove(msg)
+
+                        # If there is an error, raise exception
+                        if msg['header'].get('error', None) is not None:
+                            self.backlog[0].extend(self.backlog[msg_seq])
+                            del self.backlog[msg_seq]
+                            # The loop is done
+                            self.backlog_lock.release()
+                            raise msg['header']['error']
+
+                        # If it is the terminator message, say "enough"
+                        # and requeue all the rest into Zero queue
+                        if (msg['header']['type'] == NLMSG_DONE) or \
+                                (terminate is not None and terminate(msg)):
+                            enough = True
+                            self.backlog[0].extend(self.backlog[msg_seq])
+                            del self.backlog[msg_seq]
+                            # The loop is done
+                            break
+
+                        # Just a normal message, append it to the response
+                        ret.append(msg)
+
+                        if msg['header']['flags'] & NLM_F_MULTI:
+                            # If it is NLM_F_MULTY, clear the "enough" flag
+                            enough = False
+                        elif not self.backlog[msg_seq]:
+                            # Else requeue the rest and delete the queue
+                            self.backlog[0].extend(self.backlog[msg_seq])
+                            del self.backlog[msg_seq]
+
+                    # Next iteration
+                    self.backlog_lock.release()
+                else:
+                    # Stage 1. END
+                    #
+                    # 8<-------------------------------------------------------
+                    #
+                    # Stage 2. BEGIN
+                    #
+                    # 8<-------------------------------------------------------
+                    #
+                    # Receive the data from the socket and put the messages
+                    # into the backlog
+                    #
+                    self.backlog_lock.release()
+                    if self.read_lock.acquire(False):
+                        # If the socket is free to read from, occupy
+                        # it and wait for the data
+                        #
+                        # This is a time consuming process, so all the
+                        # locks, except the read lock must be released
+                        data = io.BytesIO()
+                        data.length = data.write(self.recv(bufsize))
+                        msgs = self.marshal.parse(data, self)
+
+                        # We've got the data, lock the backlog again
+                        self.backlog_lock.acquire()
+                        seqs = set()
                         for msg in msgs:
                             seq = msg['header']['sequence_number']
-                            if seq == msg_seq:
-                                ret.append(msg)
+                            if seq not in self.backlog:
+                                if msg['header']['type'] == NLMSG_ERROR:
+                                    # Drop orphaned NLMSG_ERROR messages
+                                    continue
+                                seq = 0
                             else:
-                                if seq not in self.backlog:
-                                    self.backlog[seq] = []
-                                self.backlog[seq].append(msg)
+                                # Collect msg_seq values to wake other
+                                # requests, when all the messages were
+                                # read and stored into the backlog
+                                seqs.add(seq)
+                            # 8<-----------------------------------------------
+                            # Callbacks section
+                            for cr in self.callbacks:
+                                try:
+                                    if cr[0](msg):
+                                        cr[1](msg, *cr[2])
+                                except:
+                                    logging.warning("Callback fail: %s" % (cr))
+                                    logging.warning(traceback.format_exc())
+                            # 8<-----------------------------------------------
+                            self.backlog[seq].append(msg)
+                            # Monitor mode:
+                            if self.monitor and seq != 0:
+                                seqs.add(0)
+                                self.backlog[0].append(msg)
+                        # We finished with the backlog, so release the lock
+                        self.backlog_lock.release()
+                        # Now iterate requests and wake up other threads
+                        with self.request_lock:
+                            for seq in seqs:
+                                if seq in self.requests:
+                                    # There will be no request for non-zero
+                                    # seq, if seq == msg_seq (our call)
+                                    self.requests[seq].set()
+                                    del self.requests[seq]
+
+                        # Finally, release the read lock: all data processed
+                        self.read_lock.release()
+                    else:
+                        # If the socket is occupied and there is still no
+                        # data for us, leave the request for the msg_seq
+                        self.request_lock.acquire()
+                        self.backlog_lock.acquire()
+                        if msg_seq not in self.backlog:
+                            request = threading.Event()
+                            self.requests[msg_seq] = request
+                            self.backlog_lock.release()
+                            self.request_lock.release()
+                            # Release mutexes BEFORE wait for the event
+                            request.wait()
+                        else:
+                            # Or just go and collect the data from the backlog
+                            self.backlog_lock.release()
+                            self.request_lock.release()
+                    # 8<-------------------------------------------------------
+                    #
+                    # Stage 2. END
+                    #
+                    # 8<-------------------------------------------------------
+                ##
+                #
+                # Control the timeout. We should not be within the function
+                # more than TIMEOUT seconds. All the lock must be release here.
+                if time.time() - ctime > self.get_timeout:
+                    if self.get_timeout_exception:
+                        raise self.get_timeout_exception()
+                    else:
+                        return ret
+
             return ret
 
     def close(self):

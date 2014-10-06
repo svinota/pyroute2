@@ -48,6 +48,7 @@ from socket import htons
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
+from pyroute2.common import AddrPool
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC
 from pyroute2.netlink import NLM_F_ROOT
@@ -57,9 +58,6 @@ from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NLM_F_EXCL
-from pyroute2.netlink import NETLINK_ROUTE
-from pyroute2.netlink.client import Netlink
-from pyroute2.netlink.rtnl import RTNL_GROUPS
 from pyroute2.netlink.rtnl import RTM_NEWADDR
 from pyroute2.netlink.rtnl import RTM_GETADDR
 from pyroute2.netlink.rtnl import RTM_DELADDR
@@ -92,7 +90,6 @@ from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rtprotos
 from pyroute2.netlink.rtnl import rtypes
 from pyroute2.netlink.rtnl import rtscopes
-from pyroute2.netlink.rtnl import MarshalRtnl
 from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_htb_class_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
@@ -107,6 +104,7 @@ from pyroute2.netlink.rtnl.brmsg import brmsg
 from pyroute2.netlink.rtnl.bomsg import bomsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink.rtnl import IPRSocket
 
 from pyroute2.common import basestring
 
@@ -157,7 +155,7 @@ def transform_handle(handle):
     return handle
 
 
-class IPRoute(Netlink):
+class IPRoute(object):
     '''
     You can think of this class in some way as of plain old iproute2
     utility.
@@ -261,9 +259,56 @@ class IPRoute(Netlink):
     Sometimes it can become an overkill for simple projects, in
     these cases consider usage of IPRSocket.
     '''
-    marshal = MarshalRtnl
-    family = NETLINK_ROUTE
-    groups = RTNL_GROUPS
+
+    def __init__(self, *argv, **kwarg):
+        self.s = IPRSocket()
+        self.addr_pool = AddrPool(minaddr=0xff)
+        self.s.bind()
+
+    def put(self, *argv, **kwarg):
+        return self.s.put(*argv, **kwarg)
+
+    def get(self, *argv, **kwarg):
+        return self.s.get(*argv, **kwarg)
+
+    def requeue(self, msgs, msg_seq=0):
+        self.s.requeue(msgs, msg_seq)
+
+    def release(self):
+        self.s.close()
+
+    def nlm_request(self, msg, msg_type,
+                    msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+                    terminate=None):
+        msg_seq = self.addr_pool.alloc()
+        with self.s.lock[msg_seq]:
+            try:
+                self.s.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
+                ret = self.s.get(msg_seq=msg_seq, terminate=terminate)
+                return ret
+            except:
+                print(msg_type, msg_flags, msg)
+                raise
+            finally:
+                # Ban this msg_seq for 5 rounds
+                #
+                # It's a long story. Modern kernels for RTM_SET.* operations
+                # always return NLMSG_ERROR(0) == success, even not setting
+                # NLM_F_MULTY flag on other response messages and thus w/o
+                # any NLMSG_DONE. So, how to detect the response end? One
+                # can not rely on NLMSG_ERROR on old kernels, but we have to
+                # support them too. Ty, we just ban msg_seq for several rounds,
+                # and NLMSG_ERROR, being received, will become orphaned and
+                # just dropped.
+                #
+                # Hack, but true.
+                self.addr_pool.free(msg_seq, ban=5)
+
+    def register_callback(self, *argv, **kwarg):
+        return self.s.register_callback(*argv, **kwarg)
+
+    def unregister_callback(self, *argv, **kwarg):
+        return self.s.unregister_callback(*argv, **kwarg)
 
     # 8<---------------------------------------------------------------
     #
@@ -488,14 +533,11 @@ class IPRoute(Netlink):
         '''
         flags = NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST
         ret = []
-        debug = self.debug
-        self.debug = True
         kwarg['table'] = kwarg.get('table', DEFAULT_TABLE)
         for route in self.get_routes(*argv, **kwarg):
             ret.append(self.nlm_request(route,
                                         msg_type=RTM_DELROUTE,
                                         msg_flags=flags))
-        self.debug = debug
         return ret
     # 8<---------------------------------------------------------------
 
