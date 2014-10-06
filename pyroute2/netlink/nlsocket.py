@@ -616,17 +616,19 @@ class NetlinkSocket(socket):
                         # data for us, leave the request for the msg_seq
                         self.request_lock.acquire()
                         self.backlog_lock.acquire()
-                        if msg_seq not in self.backlog:
+                        if self.backlog.get(msg_seq, None):
+                            # Just go and collect the data from the backlog,
+                            # if there is anything to collect
+                            self.backlog_lock.release()
+                            self.request_lock.release()
+                        else:
+                            # Or leave the request
                             request = threading.Event()
                             self.requests[msg_seq] = request
                             self.backlog_lock.release()
                             self.request_lock.release()
                             # Release mutexes BEFORE wait for the event
                             request.wait()
-                        else:
-                            # Or just go and collect the data from the backlog
-                            self.backlog_lock.release()
-                            self.request_lock.release()
                     # 8<-------------------------------------------------------
                     #
                     # Stage 2. END
