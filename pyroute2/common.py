@@ -10,8 +10,6 @@ import threading
 import traceback
 
 from socket import AF_INET
-from socket import SO_RCVBUF
-from socket import SOL_SOCKET
 from socket import inet_pton
 from socket import inet_ntop
 from socket import inet_aton
@@ -211,51 +209,6 @@ def hexdump(payload, length=0):
     else:
         return ':'.join('{0:02x}'.format(ord(c))
                         for c in payload[:length] or payload)
-
-
-class PipeSocket(object):
-    '''
-    Socket-like object for one-system IPC.
-
-    It is netlink-specific, since relies on length value
-    provided in the first four bytes of each message.
-    '''
-
-    family = AF_PIPE
-
-    def __init__(self, rfd, wfd):
-        self.rfd = rfd
-        self.wfd = wfd
-        # DEFAULT_RCVBUF * 2: see man 7 socket
-        self.options = {SOL_SOCKET: {SO_RCVBUF: DEFAULT_RCVBUF * 2}}
-
-    def send(self, data):
-        return os.write(self.wfd, data)
-
-    def sendto(self, data, addr):
-        return self.send(data)
-
-    def recv(self, length=0, flags=0):
-        ret = os.read(self.rfd, 4)
-        length = struct.unpack('I', ret)[0]
-        ret += os.read(self.rfd, length - 4)
-        return ret
-
-    def getsockname(self):
-        return self.rfd, self.wfd
-
-    def getsockopt(self, level, option):
-        try:
-            return self.options[level][option]
-        except KeyError:
-            raise NotImplementedError()
-
-    def fileno(self):
-        return self.rfd
-
-    def close(self):
-        os.close(self.rfd)
-        os.close(self.wfd)
 
 
 class AddrPool(object):
