@@ -193,10 +193,11 @@ and `vlan` interfaces. VLAN creation requires also `link` and
 
 '''
 import os
-import sys
 import uuid
 import time
 import socket
+import logging
+import traceback
 import threading
 
 from socket import AF_UNSPEC
@@ -205,11 +206,11 @@ from socket import AF_INET6
 from pyroute2.common import dqn2int
 from pyroute2.common import Dotkeys
 from pyroute2.common import basestring
-from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NetlinkError
 from pyroute2.ipdb import compat
 from pyroute2.iproute import IFF_MASK
 from pyroute2.iproute import IPRoute
+from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
@@ -821,41 +822,43 @@ class Transactional(Dotkeys):
 
     @update
     def __setitem__(self, direct, key, value):
-        if not direct:
-            # automatically set target on the last transaction,
-            # which must be started prior to that call
-            transaction = self.last()
-            transaction[key] = value
-            transaction._targets[key] = threading.Event()
-        else:
-            # set the item
-            Dotkeys.__setitem__(self, key, value)
+        with self._write_lock:
+            if not direct:
+                # automatically set target on the last transaction,
+                # which must be started prior to that call
+                transaction = self.last()
+                transaction[key] = value
+                transaction._targets[key] = threading.Event()
+            else:
+                # set the item
+                Dotkeys.__setitem__(self, key, value)
 
-            # update on local targets
-            if key in self._local_targets:
-                func = self._fields_cmp.get(key, lambda x, y: x == y)
-                if func(value, self._local_targets[key].value):
-                    self._local_targets[key].set()
+                # update on local targets
+                if key in self._local_targets:
+                    func = self._fields_cmp.get(key, lambda x, y: x == y)
+                    if func(value, self._local_targets[key].value):
+                        self._local_targets[key].set()
 
-            # cascade update on nested targets
-            for tn in tuple(self._transactions.values()):
-                if (key in tn._targets) and (key in tn):
-                    if self._fields_cmp.\
-                            get(key, lambda x, y: x == y)(value, tn[key]):
-                        tn._targets[key].set()
+                # cascade update on nested targets
+                for tn in tuple(self._transactions.values()):
+                    if (key in tn._targets) and (key in tn):
+                        if self._fields_cmp.\
+                                get(key, lambda x, y: x == y)(value, tn[key]):
+                            tn._targets[key].set()
 
     @update
     def __delitem__(self, direct, key):
-        # firstly set targets
-        self[key] = None
+        with self._write_lock:
+            # firstly set targets
+            self[key] = None
 
-        # then continue with delete
-        if not direct:
-            transaction = self.last()
-            if key in transaction:
-                del transaction[key]
-        else:
-            Dotkeys.__delitem__(self, key)
+            # then continue with delete
+            if not direct:
+                transaction = self.last()
+                if key in transaction:
+                    del transaction[key]
+            else:
+                Dotkeys.__delitem__(self, key)
 
     def option(self, key, value):
         self[key] = value
@@ -1040,9 +1043,9 @@ class Interface(Transactional):
         '''
         with self._direct_state:
             dev = self.nl.get_bridge(self['index'], self['ifname'])[0]
-            attrs = dev.get_attr('IFBO_COMMANDS',
+            attrs = dev.get_attr('IFBR_COMMANDS',
                                  {'attrs': []}).get('attrs', [])
-            for (name, value) in attrs:
+            for (name, value) in [x[:2] for x in attrs]:
                 norm = brmsg.nla2name(name)
                 self[norm] = value
 
@@ -1053,7 +1056,7 @@ class Interface(Transactional):
             dev = self.nl.get_bond(self['index'], self['ifname'])[0]
             attrs = dev.get_attr('IFBO_COMMANDS',
                                  {'attrs': []}).get('attrs', [])
-            for (name, value) in attrs:
+            for (name, value) in [x[:2] for x in attrs]:
                 norm = bomsg.nla2name(name)
                 self[norm] = value
 
@@ -1185,17 +1188,15 @@ class Interface(Transactional):
         '''
         Reload interface information
         '''
-        self._load_event.clear()
-        for i in range(3):
-            try:
-                self.nl.get_links(self['index'])
+        countdown = 3
+        while countdown:
+            links = self.nl.get_links(self['index'])
+            if links:
+                self.load_netlink(links[0])
                 break
-            except NetlinkError as e:
-                if e.code != 22:  # Invalid argument, try again
-                    raise
-            except TimeoutError:
-                raise IOError('lost netlink connection')
-        self._load_event.wait(_SYNC_TIMEOUT)
+            else:
+                countdown -= 1
+                time.sleep(1)
         return self
 
     def filter(self, ftype):
@@ -1283,6 +1284,9 @@ class Interface(Transactional):
                 self['ipaddr'].set_target(transaction['ipaddr'])
 
                 for i in removed['ipaddr']:
+                    # Ignore link-local IPv6 addresses
+                    if i[0][:4] == 'fe80' and i[1] == 64:
+                        continue
                     # When you remove a primary IP addr, all subnetwork
                     # can be removed. In this case you will fail, but
                     # it is OK, no need to roll back
@@ -1298,6 +1302,9 @@ class Interface(Transactional):
                             raise
 
                 for i in added['ipaddr']:
+                    # Ignore link-local IPv6 addresses
+                    if i[0][:4] == 'fe80' and i[1] == 64:
+                        continue
                     self.nl.addr('add', self['index'], i[0], i[1])
 
                     # 8<--------------------------------------
@@ -1477,10 +1484,12 @@ class Interface(Transactional):
                         error = ret
                     else:
                         error = e
+                        error.traceback = traceback.format_exc()
                 elif isinstance(e, NetlinkError) and \
                         getattr(e, 'code', 0) == 1:
                     # It is <Operation not permitted>, catched in
                     # rollback. So return it -- see ~5 lines above
+                    e.traceback = traceback.format_exc()
                     return e
                 else:
                     # somethig went wrong during automatic rollback.
@@ -1502,6 +1511,7 @@ class Interface(Transactional):
                     self.nl.get_addr()
                     x = RuntimeError()
                     x.cause = e
+                    x.traceback = traceback.format_exc()
                     raise x
 
             # if it is not a rollback turn
@@ -1787,6 +1797,7 @@ class IPDB(object):
                                 cert=cert,
                                 ca=ca,
                                 fork=fork)
+        self.nl.monitor = True
         self.mode = mode
         self.iclass = iclass
         self._stop = False
@@ -1809,12 +1820,6 @@ class IPDB(object):
         self._links_event = threading.Event()
         self.exclusive = threading.RLock()
 
-        # we have to move it here 'cause of stupid
-        # python bug in RHEL6.5, that is yet to be
-        # investigated
-        self.nl.monitor()
-        self.nl.mirror()
-
         # load information on startup
         links = self.nl.get_links()
         for link in links:
@@ -1827,8 +1832,8 @@ class IPDB(object):
 
         # start monitoring thread
         self._mthread = threading.Thread(target=self.serve_forever)
-        if hasattr(sys, 'ps1'):
-            self._mthread.setDaemon(True)
+        # if hasattr(sys, 'ps1'):
+        self._mthread.setDaemon(True)
         self._mthread.start()
 
     def __enter__(self):
@@ -1915,9 +1920,10 @@ class IPDB(object):
         '''
         with self.exclusive:
             self._stop = True
-            self.nl.get_links()
-            self.nl.release()
+            for _ in range(3):
+                self.nl.put({'index': 1}, RTM_GETLINK)
             self._mthread.join()
+            self.nl.release()
 
     def create(self, kind, ifname, reuse=False, **kwarg):
         '''
@@ -2115,6 +2121,8 @@ class IPDB(object):
             try:
                 messages = self.nl.get()
             except:
+                logging.warning(traceback.format_exc())
+                time.sleep(3)
                 continue
             for msg in messages:
                 # run pre-callbacks

@@ -57,9 +57,6 @@ from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NLM_F_EXCL
-from pyroute2.netlink import NETLINK_ROUTE
-from pyroute2.netlink.client import Netlink
-from pyroute2.netlink.rtnl import RTNL_GROUPS
 from pyroute2.netlink.rtnl import RTM_NEWADDR
 from pyroute2.netlink.rtnl import RTM_GETADDR
 from pyroute2.netlink.rtnl import RTM_DELADDR
@@ -92,7 +89,6 @@ from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rtprotos
 from pyroute2.netlink.rtnl import rtypes
 from pyroute2.netlink.rtnl import rtscopes
-from pyroute2.netlink.rtnl import MarshalRtnl
 from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_htb_class_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
@@ -107,6 +103,7 @@ from pyroute2.netlink.rtnl.brmsg import brmsg
 from pyroute2.netlink.rtnl.bomsg import bomsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink.rtnl import IPRSocket
 
 from pyroute2.common import basestring
 
@@ -157,7 +154,7 @@ def transform_handle(handle):
     return handle
 
 
-class IPRoute(Netlink):
+class IPRoute(IPRSocket):
     '''
     You can think of this class in some way as of plain old iproute2
     utility.
@@ -261,9 +258,10 @@ class IPRoute(Netlink):
     Sometimes it can become an overkill for simple projects, in
     these cases consider usage of IPRSocket.
     '''
-    marshal = MarshalRtnl
-    family = NETLINK_ROUTE
-    groups = RTNL_GROUPS
+
+    def __init__(self, *argv, **kwarg):
+        IPRSocket.__init__(self)
+        self.bind()
 
     # 8<---------------------------------------------------------------
     #
@@ -488,14 +486,11 @@ class IPRoute(Netlink):
         '''
         flags = NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST
         ret = []
-        debug = self.debug
-        self.debug = True
         kwarg['table'] = kwarg.get('table', DEFAULT_TABLE)
         for route in self.get_routes(*argv, **kwarg):
             ret.append(self.nlm_request(route,
                                         msg_type=RTM_DELROUTE,
                                         msg_flags=flags))
-        self.debug = debug
         return ret
     # 8<---------------------------------------------------------------
 

@@ -836,7 +836,7 @@ class nlmsg_base(dict):
         self.buf.seek(save)
 
     def setvalue(self, value):
-        if type(value) is dict:
+        if isinstance(value, dict):
             self.update(value)
         else:
             self['value'] = value

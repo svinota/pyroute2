@@ -12,12 +12,9 @@ case the packet will be silently dropped, or
 rule.
 '''
 from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import NETLINK_FIREWALL
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.nlsocket import Marshal
-from pyroute2.netlink.client import Netlink
-
 # constants
 IFNAMSIZ = 16
 IPQ_MAX_PAYLOAD = 0x800
@@ -131,45 +128,3 @@ class IPQSocket(NetlinkSocket):
         msg['header']['flags'] = NLM_F_REQUEST
         msg.encode()
         self.sendto(msg.buf.getvalue(), (0, 0))
-
-
-class IPQ(Netlink):
-    '''
-    Cluster client with the same capabilities
-    as IPQSocket, but has a transparent packet
-    buffer and can work as a part of the pyroute2
-    messaging system. Thus, it implicitly starts
-    background threads that must be stopped
-    prior to exit with `IPQ.release()`.
-    '''
-
-    family = NETLINK_FIREWALL
-    marshal = MarshalIPQ
-
-    def __init__(self, mode=IPQ_COPY_PACKET):
-        Netlink.__init__(self, pid=0)
-
-        # init IPQ
-        msg = ipq_mode_msg()
-        msg['value'] = mode
-        msg['range'] = IPQ_MAX_PAYLOAD
-        msg['header']['type'] = IPQM_MODE
-        msg['header']['flags'] = NLM_F_REQUEST
-        msg.encode()
-        self.push(msg.buf.getvalue())
-
-        # turn on monitoring
-        self.monitor()
-
-    def verdict(self, seq, v):
-        '''
-        Issue a verdict `v` for a packet `seq`.
-        '''
-        msg = ipq_verdict_msg()
-        msg['value'] = v
-        msg['id'] = seq
-        msg['data_len'] = 0
-        msg['header']['type'] = IPQM_VERDICT
-        msg['header']['flags'] = NLM_F_REQUEST
-        msg.encode()
-        self.push(msg.buf.getvalue())

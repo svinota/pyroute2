@@ -17,7 +17,7 @@ from importlib import import_module
 from queue import Queue
 
 
-class TestExamples(object):
+class _TestExamples(object):
 
     def setup(self):
         self.pwd = os.getcwd()

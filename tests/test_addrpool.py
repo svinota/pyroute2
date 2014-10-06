@@ -1,4 +1,4 @@
-from pyroute2.iocore.addrpool import AddrPool
+from pyroute2.common import AddrPool
 
 
 class TestAddrPool(object):

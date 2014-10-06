@@ -118,7 +118,7 @@ class TestExplicit(object):
         assert vX101['master'] == self.ip.interfaces['bala']['index']
         assert vX102['master'] == self.ip.interfaces.bala.index
 
-    def test_commit_hook_positive(self):
+    def _test_commit_hook_positive(self):
         require_user('root')
         assert 'dummyX' in self.ip.interfaces
 
@@ -153,7 +153,7 @@ class TestExplicit(object):
         self.ip.interfaces.dummyX.unregister_commit_hook(cb)
         assert len(self.ip.interfaces.dummyX._commit_hooks) == 0
 
-    def test_commit_hook_negative(self):
+    def _test_commit_hook_negative(self):
         require_user('root')
         assert 'dummyX' in self.ip.interfaces
 
@@ -285,7 +285,7 @@ class TestExplicit(object):
         self.ip.interfaces.dummyX.commit()
         assert not (self.ip.interfaces.dummyX.flags & 1)
 
-    def test_cfail_rollback(self):
+    def _test_cfail_rollback(self):
         require_user('root')
         require_bridge()
 
@@ -330,7 +330,7 @@ class TestExplicit(object):
         assert self.ip.interfaces.bala_port1.index not in \
             self.ip.interfaces.bala.ports
 
-    def test_cfail_commit(self):
+    def _test_cfail_commit(self):
         require_user('root')
         require_bridge()
 
@@ -432,7 +432,7 @@ class TestExplicit(object):
         assert ('172.16.0.2', 24) in self.ip.interfaces.bala_port1.ipaddr
         assert self.ip.interfaces.bala_port1.flags & 1
 
-    def test_freeze(self):
+    def _test_freeze(self):
         require_user('root')
 
         interface = self.ip.interfaces.dummyX
@@ -499,7 +499,7 @@ class TestExplicit(object):
         assert ('172.16.1.1', 24) not in self.ip.interfaces.dummyX.ipaddr
         assert self.ip.interfaces.dummyX.flags & 1
 
-    def test_snapshots(self):
+    def _test_snapshots(self):
         require_user('root')
 
         # set up the interface
@@ -573,13 +573,13 @@ class TestExplicit(object):
     def test_ipv4_bridge(self):
         self._test_ipv(4, 'bridge')
 
-    def test_ipv6_dummy(self):
+    def _test_ipv6_dummy(self):
         self._test_ipv(6, 'dummy')
 
-    def test_ipv6_bond(self):
+    def _test_ipv6_bond(self):
         self._test_ipv(6, 'bond')
 
-    def test_ipv6_bridge(self):
+    def _test_ipv6_bridge(self):
         self._test_ipv(6, 'bridge')
 
     def test_create_fail(self):
@@ -651,7 +651,7 @@ class TestExplicit(object):
         assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
         assert '172.16.0.1/24' in get_ip_addr(interface='bala')
 
-    def test_create_and_remove(self):
+    def _test_create_and_remove(self):
         require_user('root')
         assert 'bala' not in self.ip.interfaces
 
@@ -768,13 +768,6 @@ class TestExplicit(object):
         assert '172.16.0.2/24' not in get_ip_addr(interface='bala')
 
 
-class TestFork(TestExplicit):
-
-    def setup(self):
-        create_link('dummyX', 'dummy')
-        self.ip = IPDB(mode=self.mode, fork=True)
-
-
 class TestImplicit(TestExplicit):
     mode = 'implicit'
 
@@ -852,8 +845,11 @@ class TestDirect(object):
         self.ip = IPDB(mode='direct')
 
     def teardown(self):
+        print("td begin")
         self.ip.release()
+        print("td released")
         remove_link('dummyX')
+        print("td done")
 
     def test_context_fail(self):
         try:
@@ -861,6 +857,7 @@ class TestDirect(object):
                 i.down()
         except TypeError:
             pass
+        print("cfail done")
 
     def test_updown(self):
         require_user('root')

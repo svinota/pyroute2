@@ -3,7 +3,6 @@ Common utilities
 '''
 import re
 import os
-import time
 import sys
 import struct
 import logging
@@ -11,8 +10,6 @@ import threading
 import traceback
 
 from socket import AF_INET
-from socket import SO_RCVBUF
-from socket import SOL_SOCKET
 from socket import inet_pton
 from socket import inet_ntop
 from socket import inet_aton
@@ -180,62 +177,6 @@ def map_namespace(prefix, ns):
     return (by_name, by_value)
 
 
-def _fnv1_python2(data):
-    '''
-    FNV1 -- 32bit hash, python2 version
-
-    @param data: input
-    @type data: bytes
-
-    @return: 32bit int hash
-    @rtype: int
-
-    See: http://www.isthe.com/chongo/tech/comp/fnv/index.html
-    '''
-    hval = 0x811c9dc5
-    for i in range(len(data)):
-        hval *= 0x01000193
-        hval ^= struct.unpack('B', data[i])[0]
-    return hval & 0xffffffff
-
-
-def _fnv1_python3(data):
-    '''
-    FNV1 -- 32bit hash, python3 version
-
-    @param data: input
-    @type data: bytes
-
-    @return: 32bit int hash
-    @rtype: int
-
-    See: http://www.isthe.com/chongo/tech/comp/fnv/index.html
-    '''
-    hval = 0x811c9dc5
-    for i in range(len(data)):
-        hval *= 0x01000193
-        hval ^= data[i]
-    return hval & 0xffffffff
-
-
-if sys.version[0] == '3':
-    fnv1 = _fnv1_python3
-else:
-    fnv1 = _fnv1_python2
-
-
-def uuid32():
-    '''
-    Return 32bit UUID, based on the current time and pid.
-
-    @return: 32bit int uuid
-    @rtype: int
-    '''
-    return fnv1(struct.pack('QQ',
-                            int(time.time() * 1000),
-                            os.getpid()))
-
-
 def list_subnet(dqn, mask, family=AF_INET):
     '''
     List all IPs in the network
@@ -270,46 +211,86 @@ def hexdump(payload, length=0):
                         for c in payload[:length] or payload)
 
 
-class PipeSocket(object):
+class AddrPool(object):
     '''
-    Socket-like object for one-system IPC.
-
-    It is netlink-specific, since relies on length value
-    provided in the first four bytes of each message.
+    Address pool
     '''
+    cell = 0xffffffffffffffff
 
-    family = AF_PIPE
+    def __init__(self, minaddr=0xf, maxaddr=0xffffff, reverse=False):
+        self.cell_size = 0  # in bits
+        mx = self.cell
+        self.reverse = reverse
+        self.ban = []
+        while mx:
+            mx >>= 8
+            self.cell_size += 1
+        self.cell_size *= 8
+        # calculate, how many ints we need to bitmap all addresses
+        self.cells = int((maxaddr - minaddr) / self.cell_size + 1)
+        # initial array
+        self.addr_map = [self.cell]
+        self.minaddr = minaddr
+        self.maxaddr = maxaddr
+        self.lock = threading.RLock()
 
-    def __init__(self, rfd, wfd):
-        self.rfd = rfd
-        self.wfd = wfd
-        # DEFAULT_RCVBUF * 2: see man 7 socket
-        self.options = {SOL_SOCKET: {SO_RCVBUF: DEFAULT_RCVBUF * 2}}
+    def alloc(self):
+        with self.lock:
+            # gc self.ban:
+            for item in tuple(self.ban):
+                if item['counter'] == 0:
+                    self.free(item['addr'])
+                    self.ban.remove(item)
+                else:
+                    item['counter'] -= 1
 
-    def send(self, data):
-        return os.write(self.wfd, data)
+            # iterate through addr_map
+            base = 0
+            for cell in self.addr_map:
+                if cell:
+                    # not allocated addr
+                    bit = 0
+                    while True:
+                        if (1 << bit) & self.addr_map[base]:
+                            self.addr_map[base] ^= 1 << bit
+                            break
+                        bit += 1
+                    ret = (base * self.cell_size + bit)
 
-    def sendto(self, data, addr):
-        return self.send(data)
+                    if self.reverse:
+                        ret = self.maxaddr - ret
+                    else:
+                        ret = ret + self.minaddr
 
-    def recv(self, length=0, flags=0):
-        ret = os.read(self.rfd, 4)
-        length = struct.unpack('I', ret)[0]
-        ret += os.read(self.rfd, length - 4)
-        return ret
+                    if self.minaddr <= ret <= self.maxaddr:
+                        return ret
+                    else:
+                        self.free(ret)
+                        raise KeyError('no free address available')
 
-    def getsockname(self):
-        return self.rfd, self.wfd
+                base += 1
+            # no free address available
+            if len(self.addr_map) < self.cells:
+                # create new cell to allocate address from
+                self.addr_map.append(self.cell)
+                return self.alloc()
+            else:
+                raise KeyError('no free address available')
 
-    def getsockopt(self, level, option):
-        try:
-            return self.options[level][option]
-        except KeyError:
-            raise NotImplementedError()
-
-    def fileno(self):
-        return self.rfd
-
-    def close(self):
-        os.close(self.rfd)
-        os.close(self.wfd)
+    def free(self, addr, ban=0):
+        with self.lock:
+            if ban != 0:
+                self.ban.append({'addr': addr,
+                                 'counter': ban})
+            else:
+                if self.reverse:
+                    addr = self.maxaddr - addr
+                else:
+                    addr -= self.minaddr
+                base = addr // self.cell_size
+                bit = addr % self.cell_size
+                if len(self.addr_map) <= base:
+                    raise KeyError('address is not allocated')
+                if self.addr_map[base] & (1 << bit):
+                    raise KeyError('address is not allocated')
+                self.addr_map[base] ^= 1 << bit

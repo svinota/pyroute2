@@ -6,9 +6,10 @@ class TestTaskStats(object):
 
     def setup(self):
         self.ts = TaskStats()
+        self.ts.bind()
 
     def teardown(self):
-        self.ts.release()
+        self.ts.close()
 
     def test_get_pid_stat(self):
         require_user('root')

@@ -14,11 +14,10 @@ It is not implemented normally yet, but some methods are already
 usable.
 '''
 
-from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import nla
 from pyroute2.netlink import genlmsg
-from pyroute2.netlink.generic import GenericNetlink
+from pyroute2.netlink.generic import GenericNetlinkSocket
 
 TASKSTATS_CMD_UNSPEC = 0      # Reserved
 TASKSTATS_CMD_GET = 1         # user->kernel request/get-response
@@ -110,10 +109,13 @@ class taskstatsmsg(genlmsg):
         pass
 
 
-class TaskStats(GenericNetlink):
+class TaskStats(GenericNetlinkSocket):
 
     def __init__(self):
-        GenericNetlink.__init__(self, 'TASKSTATS', taskstatsmsg)
+        GenericNetlinkSocket.__init__(self)
+
+    def bind(self):
+        GenericNetlinkSocket.bind(self, 'TASKSTATS', taskstatsmsg)
 
     def get_pid_stat(self, pid):
         '''
@@ -132,14 +134,10 @@ class TaskStats(GenericNetlink):
         msg['cmd'] = TASKSTATS_CMD_GET
         msg['version'] = 1
         msg['attrs'].append([cmd, mask])
-        try:
-            # there is no response to this request
-            self.nlm_request(msg,
-                             self.prid,
-                             msg_flags=NLM_F_REQUEST,
-                             response_timeout=0.1)
-        except TimeoutError:
-            pass
+        # there is no response to this request
+        self.put(msg,
+                 self.prid,
+                 msg_flags=NLM_F_REQUEST)
 
     def register_mask(self, mask):
         '''

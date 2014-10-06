@@ -3,7 +3,7 @@ from utils import require_user
 from pyroute2.netlink.nlsocket import NetlinkSocket
 
 
-class TestNL(object):
+class _TestNL(object):
 
     def test_ports_auto(self):
         # create two sockets
