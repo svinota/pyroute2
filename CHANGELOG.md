@@ -1,6 +1,11 @@
 changelog
 =========
 
+* 0.3.2
+    * simple socket architecture
+    * rpc: deprecated
+    * iocore: deprecated
+    * iproute: single-threaded socket object
 * 0.3.1
     * module structure refactored
     * new protocol: ipq
