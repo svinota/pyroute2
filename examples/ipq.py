@@ -1,9 +1,10 @@
 from pyroute2.common import hexdump
-from pyroute2.netlink.ipq import IPQ
+from pyroute2 import IPQSocket
 from pyroute2.netlink.ipq import NF_ACCEPT
 from dpkt.ip import IP
 
-ip = IPQ()
+ip = IPQSocket()
+ip.bind()
 try:
     while True:
         msg = ip.get()[0]

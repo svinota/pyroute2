@@ -48,8 +48,6 @@ clean: clean-version
 	rm -f  tests/.coverage
 	rm -rf tests/htmlcov
 	rm -rf tests/cover
-	rm -f tests/*key
-	rm -f tests/*crt
 	find . -name "*pyc" -exec rm -f "{}" \;
 
 setup.py docs/conf.py:
@@ -89,8 +87,6 @@ test:
 		echo "8<----------------------------------" ; \
 		flake8 --exclude=docs .. && echo "flake8 ... ok" || exit 250; \
 		[ -z "$$TRAVIS" ] && { \
-			cp -f ../examples/*key . ; \
-			cp -f ../examples/*crt . ; \
 			${python} -W error `which nosetests` -v ${pdb} \
 			--with-coverage \
 			--cover-package=pyroute2 \

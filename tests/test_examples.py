@@ -17,7 +17,7 @@ from importlib import import_module
 from queue import Queue
 
 
-class _TestExamples(object):
+class TestExamples(object):
 
     def setup(self):
         self.pwd = os.getcwd()
@@ -69,9 +69,6 @@ class _TestExamples(object):
             print(server_error)
             raise RuntimeError
 
-    def test_client_server(self):
-        self.launcher('client', server='server')
-
     def test_create_bond(self):
         require_user('root')
         require_bond()
@@ -89,9 +86,6 @@ class _TestExamples(object):
     def test_ip_monitor(self):
         require_user('root')
         self.launcher('create_interface', server='ip_monitor')
-
-    def test_ioc_client_server(self):
-        self.launcher('ioc_client', server='ioc_server')
 
     def test_ipdb_autobr(self):
         require_user('root')
@@ -118,15 +112,6 @@ class _TestExamples(object):
     def test_nla_operators2(self):
         require_user('root')
         self.launcher('nla_operators2')
-
-    def test_push_pull_iocore(self):
-        self.launcher('push_pull_iocore')
-
-    def test_push_pull_rpc(self):
-        self.launcher('push_pull_rpc')
-
-    def test_req_rep(self):
-        self.launcher('req_rep')
 
     def test_taskstats(self):
         require_user('root')
