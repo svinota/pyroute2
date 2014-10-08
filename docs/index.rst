@@ -20,11 +20,11 @@ Netlink protocols
     :maxdepth: 2
 
     netlink
-    rtnl
     generic
-    taskstats
+    rtnl
     ipq
     nfnetlink
+    taskstats
 
 Utilities
 ---------
@@ -34,8 +34,6 @@ Utilities
 
     iproute
     ipdb
-    remote
-    messaging
 
 Indices and tables
 ==================

@@ -9,7 +9,7 @@ last public release is `0.2.16`, the last stable is `0.3.1`.
 By the release `0.3.2`, pyroute2 emerges threadless
 architecture. All the netlink classes become simple socket
 objects, supporting normal socket API and suitable to use
-in pull/select code. No implicit threads anymore, except
+in poll/select code. No implicit threads anymore, except
 one in IPDB module.
 
 Feel free to play around with the `master` branch now and post
