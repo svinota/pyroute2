@@ -45,9 +45,13 @@ class TestExplicit(object):
         return ifname
 
     def teardown(self):
-        self.ip.release()
         for name in self.ifaces:
-            remove_link(name)
+            try:
+                with self.ip.interfaces[name] as i:
+                    i.remove()
+            except:
+                pass
+        self.ip.release()
         self.ifaces = []
 
     def test_simple(self):
