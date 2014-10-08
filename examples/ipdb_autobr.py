@@ -20,13 +20,12 @@ from pyroute2 import IPDB
 def cb(ipdb, msg, action):
     if action == 'RTM_NEWLINK' and \
             msg.get_attr('IFLA_IFNAME', '').startswith('bala_port'):
-        with ipdb.exclusive:
-            # get corresponding interface -- in the case of
-            # post-callbacks it is created already
-            interface = ipdb.interfaces[msg['index']]
-            # add it as a port to the bridge
-            ipdb.interfaces.br0.add_port(interface)
-            ipdb.interfaces.br0.commit()
+        # get corresponding interface -- in the case of
+        # post-callbacks it is created already
+        interface = ipdb.interfaces[msg['index']]
+        # add it as a port to the bridge
+        ipdb.interfaces.br0.add_port(interface)
+        ipdb.interfaces.br0.commit()
 
 # create IPDB instance
 ip = IPDB()

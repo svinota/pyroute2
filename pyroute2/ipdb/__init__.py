@@ -756,7 +756,7 @@ class Transactional(Dotkeys):
         return self._sids[-1]
 
     def revert(self, sid):
-        with self.ipdb.exclusive:
+        with self._write_lock:
             self._transactions[sid] = self._snapshots[sid]
             self._tids.append(sid)
             self._sids.remove(sid)
@@ -782,13 +782,12 @@ class Transactional(Dotkeys):
     def _begin(self, mapping, ids, detached):
         # keep snapshot's ip addr set updated from the OS
         # it is required by the commit logic
-        with self.ipdb.exclusive:
-            if self.ipdb._stop:
-                raise RuntimeError("Can't start transaction on released IPDB")
-            t = self.pick(detached=detached)
-            mapping[t.uid] = t
-            ids.append(t.uid)
-            return t.uid
+        if self.ipdb._stop:
+            raise RuntimeError("Can't start transaction on released IPDB")
+        t = self.pick(detached=detached)
+        mapping[t.uid] = t
+        ids.append(t.uid)
+        return t.uid
 
     def last_snapshot(self):
         if not self._sids:
@@ -799,10 +798,11 @@ class Transactional(Dotkeys):
         '''
         Return last open transaction
         '''
-        if not self._tids:
-            raise TypeError('start a transaction first')
+        with self._write_lock:
+            if not self._tids:
+                raise TypeError('start a transaction first')
 
-        return self._transactions[self._tids[-1]]
+            return self._transactions[self._tids[-1]]
 
     def review(self):
         '''
@@ -811,24 +811,25 @@ class Transactional(Dotkeys):
         if not self._tids:
             raise TypeError('start a transaction first')
 
-        added = self.last() - self
-        removed = self - self.last()
-        for key in self._linked_sets:
-            added['-%s' % (key)] = removed[key]
-            added['+%s' % (key)] = added[key]
-            del added[key]
-        return added
+        with self._write_lock:
+            added = self.last() - self
+            removed = self - self.last()
+            for key in self._linked_sets:
+                added['-%s' % (key)] = removed[key]
+                added['+%s' % (key)] = added[key]
+                del added[key]
+            return added
 
     def drop(self, tid=None):
         '''
         Drop a transaction.
         '''
-        with self.ipdb.exclusive:
+        with self._write_lock:
             if isinstance(tid, Transactional):
                 tid = tid.uid
             elif tid is None:
                 tid = self._tids[-1]
-            self._tids.pop(self._tids.index(tid))
+            self._tids.remove(tid)
             del self._transactions[tid]
 
     @update
@@ -957,6 +958,8 @@ class Interface(Transactional):
         self.egress = None
         self._exists = False
         self._flicker = False
+        self._exception = None
+        self._tb = None
         self._virtual_fields = ('removal', 'flicker', 'state')
         self._xfields = {'common': [ifinfmsg.nla2name(i[0]) for i
                                     in ifinfmsg.nla_map],
@@ -1222,23 +1225,23 @@ class Interface(Transactional):
         Commit transaction. In the case of exception all
         changes applied during commit will be reverted.
         '''
-        with self.ipdb.exclusive:
-            error = None
-            added = None
-            removed = None
-            drop = True
-            if tid:
-                transaction = self._transactions[tid]
+        error = None
+        added = None
+        removed = None
+        drop = True
+        if tid:
+            transaction = self._transactions[tid]
+        else:
+            if transaction:
+                drop = False
             else:
-                if transaction:
-                    drop = False
-                else:
-                    transaction = self.last()
+                transaction = self.last()
 
+        wd = None
+        with self._write_lock:
             # if the interface does not exist, create it first ;)
             if not self._exists:
                 request = IPLinkRequest(self.filter('common'))
-                self.ipdb._links_event.clear()
 
                 # create watchdog
                 wd = self.ipdb.watchdog(ifname=self['ifname'])
@@ -1262,7 +1265,7 @@ class Interface(Transactional):
                             self.nl.link('add', **request)
                         else:
                             raise
-                except Exception:
+                except Exception as e:
                     # on failure, invalidate the interface and detach it
                     # from the parent
                     # 1. drop the IPRoute() link
@@ -1276,266 +1279,265 @@ class Interface(Transactional):
                             del self[i]
                     # 4. the rest
                     self._mode = 'invalid'
+                    self._exception = e
+                    self._tb = traceback.format_exc()
                     # raise the exception
                     raise
 
-                # all is OK till now, so continue
-                # we do not know what to load, so load everything
-                wd.wait()
+        if wd is not None:
+            wd.wait()
 
-            # now we have our index and IP set and all other stuff
-            snapshot = self.pick()
+        # now we have our index and IP set and all other stuff
+        snapshot = self.pick()
 
-            try:
-                removed = snapshot - transaction
-                added = transaction - snapshot
+        try:
+            removed = snapshot - transaction
+            added = transaction - snapshot
 
-                # 8<---------------------------------------------
-                # IP address changes
-                self['ipaddr'].set_target(transaction['ipaddr'])
+            # 8<---------------------------------------------
+            # IP address changes
+            self['ipaddr'].set_target(transaction['ipaddr'])
 
-                for i in removed['ipaddr']:
-                    # Ignore link-local IPv6 addresses
-                    if i[0][:4] == 'fe80' and i[1] == 64:
-                        continue
-                    # When you remove a primary IP addr, all subnetwork
-                    # can be removed. In this case you will fail, but
-                    # it is OK, no need to roll back
-                    try:
-                        self.nl.addr('delete', self['index'], i[0], i[1])
-                    except NetlinkError as x:
-                        # bypass only errno 99, 'Cannot assign address'
-                        if x.code != 99:
-                            raise
-                    except socket.error as x:
-                        # bypass illegal IP requests
-                        if not x.args[0].startswith('illegal IP'):
-                            raise
+            for i in removed['ipaddr']:
+                # Ignore link-local IPv6 addresses
+                if i[0][:4] == 'fe80' and i[1] == 64:
+                    continue
+                # When you remove a primary IP addr, all subnetwork
+                # can be removed. In this case you will fail, but
+                # it is OK, no need to roll back
+                try:
+                    self.nl.addr('delete', self['index'], i[0], i[1])
+                except NetlinkError as x:
+                    # bypass only errno 99, 'Cannot assign address'
+                    if x.code != 99:
+                        raise
+                except socket.error as x:
+                    # bypass illegal IP requests
+                    if not x.args[0].startswith('illegal IP'):
+                        raise
 
-                for i in added['ipaddr']:
-                    # Ignore link-local IPv6 addresses
-                    if i[0][:4] == 'fe80' and i[1] == 64:
-                        continue
-                    self.nl.addr('add', self['index'], i[0], i[1])
+            for i in added['ipaddr']:
+                # Ignore link-local IPv6 addresses
+                if i[0][:4] == 'fe80' and i[1] == 64:
+                    continue
+                self.nl.addr('add', self['index'], i[0], i[1])
 
-                    # 8<--------------------------------------
-                    # FIXME: kernel bug, sometimes `addr add` for
-                    # bond interfaces returns success, but does
-                    # really nothing
+                # 8<--------------------------------------
+                # FIXME: kernel bug, sometimes `addr add` for
+                # bond interfaces returns success, but does
+                # really nothing
 
-                    if self['kind'] == 'bond':
-                        while True:
-                            try:
-                                # dirtiest hack, but we have to use it here
-                                time.sleep(0.1)
-                                self.nl.addr('add', self['index'], i[0], i[1])
-                            # continue to try to add the address
-                            # until the kernel reports `file exists`
-                            #
-                            # a stupid solution, but must help
-                            except NetlinkError as e:
-                                if e.code == 17:
-                                    break
-                                else:
-                                    raise
-                            except Exception:
-                                raise
-                    # 8<--------------------------------------
-
-                if removed['ipaddr'] or added['ipaddr']:
-                    # 8<--------------------------------------
-                    # bond and bridge interfaces do not send
-                    # IPv6 address updates, when are down
-                    #
-                    # beside of that, bridge interfaces are
-                    # down by default, so they never send
-                    # address updates from beginning
-                    #
-                    # so if we need, force address load
-                    #
-                    # FIXME: probably, we should handle other
-                    # types as well
-                    if self['kind'] in ('bond', 'bridge'):
-                        self.nl.get_addr()
-                    # 8<--------------------------------------
-                    self['ipaddr'].target.wait(_SYNC_TIMEOUT)
-                    if not self['ipaddr'].target.is_set():
-                        raise CommitException('ipaddr target is not set')
-
-                # 8<---------------------------------------------
-                # Interface slaves
-                self['ports'].set_target(transaction['ports'])
-
-                for i in removed['ports']:
-                    # detach the port
-                    port = self.ipdb.interfaces[i]
-                    port.set_target('master', None)
-                    port.mirror_target('master', 'link')
-                    self.nl.link('set', index=port['index'], master=0)
-
-                for i in added['ports']:
-                    # enslave the port
-                    port = self.ipdb.interfaces[i]
-                    port.set_target('master', self['index'])
-                    port.mirror_target('master', 'link')
-                    self.nl.link('set',
-                                 index=port['index'],
-                                 master=self['index'])
-
-                if removed['ports'] or added['ports']:
-                    self.nl.get_links(*(removed['ports'] | added['ports']))
-                    self['ports'].target.wait(_SYNC_TIMEOUT)
-                    if not self['ports'].target.is_set():
-                        raise CommitException('ports target is not set')
-
-                    # RHEL 6.5 compat fix -- an explicit timeout
-                    # it gives a time for all the messages to pass
-                    compat.fix_timeout(1)
-
-                    # wait for proper targets on ports
-                    for i in list(added['ports']) + list(removed['ports']):
-                        port = self.ipdb.interfaces[i]
-                        target = port._local_targets['master']
-                        target.wait(_SYNC_TIMEOUT)
-                        del port._local_targets['master']
-                        del port._local_targets['link']
-                        if not target.is_set():
-                            raise CommitException('master target failed')
-                        if i in added['ports']:
-                            assert port.if_master == self['index']
-                        else:
-                            assert port.if_master != self['index']
-
-                # 8<---------------------------------------------
-                # Interface changes
-                request = IPLinkRequest()
-                for key in added:
-                    if key in self._xfields['common']:
-                        request[key] = added[key]
-                request['index'] = self['index']
-
-                # apply changes only if there is something to apply
-                if any([request[item] is not None for item in request
-                        if item != 'index']):
-                    self.nl.link('set', **request)
-
-                # bridge changes
-                if self['kind'] == 'bridge':
-                    brq = BridgeRequest()
-                    for key in added:
-                        if key in self._xfields['bridge']:
-                            brq[key] = added[key]
-
-                    brq['index'] = self['index']
-                    brq['ifname'] = self['ifname']
-                    self.nl.setbr(**brq)
-                    self.load_bridge()
-
-                # bridge changes
                 if self['kind'] == 'bond':
-                    boq = BondRequest()
-                    for key in added:
-                        if key in self._xfields['bond']:
-                            boq[key] = added[key]
+                    while True:
+                        try:
+                            # dirtiest hack, but we have to use it here
+                            time.sleep(0.1)
+                            self.nl.addr('add', self['index'], i[0], i[1])
+                        # continue to try to add the address
+                        # until the kernel reports `file exists`
+                        #
+                        # a stupid solution, but must help
+                        except NetlinkError as e:
+                            if e.code == 17:
+                                break
+                            else:
+                                raise
+                        except Exception:
+                            raise
+                # 8<--------------------------------------
 
-                    boq['index'] = self['index']
-                    boq['ifname'] = self['ifname']
-                    self.nl.setbo(**boq)
-                    self.load_bond()
-
-                # reload interface to hit targets
-                if transaction._targets:
-                    self.reload()
-
-                # wait for targets
-                for key, target in transaction._targets.items():
-                    if key not in self._virtual_fields:
-                        target.wait(_SYNC_TIMEOUT)
-                        if not target.is_set():
-                            raise CommitException('target %s is not set' % key)
-
-                # 8<---------------------------------------------
-                # Interface removal
-                if added.get('removal') or added.get('flicker'):
-                    wd = self.ipdb.watchdog(action='RTM_DELLINK',
-                                            ifname=self['ifname'])
-                    if added.get('flicker'):
-                        self._flicker = True
-                    self.nl.link('delete', **self)
-                    wd.wait()
-                    if added.get('flicker'):
-                        self._exists = False
-                    if added.get('removal'):
-                        self._mode = 'invalid'
-                    if drop:
-                        self.drop()
-                    return self
-                # 8<---------------------------------------------
-
-                if rollback:
-                    assert _FAIL_ROLLBACK & _FAIL_MASK
-                else:
-
-                    # 8<-----------------------------------------
-                    # Iterate callback chain
-                    for ch in self._commit_hooks:
-                        # An exception will rollback the transaction
-                        ch(self.dump(), snapshot.dump(), transaction.dump())
-                    # 8<-----------------------------------------
-
-                    assert _FAIL_COMMIT & _FAIL_MASK
-
-            except Exception as e:
-                # something went wrong: roll the transaction back
-                if not rollback:
-                    ret = self.commit(transaction=snapshot, rollback=True)
-                    # if some error was returned by the internal
-                    # closure, substitute the initial one
-                    if isinstance(ret, Exception):
-                        error = ret
-                    else:
-                        error = e
-                        error.traceback = traceback.format_exc()
-                elif isinstance(e, NetlinkError) and \
-                        getattr(e, 'code', 0) == 1:
-                    # It is <Operation not permitted>, catched in
-                    # rollback. So return it -- see ~5 lines above
-                    e.traceback = traceback.format_exc()
-                    return e
-                else:
-                    # somethig went wrong during automatic rollback.
-                    # that's the worst case, but it is still possible,
-                    # since we have no locks on OS level.
-                    if drop:
-                        self.drop()
-                    self['ipaddr'].set_target(None)
-                    self['ports'].set_target(None)
-                    # reload all the database -- it can take a long time,
-                    # but it is required since we have no idea, what is
-                    # the result of the failure
-                    #
-                    # ACHTUNG: database reload is asynchronous, so after
-                    # getting RuntimeError() from commit(), take a seat
-                    # and rest for a while. It is an extremal case, it
-                    # should not became at all, and there is no sync.
-                    self.nl.get_links()
+            if removed['ipaddr'] or added['ipaddr']:
+                # 8<--------------------------------------
+                # bond and bridge interfaces do not send
+                # IPv6 address updates, when are down
+                #
+                # beside of that, bridge interfaces are
+                # down by default, so they never send
+                # address updates from beginning
+                #
+                # so if we need, force address load
+                #
+                # FIXME: probably, we should handle other
+                # types as well
+                if self['kind'] in ('bond', 'bridge'):
                     self.nl.get_addr()
-                    x = RuntimeError()
-                    x.cause = e
-                    x.traceback = traceback.format_exc()
-                    raise x
+                # 8<--------------------------------------
+                self['ipaddr'].target.wait(_SYNC_TIMEOUT)
+                if not self['ipaddr'].target.is_set():
+                    raise CommitException('ipaddr target is not set')
 
-            # if it is not a rollback turn
-            if drop and not rollback:
-                # drop last transaction in any case
-                self.drop()
+            # 8<---------------------------------------------
+            # Interface slaves
+            self['ports'].set_target(transaction['ports'])
 
-            # raise exception for failed transaction
-            if error is not None:
-                error.transaction = transaction
-                raise error
+            for i in removed['ports']:
+                # detach the port
+                port = self.ipdb.interfaces[i]
+                port.set_target('master', None)
+                port.mirror_target('master', 'link')
+                self.nl.link('set', index=port['index'], master=0)
 
-            return self
+            for i in added['ports']:
+                # enslave the port
+                port = self.ipdb.interfaces[i]
+                port.set_target('master', self['index'])
+                port.mirror_target('master', 'link')
+                self.nl.link('set',
+                             index=port['index'],
+                             master=self['index'])
+
+            if removed['ports'] or added['ports']:
+                self.nl.get_links(*(removed['ports'] | added['ports']))
+                self['ports'].target.wait(_SYNC_TIMEOUT)
+                if not self['ports'].target.is_set():
+                    raise CommitException('ports target is not set')
+
+                # RHEL 6.5 compat fix -- an explicit timeout
+                # it gives a time for all the messages to pass
+                compat.fix_timeout(1)
+
+                # wait for proper targets on ports
+                for i in list(added['ports']) + list(removed['ports']):
+                    port = self.ipdb.interfaces[i]
+                    target = port._local_targets['master']
+                    target.wait(_SYNC_TIMEOUT)
+                    del port._local_targets['master']
+                    del port._local_targets['link']
+                    if not target.is_set():
+                        raise CommitException('master target failed')
+                    if i in added['ports']:
+                        assert port.if_master == self['index']
+                    else:
+                        assert port.if_master != self['index']
+
+            # 8<---------------------------------------------
+            # Interface changes
+            request = IPLinkRequest()
+            for key in added:
+                if key in self._xfields['common']:
+                    request[key] = added[key]
+            request['index'] = self['index']
+
+            # apply changes only if there is something to apply
+            if any([request[item] is not None for item in request
+                    if item != 'index']):
+                self.nl.link('set', **request)
+
+            # bridge changes
+            if self['kind'] == 'bridge':
+                brq = BridgeRequest()
+                for key in added:
+                    if key in self._xfields['bridge']:
+                        brq[key] = added[key]
+
+                brq['index'] = self['index']
+                brq['ifname'] = self['ifname']
+                self.nl.setbr(**brq)
+                self.load_bridge()
+
+            # bridge changes
+            if self['kind'] == 'bond':
+                boq = BondRequest()
+                for key in added:
+                    if key in self._xfields['bond']:
+                        boq[key] = added[key]
+
+                boq['index'] = self['index']
+                boq['ifname'] = self['ifname']
+                self.nl.setbo(**boq)
+                self.load_bond()
+
+            # reload interface to hit targets
+            if transaction._targets:
+                self.reload()
+
+            # wait for targets
+            for key, target in transaction._targets.items():
+                if key not in self._virtual_fields:
+                    target.wait(_SYNC_TIMEOUT)
+                    if not target.is_set():
+                        raise CommitException('target %s is not set' % key)
+
+            # 8<---------------------------------------------
+            # Interface removal
+            if added.get('removal') or added.get('flicker'):
+                wd = self.ipdb.watchdog(action='RTM_DELLINK',
+                                        ifname=self['ifname'])
+                if added.get('flicker'):
+                    self._flicker = True
+                self.nl.link('delete', **self)
+                wd.wait()
+                if added.get('flicker'):
+                    self._exists = False
+                if added.get('removal'):
+                    self._mode = 'invalid'
+                if drop:
+                    self.drop(transaction)
+                return self
+            # 8<---------------------------------------------
+
+            if rollback:
+                assert _FAIL_ROLLBACK & _FAIL_MASK
+            else:
+
+                # 8<-----------------------------------------
+                # Iterate callback chain
+                for ch in self._commit_hooks:
+                    # An exception will rollback the transaction
+                    ch(self.dump(), snapshot.dump(), transaction.dump())
+                # 8<-----------------------------------------
+
+                assert _FAIL_COMMIT & _FAIL_MASK
+
+        except Exception as e:
+            # something went wrong: roll the transaction back
+            if not rollback:
+                ret = self.commit(transaction=snapshot, rollback=True)
+                # if some error was returned by the internal
+                # closure, substitute the initial one
+                if isinstance(ret, Exception):
+                    error = ret
+                else:
+                    error = e
+                    error.traceback = traceback.format_exc()
+            elif isinstance(e, NetlinkError) and \
+                    getattr(e, 'code', 0) == 1:
+                # It is <Operation not permitted>, catched in
+                # rollback. So return it -- see ~5 lines above
+                e.traceback = traceback.format_exc()
+                return e
+            else:
+                # somethig went wrong during automatic rollback.
+                # that's the worst case, but it is still possible,
+                # since we have no locks on OS level.
+                self['ipaddr'].set_target(None)
+                self['ports'].set_target(None)
+                # reload all the database -- it can take a long time,
+                # but it is required since we have no idea, what is
+                # the result of the failure
+                #
+                # ACHTUNG: database reload is asynchronous, so after
+                # getting RuntimeError() from commit(), take a seat
+                # and rest for a while. It is an extremal case, it
+                # should not became at all, and there is no sync.
+                self.nl.get_links()
+                self.nl.get_addr()
+                x = RuntimeError()
+                x.cause = e
+                x.traceback = traceback.format_exc()
+                raise x
+
+        # if it is not a rollback turn
+        if drop and not rollback:
+            # drop last transaction in any case
+            self.drop(transaction)
+
+        # raise exception for failed transaction
+        if error is not None:
+            error.transaction = transaction
+            raise error
+
+        return self
 
     def up(self):
         '''
@@ -1929,12 +1931,10 @@ class IPDB(object):
         '''
         Shutdown monitoring thread and release iproute.
         '''
-        with self.exclusive:
-            self._stop = True
-            for _ in range(3):
-                self.nl.put({'index': 1}, RTM_GETLINK)
-            self._mthread.join()
-            self.nl.release()
+        self._stop = True
+        self.nl.put({'index': 1}, RTM_GETLINK)
+        self._mthread.join()
+        self.nl.release()
 
     def create(self, kind, ifname, reuse=False, **kwarg):
         '''
@@ -2052,8 +2052,13 @@ class IPDB(object):
             self.update_slaves(msg)
 
     def detach(self, item):
-        if item in self.interfaces:
-            del self.interfaces[item]
+        with self.exclusive:
+            if item in self.interfaces:
+                del self.interfaces[item]
+            if item in self.by_name:
+                del self.by_name[item]
+            if item in self.by_index:
+                del self.by_index[item]
 
     def watchdog(self, action='RTM_NEWLINK', **kwarg):
         return Watchdog(self, action, kwarg)
@@ -2144,30 +2149,31 @@ class IPDB(object):
                     except:
                         pass
 
-                if msg.get('event', None) == 'RTM_NEWLINK':
-                    self.device_put(msg)
-                    self._links_event.set()
-                elif msg.get('event', None) == 'RTM_DELLINK':
-                    self.device_del(msg)
-                elif msg.get('event', None) == 'RTM_NEWADDR':
-                    self.update_addr([msg], 'add')
-                elif msg.get('event', None) == 'RTM_DELADDR':
-                    self.update_addr([msg], 'remove')
-                elif msg.get('event', None) == 'RTM_NEWROUTE':
-                    self.update_routes([msg])
-                elif msg.get('event', None) == 'RTM_DELROUTE':
-                    table = msg.get('table', 254)
-                    dst = msg.get_attr('RTA_DST', False)
-                    if not dst:
-                        key = 'default'
-                    else:
-                        key = '%s/%s' % (dst, msg.get('dst_len', 0))
-                    try:
-                        route = self.routes.tables[table][key]
-                        del self.routes.tables[table][key]
-                        route.sync()
-                    except KeyError:
-                        pass
+                with self.exclusive:
+                    if msg.get('event', None) == 'RTM_NEWLINK':
+                        self.device_put(msg)
+                        self._links_event.set()
+                    elif msg.get('event', None) == 'RTM_DELLINK':
+                        self.device_del(msg)
+                    elif msg.get('event', None) == 'RTM_NEWADDR':
+                        self.update_addr([msg], 'add')
+                    elif msg.get('event', None) == 'RTM_DELADDR':
+                        self.update_addr([msg], 'remove')
+                    elif msg.get('event', None) == 'RTM_NEWROUTE':
+                        self.update_routes([msg])
+                    elif msg.get('event', None) == 'RTM_DELROUTE':
+                        table = msg.get('table', 254)
+                        dst = msg.get_attr('RTA_DST', False)
+                        if not dst:
+                            key = 'default'
+                        else:
+                            key = '%s/%s' % (dst, msg.get('dst_len', 0))
+                        try:
+                            route = self.routes.tables[table][key]
+                            del self.routes.tables[table][key]
+                            route.sync()
+                        except KeyError:
+                            pass
 
                 # run post-callbacks
                 # NOTE: post-callbacks are asynchronous
