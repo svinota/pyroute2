@@ -2136,12 +2136,21 @@ class IPDB(object):
         while not self._stop:
             try:
                 messages = self.nl.get()
+                ##
+                # Check it again
+                #
+                # NOTE: one should not run callbacks or
+                # anything like that after setting the
+                # _stop flag, since IPDB is not valid
+                # anymore
+                if self._stop:
+                    break
             except:
                 logging.warning(traceback.format_exc())
                 time.sleep(3)
                 continue
             for msg in messages:
-                # run pre-callbacks
+                # Run pre-callbacks
                 # NOTE: pre-callbacks are synchronous
                 for cb in self._pre_callbacks:
                     try:
