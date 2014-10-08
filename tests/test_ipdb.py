@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import json
-import time
 import socket
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
@@ -139,10 +138,6 @@ class TestExplicit(object):
             self.ip.interfaces[self.ifd].begin()
         self.ip.interfaces[self.ifd].add_ip('172.16.21.1/24')
         self.ip.interfaces[self.ifd].commit()
-
-        # the second address added w/o watchdogs,
-        # so we have to wait
-        time.sleep(1)
 
         # added address should be there
         assert ('172.16.21.1', 24) in \
@@ -859,7 +854,6 @@ class TestImplicit(TestExplicit):
         self.ip.create(kind='dummy', ifname=ifP2).commit()
         wd1.wait()
         wd2.wait()
-        time.sleep(1)
         # check that ports are attached
         assert self.ip.interfaces[ifP1].index in \
             self.ip.interfaces[ifM].ports
