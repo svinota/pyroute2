@@ -298,17 +298,7 @@ class IPRSocket(NetlinkSocket):
         NetlinkSocket.bind(self, groups)
 
     def name_by_id(self, index):
-        msg = ifinfmsg()
-        msg['family'] = socket.AF_UNSPEC
-        msg['header']['type'] = RTM_GETLINK
-        msg['header']['flags'] = NLM_F_REQUEST
-        msg['header']['pid'] = os.getpid()
-        msg['header']['sequence_number'] = 1
-        msg['index'] = index
-        msg.encode()
-
-        self.iprs.sendto(msg.buf.getvalue(), (0, 0))
-        return self.iprs.get()[0].get_attr('IFLA_IFNAME')
+        return self.get_links(index)[0].get_attr('IFLA_IFNAME')
 
     ##
     # proxy protocol
@@ -329,6 +319,14 @@ class IPRSocket(NetlinkSocket):
         Proxy `put()` request
         '''
         if argv[1] in self.put_map:
+            argv = list(argv)
+            # FIXME: recode the message
+            msg = argv[0]
+            msg.encode()
+            msg = type(msg)(msg.buf.getvalue())
+            msg.decode()
+            argv[0] = msg
+            # FIXME: end of ugly hack
             self.put_map[argv[1]](*argv, **kwarg)
         else:
             NetlinkSocket.put(self, *argv, **kwarg)

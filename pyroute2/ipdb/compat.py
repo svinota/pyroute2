@@ -43,8 +43,6 @@ def fix_timeout(timeout):
 
 @bypass
 def fix_check_link(nl, index):
-    # swith mirror off
-    nl.mirror(False)
     # check, if the link really exits --
     # on some old kernels you can receive
     # broadcast RTM_NEWLINK after the link
@@ -55,8 +53,6 @@ def fix_check_link(nl, index):
         if e.code == 19:  # No such device
             # just drop this message then
             return True
-    finally:
-        nl.mirror(True)
 
 #
 # Utility functions to call external programs or set up

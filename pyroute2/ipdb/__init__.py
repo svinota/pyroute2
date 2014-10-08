@@ -1085,7 +1085,8 @@ class Interface(Transactional):
             self.nlmsg = dev
             for (name, value) in dev.items():
                 self[name] = value
-            for (name, value) in dev['attrs']:
+            for item in dev['attrs']:
+                name, value = item[:2]
                 norm = ifinfmsg.nla2name(name)
                 self[norm] = value
             # load interface kind
@@ -1934,7 +1935,7 @@ class IPDB(object):
         self._stop = True
         self.nl.put({'index': 1}, RTM_GETLINK)
         self._mthread.join()
-        self.nl.release()
+        self.nl.close()
 
     def create(self, kind, ifname, reuse=False, **kwarg):
         '''
