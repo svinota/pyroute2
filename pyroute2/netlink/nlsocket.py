@@ -636,7 +636,7 @@ class NetlinkSocket(socket):
                 print(msg_type, msg_flags, msg)
                 raise
             finally:
-                # Ban this msg_seq for 5 rounds
+                # Ban this msg_seq for 0xff rounds
                 #
                 # It's a long story. Modern kernels for RTM_SET.* operations
                 # always return NLMSG_ERROR(0) == success, even not setting
@@ -648,7 +648,7 @@ class NetlinkSocket(socket):
                 # just dropped.
                 #
                 # Hack, but true.
-                self.addr_pool.free(msg_seq, ban=5)
+                self.addr_pool.free(msg_seq, ban=0xff)
 
     def close(self):
         '''
