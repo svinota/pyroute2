@@ -113,7 +113,7 @@ class TestExamples(object):
         require_user('root')
         self.launcher('nla_operators2')
 
-    def test_taskstats(self):
+    def _test_taskstats(self):
         require_user('root')
         try:
             self.launcher('taskstats')
@@ -123,7 +123,7 @@ class TestExamples(object):
             else:
                 raise
 
-    def test_pmonitor(self):
+    def _test_pmonitor(self):
         require_user('root')
         try:
             self.launcher('pmonitor', server='server')

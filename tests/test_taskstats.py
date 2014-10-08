@@ -2,7 +2,7 @@ from pyroute2 import TaskStats
 from utils import require_user
 
 
-class TestTaskStats(object):
+class _TestTaskStats(object):
 
     def setup(self):
         self.ts = TaskStats()
