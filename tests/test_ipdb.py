@@ -540,7 +540,7 @@ class TestExplicit(object):
             i.ifname = ifB
 
         # check it
-        assert self.ifd in self.ip.interfaces
+        assert ifB in self.ip.interfaces
         assert self.ifd not in self.ip.interfaces
         y = self.ip.interfaces[ifB]
         assert i == y
