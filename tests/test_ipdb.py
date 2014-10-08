@@ -6,6 +6,7 @@ import socket
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
 from pyroute2.common import basestring
+from pyroute2.common import AddrPool
 from pyroute2.netlink import NetlinkError
 from pyroute2.ipdb import CreateException
 from pyroute2.ipdb import clear_fail_bit
@@ -31,23 +32,24 @@ class TestExplicit(object):
     mode = 'explicit'
 
     def setup(self):
-        create_link('dummyX', 'dummy')
+        self.ap = AddrPool()
+        self.iftmp = 'pr2x{0}'
+        self.ifaces = []
+        self.ifd = self.get_ifname()
+        create_link(self.ifd, kind='dummy')
         self.ip = IPDB(mode=self.mode)
 
+    def get_ifname(self):
+        naddr = self.ap.alloc()
+        ifname = self.iftmp.format(naddr)
+        self.ifaces.append(ifname)
+        return ifname
+
     def teardown(self):
-        for name in ('bala', 'bala_port0', 'bala_port1', 'dummyX',
-                     'bala_host', 'bv101', 'bv102'):
-            for _ in range(3):
-                try:
-                    with self.ip.interfaces[name] as i:
-                        i.remove()
-                except KeyError:
-                    continue
-                break
-            else:
-                # log an error
-                pass
         self.ip.release()
+        for name in self.ifaces:
+            remove_link(name)
+        self.ifaces = []
 
     def test_simple(self):
         assert len(list(self.ip.interfaces.keys())) > 0
@@ -95,61 +97,66 @@ class TestExplicit(object):
     def test_vlan_slave_bridge(self):
         # https://github.com/svinota/pyroute2/issues/58
         # based on the code by Petr Horáček
-        require_user('root')
-        dX = self.ip.create(ifname='bala_host', kind='dummy').commit()
-        vX101 = self.ip.create(ifname='bv101', kind='vlan',
-                               link=dX, vlan_id=101).commit()
-        vX102 = self.ip.create(ifname='bv102', kind='vlan',
-                               link=dX, vlan_id=102).commit()
-        with self.ip.create(ifname='bala', kind='bridge') as i:
-            i.add_port(vX101)
-            i.add_port(vX102['index'])
+        dXname = self.get_ifname()
+        vXname = self.get_ifname()
+        vYname = self.get_ifname()
+        brname = self.get_ifname()
 
-        assert vX101['index'] in self.ip.interfaces['bala']['ports']
-        assert vX102['index'] in self.ip.interfaces.bala.ports
-        assert vX101['link'] == dX['index']
-        assert vX102['link'] == dX['index']
-        assert vX101['master'] == self.ip.interfaces['bala']['index']
-        assert vX102['master'] == self.ip.interfaces.bala.index
+        require_user('root')
+        dX = self.ip.create(ifname=dXname, kind='dummy').commit()
+        vX = self.ip.create(ifname=vXname, kind='vlan',
+                            link=dX, vlan_id=101).commit()
+        vY = self.ip.create(ifname=vYname, kind='vlan',
+                            link=dX, vlan_id=102).commit()
+        with self.ip.create(ifname=brname, kind='bridge') as i:
+            i.add_port(vX)
+            i.add_port(vY['index'])
+
+        assert vX['index'] in self.ip.interfaces[brname]['ports']
+        assert vY['index'] in self.ip.interfaces[brname].ports
+        assert vX['link'] == dX['index']
+        assert vY['link'] == dX['index']
+        assert vX['master'] == self.ip.interfaces[brname]['index']
+        assert vY['master'] == self.ip.interfaces[brname].index
 
     def _test_commit_hook_positive(self):
         require_user('root')
-        assert 'dummyX' in self.ip.interfaces
 
         # test callback, that adds an address by itself --
         # just to check the possibility
         def cb(interface, snapshot, transaction):
             self.ip.nl.addr('add',
-                            self.ip.interfaces.dummyX.index,
+                            self.ip.interfaces[self.ifd].index,
                             address='172.16.22.1',
                             mask=24)
 
         # register callback and check CB chain length
-        self.ip.interfaces.dummyX.register_commit_hook(cb)
-        assert len(self.ip.interfaces.dummyX._commit_hooks) == 1
+        self.ip.interfaces[self.ifd].register_commit_hook(cb)
+        assert len(self.ip.interfaces[self.ifd]._commit_hooks) == 1
 
         # create a transaction and commit it
-        if self.ip.interfaces.dummyX._mode == 'explicit':
-            self.ip.interfaces.dummyX.begin()
-        self.ip.interfaces.dummyX.add_ip('172.16.21.1/24')
-        self.ip.interfaces.dummyX.commit()
+        if self.ip.interfaces[self.ifd]._mode == 'explicit':
+            self.ip.interfaces[self.ifd].begin()
+        self.ip.interfaces[self.ifd].add_ip('172.16.21.1/24')
+        self.ip.interfaces[self.ifd].commit()
 
         # the second address added w/o watchdogs,
         # so we have to wait
         time.sleep(1)
 
         # added address should be there
-        assert ('172.16.21.1', 24) in self.ip.interfaces.dummyX.ipaddr
+        assert ('172.16.21.1', 24) in \
+            self.ip.interfaces[self.ifd].ipaddr
         # and the one, added by the callback, too
-        assert ('172.16.22.1', 24) in self.ip.interfaces.dummyX.ipaddr
+        assert ('172.16.22.1', 24) in \
+            self.ip.interfaces[self.ifd].ipaddr
 
         # unregister callback
-        self.ip.interfaces.dummyX.unregister_commit_hook(cb)
-        assert len(self.ip.interfaces.dummyX._commit_hooks) == 0
+        self.ip.interfaces[self.ifd].unregister_commit_hook(cb)
+        assert len(self.ip.interfaces[self.ifd]._commit_hooks) == 0
 
     def _test_commit_hook_negative(self):
         require_user('root')
-        assert 'dummyX' in self.ip.interfaces
 
         # test exception to differentiate
         class CBException(Exception):
@@ -160,25 +167,26 @@ class TestExplicit(object):
             raise CBException()
 
         # register callback and check CB chain length
-        self.ip.interfaces.dummyX.register_commit_hook(cb)
-        assert len(self.ip.interfaces.dummyX._commit_hooks) == 1
+        self.ip.interfaces[self.ifd].register_commit_hook(cb)
+        assert len(self.ip.interfaces[self.ifd]._commit_hooks) == 1
 
         # create a transaction and commit it; should fail
         # 'cause of the callback
-        if self.ip.interfaces.dummyX._mode == 'explicit':
-            self.ip.interfaces.dummyX.begin()
-        self.ip.interfaces.dummyX.add_ip('172.16.21.1/24')
+        if self.ip.interfaces[self.ifd]._mode == 'explicit':
+            self.ip.interfaces[self.ifd].begin()
+        self.ip.interfaces[self.ifd].add_ip('172.16.21.1/24')
         try:
-            self.ip.interfaces.dummyX.commit()
+            self.ip.interfaces[self.ifd].commit()
         except CBException:
             pass
 
         # added address should be removed
-        assert ('172.16.21.1', 24) not in self.ip.interfaces.dummyX.ipaddr
+        assert ('172.16.21.1', 24) not in \
+            self.ip.interfaces[self.ifd].ipaddr
 
         # unregister callback
-        self.ip.interfaces.dummyX.unregister_commit_hook(cb)
-        assert len(self.ip.interfaces.dummyX._commit_hooks) == 0
+        self.ip.interfaces[self.ifd].unregister_commit_hook(cb)
+        assert len(self.ip.interfaces[self.ifd]._commit_hooks) == 0
 
     def test_review(self):
         assert len(self.ip.interfaces.lo._tids) == 0
@@ -196,24 +204,27 @@ class TestExplicit(object):
 
     def test_rename(self):
         require_user('root')
-        assert 'bala' not in self.ip.interfaces
-        assert 'dummyX' in self.ip.interfaces
 
-        if self.ip.interfaces.dummyX._mode == 'explicit':
-            self.ip.interfaces.dummyX.begin()
-        self.ip.interfaces.dummyX.ifname = 'bala'
-        self.ip.interfaces.dummyX.commit()
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
 
-        assert 'bala' in self.ip.interfaces
-        assert 'dummyX' not in self.ip.interfaces
+        self.ip.create(ifname=ifA, kind='dummy').commit()
 
-        if self.ip.interfaces.bala._mode == 'explicit':
-            self.ip.interfaces.bala.begin()
-        self.ip.interfaces.bala.ifname = 'dummyX'
-        self.ip.interfaces.bala.commit()
+        if self.ip.interfaces[ifA]._mode == 'explicit':
+            self.ip.interfaces[ifA].begin()
+        self.ip.interfaces[ifA].ifname = ifB
+        self.ip.interfaces[ifA].commit()
 
-        assert 'bala' not in self.ip.interfaces
-        assert 'dummyX' in self.ip.interfaces
+        assert ifB in self.ip.interfaces
+        assert ifA not in self.ip.interfaces
+
+        if self.ip.interfaces[ifB]._mode == 'explicit':
+            self.ip.interfaces[ifB].begin()
+        self.ip.interfaces[ifB].ifname = ifA
+        self.ip.interfaces[ifB].commit()
+
+        assert ifB not in self.ip.interfaces
+        assert ifA in self.ip.interfaces
 
     def test_routes(self):
         require_user('root')
@@ -239,15 +250,17 @@ class TestExplicit(object):
         assert not grep('ip ro', pattern='172.16.0.0/24')
 
     def _test_shadow(self, kind):
-        a = self.ip.create(ifname='bala', kind=kind).commit()
+        ifA = self.get_ifname()
+
+        a = self.ip.create(ifname=ifA, kind=kind).commit()
         if a._mode == 'explicit':
             a.begin()
         a.shadow().commit()
-        assert 'bala' in self.ip.interfaces
-        assert not grep('ip link', pattern='bala')
-        b = self.ip.create(ifname='bala', kind=kind).commit()
+        assert ifA in self.ip.interfaces
+        assert not grep('ip link', pattern=ifA)
+        b = self.ip.create(ifname=ifA, kind=kind).commit()
         assert a == b
-        assert grep('ip link', pattern='bala')
+        assert grep('ip link', pattern=ifA)
 
     def test_shadow_bond(self):
         require_user('root')
@@ -265,19 +278,18 @@ class TestExplicit(object):
 
     def test_updown(self):
         require_user('root')
-        assert not (self.ip.interfaces.dummyX.flags & 1)
 
-        if self.ip.interfaces.dummyX._mode == 'explicit':
-            self.ip.interfaces.dummyX.begin()
-        self.ip.interfaces.dummyX.up()
-        self.ip.interfaces.dummyX.commit()
-        assert self.ip.interfaces.dummyX.flags & 1
+        if self.ip.interfaces[self.ifd]._mode == 'explicit':
+            self.ip.interfaces[self.ifd].begin()
+        self.ip.interfaces[self.ifd].up()
+        self.ip.interfaces[self.ifd].commit()
+        assert self.ip.interfaces[self.ifd].flags & 1
 
-        if self.ip.interfaces.dummyX._mode == 'explicit':
-            self.ip.interfaces.dummyX.begin()
-        self.ip.interfaces.dummyX.down()
-        self.ip.interfaces.dummyX.commit()
-        assert not (self.ip.interfaces.dummyX.flags & 1)
+        if self.ip.interfaces[self.ifd]._mode == 'explicit':
+            self.ip.interfaces[self.ifd].begin()
+        self.ip.interfaces[self.ifd].down()
+        self.ip.interfaces[self.ifd].commit()
+        assert not (self.ip.interfaces[self.ifd].flags & 1)
 
     def _test_cfail_rollback(self):
         require_user('root')
@@ -369,8 +381,10 @@ class TestExplicit(object):
 
     def test_fail_ipaddr(self):
         require_user('root')
-        assert 'bala' not in self.ip.interfaces
-        i = self.ip.create(ifname='bala', kind='dummy').commit()
+
+        ifA = self.get_ifname()
+
+        i = self.ip.create(ifname=ifA, kind='dummy').commit()
         assert not len(i.ipaddr)
         if i._mode == 'explicit':
             i.begin()
@@ -384,19 +398,22 @@ class TestExplicit(object):
         if i._mode == 'explicit':
             i.begin()
         i.remove().commit()
-        assert 'bala' not in self.ip.interfaces
+        assert ifA not in self.ip.interfaces
 
     def test_json_dump(self):
         require_user('root')
 
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+
         # set up the interface
-        with self.ip.create(kind='dummy', ifname='bala_port1') as i:
+        with self.ip.create(kind='dummy', ifname=ifA) as i:
             i.add_ip('172.16.0.1/24')
             i.add_ip('172.16.0.2/24')
             i.up()
 
         # make a backup
-        backup = self.ip.interfaces.bala_port1.dump()
+        backup = self.ip.interfaces[ifA].dump()
         assert isinstance(backup, dict)
 
         # remove index -- make it portable
@@ -405,31 +422,31 @@ class TestExplicit(object):
         backup = json.dumps(backup)
 
         # remove the interface
-        with self.ip.interfaces.bala_port1 as i:
+        with self.ip.interfaces[ifA] as i:
             i.remove()
 
         # create again, but with different name
-        self.ip.create(kind='dummy', ifname='bala_port2').commit()
+        self.ip.create(kind='dummy', ifname=ifB).commit()
 
         # load the backup
         # 1. prepare to the restore: bring it down
-        with self.ip.interfaces.bala_port2 as i:
+        with self.ip.interfaces[ifB] as i:
             i.down()
         # 2. please notice, the interface will be renamed after the backup
-        t = self.ip.interfaces.bala_port2.load(json.loads(backup))
-        self.ip.interfaces.bala_port2.commit(transaction=t)
+        t = self.ip.interfaces[ifB].load(json.loads(backup))
+        self.ip.interfaces[ifB].commit(transaction=t)
 
         # check :)
-        assert 'bala_port1' in self.ip.interfaces
-        assert 'bala_port2' not in self.ip.interfaces
-        assert ('172.16.0.1', 24) in self.ip.interfaces.bala_port1.ipaddr
-        assert ('172.16.0.2', 24) in self.ip.interfaces.bala_port1.ipaddr
-        assert self.ip.interfaces.bala_port1.flags & 1
+        assert ifA in self.ip.interfaces
+        assert ifB not in self.ip.interfaces
+        assert ('172.16.0.1', 24) in self.ip.interfaces[ifA].ipaddr
+        assert ('172.16.0.2', 24) in self.ip.interfaces[ifA].ipaddr
+        assert self.ip.interfaces[ifA].flags & 1
 
-    def _test_freeze(self):
+    def test_freeze(self):
         require_user('root')
 
-        interface = self.ip.interfaces.dummyX
+        interface = self.ip.interfaces[self.ifd]
 
         # set up the interface
         with interface as i:
@@ -479,7 +496,7 @@ class TestExplicit(object):
         probe()
 
         # unfreeze
-        self.ip.interfaces.dummyX.unfreeze()
+        self.ip.interfaces[self.ifd].unfreeze()
 
         i2.addr('delete', interface.index, '172.16.0.1', 24)
         i2.addr('delete', interface.index, '172.16.1.1', 24)
@@ -489,43 +506,45 @@ class TestExplicit(object):
         # should be up, but w/o addresses
         interface.ipaddr.set_target(set())
         interface.ipaddr.target.wait(3)
-        assert ('172.16.0.1', 24) not in self.ip.interfaces.dummyX.ipaddr
-        assert ('172.16.1.1', 24) not in self.ip.interfaces.dummyX.ipaddr
-        assert self.ip.interfaces.dummyX.flags & 1
+        assert ('172.16.0.1', 24) not in self.ip.interfaces[self.ifd].ipaddr
+        assert ('172.16.1.1', 24) not in self.ip.interfaces[self.ifd].ipaddr
+        assert self.ip.interfaces[self.ifd].flags & 1
 
-    def _test_snapshots(self):
+    def test_snapshots(self):
         require_user('root')
 
+        ifB = self.get_ifname()
+
         # set up the interface
-        with self.ip.interfaces.dummyX as i:
+        with self.ip.interfaces[self.ifd] as i:
             i.add_ip('172.16.0.1/24')
             i.up()
 
         # check it
-        assert ('172.16.0.1', 24) in self.ip.interfaces.dummyX.ipaddr
-        assert self.ip.interfaces.dummyX.flags & 1
+        assert ('172.16.0.1', 24) in self.ip.interfaces[self.ifd].ipaddr
+        assert self.ip.interfaces[self.ifd].flags & 1
 
         # make a snapshot
-        s = self.ip.interfaces.dummyX.snapshot()
-        i = self.ip.interfaces.dummyX
+        s = self.ip.interfaces[self.ifd].snapshot()
+        i = self.ip.interfaces[self.ifd]
 
         # check it
         assert i.last_snapshot_id() == s
 
         # unset the interface
-        with self.ip.interfaces.dummyX as i:
+        with self.ip.interfaces[self.ifd] as i:
             i.del_ip('172.16.0.1/24')
             i.down()
 
         # we can not rename the interface while it is up,
         # so do it in two turns
-        with self.ip.interfaces.dummyX as i:
-            i.ifname = 'dummyY'
+        with self.ip.interfaces[self.ifd] as i:
+            i.ifname = ifB
 
         # check it
-        assert 'dummyY' in self.ip.interfaces
-        assert 'dummyX' not in self.ip.interfaces
-        y = self.ip.interfaces.dummyY
+        assert self.ifd in self.ip.interfaces
+        assert self.ifd not in self.ip.interfaces
+        y = self.ip.interfaces[ifB]
         assert i == y
         assert ('172.16.0.1', 24) not in y.ipaddr
         assert not (y.flags & 1)
@@ -534,17 +553,19 @@ class TestExplicit(object):
         y.revert(s).commit()
 
         # check it
-        assert 'dummyY' not in self.ip.interfaces
-        assert 'dummyX' in self.ip.interfaces
-        assert ('172.16.0.1', 24) in self.ip.interfaces.dummyX.ipaddr
-        assert self.ip.interfaces.dummyX.flags & 1
+        assert ifB not in self.ip.interfaces
+        assert self.ifd in self.ip.interfaces
+        assert ('172.16.0.1', 24) in self.ip.interfaces[self.ifd].ipaddr
+        assert self.ip.interfaces[self.ifd].flags & 1
 
     def _test_ipv(self, ipv, kind):
         require_user('root')
 
-        i = self.ip.create(kind=kind, ifname='bala').commit()
-        if self.ip.interfaces.bala._mode == 'explicit':
-            self.ip.interfaces.bala.begin()
+        ifA = self.get_ifname()
+
+        i = self.ip.create(kind=kind, ifname=ifA).commit()
+        if self.ip.interfaces[ifA]._mode == 'explicit':
+            self.ip.interfaces[ifA].begin()
 
         if ipv == 4:
             addr = '172.16.0.1/24'
@@ -567,21 +588,23 @@ class TestExplicit(object):
     def test_ipv4_bridge(self):
         self._test_ipv(4, 'bridge')
 
-    def _test_ipv6_dummy(self):
+    def test_ipv6_dummy(self):
         self._test_ipv(6, 'dummy')
 
-    def _test_ipv6_bond(self):
+    def test_ipv6_bond(self):
         self._test_ipv(6, 'bond')
 
-    def _test_ipv6_bridge(self):
+    def test_ipv6_bridge(self):
         self._test_ipv(6, 'bridge')
 
     def test_create_fail(self):
         require_user('root')
-        assert 'bala' not in self.ip.interfaces
+
+        ifA = self.get_ifname()
+
         # create with mac 11:22:33:44:55:66 should fail
         i = self.ip.create(kind='dummy',
-                           ifname='bala',
+                           ifname=ifA,
                            address='11:22:33:44:55:66')
         try:
             i.commit()
@@ -589,41 +612,44 @@ class TestExplicit(object):
             pass
 
         assert i._mode == 'invalid'
-        assert 'bala' not in self.ip.interfaces
+        assert ifA not in self.ip.interfaces
 
     def test_create_dqn(self):
         require_user('root')
-        assert 'bala' not in self.ip.interfaces
-        i = self.ip.create(kind='dummy', ifname='bala')
+        ifA = self.get_ifname()
+
+        i = self.ip.create(kind='dummy', ifname=ifA)
         i.add_ip('172.16.0.1/255.255.255.0')
         i.commit()
-        assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
-        assert '172.16.0.1/24' in get_ip_addr(interface='bala')
+        assert ('172.16.0.1', 24) in self.ip.interfaces[ifA].ipaddr
+        assert '172.16.0.1/24' in get_ip_addr(interface=ifA)
 
     def test_create_double_reuse(self):
         require_user('root')
-        assert 'bala' not in self.ip.interfaces
+
+        ifA = self.get_ifname()
         # create an interface
-        i1 = self.ip.create(kind='dummy', ifname='bala').commit()
+        i1 = self.ip.create(kind='dummy', ifname=ifA).commit()
         try:
             # this call should fail on the very first step:
             # `bala` interface already exists
-            self.ip.create(kind='dummy', ifname='bala')
+            self.ip.create(kind='dummy', ifname=ifA)
         except CreateException:
             pass
         # add `reuse` keyword -- now should pass
         i2 = self.ip.create(kind='dummy',
-                            ifname='bala',
+                            ifname=ifA,
                             reuse=True).commit()
         # assert that we have got references to the same interface
         assert i1 == i2
 
     def _create_double(self, kind):
         require_user('root')
-        assert 'bala' not in self.ip.interfaces
-        self.ip.create(kind=kind, ifname='bala').commit()
+        ifA = self.get_ifname()
+
+        self.ip.create(kind=kind, ifname=ifA).commit()
         try:
-            self.ip.create(kind=kind, ifname='bala').commit()
+            self.ip.create(kind=kind, ifname=ifA).commit()
         except CreateException:
             pass
 
@@ -638,55 +664,58 @@ class TestExplicit(object):
 
     def test_create_plain(self):
         require_user('root')
-        assert 'bala' not in self.ip.interfaces
-        i = self.ip.create(kind='dummy', ifname='bala')
+        ifA = self.get_ifname()
+
+        i = self.ip.create(kind='dummy', ifname=ifA)
         i.add_ip('172.16.0.1/24')
         i.commit()
-        assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
-        assert '172.16.0.1/24' in get_ip_addr(interface='bala')
+        assert ('172.16.0.1', 24) in self.ip.interfaces[ifA].ipaddr
+        assert '172.16.0.1/24' in get_ip_addr(interface=ifA)
 
-    def _test_create_and_remove(self):
+    def test_create_and_remove(self):
         require_user('root')
-        assert 'bala' not in self.ip.interfaces
 
-        with self.ip.create(kind='dummy', ifname='bala') as i:
+        ifA = self.get_ifname()
+
+        with self.ip.create(kind='dummy', ifname=ifA) as i:
             i.add_ip('172.16.0.1/24')
-        assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
-        assert '172.16.0.1/24' in get_ip_addr(interface='bala')
+        assert ('172.16.0.1', 24) in self.ip.interfaces[ifA].ipaddr
+        assert '172.16.0.1/24' in get_ip_addr(interface=ifA)
 
-        with self.ip.interfaces.bala as i:
+        with self.ip.interfaces[ifA] as i:
             i.remove()
-        assert 'bala' not in self.ip.interfaces
+        assert ifA not in self.ip.interfaces
 
     def _create_master(self, kind, **kwarg):
-        assert 'bala' not in self.ip.interfaces
-        assert 'bala_port0' not in self.ip.interfaces
-        assert 'bala_port1' not in self.ip.interfaces
 
-        self.ip.create(kind='dummy', ifname='bala_port0').commit()
-        self.ip.create(kind='dummy', ifname='bala_port1').commit()
+        ifM = self.get_ifname()
+        ifP1 = self.get_ifname()
+        ifP2 = self.get_ifname()
 
-        with self.ip.create(kind=kind, ifname='bala', **kwarg) as i:
-            i.add_port(self.ip.interfaces.bala_port0)
-            i.add_port(self.ip.interfaces.bala_port1)
+        self.ip.create(kind='dummy', ifname=ifP1).commit()
+        self.ip.create(kind='dummy', ifname=ifP2).commit()
+
+        with self.ip.create(kind=kind, ifname=ifM, **kwarg) as i:
+            i.add_port(self.ip.interfaces[ifP1])
+            i.add_port(self.ip.interfaces[ifP2])
             i.add_ip('172.16.0.1/24')
 
-        assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
-        assert '172.16.0.1/24' in get_ip_addr(interface='bala')
-        assert self.ip.interfaces.bala_port0.if_master == \
-            self.ip.interfaces.bala.index
-        assert self.ip.interfaces.bala_port1.if_master == \
-            self.ip.interfaces.bala.index
+        assert ('172.16.0.1', 24) in self.ip.interfaces[ifM].ipaddr
+        assert '172.16.0.1/24' in get_ip_addr(interface=ifM)
+        assert self.ip.interfaces[ifP1].if_master == \
+            self.ip.interfaces[ifM].index
+        assert self.ip.interfaces[ifP2].if_master == \
+            self.ip.interfaces[ifM].index
 
-        with self.ip.interfaces.bala as i:
-            i.del_port(self.ip.interfaces.bala_port0)
-            i.del_port(self.ip.interfaces.bala_port1)
+        with self.ip.interfaces[ifM] as i:
+            i.del_port(self.ip.interfaces[ifP1])
+            i.del_port(self.ip.interfaces[ifP2])
             i.del_ip('172.16.0.1/24')
 
-        assert ('172.16.0.1', 24) not in self.ip.interfaces.bala.ipaddr
-        assert '172.16.0.1/24' not in get_ip_addr(interface='bala')
-        assert self.ip.interfaces.bala_port0.if_master is None
-        assert self.ip.interfaces.bala_port1.if_master is None
+        assert ('172.16.0.1', 24) not in self.ip.interfaces[ifM].ipaddr
+        assert '172.16.0.1/24' not in get_ip_addr(interface=ifM)
+        assert self.ip.interfaces[ifP1].if_master is None
+        assert self.ip.interfaces[ifP2].if_master is None
 
     def test_create_bridge(self):
         require_user('root')
@@ -706,48 +735,49 @@ class TestExplicit(object):
     def test_create_vlan_by_interface(self):
         require_user('root')
         require_8021q()
-        assert 'bala' not in self.ip.interfaces
-        assert 'bv101' not in self.ip.interfaces
+        ifL = self.get_ifname()
+        ifV = self.get_ifname()
 
         self.ip.create(kind='dummy',
-                       ifname='bala').commit()
+                       ifname=ifL).commit()
         self.ip.create(kind='vlan',
-                       ifname='bv101',
-                       link=self.ip.interfaces.bala,
+                       ifname=ifV,
+                       link=self.ip.interfaces[ifL],
                        vlan_id=101).commit()
 
-        assert self.ip.interfaces.bv101.link == \
-            self.ip.interfaces.bala.index
+        assert self.ip.interfaces[ifV].link == \
+            self.ip.interfaces[ifL].index
 
     def test_create_vlan_by_index(self):
         require_user('root')
         require_8021q()
-        assert 'bala' not in self.ip.interfaces
-        assert 'bv101' not in self.ip.interfaces
+        ifL = self.get_ifname()
+        ifV = self.get_ifname()
 
         self.ip.create(kind='dummy',
-                       ifname='bala').commit()
+                       ifname=ifL).commit()
         self.ip.create(kind='vlan',
-                       ifname='bv101',
-                       link=self.ip.interfaces.bala.index,
+                       ifname=ifV,
+                       link=self.ip.interfaces[ifL].index,
                        vlan_id=101).commit()
 
-        assert self.ip.interfaces.bv101.link == \
-            self.ip.interfaces.bala.index
+        assert self.ip.interfaces[ifV].link == \
+            self.ip.interfaces[ifL].index
 
     def test_remove_secondaries(self):
         require_user('root')
-        assert 'bala' not in self.ip.interfaces
 
-        with self.ip.create(kind='dummy', ifname='bala') as i:
+        ifA = self.get_ifname()
+
+        with self.ip.create(kind='dummy', ifname=ifA) as i:
             i.add_ip('172.16.0.1', 24)
             i.add_ip('172.16.0.2', 24)
 
-        assert 'bala' in self.ip.interfaces
-        assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
-        assert ('172.16.0.2', 24) in self.ip.interfaces.bala.ipaddr
-        assert '172.16.0.1/24' in get_ip_addr(interface='bala')
-        assert '172.16.0.2/24' in get_ip_addr(interface='bala')
+        assert ifA in self.ip.interfaces
+        assert ('172.16.0.1', 24) in self.ip.interfaces[ifA].ipaddr
+        assert ('172.16.0.2', 24) in self.ip.interfaces[ifA].ipaddr
+        assert '172.16.0.1/24' in get_ip_addr(interface=ifA)
+        assert '172.16.0.2/24' in get_ip_addr(interface=ifA)
 
         if i._mode == 'explicit':
             i.begin()
@@ -756,10 +786,10 @@ class TestExplicit(object):
         i.del_ip('172.16.0.2', 24)
         i.commit()
 
-        assert ('172.16.0.1', 24) not in self.ip.interfaces.bala.ipaddr
-        assert ('172.16.0.2', 24) not in self.ip.interfaces.bala.ipaddr
-        assert '172.16.0.1/24' not in get_ip_addr(interface='bala')
-        assert '172.16.0.2/24' not in get_ip_addr(interface='bala')
+        assert ('172.16.0.1', 24) not in self.ip.interfaces[ifA].ipaddr
+        assert ('172.16.0.2', 24) not in self.ip.interfaces[ifA].ipaddr
+        assert '172.16.0.1/24' not in get_ip_addr(interface=ifA)
+        assert '172.16.0.2/24' not in get_ip_addr(interface=ifA)
 
 
 class TestImplicit(TestExplicit):
@@ -767,16 +797,19 @@ class TestImplicit(TestExplicit):
 
     def test_chain(self):
         require_user('root')
-        i = self.ip.create(ifname='bala', kind='dummy')
+
+        ifA = self.get_ifname()
+
+        i = self.ip.create(ifname=ifA, kind='dummy')
         i.commit().up().commit()
-        assert self.ip.interfaces.bala.flags & 1
+        assert self.ip.interfaces[ifA].flags & 1
 
         i.add_ip('172.16.0.1/24').down().commit()
-        assert ('172.16.0.1', 24) in self.ip.interfaces.bala.ipaddr
-        assert not (self.ip.interfaces.bala.flags & 1)
+        assert ('172.16.0.1', 24) in self.ip.interfaces[ifA].ipaddr
+        assert not (self.ip.interfaces[ifA].flags & 1)
 
         i.remove().commit()
-        assert 'bala' not in self.ip.interfaces
+        assert ifA not in self.ip.interfaces
 
     def test_generic_pre_callback(self):
         require_user('root')
@@ -786,48 +819,52 @@ class TestImplicit(TestExplicit):
                 # fake the incoming message
                 msg['flags'] = 1234
 
+        ifA = self.get_ifname()
         # register callback
         self.ip.register_callback(cb, mode='pre')
         # create an interface bala
-        self.ip.create(kind='dummy', ifname='bala').commit()
+        self.ip.create(kind='dummy', ifname=ifA).commit()
         # assert flags
-        assert self.ip.interfaces.bala.flags == 1234
+        assert self.ip.interfaces[ifA].flags == 1234
         # cleanup
         self.ip.unregister_callback(cb, mode='pre')
-        self.ip.interfaces.bala.remove()
-        self.ip.interfaces.bala.commit()
+        self.ip.interfaces[ifA].remove()
+        self.ip.interfaces[ifA].commit()
 
     def test_generic_post_callback(self):
         require_user('root')
         require_bridge()
 
+        ifP1 = self.get_ifname()
+        ifP2 = self.get_ifname()
+        ifM = self.get_ifname()
+
         def cb(ipdb, msg, action):
             if action == 'RTM_NEWLINK' and \
-                    msg.get_attr('IFLA_IFNAME', '').startswith('bala_port'):
-                with ipdb.exclusive:
-                    obj = ipdb.interfaces[msg['index']]
-                    ipdb.interfaces.bala.add_port(obj)
-                    ipdb.interfaces.bala.commit()
+                    msg.get_attr('IFLA_IFNAME', '') in (ifP1, ifP2):
+                obj = ipdb.interfaces[msg['index']]
+                ipdb.interfaces[ifM].add_port(obj)
+                ipdb.interfaces[ifM].commit()
 
-        wd0 = self.ip.watchdog(ifname='bala')
-        wd1 = self.ip.watchdog(ifname='bala_port0')
-        wd2 = self.ip.watchdog(ifname='bala_port1')
+        wd0 = self.ip.watchdog(ifname=ifM)
+        wd1 = self.ip.watchdog(ifname=ifP1)
+        wd2 = self.ip.watchdog(ifname=ifP2)
         # create bridge
-        self.ip.create(kind='bridge', ifname='bala').commit()
+        self.ip.create(kind='bridge', ifname=ifM).commit()
         wd0.wait()
         # register callback
         self.ip.register_callback(cb)
         # create ports
-        self.ip.create(kind='dummy', ifname='bala_port0').commit()
-        self.ip.create(kind='dummy', ifname='bala_port1').commit()
+        self.ip.create(kind='dummy', ifname=ifP1).commit()
+        self.ip.create(kind='dummy', ifname=ifP2).commit()
         wd1.wait()
         wd2.wait()
         time.sleep(1)
         # check that ports are attached
-        assert self.ip.interfaces.bala_port0.index in \
-            self.ip.interfaces.bala.ports
-        assert self.ip.interfaces.bala_port1.index in \
-            self.ip.interfaces.bala.ports
+        assert self.ip.interfaces[ifP1].index in \
+            self.ip.interfaces[ifM].ports
+        assert self.ip.interfaces[ifP2].index in \
+            self.ip.interfaces[ifM].ports
         # unregister callback
         self.ip.unregister_callback(cb)
 
@@ -839,11 +876,8 @@ class TestDirect(object):
         self.ip = IPDB(mode='direct')
 
     def teardown(self):
-        print("td begin")
         self.ip.release()
-        print("td released")
         remove_link('dummyX')
-        print("td done")
 
     def test_context_fail(self):
         try:
@@ -856,13 +890,13 @@ class TestDirect(object):
     def test_updown(self):
         require_user('root')
 
-        assert not (self.ip.interfaces.dummyX.flags & 1)
-        self.ip.interfaces.dummyX.up()
+        assert not (self.ip.interfaces['dummyX'].flags & 1)
+        self.ip.interfaces['dummyX'].up()
 
-        assert self.ip.interfaces.dummyX.flags & 1
-        self.ip.interfaces.dummyX.down()
+        assert self.ip.interfaces['dummyX'].flags & 1
+        self.ip.interfaces['dummyX'].down()
 
-        assert not (self.ip.interfaces.dummyX.flags & 1)
+        assert not (self.ip.interfaces['dummyX'].flags & 1)
 
     def test_exceptions_last(self):
         try:
@@ -931,12 +965,12 @@ class TestMisc(object):
         require_user('root')
 
         with IPDB(mode='explicit') as ip:
-            with ip.interfaces.dummyX as i:
+            with ip.interfaces['dummyX'] as i:
                 i.add_ip('172.16.0.1/24')
 
         try:
             with IPDB(mode='explicit') as ip:
-                with ip.interfaces.dummyX as i:
+                with ip.interfaces['dummyX'] as i:
                     i.add_ip('172.16.9.1/24')
                     i.del_ip('172.16.0.1/24')
                     i.address = '11:22:33:44:55:66'
@@ -944,8 +978,8 @@ class TestMisc(object):
             pass
 
         with IPDB() as ip:
-            assert ('172.16.0.1', 24) in ip.interfaces.dummyX.ipaddr
-            assert ('172.16.9.1', 24) not in ip.interfaces.dummyX.ipaddr
+            assert ('172.16.0.1', 24) in ip.interfaces['dummyX'].ipaddr
+            assert ('172.16.9.1', 24) not in ip.interfaces['dummyX'].ipaddr
 
     def test_modes(self):
         with IPDB(mode='explicit') as i:
