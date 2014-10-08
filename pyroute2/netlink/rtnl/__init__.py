@@ -317,14 +317,6 @@ class IPRSocket(NetlinkSocket):
         Proxy `put()` request
         '''
         if argv[1] in self.put_map:
-            argv = list(argv)
-            # FIXME: recode the message
-            msg = argv[0]
-            msg.encode()
-            msg = type(msg)(msg.buf.getvalue())
-            msg.decode()
-            argv[0] = msg
-            # FIXME: end of ugly hack
             self.put_map[argv[1]](*argv, **kwarg)
         else:
             NetlinkSocket.put(self, *argv, **kwarg)
@@ -337,7 +329,10 @@ class IPRSocket(NetlinkSocket):
             # get the interface kind
             linkinfo = msg.get_attr('IFLA_LINKINFO')
             if linkinfo is not None:
-                kind = linkinfo.get_attr('IFLA_INFO_KIND')
+                kind = [x[1] for x in linkinfo['attrs']
+                        if x[0] == 'IFLA_INFO_KIND']
+                if kind:
+                    kind = kind[0]
                 # not covered types, pass to the system
                 if kind not in ('bridge', 'bond'):
                     return NetlinkSocket.put(self, msg, *argv, **kwarg)
