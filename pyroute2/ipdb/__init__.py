@@ -1009,19 +1009,18 @@ class Interface(Transactional):
 
         def cb(ipdb, msg, action):
             if msg.get('index', -1) == dump['index']:
-                with ipdb.exclusive:
-                    tr = self.load(dump)
-                    for _ in range(3):
-                        try:
-                            self.commit(transaction=tr)
-                        except (CommitException, RuntimeError):
-                            # ignore here both CommitExceptions
-                            # and RuntimeErrors (aka rollback errors),
-                            # since ususally it is a races between
-                            # 3d party setup and freeze; just
-                            # sliently try again for several times
-                            continue
-                        break
+                tr = self.load(dump)
+                for _ in range(3):
+                    try:
+                        self.commit(transaction=tr)
+                    except (CommitException, RuntimeError):
+                        # ignore here both CommitExceptions
+                        # and RuntimeErrors (aka rollback errors),
+                        # since ususally it is a races between
+                        # 3d party setup and freeze; just
+                        # sliently try again for several times
+                        continue
+                    break
 
         self._freeze = cb
         self.ipdb.register_callback(self._freeze)
