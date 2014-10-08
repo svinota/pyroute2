@@ -3,8 +3,6 @@
 import json
 import time
 import socket
-import logging
-import traceback
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
 from pyroute2.common import basestring
@@ -44,10 +42,6 @@ class TestExplicit(object):
                     with self.ip.interfaces[name] as i:
                         i.remove()
                 except KeyError:
-                    continue
-                except Exception:
-                    # log all other errors
-                    logging.error(traceback.format_exc())
                     continue
                 break
             else:
