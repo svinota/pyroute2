@@ -205,13 +205,13 @@ class NetlinkSocket(socket):
         self.port = 0
         self.fixed = True
         self.backlog = {0: []}
-        self.requests = {}
         self.monitor = False
         self.callbacks = []     # [(predicate, callback, args), ...]
         self.backlog_lock = threading.Lock()
         self.read_lock = threading.Lock()
-        self.request_lock = threading.Lock()
+        self.change_master = threading.Event()
         self.lock = LockFactory()
+        self.log = []
         self.get_timeout = 3
         self.get_timeout_exception = None
         if pid is None:
@@ -468,8 +468,8 @@ class NetlinkSocket(socket):
                 bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
 
             ret = []
-            enough = True
-            while not enough or not ret:
+            enough = False
+            while not enough:
                 # 8<-----------------------------------------------------------
                 #
                 # This stage changes the backlog, so use mutex to
@@ -490,8 +490,9 @@ class NetlinkSocket(socket):
                     # content in it
                     ret.extend(self.backlog[0])
                     self.backlog[0] = []
-                    # Next iteration
+                    # And just exit
                     self.backlog_lock.release()
+                    break
                 elif self.backlog.get(msg_seq, None):
                     # Any other msg_seq.
                     #
@@ -521,22 +522,24 @@ class NetlinkSocket(socket):
                         # and requeue all the rest into Zero queue
                         if (msg['header']['type'] == NLMSG_DONE) or \
                                 (terminate is not None and terminate(msg)):
-                            enough = True
-                            self.backlog[0].extend(self.backlog[msg_seq])
-                            del self.backlog[msg_seq]
                             # The loop is done
-                            break
+                            enough = True
 
-                        # Just a normal message, append it to the response
-                        ret.append(msg)
+                        # If it is just a normal message, append it to
+                        # the response
+                        if not enough:
+                            ret.append(msg)
+                            # But finish the loop on single messages
+                            if not msg['header']['flags'] & NLM_F_MULTI:
+                                # but not multi -- so end the loop
+                                enough = True
 
-                        if msg['header']['flags'] & NLM_F_MULTI:
-                            # If it is NLM_F_MULTY, clear the "enough" flag
-                            enough = False
-                        elif not self.backlog[msg_seq]:
-                            # Else requeue the rest and delete the queue
+                        # Enough is enough, requeue the rest and delete
+                        # our backlog
+                        if enough:
                             self.backlog[0].extend(self.backlog[msg_seq])
                             del self.backlog[msg_seq]
+                            break
 
                     # Next iteration
                     self.backlog_lock.release()
@@ -566,6 +569,7 @@ class NetlinkSocket(socket):
                             return ret
                     #
                     if self.read_lock.acquire(False):
+                        self.change_master.clear()
                         # If the socket is free to read from, occupy
                         # it and wait for the data
                         #
@@ -577,7 +581,6 @@ class NetlinkSocket(socket):
 
                         # We've got the data, lock the backlog again
                         self.backlog_lock.acquire()
-                        seqs = set()
                         for msg in msgs:
                             seq = msg['header']['sequence_number']
                             if seq not in self.backlog:
@@ -585,11 +588,6 @@ class NetlinkSocket(socket):
                                     # Drop orphaned NLMSG_ERROR messages
                                     continue
                                 seq = 0
-                            else:
-                                # Collect msg_seq values to wake other
-                                # requests, when all the messages were
-                                # read and stored into the backlog
-                                seqs.add(seq)
                             # 8<-----------------------------------------------
                             # Callbacks section
                             for cr in self.callbacks:
@@ -603,39 +601,20 @@ class NetlinkSocket(socket):
                             self.backlog[seq].append(msg)
                             # Monitor mode:
                             if self.monitor and seq != 0:
-                                seqs.add(0)
                                 self.backlog[0].append(msg)
                         # We finished with the backlog, so release the lock
                         self.backlog_lock.release()
-                        # Now iterate requests and wake up other threads
-                        with self.request_lock:
-                            for seq in seqs:
-                                if seq in self.requests:
-                                    # There will be no request for non-zero
-                                    # seq, if seq == msg_seq (our call)
-                                    self.requests[seq].set()
-                                    del self.requests[seq]
+
+                        # Now wake up other threads
+                        self.change_master.set()
 
                         # Finally, release the read lock: all data processed
                         self.read_lock.release()
                     else:
                         # If the socket is occupied and there is still no
-                        # data for us, leave the request for the msg_seq
-                        self.request_lock.acquire()
-                        self.backlog_lock.acquire()
-                        if self.backlog.get(msg_seq, None):
-                            # Just go and collect the data from the backlog,
-                            # if there is anything to collect
-                            self.backlog_lock.release()
-                            self.request_lock.release()
-                        else:
-                            # Or leave the request
-                            request = threading.Event()
-                            self.requests[msg_seq] = request
-                            self.backlog_lock.release()
-                            self.request_lock.release()
-                            # Release mutexes BEFORE wait for the event
-                            request.wait()
+                        # data for us, wait for the next master change or
+                        # for a timeout
+                        self.change_master.wait(1)
                     # 8<-------------------------------------------------------
                     #
                     # Stage 2. END
