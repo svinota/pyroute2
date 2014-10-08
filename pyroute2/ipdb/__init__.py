@@ -632,9 +632,8 @@ class Transactional(Dotkeys):
         self.last_error = None
         self._commit_hooks = []
         self._fields = []
-        self._tids = []
-        self._transactions = {}
         self._sids = []
+        self._ts = threading.local()
         self._snapshots = {}
         self._targets = {}
         self._local_targets = {}
@@ -642,6 +641,18 @@ class Transactional(Dotkeys):
         self._write_lock = threading.RLock()
         self._direct_state = State(self._write_lock)
         self._linked_sets = set()
+
+    @property
+    def _tids(self):
+        if not hasattr(self._ts, 'tids'):
+            self._ts.tids = []
+        return self._ts.tids
+
+    @property
+    def _transactions(self):
+        if not hasattr(self._ts, 'transactions'):
+            self._ts.transactions = {}
+        return self._ts.transactions
 
     def register_callback(self, callback):
         raise DeprecationException("deprecated since 0.2.15;"
