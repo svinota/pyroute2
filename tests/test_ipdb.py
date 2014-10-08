@@ -493,10 +493,13 @@ class TestExplicit(object):
         # unfreeze
         self.ip.interfaces[self.ifd].unfreeze()
 
-        i2.addr('delete', interface.index, '172.16.0.1', 24)
-        i2.addr('delete', interface.index, '172.16.1.1', 24)
-        # release
-        i2.release()
+        try:
+            i2.addr('delete', interface.index, '172.16.0.1', 24)
+            i2.addr('delete', interface.index, '172.16.1.1', 24)
+        except:
+            pass
+        finally:
+            i2.release()
 
         # should be up, but w/o addresses
         interface.ipaddr.set_target(set())
