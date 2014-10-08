@@ -37,11 +37,9 @@ Module contents:
 
 import os
 import time
-import socket
 import platform
 import subprocess
 from pyroute2.common import map_namespace
-from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NETLINK_ROUTE
 from pyroute2.netlink.nlsocket import Marshal
