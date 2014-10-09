@@ -633,7 +633,6 @@ class NetlinkSocket(socket):
                 ret = self.get(msg_seq=msg_seq, terminate=terminate)
                 return ret
             except:
-                print(msg_type, msg_flags, msg)
                 raise
             finally:
                 # Ban this msg_seq for 0xff rounds
