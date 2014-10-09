@@ -16,7 +16,7 @@ class TestSetup(object):
 
     def test_simple(self):
         ip = IPRoute()
-        ip.release()
+        ip.close()
 
     def test_multiple_instances(self):
         # run two instances from parent
@@ -26,10 +26,10 @@ class TestSetup(object):
         # `fork` is DEPRECATED
         ip3 = IPRoute(fork=True)
         ip4 = IPRoute(fork=True)
-        ip1.release()
-        ip2.release()
-        ip3.release()
-        ip4.release()
+        ip1.close()
+        ip2.close()
+        ip3.close()
+        ip4.close()
 
 
 class TestMisc(object):
@@ -38,7 +38,7 @@ class TestMisc(object):
         self.ip = IPRoute()
 
     def teardown(self):
-        self.ip.release()
+        self.ip.close()
 
     def test_addrpool_expand(self):
         # see coverage
@@ -68,7 +68,7 @@ class TestData(object):
         self.dev = self.ip.link_lookup(ifname='dummyX')
 
     def teardown(self):
-        self.ip.release()
+        self.ip.close()
         remove_link('dummyX')
         remove_link('bala')
 

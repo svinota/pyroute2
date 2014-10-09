@@ -482,7 +482,7 @@ class TestExplicit(object):
                     break
             if err is not None:
                 interface.unfreeze()
-                i2.release()
+                i2.close()
                 raise err
 
         # freeze
@@ -503,7 +503,7 @@ class TestExplicit(object):
         except:
             pass
         finally:
-            i2.release()
+            i2.close()
 
         # should be up, but w/o addresses
         interface.ipaddr.set_target(set())
