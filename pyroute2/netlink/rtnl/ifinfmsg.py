@@ -23,6 +23,8 @@ IFF_LOWER_UP = 0x10000  # driver signals L1 up
 IFF_DORMANT = 0x20000  # driver signals dormant
 IFF_ECHO = 0x40000  # echo sent packets
 
+(IFF_NAMES, IFF_VALUES) = map_namespace('IFF', globals())
+
 IFF_MASK = IFF_UP |\
     IFF_DEBUG |\
     IFF_NOTRAILERS |\
@@ -39,8 +41,6 @@ IFF_VOLATILE = IFF_LOOPBACK |\
     IFF_RUNNING |\
     IFF_LOWER_UP |\
     IFF_DORMANT
-
-(IFF_NAMES, IFF_VALUES) = map_namespace('IFF', globals())
 
 states = ('UNKNOWN',
           'NOTPRESENT',
@@ -131,24 +131,29 @@ class ifinfmsg(nlmsg):
                ('IFLA_NUM_RX_QUEUES', 'uint32'))
 
     @staticmethod
-    def flags2names(flags):
+    def flags2names(flags, mask=0xffffffff):
         ret = []
         for flag in IFF_VALUES:
-            if flag & flags:
+            if (flag & mask & flags) == flag:
                 ret.append(IFF_VALUES[flag])
         return ret
 
     @staticmethod
     def names2flags(flags):
         ret = 0
+        mask = 0
         for flag in flags:
-            ret |= IFF_NAMES[flag]
-        return ret
+            if flag[0] == '!':
+                flag = flag[1:]
+            else:
+                ret |= IFF_NAMES[flag]
+            mask |= IFF_NAMES[flag]
+        return (ret, mask)
 
     def encode(self):
         # convert flags
         if isinstance(self['flags'], (set, tuple, list)):
-            self['flags'] = self.names2flags(self['flags'])
+            self['flags'], self['change'] = self.names2flags(self['flags'])
         return nlmsg.encode(self)
 
     class wireless(iw_event):
