@@ -208,9 +208,9 @@ from pyroute2.common import basestring
 from pyroute2.iocore import TimeoutError
 from pyroute2.netlink import NetlinkError
 from pyroute2.ipdb import compat
-from pyroute2.iproute import IFF_MASK
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
+from pyroute2.netlink.rtnl.ifinfmsg import IFF_MASK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.brmsg import brmsg
