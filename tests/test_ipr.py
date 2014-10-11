@@ -185,6 +185,14 @@ class TestData(object):
                     pattern='172.16.1.0/24.*172.16.0.1')
         remove_link('bala')
 
+    def test_symbolic_flags(self):
+        require_user('root')
+        dev = self.dev[0]
+        self.ip.link('set', index=dev, flags=['IFF_UP'])
+        assert self.ip.get_links(dev)[0]['flags'] & 1
+        self.ip.link('set', index=dev, flags=['!IFF_UP'])
+        assert not (self.ip.get_links(dev)[0]['flags'] & 1)
+
     def test_updown_link(self):
         require_user('root')
         dev = self.dev[0]
