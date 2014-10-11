@@ -33,7 +33,7 @@ class BasicTest(object):
 
     def teardown(self):
         self.ip.link('delete', index=self.interface)
-        self.ip.release()
+        self.ip.close()
 
     def get_qdiscs(self):
         return [x for x in self.ip.get_qdiscs() if
