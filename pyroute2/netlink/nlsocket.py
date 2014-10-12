@@ -1,3 +1,13 @@
+'''
+Base netlink socket and marshal
+===============================
+
+All the netlink providers are derived from the socket
+class, so they provide normal socket API, including
+`getsockopt()`, `setsockopt()`, they can be used in
+poll/select I/O loops etc.
+'''
+
 import io
 import os
 import time

@@ -1,6 +1,4 @@
 '''
-Developer's guide to Netlink and pyroute2
-
 Netlink basics
 ==============
 
@@ -66,7 +64,7 @@ Complete structure of a netlink packet::
 More information about netlink protocol you can find in
 the man pages.
 
-Pyroute2 and Netlink
+Pyroute2 and netlink
 ====================
 
 packets
@@ -520,6 +518,9 @@ class nlmsg_base(dict):
     you're inventing completely new protocol structure.
 
     Use nlmsg or nla classes.
+
+    The class provides several methods, but often one need to customize
+    only `decode()` and `encode()`.
     '''
 
     fields = []                  # data field names, to build a dictionary
@@ -546,6 +547,11 @@ class nlmsg_base(dict):
             self['header'] = self.header(self.buf)
 
     def copy(self):
+        '''
+        Return a decoded copy of the netlink message. Works
+        correctly only if the message was encoded, or is
+        received from the socket.
+        '''
         buf = io.BytesIO()
         buf.length = buf.write(self.raw)
         buf.seek(0)
@@ -554,6 +560,11 @@ class nlmsg_base(dict):
         return ret
 
     def reset(self, buf=None):
+        '''
+        Reset the message buffer. Optionally, set the message
+        from the `buf` parameter. This parameter can be either
+        string, or io.BytesIO, or dict instance.
+        '''
         if isinstance(buf, basestring):
             b = io.BytesIO()
             b.write(buf)
@@ -573,6 +584,12 @@ class nlmsg_base(dict):
         return self
 
     def strip(self, attrs):
+        '''
+        Remove an NLA from the attrs chain. The `attrs`
+        parameter can be either string, or iterable. In
+        the latter case, will be stripped NLAs, specified
+        in the provided list.
+        '''
         if isinstance(attrs, basestring):
             self._strip_one(attrs)
         else:
@@ -621,9 +638,15 @@ class nlmsg_base(dict):
             return res
 
     def __sub__(self, rvalue):
+        '''
+        Subjunction operation.
+        '''
         return self.__ops(rvalue, '__sub__', '__ne__')
 
     def __and__(self, rvalue):
+        '''
+        Conjunction operation.
+        '''
         return self.__ops(rvalue, '__and__', '__eq__')
 
     def __eq__(self, rvalue):
@@ -689,6 +712,22 @@ class nlmsg_base(dict):
         self.buf.seek(size, 1)
 
     def decode(self):
+        '''
+        Decode the message. The message should have the `buf`
+        attribute initialized. e.g.::
+
+            data = sock.recv(16384)
+            msg = ifinfmsg(data)
+
+        If you want to customize the decoding process, override
+        the method, but don't forget to call parent's `decode()`::
+
+            class CustomMessage(nlmsg):
+
+                def decode(self):
+                    nlmsg.decode(self)
+                    ...  # do some custom data tuning
+        '''
         self.offset = self.buf.tell()
         # decode the header
         if self.header is not None:
@@ -776,6 +815,21 @@ class nlmsg_base(dict):
             del self['value']
 
     def encode(self):
+        '''
+        Encode the message into the binary buffer::
+
+            msg.encode()
+            sock.send(msg.buf.getvalue())
+
+        If you want to customize the encoding process, override
+        the method::
+
+            class CustomMessage(nlmsg):
+
+                def encode(self):
+                    ...  # do some custom data tuning
+                    nlmsg.encode(self)
+        '''
         init = self.buf.tell()
         diff = 0
         # reserve space for the header
@@ -890,11 +944,13 @@ class nlmsg_base(dict):
         and reverse mapping of NLA types.
 
         ex: given::
+
             nla_map = (('TCA_HTB_UNSPEC', 'none'),
                        ('TCA_HTB_PARMS', 'htb_parms'),
                        ('TCA_HTB_INIT', 'htb_glob'))
 
         creates::
+
             t_nla_map = {0: (<class 'pyroute2...none'>, 'TCA_HTB_UNSPEC'),
                          1: (<class 'pyroute2...htb_parms'>, 'TCA_HTB_PARMS'),
                          2: (<class 'pyroute2...htb_glob'>, 'TCA_HTB_INIT')}
@@ -931,6 +987,10 @@ class nlmsg_base(dict):
             self.r_nla_map[name] = (nla_class, key)
 
     def encode_nlas(self):
+        '''
+        Encode the NLA chain. Should not be called manually, since
+        it is called from `encode()` routine.
+        '''
         for i in self['attrs']:
             if i[0] in self.r_nla_map:
                 msg_class = self.r_nla_map[i[0]][0]
@@ -954,6 +1014,10 @@ class nlmsg_base(dict):
                         i[2] = nla
 
     def decode_nlas(self):
+        '''
+        Decode the NLA chain. Should not be called manually, since
+        it is called from `decode()` routine.
+        '''
         while self.buf.tell() < (self.offset + self.length):
             init = self.buf.tell()
             nla = None
@@ -1003,11 +1067,17 @@ class nlmsg_base(dict):
 
 
 class nla_header(nlmsg_base):
+    '''
+    The NLA header structure: uin16 length and uint16 type.
+    '''
     fields = (('length', 'H'),
               ('type', 'H'))
 
 
 class nla_base(nlmsg_base):
+    '''
+    The NLA base class. Use `nla_header` class as the header.
+    '''
     header = nla_header
 
 

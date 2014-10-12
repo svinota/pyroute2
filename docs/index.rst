@@ -3,8 +3,8 @@
 pyroute2 netlink library
 ========================
 
-General information about the library (README.md)
--------------------------------------------------
+General information
+-------------------
 
 .. toctree::
     :maxdepth: 2
@@ -13,13 +13,21 @@ General information about the library (README.md)
     changelog
     migration
 
-Netlink protocols
------------------
+Netlink protocol
+----------------
 
 .. toctree::
     :maxdepth: 2
 
     netlink
+    nlsocket
+
+Netlink sockets
+---------------
+
+.. toctree::
+    :maxdepth: 2
+
     generic
     rtnl
     ipq

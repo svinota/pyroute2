@@ -54,12 +54,10 @@ div.footer a {
 }
 
 div.related {
-    background-color: #133f52;
+    background-color: #fafafa;
     line-height: 30px;
-}
-
-div.related a {
-    color: #ffffff;
+    border-top: 1px solid #c0c0c0;
+    border-bottom: 1px solid #c0c0c0;
 }
 
 div.sphinxsidebar {
