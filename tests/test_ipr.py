@@ -1,5 +1,6 @@
 import socket
 from pyroute2 import IPRoute
+from pyroute2.common import AddrPool
 from pyroute2.netlink import NetlinkError
 from utils import grep
 from utils import require_user
@@ -60,24 +61,37 @@ def _callback(msg, obj):
     obj.cb_counter += 1
 
 
-class TestData(object):
+class TestIPRoute(object):
 
     def setup(self):
-        create_link('dummyX', 'dummy')
         self.ip = IPRoute()
-        self.dev = self.ip.link_lookup(ifname='dummyX')
+        self.ap = AddrPool()
+        self.iftmp = 'pr2x{0}'
+        self.dev, idx = self.create()
+        self.ifaces = [idx]
+
+    def get_ifname(self):
+        return self.iftmp.format(self.ap.alloc())
+
+    def create(self, kind='dummy'):
+        name = self.get_ifname()
+        create_link(name, kind=kind)
+        idx = self.ip.link_lookup(ifname=name)[0]
+        return (name, idx)
 
     def teardown(self):
+        for dev in self.ifaces:
+            try:
+                self.ip.link('delete', index=dev)
+            except:
+                pass
         self.ip.close()
-        remove_link('dummyX')
-        remove_link('bala')
 
     def _test_nla_operators(self):
         require_user('root')
-        dev = self.dev[0]
-        self.ip.addr('add', dev, address='172.16.0.1', mask=24)
-        self.ip.addr('add', dev, address='172.16.0.2', mask=24)
-        r = [x for x in self.ip.get_addr() if x['index'] == dev]
+        self.ip.addr('add', self.ifaces[0], address='172.16.0.1', mask=24)
+        self.ip.addr('add', self.ifaces[0], address='172.16.0.2', mask=24)
+        r = [x for x in self.ip.get_addr() if x['index'] == self.ifaces[0]]
         complement = r[0] - r[1]
         intersection = r[0] & r[1]
 
@@ -87,15 +101,33 @@ class TestData(object):
         assert complement['index'] == 0
 
         assert intersection.get_attr('IFA_ADDRESS') is None
-        assert intersection.get_attr('IFA_LABEL') == 'dummyX'
+        assert intersection.get_attr('IFA_LABEL') == self.dev
         assert intersection['prefixlen'] == 24
-        assert intersection['index'] == dev
+        assert intersection['index'] == self.ifaces[0]
 
     def test_add_addr(self):
         require_user('root')
-        dev = self.dev[0]
-        self.ip.addr('add', dev, address='172.16.0.1', mask=24)
+        self.ip.addr('add', self.ifaces[0], address='172.16.0.1', mask=24)
         assert '172.16.0.1/24' in get_ip_addr()
+
+    def _create(self, kind):
+        name = self.get_ifname()
+        self.ip.link_create(ifname=name, kind=kind)
+        devs = self.ip.link_lookup(ifname=name)
+        assert devs
+        self.ifaces.extend(devs)
+
+    def test_create_dummy(self):
+        require_user('root')
+        self._create('dummy')
+
+    def test_create_bond(self):
+        require_user('root')
+        self._create('bond')
+
+    def test_create_bridge(self):
+        require_user('root')
+        self._create('bridge')
 
     def test_fail_not_permitted(self):
         try:
@@ -123,13 +155,11 @@ class TestData(object):
 
     def test_remove_link(self):
         require_user('root')
-        create_link('bala', 'dummy')
-        dev = self.ip.link_lookup(ifname='bala')[0]
         try:
-            self.ip.link_remove(dev)
+            self.ip.link_remove(self.ifaces[0])
         except NetlinkError:
             pass
-        assert len(self.ip.link_lookup(ifname='bala')) == 0
+        assert len(self.ip.link_lookup(ifname=self.dev)) == 0
 
     def test_get_route(self):
         if not self.ip.get_default_routes(table=254):
@@ -141,10 +171,8 @@ class TestData(object):
 
     def test_flush_routes(self):
         require_user('root')
-        create_link('bala', 'dummy')
-        dev = self.ip.link_lookup(ifname='bala')[0]
-        self.ip.link('set', index=dev, state='up')
-        self.ip.addr('add', dev, address='172.16.0.2', mask=24)
+        self.ip.link('set', index=self.ifaces[0], state='up')
+        self.ip.addr('add', self.ifaces[0], address='172.16.0.2', mask=24)
         self.ip.route('add',
                       prefix='172.16.1.0',
                       mask=24,
@@ -168,14 +196,10 @@ class TestData(object):
         assert not grep('ip route show table 100',
                         pattern='172.16.2.0/24.*172.16.0.1')
 
-        remove_link('bala')
-
     def test_route_table_2048(self):
         require_user('root')
-        create_link('bala', 'dummy')
-        dev = self.ip.link_lookup(ifname='bala')[0]
-        self.ip.link('set', index=dev, state='up')
-        self.ip.addr('add', dev, address='172.16.0.2', mask=24)
+        self.ip.link('set', index=self.ifaces[0], state='up')
+        self.ip.addr('add', self.ifaces[0], address='172.16.0.2', mask=24)
         self.ip.route('add',
                       prefix='172.16.1.0',
                       mask=24,
@@ -187,30 +211,27 @@ class TestData(object):
 
     def test_symbolic_flags(self):
         require_user('root')
-        dev = self.dev[0]
-        self.ip.link('set', index=dev, flags=['IFF_UP'])
-        assert self.ip.get_links(dev)[0]['flags'] & 1
-        self.ip.link('set', index=dev, flags=['!IFF_UP'])
-        assert not (self.ip.get_links(dev)[0]['flags'] & 1)
+        self.ip.link('set', index=self.ifaces[0], flags=['IFF_UP'])
+        assert self.ip.get_links(self.ifaces[0])[0]['flags'] & 1
+        self.ip.link('set', index=self.ifaces[0], flags=['!IFF_UP'])
+        assert not (self.ip.get_links(self.ifaces[0])[0]['flags'] & 1)
 
     def test_updown_link(self):
         require_user('root')
-        dev = self.dev[0]
-        assert not (self.ip.get_links(dev)[0]['flags'] & 1)
         try:
-            self.ip.link_up(dev)
+            self.ip.link_up(*self.ifaces)
         except NetlinkError:
             pass
-        assert self.ip.get_links(dev)[0]['flags'] & 1
+        assert self.ip.get_links(*self.ifaces)[0]['flags'] & 1
         try:
-            self.ip.link_down(dev)
+            self.ip.link_down(*self.ifaces)
         except NetlinkError:
             pass
-        assert not (self.ip.get_links(dev)[0]['flags'] & 1)
+        assert not (self.ip.get_links(*self.ifaces)[0]['flags'] & 1)
 
     def test_callbacks_positive(self):
         require_user('root')
-        dev = self.dev[0]
+        dev = self.ifaces[0]
 
         self.cb_counter = 0
         self.ip.register_callback(_callback,
@@ -225,7 +246,7 @@ class TestData(object):
 
         self.cb_counter = 0
         self.ip.register_callback(_callback,
-                                  lambda x: x.get('index', None) == 'bala',
+                                  lambda x: x.get('index', None) == -1,
                                   (self, ))
         self.test_updown_link()
         assert self.cb_counter == 0
@@ -233,17 +254,17 @@ class TestData(object):
 
     def test_rename_link(self):
         require_user('root')
-        dev = self.dev[0]
+        dev = self.ifaces[0]
         try:
             self.ip.link_rename(dev, 'bala')
         except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname='bala')) == 1
         try:
-            self.ip.link_rename(dev, 'dummyX')
+            self.ip.link_rename(dev, self.dev)
         except NetlinkError:
             pass
-        assert len(self.ip.link_lookup(ifname='dummyX')) == 1
+        assert len(self.ip.link_lookup(ifname=self.dev)) == 1
 
     def test_rules(self):
         assert len(get_ip_rules('-4')) == \
