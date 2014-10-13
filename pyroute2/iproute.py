@@ -513,9 +513,11 @@ class IPRoute(IPRSocket):
             ip.link("delete", index=x)
         '''
 
-        commands = {'set': RTM_SETLINK,      # almost all operations
-                    'add': RTM_NEWLINK,      # no idea, how to use it :)
-                    'delete': RTM_DELLINK}   # remove interface
+        commands = {'set': RTM_SETLINK,
+                    'add': RTM_NEWLINK,
+                    'del': RTM_DELLINK,
+                    'remove': RTM_DELLINK,
+                    'delete': RTM_DELLINK}
         command = commands.get(command, command)
 
         msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
@@ -583,6 +585,8 @@ class IPRoute(IPRSocket):
         '''
 
         commands = {'add': RTM_NEWADDR,
+                    'del': RTM_DELADDR,
+                    'remove': RTM_DELADDR,
                     'delete': RTM_DELADDR}
         command = commands.get(command, command)
 
@@ -705,6 +709,7 @@ class IPRoute(IPRSocket):
 
         commands = {'add': RTM_NEWQDISC,
                     'del': RTM_DELQDISC,
+                    'remove': RTM_DELQDISC,
                     'delete': RTM_DELQDISC,
                     'add-class': RTM_NEWTCLASS,
                     'del-class': RTM_DELTCLASS,
@@ -803,6 +808,8 @@ class IPRoute(IPRSocket):
         # 8<----------------------------------------------------
         commands = {'add': (RTM_NEWROUTE, flags_make),
                     'set': (RTM_NEWROUTE, flags_replace),
+                    'del': (RTM_DELROUTE, flags_make),
+                    'remove': (RTM_DELROUTE, flags_make),
                     'delete': (RTM_DELROUTE, flags_make)}
         (command, flags) = commands.get(command, command)
         msg = rtmsg()
@@ -900,6 +907,8 @@ class IPRoute(IPRSocket):
             raise 'unsupported table number'
 
         commands = {'add': RTM_NEWRULE,
+                    'del': RTM_DELRULE,
+                    'remove': RTM_DELRULE,
                     'delete': RTM_DELRULE}
         command = commands.get(command, command)
 
