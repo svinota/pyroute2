@@ -210,6 +210,10 @@ from pyroute2.netlink import NetlinkError
 from pyroute2.ipdb import compat
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
+from pyroute2.netlink.rtnl.req import BridgeRequest
+from pyroute2.netlink.rtnl.req import BondRequest
+from pyroute2.netlink.rtnl.req import IPLinkRequest
+from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ifinfmsg import IFF_MASK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -507,115 +511,6 @@ def update(f):
         return ret
     decorated.__doc__ = f.__doc__
     return decorated
-
-
-class IPRequest(dict):
-
-    def __init__(self, obj=None):
-        dict.__init__(self)
-        if obj is not None:
-            self.update(obj)
-
-    def update(self, obj):
-        for key in obj:
-            if obj[key] is not None:
-                self[key] = obj[key]
-
-
-class IPRouteRequest(IPRequest):
-    '''
-    Utility class, that converts human-readable dictionary
-    into RTNL route request.
-    '''
-
-    def __setitem__(self, key, value):
-        # fix family
-        if isinstance(value, basestring) and value.find(':') >= 0:
-            self['family'] = AF_INET6
-        # work on the rest
-        if (key == 'dst') and (value != 'default'):
-            value = value.split('/')
-            if len(value) == 1:
-                dst = value[0]
-                mask = 0
-            elif len(value) == 2:
-                dst = value[0]
-                mask = int(value[1])
-            else:
-                raise ValueError('wrong destination')
-            dict.__setitem__(self, 'dst', dst)
-            dict.__setitem__(self, 'dst_len', mask)
-        elif key != 'dst':
-            dict.__setitem__(self, key, value)
-
-
-class CBRequest(IPRequest):
-    '''
-    FIXME
-    '''
-    commands = None
-    msg = None
-
-    def __init__(self, *argv, **kwarg):
-        self['commands'] = {'attrs': []}
-
-    def __setitem__(self, key, value):
-        if value is None:
-            return
-        if key in self.commands:
-            self['commands']['attrs'].\
-                append([self.msg.name2nla(key), value])
-        else:
-            dict.__setitem__(self, key, value)
-
-
-class BridgeRequest(CBRequest):
-    commands = [brmsg.nla2name(i[0]) for i in brmsg.commands.nla_map]
-    msg = brmsg
-
-
-class BondRequest(CBRequest):
-    commands = [bomsg.nla2name(i[0]) for i in bomsg.commands.nla_map]
-    msg = bomsg
-
-
-class IPLinkRequest(IPRequest):
-    '''
-    Utility class, that converts human-readable dictionary
-    into RTNL link request.
-    '''
-
-    def __setitem__(self, key, value):
-        # there must be no "None" values in the request
-        if value is None:
-            return
-
-        # all the values must be in ascii
-        try:
-            if isinstance(value, unicode):
-                value = value.encode('ascii')
-        except NameError:
-            pass
-
-        # set up specific keys
-        if key == 'kind':
-            if 'IFLA_LINKINFO' not in self:
-                self['IFLA_LINKINFO'] = {'attrs': []}
-            nla = ['IFLA_INFO_KIND', value]
-            # FIXME: we need to replace, not add
-            self['IFLA_LINKINFO']['attrs'].append(nla)
-        elif key == 'vlan_id':
-            if 'IFLA_LINKINFO' not in self:
-                self['IFLA_LINKINFO'] = {'attrs': []}
-            nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_VLAN_ID', value]]}]
-            # FIXME: we need to replace, not add
-            self['IFLA_LINKINFO']['attrs'].append(nla)
-        elif key == 'bond_mode':
-            if 'IFLA_LINKINFO' not in self:
-                self['IFLA_LINKINFO'] = {'attrs': []}
-            nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_BOND_MODE', value]]}]
-            self['IFLA_LINKINFO']['attrs'].append(nla)
-        dict.__setitem__(self, key, value)
 
 
 class Transactional(Dotkeys):
