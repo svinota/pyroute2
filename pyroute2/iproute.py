@@ -89,6 +89,7 @@ from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rtprotos
 from pyroute2.netlink.rtnl import rtypes
 from pyroute2.netlink.rtnl import rtscopes
+from pyroute2.netlink.rtnl.req import IPLinkRequest
 from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_htb_class_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
@@ -388,6 +389,20 @@ class IPRoute(IPRSocket):
         return [x for x in self.get_routes(family, table=table)
                 if (x.get_attr('RTA_DST', None) is None and
                     x['dst_len'] == 0)]
+
+    def link_create(self, **kwarg):
+        '''
+        Create a link. The method parameters will be
+        passed to the `IPLinkRequest()` constructor as
+        a dictionary.
+
+        Examples::
+
+            ip.link_create(ifname='very_dummy', kind='dummy')
+            ip.link_create(ifname='br0', kind='bridge')
+            ip.link_create(ifname='v101', kind='vlan', vlan_id=101, link=1)
+        '''
+        return self.link('add', **IPLinkRequest(kwarg))
 
     def link_up(self, index):
         '''
