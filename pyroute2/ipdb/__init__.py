@@ -915,6 +915,9 @@ class Interface(Transactional):
                         # 3d party setup and freeze; just
                         # sliently try again for several times
                         continue
+                    except NetlinkError:
+                        # on the netlink errors just give up
+                        pass
                     break
 
         self._freeze = cb
