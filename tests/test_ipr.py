@@ -67,8 +67,11 @@ class TestIPRoute(object):
         self.ip = IPRoute()
         self.ap = AddrPool()
         self.iftmp = 'pr2x{0}'
-        self.dev, idx = self.create()
-        self.ifaces = [idx]
+        try:
+            self.dev, idx = self.create()
+            self.ifaces = [idx]
+        except IndexError:
+            pass
 
     def get_ifname(self):
         return self.iftmp.format(self.ap.alloc())
@@ -80,11 +83,12 @@ class TestIPRoute(object):
         return (name, idx)
 
     def teardown(self):
-        for dev in self.ifaces:
-            try:
-                self.ip.link('delete', index=dev)
-            except:
-                pass
+        if hasattr(self, 'ifaces'):
+            for dev in self.ifaces:
+                try:
+                    self.ip.link('delete', index=dev)
+                except:
+                    pass
         self.ip.close()
 
     def _test_nla_operators(self):
