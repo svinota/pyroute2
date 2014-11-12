@@ -133,6 +133,39 @@ class TestIPRoute(object):
         require_user('root')
         self._create('bridge')
 
+    def test_mass_ipv6(self):
+        #
+        # Achtung! This test is time consuming.
+        # It is really time consuming, I'm not not
+        # kidding you. Beware.
+        #
+        require_user('root')
+        base = 'fdb3:84e5:4ff4:55e4::{0}'
+
+        # add addresses
+        for idx in range(0xf000):
+            self.ip.addr('add', self.ifaces[0],
+                         base.format(hex(idx)[2:]), 48)
+
+        # assert addresses in two steps, to ease debug
+        addrs = self.ip.get_addr(10)
+        assert len(addrs) >= 0xf000
+
+        # clean up addresses
+        #
+        # it is not required, but if you don't do that,
+        # you'll get this on the interface removal:
+        #
+        # >> kernel:BUG: soft lockup - CPU#0 stuck for ...
+        #
+        # so, not to scare people, remove addresses gracefully
+        # one by one
+        #
+        # it also verifies all the addresses are in place
+        for idx in reversed(range(0xf000)):
+            self.ip.addr('delete', self.ifaces[0],
+                         base.format(hex(idx)[2:]), 48)
+
     def test_fail_not_permitted(self):
         try:
             self.ip.addr('add', 1, address='172.16.0.1', mask=24)

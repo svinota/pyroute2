@@ -587,7 +587,11 @@ class NetlinkSocket(socket):
                         # locks, except the read lock must be released
                         data = io.BytesIO()
                         data.length = data.write(self.recv(bufsize))
+                        # Parse data
                         msgs = self.marshal.parse(data, self)
+                        # Reset ctime -- timeout should be measured
+                        # for every turn separately
+                        ctime = time.time()
 
                         # We've got the data, lock the backlog again
                         self.backlog_lock.acquire()
