@@ -36,7 +36,7 @@ To run tests manually against the repository::
 
     $ cd ~/[projects]/pyroute2
     $ flake8 --exclude=docs
-    $ export PYTHONPATH=`cwd`
+    $ export PYTHONPATH=`pwd`
     $ cd tests
     $ sudo nosetests -v
 
