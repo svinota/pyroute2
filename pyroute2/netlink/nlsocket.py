@@ -8,7 +8,6 @@ class, so they provide normal socket API, including
 poll/select I/O loops etc.
 '''
 
-import io
 import os
 import time
 import struct
@@ -54,76 +53,54 @@ class Marshal(object):
         self.msg_map = self.msg_map or {}
         self.defragmentation = {}
 
-    def parse(self, data, sock=None):
+    def parse(self, data):
         '''
-        Parse the data in the buffer
+        Parse string data.
 
-        If socket is provided, support defragmentation
+        At this moment all transport, except of the native
+        Netlink is deprecated in this library, so we should
+        not support any defragmentation on that level
         '''
-        with self.lock:
-            data.seek(0)
-            offset = 0
-            result = []
+        offset = 0
+        result = []
+        while offset < len(data):
+            # pick type and length
+            (length, msg_type) = struct.unpack('IH', data[offset:offset+6])
+            error = None
+            if msg_type == NLMSG_ERROR:
+                code = abs(struct.unpack('i', data[offset+16:offset+20])[0])
+                if code > 0:
+                    error = NetlinkError(code)
 
-            if sock in self.defragmentation:
-                save = self.defragmentation[sock]
-                save.write(data.read())
-                save.length += data.length
-                # discard save
-                data = save
-                del self.defragmentation[sock]
-                data.seek(0)
+            msg_class = self.msg_map.get(msg_type, nlmsg)
+            msg = msg_class(data[offset:offset+length], debug=self.debug)
 
-            while offset < data.length:
-                # pick type and length
-                (length, msg_type) = struct.unpack('IH', data.read(6))
-                data.seek(offset)
-                # if length + offset is greater than
-                # remaining size, save the buffer for
-                # defragmentation
-                if (sock is not None) and (length + offset > data.length):
-                    # create save buffer
-                    self.defragmentation[sock] = save = io.BytesIO()
-                    save.length = save.write(data.read())
-                    # truncate data
-                    data.truncate(offset)
-                    break
+            try:
+                msg.decode()
+                msg['header']['error'] = error
+                # try to decode encapsulated error message
+                if error is not None:
+                    enc_type = struct.unpack('H', msg.raw[24:26])[0]
+                    enc_class = self.msg_map.get(enc_type, nlmsg)
+                    enc = enc_class(msg.raw[20:])
+                    enc.decode()
+                    msg['header']['errmsg'] = enc
+            except NetlinkHeaderDecodeError as e:
+                # in the case of header decoding error,
+                # create an empty message
+                msg = nlmsg()
+                msg['header']['error'] = e
+            except NetlinkDecodeError as e:
+                msg['header']['error'] = e
 
-                error = None
-                if msg_type == NLMSG_ERROR:
-                    data.seek(offset + 16)
-                    code = abs(struct.unpack('i', data.read(4))[0])
-                    if code > 0:
-                        error = NetlinkError(code)
-                    data.seek(offset)
+            mtype = msg['header'].get('type', None)
+            if mtype in (1, 2, 3, 4):
+                msg['event'] = mtypes.get(mtype, 'none')
+            self.fix_message(msg)
+            offset += msg.length
+            result.append(msg)
 
-                msg_class = self.msg_map.get(msg_type, nlmsg)
-                msg = msg_class(data, debug=self.debug)
-                try:
-                    msg.decode()
-                    msg['header']['error'] = error
-                    # try to decode encapsulated error message
-                    if error is not None:
-                        enc_type = struct.unpack('H', msg.raw[24:26])[0]
-                        enc_class = self.msg_map.get(enc_type, nlmsg)
-                        enc = enc_class(msg.raw[20:])
-                        enc.decode()
-                        msg['header']['errmsg'] = enc
-                except NetlinkHeaderDecodeError as e:
-                    # in the case of header decoding error,
-                    # create an empty message
-                    msg = nlmsg()
-                    msg['header']['error'] = e
-                except NetlinkDecodeError as e:
-                    msg['header']['error'] = e
-                mtype = msg['header'].get('type', None)
-                if mtype in (1, 2, 3, 4):
-                    msg['event'] = mtypes.get(mtype, 'none')
-                self.fix_message(msg)
-                offset += msg.length
-                result.append(msg)
-
-            return result
+        return result
 
     def fix_message(self, msg):
         pass
@@ -585,10 +562,9 @@ class NetlinkSocket(socket):
                         #
                         # This is a time consuming process, so all the
                         # locks, except the read lock must be released
-                        data = io.BytesIO()
-                        data.length = data.write(self.recv(bufsize))
+                        data = self.recv(bufsize)
                         # Parse data
-                        msgs = self.marshal.parse(data, self)
+                        msgs = self.marshal.parse(data)
                         # Reset ctime -- timeout should be measured
                         # for every turn separately
                         ctime = time.time()
