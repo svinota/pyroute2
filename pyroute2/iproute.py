@@ -593,10 +593,11 @@ class IPRoute(IPRSocket):
         flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
 
         # try to guess family, if it is not forced
-        if family is None and address.find(":") > -1:
-            family = AF_INET6
-        else:
-            family = AF_INET
+        if family is None:
+            if address.find(":") > -1:
+                family = AF_INET6
+            else:
+                family = AF_INET
 
         msg = ifaddrmsg()
         msg['index'] = index
