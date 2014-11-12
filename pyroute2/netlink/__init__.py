@@ -740,11 +740,6 @@ class nlmsg_base(dict):
                 self.buf.seek(self.offset)
                 self.raw = self.buf.read(self.length)
                 self.buf.seek(save)
-                if self.debug:
-                    self['header']['class'] = self.__class__.__name__
-                    self['header']['raw'] = hexdump(self.raw)
-                    self['header']['offset'] = self.offset
-                    self['header']['length'] = self.length
             except Exception as e:
                 raise NetlinkHeaderDecodeError(e)
         # decode the data
@@ -1038,10 +1033,8 @@ class nlmsg_base(dict):
                     msg_class = msg_class(buf=self.buf, length=length)
                 # and the name
                 msg_name = self.t_nla_map[msg_type][1]
-
                 # decode NLA
-                nla = msg_class(self.buf, length, self,
-                                debug=self.debug)
+                nla = msg_class(self.buf, length, self, debug=self.debug)
             try:
                 nla.decode()
             except:
@@ -1052,15 +1045,7 @@ class nlmsg_base(dict):
             else:
                 msg_value = nla.getvalue()
 
-            if self.debug:
-                self['attrs'].append([msg_name,
-                                      msg_value,
-                                      msg_type,
-                                      length,
-                                      init])
-            else:
-                self['attrs'].append([msg_name,
-                                      msg_value])
+            self['attrs'].append([msg_name, msg_value])
 
             # fix the offset
             self.buf.seek(init + NLMSG_ALIGN(length))

@@ -21,17 +21,10 @@ class TestSetup(object):
         ip.close()
 
     def test_multiple_instances(self):
-        # run two instances from parent
-        # and two instances from child
         ip1 = IPRoute()
         ip2 = IPRoute()
-        # `fork` is DEPRECATED
-        ip3 = IPRoute(fork=True)
-        ip4 = IPRoute(fork=True)
         ip1.close()
         ip2.close()
-        ip3.close()
-        ip4.close()
 
 
 class TestMisc(object):

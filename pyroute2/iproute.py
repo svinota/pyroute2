@@ -223,7 +223,7 @@ class IPRoute(IPRSocket):
     these cases consider usage of IPRSocket.
     '''
 
-    def __init__(self, *argv, **kwarg):
+    def __init__(self):
         IPRSocket.__init__(self)
         self.bind()
 

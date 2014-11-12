@@ -193,6 +193,7 @@ and `vlan` interfaces. VLAN creation requires also `link` and
 
 '''
 import os
+import sys
 import uuid
 import time
 import socket
@@ -1691,24 +1692,17 @@ class IPDB(object):
     immediately. It uses no polling.
     '''
 
-    def __init__(self, nl=None, host=None, mode='implicit',
-                 key=None, cert=None, ca=None, iclass=Interface,
-                 fork=False):
+    def __init__(self, nl=None, mode='implicit', iclass=Interface):
         '''
         Parameters:
             * nl -- IPRoute() reference
+            * mode -- (implicit, explicit, direct)
+            * iclass -- the interface class type
 
         If you do not provide iproute instance, ipdb will
-        start it automatically. Please note, that there can
-        be only one iproute instance per process. Actually,
-        you can start two and more iproute instances, but
-        only the first one will receive anything.
+        start it automatically.
         '''
-        self.nl = nl or IPRoute(host=host,
-                                key=key,
-                                cert=cert,
-                                ca=ca,
-                                fork=fork)
+        self.nl = nl or IPRoute()
         self.nl.monitor = True
         self.mode = mode
         self.iclass = iclass
@@ -1744,8 +1738,8 @@ class IPDB(object):
 
         # start monitoring thread
         self._mthread = threading.Thread(target=self.serve_forever)
-        # if hasattr(sys, 'ps1'):
-        self._mthread.setDaemon(True)
+        if hasattr(sys, 'ps1'):
+            self._mthread.setDaemon(True)
         self._mthread.start()
 
     def __enter__(self):
