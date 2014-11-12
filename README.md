@@ -5,12 +5,14 @@ Pyroute2 is a pure Python netlink library. It requires only
 Python stdlib, no 3rd party libraries. Later it can change,
 but the deps tree will remain as simple, as it is possible.
 
-The library contains all you need to build either one-node,
-or distributed netlink-related solutions. It consists of two
-major parts:
+The library provides several modules:
 
-* Netlink protocol implementations.
-* Messaging infrastructure: broker, clients, etc.
+1. Netlink protocol implementations (RTNetlink, TaskStats, etc)
+2. Simple netlink socket object, that can be used in poll/select
+3. IPRoute provides API that in some way resembles ip/tc
+   functionality
+4. IPDB is an async transactional database of network settings
+   (still experimental)
 
 rtnetlink sample
 ----------------
