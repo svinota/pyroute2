@@ -1,3 +1,4 @@
+import os
 import socket
 from pyroute2 import IPRoute
 from pyroute2.common import AddrPool
@@ -141,15 +142,16 @@ class TestIPRoute(object):
         #
         require_user('root')
         base = 'fdb3:84e5:4ff4:55e4::{0}'
+        limit = int(os.environ.get('PYROUTE2_SLIMIT', '0x800'), 16)
 
         # add addresses
-        for idx in range(0xf000):
+        for idx in range(limit):
             self.ip.addr('add', self.ifaces[0],
                          base.format(hex(idx)[2:]), 48)
 
         # assert addresses in two steps, to ease debug
         addrs = self.ip.get_addr(10)
-        assert len(addrs) >= 0xf000
+        assert len(addrs) >= limit
 
         # clean up addresses
         #
@@ -162,7 +164,7 @@ class TestIPRoute(object):
         # one by one
         #
         # it also verifies all the addresses are in place
-        for idx in reversed(range(0xf000)):
+        for idx in reversed(range(limit)):
             self.ip.addr('delete', self.ifaces[0],
                          base.format(hex(idx)[2:]), 48)
 
