@@ -1,13 +1,13 @@
-# 	Copyright (c) 2013 Peter V. Saveliev
+# 	Copyright (c) 2013-2014 Peter V. Saveliev
 #
 # 	This file is part of pyroute2 project.
 #
-# 	PyVFS is free software; you can redistribute it and/or modify
+# 	Pyroute2 is free software; you can redistribute it and/or modify
 # 	it under the terms of the GNU General Public License as published by
 # 	the Free Software Foundation; either version 2 of the License, or
 # 	(at your option) any later version.
 #
-# 	PyVFS is distributed in the hope that it will be useful,
+# 	Pyroute2 is distributed in the hope that it will be useful,
 # 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 # 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # 	GNU General Public License for more details.
@@ -16,10 +16,38 @@
 # 	along with PyVFS; if not, write to the Free Software
 # 	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+##
+# Pyroute version and release
+#
 version ?= "0.3"
 release ?= "0.3.2"
+##
+# Python and nosetests versions
+#
 python ?= "python"
+nosetests ?= "nosetests"
+##
+# Python -W flags:
+#
+#  ignore  -- completely ignore
+#  default -- default action
+#  all     -- print all warnings
+#  module  -- print the first warning occurence for a module
+#  once    -- print each warning only once
+#  error   -- fail on any warning (NB: default for our test cycle)
+#
+#  Would you like to know more? See man 1 python
+#
+wlevel ?= "error"
 
+##
+# Other options
+#
+# root      -- install root (default: platform default)
+# lib       -- lib installation target (default: platform default)
+# coverage  -- whether to produce html coverage (default: false)
+# pdb       -- whether to run pdb on errors (default: false)
+#
 ifdef root
 	override root := "--root=${root}"
 endif
@@ -34,6 +62,10 @@ endif
 
 ifdef pdb
 	override pdb := --pdb --pdb-failures
+endif
+
+ifdef wlevel
+	override wlevel := -W ${wlevel}
 endif
 
 
@@ -83,11 +115,11 @@ test:
 		echo "8<----------------------------------" ; \
 		echo "python: `which ${python}` [`${python} --version 2>&1`]" ; \
 		echo "flake8: `which flake8` [`flake8 --version 2>&1`]" ; \
-		echo "nosetests: `which nosetests` [`nosetests --version 2>&1`]" ; \
+		echo "nosetests: `which ${nosetests}` [`${nosetests} --version 2>&1`]" ; \
 		echo "8<----------------------------------" ; \
 		flake8 --exclude=docs .. && echo "flake8 ... ok" || exit 250; \
 		[ -z "$$TRAVIS" ] && { \
-			${python} -W error `which nosetests` -v ${pdb} \
+			${python} ${wlevel} `which ${nosetests}` -v ${pdb} \
 			--with-coverage \
 			--cover-package=pyroute2 \
 			${coverage} \
