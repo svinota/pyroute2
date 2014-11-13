@@ -37,9 +37,9 @@ Module contents:
 
 import os
 import time
-import platform
 import subprocess
 from pyroute2.common import map_namespace
+from pyroute2.common import ANCIENT
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NETLINK_ROUTE
 from pyroute2.netlink.nlsocket import Marshal
@@ -284,8 +284,7 @@ class IPRSocket(NetlinkSocket):
                         RTM_GETBRIDGE: self.put_getbr,
                         RTM_SETBOND: self.put_setbo,
                         RTM_GETBOND: self.put_getbo}
-        self.ancient = (platform.dist()[0] in ('redhat', 'centos') and
-                        platform.dist()[1].startswith('6.'))
+        self.ancient = ANCIENT
 
     def bind(self, groups=RTNL_GROUPS):
         '''

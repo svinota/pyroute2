@@ -207,8 +207,8 @@ from socket import AF_INET6
 from pyroute2.common import dqn2int
 from pyroute2.common import Dotkeys
 from pyroute2.common import basestring
+from pyroute2.common import ANCIENT
 from pyroute2.netlink import NetlinkError
-from pyroute2.ipdb import compat
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.netlink.rtnl.req import BridgeRequest
@@ -232,6 +232,37 @@ _BARRIER = 0.2
 _FAIL_COMMIT = 0b00000001
 _FAIL_ROLLBACK = 0b00000010
 _FAIL_MASK = 0b11111111
+
+
+def bypass(f):
+    if ANCIENT:
+        return f
+    else:
+        return lambda *x, **y: None
+
+
+class compat(object):
+    '''
+    A namespace to keep all compat-related methods.
+    '''
+    @bypass
+    @classmethod
+    def fix_timeout(timeout):
+        time.sleep(timeout)
+
+    @bypass
+    @classmethod
+    def fix_check_link(nl, index):
+        # check, if the link really exists --
+        # on some old kernels you can receive
+        # broadcast RTM_NEWLINK after the link
+        # was deleted
+        try:
+            nl.get_links(index)
+        except NetlinkError as e:
+            if e.code == 19:  # No such device
+                # just drop this message then
+                return True
 
 
 class DeprecationException(Exception):

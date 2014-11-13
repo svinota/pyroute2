@@ -6,6 +6,7 @@ import os
 import sys
 import struct
 import logging
+import platform
 import threading
 import traceback
 
@@ -21,7 +22,8 @@ except NameError:
 
 AF_PIPE = 255  # Right now AF_MAX == 40
 DEFAULT_RCVBUF = 16384
-
+ANCIENT = (platform.dist()[0] in ('redhat', 'centos') and
+           platform.dist()[1].startswith('6.'))
 
 size_suffixes = {'b': 1,
                  'k': 1024,
