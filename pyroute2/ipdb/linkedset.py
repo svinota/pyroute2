@@ -117,3 +117,12 @@ class LinkedSet(set):
 
     def __repr__(self):
         return repr(list(self))
+
+
+class IPaddrSet(LinkedSet):
+    '''
+    LinkedSet child class with different target filter. The
+    filter ignores link local IPv6 addresses when sets and checks
+    the target.
+    '''
+    target_filter = lambda self, x: not ((x[0][:4] == 'fe80') and (x[1] == 64))
