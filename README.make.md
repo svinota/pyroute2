@@ -4,22 +4,20 @@ Makefile documentation
 Makefile is used to automate Pyroute2 deployment and test
 processes. Mostly, it is but a collection of common commands.
 
-Targets
--------
 
-clean
-+++++
+target: clean
+-------------
 
 Clean up the repo directory from the built documentation,
 collected coverage data, compiled bytecode etc.
 
-docs
-++++
+target: docs
+------------
 
-Build documentationr. Requires `Sphinx`.
+Build documentation. Requires `Sphinx`.
 
-test
-++++
+target: test
+------------
 
 Run tests against current code. Requires `flake8`, `nosetests`,
 `coverage`. Command line options:
@@ -37,15 +35,15 @@ Sample::
 Please notice, that by default tests run with wlevel=error,
 thus failing on *any* warning.
 
-dist
-++++
+target: dist
+------------
 
 Make Python distribution package. Command line options:
 
 * python -- the Python to use
 
-install
-+++++++
+target: install
+---------------
 
 Buidl and install the package into the system. Command line options:
 
@@ -54,7 +52,7 @@ Buidl and install the package into the system. Command line options:
 * lib -- where to install lib files
 
 other targets
-+++++++++++++
+-------------
 
 Other targets are either utility targets to be used internally,
 or hooks for related projects. You can safely ignore them.
