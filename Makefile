@@ -20,7 +20,7 @@
 # Pyroute version and release
 #
 version ?= "0.3"
-release ?= "0.3.2"
+release ?= "0.3.2rc2"
 ##
 # Python and nosetests versions
 #
