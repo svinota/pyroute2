@@ -221,7 +221,7 @@ from pyroute2.netlink.rtnl.brmsg import brmsg
 from pyroute2.netlink.rtnl.bomsg import bomsg
 from pyroute2.ipdb.common import CreateException
 from pyroute2.ipdb.common import CommitException
-from pyroute2.ipdb.transactional import LinkedSet
+from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.transactional import update
 from pyroute2.ipdb.transactional import Transactional
 
