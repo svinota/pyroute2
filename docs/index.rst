@@ -11,6 +11,7 @@ General information
 
     general
     changelog
+    makefile
     migration
 
 Netlink protocol

@@ -76,6 +76,7 @@ clean: clean-version
 	rm -rf dist build MANIFEST
 	rm -f docs/general.rst
 	rm -f docs/changelog.rst
+	rm -f docs/makefile.rst
 	rm -rf docs/_build/html
 	rm -f  tests/.coverage
 	rm -rf tests/htmlcov
@@ -96,6 +97,7 @@ update-version: setup.py docs/conf.py
 
 docs: clean force-version
 	cp README.md docs/general.rst
+	cp README.make.md docs/makefile.rst
 	cp CHANGELOG.md docs/changelog.rst
 	export PYTHONPATH=`pwd`; make -C docs html
 
