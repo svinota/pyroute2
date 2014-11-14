@@ -20,6 +20,7 @@ from socket import SOCK_DGRAM
 from socket import MSG_PEEK
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
+from socket import SO_SNDBUF
 from socket import socket
 from socket import error as SocketError
 
@@ -212,6 +213,10 @@ class NetlinkSocket(socket):
         # 8<-----------------------------------------
         self.groups = 0
         self.marshal = Marshal()
+        # 8<-----------------------------------------
+        # Set default sockopts
+        self.setsockopt(SOL_SOCKET, SO_SNDBUF, 32768)
+        self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
 
     def release(self):
         logging.warning("The `release()` call is deprecated")
