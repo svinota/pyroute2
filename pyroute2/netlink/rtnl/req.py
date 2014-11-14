@@ -79,12 +79,19 @@ class IPLinkRequest(IPRequest):
     Utility class, that converts human-readable dictionary
     into RTNL link request.
     '''
+    blacklist = ['carrier',
+                 'carrier_changes']
+
     def __init__(self, *argv, **kwarg):
         IPRequest.__init__(self, *argv, **kwarg)
         if 'index' not in self:
             self['index'] = 0
 
     def __setitem__(self, key, value):
+        # ignore blacklisted attributes
+        if key in self.blacklist:
+            return
+
         # there must be no "None" values in the request
         if value is None:
             return
