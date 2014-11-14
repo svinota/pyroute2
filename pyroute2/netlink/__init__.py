@@ -1099,6 +1099,32 @@ class nlmsg_atoms(nlmsg_base):
     class uint32(nla_base):
         fields = [('value', 'I')]
 
+    class ipXaddr(nla_base):
+        fields = [('value', 's')]
+        family = None
+
+        def encode(self):
+            self['value'] = socket.inet_pton(self.family,
+                                             self.value)
+            nla_base.encode(self)
+
+        def decode(self):
+            nla_base.decode(self)
+            self.value = socket.inet_ntop(self.family,
+                                          self['value'])
+
+    class ip4addr(ipXaddr):
+        '''
+        Explicit IPv4 address type class.
+        '''
+        family = socket.AF_INET
+
+    class ip6addr(ipXaddr):
+        '''
+        Explicit IPv6 address type class.
+        '''
+        family = socket.AF_INET6
+
     class ipaddr(nla_base):
         '''
         This class is used to decode IP addresses according to
