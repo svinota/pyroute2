@@ -22,7 +22,7 @@ def bypass(f):
     if ANCIENT:
         return f
     else:
-        return lambda *x, **y: None
+        return staticmethod(lambda *x, **y: None)
 
 
 class compat(object):
