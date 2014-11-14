@@ -282,6 +282,7 @@ class IPDB(object):
         '''
         self.nl = nl or IPRoute()
         self.nl.monitor = True
+        self.nl.bind()
         self.mode = mode
         self.iclass = iclass
         self._stop = False
