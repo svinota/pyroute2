@@ -308,7 +308,8 @@ class ifinfmsg(nlmsg):
                        ('IFLA_INET6_STATS', 'ipv6_stats'),
                        ('IFLA_INET6_MCAST', 'hex'),
                        ('IFLA_INET6_CACHEINFO', 'ipv6_cache_info'),
-                       ('IFLA_INET6_ICMP6STATS', 'icmp6_stats'))
+                       ('IFLA_INET6_ICMP6STATS', 'icmp6_stats'),
+                       ('IFLA_INET6_TOKEN', 'ip6addr'))
 
             class ipv6_devconf(nla):
                 # ./include/uapi/linux/ipv6.h
