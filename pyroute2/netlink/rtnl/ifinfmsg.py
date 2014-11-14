@@ -191,7 +191,9 @@ class ifinfmsg(nlmsg):
         nla_map = (('IFLA_INFO_UNSPEC', 'none'),
                    ('IFLA_INFO_KIND', 'asciiz'),
                    ('IFLA_INFO_DATA', 'info_data'),
-                   ('IFLA_INFO_XSTATS', 'hex'))
+                   ('IFLA_INFO_XSTATS', 'hex'),
+                   ('IFLA_INFO_SLAVE_KIND', 'asciiz'),
+                   ('IFLA_INFO_SLAVE_DATA', 'info_data'))
 
         def info_data(self, *argv, **kwarg):
             '''
