@@ -128,7 +128,10 @@ class ifinfmsg(nlmsg):
                ('IFLA_EXT_MASK', 'hex'),
                ('IFLA_PROMISCUITY', 'uint32'),
                ('IFLA_NUM_TX_QUEUES', 'uint32'),
-               ('IFLA_NUM_RX_QUEUES', 'uint32'))
+               ('IFLA_NUM_RX_QUEUES', 'uint32'),
+               ('IFLA_CARRIER', 'uint8'),
+               ('IFLA_PHYS_PORT_ID', 'hex'),
+               ('IFLA_CARRIER_CHANGES', 'uint32'))
 
     @staticmethod
     def flags2names(flags, mask=0xffffffff):
