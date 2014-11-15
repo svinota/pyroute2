@@ -30,12 +30,12 @@ class compat(object):
     A namespace to keep all compat-related methods.
     '''
     @bypass
-    @classmethod
+    @staticmethod
     def fix_timeout(timeout):
         time.sleep(timeout)
 
     @bypass
-    @classmethod
+    @staticmethod
     def fix_check_link(nl, index):
         # check, if the link really exists --
         # on some old kernels you can receive
