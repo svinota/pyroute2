@@ -23,22 +23,24 @@ iproute quickstart
 threaded vs. threadless architecture
 ------------------------------------
 
-Please note, that objects of `IPRoute` class implicitly starts
-several threads:
+Since v0.3.2, IPRoute class is threadless by default.
+It spawns no additional threads, and receives only
+responses to own requests, no broadcast messages. So,
+if you prefer not to cope with implicit threading, you
+can safely use this module.
 
-* I/O Loop -- main thread that performs all Netlink I/O and clusterization
-* Main thread -- thread that reassembles messages and parses them into
-  dict-like structures
-* Cache thread -- `IPRoute` objects can be connected together, and in
-  this case header masquerading should be performed on netlink packets;
-  the thread performs masquerade cache expiration
+To get broadcast messages, use `IPRoute.bind()` call.
+Please notice, that after calling `IPRoute.bind()` you
+MUST get all the messages in time. In the case of the
+kernel buffer overflow, you will have to restart the
+socket.
 
-In most cases it should be ok, `IPRoute` uses no daemonic threads and
-explicit `release()` call is provided to stop all the threads. Beside
-of that, the architecture provides packet buffering.
-
-But if you do not like implicit threads, you can use simplest
-threadless RTNetlink interface, `IPRSocket`.
+With `IPRoute.bind(async=True)` one can launch async
+message receiver thread with `Queue`-based buffer. The
+buffer is thread-safe and completely transparent from
+the programmer's perspective. Please read also
+`NetlinkSocket` documentation to know more about async
+mode.
 
 classes
 -------

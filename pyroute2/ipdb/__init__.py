@@ -191,6 +191,19 @@ Right now IPDB supports creation of `dummy`, `bond`, `bridge`
 and `vlan` interfaces. VLAN creation requires also `link` and
 `vlan_id` parameters, see example scripts.
 
+performance issues
+------------------
+
+In the case of bursts of Netlink broadcast messages, all
+the activity of the pyroute2-based code in the async mode
+becomes suppressed to leave more CPU resources to the
+packet reader thread. So please be ready to cope with
+delays in the case of Netlink broadcast storms. It means
+also, that IPDB state will be synchronized with OS also
+after some delay.
+
+classes
+-------
 '''
 import sys
 import time
@@ -270,7 +283,7 @@ class IPDB(object):
     immediately. It uses no polling.
     '''
 
-    def __init__(self, nl=None, mode='implicit', iclass=Interface):
+    def __init__(self, nl=None, mode='implicit'):
         '''
         Parameters:
             * nl -- IPRoute() reference
@@ -284,7 +297,7 @@ class IPDB(object):
         self.nl.monitor = True
         self.nl.bind(async=True)
         self.mode = mode
-        self.iclass = iclass
+        self.iclass = Interface
         self._stop = False
         # see also 'register_callback'
         self._post_callbacks = []

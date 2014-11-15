@@ -6,6 +6,78 @@ All the netlink providers are derived from the socket
 class, so they provide normal socket API, including
 `getsockopt()`, `setsockopt()`, they can be used in
 poll/select I/O loops etc.
+
+asynchronous I/O
+----------------
+
+To run async reader thread, one should call
+`NetlinkSocket.bind(async=True)`. In that case a
+background thread will be launched. The thread will
+automatically collect all the messages and store
+into a userspace buffer.
+
+.. note::
+    There is no need to turn on async I/O, if you
+    don't plan to receive broadcast messages.
+
+ENOBUF and async I/O
+--------------------
+
+When Netlink messages arrive faster than a program
+reads then from the socket, the messages overflow
+the socket buffer and one gets ENOBUF on `recv()`::
+
+    ... self.recv(bufsize)
+    error: [Errno 105] No buffer space available
+
+One way to avoid ENOBUF, is to use async I/O. Then the
+library not only reads and buffers all the messages, but
+also re-prioritizes threads. Suppressing the parser
+activity, the library increases the response delay, but
+spares CPU to read and enqueue arriving messages as
+fast, as it is possible.
+
+With logging level DEBUG you can notice messages, that
+the library started to calm down the parser thread::
+
+    DEBUG:root:Packet burst: the reader thread priority
+        is increased, beware of delays on netlink calls
+        Counters: delta=25 qsize=25 delay=0.1
+
+This state requires no immediate action, but just some
+more attention. When the delay between messages on the
+parser thread exceeds 1 second, DEBUG messages become
+WARNING ones::
+
+    WARNING:root:Packet burst: the reader thread priority
+        is increased, beware of delays on netlink calls
+        Counters: delta=2525 qsize=213536 delay=3
+
+This state means, that almost all the CPU resources are
+dedicated to the reader thread. It doesn't mean, that
+the reader thread consumes 100% CPU -- it means, that the
+CPU is reserved for the case of more intensive bursts. The
+library will return to the normal state only when the
+broadcast storm will be over, and then the CPU will be
+100% loaded with the parser for some time, when it will
+process all the messages queued so far.
+
+when async I/O doesn't help
+---------------------------
+
+Sometimes, even turning async I/O doesn't fix ENOBUF.
+Mostly it means, that in this particular case the Python
+performance is not enough even to read and store the raw
+data from the socket. There is no workaround for such
+cases, except of using something *not* Python-based.
+
+One can still play around with SO_RCVBUF socket option,
+but it doesn't help much. So keep it in mind, and if you
+expect massive broadcast Netlink storms, perform stress
+testing prior to deploy a solution in the production.
+
+classes
+-------
 '''
 
 import os
@@ -598,7 +670,7 @@ class NetlinkSocket(socket):
                         current = self.buffer_queue.qsize()
                         delta = current - self.qsize
                         if delta > 10:
-                            delay = max(0.1, float(current) / 60000)
+                            delay = min(3, max(0.1, float(current) / 60000))
                             message = ("Packet burst: the reader thread "
                                        "priority is increased, beware of "
                                        "delays on netlink calls\n\tCounters: "
