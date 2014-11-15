@@ -13,3 +13,4 @@ output.html
 setup.py
 docs/conf.py
 docs/changelog.rst
+docs/makefile.rst
