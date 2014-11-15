@@ -286,13 +286,13 @@ class IPRSocket(NetlinkSocket):
                         RTM_GETBOND: self.put_getbo}
         self.ancient = ANCIENT
 
-    def bind(self, groups=RTNL_GROUPS):
+    def bind(self, groups=RTNL_GROUPS, async=False):
         '''
         It is required to call *IPRSocket.bind()* after creation.
         The call subscribes the NetlinkSocket to default RTNL
         groups (`RTNL_GROUPS`) or to a requested group set.
         '''
-        NetlinkSocket.bind(self, groups)
+        NetlinkSocket.bind(self, groups, async=async)
 
     def name_by_id(self, index):
         return self.get_links(index)[0].get_attr('IFLA_IFNAME')
