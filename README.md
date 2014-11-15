@@ -18,6 +18,7 @@ rtnetlink sample
 ----------------
 
 More samples you can read in the project documentation.
+
 The lowest possible layer, simple socket interface. This
 socket supports normal socket API and can be used in
 poll/select::
@@ -86,7 +87,7 @@ requires
 
 Python >= 2.6
 
-  * test reqs (optional): **python-coverage**, **python-nose**
+  * test reqs: **flake8**, **coverage**, **nosetests**
 
 links
 -----
