@@ -38,6 +38,11 @@ from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_MULTI
 from pyroute2.netlink import NLM_F_REQUEST
 
+try:
+    from Queue import Queue
+except ImportError:
+    from queue import Queue
+
 
 class Marshal(object):
     '''
@@ -184,7 +189,7 @@ class NetlinkSocket(socket):
     def __init__(self, family=NETLINK_GENERIC, port=None, pid=None):
         socket.__init__(self, AF_NETLINK, SOCK_DGRAM, family)
         global sockets
-
+        self.recv_plugin = self.recv
         # 8<-----------------------------------------
         # PID init is here only for compatibility,
         # later it will be completely moved to bind()
@@ -195,10 +200,13 @@ class NetlinkSocket(socket):
         self.backlog = {0: []}
         self.monitor = False
         self.callbacks = []     # [(predicate, callback, args), ...]
+        self.pthread = None
         self.backlog_lock = threading.Lock()
         self.read_lock = threading.Lock()
         self.change_master = threading.Event()
         self.lock = LockFactory()
+        self.buffer_queue = Queue()
+        self.qsize = 0
         self.log = []
         self.get_timeout = 3
         self.get_timeout_exception = None
@@ -346,7 +354,7 @@ class NetlinkSocket(socket):
 
         return ret
 
-    def bind(self, groups=0, pid=None):
+    def bind(self, groups=0, pid=None, async=False):
         '''
         Bind the socket to given multicast groups, using
         given pid.
@@ -365,24 +373,37 @@ class NetlinkSocket(socket):
         if self.fixed:
             self.epid = self.pid + (self.port << 22)
             socket.bind(self, (self.epid, self.groups))
-            return
-
-        # if we have no pre-defined port, scan all the
-        # range till the first available port
-        for i in range(1024):
-            try:
-                self.port = sockets.alloc()
-                self.epid = self.pid + (self.port << 22)
-                socket.bind(self, (self.epid, self.groups))
-                # if we're here, bind() done successfully, just exit
-                return
-            except SocketError as e:
-                # pass occupied sockets, raise other exceptions
-                if e.errno != 98:
-                    raise
         else:
-            # raise "address in use" -- to be compatible
-            raise SocketError(98, 'Address already in use')
+            # if we have no pre-defined port, scan all the
+            # range till the first available port
+            for i in range(1024):
+                try:
+                    self.port = sockets.alloc()
+                    self.epid = self.pid + (self.port << 22)
+                    socket.bind(self, (self.epid, self.groups))
+                    # if we're here, bind() done successfully, just exit
+                    break
+                except SocketError as e:
+                    # pass occupied sockets, raise other exceptions
+                    if e.errno != 98:
+                        raise
+            else:
+                # raise "address in use" -- to be compatible
+                raise SocketError(98, 'Address already in use')
+        # all is OK till now, so start async recv, if we need
+        if async:
+            self._stop = False
+            self.recv_plugin = self.recv_plugin_queue
+            self.pthread = threading.Thread(target=self.async_recv)
+            self.pthread.setDaemon(True)
+            self.pthread.start()
+
+    def recv_plugin_queue(self, *argv, **kwarg):
+        return self.buffer_queue.get()
+
+    def async_recv(self):
+        while not self._stop:
+            self.buffer_queue.put(self.recv(1024 * 1024))
 
     def put(self, msg, msg_type,
             msg_flags=NLM_F_REQUEST,
@@ -567,12 +588,28 @@ class NetlinkSocket(socket):
                         #
                         # This is a time consuming process, so all the
                         # locks, except the read lock must be released
-                        data = self.recv(bufsize)
+                        data = self.recv_plugin(bufsize)
                         # Parse data
                         msgs = self.marshal.parse(data)
                         # Reset ctime -- timeout should be measured
                         # for every turn separately
                         ctime = time.time()
+                        #
+                        current = self.buffer_queue.qsize()
+                        delta = current - self.qsize
+                        if delta > 10:
+                            delay = max(0.1, float(current) / 60000)
+                            message = ("Packet burst: the reader thread "
+                                       "priority is increased, beware of "
+                                       "delays on netlink calls\n\tCounters: "
+                                       "delta=%s qsize=%s delay=%s "
+                                       % (delta, current, delay))
+                            if delay < 1:
+                                logging.debug(message)
+                            else:
+                                logging.warning(message)
+                            time.sleep(delay)
+                        self.qsize = current
 
                         # We've got the data, lock the backlog again
                         self.backlog_lock.acquire()
@@ -649,6 +686,8 @@ class NetlinkSocket(socket):
         Correctly close the socket and free all resources.
         '''
         global sockets
+        if self.pthread is not None:
+            self._stop = True
         if self.epid is not None:
             assert self.port is not None
             if not self.fixed:
