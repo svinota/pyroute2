@@ -241,10 +241,20 @@ class TestIPRoute(object):
                     pattern='172.16.1.0/24.*172.16.0.1')
         remove_link('bala')
 
-    def test_symbolic_flags(self):
+    def test_symbolic_flags_ifaddrmsg(self):
+        require_user('root')
+        self.ip.link('set', index=self.ifaces[0], state='up')
+        self.ip.addr('add', self.ifaces[0], '172.16.1.1', 24)
+        addr = [x for x in self.ip.get_addr()
+                if x.get_attr('IFA_LOCAL') == '172.16.1.1'][0]
+        assert 'IFA_F_PERMANENT' in addr.flags2names(addr['flags'])
+
+    def test_symbolic_flags_ifinfmsg(self):
         require_user('root')
         self.ip.link('set', index=self.ifaces[0], flags=['IFF_UP'])
-        assert self.ip.get_links(self.ifaces[0])[0]['flags'] & 1
+        iface = self.ip.get_links(self.ifaces[0])[0]
+        assert iface['flags'] & 1
+        assert 'IFF_UP' in iface.flags2names(iface['flags'])
         self.ip.link('set', index=self.ifaces[0], flags=['!IFF_UP'])
         assert not (self.ip.get_links(self.ifaces[0])[0]['flags'] & 1)
 
