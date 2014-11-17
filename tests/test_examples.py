@@ -9,12 +9,11 @@ from utils import require_bond
 from nose.plugins.skip import SkipTest
 from pyroute2.netlink import NetlinkError
 
-# FIXME: launcher doesn't work in Python < 3.3
-if sys.version[:3] != '3.3':
-    raise SkipTest('https://github.com/svinota/pyroute2/issues/42')
-
 from importlib import import_module
-from queue import Queue
+try:
+    from Queue import Queue
+except ImportError:
+    from queue import Queue
 
 
 class TestExamples(object):
