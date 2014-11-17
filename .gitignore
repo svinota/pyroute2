@@ -2,6 +2,7 @@
 *.pyc
 *~
 build/
+dist/
 docs/general.rst
 docs/_build
 tests/htmlcov
@@ -11,6 +12,7 @@ tests/*key
 tests/*crt
 output.html
 setup.py
+MANIFEST
 docs/conf.py
 docs/changelog.rst
 docs/makefile.rst
