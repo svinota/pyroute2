@@ -9,11 +9,19 @@ from utils import require_bond
 from nose.plugins.skip import SkipTest
 from pyroute2.netlink import NetlinkError
 
-from importlib import import_module
 try:
+    import imp
     from Queue import Queue
+
+    def _import(symbol):
+        return imp.load_module(symbol, *imp.find_module(symbol))
+
 except ImportError:
     from queue import Queue
+    from importlib import import_module
+
+    def _import(symbol):
+        return import_module(symbol)
 
 
 class TestExamples(object):
@@ -40,7 +48,7 @@ class TestExamples(object):
 
         def wrapper(parent, symbol):
             try:
-                import_module(symbol)
+                _import(symbol)
                 parent.feedback.put(None)
             except Exception as e:
                 parent.feedback.put(e)
