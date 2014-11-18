@@ -81,6 +81,7 @@ clean: clean-version
 	rm -f  tests/.coverage
 	rm -rf tests/htmlcov
 	rm -rf tests/cover
+	rm -f python-pyroute2.spec
 	find . -name "*pyc" -exec rm -f "{}" \;
 
 setup.py docs/conf.py:
@@ -141,3 +142,12 @@ install: clean force-version
 testdeps:
 	pip install coverage
 	pip install flake8
+
+# 8<--------------------------------------------------------------------
+#
+# Packages
+#
+rpm: clean force-version
+	cp packages/RedHat/python-pyroute2.spec .
+	${python} setup.py sdist
+	rpmbuild -ta dist/*tar.gz
