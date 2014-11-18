@@ -6,6 +6,8 @@ changelog
     * rpc: deprecated
     * iocore: deprecated
     * iproute: single-threaded socket object
+    * ipdb: restart on errors
+    * rtnl: updated ifinfmsg policies
 * 0.3.1
     * module structure refactored
     * new protocol: ipq
