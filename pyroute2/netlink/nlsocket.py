@@ -471,11 +471,18 @@ class NetlinkSocket(socket):
             self.pthread.start()
 
     def recv_plugin_queue(self, *argv, **kwarg):
-        return self.buffer_queue.get()
+        data = self.buffer_queue.get()
+        if isinstance(data, Exception):
+            raise data
+        else:
+            return data
 
     def async_recv(self):
         while not self._stop:
-            self.buffer_queue.put(self.recv(1024 * 1024))
+            try:
+                self.buffer_queue.put(self.recv(1024 * 1024))
+            except Exception as e:
+                self.buffer_queue.put(e)
 
     def put(self, msg, msg_type,
             msg_flags=NLM_F_REQUEST,
