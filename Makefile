@@ -20,7 +20,7 @@
 # Pyroute version and release
 #
 version ?= "0.3"
-release ?= "0.3.2rc2"
+release := $(shell git describe)
 ##
 # Python and nosetests versions
 #
