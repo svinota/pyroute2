@@ -206,7 +206,6 @@ classes
 -------
 '''
 import sys
-import time
 import logging
 import traceback
 import threading
@@ -283,7 +282,8 @@ class IPDB(object):
     immediately. It uses no polling.
     '''
 
-    def __init__(self, nl=None, mode='implicit'):
+    def __init__(self, nl=None, mode='implicit',
+                 restart_on_error=None):
         '''
         Parameters:
             * nl -- IPRoute() reference
@@ -293,9 +293,6 @@ class IPDB(object):
         If you do not provide iproute instance, ipdb will
         start it automatically.
         '''
-        self.nl = nl or IPRoute()
-        self.nl.monitor = True
-        self.nl.bind(async=True)
         self.mode = mode
         self.iclass = Interface
         self._stop = False
@@ -304,29 +301,14 @@ class IPDB(object):
         self._pre_callbacks = []
         self._cb_threads = set()
 
-        # resolvers
-        self.interfaces = Dotkeys()
-        self.routes = RoutingTables(ipdb=self)
-        self.by_name = Dotkeys()
-        self.by_index = Dotkeys()
-
-        # caches
-        self.ipaddr = {}
-        self.neighbors = {}
-
         # update events
         self._links_event = threading.Event()
         self.exclusive = threading.RLock()
 
-        # load information on startup
-        links = self.nl.get_links()
-        for link in links:
-            self.device_put(link, skip_slaves=True)
-        for link in links:
-            self.update_slaves(link)
-        self.update_addr(self.nl.get_addr())
-        routes = self.nl.get_routes()
-        self.update_routes(routes)
+        # load information
+        self.restart_on_error = restart_on_error if \
+            restart_on_error is not None else nl is None
+        self.initdb(nl)
 
         # start monitoring thread
         self._mthread = threading.Thread(target=self.serve_forever)
@@ -339,6 +321,35 @@ class IPDB(object):
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.release()
+
+    def initdb(self, nl=None):
+        '''
+        Restart IPRoute channel, and create all the DB
+        from scratch. Can be used when sync is lost.
+        '''
+        self.nl = nl or IPRoute()
+        self.nl.monitor = True
+        self.nl.bind(async=True)
+
+        # resolvers
+        self.interfaces = Dotkeys()
+        self.routes = RoutingTables(ipdb=self)
+        self.by_name = Dotkeys()
+        self.by_index = Dotkeys()
+
+        # caches
+        self.ipaddr = {}
+        self.neighbors = {}
+
+        # load information
+        links = self.nl.get_links()
+        for link in links:
+            self.device_put(link, skip_slaves=True)
+        for link in links:
+            self.update_slaves(link)
+        self.update_addr(self.nl.get_addr())
+        routes = self.nl.get_routes()
+        self.update_routes(routes)
 
     def register_callback(self, callback, mode='post'):
         '''
@@ -631,9 +642,13 @@ class IPDB(object):
                 if self._stop:
                     break
             except:
-                logging.warning(traceback.format_exc())
-                time.sleep(3)
-                continue
+                logging.error('Restarting IPDB instance after '
+                              'error:\n%s', traceback.format_exc())
+                if self.restart_on_error:
+                    self.initdb()
+                    continue
+                else:
+                    raise RuntimeError('Emergency shutdown')
             for msg in messages:
                 # Run pre-callbacks
                 # NOTE: pre-callbacks are synchronous
