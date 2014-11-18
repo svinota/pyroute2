@@ -2,21 +2,18 @@
 IPRoute module
 ==============
 
-`iproute` module provides low-level API to RTNetlink protocol
-via `IPRoute` and `IPRSocket` classes as well as all required
-constants.
-
 iproute quickstart
 ------------------
 
-**pyroute2.IPRoute** in two words::
+**IPRoute** in two words::
 
     $ sudo pip install pyroute2
-    $ cat >example.py <<EOF
-    > from pyroute2 import IPRoute
-    > ip = IPRoute()
-    > print([x.get_attr('IFLA_IFNAME') for x in ip.get_links()])
-    > EOF
+
+    $ cat example.py
+    from pyroute2 import IPRoute
+    ip = IPRoute()
+    print([x.get_attr('IFLA_IFNAME') for x in ip.get_links()])
+
     $ python example.py
     ['lo', 'p6p1', 'wlan0', 'virbr0', 'virbr0-nic']
 

@@ -7,6 +7,19 @@ representing network stack objects. Any change in the database
 is not reflected immediately in OS (unless you ask for that
 explicitly), but waits until commit() is called.
 
+IPDB vs. IPRoute
+----------------
+
+These two modules, IPRoute and IPDB, use completely different
+approaches. The first one, IPRoute, is synchronous by default,
+and can be used in the same way, as usual Linux utilities. It
+doesn't spawn any additional threads or processes, until one
+explicitly calls `IPRoute.bind(async=True)`.
+
+The latter, IPDB, is an asynchronously updated database, that
+starts several additional threads by default. If your project's
+policy doesn't allow implicit threads, keep it in mind.
+
 quickstart
 ----------
 
