@@ -1,7 +1,7 @@
 pyroute2
 ========
 
-Pyroute2 is a pure Python netlink and Linux network configuration
+Pyroute2 is a pure Python **netlink** and Linux **network configuration**
 library. It requires only Python stdlib, no 3rd party libraries.
 Later it can change, but the deps tree will remain as simple, as
 it is possible.
@@ -40,7 +40,7 @@ poll/select::
 
 Low-level **IPRoute** utility -- Linux network configuration.
 **IPRoute** usually doesn't rely on external utilities, but in some
-cases, when the kernel doesn't provide the functionality via Netlink
+cases, when the kernel doesn't provide the functionality via netlink
 (like on RHEL6.5), it transparently uses also brctl and sysfs to setup
 bridges and bonding interfaces::
 
