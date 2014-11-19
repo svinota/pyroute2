@@ -2,8 +2,8 @@
 
 import traceback
 from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink.client import GenericNetlink
-from pyroute2.netlink.generic import genlmsg
+from pyroute2.netlink import genlmsg
+from pyroute2.netlink.generic import GenericNetlinkSocket
 
 
 RLINK_CMD_UNSPEC = 0
@@ -19,7 +19,7 @@ class rcmd(genlmsg):
                ('RLINK_ATTR_DATA', 'asciiz'))
 
 
-class Rlink(GenericNetlink):
+class Rlink(GenericNetlinkSocket):
     '''
     Custom generic netlink protocol. Has one method,
     `hello_world()`, the only netlink call of the kernel
@@ -36,7 +36,8 @@ class Rlink(GenericNetlink):
 
 try:
     # create protocol instance
-    rlink = Rlink('EXMPL_GENL', rcmd)
+    rlink = Rlink()
+    rlink.bind('EXMPL_GENL', rcmd)
     # request a method
     print(rlink.hello_world())
 except:
@@ -44,4 +45,4 @@ except:
     traceback.print_exc()
 finally:
     # finally -- release the instance
-    rlink.release()
+    rlink.close()
