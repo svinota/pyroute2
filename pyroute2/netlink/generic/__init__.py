@@ -50,4 +50,7 @@ class GenericNetlinkSocket(NetlinkSocket):
         msg.encode()
         self.sendto(msg.buf.getvalue(), (0, 0))
         msg = self.get()[0]
+        err = msg['header'].get('error', None)
+        if err is not None:
+            raise err
         return msg.get_attr('CTRL_ATTR_FAMILY_ID')
