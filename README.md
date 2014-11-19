@@ -1,18 +1,18 @@
 pyroute2
 ========
 
-Pyroute2 is a pure Python netlink library. It requires only
-Python stdlib, no 3rd party libraries. Later it can change,
-but the deps tree will remain as simple, as it is possible.
+Pyroute2 is a pure Python netlink and Linux network configuration
+library. It requires only Python stdlib, no 3rd party libraries.
+Later it can change, but the deps tree will remain as simple, as
+it is possible.
 
 The library provides several modules:
 
 1. Netlink protocol implementations (RTNetlink, TaskStats, etc)
 2. Simple netlink socket object, that can be used in poll/select
-3. IPRoute provides API that in some way resembles ip/tc
-   functionality
-4. IPDB is an async transactional database of network settings
-   (still experimental)
+3. Network configuration module IPRoute provides API that in some
+   way resembles ip/tc functionality
+4. IPDB is an async transactional database of Linux network settings
 
 rtnetlink sample
 ----------------
@@ -38,9 +38,11 @@ poll/select::
     ip.close()
 
 
-Low-level iproute utility. The utility uses implicit
-threads, so notice `ip.release()` call -- it is required
-to sync threads before exit::
+Low-level **IPRoute** utility -- Linux network configuration.
+**IPRoute** usually doesn't rely on external utilities, but in some
+cases, when the kernel doesn't provide the functionality via Netlink
+(like on RHEL6.5), it transparently uses also brctl and sysfs to setup
+bridges and bonding interfaces::
 
     from pyroute2 import IPRoute
 
@@ -48,14 +50,13 @@ to sync threads before exit::
     ip = IPRoute()
 
     # print interfaces
-    print ip.get_links()
+    print(ip.get_links())
 
-    # stop working with netlink and release all sockets
-    ip.release()
+    # release Netlink socket
+    ip.close()
 
 
-High-level transactional interface, IPDB, `release()`
-call is also required::
+High-level transactional interface, **IPDB**, a network settings DB::
 
     from pyroute2 import IPDB
     # local network settings
@@ -87,7 +88,8 @@ requires
 
 Python >= 2.6
 
-  * test reqs: **flake8**, **coverage**, **nosetests**
+The pyroute2 testing framework requires  **flake8**, **coverage**,
+**nosetests**.
 
 links
 -----
