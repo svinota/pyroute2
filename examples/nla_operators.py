@@ -27,5 +27,5 @@ pprint(a[0] & a[1])
 
 interface.remove().commit()
 
-ip.release()
+ip.close()
 ipdb.release()
