@@ -3,6 +3,7 @@ changelog
 
 * 0.3.2
     * simple socket architecture
+    * all the protocols now are based on NetlinkSocket, see examples
     * rpc: deprecated
     * iocore: deprecated
     * iproute: single-threaded socket object
