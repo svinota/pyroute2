@@ -846,6 +846,9 @@ class nlmsg_base(dict):
                     length = len(value) + 1
                     fmt = '%is' % (length)
 
+                if isinstance(value, unicode):
+                    value = str(value)
+
                 # in python3 we should force it
                 if sys.version[0] == '3':
                     if isinstance(value, str):
