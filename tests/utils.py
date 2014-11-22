@@ -82,7 +82,7 @@ def _check_output(*argv):
     # we can not use check_output, as it does not exist in 2.6
     process = subprocess.Popen(argv, stdout=subprocess.PIPE)
     ret = process.communicate()
-    return ret[0].decode('ascii').split('\n')
+    return ret[0].decode('utf-8').split('\n')
 
 
 def grep(command, pattern=None):
