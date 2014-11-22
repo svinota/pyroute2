@@ -336,6 +336,12 @@ from pyroute2.common import basestring
 _letters = re.compile('[A-Za-z]')
 _fmt_letters = re.compile('[^!><@=][!><@=]')
 
+##
+# That's a hack for the code linter, which works under
+# Python3, see unicode reference in the code below
+if sys.version[0] == '3':
+    unicode = str
+
 NLMSG_MIN_TYPE = 0x10
 
 GENL_NAMSIZ = 16    # length of family name
@@ -852,6 +858,9 @@ class nlmsg_base(dict):
                         value = bytes(value, 'utf-8')
                     elif isinstance(value, float):
                         value = int(value)
+                elif sys.version[0] == '2':
+                    if isinstance(value, unicode):
+                        value = value.encode('utf-8')
 
                 try:
                     if fmt[-1] == 'x':
