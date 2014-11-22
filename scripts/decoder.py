@@ -1,11 +1,31 @@
-from pprint import pprint
-from pyroute2.netlink.rtnl.tcmsg import tcmsg
+#!/usr/bin/python
+'''
+Usage::
+
+    ./decoder.py [module] [data_file]
+
+Sample::
+
+    ./decoder.py tcmsg ./sample_packet_01.data
+
+Module is a name within rtnl hierarchy. File should be a
+binary data in the escaped string format (see samples).
+'''
 import io
 import sys
+from pprint import pprint
+from importlib import import_module
 
-
-f = open(sys.argv[1], 'r')
+template = 'pyroute2.netlink.rtnl.{mod}.{mod}'
+mod = sys.argv[1]
+f = open(sys.argv[2], 'r')
 b = io.BytesIO()
+s = template.format(mod=mod).split('.')
+package = '.'.join(s[:-1])
+module = s[-1]
+m = import_module(package)
+met = getattr(m, module)
+
 
 for a in f.readlines():
     if a[0] == '#':
@@ -18,6 +38,6 @@ for a in f.readlines():
         a = a[4:]
 
 b.seek(0)
-t = tcmsg(b)
+t = met(b)
 t.decode()
 pprint(t)
