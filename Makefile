@@ -83,6 +83,7 @@ clean: clean-version
 	rm -rf tests/cover
 	rm -f python-pyroute2.spec
 	find . -name "*pyc" -exec rm -f "{}" \;
+	find . -name "*pyo" -exec rm -f "{}" \;
 
 setup.py docs/conf.py:
 	gawk -v version=${version} -v release=${release} -v flavor=${flavor}\
