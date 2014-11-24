@@ -126,8 +126,7 @@ test:
 			${python} ${wlevel} `which ${nosetests}` -v ${pdb} \
 			--with-coverage \
 			--cover-package=pyroute2 \
-			${coverage} \
-			--cover-erase || exit 251; \
+			${coverage} || exit 251; \
 		} ; \
 		cd .. ;
 
