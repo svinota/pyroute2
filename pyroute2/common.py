@@ -23,7 +23,8 @@ except NameError:
 AF_PIPE = 255  # Right now AF_MAX == 40
 DEFAULT_RCVBUF = 16384
 ANCIENT = (platform.dist()[0] in ('redhat', 'centos') and
-           platform.dist()[1].startswith('6.'))
+           platform.dist()[1].startswith('6.') or
+           os.environ.get('PYROUTE2_ANCIENT', False))
 
 size_suffixes = {'b': 1,
                  'k': 1024,
