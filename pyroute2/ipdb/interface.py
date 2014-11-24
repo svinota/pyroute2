@@ -1,4 +1,3 @@
-import os
 import time
 import socket
 import threading
@@ -22,42 +21,6 @@ from pyroute2.ipdb.common import SYNC_TIMEOUT
 from pyroute2.ipdb.common import compat
 
 _BARRIER = 0.2
-
-
-def get_interface_type(name):
-    '''
-    Utility function to get interface type.
-
-    Unfortunately, we can not rely on RTNL or even ioctl().
-    RHEL doesn't support interface type in RTNL and doesn't
-    provide extended (private) interface flags via ioctl().
-
-    Args:
-        * name (str): interface name
-
-    Returns:
-        * False -- sysfs info unavailable
-        * None -- type not known
-        * str -- interface type:
-            * 'bond'
-            * 'bridge'
-    '''
-    # FIXME: support all interface types? Right now it is
-    # not needed
-    try:
-        ifattrs = os.listdir('/sys/class/net/%s/' % (name))
-    except OSError as e:
-        if e.errno == 2:
-            return False
-        else:
-            raise
-
-    if 'bonding' in ifattrs:
-        return 'bond'
-    elif 'bridge' in ifattrs:
-        return 'bridge'
-    else:
-        return None
 
 
 class Interface(Transactional):
@@ -250,11 +213,6 @@ class Interface(Transactional):
             if self.ipdb is not None:
                 # connect IP address set from IPDB
                 self['ipaddr'] = self.ipdb.ipaddr[self['index']]
-            # load the interface type
-            if 'kind' not in self:
-                kind = get_interface_type(self['ifname'])
-                if kind is not False:
-                    self['kind'] = kind
             # poll bridge & bond info
             if self.get('kind', None) == 'bridge':
                 self.load_bridge()
