@@ -561,15 +561,15 @@ def compat_get_type(name):
     ##
     # is it bridge?
     try:
-        open('/sys/class/net/%s/bridge/stp_state' % name, 'r')
-        return 'bridge'
+        with open('/sys/class/net/%s/bridge/stp_state' % name, 'r'):
+            return 'bridge'
     except IOError:
         pass
     ##
     # is it bond?
     try:
-        open('/sys/class/net/%s/bonding/mode' % name, 'r')
-        return 'bond'
+        with open('/sys/class/net/%s/bonding/mode' % name, 'r'):
+            return 'bond'
     except IOError:
         pass
     ##
