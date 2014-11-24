@@ -25,7 +25,10 @@ def cb(ipdb, msg, action):
         interface = ipdb.interfaces[msg['index']]
         # add it as a port to the bridge
         ipdb.interfaces.br0.add_port(interface)
-        ipdb.interfaces.br0.commit()
+        try:
+            ipdb.interfaces.br0.commit()
+        except Exception:
+            pass
 
 # create IPDB instance
 ip = IPDB()

@@ -754,7 +754,10 @@ class TestImplicit(TestExplicit):
                     msg.get_attr('IFLA_IFNAME', '') in (ifP1, ifP2):
                 obj = ipdb.interfaces[msg['index']]
                 ipdb.interfaces[ifM].add_port(obj)
-                ipdb.interfaces[ifM].commit()
+                try:
+                    ipdb.interfaces[ifM].commit()
+                except Exception:
+                    pass
 
         wd0 = self.ip.watchdog(ifname=ifM)
         wd1 = self.ip.watchdog(ifname=ifP1)
