@@ -700,7 +700,6 @@ class IPRoute(IPRSocket):
         * rtype -- route type (default: "RTN_UNICAST")
         * rtproto -- routing protocol (default: "RTPROT_STATIC")
         * rtscope -- routing scope (default: "RT_SCOPE_UNIVERSE")
-        * index -- via device index
         * family -- socket.AF_INET (default) or socket.AF_INET6
 
         `pyroute2/netlink/rtnl/rtmsg.py` rtmsg.nla_map:
@@ -708,6 +707,10 @@ class IPRoute(IPRSocket):
         * table -- routing table to use (default: 254)
         * gateway -- via address
         * prefsrc -- preferred source IP address
+        * dst -- the same as `prefix`
+        * src -- source address
+        * iif -- incoming traffic interface
+        * oif -- outgoing traffic interface
 
         etc.
 
