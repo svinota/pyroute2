@@ -1,6 +1,10 @@
 changelog
 =========
 
+* 0.3.3
+    * ipdb: restart on error
+    * generic: handle non-existing family case
+    * [fix]: #80 -- Python 2.6 unicode vs -O bug workaround
 * 0.3.2
     * simple socket architecture
     * all the protocols now are based on NetlinkSocket, see examples
