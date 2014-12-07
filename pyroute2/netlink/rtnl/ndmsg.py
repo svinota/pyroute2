@@ -23,7 +23,7 @@ class ndmsg(nlmsg):
     };
     '''
     fields = (('family', 'B'),
-              ('ifindex', 'i'),
+              ('ifindex', '!i'),
               ('state', 'H'),
               ('flags', 'B'),
               ('ndm_type', 'B'))
