@@ -24,6 +24,9 @@ class LinkedSet(set):
         self.links = []
         self.exclusive = set()
 
+    def __getitem__(self, key):
+        return self.raw[key]
+
     def set_target(self, value):
         '''
         Set target state for the object and clear the target
