@@ -36,12 +36,17 @@ class ndmsg(nlmsg):
     # NDA_LLADDR = 2
     # NDA_CACHEINFO = 3
     # NDA_PROBES = 4
+    # ...
     #
     nla_map = (('NDA_UNSPEC', 'none'),
                ('NDA_DST', 'ipaddr'),
                ('NDA_LLADDR', 'l2addr'),
                ('NDA_CACHEINFO', 'cacheinfo'),
-               ('NDA_PROBES', 'uint32'))
+               ('NDA_PROBES', 'uint32'),
+               ('NDA_VLAN', 'uint16'),
+               ('NDA_PORT', 'be16'),
+               ('NDA_VNI', 'be32'),
+               ('NDA_IFINDEX', 'uint32'))
 
     class cacheinfo(nla):
         fields = (('ndm_confirmed', 'I'),

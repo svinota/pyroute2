@@ -1108,6 +1108,15 @@ class nlmsg_atoms(nlmsg_base):
     class uint32(nla_base):
         fields = [('value', 'I')]
 
+    class be8(nla_base):
+        fields = [('value', '>B')]
+
+    class be16(nla_base):
+        fields = [('value', '>H')]
+
+    class be32(nla_base):
+        fields = [('value', '>I')]
+
     class ipXaddr(nla_base):
         fields = [('value', 's')]
         family = None
