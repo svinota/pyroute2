@@ -230,6 +230,7 @@ from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.ipdb.common import CreateException
 from pyroute2.ipdb.interface import Interface
+from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.common import compat
 from pyroute2.ipdb.common import SYNC_TIMEOUT
@@ -361,6 +362,7 @@ class IPDB(object):
         for link in links:
             self.update_slaves(link)
         self.update_addr(self.nl.get_addr())
+        self.update_neighbors(self.nl.get_neighbors())
         routes = self.nl.get_routes()
         self.update_routes(routes)
 
@@ -505,6 +507,7 @@ class IPDB(object):
                 del self.interfaces[ifname]
                 del self.interfaces[msg['index']]
                 del self.ipaddr[msg['index']]
+                del self.neighbors[msg['index']]
         except KeyError:
             pass
 
@@ -539,6 +542,10 @@ class IPDB(object):
                 del self.interfaces[old_index]
                 del self.by_index[old_index]
                 del self.ipaddr[old_index]
+            if old_index in self.neighbors:
+                self.neighbors[index] = self.neighbors[old_index]
+                del self.interfaces[old_index]
+                del self.neighbors[old_index]
         else:
             # scenario #3, interface rename
             # scenario #4, assume rename
@@ -554,6 +561,9 @@ class IPDB(object):
         if index not in self.ipaddr:
             # for interfaces, created by IPDB
             self.ipaddr[index] = IPaddrSet()
+
+        if index not in self.neighbors:
+            self.neighbors[index] = LinkedSet()
 
         device.load_netlink(msg)
 
@@ -633,6 +643,17 @@ class IPDB(object):
                 except:
                     pass
 
+    def update_neighbors(self, neighs, action='add'):
+
+        for neigh in neighs:
+            nla = neigh.get_attr('NDA_DST')
+            if nla is not None:
+                try:
+                    method = getattr(self.neighbors[neigh['ifindex']], action)
+                    method(key=nla, raw=neigh)
+                except:
+                    pass
+
     def serve_forever(self):
         '''
         Main monitoring cycle. It gets messages from the
@@ -681,6 +702,10 @@ class IPDB(object):
                         self.update_addr([msg], 'add')
                     elif msg.get('event', None) == 'RTM_DELADDR':
                         self.update_addr([msg], 'remove')
+                    elif msg.get('event', None) == 'RTM_NEWNEIGH':
+                        self.update_neighbors([msg], 'add')
+                    elif msg.get('event', None) == 'RTM_DELNEIGH':
+                        self.update_neighbors([msg], 'remove')
                     elif msg.get('event', None) == 'RTM_NEWROUTE':
                         self.update_routes([msg])
                     elif msg.get('event', None) == 'RTM_DELROUTE':

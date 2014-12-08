@@ -158,6 +158,9 @@ class Interface(Transactional):
                 elif key == 'ports':
                     for port in data[key]:
                         self.add_port(port)
+                elif key == 'neighbors':
+                    # ignore neighbors on load
+                    pass
                 else:
                     self[key] = data[key]
 
@@ -211,8 +214,8 @@ class Interface(Transactional):
             # the rest is possible only when interface
             # is used in IPDB, not standalone
             if self.ipdb is not None:
-                # connect IP address set from IPDB
                 self['ipaddr'] = self.ipdb.ipaddr[self['index']]
+                self['neighbors'] = self.ipdb.neighbors[self['index']]
             # poll bridge & bond info
             if self.get('kind', None) == 'bridge':
                 self.load_bridge()
