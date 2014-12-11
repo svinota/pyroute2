@@ -823,8 +823,8 @@ class IPRoute(IPRSocket):
             32006: from 10.64.75.141 fwmark 0xa lookup 15
             ...
         '''
-        if table < 0 or table > 254:
-            raise 'unsupported table number'
+        if table < 1:
+            raise ValueError('unsupported table number')
 
         commands = {'add': RTM_NEWRULE,
                     'del': RTM_DELRULE,
@@ -834,7 +834,7 @@ class IPRoute(IPRSocket):
 
         msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = rtmsg()
-        msg['table'] = table
+        msg['table'] = table if table <= 255 else 252
         msg['family'] = family
         msg['type'] = rtypes[rtype]
         msg['scope'] = rtscopes[rtscope]
