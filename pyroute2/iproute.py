@@ -83,6 +83,7 @@ from pyroute2.netlink.rtnl import RTM_SETBRIDGE
 from pyroute2.netlink.rtnl import RTM_GETBRIDGE
 from pyroute2.netlink.rtnl import RTM_SETBOND
 from pyroute2.netlink.rtnl import RTM_GETBOND
+from pyroute2.netlink.rtnl import RTM_GETDHCP
 from pyroute2.netlink.rtnl import TC_H_INGRESS
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rtprotos
@@ -101,6 +102,7 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.brmsg import brmsg
 from pyroute2.netlink.rtnl.bomsg import bomsg
+from pyroute2.netlink.rtnl.dhcpmsg import dhcpmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl import IPRSocket
@@ -222,6 +224,14 @@ class IPRoute(IPRSocket):
         msg = ifaddrmsg()
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETADDR)
+
+    def get_dhcp(self, name, address=None):
+        msg = dhcpmsg()
+        msg['family'] = AF_INET
+        msg['attrs'] = [['DHCP_IFNAME', name]]
+        if address is not None:
+            msg['attrs'].append(['DHCP_ADDRESS', address])
+        return self.nlm_request(msg, RTM_GETDHCP)
 
     def get_bond(self, index, name):
         msg = bomsg()

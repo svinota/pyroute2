@@ -36,6 +36,7 @@ Module contents:
 '''
 
 import os
+import io
 import time
 import subprocess
 from pyroute2.common import map_namespace
@@ -50,6 +51,7 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.bomsg import bomsg
 from pyroute2.netlink.rtnl.brmsg import brmsg
+from pyroute2.netlink.rtnl.dhcpmsg import dhcpmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
@@ -123,6 +125,8 @@ RTM_GETBRIDGE = 88
 RTM_SETBRIDGE = 89
 RTM_GETBOND = 90
 RTM_SETBOND = 91
+RTM_GETDHCP = 92
+RTM_SETDHCP = 93
 (RTM_NAMES, RTM_VALUES) = map_namespace('RTM', globals())
 
 TC_H_INGRESS = 0xfffffff1
@@ -208,7 +212,9 @@ class MarshalRtnl(Marshal):
                RTM_GETBRIDGE: brmsg,
                RTM_SETBRIDGE: brmsg,
                RTM_GETBOND: bomsg,
-               RTM_SETBOND: bomsg}
+               RTM_SETBOND: bomsg,
+               RTM_GETDHCP: dhcpmsg,
+               RTM_SETDHCP: dhcpmsg}
 
     def fix_message(self, msg):
         # FIXME: pls do something with it
@@ -283,7 +289,9 @@ class IPRSocket(NetlinkSocket):
                         RTM_SETBRIDGE: self.put_setbr,
                         RTM_GETBRIDGE: self.put_getbr,
                         RTM_SETBOND: self.put_setbo,
-                        RTM_GETBOND: self.put_getbo}
+                        RTM_GETBOND: self.put_getbo,
+                        RTM_SETDHCP: self.put_setdhcp,
+                        RTM_GETDHCP: self.put_getdhcp}
         self.ancient = ANCIENT
 
     def bind(self, groups=RTNL_GROUPS, async=False):
@@ -376,6 +384,96 @@ class IPRSocket(NetlinkSocket):
             msg.reset()
             msg.encode()
             return msg
+
+    def put_setdhcp(self, msg, *argv, **kwarg):
+        pass
+
+    def put_getdhcp(self, msg, *argv, **kwarg):
+        address = msg.get_attr('DHCP_ADDRESS')
+        name = msg.get_attr('DHCP_IFNAME')
+
+        options = []
+        agentinfo = None
+        seq = kwarg.get('msg_seq', 0)
+        response = dhcpmsg()
+        response['header']['type'] = RTM_SETDHCP
+        response['header']['sequence_number'] = seq
+        response['index'] = msg['index']
+        response['family'] = msg['family']
+        response['prefixlen'] = msg['prefixlen']
+
+        # so far only dhclient is supported
+        # more agents -- issue a feature request
+
+        # take the first running agent on the interface
+        # TODO: move all the DHCP stuff to a separate module
+        # get the interface name
+        buf = io.BytesIO()
+        buf.write(subprocess.check_output(['ps', 'ax']))
+        buf.seek(0)
+
+        def match_lease(f, name, address):
+            lease_match = False
+            for lease_line in l.readlines():
+                if lease_line.find('interface') > -1:
+                    if lease_line.find('"%s"' % name) > -1:
+                        lease_match = True
+                    else:
+                        lease_match = False
+                elif lease_line.find('fixed-address') > -1 \
+                        and lease_line.find(address) > -1 \
+                        and lease_match:
+                    return True
+
+        for line in buf.readlines():
+            if line.find('/sbin/dhclient') > -1:
+                line = line.split()
+                if line[-1] != name:
+                    continue
+
+                agentinfo = []
+                agentinfo.append(['DHCP_AGENT', 'dhclient'])
+                agentinfo.append(['DHCP_AGENT_PID', int(line[0])])
+                agentinfo.append(['DHCP_AGENT_STATUS', 'running'])
+
+                # that's our dhclient
+                if address is None:
+                    break
+
+                # match the client
+                for field in line:
+                    # 1. extract the lease file
+                    if field == '-lf':
+                        lease = line[line.index(field) + 1]
+                        try:
+                            with open(lease, 'r') as l:
+                                if match_lease(l, name, address):
+                                    options.append(['DHCP_ADDRESS', address])
+                                    break
+                                else:
+                                    agentinfo = []
+                        except IOError:
+                            pass
+                else:
+                    # 2. default lease file
+                    try:
+                        lease = '/var/lib/dhclient/dhclient.leases'
+                        with open(lease, 'r') as l:
+                            if match_lease(l, name, address):
+                                options.append(['DHCP_ADDRESS', address])
+                            else:
+                                agentinfo = []
+                    except IOError:
+                        pass
+                break
+
+        if agentinfo:
+            options.append(['DHCP_AGENTINFO', {'attrs': agentinfo}])
+            options.append(['DHCP_IFNAME', name])
+        response['attrs'] = options
+        response.encode()
+        response = response.copy()
+        self.backlog[seq] = [response]
 
     def put_getbo(self, msg, *argv, **kwarg):
         t = '/sys/class/net/%s/bonding/%s'
