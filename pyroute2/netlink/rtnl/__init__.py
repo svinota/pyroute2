@@ -361,6 +361,7 @@ class IPRSocket(NetlinkSocket):
                 # while RTM_NEWLINK is not intercepted -- sleep
                 time.sleep(_ANCIENT_BARRIER)
                 response.encode()
+                response = response.copy()
                 self.backlog[seq] = [response]
         else:
             # else just send the packet
@@ -495,6 +496,7 @@ class IPRSocket(NetlinkSocket):
             except:
                 pass
         response.encode()
+        response = response.copy()
         self.backlog[seq] = [response]
 
     def put_getbr(self, msg, *argv, **kwarg):
@@ -515,6 +517,7 @@ class IPRSocket(NetlinkSocket):
             except:
                 pass
         response.encode()
+        response = response.copy()
         self.backlog[seq] = [response]
 
     def put_setbo(self, msg, *argv, **kwarg):
@@ -532,6 +535,7 @@ class IPRSocket(NetlinkSocket):
         response['header']['sequence_number'] = seq
         response['code'] = code
         response.encode()
+        response = response.copy()
         self.backlog[seq] = [response]
 
     def put_setbr(self, msg, *argv, **kwarg):
@@ -550,6 +554,7 @@ class IPRSocket(NetlinkSocket):
         response['header']['sequence_number'] = seq
         response['code'] = code
         response.encode()
+        response = response.copy()
         self.backlog[seq] = [response]
 
     def put_setlink(self, msg, *argv, **kwarg):
@@ -584,6 +589,7 @@ class IPRSocket(NetlinkSocket):
                 elif kind == 'bond':
                     compat_add_bond_port(m, ifname)
             response.encode()
+            response = response.copy()
             self.backlog[seq] = [response]
         NetlinkSocket.put(self, msg, *argv, **kwarg)
 
@@ -613,6 +619,7 @@ class IPRSocket(NetlinkSocket):
             # while RTM_NEWLINK is not intercepted -- sleep
             time.sleep(_ANCIENT_BARRIER)
             response.encode()
+            response = response.copy()
             self.backlog[seq] = [response]
         else:
             # else just send the packet
