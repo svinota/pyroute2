@@ -409,7 +409,7 @@ class IPRSocket(NetlinkSocket):
         # TODO: move all the DHCP stuff to a separate module
         # get the interface name
         buf = io.BytesIO()
-        buf.write(subprocess.check_output(['ps', 'ax']))
+        buf.write(subprocess.check_output(['ps', 'ax', '--cols', '4096']))
         buf.seek(0)
 
         def match_lease(f, name, address):
