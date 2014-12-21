@@ -39,6 +39,14 @@ Simple tutorial::
     # basic routing support
     ip.routes.add({'dst': 'default', 'gateway': '10.0.0.1'}).commit()
 
+    # do not forget to shutdown IPDB
+    ip.release()
+
+Please, notice `ip.release()` call in the end. Though it is
+not forced in an interactive python session for the better
+user experience, it is required in the scripts to sync the
+IPDB state before exit.
+
 IPDB uses IPRoute as a transport, and monitors all broadcast
 netlink messages from the kernel, thus keeping the database
 up-to-date in an asynchronous manner. IPDB inherits `dict`
@@ -440,7 +448,15 @@ class IPDB(object):
 
     def release(self):
         '''
-        Shutdown monitoring thread and release iproute.
+        Shutdown IPDB instance and sync the state. Since
+        IPDB is asyncronous, some operations continue in the
+        background, e.g. callbacks. So, prior to exit the
+        script, it is required to properly shutdown IPDB.
+
+        The shutdown sequence is not forced in an interactive
+        python session, since it is easier for users and there
+        is enough time to sync the state. But for the scripts
+        the `release()` call is required.
         '''
         self._stop = True
         self.nl.put({'index': 1}, RTM_GETLINK)
