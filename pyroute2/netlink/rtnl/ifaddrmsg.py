@@ -46,6 +46,8 @@ class ifaddrmsg(nlmsg):
     };
 
     '''
+    prefix = 'IFA_'
+
     fields = (('family', 'B'),
               ('prefixlen', 'B'),
               ('flags', 'B'),

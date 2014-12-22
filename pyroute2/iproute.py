@@ -492,7 +492,8 @@ class IPRoute(IPRSocket):
 
         return self.nlm_request(msg, msg_type=command, msg_flags=0)
 
-    def addr(self, command, index, address, mask=24, family=None, scope=0):
+    def addr(self, command, index, address, mask=24,
+             family=None, scope=0, **kwarg):
         '''
         Address operations
 
@@ -535,6 +536,10 @@ class IPRoute(IPRSocket):
                             ['IFA_ADDRESS', address]]
         elif family == AF_INET6:
             msg['attrs'] = [['IFA_ADDRESS', address]]
+        for key in kwarg:
+            nla = ifaddrmsg.name2nla(key)
+            if kwarg[key] is not None:
+                msg['attrs'].append([nla, kwarg[key]])
         terminate = lambda x: x['header']['type'] == NLMSG_ERROR
         return self.nlm_request(msg,
                                 msg_type=command,

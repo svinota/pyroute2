@@ -232,7 +232,8 @@ class Interface(Transactional):
         self._load_event.set()
 
     @update
-    def add_ip(self, direct, ip, mask=None):
+    def add_ip(self, direct, ip, mask=None,
+               brd=None, broadcast=None):
         '''
         Add IP address to an interface
         '''
@@ -243,16 +244,21 @@ class Interface(Transactional):
                 mask = dqn2int(mask)
             else:
                 mask = int(mask, 0)
+        brd = brd or broadcast
         # FIXME: make it more generic
         # skip IPv6 link-local addresses
         if ip[:4] == 'fe80' and mask == 64:
             return self
         if not direct:
             transaction = self.last()
-            transaction.add_ip(ip, mask)
+            transaction.add_ip(ip, mask, brd)
         else:
             self['ipaddr'].unlink((ip, mask))
-            self['ipaddr'].add((ip, mask))
+            if brd is not None:
+                raw = {'IFA_BROADCAST': brd}
+                self['ipaddr'].add((ip, mask), raw=raw)
+            else:
+                self['ipaddr'].add((ip, mask))
         return self
 
     @update
@@ -428,7 +434,13 @@ class Interface(Transactional):
                 # Ignore link-local IPv6 addresses
                 if i[0][:4] == 'fe80' and i[1] == 64:
                     continue
-                self.nl.addr('add', self['index'], i[0], i[1])
+                # Try to fetch additional address attributes
+                try:
+                    kwarg = transaction.ipaddr[i]
+                except KeyError:
+                    kwarg = None
+                self.nl.addr('add', self['index'], i[0], i[1],
+                             **kwarg if kwarg else {})
 
                 # 8<--------------------------------------
                 # FIXME: kernel bug, sometimes `addr add` for
