@@ -81,6 +81,7 @@ class Interface(Transactional):
         self._xfields['common'].append('mask')
         self._xfields['common'].append('change')
         self._xfields['common'].append('kind')
+        self._xfields['common'].append('peer')
         self._xfields['common'].append('vlan_id')
         self._xfields['common'].append('bond_mode')
         for ftype in self._xfields:

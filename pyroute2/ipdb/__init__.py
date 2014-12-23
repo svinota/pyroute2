@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 '''
 IPDB module
 ===========
@@ -474,13 +475,42 @@ class IPDB(object):
           * vlan
           * tun
           * dummy
+          * veth
         * ifname -- interface name
         * reuse -- if such interface exists, return it anyway
 
         Different interface kinds can require different
         arguments for creation.
 
-        FIXME: this should be documented.
+        ► **veth**
+
+        To properly create `veth` interface, one should specify
+        `peer` also, since `veth` interfaces are created in pairs::
+
+            with ip.create(ifname='v1p0', kind='veth', peer='v1p1') as i:
+                i.add_ip('10.0.0.1/24')
+                i.add_ip('10.0.0.2/24')
+
+        The code above creates two interfaces, `v1p0` and `v1p1`, and
+        adds two addresses to `v1p0`.
+
+        ► **vlan**
+
+        VLAN interfaces require additional parameters, `vlan_id` and
+        `link`, where `link` is a master interface to create VLAN on::
+
+            ip.create(ifname='v100',
+                      kind='vlan',
+                      link=ip.interfaces.eth0,
+                      vlan_id=100)
+
+            ip.create(ifname='v100',
+                      kind='vlan',
+                      link=1,
+                      vlan_id=100)
+
+        The `link` parameter should be either integer, interface id, or
+        an interface object. VLAN id must be integer.
         '''
         with self.exclusive:
             # check for existing interface

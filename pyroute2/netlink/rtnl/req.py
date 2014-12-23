@@ -83,6 +83,7 @@ class IPLinkRequest(IPRequest):
                  'carrier_changes']
 
     def __init__(self, *argv, **kwarg):
+        self.deferred = []
         IPRequest.__init__(self, *argv, **kwarg)
         if 'index' not in self:
             self['index'] = 0
@@ -121,4 +122,31 @@ class IPLinkRequest(IPRequest):
                 self['IFLA_LINKINFO'] = {'attrs': []}
             nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_BOND_MODE', value]]}]
             self['IFLA_LINKINFO']['attrs'].append(nla)
+        elif key == 'peer':
+            nla = ['IFLA_INFO_DATA',
+                   {'attrs': [['VETH_INFO_PEER',
+                               {'attrs': [['IFLA_IFNAME', value]]}]]}]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'attrs'),
+                           lambda x: x.get('kind', None) == 'veth')
         dict.__setitem__(self, key, value)
+        if self.deferred:
+            self.flush_deferred()
+
+    def flush_deferred(self):
+        deferred = []
+        for nla, path, predicate in self.deferred:
+            if predicate(self):
+                self.append_nla(nla, path)
+            else:
+                deferred.append((nla, path, predicate))
+        self.deferred = deferred
+
+    def append_nla(self, nla, path):
+            pwd = self
+            for step in path:
+                pwd = pwd[step]
+            pwd.append(nla)
+
+    def defer_nla(self, nla, path, predicate):
+        self.deferred.append((nla, path, predicate))
+        self.flush_deferred()
