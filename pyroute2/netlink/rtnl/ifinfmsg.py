@@ -1,3 +1,4 @@
+import os
 from pyroute2.common import map_namespace
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
@@ -115,7 +116,7 @@ class ifinfbase(object):
                ('IFLA_OPERSTATE', 'state'),
                ('IFLA_LINKMODE', 'uint8'),
                ('IFLA_LINKINFO', 'ifinfo'),
-               ('IFLA_NET_NS_PID', 'hex'),
+               ('IFLA_NET_NS_PID', 'uint32'),
                ('IFLA_IFALIAS', 'hex'),
                ('IFLA_NUM_VF', 'uint32'),
                ('IFLA_VFINFO_LIST', 'hex'),
@@ -124,7 +125,7 @@ class ifinfbase(object):
                ('IFLA_PORT_SELF', 'hex'),
                ('IFLA_AF_SPEC', 'af_spec'),
                ('IFLA_GROUP', 'uint32'),
-               ('IFLA_NET_NS_FD', 'hex'),
+               ('IFLA_NET_NS_FD', 'netns_fd'),
                ('IFLA_EXT_MASK', 'hex'),
                ('IFLA_PROMISCUITY', 'uint32'),
                ('IFLA_NUM_TX_QUEUES', 'uint32'),
@@ -158,6 +159,39 @@ class ifinfbase(object):
         if isinstance(self['flags'], (set, tuple, list)):
             self['flags'], self['change'] = self.names2flags(self['flags'])
         return super(ifinfbase, self).encode()
+
+    class netns_fd(nla):
+        fields = [('value', 'I')]
+        netns_run_dir = '/var/run/netns'
+        netns_fd = None
+
+        def encode(self):
+            self.close()
+            #
+            # There are two ways to specify netns
+            #
+            # 1. provide fd to an open file
+            # 2. provide a file name
+            #
+            # In the first case, the value is passed to the kernel
+            # as is. In the second case, the object opens appropriate
+            # file from `self.netns_run_dir` and closes it upon
+            # `__del__(self)`
+            if isinstance(self.value, int):
+                self['value'] = self.value
+            else:
+                self.netns_fd = os.open('%s/%s' % (self.netns_run_dir,
+                                                   self.value),
+                                        os.O_RDONLY)
+                self['value'] = self.netns_fd
+            nla.encode(self)
+
+        def __del__(self):
+            self.close()
+
+        def close(self):
+            if self.netns_fd is not None:
+                os.close(self.netns_fd)
 
     class wireless(iw_event):
         pass

@@ -570,7 +570,17 @@ class Interface(Transactional):
 
             # reload interface to hit targets
             if transaction._targets:
-                self.reload()
+                try:
+                    self.reload()
+                except NetlinkError as e:
+                    if e.code == 19:  # No such device
+                        if ('net_ns_fd' in added) or \
+                                ('net_ns_pid' in added):
+                            # it means, that the device was moved
+                            # to another netns; just give up
+                            if drop:
+                                self.drop(transaction)
+                                return self
 
             # wait for targets
             for key, target in transaction._targets.items():
