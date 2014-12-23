@@ -76,7 +76,7 @@ stats_names = ('rx_packets',
                'tx_compressed')
 
 
-class ifinfmsg(nlmsg):
+class ifinfbase(object):
     '''
     Network interface message
     struct ifinfomsg {
@@ -207,7 +207,16 @@ class ifinfmsg(nlmsg):
                 return self.vlan_data
             elif kind == 'bond':
                 return self.bond_data
+            elif kind == 'veth':
+                return self.veth_data
             return self.hex
+
+        class veth_data(nla):
+            nla_map = (('VETH_INFO_UNSPEC', 'none'),
+                       ('VETH_INFO_PEER', 'info_peer'))
+
+            def info_peer(self, *argv, **kwarg):
+                return ifinfveth
 
         class vlan_data(nla):
             nla_map = (('IFLA_VLAN_UNSPEC', 'none'),
@@ -393,3 +402,11 @@ class ifinfmsg(nlmsg):
                           ('outmsgs', 'Q'),
                           ('outerrors', 'Q'),
                           ('inmsgs', 'Q'))
+
+
+class ifinfmsg(ifinfbase, nlmsg):
+    pass
+
+
+class ifinfveth(ifinfbase, nla):
+    pass
