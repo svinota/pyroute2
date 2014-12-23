@@ -507,6 +507,17 @@ class TestExplicit(object):
     def test_ipv6_bridge(self):
         self._test_ipv(6, 'bridge')
 
+    def test_create_veth(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+
+        self.ip.create(ifname=ifA, kind='veth', peer=ifB).commit()
+
+        assert ifA in self.ip.interfaces
+        assert ifB in self.ip.interfaces
+
     def test_create_fail(self):
         require_user('root')
 
