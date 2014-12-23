@@ -112,16 +112,14 @@ class IPLinkRequest(IPRequest):
             # FIXME: we need to replace, not add
             self['IFLA_LINKINFO']['attrs'].append(nla)
         elif key == 'vlan_id':
-            if 'IFLA_LINKINFO' not in self:
-                self['IFLA_LINKINFO'] = {'attrs': []}
             nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_VLAN_ID', value]]}]
             # FIXME: we need to replace, not add
-            self['IFLA_LINKINFO']['attrs'].append(nla)
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'attrs'),
+                           lambda x: x.get('kind', None) == 'vlan')
         elif key == 'bond_mode':
-            if 'IFLA_LINKINFO' not in self:
-                self['IFLA_LINKINFO'] = {'attrs': []}
             nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_BOND_MODE', value]]}]
-            self['IFLA_LINKINFO']['attrs'].append(nla)
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'attrs'),
+                           lambda x: x.get('kind', None) == 'bond')
         elif key == 'peer':
             nla = ['IFLA_INFO_DATA',
                    {'attrs': [['VETH_INFO_PEER',
