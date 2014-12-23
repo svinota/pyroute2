@@ -157,7 +157,7 @@ class ifinfbase(object):
         # convert flags
         if isinstance(self['flags'], (set, tuple, list)):
             self['flags'], self['change'] = self.names2flags(self['flags'])
-        return nlmsg.encode(self)
+        return super(ifinfbase, self).encode()
 
     class wireless(iw_event):
         pass
