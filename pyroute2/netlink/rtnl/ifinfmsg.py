@@ -318,7 +318,8 @@ class ifinfbase(object):
                        ('IFLA_INET6_MCAST', 'hex'),
                        ('IFLA_INET6_CACHEINFO', 'ipv6_cache_info'),
                        ('IFLA_INET6_ICMP6STATS', 'icmp6_stats'),
-                       ('IFLA_INET6_TOKEN', 'ip6addr'))
+                       ('IFLA_INET6_TOKEN', 'ip6addr'),
+                       ('IFLA_INET6_ADDR_GEN_MODE', 'uint8'))
 
             class ipv6_devconf(nla):
                 # ./include/uapi/linux/ipv6.h
