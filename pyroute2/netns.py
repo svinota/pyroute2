@@ -64,7 +64,7 @@ class NetNSProxy(object):
     netns = 'default'
 
     def __init__(self, *argv, **kwarg):
-        self.lock = threading.Lock()
+        self.cmdlock = threading.Lock()
         self.rcvch, rcvch = mp.Pipe()
         self.cmdch, cmdch = mp.Pipe()
         self.server = mp.Process(target=server,
@@ -79,7 +79,7 @@ class NetNSProxy(object):
         self.server.join()
 
     def proxy(self, cmd, *argv, **kwarg):
-        with self.lock:
+        with self.cmdlock:
             self.cmdch.send((cmd, argv, kwarg))
             response = self.cmdch.recv()
             if isinstance(response, Exception):
