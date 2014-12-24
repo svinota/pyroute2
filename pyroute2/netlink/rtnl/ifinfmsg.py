@@ -182,7 +182,7 @@ class ifinfbase(object):
             else:
                 self.netns_fd = os.open('%s/%s' % (self.netns_run_dir,
                                                    self.value),
-                                        os.O_RDONLY)
+                                        os.O_RDONLY | os.O_CLOEXEC)
                 self['value'] = self.netns_fd
             nla.encode(self)
 
