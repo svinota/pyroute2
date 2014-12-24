@@ -124,7 +124,11 @@ class IPRouteMixin(object):
     You can think of this class in some way as of plain old iproute2
     utility.
 
-    It is an old-style library, that provides access to rtnetlink as is.
+    `IPRouteMixin` should not be instantiated by itself. It is intended
+    to be used as a mixin class that provides iproute2-like API. One
+    should use `IPRoute` or `NetNS` classes.
+
+    It is an old-school API, that provides access to rtnetlink as is.
     It helps you to retrieve and change almost all the data, available
     through rtnetlink::
 
@@ -881,4 +885,8 @@ class IPRouteMixin(object):
 
 
 class IPRoute(IPRouteMixin, IPRSocket):
+    '''
+    Production class that provides iproute API over normal Netlink
+    socket.
+    '''
     pass

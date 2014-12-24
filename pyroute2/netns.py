@@ -1,3 +1,20 @@
+'''
+NetNS, network namespaces support
+=================================
+
+Pyroute2 provides basic network namespaces support. The core
+class is `NetNS`.
+
+Please be aware, that in order to run `setns()` system call
+the library uses `ctypes` module. It can fail on platforms
+where SELinux is enforced. If the Python interpreter, loading
+this module, dumps the core, one can check the SELinux state
+with `getenforce` command.
+
+classes
+-------
+'''
+
 import os
 import ctypes
 import select
@@ -117,6 +134,42 @@ class NetNSIPR(IPRSocketMixin, NetNSocket):
 
 
 class NetNS(IPRouteMixin, NetNSIPR):
+    '''
+    NetNS is the IPRoute API with network namespace support.
+
+    **Why not IPRoute?**
+
+    The task to run netlink commands in some network namespace, being in
+    another network namespace, requires the architecture, that differs
+    too much from a simple Netlink socket.
+
+    NetNS starts a proxy process in a network namespace and uses
+    `multiprocessing` communication channels between the main and the proxy
+    processes to route all `recv()` and `sendto()` requests/responses.
+
+    **Any specific API calls?**
+
+    Nope. `NetNS` supports all the same, that `IPRoute` does, in the same
+    way. It provides full `socket`-compatible API and can be used in
+    poll/select as well.
+
+    The only difference is the `close()` call. In the case of `NetNS` it
+    is **mandatory** to close the socket before exit.
+
+    **NetNS and IPDB**
+
+    It is possible to run IPDB with NetNS::
+
+        from pyroute2 import NetNS
+        from pyroute2 import IPDB
+
+        ip = IPDB(nl=NetNS('somenetns'))
+        ...
+        ip.release()
+
+    Do not forget to call `release()` when the work is done. It will shut
+    down `NetNS` instance as well.
+    '''
     def __init__(self, netns):
         self.netns = netns
         super(NetNS, self).__init__()

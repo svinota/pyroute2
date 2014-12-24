@@ -43,6 +43,7 @@ Utilities
 
     iproute
     ipdb
+    netns
 
 Indices and tables
 ==================
