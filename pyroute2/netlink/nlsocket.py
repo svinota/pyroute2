@@ -253,13 +253,13 @@ class LockFactory(object):
         del self.locks[key]
 
 
-class NetlinkSocket(socket):
+class NetlinkMixin(object):
     '''
     Generic netlink socket
     '''
 
     def __init__(self, family=NETLINK_GENERIC, port=None, pid=None):
-        socket.__init__(self, AF_NETLINK, SOCK_DGRAM, family)
+        super(NetlinkMixin, self).__init__(AF_NETLINK, SOCK_DGRAM, family)
         global sockets
         self.recv_plugin = self.recv
         # 8<-----------------------------------------
@@ -444,7 +444,7 @@ class NetlinkSocket(socket):
         # if we have pre-defined port, use it strictly
         if self.fixed:
             self.epid = self.pid + (self.port << 22)
-            socket.bind(self, (self.epid, self.groups))
+            super(NetlinkMixin, self).bind((self.epid, self.groups))
         else:
             # if we have no pre-defined port, scan all the
             # range till the first available port
@@ -452,7 +452,7 @@ class NetlinkSocket(socket):
                 try:
                     self.port = sockets.alloc()
                     self.epid = self.pid + (self.port << 22)
-                    socket.bind(self, (self.epid, self.groups))
+                    super(NetlinkMixin, self).bind((self.epid, self.groups))
                     # if we're here, bind() done successfully, just exit
                     break
                 except SocketError as e:
@@ -772,4 +772,8 @@ class NetlinkSocket(socket):
             if not self.fixed:
                 sockets.free(self.port)
             self.epid = None
-        socket.close(self)
+        super(NetlinkMixin, self).close()
+
+
+class NetlinkSocket(NetlinkMixin, socket):
+    pass

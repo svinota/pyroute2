@@ -224,7 +224,7 @@ class MarshalRtnl(Marshal):
             pass
 
 
-class IPRSocket(NetlinkSocket):
+class IPRSocketMixin(object):
     '''
     The simplest class, that connects together the netlink parser and
     a generic Python socket implementation. Provides method get() to
@@ -280,7 +280,7 @@ class IPRSocket(NetlinkSocket):
     '''
 
     def __init__(self):
-        NetlinkSocket.__init__(self, NETLINK_ROUTE)
+        super(IPRSocketMixin, self).__init__(NETLINK_ROUTE)
         self.marshal = MarshalRtnl()
         self.get_map = {RTM_NEWLINK: self.get_newlink}
         self.put_map = {RTM_NEWLINK: self.put_newlink,
@@ -300,7 +300,7 @@ class IPRSocket(NetlinkSocket):
         The call subscribes the NetlinkSocket to default RTNL
         groups (`RTNL_GROUPS`) or to a requested group set.
         '''
-        NetlinkSocket.bind(self, groups, async=async)
+        super(IPRSocketMixin, self).bind(groups, async=async)
 
     def name_by_id(self, index):
         return self.get_links(index)[0].get_attr('IFLA_IFNAME')
@@ -312,7 +312,7 @@ class IPRSocket(NetlinkSocket):
         '''
         Proxy `get()` request
         '''
-        msgs = NetlinkSocket.get(self, *argv, **kwarg)
+        msgs = super(IPRSocketMixin, self).get(*argv, **kwarg)
         for msg in msgs:
             mtype = msg['header']['type']
             if mtype in self.get_map:
@@ -326,7 +326,7 @@ class IPRSocket(NetlinkSocket):
         if argv[1] in self.put_map:
             self.put_map[argv[1]](*argv, **kwarg)
         else:
-            NetlinkSocket.put(self, *argv, **kwarg)
+            super(IPRSocketMixin, self).put(*argv, **kwarg)
 
     ##
     # proxy hooks
@@ -342,7 +342,7 @@ class IPRSocket(NetlinkSocket):
                     kind = kind[0]
                 # not covered types, pass to the system
                 if kind not in ('bridge', 'bond'):
-                    return NetlinkSocket.put(self, msg, *argv, **kwarg)
+                    return super(IPRSocketMixin, self).put(msg, *argv, **kwarg)
                 ##
                 # otherwise, create a valid answer --
                 # NLMSG_ERROR with code 0 (no error)
@@ -365,7 +365,7 @@ class IPRSocket(NetlinkSocket):
                 self.backlog[seq] = [response]
         else:
             # else just send the packet
-            NetlinkSocket.put(self, msg, *argv, **kwarg)
+            super(IPRSocketMixin, self).put(msg, *argv, **kwarg)
 
     def get_newlink(self, msg):
         if self.ancient:
@@ -591,7 +591,7 @@ class IPRSocket(NetlinkSocket):
             response.encode()
             response = response.copy()
             self.backlog[seq] = [response]
-        NetlinkSocket.put(self, msg, *argv, **kwarg)
+        super(IPRSocketMixin, self).put(msg, *argv, **kwarg)
 
     def put_dellink(self, msg, *argv, **kwarg):
         if self.ancient:
@@ -600,7 +600,7 @@ class IPRSocket(NetlinkSocket):
 
             # not covered types pass to the system
             if kind not in ('bridge', 'bond'):
-                return NetlinkSocket.put(self, msg, *argv, **kwarg)
+                return super(IPRSocketMixin, self).put(msg, *argv, **kwarg)
             ##
             # otherwise, create a valid answer --
             # NLMSG_ERROR with code 0 (no error)
@@ -623,7 +623,11 @@ class IPRSocket(NetlinkSocket):
             self.backlog[seq] = [response]
         else:
             # else just send the packet
-            NetlinkSocket.put(self, msg, *argv, **kwarg)
+            super(IPRSocketMixin, self).put(msg, *argv, **kwarg)
+
+
+class IPRSocket(IPRSocketMixin, NetlinkSocket):
+    pass
 
 
 def get_interface_type(name):

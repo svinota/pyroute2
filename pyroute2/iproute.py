@@ -119,7 +119,7 @@ def transform_handle(handle):
     return handle
 
 
-class IPRoute(IPRSocket):
+class IPRouteMixin(object):
     '''
     You can think of this class in some way as of plain old iproute2
     utility.
@@ -878,3 +878,7 @@ class IPRoute(IPRSocket):
         return self.nlm_request(msg, msg_type=command,
                                 msg_flags=msg_flags)
     # 8<---------------------------------------------------------------
+
+
+class IPRoute(IPRouteMixin, IPRSocket):
+    pass
