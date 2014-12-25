@@ -109,8 +109,10 @@ def remove(netns):
     Remove a network namespace.
     '''
     libc = ctypes.CDLL('libc.so.6')
-    libc.umount2('%s/%s' % (NETNS_RUN_DIR, netns), MNT_DETACH)
-    os.unlink('%s/%s' % (NETNS_RUN_DIR, netns))
+    netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
+    netnspath = netnspath.encode('ascii')
+    libc.umount2(netnspath, MNT_DETACH)
+    os.unlink(netnspath)
     del libc
 
 
@@ -157,6 +159,8 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
            implementations, but it is required by the protocol standard.
 
     '''
+    netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
+    netnspath = netnspath.encode('ascii')
     # open libc
     try:
         libc = ctypes.CDLL('libc.so.6')
@@ -180,7 +184,7 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
 
         # create mountpoint
         try:
-            os.close(os.open('%s/%s' % (NETNS_RUN_DIR, netns),
+            os.close(os.open(netnspath,
                              os.O_RDONLY | os.O_CREAT | os.O_EXCL, 0))
         except OSError as e:
             return e
@@ -192,9 +196,8 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
             return OSError(errno.ECOMM, 'unshare failed', netns)
 
         # bind the namespace
-        if libc.mount('/proc/self/ns/net',
-                      '%s/%s' % (NETNS_RUN_DIR, netns),
-                      'none', MS_BIND, None) < 0:
+        if libc.mount(b'/proc/self/ns/net', netnspath,
+                      b'none', MS_BIND, None) < 0:
             return OSError(errno.ECOMM, 'mount failed', netns)
         return None
     # 8<-------------------------------------------------------------
@@ -210,7 +213,7 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
                 cmdch.send(ret)
                 return ret.errno
     try:
-        nsfd = os.open('%s/%s' % (NETNS_RUN_DIR, netns), os.O_RDONLY)
+        nsfd = os.open(netnspath, os.O_RDONLY)
     except OSError as e:
         cmdch.send(e)
         return e
