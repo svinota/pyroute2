@@ -48,9 +48,13 @@ IPRoute, e.g., in IPDB::
     # so should be accessed via `ipdb_test`
     with ipdb_main.interfaces.v0p0 as veth:
         veth.add_ip('172.16.200.1/24')
+        veth.up()
     with ipdb_test.interfaces.v0p1 as veth:
         veth.add_ip('172.16.200.2/24')
+        veth.up()
 
+Please review also the test code, under `tests/test_netns.py` for
+more examples.
 
 To remove a network namespace, one can use one of two ways::
 
@@ -75,6 +79,7 @@ classes
 
 import os
 import errno
+import atexit
 import ctypes
 import select
 import struct
@@ -104,6 +109,28 @@ def listnetns():
     return os.listdir(NETNS_RUN_DIR)
 
 
+def create(netns):
+    '''
+    Create a network namespace.
+    '''
+    libc = ctypes.CDLL('libc.so.6')
+    # FIXME validate and prepare NETNS_RUN_DIR
+
+    netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
+    netnspath = netnspath.encode('ascii')
+
+    # create mountpoint
+    os.close(os.open(netnspath, os.O_RDONLY | os.O_CREAT | os.O_EXCL, 0))
+
+    # unshare
+    if libc.unshare(CLONE_NEWNET) < 0:
+        raise OSError(errno.ECOMM, 'unshare failed', netns)
+
+    # bind the namespace
+    if libc.mount(b'/proc/self/ns/net', netnspath, b'none', MS_BIND, None) < 0:
+        raise OSError(errno.ECOMM, 'mount failed', netns)
+
+
 def remove(netns):
     '''
     Remove a network namespace.
@@ -113,7 +140,6 @@ def remove(netns):
     netnspath = netnspath.encode('ascii')
     libc.umount2(netnspath, MNT_DETACH)
     os.unlink(netnspath)
-    del libc
 
 
 def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
@@ -180,26 +206,13 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
 
     # 8<-------------------------------------------------------------
     def create_netns():
-        # FIXME validate and prepare NETNS_RUN_DIR
-
-        # create mountpoint
         try:
-            os.close(os.open(netnspath,
-                             os.O_RDONLY | os.O_CREAT | os.O_EXCL, 0))
+            return create(netns)
         except OSError as e:
             return e
         except Exception as e:
             return OSError(errno.ECOMM, str(e), netns)
 
-        # unshare
-        if libc.unshare(CLONE_NEWNET) < 0:
-            return OSError(errno.ECOMM, 'unshare failed', netns)
-
-        # bind the namespace
-        if libc.mount(b'/proc/self/ns/net', netnspath,
-                      b'none', MS_BIND, None) < 0:
-            return OSError(errno.ECOMM, 'mount failed', netns)
-        return None
     # 8<-------------------------------------------------------------
     #
     if netns in list_netns():
@@ -290,6 +303,8 @@ class NetNSProxy(object):
         if error is not None:
             self.server.join()
             raise error
+        else:
+            atexit.register(self.close)
 
     def recv(self, bufsize):
         return self.rcvch.recv()

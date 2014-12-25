@@ -228,6 +228,7 @@ classes
 -------
 '''
 import sys
+import atexit
 import logging
 import traceback
 import threading
@@ -324,9 +325,10 @@ class IPDB(object):
         self._pre_callbacks = []
         self._cb_threads = set()
 
-        # update events
+        # locks and events
         self._links_event = threading.Event()
         self.exclusive = threading.RLock()
+        self._shutdown_lock = threading.Lock()
 
         # load information
         self.restart_on_error = restart_on_error if \
@@ -338,6 +340,8 @@ class IPDB(object):
         if hasattr(sys, 'ps1'):
             self._mthread.setDaemon(True)
         self._mthread.start()
+        #
+        atexit.register(self.release)
 
     def __enter__(self):
         return self
@@ -459,10 +463,20 @@ class IPDB(object):
         is enough time to sync the state. But for the scripts
         the `release()` call is required.
         '''
-        self._stop = True
-        self.nl.put({'index': 1}, RTM_GETLINK)
-        self._mthread.join()
-        self.nl.close()
+        with self._shutdown_lock:
+            if self._stop:
+                return
+
+            self._stop = True
+            try:
+                self.nl.put({'index': 1}, RTM_GETLINK)
+                self._mthread.join()
+            except Exception:
+                # If the transport is shut down, hack the world.
+                # It is possible when the instance gets stopped
+                # by atexit chain
+                self._mthread.setDaemon(True)
+            self.nl.close()
 
     def create(self, kind, ifname, reuse=False, **kwarg):
         '''
