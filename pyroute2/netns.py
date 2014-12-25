@@ -5,17 +5,76 @@ NetNS, network namespaces support
 Pyroute2 provides basic network namespaces support. The core
 class is `NetNS`.
 
-Please be aware, that in order to run `setns()` system call
-the library uses `ctypes` module. It can fail on platforms
-where SELinux is enforced. If the Python interpreter, loading
-this module, dumps the core, one can check the SELinux state
-with `getenforce` command.
+Please be aware, that in order to run system calls the library
+uses `ctypes` module. It can fail on platforms where SELinux
+is enforced. If the Python interpreter, loading this module,
+dumps the core, one can check the SELinux state with `getenforce`
+command.
+
+By default, NetNS creates requested netns, if it doesn't exist,
+or uses existing one. To control this behaviour, one can use flags
+as for `open(2)` system call::
+
+    # create a new netns or fail, if it already exists
+    netns = NetNS('test', flags=os.O_CREAT | os.O_EXIST)
+
+    # create a new netns or use existing one
+    netns = NetNS('test', flags=os.O_CREAT)
+
+    # the same as above, the default behaviour
+    netns = NetNS('test')
+
+NetNS supports standard IPRoute API, so can be used instead of
+IPRoute, e.g., in IPDB::
+
+    # start the main network settings database:
+    ipdb_main = IPDB()
+    # start the same for a netns:
+    ipdb_test = IPDB(nl=NetNS('test'))
+
+    # create VETH
+    ipdb_main.create(ifname='v0p0', kind='veth', peer='v0p1').commit()
+
+    # move peer VETH into the netns
+    with ipdb_main.interfaces.v0p1 as veth:
+        veth.net_ns_fd = 'test'
+
+    # please keep in mind, that netns move clears all the settings
+    # on a VETH interface pair, so one should run netns assignment
+    # as a separate operation only
+
+    # assign addresses
+    # please notice, that `v0p1` is already in the `test` netns,
+    # so should be accessed via `ipdb_test`
+    with ipdb_main.interfaces.v0p0 as veth:
+        veth.add_ip('172.16.200.1/24')
+    with ipdb_test.interfaces.v0p1 as veth:
+        veth.add_ip('172.16.200.2/24')
+
+
+To remove a network namespace, one can use one of two ways::
+
+    # The approach 1)
+    #
+    from pyroute2 import NetNS
+    netns = NetNS('test')
+    netns.close()
+    netns.remove()
+
+    # The approach 2)
+    #
+    from pyroute2.netns import remove
+    remove('test')
+
+Using NetNS, one should stop it first with `close()`, and only after
+that run `remove()`.
 
 classes
 -------
 '''
 
 import os
+import errno
 import ctypes
 import select
 import struct
@@ -31,16 +90,152 @@ from pyroute2.iproute import IPRouteMixin
 
 __NR_setns = 308  # FIXME
 CLONE_NEWNET = 0x40000000
+MNT_DETACH = 0x00000002
+MS_BIND = 4096
+MS_REC = 16384
+MS_SHARED = 1 << 20
+NETNS_RUN_DIR = '/var/run/netns'
 
 
-def server(netns, rcvch, cmdch):
-    nsfd = os.open('/var/run/netns/%s' % netns, os.O_RDONLY)
+def listnetns():
+    '''
+    List available netns.
+    '''
+    return os.listdir(NETNS_RUN_DIR)
+
+
+def remove(netns):
+    '''
+    Remove a network namespace.
+    '''
     libc = ctypes.CDLL('libc.so.6')
-    libc.syscall(__NR_setns, nsfd, CLONE_NEWNET)
-    ipr = IPRoute()
-    poll = select.poll()
-    poll.register(ipr, select.POLLIN | select.POLLPRI)
-    poll.register(cmdch, select.POLLIN | select.POLLPRI)
+    libc.umount2('%s/%s' % (NETNS_RUN_DIR, netns), MNT_DETACH)
+    os.unlink('%s/%s' % (NETNS_RUN_DIR, netns))
+    del libc
+
+
+def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
+    '''
+    The netns server supposed to be started automatically by NetNS.
+    It has two communication channels: one simplex to forward incoming
+    netlink packets, `rcvch`, and other synchronous duplex to get
+    commands and send back responses, `cmdch`.
+
+    Channels should support standard socket API, should be compatible
+    with poll/select and should be able to transparently pickle objects.
+    NetNS uses `multiprocessing.Pipe` for this purpose, but it can be
+    any other implementation with compatible API.
+
+    The first parameter, `netns`, is a netns name. Depending on the
+    `flags`, the netns can be created automatically. The `flags` semantics
+    is exactly the same as for `open(2)` system call.
+
+    ...
+
+    The server workflow is simple. The startup sequence::
+
+        1. Create or open a netns.
+
+        2. Start `IPRoute` instance. It will be used only on the low level,
+           the `IPRoute` will not parse any packet.
+
+        3. Start poll/select loop on `cmdch` and `IPRoute`.
+
+    On the startup, the server sends via `cmdch` the status packet. It can be
+    `None` if all is OK, or some exception.
+
+    Further data handling, depending on the channel, server side::
+
+        1. `IPRoute`: read an incoming netlink packet and send it unmodified
+           to the peer via `rcvch`. The peer, polling `rcvch`, can handle
+           the packet on its side.
+
+        2. `cmdch`: read tuple (cmd, argv, kwarg). If the `cmd` starts with
+           "send", then take `argv[0]` as a packet buffer, treat it as one
+           netlink packet and substitute PID field (offset 12, uint32) with
+           its own. Strictly speaking, it is not mandatory for modern netlink
+           implementations, but it is required by the protocol standard.
+
+    '''
+    # open libc
+    try:
+        libc = ctypes.CDLL('libc.so.6')
+    except OSError as e:
+        cmdch.send(e)
+        return e.errno
+    except Exception as e:
+        cmdch.send(OSError(errno.ECOMM, str(e), netns))
+        return 255
+
+    # 8<-------------------------------------------------------------
+    def list_netns():
+        try:
+            return listnetns()
+        except OSError:
+            return []
+
+    # 8<-------------------------------------------------------------
+    def create_netns():
+        # FIXME validate and prepare NETNS_RUN_DIR
+
+        # create mountpoint
+        try:
+            os.close(os.open('%s/%s' % (NETNS_RUN_DIR, netns),
+                             os.O_RDONLY | os.O_CREAT | os.O_EXCL, 0))
+        except OSError as e:
+            return e
+        except Exception as e:
+            return OSError(errno.ECOMM, str(e), netns)
+
+        # unshare
+        if libc.unshare(CLONE_NEWNET) < 0:
+            return OSError(errno.ECOMM, 'unshare failed', netns)
+
+        # bind the namespace
+        if libc.mount('/proc/self/ns/net',
+                      '%s/%s' % (NETNS_RUN_DIR, netns),
+                      'none', MS_BIND, None) < 0:
+            return OSError(errno.ECOMM, 'mount failed', netns)
+        return None
+    # 8<-------------------------------------------------------------
+    #
+    if netns in list_netns():
+        if flags & (os.O_CREAT | os.O_EXCL) == (os.O_CREAT | os.O_EXCL):
+            cmdch.send(OSError(errno.EEXIST, 'netns exists', netns))
+            return errno.EEXIST
+    else:
+        if flags & os.O_CREAT:
+            ret = create_netns()
+            if ret is not None:
+                cmdch.send(ret)
+                return ret.errno
+    try:
+        nsfd = os.open('%s/%s' % (NETNS_RUN_DIR, netns), os.O_RDONLY)
+    except OSError as e:
+        cmdch.send(e)
+        return e
+    except Exception as e:
+        cmdch.send(OSError(errno.ECOMM, str(e), netns))
+        return 255
+    #
+    ret = libc.syscall(__NR_setns, nsfd, CLONE_NEWNET)
+    if ret != 0:
+        cmdch.send(OSError(ret, 'failed to open netns', netns))
+        return ret
+
+    #
+    try:
+        ipr = IPRoute()
+        poll = select.poll()
+        poll.register(ipr, select.POLLIN | select.POLLPRI)
+        poll.register(cmdch, select.POLLIN | select.POLLPRI)
+    except Exception as e:
+        cmdch.send(e)
+        return 255
+
+    # all is OK so far
+    cmdch.send(None)
+    # 8<-------------------------------------------------------------
     while True:
         events = poll.poll()
         for (fd, event) in events:
@@ -79,14 +274,19 @@ def server(netns, rcvch, cmdch):
 class NetNSProxy(object):
 
     netns = 'default'
+    flags = os.O_CREAT
 
     def __init__(self, *argv, **kwarg):
         self.cmdlock = threading.Lock()
         self.rcvch, rcvch = mp.Pipe()
         self.cmdch, cmdch = mp.Pipe()
-        self.server = mp.Process(target=server,
-                                 args=(self.netns, rcvch, cmdch))
+        self.server = mp.Process(target=NetNServer,
+                                 args=(self.netns, rcvch, cmdch, self.flags))
         self.server.start()
+        error = self.cmdch.recv()
+        if error is not None:
+            self.server.join()
+            raise error
 
     def recv(self, bufsize):
         return self.rcvch.recv()
@@ -170,6 +370,16 @@ class NetNS(IPRouteMixin, NetNSIPR):
     Do not forget to call `release()` when the work is done. It will shut
     down `NetNS` instance as well.
     '''
-    def __init__(self, netns):
+    def __init__(self, netns, flags=os.O_CREAT):
         self.netns = netns
+        self.flags = flags
         super(NetNS, self).__init__()
+
+    def remove(self):
+        '''
+        Try to remove this network namespace from the system.
+
+        This call be be ran only after `NetNS.close()`, otherwise
+        it will fail.
+        '''
+        remove(self.netns)
