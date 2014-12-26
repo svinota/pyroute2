@@ -74,6 +74,11 @@ High-level transactional interface, **IPDB**, a network settings DB::
     finally:
         ip.release()
 
+The project contains several modules for different types of
+netlink messages, not only RTNL.
+
+network namespace samples
+-------------------------
 
 Network namespace manipulation::
 
@@ -85,7 +90,7 @@ Network namespace manipulation::
     # remove netns
     netns.remove('test')
 
-Create **veth** and move to **netns**::
+Create **veth** interfaces pair and move to **netns**::
 
     from pyroute2 import IPDB
 
@@ -108,9 +113,6 @@ List interfaces in some **netns**::
     ns.close()
 
 More details and samples see in the documentation.
-
-The project contains several modules for different types of
-netlink messages, not only RTNL.
 
 installation
 ------------
