@@ -106,7 +106,13 @@ def listnetns():
     '''
     List available netns.
     '''
-    return os.listdir(NETNS_RUN_DIR)
+    try:
+        return os.listdir(NETNS_RUN_DIR)
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            return []
+        else:
+            raise
 
 
 def create(netns):
