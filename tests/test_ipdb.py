@@ -507,6 +507,18 @@ class TestExplicit(object):
     def test_ipv6_bridge(self):
         self._test_ipv(6, 'bridge')
 
+    def test_create_tuntap(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        self.ip.create(ifname=ifA,
+                       kind='tuntap',
+                       mode='tap',
+                       uid=1,
+                       gid=1).commit()
+
+        assert ifA in self.ip.interfaces
+
     def test_create_veth(self):
         require_user('root')
 

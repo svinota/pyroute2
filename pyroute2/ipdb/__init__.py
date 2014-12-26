@@ -525,6 +525,15 @@ class IPDB(object):
 
         The `link` parameter should be either integer, interface id, or
         an interface object. VLAN id must be integer.
+
+        ► **tuntap**
+
+        Possible `tuntap` keywords:
+
+            * `mode` — "tun" or "tap"
+            * `uid` — integer
+            * `gid` — integer
+            * `ifr` — dict of tuntap flags (see tuntapmsg.py)
         '''
         with self.exclusive:
             # check for existing interface

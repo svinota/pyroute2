@@ -12,6 +12,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import IFF_MASK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.brmsg import brmsg
 from pyroute2.netlink.rtnl.bomsg import bomsg
+from pyroute2.netlink.rtnl.tuntapmsg import tuntapmsg
 from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.transactional import update
 from pyroute2.ipdb.linkedset import LinkedSet
@@ -73,9 +74,12 @@ class Interface(Transactional):
                          'bridge': [brmsg.nla2name(i[0]) for i
                                     in brmsg.commands.nla_map],
                          'bond': [bomsg.nla2name(i[0]) for i
-                                  in bomsg.commands.nla_map]}
+                                  in bomsg.commands.nla_map],
+                         'tuntap': [tuntapmsg.nla2name(i[0]) for i
+                                    in tuntapmsg.nla_map]}
         self._xfields['bridge'].append('index')
         self._xfields['bond'].append('index')
+        self._xfields['tuntap'].append('kind')
         self._xfields['common'].append('index')
         self._xfields['common'].append('flags')
         self._xfields['common'].append('mask')
@@ -356,7 +360,10 @@ class Interface(Transactional):
         with self._write_lock:
             # if the interface does not exist, create it first ;)
             if not self._exists:
-                request = IPLinkRequest(self.filter('common'))
+                if self['kind'] == 'tuntap':
+                    request = IPLinkRequest(self.filter('tuntap'))
+                else:
+                    request = IPLinkRequest(self.filter('common'))
 
                 # create watchdog
                 wd = self.ipdb.watchdog(ifname=self['ifname'])
