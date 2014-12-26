@@ -73,8 +73,8 @@ To remove a network namespace, one can use one of two ways::
 Using NetNS, one should stop it first with `close()`, and only after
 that run `remove()`.
 
-classes
--------
+classes and functions
+---------------------
 '''
 
 import os

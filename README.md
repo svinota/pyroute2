@@ -75,6 +75,40 @@ High-level transactional interface, **IPDB**, a network settings DB::
         ip.release()
 
 
+Network namespace manipulation::
+
+    from pyroute2 import netns
+    # create netns
+    netns.create('test')
+    # list
+    print(netns.listnetns())
+    # remove netns
+    netns.remove('test')
+
+Create **veth** and move to **netns**::
+
+    from pyroute2 import IPDB
+
+    ip = IPDB()
+    # create interface pair
+    ip.create(ifname='v0p0', kind='veth', peer='v0p1').commit()
+    # move peer to netns
+    with ip.interfaces.v0p1 as veth:
+        veth.net_ns_fd = 'test'
+    # don't forget to release before exit
+    ip.release()
+
+List interfaces in some **netns**::
+
+    from pyroute2 import NetNS
+    from pprint import pprint
+
+    ns = NetNS('test')
+    pprint(ns.get_links())
+    ns.close()
+
+More details and samples see in the documentation.
+
 The project contains several modules for different types of
 netlink messages, not only RTNL.
 
