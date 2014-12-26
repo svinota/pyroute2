@@ -39,6 +39,7 @@ import os
 import io
 import time
 import subprocess
+from pyroute2.proxy import NetlinkInProxy
 from pyroute2.common import map_namespace
 from pyroute2.common import ANCIENT
 from pyroute2.netlink import NLMSG_ERROR
@@ -54,6 +55,8 @@ from pyroute2.netlink.rtnl.brmsg import brmsg
 from pyroute2.netlink.rtnl.dhcpmsg import dhcpmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink.rtnl.tuntapmsg import tuntapmsg
+from pyroute2.netlink.rtnl.tuntapmsg import create_tuntap
 
 
 _ANCIENT_BARRIER = 0.3
@@ -127,6 +130,8 @@ RTM_GETBOND = 90
 RTM_SETBOND = 91
 RTM_GETDHCP = 92
 RTM_SETDHCP = 93
+RTM_NEWTUNTAP = 94
+RTM_DELTUNTAP = 95
 (RTM_NAMES, RTM_VALUES) = map_namespace('RTM', globals())
 
 TC_H_INGRESS = 0xfffffff1
@@ -214,7 +219,9 @@ class MarshalRtnl(Marshal):
                RTM_GETBOND: bomsg,
                RTM_SETBOND: bomsg,
                RTM_GETDHCP: dhcpmsg,
-               RTM_SETDHCP: dhcpmsg}
+               RTM_SETDHCP: dhcpmsg,
+               RTM_NEWTUNTAP: tuntapmsg,
+               RTM_DELTUNTAP: tuntapmsg}
 
     def fix_message(self, msg):
         # FIXME: pls do something with it
@@ -241,11 +248,30 @@ class IPRSocketMixin(object):
                         RTM_GETDHCP: self.put_getdhcp}
         self.ancient = ANCIENT
 
+        class RcvCh(object):
+            def send(this, data):
+                msg = ifinfmsg(data)
+                msg.decode()
+                self.backlog[msg['header']['sequence_number']] = [msg]
+
+        rcvch = RcvCh()
+        self._proxy = NetlinkInProxy(rcvch)
+        self._proxy.pmap = {RTM_NEWTUNTAP: create_tuntap}
+        self._sendto = self.sendto
+        self.sendto = self.proxy_sendto
+
     def bind(self, groups=RTNL_GROUPS, async=False):
         super(IPRSocketMixin, self).bind(groups, async=async)
 
     def name_by_id(self, index):
         return self.get_links(index)[0].get_attr('IFLA_IFNAME')
+
+    ##
+    # proxy-ng protocol
+    #
+    def proxy_sendto(self, data, address):
+        if not self._proxy.handle(data):
+            self._sendto(data, address)
 
     ##
     # proxy protocol
