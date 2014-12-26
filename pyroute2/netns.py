@@ -124,6 +124,23 @@ def create(netns):
 
     netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
     netnspath = netnspath.encode('ascii')
+    netnsdir = NETNS_RUN_DIR.encode('ascii')
+
+    # init netnsdir
+    try:
+        os.mkdir(netnsdir)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+    # this code is ported from iproute2
+    done = False
+    while libc.mount(b'', netnsdir, b'none', MS_SHARED | MS_REC, None) != 0:
+        if done:
+            raise OSError(errno.ECOMM, 'share rundir failed', netns)
+        if libc.mount(netnsdir, netnsdir, b'none', MS_BIND, None) != 0:
+            raise OSError(errno.ECOMM, 'mount rundir failed', netns)
+        done = True
 
     # create mountpoint
     os.close(os.open(netnspath, os.O_RDONLY | os.O_CREAT | os.O_EXCL, 0))
