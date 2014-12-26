@@ -265,6 +265,8 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
     #
     try:
         ipr = IPRoute()
+        rcvch_lock = ipr._proxy.lock
+        ipr._proxy.rcvch = rcvch
         poll = select.poll()
         poll.register(ipr, select.POLLIN | select.POLLPRI)
         poll.register(cmdch, select.POLLIN | select.POLLPRI)
@@ -280,7 +282,8 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
         for (fd, event) in events:
             if fd == ipr.fileno():
                 bufsize = ipr.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
-                rcvch.send(ipr.recv(bufsize))
+                with rcvch_lock:
+                    rcvch.send(ipr.recv(bufsize))
             elif fd == cmdch.fileno():
                 try:
                     cmdline = cmdch.recv()
@@ -415,6 +418,8 @@ class NetNS(IPRouteMixin, NetNSIPR):
         self.netns = netns
         self.flags = flags
         super(NetNS, self).__init__()
+        self.sendto = self._sendto
+        self._proxy = None
 
     def remove(self):
         '''
