@@ -120,6 +120,9 @@ class IPLinkRequest(IPRequest):
             nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_BOND_MODE', value]]}]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'attrs'),
                            lambda x: x.get('kind', None) == 'bond')
+        elif key == 'ifr':
+            nla = ['IFTUN_IFR', value]
+            self.defer_nla(nla, [], lambda x: x.get('kind', None) == 'tuntap')
         elif key == 'peer':
             nla = ['IFLA_INFO_DATA',
                    {'attrs': [['VETH_INFO_PEER',
