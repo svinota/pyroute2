@@ -56,7 +56,7 @@ from pyroute2.netlink.rtnl.dhcpmsg import dhcpmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.tuntapmsg import tuntapmsg
-from pyroute2.netlink.rtnl.tuntapmsg import create_tuntap
+from pyroute2.netlink.rtnl.tuntapmsg import tuntap_create
 
 
 _ANCIENT_BARRIER = 0.3
@@ -256,7 +256,7 @@ class IPRSocketMixin(object):
 
         rcvch = RcvCh()
         self._proxy = NetlinkInProxy(rcvch)
-        self._proxy.pmap = {RTM_NEWTUNTAP: create_tuntap}
+        self._proxy.pmap = {RTM_NEWTUNTAP: tuntap_create}
         self._sendto = self.sendto
         self.sendto = self.proxy_sendto
 
