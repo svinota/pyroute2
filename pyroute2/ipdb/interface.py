@@ -550,6 +550,10 @@ class Interface(Transactional):
             if any([request[item] is not None for item in request
                     if item != 'index']):
                 self.nl.link('set', **request)
+                # hardcoded pause -- if the interface was moved
+                # across network namespaces
+                if 'net_ns_fd' in request:
+                    time.sleep(0.5)
 
             # bridge changes
             if self['kind'] == 'bridge':
