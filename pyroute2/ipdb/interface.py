@@ -417,84 +417,6 @@ class Interface(Transactional):
             added = transaction - snapshot
 
             # 8<---------------------------------------------
-            # IP address changes
-            self['ipaddr'].set_target(transaction['ipaddr'])
-
-            for i in removed['ipaddr']:
-                # Ignore link-local IPv6 addresses
-                if i[0][:4] == 'fe80' and i[1] == 64:
-                    continue
-                # When you remove a primary IP addr, all subnetwork
-                # can be removed. In this case you will fail, but
-                # it is OK, no need to roll back
-                try:
-                    self.nl.addr('delete', self['index'], i[0], i[1])
-                except NetlinkError as x:
-                    # bypass only errno 99, 'Cannot assign address'
-                    if x.code != 99:
-                        raise
-                except socket.error as x:
-                    # bypass illegal IP requests
-                    if not x.args[0].startswith('illegal IP'):
-                        raise
-
-            for i in added['ipaddr']:
-                # Ignore link-local IPv6 addresses
-                if i[0][:4] == 'fe80' and i[1] == 64:
-                    continue
-                # Try to fetch additional address attributes
-                try:
-                    kwarg = transaction.ipaddr[i]
-                except KeyError:
-                    kwarg = None
-                self.nl.addr('add', self['index'], i[0], i[1],
-                             **kwarg if kwarg else {})
-
-                # 8<--------------------------------------
-                # FIXME: kernel bug, sometimes `addr add` for
-                # bond interfaces returns success, but does
-                # really nothing
-
-                if self['kind'] == 'bond':
-                    while True:
-                        try:
-                            # dirtiest hack, but we have to use it here
-                            time.sleep(0.1)
-                            self.nl.addr('add', self['index'], i[0], i[1])
-                        # continue to try to add the address
-                        # until the kernel reports `file exists`
-                        #
-                        # a stupid solution, but must help
-                        except NetlinkError as e:
-                            if e.code == 17:
-                                break
-                            else:
-                                raise
-                        except Exception:
-                            raise
-                # 8<--------------------------------------
-
-            if removed['ipaddr'] or added['ipaddr']:
-                # 8<--------------------------------------
-                # bond and bridge interfaces do not send
-                # IPv6 address updates, when are down
-                #
-                # beside of that, bridge interfaces are
-                # down by default, so they never send
-                # address updates from beginning
-                #
-                # so if we need, force address load
-                #
-                # FIXME: probably, we should handle other
-                # types as well
-                if self['kind'] in ('bond', 'bridge'):
-                    self.nl.get_addr()
-                # 8<--------------------------------------
-                self['ipaddr'].target.wait(SYNC_TIMEOUT)
-                if not self['ipaddr'].target.is_set():
-                    raise CommitException('ipaddr target is not set')
-
-            # 8<---------------------------------------------
             # Interface slaves
             self['ports'].set_target(transaction['ports'])
 
@@ -579,6 +501,85 @@ class Interface(Transactional):
                 self.nl.setbo(**boq)
                 self.load_bond()
 
+            # 8<---------------------------------------------
+            # IP address changes
+            self['ipaddr'].set_target(transaction['ipaddr'])
+
+            for i in removed['ipaddr']:
+                # Ignore link-local IPv6 addresses
+                if i[0][:4] == 'fe80' and i[1] == 64:
+                    continue
+                # When you remove a primary IP addr, all subnetwork
+                # can be removed. In this case you will fail, but
+                # it is OK, no need to roll back
+                try:
+                    self.nl.addr('delete', self['index'], i[0], i[1])
+                except NetlinkError as x:
+                    # bypass only errno 99, 'Cannot assign address'
+                    if x.code != 99:
+                        raise
+                except socket.error as x:
+                    # bypass illegal IP requests
+                    if not x.args[0].startswith('illegal IP'):
+                        raise
+
+            for i in added['ipaddr']:
+                # Ignore link-local IPv6 addresses
+                if i[0][:4] == 'fe80' and i[1] == 64:
+                    continue
+                # Try to fetch additional address attributes
+                try:
+                    kwarg = transaction.ipaddr[i]
+                except KeyError:
+                    kwarg = None
+                self.nl.addr('add', self['index'], i[0], i[1],
+                             **kwarg if kwarg else {})
+
+                # 8<--------------------------------------
+                # FIXME: kernel bug, sometimes `addr add` for
+                # bond interfaces returns success, but does
+                # really nothing
+
+                if self['kind'] == 'bond':
+                    while True:
+                        try:
+                            # dirtiest hack, but we have to use it here
+                            time.sleep(0.1)
+                            self.nl.addr('add', self['index'], i[0], i[1])
+                        # continue to try to add the address
+                        # until the kernel reports `file exists`
+                        #
+                        # a stupid solution, but must help
+                        except NetlinkError as e:
+                            if e.code == 17:
+                                break
+                            else:
+                                raise
+                        except Exception:
+                            raise
+                # 8<--------------------------------------
+
+            if removed['ipaddr'] or added['ipaddr']:
+                # 8<--------------------------------------
+                # bond and bridge interfaces do not send
+                # IPv6 address updates, when are down
+                #
+                # beside of that, bridge interfaces are
+                # down by default, so they never send
+                # address updates from beginning
+                #
+                # so if we need, force address load
+                #
+                # FIXME: probably, we should handle other
+                # types as well
+                if self['kind'] in ('bond', 'bridge', 'veth'):
+                    self.nl.get_addr()
+                # 8<--------------------------------------
+                self['ipaddr'].target.wait(SYNC_TIMEOUT)
+                if not self['ipaddr'].target.is_set():
+                    raise CommitException('ipaddr target is not set')
+
+            # 8<---------------------------------------------
             # reload interface to hit targets
             if transaction._targets:
                 try:
