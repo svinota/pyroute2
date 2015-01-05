@@ -278,11 +278,14 @@ class IPRSocketMixin(object):
     #
     def get(self, *argv, **kwarg):
         msgs = super(IPRSocketMixin, self).get(*argv, **kwarg)
+        ret = []
         for msg in msgs:
             mtype = msg['header']['type']
             if mtype in self.get_map:
-                self.get_map[mtype](msg)
-        return msgs
+                ret.append(self.get_map[mtype](msg))
+            else:
+                ret.append(msg)
+        return ret
 
     def put(self, *argv, **kwarg):
         if argv[1] in self.put_map:
@@ -346,7 +349,9 @@ class IPRSocketMixin(object):
                     li['attrs'].append(['IFLA_INFO_KIND', kind])
             msg.reset()
             msg.encode()
-            return msg
+            msg = type(msg)(msg.buf.getvalue())
+            msg.decode()
+        return msg
 
     def put_setdhcp(self, msg, *argv, **kwarg):
         pass
