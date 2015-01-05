@@ -16,8 +16,9 @@ class NetlinkInProxy(object):
 
     '''
 
-    def __init__(self, rcvch, lock=None):
+    def __init__(self, rcvch, bypass=None, lock=None):
         self.rcvch = rcvch
+        self.bypass = bypass
         self.lock = lock or threading.Lock()
         self.pmap = {}
 
@@ -30,7 +31,7 @@ class NetlinkInProxy(object):
         if plugin is not None:
             with self.lock:
                 try:
-                    if plugin(data, self.rcvch) is None:
+                    if plugin(data, self.rcvch, self.bypass) is None:
                         msg = struct.pack('IHH', 20, 2, 0)
                         msg += data[8:16]
                         msg += struct.pack('I', 0)
