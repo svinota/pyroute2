@@ -3,8 +3,6 @@
 *~
 build/
 dist/
-docs/general.rst
-docs/_build
 tests/htmlcov
 tests/cover
 tests/.coverage
@@ -16,3 +14,6 @@ MANIFEST
 docs/conf.py
 docs/changelog.rst
 docs/makefile.rst
+docs/general.rst
+docs/html
+docs/doctrees

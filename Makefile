@@ -77,7 +77,8 @@ clean: clean-version
 	rm -f docs/general.rst
 	rm -f docs/changelog.rst
 	rm -f docs/makefile.rst
-	rm -rf docs/_build/html
+	rm -rf docs/html
+	rm -rf docs/doctrees
 	rm -f  tests/.coverage
 	rm -rf tests/htmlcov
 	rm -rf tests/cover
@@ -133,7 +134,7 @@ test:
 upload: clean force-version
 	${python} setup.py sdist upload
 
-dist: clean force-version
+dist: clean force-version docs
 	${python} setup.py sdist
 
 install: clean force-version
