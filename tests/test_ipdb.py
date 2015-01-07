@@ -232,15 +232,38 @@ class TestExplicit(object):
         assert '172.16.0.0/24' in self.ip.routes
         assert grep('ip ro', pattern='172.16.0.0/24.*127.0.0.1')
 
-        # change a route
+        # change the route
         with self.ip.routes['172.16.0.0/24'] as r:
             r.gateway = '127.0.0.2'
         assert self.ip.routes['172.16.0.0/24'].gateway == '127.0.0.2'
         assert grep('ip ro', pattern='172.16.0.0/24.*127.0.0.2')
 
-        # delete a route
+        # delete the route
         with self.ip.routes['172.16.0.0/24'] as r:
             r.remove()
+        assert '172.16.0.0/24' not in self.ip.routes
+        assert not grep('ip ro', pattern='172.16.0.0/24')
+
+    def test_route_metrics(self):
+        require_user('root')
+        assert '172.16.0.0/24' not in self.ip.routes
+
+        # create a route
+        self.ip.routes.add({'dst': '172.16.0.0/24',
+                            'gateway': '127.0.0.1',
+                            'metrics': {'mtu': 1360}}).commit()
+        assert grep('ip ro', pattern='172.16.0.0/24.*mtu 1360')
+
+        # change metrics
+        with self.ip.routes['172.16.0.0/24'] as r:
+            r.metrics.mtu = 1400
+        assert self.ip.routes['172.16.0.0/24']['metrics']['mtu'] == 1400
+        assert grep('ip ro', pattern='172.16.0.0/24.*mtu 1400')
+
+        # delete the route
+        with self.ip.routes['172.16.0.0/24'] as r:
+            r.remove()
+
         assert '172.16.0.0/24' not in self.ip.routes
         assert not grep('ip ro', pattern='172.16.0.0/24')
 
