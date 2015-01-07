@@ -41,14 +41,33 @@ class rtmsg(nlmsg):
                ('RTA_GATEWAY', 'ipaddr'),
                ('RTA_PRIORITY', 'uint32'),
                ('RTA_PREFSRC', 'ipaddr'),
-               ('RTA_METRICS', 'uint32'),
+               ('RTA_METRICS', 'metrics'),
                ('RTA_MULTIPATH', 'hex'),
                ('RTA_PROTOINFO', 'uint32'),
                ('RTA_FLOW', 'hex'),
                ('RTA_CACHEINFO', 'cacheinfo'),
                ('RTA_SESSION', 'hex'),
                ('RTA_MP_ALGO', 'hex'),
-               ('RTA_TABLE', 'uint32'))
+               ('RTA_TABLE', 'uint32'),
+               ('RTA_MARK', 'uint32'))
+
+    class metrics(nla):
+        nla_map = (('RTAX_UNSPEC', 'none'),
+                   ('RTAX_LOCK', 'uint32'),
+                   ('RTAX_MTU', 'uint32'),
+                   ('RTAX_WINDOW', 'uint32'),
+                   ('RTAX_RTT', 'uint32'),
+                   ('RTAX_RTTVAR', 'uint32'),
+                   ('RTAX_SSTHRESH', 'uint32'),
+                   ('RTAX_CWND', 'uint32'),
+                   ('RTAX_ADVMSS', 'uint32'),
+                   ('RTAX_REORDERING', 'uint32'),
+                   ('RTAX_HOPLIMIT', 'uint32'),
+                   ('RTAX_INITCWND', 'uint32'),
+                   ('RTAX_FEATURES', 'uint32'),
+                   ('RTAX_RTO_MIN', 'uint32'),
+                   ('RTAX_INITRWND', 'uint32'),
+                   ('RTAX_QUICKACK', 'uint32'))
 
     class cacheinfo(nla):
         fields = (('rta_clntref', 'I'),
