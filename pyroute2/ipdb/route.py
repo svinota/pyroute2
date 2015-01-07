@@ -114,10 +114,11 @@ class RoutingTables(dict):
         self.ipdb = ipdb
         self.tables = {254: {}}
 
-    def add(self, spec):
+    def add(self, spec=None, **kwarg):
         '''
         Create a route from a dictionary
         '''
+        spec = spec or kwarg
         table = spec.get('table', 254)
         assert 'dst' in spec
         route = Route(self.ipdb)
