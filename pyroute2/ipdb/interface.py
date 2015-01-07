@@ -47,7 +47,7 @@ class Interface(Transactional):
     '''
     _fields_cmp = {'flags': lambda x, y: x & y & IFF_MASK == y & IFF_MASK}
 
-    def __init__(self, ipdb, mode=None):
+    def __init__(self, ipdb, mode=None, parent=None, uid=None):
         '''
         Parameters:
         * ipdb -- ipdb() reference

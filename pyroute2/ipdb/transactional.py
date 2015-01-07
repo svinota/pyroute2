@@ -3,6 +3,8 @@
 import uuid
 import threading
 from pyroute2.common import Dotkeys
+from pyroute2.ipdb.common import SYNC_TIMEOUT
+from pyroute2.ipdb.common import CommitException
 from pyroute2.ipdb.common import DeprecationException
 from pyroute2.ipdb.linkedset import LinkedSet
 
@@ -84,11 +86,26 @@ class Transactional(Dotkeys):
     '''
     _fields_cmp = {}
 
-    def __init__(self, ipdb, mode=None):
-        self.nl = ipdb.nl
+    def __init__(self, ipdb=None, mode=None, parent=None, uid=None):
+        #
+        if ipdb is not None:
+            self.nl = ipdb.nl
+            self.ipdb = ipdb
+        else:
+            self.nl = None
+            self.ipdb = None
+        #
+        self._parent = None
+        if parent is not None:
+            self._mode = mode or parent._mode
+            self._parent = parent
+        elif ipdb is not None:
+            self._mode = mode or ipdb.mode
+        else:
+            self._mode = mode or 'implicit'
+        #
         self.nlmsg = None
-        self.uid = uuid.uuid4()
-        self.ipdb = ipdb
+        self.uid = uid or uuid.uuid4()
         self.last_error = None
         self._commit_hooks = []
         self._fields = []
@@ -97,7 +114,6 @@ class Transactional(Dotkeys):
         self._snapshots = {}
         self._targets = {}
         self._local_targets = {}
-        self._mode = mode or ipdb.mode
         self._write_lock = threading.RLock()
         self._direct_state = State(self._write_lock)
         self._linked_sets = set()
@@ -133,7 +149,7 @@ class Transactional(Dotkeys):
                 if hook == cb:
                     self._commit_hooks.pop(self._commit_hooks.index(cb))
 
-    def pick(self, detached=True):
+    def pick(self, detached=True, uid=None, parent=None, forge_tids=False):
         '''
         Get a snapshot of the object. Can be of two
         types:
@@ -145,10 +161,23 @@ class Transactional(Dotkeys):
         used as transactions.
         '''
         with self._write_lock:
-            res = self.__class__(ipdb=self.ipdb, mode='snapshot')
-            for key in tuple(self.keys()):
+            res = self.__class__(ipdb=self.ipdb,
+                                 mode='snapshot',
+                                 parent=parent,
+                                 uid=uid)
+            for (key, value) in self.items():
                 if key in self._fields:
-                    res[key] = self[key]
+                    if isinstance(value, Transactional):
+                        t = value.pick(detached=detached,
+                                       uid=res.uid,
+                                       parent=self)
+                        if forge_tids:
+                            # forge the transaction for nested objects
+                            value._transactions[res.uid] = t
+                            value._tids.append(res.uid)
+                        res[key] = t
+                    else:
+                        res[key] = self[key]
             for key in self._linked_sets:
                 res[key] = LinkedSet(self[key])
                 if not detached:
@@ -235,16 +264,19 @@ class Transactional(Dotkeys):
         '''
         Start new transaction
         '''
-        return self._begin(mapping=self._transactions,
-                           ids=self._tids,
-                           detached=False)
+        if self._parent is not None:
+            self._parent.begin()
+        else:
+            return self._begin(mapping=self._transactions,
+                               ids=self._tids,
+                               detached=False)
 
     def _begin(self, mapping, ids, detached):
         # keep snapshot's ip addr set updated from the OS
         # it is required by the commit logic
-        if self.ipdb._stop:
+        if (self.ipdb is not None) and self.ipdb._stop:
             raise RuntimeError("Can't start transaction on released IPDB")
-        t = self.pick(detached=detached)
+        t = self.pick(detached=detached, forge_tids=True)
         mapping[t.uid] = t
         ids.append(t.uid)
         return t.uid
@@ -291,6 +323,12 @@ class Transactional(Dotkeys):
                 tid = self._tids[-1]
             self._tids.remove(tid)
             del self._transactions[tid]
+            for (key, value) in self.items():
+                if isinstance(value, Transactional):
+                    try:
+                        value.drop(tid)
+                    except KeyError:
+                        pass
 
     @update
     def __setitem__(self, direct, key, value):

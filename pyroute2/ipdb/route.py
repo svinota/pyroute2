@@ -5,10 +5,18 @@ from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.ipdb.transactional import Transactional
 
 
+class Metrics(Transactional):
+
+    def __init__(self, *argv, **kwarg):
+        Transactional.__init__(self, *argv, **kwarg)
+        self._fields = [rtmsg.metrics.nla2name(i[0]) for i
+                        in rtmsg.metrics.nla_map]
+
+
 class Route(Transactional):
 
-    def __init__(self, ipdb, mode=None):
-        Transactional.__init__(self, ipdb, mode)
+    def __init__(self, ipdb, mode=None, parent=None, uid=None):
+        Transactional.__init__(self, ipdb, mode, parent, uid)
         self._exists = False
         self._load_event = threading.Event()
         self._fields = [rtmsg.nla2name(i[0]) for i in rtmsg.nla_map]
@@ -20,6 +28,8 @@ class Route(Transactional):
         self.cleanup = ('attrs',
                         'header',
                         'event')
+        with self._direct_state:
+            self['metrics'] = Metrics(parent=self)
 
     def load_netlink(self, msg):
         with self._direct_state:
@@ -28,14 +38,16 @@ class Route(Transactional):
             # merge key
             for (name, value) in msg['attrs']:
                 norm = rtmsg.nla2name(name)
-                self[norm] = value
                 # normalize RTAX
                 if norm == 'metrics':
-                    ret = {}
-                    for (rtax, rtax_value) in value['attrs']:
-                        rtax_norm = rtmsg.metrics.nla2name(rtax)
-                        ret[rtax_norm] = rtax_value
+                    ret = self.get(norm, Metrics(parent=self))
+                    with ret._direct_state:
+                        for (rtax, rtax_value) in value['attrs']:
+                            rtax_norm = rtmsg.metrics.nla2name(rtax)
+                            ret[rtax_norm] = rtax_value
                     self[norm] = ret
+                else:
+                    self[norm] = value
 
             if msg.get_attr('RTA_DST', None) is not None:
                 dst = '%s/%s' % (msg.get_attr('RTA_DST'),
@@ -81,7 +93,7 @@ class Route(Transactional):
         try:
             # route set
             request = IPRouteRequest(transaction - snapshot)
-            if any([request[x] is not None for x in request]):
+            if any([request[x] not in (None, {'attrs': []}) for x in request]):
                 self.nl.route('set', **IPRouteRequest(transaction))
 
             if transaction.get('removal'):
@@ -130,7 +142,9 @@ class RoutingTables(dict):
         table = spec.get('table', 254)
         assert 'dst' in spec
         route = Route(self.ipdb)
+        metrics = spec.pop('metrics', {})
         route.update(spec)
+        route.metrics.update(metrics)
         if table not in self.tables:
             self.tables[table] = dict()
         self.tables[table][route['dst']] = route
