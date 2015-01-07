@@ -595,11 +595,7 @@ class Interface(Transactional):
                                 return self
 
             # wait for targets
-            for key, target in transaction._targets.items():
-                if key not in self._virtual_fields:
-                    target.wait(SYNC_TIMEOUT)
-                    if not target.is_set():
-                        raise CommitException('target %s is not set' % key)
+            transaction._wait_all_targets()
 
             # 8<---------------------------------------------
             # Interface removal

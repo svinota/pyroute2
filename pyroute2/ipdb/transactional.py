@@ -340,6 +340,13 @@ class Transactional(Dotkeys):
         del self[key]
         return self
 
+    def _wait_all_targets(self):
+        for key, target in self._targets.items():
+            if key not in self._virtual_fields:
+                target.wait(SYNC_TIMEOUT)
+                if not target.is_set():
+                    raise CommitException('target %s is not set' % key)
+
     def set_target(self, key, value):
         self._local_targets[key] = threading.Event()
         self._local_targets[key].value = value
