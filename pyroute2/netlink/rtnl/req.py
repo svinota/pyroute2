@@ -2,6 +2,7 @@ from socket import AF_INET6
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.brmsg import brmsg
 from pyroute2.netlink.rtnl.bomsg import bomsg
+from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
 
 class IPRequest(dict):
@@ -28,19 +29,26 @@ class IPRouteRequest(IPRequest):
         if isinstance(value, basestring) and value.find(':') >= 0:
             self['family'] = AF_INET6
         # work on the rest
-        if (key == 'dst') and (value != 'default'):
-            value = value.split('/')
-            if len(value) == 1:
-                dst = value[0]
-                mask = 0
-            elif len(value) == 2:
-                dst = value[0]
-                mask = int(value[1])
-            else:
-                raise ValueError('wrong destination')
-            dict.__setitem__(self, 'dst', dst)
-            dict.__setitem__(self, 'dst_len', mask)
-        elif key != 'dst':
+        if key == 'dst':
+            if value != 'default':
+                value = value.split('/')
+                if len(value) == 1:
+                    dst = value[0]
+                    mask = 0
+                elif len(value) == 2:
+                    dst = value[0]
+                    mask = int(value[1])
+                else:
+                    raise ValueError('wrong destination')
+                dict.__setitem__(self, 'dst', dst)
+                dict.__setitem__(self, 'dst_len', mask)
+        elif key == 'metrics':
+            ret = {'attrs': []}
+            for name in value:
+                rtax = rtmsg.metrics.name2nla(name)
+                ret['attrs'].append([rtax, value[name]])
+            dict.__setitem__(self, 'metrics', ret)
+        else:
             dict.__setitem__(self, key, value)
 
 

@@ -29,6 +29,14 @@ class Route(Transactional):
             for (name, value) in msg['attrs']:
                 norm = rtmsg.nla2name(name)
                 self[norm] = value
+                # normalize RTAX
+                if norm == 'metrics':
+                    ret = {}
+                    for (rtax, rtax_value) in value['attrs']:
+                        rtax_norm = rtmsg.metrics.nla2name(rtax)
+                        ret[rtax_norm] = rtax_value
+                    self[norm] = ret
+
             if msg.get_attr('RTA_DST', None) is not None:
                 dst = '%s/%s' % (msg.get_attr('RTA_DST'),
                                  msg['dst_len'])

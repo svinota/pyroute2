@@ -52,6 +52,7 @@ class rtmsg(nlmsg):
                ('RTA_MARK', 'uint32'))
 
     class metrics(nla):
+        prefix = 'RTAX_'
         nla_map = (('RTAX_UNSPEC', 'none'),
                    ('RTAX_LOCK', 'uint32'),
                    ('RTAX_MTU', 'uint32'),
