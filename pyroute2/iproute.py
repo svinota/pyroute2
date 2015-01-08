@@ -39,6 +39,18 @@ the programmer's perspective. Please read also
 `NetlinkSocket` documentation to know more about async
 mode.
 
+think about IPDB
+----------------
+
+If you plan to regularly fetch loads of objects, think
+about IPDB also. Unlike to IPRoute, IPDB does not fetch
+all the objects from OS every time you request them, but
+keeps a cache that is asynchronously updated by the netlink
+broadcasts. For a long-term running programs, that often
+retrieve info about hundreds or thousands of objects, it
+can be better to use IPDB as it will load CPU significantly
+less.
+
 classes
 -------
 '''
@@ -123,12 +135,11 @@ def transform_handle(handle):
 
 class IPRouteMixin(object):
     '''
-    You can think of this class in some way as of plain old iproute2
-    utility.
-
     `IPRouteMixin` should not be instantiated by itself. It is intended
-    to be used as a mixin class that provides iproute2-like API. One
+    to be used as a mixin class that provides iproute2-like API. You
     should use `IPRoute` or `NetNS` classes.
+
+    All following info you can consider as IPRoute info as well.
 
     It is an old-school API, that provides access to rtnetlink as is.
     It helps you to retrieve and change almost all the data, available
@@ -895,5 +906,8 @@ class IPRoute(IPRouteMixin, IPRSocket):
     '''
     Production class that provides iproute API over normal Netlink
     socket.
+
+    You can think of this class in some way as of plain old iproute2
+    utility.
     '''
     pass

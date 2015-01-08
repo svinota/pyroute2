@@ -6,7 +6,11 @@ IPDB module
 Basically, IPDB is a transactional database, containing records,
 representing network stack objects. Any change in the database
 is not reflected immediately in OS (unless you ask for that
-explicitly), but waits until commit() is called.
+explicitly), but waits until `commit()` is called. One failed
+operation during `commit()` rolls back all the changes, has been
+made so far. Moreover, IPDB has commit hooks API, that allows
+you to roll back changes depending on your own function calls,
+e.g. when a host or a network becomes unreachable.
 
 IPDB vs. IPRoute
 ----------------
@@ -14,12 +18,34 @@ IPDB vs. IPRoute
 These two modules, IPRoute and IPDB, use completely different
 approaches. The first one, IPRoute, is synchronous by default,
 and can be used in the same way, as usual Linux utilities. It
-doesn't spawn any additional threads or processes, until one
-explicitly calls `IPRoute.bind(async=True)`.
+doesn't spawn any additional threads or processes, until you
+explicitly ask for that.
 
 The latter, IPDB, is an asynchronously updated database, that
 starts several additional threads by default. If your project's
 policy doesn't allow implicit threads, keep it in mind.
+
+The choice depends on your project's workflow. If you plan to
+retrieve the system info not too often (or even once), or you
+are sure there will be not too many network object, it is better
+to use IPRoute. If you plan to lookup the network info  on a
+regular basis and there can be loads of network objects, it is
+better to use IPDB. Why?
+
+IPRoute just loads what you ask -- and loads all the information
+you ask to. While IPDB loads all the info upon startup, and
+later is just updated by asynchronous broadcast netlink messages.
+Assume you want to lookup ARP cache that contains hundreds or
+even thousands of objects. Using IPRoute, you have to load all
+the ARP cache every time you want to make a lookup. While IPDB
+will load all the cache once, and then maintain it up-to-date
+just inserting new records or removing them by one.
+
+So, IPRoute is much simpler when you need to make a call and
+then exit. While IPDB is cheaper in terms of CPU performance
+if you implement a long-running program like a daemon. Later
+it can change, if there will be (an optional) cache for IPRoute
+too.
 
 quickstart
 ----------
@@ -83,7 +109,7 @@ class, and has two keys::
     >>>
 
 One can address objects in IPDB not only with dict notation, but
-with dot notation also:
+with dot notation also::
 
     >>> ip.interfaces.em1.address
     'f0:de:f1:93:94:0d'
@@ -212,6 +238,49 @@ IPDB can also create interfaces::
 Right now IPDB supports creation of `dummy`, `bond`, `bridge`
 and `vlan` interfaces. VLAN creation requires also `link` and
 `vlan_id` parameters, see example scripts.
+
+routing management
+------------------
+
+IPDB has a simple yet useful routing management interface.
+To add a route, one can use almost any syntax::
+
+    # spec as a dictionary
+    spec = {'dst': '172.16.1.0/24',
+            'oif': 4,
+            'gateway': '192.168.122.60',
+            'metrics': {'mtu': 1400,
+                        'advmss': 500}}
+
+    # pass spec as is
+    ip.routes.add(spec).commit()
+
+    # pass spec as kwargs
+    ip.routes.add(**spec).commit()
+
+    # use keyword arguments explicitly
+    ip.routes.add(dst='172.16.1.0/24', oif=4, ...).commit()
+
+To access and change the routes, one can use notations as follows::
+
+    # default table (254)
+    #
+    # change the route gateway and mtu
+    #
+    with ip.routes['172.16.1.0/24'] as route:
+        route.gateway = '192.168.122.60'
+        route.metrics.mtu = 1500
+
+    # access the default route
+    print(ip.routes['default])
+
+    # change the default gateway
+    with ip.routes['default'] as route:
+        route.gateway = '10.0.0.1'
+
+    # list automatic routes keys
+    print(ip.routes.tables[255].keys())
+
 
 performance issues
 ------------------
