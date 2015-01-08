@@ -1,7 +1,7 @@
 %global pkgname pyroute2
 
 Name: python-%{pkgname}
-Version: 0.3.3
+Version: 0.3.4
 Release: 1%{?dist}
 Summary: Pure Python netlink library
 License: GPLv2+
@@ -31,6 +31,11 @@ IPQ.
 %{python_sitelib}/%{pkgname}*
 
 %changelog
+* Thu Jan  8 2015 Peter V. Saveliev <peter@svinota.eu> 0.3.4-1
+- Network namespaces support
+- Veth, tuntap
+- Route metrics
+
 * Fri Dec  5 2014 Peter V. Saveliev <peter@svinota.eu> 0.3.3-1
 - Fix-ups, 0.3.3
 - Bugfixes for Python 2.6

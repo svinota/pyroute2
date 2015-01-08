@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.3.4
+    * ipdb: #92 -- route metrics support
+    * ipdb: #85 -- broadcast address specification
+    * ipdb, rtnl: #84 -- veth support
+    * ipdb, rtnl: tuntap support
+    * netns: #84 -- network namespaces support, NetNS class
+    * rtnl: proxy-ng API
+    * pypi: #91 -- embed docs into the tarball
 * 0.3.3
     * ipdb: restart on error
     * generic: handle non-existing family case
