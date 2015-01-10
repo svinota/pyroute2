@@ -287,7 +287,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_INACTIVITY_TIMEOUT', 'none'),
                ('NL80211_ATTR_RX_SIGNAL_DBM', 'none'),
                ('NL80211_ATTR_BG_SCAN_PERIOD', 'none'),
-               ('NL80211_ATTR_WDEV', 'uint64'),
+               ('NL80211_ATTR_WDEV', 'uint32'),
                ('NL80211_ATTR_USER_REG_HINT_TYPE', 'none'),
                ('NL80211_ATTR_CONN_FAILED_REASON', 'none'),
                ('NL80211_ATTR_SAE_DATA', 'none'),
