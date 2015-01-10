@@ -5,12 +5,12 @@ NL80211 module
 TODO
 '''
 
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import nla
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink.generic import GenericNetlinkSocket
+from pyroute2.netlink.nlsocket import Marshal
 
 # nl80211 commands
+
 NL80211_CMD_UNSPEC = 0
 NL80211_CMD_GET_WIPHY = 1
 NL80211_CMD_SET_WIPHY = 2
@@ -354,10 +354,133 @@ class nl80211cmd(genlmsg):
                ('NUM_NL80211_ATTR', 'none'))
 
 
+class MarshalNl80211(Marshal):
+    msg_map = {NL80211_CMD_UNSPEC: genlmsg,
+               NL80211_CMD_GET_WIPHY: genlmsg,
+               NL80211_CMD_SET_WIPHY: genlmsg,
+               NL80211_CMD_NEW_WIPHY: genlmsg,
+               NL80211_CMD_DEL_WIPHY: genlmsg,
+               NL80211_CMD_GET_INTERFACE: genlmsg,
+               NL80211_CMD_SET_INTERFACE: genlmsg,
+               NL80211_CMD_NEW_INTERFACE: genlmsg,
+               NL80211_CMD_DEL_INTERFACE: genlmsg,
+               NL80211_CMD_GET_KEY: genlmsg,
+               NL80211_CMD_SET_KEY: genlmsg,
+               NL80211_CMD_NEW_KEY: genlmsg,
+               NL80211_CMD_DEL_KEY: genlmsg,
+               NL80211_CMD_GET_BEACON: genlmsg,
+               NL80211_CMD_SET_BEACON: genlmsg,
+               NL80211_CMD_START_AP: genlmsg,
+               NL80211_CMD_NEW_BEACON: genlmsg,
+               NL80211_CMD_STOP_AP: genlmsg,
+               NL80211_CMD_DEL_BEACON: genlmsg,
+               NL80211_CMD_GET_STATION: genlmsg,
+               NL80211_CMD_SET_STATION: genlmsg,
+               NL80211_CMD_NEW_STATION: genlmsg,
+               NL80211_CMD_DEL_STATION: genlmsg,
+               NL80211_CMD_GET_MPATH: genlmsg,
+               NL80211_CMD_SET_MPATH: genlmsg,
+               NL80211_CMD_NEW_MPATH: genlmsg,
+               NL80211_CMD_DEL_MPATH: genlmsg,
+               NL80211_CMD_SET_BSS: genlmsg,
+               NL80211_CMD_SET_REG: genlmsg,
+               NL80211_CMD_REQ_SET_REG: genlmsg,
+               NL80211_CMD_GET_MESH_CONFIG: genlmsg,
+               NL80211_CMD_SET_MESH_CONFIG: genlmsg,
+               NL80211_CMD_SET_MGMT_EXTRA_IE: genlmsg,
+               NL80211_CMD_GET_REG: genlmsg,
+               NL80211_CMD_GET_SCAN: genlmsg,
+               NL80211_CMD_TRIGGER_SCAN: genlmsg,
+               NL80211_CMD_NEW_SCAN_RESULTS: genlmsg,
+               NL80211_CMD_SCAN_ABORTED: genlmsg,
+               NL80211_CMD_REG_CHANGE: genlmsg,
+               NL80211_CMD_AUTHENTICATE: genlmsg,
+               NL80211_CMD_ASSOCIATE: genlmsg,
+               NL80211_CMD_DEAUTHENTICATE: genlmsg,
+               NL80211_CMD_DISASSOCIATE: genlmsg,
+               NL80211_CMD_MICHAEL_MIC_FAILURE: genlmsg,
+               NL80211_CMD_REG_BEACON_HINT: genlmsg,
+               NL80211_CMD_JOIN_IBSS: genlmsg,
+               NL80211_CMD_LEAVE_IBSS: genlmsg,
+               NL80211_CMD_TESTMODE: genlmsg,
+               NL80211_CMD_CONNECT: genlmsg,
+               NL80211_CMD_ROAM: genlmsg,
+               NL80211_CMD_DISCONNECT: genlmsg,
+               NL80211_CMD_SET_WIPHY_NETNS: genlmsg,
+               NL80211_CMD_GET_SURVEY: genlmsg,
+               NL80211_CMD_NEW_SURVEY_RESULTS: genlmsg,
+               NL80211_CMD_SET_PMKSA: genlmsg,
+               NL80211_CMD_DEL_PMKSA: genlmsg,
+               NL80211_CMD_FLUSH_PMKSA: genlmsg,
+               NL80211_CMD_REMAIN_ON_CHANNEL: genlmsg,
+               NL80211_CMD_CANCEL_REMAIN_ON_CHANNEL: genlmsg,
+               NL80211_CMD_SET_TX_BITRATE_MASK: genlmsg,
+               NL80211_CMD_REGISTER_FRAME: genlmsg,
+               NL80211_CMD_REGISTER_ACTION: genlmsg,
+               NL80211_CMD_FRAME: genlmsg,
+               NL80211_CMD_ACTION: genlmsg,
+               NL80211_CMD_FRAME_TX_STATUS: genlmsg,
+               NL80211_CMD_ACTION_TX_STATUS: genlmsg,
+               NL80211_CMD_SET_POWER_SAVE: genlmsg,
+               NL80211_CMD_GET_POWER_SAVE: genlmsg,
+               NL80211_CMD_SET_CQM: genlmsg,
+               NL80211_CMD_NOTIFY_CQM: genlmsg,
+               NL80211_CMD_SET_CHANNEL: genlmsg,
+               NL80211_CMD_SET_WDS_PEER: genlmsg,
+               NL80211_CMD_FRAME_WAIT_CANCEL: genlmsg,
+               NL80211_CMD_JOIN_MESH: genlmsg,
+               NL80211_CMD_LEAVE_MESH: genlmsg,
+               NL80211_CMD_UNPROT_DEAUTHENTICATE: genlmsg,
+               NL80211_CMD_UNPROT_DISASSOCIATE: genlmsg,
+               NL80211_CMD_NEW_PEER_CANDIDATE: genlmsg,
+               NL80211_CMD_GET_WOWLAN: genlmsg,
+               NL80211_CMD_SET_WOWLAN: genlmsg,
+               NL80211_CMD_START_SCHED_SCAN: genlmsg,
+               NL80211_CMD_STOP_SCHED_SCAN: genlmsg,
+               NL80211_CMD_SCHED_SCAN_RESULTS: genlmsg,
+               NL80211_CMD_SCHED_SCAN_STOPPED: genlmsg,
+               NL80211_CMD_SET_REKEY_OFFLOAD: genlmsg,
+               NL80211_CMD_PMKSA_CANDIDATE: genlmsg,
+               NL80211_CMD_TDLS_OPER: genlmsg,
+               NL80211_CMD_TDLS_MGMT: genlmsg,
+               NL80211_CMD_UNEXPECTED_FRAME: genlmsg,
+               NL80211_CMD_PROBE_CLIENT: genlmsg,
+               NL80211_CMD_REGISTER_BEACONS: genlmsg,
+               NL80211_CMD_UNEXPECTED_4ADDR_FRAME: genlmsg,
+               NL80211_CMD_SET_NOACK_MAP: genlmsg,
+               NL80211_CMD_CH_SWITCH_NOTIFY: genlmsg,
+               NL80211_CMD_START_P2P_DEVICE: genlmsg,
+               NL80211_CMD_STOP_P2P_DEVICE: genlmsg,
+               NL80211_CMD_CONN_FAILED: genlmsg,
+               NL80211_CMD_SET_MCAST_RATE: genlmsg,
+               NL80211_CMD_SET_MAC_ACL: genlmsg,
+               NL80211_CMD_RADAR_DETECT: genlmsg,
+               NL80211_CMD_GET_PROTOCOL_FEATURES: genlmsg,
+               NL80211_CMD_UPDATE_FT_IES: genlmsg,
+               NL80211_CMD_FT_EVENT: genlmsg,
+               NL80211_CMD_CRIT_PROTOCOL_START: genlmsg,
+               NL80211_CMD_CRIT_PROTOCOL_STOP: genlmsg,
+               NL80211_CMD_GET_COALESCE: genlmsg,
+               NL80211_CMD_SET_COALESCE: genlmsg,
+               NL80211_CMD_CHANNEL_SWITCH: genlmsg,
+               NL80211_CMD_VENDOR: genlmsg,
+               NL80211_CMD_SET_QOS_MAP: genlmsg,
+               NL80211_CMD_ADD_TX_TS: genlmsg,
+               NL80211_CMD_DEL_TX_TS: genlmsg,
+               NL80211_CMD_GET_MPP: genlmsg,
+               NL80211_CMD_JOIN_OCB: genlmsg,
+               NL80211_CMD_LEAVE_OCB: genlmsg,
+               NL80211_CMD_CH_SWITCH_STARTED_NOTIFY: genlmsg,
+               NL80211_CMD_TDLS_CHANNEL_SWITCH: genlmsg,
+               NL80211_CMD_TDLS_CANCEL_CHANNEL_SWITCH: genlmsg,
+               NL80211_CMD_WIPHY_REG_CHANGE: genlmsg}
+
+
 class NL80211(GenericNetlinkSocket):
 
     def __init__(self):
         GenericNetlinkSocket.__init__(self)
+        self.marshal = MarshalNl80211()
 
     def bind(self):
         GenericNetlinkSocket.bind(self, 'nl80211', genlmsg)
