@@ -81,8 +81,10 @@ def tuntap_create(data):
     flags = msg.get_attr('IFTUN_IFR', None)
     if msg.get_attr('IFTUN_MODE') == 'tun':
         ifru_flags |= IFF_TUN
-    else:
+    elif msg.get_attr('IFTUN_MODE') == 'tap':
         ifru_flags |= IFF_TAP
+    else:
+        raise ValueError('invalid mode')
     if flags is not None:
         if flags['no_pi']:
             ifru_flags |= IFF_NO_PI
