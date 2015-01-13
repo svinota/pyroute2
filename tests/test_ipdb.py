@@ -530,6 +530,15 @@ class TestExplicit(object):
     def test_ipv6_bridge(self):
         self._test_ipv(6, 'bridge')
 
+    def test_create_tuntap_fail(self):
+        try:
+            self.ip.create(ifname='fail',
+                           kind='tuntap',
+                           mode='fail').commit()
+        except:
+            return
+        raise Exception('tuntap create succeded')
+
     def test_create_tuntap(self):
         require_user('root')
 
