@@ -39,7 +39,7 @@ import os
 import io
 import time
 import subprocess
-from pyroute2.proxy import NetlinkInProxy
+from pyroute2.proxy import NetlinkProxy
 from pyroute2.common import map_namespace
 from pyroute2.common import ANCIENT
 from pyroute2.netlink import NLMSG_ERROR
@@ -247,18 +247,15 @@ class IPRSocketMixin(object):
                         RTM_SETDHCP: self.put_setdhcp,
                         RTM_GETDHCP: self.put_getdhcp}
         self.ancient = ANCIENT
-
-        class RcvCh(object):
-            def send(this, data):
-                msg = ifinfmsg(data)
-                msg.decode()
-                self.backlog[msg['header']['sequence_number']] = [msg]
-
-        rcvch = RcvCh()
-        self._proxy = NetlinkInProxy(rcvch)
-        self._proxy.pmap = {RTM_NEWTUNTAP: tuntap_create}
+        self._s_channel = None
+        self._sproxy = NetlinkProxy(policy='return')
+        self._sproxy.pmap = {RTM_NEWTUNTAP: tuntap_create}
+        self._rproxy = NetlinkProxy(policy='forward')
+        self._rproxy.pmap = {}
         self._sendto = self.sendto
+        self._recv = self.recv
         self.sendto = self.proxy_sendto
+        self.recv = self.proxy_recv
 
     def bind(self, groups=RTNL_GROUPS, async=False):
         super(IPRSocketMixin, self).bind(groups, async=async)
@@ -270,8 +267,37 @@ class IPRSocketMixin(object):
     # proxy-ng protocol
     #
     def proxy_sendto(self, data, address):
-        if not self._proxy.handle(data):
-            self._sendto(data, address)
+        ret = self._sproxy.handle(data)
+        if ret is not None:
+            if ret['verdict'] == 'forward':
+                return self._sendto(ret['data'], address)
+            elif ret['verdict'] in ('return', 'error'):
+                if self._s_channel is not None:
+                    return self._s_channel.send(ret['data'])
+                else:
+                    msgs = self.marshal.parse(ret['data'])
+                    for msg in msgs:
+                        seq = msg['header']['sequence_number']
+                        if seq in self.backlog:
+                            self.backlog[seq].append(msg)
+                        else:
+                            self.backlog[seq] = [msg]
+                    return len(ret['data'])
+            else:
+                ValueError('Incorrect verdict')
+
+        return self._sendto(data, address)
+
+    def proxy_recv(self, bufsize, flags=0):
+        data = self._recv(bufsize, flags)
+        ret = self._rproxy.handle(data)
+        if ret is not None:
+            if ret['verdict'] in ('forward', 'error'):
+                return ret['data']
+            else:
+                ValueError('Incorrect verdict')
+
+        return data
 
     ##
     # proxy protocol

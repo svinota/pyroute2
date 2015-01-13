@@ -265,8 +265,8 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
     #
     try:
         ipr = IPRoute()
-        rcvch_lock = ipr._proxy.lock
-        ipr._proxy.rcvch = rcvch
+        rcvch_lock = ipr._sproxy.lock
+        ipr._s_channel = rcvch
         poll = select.poll()
         poll.register(ipr, select.POLLIN | select.POLLPRI)
         poll.register(cmdch, select.POLLIN | select.POLLPRI)
@@ -418,8 +418,11 @@ class NetNS(IPRouteMixin, NetNSIPR):
         self.netns = netns
         self.flags = flags
         super(NetNS, self).__init__()
+        # disconnect proxy services
         self.sendto = self._sendto
-        self._proxy = None
+        self.recv = self._recv
+        self._sproxy = None
+        self._rproxy = None
 
     def remove(self):
         '''

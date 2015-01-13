@@ -6,21 +6,22 @@ import struct
 import threading
 
 
-class NetlinkInProxy(object):
+class NetlinkProxy(object):
     '''
-    Incoming proxy::
+    Proxy schemes::
 
-        User -> NetlinkInProxy -> Kernel
+        User -> NetlinkProxy -> Kernel
                        |
              <---------+
 
+        User <- NetlinkProxy <- Kernel
+
     '''
 
-    def __init__(self, rcvch, bypass=None, lock=None):
-        self.rcvch = rcvch
-        self.bypass = bypass
+    def __init__(self, policy='forward', lock=None):
         self.lock = lock or threading.Lock()
         self.pmap = {}
+        self.policy = policy
 
     def handle(self, data):
         #
@@ -31,15 +32,19 @@ class NetlinkInProxy(object):
         if plugin is not None:
             with self.lock:
                 try:
-                    if plugin(data, self.rcvch, self.bypass) is None:
+                    ret = plugin(data)
+                    if ret is None:
                         msg = struct.pack('IHH', 20, 2, 0)
                         msg += data[8:16]
                         msg += struct.pack('I', 0)
-                        self.rcvch.send(msg)
+                        return {'verdict': self.policy,
+                                'data': msg}
+                    else:
+                        return ret
 
                 except Exception as e:
                     # errmsg
-                    if isinstance(e, OSError):
+                    if isinstance(e, (OSError, IOError)):
                         code = e.errno
                     else:
                         code = errno.ECOMM
@@ -48,6 +53,6 @@ class NetlinkInProxy(object):
                     msg += struct.pack('I', code)
                     msg += data
                     msg = struct.pack('I', len(msg) + 4) + msg
-                    self.rcvch.send(msg)
-                return True
-        return False
+                    return {'verdict': 'error',
+                            'data': msg}
+        return None

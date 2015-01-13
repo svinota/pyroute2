@@ -70,7 +70,7 @@ class tuntapmsg(nlmsg):
                   ('nofilter', 'B'))
 
 
-def tuntap_create(data, rcvch=None, bypass=None):
+def tuntap_create(data):
 
     if TUNSETIFF is None:
         raise Exception('unsupported arch')
