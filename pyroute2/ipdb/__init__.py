@@ -502,10 +502,17 @@ class IPDB(object):
             index = msg['index']
             interface = ipdb.interfaces[index]
         '''
+        lock = threading.Lock()
+
+        def safe(*argv, **kwarg):
+            with lock:
+                callback(*argv, **kwarg)
+
+        safe.hook = callback
         if mode == 'post':
-            self._post_callbacks.append(callback)
+            self._post_callbacks.append(safe)
         elif mode == 'pre':
-            self._pre_callbacks.append(callback)
+            self._pre_callbacks.append(safe)
 
     def unregister_callback(self, callback, mode='post'):
         if mode == 'post':
@@ -515,7 +522,7 @@ class IPDB(object):
         else:
             raise KeyError('Unknown callback mode')
         for cb in tuple(cbchain):
-            if callback == cb:
+            if callback == cb.hook:
                 for t in tuple(self._cb_threads):
                     t.join(3)
                 return cbchain.pop(cbchain.index(cb))
