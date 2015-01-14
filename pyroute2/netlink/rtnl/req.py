@@ -117,7 +117,8 @@ class IPLinkRequest(IPRequest):
             self['IFLA_LINKINFO'] = {'attrs': []}
             linkinfo = self['IFLA_LINKINFO']['attrs']
             linkinfo.append(['IFLA_INFO_KIND', value])
-            linkinfo.append(['IFLA_INFO_DATA', {'attrs': []}])
+            if value in ('vlan', 'bond', 'tuntap', 'veth'):
+                linkinfo.append(['IFLA_INFO_DATA', {'attrs': []}])
         elif key == 'vlan_id':
             nla = ['IFLA_VLAN_ID', value]
             # FIXME: we need to replace, not add
