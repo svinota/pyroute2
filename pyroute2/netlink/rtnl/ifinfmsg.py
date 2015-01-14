@@ -36,18 +36,18 @@ else:
 #
 # tuntap flags
 #
-IFF_TUN = 0x0001
-IFF_TAP = 0x0002
-IFF_NO_PI = 0x1000
-IFF_ONE_QUEUE = 0x2000
-IFF_VNET_HDR = 0x4000
-IFF_TUN_EXCL = 0x8000
-IFF_MULTI_QUEUE = 0x0100
-IFF_ATTACH_QUEUE = 0x0200
-IFF_DETACH_QUEUE = 0x0400
+IFT_TUN = 0x0001
+IFT_TAP = 0x0002
+IFT_NO_PI = 0x1000
+IFT_ONE_QUEUE = 0x2000
+IFT_VNET_HDR = 0x4000
+IFT_TUN_EXCL = 0x8000
+IFT_MULTI_QUEUE = 0x0100
+IFT_ATTACH_QUEUE = 0x0200
+IFT_DETACH_QUEUE = 0x0400
 # read-only
-IFF_PERSIST = 0x0800
-IFF_NOFILTER = 0x1000
+IFT_PERSIST = 0x0800
+IFT_NOFILTER = 0x1000
 
 ##
 #
@@ -555,20 +555,20 @@ def tuntap_create(msg):
 
     flags = infodata.get_attr('IFTUN_IFR', None)
     if infodata.get_attr('IFTUN_MODE') == 'tun':
-        ifru_flags |= IFF_TUN
+        ifru_flags |= IFT_TUN
     elif infodata.get_attr('IFTUN_MODE') == 'tap':
-        ifru_flags |= IFF_TAP
+        ifru_flags |= IFT_TAP
     else:
         raise ValueError('invalid mode')
     if flags is not None:
         if flags['no_pi']:
-            ifru_flags |= IFF_NO_PI
+            ifru_flags |= IFT_NO_PI
         if flags['one_queue']:
-            ifru_flags |= IFF_ONE_QUEUE
+            ifru_flags |= IFT_ONE_QUEUE
         if flags['vnet_hdr']:
-            ifru_flags |= IFF_VNET_HDR
+            ifru_flags |= IFT_VNET_HDR
         if flags['multi_queue']:
-            ifru_flags |= IFF_MULTI_QUEUE
+            ifru_flags |= IFT_MULTI_QUEUE
     ifr = msg.get_attr('IFLA_IFNAME')
     if len(ifr) > IFNAMSIZ:
         raise ValueError('ifname too long')
