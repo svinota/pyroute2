@@ -1,9 +1,58 @@
 import os
+import time
+import struct
+import platform
+import subprocess
+from fcntl import ioctl
 from pyroute2.common import map_namespace
+from pyroute2.common import ANCIENT
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.iw_event import iw_event
 
+_ANCIENT_BARRIER = 0.3
+_BONDING_MASTERS = '/sys/class/net/bonding_masters'
+_BONDING_SLAVES = '/sys/class/net/%s/bonding/slaves'
+_BRIDGE_MASTER = '/sys/class/net/%s/brport/bridge/ifindex'
+_BONDING_MASTER = '/sys/class/net/%s/master/ifindex'
+IFNAMSIZ = 16
+
+TUNDEV = '/dev/net/tun'
+arch = platform.machine()
+if arch == 'x86_64':
+    TUNSETIFF = 0x400454ca
+    TUNSETPERSIST = 0x400454cb
+    TUNSETOWNER = 0x400454cc
+    TUNSETGROUP = 0x400454ce
+elif arch == 'ppc64':
+    TUNSETIFF = 0x800454ca
+    TUNSETPERSIST = 0x800454cb
+    TUNSETOWNER = 0x800454cc
+    TUNSETGROUP = 0x800454ce
+else:
+    TUNSETIFF = None
+
+##
+#
+# tuntap flags
+#
+IFF_TUN = 0x0001
+IFF_TAP = 0x0002
+IFF_NO_PI = 0x1000
+IFF_ONE_QUEUE = 0x2000
+IFF_VNET_HDR = 0x4000
+IFF_TUN_EXCL = 0x8000
+IFF_MULTI_QUEUE = 0x0100
+IFF_ATTACH_QUEUE = 0x0200
+IFF_DETACH_QUEUE = 0x0400
+# read-only
+IFF_PERSIST = 0x0800
+IFF_NOFILTER = 0x1000
+
+##
+#
+# normal flags
+#
 IFF_UP = 0x1  # interface is up
 IFF_BROADCAST = 0x2  # broadcast address valid
 IFF_DEBUG = 0x4  # turn on debugging
@@ -242,7 +291,27 @@ class ifinfbase(object):
                 return self.bond_data
             elif kind == 'veth':
                 return self.veth_data
+            elif kind == 'tuntap':
+                return self.tuntap_data
             return self.hex
+
+        class tuntap_data(nla):
+            prefix = 'IFTUN_'
+
+            nla_map = (('IFTUN_UNSPEC', 'none'),
+                       ('IFTUN_MODE', 'asciiz'),
+                       ('IFTUN_UID', 'uint32'),
+                       ('IFTUN_GID', 'uint32'),
+                       ('IFTUN_IFR', 'flags'))
+
+            class flags(nla):
+                fields = (('no_pi', 'B'),
+                          ('one_queue', 'B'),
+                          ('vnet_hdr', 'B'),
+                          ('tun_excl', 'B'),
+                          ('multi_queue', 'B'),
+                          ('persist', 'B'),
+                          ('nofilter', 'B'))
 
         class veth_data(nla):
             nla_map = (('VETH_INFO_UNSPEC', 'none'),
@@ -444,3 +513,93 @@ class ifinfmsg(ifinfbase, nlmsg):
 
 class ifinfveth(ifinfbase, nla):
     pass
+
+
+def proxy_newlink(data):
+    msg = ifinfmsg(data)
+    msg.decode()
+
+    # get the interface kind
+    linkinfo = msg.get_attr('IFLA_LINKINFO')
+    if linkinfo is not None:
+        kind = [x[1] for x in linkinfo['attrs']
+                if x[0] == 'IFLA_INFO_KIND']
+        if kind:
+            kind = kind[0]
+
+    # not covered types pass to the system
+    if kind not in ('bridge', 'bond', 'tuntap'):
+        return
+
+    if kind == 'tuntap':
+        return tuntap_create(msg)
+
+    if ANCIENT:
+        # route the request
+        if kind == 'bridge':
+            compat_create_bridge(msg.get_attr('IFLA_IFNAME'))
+        elif kind == 'bond':
+            compat_create_bond(msg.get_attr('IFLA_IFNAME'))
+        # while RTM_NEWLINK is not intercepted -- sleep
+        time.sleep(_ANCIENT_BARRIER)
+
+
+def tuntap_create(msg):
+
+    if TUNSETIFF is None:
+        raise Exception('unsupported arch')
+
+    ifru_flags = 0
+    linkinfo = msg.get_attr('IFLA_LINKINFO')
+    infodata = linkinfo.get_attr('IFLA_INFO_DATA')
+
+    flags = infodata.get_attr('IFTUN_IFR', None)
+    if infodata.get_attr('IFTUN_MODE') == 'tun':
+        ifru_flags |= IFF_TUN
+    elif infodata.get_attr('IFTUN_MODE') == 'tap':
+        ifru_flags |= IFF_TAP
+    else:
+        raise ValueError('invalid mode')
+    if flags is not None:
+        if flags['no_pi']:
+            ifru_flags |= IFF_NO_PI
+        if flags['one_queue']:
+            ifru_flags |= IFF_ONE_QUEUE
+        if flags['vnet_hdr']:
+            ifru_flags |= IFF_VNET_HDR
+        if flags['multi_queue']:
+            ifru_flags |= IFF_MULTI_QUEUE
+    ifr = msg.get_attr('IFLA_IFNAME')
+    if len(ifr) > IFNAMSIZ:
+        raise ValueError('ifname too long')
+    ifr += (IFNAMSIZ - len(ifr)) * '\0'
+    ifr = ifr.encode('ascii')
+    ifr += struct.pack('H', ifru_flags)
+
+    user = infodata.get_attr('IFTUN_UID')
+    group = infodata.get_attr('IFTUN_GID')
+    #
+    fd = os.open(TUNDEV, os.O_RDWR)
+    try:
+        ioctl(fd, TUNSETIFF, ifr)
+        if user is not None:
+            ioctl(fd, TUNSETOWNER, user)
+        if group is not None:
+            ioctl(fd, TUNSETGROUP, group)
+        ioctl(fd, TUNSETPERSIST, 1)
+    except Exception:
+        raise
+    finally:
+        os.close(fd)
+
+
+def compat_create_bridge(name):
+    with open(os.devnull, 'w') as fnull:
+        subprocess.check_call(['brctl', 'addbr', name],
+                              stdout=fnull,
+                              stderr=fnull)
+
+
+def compat_create_bond(name):
+    with open(_BONDING_MASTERS, 'w') as f:
+        f.write('+%s' % (name))

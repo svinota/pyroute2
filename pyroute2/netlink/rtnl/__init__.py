@@ -54,9 +54,8 @@ from pyroute2.netlink.rtnl.bomsg import bomsg
 from pyroute2.netlink.rtnl.brmsg import brmsg
 from pyroute2.netlink.rtnl.dhcpmsg import dhcpmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.ifinfmsg import proxy_newlink
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
-from pyroute2.netlink.rtnl.tuntapmsg import tuntapmsg
-from pyroute2.netlink.rtnl.tuntapmsg import tuntap_create
 
 
 _ANCIENT_BARRIER = 0.3
@@ -130,8 +129,6 @@ RTM_GETBOND = 90
 RTM_SETBOND = 91
 RTM_GETDHCP = 92
 RTM_SETDHCP = 93
-RTM_NEWTUNTAP = 94
-RTM_DELTUNTAP = 95
 (RTM_NAMES, RTM_VALUES) = map_namespace('RTM', globals())
 
 TC_H_INGRESS = 0xfffffff1
@@ -219,9 +216,7 @@ class MarshalRtnl(Marshal):
                RTM_GETBOND: bomsg,
                RTM_SETBOND: bomsg,
                RTM_GETDHCP: dhcpmsg,
-               RTM_SETDHCP: dhcpmsg,
-               RTM_NEWTUNTAP: tuntapmsg,
-               RTM_DELTUNTAP: tuntapmsg}
+               RTM_SETDHCP: dhcpmsg}
 
     def fix_message(self, msg):
         # FIXME: pls do something with it
@@ -237,8 +232,7 @@ class IPRSocketMixin(object):
         super(IPRSocketMixin, self).__init__(NETLINK_ROUTE)
         self.marshal = MarshalRtnl()
         self.get_map = {RTM_NEWLINK: self.get_newlink}
-        self.put_map = {RTM_NEWLINK: self.put_newlink,
-                        RTM_SETLINK: self.put_setlink,
+        self.put_map = {RTM_SETLINK: self.put_setlink,
                         RTM_DELLINK: self.put_dellink,
                         RTM_SETBRIDGE: self.put_setbr,
                         RTM_GETBRIDGE: self.put_getbr,
@@ -249,7 +243,7 @@ class IPRSocketMixin(object):
         self.ancient = ANCIENT
         self._s_channel = None
         self._sproxy = NetlinkProxy(policy='return')
-        self._sproxy.pmap = {RTM_NEWTUNTAP: tuntap_create}
+        self._sproxy.pmap = {RTM_NEWLINK: proxy_newlink}
         self._rproxy = NetlinkProxy(policy='forward')
         self._rproxy.pmap = {}
         self._sendto = self.sendto
@@ -319,42 +313,6 @@ class IPRSocketMixin(object):
     ##
     # proxy hooks
     #
-    def put_newlink(self, msg, *argv, **kwarg):
-        if self.ancient:
-            # get the interface kind
-            linkinfo = msg.get_attr('IFLA_LINKINFO')
-            if linkinfo is not None:
-                kind = [x[1] for x in linkinfo['attrs']
-                        if x[0] == 'IFLA_INFO_KIND']
-                if kind:
-                    kind = kind[0]
-                # not covered types, pass to the system
-                if kind not in ('bridge', 'bond'):
-                    return super(IPRSocketMixin, self).put(msg, *argv, **kwarg)
-                ##
-                # otherwise, create a valid answer --
-                # NLMSG_ERROR with code 0 (no error)
-                ##
-                # FIXME: intercept and return valid RTM_NEWLINK
-                ##
-                response = ifinfmsg()
-                seq = kwarg.get('msg_seq', 0)
-                response['header']['type'] = NLMSG_ERROR
-                response['header']['sequence_number'] = seq
-                # route the request
-                if kind == 'bridge':
-                    compat_create_bridge(msg.get_attr('IFLA_IFNAME'))
-                elif kind == 'bond':
-                    compat_create_bond(msg.get_attr('IFLA_IFNAME'))
-                # while RTM_NEWLINK is not intercepted -- sleep
-                time.sleep(_ANCIENT_BARRIER)
-                response.encode()
-                response = response.copy()
-                self.backlog[seq] = [response]
-        else:
-            # else just send the packet
-            super(IPRSocketMixin, self).put(msg, *argv, **kwarg)
-
     def get_newlink(self, msg):
         if self.ancient:
             ifname = msg.get_attr('IFLA_IFNAME')
@@ -743,18 +701,6 @@ def compat_set_bridge(name, cmd, value):
         return subprocess.call(['bash', '-c', t % (value, name, cmd)],
                                stdout=fnull,
                                stderr=fnull)
-
-
-def compat_create_bridge(name):
-    with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['brctl', 'addbr', name],
-                              stdout=fnull,
-                              stderr=fnull)
-
-
-def compat_create_bond(name):
-    with open(_BONDING_MASTERS, 'w') as f:
-        f.write('+%s' % (name))
 
 
 def compat_del_bridge(name):

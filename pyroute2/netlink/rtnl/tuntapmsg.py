@@ -5,6 +5,8 @@ from fcntl import ioctl
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 
+raise ImportError('deprecated')
+
 IFNAMSIZ = 16
 
 TUNDEV = '/dev/net/tun'

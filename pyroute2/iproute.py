@@ -96,7 +96,6 @@ from pyroute2.netlink.rtnl import RTM_GETBRIDGE
 from pyroute2.netlink.rtnl import RTM_SETBOND
 from pyroute2.netlink.rtnl import RTM_GETBOND
 from pyroute2.netlink.rtnl import RTM_GETDHCP
-from pyroute2.netlink.rtnl import RTM_NEWTUNTAP
 from pyroute2.netlink.rtnl import TC_H_INGRESS
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rtprotos
@@ -118,7 +117,6 @@ from pyroute2.netlink.rtnl.bomsg import bomsg
 from pyroute2.netlink.rtnl.dhcpmsg import dhcpmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
-from pyroute2.netlink.rtnl.tuntapmsg import tuntapmsg
 from pyroute2.netlink.rtnl import IPRSocket
 
 from pyroute2.common import basestring
@@ -464,12 +462,7 @@ class IPRouteMixin(object):
         command = commands.get(command, command)
 
         msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
-        # intercept tuntap messages
-        if command == RTM_NEWLINK and kwarg.get('kind') == 'tuntap':
-            msg = tuntapmsg()
-            command = RTM_NEWTUNTAP
-        else:
-            msg = ifinfmsg()
+        msg = ifinfmsg()
         # index is required
         msg['index'] = kwarg.get('index')
 

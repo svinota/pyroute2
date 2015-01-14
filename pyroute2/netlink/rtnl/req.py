@@ -114,28 +114,38 @@ class IPLinkRequest(IPRequest):
 
         # set up specific keys
         if key == 'kind':
-            if 'IFLA_LINKINFO' not in self:
-                self['IFLA_LINKINFO'] = {'attrs': []}
-            nla = ['IFLA_INFO_KIND', value]
-            # FIXME: we need to replace, not add
-            self['IFLA_LINKINFO']['attrs'].append(nla)
+            self['IFLA_LINKINFO'] = {'attrs': []}
+            linkinfo = self['IFLA_LINKINFO']['attrs']
+            linkinfo.append(['IFLA_INFO_KIND', value])
+            linkinfo.append(['IFLA_INFO_DATA', {'attrs': []}])
         elif key == 'vlan_id':
-            nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_VLAN_ID', value]]}]
+            nla = ['IFLA_VLAN_ID', value]
             # FIXME: we need to replace, not add
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'attrs'),
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'vlan')
         elif key == 'bond_mode':
-            nla = ['IFLA_INFO_DATA', {'attrs': [['IFLA_BOND_MODE', value]]}]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'attrs'),
+            nla = ['IFLA_BOND_MODE', value]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'bond')
+        elif key == 'gid':
+            nla = ['IFTUN_UID', value]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
+                           lambda x: x.get('kind', None) == 'tuntap')
+        elif key == 'uid':
+            nla = ['IFTUN_UID', value]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
+                           lambda x: x.get('kind', None) == 'tuntap')
+        elif key == 'mode':
+            nla = ['IFTUN_MODE', value]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
+                           lambda x: x.get('kind', None) == 'tuntap')
         elif key == 'ifr':
             nla = ['IFTUN_IFR', value]
-            self.defer_nla(nla, [], lambda x: x.get('kind', None) == 'tuntap')
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
+                           lambda x: x.get('kind', None) == 'tuntap')
         elif key == 'peer':
-            nla = ['IFLA_INFO_DATA',
-                   {'attrs': [['VETH_INFO_PEER',
-                               {'attrs': [['IFLA_IFNAME', value]]}]]}]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'attrs'),
+            nla = ['VETH_INFO_PEER', {'attrs': [['IFLA_IFNAME', value]]}]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'veth')
         dict.__setitem__(self, key, value)
         if self.deferred:
@@ -153,7 +163,11 @@ class IPLinkRequest(IPRequest):
     def append_nla(self, nla, path):
             pwd = self
             for step in path:
-                pwd = pwd[step]
+                if step in pwd:
+                    pwd = pwd[step]
+                else:
+                    pwd = [x[1] for x in pwd['attrs']
+                           if x[0] == step][0]['attrs']
             pwd.append(nla)
 
     def defer_nla(self, nla, path, predicate):
