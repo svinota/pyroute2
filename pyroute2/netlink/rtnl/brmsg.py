@@ -1,6 +1,8 @@
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 
+raise ImportError('deprecated')
+
 
 class brmsg(nlmsg):
     '''

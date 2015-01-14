@@ -18,7 +18,8 @@ class NetlinkProxy(object):
 
     '''
 
-    def __init__(self, policy='forward', lock=None):
+    def __init__(self, policy='forward', nl=None, lock=None):
+        self.nl = nl
         self.lock = lock or threading.Lock()
         self.pmap = {}
         self.policy = policy
@@ -32,7 +33,7 @@ class NetlinkProxy(object):
         if plugin is not None:
             with self.lock:
                 try:
-                    ret = plugin(data)
+                    ret = plugin(data, self.nl)
                     if ret is None:
                         msg = struct.pack('IHH', 20, 2, 0)
                         msg += data[8:16]

@@ -1,7 +1,5 @@
 from socket import AF_INET6
 from pyroute2.common import basestring
-from pyroute2.netlink.rtnl.brmsg import brmsg
-from pyroute2.netlink.rtnl.bomsg import bomsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
 
@@ -72,16 +70,6 @@ class CBRequest(IPRequest):
             dict.__setitem__(self, key, value)
 
 
-class BridgeRequest(CBRequest):
-    commands = [brmsg.nla2name(i[0]) for i in brmsg.commands.nla_map]
-    msg = brmsg
-
-
-class BondRequest(CBRequest):
-    commands = [bomsg.nla2name(i[0]) for i in bomsg.commands.nla_map]
-    msg = bomsg
-
-
 class IPLinkRequest(IPRequest):
     '''
     Utility class, that converts human-readable dictionary
@@ -124,10 +112,6 @@ class IPLinkRequest(IPRequest):
             # FIXME: we need to replace, not add
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'vlan')
-        elif key == 'bond_mode':
-            nla = ['IFLA_BOND_MODE', value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'bond')
         elif key == 'gid':
             nla = ['IFTUN_UID', value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
@@ -140,6 +124,9 @@ class IPLinkRequest(IPRequest):
             nla = ['IFTUN_MODE', value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'tuntap')
+            nla = ['IFLA_BOND_MODE', value]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
+                           lambda x: x.get('kind', None) == 'bond')
         elif key == 'ifr':
             nla = ['IFTUN_IFR', value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),

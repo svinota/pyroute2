@@ -6,6 +6,7 @@ import subprocess
 from fcntl import ioctl
 from pyroute2.common import map_namespace
 from pyroute2.common import ANCIENT
+# from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.iw_event import iw_event
@@ -293,9 +294,14 @@ class ifinfbase(object):
                 return self.veth_data
             elif kind == 'tuntap':
                 return self.tuntap_data
+            elif kind == 'bridge':
+                return self.bridge_data
             return self.hex
 
         class tuntap_data(nla):
+            '''
+            Fake data type
+            '''
             prefix = 'IFTUN_'
 
             nla_map = (('IFTUN_UNSPEC', 'none'),
@@ -331,7 +337,13 @@ class ifinfbase(object):
                 fields = (('flags', 'I'),
                           ('mask', 'I'))
 
+        class bridge_data(nla):
+            prefix = 'IFLA_BRIDGE_'
+            nla_map = (('IFLA_BRIDGE_STP_STATE', 'uint32'),
+                       ('IFLA_BRIDGE_MAX_AGE', 'uint32'))
+
         class bond_data(nla):
+            prefix = 'IFLA_BOND_'
             nla_map = (('IFLA_BOND_UNSPEC', 'none'),
                        ('IFLA_BOND_MODE', 'uint8'),
                        ('IFLA_BOND_ACTIVE_SLAVE', 'uint32'),
@@ -515,7 +527,149 @@ class ifinfveth(ifinfbase, nla):
     pass
 
 
-def proxy_newlink(data):
+# def put_getbo(self, msg, *argv, **kwarg):
+#     t = '/sys/class/net/%s/bonding/%s'
+#     name = msg.get_attr('IFBO_IFNAME')
+#     commands = []
+#     for cmd, _ in bomsg.commands.nla_map:
+#         try:
+#             with open(t % (name, bomsg.nla2name(cmd)), 'r') as f:
+#                 value = f.read()
+#             if cmd == 'IFBO_MODE':
+#                 value = value.split()[1]
+#             commands.append([cmd, int(value)])
+#         except:
+#             pass
+#
+# def put_getbr(self, msg, *argv, **kwarg):
+#     t = '/sys/class/net/%s/bridge/%s'
+#     name = msg.get_attr('IFBR_IFNAME')
+#     commands = []
+#     for cmd, _ in brmsg.commands.nla_map:
+#         try:
+#             with open(t % (name, brmsg.nla2name(cmd)), 'r') as f:
+#                 value = f.read()
+#             commands.append([cmd, int(value)])
+#         except:
+#             pass
+
+def proxy_linkinfo(data, nl):
+    if ANCIENT:
+        msg = ifinfmsg(data)
+        msg.decode()
+
+        ifname = msg.get_attr('IFLA_IFNAME')
+        # fix master
+        master = compat_get_master(ifname)
+        if master is not None:
+            msg['attrs'].append(['IFLA_MASTER', master])
+        # fix linkinfo
+        li = msg.get_attr('IFLA_LINKINFO')
+        if li is not None:
+            kind = li.get_attr('IFLA_INFO_KIND')
+            name = msg.get_attr('IFLA_IFNAME')
+            if (kind is None) and (name is not None):
+                kind = get_interface_type(kind)
+                li['attrs'].append(['IFLA_INFO_KIND', kind])
+        msg.reset()
+        msg.encode()
+        data = msg.buf.getvalue()
+
+    return {'verdict': 'forward',
+            'data': data}
+
+
+def proxy_setlink(data, nl):
+
+    msg = ifinfmsg(data)
+    msg.decode()
+
+    kind = None
+    infodata = None
+
+    ifname = msg.get_attr('IFLA_IFNAME')
+    linkinfo = msg.get_attr('IFLA_LINKINFO')
+    if linkinfo:
+        kind = linkinfo.get_attr('IFLA_INFO_KIND')
+        infodata = linkinfo.get_attr('IFLA_INFO_DATA')
+
+    if kind in ('bond', 'bridge'):
+        code = 0
+        #
+        if kind == 'bond':
+            func = compat_set_bond
+        elif kind == 'bridge':
+            func = compat_set_bridge
+        #
+        for (cmd, value) in infodata.get('attrs', []):
+            cmd = infodata.nla2name(cmd)
+            code = func(ifname, cmd, value) or code
+        #
+        if code:
+            err = OSError()
+            err.errno = code
+            raise err
+
+    # is it a port setup?
+    master = msg.get_attr('IFLA_MASTER')
+    if ANCIENT and master is not None:
+        def name_by_id(index):
+            return nl.get_links(index)[0].get_attr('IFLA_IFNAME')
+
+        ifname = name_by_id(msg['index'])
+        if master == 0:
+            # port delete
+            # 1. get the current master
+            m = name_by_id(compat_get_master(ifname))
+            # 2. get the type of the master
+            kind = compat_get_type(m)
+            # 3. delete the port
+            if kind == 'bridge':
+                compat_del_bridge_port(m, ifname)
+            elif kind == 'bond':
+                compat_del_bond_port(m, ifname)
+        else:
+            # port add
+            # 1. get the name of the master
+            m = name_by_id(master)
+            # 2. get the type of the master
+            kind = compat_get_type(m)
+            # 3. add the port
+            if kind == 'bridge':
+                compat_add_bridge_port(m, ifname)
+            elif kind == 'bond':
+                compat_add_bond_port(m, ifname)
+    else:
+        return {'verdict': 'forward',
+                'data': data}
+
+
+def proxy_dellink(data, nl):
+    msg = ifinfmsg(data)
+    msg.decode()
+
+    if ANCIENT:
+        # get the interface kind
+        kind = compat_get_type(msg.get_attr('IFLA_IFNAME'))
+
+        # not covered types pass to the system
+        if kind not in ('bridge', 'bond'):
+            return {'verdict': 'forward',
+                    'data': data}
+
+        # route the request
+        if kind == 'bridge':
+            compat_del_bridge(msg.get_attr('IFLA_IFNAME'))
+        elif kind == 'bond':
+            compat_del_bond(msg.get_attr('IFLA_IFNAME'))
+        # while RTM_NEWLINK is not intercepted -- sleep
+        time.sleep(_ANCIENT_BARRIER)
+    else:
+        return {'verdict': 'forward',
+                'data': data}
+
+
+def proxy_newlink(data, nl):
     msg = ifinfmsg(data)
     msg.decode()
 
@@ -603,3 +757,133 @@ def compat_create_bridge(name):
 def compat_create_bond(name):
     with open(_BONDING_MASTERS, 'w') as f:
         f.write('+%s' % (name))
+
+
+def compat_get_type(name):
+    ##
+    # is it bridge?
+    try:
+        with open('/sys/class/net/%s/bridge/stp_state' % name, 'r'):
+            return 'bridge'
+    except IOError:
+        pass
+    ##
+    # is it bond?
+    try:
+        with open('/sys/class/net/%s/bonding/mode' % name, 'r'):
+            return 'bond'
+    except IOError:
+        pass
+    ##
+    # don't care
+    return 'unknown'
+
+
+def compat_set_bond(name, cmd, value):
+    # FIXME: join with bridge
+    # FIXME: use internal IO, not bash
+    t = 'echo %s >/sys/class/net/%s/bonding/%s'
+    with open(os.devnull, 'w') as fnull:
+        return subprocess.call(['bash', '-c', t % (value, name, cmd)],
+                               stdout=fnull,
+                               stderr=fnull)
+
+
+def compat_set_bridge(name, cmd, value):
+    t = 'echo %s >/sys/class/net/%s/bridge/%s'
+    with open(os.devnull, 'w') as fnull:
+        return subprocess.call(['bash', '-c', t % (value, name, cmd)],
+                               stdout=fnull,
+                               stderr=fnull)
+
+
+def compat_del_bridge(name):
+    with open(os.devnull, 'w') as fnull:
+        subprocess.check_call(['ip', 'link', 'set',
+                               'dev', name, 'down'])
+        subprocess.check_call(['brctl', 'delbr', name],
+                              stdout=fnull,
+                              stderr=fnull)
+
+
+def compat_del_bond(name):
+    subprocess.check_call(['ip', 'link', 'set',
+                           'dev', name, 'down'])
+    with open(_BONDING_MASTERS, 'w') as f:
+        f.write('-%s' % (name))
+
+
+def compat_add_bridge_port(master, port):
+    with open(os.devnull, 'w') as fnull:
+        subprocess.check_call(['brctl', 'addif', master, port],
+                              stdout=fnull,
+                              stderr=fnull)
+
+
+def compat_del_bridge_port(master, port):
+    with open(os.devnull, 'w') as fnull:
+        subprocess.check_call(['brctl', 'delif', master, port],
+                              stdout=fnull,
+                              stderr=fnull)
+
+
+def compat_add_bond_port(master, port):
+    with open(_BONDING_SLAVES % (master), 'w') as f:
+        f.write('+%s' % (port))
+
+
+def compat_del_bond_port(master, port):
+    with open(_BONDING_SLAVES % (master), 'w') as f:
+        f.write('-%s' % (port))
+
+
+def compat_get_master(name):
+    f = None
+
+    for i in (_BRIDGE_MASTER, _BONDING_MASTER):
+        try:
+            f = open(i % (name))
+            break
+        except IOError:
+            pass
+
+    if f is not None:
+        master = int(f.read())
+        f.close()
+        return master
+
+
+def get_interface_type(name):
+    '''
+    Utility function to get interface type.
+
+    Unfortunately, we can not rely on RTNL or even ioctl().
+    RHEL doesn't support interface type in RTNL and doesn't
+    provide extended (private) interface flags via ioctl().
+
+    Args:
+        * name (str): interface name
+
+    Returns:
+        * False -- sysfs info unavailable
+        * None -- type not known
+        * str -- interface type:
+            * 'bond'
+            * 'bridge'
+    '''
+    # FIXME: support all interface types? Right now it is
+    # not needed
+    try:
+        ifattrs = os.listdir('/sys/class/net/%s/' % (name))
+    except OSError as e:
+        if e.errno == 2:
+            return False
+        else:
+            raise
+
+    if 'bonding' in ifattrs:
+        return 'bond'
+    elif 'bridge' in ifattrs:
+        return 'bridge'
+    else:
+        return None

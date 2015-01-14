@@ -6,12 +6,8 @@ from pyroute2.common import basestring
 from pyroute2.common import dqn2int
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.rtnl.req import IPLinkRequest
-from pyroute2.netlink.rtnl.req import BridgeRequest
-from pyroute2.netlink.rtnl.req import BondRequest
 from pyroute2.netlink.rtnl.ifinfmsg import IFF_MASK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtnl.brmsg import brmsg
-from pyroute2.netlink.rtnl.bomsg import bomsg
 from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.transactional import update
 from pyroute2.ipdb.linkedset import LinkedSet
@@ -69,13 +65,7 @@ class Interface(Transactional):
         self._tb = None
         self._virtual_fields = ('removal', 'flicker', 'state')
         self._xfields = {'common': [ifinfmsg.nla2name(i[0]) for i
-                                    in ifinfmsg.nla_map],
-                         'bridge': [brmsg.nla2name(i[0]) for i
-                                    in brmsg.commands.nla_map],
-                         'bond': [bomsg.nla2name(i[0]) for i
-                                  in bomsg.commands.nla_map]}
-        self._xfields['bridge'].append('index')
-        self._xfields['bond'].append('index')
+                                    in ifinfmsg.nla_map]}
         self._xfields['common'].append('index')
         self._xfields['common'].append('flags')
         self._xfields['common'].append('mask')
@@ -84,6 +74,12 @@ class Interface(Transactional):
         self._xfields['common'].append('peer')
         self._xfields['common'].append('vlan_id')
         self._xfields['common'].append('bond_mode')
+        brmsg = ifinfmsg.ifinfo.bridge_data
+        self._xfields['common'].extend([brmsg.nla2name(i[0]) for i
+                                        in brmsg.nla_map])
+        bomsg = ifinfmsg.ifinfo.bond_data
+        self._xfields['common'].extend([bomsg.nla2name(i[0]) for i
+                                        in bomsg.nla_map])
         tuntap = ifinfmsg.ifinfo.tuntap_data
         self._xfields['common'].extend([tuntap.nla2name(i[0]) for i
                                         in tuntap.nla_map])
@@ -168,28 +164,6 @@ class Interface(Transactional):
                 else:
                     self[key] = data[key]
 
-    def load_bridge(self):
-        '''
-        '''
-        with self._direct_state:
-            dev = self.nl.get_bridge(self['index'], self['ifname'])[0]
-            attrs = dev.get_attr('IFBR_COMMANDS',
-                                 {'attrs': []}).get('attrs', [])
-            for (name, value) in [x[:2] for x in attrs]:
-                norm = brmsg.nla2name(name)
-                self[norm] = value
-
-    def load_bond(self):
-        '''
-        '''
-        with self._direct_state:
-            dev = self.nl.get_bond(self['index'], self['ifname'])[0]
-            attrs = dev.get_attr('IFBO_COMMANDS',
-                                 {'attrs': []}).get('attrs', [])
-            for (name, value) in [x[:2] for x in attrs]:
-                norm = bomsg.nla2name(name)
-                self[norm] = value
-
     def load_netlink(self, dev):
         '''
         Update the interface info from RTM_NEWLINK message.
@@ -220,11 +194,6 @@ class Interface(Transactional):
             if self.ipdb is not None:
                 self['ipaddr'] = self.ipdb.ipaddr[self['index']]
                 self['neighbors'] = self.ipdb.neighbors[self['index']]
-            # poll bridge & bond info
-            if self.get('kind', None) == 'bridge':
-                self.load_bridge()
-            elif self.get('kind', None) == 'bond':
-                self.load_bond()
             # finally, cleanup all not needed
             for item in self.cleanup:
                 if item in self:
@@ -472,30 +441,6 @@ class Interface(Transactional):
                 # across network namespaces
                 if 'net_ns_fd' in request:
                     time.sleep(0.5)
-
-            # bridge changes
-            if self['kind'] == 'bridge':
-                brq = BridgeRequest()
-                for key in added:
-                    if key in self._xfields['bridge']:
-                        brq[key] = added[key]
-
-                brq['index'] = self['index']
-                brq['ifname'] = self['ifname']
-                self.nl.setbr(**brq)
-                self.load_bridge()
-
-            # bridge changes
-            if self['kind'] == 'bond':
-                boq = BondRequest()
-                for key in added:
-                    if key in self._xfields['bond']:
-                        boq[key] = added[key]
-
-                boq['index'] = self['index']
-                boq['ifname'] = self['ifname']
-                self.nl.setbo(**boq)
-                self.load_bond()
 
             # 8<---------------------------------------------
             # IP address changes
