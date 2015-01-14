@@ -527,14 +527,10 @@ def proxy_newlink(data):
         if kind:
             kind = kind[0]
 
-    # not covered types pass to the system
-    if kind not in ('bridge', 'bond', 'tuntap'):
-        return
-
     if kind == 'tuntap':
         return tuntap_create(msg)
 
-    if ANCIENT:
+    if ANCIENT and kind in ('bridge', 'bond'):
         # route the request
         if kind == 'bridge':
             compat_create_bridge(msg.get_attr('IFLA_IFNAME'))
@@ -542,6 +538,10 @@ def proxy_newlink(data):
             compat_create_bond(msg.get_attr('IFLA_IFNAME'))
         # while RTM_NEWLINK is not intercepted -- sleep
         time.sleep(_ANCIENT_BARRIER)
+        return
+
+    return {'verdict': 'forward',
+            'data': data}
 
 
 def tuntap_create(msg):
