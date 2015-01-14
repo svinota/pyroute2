@@ -3,8 +3,8 @@ import re
 import pwd
 import platform
 import subprocess
-from pyroute2.netlink.rtnl import compat_create_bridge
-from pyroute2.netlink.rtnl import compat_create_bond
+from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bridge
+from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bond
 from pyroute2.netlink.rtnl import compat_del_bridge
 from pyroute2.netlink.rtnl import compat_del_bond
 from nose.plugins.skip import SkipTest
