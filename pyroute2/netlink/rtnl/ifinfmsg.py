@@ -555,25 +555,34 @@ class ifinfveth(ifinfbase, nla):
 
 def proxy_linkinfo(data, nl):
     if ANCIENT:
-        msg = ifinfmsg(data)
-        msg.decode()
+        offset = 0
+        inbox = []
+        while offset < len(data):
+            msg = ifinfmsg(data[offset:])
+            msg.decode()
+            inbox.append(msg)
+            offset += msg['header']['length']
 
-        ifname = msg.get_attr('IFLA_IFNAME')
-        # fix master
-        master = compat_get_master(ifname)
-        if master is not None:
-            msg['attrs'].append(['IFLA_MASTER', master])
-        # fix linkinfo
-        li = msg.get_attr('IFLA_LINKINFO')
-        if li is not None:
-            kind = li.get_attr('IFLA_INFO_KIND')
-            name = msg.get_attr('IFLA_IFNAME')
-            if (kind is None) and (name is not None):
-                kind = get_interface_type(kind)
-                li['attrs'].append(['IFLA_INFO_KIND', kind])
-        msg.reset()
-        msg.encode()
-        data = msg.buf.getvalue()
+        data = b''
+        for msg in inbox:
+
+            ifname = msg.get_attr('IFLA_IFNAME')
+            # fix master
+            master = compat_get_master(ifname)
+            if master is not None:
+                msg['attrs'].append(['IFLA_MASTER', master])
+            # fix linkinfo
+            li = msg.get_attr('IFLA_LINKINFO')
+            if li is not None:
+                kind = li.get_attr('IFLA_INFO_KIND')
+                name = msg.get_attr('IFLA_IFNAME')
+                if (kind is None) and (name is not None):
+                    kind = get_interface_type(kind)
+                    li['attrs'].append(['IFLA_INFO_KIND', kind])
+
+            msg.reset()
+            msg.encode()
+            data += msg.buf.getvalue()
 
     return {'verdict': 'forward',
             'data': data}
