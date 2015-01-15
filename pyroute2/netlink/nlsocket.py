@@ -261,7 +261,7 @@ class NetlinkMixin(object):
     def __init__(self, family=NETLINK_GENERIC, port=None, pid=None):
         super(NetlinkMixin, self).__init__(AF_NETLINK, SOCK_DGRAM, family)
         global sockets
-        self.recv_plugin = self.recv
+        self.recv_plugin = self.recv_plugin_init
         # 8<-----------------------------------------
         # PID init is here only for compatibility,
         # later it will be completely moved to bind()
@@ -469,6 +469,19 @@ class NetlinkMixin(object):
             self.pthread = threading.Thread(target=self.async_recv)
             self.pthread.setDaemon(True)
             self.pthread.start()
+
+    def recv_plugin_init(self, *argv, **kwarg):
+        #
+        # One-shot method
+        #
+        # Substitutes itself with the current recv()
+        # pointer.
+        #
+        # It is required since child classes can
+        # initialize recv() in the init()
+        #
+        self.recv_plugin = self.recv
+        return self.recv(*argv, **kwarg)
 
     def recv_plugin_queue(self, *argv, **kwarg):
         data = self.buffer_queue.get()
