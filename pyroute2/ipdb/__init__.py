@@ -682,14 +682,14 @@ class IPDB(object):
             device = \
                 self.interfaces[index] = \
                 self.by_index[index] = self.interfaces[ifname]
-            if old_index in self.ipaddr:
-                self.ipaddr[index] = self.ipaddr[old_index]
+            if old_index in self.interfaces:
                 del self.interfaces[old_index]
                 del self.by_index[old_index]
+            if old_index in self.ipaddr:
+                self.ipaddr[index] = self.ipaddr[old_index]
                 del self.ipaddr[old_index]
             if old_index in self.neighbors:
                 self.neighbors[index] = self.neighbors[old_index]
-                del self.interfaces[old_index]
                 del self.neighbors[old_index]
         else:
             # scenario #3, interface rename
