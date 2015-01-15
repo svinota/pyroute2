@@ -572,13 +572,15 @@ def proxy_linkinfo(data, nl):
             if master is not None:
                 msg['attrs'].append(['IFLA_MASTER', master])
             # fix linkinfo
+            kind = get_interface_type(ifname)
             li = msg.get_attr('IFLA_LINKINFO')
             if li is not None:
                 kind = li.get_attr('IFLA_INFO_KIND')
-                name = msg.get_attr('IFLA_IFNAME')
-                if (kind is None) and (name is not None):
-                    kind = get_interface_type(kind)
+                if kind is None:
                     li['attrs'].append(['IFLA_INFO_KIND', kind])
+            else:
+                msg['attrs'].append(['IFLA_LINKINFO',
+                                     {'attrs': [['IFLA_INFO_KIND', kind]]}])
 
             msg.reset()
             msg.encode()
@@ -658,8 +660,13 @@ def proxy_dellink(data, nl):
     msg.decode()
 
     if ANCIENT:
+        # get full interface description
+        msg = nl.get_links(msg['index'])[0]
         # get the interface kind
-        kind = compat_get_type(msg.get_attr('IFLA_IFNAME'))
+        kind = None
+        li = msg.get_attr('IFLA_LINKINFO')
+        if li is not None:
+            kind = li.get_attr('IFLA_INFO_KIND')
 
         # not covered types pass to the system
         if kind not in ('bridge', 'bond'):
