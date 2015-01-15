@@ -332,7 +332,7 @@ class NetNSProxy(object):
         else:
             atexit.register(self.close)
 
-    def recv(self, bufsize):
+    def recv(self, bufsize, flags=0):
         return self.rcvch.recv()
 
     def close(self):
