@@ -527,64 +527,65 @@ class ifinfveth(ifinfbase, nla):
     pass
 
 
-# def put_getbo(self, msg, *argv, **kwarg):
-#     t = '/sys/class/net/%s/bonding/%s'
-#     name = msg.get_attr('IFBO_IFNAME')
-#     commands = []
-#     for cmd, _ in bomsg.commands.nla_map:
-#         try:
-#             with open(t % (name, bomsg.nla2name(cmd)), 'r') as f:
-#                 value = f.read()
-#             if cmd == 'IFBO_MODE':
-#                 value = value.split()[1]
-#             commands.append([cmd, int(value)])
-#         except:
-#             pass
-#
-# def put_getbr(self, msg, *argv, **kwarg):
-#     t = '/sys/class/net/%s/bridge/%s'
-#     name = msg.get_attr('IFBR_IFNAME')
-#     commands = []
-#     for cmd, _ in brmsg.commands.nla_map:
-#         try:
-#             with open(t % (name, brmsg.nla2name(cmd)), 'r') as f:
-#                 value = f.read()
-#             commands.append([cmd, int(value)])
-#         except:
-#             pass
-
 def proxy_linkinfo(data, nl):
-    if ANCIENT:
-        offset = 0
-        inbox = []
-        while offset < len(data):
-            msg = ifinfmsg(data[offset:])
-            msg.decode()
-            inbox.append(msg)
-            offset += msg['header']['length']
+    offset = 0
+    inbox = []
+    while offset < len(data):
+        msg = ifinfmsg(data[offset:])
+        msg.decode()
+        inbox.append(msg)
+        offset += msg['header']['length']
 
-        data = b''
-        for msg in inbox:
+    data = b''
+    for msg in inbox:
+        kind = None
+        ifname = msg.get_attr('IFLA_IFNAME')
 
-            ifname = msg.get_attr('IFLA_IFNAME')
-            # fix master
+        # fix master
+        if ANCIENT:
             master = compat_get_master(ifname)
             if master is not None:
                 msg['attrs'].append(['IFLA_MASTER', master])
-            # fix linkinfo
-            kind = get_interface_type(ifname)
-            li = msg.get_attr('IFLA_LINKINFO')
-            if li is not None:
-                kind = li.get_attr('IFLA_INFO_KIND')
-                if kind is None:
-                    li['attrs'].append(['IFLA_INFO_KIND', kind])
-            else:
-                msg['attrs'].append(['IFLA_LINKINFO',
-                                     {'attrs': [['IFLA_INFO_KIND', kind]]}])
 
-            msg.reset()
-            msg.encode()
-            data += msg.buf.getvalue()
+        # fix linkinfo & kind
+        li = msg.get_attr('IFLA_LINKINFO')
+        if li is not None:
+            kind = li.get_attr('IFLA_INFO_KIND')
+            if kind is None:
+                kind = get_interface_type(ifname)
+                li['attrs'].append(['IFLA_INFO_KIND', kind])
+        else:
+            kind = get_interface_type(ifname)
+            msg['attrs'].append(['IFLA_LINKINFO',
+                                 {'attrs': [['IFLA_INFO_KIND', kind]]}])
+
+        li = msg.get_attr('IFLA_LINKINFO')
+        # fetch specific interface data
+        if (kind in ('bridge', 'bond')) and \
+                (li.get_attr('IFLA_INFO_DATA') is None):
+            if kind == 'bridge':
+                t = '/sys/class/net/%s/bridge/%s'
+                ifdata = ifinfmsg.ifinfo.bridge_data
+            elif kind == 'bond':
+                t = '/sys/class/net/%s/bonding/%s'
+                ifdata = ifinfmsg.ifinfo.bond_data
+
+            commands = []
+            for cmd, _ in ifdata.nla_map:
+                try:
+                    with open(t % (ifname, ifdata.nla2name(cmd)), 'r') as f:
+                        value = f.read()
+                    if cmd == 'IFLA_BOND_MODE':
+                        value = value.split()[1]
+                    commands.append([cmd, int(value)])
+                except:
+                    pass
+            if commands:
+                li['attrs'].append(['IFLA_INFO_DATA', {'attrs': commands}])
+
+        msg.reset()
+        msg.encode()
+        data += msg.buf.getvalue()
 
     return {'verdict': 'forward',
             'data': data}
