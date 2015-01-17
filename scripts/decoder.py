@@ -6,7 +6,8 @@ Usage::
 
 Sample::
 
-    ./decoder.py tcmsg ./sample_packet_01.data
+    ./decoder.py pyroute2.netlink.rtnl.tcmsg.tcmsg ./sample_packet_01.data
+    ./decoder.py pyroute2.netlink.nl80211.nl80211cmd ./nl80211.data
 
 Module is a name within rtnl hierarchy. File should be a
 binary data in the escaped string format (see samples).
@@ -16,11 +17,10 @@ import sys
 from pprint import pprint
 from importlib import import_module
 
-template = 'pyroute2.netlink.rtnl.{mod}.{mod}'
 mod = sys.argv[1]
 f = open(sys.argv[2], 'r')
 b = io.BytesIO()
-s = template.format(mod=mod).split('.')
+s = mod.split('.')
 package = '.'.join(s[:-1])
 module = s[-1]
 m = import_module(package)
