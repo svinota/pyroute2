@@ -120,7 +120,7 @@ class TestExamples(object):
         require_user('root')
         self.launcher('nla_operators2')
 
-    def _test_taskstats(self):
+    def test_taskstats(self):
         require_user('root')
         try:
             self.launcher('taskstats')
