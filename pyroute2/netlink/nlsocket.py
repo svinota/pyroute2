@@ -531,10 +531,11 @@ class NetlinkMixin(object):
         try:
             if msg_seq not in self.backlog:
                 self.backlog[msg_seq] = []
-            msg_class = self.marshal.msg_map[msg_type]
+            if not isinstance(msg, nlmsg):
+                msg_class = self.marshal.msg_map[msg_type]
+                msg = msg_class(msg)
             if msg_pid is None:
                 msg_pid = os.getpid()
-            msg = msg_class(msg)
             msg['header']['type'] = msg_type
             msg['header']['flags'] = msg_flags
             msg['header']['sequence_number'] = msg_seq
