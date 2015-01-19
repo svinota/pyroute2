@@ -562,7 +562,7 @@ def proxy_linkinfo(data, nl):
         li = msg.get_attr('IFLA_LINKINFO')
         # fetch specific interface data
         if (kind in ('bridge', 'bond')) and \
-                (li.get_attr('IFLA_INFO_DATA') is None):
+                [x for x in li['attrs'] if x[0] == 'IFLA_INFO_DATA']:
             if kind == 'bridge':
                 t = '/sys/class/net/%s/bridge/%s'
                 ifdata = ifinfmsg.ifinfo.bridge_data
