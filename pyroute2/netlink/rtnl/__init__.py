@@ -35,8 +35,6 @@ Module contents:
 
 '''
 
-import io
-import subprocess
 from pyroute2.proxy import NetlinkProxy
 from pyroute2.common import map_namespace
 from pyroute2.common import ANCIENT
@@ -218,9 +216,6 @@ class IPRSocketMixin(object):
     def __init__(self):
         super(IPRSocketMixin, self).__init__(NETLINK_ROUTE)
         self.marshal = MarshalRtnl()
-        self.get_map = {}
-        self.put_map = {RTM_SETDHCP: self.put_setdhcp,
-                        RTM_GETDHCP: self.put_getdhcp}
         self.ancient = ANCIENT
         self._s_channel = None
         self._sproxy = NetlinkProxy(policy='return', nl=self)
@@ -272,117 +267,6 @@ class IPRSocketMixin(object):
                 ValueError('Incorrect verdict')
 
         return data
-
-    ##
-    # proxy protocol
-    #
-    def get(self, *argv, **kwarg):
-        msgs = super(IPRSocketMixin, self).get(*argv, **kwarg)
-        for msg in msgs:
-            mtype = msg['header']['type']
-            if mtype in self.get_map:
-                self.get_map[mtype](msg)
-        return msgs
-
-    def put(self, *argv, **kwarg):
-        if argv[1] in self.put_map:
-            self.put_map[argv[1]](*argv, **kwarg)
-        else:
-            super(IPRSocketMixin, self).put(*argv, **kwarg)
-
-    ##
-    # proxy hooks
-    #
-
-    def put_setdhcp(self, msg, *argv, **kwarg):
-        pass
-
-    def put_getdhcp(self, msg, *argv, **kwarg):
-        address = msg.get_attr('DHCP_ADDRESS')
-        name = msg.get_attr('DHCP_IFNAME')
-
-        options = []
-        agentinfo = None
-        seq = kwarg.get('msg_seq', 0)
-        response = dhcpmsg()
-        response['header']['type'] = RTM_SETDHCP
-        response['header']['sequence_number'] = seq
-        response['index'] = msg['index']
-        response['family'] = msg['family']
-        response['prefixlen'] = msg['prefixlen']
-
-        # so far only dhclient is supported
-        # more agents -- issue a feature request
-
-        # take the first running agent on the interface
-        # TODO: move all the DHCP stuff to a separate module
-        # get the interface name
-        buf = io.BytesIO()
-        buf.write(subprocess.check_output(['ps', 'ax', '--cols', '4096']))
-        buf.seek(0)
-
-        def match_lease(f, name, address):
-            lease_match = False
-            for lease_line in l.readlines():
-                if lease_line.find('interface') > -1:
-                    if lease_line.find('"%s"' % name) > -1:
-                        lease_match = True
-                    else:
-                        lease_match = False
-                elif lease_line.find('fixed-address') > -1 \
-                        and lease_line.find(address) > -1 \
-                        and lease_match:
-                    return True
-
-        for line in buf.readlines():
-            if line.find('/sbin/dhclient') > -1:
-                line = line.split()
-                if line[-1] != name:
-                    continue
-
-                agentinfo = []
-                agentinfo.append(['DHCP_AGENT', 'dhclient'])
-                agentinfo.append(['DHCP_AGENT_PID', int(line[0])])
-                agentinfo.append(['DHCP_AGENT_STATUS', 'running'])
-
-                # that's our dhclient
-                if address is None:
-                    break
-
-                # match the client
-                for field in line:
-                    # 1. extract the lease file
-                    if field == '-lf':
-                        lease = line[line.index(field) + 1]
-                        try:
-                            with open(lease, 'r') as l:
-                                if match_lease(l, name, address):
-                                    options.append(['DHCP_ADDRESS', address])
-                                    break
-                                else:
-                                    agentinfo = []
-                        except IOError:
-                            pass
-                else:
-                    # 2. default lease file
-                    try:
-                        lease = '/var/lib/dhclient/dhclient.leases'
-                        with open(lease, 'r') as l:
-                            if match_lease(l, name, address):
-                                options.append(['DHCP_ADDRESS', address])
-                            else:
-                                agentinfo = []
-                    except IOError:
-                        pass
-                break
-
-        if agentinfo:
-            options.append(['DHCP_AGENTINFO', {'attrs': agentinfo}])
-            options.append(['DHCP_IFNAME', name])
-        response['attrs'] = options
-        response.encode()
-        response = response.copy()
-        self.backlog[seq] = [response]
 
 
 class IPRSocket(IPRSocketMixin, NetlinkSocket):
