@@ -38,6 +38,12 @@ for a in f.readlines():
         a = a[4:]
 
 b.seek(0)
-t = met(b)
-t.decode()
-pprint(t)
+data = b.getvalue()
+
+offset = 0
+inbox = []
+while offset < len(data):
+    msg = met(data[offset:])
+    msg.decode()
+    pprint(msg)
+    offset += msg['header']['length']
