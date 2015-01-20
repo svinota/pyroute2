@@ -722,11 +722,11 @@ def manage_ovs(msg):
     linkinfo = msg.get_attr('IFLA_LINKINFO')
     ifname = msg.get_attr('IFLA_IFNAME')
     kind = linkinfo.get_attr('IFLA_INFO_KIND')
-    event = msg['event']
+    event = msg['header']['type']
 
-    # creation map
-    op_map = {'RTM_NEWLINK': {'ovs-bridge': 'add-br'},
-              'RTM_DELLINK': {'ovs-bridge': 'del-br'}}
+    # operations map
+    op_map = {16: {'ovs-bridge': 'add-br'},
+              17: {'ovs-bridge': 'del-br'}}
     op = op_map[event][kind]
 
     # make a call
