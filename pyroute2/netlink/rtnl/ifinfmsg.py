@@ -689,6 +689,7 @@ def proxy_dellink(data, nl):
 def proxy_newlink(data, nl):
     msg = ifinfmsg(data)
     msg.decode()
+    kind = None
 
     # get the interface kind
     linkinfo = msg.get_attr('IFLA_LINKINFO')
