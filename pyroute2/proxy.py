@@ -35,9 +35,11 @@ class NetlinkProxy(object):
                 try:
                     ret = plugin(data, self.nl)
                     if ret is None:
-                        msg = struct.pack('IHH', 20, 2, 0)
+                        msg = struct.pack('IHH', 40, 2, 0)
                         msg += data[8:16]
                         msg += struct.pack('I', 0)
+                        # nlmsgerr struct alignment
+                        msg += b'\0' * 20
                         return {'verdict': self.policy,
                                 'data': msg}
                     else:
