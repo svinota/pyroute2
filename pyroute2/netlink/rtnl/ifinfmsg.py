@@ -660,30 +660,27 @@ def proxy_dellink(data, nl):
     msg = ifinfmsg(data)
     msg.decode()
 
+    # get full interface description
+    msg = nl.get_links(msg['index'])[0]
+    # get the interface kind
+    kind = None
+    li = msg.get_attr('IFLA_LINKINFO')
+    if li is not None:
+        kind = li.get_attr('IFLA_INFO_KIND')
+
     if ANCIENT:
-        # get full interface description
-        msg = nl.get_links(msg['index'])[0]
-        # get the interface kind
-        kind = None
-        li = msg.get_attr('IFLA_LINKINFO')
-        if li is not None:
-            kind = li.get_attr('IFLA_INFO_KIND')
+        if kind in ('bridge', 'bond'):
+            # route the request
+            if kind == 'bridge':
+                compat_del_bridge(msg.get_attr('IFLA_IFNAME'))
+            elif kind == 'bond':
+                compat_del_bond(msg.get_attr('IFLA_IFNAME'))
+            # while RTM_NEWLINK is not intercepted -- sleep
+            time.sleep(_ANCIENT_BARRIER)
+            return
 
-        # not covered types pass to the system
-        if kind not in ('bridge', 'bond'):
-            return {'verdict': 'forward',
-                    'data': data}
-
-        # route the request
-        if kind == 'bridge':
-            compat_del_bridge(msg.get_attr('IFLA_IFNAME'))
-        elif kind == 'bond':
-            compat_del_bond(msg.get_attr('IFLA_IFNAME'))
-        # while RTM_NEWLINK is not intercepted -- sleep
-        time.sleep(_ANCIENT_BARRIER)
-    else:
-        return {'verdict': 'forward',
-                'data': data}
+    return {'verdict': 'forward',
+            'data': data}
 
 
 def proxy_newlink(data, nl):
