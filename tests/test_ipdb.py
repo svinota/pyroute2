@@ -551,6 +551,21 @@ class TestExplicit(object):
 
         assert ifA in self.ip.interfaces
 
+    def test_create_ovs_bridge(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+        self.ip.create(ifname=ifA,
+                       kind='ovs-bridge').commit()
+        self.ip.create(ifname=ifB,
+                       kind='openvswitch').commit()
+
+        assert ifA in self.ip.interfaces
+        assert ifB in self.ip.interfaces
+        assert grep('ip link', pattern=ifA)
+        assert grep('ip link', pattern=ifB)
+
     def test_create_veth(self):
         require_user('root')
 
