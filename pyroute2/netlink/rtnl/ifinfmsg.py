@@ -668,16 +668,18 @@ def proxy_dellink(data, nl):
     if li is not None:
         kind = li.get_attr('IFLA_INFO_KIND')
 
-    if ANCIENT:
-        if kind in ('bridge', 'bond'):
-            # route the request
-            if kind == 'bridge':
-                compat_del_bridge(msg.get_attr('IFLA_IFNAME'))
-            elif kind == 'bond':
-                compat_del_bond(msg.get_attr('IFLA_IFNAME'))
-            # while RTM_NEWLINK is not intercepted -- sleep
-            time.sleep(_ANCIENT_BARRIER)
-            return
+    if kind in ('ovs-bridge', 'openvswitch'):
+        return manage_ovs('remove', msg)
+
+    if ANCIENT and kind in ('bridge', 'bond'):
+        # route the request
+        if kind == 'bridge':
+            compat_del_bridge(msg.get_attr('IFLA_IFNAME'))
+        elif kind == 'bond':
+            compat_del_bond(msg.get_attr('IFLA_IFNAME'))
+        # while RTM_NEWLINK is not intercepted -- sleep
+        time.sleep(_ANCIENT_BARRIER)
+        return
 
     return {'verdict': 'forward',
             'data': data}
