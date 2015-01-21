@@ -698,8 +698,8 @@ def proxy_newlink(data, nl):
 
     if kind == 'tuntap':
         return tuntap_create(msg)
-    elif kind in ('ovs-bridge', ):
-        return manage_ovs(msg)
+    elif kind in ('ovs-bridge', 'openvswitch'):
+        return manage_ovs('create', msg)
 
     if ANCIENT and kind in ('bridge', 'bond'):
         # route the request
@@ -715,15 +715,16 @@ def proxy_newlink(data, nl):
             'data': data}
 
 
-def manage_ovs(msg):
+def manage_ovs(event, msg):
     linkinfo = msg.get_attr('IFLA_LINKINFO')
     ifname = msg.get_attr('IFLA_IFNAME')
     kind = linkinfo.get_attr('IFLA_INFO_KIND')
-    event = msg['header']['type']
 
     # operations map
-    op_map = {16: {'ovs-bridge': 'add-br'},
-              17: {'ovs-bridge': 'del-br'}}
+    op_map = {'create': {'ovs-bridge': 'add-br',
+                         'openvswitch': 'add-br'},
+              'remove': {'ovs-bridge': 'del-br',
+                         'openvswitch': 'del-br'}}
     op = op_map[event][kind]
 
     # make a call
