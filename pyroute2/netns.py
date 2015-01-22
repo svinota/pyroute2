@@ -115,11 +115,11 @@ def listnetns():
             raise
 
 
-def create(netns):
+def create(netns, libc=None):
     '''
     Create a network namespace.
     '''
-    libc = ctypes.CDLL('libc.so.6')
+    libc = libc or ctypes.CDLL('libc.so.6')
     # FIXME validate and prepare NETNS_RUN_DIR
 
     netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
@@ -154,11 +154,11 @@ def create(netns):
         raise OSError(errno.ECOMM, 'mount failed', netns)
 
 
-def remove(netns):
+def remove(netns, libc=None):
     '''
     Remove a network namespace.
     '''
-    libc = ctypes.CDLL('libc.so.6')
+    libc = libc or ctypes.CDLL('libc.so.6')
     netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
     netnspath = netnspath.encode('ascii')
     libc.umount2(netnspath, MNT_DETACH)
@@ -230,7 +230,7 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
     # 8<-------------------------------------------------------------
     def create_netns():
         try:
-            return create(netns)
+            return create(netns, libc=libc)
         except OSError as e:
             return e
         except Exception as e:
