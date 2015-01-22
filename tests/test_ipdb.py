@@ -532,10 +532,11 @@ class TestExplicit(object):
 
     def test_create_tuntap_fail(self):
         try:
-            self.ip.create(ifname='fail',
+            self.ip.create(ifname='fAiL',
                            kind='tuntap',
                            mode='fail').commit()
         except:
+            assert not grep('ip link', pattern='fAiL')
             return
         raise Exception('tuntap create succeded')
 
@@ -550,6 +551,7 @@ class TestExplicit(object):
                        gid=1).commit()
 
         assert ifA in self.ip.interfaces
+        assert grep('ip link', pattern=ifA)
 
     def test_create_ovs_bridge(self):
         require_user('root')
