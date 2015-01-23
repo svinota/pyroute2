@@ -12,6 +12,7 @@ from utils import grep
 from utils import create_link
 from utils import remove_link
 from utils import require_user
+from utils import require_executable
 from utils import require_8021q
 from utils import require_bond
 from utils import require_bridge
@@ -555,6 +556,7 @@ class TestExplicit(object):
 
     def test_create_ovs_bridge(self):
         require_user('root')
+        require_executable('ovs-vsctl')
 
         ifA = self.get_ifname()
         ifB = self.get_ifname()

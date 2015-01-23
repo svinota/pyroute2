@@ -52,6 +52,16 @@ def require_user(user):
         raise SkipTest('required user %s' % (user))
 
 
+def require_executable(name):
+    try:
+        with open(os.devnull, 'w') as fnull:
+            subprocess.check_call(['which', name],
+                                  stdout=fnull,
+                                  stderr=fnull)
+    except Exception:
+        raise SkipTest('required %s not found' % (name))
+
+
 def remove_link(name):
     if os.getuid() != 0:
         return
