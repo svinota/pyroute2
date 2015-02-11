@@ -699,7 +699,7 @@ def proxy_newlink(data, nl):
             kind = kind[0]
 
     if kind == 'tuntap':
-        return tuntap_create(msg)
+        return manage_tuntap('create', msg)
     elif kind in ('ovs-bridge', 'openvswitch'):
         return manage_ovs('create', msg)
 
@@ -736,10 +736,13 @@ def manage_ovs(event, msg):
                               stderr=fnull)
 
 
-def tuntap_create(msg):
+def manage_tuntap(event, msg):
 
     if TUNSETIFF is None:
         raise Exception('unsupported arch')
+
+    if event != 'create':
+        raise Exception('unsupported event')
 
     ifru_flags = 0
     linkinfo = msg.get_attr('IFLA_LINKINFO')
