@@ -13,7 +13,8 @@ class LinkedSet(set):
     member should be counted in target checks (target methods
     see below), or `False` if it should be ignored.
     '''
-    target_filter = lambda self, x: True
+    def target_filter(self, x):
+        return True
 
     def __init__(self, *argv, **kwarg):
         set.__init__(self, *argv, **kwarg)
@@ -128,4 +129,5 @@ class IPaddrSet(LinkedSet):
     filter ignores link local IPv6 addresses when sets and checks
     the target.
     '''
-    target_filter = lambda self, x: not ((x[0][:4] == 'fe80') and (x[1] == 64))
+    def target_filter(self, x):
+        return not ((x[0][:4] == 'fe80') and (x[1] == 64))

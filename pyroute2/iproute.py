@@ -515,11 +515,11 @@ class IPRouteMixin(object):
             nla = ifaddrmsg.name2nla(key)
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
-        terminate = lambda x: x['header']['type'] == NLMSG_ERROR
         return self.nlm_request(msg,
                                 msg_type=command,
                                 msg_flags=flags,
-                                terminate=terminate)
+                                terminate=lambda x: x['header']['type'] ==
+                                NLMSG_ERROR)
 
     def tc(self, command, kind, index, handle=0, **kwarg):
         '''
