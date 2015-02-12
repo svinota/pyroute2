@@ -48,7 +48,10 @@ class TestExamples(object):
 
         def wrapper(parent, symbol):
             try:
-                _import(symbol)
+                if symbol in globals():
+                    globals()[symbol]()
+                else:
+                    _import(symbol)
                 parent.feedback.put(None)
             except Exception as e:
                 parent.feedback.put(e)
