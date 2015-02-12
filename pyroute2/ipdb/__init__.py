@@ -548,10 +548,9 @@ class IPDB(object):
                 self.nl.put({'index': 1}, RTM_GETLINK)
                 self._mthread.join()
             except Exception:
-                # If the transport is shut down, hack the world.
-                # It is possible when the instance gets stopped
-                # by atexit chain
-                self._mthread.setDaemon(True)
+                # Just give up.
+                # We can not handle this case
+                pass
             self.nl.close()
 
     def create(self, kind, ifname, reuse=False, **kwarg):
