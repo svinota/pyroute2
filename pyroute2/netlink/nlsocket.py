@@ -794,27 +794,25 @@ class NetlinkMixin(object):
 # socket.socket isn't very subclass-friendly, so wrap it instead.
 class SocketWrapper(object):
     def __init__(self, *args, **kwargs):
+        _socketmethods = (
+            'bind', 'close', 'connect', 'connect_ex', 'fileno', 'listen',
+            'getpeername', 'getsockname', 'getsockopt', 'makefile',
+            'recv', 'recvfrom', 'recv_into', 'recvfrom_into',
+            'send', 'sendto', 'sendall', 'setsockopt', 'setblocking',
+            'settimeout', 'gettimeout', 'shutdown')
         _sock = kwargs.get('_sock', None) or socket(*args, **kwargs)
         self._sock = _sock
 
+        def _forward(name, self, *args, **kwargs):
+            return getattr(self._sock, name)(*args, **kwargs)
+
+        for name in _socketmethods:
+            f = partial(_forward, name)
+            f.__name__ = name
+            setattr(SocketWrapper, name, types.MethodType(f, self))
+
     def dup(self):
         return self.__class__(_sock=self._sock.dup())
-
-
-def _forward(name, self, *args, **kwargs):
-    return getattr(self._sock, name)(*args, **kwargs)
-
-_socketmethods = (
-    'bind', 'close', 'connect', 'connect_ex', 'fileno', 'listen',
-    'getpeername', 'getsockname', 'getsockopt', 'makefile',
-    'recv', 'recvfrom', 'recv_into', 'recvfrom_into',
-    'send', 'sendto', 'sendall', 'setsockopt', 'setblocking',
-    'settimeout', 'gettimeout', 'shutdown')
-
-for name in _socketmethods:
-    f = partial(_forward, name)
-    f.__name__ = name
-    setattr(SocketWrapper, name, types.MethodType(f, None, SocketWrapper))
 
 
 class NetlinkSocket(NetlinkMixin, SocketWrapper):
