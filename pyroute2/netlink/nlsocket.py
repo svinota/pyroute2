@@ -81,11 +81,13 @@ classes
 '''
 
 import os
+from functools import partial
 import time
 import struct
 import logging
 import traceback
 import threading
+import types
 
 from socket import AF_NETLINK
 from socket import SOCK_DGRAM
@@ -789,5 +791,31 @@ class NetlinkMixin(object):
         super(NetlinkMixin, self).close()
 
 
-class NetlinkSocket(NetlinkMixin, socket):
+# socket.socket isn't very subclass-friendly, so wrap it instead.
+class SocketWrapper(object):
+    def __init__(self, *args, **kwargs):
+        _sock = kwargs.get('_sock', None) or socket(*args, **kwargs)
+        self._sock = _sock
+
+    def dup(self):
+        return self.__class__(_sock=self._sock.dup())
+
+
+def _forward(name, self, *args, **kwargs):
+    return getattr(self._sock, name)(*args, **kwargs)
+
+_socketmethods = (
+    'bind', 'close', 'connect', 'connect_ex', 'fileno', 'listen',
+    'getpeername', 'getsockname', 'getsockopt', 'makefile',
+    'recv', 'recvfrom', 'recv_into', 'recvfrom_into',
+    'send', 'sendto', 'sendall', 'setsockopt', 'setblocking',
+    'settimeout', 'gettimeout', 'shutdown')
+
+for name in _socketmethods:
+    f = partial(_forward, name)
+    f.__name__ = name
+    setattr(SocketWrapper, name, types.MethodType(f, None, SocketWrapper))
+
+
+class NetlinkSocket(NetlinkMixin, SocketWrapper):
     pass
