@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import subprocess
 from threading import Thread
 from utils import require_user
 from utils import require_8021q
@@ -22,6 +23,16 @@ except ImportError:
 
     def _import(symbol):
         return import_module(symbol)
+
+
+def interface_event():
+    with open(os.devnull, 'w') as fnull:
+        subprocess.call('ip link add dev d0 type dummy'.split(),
+                        stdout=fnull,
+                        stderr=fnull)
+        subprocess.call('ip link del dev d0'.split(),
+                        stdout=fnull,
+                        stderr=fnull)
 
 
 class TestExamples(object):
@@ -95,7 +106,7 @@ class TestExamples(object):
 
     def test_ip_monitor(self):
         require_user('root')
-        self.launcher('create_interface', server='ip_monitor')
+        self.launcher('interface_event', server='ip_monitor')
 
     def test_ipdb_autobr(self):
         require_user('root')
