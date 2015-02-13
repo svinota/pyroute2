@@ -1,5 +1,6 @@
 
 from pyroute2.iproute import IPRoute
+from pyroute2.iwutil import IW
 from pyroute2.ipdb import IPDB
 from pyroute2.netns import NetNS
 from pyroute2.netlink.rtnl import IPRSocket
@@ -10,6 +11,7 @@ from pyroute2.netlink.generic import GenericNetlinkSocket
 from pyroute2.netlink import NetlinkError
 
 modules = [IPRSocket,
+           IW,
            IPRoute,
            IPDB,
            NetNS,
