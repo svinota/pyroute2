@@ -87,8 +87,8 @@ import threading
 import traceback
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
-from pyroute2.common import MpPipe
-from pyroute2.common import MpProcess
+from pyroute2.config import MpPipe
+from pyroute2.config import MpProcess
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.rtnl import IPRSocketMixin

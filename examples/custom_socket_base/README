@@ -8,7 +8,4 @@ and providing the library-wide wrapper breaks the behaviour of these
 projects.
 
 So we provide a way to define a custom `SocketBase` class, that will be
-used as base for the `NetlinkSocket`. Unfortunately, initially the
-`pyroute2` architecture wasn't designed for such tricks, so a hack is
-required -- an environment variable should be exported to switch off
-the default `pyroute2` import behaviour, see `run.sh` for details.
+used as base for the `NetlinkSocket`.

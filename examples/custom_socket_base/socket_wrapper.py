@@ -1,7 +1,7 @@
 import types
 from socket import socket
 from functools import partial
-from pyroute2 import common
+from pyroute2 import config
 
 
 ###
@@ -38,4 +38,4 @@ class SocketWrapper(object):
         return self.__class__(_sock=self._sock.dup())
 
 
-common.SocketBase = SocketWrapper
+config.SocketBase = SocketWrapper

@@ -95,7 +95,7 @@ from socket import SO_RCVBUF
 from socket import SO_SNDBUF
 from socket import error as SocketError
 
-from pyroute2.common import SocketBase
+from pyroute2.config import SocketBase
 from pyroute2.common import AddrPool
 from pyroute2.common import DEFAULT_RCVBUF
 from pyroute2.netlink import nlmsg

@@ -5,16 +5,10 @@ import re
 import os
 import sys
 import struct
-import socket
 import platform
 import threading
-import multiprocessing
 
 from socket import inet_aton
-
-SocketBase = socket.socket
-MpPipe = multiprocessing.Pipe
-MpProcess = multiprocessing.Process
 
 try:
     basestring = basestring
