@@ -5,10 +5,13 @@ import re
 import os
 import sys
 import struct
+import socket
 import platform
 import threading
 
 from socket import inet_aton
+
+SocketBase = socket.socket
 
 try:
     basestring = basestring

@@ -81,13 +81,11 @@ classes
 '''
 
 import os
-from functools import partial
 import time
 import struct
 import logging
 import traceback
 import threading
-import types
 
 from socket import AF_NETLINK
 from socket import SOCK_DGRAM
@@ -95,9 +93,9 @@ from socket import MSG_PEEK
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from socket import SO_SNDBUF
-from socket import socket
 from socket import error as SocketError
 
+from pyroute2.common import SocketBase
 from pyroute2.common import AddrPool
 from pyroute2.common import DEFAULT_RCVBUF
 from pyroute2.netlink import nlmsg
@@ -791,29 +789,5 @@ class NetlinkMixin(object):
         super(NetlinkMixin, self).close()
 
 
-# socket.socket isn't very subclass-friendly, so wrap it instead.
-class SocketWrapper(object):
-    def __init__(self, *args, **kwargs):
-        _socketmethods = (
-            'bind', 'close', 'connect', 'connect_ex', 'fileno', 'listen',
-            'getpeername', 'getsockname', 'getsockopt', 'makefile',
-            'recv', 'recvfrom', 'recv_into', 'recvfrom_into',
-            'send', 'sendto', 'sendall', 'setsockopt', 'setblocking',
-            'settimeout', 'gettimeout', 'shutdown')
-        _sock = kwargs.get('_sock', None) or socket(*args, **kwargs)
-        self._sock = _sock
-
-        def _forward(name, self, *args, **kwargs):
-            return getattr(self._sock, name)(*args, **kwargs)
-
-        for name in _socketmethods:
-            f = partial(_forward, name)
-            f.__name__ = name
-            setattr(SocketWrapper, name, types.MethodType(f, self))
-
-    def dup(self):
-        return self.__class__(_sock=self._sock.dup())
-
-
-class NetlinkSocket(NetlinkMixin, SocketWrapper):
+class NetlinkSocket(NetlinkMixin, SocketBase):
     pass
