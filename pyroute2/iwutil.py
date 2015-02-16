@@ -1,3 +1,9 @@
+'''
+IW module
+=========
+
+Experimental module
+'''
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink.nl80211 import NL80211
