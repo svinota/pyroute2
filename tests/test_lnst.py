@@ -1,4 +1,4 @@
-import socket
+import select
 
 
 class TestLnst(object):
@@ -18,9 +18,13 @@ class TestLnst(object):
 
         ip = IPRSocket()
         ip.bind()
+
+        # check the `socket` interface compliance
+        poll = select.poll()
+        poll.register(ip, select.POLLIN | select.POLLPRI)
+        poll.unregister(ip)
         ip.close()
 
-        assert issubclass(IPRSocket, socket.socket)
         assert issubclass(ifinfmsg, nlmsg)
         assert NLM_F_REQUEST == 1
         assert NLM_F_ROOT == 0x100

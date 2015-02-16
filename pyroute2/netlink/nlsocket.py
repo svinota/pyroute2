@@ -93,9 +93,9 @@ from socket import MSG_PEEK
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from socket import SO_SNDBUF
-from socket import socket
 from socket import error as SocketError
 
+from pyroute2.config import SocketBase
 from pyroute2.common import AddrPool
 from pyroute2.common import DEFAULT_RCVBUF
 from pyroute2.netlink import nlmsg
@@ -789,5 +789,5 @@ class NetlinkMixin(object):
         super(NetlinkMixin, self).close()
 
 
-class NetlinkSocket(NetlinkMixin, socket):
+class NetlinkSocket(NetlinkMixin, SocketBase):
     pass

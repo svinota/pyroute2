@@ -85,10 +85,11 @@ import select
 import struct
 import threading
 import traceback
-import multiprocessing as mp
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
-from pyroute2 import IPRoute
+from pyroute2.config import MpPipe
+from pyroute2.config import MpProcess
+from pyroute2.iproute import IPRoute
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.rtnl import IPRSocketMixin
 from pyroute2.iproute import IPRouteMixin
@@ -320,10 +321,10 @@ class NetNSProxy(object):
 
     def __init__(self, *argv, **kwarg):
         self.cmdlock = threading.Lock()
-        self.rcvch, rcvch = mp.Pipe()
-        self.cmdch, cmdch = mp.Pipe()
-        self.server = mp.Process(target=NetNServer,
-                                 args=(self.netns, rcvch, cmdch, self.flags))
+        self.rcvch, rcvch = MpPipe()
+        self.cmdch, cmdch = MpPipe()
+        self.server = MpProcess(target=NetNServer,
+                                args=(self.netns, rcvch, cmdch, self.flags))
         self.server.start()
         error = self.cmdch.recv()
         if error is not None:
