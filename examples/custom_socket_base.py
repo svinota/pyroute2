@@ -1,12 +1,16 @@
 ###
 #
-# This example shows how to define and use a custom socket base
-# class to be used with NetlinkSocket.
+# The `socket.socket` class is not sublcass-friendly, and sometimes it is
+# better to use a custom wrapper providing socket API, than the original
+# socket class.
 #
-# socket_wrapper module overrides the SocketBase; only after
-# that we should import IPRoute
+# But some projects, that use pyroute2, already have their own solutions,
+# and providing the library-wide wrapper breaks the behaviour of these
+# projects.
 #
-# Override SocketBase
+# So we provide a way to define a custom `SocketBase` class, that will be
+# used as base for the `NetlinkSocket`
+#
 import types
 from socket import socket
 from functools import partial
