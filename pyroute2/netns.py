@@ -166,6 +166,28 @@ def remove(netns, libc=None):
     os.unlink(netnspath)
 
 
+def setns(netns, flags=os.O_CREAT, libc=None):
+    '''
+    Set netns for the current process.
+    '''
+    libc = libc or ctypes.CDLL('libc.so.6')
+    netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
+    netnspath = netnspath.encode('ascii')
+
+    if netns in listnetns():
+        if flags & (os.O_CREAT | os.O_EXCL) == (os.O_CREAT | os.O_EXCL):
+            raise OSError(errno.EEXIST, 'netns exists', netns)
+    else:
+        if flags & os.O_CREAT:
+            create(netns, libc=libc)
+
+    nsfd = os.open(netnspath, os.O_RDONLY)
+    ret = libc.syscall(__NR_setns, nsfd, CLONE_NEWNET)
+    if ret != 0:
+        raise OSError(ret, 'failed to open netns', netns)
+    return nsfd
+
+
 def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
     '''
     The netns server supposed to be started automatically by NetNS.
@@ -209,59 +231,14 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
            implementations, but it is required by the protocol standard.
 
     '''
-    netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
-    netnspath = netnspath.encode('ascii')
-    # open libc
     try:
-        libc = ctypes.CDLL('libc.so.6')
+        nsfd = setns(netns, flags)
     except OSError as e:
         cmdch.send(e)
         return e.errno
     except Exception as e:
         cmdch.send(OSError(errno.ECOMM, str(e), netns))
         return 255
-
-    # 8<-------------------------------------------------------------
-    def list_netns():
-        try:
-            return listnetns()
-        except OSError:
-            return []
-
-    # 8<-------------------------------------------------------------
-    def create_netns():
-        try:
-            return create(netns, libc=libc)
-        except OSError as e:
-            return e
-        except Exception as e:
-            return OSError(errno.ECOMM, str(e), netns)
-
-    # 8<-------------------------------------------------------------
-    #
-    if netns in list_netns():
-        if flags & (os.O_CREAT | os.O_EXCL) == (os.O_CREAT | os.O_EXCL):
-            cmdch.send(OSError(errno.EEXIST, 'netns exists', netns))
-            return errno.EEXIST
-    else:
-        if flags & os.O_CREAT:
-            ret = create_netns()
-            if ret is not None:
-                cmdch.send(ret)
-                return ret.errno
-    try:
-        nsfd = os.open(netnspath, os.O_RDONLY)
-    except OSError as e:
-        cmdch.send(e)
-        return e
-    except Exception as e:
-        cmdch.send(OSError(errno.ECOMM, str(e), netns))
-        return 255
-    #
-    ret = libc.syscall(__NR_setns, nsfd, CLONE_NEWNET)
-    if ret != 0:
-        cmdch.send(OSError(ret, 'failed to open netns', netns))
-        return ret
 
     #
     try:
