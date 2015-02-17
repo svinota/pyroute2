@@ -23,4 +23,4 @@ class IW(NL80211):
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', index]]
         return self.nlm_request(msg,
                                 msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+                                msg_flags=NLM_F_REQUEST)
