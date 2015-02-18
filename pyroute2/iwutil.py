@@ -58,7 +58,7 @@ class IW(NL80211):
         msg['attrs'] = [['NL80211_ATTR_WIPHY', attr]]
         return self.nlm_request(msg,
                                 msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST| NLM_F_DUMP)
+                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def get_interface_by_ifindex(self, index):
         '''
