@@ -4,7 +4,7 @@ NL80211 module
 
 TODO
 '''
-
+from pyroute2.common import map_namespace
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink.generic import GenericNetlinkSocket
 from pyroute2.netlink.nlsocket import Marshal
@@ -131,7 +131,7 @@ NL80211_CMD_TDLS_CHANNEL_SWITCH = 111
 NL80211_CMD_TDLS_CANCEL_CHANNEL_SWITCH = 112
 NL80211_CMD_WIPHY_REG_CHANGE = 113
 NL80211_CMD_MAX = NL80211_CMD_WIPHY_REG_CHANGE
-
+(NL80211_NAMES, NL80211_VALUES) = map_namespace('NL80211_CMD_', globals())
 
 class nl80211cmd(genlmsg):
     nla_map = (('NL80211_ATTR_UNSPEC', 'none'),
@@ -482,5 +482,5 @@ class NL80211(GenericNetlinkSocket):
         GenericNetlinkSocket.__init__(self)
         self.marshal = MarshalNl80211()
 
-    def bind(self):
-        GenericNetlinkSocket.bind(self, 'nl80211', nl80211cmd)
+    def bind(self,groups=0,async=False):
+        GenericNetlinkSocket.bind(self, 'nl80211', nl80211cmd,groups,None,async)
