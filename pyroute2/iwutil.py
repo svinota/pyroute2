@@ -11,17 +11,33 @@ from pyroute2.netlink.nl80211 import nl80211cmd
 from pyroute2.netlink.nl80211 import NL80211_NAMES
 
 
-def _callback(msg, obj):
-    print(obj)
-    print(msg)
-
-
 class IW(NL80211):
 
     def __init__(self, *argv, **kwarg):
+        # get specific groups kwarg
+        if 'groups' in kwarg:
+            groups = kwarg['groups']
+            del kwarg['groups']
+        else:
+            groups = None
+
+        # get specific async kwarg
+        if 'async' in kwarg:
+            async = kwarg['async']
+            del kwarg['async']
+        else:
+            async = False
+
+        # align groups with async
+        if groups is None:
+            groups = ~0 if async else 0
+
+        # continue with init
         super(IW, self).__init__(*argv, **kwarg)
-        self.bind(~0, True)
-        self.register_callback(_callback, args=(self, ))
+
+        # do automatic bind
+        # FIXME: unfortunately we can not omit it here
+        self.bind(groups, async)
 
     def list_wiphy(self):
         msg = nl80211cmd()
