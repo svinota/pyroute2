@@ -11,16 +11,17 @@ from pyroute2.netlink.nl80211 import nl80211cmd
 from pyroute2.netlink.nl80211 import NL80211_NAMES
 
 
+def _callback(msg, obj):
+    print(obj)
+    print(msg)
+
+
 class IW(NL80211):
 
     def __init__(self, *argv, **kwarg):
         super(IW, self).__init__(*argv, **kwarg)
         self.bind(~0, True)
-        self.register_callback(self.getMessage.__func__)
-
-    def get_message(self, msg):
-        # debug call, will be removed
-        print(msg)
+        self.register_callback(_callback, args=(self, ))
 
     def list_wiphy(self):
         msg = nl80211cmd()
