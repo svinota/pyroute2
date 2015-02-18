@@ -41,7 +41,7 @@ class IW(NL80211):
 
     def list_wiphy(self):
         '''
-        Describe me
+        Get all list of phy device
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_WIPHY']
@@ -51,18 +51,18 @@ class IW(NL80211):
 
     def get_interface_by_phy(self, attr):
         '''
-        Describe me
+        Get interface by phy name ( use x.get_attr('NL80211_ATTR_WIPHY') )
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
         msg['attrs'] = [['NL80211_ATTR_WIPHY', attr]]
         return self.nlm_request(msg,
                                 msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST)
+                                msg_flags=NLM_F_REQUEST| NLM_F_DUMP)
 
     def get_interface_by_ifindex(self, index):
         '''
-        Describe me
+        Get interface by ifindex ( use x.get_attr('NL80211_ATTR_IFINDEX') )
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
