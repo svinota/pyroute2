@@ -23,14 +23,14 @@ class GenericNetlinkSocket(NetlinkSocket):
     * get() -- receive and parse netlink messages
     '''
 
-    def bind(self, proto, msg_class, groups=0, pid=0,async=False):
+    def bind(self, proto, msg_class, groups=0, pid=0, async=False):
         '''
         Bind the socket and performs generic netlink
         proto lookup. The `proto` parameter is a string,
         like "TASKSTATS", `msg_class` is a class to
         parse messages with.
         '''
-        NetlinkSocket.bind(self, groups, pid,async)
+        NetlinkSocket.bind(self, groups, pid, async)
         self.marshal.msg_map[GENL_ID_CTRL] = ctrlmsg
         self.prid = self.get_protocol_id(proto)
         self.marshal.msg_map[self.prid] = msg_class
