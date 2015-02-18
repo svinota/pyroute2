@@ -40,6 +40,9 @@ class IW(NL80211):
         self.bind(groups, async)
 
     def list_wiphy(self):
+        '''
+        Describe me
+        '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_WIPHY']
         return self.nlm_request(msg,
@@ -47,14 +50,20 @@ class IW(NL80211):
                                 msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def get_interface_by_phy(self, attr):
+        '''
+        Describe me
+        '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
         msg['attrs'] = [['NL80211_ATTR_WIPHY', attr]]
         return self.nlm_request(msg,
                                 msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+                                msg_flags=NLM_F_REQUEST)
 
-    def info_interface_by_ifindex(self, index):
+    def get_interface_by_ifindex(self, index):
+        '''
+        Describe me
+        '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', index]]
