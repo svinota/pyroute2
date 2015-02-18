@@ -56,8 +56,8 @@ class IW(NL80211):
 
     def info_interface_by_ifindex(self, index):
         msg = nl80211cmd()
-        msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_WIPHY']
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', index]]
         return self.nlm_request(msg,
                                 msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+                                msg_flags=NLM_F_REQUEST)
