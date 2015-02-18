@@ -133,6 +133,7 @@ NL80211_CMD_WIPHY_REG_CHANGE = 113
 NL80211_CMD_MAX = NL80211_CMD_WIPHY_REG_CHANGE
 (NL80211_NAMES, NL80211_VALUES) = map_namespace('NL80211_CMD_', globals())
 
+
 class nl80211cmd(genlmsg):
     nla_map = (('NL80211_ATTR_UNSPEC', 'none'),
                ('NL80211_ATTR_WIPHY', 'hex'),
@@ -475,6 +476,12 @@ class MarshalNl80211(Marshal):
                NL80211_CMD_TDLS_CANCEL_CHANNEL_SWITCH: nl80211cmd,
                NL80211_CMD_WIPHY_REG_CHANGE: nl80211cmd}
 
+    def fix_message(self, msg):
+        try:
+            msg['event'] = NL80211_VALUES[msg['cmd']]
+        except Exception:
+            pass
+
 
 class NL80211(GenericNetlinkSocket):
 
@@ -482,5 +489,6 @@ class NL80211(GenericNetlinkSocket):
         GenericNetlinkSocket.__init__(self)
         self.marshal = MarshalNl80211()
 
-    def bind(self,groups=0,async=False):
-        GenericNetlinkSocket.bind(self, 'nl80211', nl80211cmd,groups,None,async)
+    def bind(self, groups=0, async=False):
+        GenericNetlinkSocket.bind(self, 'nl80211', nl80211cmd,
+                                  groups, None, async)

@@ -226,13 +226,19 @@ class IPRouteMixin(object):
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETNEIGH)
 
-    def get_addr(self, family=AF_UNSPEC):
+    def get_addr(self, family=AF_UNSPEC, index=None):
         '''
-        Get all addresses.
+        Get addresses::
+            ip.get_addr()  # get all addresses
+            ip.get_addr(index=2)  # get addresses for the 2nd interface
         '''
         msg = ifaddrmsg()
         msg['family'] = family
-        return self.nlm_request(msg, RTM_GETADDR)
+        ret = self.nlm_request(msg, RTM_GETADDR)
+        if index is not None:
+            return [x for x in ret if x.get('index') == index]
+        else:
+            return ret
 
     def get_dhcp(self, name, address=None):
         msg = dhcpmsg()

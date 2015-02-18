@@ -1,22 +1,33 @@
+##
+# defer all root imports
+#
+# this allows to safely import config, change it, and
+# only after that import modules itself
+#
+# surely, you can also import modules directly from their
+# places
+##
+from functools import partial
 
-from pyroute2.iproute import IPRoute
-from pyroute2.ipdb import IPDB
-from pyroute2.netns import NetNS
-from pyroute2.netlink.rtnl import IPRSocket
-from pyroute2.netlink.taskstats import TaskStats
-from pyroute2.netlink.nl80211 import NL80211
-from pyroute2.netlink.ipq import IPQSocket
-from pyroute2.netlink.generic import GenericNetlinkSocket
-from pyroute2.netlink import NetlinkError
+__all__ = []
+_modules = {'IPRoute': 'pyroute2.iproute',
+            'IPDB': 'pyroute2.ipdb',
+            'IW': 'pyroute2.iwutil',
+            'NetNS': 'pyroute2.netns',
+            'IPRSocket': 'pyroute2.netlink.rtnl',
+            'TaskStats': 'pyroute2.netlink.taskstats',
+            'NL80211': 'pyroute2.netlink.nl80211',
+            'IPQSocket': 'pyroute2.netlink.ipq',
+            'GenericNetlinkSocket': 'pyroute2.netlink.generic',
+            'NetlinkError': 'pyroute2.netlink'}
 
-modules = [IPRSocket,
-           IPRoute,
-           IPDB,
-           NetNS,
-           TaskStats,
-           IPQSocket,
-           GenericNetlinkSocket,
-           NetlinkError,
-           NL80211]
 
-__all__ = [getattr(module, '__name__') for module in modules]
+def _wrapper(name, *argv, **kwarg):
+    _temp = __import__(_modules[name], globals(), locals(), [name], 0)
+    return getattr(_temp, name)(*argv, **kwarg)
+
+for name in _modules:
+    f = partial(_wrapper, name)
+    f.__name__ = name
+    globals()[name] = f
+    __all__.append(name)
