@@ -304,7 +304,7 @@ class NetlinkMixin(object):
         self.close()
 
     def register_callback(self, callback,
-                          predicate=lambda e, x: True, args=None):
+                          predicate=lambda x: True, args=None):
         '''
         Register a callback to run on a message arrival.
 
@@ -317,7 +317,7 @@ class NetlinkMixin(object):
         Simplest example, assume ipr is the IPRoute() instance::
 
             # create a simplest callback that will print messages
-            def cb(env, msg):
+            def cb(msg):
                 print(msg)
 
             # register callback for any message:
@@ -326,12 +326,12 @@ class NetlinkMixin(object):
         More complex example, with filtering::
 
             # Set object's attribute after the message key
-            def cb(env, msg, obj):
+            def cb(msg, obj):
                 obj.some_attr = msg["some key"]
 
             # Register the callback only for the loopback device, index 1:
             ipr.register_callback(cb,
-                                  lambda e, x: x.get('index', None) == 1,
+                                  lambda x: x.get('index', None) == 1,
                                   (self, ))
 
         Please note: you do **not** need to register the default 0 queue
