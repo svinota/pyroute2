@@ -1,4 +1,3 @@
-import time
 from pyroute2 import IW
 
 
