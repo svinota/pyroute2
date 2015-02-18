@@ -717,8 +717,8 @@ class NetlinkMixin(object):
                             # Callbacks section
                             for cr in self.callbacks:
                                 try:
-                                    if cr[0](self, msg):
-                                        cr[1](msg, cr[2])
+                                    if cr[0](msg):
+                                        cr[1](msg, *cr[2])
                                 except:
                                     logging.warning("Callback fail: %s" % (cr))
                                     logging.warning(traceback.format_exc())
