@@ -440,12 +440,10 @@ class NetlinkMixin(object):
             self.fixed = True
             self.pid = pid or os.getpid()
 
-	
         self.groups = groups
         # if we have pre-defined port, use it strictly
         if self.fixed:
             self.epid = self.pid + (self.port << 22)
-	    print(self.epid)
             super(NetlinkMixin, self).bind((self.epid, self.groups))
         else:
             # if we have no pre-defined port, scan all the
@@ -719,8 +717,8 @@ class NetlinkMixin(object):
                             # Callbacks section
                             for cr in self.callbacks:
                                 try:
-                                    if cr[0](self,msg):
-                                        cr[1](msg, cr[2])
+                                    if cr[0](msg):
+                                        cr[1](msg, *cr[2])
                                 except:
                                     logging.warning("Callback fail: %s" % (cr))
                                     logging.warning(traceback.format_exc())
