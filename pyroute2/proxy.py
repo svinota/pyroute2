@@ -3,6 +3,8 @@ Netlink proxy engine
 '''
 import errno
 import struct
+import logging
+import traceback
 import threading
 
 
@@ -46,6 +48,7 @@ class NetlinkProxy(object):
                         return ret
 
                 except Exception as e:
+                    logging.error(traceback.format_exc())
                     # errmsg
                     if isinstance(e, (OSError, IOError)):
                         code = e.errno
