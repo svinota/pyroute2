@@ -60,13 +60,37 @@ class IW(NL80211):
                                 msg_type=self.prid,
                                 msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
-    def get_interface_by_ifindex(self, index):
+    def get_interface_by_ifindex(self, ifindex):
         '''
-        Get interface by ifindex ( use x.get_attr('NL80211_ATTR_IFINDEX') )
+        Get interface by ifindex ( use x.get_attr('NL80211_ATTR_IFINDEX')
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
-        msg['attrs'] = [['NL80211_ATTR_IFINDEX', index]]
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
         return self.nlm_request(msg,
                                 msg_type=self.prid,
                                 msg_flags=NLM_F_REQUEST)
+
+    def connect(self, ifindex, ssid, bssid=None):
+        '''
+        Connect to the ap with ssid and bssid
+        Warn: Use of put because message does return nothing,
+        Use this function with the good right (Root or may be setcap )
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_CONNECT']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
+                        ['NL80211_ATTR_SSID', ssid]]
+        if bssid is not None:
+            msg['attrs'].append(['NL80211_ATTR_MAC', bssid])
+
+        self.put(msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST)
+
+    def disconnect(self, ifindex):
+        '''
+        Disconnect the device
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_DISCONNECT']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
+        self.put(msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST)
