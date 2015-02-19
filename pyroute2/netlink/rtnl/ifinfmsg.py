@@ -918,7 +918,7 @@ def get_interface_type(name):
         ifattrs = os.listdir('/sys/class/net/%s/' % (name))
     except OSError as e:
         if e.errno == 2:
-            return False
+            return 'unknown'
         else:
             raise
 
@@ -927,4 +927,4 @@ def get_interface_type(name):
     elif 'bridge' in ifattrs:
         return 'bridge'
     else:
-        return None
+        return 'unknown'
