@@ -127,6 +127,10 @@ class TestIPRoute(object):
         require_user('root')
         self._create('bridge')
 
+    def test_create_ovs_bridge(self):
+        require_user('root')
+        self._create('ovs-bridge')
+
     def test_neigh_real_links(self):
         links = set([x['index'] for x in self.ip.get_links()])
         neigh = set([x['ifindex'] for x in self.ip.get_neighbors()])
