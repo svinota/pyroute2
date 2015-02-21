@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import struct
 import platform
 import subprocess
@@ -709,6 +710,8 @@ def proxy_newlink(data, nl):
 
     if kind == 'tuntap':
         return manage_tuntap(msg)
+    elif kind == 'team':
+        return manage_team(msg)
     elif kind in ('ovs-bridge', 'openvswitch'):
         return manage_ovs(msg)
 
@@ -724,6 +727,21 @@ def proxy_newlink(data, nl):
 
     return {'verdict': 'forward',
             'data': data}
+
+
+def manage_team(msg):
+
+    assert msg['header']['type'] == RTM_NEWLINK
+
+    config = {'device': msg.get_attr('IFLA_IFNAME'),
+              'runner': {'name': 'activebackup'},
+              'link_watch': {'name': 'ethtool'}}
+
+    with open(os.devnull, 'w') as fnull:
+        subprocess.check_call(['teamd', '-d', '-n', '-c',
+                               json.dumps(config)],
+                              stdout=fnull,
+                              stderr=fnull)
 
 
 def manage_ovs(msg):
