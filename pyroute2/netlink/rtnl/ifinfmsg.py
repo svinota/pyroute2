@@ -11,6 +11,13 @@ from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.iw_event import iw_event
 
+
+# it's simpler to double constants here, than to change all the
+# module layout; but it is a subject of the future refactoring
+RTM_NEWLINK = 16
+RTM_DELLINK = 17
+#
+
 _ANCIENT_BARRIER = 0.3
 _BONDING_MASTERS = '/sys/class/net/bonding_masters'
 _BONDING_SLAVES = '/sys/class/net/%s/bonding/slaves'
@@ -657,11 +664,13 @@ def proxy_setlink(data, nl):
 
 
 def proxy_dellink(data, nl):
-    msg = ifinfmsg(data)
-    msg.decode()
+    orig_msg = ifinfmsg(data)
+    orig_msg.decode()
 
     # get full interface description
-    msg = nl.get_links(msg['index'])[0]
+    msg = nl.get_links(orig_msg['index'])[0]
+    msg['header']['type'] = orig_msg['header']['type']
+
     # get the interface kind
     kind = None
     li = msg.get_attr('IFLA_LINKINFO')
@@ -669,7 +678,7 @@ def proxy_dellink(data, nl):
         kind = li.get_attr('IFLA_INFO_KIND')
 
     if kind in ('ovs-bridge', 'openvswitch'):
-        return manage_ovs('remove', msg)
+        return manage_ovs(msg)
 
     if ANCIENT and kind in ('bridge', 'bond'):
         # route the request
@@ -699,9 +708,9 @@ def proxy_newlink(data, nl):
             kind = kind[0]
 
     if kind == 'tuntap':
-        return manage_tuntap('create', msg)
+        return manage_tuntap(msg)
     elif kind in ('ovs-bridge', 'openvswitch'):
-        return manage_ovs('create', msg)
+        return manage_ovs(msg)
 
     if ANCIENT and kind in ('bridge', 'bond'):
         # route the request
@@ -717,17 +726,17 @@ def proxy_newlink(data, nl):
             'data': data}
 
 
-def manage_ovs(event, msg):
+def manage_ovs(msg):
     linkinfo = msg.get_attr('IFLA_LINKINFO')
     ifname = msg.get_attr('IFLA_IFNAME')
     kind = linkinfo.get_attr('IFLA_INFO_KIND')
 
     # operations map
-    op_map = {'create': {'ovs-bridge': 'add-br',
-                         'openvswitch': 'add-br'},
-              'remove': {'ovs-bridge': 'del-br',
-                         'openvswitch': 'del-br'}}
-    op = op_map[event][kind]
+    op_map = {RTM_NEWLINK: {'ovs-bridge': 'add-br',
+                            'openvswitch': 'add-br'},
+              RTM_DELLINK: {'ovs-bridge': 'del-br',
+                            'openvswitch': 'del-br'}}
+    op = op_map[msg['header']['type']][kind]
 
     # make a call
     with open(os.devnull, 'w') as fnull:
@@ -736,12 +745,12 @@ def manage_ovs(event, msg):
                               stderr=fnull)
 
 
-def manage_tuntap(event, msg):
+def manage_tuntap(msg):
 
     if TUNSETIFF is None:
         raise Exception('unsupported arch')
 
-    if event != 'create':
+    if msg['header']['type'] != RTM_NEWLINK:
         raise Exception('unsupported event')
 
     ifru_flags = 0
