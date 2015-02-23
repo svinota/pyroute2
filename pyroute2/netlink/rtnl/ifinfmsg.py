@@ -601,13 +601,23 @@ def proxy_linkinfo(data, nl):
 
 def proxy_setlink(data, nl):
 
+    def get_interface(index):
+        msg = nl.get_links(index)[0]
+        return {'ifname': msg.get_attr('IFLA_IFNAME'),
+                'master': msg.get_attr('IFLA_MASTER'),
+                'kind': msg.
+                get_attr('IFLA_LINKINFO').
+                get_attr('IFLA_INFO_KIND')}
+
     msg = ifinfmsg(data)
     msg.decode()
+    forward = True
 
     kind = None
     infodata = None
 
-    ifname = msg.get_attr('IFLA_IFNAME')
+    ifname = msg.get_attr('IFLA_IFNAME') or \
+        get_interface(msg['index'])['ifname']
     linkinfo = msg.get_attr('IFLA_LINKINFO')
     if linkinfo:
         kind = linkinfo.get_attr('IFLA_INFO_KIND')
@@ -632,34 +642,29 @@ def proxy_setlink(data, nl):
 
     # is it a port setup?
     master = msg.get_attr('IFLA_MASTER')
-    if ANCIENT and master is not None:
-        def name_by_id(index):
-            return nl.get_links(index)[0].get_attr('IFLA_IFNAME')
+    if master is not None:
 
-        ifname = name_by_id(msg['index'])
         if master == 0:
             # port delete
             # 1. get the current master
-            m = name_by_id(compat_get_master(ifname))
-            # 2. get the type of the master
-            kind = compat_get_type(m)
-            # 3. delete the port
-            if kind == 'bridge':
-                compat_del_bridge_port(m, ifname)
-            elif kind == 'bond':
-                compat_del_bond_port(m, ifname)
+            iface = get_interface(msg['index'])
+            master = get_interface(iface['master'])
+            cmd = 'del'
         else:
             # port add
-            # 1. get the name of the master
-            m = name_by_id(master)
-            # 2. get the type of the master
-            kind = compat_get_type(m)
-            # 3. add the port
-            if kind == 'bridge':
-                compat_add_bridge_port(m, ifname)
-            elif kind == 'bond':
-                compat_add_bond_port(m, ifname)
-    else:
+            # 1. get the master
+            master = get_interface(master)
+            cmd = 'add'
+
+        # 2. delete the port
+        if master['kind'] == 'team':
+            forward = manage_team_port(cmd, master['ifname'], ifname)
+        elif master['kind'] == 'bridge':
+            forward = compat_bridge_port(cmd, master['ifname'], ifname)
+        elif master['kind'] == 'bond':
+            forward = compat_bond_port(cmd, master['ifname'], ifname)
+
+    if forward is not None:
         return {'verdict': 'forward',
                 'data': data}
 
@@ -742,6 +747,18 @@ def manage_team(msg):
                                json.dumps(config)],
                               stdout=fnull,
                               stderr=fnull)
+
+
+def manage_team_port(cmd, master, ifname):
+    remap = {'add': 'add',
+             'del': 'remove'}
+    cmd = remap[cmd]
+    with open(os.devnull, 'w') as fnull:
+        subprocess.check_call(['teamdctl', master, 'port', cmd, ifname],
+                              stdout=fnull,
+                              stderr=fnull)
+    # do NOT forward request after
+    return False
 
 
 def manage_ovs(msg):
@@ -827,26 +844,6 @@ def compat_create_bond(name):
         f.write('+%s' % (name))
 
 
-def compat_get_type(name):
-    ##
-    # is it bridge?
-    try:
-        with open('/sys/class/net/%s/bridge/stp_state' % name, 'r'):
-            return 'bridge'
-    except IOError:
-        pass
-    ##
-    # is it bond?
-    try:
-        with open('/sys/class/net/%s/bonding/mode' % name, 'r'):
-            return 'bond'
-    except IOError:
-        pass
-    ##
-    # don't care
-    return 'unknown'
-
-
 def compat_set_bond(name, cmd, value):
     # FIXME: join with bridge
     # FIXME: use internal IO, not bash
@@ -881,28 +878,23 @@ def compat_del_bond(name):
         f.write('-%s' % (name))
 
 
-def compat_add_bridge_port(master, port):
+def compat_bridge_port(cmd, master, port):
+    if not ANCIENT:
+        return True
     with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['brctl', 'addif', master, port],
+        subprocess.check_call(['brctl', '%sif' % (cmd), master, port],
                               stdout=fnull,
                               stderr=fnull)
 
 
-def compat_del_bridge_port(master, port):
-    with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['brctl', 'delif', master, port],
-                              stdout=fnull,
-                              stderr=fnull)
-
-
-def compat_add_bond_port(master, port):
+def compat_bond_port(cmd, master, port):
+    if not ANCIENT:
+        return True
+    remap = {'add': '+',
+             'del': '-'}
+    cmd = remap[cmd]
     with open(_BONDING_SLAVES % (master), 'w') as f:
-        f.write('+%s' % (port))
-
-
-def compat_del_bond_port(master, port):
-    with open(_BONDING_SLAVES % (master), 'w') as f:
-        f.write('-%s' % (port))
+        f.write('%s%s' % (cmd, port))
 
 
 def compat_get_master(name):

@@ -711,6 +711,10 @@ class TestExplicit(object):
         require_bond()
         self._create_master('bond')
 
+    def test_create_team(self):
+        require_user('root')
+        self._create_master('team')
+
     def test_create_bond2(self):
         require_user('root')
         require_bond()
