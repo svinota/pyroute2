@@ -307,7 +307,7 @@ class Interface(Transactional):
                 ret[key] = self[key]
         return ret
 
-    def commit(self, tid=None, transaction=None, rollback=False):
+    def commit(self, tid=None, transaction=None, rollback=False, newif=False):
         '''
         Commit transaction. In the case of exception all
         changes applied during commit will be reverted.
@@ -333,6 +333,7 @@ class Interface(Transactional):
                 # create watchdog
                 wd = self.ipdb.watchdog(ifname=self['ifname'])
 
+                newif = True
                 try:
                     # 8<----------------------------------------------------
                     # ACHTUNG: hack for old platforms
@@ -540,7 +541,9 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # Interface removal
-            if added.get('removal') or added.get('flicker'):
+            if added.get('removal') or \
+                    added.get('flicker') or\
+                    (newif and rollback):
                 wd = self.ipdb.watchdog(action='RTM_DELLINK',
                                         ifname=self['ifname'])
                 if added.get('flicker'):
@@ -565,7 +568,9 @@ class Interface(Transactional):
         except Exception as e:
             # something went wrong: roll the transaction back
             if not rollback:
-                ret = self.commit(transaction=snapshot, rollback=True)
+                ret = self.commit(transaction=snapshot,
+                                  rollback=True,
+                                  newif=newif)
                 # if some error was returned by the internal
                 # closure, substitute the initial one
                 if isinstance(ret, Exception):
