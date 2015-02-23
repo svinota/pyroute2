@@ -32,6 +32,7 @@ class IW(NL80211):
         if groups is None:
             groups = ~0 if async else 0
 
+        groups = ~0
         # continue with init
         super(IW, self).__init__(*argv, **kwarg)
 
@@ -94,3 +95,26 @@ class IW(NL80211):
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_DISCONNECT']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
         self.put(msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST)
+
+    def scan(self, ifindex):
+        '''
+        Scan wifi
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_TRIGGER_SCAN']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
+        self.put(msg, msg_type=self.prid,
+                 msg_flags=NLM_F_REQUEST)
+
+        scanResultNotFound = True
+        while scanResultNotFound:
+            listMsg = self.get()
+            for msg in listMsg:
+                if msg["event"] == "NL80211_CMD_NEW_SCAN_RESULTS":
+                    scanResultNotFound = False
+                    break
+        msg2 = nl80211cmd()
+        msg2['cmd'] = NL80211_NAMES['NL80211_CMD_GET_SCAN']
+        msg2['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
+        return self.nlm_request(msg2, msg_type=self.prid,
+                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)

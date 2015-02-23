@@ -8,6 +8,13 @@ from pyroute2.common import map_namespace
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink.generic import GenericNetlinkSocket
 from pyroute2.netlink.nlsocket import Marshal
+from pyroute2.netlink import nla
+from pyroute2.netlink import nla_base
+
+
+# import pdb
+import struct
+from pyroute2.common import hexdump
 
 # nl80211 commands
 
@@ -133,6 +140,14 @@ NL80211_CMD_WIPHY_REG_CHANGE = 113
 NL80211_CMD_MAX = NL80211_CMD_WIPHY_REG_CHANGE
 (NL80211_NAMES, NL80211_VALUES) = map_namespace('NL80211_CMD_', globals())
 
+NL80211_BSS_ELEMENTS_SSID = 0
+NL80211_BSS_ELEMENTS_SUPPORTED_RATES = 1
+NL80211_BSS_ELEMENTS_CHANNEL = 3
+NL80211_BSS_ELEMENTS_VENDOR = 221
+
+BSS_MEMBERSHIP_SELECTOR_HT_PHY = 127
+BSS_MEMBERSHIP_SELECTOR_VHT_PHY = 126
+
 
 class nl80211cmd(genlmsg):
     nla_map = (('NL80211_ATTR_UNSPEC', 'none'),
@@ -182,7 +197,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_SCAN_FREQUENCIES', 'hex'),
                ('NL80211_ATTR_SCAN_SSIDS', 'hex'),
                ('NL80211_ATTR_GENERATION', 'hex'),
-               ('NL80211_ATTR_BSS', 'hex'),
+               ('NL80211_ATTR_BSS', 'bss'),
                ('NL80211_ATTR_REG_INITIATOR', 'hex'),
                ('NL80211_ATTR_REG_TYPE', 'hex'),
                ('NL80211_ATTR_SUPPORTED_COMMANDS', 'hex'),
@@ -353,6 +368,95 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_MAC_MASK', 'hex'),
                ('NL80211_ATTR_WIPHY_SELF_MANAGED_REG', 'hex'),
                ('NUM_NL80211_ATTR', 'hex'))
+
+    class bss(nla):
+        class elementsBinary(nla_base):
+
+            def binary_supported_rates(self, rawdata):
+                # pdb.set_trace()
+                string = ""
+                for byteRaw in rawdata:
+                    (byte,) = struct.unpack("B", byteRaw)
+                    r = byte & 0x7f
+
+                    if r == BSS_MEMBERSHIP_SELECTOR_VHT_PHY and byte & 0x80:
+                        string += "VHT"
+                    elif r == BSS_MEMBERSHIP_SELECTOR_HT_PHY and byte & 0x80:
+                        string += "HT"
+                    else:
+                        string += "%d.%d" % (r / 2, 5 * (r & 1))
+
+                    string += "%s " % ("*" if byte & 0x80 else "")
+
+                return string
+
+            def binary_vendor(self, rawdata):
+                '''
+                Extract vendor data
+                '''
+                vendor = {}
+# pdb.set_trace()
+                size = len(rawdata)
+                # if len > 4 and rawdata[0] == ms_oui[0]
+                # and rawdata[1] == ms_oui[1] and rawdata[2] == ms_oui[2]
+
+                if size < 3:
+                    vendor["VENDOR_NAME"] = "Vendor specific: <too short data:"
+                    + hexdump(rawdata)
+                    return vendor
+
+            def decode_nlas(self):
+
+                return
+
+            def decode(self):
+                nla_base.decode(self)
+
+                self.value = {}
+
+                init = self.buf.tell()
+
+                while (self.buf.tell()-init) < (self.length-4):
+                    (msg_type, length) = struct.unpack('BB', self.buf.read(2))
+                    data = self.buf.read(length)
+                    if msg_type == NL80211_BSS_ELEMENTS_SSID:
+                        self.value["SSID"] = data
+
+                    if msg_type == NL80211_BSS_ELEMENTS_SUPPORTED_RATES:
+                        supported_rates = self.binary_supported_rates(data)
+                        self.value["SUPPORTED_RATES"] = supported_rates
+
+                    if msg_type == NL80211_BSS_ELEMENTS_CHANNEL:
+                        (channel,) = struct.unpack("B", data[0])
+                        self.value["CHANNEL"] = channel
+
+                    if msg_type == NL80211_BSS_ELEMENTS_VENDOR:
+                        self.binary_vendor(data)
+
+                    # if catch == 0:
+                    #    self.value["NL80211_BSS_ELEMENTS_UNKNOWN"+str(msg_type)]=hexdump(data)
+
+                self.buf.seek(init)
+                # self.value["NL80211_BSS_ELEMENTS_HEXDUMP"] =
+                # hexdump(self.buf.read(self.length))
+
+                self.buf.seek(init)
+
+        prefix = 'NL80211_BSS_'
+        nla_map = (('NL80211_BSS_UNSPEC', 'none'),
+                   ('NL80211_BSS_BSSID', 'hex'),
+                   ('NL80211_BSS_FREQUENCY', 'uint32'),
+                   ('NL80211_BSS_TSF', 'uint64'),
+                   ('NL80211_BSS_BEACON_INTERVAL', 'uint16'),
+                   ('NL80211_BSS_CAPABILITY', 'uint8'),
+                   ('NL80211_BSS_INFORMATION_ELEMENTS', 'elementsBinary'),
+                   ('NL80211_BSS_SIGNAL_MBM', 'uint32'),
+                   ('NL80211_BSS_STATUS', 'uint32'),
+                   ('NL80211_BSS_SEEN_MS_AGO', 'uint32'),
+                   ('NL80211_BSS_BEACON_IES', 'hex'),
+                   ('NL80211_BSS_CHAN_WIDTH', 'uint32'),
+                   ('NL80211_BSS_BEACON_TSF', 'uint64')
+                   )
 
 
 class MarshalNl80211(Marshal):
