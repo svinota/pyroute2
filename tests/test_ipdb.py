@@ -713,6 +713,8 @@ class TestExplicit(object):
 
     def test_create_team(self):
         require_user('root')
+        require_executable('teamd')
+        require_executable('teamdctl')
         self._create_master('team')
 
     def test_create_bond2(self):
