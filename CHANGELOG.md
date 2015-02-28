@@ -1,6 +1,11 @@
 changelog
 =========
 
+* 0.3.5
+    * netns: #90 -- netns setns support
+    * generic: #99 -- support custom basic netlink socket classes
+    * proxy-ng: #106 -- provide more diagnostics
+    * nl80211: initial nl80211 support, iwutil module added
 * 0.3.4
     * ipdb: #92 -- route metrics support
     * ipdb: #85 -- broadcast address specification

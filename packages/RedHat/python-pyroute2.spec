@@ -1,7 +1,7 @@
 %global pkgname pyroute2
 
 Name: python-%{pkgname}
-Version: 0.3.4
+Version: 0.3.5
 Release: 1%{?dist}
 Summary: Pure Python netlink library
 License: GPLv2+
@@ -31,6 +31,10 @@ IPQ.
 %{python_sitelib}/%{pkgname}*
 
 %changelog
+* Sat Feb 28 2015 Peter V. Saveliev <peter@svinota.eu> 0.3.5-1
+- Initial basic nl80211 support -- wireless interfaces
+- Full proxy-ng support
+
 * Thu Jan  8 2015 Peter V. Saveliev <peter@svinota.eu> 0.3.4-1
 - Network namespaces support
 - Veth, tuntap
