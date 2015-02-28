@@ -32,7 +32,6 @@ class IW(NL80211):
         if groups is None:
             groups = ~0 if async else 0
 
-        groups = ~0
         # continue with init
         super(IW, self).__init__(*argv, **kwarg)
 
