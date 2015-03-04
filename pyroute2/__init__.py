@@ -14,7 +14,7 @@ __all__ = []
 _modules = {'IPRoute': 'pyroute2.iproute',
             'IPDB': 'pyroute2.ipdb',
             'IW': 'pyroute2.iwutil',
-            'NetNS': 'pyroute2.netns',
+            'NetNS': 'pyroute2.netns.nslink',
             'IPRSocket': 'pyroute2.netlink.rtnl',
             'TaskStats': 'pyroute2.netlink.taskstats',
             'NL80211': 'pyroute2.netlink.nl80211',

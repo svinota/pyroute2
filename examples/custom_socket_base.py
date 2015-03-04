@@ -15,7 +15,8 @@ import types
 from socket import socket
 from functools import partial
 from pyroute2 import config
-from pyroute2 import IPRoute
+from pyroute2 import netns
+from pyroute2 import NetNS
 
 
 ###
@@ -53,12 +54,12 @@ class SocketWrapper(object):
 
 config.SocketBase = SocketWrapper
 
-
+print(netns.listnetns())
 ###
 #
 # Being run via the root module, real IPRoute import is postponed,
 # to inspect the code, refer to `pyroute2/__init__.py`
 #
-ip = IPRoute()
-print(ip.get_addr())
-ip.close()
+ns = NetNS('test')
+print(ns.get_addr())
+ns.close()
