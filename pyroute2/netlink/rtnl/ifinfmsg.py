@@ -242,9 +242,7 @@ class ifinfbase(object):
                                                    self.value), os.O_RDONLY)
                 self['value'] = self.netns_fd
             nla.encode(self)
-
-        def __del__(self):
-            self.close()
+            self.register_clean_cb(self.close)
 
         def close(self):
             if self.netns_fd is not None:

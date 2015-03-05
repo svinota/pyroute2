@@ -549,6 +549,7 @@ class nlmsg_base(dict):
         self.value = NotInitialized
         self.register_nlas()
         self.reset(buf)
+        self.clean_cbs = []
         if self.header is not None:
             self['header'] = self.header(self.buf)
 
@@ -579,6 +580,12 @@ class nlmsg_base(dict):
         self.buf = buf or io.BytesIO()
         if 'header' in self:
             self['header'].buf = self.buf
+
+    def register_clean_cb(self, cb):
+        if self.parent is not None:
+            return self.parent.register_clean_cb(cb)
+        else:
+            self.clean_cbs.append(cb)
 
     def _strip_one(self, name):
         for i in tuple(self['attrs']):
