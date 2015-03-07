@@ -1031,6 +1031,11 @@ class nlmsg_base(dict):
             nla = None
             # pick the length and the type
             (length, msg_type) = struct.unpack('HH', self.buf.read(4))
+            # first two bits of msg_type are flags:
+            # NLA_F_NESTED = 1 << 15
+            # NLA_F_NET_BYTEORDER = 1 << 14
+            # for now -- just ignore
+            msg_type = msg_type & ~(3 << 14)
             # rewind to the beginning
             self.buf.seek(init)
             length = min(max(length, 4),
