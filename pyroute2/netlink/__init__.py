@@ -813,6 +813,7 @@ class nlmsg_base(dict):
             if self.nla_map:
                 self.decode_nlas()
         except Exception as e:
+            logging.warning(traceback.format_exc())
             raise NetlinkNLADecodeError(e)
         if len(self['attrs']) == 0:
             del self['attrs']
@@ -1055,8 +1056,8 @@ class nlmsg_base(dict):
                 nla = msg_class(self.buf, length, self, debug=self.debug)
             try:
                 nla.decode()
-            except:
-                # FIXME
+            except Exception:
+                logging.warning(traceback.format_exc())
                 self.buf.seek(init)
                 msg_name = 'UNKNOWN'
                 msg_value = hexdump(self.buf.read(length))
