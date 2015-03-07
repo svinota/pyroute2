@@ -990,7 +990,10 @@ class nlmsg_base(dict):
 
         for (key, name, nla_class) in zipped:
             # lookup NLA class
-            nla_class = getattr(self, nla_class)
+            if nla_class == 'recursive':
+                nla_class = type(self)
+            else:
+                nla_class = getattr(self, nla_class)
             # update mappings
             self.t_nla_map[key] = (nla_class, name)
             self.r_nla_map[name] = (nla_class, key)
