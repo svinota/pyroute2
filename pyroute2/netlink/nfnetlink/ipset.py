@@ -1,9 +1,4 @@
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import NLM_F_DUMP
-from pyroute2.netlink import NETLINK_NETFILTER
 from pyroute2.netlink import nla
-from pyroute2.netlink.nlsocket import NetlinkSocket
-from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_IPSET
 from pyroute2.netlink.nfnetlink import nfgen_msg
 
 
@@ -68,28 +63,3 @@ class ipset_msg(nfgen_msg):
             nla_map = (('IPSET_ATTR_UNSPEC', 'none'),
                        ('IPSET_ATTR_IPADDR_IPV4', 'ip4addr'),
                        ('IPSET_ATTR_IPADDR_IPV6', 'ip6addr'))
-
-
-class IPSet(NetlinkSocket):
-
-    policy = {IPSET_CMD_PROTOCOL: ipset_msg,
-              IPSET_CMD_LIST: ipset_msg}
-
-    def __init__(self):
-        super(IPSet, self).__init__(family=NETLINK_NETFILTER)
-        policy = dict([(x | (NFNL_SUBSYS_IPSET << 8), y)
-                       for (x, y) in self.policy.items()])
-        self.register_policy(policy)
-
-    def request(self, msg, msg_type,
-                msg_flags=NLM_F_REQUEST | NLM_F_DUMP):
-        return self.nlm_request(msg,
-                                msg_type | (NFNL_SUBSYS_IPSET << 8),
-                                msg_flags)
-
-    def list(self, name=None):
-        msg = ipset_msg()
-        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', 6]]
-        if name is not None:
-            msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
-        return self.request(msg, IPSET_CMD_LIST)
