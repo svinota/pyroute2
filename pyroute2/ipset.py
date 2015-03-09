@@ -16,6 +16,8 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_PROTOCOL
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_CREATE
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_DESTROY
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_LIST
+from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_ADD
+from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_DEL
 from pyroute2.netlink.nfnetlink.ipset import ipset_msg
 
 
@@ -60,9 +62,9 @@ class IPSet(NetlinkSocket):
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
         return self.request(msg, IPSET_CMD_LIST)
 
-    def delete(self, name):
+    def destroy(self, name):
         '''
-        Remove an ipset
+        Destroy an ipset
         '''
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
@@ -91,3 +93,28 @@ class IPSet(NetlinkSocket):
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
                             terminate=lambda x: x['header']['type'] ==
                             NLMSG_ERROR)
+
+    def _add_delete(self, name, entry, family, cmd):
+        if family == socket.AF_INET:
+            entry_type = 'IPSET_ATTR_IPADDR_IPV4'
+        elif family == socket.AF_INET6:
+            entry_type = 'IPSET_ATTR_IPADDR_IPV6'
+        else:
+            raise TypeError('unknown family')
+
+        msg = ipset_msg()
+        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
+                        ['IPSET_ATTR_SETNAME', name],
+                        ['IPSET_ATTR_DATA',
+                         {'attrs': [['IPSET_ATTR_IP',
+                                     {'attrs': [[entry_type, entry]]}]]}]]
+        return self.request(msg, cmd,
+                            msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
+                            terminate=lambda x: x['header']['type'] ==
+                            NLMSG_ERROR)
+
+    def add(self, name, entry, family=socket.AF_INET):
+        return self._add_delete(name, entry, family, IPSET_CMD_ADD)
+
+    def delete(self, name, entry, family=socket.AF_INET):
+        return self._add_delete(name, entry, family, IPSET_CMD_DEL)
