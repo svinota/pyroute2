@@ -690,7 +690,7 @@ class IPRouteMixin(object):
         '''
         Route operations
 
-        * command -- add, delete
+        * command -- add, delete, change, replace
         * prefix -- route prefix
         * mask -- route prefix mask
         * rtype -- route type (default: "RTN_UNICAST")
@@ -713,6 +713,10 @@ class IPRouteMixin(object):
         Example::
 
             ip.route("add", dst="10.0.0.0", mask=24, gateway="192.168.0.1")
+
+        Commands `change` and `replace` have the same meanings, as
+        in ip-route(8): `change` modifies only existing route, while
+        `replace` creates a new one, if there is no such route yet.
         '''
 
         # 8<----------------------------------------------------
@@ -720,8 +724,8 @@ class IPRouteMixin(object):
         # flags should be moved to some more general place
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
-        flags_replace = flags_base | NLM_F_REPLACE
-        flags_change = flags_base | NLM_F_CREATE | NLM_F_REPLACE
+        flags_change = flags_base | NLM_F_REPLACE
+        flags_replace = flags_change | NLM_F_CREATE
         # 8<----------------------------------------------------
         commands = {'add': (RTM_NEWROUTE, flags_make),
                     'set': (RTM_NEWROUTE, flags_replace),
