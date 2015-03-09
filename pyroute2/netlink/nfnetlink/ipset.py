@@ -1,4 +1,6 @@
 from pyroute2.netlink import nla
+from pyroute2.netlink import NLA_F_NESTED
+from pyroute2.netlink import NLA_F_NET_BYTEORDER
 from pyroute2.netlink.nfnetlink import nfgen_msg
 
 
@@ -21,6 +23,11 @@ IPSET_CMD_TYPE = 13  # 13: Get set type
 
 
 class ipset_msg(nfgen_msg):
+    '''
+    Since the support just begins to be developed,
+    many attrs are still in `hex` format -- just to
+    dump the content.
+    '''
     nla_map = (('IPSET_ATTR_UNSPEC', 'none'),
                ('IPSET_ATTR_PROTOCOL', 'uint8'),
                ('IPSET_ATTR_SETNAME', 'asciiz'),
@@ -34,6 +41,7 @@ class ipset_msg(nfgen_msg):
                ('IPSET_ATTR_PROTOCOL_MIN', 'hex'))
 
     class data(nla):
+        nla_flags = NLA_F_NESTED
         nla_map = ((0, 'IPSET_ATTR_UNSPEC', 'none'),
                    (1, 'IPSET_ATTR_IP', 'ipset_ip'),
                    (1, 'IPSET_ATTR_IP_FROM', 'ipset_ip'),
@@ -45,7 +53,7 @@ class ipset_msg(nfgen_msg):
                    (6, 'IPSET_ATTR_TIMEOUT', 'hex'),
                    (7, 'IPSET_ATTR_PROTO', 'recursive'),
                    (8, 'IPSET_ATTR_CADT_FLAGS', 'hex'),
-                   (9, 'IPSET_ATTR_CADT_LINENO', 'hex'),
+                   (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
                    (10, 'IPSET_ATTR_MARK', 'hex'),
                    (11, 'IPSET_ATTR_MARKMASK', 'hex'),
                    (17, 'IPSET_ATTR_GC', 'hex'),
@@ -60,6 +68,9 @@ class ipset_msg(nfgen_msg):
                    (26, 'IPSET_ATTR_MEMSIZE', 'be32'))
 
         class ipset_ip(nla):
+            nla_flags = NLA_F_NESTED
             nla_map = (('IPSET_ATTR_UNSPEC', 'none'),
-                       ('IPSET_ATTR_IPADDR_IPV4', 'ip4addr'),
-                       ('IPSET_ATTR_IPADDR_IPV6', 'ip6addr'))
+                       ('IPSET_ATTR_IPADDR_IPV4', 'ip4addr',
+                        NLA_F_NET_BYTEORDER),
+                       ('IPSET_ATTR_IPADDR_IPV6', 'ip6addr',
+                        NLA_F_NET_BYTEORDER))
