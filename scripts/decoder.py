@@ -31,6 +31,9 @@ for a in f.readlines():
     if a[0] == '#':
         continue
     while True:
+        if a[0] == ' ':
+            a = a[1:]
+            continue
         try:
             b.write(chr(int(a[2:4], 16)))
         except:
