@@ -1,3 +1,8 @@
+'''
+The very basic ipset support. Right now it is under
+development, so is not exported to the library docs,
+neither announced.
+'''
 import socket
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_REQUEST
@@ -15,6 +20,11 @@ from pyroute2.netlink.nfnetlink.ipset import ipset_msg
 
 
 class IPSet(NetlinkSocket):
+    '''
+    NFNetlink socket (family=NETLINK_NETFILTER).
+
+    Implements API to the ipset functionality.
+    '''
 
     policy = {IPSET_CMD_PROTOCOL: ipset_msg,
               IPSET_CMD_LIST: ipset_msg}
