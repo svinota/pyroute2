@@ -721,9 +721,12 @@ class IPRouteMixin(object):
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_replace = flags_base | NLM_F_REPLACE
+        flags_change = flags_base | NLM_F_CREATE | NLM_F_REPLACE
         # 8<----------------------------------------------------
         commands = {'add': (RTM_NEWROUTE, flags_make),
                     'set': (RTM_NEWROUTE, flags_replace),
+                    'replace': (RTM_NEWROUTE, flags_replace),
+                    'change': (RTM_NEWROUTE, flags_change),
                     'del': (RTM_DELROUTE, flags_make),
                     'remove': (RTM_DELROUTE, flags_make),
                     'delete': (RTM_DELROUTE, flags_make)}
