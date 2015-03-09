@@ -214,7 +214,50 @@ class TestIPRoute(object):
                                  table=254)
         assert len(rts) > 0
 
-    def test_route_change_replace(self):
+    def test_route_replace_existing(self):
+        # route('replace', ...) should succeed, if route exists
+        require_user('root')
+        self.ip.link('set', index=self.ifaces[0], state='up')
+        self.ip.addr('add', self.ifaces[0], address='172.16.0.50', mask=24)
+        self.ip.route('add',
+                      prefix='172.16.1.0',
+                      mask=24,
+                      gateway='172.16.0.1',
+                      table=100)
+        assert grep('ip route show table 100',
+                    pattern='172.16.1.0/24.*172.16.0.1')
+        self.ip.route('replace',
+                      prefix='172.16.1.0',
+                      mask=24,
+                      gateway='172.16.0.2',
+                      table=100)
+        assert not grep('ip route show table 100',
+                        pattern='172.16.1.0/24.*172.16.0.1')
+        assert grep('ip route show table 100',
+                    pattern='172.16.1.0/24.*172.16.0.2')
+        self.ip.flush_routes(table=100)
+        assert not grep('ip route show table 100',
+                        pattern='172.16.1.0/24.*172.16.0.2')
+
+    def test_route_replace_not_existing_fail(self):
+        # route('replace', ...) should fail, if no route exists
+        require_user('root')
+        self.ip.link('set', index=self.ifaces[0], state='up')
+        self.ip.addr('add', self.ifaces[0], address='172.16.0.50', mask=24)
+        assert not grep('ip route show table 100',
+                        pattern='172.16.1.0/24.*172.16.0.1')
+        try:
+            self.ip.route('replace',
+                          prefix='172.16.1.0',
+                          mask=24,
+                          gateway='172.16.0.1',
+                          table=100)
+        except NetlinkError as e:
+            if e.code != 2:
+                raise
+
+    def test_route_change_existing(self):
+        # route('change', ...) should succeed, if route exists
         require_user('root')
         self.ip.link('set', index=self.ifaces[0], state='up')
         self.ip.addr('add', self.ifaces[0], address='172.16.0.50', mask=24)
@@ -238,7 +281,8 @@ class TestIPRoute(object):
         assert not grep('ip route show table 100',
                         pattern='172.16.1.0/24.*172.16.0.2')
 
-    def test_route_change_create(self):
+    def test_route_change_not_existing(self):
+        # route('change', ...) should succeed, if route doesn't exist
         require_user('root')
         self.ip.link('set', index=self.ifaces[0], state='up')
         self.ip.addr('add', self.ifaces[0], address='172.16.0.2', mask=24)
