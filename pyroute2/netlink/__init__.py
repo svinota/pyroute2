@@ -415,6 +415,9 @@ NETLINK_GENERIC = 16
 # leave room for NETLINK_DM (DM Events)
 NETLINK_SCSITRANSPORT = 18   # SCSI Transports
 
+# NLA flags
+NLA_F_NESTED = 1 << 15
+NLA_F_NET_BYTEORDER = 1 << 14
 
 NLMSG_ALIGNTO = 4
 
@@ -533,6 +536,7 @@ class nlmsg_base(dict):
     header = None                # optional header class
     pack = None                  # pack pragma
     nla_map = {}                 # NLA mapping
+    nla_flags = 0                # NLA flags
 
     def __init__(self, buf=None, length=None, parent=None, debug=False):
         dict.__init__(self)
@@ -967,6 +971,13 @@ class nlmsg_base(dict):
                          'TCA_HTB_PARMS': (<class 'pyroute2...htb_parms'>, 1),
                          'TCA_HTB_INIT': (<class 'pyroute2...htb_glob'>, 2)}
 
+        nla_map format::
+
+            nla_map = (([ID, ] NAME, TYPE[, FLAGS]), ...)
+
+        Items in `[...]` are optional. If ID is not given, then the map will
+        be autonumerated from 0. If flags are not given, they are 0 by default.
+
         '''
         # clean up NLA mappings
         self.t_nla_map = {}
@@ -976,27 +987,35 @@ class nlmsg_base(dict):
         if not self.nla_map:
             return
 
+        # fix nla flags
+        nla_map = []
+        for item in self.nla_map:
+            if not isinstance(item[-1], int):
+                item = list(item)
+                item.append(0)
+            nla_map.append(item)
+
         # detect, whether we have pre-defined keys
-        if len(self.nla_map[0]) == 2:
+        if not isinstance(nla_map[0][0], int):
             # create enumeration
-            nla_types = enumerate((i[0] for i in self.nla_map))
+            nla_types = enumerate((i[0] for i in nla_map))
             # that's a little bit tricky, but to reduce
             # the required amount of code in modules, we have
             # to jump over the head
-            zipped = [(k[1][0], k[0][0], k[0][1]) for k in
-                      zip(self.nla_map, nla_types)]
+            zipped = [(k[1][0], k[0][0], k[0][1], k[0][2]) for k in
+                      zip(nla_map, nla_types)]
         else:
-            zipped = self.nla_map
+            zipped = nla_map
 
-        for (key, name, nla_class) in zipped:
+        for (key, name, nla_class, nla_flags) in zipped:
             # lookup NLA class
             if nla_class == 'recursive':
                 nla_class = type(self)
             else:
                 nla_class = getattr(self, nla_class)
             # update mappings
-            self.t_nla_map[key] = (nla_class, name)
-            self.r_nla_map[name] = (nla_class, key)
+            self.t_nla_map[key] = (nla_class, name, nla_flags)
+            self.r_nla_map[name] = (nla_class, key, nla_flags)
 
     def encode_nlas(self):
         '''
@@ -1013,7 +1032,8 @@ class nlmsg_base(dict):
                     msg_class = msg_class()
                 # encode NLA
                 nla = msg_class(self.buf, parent=self)
-                nla['header']['type'] = msg_type
+                nla.nla_flags |= self.r_nla_map[i[0]][2]
+                nla['header']['type'] = msg_type | nla.nla_flags
                 nla.setvalue(i[1])
                 try:
                     nla.encode()
@@ -1036,10 +1056,7 @@ class nlmsg_base(dict):
             # pick the length and the type
             (length, msg_type) = struct.unpack('HH', self.buf.read(4))
             # first two bits of msg_type are flags:
-            # NLA_F_NESTED = 1 << 15
-            # NLA_F_NET_BYTEORDER = 1 << 14
-            # for now -- just ignore
-            msg_type = msg_type & ~(3 << 14)
+            msg_type = msg_type & ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
             # rewind to the beginning
             self.buf.seek(init)
             length = min(max(length, 4),
@@ -1059,6 +1076,7 @@ class nlmsg_base(dict):
                 nla = msg_class(self.buf, length, self, debug=self.debug)
             try:
                 nla.decode()
+                nla.nla_flags = msg_type & (NLA_F_NESTED | NLA_F_NET_BYTEORDER)
             except Exception:
                 logging.warning(traceback.format_exc())
                 self.buf.seek(init)
