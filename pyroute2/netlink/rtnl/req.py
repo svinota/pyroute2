@@ -1,5 +1,6 @@
 from socket import AF_INET6
 from pyroute2.common import basestring
+from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
 
@@ -105,7 +106,7 @@ class IPLinkRequest(IPRequest):
             self['IFLA_LINKINFO'] = {'attrs': []}
             linkinfo = self['IFLA_LINKINFO']['attrs']
             linkinfo.append(['IFLA_INFO_KIND', value])
-            if value in ('vlan', 'bond', 'tuntap', 'veth'):
+            if value in ('vlan', 'bond', 'tuntap', 'veth', 'vxlan'):
                 linkinfo.append(['IFLA_INFO_DATA', {'attrs': []}])
         elif key == 'vlan_id':
             nla = ['IFLA_VLAN_ID', value]
@@ -131,6 +132,10 @@ class IPLinkRequest(IPRequest):
             nla = ['IFTUN_IFR', value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'tuntap')
+        elif key.startswith('vxlan'):
+            nla = [ifinfmsg.name2nla(key), value]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
+                           lambda x: x.get('kind', None) == 'vxlan')
         elif key == 'peer':
             nla = ['VETH_INFO_PEER', {'attrs': [['IFLA_IFNAME', value]]}]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
