@@ -1074,16 +1074,21 @@ class nlmsg_base(dict):
                 msg_name = self.t_nla_map[msg_type][1]
                 # decode NLA
                 nla = msg_class(self.buf, length, self, debug=self.debug)
-            try:
-                nla.decode()
-                nla.nla_flags = msg_type & (NLA_F_NESTED | NLA_F_NET_BYTEORDER)
-            except Exception:
-                logging.warning(traceback.format_exc())
-                self.buf.seek(init)
+                try:
+                    nla.decode()
+                    nla.nla_flags = msg_type & (NLA_F_NESTED |
+                                                NLA_F_NET_BYTEORDER)
+                except Exception:
+                    logging.warning("decoding %s" % (msg_name))
+                    logging.warning(traceback.format_exc())
+                    self.buf.seek(init)
+                    msg_name = 'UNDECODED'
+                    msg_value = hexdump(self.buf.read(length))
+                else:
+                    msg_value = nla.getvalue()
+            else:
                 msg_name = 'UNKNOWN'
                 msg_value = hexdump(self.buf.read(length))
-            else:
-                msg_value = nla.getvalue()
 
             self['attrs'].append([msg_name, msg_value])
 
