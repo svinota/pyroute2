@@ -627,6 +627,8 @@ class IPDB(object):
                 device.update(kwarg)
                 if isinstance(kwarg.get('link', None), Interface):
                     device['link'] = kwarg['link']['index']
+                if isinstance(kwarg.get('vxlan_link', None), Interface):
+                    device['vxlan_link'] = kwarg['vxlan_link']['index']
                 device['kind'] = kind
                 device['index'] = kwarg.get('index', 0)
                 device['ifname'] = ifname

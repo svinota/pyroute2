@@ -335,6 +335,7 @@ class ifinfbase(object):
                 return ifinfveth
 
         class vxlan_data(nla):
+            prefix = 'IFLA_'
             nla_map = (('IFLA_VXLAN_UNSPEC', 'none'),
                        ('IFLA_VXLAN_ID', 'uint32'),
                        ('IFLA_VXLAN_GROUP', 'ip4addr'),

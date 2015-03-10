@@ -722,6 +722,33 @@ class TestExplicit(object):
         require_bond()
         self._create_master('bond', bond_mode=2)
 
+    def test_create_vxlan(self):
+        require_user('root')
+
+        ifL = self.get_ifname()
+        ifV = self.get_ifname()
+        ifdb = self.ip.interfaces
+
+        self.ip.create(kind='dummy',
+                       ifname=ifL).commit()
+        self.ip.create(kind='vxlan',
+                       ifname=ifV,
+                       vxlan_link=ifdb[ifL],
+                       vxlan_id=101,
+                       vxlan_group='239.1.1.1').commit()
+
+        ip2 = IPDB()
+        ifdb = ip2.interfaces
+
+        try:
+            assert ifdb[ifV].vxlan_link == ifdb[ifL].index
+            assert ifdb[ifV].vxlan_group == '239.1.1.1'
+            assert ifdb[ifV].vxlan_id == 101
+        except Exception:
+            raise
+        finally:
+            ip2.release()
+
     def test_create_vlan_by_interface(self):
         require_user('root')
         require_8021q()

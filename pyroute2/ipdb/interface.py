@@ -74,15 +74,14 @@ class Interface(Transactional):
         self._xfields['common'].append('peer')
         self._xfields['common'].append('vlan_id')
         self._xfields['common'].append('bond_mode')
-        brmsg = ifinfmsg.ifinfo.bridge_data
-        self._xfields['common'].extend([brmsg.nla2name(i[0]) for i
-                                        in brmsg.nla_map])
-        bomsg = ifinfmsg.ifinfo.bond_data
-        self._xfields['common'].extend([bomsg.nla2name(i[0]) for i
-                                        in bomsg.nla_map])
-        tuntap = ifinfmsg.ifinfo.tuntap_data
-        self._xfields['common'].extend([tuntap.nla2name(i[0]) for i
-                                        in tuntap.nla_map])
+
+        for data in ('bridge_data',
+                     'bond_data',
+                     'tuntap_data',
+                     'vxlan_data'):
+            msg = getattr(ifinfmsg.ifinfo, data)
+            self._xfields['common'].extend([msg.nla2name(i[0]) for i
+                                            in msg.nla_map])
         for ftype in self._xfields:
             self._fields += self._xfields[ftype]
         self._fields.extend(self._virtual_fields)
@@ -189,6 +188,11 @@ class Interface(Transactional):
                     if kind == 'vlan':
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
+                    if kind == 'vxlan':
+                        data = linkinfo.get_attr('IFLA_INFO_DATA')
+                        for nla in data.get('attrs', []):
+                            norm = ifinfmsg.nla2name(nla[0])
+                            self[norm] = nla[1]
             # the rest is possible only when interface
             # is used in IPDB, not standalone
             if self.ipdb is not None:
