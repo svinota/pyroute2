@@ -601,6 +601,21 @@ class IPDB(object):
         The `link` parameter should be either integer, interface id, or
         an interface object. VLAN id must be integer.
 
+        ► **vxlan**
+
+        VXLAN interfaces are like VLAN ones, but require a bit more
+        parameters::
+
+            ip.create(ifname='vx101',
+                      kind='vxlan',
+                      vxlan_link=ip.interfaces.eth0,
+                      vxlan_id=101,
+                      vxlan_group='239.1.1.1',
+                      vxlan_ttl=16)
+
+        All possible vxlan parameters are listed in the module
+        `pyroute2.netlink.rtnl.ifinfmsg:... vxlan_data`.
+
         ► **tuntap**
 
         Possible `tuntap` keywords:
