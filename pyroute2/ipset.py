@@ -1,7 +1,5 @@
 '''
-The very basic ipset support. Right now it is under
-development, so is not exported to the library docs,
-neither announced.
+The very basic ipset support.
 '''
 import socket
 from pyroute2.netlink import NLMSG_ERROR
