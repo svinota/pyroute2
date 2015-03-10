@@ -294,6 +294,8 @@ class ifinfbase(object):
             kind = self.get_attr('IFLA_INFO_KIND')
             if kind == 'vlan':
                 return self.vlan_data
+            elif kind == 'vxlan':
+                return self.vxlan_data
             elif kind == 'bond':
                 return self.bond_data
             elif kind == 'veth':
@@ -331,6 +333,26 @@ class ifinfbase(object):
 
             def info_peer(self, *argv, **kwarg):
                 return ifinfveth
+
+        class vxlan_data(nla):
+            nla_map = (('IFLA_VXLAN_UNSPEC', 'none'),
+                       ('IFLA_VXLAN_ID', 'uint32'),
+                       ('IFLA_VXLAN_GROUP', 'ip4addr'),
+                       ('IFLA_VXLAN_GROUP6', 'hex'),
+                       ('IFLA_VXLAN_LINK', 'uint32'),
+                       ('IFLA_VXLAN_LOCAL', 'hex'),
+                       ('IFLA_VXLAN_LOCAL6', 'hex'),
+                       ('IFLA_VXLAN_TOS', 'uint8'),
+                       ('IFLA_VXLAN_TTL', 'uint8'),
+                       ('IFLA_VXLAN_LEARNING', 'uint8'),
+                       ('IFLA_VXLAN_AGEING', 'uint32'),
+                       ('IFLA_VXLAN_LIMIT', 'uint32'),
+                       ('IFLA_VXLAN_PORT_RANGE', 'hex'),
+                       ('IFLA_VXLAN_PROXY', 'uint8'),
+                       ('IFLA_VXLAN_RSC', 'uint8'),
+                       ('IFLA_VXLAN_L2MISS', 'uint8'),
+                       ('IFLA_VXLAN_L3MISS', 'uint8'),
+                       ('IFLA_VXLAN_PORT', 'uint16'))
 
         class vlan_data(nla):
             nla_map = (('IFLA_VLAN_UNSPEC', 'none'),
