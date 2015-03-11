@@ -13,10 +13,15 @@ from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_IPSET
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_PROTOCOL
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_CREATE
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_DESTROY
+from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_SWAP
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_LIST
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_ADD
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_DEL
 from pyroute2.netlink.nfnetlink.ipset import ipset_msg
+
+
+def _nlmsg_error(msg):
+    return msg['header']['type'] == NLMSG_ERROR
 
 
 class IPSet(NetlinkSocket):
@@ -69,8 +74,7 @@ class IPSet(NetlinkSocket):
                         ['IPSET_ATTR_SETNAME', name]]
         return self.request(msg, IPSET_CMD_DESTROY,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
-                            terminate=lambda x: x['header']['type'] ==
-                            NLMSG_ERROR)
+                            terminate=_nlmsg_error)
 
     def create(self, name, stype='hash:ip', family=socket.AF_INET):
         '''
@@ -89,8 +93,7 @@ class IPSet(NetlinkSocket):
 
         return self.request(msg, IPSET_CMD_CREATE,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
-                            terminate=lambda x: x['header']['type'] ==
-                            NLMSG_ERROR)
+                            terminate=_nlmsg_error)
 
     def _add_delete(self, name, entry, family, cmd):
         if family == socket.AF_INET:
@@ -108,11 +111,28 @@ class IPSet(NetlinkSocket):
                                      {'attrs': [[entry_type, entry]]}]]}]]
         return self.request(msg, cmd,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
-                            terminate=lambda x: x['header']['type'] ==
-                            NLMSG_ERROR)
+                            terminate=_nlmsg_error)
 
     def add(self, name, entry, family=socket.AF_INET):
+        '''
+        Add a member to the ipset
+        '''
         return self._add_delete(name, entry, family, IPSET_CMD_ADD)
 
     def delete(self, name, entry, family=socket.AF_INET):
+        '''
+        Delete a member from the ipset
+        '''
         return self._add_delete(name, entry, family, IPSET_CMD_DEL)
+
+    def swap(self, set_a, set_b):
+        '''
+        Swap two ipsets
+        '''
+        msg = ipset_msg()
+        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
+                        ['IPSET_ATTR_SETNAME', set_a],
+                        ['IPSET_ATTR_TYPENAME', set_b]]
+        return self.request(msg, IPSET_CMD_SWAP,
+                            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+                            terminate=_nlmsg_error)
