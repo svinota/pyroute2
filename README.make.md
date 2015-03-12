@@ -27,10 +27,12 @@ Run tests against current code. Requires `flake8`, `nosetests`,
 * wlevel -- the Python -W levels (see Makefile for description)
 * coverage -- whether to produce html coverage
 * pdb -- whether to run pdb on errors and failures
+* module -- run only specific test module
 
-Sample::
+Samples::
 
     $ sudo make test python=python3 coverage=true wlevel=all
+    $ sudo make test wlevel=ignore module=test_ipdb:TestExplicit
 
 Please notice, that by default tests run with wlevel=error,
 thus failing on *any* warning.

@@ -47,6 +47,7 @@ wlevel ?= "error"
 # lib       -- lib installation target (default: platform default)
 # coverage  -- whether to produce html coverage (default: false)
 # pdb       -- whether to run pdb on errors (default: false)
+# module    -- run only the specified test module (default: run all)
 #
 ifdef root
 	override root := "--root=${root}"
@@ -127,7 +128,7 @@ test:
 			${python} ${wlevel} `which ${nosetests}` -v ${pdb} \
 			--with-coverage \
 			--cover-package=pyroute2 \
-			${coverage} || exit 251; \
+			${coverage} ${module} || exit 251; \
 		} ; \
 		cd .. ;
 
