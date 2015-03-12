@@ -14,15 +14,6 @@ General information
     makefile
     migration
 
-Netlink protocol
-----------------
-
-.. toctree::
-    :maxdepth: 2
-
-    netlink
-    nlsocket
-
 Netlink sockets
 ---------------
 
@@ -44,6 +35,19 @@ Utilities
     iproute
     ipdb
     netns
+
+Development guide
+-----------------
+
+.. toctree::
+    :maxdepth: 2
+
+    devmodules
+    devgeneral
+    devcontribute
+    netlink
+    nlsocket
+
 
 Indices and tables
 ==================

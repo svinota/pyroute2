@@ -1,5 +1,12 @@
 '''
+IPSet module
+============
+
 The very basic ipset support.
+
+Right now it is tested only for hash:ip and doesn't support
+many useful options. But it can be easily extended, so you
+are welcome to help with that.
 '''
 import socket
 from pyroute2.netlink import NLMSG_ERROR

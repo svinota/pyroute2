@@ -2,7 +2,9 @@
 IW module
 =========
 
-Experimental module
+Experimental wireless module -- nl80211 support.
+
+In the very initial state.
 '''
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
