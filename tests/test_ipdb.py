@@ -722,6 +722,41 @@ class TestExplicit(object):
         require_bond()
         self._create_master('bond', bond_mode=2)
 
+    def _create_macvx_mode(self, kind, mode):
+        require_user('root')
+        ifL = self.get_ifname()
+        ifV = self.get_ifname()
+        ifdb = self.ip.interfaces
+
+        self.ip.create(kind='dummy',
+                       ifname=ifL).commit()
+        self.ip.create(**{'kind': kind,
+                          'link': ifdb[ifL],
+                          'ifname': ifV,
+                          '%s_mode' % kind: mode}).commit()
+
+        ip2 = IPDB()
+        ifdb = ip2.interfaces
+        try:
+            assert ifdb[ifV].link == ifdb[ifL].index
+            assert ifdb[ifV]['%s_mode' % kind] == mode
+        except Exception:
+            raise
+        finally:
+            ip2.release()
+
+    def test_create_macvtap_vepa(self):
+        return self._create_macvx_mode('macvtap', 'vepa')
+
+    def test_create_macvtap_bridge(self):
+        return self._create_macvx_mode('macvtap', 'bridge')
+
+    def test_create_macvlan_vepa(self):
+        return self._create_macvx_mode('macvlan', 'vepa')
+
+    def test_create_macvlan_bridge(self):
+        return self._create_macvx_mode('macvlan', 'bridge')
+
     def test_create_vxlan(self):
         require_user('root')
 

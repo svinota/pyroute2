@@ -10,6 +10,7 @@ from pyroute2.common import ANCIENT
 # from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
+from pyroute2.netlink import nlmsg_atoms
 from pyroute2.netlink.rtnl.iw_event import iw_event
 
 
@@ -292,19 +293,15 @@ class ifinfbase(object):
             kind is not known.
             '''
             kind = self.get_attr('IFLA_INFO_KIND')
-            if kind == 'vlan':
-                return self.vlan_data
-            elif kind == 'vxlan':
-                return self.vxlan_data
-            elif kind == 'bond':
-                return self.bond_data
-            elif kind == 'veth':
-                return self.veth_data
-            elif kind == 'tuntap':
-                return self.tuntap_data
-            elif kind == 'bridge':
-                return self.bridge_data
-            return self.hex
+            data_map = {'vlan': self.vlan_data,
+                        'vxlan': self.vxlan_data,
+                        'macvlan': self.macvlan_data,
+                        'macvtap': self.macvtap_data,
+                        'bond': self.bond_data,
+                        'veth': self.veth_data,
+                        'tuntap': self.tuntap_data,
+                        'bridge': self.bridge_data}
+            return data_map.get(kind, self.hex)
 
         class tuntap_data(nla):
             '''
@@ -361,6 +358,33 @@ class ifinfbase(object):
             class port_range(nla):
                 fields = (('low', '>H'),
                           ('high', '>H'))
+
+        class macvx_data(nla):
+            prefix = 'IFLA_'
+            nla_map = (('IFLA_MACVLAN_UNSPEC', 'none'),
+                       ('IFLA_MACVLAN_MODE', 'mode'),
+                       ('IFLA_MACVLAN_FLAGS', 'flags'))
+
+            class mode(nlmsg_atoms.uint32):
+                value_map = {0: 'none',
+                             1: 'private',
+                             2: 'vepa',
+                             4: 'bridge',
+                             8: 'passthru'}
+
+            class flags(nlmsg_atoms.uint16):
+                value_map = {0: 'none',
+                             1: 'nopromisc'}
+
+        class macvtap_data(macvx_data):
+            nla_map = (('IFLA_MACVTAP_UNSPEC', 'none'),
+                       ('IFLA_MACVTAP_MODE', 'mode'),
+                       ('IFLA_MACVTAP_FLAGS', 'flags'))
+
+        class macvlan_data(macvx_data):
+            nla_map = (('IFLA_MACVLAN_UNSPEC', 'none'),
+                       ('IFLA_MACVLAN_MODE', 'mode'),
+                       ('IFLA_MACVLAN_FLAGS', 'flags'))
 
         class vlan_data(nla):
             nla_map = (('IFLA_VLAN_UNSPEC', 'none'),
