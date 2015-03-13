@@ -56,7 +56,8 @@ class Interface(Transactional):
                         'event',
                         'map',
                         'stats',
-                        'stats64')
+                        'stats64',
+                        '__align')
         self.ingress = None
         self.egress = None
         self._exists = False
