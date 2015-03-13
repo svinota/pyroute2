@@ -537,6 +537,7 @@ class nlmsg_base(dict):
     pack = None                  # pack pragma
     nla_map = {}                 # NLA mapping
     nla_flags = 0                # NLA flags
+    value_map = {}
 
     def __init__(self, buf=None, length=None, parent=None, debug=False):
         dict.__init__(self)
@@ -552,6 +553,7 @@ class nlmsg_base(dict):
         self['value'] = NotInitialized
         self.value = NotInitialized
         self.register_nlas()
+        self.r_value_map = dict([(x[1], x[0]) for x in self.value_map.items()])
         self.reset(buf)
         self.clean_cbs = []
         if self.header is not None:
@@ -906,6 +908,10 @@ class nlmsg_base(dict):
         if isinstance(value, dict):
             self.update(value)
         else:
+            try:
+                value = self.r_value_map.get(value, value)
+            except TypeError:
+                pass
             self['value'] = value
             self.value = value
 
@@ -947,7 +953,7 @@ class nlmsg_base(dict):
 
         if 'value' in self and self['value'] != NotInitialized:
             # raw value got by generic decoder
-            return self['value']
+            return self.value_map.get(self['value'], self['value'])
 
         return self
 
