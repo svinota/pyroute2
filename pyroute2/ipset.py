@@ -83,7 +83,8 @@ class IPSet(NetlinkSocket):
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
                             terminate=_nlmsg_error)
 
-    def create(self, name, stype='hash:ip', family=socket.AF_INET):
+    def create(self, name, stype='hash:ip', family=socket.AF_INET,
+               exclusive=True):
         '''
         Create an ipset `name` of type `stype`, by default
         `hash:ip`.
@@ -91,6 +92,7 @@ class IPSet(NetlinkSocket):
         Very simple and stupid method, should be extended
         to support ipset options.
         '''
+        excl_flag = NLM_F_EXCL if exclusive else 0
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
                         ['IPSET_ATTR_SETNAME', name],
@@ -99,16 +101,17 @@ class IPSet(NetlinkSocket):
                         ['IPSET_ATTR_REVISION', self._attr_revision]]
 
         return self.request(msg, IPSET_CMD_CREATE,
-                            msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
+                            msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,
                             terminate=_nlmsg_error)
 
-    def _add_delete(self, name, entry, family, cmd):
+    def _add_delete(self, name, entry, family, cmd, exclusive):
         if family == socket.AF_INET:
             entry_type = 'IPSET_ATTR_IPADDR_IPV4'
         elif family == socket.AF_INET6:
             entry_type = 'IPSET_ATTR_IPADDR_IPV6'
         else:
             raise TypeError('unknown family')
+        excl_flag = NLM_F_EXCL if exclusive else 0
 
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
@@ -117,20 +120,20 @@ class IPSet(NetlinkSocket):
                          {'attrs': [['IPSET_ATTR_IP',
                                      {'attrs': [[entry_type, entry]]}]]}]]
         return self.request(msg, cmd,
-                            msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
+                            msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,
                             terminate=_nlmsg_error)
 
-    def add(self, name, entry, family=socket.AF_INET):
+    def add(self, name, entry, family=socket.AF_INET, exclusive=True):
         '''
         Add a member to the ipset
         '''
-        return self._add_delete(name, entry, family, IPSET_CMD_ADD)
+        return self._add_delete(name, entry, family, IPSET_CMD_ADD, exclusive)
 
-    def delete(self, name, entry, family=socket.AF_INET):
+    def delete(self, name, entry, family=socket.AF_INET, exclusive=True):
         '''
         Delete a member from the ipset
         '''
-        return self._add_delete(name, entry, family, IPSET_CMD_DEL)
+        return self._add_delete(name, entry, family, IPSET_CMD_DEL, exclusive)
 
     def swap(self, set_a, set_b):
         '''

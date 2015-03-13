@@ -1,4 +1,5 @@
 from pyroute2.ipset import IPSet
+from pyroute2.netlink import NetlinkError
 from utils import require_user
 from uuid import uuid4
 
@@ -25,6 +26,55 @@ class TestIPSet(object):
     def get_ipset(self, name):
         return [x for x in self.ip.list()
                 if x.get_attr('IPSET_ATTR_SETNAME') == name]
+
+    def test_create_exclusive_fail(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        self.ip.create(name)
+        assert self.get_ipset(name)
+        try:
+            self.ip.create(name)
+        except NetlinkError as e:
+            if e.code != 17:  # File exists
+                raise
+        finally:
+            self.ip.destroy(name)
+        assert not self.get_ipset(name)
+
+    def test_create_exclusive_success(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        self.ip.create(name)
+        assert self.get_ipset(name)
+        self.ip.create(name, exclusive=False)
+        self.ip.destroy(name)
+        assert not self.get_ipset(name)
+
+    def test_add_exclusive_fail(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        ipaddr = '172.16.202.202'
+        self.ip.create(name)
+        self.ip.add(name, ipaddr)
+        assert ipaddr in self.list_ipset(name)
+        try:
+            self.ip.add(name, ipaddr)
+        except NetlinkError:
+            pass
+        finally:
+            self.ip.destroy(name)
+        assert not self.get_ipset(name)
+
+    def test_add_exclusive_success(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        ipaddr = '172.16.202.202'
+        self.ip.create(name)
+        self.ip.add(name, ipaddr)
+        assert ipaddr in self.list_ipset(name)
+        self.ip.add(name, ipaddr, exclusive=False)
+        self.ip.destroy(name)
+        assert not self.get_ipset(name)
 
     def test_create_destroy(self):
         require_user('root')
