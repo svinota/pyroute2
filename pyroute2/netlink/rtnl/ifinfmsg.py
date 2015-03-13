@@ -621,14 +621,16 @@ def proxy_linkinfo(data, nl):
 
     data = b''
     for msg in inbox:
-        # sysfs operations can require root permissions,
+        # Sysfs operations can require root permissions,
         # but the script can be run under a normal user
         # Bug-Url: https://github.com/svinota/pyroute2/issues/113
         try:
             compat_fix_attrs(msg)
-        except OSError as e:
-            if e.errno != 13:  # Permission denied
-                raise
+        except OSError:
+            # We can safely ignore here any OSError.
+            # In the worst case, we just return what we have got
+            # from the kernel via netlink
+            pass
 
         msg.reset()
         msg.encode()
