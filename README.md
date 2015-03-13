@@ -8,18 +8,16 @@ it is possible.
 
 The library provides several modules:
 
-1. Netlink protocol implementations (RTNetlink, TaskStats, etc)
-
-  * **rtnl**, network settings — addresses, routes, traffic controls
-  * **nl80211** — wireless functions API (work in progress)
-  * **nfnetlink** — netfilter API: **ipset** (work in progress), …
-  * **ipq** — simplest userspace packet filtering, iptables QUEUE target
-  * **taskstats** — extended process statistics
-
-2. Simple netlink socket object, that can be used in poll/select
-3. Network configuration module IPRoute provides API that in some
-   way resembles ip/tc functionality
-4. IPDB is an async transactional database of Linux network settings
+* Netlink protocol implementations (RTNetlink, TaskStats, etc)
+    * **rtnl**, network settings — addresses, routes, traffic controls
+    * **nl80211** — wireless functions API (work in progress)
+    * **nfnetlink** — netfilter API: **ipset** (work in progress), …
+    * **ipq** — simplest userspace packet filtering, iptables QUEUE target
+    * **taskstats** — extended process statistics
+* Simple netlink socket object, that can be used in poll/select
+* Network configuration module IPRoute provides API that in some
+  way resembles ip/tc functionality
+* IPDB is an async transactional database of Linux network settings
 
 rtnetlink sample
 ----------------

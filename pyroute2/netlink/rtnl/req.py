@@ -107,7 +107,7 @@ class IPLinkRequest(IPRequest):
             linkinfo = self['IFLA_LINKINFO']['attrs']
             linkinfo.append(['IFLA_INFO_KIND', value])
             if value in ('vlan', 'bond', 'tuntap', 'veth',
-                         'vxlan', 'macvlan', 'macvtap'):
+                         'vxlan', 'macvlan', 'macvtap', 'gre'):
                 linkinfo.append(['IFLA_INFO_DATA', {'attrs': []}])
         elif key == 'vlan_id':
             nla = ['IFLA_VLAN_ID', value]
@@ -141,6 +141,10 @@ class IPLinkRequest(IPRequest):
             nla = [ifinfmsg.name2nla(key), value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'macvlan')
+        elif key.startswith('gre'):
+            nla = [ifinfmsg.name2nla(key), value]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
+                           lambda x: x.get('kind', None) == 'gre')
         elif key.startswith('vxlan'):
             nla = [ifinfmsg.name2nla(key), value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),

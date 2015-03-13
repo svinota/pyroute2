@@ -225,8 +225,8 @@ context managers::
 On exit, the context manager will authomatically `commit()` the
 transaction.
 
-interface creation
-------------------
+create interfaces
+-----------------
 
 IPDB can also create interfaces::
 
@@ -235,9 +235,8 @@ IPDB can also create interfaces::
         i.add_port(ip.interfaces.eth2)
         i.add_ip('10.0.0.1/24')  # the same as i.add_ip('10.0.0.1', 24)
 
-Right now IPDB supports creation of `dummy`, `bond`, `bridge`
-and `vlan` interfaces. VLAN creation requires also `link` and
-`vlan_id` parameters, see example scripts.
+IPDB supports many interface types, see docs below for the
+`IPDB.create()` method.
 
 routing management
 ------------------
@@ -559,12 +558,15 @@ class IPDB(object):
         required.
 
         * kind -- interface type, can be of:
-          * bridge
-          * bond
-          * vlan
-          * tun
-          * dummy
-          * veth
+            * bridge
+            * bond
+            * vlan
+            * tun
+            * dummy
+            * veth
+            * macvlan
+            * macvtap
+            * gre
         * ifname -- interface name
         * reuse -- if such interface exists, return it anyway
 
@@ -582,6 +584,49 @@ class IPDB(object):
 
         The code above creates two interfaces, `v1p0` and `v1p1`, and
         adds two addresses to `v1p0`.
+
+        ► **macvlan**
+
+        Macvlan interfaces act like VLANs within OS. The macvlan driver
+        provides an ability to add several MAC addresses on one interface,
+        where every MAC address is reflected with a virtual interface in
+        the system.
+
+        In some setups macvlan interfaces can replace bridge interfaces,
+        providing more simple and at the same time high-performance
+        solution::
+
+            ip.create(ifname='mvlan0',
+                      kind='macvlan',
+                      link=ip.interfaces.em1,
+                      macvlan_mode='private').commit()
+
+        Several macvlan modes are available: 'private', 'vepa', 'bridge',
+        'passthru'. Ususally the default is 'vepa'.
+
+        ► **macvtap**
+
+        Almost the same as macvlan, but creates also a character tap device::
+
+            ip.create(ifname='mvtap0',
+                      kind='macvtap',
+                      link=ip.interfaces.em1,
+                      macvtap_mode='vepa').commit()
+
+        Will create a device file `"/dev/tap%s" % ip.interfaces.mvtap0.index`
+
+        ► **gre**
+
+        Create GRE tunnel::
+
+            with ip.create(ifname='grex',
+                           kind='gre',
+                           gre_local='172.16.0.1',
+                           gre_remote='172.16.0.101',
+                           gre_ttl=16) as i:
+                i.add_ip('192.168.0.1/24')
+                i.up()
+
 
         ► **vlan**
 

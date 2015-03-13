@@ -80,6 +80,7 @@ class Interface(Transactional):
                      'bond_data',
                      'tuntap_data',
                      'vxlan_data',
+                     'gre_data',
                      'macvlan_data',
                      'macvtap_data'):
             msg = getattr(ifinfmsg.ifinfo, data)
@@ -191,7 +192,7 @@ class Interface(Transactional):
                     if kind == 'vlan':
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
-                    if kind in ('vxlan', 'macvlan', 'macvtap'):
+                    if kind in ('vxlan', 'macvlan', 'macvtap', 'gre'):
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         for nla in data.get('attrs', []):
                             norm = ifinfmsg.nla2name(nla[0])

@@ -757,6 +757,32 @@ class TestExplicit(object):
     def test_create_macvlan_bridge(self):
         return self._create_macvx_mode('macvlan', 'bridge')
 
+    def test_create_gre(self):
+        require_user('root')
+
+        ifL = self.get_ifname()
+        ifV = self.get_ifname()
+        with self.ip.create(kind='dummy', ifname=ifL) as i:
+            i.add_ip('172.16.0.1/24')
+            i.up()
+
+        self.ip.create(kind='gre',
+                       ifname=ifV,
+                       gre_local='172.16.0.1',
+                       gre_remote='172.16.0.2',
+                       gre_ttl=16).commit()
+
+        ip2 = IPDB()
+        ifdb = ip2.interfaces
+        try:
+            assert ifdb[ifV].gre_local == '172.16.0.1'
+            assert ifdb[ifV].gre_remote == '172.16.0.2'
+            assert ifdb[ifV].gre_ttl == 16
+        except Exception:
+            raise
+        finally:
+            ip2.release()
+
     def test_create_vxlan(self):
         require_user('root')
 
