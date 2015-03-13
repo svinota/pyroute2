@@ -361,9 +361,6 @@ class ifinfbase(object):
 
         class macvx_data(nla):
             prefix = 'IFLA_'
-            nla_map = (('IFLA_MACVLAN_UNSPEC', 'none'),
-                       ('IFLA_MACVLAN_MODE', 'mode'),
-                       ('IFLA_MACVLAN_FLAGS', 'flags'))
 
             class mode(nlmsg_atoms.uint32):
                 value_map = {0: 'none',
