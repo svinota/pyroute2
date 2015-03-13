@@ -563,6 +563,53 @@ class ifinfveth(ifinfbase, nla):
     pass
 
 
+def compat_fix_attrs(msg):
+    kind = None
+    ifname = msg.get_attr('IFLA_IFNAME')
+
+    # fix master
+    if ANCIENT:
+        master = compat_get_master(ifname)
+        if master is not None:
+            msg['attrs'].append(['IFLA_MASTER', master])
+
+    # fix linkinfo & kind
+    li = msg.get_attr('IFLA_LINKINFO')
+    if li is not None:
+        kind = li.get_attr('IFLA_INFO_KIND')
+        if kind is None:
+            kind = get_interface_type(ifname)
+            li['attrs'].append(['IFLA_INFO_KIND', kind])
+    else:
+        kind = get_interface_type(ifname)
+        msg['attrs'].append(['IFLA_LINKINFO',
+                             {'attrs': [['IFLA_INFO_KIND', kind]]}])
+
+    li = msg.get_attr('IFLA_LINKINFO')
+    # fetch specific interface data
+    if (kind in ('bridge', 'bond')) and \
+            [x for x in li['attrs'] if x[0] == 'IFLA_INFO_DATA']:
+        if kind == 'bridge':
+            t = '/sys/class/net/%s/bridge/%s'
+            ifdata = ifinfmsg.ifinfo.bridge_data
+        elif kind == 'bond':
+            t = '/sys/class/net/%s/bonding/%s'
+            ifdata = ifinfmsg.ifinfo.bond_data
+
+        commands = []
+        for cmd, _ in ifdata.nla_map:
+            try:
+                with open(t % (ifname, ifdata.nla2name(cmd)), 'r') as f:
+                    value = f.read()
+                if cmd == 'IFLA_BOND_MODE':
+                    value = value.split()[1]
+                commands.append([cmd, int(value)])
+            except:
+                pass
+        if commands:
+            li['attrs'].append(['IFLA_INFO_DATA', {'attrs': commands}])
+
+
 def proxy_linkinfo(data, nl):
     offset = 0
     inbox = []
@@ -574,50 +621,14 @@ def proxy_linkinfo(data, nl):
 
     data = b''
     for msg in inbox:
-        kind = None
-        ifname = msg.get_attr('IFLA_IFNAME')
-
-        # fix master
-        if ANCIENT:
-            master = compat_get_master(ifname)
-            if master is not None:
-                msg['attrs'].append(['IFLA_MASTER', master])
-
-        # fix linkinfo & kind
-        li = msg.get_attr('IFLA_LINKINFO')
-        if li is not None:
-            kind = li.get_attr('IFLA_INFO_KIND')
-            if kind is None:
-                kind = get_interface_type(ifname)
-                li['attrs'].append(['IFLA_INFO_KIND', kind])
-        else:
-            kind = get_interface_type(ifname)
-            msg['attrs'].append(['IFLA_LINKINFO',
-                                 {'attrs': [['IFLA_INFO_KIND', kind]]}])
-
-        li = msg.get_attr('IFLA_LINKINFO')
-        # fetch specific interface data
-        if (kind in ('bridge', 'bond')) and \
-                [x for x in li['attrs'] if x[0] == 'IFLA_INFO_DATA']:
-            if kind == 'bridge':
-                t = '/sys/class/net/%s/bridge/%s'
-                ifdata = ifinfmsg.ifinfo.bridge_data
-            elif kind == 'bond':
-                t = '/sys/class/net/%s/bonding/%s'
-                ifdata = ifinfmsg.ifinfo.bond_data
-
-            commands = []
-            for cmd, _ in ifdata.nla_map:
-                try:
-                    with open(t % (ifname, ifdata.nla2name(cmd)), 'r') as f:
-                        value = f.read()
-                    if cmd == 'IFLA_BOND_MODE':
-                        value = value.split()[1]
-                    commands.append([cmd, int(value)])
-                except:
-                    pass
-            if commands:
-                li['attrs'].append(['IFLA_INFO_DATA', {'attrs': commands}])
+        # sysfs operations can require root permissions,
+        # but the script can be run under a normal user
+        # Bug-Url: https://github.com/svinota/pyroute2/issues/113
+        try:
+            compat_fix_attrs(msg)
+        except OSError as e:
+            if e.errno != 13:  # Permission denied
+                raise
 
         msg.reset()
         msg.encode()
