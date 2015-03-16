@@ -554,7 +554,7 @@ class TestExplicit(object):
         assert ifA in self.ip.interfaces
         assert grep('ip link', pattern=ifA)
 
-    def test_create_ovs_bridge(self):
+    def test_ovs_kind_aliases(self):
         require_user('root')
         require_executable('ovs-vsctl')
 
@@ -681,11 +681,16 @@ class TestExplicit(object):
 
         with self.ip.create(kind=kind, ifname=ifM, **kwarg) as i:
             i.add_port(self.ip.interfaces[ifP1])
-            i.add_port(self.ip.interfaces[ifP2])
             i.add_ip('172.16.0.1/24')
 
+        with self.ip.interfaces[ifM] as i:
+            i.add_port(self.ip.interfaces[ifP2])
+            i.add_ip('172.16.0.2/24')
+
         assert ('172.16.0.1', 24) in self.ip.interfaces[ifM].ipaddr
+        assert ('172.16.0.2', 24) in self.ip.interfaces[ifM].ipaddr
         assert '172.16.0.1/24' in get_ip_addr(interface=ifM)
+        assert '172.16.0.2/24' in get_ip_addr(interface=ifM)
         assert self.ip.interfaces[ifP1].if_master == \
             self.ip.interfaces[ifM].index
         assert self.ip.interfaces[ifP2].if_master == \
@@ -695,9 +700,12 @@ class TestExplicit(object):
             i.del_port(self.ip.interfaces[ifP1])
             i.del_port(self.ip.interfaces[ifP2])
             i.del_ip('172.16.0.1/24')
+            i.del_ip('172.16.0.2/24')
 
         assert ('172.16.0.1', 24) not in self.ip.interfaces[ifM].ipaddr
+        assert ('172.16.0.2', 24) not in self.ip.interfaces[ifM].ipaddr
         assert '172.16.0.1/24' not in get_ip_addr(interface=ifM)
+        assert '172.16.0.2/24' not in get_ip_addr(interface=ifM)
         assert self.ip.interfaces[ifP1].if_master is None
         assert self.ip.interfaces[ifP2].if_master is None
 
@@ -716,6 +724,11 @@ class TestExplicit(object):
         require_executable('teamd')
         require_executable('teamdctl')
         self._create_master('team')
+
+    def test_create_ovs(self):
+        require_user('root')
+        require_executable('ovs-vsctl')
+        self._create_master('openvswitch')
 
     def test_create_bond2(self):
         require_user('root')
