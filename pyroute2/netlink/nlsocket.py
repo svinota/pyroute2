@@ -299,6 +299,12 @@ class NetlinkMixin(object):
         self.setsockopt(SOL_SOCKET, SO_SNDBUF, 32768)
         self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     def release(self):
         logging.warning("The `release()` call is deprecated")
         logging.warning("Use `close()` instead")

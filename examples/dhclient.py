@@ -1,6 +1,6 @@
 import sys
 from pprint import pprint
-from pyroute2.dhcp import DHCP4Socket
+from pyroute2.dhcp.dhcp4socket import DHCP4Socket
 
 if len(sys.argv) > 1:
     iface = sys.argv[1]
