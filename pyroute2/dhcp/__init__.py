@@ -1,5 +1,13 @@
 import array
 import struct
+from ctypes import Structure
+from ctypes import addressof
+from ctypes import string_at
+from ctypes import sizeof
+from ctypes import c_ushort
+from ctypes import c_ubyte
+from ctypes import c_uint
+from ctypes import c_void_p
 from socket import socket
 from socket import htons
 from socket import inet_ntop
@@ -7,15 +15,46 @@ from socket import inet_pton
 from socket import AF_INET
 from socket import AF_PACKET
 from socket import SOCK_RAW
-from socket import SOCK_DGRAM
+# from socket import SOCK_DGRAM
 from socket import SOL_SOCKET
-from socket import SO_BROADCAST
-from socket import SO_REUSEADDR
-from socket import SO_BINDTODEVICE
+from socket import SO_ATTACH_FILTER
+# from socket import SO_BROADCAST
+# from socket import SO_REUSEADDR
+# from socket import SO_BINDTODEVICE
 from pyroute2 import IPRoute
 from pyroute2.common import basestring
 
 ETH_P_ALL = 3
+BPF_CODE = [[40, 0, 0, 12],
+            [21, 0, 8, 2048],
+            [48, 0, 0, 23],
+            [21, 0, 6, 17],
+            [40, 0, 0, 20],
+            [69, 4, 0, 8191],
+            [177, 0, 0, 14],
+            [72, 0, 0, 16],
+            [21, 0, 1, 68],
+            [6, 0, 0, 65535],
+            [6, 0, 0, 0]]
+
+
+class sock_filter(Structure):
+    _fields_ = [('code', c_ushort),  # u16
+                ('jt', c_ubyte),     # u8
+                ('jf', c_ubyte),     # u8
+                ('k', c_uint)]       # u32
+
+
+class sock_fprog(Structure):
+    _fields_ = [('len', c_ushort),
+                ('filter', c_void_p)]
+
+
+def compile_bpf(code):
+    ProgramType = sock_filter * len(code)
+    program = ProgramType(*[sock_filter(*line) for line in code])
+    sfp = sock_fprog(len(code), addressof(program[0]))
+    return string_at(addressof(sfp), sizeof(sfp)), program
 
 
 class msg(dict):
@@ -30,11 +69,12 @@ class msg(dict):
                          'decode': lambda x: inet_ntop(AF_INET, x),
                          'encode': lambda x: [inet_pton(AF_INET, x)]},
              'l2addr': {'format': '6B',
-                        'decode': lambda x: ':'.join(x),
+                        'decode': lambda x: ':'.join(['%x' % i for i in x]),
                         'encode': lambda x: [int(i, 16) for i in
                                              x.split(':')]},
              'l2paddr': {'format': '6B10s',
-                         'decode': lambda x: ':'.join(x[:-1]),
+                         'decode': lambda x: ':'.join(['%x' % i for i in
+                                                       x[:6]]),
                          'encode': lambda x: [int(i, 16) for i in
                                               x.split(':')] + [10 * '\x00']}}
 
@@ -42,7 +82,7 @@ class msg(dict):
         content = content or {}
         dict.__init__(self, content)
         self.buf = buf
-        self.offset = 0
+        self.offset = offset
         self.value = value
         self._register_fields()
 
@@ -53,9 +93,9 @@ class msg(dict):
         fmt = self.types.get(fmt, fmt)
         if isinstance(fmt, dict):
             return (fmt['format'],
-                    fmt.get(mode, lambda x: [x]))
+                    fmt.get(mode, lambda x: x))
         else:
-            return (fmt, lambda x: [x])
+            return (fmt, lambda x: x)
 
     def reset(self):
         self.buf = b''
@@ -63,11 +103,15 @@ class msg(dict):
     def decode(self):
         self._register_fields()
         for field in self.fields:
-            name, fmt = field[:2]
-            fmt, routine = self._get_routine('decode', fmt)
+            name, sfmt = field[:2]
+            fmt, routine = self._get_routine('decode', sfmt)
             size = struct.calcsize(fmt)
             value = struct.unpack(fmt, self.buf[self.offset:
-                                                self.offset + size])[0]
+                                                self.offset + size])
+            if len(value) == 1:
+                value = value[0]
+            if isinstance(value, basestring) and sfmt[-1] == 's':
+                value = value[:value.find('\x00')]
             self[name] = routine(value)
             self.offset += size
         return self
@@ -153,10 +197,33 @@ class option(msg):
             msg.encode(self)
         return self
 
+    def decode(self):
+        if self.policy is not None:
+            length = struct.unpack('B', self.buf[self.offset + 1:
+                                                 self.offset + 2])[0]
+            if self.policy['fmt'] == 'string':
+                fmt = '%is' % length
+            else:
+                fmt = self.policy['fmt']
+            value = struct.unpack(fmt, self.buf[self.offset + 2:
+                                                self.offset + 2 + length])
+            if len(value) == 1:
+                value = value[0]
+            value = self.policy.get('decode', lambda x: x)(value)
+            if isinstance(value, basestring) and \
+                    self.policy['fmt'] == 'string':
+                value = value[:value.find('\x00')]
+            self.value = value
+        else:
+            msg.decode(self)
+        return self
+
 
 class dhcpmsg(msg):
     options = ()
     l2addr = None
+    _encode_map = {}
+    _decode_map = {}
 
     def _register_options(self):
         for option in self.options:
@@ -168,25 +235,37 @@ class dhcpmsg(msg):
 
     def decode(self):
         msg.decode(self)
+        self._register_options()
+        self['options'] = {}
         while self.offset < len(self.buf):
-            code = struct.unpack('B', self.buf[self.offset:self.offset + 1])
+            code = struct.unpack('B', self.buf[self.offset:self.offset + 1])[0]
+            if code == 0:
+                self.offset += 1
+                continue
+            if code == 255:
+                return self
             # code is unknown -- bypass it
             if code not in self._decode_map:
                 length = struct.unpack('B', self.buf[self.offset + 1:
-                                                     self.offset + 2])
+                                                     self.offset + 2])[0]
                 self.offset += length + 2
                 continue
 
             # code is known, work on it
             option_class = getattr(self, self._decode_map[code]['fmt'])
-            option = option_class(buf=self.buf, offset=self.offset + 2)
+            option = option_class(buf=self.buf, offset=self.offset)
             option.decode()
             self.offset += option.length
-            self['options'][self._decode_map[code]['name']] = option
+            if option.value is not None:
+                value = option.value
+            else:
+                value = option
+            self['options'][self._decode_map[code]['name']] = value
         return self
 
     def encode(self):
         msg.encode(self)
+        self._register_options()
         # put message type
         self.buf += self.uint8(code=53, value=self.mtype).encode().buf
         self.buf += self.client_id({'type': 1,
@@ -319,6 +398,7 @@ class DHCP4Socket(socket):
 
     def __init__(self, ifname):
         self.ifname = ifname
+        fstring, self.fprog = compile_bpf(BPF_CODE)
         # lookup the interface details
         ip = IPRoute()
         for link in ip.get_links():
@@ -329,15 +409,14 @@ class DHCP4Socket(socket):
         self.l2addr = link.get_attr('IFLA_ADDRESS')
         self.ifindex = link['index']
         # bring up the socket
-        socket.__init__(self, AF_INET, SOCK_DGRAM)
-        socket.setsockopt(self, SOL_SOCKET, SO_BROADCAST, 1)
-        socket.setsockopt(self, SOL_SOCKET, SO_REUSEADDR, 1)
-        socket.setsockopt(self, SOL_SOCKET, SO_BINDTODEVICE, self.ifname)
-        socket.bind(self, ('', 68))
-
-        # create raw send socket
-        self.raw = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))
-        self.raw.bind((ifname, ETH_P_ALL))
+        socket.__init__(self, AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))
+        socket.bind(self, (self.ifname, ETH_P_ALL))
+        socket.setsockopt(self, SOL_SOCKET, SO_ATTACH_FILTER, fstring)
+        # socket.__init__(self, AF_INET, SOCK_DGRAM)
+        # socket.setsockopt(self, SOL_SOCKET, SO_BINDTODEVICE, self.ifname)
+        # socket.setsockopt(self, SOL_SOCKET, SO_REUSEADDR, 1)
+        # socket.bind(self, ('', 68))
+        # socket.setsockopt(self, SOL_SOCKET, SO_BROADCAST, 1)
 
     def csum(self, data):
         if len(data) % 2:
@@ -371,7 +450,8 @@ class DHCP4Socket(socket):
             ip4.encode().buf +\
             udp.encode().buf +\
             data
-        self.raw.send(data)
+        # create raw send socket
+        self.send(data)
 
     def put(self, options=None, msg=None, addr='255.255.255.255', port=67):
         options = options or {}
@@ -397,4 +477,7 @@ class DHCP4Socket(socket):
 
     def get(self):
         (data, addr) = self.recvfrom(4096)
-        return dhcp4msg(buf=data).decode()
+        eth = ethmsg(buf=data).decode()
+        ip4 = ip4msg(buf=data, offset=eth.offset).decode()
+        udp = udpmsg(buf=data, offset=ip4.offset).decode()
+        return dhcp4msg(buf=data, offset=udp.offset).decode()
