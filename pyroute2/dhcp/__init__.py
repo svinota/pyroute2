@@ -107,6 +107,14 @@ class ip4msg(msg):
               ('dst', 'ip4addr'))
 
 
+class udp4_pseudo_header(msg):
+    fields = (('src', 'ip4addr'),
+              ('dst', 'ip4addr'),
+              ('pad', 'uint8'),
+              ('proto', 'uint8'),
+              ('len', 'be16'))
+
+
 class udpmsg(msg):
     fields = (('sport', 'be16'),
               ('dport', 'be16'),
@@ -181,7 +189,10 @@ class DHCP4Socket(socket):
         udp = udpmsg({'sport': 68,
                       'dport': 67,
                       'len': 8 + len(data)})
-        udp['csum'] = self.csum(ip4.encode().buf + udp.encode().buf + data)
+        udph = udp4_pseudo_header({'dst': '255.255.255.255',
+                                   'proto': 17,
+                                   'len': 8 + len(data)})
+        udp['csum'] = self.csum(udph.encode().buf + udp.encode().buf + data)
         data = eth.encode().buf +\
             ip4.encode().buf +\
             udp.encode().buf +\
