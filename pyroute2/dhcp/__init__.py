@@ -133,7 +133,10 @@ class msg(dict):
                     else:
                         self.buf += default * (size / len(default))
                 else:
-                    self.buf += struct.pack(fmt, *routine(self[name]))
+                    value = routine(self[name])
+                    if not isinstance(value, (set, tuple, list)):
+                        value = [value]
+                    self.buf += struct.pack(fmt, *value)
         return self
 
     def __getitem__(self, key):
