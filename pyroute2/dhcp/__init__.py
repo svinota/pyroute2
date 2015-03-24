@@ -24,8 +24,6 @@ class msg(dict):
              'uint16': 'H',
              'uint32': 'I',
              'be16': '>H',
-             'dhcp_cookie': {'format': '>I',
-                             'default': struct.pack('>I', 0x63825363)},
              'ip4addr': {'format': '4s',
                          'decode': lambda x: inet_ntop(AF_INET, x),
                          'encode': lambda x: [inet_pton(AF_INET, x)]},
@@ -51,16 +49,16 @@ class msg(dict):
         fmt = self.types.get(fmt, fmt)
         if isinstance(fmt, dict):
             return (fmt['format'],
-                    fmt.get(mode, lambda x: [x]),
-                    fmt.get('default', b'\x00'))
+                    fmt.get(mode, lambda x: [x]))
         else:
-            return (fmt, lambda x: [x], b'\x00')
+            return (fmt, lambda x: [x])
 
     def decode(self):
         offset = 0
         self._register_fields()
-        for name, fmt in self.fields:
-            fmt, routine, default = self._get_routine('decode', fmt)
+        for field in self.fields:
+            name, fmt = field[:2]
+            fmt, routine = self._get_routine('decode', fmt)
             size = struct.calcsize(fmt)
             value = struct.unpack(fmt, self.buf[offset:offset + size])[0]
             self[name] = routine(value)
@@ -70,8 +68,10 @@ class msg(dict):
     def encode(self):
         self.buf = b''
         self._register_fields()
-        for name, fmt in self.fields:
-            fmt, routine, default = self._get_routine('encode', fmt)
+        for field in self.fields:
+            name, fmt = field[:2]
+            default = '\x00' if len(field) <= 2 else field[2]
+            fmt, routine = self._get_routine('encode', fmt)
             size = struct.calcsize(fmt)
             if self[name] is None:
                 self.buf += default * size
@@ -139,8 +139,7 @@ class dhcp4msg(msg):
               ('giaddr', 'ip4addr'),
               ('chaddr', 'l2paddr'),
               ('sname', '64s'),
-              ('file', '128s'),
-              ('cookie', 'dhcp_cookie'))
+              ('file', '128s'))
 
 
 class DHCP4Socket(socket):
