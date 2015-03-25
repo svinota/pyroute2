@@ -7,6 +7,7 @@ from pyroute2.protocols import msg
 class option(msg):
 
     code = 0
+    data_length = 0
     policy = None
     value = None
 
@@ -17,55 +18,50 @@ class option(msg):
 
     @property
     def length(self):
-        data_length = self.data_length
-        if data_length == 0:
+        if self.data_length is None:
+            return None
+        if self.data_length == 0:
             return 1
         else:
-            return data_length + 2
-
-    @property
-    def data_length(self):
-        s = 0
-        for field in self.fields:
-            fmt, routine = self._get_routine('decode', field[1])
-            if fmt == 'string':
-                s += len(self[field[0]])
-            else:
-                s += struct.calcsize(fmt)
-        if s == 0 and self.policy is not None:
-            if self.policy['fmt'] == 'string':
-                s = len(self.value)
-            else:
-                s = struct.calcsize(self.policy['fmt'])
-        return s
+            return self.data_length + 2
 
     def encode(self):
         # pack code
         self.buf += struct.pack('B', self.code)
         if self.code in (0, 255):
             return self
-        self.buf += struct.pack('B', self.data_length)
+        # save buf
+        save = self.buf
+        self.buf = b''
+        # pack data into the new buf
         if self.policy is not None:
             value = self.policy.get('encode', lambda x: x)(self.value)
             if self.policy['fmt'] == 'string':
                 fmt = '%is' % len(value)
             else:
                 fmt = self.policy['fmt']
-            self.buf += struct.pack(fmt, value)
+            self.buf = struct.pack(fmt, value)
         else:
             msg.encode(self)
+        # get the length
+        data = self.buf
+        self.buf = save
+        self.buf += struct.pack('B', len(data))
+        # attach the packed data
+        self.buf += data
         return self
 
     def decode(self):
         if self.policy is not None:
-            length = struct.unpack('B', self.buf[self.offset + 1:
-                                                 self.offset + 2])[0]
+            self.data_length = struct.unpack('B', self.buf[self.offset + 1:
+                                                           self.offset + 2])[0]
             if self.policy['fmt'] == 'string':
-                fmt = '%is' % length
+                fmt = '%is' % self.data_length
             else:
                 fmt = self.policy['fmt']
             value = struct.unpack(fmt, self.buf[self.offset + 2:
-                                                self.offset + 2 + length])
+                                                self.offset + 2 +
+                                                self.data_length])
             if len(value) == 1:
                 value = value[0]
             value = self.policy.get('decode', lambda x: x)(value)
@@ -132,7 +128,7 @@ class dhcpmsg(msg):
                                    code=61).encode().buf
         self.buf += self.string(code=60, value='pyroute2').encode().buf
 
-        for (name, value) in self.get('options', {}):
+        for (name, value) in self.get('options', {}).items():
             fmt = self._encode_map.get(name, {'fmt': None})['fmt']
             if fmt is None:
                 continue
@@ -145,6 +141,10 @@ class dhcpmsg(msg):
                 option = option_class(code=self._encode_map[name]['code'],
                                       value=value)
             self.buf += option.encode().buf
+            # should we align?
+            if len(self.buf) % 4:
+                for _ in range(4 - len(self.buf) % 4):
+                    self.buf += self.none(code=0).encode().buf
 
         self.buf += self.none(code=255).encode().buf
         return self
