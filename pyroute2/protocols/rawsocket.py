@@ -12,10 +12,10 @@ from socket import htons
 from socket import AF_PACKET
 from socket import SOCK_RAW
 from socket import SOL_SOCKET
-from socket import SO_ATTACH_FILTER
 from pyroute2 import IPRoute
 
 ETH_P_ALL = 3
+SO_ATTACH_FILTER = 26
 
 
 class sock_filter(Structure):
@@ -61,9 +61,9 @@ class RawSocket(socket):
 
     def csum(self, data):
         if len(data) % 2:
-            data += '\x00'
+            data += b'\x00'
         csum = sum([struct.unpack('>H', data[x*2:x*2+2])[0] for x
-                    in range(len(data)/2)])
+                    in range(len(data)//2)])
         csum = (csum >> 16) + (csum & 0xffff)
         csum += csum >> 16
         return ~csum & 0xffff

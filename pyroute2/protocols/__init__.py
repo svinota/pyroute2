@@ -127,7 +127,7 @@ class msg(dict):
                          'decode': lambda x: ':'.join(['%x' % i for i in
                                                        x[:6]]),
                          'encode': lambda x: [int(i, 16) for i in
-                                              x.split(':')] + [10 * '\x00']}}
+                                              x.split(':')] + [10 * b'\x00']}}
 
     def __init__(self, content=None, buf=b'', offset=0, value=None):
         content = content or {}
@@ -162,7 +162,7 @@ class msg(dict):
             if len(value) == 1:
                 value = value[0]
             if isinstance(value, basestring) and sfmt[-1] == 's':
-                value = value[:value.find('\x00')]
+                value = value[:value.find(b'\x00')]
             self[name] = routine(value)
             self.offset += size
         return self
@@ -171,7 +171,7 @@ class msg(dict):
         self._register_fields()
         for field in self.fields:
             name, fmt = field[:2]
-            default = '\x00' if len(field) <= 2 else field[2]
+            default = b'\x00' if len(field) <= 2 else field[2]
             fmt, routine = self._get_routine('encode', fmt)
             # special case: string
             if fmt == 'string':
@@ -182,7 +182,7 @@ class msg(dict):
                     if not isinstance(default, basestring):
                         self.buf += struct.pack(fmt, default)
                     else:
-                        self.buf += default * (size / len(default))
+                        self.buf += default * (size // len(default))
                 else:
                     value = routine(self[name])
                     if not isinstance(value, (set, tuple, list)):

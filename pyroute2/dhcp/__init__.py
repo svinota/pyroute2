@@ -1,7 +1,14 @@
-import array
 import struct
+from array import array
 from pyroute2.common import basestring
 from pyroute2.protocols import msg
+
+
+if not hasattr(array, 'tobytes'):
+    # Python2 and Python3 versions of array differ,
+    # but we need here a consistent API w/o warnings
+    class array(array):
+        tobytes = array.tostring
 
 
 class option(msg):
@@ -40,6 +47,8 @@ class option(msg):
                 fmt = '%is' % len(value)
             else:
                 fmt = self.policy['fmt']
+            if isinstance(value, str):
+                value = value.encode('utf-8')
             self.buf = struct.pack(fmt, value)
         else:
             msg.encode(self)
@@ -163,8 +172,8 @@ class dhcpmsg(msg):
 
     class array8(option):
         policy = {'fmt': 'string',
-                  'encode': lambda x: array.array('B', x).tostring(),
-                  'decode': lambda x: array.array('B', x).tolist()}
+                  'encode': lambda x: array('B', x).tobytes(),
+                  'decode': lambda x: array('B', x).tolist()}
 
     class client_id(option):
         fields = (('type', 'uint8'),

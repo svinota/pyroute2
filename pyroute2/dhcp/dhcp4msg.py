@@ -23,7 +23,7 @@ class dhcp4msg(dhcpmsg):
               ('chaddr', 'l2paddr'),
               ('sname', '64s'),
               ('file', '128s'),
-              ('cookie', '4s', 'c\x82Sc'))
+              ('cookie', '4s', b'c\x82Sc'))
     #
     # https://www.ietf.org/rfc/rfc2132.txt
     #
@@ -54,4 +54,4 @@ class dhcp4msg(dhcpmsg):
                   'encode': lambda x: ''.join([inet_pton(AF_INET, i) for i
                                                in x]),
                   'decode': lambda x: [inet_ntop(AF_INET, x[i*4:i*4+4]) for i
-                                       in range(len(x)/4)]}
+                                       in range(len(x)//4)]}
