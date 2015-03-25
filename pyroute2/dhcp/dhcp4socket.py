@@ -26,9 +26,9 @@ class DHCP4Socket(RawSocket):
     def __init__(self, ifname):
         RawSocket.__init__(self, ifname, listen_udp_port(68))
 
-    def put(self, options=None, msg=None, addr='255.255.255.255', port=67):
+    def put(self, options=None, msg=None, port=67):
         # DHCP layer
-        options = options or {}
+        options = options or {'parameter_list': [1, 3, 6, 12, 15, 28]}
         dhcp = msg or dhcp4msg({'op': 1,
                                 'htype': 1,
                                 'hlen': 6,
