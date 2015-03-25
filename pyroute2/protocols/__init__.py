@@ -222,7 +222,7 @@ class udp4_pseudo_header(msg):
     fields = (('src', 'ip4addr'),
               ('dst', 'ip4addr'),
               ('pad', 'uint8'),
-              ('proto', 'uint8'),
+              ('proto', 'uint8', 17),
               ('len', 'be16'))
 
 
