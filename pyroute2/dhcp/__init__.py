@@ -128,7 +128,8 @@ class dhcpmsg(msg):
                                    code=61).encode().buf
         self.buf += self.string(code=60, value='pyroute2').encode().buf
 
-        for (name, value) in self.get('options', {}).items():
+        options = self['options'] or {}
+        for (name, value) in options.items():
             fmt = self._encode_map.get(name, {'fmt': None})['fmt']
             if fmt is None:
                 continue
