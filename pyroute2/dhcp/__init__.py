@@ -141,10 +141,6 @@ class dhcpmsg(msg):
                 option = option_class(code=self._encode_map[name]['code'],
                                       value=value)
             self.buf += option.encode().buf
-            # should we align?
-            if len(self.buf) % 4:
-                for _ in range(4 - len(self.buf) % 4):
-                    self.buf += self.none(code=0).encode().buf
 
         self.buf += self.none(code=255).encode().buf
         return self
