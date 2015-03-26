@@ -1,5 +1,5 @@
 include python-pyroute2.spec
 include README*
-include LICENSE
+include LICENSE*
 include CHANGELOG.md
 graft docs/html
