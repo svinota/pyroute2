@@ -161,10 +161,17 @@ class AddrPool(object):
     '''
     cell = 0xffffffffffffffff
 
-    def __init__(self, minaddr=0xf, maxaddr=0xffffff, reverse=False):
+    def __init__(self,
+                 minaddr=0xf,
+                 maxaddr=0xffffff,
+                 reverse=False,
+                 release=False):
         self.cell_size = 0  # in bits
         mx = self.cell
         self.reverse = reverse
+        self.release = release
+        if self.release:
+            assert isinstance(self.release, int)
         self.ban = []
         while mx:
             mx >>= 8
@@ -207,6 +214,8 @@ class AddrPool(object):
                         ret = ret + self.minaddr
 
                     if self.minaddr <= ret <= self.maxaddr:
+                        if self.release:
+                            self.free(ret, ban=self.release)
                         return ret
                     else:
                         self.free(ret)
