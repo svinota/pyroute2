@@ -144,8 +144,9 @@ class dhcpmsg(msg):
         msg.encode(self)
         self._register_options()
         # put message type
-        options = self['options'] or {'message_type': DHCPDISCOVER,
-                                      'parameter_list': [1, 3, 6, 12, 15, 28]}
+        options = self.get('options') or {'message_type': DHCPDISCOVER,
+                                          'parameter_list': [1, 3, 6,
+                                                             12, 15, 28]}
 
         self.buf += self.uint8(code=53,
                                value=options['message_type']).encode().buf
