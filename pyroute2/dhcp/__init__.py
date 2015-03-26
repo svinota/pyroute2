@@ -131,13 +131,16 @@ class dhcpmsg(msg):
         msg.encode(self)
         self._register_options()
         # put message type
-        self.buf += self.uint8(code=53, value=self.mtype).encode().buf
+        options = self['options'] or {'message_type': 1,
+                                      'parameter_list': [1, 3, 6, 12, 15, 28]}
+
+        self.buf += self.uint8(code=53,
+                               value=options.pop('message_type')).encode().buf
         self.buf += self.client_id({'type': 1,
                                     'key': self['chaddr']},
                                    code=61).encode().buf
         self.buf += self.string(code=60, value='pyroute2').encode().buf
 
-        options = self['options'] or {}
         for (name, value) in options.items():
             fmt = self._encode_map.get(name, {'fmt': None})['fmt']
             if fmt is None:

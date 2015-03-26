@@ -9,9 +9,9 @@ class dhcp4msg(dhcpmsg):
     #
     # https://www.ietf.org/rfc/rfc2131.txt
     #
-    fields = (('op', 'uint8'),
-              ('htype', 'uint8'),
-              ('hlen', 'uint8'),
+    fields = (('op', 'uint8', 1),     # request
+              ('htype', 'uint8', 1),  # ethernet
+              ('hlen', 'uint8', 6),   # ethernet addr len
               ('hops', 'uint8'),
               ('xid', 'uint32'),
               ('secs', 'uint16'),

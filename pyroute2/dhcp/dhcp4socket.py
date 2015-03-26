@@ -1,3 +1,4 @@
+from pyroute2.common import AddrPool
 from pyroute2.protocols import udpmsg
 from pyroute2.protocols import udp4_pseudo_header
 from pyroute2.protocols import ethmsg
@@ -25,27 +26,20 @@ class DHCP4Socket(RawSocket):
 
     def __init__(self, ifname):
         RawSocket.__init__(self, ifname, listen_udp_port(68))
+        # Create xid pool
+        #
+        # Every allocated xid will be released automatically after 1024
+        # alloc() calls, there is no need to call free(). Minimal xid == 16
+        self.xid_pool = AddrPool(minaddr=16, release=1024)
 
     def put(self, options=None, msg=None, port=67):
         # DHCP layer
-        options = options or {'parameter_list': [1, 3, 6, 12, 15, 28]}
-        dhcp = msg or dhcp4msg({'op': 1,
-                                'htype': 1,
-                                'hlen': 6,
-                                'chaddr': self.l2addr,
+        dhcp = msg or dhcp4msg({'chaddr': self.l2addr,
                                 'options': options})
-
-        # fill required fields
-        if dhcp['op'] is None:
-            dhcp['op'] = 1  # request
-        if dhcp['htype'] is None:
-            dhcp['htype'] = 1  # ethernet
-        if (dhcp['hlen'] is None) and (dhcp['htype'] == 1):
-            dhcp['hlen'] = 6  # ethernet MAC
-            dhcp['chaddr'] = self.l2addr
+        # dhcp transaction id
         if dhcp['xid'] is None:
-            dhcp['xid'] = 15
-        dhcp.mtype = 1
+            dhcp['xid'] = self.xid_pool.alloc()
+
         data = dhcp.encode().buf
 
         # UDP layer
