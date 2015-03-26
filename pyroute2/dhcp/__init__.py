@@ -1,3 +1,103 @@
+'''
+DHCP protocol
+=============
+
+The DHCP implementation here is far from complete, but
+already provides some basic functionality. Later it will
+be extended with IPv6 support and more DHCP options
+will be added.
+
+Right now it can be interesting mostly to developers,
+but not users and/or system administrators. So, the
+development hints first.
+
+The packet structure description is intentionally
+implemented as for netlink packets. Later these two
+parsers, netlink and generic, can be merged, so the
+syntax is more or less compatible.
+
+Packet fields
+-------------
+
+There are two big groups of items within any DHCP packet.
+First, there are BOOTP/DHCP packet fields, they're defined
+with the `fields` attribute::
+
+    class dhcp4msg(msg):
+        fields = ((name, format, policy),
+                  (name, format, policy),
+                  ...
+                  (name, format, policy))
+
+The `name` can be any literal. Format should be specified
+as for the struct module, like `B` for `uint8`, or `i` for
+`int32`, or `>Q` for big-endian uint64. There are also
+aliases defined, so one can write `uint8` or `be16`, or
+like that. Possible aliases can be seen in the
+`pyroute2.protocols` module.
+
+The `policy` is a bit complicated. It can be a number or
+literal, and it will mean that it is a default value, that
+should be encoded if no other value is given.
+
+But when the `policy` is a dictionary, it can contain keys
+as follows::
+
+    'l2addr': {'format': '6B',
+               'decode': ...,
+               'encode': ...}
+
+Keys `encode` and `decode` should contain filters to be used
+in decoding and encoding procedures. The encoding filter
+should accept the value from user's definition and should
+return a value that can be packed using `format`. The decoding
+filter should accept a value, decoded according to `format`,
+and should return value that can be used by a user.
+
+The `struct` module can not decode IP addresses etc, so they
+should be decoded as `4s`, e.g. Further transformation from
+4 bytes string to a string like '10.0.0.1' performs the filter.
+
+DHCP options
+------------
+
+DHCP options are described in a similar way::
+
+    options = ((code, name, format),
+               (code, name, format),
+               ...
+               (code, name, format))
+
+Code is a `uint8` value, name can be any string literal. Format
+is a string, that must have a corresponding class, inherited from
+`pyroute2.dhcp.option`. One can find these classes in
+`pyroute2.dhcp` (more generic) or in `pyroute2.dhcp.dhcp4msg`
+(IPv4-specific). The option class must reside within dhcp message
+class.
+
+Every option class can be decoded in two ways. If it has fixed
+width fields, it can be decoded with ordinary `msg` routines, and
+in this case it can look like that::
+
+    class client_id(option):
+        fields = (('type', 'uint8'),
+                  ('key', 'l2addr'))
+
+If it must be decoded by some custom rules, one can define the
+policy just like for the fields above::
+
+    class array8(option):
+        policy = {'format': 'string',
+                  'encode': lambda x: array('B', x).tobytes(),
+                  'decode': lambda x: array('B', x).tolist()}
+
+In the corresponding modules, like in `pyroute2.dhcp.dhcp4msg`,
+one can define as many custom DHCP options, as one need. Just
+be sure, that they are compatible with the DHCP server and all
+fit into 1..254 (`uint8`) -- the 0 code is used for padding and
+the code 255 is the end of options code.
+'''
+
 import sys
 import struct
 from array import array
@@ -56,10 +156,10 @@ class option(msg):
         # pack data into the new buf
         if self.policy is not None:
             value = self.policy.get('encode', lambda x: x)(self.value)
-            if self.policy['fmt'] == 'string':
+            if self.policy['format'] == 'string':
                 fmt = '%is' % len(value)
             else:
-                fmt = self.policy['fmt']
+                fmt = self.policy['format']
             if sys.version_info[0] == 3 and isinstance(value, str):
                 value = value.encode('utf-8')
             self.buf = struct.pack(fmt, value)
@@ -77,10 +177,10 @@ class option(msg):
         if self.policy is not None:
             self.data_length = struct.unpack('B', self.buf[self.offset + 1:
                                                            self.offset + 2])[0]
-            if self.policy['fmt'] == 'string':
+            if self.policy['format'] == 'string':
                 fmt = '%is' % self.data_length
             else:
-                fmt = self.policy['fmt']
+                fmt = self.policy['format']
             value = struct.unpack(fmt, self.buf[self.offset + 2:
                                                 self.offset + 2 +
                                                 self.data_length])
@@ -88,7 +188,7 @@ class option(msg):
                 value = value[0]
             value = self.policy.get('decode', lambda x: x)(value)
             if isinstance(value, basestring) and \
-                    self.policy['fmt'] == 'string':
+                    self.policy['format'] == 'string':
                 value = value[:value.find('\x00')]
             self.value = value
         else:
@@ -108,7 +208,7 @@ class dhcpmsg(msg):
             self._decode_map[code] =\
                 self._encode_map[name] = {'name': name,
                                           'code': code,
-                                          'fmt': fmt}
+                                          'format': fmt}
 
     def decode(self):
         msg.decode(self)
@@ -129,7 +229,7 @@ class dhcpmsg(msg):
                 continue
 
             # code is known, work on it
-            option_class = getattr(self, self._decode_map[code]['fmt'])
+            option_class = getattr(self, self._decode_map[code]['format'])
             option = option_class(buf=self.buf, offset=self.offset)
             option.decode()
             self.offset += option.length
@@ -158,7 +258,7 @@ class dhcpmsg(msg):
         for (name, value) in options.items():
             if name in ('message_type', 'client_id', 'vendor_id'):
                 continue
-            fmt = self._encode_map.get(name, {'fmt': None})['fmt']
+            fmt = self._encode_map.get(name, {'format': None})['format']
             if fmt is None:
                 continue
             # name is known, ok
@@ -178,19 +278,19 @@ class dhcpmsg(msg):
         pass
 
     class be16(option):
-        policy = {'fmt': '>H'}
+        policy = {'format': '>H'}
 
     class be32(option):
-        policy = {'fmt': '>I'}
+        policy = {'format': '>I'}
 
     class uint8(option):
-        policy = {'fmt': 'B'}
+        policy = {'format': 'B'}
 
     class string(option):
-        policy = {'fmt': 'string'}
+        policy = {'format': 'string'}
 
     class array8(option):
-        policy = {'fmt': 'string',
+        policy = {'format': 'string',
                   'encode': lambda x: array('B', x).tobytes(),
                   'decode': lambda x: array('B', x).tolist()}
 

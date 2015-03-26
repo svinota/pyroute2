@@ -1,3 +1,8 @@
+'''
+IPv4 DHCP socket
+================
+
+'''
 from pyroute2.common import AddrPool
 from pyroute2.protocols import udpmsg
 from pyroute2.protocols import udp4_pseudo_header
@@ -25,14 +30,13 @@ def listen_udp_port(port=68):
 
 class DHCP4Socket(RawSocket):
     '''
-    IPv4 DHCP socket.
-
     Parameters:
+
     * ifname -- interface name to work on
 
     This raw socket binds to an interface and installs BPF filter
     to get only its UDP port. It can be used in poll/select and
-    provides also context manager protocol, so can be used in
+    provides also the context manager protocol, so can be used in
     `with` statements.
 
     It does not provide any DHCP state machine, and does not inspect
@@ -50,9 +54,16 @@ class DHCP4Socket(RawSocket):
         # alloc() calls, there is no need to call free(). Minimal xid == 16
         self.xid_pool = AddrPool(minaddr=16, release=1024)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     def put(self, msg=None, dport=67):
         '''
         Put DHCP message. Parameters:
+
         * msg -- dhcp4msg instance
         * dport -- DHCP server port
 

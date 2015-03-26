@@ -47,12 +47,12 @@ class dhcp4msg(dhcpmsg):
                (255, 'end', 'none'))
 
     class ip4addr(option):
-        policy = {'fmt': '4s',
+        policy = {'format': '4s',
                   'encode': lambda x: inet_pton(AF_INET, x),
                   'decode': lambda x: inet_ntop(AF_INET, x)}
 
     class ip4list(option):
-        policy = {'fmt': 'string',
+        policy = {'format': 'string',
                   'encode': lambda x: ''.join([inet_pton(AF_INET, i) for i
                                                in x]),
                   'decode': lambda x: [inet_ntop(AF_INET, x[i*4:i*4+4]) for i

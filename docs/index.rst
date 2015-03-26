@@ -36,8 +36,8 @@ Utilities
     ipdb
     netns
 
-Development guide
------------------
+Development section
+-------------------
 
 .. toctree::
     :maxdepth: 2
@@ -47,6 +47,7 @@ Development guide
     devcontribute
     netlink
     nlsocket
+    dhcp
 
 
 Indices and tables
