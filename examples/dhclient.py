@@ -46,7 +46,7 @@ discover = dhcp4msg({'op': BOOTREQUEST,
                                  'parameter_list': [1, 3, 6, 12, 15, 28]}})
 reply = req(discover, expect=DHCPOFFER)
 
-# ERQUEST
+# REQUEST
 request = dhcp4msg({'op': BOOTREQUEST,
                     'chaddr': s.l2addr,
                     'options': {'message_type': DHCPREQUEST,
