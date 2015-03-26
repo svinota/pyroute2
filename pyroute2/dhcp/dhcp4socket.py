@@ -32,7 +32,7 @@ class DHCP4Socket(RawSocket):
         # alloc() calls, there is no need to call free(). Minimal xid == 16
         self.xid_pool = AddrPool(minaddr=16, release=1024)
 
-    def put(self, options=None, msg=None, port=67):
+    def put(self, msg=None, options=None, port=67):
         # DHCP layer
         dhcp = msg or dhcp4msg({'chaddr': self.l2addr,
                                 'options': options})
@@ -68,6 +68,8 @@ class DHCP4Socket(RawSocket):
             udp.encode().buf +\
             data
         self.send(data)
+        dhcp.reset()
+        return dhcp
 
     def get(self):
         (data, addr) = self.recvfrom(4096)
