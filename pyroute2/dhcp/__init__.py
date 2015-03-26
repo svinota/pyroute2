@@ -1,7 +1,20 @@
+import sys
 import struct
 from array import array
 from pyroute2.common import basestring
 from pyroute2.protocols import msg
+
+BOOTREQUEST = 1
+BOOTREPLY = 2
+
+DHCPDISCOVER = 1
+DHCPOFFER = 2
+DHCPREQUEST = 3
+DHCPDECLINE = 4
+DHCPACK = 5
+DHCPNAK = 6
+DHCPRELEASE = 7
+DHCPINFORM = 8
 
 
 if not hasattr(array, 'tobytes'):
@@ -47,7 +60,7 @@ class option(msg):
                 fmt = '%is' % len(value)
             else:
                 fmt = self.policy['fmt']
-            if isinstance(value, str):
+            if sys.version_info[0] == 3 and isinstance(value, str):
                 value = value.encode('utf-8')
             self.buf = struct.pack(fmt, value)
         else:
@@ -131,17 +144,19 @@ class dhcpmsg(msg):
         msg.encode(self)
         self._register_options()
         # put message type
-        options = self['options'] or {'message_type': 1,
+        options = self['options'] or {'message_type': DHCPDISCOVER,
                                       'parameter_list': [1, 3, 6, 12, 15, 28]}
 
         self.buf += self.uint8(code=53,
-                               value=options.pop('message_type')).encode().buf
+                               value=options['message_type']).encode().buf
         self.buf += self.client_id({'type': 1,
                                     'key': self['chaddr']},
                                    code=61).encode().buf
         self.buf += self.string(code=60, value='pyroute2').encode().buf
 
         for (name, value) in options.items():
+            if name in ('message_type', 'client_id', 'vendor_id'):
+                continue
             fmt = self._encode_map.get(name, {'fmt': None})['fmt']
             if fmt is None:
                 continue
