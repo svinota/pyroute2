@@ -106,7 +106,7 @@ docs: clean force-version
 	export PYTHONPATH=`pwd`; make -C docs html
 
 test:
-	@export PYTHONPATH=`pwd`; cd tests; \
+	@export PYTHONPATH="`pwd`:`pwd`/examples"; cd tests; \
 		[ -z "$$VIRTUAL_ENV" ] || \
 			. $$VIRTUAL_ENV/bin/activate ; \
 		[ -z "$$VIRTUAL_ENV" ] || \

@@ -6,8 +6,7 @@ dist/
 tests/htmlcov
 tests/cover
 tests/.coverage
-tests/*key
-tests/*crt
+tests/udhcpd.leases
 output.html
 setup.py
 MANIFEST

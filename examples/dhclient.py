@@ -9,17 +9,8 @@ from pyroute2.dhcp import DHCPACK
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.dhcp4socket import DHCP4Socket
 
-if len(sys.argv) > 1:
-    iface = sys.argv[1]
-else:
-    iface = 'eth0'
-s = DHCP4Socket(iface)
-poll = select.poll()
-poll.register(s, select.POLLIN | select.POLLPRI)
 
-
-def req(msg, expect):
-    global poll
+def req(s, poll, msg, expect):
     do_req = True
     xid = None
 
@@ -39,19 +30,35 @@ def req(msg, expect):
             return response
         do_req = True
 
-# DISCOVER
-discover = dhcp4msg({'op': BOOTREQUEST,
-                     'chaddr': s.l2addr,
-                     'options': {'message_type': DHCPDISCOVER,
-                                 'parameter_list': [1, 3, 6, 12, 15, 28]}})
-reply = req(discover, expect=DHCPOFFER)
 
-# REQUEST
-request = dhcp4msg({'op': BOOTREQUEST,
-                    'chaddr': s.l2addr,
-                    'options': {'message_type': DHCPREQUEST,
-                                'requested_ip': reply['yiaddr'],
-                                'server_id': reply['options']['server_id'],
-                                'parameter_list': [1, 3, 6, 12, 15, 28]}})
-reply = req(request, expect=DHCPACK)
-pprint(reply)
+def action(ifname):
+    s = DHCP4Socket(ifname)
+    poll = select.poll()
+    poll.register(s, select.POLLIN | select.POLLPRI)
+
+    # DISCOVER
+    discover = dhcp4msg({'op': BOOTREQUEST,
+                         'chaddr': s.l2addr,
+                         'options': {'message_type': DHCPDISCOVER,
+                                     'parameter_list': [1, 3, 6, 12, 15, 28]}})
+    reply = req(s, poll, discover, expect=DHCPOFFER)
+
+    # REQUEST
+    request = dhcp4msg({'op': BOOTREQUEST,
+                        'chaddr': s.l2addr,
+                        'options': {'message_type': DHCPREQUEST,
+                                    'requested_ip': reply['yiaddr'],
+                                    'server_id': reply['options']['server_id'],
+                                    'parameter_list': [1, 3, 6, 12, 15, 28]}})
+    reply = req(s, poll, request, expect=DHCPACK)
+    pprint(reply)
+    s.close()
+    return reply
+
+
+if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        ifname = sys.argv[1]
+    else:
+        ifname = 'eth0'
+    action(ifname)

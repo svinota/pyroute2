@@ -1,9 +1,11 @@
 import os
 import subprocess
+import dhclient
 from utils import require_user
 from utils import require_executable
 from pyroute2 import IPDB
-from pyroute2.dhcp.dhcp4socket import DHCP4Socket
+from pyroute2.dhcp import BOOTREPLY
+from pyroute2.dhcp import DHCPACK
 
 
 class TestDhcpClient(object):
@@ -33,8 +35,6 @@ class TestDhcpClient(object):
             subprocess.check_call(['busybox', 'udhcpd', 'udhcpd.conf'],
                                   stdout=fnull,
                                   stderr=fnull)
-        # remove configuration file
-        os.unlink('udhcpd.conf')
 
     def teardown(self):
         # read pid from file and kill the server
@@ -45,16 +45,16 @@ class TestDhcpClient(object):
         self.ip.interfaces[self.if1].remove().commit()
         # release IPDB
         self.ip.release()
+        # remove configuration file
+        os.unlink('udhcpd.conf')
 
     def test_defaults(self):
-        s = DHCP4Socket(self.if2)
-        s.put()
-        msg = s.get()
-        s.close()
-        assert msg['yiaddr'] == '172.16.101.10'
-        # assert msg['chaddr'] == self.ip.interfaces[self.if2].address
-        assert msg['options']['message_type'] == msg['op'] == 2
+        msg = dhclient.action(self.if2)
+        assert msg['yiaddr'].startswith('172.16.101.')
+        assert msg['op'] == BOOTREPLY
+        assert msg['options']['message_type'] == DHCPACK
         assert msg['options']['router'] == ['172.16.101.1']
+        assert msg['options']['server_id'] == '172.16.101.1'
         assert msg['options']['subnet_mask'] == '255.255.255.0'
         assert set(msg['options']['name_server']) ==\
             set(('172.16.101.1', '172.16.101.2'))
