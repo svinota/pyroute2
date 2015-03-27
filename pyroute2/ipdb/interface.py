@@ -232,6 +232,8 @@ class Interface(Transactional):
                 mask = dqn2int(mask)
             else:
                 mask = int(mask, 0)
+        elif isinstance(mask, basestring):
+            mask = dqn2int(mask)
         brd = brd or broadcast
         # FIXME: make it more generic
         # skip IPv6 link-local addresses
