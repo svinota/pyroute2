@@ -670,6 +670,21 @@ class TestExplicit(object):
             i.remove()
         assert ifA not in self.ip.interfaces
 
+    def test_dqn_mask(self):
+        require_user('root')
+
+        iface = self.ip.interfaces[self.ifd]
+        with iface as i:
+            i.add_ip('172.16.0.1/24')
+            i.add_ip('172.16.0.2', mask=24)
+            i.add_ip('172.16.0.3/255.255.255.0')
+            i.add_ip('172.16.0.4', mask='255.255.255.0')
+
+        assert ('172.16.0.1', 24) in iface.ipaddr
+        assert ('172.16.0.2', 24) in iface.ipaddr
+        assert ('172.16.0.3', 24) in iface.ipaddr
+        assert ('172.16.0.4', 24) in iface.ipaddr
+
     def _create_master(self, kind, **kwarg):
 
         ifM = self.get_ifname()
