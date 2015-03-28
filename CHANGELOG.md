@@ -1,6 +1,13 @@
 changelog
 =========
 
+* 0.3.6
+    * dhcp: initial release DHCPv4
+    * license: dual GPLv2+ and Apache v2.0
+    * ovs: port add/delete
+    * macvlan, macvtap: basic support
+    * vxlan: basic support
+    * ipset: basic support
 * 0.3.5
     * netns: #90 -- netns setns support
     * generic: #99 -- support custom basic netlink socket classes
