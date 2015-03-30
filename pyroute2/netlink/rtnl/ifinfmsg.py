@@ -177,7 +177,7 @@ class ifinfbase(object):
                ('IFLA_LINKMODE', 'uint8'),
                ('IFLA_LINKINFO', 'ifinfo'),
                ('IFLA_NET_NS_PID', 'uint32'),
-               ('IFLA_IFALIAS', 'hex'),
+               ('IFLA_IFALIAS', 'asciiz'),
                ('IFLA_NUM_VF', 'uint32'),
                ('IFLA_VFINFO_LIST', 'hex'),
                ('IFLA_STATS64', 'ifstats64'),
