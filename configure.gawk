@@ -1,8 +1,7 @@
 BEGIN {
     conf["VERSION"] = version
     conf["RELEASE"] = release
-    conf["alt", "PACKAGER"] = "Peter V. Saveliev <peet@altlinux.org>"
-    conf["rh", "PACKAGER"] = "Peter V. Saveliev <peter@svinota.eu>"
+    conf["SETUPLIB"] = setuplib
 }
 
 {
@@ -12,13 +11,7 @@ BEGIN {
         # no more variables left
         if (variable == $0) break
         # value lookup:
-        if (conf[flavor, variable]) {
-            # dist-specific
-            value = conf[flavor, variable]
-        } else {
-            # common variables
-            value = conf[variable]
-        }
+        value = conf[variable]
         # substitute the variable
         gsub("@"variable"@", value)
     }

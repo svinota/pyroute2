@@ -22,10 +22,11 @@
 version ?= "0.3"
 release := $(shell git describe)
 ##
-# Python and nosetests versions
+# Python-related configuration
 #
 python ?= "python"
 nosetests ?= "nosetests"
+setuplib ?= "distutils.core"
 ##
 # Python -W flags:
 #
@@ -83,12 +84,15 @@ clean: clean-version
 	rm -f  tests/.coverage
 	rm -rf tests/htmlcov
 	rm -rf tests/cover
+	rm -rf pyroute2.egg-info
 	rm -f python-pyroute2.spec
 	find . -name "*pyc" -exec rm -f "{}" \;
 	find . -name "*pyo" -exec rm -f "{}" \;
 
 setup.py docs/conf.py:
-	gawk -v version=${version} -v release=${release} -v flavor=${flavor}\
+	gawk -v version=${version}\
+		-v release=${release}\
+		-v setuplib=${setuplib}\
 		-f configure.gawk $@.in >$@
 
 clean-version:
@@ -140,6 +144,10 @@ dist: clean force-version docs
 
 install: clean force-version
 	${python} setup.py install ${root} ${lib}
+
+develop: setuplib = "setuptools"
+develop: clean force-version
+	${python} setup.py develop
 
 testdeps:
 	pip install coverage
