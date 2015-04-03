@@ -51,6 +51,38 @@ class IW(NL80211):
                                 msg_type=self.prid,
                                 msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
+    def _get_phy_name(self, attr):
+        return 'phy%i' % int(attr.get_attr('NL80211_ATTR_WIPHY')[:2])
+
+    def _get_frequency(self, attr):
+        try:
+            return int(attr.get_attr('NL80211_ATTR_WIPHY_FREQ')[:2], 16) + 2304
+        except:
+            return 0
+
+    def get_interfaces_dict(self):
+        '''
+        Get interfaces dictionary
+        '''
+        ret = {}
+        for a in self.get_interfaces_dump():
+            chan_width = a.get_attr('NL80211_ATTR_CHANNEL_WIDTH')
+            freq = self._get_frequency(a) if chan_width is not None else 0
+            ret[a.get_attr('NL80211_ATTR_IFNAME')] = [a.get_attr('NL80211_ATTR_IFINDEX'), self._get_phy_name(a), a.get_attr('NL80211_ATTR_MAC'),
+                                                      freq, chan_width]
+
+        return ret
+
+    def get_interfaces_dump(self):
+        '''
+        Get interfaces dump ( use x.get_attr('NL80211_ATTR_WIPHY') )
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
+        return self.nlm_request(msg,
+                                msg_type=self.prid,
+                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+
     def get_interface_by_phy(self, attr):
         '''
         Get interface by phy name ( use x.get_attr('NL80211_ATTR_WIPHY') )
