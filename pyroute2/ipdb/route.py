@@ -172,7 +172,7 @@ class RoutingTable(object):
     def keys(self, key='dst'):
         return [x[key] for x in self.records]
 
-    def get(self, target, forward=True):
+    def describe(self, target, forward=True):
         if isinstance(target, int):
             return {'route': self.records[target],
                     'index': target}
@@ -219,11 +219,11 @@ class RoutingTable(object):
                 'index': None}
 
     def __delitem__(self, key):
-        self.records.pop(self.get(key, forward=False)['index'])
+        self.records.pop(self.describe(key, forward=False)['index'])
 
     def __setitem__(self, key, value):
         try:
-            record = self.get(key, forward=False)
+            record = self.describe(key, forward=False)
         except KeyError:
             record = {'route': Route(self.ipdb),
                       'index': None}
@@ -242,7 +242,7 @@ class RoutingTable(object):
             self.records[record['index']] = record['route']
 
     def __getitem__(self, key):
-        return self.get(key, forward=True)['route']
+        return self.describe(key, forward=True)['route']
 
 
 class RoutingTableSet(object):
@@ -305,6 +305,9 @@ class RoutingTableSet(object):
         else:
             table = table or 254
         del self.tables[table][route]
+
+    def describe(self, spec, table=254):
+        return self.tables[table].describe(spec)
 
     def get(self, dst, table=None):
         table = table or 254
