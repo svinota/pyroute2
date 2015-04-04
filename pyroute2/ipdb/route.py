@@ -1,5 +1,8 @@
+import logging
 import threading
 from socket import AF_UNSPEC
+from pyroute2.common import basestring
+from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.ipdb.transactional import Transactional
@@ -13,7 +16,30 @@ class Metrics(Transactional):
                         in rtmsg.metrics.nla_map]
 
 
+class RouteKey(dict):
+    '''
+    Construct from a netlink message a key that can be used
+    to locate the route in the table
+    '''
+    def __init__(self, msg):
+        # calculate dst
+        if msg.get_attr('RTA_DST', None) is not None:
+            dst = '%s/%s' % (msg.get_attr('RTA_DST'),
+                             msg['dst_len'])
+        else:
+            dst = 'default'
+        self['dst'] = dst
+        # use output | input interfaces as key also
+        for key in ('oif', 'iif'):
+            value = msg.get_attr(msg.name2nla(key))
+            if value:
+                self[key] = value
+
+
 class Route(Transactional):
+    '''
+    Persistent transactional route object
+    '''
 
     def __init__(self, ipdb, mode=None, parent=None, uid=None):
         Transactional.__init__(self, ipdb, mode, parent, uid)
@@ -127,12 +153,103 @@ class Route(Transactional):
         return self
 
 
-class RoutingTables(dict):
+class RoutingTable(object):
+
+    def __init__(self, ipdb, prime=None):
+        self.ipdb = ipdb
+        self.records = prime or []
+
+    def __repr__(self):
+        return repr(self.records)
+
+    def __len__(self):
+        return len(self.records)
+
+    def __iter__(self):
+        for record in tuple(self.records):
+            yield record
+
+    def keys(self, key='dst'):
+        return [x[key] for x in self.records]
+
+    def get(self, target, forward=True):
+        if isinstance(target, int):
+            return {'route': self.records[target],
+                    'index': target}
+        if isinstance(target, basestring):
+            target = {'dst': target}
+        if not isinstance(target, dict):
+            raise TypeError('unsupported key type')
+
+        for record in self.records:
+            for key in target:
+                # skip non-existing keys
+                #
+                # it's a hack, but newly-created routes
+                # don't contain all the fields that are
+                # in the netlink message
+                if record.get(key) is None:
+                    continue
+                # if any key doesn't match
+                if target[key] != record[key]:
+                    break
+            else:
+                # if all keys match
+                return {'route': record,
+                        'index': self.records.index(record)}
+
+        if not forward:
+            raise KeyError('route not found')
+
+        # split masks
+        if target.get('dst', '').find('/') >= 0:
+            dst = target['dst'].split('/')
+            target['dst'] = dst[0]
+            target['dst_len'] = int(dst[1])
+
+        if target.get('src', '').find('/') >= 0:
+            src = target['src'].split('/')
+            target['src'] = src[0]
+            target['src_len'] = int(src[1])
+
+        # load and return the route, if exists
+        route = Route(self.ipdb)
+        route.load_netlink(self.ipdb.nl.get_routes(**target)[0])
+        return {'route': route,
+                'index': None}
+
+    def __delitem__(self, key):
+        self.records.pop(self.get(key, forward=False)['index'])
+
+    def __setitem__(self, key, value):
+        try:
+            record = self.get(key, forward=False)
+        except KeyError:
+            record = {'route': Route(self.ipdb),
+                      'index': None}
+
+        if isinstance(value, nlmsg):
+            record['route'].load_netlink(value)
+        elif isinstance(value, Route):
+            record['route'] = value
+        elif isinstance(value, dict):
+            with record['route']._direct_state:
+                record['route'].update(value)
+
+        if record['index'] is None:
+            self.records.append(record['route'])
+        else:
+            self.records[record['index']] = record['route']
+
+    def __getitem__(self, key):
+        return self.get(key, forward=True)['route']
+
+
+class RoutingTableSet(object):
 
     def __init__(self, ipdb):
-        dict.__init__(self)
         self.ipdb = ipdb
-        self.tables = {254: {}}
+        self.tables = {254: RoutingTable(self.ipdb)}
 
     def add(self, spec=None, **kwarg):
         '''
@@ -141,12 +258,12 @@ class RoutingTables(dict):
         spec = spec or kwarg
         table = spec.get('table', 254)
         assert 'dst' in spec
+        if table not in self.tables:
+            self.tables[table] = RoutingTable(self.ipdb)
         route = Route(self.ipdb)
         metrics = spec.pop('metrics', {})
         route.update(spec)
         route.metrics.update(metrics)
-        if table not in self.tables:
-            self.tables[table] = dict()
         self.tables[table][route['dst']] = route
         route.begin()
         return route
@@ -156,23 +273,30 @@ class RoutingTables(dict):
         Loads an existing route from a rtmsg
         '''
         table = msg.get('table', 254)
+        # construct a key
+        # FIXME: temporary solution
+        # FIXME: can `Route()` be used as a key?
+        key = RouteKey(msg)
+
+        # RTM_DELROUTE
+        if msg['event'] == 'RTM_DELROUTE':
+            try:
+                # locate the record
+                record = self.tables[table][key]
+                # delete the record
+                del self.tables[table][key]
+                # sync ???
+                record.sync()
+            except Exception as e:
+                logging.debug(e)
+                logging.debug(msg)
+            return
+
+        # RTM_NEWROUTE
         if table not in self.tables:
-            self.tables[table] = dict()
-
-        dst = msg.get_attr('RTA_DST', None)
-        if dst is None:
-            key = 'default'
-        else:
-            key = '%s/%s' % (dst, msg.get('dst_len', 0))
-
-        if key in self.tables[table]:
-            ret = self.tables[table][key]
-            ret.load_netlink(msg)
-        else:
-            ret = Route(ipdb=self.ipdb)
-            ret.load_netlink(msg)
-            self.tables[table][key] = ret
-        return ret
+            self.tables[table] = RoutingTable(self.ipdb)
+        self.tables[table][key] = msg
+        return self.tables[table][key]
 
     def remove(self, route, table=None):
         if isinstance(route, Route):
@@ -187,8 +311,9 @@ class RoutingTables(dict):
         return self.tables[table][dst]
 
     def keys(self, table=254, family=AF_UNSPEC):
-        return [x['dst'] for x in self.tables[table].values()
-                if (x['family'] == family) or (family == AF_UNSPEC)]
+        return [x['dst'] for x in self.tables[table]
+                if (x['family'] == family)
+                or (family == AF_UNSPEC)]
 
     def has_key(self, key, table=254):
         return key in self.tables[table]
@@ -205,3 +330,6 @@ class RoutingTables(dict):
 
     def __delitem__(self, key):
         return self.remove(key)
+
+    def __repr__(self):
+        return repr(self.tables[254])

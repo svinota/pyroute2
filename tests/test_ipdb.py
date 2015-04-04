@@ -230,7 +230,7 @@ class TestExplicit(object):
         with self.ip.routes.add({'dst': '172.16.0.0/24',
                                  'gateway': '127.0.0.1'}) as r:
             pass
-        assert '172.16.0.0/24' in self.ip.routes
+        assert '172.16.0.0/24' in self.ip.routes.keys()
         assert grep('ip ro', pattern='172.16.0.0/24.*127.0.0.1')
 
         # change the route
@@ -242,12 +242,12 @@ class TestExplicit(object):
         # delete the route
         with self.ip.routes['172.16.0.0/24'] as r:
             r.remove()
-        assert '172.16.0.0/24' not in self.ip.routes
+        assert '172.16.0.0/24' not in self.ip.routes.keys()
         assert not grep('ip ro', pattern='172.16.0.0/24')
 
     def test_route_metrics(self):
         require_user('root')
-        assert '172.16.0.0/24' not in self.ip.routes
+        assert '172.16.0.0/24' not in self.ip.routes.keys()
 
         # create a route
         self.ip.routes.add({'dst': '172.16.0.0/24',
@@ -265,7 +265,7 @@ class TestExplicit(object):
         with self.ip.routes['172.16.0.0/24'] as r:
             r.remove()
 
-        assert '172.16.0.0/24' not in self.ip.routes
+        assert '172.16.0.0/24' not in self.ip.routes.keys()
         assert not grep('ip ro', pattern='172.16.0.0/24')
 
     def _test_shadow(self, kind):

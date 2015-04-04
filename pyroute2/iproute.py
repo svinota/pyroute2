@@ -262,7 +262,7 @@ class IPRouteMixin(object):
         msg_flags = NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC
         return self.nlm_request(msg, RTM_GETRULE, msg_flags)
 
-    def get_routes(self, family=AF_UNSPEC, **kwarg):
+    def get_routes(self, family=AF_INET, **kwarg):
         '''
         Get all routes. You can specify the table. There
         are 255 routing classes (tables), and the kernel
@@ -278,11 +278,16 @@ class IPRouteMixin(object):
 
         msg_flags = NLM_F_DUMP | NLM_F_REQUEST
         msg = rtmsg()
-        msg['family'] = family
         # you can specify the table here, but the kernel
         # will ignore this setting
         table = kwarg.get('table', DEFAULT_TABLE)
         msg['table'] = table if table <= 255 else 252
+
+        # explicitly look for IPv6
+        if any([kwarg.get(x, '').find(':') >= 0 for x
+                in ('dst', 'src', 'gateway', 'prefsrc')]):
+            family = AF_INET6
+        msg['family'] = family
 
         # get a particular route
         if kwarg.get('dst', None) is not None:

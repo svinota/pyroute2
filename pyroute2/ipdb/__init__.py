@@ -312,7 +312,7 @@ from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.common import compat
 from pyroute2.ipdb.common import SYNC_TIMEOUT
-from pyroute2.ipdb.route import RoutingTables
+from pyroute2.ipdb.route import RoutingTableSet
 
 
 def get_addr_nla(msg):
@@ -428,7 +428,7 @@ class IPDB(object):
 
         # resolvers
         self.interfaces = Dotkeys()
-        self.routes = RoutingTables(ipdb=self)
+        self.routes = RoutingTableSet(ipdb=self)
         self.by_name = Dotkeys()
         self.by_index = Dotkeys()
 
@@ -444,8 +444,10 @@ class IPDB(object):
             self.update_slaves(link)
         self.update_addr(self.nl.get_addr())
         self.update_neighbors(self.nl.get_neighbors())
-        routes = self.nl.get_routes()
-        self.update_routes(routes)
+        routes4 = self.nl.get_routes(family=AF_INET)
+        routes6 = self.nl.get_routes(family=AF_INET6)
+        self.update_routes(routes4)
+        self.update_routes(routes6)
 
     def register_callback(self, callback, mode='post'):
         '''
@@ -918,6 +920,7 @@ class IPDB(object):
                         pass
 
                 with self.exclusive:
+                    # FIXME: refactor it to a dict
                     if msg.get('event', None) == 'RTM_NEWLINK':
                         self.device_put(msg)
                         self._links_event.set()
@@ -931,21 +934,9 @@ class IPDB(object):
                         self.update_neighbors([msg], 'add')
                     elif msg.get('event', None) == 'RTM_DELNEIGH':
                         self.update_neighbors([msg], 'remove')
-                    elif msg.get('event', None) == 'RTM_NEWROUTE':
+                    elif msg.get('event', None) in ('RTM_NEWROUTE'
+                                                    'RTM_DELROUTE'):
                         self.update_routes([msg])
-                    elif msg.get('event', None) == 'RTM_DELROUTE':
-                        table = msg.get('table', 254)
-                        dst = msg.get_attr('RTA_DST', False)
-                        if not dst:
-                            key = 'default'
-                        else:
-                            key = '%s/%s' % (dst, msg.get('dst_len', 0))
-                        try:
-                            route = self.routes.tables[table][key]
-                            del self.routes.tables[table][key]
-                            route.sync()
-                        except KeyError:
-                            pass
 
                 # run post-callbacks
                 # NOTE: post-callbacks are asynchronous
