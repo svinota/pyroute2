@@ -5,30 +5,36 @@ interfaces
  * (+) interface state change
  * (+) ip addresses add/remove
  * create interfaces:
-   * (+) dummy
    * (+) bridge
    * (+) bond
+   * (+) gre
+   * (+) dummy
+   * (+) macvlan
+   * (+) macvtap
+   * (+) tuntap
+   * (+) veth
    * (+) vlan
-   * (!) tap -- can not be created with netlink (TODO: prepare kernel patch?)
+   * (+) vxlan
    * ...
  * (+) bridge and bond ports add/remove
- * (-) bridge management: STP setup (net/bridge/br_netlink.c:br_fill_ifinfo())
- * routing: only low-level functions yet, no docs
-   * ...
+ * (+) bridge management
+ * routing
+   * (+) add/change/replace/remove
+   * (+) metrics
 
 qos
 ===
 
  * qdiscs (experimental support since 0.1.6):
-   * (-) [0.2.0] pfifo_fast
    * (+) sfq
    * (+) tbf
    * (+) ingress
-   * (-) [0.2.0] htb (partly implemented, no docs yet)
+   * (+) netem
+   * (+) htb
    * ...
  
  * filters: 
-   * (-) [0.2.0] u32 (partly implemented, no docs yet)
+   * (+) u32 (partly implemented, no docs yet)
    * ...   
 
 specific ipdb
@@ -52,17 +58,7 @@ message types
    * (+) get stats for pid
    * (-) get stats for tgid
    * (-) subscribe for taskstats events
- * NETLINK_NETFILTER
-   * (-) [0.2.0] planned
  * ...
-
-remote netlink
-==============
-
- * authentication
-   * (+) TLSv1
-   * (+) SSLv3
-   * (-) SASL
 
 testing
 =======
