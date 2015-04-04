@@ -65,12 +65,14 @@ class IW(NL80211):
         Get interfaces dictionary
         '''
         ret = {}
-        for a in self.get_interfaces_dump():
-            chan_width = a.get_attr('NL80211_ATTR_CHANNEL_WIDTH')
-            freq = self._get_frequency(a) if chan_width is not None else 0
-            ret[a.get_attr('NL80211_ATTR_IFNAME')] = [a.get_attr('NL80211_ATTR_IFINDEX'), self._get_phy_name(a), a.get_attr('NL80211_ATTR_MAC'),
-                                                      freq, chan_width]
-
+        for wif in self.get_interfaces_dump():
+            chan_width = wif.get_attr('NL80211_ATTR_CHANNEL_WIDTH')
+            freq = self._get_frequency(wif) if chan_width is not None else 0
+            wifname = wif.get_attr('NL80211_ATTR_IFNAME')
+            ret[wifname] = [wif.get_attr('NL80211_ATTR_IFINDEX'),
+                            self._get_phy_name(wif),
+                            wif.get_attr('NL80211_ATTR_MAC'),
+                            freq, chan_width]
         return ret
 
     def get_interfaces_dump(self):
