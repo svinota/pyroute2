@@ -11,8 +11,13 @@ classes and functions
 import os
 import errno
 import ctypes
+import sys
 
-__NR_setns = 308  # FIXME
+if sys.maxsize > 2**32:
+    __NR_setns = 308
+else:
+    __NR_setns = 346
+
 CLONE_NEWNET = 0x40000000
 MNT_DETACH = 0x00000002
 MS_BIND = 4096
