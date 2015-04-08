@@ -786,8 +786,10 @@ class IPRouteMixin(object):
         * dst      - IP for Destination Based (Policy Based) routing's rule
         * src_len  - Mask for Source Based (Policy Based) routing's rule
         * dst_len  - Mask for Destination Based (Policy Based) routing's rule
-        * iif      - Input interface for Interface Based (Policy Based) routing's rule
-        * oif      - Output interface for Interface Based (Policy Based) routing's rule
+        * iif      - Input interface for Interface Based (Policy Based)
+                     routing's rule
+        * oif      - Output interface for Interface Based (Policy Based)
+                     routing's rule
 
         Example::
             ip.rule('add', 10, 32000)
