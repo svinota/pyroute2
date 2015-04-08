@@ -768,7 +768,8 @@ class IPRouteMixin(object):
 
     def rule(self, command, table, priority=32000, rtype='RTN_UNICAST',
              rtscope='RT_SCOPE_UNIVERSE', family=AF_INET, src=None,
-             src_len=None, dst=None, dst_len=None, fwmark=None):
+             src_len=None, dst=None, dst_len=None, fwmark=None,
+             iif=None, oif=None):
         '''
         Rule operations
 
@@ -785,6 +786,8 @@ class IPRouteMixin(object):
         * dst      - IP for Destination Based (Policy Based) routing's rule
         * src_len  - Mask for Source Based (Policy Based) routing's rule
         * dst_len  - Mask for Destination Based (Policy Based) routing's rule
+        * iif      - Input interface for Interface Based (Policy Based) routing's rule
+        * oif      - Output interface for Interface Based (Policy Based) routing's rule
 
         Example::
             ip.rule('add', 10, 32000)
@@ -867,6 +870,10 @@ class IPRouteMixin(object):
             msg['attrs'].append(['RTA_DST', dst])
             if dst_len is None:
                 msg['dst_len'] = addr_len
+        if iif is not None:
+            msg['attrs'].append(['RTA_IIF', iif])
+        if oif is not None:
+            msg['attrs'].append(['RTA_OIF', oif])
 
         return self.nlm_request(msg, msg_type=command,
                                 msg_flags=msg_flags)
