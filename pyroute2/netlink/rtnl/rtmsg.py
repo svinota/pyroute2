@@ -49,7 +49,13 @@ class rtmsg(nlmsg):
                ('RTA_SESSION', 'hex'),
                ('RTA_MP_ALGO', 'hex'),
                ('RTA_TABLE', 'uint32'),
-               ('RTA_MARK', 'uint32'))
+               ('RTA_MARK', 'uint32'),
+               ('RTA_MFC_STATS', 'rta_mfc_stats'))
+
+    class rta_mfc_stats(nla):
+        fields = (('mfcs_packets', 'uint64'),
+                  ('mfcs_bytes', 'uint64'),
+                  ('mfcs_wrong_if', 'uint64'))
 
     class metrics(nla):
         prefix = 'RTAX_'
