@@ -108,6 +108,8 @@ from pyroute2.netlink.rtnl.tcmsg import get_fw_parameters
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
+from pyroute2.netlink.rtnl.fibmsg import fibmsg
+from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pyroute2.netlink.rtnl.dhcpmsg import dhcpmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
@@ -257,7 +259,7 @@ class IPRouteMixin(object):
             ip.get_rules() # get all the rules for all families
             ip.get_routes(family=AF_INET6)  # get only IPv6 rules
         '''
-        msg = ndmsg()
+        msg = fibmsg()
         msg['family'] = family
         msg_flags = NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC
         return self.nlm_request(msg, RTM_GETRULE, msg_flags)
@@ -766,17 +768,18 @@ class IPRouteMixin(object):
         return self.nlm_request(msg, msg_type=command,
                                 msg_flags=flags)
 
-    def rule(self, command, table, priority=32000, rtype='RTN_UNICAST',
-             rtscope='RT_SCOPE_UNIVERSE', family=AF_INET, src=None,
-             src_len=None, dst=None, dst_len=None, fwmark=None,
-             iif=None, oif=None):
+    def rule(self, command, table, priority=32000,
+             rtype='FR_ACT_NOP', family=AF_INET,
+             src=None, src_len=None,
+             dst=None, dst_len=None,
+             fwmark=None, iifname=None, oifname=None):
         '''
         Rule operations
 
         * command  - add, delete
         * table    - 0 < table id < 253
         * priority - 0 < rule's priority < 32766
-        * rtype    - type of rule, default 'RTN_UNICAST'
+        * rtype    - type of rule, default 'FR_ACT_NOP' (see fibmsg.py)
         * rtscope  - routing scope, default RT_SCOPE_UNIVERSE
                      (RT_SCOPE_UNIVERSE|RT_SCOPE_SITE|\
                       RT_SCOPE_LINK|RT_SCOPE_HOST|RT_SCOPE_NOWHERE)
@@ -801,7 +804,7 @@ class IPRouteMixin(object):
             ....
 
         Example::
-            iproute.rule('add', 11, 32001, 'RTN_UNREACHABLE')
+            iproute.rule('add', 11, 32001, 'FR_ACT_UNREACHABLE')
 
         Will create::
             #ip ru sh
@@ -836,7 +839,7 @@ class IPRouteMixin(object):
             32006: from 10.64.75.141 fwmark 0xa lookup 15
             ...
         '''
-        if table < 1:
+        if table < 0:
             raise ValueError('unsupported table number')
 
         commands = {'add': RTM_NEWRULE,
@@ -846,15 +849,14 @@ class IPRouteMixin(object):
         command = commands.get(command, command)
 
         msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
-        msg = rtmsg()
+        msg = fibmsg()
         msg['table'] = table if table <= 255 else 252
         msg['family'] = family
-        msg['type'] = rtypes[rtype]
-        msg['scope'] = rtscopes[rtscope]
-        msg['attrs'] = [['RTA_TABLE', table]]
-        msg['attrs'].append(['RTA_PRIORITY', priority])
+        msg['type'] = FR_ACT_NAMES[rtype]
+        msg['attrs'] = [['FRA_TABLE', table]]
+        msg['attrs'].append(['FRA_PRIORITY', priority])
         if fwmark is not None:
-            msg['attrs'].append(['RTA_PROTOINFO', fwmark])
+            msg['attrs'].append(['FRA_FWMARK', fwmark])
         addr_len = {AF_INET6: 128, AF_INET:  32}[family]
         if(dst_len is not None and dst_len >= 0 and dst_len <= addr_len):
             msg['dst_len'] = dst_len
@@ -865,17 +867,17 @@ class IPRouteMixin(object):
         else:
             msg['src_len'] = 0
         if src is not None:
-            msg['attrs'].append(['RTA_SRC', src])
+            msg['attrs'].append(['FRA_SRC', src])
             if src_len is None:
                 msg['src_len'] = addr_len
         if dst is not None:
-            msg['attrs'].append(['RTA_DST', dst])
+            msg['attrs'].append(['FRA_DST', dst])
             if dst_len is None:
                 msg['dst_len'] = addr_len
-        if iif is not None:
-            msg['attrs'].append(['RTA_IIF', iif])
-        if oif is not None:
-            msg['attrs'].append(['RTA_OIF', oif])
+        if iifname is not None:
+            msg['attrs'].append(['FRA_IIFNAME', iifname])
+        if oifname is not None:
+            msg['attrs'].append(['FRA_OIFNAME', oifname])
 
         return self.nlm_request(msg, msg_type=command,
                                 msg_flags=msg_flags)

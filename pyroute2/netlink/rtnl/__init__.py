@@ -44,6 +44,7 @@ from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
+from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.dhcpmsg import dhcpmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifinfmsg import proxy_newlink
@@ -185,9 +186,9 @@ class MarshalRtnl(Marshal):
                RTM_NEWROUTE: rtmsg,
                RTM_DELROUTE: rtmsg,
                RTM_GETROUTE: rtmsg,
-               RTM_NEWRULE: rtmsg,
-               RTM_DELRULE: rtmsg,
-               RTM_GETRULE: rtmsg,
+               RTM_NEWRULE: fibmsg,
+               RTM_DELRULE: fibmsg,
+               RTM_GETRULE: fibmsg,
                RTM_NEWNEIGH: ndmsg,
                RTM_DELNEIGH: ndmsg,
                RTM_GETNEIGH: ndmsg,
