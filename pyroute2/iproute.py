@@ -769,7 +769,7 @@ class IPRouteMixin(object):
                                 msg_flags=flags)
 
     def rule(self, command, table, priority=32000,
-             rtype='FR_ACT_NOP', family=AF_INET,
+             action='FR_ACT_NOP', family=AF_INET,
              src=None, src_len=None,
              dst=None, dst_len=None,
              fwmark=None, iifname=None, oifname=None):
@@ -779,7 +779,7 @@ class IPRouteMixin(object):
         * command  - add, delete
         * table    - 0 < table id < 253
         * priority - 0 < rule's priority < 32766
-        * rtype    - type of rule, default 'FR_ACT_NOP' (see fibmsg.py)
+        * action    - type of rule, default 'FR_ACT_NOP' (see fibmsg.py)
         * rtscope  - routing scope, default RT_SCOPE_UNIVERSE
                      (RT_SCOPE_UNIVERSE|RT_SCOPE_SITE|\
                       RT_SCOPE_LINK|RT_SCOPE_HOST|RT_SCOPE_NOWHERE)
@@ -789,9 +789,9 @@ class IPRouteMixin(object):
         * dst      - IP for Destination Based (Policy Based) routing's rule
         * src_len  - Mask for Source Based (Policy Based) routing's rule
         * dst_len  - Mask for Destination Based (Policy Based) routing's rule
-        * iif      - Input interface for Interface Based (Policy Based)
+        * iifname  - Input interface for Interface Based (Policy Based)
                      routing's rule
-        * oif      - Output interface for Interface Based (Policy Based)
+        * oifname  - Output interface for Interface Based (Policy Based)
                      routing's rule
 
         Example::
@@ -852,7 +852,7 @@ class IPRouteMixin(object):
         msg = fibmsg()
         msg['table'] = table if table <= 255 else 252
         msg['family'] = family
-        msg['type'] = FR_ACT_NAMES[rtype]
+        msg['action'] = FR_ACT_NAMES[action]
         msg['attrs'] = [['FRA_TABLE', table]]
         msg['attrs'].append(['FRA_PRIORITY', priority])
         if fwmark is not None:
