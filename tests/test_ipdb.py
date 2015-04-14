@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import json
+import time
 import socket
+from pyroute2 import config
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
 from pyroute2.common import basestring
@@ -1026,6 +1028,38 @@ class TestMisc(object):
 
     def teardown(self):
         remove_link('dummyX')
+
+    def test_commit_barrier(self):
+
+        # barrier 0
+        try:
+            ip = IPDB()
+            config.commit_barrier = 0
+            ts1 = time.time()
+            ip.create(ifname='dx', kind='dummy').commit()
+            ts2 = time.time()
+            assert 0 < (ts2 - ts1) < 1
+        except:
+            raise
+        finally:
+            config.commit_barrier = 0.2
+            ip.interfaces.dx.remove().commit()
+            ip.release()
+
+        # barrier 5
+        try:
+            ip = IPDB()
+            config.commit_barrier = 5
+            ts1 = time.time()
+            ip.create(ifname='dx', kind='dummy').commit()
+            ts2 = time.time()
+            assert 5 < (ts2 - ts1) < 6
+        except:
+            raise
+        finally:
+            config.commit_barrier = 0.2
+            ip.interfaces.dx.remove().commit()
+            ip.release()
 
     def test_fail_released(self):
         ip = IPDB()
