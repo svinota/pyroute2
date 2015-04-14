@@ -2,6 +2,7 @@ import time
 import socket
 import threading
 import traceback
+from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.common import dqn2int
 from pyroute2.netlink import NetlinkError
@@ -15,8 +16,6 @@ from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.common import CommitException
 from pyroute2.ipdb.common import SYNC_TIMEOUT
 from pyroute2.ipdb.common import compat
-
-_BARRIER = 0.2
 
 
 class Interface(Transactional):
@@ -632,7 +631,7 @@ class Interface(Transactional):
             error.transaction = transaction
             raise error
 
-        time.sleep(_BARRIER)
+        time.sleep(config.commit_barrier)
         return self
 
     def up(self):
