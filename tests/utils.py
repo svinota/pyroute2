@@ -1,6 +1,7 @@
 import os
 import re
 import pwd
+import sys
 import platform
 import subprocess
 from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bridge
@@ -13,6 +14,11 @@ from nose.plugins.skip import SkipTest
 def conflict_arch(arch):
     if platform.machine().find(arch) >= 0:
         raise SkipTest('conflict with architecture %s' % (arch))
+
+
+def require_python(target):
+    if sys.version_info[0] != target:
+        raise SkipTest('test requires Python %i' % target)
 
 
 def require_8021q():
