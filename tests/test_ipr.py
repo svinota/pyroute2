@@ -3,6 +3,7 @@ import socket
 from pyroute2 import IPRoute
 from pyroute2.common import AddrPool
 from pyroute2.netlink import NetlinkError
+from pyroute2.netlink import nlmsg
 from utils import grep
 from utils import require_user
 from utils import require_python
@@ -63,6 +64,26 @@ class TestMisc(object):
 
     def teardown(self):
         self.ip.close()
+
+    def test_get_policy_map(self):
+        assert isinstance(self.ip.get_policy_map(), dict)
+
+    def test_register_policy(self):
+        self.ip.register_policy(100, nlmsg)
+        self.ip.register_policy({101: nlmsg})
+        self.ip.register_policy(102, nlmsg)
+
+        assert self.ip.get_policy_map()[100] == nlmsg
+        assert self.ip.get_policy_map(101)[101] == nlmsg
+        assert self.ip.get_policy_map([102])[102] == nlmsg
+
+        self.ip.unregister_policy(100)
+        self.ip.unregister_policy([101])
+        self.ip.unregister_policy({102: nlmsg})
+
+        assert 100 not in self.ip.get_policy_map()
+        assert 101 not in self.ip.get_policy_map()
+        assert 102 not in self.ip.get_policy_map()
 
     def test_addrpool_expand(self):
         # see coverage
