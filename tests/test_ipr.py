@@ -5,6 +5,7 @@ from pyroute2.common import AddrPool
 from pyroute2.netlink import NetlinkError
 from utils import grep
 from utils import require_user
+from utils import require_python
 from utils import get_ip_addr
 from utils import get_ip_link
 from utils import get_ip_route
@@ -24,6 +25,34 @@ class TestSetup(object):
         ip1 = IPRoute()
         ip2 = IPRoute()
         ip1.close()
+        ip2.close()
+
+    def test_fileno_fail(self):
+        require_python(2)
+        try:
+            IPRoute(fileno=13)
+        except NotImplementedError:
+            pass
+
+    def test_fileno(self):
+        require_python(3)
+        ip1 = IPRoute()
+        ip2 = IPRoute(fileno=ip1.fileno())
+
+        ip2.bind()
+        try:
+            ip1.bind()
+        except OSError as e:
+            if e.errno != 22:  # bind -> Invalid argument
+                raise
+
+        ip1.close()
+        try:
+            ip2.get_links()
+        except OSError as e:
+            if e.errno != 9:   # sendto -> Bad file descriptor
+                raise
+
         ip2.close()
 
 

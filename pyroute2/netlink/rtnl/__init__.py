@@ -214,8 +214,8 @@ class MarshalRtnl(Marshal):
 
 class IPRSocketMixin(object):
 
-    def __init__(self):
-        super(IPRSocketMixin, self).__init__(NETLINK_ROUTE)
+    def __init__(self, fileno=None):
+        super(IPRSocketMixin, self).__init__(NETLINK_ROUTE, fileno=fileno)
         self.marshal = MarshalRtnl()
         self.ancient = ANCIENT
         self._s_channel = None

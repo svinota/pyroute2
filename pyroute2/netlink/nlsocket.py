@@ -81,6 +81,7 @@ classes
 '''
 
 import os
+import sys
 import time
 import struct
 import logging
@@ -258,8 +259,30 @@ class NetlinkMixin(object):
     Generic netlink socket
     '''
 
-    def __init__(self, family=NETLINK_GENERIC, port=None, pid=None):
-        super(NetlinkMixin, self).__init__(AF_NETLINK, SOCK_DGRAM, family)
+    def __init__(self,
+                 family=NETLINK_GENERIC,
+                 port=None,
+                 pid=None,
+                 fileno=None):
+        #
+        # That's a trick. Python 2 is not able to construct
+        # sockets from an open FD.
+        #
+        # So raise an exception, if the major version is < 3
+        # and fileno is not None.
+        #
+        # Do NOT use fileno in a core pyroute2 functionality,
+        # since the core should be both Python 2 and 3
+        # compatible.
+        #
+        if fileno is not None and sys.version_info[0] < 3:
+            raise NotImplementedError('fileno parameter is not supported '
+                                      'on Python < 3.2')
+
+        super(NetlinkMixin, self).__init__(AF_NETLINK,
+                                           SOCK_DGRAM,
+                                           family,
+                                           fileno)
         global sockets
         self.recv_plugin = self.recv_plugin_init
         # 8<-----------------------------------------
