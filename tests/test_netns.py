@@ -1,10 +1,47 @@
+import os
 import time
 import subprocess
 from pyroute2 import IPDB
+from pyroute2 import IPRoute
 from pyroute2 import NetNS
+from pyroute2 import NSPopen
 from pyroute2 import netns as netnsmod
 from uuid import uuid4
 from utils import require_user
+
+
+class TestNSPopen(object):
+
+    def setup(self):
+        self.ip = IPRoute()
+        self.names = []
+
+    def teardown(self):
+        self.ip.close()
+        for ns in self.names:
+            netnsmod.remove(ns)
+
+    def get_nsname(self):
+        nsid = str(uuid4())
+        self.names.append(nsid)
+        return nsid
+
+    def test_basic(self):
+        require_user('root')
+        nsid = self.get_nsname()
+        # create NS and run a child
+        nsp = NSPopen(nsid,
+                      ['ip', '-o', 'link'],
+                      stdout=subprocess.PIPE,
+                      flags=os.O_CREAT)
+        ret = nsp.communicate()[0].decode('utf-8')
+        host_links = [x['index'] for x in self.ip.get_links()]
+        netns_links = [int(x[0]) for x in ret.split('\n') if len(x)]
+        assert nsp.wait() == nsp.returncode == 0
+        nsp.close()
+        assert set(host_links) & set(netns_links) == set(netns_links)
+        assert set(netns_links) < set(host_links)
+        assert not set(netns_links) > set(host_links)
 
 
 class TestNetNS(object):
