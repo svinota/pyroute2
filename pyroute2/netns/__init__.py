@@ -43,7 +43,7 @@ def create(netns, libc=None):
     '''
     Create a network namespace.
     '''
-    libc = libc or ctypes.CDLL('libc.so.6')
+    libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
     # FIXME validate and prepare NETNS_RUN_DIR
 
     netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
@@ -61,9 +61,9 @@ def create(netns, libc=None):
     done = False
     while libc.mount(b'', netnsdir, b'none', MS_SHARED | MS_REC, None) != 0:
         if done:
-            raise OSError(errno.ECOMM, 'share rundir failed', netns)
+            raise OSError(ctypes.get_errno(), 'share rundir failed', netns)
         if libc.mount(netnsdir, netnsdir, b'none', MS_BIND, None) != 0:
-            raise OSError(errno.ECOMM, 'mount rundir failed', netns)
+            raise OSError(ctypes.get_errno(), 'mount rundir failed', netns)
         done = True
 
     # create mountpoint
@@ -71,18 +71,18 @@ def create(netns, libc=None):
 
     # unshare
     if libc.unshare(CLONE_NEWNET) < 0:
-        raise OSError(errno.ECOMM, 'unshare failed', netns)
+        raise OSError(ctypes.get_errno(), 'unshare failed', netns)
 
     # bind the namespace
     if libc.mount(b'/proc/self/ns/net', netnspath, b'none', MS_BIND, None) < 0:
-        raise OSError(errno.ECOMM, 'mount failed', netns)
+        raise OSError(ctypes.get_errno(), 'mount failed', netns)
 
 
 def remove(netns, libc=None):
     '''
     Remove a network namespace.
     '''
-    libc = libc or ctypes.CDLL('libc.so.6')
+    libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
     netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
     netnspath = netnspath.encode('ascii')
     libc.umount2(netnspath, MNT_DETACH)
@@ -93,7 +93,7 @@ def setns(netns, flags=os.O_CREAT, libc=None):
     '''
     Set netns for the current process.
     '''
-    libc = libc or ctypes.CDLL('libc.so.6')
+    libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
     netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
     netnspath = netnspath.encode('ascii')
 
@@ -107,5 +107,5 @@ def setns(netns, flags=os.O_CREAT, libc=None):
     nsfd = os.open(netnspath, os.O_RDONLY)
     ret = libc.syscall(__NR_setns, nsfd, CLONE_NEWNET)
     if ret != 0:
-        raise OSError(ret, 'failed to open netns', netns)
+        raise OSError(ctypes.get_errno(), 'failed to open netns', netns)
     return nsfd
