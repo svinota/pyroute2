@@ -5,6 +5,7 @@ from pyroute2 import IPDB
 from pyroute2 import IPRoute
 from pyroute2 import NetNS
 from pyroute2 import NSPopen
+from pyroute2.netns.process.proxy import NSPopen as NSPopenDirect
 from pyroute2 import netns as netnsmod
 from uuid import uuid4
 from utils import require_user
@@ -21,14 +22,47 @@ class TestNSPopen(object):
         for ns in self.names:
             netnsmod.remove(ns)
 
-    def get_nsname(self):
+    def alloc_nsname(self):
         nsid = str(uuid4())
         self.names.append(nsid)
         return nsid
 
+    def test_api_class(self):
+        api_nspopen = set(dir(NSPopenDirect))
+        api_popen = set(dir(subprocess.Popen))
+        assert api_nspopen & api_popen == api_popen
+
+    def test_api_object(self):
+        require_user('root')
+        nsid = self.alloc_nsname()
+        nsp = NSPopen(nsid, ['true'], flags=os.O_CREAT, stdout=subprocess.PIPE)
+        smp = subprocess.Popen(['true'], stdout=subprocess.PIPE)
+        nsp.communicate()
+        smp.communicate()
+        api_nspopen = set(dir(nsp))
+        api_popen = set(dir(smp))
+        minimal = set(('communicate', 'kill', 'wait'))
+        assert minimal & (api_nspopen & api_popen) == minimal
+        smp.wait()
+        nsp.wait()
+        assert nsp.returncode == smp.returncode == 0
+        nsp.release()
+
+    def test_release(self):
+        require_user('root')
+        nsid = self.alloc_nsname()
+        nsp = NSPopen(nsid, ['true'], flags=os.O_CREAT, stdout=subprocess.PIPE)
+        nsp.communicate()
+        nsp.wait()
+        nsp.release()
+        try:
+            print(nsp.returncode)
+        except RuntimeError:
+            pass
+
     def test_basic(self):
         require_user('root')
-        nsid = self.get_nsname()
+        nsid = self.alloc_nsname()
         # create NS and run a child
         nsp = NSPopen(nsid,
                       ['ip', '-o', 'link'],
@@ -38,10 +72,10 @@ class TestNSPopen(object):
         host_links = [x['index'] for x in self.ip.get_links()]
         netns_links = [int(x[0]) for x in ret.split('\n') if len(x)]
         assert nsp.wait() == nsp.returncode == 0
-        nsp.close()
         assert set(host_links) & set(netns_links) == set(netns_links)
         assert set(netns_links) < set(host_links)
         assert not set(netns_links) > set(host_links)
+        nsp.release()
 
 
 class TestNetNS(object):
