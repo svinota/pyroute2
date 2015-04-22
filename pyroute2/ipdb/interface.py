@@ -457,7 +457,18 @@ class Interface(Transactional):
                 # hardcoded pause -- if the interface was moved
                 # across network namespaces
                 if 'net_ns_fd' in request:
-                    time.sleep(0.5)
+                    while True:
+                        # wait until the interface will disappear
+                        # from the main network namespace
+                        try:
+                            self.nl.get_links(self['index'])
+                        except NetlinkError as e:
+                            if e.code == 19:
+                                break
+                            raise
+                        except Exception:
+                            raise
+                    time.sleep(0.1)
 
             # 8<---------------------------------------------
             # IP address changes
