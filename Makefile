@@ -26,6 +26,7 @@ release := $(shell git describe)
 #
 python ?= "python"
 nosetests ?= "nosetests"
+flake8 ?= "flake8"
 setuplib ?= "distutils.core"
 ##
 # Python -W flags:
@@ -68,6 +69,14 @@ endif
 
 ifdef wlevel
 	override wlevel := -W ${wlevel}
+endif
+
+# get the python version
+pversion := $(shell ${python} -c 'import sys; print(sys.version_info[0])')
+ifeq (${pversion}, 2)
+	pep8exc := --exclude=docs,../pyroute2/netns/process/base_p3.py
+else
+	pep8exc := --exclude=docs,../pyroute2/netns/process/base_p2.py
 endif
 
 
@@ -126,8 +135,10 @@ test:
 		echo "python: `which ${python}` [`${python} --version 2>&1`]" ; \
 		echo "flake8: `which flake8` [`flake8 --version 2>&1`]" ; \
 		echo "nosetests: `which ${nosetests}` [`${nosetests} --version 2>&1`]" ; \
+		echo "pversion: ${pversion}" ;\
+		echo "pep8 exclude list: ${pep8exc}" ;\
 		echo "8<----------------------------------" ; \
-		flake8 --exclude=docs .. && echo "flake8 ... ok" || exit 250; \
+		${python} `which ${flake8}` ${pep8exc} .. && echo "flake8 ... ok" || exit 250; \
 		[ -z "$$TRAVIS" ] && { \
 			${python} ${wlevel} `which ${nosetests}` -v ${pdb} \
 			--with-coverage \
