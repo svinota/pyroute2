@@ -119,8 +119,13 @@ class NSPopen(NSPopenBase):
         the `release()` call.
         '''
         with self.lock:
+            if self.released:
+                return
             self.released = True
             self.channel_out.put({'name': 'release'})
+            self.channel_out.close()
+            self.channel_in.close()
+            self.server.join()
 
     def __dir__(self):
         return list(self.api.keys()) + ['release']
