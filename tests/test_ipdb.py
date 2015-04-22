@@ -1030,6 +1030,7 @@ class TestMisc(object):
         remove_link('dummyX')
 
     def test_commit_barrier(self):
+        require_user('root')
 
         # barrier 0
         try:
