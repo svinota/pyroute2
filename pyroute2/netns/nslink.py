@@ -313,8 +313,5 @@ class NetNS(IPRouteMixin, NetNSIPR):
     def remove(self):
         '''
         Try to remove this network namespace from the system.
-
-        This call be be ran only after `NetNS.close()`, otherwise
-        it will fail.
         '''
         remove(self.netns)
