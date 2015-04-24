@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
+import os
 import json
 import time
 import socket
+import subprocess
 from pyroute2 import config
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
@@ -23,6 +25,52 @@ from utils import get_ip_addr
 
 class _TestException(Exception):
     pass
+
+
+class TestRace(object):
+
+    def test_dummy0_unloaded(object):
+        require_user('root')
+        # firstly unload the dummy module
+        with open(os.devnull, 'w') as fnull:
+            subprocess.call(['modprobe', '-r', 'dummy'],
+                            stdout=fnull,
+                            stderr=fnull)
+        ip = None
+        try:
+            # now create the dummy0 -- it will cause the
+            # module autoload
+            ip = IPDB()
+            # that must succeed
+            ip.create(ifname='dummy0', kind='dummy').commit()
+            # just in case: the second attempt must fail on the
+            # create() stage, even w/o any commit()
+            try:
+                ip.create(ifname='dummy0', kind='dummy')
+            except CreateException:
+                pass
+        except Exception:
+            raise
+        finally:
+            if ip is not None:
+                ip.release()
+
+    def test_dummy0_loaded(object):
+        require_user('root')
+        # assert the module is loaded
+        create_link('dummyX', 'dummy')
+        ip = None
+        try:
+            # try to create and fail in create()
+            ip = IPDB()
+            ip.create(ifname='dummy0', kind='dummy')
+        except CreateException:
+            pass
+        except Exception:
+            raise
+        finally:
+            if ip is not None:
+                ip.release()
 
 
 class TestExplicit(object):

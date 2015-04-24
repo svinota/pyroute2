@@ -360,8 +360,28 @@ class Interface(Transactional):
                     try:
                         self.nl.link('add', **request)
                     except NetlinkError as x:
+                        # File exists
+                        if x.code == 17:
+                            # A bit special case, could be one of two cases:
+                            #
+                            # 1. A race condition between two different IPDB
+                            #    processes
+                            # 2. An attempt to create dummy0, gre0, bond0 when
+                            #    the corrseponding module is not loaded. Being
+                            #    loaded, the module creates a default interface
+                            #    by itself, causing the request to fail
+                            #
+                            # The exception in that case can cause the DB
+                            # inconsistence, since there can be queued not only
+                            # the interface creation, but also IP address
+                            # changes etc.
+                            #
+                            # So we ignore this particular exception and try to
+                            # continue, as it is created by us.
+                            pass
+
                         # Operation not supported
-                        if x.code == 95 and request.get('index', 0) != 0:
+                        elif x.code == 95 and request.get('index', 0) != 0:
                             # ACHTUNG: hack for old platforms
                             request = IPLinkRequest({'ifname': self['ifname'],
                                                      'kind': self['kind'],
