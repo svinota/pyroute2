@@ -140,11 +140,13 @@ class Route(Transactional):
 
         if not rollback:
             self.drop()
-            self.reload()
 
         if error is not None:
             error.transaction = transaction
             raise error
+
+        if not rollback:
+            self.reload()
 
         return self
 
