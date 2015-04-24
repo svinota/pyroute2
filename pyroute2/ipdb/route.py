@@ -61,17 +61,23 @@ class Route(Transactional):
         with self._direct_state:
             self._exists = True
             self.update(msg)
+
+            # re-init metrics
+            metrics = self.get('metrics', Metrics(parent=self))
+            with metrics._direct_state:
+                for metric in tuple(metrics.keys()):
+                    del metrics[metric]
+            self['metrics'] = metrics
+
             # merge key
             for (name, value) in msg['attrs']:
                 norm = rtmsg.nla2name(name)
                 # normalize RTAX
                 if norm == 'metrics':
-                    ret = self.get(norm, Metrics(parent=self))
-                    with ret._direct_state:
+                    with self['metrics']._direct_state:
                         for (rtax, rtax_value) in value['attrs']:
                             rtax_norm = rtmsg.metrics.nla2name(rtax)
-                            ret[rtax_norm] = rtax_value
-                    self[norm] = ret
+                            self['metrics'][rtax_norm] = rtax_value
                 else:
                     self[norm] = value
 
