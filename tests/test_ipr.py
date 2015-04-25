@@ -7,6 +7,7 @@ from pyroute2.netlink import nlmsg
 from utils import grep
 from utils import require_user
 from utils import require_python
+from utils import require_executable
 from utils import get_ip_addr
 from utils import get_ip_link
 from utils import get_ip_route
@@ -179,6 +180,7 @@ class TestIPRoute(object):
 
     def test_create_ovs_bridge(self):
         require_user('root')
+        require_executable('ovs-vsctl')
         self._create('ovs-bridge')
 
     def test_create_team(self):
