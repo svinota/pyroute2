@@ -170,6 +170,7 @@ class AddrPool(object):
         mx = self.cell
         self.reverse = reverse
         self.release = release
+        self.allocated = 0
         if self.release:
             assert isinstance(self.release, int)
         self.ban = []
@@ -216,6 +217,7 @@ class AddrPool(object):
                     if self.minaddr <= ret <= self.maxaddr:
                         if self.release:
                             self.free(ret, ban=self.release)
+                        self.allocated += 1
                         return ret
                     else:
                         self.free(ret)
@@ -230,20 +232,40 @@ class AddrPool(object):
             else:
                 raise KeyError('no free address available')
 
+    def _locate(self, addr):
+        if self.reverse:
+            addr = self.maxaddr - addr
+        else:
+            addr -= self.minaddr
+        base = addr // self.cell_size
+        bit = addr % self.cell_size
+        try:
+            is_allocated = not self.addr_map[base] & (1 << bit)
+        except IndexError:
+            is_allocated = False
+        return (base, bit, is_allocated)
+
+    def setaddr(self, addr, value):
+        assert value in ('free', 'allocated')
+        with self.lock:
+            base, bit, is_allocated = self._locate(addr)
+            if value == 'free' and is_allocated:
+                self.allocated -= 1
+                self.addr_map[base] |= 1 << bit
+            elif value == 'allocated' and not is_allocated:
+                self.allocated += 1
+                self.addr_map[base] &= ~(1 << bit)
+
     def free(self, addr, ban=0):
         with self.lock:
             if ban != 0:
                 self.ban.append({'addr': addr,
                                  'counter': ban})
             else:
-                if self.reverse:
-                    addr = self.maxaddr - addr
-                else:
-                    addr -= self.minaddr
-                base = addr // self.cell_size
-                bit = addr % self.cell_size
+                base, bit, is_allocated = self._locate(addr)
                 if len(self.addr_map) <= base:
                     raise KeyError('address is not allocated')
                 if self.addr_map[base] & (1 << bit):
                     raise KeyError('address is not allocated')
+                self.allocated -= 1
                 self.addr_map[base] ^= 1 << bit
