@@ -476,6 +476,9 @@ class NetlinkMixin(object):
             super(NetlinkMixin, self).bind((self.epid, self.groups))
         else:
             self.port = sockets.alloc()
+            if sockets.allocated > 900:
+                logging.warning(' Netlink ports allocated: %i from 1024',
+                                sockets.allocated)
             self.epid = self.pid + (self.port << 22)
             super(NetlinkMixin, self).bind((self.epid, self.groups))
         # all is OK till now, so start async recv, if we need
