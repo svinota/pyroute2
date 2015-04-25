@@ -94,7 +94,6 @@ from socket import MSG_PEEK
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from socket import SO_SNDBUF
-from socket import error as SocketError
 
 from pyroute2.config import SocketBase
 from pyroute2.common import AddrPool
@@ -476,22 +475,9 @@ class NetlinkMixin(object):
             self.epid = self.pid + (self.port << 22)
             super(NetlinkMixin, self).bind((self.epid, self.groups))
         else:
-            # if we have no pre-defined port, scan all the
-            # range till the first available port
-            for i in range(1024):
-                try:
-                    self.port = sockets.alloc()
-                    self.epid = self.pid + (self.port << 22)
-                    super(NetlinkMixin, self).bind((self.epid, self.groups))
-                    # if we're here, bind() done successfully, just exit
-                    break
-                except SocketError as e:
-                    # pass occupied sockets, raise other exceptions
-                    if e.errno != 98:
-                        raise
-            else:
-                # raise "address in use" -- to be compatible
-                raise SocketError(98, 'Address already in use')
+            self.port = sockets.alloc()
+            self.epid = self.pid + (self.port << 22)
+            super(NetlinkMixin, self).bind((self.epid, self.groups))
         # all is OK till now, so start async recv, if we need
         if async:
             self._stop = False
