@@ -232,7 +232,7 @@ class AddrPool(object):
             else:
                 raise KeyError('no free address available')
 
-    def _locate(self, addr):
+    def locate(self, addr):
         if self.reverse:
             addr = self.maxaddr - addr
         else:
@@ -248,7 +248,7 @@ class AddrPool(object):
     def setaddr(self, addr, value):
         assert value in ('free', 'allocated')
         with self.lock:
-            base, bit, is_allocated = self._locate(addr)
+            base, bit, is_allocated = self.locate(addr)
             if value == 'free' and is_allocated:
                 self.allocated -= 1
                 self.addr_map[base] |= 1 << bit
@@ -262,7 +262,7 @@ class AddrPool(object):
                 self.ban.append({'addr': addr,
                                  'counter': ban})
             else:
-                base, bit, is_allocated = self._locate(addr)
+                base, bit, is_allocated = self.locate(addr)
                 if len(self.addr_map) <= base:
                     raise KeyError('address is not allocated')
                 if self.addr_map[base] & (1 << bit):
