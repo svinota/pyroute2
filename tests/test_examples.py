@@ -43,7 +43,8 @@ class TestExamples(object):
         newdir = os.getcwd()
         if newdir not in sys.path:
             sys.path.append(newdir)
-        self.feedback = Queue()
+        self.client_feedback = Queue()
+        self.server_feedback = Queue()
         self.pr, self.pw = os.pipe()
         __builtins__['pr2_sync'] = self.pr
 
@@ -57,28 +58,32 @@ class TestExamples(object):
         client_error = None
         server_error = None
 
-        def wrapper(parent, symbol):
+        def wrapper(parent, symbol, feedback):
             try:
                 if symbol in globals():
                     globals()[symbol]()
                 else:
                     _import(symbol)
-                parent.feedback.put(None)
+                feedback.put(None)
             except Exception as e:
-                parent.feedback.put(e)
+                feedback.put(e)
 
         if server is not None:
-            s = Thread(target=wrapper, args=(self, server, ))
+            s = Thread(target=wrapper, args=(self,
+                                             server,
+                                             self.server_feedback))
             s.start()
             time.sleep(1)
 
-        c = Thread(target=wrapper, args=(self, client, ))
+        c = Thread(target=wrapper, args=(self,
+                                         client,
+                                         self.client_feedback))
         c.start()
-        client_error = self.feedback.get()
+        client_error = self.client_feedback.get()
 
         if server is not None:
             os.write(self.pw, b'q')
-            server_error = self.feedback.get()
+            server_error = self.server_feedback.get()
             s.join()
 
         c.join()
