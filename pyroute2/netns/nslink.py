@@ -258,6 +258,9 @@ class NetNSocket(NetlinkMixin, NetNSProxy):
     def bind(self, *argv, **kwarg):
         return NetNSProxy.bind(self, *argv, **kwarg)
 
+    def close(self):
+        NetNSProxy.close(self)
+
 
 class NetNSIPR(IPRSocketMixin, NetNSocket):
     pass
