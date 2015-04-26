@@ -297,6 +297,7 @@ class NetlinkMixin(object):
         self.callbacks = []     # [(predicate, callback, args), ...]
         self.clean_cbs = {}     # {msg_seq: [callback, ...], ...}
         self.pthread = None
+        self.closed = False
         self.backlog_lock = threading.Lock()
         self.read_lock = threading.Lock()
         self.change_master = threading.Event()
@@ -811,8 +812,15 @@ class NetlinkMixin(object):
         Correctly close the socket and free all resources.
         '''
         global sockets
+
+        with self.lock:
+            if self.closed:
+                return
+            self.closed = True
+
         if self.pthread is not None:
             self._stop = True
+
         if self.epid is not None:
             assert self.port is not None
             if not self.fixed:
