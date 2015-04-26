@@ -80,6 +80,7 @@ classes
 -------
 '''
 
+import gc
 import os
 import sys
 import time
@@ -817,7 +818,22 @@ class NetlinkMixin(object):
             if not self.fixed:
                 sockets.free(self.port)
             self.epid = None
+        # Save the fd reference -- one can not call fileno() after close()
+        fd = self.fileno()
+        # Common shutdown procedure
         super(NetlinkMixin, self).close()
+        # Try to close the fd
+        try:
+            os.close(fd)
+        except OSError as e:
+            print(e)
+            # Ignore the "Bad file descriptor" exception
+            if e.errno != 9:
+                raise
+        # Finally, run the garbage collection
+        #
+        # It can be expensive, but it is required to flush all I/O
+        gc.collect()
 
 
 class NetlinkSocket(NetlinkMixin, SocketBase):
