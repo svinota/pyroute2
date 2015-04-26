@@ -816,7 +816,7 @@ class NetlinkMixin(object):
         if self.epid is not None:
             assert self.port is not None
             if not self.fixed:
-                sockets.free(self.port)
+                sockets.free(self.port, ban=256)
             self.epid = None
         # Save the fd reference -- one can not call fileno() after close()
         fd = self.fileno()
