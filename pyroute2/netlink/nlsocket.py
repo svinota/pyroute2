@@ -824,24 +824,24 @@ class NetlinkMixin(object):
         if self.epid is not None:
             assert self.port is not None
             if not self.fixed:
-                sockets.free(self.port, ban=256)
+                sockets.free(self.port, ban=16)
             self.epid = None
-        # Save the fd reference -- one can not call fileno() after close()
-        fd = self.fileno()
-        # Common shutdown procedure
-        super(NetlinkMixin, self).close()
-        # Try to close the fd
+
+        # Close fd before socket.close(), otherwise there can be a race
         try:
-            os.close(fd)
-        except OSError as e:
-            print(e)
-            # Ignore the "Bad file descriptor" exception
-            if e.errno != 9:
-                raise
-        # Finally, run the garbage collection
+            os.close(self.fileno())
+        except Exception:
+            raise
+        finally:
+            # Common shutdown procedure
+            super(NetlinkMixin, self).close()
+
+        # Run the garbage collection
         #
-        # It can be expensive, but it is required to flush all I/O
-        gc.collect()
+        # It can be expensive, but it is required to flush I/O here.
+        # Collect only the first generation, it is faster and we don't
+        # need more.
+        gc.collect(1)
 
 
 class NetlinkSocket(NetlinkMixin, SocketBase):

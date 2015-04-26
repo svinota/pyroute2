@@ -55,7 +55,11 @@ class TestSetup(object):
             if e.errno != 9:   # sendto -> Bad file descriptor
                 raise
 
-        ip2.close()
+        try:
+            ip2.close()
+        except OSError as e:
+            if e.errno != 9:   # close -> Bad file descriptor
+                raise
 
 
 class TestMisc(object):
