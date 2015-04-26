@@ -813,13 +813,10 @@ class NetlinkMixin(object):
         if self.pthread is not None:
             self._stop = True
         if self.epid is not None:
+            assert self.port is not None
+            if not self.fixed:
+                sockets.free(self.port)
             self.epid = None
-            # FIXME
-            #
-            # Do not free the netlink port -- netlink ports can not
-            # be reused at least on new kernels.
-            #
-            # To be investigated yet.
         super(NetlinkMixin, self).close()
 
 
