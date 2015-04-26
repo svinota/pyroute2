@@ -233,6 +233,13 @@ class IPRSocketMixin(object):
     def bind(self, groups=RTNL_GROUPS, async=False):
         super(IPRSocketMixin, self).bind(groups, async=async)
 
+    def close(self):
+        if self.pthread is not None:
+            self._stop = True
+            self.put({'index': 1}, RTM_GETLINK)
+            self.pthread.join()
+        super(IPRSocketMixin, self).close()
+
     ##
     # proxy-ng protocol
     #
