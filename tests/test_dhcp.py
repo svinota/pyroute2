@@ -1,3 +1,4 @@
+import gc
 import os
 import subprocess
 import dhclient
@@ -47,6 +48,8 @@ class TestDhcpClient(object):
         self.ip.release()
         # remove configuration file
         os.unlink('udhcpd.conf')
+        # collect garbage
+        gc.collect()
 
     def test_defaults(self):
         msg = dhclient.action(self.if2)
