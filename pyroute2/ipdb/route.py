@@ -252,6 +252,13 @@ class RoutingTable(object):
     def __getitem__(self, key):
         return self.describe(key, forward=True)['route']
 
+    def __contains__(self, key):
+        try:
+            self.describe(key, forward=False)
+            return True
+        except KeyError:
+            return False
+
 
 class RoutingTableSet(object):
 
