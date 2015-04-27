@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.3.7
+    * ipdb: new routing syntax
+    * ipdb: sync interface movement between namespaces
+    * ipdb: #125 -- fix route metrics
+    * netns: new class NSPopen
+    * netns: #119 -- i386 syscall
+    * netns: #122 -- return correct errno
+    * netlink: #126 -- fix socket reuse
 * 0.3.6
     * dhcp: initial release DHCPv4
     * license: dual GPLv2+ and Apache v2.0
