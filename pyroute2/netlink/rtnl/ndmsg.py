@@ -7,20 +7,24 @@ class ndmsg(nlmsg):
     '''
     ARP cache update message
 
-    struct ndmsg {
-        unsigned char ndm_family;
-        int           ndm_ifindex;  /* Interface index */
-        __u16         ndm_state;    /* State */
-        __u8          ndm_flags;    /* Flags */
-        __u8          ndm_type;
-    };
+    C structure::
 
-    struct nda_cacheinfo {
-        __u32         ndm_confirmed;
-        __u32         ndm_used;
-        __u32         ndm_updated;
-        __u32         ndm_refcnt;
-    };
+        struct ndmsg {
+            unsigned char ndm_family;
+            int           ndm_ifindex;  /* Interface index */
+            __u16         ndm_state;    /* State */
+            __u8          ndm_flags;    /* Flags */
+            __u8          ndm_type;
+        };
+
+    Cache info structure::
+
+        struct nda_cacheinfo {
+            __u32         ndm_confirmed;
+            __u32         ndm_used;
+            __u32         ndm_updated;
+            __u32         ndm_refcnt;
+        };
     '''
     fields = (('family', 'B'),
               ('__pad', '3x'),

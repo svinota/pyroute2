@@ -16,17 +16,19 @@ class fibmsg(nlmsg):
     '''
     IP rule message
 
-    struct fib_rule_hdr {
-        __u8        family;
-        __u8        dst_len;
-        __u8        src_len;
-        __u8        tos;
-        __u8        table;
-        __u8        res1;   /* reserved */
-        __u8        res2;   /* reserved */
-        __u8        action;
-        __u32       flags;
-    };
+    C structure::
+
+        struct fib_rule_hdr {
+            __u8        family;
+            __u8        dst_len;
+            __u8        src_len;
+            __u8        tos;
+            __u8        table;
+            __u8        res1;   /* reserved */
+            __u8        res2;   /* reserved */
+            __u8        action;
+            __u32       flags;
+        };
     '''
     prefix = 'FRA_'
 

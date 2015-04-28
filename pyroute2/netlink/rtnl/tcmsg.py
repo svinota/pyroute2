@@ -744,15 +744,16 @@ class tcmsg(nlmsg, nla_plus_stats2):
 
             def encode(self):
                 '''
-                'keys': ['0x0006/0x00ff+8',
-                         '0x0000/0xffc0+2',
-                         '0x5/0xf+0',
-                         '0x10/0xff+33']
+                Key sample::
 
-                => 00060000/00ff0000 + 8
-                   05000000/0f00ffc0 + 0
-                   00100000/00ff0000 + 32
+                    'keys': ['0x0006/0x00ff+8',
+                             '0x0000/0xffc0+2',
+                             '0x5/0xf+0',
+                             '0x10/0xff+33']
 
+                    => 00060000/00ff0000 + 8
+                       05000000/0f00ffc0 + 0
+                       00100000/00ff0000 + 32
                 '''
 
                 def cut_field(key, separator):

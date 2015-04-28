@@ -70,8 +70,8 @@ class NSPopen(NSPopenBase):
     def __init__(self, nsname, *argv, **kwarg):
         '''
         The only differences from the `subprocess.Popen` init are:
-          * `nsname` -- network namespace name
-          * `flags` keyword argument
+        * `nsname` -- network namespace name
+        * `flags` keyword argument
 
         All other arguments are passed directly to `subprocess.Popen`.
 

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 '''
 IPRoute module
 ==============
@@ -91,7 +92,6 @@ from pyroute2.netlink.rtnl import RTM_NEWROUTE
 from pyroute2.netlink.rtnl import RTM_GETROUTE
 from pyroute2.netlink.rtnl import RTM_DELROUTE
 from pyroute2.netlink.rtnl import RTM_SETLINK
-from pyroute2.netlink.rtnl import RTM_GETDHCP
 from pyroute2.netlink.rtnl import TC_H_INGRESS
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rtprotos
@@ -110,10 +110,9 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
-from pyroute2.netlink.rtnl.dhcpmsg import dhcpmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
-from pyroute2.netlink.rtnl import IPRSocket
+from pyroute2.netlink.rtnl.iprsocket import IPRSocket
 
 from pyroute2.common import basestring
 
@@ -241,14 +240,6 @@ class IPRouteMixin(object):
             return [x for x in ret if x.get('index') == index]
         else:
             return ret
-
-    def get_dhcp(self, name, address=None):
-        msg = dhcpmsg()
-        msg['family'] = AF_INET
-        msg['attrs'] = [['DHCP_IFNAME', name]]
-        if address is not None:
-            msg['attrs'].append(['DHCP_ADDRESS', address])
-        return self.nlm_request(msg, RTM_GETDHCP)
 
     def get_rules(self, family=AF_UNSPEC):
         '''
@@ -776,23 +767,24 @@ class IPRouteMixin(object):
         '''
         Rule operations
 
-        * command  - add, delete
-        * table    - 0 < table id < 253
-        * priority - 0 < rule's priority < 32766
-        * action    - type of rule, default 'FR_ACT_NOP' (see fibmsg.py)
-        * rtscope  - routing scope, default RT_SCOPE_UNIVERSE
-                     (RT_SCOPE_UNIVERSE|RT_SCOPE_SITE|\
-                      RT_SCOPE_LINK|RT_SCOPE_HOST|RT_SCOPE_NOWHERE)
-        * family   - rule's family (socket.AF_INET (default) or
-                     socket.AF_INET6)
-        * src      - IP source for Source Based (Policy Based) routing's rule
-        * dst      - IP for Destination Based (Policy Based) routing's rule
-        * src_len  - Mask for Source Based (Policy Based) routing's rule
-        * dst_len  - Mask for Destination Based (Policy Based) routing's rule
-        * iifname  - Input interface for Interface Based (Policy Based)
-                     routing's rule
-        * oifname  - Output interface for Interface Based (Policy Based)
-                     routing's rule
+            - command — add, delete
+            - table — 0 < table id < 253
+            - priority — 0 < rule's priority < 32766
+            - action — type of rule, default 'FR_ACT_NOP' (see fibmsg.py)
+            - rtscope — routing scope, default RT_SCOPE_UNIVERSE
+                `(RT_SCOPE_UNIVERSE|RT_SCOPE_SITE|\
+                RT_SCOPE_LINK|RT_SCOPE_HOST|RT_SCOPE_NOWHERE)`
+            - family — rule's family (socket.AF_INET (default) or
+                socket.AF_INET6)
+            - src — IP source for Source Based (Policy Based) routing's rule
+            - dst — IP for Destination Based (Policy Based) routing's rule
+            - src_len — Mask for Source Based (Policy Based) routing's rule
+            - dst_len — Mask for Destination Based (Policy Based) routing's
+                rule
+            - iifname — Input interface for Interface Based (Policy Based)
+                routing's rule
+            - oifname — Output interface for Interface Based (Policy Based)
+                routing's rule
 
         Example::
             ip.rule('add', 10, 32000)

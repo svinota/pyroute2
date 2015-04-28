@@ -139,14 +139,17 @@ stats_names = ('rx_packets',
 
 class ifinfbase(object):
     '''
-    Network interface message
-    struct ifinfomsg {
-        unsigned char  ifi_family; /* AF_UNSPEC */
-        unsigned short ifi_type;   /* Device type */
-        int            ifi_index;  /* Interface index */
-        unsigned int   ifi_flags;  /* Device flags  */
-        unsigned int   ifi_change; /* change mask */
-    };
+    Network interface message.
+
+    C structure::
+
+        struct ifinfomsg {
+            unsigned char  ifi_family; /* AF_UNSPEC */
+            unsigned short ifi_type;   /* Device type */
+            int            ifi_index;  /* Interface index */
+            unsigned int   ifi_flags;  /* Device flags  */
+            unsigned int   ifi_change; /* change mask */
+        };
     '''
     prefix = 'IFLA_'
 
@@ -1037,14 +1040,14 @@ def get_interface_type(name):
     provide extended (private) interface flags via ioctl().
 
     Args:
-        * name (str): interface name
+    * name (str): interface name
 
     Returns:
-        * False -- sysfs info unavailable
-        * None -- type not known
-        * str -- interface type:
-            * 'bond'
-            * 'bridge'
+    * False -- sysfs info unavailable
+    * None -- type not known
+    * str -- interface type:
+        - 'bond'
+        - 'bridge'
     '''
     # FIXME: support all interface types? Right now it is
     # not needed

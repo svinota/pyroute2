@@ -121,14 +121,14 @@ def map_namespace(prefix, ns):
     NDA_PROBES = 4
     (NDA_NAMES, NDA_VALUES) = map_namespace('NDA', globals())
 
-    Will lead to:
+    Will lead to::
 
-    NDA_NAMES = {'NDA_UNSPEC': 0,
-                 ...
-                 'NDA_PROBES': 4}
-    NDA_VALUES = {0: 'NDA_UNSPEC',
-                  ...
-                  4: 'NDA_PROBES'}
+        NDA_NAMES = {'NDA_UNSPEC': 0,
+                     ...
+                     'NDA_PROBES': 4}
+        NDA_VALUES = {0: 'NDA_UNSPEC',
+                      ...
+                      4: 'NDA_PROBES'}
 
     '''
     by_name = dict([(i, ns[i]) for i in ns.keys() if i.startswith(prefix)])

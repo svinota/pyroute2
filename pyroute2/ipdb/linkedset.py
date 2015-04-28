@@ -35,7 +35,7 @@ class LinkedSet(set):
         set, see also: `check_target()`
 
         Args:
-            * value (set): the target state to compare with
+            - value (set): the target state to compare with
         '''
         with self.lock:
             if value is None:
@@ -68,8 +68,8 @@ class LinkedSet(set):
         check the target state.
 
         Args:
-            * key: any hashable object
-            * raw (optional): raw representation of the object
+            - key: any hashable object
+            - raw (optional): raw representation of the object
 
         Raw representation is not required. It can be used, e.g.,
         to store RTM_NEWADDR RTNL messages along with

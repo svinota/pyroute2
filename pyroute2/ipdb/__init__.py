@@ -167,12 +167,12 @@ transaction modes
 -----------------
 IPDB has several operating modes:
 
- * 'direct' -- any change goes immediately to the OS level
- * 'implicit' (default) -- the first change starts an implicit
-   transaction, that have to be committed
- * 'explicit' -- you have to begin() a transaction prior to
-   make any change
- * 'snapshot' -- no changes will go to the OS in any case
+    - 'direct' -- any change goes immediately to the OS level
+    - 'implicit' (default) -- the first change starts an implicit
+        transaction, that have to be committed
+    - 'explicit' -- you have to begin() a transaction prior to
+        make any change
+    - 'snapshot' -- no changes will go to the OS in any case
 
 The default is to use implicit transaction. This behaviour can
 be changed in the future, so use 'mode' argument when creating
@@ -329,10 +329,10 @@ def get_addr_nla(msg):
     tunneling endpoint.
 
     Args:
-        * msg (nlmsg): RTM\_.*ADDR message
+        - msg (nlmsg): RTM\_.*ADDR message
 
     Returns:
-        * nla (nla): IFA_LOCAL for IPv4 and IFA_ADDRESS for IPv6
+        - nla (nla): IFA_LOCAL for IPv4 and IFA_ADDRESS for IPv6
     '''
     nla = None
     if msg['family'] == AF_INET:
@@ -379,9 +379,9 @@ class IPDB(object):
                  restart_on_error=None):
         '''
         Parameters:
-            * nl -- IPRoute() reference
-            * mode -- (implicit, explicit, direct)
-            * iclass -- the interface class type
+            - nl -- IPRoute() reference
+            - mode -- (implicit, explicit, direct)
+            - iclass -- the interface class type
 
         If you do not provide iproute instance, ipdb will
         start it automatically.
@@ -509,18 +509,20 @@ class IPDB(object):
         ...
 
         The routine, `register_callback()`, takes two arguments:
-        1. callback function
-        2. mode (optional, default="post")
+            - callback function
+            - mode (optional, default="post")
 
         The callback should be a routine, that accepts three
         arguments::
 
             cb(ipdb, msg, action)
 
-        1. ipdb is a reference to IPDB instance, that invokes
-           the callback.
-        2. msg is a message arrived
-        3. action is just a msg['event'] field
+        Arguments are:
+
+            - **ipdb** is a reference to IPDB instance, that invokes
+                the callback.
+            - **msg** is a message arrived
+            - **action** is just a msg['event'] field
 
         E.g., to work on a new interface, you should catch
         action == 'RTM_NEWLINK' and with the interface index
@@ -585,20 +587,20 @@ class IPDB(object):
         Create an interface. Arguments 'kind' and 'ifname' are
         required.
 
-        * kind -- interface type, can be of:
-            * bridge
-            * bond
-            * vlan
-            * tun
-            * dummy
-            * veth
-            * macvlan
-            * macvtap
-            * gre
-            * team
-            * ovs-bridge
-        * ifname -- interface name
-        * reuse -- if such interface exists, return it anyway
+            - kind — interface type, can be of:
+                - bridge
+                - bond
+                - vlan
+                - tun
+                - dummy
+                - veth
+                - macvlan
+                - macvtap
+                - gre
+                - team
+                - ovs-bridge
+            - ifname — interface name
+            - reuse — if such interface exists, return it anyway
 
         Different interface kinds can require different
         arguments for creation.
@@ -695,10 +697,10 @@ class IPDB(object):
 
         Possible `tuntap` keywords:
 
-            * `mode` — "tun" or "tap"
-            * `uid` — integer
-            * `gid` — integer
-            * `ifr` — dict of tuntap flags (see tuntapmsg.py)
+            - `mode` — "tun" or "tap"
+            - `uid` — integer
+            - `gid` — integer
+            - `ifr` — dict of tuntap flags (see tuntapmsg.py)
         '''
         with self.exclusive:
             # check for existing interface

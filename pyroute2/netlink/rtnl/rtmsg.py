@@ -5,21 +5,23 @@ from pyroute2.netlink import nla
 
 class rtmsg(nlmsg):
     '''
-    Routing update message
+    Route message
 
-    struct rtmsg {
-        unsigned char rtm_family;   /* Address family of route */
-        unsigned char rtm_dst_len;  /* Length of destination */
-        unsigned char rtm_src_len;  /* Length of source */
-        unsigned char rtm_tos;      /* TOS filter */
+    C structure::
 
-        unsigned char rtm_table;    /* Routing table ID */
-        unsigned char rtm_protocol; /* Routing protocol; see below */
-        unsigned char rtm_scope;    /* See below */
-        unsigned char rtm_type;     /* See below */
+        struct rtmsg {
+            unsigned char rtm_family;   /* Address family of route */
+            unsigned char rtm_dst_len;  /* Length of destination */
+            unsigned char rtm_src_len;  /* Length of source */
+            unsigned char rtm_tos;      /* TOS filter */
 
-        unsigned int  rtm_flags;
-    };
+            unsigned char rtm_table;    /* Routing table ID */
+            unsigned char rtm_protocol; /* Routing protocol; see below */
+            unsigned char rtm_scope;    /* See below */
+            unsigned char rtm_type;     /* See below */
+
+            unsigned int  rtm_flags;
+        };
     '''
     prefix = 'RTA_'
 

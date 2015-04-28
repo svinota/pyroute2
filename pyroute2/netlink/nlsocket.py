@@ -417,9 +417,9 @@ class NetlinkMixin(object):
         '''
         Unregister policy. Policy can be:
 
-        * int -- then it will just remove one policy
-        * list or tuple of ints -- remove all given
-        * dict -- remove policies by keys from dict
+            - int -- then it will just remove one policy
+            - list or tuple of ints -- remove all given
+            - dict -- remove policies by keys from dict
 
         In the last case the routine will ignore dict values,
         it is implemented so just to make it compatible with
@@ -462,9 +462,9 @@ class NetlinkMixin(object):
         Bind the socket to given multicast groups, using
         given pid.
 
-        * If pid is None, use automatic port allocation
-        * If pid == 0, use process' pid
-        * If pid == <int>, use the value instead of pid
+            - If pid is None, use automatic port allocation
+            - If pid == 0, use process' pid
+            - If pid == <int>, use the value instead of pid
         '''
         if pid is not None:
             self.port = 0
@@ -527,12 +527,12 @@ class NetlinkMixin(object):
         Construct a message from a dictionary and send it to
         the socket. Parameters:
 
-        * msg -- the message in the dictionary format
-        * msg_type -- the message type
-        * msg_flags -- the message flags to use in the request
-        * addr -- `sendto()` addr, default `(0, 0)`
-        * msg_seq -- sequence number to use
-        * msg_pid -- pid to use, if `None` -- use os.getpid()
+            - msg -- the message in the dictionary format
+            - msg_type -- the message type
+            - msg_flags -- the message flags to use in the request
+            - addr -- `sendto()` addr, default `(0, 0)`
+            - msg_seq -- sequence number to use
+            - msg_pid -- pid to use, if `None` -- use os.getpid()
 
         Example::
 
@@ -582,10 +582,10 @@ class NetlinkMixin(object):
 
         The `bufsize` parameter can be:
 
-        * -1: bufsize will be calculated from the first 4 bytes of
-              the network data
-        * 0: bufsize will be calculated from SO_RCVBUF sockopt
-        * int >= 0: just a bufsize
+            - -1: bufsize will be calculated from the first 4 bytes of
+                the network data
+            - 0: bufsize will be calculated from SO_RCVBUF sockopt
+            - int >= 0: just a bufsize
         '''
         ctime = time.time()
 

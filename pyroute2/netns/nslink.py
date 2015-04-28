@@ -90,7 +90,7 @@ from pyroute2.config import MpPipe
 from pyroute2.config import MpProcess
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.nlsocket import NetlinkMixin
-from pyroute2.netlink.rtnl import IPRSocketMixin
+from pyroute2.netlink.rtnl.iprsocket import IPRSocketMixin
 from pyroute2.iproute import IPRouteMixin
 from pyroute2.netns import setns
 from pyroute2.netns import remove

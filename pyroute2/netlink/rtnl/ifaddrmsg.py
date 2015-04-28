@@ -37,13 +37,15 @@ class ifaddrmsg(nlmsg):
     '''
     IP address information
 
-    struct ifaddrmsg {
-       unsigned char ifa_family;    /* Address type */
-       unsigned char ifa_prefixlen; /* Prefixlength of address */
-       unsigned char ifa_flags;     /* Address flags */
-       unsigned char ifa_scope;     /* Address scope */
-       int           ifa_index;     /* Interface index */
-    };
+    C structure::
+
+        struct ifaddrmsg {
+           unsigned char ifa_family;    /* Address type */
+           unsigned char ifa_prefixlen; /* Prefixlength of address */
+           unsigned char ifa_flags;     /* Address flags */
+           unsigned char ifa_scope;     /* Address scope */
+           int           ifa_index;     /* Interface index */
+        };
 
     '''
     prefix = 'IFA_'
