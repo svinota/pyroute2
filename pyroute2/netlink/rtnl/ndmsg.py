@@ -22,7 +22,8 @@ class ndmsg(nlmsg):
         __u32         ndm_refcnt;
     };
     '''
-    fields = (('family', '<i'),
+    fields = (('family', 'B'),
+              ('__pad', '3x'),
               ('ifindex', 'i'),
               ('state', 'H'),
               ('flags', 'B'),
