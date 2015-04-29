@@ -33,3 +33,8 @@ class Client(IPRoute):
         
         self._sendto = sendto
         self._recv = recv
+
+    def close(self):
+        self.proxy.close()
+        self.recv = lambda *x, **y: None
+        self.proxy_queue.put(None)
