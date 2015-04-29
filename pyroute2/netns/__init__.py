@@ -101,8 +101,8 @@ def setns(netns, flags=os.O_CREAT, libc=None):
     The flags semantics is the same as for the `open(2)`
     call:
 
-        * O_CREAT -- create netns, if doesn't exist
-        * O_CREAT | O_EXCL -- create only if doesn't exist
+        - O_CREAT -- create netns, if doesn't exist
+        - O_CREAT | O_EXCL -- create only if doesn't exist
     '''
     libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
     netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
