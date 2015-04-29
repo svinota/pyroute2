@@ -16,6 +16,17 @@ target: docs
 
 Build documentation. Requires `Sphinx`.
 
+target: epydoc
+--------------
+
+Build API documentation. Requires `epydoc`.
+
+Pls notice that epydoc is discontinued. The reason to support
+it here is that it performs additional API testing and helps
+to highlight API inconsistencies.
+
+No issues regarding epydoc output format are accepted.
+
 target: test
 ------------
 

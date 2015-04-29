@@ -28,6 +28,7 @@ python ?= "python"
 nosetests ?= "nosetests"
 flake8 ?= "flake8"
 setuplib ?= "distutils.core"
+epydoc ?= "epydoc"
 ##
 # Python -W flags:
 #
@@ -88,6 +89,7 @@ clean: clean-version
 	rm -f docs/general.rst
 	rm -f docs/changelog.rst
 	rm -f docs/makefile.rst
+	rm -rf docs/api
 	rm -rf docs/html
 	rm -rf docs/doctrees
 	rm -f  tests/.coverage
@@ -117,6 +119,16 @@ docs: clean force-version
 	cp README.make.md docs/makefile.rst
 	cp CHANGELOG.md docs/changelog.rst
 	export PYTHONPATH=`pwd`; make -C docs html
+
+epydoc: docs
+	${epydoc} -v \
+		--no-frames \
+		-o docs/api \
+		--html \
+		--graph all \
+		--fail-on-docstring-warning \
+		--exclude=pyroute2.netns.process.base_p3 \
+		pyroute2/
 
 test:
 	@export PYTHONPATH="`pwd`:`pwd`/examples"; cd tests; \
