@@ -12,22 +12,17 @@ General information
     general
     changelog
     makefile
-    migration
 
-Netlink sockets
----------------
+Architecture overview
+---------------------
 
 .. toctree::
     :maxdepth: 2
 
-    generic
-    rtnl
-    ipq
-    nfnetlink
-    taskstats
+    arch
 
-Utilities
----------
+Utility modules
+---------------
 
 .. toctree::
     :maxdepth: 2

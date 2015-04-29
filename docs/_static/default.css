@@ -36,7 +36,7 @@ div.body {
     background-color: #ffffff;
     color: #000000;
     padding: 0 20px 30px 20px;
-    width: 45em;
+    max-width: 45em;
     padding: 2em;
 }
 

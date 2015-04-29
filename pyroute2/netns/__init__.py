@@ -1,11 +1,16 @@
 '''
-netns utilities
-===============
+Network namespaces management
+=============================
 
-TODO
+Pyroute2 provides basic namespaces management support. The
+`netns` module contains several tools for that.
 
-classes and functions
----------------------
+Please be aware, that in order to run system calls the
+library uses `ctypes` module. It can fail on platforms
+where SELinux is enforced. If the Python interpreter,
+loading this module, dumps the core, one can check the
+SELinux state with `getenforce` command.
+
 '''
 
 import os
@@ -28,7 +33,7 @@ NETNS_RUN_DIR = '/var/run/netns'
 
 def listnetns():
     '''
-    List available netns.
+    List available network namespaces.
     '''
     try:
         return os.listdir(NETNS_RUN_DIR)
@@ -92,6 +97,12 @@ def remove(netns, libc=None):
 def setns(netns, flags=os.O_CREAT, libc=None):
     '''
     Set netns for the current process.
+
+    The flags semantics is the same as for the `open(2)`
+    call:
+
+        * O_CREAT -- create netns, if doesn't exist
+        * O_CREAT | O_EXCL -- create only if doesn't exist
     '''
     libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
     netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)

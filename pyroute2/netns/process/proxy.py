@@ -1,3 +1,14 @@
+'''
+NSPopen
+=======
+
+The `NSPopen` class has nothing to do with netlink at
+all, but it is required to have a reasonable network
+namespace support.
+
+'''
+
+
 import types
 import atexit
 import threading

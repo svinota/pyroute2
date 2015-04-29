@@ -1,31 +1,14 @@
 '''
-NetNS, network namespaces support
-=================================
+NetNS
+-----
 
-Pyroute2 provides basic network namespaces support. The core
-class is `NetNS`.
+A NetNS object is IPRoute-like. It runs in the main network
+namespace, but also creates a proxy process running in
+the required netns. All the netlink requests are done via
+that proxy process.
 
-Please be aware, that in order to run system calls the library
-uses `ctypes` module. It can fail on platforms where SELinux
-is enforced. If the Python interpreter, loading this module,
-dumps the core, one can check the SELinux state with `getenforce`
-command.
-
-By default, NetNS creates requested netns, if it doesn't exist,
-or uses existing one. To control this behaviour, one can use flags
-as for `open(2)` system call::
-
-    # create a new netns or fail, if it already exists
-    netns = NetNS('test', flags=os.O_CREAT | os.O_EXIST)
-
-    # create a new netns or use existing one
-    netns = NetNS('test', flags=os.O_CREAT)
-
-    # the same as above, the default behaviour
-    netns = NetNS('test')
-
-NetNS supports standard IPRoute API, so can be used instead of
-IPRoute, e.g., in IPDB::
+NetNS supports standard IPRoute API, so can be used instead
+of IPRoute, e.g., in IPDB::
 
     # start the main network settings database:
     ipdb_main = IPDB()
@@ -56,25 +39,29 @@ IPRoute, e.g., in IPDB::
 Please review also the test code, under `tests/test_netns.py` for
 more examples.
 
-To remove a network namespace, one can use one of two ways::
+By default, NetNS creates requested netns, if it doesn't exist,
+or uses existing one. To control this behaviour, one can use flags
+as for `open(2)` system call::
 
-    # The approach 1)
-    #
+    # create a new netns or fail, if it already exists
+    netns = NetNS('test', flags=os.O_CREAT | os.O_EXIST)
+
+    # create a new netns or use existing one
+    netns = NetNS('test', flags=os.O_CREAT)
+
+    # the same as above, the default behaviour
+    netns = NetNS('test')
+
+To remove a network namespace::
+
     from pyroute2 import NetNS
     netns = NetNS('test')
     netns.close()
     netns.remove()
 
-    # The approach 2)
-    #
-    from pyroute2.netns import remove
-    remove('test')
+One should stop it first with `close()`, and only after that
+run `remove()`.
 
-Using NetNS, one should stop it first with `close()`, and only after
-that run `remove()`.
-
-classes and functions
----------------------
 '''
 
 import os
