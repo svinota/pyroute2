@@ -148,14 +148,31 @@ NL80211_BSS_ELEMENTS_VENDOR = 221
 BSS_MEMBERSHIP_SELECTOR_HT_PHY = 127
 BSS_MEMBERSHIP_SELECTOR_VHT_PHY = 126
 
+# interface types
+NL80211_IFTYPE_UNSPECIFIED = 0
+NL80211_IFTYPE_ADHOC = 1
+NL80211_IFTYPE_STATION = 2
+NL80211_IFTYPE_AP = 3
+NL80211_IFTYPE_AP_VLAN = 4
+NL80211_IFTYPE_WDS = 5
+NL80211_IFTYPE_MONITOR = 6
+NL80211_IFTYPE_MESH_POINT = 7
+NL80211_IFTYPE_P2P_CLIENT = 8
+NL80211_IFTYPE_P2P_GO = 9
+NL80211_IFTYPE_P2P_DEVICE = 10
+NL80211_IFTYPE_OCB = 11
+(IFTYPE_NAMES, IFTYPE_VALUES) = map_namespace('NL80211_IFTYPE_',
+                                              globals(),
+                                              normalize=True)
+
 
 class nl80211cmd(genlmsg):
     nla_map = (('NL80211_ATTR_UNSPEC', 'none'),
-               ('NL80211_ATTR_WIPHY', 'hex'),
+               ('NL80211_ATTR_WIPHY', 'uint32'),
                ('NL80211_ATTR_WIPHY_NAME', 'asciiz'),
                ('NL80211_ATTR_IFINDEX', 'uint32'),
                ('NL80211_ATTR_IFNAME', 'asciiz'),
-               ('NL80211_ATTR_IFTYPE', 'hex'),
+               ('NL80211_ATTR_IFTYPE', 'uint32'),
                ('NL80211_ATTR_MAC', 'l2addr'),
                ('NL80211_ATTR_KEY_DATA', 'hex'),
                ('NL80211_ATTR_KEY_IDX', 'hex'),
@@ -188,7 +205,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_MESH_CONFIG', 'hex'),
                ('NL80211_ATTR_BSS_BASIC_RATES', 'hex'),
                ('NL80211_ATTR_WIPHY_TXQ_PARAMS', 'hex'),
-               ('NL80211_ATTR_WIPHY_FREQ', 'hex'),
+               ('NL80211_ATTR_WIPHY_FREQ', 'uint32'),
                ('NL80211_ATTR_WIPHY_CHANNEL_TYPE', 'hex'),
                ('NL80211_ATTR_KEY_DEFAULT_MGMT', 'hex'),
                ('NL80211_ATTR_MGMT_SUBTYPE', 'hex'),
