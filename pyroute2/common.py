@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
 '''
 Common utilities
 '''
 import re
 import os
 import sys
+import types
 import struct
 import platform
 import threading
@@ -108,7 +110,7 @@ class Dotkeys(dict):
             dict.__delattr__(self, key)
 
 
-def map_namespace(prefix, ns):
+def map_namespace(prefix, ns, normalize=None):
     '''
     Take the namespace prefix, list all constants and build two
     dictionaries -- straight and reverse mappings. E.g.:
@@ -130,9 +132,23 @@ def map_namespace(prefix, ns):
                       ...
                       4: 'NDA_PROBES'}
 
+    The `normalize` parameter can be:
+
+        - None — no name transformation will be done
+        - True — cut the prefix and `lower()` the rest
+        - lambda x: … — apply the function to every name
+
     '''
-    by_name = dict([(i, ns[i]) for i in ns.keys() if i.startswith(prefix)])
-    by_value = dict([(ns[i], i) for i in ns.keys() if i.startswith(prefix)])
+    nmap = {None: lambda x: x,
+            True: lambda x: x[len(prefix):].lower()}
+
+    if not isinstance(normalize, types.FunctionType):
+        normalize = nmap[normalize]
+
+    by_name = dict([(normalize(i), ns[i]) for i in ns.keys()
+                    if i.startswith(prefix)])
+    by_value = dict([(ns[i], normalize(i)) for i in ns.keys()
+                     if i.startswith(prefix)])
     return (by_name, by_value)
 
 
