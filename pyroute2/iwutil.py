@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 '''
 IW module
 =========
@@ -6,11 +7,13 @@ Experimental wireless module -- nl80211 support.
 
 In the very initial state.
 '''
+from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink.nl80211 import NL80211
 from pyroute2.netlink.nl80211 import nl80211cmd
 from pyroute2.netlink.nl80211 import NL80211_NAMES
+from pyroute2.netlink.nl80211 import IFTYPE_NAMES
 
 
 class IW(NL80211):
@@ -40,6 +43,46 @@ class IW(NL80211):
         # do automatic bind
         # FIXME: unfortunately we can not omit it here
         self.bind(groups, async)
+
+    def del_interface(self, dev):
+        '''
+        Delete a virtual interface
+
+            - dev — device index
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_DEL_INTERFACE']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', dev]]
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
+    def add_interface(self, ifname, iftype, dev=None, phy=0):
+        '''
+        Create a virtual interface
+
+            - ifname — name of the interface to create
+            - iftype — interface type to create
+            - dev — device index
+            - phy — phy index
+        '''
+        # lookup the interface type
+        iftype = IFTYPE_NAMES.get(iftype, iftype)
+        assert isinstance(iftype, int)
+
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_NEW_INTERFACE']
+        msg['attrs'] = [['NL80211_ATTR_IFNAME', ifname],
+                        ['NL80211_ATTR_IFTYPE', iftype]]
+        if dev is not None:
+            msg['attrs'].append(['NL80211_ATTR_IFINDEX', dev])
+        elif phy is not None:
+            msg['attrs'].append(['NL80211_ATTR_WIPHY', phy])
+        else:
+            raise TypeError('no device specified')
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
     def list_wiphy(self):
         '''
