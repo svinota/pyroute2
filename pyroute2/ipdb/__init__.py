@@ -406,7 +406,7 @@ class IPDB(object):
 
         # start monitoring thread
         self._mthread = threading.Thread(target=self.serve_forever)
-        if hasattr(sys, 'ps1'):
+        if hasattr(sys, 'ps1') and self.nl.__class__.__name__ != 'Client':
             self._mthread.setDaemon(True)
         self._mthread.start()
         #
