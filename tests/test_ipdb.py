@@ -1045,6 +1045,14 @@ class TestDirect(object):
             pass
         print("cfail done")
 
+    def test_create(self):
+        require_user('root')
+        assert 'dummyZ' not in self.ip.interfaces
+        self.ip.create(ifname='dummyZ', kind='dummy')
+        assert 'dummyZ' in self.ip.interfaces
+        self.ip.interfaces.dummyZ.remove()
+        assert 'dummyZ' not in self.ip.interfaces
+
     def test_updown(self):
         require_user('root')
 

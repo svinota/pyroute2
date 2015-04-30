@@ -725,8 +725,16 @@ class IPDB(object):
                 device['index'] = kwarg.get('index', 0)
                 device['ifname'] = ifname
                 device._mode = self.mode
-            device.begin()
-            return device
+            tid = device.begin()
+        #
+        # All the device methods are handled via `transactional.update()`
+        # except of the very creation.
+        #
+        # Commit the changes in the 'direct' mode, since this call is not
+        # decorated.
+        if self.mode == 'direct':
+            device.commit(tid)
+        return device
 
     def device_del(self, msg):
         # check for flicker devices
