@@ -319,10 +319,15 @@ class IW(NL80211):
     def scan(self, ifindex):
         '''
         Scan wifi
-
-        TODO: doesn't work on some devices, requires to specify
-        channels and phy also.
         '''
+        # Prepare a second netlink socket to get the scan results.
+        # The issue is that the kernel can send the results notification
+        # before we get answer for the NL80211_CMD_TRIGGER_SCAN
+        nsock = NL80211()
+        nsock.bind()
+        nsock.add_membership('scan')
+
+        # send scan request
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_TRIGGER_SCAN']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
@@ -330,13 +335,18 @@ class IW(NL80211):
                          msg_type=self.prid,
                          msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
+        # monitor the results notification on the secondary socket
         scanResultNotFound = True
         while scanResultNotFound:
-            listMsg = self.get()
+            listMsg = nsock.get()
             for msg in listMsg:
                 if msg["event"] == "NL80211_CMD_NEW_SCAN_RESULTS":
                     scanResultNotFound = False
                     break
+        # close the secondary socket
+        nsock.close()
+
+        # request the results
         msg2 = nl80211cmd()
         msg2['cmd'] = NL80211_NAMES['NL80211_CMD_GET_SCAN']
         msg2['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
