@@ -153,8 +153,6 @@ class IW(NL80211):
     def connect(self, ifindex, ssid, bssid=None):
         '''
         Connect to the ap with ssid and bssid
-        Warn: Use of put because message does return nothing,
-        Use this function with the good right (Root or may be setcap )
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_CONNECT']
@@ -163,7 +161,9 @@ class IW(NL80211):
         if bssid is not None:
             msg['attrs'].append(['NL80211_ATTR_MAC', bssid])
 
-        self.put(msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST)
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
     def disconnect(self, ifindex):
         '''
@@ -172,17 +172,23 @@ class IW(NL80211):
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_DISCONNECT']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        self.put(msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST)
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
     def scan(self, ifindex):
         '''
         Scan wifi
+
+        TODO: doesn't work on some devices, requires to specify
+        channels and phy also.
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_TRIGGER_SCAN']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        self.put(msg, msg_type=self.prid,
-                 msg_flags=NLM_F_REQUEST)
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
         scanResultNotFound = True
         while scanResultNotFound:
