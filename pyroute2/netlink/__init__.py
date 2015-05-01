@@ -535,6 +535,7 @@ class nlmsg_base(dict):
     fields = []                  # data field names, to build a dictionary
     header = None                # optional header class
     pack = None                  # pack pragma
+    array = False
     nla_map = {}                 # NLA mapping
     nla_flags = 0                # NLA flags
     value_map = {}
@@ -758,6 +759,14 @@ class nlmsg_base(dict):
                 self.buf.seek(save)
             except Exception as e:
                 raise NetlinkHeaderDecodeError(e)
+        # handle the array case
+        if self.array:
+            self.setvalue([])
+            while self.buf.tell() < self.offset + self.length:
+                cell = type(self)(self.buf, parent=self, debug=self.debug)
+                cell.array = False
+                cell.decode()
+                self.value.append(cell)
         # decode the data
         try:
             if self.pack == 'struct':
@@ -1014,14 +1023,20 @@ class nlmsg_base(dict):
             zipped = nla_map
 
         for (key, name, nla_class, nla_flags) in zipped:
+            # is it an array
+            if nla_class[0] == '*':
+                nla_class = nla_class[1:]
+                array = True
+            else:
+                array = False
             # lookup NLA class
             if nla_class == 'recursive':
                 nla_class = type(self)
             else:
                 nla_class = getattr(self, nla_class)
             # update mappings
-            self.t_nla_map[key] = (nla_class, name, nla_flags)
-            self.r_nla_map[name] = (nla_class, key, nla_flags)
+            self.t_nla_map[key] = (nla_class, name, nla_flags, array)
+            self.r_nla_map[name] = (nla_class, key, nla_flags, array)
 
     def encode_nlas(self):
         '''
@@ -1078,8 +1093,11 @@ class nlmsg_base(dict):
                     msg_class = msg_class(buf=self.buf, length=length)
                 # and the name
                 msg_name = self.t_nla_map[msg_type][1]
+                # is it an array?
+                msg_array = self.t_nla_map[msg_type][3]
                 # decode NLA
                 nla = msg_class(self.buf, length, self, debug=self.debug)
+                nla.array = msg_array
                 try:
                     nla.decode()
                     nla.nla_flags = msg_type & (NLA_F_NESTED |
@@ -1303,8 +1321,18 @@ class ctrlmsg(genlmsg):
     nla_map = (('CTRL_ATTR_UNSPEC', 'none'),
                ('CTRL_ATTR_FAMILY_ID', 'uint16'),
                ('CTRL_ATTR_FAMILY_NAME', 'asciiz'),
-               ('CTRL_ATTR_VERSION', 'hex'),
-               ('CTRL_ATTR_HDRSIZE', 'hex'),
-               ('CTRL_ATTR_MAXATTR', 'hex'),
-               ('CTRL_ATTR_OPS', 'hex'),
-               ('CTRL_ATTR_MCAST_GROUPS', 'hex'))
+               ('CTRL_ATTR_VERSION', 'uint32'),
+               ('CTRL_ATTR_HDRSIZE', 'uint32'),
+               ('CTRL_ATTR_MAXATTR', 'uint32'),
+               ('CTRL_ATTR_OPS', '*ops'),
+               ('CTRL_ATTR_MCAST_GROUPS', '*mcast_groups'))
+
+    class ops(nla):
+        nla_map = (('CTRL_ATTR_OP_UNSPEC', 'none'),
+                   ('CTRL_ATTR_OP_ID', 'uint32'),
+                   ('CTRL_ATTR_OP_FLAGS', 'uint32'))
+
+    class mcast_groups(nla):
+        nla_map = (('CTRL_ATTR_MCAST_GRP_UNSPEC', 'none'),
+                   ('CTRL_ATTR_MCAST_GRP_NAME', 'asciiz'),
+                   ('CTRL_ATTR_MCAST_GRP_ID', 'uint32'))
