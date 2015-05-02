@@ -450,13 +450,6 @@ class nl80211cmd(genlmsg):
                     if msg_type == NL80211_BSS_ELEMENTS_VENDOR:
                         self.binary_vendor(data)
 
-                    # if catch == 0:
-                    #    self.value["NL80211_BSS_ELEMENTS_UNKNOWN"+str(msg_type)]=hexdump(data)
-
-                self.buf.seek(init)
-                # self.value["NL80211_BSS_ELEMENTS_HEXDUMP"] =
-                # hexdump(self.buf.read(self.length))
-
                 self.buf.seek(init)
 
         prefix = 'NL80211_BSS_'
