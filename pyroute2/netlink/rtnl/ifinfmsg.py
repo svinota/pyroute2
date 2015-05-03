@@ -35,7 +35,7 @@ if arch == 'x86_64':
     TUNSETPERSIST = 0x400454cb
     TUNSETOWNER = 0x400454cc
     TUNSETGROUP = 0x400454ce
-elif arch == 'ppc64':
+elif arch in ('ppc64', 'mips'):
     TUNSETIFF = 0x800454ca
     TUNSETPERSIST = 0x800454cb
     TUNSETOWNER = 0x800454cc
