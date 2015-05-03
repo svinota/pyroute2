@@ -189,6 +189,7 @@ class TestIPRoute(object):
 
     def test_create_team(self):
         require_user('root')
+        require_executable('teamdctl')
         self._create('team')
 
     def test_neigh_real_links(self):
