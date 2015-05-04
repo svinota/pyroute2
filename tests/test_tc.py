@@ -1,3 +1,4 @@
+import errno
 import socket
 from utils import require_user
 from pyroute2 import IPRoute
@@ -15,7 +16,7 @@ def try_qd(qd, call, *argv, **kwarg):
         call(*argv, **kwarg)
     except NetlinkError as e:
         # code 2 'no such file or directory)
-        if e.code == 2:
+        if e.code == errno.ENOENT:
             raise SkipTest('missing traffic control <%s>' % (qd))
         raise
 

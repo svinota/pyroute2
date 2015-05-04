@@ -1,4 +1,5 @@
 import time
+import errno
 from pyroute2.common import ANCIENT
 from pyroute2.netlink import NetlinkError
 # How long should we wait on EACH commit() checkpoint: for ipaddr,
@@ -44,6 +45,6 @@ class compat(object):
         try:
             nl.get_links(index)
         except NetlinkError as e:
-            if e.code == 19:  # No such device
+            if e.code == errno.ENODEV:  # No such device
                 # just drop this message then
                 return True

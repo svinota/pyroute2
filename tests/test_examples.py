@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import errno
 import subprocess
 from threading import Thread
 from utils import require_user
@@ -147,7 +148,7 @@ class TestExamples(object):
         try:
             self.launcher('taskstats')
         except NetlinkError as x:
-            if x.code == 2:
+            if x.code == errno.ENOENT:
                 raise SkipTest('missing taskstats support')
             else:
                 raise
@@ -157,7 +158,7 @@ class TestExamples(object):
         try:
             self.launcher('pmonitor', server='server')
         except NetlinkError as x:
-            if x.code == 2:
+            if x.code == errno.ENOENT:
                 raise SkipTest('missing taskstats support')
             else:
                 raise

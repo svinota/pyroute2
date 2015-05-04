@@ -1,4 +1,5 @@
 import time
+import errno
 import socket
 import threading
 import traceback
@@ -361,7 +362,7 @@ class Interface(Transactional):
                         self.nl.link('add', **request)
                     except NetlinkError as x:
                         # File exists
-                        if x.code == 17:
+                        if x.code == errno.EEXIST:
                             # A bit special case, could be one of two cases:
                             #
                             # 1. A race condition between two different IPDB
@@ -381,7 +382,8 @@ class Interface(Transactional):
                             pass
 
                         # Operation not supported
-                        elif x.code == 95 and request.get('index', 0) != 0:
+                        elif x.code == errno.EOPNOTSUPP and \
+                                request.get('index', 0) != 0:
                             # ACHTUNG: hack for old platforms
                             request = IPLinkRequest({'ifname': self['ifname'],
                                                      'kind': self['kind'],
@@ -483,7 +485,7 @@ class Interface(Transactional):
                         try:
                             self.nl.get_links(self['index'])
                         except NetlinkError as e:
-                            if e.code == 19:
+                            if e.code == errno.ENODEV:
                                 break
                             raise
                         except Exception:
@@ -505,7 +507,7 @@ class Interface(Transactional):
                     self.nl.addr('delete', self['index'], i[0], i[1])
                 except NetlinkError as x:
                     # bypass only errno 99, 'Cannot assign address'
-                    if x.code != 99:
+                    if x.code != errno.EADDRNOTAVAIL:
                         raise
                 except socket.error as x:
                     # bypass illegal IP requests
@@ -540,7 +542,7 @@ class Interface(Transactional):
                         #
                         # a stupid solution, but must help
                         except NetlinkError as e:
-                            if e.code == 17:
+                            if e.code == errno.EEXIST:
                                 break
                             else:
                                 raise
@@ -574,7 +576,7 @@ class Interface(Transactional):
                 try:
                     self.reload()
                 except NetlinkError as e:
-                    if e.code == 19:  # No such device
+                    if e.code == errno.ENODEV:  # No such device
                         if ('net_ns_fd' in added) or \
                                 ('net_ns_pid' in added):
                             # it means, that the device was moved
@@ -626,7 +628,7 @@ class Interface(Transactional):
                     error = e
                     error.traceback = traceback.format_exc()
             elif isinstance(e, NetlinkError) and \
-                    getattr(e, 'code', 0) == 1:
+                    getattr(e, 'code', 0) == errno.EPERM:
                 # It is <Operation not permitted>, catched in
                 # rollback. So return it -- see ~5 lines above
                 e.traceback = traceback.format_exc()

@@ -1,3 +1,4 @@
+import errno
 from pyroute2.ipset import IPSet
 from pyroute2.netlink import NetlinkError
 from utils import require_user
@@ -35,7 +36,7 @@ class TestIPSet(object):
         try:
             self.ip.create(name)
         except NetlinkError as e:
-            if e.code != 17:  # File exists
+            if e.code != errno.EEXIST:  # File exists
                 raise
         finally:
             self.ip.destroy(name)

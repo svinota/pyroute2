@@ -1,4 +1,5 @@
 import os
+import errno
 import socket
 from pyroute2 import IPRoute
 from pyroute2.common import AddrPool
@@ -235,7 +236,7 @@ class TestIPRoute(object):
         try:
             self.ip.addr('add', 1, address='172.16.0.1', mask=24)
         except NetlinkError as e:
-            if e.code != 1:  # Operation not permitted
+            if e.code != errno.EPERM:  # Operation not permitted
                 raise
         finally:
             try:
@@ -252,7 +253,7 @@ class TestIPRoute(object):
                          address='172.16.0.1',
                          mask=24)
         except NetlinkError as e:
-            if e.code != 19:  # No such device
+            if e.code != errno.ENODEV:  # No such device
                 raise
 
     def test_remove_link(self):
@@ -310,7 +311,7 @@ class TestIPRoute(object):
                           gateway='172.16.0.1',
                           table=100)
         except NetlinkError as e:
-            if e.code != 2:
+            if e.code != errno.ENOENT:
                 raise
 
     def test_route_replace_existing(self):
