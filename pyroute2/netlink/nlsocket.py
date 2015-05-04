@@ -305,7 +305,7 @@ class NetlinkMixin(object):
         self.buffer_queue = Queue()
         self.qsize = 0
         self.log = []
-        self.get_timeout = 3
+        self.get_timeout = 30
         self.get_timeout_exception = None
         if pid is None:
             self.pid = os.getpid() & 0x3fffff
