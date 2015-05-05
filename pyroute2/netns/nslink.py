@@ -77,7 +77,7 @@ from pyroute2.config import MpPipe
 from pyroute2.config import MpProcess
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.nlsocket import NetlinkMixin
-from pyroute2.netlink.rtnl.iprsocket import IPRSocketMixin
+from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
 from pyroute2.iproute import IPRouteMixin
 from pyroute2.netns import setns
 from pyroute2.netns import remove
@@ -242,18 +242,21 @@ class NetNSProxy(object):
 
 
 class NetNSocket(NetlinkMixin, NetNSProxy):
+
     def bind(self, *argv, **kwarg):
         return NetNSProxy.bind(self, *argv, **kwarg)
 
     def close(self):
         NetNSProxy.close(self)
 
+    def _sendto(self, *argv, **kwarg):
+        return NetNSProxy.sendto(self, *argv, **kwarg)
 
-class NetNSIPR(IPRSocketMixin, NetNSocket):
-    pass
+    def _recv(self, *argv, **kwarg):
+        return NetNSProxy.recv(self, *argv, **kwarg)
 
 
-class NetNS(IPRouteMixin, NetNSIPR):
+class NetNS(IPRouteMixin, NetNSocket):
     '''
     NetNS is the IPRoute API with network namespace support.
 
@@ -294,11 +297,7 @@ class NetNS(IPRouteMixin, NetNSIPR):
         self.netns = netns
         self.flags = flags
         super(NetNS, self).__init__()
-        # disconnect proxy services
-        self.sendto = self._sendto
-        self.recv = self._recv
-        self._sproxy = None
-        self._rproxy = None
+        self.marshal = MarshalRtnl()
 
     def remove(self):
         '''

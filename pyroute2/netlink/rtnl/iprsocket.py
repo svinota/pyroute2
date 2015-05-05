@@ -65,25 +65,14 @@ class IPRSocketMixin(object):
                              rtnl.RTM_DELLINK: proxy_dellink}
         self._rproxy = NetlinkProxy(policy='forward', nl=self)
         self._rproxy.pmap = {rtnl.RTM_NEWLINK: proxy_linkinfo}
-        self._sendto = self.sendto
-        self._recv = self.recv
-        self.sendto = self.proxy_sendto
-        self.recv = self.proxy_recv
 
     def bind(self, groups=rtnl.RTNL_GROUPS, async=False):
         super(IPRSocketMixin, self).bind(groups, async=async)
 
-    def close(self):
-        if self.pthread is not None:
-            self._stop = True
-            self.put({'index': 1}, rtnl.RTM_GETLINK)
-            self.pthread.join()
-        super(IPRSocketMixin, self).close()
-
     ##
     # proxy-ng protocol
     #
-    def proxy_sendto(self, data, address):
+    def sendto(self, data, address):
         ret = self._sproxy.handle(data)
         if ret is not None:
             if ret['verdict'] == 'forward':
@@ -105,7 +94,7 @@ class IPRSocketMixin(object):
 
         return self._sendto(data, address)
 
-    def proxy_recv(self, bufsize, flags=0):
+    def recv(self, bufsize, flags=0):
         data = self._recv(bufsize, flags)
         ret = self._rproxy.handle(data)
         if ret is not None:

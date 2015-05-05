@@ -80,10 +80,10 @@ classes
 -------
 '''
 
-import gc
 import os
 import sys
 import time
+import select
 import struct
 import logging
 import traceback
@@ -275,16 +275,11 @@ class NetlinkMixin(object):
         # since the core should be both Python 2 and 3
         # compatible.
         #
+        super(NetlinkMixin, self).__init__()
         if fileno is not None and sys.version_info[0] < 3:
             raise NotImplementedError('fileno parameter is not supported '
                                       'on Python < 3.2')
 
-        super(NetlinkMixin, self).__init__(AF_NETLINK,
-                                           SOCK_DGRAM,
-                                           family,
-                                           fileno)
-        global sockets
-        self.recv_plugin = self.recv_plugin_init
         # 8<-----------------------------------------
         # PID init is here only for compatibility,
         # later it will be completely moved to bind()
@@ -292,6 +287,8 @@ class NetlinkMixin(object):
         self.epid = None
         self.port = 0
         self.fixed = True
+        self.family = family
+        self._fileno = fileno
         self.backlog = {0: []}
         self.monitor = False
         self.callbacks = []     # [(predicate, callback, args), ...]
@@ -302,6 +299,8 @@ class NetlinkMixin(object):
         self.read_lock = threading.Lock()
         self.change_master = threading.Event()
         self.lock = LockFactory()
+        self._sock = None
+        self._ctrl_read, self._ctrl_write = os.pipe()
         self.buffer_queue = Queue()
         self.qsize = 0
         self.log = []
@@ -319,9 +318,11 @@ class NetlinkMixin(object):
         self.groups = 0
         self.marshal = Marshal()
         # 8<-----------------------------------------
-        # Set default sockopts
-        self.setsockopt(SOL_SOCKET, SO_SNDBUF, 32768)
-        self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
+        # Set defaults
+        self.post_init()
+
+    def post_init(self):
+        pass
 
     def __enter__(self):
         return self
@@ -457,66 +458,27 @@ class NetlinkMixin(object):
 
         return ret
 
-    def bind(self, groups=0, pid=None, async=False):
-        '''
-        Bind the socket to given multicast groups, using
-        given pid.
+    def sendto(self, *argv, **kwarg):
+        return self._sendto(*argv, **kwarg)
 
-            - If pid is None, use automatic port allocation
-            - If pid == 0, use process' pid
-            - If pid == <int>, use the value instead of pid
-        '''
-        if pid is not None:
-            self.port = 0
-            self.fixed = True
-            self.pid = pid or os.getpid()
-
-        self.groups = groups
-        # if we have pre-defined port, use it strictly
-        if self.fixed:
-            self.epid = self.pid + (self.port << 22)
-            super(NetlinkMixin, self).bind((self.epid, self.groups))
-        else:
-            self.port = sockets.alloc()
-            if sockets.allocated > 900:
-                logging.warning(' Netlink ports allocated: %i from 1024',
-                                sockets.allocated)
-            self.epid = self.pid + (self.port << 22)
-            super(NetlinkMixin, self).bind((self.epid, self.groups))
-        # all is OK till now, so start async recv, if we need
-        if async:
-            self._stop = False
-            self.recv_plugin = self.recv_plugin_queue
-            self.pthread = threading.Thread(target=self.async_recv)
-            self.pthread.setDaemon(True)
-            self.pthread.start()
-
-    def recv_plugin_init(self, *argv, **kwarg):
-        #
-        # One-shot method
-        #
-        # Substitutes itself with the current recv()
-        # pointer.
-        #
-        # It is required since child classes can
-        # initialize recv() in the init()
-        #
-        self.recv_plugin = self.recv
-        return self.recv(*argv, **kwarg)
-
-    def recv_plugin_queue(self, *argv, **kwarg):
-        data = self.buffer_queue.get()
-        if isinstance(data, Exception):
-            raise data
-        else:
-            return data
+    def recv(self, *argv, **kwarg):
+        return self._recv(*argv, **kwarg)
 
     def async_recv(self):
-        while not self._stop:
-            try:
-                self.buffer_queue.put(self.recv(1024 * 1024))
-            except Exception as e:
-                self.buffer_queue.put(e)
+        poll = select.poll()
+        poll.register(self._sock, select.POLLIN | select.POLLPRI)
+        poll.register(self._ctrl_read, select.POLLIN | select.POLLPRI)
+        sockfd = self._sock.fileno()
+        while True:
+            events = poll.poll()
+            for (fd, event) in events:
+                if fd == sockfd:
+                    try:
+                        self.buffer_queue.put(self._sock.recv(1024 * 1024))
+                    except Exception as e:
+                        self.buffer_queue.put(e)
+                else:
+                    return
 
     def put(self, msg, msg_type,
             msg_flags=NLM_F_REQUEST,
@@ -705,7 +667,7 @@ class NetlinkMixin(object):
                         #
                         # This is a time consuming process, so all the
                         # locks, except the read lock must be released
-                        data = self.recv_plugin(bufsize)
+                        data = self.recv(bufsize)
                         # Parse data
                         msgs = self.marshal.parse(data)
                         # Reset ctime -- timeout should be measured
@@ -807,42 +769,90 @@ class NetlinkMixin(object):
                 # Hack, but true.
                 self.addr_pool.free(msg_seq, ban=0xff)
 
+
+class NetlinkSocket(NetlinkMixin):
+
+    def post_init(self):
+        # recreate the underlying socket
+        with self.lock:
+            if self._sock is not None:
+                self._sock.close()
+            self._sock = SocketBase(AF_NETLINK,
+                                    SOCK_DGRAM,
+                                    self.family,
+                                    self._fileno)
+            for name in ('getsockname', 'getsockopt', 'makefile',
+                         'setsockopt', 'setblocking', 'settimeout',
+                         'gettimeout', 'shutdown', 'recvfrom',
+                         'recv_into', 'recvfrom_into', 'fileno'):
+                setattr(self, name, getattr(self._sock, name))
+
+            self._sendto = getattr(self._sock, 'sendto')
+            self._recv = getattr(self._sock, 'recv')
+
+            self.setsockopt(SOL_SOCKET, SO_SNDBUF, 32768)
+            self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
+
+    def bind(self, groups=0, pid=None, async=False):
+        '''
+        Bind the socket to given multicast groups, using
+        given pid.
+
+            - If pid is None, use automatic port allocation
+            - If pid == 0, use process' pid
+            - If pid == <int>, use the value instead of pid
+        '''
+        if pid is not None:
+            self.port = 0
+            self.fixed = True
+            self.pid = pid or os.getpid()
+
+        self.groups = groups
+        # if we have pre-defined port, use it strictly
+        if self.fixed:
+            self.epid = self.pid + (self.port << 22)
+            self._sock.bind((self.epid, self.groups))
+        else:
+            for port in range(1024):
+                try:
+                    self.port = port
+                    self.epid = self.pid + (self.port << 22)
+                    self._sock.bind((self.epid, self.groups))
+                    break
+                except Exception:
+                    # create a new underlying socket -- on kernel 4
+                    # one failed bind() makes the socket useless
+                    super(NetlinkSocket, self).post_init()
+            else:
+                raise KeyError('no free address available')
+        # all is OK till now, so start async recv, if we need
+        if async:
+            def recv_plugin(*argv, **kwarg):
+                data = self.buffer_queue.get()
+                if isinstance(data, Exception):
+                    raise data
+                else:
+                    return data
+            self._recv = recv_plugin
+            self.pthread = threading.Thread(target=self.async_recv)
+            self.pthread.setDaemon(True)
+            self.pthread.start()
+
     def close(self):
         '''
         Correctly close the socket and free all resources.
         '''
-        global sockets
-
         with self.lock:
             if self.closed:
                 return
             self.closed = True
 
-        if self.pthread is not None:
-            self._stop = True
+        if self.pthread:
+            os.write(self._ctrl_write, b'exit')
+            self.pthread.join()
 
-        if self.epid is not None:
-            assert self.port is not None
-            if not self.fixed:
-                sockets.free(self.port, ban=16)
-            self.epid = None
+        os.close(self._ctrl_write)
+        os.close(self._ctrl_read)
 
-        # Close fd before socket.close(), otherwise there can be a race
-        try:
-            os.close(self.fileno())
-        except Exception:
-            raise
-        finally:
-            # Common shutdown procedure
-            super(NetlinkMixin, self).close()
-
-        # Run the garbage collection
-        #
-        # It can be expensive, but it is required to flush I/O here.
-        # Collect only the first generation, it is faster and we don't
-        # need more.
-        gc.collect(1)
-
-
-class NetlinkSocket(NetlinkMixin, SocketBase):
-    pass
+        # Common shutdown procedure
+        self._sock.close()
