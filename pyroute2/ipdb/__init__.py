@@ -313,7 +313,6 @@ from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.common import compat
 from pyroute2.ipdb.common import SYNC_TIMEOUT
 from pyroute2.ipdb.route import RoutingTableSet
-from pyroute2.netlink.nlsocket import sockets as nlsockets
 
 
 def get_addr_nla(msg):
@@ -423,34 +422,9 @@ class IPDB(object):
         Restart IPRoute channel, and create all the DB
         from scratch. Can be used when sync is lost.
         '''
-        e = None
-        # do several attempts to establish the connection
-        for _ in range(256):
-            try:
-                self.nl = nl or IPRoute()
-                self.nl.monitor = True
-                self.nl.bind(async=True)
-                # everything is OK, so continue initdb()
-                break
-            except Exception as e:
-                if nl is None:
-                    # if we couldn't establish the connection, and the
-                    # link is not provided by user, close the socket
-                    # and try to make it again
-                    self.nl.close()
-                    # blacklist the port
-                    logging.debug(" Blacklisting port %i", self.nl.port)
-                    nlsockets.setaddr(self.nl.port, 'allocated')
-                    logging.debug(" Netlink ports allocated (including "
-                                  "broken): %i", nlsockets.allocated)
-                else:
-                    # if the link is provided by user, just give up
-                    raise
-            logging.debug(" Couldn't establish netlink connection; repeat")
-        else:
-            # no connection established anyway after several attempts
-            if e is not None:
-                raise e
+        self.nl = nl or IPRoute()
+        self.nl.monitor = True
+        self.nl.bind(async=True)
 
         # resolvers
         self.interfaces = Dotkeys()
@@ -581,6 +555,22 @@ class IPDB(object):
                 # We can not handle this case
                 pass
             self.nl.close()
+            self.nl = None
+
+            # flush all the objects
+            # -- interfaces
+            for key in tuple(self.interfaces.keys()):
+                self.detach(key)
+            # -- routes
+            for key in tuple(self.routes.tables.keys()):
+                del self.routes.tables[key]
+            self.routes.tables[254] = None
+            # -- ipaddr
+            for key in tuple(self.ipaddr.keys()):
+                del self.ipaddr[key]
+            # -- neighbors
+            for key in tuple(self.neighbors.keys()):
+                del self.neighbors[key]
 
     def create(self, kind, ifname, reuse=False, **kwarg):
         '''

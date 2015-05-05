@@ -1121,10 +1121,7 @@ class TestMisc(object):
     def test_fail_released(self):
         ip = IPDB()
         ip.release()
-        try:
-            ip.interfaces.lo.up()
-        except RuntimeError:
-            pass
+        assert len(ip.interfaces.keys()) == 0
 
     def test_context_manager(self):
         with IPDB() as ip:
