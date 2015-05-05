@@ -321,9 +321,6 @@ class NetlinkMixin(object):
         # Set defaults
         self.post_init()
 
-    def post_init(self):
-        pass
-
     def __enter__(self):
         return self
 
@@ -822,7 +819,7 @@ class NetlinkSocket(NetlinkMixin):
                 except Exception:
                     # create a new underlying socket -- on kernel 4
                     # one failed bind() makes the socket useless
-                    super(NetlinkSocket, self).post_init()
+                    self.post_init()
             else:
                 raise KeyError('no free address available')
         # all is OK till now, so start async recv, if we need

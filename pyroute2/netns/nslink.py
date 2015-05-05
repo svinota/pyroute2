@@ -299,6 +299,9 @@ class NetNS(IPRouteMixin, NetNSocket):
         super(NetNS, self).__init__()
         self.marshal = MarshalRtnl()
 
+    def post_init(self):
+        pass
+
     def remove(self):
         '''
         Try to remove this network namespace from the system.
