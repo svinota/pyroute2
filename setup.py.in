@@ -9,10 +9,37 @@ SETUPLIB by default is `distutils.core`
 
 To use `setuptools`, run `make ... setuplib=setuptools`
 '''
-
+import os
+import sys
 from @SETUPLIB@ import setup
 
 readme = open("README.md", "r")
+
+# The goal of the following code is to have all the files
+# in one bundle, but for Python2 install *only* Python2
+# specific files. The reason is that Python3 code can
+# cause SyntaxError being installed via Python2 -- even
+# if it doesn't run. The exception is not fatal, but can
+# be pretty confusing.
+python2_only_files = ['./pyroute2/netns/process/base_p2.py']
+python3_only_files = ['./pyroute2/netns/process/base_p3.py']
+
+
+def cleanup(files):
+    for name in files:
+        try:
+            os.unlink(name)
+        except OSError:
+            pass
+
+# Run cleanup only if we're not called with proper keywords.
+# Don't run cleanup on a git repository.
+if (sys.argv[1] == 'primary'):
+    sys.argv.pop(1)
+else:
+    if '.git' not in os.listdir('.'):
+        if sys.version_info[0] == 2:
+            cleanup(python3_only_files)
 
 setup(name='pyroute2',
       version='@RELEASE@',

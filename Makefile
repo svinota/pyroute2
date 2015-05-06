@@ -160,17 +160,17 @@ test:
 		cd .. ;
 
 upload: clean force-version
-	${python} setup.py sdist upload
+	${python} setup.py primary sdist upload
 
 dist: clean force-version docs
-	${python} setup.py sdist
+	${python} setup.py primary sdist
 
 install: clean force-version
-	${python} setup.py install ${root} ${lib}
+	${python} setup.py primary install ${root} ${lib}
 
 develop: setuplib = "setuptools"
 develop: clean force-version
-	${python} setup.py develop
+	${python} setup.py primary develop
 
 testdeps:
 	pip install coverage
@@ -182,5 +182,5 @@ testdeps:
 #
 rpm: clean force-version
 	cp packages/RedHat/python-pyroute2.spec .
-	${python} setup.py sdist
+	${python} setup.py primary sdist
 	rpmbuild -ta dist/*tar.gz
