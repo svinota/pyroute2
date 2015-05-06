@@ -1,6 +1,11 @@
 changelog
 =========
 
+* 0.3.8
+    * docs: inheritance diagrams
+    * nlsocket: #126, #132 -- resource deallocation
+    * arch: #128, #131 -- MIPS support
+    * setup.py: #133 -- syntax error during install on Python2
 * 0.3.7
     * ipdb: new routing syntax
     * ipdb: sync interface movement between namespaces
