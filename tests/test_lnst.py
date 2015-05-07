@@ -3,7 +3,52 @@ import select
 
 class TestLnst(object):
 
-    def test_imports(self):
+    def test_isinstance(self):
+        from pyroute2 import IPRSocket
+        from pyroute2 import IPRoute
+        from pyroute2.iproute import IPRoute as IPRoute_real
+        from pyroute2.netlink.rtnl.iprsocket import IPRSocket as IPRSocket_real
+
+        ipr1 = IPRoute()
+        ipr2 = IPRoute_real()
+
+        ips1 = IPRSocket()
+        ips2 = IPRSocket_real()
+
+        # positive
+        assert isinstance(ips1, IPRSocket)
+        assert isinstance(ips2, IPRSocket)
+        assert isinstance(ips1, IPRSocket_real)
+        assert isinstance(ips2, IPRSocket_real)
+
+        assert isinstance(ipr1, IPRoute)
+        assert isinstance(ipr2, IPRoute)
+        assert isinstance(ipr1, IPRoute_real)
+        assert isinstance(ipr2, IPRoute_real)
+
+        # negative
+        assert not isinstance(ips1, IPRoute)
+        assert not isinstance(ips2, IPRoute)
+        assert not isinstance(ips1, IPRoute_real)
+        assert not isinstance(ips2, IPRoute_real)
+
+        # subclasses
+        assert isinstance(ipr1, IPRSocket)
+        assert isinstance(ipr2, IPRSocket)
+        assert isinstance(ipr1, IPRSocket_real)
+        assert isinstance(ipr2, IPRSocket_real)
+
+        # not implemented yet
+        # https://github.com/svinota/pyroute2/issues/135
+        # assert issubclass(IPRoute, IPRSocket)
+        assert issubclass(IPRoute_real, IPRSocket_real)
+
+        ips1.close()
+        ips2.close()
+        ipr1.close()
+        ipr2.close()
+
+    def test_basic(self):
         from pyroute2 import IPRSocket
         from pyroute2.netlink import NLM_F_REQUEST
         from pyroute2.netlink import NLM_F_DUMP
@@ -26,7 +71,6 @@ class TestLnst(object):
         ip.close()
 
         assert issubclass(ifinfmsg, nlmsg)
-        assert isinstance(ip, IPRSocket)
         assert NLM_F_REQUEST == 1
         assert NLM_F_ROOT == 0x100
         assert NLM_F_MATCH == 0x200
