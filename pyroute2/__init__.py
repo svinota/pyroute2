@@ -10,6 +10,8 @@
 # Surely, you still can import modules directly from their
 # places, like `from pyroute2.iproute import IPRoute`
 ##
+from abc import ABCMeta
+
 __all__ = []
 _modules = {'IPRoute': 'pyroute2.iproute',
             'IPSet': 'pyroute2.ipset',
@@ -35,60 +37,56 @@ module.
 \n'''
 
 
-class _ProxyMeta(type):
-    '''
-    All this metaclass alchemy is implemented to provide a
-    reasonable, though not exhaustive documentation on the
-    proxy classes.
-    '''
+def _bake(name):
 
-    def __init__(cls, name, bases, dct):
+    class Doc(str):
 
-        class doc(str):
-            def __repr__(self):
-                return repr(cls.proxy['doc'])
+        def __init__(self, registry, *argv, **kwarg):
+            self.registry = registry
+            super(Doc, self).__init__(*argv, **kwarg)
 
-            def __str__(self):
-                return str(cls.proxy['doc'])
+        def __repr__(self):
+            return repr(self.registry['doc'])
 
-            def expandtabs(self, ts=4):
-                return cls.proxy['doc'].expandtabs(ts)
+        def __str__(self):
+            return str(self.registry['doc'])
 
-        class proxy(object):
-            def __init__(self):
-                self.target = {}
+        def expandtabs(self, ts=4):
+            return self.registry['doc'].expandtabs(ts)
 
-            def __getitem__(self, key):
-                if not self.target:
-                    module = __import__(_modules[cls.name],
-                                        globals(),
-                                        locals(),
-                                        [cls.name], 0)
-                    self.target['constructor'] = getattr(module, cls.name)
-                    self.target['doc'] = self.target['constructor'].__doc__
-                    try:
-                        self.target['doc'] += _DISCLAIMER
-                    except TypeError:
-                        # ignore cases, when __doc__ is not a string, e.g. None
-                        pass
-                return self.target[key]
+    class Registry(object):
+        def __init__(self):
+            self.target = {}
 
-        def __call__(self, *argv, **kwarg):
-            '''
-            Actually load the module and call the constructor.
-            '''
-            return self.proxy['constructor'](*argv, **kwarg)
+        def __getitem__(self, key):
+            if not self.target:
+                module = __import__(_modules[name],
+                                    globals(),
+                                    locals(),
+                                    [name], 0)
+                self.target['class'] = getattr(module, name)
+                self.target['doc'] = self.target['class'].__doc__
+                try:
+                    self.target['doc'] += _DISCLAIMER
+                except TypeError:
+                    # ignore cases, when __doc__ is not a string, e.g. None
+                    pass
+            return self.target[key]
 
-        cls.name = name
-        cls.proxy = proxy()
-        cls.__call__ = __call__
-        cls.__doc__ = doc()
+    def __new__(cls, *argv, **kwarg):
+        cls.register(cls.registry['class'])
+        return cls.registry['class'](*argv, **kwarg)
 
-        super(_ProxyMeta, cls).__init__(name, bases, dct)
+    registry = Registry()
+    doc = Doc(registry)
+
+    proxy = ABCMeta('proxy', (object, ), {'__new__': __new__,
+                                          '__doc__': doc,
+                                          'registry': registry})
+    return proxy
 
 
 for name in _modules:
-
-    f = _ProxyMeta(name, (), {})()
+    f = _bake(name)
     globals()[name] = f
     __all__.append(name)

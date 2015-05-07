@@ -26,6 +26,7 @@ class TestLnst(object):
         ip.close()
 
         assert issubclass(ifinfmsg, nlmsg)
+        assert isinstance(ip, IPRSocket)
         assert NLM_F_REQUEST == 1
         assert NLM_F_ROOT == 0x100
         assert NLM_F_MATCH == 0x200
