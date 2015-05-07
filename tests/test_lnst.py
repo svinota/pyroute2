@@ -3,6 +3,24 @@ import select
 
 class TestLnst(object):
 
+    def test_issubclass(self):
+        from pyroute2 import IPRSocket
+        from pyroute2 import IPRoute
+        from pyroute2 import IPDB
+        from pyroute2.iproute import IPRoute as IPRoute_real
+        from pyroute2.netlink.rtnl.iprsocket import IPRSocket as IPRSocket_real
+
+        assert issubclass(IPRoute, IPRSocket)
+        assert issubclass(IPRoute_real, IPRSocket_real)
+        assert not issubclass(IPRoute, IPDB)
+        assert not issubclass(IPRSocket, IPRoute)
+        assert not issubclass(IPRSocket_real, IPRoute_real)
+
+        # mixed environments are not supported, so do not run
+        # assertion on real and proxied classes in one statement:
+        # assert issubclass(IPRoute, IPRSocket_real)  # will *not* work
+        # assert issubclass(IPRoute_real, IPRSocket)  # *may* work
+
     def test_isinstance(self):
         from pyroute2 import IPRSocket
         from pyroute2 import IPRoute
@@ -32,16 +50,11 @@ class TestLnst(object):
         assert not isinstance(ips1, IPRoute_real)
         assert not isinstance(ips2, IPRoute_real)
 
-        # subclasses
+        # this must succeed -- IPRoute is a subclass of IPRSocket
         assert isinstance(ipr1, IPRSocket)
         assert isinstance(ipr2, IPRSocket)
         assert isinstance(ipr1, IPRSocket_real)
         assert isinstance(ipr2, IPRSocket_real)
-
-        # not implemented yet
-        # https://github.com/svinota/pyroute2/issues/135
-        # assert issubclass(IPRoute, IPRSocket)
-        assert issubclass(IPRoute_real, IPRSocket_real)
 
         ips1.close()
         ips2.close()

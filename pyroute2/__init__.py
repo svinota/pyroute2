@@ -73,6 +73,15 @@ def _bake(name):
                     pass
             return self.target[key]
 
+    @classmethod
+    def __hook__(cls, C):
+        if hasattr(C, 'registry'):
+            try:
+                return issubclass(C.registry['class'], cls.registry['class'])
+            except Exception:
+                pass
+        return issubclass(C, cls.registry['class'])
+
     def __new__(cls, *argv, **kwarg):
         cls.register(cls.registry['class'])
         return cls.registry['class'](*argv, **kwarg)
@@ -82,6 +91,7 @@ def _bake(name):
 
     proxy = ABCMeta('proxy', (object, ), {'__new__': __new__,
                                           '__doc__': doc,
+                                          '__subclasshook__': __hook__,
                                           'registry': registry})
     return proxy
 
