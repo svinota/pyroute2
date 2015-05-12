@@ -290,6 +290,78 @@ class IW(NL80211):
                                 msg_type=self.prid,
                                 msg_flags=NLM_F_REQUEST)
 
+    def get_stations(self, ifindex):
+        '''
+        Get stations by ifindex
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_STATION']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
+        return self.nlm_request(msg,
+                                msg_type=self.prid,
+                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+
+    def join_ibss(self, ifindex, ssid, freq, channel_fixed=False,
+                  width=None, center=None, bssid=None):
+        '''
+        Connect to network by ssid
+            - ifindex - IFINDEX of the interface to perform the connection
+            - ssid - Service set identification
+            - freq - Frequency in MHz
+            - channel_fixed: Boolean flag
+            - width - Channel width
+            - center - Central frequency of the first part of the
+            - bssid - The MAC address of target interface
+
+        If the flag of channel_fixed is True, one should specify both the width
+        and center of the channel
+
+        `width` can be integer of string:
+
+        0. 20_noht
+        1. 20
+        2. 40
+        3. 80
+        4. 80p80
+        5. 160
+        6. 5
+        7. 10
+        '''
+
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_JOIN_IBSS']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
+                        ['NL80211_ATTR_SSID', ssid],
+                        # reversed process of `_get_frequency` to set frequency
+                        ['NL80211_ATTR_WIPHY_FREQ', freq-2304]]
+
+        if channel_fixed:
+            width = CHAN_WIDTH.get(width, width)
+            assert isinstance(width, int)
+            if width and center:
+                msg['attrs'].append(['NL80211_ATTR_CHANNEL_WIDTH', width])
+                msg['attrs'].append(['NL80211_ATTR_CENTER_FREQ1', center])
+            else:
+                raise TypeError('No channel specified')
+
+        if bssid is not None:
+            msg['attrs'].append(['NL80211_ATTR_MAC', bssid])
+
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
+    def leave_ibss(self):
+        '''
+        Leave the IBSS -- the IBSS is determined by the network interface
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_LEAVE_IBSS']
+
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
     def connect(self, ifindex, ssid, bssid=None):
         '''
         Connect to the ap with ssid and bssid
