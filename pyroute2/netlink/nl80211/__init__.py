@@ -180,6 +180,7 @@ NL80211_CHAN_WIDTH_10 = 7       # 10 MHz OFDM channel
                                            globals(),
                                            normalize=True)
 
+
 class nl80211cmd(genlmsg):
     nla_map = (('NL80211_ATTR_UNSPEC', 'none'),
                ('NL80211_ATTR_WIPHY', 'uint32'),

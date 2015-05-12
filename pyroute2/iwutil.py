@@ -137,6 +137,7 @@ from pyroute2.netlink.nl80211 import NL80211
 from pyroute2.netlink.nl80211 import nl80211cmd
 from pyroute2.netlink.nl80211 import NL80211_NAMES
 from pyroute2.netlink.nl80211 import IFTYPE_NAMES
+from pyroute2.netlink.nl80211 import CHAN_WIDTH
 
 
 class IW(NL80211):
