@@ -167,19 +167,6 @@ NL80211_IFTYPE_OCB = 11
                                               globals(),
                                               normalize=True)
 
-# channel width
-NL80211_CHAN_WIDTH_20_NOHT = 0  # 20 MHz non-HT channel
-NL80211_CHAN_WIDTH_20 = 1       # 20 MHz HT channel
-NL80211_CHAN_WIDTH_40 = 2       # 40 MHz HT channel
-NL80211_CHAN_WIDTH_80 = 3       # 80 MHz channel
-NL80211_CHAN_WIDTH_80P80 = 4    # 80+80 MHz channel
-NL80211_CHAN_WIDTH_160 = 5      # 160 MHz channel
-NL80211_CHAN_WIDTH_5 = 6        # 5 MHz OFDM channel
-NL80211_CHAN_WIDTH_10 = 7       # 10 MHz OFDM channel
-(CHAN_WIDTH, WIDTH_VALUES) = map_namespace('NL80211_CHAN_WIDTH_',
-                                           globals(),
-                                           normalize=True)
-
 
 class nl80211cmd(genlmsg):
     nla_map = (('NL80211_ATTR_UNSPEC', 'none'),
