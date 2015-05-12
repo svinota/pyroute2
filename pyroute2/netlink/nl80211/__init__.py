@@ -415,7 +415,10 @@ class nl80211cmd(genlmsg):
                 (bitmapc,) = struct.unpack("B", data[2:3])
                 (bitmap0,) = struct.unpack("B", data[3:4])
                 return ("DTIM Count {0} DTIM Period {1} Bitmap Control 0x{2} "
-                        "Bitmap[0] 0x{3}".format(count, period, bitmapc, bitmap0))
+                        "Bitmap[0] 0x{3}".format(count,
+                                                 period,
+                                                 bitmapc,
+                                                 bitmap0))
 
             def binary_vendor(self, rawdata):
                 '''
@@ -458,7 +461,8 @@ class nl80211cmd(genlmsg):
                         self.value["CHANNEL"] = channel
 
                     if msg_type == NL80211_BSS_ELEMENTS_TIM:
-                        self.value["TRAFFIC INDICATION MAP"] = self.binary_tim(data)
+                        self.value["TRAFFIC INDICATION MAP"] = \
+                            self.binary_tim(data)
 
                     if msg_type == NL80211_BSS_ELEMENTS_EXTENDED_RATE:
                         extended_rates = self.binary_rates(data)
