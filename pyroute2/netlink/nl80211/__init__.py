@@ -143,6 +143,8 @@ NL80211_CMD_MAX = NL80211_CMD_WIPHY_REG_CHANGE
 NL80211_BSS_ELEMENTS_SSID = 0
 NL80211_BSS_ELEMENTS_SUPPORTED_RATES = 1
 NL80211_BSS_ELEMENTS_CHANNEL = 3
+NL80211_BSS_ELEMENTS_TIM = 5
+NL80211_BSS_ELEMENTS_EXTENDED_RATE = 50
 NL80211_BSS_ELEMENTS_VENDOR = 221
 
 BSS_MEMBERSHIP_SELECTOR_HT_PHY = 127
@@ -219,7 +221,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_REG_TYPE', 'hex'),
                ('NL80211_ATTR_SUPPORTED_COMMANDS', 'hex'),
                ('NL80211_ATTR_FRAME', 'hex'),
-               ('NL80211_ATTR_SSID', 'hex'),
+               ('NL80211_ATTR_SSID', 'asciiz'),
                ('NL80211_ATTR_AUTH_TYPE', 'hex'),
                ('NL80211_ATTR_REASON_CODE', 'hex'),
                ('NL80211_ATTR_KEY_TYPE', 'hex'),
@@ -389,11 +391,11 @@ class nl80211cmd(genlmsg):
     class bss(nla):
         class elementsBinary(nla_base):
 
-            def binary_supported_rates(self, rawdata):
+            def binary_rates(self, rawdata):
                 # pdb.set_trace()
                 string = ""
                 for byteRaw in rawdata:
-                    (byte,) = struct.unpack("B", byteRaw)
+                    (byte,) = struct.unpack("B", bytearray([byteRaw])[0:1])
                     r = byte & 0x7f
 
                     if r == BSS_MEMBERSHIP_SELECTOR_VHT_PHY and byte & 0x80:
@@ -406,6 +408,14 @@ class nl80211cmd(genlmsg):
                     string += "%s " % ("*" if byte & 0x80 else "")
 
                 return string
+
+            def binary_tim(self, data):
+                (count,) = struct.unpack("B", data[0:1])
+                (period,) = struct.unpack("B", data[1:2])
+                (bitmapc,) = struct.unpack("B", data[2:3])
+                (bitmap0,) = struct.unpack("B", data[3:4])
+                return ("DTIM Count {0} DTIM Period {1} Bitmap Control 0x{2} "
+                        "Bitmap[0] 0x{3}".format(count, period, bitmapc, bitmap0))
 
             def binary_vendor(self, rawdata):
                 '''
@@ -440,12 +450,19 @@ class nl80211cmd(genlmsg):
                         self.value["SSID"] = data
 
                     if msg_type == NL80211_BSS_ELEMENTS_SUPPORTED_RATES:
-                        supported_rates = self.binary_supported_rates(data)
+                        supported_rates = self.binary_rates(data)
                         self.value["SUPPORTED_RATES"] = supported_rates
 
                     if msg_type == NL80211_BSS_ELEMENTS_CHANNEL:
-                        (channel,) = struct.unpack("B", data[0])
+                        (channel,) = struct.unpack("B", data[0:1])
                         self.value["CHANNEL"] = channel
+
+                    if msg_type == NL80211_BSS_ELEMENTS_TIM:
+                        self.value["TRAFFIC INDICATION MAP"] = self.binary_tim(data)
+
+                    if msg_type == NL80211_BSS_ELEMENTS_EXTENDED_RATE:
+                        extended_rates = self.binary_rates(data)
+                        self.value["EXTENDED_RATES"] = extended_rates
 
                     if msg_type == NL80211_BSS_ELEMENTS_VENDOR:
                         self.binary_vendor(data)
@@ -453,18 +470,20 @@ class nl80211cmd(genlmsg):
                 self.buf.seek(init)
 
         prefix = 'NL80211_BSS_'
-        nla_map = (('NL80211_BSS_UNSPEC', 'none'),
+        nla_map = (('NL80211_BSS_SIGNAL_UNSPEC', 'uint8'),
                    ('NL80211_BSS_BSSID', 'hex'),
                    ('NL80211_BSS_FREQUENCY', 'uint32'),
                    ('NL80211_BSS_TSF', 'uint64'),
                    ('NL80211_BSS_BEACON_INTERVAL', 'uint16'),
-                   ('NL80211_BSS_CAPABILITY', 'uint8'),
+                   ('NL80211_BSS_CAPABILITY', 'uint16'),
                    ('NL80211_BSS_INFORMATION_ELEMENTS', 'elementsBinary'),
                    ('NL80211_BSS_SIGNAL_MBM', 'uint32'),
                    ('NL80211_BSS_STATUS', 'uint32'),
                    ('NL80211_BSS_SEEN_MS_AGO', 'uint32'),
                    ('NL80211_BSS_BEACON_IES', 'hex'),
                    ('NL80211_BSS_CHAN_WIDTH', 'uint32'),
+                   ('NL80211_BSS_PRESP_DATA', 'hex'),
+                   ('NL80211_BSS_MAX', 'hex'),
                    ('NL80211_BSS_BEACON_TSF', 'uint64')
                    )
 
