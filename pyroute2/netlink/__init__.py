@@ -545,12 +545,18 @@ class nlmsg_base(dict):
     fields = []                  # data field names, to build a dictionary
     header = None                # optional header class
     pack = None                  # pack pragma
-    array = False
+    nla_array = False
     nla_map = {}                 # NLA mapping
     nla_flags = 0                # NLA flags
+    nla_init = None              # NLA initstring
     value_map = {}
 
-    def __init__(self, buf=None, length=None, parent=None, debug=False):
+    def __init__(self,
+                 buf=None,
+                 length=None,
+                 parent=None,
+                 debug=False,
+                 init=None):
         dict.__init__(self)
         for i in self.fields:
             self[i[0]] = 0  # FIXME: only for number values
@@ -560,6 +566,7 @@ class nlmsg_base(dict):
         self.parent = parent
         self.offset = 0
         self.prefix = None
+        self.nla_init = init
         self['attrs'] = []
         self['value'] = NotInitialized
         self.value = NotInitialized
@@ -770,11 +777,11 @@ class nlmsg_base(dict):
             except Exception as e:
                 raise NetlinkHeaderDecodeError(e)
         # handle the array case
-        if self.array:
+        if self.nla_array:
             self.setvalue([])
             while self.buf.tell() < self.offset + self.length:
                 cell = type(self)(self.buf, parent=self, debug=self.debug)
-                cell.array = False
+                cell.nla_array = False
                 cell.decode()
                 self.value.append(cell)
         # decode the data
@@ -1033,20 +1040,28 @@ class nlmsg_base(dict):
             zipped = nla_map
 
         for (key, name, nla_class, nla_flags) in zipped:
-            # is it an array
+            # it is an array
             if nla_class[0] == '*':
                 nla_class = nla_class[1:]
-                array = True
+                nla_array = True
             else:
-                array = False
+                nla_array = False
+            # are there any init call in the string?
+            lb = nla_class.find('(')
+            rb = nla_class.find(')')
+            if 0 < lb < rb:
+                init = nla_class[lb + 1:rb]
+                nla_class = nla_class[:lb]
+            else:
+                init = None
             # lookup NLA class
             if nla_class == 'recursive':
                 nla_class = type(self)
             else:
                 nla_class = getattr(self, nla_class)
             # update mappings
-            self.t_nla_map[key] = (nla_class, name, nla_flags, array)
-            self.r_nla_map[name] = (nla_class, key, nla_flags, array)
+            self.t_nla_map[key] = (nla_class, name, nla_flags, nla_array, init)
+            self.r_nla_map[name] = (nla_class, key, nla_flags, nla_array, init)
 
     def encode_nlas(self):
         '''
@@ -1057,12 +1072,13 @@ class nlmsg_base(dict):
             if i[0] in self.r_nla_map:
                 msg_class = self.r_nla_map[i[0]][0]
                 msg_type = self.r_nla_map[i[0]][1]
+                msg_init = self.r_nla_map[i[0]][4]
                 # is it a class or a function?
                 if isinstance(msg_class, types.MethodType):
                     # if it is a function -- use it to get the class
                     msg_class = msg_class()
                 # encode NLA
-                nla = msg_class(self.buf, parent=self)
+                nla = msg_class(self.buf, parent=self, init=msg_init)
                 nla.nla_flags |= self.r_nla_map[i[0]][2]
                 nla['header']['type'] = msg_type | nla.nla_flags
                 nla.setvalue(i[1])
@@ -1105,9 +1121,13 @@ class nlmsg_base(dict):
                 msg_name = self.t_nla_map[msg_type][1]
                 # is it an array?
                 msg_array = self.t_nla_map[msg_type][3]
+                # initstring
+                msg_init = self.t_nla_map[msg_type][4]
                 # decode NLA
-                nla = msg_class(self.buf, length, self, debug=self.debug)
-                nla.array = msg_array
+                nla = msg_class(self.buf, length, self,
+                                debug=self.debug,
+                                init=msg_init)
+                nla.nla_array = msg_array
                 try:
                     nla.decode()
                     nla.nla_flags = msg_type & (NLA_F_NESTED |
@@ -1269,6 +1289,41 @@ class nlmsg_atoms(nlmsg_base):
         def decode(self):
             nla_base.decode(self)
             self.value = hexdump(self['value'])
+
+    class array(nla_base):
+        '''
+        Array of simple data type
+        '''
+        fields = [('value', 's')]
+        _fmt = None
+
+        @property
+        def fmt(self):
+            # try to get format from parent
+            # work only with elementary types
+            if self._fmt is not None:
+                return self._fmt
+            try:
+                fclass = getattr(self.parent, self.nla_init)
+                self._fmt = fclass.fields[0][1]
+            except Exception:
+                self._fmt = self.nla_init
+            return self._fmt
+
+        def encode(self):
+            fmt = '%s%i%s' % (self.fmt[:-1], len(self.value), self.fmt[-1:])
+            self['value'] = struct.pack(fmt, self.value)
+            nla_base.encode(self)
+
+        def decode(self):
+            nla_base.decode(self)
+            data_length = len(self['value'])
+            element_size = struct.calcsize(self.fmt)
+            array_size = data_length // element_size
+            trail = (data_length % element_size) or -data_length
+            data = self['value'][:-trail]
+            fmt = '%s%i%s' % (self.fmt[:-1], array_size, self.fmt[-1:])
+            self.value = struct.unpack(fmt, data)
 
     class cdata(nla_base):
         '''
