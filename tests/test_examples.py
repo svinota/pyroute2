@@ -140,7 +140,10 @@ class TestExamples(object):
         require_user('root')
         self.launcher('nla_operators2')
 
-    def test_wireless_intf(self):
+    def test_nl80211_interfaces(self):
+        self.launcher('nl80211_interfaces')
+
+    def test_nl80211_interface_type(self):
         self.launcher('nl80211_interface_type')
 
     def test_taskstats(self):
