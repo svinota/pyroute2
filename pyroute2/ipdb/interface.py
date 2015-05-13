@@ -178,6 +178,7 @@ class Interface(Transactional):
                 pass
             else:
                 self[key] = data[key]
+        return self
 
     def make_transaction(self, data):
         '''
