@@ -225,9 +225,15 @@ class IW(NL80211):
                          msg_type=self.prid,
                          msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
+    def list_dev(self):
+        '''
+        Get list of all wifi network interfaces
+        '''
+        return self.get_interfaces_dump()
+
     def list_wiphy(self):
         '''
-        Get all list of phy device
+        Get list of all phy devices
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_WIPHY']
