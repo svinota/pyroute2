@@ -94,7 +94,10 @@ class TestExamples(object):
             print(client_error)
             print("server error:")
             print(server_error)
-            raise RuntimeError
+            e = RuntimeError()
+            e.client_error = client_error
+            e.server_error = server_error
+            raise e
 
     def test_create_bond(self):
         require_user('root')
@@ -141,16 +144,30 @@ class TestExamples(object):
         self.launcher('nla_operators2')
 
     def test_nl80211_interfaces(self):
-        self.launcher('nl80211_interfaces')
+        try:
+            self.launcher('nl80211_interfaces')
+        except Exception as x:
+            if isinstance(x.client_error, NetlinkError) and \
+                    x.client_error.code == errno.ENOENT:
+                raise SkipTest('nl80211 not supported')
+            else:
+                raise
 
     def test_nl80211_interface_type(self):
-        self.launcher('nl80211_interface_type')
+        try:
+            self.launcher('nl80211_interface_type')
+        except Exception as x:
+            if isinstance(x.client_error, NetlinkError) and \
+                    x.client_error.code == errno.ENOENT:
+                raise SkipTest('nl80211 not supported')
+            else:
+                raise
 
     def test_taskstats(self):
         require_user('root')
         try:
             self.launcher('taskstats')
-        except NetlinkError as x:
+        except Exception as x:
             if x.code == errno.ENOENT:
                 raise SkipTest('missing taskstats support')
             else:
@@ -160,7 +177,7 @@ class TestExamples(object):
         require_user('root')
         try:
             self.launcher('pmonitor', server='server')
-        except NetlinkError as x:
+        except Exception as x:
             if x.code == errno.ENOENT:
                 raise SkipTest('missing taskstats support')
             else:

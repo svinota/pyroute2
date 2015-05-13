@@ -1,11 +1,19 @@
+import errno
 from pyroute2 import IW
+from pyroute2.netlink import NetlinkError
 from nose.plugins.skip import SkipTest
 
 
 class TestIW(object):
 
     def setup(self):
-        self.iw = IW()
+        try:
+            self.iw = IW()
+        except NetlinkError as e:
+            if e.code == errno.ENOENT:
+                raise SkipTest('nl80211 not supported')
+            else:
+                raise
         ifaces = self.iw.get_interfaces_dump()
         if not ifaces:
             raise SkipTest('no wireless interfaces found')
