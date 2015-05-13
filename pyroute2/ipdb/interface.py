@@ -119,7 +119,7 @@ class Interface(Transactional):
 
         def cb(ipdb, msg, action):
             if msg.get('index', -1) == dump['index']:
-                tr = self.load(dump)
+                tr = self.make_transaction(dump)
                 for _ in range(3):
                     try:
                         self.commit(transaction=tr)
@@ -145,27 +145,66 @@ class Interface(Transactional):
         return self
 
     def load(self, data):
+        '''
+        Load the data from a dictionary to an existing
+        transaction. Requires `commit()` call, or must be
+        called from within a `with` statement.
+
+        Sample::
+
+            data = json.loads(...)
+            with ipdb.interfaces['dummy1'] as i:
+                i.load(data)
+
+        Sample, mode `explicit::
+
+            data = json.loads(...)
+            i = ipdb.interfaces['dummy1']
+            i.begin()
+            i.load(data)
+            i.commit()
+        '''
+        for key in data:
+            if key == 'ipaddr':
+                for addr in data[key]:
+                    if isinstance(addr, basestring):
+                        addr = (addr, )
+                    self.add_ip(*addr)
+            elif key == 'ports':
+                for port in data[key]:
+                    self.add_port(port)
+            elif key == 'neighbors':
+                # ignore neighbors on load
+                pass
+            else:
+                self[key] = data[key]
+
+    def make_transaction(self, data):
+        '''
+        Create a new transaction instance from a dictionary.
+        One can apply it the with `commit(transaction=...)`
+        call.
+
+        Sample::
+
+            data = json.loads(...)
+            t = ipdb.interfaces['dummy1'].make_transaction(data)
+            ipdb.interfaces['dummy1'].commit(transaction=t)
+        '''
         with self._write_lock:
             template = self.__class__(ipdb=self.ipdb, mode='snapshot')
             template.load_dict(data)
             return template
 
     def load_dict(self, data):
+        '''
+        Update the interface info from a dictionary.
+
+        This call always bypasses open transactions, loading
+        changes directly into the interface data.
+        '''
         with self._direct_state:
-            for key in data:
-                if key == 'ipaddr':
-                    for addr in data[key]:
-                        if isinstance(addr, basestring):
-                            addr = (addr, )
-                        self.add_ip(*addr)
-                elif key == 'ports':
-                    for port in data[key]:
-                        self.add_port(port)
-                elif key == 'neighbors':
-                    # ignore neighbors on load
-                    pass
-                else:
-                    self[key] = data[key]
+            self.load(data)
 
     def load_netlink(self, dev):
         '''

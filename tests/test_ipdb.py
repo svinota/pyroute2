@@ -414,8 +414,8 @@ class TestExplicit(object):
         with self.ip.interfaces[ifB] as i:
             i.down()
         # 2. please notice, the interface will be renamed after the backup
-        t = self.ip.interfaces[ifB].load(json.loads(backup))
-        self.ip.interfaces[ifB].commit(transaction=t)
+        with self.ip.interfaces[ifB] as i:
+            i.load(json.loads(backup))
 
         # check :)
         assert ifA in self.ip.interfaces
