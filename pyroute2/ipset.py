@@ -41,7 +41,7 @@ class IPSet(NetlinkSocket):
     policy = {IPSET_CMD_PROTOCOL: ipset_msg,
               IPSET_CMD_LIST: ipset_msg}
 
-    def __init__(self, version=6, attr_revision=2, nfgen_family=2):
+    def __init__(self, version=6, attr_revision=0, nfgen_family=2):
         super(IPSet, self).__init__(family=NETLINK_NETFILTER)
         policy = dict([(x | (NFNL_SUBSYS_IPSET << 8), y)
                        for (x, y) in self.policy.items()])
