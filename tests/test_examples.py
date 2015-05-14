@@ -168,7 +168,8 @@ class TestExamples(object):
         try:
             self.launcher('taskstats')
         except Exception as x:
-            if x.code == errno.ENOENT:
+            if isinstance(x.client_error, NetlinkError) and \
+                    x.client_error.code == errno.ENOENT:
                 raise SkipTest('missing taskstats support')
             else:
                 raise
