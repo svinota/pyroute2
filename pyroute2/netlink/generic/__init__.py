@@ -25,7 +25,7 @@ class GenericNetlinkSocket(NetlinkSocket):
 
     mcast_groups = {}
 
-    def bind(self, proto, msg_class, groups=0, pid=0, async=False):
+    def bind(self, proto, msg_class, groups=0, pid=None, async=False):
         '''
         Bind the socket and performs generic netlink
         proto lookup. The `proto` parameter is a string,
