@@ -119,7 +119,31 @@ class TestExplicit(object):
         assert all(isinstance(i, int) for i in self.ip.by_index.keys())
         assert all(isinstance(i, basestring) for i in self.ip.by_name.keys())
 
-    def test_ips(self):
+    def test_addr_attributes(self):
+        require_user('root')
+
+        if1 = self.get_ifname()
+        if2 = self.get_ifname()
+
+        with self.ip.create(ifname=if1, kind='dummy') as i:
+            # +scope host (=> broadcast == None)
+            i.add_ip('172.16.102.1/24', scope=254)
+
+        with self.ip.create(ifname=if2, kind='dummy') as i:
+            # +broadcast (default scope == 0)
+            i.add_ip('172.16.103.1/24', broadcast='172.16.103.128')
+
+        index = self.ip.interfaces[if1]['index']
+        addr = self.ip.nl.get_addr(index=index)[0]
+        assert addr['scope'] == 254
+        assert addr.get_attr('IFA_BROADCAST') == None
+
+        index = self.ip.interfaces[if2]['index']
+        addr = self.ip.nl.get_addr(index=index)[0]
+        assert addr['scope'] == 0
+        assert addr.get_attr('IFA_BROADCAST') == '172.16.103.128'
+
+    def test_addr_loaded(self):
         for name in self.ip.by_name:
             assert len(self.ip.interfaces[name]['ipaddr']) == \
                 len(get_ip_addr(name))

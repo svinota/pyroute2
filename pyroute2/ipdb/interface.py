@@ -260,10 +260,20 @@ class Interface(Transactional):
         self._load_event.set()
 
     @update
-    def add_ip(self, direct, ip, mask=None,
-               brd=None, broadcast=None):
+    def add_ip(self, direct, ip,
+               mask=None,
+               broadcast=None,
+               anycast=None,
+               scope=None):
         '''
         Add IP address to an interface
+
+        Keyword arguments:
+
+        * mask
+        * broadcast
+        * anycast
+        * scope
         '''
         # split mask
         if mask is None:
@@ -274,21 +284,28 @@ class Interface(Transactional):
                 mask = int(mask, 0)
         elif isinstance(mask, basestring):
             mask = dqn2int(mask)
-        brd = brd or broadcast
+
         # FIXME: make it more generic
         # skip IPv6 link-local addresses
         if ip[:4] == 'fe80' and mask == 64:
             return self
+
         if not direct:
+            # if it is an interface object, route any change
+            # to the last transaction
             transaction = self.last()
-            transaction.add_ip(ip, mask, brd)
+            transaction.add_ip(ip, mask, broadcast, anycast, scope)
         else:
+            # if it is a transaction or an interface update, apply the change
             self['ipaddr'].unlink((ip, mask))
-            if brd is not None:
-                raw = {'IFA_BROADCAST': brd}
-                self['ipaddr'].add((ip, mask), raw=raw)
-            else:
-                self['ipaddr'].add((ip, mask))
+            request = {}
+            if broadcast is not None:
+                request['broadcast'] = broadcast
+            if anycast is not None:
+                request['anycast'] = anycast
+            if scope is not None:
+                request['scope'] = scope
+            self['ipaddr'].add((ip, mask), raw=request)
         return self
 
     @update
