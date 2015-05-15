@@ -136,7 +136,7 @@ class TestExplicit(object):
         index = self.ip.interfaces[if1]['index']
         addr = self.ip.nl.get_addr(index=index)[0]
         assert addr['scope'] == 254
-        assert addr.get_attr('IFA_BROADCAST') == None
+        assert addr.get_attr('IFA_BROADCAST') is None
 
         index = self.ip.interfaces[if2]['index']
         addr = self.ip.nl.get_addr(index=index)[0]
