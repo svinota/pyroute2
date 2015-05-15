@@ -69,8 +69,9 @@ class TestNSPopen(object):
                       stdout=subprocess.PIPE,
                       flags=os.O_CREAT)
         ret = nsp.communicate()[0].decode('utf-8')
-        host_links = [x['index'] for x in self.ip.get_links()]
-        netns_links = [int(x[0]) for x in ret.split('\n') if len(x)]
+        host_links = [x.get_attr('IFLA_IFNAME') for x in self.ip.get_links()]
+        netns_links = [x.split(':')[1].split('@')[0].strip()
+                       for x in ret.split('\n') if len(x)]
         assert nsp.wait() == nsp.returncode == 0
         assert set(host_links) & set(netns_links) == set(netns_links)
         assert set(netns_links) < set(host_links)
