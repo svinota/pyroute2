@@ -1,9 +1,74 @@
 '''
-Network namespaces management
-=============================
+Netns management overview
+=========================
 
-Pyroute2 provides basic namespaces management support. The
-`netns` module contains several tools for that.
+Pyroute2 provides basic namespaces management support.
+Here's a quick overview of typical netns tasks and
+related pyroute2 tools.
+
+Move an interface to a namespace
+--------------------------------
+
+Though this task is managed not via `netns` module, it
+should be mentioned here as well. To move an interface
+to a netns, one should provide IFLA_NET_NS_FD nla in
+a set link RTNL request. The nla is an open FD number,
+that refers to already created netns. The pyroute2
+library provides also a possibility to specify not a
+FD number, but a netns name as a string. In that case
+the library will try to lookup the corresponding netns
+in the standard location.
+
+Create veth and move the peer to a netns with IPRoute::
+
+    from pyroute2 import IPRoute
+    ipr = IPRoute()
+    ipr.link_create(ifname='v0p0', kind='veth', peer='v0p0')
+    idx = ipr.link_lookup(ifname='v0p1')[0]
+    ipr.link('set', index=idx, net_ns_fs='netns_name')
+
+Create veth and move the peer to a netns with IPDB::
+
+    from pyroute2 import IPDB
+    ipdb = IPDB()
+    ipdb.create(ifname='v0p0', kind='veth', peer='v0p0').commit()
+    with ipdb.interfaces.v0p1 as i:
+        i.net_ns_fd = 'netns_name'
+
+Manage interfaces within a netns
+--------------------------------
+
+This task can be done with `NetNS` objects. A `NetNS` object
+spawns a child and runs it within a netns, providing the same
+API as `IPRoute` does::
+
+    from pyroute2 import NetNS
+    ns = NetNS('netns_name')
+    # do some stuff within the netns
+    ns.close()
+
+One can even start `IPDB` on the top of `NetNS`::
+
+    from pyroute2 import NetNS
+    from pyroute2 import IPDB
+    ipdb = IPDB(nl=NetNS('netns_name'))
+    # do some stuff within the netns
+    ipdb.release()
+
+Spawn a process within a netns
+------------------------------
+
+For that purpose one can use `NSPopen` API. It works just
+as normal `Popen`, but starts a process within a netns.
+
+List, set, create and remove netns
+----------------------------------
+
+These functions are described below. To use them, import
+`netns` module::
+
+    from pyroute2 import netns
+    netns.listnetns()
 
 Please be aware, that in order to run system calls the
 library uses `ctypes` module. It can fail on platforms
