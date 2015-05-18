@@ -37,11 +37,11 @@ epydoc ?= "epydoc"
 #  all     -- print all warnings
 #  module  -- print the first warning occurence for a module
 #  once    -- print each warning only once
-#  error   -- fail on any warning (NB: default for our test cycle)
+#  error   -- fail on any warning
 #
 #  Would you like to know more? See man 1 python
 #
-wlevel ?= "error"
+wlevel ?= "once"
 
 ##
 # Other options
