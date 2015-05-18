@@ -6,6 +6,7 @@ import struct
 import logging
 import traceback
 import threading
+from pyroute2.netlink import NetlinkError
 
 
 class NetlinkProxy(object):
@@ -52,6 +53,8 @@ class NetlinkProxy(object):
                     # errmsg
                     if isinstance(e, (OSError, IOError)):
                         code = e.errno
+                    elif isinstance(e, NetlinkError):
+                        code = e.code
                     else:
                         code = errno.ECOMM
                     msg = struct.pack('HH', 2, 0)
