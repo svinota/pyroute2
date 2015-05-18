@@ -246,7 +246,7 @@ class IW(NL80211):
 
     def _get_frequency(self, attr):
         try:
-            return attr.get_attr('NL80211_ATTR_WIPHY_FREQ') + 2304
+            return attr.get_attr('NL80211_ATTR_WIPHY_FREQ')
         except:
             return 0
 
@@ -308,17 +308,18 @@ class IW(NL80211):
                                 msg_type=self.prid,
                                 msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
-    def join_ibss(self, ifindex, ssid, freq, channel_fixed=False,
-                  width=None, center=None, bssid=None):
+    def join_ibss(self, ifindex, ssid, freq, bssid=None,
+                  channel_fixed=False, width=None, center=None, center2=None):
         '''
         Connect to network by ssid
             - ifindex - IFINDEX of the interface to perform the connection
             - ssid - Service set identification
             - freq - Frequency in MHz
+            - bssid - The MAC address of target interface
             - channel_fixed: Boolean flag
             - width - Channel width
-            - center - Central frequency of the first part of the
-            - bssid - The MAC address of target interface
+            - center - Central frequency of the 40/80/160 MHz channel
+            - center2 - Center frequency of second segment if 80P80
 
         If the flag of channel_fixed is True, one should specify both the width
         and center of the channel
@@ -339,15 +340,20 @@ class IW(NL80211):
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_JOIN_IBSS']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
                         ['NL80211_ATTR_SSID', ssid],
-                        # reversed process of `_get_frequency` to set frequency
-                        ['NL80211_ATTR_WIPHY_FREQ', freq-2304]]
+                        ['NL80211_ATTR_WIPHY_FREQ', freq]]
 
         if channel_fixed:
             width = CHAN_WIDTH.get(width, width)
             assert isinstance(width, int)
-            if width and center:
+            if width in [2, 3, 5] and center:
                 msg['attrs'].append(['NL80211_ATTR_CHANNEL_WIDTH', width])
                 msg['attrs'].append(['NL80211_ATTR_CENTER_FREQ1', center])
+            elif width == 4 and center and center2:
+                msg['attrs'].append(['NL80211_ATTR_CHANNEL_WIDTH', width])
+                msg['attrs'].append(['NL80211_ATTR_CENTER_FREQ1', center])
+                msg['attrs'].append(['NL80211_ATTR_CENTER_FREQ2', center2])
+            elif width in [0, 1, 6, 7]:
+                pass  # 5-20 MHz doesn't need to specify a center
             else:
                 raise TypeError('No channel specified')
 
