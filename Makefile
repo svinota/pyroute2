@@ -72,6 +72,10 @@ ifdef wlevel
 	override wlevel := -W ${wlevel}
 endif
 
+ifdef skip_tests
+	override skip_tests := --exclude=${skip_tests}
+endif
+
 # get the python version
 pversion := $(shell ${python} -c 'import sys; print(sys.version_info[0])')
 ifeq (${pversion}, 2)
@@ -155,6 +159,7 @@ test:
 			${python} ${wlevel} `which ${nosetests}` -v ${pdb} \
 			--with-coverage \
 			--cover-package=pyroute2 \
+			${skip_tests} \
 			${coverage} ${module} || exit 251; \
 		} ; \
 		cd .. ;
