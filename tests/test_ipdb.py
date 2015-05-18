@@ -18,9 +18,8 @@ from utils import remove_link
 from utils import require_user
 from utils import require_executable
 from utils import require_8021q
-from utils import require_bond
-from utils import require_bridge
 from utils import get_ip_addr
+from utils import skip_if_not_supported
 
 
 class _TestException(Exception):
@@ -168,6 +167,7 @@ class TestExplicit(object):
         del self.ip.interfaces.newattr
         assert 'newattr' not in dir(self.ip.interfaces)
 
+    @skip_if_not_supported
     def test_vlan_slave_bridge(self):
         # https://github.com/svinota/pyroute2/issues/58
         # based on the code by Petr Horáček
@@ -342,6 +342,7 @@ class TestExplicit(object):
         assert '172.16.0.0/24' not in self.ip.routes.keys()
         assert not grep('ip ro', pattern='172.16.0.0/24')
 
+    @skip_if_not_supported
     def _test_shadow(self, kind):
         ifA = self.get_ifname()
 
@@ -357,12 +358,10 @@ class TestExplicit(object):
 
     def test_shadow_bond(self):
         require_user('root')
-        require_bond()
         self._test_shadow('bond')
 
     def test_shadow_bridge(self):
         require_user('root')
-        require_bridge()
         self._test_shadow('bridge')
 
     def test_shadow_dummy(self):
@@ -569,6 +568,7 @@ class TestExplicit(object):
         assert ('172.16.0.1', 24) in self.ip.interfaces[self.ifd].ipaddr
         assert self.ip.interfaces[self.ifd].flags & 1
 
+    @skip_if_not_supported
     def _test_ipv(self, ipv, kind):
         require_user('root')
 
@@ -608,6 +608,7 @@ class TestExplicit(object):
     def test_ipv6_bridge(self):
         self._test_ipv(6, 'bridge')
 
+    @skip_if_not_supported
     def test_create_tuntap_fail(self):
         try:
             self.ip.create(ifname='fAiL',
@@ -618,6 +619,7 @@ class TestExplicit(object):
             return
         raise Exception('tuntap create succeded')
 
+    @skip_if_not_supported
     def test_create_tuntap(self):
         require_user('root')
 
@@ -647,6 +649,7 @@ class TestExplicit(object):
         assert grep('ip link', pattern=ifA)
         assert grep('ip link', pattern=ifB)
 
+    @skip_if_not_supported
     def test_create_veth(self):
         require_user('root')
 
@@ -704,6 +707,7 @@ class TestExplicit(object):
         # assert that we have got references to the same interface
         assert i1 == i2
 
+    @skip_if_not_supported
     def _create_double(self, kind):
         require_user('root')
         ifA = self.get_ifname()
@@ -762,6 +766,7 @@ class TestExplicit(object):
         assert ('172.16.0.3', 24) in iface.ipaddr
         assert ('172.16.0.4', 24) in iface.ipaddr
 
+    @skip_if_not_supported
     def _create_master(self, kind, **kwarg):
 
         ifM = self.get_ifname()
@@ -803,12 +808,10 @@ class TestExplicit(object):
 
     def test_create_bridge(self):
         require_user('root')
-        require_bridge()
         self._create_master('bridge')
 
     def test_create_bond(self):
         require_user('root')
-        require_bond()
         self._create_master('bond')
 
     def test_create_team(self):
@@ -824,9 +827,9 @@ class TestExplicit(object):
 
     def test_create_bond2(self):
         require_user('root')
-        require_bond()
         self._create_master('bond', bond_mode=2)
 
+    @skip_if_not_supported
     def _create_macvx_mode(self, kind, mode):
         require_user('root')
         ifL = self.get_ifname()
@@ -862,6 +865,7 @@ class TestExplicit(object):
     def test_create_macvlan_bridge(self):
         return self._create_macvx_mode('macvlan', 'bridge')
 
+    @skip_if_not_supported
     def test_create_gre(self):
         require_user('root')
 
@@ -888,6 +892,7 @@ class TestExplicit(object):
         finally:
             ip2.release()
 
+    @skip_if_not_supported
     def test_create_vxlan(self):
         require_user('root')
 
@@ -1001,7 +1006,6 @@ class TestImplicit(TestExplicit):
             if action == 'RTM_NEWLINK':
                 # fake the incoming message
                 msg['flags'] = 1234
-
         ifA = self.get_ifname()
         # register callback
         self.ip.register_callback(cb, mode='pre')
@@ -1014,9 +1018,9 @@ class TestImplicit(TestExplicit):
         self.ip.interfaces[ifA].remove()
         self.ip.interfaces[ifA].commit()
 
+    @skip_if_not_supported
     def test_generic_post_callback(self):
         require_user('root')
-        require_bridge()
 
         ifP1 = self.get_ifname()
         ifP2 = self.get_ifname()
