@@ -423,7 +423,8 @@ class TestExplicit(object):
 
         # remove index and protinfo -- make it portable
         del backup['index']
-        del backup['protinfo']
+        if 'protinfo' in backup:
+            del backup['protinfo']
 
         # serialize
         backup = json.dumps(backup)

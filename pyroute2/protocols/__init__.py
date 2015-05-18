@@ -205,6 +205,18 @@ class ethmsg(msg):
               ('type', 'be16'))
 
 
+class ip6msg(msg):
+    fields = (('version', 'uint8', 6 << 4),
+              ('_flow0', 'uint8'),
+              ('_flow1', 'uint8'),
+              ('_flow2', 'uint8'),
+              ('plen', 'uin16'),
+              ('next_header', 'uint8'),
+              ('hop_limit', 'uint8'),
+              ('src', 'ip6addr'),
+              ('dst', 'ip6addr'))
+
+
 class ip4msg(msg):
     fields = (('verlen', 'uint8', 0x45),
               ('dsf', 'uint8'),
