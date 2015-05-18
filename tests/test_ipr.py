@@ -16,6 +16,7 @@ from utils import get_ip_default_routes
 from utils import get_ip_rules
 from utils import create_link
 from utils import remove_link
+from utils import skip_if_not_supported
 
 
 class TestSetup(object):
@@ -175,10 +176,12 @@ class TestIPRoute(object):
         require_user('root')
         self._create('dummy')
 
+    @skip_if_not_supported
     def test_create_bond(self):
         require_user('root')
         self._create('bond')
 
+    @skip_if_not_supported
     def test_create_bridge(self):
         require_user('root')
         self._create('bridge')

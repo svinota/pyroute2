@@ -2,13 +2,29 @@ import os
 import re
 import pwd
 import sys
+import errno
 import platform
 import subprocess
+from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bridge
 from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bond
 from pyroute2.netlink.rtnl.ifinfmsg import compat_del_bridge
 from pyroute2.netlink.rtnl.ifinfmsg import compat_del_bond
 from nose.plugins.skip import SkipTest
+from nose.tools import make_decorator
+
+
+def skip_if_not_supported(f):
+    def test_wrapper(self, *argv, **kwarg):
+        try:
+            return f(self, *argv, **kwarg)
+        except NetlinkError as e:
+            if e.code == errno.EOPNOTSUPP:
+                raise SkipTest('feature not supported by platform')
+            raise
+        except Exception as e:
+            raise
+    return make_decorator(f)(test_wrapper)
 
 
 def conflict_arch(arch):
