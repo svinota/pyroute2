@@ -421,8 +421,10 @@ class TestExplicit(object):
         backup = self.ip.interfaces[ifA].dump()
         assert isinstance(backup, dict)
 
-        # remove index -- make it portable
+        # remove index and protinfo -- make it portable
         del backup['index']
+        del backup['protinfo']
+
         # serialize
         backup = json.dumps(backup)
 
