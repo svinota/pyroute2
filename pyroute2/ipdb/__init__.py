@@ -698,6 +698,8 @@ class IPDB(object):
                 if self.interfaces[ifname]._flicker or reuse:
                     device = self.interfaces[ifname]
                     device._flicker = False
+                    kwarg['kind'] = kind
+                    device.load_dict(kwarg)
                 else:
                     raise CreateException("interface %s exists" %
                                           ifname)
