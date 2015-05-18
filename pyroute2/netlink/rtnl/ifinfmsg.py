@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import errno
 import struct
 import logging
 import platform
@@ -12,6 +13,7 @@ from pyroute2.common import ANCIENT
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nlmsg_atoms
+from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.rtnl.iw_event import iw_event
 
 
@@ -901,10 +903,10 @@ def manage_ovs(msg):
 def manage_tuntap(msg):
 
     if TUNSETIFF is None:
-        raise Exception('unsupported arch')
+        raise NetlinkError(errno.EOPNOTSUPP, 'Arch not supported')
 
     if msg['header']['type'] != RTM_NEWLINK:
-        raise Exception('unsupported event')
+        raise NetlinkError(errno.EOPNOTSUPP, 'Unsupported event')
 
     ifru_flags = 0
     linkinfo = msg.get_attr('IFLA_LINKINFO')
