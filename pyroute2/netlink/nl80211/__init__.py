@@ -344,7 +344,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_SCAN_FLAGS', 'hex'),
                ('NL80211_ATTR_CHANNEL_WIDTH', 'uint32'),
                ('NL80211_ATTR_CENTER_FREQ1', 'uint32'),
-               ('NL80211_ATTR_CENTER_FREQ2', 'uin32'),
+               ('NL80211_ATTR_CENTER_FREQ2', 'uint32'),
                ('NL80211_ATTR_P2P_CTWINDOW', 'hex'),
                ('NL80211_ATTR_P2P_OPPPS', 'hex'),
                ('NL80211_ATTR_LOCAL_MESH_POWER_MODE', 'hex'),
