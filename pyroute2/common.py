@@ -339,5 +339,15 @@ def uuid32():
     @rtype: int
     '''
     return fnv1(struct.pack('QQ',
-                            int(time.time() * 1000),
+                            int(time.time() * 1000000),
                             os.getpid()))
+
+
+def uifname():
+    '''
+    Return a unique interface name based on a prime function
+
+    @return: interface name
+    @rtype: str
+    '''
+    return 'pr%x' % uuid32()
