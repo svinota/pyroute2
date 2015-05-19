@@ -4,6 +4,7 @@ Common utilities
 '''
 import re
 import os
+import time
 import sys
 import types
 import struct
@@ -137,7 +138,6 @@ def map_namespace(prefix, ns, normalize=None):
         - None — no name transformation will be done
         - True — cut the prefix and `lower()` the rest
         - lambda x: … — apply the function to every name
-
     '''
     nmap = {None: lambda x: x,
             True: lambda x: x[len(prefix):].lower()}
@@ -285,3 +285,59 @@ class AddrPool(object):
                     raise KeyError('address is not allocated')
                 self.allocated -= 1
                 self.addr_map[base] ^= 1 << bit
+
+
+def _fnv1_python2(data):
+    '''
+    FNV1 -- 32bit hash, python2 version
+
+    @param data: input
+    @type data: bytes
+
+    @return: 32bit int hash
+    @rtype: int
+
+    See: http://www.isthe.com/chongo/tech/comp/fnv/index.html
+    '''
+    hval = 0x811c9dc5
+    for i in range(len(data)):
+        hval *= 0x01000193
+        hval ^= struct.unpack('B', data[i])[0]
+    return hval & 0xffffffff
+
+
+def _fnv1_python3(data):
+    '''
+    FNV1 -- 32bit hash, python3 version
+
+    @param data: input
+    @type data: bytes
+
+    @return: 32bit int hash
+    @rtype: int
+
+    See: http://www.isthe.com/chongo/tech/comp/fnv/index.html
+    '''
+    hval = 0x811c9dc5
+    for i in range(len(data)):
+        hval *= 0x01000193
+        hval ^= data[i]
+    return hval & 0xffffffff
+
+
+if sys.version[0] == '3':
+    fnv1 = _fnv1_python3
+else:
+    fnv1 = _fnv1_python2
+
+
+def uuid32():
+    '''
+    Return 32bit UUID, based on the current time and pid.
+
+    @return: 32bit int uuid
+    @rtype: int
+    '''
+    return fnv1(struct.pack('QQ',
+                            int(time.time() * 1000),
+                            os.getpid()))
