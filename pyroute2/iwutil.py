@@ -364,12 +364,13 @@ class IW(NL80211):
                          msg_type=self.prid,
                          msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
-    def leave_ibss(self):
+    def leave_ibss(self, ifindex):
         '''
         Leave the IBSS -- the IBSS is determined by the network interface
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_LEAVE_IBSS']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
 
         self.nlm_request(msg,
                          msg_type=self.prid,
