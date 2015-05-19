@@ -2,7 +2,7 @@ import os
 import errno
 import socket
 from pyroute2 import IPRoute
-from pyroute2.common import AddrPool
+from pyroute2.common import uifname
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink import nlmsg
 from utils import grep
@@ -116,19 +116,14 @@ class TestIPRoute(object):
 
     def setup(self):
         self.ip = IPRoute()
-        self.ap = AddrPool()
-        self.iftmp = 'pr2x{0}'
         try:
             self.dev, idx = self.create()
             self.ifaces = [idx]
         except IndexError:
             pass
 
-    def get_ifname(self):
-        return self.iftmp.format(self.ap.alloc())
-
     def create(self, kind='dummy'):
-        name = self.get_ifname()
+        name = uifname()
         create_link(name, kind=kind)
         idx = self.ip.link_lookup(ifname=name)[0]
         return (name, idx)
@@ -166,7 +161,7 @@ class TestIPRoute(object):
         assert '172.16.0.1/24' in get_ip_addr()
 
     def _create(self, kind):
-        name = self.get_ifname()
+        name = uifname()
         self.ip.link_create(ifname=name, kind=kind)
         devs = self.ip.link_lookup(ifname=name)
         assert devs

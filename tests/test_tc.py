@@ -3,6 +3,7 @@ import socket
 from utils import require_user
 from pyroute2 import IPRoute
 from pyroute2 import protocols
+from pyroute2.common import uifname
 from pyroute2.netlink import NetlinkError
 from pyroute2.iproute import RTM_NEWQDISC
 from pyroute2.iproute import RTM_NEWTFILTER
@@ -26,11 +27,9 @@ class BasicTest(object):
     def setup(self):
         require_user('root')
         self.ip = IPRoute()
-        self.ip.link('add',
-                     index=0,
-                     ifname='dummyX',
-                     linkinfo={'attrs': [['IFLA_INFO_KIND', 'dummy']]})
-        self.interface = self.ip.link_lookup(ifname='dummyX')[0]
+        self.ifname = uifname()
+        self.ip.link_create(ifname=self.ifname, kind='dummy')
+        self.interface = self.ip.link_lookup(ifname=self.ifname)[0]
 
     def teardown(self):
         self.ip.link('delete', index=self.interface)

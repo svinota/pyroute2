@@ -8,6 +8,7 @@ from utils import require_user
 from utils import skip_if_not_supported
 from nose.plugins.skip import SkipTest
 from pyroute2.netlink import NetlinkError
+from pyroute2.common import uifname
 
 try:
     import imp
@@ -26,10 +27,13 @@ except ImportError:
 
 def interface_event():
     with open(os.devnull, 'w') as fnull:
-        subprocess.call('ip link add dev d0 type dummy'.split(),
+        p0 = uifname()
+        add_command = 'ip link add dev %s type dummy' % p0
+        del_command = 'ip link del dev %s' % p0
+        subprocess.call(add_command.split(),
                         stdout=fnull,
                         stderr=fnull)
-        subprocess.call('ip link del dev d0'.split(),
+        subprocess.call(del_command.split(),
                         stdout=fnull,
                         stderr=fnull)
 

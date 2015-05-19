@@ -2,6 +2,9 @@
 Example of "pre" callback
 '''
 from pyroute2 import IPDB
+from pyroute2.common import uifname
+
+p0 = uifname()
 
 
 ###
@@ -20,11 +23,11 @@ ip = IPDB()
 # register "pre" callback
 ip.register_callback(cb, mode='pre')
 # create an interface
-ip.create(kind='dummy', ifname='bala').commit()
+ip.create(kind='dummy', ifname=p0).commit()
 # assert flags
-print(ip.interfaces.bala.flags)
+assert ip.interfaces[p0].flags == 1234
 # cleanup
-ip.interfaces.bala.remove()
-ip.interfaces.bala.commit()
+ip.interfaces[p0].remove()
+ip.interfaces[p0].commit()
 # release Netlink socket
 ip.release()

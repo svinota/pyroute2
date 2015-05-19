@@ -9,7 +9,7 @@ from pyroute2 import config
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
 from pyroute2.common import basestring
-from pyroute2.common import AddrPool
+from pyroute2.common import uifname
 from pyroute2.netlink import NetlinkError
 from pyroute2.ipdb.common import CreateException
 from utils import grep
@@ -57,19 +57,19 @@ class TestRace(object):
     def test_dummy0_loaded(object):
         require_user('root')
         # assert the module is loaded
-        create_link('dummyX', 'dummy')
-        ip = None
+        ifA = uifname()
+        ip = IPDB()
+        ip.create(ifname=ifA, kind='dummy').commit()
         try:
             # try to create and fail in create()
-            ip = IPDB()
             ip.create(ifname='dummy0', kind='dummy')
         except CreateException:
             pass
         except Exception:
             raise
         finally:
-            if ip is not None:
-                ip.release()
+            ip.interfaces[ifA].remove().commit()
+            ip.release()
 
 
 class TestExplicit(object):
@@ -77,16 +77,13 @@ class TestExplicit(object):
     mode = 'explicit'
 
     def setup(self):
-        self.ap = AddrPool()
-        self.iftmp = 'pr2x{0}'
         self.ifaces = []
         self.ifd = self.get_ifname()
         create_link(self.ifd, kind='dummy')
         self.ip = IPDB(mode=self.mode)
 
     def get_ifname(self):
-        naddr = self.ap.alloc()
-        ifname = self.iftmp.format(naddr)
+        ifname = uifname()
         self.ifaces.append(ifname)
         return ifname
 
@@ -1061,39 +1058,40 @@ class TestImplicit(TestExplicit):
 class TestDirect(object):
 
     def setup(self):
-        create_link('dummyX', 'dummy')
+        self.ifname = uifname()
         self.ip = IPDB(mode='direct')
+        self.ip.create(ifname=self.ifname, kind='dummy')
 
     def teardown(self):
+        self.ip.interfaces[self.ifname].remove()
         self.ip.release()
-        remove_link('dummyX')
 
     def test_context_fail(self):
         try:
-            with self.ip.interfaces.lo as i:
+            with self.ip.interfaces[self.ifname] as i:
                 i.down()
         except TypeError:
             pass
-        print("cfail done")
 
     def test_create(self):
         require_user('root')
-        assert 'dummyZ' not in self.ip.interfaces
-        self.ip.create(ifname='dummyZ', kind='dummy')
-        assert 'dummyZ' in self.ip.interfaces
-        self.ip.interfaces.dummyZ.remove()
-        assert 'dummyZ' not in self.ip.interfaces
+        ifname = uifname()
+        assert ifname not in self.ip.interfaces
+        self.ip.create(ifname=ifname, kind='dummy')
+        assert ifname in self.ip.interfaces
+        self.ip.interfaces[ifname].remove()
+        assert ifname not in self.ip.interfaces
 
     def test_updown(self):
         require_user('root')
 
-        assert not (self.ip.interfaces['dummyX'].flags & 1)
-        self.ip.interfaces['dummyX'].up()
+        assert not (self.ip.interfaces[self.ifname].flags & 1)
+        self.ip.interfaces[self.ifname].up()
 
-        assert self.ip.interfaces['dummyX'].flags & 1
-        self.ip.interfaces['dummyX'].down()
+        assert self.ip.interfaces[self.ifname].flags & 1
+        self.ip.interfaces[self.ifname].down()
 
-        assert not (self.ip.interfaces['dummyX'].flags & 1)
+        assert not (self.ip.interfaces[self.ifname].flags & 1)
 
     def test_exceptions_last(self):
         try:
@@ -1111,27 +1109,30 @@ class TestDirect(object):
 class TestMisc(object):
 
     def setup(self):
-        create_link('dummyX', 'dummy')
+        self.ifname = uifname()
+        create_link(self.ifname, 'dummy')
 
     def teardown(self):
-        remove_link('dummyX')
+        remove_link(self.ifname)
 
     def test_commit_barrier(self):
         require_user('root')
+
+        ifname = uifname()
 
         # barrier 0
         try:
             ip = IPDB()
             config.commit_barrier = 0
             ts1 = time.time()
-            ip.create(ifname='dx', kind='dummy').commit()
+            ip.create(ifname=ifname, kind='dummy').commit()
             ts2 = time.time()
             assert 0 < (ts2 - ts1) < 1
         except:
             raise
         finally:
             config.commit_barrier = 0.2
-            ip.interfaces.dx.remove().commit()
+            ip.interfaces[ifname].remove().commit()
             ip.release()
 
         # barrier 5
@@ -1139,14 +1140,14 @@ class TestMisc(object):
             ip = IPDB()
             config.commit_barrier = 5
             ts1 = time.time()
-            ip.create(ifname='dx', kind='dummy').commit()
+            ip.create(ifname=ifname, kind='dummy').commit()
             ts2 = time.time()
             assert 5 < (ts2 - ts1) < 6
         except:
             raise
         finally:
             config.commit_barrier = 0.2
-            ip.interfaces.dx.remove().commit()
+            ip.interfaces[ifname].remove().commit()
             ip.release()
 
     def test_fail_released(self):
@@ -1173,7 +1174,7 @@ class TestMisc(object):
     def test_context_exception_in_code(self):
         try:
             with IPDB(mode='explicit') as ip:
-                with ip.interfaces.lo as i:
+                with ip.interfaces[self.ifname] as i:
                     i.add_ip('172.16.9.1/24')
                     # normally, this code is never reached
                     # but we should test it anyway
@@ -1186,18 +1187,18 @@ class TestMisc(object):
         # check that the netlink socket is properly closed
         # and transaction was really dropped
         with IPDB() as ip:
-            assert ('172.16.9.1', 24) not in ip.interfaces.lo.ipaddr
+            assert ('172.16.9.1', 24) not in ip.interfaces[self.ifname].ipaddr
 
     def test_context_exception_in_transaction(self):
         require_user('root')
 
         with IPDB(mode='explicit') as ip:
-            with ip.interfaces['dummyX'] as i:
+            with ip.interfaces[self.ifname] as i:
                 i.add_ip('172.16.0.1/24')
 
         try:
             with IPDB(mode='explicit') as ip:
-                with ip.interfaces['dummyX'] as i:
+                with ip.interfaces[self.ifname] as i:
                     i.add_ip('172.16.9.1/24')
                     i.del_ip('172.16.0.1/24')
                     i.address = '11:22:33:44:55:66'
@@ -1205,28 +1206,28 @@ class TestMisc(object):
             pass
 
         with IPDB() as ip:
-            assert ('172.16.0.1', 24) in ip.interfaces['dummyX'].ipaddr
-            assert ('172.16.9.1', 24) not in ip.interfaces['dummyX'].ipaddr
+            assert ('172.16.0.1', 24) in ip.interfaces[self.ifname].ipaddr
+            assert ('172.16.9.1', 24) not in ip.interfaces[self.ifname].ipaddr
 
     def test_modes(self):
         with IPDB(mode='explicit') as i:
             # transaction required
             try:
-                i.interfaces.lo.up()
+                i.interfaces[self.ifname].up()
             except TypeError:
                 pass
 
         with IPDB(mode='implicit') as i:
             # transaction aut-begin()
-            assert len(i.interfaces.lo._tids) == 0
-            i.interfaces.lo.up()
-            assert len(i.interfaces.lo._tids) == 1
-            i.interfaces.lo.drop()
-            assert len(i.interfaces.lo._tids) == 0
+            assert len(i.interfaces[self.ifname]._tids) == 0
+            i.interfaces[self.ifname].up()
+            assert len(i.interfaces[self.ifname]._tids) == 1
+            i.interfaces[self.ifname].drop()
+            assert len(i.interfaces[self.ifname]._tids) == 0
 
         with IPDB(mode='invalid') as i:
             # transaction mode not supported
             try:
-                i.interfaces.lo.up()
+                i.interfaces[self.ifname].up()
             except TypeError:
                 pass

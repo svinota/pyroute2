@@ -5,6 +5,7 @@ from pyroute2 import IPDB
 from pyroute2 import IPRoute
 from pyroute2 import NetNS
 from pyroute2 import NSPopen
+from pyroute2.common import uifname
 from pyroute2.netns.process.proxy import NSPopen as NSPopenDirect
 from pyroute2 import netns as netnsmod
 from uuid import uuid4
@@ -87,20 +88,22 @@ class TestNetNS(object):
         nsid = str(uuid4())
         ipdb_main = IPDB()
         ipdb_test = IPDB(nl=NetNS(nsid))
+        if1 = uifname()
+        if2 = uifname()
 
         # create VETH pair
-        ipdb_main.create(ifname='v0p0', kind='veth', peer='v0p1').commit()
+        ipdb_main.create(ifname=if1, kind='veth', peer=if2).commit()
 
         # move the peer to netns
-        with ipdb_main.interfaces.v0p1 as veth:
+        with ipdb_main.interfaces[if2] as veth:
             veth.net_ns_fd = nsid
 
         # assign addresses
-        with ipdb_main.interfaces.v0p0 as veth:
+        with ipdb_main.interfaces[if1] as veth:
             veth.add_ip('172.16.200.1/24')
             veth.up()
 
-        with ipdb_test.interfaces.v0p1 as veth:
+        with ipdb_test.interfaces[if2] as veth:
             veth.add_ip('172.16.200.2/24')
             veth.up()
 
@@ -115,11 +118,11 @@ class TestNetNS(object):
 
         # check ARP
         time.sleep(0.5)
-        ret_arp = '172.16.200.1' in list(ipdb_test.interfaces.v0p1.neighbors)
+        ret_arp = '172.16.200.1' in list(ipdb_test.interfaces[if2].neighbors)
         # ret_arp = list(ipdb_test.interfaces.v0p1.neighbors)
 
         # cleanup
-        ipdb_main.interfaces.v0p0.remove().commit()
+        ipdb_main.interfaces[if1].remove().commit()
         ipdb_main.release()
         ipdb_test.release()
         netnsmod.remove(nsid)
@@ -136,28 +139,31 @@ class TestNetNS(object):
         nsid = str(uuid4())
         ipdb_main = IPDB()
         ipdb_test = IPDB(nl=NetNS(nsid))
+        if1 = uifname()
+        if2 = uifname()
+        if3 = uifname()
 
         # create
         ipdb_main.create(kind='veth',
-                         ifname='v0p0',
-                         peer='v0p1',
+                         ifname=if1,
+                         peer=if2,
                          mtu=mtu,
                          txqlen=txqlen).commit()
 
         # move
-        with ipdb_main.interfaces['v0p1'] as veth:
+        with ipdb_main.interfaces[if2] as veth:
             veth.net_ns_fd = nsid
 
         # set it up
-        with ipdb_test.interfaces['v0p1'] as veth:
+        with ipdb_test.interfaces[if2] as veth:
             veth.add_ip('fdb3:84e5:4ff4:55e4::1/64')
             veth.add_ip('fdff:ffff:ffff:ffc0::1/64')
             veth.mtu = mtu
             veth.txqlen = txqlen
             veth.up()
-            veth.ifname = 'bala'
+            veth.ifname = if3
 
-        veth = ipdb_test.interfaces.get('bala', None)
+        veth = ipdb_test.interfaces.get(if3, None)
         ipdb_main.release()
         ipdb_test.release()
         netnsmod.remove(nsid)

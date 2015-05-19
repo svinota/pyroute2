@@ -5,14 +5,19 @@ Master is an interface to add VLAN to, e.g. eth0 or tap0 or
 whatever else. Without parameters use tap0 as the default.
 '''
 from pyroute2 import IPDB
+from pyroute2.common import uifname
 
 ip = IPDB()
 
 try:
 
-    master = ip.create(ifname='pr2test', kind='dummy').commit()
+    # unique interface names
+    ms = uifname()
+    vn = uifname()
 
-    with ip.create(kind='vlan', ifname='v101', link=master, vlan_id=101) as i:
+    master = ip.create(ifname=ms, kind='dummy').commit()
+
+    with ip.create(kind='vlan', ifname=vn, link=master, vlan_id=101) as i:
         # Arguments for ip.create() are executed before the transaction,
         # in the IPRoute.link('add', ...) call. If create() fails, the
         # interface became invalid and is not operable, you can safely
@@ -26,7 +31,7 @@ try:
 
 finally:
     try:
-        ip.interfaces.pr2test.remove().commit()
+        ip.interfaces[ms].remove().commit()
     except:
         pass
     ip.release()

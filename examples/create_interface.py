@@ -4,16 +4,19 @@ Example: python ./examples/create_interface.py
 Creates dummy interface.
 '''
 from pyroute2 import IPDB
+from pyroute2.common import uifname
 
 ip = IPDB()
 
 try:
 
     # dummy, bridge and bond interfaces are created in the
-    # same way -- just use appropriate name
+    # same way
     #
-    # Warning! do not use name 'bond0'
-    # Warning! do not use name 'dummy0'
+    # uifname() function is used here only to generate a
+    # unique name of the interface for the regression testing,
+    # you can pick up any name
+    #
     # details of this restriction are in the documentation
     #
     # possible kinds:
@@ -22,7 +25,7 @@ try:
     #  * dummy
     #  * vlan -- see /examples/create_vlan.py
     #
-    dummy = ip.create(kind='dummy', ifname='dummy_name')
+    dummy = ip.create(kind='dummy', ifname=uifname())
     dummy.commit()
 
 finally:

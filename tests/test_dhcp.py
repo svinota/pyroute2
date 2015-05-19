@@ -7,6 +7,7 @@ from utils import require_executable
 from pyroute2 import IPDB
 from pyroute2.dhcp import BOOTREPLY
 from pyroute2.dhcp import DHCPACK
+from pyroute2.common import uifname
 
 
 class TestDhcpClient(object):
@@ -16,8 +17,8 @@ class TestDhcpClient(object):
         require_executable('busybox')
         self.ip = IPDB()
         # create internal network
-        self.if1 = 'dh1-%i' % os.getpid()
-        self.if2 = 'dh2-%i' % os.getpid()
+        self.if1 = uifname()
+        self.if2 = uifname()
         self.ip.create(kind='veth', ifname=self.if1, peer=self.if2).commit()
         # set interfaces up
         with self.ip.interfaces[self.if1] as i:

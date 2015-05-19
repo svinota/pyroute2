@@ -1,10 +1,11 @@
 from pprint import pprint
 from pyroute2 import IPDB
+from pyroute2.common import uifname
 
 ip = IPDB()
 
 # create an interface
-i = ip.create(kind='dummy', ifname='pr2test').commit()
+i = ip.create(kind='dummy', ifname=uifname()).commit()
 prev_state = i.nlmsg
 
 # change the state

@@ -1,9 +1,11 @@
 from pyroute2 import IPDB
+from pyroute2.common import uifname
 
+p0 = uifname()
 ip = IPDB()
 
 # create dummy interface to host routes on
-ip.create(kind='dummy', ifname='pr2test').\
+ip.create(kind='dummy', ifname=p0).\
     add_ip('172.16.1.1/24').\
     up().\
     commit()
@@ -21,6 +23,6 @@ with ip.routes['172.16.0.0/24'] as r:
 with ip.routes['172.16.0.0/24'] as r:
     r.remove()
 
-ip.interfaces.pr2test.remove().commit()
+ip.interfaces[p0].remove().commit()
 
 ip.release()
