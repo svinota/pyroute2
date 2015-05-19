@@ -22,6 +22,14 @@ def skip_if_not_supported(f):
             if e.code == errno.EOPNOTSUPP:
                 raise SkipTest('feature not supported by platform')
             raise
+        except RuntimeError as e:
+            if hasattr(e, 'client_error'):
+                if ((isinstance(e.client_error, NetlinkError) and
+                     e.client_error.code == errno.EOPNOTSUPP) or
+                    (isinstance(e.server_error, NetlinkError) and
+                     e.server_error.code == errno.EOPNOTSUPP)):
+                    raise SkipTest('feature not supported by platform')
+            raise
         except Exception as e:
             raise
     return make_decorator(f)(test_wrapper)

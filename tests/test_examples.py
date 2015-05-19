@@ -5,9 +5,7 @@ import errno
 import subprocess
 from threading import Thread
 from utils import require_user
-from utils import require_8021q
-from utils import require_bridge
-from utils import require_bond
+from utils import skip_if_not_supported
 from nose.plugins.skip import SkipTest
 from pyroute2.netlink import NetlinkError
 
@@ -99,32 +97,32 @@ class TestExamples(object):
             e.server_error = server_error
             raise e
 
+    @skip_if_not_supported
     def test_create_bond(self):
         require_user('root')
-        require_bond()
         self.launcher('create_bond')
 
     def test_create_interface(self):
         require_user('root')
         self.launcher('create_interface')
 
+    @skip_if_not_supported
     def test_create_vlan(self):
         require_user('root')
-        require_8021q()
         self.launcher('create_vlan')
 
     def test_ip_monitor(self):
         require_user('root')
         self.launcher('interface_event', server='ip_monitor')
 
+    @skip_if_not_supported
     def test_ipdb_autobr(self):
         require_user('root')
-        require_bridge()
         self.launcher('ipdb_autobr')
 
+    @skip_if_not_supported
     def test_ipdb_chain(self):
         require_user('root')
-        require_bond()
         self.launcher('ipdb_chain')
 
     def test_ipdb_precb(self):
