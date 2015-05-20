@@ -73,7 +73,7 @@ ifdef wlevel
 endif
 
 ifdef skip_tests
-	override skip_tests := --exclude=${skip_tests}
+	override skip_tests := --exclude="${skip_tests}"
 endif
 
 # get the python version
