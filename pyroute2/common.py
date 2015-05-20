@@ -6,6 +6,7 @@ import re
 import os
 import time
 import sys
+import errno
 import types
 import struct
 import platform
@@ -351,3 +352,30 @@ def uifname():
     @rtype: str
     '''
     return 'pr%x' % uuid32()
+
+
+def map_exception(match, subst):
+    '''
+    Decorator to map exception types
+    '''
+    def wrapper(f):
+        def decorated(*argv, **kwarg):
+            try:
+                f(*argv, **kwarg)
+            except Exception as e:
+                print(match(e))
+                if match(e):
+                    raise subst(e)
+                raise
+        return decorated
+    return wrapper
+
+
+def map_enoent(f):
+    '''
+    Shortcut to map OSError(2) -> OSError(95)
+    '''
+    return map_exception(lambda x: (isinstance(x, OSError) and
+                                    x.errno == errno.ENOENT),
+                         lambda x: OSError(errno.EOPNOTSUPP,
+                                           'Operation not supported'))(f)
