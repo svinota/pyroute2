@@ -113,6 +113,7 @@ from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
+from pyroute2.netlink.rtnl.iprsocket import RawIPRSocket
 
 from pyroute2.common import basestring
 
@@ -884,4 +885,8 @@ class IPRoute(IPRouteMixin, IPRSocket):
     You can think of this class in some way as of plain old iproute2
     utility.
     '''
+    pass
+
+
+class RawIPRoute(IPRouteMixin, RawIPRSocket):
     pass

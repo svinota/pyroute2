@@ -14,6 +14,8 @@ from abc import ABCMeta
 
 __all__ = []
 _modules = {'IPRoute': 'pyroute2.iproute',
+            'RawIPRoute': 'pyroute2.iproute',
+            'CapsRtnl': 'pyroute2.config.test_platform',
             'IPSet': 'pyroute2.ipset',
             'IPDB': 'pyroute2.ipdb',
             'IW': 'pyroute2.iwutil',
