@@ -16,7 +16,6 @@ from utils import grep
 from utils import create_link
 from utils import remove_link
 from utils import require_user
-from utils import require_executable
 from utils import require_8021q
 from utils import get_ip_addr
 from utils import skip_if_not_supported
@@ -630,9 +629,9 @@ class TestExplicit(object):
         assert ifA in self.ip.interfaces
         assert grep('ip link', pattern=ifA)
 
+    @skip_if_not_supported
     def test_ovs_kind_aliases(self):
         require_user('root')
-        require_executable('ovs-vsctl')
 
         ifA = self.get_ifname()
         ifB = self.get_ifname()
@@ -813,13 +812,10 @@ class TestExplicit(object):
 
     def test_create_team(self):
         require_user('root')
-        require_executable('teamd')
-        require_executable('teamdctl')
         self._create_master('team')
 
     def test_create_ovs(self):
         require_user('root')
-        require_executable('ovs-vsctl')
         self._create_master('openvswitch')
 
     def test_create_bond2(self):

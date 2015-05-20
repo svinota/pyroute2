@@ -9,6 +9,7 @@ import subprocess
 from fcntl import ioctl
 from pyroute2.common import map_namespace
 from pyroute2.common import ANCIENT
+from pyroute2.common import map_enoent
 # from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
@@ -852,6 +853,7 @@ def proxy_newlink(data, nl):
             'data': data}
 
 
+@map_enoent
 def manage_team(msg):
 
     assert msg['header']['type'] == RTM_NEWLINK
@@ -866,6 +868,7 @@ def manage_team(msg):
                               stderr=fnull)
 
 
+@map_enoent
 def manage_team_port(cmd, master, ifname):
     with open(os.devnull, 'w') as fnull:
         subprocess.check_call(['teamdctl', master, 'port',
@@ -874,6 +877,7 @@ def manage_team_port(cmd, master, ifname):
                               stderr=fnull)
 
 
+@map_enoent
 def manage_ovs_port(cmd, master, ifname):
     with open(os.devnull, 'w') as fnull:
         subprocess.check_call(['ovs-vsctl', '%s-port' % cmd, master, ifname],
@@ -881,6 +885,7 @@ def manage_ovs_port(cmd, master, ifname):
                               stderr=fnull)
 
 
+@map_enoent
 def manage_ovs(msg):
     linkinfo = msg.get_attr('IFLA_LINKINFO')
     ifname = msg.get_attr('IFLA_IFNAME')

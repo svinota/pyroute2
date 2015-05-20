@@ -8,7 +8,6 @@ from pyroute2.netlink import nlmsg
 from utils import grep
 from utils import require_user
 from utils import require_python
-from utils import require_executable
 from utils import get_ip_addr
 from utils import get_ip_link
 from utils import get_ip_route
@@ -160,6 +159,7 @@ class TestIPRoute(object):
         self.ip.addr('add', self.ifaces[0], address='172.16.0.1', mask=24)
         assert '172.16.0.1/24' in get_ip_addr()
 
+    @skip_if_not_supported
     def _create(self, kind):
         name = uifname()
         self.ip.link_create(ifname=name, kind=kind)
@@ -171,24 +171,20 @@ class TestIPRoute(object):
         require_user('root')
         self._create('dummy')
 
-    @skip_if_not_supported
     def test_create_bond(self):
         require_user('root')
         self._create('bond')
 
-    @skip_if_not_supported
     def test_create_bridge(self):
         require_user('root')
         self._create('bridge')
 
     def test_create_ovs_bridge(self):
         require_user('root')
-        require_executable('ovs-vsctl')
         self._create('ovs-bridge')
 
     def test_create_team(self):
         require_user('root')
-        require_executable('teamdctl')
         self._create('team')
 
     def test_neigh_real_links(self):
