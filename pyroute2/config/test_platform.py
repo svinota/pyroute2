@@ -61,6 +61,7 @@ class TestCapsRtnl(object):
         #
         # this RTM_NEWLINK is not counted
         self.ip.link_create(ifname=self.ifnames[0], kind='dummy')
+
         #
         # start monitoring thread
         def monitor(counters):
