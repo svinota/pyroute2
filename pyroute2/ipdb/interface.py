@@ -61,10 +61,10 @@ class Interface(Transactional):
         self.ingress = None
         self.egress = None
         self._exists = False
-        self._flicker = False
+        self._shadow = False
         self._exception = None
         self._tb = None
-        self._virtual_fields = ('removal', 'flicker', 'state')
+        self._virtual_fields = ('removal', 'shadow', 'state')
         self._xfields = {'common': [ifinfmsg.nla2name(i[0]) for i
                                     in ifinfmsg.nla_map]}
         self._xfields['common'].append('index')
@@ -648,15 +648,15 @@ class Interface(Transactional):
             # 8<---------------------------------------------
             # Interface removal
             if added.get('removal') or \
-                    added.get('flicker') or\
+                    added.get('shadow') or\
                     (newif and rollback):
                 wd = self.ipdb.watchdog(action='RTM_DELLINK',
                                         ifname=self['ifname'])
-                if added.get('flicker'):
-                    self._flicker = True
+                if added.get('shadow'):
+                    self._shadow = True
                 self.nl.link('delete', **self)
                 wd.wait()
-                if added.get('flicker'):
+                if added.get('shadow'):
                     self._exists = False
                 if added.get('removal'):
                     self._mode = 'invalid'
@@ -761,5 +761,5 @@ class Interface(Transactional):
         index can be reused by OS while the interface is "in the
         shadow state", in this case re-creation will fail.
         '''
-        self['flicker'] = True
+        self['shadow'] = True
         return self

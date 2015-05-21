@@ -695,9 +695,9 @@ class IPDB(object):
         with self.exclusive:
             # check for existing interface
             if ifname in self.interfaces:
-                if self.interfaces[ifname]._flicker or reuse:
+                if self.interfaces[ifname]._shadow or reuse:
                     device = self.interfaces[ifname]
-                    device._flicker = False
+                    device._shadow = False
                     kwarg['kind'] = kind
                     device.load_dict(kwarg)
                 else:
@@ -729,9 +729,9 @@ class IPDB(object):
         return device
 
     def device_del(self, msg):
-        # check for flicker devices
+        # check for shadow devices
         if (msg.get('index', None) in self.interfaces) and \
-                self.interfaces[msg['index']]._flicker:
+                self.interfaces[msg['index']]._shadow:
             self.interfaces[msg['index']].sync()
             return
         try:
