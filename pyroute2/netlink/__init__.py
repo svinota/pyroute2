@@ -1325,13 +1325,11 @@ class nlmsg_atoms(nlmsg_base):
             fmt = '%s%i%s' % (self.fmt[:-1], array_size, self.fmt[-1:])
             self.value = struct.unpack(fmt, data)
 
-
     class cdata(nla_base):
         '''
         Binary data
         '''
         fields = [('value', 's')]
-
 
     class string(nla_base):
         '''
@@ -1351,7 +1349,6 @@ class nlmsg_atoms(nlmsg_base):
                 self.value = self['value'].decode('utf-8')
             except (AssertionError, UnicodeDecodeError):
                 self.value = self['value']
-
 
     class asciiz(nla_base):
         '''
