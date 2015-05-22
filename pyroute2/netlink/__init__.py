@@ -1331,12 +1331,11 @@ class nlmsg_atoms(nlmsg_base):
         '''
         fields = [('value', 's')]
 
-    class asciiz(nla_base):
+    class string(nla_base):
         '''
-        Zero-terminated string.
+        UTF-8 string.
         '''
-        # FIXME: move z-string hacks from general decode here?
-        fields = [('value', 'z')]
+        fields = [('value', 's')]
 
         def encode(self):
             if isinstance(self['value'], str) and sys.version[0] == '3':
@@ -1350,6 +1349,13 @@ class nlmsg_atoms(nlmsg_base):
                 self.value = self['value'].decode('utf-8')
             except (AssertionError, UnicodeDecodeError):
                 self.value = self['value']
+
+    class asciiz(string):
+        '''
+        Zero-terminated string.
+        '''
+        # FIXME: move z-string hacks from general decode here?
+        fields = [('value', 'z')]
 
 
 class nla(nla_base, nlmsg_atoms):

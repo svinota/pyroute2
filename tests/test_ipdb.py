@@ -858,6 +858,15 @@ class TestExplicit(object):
     def test_create_macvlan_bridge(self):
         return self._create_macvx_mode('macvlan', 'bridge')
 
+    def test_create_utf_name(self):
+        ifO = 'ༀ'
+        self.ip.create(kind='dummy', ifname=ifO).commit()
+        assert ifO in self.ip.interfaces
+        assert self.ip.nl.link_lookup(ifname=ifO)
+        if self.ip.interfaces[ifO]._mode == 'explicit':
+            self.ip.interfaces[ifO].begin()
+        self.ip.interfaces[ifO].remove().commit()
+
     @skip_if_not_supported
     def test_create_gre(self):
         require_user('root')
