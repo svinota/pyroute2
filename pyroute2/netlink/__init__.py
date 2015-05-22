@@ -1331,6 +1331,19 @@ class nlmsg_atoms(nlmsg_base):
         '''
         fields = [('value', 's')]
 
+        def encode(self):
+            if isinstance(self['value'], str) and sys.version[0] == '3':
+                self['value'] = bytes(self['value'], 'utf-8')
+            nla_base.encode(self)
+
+        def decode(self):
+            nla_base.decode(self)
+            try:
+                assert sys.version[0] == '3'
+                self.value = self['value'].decode('utf-8')
+            except (AssertionError, UnicodeDecodeError):
+                self.value = self['value']
+
     class asciiz(nla_base):
         '''
         Zero-terminated string.

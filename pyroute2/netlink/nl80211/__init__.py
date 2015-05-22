@@ -235,7 +235,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_REG_TYPE', 'hex'),
                ('NL80211_ATTR_SUPPORTED_COMMANDS', 'hex'),
                ('NL80211_ATTR_FRAME', 'hex'),
-               ('NL80211_ATTR_SSID', 'asciiz'),
+               ('NL80211_ATTR_SSID', 'cdata'),
                ('NL80211_ATTR_AUTH_TYPE', 'hex'),
                ('NL80211_ATTR_REASON_CODE', 'hex'),
                ('NL80211_ATTR_KEY_TYPE', 'hex'),
