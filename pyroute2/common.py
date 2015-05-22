@@ -363,7 +363,6 @@ def map_exception(match, subst):
             try:
                 f(*argv, **kwarg)
             except Exception as e:
-                print(match(e))
                 if match(e):
                     raise subst(e)
                 raise
