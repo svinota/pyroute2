@@ -1,5 +1,4 @@
 import os
-import time
 import json
 import errno
 import select
