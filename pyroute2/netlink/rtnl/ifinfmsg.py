@@ -2,19 +2,22 @@ import os
 import time
 import json
 import errno
+import select
 import struct
 import logging
 import platform
+import threading
 import subprocess
 from fcntl import ioctl
+from pyroute2 import RawIPRoute
 from pyroute2.common import map_namespace
 from pyroute2.common import ANCIENT
 from pyroute2.common import map_enoent
-# from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nlmsg_atoms
 from pyroute2.netlink import NetlinkError
+from pyroute2.netlink.rtnl import RTM_VALUES
 from pyroute2.netlink.rtnl.iw_event import iw_event
 
 
@@ -24,7 +27,6 @@ RTM_NEWLINK = 16
 RTM_DELLINK = 17
 #
 
-_ANCIENT_BARRIER = 0.3
 _BONDING_MASTERS = '/sys/class/net/bonding_masters'
 _BONDING_SLAVES = '/sys/class/net/%s/bonding/slaves'
 _BRIDGE_MASTER = '/sys/class/net/%s/brport/bridge/ifindex'
@@ -739,7 +741,7 @@ def proxy_setlink(data, nl):
         kind = linkinfo.get_attr('IFLA_INFO_KIND')
         infodata = linkinfo.get_attr('IFLA_INFO_DATA')
 
-    if kind in ('bond', 'bridge'):
+    if kind in ('bond', 'bridge') and infodata is not None:
         code = 0
         #
         if kind == 'bond':
@@ -788,6 +790,61 @@ def proxy_setlink(data, nl):
                 'data': data}
 
 
+def sync(f):
+    '''
+    A decorator to wrap up external utility calls.
+
+    A decorated function receives a netlink message
+    as a parameter, and then:
+
+    1. Starts a monitoring thread
+    2. Performs the external call
+    3. Waits for a netlink event specified by `msg`
+    4. Joins the monitoring thread
+
+    If the wrapped function raises an exception, the
+    monitoring thread will be forced to stop via the
+    control channel pipe. The exception will be then
+    forwarded.
+    '''
+    def monitor(event, ifname, cmd):
+        with RawIPRoute() as ipr:
+            poll = select.poll()
+            poll.register(ipr, select.POLLIN | select.POLLPRI)
+            poll.register(cmd, select.POLLIN | select.POLLPRI)
+            ipr.bind()
+            while True:
+                events = poll.poll()
+                for (fd, event) in events:
+                    if fd == ipr.fileno():
+                        msgs = ipr.get()
+                        for msg in msgs:
+                            if msg.get('event') == event and \
+                                    msg.get_attr('IFLA_IFNAME') == ifname:
+                                return
+                    else:
+                        return
+
+    def decorated(msg):
+        rcmd, cmd = os.pipe()
+        t = threading.Thread(target=monitor,
+                             args=(RTM_VALUES[msg['header']['type']],
+                                   msg.get_attr('IFLA_IFNAME'),
+                                   rcmd))
+        t.start()
+        ret = None
+        try:
+            ret = f(msg)
+        except Exception:
+            raise
+        finally:
+            os.write(cmd, b'q')
+            t.join()
+        return ret
+
+    return decorated
+
+
 def proxy_dellink(data, nl):
     orig_msg = ifinfmsg(data)
     orig_msg.decode()
@@ -806,13 +863,10 @@ def proxy_dellink(data, nl):
         return manage_ovs(msg)
 
     if ANCIENT and kind in ('bridge', 'bond'):
-        # route the request
         if kind == 'bridge':
-            compat_del_bridge(msg.get_attr('IFLA_IFNAME'))
+            compat_del_bridge(msg)
         elif kind == 'bond':
-            compat_del_bond(msg.get_attr('IFLA_IFNAME'))
-        # while RTM_NEWLINK is not intercepted -- sleep
-        time.sleep(_ANCIENT_BARRIER)
+            compat_del_bond(msg)
         return
 
     return {'verdict': 'forward',
@@ -840,13 +894,10 @@ def proxy_newlink(data, nl):
         return manage_ovs(msg)
 
     if ANCIENT and kind in ('bridge', 'bond'):
-        # route the request
         if kind == 'bridge':
-            compat_create_bridge(msg.get_attr('IFLA_IFNAME'))
+            compat_create_bridge(msg)
         elif kind == 'bond':
-            compat_create_bond(msg.get_attr('IFLA_IFNAME'))
-        # while RTM_NEWLINK is not intercepted -- sleep
-        time.sleep(_ANCIENT_BARRIER)
+            compat_create_bond(msg)
         return
 
     return {'verdict': 'forward',
@@ -854,6 +905,7 @@ def proxy_newlink(data, nl):
 
 
 @map_enoent
+@sync
 def manage_team(msg):
 
     assert msg['header']['type'] == RTM_NEWLINK
@@ -886,6 +938,7 @@ def manage_ovs_port(cmd, master, ifname):
 
 
 @map_enoent
+@sync
 def manage_ovs(msg):
     linkinfo = msg.get_attr('IFLA_LINKINFO')
     ifname = msg.get_attr('IFLA_IFNAME')
@@ -905,6 +958,7 @@ def manage_ovs(msg):
                               stderr=fnull)
 
 
+@sync
 def manage_tuntap(msg):
 
     if TUNSETIFF is None:
@@ -957,14 +1011,18 @@ def manage_tuntap(msg):
         os.close(fd)
 
 
-def compat_create_bridge(name):
+@sync
+def compat_create_bridge(msg):
+    name = msg.get_attr('IFLA_IFNAME')
     with open(os.devnull, 'w') as fnull:
         subprocess.check_call(['brctl', 'addbr', name],
                               stdout=fnull,
                               stderr=fnull)
 
 
-def compat_create_bond(name):
+@sync
+def compat_create_bond(msg):
+    name = msg.get_attr('IFLA_IFNAME')
     with open(_BONDING_MASTERS, 'w') as f:
         f.write('+%s' % (name))
 
@@ -987,7 +1045,9 @@ def compat_set_bridge(name, cmd, value):
                                stderr=fnull)
 
 
-def compat_del_bridge(name):
+@sync
+def compat_del_bridge(msg):
+    name = msg.get_attr('IFLA_IFNAME')
     with open(os.devnull, 'w') as fnull:
         subprocess.check_call(['ip', 'link', 'set',
                                'dev', name, 'down'])
@@ -996,7 +1056,9 @@ def compat_del_bridge(name):
                               stderr=fnull)
 
 
-def compat_del_bond(name):
+@sync
+def compat_del_bond(msg):
+    name = msg.get_attr('IFLA_IFNAME')
     subprocess.check_call(['ip', 'link', 'set',
                            'dev', name, 'down'])
     with open(_BONDING_MASTERS, 'w') as f:
