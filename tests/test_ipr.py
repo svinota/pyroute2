@@ -187,6 +187,13 @@ class TestIPRoute(object):
         require_user('root')
         self._create('team')
 
+    def test_ntables(self):
+        setA = set(filter(lambda x: x is not None,
+                          [x.get_attr('NDTA_PARMS').get_attr('NDTPA_IFINDEX')
+                           for x in self.ip.get_ntables()]))
+        setB = set([x['index'] for x in self.ip.get_links()])
+        assert setA == setB
+
     def test_neigh_real_links(self):
         links = set([x['index'] for x in self.ip.get_links()])
         neigh = set([x['ifindex'] for x in self.ip.get_neighbors()])

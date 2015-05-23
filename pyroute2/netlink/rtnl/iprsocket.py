@@ -8,6 +8,7 @@ from pyroute2.netlink import rtnl
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
+from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifinfmsg import proxy_newlink
@@ -42,7 +43,10 @@ class MarshalRtnl(Marshal):
                rtnl.RTM_GETTCLASS: tcmsg,
                rtnl.RTM_NEWTFILTER: tcmsg,
                rtnl.RTM_DELTFILTER: tcmsg,
-               rtnl.RTM_GETTFILTER: tcmsg}
+               rtnl.RTM_GETTFILTER: tcmsg,
+               rtnl.RTM_NEWNEIGHTBL: ndtmsg,
+               rtnl.RTM_GETNEIGHTBL: ndtmsg,
+               rtnl.RTM_SETNEIGHTBL: ndtmsg}
 
     def fix_message(self, msg):
         # FIXME: pls do something with it

@@ -92,6 +92,7 @@ from pyroute2.netlink.rtnl import RTM_NEWROUTE
 from pyroute2.netlink.rtnl import RTM_GETROUTE
 from pyroute2.netlink.rtnl import RTM_DELROUTE
 from pyroute2.netlink.rtnl import RTM_SETLINK
+from pyroute2.netlink.rtnl import RTM_GETNEIGHTBL
 from pyroute2.netlink.rtnl import TC_H_INGRESS
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rtprotos
@@ -108,6 +109,7 @@ from pyroute2.netlink.rtnl.tcmsg import get_fw_parameters
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
+from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -227,6 +229,14 @@ class IPRouteMixin(object):
         msg = ndmsg()
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETNEIGH)
+
+    def get_ntables(self, family=AF_UNSPEC):
+        '''
+        Get neighbour tables
+        '''
+        msg = ndtmsg()
+        msg['family'] = family
+        return self.nlm_request(msg, RTM_GETNEIGHTBL)
 
     def get_addr(self, family=AF_UNSPEC, index=None):
         '''
