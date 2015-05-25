@@ -118,8 +118,8 @@ class TestNetNS(object):
 
         # check ARP
         time.sleep(0.5)
-        ret_arp = '172.16.200.1' in list(ipdb_test.interfaces[if2].neighbors)
-        # ret_arp = list(ipdb_test.interfaces.v0p1.neighbors)
+        ret_arp = '172.16.200.1' in list(ipdb_test.interfaces[if2].neighbours)
+        # ret_arp = list(ipdb_test.interfaces.v0p1.neighbours)
 
         # cleanup
         ipdb_main.interfaces[if1].remove().commit()

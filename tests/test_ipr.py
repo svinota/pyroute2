@@ -196,7 +196,7 @@ class TestIPRoute(object):
 
     def test_neigh_real_links(self):
         links = set([x['index'] for x in self.ip.get_links()])
-        neigh = set([x['ifindex'] for x in self.ip.get_neighbors()])
+        neigh = set([x['ifindex'] for x in self.ip.get_neighbours()])
         assert neigh < links
 
     def test_mass_ipv6(self):

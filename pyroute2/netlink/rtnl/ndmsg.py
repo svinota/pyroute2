@@ -26,6 +26,8 @@ class ndmsg(nlmsg):
             __u32         ndm_refcnt;
         };
     '''
+    prefix = 'NDA_'
+
     fields = (('family', 'B'),
               ('__pad', '3x'),
               ('ifindex', 'i'),
@@ -51,7 +53,8 @@ class ndmsg(nlmsg):
                ('NDA_VLAN', 'uint16'),
                ('NDA_PORT', 'be16'),
                ('NDA_VNI', 'be32'),
-               ('NDA_IFINDEX', 'uint32'))
+               ('NDA_IFINDEX', 'uint32'),
+               ('NDA_MASTER', 'uint32'))
 
     class cacheinfo(nla):
         fields = (('ndm_confirmed', 'I'),

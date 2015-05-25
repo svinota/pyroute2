@@ -434,7 +434,7 @@ class IPDB(object):
 
         # caches
         self.ipaddr = {}
-        self.neighbors = {}
+        self.neighbours = {}
 
         # load information
         links = self.nl.get_links()
@@ -443,7 +443,7 @@ class IPDB(object):
         for link in links:
             self.update_slaves(link)
         self.update_addr(self.nl.get_addr())
-        self.update_neighbors(self.nl.get_neighbors())
+        self.update_neighbours(self.nl.get_neighbours())
         routes4 = self.nl.get_routes(family=AF_INET)
         routes6 = self.nl.get_routes(family=AF_INET6)
         self.update_routes(routes4)
@@ -568,9 +568,9 @@ class IPDB(object):
             # -- ipaddr
             for key in tuple(self.ipaddr.keys()):
                 del self.ipaddr[key]
-            # -- neighbors
-            for key in tuple(self.neighbors.keys()):
-                del self.neighbors[key]
+            # -- neighbours
+            for key in tuple(self.neighbours.keys()):
+                del self.neighbours[key]
 
     def create(self, kind, ifname, reuse=False, **kwarg):
         '''
@@ -745,7 +745,7 @@ class IPDB(object):
                 del self.interfaces[ifname]
                 del self.interfaces[msg['index']]
                 del self.ipaddr[msg['index']]
-                del self.neighbors[msg['index']]
+                del self.neighbours[msg['index']]
         except KeyError:
             pass
 
@@ -781,9 +781,9 @@ class IPDB(object):
             if old_index in self.ipaddr:
                 self.ipaddr[index] = self.ipaddr[old_index]
                 del self.ipaddr[old_index]
-            if old_index in self.neighbors:
-                self.neighbors[index] = self.neighbors[old_index]
-                del self.neighbors[old_index]
+            if old_index in self.neighbours:
+                self.neighbours[index] = self.neighbours[old_index]
+                del self.neighbours[old_index]
         else:
             # scenario #3, interface rename
             # scenario #4, assume rename
@@ -800,8 +800,8 @@ class IPDB(object):
             # for interfaces, created by IPDB
             self.ipaddr[index] = IPaddrSet()
 
-        if index not in self.neighbors:
-            self.neighbors[index] = LinkedSet()
+        if index not in self.neighbours:
+            self.neighbours[index] = LinkedSet()
 
         device.load_netlink(msg)
 
@@ -898,13 +898,13 @@ class IPDB(object):
                 except:
                     pass
 
-    def update_neighbors(self, neighs, action='add'):
+    def update_neighbours(self, neighs, action='add'):
 
         for neigh in neighs:
             nla = neigh.get_attr('NDA_DST')
             if nla is not None:
                 try:
-                    method = getattr(self.neighbors[neigh['ifindex']], action)
+                    method = getattr(self.neighbours[neigh['ifindex']], action)
                     method(key=nla, raw=neigh)
                 except:
                     pass
@@ -959,9 +959,9 @@ class IPDB(object):
                     elif msg.get('event', None) == 'RTM_DELADDR':
                         self.update_addr([msg], 'remove')
                     elif msg.get('event', None) == 'RTM_NEWNEIGH':
-                        self.update_neighbors([msg], 'add')
+                        self.update_neighbours([msg], 'add')
                     elif msg.get('event', None) == 'RTM_DELNEIGH':
-                        self.update_neighbors([msg], 'remove')
+                        self.update_neighbours([msg], 'remove')
                     elif msg.get('event', None) in ('RTM_NEWROUTE'
                                                     'RTM_DELROUTE'):
                         self.update_routes([msg])

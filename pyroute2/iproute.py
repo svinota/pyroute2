@@ -55,7 +55,7 @@ less.
 classes
 -------
 '''
-
+import logging
 from socket import htons
 from socket import AF_INET
 from socket import AF_INET6
@@ -84,13 +84,15 @@ from pyroute2.netlink.rtnl import RTM_DELTFILTER
 from pyroute2.netlink.rtnl import RTM_NEWTCLASS
 from pyroute2.netlink.rtnl import RTM_GETTCLASS
 from pyroute2.netlink.rtnl import RTM_DELTCLASS
-from pyroute2.netlink.rtnl import RTM_GETNEIGH
 from pyroute2.netlink.rtnl import RTM_NEWRULE
 from pyroute2.netlink.rtnl import RTM_GETRULE
 from pyroute2.netlink.rtnl import RTM_DELRULE
 from pyroute2.netlink.rtnl import RTM_NEWROUTE
 from pyroute2.netlink.rtnl import RTM_GETROUTE
 from pyroute2.netlink.rtnl import RTM_DELROUTE
+from pyroute2.netlink.rtnl import RTM_NEWNEIGH
+from pyroute2.netlink.rtnl import RTM_GETNEIGH
+from pyroute2.netlink.rtnl import RTM_DELNEIGH
 from pyroute2.netlink.rtnl import RTM_SETLINK
 from pyroute2.netlink.rtnl import RTM_GETNEIGHTBL
 from pyroute2.netlink.rtnl import TC_H_INGRESS
@@ -224,7 +226,15 @@ class IPRouteMixin(object):
 
     def get_neighbors(self, family=AF_UNSPEC):
         '''
-        Retrieve ARP cache records.
+        Alias of `get_neighbours()`, deprecated.
+        '''
+        logging.warning('The `get_neighbors()` call is deprecated')
+        logging.warning('Use `get_neighbours() instead')
+        return self.get_neighbours(family)
+
+    def get_neighbours(self, family=AF_UNSPEC):
+        '''
+        Dump ARP cache records.
         '''
         msg = ndmsg()
         msg['family'] = family
@@ -414,6 +424,50 @@ class IPRouteMixin(object):
     #
     # General low-level configuration methods
     #
+    def neigh(self, command, **kwarg):
+        '''
+        Neighbours operations, same as `ip neigh` or `bridge fdb`
+
+        * command -- add, delete, change, replace
+        * ifindex -- device index
+        * family -- family: AF_INET, AF_INET6, AF_BRIDGE
+        * \*\*kwarg -- msg fields and NLA
+
+        Example::
+
+            pass
+        '''
+        # FIXME: this is only a draft; all definitions should
+        # be generalized
+
+        flags_base = NLM_F_REQUEST | NLM_F_ACK
+        flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
+        flags_change = flags_base | NLM_F_REPLACE
+        flags_replace = flags_change | NLM_F_CREATE
+
+        commands = {'add': (RTM_NEWNEIGH, flags_make),
+                    'set': (RTM_NEWNEIGH, flags_replace),
+                    'replace': (RTM_NEWNEIGH, flags_replace),
+                    'change': (RTM_NEWNEIGH, flags_change),
+                    'del': (RTM_DELNEIGH, flags_make),
+                    'remove': (RTM_DELNEIGH, flags_make),
+                    'delete': (RTM_DELNEIGH, flags_make)}
+
+        (command, flags) = commands.get(command, command)
+        msg = ndmsg()
+        for field in msg.fields:
+            msg[field[0]] = kwarg.pop(field[0], 0)
+        msg['family'] = msg['family'] or AF_INET
+        msg['attrs'] = []
+
+        for key in kwarg:
+            nla = ndmsg.name2nla(key)
+            if kwarg[key] is not None:
+                msg['attrs'].append([nla, kwarg[key]])
+
+        return self.nlm_request(msg, msg_type=command,
+                                msg_flags=flags)
+
     def link(self, command, **kwarg):
         '''
         Link operations.
@@ -760,6 +814,7 @@ class IPRouteMixin(object):
         # FIXME
         # deprecated "prefix" support:
         if 'prefix' in kwarg:
+            logging.warning('`prefix` argument is deprecated, use `dst`')
             kwarg['dst'] = kwarg['prefix']
 
         for key in kwarg:

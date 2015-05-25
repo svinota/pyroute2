@@ -24,7 +24,7 @@ class Interface(Transactional):
     Objects of this class represent network interface and
     all related objects:
     * addresses
-    * (todo) neighbors
+    * (todo) neighbours
     * (todo) routes
 
     Interfaces provide transactional model and can act as
@@ -173,8 +173,8 @@ class Interface(Transactional):
             elif key == 'ports':
                 for port in data[key]:
                     self.add_port(port)
-            elif key == 'neighbors':
-                # ignore neighbors on load
+            elif key == 'neighbours':
+                # ignore neighbours on load
                 pass
             else:
                 self[key] = data[key]
@@ -248,7 +248,7 @@ class Interface(Transactional):
             # is used in IPDB, not standalone
             if self.ipdb is not None:
                 self['ipaddr'] = self.ipdb.ipaddr[self['index']]
-                self['neighbors'] = self.ipdb.neighbors[self['index']]
+                self['neighbours'] = self.ipdb.neighbours[self['index']]
             # finally, cleanup all not needed
             for item in self.cleanup:
                 if item in self:
