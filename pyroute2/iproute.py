@@ -60,6 +60,8 @@ from socket import htons
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
+from types import FunctionType
+from types import MethodType
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC
 from pyroute2.netlink import NLM_F_ROOT
@@ -232,13 +234,34 @@ class IPRouteMixin(object):
         logging.warning('Use `get_neighbours() instead')
         return self.get_neighbours(family)
 
-    def get_neighbours(self, family=AF_UNSPEC):
+    def get_neighbours(self, family=AF_UNSPEC, filter=None, **kwarg):
         '''
         Dump ARP cache records.
+
+        The `family` keyword sets the family for the request:
+        e.g. `AF_INET` or `AF_INET6` for arp cache, `AF_BRIDGE`
+        for fdb.
+
+        If other keyword arguments not empty, they are used as
+        filter. Also, one can explicitly set filter as a function.
+
+        Examples::
+
+            # get neighbours on the 3rd link:
+            ip.get_neighbours(ifindex=3)
+
+            # get a particular record by dst:
+            ip.get_neighbours(dst='172.16.0.1')
+
+            # get fdb records:
+            ip.get_neighbours(AF_BRIDGE)
+
+            # and filter them by a function:
+            ip.get_neighbours(AF_BRIDGE, filter=lambda x: x['state'] == 2)
         '''
-        msg = ndmsg()
-        msg['family'] = family
-        return self.nlm_request(msg, RTM_GETNEIGH)
+        return self.neigh((RTM_GETNEIGH, NLM_F_REQUEST | NLM_F_DUMP),
+                          family=family,
+                          filter=filter or kwarg)
 
     def get_ntables(self, family=AF_UNSPEC):
         '''
@@ -424,11 +447,12 @@ class IPRouteMixin(object):
     #
     # General low-level configuration methods
     #
-    def neigh(self, command, **kwarg):
+    def neigh(self, command, filter=None, **kwarg):
         '''
         Neighbours operations, same as `ip neigh` or `bridge fdb`
 
         * command -- add, delete, change, replace
+        * filter -- filter rules
         * ifindex -- device index
         * family -- family: AF_INET, AF_INET6, AF_BRIDGE
         * \*\*kwarg -- msg fields and NLA
@@ -465,8 +489,25 @@ class IPRouteMixin(object):
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
-        return self.nlm_request(msg, msg_type=command,
-                                msg_flags=flags)
+        ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
+        if filter is not None:
+            # filtered results
+            f_ret = []
+            for msg in ret:
+                if isinstance(filter, (FunctionType, MethodType)):
+                    if filter(msg):
+                        f_ret.append(msg)
+                elif isinstance(filter, dict):
+                    matches = []
+                    for key in filter:
+                        matches.append(msg.get(key) == filter[key] or
+                                       msg.get_attr(msg.name2nla(key)) ==
+                                       filter[key])
+                    if all(matches):
+                        f_ret.append(msg)
+            return f_ret
+        else:
+            return ret
 
     def link(self, command, **kwarg):
         '''
