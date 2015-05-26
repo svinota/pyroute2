@@ -154,10 +154,26 @@ class TestIPRoute(object):
         assert intersection['prefixlen'] == 24
         assert intersection['index'] == self.ifaces[0]
 
-    def test_add_addr(self):
+    def test_addr_add(self):
         require_user('root')
         self.ip.addr('add', self.ifaces[0], address='172.16.0.1', mask=24)
         assert '172.16.0.1/24' in get_ip_addr()
+
+    def test_addr_filter(self):
+        require_user('root')
+        self.ip.addr('add',
+                     index=self.ifaces[0],
+                     address='172.16.0.1',
+                     prefixlen=24,
+                     broadcast='172.16.0.255')
+        self.ip.addr('add',
+                     index=self.ifaces[0],
+                     address='172.16.0.2',
+                     prefixlen=24,
+                     broadcast='172.16.0.255')
+        assert len(self.ip.get_addr(index=self.ifaces[0])) == 2
+        assert len(self.ip.get_addr(address='172.16.0.1')) == 1
+        assert len(self.ip.get_addr(broadcast='172.16.0.255')) == 2
 
     @skip_if_not_supported
     def _create(self, kind):
@@ -200,6 +216,7 @@ class TestIPRoute(object):
         assert neigh < links
 
     def test_neigh_filter(self):
+        require_user('root')
         # inject arp records
         self.ip.neigh('add',
                       dst='172.16.45.1',

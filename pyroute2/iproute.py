@@ -288,19 +288,32 @@ class IPRouteMixin(object):
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETNEIGHTBL)
 
-    def get_addr(self, family=AF_UNSPEC, index=None):
+    def get_addr(self, family=AF_UNSPEC, filter=None, **kwarg):
         '''
-        Get addresses::
-            ip.get_addr()  # get all addresses
-            ip.get_addr(index=2)  # get addresses for the 2nd interface
+        Dump addresses.
+
+        If family is not specified, both AF_INET and AF_INET6 addresses
+        will be dumped::
+
+            # get all addresses
+            ip.get_addr()
+
+        It is possible to apply filters on the results::
+
+            # get addresses for the 2nd interface
+            ip.get_addr(index=2)
+
+            # get addresses with IFA_LABEL == 'eth0'
+            ip.get_addr(label='eth0')
+
+            # get all the subnet addresses on the interface, identified
+            # by broadcast address (should be explicitly specified upon
+            # creation)
+            ip.get_addr(index=2, broadcast='192.168.1.255')
         '''
-        msg = ifaddrmsg()
-        msg['family'] = family
-        ret = self.nlm_request(msg, RTM_GETADDR)
-        if index is not None:
-            return [x for x in ret if x.get('index') == index]
-        else:
-            return ret
+        return self.addr((RTM_GETADDR, NLM_F_REQUEST | NLM_F_DUMP),
+                         family=family,
+                         filter=filter or kwarg)
 
     def get_rules(self, family=AF_UNSPEC):
         '''
@@ -581,7 +594,7 @@ class IPRouteMixin(object):
         return self.nlm_request(msg, msg_type=command, msg_flags=msg_flags)
 
     def addr(self, command, index=None, address=None, mask=None,
-             family=None, scope=None, **kwarg):
+             family=None, scope=None, filter=None, **kwarg):
         '''
         Address operations
 
@@ -613,8 +626,13 @@ class IPRouteMixin(object):
         prefixlen = mask or kwarg.pop('mask', 0) or kwarg.pop('prefixlen', 0)
         scope = scope or kwarg.pop('scope', 0)
 
+        # move address to kwarg
+        # FIXME: add deprecation notice
+        if address:
+            kwarg['address'] = address
+
         # try to guess family, if it is not forced
-        if family is None:
+        if kwarg.get('address') and family is None:
             if address.find(":") > -1:
                 family = AF_INET6
                 mask = mask or 128
@@ -625,14 +643,9 @@ class IPRouteMixin(object):
         # setup the message
         msg = ifaddrmsg()
         msg['index'] = index
-        msg['family'] = family
+        msg['family'] = family or 0
         msg['prefixlen'] = prefixlen
         msg['scope'] = scope
-
-        # move address to kwarg
-        # FIXME: add deprecation notice
-        if address:
-            kwarg['address'] = address
 
         # inject IFA_LOCAL, if family is AF_INET
         if family == AF_INET and kwarg.get('address'):
