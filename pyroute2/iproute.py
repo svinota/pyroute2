@@ -162,6 +162,23 @@ class IPRouteMixin(object):
 
     '''
 
+    def _filter(self, filter, msgs):
+        # filtered results
+        f_ret = []
+        for msg in msgs:
+            if isinstance(filter, (FunctionType, MethodType)):
+                if filter(msg):
+                    f_ret.append(msg)
+            elif isinstance(filter, dict):
+                matches = []
+                for key in filter:
+                    matches.append(msg.get(key) == filter[key] or
+                                   msg.get_attr(msg.name2nla(key)) ==
+                                   filter[key])
+                if all(matches):
+                    f_ret.append(msg)
+        return f_ret
+
     # 8<---------------------------------------------------------------
     #
     # Listing methods
@@ -491,21 +508,7 @@ class IPRouteMixin(object):
 
         ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
         if filter is not None:
-            # filtered results
-            f_ret = []
-            for msg in ret:
-                if isinstance(filter, (FunctionType, MethodType)):
-                    if filter(msg):
-                        f_ret.append(msg)
-                elif isinstance(filter, dict):
-                    matches = []
-                    for key in filter:
-                        matches.append(msg.get(key) == filter[key] or
-                                       msg.get_attr(msg.name2nla(key)) ==
-                                       filter[key])
-                    if all(matches):
-                        f_ret.append(msg)
-            return f_ret
+            return self._filter(filter, ret)
         else:
             return ret
 
