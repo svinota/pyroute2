@@ -580,8 +580,8 @@ class IPRouteMixin(object):
 
         return self.nlm_request(msg, msg_type=command, msg_flags=msg_flags)
 
-    def addr(self, command, index, address, mask=24,
-             family=None, scope=0, **kwarg):
+    def addr(self, command, index=None, address=None, mask=None,
+             family=None, scope=None, **kwarg):
         '''
         Address operations
 
@@ -591,48 +591,68 @@ class IPRouteMixin(object):
         * mask -- address mask
         * family -- socket.AF_INET for IPv4 or socket.AF_INET6 for IPv6
         * scope -- the address scope, see /etc/iproute2/rt_scopes
+        * \*\*kwarg -- any NLA attribute
 
         Example::
 
-            index = 62
-            ip.addr("add", index, address="10.0.0.1", mask=24)
-            ip.addr("add", index, address="10.0.0.2", mask=24)
+            idx = 62
+            ip.addr("add", index=idx, address="10.0.0.1", mask=24)
+            ip.addr("add", index=idx, address="10.0.0.2", mask=24)
         '''
 
-        commands = {'add': RTM_NEWADDR,
-                    'del': RTM_DELADDR,
-                    'remove': RTM_DELADDR,
-                    'delete': RTM_DELADDR}
-        command = commands.get(command, command)
+        flags_create = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        commands = {'add': (RTM_NEWADDR, flags_create),
+                    'del': (RTM_DELADDR, flags_create),
+                    'remove': (RTM_DELADDR, flags_create),
+                    'delete': (RTM_DELADDR, flags_create)}
+        (command, flags) = commands.get(command, command)
 
-        flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        # fetch args
+        index = index or kwarg.pop('index', 0)
+        family = family or kwarg.pop('family', None)
+        prefixlen = mask or kwarg.pop('mask', 0) or kwarg.pop('prefixlen', 0)
+        scope = scope or kwarg.pop('scope', 0)
 
         # try to guess family, if it is not forced
         if family is None:
             if address.find(":") > -1:
                 family = AF_INET6
+                mask = mask or 128
             else:
                 family = AF_INET
+                mask = mask or 24
 
+        # setup the message
         msg = ifaddrmsg()
         msg['index'] = index
         msg['family'] = family
-        msg['prefixlen'] = mask
+        msg['prefixlen'] = prefixlen
         msg['scope'] = scope
-        if family == AF_INET:
-            msg['attrs'] = [['IFA_LOCAL', address],
-                            ['IFA_ADDRESS', address]]
-        elif family == AF_INET6:
-            msg['attrs'] = [['IFA_ADDRESS', address]]
+
+        # move address to kwarg
+        # FIXME: add deprecation notice
+        if address:
+            kwarg['address'] = address
+
+        # inject IFA_LOCAL, if family is AF_INET
+        if family == AF_INET and kwarg.get('address'):
+            kwarg['local'] = kwarg['address']
+
+        # work on NLA
         for key in kwarg:
             nla = ifaddrmsg.name2nla(key)
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
-        return self.nlm_request(msg,
-                                msg_type=command,
-                                msg_flags=flags,
-                                terminate=lambda x: x['header']['type'] ==
-                                NLMSG_ERROR)
+
+        ret = self.nlm_request(msg,
+                               msg_type=command,
+                               msg_flags=flags,
+                               terminate=lambda x: x['header']['type'] ==
+                               NLMSG_ERROR)
+        if filter:
+            return self._filter(filter, ret)
+        else:
+            return ret
 
     def tc(self, command, kind, index, handle=0, **kwarg):
         '''
