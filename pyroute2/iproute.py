@@ -147,34 +147,41 @@ class IPRouteMixin(object):
 
         from pyroute2 import IPRoute
         ipr = IPRoute()
-            # lookup interface by name
-        dev = ipr.link_lookup(ifname='tap0')[0]
-            # bring it down
-        ipr.link('set', dev, state='down')
-            # change interface MAC address and rename it
-        ipr.link('set', dev, address='00:11:22:33:44:55', ifname='vpn')
-            # add primary IP address
-        ipr.addr('add', dev, address='10.0.0.1', mask=24)
-            # add secondary IP address
-        ipr.addr('add', dev, address='10.0.0.2', mask=24)
-            # bring it up
-        ipr.link('set', dev, state='up')
-
+        # create an interface
+        ipr.link_create(ifname='brx', kind='bridge')
+        # lookup the index
+        dev = ipr.link_lookup(ifname='brx')[0]
+        # bring it down
+        ipr.link('set', index=dev, state='down')
+        # change the interface MAC address and rename it just for fun
+        ipr.link('set', index=dev,
+                 address='00:11:22:33:44:55',
+                 ifname='br-ctrl')
+        # add primary IP address
+        ipr.addr('add', index=dev,
+                 address='10.0.0.1', mask=24,
+                 broadcast='10.0.0.255')
+        # add secondary IP address
+        ipr.addr('add', index=dev,
+                 address='10.0.0.2', mask=24,
+                 broadcast='10.0.0.255')
+        # bring it up
+        ipr.link('set', index=dev, state='up')
     '''
 
-    def _filter(self, filter, msgs):
+    def _match(self, match, msgs):
         # filtered results
         f_ret = []
         for msg in msgs:
-            if isinstance(filter, (FunctionType, MethodType)):
-                if filter(msg):
+            if isinstance(match, (FunctionType, MethodType)):
+                if match(msg):
                     f_ret.append(msg)
-            elif isinstance(filter, dict):
+            elif isinstance(match, dict):
                 matches = []
-                for key in filter:
-                    matches.append(msg.get(key) == filter[key] or
+                for key in match:
+                    matches.append(msg.get(key) == match[key] or
                                    msg.get_attr(msg.name2nla(key)) ==
-                                   filter[key])
+                                   match[key])
                 if all(matches):
                     f_ret.append(msg)
         return f_ret
@@ -251,7 +258,7 @@ class IPRouteMixin(object):
         logging.warning('Use `get_neighbours() instead')
         return self.get_neighbours(family)
 
-    def get_neighbours(self, family=AF_UNSPEC, filter=None, **kwarg):
+    def get_neighbours(self, family=AF_UNSPEC, match=None, **kwarg):
         '''
         Dump ARP cache records.
 
@@ -260,7 +267,8 @@ class IPRouteMixin(object):
         for fdb.
 
         If other keyword arguments not empty, they are used as
-        filter. Also, one can explicitly set filter as a function.
+        filter. Also, one can explicitly set filter as a function
+        with the `match` parameter.
 
         Examples::
 
@@ -274,11 +282,11 @@ class IPRouteMixin(object):
             ip.get_neighbours(AF_BRIDGE)
 
             # and filter them by a function:
-            ip.get_neighbours(AF_BRIDGE, filter=lambda x: x['state'] == 2)
+            ip.get_neighbours(AF_BRIDGE, match=lambda x: x['state'] == 2)
         '''
         return self.neigh((RTM_GETNEIGH, NLM_F_REQUEST | NLM_F_DUMP),
                           family=family,
-                          filter=filter or kwarg)
+                          match=match or kwarg)
 
     def get_ntables(self, family=AF_UNSPEC):
         '''
@@ -288,7 +296,7 @@ class IPRouteMixin(object):
         msg['family'] = family
         return self.nlm_request(msg, RTM_GETNEIGHTBL)
 
-    def get_addr(self, family=AF_UNSPEC, filter=None, **kwarg):
+    def get_addr(self, family=AF_UNSPEC, match=None, **kwarg):
         '''
         Dump addresses.
 
@@ -310,10 +318,14 @@ class IPRouteMixin(object):
             # by broadcast address (should be explicitly specified upon
             # creation)
             ip.get_addr(index=2, broadcast='192.168.1.255')
+
+        A custom predicate can be used as a filter::
+
+            ip.get_addr(match=lambda x: x['index'] == 1)
         '''
         return self.addr((RTM_GETADDR, NLM_F_REQUEST | NLM_F_DUMP),
                          family=family,
-                         filter=filter or kwarg)
+                         match=match or kwarg)
 
     def get_rules(self, family=AF_UNSPEC):
         '''
@@ -477,12 +489,12 @@ class IPRouteMixin(object):
     #
     # General low-level configuration methods
     #
-    def neigh(self, command, filter=None, **kwarg):
+    def neigh(self, command, match=None, **kwarg):
         '''
         Neighbours operations, same as `ip neigh` or `bridge fdb`
 
         * command -- add, delete, change, replace
-        * filter -- filter rules
+        * match -- match rules
         * ifindex -- device index
         * family -- family: AF_INET, AF_INET6, AF_BRIDGE
         * \*\*kwarg -- msg fields and NLA
@@ -520,8 +532,8 @@ class IPRouteMixin(object):
                 msg['attrs'].append([nla, kwarg[key]])
 
         ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
-        if filter is not None:
-            return self._filter(filter, ret)
+        if match is not None:
+            return self._match(match, ret)
         else:
             return ret
 
@@ -572,7 +584,7 @@ class IPRouteMixin(object):
         msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         msg = ifinfmsg()
         # index is required
-        msg['index'] = kwarg.get('index')
+        msg['index'] = kwarg['index']
 
         flags = kwarg.pop('flags', 0) or 0
         mask = kwarg.pop('mask', 0) or kwarg.pop('change', 0) or 0
@@ -594,7 +606,7 @@ class IPRouteMixin(object):
         return self.nlm_request(msg, msg_type=command, msg_flags=msg_flags)
 
     def addr(self, command, index=None, address=None, mask=None,
-             family=None, scope=None, filter=None, **kwarg):
+             family=None, scope=None, match=None, **kwarg):
         '''
         Address operations
 
@@ -604,13 +616,36 @@ class IPRouteMixin(object):
         * mask -- address mask
         * family -- socket.AF_INET for IPv4 or socket.AF_INET6 for IPv6
         * scope -- the address scope, see /etc/iproute2/rt_scopes
-        * \*\*kwarg -- any NLA attribute
+        * \*\*kwarg -- any ifaddrmsg field or NLA
+
+        Later the method signature will be changed to::
+
+            def addr(self, command, match=None, **kwarg):
+                # the method body
+
+        So only keyword arguments (except of the command) will be accepted.
+        The reason for this change is an unification of API.
 
         Example::
 
             idx = 62
-            ip.addr("add", index=idx, address="10.0.0.1", mask=24)
-            ip.addr("add", index=idx, address="10.0.0.2", mask=24)
+            ip.addr('add', index=idx, address='10.0.0.1', mask=24)
+            ip.addr('add', index=idx, address='10.0.0.2', mask=24)
+
+        With more NLAs::
+
+            # explicitly set broadcast address
+            ip.addr('add', index=idx,
+                    address='10.0.0.3',
+                    broadcast='10.0.0.255',
+                    prefixlen=24)
+
+            # make the secondary address visible to ifconfig: add label
+            ip.addr('add', index=idx,
+                    address='10.0.0.4',
+                    broadcast='10.0.0.255',
+                    prefixlen=24,
+                    label='eth0:1')
         '''
 
         flags_create = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
@@ -662,8 +697,8 @@ class IPRouteMixin(object):
                                msg_flags=flags,
                                terminate=lambda x: x['header']['type'] ==
                                NLMSG_ERROR)
-        if filter:
-            return self._filter(filter, ret)
+        if match:
+            return self._match(match, ret)
         else:
             return ret
 

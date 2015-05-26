@@ -174,6 +174,8 @@ class TestIPRoute(object):
         assert len(self.ip.get_addr(index=self.ifaces[0])) == 2
         assert len(self.ip.get_addr(address='172.16.0.1')) == 1
         assert len(self.ip.get_addr(broadcast='172.16.0.255')) == 2
+        assert len(self.ip.get_addr(match=lambda x: x['index'] ==
+                                    self.ifaces[0])) == 2
 
     @skip_if_not_supported
     def _create(self, kind):
@@ -231,7 +233,7 @@ class TestIPRoute(object):
         # filter by dst
         assert len(self.ip.get_neighbours(dst='172.16.45.1')) == 1
         # filter with lambda
-        assert len(self.ip.get_neighbours(filter=lambda x: x['ifindex'] ==
+        assert len(self.ip.get_neighbours(match=lambda x: x['ifindex'] ==
                                           self.ifaces[0])) == 2
 
     def test_mass_ipv6(self):
