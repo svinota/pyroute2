@@ -199,6 +199,24 @@ class TestIPRoute(object):
         neigh = set([x['ifindex'] for x in self.ip.get_neighbours()])
         assert neigh < links
 
+    def test_neigh_filter(self):
+        # inject arp records
+        self.ip.neigh('add',
+                      dst='172.16.45.1',
+                      lladdr='00:11:22:33:44:55',
+                      ifindex=self.ifaces[0])
+        self.ip.neigh('add',
+                      dst='172.16.45.2',
+                      lladdr='00:11:22:33:44:55',
+                      ifindex=self.ifaces[0])
+        # assert two arp records on the interface
+        assert len(self.ip.get_neighbours(ifindex=self.ifaces[0])) == 2
+        # filter by dst
+        assert len(self.ip.get_neighbours(dst='172.16.45.1')) == 1
+        # filter with lambda
+        assert len(self.ip.get_neighbours(filter=lambda x: x['ifindex'] ==
+                                          self.ifaces[0])) == 2
+
     def test_mass_ipv6(self):
         #
         # Achtung! This test is time consuming.
