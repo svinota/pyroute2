@@ -292,6 +292,14 @@ class TestExplicit(object):
         assert ifB not in self.ip.interfaces
         assert ifA in self.ip.interfaces
 
+    def test_routes_keys(self):
+        assert '172.16.0.0/24' not in self.ip.routes
+        # create but not commit
+        self.ip.routes.add(dst='172.16.0.0/24', gateway='127.0.0.1')
+        # checks
+        assert '172.16.0.0/24' in self.ip.routes
+        assert '172.16.0.0/24' in list(self.ip.routes.keys())
+
     def test_routes(self):
         require_user('root')
         assert '172.16.0.0/24' not in self.ip.routes
@@ -315,7 +323,7 @@ class TestExplicit(object):
         assert '172.16.0.0/24' not in self.ip.routes.keys()
         assert not grep('ip ro', pattern='172.16.0.0/24')
 
-    def test_route_metrics(self):
+    def test_routes_metrics(self):
         require_user('root')
         assert '172.16.0.0/24' not in self.ip.routes.keys()
 

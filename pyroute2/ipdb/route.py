@@ -330,7 +330,7 @@ class RoutingTableSet(object):
 
     def keys(self, table=254, family=AF_UNSPEC):
         return [x['dst'] for x in self.tables[table]
-                if (x['family'] == family)
+                if (x.get('family') == family)
                 or (family == AF_UNSPEC)]
 
     def has_key(self, key, table=254):
