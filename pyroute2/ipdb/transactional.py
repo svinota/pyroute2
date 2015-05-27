@@ -303,6 +303,10 @@ class Transactional(Dotkeys):
         if not self._tids:
             raise TypeError('start a transaction first')
 
+        if hasattr(self, '_exists') and not self._exists:
+            return dict([(x[0], x[1]) for x in self.items()
+                         if x[1] is not None])
+
         with self._write_lock:
             added = self.last() - self
             removed = self - self.last()
