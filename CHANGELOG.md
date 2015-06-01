@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.3.9
+    * root imports: #109, #135 -- `issubclass`, `isinstance`
+    * iwutil: multiple improvements
+    * iwutil: initial tests
+    * proxy: correctly forward NetlinkError
+    * iproute: neighbour tables support
+    * iproute: #147, filters on dump calls
+    * config: initial usage of `capabilities`
 * 0.3.8
     * docs: inheritance diagrams
     * nlsocket: #126, #132 -- resource deallocation
