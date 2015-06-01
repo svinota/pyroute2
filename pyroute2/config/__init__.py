@@ -7,3 +7,5 @@ MpQueue = multiprocessing.Queue
 MpProcess = multiprocessing.Process
 
 commit_barrier = 0.2
+
+capabilities = {}

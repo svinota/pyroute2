@@ -93,6 +93,9 @@ class Interface(Transactional):
         self._linked_sets.add('ipaddr')
         self._linked_sets.add('ports')
         self._freeze = None
+        # compatibility hooks
+        self._ghost_counter = 0
+        self._ghost_mp = None
         # 8<-----------------------------------
         # local setup: direct state is required
         with self._direct_state:
@@ -206,6 +209,16 @@ class Interface(Transactional):
         '''
         with self._direct_state:
             self.load(data)
+
+    def _ghost_load(self, dev):
+        # a monkey-patch to substitute `load_netlink()`
+        # and skip ghost RTM_NEWLINK messages
+
+        # FIXME: lock the interface while all ghost messages
+        # are being skipped
+        self._ghost_counter -= 1
+        if not self._ghost_counter:
+            self.load_netlink = self._ghost_mp
 
     def load_netlink(self, dev):
         '''
@@ -654,6 +667,10 @@ class Interface(Transactional):
                                         ifname=self['ifname'])
                 if added.get('shadow'):
                     self._shadow = True
+                if config.capabilities.get('ghost_newlink'):
+                    self._ghost_counter = config.capabilities['ghost_newlink']
+                    self._ghost_mp = self.load_netlink
+                    self.load_netlink = self._ghost_load
                 self.nl.link('delete', **self)
                 wd.wait()
                 if added.get('shadow'):

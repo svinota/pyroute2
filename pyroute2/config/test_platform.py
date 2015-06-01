@@ -51,7 +51,7 @@ class TestCapsRtnl(object):
     def test_create_bond(self):
         self.ip.link_create(ifname=self.ifnames[0], kind='bond')
 
-    def test_zombie_newlink_dummy(self):
+    def test_ghost_newlink(self):
         counters = {}
         # bouncer try
         #
@@ -102,3 +102,5 @@ class TestCapsRtnl(object):
         # the same interface immediately
         #
         assert counters['RTM_NEWLINK'] > 1
+        # return extra RTM_NEWLINK hits as the ghost counter
+        return counters['RTM_NEWLINK']
