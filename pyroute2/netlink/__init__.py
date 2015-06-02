@@ -1357,6 +1357,13 @@ class nlmsg_atoms(nlmsg_base):
         # FIXME: move z-string hacks from general decode here?
         fields = [('value', 'z')]
 
+    # FIXME: support NLA_FLAG and NLA_MSECS as well.
+    #
+    # aliases to support standard kernel attributes:
+    #
+    binary = cdata       # NLA_BINARY
+    nul_string = asciiz  # NLA_NUL_STRING
+
 
 class nla(nla_base, nlmsg_atoms):
     '''
