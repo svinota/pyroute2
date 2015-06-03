@@ -1,35 +1,142 @@
 '''
-A set of platform tests to discover the system capabilities
+Platform tests to discover the system capabilities.
 '''
+import os
+import select
 import threading
 from pyroute2.common import uifname
 from pyroute2 import RawIPRoute
+from pyroute2.netlink.rtnl import RTNLGRP_LINK
+
+
+class SkipTest(Exception):
+    pass
+
+
+def condition(predicate):
+    # FIXME: to be documented and moved to common?
+    def wrapper(f):
+        if predicate():
+            return f
+
+        def skip(*argv, **kwarg):
+            raise SkipTest()
+        skip.__name__ = f.__name__
+        return skip
+    return wrapper
 
 
 class TestCapsRtnl(object):
+    '''
+    A minimal test set to collect the RTNL implementation
+    capabilities.
+
+    It uses raw RTNL sockets and doesn't run any proxy code, so
+    no transparent helpers are executed -- e.g., it will not
+    create bridge via `brctl`, if RTNL doesn't support it.
+
+    One of the most important requirements is the performance,
+    so the test set collects as much information from the
+    broadcast messages, as it is possible. This set contains
+    only tests that are important for IPDB module. Please do not
+    extend it, as it will slow down the first IPDB instantiation.
+    '''
 
     def __init__(self):
         self.capabilities = {}
-        self.ifnames = [uifname() for _ in range(10)]
+        self.ifnames = []
+        self.rtm_newlink = {}
+        self.rtm_dellink = {}
+        self.rtm_events = {}
+        self.cmd, self.cmdw = os.pipe()
+        self.ip = None
+        self.event = threading.Event()
 
     def __getitem__(self, key):
         return self.capabilities[key]
 
     def set_capability(self, key, value):
+        '''
+        Set a capability.
+        '''
         self.capabilities[key] = value
 
+    def ifname(self):
+        '''
+        Register and return a new unique interface name to
+        be used in a test.
+        '''
+        ifname = uifname()
+        self.ifnames.append(ifname)
+        self.rtm_events[ifname] = threading.Event()
+        self.rtm_newlink[ifname] = []
+        self.rtm_dellink[ifname] = []
+        return ifname
+
+    def monitor(self):
+        # The monitoring code to collect RTNL messages
+        # asynchronously.
+        # Do **NOT** run manually.
+
+        # use a separate socket for monitoring
+        ip = RawIPRoute()
+        ip.monitor = True
+        ip.bind(RTNLGRP_LINK)
+        poll = select.poll()
+        poll.register(ip, select.POLLIN | select.POLLPRI)
+        poll.register(self.cmd, select.POLLIN | select.POLLPRI)
+        self.event.set()
+        while True:
+            events = poll.poll()
+            for (fd, evt) in events:
+                if fd == ip.fileno():
+                    msgs = ip.get()
+                    for msg in msgs:
+                        name = msg.get_attr('IFLA_IFNAME')
+                        event = msg.get('event')
+                        if name not in self.rtm_events:
+                            continue
+                        if event == 'RTM_NEWLINK':
+                            self.rtm_events[name].set()
+                            self.rtm_newlink[name].append(msg)
+                        elif event == 'RTM_DELLINK':
+                            self.rtm_dellink[name].append(msg)
+                else:
+                    ip.close()
+                    return
+
     def setup(self):
+        # The setup procedure for a test.
+        # Do **NOT** run manually.
+
+        # create the raw socket
         self.ip = RawIPRoute()
 
     def teardown(self):
+        # The teardown procedure for a test.
+        # Do **NOT** run manually.
+
+        # clear the collected interfaces
         for ifname in self.ifnames:
-            idx = self.ip.link_lookup(ifname=ifname)
-            if idx:
-                self.ip.link_remove(idx[0])
+            self.rtm_events[ifname].wait()
+            self.rtm_events[ifname].clear()
+            if self.rtm_newlink.get(ifname):
+                self.ip.link_remove(self.rtm_newlink[ifname][0]['index'])
+        self.ifnames = []
+        # close the socket
         self.ip.close()
 
     def collect(self):
+        '''
+        Run the tests and collect the capabilities. They will be
+        saved in the `TestCapsRtnl.capabilities` attribute.
+        '''
         symbols = dir(self)
+        # start the monitoring thread
+        mthread = threading.Thread(target=self.monitor)
+        mthread.start()
+        self.event.wait()
+        # wait for the thread setup
         for name in symbols:
             if name.startswith('test_'):
                 self.setup()
@@ -38,69 +145,105 @@ class TestCapsRtnl(object):
                     if ret is None:
                         ret = True
                     self.set_capability(name[5:], ret)
+                except SkipTest:
+                    self.set_capability(name[5:], None)
                 except Exception:
+                    for ifname in self.ifnames:
+                        # cancel events queued for that test
+                        self.rtm_events[ifname].set()
                     self.set_capability(name[5:], False)
                 self.teardown()
+        # stop the monitor
+        os.write(self.cmdw, b'q')
+        mthread.join()
 
     def test_create_dummy(self):
-        self.ip.link_create(ifname=self.ifnames[0], kind='dummy')
+        '''
+        An obvious test: an ability to create dummy interfaces
+        '''
+        self.ghost = self.ifname()
+        self.ip.link_create(ifname=self.ghost, kind='dummy')
 
     def test_create_bridge(self):
-        self.ip.link_create(ifname=self.ifnames[0], kind='bridge')
+        '''
+        Can the kernel create bridges via netlink?
+        '''
+        self.ip.link_create(ifname=self.ifname(), kind='bridge')
 
     def test_create_bond(self):
-        self.ip.link_create(ifname=self.ifnames[0], kind='bond')
+        '''
+        Can the kernel create bonds via netlink?
+        '''
+        self.ip.link_create(ifname=self.ifname(), kind='bond')
 
     def test_ghost_newlink(self):
-        counters = {}
-        # bouncer try
-        #
-        # if the kernel doesn't support dummy interfaces, the
-        # test will fail immediately and will not start the
-        # monitoring thread
-        #
-        # this RTM_NEWLINK is not counted
-        self.ip.link_create(ifname=self.ifnames[0], kind='dummy')
+        '''
+        A normal flow (req == request, brd == broadcast message)::
 
-        #
-        # start monitoring thread
-        def monitor(counters):
-            ip = RawIPRoute()
-            ip.bind()
-            while counters.get('RTM_DELLINK', 0) < 2:
-                msgs = ip.get()
-                for msg in msgs:
-                    if msg.get_attr('IFLA_IFNAME') != self.ifnames[0]:
-                        # in an ideal case we should match indices
-                        continue
-                    if msg.get('event', None) in counters:
-                        counters[msg.get('event', None)] += 1
-                    else:
-                        counters[msg.get('event', None)] = 1
-            ip.close()
-        t = threading.Thread(target=monitor, args=(counters, ))
-        t.start()
-        # 1st delete
-        self.ip.link_remove(self.ip.link_lookup(ifname=self.ifnames[0]))
-        # 2nd create + delete, loops exits
-        self.ip.link_create(ifname=self.ifnames[0], kind='dummy')
-        self.ip.link_remove(self.ip.link_lookup(ifname=self.ifnames[0]))
-        # join the monitoring thread
-        t.join()
-        # assert counters
-        #
-        # normal flow:
-        #   RTM_DELLINK: 2
-        #   RTM_NEWLINK: 1
-        #
-        # the zombie case:
-        #   RTM_DELLINK: 2
-        #   RTM_NEWLINK: >= 2
-        #
-        # the cause is that when you delete an interface on old kernels,
-        # you get first RTM_DELLINK and then one or more RTM_NEWLINK for
-        # the same interface immediately
-        #
-        assert counters['RTM_NEWLINK'] > 1
-        # return extra RTM_NEWLINK hits as the ghost counter
-        return counters['RTM_NEWLINK']
+            (req) -> RTM_NEWLINK
+            (brd) <- RTM_NEWLINK
+            (req) -> RTM_DELLINK
+            (brd) <- RTM_DELLINK
+
+        But on old kernels you can encounter the following::
+
+            (req) -> RTM_NEWLINK
+            (brd) <- RTM_NEWLINK
+            (req) -> RTM_DELLINK
+            (brd) <- RTM_DELLINK
+            (brd) <- RTM_NEWLINK  (!) false positive
+
+        And that obviously can break the code that relies on
+        broadcast updates, since it will see as a new interface
+        is created immediately after it was destroyed.
+
+        One can ignore RTM_NEWLINK for the same name that follows
+        a normal RTM_DELLINK. To do that, one should be sure the
+        message will come.
+
+        Another question is how many messages to ignore.
+
+        This is not a test s.str., but it should follow after the
+        `test_create_dummy`. It counts, how many RTM_NEWLINK
+        messages arrived during the `test_create_dummy`.
+
+        The ghost newlink messages count will be the same for other
+        interface types as well.
+        '''
+        self.rtm_events[self.ghost].wait(0.01)
+        return max(len(self.rtm_newlink.get(self.ghost, [])) - 1, 0)
+
+
+class TestCapsExt(TestCapsRtnl):
+    '''
+    A test set that can be extended without a risk to slow down
+    the IPDB. If you want your tests to be included into the
+    package, submit them here.
+
+    A short developer's guide::
+
+        def test_whatever_else(self):
+            code
+
+    This test will create a capability record `whatever_else`. If
+    the `code` fails, the `whatever_else` will be set to `False`.
+    If it throws the `SkipTest` exception, the `whatever_else` will
+    be set to `None`. Otherwise it will be set to whatever the test
+    returns.
+
+    To collect the capabilities::
+
+        tce = TestCapsExt()
+        tce.collect()
+        print(tce.capabilities)
+
+    Collected capabilities are in the `TestCapsExt.capabilities`
+    dictionary, you can use them directly or by setting the
+    `config.capabilities` singletone::
+
+        from pyroute2 import config
+        # ...
+        tce.collect()
+        config.capabilities = tce.capabilities
+    '''
+    pass

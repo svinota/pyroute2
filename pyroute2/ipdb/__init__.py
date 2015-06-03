@@ -306,7 +306,6 @@ from socket import AF_INET6
 from pyroute2 import config
 from pyroute2.config.test_platform import TestCapsRtnl
 from pyroute2.common import Dotkeys
-from pyroute2.common import ANCIENT
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.ipdb.common import CreateException
@@ -401,17 +400,8 @@ class IPDB(object):
         self.exclusive = threading.RLock()
         self._shutdown_lock = threading.Lock()
 
-        # compatibility hooks
-        if ANCIENT:
-            # FIXME: do not spawn independent diagnostic
-            # sockets, but use the main socket to create
-            # them -- not implemented yet, requires
-            # NetlinkSocket.clone() call
-            #
-            # Right now it doesn't matter, since we test
-            # the system, not a namespace, but later
-            # it can be important if there will be
-            # support for any SDN
+        # system capabilities
+        if not config.capabilities:
             tc = TestCapsRtnl()
             tc.collect()
             config.capabilities = tc.capabilities
