@@ -16,6 +16,17 @@ class Metrics(Transactional):
                         in rtmsg.metrics.nla_map]
 
 
+class WatchdogKey(dict):
+    '''
+    Construct from a route a dictionary that could be used as
+    a match for IPDB watchdogs.
+    '''
+    def __init__(self, route):
+        dict.__init__(self, [x for x in IPRouteRequest(route).items()
+                             if x[0] in ('dst', 'dst_len', 'oif',
+                                         'iif', 'table')])
+
+
 class RouteKey(dict):
     '''
     Construct from a netlink message a key that can be used
@@ -114,22 +125,33 @@ class Route(Transactional):
         # create a new route
         if not self._exists:
             try:
+                wd = self.ipdb.watchdog('RTM_NEWROUTE', **WatchdogKey(self))
                 self.nl.route('add', **IPRouteRequest(self))
             except Exception:
                 self.nl = None
                 self.ipdb.routes.remove(self)
                 raise
+            wd.wait()
 
         # work on existing route
         snapshot = self.pick()
         try:
             # route set
             request = IPRouteRequest(transaction - snapshot)
+            if 'removal' in request:
+                del request['removal']
             if any([request[x] not in (None, {'attrs': []}) for x in request]):
+                wd = self.ipdb.watchdog('RTM_NEWROUTE',
+                                        **WatchdogKey(transaction))
                 self.nl.route('set', **IPRouteRequest(transaction))
+                wd.wait()
 
+            # route removal
             if transaction.get('removal'):
+                wd = self.ipdb.watchdog('RTM_DELROUTE',
+                                        **WatchdogKey(snapshot))
                 self.nl.route('delete', **IPRouteRequest(snapshot))
+                wd.wait()
 
         except Exception as e:
             if not rollback:
