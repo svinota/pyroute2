@@ -210,7 +210,12 @@ class TestCapsRtnl(object):
         The ghost newlink messages count will be the same for other
         interface types as well.
         '''
-        self.rtm_events[self.ghost].wait(0.01)
+        with open('/proc/version', 'r') as f:
+            if int(f.read().split()[2][0]) > 2:
+                # the issue is reported only for kernels 2.x
+                return 0
+        # there is no guarantee it will come; it *may* come
+        self.rtm_events[self.ghost].wait(0.5)
         return max(len(self.rtm_newlink.get(self.ghost, [])) - 1, 0)
 
 
