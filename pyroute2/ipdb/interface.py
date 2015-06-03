@@ -213,7 +213,9 @@ class Interface(Transactional):
     def _ghost_load(self, dev):
         # a monkey-patch to substitute `load_netlink()`
         # and skip ghost RTM_NEWLINK messages
-
+        # ignore non-broadcast messages in the ghost state
+        if dev['header']['sequence_number'] != 0:
+            return
         # FIXME: lock the interface while all ghost messages
         # are being skipped
         self._ghost_counter -= 1
@@ -669,13 +671,6 @@ class Interface(Transactional):
                     self._shadow = True
                 if config.capabilities.get('ghost_newlink'):
                     self._ghost_counter = config.capabilities['ghost_newlink']
-                    # <hack>
-                    # We need to ignore also one RTM_NEWLINK from
-                    # interface.reload(), called just before the removal.
-                    #
-                    # Later it will be fixed.
-                    self._ghost_counter += 1
-                    # </hack>
                     self._ghost_mp = self.load_netlink
                     self.load_netlink = self._ghost_load
                 self.nl.link('delete', **self)
