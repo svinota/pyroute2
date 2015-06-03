@@ -131,7 +131,7 @@ class TestCapsRtnl(object):
         Run the tests and collect the capabilities. They will be
         saved in the `TestCapsRtnl.capabilities` attribute.
         '''
-        symbols = dir(self)
+        symbols = sorted(dir(self))
         # start the monitoring thread
         mthread = threading.Thread(target=self.monitor)
         mthread.start()
