@@ -669,6 +669,13 @@ class Interface(Transactional):
                     self._shadow = True
                 if config.capabilities.get('ghost_newlink'):
                     self._ghost_counter = config.capabilities['ghost_newlink']
+                    # <hack>
+                    # We need to ignore also one RTM_NEWLINK from
+                    # interface.reload(), called just before the removal.
+                    #
+                    # Later it will be fixed.
+                    self._ghost_counter += 1
+                    # </hack>
                     self._ghost_mp = self.load_netlink
                     self.load_netlink = self._ghost_load
                 self.nl.link('delete', **self)
