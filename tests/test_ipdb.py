@@ -89,9 +89,9 @@ class TestExplicit(object):
     def teardown(self):
         for name in self.ifaces:
             try:
-                with self.ip.interfaces[name] as i:
-                    i.remove()
-            except:
+                # just a hardcore removal
+                self.ip.nl.link_remove(self.ip.interfaces[name].index)
+            except Exception as e:
                 pass
         self.ip.release()
         self.ifaces = []
