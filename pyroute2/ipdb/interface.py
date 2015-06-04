@@ -118,25 +118,17 @@ class Interface(Transactional):
         return self.get('master', None)
 
     def freeze(self):
-        dump = self.dump()
+        dump = self.pick()
 
         def cb(ipdb, msg, action):
             if msg.get('index', -1) == dump['index']:
-                tr = self.make_transaction(dump)
-                for _ in range(3):
-                    try:
-                        self.commit(transaction=tr)
-                    except (CommitException, RuntimeError):
-                        # ignore here both CommitExceptions
-                        # and RuntimeErrors (aka rollback errors),
-                        # since ususally it is a races between
-                        # 3d party setup and freeze; just
-                        # sliently try again for several times
-                        continue
-                    except NetlinkError:
-                        # on the netlink errors just give up
-                        pass
-                    break
+                try:
+                    s = self.pick()
+                    # important: that's a rollback, so do not
+                    # try to revert changes in the case of failure
+                    self.commit(transaction=dump, rollback=True)
+                except Exception:
+                    pass
 
         self._freeze = cb
         self.ipdb.register_callback(self._freeze)
@@ -592,7 +584,10 @@ class Interface(Transactional):
                     continue
                 # Try to fetch additional address attributes
                 try:
-                    kwarg = transaction.ipaddr[i]
+                    kwarg = dict([x for x in transaction.ipaddr[i].items()
+                                  if x[0] in ('broadcast',
+                                              'anycast',
+                                              'scope')])
                 except KeyError:
                     kwarg = None
                 self.nl.addr('add', self['index'], i[0], i[1],
