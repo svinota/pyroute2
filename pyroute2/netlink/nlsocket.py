@@ -515,7 +515,7 @@ class NetlinkMixin(object):
                 msg_class = self.marshal.msg_map[msg_type]
                 msg = msg_class(msg)
             if msg_pid is None:
-                msg_pid = os.getpid()
+                msg_pid = self.epid or os.getpid()
             msg['header']['type'] = msg_type
             msg['header']['flags'] = msg_flags
             msg['header']['sequence_number'] = msg_seq
