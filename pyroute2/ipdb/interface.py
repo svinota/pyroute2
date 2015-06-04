@@ -123,7 +123,6 @@ class Interface(Transactional):
         def cb(ipdb, msg, action):
             if msg.get('index', -1) == dump['index']:
                 try:
-                    s = self.pick()
                     # important: that's a rollback, so do not
                     # try to revert changes in the case of failure
                     self.commit(transaction=dump, rollback=True)
@@ -584,8 +583,8 @@ class Interface(Transactional):
                     continue
                 # Try to fetch additional address attributes
                 try:
-                    kwarg = dict([x for x in transaction.ipaddr[i].items()
-                                  if x[0] in ('broadcast',
+                    kwarg = dict([k for k in transaction.ipaddr[i].items()
+                                  if k[0] in ('broadcast',
                                               'anycast',
                                               'scope')])
                 except KeyError:

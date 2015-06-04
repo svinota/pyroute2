@@ -91,7 +91,7 @@ class TestExplicit(object):
             try:
                 # just a hardcore removal
                 self.ip.nl.link_remove(self.ip.interfaces[name].index)
-            except Exception as e:
+            except Exception:
                 pass
         self.ip.release()
         self.ifaces = []
