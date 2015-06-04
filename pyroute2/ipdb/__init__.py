@@ -555,6 +555,10 @@ class IPDB(object):
                 return
 
             self._stop = True
+            # collect all the callbacks
+            for t in tuple(self._cb_threads):
+                t.join()
+            # terminate the main loop
             try:
                 self.nl.put({'index': 1}, RTM_GETLINK)
                 self._mthread.join()
