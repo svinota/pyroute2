@@ -6,6 +6,6 @@ MpPipe = multiprocessing.Pipe
 MpQueue = multiprocessing.Queue
 MpProcess = multiprocessing.Process
 
-commit_barrier = 0.2
+commit_barrier = 0
 
 capabilities = {}
