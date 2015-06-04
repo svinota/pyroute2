@@ -1,6 +1,8 @@
 import errno
 import socket
 from utils import require_user
+from utils import get_simple_bpf_program
+from utils import skip_if_not_supported
 from pyroute2 import IPRoute
 from pyroute2 import protocols
 from pyroute2.common import uifname
@@ -95,6 +97,26 @@ class TestIngress(BasicTest):
         police_tbf = police_u32.get_attr('TCA_POLICE_TBF')
         assert police_tbf['rate'] == 1250
         assert police_tbf['mtu'] == 2040
+
+    @skip_if_not_supported
+    def test_bpf_filter(self):
+        self.test_simple()
+        fd = get_simple_bpf_program()
+        self.ip.tc(RTM_NEWTFILTER, 'bpf', self.interface, 0,
+                   fd=fd, name='my_func', parent=0xffff0000,
+                   action='ok', classid=1)
+        fls = self.ip.get_filters(index=self.interface, parent=0xffff0000)
+        assert fls
+        acts = [x for x in fls
+                if x.get_attr('TCA_OPTIONS') is not None and
+                (x.get_attr('TCA_OPTIONS').get_attr('TCA_BPF_ACT')
+                 is not None)][0]
+        options = acts.get_attr('TCA_OPTIONS')
+        parms = options.get_attr('TCA_BPF_ACT').\
+            get_attr('TCA_ACT_PRIO_1').\
+            get_attr('TCA_ACT_OPTIONS').\
+            get_attr('TCA_GACT_PARMS')
+        assert parms['action'] == 0
 
 
 class TestPfifo(BasicTest):
