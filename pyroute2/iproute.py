@@ -110,6 +110,7 @@ from pyroute2.netlink.rtnl.tcmsg import get_sfq_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_u32_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_netem_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_fw_parameters
+from pyroute2.netlink.rtnl.tcmsg import get_bpf_parameters
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
@@ -120,6 +121,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
 from pyroute2.netlink.rtnl.iprsocket import RawIPRSocket
+from pyroute2.protocols import ETH_P_ALL
 
 from pyroute2.common import basestring
 
@@ -848,6 +850,12 @@ class IPRouteMixin(object):
                 ((kwarg.get('prio', 0) << 16) & 0xffff0000)
             if kwarg:
                 opts = get_fw_parameters(kwarg)
+        elif kind == 'bpf':
+            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
+            msg['info'] = htons(kwarg.get('protocol', ETH_P_ALL) & 0xffff) |\
+                ((kwarg.get('prio', 0) << 16) & 0xffff0000)
+            if kwarg:
+                opts = get_bpf_parameters(kwarg)
         else:
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
 

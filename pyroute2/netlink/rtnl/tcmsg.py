@@ -8,6 +8,7 @@ from pyroute2.common import rate_suffixes
 from pyroute2.common import basestring
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
+from pyroute2.netlink import NLA_F_NESTED
 
 
 TCA_ACT_MAX_PRIO = 32
@@ -206,6 +207,45 @@ def get_fw_parameters(kwarg):
             'TCA_FW_POLICE',
             {'attrs': _get_filter_police_parameter(kwarg)}
         ])
+
+    for k, v in attrs_map:
+        r = kwarg.get(k, None)
+        if r is not None:
+            ret['attrs'].append([v, r])
+
+    return ret
+
+
+def _get_gact_parms(kwarg):
+    ret = {'attrs': []}
+    actions = nla_plus_tca_act_opt.tca_act_opt.tca_gact_parms.actions
+    a = actions[kwarg.get('action', 'drop')]
+    ret['attrs'].append(['TCA_GACT_PARMS', {'action': a}])
+    return ret
+
+
+def _get_bpf_action(kwarg):
+    ret = {'attrs': []}
+    # Only gact supported currently, others possible
+    opt = {'attrs': [['TCA_ACT_KIND', 'gact'],
+                     ['TCA_ACT_OPTIONS', _get_gact_parms(kwarg)]]}
+    ret['attrs'].append(['TCA_ACT_PRIO_1', opt])
+    return ret
+
+
+def get_bpf_parameters(kwarg):
+    ret = {'attrs': []}
+    attrs_map = (
+        # ('action', 'TCA_BPF_ACT'),
+        ('police', 'TCA_BPF_POLICE'),
+        ('classid', 'TCA_BPF_CLASSID'),
+        ('fd', 'TCA_BPF_FD'),
+        ('name', 'TCA_BPF_NAME'),
+    )
+
+    act = kwarg.get('action')
+    if act:
+        ret['attrs'].append(['TCA_BPF_ACT', _get_bpf_action(kwarg)])
 
     for k, v in attrs_map:
         r = kwarg.get(k, None)
@@ -534,6 +574,27 @@ class nla_plus_police(object):
                        'pipe': 3}        # TC_POLICE_PIPE
 
 
+class nla_plus_tca_act_opt(object):
+    class tca_act_opt(nla):
+        nla_flags = NLA_F_NESTED
+        nla_map = (('TCA_GACT_UNSPEC', 'none'),
+                   ('TCA_GACT_TM', 'none'),
+                   ('TCA_GACT_PARMS', 'tca_gact_parms'),
+                   ('TCA_GACT_PROB', 'none'))
+
+        class tca_gact_parms(nla):
+            fields = (('index', 'I'),
+                      ('capab', 'I'),
+                      ('action', 'i'),
+                      ('refcnt', 'i'),
+                      ('bindcnt', 'i'))
+
+            actions = {'unspec': -1,     # TC_ACT_UNSPEC
+                       'ok': 0,          # TC_ACT_OK
+                       'shot': 2,        # TC_ACT_SHOT
+                       'drop': 2}        # TC_ACT_SHOT
+
+
 class tcmsg(nlmsg, nla_plus_stats2):
 
     prefix = 'TCA_'
@@ -608,6 +669,8 @@ class tcmsg(nlmsg, nla_plus_stats2):
             return self.options_u32
         elif kind == 'fw':
             return self.options_fw
+        elif kind == 'bpf':
+            return self.options_bpf
         return self.hex
 
     class options_ingress(nla):
@@ -699,6 +762,28 @@ class tcmsg(nlmsg, nla_plus_stats2):
                    ('TCA_FW_INDEV', 'hex'),  # TODO string
                    ('TCA_FW_ACT', 'hex'),  # TODO
                    ('TCA_FW_MASK', 'uint32'))
+
+    class options_bpf(nla):
+        nla_map = (('TCA_BPF_UNSPEC', 'none'),
+                   ('TCA_BPF_ACT', 'bpf_act'),
+                   ('TCA_BPF_POLICE', 'uint32'),
+                   ('TCA_BPF_CLASSID', 'uint32'),
+                   ('TCA_BPF_OPS_LEN', 'uint32'),
+                   ('TCA_BPF_OPS', 'uint32'),
+                   ('TCA_BPF_FD', 'uint32'),
+                   ('TCA_BPF_NAME', 'asciiz'))
+
+        class bpf_act(nla):
+            nla_flags = NLA_F_NESTED
+            nla_map = tuple([('TCA_ACT_PRIO_%i' % x, 'tca_act_bpf') for x
+                             in range(TCA_ACT_MAX_PRIO)])
+
+            class tca_act_bpf(nla, nla_plus_stats2, nla_plus_tca_act_opt):
+                nla_map = (('TCA_ACT_UNSPEC', 'none'),
+                           ('TCA_ACT_KIND', 'asciiz'),
+                           ('TCA_ACT_OPTIONS', 'tca_act_opt'),
+                           ('TCA_ACT_INDEX', 'hex'),
+                           ('TCA_ACT_STATS', 'stats2'))
 
     class options_u32(nla, nla_plus_police):
         nla_map = (('TCA_U32_UNSPEC', 'none'),
