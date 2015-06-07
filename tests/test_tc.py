@@ -104,9 +104,12 @@ class TestIngress(BasicTest):
         fd = get_simple_bpf_program()
         if fd == -1:
             # to get bpf filter working, one should have:
-            # kernel 4.x
+            # kernel >= 4.1
+            # CONFIG_EXPERT=y
             # CONFIG_BPF_SYSCALL=y
             # CONFIG_NET_CLS_BPF=m/y
+            #
+            # see `grep -rn BPF_PROG_TYPE_SCHED_CLS kernel_sources`
             raise SkipTest('bpf syscall error')
         self.ip.tc(RTM_NEWTFILTER, 'bpf', self.interface, 0,
                    fd=fd, name='my_func', parent=0xffff0000,
