@@ -155,7 +155,7 @@ def get_ip_link():
     for string in out:
         fields = string.split()
         if len(fields) >= 2:
-            ret.append(fields[1][:-1])
+            ret.append(fields[1][:-1].split('@')[0])
     return ret
 
 
