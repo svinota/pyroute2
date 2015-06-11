@@ -30,6 +30,8 @@ met = getattr(m, module)
 for a in f.readlines():
     if a[0] == '#':
         continue
+    if a[0] == '.':
+        break
     while True:
         if a[0] == ' ':
             a = a[1:]
