@@ -990,6 +990,21 @@ class TestExplicit(object):
         assert '172.16.0.2/24' not in get_ip_addr(interface=ifA)
 
 
+class TestCompat(TestExplicit):
+
+    def setup(self):
+        self.caps = config.capabilities
+        config.capabilities = {'create_dummy': True,
+                               'create_bridge': False,
+                               'create_bond': False,
+                               'ghost_newlink': self.caps['ghost_newlink']}
+        TestExplicit.setup(self)
+
+    def teardown(self):
+        TestExplicit.teardown(self)
+        config.capabilities = self.caps
+
+
 class TestImplicit(TestExplicit):
     mode = 'implicit'
 
