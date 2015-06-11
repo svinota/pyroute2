@@ -203,7 +203,7 @@ class Transactional(Dotkeys):
 
     def __repr__(self):
         res = {}
-        for i in self:
+        for i in tuple(self):
             if self[i] is not None:
                 res[i] = self[i]
         return res.__repr__()
