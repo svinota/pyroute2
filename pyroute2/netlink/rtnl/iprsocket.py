@@ -1,6 +1,5 @@
 
 from pyroute2.proxy import NetlinkProxy
-from pyroute2.common import ANCIENT
 from pyroute2.netlink import NETLINK_ROUTE
 from pyroute2.netlink.nlsocket import Marshal
 from pyroute2.netlink.nlsocket import NetlinkSocket
@@ -61,7 +60,6 @@ class IPRSocketMixin(object):
     def __init__(self, fileno=None):
         super(IPRSocketMixin, self).__init__(NETLINK_ROUTE, fileno=fileno)
         self.marshal = MarshalRtnl()
-        self.ancient = ANCIENT
         self._s_channel = None
         self._sproxy = NetlinkProxy(policy='return', nl=self)
         self._sproxy.pmap = {rtnl.RTM_NEWLINK: proxy_newlink,

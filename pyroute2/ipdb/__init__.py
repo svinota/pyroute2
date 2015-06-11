@@ -303,8 +303,6 @@ import threading
 
 from socket import AF_INET
 from socket import AF_INET6
-from pyroute2 import config
-from pyroute2.config.test_platform import TestCapsRtnl
 from pyroute2.common import Dotkeys
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
@@ -312,7 +310,6 @@ from pyroute2.ipdb.common import CreateException
 from pyroute2.ipdb.interface import Interface
 from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.linkedset import IPaddrSet
-from pyroute2.ipdb.common import compat
 from pyroute2.ipdb.common import SYNC_TIMEOUT
 from pyroute2.ipdb.route import RoutingTableSet
 
@@ -399,12 +396,6 @@ class IPDB(object):
         self._links_event = threading.Event()
         self.exclusive = threading.RLock()
         self._shutdown_lock = threading.Lock()
-
-        # system capabilities
-        if not config.capabilities:
-            tc = TestCapsRtnl()
-            tc.collect()
-            config.capabilities = tc.capabilities
 
         # load information
         self.restart_on_error = restart_on_error if \
@@ -773,8 +764,6 @@ class IPDB(object):
         if ((index not in self.interfaces) and
                 (ifname not in self.interfaces)):
             # scenario #1, new interface
-            if compat.fix_check_link(self.nl, index):
-                return
             device = \
                 self.by_index[index] = \
                 self.interfaces[index] = \

@@ -8,9 +8,9 @@ import platform
 import threading
 import subprocess
 from fcntl import ioctl
+from pyroute2 import config
 from pyroute2 import RawIPRoute
 from pyroute2.common import map_namespace
-from pyroute2.common import ANCIENT
 from pyroute2.common import map_enoent
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
@@ -623,7 +623,8 @@ def compat_fix_attrs(msg):
     ifname = msg.get_attr('IFLA_IFNAME')
 
     # fix master
-    if ANCIENT:
+    # FIXME: make a specific test in test_platform
+    if not config.capabilities['create_bridge']:
         master = compat_get_master(ifname)
         if master is not None:
             msg['attrs'].append(['IFLA_MASTER', master])
@@ -860,13 +861,10 @@ def proxy_dellink(data, nl):
 
     if kind in ('ovs-bridge', 'openvswitch'):
         return manage_ovs(msg)
-
-    if ANCIENT and kind in ('bridge', 'bond'):
-        if kind == 'bridge':
-            compat_del_bridge(msg)
-        elif kind == 'bond':
-            compat_del_bond(msg)
-        return
+    elif kind == 'bond' and not config.capabilities['create_bond']:
+        return compat_del_bond(msg)
+    elif kind == 'bridge' and not config.capabilities['create_bridge']:
+        return compat_del_bridge(msg)
 
     return {'verdict': 'forward',
             'data': data}
@@ -891,13 +889,10 @@ def proxy_newlink(data, nl):
         return manage_team(msg)
     elif kind in ('ovs-bridge', 'openvswitch'):
         return manage_ovs(msg)
-
-    if ANCIENT and kind in ('bridge', 'bond'):
-        if kind == 'bridge':
-            compat_create_bridge(msg)
-        elif kind == 'bond':
-            compat_create_bond(msg)
-        return
+    elif kind == 'bond' and not config.capabilities['create_bond']:
+        return compat_create_bond(msg)
+    elif kind == 'bridge' and not config.capabilities['create_bridge']:
+        return compat_create_bridge(msg)
 
     return {'verdict': 'forward',
             'data': data}
@@ -1065,7 +1060,7 @@ def compat_del_bond(msg):
 
 
 def compat_bridge_port(cmd, master, port):
-    if not ANCIENT:
+    if config.capabilities['create_bridge']:
         return True
     with open(os.devnull, 'w') as fnull:
         subprocess.check_call(['brctl', '%sif' % (cmd), master, port],
@@ -1074,7 +1069,7 @@ def compat_bridge_port(cmd, master, port):
 
 
 def compat_bond_port(cmd, master, port):
-    if not ANCIENT:
+    if config.capabilities['create_bond']:
         return True
     remap = {'add': '+',
              'del': '-'}

@@ -16,7 +16,6 @@ from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.common import CommitException
 from pyroute2.ipdb.common import SYNC_TIMEOUT
-from pyroute2.ipdb.common import compat
 
 
 class Interface(Transactional):
@@ -511,7 +510,8 @@ class Interface(Transactional):
 
                 # RHEL 6.5 compat fix -- an explicit timeout
                 # it gives a time for all the messages to pass
-                compat.fix_timeout(1)
+                if not config.capabilities['create_bridge']:
+                    time.sleep(1)
 
                 # wait for proper targets on ports
                 for i in list(added['ports']) + list(removed['ports']):
