@@ -1249,18 +1249,23 @@ class nlmsg_atoms(nlmsg_base):
         calculated in runtime.
         '''
         fields = [('value', 's')]
-        family_map = {socket.AF_INET: socket.AF_INET,
-                      socket.AF_BRIDGE: socket.AF_INET,
-                      socket.AF_INET6: socket.AF_INET6}
 
         def encode(self):
-            family = self.family_map[self.parent['family']]
+            # use real provided family, not implicit
+            if self.value.find(':') > -1:
+                family = socket.AF_INET6
+            else:
+                family = socket.AF_INET
             self['value'] = socket.inet_pton(family, self.value)
             nla_base.encode(self)
 
         def decode(self):
             nla_base.decode(self)
-            family = self.family_map[self.parent['family']]
+            # use real provided family, not implicit
+            if self.length > 8:
+                family = socket.AF_INET6
+            else:
+                family = socket.AF_INET
             self.value = socket.inet_ntop(family, self['value'])
 
     class l2addr(nla_base):
