@@ -96,6 +96,7 @@ from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from socket import SO_SNDBUF
 
+from pyroute2 import config
 from pyroute2.config import SocketBase
 from pyroute2.common import AddrPool
 from pyroute2.common import DEFAULT_RCVBUF
@@ -295,6 +296,10 @@ class NetlinkMixin(object):
         self.clean_cbs = {}     # {msg_seq: [callback, ...], ...}
         self.pthread = None
         self.closed = False
+        self.capabilities = {'create_bridge': True,
+                             'create_bond': True,
+                             'create_dummy': True,
+                             'provide_master': config.kernel[0] > 2}
         self.backlog_lock = threading.Lock()
         self.read_lock = threading.Lock()
         self.change_master = threading.Event()
@@ -742,29 +747,44 @@ class NetlinkMixin(object):
 
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-                    terminate=None):
-        msg_seq = self.addr_pool.alloc()
-        with self.lock[msg_seq]:
+                    terminate=None,
+                    exception_catch=Exception,
+                    exception_handler=None):
+
+        def do_try():
+            msg_seq = self.addr_pool.alloc()
+            with self.lock[msg_seq]:
+                try:
+                    msg.reset()
+                    self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
+                    ret = self.get(msg_seq=msg_seq, terminate=terminate)
+                    return ret
+                except Exception:
+                    raise
+                finally:
+                    # Ban this msg_seq for 0xff rounds
+                    #
+                    # It's a long story. Modern kernels for RTM_SET.*
+                    # operations always return NLMSG_ERROR(0) == success,
+                    # even not setting NLM_F_MULTY flag on other response
+                    # messages and thus w/o any NLMSG_DONE. So, how to detect
+                    # the response end? One can not rely on NLMSG_ERROR on
+                    # old kernels, but we have to support them too. Ty, we
+                    # just ban msg_seq for several rounds, and NLMSG_ERROR,
+                    # being received, will become orphaned and just dropped.
+                    #
+                    # Hack, but true.
+                    self.addr_pool.free(msg_seq, ban=0xff)
+
+        while True:
             try:
-                self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
-                ret = self.get(msg_seq=msg_seq, terminate=terminate)
-                return ret
-            except:
+                return do_try()
+            except exception_catch as e:
+                if exception_handler and not exception_handler(e):
+                    continue
                 raise
-            finally:
-                # Ban this msg_seq for 0xff rounds
-                #
-                # It's a long story. Modern kernels for RTM_SET.* operations
-                # always return NLMSG_ERROR(0) == success, even not setting
-                # NLM_F_MULTY flag on other response messages and thus w/o
-                # any NLMSG_DONE. So, how to detect the response end? One
-                # can not rely on NLMSG_ERROR on old kernels, but we have to
-                # support them too. Ty, we just ban msg_seq for several rounds,
-                # and NLMSG_ERROR, being received, will become orphaned and
-                # just dropped.
-                #
-                # Hack, but true.
-                self.addr_pool.free(msg_seq, ban=0xff)
+            except Exception:
+                raise
 
 
 class NetlinkSocket(NetlinkMixin):

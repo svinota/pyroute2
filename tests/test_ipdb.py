@@ -993,16 +993,12 @@ class TestExplicit(object):
 class TestCompat(TestExplicit):
 
     def setup(self):
-        self.caps = config.capabilities
-        config.capabilities = {'create_dummy': True,
-                               'create_bridge': False,
-                               'create_bond': False,
-                               'ghost_newlink': self.caps['ghost_newlink']}
         TestExplicit.setup(self)
-
-    def teardown(self):
-        TestExplicit.teardown(self)
-        config.capabilities = self.caps
+        self.caps = self.ip.nl.capabilities
+        self.ip.nl.capabilities = {'create_dummy': True,
+                                   'create_bridge': False,
+                                   'create_bond': False,
+                                   'provide_master': False}
 
 
 class TestImplicit(TestExplicit):

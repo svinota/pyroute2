@@ -8,7 +8,6 @@ import platform
 import threading
 import subprocess
 from fcntl import ioctl
-from pyroute2 import config
 from pyroute2 import RawIPRoute
 from pyroute2.common import map_namespace
 from pyroute2.common import map_enoent
@@ -618,13 +617,12 @@ class ifinfveth(ifinfbase, nla):
     pass
 
 
-def compat_fix_attrs(msg):
+def compat_fix_attrs(msg, nl):
     kind = None
     ifname = msg.get_attr('IFLA_IFNAME')
 
     # fix master
-    # FIXME: make a specific test in test_platform
-    if not config.capabilities['create_bridge']:
+    if not nl.capabilities['provide_master']:
         master = compat_get_master(ifname)
         if master is not None:
             msg['attrs'].append(['IFLA_MASTER', master])
@@ -694,7 +692,7 @@ def proxy_linkinfo(data, nl):
         # but the script can be run under a normal user
         # Bug-Url: https://github.com/svinota/pyroute2/issues/113
         try:
-            compat_fix_attrs(msg)
+            compat_fix_attrs(msg, nl)
         except OSError:
             # We can safely ignore here any OSError.
             # In the worst case, we just return what we have got
@@ -783,7 +781,10 @@ def proxy_setlink(data, nl):
                        'bridge': compat_bridge_port,
                        'bond': compat_bond_port,
                        'openvswitch': manage_ovs_port}
-        forward = forward_map[master['kind']](cmd, master['ifname'], ifname)
+        forward = forward_map[master['kind']](cmd,
+                                              master['ifname'],
+                                              ifname,
+                                              nl)
 
     if forward is not None:
         return {'verdict': 'forward',
@@ -859,11 +860,13 @@ def proxy_dellink(data, nl):
     if li is not None:
         kind = li.get_attr('IFLA_INFO_KIND')
 
+    # team interfaces can be stopped by a normal RTM_DELLINK
+    # OVS interfaces should be shut down properly
     if kind in ('ovs-bridge', 'openvswitch'):
         return manage_ovs(msg)
-    elif kind == 'bond' and not config.capabilities['create_bond']:
+    elif kind == 'bond' and not nl.capabilities['create_bond']:
         return compat_del_bond(msg)
-    elif kind == 'bridge' and not config.capabilities['create_bridge']:
+    elif kind == 'bridge' and not nl.capabilities['create_bridge']:
         return compat_del_bridge(msg)
 
     return {'verdict': 'forward',
@@ -889,9 +892,9 @@ def proxy_newlink(data, nl):
         return manage_team(msg)
     elif kind in ('ovs-bridge', 'openvswitch'):
         return manage_ovs(msg)
-    elif kind == 'bond' and not config.capabilities['create_bond']:
+    elif kind == 'bond' and not nl.capabilities['create_bond']:
         return compat_create_bond(msg)
-    elif kind == 'bridge' and not config.capabilities['create_bridge']:
+    elif kind == 'bridge' and not nl.capabilities['create_bridge']:
         return compat_create_bridge(msg)
 
     return {'verdict': 'forward',
@@ -915,7 +918,7 @@ def manage_team(msg):
 
 
 @map_enoent
-def manage_team_port(cmd, master, ifname):
+def manage_team_port(cmd, master, ifname, nl):
     with open(os.devnull, 'w') as fnull:
         subprocess.check_call(['teamdctl', master, 'port',
                                'remove' if cmd == 'del' else 'add', ifname],
@@ -924,7 +927,7 @@ def manage_team_port(cmd, master, ifname):
 
 
 @map_enoent
-def manage_ovs_port(cmd, master, ifname):
+def manage_ovs_port(cmd, master, ifname, nl):
     with open(os.devnull, 'w') as fnull:
         subprocess.check_call(['ovs-vsctl', '%s-port' % cmd, master, ifname],
                               stdout=fnull,
@@ -1059,8 +1062,8 @@ def compat_del_bond(msg):
         f.write('-%s' % (name))
 
 
-def compat_bridge_port(cmd, master, port):
-    if config.capabilities['create_bridge']:
+def compat_bridge_port(cmd, master, port, nl):
+    if nl.capabilities['create_bridge']:
         return True
     with open(os.devnull, 'w') as fnull:
         subprocess.check_call(['brctl', '%sif' % (cmd), master, port],
@@ -1068,8 +1071,8 @@ def compat_bridge_port(cmd, master, port):
                               stderr=fnull)
 
 
-def compat_bond_port(cmd, master, port):
-    if config.capabilities['create_bond']:
+def compat_bond_port(cmd, master, port, nl):
+    if nl.capabilities['create_bond']:
         return True
     remap = {'add': '+',
              'del': '-'}

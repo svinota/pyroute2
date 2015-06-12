@@ -92,9 +92,6 @@ class Interface(Transactional):
         self._linked_sets.add('ipaddr')
         self._linked_sets.add('ports')
         self._freeze = None
-        # compatibility hooks
-        self._ghost_counter = 0
-        self._ghost_mp = None
         # 8<-----------------------------------
         # local setup: direct state is required
         with self._direct_state:
@@ -200,18 +197,6 @@ class Interface(Transactional):
         with self._direct_state:
             self.load(data)
 
-    def _ghost_load(self, dev):
-        # a monkey-patch to substitute `load_netlink()`
-        # and skip ghost RTM_NEWLINK messages
-        # ignore non-broadcast messages in the ghost state
-        if dev['header']['sequence_number'] != 0:
-            return
-        # FIXME: lock the interface while all ghost messages
-        # are being skipped
-        self._ghost_counter -= 1
-        if not self._ghost_counter:
-            self.load_netlink = self._ghost_mp
-
     def load_netlink(self, dev):
         '''
         Update the interface info from RTM_NEWLINK message.
@@ -219,6 +204,12 @@ class Interface(Transactional):
         This call always bypasses open transactions, loading
         changes directly into the interface data.
         '''
+        # ignore ghost RTM_NEWLINK messages
+        if (config.kernel[0] < 3) and \
+                (not self._exists) and \
+                (not dev.get_attr('IFLA_AF_SPEC')):
+            return
+
         with self._direct_state:
             self._exists = True
             self.nlmsg = dev
@@ -510,7 +501,7 @@ class Interface(Transactional):
 
                 # RHEL 6.5 compat fix -- an explicit timeout
                 # it gives a time for all the messages to pass
-                if not config.capabilities['create_bridge']:
+                if not self.ipdb.nl.capabilities['create_bridge']:
                     time.sleep(1)
 
                 # wait for proper targets on ports
@@ -663,10 +654,6 @@ class Interface(Transactional):
                                         ifname=self['ifname'])
                 if added.get('shadow'):
                     self._shadow = True
-                if config.capabilities.get('ghost_newlink'):
-                    self._ghost_counter = config.capabilities['ghost_newlink']
-                    self._ghost_mp = self.load_netlink
-                    self.load_netlink = self._ghost_load
                 self.nl.link('delete', **self)
                 wd.wait()
                 if added.get('shadow'):
