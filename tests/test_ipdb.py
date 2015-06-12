@@ -867,6 +867,7 @@ class TestExplicit(object):
         return self._create_macvx_mode('macvlan', 'bridge')
 
     def test_create_utf_name(self):
+        require_user('root')
         ifO = 'ༀ'
         self.ip.create(kind='dummy', ifname=ifO).commit()
         assert ifO in self.ip.interfaces
@@ -1084,13 +1085,20 @@ class TestDirect(object):
     def setup(self):
         self.ifname = uifname()
         self.ip = IPDB(mode='direct')
-        self.ip.create(ifname=self.ifname, kind='dummy')
+        try:
+            self.ip.create(ifname=self.ifname, kind='dummy')
+        except:
+            pass
 
     def teardown(self):
-        self.ip.interfaces[self.ifname].remove()
+        try:
+            self.ip.interfaces[self.ifname].remove()
+        except KeyError:
+            pass
         self.ip.release()
 
     def test_context_fail(self):
+        require_user('root')
         try:
             with self.ip.interfaces[self.ifname] as i:
                 i.down()
@@ -1196,6 +1204,7 @@ class TestMisc(object):
         ip.nl.release()
 
     def test_context_exception_in_code(self):
+        require_user('root')
         try:
             with IPDB(mode='explicit') as ip:
                 with ip.interfaces[self.ifname] as i:
@@ -1234,6 +1243,7 @@ class TestMisc(object):
             assert ('172.16.9.1', 24) not in ip.interfaces[self.ifname].ipaddr
 
     def test_modes(self):
+        require_user('root')
         with IPDB(mode='explicit') as i:
             # transaction required
             try:
