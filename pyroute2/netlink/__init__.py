@@ -907,6 +907,7 @@ class nlmsg_base(dict):
                     else:
                         payload += struct.pack(fmt, value)
                 except struct.error:
+                    logging.error(''.join(traceback.format_stack()))
                     logging.error(traceback.format_exc())
                     logging.error("error pack: %s %s %s" %
                                   (fmt, value, type(value)))
