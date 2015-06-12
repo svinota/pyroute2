@@ -304,6 +304,8 @@ import threading
 from socket import AF_INET
 from socket import AF_INET6
 from pyroute2.common import Dotkeys
+from pyroute2.common import View
+from pyroute2.common import basestring
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.ipdb.common import CreateException
@@ -428,8 +430,10 @@ class IPDB(object):
         # resolvers
         self.interfaces = Dotkeys()
         self.routes = RoutingTableSet(ipdb=self)
-        self.by_name = Dotkeys()
-        self.by_index = Dotkeys()
+        self.by_name = View(src=self.interfaces,
+                            constraint=lambda k, v: isinstance(k, basestring))
+        self.by_index = View(src=self.interfaces,
+                             constraint=lambda k, v: isinstance(k, int))
 
         # caches
         self.ipaddr = {}
@@ -708,7 +712,6 @@ class IPDB(object):
                                           ifname)
             else:
                 device = \
-                    self.by_name[ifname] = \
                     self.interfaces[ifname] = \
                     self.iclass(ipdb=self, mode='snapshot')
                 device.update(kwarg)
@@ -743,8 +746,6 @@ class IPDB(object):
                 # FIXME catch exception
                 ifname = self.interfaces[msg['index']]['ifname']
                 self.interfaces[msg['index']].sync()
-                del self.by_name[ifname]
-                del self.by_index[msg['index']]
                 del self.interfaces[ifname]
                 del self.interfaces[msg['index']]
                 del self.ipaddr[msg['index']]
@@ -765,20 +766,15 @@ class IPDB(object):
                 (ifname not in self.interfaces)):
             # scenario #1, new interface
             device = \
-                self.by_index[index] = \
                 self.interfaces[index] = \
-                self.interfaces[ifname] = \
-                self.by_name[ifname] = self.iclass(ipdb=self)
+                self.interfaces[ifname] = self.iclass(ipdb=self)
         elif ((index not in self.interfaces) and
                 (ifname in self.interfaces)):
             # scenario #2, index change
             old_index = self.interfaces[ifname]['index']
-            device = \
-                self.interfaces[index] = \
-                self.by_index[index] = self.interfaces[ifname]
+            device = self.interfaces[index] = self.interfaces[ifname]
             if old_index in self.interfaces:
                 del self.interfaces[old_index]
-                del self.by_index[old_index]
             if old_index in self.ipaddr:
                 self.ipaddr[index] = self.ipaddr[old_index]
                 del self.ipaddr[old_index]
@@ -792,10 +788,7 @@ class IPDB(object):
             if old_name != ifname:
                 # unlink old name
                 del self.interfaces[old_name]
-                del self.by_name[old_name]
-            device = \
-                self.interfaces[ifname] = \
-                self.by_name[ifname] = self.interfaces[index]
+            device = self.interfaces[ifname] = self.interfaces[index]
 
         if index not in self.ipaddr:
             # for interfaces, created by IPDB
@@ -813,10 +806,6 @@ class IPDB(object):
         with self.exclusive:
             if item in self.interfaces:
                 del self.interfaces[item]
-            if item in self.by_name:
-                del self.by_name[item]
-            if item in self.by_index:
-                del self.by_index[item]
 
     def watchdog(self, action='RTM_NEWLINK', **kwarg):
         return Watchdog(self, action, kwarg)
