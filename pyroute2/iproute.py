@@ -586,6 +586,7 @@ class IPRouteMixin(object):
         command = commands.get(command, command)
 
         msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        assert isinstance(kwarg['index'], int)
         msg = ifinfmsg()
         # index is required
         msg['index'] = kwarg['index']
