@@ -66,6 +66,58 @@ rate_suffixes = {'bit': 1,
 ##
 # General purpose
 #
+class View(object):
+    '''
+    A read-only view of a dictionary object.
+    '''
+    def __init__(self, src=None, constraint=lambda k, v: True):
+        self.src = src if src is not None else {}
+        self.constraint = constraint
+
+    def __getitem__(self, key):
+        if key in self.keys():
+            return self.src[key]
+        raise KeyError()
+
+    def __setitem__(self, key, value):
+        raise NotImplementedError()
+
+    def __delitem__(self, key):
+        raise NotImplementedError()
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def _filter(self):
+        ret = []
+        for (key, value) in tuple(self.src.items()):
+            try:
+                if self.constraint(key, value):
+                    ret.append((key, value))
+            except Exception as e:
+                print(e)
+        return ret
+
+    def keys(self):
+        return [x[0] for x in self._filter()]
+
+    def values(self):
+        return [x[1] for x in self._filter()]
+
+    def items(self):
+        return self._filter()
+
+    def __iter__(self):
+        for key in self.keys():
+            yield key
+
+    def __repr__(self):
+        return repr(dict(self._filter()))
+
+
 class Dotkeys(dict):
     '''
     This is a sick-minded hack of dict, intended to be an eye-candy.
