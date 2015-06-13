@@ -515,6 +515,8 @@ class IPDB(object):
                 callback(*argv, **kwarg)
 
         safe.hook = callback
+        safe.lock = lock
+
         if mode == 'post':
             self._post_callbacks.append(safe)
         elif mode == 'pre':
@@ -529,9 +531,11 @@ class IPDB(object):
             raise KeyError('Unknown callback mode')
         for cb in tuple(cbchain):
             if callback == cb.hook:
+                with cb.lock:
+                    ret = cbchain.pop(cbchain.index(cb))
                 for t in tuple(self._cb_threads):
                     t.join(3)
-                return cbchain.pop(cbchain.index(cb))
+                return ret
 
     def release(self):
         '''
