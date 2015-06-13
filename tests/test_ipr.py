@@ -316,14 +316,14 @@ class TestIPRoute(object):
         self.ip.link('set', index=self.ifaces[0], state='up')
         self.ip.addr('add', self.ifaces[0], address='172.16.0.50', mask=24)
         self.ip.route('add',
-                      prefix='172.16.1.0',
+                      dst='172.16.1.0',
                       mask=24,
                       gateway='172.16.0.1',
                       table=100)
         assert grep('ip route show table 100',
                     pattern='172.16.1.0/24.*172.16.0.1')
         self.ip.route('change',
-                      prefix='172.16.1.0',
+                      dst='172.16.1.0',
                       mask=24,
                       gateway='172.16.0.2',
                       table=100)
@@ -344,7 +344,7 @@ class TestIPRoute(object):
                         pattern='172.16.1.0/24.*172.16.0.1')
         try:
             self.ip.route('change',
-                          prefix='172.16.1.0',
+                          dst='172.16.1.0',
                           mask=24,
                           gateway='172.16.0.1',
                           table=100)
@@ -358,14 +358,14 @@ class TestIPRoute(object):
         self.ip.link('set', index=self.ifaces[0], state='up')
         self.ip.addr('add', self.ifaces[0], address='172.16.0.50', mask=24)
         self.ip.route('replace',
-                      prefix='172.16.1.0',
+                      dst='172.16.1.0',
                       mask=24,
                       gateway='172.16.0.1',
                       table=100)
         assert grep('ip route show table 100',
                     pattern='172.16.1.0/24.*172.16.0.1')
         self.ip.route('replace',
-                      prefix='172.16.1.0',
+                      dst='172.16.1.0',
                       mask=24,
                       gateway='172.16.0.2',
                       table=100)
@@ -383,7 +383,7 @@ class TestIPRoute(object):
         self.ip.link('set', index=self.ifaces[0], state='up')
         self.ip.addr('add', self.ifaces[0], address='172.16.0.2', mask=24)
         self.ip.route('replace',
-                      prefix='172.16.1.0',
+                      dst='172.16.1.0',
                       mask=24,
                       gateway='172.16.0.1',
                       table=100)
@@ -398,12 +398,12 @@ class TestIPRoute(object):
         self.ip.link('set', index=self.ifaces[0], state='up')
         self.ip.addr('add', self.ifaces[0], address='172.16.0.2', mask=24)
         self.ip.route('add',
-                      prefix='172.16.1.0',
+                      dst='172.16.1.0',
                       mask=24,
                       gateway='172.16.0.1',
                       table=100)
         self.ip.route('add',
-                      prefix='172.16.2.0',
+                      dst='172.16.2.0',
                       mask=24,
                       gateway='172.16.0.1',
                       table=100)
@@ -425,7 +425,7 @@ class TestIPRoute(object):
         self.ip.link('set', index=self.ifaces[0], state='up')
         self.ip.addr('add', self.ifaces[0], address='172.16.0.2', mask=24)
         self.ip.route('add',
-                      prefix='172.16.1.0',
+                      dst='172.16.1.0',
                       mask=24,
                       gateway='172.16.0.1',
                       table=2048)
