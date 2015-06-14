@@ -356,6 +356,7 @@ class TestExplicit(object):
         a.shadow().commit()
         assert ifA in self.ip.interfaces
         assert not grep('ip link', pattern=ifA)
+        time.sleep(0.5)
         b = self.ip.create(ifname=ifA, kind=kind).commit()
         assert a == b
         assert grep('ip link', pattern=ifA)
