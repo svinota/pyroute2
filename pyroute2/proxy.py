@@ -49,6 +49,7 @@ class NetlinkProxy(object):
                         return ret
 
                 except Exception as e:
+                    logging.error(''.join(traceback.format_stack()))
                     logging.error(traceback.format_exc())
                     # errmsg
                     if isinstance(e, (OSError, IOError)):
