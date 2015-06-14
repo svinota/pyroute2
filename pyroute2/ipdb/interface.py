@@ -202,19 +202,19 @@ class Interface(Transactional):
         This call always bypasses open transactions, loading
         changes directly into the interface data.
         '''
-        if self['scope'] == 'locked':
-            # do not touch locked interfaces
-            return
-
-        if self['scope'] == 'shadow':
-            # ignore non-broadcast messages
-            if dev['header']['sequence_number'] != 0:
-                return
-            # ignore ghost RTM_NEWLINK messages
-            if (config.kernel[0] < 3) and (not dev.get_attr('IFLA_AF_SPEC')):
-                return
-
         with self._direct_state:
+            if self['scope'] == 'locked':
+                # do not touch locked interfaces
+                return
+
+            if self['scope'] == 'shadow':
+                # ignore non-broadcast messages
+                if dev['header']['sequence_number'] != 0:
+                    return
+                # ignore ghost RTM_NEWLINK messages
+                if (config.kernel[0] < 3) and \
+                        (not dev.get_attr('IFLA_AF_SPEC')):
+                    return
             self['scope'] = 'system'
             self.nlmsg = dev
             for (name, value) in dev.items():
