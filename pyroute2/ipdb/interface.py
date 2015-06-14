@@ -526,7 +526,8 @@ class Interface(Transactional):
             # Interface changes
             request = IPLinkRequest()
             for key in added:
-                if key in self._xfields['common']:
+                if (key in self._xfields['common']) and \
+                        (key != 'kind'):
                     request[key] = added[key]
             request['index'] = self['index']
 
