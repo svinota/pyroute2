@@ -706,11 +706,11 @@ class IPDB(object):
         with self.exclusive:
             # check for existing interface
             if ifname in self.interfaces:
-                if self.interfaces[ifname]._shadow or reuse:
+                if (self.interfaces[ifname]['scope'] == 'shadow') or reuse:
                     device = self.interfaces[ifname]
-                    device._shadow = False
                     kwarg['kind'] = kind
                     device.load_dict(kwarg)
+                    device.set_item('scope', 'create')
                 else:
                     raise CreateException("interface %s exists" %
                                           ifname)
@@ -726,6 +726,7 @@ class IPDB(object):
                 device['kind'] = kind
                 device['index'] = kwarg.get('index', 0)
                 device['ifname'] = ifname
+                device['scope'] = 'create'
                 device._mode = self.mode
             tid = device.begin()
         #
@@ -739,9 +740,9 @@ class IPDB(object):
         return device
 
     def device_del(self, msg):
-        # check for shadow devices
-        if (msg.get('index', None) in self.interfaces) and \
-                self.interfaces[msg['index']]._shadow:
+        # check for locked devices
+        if self.interfaces.get(msg['index'], {}).get('scope') \
+                in ('locked', 'shadow'):
             self.interfaces[msg['index']].sync()
             return
         try:

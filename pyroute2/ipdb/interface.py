@@ -59,11 +59,9 @@ class Interface(Transactional):
                         '__align')
         self.ingress = None
         self.egress = None
-        self._exists = False
-        self._shadow = False
         self._exception = None
         self._tb = None
-        self._virtual_fields = ('removal', 'shadow', 'state')
+        self._virtual_fields = ('scope', 'state')
         self._xfields = {'common': [ifinfmsg.nla2name(i[0]) for i
                                     in ifinfmsg.nla_map]}
         self._xfields['common'].append('index')
@@ -204,14 +202,20 @@ class Interface(Transactional):
         This call always bypasses open transactions, loading
         changes directly into the interface data.
         '''
-        # ignore ghost RTM_NEWLINK messages
-        if (config.kernel[0] < 3) and \
-                (not self._exists) and \
-                (not dev.get_attr('IFLA_AF_SPEC')):
+        if self['scope'] == 'locked':
+            # do not touch locked interfaces
             return
 
+        if self['scope'] == 'shadow':
+            # ignore non-broadcast messages
+            if dev['header']['sequence_number'] != 0:
+                return
+            # ignore ghost RTM_NEWLINK messages
+            if (config.kernel[0] < 3) and (not dev.get_attr('IFLA_AF_SPEC')):
+                return
+
         with self._direct_state:
-            self._exists = True
+            self['scope'] = 'system'
             self.nlmsg = dev
             for (name, value) in dev.items():
                 self[name] = value
@@ -397,7 +401,7 @@ class Interface(Transactional):
         wd = None
         with self._write_lock:
             # if the interface does not exist, create it first ;)
-            if not self._exists:
+            if self['scope'] != 'system':
                 request = IPLinkRequest(self.filter('common'))
 
                 # create watchdog
@@ -647,19 +651,16 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # Interface removal
-            if added.get('removal') or \
-                    added.get('shadow') or\
+            if added.get('scope') in ('shadow', 'none') or\
                     (newif and rollback):
                 wd = self.ipdb.watchdog(action='RTM_DELLINK',
                                         ifname=self['ifname'])
-                if added.get('shadow'):
-                    self._shadow = True
+                if added.get('scope') == 'shadow':
+                    self.set_item('scope', 'locked')
                 self.nl.link('delete', **self)
                 wd.wait()
-                if added.get('shadow'):
-                    self._exists = False
-                if added.get('removal'):
-                    self._mode = 'invalid'
+                if added.get('scope') == 'shadow':
+                    self.set_item('scope', 'shadow')
                 if drop:
                     self.drop(transaction)
                 return self
@@ -748,7 +749,7 @@ class Interface(Transactional):
         '''
         Mark the interface for removal
         '''
-        self['removal'] = True
+        self['scope'] = 'none'
         return self
 
     def shadow(self):
@@ -761,5 +762,5 @@ class Interface(Transactional):
         index can be reused by OS while the interface is "in the
         shadow state", in this case re-creation will fail.
         '''
-        self['shadow'] = True
+        self['scope'] = 'shadow'
         return self
