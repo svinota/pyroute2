@@ -746,6 +746,11 @@ class IPDB(object):
         if transactions is None:
             # collect interface transactions
             txlist = [(x, x.last()) for x in self.by_name.values() if x._tids]
+            # collect route transactions
+            for table in self.routes.tables.keys():
+                txlist.extend([(x, x.last()) for x in
+                               self.routes.tables[table]
+                               if x._tids])
             txlist = sorted(txlist,
                             key=lambda x: x[1]['ipdb_priority'],
                             reverse=True)
