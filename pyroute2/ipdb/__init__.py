@@ -739,6 +739,43 @@ class IPDB(object):
             device.commit(tid)
         return device
 
+    def commit(self, transactions=None, rollback=False):
+        # what to commit: either from transactions argument, or from
+        # started transactions on existing objects
+        if transactions is None:
+            txlist = [(x, x.last()) for x in self.by_name.values() if x._tids]
+            txlist = sorted(txlist,
+                            key=lambda x: x[1]['tx_priority'],
+                            reverse=True)
+            transactions = {'interfaces': txlist}
+
+        snapshots = {'interfaces': []}
+        removed = {'interfaces': []}
+
+        try:
+            for (target, tx) in transactions['interfaces']:
+                if tx['scope'] == 'remove':
+                    tx['scope'] = 'shadow'
+                    removed['interfaces'].append(tx)
+                if not rollback:
+                    s = (target, target.pick(detached=True))
+                    snapshots['interfaces'].append(s)
+                target.commit(transaction=tx, rollback=rollback)
+        except Exception:
+            if not rollback:
+                self.fallen = transactions
+                self.commit(transactions=snapshots, rollback=True)
+            raise
+        else:
+            if not rollback:
+                for tx in removed['interfaces']:
+                    tx['scope'] = 'remove'
+                    self.detach(self.interfaces[tx['ifname']])
+        finally:
+            if not rollback:
+                for (target, tx) in transactions['interfaces']:
+                    target.drop(tx)
+
     def device_del(self, msg):
         # check for locked devices
         if self.interfaces.get(msg['index'], {}).get('scope') \
