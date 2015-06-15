@@ -61,7 +61,7 @@ class Interface(Transactional):
         self.egress = None
         self._exception = None
         self._tb = None
-        self._virtual_fields = ['scope', 'state', 'tx_priority']
+        self._virtual_fields = ['ipdb_scope', 'ipdb_priority']
         self._xfields = {'common': [ifinfmsg.nla2name(i[0]) for i
                                     in ifinfmsg.nla_map]}
         self._xfields['common'].append('index')
@@ -105,7 +105,7 @@ class Interface(Transactional):
             self['ports'] = LinkedSet()
             for i in self._fields:
                 self[i] = None
-            for i in ('state', 'change', 'mask'):
+            for i in ('change', 'mask'):
                 del self[i]
         # 8<-----------------------------------
 
@@ -118,6 +118,10 @@ class Interface(Transactional):
         [property] Link to the parent interface -- if it exists
         '''
         return self.get('master', None)
+
+    def detach(self):
+        self.ipdb.detach(self['index'])
+        return self
 
     def freeze(self):
         dump = self.pick()
@@ -211,11 +215,11 @@ class Interface(Transactional):
         changes directly into the interface data.
         '''
         with self._direct_state:
-            if self['scope'] == 'locked':
+            if self['ipdb_scope'] == 'locked':
                 # do not touch locked interfaces
                 return
 
-            if self['scope'] == 'shadow':
+            if self['ipdb_scope'] == 'shadow':
                 # ignore non-broadcast messages
                 if dev['header']['sequence_number'] != 0:
                     return
@@ -223,7 +227,7 @@ class Interface(Transactional):
                 if (config.kernel[0] < 3) and \
                         (not dev.get_attr('IFLA_AF_SPEC')):
                     return
-            self['scope'] = 'system'
+            self['ipdb_scope'] = 'system'
             self.nlmsg = dev
             for (name, value) in dev.items():
                 self[name] = value
@@ -409,7 +413,7 @@ class Interface(Transactional):
         wd = None
         with self._write_lock:
             # if the interface does not exist, create it first ;)
-            if self['scope'] != 'system':
+            if self['ipdb_scope'] != 'system':
                 request = IPLinkRequest(self.filter('common'))
 
                 # create watchdog
@@ -660,16 +664,16 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # Interface removal
-            if (added.get('scope') in ('shadow', 'remove')) or\
-                    ((added.get('scope') == 'create') and rollback):
+            if (added.get('ipdb_scope') in ('shadow', 'remove')) or\
+                    ((added.get('ipdb_scope') == 'create') and rollback):
                 wd = self.ipdb.watchdog(action='RTM_DELLINK',
                                         ifname=self['ifname'])
-                if added.get('scope') == 'shadow':
-                    self.set_item('scope', 'locked')
+                if added.get('ipdb_scope') == 'shadow':
+                    self.set_item('ipdb_scope', 'locked')
                 self.nl.link('delete', **self)
                 wd.wait()
-                if added.get('scope') == 'shadow':
-                    self.set_item('scope', 'shadow')
+                if added.get('ipdb_scope') == 'shadow':
+                    self.set_item('ipdb_scope', 'shadow')
                 if drop:
                     self.drop(transaction)
                 return self
@@ -758,7 +762,7 @@ class Interface(Transactional):
         '''
         Mark the interface for removal
         '''
-        self['scope'] = 'remove'
+        self['ipdb_scope'] = 'remove'
         return self
 
     def shadow(self):
@@ -771,5 +775,5 @@ class Interface(Transactional):
         index can be reused by OS while the interface is "in the
         shadow state", in this case re-creation will fail.
         '''
-        self['scope'] = 'shadow'
+        self['ipdb_scope'] = 'shadow'
         return self

@@ -706,11 +706,12 @@ class IPDB(object):
         with self.exclusive:
             # check for existing interface
             if ifname in self.interfaces:
-                if (self.interfaces[ifname]['scope'] == 'shadow') or reuse:
+                if (self.interfaces[ifname]['ipdb_scope'] == 'shadow') \
+                        or reuse:
                     device = self.interfaces[ifname]
                     kwarg['kind'] = kind
                     device.load_dict(kwarg)
-                    device.set_item('scope', 'create')
+                    device.set_item('ipdb_scope', 'create')
                 else:
                     raise CreateException("interface %s exists" %
                                           ifname)
@@ -726,7 +727,7 @@ class IPDB(object):
                 device['kind'] = kind
                 device['index'] = kwarg.get('index', 0)
                 device['ifname'] = ifname
-                device['scope'] = 'create'
+                device['ipdb_scope'] = 'create'
                 device._mode = self.mode
             tid = device.begin()
         #
@@ -743,23 +744,24 @@ class IPDB(object):
         # what to commit: either from transactions argument, or from
         # started transactions on existing objects
         if transactions is None:
+            # collect interface transactions
             txlist = [(x, x.last()) for x in self.by_name.values() if x._tids]
             txlist = sorted(txlist,
-                            key=lambda x: x[1]['tx_priority'],
+                            key=lambda x: x[1]['ipdb_priority'],
                             reverse=True)
-            transactions = {'interfaces': txlist}
+            transactions = txlist
 
-        snapshots = {'interfaces': []}
-        removed = {'interfaces': []}
+        snapshots = []
+        removed = []
 
         try:
-            for (target, tx) in transactions['interfaces']:
-                if tx['scope'] == 'remove':
-                    tx['scope'] = 'shadow'
-                    removed['interfaces'].append(tx)
+            for (target, tx) in transactions:
+                if tx['ipdb_scope'] == 'remove':
+                    tx['ipdb_scope'] = 'shadow'
+                    removed.append(tx)
                 if not rollback:
                     s = (target, target.pick(detached=True))
-                    snapshots['interfaces'].append(s)
+                    snapshots.append(s)
                 target.commit(transaction=tx, rollback=rollback)
         except Exception:
             if not rollback:
@@ -768,17 +770,17 @@ class IPDB(object):
             raise
         else:
             if not rollback:
-                for tx in removed['interfaces']:
-                    tx['scope'] = 'remove'
-                    self.detach(self.interfaces[tx['ifname']])
+                for (tx, target) in removed:
+                    tx['ipdb_scope'] = 'remove'
+                    target.detach()
         finally:
             if not rollback:
-                for (target, tx) in transactions['interfaces']:
+                for (target, tx) in transactions:
                     target.drop(tx)
 
     def device_del(self, msg):
         # check for locked devices
-        if self.interfaces.get(msg['index'], {}).get('scope') \
+        if self.interfaces.get(msg['index'], {}).get('ipdb_scope') \
                 in ('locked', 'shadow'):
             self.interfaces[msg['index']].sync()
             return
