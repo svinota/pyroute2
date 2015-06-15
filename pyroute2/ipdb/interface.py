@@ -61,7 +61,7 @@ class Interface(Transactional):
         self.egress = None
         self._exception = None
         self._tb = None
-        self._virtual_fields = ('scope', 'state')
+        self._virtual_fields = ['scope', 'state', 'tx_priority']
         self._xfields = {'common': [ifinfmsg.nla2name(i[0]) for i
                                     in ifinfmsg.nla_map]}
         self._xfields['common'].append('index')
@@ -85,6 +85,14 @@ class Interface(Transactional):
                                             in msg.nla_map])
         for ftype in self._xfields:
             self._fields += self._xfields[ftype]
+
+        def make_set_value(self, key):
+            def set_value(value):
+                self[key] = value
+                return self
+            return set_value
+        for key in self._fields + self._virtual_fields:
+            setattr(self, 'set_%s' % key, make_set_value(self, key))
         self._fields.extend(self._virtual_fields)
         self._load_event = threading.Event()
         self._linked_sets.add('ipaddr')
