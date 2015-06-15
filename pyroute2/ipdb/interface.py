@@ -652,8 +652,8 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # Interface removal
-            if added.get('scope') in ('shadow', 'none') or\
-                    (newif and rollback):
+            if (added.get('scope') in ('shadow', 'remove')) or\
+                    ((added.get('scope') == 'create') and rollback):
                 wd = self.ipdb.watchdog(action='RTM_DELLINK',
                                         ifname=self['ifname'])
                 if added.get('scope') == 'shadow':
@@ -750,7 +750,7 @@ class Interface(Transactional):
         '''
         Mark the interface for removal
         '''
-        self['scope'] = 'none'
+        self['scope'] = 'remove'
         return self
 
     def shadow(self):
