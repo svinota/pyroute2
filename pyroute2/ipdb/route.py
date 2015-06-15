@@ -62,15 +62,31 @@ class Route(Transactional):
         self._fields.append('dst_len')
         self._fields.append('table')
         self._fields.append('removal')
+        self._virtual_fields = ['ipdb_scope', 'ipdb_priority']
+
+        def make_set_value(self, key):
+            def set_value(value):
+                self[key] = value
+                return self
+            return set_value
+        for key in self._fields + self._virtual_fields:
+            setattr(self, 'set_%s' % key, make_set_value(self, key))
+        self._fields.extend(self._virtual_fields)
         self.cleanup = ('attrs',
                         'header',
                         'event')
         with self._direct_state:
+            for i in self._fields:
+                self[i] = None
             self['metrics'] = Metrics(parent=self)
 
     def load_netlink(self, msg):
         with self._direct_state:
-            self._exists = True
+            if self['ipdb_scope'] == 'locked':
+                # do not touch locked interfaces
+                return
+
+            self['ipdb_scope'] = 'system'
             self.update(msg)
 
             # re-init metrics
@@ -116,14 +132,18 @@ class Route(Transactional):
     def commit(self, tid=None, transaction=None, rollback=False):
         self._load_event.clear()
         error = None
+        drop = True
 
         if tid:
             transaction = self._transactions[tid]
         else:
-            transaction = transaction or self.last()
+            if transaction:
+                drop = False
+            else:
+                transaction = self.last()
 
         # create a new route
-        if not self._exists:
+        if self['ipdb_scope'] != 'system':
             try:
                 wd = self.ipdb.watchdog('RTM_NEWROUTE', **WatchdogKey(self))
                 self.nl.route('add', **IPRouteRequest(self))
@@ -138,8 +158,6 @@ class Route(Transactional):
         try:
             # route set
             request = IPRouteRequest(transaction - snapshot)
-            if 'removal' in request:
-                del request['removal']
             if any([request[x] not in (None, {'attrs': []}) for x in request]):
                 wd = self.ipdb.watchdog('RTM_NEWROUTE',
                                         **WatchdogKey(transaction))
@@ -147,11 +165,16 @@ class Route(Transactional):
                 wd.wait()
 
             # route removal
-            if transaction.get('removal'):
+            if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
+                    ((transaction['ipdb_scope'] == 'create') and rollback):
                 wd = self.ipdb.watchdog('RTM_DELROUTE',
                                         **WatchdogKey(snapshot))
+                if transaction['ipdb_scope'] == 'shadow':
+                    self.set_item('ipdb_scope', 'locked')
                 self.nl.route('delete', **IPRouteRequest(snapshot))
                 wd.wait()
+                if transaction['ipdb_scope'] == 'shadow':
+                    self.set_item('ipdb_scope', 'shadow')
 
         except Exception as e:
             if not rollback:
@@ -161,12 +184,13 @@ class Route(Transactional):
                 else:
                     error = e
             else:
-                self.drop()
+                if drop:
+                    self.drop()
                 x = RuntimeError()
                 x.cause = e
                 raise x
 
-        if not rollback:
+        if drop and not rollback:
             self.drop()
 
         if error is not None:
@@ -179,7 +203,11 @@ class Route(Transactional):
         return self
 
     def remove(self):
-        self['removal'] = True
+        self['ipdb_scope'] = 'remove'
+        return self
+
+    def shadow(self):
+        self['ipdb_scope'] = 'shadow'
         return self
 
 
@@ -301,6 +329,7 @@ class RoutingTableSet(object):
         metrics = spec.pop('metrics', {})
         route.update(spec)
         route.metrics.update(metrics)
+        route.set_item('ipdb_scope', 'create')
         self.tables[table][route['dst']] = route
         route.begin()
         return route
@@ -321,7 +350,8 @@ class RoutingTableSet(object):
                 # locate the record
                 record = self.tables[table][key]
                 # delete the record
-                del self.tables[table][key]
+                if record['ipdb_scope'] not in ('locked', 'shadow'):
+                    del self.tables[table][key]
                 # sync ???
                 record.sync()
             except Exception as e:

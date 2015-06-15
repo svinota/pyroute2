@@ -24,6 +24,9 @@ class IPRouteRequest(IPRequest):
     '''
 
     def __setitem__(self, key, value):
+        # skip virtual IPDB fields
+        if key.startswith('ipdb_'):
+            return
         # fix family
         if isinstance(value, basestring) and value.find(':') >= 0:
             self['family'] = AF_INET6
