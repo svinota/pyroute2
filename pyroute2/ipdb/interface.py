@@ -658,7 +658,7 @@ class Interface(Transactional):
                             # to another netns; just give up
                             if drop:
                                 self.drop(transaction)
-                                return self
+                            return self
 
             # wait for targets
             transaction._wait_all_targets()
