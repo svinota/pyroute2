@@ -668,12 +668,14 @@ class Interface(Transactional):
                     ((added.get('ipdb_scope') == 'create') and rollback):
                 wd = self.ipdb.watchdog(action='RTM_DELLINK',
                                         ifname=self['ifname'])
-                if added.get('ipdb_scope') == 'shadow':
+                if added.get('ipdb_scope') in ('shadow', 'create'):
                     self.set_item('ipdb_scope', 'locked')
                 self.nl.link('delete', **self)
                 wd.wait()
                 if added.get('ipdb_scope') == 'shadow':
                     self.set_item('ipdb_scope', 'shadow')
+                if added['ipdb_scope'] == 'create':
+                    self.load_dict(transaction)
                 if drop:
                     self.drop(transaction)
                 return self
