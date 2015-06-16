@@ -54,7 +54,6 @@ class Route(Transactional):
 
     def __init__(self, ipdb, mode=None, parent=None, uid=None):
         Transactional.__init__(self, ipdb, mode, parent, uid)
-        self._exists = False
         self._load_event = threading.Event()
         self._fields = [rtmsg.nla2name(i[0]) for i in rtmsg.nla_map]
         self._fields.append('flags')
