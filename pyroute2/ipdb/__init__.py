@@ -345,6 +345,7 @@ def get_addr_nla(msg):
 class Watchdog(object):
     def __init__(self, ipdb, action, kwarg):
         self.event = threading.Event()
+        self.is_set = False
         self.ipdb = ipdb
 
         def cb(ipdb, msg, _action):
@@ -355,14 +356,17 @@ class Watchdog(object):
                 if (msg.get(key, None) != kwarg[key]) and \
                         (msg.get_attr(msg.name2nla(key)) != kwarg[key]):
                     return
+
+            self.is_set = True
             self.event.set()
         self.cb = cb
         # register callback prior to other things
         self.ipdb.register_callback(self.cb)
 
     def wait(self, timeout=SYNC_TIMEOUT):
-        self.event.wait(timeout=timeout)
+        ret = self.event.wait(timeout=timeout)
         self.cancel()
+        return ret
 
     def cancel(self):
         self.ipdb.unregister_callback(self.cb)
