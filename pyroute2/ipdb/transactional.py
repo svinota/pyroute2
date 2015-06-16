@@ -213,9 +213,11 @@ class Transactional(Dotkeys):
         with self._direct_state:
             # simple keys
             for key in self:
-                if (key in self._fields) and \
-                        ((key not in vs) or (self[key] != vs[key])):
-                    res[key] = self[key]
+                if (key in self._fields):
+                    if ((key not in vs) or (self[key] != vs[key])):
+                        res[key] = self[key]
+                    elif (self[key] == vs[key]):
+                        res[key] = None
         for key in self._linked_sets:
             diff = LinkedSet(self[key] - vs[key])
             if diff:
