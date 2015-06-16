@@ -767,7 +767,7 @@ class IPDB(object):
             for (target, tx) in transactions:
                 if tx['ipdb_scope'] == 'remove':
                     tx['ipdb_scope'] = 'shadow'
-                    removed.append(tx)
+                    removed.append((target, tx))
                 if not rollback:
                     s = (target, target.pick(detached=True))
                     snapshots.append(s)
