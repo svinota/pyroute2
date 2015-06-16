@@ -729,8 +729,8 @@ class TestExplicit(object):
             pass
 
         assert ifA in self.ip.interfaces
-        assert b.ipdb_scope == 'system'
-        assert ifB not in self.ip.interfaces
+        assert ifB in self.ip.interfaces
+        assert b.ipdb_scope == 'create'
         assert grep('ip link', pattern=ifA)
         assert not grep('ip link', pattern=ifB)
 
