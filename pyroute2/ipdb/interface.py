@@ -101,12 +101,13 @@ class Interface(Transactional):
         # 8<-----------------------------------
         # local setup: direct state is required
         with self._direct_state:
-            self['ipaddr'] = IPaddrSet()
-            self['ports'] = LinkedSet()
             for i in self._fields:
                 self[i] = None
             for i in ('change', 'mask'):
                 del self[i]
+            self['ipaddr'] = IPaddrSet()
+            self['ports'] = LinkedSet()
+            self['ipdb_priority'] = 0
         # 8<-----------------------------------
 
     def __hash__(self):

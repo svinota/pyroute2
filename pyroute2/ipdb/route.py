@@ -78,6 +78,7 @@ class Route(Transactional):
             for i in self._fields:
                 self[i] = None
             self['metrics'] = Metrics(parent=self)
+            self['ipdb_priority'] = 0
 
     def load_netlink(self, msg):
         with self._direct_state:
