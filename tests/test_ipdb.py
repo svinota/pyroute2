@@ -3,11 +3,14 @@
 import os
 import json
 import time
+import uuid
 import socket
 import subprocess
 from pyroute2 import config
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
+from pyroute2 import netns
+from pyroute2 import NetNS
 from pyroute2.common import basestring
 from pyroute2.common import uifname
 from pyroute2.netlink import NetlinkError
@@ -733,6 +736,47 @@ class TestExplicit(object):
         assert b.ipdb_scope == 'create'
         assert grep('ip link', pattern=ifA)
         assert not grep('ip link', pattern=ifB)
+
+    def test_global_netns(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+        ns = str(uuid.uuid4())
+
+        with IPDB(nl=NetNS(ns)) as nsdb:
+            v1 = self.ip.create(ifname='x' + ifA, kind='veth', peer=ifA)
+            v2 = self.ip.create(ifname='x' + ifB, kind='veth', peer=ifB)
+            if v1._mode == 'explicit':
+                v1.begin()
+                v2.begin()
+            v1.net_ns_fd = ns
+            v2.net_ns_fd = ns
+            self.ip.commit()
+            nsdb.interfaces['x' + ifA].ifname = 'eth0'
+            nsdb.interfaces['x' + ifB].ifname = 'eth1'
+            nsdb.commit()
+            if self.ip.interfaces[ifA]._mode == 'explicit':
+                self.ip.interfaces[ifA].begin()
+                self.ip.interfaces[ifB].begin()
+            self.ip.interfaces[ifA].up()
+            self.ip.interfaces[ifB].up()
+            self.ip.commit()
+
+        assert 'x' + ifA not in self.ip.interfaces
+        assert 'x' + ifB not in self.ip.interfaces
+        assert ifA in self.ip.interfaces
+        assert ifB in self.ip.interfaces
+        assert self.ip.interfaces[ifA].flags & 1
+        assert self.ip.interfaces[ifB].flags & 1
+
+        if self.ip.interfaces[ifA]._mode == 'explicit':
+            self.ip.interfaces[ifA].begin()
+            self.ip.interfaces[ifB].begin()
+        self.ip.interfaces[ifA].remove()
+        self.ip.interfaces[ifB].remove()
+        self.ip.commit()
+        netns.remove(ns)
 
     @skip_if_not_supported
     def test_create_veth(self):
