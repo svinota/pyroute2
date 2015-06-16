@@ -220,7 +220,7 @@ class Interface(Transactional):
                 # do not touch locked interfaces
                 return
 
-            if self['ipdb_scope'] == 'shadow':
+            if self['ipdb_scope'] in ('shadow', 'create'):
                 # ignore non-broadcast messages
                 if dev['header']['sequence_number'] != 0:
                     return
