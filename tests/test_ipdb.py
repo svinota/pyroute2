@@ -654,6 +654,86 @@ class TestExplicit(object):
         assert grep('ip link', pattern=ifA)
         assert grep('ip link', pattern=ifB)
 
+    def test_global_create(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+        self.ip.create(ifname=ifA, kind='dummy')
+        self.ip.create(ifname=ifB, kind='dummy')
+        self.ip.commit()
+
+        assert ifA in self.ip.interfaces
+        assert ifB in self.ip.interfaces
+        assert grep('ip link', pattern=ifA)
+        assert grep('ip link', pattern=ifB)
+
+    def test_global_priorities(self):
+        require_user('root')
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+        ifC = self.get_ifname()
+        a = self.ip.create(ifname=ifA, kind='dummy').commit()
+        #
+        if a._mode == 'explicit':
+            a.begin()
+
+        # prepare transaction: two interface creations
+        # and one failure on an existing interface
+        a.set_address('11:22:33:44:55:66')
+        b = self.ip.create(ifname=ifB, kind='dummy')
+        c = self.ip.create(ifname=ifC, kind='dummy')
+        # now assign priorities
+        b.ipdb_priority = 15  # will be execute first
+        a.ipdb_priority = 10  # second -- and fail
+        c.ipdb_priority = 5   # should not be executed
+        # prepare watchdogs
+        wdb = self.ip.watchdog(ifname=ifB)
+        wdc = self.ip.watchdog(ifname=ifC)
+        # run the transaction
+        try:
+            self.ip.commit()
+        except NetlinkError:
+            pass
+        # control system state
+        assert ifA in self.ip.interfaces
+        assert ifB in self.ip.interfaces
+        assert ifC in self.ip.interfaces
+        assert a.ipdb_scope == 'system'
+        assert b.ipdb_scope == 'create'
+        assert c.ipdb_scope == 'create'
+        assert a.address != '11:22:33:44:55:66'
+        assert grep('ip link', pattern=ifA)
+        assert not grep('ip link', pattern=ifB)
+        assert not grep('ip link', pattern=ifC)
+        wdb.wait(1)
+        wdc.wait(1)
+        assert wdb.is_set
+        assert not wdc.is_set
+
+    def test_global_rollback(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+        a = self.ip.create(ifname=ifA, kind='dummy').commit()
+        #
+        if a._mode == 'explicit':
+            a.begin()
+        a.remove()
+        b = self.ip.create(ifname=ifB, kind='dummy')
+        b.set_mtu(1500).set_address('11:22:33:44:55:66')
+        try:
+            self.ip.commit()
+        except NetlinkError:
+            pass
+
+        assert ifA in self.ip.interfaces
+        assert b.ipdb_scope == 'system'
+        assert ifB not in self.ip.interfaces
+        assert grep('ip link', pattern=ifA)
+        assert not grep('ip link', pattern=ifB)
+
     @skip_if_not_supported
     def test_create_veth(self):
         require_user('root')
