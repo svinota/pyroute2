@@ -127,6 +127,29 @@ class TestIngress(BasicTest):
             get_attr('TCA_GACT_PARMS')
         assert parms['action'] == 0
 
+    @skip_if_not_supported
+    def test_bpf_filter_policer(self):
+        self.test_simple()
+        fd = get_simple_bpf_program()
+        if fd == -1:
+            # see comment above about kernel requirements
+            raise SkipTest('bpf syscall error')
+        self.ip.tc(RTM_NEWTFILTER, 'bpf', self.interface, 0,
+                   fd=fd, name='my_func', parent=0xffff0000,
+                   action='ok', classid=1, rate='10kbit',
+                   burst=10240, mtu=2040)
+        fls = self.ip.get_filters(index=self.interface, parent=0xffff0000)
+        # assert the supplied policer is returned to us intact
+        plcs = [x for x in fls
+                if x.get_attr('TCA_OPTIONS') is not None and
+                (x.get_attr('TCA_OPTIONS').get_attr('TCA_BPF_POLICE')
+                 is not None)][0]
+        options = plcs.get_attr('TCA_OPTIONS')
+        police = options.get_attr('TCA_BPF_POLICE').\
+            get_attr('TCA_POLICE_TBF')
+        assert police['rate'] == 1250
+        assert police['mtu'] == 2040
+
 
 class TestPfifo(BasicTest):
 

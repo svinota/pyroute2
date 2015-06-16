@@ -237,7 +237,7 @@ def get_bpf_parameters(kwarg):
     ret = {'attrs': []}
     attrs_map = (
         # ('action', 'TCA_BPF_ACT'),
-        ('police', 'TCA_BPF_POLICE'),
+        # ('police', 'TCA_BPF_POLICE'),
         ('classid', 'TCA_BPF_CLASSID'),
         ('fd', 'TCA_BPF_FD'),
         ('name', 'TCA_BPF_NAME'),
@@ -246,6 +246,12 @@ def get_bpf_parameters(kwarg):
     act = kwarg.get('action')
     if act:
         ret['attrs'].append(['TCA_BPF_ACT', _get_bpf_action(kwarg)])
+
+    if kwarg.get('rate'):
+        ret['attrs'].append([
+            'TCA_BPF_POLICE',
+            {'attrs': _get_filter_police_parameter(kwarg)}
+        ])
 
     for k, v in attrs_map:
         r = kwarg.get(k, None)
@@ -592,7 +598,8 @@ class nla_plus_tca_act_opt(object):
             actions = {'unspec': -1,     # TC_ACT_UNSPEC
                        'ok': 0,          # TC_ACT_OK
                        'shot': 2,        # TC_ACT_SHOT
-                       'drop': 2}        # TC_ACT_SHOT
+                       'drop': 2,        # TC_ACT_SHOT
+                       'pipe': 3}        # TC_ACT_PIPE
 
 
 class tcmsg(nlmsg, nla_plus_stats2):
@@ -763,10 +770,10 @@ class tcmsg(nlmsg, nla_plus_stats2):
                    ('TCA_FW_ACT', 'hex'),  # TODO
                    ('TCA_FW_MASK', 'uint32'))
 
-    class options_bpf(nla):
+    class options_bpf(nla, nla_plus_police):
         nla_map = (('TCA_BPF_UNSPEC', 'none'),
                    ('TCA_BPF_ACT', 'bpf_act'),
-                   ('TCA_BPF_POLICE', 'uint32'),
+                   ('TCA_BPF_POLICE', 'police'),
                    ('TCA_BPF_CLASSID', 'uint32'),
                    ('TCA_BPF_OPS_LEN', 'uint32'),
                    ('TCA_BPF_OPS', 'uint32'),
