@@ -285,12 +285,14 @@ class ifinfbase(object):
                   ('port', 'B'))
 
     class ifinfo(nla):
-        nla_map = (('IFLA_INFO_UNSPEC', 'none'),
-                   ('IFLA_INFO_KIND', 'asciiz'),
-                   ('IFLA_INFO_DATA', 'info_data'),
-                   ('IFLA_INFO_XSTATS', 'hex'),
-                   ('IFLA_INFO_SLAVE_KIND', 'asciiz'),
-                   ('IFLA_INFO_SLAVE_DATA', 'info_data'))
+        nla_map = ((0, 'IFLA_INFO_UNSPEC', 'none'),
+                   (1, 'IFLA_INFO_KIND', 'asciiz'),
+                   (2, 'IFLA_INFO_DATA', 'info_data'),
+                   (3, 'IFLA_INFO_XSTATS', 'hex'),
+                   (4, 'IFLA_INFO_SLAVE_KIND', 'asciiz'),
+                   (5, 'IFLA_INFO_SLAVE_DATA', 'info_data'),
+                   # private extensions
+                   (0x100, 'IFLA_INFO_OVS_MASTER', 'asciiz'))
 
         def info_data(self, *argv, **kwarg):
             '''
@@ -300,7 +302,6 @@ class ifinfbase(object):
             kind is not known.
             '''
             kind = self.get_attr('IFLA_INFO_KIND')
-            slave = self.get_attr('IFLA_INFO_SLAVE_KIND')
             data_map = {'vlan': self.vlan_data,
                         'vxlan': self.vxlan_data,
                         'macvlan': self.macvlan_data,
@@ -310,8 +311,7 @@ class ifinfbase(object):
                         'veth': self.veth_data,
                         'tuntap': self.tuntap_data,
                         'bridge': self.bridge_data}
-            slave_map = {'openvswitch': self.ovs_data}
-            return data_map.get(kind, slave_map.get(slave, self.hex))
+            return data_map.get(kind, self.hex)
 
         class tuntap_data(nla):
             '''
@@ -340,11 +340,6 @@ class ifinfbase(object):
 
             def info_peer(self, *argv, **kwarg):
                 return ifinfveth
-
-        class ovs_data(nla):
-            prefix = 'IFLA_'
-            nla_map = (('IFLA_OVS_UNSPEC', 'none'),
-                       ('IFLA_OVS_MASTER_IFNAME', 'asciiz'))
 
         class vxlan_data(nla):
             prefix = 'IFLA_'
@@ -651,8 +646,7 @@ def compat_fix_attrs(msg, nl):
         ret = proc.communicate()
         if ret[1]:
             logging.warning("ovs communication error: %s" % ret[1])
-        commands = [['IFLA_OVS_MASTER_IFNAME', ret[0].strip()]]
-        li['attrs'].append(['IFLA_INFO_DATA', {'attrs': commands}])
+        li['attrs'].append(['IFLA_INFO_OVS_MASTER', ret[0].strip()])
 
     if (kind in ('bridge', 'bond')) and \
             [x for x in li['attrs'] if x[0] == 'IFLA_INFO_DATA']:
@@ -714,8 +708,7 @@ def proxy_setlink(data, nl):
         try:
             ovs_master = msg.\
                 get_attr('IFLA_LINKINFO').\
-                get_attr('IFLA_INFO_DATA').\
-                get_attr('IFLA_OVS_MASTER_IFNAME')
+                get_attr('IFLA_INFO_OVS_MASTER')
         except Exception:
             ovs_master = None
         return {'ifname': msg.get_attr('IFLA_IFNAME'),

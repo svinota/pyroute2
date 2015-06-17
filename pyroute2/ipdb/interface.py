@@ -252,9 +252,9 @@ class Interface(Transactional):
                             self[norm] = nla[1]
                 # get OVS master and override IFLA_MASTER value
                 try:
-                    data = linkinfo.get_attr('IFLA_INFO_DATA')
-                    master = data.get_attr('IFLA_OVS_MASTER_IFNAME')
-                    self['master'] = self.ipdb.interfaces[master].index
+                    master = linkinfo.get_attr('IFLA_INFO_OVS_MASTER')
+                    if master:
+                        self['master'] = self.ipdb.interfaces[master].index
                 except (AttributeError, KeyError):
                     pass
             # the rest is possible only when interface

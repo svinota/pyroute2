@@ -869,23 +869,16 @@ class IPDB(object):
 
     def _lookup_master(self, msg):
         master = None
-        # lookup for IFLA_OVS_MASTER_IFNAME
+        # lookup for IFLA_INFO_OVS_MASTER
         li = msg.get_attr('IFLA_LINKINFO')
         if li:
-            data = li.get_attr('IFLA_INFO_DATA')
-            if data:
-                try:
-                    master = data.get_attr('IFLA_OVS_MASTER_IFNAME')
-                except AttributeError:
-                    # IFLA_INFO_DATA can be undecoded, in that case
-                    # it will be just a string with a hex dump
-                    pass
+            master = li.get_attr('IFLA_INFO_OVS_MASTER')
         # lookup for IFLA_MASTER
         if master is None:
             master = msg.get_attr('IFLA_MASTER')
         # pls keep in mind, that in the case of IFLA_MASTER
         # lookup is done via interface index, while in the case
-        # of IFLA_OVS_MASTER_IFNAME lookup is done via ifname
+        # of IFLA_INFO_OVS_MASTER lookup is done via ifname
         return self.interfaces.get(master, None)
 
     def update_slaves(self, msg):
