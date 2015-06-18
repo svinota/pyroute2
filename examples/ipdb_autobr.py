@@ -48,13 +48,13 @@ with IPDB() as ip:
     # wait the bridge to be created
     wd0.wait()
     # register callback
-    ip.register_callback(cb)
+    cuid = ip.register_callback(cb)
     # create ports
     ip.create(kind='dummy', ifname=p0).commit()
     # sleep for interfaces
     wd1.wait()
 
-    ip.unregister_callback(cb)
+    ip.unregister_callback(cuid)
 
     # cleanup
     for i in (p0, br0):

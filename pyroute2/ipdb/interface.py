@@ -136,8 +136,7 @@ class Interface(Transactional):
                 except Exception:
                     pass
 
-        self._freeze = cb
-        self.ipdb.register_callback(self._freeze)
+        self._freeze = self.ipdb.register_callback(cb)
         return self
 
     def unfreeze(self):

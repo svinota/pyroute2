@@ -458,6 +458,43 @@ class TestExplicit(object):
         assert ('172.16.0.2', 24) in self.ip.interfaces[ifA].ipaddr
         assert self.ip.interfaces[ifA].flags & 1
 
+    def test_freeze_del(self):
+        require_user('root')
+
+        interface = self.ip.interfaces[self.ifd]
+
+        # set up the interface
+        with interface as i:
+            i.add_ip('172.16.0.1/24')
+            i.add_ip('172.16.1.1/24')
+            i.up()
+
+        # check
+        assert ('172.16.0.1', 24) in interface.ipaddr
+        assert ('172.16.1.1', 24) in interface.ipaddr
+        assert interface.flags & 1
+
+        interface.freeze()
+
+        # delete interface with an external routine
+        remove_link(interface.ifname)
+
+        # wait for a second
+        time.sleep(1)
+
+        # check if it is back
+        ipdb = IPDB()
+        try:
+            ifc = ipdb.interfaces[self.ifd]
+            assert ('172.16.0.1', 24) in ifc.ipaddr
+            assert ('172.16.1.1', 24) in ifc.ipaddr
+            assert ifc.flags & 1
+        except:
+            raise
+        finally:
+            interface.unfreeze()
+            ipdb.release()
+
     def test_freeze(self):
         require_user('root')
 
@@ -1199,13 +1236,13 @@ class TestImplicit(TestExplicit):
                 msg['flags'] = 1234
         ifA = self.get_ifname()
         # register callback
-        self.ip.register_callback(cb, mode='pre')
+        cuid = self.ip.register_callback(cb, mode='pre')
         # create an interface bala
         self.ip.create(kind='dummy', ifname=ifA).commit()
         # assert flags
         assert self.ip.interfaces[ifA].flags == 1234
         # cleanup
-        self.ip.unregister_callback(cb, mode='pre')
+        self.ip.unregister_callback(cuid, mode='pre')
         self.ip.interfaces[ifA].remove()
         self.ip.interfaces[ifA].commit()
 
@@ -1221,32 +1258,35 @@ class TestImplicit(TestExplicit):
             if action == 'RTM_NEWLINK' and \
                     msg.get_attr('IFLA_IFNAME', '') in (ifP1, ifP2):
                 obj = ipdb.interfaces[msg['index']]
-                ipdb.interfaces[ifM].add_port(obj)
+                if obj not in ipdb.interfaces[ifM]:
+                    ipdb.interfaces[ifM].add_port(obj)
                 try:
                     ipdb.interfaces[ifM].commit()
                 except Exception:
                     pass
 
         wd0 = self.ip.watchdog(ifname=ifM)
-        wd1 = self.ip.watchdog(ifname=ifP1)
-        wd2 = self.ip.watchdog(ifname=ifP2)
         # create bridge
-        self.ip.create(kind='bridge', ifname=ifM).commit()
+        m = self.ip.create(kind='bridge', ifname=ifM).commit()
         wd0.wait()
         # register callback
-        self.ip.register_callback(cb)
+        cuid = self.ip.register_callback(cb)
         # create ports
+        wd1 = self.ip.watchdog(ifname=ifP1, master=m.index)
+        wd2 = self.ip.watchdog(ifname=ifP2, master=m.index)
         self.ip.create(kind='dummy', ifname=ifP1).commit()
         self.ip.create(kind='dummy', ifname=ifP2).commit()
         wd1.wait()
         wd2.wait()
+        # FIXME: wait some time for DB to stabilize
+        time.sleep(0.5)
         # check that ports are attached
         assert self.ip.interfaces[ifP1].index in \
             self.ip.interfaces[ifM].ports
         assert self.ip.interfaces[ifP2].index in \
             self.ip.interfaces[ifM].ports
         # unregister callback
-        self.ip.unregister_callback(cb)
+        self.ip.unregister_callback(cuid)
 
 
 class TestDirect(object):

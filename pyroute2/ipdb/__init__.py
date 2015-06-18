@@ -296,6 +296,7 @@ classes
 -------
 '''
 import sys
+import uuid
 import atexit
 import logging
 import traceback
@@ -361,7 +362,7 @@ class Watchdog(object):
             self.event.set()
         self.cb = cb
         # register callback prior to other things
-        self.ipdb.register_callback(self.cb)
+        self.uuid = self.ipdb.register_callback(self.cb)
 
     def wait(self, timeout=SYNC_TIMEOUT):
         ret = self.event.wait(timeout=timeout)
@@ -369,7 +370,7 @@ class Watchdog(object):
         return ret
 
     def cancel(self):
-        self.ipdb.unregister_callback(self.cb)
+        self.ipdb.unregister_callback(self.uuid)
 
 
 class IPDB(object):
@@ -394,9 +395,9 @@ class IPDB(object):
         self.iclass = Interface
         self._stop = False
         # see also 'register_callback'
-        self._post_callbacks = []
-        self._pre_callbacks = []
-        self._cb_threads = set()
+        self._post_callbacks = {}
+        self._pre_callbacks = {}
+        self._cb_threads = {}
 
         # locks and events
         self._links_event = threading.Event()
@@ -520,26 +521,28 @@ class IPDB(object):
 
         safe.hook = callback
         safe.lock = lock
+        safe.uuid = uuid.uuid4()
 
         if mode == 'post':
-            self._post_callbacks.append(safe)
+            self._post_callbacks[safe.uuid] = safe
         elif mode == 'pre':
-            self._pre_callbacks.append(safe)
+            self._pre_callbacks[safe.uuid] = safe
+        return safe.uuid
 
-    def unregister_callback(self, callback, mode='post'):
+    def unregister_callback(self, cuid, mode='post'):
         if mode == 'post':
             cbchain = self._post_callbacks
         elif mode == 'pre':
             cbchain = self._pre_callbacks
         else:
             raise KeyError('Unknown callback mode')
-        for cb in tuple(cbchain):
-            if callback == cb.hook:
-                with cb.lock:
-                    ret = cbchain.pop(cbchain.index(cb))
-                for t in tuple(self._cb_threads):
-                    t.join(3)
-                return ret
+        safe = cbchain[cuid]
+        with safe.lock:
+            cbchain.pop(cuid)
+        for t in tuple(self._cb_threads.get(cuid, ())):
+            t.join(3)
+        ret = self._cb_threads.get(cuid, ())
+        return ret
 
     def release(self):
         '''
@@ -559,8 +562,9 @@ class IPDB(object):
 
             self._stop = True
             # collect all the callbacks
-            for t in tuple(self._cb_threads):
-                t.join()
+            for cuid in tuple(self._cb_threads):
+                for t in tuple(self._cb_threads[cuid]):
+                    t.join()
             # terminate the main loop
             try:
                 self.nl.put({'index': 1}, RTM_GETLINK)
@@ -788,6 +792,10 @@ class IPDB(object):
                     target.drop(tx)
 
     def device_del(self, msg):
+        # check for freezed devices
+        if getattr(self.interfaces.get(msg['index'], None), '_freeze', None):
+            self.interfaces[msg['index']].set_item('ipdb_scope', 'shadow')
+            return
         # check for locked devices
         if self.interfaces.get(msg['index'], {}).get('ipdb_scope') \
                 in ('locked', 'shadow'):
@@ -977,7 +985,7 @@ class IPDB(object):
             for msg in messages:
                 # Run pre-callbacks
                 # NOTE: pre-callbacks are synchronous
-                for cb in self._pre_callbacks:
+                for (cuid, cb) in tuple(self._pre_callbacks.items()):
                     try:
                         cb(self, msg, msg['event'])
                     except:
@@ -1004,15 +1012,23 @@ class IPDB(object):
 
                 # run post-callbacks
                 # NOTE: post-callbacks are asynchronous
-                for cb in self._post_callbacks:
+                for (cuid, cb) in tuple(self._post_callbacks.items()):
                     t = threading.Thread(name="callback %s" % (id(cb)),
                                          target=cb,
                                          args=(self, msg, msg['event']))
                     t.start()
-                    self._cb_threads.add(t)
+                    if cuid not in self._cb_threads:
+                        self._cb_threads[cuid] = set()
+                    self._cb_threads[cuid].add(t)
 
                 # occasionally join cb threads
-                for t in tuple(self._cb_threads):
-                    t.join(0)
-                    if not t.is_alive():
-                        self._cb_threads.remove(t)
+                for cuid in tuple(self._cb_threads):
+                    for t in tuple(self._cb_threads.get(cuid, ())):
+                        t.join(0)
+                        if not t.is_alive():
+                            try:
+                                self._cb_threads[cuid].remove(t)
+                            except KeyError:
+                                pass
+                            if len(self._cb_threads.get(cuid, ())) == 0:
+                                del self._cb_threads[cuid]
