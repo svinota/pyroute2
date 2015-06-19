@@ -282,9 +282,7 @@ class NetlinkMixin(object):
                                       'on Python < 3.2')
 
         # 8<-----------------------------------------
-        # PID init is here only for compatibility,
-        # later it will be completely moved to bind()
-        self.addr_pool = AddrPool(minaddr=0xff)
+        self.addr_pool = AddrPool(minaddr=0x000000ff, maxaddr=0x0000ffff)
         self.epid = None
         self.port = 0
         self.fixed = True
@@ -722,7 +720,9 @@ class NetlinkMixin(object):
                             # 8<-----------------------------------------------
                             self.backlog[seq].append(msg)
                             # Monitor mode:
-                            if self.monitor and seq != 0:
+                            if self.monitor and \
+                                    seq > self.addr_pool.minaddr and \
+                                    seq < self.addr_pool.maxaddr:
                                 self.backlog[0].append(msg)
                         # We finished with the backlog, so release the lock
                         self.backlog_lock.release()

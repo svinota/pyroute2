@@ -1,4 +1,6 @@
 
+from pyroute2.common import Namespace
+from pyroute2.common import AddrPool
 from pyroute2.proxy import NetlinkProxy
 from pyroute2.netlink import NETLINK_ROUTE
 from pyroute2.netlink.nlsocket import Marshal
@@ -61,11 +63,15 @@ class IPRSocketMixin(object):
         super(IPRSocketMixin, self).__init__(NETLINK_ROUTE, fileno=fileno)
         self.marshal = MarshalRtnl()
         self._s_channel = None
-        self._sproxy = NetlinkProxy(policy='return', nl=self)
+        send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000, 0x1ffff),
+                                   'monitor': False})
+        recv_ns = Namespace(self, {'addr_pool': AddrPool(0x20000, 0x2ffff),
+                                   'monitor': False})
+        self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
         self._sproxy.pmap = {rtnl.RTM_NEWLINK: proxy_newlink,
                              rtnl.RTM_SETLINK: proxy_setlink,
                              rtnl.RTM_DELLINK: proxy_dellink}
-        self._rproxy = NetlinkProxy(policy='forward', nl=self)
+        self._rproxy = NetlinkProxy(policy='forward', nl=recv_ns)
         self._rproxy.pmap = {rtnl.RTM_NEWLINK: proxy_linkinfo}
 
     def bind(self, groups=rtnl.RTNL_GROUPS, async=False):

@@ -118,6 +118,39 @@ class View(object):
         return repr(dict(self._filter()))
 
 
+class Namespace(object):
+
+    def __init__(self, parent, override=None):
+        self.parent = parent
+        self.override = override or {}
+
+    def __getattr__(self, key):
+        if key in ('parent', 'override'):
+            return object.__getattr__(self, key)
+        elif key in self.override:
+            return self.override[key]
+        else:
+            ret = getattr(self.parent, key)
+            # ACHTUNG
+            #
+            # if the attribute we got with `getattr`
+            # is a method, rebind it to the Namespace
+            # object, so all subsequent getattrs will
+            # go through the Namespace also.
+            #
+            if isinstance(ret, types.MethodType):
+                ret = type(ret)(ret.__func__, self)
+            return ret
+
+    def __setattr__(self, key, value):
+        if key in ('parent', 'override'):
+            object.__setattr__(self, key, value)
+        elif key in self.override:
+            self.override[key] = value
+        else:
+            setattr(self.parent, key, value)
+
+
 class Dotkeys(dict):
     '''
     This is a sick-minded hack of dict, intended to be an eye-candy.
