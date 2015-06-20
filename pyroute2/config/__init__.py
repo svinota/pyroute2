@@ -7,6 +7,7 @@ SocketBase = socket.socket
 MpPipe = multiprocessing.Pipe
 MpQueue = multiprocessing.Queue
 MpProcess = multiprocessing.Process
+ipdb_nl_async = True
 
 commit_barrier = 0
 

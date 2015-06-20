@@ -304,6 +304,7 @@ import threading
 
 from socket import AF_INET
 from socket import AF_INET6
+from pyroute2 import config
 from pyroute2.common import Dotkeys
 from pyroute2.common import View
 from pyroute2.common import basestring
@@ -381,7 +382,7 @@ class IPDB(object):
     '''
 
     def __init__(self, nl=None, mode='implicit',
-                 restart_on_error=None):
+                 restart_on_error=None, nl_async=None):
         '''
         Parameters:
             - nl -- IPRoute() reference
@@ -393,6 +394,7 @@ class IPDB(object):
         '''
         self.mode = mode
         self.iclass = Interface
+        self._nl_async = config.ipdb_nl_async if nl_async is None else True
         self._stop = False
         # see also 'register_callback'
         self._post_callbacks = {}
@@ -430,7 +432,7 @@ class IPDB(object):
         '''
         self.nl = nl or IPRoute()
         self.nl.monitor = True
-        self.nl.bind(async=True)
+        self.nl.bind(async=self._nl_async)
 
         # resolvers
         self.interfaces = Dotkeys()
