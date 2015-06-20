@@ -119,7 +119,7 @@ test:
 		export COVERAGE=${coverage}; \
 		export MODULE=${module}; \
 		cd tests; \
-		./run.sh general lnst
+		./run.sh general eventlet lnst
 
 upload: clean force-version
 	${python} setup.py primary sdist upload
