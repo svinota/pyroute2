@@ -22,6 +22,7 @@ from utils import require_user
 from utils import require_8021q
 from utils import get_ip_addr
 from utils import skip_if_not_supported
+from nose.plugins.skip import SkipTest
 
 
 class _TestException(Exception):
@@ -390,6 +391,30 @@ class TestExplicit(object):
         self.ip.interfaces[self.ifd].down()
         self.ip.interfaces[self.ifd].commit()
         assert not (self.ip.interfaces[self.ifd].flags & 1)
+
+    def test_slave_data(self):
+        require_user('root')
+
+        ifBR = self.get_ifname()
+        ifP = self.get_ifname()
+
+        bridge = self.ip.create(ifname=ifBR, kind='bridge').commit()
+        port = self.ip.create(ifname=ifP, kind='dummy').commit()
+
+        if self.ip.mode == 'explicit':
+            bridge.begin()
+        bridge.add_port(port)
+        bridge.up()
+        bridge.commit()
+
+        li = port.nlmsg.get_attr('IFLA_LINKINFO')
+        skind = li.get_attr('IFLA_INFO_SLAVE_KIND')
+        sdata = li.get_attr('IFLA_INFO_SLAVE_DATA')
+        if skind is None or sdata is None:
+            raise SkipTest('slave data not provided')
+
+        assert sdata.get_attr('IFLA_BRPORT_STATE') is not None
+        assert sdata.get_attr('IFLA_BRPORT_MODE') is not None
 
     def test_fail_ipaddr(self):
         require_user('root')

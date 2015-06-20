@@ -290,9 +290,42 @@ class ifinfbase(object):
                    (2, 'IFLA_INFO_DATA', 'info_data'),
                    (3, 'IFLA_INFO_XSTATS', 'hex'),
                    (4, 'IFLA_INFO_SLAVE_KIND', 'asciiz'),
-                   (5, 'IFLA_INFO_SLAVE_DATA', 'info_data'),
+                   (5, 'IFLA_INFO_SLAVE_DATA', 'info_slave_data'),
                    # private extensions
                    (0x100, 'IFLA_INFO_OVS_MASTER', 'asciiz'))
+
+        def info_slave_data(self, *argv, **kwarg):
+            '''
+            Return IFLA_INFO_SLAVE_DATA type based on
+            IFLA_INFO_SLAVE_KIND.
+            '''
+            kind = self.get_attr('IFLA_INFO_SLAVE_KIND')
+            data_map = {'bridge': self.bridge_slave_data,
+                        'bond': self.bond_slave_data}
+            return data_map.get(kind, self.hex)
+
+        class bridge_slave_data(nla):
+            nla_map = (('IFLA_BRPORT_UNSPEC', 'none'),
+                       ('IFLA_BRPORT_STATE', 'uint8'),
+                       ('IFLA_BRPORT_PRIORITY', 'uint16'),
+                       ('IFLA_BRPORT_COST', 'uint32'),
+                       ('IFLA_BRPORT_MODE', 'uint8'),
+                       ('IFLA_BRPORT_GUARD', 'uint8'),
+                       ('IFLA_BRPORT_PROTECT', 'uint8'),
+                       ('IFLA_BRPORT_FAST_LEAVE', 'uint8'),
+                       ('IFLA_BRPORT_LEARNING', 'uint8'),
+                       ('IFLA_BRPORT_UNICAST_FLOOD', 'uint8'),
+                       ('IFLA_BRPORT_PROXYARP', 'uint8'),
+                       ('IFLA_BRPORT_LEARNING_SYNC', 'hex'))
+
+        class bond_slave_data(nla):
+            nla_map = (('IFLA_BOND_SLAVE_UNSPEC', 'none'),
+                       ('IFLA_BOND_SLAVE_STATE', 'uint8'),
+                       ('IFLA_BOND_SLAVE_MII_STATUS', 'uint8'),
+                       ('IFLA_BOND_SLAVE_LINK_FAILURE_COUNT', 'uint32'),
+                       ('IFLA_BOND_SLAVE_PERM_HWADDR', 'l2addr'),
+                       ('IFLA_BOND_SLAVE_QUEUE_ID', 'uint16'),
+                       ('IFLA_BOND_SLAVE_AD_AGGREGATOR_ID', 'uint16'))
 
         def info_data(self, *argv, **kwarg):
             '''
