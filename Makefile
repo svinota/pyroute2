@@ -60,31 +60,6 @@ ifdef lib
 	override lib := "--install-lib=${lib}"
 endif
 
-ifdef coverage
-	override coverage := "--cover-html"
-endif
-
-ifdef pdb
-	override pdb := --pdb --pdb-failures
-endif
-
-ifdef wlevel
-	override wlevel := -W ${wlevel}
-endif
-
-ifdef skip_tests
-	override skip_tests := --exclude="${skip_tests}"
-endif
-
-# get the python version
-pversion := $(shell ${python} -c 'import sys; print(sys.version_info[0])')
-ifeq (${pversion}, 2)
-	pep8exc := --exclude=docs,../pyroute2/netns/process/base_p3.py
-else
-	pep8exc := --exclude=docs,../pyroute2/netns/process/base_p2.py
-endif
-
-
 all:
 	@echo targets: dist, install
 
@@ -135,34 +110,16 @@ epydoc: docs
 		pyroute2/
 
 test:
-	@export PYTHONPATH="`pwd`:`pwd`/examples"; cd tests; \
-		[ -z "$$VIRTUAL_ENV" ] || \
-			. $$VIRTUAL_ENV/bin/activate ; \
-		[ -z "$$VIRTUAL_ENV" ] || \
-			echo "Running in Virtualenv" ; \
-		[ "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && { \
-			echo "Running as root" ; \
-			ulimit -n 4096 ; \
-			modprobe dummy 2>/dev/null ||: ; \
-			modprobe bonding 2>/dev/null ||: ; \
-			modprobe 8021q 2>/dev/null ||: ; \
-		} ; \
-		echo "8<----------------------------------" ; \
-		echo "python: `which ${python}` [`${python} --version 2>&1`]" ; \
-		echo "flake8: `which flake8` [`flake8 --version 2>&1`]" ; \
-		echo "nosetests: `which ${nosetests}` [`${nosetests} --version 2>&1`]" ; \
-		echo "pversion: ${pversion}" ;\
-		echo "pep8 exclude list: ${pep8exc}" ;\
-		echo "8<----------------------------------" ; \
-		${python} `which ${flake8}` ${pep8exc} .. && echo "flake8 ... ok" || exit 250; \
-		[ -z "$$TRAVIS" ] && { \
-			${python} ${wlevel} `which ${nosetests}` -v ${pdb} \
-			--with-coverage \
-			--cover-package=pyroute2 \
-			${skip_tests} \
-			${coverage} ${module} || exit 251; \
-		} ; \
-		cd .. ;
+	@export PYTHON=${python}; \
+		export NOSE=${nosetests}; \
+		export FLAKE8=${flake8}; \
+		export WLEVEL=${wlevel}; \
+		export SKIP_TESTS=${skip_tests}; \
+		export PDB=${pdb}; \
+		export COVERAGE=${coverage}; \
+		export MODULE=${module}; \
+		cd tests; \
+		./run.sh general lnst
 
 upload: clean force-version
 	${python} setup.py primary sdist upload
