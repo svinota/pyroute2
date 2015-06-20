@@ -42,7 +42,7 @@ echo "pversion: $PVERSION"
 echo "pep8 exclude list: $PEP8EXC"
 
 $PYTHON `which $FLAKE8` $PEP8EXC .. && echo "flake8 ... ok" || exit 254
-[ -z "$TRAVIS" ] || exit 253
+[ -z "$TRAVIS" ] || exit 0
 
 function get_module() {
     module=$1
