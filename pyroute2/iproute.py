@@ -823,17 +823,26 @@ class IPRouteMixin(object):
                   target=0x10020,
                   keys=["0x5/0xf+0", "0x10/0xff+33"])
         '''
+        flags_base = NLM_F_REQUEST | NLM_F_ACK
+        flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
+        flags_change = flags_base | NLM_F_REPLACE
+        flags_replace = flags_change | NLM_F_CREATE
 
-        commands = {'add': RTM_NEWQDISC,
-                    'del': RTM_DELQDISC,
-                    'remove': RTM_DELQDISC,
-                    'delete': RTM_DELQDISC,
-                    'add-class': RTM_NEWTCLASS,
-                    'del-class': RTM_DELTCLASS,
-                    'add-filter': RTM_NEWTFILTER,
-                    'del-filter': RTM_DELTFILTER}
-        command = commands.get(command, command)
-        flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        commands = {'add': (RTM_NEWQDISC, flags_make),
+                    'del': (RTM_DELQDISC, flags_make),
+                    'remove': (RTM_DELQDISC, flags_make),
+                    'delete': (RTM_DELQDISC, flags_make),
+                    'add-class': (RTM_NEWTCLASS, flags_make),
+                    'del-class': (RTM_DELTCLASS, flags_make),
+                    'change-class': (RTM_NEWTCLASS, flags_change),
+                    'replace-class': (RTM_NEWTCLASS, flags_replace),
+                    'add-filter': (RTM_NEWTFILTER, flags_make),
+                    'del-filter': (RTM_DELTFILTER, flags_make),
+                    'change-class': (RTM_NEWTFILTER, flags_change),
+                    'replace-filter': (RTM_NEWTFILTER, flags_replace)}
+        if isinstance(command, int):
+            command = (command, flags_make)
+        command, flags = commands.get(command, command)
         msg = tcmsg()
         # transform handle, parent and target, if needed:
         handle = transform_handle(handle)
