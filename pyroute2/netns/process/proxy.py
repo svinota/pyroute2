@@ -8,7 +8,7 @@ namespace support.
 
 '''
 
-
+import sys
 import types
 import atexit
 import threading
@@ -46,10 +46,20 @@ def NSPopenServer(nsname, flags, channel_in, channel_out, argv, kwarg):
     while True:
         # synchronous mode
         # 1. get the command from the API
-        call = channel_in.get()
+        try:
+            call = channel_in.get()
+        except:
+            (et, ev, tb) = sys.exc_info()
+            try:
+                channel_out.put({'code': 500, 'data': ev})
+            except:
+                pass
+            break
+
         # 2. stop?
         if call['name'] == 'release':
             break
+
         # 3. run the call
         try:
             attr = getattr(child, call['name'])
@@ -58,8 +68,9 @@ def NSPopenServer(nsname, flags, channel_in, channel_out, argv, kwarg):
             else:
                 result = attr
             channel_out.put({'code': 200, 'data': result})
-        except Exception as e:
-            channel_out.put({'code': 500, 'data': e})
+        except:
+            (et, ev, tb) = sys.exc_info()
+            channel_out.put({'code': 500, 'data': ev})
     child.wait()
 
 
