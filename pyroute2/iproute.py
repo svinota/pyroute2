@@ -487,6 +487,31 @@ class IPRouteMixin(object):
                                         msg_type=RTM_DELROUTE,
                                         msg_flags=flags))
         return ret
+
+    def flush_addr(self, *argv, **kwarg):
+        '''
+        Flush addresses.
+
+        Examples::
+
+            # flush all addresses on the interface with index 2:
+            ipr.flush_addr(index=2)
+
+            # flush all addresses with IFA_LABEL='eth0':
+            ipr.flush_addr(label='eth0')
+        '''
+        flags = NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST
+        ret = []
+        for addr in self.get_addr(*argv, **kwarg):
+            try:
+                ret.append(self.nlm_request(addr,
+                                            msg_type=RTM_DELADDR,
+                                            msg_flags=flags))
+            except NetlinkError as e:
+                if e.code != errno.EADDRNOTAVAIL:
+                    raise
+        return ret
+
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------

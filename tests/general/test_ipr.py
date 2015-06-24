@@ -159,6 +159,18 @@ class TestIPRoute(object):
         self.ip.addr('add', self.ifaces[0], address='172.16.0.1', mask=24)
         assert '172.16.0.1/24' in get_ip_addr()
 
+    def test_flush_addr(self):
+        require_user('root')
+        self.ip.addr('add', self.ifaces[0], address='172.16.0.1', mask=24)
+        self.ip.addr('add', self.ifaces[0], address='172.16.0.2', mask=24)
+        self.ip.addr('add', self.ifaces[0], address='172.16.1.1', mask=24)
+        self.ip.addr('add', self.ifaces[0], address='172.16.1.2', mask=24)
+        assert len(self.ip.get_addr(index=self.ifaces[0],
+                                    family=socket.AF_INET)) == 4
+        self.ip.flush_addr(index=self.ifaces[0])
+        assert len(self.ip.get_addr(index=self.ifaces[0],
+                                    family=socket.AF_INET)) == 0
+
     def test_addr_filter(self):
         require_user('root')
         self.ip.addr('add',
