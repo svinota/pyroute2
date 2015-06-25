@@ -41,7 +41,7 @@ class TestRule(object):
     def test_bad_table(self):
         try:
             self.ip.rule('add', -1, 32000)
-        except ValueError:
+        except Exception:
             pass
 
     def test_big_table(self):
