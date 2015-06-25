@@ -344,13 +344,24 @@ class TestIPRoute(object):
             pass
         assert len(self.ip.link_lookup(ifname=self.dev)) == 0
 
-    def test_get_route(self):
+    def test_route_get_target(self):
         if not self.ip.get_default_routes(table=254):
             return
         rts = self.ip.get_routes(family=socket.AF_INET,
                                  dst='8.8.8.8',
                                  table=254)
         assert len(rts) > 0
+
+    def test_route_get_by_spec(self):
+        self.ip.link('set', index=self.ifaces[0], state='up')
+        self.ip.addr('add', index=self.ifaces[0],
+                     address='172.16.60.1', mask=24)
+        self.ip.addr('add', index=self.ifaces[0],
+                     address='172.16.61.1', mask=24)
+        rts = self.ip.get_routes(family=socket.AF_INET,
+                                 dst=lambda x: x in ('172.16.60.0',
+                                                     '172.16.61.0'))
+        assert len(rts) == 4
 
     def test_route_change_existing(self):
         # route('replace', ...) should succeed, if route exists

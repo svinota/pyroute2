@@ -355,7 +355,7 @@ class IPRouteMixin(object):
                          family=family,
                          match=match or kwarg)
 
-    def get_routes(self, family=AF_INET, **kwarg):
+    def get_routes(self, family=AF_UNSPEC, match=None, **kwarg):
         '''
         Get all routes. You can specify the table. There
         are 255 routing classes (tables), and the kernel
@@ -370,34 +370,18 @@ class IPRouteMixin(object):
         '''
 
         msg_flags = NLM_F_DUMP | NLM_F_REQUEST
-        msg = rtmsg()
-        # you can specify the table here, but the kernel
-        # will ignore this setting
-        table = kwarg.get('table', DEFAULT_TABLE)
-        msg['table'] = table if table <= 255 else 252
+        nkw = {}
 
-        # explicitly look for IPv6
-        if any([kwarg.get(x, '').find(':') >= 0 for x
-                in ('dst', 'src', 'gateway', 'prefsrc')]):
-            family = AF_INET6
-        msg['family'] = family
-
-        # get a particular route
-        if kwarg.get('dst', None) is not None:
+        # get a particular route?
+        if isinstance(kwarg.get('dst'), basestring):
             dlen = 32 if family == AF_INET else \
                 128 if family == AF_INET6 else 0
             msg_flags = NLM_F_REQUEST
-            msg['dst_len'] = kwarg.get('dst_len', dlen)
+            nkw['dst'] = kwarg.pop('dst')
+            nkw['dst_len'] = kwarg.pop('dst_len', dlen)
 
-        for key in kwarg:
-            nla = rtmsg.name2nla(key)
-            if kwarg[key] is not None:
-                msg['attrs'].append([nla, kwarg[key]])
-
-        routes = self.nlm_request(msg, RTM_GETROUTE, msg_flags)
-        return [x for x in routes
-                if x.get_attr('RTA_TABLE') == table or
-                kwarg.get('table', None) is None]
+        return self.rule((RTM_GETROUTE, msg_flags),
+                         family=family, match=match or kwarg, **nkw)
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
@@ -957,21 +941,16 @@ class IPRouteMixin(object):
             msg['attrs'].append(['TCA_OPTIONS', opts])
         return self.nlm_request(msg, msg_type=command, msg_flags=flags)
 
-    def route(self, command,
-              rtype='RTN_UNICAST',
-              rtproto='RTPROT_STATIC',
-              rtscope='RT_SCOPE_UNIVERSE',
-              **kwarg):
+    def route(self, command, **kwarg):
         '''
-        Route operations
+        Route operations.
 
         * command -- add, delete, change, replace
-        * prefix -- route prefix
-        * mask -- route prefix mask
         * rtype -- route type (default: "RTN_UNICAST")
         * rtproto -- routing protocol (default: "RTPROT_STATIC")
         * rtscope -- routing scope (default: "RT_SCOPE_UNIVERSE")
         * family -- socket.AF_INET (default) or socket.AF_INET6
+        * mask -- route prefix mask
 
         `pyroute2/netlink/rtnl/rtmsg.py` rtmsg.nla_map:
 
@@ -1016,12 +995,11 @@ class IPRouteMixin(object):
         # also for nla_attr:
         table = kwarg.get('table', 254)
         msg['table'] = table if table <= 255 else 252
-        msg['family'] = kwarg.get('family', AF_INET)
-        msg['proto'] = rtprotos[rtproto]
-        msg['type'] = rtypes[rtype]
-        msg['scope'] = rtscopes[rtscope]
-        msg['dst_len'] = kwarg.get('dst_len', None) or \
-            kwarg.get('mask', 0)
+        msg['family'] = kwarg.pop('family', AF_INET)
+        msg['proto'] = rtprotos[kwarg.pop('rtproto', 'RTPROT_STATIC')]
+        msg['type'] = rtypes[kwarg.pop('rtype', 'RTN_UNICAST')]
+        msg['scope'] = rtscopes[kwarg.pop('rtscope', 'RT_SCOPE_UNIVERSE')]
+        msg['dst_len'] = kwarg.pop('dst_len', None) or kwarg.pop('mask', 0)
         msg['attrs'] = []
         # FIXME
         # deprecated "prefix" support:
@@ -1034,8 +1012,11 @@ class IPRouteMixin(object):
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
-        return self.nlm_request(msg, msg_type=command,
-                                msg_flags=flags)
+        ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
+        if 'match' in kwarg:
+            return self._match(kwarg['match'], ret)
+        else:
+            return ret
 
     def rule(self, command, *argv, **kwarg):
         '''
