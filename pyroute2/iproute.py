@@ -341,19 +341,19 @@ class IPRouteMixin(object):
                          family=family,
                          match=match or kwarg)
 
-    def get_rules(self, family=AF_UNSPEC):
+    def get_rules(self, family=AF_UNSPEC, match=None, **kwarg):
         '''
-        Get all rules.
-        You can specify inet family, by default return rules for all families.
+        Get all rules. By default return all rules. To explicitly
+        request the IPv4 rules use `family=AF_INET`.
 
         Example::
             ip.get_rules() # get all the rules for all families
-            ip.get_routes(family=AF_INET6)  # get only IPv6 rules
+            ip.get_rules(family=AF_INET6)  # get only IPv6 rules
         '''
-        msg = fibmsg()
-        msg['family'] = family
-        msg_flags = NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC
-        return self.nlm_request(msg, RTM_GETRULE, msg_flags)
+        return self.rule((RTM_GETRULE,
+                          NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC),
+                         family=family,
+                         match=match or kwarg)
 
     def get_routes(self, family=AF_INET, **kwarg):
         '''
@@ -1016,11 +1016,7 @@ class IPRouteMixin(object):
         return self.nlm_request(msg, msg_type=command,
                                 msg_flags=flags)
 
-    def rule(self, command, table, priority=32000,
-             action='FR_ACT_NOP', family=AF_INET,
-             src=None, src_len=None,
-             dst=None, dst_len=None,
-             fwmark=None, iifname=None, oifname=None):
+    def rule(self, command, *argv, **kwarg):
         '''
         Rule operations
 
@@ -1044,7 +1040,7 @@ class IPRouteMixin(object):
                 routing's rule
 
         Example::
-            ip.rule('add', 10, 32000)
+            ip.rule('add', table=10, priority=32000)
 
         Will create::
             #ip ru sh
@@ -1053,7 +1049,10 @@ class IPRouteMixin(object):
             ....
 
         Example::
-            iproute.rule('add', 11, 32001, 'FR_ACT_UNREACHABLE')
+            iproute.rule('add',
+                         table=11,
+                         priority=32001,
+                         action='FR_ACT_UNREACHABLE')
 
         Will create::
             #ip ru sh
@@ -1062,7 +1061,10 @@ class IPRouteMixin(object):
             ....
 
         Example::
-            iproute.rule('add', 14, 32004, src='10.64.75.141')
+            iproute.rule('add',
+                         table=14,
+                         priority=32004,
+                         src='10.64.75.141')
 
         Will create::
             #ip ru sh
@@ -1071,7 +1073,11 @@ class IPRouteMixin(object):
             ...
 
         Example::
-            iproute.rule('add', 15, 32005, dst='10.64.75.141', dst_len=24)
+            iproute.rule('add',
+                         table=15,
+                         priority=32005,
+                         dst='10.64.75.141',
+                         dst_len=24)
 
         Will create::
             #ip ru sh
@@ -1080,7 +1086,11 @@ class IPRouteMixin(object):
             ...
 
         Example::
-            iproute.rule('add', 15, 32006, dst='10.64.75.141', fwmark=10)
+            iproute.rule('add',
+                         table=15,
+                         priority=32006,
+                         dst='10.64.75.141',
+                         fwmark=10)
 
         Will create::
             #ip ru sh
@@ -1088,48 +1098,61 @@ class IPRouteMixin(object):
             32006: from 10.64.75.141 fwmark 0xa lookup 15
             ...
         '''
-        if table < 0:
-            raise ValueError('unsupported table number')
+        flags_base = NLM_F_REQUEST | NLM_F_ACK
+        flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
+        flags_change = flags_base | NLM_F_REPLACE
+        flags_replace = flags_change | NLM_F_CREATE
 
-        commands = {'add': RTM_NEWRULE,
-                    'del': RTM_DELRULE,
-                    'remove': RTM_DELRULE,
-                    'delete': RTM_DELRULE}
-        command = commands.get(command, command)
+        commands = {'add': (RTM_NEWRULE, flags_make),
+                    'del': (RTM_DELRULE, flags_make),
+                    'remove': (RTM_DELRULE, flags_make),
+                    'delete': (RTM_DELRULE, flags_make),
+                    'change': (RTM_NEWRULE, flags_change),
+                    'replace': (RTM_NEWRULE, flags_replace)}
+        if isinstance(command, int):
+            command = (command, flags_make)
+        command, flags = commands.get(command, command)
 
-        msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        if argv:
+            # this code block will be removed in some release
+            logging.warning('rule(): positional parameters are deprecated')
+            names = ['table', 'priority', 'action', 'family',
+                     'src', 'src_len', 'dst', 'dst_len', 'fwmark',
+                     'iifname', 'oifname']
+            kwarg.update(dict(zip(names, argv)))
         msg = fibmsg()
+        table = kwarg.get('table', 254)
         msg['table'] = table if table <= 255 else 252
-        msg['family'] = family
-        msg['action'] = FR_ACT_NAMES[action]
+        msg['family'] = family = kwarg.get('family', AF_INET)
+        msg['action'] = FR_ACT_NAMES[kwarg.get('action', 'FR_ACT_NOP')]
         msg['attrs'] = [['FRA_TABLE', table]]
-        msg['attrs'].append(['FRA_PRIORITY', priority])
-        if fwmark is not None:
-            msg['attrs'].append(['FRA_FWMARK', fwmark])
-        addr_len = {AF_INET6: 128, AF_INET:  32}[family]
-        if(dst_len is not None and dst_len >= 0 and dst_len <= addr_len):
-            msg['dst_len'] = dst_len
-        else:
-            msg['dst_len'] = 0
-        if(src_len is not None and src_len >= 0 and src_len <= addr_len):
-            msg['src_len'] = src_len
-        else:
-            msg['src_len'] = 0
-        if src is not None:
-            msg['attrs'].append(['FRA_SRC', src])
-            if src_len is None:
+        msg['attrs'].append(['FRA_PRIORITY', kwarg.get('priority', 32000)])
+        if 'fwmark' in kwarg:
+            msg['attrs'].append(['FRA_FWMARK', kwarg['fwmark']])
+        if 'dst_len' in kwarg:
+            msg['dst_len'] = kwarg['dst_len']
+        if 'src_len' in kwarg:
+            msg['src_len'] = kwarg['src_len']
+        addr_len = {AF_INET6: 128, AF_INET:  32}.get(family, 0)
+        if 'src' in kwarg:
+            msg['attrs'].append(['FRA_SRC', kwarg['src']])
+            if kwarg.get('src_len') is None:
                 msg['src_len'] = addr_len
-        if dst is not None:
-            msg['attrs'].append(['FRA_DST', dst])
-            if dst_len is None:
+        if 'dst' in kwarg:
+            msg['attrs'].append(['FRA_DST', kwarg['dst']])
+            if kwarg.get('dst_len') is None:
                 msg['dst_len'] = addr_len
-        if iifname is not None:
-            msg['attrs'].append(['FRA_IIFNAME', iifname])
-        if oifname is not None:
-            msg['attrs'].append(['FRA_OIFNAME', oifname])
+        if 'iifname' in kwarg:
+            msg['attrs'].append(['FRA_IIFNAME', kwarg['iifname']])
+        if 'oifname' in kwarg:
+            msg['attrs'].append(['FRA_OIFNAME', kwarg['oifname']])
 
-        return self.nlm_request(msg, msg_type=command,
-                                msg_flags=msg_flags)
+        ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
+
+        if 'match' in kwarg:
+            return self._match(kwarg['match'], ret)
+        else:
+            return ret
     # 8<---------------------------------------------------------------
 
 
