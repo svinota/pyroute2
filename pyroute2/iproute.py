@@ -56,6 +56,7 @@ classes
 -------
 '''
 import errno
+import types
 import logging
 from socket import htons
 from socket import AF_INET
@@ -183,9 +184,18 @@ class IPRouteMixin(object):
             elif isinstance(match, dict):
                 matches = []
                 for key in match:
-                    matches.append(msg.get(key) == match[key] or
-                                   msg.get_attr(msg.name2nla(key)) ==
-                                   match[key])
+                    KEY = msg.name2nla(key)
+                    if isinstance(match[key], types.FunctionType):
+                        if msg.get(key) is not None:
+                            matches.append(match[key](msg.get(key)))
+                        elif msg.get_attr(KEY) is not None:
+                            matches.append(match[key](msg.get_attr(KEY)))
+                        else:
+                            matches.append(False)
+                    else:
+                        matches.append(msg.get(key) == match[key] or
+                                       msg.get_attr(KEY) ==
+                                       match[key])
                 if all(matches):
                     f_ret.append(msg)
         return f_ret
