@@ -522,6 +522,27 @@ class IPRouteMixin(object):
                     raise
         return ret
 
+    def flush_rules(self, *argv, **kwarg):
+        '''
+        Flush rules. Please keep in mind, that by default the function
+        operates on **all** rules of **all** families. To work only on
+        IPv4 rules, one should explicitly specify `family=AF_INET`.
+
+        Examples::
+
+            # flush all IPv4 rule with priorities above 5 and below 32000
+            ipr.flush_rules(family=AF_INET, priority=lambda x: 5 < x < 32000)
+
+            # flush all IPv6 rules that point to table 250:
+            ipr.flush_rules(family=socket.AF_INET6, table=250)
+        '''
+        flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        ret = []
+        for rule in self.get_rules(*argv, **kwarg):
+            ret.append(self.nlm_request(rule,
+                                        msg_type=RTM_DELRULE,
+                                        msg_flags=flags))
+        return ret
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------

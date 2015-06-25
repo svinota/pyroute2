@@ -171,6 +171,36 @@ class TestIPRoute(object):
         assert len(self.ip.get_addr(index=self.ifaces[0],
                                     family=socket.AF_INET)) == 0
 
+    def test_flush_rules(self):
+        require_user('root')
+        init = len(self.ip.get_rules(family=socket.AF_INET))
+        assert len(self.ip.get_rules(priority=lambda x: 100 < x < 500)) == 0
+        self.ip.rule('add', table=10, priority=110)
+        self.ip.rule('add', table=15, priority=150, action='FR_ACT_PROHIBIT')
+        self.ip.rule('add', table=20, priority=200, src='172.16.200.1')
+        self.ip.rule('add', table=25, priority=250, dst='172.16.250.1')
+        assert len(self.ip.get_rules(priority=lambda x: 100 < x < 500)) == 4
+        assert len(self.ip.get_rules(src='172.16.200.1')) == 1
+        assert len(self.ip.get_rules(dst='172.16.250.1')) == 1
+        self.ip.flush_rules(family=socket.AF_INET,
+                            priority=lambda x: 100 < x < 500)
+        assert len(self.ip.get_rules(priority=lambda x: 100 < x < 500)) == 0
+        assert len(self.ip.get_rules(src='172.16.200.1')) == 0
+        assert len(self.ip.get_rules(dst='172.16.250.1')) == 0
+        assert len(self.ip.get_rules(family=socket.AF_INET)) == init
+
+    def test_rules_deprecated(self):
+        require_user('root')
+        init = len(self.ip.get_rules(family=socket.AF_INET))
+        assert len(self.ip.get_rules(priority=lambda x: 100 < x < 500)) == 0
+        self.ip.rule('add', 10, 110)
+        self.ip.rule('add', 15, 150, 'FR_ACT_PROHIBIT')
+        assert len(self.ip.get_rules(priority=lambda x: 100 < x < 500)) == 2
+        self.ip.flush_rules(family=socket.AF_INET,
+                            priority=lambda x: 100 < x < 500)
+        assert len(self.ip.get_rules(priority=lambda x: 100 < x < 500)) == 0
+        assert len(self.ip.get_rules(family=socket.AF_INET)) == init
+
     def test_addr_filter(self):
         require_user('root')
         self.ip.addr('add',
