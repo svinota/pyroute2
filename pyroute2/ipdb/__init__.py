@@ -323,7 +323,7 @@ def get_addr_nla(msg):
     Utility function to get NLA, containing the interface
     address.
 
-    Incosistency in Linux IP addressing scheme is that
+    Inconsistency in Linux IP addressing scheme is that
     IPv4 uses IFA_LOCAL to store interface's ip address,
     and IPv6 uses for the same IFA_ADDRESS.
 
