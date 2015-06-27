@@ -44,11 +44,17 @@ Run tests against current code. Requires `flake8`, `nosetests`,
 Samples::
 
     $ sudo make test python=python3 coverage=true wlevel=all
-    $ sudo make test wlevel=ignore module=test_ipdb:TestExplicit
+    $ sudo make test module=general:test_ipdb.py:TestExplicit
     $ sudo make test skip_tests=test_stress
 
-Please notice, that by default tests run with wlevel=error,
-thus failing on *any* warning.
+All tests are divided into several groups (general, lnst, etc).
+Every test group is run in a separate python process, so one
+can test import statements and safely destroy runtime, as other
+test groups will be unaffected.
+
+To run only "general" test group, one can run::
+
+    $ sudo make test module=general:
 
 target: dist
 ------------

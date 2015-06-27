@@ -61,7 +61,14 @@ ifdef lib
 endif
 
 all:
-	@echo targets: dist, install
+	@echo targets:
+	@echo
+	@echo \* clean -- clean all generated files
+	@echo \* docs -- generate project docs \(requires sphinx\)
+	@echo \* test -- run functional tests \(see README.make.md\)
+	@echo \* install -- install lib into the system
+	@echo \* develop -- run \"setup.py develop\" \(requires setuptools\)
+	@echo
 
 clean: clean-version
 	rm -rf dist build MANIFEST
