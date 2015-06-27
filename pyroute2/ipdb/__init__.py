@@ -580,8 +580,8 @@ class IPDB(object):
 
             # flush all the objects
             # -- interfaces
-            for key in tuple(self.interfaces.keys()):
-                self.detach(key)
+            for (key, dev) in self.by_name.items():
+                self.detach(key, dev['index'], dev.nlmsg)
             # -- routes
             for key in tuple(self.routes.tables.keys()):
                 del self.routes.tables[key]
@@ -771,6 +771,8 @@ class IPDB(object):
 
         try:
             for (target, tx) in transactions:
+                if target['ipdb_scope'] == 'detached':
+                    continue
                 if tx['ipdb_scope'] == 'remove':
                     tx['ipdb_scope'] = 'shadow'
                     removed.append((target, tx))
@@ -785,8 +787,8 @@ class IPDB(object):
             raise
         else:
             if not rollback:
-                for (tx, target) in removed:
-                    tx['ipdb_scope'] = 'remove'
+                for (target, tx) in removed:
+                    target['ipdb_scope'] = 'detached'
                     target.detach()
         finally:
             if not rollback:
@@ -794,27 +796,19 @@ class IPDB(object):
                     target.drop(tx)
 
     def device_del(self, msg):
+        target = self.interfaces.get(msg['index'])
+        if target is None:
+            return
+        target.nlmsg = msg
         # check for freezed devices
-        if getattr(self.interfaces.get(msg['index'], None), '_freeze', None):
+        if getattr(target, '_freeze', None):
             self.interfaces[msg['index']].set_item('ipdb_scope', 'shadow')
             return
         # check for locked devices
-        if self.interfaces.get(msg['index'], {}).get('ipdb_scope') \
-                in ('locked', 'shadow'):
+        if target.get('ipdb_scope') in ('locked', 'shadow'):
             self.interfaces[msg['index']].sync()
             return
-        try:
-            self.update_slaves(msg)
-            if msg['change'] == 0xffffffff:
-                # FIXME catch exception
-                ifname = self.interfaces[msg['index']]['ifname']
-                self.interfaces[msg['index']].sync()
-                del self.interfaces[ifname]
-                del self.interfaces[msg['index']]
-                del self.ipaddr[msg['index']]
-                del self.neighbours[msg['index']]
-        except KeyError:
-            pass
+        self.detach(None, msg['index'], msg)
 
     def device_put(self, msg, skip_slaves=False):
         # check, if a record exists
@@ -865,10 +859,28 @@ class IPDB(object):
         if not skip_slaves:
             self.update_slaves(msg)
 
-    def detach(self, item):
+    def detach(self, name, idx, msg=None):
         with self.exclusive:
-            if item in self.interfaces:
-                del self.interfaces[item]
+            if msg is not None:
+                try:
+                    self.update_slaves(msg)
+                except KeyError:
+                    pass
+                if msg['event'] == 'RTM_DELLINK' and \
+                        msg['change'] != 0xffffffff:
+                    return
+            if idx is None or idx < 1:
+                target = self.interfaces[name]
+                idx = target['index']
+            else:
+                target = self.interfaces[idx]
+                name = target['ifname']
+            target.sync()
+            self.interfaces.pop(name, None)
+            self.interfaces.pop(idx, None)
+            self.ipaddr.pop(idx, None)
+            self.neighbours.pop(idx, None)
+            target.set_item('ipdb_scope', 'detached')
 
     def watchdog(self, action='RTM_NEWLINK', **kwarg):
         return Watchdog(self, action, kwarg)

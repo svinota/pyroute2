@@ -59,6 +59,7 @@ class Interface(Transactional):
                         '__align')
         self.ingress = None
         self.egress = None
+        self.nlmsg = None
         self._exception = None
         self._tb = None
         self._virtual_fields = ['ipdb_scope', 'ipdb_priority']
@@ -121,7 +122,7 @@ class Interface(Transactional):
         return self.get('master', None)
 
     def detach(self):
-        self.ipdb.detach(self['index'])
+        self.ipdb.detach(self['ifname'], self['index'], self.nlmsg)
         return self
 
     def freeze(self):
@@ -466,8 +467,7 @@ class Interface(Transactional):
                     # 1. drop the IPRoute() link
                     self.nl = None
                     # 2. clean up ipdb
-                    self.ipdb.detach(self['index'])
-                    self.ipdb.detach(self['ifname'])
+                    self.detach()
                     # 3. invalidate the interface
                     with self._direct_state:
                         for i in tuple(self.keys()):

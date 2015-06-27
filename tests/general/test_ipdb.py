@@ -820,6 +820,27 @@ class TestExplicit(object):
         assert wdb.is_set
         assert not wdc.is_set
 
+    def test_global_veth(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+        self.ip.create(ifname=ifA, peer=ifB, kind='veth')
+        self.ip.commit()
+
+        assert self.ip.interfaces[ifA]['ipdb_scope'] == 'system'
+        assert self.ip.interfaces[ifB]['ipdb_scope'] == 'system'
+
+        if self.ip.mode == 'explicit':
+            self.ip.interfaces[ifA].begin()
+            self.ip.interfaces[ifB].begin()
+        self.ip.interfaces[ifA].remove()
+        self.ip.interfaces[ifB].remove()
+        self.ip.commit()
+
+        assert ifA not in self.ip.interfaces
+        assert ifB not in self.ip.interfaces
+
     def test_global_rollback(self):
         require_user('root')
 

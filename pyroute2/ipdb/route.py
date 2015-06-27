@@ -352,6 +352,7 @@ class RoutingTableSet(object):
                 # delete the record
                 if record['ipdb_scope'] not in ('locked', 'shadow'):
                     del self.tables[table][key]
+                    record.set_item('ipdb_scope', 'detached')
                 # sync ???
                 record.sync()
             except Exception as e:
