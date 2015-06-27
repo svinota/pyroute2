@@ -885,6 +885,17 @@ class IPDB(object):
     def watchdog(self, action='RTM_NEWLINK', **kwarg):
         return Watchdog(self, action, kwarg)
 
+    def update_dev(self, dev):
+        # ignore non-system updates on devices not
+        # registered in the DB
+        if (dev['index'] not in self.interfaces) and \
+                (dev['change'] != 0xffffffff):
+            return
+        if dev['event'] == 'RTM_NEWLINK':
+            self.device_put(dev)
+        else:
+            self.device_del(dev)
+
     def update_routes(self, routes):
         for msg in routes:
             self.routes.load_netlink(msg)
@@ -1007,11 +1018,10 @@ class IPDB(object):
 
                 with self.exclusive:
                     # FIXME: refactor it to a dict
-                    if msg.get('event', None) == 'RTM_NEWLINK':
-                        self.device_put(msg)
+                    if msg.get('event', None) in ('RTM_NEWLINK',
+                                                  'RTM_DELLINK'):
+                        self.update_dev(msg)
                         self._links_event.set()
-                    elif msg.get('event', None) == 'RTM_DELLINK':
-                        self.device_del(msg)
                     elif msg.get('event', None) == 'RTM_NEWADDR':
                         self.update_addr([msg], 'add')
                     elif msg.get('event', None) == 'RTM_DELADDR':
@@ -1020,7 +1030,7 @@ class IPDB(object):
                         self.update_neighbours([msg], 'add')
                     elif msg.get('event', None) == 'RTM_DELNEIGH':
                         self.update_neighbours([msg], 'remove')
-                    elif msg.get('event', None) in ('RTM_NEWROUTE'
+                    elif msg.get('event', None) in ('RTM_NEWROUTE',
                                                     'RTM_DELROUTE'):
                         self.update_routes([msg])
 
