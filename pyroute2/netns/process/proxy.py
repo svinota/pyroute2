@@ -62,8 +62,14 @@ def NSPopenServer(nsname, flags, channel_in, channel_out, argv, kwarg):
 
         # 3. run the call
         try:
-            attr = getattr(child, call['name'])
-            if isinstance(attr, types.MethodType):
+            # get the object namespace
+            ns = call.get('namespace')
+            obj = child
+            if ns:
+                for step in ns.split('.'):
+                    obj = getattr(obj, step)
+            attr = getattr(obj, call['name'])
+            if isinstance(attr, (types.MethodType, types.BuiltinMethodType)):
                 result = attr(*call['argv'], **call['kwarg'])
             else:
                 result = attr
@@ -74,7 +80,51 @@ def NSPopenServer(nsname, flags, channel_in, channel_out, argv, kwarg):
     child.wait()
 
 
-class NSPopen(NSPopenBase):
+class ObjNS(object):
+
+    ns = None
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+    def __getattribute__(self, key):
+        try:
+            return object.__getattribute__(self, key)
+        except AttributeError:
+            with self.lock:
+                if self.released:
+                    raise RuntimeError('the object is released')
+
+                if (self.api.get(key) and self.api[key]['callable']) or \
+                        (self.ns is not None):
+                    def proxy(*argv, **kwarg):
+                        self.channel_out.put({'name': key,
+                                              'argv': argv,
+                                              'namespace': self.ns,
+                                              'kwarg': kwarg})
+                        return _handle(self.channel_in.get())
+                    if key in self.api:
+                        proxy.__doc__ = self.api[key]['doc']
+                    return proxy
+                else:
+                    if key in ('stdin', 'stdout', 'stderr'):
+                        objns = ObjNS()
+                        objns.ns = key
+                        objns.api = self.api
+                        objns.channel_out = self.channel_out
+                        objns.channel_in = self.channel_in
+                        objns.released = self.released
+                        objns.lock = self.lock
+                        return objns
+                    else:
+                        self.channel_out.put({'name': key})
+                        return _handle(self.channel_in.get())
+
+
+class NSPopen(NSPopenBase, ObjNS):
     '''
     A proxy class to run `Popen()` object in some network namespace.
 
@@ -151,23 +201,3 @@ class NSPopen(NSPopenBase):
 
     def __dir__(self):
         return list(self.api.keys()) + ['release']
-
-    def __getattribute__(self, key):
-        try:
-            return object.__getattribute__(self, key)
-        except AttributeError:
-            with self.lock:
-                if self.released:
-                    raise RuntimeError('the object is released')
-
-                if self.api.get(key) and self.api[key]['callable']:
-                    def proxy(*argv, **kwarg):
-                        self.channel_out.put({'name': key,
-                                              'argv': argv,
-                                              'kwarg': kwarg})
-                        return _handle(self.channel_in.get())
-                    proxy.__doc__ = self.api[key]['doc']
-                    return proxy
-                else:
-                    self.channel_out.put({'name': key})
-                    return _handle(self.channel_in.get())
