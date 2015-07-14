@@ -396,7 +396,14 @@ class ifinfbase(object):
                        ('IFLA_VXLAN_LOCAL6', 'ip6addr'),
                        ('IFLA_VXLAN_UDP_CSUM', 'uint8'),
                        ('IFLA_VXLAN_UDP_ZERO_CSUM6_TX', 'uint8'),
-                       ('IFLA_VXLAN_UDP_ZERO_CSUM6_RX', 'uint8'))
+                       ('IFLA_VXLAN_UDP_ZERO_CSUM6_RX', 'uint8'),
+                       ('IFLA_VXLAN_REMCSUM_TX', 'uint8'),
+                       ('IFLA_VXLAN_REMCSUM_RX', 'uint8'),
+                       # NLA_FLAG, not implemented?
+                       ('IFLA_VXLAN_GBP', 'uint8'),
+                       # NLA_FLAG, not implemented?
+                       ('IFLA_VXLAN_REMCSUM_NOPARTIAL', 'uint8'),
+                       ('IFLA_VXLAN_FLOWBASED', 'uint8'))
 
             class port_range(nla):
                 fields = (('low', '>H'),
