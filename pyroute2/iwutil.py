@@ -353,7 +353,7 @@ class IW(NL80211):
                 msg['attrs'].append(['NL80211_ATTR_CENTER_FREQ1', center])
                 msg['attrs'].append(['NL80211_ATTR_CENTER_FREQ2', center2])
             elif width in [0, 1, 6, 7]:
-                pass  # 5-20 MHz doesn't need to specify a center
+                msg['attrs'].append(['NL80211_ATTR_CHANNEL_WIDTH', width])
             else:
                 raise TypeError('No channel specified')
 
