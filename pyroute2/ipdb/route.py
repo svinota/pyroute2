@@ -27,24 +27,31 @@ class WatchdogKey(dict):
                                          'iif', 'table')])
 
 
-class RouteKey(dict):
+def RouteKey(msg):
     '''
     Construct from a netlink message a key that can be used
     to locate the route in the table
     '''
-    def __init__(self, msg):
+    if isinstance(msg, nlmsg):
+        src = None
         # calculate dst
         if msg.get_attr('RTA_DST', None) is not None:
             dst = '%s/%s' % (msg.get_attr('RTA_DST'),
                              msg['dst_len'])
         else:
             dst = 'default'
-        self['dst'] = dst
         # use output | input interfaces as key also
-        for key in ('oif', 'iif'):
-            value = msg.get_attr(msg.name2nla(key))
-            if value:
-                self[key] = value
+        iif = msg.get_attr(msg.name2nla('iif'))
+        oif = msg.get_attr(msg.name2nla('oif'))
+    elif isinstance(msg, Transactional):
+        src = None
+        dst = msg.get('dst')
+        iif = msg.get('iif')
+        oif = msg.get('oif')
+    else:
+        raise TypeError('prime not supported')
+    # key: src, dst, iif, oif
+    return (src, dst, iif, oif)
 
 
 class Route(Transactional):
@@ -215,6 +222,8 @@ class RoutingTable(object):
 
     def __init__(self, ipdb, prime=None):
         self.ipdb = ipdb
+        self.idx = {}
+        self.kdx = {}
         self.records = prime or []
 
     def __repr__(self):
@@ -231,14 +240,28 @@ class RoutingTable(object):
         return [x[key] for x in self.records]
 
     def describe(self, target, forward=True):
+        # the simplest case: match the route by index
         if isinstance(target, int):
             return {'route': self.records[target],
-                    'index': target}
+                    'index': target,
+                    'key': self.kdx[target]}
+
+        # match the route by key
+        if isinstance(target, (tuple, list)):
+            try:
+                # full match
+                return self.idx[target]
+            except KeyError:
+                # match w/o iif/oif
+                return self.idx[target[:2] + (None, None)]
+
+        # match the route by string
         if isinstance(target, basestring):
             target = {'dst': target}
+
+        # match the route by dict spec
         if not isinstance(target, dict):
             raise TypeError('unsupported key type')
-
         for record in self.records:
             for key in target:
                 # skip non-existing keys
@@ -253,8 +276,10 @@ class RoutingTable(object):
                     break
             else:
                 # if all keys match
+                idx = self.records.index(record)
                 return {'route': record,
-                        'index': self.records.index(record)}
+                        'index': idx,
+                        'key': self.kdx[idx]}
 
         if not forward:
             raise KeyError('route not found')
@@ -274,17 +299,21 @@ class RoutingTable(object):
         route = Route(self.ipdb)
         route.load_netlink(self.ipdb.nl.get_routes(**target)[0])
         return {'route': route,
-                'index': None}
+                'index': None,
+                'key': None}
 
     def __delitem__(self, key):
-        self.records.pop(self.describe(key, forward=False)['index'])
+        item = self.describe(key, forward=False)
+        self.records.pop(item['index'])
+        del self.idx[item['key']]
 
     def __setitem__(self, key, value):
         try:
             record = self.describe(key, forward=False)
         except KeyError:
             record = {'route': Route(self.ipdb),
-                      'index': None}
+                      'index': None,
+                      'key': None}
 
         if isinstance(value, nlmsg):
             record['route'].load_netlink(value)
@@ -296,8 +325,18 @@ class RoutingTable(object):
 
         if record['index'] is None:
             self.records.append(record['route'])
+            idx = len(self.records) - 1
+            key = RouteKey(record['route'])
+            self.kdx[idx] = key
+            self.idx[key] = {'route': record['route'],
+                             'index': idx,
+                             'key': key}
         else:
+            del self.idx[record['key']]
+            del self.kdx[record['index']]
             self.records[record['index']] = record['route']
+            self.idx[record['key']] = record
+            self.kdx[record['index']] = record['key']
 
     def __getitem__(self, key):
         return self.describe(key, forward=True)['route']
