@@ -409,11 +409,7 @@ class IPDB(object):
         # load information
         self.restart_on_error = restart_on_error if \
             restart_on_error is not None else nl is None
-        try:
-            self.initdb(nl)
-        except:
-            self.nl.close()
-            raise
+        self.initdb(nl)
 
         # start monitoring thread
         self._mthread = threading.Thread(target=self.serve_forever)
@@ -435,8 +431,6 @@ class IPDB(object):
         from scratch. Can be used when sync is lost.
         '''
         self.nl = nl or IPRoute()
-        self.nl.monitor = True
-        self.nl.bind(async=self._nl_async)
 
         # resolvers
         self.interfaces = Dotkeys()
@@ -450,18 +444,27 @@ class IPDB(object):
         self.ipaddr = {}
         self.neighbours = {}
 
-        # load information
-        links = self.nl.get_links()
-        for link in links:
-            self.device_put(link, skip_slaves=True)
-        for link in links:
-            self.update_slaves(link)
-        self.update_addr(self.nl.get_addr())
-        self.update_neighbours(self.nl.get_neighbours())
-        routes4 = self.nl.get_routes(family=AF_INET)
-        routes6 = self.nl.get_routes(family=AF_INET6)
-        self.update_routes(routes4)
-        self.update_routes(routes6)
+        try:
+            self.nl.monitor = True
+            self.nl.bind(async=self._nl_async)
+            # load information
+            links = self.nl.get_links()
+            for link in links:
+                self.device_put(link, skip_slaves=True)
+            for link in links:
+                self.update_slaves(link)
+            self.update_addr(self.nl.get_addr())
+            self.update_neighbours(self.nl.get_neighbours())
+            routes4 = self.nl.get_routes(family=AF_INET)
+            routes6 = self.nl.get_routes(family=AF_INET6)
+            self.update_routes(routes4)
+            self.update_routes(routes6)
+        except Exception as e:
+            try:
+                self.nl.close()
+            except:
+                pass
+            raise e
 
     def register_callback(self, callback, mode='post'):
         '''
@@ -1007,7 +1010,12 @@ class IPDB(object):
                 logging.error('Restarting IPDB instance after '
                               'error:\n%s', traceback.format_exc())
                 if self.restart_on_error:
-                    self.initdb()
+                    try:
+                        self.initdb()
+                    except:
+                        logging.error('Error restarting DB:\n%s',
+                                      traceback.format_exc())
+                        return
                     continue
                 else:
                     raise RuntimeError('Emergency shutdown')
