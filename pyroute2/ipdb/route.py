@@ -351,8 +351,9 @@ class RoutingTable(object):
 
 class RoutingTableSet(object):
 
-    def __init__(self, ipdb):
+    def __init__(self, ipdb, ignore_rtables=None):
         self.ipdb = ipdb
+        self.ignore_rtables = ignore_rtables or []
         self.tables = {254: RoutingTable(self.ipdb)}
 
     def add(self, spec=None, **kwarg):
@@ -378,6 +379,8 @@ class RoutingTableSet(object):
         Loads an existing route from a rtmsg
         '''
         table = msg.get('table', 254)
+        if table in self.ignore_rtables:
+            return
         # construct a key
         # FIXME: temporary solution
         # FIXME: can `Route()` be used as a key?

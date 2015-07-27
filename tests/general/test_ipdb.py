@@ -397,6 +397,7 @@ class TestExplicit(object):
 
         ifBR = self.get_ifname()
         ifP = self.get_ifname()
+        self.ip.debug = True
 
         bridge = self.ip.create(ifname=ifBR, kind='bridge').commit()
         port = self.ip.create(ifname=ifP, kind='dummy').commit()
@@ -410,6 +411,7 @@ class TestExplicit(object):
         li = port.nlmsg.get_attr('IFLA_LINKINFO')
         skind = li.get_attr('IFLA_INFO_SLAVE_KIND')
         sdata = li.get_attr('IFLA_INFO_SLAVE_DATA')
+        self.ip.debug = False
         if skind is None or sdata is None:
             raise SkipTest('slave data not provided')
 

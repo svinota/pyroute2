@@ -382,7 +382,8 @@ class IPDB(object):
     '''
 
     def __init__(self, nl=None, mode='implicit',
-                 restart_on_error=None, nl_async=None):
+                 restart_on_error=None, nl_async=None,
+                 debug=False, ignore_rtables=None):
         '''
         Parameters:
             - nl -- IPRoute() reference
@@ -393,6 +394,13 @@ class IPDB(object):
         start it automatically.
         '''
         self.mode = mode
+        self.debug = debug
+        if isinstance(ignore_rtables, int):
+            self._ignore_rtables = [ignore_rtables, ]
+        elif isinstance(ignore_rtables, (list, tuple, set)):
+            self._ignore_rtables = ignore_rtables
+        else:
+            self._ignore_rtables = []
         self.iclass = Interface
         self._nl_async = config.ipdb_nl_async if nl_async is None else True
         self._stop = False
@@ -434,7 +442,8 @@ class IPDB(object):
 
         # resolvers
         self.interfaces = Dotkeys()
-        self.routes = RoutingTableSet(ipdb=self)
+        self.routes = RoutingTableSet(ipdb=self,
+                                      ignore_rtables=self._ignore_rtables)
         self.by_name = View(src=self.interfaces,
                             constraint=lambda k, v: isinstance(k, basestring))
         self.by_index = View(src=self.interfaces,
@@ -967,10 +976,14 @@ class IPDB(object):
 
         for addr in addrs:
             nla = get_addr_nla(addr)
+            if self.debug:
+                raw = addr
+            else:
+                raw = None
             if nla is not None:
                 try:
                     method = getattr(self.ipaddr[addr['index']], action)
-                    method(key=(nla, addr['prefixlen']), raw=addr)
+                    method(key=(nla, addr['prefixlen']), raw=raw)
                 except:
                     pass
 

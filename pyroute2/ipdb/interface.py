@@ -229,7 +229,8 @@ class Interface(Transactional):
                         (not dev.get_attr('IFLA_AF_SPEC')):
                     return
             self['ipdb_scope'] = 'system'
-            self.nlmsg = dev
+            if self.ipdb.debug:
+                self.nlmsg = dev
             for (name, value) in dev.items():
                 self[name] = value
             for item in dev['attrs']:
