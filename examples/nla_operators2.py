@@ -2,7 +2,7 @@ from pprint import pprint
 from pyroute2 import IPDB
 from pyroute2.common import uifname
 
-ip = IPDB()
+ip = IPDB(debug=True)
 
 # create an interface
 i = ip.create(kind='dummy', ifname=uifname()).commit()
