@@ -979,7 +979,12 @@ class IPDB(object):
             if self.debug:
                 raw = addr
             else:
-                raw = None
+                raw = {'local': addr.get_attr('IFA_LOCAL'),
+                       'broadcast': addr.get_attr('IFA_BROADCAST'),
+                       'address': addr.get_attr('IFA_ADDRESS'),
+                       'label': addr.get_attr('IFA_LABEL'),
+                       'flags': addr.get_attr('IFA_FLAGS'),
+                       'prefixlen': addr.get('prefixlen')}
             if nla is not None:
                 try:
                     method = getattr(self.ipaddr[addr['index']], action)
@@ -991,10 +996,14 @@ class IPDB(object):
 
         for neigh in neighs:
             nla = neigh.get_attr('NDA_DST')
+            if self.debug:
+                raw = neigh
+            else:
+                raw = {'lladdr': neigh.get_attr('NDA_LLADDR')}
             if nla is not None:
                 try:
                     method = getattr(self.neighbours[neigh['ifindex']], action)
-                    method(key=nla, raw=neigh)
+                    method(key=nla, raw=raw)
                 except:
                     pass
 
