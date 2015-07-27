@@ -409,7 +409,11 @@ class IPDB(object):
         # load information
         self.restart_on_error = restart_on_error if \
             restart_on_error is not None else nl is None
-        self.initdb(nl)
+        try:
+            self.initdb(nl)
+        except:
+            self.nl.close()
+            raise
 
         # start monitoring thread
         self._mthread = threading.Thread(target=self.serve_forever)
