@@ -331,7 +331,7 @@ class RoutingTable(object):
             key = RouteKey(record['route'])
             if record['index'] is None:
                 self.records.append(record['route'])
-                idx = self.records.index(record['route'])
+                idx = len(self.records) - 1
                 self.idx[key] = {'route': record['route'],
                                  'index': idx,
                                  'key': key}
