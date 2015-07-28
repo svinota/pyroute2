@@ -1,6 +1,17 @@
 changelog
 =========
 
+* 0.3.10
+    * rtnl: added BPF filters
+    * rtnl: LWtunnel support in ifinfmsg
+    * ipdb: support address attributes
+    * ipdb: global transactions, initial version
+    * ipdb: routes refactored to use key index (speed up)
+    * config: eventlet support embedded (thanks to Angus Lees)
+    * iproute: replace tc classes
+    * iproute: flush_addr(), flush_rules()
+    * iproute: rule() refactored
+    * netns: proxy file objects (stdin, stdout, stderr)
 * 0.3.9
     * root imports: #109, #135 -- `issubclass`, `isinstance`
     * iwutil: multiple improvements
