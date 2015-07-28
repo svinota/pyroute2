@@ -225,29 +225,27 @@ class RoutingTable(object):
         self.lock = threading.Lock()
         self.idx = {}
         self.kdx = {}
-        self.records = prime or []
 
     def __repr__(self):
-        return repr(self.records)
+        return repr([x['route'] for x in self.idx.values()])
 
     def __len__(self):
-        return len(self.records)
+        return len(self.keys())
 
     def __iter__(self):
-        for record in tuple(self.records):
-            yield record
+        for record in tuple(self.idx.values()):
+            yield record['route']
 
     def keys(self, key='dst'):
         with self.lock:
-            return [x[key] for x in self.records]
+            return [x['route'][key] for x in self.idx.values()]
 
     def describe(self, target, forward=True):
-        # match the route by index
+        # match the route by index -- a bit meaningless,
+        # but for compatibility
         if isinstance(target, int):
-            for record in self.idx.values():
-                if record['index'] == target:
-                    return record
-            raise KeyError('route not found')
+            keys = tuple(self.idx.keys())
+            return self.idx[keys[target]]
 
         # match the route by key
         if isinstance(target, (tuple, list)):
@@ -299,17 +297,12 @@ class RoutingTable(object):
         route = Route(self.ipdb)
         route.load_netlink(self.ipdb.nl.get_routes(**target)[0])
         return {'route': route,
-                'index': None,
                 'key': None}
 
     def __delitem__(self, key):
         with self.lock:
             item = self.describe(key, forward=False)
-            self.records.pop(item['index'])
             del self.idx[RouteKey(item['route'])]
-            # rebuild the routes index
-            for record in self.idx.values():
-                record['index'] = self.records.index(record['route'])
 
     def __setitem__(self, key, value):
         with self.lock:
@@ -317,7 +310,6 @@ class RoutingTable(object):
                 record = self.describe(key, forward=False)
             except KeyError:
                 record = {'route': Route(self.ipdb),
-                          'index': None,
                           'key': None}
 
             if isinstance(value, nlmsg):
@@ -329,14 +321,10 @@ class RoutingTable(object):
                     record['route'].update(value)
 
             key = RouteKey(record['route'])
-            if record['index'] is None:
-                self.records.append(record['route'])
-                idx = len(self.records) - 1
+            if record['key'] is None:
                 self.idx[key] = {'route': record['route'],
-                                 'index': idx,
                                  'key': key}
             else:
-                self.records[record['index']] = record['route']
                 self.idx[key] = record
                 if record['key'] != key:
                     del self.idx[record['key']]
