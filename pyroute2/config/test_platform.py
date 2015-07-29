@@ -80,7 +80,6 @@ class TestCapsRtnl(object):
 
         # use a separate socket for monitoring
         ip = RawIPRoute()
-        ip.monitor = True
         ip.bind(RTNLGRP_LINK)
         poll = select.poll()
         poll.register(ip, select.POLLIN | select.POLLPRI)

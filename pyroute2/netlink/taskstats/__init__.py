@@ -146,14 +146,10 @@ class TaskStats(GenericNetlinkSocket):
             0,1 -- first two CPUs
             0-4,6-10 -- CPUs from 0 to 4 and from 6 to 10
 
-        When the accounting is turned on, on can receive messages
-        with get() routine.
-
         Though the kernel has a procedure, that cleans up accounting,
         when it is not used, it is recommended to run deregister_mask()
         before process exit.
         '''
-        self.monitor(True)
         self._register_mask('TASKSTATS_CMD_ATTR_REGISTER_CPUMASK',
                             mask)
 
@@ -161,6 +157,5 @@ class TaskStats(GenericNetlinkSocket):
         '''
         Stop the accounting.
         '''
-        self.monitor(False)
         self._register_mask('TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK',
                             mask)

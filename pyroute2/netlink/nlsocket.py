@@ -289,7 +289,6 @@ class NetlinkMixin(object):
         self.family = family
         self._fileno = fileno
         self.backlog = {0: []}
-        self.monitor = False
         self.callbacks = []     # [(predicate, callback, args), ...]
         self.clean_cbs = {}     # {msg_seq: [callback, ...], ...}
         self.pthread = None
@@ -719,11 +718,6 @@ class NetlinkMixin(object):
                                     logging.warning(traceback.format_exc())
                             # 8<-----------------------------------------------
                             self.backlog[seq].append(msg)
-                            # Monitor mode:
-                            if self.monitor and \
-                                    seq > self.addr_pool.minaddr and \
-                                    seq < self.addr_pool.maxaddr:
-                                self.backlog[0].append(msg)
                         # We finished with the backlog, so release the lock
                         self.backlog_lock.release()
 
