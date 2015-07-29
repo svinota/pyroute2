@@ -166,11 +166,11 @@ class Dotkeys(dict):
     But it simplifies live for old-school admins, who works with good
     old "lo", "eth0", and like that naming schemes.
     '''
-    var_name = re.compile('^[a-zA-Z_]+[a-zA-Z_0-9]*$')
+    __var_name = re.compile('^[a-zA-Z_]+[a-zA-Z_0-9]*$')
 
     def __dir__(self):
         return [i for i in self if
-                type(i) == str and self.var_name.match(i)]
+                type(i) == str and self.__var_name.match(i)]
 
     def __getattribute__(self, key, *argv):
         try:
