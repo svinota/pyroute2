@@ -981,7 +981,6 @@ class IPDB(object):
                 raw = {'local': addr.get_attr('IFA_LOCAL'),
                        'broadcast': addr.get_attr('IFA_BROADCAST'),
                        'address': addr.get_attr('IFA_ADDRESS'),
-                       'label': addr.get_attr('IFA_LABEL'),
                        'flags': addr.get_attr('IFA_FLAGS'),
                        'prefixlen': addr.get('prefixlen')}
             if nla is not None:
