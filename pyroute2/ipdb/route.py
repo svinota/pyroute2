@@ -153,7 +153,8 @@ class Route(Transactional):
         if self['ipdb_scope'] != 'system':
             try:
                 wd = self.ipdb.watchdog('RTM_NEWROUTE', **WatchdogKey(self))
-                self.nl.route('add', **IPRouteRequest(self))
+                self.ipdb.update_routes(
+                    self.nl.route('add', **IPRouteRequest(self)))
             except Exception:
                 self.nl = None
                 self.ipdb.routes.remove(self)
@@ -168,7 +169,8 @@ class Route(Transactional):
             if any([request[x] not in (None, {'attrs': []}) for x in request]):
                 wd = self.ipdb.watchdog('RTM_NEWROUTE',
                                         **WatchdogKey(transaction))
-                self.nl.route('set', **IPRouteRequest(transaction))
+                self.ipdb.update_routes(
+                    self.nl.route('set', **IPRouteRequest(transaction)))
                 wd.wait()
 
             # route removal
@@ -178,7 +180,8 @@ class Route(Transactional):
                                         **WatchdogKey(snapshot))
                 if transaction['ipdb_scope'] == 'shadow':
                     self.set_item('ipdb_scope', 'locked')
-                self.nl.route('delete', **IPRouteRequest(snapshot))
+                self.ipdb.update_routes(
+                    self.nl.route('delete', **IPRouteRequest(snapshot)))
                 wd.wait()
                 if transaction['ipdb_scope'] == 'shadow':
                     self.set_item('ipdb_scope', 'shadow')

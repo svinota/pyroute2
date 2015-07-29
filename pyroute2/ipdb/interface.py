@@ -511,7 +511,9 @@ class Interface(Transactional):
                              master=self['index'])
 
             if removed['ports'] or added['ports']:
-                self.nl.get_links(*(removed['ports'] | added['ports']))
+                for link in self.nl.get_links(
+                        *(removed['ports'] | added['ports'])):
+                    self.ipdb.device_put(link)
                 self['ports'].target.wait(SYNC_TIMEOUT)
                 if not self['ports'].target.is_set():
                     raise CommitException('ports target is not set')
@@ -555,7 +557,8 @@ class Interface(Transactional):
                         # wait until the interface will disappear
                         # from the main network namespace
                         try:
-                            self.nl.get_links(self['index'])
+                            for link in self.nl.get_links(self['index']):
+                                self.ipdb.device_put(link)
                         except NetlinkError as e:
                             if e.code == errno.ENODEV:
                                 break
@@ -576,7 +579,9 @@ class Interface(Transactional):
                 # can be removed. In this case you will fail, but
                 # it is OK, no need to roll back
                 try:
-                    self.nl.addr('delete', self['index'], i[0], i[1])
+                    self.ipdb.update_addr(
+                        self.nl.addr('delete', self['index'], i[0], i[1]),
+                        'remove')
                 except NetlinkError as x:
                     # bypass only errno 99, 'Cannot assign address'
                     if x.code != errno.EADDRNOTAVAIL:
@@ -626,21 +631,7 @@ class Interface(Transactional):
                 # 8<--------------------------------------
 
             if removed['ipaddr'] or added['ipaddr']:
-                # 8<--------------------------------------
-                # bond and bridge interfaces do not send
-                # IPv6 address updates, when are down
-                #
-                # beside of that, bridge interfaces are
-                # down by default, so they never send
-                # address updates from beginning
-                #
-                # so if we need, force address load
-                #
-                # FIXME: probably, we should handle other
-                # types as well
-                if self['kind'] in ('bond', 'bridge', 'veth'):
-                    self.nl.get_addr()
-                # 8<--------------------------------------
+                self.ipdb.update_addr(self.nl.get_addr())
                 self['ipaddr'].target.wait(SYNC_TIMEOUT)
                 if not self['ipaddr'].target.is_set():
                     raise CommitException('ipaddr target is not set')
@@ -721,8 +712,9 @@ class Interface(Transactional):
                 # getting RuntimeError() from commit(), take a seat
                 # and rest for a while. It is an extremal case, it
                 # should not became at all, and there is no sync.
-                self.nl.get_links()
-                self.nl.get_addr()
+                for link in self.nl.get_links():
+                    self.ipdb.device_put(link)
+                self.ipdb.update_addr(self.nl.get_addr())
                 x = RuntimeError()
                 x.cause = e
                 x.traceback = traceback.format_exc()

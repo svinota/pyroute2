@@ -454,7 +454,6 @@ class IPDB(object):
         self.neighbours = {}
 
         try:
-            self.nl.monitor = True
             self.nl.bind(async=self._nl_async)
             # load information
             links = self.nl.get_links()
