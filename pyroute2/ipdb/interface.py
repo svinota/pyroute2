@@ -603,8 +603,9 @@ class Interface(Transactional):
                                               'scope')])
                 except KeyError:
                     kwarg = None
-                self.nl.addr('add', self['index'], i[0], i[1],
-                             **kwarg if kwarg else {})
+                self.ipdb.update_addr(
+                    self.nl.addr('add', self['index'], i[0], i[1],
+                                 **kwarg if kwarg else {}), 'add')
 
                 # 8<--------------------------------------
                 # FIXME: kernel bug, sometimes `addr add` for
@@ -631,7 +632,6 @@ class Interface(Transactional):
                 # 8<--------------------------------------
 
             if removed['ipaddr'] or added['ipaddr']:
-                self.ipdb.update_addr(self.nl.get_addr())
                 self['ipaddr'].target.wait(SYNC_TIMEOUT)
                 if not self['ipaddr'].target.is_set():
                     raise CommitException('ipaddr target is not set')
