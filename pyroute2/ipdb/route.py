@@ -80,7 +80,8 @@ class Route(Transactional):
         self._fields.extend(self._virtual_fields)
         self.cleanup = ('attrs',
                         'header',
-                        'event')
+                        'event',
+                        'cacheinfo')
         with self._direct_state:
             for i in self._fields:
                 self[i] = None
