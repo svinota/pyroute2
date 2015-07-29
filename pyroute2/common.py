@@ -178,7 +178,13 @@ class Dotkeys(dict):
         except AttributeError as e:
             if key == '__deepcopy__':
                 raise e
-            return self[key]
+            elif key[:4] == 'set_':
+                def set_value(value):
+                    self[key[4:]] = value
+                    return self
+                return set_value
+            else:
+                return self[key]
 
     def __setattr__(self, key, value):
         if key in self:

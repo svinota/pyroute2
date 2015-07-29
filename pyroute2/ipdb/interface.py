@@ -87,13 +87,6 @@ class Interface(Transactional):
         for ftype in self._xfields:
             self._fields += self._xfields[ftype]
 
-        def make_set_value(self, key):
-            def set_value(value):
-                self[key] = value
-                return self
-            return set_value
-        for key in self._fields + self._virtual_fields:
-            setattr(self, 'set_%s' % key, make_set_value(self, key))
         self._fields.extend(self._virtual_fields)
         self._load_event = threading.Event()
         self._linked_sets.add('ipaddr')
