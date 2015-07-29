@@ -328,13 +328,18 @@ class Transactional(Dotkeys):
             elif tid is None:
                 tid = self._tids[-1]
             self._tids.remove(tid)
-            del self._transactions[tid]
+            # detach linked sets
+            for key in self._linked_sets:
+                if self._transactions[tid][key] in self[key].links:
+                    self[key].disconnect(self._transactions[tid][key])
             for (key, value) in self.items():
                 if isinstance(value, Transactional):
                     try:
                         value.drop(tid)
                     except KeyError:
                         pass
+            # finally -- delete the transaction
+            del self._transactions[tid]
 
     @update
     def __setitem__(self, direct, key, value):

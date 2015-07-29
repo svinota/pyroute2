@@ -119,6 +119,9 @@ class LinkedSet(set):
         assert isinstance(link, LinkedSet)
         self.links.append(link)
 
+    def disconnect(self, link):
+        self.links.remove(link)
+
     def __repr__(self):
         return repr(list(self))
 
