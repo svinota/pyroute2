@@ -10,10 +10,7 @@ from pyroute2.ipdb.transactional import Transactional
 
 class Metrics(Transactional):
 
-    def __init__(self, *argv, **kwarg):
-        Transactional.__init__(self, *argv, **kwarg)
-        self._fields = [rtmsg.metrics.nla2name(i[0]) for i
-                        in rtmsg.metrics.nla_map]
+    _fields = [rtmsg.metrics.nla2name(i[0]) for i in rtmsg.metrics.nla_map]
 
 
 class WatchdogKey(dict):
@@ -59,21 +56,22 @@ class Route(Transactional):
     Persistent transactional route object
     '''
 
+    _fields = [rtmsg.nla2name(i[0]) for i in rtmsg.nla_map]
+    _fields.append('flags')
+    _fields.append('src_len')
+    _fields.append('dst_len')
+    _fields.append('table')
+    _fields.append('removal')
+    _virtual_fields = ['ipdb_scope', 'ipdb_priority']
+    _fields.extend(_virtual_fields)
+    cleanup = ('attrs',
+               'header',
+               'event',
+               'cacheinfo')
+
     def __init__(self, ipdb, mode=None, parent=None, uid=None):
         Transactional.__init__(self, ipdb, mode, parent, uid)
         self._load_event = threading.Event()
-        self._fields = [rtmsg.nla2name(i[0]) for i in rtmsg.nla_map]
-        self._fields.append('flags')
-        self._fields.append('src_len')
-        self._fields.append('dst_len')
-        self._fields.append('table')
-        self._fields.append('removal')
-        self._virtual_fields = ['ipdb_scope', 'ipdb_priority']
-        self._fields.extend(self._virtual_fields)
-        self.cleanup = ('attrs',
-                        'header',
-                        'event',
-                        'cacheinfo')
         with self._direct_state:
             for i in self._fields:
                 self[i] = None

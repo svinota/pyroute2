@@ -84,6 +84,7 @@ class Transactional(Dotkeys):
     '''
     Utility class that implements common transactional logic.
     '''
+    _fields = []
     _fields_cmp = {}
 
     def __init__(self, ipdb=None, mode=None, parent=None, uid=None):
@@ -108,7 +109,6 @@ class Transactional(Dotkeys):
         self.uid = uid or uuid.uuid4()
         self.last_error = None
         self._commit_hooks = []
-        self._fields = []
         self._sids = []
         self._ts = threading.local()
         self._snapshots = {}

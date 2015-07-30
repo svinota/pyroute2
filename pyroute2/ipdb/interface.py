@@ -40,6 +40,33 @@ class Interface(Transactional):
     will be attached to the exception.
     '''
     _fields_cmp = {'flags': lambda x, y: x & y & IFF_MASK == y & IFF_MASK}
+    _virtual_fields = ['ipdb_scope', 'ipdb_priority']
+    _xfields = {'common': [ifinfmsg.nla2name(i[0]) for i
+                           in ifinfmsg.nla_map]}
+    _xfields['common'].append('index')
+    _xfields['common'].append('flags')
+    _xfields['common'].append('mask')
+    _xfields['common'].append('change')
+    _xfields['common'].append('kind')
+    _xfields['common'].append('peer')
+    _xfields['common'].append('vlan_id')
+    _xfields['common'].append('bond_mode')
+
+    for data in ('bridge_data',
+                 'bond_data',
+                 'tuntap_data',
+                 'vxlan_data',
+                 'gre_data',
+                 'macvlan_data',
+                 'macvtap_data'):
+        msg = getattr(ifinfmsg.ifinfo, data)
+        _xfields['common'].extend([msg.nla2name(i[0]) for i
+                                   in msg.nla_map])
+    _fields = []
+    for ftype in _xfields:
+        _fields += _xfields[ftype]
+
+    _fields.extend(_virtual_fields)
 
     def __init__(self, ipdb, mode=None, parent=None, uid=None):
         '''
@@ -62,32 +89,6 @@ class Interface(Transactional):
         self.nlmsg = None
         self._exception = None
         self._tb = None
-        self._virtual_fields = ['ipdb_scope', 'ipdb_priority']
-        self._xfields = {'common': [ifinfmsg.nla2name(i[0]) for i
-                                    in ifinfmsg.nla_map]}
-        self._xfields['common'].append('index')
-        self._xfields['common'].append('flags')
-        self._xfields['common'].append('mask')
-        self._xfields['common'].append('change')
-        self._xfields['common'].append('kind')
-        self._xfields['common'].append('peer')
-        self._xfields['common'].append('vlan_id')
-        self._xfields['common'].append('bond_mode')
-
-        for data in ('bridge_data',
-                     'bond_data',
-                     'tuntap_data',
-                     'vxlan_data',
-                     'gre_data',
-                     'macvlan_data',
-                     'macvtap_data'):
-            msg = getattr(ifinfmsg.ifinfo, data)
-            self._xfields['common'].extend([msg.nla2name(i[0]) for i
-                                            in msg.nla_map])
-        for ftype in self._xfields:
-            self._fields += self._xfields[ftype]
-
-        self._fields.extend(self._virtual_fields)
         self._load_event = threading.Event()
         self._linked_sets.add('ipaddr')
         self._linked_sets.add('ports')
