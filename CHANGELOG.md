@@ -1,6 +1,9 @@
 changelog
 =========
 
+* 0.3.11
+    * ipdb: #161 -- fix memory allocations
+    * nlsocket: #161 -- remove monitor mode
 * 0.3.10
     * rtnl: added BPF filters
     * rtnl: LWtunnel support in ifinfmsg
