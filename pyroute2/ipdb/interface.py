@@ -5,6 +5,7 @@ import threading
 import traceback
 from pyroute2 import config
 from pyroute2.common import basestring
+from pyroute2.common import reduce
 from pyroute2.common import dqn2int
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.rtnl.req import IPLinkRequest
@@ -16,6 +17,20 @@ from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.common import CommitException
 from pyroute2.ipdb.common import SYNC_TIMEOUT
+
+
+def _get_data_fields():
+    ret = []
+    for data in ('bridge_data',
+                 'bond_data',
+                 'tuntap_data',
+                 'vxlan_data',
+                 'gre_data',
+                 'macvlan_data',
+                 'macvtap_data'):
+        msg = getattr(ifinfmsg.ifinfo, data)
+        ret += [msg.nla2name(i[0]) for i in msg.nla_map]
+    return ret
 
 
 class Interface(Transactional):
@@ -51,21 +66,9 @@ class Interface(Transactional):
     _xfields['common'].append('peer')
     _xfields['common'].append('vlan_id')
     _xfields['common'].append('bond_mode')
+    _xfields['common'].extend(_get_data_fields())
 
-    for data in ('bridge_data',
-                 'bond_data',
-                 'tuntap_data',
-                 'vxlan_data',
-                 'gre_data',
-                 'macvlan_data',
-                 'macvtap_data'):
-        msg = getattr(ifinfmsg.ifinfo, data)
-        _xfields['common'].extend([msg.nla2name(i[0]) for i
-                                   in msg.nla_map])
-    _fields = []
-    for ftype in _xfields:
-        _fields += _xfields[ftype]
-
+    _fields = reduce(lambda x, y: x + y, _xfields.values())
     _fields.extend(_virtual_fields)
 
     def __init__(self, ipdb, mode=None, parent=None, uid=None):

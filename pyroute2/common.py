@@ -15,8 +15,11 @@ from socket import inet_aton
 
 try:
     basestring = basestring
+    reduce = reduce
 except NameError:
     basestring = (str, bytes)
+    from functools import reduce
+    reduce = reduce
 
 AF_PIPE = 255  # Right now AF_MAX == 40
 DEFAULT_RCVBUF = 16384
