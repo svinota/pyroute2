@@ -15,6 +15,7 @@ from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.transactional import update
 from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.linkedset import IPaddrSet
+from pyroute2.ipdb.common import CreateException
 from pyroute2.ipdb.common import CommitException
 from pyroute2.ipdb.common import SYNC_TIMEOUT
 
@@ -479,6 +480,17 @@ class Interface(Transactional):
 
         if wd is not None:
             wd.wait()
+            if self['index'] == 0:
+                # Only the interface creation time issue on
+                # old or compat platforms. The interface index
+                # may be not known yet, but we can not continue
+                # without it. It will be updated anyway, but
+                # it is better to force the lookup.
+                ix = self.nl.link_lookup(ifname=self['ifname'])
+                if ix:
+                    self['index'] = ix[0]
+                else:
+                    raise CreateException()
 
         # now we have our index and IP set and all other stuff
         snapshot = self.pick()
