@@ -1,6 +1,7 @@
 '''
 '''
 import threading
+from pyroute2.common import basestring
 
 
 class LinkedSet(set):
@@ -134,3 +135,18 @@ class IPaddrSet(LinkedSet):
     '''
     def target_filter(self, x):
         return not ((x[0][:4] == 'fe80') and (x[1] == 64))
+
+    def __repr__(self):
+        return repr(['%s/%s' % x for x in self])
+
+    def __getitem__(self, key):
+        if isinstance(key, (tuple, list)):
+            return self.raw[key]
+        elif isinstance(key, int):
+            return self.raw[tuple(self.raw.keys())[key]]
+        elif isinstance(key, basestring):
+            key = key.split('/')
+            key = (key[0], int(key[1]))
+            return self.raw[key]
+        else:
+            TypeError('wrong key type')
