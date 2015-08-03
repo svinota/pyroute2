@@ -1,8 +1,8 @@
 '''
 '''
-import uuid
 import threading
 from pyroute2.common import Dotkeys
+from pyroute2.common import uuid32
 from pyroute2.ipdb.common import SYNC_TIMEOUT
 from pyroute2.ipdb.common import CommitException
 from pyroute2.ipdb.common import DeprecationException
@@ -106,7 +106,7 @@ class Transactional(Dotkeys):
             self._mode = mode or 'implicit'
         #
         self.nlmsg = None
-        self.uid = uid or uuid.uuid4()
+        self.uid = uid or uuid32()
         self.last_error = None
         self._commit_hooks = []
         self._sids = []

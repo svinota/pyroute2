@@ -296,7 +296,6 @@ classes
 -------
 '''
 import sys
-import uuid
 import atexit
 import logging
 import traceback
@@ -308,6 +307,7 @@ from pyroute2 import config
 from pyroute2.common import Dotkeys
 from pyroute2.common import View
 from pyroute2.common import basestring
+from pyroute2.common import uuid32
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.ipdb.common import CreateException
@@ -538,7 +538,7 @@ class IPDB(object):
 
         safe.hook = callback
         safe.lock = lock
-        safe.uuid = uuid.uuid4()
+        safe.uuid = uuid32()
 
         if mode == 'post':
             self._post_callbacks[safe.uuid] = safe
