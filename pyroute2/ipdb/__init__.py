@@ -946,8 +946,11 @@ class IPDB(object):
                 # masters refers to the same slave
                 for device in self.by_index:
                     if index in self.interfaces[device]['ports']:
-                        self.interfaces[device].del_port(index,
-                                                         direct=True)
+                        try:
+                            self.interfaces[device].del_port(
+                                index, direct=True)
+                        except KeyError:
+                            pass
                 master.add_port(index, direct=True)
             elif msg['event'] == 'RTM_DELLINK':
                 if index in master['ports']:
@@ -959,16 +962,22 @@ class IPDB(object):
             # clean device from ports
             for master in self.by_index:
                 if index in self.interfaces[master]['ports']:
-                    self.interfaces[master].del_port(index,
-                                                     direct=True)
+                    try:
+                        self.interfaces[master].del_port(
+                            index, direct=True)
+                    except KeyError:
+                        pass
             master = device.if_master
             if master is not None:
                 if 'master' in device:
                     device.del_item('master')
                 if (master in self.interfaces) and \
                         (msg['index'] in self.interfaces[master].ports):
-                    self.interfaces[master].del_port(msg['index'],
-                                                     direct=True)
+                    try:
+                        self.interfaces[master].del_port(
+                            msg['index'], direct=True)
+                    except KeyError:
+                        pass
 
     def update_addr(self, addrs, action='add'):
         # Update address list of an interface.
