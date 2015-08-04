@@ -68,6 +68,7 @@ import os
 import errno
 import atexit
 import select
+import signal
 import struct
 import threading
 import traceback
@@ -126,6 +127,7 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
            implementations, but it is required by the protocol standard.
 
     '''
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         nsfd = setns(netns, flags)
     except OSError as e:
