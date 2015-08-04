@@ -403,7 +403,8 @@ class ifinfbase(object):
                        ('IFLA_VXLAN_GBP', 'uint8'),
                        # NLA_FLAG, not implemented?
                        ('IFLA_VXLAN_REMCSUM_NOPARTIAL', 'uint8'),
-                       ('IFLA_VXLAN_FLOWBASED', 'uint8'))
+                       ('IFLA_VXLAN_FLOWBASED', 'uint8'),
+                       ('IFLA_VXLAN_COLLECT_METADATA', 'uint8'))
 
             class port_range(nla):
                 fields = (('low', '>H'),
