@@ -163,7 +163,6 @@ methods of the `Transactional` objects.
     pyroute2.ipdb.linkedset.LinkedSet
     pyroute2.ipdb.linkedset.IPaddrSet
     pyroute2.ipdb.route.Metrics
-    pyroute2.ipdb.route.RouteKey
     pyroute2.ipdb.route.Route
     pyroute2.ipdb.route.RoutingTable
     pyroute2.ipdb.route.RoutingTableSet
