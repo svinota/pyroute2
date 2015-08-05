@@ -9,6 +9,7 @@ namespace support.
 '''
 
 import sys
+import fcntl
 import types
 import atexit
 import threading
@@ -31,6 +32,53 @@ def _handle(result):
         raise TypeError('unsupported return code')
 
 
+def _make_fcntl(prime, target):
+    def func(*argv, **kwarg):
+        return target(prime.fileno(), *argv, **kwarg)
+    return func
+
+
+def _make_func(target):
+    def func(*argv, **kwarg):
+        return target(*argv, **kwarg)
+    return func
+
+
+def _make_property(name):
+    def func(self):
+        return getattr(self.prime, name)
+    return property(func)
+
+
+class NSPopenFile(object):
+
+    def __init__(self, prime):
+        self.prime = prime
+
+        for aname in dir(prime):
+            if aname.startswith('_'):
+                continue
+
+            target = getattr(prime, aname)
+            if isinstance(target, (types.BuiltinMethodType,
+                                   types.MethodType)):
+                func = _make_func(target)
+                func.__name__ = aname
+                func.__doc__ = getattr(target, '__doc__', '')
+                setattr(self, aname, func)
+                del func
+            else:
+                setattr(self.__class__, aname, _make_property(aname))
+
+        for fname in ('fcntl', 'ioctl', 'flock', 'lockf'):
+            target = getattr(fcntl, fname)
+            func = _make_fcntl(prime, target)
+            func.__name__ = fname
+            func.__doc__ = getattr(target, '__doc__', '')
+            setattr(self, fname, func)
+            del func
+
+
 def NSPopenServer(nsname, flags, channel_in, channel_out, argv, kwarg):
     # set netns
     try:
@@ -40,6 +88,12 @@ def NSPopenServer(nsname, flags, channel_in, channel_out, argv, kwarg):
         return
     # create the Popen object
     child = subprocess.Popen(*argv, **kwarg)
+    for fname in ['stdout', 'stderr', 'stdin']:
+        obj = getattr(child, fname)
+        if obj is not None:
+            fproxy = NSPopenFile(obj)
+            setattr(child, fname, fproxy)
+
     # send the API map
     channel_out.put(None)
 
@@ -69,7 +123,9 @@ def NSPopenServer(nsname, flags, channel_in, channel_out, argv, kwarg):
                 for step in ns.split('.'):
                     obj = getattr(obj, step)
             attr = getattr(obj, call['name'])
-            if isinstance(attr, (types.MethodType, types.BuiltinMethodType)):
+            if isinstance(attr, (types.MethodType,
+                                 types.FunctionType,
+                                 types.BuiltinMethodType)):
                 result = attr(*call['argv'], **call['kwarg'])
             else:
                 result = attr
@@ -98,8 +154,7 @@ class ObjNS(object):
                 if self.released:
                     raise RuntimeError('the object is released')
 
-                if (self.api.get(key) and self.api[key]['callable']) or \
-                        (self.ns is not None):
+                if (self.api.get(key) and self.api[key]['callable']):
                     def proxy(*argv, **kwarg):
                         self.channel_out.put({'name': key,
                                               'argv': argv,
@@ -113,14 +168,15 @@ class ObjNS(object):
                     if key in ('stdin', 'stdout', 'stderr'):
                         objns = ObjNS()
                         objns.ns = key
-                        objns.api = self.api
+                        objns.api = self.api.get(key, {}).get('api', {})
                         objns.channel_out = self.channel_out
                         objns.channel_in = self.channel_in
                         objns.released = self.released
                         objns.lock = self.lock
                         return objns
                     else:
-                        self.channel_out.put({'name': key})
+                        self.channel_out.put({'name': key,
+                                              'namespace': self.ns})
                         return _handle(self.channel_in.get())
 
 

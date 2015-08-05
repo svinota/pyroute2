@@ -2,6 +2,7 @@
 '''
 Common utilities
 '''
+import io
 import re
 import os
 import time
@@ -16,10 +17,12 @@ from socket import inet_aton
 try:
     basestring = basestring
     reduce = reduce
+    file = file
 except NameError:
     basestring = (str, bytes)
     from functools import reduce
     reduce = reduce
+    file = io.BytesIO
 
 AF_PIPE = 255  # Right now AF_MAX == 40
 DEFAULT_RCVBUF = 16384

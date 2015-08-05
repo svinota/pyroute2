@@ -1,5 +1,16 @@
+import fcntl
 import types
 import subprocess
+from pyroute2.common import file
+
+
+def _map_api(api, obj):
+    for attr_name in dir(obj):
+        attr = getattr(obj, attr_name)
+        api[attr_name] = {'api': None}
+        api[attr_name]['callable'] = hasattr(attr, '__call__')
+        api[attr_name]['doc'] = attr.__doc__ \
+            if hasattr(attr, '__doc__') else None
 
 
 class MetaPopen(type):
@@ -12,13 +23,16 @@ class MetaPopen(type):
         super(MetaPopen, cls).__init__(*argv, **kwarg)
         # copy docstrings and create proxy slots
         cls.api = {}
-        for attr_name in dir(subprocess.Popen):
-            attr = getattr(subprocess.Popen, attr_name)
-            cls.api[attr_name] = {}
-            cls.api[attr_name]['callable'] = \
-                isinstance(attr, (types.MethodType, types.FunctionType))
-            cls.api[attr_name]['doc'] = attr.__doc__ \
-                if hasattr(attr, '__doc__') else None
+        _map_api(cls.api, subprocess.Popen)
+        for fname in ('stdin', 'stdout', 'stderr'):
+            m = {}
+            cls.api[fname] = {'callable': False,
+                              'api': m}
+            _map_api(m, file)
+            for ename in ('fcntl', 'ioctl', 'flock', 'lockf'):
+                m[ename] = {'api': None,
+                            'callable': True,
+                            'doc': getattr(fcntl, ename).__doc__}
 
     def __dir__(cls):
         return list(cls.api.keys()) + ['release']
