@@ -191,8 +191,45 @@ class NSPopen(NSPopenBase, ObjNS):
         nsp.wait()
         nsp.release()
 
-    The only difference in the `release()` call. It explicitly ends
-    the proxy process and releases all the resources.
+    The `NSPopen` class was intended to be a drop-in replacement
+    for the `Popen` class, but there are still some important
+    differences.
+
+    The `NSPopen` object implicitly spawns a child python process
+    to be run in the background in a network namespace. The target
+    process specified as the argument of the `NSPopen` will be
+    started in its turn from this child. Thus all the fd numbers
+    of the running `NSPopen` object are meaningless in the context
+    of the main process. Trying to operate on them, one will get
+    'Bad file descriptor' in the best case or a system call working
+    on a wrong file descriptor in the worst case. A possible
+    solution would be to transfer file descriptors between the
+    `NSPopen` object and the main process, but it is not implemented
+    yet.
+
+    The process' diagram for `NSPopen('test', ['ip', 'ad'])`::
+
+        +---------------------+     +--------------+     +------------+
+        | main python process |<--->| child python |<--->| netns test |
+        | NSPopen()           |     | Popen()      |     | $ ip ad    |
+        +---------------------+     +--------------+     +------------+
+
+    As a workaround for the issue with file descriptors, some
+    additional methods are available on file objects `stdin`,
+    `stdout` and `stderr`. E.g., one can run fcntl calls::
+
+        from fcntl import F_GETFL
+        from pyroute2 import NSPopen
+        from subprocess import PIPE
+
+        proc = NSPopen('test', ['my_program'], stdout=PIPE)
+        flags = proc.stdout.fcntl(F_GETFL)
+
+    In that way one can use `fcntl()`, `ioctl()`, `flock()` and
+    `lockf()` calls.
+
+    Another additional method is `release()`, which can be used to
+    explicitly stop the proxy process and release all the resources.
     '''
 
     def __init__(self, nsname, *argv, **kwarg):
