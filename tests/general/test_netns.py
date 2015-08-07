@@ -1,5 +1,6 @@
 import os
 import time
+import fcntl
 import subprocess
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
@@ -27,6 +28,26 @@ class TestNSPopen(object):
         nsid = str(uuid4())
         self.names.append(nsid)
         return nsid
+
+    def test_stdio(self):
+        require_user('root')
+        nsid = self.alloc_nsname()
+        nsp = NSPopen(nsid, ['ip', 'ad'],
+                      flags=os.O_CREAT,
+                      stdout=subprocess.PIPE)
+        output = nsp.stdout.read()
+        nsp.release()
+        assert output is not None
+
+    def test_fcntl(self):
+        require_user('root')
+        nsid = self.alloc_nsname()
+        nsp = NSPopen(nsid, ['ip', 'ad'],
+                      flags=os.O_CREAT,
+                      stdout=subprocess.PIPE)
+        flags = nsp.stdout.fcntl(fcntl.F_GETFL)
+        nsp.release()
+        assert flags == 0
 
     def test_api_class(self):
         api_nspopen = set(dir(NSPopenDirect))
