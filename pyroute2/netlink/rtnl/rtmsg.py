@@ -52,7 +52,10 @@ class rtmsg(nlmsg):
                ('RTA_MP_ALGO', 'hex'),
                ('RTA_TABLE', 'uint32'),
                ('RTA_MARK', 'uint32'),
-               ('RTA_MFC_STATS', 'rta_mfc_stats'))
+               ('RTA_MFC_STATS', 'rta_mfc_stats'),
+               ('RTA_VIA', 'hex'),
+               ('RTA_NEWDST', 'hex'),
+               ('RTA_PREF', 'hex'))
 
     class rta_mfc_stats(nla):
         fields = (('mfcs_packets', 'uint64'),
