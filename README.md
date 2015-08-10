@@ -9,11 +9,11 @@ it is possible.
 The library provides several modules:
 
 * Netlink protocol implementations (RTNetlink, TaskStats, etc)
-    * **rtnl**, network settings — addresses, routes, traffic controls
-    * **nl80211** — wireless functions API (work in progress)
-    * **nfnetlink** — netfilter API: **ipset** (work in progress), …
-    * **ipq** — simplest userspace packet filtering, iptables QUEUE target
-    * **taskstats** — extended process statistics
+    * **rtnl**, network settings --- addresses, routes, traffic controls
+    * **nl80211** --- wireless functions API (work in progress)
+    * **nfnetlink** --- netfilter API: **ipset** (work in progress), ...
+    * **ipq** --- simplest userspace packet filtering, iptables QUEUE target
+    * **taskstats** --- extended process statistics
 * Simple netlink socket object, that can be used in poll/select
 * Network configuration module IPRoute provides API that in some
   way resembles ip/tc functionality
@@ -43,7 +43,7 @@ poll/select::
     ip.close()
 
 
-Low-level **IPRoute** utility -- Linux network configuration.
+Low-level **IPRoute** utility --- Linux network configuration.
 **IPRoute** usually doesn't rely on external utilities, but in some
 cases, when the kernel doesn't provide the functionality via netlink
 (like on RHEL6.5), it transparently uses also brctl and sysfs to setup
