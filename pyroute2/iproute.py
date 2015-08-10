@@ -971,6 +971,25 @@ class IPRouteMixin(object):
         Commands `change` and `replace` have the same meanings, as
         in ip-route(8): `change` modifies only existing route, while
         `replace` creates a new one, if there is no such route yet.
+
+        It is possible to set also route metrics. There are two ways
+        to do so. The first is to use 'raw' NLA notation::
+
+            ip.route("add",
+                     dst="10.0.0.0",
+                     mask=24,
+                     gateway="192.168.0.1",
+                     metrics={"attrs": [["RTAX_MTU", 1400],
+                                        ["RTAX_HOPLIMIT", 16]]})
+
+        The second way is to use `IPRouteRequest` helper::
+
+            from pyroute2.netlink.rtnl.req import IPRouteRequest
+            ...
+            ip.route("add", **IPRouteRequest({"dst": "10.0.0.0/24",
+                                              "gateway": "192.168.0.1",
+                                              "metrics": {"mtu": 1400,
+                                                          "hoplimit": 16}}))
         '''
 
         # 8<----------------------------------------------------
