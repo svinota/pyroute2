@@ -1,6 +1,11 @@
 
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
+from pyroute2.netlink import nlmsg_base
+
+
+class nh_header(nlmsg_base):
+    fields = (('length', 'H'), )
 
 
 class rtmsg(nlmsg):
@@ -44,7 +49,7 @@ class rtmsg(nlmsg):
                ('RTA_PRIORITY', 'uint32'),
                ('RTA_PREFSRC', 'ipaddr'),
                ('RTA_METRICS', 'metrics'),
-               ('RTA_MULTIPATH', 'hex'),
+               ('RTA_MULTIPATH', '*nh'),
                ('RTA_PROTOINFO', 'uint32'),
                ('RTA_FLOW', 'hex'),
                ('RTA_CACHEINFO', 'cacheinfo'),
@@ -80,6 +85,15 @@ class rtmsg(nlmsg):
                    ('RTAX_RTO_MIN', 'uint32'),
                    ('RTAX_INITRWND', 'uint32'),
                    ('RTAX_QUICKACK', 'uint32'))
+
+    class nh(nla):
+        cell_header = nh_header
+        fields = (('rtnh_flags', 'B'),
+                  ('rtnh_hops', 'B'),
+                  ('rtnh_ifindex', 'i'))
+        nla_map = ((5, 'RTA_GATEWAY', 'ipaddr'),
+                   (11, 'RTA_FLOW', 'hex'),
+                   (18, 'RTA_VIA', 'hex'))
 
     class cacheinfo(nla):
         fields = (('rta_clntref', 'I'),
