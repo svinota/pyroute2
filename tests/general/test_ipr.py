@@ -363,6 +363,22 @@ class TestIPRoute(object):
                                                      '172.16.61.0'))
         assert len(rts) == 4
 
+    def test_route_multipath(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.241.0',
+                      mask=24,
+                      multipath=[{'hops': 20,
+                                  'ifindex': 1,
+                                  'attrs': [['RTA_GATEWAY', '127.0.0.2']]},
+                                 {'hops': 30,
+                                  'ifindex': 1,
+                                  'attrs': [['RTA_GATEWAY', '127.0.0.3']]}])
+        assert grep('ip route show', pattern='172.16.241.0/24')
+        assert grep('ip route show', pattern='nexthop.*127.0.0.2.*weight 21')
+        assert grep('ip route show', pattern='nexthop.*127.0.0.3.*weight 31')
+        self.ip.route('del', dst='172.16.241.0', mask=24)
+
     def test_route_change_existing(self):
         # route('replace', ...) should succeed, if route exists
         require_user('root')
