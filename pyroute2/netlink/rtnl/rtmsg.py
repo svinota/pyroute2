@@ -5,6 +5,7 @@ from pyroute2.netlink import nlmsg_base
 
 
 class nh_header(nlmsg_base):
+    align = 2
     fields = (('length', 'H'), )
 
 
@@ -87,10 +88,11 @@ class rtmsg(nlmsg):
                    ('RTAX_QUICKACK', 'uint32'))
 
     class nh(nla):
+        align = 2
         cell_header = nh_header
-        fields = (('rtnh_flags', 'B'),
-                  ('rtnh_hops', 'B'),
-                  ('rtnh_ifindex', 'i'))
+        fields = (('flags', 'B'),
+                  ('hops', 'B'),
+                  ('ifindex', 'i'))
         nla_map = ((5, 'RTA_GATEWAY', 'ipaddr'),
                    (11, 'RTA_FLOW', 'hex'),
                    (18, 'RTA_VIA', 'hex'))

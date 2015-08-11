@@ -419,8 +419,6 @@ NETLINK_SCSITRANSPORT = 18   # SCSI Transports
 NLA_F_NESTED = 1 << 15
 NLA_F_NET_BYTEORDER = 1 << 14
 
-NLMSG_ALIGNTO = 4
-
 
 class NetlinkError(Exception):
     '''
@@ -461,10 +459,6 @@ class NetlinkNLADecodeError(NetlinkDecodeError):
     The error occured while decoding NLA chain
     '''
     pass
-
-
-def NLMSG_ALIGN(l):
-    return (l + NLMSG_ALIGNTO - 1) & ~ (NLMSG_ALIGNTO - 1)
 
 
 class NotInitialized(Exception):
@@ -547,10 +541,14 @@ class nlmsg_base(dict):
     pack = None                  # pack pragma
     nla_array = False
     cell_header = None
+    align = 4
     nla_map = {}                 # NLA mapping
     nla_flags = 0                # NLA flags
     nla_init = None              # NLA initstring
     value_map = {}
+
+    def msg_align(self, l):
+        return (l + self.align - 1) & ~ (self.align - 1)
 
     def __init__(self,
                  buf=None,
@@ -847,7 +845,7 @@ class nlmsg_base(dict):
         try:
             # read NLA chain
             if self.nla_map:
-                self.buf.seek(NLMSG_ALIGN(self.buf.tell()))
+                self.buf.seek(self.msg_align(self.buf.tell()))
                 self.decode_nlas()
         except Exception as e:
             logging.warning(traceback.format_exc())
@@ -857,7 +855,7 @@ class nlmsg_base(dict):
         if self['value'] is NotInitialized:
             del self['value']
         if self.length:
-            self.buf.seek(NLMSG_ALIGN(self.offset + self.length))
+            self.buf.seek(self.msg_align(self.offset + self.length))
 
     def encode(self):
         '''
@@ -920,7 +918,7 @@ class nlmsg_base(dict):
                                   (fmt, value, type(value)))
                     raise
 
-            diff = NLMSG_ALIGN(len(payload)) - len(payload)
+            diff = self.msg_align(len(payload)) - len(payload)
             self.buf.write(payload)
             self.buf.write(b'\0' * diff)
         # write NLA chain
