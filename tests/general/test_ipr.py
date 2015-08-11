@@ -5,6 +5,7 @@ from pyroute2 import IPRoute
 from pyroute2.common import uifname
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink import nlmsg
+from pyroute2.netlink.rtnl.req import IPRouteRequest
 from utils import grep
 from utils import require_user
 from utils import require_python
@@ -378,6 +379,21 @@ class TestIPRoute(object):
         assert grep('ip route show', pattern='nexthop.*127.0.0.2.*weight 21')
         assert grep('ip route show', pattern='nexthop.*127.0.0.3.*weight 31')
         self.ip.route('del', dst='172.16.241.0', mask=24)
+
+    def test_route_multipath_helper(self):
+        require_user('root')
+        req = IPRouteRequest({'dst': '172.16.242.0/24',
+                              'multipath': [{'hops': 20,
+                                             'ifindex': 1,
+                                             'gateway': '127.0.0.2'},
+                                            {'hops': 30,
+                                             'ifindex': 1,
+                                             'gateway': '127.0.0.3'}]})
+        self.ip.route('add', **req)
+        assert grep('ip route show', pattern='172.16.242.0/24')
+        assert grep('ip route show', pattern='nexthop.*127.0.0.2.*weight 21')
+        assert grep('ip route show', pattern='nexthop.*127.0.0.3.*weight 31')
+        self.ip.route('del', dst='172.16.242.0', mask=24)
 
     def test_route_change_existing(self):
         # route('replace', ...) should succeed, if route exists
