@@ -546,6 +546,7 @@ class nlmsg_base(dict):
     header = None                # optional header class
     pack = None                  # pack pragma
     nla_array = False
+    cell_header = None
     nla_map = {}                 # NLA mapping
     nla_flags = 0                # NLA flags
     nla_init = None              # NLA initstring
@@ -782,67 +783,71 @@ class nlmsg_base(dict):
             while self.buf.tell() < self.offset + self.length:
                 cell = type(self)(self.buf, parent=self, debug=self.debug)
                 cell.nla_array = False
+                if cell.cell_header is not None:
+                    cell.header = cell.cell_header
+                    cell['header'] = cell.cell_header(self.buf)
                 cell.decode()
                 self.value.append(cell)
-        # decode the data
-        try:
-            if self.pack == 'struct':
-                names = []
-                formats = []
-                for field in self.fields:
-                    names.append(field[0])
-                    formats.append(field[1])
-                fields = ((','.join(names), ''.join(formats)), )
-            else:
-                fields = self.fields
-
-            for field in fields:
-                name = field[0]
-                fmt = field[1]
-
-                # 's' and 'z' can be used only in connection with
-                # length, encoded in the header
-                if field[1] in ('s', 'z'):
-                    fmt = '%is' % (self.length - 4)
-
-                size = struct.calcsize(fmt)
-                raw = self.buf.read(size)
-                actual_size = len(raw)
-
-                # FIXME: adjust string size again
-                if field[1] in ('s', 'z'):
-                    size = actual_size
-                    fmt = '%is' % (actual_size)
-                if size == actual_size:
-                    value = struct.unpack(fmt, raw)
-                    if len(value) == 1:
-                        self[name] = value[0]
-                        # cut zero-byte from z-strings
-                        # 0x00 -- python3; '\0' -- python2
-                        if field[1] == 'z' and self[name][-1] in (0x00, '\0'):
-                            self[name] = self[name][:-1]
-                    else:
-                        if self.pack == 'struct':
-                            names = name.split(',')
-                            values = list(value)
-                            for name in names:
-                                if name[0] != '_':
-                                    self[name] = values.pop(0)
-                        else:
-                            self[name] = value
-
+        else:
+            # decode the data
+            try:
+                if self.pack == 'struct':
+                    names = []
+                    formats = []
+                    for field in self.fields:
+                        names.append(field[0])
+                        formats.append(field[1])
+                    fields = ((','.join(names), ''.join(formats)), )
                 else:
-                    # FIXME: log an error
-                    pass
+                    fields = self.fields
 
-        except Exception as e:
-            raise NetlinkDataDecodeError(e)
+                for field in fields:
+                    name = field[0]
+                    fmt = field[1]
+
+                    # 's' and 'z' can be used only in connection with
+                    # length, encoded in the header
+                    if field[1] in ('s', 'z'):
+                        fmt = '%is' % (self.length - 4)
+
+                    size = struct.calcsize(fmt)
+                    raw = self.buf.read(size)
+                    actual_size = len(raw)
+
+                    # FIXME: adjust string size again
+                    if field[1] in ('s', 'z'):
+                        size = actual_size
+                        fmt = '%is' % (actual_size)
+                    if size == actual_size:
+                        value = struct.unpack(fmt, raw)
+                        if len(value) == 1:
+                            self[name] = value[0]
+                            # cut zero-byte from z-strings
+                            # 0x00 -- python3; '\0' -- python2
+                            if field[1] == 'z' and self[name][-1] \
+                                    in (0x00, '\0'):
+                                self[name] = self[name][:-1]
+                        else:
+                            if self.pack == 'struct':
+                                names = name.split(',')
+                                values = list(value)
+                                for name in names:
+                                    if name[0] != '_':
+                                        self[name] = values.pop(0)
+                            else:
+                                self[name] = value
+
+                    else:
+                        # FIXME: log an error
+                        pass
+
+            except Exception as e:
+                raise NetlinkDataDecodeError(e)
         # decode NLA
         try:
-            # align NLA chain start
-            self.buf.seek(NLMSG_ALIGN(self.buf.tell()))
             # read NLA chain
             if self.nla_map:
+                self.buf.seek(NLMSG_ALIGN(self.buf.tell()))
                 self.decode_nlas()
         except Exception as e:
             logging.warning(traceback.format_exc())
