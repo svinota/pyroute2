@@ -879,8 +879,17 @@ class nlmsg_base(dict):
         if self.header is not None:
             self['header'].reserve()
 
-        if self.getvalue() is not None:
-
+        # handle the array case
+        if self.nla_array:
+            for value in self.getvalue():
+                cell = type(self)(self.buf, parent=self, debug=self.debug)
+                cell.nla_array = False
+                if cell.cell_header is not None:
+                    cell.header = cell.cell_header
+                    cell['header'] = cell.cell_header(self.buf)
+                cell.setvalue(value)
+                cell.encode()
+        elif self.getvalue() is not None:
             payload = b''
             for i in self.fields:
                 name = i[0]
@@ -1078,6 +1087,7 @@ class nlmsg_base(dict):
             if i[0] in self.r_nla_map:
                 msg_class = self.r_nla_map[i[0]][0]
                 msg_type = self.r_nla_map[i[0]][1]
+                msg_array = self.r_nla_map[i[0]][3]
                 msg_init = self.r_nla_map[i[0]][4]
                 # is it a class or a function?
                 if isinstance(msg_class, types.MethodType):
@@ -1086,6 +1096,7 @@ class nlmsg_base(dict):
                 # encode NLA
                 nla = msg_class(self.buf, parent=self, init=msg_init)
                 nla.nla_flags |= self.r_nla_map[i[0]][2]
+                nla.nla_array = msg_array
                 nla['header']['type'] = msg_type | nla.nla_flags
                 nla.setvalue(i[1])
                 try:
