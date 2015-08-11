@@ -1163,6 +1163,9 @@ class nlmsg_base(dict):
 
             self['attrs'].append([msg_name, msg_value])
 
+            # fix the offset
+            self.buf.seek(init + self.msg_align(length))
+
 
 class nla_header(nlmsg_base):
     '''
