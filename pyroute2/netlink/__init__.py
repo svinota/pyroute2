@@ -851,6 +851,8 @@ class nlmsg_base(dict):
             del self['attrs']
         if self['value'] is NotInitialized:
             del self['value']
+        if self.length:
+            self.buf.seek(NLMSG_ALIGN(self.offset + self.length))
 
     def encode(self):
         '''
@@ -1146,9 +1148,6 @@ class nlmsg_base(dict):
                 msg_value = hexdump(self.buf.read(length))
 
             self['attrs'].append([msg_name, msg_value])
-
-            # fix the offset
-            self.buf.seek(init + NLMSG_ALIGN(length))
 
 
 class nla_header(nlmsg_base):
