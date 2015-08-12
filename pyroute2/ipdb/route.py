@@ -40,7 +40,7 @@ class NextHopSet(LinkedSet):
 
     def __iter__(self):
         def NHIterator():
-            for x in self.raw.keys():
+            for x in tuple(self.raw.keys()):
                 yield self[x]
         return NHIterator()
 
