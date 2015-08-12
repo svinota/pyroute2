@@ -124,7 +124,7 @@ class Route(Transactional):
 
     def reload(self):
         # do NOT call get_routes() here, it can cause race condition
-        self._load_event.wait()
+        # self._load_event.wait()
         return self
 
     def commit(self, tid=None, transaction=None, rollback=False):
@@ -361,6 +361,10 @@ class RoutingTableSet(object):
         table = msg.get('table', 254)
         if table in self.ignore_rtables:
             return
+
+        if not isinstance(msg, rtmsg):
+            return
+
         # construct a key
         # FIXME: temporary solution
         # FIXME: can `Route()` be used as a key?
