@@ -327,6 +327,34 @@ class TestExplicit(object):
         assert '172.16.0.0/24' not in self.ip.routes.keys()
         assert not grep('ip ro', pattern='172.16.0.0/24')
 
+    def test_routes_multipath_gateway(self):
+        require_user('root')
+        ifR = self.get_ifname()
+
+        with self.ip.create(ifname=ifR, kind='dummy') as i:
+            i.add_ip('172.16.231.1/24')
+            i.up()
+
+        r = self.ip.routes.add({'dst': '172.16.232.0/24',
+                                'multipath': [{'gateway': '172.16.231.2',
+                                               'hops': 20},
+                                              {'gateway': '172.16.231.3',
+                                               'hops': 30},
+                                              {'gateway': '172.16.231.4'}]})
+        r.commit()
+        assert grep('ip ro', pattern='172.16.232.0/24')
+        assert grep('ip ro', pattern='nexthop.*172.16.231.2.*weight.*21')
+        assert grep('ip ro', pattern='nexthop.*172.16.231.3.*weight.*31')
+        assert grep('ip ro', pattern='nexthop.*172.16.231.4.*weight.*1')
+
+        with self.ip.routes['172.16.232.0/24'] as r:
+            r.add_nh({'gateway': '172.16.231.5', 'hops': 50})
+            r.del_nh({'gateway': '172.16.231.2'})
+        assert grep('ip ro', pattern='172.16.232.0/24')
+        assert grep('ip ro', pattern='nexthop.*172.16.231.5.*weight.*51')
+        assert grep('ip ro', pattern='nexthop.*172.16.231.3.*weight.*31')
+        assert grep('ip ro', pattern='nexthop.*172.16.231.4.*weight.*1')
+
     def test_routes_metrics(self):
         require_user('root')
         assert '172.16.0.0/24' not in self.ip.routes.keys()
