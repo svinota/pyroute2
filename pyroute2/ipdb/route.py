@@ -215,7 +215,7 @@ class Route(Transactional):
         if self['ipdb_scope'] != 'system':
             try:
                 self.ipdb.update_routes(
-                    self.nl.route('add', **IPRouteRequest(self)))
+                    self.nl.route('add', **IPRouteRequest(transaction)))
             except Exception:
                 self.nl = None
                 self.ipdb.routes.remove(self)
@@ -420,11 +420,14 @@ class RoutingTableSet(object):
             self.tables[table] = RoutingTable(self.ipdb)
         route = Route(self.ipdb)
         metrics = spec.pop('metrics', {})
+        multipath = spec.pop('multipath', [])
         route.update(spec)
         route.metrics.update(metrics)
         route.set_item('ipdb_scope', 'create')
         self.tables[table][route['dst']] = route
         route.begin()
+        for nh in multipath:
+            route.add_nh(nh)
         return route
 
     def load_netlink(self, msg):
