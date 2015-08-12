@@ -280,6 +280,51 @@ To access and change the routes, one can use notations as follows::
     # list automatic routes keys
     print(ip.routes.tables[255].keys())
 
+**Route metrics**
+
+A special object is dedicated to route metrics, one can access it
+via `route.metrics` or `route['metrics']`::
+
+    # these two statements are equal:
+    with ip.routes['172.16.1.0/24'] as route:
+        route['metrics']['mtu'] = 1400
+
+    with ip.routes['172.16.1.0/24'] as route:
+        route.metrics.mtu = 1400
+
+Possible metrics are defined in `rtmsg.py:rtmsg.metrics`, e.g.
+`RTAX_HOPLIMIT` means `hoplimit` metric etc.
+
+**Multipath routing**
+
+Multipath nexthops are managed via `route.add_nh()` and `route.del_nh()`
+methods. They are available to review via `route.multipath`, but one
+should not directly add/remove/modify nexthops `route.multipath`, as
+the changes will not be committed correctly.
+
+To create a multipath route::
+
+    ip.routes.add({'dst': '172.16.232.0/24',
+                   'multipath': [{'gateway': '172.16.231.2',
+                                  'hops': 2},
+                                 {'gateway': '172.16.231.3',
+                                  'hops': 1},
+                                 {'gateway': '172.16.231.4'}]}).commit()
+
+To change a multipath route::
+
+    with ip.routes['172.16.232.0/24'] as r:
+        r.add_nh({'gateway': '172.16.231.5'})
+        r.del_nh({'gateway': '172.16.231.4'})
+
+**On multipath hops**
+
+The `iproute2` tool uses `weigth` instead of `hops`. The weight
+is number of hops + 1, so when one creates a nexthop with `hops == 2`,
+the `iproute2` utility will show `weight 3`.
+
+But the Linux kernel uses `rtnh_hops`, and the `pyroute2` library
+uses here no implications, directly mapping the kernel provided value.
 
 performance issues
 ------------------
