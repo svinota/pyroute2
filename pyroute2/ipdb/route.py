@@ -6,11 +6,58 @@ from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.ipdb.transactional import Transactional
+from pyroute2.ipdb.linkedset import LinkedSet
 
 
 class Metrics(Transactional):
 
     _fields = [rtmsg.metrics.nla2name(i[0]) for i in rtmsg.metrics.nla_map]
+
+
+class NextHopSet(LinkedSet):
+
+    def __init__(self, prime=None):
+        super(NextHopSet, self).__init__()
+        prime = prime or []
+        for v in prime:
+            self.add(v)
+
+    def __sub__(self, vs):
+        ret = type(self)()
+        sub = set(self.raw.keys()) - set(vs.raw.keys())
+        for v in sub:
+            ret.add(self[v], raw=self.raw[v])
+        return ret
+
+    def __make_nh(self, prime):
+        return (prime.get('flags', 0),
+                prime.get('hops', 0),
+                prime.get('ifindex', 0),
+                prime.get('gateway'))
+
+    def __getitem__(self, key):
+        return dict(zip(('flags', 'hops', 'ifindex', 'gateway'), key))
+
+    def __iter__(self):
+        def NHIterator():
+            for x in self.raw.keys():
+                yield self[x]
+        return NHIterator()
+
+    def add(self, prime, raw=None):
+        return super(NextHopSet, self).add(self.__make_nh(prime))
+
+    def remove(self, prime, raw=None):
+        hit = False
+        for nh in self:
+            for key in prime:
+                if prime[key] != nh.get(key):
+                    break
+            else:
+                hit = True
+                super(NextHopSet, self).remove(self.__make_nh(nh))
+        if not hit:
+            raise KeyError('nexthop not found')
 
 
 class WatchdogKey(dict):
@@ -64,6 +111,7 @@ class Route(Transactional):
     _fields.append('removal')
     _virtual_fields = ['ipdb_scope', 'ipdb_priority']
     _fields.extend(_virtual_fields)
+    _linked_sets = ['multipath', ]
     cleanup = ('attrs',
                'header',
                'event',
@@ -76,7 +124,20 @@ class Route(Transactional):
             for i in self._fields:
                 self[i] = None
             self['metrics'] = Metrics(parent=self)
+            self['multipath'] = NextHopSet()
             self['ipdb_priority'] = 0
+
+    def add_nh(self, prime):
+        with self._write_lock:
+            tx = self.get_tx()
+            with tx._direct_state:
+                tx['multipath'].add(prime)
+
+    def del_nh(self, prime):
+        with self._write_lock:
+            tx = self.get_tx()
+            with tx._direct_state:
+                tx['multipath'].remove(prime)
 
     def load_netlink(self, msg):
         with self._direct_state:
@@ -103,6 +164,16 @@ class Route(Transactional):
                         for (rtax, rtax_value) in value['attrs']:
                             rtax_norm = rtmsg.metrics.nla2name(rtax)
                             self['metrics'][rtax_norm] = rtax_value
+                elif norm == 'multipath':
+                    self['multipath'] = NextHopSet()
+                    for v in value:
+                        nh = {}
+                        for name in [x[0] for x in rtmsg.nh.fields]:
+                            nh[name] = v[name]
+                        for (rta, rta_value) in v['attrs']:
+                            rta_norm = rtmsg.nla2name(rta)
+                            nh[rta_norm] = rta_value
+                        self['multipath'].add(nh)
                 else:
                     self[norm] = value
 
@@ -191,6 +262,8 @@ class Route(Transactional):
             raise error
 
         if not rollback:
+            with self._direct_state:
+                self['multipath'] = transaction['multipath']
             self.reload()
 
         return self
