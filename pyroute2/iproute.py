@@ -990,6 +990,19 @@ class IPRouteMixin(object):
                                               "gateway": "192.168.0.1",
                                               "metrics": {"mtu": 1400,
                                                           "hoplimit": 16}}))
+
+        The `IPRouteRequest` helper is useful also to manage
+        mulptipath routes::
+
+            from pyroute2.netlink.rtnl.req import IPRouteRequest
+            ...
+            request = {"dst": "10.0.0.0/24",
+                       "multipath": [{"gateway": "192.168.0.1",
+                                      "hops": 2},
+                                     {"gateway": "192.168.0.2",
+                                      "hops": 1},
+                                     {"gateway": "192.168.0.3"}]}
+            ip.route("add", **IPRouteRequest(request))
         '''
 
         # 8<----------------------------------------------------
