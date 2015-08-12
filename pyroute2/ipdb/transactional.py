@@ -179,7 +179,7 @@ class Transactional(Dotkeys):
                     else:
                         res[key] = self[key]
             for key in self._linked_sets:
-                res[key] = LinkedSet(self[key])
+                res[key] = type(self[key])(self[key])
                 if not detached:
                     self[key].connect(res[key])
             return res
@@ -219,7 +219,7 @@ class Transactional(Dotkeys):
                     elif (self[key] == vs[key]):
                         res[key] = None
         for key in self._linked_sets:
-            diff = LinkedSet(self[key] - vs[key])
+            diff = type(self[key])(self[key] - vs[key])
             if diff:
                 res[key] = diff
         return res
