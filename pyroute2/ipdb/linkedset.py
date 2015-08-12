@@ -81,7 +81,7 @@ class LinkedSet(set):
                 return
             if key not in self:
                 self.raw[key] = raw
-                set.add(self, key)
+                super(LinkedSet, self).add(key)
                 for link in self.links:
                     link.add(key, raw, cascade=True)
             self.check_target()
@@ -94,7 +94,8 @@ class LinkedSet(set):
         with self.lock:
             if cascade and (key in self.exclusive):
                 return
-            set.remove(self, key)
+            super(LinkedSet, self).remove(key)
+            self.raw.pop(key, None)
             for link in self.links:
                 if key in link:
                     link.remove(key, cascade=True)
