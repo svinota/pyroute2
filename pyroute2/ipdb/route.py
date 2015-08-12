@@ -467,7 +467,7 @@ class RoutingTableSet(object):
 
     def remove(self, route, table=None):
         if isinstance(route, Route):
-            table = route.get('table', 254)
+            table = route.get('table', 254) or 254
             route = route.get('dst', 'default')
         else:
             table = table or 254
