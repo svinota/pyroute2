@@ -49,7 +49,8 @@ class IPRouteRequest(IPRequest):
             for name in value:
                 rtax = rtmsg.metrics.name2nla(name)
                 ret['attrs'].append([rtax, value[name]])
-            dict.__setitem__(self, 'metrics', ret)
+            if ret['attrs']:
+                dict.__setitem__(self, 'metrics', ret)
         elif key == 'multipath':
             ret = []
             for v in value:
@@ -60,7 +61,8 @@ class IPRouteRequest(IPRequest):
                     rta = rtmsg.name2nla(name)
                     nh['attrs'].append([rta, v[name]])
                 ret.append(nh)
-            dict.__setitem__(self, 'multipath', ret)
+            if ret:
+                dict.__setitem__(self, 'multipath', ret)
         else:
             dict.__setitem__(self, key, value)
 
