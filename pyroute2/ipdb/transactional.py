@@ -86,6 +86,7 @@ class Transactional(Dotkeys):
     '''
     _fields = []
     _fields_cmp = {}
+    _linked_sets = None
 
     def __init__(self, ipdb=None, mode=None, parent=None, uid=None):
         #
@@ -116,7 +117,7 @@ class Transactional(Dotkeys):
         self._local_targets = {}
         self._write_lock = threading.RLock()
         self._direct_state = State(self._write_lock)
-        self._linked_sets = set()
+        self._linked_sets = self._linked_sets or set()
 
     @property
     def _tids(self):
