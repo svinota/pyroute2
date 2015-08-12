@@ -298,6 +298,23 @@ class Transactional(Dotkeys):
 
             return self._transactions[self._tids[-1]]
 
+    def get_tx(self):
+        '''
+        Return the current active transaction. If there is no
+        active transaction and the mode is 'implicit', start
+        a new transaction.
+        '''
+        with self._write_lock:
+            if self._mode == 'implicit':
+                if not self._tids:
+                    return self._transactions[self.begin()]
+            elif self._mode == 'explicit':
+                if not self._tids:
+                    raise TypeError('start a transaction first')
+            else:
+                raise TypeError('transaction mode not supported')
+            return self._transactions[self._tids[-1]]
+
     def review(self):
         '''
         Review last open transaction
