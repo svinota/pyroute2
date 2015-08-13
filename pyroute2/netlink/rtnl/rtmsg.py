@@ -42,13 +42,13 @@ class rtmsg(nlmsg):
               ('flags', 'I'))
 
     nla_map = (('RTA_UNSPEC', 'none'),
-               ('RTA_DST', 'ipaddr'),
-               ('RTA_SRC', 'ipaddr'),
+               ('RTA_DST', 'target'),
+               ('RTA_SRC', 'target'),
                ('RTA_IIF', 'uint32'),
                ('RTA_OIF', 'uint32'),
-               ('RTA_GATEWAY', 'ipaddr'),
+               ('RTA_GATEWAY', 'target'),
                ('RTA_PRIORITY', 'uint32'),
-               ('RTA_PREFSRC', 'ipaddr'),
+               ('RTA_PREFSRC', 'target'),
                ('RTA_METRICS', 'metrics'),
                ('RTA_MULTIPATH', '*nh'),
                ('RTA_PROTOINFO', 'uint32'),
@@ -93,7 +93,7 @@ class rtmsg(nlmsg):
         fields = (('flags', 'B'),
                   ('hops', 'B'),
                   ('ifindex', 'i'))
-        nla_map = ((5, 'RTA_GATEWAY', 'ipaddr'),
+        nla_map = ((5, 'RTA_GATEWAY', 'target'),
                    (11, 'RTA_FLOW', 'hex'),
                    (18, 'RTA_VIA', 'hex'))
 

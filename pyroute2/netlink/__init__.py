@@ -1285,6 +1285,34 @@ class nlmsg_atoms(nlmsg_base):
                 family = socket.AF_INET
             self.value = socket.inet_ntop(family, self['value'])
 
+    class target(nla_base):
+        '''
+        A universal target class.
+        '''
+        fields = [('value', 's')]
+
+        def get_family(self):
+            pointer = self
+            while pointer.parent is not None:
+                pointer = pointer.parent
+            return pointer.get('family', socket.AF_UNSPEC)
+
+        def encode(self):
+            family = self.get_family()
+            if family in (socket.AF_INET, socket.AF_INET6):
+                self['value'] = socket.inet_pton(family, self.value)
+            else:
+                raise TypeError('socket family not supported')
+            nla_base.encode(self)
+
+        def decode(self):
+            nla_base.decode(self)
+            family = self.get_family()
+            if family in (socket.AF_INET, socket.AF_INET6):
+                self.value = socket.inet_ntop(family, self['value'])
+            else:
+                raise TypeError('socket family not supported')
+
     class l2addr(nla_base):
         '''
         Decode MAC address.
