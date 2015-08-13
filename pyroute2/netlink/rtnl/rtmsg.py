@@ -1,4 +1,11 @@
+import struct
+from socket import inet_ntop
+from socket import inet_pton
+from socket import AF_UNSPEC
+from socket import AF_INET
+from socket import AF_INET6
 from pyroute2.common import AF_MPLS
+from pyroute2.common import hexdump
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg_base
@@ -59,7 +66,7 @@ class rtmsg(nlmsg):
                ('RTA_TABLE', 'uint32'),
                ('RTA_MARK', 'uint32'),
                ('RTA_MFC_STATS', 'rta_mfc_stats'),
-               ('RTA_VIA', 'hex'),
+               ('RTA_VIA', 'rtvia'),
                ('RTA_NEWDST', 'target'),
                ('RTA_PREF', 'hex'))
 
@@ -96,6 +103,28 @@ class rtmsg(nlmsg):
         nla_map = ((5, 'RTA_GATEWAY', 'target'),
                    (11, 'RTA_FLOW', 'hex'),
                    (18, 'RTA_VIA', 'hex'))
+
+    class rtvia(nla):
+        fields = (('value', 's'), )
+
+        def encode(self):
+            family = self.get('family', AF_UNSPEC)
+            if family in (AF_INET, AF_INET6):
+                addr = inet_pton(family, self['addr'])
+            self['value'] = struct.pack('H', family) + addr
+            nla.encode(self)
+
+        def decode(self):
+            nla.decode(self)
+            family = struct.unpack('H', self['value'][:2])[0]
+            addr = self['value'][2:]
+            if len(addr):
+                if (family == AF_INET and len(addr) == 4) or \
+                        (family == AF_INET6 and len(addr) == 16):
+                    addr = inet_ntop(family, addr)
+                else:
+                    addr = hexdump(addr)
+            self.value = {'family': family, 'addr': addr}
 
     class cacheinfo(nla):
         fields = (('rta_clntref', 'I'),
