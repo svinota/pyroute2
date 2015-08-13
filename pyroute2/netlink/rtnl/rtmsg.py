@@ -1,4 +1,4 @@
-
+from pyroute2.common import AF_MPLS
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg_base
@@ -60,7 +60,7 @@ class rtmsg(nlmsg):
                ('RTA_MARK', 'uint32'),
                ('RTA_MFC_STATS', 'rta_mfc_stats'),
                ('RTA_VIA', 'hex'),
-               ('RTA_NEWDST', 'hex'),
+               ('RTA_NEWDST', 'target'),
                ('RTA_PREF', 'hex'))
 
     class rta_mfc_stats(nla):
@@ -106,3 +106,15 @@ class rtmsg(nlmsg):
                   ('rta_id', 'I'),
                   ('rta_ts', 'I'),
                   ('rta_tsage', 'I'))
+
+    def encode(self):
+        if self.get('family') == AF_MPLS:
+            # force fields
+            self['dst_len'] = 20
+            self['table'] = 254
+            self['type'] = 1
+            # assert NLA types
+            for n in self.get('attrs', []):
+                if n[0] not in ('RTA_OIF', 'RTA_DST', 'RTA_VIA', 'RTA_NEWDST'):
+                    raise TypeError('Incorrect NLA type %s for AF_MPLS' % n[0])
+        nlmsg.encode(self)

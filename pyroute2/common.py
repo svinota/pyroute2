@@ -24,6 +24,7 @@ except NameError:
     reduce = reduce
     file = io.BytesIO
 
+AF_MPLS = 28
 AF_PIPE = 255  # Right now AF_MAX == 40
 DEFAULT_RCVBUF = 16384
 

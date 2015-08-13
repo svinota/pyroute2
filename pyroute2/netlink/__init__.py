@@ -322,7 +322,6 @@ Module contents:
 
 import traceback
 import logging
-import socket
 import struct
 import types
 import sys
@@ -330,6 +329,12 @@ import io
 import re
 import os
 
+from socket import inet_pton
+from socket import inet_ntop
+from socket import AF_INET
+from socket import AF_INET6
+from socket import AF_UNSPEC
+from pyroute2.common import AF_MPLS
 from pyroute2.common import hexdump
 from pyroute2.common import basestring
 
@@ -1235,26 +1240,24 @@ class nlmsg_atoms(nlmsg_base):
         family = None
 
         def encode(self):
-            self['value'] = socket.inet_pton(self.family,
-                                             self.value)
+            self['value'] = inet_pton(self.family, self.value)
             nla_base.encode(self)
 
         def decode(self):
             nla_base.decode(self)
-            self.value = socket.inet_ntop(self.family,
-                                          self['value'])
+            self.value = inet_ntop(self.family, self['value'])
 
     class ip4addr(ipXaddr):
         '''
         Explicit IPv4 address type class.
         '''
-        family = socket.AF_INET
+        family = AF_INET
 
     class ip6addr(ipXaddr):
         '''
         Explicit IPv6 address type class.
         '''
-        family = socket.AF_INET6
+        family = AF_INET6
 
     class ipaddr(nla_base):
         '''
@@ -1270,24 +1273,29 @@ class nlmsg_atoms(nlmsg_base):
         def encode(self):
             # use real provided family, not implicit
             if self.value.find(':') > -1:
-                family = socket.AF_INET6
+                family = AF_INET6
             else:
-                family = socket.AF_INET
-            self['value'] = socket.inet_pton(family, self.value)
+                family = AF_INET
+            self['value'] = inet_pton(family, self.value)
             nla_base.encode(self)
 
         def decode(self):
             nla_base.decode(self)
             # use real provided family, not implicit
             if self.length > 8:
-                family = socket.AF_INET6
+                family = AF_INET6
             else:
-                family = socket.AF_INET
-            self.value = socket.inet_ntop(family, self['value'])
+                family = AF_INET
+            self.value = inet_ntop(family, self['value'])
 
     class target(nla_base):
         '''
-        A universal target class.
+        A universal target class. The target type depends on the msg
+        family:
+
+        * AF_INET: IPv4 addr, string: "127.0.0.1"
+        * AF_INET6: IPv6 addr, string: "::1"
+        * AF_MPLS: MPLS labels, 0 .. k: [{"label": 0x20, "ttl": 16}, ...]
         '''
         fields = [('value', 's')]
 
@@ -1295,12 +1303,30 @@ class nlmsg_atoms(nlmsg_base):
             pointer = self
             while pointer.parent is not None:
                 pointer = pointer.parent
-            return pointer.get('family', socket.AF_UNSPEC)
+            return pointer.get('family', AF_UNSPEC)
 
         def encode(self):
             family = self.get_family()
-            if family in (socket.AF_INET, socket.AF_INET6):
-                self['value'] = socket.inet_pton(family, self.value)
+            if family in (AF_INET, AF_INET6):
+                self['value'] = inet_pton(family, self.value)
+            elif family == AF_MPLS:
+                self['value'] = b''
+                if isinstance(self.value, (set, list, tuple)):
+                    labels = self.value
+                else:
+                    if 'label' in self:
+                        labels = [{'label': self.get('label', 0),
+                                   'tc': self.get('tc', 0),
+                                   'bos': self.get('bos', 0),
+                                   'ttl': self.get('ttl', 0)}]
+                    else:
+                        labels = []
+                for record in labels:
+                    label = (record.get('label', 0) << 12) |\
+                        (record.get('tc', 0) << 9) |\
+                        ((1 if record.get('bos') else 0) << 8) |\
+                        record.get('ttl', 0)
+                    self['value'] += struct.pack('>I', label)
             else:
                 raise TypeError('socket family not supported')
             nla_base.encode(self)
@@ -1308,8 +1334,17 @@ class nlmsg_atoms(nlmsg_base):
         def decode(self):
             nla_base.decode(self)
             family = self.get_family()
-            if family in (socket.AF_INET, socket.AF_INET6):
-                self.value = socket.inet_ntop(family, self['value'])
+            if family in (AF_INET, AF_INET6):
+                self.value = inet_ntop(family, self['value'])
+            elif family == AF_MPLS:
+                self.value = []
+                for i in range(len(self['value']) // 4):
+                    label = struct.unpack('>I', self['value'][i*4:i*4+4])[0]
+                    record = {'label': (label & 0xFFFFF000) >> 12,
+                              'tc': (label & 0x00000E00) >> 9,
+                              'bos': (label & 0x00000100) >> 8,
+                              'ttl': label & 0x000000FF}
+                    self.value.append(record)
             else:
                 raise TypeError('socket family not supported')
 
