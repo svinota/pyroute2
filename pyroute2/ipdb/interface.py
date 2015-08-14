@@ -726,8 +726,8 @@ class Interface(Transactional):
                 # somethig went wrong during automatic rollback.
                 # that's the worst case, but it is still possible,
                 # since we have no locks on OS level.
-                self['ipaddr'].set_target(None)
-                self['ports'].set_target(None)
+                self['ipaddr'].clear_target()
+                self['ports'].clear_target()
                 # reload all the database -- it can take a long time,
                 # but it is required since we have no idea, what is
                 # the result of the failure
