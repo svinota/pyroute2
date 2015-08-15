@@ -24,32 +24,21 @@ rtnetlink sample
 
 More samples you can read in the project documentation.
 
-The lowest possible layer, simple socket interface. This
-socket supports normal socket API and can be used in
-poll/select::
-
-    from pyroute2 import IPRSocket
-
-    # create the socket
-    ip = IPRSocket()
-
-    # bind
-    ip.bind()
-
-    # get and parse a broadcast message
-    ip.get()
-
-    # close
-    ip.close()
-
-
 Low-level **IPRoute** utility --- Linux network configuration.
 **IPRoute** usually doesn't rely on external utilities, but in some
 cases, when the kernel doesn't provide the functionality via netlink
 (like on RHEL6.5), it transparently uses also brctl and sysfs to setup
-bridges and bonding interfaces::
+bridges and bonding interfaces.
 
+The **IPRoute** class is a 1-to-1 RTNL mapping. There are no implicit
+interface lookups and so on.
+
+Some examples::
+
+    from socket import AF_INET
     from pyroute2 import IPRoute
+    from pyroute2 import IPRouteRequest
+    from pyroute2.common import AF_MPLS
 
     # get access to the netlink socket
     ip = IPRoute()
@@ -57,6 +46,34 @@ bridges and bonding interfaces::
     # print interfaces
     print(ip.get_links())
 
+    # create VETH pair
+    ip.link_create(ifname='v0p0', peer='v0p1', kind='veth')
+
+    # lookup the interface and add an address
+    idx = ip.link_lookup(ifname='v0p0')[0]
+    ip.addr('add',
+            index=idx,
+            address='10.0.0.1',
+            broadcast='10.0.0.255',
+            prefixlen=24)
+
+    # create a route with metrics
+    req = IPRouteRequest({'dst': '172.16.0.0/24',
+                          'gateway': '10.0.0.10',
+                          'metrics': {'mtu': 1400,
+                                      'hoplimit': 16}})
+    ip.route('add', **req)
+
+    # create a MPLS route (requires kernel >= 4.1.4)
+    # $ sudo modprobe mpls_router
+    # $ sudo sysctl -w net.mpls.platform_labels=1000
+    req = IPRouteRequest({'family': AF_MPLS,
+                          'via': {'family': AF_INET,
+                                  'add': '172.16.0.10'},
+                          'newdst': {'label': 0x20,
+                                     'bos': 1}})
+    ip.route('add', **req)
+    
     # release Netlink socket
     ip.close()
 
@@ -78,6 +95,23 @@ High-level transactional interface, **IPDB**, a network settings DB::
         print(e)
     finally:
         ip.release()
+
+The IPDB arch allows to use it transparently with network
+namespaces::
+
+    from pyroute2 import IPDB
+    from pyroute2 import NetNS
+
+    # create IPDB to work in the 'test' ip netns
+    # pls notice, that IPDB itself will work in the
+    # main netns
+    ip = IPDB(nl=NetNS('test'))
+
+    # wait until someone will set up ipaddr 127.0.0.1
+    # in the netns on the loopback device
+    ip.interfaces.lo.wait_ip('127.0.0.1')
+
+    ip.release()
 
 The project contains several modules for different types of
 netlink messages, not only RTNL.
