@@ -343,7 +343,7 @@ class IW(NL80211):
                         ['NL80211_ATTR_WIPHY_FREQ', freq]]
 
         if channel_fixed:
-            msg['attrs'].append(['NL80211_ATTR_FREQ_FIXED'], None])
+            msg['attrs'].append(['NL80211_ATTR_FREQ_FIXED', None])
             width = CHAN_WIDTH.get(width, width)
             assert isinstance(width, int)
             if width in [2, 3, 5] and center:
