@@ -32,7 +32,9 @@ class IPRouteRequest(IPRequest):
             self['family'] = AF_INET6
         # work on the rest
         if key == 'dst':
-            if value != 'default':
+            if isinstance(value, dict):
+                dict.__setitem__(self, 'dst', value)
+            elif value != 'default':
                 value = value.split('/')
                 if len(value) == 1:
                     dst = value[0]
