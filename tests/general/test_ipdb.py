@@ -378,6 +378,30 @@ class TestExplicit(object):
         assert '172.16.0.0/24' not in self.ip.routes.keys()
         assert not grep('ip ro', pattern='172.16.0.0/24')
 
+    def test_wait_ip_exact(self):
+        ts = time.time()
+        ret = self.ip.interfaces.lo.wait_ip('127.0.0.1', timeout=2)
+        assert (time.time() - ts) < 2
+        assert ret
+
+    def test_wait_ip_net(self):
+        ts = time.time()
+        ret = self.ip.interfaces.lo.ipaddr.wait_ip('127.0.0.0', 8, timeout=2)
+        assert (time.time() - ts) < 2
+        assert ret
+
+    def test_wait_ip_exact_fail(self):
+        ts = time.time()
+        ret = self.ip.interfaces.lo.wait_ip('1.1.1.1', timeout=2)
+        assert (time.time() - ts) >= 2
+        assert not ret
+
+    def test_wait_ip_net_fail(self):
+        ts = time.time()
+        ret = self.ip.interfaces.lo.ipaddr.wait_ip('172.6.0.0', 24, timeout=2)
+        assert (time.time() - ts) >= 2
+        assert not ret
+
     @skip_if_not_supported
     def _test_shadow(self, kind):
         ifA = self.get_ifname()
