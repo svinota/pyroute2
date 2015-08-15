@@ -158,7 +158,7 @@ class IPaddrSet(LinkedSet):
     filter ignores link local IPv6 addresses when sets and checks
     the target.
     '''
-    def wait_ip(self, net, mask=None):
+    def wait_ip(self, net, mask=None, timeout=None):
         family = AF_INET6 if net.find(':') >= 0 else AF_INET
         alen = 32 if family == AF_INET else 128
         net = inet_pton(family, net)
@@ -186,8 +186,10 @@ class IPaddrSet(LinkedSet):
                     return True
             return False
         target = self.set_target(match_ip)
-        target.wait()
+        target.wait(timeout)
+        ret = target.is_set()
         self.clear_target(target)
+        return ret
 
     def target_filter(self, x):
         return not ((x[0][:4] == 'fe80') and (x[1] == 64))
