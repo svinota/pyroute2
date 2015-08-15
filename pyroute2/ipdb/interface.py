@@ -271,6 +271,9 @@ class Interface(Transactional):
     def sync(self):
         self._load_event.set()
 
+    def wait_ip(self, *argv, **kwarg):
+        return self['ipaddr'].wait_ip(*argv, **kwarg)
+
     @update
     def add_ip(self, direct, ip,
                mask=None,
