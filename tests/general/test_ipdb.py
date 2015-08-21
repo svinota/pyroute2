@@ -1077,6 +1077,31 @@ class TestExplicit(object):
         assert ('172.16.0.4', 24) in iface.ipaddr
 
     @skip_if_not_supported
+    def test_master_cleanup_del_port(self):
+        ifMname = self.get_ifname()
+        ifPname = self.get_ifname()
+
+        ifM = self.ip.create(ifname=ifMname, kind='bridge').commit()
+        ifP = self.ip.create(ifname=ifPname, kind='dummy').commit()
+
+        if self.ip.mode == 'explicit':
+            ifM.begin()
+        ifM.\
+            add_port(ifP).\
+            commit()
+
+        assert ifP.index in ifM.ports
+        assert ifP.master == ifM.index
+
+        if self.ip.mode == 'explicit':
+            ifM.begin()
+        ifM.del_port(ifP).commit()
+
+        assert ifPname in self.ip.interfaces
+        assert ifP.index not in ifM.ports
+        assert ifP.master is None
+
+    @skip_if_not_supported
     def _create_master(self, kind, **kwarg):
 
         ifM = self.get_ifname()

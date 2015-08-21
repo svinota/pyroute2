@@ -1015,7 +1015,7 @@ class IPDB(object):
             master = device.if_master
             if master is not None:
                 if 'master' in device:
-                    device.del_item('master')
+                    device.set_item('master', None)
                 if (master in self.interfaces) and \
                         (msg['index'] in self.interfaces[master].ports):
                     try:
