@@ -698,7 +698,8 @@ class nlmsg_base(dict):
         if lvalue is self:
             for key in self:
                 try:
-                    assert self.get(key) == rvalue.get(key)
+                    if self.get(key) != rvalue.get(key):
+                        return False
                 except Exception:
                     # on any error -- is not equal
                     return False
@@ -1429,11 +1430,12 @@ class nlmsg_atoms(nlmsg_base):
 
         def decode(self):
             nla_base.decode(self)
-            try:
-                assert sys.version[0] == '3'
-                self.value = self['value'].decode('utf-8')
-            except (AssertionError, UnicodeDecodeError):
-                self.value = self['value']
+            self.value = self['value']
+            if sys.version_info.major >= 3:
+                try:
+                    self.value = self.value.decode('utf-8')
+                except UnicodeDecodeError:
+                    pass  # Failed to decode, keep undecoded value
 
     class asciiz(string):
         '''
