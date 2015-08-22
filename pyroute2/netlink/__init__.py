@@ -1431,7 +1431,7 @@ class nlmsg_atoms(nlmsg_base):
         def decode(self):
             nla_base.decode(self)
             self.value = self['value']
-            if sys.version_info.major >= 3:
+            if sys.version_info[0] >= 3:
                 try:
                     self.value = self.value.decode('utf-8')
                 except UnicodeDecodeError:
