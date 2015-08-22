@@ -20,7 +20,8 @@ class State(object):
         self.flag += 1
 
     def release(self):
-        assert self.flag > 0
+        if self.flag < 1:
+            raise RuntimeError('release unlocked state')
         self.flag -= 1
         self.lock.release()
 

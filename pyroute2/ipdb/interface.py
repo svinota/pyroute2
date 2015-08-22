@@ -545,9 +545,11 @@ class Interface(Transactional):
                     if not target.is_set():
                         raise CommitException('master target failed')
                     if i in added['ports']:
-                        assert port.if_master == self['index']
+                        if port.if_master != self['index']:
+                            raise CommitException('master set failed')
                     else:
-                        assert port.if_master != self['index']
+                        if port.if_master == self['index']:
+                            raise CommitException('master unset failed')
 
             # 8<---------------------------------------------
             # Interface changes

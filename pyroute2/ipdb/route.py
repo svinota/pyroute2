@@ -415,7 +415,8 @@ class RoutingTableSet(object):
         '''
         spec = spec or kwarg
         table = spec.get('table', 254)
-        assert 'dst' in spec
+        if 'dst' not in spec:
+            raise ValueError('dst not specified')
         if table not in self.tables:
             self.tables[table] = RoutingTable(self.ipdb)
         route = Route(self.ipdb)
@@ -498,7 +499,8 @@ class RoutingTableSet(object):
         return self.get(key)
 
     def __setitem__(self, key, value):
-        assert key == value['dst']
+        if key != value['dst']:
+            raise ValueError("dst doesn't match key")
         return self.add(value)
 
     def __delitem__(self, key):

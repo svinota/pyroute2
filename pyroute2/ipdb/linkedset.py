@@ -142,7 +142,8 @@ class LinkedSet(set):
         Connect a LinkedSet instance to this one. Connected
         sets will be updated together with this instance.
         '''
-        assert isinstance(link, LinkedSet)
+        if not isinstance(link, LinkedSet):
+            raise TypeError()
         self.links.append(link)
 
     def disconnect(self, link):

@@ -282,8 +282,8 @@ class AddrPool(object):
         self.reverse = reverse
         self.release = release
         self.allocated = 0
-        if self.release:
-            assert isinstance(self.release, int)
+        if self.release and not isinstance(self.release, int):
+            raise TypeError()
         self.ban = []
         while mx:
             mx >>= 8
@@ -357,7 +357,8 @@ class AddrPool(object):
         return (base, bit, is_allocated)
 
     def setaddr(self, addr, value):
-        assert value in ('free', 'allocated')
+        if value not in ('free', 'allocated'):
+            raise TypeError()
         with self.lock:
             base, bit, is_allocated = self.locate(addr)
             if value == 'free' and is_allocated:

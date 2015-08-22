@@ -938,7 +938,8 @@ def proxy_newlink(data, nl):
 @sync
 def manage_team(msg):
 
-    assert msg['header']['type'] == RTM_NEWLINK
+    if msg['header']['type'] != RTM_NEWLINK:
+        raise ValueError('wrong command type')
 
     config = {'device': msg.get_attr('IFLA_IFNAME'),
               'runner': {'name': 'activebackup'},
