@@ -1,6 +1,8 @@
 '''
 '''
+import logging
 import threading
+import traceback
 from pyroute2.common import Dotkeys
 from pyroute2.common import uuid32
 from pyroute2.ipdb.common import SYNC_TIMEOUT
@@ -42,35 +44,45 @@ def update(f):
         ret = None
         tid = None
         direct = True
+        error = None
+
         with self._write_lock:
             dcall = kwarg.pop('direct', False)
             if dcall:
                 self._direct_state.acquire()
 
             direct = self._direct_state.is_set()
-            if not direct:
-                # 1. begin transaction for 'direct' type
-                if self._mode == 'direct':
-                    tid = self.begin()
-                # 2. begin transaction, if there is none
-                elif self._mode == 'implicit':
-                    if not self._tids:
-                        self.begin()
-                # 3. require open transaction for 'explicit' type
-                elif self._mode == 'explicit':
-                    if not self._tids:
-                        raise TypeError('start a transaction first')
-                # 4. transactions can not require transactions :)
-                elif self._mode == 'snapshot':
-                    direct = True
-                # do not support other modes
-                else:
-                    raise TypeError('transaction mode not supported')
-                # now that the transaction _is_ open
-            ret = f(self, direct, *argv, **kwarg)
+            try:
+                if not direct:
+                    # 1. begin transaction for 'direct' type
+                    if self._mode == 'direct':
+                        tid = self.begin()
+                    # 2. begin transaction, if there is none
+                    elif self._mode == 'implicit':
+                        if not self._tids:
+                            self.begin()
+                    # 3. require open transaction for 'explicit' type
+                    elif self._mode == 'explicit':
+                        if not self._tids:
+                            raise TypeError('start a transaction first')
+                    # 4. transactions can not require transactions :)
+                    elif self._mode == 'snapshot':
+                        direct = True
+                    # do not support other modes
+                    else:
+                        raise TypeError('transaction mode not supported')
+                    # now that the transaction _is_ open
+                ret = f(self, direct, *argv, **kwarg)
+            except Exception as e:
+                logging.error('transaction decorator error'
+                              '\n%s', traceback.format_exc())
+                error = e
 
             if dcall:
                 self._direct_state.release()
+
+            if error is not None:
+                raise error
 
         if tid:
             # close the transaction for 'direct' type
