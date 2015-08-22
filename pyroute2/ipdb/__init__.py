@@ -340,7 +340,6 @@ after some delay.
 classes
 -------
 '''
-import sys
 import atexit
 import logging
 import traceback
@@ -466,8 +465,7 @@ class IPDB(object):
 
         # start monitoring thread
         self._mthread = threading.Thread(target=self.serve_forever)
-        if hasattr(sys, 'ps1') and self.nl.__class__.__name__ != 'Client':
-            self._mthread.setDaemon(True)
+        self._mthread.setDaemon(True)
         self._mthread.start()
         #
         atexit.register(self.release)
@@ -618,40 +616,44 @@ class IPDB(object):
         is enough time to sync the state. But for the scripts
         the `release()` call is required.
         '''
-        with self._shutdown_lock:
-            if self._stop:
-                return
+        with self.exclusive:
+            with self._shutdown_lock:
+                if self._stop:
+                    return
 
-            self._stop = True
-            # collect all the callbacks
-            for cuid in tuple(self._cb_threads):
-                for t in tuple(self._cb_threads[cuid]):
-                    t.join()
-            # terminate the main loop
-            try:
-                self.nl.put({'index': 1}, RTM_GETLINK)
-                self._mthread.join()
-            except Exception:
-                # Just give up.
-                # We can not handle this case
-                pass
-            self.nl.close()
-            self.nl = None
+                self._stop = True
+                # collect all the callbacks
+                for cuid in tuple(self._cb_threads):
+                    for t in tuple(self._cb_threads[cuid]):
+                        t.join()
+                # terminate the main loop
+                try:
+                    for t in range(3):
+                        self.nl.put({'index': 1}, RTM_GETLINK)
+                        self._mthread.join(t)
+                        if not self._mthread.is_alive():
+                            break
+                except Exception:
+                    # Just give up.
+                    # We can not handle this case
+                    pass
+                self.nl.close()
+                self.nl = None
 
-            # flush all the objects
-            # -- interfaces
-            for (key, dev) in self.by_name.items():
-                self.detach(key, dev['index'], dev.nlmsg)
-            # -- routes
-            for key in tuple(self.routes.tables.keys()):
-                del self.routes.tables[key]
-            self.routes.tables[254] = None
-            # -- ipaddr
-            for key in tuple(self.ipaddr.keys()):
-                del self.ipaddr[key]
-            # -- neighbours
-            for key in tuple(self.neighbours.keys()):
-                del self.neighbours[key]
+                # flush all the objects
+                # -- interfaces
+                for (key, dev) in self.by_name.items():
+                    self.detach(key, dev['index'], dev.nlmsg)
+                # -- routes
+                for key in tuple(self.routes.tables.keys()):
+                    del self.routes.tables[key]
+                self.routes.tables[254] = None
+                # -- ipaddr
+                for key in tuple(self.ipaddr.keys()):
+                    del self.ipaddr[key]
+                # -- neighbours
+                for key in tuple(self.neighbours.keys()):
+                    del self.neighbours[key]
 
     def create(self, kind, ifname, reuse=False, **kwarg):
         '''
