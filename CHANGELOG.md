@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.3.12
+    * ipdb: new `Interface.wait_ip()` routine
+    * ipdb: #175 -- fix `master` attribute cleanup
+    * ipdb: #171 -- support multipath routes
+    * ipdb: memory consuption improvements
+    * rtmsg: MPLS support
+    * rtmsg: RTA_VIA support
+    * iwutil: #174 -- fix FREQ_FIXED flag
 * 0.3.11
     * ipdb: #161 -- fix memory allocations
     * nlsocket: #161 -- remove monitor mode
