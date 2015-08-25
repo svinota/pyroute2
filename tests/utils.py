@@ -42,8 +42,20 @@ def conflict_arch(arch):
         raise SkipTest('conflict with architecture %s' % (arch))
 
 
-def require_kernel(major):
-    if LooseVersion(os.uname()[2]).version[0] < major:
+def kernel_version_ge(major, minor):
+    # True if running kernel is >= X.Y
+    version = LooseVersion(os.uname()[2]).version
+    if version[0] > major:
+        return True
+    if version[0] < major:
+        return False
+    if minor and version[1] < minor:
+        return False
+    return True
+
+
+def require_kernel(major, minor=None):
+    if not kernel_version_ge(major, minor):
         raise SkipTest('incompatible kernel version')
 
 

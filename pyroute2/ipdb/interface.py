@@ -244,7 +244,8 @@ class Interface(Transactional):
                     if kind == 'vlan':
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
-                    if kind in ('vxlan', 'macvlan', 'macvtap', 'gre'):
+                    if kind in ('vxlan', 'macvlan', 'macvtap',
+                                'gre', 'gretap'):
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         for nla in data.get('attrs', []):
                             norm = ifinfmsg.nla2name(nla[0])

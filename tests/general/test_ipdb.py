@@ -17,6 +17,7 @@ from pyroute2.netlink import NetlinkError
 from pyroute2.ipdb.common import CreateException
 from utils import grep
 from utils import create_link
+from utils import kernel_version_ge
 from utils import remove_link
 from utils import require_user
 from utils import require_8021q
@@ -1207,6 +1208,42 @@ class TestExplicit(object):
         try:
             assert ifdb[ifV].gre_local == '172.16.0.1'
             assert ifdb[ifV].gre_remote == '172.16.0.2'
+            assert ifdb[ifV].gre_ttl == 16
+        except Exception:
+            raise
+        finally:
+            ip2.release()
+
+    @skip_if_not_supported
+    def test_create_gretap(self):
+        require_user('root')
+
+        ifL = self.get_ifname()
+        ifV = self.get_ifname()
+        with self.ip.create(kind='dummy', ifname=ifL) as i:
+            i.add_ip('172.16.0.1/24')
+            i.up()
+
+        self.ip.create(kind='gretap',
+                       ifname=ifV,
+                       gre_local='172.16.0.1',
+                       gre_ikey=1,
+                       gre_okey=2,
+                       gre_iflags=0x0020,
+                       gre_oflags=0x0020,
+                       gre_collect_metadata=True,
+                       gre_ttl=16).commit()
+
+        ip2 = IPDB()
+        ifdb = ip2.interfaces
+        try:
+            assert ifdb[ifV].gre_local == '172.16.0.1'
+            assert ifdb[ifV].gre_ikey == 1
+            assert ifdb[ifV].gre_okey == 2
+            assert ifdb[ifV].gre_iflags == 0x0020
+            assert ifdb[ifV].gre_oflags == 0x0020
+            if kernel_version_ge(4, 3):
+                assert ifdb[ifV].gre_collect_metadata
             assert ifdb[ifV].gre_ttl == 16
         except Exception:
             raise

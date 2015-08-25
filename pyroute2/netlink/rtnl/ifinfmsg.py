@@ -340,6 +340,7 @@ class ifinfbase(object):
                         'macvlan': self.macvlan_data,
                         'macvtap': self.macvtap_data,
                         'gre': self.gre_data,
+                        'gretap': self.gre_data,
                         'bond': self.bond_data,
                         'veth': self.veth_data,
                         'tuntap': self.tuntap_data,
@@ -423,7 +424,12 @@ class ifinfbase(object):
                        ('IFLA_GRE_PMTUDISC', 'uint8'),
                        ('IFLA_GRE_ENCAP_LIMIT', 'uint8'),
                        ('IFLA_GRE_FLOWINFO', 'uint32'),
-                       ('IFLA_GRE_FLAGS', 'uint32'))
+                       ('IFLA_GRE_FLAGS', 'uint32'),
+                       ('IFLA_GRE_ENCAP_TYPE', 'uint16'),
+                       ('IFLA_GRE_ENCAP_FLAGS', 'uint16'),
+                       ('IFLA_GRE_ENCAP_SPORT', 'uint16'),
+                       ('IFLA_GRE_ENCAP_DPORT', 'uint16'),
+                       ('IFLA_GRE_COLLECT_METADATA', 'flag'))
 
         class macvx_data(nla):
             prefix = 'IFLA_'
