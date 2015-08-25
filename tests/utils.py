@@ -13,6 +13,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import compat_del_bridge
 from pyroute2.netlink.rtnl.ifinfmsg import compat_del_bond
 from nose.plugins.skip import SkipTest
 from nose.tools import make_decorator
+from distutils.version import LooseVersion
 
 
 def skip_if_not_supported(f):
@@ -39,6 +40,11 @@ def skip_if_not_supported(f):
 def conflict_arch(arch):
     if platform.machine().find(arch) >= 0:
         raise SkipTest('conflict with architecture %s' % (arch))
+
+
+def require_kernel(major):
+    if LooseVersion(os.uname()[2]).version[0] < major:
+        raise SkipTest('incompatible kernel version')
 
 
 def require_python(target):

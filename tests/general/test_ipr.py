@@ -9,6 +9,7 @@ from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.req import IPRouteRequest
 from utils import grep
 from utils import require_user
+from utils import require_kernel
 from utils import require_python
 from utils import get_ip_addr
 from utils import get_ip_link
@@ -368,6 +369,7 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def _test_route_mpls_via_ipv(self, family, address, label):
         require_user('root')
+        require_kernel(3)
         self.ip.route('add', **{'family': AF_MPLS,
                                 'oif': self.ifaces[0],
                                 'via': {'family': family,
@@ -400,6 +402,7 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def test_route_mpls_swap_newdst_simple(self):
         require_user('root')
+        require_kernel(3)
         req = {'family': AF_MPLS,
                'oif': self.ifaces[0],
                'dst': {'label': 0x20,
@@ -418,6 +421,7 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def test_route_mpls_swap_newdst_list(self):
         require_user('root')
+        require_kernel(3)
         req = {'family': AF_MPLS,
                'oif': self.ifaces[0],
                'dst': {'label': 0x20,
