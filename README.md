@@ -68,8 +68,9 @@ Some examples::
     # $ sudo modprobe mpls_router
     # $ sudo sysctl -w net.mpls.platform_labels=1000
     req = IPRouteRequest({'family': AF_MPLS,
+                          'oif': 2,
                           'via': {'family': AF_INET,
-                                  'add': '172.16.0.10'},
+                                  'addr': '172.16.0.10'},
                           'newdst': {'label': 0x20,
                                      'bos': 1}})
     ip.route('add', **req)
