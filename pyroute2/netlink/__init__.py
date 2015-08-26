@@ -1212,6 +1212,16 @@ class nlmsg_atoms(nlmsg_base):
             nla_base.decode(self)
             self.value = None
 
+    class flag(nla_base):
+        '''
+        'flag' type is used to denote attrs that have no payload
+        '''
+        fields = []
+
+        def decode(self):
+            nla_base.decode(self)
+            self.value = True
+
     class uint8(nla_base):
         fields = [('value', 'B')]
 

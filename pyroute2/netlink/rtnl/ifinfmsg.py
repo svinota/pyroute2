@@ -399,10 +399,8 @@ class ifinfbase(object):
                        ('IFLA_VXLAN_UDP_ZERO_CSUM6_RX', 'uint8'),
                        ('IFLA_VXLAN_REMCSUM_TX', 'uint8'),
                        ('IFLA_VXLAN_REMCSUM_RX', 'uint8'),
-                       # NLA_FLAG, not implemented?
-                       ('IFLA_VXLAN_GBP', 'uint8'),
-                       # NLA_FLAG, not implemented?
-                       ('IFLA_VXLAN_REMCSUM_NOPARTIAL', 'uint8'),
+                       ('IFLA_VXLAN_GBP', 'flag'),
+                       ('IFLA_VXLAN_REMCSUM_NOPARTIAL', 'flag'),
                        ('IFLA_VXLAN_COLLECT_METADATA', 'uint8'))
 
             class port_range(nla):
