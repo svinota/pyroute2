@@ -1541,18 +1541,6 @@ class TestMisc(object):
         with IPDB() as ip:
             assert ip.interfaces.lo.index == 1
 
-    def _test_break_netlink(self):
-        ip = IPDB()
-        s = tuple(ip.nl._sockets)[0]
-        s.close()
-        ip.nl._sockets = tuple()
-        try:
-            ip.interfaces.lo.reload()
-        except IOError:
-            pass
-        del s
-        ip.nl.release()
-
     def test_context_exception_in_code(self):
         require_user('root')
         try:
