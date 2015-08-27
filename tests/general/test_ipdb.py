@@ -1587,6 +1587,17 @@ class TestMisc(object):
                 assert isinstance(addr[0], basestring)
                 assert isinstance(addr[1], int)
 
+    def test_ignore_rtables_int(self):
+        with IPDB(ignore_rtables=255) as i:
+            assert 254 in i.routes.tables.keys()
+            assert 255 not in i.routes.tables.keys()
+
+    def test_ignore_rtables_list(self):
+        with IPDB(ignore_rtables=[0, 255]) as i:
+            assert 254 in i.routes.tables.keys()
+            assert 0 not in i.routes.tables.keys()
+            assert 255 not in i.routes.tables.keys()
+
     def test_modes(self):
         require_user('root')
         with IPDB(mode='explicit') as i:
