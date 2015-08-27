@@ -1580,6 +1580,13 @@ class TestMisc(object):
             assert ('172.16.0.1', 24) in ip.interfaces[self.ifname].ipaddr
             assert ('172.16.9.1', 24) not in ip.interfaces[self.ifname].ipaddr
 
+    def test_ipaddr_format(self):
+
+        with IPDB() as i:
+            for addr in i.interfaces.lo.ipaddr:
+                assert isinstance(addr[0], basestring)
+                assert isinstance(addr[1], int)
+
     def test_modes(self):
         require_user('root')
         with IPDB(mode='explicit') as i:
