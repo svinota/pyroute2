@@ -347,6 +347,18 @@ class TestIPRoute(object):
             pass
         assert len(self.ip.link_lookup(ifname=self.dev)) == 0
 
+    def test_route_oif_as_iterable(self):
+        require_user('root')
+        spec = {'dst': '172.16.0.0',
+                'dst_len': 24,
+                'oif': (1, )}
+        self.ip.route('add', **spec)
+        rts = self.ip.get_routes(family=socket.AF_INET,
+                                 dst='172.16.0.0')
+        self.ip.route('del', **spec)
+        assert len(rts) == 1
+        assert rts[0].get_attr('RTA_OIF') == 1
+
     def test_route_get_target(self):
         if not self.ip.get_default_routes(table=254):
             return
