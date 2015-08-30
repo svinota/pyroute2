@@ -2,6 +2,8 @@
 
 export PYTHONPATH=".:..:../examples"
 
+pip install -q -r requirements.txt
+
 [ -z "$1" ] && {
     echo "Test module isn't specified"
     exit 1
