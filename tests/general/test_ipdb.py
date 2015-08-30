@@ -1058,6 +1058,8 @@ class TestExplicit(object):
 
     @skip_if_not_supported
     def test_master_cleanup_del_port(self):
+        require_user('root')
+
         ifMname = self.get_ifname()
         ifPname = self.get_ifname()
 

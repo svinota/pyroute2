@@ -368,6 +368,7 @@ class TestIPRoute(object):
         assert len(rts) > 0
 
     def test_route_get_by_spec(self):
+        require_user('root')
         self.ip.link('set', index=self.ifaces[0], state='up')
         self.ip.addr('add', index=self.ifaces[0],
                      address='172.16.60.1', mask=24)
