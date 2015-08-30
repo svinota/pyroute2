@@ -27,6 +27,7 @@ export PYTHONPATH=".:..:../examples"
 [ -z "$PDB" ] || export PDB="--pdb --pdb-failures"
 [ -z "$COVERAGE" ] || export COVERAGE="--cover-html"
 [ -z "$SKIP_TESTS" ] || export SKIP_TESTS="--exclude $SKIP_TESTS"
+[ -z "$MODULE" ] || export MODULE=`echo $MODULE | sed -n '/:/{p;q};s/$/:/p'`
 
 export PVERSION=`$PYTHON -c 'import sys; print(sys.version_info[0])'`
 [ $PVERSION -eq 2 ] && {
