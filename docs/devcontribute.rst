@@ -19,26 +19,8 @@ The code should comply with some requirements:
 Testing
 +++++++
 
-It would be good to have the code covered with tests.
-The project now uses `nosetests` for this purpose.
-
-To run the full test cycle on the project, using a specific
-python, making html coverage report::
-
-    $ sudo make test python=python3 coverage=html
-
-To run a specific test module::
-
-    $ sudo make test module=test_ipdb:TestExplicit
-
-Please keep in mind, that by default the test cycle starts
-with `python -W error`, which means that python will **fail**
-in the case of any **warning**. Since some Linux
-distributives allow really bad modules to be emerged, you
-probably will need to switch this behaviour off using
-`wlevel` parameter::
-
-    $ sudo make test wlevel=ignore
+To perform code tests, run `make test`. Details about
+the makefile parameters see in `README.make.md`.
 
 Links
 +++++

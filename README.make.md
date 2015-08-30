@@ -14,7 +14,7 @@ collected coverage data, compiled bytecode etc.
 target: docs
 ------------
 
-Build documentation. Requires `Sphinx`.
+Build documentation. Requires `sphinx`.
 
 target: epydoc
 --------------
@@ -30,31 +30,45 @@ No issues regarding epydoc output format are accepted.
 target: test
 ------------
 
-Run tests against current code. Requires `flake8`, `nosetests`,
-`coverage`. Command line options:
+Run tests against current code. Command line options:
 
-* python -- the Python to use
-* nosetests -- nosetests to use
-* wlevel -- the Python -W levels (see Makefile for description)
-* coverage -- whether to produce html coverage
-* pdb -- whether to run pdb on errors and failures
+* python -- path to the Python to use
+* nosetests -- path to nosetests to use
+* wlevel -- the Python -W level
+* coverage -- set `coverage=html` to get coverage report
+* pdb -- set `pdb=true` to launch pdb on errors
 * module -- run only specific test module
-* skip_tests -- skip tests by regexp
+* skip_tests -- skip tests by pattern
 
-Samples::
+To run the full test cycle on the project, using a specific
+python, making html coverage report::
 
-    $ sudo make test python=python3 coverage=true wlevel=all
+    $ sudo make test python=python3 coverage=html
+
+To run a specific test module::
+
     $ sudo make test module=general:test_ipdb.py:TestExplicit
+
+The module parameter syntax::
+
+    ## module=package[:test_file.py[:TestClass[.test_case]]]
+    
+    $ sudo make test module=lnst
+    $ sudo make test module=general:test_ipr.py
+    $ sudo make test module=general:test_ipdb.py:TestExplicit
+
+There are several test packages:
+
+* general -- common functional tests
+* eventlet -- Neutron compatibility tests
+* lnst -- LNST compatibility tests
+
+For each package a new Python instance is launched, keep that
+in mind since it affects the code coverage collection.
+
+It is possible to skip tests by a pattern::
+
     $ sudo make test skip_tests=test_stress
-
-All tests are divided into several groups (general, lnst, etc).
-Every test group is run in a separate python process, so one
-can test import statements and safely destroy runtime, as other
-test groups will be unaffected.
-
-To run only "general" test group, one can run::
-
-    $ sudo make test module=general:
 
 target: dist
 ------------
@@ -66,11 +80,22 @@ Make Python distribution package. Command line options:
 target: install
 ---------------
 
-Buidl and install the package into the system. Command line options:
+Build and install the package into the system. Command line options:
 
 * python -- the Python to use
 * root -- root install directory
 * lib -- where to install lib files
+
+target: develop
+---------------
+
+Build the package and deploy the egg-link with setuptools. No code
+will be deployed into the system directories, but instead the local
+package directory will be visible to the python. In that case one
+can change the code locally and immediately test it system-wide
+without running `make install`.
+
+* python -- the Python to use
 
 other targets
 -------------
