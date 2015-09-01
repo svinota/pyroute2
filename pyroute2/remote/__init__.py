@@ -6,6 +6,7 @@ import struct
 import threading
 import traceback
 import urlparse
+from io import BytesIO
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from pyroute2 import IPRoute
@@ -24,15 +25,17 @@ class Connection(object):
         return self.sock.fileno()
 
     def send(self, obj):
-        dump = pickle.dumps(obj)
-        packet = struct.pack("II", len(dump) + 8, 0)
-        packet += dump
+        dump = BytesIO()
+        pickle.dump(obj, dump)
+        packet = struct.pack("II", len(dump.getvalue()) + 8, 0)
+        packet += dump.getvalue()
         self.sock.sendall(packet)
 
     def recv(self):
         length, offset = struct.unpack("II", self.sock.recv(8))
-        dump = self.sock.recv(length - 8)
-        return pickle.loads(dump)
+        dump = BytesIO()
+        dump.write(self.sock.recv(length - 8))
+        return pickle.load(dump)
 
     def close(self):
         self.sock.close()
