@@ -1,6 +1,8 @@
 import atexit
+import pickle
 import select
 import socket
+import struct
 import threading
 import traceback
 import urlparse
@@ -8,18 +10,40 @@ from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from pyroute2 import IPRoute
 from pyroute2.common import uuid32
-from pyroute2.config.eventlet import _MpConnection
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
 from pyroute2.iproute import IPRouteMixin
 
 
-class Channel(_MpConnection):
+class Connection(object):
+    def __init__(self, sock):
+        self.sock = sock
+        self.sock.setblocking(True)
+
+    def fileno(self):
+        return self.sock.fileno()
+
+    def send(self, obj):
+        dump = pickle.dumps(obj)
+        packet = struct.pack("II", len(dump) + 8, 0)
+        packet += dump
+        self.sock.sendall(packet)
+
+    def recv(self):
+        length, offset = struct.unpack("II", self.sock.recv(8))
+        dump = self.sock.recv(length - 8)
+        return pickle.loads(dump)
+
+    def close(self):
+        self.sock.close()
+
+
+class Channel(Connection):
 
     def __init__(self, host, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
-        _MpConnection.__init__(self, sock)
+        Connection.__init__(self, sock)
 
 
 def Server(cmdch, brdch):
@@ -186,7 +210,7 @@ class Master(object):
             for (fd, event) in poll.poll():
                 if fd == self.master_sock.fileno():
                     (sock, info) = self.master_sock.accept()
-                    self.new[sock.fileno()] = _MpConnection(sock)
+                    self.new[sock.fileno()] = Connection(sock)
                     poll.register(sock, select.POLLIN | select.POLLPRI)
                 elif fd in self.new:
                     init = self.new[fd].recv()
