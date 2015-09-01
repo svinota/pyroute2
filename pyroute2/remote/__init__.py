@@ -76,6 +76,8 @@ class Client(object):
 
     def __init__(self):
         self.cmdlock = threading.Lock()
+        self.lock = threading.Lock()
+        self.closed = False
         init = self.cmdch.recv()
         if init['stage'] != 'init':
             raise TypeError('incorrect protocol init')
@@ -88,7 +90,12 @@ class Client(object):
         return self.brdch.recv()['data']
 
     def close(self):
-        self.cmdch.send({'stage': 'shutdown'})
+        with self.lock:
+            if not self.closed:
+                self.closed = True
+                self.cmdch.send({'stage': 'shutdown'})
+                self.cmdch.close()
+                self.brdch.close()
 
     def proxy(self, cmd, *argv, **kwarg):
         with self.cmdlock:
