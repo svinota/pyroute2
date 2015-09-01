@@ -1,6 +1,10 @@
 changelog
 =========
 
+* 0.3.14
+    * package-rh: spec fixed
+    * package-rh: both licenses added
+    * remote: fixed the setup.py record
 * 0.3.13
     * package-rh: new rpm for Fedora and CentOS
     * remote: new draft of the remote protocol
