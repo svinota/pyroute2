@@ -191,6 +191,8 @@ class Master(object):
                         t = threading.Thread(target=Server, args=args)
                         t.start()
                         self.threads.append(t)
+                        poll.unregister(client['command'].sock)
+                        poll.unregister(client['broadcast'].sock)
                     else:
                         cid = init['client']
                         self.clients[cid] = {}
