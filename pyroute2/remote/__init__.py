@@ -34,8 +34,14 @@ class Connection(object):
     def recv(self):
         length, offset = struct.unpack("II", self.sock.recv(8))
         dump = BytesIO()
-        dump.write(self.sock.recv(length - 8))
-        return pickle.load(dump)
+        actual = 0
+        while actual < (length - 8):
+            chunk = self.sock.recv(length - 8 - actual)
+            actual += len(chunk)
+            dump.write(chunk)
+        dump.seek(0)
+        ret = pickle.load(dump)
+        return ret
 
     def close(self):
         self.sock.close()
