@@ -1,7 +1,7 @@
 %global pkgname pyroute2
 
 Name: python-%{pkgname}
-Version: 0.3.5
+Version: 0.3.13
 Release: 1%{?dist}
 Summary: Pure Python netlink library
 License: GPLv2+
@@ -31,9 +31,15 @@ IPQ.
 %{python_sitelib}/%{pkgname}*
 
 %changelog
-* Sat Feb 28 2015 Peter V. Saveliev <peter@svinota.eu> 0.3.5-1
-- Initial basic nl80211 support -- wireless interfaces
-- Full proxy-ng support
+* Tue Sep  1 2015 Peter V. Saveliev <peter@svinota.eu> 0.3.13-1
+- BPF filters support
+- MPLS routes support
+- MIPS platform support
+- multiple improvements on iwutil
+- memory consumption improvements
+
+* Thu Jun 18 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 0.3.4-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
 
 * Thu Jan  8 2015 Peter V. Saveliev <peter@svinota.eu> 0.3.4-1
 - Network namespaces support
