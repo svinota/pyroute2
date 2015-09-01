@@ -66,25 +66,18 @@ run `remove()`.
 
 import os
 import errno
-import atexit
-import select
 import signal
-import struct
-import threading
-import traceback
-from socket import SOL_SOCKET
-from socket import SO_RCVBUF
 from pyroute2.config import MpPipe
 from pyroute2.config import MpProcess
-from pyroute2.iproute import IPRoute
-from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
 from pyroute2.iproute import IPRouteMixin
 from pyroute2.netns import setns
 from pyroute2.netns import remove
+from pyroute2.remote import Server
+from pyroute2.remote import RemoteSocket
 
 
-def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
+def NetNServer(netns, cmdch, brdch, flags=os.O_CREAT):
     '''
     The netns server supposed to be started automatically by NetNS.
     It has two communication channels: one simplex to forward incoming
@@ -131,134 +124,19 @@ def NetNServer(netns, rcvch, cmdch, flags=os.O_CREAT):
     try:
         nsfd = setns(netns, flags)
     except OSError as e:
-        cmdch.send(e)
+        cmdch.send({'stage': 'init',
+                    'error': e})
         return e.errno
     except Exception as e:
-        cmdch.send(OSError(errno.ECOMM, str(e), netns))
+        cmdch.send({'stage': 'init',
+                    'error': OSError(errno.ECOMM, str(e), netns)})
         return 255
 
-    #
-    try:
-        ipr = IPRoute()
-        rcvch_lock = ipr._sproxy.lock
-        ipr._s_channel = rcvch
-        poll = select.poll()
-        poll.register(ipr, select.POLLIN | select.POLLPRI)
-        poll.register(cmdch, select.POLLIN | select.POLLPRI)
-    except Exception as e:
-        cmdch.send(e)
-        return 255
-
-    # all is OK so far
-    cmdch.send(None)
-    # 8<-------------------------------------------------------------
-    while True:
-        events = poll.poll()
-        for (fd, event) in events:
-            if fd == ipr.fileno():
-                bufsize = ipr.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
-                with rcvch_lock:
-                    rcvch.send(ipr.recv(bufsize))
-            elif fd == cmdch.fileno():
-                try:
-                    cmdline = cmdch.recv()
-                    if cmdline is None:
-                        poll.unregister(ipr)
-                        poll.unregister(cmdch)
-                        ipr.close()
-                        os.close(nsfd)
-                        return
-                    (cmd, argv, kwarg) = cmdline
-                    if cmd[:4] == 'send':
-                        # Achtung
-                        #
-                        # It's a hack, but we just have to do it: one
-                        # must use actual pid in netlink messages
-                        #
-                        # FIXME: there can be several messages in one
-                        # call buffer; but right now we can ignore it
-                        msg = argv[0][:12]
-                        msg += struct.pack("I", os.getpid())
-                        msg += argv[0][16:]
-                        argv = list(argv)
-                        argv[0] = msg
-                    cmdch.send(getattr(ipr, cmd)(*argv, **kwarg))
-                except Exception as e:
-                    e.tb = traceback.format_exc()
-                    cmdch.send(e)
+    Server(cmdch, brdch)
+    os.close(nsfd)
 
 
-class NetNSProxy(object):
-
-    netns = 'default'
-    flags = os.O_CREAT
-
-    def __init__(self, *argv, **kwarg):
-        self.cmdlock = threading.Lock()
-        self.rcvch, rcvch = MpPipe()
-        self.cmdch, cmdch = MpPipe()
-        self.server = MpProcess(target=NetNServer,
-                                args=(self.netns, rcvch, cmdch, self.flags))
-        self.server.start()
-        error = self.cmdch.recv()
-        if error is not None:
-            self.server.join()
-            raise error
-        else:
-            atexit.register(self.close)
-
-    def recv(self, bufsize, flags=0):
-        return self.rcvch.recv()
-
-    def close(self):
-        self.cmdch.send(None)
-        self.server.join()
-
-    def proxy(self, cmd, *argv, **kwarg):
-        with self.cmdlock:
-            self.cmdch.send((cmd, argv, kwarg))
-            response = self.cmdch.recv()
-            if isinstance(response, Exception):
-                raise response
-            return response
-
-    def fileno(self):
-        return self.rcvch.fileno()
-
-    def bind(self, *argv, **kwarg):
-        if 'async' in kwarg:
-            kwarg['async'] = False
-        return self.proxy('bind', *argv, **kwarg)
-
-    def send(self, *argv, **kwarg):
-        return self.proxy('send', *argv, **kwarg)
-
-    def sendto(self, *argv, **kwarg):
-        return self.proxy('sendto', *argv, **kwarg)
-
-    def getsockopt(self, *argv, **kwarg):
-        return self.proxy('getsockopt', *argv, **kwarg)
-
-    def setsockopt(self, *argv, **kwarg):
-        return self.proxy('setsockopt', *argv, **kwarg)
-
-
-class NetNSocket(NetlinkMixin, NetNSProxy):
-
-    def bind(self, *argv, **kwarg):
-        return NetNSProxy.bind(self, *argv, **kwarg)
-
-    def close(self):
-        NetNSProxy.close(self)
-
-    def _sendto(self, *argv, **kwarg):
-        return NetNSProxy.sendto(self, *argv, **kwarg)
-
-    def _recv(self, *argv, **kwarg):
-        return NetNSProxy.recv(self, *argv, **kwarg)
-
-
-class NetNS(IPRouteMixin, NetNSocket):
+class NetNS(IPRouteMixin, RemoteSocket):
     '''
     NetNS is the IPRoute API with network namespace support.
 
@@ -298,8 +176,20 @@ class NetNS(IPRouteMixin, NetNSocket):
     def __init__(self, netns, flags=os.O_CREAT):
         self.netns = netns
         self.flags = flags
+        self.cmdch, cmdch = MpPipe()
+        self.brdch, brdch = MpPipe()
+        self.server = MpProcess(target=NetNServer,
+                                args=(self.netns,
+                                      cmdch,
+                                      brdch,
+                                      self.flags))
+        self.server.start()
         super(NetNS, self).__init__()
         self.marshal = MarshalRtnl()
+
+    def close(self):
+        super(NetNS, self).close()
+        self.server.join()
 
     def post_init(self):
         pass
