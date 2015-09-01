@@ -1,6 +1,11 @@
 changelog
 =========
 
+* 0.3.13
+    * package-rh: new rpm for Fedora and CentOS
+    * remote: new draft of the remote protocol
+    * netns: refactored using the new remote protocol
+    * ipdb: gretap support
 * 0.3.12
     * ipdb: new `Interface.wait_ip()` routine
     * ipdb: #175 -- fix `master` attribute cleanup
