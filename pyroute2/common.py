@@ -266,6 +266,10 @@ def hexdump(payload, length=0):
                         for c in payload[:length] or payload)
 
 
+def hexload(data):
+    return ''.join(chr(int(x, 16)) for x in data.split(':'))
+
+
 class AddrPool(object):
     '''
     Address pool
