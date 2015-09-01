@@ -130,8 +130,10 @@ class Client(object):
             if not self.closed:
                 self.closed = True
                 self.cmdch.send({'stage': 'shutdown'})
-                self.cmdch.close()
-                self.brdch.close()
+                if hasattr(self.cmdch, 'close'):
+                    self.cmdch.close()
+                if hasattr(self.brdch, 'close'):
+                    self.brdch.close()
 
     def proxy(self, cmd, *argv, **kwarg):
         with self.cmdlock:
