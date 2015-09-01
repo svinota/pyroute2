@@ -5,7 +5,6 @@ import socket
 import struct
 import threading
 import traceback
-import urlparse
 from io import BytesIO
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
@@ -14,6 +13,10 @@ from pyroute2.common import uuid32
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
 from pyroute2.iproute import IPRouteMixin
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
 
 class Connection(object):
@@ -182,7 +185,7 @@ class RemoteSocket(NetlinkMixin, Client):
 class Remote(IPRouteMixin, RemoteSocket):
     def __init__(self, url):
         if url.startswith('tcp://'):
-            hostname = urlparse.urlparse(url).netloc
+            hostname = urlparse(url).netloc
             self.cmdch = Channel(hostname, 4336)
             self.brdch = Channel(hostname, 4336)
             self.uuid = uuid32()
