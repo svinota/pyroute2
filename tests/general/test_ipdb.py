@@ -1539,6 +1539,30 @@ class TestMisc(object):
         ip.release()
         assert len(ip.interfaces.keys()) == 0
 
+    def test_fail_initdb(self):
+
+        # mock class
+        class MockNL(object):
+
+            def __init__(self):
+                self.called = set()
+
+            def bind(self, async=False):
+                self.called.add('bind')
+                assert async in (True, False)
+                raise NotImplementedError('mock thee')
+
+            def close(self):
+                self.called.add('close')
+
+        mnl = MockNL()
+        try:
+            IPDB(nl=mnl)
+        except NotImplementedError:
+            pass
+
+        assert mnl.called == set(('bind', 'close'))
+
     def test_context_manager(self):
         with IPDB() as ip:
             assert ip.interfaces.lo.index == 1
