@@ -267,7 +267,11 @@ def hexdump(payload, length=0):
 
 
 def hexload(data):
-    return ''.join(chr(int(x, 16)) for x in data.split(':'))
+    ret = ''.join(chr(int(x, 16)) for x in data.split(':'))
+    if sys.version[0] == '3':
+        return bytes(ret, 'ascii')
+    else:
+        return bytes(ret)
 
 
 class AddrPool(object):
