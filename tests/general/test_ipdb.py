@@ -1554,6 +1554,7 @@ class TestMisc(object):
 
             def close(self):
                 self.called.add('close')
+                raise NotImplementedError('mock thee')
 
         mnl = MockNL()
         try:
