@@ -81,6 +81,8 @@ clean: clean-version
 	rm -f  tests/.coverage
 	rm -rf tests/htmlcov
 	rm -rf tests/cover
+	rm -rf tests/examples
+	rm -rf tests/pyroute2
 	rm -rf pyroute2.egg-info
 	rm -f python-pyroute2.spec
 	find . -name "*pyc" -exec rm -f "{}" \;
@@ -104,7 +106,7 @@ docs: clean force-version
 	cp README.md docs/general.rst
 	cp README.make.md docs/makefile.rst
 	cp CHANGELOG.md docs/changelog.rst
-	export PYTHONPATH=`pwd`; make -C docs html
+	export PYTHONPATH=`pwd`; make -C docs html; unset PYTHONPATH
 
 epydoc: docs
 	${epydoc} -v \
@@ -116,7 +118,7 @@ epydoc: docs
 		--exclude=pyroute2.netns.process.base_p3 \
 		pyroute2/
 
-test:
+test: dist
 	@export PYTHON=${python}; \
 		export NOSE=${nosetests}; \
 		export FLAKE8=${flake8}; \
@@ -140,10 +142,6 @@ install: clean force-version
 develop: setuplib = "setuptools"
 develop: clean force-version
 	${python} setup.py primary develop
-
-testdeps:
-	pip install coverage
-	pip install flake8
 
 # 8<--------------------------------------------------------------------
 #

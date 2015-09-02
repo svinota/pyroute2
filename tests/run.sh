@@ -1,8 +1,33 @@
 #!/bin/bash
 
-export PYTHONPATH=".:..:../examples"
+export PYTHONPATH="`pwd`:`pwd`/examples"
+echo $PYTHONPATH
 
+# Prepare test environment
+#
+# * make dist
+# * install packaged files into /tests
+# * copy examples into /tests
+# * run pep8 checks against /tests -- to cover test code also
+# * run nosetests
+#
+# It is important to test not in-place, but after `make dist`,
+# since in that case only those files will be tests, that
+# are included in the package.
+#
+cd ../dist
+    tar xf *
+    mv pyroute2*/pyroute2 ../tests/
+cd ../
+    cp -a examples ./tests/
+cd ./tests/
+
+# Install test requirements, if not installed. If the user
+# is not root and all requirements are met, this step will
+# be safely skipped.
+#
 pip install -q -r requirements.txt
+
 
 [ -z "$1" ] && {
     echo "Test module isn't specified"
@@ -33,9 +58,9 @@ pip install -q -r requirements.txt
 
 export PVERSION=`$PYTHON -c 'import sys; print(sys.version_info[0])'`
 [ $PVERSION -eq 2 ] && {
-    export PEP8EXC="--exclude=docs,../pyroute2/netns/process/base_p3.py"
+    export PEP8EXC="--exclude=pyroute2/netns/process/base_p3.py"
 } || {
-    export PEP8EXC="--exclude=docs,../pyroute2/netns/process/base_p2.py"
+    export PEP8EXC="--exclude=pyroute2/netns/process/base_p2.py"
 }
 
 echo "python: `which $PYTHON` [`$PYTHON --version 2>&1`]"
@@ -44,7 +69,7 @@ echo "nose: `which $NOSE` [`$NOSE --version 2>&1`]"
 echo "pversion: $PVERSION"
 echo "pep8 exclude list: $PEP8EXC"
 
-$PYTHON `which $FLAKE8` $PEP8EXC .. && echo "flake8 ... ok" || exit 254
+$PYTHON `which $FLAKE8` $PEP8EXC . && echo "flake8 ... ok" || exit 254
 [ -z "$TRAVIS" ] || exit 0
 
 function get_module() {
@@ -62,7 +87,7 @@ for module in $@; do
         [ $RETVAL -eq 0 ] || continue
 
     }
-    $PYTHON $WLEVEL `which $NOSE` -v $PDB \
+    $PYTHON $WLEVEL `which $NOSE` -P -v $PDB \
         --with-coverage \
         --cover-package=pyroute2 \
         $SKIP_TESTS \

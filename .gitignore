@@ -7,6 +7,8 @@ tests/htmlcov
 tests/cover
 tests/.coverage
 tests/udhcpd.leases
+tests/examples
+tests/pyroute2
 output.html
 setup.py
 MANIFEST
