@@ -198,7 +198,10 @@ class ifinfbase(object):
                ('IFLA_NUM_RX_QUEUES', 'uint32'),
                ('IFLA_CARRIER', 'uint8'),
                ('IFLA_PHYS_PORT_ID', 'hex'),
-               ('IFLA_CARRIER_CHANGES', 'uint32'))
+               ('IFLA_CARRIER_CHANGES', 'uint32'),
+               ('IFLA_PHYS_SWITCH_ID', 'hex'),
+               ('IFLA_LINK_NETNSID', 'int32'),
+               ('IFLA_PHYS_PORT_NAME', 'asciiz'))
 
     @staticmethod
     def flags2names(flags, mask=0xffffffff):
