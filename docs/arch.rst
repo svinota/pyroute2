@@ -24,6 +24,9 @@ by the library:
     pyroute2.ipset.IPSet
     pyroute2.netlink.taskstats.TaskStats
     pyroute2.netlink.ipq.IPQSocket
+    pyroute2.remote.Client
+    pyroute2.remote.RemoteSocket
+    pyroute2.remote.Remote
     pyroute2.netns.nslink.NetNS
     :parts: 1
 
