@@ -1300,6 +1300,9 @@ class nlmsg_atoms(nlmsg_base):
     class uint64(nla_base):
         fields = [('value', 'Q')]
 
+    class int32(nla_base):
+        fields = [('value', 'i')]
+
     class be8(nla_base):
         fields = [('value', '>B')]
 
