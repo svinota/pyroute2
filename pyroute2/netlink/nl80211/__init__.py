@@ -488,21 +488,22 @@ class nl80211cmd(genlmsg):
                 self.buf.seek(init)
 
         prefix = 'NL80211_BSS_'
-        nla_map = (('NL80211_BSS_SIGNAL_UNSPEC', 'uint8'),
+        nla_map = (('__NL80211_BSS_INVALID', 'hex'),
                    ('NL80211_BSS_BSSID', 'hex'),
                    ('NL80211_BSS_FREQUENCY', 'uint32'),
                    ('NL80211_BSS_TSF', 'uint64'),
                    ('NL80211_BSS_BEACON_INTERVAL', 'uint16'),
                    ('NL80211_BSS_CAPABILITY', 'uint16'),
                    ('NL80211_BSS_INFORMATION_ELEMENTS', 'elementsBinary'),
-                   ('NL80211_BSS_SIGNAL_MBM', 'uint32'),
+                   ('NL80211_BSS_SIGNAL_MBM', 'int32'),
+                   ('NL80211_BSS_SIGNAL_UNSPEC', 'uint8'),
                    ('NL80211_BSS_STATUS', 'uint32'),
                    ('NL80211_BSS_SEEN_MS_AGO', 'uint32'),
                    ('NL80211_BSS_BEACON_IES', 'hex'),
                    ('NL80211_BSS_CHAN_WIDTH', 'uint32'),
+                   ('NL80211_BSS_BEACON_TSF', 'uint64'),
                    ('NL80211_BSS_PRESP_DATA', 'hex'),
-                   ('NL80211_BSS_MAX', 'hex'),
-                   ('NL80211_BSS_BEACON_TSF', 'uint64')
+                   ('NL80211_BSS_MAX', 'hex')
                    )
 
 
