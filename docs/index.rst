@@ -13,35 +13,28 @@ General information
     changelog
     makefile
 
-Architecture overview
----------------------
+Usage 
+-----
 
 .. toctree::
     :maxdepth: 2
 
-    arch
-
-Utility modules
----------------
-
-.. toctree::
-    :maxdepth: 2
-
+    usage
     iproute
     ipdb
     netns
 
-Development section
--------------------
+Contribution
+------------
 
 .. toctree::
     :maxdepth: 2
 
-    devmodules
-    devgeneral
     devcontribute
+    arch
     netlink
     nlsocket
+    devmodules
     dhcp
 
 

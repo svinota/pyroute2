@@ -1,5 +1,7 @@
 .. sockets:
 
+Module architecture
+^^^^^^^^^^^^^^^^^^^
 
 Sockets
 =======
