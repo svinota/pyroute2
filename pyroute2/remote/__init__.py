@@ -19,7 +19,11 @@ except ImportError:
     from urllib.parse import urlparse
 
 
-class Connection(object):
+class Transport(object):
+    '''
+    A simple transport protocols to send objects between two
+    end-points. Requires an open socket-like object at init.
+    '''
     def __init__(self, sock):
         self.sock = sock
         self.sock.setblocking(True)
@@ -50,15 +54,96 @@ class Connection(object):
         self.sock.close()
 
 
-class Channel(Connection):
+class SocketChannel(Transport):
+    '''
+    A data channel over ordinary AF_INET socket.
+    '''
 
     def __init__(self, host, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
-        Connection.__init__(self, sock)
+        Transport.__init__(self, sock)
 
 
 def Server(cmdch, brdch):
+    '''
+    A server routine to run an IPRoute object and expose it via
+    custom RPC.
+
+    many TODOs:
+
+    * document the protocol
+    * provide not only IPRoute
+
+    RPC
+
+    Messages sent via channels are dictionaries with predefined
+    structure. There are 4 s.c. stages::
+
+        init        (server <-----> client)
+        command     (server <-----> client)
+        broadcast   (server ------> client)
+        shutdown    (server <------ client)
+
+
+    Stage 'init' is used during initialization. The client
+    establishes connections to the server and announces them
+    by sending a single message via each channel::
+
+        {'stage': 'init',
+         'domain': ch_domain,
+         'client': client.uuid}
+
+    Here, the client uuid is used to group all the connections
+    of the same client and `ch_domain` is either 'command', or
+    'broadcast'. The latter will become a unidirectional
+    channel from the server to the client, all data that
+    arrives on the server side via netlink socket will be
+    forwarded to the broadcast channel.
+
+    The command channel will be used to make RPC calls and
+    to shut the worker thread down before the client
+    disconnects from the server.
+
+    When all the registration is done, the server sends a
+    single message via the command channel::
+
+        {'stage': 'init',
+         'error': exception or None}
+
+    If the `error` field is None, everything is ok. If it
+    is an exception, the init is failed and the exception
+    should be thrown on the client side.
+
+    In the runtime, all the data that arrives on the netlink
+    socket fd, is to be forwarded directly via the
+    broadcast channel.
+
+    Commands are handled with the `command` stage::
+
+        # request
+
+        {'stage': 'command',
+         'name': str,
+         'cookie': cookie,
+         'argv': [...],
+         'kwarg': {...}}
+
+        # response
+
+        {'stage': 'command',
+         'error': exception or None,
+         'return': retval,
+         'cookie': cookie}
+
+    Right now the protocol is synchronous, so there is not
+    need in cookie yet. But in some future it can turn into
+    async, and then cookies will be used to match messages.
+
+    The final stage is 'shutdown'. It terminates the worker
+    thread, has no response and no messages can passed after.
+
+    '''
 
     try:
         ipr = IPRoute()
@@ -185,11 +270,16 @@ class RemoteSocket(NetlinkMixin, Client):
 
 
 class Remote(IPRouteMixin, RemoteSocket):
+    '''
+    Experimental TCP server.
+
+    Only for debug purposes now.
+    '''
     def __init__(self, url):
         if url.startswith('tcp://'):
             hostname = urlparse(url).netloc
-            self.cmdch = Channel(hostname, 4336)
-            self.brdch = Channel(hostname, 4336)
+            self.cmdch = SocketChannel(hostname, 4336)
+            self.brdch = SocketChannel(hostname, 4336)
             self.uuid = uuid32()
             self.cmdch.send({'stage': 'init',
                              'domain': 'command',
@@ -224,7 +314,7 @@ class Master(object):
             for (fd, event) in poll.poll():
                 if fd == self.master_sock.fileno():
                     (sock, info) = self.master_sock.accept()
-                    self.new[sock.fileno()] = Connection(sock)
+                    self.new[sock.fileno()] = Transport(sock)
                     poll.register(sock, select.POLLIN | select.POLLPRI)
                 elif fd in self.new:
                     init = self.new[fd].recv()
