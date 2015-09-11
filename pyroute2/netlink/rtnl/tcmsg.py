@@ -176,6 +176,61 @@ def _get_filter_police_parameter(kwarg):
     return police
 
 
+def _get_act_gact_parms(kwarg):
+    ret = {'attrs': []}
+    actions = nla_plus_tca_act_opt.tca_gact_opt.tca_gact_parms.actions
+    a = actions[kwarg.get('action', 'drop')]
+    ret['attrs'].append(['TCA_GACT_PARMS', {'action': a}])
+    return ret
+
+
+def _get_act_bpf_parms(kwarg):
+    ret = {'attrs': []}
+    if 'fd' in kwarg:
+        ret['attrs'].append(['TCA_ACT_BPF_FD', kwarg['fd']])
+    if 'name' in kwarg:
+        ret['attrs'].append(['TCA_ACT_BPF_NAME', kwarg['name']])
+    actions = nla_plus_tca_act_opt.tca_gact_opt.tca_gact_parms.actions
+    a = actions[kwarg.get('action', 'drop')]
+    ret['attrs'].append(['TCA_ACT_BPF_PARMS', {'action': a}])
+    return ret
+
+
+def _get_act_parms(kwarg):
+    if 'kind' not in kwarg:
+        raise Exception('action requires "kind" parameter')
+
+    if kwarg['kind'] == 'gact':
+        return _get_act_gact_parms(kwarg)
+    elif kwarg['kind'] == 'bpf':
+        return _get_act_bpf_parms(kwarg)
+    elif kwarg['kind'] == 'police':
+        return {'attrs': _get_filter_police_parameter(kwarg)}
+
+    return []
+
+
+# All filters can use any act type, this is a generic parser for all
+def _get_tca_action(kwarg):
+    ret = {'attrs': []}
+
+    act = kwarg.get('action', 'drop')
+
+    # convert simple action='..' to kwarg style
+    if isinstance(act, str):
+        act = {'kind': 'gact', 'action': act}
+
+    # convert single dict action to first entry in a list of actions
+    acts = act if isinstance(act, list) else [act]
+
+    for i, act in enumerate(acts, start=1):
+        opt = {'attrs': [['TCA_ACT_KIND', act['kind']],
+                         ['TCA_ACT_OPTIONS', _get_act_parms(act)]]}
+        ret['attrs'].append(['TCA_ACT_PRIO_%d' % i, opt])
+
+    return ret
+
+
 def get_u32_parameters(kwarg):
     ret = {'attrs': []}
 
@@ -184,6 +239,8 @@ def get_u32_parameters(kwarg):
             'TCA_U32_POLICE',
             {'attrs': _get_filter_police_parameter(kwarg)}
         ])
+    elif kwarg.get('action'):
+        ret['attrs'].append(['TCA_U32_ACT', _get_tca_action(kwarg)])
 
     ret['attrs'].append(['TCA_U32_CLASSID', kwarg['target']])
     ret['attrs'].append(['TCA_U32_SEL', {'keys': kwarg['keys']}])
@@ -216,23 +273,6 @@ def get_fw_parameters(kwarg):
     return ret
 
 
-def _get_gact_parms(kwarg):
-    ret = {'attrs': []}
-    actions = nla_plus_tca_act_opt.tca_act_opt.tca_gact_parms.actions
-    a = actions[kwarg.get('action', 'drop')]
-    ret['attrs'].append(['TCA_GACT_PARMS', {'action': a}])
-    return ret
-
-
-def _get_bpf_action(kwarg):
-    ret = {'attrs': []}
-    # Only gact supported currently, others possible
-    opt = {'attrs': [['TCA_ACT_KIND', 'gact'],
-                     ['TCA_ACT_OPTIONS', _get_gact_parms(kwarg)]]}
-    ret['attrs'].append(['TCA_ACT_PRIO_1', opt])
-    return ret
-
-
 def get_bpf_parameters(kwarg):
     ret = {'attrs': []}
     attrs_map = (
@@ -245,7 +285,7 @@ def get_bpf_parameters(kwarg):
 
     act = kwarg.get('action')
     if act:
-        ret['attrs'].append(['TCA_BPF_ACT', _get_bpf_action(kwarg)])
+        ret['attrs'].append(['TCA_BPF_ACT', _get_tca_action(kwarg)])
 
     if kwarg.get('rate'):
         ret['attrs'].append([
@@ -581,7 +621,33 @@ class nla_plus_police(object):
 
 
 class nla_plus_tca_act_opt(object):
-    class tca_act_opt(nla):
+    def get_act_options(self, *argv, **kwarg):
+        kind = self.get_attr('TCA_ACT_KIND')
+        if kind == 'bpf':
+            return self.tca_act_bpf_opt
+        elif kind == 'gact':
+            return self.tca_gact_opt
+        elif kind == 'police':
+            return nla_plus_police.police
+        return self.hex
+
+    class tca_act_bpf_opt(nla):
+        nla_map = (('TCA_ACT_BPF_UNSPEC', 'none'),
+                   ('TCA_ACT_BPF_TM,', 'none'),
+                   ('TCA_ACT_BPF_PARMS', 'tca_act_bpf_parms'),
+                   ('TCA_ACT_BPF_OPS_LEN', 'uint16'),
+                   ('TCA_ACT_BPF_OPS', 'hex'),
+                   ('TCA_ACT_BPF_FD', 'uint32'),
+                   ('TCA_ACT_BPF_NAME', 'asciiz'))
+
+        class tca_act_bpf_parms(nla):
+            fields = (('index', 'I'),
+                      ('capab', 'I'),
+                      ('action', 'i'),
+                      ('refcnt', 'i'),
+                      ('bindcnt', 'i'))
+
+    class tca_gact_opt(nla):
         nla_flags = NLA_F_NESTED
         nla_map = (('TCA_GACT_UNSPEC', 'none'),
                    ('TCA_GACT_TM', 'none'),
@@ -788,7 +854,7 @@ class tcmsg(nlmsg, nla_plus_stats2):
             class tca_act_bpf(nla, nla_plus_stats2, nla_plus_tca_act_opt):
                 nla_map = (('TCA_ACT_UNSPEC', 'none'),
                            ('TCA_ACT_KIND', 'asciiz'),
-                           ('TCA_ACT_OPTIONS', 'tca_act_opt'),
+                           ('TCA_ACT_OPTIONS', 'get_act_options'),
                            ('TCA_ACT_INDEX', 'hex'),
                            ('TCA_ACT_STATS', 'stats2'))
 
@@ -809,10 +875,11 @@ class tcmsg(nlmsg, nla_plus_stats2):
             nla_map = tuple([('TCA_ACT_PRIO_%i' % x, 'tca_act') for x
                              in range(TCA_ACT_MAX_PRIO)])
 
-            class tca_act(nla, nla_plus_police, nla_plus_stats2):
+            class tca_act(nla, nla_plus_police, nla_plus_stats2,
+                          nla_plus_tca_act_opt):
                 nla_map = (('TCA_ACT_UNSPEC', 'none'),
                            ('TCA_ACT_KIND', 'asciiz'),
-                           ('TCA_ACT_OPTIONS', 'police'),
+                           ('TCA_ACT_OPTIONS', 'get_act_options'),
                            ('TCA_ACT_INDEX', 'hex'),
                            ('TCA_ACT_STATS', 'stats2'))
 

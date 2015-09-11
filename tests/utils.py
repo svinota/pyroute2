@@ -221,7 +221,7 @@ def get_bpf_syscall_num():
     return int(m.group(1))
 
 
-def get_simple_bpf_program():
+def get_simple_bpf_program(prog_type):
     NR_bpf = get_bpf_syscall_num()
 
     class BPFAttr(ctypes.Structure):
@@ -235,14 +235,19 @@ def get_simple_bpf_program():
                     ('kern_version', ctypes.c_uint)]
 
     BPF_PROG_TYPE_SCHED_CLS = 3
+    BPF_PROG_TYPE_SCHED_ACT = 4
     BPF_PROG_LOAD = 5
     insns = (ctypes.c_ulonglong * 2)()
     # equivalent to: int my_func(void *) { return 1; }
     insns[0] = 0x00000001000000b7
     insns[1] = 0x0000000000000095
     license = ctypes.c_char_p(b'GPL')
-    attr = BPFAttr(BPF_PROG_TYPE_SCHED_CLS, len(insns),
-                   insns, license, 0, 0, None, 0)
+    if prog_type.lower() == "sched_cls":
+        attr = BPFAttr(BPF_PROG_TYPE_SCHED_CLS, len(insns),
+                       insns, license, 0, 0, None, 0)
+    elif prog_type.lower() == "sched_act":
+        attr = BPFAttr(BPF_PROG_TYPE_SCHED_ACT, len(insns),
+                       insns, license, 0, 0, None, 0)
     libc = ctypes.CDLL('libc.so.6')
     libc.syscall.argtypes = [ctypes.c_long, ctypes.c_int,
                              ctypes.POINTER(type(attr)), ctypes.c_uint]

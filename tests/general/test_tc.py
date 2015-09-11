@@ -101,8 +101,9 @@ class TestIngress(BasicTest):
     @skip_if_not_supported
     def test_bpf_filter(self):
         self.test_simple()
-        fd = get_simple_bpf_program()
-        if fd == -1:
+        fd1 = get_simple_bpf_program('sched_cls')
+        fd2 = get_simple_bpf_program('sched_act')
+        if fd1 == -1 or fd2 == -1:
             # to get bpf filter working, one should have:
             # kernel >= 4.1
             # CONFIG_EXPERT=y
@@ -112,25 +113,40 @@ class TestIngress(BasicTest):
             # see `grep -rn BPF_PROG_TYPE_SCHED_CLS kernel_sources`
             raise SkipTest('bpf syscall error')
         self.ip.tc(RTM_NEWTFILTER, 'bpf', self.interface, 0,
-                   fd=fd, name='my_func', parent=0xffff0000,
+                   fd=fd1, name='my_func', parent=0xffff0000,
                    action='ok', classid=1)
+        action = {'kind': 'bpf', 'fd': fd2, 'name': 'my_func', 'action': 'ok'}
+        self.ip.tc(RTM_NEWTFILTER, 'u32', self.interface, 1,
+                   protocol=protocols.ETH_P_ALL, parent=0xffff0000,
+                   target=0x10002, keys=['0x0/0x0+0'], action=action)
         fls = self.ip.get_filters(index=self.interface, parent=0xffff0000)
         assert fls
-        acts = [x for x in fls
-                if x.get_attr('TCA_OPTIONS') is not None and
-                (x.get_attr('TCA_OPTIONS').get_attr('TCA_BPF_ACT')
-                 is not None)][0]
-        options = acts.get_attr('TCA_OPTIONS')
-        parms = options.get_attr('TCA_BPF_ACT').\
+        bpf_filter = [x for x in fls
+                      if x.get_attr('TCA_OPTIONS') is not None and
+                      (x.get_attr('TCA_OPTIONS').get_attr('TCA_BPF_ACT')
+                       is not None)][0]
+        bpf_options = bpf_filter.get_attr('TCA_OPTIONS')
+        gact_parms = bpf_options.get_attr('TCA_BPF_ACT').\
             get_attr('TCA_ACT_PRIO_1').\
             get_attr('TCA_ACT_OPTIONS').\
             get_attr('TCA_GACT_PARMS')
-        assert parms['action'] == 0
+        assert gact_parms['action'] == 0
+
+        u32_filter = [x for x in fls
+                      if x.get_attr('TCA_OPTIONS') is not None and
+                      (x.get_attr('TCA_OPTIONS').get_attr('TCA_U32_ACT')
+                       is not None)][0]
+        u32_options = u32_filter.get_attr('TCA_OPTIONS')
+        bpf_fd = u32_options.get_attr('TCA_U32_ACT').\
+            get_attr('TCA_ACT_PRIO_1').\
+            get_attr('TCA_ACT_OPTIONS').\
+            get_attr('TCA_ACT_BPF_FD')
+        assert bpf_fd == fd2
 
     @skip_if_not_supported
     def test_bpf_filter_policer(self):
         self.test_simple()
-        fd = get_simple_bpf_program()
+        fd = get_simple_bpf_program('sched_cls')
         if fd == -1:
             # see comment above about kernel requirements
             raise SkipTest('bpf syscall error')

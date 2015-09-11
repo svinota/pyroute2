@@ -863,6 +863,36 @@ class IPRouteMixin(object):
                   protocol=socket.AF_INET,
                   target=0x10020,
                   keys=["0x5/0xf+0", "0x10/0xff+33"])
+
+        Filters can also take an `action` argument, which affects the packet
+        behavior when the filter matches. Currently the gact, bpf, and police
+        action types are supported, and can be attached to the u32 and bpf
+        filter types.
+
+            # An action can be a simple string, which translates to a gact type
+            action = "drop"
+
+            # Or it can be an explicit type (these are equivalent)
+            action = dict(kind="gact", action="drop")
+
+            # There can also be a chain of actions, which depend on the return
+            # value of the previous action.
+            action = [
+                dict(kind="bpf", fd=fd, name=name, action="ok"),
+                dict(kind="police", rate="10kbit", burst=10240, limit=0),
+                dict(kind="gact", action="ok"),
+            ]
+
+            # Add the action to a u32 match-all filter
+            ip.tc("add", "htb", eth0, 0x10000, default=0x200000)
+            ip.tc("add-filter", "u32", eth0,
+                  parent=0x10000,
+                  prio=10,
+                  protocol=protocols.ETH_P_ALL,
+                  target=0x10020,
+                  keys=["0x0/0x0+0"],
+                  action=action)
+
         '''
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
