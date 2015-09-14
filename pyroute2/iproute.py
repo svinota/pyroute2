@@ -807,7 +807,8 @@ class IPRouteMixin(object):
         module constants, `RTM_NEWQDISC`, `RTM_DELQDISC` and so on::
 
             ip = IPRoute()
-            ip.tc(RTM_NEWQDISC, "sfq", 1)
+            flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+            ip.tc((RTM_NEWQDISC, flags), "sfq", 1)
 
         More complex example with htb qdisc, lets assume eth0 == 2::
 
@@ -867,7 +868,7 @@ class IPRouteMixin(object):
         Filters can also take an `action` argument, which affects the packet
         behavior when the filter matches. Currently the gact, bpf, and police
         action types are supported, and can be attached to the u32 and bpf
-        filter types.
+        filter types::
 
             # An action can be a simple string, which translates to a gact type
             action = "drop"
@@ -1104,64 +1105,49 @@ class IPRouteMixin(object):
             - oifname — Output interface for Interface Based (Policy Based)
                 routing's rule
 
-        Example::
+        All packets route via table 10::
+
+            # 32000: from all lookup 10
+            # ...
             ip.rule('add', table=10, priority=32000)
 
-        Will create::
-            #ip ru sh
-            ...
-            32000: from all lookup 10
-            ....
+        Default action::
 
-        Example::
+            # 32001: from all lookup 11 unreachable
+            # ...
             iproute.rule('add',
                          table=11,
                          priority=32001,
                          action='FR_ACT_UNREACHABLE')
 
-        Will create::
-            #ip ru sh
-            ...
-            32001: from all lookup 11 unreachable
-            ....
+        Use source address to choose a routing table::
 
-        Example::
+            # 32004: from 10.64.75.141 lookup 14
+            # ...
             iproute.rule('add',
                          table=14,
                          priority=32004,
                          src='10.64.75.141')
 
-        Will create::
-            #ip ru sh
-            ...
-            32004: from 10.64.75.141 lookup 14
-            ...
+        Use dst address to choose a routing table::
 
-        Example::
+            # 32005: from 10.64.75.141/24 lookup 15
+            # ...
             iproute.rule('add',
                          table=15,
                          priority=32005,
                          dst='10.64.75.141',
                          dst_len=24)
 
-        Will create::
-            #ip ru sh
-            ...
-            32005: from 10.64.75.141/24 lookup 15
-            ...
+        Match fwmark::
 
-        Example::
+            # 32006: from 10.64.75.141 fwmark 0xa lookup 15
+            # ...
             iproute.rule('add',
                          table=15,
                          priority=32006,
                          dst='10.64.75.141',
                          fwmark=10)
-
-        Will create::
-            #ip ru sh
-            ...
-            32006: from 10.64.75.141 fwmark 0xa lookup 15
-            ...
         '''
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
