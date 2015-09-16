@@ -157,12 +157,9 @@ a.headerlink:hover {
 }
 
 img.align-right {
-    border-top: 1px solid #ccc;
-    border-left: 1px solid #ccc;
-    border-right: 1px solid #555;
-    border-bottom: 1px solid #555;
-    clear: both;
-    padding-bottom: 4em;
+    position: absolute;
+    right: 50px;
+    top: 50px;
 }
 
 div.body p, div.body dd, div.body li {

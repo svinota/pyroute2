@@ -1,5 +1,8 @@
 .. pyroute2 documentation master file
 
+.. image:: ericsson.png
+    :align: right
+
 pyroute2 netlink library
 ========================
 
