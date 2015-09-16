@@ -104,6 +104,7 @@ update-version: setup.py docs/conf.py
 
 docs: clean force-version
 	cp README.md docs/general.rst
+	sed -i '1{s/.*docs\//.. image:: /;s/\ ".*//}' docs/general.rst
 	cp README.make.md docs/makefile.rst
 	cp CHANGELOG.md docs/changelog.rst
 	export PYTHONPATH=`pwd`; make -C docs html; unset PYTHONPATH
