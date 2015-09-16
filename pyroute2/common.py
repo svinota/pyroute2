@@ -274,7 +274,7 @@ def hexload(data):
         return bytes(ret)
 
 
-def load_dump(f):
+def load_dump(f, meta=None):
     '''
     Load a packet dump from an open file-like object.
 
@@ -286,15 +286,28 @@ def load_dump(f):
     Simple markup is also supported. Any data from # or ;
     till the end of the string is a comment and ignored.
     Any data after . till EOF is ignored as well.
+
+    With #! starts an optional code block. All the data
+    in the code block will be read and returned via
+    metadata dictionary.
     '''
     data = ''
+    code = None
     for a in f.readlines():
+        if code is not None:
+            code += a
+            continue
+
         offset = 0
         length = len(a)
         while offset < length:
             if a[offset] in (' ', '\t', '\n'):
                 offset += 1
             elif a[offset] == '#':
+                if a[offset:offset+2] == '#!':
+                    # read and save the code block;
+                    # do not parse it here
+                    code = ''
                 break
             elif a[offset] == '.':
                 return data
@@ -306,6 +319,10 @@ def load_dump(f):
                 # pyroute2 hex format
                 data += chr(int(a[offset:offset+2], 16))
                 offset += 3
+
+    if isinstance(meta, dict):
+        meta['code'] = code
+
     if sys.version[0] == '3':
         return bytes(data, 'iso8859-1')
     else:
