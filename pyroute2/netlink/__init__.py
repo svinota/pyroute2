@@ -926,8 +926,6 @@ class nlmsg_base(dict):
             del self['attrs']
         if self['value'] is NotInitialized:
             del self['value']
-        if self.length:
-            self.buf.seek(self.msg_align(self.offset + self.length))
 
     def encode(self):
         '''
