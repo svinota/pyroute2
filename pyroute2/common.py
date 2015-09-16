@@ -274,6 +274,44 @@ def hexload(data):
         return bytes(ret)
 
 
+def load_dump(f):
+    '''
+    Load a packet dump from an open file-like object.
+
+    Supported dump formats:
+
+    * strace hex dump (\\x00\\x00...)
+    * pyroute2 hex dump (00:00:...)
+
+    Simple markup is also supported. Any data from # or ;
+    till the end of the string is a comment and ignored.
+    Any data after . till EOF is ignored as well.
+    '''
+    data = ''
+    for a in f.readlines():
+        offset = 0
+        length = len(a)
+        while offset < length:
+            if a[offset] in (' ', '\t', '\n'):
+                offset += 1
+            elif a[offset] == '#':
+                break
+            elif a[offset] == '.':
+                return data
+            elif a[offset] == '\\':
+                # strace hex format
+                data += chr(int(a[offset+2:offset+4], 16))
+                offset += 4
+            else:
+                # pyroute2 hex format
+                data += chr(int(a[offset:offset+2], 16))
+                offset += 3
+    if sys.version[0] == '3':
+        return bytes(data, 'iso8859-1')
+    else:
+        return data
+
+
 class AddrPool(object):
     '''
     Address pool
