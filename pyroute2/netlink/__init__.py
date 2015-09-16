@@ -764,7 +764,14 @@ class nlmsg_base(dict):
         if lvalue is self:
             for key in self:
                 try:
-                    if self.get(key) != rvalue.get(key):
+                    lv = self.get(key)
+                    rv = rvalue.get(key)
+                    # this strange condition means a simple thing:
+                    # None and NotInitialized in that context should
+                    # be treated as equal.
+                    if (lv != rv) and not \
+                            ((lv is None or lv is NotInitialized) and
+                             (rv is None or rv is NotInitialized)):
                         return False
                 except Exception:
                     # on any error -- is not equal
