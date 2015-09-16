@@ -18,8 +18,8 @@ And the pyroute2 hex dump:
     00:00:00...
 ```
 
-On the data file load all the spaces, comments and new
-lines are ignored. There can be several packets in the
+When the data file gets loaded, all the spaces, comments and
+new lines are ignored. There can be several packets in the
 same file, the parser deals with it. Comments should start
 with `#` or `;`:
 ```
@@ -28,6 +28,15 @@ with `#` or `;`:
     # field two
     00:00:00
     ...
+```
+
+All the data after `.` is also ignored. It can be used to
+provide detailed descriptions of the file after the dump
+data:
+```
+    \x00\x00\x00...
+    .
+    Here goes the data description
 ```
 
 How to collect
