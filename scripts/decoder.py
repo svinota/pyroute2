@@ -12,14 +12,13 @@ Sample::
 Module is a name within rtnl hierarchy. File should be a
 binary data in the escaped string format (see samples).
 '''
-import io
 import sys
 from pprint import pprint
 from importlib import import_module
+from pyroute2.common import load_dump
 
 mod = sys.argv[1]
 f = open(sys.argv[2], 'r')
-b = io.BytesIO()
 s = mod.split('.')
 package = '.'.join(s[:-1])
 module = s[-1]
@@ -27,23 +26,7 @@ m = import_module(package)
 met = getattr(m, module)
 
 
-for a in f.readlines():
-    if a[0] == '#':
-        continue
-    if a[0] == '.':
-        break
-    while True:
-        if a[0] == ' ':
-            a = a[1:]
-            continue
-        try:
-            b.write(chr(int(a[2:4], 16)))
-        except:
-            break
-        a = a[4:]
-
-b.seek(0)
-data = b.getvalue()
+data = load_dump(f)
 
 offset = 0
 inbox = []
