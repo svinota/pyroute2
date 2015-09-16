@@ -10,8 +10,14 @@ class TestNL(object):
     def parse(self, fname):
         with open(fname, 'r') as f:
             m = self.marshal()
-            d = load_dump(f)
-            return m.parse(d)
+            meta = {}
+            code = None
+            d = load_dump(f, meta)
+            pkts = m.parse(d)
+            if meta.get('code'):
+                code = eval(meta['code'])
+
+            return pkts, code
 
 
 class TestRtnl(TestNL):
@@ -19,7 +25,7 @@ class TestRtnl(TestNL):
     marshal = MarshalRtnl
 
     def test_addrmsg_ipv4(self):
-        pkts = self.parse('data/addrmsg_ipv4')
+        pkts, _ = self.parse('data/addrmsg_ipv4')
 
         # one can use either approach for messages testing:
         # asserts of particular fields / attrs, or compare
@@ -33,7 +39,7 @@ class TestRtnl(TestNL):
         assert pkts[0].get_attr('IFA_CACHEINFO')['ifa_prefered'] == 0xffffffff
 
     def test_gre(self):
-        pkts = self.parse('data/gre_01')
+        pkts, _ = self.parse('data/gre_01')
         assert len(pkts) == 2
         value = {'attrs': [['IFLA_IFNAME', 'mgre0'],
                            ['IFLA_LINKINFO',
@@ -77,7 +83,7 @@ class TestNl80211(TestNL):
     marshal = MarshalNl80211
 
     def test_iw_info(self):
-        pkts = self.parse('data/iw_info_rsp')
+        pkts, _ = self.parse('data/iw_info_rsp')
         assert len(pkts) == 1
         value = {'attrs': [['NL80211_ATTR_IFINDEX', 3],
                            ['NL80211_ATTR_IFNAME', 'wlo1'],
@@ -100,3 +106,12 @@ class TestNl80211(TestNL):
         prime = type(pkts[0])()
         prime.setvalue(value)
         assert prime == pkts[0]
+
+    def test_iw_scan(self):
+        pkts, values = self.parse('data/iw_scan_rsp')
+        assert len(pkts) == len(values) == 4
+
+        for idx in range(len(pkts)):
+            prime = type(pkts[idx])()
+            prime.setvalue(values[idx])
+            assert prime == pkts[idx]
