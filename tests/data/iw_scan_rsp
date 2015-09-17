@@ -73,7 +73,7 @@ f2:02:01:01 00:00:03:a4 00:00:27:a4 00:00:42:43 5e:00:62:32 2f:00:00:00 0c:00:0d
 00:00:27:a4 00:00:42:43 5e:00:62:32 2f:00:00:00 06:00:04:00 64:00:00:00 06:00:05:00 31:00:00:00
 08:00:02:00 3c:14:00:00 08:00:0c:00 00:00:00:00 08:00:0a:00 cc:01:00:00 08:00:07:00 10:f5:ff:ff
 
-#! parsed primes, the code will be evaluated -- see test_parser.py:TestNl80211.test_iw_scan
+#! parsed data should match primes below
 
 [
 {'attrs': [['NL80211_ATTR_GENERATION', 7],
