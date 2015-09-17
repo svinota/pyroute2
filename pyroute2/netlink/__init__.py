@@ -767,11 +767,11 @@ class nlmsg_base(dict):
                     lv = self.get(key)
                     rv = rvalue.get(key)
                     # this strange condition means a simple thing:
-                    # None and NotInitialized in that context should
-                    # be treated as equal.
+                    # None, 0, empty container and NotInitialized in
+                    # that context should be treated as equal.
                     if (lv != rv) and not \
-                            ((lv is None or lv is NotInitialized) and
-                             (rv is None or rv is NotInitialized)):
+                            ((not lv or lv is NotInitialized) and
+                             (not rv or rv is NotInitialized)):
                         return False
                 except Exception:
                     # on any error -- is not equal
