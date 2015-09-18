@@ -380,8 +380,8 @@ class IPRouteMixin(object):
             nkw['dst'] = kwarg.pop('dst')
             nkw['dst_len'] = kwarg.pop('dst_len', dlen)
 
-        return self.rule((RTM_GETROUTE, msg_flags),
-                         family=family, match=match or kwarg, **nkw)
+        return self.route((RTM_GETROUTE, msg_flags),
+                          family=family, match=match or kwarg, **nkw)
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
@@ -1075,6 +1075,20 @@ class IPRouteMixin(object):
             nla = rtmsg.name2nla(key)
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
+                # fix IP family, if needed
+                if msg['family'] == AF_UNSPEC:
+                    if key in ('dst', 'src', 'gateway', 'prefsrc', 'newdst') \
+                            and isinstance(kwarg[key], basestring):
+                        msg['family'] = AF_INET6 if kwarg[key].find(':') >= 0 \
+                            else AF_INET
+                    elif key == 'multipath' and len(kwarg[key]) > 0:
+                        hop = kwarg[key][0]
+                        attrs = hop.get('attrs', [])
+                        for attr in attrs:
+                            if attr[0] == 'RTA_GATEWAY':
+                                msg['family'] = AF_INET6 if \
+                                    attr[1].find(':') >= 0 else AF_INET
+                                break
 
         ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
         if 'match' in kwarg:

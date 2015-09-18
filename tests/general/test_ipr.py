@@ -19,6 +19,7 @@ from utils import get_ip_rules
 from utils import create_link
 from utils import remove_link
 from utils import skip_if_not_supported
+from nose.plugins.skip import SkipTest
 
 
 class TestSetup(object):
@@ -361,10 +362,18 @@ class TestIPRoute(object):
 
     def test_route_get_target(self):
         if not self.ip.get_default_routes(table=254):
-            return
+            raise SkipTest('no default IPv4 routes')
         rts = self.ip.get_routes(family=socket.AF_INET,
                                  dst='8.8.8.8',
                                  table=254)
+        assert len(rts) > 0
+
+    def test_route_get_target_default_ipv4(self):
+        rts = self.ip.get_routes(dst='127.0.0.1')
+        assert len(rts) > 0
+
+    def test_route_get_target_default_ipv6(self):
+        rts = self.ip.get_routes(dst='::1')
         assert len(rts) > 0
 
     def test_route_get_by_spec(self):
