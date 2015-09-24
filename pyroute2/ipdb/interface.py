@@ -165,11 +165,15 @@ class Interface(Transactional):
         '''
         for key in data:
             if key == 'ipaddr':
+                for addr in self['ipaddr']:
+                    self.del_ip(*addr)
                 for addr in data[key]:
                     if isinstance(addr, basestring):
                         addr = (addr, )
                     self.add_ip(*addr)
             elif key == 'ports':
+                for port in self['ports']:
+                    self.del_port(port)
                 for port in data[key]:
                     self.add_port(port)
             elif key == 'neighbours':
