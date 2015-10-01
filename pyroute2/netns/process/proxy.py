@@ -17,10 +17,8 @@ import subprocess
 from pyroute2.netns import setns
 from pyroute2.config import MpQueue
 from pyroute2.config import MpProcess
-try:
-    from pyroute2.netns.process.base_p3 import NSPopenBase
-except Exception:
-    from pyroute2.netns.process.base_p2 import NSPopenBase
+from pyroute2.common import metaclass
+from pyroute2.netns.process import MetaPopen
 
 
 def _handle(result):
@@ -180,7 +178,8 @@ class ObjNS(object):
                         return _handle(self.channel_in.get())
 
 
-class NSPopen(NSPopenBase, ObjNS):
+@metaclass(MetaPopen)
+class NSPopen(ObjNS):
     '''
     A proxy class to run `Popen()` object in some network namespace.
 

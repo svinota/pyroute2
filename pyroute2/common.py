@@ -536,3 +536,19 @@ def map_enoent(f):
                                     x.errno == errno.ENOENT),
                          lambda x: OSError(errno.EOPNOTSUPP,
                                            'Operation not supported'))(f)
+
+
+def metaclass(mc):
+    def wrapped(cls):
+        nvars = {}
+        skip = ['__dict__', '__weakref__']
+        slots = cls.__dict__.get('__slots__')
+        if not isinstance(slots, (list, tuple)):
+            slots = [slots]
+        for k in slots:
+            skip.append(k)
+        for (k, v) in cls.__dict__.items():
+            if k not in skip:
+                nvars[k] = v
+        return mc(cls.__name__, cls.__bases__, nvars)
+    return wrapped

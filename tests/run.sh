@@ -56,20 +56,11 @@ pip install -q -r requirements.txt
 [ -z "$SKIP_TESTS" ] || export SKIP_TESTS="--exclude $SKIP_TESTS"
 [ -z "$MODULE" ] || export MODULE=`echo $MODULE | sed -n '/:/{p;q};s/$/:/p'`
 
-export PVERSION=`$PYTHON -c 'import sys; print(sys.version_info[0])'`
-[ $PVERSION -eq 2 ] && {
-    export PEP8EXC="--exclude=pyroute2/netns/process/base_p3.py"
-} || {
-    export PEP8EXC="--exclude=pyroute2/netns/process/base_p2.py"
-}
-
 echo "python: `which $PYTHON` [`$PYTHON --version 2>&1`]"
 echo "flake8: `which $FLAKE8` [`$FLAKE8 --version 2>&1`]"
 echo "nose: `which $NOSE` [`$NOSE --version 2>&1`]"
-echo "pversion: $PVERSION"
-echo "pep8 exclude list: $PEP8EXC"
 
-$PYTHON `which $FLAKE8` $PEP8EXC . && echo "flake8 ... ok" || exit 254
+$PYTHON `which $FLAKE8` . && echo "flake8 ... ok" || exit 254
 [ -z "$TRAVIS" ] || exit 0
 
 function get_module() {

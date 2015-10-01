@@ -116,7 +116,6 @@ epydoc: docs
 		--html \
 		--graph all \
 		--fail-on-docstring-warning \
-		--exclude=pyroute2.netns.process.base_p3 \
 		pyroute2/
 
 test: dist
@@ -132,17 +131,17 @@ test: dist
 		./run.sh general eventlet lnst
 
 upload: clean force-version
-	${python} setup.py primary sdist upload
+	${python} setup.py sdist upload
 
 dist: clean force-version docs
-	${python} setup.py primary sdist
+	${python} setup.py sdist
 
 install: clean force-version
-	${python} setup.py primary install ${root} ${lib}
+	${python} setup.py install ${root} ${lib}
 
 develop: setuplib = "setuptools"
 develop: clean force-version
-	${python} setup.py primary develop
+	${python} setup.py develop
 
 # 8<--------------------------------------------------------------------
 #
@@ -150,5 +149,5 @@ develop: clean force-version
 #
 rpm: clean force-version
 	cp packages/RedHat/python-pyroute2.spec .
-	${python} setup.py primary sdist
+	${python} setup.py sdist
 	rpmbuild -ta dist/*tar.gz
