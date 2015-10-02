@@ -139,6 +139,12 @@ dist: clean force-version docs
 install: clean force-version
 	${python} setup.py install ${root} ${lib}
 
+# in order to get it working, one should install pyroute2
+# with setuplib=setuptools, otherwise the project files
+# will be silently left not uninstalled
+uninstall: clean
+	${python} -m pip uninstall pyroute2
+
 develop: setuplib = "setuptools"
 develop: clean force-version
 	${python} setup.py develop
