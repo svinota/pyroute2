@@ -19,16 +19,16 @@
 ##
 # Pyroute version and release
 #
-version ?= "0.3"
+version ?= 0.3
 release := $(shell git describe | sed 's/-[^-]*$$//;s/-/.post/')
 ##
 # Python-related configuration
 #
-python ?= "python"
-nosetests ?= "nosetests"
-flake8 ?= "flake8"
-setuplib ?= "distutils.core"
-epydoc ?= "epydoc"
+python ?= python
+nosetests ?= nosetests
+flake8 ?= flake8
+setuplib ?= distutils.core
+epydoc ?= epydoc
 ##
 # Python -W flags:
 #
@@ -41,7 +41,7 @@ epydoc ?= "epydoc"
 #
 #  Would you like to know more? See man 1 python
 #
-wlevel ?= "once"
+wlevel ?= once
 
 ##
 # Other options
@@ -88,19 +88,15 @@ clean: clean-version
 	find . -name "*pyc" -exec rm -f "{}" \;
 	find . -name "*pyo" -exec rm -f "{}" \;
 
-setup.py docs/conf.py:
-	gawk -v version=${version}\
-		-v release=${release}\
-		-v setuplib=${setuplib}\
-		-f configure.gawk $@.in >$@
+setup.ini:
+	echo -e '[setup]\nversion=${version}\nrelease=${release}\nsetuplib=${setuplib}' >setup.ini
 
 clean-version:
-	rm -f setup.py
-	rm -f docs/conf.py
+	rm -f setup.ini
 
 force-version: clean-version update-version
 
-update-version: setup.py docs/conf.py
+update-version: setup.ini
 
 docs: clean force-version
 	cp README.md docs/general.rst

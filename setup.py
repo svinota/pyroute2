@@ -9,15 +9,25 @@ SETUPLIB by default is `distutils.core`
 
 To use `setuptools`, run `make ... setuplib=setuptools`
 '''
-import os
-import sys
-from @SETUPLIB@ import setup
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser
+
+config = configparser.ConfigParser()
+config.read('setup.ini')
+
+module = __import__(config.get('setup', 'setuplib'),
+                    globals(),
+                    locals(),
+                    ['setup'], 0)
+setup = getattr(module, 'setup')
 
 readme = open("README.md", "r")
 
 
 setup(name='pyroute2',
-      version='@RELEASE@',
+      version=config.get('setup', 'release'),
       description='Python Netlink library',
       author='Peter V. Saveliev',
       author_email='peter@svinota.eu',

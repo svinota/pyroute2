@@ -10,9 +10,8 @@ tests/udhcpd.leases
 tests/examples
 tests/pyroute2
 output.html
-setup.py
 MANIFEST
-docs/conf.py
+setup.ini
 docs/changelog.rst
 docs/makefile.rst
 docs/general.rst
