@@ -89,7 +89,7 @@ clean: clean-version
 	find . -name "*pyo" -exec rm -f "{}" \;
 
 setup.ini:
-	echo -e '[setup]\nversion=${version}\nrelease=${release}\nsetuplib=${setuplib}' >setup.ini
+	awk 'BEGIN {print "[setup]\nversion=${version}\nrelease=${release}\nsetuplib=${setuplib}"}' >setup.ini
 
 clean-version:
 	rm -f setup.ini
