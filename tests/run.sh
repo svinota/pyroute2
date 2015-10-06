@@ -1,5 +1,12 @@
 #!/bin/bash
 
+[ -z "$1" -o "`echo $1 | sed 's/^-.*/-/'`" = "-" ] && {
+    echo "This script is not intended to be ran manually."
+    echo "Use 'make test' in the parent directory. And"
+    echo "read the docs. Not a bad idea, really."
+    exit 1
+}
+
 export PYTHONPATH="`pwd`:`pwd`/examples"
 echo $PYTHONPATH
 
@@ -27,12 +34,6 @@ cd ./tests/
 # be safely skipped.
 #
 pip install -q -r requirements.txt
-
-
-[ -z "$1" ] && {
-    echo "Test module isn't specified"
-    exit 1
-}
 
 [ -z "$VIRTUAL_ENV" ] || {
     . $$VIRTUAL_ENV/bin/activate ;
