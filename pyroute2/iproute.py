@@ -792,6 +792,12 @@ class IPRouteMixin(object):
             ff:0   ->   0xff0000
             ffff:1 -> 0xffff0001
 
+        Target notice: if your target is a class/qdisc that applies an
+        algorithm that can only apply to upstream traffic profile, but your
+        keys variable explicitly references a match that is only relevant for
+        upstream traffic, the kernel will reject the filter.  Unless you're
+        dealing with devices like IMQs
+
         For pyroute2 tc() you can use both forms: integer like 0xffff0000
         or string like 'ffff:0000'. By default, handle is 0, so you can add
         simple classless queues w/o need to specify handle. Ingress queue
