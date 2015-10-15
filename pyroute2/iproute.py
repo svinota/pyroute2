@@ -792,6 +792,12 @@ class IPRouteMixin(object):
             ff:0   ->   0xff0000
             ffff:1 -> 0xffff0001
 
+        Target notice: if your target is a class/qdisc that applies an
+        algorithm that can only apply to upstream traffic profile, but your
+        keys variable explicitly references a match that is only relevant for
+        upstream traffic, the kernel will reject the filter.  Unless you're
+        dealing with devices like IMQs
+
         For pyroute2 tc() you can use both forms: integer like 0xffff0000
         or string like 'ffff:0000'. By default, handle is 0, so you can add
         simple classless queues w/o need to specify handle. Ingress queue
@@ -894,6 +900,28 @@ class IPRouteMixin(object):
                   keys=["0x0/0x0+0"],
                   action=action)
 
+            # Add two more filters: One to send packets with a src address of
+            # 192.168.0.1/32 into 1:10 and the second to send packets  with a
+            # dst address of 192.168.0.0/24 into 1:20
+            ip.tc("add-filter", "u32", eth0,
+                parent=0x10000,
+                prio=10,
+                protocol=socket.AF_INET,
+                target=0x10010,
+                keys=["0xc0a80001/0xffffffff+12"])
+                # 0xc0a800010 = 192.168.0.1
+                # 0xffffffff = 255.255.255.255 (/32)
+                # 12 = Source network field bit offset
+
+            ip.tc("add-filter", "u32", eth0,
+                parent=0x10000,
+                prio=10,
+                protocol=socket.AF_INET,
+                target=0x10020,
+                keys=["0xc0a80000/0xffffff00+16"])
+                # 0xc0a80000 = 192.168.0.0
+                # 0xffffff00 = 255.255.255.0 (/24)
+                # 16 = Destination network field bit offset
         '''
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
