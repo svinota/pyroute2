@@ -1222,9 +1222,8 @@ class IPRouteMixin(object):
         msg['attrs'].append(['FRA_PRIORITY', kwarg.get('priority', 32000)])
         if 'fwmark' in kwarg:
             msg['attrs'].append(['FRA_FWMARK', kwarg['fwmark']])
-
-            if 'FRA_FWMASK' in kwarg:
-                msg['attrs'].append(['FRA_FWMASK', kwarg['FRA_FWMASK']])
+            if 'fwmask' in kwarg:
+                msg['attrs'].append(['FRA_FWMASK', kwarg['fwmask']])
         if 'dst_len' in kwarg:
             msg['dst_len'] = kwarg['dst_len']
         if 'src_len' in kwarg:

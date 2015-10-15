@@ -39,13 +39,13 @@ class TestRule(object):
                     x.get_attr('FRA_FWMARK')]) == 0
 
     def test_fwmark_mask(self):
-        self.ip.rule('add', 15, 32006, fwmark=10, FRA_FWMASK=20)
+        self.ip.rule('add', 15, 32006, fwmark=10, fwmask=20)
         assert len([x for x in self.ip.get_rules() if
                     x.get_attr('FRA_PRIORITY') == 32006 and
                     x.get_attr('FRA_TABLE') == 15 and
                     x.get_attr('FRA_FWMARK') and
                     x.get_attr('FRA_FWMASK')]) == 1
-        self.ip.rule('delete', 15, 32006, fwmark=10, FRA_FWMASK=20)
+        self.ip.rule('delete', 15, 32006, fwmark=10, fwmask=20)
         assert len([x for x in self.ip.get_rules() if
                     x.get_attr('FRA_PRIORITY') == 32006 and
                     x.get_attr('FRA_TABLE') == 15 and
