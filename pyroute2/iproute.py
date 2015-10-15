@@ -1092,6 +1092,9 @@ class IPRouteMixin(object):
         msg['type'] = rtypes[kwarg.pop('rtype', 'RTN_UNICAST')]
         msg['scope'] = rtscopes[kwarg.pop('rtscope', 'RT_SCOPE_UNIVERSE')]
         msg['dst_len'] = kwarg.pop('dst_len', None) or kwarg.pop('mask', 0)
+        msg['src_len'] = kwarg.pop('src_len', 0)
+        msg['tos'] = kwarg.pop('tos', 0)
+        msg['flags'] = kwargs.pop('flags', 0)
         msg['attrs'] = []
         # FIXME
         # deprecated "prefix" support:
