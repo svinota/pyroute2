@@ -528,9 +528,7 @@ class ifinfbase(object):
         class inet(nla):
             #  ./include/linux/inetdevice.h: struct ipv4_devconf
             #  ./include/uapi/linux/ip.h
-            field_names = ('dummy', #this is a hack
-                                    #otherwise the values will be one position off
-                                    #maybe a problem parsing the netlink message?
+            field_names = ('dummy',
                            'forwarding',
                            'mc_forwarding',
                            'proxy_arp',
