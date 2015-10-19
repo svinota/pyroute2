@@ -527,7 +527,8 @@ class ifinfbase(object):
 
         class inet(nla):
             #  ./include/linux/inetdevice.h: struct ipv4_devconf
-            field_names = ('sysctl',
+            #  ./include/uapi/linux/ip.h
+            field_names = ('dummy',
                            'forwarding',
                            'mc_forwarding',
                            'proxy_arp',
@@ -540,10 +541,10 @@ class ifinfbase(object):
                            'bootp_relay',
                            'log_martians',
                            'tag',
-                           'arp_filter',
+                           'arpfilter',
                            'medium_id',
-                           'disable_xfrm',
-                           'disable_policy',
+                           'noxfrm',
+                           'nopolicy',
                            'force_igmp_version',
                            'arp_announce',
                            'arp_ignore',
@@ -551,9 +552,11 @@ class ifinfbase(object):
                            'arp_accept',
                            'arp_notify',
                            'accept_local',
-                           'src_valid_mark',
+                           'src_vmark',
                            'proxy_arp_pvlan',
-                           'route_localnet')
+                           'route_localnet',
+                           'igmpv2_unsolicited_report_interval',
+                           'igmpv3_unsolicited_report_interval')
             fields = [(i, 'I') for i in field_names]
 
         class inet6(nla):
@@ -650,11 +653,14 @@ class ifinfbase(object):
                 fields = [(i, 'Q') for i in field_names]
 
             class icmp6_stats(nla):
-                fields = (('num', 'Q'),
-                          ('inerrors', 'Q'),
-                          ('outmsgs', 'Q'),
-                          ('outerrors', 'Q'),
-                          ('inmsgs', 'Q'))
+                # ./include/uapi/linux/snmp.h
+                field_names = ('num',
+                               'inmsgs',
+                               'inerrors',
+                               'outmsgs',
+                               'outerrors',
+                               'csumerrors')
+                fields = [(i, 'Q') for i in field_names]
 
 
 class ifinfmsg(ifinfbase, nlmsg):
