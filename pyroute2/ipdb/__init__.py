@@ -359,6 +359,14 @@ the `iproute2` utility will show `weight 3`.
 But the Linux kernel uses `rtnh_hops`, and the `pyroute2` library
 uses here no implications, directly mapping the kernel provided value.
 
+**Multipath default routes**
+
+Deprecation notice: *As of the merge of kill_rtcache into the kernel,
+and it's release in ~3.6, weighted default routes no longer work*.
+Please refer to
+https://github.com/svinota/pyroute2/issues/171#issuecomment-149297244
+for details.
+
 performance issues
 ------------------
 
