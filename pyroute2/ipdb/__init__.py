@@ -242,7 +242,7 @@ routing management
 ------------------
 
 IPDB has a simple yet useful routing management interface.
-To add a route, one can use almost any syntax::
+To add a route, there is an easy to use syntax::
 
     # spec as a dictionary
     spec = {'dst': '172.16.1.0/24',
@@ -279,6 +279,39 @@ To access and change the routes, one can use notations as follows::
 
     # list automatic routes keys
     print(ip.routes.tables[255].keys())
+
+**Route specs**
+
+It is important to understand, that routing tables in IPDB
+are lists, not dicts. It is still possible to use a dict syntax
+to retrieve records, but under the hood the tables are lists.
+
+To retrieve or create routes one should use route specs. The
+simplest case is to retrieve one route::
+
+    # get route by prefix
+    ip.routes['172.16.1.0/24']
+
+    # get route by a special name
+    ip.routes['default']
+
+If there are more than one route that matches the spec, only
+the first one will be retrieved. One should iterate all the
+records and filter by a key to retrieve all matches::
+
+    # only one route will be retrieved
+    ip.routes['fe80::/64']
+
+    # get all routes by this prefix
+    [ x for x in ip.routes if x['dst'] == 'fe80::/64' ]
+
+It is possible to use dicts as specs::
+
+    ip.routes[{'dst': '172.16.0.0/16',
+               'oif': 2}]
+
+The dict is just the same as a route representation in the
+records list.
 
 **Route metrics**
 
