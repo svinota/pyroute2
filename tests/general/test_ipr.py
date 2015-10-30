@@ -7,6 +7,7 @@ from pyroute2.common import AF_MPLS
 from pyroute2.netlink import NetlinkError
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.req import IPRouteRequest
+from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from utils import grep
 from utils import require_user
 from utils import require_kernel
@@ -222,6 +223,32 @@ class TestIPRoute(object):
         assert len(self.ip.get_addr(broadcast='172.16.0.255')) == 2
         assert len(self.ip.get_addr(match=lambda x: x['index'] ==
                                     self.ifaces[0])) == 2
+
+    @skip_if_not_supported
+    def _create_ipvlan(self, smode):
+        master = uifname()
+        ipvlan = uifname()
+        # create the master link
+        self.ip.link_create(ifname=master, kind='dummy')
+        midx = self.ip.link_lookup(ifname=master)[0]
+        # check modes
+        # maybe move modes dict somewhere else?
+        cmode = ifinfmsg.ifinfo.ipvlan_data.modes[smode]
+        assert ifinfmsg.ifinfo.ipvlan_data.modes[cmode] == smode
+        # create ipvlan
+        self.ip.link_create(ifname=ipvlan,
+                            kind='ipvlan',
+                            link=midx,
+                            mode=cmode)
+        devs = self.ip.link_lookup(ifname=ipvlan)
+        assert devs
+        self.ifaces.extend(devs)
+
+    def test_create_ipvlan_l2(self):
+        return self._create_ipvlan('IPVLAN_MODE_L2')
+
+    def test_create_ipvlan_l3(self):
+        return self._create_ipvlan('IPVLAN_MODE_L3')
 
     @skip_if_not_supported
     def _create(self, kind):

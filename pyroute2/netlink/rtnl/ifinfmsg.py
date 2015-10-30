@@ -347,7 +347,8 @@ class ifinfbase(object):
                         'bond': self.bond_data,
                         'veth': self.veth_data,
                         'tuntap': self.tuntap_data,
-                        'bridge': self.bridge_data}
+                        'bridge': self.bridge_data,
+                        'ipvlan': self.ipvlan_data}
             return data_map.get(kind, self.hex)
 
         class tuntap_data(nla):
@@ -457,6 +458,15 @@ class ifinfbase(object):
             nla_map = (('IFLA_MACVLAN_UNSPEC', 'none'),
                        ('IFLA_MACVLAN_MODE', 'mode'),
                        ('IFLA_MACVLAN_FLAGS', 'flags'))
+
+        class ipvlan_data(nla):
+            nla_map = (('IFLA_IPVLAN_UNSPEC', 'none'),
+                       ('IFLA_IPVLAN_MODE', 'uint16'))
+
+            modes = {0: 'IPVLAN_MODE_L2',
+                     1: 'IPVLAN_MODE_L3',
+                     'IPVLAN_MODE_L2': 0,
+                     'IPVLAN_MODE_L3': 1}
 
         class vlan_data(nla):
             nla_map = (('IFLA_VLAN_UNSPEC', 'none'),
