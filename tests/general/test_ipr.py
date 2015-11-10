@@ -287,10 +287,6 @@ class TestIPRoute(object):
         require_user('root')
         self._create('bridge')
 
-    def test_create_ovs_bridge(self):
-        require_user('root')
-        self._create('ovs-bridge')
-
     def test_create_team(self):
         require_user('root')
         self._create('team')

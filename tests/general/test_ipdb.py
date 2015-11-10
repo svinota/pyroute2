@@ -758,66 +758,6 @@ class TestExplicit(object):
         assert ifA in self.ip.interfaces
         assert grep('ip link', pattern=ifA)
 
-    @skip_if_not_supported
-    def test_ovs_kind_aliases(self):
-        require_user('root')
-
-        ifA = self.get_ifname()
-        ifB = self.get_ifname()
-        self.ip.create(ifname=ifA,
-                       kind='ovs-bridge').commit()
-        self.ip.create(ifname=ifB,
-                       kind='openvswitch').commit()
-
-        assert ifA in self.ip.interfaces
-        assert ifB in self.ip.interfaces
-        assert grep('ip link', pattern=ifA)
-        assert grep('ip link', pattern=ifB)
-
-    @skip_if_not_supported
-    def test_ovs_add_remove_port(self):
-        require_user('root')
-
-        ifOVS = self.get_ifname()
-        self.ip.create(ifname=ifOVS,
-                       kind='ovs-bridge').commit()
-        ifA = self.get_ifname()
-        ifB = self.get_ifname()
-        self.ip.create(ifname=ifA, kind='dummy')
-        self.ip.create(ifname=ifB, peer='x' + ifB, kind='veth')
-        self.ip.commit()
-
-        # add ports
-        if self.ip.mode == 'explicit':
-            self.ip.interfaces[ifOVS].begin()
-        self.ip.interfaces[ifOVS].\
-            add_port(self.ip.interfaces[ifA]).\
-            add_port(self.ip.interfaces[ifB]).\
-            commit()
-
-        #
-        assert self.ip.interfaces[ifA].master == \
-            self.ip.interfaces[ifOVS].index
-        assert self.ip.interfaces[ifB].master == \
-            self.ip.interfaces[ifOVS].index
-        assert self.ip.interfaces[ifA].index in \
-            self.ip.interfaces[ifOVS].ports
-        assert self.ip.interfaces[ifB].index in \
-            self.ip.interfaces[ifOVS].ports
-
-        # remove ports
-        if self.ip.mode == 'explicit':
-            self.ip.interfaces[ifOVS].begin()
-        self.ip.interfaces[ifOVS].\
-            del_port(self.ip.interfaces[ifA]).\
-            del_port(self.ip.interfaces[ifB]).\
-            commit()
-
-        #
-        assert self.ip.interfaces[ifA].get('master') is None
-        assert self.ip.interfaces[ifB].get('master') is None
-        assert not self.ip.interfaces[ifOVS].ports
-
     def test_global_create(self):
         require_user('root')
 
@@ -1134,10 +1074,6 @@ class TestExplicit(object):
     def test_create_team(self):
         require_user('root')
         self._create_master('team')
-
-    def test_create_ovs(self):
-        require_user('root')
-        self._create_master('openvswitch')
 
     def test_create_bond2(self):
         require_user('root')

@@ -3,7 +3,6 @@ import json
 import errno
 import select
 import struct
-import logging
 import platform
 import threading
 import subprocess
@@ -697,27 +696,16 @@ def compat_fix_attrs(msg, nl):
     li = msg.get_attr('IFLA_LINKINFO')
     if li is not None:
         kind = li.get_attr('IFLA_INFO_KIND')
-        slave_kind = li.get_attr('IFLA_INFO_SLAVE_KIND')
         if kind is None:
             kind = get_interface_type(ifname)
             li['attrs'].append(['IFLA_INFO_KIND', kind])
     else:
         kind = get_interface_type(ifname)
-        slave_kind = None
         msg['attrs'].append(['IFLA_LINKINFO',
                              {'attrs': [['IFLA_INFO_KIND', kind]]}])
 
     li = msg.get_attr('IFLA_LINKINFO')
     # fetch specific interface data
-    if slave_kind == 'openvswitch':
-        # fix master for the OVS slave
-        proc = subprocess.Popen(['ovs-vsctl', 'iface-to-br', ifname],
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-        ret = proc.communicate()
-        if ret[1]:
-            logging.warning("ovs communication error: %s" % ret[1])
-        li['attrs'].append(['IFLA_INFO_OVS_MASTER', ret[0].strip()])
 
     if (kind in ('bridge', 'bond')) and \
             [x for x in li['attrs'] if x[0] == 'IFLA_INFO_DATA']:
@@ -776,15 +764,8 @@ def proxy_setlink(data, nl):
 
     def get_interface(index):
         msg = nl.get_links(index)[0]
-        try:
-            ovs_master = msg.\
-                get_attr('IFLA_LINKINFO').\
-                get_attr('IFLA_INFO_OVS_MASTER')
-        except Exception:
-            ovs_master = None
         return {'ifname': msg.get_attr('IFLA_IFNAME'),
                 'master': msg.get_attr('IFLA_MASTER'),
-                'ovs-master': ovs_master,
                 'kind': msg.
                 get_attr('IFLA_LINKINFO').
                 get_attr('IFLA_INFO_KIND')}
@@ -828,11 +809,7 @@ def proxy_setlink(data, nl):
             # port delete
             # 1. get the current master
             iface = get_interface(msg['index'])
-            if iface['ovs-master'] is not None:
-                master = {'ifname': iface['ovs-master'],
-                          'kind': 'openvswitch'}
-            else:
-                master = get_interface(iface['master'])
+            master = get_interface(iface['master'])
             cmd = 'del'
         else:
             # port add
@@ -843,8 +820,7 @@ def proxy_setlink(data, nl):
         # 2. manage the port
         forward_map = {'team': manage_team_port,
                        'bridge': compat_bridge_port,
-                       'bond': compat_bond_port,
-                       'openvswitch': manage_ovs_port}
+                       'bond': compat_bond_port}
         forward = forward_map[master['kind']](cmd,
                                               master['ifname'],
                                               ifname,
@@ -925,10 +901,7 @@ def proxy_dellink(data, nl):
         kind = li.get_attr('IFLA_INFO_KIND')
 
     # team interfaces can be stopped by a normal RTM_DELLINK
-    # OVS interfaces should be shut down properly
-    if kind in ('ovs-bridge', 'openvswitch'):
-        return manage_ovs(msg)
-    elif kind == 'bond' and not nl.capabilities['create_bond']:
+    if kind == 'bond' and not nl.capabilities['create_bond']:
         return compat_del_bond(msg)
     elif kind == 'bridge' and not nl.capabilities['create_bridge']:
         return compat_del_bridge(msg)
@@ -954,8 +927,6 @@ def proxy_newlink(data, nl):
         return manage_tuntap(msg)
     elif kind == 'team':
         return manage_team(msg)
-    elif kind in ('ovs-bridge', 'openvswitch'):
-        return manage_ovs(msg)
     elif kind == 'bond' and not nl.capabilities['create_bond']:
         return compat_create_bond(msg)
     elif kind == 'bridge' and not nl.capabilities['create_bridge']:
@@ -987,35 +958,6 @@ def manage_team_port(cmd, master, ifname, nl):
     with open(os.devnull, 'w') as fnull:
         subprocess.check_call(['teamdctl', master, 'port',
                                'remove' if cmd == 'del' else 'add', ifname],
-                              stdout=fnull,
-                              stderr=fnull)
-
-
-@map_enoent
-def manage_ovs_port(cmd, master, ifname, nl):
-    with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['ovs-vsctl', '%s-port' % cmd, master, ifname],
-                              stdout=fnull,
-                              stderr=fnull)
-
-
-@map_enoent
-@sync
-def manage_ovs(msg):
-    linkinfo = msg.get_attr('IFLA_LINKINFO')
-    ifname = msg.get_attr('IFLA_IFNAME')
-    kind = linkinfo.get_attr('IFLA_INFO_KIND')
-
-    # operations map
-    op_map = {RTM_NEWLINK: {'ovs-bridge': 'add-br',
-                            'openvswitch': 'add-br'},
-              RTM_DELLINK: {'ovs-bridge': 'del-br',
-                            'openvswitch': 'del-br'}}
-    op = op_map[msg['header']['type']][kind]
-
-    # make a call
-    with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['ovs-vsctl', op, ifname],
                               stdout=fnull,
                               stderr=fnull)
 

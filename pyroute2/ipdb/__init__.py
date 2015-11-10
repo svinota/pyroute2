@@ -712,7 +712,6 @@ class IPDB(object):
                 - macvtap
                 - gre
                 - team
-                - ovs-bridge
             - ifname — interface name
             - reuse — if such interface exists, return it anyway
 
