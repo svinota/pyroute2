@@ -167,6 +167,19 @@ def get_ip_addr(interface=None):
     return ret
 
 
+def get_ip_brd(interface=None):
+    argv = ['ip', '-o', 'ad']
+    if interface:
+        argv.extend(['li', 'dev', interface])
+    out = _check_output(*argv)
+    ret = []
+    for string in out:
+        fields = string.split()
+        if len(fields) >= 5 and fields[4] == 'brd':
+            ret.append(fields[5])
+    return ret
+
+
 def get_ip_link():
     ret = []
     out = _check_output('ip', '-o', 'li')

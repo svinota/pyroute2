@@ -127,6 +127,7 @@ from pyroute2.netlink.rtnl.iprsocket import RawIPRSocket
 from pyroute2.protocols import ETH_P_ALL
 
 from pyroute2.common import basestring
+from pyroute2.common import getbroadcast
 
 DEFAULT_TABLE = 254
 
@@ -755,6 +756,10 @@ class IPRouteMixin(object):
         # inject IFA_LOCAL, if family is AF_INET
         if family == AF_INET and kwarg.get('address'):
             kwarg['local'] = kwarg['address']
+
+        # patch broadcast, if needed
+        if kwarg.get('broadcast') is True:
+            kwarg['broadcast'] = getbroadcast(address, mask, family)
 
         # work on NLA
         for key in kwarg:

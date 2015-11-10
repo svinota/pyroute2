@@ -12,6 +12,7 @@ from utils import grep
 from utils import require_user
 from utils import require_kernel
 from utils import require_python
+from utils import get_ip_brd
 from utils import get_ip_addr
 from utils import get_ip_link
 from utils import get_ip_route
@@ -163,6 +164,22 @@ class TestIPRoute(object):
         require_user('root')
         self.ip.addr('add', self.ifaces[0], address='172.16.0.1', mask=24)
         assert '172.16.0.1/24' in get_ip_addr()
+
+    def test_addr_broadcast(self):
+        require_user('root')
+        self.ip.addr('add', self.ifaces[0],
+                     address='172.16.0.1',
+                     mask=24,
+                     broadcast='172.16.0.250')
+        assert '172.16.0.250' in get_ip_brd()
+
+    def test_addr_broadcast_default(self):
+        require_user('root')
+        self.ip.addr('add', self.ifaces[0],
+                     address='172.16.0.1',
+                     mask=24,
+                     broadcast=True)
+        assert '172.16.0.255' in get_ip_brd()
 
     def test_flush_addr(self):
         require_user('root')

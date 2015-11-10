@@ -10,9 +10,8 @@ import sys
 import errno
 import types
 import struct
+import socket
 import threading
-
-from socket import inet_aton
 
 try:
     basestring = basestring
@@ -247,11 +246,37 @@ def map_namespace(prefix, ns, normalize=None):
     return (by_name, by_value)
 
 
+def getbroadcast(addr, mask, family=socket.AF_INET):
+    # 1. convert addr to int
+    i = socket.inet_pton(family, addr)
+    if family == socket.AF_INET:
+        i = struct.unpack('>I', i)[0]
+        a = 0xffffffff
+        l = 32
+    elif family == socket.AF_INET6:
+        i = struct.unpack('>QQ', i)
+        i = i[0] << 64 | i[1]
+        a = 0xffffffffffffffffffffffffffffffff
+        l = 128
+    else:
+        raise NotImplementedError('family not supported')
+    # 2. calculate mask
+    m = (a << l - mask) & a
+    # 3. calculate default broadcast
+    n = (i & m) | a >> mask
+    # 4. convert it back to the normal address form
+    if family == socket.AF_INET:
+        n = struct.pack('>I', n)
+    else:
+        n = struct.pack('>QQ', n >> 64, n & (a >> 64))
+    return socket.inet_ntop(family, n)
+
+
 def dqn2int(mask):
     '''
     IPv4 dotted quad notation to int mask conversion
     '''
-    return bin(struct.unpack('>L', inet_aton(mask))[0]).count('1')
+    return bin(struct.unpack('>L', socket.inet_aton(mask))[0]).count('1')
 
 
 def hexdump(payload, length=0):
