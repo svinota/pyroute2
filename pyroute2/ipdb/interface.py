@@ -28,7 +28,8 @@ def _get_data_fields():
                  'vxlan_data',
                  'gre_data',
                  'macvlan_data',
-                 'macvtap_data'):
+                 'macvtap_data',
+                 'ipvlan_data'):
         msg = getattr(ifinfmsg.ifinfo, data)
         ret += [msg.nla2name(i[0]) for i in msg.nla_map]
     return ret
@@ -249,7 +250,7 @@ class Interface(Transactional):
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
                     if kind in ('vxlan', 'macvlan', 'macvtap',
-                                'gre', 'gretap'):
+                                'gre', 'gretap', 'ipvlan'):
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         for nla in data.get('attrs', []):
                             norm = ifinfmsg.nla2name(nla[0])

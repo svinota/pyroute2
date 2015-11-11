@@ -460,6 +460,8 @@ class ifinfbase(object):
                        ('IFLA_MACVLAN_FLAGS', 'flags'))
 
         class ipvlan_data(nla):
+            prefix = 'IFLA_'
+
             nla_map = (('IFLA_IPVLAN_UNSPEC', 'none'),
                        ('IFLA_IPVLAN_MODE', 'uint16'))
 
