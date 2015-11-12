@@ -1224,31 +1224,25 @@ class IPRouteMixin(object):
         msg = fibmsg()
         table = kwarg.get('table', 254)
         msg['table'] = table if table <= 255 else 252
-        msg['family'] = family = kwarg.get('family', AF_INET)
-        msg['action'] = FR_ACT_NAMES[kwarg.get('action', 'FR_ACT_NOP')]
-        msg['attrs'] = [['FRA_TABLE', table]]
-        msg['attrs'].append(['FRA_PRIORITY', kwarg.get('priority', 32000)])
-        if 'fwmark' in kwarg:
-            msg['attrs'].append(['FRA_FWMARK', kwarg['fwmark']])
-            if 'fwmask' in kwarg:
-                msg['attrs'].append(['FRA_FWMASK', kwarg['fwmask']])
-        if 'dst_len' in kwarg:
-            msg['dst_len'] = kwarg['dst_len']
-        if 'src_len' in kwarg:
-            msg['src_len'] = kwarg['src_len']
+        msg['family'] = family = kwarg.pop('family', AF_INET)
+        msg['action'] = FR_ACT_NAMES[kwarg.pop('action', 'FR_ACT_NOP')]
+        msg['attrs'] = []
+
         addr_len = {AF_INET6: 128, AF_INET:  32}.get(family, 0)
-        if 'src' in kwarg:
-            msg['attrs'].append(['FRA_SRC', kwarg['src']])
-            if kwarg.get('src_len') is None:
-                msg['src_len'] = addr_len
-        if 'dst' in kwarg:
-            msg['attrs'].append(['FRA_DST', kwarg['dst']])
-            if kwarg.get('dst_len') is None:
-                msg['dst_len'] = addr_len
-        if 'iifname' in kwarg:
-            msg['attrs'].append(['FRA_IIFNAME', kwarg['iifname']])
-        if 'oifname' in kwarg:
-            msg['attrs'].append(['FRA_OIFNAME', kwarg['oifname']])
+        if 'priority' not in kwarg:
+            kwarg['priority'] = 32000
+        if ('src' in kwarg) and (kwarg.get('src_len') is None):
+            kwarg['src_len'] = addr_len
+        if ('dst' in kwarg) and (kwarg.get('dst_len') is None):
+            kwarg['dst_len'] = addr_len
+
+        msg['dst_len'] = kwarg.get('dst_len', 0)
+        msg['src_len'] = kwarg.get('src_len', 0)
+
+        for key in kwarg:
+            nla = fibmsg.name2nla(key)
+            if kwarg[key] is not None:
+                msg['attrs'].append([nla, kwarg[key]])
 
         ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
 
