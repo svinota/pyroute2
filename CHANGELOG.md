@@ -14,7 +14,7 @@ changelog
     * ipdb: new `Interface.wait_ip()` routine
     * ipdb: #175 -- fix `master` attribute cleanup
     * ipdb: #171 -- support multipath routes
-    * ipdb: memory consuption improvements
+    * ipdb: memory consumption improvements
     * rtmsg: MPLS support
     * rtmsg: RTA_VIA support
     * iwutil: #174 -- fix FREQ_FIXED flag
