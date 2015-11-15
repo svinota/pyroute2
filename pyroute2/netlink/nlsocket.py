@@ -323,6 +323,14 @@ class NetlinkMixin(object):
         # Set defaults
         self.post_init()
 
+    def close(self):
+        try:
+            os.close(self._ctrl_write)
+            os.close(self._ctrl_read)
+        except OSError:
+            # ignore the case when it is closed already
+            pass
+
     def __enter__(self):
         return self
 
@@ -861,9 +869,7 @@ class NetlinkSocket(NetlinkMixin):
         if self.pthread:
             os.write(self._ctrl_write, b'exit')
             self.pthread.join()
-
-        os.close(self._ctrl_write)
-        os.close(self._ctrl_read)
+        super(NetlinkSocket, self).close()
 
         # Common shutdown procedure
         self._sock.close()

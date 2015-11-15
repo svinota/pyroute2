@@ -260,6 +260,7 @@ class RemoteSocket(NetlinkMixin, Client):
         return Client.bind(self, *argv, **kwarg)
 
     def close(self):
+        NetlinkMixin.close(self)
         Client.close(self)
 
     def _sendto(self, *argv, **kwarg):
