@@ -11,6 +11,6 @@ An example script, placed here, *must* meet following requirements:
 * Significant exceptions *must* be raised further, but *after* cleanup.
 * There *must* be corresponding test case in `tests/test_examples.py`.
 
-The goal is to keep examples tested and working with the currend code base;
+The goal is to keep examples tested and working with the current code base;
 to increase code coverage; to drop the dead code on time. Actually, thus
 examples become a part of the integration testing.
