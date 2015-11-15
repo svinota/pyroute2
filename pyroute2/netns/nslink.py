@@ -176,12 +176,12 @@ class NetNS(IPRouteMixin, RemoteSocket):
     def __init__(self, netns, flags=os.O_CREAT):
         self.netns = netns
         self.flags = flags
-        self.cmdch, cmdch = MpPipe()
-        self.brdch, brdch = MpPipe()
+        self.cmdch, self._cmdch = MpPipe()
+        self.brdch, self._brdch = MpPipe()
         self.server = MpProcess(target=NetNServer,
                                 args=(self.netns,
-                                      cmdch,
-                                      brdch,
+                                      self._cmdch,
+                                      self._brdch,
                                       self.flags))
         self.server.start()
         super(NetNS, self).__init__()
@@ -189,6 +189,12 @@ class NetNS(IPRouteMixin, RemoteSocket):
 
     def close(self):
         super(NetNS, self).close()
+        # force cleanup command channels
+        self.cmdch.close()
+        self.brdch.close()
+        self._cmdch.close()
+        self._brdch.close()
+        # join the server
         self.server.join()
 
     def post_init(self):
