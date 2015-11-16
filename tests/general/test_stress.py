@@ -1,5 +1,6 @@
 from pyroute2 import IPRoute
 from pyroute2 import IPDB
+from pyroute2 import NetNS
 
 RESPAWNS = 1200
 
@@ -22,3 +23,13 @@ class TestRespawn(object):
         for _ in range(RESPAWNS):
             with IPDB():
                 pass
+
+
+class TestNetNS(object):
+
+    def test_fd_leaks(self):
+        for i in range(RESPAWNS):
+            nsid = 'leak_%i' % i
+            ns = NetNS(nsid)
+            ns.close()
+            ns.remove()
