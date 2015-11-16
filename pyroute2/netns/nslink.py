@@ -66,7 +66,9 @@ run `remove()`.
 
 import os
 import errno
+import atexit
 import signal
+import logging
 from pyroute2.config import MpPipe
 from pyroute2.config import MpProcess
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
@@ -178,6 +180,7 @@ class NetNS(IPRouteMixin, RemoteSocket):
         self.flags = flags
         self.cmdch, self._cmdch = MpPipe()
         self.brdch, self._brdch = MpPipe()
+        atexit.register(self.close)
         self.server = MpProcess(target=NetNServer,
                                 args=(self.netns,
                                       self._cmdch,
@@ -188,7 +191,12 @@ class NetNS(IPRouteMixin, RemoteSocket):
         self.marshal = MarshalRtnl()
 
     def close(self):
-        super(NetNS, self).close()
+        try:
+            super(NetNS, self).close()
+        except:
+            # something went wrong, force server shutdown
+            self.cmdch.send({'stage': 'shutdown'})
+            logging.error('forced shutdown procedure, clean up netns manually')
         # force cleanup command channels
         self.cmdch.close()
         self.brdch.close()
