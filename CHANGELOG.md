@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.3.15
+    * netns: #194 -- fix fd leak
+    * iproute: #184 -- fix routes dump
+    * rtnl: TCA_ACT_BPF support
+    * rtnl: ipvlan support
+    * rtnl: OVS support removed
+    * iproute: rule() improved to support all NLAs
+    * project supported by Ericsson
 * 0.3.14
     * package-rh: spec fixed
     * package-rh: both licenses added
