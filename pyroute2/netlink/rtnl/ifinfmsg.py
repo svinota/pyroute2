@@ -8,6 +8,7 @@ import threading
 import subprocess
 from fcntl import ioctl
 from pyroute2 import RawIPRoute
+from pyroute2 import config
 from pyroute2.common import map_namespace
 from pyroute2.common import map_enoent
 from pyroute2.netlink import nla
@@ -731,6 +732,10 @@ def compat_fix_attrs(msg, nl):
 
 
 def proxy_linkinfo(data, nl):
+    if config.kernel > [3, 2, 0]:
+        return {'verdict': 'forward',
+                'data': data}
+
     offset = 0
     inbox = []
     while offset < len(data):

@@ -1285,6 +1285,7 @@ class TestCompat(TestExplicit):
                                    'create_bridge': False,
                                    'create_bond': False,
                                    'provide_master': False}
+        config.kernel = [2, 6, 32]  # RHEL 6
 
 
 class TestImplicit(TestExplicit):
