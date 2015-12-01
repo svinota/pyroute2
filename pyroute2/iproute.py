@@ -117,6 +117,7 @@ from pyroute2.netlink.rtnl.tcmsg import get_bpf_parameters
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
+from pyroute2.netlink.rtnl.ndmsg import NUD_NAMES
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
@@ -570,6 +571,18 @@ class IPRouteMixin(object):
             msg[field[0]] = kwarg.pop(field[0], 0)
         msg['family'] = msg['family'] or AF_INET
         msg['attrs'] = []
+        # fix nud kwarg
+        state = kwarg.pop('state', kwarg.pop('nud', 0))
+        if isinstance(state, basestring):
+            # parse state string
+            states = state.split(',')
+            state = 0
+            for s in states:
+                s = s.upper()
+                if not s.startswith('NUD_'):
+                    s = 'NUD_' + s
+                state |= NUD_NAMES[s]
+        msg['state'] = state
 
         for key in kwarg:
             nla = ndmsg.name2nla(key)
