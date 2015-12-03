@@ -126,7 +126,7 @@ class IPLinkRequest(IPRequest):
             linkinfo.append(['IFLA_INFO_KIND', value])
             if value in ('vlan', 'bond', 'tuntap', 'veth',
                          'vxlan', 'macvlan', 'macvtap', 'gre',
-                         'gretap', 'ipvlan'):
+                         'gretap', 'ipvlan', 'bridge'):
                 linkinfo.append(['IFLA_INFO_DATA', {'attrs': []}])
         elif key == 'vlan_id':
             nla = ['IFLA_VLAN_ID', value]
@@ -151,6 +151,10 @@ class IPLinkRequest(IPRequest):
             nla = ['IFLA_BOND_MODE', value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'bond')
+        elif key == 'stp_state':
+            nla = ['IFLA_BRIDGE_STP_STATE', value]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
+                           lambda x: x.get('kind', None) == 'bridge')
         elif key == 'ifr':
             nla = ['IFTUN_IFR', value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
