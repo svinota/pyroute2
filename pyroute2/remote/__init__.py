@@ -167,8 +167,16 @@ def Server(cmdch, brdch):
             if fd == ipr.fileno():
                 bufsize = ipr.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
                 with lock:
+                    error = None
+                    data = None
+                    try:
+                        data = ipr.recv(bufsize)
+                    except Exception as e:
+                        error = e
+                        error.tb = traceback.format_exc()
                     brdch.send({'stage': 'broadcast',
-                                'data': ipr.recv(bufsize)})
+                                'data': data,
+                                'error': error})
             elif fd == cmdch.fileno():
                 cmd = cmdch.recv()
                 if cmd['stage'] == 'shutdown':
@@ -208,7 +216,10 @@ class Client(object):
             atexit.register(self.close)
 
     def recv(self, bufsize, flags=0):
-        return self.brdch.recv()['data']
+        msg = self.brdch.recv()
+        if msg['error'] is not None:
+            raise msg['error']
+        return msg['data']
 
     def close(self):
         with self.lock:
