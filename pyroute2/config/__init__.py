@@ -16,4 +16,5 @@ commit_barrier = 0
 # changed in runtime, while calling uname()
 # every time is a bit expensive
 uname = platform.uname()
+machine = platform.machine()
 kernel = LooseVersion(uname[2]).version[:3]

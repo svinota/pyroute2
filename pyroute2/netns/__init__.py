@@ -81,12 +81,12 @@ SELinux state with `getenforce` command.
 import os
 import errno
 import ctypes
-import sys
+from pyroute2 import config
 
-if sys.maxsize > 2**32:
-    __NR_setns = 308
-else:
-    __NR_setns = 346
+__NR = {'x86_64': 308,
+        'i386': 346,
+        'arm': 375}  # FIXME: EABI vs. OABI?
+__NR_setns = __NR.get(config.machine, 308)
 
 CLONE_NEWNET = 0x40000000
 MNT_DETACH = 0x00000002

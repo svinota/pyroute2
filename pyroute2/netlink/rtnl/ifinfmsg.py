@@ -3,7 +3,6 @@ import json
 import errno
 import select
 import struct
-import platform
 import threading
 import subprocess
 from fcntl import ioctl
@@ -32,13 +31,12 @@ _BONDING_MASTER = '/sys/class/net/%s/master/ifindex'
 IFNAMSIZ = 16
 
 TUNDEV = '/dev/net/tun'
-arch = platform.machine()
-if arch == 'x86_64':
+if config.machine == 'x86_64':
     TUNSETIFF = 0x400454ca
     TUNSETPERSIST = 0x400454cb
     TUNSETOWNER = 0x400454cc
     TUNSETGROUP = 0x400454ce
-elif arch in ('ppc64', 'mips'):
+elif config.machine in ('ppc64', 'mips'):
     TUNSETIFF = 0x800454ca
     TUNSETPERSIST = 0x800454cb
     TUNSETOWNER = 0x800454cc
