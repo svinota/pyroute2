@@ -251,6 +251,9 @@ class Transactional(Dotkeys):
                         res[key] = self[key]
             return res
 
+    def detach(self):
+        pass
+
     def load(self, data):
         pass
 

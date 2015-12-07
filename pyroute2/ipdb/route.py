@@ -475,7 +475,7 @@ class RoutingTableSet(object):
             route = route.get('dst', 'default')
         else:
             table = table or 254
-        del self.tables[table][route]
+        self.tables[table][route].remove()
 
     def describe(self, spec, table=254):
         return self.tables[table].describe(spec)
