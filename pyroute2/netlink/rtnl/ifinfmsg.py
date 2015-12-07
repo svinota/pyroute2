@@ -769,11 +769,13 @@ def proxy_setlink(data, nl):
 
     def get_interface(index):
         msg = nl.get_links(index)[0]
+        try:
+            kind = msg.get_attr('IFLA_LINKINFO').get_attr('IFLA_INFO_KIND')
+        except AttributeError:
+            kind = 'unknown'
         return {'ifname': msg.get_attr('IFLA_IFNAME'),
                 'master': msg.get_attr('IFLA_MASTER'),
-                'kind': msg.
-                get_attr('IFLA_LINKINFO').
-                get_attr('IFLA_INFO_KIND')}
+                'kind': kind}
 
     msg = ifinfmsg(data)
     msg.decode()
