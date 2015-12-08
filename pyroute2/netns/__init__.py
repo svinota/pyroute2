@@ -83,10 +83,13 @@ import errno
 import ctypes
 from pyroute2 import config
 
-__NR = {'x86_64': 308,
-        'i386': 346,
-        'arm': 375}  # FIXME: EABI vs. OABI?
-__NR_setns = __NR.get(config.machine, 308)
+__NR = {'x86_64': {'64bit': 308},
+        'i386': {'32bit': 346},
+        'mips': {'32bit': 4344,
+                 '64bit': 5303},  # FIXME: NABI32?
+        'arm': {'32bit': 375,
+                '64bit': 375}}  # FIXME: EABI vs. OABI?
+__NR_setns = __NR.get(config.machine, {}).get(config.arch, 308)
 
 CLONE_NEWNET = 0x40000000
 MNT_DETACH = 0x00000002
