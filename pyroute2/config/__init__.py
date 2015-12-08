@@ -17,4 +17,5 @@ commit_barrier = 0
 # every time is a bit expensive
 uname = platform.uname()
 machine = platform.machine()
+arch = platform.architecture()[0]
 kernel = LooseVersion(uname[2]).version[:3]
