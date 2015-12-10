@@ -772,6 +772,17 @@ class IPDB(object):
                 i.add_ip('192.168.0.1/24')
                 i.up()
 
+        The keyed GRE requires explicit iflags/oflags specification::
+
+            ip.create(ifname='grex',
+                      kind='gre',
+                      gre_local='172.16.0.1',
+                      gre_remote='172.16.0.101',
+                      gre_ttl=16,
+                      gre_ikey=10,
+                      gre_okey=10,
+                      gre_iflags=32,
+                      gre_oflags=32).commit()
 
         ► **vlan**
 
