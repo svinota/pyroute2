@@ -601,9 +601,9 @@ class IPRouteMixin(object):
 
         * command -- set, add or delete
         * index -- device index
-        * \*\*kwarg -- keywords, NLA
+        * \*\*kwarg -- keywords, NLA (see ifinfmsg.py)
 
-        Example::
+        Examples::
 
             x = 62  # interface index
             ip.link("set", index=x, state="down")
@@ -630,6 +630,20 @@ class IPRouteMixin(object):
         You can also delete interface with::
 
             ip.link("delete", index=x)
+
+        It is possible to manage bridge and bond attributes as well,
+        but it will require to use the `IPLinkRequest()`::
+
+            from pyroute2 import IPLinkRequest
+
+            idx = ip.link_lookup(ifname="br0")[0]
+            ip.link("set", **IPLinkRequest({"index": idx,
+                                            "kind": "bridge",
+                                            "stp_state": 1}))
+
+        Please notice, that the `kind` attribute in that case is
+        required, since `IPLinkRequest()` needs the `kind` to
+        build the NLA structure correctly.
         '''
 
         commands = {'set': RTM_SETLINK,
