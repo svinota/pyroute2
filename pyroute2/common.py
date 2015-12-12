@@ -189,8 +189,10 @@ class Dotkeys(dict):
                     self[key[4:]] = value
                     return self
                 return set_value
-            else:
+            elif key in self:
                 return self[key]
+            else:
+                raise e
 
     def __setattr__(self, key, value):
         if key in self:

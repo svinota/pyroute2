@@ -167,6 +167,8 @@ class TestExplicit(object):
         del self.ip.interfaces.newitem
         del self.ip.interfaces.newattr
         assert 'newattr' not in dir(self.ip.interfaces)
+        # test hasattr protocol
+        assert hasattr(self.ip.interfaces, 'nonexistinginterface') is False
 
     @skip_if_not_supported
     def test_vlan_slave_bridge(self):
