@@ -503,8 +503,10 @@ class TestExplicit(object):
         # set up the interface
         with self.ip.create(kind='dummy', ifname=ifA) as i:
             i.add_ip('172.16.0.1/24')
-            i.add_ip('172.16.0.2/24')
             i.up()
+
+        # imitate some runtime
+        time.sleep(2)
 
         # make a backup
         backup = self.ip.interfaces[ifA].dump()
@@ -536,8 +538,8 @@ class TestExplicit(object):
         # check :)
         assert ifA in self.ip.interfaces
         assert ifB not in self.ip.interfaces
-        assert ('172.16.0.1', 24) in self.ip.interfaces[ifA].ipaddr
-        assert ('172.16.0.2', 24) in self.ip.interfaces[ifA].ipaddr
+        for ipaddr in json.loads(backup)['ipaddr']:
+            assert tuple(ipaddr) in self.ip.interfaces[ifA].ipaddr
         assert self.ip.interfaces[ifA].flags & 1
 
     def test_freeze_del(self):
