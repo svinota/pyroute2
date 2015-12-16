@@ -494,6 +494,18 @@ class TestExplicit(object):
         i.remove().commit()
         assert ifA not in self.ip.interfaces
 
+    def test_multiple_ips_one_transaction(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        with self.ip.create(kind='dummy', ifname=ifA) as i:
+            for x in range(1, 255):
+                i.add_ip('172.16.0.%i/24' % x)
+            i.up()
+
+        idx = self.ip.interfaces[ifA].index
+        assert len(self.ip.nl.get_addr(index=idx, family=2)) == 254
+
     def test_json_dump(self):
         require_user('root')
 
