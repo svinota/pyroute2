@@ -402,6 +402,56 @@ class Interface(Transactional):
                 ret[key] = self[key]
         return ret
 
+    def _commit_real_ip(self):
+        return set([(x.get_attr('IFA_ADDRESS'), x.get('prefixlen')) for x
+                    in self.nl.get_addr(index=self.index)])
+
+    def _commit_add_ip(self, addrs, transaction):
+        for i in addrs:
+            # Ignore link-local IPv6 addresses
+            if i[0][:4] == 'fe80' and i[1] == 64:
+                continue
+            # Try to fetch additional address attributes
+            try:
+                kwarg = dict([k for k in transaction.ipaddr[i].items()
+                              if k[0] in ('broadcast',
+                                          'anycast',
+                                          'scope')])
+            except KeyError:
+                kwarg = None
+            # feed the address to the OS
+            self.ipdb.update_addr(
+                self.nl.addr('add', self['index'], i[0], i[1],
+                             **kwarg if kwarg else {}), 'add')
+            # wait feedback from the OS
+            # do not provide here the mask -- we're waiting
+            # not for any address from the network, but a
+            # specific one
+            self.wait_ip(i[0], timeout=SYNC_TIMEOUT)
+
+            # 8<--------------------------------------
+            # FIXME: kernel bug, sometimes `addr add` for
+            # bond interfaces returns success, but does
+            # really nothing
+
+            if self['kind'] == 'bond':
+                while True:
+                    try:
+                        # dirtiest hack, but we have to use it here
+                        time.sleep(0.1)
+                        self.nl.addr('add', self['index'], i[0], i[1])
+                    # continue to try to add the address
+                    # until the kernel reports `file exists`
+                    #
+                    # a stupid solution, but must help
+                    except NetlinkError as e:
+                        if e.code == errno.EEXIST:
+                            break
+                        else:
+                            raise
+                    except Exception:
+                        raise
+
     def commit(self, tid=None, transaction=None, rollback=False, newif=False):
         '''
         Commit transaction. In the case of exception all
@@ -589,8 +639,17 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # IP address changes
-            self['ipaddr'].set_target(transaction['ipaddr'])
+            #
+            # There is one corner case: if the interface didn't
+            # exist before commit(), the transaction may not
+            # contain automatic IPv6 addresses.
+            #
+            # So fetch here possible addresses and use it to
+            # extend the transaction
+            target = self._commit_real_ip().union(set(transaction['ipaddr']))
+            self['ipaddr'].set_target(target)
 
+            # 8<--------------------------------------
             for i in removed['ipaddr']:
                 # Ignore link-local IPv6 addresses
                 if i[0][:4] == 'fe80' and i[1] == 64:
@@ -608,49 +667,24 @@ class Interface(Transactional):
                         raise
                 except socket.error as x:
                     # bypass illegal IP requests
-                    if not x.args[0].startswith('illegal IP'):
-                        raise
+                    if isinstance(x.args[0], basestring) and \
+                            x.args[0].startswith('illegal IP'):
+                        continue
+                    raise
 
-            for i in added['ipaddr']:
-                # Ignore link-local IPv6 addresses
-                if i[0][:4] == 'fe80' and i[1] == 64:
-                    continue
-                # Try to fetch additional address attributes
-                try:
-                    kwarg = dict([k for k in transaction.ipaddr[i].items()
-                                  if k[0] in ('broadcast',
-                                              'anycast',
-                                              'scope')])
-                except KeyError:
-                    kwarg = None
-                self.ipdb.update_addr(
-                    self.nl.addr('add', self['index'], i[0], i[1],
-                                 **kwarg if kwarg else {}), 'add')
+            # 8<--------------------------------------
+            target = added['ipaddr']
+            for i in range(3):  # just to be sure
+                self._commit_add_ip(target, transaction)
+                real = self._commit_real_ip()
+                if real >= set(transaction['ipaddr']):
+                    break
+                else:
+                    target = set(transaction['ipaddr']) - real
+            else:
+                raise CommitException('ipaddr setup error', i)
 
-                # 8<--------------------------------------
-                # FIXME: kernel bug, sometimes `addr add` for
-                # bond interfaces returns success, but does
-                # really nothing
-
-                if self['kind'] == 'bond':
-                    while True:
-                        try:
-                            # dirtiest hack, but we have to use it here
-                            time.sleep(0.1)
-                            self.nl.addr('add', self['index'], i[0], i[1])
-                        # continue to try to add the address
-                        # until the kernel reports `file exists`
-                        #
-                        # a stupid solution, but must help
-                        except NetlinkError as e:
-                            if e.code == errno.EEXIST:
-                                break
-                            else:
-                                raise
-                        except Exception:
-                            raise
-                # 8<--------------------------------------
-
+            # 8<--------------------------------------
             if removed['ipaddr'] or added['ipaddr']:
                 # 8<--------------------------------------
                 # bond and bridge interfaces do not send
