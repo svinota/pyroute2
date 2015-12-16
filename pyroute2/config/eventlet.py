@@ -77,6 +77,9 @@ class _MpConnection(object):
             buf += c
         return buf
 
+    def close(self):
+        self.sock.close()
+
 
 def _MultiprocessingPipe():
     """multiprocess.Pipe reimplementation that uses MpConnection wrapper"""
