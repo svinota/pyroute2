@@ -52,7 +52,7 @@ To run a specific test module::
 The module parameter syntax::
 
     ## module=package[:test_file.py[:TestClass[.test_case]]]
-    
+
     $ sudo make test module=lnst
     $ sudo make test module=general:test_ipr.py
     $ sudo make test module=general:test_ipdb.py:TestExplicit

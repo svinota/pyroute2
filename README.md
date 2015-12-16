@@ -76,7 +76,7 @@ Some examples::
                           'newdst': {'label': 0x20,
                                      'bos': 1}})
     ip.route('add', **req)
-    
+
     # release Netlink socket
     ip.close()
 

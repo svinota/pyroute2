@@ -16,7 +16,7 @@ General information
     changelog
     makefile
 
-Usage 
+Usage
 -----
 
 .. toctree::
