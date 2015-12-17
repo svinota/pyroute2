@@ -402,6 +402,15 @@ class Interface(Transactional):
                 ret[key] = self[key]
         return ret
 
+    def review(self):
+        ret = super(Interface, self).review()
+        last = self.last()
+        ret['+ipaddr'] = last['ipaddr']
+        ret['+ports'] = last['ports']
+        del ret['ports']
+        del ret['ipaddr']
+        return ret
+
     def _commit_real_ip(self):
         return set([(x.get_attr('IFA_ADDRESS'), x.get('prefixlen')) for x
                     in self.nl.get_addr(index=self.index)])
