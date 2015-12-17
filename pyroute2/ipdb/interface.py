@@ -404,11 +404,12 @@ class Interface(Transactional):
 
     def review(self):
         ret = super(Interface, self).review()
-        last = self.last()
-        ret['+ipaddr'] = last['ipaddr']
-        ret['+ports'] = last['ports']
-        del ret['ports']
-        del ret['ipaddr']
+        if self['ipdb_scope'] == 'create':
+            last = self.last()
+            ret['+ipaddr'] = last['ipaddr']
+            ret['+ports'] = last['ports']
+            del ret['ports']
+            del ret['ipaddr']
         return ret
 
     def _commit_real_ip(self):
