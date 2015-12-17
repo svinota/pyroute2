@@ -413,8 +413,16 @@ class Interface(Transactional):
         return ret
 
     def _commit_real_ip(self):
-        return set([(x.get_attr('IFA_ADDRESS'), x.get('prefixlen')) for x
-                    in self.nl.get_addr(index=self.index)])
+        for _ in range(3):
+            try:
+                return set([(x.get_attr('IFA_ADDRESS'),
+                             x.get('prefixlen')) for x
+                            in self.nl.get_addr(index=self.index)])
+            except NetlinkError as x:
+                if x.code == errno.EBUSY:
+                    time.sleep(0.5)
+                else:
+                    raise
 
     def _commit_add_ip(self, addrs, transaction):
         for i in addrs:
