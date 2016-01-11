@@ -182,7 +182,7 @@ class IPLinkRequest(IPRequest):
                 for k, v in value.items():
                     attrs.append([ifinfmsg.name2nla(k), v])
             else:
-                attrs = ['IFLA_IFNAME', value]
+                attrs = [['IFLA_IFNAME', value], ]
             nla = ['VETH_INFO_PEER', {'attrs': attrs}]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'veth')
