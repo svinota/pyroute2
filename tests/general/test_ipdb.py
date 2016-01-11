@@ -275,6 +275,19 @@ class TestExplicit(object):
         assert len([i for i in r if r[i] is not None]) == 4
         self.ip.interfaces.lo.drop()
 
+    def test_review_new(self):
+        i = self.ip.create(ifname='none', kind='dummy')
+        i.add_ip('172.16.21.1/24')
+        i.add_ip('172.16.21.2/24')
+        i.add_port(self.ip.interfaces.lo)
+        r = i.review()
+        assert len(r['+ipaddr']) == 2
+        assert len(r['+ports']) == 1
+        assert '-ipaddr' not in r
+        assert '-ports' not in r
+        assert 'ipaddr' not in r
+        assert 'ports' not in r
+
     def test_rename(self):
         require_user('root')
 
