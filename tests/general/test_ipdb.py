@@ -854,6 +854,31 @@ class TestExplicit(object):
         assert grep('ip link', pattern=ifA)
         assert not grep('ip link', pattern=ifB)
 
+    def test_veth_peer_attrs(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ns = str(uuid.uuid4())
+
+        addr_ext = '06:00:00:00:02:02'
+        addr_int = '06:00:00:00:02:03'
+
+        with IPDB(nl=NetNS(ns)) as nsdb:
+            veth = self.ip.create(**{'ifname': 'x' + ifA,
+                                     'kind': 'veth',
+                                     'address': addr_ext,
+                                     'peer': {'ifname': ifA,
+                                              'address': addr_int,
+                                              'net_ns_fd': ns}})
+            veth.commit()
+            assert nsdb.interfaces[ifA]['address'] == addr_int
+            assert self.ip.interfaces['x' + ifA]['address'] == addr_ext
+
+            with veth:
+                veth.remove()
+
+        netns.remove(ns)
+
     def test_global_netns(self):
         require_user('root')
 

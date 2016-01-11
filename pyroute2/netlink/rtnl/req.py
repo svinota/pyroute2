@@ -177,7 +177,13 @@ class IPLinkRequest(IPRequest):
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'vxlan')
         elif key == 'peer':
-            nla = ['VETH_INFO_PEER', {'attrs': [['IFLA_IFNAME', value]]}]
+            if isinstance(value, dict):
+                attrs = []
+                for k, v in value.items():
+                    attrs.append([ifinfmsg.name2nla(k), v])
+            else:
+                attrs = ['IFLA_IFNAME', value]
+            nla = ['VETH_INFO_PEER', {'attrs': attrs}]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'veth')
         dict.__setitem__(self, key, value)
