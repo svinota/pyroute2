@@ -149,7 +149,7 @@ def Server(cmdch, brdch):
 
     def close(s, frame):
         # just leave everything else as is
-        brdch.send({'stage': 'shutdown',
+        brdch.send({'stage': 'signal',
                     'data': s})
 
     try:
@@ -174,7 +174,7 @@ def Server(cmdch, brdch):
         try:
             events = poll.poll()
         except:
-            break
+            continue
         for (fd, event) in events:
             if fd == ipr.fileno():
                 bufsize = ipr.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
@@ -229,9 +229,8 @@ class Client(object):
 
     def recv(self, bufsize, flags=0):
         msg = self.brdch.recv()
-        if msg['stage'] == 'shutdown':
+        if msg['stage'] == 'signal':
             os.kill(os.getpid(), msg['data'])
-            raise RuntimeError('Child signal: %s' % msg['data'])
         if msg['error'] is not None:
             raise msg['error']
         return msg['data']
