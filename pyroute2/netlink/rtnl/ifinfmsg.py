@@ -394,7 +394,7 @@ class ifinfbase(object):
                        ('IFLA_VXLAN_RSC', 'uint8'),
                        ('IFLA_VXLAN_L2MISS', 'uint8'),
                        ('IFLA_VXLAN_L3MISS', 'uint8'),
-                       ('IFLA_VXLAN_PORT', 'uint16'),
+                       ('IFLA_VXLAN_PORT', 'be16'),
                        ('IFLA_VXLAN_GROUP6', 'ip6addr'),
                        ('IFLA_VXLAN_LOCAL6', 'ip6addr'),
                        ('IFLA_VXLAN_UDP_CSUM', 'uint8'),
@@ -415,8 +415,8 @@ class ifinfbase(object):
 
             nla_map = (('IFLA_GRE_UNSPEC', 'none'),
                        ('IFLA_GRE_LINK', 'uint32'),
-                       ('IFLA_GRE_IFLAGS', 'uint16'),
-                       ('IFLA_GRE_OFLAGS', 'uint16'),
+                       ('IFLA_GRE_IFLAGS', 'be16'),
+                       ('IFLA_GRE_OFLAGS', 'be16'),
                        ('IFLA_GRE_IKEY', 'be32'),
                        ('IFLA_GRE_OKEY', 'be32'),
                        ('IFLA_GRE_LOCAL', 'ip4addr'),
@@ -425,12 +425,12 @@ class ifinfbase(object):
                        ('IFLA_GRE_TOS', 'uint8'),
                        ('IFLA_GRE_PMTUDISC', 'uint8'),
                        ('IFLA_GRE_ENCAP_LIMIT', 'uint8'),
-                       ('IFLA_GRE_FLOWINFO', 'uint32'),
+                       ('IFLA_GRE_FLOWINFO', 'be32'),
                        ('IFLA_GRE_FLAGS', 'uint32'),
                        ('IFLA_GRE_ENCAP_TYPE', 'uint16'),
                        ('IFLA_GRE_ENCAP_FLAGS', 'uint16'),
-                       ('IFLA_GRE_ENCAP_SPORT', 'uint16'),
-                       ('IFLA_GRE_ENCAP_DPORT', 'uint16'),
+                       ('IFLA_GRE_ENCAP_SPORT', 'be16'),
+                       ('IFLA_GRE_ENCAP_DPORT', 'be16'),
                        ('IFLA_GRE_COLLECT_METADATA', 'flag'))
 
         class macvx_data(nla):
