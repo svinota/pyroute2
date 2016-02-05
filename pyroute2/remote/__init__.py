@@ -228,9 +228,13 @@ class Client(object):
             atexit.register(self.close)
 
     def recv(self, bufsize, flags=0):
-        msg = self.brdch.recv()
-        if msg['stage'] == 'signal':
-            os.kill(os.getpid(), msg['data'])
+        msg = None
+        while True:
+            msg = self.brdch.recv()
+            if msg['stage'] == 'signal':
+                os.kill(os.getpid(), msg['data'])
+            else:
+                break
         if msg['error'] is not None:
             raise msg['error']
         return msg['data']
