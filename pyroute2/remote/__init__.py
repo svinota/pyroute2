@@ -1,6 +1,8 @@
+import os
 import atexit
 import pickle
 import select
+import signal
 import socket
 import struct
 import threading
@@ -145,6 +147,11 @@ def Server(cmdch, brdch):
 
     '''
 
+    def close(s, frame):
+        # just leave everything else as is
+        brdch.send({'stage': 'shutdown',
+                    'data': s})
+
     try:
         ipr = IPRoute()
         lock = ipr._sproxy.lock
@@ -160,9 +167,14 @@ def Server(cmdch, brdch):
     # all is OK so far
     cmdch.send({'stage': 'init',
                 'error': None})
+    signal.signal(signal.SIGTERM, close)
+
     # 8<-------------------------------------------------------------
     while True:
-        events = poll.poll()
+        try:
+            events = poll.poll()
+        except:
+            break
         for (fd, event) in events:
             if fd == ipr.fileno():
                 bufsize = ipr.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
@@ -217,6 +229,9 @@ class Client(object):
 
     def recv(self, bufsize, flags=0):
         msg = self.brdch.recv()
+        if msg['stage'] == 'shutdown':
+            os.kill(os.getpid(), msg['data'])
+            raise RuntimeError('Child signal: %s' % msg['data'])
         if msg['error'] is not None:
             raise msg['error']
         return msg['data']
