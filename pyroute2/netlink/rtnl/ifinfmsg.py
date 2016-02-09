@@ -415,8 +415,8 @@ class ifinfbase(object):
 
             nla_map = (('IFLA_GRE_UNSPEC', 'none'),
                        ('IFLA_GRE_LINK', 'uint32'),
-                       ('IFLA_GRE_IFLAGS', 'be16'),
-                       ('IFLA_GRE_OFLAGS', 'be16'),
+                       ('IFLA_GRE_IFLAGS', 'uint16'),
+                       ('IFLA_GRE_OFLAGS', 'uint16'),
                        ('IFLA_GRE_IKEY', 'be32'),
                        ('IFLA_GRE_OKEY', 'be32'),
                        ('IFLA_GRE_LOCAL', 'ip4addr'),
