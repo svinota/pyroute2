@@ -86,6 +86,7 @@ from pyroute2 import config
 # FIXME: arch reference
 __NR = {'x86_': {'64bit': 308},
         'i386': {'32bit': 346},
+        'i686': {'32bit': 346},
         'mips': {'32bit': 4344,
                  '64bit': 5303},  # FIXME: NABI32?
         'armv': {'32bit': 375,
