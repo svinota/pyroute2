@@ -233,7 +233,6 @@ class ifinfbase(object):
         netns_fd = None
 
         def encode(self):
-            self.close()
             #
             # There are two ways to specify netns
             #
@@ -250,8 +249,8 @@ class ifinfbase(object):
                 self.netns_fd = os.open('%s/%s' % (self.netns_run_dir,
                                                    self.value), os.O_RDONLY)
                 self['value'] = self.netns_fd
+                self.register_clean_cb(self.close)
             nla.encode(self)
-            self.register_clean_cb(self.close)
 
         def close(self):
             if self.netns_fd is not None:

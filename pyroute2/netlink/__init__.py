@@ -404,6 +404,8 @@ from pyroute2.common import AF_MPLS
 from pyroute2.common import hexdump
 from pyroute2.common import basestring
 
+from pyroute2.netlink.rtnl import RTM_SETLINK
+
 _letters = re.compile('[A-Za-z]')
 _fmt_letters = re.compile('[^!><@=][!><@=]')
 
@@ -595,6 +597,8 @@ NETLINK_NO_ENOBUFS = 5
 NETLINK_RX_RING = 6
 NETLINK_TX_RING = 7
 
+clean_cbs = {}
+
 
 class nlmsg_base(dict):
     '''
@@ -643,7 +647,6 @@ class nlmsg_base(dict):
         self.register_nlas()
         self.r_value_map = dict([(x[1], x[0]) for x in self.value_map.items()])
         self.reset(buf)
-        self.clean_cbs = []
         if self.header is not None:
             self['header'] = self.header(self.buf)
 
@@ -676,10 +679,31 @@ class nlmsg_base(dict):
             self['header'].buf = self.buf
 
     def register_clean_cb(self, cb):
+        global clean_cbs
         if self.parent is not None:
             return self.parent.register_clean_cb(cb)
         else:
-            self.clean_cbs.append(cb)
+            # get the msg_seq -- if applicable
+            seq = self.get('header', {}).get('sequence_number', None)
+            if seq is not None and seq not in clean_cbs:
+                clean_cbs[seq] = []
+            # attach the callback
+            clean_cbs[seq].append(cb)
+
+    def unregister_clean_cb(self):
+        global clean_cbs
+        seq = self.get('header', {}).get('sequence_number', None)
+        mst = self.get('header', {}).get('type', None)
+        if (seq is not None) and \
+                (mst != RTM_SETLINK) and \
+                seq in clean_cbs:
+            for cb in clean_cbs[seq]:
+                try:
+                    cb()
+                except:
+                    logging.error('Cleanup callback fail: %s' % (cb))
+                    logging.error(traceback.format_exc())
+            del clean_cbs[seq]
 
     def _strip_one(self, name):
         for i in tuple(self['attrs']):
@@ -922,6 +946,7 @@ class nlmsg_base(dict):
                 raise NetlinkDataDecodeError(e)
         # decode NLA
         try:
+            self.unregister_clean_cb()
             # read NLA chain
             if self.nla_map:
                 self.buf.seek(self.msg_align(self.buf.tell()))

@@ -290,7 +290,6 @@ class NetlinkMixin(object):
         self._fileno = fileno
         self.backlog = {0: []}
         self.callbacks = []     # [(predicate, callback, args), ...]
-        self.clean_cbs = {}     # {msg_seq: [callback, ...], ...}
         self.pthread = None
         self.closed = False
         self.capabilities = {'create_bridge': True,
@@ -531,9 +530,6 @@ class NetlinkMixin(object):
             msg['header']['sequence_number'] = msg_seq
             msg['header']['pid'] = msg_pid
             msg.encode()
-            if msg_seq not in self.clean_cbs:
-                self.clean_cbs[msg_seq] = []
-            self.clean_cbs[msg_seq].extend(msg.clean_cbs)
             self.sendto(msg.buf.getvalue(), addr)
         except:
             raise
@@ -701,15 +697,6 @@ class NetlinkMixin(object):
                         self.backlog_lock.acquire()
                         for msg in msgs:
                             seq = msg['header']['sequence_number']
-                            if seq in self.clean_cbs:
-                                for cb in self.clean_cbs[seq]:
-                                    try:
-                                        cb()
-                                    except:
-                                        logging.warning("Cleanup callback"
-                                                        "fail: %s" % (cb))
-                                        logging.warning(traceback.format_exc())
-                                del self.clean_cbs[seq]
                             if seq not in self.backlog:
                                 if msg['header']['type'] == NLMSG_ERROR:
                                     # Drop orphaned NLMSG_ERROR messages
