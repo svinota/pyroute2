@@ -196,6 +196,21 @@ def Server(cmdch, brdch):
                     poll.unregister(cmdch)
                     ipr.close()
                     return
+                elif cmd['stage'] == 'reconstruct':
+                    error = None
+                    try:
+                        msg = cmd['argv'][0]()
+                        msg.load(pickle.loads(cmd['argv'][1]))
+                        msg.encode()
+                        ipr.sendto(msg.buf.getvalue(), cmd['argv'][2])
+                    except Exception as e:
+                        error = e
+                        error.tb = traceback.format_exc()
+                    cmdch.send({'stage': 'reconstruct',
+                                'error': error,
+                                'return': None,
+                                'cookie': cmd['cookie']})
+
                 elif cmd['stage'] == 'command':
                     error = None
                     try:
@@ -226,6 +241,21 @@ class Client(object):
             raise init['error']
         else:
             atexit.register(self.close)
+        self.marshall = self._marshall
+
+    def _marshall(self, msg, addr):
+        with self.cmdlock:
+            self.cmdch.send({'stage': 'reconstruct',
+                             'cookie': None,
+                             'name': None,
+                             'argv': [type(msg),
+                                      pickle.dumps(msg.dump()),
+                                      addr],
+                             'kwarg': None})
+            ret = self.cmdch.recv()
+            if ret['error'] is not None:
+                raise ret['error']
+            return ret['return']
 
     def recv(self, bufsize, flags=0):
         msg = None

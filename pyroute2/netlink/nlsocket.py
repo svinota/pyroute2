@@ -529,13 +529,16 @@ class NetlinkMixin(object):
             msg['header']['flags'] = msg_flags
             msg['header']['sequence_number'] = msg_seq
             msg['header']['pid'] = msg_pid
-            msg.encode()
-            self.sendto(msg.buf.getvalue(), addr)
+            self.marshall(msg, addr)
         except:
             raise
         finally:
             if msg_seq != 0:
                 self.lock[msg_seq].release()
+
+    def marshall(self, msg, addr):
+        msg.encode()
+        self.sendto(msg.buf.getvalue(), addr)
 
     def get(self, bufsize=DEFAULT_RCVBUF, msg_seq=0, terminate=None):
         '''
