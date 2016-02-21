@@ -1085,6 +1085,42 @@ class nlmsg_base(dict):
                    'encoded': 2}
         return [i[fmt_map[fmt]] for i in self['attrs'] if i[0] == attr]
 
+    def load(self, dump):
+        '''
+        Load packet from a structure
+        '''
+        if isinstance(dump, dict):
+            for (k, v) in dump.items():
+                if k == 'header':
+                    self['header'].load(dump['header'])
+                else:
+                    self[k] = v
+        else:
+            self.setvalue(dump)
+
+    def dump(self):
+        '''
+        Dump packet as a simple types struct
+        '''
+        a = self.getvalue()
+        if isinstance(a, dict):
+            ret = {}
+            for (k, v) in a.items():
+                if k == 'header':
+                    ret['header'] = a['header'].dump()
+                elif k == 'attrs':
+                    ret['attrs'] = attrs = []
+                    for i in a['attrs']:
+                        if isinstance(i[1], nlmsg_base):
+                            attrs.append([i[0], i[1].dump()])
+                        else:
+                            attrs.append([i[0], i[1]])
+                else:
+                    ret[k] = v
+        else:
+            ret = a
+        return ret
+
     def getvalue(self):
         '''
         Atomic NLAs return their value in the 'value' field,
