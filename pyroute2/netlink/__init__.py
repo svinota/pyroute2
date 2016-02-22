@@ -1113,6 +1113,8 @@ class nlmsg_base(dict):
                     for i in a['attrs']:
                         if isinstance(i[1], nlmsg_base):
                             attrs.append([i[0], i[1].dump()])
+                        elif isinstance(i[1], set):
+                            attrs.append([i[0], tuple(i[1])])
                         else:
                             attrs.append([i[0], i[1]])
                 else:
