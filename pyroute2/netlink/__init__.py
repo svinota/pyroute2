@@ -404,8 +404,6 @@ from pyroute2.common import AF_MPLS
 from pyroute2.common import hexdump
 from pyroute2.common import basestring
 
-from pyroute2.netlink.rtnl import RTM_SETLINK
-
 _letters = re.compile('[A-Za-z]')
 _fmt_letters = re.compile('[^!><@=][!><@=]')
 
@@ -693,9 +691,9 @@ class nlmsg_base(dict):
     def unregister_clean_cb(self):
         global clean_cbs
         seq = self.get('header', {}).get('sequence_number', None)
-        mst = self.get('header', {}).get('type', None)
+        msf = self.get('header', {}).get('flags', 0)
         if (seq is not None) and \
-                (mst != RTM_SETLINK) and \
+                (not msf & NLM_F_REQUEST) and \
                 seq in clean_cbs:
             for cb in clean_cbs[seq]:
                 try:
