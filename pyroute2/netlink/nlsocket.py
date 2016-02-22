@@ -529,14 +529,14 @@ class NetlinkMixin(object):
             msg['header']['flags'] = msg_flags
             msg['header']['sequence_number'] = msg_seq
             msg['header']['pid'] = msg_pid
-            self.marshall(msg, addr)
+            self.sendto_gate(msg, addr)
         except:
             raise
         finally:
             if msg_seq != 0:
                 self.lock[msg_seq].release()
 
-    def marshall(self, msg, addr):
+    def sendto_gate(self, msg, addr):
         msg.encode()
         self.sendto(msg.buf.getvalue(), addr)
 

@@ -241,9 +241,9 @@ class Client(object):
             raise init['error']
         else:
             atexit.register(self.close)
-        self.marshall = self._marshall
+        self.sendto_gate = self._gate
 
-    def _marshall(self, msg, addr):
+    def _gate(self, msg, addr):
         with self.cmdlock:
             self.cmdch.send({'stage': 'reconstruct',
                              'cookie': None,
