@@ -103,6 +103,67 @@ class TestNSPopen(object):
 
 class TestNetNS(object):
 
+    def test_create_peer_attrs(self):
+        foo = str(uuid4())
+        bar = str(uuid4())
+        ifA = uifname()
+        ifB = uifname()
+        netnsmod.create(foo)
+        netnsmod.create(bar)
+
+        with IPDB(nl=NetNS(foo)) as ip:
+            ip.create(ifname=ifA,
+                      kind='veth',
+                      peer={'ifname': ifB,
+                            'net_ns_fd': bar}).commit()
+            assert ifA in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        with IPDB(nl=NetNS(bar)) as ip:
+            assert ifA not in ip.interfaces.keys()
+            assert ifB in ip.interfaces.keys()
+            ip.interfaces[ifB].remove().commit()
+            assert ifA not in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        with IPDB(nl=NetNS(foo)) as ip:
+            assert ifA not in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        netnsmod.remove(foo)
+        netnsmod.remove(bar)
+
+    def test_move_interface(self):
+        foo = str(uuid4())
+        bar = str(uuid4())
+        ifA = uifname()
+        ifB = uifname()
+        netnsmod.create(foo)
+        netnsmod.create(bar)
+
+        with IPDB(nl=NetNS(foo)) as ip:
+            ip.create(ifname=ifA, kind='veth', peer=ifB).commit()
+            assert ifA in ip.interfaces.keys()
+            assert ifB in ip.interfaces.keys()
+            with ip.interfaces[ifB] as intf:
+                intf.net_ns_fd = bar
+            assert ifA in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        with IPDB(nl=NetNS(bar)) as ip:
+            assert ifA not in ip.interfaces.keys()
+            assert ifB in ip.interfaces.keys()
+            ip.interfaces[ifB].remove().commit()
+            assert ifA not in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        with IPDB(nl=NetNS(foo)) as ip:
+            assert ifA not in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        netnsmod.remove(foo)
+        netnsmod.remove(bar)
+
     def test_create(self):
         require_user('root')
 
