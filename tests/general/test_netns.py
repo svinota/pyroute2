@@ -103,6 +103,25 @@ class TestNSPopen(object):
 
 class TestNetNS(object):
 
+    def test_create_tuntap(self):
+        # actually this test checks the nlsocket plugin feedback
+        # in a pair of remote client/server
+        foo = str(uuid4())
+        tun = uifname()
+        tap = uifname()
+
+        with IPDB(nl=NetNS(foo)) as ip:
+            ip.create(ifname=tun, kind='tuntap', mode='tun').commit()
+            ip.create(ifname=tap, kind='tuntap', mode='tap').commit()
+            assert tun in ip.interfaces.keys()
+            assert tap in ip.interfaces.keys()
+            ip.interfaces[tun].remove().commit()
+            ip.interfaces[tap].remove().commit()
+            assert tun not in ip.interfaces.keys()
+            assert tap not in ip.interfaces.keys()
+
+        netnsmod.remove(foo)
+
     def test_create_peer_attrs(self):
         foo = str(uuid4())
         bar = str(uuid4())
