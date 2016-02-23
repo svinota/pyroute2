@@ -34,4 +34,5 @@ while offset < len(data):
     msg = met(data[offset:])
     msg.decode()
     pprint(msg)
+    print('.'*40)
     offset += msg['header']['length']
