@@ -67,6 +67,18 @@ class SocketChannel(Transport):
         Transport.__init__(self, sock)
 
 
+class ProxyChannel(object):
+
+    def __init__(self, channel, stage):
+        self.target = channel
+        self.stage = stage
+
+    def send(self, data):
+        return self.target.send({'stage': self.stage,
+                                 'data': data,
+                                 'error': None})
+
+
 def Server(cmdch, brdch):
     '''
     A server routine to run an IPRoute object and expose it via
@@ -155,7 +167,7 @@ def Server(cmdch, brdch):
     try:
         ipr = IPRoute()
         lock = ipr._sproxy.lock
-        ipr._s_channel = brdch
+        ipr._s_channel = ProxyChannel(brdch, 'broadcast')
         poll = select.poll()
         poll.register(ipr, select.POLLIN | select.POLLPRI)
         poll.register(cmdch, select.POLLIN | select.POLLPRI)
