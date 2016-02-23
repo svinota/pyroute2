@@ -165,6 +165,18 @@ class TestIPRoute(object):
         self.ip.addr('add', self.ifaces[0], address='172.16.0.1', mask=24)
         assert '172.16.0.1/24' in get_ip_addr()
 
+    def test_local_add(self):
+        require_user('root')
+        self.ip.addr('add', self.ifaces[0],
+                     address='172.16.0.2',
+                     local='172.16.0.1',
+                     mask=24)
+        link = self.ip.get_addr(index=self.ifaces[0])[0]
+        address = link.get_attr('IFA_ADDRESS')
+        local = link.get_attr('IFA_LOCAL')
+        assert address == '172.16.0.2'
+        assert local == '172.16.0.1'
+
     def test_addr_broadcast(self):
         require_user('root')
         self.ip.addr('add', self.ifaces[0],

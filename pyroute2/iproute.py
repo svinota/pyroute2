@@ -780,8 +780,10 @@ class IPRouteMixin(object):
         msg['prefixlen'] = prefixlen
         msg['scope'] = scope
 
-        # inject IFA_LOCAL, if family is AF_INET
-        if family == AF_INET and kwarg.get('address'):
+        # inject IFA_LOCAL, if family is AF_INET and IFA_LOCAL is not set
+        if family == AF_INET and \
+                kwarg.get('address') and \
+                kwarg.get('local') is None:
             kwarg['local'] = kwarg['address']
 
         # patch broadcast, if needed
