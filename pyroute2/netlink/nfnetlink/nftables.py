@@ -1,5 +1,10 @@
+from pyroute2.netlink import NLM_F_REQUEST
+from pyroute2.netlink import NLM_F_DUMP
+from pyroute2.netlink import NETLINK_NETFILTER
 from pyroute2.netlink import nla
+from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.nfnetlink import nfgen_msg
+from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_NFTABLES
 
 NFT_MSG_NEWTABLE = 0
 NFT_MSG_GETTABLE = 1
@@ -77,8 +82,47 @@ class nft_set_msg(nfgen_msg):
                ('NFTA_SET_USERDATA', 'hex'))
 
 
-class nft_table_attributes(nfgen_msg):
+class nft_table_msg(nfgen_msg):
     nla_map = (('NFTA_TABLE_UNSPEC', 'none'),
                ('NFTA_TABLE_NAME', 'hex'),
                ('NFTA_TABLE_FLAGS', 'hex'),
                ('NFTA_TABLE_USE', 'hex'))
+
+
+class NFTSocket(NetlinkSocket):
+    '''
+    NFNetlink socket (family=NETLINK_NETFILTER).
+
+    Implements API to the nftables functionality.
+    '''
+    policy = {NFT_MSG_NEWTABLE: nft_table_msg,
+              NFT_MSG_GETTABLE: nft_table_msg,
+              NFT_MSG_DELTABLE: nft_table_msg,
+              NFT_MSG_NEWCHAIN: nft_chain_msg,
+              NFT_MSG_GETCHAIN: nft_chain_msg,
+              NFT_MSG_DELCHAIN: nft_chain_msg,
+              NFT_MSG_NEWRULE: nft_rule_msg,
+              NFT_MSG_GETRULE: nft_rule_msg,
+              NFT_MSG_DELRULE: nft_rule_msg,
+              NFT_MSG_NEWSET: nft_set_msg,
+              NFT_MSG_GETSET: nft_set_msg,
+              NFT_MSG_DELSET: nft_set_msg,
+              NFT_MSG_NEWGEN: nft_gen_msg,
+              NFT_MSG_GETGEN: nft_gen_msg}
+
+    def __init__(self, version=1, attr_revision=0, nfgen_family=2):
+        super(NFTSocket, self).__init__(family=NETLINK_NETFILTER)
+        policy = dict([(x | (NFNL_SUBSYS_NFTABLES << 8), y)
+                       for (x, y) in self.policy.items()])
+        self.register_policy(policy)
+        self._proto_version = version
+        self._attr_revision = attr_revision
+        self._nfgen_family = nfgen_family
+
+    def request(self, msg, msg_type,
+                msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+                terminate=None):
+        msg['nfgen_family'] = self._nfgen_family
+        return self.nlm_request(msg,
+                                msg_type | (NFNL_SUBSYS_NFTABLES << 8),
+                                msg_flags, terminate=terminate)
