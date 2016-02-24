@@ -109,6 +109,7 @@ from pyroute2.netlink.rtnl.req import IPLinkRequest
 from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_htb_class_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
+from pyroute2.netlink.rtnl.tcmsg import get_hfsc_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_sfq_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_u32_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_netem_parameters
@@ -956,6 +957,23 @@ class IPRouteMixin(object):
                 # 0xc0a80000 = 192.168.0.0
                 # 0xffffff00 = 255.255.255.0 (/24)
                 # 16 = Destination network field bit offset
+
+        Simple HFSC example::
+
+            # lookup the interface
+            eth0 = ip.get_links(ifname="eth0")[0]
+            # attach the queue with default class 5
+            ip.tc("add", "hfsc", eth0, default=5)
+
+        Complicates HFSC example with realtime curve parameters::
+
+            ip.tc("add", "hfsc", eth0, default=5, rsc={"m2": "5mbit"})
+
+        HFSC curve nla types:
+
+        * `rsc`: real-time curve
+        * `fsc`: link-share curve
+        * `usc`: upper-limit curve
         '''
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
@@ -993,6 +1011,10 @@ class IPRouteMixin(object):
             msg['parent'] = TC_H_ROOT
             if kwarg:
                 opts = get_tbf_parameters(kwarg)
+        elif kind == 'hfsc':
+            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
+            if kwarg:
+                opts = get_hfsc_parameters(kwarg)
         elif kind == 'htb':
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
             if kwarg:

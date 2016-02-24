@@ -379,6 +379,19 @@ def get_htb_class_parameters(kwarg):
                       ['TCA_HTB_CTAB', True]]}
 
 
+def get_hfsc_parameters(kwarg):
+    defcls = kwarg.get('default', kwarg.get('defcls', 0x10))
+    ret = {'defcls': defcls,
+           'attrs': []}
+    for key in ('rsc', 'fsc', 'usc'):
+        if key in kwarg:
+            ret['attrs'].append(['TCA_HFSC_%s' % key.upper(),
+                                 {'m1': _get_rate(kwarg[key].get('m1', 0)),
+                                  'd': _get_rate(kwarg[key].get('d', 0)),
+                                  'm2': _get_rate(kwarg[key].get('m2', 0))}])
+    return ret
+
+
 def get_htb_parameters(kwarg):
     rate2quantum = kwarg.get('r2q', 0xa)
     version = kwarg.get('version', 3)
@@ -750,13 +763,11 @@ class tcmsg(nlmsg, nla_plus_stats2):
         fields = (('value', 'I'), )
 
     class options_hfsc(nla):
-        nla_map = (('TCA_HFSC_UNSPEC', 'hfsc_qopt'),
+        fields = (('defcls', 'H'),)  # default class
+        nla_map = (('TCA_HFSC_UNSPEC', 'none'),
                    ('TCA_HFSC_RSC', 'hfsc_curve'),  # real-time curve
                    ('TCA_HFSC_FSC', 'hfsc_curve'),  # link-share curve
                    ('TCA_HFSC_USC', 'hfsc_curve'))  # upper-limit curve
-
-        class hfsc_qopt(nla):
-            fields = (('defcls', 'H'),)  # default class
 
         class hfsc_curve(nla):
             fields = (('m1', 'I'),  # slope of the first segment in bps
