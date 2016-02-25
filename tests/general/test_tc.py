@@ -205,6 +205,36 @@ class TestTbf(BasicTest):
         assert parms['rate'] == 27500
 
 
+class TestHfsc(BasicTest):
+
+    def test_hfsc(self):
+        # root queue
+        try_qd('hfsc', self.ip.tc,
+               RTM_NEWQDISC, 'hfsc', self.interface,
+               handle='1:0',
+               default='1:1')
+        qds = self.get_qdiscs()
+        assert len(qds) == 1
+        assert qds[0].get_attr('TCA_KIND') == 'hfsc'
+        assert qds[0].get_attr('TCA_OPTIONS')['defcls'] == 1
+        # classes
+        try_qd('hfsc', self.ip.tc,
+               RTM_NEWTCLASS, 'hfsc', self.interface,
+               handle='1:1',
+               parent='1:0',
+               rsc={'m2': '3mbit'})
+        cls = self.ip.get_classes(index=self.interface)
+        assert len(cls) == 2  # implicit root class + the defined one
+        assert cls[0].get_attr('TCA_KIND') == 'hfsc'
+        assert cls[1].get_attr('TCA_KIND') == 'hfsc'
+        curve = cls[1].get_attr('TCA_OPTIONS').get_attr('TCA_HFSC_RSC')
+        assert curve['m1'] == 0
+        assert curve['d'] == 0
+        assert curve['m2'] == 375000
+        assert cls[1].get_attr('TCA_OPTIONS').get_attr('TCA_HFSC_FSC') is None
+        assert cls[1].get_attr('TCA_OPTIONS').get_attr('TCA_HFSC_USC') is None
+
+
 class TestHtb(BasicTest):
 
     def test_htb(self):
