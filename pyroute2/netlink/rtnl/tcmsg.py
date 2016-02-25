@@ -9,7 +9,8 @@ from pyroute2.common import basestring
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
 from pyroute2.netlink import NLA_F_NESTED
-
+from pyroute2.netlink.rtnl import RTM_NEWQDISC
+from pyroute2.netlink.rtnl import RTM_DELQDISC
 
 TCA_ACT_MAX_PRIO = 32
 
@@ -381,8 +382,11 @@ def get_htb_class_parameters(kwarg):
 
 def get_hfsc_parameters(kwarg):
     defcls = kwarg.get('default', kwarg.get('defcls', 0x10))
-    ret = {'defcls': defcls,
-           'attrs': []}
+    return {'defcls': defcls}
+
+
+def get_hfsc_class_parameters(kwarg):
+    ret = {'attrs': []}
     for key in ('rsc', 'fsc', 'usc'):
         if key in kwarg:
             ret['attrs'].append(['TCA_HFSC_%s' % key.upper(),
@@ -746,7 +750,10 @@ class tcmsg(nlmsg, nla_plus_stats2):
             else:
                 return self.options_sfq_v0
         elif kind == 'hfsc':
-            return self.options_hfsc
+            if self['header']['type'] in (RTM_NEWQDISC, RTM_DELQDISC):
+                return self.options_hfsc
+            else:
+                return self.options_hfsc_class
         elif kind == 'htb':
             return self.options_htb
         elif kind == 'netem':
@@ -764,6 +771,8 @@ class tcmsg(nlmsg, nla_plus_stats2):
 
     class options_hfsc(nla):
         fields = (('defcls', 'H'),)  # default class
+
+    class options_hfsc_class(nla):
         nla_map = (('TCA_HFSC_UNSPEC', 'none'),
                    ('TCA_HFSC_RSC', 'hfsc_curve'),  # real-time curve
                    ('TCA_HFSC_FSC', 'hfsc_curve'),  # link-share curve

@@ -110,6 +110,7 @@ from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_htb_class_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_hfsc_parameters
+from pyroute2.netlink.rtnl.tcmsg import get_hfsc_class_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_sfq_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_u32_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_netem_parameters
@@ -960,14 +961,14 @@ class IPRouteMixin(object):
 
         Simple HFSC example::
 
-            # lookup the interface
             eth0 = ip.get_links(ifname="eth0")[0]
-            # attach the queue with default class 5
-            ip.tc("add", "hfsc", eth0, default=5)
-
-        Complicates HFSC example with realtime curve parameters::
-
-            ip.tc("add", "hfsc", eth0, default=5, rsc={"m2": "5mbit"})
+            ip.tc("add", "hfsc", eth0,
+                  handle="1:",
+                  default="1:1")
+            ip.tc("add-class", "hfsc", eth0,
+                  handle="1:1",
+                  parent="1:0"
+                  rsc={"m2": "5mbit"})
 
         HFSC curve nla types:
 
@@ -1014,7 +1015,12 @@ class IPRouteMixin(object):
         elif kind == 'hfsc':
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
             if kwarg:
-                opts = get_hfsc_parameters(kwarg)
+                if command in (RTM_NEWQDISC, RTM_DELQDISC):
+                    if 'default' in kwarg:
+                        kwarg['default'] &= 0xffff
+                    opts = get_hfsc_parameters(kwarg)
+                elif command in (RTM_NEWTCLASS, RTM_DELTCLASS):
+                    opts = get_hfsc_class_parameters(kwarg)
         elif kind == 'htb':
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
             if kwarg:
