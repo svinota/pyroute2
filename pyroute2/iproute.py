@@ -106,6 +106,7 @@ from pyroute2.netlink.rtnl import rtprotos
 from pyroute2.netlink.rtnl import rtypes
 from pyroute2.netlink.rtnl import rtscopes
 from pyroute2.netlink.rtnl.req import IPLinkRequest
+from pyroute2.netlink.rtnl.tcmsg import get_fq_codel_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_htb_class_parameters
 from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
@@ -1021,6 +1022,10 @@ class IPRouteMixin(object):
                     opts = get_hfsc_parameters(kwarg)
                 elif command in (RTM_NEWTCLASS, RTM_DELTCLASS):
                     opts = get_hfsc_class_parameters(kwarg)
+        elif kind == 'fq_codel':
+            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
+            if kwarg:
+                opts = get_fq_codel_parameters(kwarg)
         elif kind == 'htb':
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
             if kwarg:

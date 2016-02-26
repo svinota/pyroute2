@@ -396,6 +396,16 @@ def get_hfsc_class_parameters(kwarg):
     return ret
 
 
+def get_fq_codel_parameters(kwarg):
+    return {'attrs': [['TCA_FQ_CODEL_UNSPEC', True],
+                      ['TCA_FQ_CODEL_TARGET', True],
+                      ['TCA_FQ_CODEL_LIMIT', True],
+                      ['TCA_FQ_CODEL_INTERVAL', True],
+                      ['TCA_FQ_CODEL_ECN', True],
+                      ['TCA_FQ_CODEL_FLOWS', True],
+                      ['TCA_FQ_CODEL_QUANTUM', True]] }
+
+
 def get_htb_parameters(kwarg):
     rate2quantum = kwarg.get('r2q', 0xa)
     version = kwarg.get('version', 3)
@@ -721,6 +731,8 @@ class tcmsg(nlmsg, nla_plus_stats2):
         kind = self.get_attr('TCA_KIND')
         if kind == 'hfsc':
             return self.stats2_hfsc
+        if kind == 'fq_codel':
+            return self.stats2_fq_codel
         return self.stats2
 
     def get_xstats(self, *argv, **kwarg):
@@ -728,6 +740,29 @@ class tcmsg(nlmsg, nla_plus_stats2):
         if kind == 'htb':
             return self.xstats_htb
         return self.hex
+
+    class stats2_fq_codel(nla):
+        nla_map = (('qdisc_stats', 'fq_codel_qd'),
+                   ('class_stats', 'fq_codel_cl'),)
+
+        fields = (('type', 'I'), )
+
+        class fq_codel_qd(nla):
+            fields = (('maxpacket', 'I'),
+                      ('drop_overlimit', 'I'),
+                      ('ecn_mark', 'I'),
+                      ('new_flow_count', 'I'),
+                      ('new_flows_len', 'I'),
+                      ('old_flows_len', 'I'),
+                      ('ce_mark', 'I'))
+
+        class fq_codel_cl(nla):
+            fields = (('deficit', 'i'),
+                      ('ldelay', 'I'),
+                      ('count', 'I'),
+                      ('lastcount', 'I'),
+                      ('dropping', 'I'),
+                      ('drop_next', 'i'),)
 
     class xstats_htb(nla):
         fields = (('lends', 'I'),
@@ -749,6 +784,8 @@ class tcmsg(nlmsg, nla_plus_stats2):
                 return self.options_sfq_v1
             else:
                 return self.options_sfq_v0
+        elif kind == 'fq_codel':
+            return self.options_fq_codel
         elif kind == 'hfsc':
             if self['header']['type'] in (RTM_NEWQDISC, RTM_DELQDISC):
                 return self.options_hfsc
@@ -768,6 +805,15 @@ class tcmsg(nlmsg, nla_plus_stats2):
 
     class options_ingress(nla):
         fields = (('value', 'I'), )
+
+    class options_fq_codel(nla):
+        nla_map = (('TCA_FQ_CODEL_CE_THRESHOLD', 'uint32'),
+                   ('TCA_FQ_CODEL_TARGET', 'uint32'),
+                   ('TCA_FQ_CODEL_LIMIT', 'uint32'),
+                   ('TCA_FQ_CODEL_INTERVAL', 'uint32'),
+                   ('TCA_FQ_CODEL_ECN', 'uint32'),
+                   ('TCA_FQ_CODEL_FLOWS', 'uint32'),
+                   ('TCA_FQ_CODEL_QUANTUM', 'uint32'),)
 
     class options_hfsc(nla):
         fields = (('defcls', 'H'),)  # default class
