@@ -1,6 +1,7 @@
 import re
 import os
 import struct
+import logging
 
 from pyroute2.common import size_suffixes
 from pyroute2.common import time_suffixes
@@ -396,23 +397,47 @@ def get_hfsc_class_parameters(kwarg):
     return ret
 
 
-def get_fq_codel_parameters(kwarg):
+def get_codel_parameters(kwarg):
+    #
+    # ACHTUNG: experimental code
+    #
+    # Parameters naming scheme WILL be changed in next releases
+    #
     ret = {'attrs': []}
-    transform = {'fqc_limit': None,
-                 'fqc_flows': None,
-                 'fqc_quantum': None,
-                 'fqc_ecn': None,
+    transform = {'cdl_limit': lambda x: x,
+                 'cdl_ecn': lambda x: x,
+                 'cdl_target': _get_time,
+                 'cdl_ce_threshold': _get_time,
+                 'cdl_interval': _get_time}
+    for key in transform.keys():
+        if key in kwarg:
+            logging.warning('codel parameters naming will be changed '
+                            'in next releases (%s)' % key)
+            ret['attrs'].append(['TCA_FQ_CODEL_%s' % key[4:].upper(),
+                                 transform[key](kwarg[key])])
+    return ret
+
+
+def get_fq_codel_parameters(kwarg):
+    #
+    # ACHTUNG: experimental code
+    #
+    # Parameters naming scheme WILL be changed in next releases
+    #
+    ret = {'attrs': []}
+    transform = {'fqc_limit': lambda x: x,
+                 'fqc_flows': lambda x: x,
+                 'fqc_quantum': lambda x: x,
+                 'fqc_ecn': lambda x: x,
                  'fqc_target': _get_time,
                  'fqc_ce_threshold': _get_time,
                  'fqc_interval': _get_time}
     for key in transform.keys():
         if key in kwarg:
-            if transform[key]:
-                ret['attrs'].append(['TCA_FQ_CODEL_%s' % key[4:].upper(),
-                                     transform[key](kwarg[key])])
-            else:
-                ret['attrs'].append(['TCA_FQ_CODEL_%s' % key[4:].upper(),
-                                     kwarg[key]])
+            logging.warning('fq_codel parameters naming will be changed '
+                            'in next releases (%s)' % key)
+            ret['attrs'].append(['TCA_FQ_CODEL_%s' % key[4:].upper(),
+                                 transform[key](kwarg[key])])
     return ret
 
 
