@@ -845,6 +845,61 @@ class nlmsg_base(dict):
             size += struct.calcsize(i[1])
         self.buf.seek(size, 1)
 
+    def decode_fields(self):
+        try:
+            if self.pack == 'struct':
+                names = []
+                formats = []
+                for field in self.fields:
+                    names.append(field[0])
+                    formats.append(field[1])
+                fields = ((','.join(names), ''.join(formats)), )
+            else:
+                fields = self.fields
+
+            for field in fields:
+                name = field[0]
+                fmt = field[1]
+
+                # 's' and 'z' can be used only in connection with
+                # length, encoded in the header
+                if field[1] in ('s', 'z'):
+                    fmt = '%is' % (self.length - 4)
+
+                size = struct.calcsize(fmt)
+                raw = self.buf.read(size)
+                actual_size = len(raw)
+
+                # FIXME: adjust string size again
+                if field[1] in ('s', 'z'):
+                    size = actual_size
+                    fmt = '%is' % (actual_size)
+                if size == actual_size:
+                    value = struct.unpack(fmt, raw)
+                    if len(value) == 1:
+                        self[name] = value[0]
+                        # cut zero-byte from z-strings
+                        # 0x00 -- python3; '\0' -- python2
+                        if field[1] == 'z' and self[name][-1] \
+                                in (0x00, '\0'):
+                            self[name] = self[name][:-1]
+                    else:
+                        if self.pack == 'struct':
+                            names = name.split(',')
+                            values = list(value)
+                            for name in names:
+                                if name[0] != '_':
+                                    self[name] = values.pop(0)
+                        else:
+                            self[name] = value
+
+                else:
+                    # FIXME: log an error
+                    pass
+
+        except Exception as e:
+            raise NetlinkDataDecodeError(e)
+
     def decode(self):
         '''
         Decode the message. The message should have the `buf`
@@ -888,60 +943,8 @@ class nlmsg_base(dict):
                 cell.decode()
                 self.value.append(cell)
         else:
-            # decode the data
-            try:
-                if self.pack == 'struct':
-                    names = []
-                    formats = []
-                    for field in self.fields:
-                        names.append(field[0])
-                        formats.append(field[1])
-                    fields = ((','.join(names), ''.join(formats)), )
-                else:
-                    fields = self.fields
-
-                for field in fields:
-                    name = field[0]
-                    fmt = field[1]
-
-                    # 's' and 'z' can be used only in connection with
-                    # length, encoded in the header
-                    if field[1] in ('s', 'z'):
-                        fmt = '%is' % (self.length - 4)
-
-                    size = struct.calcsize(fmt)
-                    raw = self.buf.read(size)
-                    actual_size = len(raw)
-
-                    # FIXME: adjust string size again
-                    if field[1] in ('s', 'z'):
-                        size = actual_size
-                        fmt = '%is' % (actual_size)
-                    if size == actual_size:
-                        value = struct.unpack(fmt, raw)
-                        if len(value) == 1:
-                            self[name] = value[0]
-                            # cut zero-byte from z-strings
-                            # 0x00 -- python3; '\0' -- python2
-                            if field[1] == 'z' and self[name][-1] \
-                                    in (0x00, '\0'):
-                                self[name] = self[name][:-1]
-                        else:
-                            if self.pack == 'struct':
-                                names = name.split(',')
-                                values = list(value)
-                                for name in names:
-                                    if name[0] != '_':
-                                        self[name] = values.pop(0)
-                            else:
-                                self[name] = value
-
-                    else:
-                        # FIXME: log an error
-                        pass
-
-            except Exception as e:
-                raise NetlinkDataDecodeError(e)
+            # decode data
+            self.decode_fields()
         # decode NLA
         try:
             self.unregister_clean_cb()
