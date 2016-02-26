@@ -397,13 +397,23 @@ def get_hfsc_class_parameters(kwarg):
 
 
 def get_fq_codel_parameters(kwarg):
-    return {'attrs': [['TCA_FQ_CODEL_UNSPEC', True],
-                      ['TCA_FQ_CODEL_TARGET', True],
-                      ['TCA_FQ_CODEL_LIMIT', True],
-                      ['TCA_FQ_CODEL_INTERVAL', True],
-                      ['TCA_FQ_CODEL_ECN', True],
-                      ['TCA_FQ_CODEL_FLOWS', True],
-                      ['TCA_FQ_CODEL_QUANTUM', True]]}
+    ret = {'attrs': []}
+    transform = {'fqc_limit': None,
+                 'fqc_flows': None,
+                 'fqc_quantum': None,
+                 'fqc_ecn': None,
+                 'fqc_target': _get_time,
+                 'fqc_ce_threshold': _get_time,
+                 'fqc_interval': _get_time}
+    for key in transform.keys():
+        if key in kwarg:
+            if transform[key]:
+                ret['attrs'].append(['TCA_FQ_CODEL_%s' % key[4:].upper(),
+                                     transform[key](kwarg[key])])
+            else:
+                ret['attrs'].append(['TCA_FQ_CODEL_%s' % key[4:].upper(),
+                                     kwarg[key]])
+    return ret
 
 
 def get_htb_parameters(kwarg):
@@ -852,13 +862,13 @@ class tcmsg(nlmsg, nla_plus_stats2):
 
     class options_fq_codel(nla):
         nla_map = (('TCA_FQ_CODEL_UNSPEC', 'none'),
-                   ('TCA_FQ_CODEL_CE_THRESHOLD', 'uint32'),
                    ('TCA_FQ_CODEL_TARGET', 'uint32'),
                    ('TCA_FQ_CODEL_LIMIT', 'uint32'),
                    ('TCA_FQ_CODEL_INTERVAL', 'uint32'),
                    ('TCA_FQ_CODEL_ECN', 'uint32'),
                    ('TCA_FQ_CODEL_FLOWS', 'uint32'),
-                   ('TCA_FQ_CODEL_QUANTUM', 'uint32'),)
+                   ('TCA_FQ_CODEL_QUANTUM', 'uint32'),
+                   ('TCA_FQ_CODEL_CE_THRESHOLD', 'uint32'))
 
     class options_hfsc(nla):
         fields = (('defcls', 'H'),)  # default class
