@@ -403,7 +403,7 @@ def get_fq_codel_parameters(kwarg):
                       ['TCA_FQ_CODEL_INTERVAL', True],
                       ['TCA_FQ_CODEL_ECN', True],
                       ['TCA_FQ_CODEL_FLOWS', True],
-                      ['TCA_FQ_CODEL_QUANTUM', True]] }
+                      ['TCA_FQ_CODEL_QUANTUM', True]]}
 
 
 def get_htb_parameters(kwarg):
@@ -571,6 +571,39 @@ class nla_plus_rtab(nla):
         pass
 
 
+class fq_codel_stats(nla):
+
+    TCA_FQ_CODEL_XSTATS_QDISC = 0
+    TCA_FQ_CODEL_XSTATS_CLASS = 1
+
+    qdisc_fields = (('maxpacket', 'I'),
+                    ('drop_overlimit', 'I'),
+                    ('ecn_mark', 'I'),
+                    ('new_flow_count', 'I'),
+                    ('new_flows_len', 'I'),
+                    ('old_flows_len', 'I'),
+                    ('ce_mark', 'I'))
+
+    class_fields = (('deficit', 'i'),
+                    ('ldelay', 'I'),
+                    ('count', 'I'),
+                    ('lastcount', 'I'),
+                    ('dropping', 'I'),
+                    ('drop_next', 'i'))
+
+    def decode(self):
+        nla.decode(self)
+        # read the type
+        kind = struct.unpack('I', self.buf.read(4))[0]
+        if kind == self.TCA_FQ_CODEL_XSTATS_QDISC:
+            self.fields = self.qdisc_fields
+        elif kind == self.TCA_FQ_CODEL_XSTATS_CLASS:
+            self.fields = self.class_fields
+        else:
+            raise TypeError("Unknown xstats type")
+        self.decode_fields()
+
+
 class nla_plus_stats2(object):
     class stats2(nla):
         nla_map = (('TCA_STATS_UNSPEC', 'none'),
@@ -606,6 +639,16 @@ class nla_plus_stats2(object):
                       ('rtwork', 'Q'),  # total work done by real-time criteria
                       ('period', 'I'),  # current period
                       ('level', 'I'))  # class level in hierarchy
+
+    class stats2_fq_codel(stats2):
+        nla_map = (('TCA_STATS_UNSPEC', 'none'),
+                   ('TCA_STATS_BASIC', 'basic'),
+                   ('TCA_STATS_RATE_EST', 'rate_est'),
+                   ('TCA_STATS_QUEUE', 'queue'),
+                   ('TCA_STATS_APP', 'stats_app_fq_codel'))
+
+        class stats_app_fq_codel(fq_codel_stats):
+            pass
 
 
 class nla_plus_police(object):
@@ -739,30 +782,9 @@ class tcmsg(nlmsg, nla_plus_stats2):
         kind = self.get_attr('TCA_KIND')
         if kind == 'htb':
             return self.xstats_htb
+        if kind == 'fq_codel':
+            return fq_codel_stats
         return self.hex
-
-    class stats2_fq_codel(nla):
-        nla_map = (('qdisc_stats', 'fq_codel_qd'),
-                   ('class_stats', 'fq_codel_cl'),)
-
-        fields = (('type', 'I'), )
-
-        class fq_codel_qd(nla):
-            fields = (('maxpacket', 'I'),
-                      ('drop_overlimit', 'I'),
-                      ('ecn_mark', 'I'),
-                      ('new_flow_count', 'I'),
-                      ('new_flows_len', 'I'),
-                      ('old_flows_len', 'I'),
-                      ('ce_mark', 'I'))
-
-        class fq_codel_cl(nla):
-            fields = (('deficit', 'i'),
-                      ('ldelay', 'I'),
-                      ('count', 'I'),
-                      ('lastcount', 'I'),
-                      ('dropping', 'I'),
-                      ('drop_next', 'i'),)
 
     class xstats_htb(nla):
         fields = (('lends', 'I'),
@@ -807,7 +829,8 @@ class tcmsg(nlmsg, nla_plus_stats2):
         fields = (('value', 'I'), )
 
     class options_fq_codel(nla):
-        nla_map = (('TCA_FQ_CODEL_CE_THRESHOLD', 'uint32'),
+        nla_map = (('TCA_FQ_CODEL_UNSPEC', 'none'),
+                   ('TCA_FQ_CODEL_CE_THRESHOLD', 'uint32'),
                    ('TCA_FQ_CODEL_TARGET', 'uint32'),
                    ('TCA_FQ_CODEL_LIMIT', 'uint32'),
                    ('TCA_FQ_CODEL_INTERVAL', 'uint32'),
