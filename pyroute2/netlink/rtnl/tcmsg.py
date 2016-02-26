@@ -571,6 +571,18 @@ class nla_plus_rtab(nla):
         pass
 
 
+class codel_stats(nla):
+    fields = (('maxpacket', 'I'),
+              ('count', 'I'),
+              ('lastcount', 'I'),
+              ('ldelay', 'I'),
+              ('drop_next', 'I'),
+              ('drop_overlimit', 'I'),
+              ('ecn_mark', 'I'),
+              ('dropping', 'I'),
+              ('ce_mark', 'I'))
+
+
 class fq_codel_stats(nla):
 
     TCA_FQ_CODEL_XSTATS_QDISC = 0
@@ -610,7 +622,7 @@ class nla_plus_stats2(object):
                    ('TCA_STATS_BASIC', 'basic'),
                    ('TCA_STATS_RATE_EST', 'rate_est'),
                    ('TCA_STATS_QUEUE', 'queue'),
-                   ('TCA_STATS_APP', 'hex'))
+                   ('TCA_STATS_APP', 'stats_app'))
 
         class basic(nla):
             fields = (('bytes', 'Q'),
@@ -627,27 +639,23 @@ class nla_plus_stats2(object):
                       ('requeues', 'I'),
                       ('overlimits', 'I'))
 
-    class stats2_hfsc(stats2):
-        nla_map = (('TCA_STATS_UNSPEC', 'none'),
-                   ('TCA_STATS_BASIC', 'basic'),
-                   ('TCA_STATS_RATE_EST', 'rate_est'),
-                   ('TCA_STATS_QUEUE', 'queue'),
-                   ('TCA_STATS_APP', 'stats_app_hfsc'))
+        class stats_app(nla):
+            pass
 
-        class stats_app_hfsc(nla):
+    class stats2_hfsc(stats2):
+
+        class stats_app(nla):
             fields = (('work', 'Q'),  # total work done
                       ('rtwork', 'Q'),  # total work done by real-time criteria
                       ('period', 'I'),  # current period
                       ('level', 'I'))  # class level in hierarchy
 
-    class stats2_fq_codel(stats2):
-        nla_map = (('TCA_STATS_UNSPEC', 'none'),
-                   ('TCA_STATS_BASIC', 'basic'),
-                   ('TCA_STATS_RATE_EST', 'rate_est'),
-                   ('TCA_STATS_QUEUE', 'queue'),
-                   ('TCA_STATS_APP', 'stats_app_fq_codel'))
+    class stats2_codel(stats2):
+        class stats_app(codel_stats):
+            pass
 
-        class stats_app_fq_codel(fq_codel_stats):
+    class stats2_fq_codel(stats2):
+        class stats_app(fq_codel_stats):
             pass
 
 
@@ -774,7 +782,9 @@ class tcmsg(nlmsg, nla_plus_stats2):
         kind = self.get_attr('TCA_KIND')
         if kind == 'hfsc':
             return self.stats2_hfsc
-        if kind == 'fq_codel':
+        elif kind == 'codel':
+            return self.stats2_codel
+        elif kind == 'fq_codel':
             return self.stats2_fq_codel
         return self.stats2
 
@@ -782,7 +792,9 @@ class tcmsg(nlmsg, nla_plus_stats2):
         kind = self.get_attr('TCA_KIND')
         if kind == 'htb':
             return self.xstats_htb
-        if kind == 'fq_codel':
+        elif kind == 'codel':
+            return codel_stats
+        elif kind == 'fq_codel':
             return fq_codel_stats
         return self.hex
 
@@ -806,6 +818,8 @@ class tcmsg(nlmsg, nla_plus_stats2):
                 return self.options_sfq_v1
             else:
                 return self.options_sfq_v0
+        elif kind == 'codel':
+            return self.options_codel
         elif kind == 'fq_codel':
             return self.options_fq_codel
         elif kind == 'hfsc':
@@ -827,6 +841,14 @@ class tcmsg(nlmsg, nla_plus_stats2):
 
     class options_ingress(nla):
         fields = (('value', 'I'), )
+
+    class options_codel(nla):
+        nla_map = (('TCA_CODEL_UNSPEC', 'none'),
+                   ('TCA_CODEL_TARGET', 'uint32'),
+                   ('TCA_CODEL_LIMIT', 'uint32'),
+                   ('TCA_CODEL_INTERVAL', 'uint32'),
+                   ('TCA_CODEL_ECN', 'uint32'),
+                   ('TCA_CODEL_CE_THRESHOLD', 'uint32'))
 
     class options_fq_codel(nla):
         nla_map = (('TCA_FQ_CODEL_UNSPEC', 'none'),
