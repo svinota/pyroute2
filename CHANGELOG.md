@@ -1,6 +1,16 @@
 changelog
 =========
 
+* 0.3.16
+    * ipdb: fix the multiple IPs in one commit case
+    * rtnl: support veth peer attributes
+    * netns: support 32bit i686
+    * netns: fix MIPS support
+    * netns: fix tun/tap creation
+    * netns: fix interface move between namespaces
+    * tcmsg: support hfsc, fq_codel, codel qdiscs
+    * nftables: initial support
+    * netlink: dump/load messages to/from simple types
 * 0.3.15
     * netns: #194 -- fix fd leak
     * iproute: #184 -- fix routes dump
