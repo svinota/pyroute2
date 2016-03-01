@@ -27,6 +27,7 @@ _modules = {'IPRoute': 'pyroute2.iproute',
             'NL80211': 'pyroute2.netlink.nl80211',
             'IPQSocket': 'pyroute2.netlink.ipq',
             'GenericNetlinkSocket': 'pyroute2.netlink.generic',
+            'NFTSocket': 'pyroute2.netlink.nfnetlink.nftables',
             'NetlinkError': 'pyroute2.netlink'}
 
 _DISCLAIMER = '''\n\nNotice:\n

@@ -84,9 +84,9 @@ class nft_set_msg(nfgen_msg):
 
 class nft_table_msg(nfgen_msg):
     nla_map = (('NFTA_TABLE_UNSPEC', 'none'),
-               ('NFTA_TABLE_NAME', 'hex'),
-               ('NFTA_TABLE_FLAGS', 'hex'),
-               ('NFTA_TABLE_USE', 'hex'))
+               ('NFTA_TABLE_NAME', 'asciiz'),
+               ('NFTA_TABLE_FLAGS', 'be32'),
+               ('NFTA_TABLE_USE', 'be32'))
 
 
 class NFTSocket(NetlinkSocket):
@@ -126,3 +126,15 @@ class NFTSocket(NetlinkSocket):
         return self.nlm_request(msg,
                                 msg_type | (NFNL_SUBSYS_NFTABLES << 8),
                                 msg_flags, terminate=terminate)
+
+    def get_tables(self):
+        return self.request(nfgen_msg(), NFT_MSG_GETTABLE)
+
+    def get_chains(self):
+        return self.request(nfgen_msg(), NFT_MSG_GETCHAIN)
+
+    def get_rules(self):
+        return self.request(nfgen_msg(), NFT_MSG_GETRULE)
+
+    def get_sets(self):
+        return self.request(nfgen_msg(), NFT_MSG_GETSET)
