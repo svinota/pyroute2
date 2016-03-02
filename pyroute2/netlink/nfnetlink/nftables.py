@@ -59,10 +59,65 @@ class nft_rule_msg(nfgen_msg):
                ('NFTA_RULE_TABLE', 'asciiz'),
                ('NFTA_RULE_CHAIN', 'asciiz'),
                ('NFTA_RULE_HANDLE', 'be64'),
-               ('NFTA_RULE_EXPRESSIONS', 'hex'),
+               ('NFTA_RULE_EXPRESSIONS', '*rule_expr'),
                ('NFTA_RULE_COMPAT', 'hex'),
                ('NFTA_RULE_POSITION', 'be64'),
                ('NFTA_RULE_USERDATA', 'hex'))
+
+    class rule_expr(nla):
+        nla_map = (('NFTA_EXPR_UNSPEC', 'none'),
+                   ('NFTA_EXPR_NAME', 'asciiz'),
+                   ('NFTA_EXPR_DATA', 'expr'))
+
+        class attr_meta(nla):
+            nla_map = (('NFTA_META_UNSPEC', 'none'),
+                       ('NFTA_META_DREG', 'be32'),
+                       ('NFTA_META_KEY', 'be32'),
+                       ('NFTA_META_SREG', 'be32'))
+
+        class attr_cmp(nla):
+            nla_map = (('NFTA_CMP_UNSPEC', 'none'),
+                       ('NFTA_CMP_SREG', 'be32'),
+                       ('NFTA_CMP_OP', 'ops'),
+                       ('NFTA_CMP_DATA', 'data'))
+
+            class data(nla):
+                nla_map = (('NFTA_DATA_UNSPEC', 'none'),
+                           ('NFTA_DATA_VALUE', 'cdata'),
+                           ('NFTA_DATA_VERDICT', 'verdict'))
+
+                class verdict(nla):
+                    nla_map = (('NFTA_VERDICT_UNSPEC', 'none'),
+                               ('NFTA_VERDICT_CODE', 'be32'),
+                               ('NFTA_VERDICT_CHAIN', 'asciiz'))
+
+            class ops(nla):
+                ops = {0: 'NFT_CMP_EQ',
+                       1: 'NFT_CMP_NEQ',
+                       2: 'NFT_CMP_LT',
+                       3: 'NFT_CMP_LTE',
+                       4: 'NFT_CMP_GT',
+                       5: 'NFT_CMP_GTE'}
+
+                fields = [('value', '>I')]
+
+                def decode(self):
+                    nla.decode(self)
+                    self.value = self.ops[self['value']]
+
+        class attr_queue(nla):
+            nla_map = (('NFTA_QUEUE_UNSPEC', 'none'),
+                       ('NFTA_QUEUE_NUM', 'be16'),
+                       ('NFTA_QUEUE_TOTAL', 'be16'),
+                       ('NFTA_QUEUE_FLAGS', 'be16'))
+
+        data_map = {'cmp': attr_cmp,
+                    'meta': attr_meta,
+                    'queue': attr_queue}
+
+        def expr(self, *argv, **kwarg):
+            data_type = self.get_attr('NFTA_EXPR_NAME')
+            return getattr(self, 'attr_%s' % data_type, self.hex)
 
 
 class nft_set_msg(nfgen_msg):
