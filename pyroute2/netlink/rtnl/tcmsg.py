@@ -26,6 +26,8 @@ TC_RED_ECN = 1
 TC_RED_HARDDROP = 2
 TC_RED_ADAPTATIVE = 4
 
+TCA_BPF_FLAG_ACT_DIRECT = 1
+
 TIME_UNITS_PER_SEC = 1000000
 
 _psched = open('/proc/net/psched', 'r')
@@ -283,6 +285,7 @@ def get_bpf_parameters(kwarg):
         ('classid', 'TCA_BPF_CLASSID'),
         ('fd', 'TCA_BPF_FD'),
         ('name', 'TCA_BPF_NAME'),
+        ('flags', 'TCA_BPF_FLAGS'),
     )
 
     act = kwarg.get('action')
@@ -294,6 +297,10 @@ def get_bpf_parameters(kwarg):
             'TCA_BPF_POLICE',
             {'attrs': _get_filter_police_parameter(kwarg)}
         ])
+
+    kwarg['flags'] = kwarg.get('flags', 0)
+    if kwarg.get('direct_action', False):
+        kwarg['flags'] |= TCA_BPF_FLAG_ACT_DIRECT
 
     for k, v in attrs_map:
         r = kwarg.get(k, None)
@@ -990,7 +997,8 @@ class tcmsg(nlmsg, nla_plus_stats2):
                    ('TCA_BPF_OPS_LEN', 'uint32'),
                    ('TCA_BPF_OPS', 'uint32'),
                    ('TCA_BPF_FD', 'uint32'),
-                   ('TCA_BPF_NAME', 'asciiz'))
+                   ('TCA_BPF_NAME', 'asciiz'),
+                   ('TCA_BPF_FLAGS', 'uint32'))
 
         class bpf_act(nla):
             nla_flags = NLA_F_NESTED

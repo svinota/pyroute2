@@ -101,6 +101,7 @@ from pyroute2.netlink.rtnl import RTM_DELNEIGH
 from pyroute2.netlink.rtnl import RTM_SETLINK
 from pyroute2.netlink.rtnl import RTM_GETNEIGHTBL
 from pyroute2.netlink.rtnl import TC_H_INGRESS
+from pyroute2.netlink.rtnl import TC_H_CLSACT
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rtprotos
 from pyroute2.netlink.rtnl import rtypes
@@ -977,6 +978,26 @@ class IPRouteMixin(object):
         * `rsc`: real-time curve
         * `fsc`: link-share curve
         * `usc`: upper-limit curve
+
+        The clsact qdisc provides a mechanism to attach integrated
+        filter-action classifiers to an interface, either at ingress or egress,
+        or both. The use case shown here is using a bpf program (implemented
+        elsewhere) to direct the packet processing. The example also uses the
+        direct-action feature to specify what to do with each packet (pass,
+        drop, redirect, etc.).
+
+        BPF ingress/egress example using clsact qdisc::
+
+            # open_bpf_fd is outside the scope of pyroute2
+            #fd = open_bpf_fd()
+            eth0 = ip.get_links(ifname="eth0")[0]
+            ip.tc("add", "clsact", eth0)
+            # add ingress clsact
+            ip.tc("add-filter", "bpf", idx, ":1", fd=fd, name="myprog",
+                  parent="ffff:fff2", classid=1, direct_action=True)
+            # add egress clsact
+            ip.tc("add-filter", "bpf", idx, ":1", fd=fd, name="myprog",
+                  parent="ffff:fff3", classid=1, direct_action=True)
         '''
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
@@ -1064,6 +1085,9 @@ class IPRouteMixin(object):
                 ((kwarg.get('prio', 0) << 16) & 0xffff0000)
             if kwarg:
                 opts = get_bpf_parameters(kwarg)
+        elif kind == 'clsact':
+            msg['parent'] = TC_H_CLSACT
+            msg['handle'] = 0xffff0000
         else:
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
 
