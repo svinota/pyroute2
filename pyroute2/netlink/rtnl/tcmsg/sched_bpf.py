@@ -2,12 +2,12 @@ from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink import NLA_F_NESTED
 from pyroute2.protocols import ETH_P_ALL
-from common import nla_plus_police
-from common import nla_plus_tca_act_opt
 from common import stats2
 from common import TCA_ACT_MAX_PRIO
-from common import get_tca_action
-from common import get_filter_police_parameter
+from common_act import get_tca_action
+from common_act import nla_plus_tca_act_opt
+from act_police import nla_plus_police
+from act_police import get_parameters as ap_parameters
 from socket import htons
 
 parent = TC_H_ROOT
@@ -35,10 +35,7 @@ def get_parameters(kwarg):
         ret['attrs'].append(['TCA_BPF_ACT', get_tca_action(kwarg)])
 
     if kwarg.get('rate'):
-        ret['attrs'].append([
-            'TCA_BPF_POLICE',
-            {'attrs': get_filter_police_parameter(kwarg)}
-        ])
+        ret['attrs'].append(['TCA_BPF_POLICE', ap_parameters(kwarg)])
 
     kwarg['flags'] = kwarg.get('flags', 0)
     if kwarg.get('direct_action', False):

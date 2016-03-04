@@ -6,7 +6,6 @@ from pyroute2.common import time_suffixes
 from pyroute2.common import rate_suffixes
 from pyroute2.common import basestring
 from pyroute2.netlink import nla
-from pyroute2.netlink import NLA_F_NESTED
 
 LINKLAYER_UNSPEC = 0
 LINKLAYER_ETHERNET = 1
@@ -146,75 +145,11 @@ def get_rate_parameters(kwarg):
             'limit': int(limit)}
 
 
-def get_filter_police_parameter(kwarg):
-    # if no limit specified, set it to zero to make
-    # the next call happy
-    kwarg['limit'] = kwarg.get('limit', 0)
-    tbfp = get_rate_parameters(kwarg)
-    # create an alias -- while TBF uses 'buffer', rate
-    # policy uses 'burst'
-    tbfp['burst'] = tbfp['buffer']
-    # action resolver
-    actions = nla_plus_police.police.police_tbf.actions
-    tbfp['action'] = actions[kwarg.get('action', 'reclassify')]
-    police = [['TCA_POLICE_TBF', tbfp],
-              ['TCA_POLICE_RATE', True]]
-    return police
-
-
-def get_act_gact_parms(kwarg):
-    ret = {'attrs': []}
-    actions = nla_plus_tca_act_opt.tca_gact_opt.tca_gact_parms.actions
-    a = actions[kwarg.get('action', 'drop')]
-    ret['attrs'].append(['TCA_GACT_PARMS', {'action': a}])
-    return ret
-
-
-def get_act_bpf_parms(kwarg):
-    ret = {'attrs': []}
-    if 'fd' in kwarg:
-        ret['attrs'].append(['TCA_ACT_BPF_FD', kwarg['fd']])
-    if 'name' in kwarg:
-        ret['attrs'].append(['TCA_ACT_BPF_NAME', kwarg['name']])
-    actions = nla_plus_tca_act_opt.tca_gact_opt.tca_gact_parms.actions
-    a = actions[kwarg.get('action', 'drop')]
-    ret['attrs'].append(['TCA_ACT_BPF_PARMS', {'action': a}])
-    return ret
-
-
-def get_act_parms(kwarg):
-    if 'kind' not in kwarg:
-        raise Exception('action requires "kind" parameter')
-
-    if kwarg['kind'] == 'gact':
-        return get_act_gact_parms(kwarg)
-    elif kwarg['kind'] == 'bpf':
-        return get_act_bpf_parms(kwarg)
-    elif kwarg['kind'] == 'police':
-        return {'attrs': get_filter_police_parameter(kwarg)}
-
-    return []
-
-
-# All filters can use any act type, this is a generic parser for all
-def get_tca_action(kwarg):
-    ret = {'attrs': []}
-
-    act = kwarg.get('action', 'drop')
-
-    # convert simple action='..' to kwarg style
-    if isinstance(act, str):
-        act = {'kind': 'gact', 'action': act}
-
-    # convert single dict action to first entry in a list of actions
-    acts = act if isinstance(act, list) else [act]
-
-    for i, act in enumerate(acts, start=1):
-        opt = {'attrs': [['TCA_ACT_KIND', act['kind']],
-                         ['TCA_ACT_OPTIONS', get_act_parms(act)]]}
-        ret['attrs'].append(['TCA_ACT_PRIO_%d' % i, opt])
-
-    return ret
+tc_actions = {'unspec': -1,     # TC_ACT_UNSPEC
+              'ok': 0,          # TC_ACT_OK
+              'shot': 2,        # TC_ACT_SHOT
+              'drop': 2,        # TC_ACT_SHOT
+              'pipe': 3}        # TC_ACT_PIPE
 
 
 class nla_plus_rtab(nla):
@@ -322,90 +257,3 @@ class stats2(nla):
 
     class stats_app(nla.hex):
         pass
-
-
-class nla_plus_police(object):
-    class police(nla_plus_rtab):
-        nla_map = (('TCA_POLICE_UNSPEC', 'none'),
-                   ('TCA_POLICE_TBF', 'police_tbf'),
-                   ('TCA_POLICE_RATE', 'rtab'),
-                   ('TCA_POLICE_PEAKRATE', 'ptab'),
-                   ('TCA_POLICE_AVRATE', 'uint32'),
-                   ('TCA_POLICE_RESULT', 'uint32'))
-
-        class police_tbf(nla_plus_rtab.parms):
-            fields = (('index', 'I'),
-                      ('action', 'i'),
-                      ('limit', 'I'),
-                      ('burst', 'I'),
-                      ('mtu', 'I'),
-                      ('rate_cell_log', 'B'),
-                      ('rate___reserved', 'B'),
-                      ('rate_overhead', 'H'),
-                      ('rate_cell_align', 'h'),
-                      ('rate_mpu', 'H'),
-                      ('rate', 'I'),
-                      ('peak_cell_log', 'B'),
-                      ('peak___reserved', 'B'),
-                      ('peak_overhead', 'H'),
-                      ('peak_cell_align', 'h'),
-                      ('peak_mpu', 'H'),
-                      ('peak', 'I'),
-                      ('refcnt', 'i'),
-                      ('bindcnt', 'i'),
-                      ('capab', 'I'))
-
-            actions = {'unspec': -1,     # TC_POLICE_UNSPEC
-                       'ok': 0,          # TC_POLICE_OK
-                       'reclassify': 1,  # TC_POLICE_RECLASSIFY
-                       'shot': 2,        # TC_POLICE_SHOT
-                       'drop': 2,        # TC_POLICE_SHOT
-                       'pipe': 3}        # TC_POLICE_PIPE
-
-
-class nla_plus_tca_act_opt(object):
-    def get_act_options(self, *argv, **kwarg):
-        kind = self.get_attr('TCA_ACT_KIND')
-        if kind == 'bpf':
-            return self.tca_act_bpf_opt
-        elif kind == 'gact':
-            return self.tca_gact_opt
-        elif kind == 'police':
-            return nla_plus_police.police
-        return self.hex
-
-    class tca_act_bpf_opt(nla):
-        nla_map = (('TCA_ACT_BPF_UNSPEC', 'none'),
-                   ('TCA_ACT_BPF_TM,', 'none'),
-                   ('TCA_ACT_BPF_PARMS', 'tca_act_bpf_parms'),
-                   ('TCA_ACT_BPF_OPS_LEN', 'uint16'),
-                   ('TCA_ACT_BPF_OPS', 'hex'),
-                   ('TCA_ACT_BPF_FD', 'uint32'),
-                   ('TCA_ACT_BPF_NAME', 'asciiz'))
-
-        class tca_act_bpf_parms(nla):
-            fields = (('index', 'I'),
-                      ('capab', 'I'),
-                      ('action', 'i'),
-                      ('refcnt', 'i'),
-                      ('bindcnt', 'i'))
-
-    class tca_gact_opt(nla):
-        nla_flags = NLA_F_NESTED
-        nla_map = (('TCA_GACT_UNSPEC', 'none'),
-                   ('TCA_GACT_TM', 'none'),
-                   ('TCA_GACT_PARMS', 'tca_gact_parms'),
-                   ('TCA_GACT_PROB', 'none'))
-
-        class tca_gact_parms(nla):
-            fields = (('index', 'I'),
-                      ('capab', 'I'),
-                      ('action', 'i'),
-                      ('refcnt', 'i'),
-                      ('bindcnt', 'i'))
-
-            actions = {'unspec': -1,     # TC_ACT_UNSPEC
-                       'ok': 0,          # TC_ACT_OK
-                       'shot': 2,        # TC_ACT_SHOT
-                       'drop': 2,        # TC_ACT_SHOT
-                       'pipe': 3}        # TC_ACT_PIPE

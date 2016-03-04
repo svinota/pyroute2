@@ -1,11 +1,11 @@
 import struct
 from socket import htons
 from common import stats2
-from common import nla_plus_police
-from common import nla_plus_tca_act_opt
-from common import get_tca_action
-from common import get_filter_police_parameter
 from common import TCA_ACT_MAX_PRIO
+from common_act import get_tca_action
+from common_act import nla_plus_tca_act_opt
+from act_police import nla_plus_police
+from act_police import get_parameters as ap_parameters
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 
@@ -19,10 +19,7 @@ def get_parameters(kwarg):
     ret = {'attrs': []}
 
     if kwarg.get('rate'):
-        ret['attrs'].append([
-            'TCA_U32_POLICE',
-            {'attrs': get_filter_police_parameter(kwarg)}
-        ])
+        ret['attrs'].append(['TCA_U32_POLICE', ap_parameters(kwarg)])
     elif kwarg.get('action'):
         ret['attrs'].append(['TCA_U32_ACT', get_tca_action(kwarg)])
 

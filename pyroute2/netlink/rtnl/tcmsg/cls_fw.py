@@ -1,6 +1,6 @@
 from socket import htons
-from common import nla_plus_police
-from common import get_filter_police_parameter
+from act_police import nla_plus_police
+from act_police import get_parameters as ap_parameters
 
 
 def fix_msg(msg, kwarg):
@@ -14,16 +14,13 @@ def get_parameters(kwarg):
         ('classid', 'TCA_FW_CLASSID'),
         ('act', 'TCA_FW_ACT'),
         # ('police', 'TCA_FW_POLICE'),
-        # Handled in get_filter_police_parameter
+        # Handled in ap_parameters
         ('indev', 'TCA_FW_INDEV'),
         ('mask', 'TCA_FW_MASK'),
     )
 
     if kwarg.get('rate'):
-        ret['attrs'].append([
-            'TCA_FW_POLICE',
-            {'attrs': get_filter_police_parameter(kwarg)}
-        ])
+        ret['attrs'].append(['TCA_FW_POLICE', ap_parameters(kwarg)])
 
     for k, v in attrs_map:
         r = kwarg.get(k, None)
