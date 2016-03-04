@@ -58,7 +58,6 @@ classes
 import errno
 import types
 import logging
-from socket import htons
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
@@ -100,26 +99,12 @@ from pyroute2.netlink.rtnl import RTM_GETNEIGH
 from pyroute2.netlink.rtnl import RTM_DELNEIGH
 from pyroute2.netlink.rtnl import RTM_SETLINK
 from pyroute2.netlink.rtnl import RTM_GETNEIGHTBL
-from pyroute2.netlink.rtnl import TC_H_INGRESS
-from pyroute2.netlink.rtnl import TC_H_CLSACT
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rtprotos
 from pyroute2.netlink.rtnl import rtypes
 from pyroute2.netlink.rtnl import rtscopes
 from pyroute2.netlink.rtnl.req import IPLinkRequest
-from pyroute2.netlink.rtnl.tcmsg import get_plug_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_codel_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_fq_codel_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_htb_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_htb_class_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_tbf_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_hfsc_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_hfsc_class_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_sfq_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_u32_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_netem_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_fw_parameters
-from pyroute2.netlink.rtnl.tcmsg import get_bpf_parameters
+from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
@@ -131,7 +116,6 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
 from pyroute2.netlink.rtnl.iprsocket import RawIPRSocket
-from pyroute2.protocols import ETH_P_ALL
 
 from pyroute2.common import basestring
 from pyroute2.common import getbroadcast
@@ -1029,70 +1013,19 @@ class IPRouteMixin(object):
         msg['index'] = index
         msg['handle'] = handle
         opts = kwarg.get('opts', None)
-        if kind == 'ingress':
-            msg['parent'] = TC_H_INGRESS
-            msg['handle'] = 0xffff0000
-        elif kind == 'tbf':
-            msg['parent'] = TC_H_ROOT
+        ##
+        #
+        #
+        if kind in tc_plugins:
+            p = tc_plugins[kind]
+            msg['parent'] = kwarg.pop('parent', getattr(p, 'parent', 0))
+            if hasattr(p, 'fix_msg'):
+                p.fix_msg(msg, kwarg)
             if kwarg:
-                opts = get_tbf_parameters(kwarg)
-        elif kind == 'hfsc':
-            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
-            if kwarg:
-                if command in (RTM_NEWQDISC, RTM_DELQDISC):
-                    if 'default' in kwarg:
-                        kwarg['default'] &= 0xffff
-                    opts = get_hfsc_parameters(kwarg)
-                elif command in (RTM_NEWTCLASS, RTM_DELTCLASS):
-                    opts = get_hfsc_class_parameters(kwarg)
-        elif kind == 'plug':
-            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
-            if kwarg:
-                opts = get_plug_parameters(kwarg)
-        elif kind == 'codel':
-            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
-            if kwarg:
-                opts = get_codel_parameters(kwarg)
-        elif kind == 'fq_codel':
-            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
-            if kwarg:
-                opts = get_fq_codel_parameters(kwarg)
-        elif kind == 'htb':
-            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
-            if kwarg:
-                if command in (RTM_NEWQDISC, RTM_DELQDISC):
-                    opts = get_htb_parameters(kwarg)
-                elif command in (RTM_NEWTCLASS, RTM_DELTCLASS):
-                    opts = get_htb_class_parameters(kwarg)
-        elif kind == 'netem':
-            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
-            if kwarg:
-                opts = get_netem_parameters(kwarg)
-        elif kind == 'sfq':
-            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
-            if kwarg:
-                opts = get_sfq_parameters(kwarg)
-        elif kind == 'u32':
-            msg['parent'] = kwarg.get('parent')
-            msg['info'] = htons(kwarg.get('protocol', 0) & 0xffff) |\
-                ((kwarg.get('prio', 0) << 16) & 0xffff0000)
-            if kwarg:
-                opts = get_u32_parameters(kwarg)
-        elif kind == 'fw':
-            msg['parent'] = kwarg.get('parent')
-            msg['info'] = htons(kwarg.get('protocol', 0) & 0xffff) |\
-                ((kwarg.get('prio', 0) << 16) & 0xffff0000)
-            if kwarg:
-                opts = get_fw_parameters(kwarg)
-        elif kind == 'bpf':
-            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
-            msg['info'] = htons(kwarg.get('protocol', ETH_P_ALL) & 0xffff) |\
-                ((kwarg.get('prio', 0) << 16) & 0xffff0000)
-            if kwarg:
-                opts = get_bpf_parameters(kwarg)
-        elif kind == 'clsact':
-            msg['parent'] = TC_H_CLSACT
-            msg['handle'] = 0xffff0000
+                if command in (RTM_NEWTCLASS, RTM_DELTCLASS):
+                    opts = p.get_class_parameters(kwarg)
+                else:
+                    opts = p.get_parameters(kwarg)
         else:
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
 
