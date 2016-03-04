@@ -178,6 +178,24 @@ class TestPfifo(BasicTest):
         assert isinstance(qds.get_attr('TCA_OPTIONS')['priomap'], tuple)
 
 
+class TestCodel(BasicTest):
+
+    def test_codel(self):
+        try_qd('codel', self.ip.tc,
+               RTM_NEWQDISC, 'codel', self.interface,
+               handle='1:0',
+               cdl_interval='40ms',
+               cdl_target='2ms',
+               cdl_limit=5000,
+               cdl_ecn=1)
+        qds = self.get_qdisc()
+        assert qds
+        assert qds.get_attr('TCA_KIND') == 'codel'
+        opts = qds.get_attr('TCA_OPTIONS')
+        assert opts.get_attr('TCA_CODEL_ECN') == 1
+        assert opts.get_attr('TCA_CODEL_LIMIT') == 5000
+
+
 class TestPlug(BasicTest):
 
     def test_plug(self):
