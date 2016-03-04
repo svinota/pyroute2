@@ -178,6 +178,16 @@ class TestPfifo(BasicTest):
         assert isinstance(qds.get_attr('TCA_OPTIONS')['priomap'], tuple)
 
 
+class TestPlug(BasicTest):
+
+    def test_plug(self):
+        try_qd('plug', self.ip.tc,
+               RTM_NEWQDISC, 'plug', self.interface, limit=13107)
+        qds = self.get_qdisc()
+        assert qds
+        assert qds.get_attr('TCA_KIND') == 'plug'
+
+
 class TestSfq(BasicTest):
 
     def test_sfq(self):

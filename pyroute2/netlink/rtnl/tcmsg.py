@@ -310,6 +310,18 @@ def get_bpf_parameters(kwarg):
     return ret
 
 
+def get_plug_parameters(kwarg):
+    actions = {'TCQ_PLUG_BUFFER': 0,
+               'TCQ_PLUG_RELEASE_ONE': 1,
+               'TCQ_PLUG_RELEASE_INDEFINITE': 2,
+               'TCQ_PLUG_LIMIT': 3}
+
+    action = actions.get(kwarg.get('action', 0), 0)
+    limit = kwarg.get('limit', 0)
+    return {'action': action,
+            'limit': limit}
+
+
 def get_sfq_parameters(kwarg):
     kwarg['quantum'] = _get_size(kwarg.get('quantum', 0))
     kwarg['perturb_period'] = kwarg.get('perturb', 0) or \
@@ -855,6 +867,8 @@ class tcmsg(nlmsg, nla_plus_stats2):
             return self.options_pfifo_fast
         elif kind == 'tbf':
             return self.options_tbf
+        elif kind == 'plug':
+            return self.options_plug
         elif kind == 'sfq':
             if kwarg.get('length', 0) >= self.options_sfq_v1.get_size():
                 return self.options_sfq_v1
@@ -1197,6 +1211,10 @@ class tcmsg(nlmsg, nla_plus_stats2):
                       ('limit', 'I'),
                       ('buffer', 'I'),
                       ('mtu', 'I'))
+
+    class options_plug(nla):
+        fields = (('action', 'i'),
+                  ('limit', 'I'))
 
     class options_sfq_v0(nla):
         fields = (('quantum', 'I'),
