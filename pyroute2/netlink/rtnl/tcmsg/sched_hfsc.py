@@ -1,4 +1,24 @@
+'''
+hfsc
+++++
 
+Simple HFSC example::
+
+    eth0 = ip.get_links(ifname="eth0")[0]
+    ip.tc("add", "hfsc", eth0,
+          handle="1:",
+          default="1:1")
+    ip.tc("add-class", "hfsc", eth0,
+          handle="1:1",
+          parent="1:0"
+          rsc={"m2": "5mbit"})
+
+HFSC curve nla types:
+
+* `rsc`: real-time curve
+* `fsc`: link-share curve
+* `usc`: upper-limit curve
+'''
 from common import stats2 as c_stats2
 from common import get_rate
 from pyroute2.netlink import nla

@@ -796,7 +796,7 @@ class IPRouteMixin(object):
         else:
             return ret
 
-    def tc(self, command, kind, index, handle=0, **kwarg):
+    def tc(self, command, kind=None, index=0, handle=0, **kwarg):
         '''
         "Swiss knife" for traffic control. With the method you can
         add, delete or modify qdiscs, classes and filters.
@@ -840,150 +840,18 @@ class IPRouteMixin(object):
             flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
             ip.tc((RTM_NEWQDISC, flags), "sfq", 1)
 
-        More complex example with htb qdisc, lets assume eth0 == 2::
 
-            #          u32 -->    +--> htb 1:10 --> sfq 10:0
-            #          |          |
-            #          |          |
-            # eth0 -- htb 1:0 -- htb 1:1
-            #          |          |
-            #          |          |
-            #          u32 -->    +--> htb 1:20 --> sfq 20:0
-
-            eth0 = 2
-            # add root queue 1:0
-            ip.tc("add", "htb", eth0, 0x10000, default=0x200000)
-
-            # root class 1:1
-            ip.tc("add-class", "htb", eth0, 0x10001,
-                  parent=0x10000,
-                  rate="256kbit",
-                  burst=1024 * 6)
-
-            # two branches: 1:10 and 1:20
-            ip.tc("add-class", "htb", eth0, 0x10010,
-                  parent=0x10001,
-                  rate="192kbit",
-                  burst=1024 * 6,
-                  prio=1)
-            ip.tc("add-class", "htb", eht0, 0x10020,
-                  parent=0x10001,
-                  rate="128kbit",
-                  burst=1024 * 6,
-                  prio=2)
-
-            # two leaves: 10:0 and 20:0
-            ip.tc("add", "sfq", eth0, 0x100000,
-                  parent=0x10010,
-                  perturb=10)
-            ip.tc("add", "sfq", eth0, 0x200000,
-                  parent=0x10020,
-                  perturb=10)
-
-            # two filters: one to load packets into 1:10 and the
-            # second to 1:20
-            ip.tc("add-filter", "u32", eth0,
-                  parent=0x10000,
-                  prio=10,
-                  protocol=socket.AF_INET,
-                  target=0x10010,
-                  keys=["0x0006/0x00ff+8", "0x0000/0xffc0+2"])
-            ip.tc("add-filter", "u32", eth0,
-                  parent=0x10000,
-                  prio=10,
-                  protocol=socket.AF_INET,
-                  target=0x10020,
-                  keys=["0x5/0xf+0", "0x10/0xff+33"])
-
-        Filters can also take an `action` argument, which affects the packet
-        behavior when the filter matches. Currently the gact, bpf, and police
-        action types are supported, and can be attached to the u32 and bpf
-        filter types::
-
-            # An action can be a simple string, which translates to a gact type
-            action = "drop"
-
-            # Or it can be an explicit type (these are equivalent)
-            action = dict(kind="gact", action="drop")
-
-            # There can also be a chain of actions, which depend on the return
-            # value of the previous action.
-            action = [
-                dict(kind="bpf", fd=fd, name=name, action="ok"),
-                dict(kind="police", rate="10kbit", burst=10240, limit=0),
-                dict(kind="gact", action="ok"),
-            ]
-
-            # Add the action to a u32 match-all filter
-            ip.tc("add", "htb", eth0, 0x10000, default=0x200000)
-            ip.tc("add-filter", "u32", eth0,
-                  parent=0x10000,
-                  prio=10,
-                  protocol=protocols.ETH_P_ALL,
-                  target=0x10020,
-                  keys=["0x0/0x0+0"],
-                  action=action)
-
-            # Add two more filters: One to send packets with a src address of
-            # 192.168.0.1/32 into 1:10 and the second to send packets  with a
-            # dst address of 192.168.0.0/24 into 1:20
-            ip.tc("add-filter", "u32", eth0,
-                parent=0x10000,
-                prio=10,
-                protocol=socket.AF_INET,
-                target=0x10010,
-                keys=["0xc0a80001/0xffffffff+12"])
-                # 0xc0a800010 = 192.168.0.1
-                # 0xffffffff = 255.255.255.255 (/32)
-                # 12 = Source network field bit offset
-
-            ip.tc("add-filter", "u32", eth0,
-                parent=0x10000,
-                prio=10,
-                protocol=socket.AF_INET,
-                target=0x10020,
-                keys=["0xc0a80000/0xffffff00+16"])
-                # 0xc0a80000 = 192.168.0.0
-                # 0xffffff00 = 255.255.255.0 (/24)
-                # 16 = Destination network field bit offset
-
-        Simple HFSC example::
-
-            eth0 = ip.get_links(ifname="eth0")[0]
-            ip.tc("add", "hfsc", eth0,
-                  handle="1:",
-                  default="1:1")
-            ip.tc("add-class", "hfsc", eth0,
-                  handle="1:1",
-                  parent="1:0"
-                  rsc={"m2": "5mbit"})
-
-        HFSC curve nla types:
-
-        * `rsc`: real-time curve
-        * `fsc`: link-share curve
-        * `usc`: upper-limit curve
-
-        The clsact qdisc provides a mechanism to attach integrated
-        filter-action classifiers to an interface, either at ingress or egress,
-        or both. The use case shown here is using a bpf program (implemented
-        elsewhere) to direct the packet processing. The example also uses the
-        direct-action feature to specify what to do with each packet (pass,
-        drop, redirect, etc.).
-
-        BPF ingress/egress example using clsact qdisc::
-
-            # open_bpf_fd is outside the scope of pyroute2
-            #fd = open_bpf_fd()
-            eth0 = ip.get_links(ifname="eth0")[0]
-            ip.tc("add", "clsact", eth0)
-            # add ingress clsact
-            ip.tc("add-filter", "bpf", idx, ":1", fd=fd, name="myprog",
-                  parent="ffff:fff2", classid=1, direct_action=True)
-            # add egress clsact
-            ip.tc("add-filter", "bpf", idx, ":1", fd=fd, name="myprog",
-                  parent="ffff:fff3", classid=1, direct_action=True)
         '''
+        if command == 'modules':
+            return tc_plugins
+
+        if command == 'help':
+            p = tc_plugins.get(kind)
+            if p is not None and hasattr(p, '__doc__'):
+                return p.__doc__
+            else:
+                return 'No help available'
+
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_change = flags_base | NLM_F_REPLACE

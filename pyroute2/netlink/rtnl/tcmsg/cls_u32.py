@@ -1,3 +1,59 @@
+'''
+u32
++++
+
+Filters can take an `action` argument, which affects the packet
+behavior when the filter matches. Currently the gact, bpf, and police
+action types are supported, and can be attached to the u32 and bpf
+filter types::
+
+    # An action can be a simple string, which translates to a gact type
+    action = "drop"
+
+    # Or it can be an explicit type (these are equivalent)
+    action = dict(kind="gact", action="drop")
+
+    # There can also be a chain of actions, which depend on the return
+    # value of the previous action.
+    action = [
+        dict(kind="bpf", fd=fd, name=name, action="ok"),
+        dict(kind="police", rate="10kbit", burst=10240, limit=0),
+        dict(kind="gact", action="ok"),
+    ]
+
+    # Add the action to a u32 match-all filter
+    ip.tc("add", "htb", eth0, 0x10000, default=0x200000)
+    ip.tc("add-filter", "u32", eth0,
+          parent=0x10000,
+          prio=10,
+          protocol=protocols.ETH_P_ALL,
+          target=0x10020,
+          keys=["0x0/0x0+0"],
+          action=action)
+
+    # Add two more filters: One to send packets with a src address of
+    # 192.168.0.1/32 into 1:10 and the second to send packets  with a
+    # dst address of 192.168.0.0/24 into 1:20
+    ip.tc("add-filter", "u32", eth0,
+        parent=0x10000,
+        prio=10,
+        protocol=socket.AF_INET,
+        target=0x10010,
+        keys=["0xc0a80001/0xffffffff+12"])
+        # 0xc0a800010 = 192.168.0.1
+        # 0xffffffff = 255.255.255.255 (/32)
+        # 12 = Source network field bit offset
+
+    ip.tc("add-filter", "u32", eth0,
+        parent=0x10000,
+        prio=10,
+        protocol=socket.AF_INET,
+        target=0x10020,
+        keys=["0xc0a80000/0xffffff00+16"])
+        # 0xc0a80000 = 192.168.0.0
+        # 0xffffff00 = 255.255.255.0 (/24)
+        # 16 = Destination network field bit offset
+'''
 import struct
 from socket import htons
 from common import stats2

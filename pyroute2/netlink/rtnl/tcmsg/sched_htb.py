@@ -1,3 +1,64 @@
+'''
+htb
++++
+
+TODO: list parameters
+
+An example with htb qdisc, lets assume eth0 == 2::
+
+    #          u32 -->    +--> htb 1:10 --> sfq 10:0
+    #          |          |
+    #          |          |
+    # eth0 -- htb 1:0 -- htb 1:1
+    #          |          |
+    #          |          |
+    #          u32 -->    +--> htb 1:20 --> sfq 20:0
+
+    eth0 = 2
+    # add root queue 1:0
+    ip.tc("add", "htb", eth0, 0x10000, default=0x200000)
+
+    # root class 1:1
+    ip.tc("add-class", "htb", eth0, 0x10001,
+          parent=0x10000,
+          rate="256kbit",
+          burst=1024 * 6)
+
+    # two branches: 1:10 and 1:20
+    ip.tc("add-class", "htb", eth0, 0x10010,
+          parent=0x10001,
+          rate="192kbit",
+          burst=1024 * 6,
+          prio=1)
+    ip.tc("add-class", "htb", eht0, 0x10020,
+          parent=0x10001,
+          rate="128kbit",
+          burst=1024 * 6,
+          prio=2)
+
+    # two leaves: 10:0 and 20:0
+    ip.tc("add", "sfq", eth0, 0x100000,
+          parent=0x10010,
+          perturb=10)
+    ip.tc("add", "sfq", eth0, 0x200000,
+          parent=0x10020,
+          perturb=10)
+
+    # two filters: one to load packets into 1:10 and the
+    # second to 1:20
+    ip.tc("add-filter", "u32", eth0,
+          parent=0x10000,
+          prio=10,
+          protocol=socket.AF_INET,
+          target=0x10010,
+          keys=["0x0006/0x00ff+8", "0x0000/0xffc0+2"])
+    ip.tc("add-filter", "u32", eth0,
+          parent=0x10000,
+          prio=10,
+          protocol=socket.AF_INET,
+          target=0x10020,
+          keys=["0x5/0xf+0", "0x10/0xff+33"])
+'''
 from common import get_hz
 from common import get_rate
 from common import calc_xmittime

@@ -1,3 +1,26 @@
+'''
+choke
++++++
+
+Parameters:
+
+    * `limit` (required) -- int
+    * `bandwith` (required) -- str/int
+    * `min` -- int
+    * `max` -- int
+    * `avpkt` -- str/int, packet size
+    * `burst` -- int
+    * `probability` -- float
+    * `ecn` -- bool
+
+Example::
+
+    ip.tc('add', 'choke', interface,
+          limit=5500,
+          bandwith="10mbit",
+          ecn=True)
+
+'''
 import struct
 import logging
 from pyroute2.netlink import nla

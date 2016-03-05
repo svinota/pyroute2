@@ -1,3 +1,15 @@
+'''
+drr
++++
+
+The qdisc doesn't accept any parameters, but the class
+accepts `quantum` parameter::
+
+    ip.tc('add', 'drr', interface, '1:')
+    ip.tc('add-class', 'drr', interface, '1:10', quantum=1600)
+    ip.tc('add-class', 'drr', interface, '1:20', quantum=1600)
+
+'''
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from common import stats2 as c_stats2
