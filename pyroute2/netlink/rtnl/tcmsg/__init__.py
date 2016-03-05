@@ -6,6 +6,7 @@ from pyroute2.netlink import nla
 import cls_fw
 import cls_u32
 import sched_bpf
+import sched_choke
 import sched_clsact
 import sched_codel
 import sched_ingress
@@ -32,7 +33,8 @@ plugins = {'plug': sched_plug,
            'fw': cls_fw,
            'u32': cls_u32,
            'ingress': sched_ingress,
-           'pfifo_fast': sched_pfifo_fast}
+           'pfifo_fast': sched_pfifo_fast,
+           'choke': sched_choke}
 
 
 class tcmsg(nlmsg):

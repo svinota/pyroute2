@@ -1,6 +1,7 @@
 import re
 import os
 import struct
+from math import log
 from pyroute2.common import size_suffixes
 from pyroute2.common import time_suffixes
 from pyroute2.common import rate_suffixes
@@ -87,7 +88,7 @@ def red_eval_ewma(qmin, burst, avpkt):
     wlog = 1
     W = 0.5
     a = float(burst) + 1 - float(qmin) / avpkt
-    assert a < 1
+    assert a >= 1
 
     while wlog < 32:
         wlog += 1
@@ -101,15 +102,34 @@ def red_eval_P(qmin, qmax, probability):
     # The code is ported from tc utility
     i = qmax - qmin
     assert i > 0
-    assert i < 32
 
     probability /= i
-    while i < 32:
-        i += 1
+
+    for i in range(32):
         if probability > 1:
             break
         probability *= 2
+
     return i
+
+
+def red_eval_idle_damping(Wlog, avpkt, bps):
+    # The code is ported from tc utility
+    xmit_time = calc_xmittime(bps, avpkt)
+    lW = -log(1.0 - 1.0 / (1 << Wlog)) / xmit_time
+    maxtime = 31.0 / lW
+    sbuf = []
+    for clog in range(32):
+        if (maxtime / (1 << clog) < 512):
+            break
+    if clog >= 32:
+        return -1, sbuf
+    for i in range(255):
+        sbuf.append((i << clog) * lW)
+        if sbuf[i] > 31:
+            sbuf[i] = 31
+    sbuf.append(31)
+    return clog, sbuf
 
 
 def get_rate_parameters(kwarg):

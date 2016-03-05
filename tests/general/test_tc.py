@@ -201,9 +201,22 @@ class TestSimpleQueues(BasicTest):
                    burst=1540)
         qds = self.get_qdisc()
         assert qds.get_attr('TCA_KIND') == 'tbf'
-        parms = qds.get_attr('TCA_OPTIONS').get_attr('TCA_TBF_PARMS')
-        assert parms
-        assert parms['rate'] == 27500
+        opts = qds.get_attr('TCA_OPTIONS').get_attr('TCA_TBF_PARMS')
+        assert opts
+        assert opts['rate'] == 27500
+
+    @skip_if_not_supported
+    def test_choke(self):
+        self.ip.tc('add', 'choke', self.interface,
+                   limit=5500,
+                   bandwith=3000,
+                   ecn=True)
+        qds = self.get_qdisc()
+        assert qds.get_attr('TCA_KIND') == 'choke'
+        opts = qds.get_attr('TCA_OPTIONS').get_attr('TCA_CHOKE_PARMS')
+        assert opts['limit'] == 5500
+        assert opts['qth_max'] == 1375
+        assert opts['qth_min'] == 458
 
 
 class TestHfsc(BasicTest):
