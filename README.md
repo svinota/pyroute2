@@ -13,7 +13,7 @@ The library provides several modules:
 * Netlink protocol implementations (RTNetlink, TaskStats, etc)
     * **rtnl**, network settings --- addresses, routes, traffic controls
     * **nl80211** --- wireless functions API (work in progress)
-    * **nfnetlink** --- netfilter API: **ipset** (work in progress), ...
+    * **nfnetlink** --- netfilter API: **ipset**, **nftables** (work in progress), ...
     * **ipq** --- simplest userspace packet filtering, iptables QUEUE target
     * **taskstats** --- extended process statistics
 * Simple netlink socket object, that can be used in poll/select
