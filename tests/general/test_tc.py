@@ -218,6 +218,20 @@ class TestSimpleQueues(BasicTest):
         assert opts['qth_max'] == 1375
         assert opts['qth_min'] == 458
 
+    @skip_if_not_supported
+    def test_drr(self):
+        self.ip.tc('add', 'drr', self.interface, '1:')
+        self.ip.tc('add-class', 'drr', self.interface, '1:20', quantum=20)
+        self.ip.tc('add-class', 'drr', self.interface, '1:30', quantum=30)
+        qds = self.get_qdisc()
+        assert qds.get_attr('TCA_KIND') == 'drr'
+        cls = self.ip.get_classes(self.interface)
+        assert len(cls) == 2
+        assert cls[0].get_attr('TCA_KIND') == 'drr'
+        assert cls[1].get_attr('TCA_KIND') == 'drr'
+        assert cls[0].get_attr('TCA_OPTIONS').get_attr('TCA_DRR_QUANTUM') == 20
+        assert cls[1].get_attr('TCA_OPTIONS').get_attr('TCA_DRR_QUANTUM') == 30
+
 
 class TestHfsc(BasicTest):
 

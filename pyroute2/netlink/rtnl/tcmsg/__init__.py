@@ -9,10 +9,11 @@ import sched_bpf
 import sched_choke
 import sched_clsact
 import sched_codel
-import sched_ingress
+import sched_drr
 import sched_fq_codel
 import sched_hfsc
 import sched_htb
+import sched_ingress
 import sched_netem
 import sched_pfifo_fast
 import sched_plug
@@ -34,7 +35,8 @@ plugins = {'plug': sched_plug,
            'u32': cls_u32,
            'ingress': sched_ingress,
            'pfifo_fast': sched_pfifo_fast,
-           'choke': sched_choke}
+           'choke': sched_choke,
+           'drr': sched_drr}
 
 
 class tcmsg(nlmsg):
