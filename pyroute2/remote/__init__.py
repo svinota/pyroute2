@@ -179,6 +179,8 @@ def Server(cmdch, brdch):
     # all is OK so far
     cmdch.send({'stage': 'init',
                 'error': None})
+    signal.signal(signal.SIGHUP, close)
+    signal.signal(signal.SIGINT, close)
     signal.signal(signal.SIGTERM, close)
 
     # 8<-------------------------------------------------------------
