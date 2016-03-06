@@ -734,6 +734,13 @@ class IPRouteMixin(object):
                     broadcast='10.0.0.255',
                     prefixlen=24,
                     label='eth0:1')
+
+        Configure p2p address on an interface::
+
+            ip.addr('add', index=idx,
+                    address='10.1.1.2',
+                    mask=24,
+                    local='10.1.1.1')
         '''
 
         flags_create = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
