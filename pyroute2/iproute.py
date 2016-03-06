@@ -841,6 +841,11 @@ class IPRouteMixin(object):
             ip.tc((RTM_NEWQDISC, flags), "sfq", 1)
 
 
+        Also available "modules" (returns tc plugins dict) and "help"
+        commands::
+
+            help(ip.tc("modules")["htb"])
+            print(ip.tc("help", "htb"))
         '''
         if command == 'modules':
             return tc_plugins
