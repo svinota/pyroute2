@@ -21,6 +21,7 @@ HFSC curve nla types:
 '''
 from common import stats2 as c_stats2
 from common import get_rate
+from common import get_time
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import RTM_NEWQDISC
 from pyroute2.netlink.rtnl import RTM_DELQDISC
@@ -41,7 +42,7 @@ def get_class_parameters(kwarg):
         if key in kwarg:
             ret['attrs'].append(['TCA_HFSC_%s' % key.upper(),
                                  {'m1': get_rate(kwarg[key].get('m1', 0)),
-                                  'd': get_rate(kwarg[key].get('d', 0)),
+                                  'd': get_time(kwarg[key].get('d', 0)),
                                   'm2':get_rate(kwarg[key].get('m2', 0))}])
     return ret
 
