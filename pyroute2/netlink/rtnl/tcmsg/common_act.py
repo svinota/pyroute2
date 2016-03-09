@@ -1,6 +1,6 @@
-import act_gact
-import act_bpf
-import act_police
+from pyroute2.netlink.rtnl.tcmsg import act_gact
+from pyroute2.netlink.rtnl.tcmsg import act_bpf
+from pyroute2.netlink.rtnl.tcmsg import act_police
 
 plugins = {'gact': act_gact,
            'bpf': act_bpf,

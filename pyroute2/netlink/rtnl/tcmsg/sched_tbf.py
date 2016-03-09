@@ -1,6 +1,6 @@
 from pyroute2.netlink.rtnl import TC_H_ROOT
-from common import get_rate_parameters
-from common import nla_plus_rtab
+from pyroute2.netlink.rtnl.tcmsg.common import get_rate_parameters
+from pyroute2.netlink.rtnl.tcmsg.common import nla_plus_rtab
 
 parent = TC_H_ROOT
 

@@ -1,7 +1,7 @@
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
-from common import time2tick
-from common import percent2u32
+from pyroute2.netlink.rtnl.tcmsg.common import time2tick
+from pyroute2.netlink.rtnl.tcmsg.common import percent2u32
 
 parent = TC_H_ROOT
 

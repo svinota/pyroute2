@@ -59,10 +59,10 @@ An example with htb qdisc, lets assume eth0 == 2::
           target=0x10020,
           keys=["0x5/0xf+0", "0x10/0xff+33"])
 '''
-from common import get_hz
-from common import get_rate
-from common import calc_xmittime
-from common import nla_plus_rtab
+from pyroute2.netlink.rtnl.tcmsg.common import get_hz
+from pyroute2.netlink.rtnl.tcmsg.common import get_rate
+from pyroute2.netlink.rtnl.tcmsg.common import calc_xmittime
+from pyroute2.netlink.rtnl.tcmsg.common import nla_plus_rtab
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 

@@ -12,7 +12,7 @@ accepts `quantum` parameter::
 '''
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
-from common import stats2 as c_stats2
+from pyroute2.netlink.rtnl.tcmsg.common import stats2 as c_stats2
 
 parent = TC_H_ROOT
 

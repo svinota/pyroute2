@@ -25,12 +25,12 @@ import struct
 import logging
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
-from common import get_rate
-from common import get_size
-from common import red_eval_ewma
-from common import red_eval_P
-from common import red_eval_idle_damping
-from common import stats2 as c_stats2
+from pyroute2.netlink.rtnl.tcmsg.common import get_rate
+from pyroute2.netlink.rtnl.tcmsg.common import get_size
+from pyroute2.netlink.rtnl.tcmsg.common import red_eval_ewma
+from pyroute2.netlink.rtnl.tcmsg.common import red_eval_P
+from pyroute2.netlink.rtnl.tcmsg.common import red_eval_idle_damping
+from pyroute2.netlink.rtnl.tcmsg.common import stats2 as c_stats2
 
 parent = TC_H_ROOT
 

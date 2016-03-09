@@ -1,17 +1,18 @@
 '''
 '''
 
+from socket import htons
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink import NLA_F_NESTED
 from pyroute2.protocols import ETH_P_ALL
-from common import stats2
-from common import TCA_ACT_MAX_PRIO
-from common_act import get_tca_action
-from common_act import nla_plus_tca_act_opt
-from act_police import nla_plus_police
-from act_police import get_parameters as ap_parameters
-from socket import htons
+from pyroute2.netlink.rtnl.tcmsg.common import stats2
+from pyroute2.netlink.rtnl.tcmsg.common import TCA_ACT_MAX_PRIO
+from pyroute2.netlink.rtnl.tcmsg.common_act import get_tca_action
+from pyroute2.netlink.rtnl.tcmsg.common_act import nla_plus_tca_act_opt
+from pyroute2.netlink.rtnl.tcmsg.act_police import nla_plus_police
+from pyroute2.netlink.rtnl.tcmsg.act_police import get_parameters \
+    as ap_parameters
 
 parent = TC_H_ROOT
 TCA_BPF_FLAG_ACT_DIRECT = 1

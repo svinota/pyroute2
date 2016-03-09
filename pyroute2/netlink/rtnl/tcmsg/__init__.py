@@ -3,23 +3,23 @@ import types
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
 
-import cls_fw
-import cls_u32
-import sched_bpf
-import sched_choke
-import sched_clsact
-import sched_codel
-import sched_drr
-import sched_fq_codel
-import sched_hfsc
-import sched_htb
-import sched_ingress
-import sched_netem
-import sched_pfifo_fast
-import sched_plug
-import sched_sfq
-import sched_tbf
-import sched_template
+from pyroute2.netlink.rtnl.tcmsg import cls_fw
+from pyroute2.netlink.rtnl.tcmsg import cls_u32
+from pyroute2.netlink.rtnl.tcmsg import sched_bpf
+from pyroute2.netlink.rtnl.tcmsg import sched_choke
+from pyroute2.netlink.rtnl.tcmsg import sched_clsact
+from pyroute2.netlink.rtnl.tcmsg import sched_codel
+from pyroute2.netlink.rtnl.tcmsg import sched_drr
+from pyroute2.netlink.rtnl.tcmsg import sched_fq_codel
+from pyroute2.netlink.rtnl.tcmsg import sched_hfsc
+from pyroute2.netlink.rtnl.tcmsg import sched_htb
+from pyroute2.netlink.rtnl.tcmsg import sched_ingress
+from pyroute2.netlink.rtnl.tcmsg import sched_netem
+from pyroute2.netlink.rtnl.tcmsg import sched_pfifo_fast
+from pyroute2.netlink.rtnl.tcmsg import sched_plug
+from pyroute2.netlink.rtnl.tcmsg import sched_sfq
+from pyroute2.netlink.rtnl.tcmsg import sched_tbf
+from pyroute2.netlink.rtnl.tcmsg import sched_template
 
 plugins = {'plug': sched_plug,
            'sfq': sched_sfq,

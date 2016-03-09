@@ -1,6 +1,6 @@
-from common import tc_actions
 from pyroute2.netlink import nla
 from pyroute2.netlink import NLA_F_NESTED
+from pyroute2.netlink.rtnl.tcmsg.common import tc_actions
 
 
 class options(nla):

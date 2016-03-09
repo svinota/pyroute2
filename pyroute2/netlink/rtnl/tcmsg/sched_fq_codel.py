@@ -1,9 +1,9 @@
-import common
 import logging
 import struct
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
-from common import get_time
+from pyroute2.netlink.rtnl.tcmsg import common
+from pyroute2.netlink.rtnl.tcmsg.common import get_time
 
 parent = TC_H_ROOT
 

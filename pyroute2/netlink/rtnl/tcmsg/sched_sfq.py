@@ -1,6 +1,6 @@
-from common import get_size
-from common import red_eval_ewma
-from common import red_eval_P
+from pyroute2.netlink.rtnl.tcmsg.common import get_size
+from pyroute2.netlink.rtnl.tcmsg.common import red_eval_ewma
+from pyroute2.netlink.rtnl.tcmsg.common import red_eval_P
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 

@@ -1,5 +1,5 @@
-from common import nla_plus_rtab
-from common import get_rate_parameters
+from pyroute2.netlink.rtnl.tcmsg.common import nla_plus_rtab
+from pyroute2.netlink.rtnl.tcmsg.common import get_rate_parameters
 
 actions = {'unspec': -1,     # TC_POLICE_UNSPEC
            'ok': 0,          # TC_POLICE_OK

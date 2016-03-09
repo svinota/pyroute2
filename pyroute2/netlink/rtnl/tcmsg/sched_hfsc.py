@@ -19,9 +19,9 @@ HFSC curve nla types:
 * `fsc`: link-share curve
 * `usc`: upper-limit curve
 '''
-from common import stats2 as c_stats2
-from common import get_rate
-from common import get_time
+from pyroute2.netlink.rtnl.tcmsg.common import stats2 as c_stats2
+from pyroute2.netlink.rtnl.tcmsg.common import get_rate
+from pyroute2.netlink.rtnl.tcmsg.common import get_time
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import RTM_NEWQDISC
 from pyroute2.netlink.rtnl import RTM_DELQDISC

@@ -5,7 +5,7 @@ registered in `__init__.py`, see the `plugins` dict.
 All the methods, variables and classes are optional,
 but the naming scheme is fixed.
 '''
-import common
+from pyroute2.netlink.rtnl.tcmsg import common
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 
