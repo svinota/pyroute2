@@ -108,6 +108,28 @@ Do not forget to release resources and close sockets. Also
 keep in mind, that the real fd will be closed only when the
 Python GC will collect closed objects.
 
+Signal handlers
+---------------
+
+If you place exclusive operations in a signal handler, the
+locking will not help. The only way to guard the handler is
+to ignore the signal from the handler::
+
+    import signal
+    from pyroute2 import IPDB
+
+    def handler(signum, frame):
+        # emergency shutdown
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        ipdb.interfaces.test_if.remove().commit()
+        ipdb.release()
+
+    def main():
+        with IPDB() as ipdb:
+            signal.signal(signal.SIGTERM, handler)
+            test_if = ipdb.create(ifname='test_if', kind='dummy').commit()
+            ...  # do some work
+
 Special cases
 =============
 
