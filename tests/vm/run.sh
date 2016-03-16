@@ -15,7 +15,10 @@ for config in configs/*xml; do {
     name=`sed -n '/name/ {s/[^>]*>//;s/<.*//p;q}' $config`
     [ -e "$img" ] || {
         # image doesn't exist, download it?
+        echo "Disk image doesn't exist. Press Return to download"
+        read
         url=`awk "/^$name/ {print \\$2}" urls`
+        echo $url
         pushd `dirname $img` >/dev/null
             wget $url || exit 255
         popd >/dev/null
