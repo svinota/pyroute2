@@ -1,0 +1,11 @@
+#!/bin/bash
+
+cd /opt/pyroute2
+
+[ "$1" = "test" ] && {
+    make test python=python2 2>&1 | tee test-python2.log
+    make test python=python3 2>&1 | tee test-python3.log
+    poweroff
+} || {
+    nohup /etc/rc.d/rc.local test &
+}
