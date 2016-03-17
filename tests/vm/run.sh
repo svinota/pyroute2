@@ -16,11 +16,18 @@ for config in configs/*xml; do {
     [ -e "$img" ] || {
         # image doesn't exist, download it?
         echo "Disk image doesn't exist. Press Return to download"
-        read
-        url=`awk "/^$name/ {print \\$2}" urls`
+        url=`awk "/^$name/ {print \\$3}" urls`
+        md5=`awk "/^$name/ {print \\$2}" urls`
         echo $url
+        read
         pushd `dirname $img` >/dev/null
             wget $url || exit 255
+            echo -n "`date +%H:%M:%S` Check md5 sum ... "
+            echo "$md5 `basename $img`" | md5sum -c - >/dev/null 2>&1 || {
+                echo "failed"
+                exit 255
+            }
+            echo "done"
         popd >/dev/null
     }
     echo "`date +%H:%M:%S` Job $name started"

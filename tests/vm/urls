@@ -1,3 +1,4 @@
 
 # the urls file format:
-test-f23  http://svinota.eu/blackbox/f23.qcow2
+# name md5 url
+test-f23 aeaf51bb186209866ba840e7e2d5875b http://pyroute2.org/images/f23.qcow2
