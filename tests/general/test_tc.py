@@ -1,3 +1,4 @@
+import errno
 import socket
 from utils import require_user
 from utils import get_simple_bpf_program
@@ -5,6 +6,7 @@ from utils import skip_if_not_supported
 from pyroute2 import IPRoute
 from pyroute2 import protocols
 from pyroute2.common import uifname
+from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.rtnl import TC_H_INGRESS
 from nose.plugins.skip import SkipTest
 
@@ -207,10 +209,15 @@ class TestSimpleQueues(BasicTest):
 
     @skip_if_not_supported
     def test_choke(self):
-        self.ip.tc('add', 'choke', self.interface,
-                   limit=5500,
-                   bandwith=3000,
-                   ecn=True)
+        try:
+            self.ip.tc('add', 'choke', self.interface,
+                       limit=5500,
+                       bandwith=3000,
+                       ecn=True)
+        except NetlinkError as e:
+            if e.code == errno.ENOENT:
+                raise SkipTest('qdisc not supported: choke')
+            raise
         qds = self.get_qdisc()
         assert qds.get_attr('TCA_KIND') == 'choke'
         opts = qds.get_attr('TCA_OPTIONS').get_attr('TCA_CHOKE_PARMS')
@@ -220,7 +227,12 @@ class TestSimpleQueues(BasicTest):
 
     @skip_if_not_supported
     def test_drr(self):
-        self.ip.tc('add', 'drr', self.interface, '1:')
+        try:
+            self.ip.tc('add', 'drr', self.interface, '1:')
+        except NetlinkError as e:
+            if e.code == errno.ENOENT:
+                raise SkipTest('qdisc not supported: drr')
+            raise
         self.ip.tc('add-class', 'drr', self.interface, '1:20', quantum=20)
         self.ip.tc('add-class', 'drr', self.interface, '1:30', quantum=30)
         qds = self.get_qdisc()
