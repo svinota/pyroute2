@@ -10,7 +10,13 @@ for app in qemu-img qemu-nbd fuser git virsh dirname basename wget; do {
     which $app >/dev/null 2>&1 || { echo "$app not found"; exit 255; }
 } done
 
-for config in configs/*xml; do {
+[ -z "$1" ] && {
+    run="`echo configs/*xml`"
+} || {
+    run=$1
+}
+
+for config in $run; do {
     img=`awk -F \' '/file.*qcow2/ {print $2}' $config`
     name=`sed -n '/name/ {s/[^>]*>//;s/<.*//p;q}' $config`
     [ -e "$img" ] || {
