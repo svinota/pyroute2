@@ -39,7 +39,11 @@ for config in configs/*xml; do {
     pushd mnt/opt >/dev/null
         sudo git clone ../../../../ pyroute2 >/dev/null 2>&1
     popd >/dev/null
-    cp rc.local mnt/etc/rc.d/rc.local
+    [ -e mnt/etc/rc.d ] && {
+        cp rc.local mnt/etc/rc.d/rc.local
+    } || {
+        cp rc.local mnt/etc/rc.local
+    }
     echo "done"
     echo -n "`date +%H:%M:%S` Sync disc ... "
     sync

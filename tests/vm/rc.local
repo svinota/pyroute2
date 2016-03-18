@@ -3,9 +3,11 @@
 cd /opt/pyroute2
 
 [ "$1" = "test" ] && {
-    make test python=python2 2>&1 | tee test-python2.log
-    make test python=python3 2>&1 | tee test-python3.log
+    for p in python2 python3; do {
+        which $p && make test skip_tests=test_stress python=$p 2>&1 | tee test-$p.log
+    } done
+    sync
     poweroff
 } || {
-    nohup /etc/rc.d/rc.local test &
+    nohup $0 test &
 }
