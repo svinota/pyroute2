@@ -667,8 +667,20 @@ class Interface(Transactional):
             target = self._commit_real_ip().union(set(transaction['ipaddr']))
             self['ipaddr'].set_target(target)
 
+            # The promote_secondaries sysctl causes the kernel
+            # to add seconday addresses back after the primary
+            # address is removed.
+            #
+            # The library can not tell this from the result of
+            # an external program.
+            #
+            # One simple way to work that around is to remove
+            # secondaries first.
+            rip = sorted(removed['ipaddr'],
+                         key=lambda x: self['ipaddr'][x]['flags'],
+                         reverse=True)
             # 8<--------------------------------------
-            for i in removed['ipaddr']:
+            for i in rip:
                 # Ignore link-local IPv6 addresses
                 if i[0][:4] == 'fe80' and i[1] == 64:
                     continue
