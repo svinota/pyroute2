@@ -1097,7 +1097,11 @@ def compat_get_master(name):
 
     for i in (_BRIDGE_MASTER, _BONDING_MASTER):
         try:
-            f = open(i % (name))
+            try:
+                f = open(i % (name))
+            except UnicodeEncodeError:
+                # a special case with python3 on Ubuntu 14
+                f = open(i % (name.encode('utf-8')))
             break
         except IOError:
             pass
