@@ -31,7 +31,7 @@ _BONDING_MASTER = '/sys/class/net/%s/master/ifindex'
 IFNAMSIZ = 16
 
 TUNDEV = '/dev/net/tun'
-if config.machine == 'x86_64':
+if config.machine in ('i386', 'i686', 'x86_64'):
     TUNSETIFF = 0x400454ca
     TUNSETPERSIST = 0x400454cb
     TUNSETOWNER = 0x400454cc
