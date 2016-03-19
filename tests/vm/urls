@@ -1,6 +1,7 @@
 
 # the urls file format:
 # name md5 url
-test-f23              aeaf51bb186209866ba840e7e2d5875b http://pyroute2.org/images/f23.qcow2
-test-centos6.5.i686   2c619098bbd2e460415e5c3a1f5d7633 http://pyroute2.org/images/c6.5.i686.qcow2
-test-ubuntu14.04.i386 eec5bf50acc400fb22fc6f04cb8291d3 http://pyroute2.org/images/u14.04.i386.qcow2
+test-f23.x86_64         aeaf51bb186209866ba840e7e2d5875b http://pyroute2.org/images/f23.x86_64.qcow2
+test-centos6.5.i686     2c619098bbd2e460415e5c3a1f5d7633 http://pyroute2.org/images/c6.5.i686.qcow2
+test-ubuntu14.04.i686   eec5bf50acc400fb22fc6f04cb8291d3 http://pyroute2.org/images/u14.04.i686.qcow2
+test-ubuntu15.10.x86_64 b34f369cbabf1721228e7755998555c2 http://pyroute2.org/images/u15.10.x86_64.qcow2

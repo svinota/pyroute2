@@ -1,6 +1,6 @@
 <domain type='kvm'>
-  <name>test-ubuntu14.04.i386</name>
-  <uuid>11a02ba5-5390-423c-865a-5364b00effff</uuid>
+  <name>test-ubuntu15.10</name>
+  <uuid>df72ee6d-2b16-4047-8d1c-c28676dcffff</uuid>
   <memory unit='KiB'>1048576</memory>
   <currentMemory unit='KiB'>1048576</currentMemory>
   <vcpu placement='static'>1</vcpu>
@@ -32,9 +32,9 @@
     <emulator>/usr/bin/qemu-kvm</emulator>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/var/lib/libvirt/images/u14.04.i386.qcow2'/>
-      <target dev='vda' bus='virtio'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
+      <source file='/var/lib/libvirt/images/u15.10.x86_64.qcow2'/>
+      <target dev='hda' bus='ide'/>
+      <address type='drive' controller='0' bus='0' target='0' unit='0'/>
     </disk>
     <controller type='usb' index='0' model='ich9-ehci1'>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x7'/>
@@ -59,9 +59,9 @@
       <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
     </controller>
     <!-- <interface type='network'>
-      <mac address='52:54:00:a2:19:43'/>
+      <mac address='52:54:00:b9:05:fb'/>
       <source network='default'/>
-      <model type='virtio'/>
+      <model type='rtl8139'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
     </interface> -->
     <channel type='spicevmc'>
@@ -74,11 +74,11 @@
       <image compression='off'/>
     </graphics>
     <video>
-      <model type='vmvga' vram='16384' heads='1'/>
+      <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
     </video>
     <memballoon model='virtio'>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x08' function='0x0'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
     </memballoon>
   </devices>
 </domain>

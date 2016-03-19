@@ -1,5 +1,5 @@
 <domain type='kvm'>
-  <name>test-f23</name>
+  <name>test-f23.x86_64</name>
   <uuid>8891e72d-87be-46bb-897d-a12e7a88ffff</uuid>
   <memory unit='KiB'>1048576</memory>
   <currentMemory unit='KiB'>1048576</currentMemory>
@@ -31,7 +31,7 @@
     <emulator>/usr/bin/qemu-kvm</emulator>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/var/lib/libvirt/images/f23.qcow2'/>
+      <source file='/var/lib/libvirt/images/f23.x86_64.qcow2'/>
       <target dev='vda' bus='virtio'/>
       <boot order='2'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
