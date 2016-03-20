@@ -126,6 +126,9 @@ test: dist
 		cd tests; \
 		./run.sh general eventlet lnst
 
+test-ci:
+	@cd tests/ci; ./run.sh
+
 upload: clean force-version
 	${python} setup.py sdist upload
 
