@@ -70,6 +70,13 @@ It is possible to skip tests by a pattern::
 
     $ sudo make test skip_tests=test_stress
 
+target: test-ci
+---------------
+
+Run tests on isolated VMs defined by `tests/ci/configs/*xml`.
+
+Requires qemu, kvm and libvirt. More info in `tests/ci` dir.
+
 target: dist
 ------------
 
