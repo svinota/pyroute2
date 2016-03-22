@@ -33,7 +33,7 @@ cd ./tests/
 # is not root and all requirements are met, this step will
 # be safely skipped.
 #
-pip install -q -r requirements.txt
+which pip >/dev/null 2>&1 && pip install -q -r requirements.txt
 
 [ -z "$VIRTUAL_ENV" ] || {
     . $$VIRTUAL_ENV/bin/activate ;
@@ -84,7 +84,9 @@ for module in $@; do
     }
     $PYTHON $WLEVEL `which $NOSE` -P -v $PDB \
         --with-coverage \
+        --with-xunit \
         --cover-package=pyroute2 \
         $SKIP_TESTS \
         $COVERAGE $module/$SUBMODULE || exit 252
+    mv nosetests.xml xunit-$module.xml
 done

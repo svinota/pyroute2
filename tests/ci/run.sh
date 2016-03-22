@@ -72,7 +72,8 @@ for config in $run; do {
     mkdir -p results/$name
     qemu-nbd -c /dev/nbd0 $img
     mount /dev/nbd0p1 mnt
-    cp mnt/opt/pyroute2/*log results/$name
+    cp mnt/opt/pyroute2/*log results/$name/
+    cp mnt/opt/pyroute2/tests/*xml results/$name/
     sync
     fuser -mk mnt
     umount mnt
