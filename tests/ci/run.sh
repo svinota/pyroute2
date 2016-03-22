@@ -51,7 +51,7 @@ for config in $run; do {
         cp rc.local mnt/etc/rc.local
     }
     echo "done"
-    echo -n "`date +%H:%M:%S` Sync disc ... "
+    echo -n "`date +%H:%M:%S` Sync disk ... "
     sync
     fuser -mk mnt
     umount mnt
