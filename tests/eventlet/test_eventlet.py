@@ -35,6 +35,7 @@ class TestBasic(object):
             ip.close()
 
     def test_netns(self):
+        require_user('root')
         ns = NetNS(str(uuid.uuid4()))
         try:
             assert len(ns.get_links()) > 1
