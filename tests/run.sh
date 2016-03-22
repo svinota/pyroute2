@@ -8,7 +8,6 @@
 }
 
 export PYTHONPATH="`pwd`:`pwd`/examples"
-echo $PYTHONPATH
 
 # Prepare test environment
 #

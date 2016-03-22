@@ -71,39 +71,42 @@ all:
 	@echo
 
 clean: clean-version
-	rm -rf dist build MANIFEST
-	rm -f docs/general.rst
-	rm -f docs/changelog.rst
-	rm -f docs/makefile.rst
-	rm -rf docs/api
-	rm -rf docs/html
-	rm -rf docs/doctrees
-	rm -f  tests/.coverage
-	rm -rf tests/htmlcov
-	rm -rf tests/cover
-	rm -rf tests/examples
-	rm -rf tests/pyroute2
-	rm -rf pyroute2.egg-info
-	rm -f python-pyroute2.spec
-	find pyroute2 -name "*pyc" -exec rm -f "{}" \;
-	find pyroute2 -name "*pyo" -exec rm -f "{}" \;
+	@rm -rf dist build MANIFEST
+	@rm -f docs-build.log
+	@rm -f docs/general.rst
+	@rm -f docs/changelog.rst
+	@rm -f docs/makefile.rst
+	@rm -rf docs/api
+	@rm -rf docs/html
+	@rm -rf docs/doctrees
+	@rm -f  tests/.coverage
+	@rm -rf tests/htmlcov
+	@rm -rf tests/cover
+	@rm -rf tests/examples
+	@rm -rf tests/pyroute2
+	@rm -f  tests/*xml
+	@rm -rf tests/ci/results/test-*
+	@rm -rf pyroute2.egg-info
+	@rm -f python-pyroute2.spec
+	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
+	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
 
 setup.ini:
-	awk 'BEGIN {print "[setup]\nversion=${version}\nrelease=${release}\nsetuplib=${setuplib}"}' >setup.ini
+	@awk 'BEGIN {print "[setup]\nversion=${version}\nrelease=${release}\nsetuplib=${setuplib}"}' >setup.ini
 
 clean-version:
-	rm -f setup.ini
+	@rm -f setup.ini
 
 force-version: clean-version update-version
 
 update-version: setup.ini
 
 docs: clean force-version
-	cp README.md docs/general.rst
-	sed -i '1{s/.*docs\//.. image:: /;s/\ ".*/\n\ \ \ \ :align: right/}' docs/general.rst
-	cp README.make.md docs/makefile.rst
-	cp CHANGELOG.md docs/changelog.rst
-	export PYTHONPATH=`pwd`; make -C docs html; unset PYTHONPATH
+	@cp README.md docs/general.rst
+	@sed -i '1{s/.*docs\//.. image:: /;s/\ ".*/\n\ \ \ \ :align: right/}' docs/general.rst
+	@cp README.make.md docs/makefile.rst
+	@cp CHANGELOG.md docs/changelog.rst
+	@export PYTHONPATH=`pwd`; make -C docs html >docs-build.log 2>&1; unset PYTHONPATH
 
 epydoc: docs
 	${epydoc} -v \
@@ -133,7 +136,7 @@ upload: clean force-version
 	${python} setup.py sdist upload
 
 dist: clean force-version docs
-	${python} setup.py sdist
+	@${python} setup.py sdist >/dev/null 2>&1
 
 install: clean force-version
 	${python} setup.py install ${root} ${lib}
