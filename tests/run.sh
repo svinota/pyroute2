@@ -86,6 +86,8 @@ for module in $@; do
         --with-xunit \
         --cover-package=pyroute2 \
         $SKIP_TESTS \
-        $COVERAGE $module/$SUBMODULE || exit 252
+        $COVERAGE $module/$SUBMODULE
+    ret=$?
     mv nosetests.xml xunit-$module.xml
+    [ $ret -eq 0 ] || exit 252
 done
