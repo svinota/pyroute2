@@ -20,4 +20,5 @@ docs/makefile.rst
 docs/general.rst
 docs/html
 docs/doctrees
+docs-build.log
 pyroute2.egg-info
