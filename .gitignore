@@ -10,6 +10,8 @@ tests/.coverage
 tests/udhcpd.leases
 tests/examples
 tests/pyroute2
+tests/ci/results/test-*
+tests/*xml
 output.html
 MANIFEST
 setup.ini
