@@ -75,7 +75,11 @@ target: test-ci
 
 Run tests on isolated VMs defined by `tests/ci/configs/*xml`.
 
-Requires qemu, kvm and libvirt. More info in `tests/ci` dir.
+Requires qemu, kvm, libvirt and civm script: https://github.com/svinota/civm
+
+Command line options:
+
+* civm -- path to the civm script (if it is not in `$PATH`)
 
 target: dist
 ------------
