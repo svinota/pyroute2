@@ -1,5 +1,5 @@
 <domain type='kvm'>
-  <name>test-ubuntu15.10</name>
+  <name>test-ubuntu15.10.x86_64</name>
   <uuid>df72ee6d-2b16-4047-8d1c-c28676dcffff</uuid>
   <memory unit='KiB'>1048576</memory>
   <currentMemory unit='KiB'>1048576</currentMemory>
