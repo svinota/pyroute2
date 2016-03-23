@@ -29,6 +29,7 @@ nosetests ?= nosetests
 flake8 ?= flake8
 setuplib ?= distutils.core
 epydoc ?= epydoc
+civm ?= civm
 ##
 # Python -W flags:
 #
@@ -130,7 +131,7 @@ test: dist
 		./run.sh general eventlet lnst
 
 test-ci:
-	@cd tests/ci; ./run.sh
+	@${civm} tests/ci
 
 upload: clean force-version
 	${python} setup.py sdist upload

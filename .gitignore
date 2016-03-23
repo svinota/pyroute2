@@ -10,7 +10,7 @@ tests/.coverage
 tests/udhcpd.leases
 tests/examples
 tests/pyroute2
-tests/ci/results/test-*
+tests/ci/results
 tests/*xml
 output.html
 MANIFEST
