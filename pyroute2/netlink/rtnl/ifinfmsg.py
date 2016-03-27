@@ -141,6 +141,27 @@ stats_names = ('rx_packets',
                'tx_compressed')
 
 
+class ifla_bridge_id(nla):
+    fields = [('value', '=8s')]
+
+    def encode(self):
+        r_prio = struct.pack('H', self['prio'])
+        r_addr = struct.pack('BBBBBB',
+                             *[int(i, 16) for i in
+                               self['addr'].split(':')])
+        self['value'] = r_prio + r_addr
+        nla.encode(self)
+
+    def decode(self):
+        nla.decode(self)
+        r_prio = self['value'][:2]
+        r_addr = self['value'][2:]
+        self.value = {'prio': struct.unpack('H', r_prio)[0],
+                      'addr': ':'.join('%02x' % (i) for i in
+                                       struct.unpack('BBBBBB',
+                                                     r_addr))}
+
+
 class protinfo_bridge(nla):
     nla_map = (('IFLA_BRPORT_UNSPEC', 'none'),
                ('IFLA_BRPORT_STATE', 'uint8'),
@@ -155,8 +176,8 @@ class protinfo_bridge(nla):
                ('IFLA_BRPORT_PROXYARP', 'uint8'),
                ('IFLA_BRPORT_LEARNING_SYNC', 'uint8'),
                ('IFLA_BRPORT_PROXYARP_WIFI', 'uint8'),
-               ('IFLA_BRPORT_ROOT_ID', 'ifla_bridge_id'),
-               ('IFLA_BRPORT_BRIDGE_ID', 'ifla_bridge_id'),
+               ('IFLA_BRPORT_ROOT_ID', 'br_id'),
+               ('IFLA_BRPORT_BRIDGE_ID', 'br_id'),
                ('IFLA_BRPORT_DESIGNATED_PORT', 'uint16'),
                ('IFLA_BRPORT_DESIGNATED_COST', 'uint16'),
                ('IFLA_BRPORT_ID', 'uint16'),
@@ -169,25 +190,8 @@ class protinfo_bridge(nla):
                ('IFLA_BRPORT_FLUSH', 'flag'),
                ('IFLA_BRPORT_MULTICAST_ROUTER', 'uint8'))
 
-    class ifla_bridge_id(nla):
-        fields = [('value', '=8s')]
-
-        def encode(self):
-            r_prio = struct.pack('H', self['prio'])
-            r_addr = struct.pack('BBBBBB',
-                                 *[int(i, 16) for i in
-                                   self['addr'].split(':')])
-            self['value'] = r_prio + r_addr
-            nla.encode(self)
-
-        def decode(self):
-            nla.decode(self)
-            r_prio = self['value'][:2]
-            r_addr = self['value'][2:]
-            self.value = {'prio': struct.unpack('H', r_prio)[0],
-                          'addr': ':'.join('%02x' % (i) for i in
-                                           struct.unpack('BBBBBB',
-                                                         r_addr))}
+    class br_id(ifla_bridge_id):
+        pass
 
 
 class ifinfbase(object):
@@ -522,9 +526,50 @@ class ifinfbase(object):
                           ('mask', 'I'))
 
         class bridge_data(nla):
-            prefix = 'IFLA_BRIDGE_'
-            nla_map = (('IFLA_BRIDGE_STP_STATE', 'uint32'),
-                       ('IFLA_BRIDGE_MAX_AGE', 'uint32'))
+            prefix = 'IFLA_BR_'
+            nla_map = (('IFLA_BR_UNSPEC', 'none'),
+                       ('IFLA_BR_FORWARD_DELAY', 'uint32'),
+                       ('IFLA_BR_HELLO_TIME', 'uint32'),
+                       ('IFLA_BR_MAX_AGE', 'uint32'),
+                       ('IFLA_BR_AGEING_TIME', 'uint32'),
+                       ('IFLA_BR_STP_STATE', 'uint32'),
+                       ('IFLA_BR_PRIORITY', 'uint16'),
+                       ('IFLA_BR_VLAN_FILTERING', 'uint8'),
+                       ('IFLA_BR_VLAN_PROTOCOL', 'be16'),
+                       ('IFLA_BR_GROUP_FWD_MASK', 'uint16'),
+                       ('IFLA_BR_ROOT_ID', 'br_id'),
+                       ('IFLA_BR_BRIDGE_ID', 'br_id'),
+                       ('IFLA_BR_ROOT_PORT', 'uint16'),
+                       ('IFLA_BR_ROOT_PATH_COST', 'uint32'),
+                       ('IFLA_BR_TOPOLOGY_CHANGE', 'uint8'),
+                       ('IFLA_BR_TOPOLOGY_CHANGE_DETECTED', 'uint8'),
+                       ('IFLA_BR_HELLO_TIMER', 'uint64'),
+                       ('IFLA_BR_TCN_TIMER', 'uint64'),
+                       ('IFLA_BR_TOPOLOGY_CHANGE_TIMER', 'uint64'),
+                       ('IFLA_BR_GC_TIMER', 'uint64'),
+                       ('IFLA_BR_GROUP_ADDR', 'l2addr'),
+                       ('IFLA_BR_FDB_FLUSH', 'flag'),
+                       ('IFLA_BR_MCAST_ROUTER', 'uint8'),
+                       ('IFLA_BR_MCAST_SNOOPING', 'uint8'),
+                       ('IFLA_BR_MCAST_QUERY_USE_IFADDR', 'uint8'),
+                       ('IFLA_BR_MCAST_QUERIER', 'uint8'),
+                       ('IFLA_BR_MCAST_HASH_ELASTICITY', 'uint32'),
+                       ('IFLA_BR_MCAST_HASH_MAX', 'uint32'),
+                       ('IFLA_BR_MCAST_LAST_MEMBER_CNT', 'uint32'),
+                       ('IFLA_BR_MCAST_STARTUP_QUERY_CNT', 'uint32'),
+                       ('IFLA_BR_MCAST_LAST_MEMBER_INTVL', 'uint64'),
+                       ('IFLA_BR_MCAST_MEMBERSHIP_INTVL', 'uint64'),
+                       ('IFLA_BR_MCAST_QUERIER_INTVL', 'uint64'),
+                       ('IFLA_BR_MCAST_QUERY_INTVL', 'uint64'),
+                       ('IFLA_BR_MCAST_QUERY_RESPONSE_INTVL', 'uint64'),
+                       ('IFLA_BR_MCAST_STARTUP_QUERY_INTVL', 'uint64'),
+                       ('IFLA_BR_NF_CALL_IPTABLES', 'uint8'),
+                       ('IFLA_BR_NF_CALL_IP6TABLES', 'uint8'),
+                       ('IFLA_BR_NF_CALL_ARPTABLES', 'uint8'),
+                       ('IFLA_BR_VLAN_DEFAULT_PVID', 'uint16'))
+
+            class br_id(ifla_bridge_id):
+                pass
 
         class bond_data(nla):
             prefix = 'IFLA_BOND_'
