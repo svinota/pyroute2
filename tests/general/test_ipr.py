@@ -122,8 +122,8 @@ class TestIPRoute(object):
     def setup(self):
         self.ip = IPRoute()
         try:
+            self.ifaces = []
             self.dev, idx = self.create()
-            self.ifaces = [idx]
         except IndexError:
             pass
 
@@ -131,6 +131,7 @@ class TestIPRoute(object):
         name = uifname()
         create_link(name, kind=kind)
         idx = self.ip.link_lookup(ifname=name)[0]
+        self.ifaces.append(idx)
         return (name, idx)
 
     def teardown(self):
@@ -164,6 +165,32 @@ class TestIPRoute(object):
         require_user('root')
         self.ip.addr('add', self.ifaces[0], address='172.16.0.1', mask=24)
         assert '172.16.0.1/24' in get_ip_addr()
+
+    def test_vlan_add_lrq(self):
+        require_user('root')
+        (bn, bx) = self.create('bridge')
+        (sn, sx) = self.create('dummy')
+        self.ip.link('set', index=sx, master=bx)
+        assert not grep('bridge vlan show', pattern='567')
+        self.ip.link('vlan-add', index=sx, vlan_info={'vid': 567})
+        assert grep('bridge vlan show', pattern='567')
+        self.ip.link('vlan-del', index=sx, vlan_info={'vid': 567})
+        assert not grep('bridge vlan show', pattern='567')
+
+    def test_vlan_add_raw(self):
+        require_user('root')
+        (bn, bx) = self.create('bridge')
+        (sn, sx) = self.create('dummy')
+        self.ip.link('set', index=sx, master=bx)
+        assert not grep('bridge vlan show', pattern='567')
+        self.ip.link('vlan-add', index=sx,
+                     af_spec={'attrs': [['IFLA_BRIDGE_VLAN_INFO',
+                                         {'vid': 567}]]})
+        assert grep('bridge vlan show', pattern='567')
+        self.ip.link('vlan-del', index=sx,
+                     af_spec={'attrs': [['IFLA_BRIDGE_VLAN_INFO',
+                                         {'vid': 567}]]})
+        assert not grep('bridge vlan show', pattern='567')
 
     def test_local_add(self):
         require_user('root')

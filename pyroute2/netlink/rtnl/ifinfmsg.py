@@ -617,6 +617,7 @@ class ifinfbase(object):
         return specs.get(self['family'], self.hex)
 
     class af_spec_bridge(nla):
+        prefix = 'IFLA_BRIDGE_'
         nla_map = (('IFLA_BRIDGE_FLAGS', 'uint16'),
                    ('IFLA_BRIDGE_MODE', 'uint16'),
                    ('IFLA_BRIDGE_VLAN_INFO', 'vlan_info'))

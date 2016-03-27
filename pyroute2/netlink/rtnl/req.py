@@ -89,6 +89,18 @@ class CBRequest(IPRequest):
             dict.__setitem__(self, key, value)
 
 
+class IPBridgeRequest(IPRequest):
+
+    def __setitem__(self, key, value):
+        if key in ('vlan_info', 'mode', 'flags'):
+            if 'IFLA_AF_SPEC' not in self:
+                dict.__setitem__(self, 'IFLA_AF_SPEC', {'attrs': []})
+            nla = ifinfmsg.af_spec_bridge.name2nla(key)
+            self['IFLA_AF_SPEC']['attrs'].append([nla, value])
+        else:
+            dict.__setitem__(self, key, value)
+
+
 class IPLinkRequest(IPRequest):
     '''
     Utility class, that converts human-readable dictionary

@@ -61,6 +61,7 @@ import logging
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
+from socket import AF_BRIDGE
 from types import FunctionType
 from types import MethodType
 from pyroute2.netlink import NetlinkError
@@ -104,6 +105,7 @@ from pyroute2.netlink.rtnl import rtprotos
 from pyroute2.netlink.rtnl import rtypes
 from pyroute2.netlink.rtnl import rtscopes
 from pyroute2.netlink.rtnl.req import IPLinkRequest
+from pyroute2.netlink.rtnl.req import IPBridgeRequest
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
@@ -636,23 +638,42 @@ class IPRouteMixin(object):
         build the NLA structure correctly.
         '''
 
-        commands = {'set': RTM_SETLINK,
-                    'add': RTM_NEWLINK,
-                    'del': RTM_DELLINK,
-                    'remove': RTM_DELLINK,
-                    'delete': RTM_DELLINK}
-        command = commands.get(command, command)
-
-        msg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        flags_req = NLM_F_REQUEST | NLM_F_ACK
+        flags_create = flags_req | NLM_F_CREATE | NLM_F_EXCL
+        commands = {'set': (RTM_SETLINK, flags_create),
+                    'add': (RTM_NEWLINK, flags_create),
+                    'del': (RTM_DELLINK, flags_create),
+                    'remove': (RTM_DELLINK, flags_create),
+                    'delete': (RTM_DELLINK, flags_create),
+                    'vlan-add': (RTM_SETLINK, flags_req),
+                    'vlan-del': (RTM_DELLINK, flags_req)}
+        msg = ifinfmsg()
+        # ifinfmsg fields
+        #
+        # ifi_family
+        # ifi_type
+        # ifi_index
+        # ifi_flags
+        # ifi_change
+        #
+        # family
+        if (command[:4] == 'vlan') and ('family' not in kwarg):
+            msg['family'] = AF_BRIDGE
+            lrq = IPBridgeRequest
+        else:
+            msg['family'] = kwarg.pop('family', 0)
+            lrq = IPLinkRequest
+        (command, msg_flags) = commands.get(command, command)
+        # index
         if not isinstance(kwarg['index'], int):
             raise ValueError('index should be int')
-        msg = ifinfmsg()
-        # index is required
-        msg['index'] = kwarg['index']
-
+        msg['index'] = kwarg.pop('index')
+        # flags
         flags = kwarg.pop('flags', 0) or 0
+        # change
         mask = kwarg.pop('mask', 0) or kwarg.pop('change', 0) or 0
 
+        # UP/DOWN shortcut
         if 'state' in kwarg:
             mask = 1                  # IFF_UP mask
             if kwarg['state'].lower() == 'up':
@@ -662,6 +683,10 @@ class IPRouteMixin(object):
         msg['flags'] = flags
         msg['change'] = mask
 
+        # apply filter
+        kwarg = lrq(kwarg)
+
+        # attach NLA
         for key in kwarg:
             nla = type(msg).name2nla(key)
             if kwarg[key] is not None:
