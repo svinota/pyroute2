@@ -6,6 +6,7 @@ import struct
 import threading
 import subprocess
 from fcntl import ioctl
+from socket import AF_BRIDGE
 from pyroute2 import RawIPRoute
 from pyroute2 import config
 from pyroute2.common import map_namespace
@@ -173,7 +174,7 @@ class ifinfbase(object):
                ('IFLA_PRIORITY', 'hex'),
                ('IFLA_MASTER', 'uint32'),
                ('IFLA_WIRELESS', 'wireless'),
-               ('IFLA_PROTINFO', 'hex'),
+               ('IFLA_PROTINFO', 'protinfo'),
                ('IFLA_TXQLEN', 'uint32'),
                ('IFLA_MAP', 'ifmap'),
                ('IFLA_WEIGHT', 'hex'),
@@ -283,6 +284,58 @@ class ifinfbase(object):
                   ('irq', 'H'),
                   ('dma', 'B'),
                   ('port', 'B'))
+
+    def protinfo(self, *argv, **kwarg):
+        proto_map = {AF_BRIDGE: self.protinfo_bridge}
+        return proto_map.get(self['family'], self.hex)
+
+    class protinfo_bridge(nla):
+        nla_map = (('IFLA_BRPORT_UNSPEC', 'none'),
+                   ('IFLA_BRPORT_STATE', 'uint8'),
+                   ('IFLA_BRPORT_PRIORITY', 'uint16'),
+                   ('IFLA_BRPORT_COST', 'uint32'),
+                   ('IFLA_BRPORT_MODE', 'uint8'),
+                   ('IFLA_BRPORT_GUARD', 'uint8'),
+                   ('IFLA_BRPORT_PROTECT', 'uint8'),
+                   ('IFLA_BRPORT_FAST_LEAVE', 'uint8'),
+                   ('IFLA_BRPORT_LEARNING', 'uint8'),
+                   ('IFLA_BRPORT_UNICAST_FLOOD', 'uint8'),
+                   ('IFLA_BRPORT_PROXYARP', 'uint8'),
+                   ('IFLA_BRPORT_LEARNING_SYNC', 'uint8'),
+                   ('IFLA_BRPORT_PROXYARP_WIFI', 'uint8'),
+                   ('IFLA_BRPORT_ROOT_ID', 'ifla_bridge_id'),
+                   ('IFLA_BRPORT_BRIDGE_ID', 'ifla_bridge_id'),
+                   ('IFLA_BRPORT_DESIGNATED_PORT', 'uint16'),
+                   ('IFLA_BRPORT_DESIGNATED_COST', 'uint16'),
+                   ('IFLA_BRPORT_ID', 'uint16'),
+                   ('IFLA_BRPORT_NO', 'uint16'),
+                   ('IFLA_BRPORT_TOPOLOGY_CHANGE_ACK', 'uint8'),
+                   ('IFLA_BRPORT_CONFIG_PENDING', 'uint8'),
+                   ('IFLA_BRPORT_MESSAGE_AGE_TIMER', 'uint64'),
+                   ('IFLA_BRPORT_FORWARD_DELAY_TIMER', 'uint64'),
+                   ('IFLA_BRPORT_HOLD_TIMER', 'uint64'),
+                   ('IFLA_BRPORT_FLUSH', 'flag'),
+                   ('IFLA_BRPORT_MULTICAST_ROUTER', 'uint8'))
+
+        class ifla_bridge_id(nla):
+            fields = [('value', '=8s')]
+
+            def encode(self):
+                r_prio = struct.pack('H', self['prio'])
+                r_addr = struct.pack('BBBBBB',
+                                     *[int(i, 16) for i in
+                                       self['addr'].split(':')])
+                self['value'] = r_prio + r_addr
+                nla.encode(self)
+
+            def decode(self):
+                nla.decode(self)
+                r_prio = self['value'][:2]
+                r_addr = self['value'][2:]
+                self.value = {'prio': struct.unpack('H', r_prio)[0],
+                              'addr': ':'.join('%02x' % (i) for i in
+                                               struct.unpack('BBBBBB',
+                                                             r_addr))}
 
     class ifinfo(nla):
         nla_map = ((0, 'IFLA_INFO_UNSPEC', 'none'),
