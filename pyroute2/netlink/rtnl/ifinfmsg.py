@@ -338,14 +338,12 @@ class ifinfbase(object):
                                                              r_addr))}
 
     class ifinfo(nla):
-        nla_map = ((0, 'IFLA_INFO_UNSPEC', 'none'),
-                   (1, 'IFLA_INFO_KIND', 'asciiz'),
-                   (2, 'IFLA_INFO_DATA', 'info_data'),
-                   (3, 'IFLA_INFO_XSTATS', 'hex'),
-                   (4, 'IFLA_INFO_SLAVE_KIND', 'asciiz'),
-                   (5, 'IFLA_INFO_SLAVE_DATA', 'info_slave_data'),
-                   # private extensions
-                   (0x100, 'IFLA_INFO_OVS_MASTER', 'asciiz'))
+        nla_map = (('IFLA_INFO_UNSPEC', 'none'),
+                   ('IFLA_INFO_KIND', 'asciiz'),
+                   ('IFLA_INFO_DATA', 'info_data'),
+                   ('IFLA_INFO_XSTATS', 'hex'),
+                   ('IFLA_INFO_SLAVE_KIND', 'asciiz'),
+                   ('IFLA_INFO_SLAVE_DATA', 'info_slave_data'))
 
         def info_slave_data(self, *argv, **kwarg):
             '''
