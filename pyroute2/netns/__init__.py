@@ -23,7 +23,7 @@ Create veth and move the peer to a netns with IPRoute::
 
     from pyroute2 import IPRoute
     ipr = IPRoute()
-    ipr.link_create(ifname='v0p0', kind='veth', peer='v0p1')
+    ipr.link('add', ifname='v0p0', kind='veth', peer='v0p1')
     idx = ipr.link_lookup(ifname='v0p1')[0]
     ipr.link('set', index=idx, net_ns_fd='netns_name')
 

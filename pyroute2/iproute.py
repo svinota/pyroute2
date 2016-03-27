@@ -147,7 +147,7 @@ class IPRouteMixin(object):
         from pyroute2 import IPRoute
         ipr = IPRoute()
         # create an interface
-        ipr.link_create(ifname='brx', kind='bridge')
+        ipr.link('add', ifname='brx', kind='bridge')
         # lookup the index
         dev = ipr.link_lookup(ifname='brx')[0]
         # bring it down
@@ -397,16 +397,9 @@ class IPRouteMixin(object):
 
     def link_create(self, **kwarg):
         '''
-        Create a link. The method parameters will be
-        passed to the `IPLinkRequest()` constructor as
-        a dictionary.
-
-        Examples::
-
-            ip.link_create(ifname='very_dummy', kind='dummy')
-            ip.link_create(ifname='br0', kind='bridge')
-            ip.link_create(ifname='v101', kind='vlan', vlan_id=101, link=1)
+        Obsoleted method. Use `link("add", ...)` instead.
         '''
+        logging.warning("link_create() is obsoleted, use link('add', ...)")
         return self.link('add', **IPLinkRequest(kwarg))
 
     def link_up(self, index):
@@ -591,11 +584,44 @@ class IPRouteMixin(object):
         '''
         Link operations.
 
-        * command -- set, add or delete
-        * index -- device index
-        * \*\*kwarg -- keywords, NLA (see ifinfmsg.py)
+        * command -- one of keywords or tuple (msg_type, msg_flags)
+        * \*\*kwarg -- arguments
 
-        Examples::
+        Available commands:
+
+        * set
+        * add
+        * del, remove, delete
+        * vlan-add
+        * vlan-del
+
+        Keywords to set up ifinfmsg fields:
+
+        * index -- interface index
+        * family -- AF_BRIDGE for bridge operations, otherwise 0
+        * flags -- device flags
+        * change -- change mask
+
+        All other keywords will be translated to NLA names, e.g.
+        `mtu -> IFLA_MTU`, `af_spec -> IFLA_AF_SPEC` etc. You can
+        provide a complete NLA structure or let filters do it for
+        you. E.g., these pairs show equal statements::
+
+            # set device MTU
+            ip.link("set", index=x, mtu=1000)
+            ip.link("set", index=x, IFLA_MTU=1000)
+
+            # add vlan filter on a bridge port
+            ip.link("vlan-add", index=x,
+                    vlan_info={"vid": 500}
+            ip.link("vlan-add", index=x,
+                    IFLA_AF_SPEC={'attrs': [['IFLA_BRIDGE_VLAN_INFO',
+                                             {'vid': 500}]]})
+
+        Filters are implemented in the `pyroute2.netlink.rtnl.req` module.
+        You can contribute your own if you miss shortcuts.
+
+        Simple examples::
 
             x = 62  # interface index
             ip.link("set", index=x, state="down")
@@ -603,39 +629,29 @@ class IPRouteMixin(object):
             ip.link("set", index=x, mtu=1000, txqlen=2000)
             ip.link("set", index=x, state="up")
 
-        Keywords "state", "flags" and "mask" are reserved. State can
-        be "up" or "down", it is a shortcut::
+
+        Create link::
+
+            ip.link("add", ifname="very_dummy", kind="dummy")
+            ip.link("add", ifname="br0", kind="bridge")
+            ip.link("add", ifname="v101", kind="vlan", vlan_id=101, link=1)
+
+        On modern kernels you can also request a link to be created with a
+        specific index::
+
+            ip.link("add", index=654, ifname="port_a", kind="dummy")
+
+
+        Keyword "state" is reserved. State can be "up" or "down",
+        it is a shortcut::
 
             state="up":   flags=1, mask=1
             state="down": flags=0, mask=0
-
-        For more flags grep IFF in the kernel code, until we write
-        human-readable flag resolver.
-
-        Other keywords are from ifinfmsg.nla_map, look into the
-        corresponding module. You can use the form "ifname" as well
-        as "IFLA_IFNAME" and so on, so that's equal::
-
-            ip.link("set", index=x, mtu=1000)
-            ip.link("set", index=x, IFLA_MTU=1000)
 
         You can also delete interface with::
 
             ip.link("delete", index=x)
 
-        It is possible to manage bridge and bond attributes as well,
-        but it will require to use the `IPLinkRequest()`::
-
-            from pyroute2 import IPLinkRequest
-
-            idx = ip.link_lookup(ifname="br0")[0]
-            ip.link("set", **IPLinkRequest({"index": idx,
-                                            "kind": "bridge",
-                                            "stp_state": 1}))
-
-        Please notice, that the `kind` attribute in that case is
-        required, since `IPLinkRequest()` needs the `kind` to
-        build the NLA structure correctly.
         '''
 
         flags_req = NLM_F_REQUEST | NLM_F_ACK
@@ -665,9 +681,7 @@ class IPRouteMixin(object):
             lrq = IPLinkRequest
         (command, msg_flags) = commands.get(command, command)
         # index
-        if not isinstance(kwarg['index'], int):
-            raise ValueError('index should be int')
-        msg['index'] = kwarg.pop('index')
+        msg['index'] = kwarg.pop('index', 0)
         # flags
         flags = kwarg.pop('flags', 0) or 0
         # change

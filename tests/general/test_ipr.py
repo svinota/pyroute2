@@ -285,17 +285,18 @@ class TestIPRoute(object):
         master = uifname()
         ipvlan = uifname()
         # create the master link
-        self.ip.link_create(ifname=master, kind='dummy')
+        self.ip.link('add', ifname=master, kind='dummy')
         midx = self.ip.link_lookup(ifname=master)[0]
         # check modes
         # maybe move modes dict somewhere else?
         cmode = ifinfmsg.ifinfo.ipvlan_data.modes[smode]
         assert ifinfmsg.ifinfo.ipvlan_data.modes[cmode] == smode
         # create ipvlan
-        self.ip.link_create(ifname=ipvlan,
-                            kind='ipvlan',
-                            link=midx,
-                            mode=cmode)
+        self.ip.link('add',
+                     ifname=ipvlan,
+                     kind='ipvlan',
+                     link=midx,
+                     mode=cmode)
         devs = self.ip.link_lookup(ifname=ipvlan)
         assert devs
         self.ifaces.extend(devs)
@@ -309,7 +310,7 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def _create(self, kind):
         name = uifname()
-        self.ip.link_create(ifname=name, kind=kind)
+        self.ip.link('add', ifname=name, kind=kind)
         devs = self.ip.link_lookup(ifname=name)
         assert devs
         self.ifaces.extend(devs)

@@ -17,7 +17,7 @@ class BasicTest(object):
         require_user('root')
         self.ip = IPRoute()
         self.ifname = uifname()
-        self.ip.link_create(ifname=self.ifname, kind='dummy')
+        self.ip.link('add', ifname=self.ifname, kind='dummy')
         self.interface = self.ip.link_lookup(ifname=self.ifname)[0]
 
     def teardown(self):

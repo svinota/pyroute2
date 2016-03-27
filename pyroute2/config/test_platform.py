@@ -161,19 +161,19 @@ class TestCapsRtnl(object):
         An obvious test: an ability to create dummy interfaces
         '''
         self.ghost = self.ifname()
-        self.ip.link_create(ifname=self.ghost, kind='dummy')
+        self.ip.link('add', ifname=self.ghost, kind='dummy')
 
     def test_create_bridge(self):
         '''
         Can the kernel create bridges via netlink?
         '''
-        self.ip.link_create(ifname=self.ifname(), kind='bridge')
+        self.ip.link('add', ifname=self.ifname(), kind='bridge')
 
     def test_create_bond(self):
         '''
         Can the kernel create bonds via netlink?
         '''
-        self.ip.link_create(ifname=self.ifname(), kind='bond')
+        self.ip.link('add', ifname=self.ifname(), kind='bond')
 
     def test_ghost_newlink(self):
         '''
