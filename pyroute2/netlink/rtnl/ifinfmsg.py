@@ -6,6 +6,8 @@ import struct
 import threading
 import subprocess
 from fcntl import ioctl
+from socket import AF_INET
+from socket import AF_INET6
 from socket import AF_BRIDGE
 from pyroute2 import RawIPRoute
 from pyroute2 import config
@@ -572,7 +574,23 @@ class ifinfbase(object):
             class arp_ip_target(nla):
                 fields = (('targets', '16I'), )
 
-    class af_spec(nla):
+    def af_spec(self, *argv, **kwarg):
+        specs = {0: self.af_spec_inet,
+                 AF_INET: self.af_spec_inet,
+                 AF_INET6: self.af_spec_inet,
+                 AF_BRIDGE: self.af_spec_bridge}
+        return specs.get(self['family'], self.hex)
+
+    class af_spec_bridge(nla):
+        nla_map = (('IFLA_BRIDGE_FLAGS', 'uint16'),
+                   ('IFLA_BRIDGE_MODE', 'uint16'),
+                   ('IFLA_BRIDGE_VLAN_INFO', 'vlan_info'))
+
+        class vlan_info(nla):
+            fields = (('flags', 'H'),
+                      ('vid', 'H'))
+
+    class af_spec_inet(nla):
         nla_map = (('AF_UNSPEC', 'none'),
                    ('AF_UNIX', 'hex'),
                    ('AF_INET', 'inet'),
