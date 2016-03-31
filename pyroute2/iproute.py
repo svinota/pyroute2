@@ -231,6 +231,12 @@ class IPRouteMixin(object):
         msg['index'] = index
         return self.nlm_request(msg, RTM_GETTCLASS)
 
+    def get_vlans(self):
+        '''
+        Dump available vlan info on bridge ports
+        '''
+        return self.get_links(family=AF_BRIDGE, ext_mask=2)
+
     def get_links(self, *argv, **kwarg):
         '''
         Get network interfaces.
@@ -247,15 +253,18 @@ class IPRouteMixin(object):
             ip.get_links(*interfaces)
         '''
         result = []
-        links = argv or ['all']
-        msg_flags = NLM_F_REQUEST | NLM_F_DUMP
+        links = argv or [0]
+        if links[0] == 'all':  # compat syntax
+            links = [0]
+
+        if links[0] == 0:
+            cmd = 'dump'
+        else:
+            cmd = 'get'
+
         for index in links:
-            msg = ifinfmsg()
-            msg['family'] = kwarg.get('family', AF_UNSPEC)
-            if index != 'all':
-                msg['index'] = index
-                msg_flags = NLM_F_REQUEST
-            result.extend(self.nlm_request(msg, RTM_GETLINK, msg_flags))
+            kwarg['index'] = index
+            result.extend(self.link(cmd, **kwarg))
         return result
 
     def get_neighbors(self, family=AF_UNSPEC):
@@ -654,6 +663,7 @@ class IPRouteMixin(object):
 
         '''
 
+        flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_req = NLM_F_REQUEST | NLM_F_ACK
         flags_create = flags_req | NLM_F_CREATE | NLM_F_EXCL
         commands = {'set': (RTM_SETLINK, flags_create),
@@ -661,6 +671,8 @@ class IPRouteMixin(object):
                     'del': (RTM_DELLINK, flags_create),
                     'remove': (RTM_DELLINK, flags_create),
                     'delete': (RTM_DELLINK, flags_create),
+                    'dump': (RTM_GETLINK, flags_dump),
+                    'get': (RTM_GETLINK, NLM_F_REQUEST),
                     'vlan-add': (RTM_SETLINK, flags_req),
                     'vlan-del': (RTM_DELLINK, flags_req)}
         msg = ifinfmsg()
