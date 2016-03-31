@@ -98,6 +98,7 @@ class Interface(Transactional):
         self._load_event = threading.Event()
         self._linked_sets.add('ipaddr')
         self._linked_sets.add('ports')
+        self._linked_sets.add('vlans')
         self._freeze = None
         # 8<-----------------------------------
         # local setup: direct state is required
@@ -274,12 +275,15 @@ class Interface(Transactional):
                 spec = dev.get_attr('IFLA_AF_SPEC')
                 if spec is not None:
                     vlans = spec.get_attrs('IFLA_BRIDGE_VLAN_INFO')
-                    vids = set([x['vid'] for x in vlans])
+                    vmap = {}
+                    for vlan in vlans:
+                        vmap[vlan['vid']] = vlan
+                    vids = set(vmap.keys())
                     # remove vids we do not have anymore
-                    for vlan in (self['vlans'] - vids):
-                        self.del_vlan(vlan)
-                    for vlan in (vids - self['vlans']):
-                        self.add_vlan(vlan)
+                    for vid in (self['vlans'] - vids):
+                        self.del_vlan(vid)
+                    for vid in (vids - self['vlans']):
+                        self.add_vlan(vmap[vid])
             # the rest is possible only when interface
             # is used in IPDB, not standalone
             if self.ipdb is not None:
@@ -353,8 +357,13 @@ class Interface(Transactional):
 
     @with_transaction
     def add_vlan(self, vlan):
-        self['vlans'].unlink(vlan)
-        self['vlans'].add(vlan)
+        if isinstance(vlan, dict):
+            vid = vlan['vid']
+        else:
+            vid = vlan
+            vlan = {'vid': vlan, 'flags': 0}
+        self['vlans'].unlink(vid)
+        self['vlans'].add(vid, raw=vlan)
 
     @with_transaction
     def del_vlan(self, vlan):
@@ -411,8 +420,10 @@ class Interface(Transactional):
             last = self.last()
             ret['+ipaddr'] = last['ipaddr']
             ret['+ports'] = last['ports']
+            ret['+vlans'] = last['vlans']
             del ret['ports']
             del ret['ipaddr']
+            del ret['vlans']
         return ret
 
     def _commit_real_ip(self):
@@ -580,9 +591,26 @@ class Interface(Transactional):
             added = transaction - snapshot
 
             # 8<---------------------------------------------
+            # Port vlans
+            self['vlans'].set_target(transaction['vlans'])
+            for i in removed['vlans']:
+                # remove vlan from the port
+                self.nl.link('vlan-del', index=self['index'],
+                             vlan_info=self['vlans'][i])
+
+            for i in added['vlans']:
+                # add vlan to the port
+                self.nl.link('vlan-add', index=self['index'],
+                             vlan_info=transaction['vlans'][i])
+
+            if removed['vlans'] or added['vlans']:
+                self['vlans'].target.wait(SYNC_TIMEOUT)
+                if not self['vlans'].target.is_set():
+                    raise CommitException('vlans target is not set')
+
+            # 8<---------------------------------------------
             # Interface slaves
             self['ports'].set_target(transaction['ports'])
-
             for i in removed['ports']:
                 # detach the port
                 port = self.ipdb.interfaces[i]

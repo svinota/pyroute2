@@ -269,10 +269,12 @@ class TestExplicit(object):
         r = self.ip.interfaces.lo.review()
         assert len(r['+ipaddr']) == 1
         assert len(r['-ipaddr']) == 0
+        assert len(r['+vlans']) == 0
+        assert len(r['-vlans']) == 0
         assert len(r['+ports']) == 0
         assert len(r['-ports']) == 0
         # +/-ipaddr, +/-ports
-        assert len([i for i in r if r[i] is not None]) == 4
+        assert len([i for i in r if r[i] is not None]) == 6
         self.ip.interfaces.lo.drop()
 
     def test_review_new(self):
@@ -866,6 +868,52 @@ class TestExplicit(object):
         assert b.ipdb_scope == 'create'
         assert grep('ip link', pattern=ifA)
         assert not grep('ip link', pattern=ifB)
+
+    def test_bridge_vlans_flags(self):
+        require_user('root')
+        ifB = self.get_ifname()
+        ifP = self.get_ifname()
+        b = self.ip.create(ifname=ifB, kind='bridge').commit()
+        p = self.ip.create(ifname=ifP, kind='dummy').commit()
+        assert len(p.vlans) == 0
+
+        with b:
+            b.add_port(p)
+
+        with p:
+            p.add_vlan({'vid': 202, 'flags': 6})
+            p.add_vlan({'vid': 204, 'flags': 0})
+            p.add_vlan(206)
+        assert p.vlans == set((1, 202, 204, 206))
+        assert p.vlans[202]['flags'] == 6
+        assert p.vlans[204]['flags'] == 0
+        assert p.vlans[206]['flags'] == 0
+
+    def test_bridge_vlans(self):
+        require_user('root')
+        ifB = self.get_ifname()
+        ifP = self.get_ifname()
+        b = self.ip.create(ifname=ifB, kind='bridge').commit()
+        p = self.ip.create(ifname=ifP, kind='dummy').commit()
+        assert len(p.vlans) == 0
+
+        with b:
+            b.add_port(p)
+        assert len(p.vlans) == 1
+
+        with p:
+            p.add_vlan(202)
+            p.add_vlan(204)
+            p.add_vlan(206)
+        assert p.vlans == set((1, 202, 204, 206))
+
+        with p:
+            p.del_vlan(204)
+        assert p.vlans == set((1, 202, 206))
+
+        with b:
+            b.del_port(p)
+        assert len(p.vlans) == 0
 
     def test_veth_peer_attrs(self):
         require_user('root')

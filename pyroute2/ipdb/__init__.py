@@ -1061,7 +1061,9 @@ class IPDB(object):
         # there is NO masters for the interface, clean them if any
         else:
             device = self.interfaces[msg['index']]
-
+            # clean vlan list from the port
+            for vlan in tuple(device['vlans']):
+                device.del_vlan(vlan, direct=True)
             # clean device from ports
             for master in self.by_index:
                 if index in self.interfaces[master]['ports']:
