@@ -246,7 +246,7 @@ class ifinfbase(object):
                ('IFLA_AF_SPEC', 'af_spec'),
                ('IFLA_GROUP', 'uint32'),
                ('IFLA_NET_NS_FD', 'netns_fd'),
-               ('IFLA_EXT_MASK', 'hex'),
+               ('IFLA_EXT_MASK', 'uint32'),
                ('IFLA_PROMISCUITY', 'uint32'),
                ('IFLA_NUM_TX_QUEUES', 'uint32'),
                ('IFLA_NUM_RX_QUEUES', 'uint32'),
