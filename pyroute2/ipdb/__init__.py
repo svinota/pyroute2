@@ -545,6 +545,11 @@ class IPDB(object):
                 self.device_put(link, skip_slaves=True)
             for link in links:
                 self.update_slaves(link)
+            # bridge info
+            links = self.nl.get_vlans()
+            for link in links:
+                self.update_dev(link)
+            #
             self.update_addr(self.nl.get_addr())
             self.update_neighbours(self.nl.get_neighbours())
             routes4 = self.nl.get_routes(family=AF_INET)

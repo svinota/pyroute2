@@ -82,6 +82,7 @@ class Interface(Transactional):
         Transactional.__init__(self, ipdb, mode)
         self.cleanup = ('header',
                         'linkinfo',
+                        'protinfo',
                         'af_spec',
                         'attrs',
                         'event',
@@ -107,6 +108,7 @@ class Interface(Transactional):
                 del self[i]
             self['ipaddr'] = IPaddrSet()
             self['ports'] = LinkedSet()
+            self['vlans'] = LinkedSet()
             self['ipdb_priority'] = 0
         # 8<-----------------------------------
 
@@ -177,6 +179,11 @@ class Interface(Transactional):
                     self.del_port(port)
                 for port in data[key]:
                     self.add_port(port)
+            elif key == 'vlans':
+                for vlan in self['vlans']:
+                    self.del_vlan(vlan)
+                for vlan in data[key]:
+                    self.add_vlan(vlan)
             elif key == 'neighbours':
                 # ignore neighbours on load
                 pass
@@ -262,6 +269,17 @@ class Interface(Transactional):
                         self['master'] = self.ipdb.interfaces[master].index
                 except (AttributeError, KeyError):
                     pass
+            # load vlans
+            if dev['family'] == socket.AF_BRIDGE:
+                spec = dev.get_attr('IFLA_AF_SPEC')
+                if spec is not None:
+                    vlans = spec.get_attrs('IFLA_BRIDGE_VLAN_INFO')
+                    vids = set([x['vid'] for x in vlans])
+                    # remove vids we do not have anymore
+                    for vlan in (self['vlans'] - vids):
+                        self.del_vlan(vlan)
+                    for vlan in (vids - self['vlans']):
+                        self.add_vlan(vlan)
             # the rest is possible only when interface
             # is used in IPDB, not standalone
             if self.ipdb is not None:
@@ -332,6 +350,17 @@ class Interface(Transactional):
         if (ip, mask) in self['ipaddr']:
             self['ipaddr'].unlink((ip, mask))
             self['ipaddr'].remove((ip, mask))
+
+    @with_transaction
+    def add_vlan(self, vlan):
+        self['vlans'].unlink(vlan)
+        self['vlans'].add(vlan)
+
+    @with_transaction
+    def del_vlan(self, vlan):
+        if vlan in self['vlans']:
+            self['vlans'].unlink(vlan)
+            self['vlans'].remove(vlan)
 
     @with_transaction
     def add_port(self, port):
