@@ -19,6 +19,7 @@ from pyroute2.common import load_dump
 from pyroute2.common import hexdump
 
 mod = sys.argv[1]
+mod = mod.replace('/', '.')
 f = open(sys.argv[2], 'r')
 s = mod.split('.')
 package = '.'.join(s[:-1])
