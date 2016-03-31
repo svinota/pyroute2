@@ -12,7 +12,7 @@ from pyroute2.netlink.rtnl.req import IPLinkRequest
 from pyroute2.netlink.rtnl.ifinfmsg import IFF_MASK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.ipdb.transactional import Transactional
-from pyroute2.ipdb.transactional import update
+from pyroute2.ipdb.transactional import with_transaction
 from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.common import CreateException
@@ -280,12 +280,8 @@ class Interface(Transactional):
     def wait_ip(self, *argv, **kwarg):
         return self['ipaddr'].wait_ip(*argv, **kwarg)
 
-    @update
-    def add_ip(self, direct, ip,
-               mask=None,
-               broadcast=None,
-               anycast=None,
-               scope=None):
+    @with_transaction
+    def add_ip(self, ip, mask=None, broadcast=None, anycast=None, scope=None):
         '''
         Add IP address to an interface
 
@@ -311,26 +307,19 @@ class Interface(Transactional):
         if ip[:4] == 'fe80' and mask == 64:
             return self
 
-        if not direct:
-            # if it is an interface object, route any change
-            # to the last transaction
-            transaction = self.last()
-            transaction.add_ip(ip, mask, broadcast, anycast, scope)
-        else:
-            # if it is a transaction or an interface update, apply the change
-            self['ipaddr'].unlink((ip, mask))
-            request = {}
-            if broadcast is not None:
-                request['broadcast'] = broadcast
-            if anycast is not None:
-                request['anycast'] = anycast
-            if scope is not None:
-                request['scope'] = scope
-            self['ipaddr'].add((ip, mask), raw=request)
-        return self
+        # if it is a transaction or an interface update, apply the change
+        self['ipaddr'].unlink((ip, mask))
+        request = {}
+        if broadcast is not None:
+            request['broadcast'] = broadcast
+        if anycast is not None:
+            request['anycast'] = anycast
+        if scope is not None:
+            request['scope'] = scope
+        self['ipaddr'].add((ip, mask), raw=request)
 
-    @update
-    def del_ip(self, direct, ip, mask=None):
+    @with_transaction
+    def del_ip(self, ip, mask=None):
         '''
         Delete IP address from an interface
         '''
@@ -340,45 +329,30 @@ class Interface(Transactional):
                 mask = dqn2int(mask)
             else:
                 mask = int(mask, 0)
-        if not direct:
-            transaction = self.last()
-            if (ip, mask) in transaction['ipaddr']:
-                transaction.del_ip(ip, mask)
-        else:
+        if (ip, mask) in self['ipaddr']:
             self['ipaddr'].unlink((ip, mask))
             self['ipaddr'].remove((ip, mask))
-        return self
 
-    @update
-    def add_port(self, direct, port):
+    @with_transaction
+    def add_port(self, port):
         '''
         Add a slave port to a bridge or bonding
         '''
         if isinstance(port, Interface):
             port = port['index']
-        if not direct:
-            transaction = self.last()
-            transaction.add_port(port)
-        else:
-            self['ports'].unlink(port)
-            self['ports'].add(port)
-        return self
+        self['ports'].unlink(port)
+        self['ports'].add(port)
 
-    @update
-    def del_port(self, direct, port):
+    @with_transaction
+    def del_port(self, port):
         '''
         Remove a slave port from a bridge or bonding
         '''
         if isinstance(port, Interface):
             port = port['index']
-        if not direct:
-            transaction = self.last()
-            if port in transaction['ports']:
-                transaction.del_port(port)
-        else:
+        if port in self['ports']:
             self['ports'].unlink(port)
             self['ports'].remove(port)
-        return self
 
     def reload(self):
         '''

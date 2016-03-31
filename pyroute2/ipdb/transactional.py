@@ -93,6 +93,17 @@ def update(f):
     return decorated
 
 
+def with_transaction(f):
+    def decorated(self, direct, *argv, **kwarg):
+        if direct:
+            f(self, *argv, **kwarg)
+        else:
+            transaction = self.last()
+            f(transaction, *argv, **kwarg)
+        return self
+    return update(decorated)
+
+
 class Transactional(Dotkeys):
     '''
     Utility class that implements common transactional logic.
