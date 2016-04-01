@@ -1,10 +1,13 @@
 .. iproute:
 
+IPRoute module
+==============
+
 .. automodule:: pyroute2.iproute
     :members:
 
-Queueing disciplines
-====================
+queueing disciplines
+--------------------
 
 .. automodule:: pyroute2.netlink.rtnl.tcmsg.sched_drr
     :members:
@@ -21,7 +24,7 @@ Queueing disciplines
 .. automodule:: pyroute2.netlink.rtnl.tcmsg.sched_htb
     :members:
 
-Filters
-=======
+filters
+-------
 
 .. automodule:: pyroute2.netlink.rtnl.tcmsg.cls_u32

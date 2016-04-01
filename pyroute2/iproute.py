@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 '''
-IPRoute module
-==============
 
 iproute quickstart
 ------------------
@@ -52,8 +50,8 @@ retrieve info about hundreds or thousands of objects, it
 can be better to use IPDB as it will load CPU significantly
 less.
 
-classes
--------
+API
+---
 '''
 import errno
 import types
@@ -391,10 +389,6 @@ class IPRouteMixin(object):
     #
     # Shortcuts
     #
-    # addr_add(), addr_del(), route_add(), route_del() shortcuts are
-    # removed due to redundancy. Only link shortcuts are left here for
-    # now. Possibly, they should be moved to a separate module.
-    #
     def get_default_routes(self, family=AF_UNSPEC, table=DEFAULT_TABLE):
         '''
         Get default routes
@@ -405,37 +399,39 @@ class IPRouteMixin(object):
                     x['dst_len'] == 0)]
 
     def link_create(self, **kwarg):
-        '''
-        Obsoleted method. Use `link("add", ...)` instead.
-        '''
+        # Create interface
+        #
+        # Obsoleted method. Use `link("add", ...)` instead.
         logging.warning("link_create() is obsoleted, use link('add', ...)")
         return self.link('add', **IPLinkRequest(kwarg))
 
     def link_up(self, index):
-        '''
-        Switch an interface up unconditionally.
-        '''
-        self.link('set', index=index, state='up')
+        # Link up.
+        #
+        # Obsoleted method. Use `link("set", ...)` instead.
+        logging.warning("link_up() is obsoleted, use link('set', ...)")
+        return self.link('set', index=index, state='up')
 
     def link_down(self, index):
-        '''
-        Switch an interface down unconditilnally.
-        '''
-        self.link('set', index=index, state='down')
+        # Link up.
+        #
+        # Obsoleted method. Use `link("set", ...)` instead.
+        logging.warning("link_down() is obsoleted, use link('set', ...)")
+        return self.link('set', index=index, state='down')
 
     def link_rename(self, index, name):
-        '''
-        Rename an interface. Please note, that the interface must be
-        in the `DOWN` state in order to be renamed, otherwise you
-        will get an error.
-        '''
-        self.link('set', index=index, ifname=name)
+        # Rename interface.
+        #
+        # Obsoleted method. Use `link("set", ...)` instead.
+        logging.warning("link_rename() is obsoleted, use link('set', ...)")
+        return self.link('set', index=index, ifname=name)
 
     def link_remove(self, index):
-        '''
-        Remove an interface
-        '''
-        self.link('delete', index=index)
+        # Remove interface.
+        #
+        # Obsoleted method. Use `link("del", ...)` instead.
+        logging.warning("link_remove() is obsoleted, use link('del', ...)")
+        return self.link('del', index=index)
 
     def link_lookup(self, **kwarg):
         '''
@@ -593,17 +589,6 @@ class IPRouteMixin(object):
         '''
         Link operations.
 
-        * command -- one of keywords or tuple (msg_type, msg_flags)
-        * \*\*kwarg -- arguments
-
-        Available commands:
-
-        * set
-        * add
-        * del, remove, delete
-        * vlan-add
-        * vlan-del
-
         Keywords to set up ifinfmsg fields:
 
         * index -- interface index
@@ -622,7 +607,7 @@ class IPRouteMixin(object):
 
             # add vlan filter on a bridge port
             ip.link("vlan-add", index=x,
-                    vlan_info={"vid": 500}
+                    vlan_info={"vid": 500})
             ip.link("vlan-add", index=x,
                     IFLA_AF_SPEC={'attrs': [['IFLA_BRIDGE_VLAN_INFO',
                                              {'vid': 500}]]})
@@ -630,26 +615,150 @@ class IPRouteMixin(object):
         Filters are implemented in the `pyroute2.netlink.rtnl.req` module.
         You can contribute your own if you miss shortcuts.
 
-        Simple examples::
+        Commands:
 
-            x = 62  # interface index
+        **add**
+
+        To create an interface, one should specify the interface kind::
+
+            ip.link("add",
+                    ifname="test",
+                    kind="dummy")
+
+        The kind can be any of those supported by kernel. It can be
+        `dummy`, `bridge`, `bond` etc. On modern kernels one can specify
+        even interface index::
+
+            ip.link("add",
+                    ifname="br-test",
+                    kind="bridge",
+                    index=2345)
+
+        Specific type notes:
+
+        ► gre
+
+        Create GRE tunnel::
+
+            ip.link("add",
+                    ifname="grex",
+                    kind="gre",
+                    gre_local="172.16.0.1",
+                    gre_remote="172.16.0.101",
+                    gre_ttl=16)
+
+        The keyed GRE requires explicit iflags/oflags specification::
+
+            ip.link("add",
+                    ifname="grex",
+                    kind="gre",
+                    gre_local="172.16.0.1",
+                    gre_remote="172.16.0.101",
+                    gre_ttl=16,
+                    gre_ikey=10,
+                    gre_okey=10,
+                    gre_iflags=32,
+                    gre_oflags=32)
+
+        ► macvlan
+
+        Macvlan interfaces act like VLANs within OS. The macvlan driver
+        provides an ability to add several MAC addresses on one interface,
+        where every MAC address is reflected with a virtual interface in
+        the system.
+
+        In some setups macvlan interfaces can replace bridge interfaces,
+        providing more simple and at the same time high-performance
+        solution::
+
+            ip.link("add",
+                    ifname="mvlan0",
+                    kind="macvlan",
+                    link=ip.link_lookup(ifname="em1")[0],
+                    macvlan_mode="private").commit()
+
+        Several macvlan modes are available: "private", "vepa", "bridge",
+        "passthru". Ususally the default is "vepa".
+
+        ► macvtap
+
+        Almost the same as macvlan, but creates also a character tap device::
+
+            ip.link("add",
+                    ifname="mvtap0",
+                    kind="macvtap",
+                    link=ip.link_lookup(ifname="em1")[0],
+                    macvtap_mode="vepa").commit()
+
+        Will create a device file `"/dev/tap%s" % index`
+
+        ► tuntap
+
+        Possible `tuntap` keywords:
+
+            - `mode` — "tun" or "tap"
+            - `uid` — integer
+            - `gid` — integer
+            - `ifr` — dict of tuntap flags (see ifinfmsg:... tuntap_data)
+
+        Create a tap interface::
+
+            ip.link("add",
+                    ifname="tap0",
+                    kind="tuntap",
+                    mode="tap")
+
+        Tun/tap interfaces are created using `ioctl()`, but the library
+        provides a transparent way to manage them using netlink API.
+
+        ► veth
+
+        To properly create `veth` interface, one should specify
+        `peer` also, since `veth` interfaces are created in pairs::
+
+            ip.link("add", ifname="v1p0", kind="veth", peer="v1p1")
+
+        ► vlan
+
+        VLAN interfaces require additional parameters, `vlan_id` and
+        `link`, where `link` is a master interface to create VLAN on::
+
+            ip.link("add",
+                    ifname="v100",
+                    kind="vlan",
+                    link=ip.link_lookup(ifname="eth0")[0],
+                    vlan_id=100)
+
+        ► vxlan
+
+        VXLAN interfaces are like VLAN ones, but require a bit more
+        parameters::
+
+            ip.link("add",
+                    ifname="vx101",
+                    kind="vxlan",
+                    vxlan_link=ip.link_lookup(ifname="eth0")[0],
+                    vxlan_id=101,
+                    vxlan_group='239.1.1.1',
+                    vxlan_ttl=16)
+
+        All possible vxlan parameters are listed in the module
+        `pyroute2.netlink.rtnl.ifinfmsg:... vxlan_data`.
+
+        **set**
+
+        Set interface attributes::
+
+            # get interface index
+            x = ip.link_lookup(ifname="eth0")[0]
+            # put link down
             ip.link("set", index=x, state="down")
+            # rename and set MAC addr
             ip.link("set", index=x, address="00:11:22:33:44:55", name="bala")
+            # set MTU and TX queue length
             ip.link("set", index=x, mtu=1000, txqlen=2000)
+            # bring link up
             ip.link("set", index=x, state="up")
-
-
-        Create link::
-
-            ip.link("add", ifname="very_dummy", kind="dummy")
-            ip.link("add", ifname="br0", kind="bridge")
-            ip.link("add", ifname="v101", kind="vlan", vlan_id=101, link=1)
-
-        On modern kernels you can also request a link to be created with a
-        specific index::
-
-            ip.link("add", index=654, ifname="port_a", kind="dummy")
-
 
         Keyword "state" is reserved. State can be "up" or "down",
         it is a shortcut::
@@ -657,9 +766,109 @@ class IPRouteMixin(object):
             state="up":   flags=1, mask=1
             state="down": flags=0, mask=0
 
-        You can also delete interface with::
+        **del**
 
-            ip.link("delete", index=x)
+        Destroy the interface::
+
+            ip.link("del", index=ip.link_lookup(ifname="dummy0")[0])
+
+        **dump**
+
+        Dump info for all interfaces
+
+        **get**
+
+        Get specific interface info::
+
+            ip.link("get", index=ip.link_lookup(ifname="br0")[0])
+
+        **vlan-add**
+
+        Vlan filters is another approach to support vlans in Linux.
+        Before vlan filters were introduced, there was only one way
+        to bridge vlans: one had to create vlan interfaces and
+        then add them as ports::
+
+                    +------+      +----------+
+            net --> | eth0 | <--> | eth0.500 | <---+
+                    +------+      +----------+     |
+                                                   v
+                    +------+                    +-----+
+            net --> | eth1 |                    | br0 |
+                    +------+                    +-----+
+                                                   ^
+                    +------+      +----------+     |
+            net --> | eth2 | <--> | eth0.500 | <---+
+                    +------+      +----------+
+
+        It means that one had to create as many bridges, as there were
+        vlans. Vlan filters allow to bridge together underlying interfaces
+        and create vlans already on the bridge::
+
+            # v500 label shows which interfaces have vlan filter
+
+                    +------+ v500
+            net --> | eth0 | <-------+
+                    +------+         |
+                                     v
+                    +------+      +-----+    +---------+
+            net --> | eth1 | <--> | br0 |<-->| br0v500 |
+                    +------+      +-----+    +---------+
+                                     ^
+                    +------+ v500    |
+            net --> | eth2 | <-------+
+                    +------+
+
+        In this example vlan 500 will be allowed only on ports `eth0` and
+        `eth2`, though all three eth nics are bridged.
+
+        Some example code::
+
+            # create bridge
+            ip.link("add",
+                    ifname="br0",
+                    kind="bridge")
+
+            # attach a port
+            ip.link("set",
+                    index=ip.link_lookup(ifname="eth0")[0],
+                    master=ip.link_lookup(ifname="br0")[0])
+
+            # set vlan filter
+            ip.link("vlan-add",
+                    index=ip.link_lookup(ifname="eth0")[0],
+                    vlan_info={"vid": 500})
+
+            # create vlan interface on the bridge
+            ip.link("add",
+                    ifname="br0v500",
+                    kind="vlan",
+                    link=ip.link_lookup(ifname="br0")[0],
+                    vlan_id=500)
+
+            # set all UP
+            ip.link("set",
+                    index=ip.link_lookup(ifname="br0")[0],
+                    state="up")
+            ip.link("set",
+                    index=ip.link_lookup(ifname="br0v500")[0],
+                    state="up")
+            ip.link("set",
+                    index=ip.link_lookup(ifname="eth0")[0],
+                    state="up")
+
+            # set IP address
+            ip.addr("add",
+                    index=ip.link_lookup(ifname="br0v500")[0],
+                    address="172.16.5.2",
+                    mask=24)
+
+            Now all the traffic to the network 172.16.5.2/24 will go
+            to vlan 500 only via ports that have such vlan filter.
+
+        **vlan-del**
+
+        Remove vlan filter from a bridge port
 
         '''
 
@@ -675,6 +884,7 @@ class IPRouteMixin(object):
                     'get': (RTM_GETLINK, NLM_F_REQUEST),
                     'vlan-add': (RTM_SETLINK, flags_req),
                     'vlan-del': (RTM_DELLINK, flags_req)}
+
         msg = ifinfmsg()
         # ifinfmsg fields
         #
