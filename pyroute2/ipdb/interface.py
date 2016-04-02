@@ -609,17 +609,17 @@ class Interface(Transactional):
                     raise CommitException('vlans target is not set')
 
             # 8<---------------------------------------------
-            # Interface slaves
+            # Ports
             self['ports'].set_target(transaction['ports'])
             for i in removed['ports']:
-                # detach the port
+                # detach port
                 port = self.ipdb.interfaces[i]
                 port.set_target('master', None)
                 port.mirror_target('master', 'link')
                 self.nl.link('set', index=port['index'], master=0)
 
             for i in added['ports']:
-                # enslave the port
+                # attach port
                 port = self.ipdb.interfaces[i]
                 port.set_target('master', self['index'])
                 port.mirror_target('master', 'link')
@@ -634,11 +634,6 @@ class Interface(Transactional):
                 self['ports'].target.wait(SYNC_TIMEOUT)
                 if not self['ports'].target.is_set():
                     raise CommitException('ports target is not set')
-
-                # RHEL 6.5 compat fix -- an explicit timeout
-                # it gives a time for all the messages to pass
-                if not self.ipdb.nl.capabilities['create_bridge']:
-                    time.sleep(1)
 
                 # wait for proper targets on ports
                 for i in list(added['ports']) + list(removed['ports']):
@@ -699,7 +694,7 @@ class Interface(Transactional):
             self['ipaddr'].set_target(target)
 
             # The promote_secondaries sysctl causes the kernel
-            # to add seconday addresses back after the primary
+            # to add secondary addresses back after the primary
             # address is removed.
             #
             # The library can not tell this from the result of
