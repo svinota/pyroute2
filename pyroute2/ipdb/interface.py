@@ -266,13 +266,6 @@ class Interface(Transactional):
                         for nla in data.get('attrs', []):
                             norm = ifinfmsg.nla2name(nla[0])
                             self[norm] = nla[1]
-                # get OVS master and override IFLA_MASTER value
-                try:
-                    master = linkinfo.get_attr('IFLA_INFO_OVS_MASTER')
-                    if master:
-                        self['master'] = self.ipdb.interfaces[master].index
-                except (AttributeError, KeyError):
-                    pass
             # load vlans
             if dev['family'] == socket.AF_BRIDGE:
                 spec = dev.get_attr('IFLA_AF_SPEC')

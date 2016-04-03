@@ -1018,24 +1018,10 @@ class IPDB(object):
         for msg in routes:
             self.routes.load_netlink(msg)
 
-    def _lookup_master(self, msg):
-        master = None
-        # lookup for IFLA_INFO_OVS_MASTER
-        li = msg.get_attr('IFLA_LINKINFO')
-        if li:
-            master = li.get_attr('IFLA_INFO_OVS_MASTER')
-        # lookup for IFLA_MASTER
-        if master is None:
-            master = msg.get_attr('IFLA_MASTER')
-        # pls keep in mind, that in the case of IFLA_MASTER
-        # lookup is done via interface index, while in the case
-        # of IFLA_INFO_OVS_MASTER lookup is done via ifname
-        return self.interfaces.get(master, None)
-
     def update_slaves(self, msg):
         # Update slaves list -- only after update IPDB!
 
-        master = self._lookup_master(msg)
+        master = self.interfaces.get(msg.get_attr('IFLA_MASTER'), None)
         index = msg['index']
         # there IS a master for the interface
         if master is not None:
