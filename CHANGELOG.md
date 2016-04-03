@@ -1,6 +1,16 @@
 changelog
 =========
 
+* 0.3.17
+    * tcmsg: qdiscs and filters as plugins
+    * tcmsg: #223 -- tc clsact and bpf direct-action
+    * tcmsg: plug, codel, choke, drr qdiscs
+    * tests: CI in VMs (see civm project)
+    * tests: xunit output
+    * ifinfmsg: tuntap support in i386, i686
+    * ifinfmsg: #207 -- support vlan filters
+    * examples: #226 -- included in the release tarball
+    * ipdb: partial commits, initial support
 * 0.3.16
     * ipdb: fix the multiple IPs in one commit case
     * rtnl: support veth peer attributes
