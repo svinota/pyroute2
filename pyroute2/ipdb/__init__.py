@@ -1021,8 +1021,13 @@ class IPDB(object):
     def update_slaves(self, msg):
         # Update slaves list -- only after update IPDB!
 
-        master = self.interfaces.get(msg.get_attr('IFLA_MASTER'), None)
         index = msg['index']
+        master_index = msg.get_attr('IFLA_MASTER')
+        if index == master_index:
+            # one special case: links() call with AF_BRIDGE
+            # returns IFLA_MASTER == index
+            return
+        master = self.interfaces.get(master_index, None)
         # there IS a master for the interface
         if master is not None:
             if msg['event'] == 'RTM_NEWLINK':
