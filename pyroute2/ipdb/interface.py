@@ -17,6 +17,7 @@ from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.common import CreateException
 from pyroute2.ipdb.common import CommitException
+from pyroute2.ipdb.common import PartialCommitException
 from pyroute2.ipdb.common import SYNC_TIMEOUT
 
 
@@ -622,7 +623,8 @@ class Interface(Transactional):
                 run(nl.link, 'vlan-add', index=self['index'],
                              vlan_info=transaction['vlans'][i])
 
-            if transaction.partial and removed['vlans'] or added['vlans']:
+            if (not transaction.partial) and \
+                    (removed['vlans'] or added['vlans']):
                 self['vlans'].target.wait(SYNC_TIMEOUT)
                 if not self['vlans'].target.is_set():
                     raise CommitException('vlans target is not set')
@@ -632,19 +634,30 @@ class Interface(Transactional):
             self['ports'].set_target(transaction['ports'])
             for i in removed['ports']:
                 # detach port
-                port = self.ipdb.interfaces[i]
-                port.set_target('master', None)
-                port.mirror_target('master', 'link')
-                run(nl.link, 'set', index=port['index'], master=0)
+                if i in self.ipdb.interfaces:
+                    port = self.ipdb.interfaces[i]
+                    port.set_target('master', None)
+                    port.mirror_target('master', 'link')
+                    run(nl.link, 'set',
+                        index=port['index'],
+                        master=0)
+                else:
+                    transaction.errors.append(KeyError(i))
 
             for i in added['ports']:
                 # attach port
-                port = self.ipdb.interfaces[i]
-                port.set_target('master', self['index'])
-                port.mirror_target('master', 'link')
-                run(nl.link, 'set', index=port['index'], master=self['index'])
+                if i in self.ipdb.interfaces:
+                    port = self.ipdb.interfaces[i]
+                    port.set_target('master', self['index'])
+                    port.mirror_target('master', 'link')
+                    run(nl.link, 'set',
+                        index=port['index'],
+                        master=self['index'])
+                else:
+                    transaction.errors.append(KeyError(i))
 
-            if not transaction.partial and removed['ports'] or added['ports']:
+            if (not transaction.partial) and \
+                    (removed['ports'] or added['ports']):
                 for link in self.nl.get_links(
                         *(removed['ports'] | added['ports'])):
                     self.ipdb.device_put(link)
@@ -760,8 +773,8 @@ class Interface(Transactional):
                 raise CommitException('ipaddr setup error', i)
 
             # 8<--------------------------------------
-            if not transaction.partial and \
-                    removed['ipaddr'] or added['ipaddr']:
+            if (not transaction.partial) and \
+                    (removed['ipaddr'] or added['ipaddr']):
                 # 8<--------------------------------------
                 # bond and bridge interfaces do not send
                 # IPv6 address updates, when are down
@@ -855,7 +868,7 @@ class Interface(Transactional):
 
         # raise partial commit exceptions
         if transaction.partial and transaction.errors:
-            error = Exception('partial commit error')
+            error = PartialCommitException('partial commit error')
 
         # if it is not a rollback turn
         if drop and not rollback:

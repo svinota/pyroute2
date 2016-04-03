@@ -13,3 +13,7 @@ class CommitException(Exception):
 
 class CreateException(Exception):
     pass
+
+
+class PartialCommitException(Exception):
+    pass
