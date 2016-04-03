@@ -805,45 +805,33 @@ class Interface(Transactional):
             # 8<---------------------------------------------
 
         except Exception as e:
+            error = e
             # something went wrong: roll the transaction back
             if not rollback:
-                ret = self.commit(transaction=snapshot,
-                                  rollback=True,
-                                  newif=newif)
-                # if some error was returned by the internal
-                # closure, substitute the initial one
-                if isinstance(ret, Exception):
-                    error = ret
-                else:
-                    error = e
-                    error.traceback = traceback.format_exc()
-            elif isinstance(e, NetlinkError) and \
-                    getattr(e, 'code', 0) == errno.EPERM:
-                # It is <Operation not permitted>, catched in
-                # rollback. So return it -- see ~5 lines above
-                e.traceback = traceback.format_exc()
-                return e
+                try:
+                    self.commit(transaction=snapshot,
+                                rollback=True,
+                                newif=newif)
+                except Exception as i_e:
+                    error = RuntimeError()
+                    error.cause = i_e
             else:
-                # somethig went wrong during automatic rollback.
-                # that's the worst case, but it is still possible,
-                # since we have no locks on OS level.
-                self['ipaddr'].clear_target()
-                self['ports'].clear_target()
                 # reload all the database -- it can take a long time,
                 # but it is required since we have no idea, what is
                 # the result of the failure
-                #
-                # ACHTUNG: database reload is asynchronous, so after
-                # getting RuntimeError() from commit(), take a seat
-                # and rest for a while. It is an extremal case, it
-                # should not became at all, and there is no sync.
-                for link in self.nl.get_links():
-                    self.ipdb.device_put(link)
+                links = self.nl.get_links()
+                for link in links:
+                    self.ipdb.device_put(link, skip_slaves=True)
+                for link in links:
+                    self.ipdb.update_slaves(link)
+                links = self.nl.get_vlans()
+                for link in links:
+                    self.ipdb.update_dev(link)
                 self.ipdb.update_addr(self.nl.get_addr())
-                x = RuntimeError()
-                x.cause = e
-                x.traceback = traceback.format_exc()
-                raise x
+
+            error.traceback = traceback.format_exc()
+            for key in ('ipaddr', 'ports', 'vlans'):
+                self[key].clear_target()
 
         # if it is not a rollback turn
         if drop and not rollback:
