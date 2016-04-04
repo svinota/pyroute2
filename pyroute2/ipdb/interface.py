@@ -633,7 +633,8 @@ class Interface(Transactional):
 
         # resolve all delayed ports
         def resolve_ports(transaction, ports, callback, self, drop):
-            def error(x): return KeyError('can not resolve port %s' % x)
+            def error(x):
+                return KeyError('can not resolve port %s' % x)
             for port in tuple(ports):
                 ifindex = self._resolve_port(port)
                 if ifindex is None:
