@@ -535,6 +535,8 @@ class Interface(Transactional):
                 drop = False
             else:
                 transaction = self.last()
+        if transaction.partial:
+            transaction.errors = []
 
         wd = None
         with self._write_lock:
@@ -602,7 +604,11 @@ class Interface(Transactional):
                     self._exception = e
                     self._tb = traceback.format_exc()
                     # raise the exception
-                    raise
+                    if transaction.partial:
+                        transaction.errors.append(e)
+                        raise PartialCommitException()
+                    else:
+                        raise
 
         if wd is not None:
             wd.wait()
@@ -616,7 +622,11 @@ class Interface(Transactional):
                 if ix:
                     self['index'] = ix[0]
                 else:
-                    raise CreateException()
+                    if transaction.partial:
+                        transaction.errors.append(CreateException())
+                        raise PartialCommitException()
+                    else:
+                        raise CreateException()
 
         # now we have our index and IP set and all other stuff
         snapshot = self.pick()
