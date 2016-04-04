@@ -745,6 +745,9 @@ class Interface(Transactional):
             # apply changes only if there is something to apply
             if any([request[item] is not None for item in request
                     if item != 'index']):
+                if request.get('address', None) == '00:00:00:00:00:00':
+                    request.pop('address')
+                    request.pop('broadcast', None)
                 run(nl.link, 'set', **request)
                 # hardcoded pause -- if the interface was moved
                 # across network namespaces
