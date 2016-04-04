@@ -15,6 +15,7 @@ from pyroute2.common import basestring
 from pyroute2.common import uifname
 from pyroute2.netlink import NetlinkError
 from pyroute2.ipdb.common import CreateException
+from pyroute2.ipdb.common import PartialCommitException
 from utils import grep
 from utils import create_link
 from utils import kernel_version_ge
@@ -76,7 +77,7 @@ class TestRace(object):
             ip.release()
 
 
-class TestExplicit(object):
+class BasicSetup(object):
     ip = None
     mode = 'explicit'
 
@@ -100,6 +101,9 @@ class TestExplicit(object):
                 pass
         self.ip.release()
         self.ifaces = []
+
+
+class TestExplicit(BasicSetup):
 
     def test_simple(self):
         assert len(list(self.ip.interfaces.keys())) > 0
@@ -1388,6 +1392,39 @@ class TestCompat(TestExplicit):
                                    'create_bond': False,
                                    'provide_master': False}
         config.kernel = [2, 6, 32]  # RHEL 6
+
+
+class TestPartial(BasicSetup):
+    mode = 'implicit'
+
+    def test_delay_port(self):
+        require_user('root')
+        ifB = self.get_ifname()
+        ifBp0 = self.get_ifname()
+        ifBp1 = self.get_ifname()
+
+        b = self.ip.create(ifname=ifB, kind='bridge').commit()
+        bp0 = self.ip.create(ifname=ifBp0, kind='dummy').commit()
+
+        b.add_port(ifBp0)
+        b.add_port(ifBp1)
+        t = b.last()
+        t.partial = True
+        try:
+            b.commit(transaction=t)
+        except PartialCommitException:
+            pass
+
+        assert len(b['ports']) == 1
+        assert bp0['index'] in b['ports']
+        assert len(t.errors) == 1
+
+        bp1 = self.ip.create(ifname=ifBp1, kind='dummy').commit()
+        b.commit(transaction=t)
+
+        assert len(b['ports']) == 2
+        assert bp1['index'] in b['ports']
+        assert len(t.errors) == 0
 
 
 class TestImplicit(TestExplicit):
