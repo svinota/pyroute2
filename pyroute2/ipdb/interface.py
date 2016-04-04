@@ -103,6 +103,8 @@ class Interface(Transactional):
         self._linked_sets.add('ports')
         self._linked_sets.add('vlans')
         self._freeze = None
+        self._delay_add_port = set()
+        self._delay_del_port = set()
         # 8<-----------------------------------
         # local setup: direct state is required
         with self._direct_state:
@@ -370,23 +372,26 @@ class Interface(Transactional):
     @with_transaction
     def add_port(self, port):
         '''
-        Add a slave port to a bridge or bonding
+        Add port to a bridge or bonding
         '''
-        if isinstance(port, Interface):
-            port = port['index']
-        self['ports'].unlink(port)
-        self['ports'].add(port)
+        ifindex = self._resolve_port(port)
+        if ifindex is None:
+            self._delay_add_port.add(port)
+        else:
+            self['ports'].unlink(ifindex)
+            self['ports'].add(ifindex)
 
     @with_transaction
     def del_port(self, port):
         '''
-        Remove a slave port from a bridge or bonding
+        Remove port from a bridge or bonding
         '''
-        if isinstance(port, Interface):
-            port = port['index']
-        if port in self['ports']:
-            self['ports'].unlink(port)
-            self['ports'].remove(port)
+        ifindex = self._resolve_port(port)
+        if ifindex is None:
+            self._delay_del_port.add(port)
+        else:
+            self['ports'].unlink(ifindex)
+            self['ports'].remove(ifindex)
 
     def reload(self):
         '''
@@ -412,14 +417,26 @@ class Interface(Transactional):
 
     def review(self):
         ret = super(Interface, self).review()
+        last = self.last()
         if self['ipdb_scope'] == 'create':
-            last = self.last()
             ret['+ipaddr'] = last['ipaddr']
             ret['+ports'] = last['ports']
             ret['+vlans'] = last['vlans']
             del ret['ports']
             del ret['ipaddr']
             del ret['vlans']
+        if last._delay_add_port:
+            ports = set(['*%s' % x for x in last._delay_add_port])
+            if '+ports' in ret:
+                ret['+ports'] |= ports
+            else:
+                ret['+ports'] = ports
+        if last._delay_del_port:
+            ports = set(['*%s' % x for x in last._delay_del_port])
+            if '-ports' in ret:
+                ret['-ports'] |= ports
+            else:
+                ret['-ports'] = ports
         return ret
 
     def _run(self, cmd, *argv, **kwarg):
@@ -430,6 +447,14 @@ class Interface(Transactional):
                 self.errors.append(error)
                 return []
             raise error
+
+    def _resolve_port(self, port):
+        # for now just a stupid resolver, will be
+        # improved later with search by mac, etc.
+        if isinstance(port, Interface):
+            return port['index']
+        else:
+            return self.ipdb.interfaces.get(port, {}).get('index', None)
 
     def _commit_real_ip(self):
         for _ in range(3):
@@ -595,6 +620,30 @@ class Interface(Transactional):
 
         # now we have our index and IP set and all other stuff
         snapshot = self.pick()
+
+        # resolve all delayed ports
+        def resolve_ports(transaction, ports, callback, self, drop):
+            def error(x): return KeyError('can not resolve port %s' % x)
+            for port in tuple(ports):
+                ifindex = self._resolve_port(port)
+                if ifindex is None:
+                    if transaction.partial:
+                        transaction.errors.append(error(port))
+                    else:
+                        if drop:
+                            self.drop(transaction)
+                        raise error(port)
+                else:
+                    ports.remove(port)
+                    callback(ifindex, direct=True)
+        resolve_ports(transaction,
+                      transaction._delay_add_port,
+                      transaction.add_port,
+                      self, drop)
+        resolve_ports(transaction,
+                      transaction._delay_del_port,
+                      transaction.del_port,
+                      self, drop)
 
         try:
             removed = snapshot - transaction
