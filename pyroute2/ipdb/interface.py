@@ -292,6 +292,11 @@ class Interface(Transactional):
                 if item in self:
                     del self[item]
 
+            # AF_BRIDGE messages for bridges contain
+            # IFLA_MASTER == self.index, we should fix it
+            if self.get('master', None) == self['index']:
+                self['master'] = None
+
             self.sync()
 
     def sync(self):
