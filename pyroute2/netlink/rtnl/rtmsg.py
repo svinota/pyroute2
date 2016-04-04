@@ -68,7 +68,17 @@ class rtmsg(nlmsg):
                ('RTA_MFC_STATS', 'rta_mfc_stats'),
                ('RTA_VIA', 'rtvia'),
                ('RTA_NEWDST', 'target'),
-               ('RTA_PREF', 'hex'))
+               ('RTA_PREF', 'hex'),
+               ('RTA_ENCAP_TYPE', 'uint16'),
+               ('RTA_ENCAP', 'encap_info'),
+               ('RTA_EXPIRES', 'hex'))
+
+    def encap_info(self, *argv, **kwarg):
+        return self.mpls_encap_info
+
+    class mpls_encap_info(nla):
+        nla_map = (('MPLS_IPTUNNEL_UNSPEC', 'none'),
+                   ('MPLS_IPTUNNEL_DST', 'array(uint32)'))
 
     class rta_mfc_stats(nla):
         fields = (('mfcs_packets', 'uint64'),
