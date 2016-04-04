@@ -133,7 +133,7 @@ test: dist
 test-ci:
 	@${civm} tests/ci
 
-upload: clean force-version
+upload: clean force-version docs
 	${python} setup.py sdist upload
 
 dist: clean force-version docs

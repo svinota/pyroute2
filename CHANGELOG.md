@@ -1,6 +1,8 @@
 changelog
 =========
 
+* 0.3.18
+    * version bump -- include docs in the release tarball
 * 0.3.17
     * tcmsg: qdiscs and filters as plugins
     * tcmsg: #223 -- tc clsact and bpf direct-action
