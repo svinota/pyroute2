@@ -194,6 +194,38 @@ class protinfo_bridge(nla):
         pass
 
 
+class macvx_data(nla):
+    prefix = 'IFLA_'
+    nla_map = (('IFLA_MACVLAN_UNSPEC', 'none'),
+               ('IFLA_MACVLAN_MODE', 'mode'),
+               ('IFLA_MACVLAN_FLAGS', 'flags'),
+               ('IFLA_MACVLAN_MACADDR_MODE', 'macaddr_mode'),
+               ('IFLA_MACVLAN_MACADDR', 'l2addr'),
+               ('IFLA_MACVLAN_MACADDR_DATA', 'macaddr_data'),
+               ('IFLA_MACVLAN_MACADDR_COUNT', 'uint32'))
+
+    class mode(nlmsg_atoms.uint32):
+        value_map = {0: 'none',
+                     1: 'private',
+                     2: 'vepa',
+                     4: 'bridge',
+                     8: 'passthru',
+                     16: 'source'}
+
+    class flags(nlmsg_atoms.uint16):
+        value_map = {0: 'none',
+                     1: 'nopromisc'}
+
+    class macaddr_mode(nlmsg_atoms.uint32):
+        value_map = {0: 'add',
+                     1: 'del',
+                     2: 'flush',
+                     3: 'set'}
+
+    class macaddr_data(nla):
+        nla_map = ((4, 'IFLA_MACVLAN_MACADDR', 'l2addr'), )
+
+
 class ifinfbase(object):
     '''
     Network interface message.
@@ -255,7 +287,8 @@ class ifinfbase(object):
                ('IFLA_CARRIER_CHANGES', 'uint32'),
                ('IFLA_PHYS_SWITCH_ID', 'hex'),
                ('IFLA_LINK_NETNSID', 'int32'),
-               ('IFLA_PHYS_PORT_NAME', 'asciiz'))
+               ('IFLA_PHYS_PORT_NAME', 'asciiz'),
+               ('IFLA_PROTO_DOWN', 'uint8'))
 
     @staticmethod
     def flags2names(flags, mask=0xffffffff):
@@ -479,29 +512,12 @@ class ifinfbase(object):
                        ('IFLA_GRE_ENCAP_DPORT', 'be16'),
                        ('IFLA_GRE_COLLECT_METADATA', 'flag'))
 
-        class macvx_data(nla):
-            prefix = 'IFLA_'
-
-            class mode(nlmsg_atoms.uint32):
-                value_map = {0: 'none',
-                             1: 'private',
-                             2: 'vepa',
-                             4: 'bridge',
-                             8: 'passthru'}
-
-            class flags(nlmsg_atoms.uint16):
-                value_map = {0: 'none',
-                             1: 'nopromisc'}
+        class macvlan_data(macvx_data):
+            pass
 
         class macvtap_data(macvx_data):
-            nla_map = (('IFLA_MACVTAP_UNSPEC', 'none'),
-                       ('IFLA_MACVTAP_MODE', 'mode'),
-                       ('IFLA_MACVTAP_FLAGS', 'flags'))
-
-        class macvlan_data(macvx_data):
-            nla_map = (('IFLA_MACVLAN_UNSPEC', 'none'),
-                       ('IFLA_MACVLAN_MODE', 'mode'),
-                       ('IFLA_MACVLAN_FLAGS', 'flags'))
+            nla_map = [(x[0].replace('MACVLAN', 'MACVTAP'), x[1])
+                       for x in macvx_data.nla_map]
 
         class ipvlan_data(nla):
             prefix = 'IFLA_'
@@ -596,7 +612,11 @@ class ifinfbase(object):
                        ('IFLA_BOND_PACKETS_PER_SLAVE', 'uint32'),
                        ('IFLA_BOND_AD_LACP_RATE', 'uint8'),
                        ('IFLA_BOND_AD_SELECT', 'uint8'),
-                       ('IFLA_BOND_AD_INFO', 'ad_info'))
+                       ('IFLA_BOND_AD_INFO', 'ad_info'),
+                       ('IFLA_BOND_AD_ACTOR_SYS_PRIO', 'uint16'),
+                       ('IFLA_BOND_AD_USER_PORT_KEY', 'uint16'),
+                       ('IFLA_BOND_AD_ACTOR_SYSTEM', 'hex'),
+                       ('IFLA_BOND_TLB_DYNAMIC_LB', 'uint8'))
 
             class ad_info(nla):
                 nla_map = (('IFLA_BOND_AD_INFO_UNSPEC', 'none'),

@@ -1202,6 +1202,7 @@ class TestExplicit(BasicSetup):
         ip2 = IPDB()
         ifdb = ip2.interfaces
         try:
+            assert ifdb[ifV]['kind'] == kind
             assert ifdb[ifV].link == ifdb[ifL].index
             assert ifdb[ifV]['%s_mode' % kind] == mode
         except Exception:
