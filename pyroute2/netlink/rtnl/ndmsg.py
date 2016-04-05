@@ -68,7 +68,7 @@ class ndmsg(nlmsg):
                ('NDA_PROBES', 'uint32'),
                ('NDA_VLAN', 'uint16'),
                ('NDA_PORT', 'be16'),
-               ('NDA_VNI', 'be32'),
+               ('NDA_VNI', 'uint32'),
                ('NDA_IFINDEX', 'uint32'),
                ('NDA_MASTER', 'uint32'))
 
