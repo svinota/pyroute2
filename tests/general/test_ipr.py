@@ -539,7 +539,7 @@ class TestIPRoute(object):
         self.ip.route('del', **req)
         assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
 
-    def test_route_multipath(self):
+    def test_route_multipath_raw(self):
         require_user('root')
         self.ip.route('add',
                       dst='172.16.241.0',
@@ -569,6 +569,149 @@ class TestIPRoute(object):
         assert grep('ip route show', pattern='nexthop.*127.0.0.2.*weight 21')
         assert grep('ip route show', pattern='nexthop.*127.0.0.3.*weight 31')
         self.ip.route('del', dst='172.16.242.0', mask=24)
+
+    def test_route_multipath(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.243.0/24',
+                      multipath=[{'gateway': '127.0.0.2'},
+                                 {'gateway': '127.0.0.3'}])
+        assert grep('ip route show', pattern='172.16.243.0/24')
+        assert grep('ip route show', pattern='nexthop.*127.0.0.2')
+        assert grep('ip route show', pattern='nexthop.*127.0.0.3')
+        self.ip.route('del', dst='172.16.243.0', mask=24)
+
+    @skip_if_not_supported
+    def test_lwtunnel_multipath_mpls(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.216.0/24',
+                      multipath=[{'encap': {'type': 'mpls',
+                                            'labels': 500},
+                                  'ifindex': 1},
+                                 {'encap': {'type': 'mpls',
+                                            'labels': '600/700'},
+                                  'gateway': '127.0.0.4'}])
+        routes = self.ip.route('dump', dst='172.16.216.0/24')
+        assert len(routes) == 1
+        mp = routes[0].get_attr('RTA_MULTIPATH')
+        assert len(mp) == 2
+        assert mp[0]['ifindex'] == 1
+        assert mp[0].get_attr('RTA_ENCAP_TYPE') == 1
+        labels = mp[0].get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 1
+        assert labels[0]['bos'] == 1
+        assert labels[0]['label'] == 500
+        assert mp[1].get_attr('RTA_ENCAP_TYPE') == 1
+        labels = mp[1].get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 2
+        assert labels[0]['bos'] == 0
+        assert labels[0]['label'] == 600
+        assert labels[1]['bos'] == 1
+        assert labels[1]['label'] == 700
+        self.ip.route('del', dst='172.16.216.0/24')
+
+    @skip_if_not_supported
+    def test_lwtunnel_mpls_dict_label(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.226.0/24',
+                      encap={'type': 'mpls',
+                             'labels': [{'bos': 0, 'label': 226},
+                                        {'bos': 1, 'label': 227}]},
+                      gateway='127.0.0.2')
+        routes = self.ip.route('dump', dst='172.16.226.0/24')
+        assert len(routes) == 1
+        route = routes[0]
+        assert route.get_attr('RTA_ENCAP_TYPE') == 1
+        assert route.get_attr('RTA_GATEWAY') == '127.0.0.2'
+        labels = route.get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 2
+        assert labels[0]['bos'] == 0
+        assert labels[0]['label'] == 226
+        assert labels[1]['bos'] == 1
+        assert labels[1]['label'] == 227
+        self.ip.route('del', dst='172.16.226.0/24')
+
+    @skip_if_not_supported
+    def test_lwtunnel_mpls_2_int_label(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.206.0/24',
+                      encap={'type': 'mpls',
+                             'labels': [206, 207]},
+                      oif=1)
+        routes = self.ip.route('dump', dst='172.16.206.0/24')
+        assert len(routes) == 1
+        route = routes[0]
+        assert route.get_attr('RTA_ENCAP_TYPE') == 1
+        assert route.get_attr('RTA_OIF') == 1
+        labels = route.get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 2
+        assert labels[0]['bos'] == 0
+        assert labels[0]['label'] == 206
+        assert labels[1]['bos'] == 1
+        assert labels[1]['label'] == 207
+        self.ip.route('del', dst='172.16.206.0/24')
+
+    @skip_if_not_supported
+    def test_lwtunnel_mpls_2_str_label(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.246.0/24',
+                      encap={'type': 'mpls',
+                             'labels': "246/247"},
+                      oif=1)
+        routes = self.ip.route('dump', dst='172.16.246.0/24')
+        assert len(routes) == 1
+        route = routes[0]
+        assert route.get_attr('RTA_ENCAP_TYPE') == 1
+        assert route.get_attr('RTA_OIF') == 1
+        labels = route.get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 2
+        assert labels[0]['bos'] == 0
+        assert labels[0]['label'] == 246
+        assert labels[1]['bos'] == 1
+        assert labels[1]['label'] == 247
+        self.ip.route('del', dst='172.16.246.0/24')
+
+    @skip_if_not_supported
+    def test_lwtunnel_mpls_1_str_label(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.244.0/24',
+                      encap={'type': 'mpls',
+                             'labels': "244"},
+                      oif=1)
+        routes = self.ip.route('dump', dst='172.16.244.0/24')
+        assert len(routes) == 1
+        route = routes[0]
+        assert route.get_attr('RTA_ENCAP_TYPE') == 1
+        assert route.get_attr('RTA_OIF') == 1
+        labels = route.get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 1
+        assert labels[0]['bos'] == 1
+        assert labels[0]['label'] == 244
+        self.ip.route('del', dst='172.16.244.0/24')
+
+    @skip_if_not_supported
+    def test_lwtunnel_mpls_1_int_label(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.245.0/24',
+                      encap={'type': 'mpls',
+                             'labels': 245},
+                      oif=1)
+        routes = self.ip.route('dump', dst='172.16.245.0/24')
+        assert len(routes) == 1
+        route = routes[0]
+        assert route.get_attr('RTA_ENCAP_TYPE') == 1
+        assert route.get_attr('RTA_OIF') == 1
+        labels = route.get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 1
+        assert labels[0]['bos'] == 1
+        assert labels[0]['label'] == 245
+        self.ip.route('del', dst='172.16.245.0/24')
 
     def test_route_change_existing(self):
         # route('replace', ...) should succeed, if route exists
