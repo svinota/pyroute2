@@ -1218,27 +1218,57 @@ class IPRouteMixin(object):
                      metrics={"attrs": [["RTAX_MTU", 1400],
                                         ["RTAX_HOPLIMIT", 16]]})
 
-        The second way is to use `IPRouteRequest` helper::
+        The second way is to use shortcuts, provided by `IPRouteRequest`
+        class, which is applied to `**kwarg` automatically:
 
-            from pyroute2.netlink.rtnl.req import IPRouteRequest
-            ...
-            ip.route("add", **IPRouteRequest({"dst": "10.0.0.0/24",
-                                              "gateway": "192.168.0.1",
-                                              "metrics": {"mtu": 1400,
-                                                          "hoplimit": 16}}))
+            ip.route("add",
+                     dst="10.0.0.0/24",
+                     gateway="192.168.0.1",
+                     metrics={"mtu": 1400,
+                              "hoplimit": 16})
 
-        The `IPRouteRequest` helper is useful also to manage
-        mulptipath routes::
+        ...
 
-            from pyroute2.netlink.rtnl.req import IPRouteRequest
-            ...
-            request = {"dst": "10.0.0.0/24",
-                       "multipath": [{"gateway": "192.168.0.1",
-                                      "hops": 2},
-                                     {"gateway": "192.168.0.2",
-                                      "hops": 1},
-                                     {"gateway": "192.168.0.3"}]}
-            ip.route("add", **IPRouteRequest(request))
+        More `route()` examples. Multipath route::
+
+            ip.route("add",
+                     dst="10.0.0.0/24",
+                     multipath=[{"gateway": "192.168.0.1", "hops": 2},
+                                {"gateway": "192.168.0.2", "hops": 1},
+                                {"gateway": "192.168.0.3"}])
+
+        MPLS lwtunnel::
+
+            ip.route("add",
+                     dst="10.0.0.0/24",
+                     table=20,
+                     encap={"type": "mpls",
+                            "labels": "200/300"})
+
+        MPLS multipath::
+
+            ip.route("add",
+                     dst="10.0.0.0/24",
+                     table=20,
+                     multipath=[{"gateway": "192.168.0.1",
+                                 "encap": {"type": "mpls",
+                                           "labels": 200}},
+                                {"ifindex": 2,
+                                 "encap": {"type": "mpls",
+                                           "labels": 300}}])
+
+        MPLS target can be int, string, dict or list::
+
+            "labels": 300    # simple label
+            "labels": "300"  # the same
+            "labels": (200, 300)  # stacked
+            "labels": "200/300"   # the same
+
+            # explicit label definition
+            "labels": {"bos": 1,
+                       "label": 300,
+                       "tc": 0,
+                       "ttl": 16}
         '''
 
         # 8<----------------------------------------------------
