@@ -1271,14 +1271,22 @@ class nlmsg_base(dict):
             init = self.buf.tell()
             nla = None
             # pick the length and the type
-            (length, msg_type) = struct.unpack('HH', self.buf.read(4))
+            try:
+                (length, msg_type) = struct.unpack('HH', self.buf.read(4))
+            except Exception:
+                # another alignment trick
+                if self.buf.tell() == (self.offset + self.length):
+                    break
             # first two bits of msg_type are flags:
             msg_type = msg_type & ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
             # rewind to the beginning
             self.buf.seek(init)
             length = min(max(length, 4),
                          (self.length - self.buf.tell() + self.offset))
-
+            if length < 4:
+                # alignment trick
+                self.buf.seek(init + length)
+                continue
             # we have a mapping for this NLA
             if msg_type in self.t_nla_map:
 
