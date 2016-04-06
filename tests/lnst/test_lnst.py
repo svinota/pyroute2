@@ -61,6 +61,33 @@ class TestLnst(object):
         ipr1.close()
         ipr2.close()
 
+    def test_exceptions_compat(self):
+        from pyroute2.netlink import NetlinkError
+        from pyroute2.netlink import NetlinkDecodeError
+        try:
+            raise NetlinkError(code=99)
+        except NetlinkError:
+            pass
+
+        try:
+            raise NetlinkDecodeError(exception=Exception())
+        except NetlinkDecodeError:
+            pass
+
+    def test_exceptions(self):
+        from pyroute2 import NetlinkError
+        from pyroute2 import NetlinkDecodeError
+
+        try:
+            raise NetlinkError(code=99)
+        except NetlinkError:
+            pass
+
+        try:
+            raise NetlinkDecodeError(exception=Exception())
+        except NetlinkDecodeError:
+            pass
+
     def test_basic(self):
         from pyroute2 import IPRSocket
         from pyroute2.netlink import NLM_F_REQUEST
