@@ -101,10 +101,13 @@ class IPRouteRequest(IPRequest):
             else:
                 dict.__setitem__(self, 'encap', value)
         elif key == 'metrics':
-            ret = {'attrs': []}
-            for name in value:
-                rtax = rtmsg.metrics.name2nla(name)
-                ret['attrs'].append([rtax, value[name]])
+            if 'attrs' in value:
+                ret = value
+            else:
+                ret = {'attrs': []}
+                for name in value:
+                    rtax = rtmsg.metrics.name2nla(name)
+                    ret['attrs'].append([rtax, value[name]])
             if ret['attrs']:
                 dict.__setitem__(self, 'metrics', ret)
         elif key == 'multipath':
