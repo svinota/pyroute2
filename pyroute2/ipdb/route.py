@@ -4,6 +4,7 @@ from socket import AF_UNSPEC
 from pyroute2.common import basestring
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
+from pyroute2.netlink.rtnl.rtmsg import nh as rtmsg_nh
 from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.linkedset import LinkedSet
@@ -168,7 +169,7 @@ class Route(Transactional):
                     self['multipath'] = NextHopSet()
                     for v in value:
                         nh = {}
-                        for name in [x[0] for x in rtmsg.nh.fields]:
+                        for name in [x[0] for x in rtmsg_nh.fields]:
                             nh[name] = v[name]
                         for (rta, rta_value) in v['attrs']:
                             rta_norm = rtmsg.nla2name(rta)
