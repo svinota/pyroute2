@@ -79,7 +79,7 @@ class rtmsg(nlmsg):
 
     class mpls_encap_info(nla):
         nla_map = (('MPLS_IPTUNNEL_UNSPEC', 'none'),
-                   ('MPLS_IPTUNNEL_DST', 'array(uint32)'))
+                   ('MPLS_IPTUNNEL_DST', 'mpls_target'))
 
     class rta_mfc_stats(nla):
         fields = (('mfcs_packets', 'uint64'),

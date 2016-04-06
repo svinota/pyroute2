@@ -1456,8 +1456,11 @@ class nlmsg_atoms(nlmsg_base):
         * AF_MPLS: MPLS labels, 0 .. k: [{"label": 0x20, "ttl": 16}, ...]
         '''
         fields = [('value', 's')]
+        family = None
 
         def get_family(self):
+            if self.family is not None:
+                return self.family
             pointer = self
             while pointer.parent is not None:
                 pointer = pointer.parent
@@ -1505,6 +1508,9 @@ class nlmsg_atoms(nlmsg_base):
                     self.value.append(record)
             else:
                 raise TypeError('socket family not supported')
+
+    class mpls_target(target):
+        family = AF_MPLS
 
     class l2addr(nla_base):
         '''
