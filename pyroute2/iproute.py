@@ -104,6 +104,7 @@ from pyroute2.netlink.rtnl import rtypes
 from pyroute2.netlink.rtnl import rtscopes
 from pyroute2.netlink.rtnl.req import IPLinkRequest
 from pyroute2.netlink.rtnl.req import IPBridgeRequest
+from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
@@ -1243,20 +1244,31 @@ class IPRouteMixin(object):
         # 8<----------------------------------------------------
         # FIXME
         # flags should be moved to some more general place
+        flags_dump = NLM_F_DUMP | NLM_F_REQUEST
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_change = flags_base | NLM_F_REPLACE
         flags_replace = flags_change | NLM_F_CREATE
         # 8<----------------------------------------------------
+        # transform kwarg
+        kwarg = IPRouteRequest(kwarg)
+        if command == 'dump':
+            match = kwarg
+        else:
+            match = kwarg.pop('match', None)
+
         commands = {'add': (RTM_NEWROUTE, flags_make),
                     'set': (RTM_NEWROUTE, flags_replace),
                     'replace': (RTM_NEWROUTE, flags_replace),
                     'change': (RTM_NEWROUTE, flags_change),
                     'del': (RTM_DELROUTE, flags_make),
                     'remove': (RTM_DELROUTE, flags_make),
-                    'delete': (RTM_DELROUTE, flags_make)}
+                    'delete': (RTM_DELROUTE, flags_make),
+                    'get': (RTM_GETROUTE, NLM_F_REQUEST),
+                    'dump': (RTM_GETROUTE, flags_dump)}
         (command, flags) = commands.get(command, command)
         msg = rtmsg()
+
         # table is mandatory; by default == 254
         # if table is not defined in kwarg, save it there
         # also for nla_attr:
@@ -1275,7 +1287,7 @@ class IPRouteMixin(object):
         # deprecated "prefix" support:
         if 'prefix' in kwarg:
             logging.warning('`prefix` argument is deprecated, use `dst`')
-            kwarg['dst'] = kwarg['prefix']
+            kwarg['dst'] = kwarg.pop('prefix')
 
         for key in kwarg:
             nla = rtmsg.name2nla(key)
@@ -1297,8 +1309,8 @@ class IPRouteMixin(object):
                                 break
 
         ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
-        if 'match' in kwarg:
-            return self._match(kwarg['match'], ret)
+        if match:
+            return self._match(match, ret)
         else:
             return ret
 
