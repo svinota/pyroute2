@@ -8,6 +8,7 @@ plugins = {'gact': act_gact,
 
 
 class nla_plus_tca_act_opt(object):
+    @staticmethod
     def get_act_options(self, *argv, **kwarg):
         kind = self.get_attr('TCA_ACT_KIND')
         if kind in plugins:

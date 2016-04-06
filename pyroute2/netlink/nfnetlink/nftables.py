@@ -294,6 +294,7 @@ class nft_rule_msg(nfgen_msg):
                        2: 'NFT_REJECT_ICMPX_HOST_UNREACH',
                        3: 'NFT_REJECT_ICMPX_ADMIN_PROHIBITED'}
 
+        @staticmethod
         def expr(self, *argv, **kwarg):
             data_type = self.get_attr('NFTA_EXPR_NAME')
             return getattr(self, 'nft_%s' % data_type, self.hex)

@@ -77,5 +77,6 @@ class options(nla, nla_plus_police):
                        ('TCA_ACT_INDEX', 'hex'),
                        ('TCA_ACT_STATS', 'get_stats2'))
 
+            @staticmethod
             def get_stats2(self, *argv, **kwarg):
                 return stats2

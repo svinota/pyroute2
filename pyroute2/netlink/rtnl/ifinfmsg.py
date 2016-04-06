@@ -373,6 +373,7 @@ class ifinfbase(object):
                   ('dma', 'B'),
                   ('port', 'B'))
 
+    @staticmethod
     def protinfo(self, *argv, **kwarg):
         proto_map = {AF_BRIDGE: protinfo_bridge}
         return proto_map.get(self['family'], self.hex)
@@ -385,6 +386,7 @@ class ifinfbase(object):
                    ('IFLA_INFO_SLAVE_KIND', 'asciiz'),
                    ('IFLA_INFO_SLAVE_DATA', 'info_slave_data'))
 
+        @staticmethod
         def info_slave_data(self, *argv, **kwarg):
             '''
             Return IFLA_INFO_SLAVE_DATA type based on
@@ -407,6 +409,7 @@ class ifinfbase(object):
                        ('IFLA_BOND_SLAVE_QUEUE_ID', 'uint16'),
                        ('IFLA_BOND_SLAVE_AD_AGGREGATOR_ID', 'uint16'))
 
+        @staticmethod
         def info_data(self, *argv, **kwarg):
             '''
             The function returns appropriate IFLA_INFO_DATA
@@ -453,6 +456,7 @@ class ifinfbase(object):
             nla_map = (('VETH_INFO_UNSPEC', 'none'),
                        ('VETH_INFO_PEER', 'info_peer'))
 
+            @staticmethod
             def info_peer(self, *argv, **kwarg):
                 return ifinfveth
 
@@ -629,6 +633,7 @@ class ifinfbase(object):
             class arp_ip_target(nla):
                 fields = (('targets', '16I'), )
 
+    @staticmethod
     def af_spec(self, *argv, **kwarg):
         specs = {0: self.af_spec_inet,
                  AF_INET: self.af_spec_inet,

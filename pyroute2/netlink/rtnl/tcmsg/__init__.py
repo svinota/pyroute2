@@ -86,11 +86,14 @@ class tcmsg(nlmsg):
         else:
             return interface
 
+    @staticmethod
     def get_stats2(self, *argv, **kwarg):
         return self.get_plugin('stats2', *argv, **kwarg)
 
+    @staticmethod
     def get_xstats(self, *argv, **kwarg):
         return self.get_plugin('stats', *argv, **kwarg)
 
+    @staticmethod
     def get_options(self, *argv, **kwarg):
         return self.get_plugin('options', *argv, **kwarg)

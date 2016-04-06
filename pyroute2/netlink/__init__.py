@@ -619,6 +619,8 @@ class nlmsg_base(dict):
     nla_flags = 0                # NLA flags
     nla_init = None              # NLA initstring
     value_map = {}
+    __t_nla_map = None
+    __r_nla_map = None
 
     def msg_align(self, l):
         return (l + self.align - 1) & ~ (self.align - 1)
@@ -1167,6 +1169,10 @@ class nlmsg_base(dict):
         be autonumerated from 0. If flags are not given, they are 0 by default.
 
         '''
+        if self.__class__.__t_nla_map is not None:
+            self.t_nla_map = self.__class__.__t_nla_map
+            self.r_nla_map = self.__class__.__r_nla_map
+            return
         # clean up NLA mappings
         self.t_nla_map = {}
         self.r_nla_map = {}
@@ -1216,8 +1222,16 @@ class nlmsg_base(dict):
             else:
                 nla_class = getattr(self, nla_class)
             # update mappings
-            self.t_nla_map[key] = (nla_class, name, nla_flags, nla_array, init)
-            self.r_nla_map[name] = (nla_class, key, nla_flags, nla_array, init)
+            prime = {'class': nla_class,
+                     'type': key,
+                     'name': name,
+                     'nla_flags': nla_flags,
+                     'nla_array': nla_array,
+                     'init': init}
+            self.t_nla_map[key] = self.r_nla_map[name] = prime
+
+        self.__class__.__t_nla_map = self.t_nla_map
+        self.__class__.__r_nla_map = self.r_nla_map
 
     def encode_nlas(self):
         '''
@@ -1226,19 +1240,17 @@ class nlmsg_base(dict):
         '''
         for i in self['attrs']:
             if i[0] in self.r_nla_map:
-                msg_class = self.r_nla_map[i[0]][0]
-                msg_type = self.r_nla_map[i[0]][1]
-                msg_array = self.r_nla_map[i[0]][3]
-                msg_init = self.r_nla_map[i[0]][4]
+                prime = self.r_nla_map[i[0]]
+                msg_class = prime['class']
                 # is it a class or a function?
-                if isinstance(msg_class, types.MethodType):
+                if isinstance(msg_class, types.FunctionType):
                     # if it is a function -- use it to get the class
-                    msg_class = msg_class()
+                    msg_class = msg_class(self)
                 # encode NLA
-                nla = msg_class(self.buf, parent=self, init=msg_init)
-                nla.nla_flags |= self.r_nla_map[i[0]][2]
-                nla.nla_array = msg_array
-                nla['header']['type'] = msg_type | nla.nla_flags
+                nla = msg_class(self.buf, parent=self, init=prime['init'])
+                nla.nla_flags |= prime['nla_flags']
+                nla.nla_array = prime['nla_array']
+                nla['header']['type'] = prime['type'] | nla.nla_flags
                 nla.setvalue(i[1])
                 try:
                     nla.encode()
@@ -1269,27 +1281,24 @@ class nlmsg_base(dict):
 
             # we have a mapping for this NLA
             if msg_type in self.t_nla_map:
+
+                prime = self.t_nla_map[msg_type]
                 # get the class
-                msg_class = self.t_nla_map[msg_type][0]
+                msg_class = self.t_nla_map[msg_type]['class']
                 # is it a class or a function?
-                if isinstance(msg_class, types.MethodType):
+                if isinstance(msg_class, types.FunctionType):
                     # if it is a function -- use it to get the class
-                    msg_class = msg_class(buf=self.buf, length=length)
-                # and the name
-                msg_name = self.t_nla_map[msg_type][1]
-                # is it an array?
-                msg_array = self.t_nla_map[msg_type][3]
-                # initstring
-                msg_init = self.t_nla_map[msg_type][4]
+                    msg_class = msg_class(self, buf=self.buf, length=length)
                 # decode NLA
                 nla = msg_class(self.buf, length, self,
                                 debug=self.debug,
-                                init=msg_init)
-                nla.nla_array = msg_array
+                                init=prime['init'])
+                nla.nla_array = prime['nla_array']
                 try:
                     nla.decode()
                     nla.nla_flags = msg_type & (NLA_F_NESTED |
                                                 NLA_F_NET_BYTEORDER)
+                    msg_name = prime['name']
                 except Exception:
                     logging.warning("decoding %s" % (msg_name))
                     logging.warning(traceback.format_exc())

@@ -73,6 +73,7 @@ class rtmsg(nlmsg):
                ('RTA_ENCAP', 'encap_info'),
                ('RTA_EXPIRES', 'hex'))
 
+    @staticmethod
     def encap_info(self, *argv, **kwarg):
         return self.mpls_encap_info
 
