@@ -16,9 +16,9 @@ from pyroute2.common import map_enoent
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nlmsg_atoms
-from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.rtnl import RTM_VALUES
 from pyroute2.netlink.rtnl.iw_event import iw_event
+from pyroute2.netlink.exceptions import NetlinkError
 
 
 # it's simpler to double constants here, than to change all the

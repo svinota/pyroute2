@@ -5,10 +5,13 @@ import threading
 import traceback
 from pyroute2.common import Dotkeys
 from pyroute2.common import uuid32
-from pyroute2.ipdb.common import SYNC_TIMEOUT
-from pyroute2.ipdb.common import CommitException
-from pyroute2.ipdb.common import DeprecationException
 from pyroute2.ipdb.linkedset import LinkedSet
+from pyroute2.ipdb.exceptions import CommitException
+from pyroute2.ipdb.exceptions import DeprecationException
+
+# How long should we wait on EACH commit() checkpoint: for ipaddr,
+# ports etc. That's not total commit() timeout.
+SYNC_TIMEOUT = 5
 
 
 class State(object):

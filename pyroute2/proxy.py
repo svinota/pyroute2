@@ -6,7 +6,7 @@ import struct
 import logging
 import traceback
 import threading
-from pyroute2.netlink import NetlinkError
+from pyroute2.netlink.exceptions import NetlinkError
 
 
 class NetlinkProxy(object):

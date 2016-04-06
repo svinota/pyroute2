@@ -393,7 +393,6 @@ import types
 import sys
 import io
 import re
-import os
 
 from socket import inet_pton
 from socket import inet_ntop
@@ -403,6 +402,19 @@ from socket import AF_UNSPEC
 from pyroute2.common import AF_MPLS
 from pyroute2.common import hexdump
 from pyroute2.common import basestring
+from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.exceptions import NetlinkDecodeError
+from pyroute2.netlink.exceptions import NetlinkHeaderDecodeError
+from pyroute2.netlink.exceptions import NetlinkDataDecodeError
+from pyroute2.netlink.exceptions import NetlinkNLADecodeError
+
+# make pep8 happy
+_ne = NetlinkError        # reexport for compatibility
+_de = NetlinkDecodeError  #
+
+
+class NotInitialized(Exception):
+    pass
 
 _letters = re.compile('[A-Za-z]')
 _fmt_letters = re.compile('[^!><@=][!><@=]')
@@ -489,51 +501,6 @@ NETLINK_SCSITRANSPORT = 18   # SCSI Transports
 # NLA flags
 NLA_F_NESTED = 1 << 15
 NLA_F_NET_BYTEORDER = 1 << 14
-
-
-class NetlinkError(Exception):
-    '''
-    Base netlink error
-    '''
-    def __init__(self, code, msg=None):
-        msg = msg or os.strerror(code)
-        super(NetlinkError, self).__init__(code, msg)
-        self.code = code
-
-
-class NetlinkDecodeError(Exception):
-    '''
-    Base decoding error class.
-
-    Incapsulates underlying error for the following analysis
-    '''
-    def __init__(self, exception):
-        self.exception = exception
-
-
-class NetlinkHeaderDecodeError(NetlinkDecodeError):
-    '''
-    The error occured while decoding a header
-    '''
-    pass
-
-
-class NetlinkDataDecodeError(NetlinkDecodeError):
-    '''
-    The error occured while decoding the message fields
-    '''
-    pass
-
-
-class NetlinkNLADecodeError(NetlinkDecodeError):
-    '''
-    The error occured while decoding NLA chain
-    '''
-    pass
-
-
-class NotInitialized(Exception):
-    pass
 
 
 # Netlink message flags values (nlmsghdr.flags)

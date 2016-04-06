@@ -395,12 +395,12 @@ from pyroute2.common import basestring
 from pyroute2.common import uuid32
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
-from pyroute2.ipdb.common import CreateException
+from pyroute2.ipdb.route import RoutingTableSet
 from pyroute2.ipdb.interface import Interface
 from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.linkedset import IPaddrSet
-from pyroute2.ipdb.common import SYNC_TIMEOUT
-from pyroute2.ipdb.route import RoutingTableSet
+from pyroute2.ipdb.exceptions import CreateException
+from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 
 
 def get_addr_nla(msg):

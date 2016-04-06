@@ -7,18 +7,18 @@ from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.common import reduce
 from pyroute2.common import dqn2int
-from pyroute2.netlink import NetlinkError
+from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl.req import IPLinkRequest
 from pyroute2.netlink.rtnl.ifinfmsg import IFF_MASK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.transactional import with_transaction
+from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.linkedset import IPaddrSet
-from pyroute2.ipdb.common import CreateException
-from pyroute2.ipdb.common import CommitException
-from pyroute2.ipdb.common import PartialCommitException
-from pyroute2.ipdb.common import SYNC_TIMEOUT
+from pyroute2.ipdb.exceptions import CreateException
+from pyroute2.ipdb.exceptions import CommitException
+from pyroute2.ipdb.exceptions import PartialCommitException
 
 
 def _get_data_fields():

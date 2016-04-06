@@ -102,15 +102,15 @@ from pyroute2.common import AddrPool
 from pyroute2.common import DEFAULT_RCVBUF
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import mtypes
-from pyroute2.netlink import NetlinkError
-from pyroute2.netlink import NetlinkDecodeError
-from pyroute2.netlink import NetlinkHeaderDecodeError
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NETLINK_GENERIC
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_MULTI
 from pyroute2.netlink import NLM_F_REQUEST
+from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.exceptions import NetlinkDecodeError
+from pyroute2.netlink.exceptions import NetlinkHeaderDecodeError
 
 try:
     from Queue import Queue

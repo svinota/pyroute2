@@ -13,9 +13,9 @@ from pyroute2 import netns
 from pyroute2 import NetNS
 from pyroute2.common import basestring
 from pyroute2.common import uifname
-from pyroute2.netlink import NetlinkError
-from pyroute2.ipdb.common import CreateException
-from pyroute2.ipdb.common import PartialCommitException
+from pyroute2.ipdb.exceptions import CreateException
+from pyroute2.ipdb.exceptions import PartialCommitException
+from pyroute2.netlink.exceptions import NetlinkError
 from utils import grep
 from utils import create_link
 from utils import kernel_version_ge

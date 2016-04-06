@@ -1,6 +1,6 @@
 import errno
 from pyroute2.ipset import IPSet
-from pyroute2.netlink import NetlinkError
+from pyroute2.netlink.exceptions import NetlinkError
 from utils import require_user
 from uuid import uuid4
 

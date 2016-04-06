@@ -11,6 +11,12 @@
 # places, like `from pyroute2.iproute import IPRoute`
 ##
 from abc import ABCMeta
+from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.exceptions import NetlinkDecodeError
+
+# reexport exceptions
+exceptions = [NetlinkError,
+              NetlinkDecodeError]
 
 __all__ = []
 _modules = {'IPRoute': 'pyroute2.iproute',
@@ -27,8 +33,8 @@ _modules = {'IPRoute': 'pyroute2.iproute',
             'NL80211': 'pyroute2.netlink.nl80211',
             'IPQSocket': 'pyroute2.netlink.ipq',
             'GenericNetlinkSocket': 'pyroute2.netlink.generic',
-            'NFTSocket': 'pyroute2.netlink.nfnetlink.nftables',
-            'NetlinkError': 'pyroute2.netlink'}
+            'NFTSocket': 'pyroute2.netlink.nfnetlink.nftables'}
+
 
 _DISCLAIMER = '''\n\nNotice:\n
 This is a proxy class. To read full docs, please run

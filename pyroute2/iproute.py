@@ -62,7 +62,6 @@ from socket import AF_UNSPEC
 from socket import AF_BRIDGE
 from types import FunctionType
 from types import MethodType
-from pyroute2.netlink import NetlinkError
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC
 from pyroute2.netlink import NLM_F_ROOT
@@ -120,6 +119,7 @@ from pyroute2.netlink.rtnl.iprsocket import RawIPRSocket
 
 from pyroute2.common import basestring
 from pyroute2.common import getbroadcast
+from pyroute2.netlink.exceptions import NetlinkError
 
 DEFAULT_TABLE = 254
 

@@ -1,7 +1,7 @@
 import errno
 from utils import require_user
 from pyroute2 import IW
-from pyroute2.netlink import NetlinkError
+from pyroute2.netlink.exceptions import NetlinkError
 from nose.plugins.skip import SkipTest
 
 

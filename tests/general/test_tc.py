@@ -6,7 +6,7 @@ from utils import skip_if_not_supported
 from pyroute2 import IPRoute
 from pyroute2 import protocols
 from pyroute2.common import uifname
-from pyroute2.netlink import NetlinkError
+from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl import TC_H_INGRESS
 from nose.plugins.skip import SkipTest
 

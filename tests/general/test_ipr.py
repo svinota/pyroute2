@@ -2,9 +2,9 @@ import os
 import errno
 import socket
 from pyroute2 import IPRoute
+from pyroute2 import NetlinkError
 from pyroute2.common import uifname
 from pyroute2.common import AF_MPLS
-from pyroute2.netlink import NetlinkError
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
