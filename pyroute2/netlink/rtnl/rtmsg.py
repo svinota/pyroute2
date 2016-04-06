@@ -141,6 +141,9 @@ class rtmsg_base(object):
                   ('rta_ts', 'I'),
                   ('rta_tsage', 'I'))
 
+
+class rtmsg(rtmsg_base, nlmsg):
+
     def encode(self):
         if self.get('family') == AF_MPLS:
             # force fields
@@ -152,10 +155,6 @@ class rtmsg_base(object):
                 if n[0] not in ('RTA_OIF', 'RTA_DST', 'RTA_VIA', 'RTA_NEWDST'):
                     raise TypeError('Incorrect NLA type %s for AF_MPLS' % n[0])
         nlmsg.encode(self)
-
-
-class rtmsg(rtmsg_base, nlmsg):
-    pass
 
 
 class nh(rtmsg_base, nla):
