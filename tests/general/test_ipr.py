@@ -493,16 +493,16 @@ class TestIPRoute(object):
                                            'bos': 1}})
         assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
 
-    def test_route_mpls_via_ipv4(self):
+    def _test_route_mpls_via_ipv4(self):
         self._test_route_mpls_via_ipv(socket.AF_INET,
                                       '172.16.0.1', 0x20)
 
-    def test_route_mpls_via_ipv6(self):
+    def _test_route_mpls_via_ipv6(self):
         self._test_route_mpls_via_ipv(socket.AF_INET6,
                                       'fe80::5054:ff:fe4b:7c32', 0x20)
 
     @skip_if_not_supported
-    def test_route_mpls_swap_newdst_simple(self):
+    def _test_route_mpls_swap_newdst_simple(self):
         require_user('root')
         require_kernel(3)
         req = {'family': AF_MPLS,
@@ -521,7 +521,7 @@ class TestIPRoute(object):
         assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
 
     @skip_if_not_supported
-    def test_route_mpls_swap_newdst_list(self):
+    def _test_route_mpls_swap_newdst_list(self):
         require_user('root')
         require_kernel(3)
         req = {'family': AF_MPLS,
