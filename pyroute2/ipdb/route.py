@@ -171,7 +171,7 @@ class Route(Transactional):
                         nh = {}
                         for name in [x[0] for x in rtmsg_nh.fields]:
                             nh[name] = v[name]
-                        for (rta, rta_value) in v['attrs']:
+                        for (rta, rta_value) in v.get('attrs', ()):
                             rta_norm = rtmsg.nla2name(rta)
                             nh[rta_norm] = rta_value
                         self['multipath'].add(nh)
