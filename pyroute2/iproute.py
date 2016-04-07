@@ -1237,23 +1237,25 @@ class IPRouteMixin(object):
                                 {"gateway": "192.168.0.2", "hops": 1},
                                 {"gateway": "192.168.0.3"}])
 
-        MPLS lwtunnel::
+        MPLS lwtunnel on eth0::
 
+            idx = ip.link_lookup(ifname='eth0')[0]
             ip.route("add",
                      dst="10.0.0.0/24",
-                     table=20,
+                     oif=idx,
                      encap={"type": "mpls",
                             "labels": "200/300"})
 
         MPLS multipath::
 
+            idx = ip.link_lookup(ifname='eth0')[0]
             ip.route("add",
                      dst="10.0.0.0/24",
                      table=20,
                      multipath=[{"gateway": "192.168.0.1",
                                  "encap": {"type": "mpls",
                                            "labels": 200}},
-                                {"ifindex": 2,
+                                {"ifindex": idx,
                                  "encap": {"type": "mpls",
                                            "labels": 300}}])
 
