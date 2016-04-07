@@ -1,6 +1,11 @@
 changelog
 =========
 
+* 0.3.19
+    * rtmsg: #227 -- MPLS lwtunnel basic support
+    * iproute: `route()` docs updated
+    * general: #228 -- exceptions layout changed
+    * package-rh: rpm subpackages
 * 0.3.18
     * version bump -- include docs in the release tarball
 * 0.3.17
