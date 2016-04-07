@@ -156,7 +156,7 @@ develop: clean force-version
 #
 # Packages
 #
-rpm: clean force-version
+rpm: force-version
 	cp packages/RedHat/python-pyroute2.spec .
 	${python} setup.py sdist
 	rpmbuild -ta dist/*tar.gz
