@@ -524,6 +524,129 @@ class IPRouteMixin(object):
 
     # 8<---------------------------------------------------------------
     #
+    # Extensions to low-level functions
+    #
+    def vlan_filter(self, command, **kwarg):
+        '''
+        Vlan filters is another approach to support vlans in Linux.
+        Before vlan filters were introduced, there was only one way
+        to bridge vlans: one had to create vlan interfaces and
+        then add them as ports::
+
+                    +------+      +----------+
+            net --> | eth0 | <--> | eth0.500 | <---+
+                    +------+      +----------+     |
+                                                   v
+                    +------+                    +-----+
+            net --> | eth1 |                    | br0 |
+                    +------+                    +-----+
+                                                   ^
+                    +------+      +----------+     |
+            net --> | eth2 | <--> | eth0.500 | <---+
+                    +------+      +----------+
+
+        It means that one had to create as many bridges, as there were
+        vlans. Vlan filters allow to bridge together underlying interfaces
+        and create vlans already on the bridge::
+
+            # v500 label shows which interfaces have vlan filter
+
+                    +------+ v500
+            net --> | eth0 | <-------+
+                    +------+         |
+                                     v
+                    +------+      +-----+    +---------+
+            net --> | eth1 | <--> | br0 |<-->| br0v500 |
+                    +------+      +-----+    +---------+
+                                     ^
+                    +------+ v500    |
+            net --> | eth2 | <-------+
+                    +------+
+
+        In this example vlan 500 will be allowed only on ports `eth0` and
+        `eth2`, though all three eth nics are bridged.
+
+        Some example code::
+
+            # create bridge
+            ip.link("add",
+                    ifname="br0",
+                    kind="bridge")
+
+            # attach a port
+            ip.link("set",
+                    index=ip.link_lookup(ifname="eth0")[0],
+                    master=ip.link_lookup(ifname="br0")[0])
+
+            # set vlan filter
+            ip.vlan_filter("add",
+                           index=ip.link_lookup(ifname="eth0")[0],
+                           vlan_info={"vid": 500})
+
+            # create vlan interface on the bridge
+            ip.link("add",
+                    ifname="br0v500",
+                    kind="vlan",
+                    link=ip.link_lookup(ifname="br0")[0],
+                    vlan_id=500)
+
+            # set all UP
+            ip.link("set",
+                    index=ip.link_lookup(ifname="br0")[0],
+                    state="up")
+            ip.link("set",
+                    index=ip.link_lookup(ifname="br0v500")[0],
+                    state="up")
+            ip.link("set",
+                    index=ip.link_lookup(ifname="eth0")[0],
+                    state="up")
+
+            # set IP address
+            ip.addr("add",
+                    index=ip.link_lookup(ifname="br0v500")[0],
+                    address="172.16.5.2",
+                    mask=24)
+
+            Now all the traffic to the network 172.16.5.2/24 will go
+            to vlan 500 only via ports that have such vlan filter.
+
+
+        Required arguments for `vlan_filter()` -- `index` and `vlan_info`.
+        Vlan info struct::
+
+            {"vid": uint16,
+             "flags": uint16}
+
+        More details:
+        * kernel:Documentation/networking/switchdev.txt
+        * pyroute2.netlink.rtnl.ifinfmsg:... vlan_info
+
+        Commands:
+
+        **add**
+
+        Add vlan filter to a bridge port. Example::
+
+            ip.vlan_filter("add", index=2, vlan_info={"vid": 200})
+
+        **del**
+
+        Remove vlan filter from a bridge port. Example::
+
+            ip.vlan_filter("del", index=2, vlan_info={"vid": 200})
+        '''
+        flags_req = NLM_F_REQUEST | NLM_F_ACK
+        commands = {'add': (RTM_SETLINK, flags_req),
+                    'del': (RTM_DELLINK, flags_req)}
+
+        kwarg['family'] = AF_BRIDGE
+        kwarg['kwarg_filter'] = IPBridgeRequest
+
+        (command, flags) = commands.get(command, command)
+        return self.link((command, flags), **kwarg)
+
+    # 8<---------------------------------------------------------------
+    #
     # General low-level configuration methods
     #
     def neigh(self, command, match=None, **kwarg):
@@ -784,94 +907,16 @@ class IPRouteMixin(object):
             ip.link("get", index=ip.link_lookup(ifname="br0")[0])
 
         **vlan-add**
-
-        Vlan filters is another approach to support vlans in Linux.
-        Before vlan filters were introduced, there was only one way
-        to bridge vlans: one had to create vlan interfaces and
-        then add them as ports::
-
-                    +------+      +----------+
-            net --> | eth0 | <--> | eth0.500 | <---+
-                    +------+      +----------+     |
-                                                   v
-                    +------+                    +-----+
-            net --> | eth1 |                    | br0 |
-                    +------+                    +-----+
-                                                   ^
-                    +------+      +----------+     |
-            net --> | eth2 | <--> | eth0.500 | <---+
-                    +------+      +----------+
-
-        It means that one had to create as many bridges, as there were
-        vlans. Vlan filters allow to bridge together underlying interfaces
-        and create vlans already on the bridge::
-
-            # v500 label shows which interfaces have vlan filter
-
-                    +------+ v500
-            net --> | eth0 | <-------+
-                    +------+         |
-                                     v
-                    +------+      +-----+    +---------+
-            net --> | eth1 | <--> | br0 |<-->| br0v500 |
-                    +------+      +-----+    +---------+
-                                     ^
-                    +------+ v500    |
-            net --> | eth2 | <-------+
-                    +------+
-
-        In this example vlan 500 will be allowed only on ports `eth0` and
-        `eth2`, though all three eth nics are bridged.
-
-        Some example code::
-
-            # create bridge
-            ip.link("add",
-                    ifname="br0",
-                    kind="bridge")
-
-            # attach a port
-            ip.link("set",
-                    index=ip.link_lookup(ifname="eth0")[0],
-                    master=ip.link_lookup(ifname="br0")[0])
-
-            # set vlan filter
-            ip.link("vlan-add",
-                    index=ip.link_lookup(ifname="eth0")[0],
-                    vlan_info={"vid": 500})
-
-            # create vlan interface on the bridge
-            ip.link("add",
-                    ifname="br0v500",
-                    kind="vlan",
-                    link=ip.link_lookup(ifname="br0")[0],
-                    vlan_id=500)
-
-            # set all UP
-            ip.link("set",
-                    index=ip.link_lookup(ifname="br0")[0],
-                    state="up")
-            ip.link("set",
-                    index=ip.link_lookup(ifname="br0v500")[0],
-                    state="up")
-            ip.link("set",
-                    index=ip.link_lookup(ifname="eth0")[0],
-                    state="up")
-
-            # set IP address
-            ip.addr("add",
-                    index=ip.link_lookup(ifname="br0v500")[0],
-                    address="172.16.5.2",
-                    mask=24)
-
-            Now all the traffic to the network 172.16.5.2/24 will go
-            to vlan 500 only via ports that have such vlan filter.
-
         **vlan-del**
 
-        Remove vlan filter from a bridge port
-
+        These command names are confusing and thus are deprecated.
+        Use `IPRoute.vlan_filter()`.
         '''
+
+        if command[:4] == 'vlan':
+            logging.warning('vlan filters are managed via `vlan_filter()`')
+            logging.warning('this compatibility hack will be removed soon')
+            return self.vlan_filter(command[5:], **kwarg)
 
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_req = NLM_F_REQUEST | NLM_F_ACK
@@ -882,9 +927,7 @@ class IPRouteMixin(object):
                     'remove': (RTM_DELLINK, flags_create),
                     'delete': (RTM_DELLINK, flags_create),
                     'dump': (RTM_GETLINK, flags_dump),
-                    'get': (RTM_GETLINK, NLM_F_REQUEST),
-                    'vlan-add': (RTM_SETLINK, flags_req),
-                    'vlan-del': (RTM_DELLINK, flags_req)}
+                    'get': (RTM_GETLINK, NLM_F_REQUEST)}
 
         msg = ifinfmsg()
         # ifinfmsg fields
@@ -895,13 +938,8 @@ class IPRouteMixin(object):
         # ifi_flags
         # ifi_change
         #
-        # family
-        if (command[:4] == 'vlan') and ('family' not in kwarg):
-            msg['family'] = AF_BRIDGE
-            lrq = IPBridgeRequest
-        else:
-            msg['family'] = kwarg.pop('family', 0)
-            lrq = IPLinkRequest
+        msg['family'] = kwarg.pop('family', 0)
+        lrq = kwarg.pop('kwarg_filter', IPLinkRequest)
         (command, msg_flags) = commands.get(command, command)
         # index
         msg['index'] = kwarg.pop('index', 0)
