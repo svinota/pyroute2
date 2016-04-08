@@ -2,7 +2,15 @@ from pyroute2.common import map_namespace
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
 
+# neighbor cache entry flags
+NTF_USE = 0x01
+NTF_SELF = 0x02
+NTF_MASTER = 0x04
+NTF_PROXY = 0x08
+NTF_EXT_LEARNED = 0x10
+NTF_ROUTER = 0x80
 
+# neighbor cache entry states
 NUD_INCOMPLETE = 0x01
 NUD_REACHABLE = 0x02
 NUD_STALE = 0x04
@@ -11,12 +19,26 @@ NUD_PROBE = 0x10
 NUD_FAILED = 0x20
 
 # dummy states
-
 NUD_NOARP = 0x40
 NUD_PERMANENT = 0x80
 NUD_NONE = 0x00
 
+(NTF_NAMES, NTF_VALUES) = map_namespace('NTF_', globals())
 (NUD_NAMES, NUD_VALUES) = map_namespace('NUD_', globals())
+flags = dict([(x[0][4:].lower(), x[1]) for x in NTF_NAMES.items()])
+states = dict([(x[0][4:].lower(), x[1]) for x in NUD_NAMES.items()])
+
+
+def states_a2n(s):
+    # parse state string
+    ss = s.split(',')
+    ret = 0
+    for state in ss:
+        state = state.upper()
+        if not state.startswith('NUD_'):
+            state = 'NUD_' + state
+        ret |= NUD_NAMES[state]
+    return ret
 
 
 class ndmsg(nlmsg):

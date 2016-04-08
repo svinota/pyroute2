@@ -314,6 +314,7 @@ class TestIPRoute(object):
         devs = self.ip.link_lookup(ifname=name)
         assert devs
         self.ifaces.extend(devs)
+        return (name, devs[0])
 
     def test_create_dummy(self):
         require_user('root')
@@ -337,6 +338,27 @@ class TestIPRoute(object):
                            for x in self.ip.get_ntables()]))
         setB = set([x['index'] for x in self.ip.get_links()])
         assert setA == setB
+
+    def test_fdb_bridge_simple(self):
+        require_user('root')
+        # create a bridge
+        (bn, bx) = self._create('bridge')
+        # create a FDB record
+        l2 = '00:11:22:33:44:55'
+        self.ip.fdb('add', lladdr=l2, ifindex=bx)
+        # dump FDB
+        r = self.ip.fdb('dump', ifindex=bx, lladdr=l2)
+        # one vlan == 1, one w/o vlan
+        assert len(r) == 2
+        assert len(filter(lambda x: x['ifindex'] == bx, r)) == 2
+        assert len(filter(lambda x: x.get_attr('NDA_VLAN'), r)) == 1
+        assert len(filter(lambda x: x.get_attr('NDA_MASTER') == bx, r)) == 2
+        assert len(filter(lambda x: x.get_attr('NDA_LLADDR') == l2, r)) == 2
+        r = self.ip.fdb('dump', ifindex=bx, lladdr=l2, vlan=1)
+        assert len(r) == 1
+        assert r[0].get_attr('NDA_VLAN') == 1
+        assert r[0].get_attr('NDA_MASTER') == bx
+        assert r[0].get_attr('NDA_LLADDR') == l2
 
     def test_neigh_real_links(self):
         links = set([x['index'] for x in self.ip.get_links()])

@@ -107,8 +107,7 @@ from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
-from pyroute2.netlink.rtnl.ndmsg import ndmsg
-from pyroute2.netlink.rtnl.ndmsg import NUD_NAMES
+from pyroute2.netlink.rtnl import ndmsg
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
@@ -300,9 +299,7 @@ class IPRouteMixin(object):
             # and filter them by a function:
             ip.get_neighbours(AF_BRIDGE, match=lambda x: x['state'] == 2)
         '''
-        return self.neigh((RTM_GETNEIGH, NLM_F_REQUEST | NLM_F_DUMP),
-                          family=family,
-                          match=match or kwarg)
+        return self.neigh('dump', family=family, match=match or kwarg)
 
     def get_ntables(self, family=AF_UNSPEC):
         '''
@@ -634,6 +631,7 @@ class IPRouteMixin(object):
         Remove vlan filter from a bridge port. Example::
 
             ip.vlan_filter("del", index=2, vlan_info={"vid": 200})
+
         '''
         flags_req = NLM_F_REQUEST | NLM_F_ACK
         commands = {'add': (RTM_SETLINK, flags_req),
@@ -645,11 +643,98 @@ class IPRouteMixin(object):
         (command, flags) = commands.get(command, command)
         return self.link((command, flags), **kwarg)
 
+    def fdb(self, command, **kwarg):
+        '''
+        Bridge forwarding database management.
+
+        More details:
+        * kernel:Documentation/networking/switchdev.txt
+        * pyroute2.netlink.rtnl.ndmsg
+
+        Not all commands are implemented yet, work is in progress.
+
+        **add**
+
+        Add a FDB record. Works in the same way as ARP cache
+        management, but some additional NLAs can be used::
+
+            # simple FDB record
+            #
+            ip.fdb('add',
+                   ifindex=ip.link_lookup(ifname='br0')[0],
+                   lladdr='00:11:22:33:44:55',
+                   dst='10.0.0.1')
+
+            # specify vlan
+            # NB: vlan should exist on the device, use
+            # `vlan_filter()`
+            #
+            ip.fdb('add',
+                   ifindex=ip.link_lookup(ifname='br0')[0],
+                   lladdr='00:11:22:33:44:55',
+                   dst='10.0.0.1',
+                   vlan=200)
+
+            # specify vxlan id and port
+            # NB: works only for vxlan devices, use
+            # `link("add", kind="vxlan", ...)`
+            #
+            # if port is not specified, the default one is used
+            # by the kernel.
+            #
+            # if vni (vxlan id) is equal to the device vni,
+            # the kernel doesn't report it back
+            #
+            ip.fdb('add',
+                   ifindex=ip.link_lookup(ifname='vx500')[0]
+                   lladdr='00:11:22:33:44:55',
+                   dst='10.0.0.1',
+                   port=5678,
+                   vni=600)
+
+        **del**
+
+        Remove a FDB record. The same syntax as for **add**.
+
+        **dump**
+
+        Dump all the FDB records. If any `**kwarg` is provided,
+        results will be filtered::
+
+            # dump all the records
+            ip.fdb('dump')
+
+            # show only specific lladdr, dst, vlan etc.
+            ip.fdb('dump', lladdr='00:11:22:33:44:55')
+            ip.fdb('dump', dst='10.0.0.1')
+            ip.fdb('dump', vlan=200)
+
+        '''
+        kwarg['family'] = AF_BRIDGE
+        # nud -> state
+        if 'nud' in kwarg:
+            kwarg['state'] = kwarg.pop('nud')
+        if (command in ('add', 'del', 'append')) and \
+                not (kwarg.get('state', 0) & ndmsg.states['noarp']):
+            # state must contain noarp in add / del / append
+            kwarg['state'] = kwarg.pop('state', 0) | ndmsg.states['noarp']
+            # other assumptions
+            if not kwarg.get('state', 0) & (ndmsg.states['permanent'] |
+                                            ndmsg.states['reachable']):
+                # permanent (default) or reachable
+                kwarg['state'] |= ndmsg.states['permanent']
+            if not kwarg.get('flags', 0) & (ndmsg.flags['self'] |
+                                            ndmsg.flags['master']):
+                # self (default) or master
+                kwarg['flags'] = kwarg.get('flags', 0) | ndmsg.flags['self']
+        #
+        return self.neigh(command, **kwarg)
+
     # 8<---------------------------------------------------------------
     #
     # General low-level configuration methods
     #
-    def neigh(self, command, match=None, **kwarg):
+    def neigh(self, command, **kwarg):
         '''
         Neighbours operations, same as `ip neigh` or `bridge fdb`
 
@@ -659,13 +744,14 @@ class IPRouteMixin(object):
         * family -- family: AF_INET, AF_INET6, AF_BRIDGE
         * \*\*kwarg -- msg fields and NLA
 
-        Example::
-
-            pass
         '''
-        # FIXME: this is only a draft; all definitions should
-        # be generalized
 
+        if (command == 'dump') and ('match' not in kwarg):
+            match = kwarg
+        else:
+            match = kwarg.pop('match', None)
+
+        flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_change = flags_base | NLM_F_REPLACE
@@ -677,29 +763,23 @@ class IPRouteMixin(object):
                     'change': (RTM_NEWNEIGH, flags_change),
                     'del': (RTM_DELNEIGH, flags_make),
                     'remove': (RTM_DELNEIGH, flags_make),
-                    'delete': (RTM_DELNEIGH, flags_make)}
+                    'delete': (RTM_DELNEIGH, flags_make),
+                    'dump': (RTM_GETNEIGH, flags_dump)}
 
         (command, flags) = commands.get(command, command)
-        msg = ndmsg()
+        if 'nud' in kwarg:
+            kwarg['state'] = kwarg.pop('nud')
+        msg = ndmsg.ndmsg()
         for field in msg.fields:
             msg[field[0]] = kwarg.pop(field[0], 0)
         msg['family'] = msg['family'] or AF_INET
         msg['attrs'] = []
         # fix nud kwarg
-        state = kwarg.pop('state', kwarg.pop('nud', 0))
-        if isinstance(state, basestring):
-            # parse state string
-            states = state.split(',')
-            state = 0
-            for s in states:
-                s = s.upper()
-                if not s.startswith('NUD_'):
-                    s = 'NUD_' + s
-                state |= NUD_NAMES[s]
-        msg['state'] = state
+        if isinstance(msg['state'], basestring):
+            msg['state'] = ndmsg.states_a2n(msg['state'])
 
         for key in kwarg:
-            nla = ndmsg.name2nla(key)
+            nla = ndmsg.ndmsg.name2nla(key)
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
