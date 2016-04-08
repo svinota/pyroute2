@@ -71,6 +71,7 @@ from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NLM_F_EXCL
+from pyroute2.netlink import NLM_F_APPEND
 from pyroute2.netlink.rtnl import RTM_NEWADDR
 from pyroute2.netlink.rtnl import RTM_GETADDR
 from pyroute2.netlink.rtnl import RTM_DELADDR
@@ -651,11 +652,9 @@ class IPRouteMixin(object):
         * kernel:Documentation/networking/switchdev.txt
         * pyroute2.netlink.rtnl.ndmsg
 
-        Not all commands are implemented yet, work is in progress.
-
         **add**
 
-        Add a FDB record. Works in the same way as ARP cache
+        Add a new FDB record. Works in the same way as ARP cache
         management, but some additional NLAs can be used::
 
             # simple FDB record
@@ -692,9 +691,13 @@ class IPRouteMixin(object):
                    port=5678,
                    vni=600)
 
+        **append**
+
+        Append a new FDB record. The same syntax as for **add**.
+
         **del**
 
-        Remove a FDB record. The same syntax as for **add**.
+        Remove an existing FDB record. The same syntax as for **add**.
 
         **dump**
 
@@ -754,6 +757,7 @@ class IPRouteMixin(object):
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
+        flags_append = flags_base | NLM_F_CREATE | NLM_F_APPEND
         flags_change = flags_base | NLM_F_REPLACE
         flags_replace = flags_change | NLM_F_CREATE
 
@@ -764,7 +768,8 @@ class IPRouteMixin(object):
                     'del': (RTM_DELNEIGH, flags_make),
                     'remove': (RTM_DELNEIGH, flags_make),
                     'delete': (RTM_DELNEIGH, flags_make),
-                    'dump': (RTM_GETNEIGH, flags_dump)}
+                    'dump': (RTM_GETNEIGH, flags_dump),
+                    'append': (RTM_NEWNEIGH, flags_append)}
 
         (command, flags) = commands.get(command, command)
         if 'nud' in kwarg:
