@@ -308,9 +308,9 @@ class TestIPRoute(object):
         return self._create_ipvlan('IPVLAN_MODE_L3')
 
     @skip_if_not_supported
-    def _create(self, kind):
+    def _create(self, kind, **kwarg):
         name = uifname()
-        self.ip.link('add', ifname=name, kind=kind)
+        self.ip.link('add', ifname=name, kind=kind, **kwarg)
         devs = self.ip.link_lookup(ifname=name)
         assert devs
         self.ifaces.extend(devs)
@@ -339,11 +339,30 @@ class TestIPRoute(object):
         setB = set([x['index'] for x in self.ip.get_links()])
         assert setA == setB
 
+    def test_fdb_vxlan(self):
+        require_user('root')
+        # create dummy
+        (dn, dx) = self._create('dummy')
+        # create vxlan on it
+        (vn, vx) = self._create('vxlan', vxlan_link=dx, vxlan_id=500)
+        # create FDB record
+        l2 = '00:11:22:33:44:55'
+        self.ip.fdb('add', lladdr=l2, ifindex=vx,
+                    vni=600, port=5678, dst='172.16.40.40')
+        # dump
+        r = self.ip.fdb('dump', ifindex=vx, lladdr=l2)
+        assert len(r) == 1
+        assert r[0]['ifindex'] == vx
+        assert r[0].get_attr('NDA_LLADDR') == l2
+        assert r[0].get_attr('NDA_DST') == '172.16.40.40'
+        assert r[0].get_attr('NDA_PORT') == 5678
+        assert r[0].get_attr('NDA_VNI') == 600
+
     def test_fdb_bridge_simple(self):
         require_user('root')
-        # create a bridge
+        # create bridge
         (bn, bx) = self._create('bridge')
-        # create a FDB record
+        # create FDB record
         l2 = '00:11:22:33:44:55'
         self.ip.fdb('add', lladdr=l2, ifindex=bx)
         # dump FDB
