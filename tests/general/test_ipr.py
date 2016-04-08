@@ -369,10 +369,12 @@ class TestIPRoute(object):
         r = self.ip.fdb('dump', ifindex=bx, lladdr=l2)
         # one vlan == 1, one w/o vlan
         assert len(r) == 2
-        assert len(filter(lambda x: x['ifindex'] == bx, r)) == 2
-        assert len(filter(lambda x: x.get_attr('NDA_VLAN'), r)) == 1
-        assert len(filter(lambda x: x.get_attr('NDA_MASTER') == bx, r)) == 2
-        assert len(filter(lambda x: x.get_attr('NDA_LLADDR') == l2, r)) == 2
+        assert len(list(filter(lambda x: x['ifindex'] == bx, r))) == 2
+        assert len(list(filter(lambda x: x.get_attr('NDA_VLAN'), r))) == 1
+        assert len(list(filter(lambda x: x.get_attr('NDA_MASTER') == bx,
+                               r))) == 2
+        assert len(list(filter(lambda x: x.get_attr('NDA_LLADDR') == l2,
+                               r))) == 2
         r = self.ip.fdb('dump', ifindex=bx, lladdr=l2, vlan=1)
         assert len(r) == 1
         assert r[0].get_attr('NDA_VLAN') == 1
