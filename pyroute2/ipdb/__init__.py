@@ -388,6 +388,7 @@ import threading
 
 from socket import AF_INET
 from socket import AF_INET6
+from socket import AF_BRIDGE
 from pyroute2 import config
 from pyroute2.common import Dotkeys
 from pyroute2.common import View
@@ -1098,6 +1099,9 @@ class IPDB(object):
     def update_neighbours(self, neighs, action='add'):
 
         for neigh in neighs:
+            if neigh['family'] == AF_BRIDGE:
+                # skip FDB records for now -- should be tracked separately
+                continue
             nla = neigh.get_attr('NDA_DST')
             if self.debug:
                 raw = neigh
