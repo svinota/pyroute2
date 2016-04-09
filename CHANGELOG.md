@@ -1,6 +1,10 @@
 changelog
 =========
 
+* 0.3.20
+    * iproute: `vlan_filter()`
+    * iproute: #229 -- FDB management
+    * general: exceptions re-exported via the root module
 * 0.3.19
     * rtmsg: #227 -- MPLS lwtunnel basic support
     * iproute: `route()` docs updated
