@@ -38,7 +38,7 @@ Run tests against current code. Command line options:
 * coverage -- set `coverage=html` to get coverage report
 * pdb -- set `pdb=true` to launch pdb on errors
 * module -- run only specific test module
-* skip_tests -- skip tests by pattern
+* skip -- skip tests by pattern
 
 To run the full test cycle on the project, using a specific
 python, making html coverage report::
@@ -68,7 +68,7 @@ in mind since it affects the code coverage collection.
 
 It is possible to skip tests by a pattern::
 
-    $ sudo make test skip_tests=test_stress
+    $ sudo make test skip=test_stress
 
 target: test-ci
 ---------------

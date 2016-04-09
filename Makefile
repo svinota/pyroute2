@@ -118,12 +118,16 @@ epydoc: docs
 		--fail-on-docstring-warning \
 		pyroute2/
 
-test: dist
+check_parameters:
+	@if [ ! -z "${skip_tests}" ]; then \
+		echo "'skip_tests' is deprecated, use 'skip=...' instead"; false; fi
+
+test: check_parameters dist
 	@export PYTHON=${python}; \
 		export NOSE=${nosetests}; \
 		export FLAKE8=${flake8}; \
 		export WLEVEL=${wlevel}; \
-		export SKIP_TESTS=${skip_tests}; \
+		export SKIP_TESTS=${skip}; \
 		export PDB=${pdb}; \
 		export COVERAGE=${coverage}; \
 		export MODULE=${module}; \

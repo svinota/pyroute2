@@ -4,7 +4,7 @@ cd /opt/pyroute2
 
 [ "$1" = "test" ] && {
     for p in python2 python3; do {
-        which $p && make test skip_tests=test_stress python=$p 2>&1 | tee test-$p.log
+        which $p && make test skip=test_stress python=$p 2>&1 | tee test-$p.log
         pushd tests
             for f in *xml; do {
                 mv $f $p-$f
