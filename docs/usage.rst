@@ -3,65 +3,6 @@
 Quickstart
 ==========
 
-Imports
--------
-
-The public API is exported by `pyroute2/__init__.py`. There
-are two main reasons for such approach.
-
-First, it is done so to provide a stable API, that will not
-be affected by changes in the package layout. There can be
-significant layout changes between versions, but if a
-symbol is re-exported via `pyroute2/__init__.py`, it will be
-available with the same import signature.
-
-**All other objects are also available for import, but they
-may change the signature in the next versions.**
-
-Another function of `pyroute2/__init__.py` is to provide
-deferred imports. Being imported from the root of the
-package, classes will be really imported only with the first
-constructor call. This make possible to change the base
-of pyroute2 classes on the fly.
-
-**The deferred imports code may be removed in the next versions**
-
-E.g.::
-
-    # Import a pyroute2 class directly. In the next versions
-    # the import signature can be changed, e.g., NetNS from
-    # pyroute2.netns.nslink it can be moved somewhere else.
-    #
-    from pyroute2.netns.nslink import NetNS
-    ns = NetNS('test')
-
-    # Import the same class from root module. This signature
-    # will stay the same, any layout change is reflected in
-    # the root module.
-    #
-    from pyroute2 import NetNS
-    ns = NetNS('test')
-
-
-The proxy class, used in the second case, supports correct
-`isinstance()` and `issubclass()` semantics, and in both
-cases the code will work in the same way.
-
-There is an exception from the scheme: the exception classes.
-
-Exceptions
-----------
-
-Since the deferred import provides wrappers, not real classes,
-one can not use them in `try: ... except: ...` statements. So
-exception classes are simply reexported here.
-
-Developers note: a new exceptions modules **must not** import any
-other pyroute2 modules neither directly, nor indirectly. It means
-that `__init__.py` files in the import path should not contain
-pyroute2 symbols referred in the root module as that would cause
-import error due to recursion.
-
 Runtime
 -------
 
@@ -109,7 +50,6 @@ handle specific tasks::
     # scan WIFI networks on wlo1
     iw.scan(ipr.link_lookup(ifname='wlo1'))
 
-
 More info on specific modules is written in the next
 chapters.
 
@@ -141,6 +81,63 @@ to ignore the signal from the handler::
             signal.signal(signal.SIGTERM, handler)
             test_if = ipdb.create(ifname='test_if', kind='dummy').commit()
             ...  # do some work
+
+Imports
+-------
+
+The public API is exported by `pyroute2/__init__.py`. There
+are two main reasons for such approach.
+
+First, it is done so to provide a stable API, that will not
+be affected by changes in the package layout. There can be
+significant layout changes between versions, but if a
+symbol is re-exported via `pyroute2/__init__.py`, it will be
+available with the same import signature.
+
+.. warning::
+    All other objects are also available for import, but they
+    may change signatures in the next versions.
+
+E.g.::
+
+    # Import a pyroute2 class directly. In the next versions
+    # the import signature can be changed, e.g., NetNS from
+    # pyroute2.netns.nslink it can be moved somewhere else.
+    #
+    from pyroute2.netns.nslink import NetNS
+    ns = NetNS('test')
+
+    # Import the same class from root module. This signature
+    # will stay the same, any layout change is reflected in
+    # the root module.
+    #
+    from pyroute2 import NetNS
+    ns = NetNS('test')
+
+Another function of `pyroute2/__init__.py` is to provide
+deferred imports. Being imported from the root of the
+package, classes will be really imported only with the first
+constructor call. This make possible to change the base
+of pyroute2 classes on the fly.
+
+The proxy class, used in the second case, supports correct
+`isinstance()` and `issubclass()` semantics, and in both
+cases the code will work in the same way.
+
+There is an exception from the scheme: the exception classes.
+
+Exceptions
+----------
+
+Since the deferred import provides wrappers, not real classes,
+one can not use them in `try: ... except: ...` statements. So
+exception classes are simply reexported here.
+
+Developers note: new exceptions modules **must not** import any
+other pyroute2 modules neither directly, nor indirectly. It means
+that `__init__.py` files in the import path should not contain
+pyroute2 symbols referred in the root module as that would cause
+import error due to recursion.
 
 Special cases
 =============
