@@ -15,40 +15,52 @@ significant layout changes between versions, but if a
 symbol is re-exported via `pyroute2/__init__.py`, it will be
 available with the same import signature.
 
-All other objects are also available for import, but they
-can change the signature in the next versions.
+**All other objects are also available for import, but they
+may change the signature in the next versions.**
 
 Another function of `pyroute2/__init__.py` is to provide
 deferred imports. Being imported from the root of the
 package, classes will be really imported only with the first
 constructor call. This make possible to change the base
-of pyroute2 classes on the fly. E.g., this way the eventlet
-environment support is done.
+of pyroute2 classes on the fly.
+
+**The deferred imports code may be removed in the next versions**
 
 E.g.::
 
-    # Case #1
-    #
     # Import a pyroute2 class directly. In the next versions
     # the import signature can be changed, e.g., NetNS from
     # pyroute2.netns.nslink it can be moved somewhere else.
     #
-    from pyroute2.netns.nslink import NetNS  # <- real import
+    from pyroute2.netns.nslink import NetNS
     ns = NetNS('test')
 
-    # Case #2
-    #
     # Import the same class from root module. This signature
     # will stay the same, any layout change is reflected in
     # the root module.
     #
     from pyroute2 import NetNS
-    ns = NetNS('test')  # <- real import will be done here
+    ns = NetNS('test')
 
 
 The proxy class, used in the second case, supports correct
 `isinstance()` and `issubclass()` semantics, and in both
 cases the code will work in the same way.
+
+There is an exception from the scheme: the exception classes.
+
+Exceptions
+----------
+
+Since the deferred import provides wrappers, not real classes,
+one can not use them in `try: ... except: ...` statements. So
+exception classes are simply reexported here.
+
+Developers note: a new exceptions modules **must not** import any
+other pyroute2 modules neither directly, nor indirectly. It means
+that `__init__.py` files in the import path should not contain
+pyroute2 symbols referred in the root module as that would cause
+import error due to recursion.
 
 Runtime
 -------
@@ -142,7 +154,7 @@ objects, and pyroute2 provides a workaround for that::
     # import symbols
     #
     import eventlet
-    from pyroute2 import IPRoute
+    from pyroute2 import NetNS
     from pyroute2.config.eventlet import eventlet_config
 
     # setup the environment
@@ -150,10 +162,6 @@ objects, and pyroute2 provides a workaround for that::
     eventlet_config()
 
     # run the code
-    ipr = IPRoute()
-    ipr.get_routes()
+    ns = NetNS('nsname')
+    ns.get_routes()
     ...
-
-The `eventlet_config()` call changes the base class of the
-`IPRoute`, but with the deferred import the code meets the
-PEP8 requirements.

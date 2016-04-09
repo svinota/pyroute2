@@ -1,28 +1,33 @@
 ##
-# Defer all root imports
 #
-# This allows to safely import config, change it, and
-# only after that actually run imports, though the
-# import statement can be on the top of the file
+# NB: the deferred import code may be removed
 #
-# Viva PEP8, morituri te salutant!
+# That should not affect neither the public API, nor the
+# type matching with isinstance() and issubclass()
 #
-# Surely, you still can import modules directly from their
-# places, like `from pyroute2.iproute import IPRoute`
-##
 from abc import ABCMeta
-from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.exceptions import NetlinkDecodeError
+from pyroute2.ipdb.exceptions import \
+    DeprecationException, \
+    CommitException, \
+    CreateException, \
+    PartialCommitException
+from pyroute2.netlink.exceptions import \
+    NetlinkError, \
+    NetlinkDecodeError
 
 # reexport exceptions
 exceptions = [NetlinkError,
-              NetlinkDecodeError]
+              NetlinkDecodeError,
+              DeprecationException,
+              CommitException,
+              CreateException,
+              PartialCommitException]
 
 __all__ = []
 _modules = {'IPRoute': 'pyroute2.iproute',
             'RawIPRoute': 'pyroute2.iproute',
             'IPSet': 'pyroute2.ipset',
-            'IPDB': 'pyroute2.ipdb',
+            'IPDB': 'pyroute2.ipdb.main',
             'IW': 'pyroute2.iwutil',
             'NetNS': 'pyroute2.netns.nslink',
             'NSPopen': 'pyroute2.netns.process.proxy',
@@ -110,3 +115,5 @@ for name in _modules:
     f = _bake(name)
     globals()[name] = f
     __all__.append(name)
+
+__all__.extend([x.__name__ for x in exceptions])
