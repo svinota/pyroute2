@@ -616,8 +616,8 @@ class IPRouteMixin(object):
              "flags": uint16}
 
         More details:
-        * kernel:Documentation/networking/switchdev.txt
-        * pyroute2.netlink.rtnl.ifinfmsg:... vlan_info
+            * kernel:Documentation/networking/switchdev.txt
+            * pyroute2.netlink.rtnl.ifinfmsg:... vlan_info
 
         Commands:
 
@@ -649,8 +649,8 @@ class IPRouteMixin(object):
         Bridge forwarding database management.
 
         More details:
-        * kernel:Documentation/networking/switchdev.txt
-        * pyroute2.netlink.rtnl.ndmsg
+            * kernel:Documentation/networking/switchdev.txt
+            * pyroute2.netlink.rtnl.ndmsg
 
         **add**
 
