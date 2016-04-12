@@ -1,6 +1,8 @@
 changelog
 =========
 
+* 0.3.21
+    * ipdb: #231 -- return `ipdb.common` as deprecated
 * 0.3.20
     * iproute: `vlan_filter()`
     * iproute: #229 -- FDB management
