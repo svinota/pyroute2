@@ -5,6 +5,7 @@
 # That should not affect neither the public API, nor the
 # type matching with isinstance() and issubclass()
 #
+import logging
 from abc import ABCMeta
 from pyroute2.ipdb.exceptions import \
     DeprecationException, \
@@ -115,5 +116,13 @@ for name in _modules:
     f = _bake(name)
     globals()[name] = f
     __all__.append(name)
+
+
+class __common(object):
+    def __getattribute__(self, key):
+        logging.warning('module pyroute2.ipdb.common is deprecated, '
+                        'use pyroute2.ipdb.exceptions instead')
+        return getattr(globals()['ipdb'].exceptions, key)
+globals()['ipdb'].common = __common()
 
 __all__.extend([x.__name__ for x in exceptions])
