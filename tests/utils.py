@@ -6,7 +6,7 @@ import errno
 import platform
 import subprocess
 import ctypes
-from pyroute2.netlink import NetlinkError
+from pyroute2 import NetlinkError
 from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bridge
 from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bond
 from pyroute2.netlink.rtnl.ifinfmsg import compat_del_bridge

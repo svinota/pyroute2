@@ -1,15 +1,16 @@
-%global pkgname pyroute2
+%global srcname pyroute2
+%global sum Pure Python netlink library
 
-Name: python-%{pkgname}
-Version: 0.3.15
+Name: python-%{srcname}
+Version: 0.3.19
 Release: 1%{?dist}
-Summary: Pure Python netlink library
+Summary: %{sum}
 License: GPLv2+
 Group: Development/Languages
-URL: https://github.com/svinota/%{pkgname}
+URL: https://github.com/svinota/%{srcname}
 
 BuildArch: noarch
-BuildRequires: python2-devel
+BuildRequires: python2-devel python3-devel
 Source: https://pypi.python.org/packages/source/p/pyroute2/pyroute2-%{version}.tar.gz
 
 %description
@@ -17,20 +18,52 @@ PyRoute2 provides several levels of API to work with Netlink
 protocols, such as Generic Netlink, RTNL, TaskStats, NFNetlink,
 IPQ.
 
+%package -n python2-%{srcname}
+Summary: %{sum}
+%{?python_provide:%python_provide python2-%{srcname}}
+
+%description -n python2-%{srcname}
+PyRoute2 provides several levels of API to work with Netlink
+protocols, such as Generic Netlink, RTNL, TaskStats, NFNetlink,
+IPQ.
+
+%package -n python3-%{srcname}
+Summary: %{sum}
+%{?python_provide:%python_provide python3-%{srcname}}
+
+%description -n python3-%{srcname}
+PyRoute2 provides several levels of API to work with Netlink
+protocols, such as Generic Netlink, RTNL, TaskStats, NFNetlink,
+IPQ.
+
+
 %prep
-%setup -q -n %{pkgname}-%{version}
+%setup -q -n %{srcname}-%{version}
 
 %build
-# nothing to build
+%py2_build
+%py3_build
 
 %install
-%{__python} setup.py install --root $RPM_BUILD_ROOT
+%py2_install
+%py3_install
 
-%files
+%files -n python2-%{srcname}
 %doc README* LICENSE.GPL.v2 LICENSE.Apache.v2
-%{python_sitelib}/%{pkgname}*
+%{python2_sitelib}/%{srcname}*
+
+%files -n python3-%{srcname}
+%doc README* LICENSE.GPL.v2 LICENSE.Apache.v2
+%{python3_sitelib}/%{srcname}*
 
 %changelog
+* Tue Apr  5 2016 Peter V. Saveliev <peter@svinota.eu> 0.3.19-1
+- separate Python2 and Python3 packages
+- MPLS lwtunnel support
+
+* Thu Feb 04 2016 Fedora Release Engineering <releng@fedoraproject.org> - 0.3.15-2
+
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
 * Fri Nov 20 2015 Peter V. Saveliev <peter@svinota.eu> 0.3.15-1
 - critical NetNS fd leak fix
 

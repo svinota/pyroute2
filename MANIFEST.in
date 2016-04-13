@@ -4,3 +4,4 @@ include README*
 include LICENSE*
 include CHANGELOG.md
 graft docs/html
+graft examples

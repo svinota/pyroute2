@@ -1,3 +1,4 @@
+.idea/
 *.swp
 *.pyc
 *~
@@ -9,6 +10,8 @@ tests/.coverage
 tests/udhcpd.leases
 tests/examples
 tests/pyroute2
+tests/ci/results
+tests/*xml
 output.html
 MANIFEST
 setup.ini
@@ -17,4 +20,5 @@ docs/makefile.rst
 docs/general.rst
 docs/html
 docs/doctrees
+docs-build.log
 pyroute2.egg-info

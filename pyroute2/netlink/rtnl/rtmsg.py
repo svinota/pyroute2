@@ -16,7 +16,7 @@ class nh_header(nlmsg_base):
     fields = (('length', 'H'), )
 
 
-class rtmsg(nlmsg):
+class rtmsg_base(object):
     '''
     Route message
 
@@ -57,7 +57,7 @@ class rtmsg(nlmsg):
                ('RTA_PRIORITY', 'uint32'),
                ('RTA_PREFSRC', 'target'),
                ('RTA_METRICS', 'metrics'),
-               ('RTA_MULTIPATH', '*nh'),
+               ('RTA_MULTIPATH', '*get_nh'),
                ('RTA_PROTOINFO', 'uint32'),
                ('RTA_FLOW', 'hex'),
                ('RTA_CACHEINFO', 'cacheinfo'),
@@ -68,7 +68,18 @@ class rtmsg(nlmsg):
                ('RTA_MFC_STATS', 'rta_mfc_stats'),
                ('RTA_VIA', 'rtvia'),
                ('RTA_NEWDST', 'target'),
-               ('RTA_PREF', 'hex'))
+               ('RTA_PREF', 'hex'),
+               ('RTA_ENCAP_TYPE', 'uint16'),
+               ('RTA_ENCAP', 'encap_info'),
+               ('RTA_EXPIRES', 'hex'))
+
+    @staticmethod
+    def encap_info(self, *argv, **kwarg):
+        return self.mpls_encap_info
+
+    class mpls_encap_info(nla):
+        nla_map = (('MPLS_IPTUNNEL_UNSPEC', 'none'),
+                   ('MPLS_IPTUNNEL_DST', 'mpls_target'))
 
     class rta_mfc_stats(nla):
         fields = (('mfcs_packets', 'uint64'),
@@ -94,15 +105,9 @@ class rtmsg(nlmsg):
                    ('RTAX_INITRWND', 'uint32'),
                    ('RTAX_QUICKACK', 'uint32'))
 
-    class nh(nla):
-        align = 2
-        cell_header = nh_header
-        fields = (('flags', 'B'),
-                  ('hops', 'B'),
-                  ('ifindex', 'i'))
-        nla_map = ((5, 'RTA_GATEWAY', 'target'),
-                   (11, 'RTA_FLOW', 'hex'),
-                   (18, 'RTA_VIA', 'hex'))
+    @staticmethod
+    def get_nh(self, *argv, **kwarg):
+        return nh
 
     class rtvia(nla):
         fields = (('value', 's'), )
@@ -136,6 +141,9 @@ class rtmsg(nlmsg):
                   ('rta_ts', 'I'),
                   ('rta_tsage', 'I'))
 
+
+class rtmsg(rtmsg_base, nlmsg):
+
     def encode(self):
         if self.get('family') == AF_MPLS:
             # force fields
@@ -147,3 +155,11 @@ class rtmsg(nlmsg):
                 if n[0] not in ('RTA_OIF', 'RTA_DST', 'RTA_VIA', 'RTA_NEWDST'):
                     raise TypeError('Incorrect NLA type %s for AF_MPLS' % n[0])
         nlmsg.encode(self)
+
+
+class nh(rtmsg_base, nla):
+    align = 2
+    cell_header = nh_header
+    fields = (('flags', 'B'),
+              ('hops', 'B'),
+              ('ifindex', 'i'))

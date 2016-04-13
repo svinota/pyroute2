@@ -1,6 +1,8 @@
+import os
 import atexit
 import pickle
 import select
+import signal
 import socket
 import struct
 import threading
@@ -63,6 +65,18 @@ class SocketChannel(Transport):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
         Transport.__init__(self, sock)
+
+
+class ProxyChannel(object):
+
+    def __init__(self, channel, stage):
+        self.target = channel
+        self.stage = stage
+
+    def send(self, data):
+        return self.target.send({'stage': self.stage,
+                                 'data': data,
+                                 'error': None})
 
 
 def Server(cmdch, brdch):
@@ -145,10 +159,15 @@ def Server(cmdch, brdch):
 
     '''
 
+    def close(s, frame):
+        # just leave everything else as is
+        brdch.send({'stage': 'signal',
+                    'data': s})
+
     try:
         ipr = IPRoute()
         lock = ipr._sproxy.lock
-        ipr._s_channel = brdch
+        ipr._s_channel = ProxyChannel(brdch, 'broadcast')
         poll = select.poll()
         poll.register(ipr, select.POLLIN | select.POLLPRI)
         poll.register(cmdch, select.POLLIN | select.POLLPRI)
@@ -160,9 +179,16 @@ def Server(cmdch, brdch):
     # all is OK so far
     cmdch.send({'stage': 'init',
                 'error': None})
+    signal.signal(signal.SIGHUP, close)
+    signal.signal(signal.SIGINT, close)
+    signal.signal(signal.SIGTERM, close)
+
     # 8<-------------------------------------------------------------
     while True:
-        events = poll.poll()
+        try:
+            events = poll.poll()
+        except:
+            continue
         for (fd, event) in events:
             if fd == ipr.fileno():
                 bufsize = ipr.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
@@ -184,6 +210,21 @@ def Server(cmdch, brdch):
                     poll.unregister(cmdch)
                     ipr.close()
                     return
+                elif cmd['stage'] == 'reconstruct':
+                    error = None
+                    try:
+                        msg = cmd['argv'][0]()
+                        msg.load(pickle.loads(cmd['argv'][1]))
+                        msg.encode()
+                        ipr.sendto(msg.buf.getvalue(), cmd['argv'][2])
+                    except Exception as e:
+                        error = e
+                        error.tb = traceback.format_exc()
+                    cmdch.send({'stage': 'reconstruct',
+                                'error': error,
+                                'return': None,
+                                'cookie': cmd['cookie']})
+
                 elif cmd['stage'] == 'command':
                     error = None
                     try:
@@ -214,9 +255,30 @@ class Client(object):
             raise init['error']
         else:
             atexit.register(self.close)
+        self.sendto_gate = self._gate
+
+    def _gate(self, msg, addr):
+        with self.cmdlock:
+            self.cmdch.send({'stage': 'reconstruct',
+                             'cookie': None,
+                             'name': None,
+                             'argv': [type(msg),
+                                      pickle.dumps(msg.dump()),
+                                      addr],
+                             'kwarg': None})
+            ret = self.cmdch.recv()
+            if ret['error'] is not None:
+                raise ret['error']
+            return ret['return']
 
     def recv(self, bufsize, flags=0):
-        msg = self.brdch.recv()
+        msg = None
+        while True:
+            msg = self.brdch.recv()
+            if msg['stage'] == 'signal':
+                os.kill(os.getpid(), msg['data'])
+            else:
+                break
         if msg['error'] is not None:
             raise msg['error']
         return msg['data']

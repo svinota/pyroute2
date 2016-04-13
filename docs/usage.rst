@@ -3,53 +3,6 @@
 Quickstart
 ==========
 
-Imports
--------
-
-The public API is exported by `pyroute2/__init__.py`. There
-are two main reasons for such approach.
-
-First, it is done so to provide a stable API, that will not
-be affected by changes in the package layout. There can be
-significant layout changes between versions, but if a
-symbol is re-exported via `pyroute2/__init__.py`, it will be
-available with the same import signature.
-
-All other objects are also available for import, but they
-can change the signature in the next versions.
-
-Another function of `pyroute2/__init__.py` is to provide
-deferred imports. Being imported from the root of the
-package, classes will be really imported only with the first
-constructor call. This make possible to change the base
-of pyroute2 classes on the fly. E.g., this way the eventlet
-environment support is done.
-
-E.g.::
-
-    # Case #1
-    #
-    # Import a pyroute2 class directly. In the next versions
-    # the import signature can be changed, e.g., NetNS from
-    # pyroute2.netns.nslink it can be moved somewhere else.
-    #
-    from pyroute2.netns.nslink import NetNS  # <- real import
-    ns = NetNS('test')
-
-    # Case #2
-    #
-    # Import the same class from root module. This signature
-    # will stay the same, any layout change is reflected in
-    # the root module.
-    #
-    from pyroute2 import NetNS
-    ns = NetNS('test')  # <- real import will be done here
-
-
-The proxy class, used in the second case, supports correct
-`isinstance()` and `issubclass()` semantics, and in both
-cases the code will work in the same way.
-
 Runtime
 -------
 
@@ -97,7 +50,6 @@ handle specific tasks::
     # scan WIFI networks on wlo1
     iw.scan(ipr.link_lookup(ifname='wlo1'))
 
-
 More info on specific modules is written in the next
 chapters.
 
@@ -107,6 +59,85 @@ Resource release
 Do not forget to release resources and close sockets. Also
 keep in mind, that the real fd will be closed only when the
 Python GC will collect closed objects.
+
+Signal handlers
+---------------
+
+If you place exclusive operations in a signal handler, the
+locking will not help. The only way to guard the handler is
+to ignore the signal from the handler::
+
+    import signal
+    from pyroute2 import IPDB
+
+    def handler(signum, frame):
+        # emergency shutdown
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        ipdb.interfaces.test_if.remove().commit()
+        ipdb.release()
+
+    def main():
+        with IPDB() as ipdb:
+            signal.signal(signal.SIGTERM, handler)
+            test_if = ipdb.create(ifname='test_if', kind='dummy').commit()
+            ...  # do some work
+
+Imports
+-------
+
+The public API is exported by `pyroute2/__init__.py`. There
+are two main reasons for such approach.
+
+First, it is done so to provide a stable API, that will not
+be affected by changes in the package layout. There can be
+significant layout changes between versions, but if a
+symbol is re-exported via `pyroute2/__init__.py`, it will be
+available with the same import signature.
+
+.. warning::
+    All other objects are also available for import, but they
+    may change signatures in the next versions.
+
+E.g.::
+
+    # Import a pyroute2 class directly. In the next versions
+    # the import signature can be changed, e.g., NetNS from
+    # pyroute2.netns.nslink it can be moved somewhere else.
+    #
+    from pyroute2.netns.nslink import NetNS
+    ns = NetNS('test')
+
+    # Import the same class from root module. This signature
+    # will stay the same, any layout change is reflected in
+    # the root module.
+    #
+    from pyroute2 import NetNS
+    ns = NetNS('test')
+
+Another function of `pyroute2/__init__.py` is to provide
+deferred imports. Being imported from the root of the
+package, classes will be really imported only with the first
+constructor call. This make possible to change the base
+of pyroute2 classes on the fly.
+
+The proxy class, used in the second case, supports correct
+`isinstance()` and `issubclass()` semantics, and in both
+cases the code will work in the same way.
+
+There is an exception from the scheme: the exception classes.
+
+Exceptions
+----------
+
+Since the deferred import provides wrappers, not real classes,
+one can not use them in `try: ... except: ...` statements. So
+exception classes are simply reexported here.
+
+Developers note: new exceptions modules **must not** import any
+other pyroute2 modules neither directly, nor indirectly. It means
+that `__init__.py` files in the import path should not contain
+pyroute2 symbols referred in the root module as that would cause
+import error due to recursion.
 
 Special cases
 =============
@@ -120,7 +151,7 @@ objects, and pyroute2 provides a workaround for that::
     # import symbols
     #
     import eventlet
-    from pyroute2 import IPRoute
+    from pyroute2 import NetNS
     from pyroute2.config.eventlet import eventlet_config
 
     # setup the environment
@@ -128,10 +159,6 @@ objects, and pyroute2 provides a workaround for that::
     eventlet_config()
 
     # run the code
-    ipr = IPRoute()
-    ipr.get_routes()
+    ns = NetNS('nsname')
+    ns.get_routes()
     ...
-
-The `eventlet_config()` call changes the base class of the
-`IPRoute`, but with the deferred import the code meets the
-PEP8 requirements.

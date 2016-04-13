@@ -13,8 +13,9 @@ from pyroute2 import netns
 from pyroute2 import NetNS
 from pyroute2.common import basestring
 from pyroute2.common import uifname
-from pyroute2.netlink import NetlinkError
-from pyroute2.ipdb.common import CreateException
+from pyroute2.ipdb.exceptions import CreateException
+from pyroute2.ipdb.exceptions import PartialCommitException
+from pyroute2.netlink.exceptions import NetlinkError
 from utils import grep
 from utils import create_link
 from utils import kernel_version_ge
@@ -76,7 +77,7 @@ class TestRace(object):
             ip.release()
 
 
-class TestExplicit(object):
+class BasicSetup(object):
     ip = None
     mode = 'explicit'
 
@@ -100,6 +101,9 @@ class TestExplicit(object):
                 pass
         self.ip.release()
         self.ifaces = []
+
+
+class TestExplicit(BasicSetup):
 
     def test_simple(self):
         assert len(list(self.ip.interfaces.keys())) > 0
@@ -269,11 +273,26 @@ class TestExplicit(object):
         r = self.ip.interfaces.lo.review()
         assert len(r['+ipaddr']) == 1
         assert len(r['-ipaddr']) == 0
+        assert len(r['+vlans']) == 0
+        assert len(r['-vlans']) == 0
         assert len(r['+ports']) == 0
         assert len(r['-ports']) == 0
         # +/-ipaddr, +/-ports
-        assert len([i for i in r if r[i] is not None]) == 4
+        assert len([i for i in r if r[i] is not None]) == 6
         self.ip.interfaces.lo.drop()
+
+    def test_review_new(self):
+        i = self.ip.create(ifname='none', kind='dummy')
+        i.add_ip('172.16.21.1/24')
+        i.add_ip('172.16.21.2/24')
+        i.add_port(self.ip.interfaces.lo)
+        r = i.review()
+        assert len(r['+ipaddr']) == 2
+        assert len(r['+ports']) == 1
+        assert '-ipaddr' not in r
+        assert '-ports' not in r
+        assert 'ipaddr' not in r
+        assert 'ports' not in r
 
     def test_rename(self):
         require_user('root')
@@ -494,6 +513,18 @@ class TestExplicit(object):
         i.remove().commit()
         assert ifA not in self.ip.interfaces
 
+    def test_multiple_ips_one_transaction(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        with self.ip.create(kind='dummy', ifname=ifA) as i:
+            for x in range(1, 255):
+                i.add_ip('172.16.0.%i/24' % x)
+            i.up()
+
+        idx = self.ip.interfaces[ifA].index
+        assert len(self.ip.nl.get_addr(index=idx, family=2)) == 254
+
     def test_json_dump(self):
         require_user('root')
 
@@ -503,8 +534,10 @@ class TestExplicit(object):
         # set up the interface
         with self.ip.create(kind='dummy', ifname=ifA) as i:
             i.add_ip('172.16.0.1/24')
-            i.add_ip('172.16.0.2/24')
             i.up()
+
+        # imitate some runtime
+        time.sleep(2)
 
         # make a backup
         backup = self.ip.interfaces[ifA].dump()
@@ -536,8 +569,8 @@ class TestExplicit(object):
         # check :)
         assert ifA in self.ip.interfaces
         assert ifB not in self.ip.interfaces
-        assert ('172.16.0.1', 24) in self.ip.interfaces[ifA].ipaddr
-        assert ('172.16.0.2', 24) in self.ip.interfaces[ifA].ipaddr
+        for ipaddr in json.loads(backup)['ipaddr']:
+            assert tuple(ipaddr) in self.ip.interfaces[ifA].ipaddr
         assert self.ip.interfaces[ifA].flags & 1
 
     def test_freeze_del(self):
@@ -840,6 +873,77 @@ class TestExplicit(object):
         assert grep('ip link', pattern=ifA)
         assert not grep('ip link', pattern=ifB)
 
+    def test_bridge_vlans_flags(self):
+        require_user('root')
+        ifB = self.get_ifname()
+        ifP = self.get_ifname()
+        b = self.ip.create(ifname=ifB, kind='bridge').commit()
+        p = self.ip.create(ifname=ifP, kind='dummy').commit()
+        assert len(p.vlans) == 0
+
+        with b:
+            b.add_port(p)
+
+        with p:
+            p.add_vlan({'vid': 202, 'flags': 6})
+            p.add_vlan({'vid': 204, 'flags': 0})
+            p.add_vlan(206)
+        assert p.vlans == set((1, 202, 204, 206))
+        assert p.vlans[202]['flags'] == 6
+        assert p.vlans[204]['flags'] == 0
+        assert p.vlans[206]['flags'] == 0
+
+    def test_bridge_vlans(self):
+        require_user('root')
+        ifB = self.get_ifname()
+        ifP = self.get_ifname()
+        b = self.ip.create(ifname=ifB, kind='bridge').commit()
+        p = self.ip.create(ifname=ifP, kind='dummy').commit()
+        assert len(p.vlans) == 0
+
+        with b:
+            b.add_port(p)
+        assert len(p.vlans) == 1
+
+        with p:
+            p.add_vlan(202)
+            p.add_vlan(204)
+            p.add_vlan(206)
+        assert p.vlans == set((1, 202, 204, 206))
+
+        with p:
+            p.del_vlan(204)
+        assert p.vlans == set((1, 202, 206))
+
+        with b:
+            b.del_port(p)
+        assert len(p.vlans) == 0
+
+    def test_veth_peer_attrs(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ns = str(uuid.uuid4())
+
+        addr_ext = '06:00:00:00:02:02'
+        addr_int = '06:00:00:00:02:03'
+
+        with IPDB(nl=NetNS(ns)) as nsdb:
+            veth = self.ip.create(**{'ifname': 'x' + ifA,
+                                     'kind': 'veth',
+                                     'address': addr_ext,
+                                     'peer': {'ifname': ifA,
+                                              'address': addr_int,
+                                              'net_ns_fd': ns}})
+            veth.commit()
+            assert nsdb.interfaces[ifA]['address'] == addr_int
+            assert self.ip.interfaces['x' + ifA]['address'] == addr_ext
+
+            with veth:
+                veth.remove()
+
+        netns.remove(ns)
+
     def test_global_netns(self):
         require_user('root')
 
@@ -1098,6 +1202,7 @@ class TestExplicit(object):
         ip2 = IPDB()
         ifdb = ip2.interfaces
         try:
+            assert ifdb[ifV]['kind'] == kind
             assert ifdb[ifV].link == ifdb[ifL].index
             assert ifdb[ifV]['%s_mode' % kind] == mode
         except Exception:
@@ -1288,6 +1393,39 @@ class TestCompat(TestExplicit):
                                    'create_bond': False,
                                    'provide_master': False}
         config.kernel = [2, 6, 32]  # RHEL 6
+
+
+class TestPartial(BasicSetup):
+    mode = 'implicit'
+
+    def test_delay_port(self):
+        require_user('root')
+        ifB = self.get_ifname()
+        ifBp0 = self.get_ifname()
+        ifBp1 = self.get_ifname()
+
+        b = self.ip.create(ifname=ifB, kind='bridge').commit()
+        bp0 = self.ip.create(ifname=ifBp0, kind='dummy').commit()
+
+        b.add_port(ifBp0)
+        b.add_port(ifBp1)
+        t = b.last()
+        t.partial = True
+        try:
+            b.commit(transaction=t)
+        except PartialCommitException:
+            pass
+
+        assert len(b['ports']) == 1
+        assert bp0['index'] in b['ports']
+        assert len(t.errors) == 1
+
+        bp1 = self.ip.create(ifname=ifBp1, kind='dummy').commit()
+        b.commit(transaction=t)
+
+        assert len(b['ports']) == 2
+        assert bp1['index'] in b['ports']
+        assert len(t.errors) == 0
 
 
 class TestImplicit(TestExplicit):

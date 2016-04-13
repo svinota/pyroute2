@@ -6,6 +6,9 @@ import struct
 import threading
 import subprocess
 from fcntl import ioctl
+from socket import AF_INET
+from socket import AF_INET6
+from socket import AF_BRIDGE
 from pyroute2 import RawIPRoute
 from pyroute2 import config
 from pyroute2.common import map_namespace
@@ -13,9 +16,9 @@ from pyroute2.common import map_enoent
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nlmsg_atoms
-from pyroute2.netlink import NetlinkError
 from pyroute2.netlink.rtnl import RTM_VALUES
 from pyroute2.netlink.rtnl.iw_event import iw_event
+from pyroute2.netlink.exceptions import NetlinkError
 
 
 # it's simpler to double constants here, than to change all the
@@ -31,7 +34,7 @@ _BONDING_MASTER = '/sys/class/net/%s/master/ifindex'
 IFNAMSIZ = 16
 
 TUNDEV = '/dev/net/tun'
-if config.machine == 'x86_64':
+if config.machine in ('i386', 'i686', 'x86_64'):
     TUNSETIFF = 0x400454ca
     TUNSETPERSIST = 0x400454cb
     TUNSETOWNER = 0x400454cc
@@ -138,6 +141,91 @@ stats_names = ('rx_packets',
                'tx_compressed')
 
 
+class ifla_bridge_id(nla):
+    fields = [('value', '=8s')]
+
+    def encode(self):
+        r_prio = struct.pack('H', self['prio'])
+        r_addr = struct.pack('BBBBBB',
+                             *[int(i, 16) for i in
+                               self['addr'].split(':')])
+        self['value'] = r_prio + r_addr
+        nla.encode(self)
+
+    def decode(self):
+        nla.decode(self)
+        r_prio = self['value'][:2]
+        r_addr = self['value'][2:]
+        self.value = {'prio': struct.unpack('H', r_prio)[0],
+                      'addr': ':'.join('%02x' % (i) for i in
+                                       struct.unpack('BBBBBB',
+                                                     r_addr))}
+
+
+class protinfo_bridge(nla):
+    nla_map = (('IFLA_BRPORT_UNSPEC', 'none'),
+               ('IFLA_BRPORT_STATE', 'uint8'),
+               ('IFLA_BRPORT_PRIORITY', 'uint16'),
+               ('IFLA_BRPORT_COST', 'uint32'),
+               ('IFLA_BRPORT_MODE', 'uint8'),
+               ('IFLA_BRPORT_GUARD', 'uint8'),
+               ('IFLA_BRPORT_PROTECT', 'uint8'),
+               ('IFLA_BRPORT_FAST_LEAVE', 'uint8'),
+               ('IFLA_BRPORT_LEARNING', 'uint8'),
+               ('IFLA_BRPORT_UNICAST_FLOOD', 'uint8'),
+               ('IFLA_BRPORT_PROXYARP', 'uint8'),
+               ('IFLA_BRPORT_LEARNING_SYNC', 'uint8'),
+               ('IFLA_BRPORT_PROXYARP_WIFI', 'uint8'),
+               ('IFLA_BRPORT_ROOT_ID', 'br_id'),
+               ('IFLA_BRPORT_BRIDGE_ID', 'br_id'),
+               ('IFLA_BRPORT_DESIGNATED_PORT', 'uint16'),
+               ('IFLA_BRPORT_DESIGNATED_COST', 'uint16'),
+               ('IFLA_BRPORT_ID', 'uint16'),
+               ('IFLA_BRPORT_NO', 'uint16'),
+               ('IFLA_BRPORT_TOPOLOGY_CHANGE_ACK', 'uint8'),
+               ('IFLA_BRPORT_CONFIG_PENDING', 'uint8'),
+               ('IFLA_BRPORT_MESSAGE_AGE_TIMER', 'uint64'),
+               ('IFLA_BRPORT_FORWARD_DELAY_TIMER', 'uint64'),
+               ('IFLA_BRPORT_HOLD_TIMER', 'uint64'),
+               ('IFLA_BRPORT_FLUSH', 'flag'),
+               ('IFLA_BRPORT_MULTICAST_ROUTER', 'uint8'))
+
+    class br_id(ifla_bridge_id):
+        pass
+
+
+class macvx_data(nla):
+    prefix = 'IFLA_'
+    nla_map = (('IFLA_MACVLAN_UNSPEC', 'none'),
+               ('IFLA_MACVLAN_MODE', 'mode'),
+               ('IFLA_MACVLAN_FLAGS', 'flags'),
+               ('IFLA_MACVLAN_MACADDR_MODE', 'macaddr_mode'),
+               ('IFLA_MACVLAN_MACADDR', 'l2addr'),
+               ('IFLA_MACVLAN_MACADDR_DATA', 'macaddr_data'),
+               ('IFLA_MACVLAN_MACADDR_COUNT', 'uint32'))
+
+    class mode(nlmsg_atoms.uint32):
+        value_map = {0: 'none',
+                     1: 'private',
+                     2: 'vepa',
+                     4: 'bridge',
+                     8: 'passthru',
+                     16: 'source'}
+
+    class flags(nlmsg_atoms.uint16):
+        value_map = {0: 'none',
+                     1: 'nopromisc'}
+
+    class macaddr_mode(nlmsg_atoms.uint32):
+        value_map = {0: 'add',
+                     1: 'del',
+                     2: 'flush',
+                     3: 'set'}
+
+    class macaddr_data(nla):
+        nla_map = ((4, 'IFLA_MACVLAN_MACADDR', 'l2addr'), )
+
+
 class ifinfbase(object):
     '''
     Network interface message.
@@ -173,7 +261,7 @@ class ifinfbase(object):
                ('IFLA_PRIORITY', 'hex'),
                ('IFLA_MASTER', 'uint32'),
                ('IFLA_WIRELESS', 'wireless'),
-               ('IFLA_PROTINFO', 'hex'),
+               ('IFLA_PROTINFO', 'protinfo'),
                ('IFLA_TXQLEN', 'uint32'),
                ('IFLA_MAP', 'ifmap'),
                ('IFLA_WEIGHT', 'hex'),
@@ -190,7 +278,7 @@ class ifinfbase(object):
                ('IFLA_AF_SPEC', 'af_spec'),
                ('IFLA_GROUP', 'uint32'),
                ('IFLA_NET_NS_FD', 'netns_fd'),
-               ('IFLA_EXT_MASK', 'hex'),
+               ('IFLA_EXT_MASK', 'uint32'),
                ('IFLA_PROMISCUITY', 'uint32'),
                ('IFLA_NUM_TX_QUEUES', 'uint32'),
                ('IFLA_NUM_RX_QUEUES', 'uint32'),
@@ -199,7 +287,8 @@ class ifinfbase(object):
                ('IFLA_CARRIER_CHANGES', 'uint32'),
                ('IFLA_PHYS_SWITCH_ID', 'hex'),
                ('IFLA_LINK_NETNSID', 'int32'),
-               ('IFLA_PHYS_PORT_NAME', 'asciiz'))
+               ('IFLA_PHYS_PORT_NAME', 'asciiz'),
+               ('IFLA_PROTO_DOWN', 'uint8'))
 
     @staticmethod
     def flags2names(flags, mask=0xffffffff):
@@ -233,7 +322,6 @@ class ifinfbase(object):
         netns_fd = None
 
         def encode(self):
-            self.close()
             #
             # There are two ways to specify netns
             #
@@ -250,8 +338,8 @@ class ifinfbase(object):
                 self.netns_fd = os.open('%s/%s' % (self.netns_run_dir,
                                                    self.value), os.O_RDONLY)
                 self['value'] = self.netns_fd
+                self.register_clean_cb(self.close)
             nla.encode(self)
-            self.register_clean_cb(self.close)
 
         def close(self):
             if self.netns_fd is not None:
@@ -285,16 +373,20 @@ class ifinfbase(object):
                   ('dma', 'B'),
                   ('port', 'B'))
 
-    class ifinfo(nla):
-        nla_map = ((0, 'IFLA_INFO_UNSPEC', 'none'),
-                   (1, 'IFLA_INFO_KIND', 'asciiz'),
-                   (2, 'IFLA_INFO_DATA', 'info_data'),
-                   (3, 'IFLA_INFO_XSTATS', 'hex'),
-                   (4, 'IFLA_INFO_SLAVE_KIND', 'asciiz'),
-                   (5, 'IFLA_INFO_SLAVE_DATA', 'info_slave_data'),
-                   # private extensions
-                   (0x100, 'IFLA_INFO_OVS_MASTER', 'asciiz'))
+    @staticmethod
+    def protinfo(self, *argv, **kwarg):
+        proto_map = {AF_BRIDGE: protinfo_bridge}
+        return proto_map.get(self['family'], self.hex)
 
+    class ifinfo(nla):
+        nla_map = (('IFLA_INFO_UNSPEC', 'none'),
+                   ('IFLA_INFO_KIND', 'asciiz'),
+                   ('IFLA_INFO_DATA', 'info_data'),
+                   ('IFLA_INFO_XSTATS', 'hex'),
+                   ('IFLA_INFO_SLAVE_KIND', 'asciiz'),
+                   ('IFLA_INFO_SLAVE_DATA', 'info_slave_data'))
+
+        @staticmethod
         def info_slave_data(self, *argv, **kwarg):
             '''
             Return IFLA_INFO_SLAVE_DATA type based on
@@ -305,19 +397,8 @@ class ifinfbase(object):
                         'bond': self.bond_slave_data}
             return data_map.get(kind, self.hex)
 
-        class bridge_slave_data(nla):
-            nla_map = (('IFLA_BRPORT_UNSPEC', 'none'),
-                       ('IFLA_BRPORT_STATE', 'uint8'),
-                       ('IFLA_BRPORT_PRIORITY', 'uint16'),
-                       ('IFLA_BRPORT_COST', 'uint32'),
-                       ('IFLA_BRPORT_MODE', 'uint8'),
-                       ('IFLA_BRPORT_GUARD', 'uint8'),
-                       ('IFLA_BRPORT_PROTECT', 'uint8'),
-                       ('IFLA_BRPORT_FAST_LEAVE', 'uint8'),
-                       ('IFLA_BRPORT_LEARNING', 'uint8'),
-                       ('IFLA_BRPORT_UNICAST_FLOOD', 'uint8'),
-                       ('IFLA_BRPORT_PROXYARP', 'uint8'),
-                       ('IFLA_BRPORT_LEARNING_SYNC', 'hex'))
+        class bridge_slave_data(protinfo_bridge):
+            pass
 
         class bond_slave_data(nla):
             nla_map = (('IFLA_BOND_SLAVE_UNSPEC', 'none'),
@@ -328,6 +409,7 @@ class ifinfbase(object):
                        ('IFLA_BOND_SLAVE_QUEUE_ID', 'uint16'),
                        ('IFLA_BOND_SLAVE_AD_AGGREGATOR_ID', 'uint16'))
 
+        @staticmethod
         def info_data(self, *argv, **kwarg):
             '''
             The function returns appropriate IFLA_INFO_DATA
@@ -374,6 +456,7 @@ class ifinfbase(object):
             nla_map = (('VETH_INFO_UNSPEC', 'none'),
                        ('VETH_INFO_PEER', 'info_peer'))
 
+            @staticmethod
             def info_peer(self, *argv, **kwarg):
                 return ifinfveth
 
@@ -394,7 +477,7 @@ class ifinfbase(object):
                        ('IFLA_VXLAN_RSC', 'uint8'),
                        ('IFLA_VXLAN_L2MISS', 'uint8'),
                        ('IFLA_VXLAN_L3MISS', 'uint8'),
-                       ('IFLA_VXLAN_PORT', 'uint16'),
+                       ('IFLA_VXLAN_PORT', 'be16'),
                        ('IFLA_VXLAN_GROUP6', 'ip6addr'),
                        ('IFLA_VXLAN_LOCAL6', 'ip6addr'),
                        ('IFLA_VXLAN_UDP_CSUM', 'uint8'),
@@ -425,37 +508,20 @@ class ifinfbase(object):
                        ('IFLA_GRE_TOS', 'uint8'),
                        ('IFLA_GRE_PMTUDISC', 'uint8'),
                        ('IFLA_GRE_ENCAP_LIMIT', 'uint8'),
-                       ('IFLA_GRE_FLOWINFO', 'uint32'),
+                       ('IFLA_GRE_FLOWINFO', 'be32'),
                        ('IFLA_GRE_FLAGS', 'uint32'),
                        ('IFLA_GRE_ENCAP_TYPE', 'uint16'),
                        ('IFLA_GRE_ENCAP_FLAGS', 'uint16'),
-                       ('IFLA_GRE_ENCAP_SPORT', 'uint16'),
-                       ('IFLA_GRE_ENCAP_DPORT', 'uint16'),
+                       ('IFLA_GRE_ENCAP_SPORT', 'be16'),
+                       ('IFLA_GRE_ENCAP_DPORT', 'be16'),
                        ('IFLA_GRE_COLLECT_METADATA', 'flag'))
 
-        class macvx_data(nla):
-            prefix = 'IFLA_'
-
-            class mode(nlmsg_atoms.uint32):
-                value_map = {0: 'none',
-                             1: 'private',
-                             2: 'vepa',
-                             4: 'bridge',
-                             8: 'passthru'}
-
-            class flags(nlmsg_atoms.uint16):
-                value_map = {0: 'none',
-                             1: 'nopromisc'}
+        class macvlan_data(macvx_data):
+            pass
 
         class macvtap_data(macvx_data):
-            nla_map = (('IFLA_MACVTAP_UNSPEC', 'none'),
-                       ('IFLA_MACVTAP_MODE', 'mode'),
-                       ('IFLA_MACVTAP_FLAGS', 'flags'))
-
-        class macvlan_data(macvx_data):
-            nla_map = (('IFLA_MACVLAN_UNSPEC', 'none'),
-                       ('IFLA_MACVLAN_MODE', 'mode'),
-                       ('IFLA_MACVLAN_FLAGS', 'flags'))
+            nla_map = [(x[0].replace('MACVLAN', 'MACVTAP'), x[1])
+                       for x in macvx_data.nla_map]
 
         class ipvlan_data(nla):
             prefix = 'IFLA_'
@@ -480,9 +546,50 @@ class ifinfbase(object):
                           ('mask', 'I'))
 
         class bridge_data(nla):
-            prefix = 'IFLA_BRIDGE_'
-            nla_map = (('IFLA_BRIDGE_STP_STATE', 'uint32'),
-                       ('IFLA_BRIDGE_MAX_AGE', 'uint32'))
+            prefix = 'IFLA_BR_'
+            nla_map = (('IFLA_BR_UNSPEC', 'none'),
+                       ('IFLA_BR_FORWARD_DELAY', 'uint32'),
+                       ('IFLA_BR_HELLO_TIME', 'uint32'),
+                       ('IFLA_BR_MAX_AGE', 'uint32'),
+                       ('IFLA_BR_AGEING_TIME', 'uint32'),
+                       ('IFLA_BR_STP_STATE', 'uint32'),
+                       ('IFLA_BR_PRIORITY', 'uint16'),
+                       ('IFLA_BR_VLAN_FILTERING', 'uint8'),
+                       ('IFLA_BR_VLAN_PROTOCOL', 'be16'),
+                       ('IFLA_BR_GROUP_FWD_MASK', 'uint16'),
+                       ('IFLA_BR_ROOT_ID', 'br_id'),
+                       ('IFLA_BR_BRIDGE_ID', 'br_id'),
+                       ('IFLA_BR_ROOT_PORT', 'uint16'),
+                       ('IFLA_BR_ROOT_PATH_COST', 'uint32'),
+                       ('IFLA_BR_TOPOLOGY_CHANGE', 'uint8'),
+                       ('IFLA_BR_TOPOLOGY_CHANGE_DETECTED', 'uint8'),
+                       ('IFLA_BR_HELLO_TIMER', 'uint64'),
+                       ('IFLA_BR_TCN_TIMER', 'uint64'),
+                       ('IFLA_BR_TOPOLOGY_CHANGE_TIMER', 'uint64'),
+                       ('IFLA_BR_GC_TIMER', 'uint64'),
+                       ('IFLA_BR_GROUP_ADDR', 'l2addr'),
+                       ('IFLA_BR_FDB_FLUSH', 'flag'),
+                       ('IFLA_BR_MCAST_ROUTER', 'uint8'),
+                       ('IFLA_BR_MCAST_SNOOPING', 'uint8'),
+                       ('IFLA_BR_MCAST_QUERY_USE_IFADDR', 'uint8'),
+                       ('IFLA_BR_MCAST_QUERIER', 'uint8'),
+                       ('IFLA_BR_MCAST_HASH_ELASTICITY', 'uint32'),
+                       ('IFLA_BR_MCAST_HASH_MAX', 'uint32'),
+                       ('IFLA_BR_MCAST_LAST_MEMBER_CNT', 'uint32'),
+                       ('IFLA_BR_MCAST_STARTUP_QUERY_CNT', 'uint32'),
+                       ('IFLA_BR_MCAST_LAST_MEMBER_INTVL', 'uint64'),
+                       ('IFLA_BR_MCAST_MEMBERSHIP_INTVL', 'uint64'),
+                       ('IFLA_BR_MCAST_QUERIER_INTVL', 'uint64'),
+                       ('IFLA_BR_MCAST_QUERY_INTVL', 'uint64'),
+                       ('IFLA_BR_MCAST_QUERY_RESPONSE_INTVL', 'uint64'),
+                       ('IFLA_BR_MCAST_STARTUP_QUERY_INTVL', 'uint64'),
+                       ('IFLA_BR_NF_CALL_IPTABLES', 'uint8'),
+                       ('IFLA_BR_NF_CALL_IP6TABLES', 'uint8'),
+                       ('IFLA_BR_NF_CALL_ARPTABLES', 'uint8'),
+                       ('IFLA_BR_VLAN_DEFAULT_PVID', 'uint16'))
+
+            class br_id(ifla_bridge_id):
+                pass
 
         class bond_data(nla):
             prefix = 'IFLA_BOND_'
@@ -509,7 +616,11 @@ class ifinfbase(object):
                        ('IFLA_BOND_PACKETS_PER_SLAVE', 'uint32'),
                        ('IFLA_BOND_AD_LACP_RATE', 'uint8'),
                        ('IFLA_BOND_AD_SELECT', 'uint8'),
-                       ('IFLA_BOND_AD_INFO', 'ad_info'))
+                       ('IFLA_BOND_AD_INFO', 'ad_info'),
+                       ('IFLA_BOND_AD_ACTOR_SYS_PRIO', 'uint16'),
+                       ('IFLA_BOND_AD_USER_PORT_KEY', 'uint16'),
+                       ('IFLA_BOND_AD_ACTOR_SYSTEM', 'hex'),
+                       ('IFLA_BOND_TLB_DYNAMIC_LB', 'uint8'))
 
             class ad_info(nla):
                 nla_map = (('IFLA_BOND_AD_INFO_UNSPEC', 'none'),
@@ -522,7 +633,25 @@ class ifinfbase(object):
             class arp_ip_target(nla):
                 fields = (('targets', '16I'), )
 
-    class af_spec(nla):
+    @staticmethod
+    def af_spec(self, *argv, **kwarg):
+        specs = {0: self.af_spec_inet,
+                 AF_INET: self.af_spec_inet,
+                 AF_INET6: self.af_spec_inet,
+                 AF_BRIDGE: self.af_spec_bridge}
+        return specs.get(self['family'], self.hex)
+
+    class af_spec_bridge(nla):
+        prefix = 'IFLA_BRIDGE_'
+        nla_map = (('IFLA_BRIDGE_FLAGS', 'uint16'),
+                   ('IFLA_BRIDGE_MODE', 'uint16'),
+                   ('IFLA_BRIDGE_VLAN_INFO', 'vlan_info'))
+
+        class vlan_info(nla):
+            fields = (('flags', 'H'),
+                      ('vid', 'H'))
+
+    class af_spec_inet(nla):
         nla_map = (('AF_UNSPEC', 'none'),
                    ('AF_UNIX', 'hex'),
                    ('AF_INET', 'inet'),
@@ -1098,7 +1227,11 @@ def compat_get_master(name):
 
     for i in (_BRIDGE_MASTER, _BONDING_MASTER):
         try:
-            f = open(i % (name))
+            try:
+                f = open(i % (name))
+            except UnicodeEncodeError:
+                # a special case with python3 on Ubuntu 14
+                f = open(i % (name.encode('utf-8')))
             break
         except IOError:
             pass

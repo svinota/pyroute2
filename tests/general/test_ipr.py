@@ -2,9 +2,9 @@ import os
 import errno
 import socket
 from pyroute2 import IPRoute
+from pyroute2 import NetlinkError
 from pyroute2.common import uifname
 from pyroute2.common import AF_MPLS
-from pyroute2.netlink import NetlinkError
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -122,8 +122,8 @@ class TestIPRoute(object):
     def setup(self):
         self.ip = IPRoute()
         try:
+            self.ifaces = []
             self.dev, idx = self.create()
-            self.ifaces = [idx]
         except IndexError:
             pass
 
@@ -131,6 +131,7 @@ class TestIPRoute(object):
         name = uifname()
         create_link(name, kind=kind)
         idx = self.ip.link_lookup(ifname=name)[0]
+        self.ifaces.append(idx)
         return (name, idx)
 
     def teardown(self):
@@ -164,6 +165,44 @@ class TestIPRoute(object):
         require_user('root')
         self.ip.addr('add', self.ifaces[0], address='172.16.0.1', mask=24)
         assert '172.16.0.1/24' in get_ip_addr()
+
+    def test_vlan_filter_add(self):
+        require_user('root')
+        (bn, bx) = self.create('bridge')
+        (sn, sx) = self.create('dummy')
+        self.ip.link('set', index=sx, master=bx)
+        assert not grep('bridge vlan show', pattern='567')
+        self.ip.vlan_filter('add', index=sx, vlan_info={'vid': 567})
+        assert grep('bridge vlan show', pattern='567')
+        self.ip.vlan_filter('del', index=sx, vlan_info={'vid': 567})
+        assert not grep('bridge vlan show', pattern='567')
+
+    def test_vlan_filter_add_raw(self):
+        require_user('root')
+        (bn, bx) = self.create('bridge')
+        (sn, sx) = self.create('dummy')
+        self.ip.link('set', index=sx, master=bx)
+        assert not grep('bridge vlan show', pattern='567')
+        self.ip.vlan_filter('add', index=sx,
+                            af_spec={'attrs': [['IFLA_BRIDGE_VLAN_INFO',
+                                                {'vid': 567}]]})
+        assert grep('bridge vlan show', pattern='567')
+        self.ip.vlan_filter('del', index=sx,
+                            af_spec={'attrs': [['IFLA_BRIDGE_VLAN_INFO',
+                                                {'vid': 567}]]})
+        assert not grep('bridge vlan show', pattern='567')
+
+    def test_local_add(self):
+        require_user('root')
+        self.ip.addr('add', self.ifaces[0],
+                     address='172.16.0.2',
+                     local='172.16.0.1',
+                     mask=24)
+        link = self.ip.get_addr(index=self.ifaces[0])[0]
+        address = link.get_attr('IFA_ADDRESS')
+        local = link.get_attr('IFA_LOCAL')
+        assert address == '172.16.0.2'
+        assert local == '172.16.0.1'
 
     def test_addr_broadcast(self):
         require_user('root')
@@ -246,17 +285,18 @@ class TestIPRoute(object):
         master = uifname()
         ipvlan = uifname()
         # create the master link
-        self.ip.link_create(ifname=master, kind='dummy')
+        self.ip.link('add', ifname=master, kind='dummy')
         midx = self.ip.link_lookup(ifname=master)[0]
         # check modes
         # maybe move modes dict somewhere else?
         cmode = ifinfmsg.ifinfo.ipvlan_data.modes[smode]
         assert ifinfmsg.ifinfo.ipvlan_data.modes[cmode] == smode
         # create ipvlan
-        self.ip.link_create(ifname=ipvlan,
-                            kind='ipvlan',
-                            link=midx,
-                            mode=cmode)
+        self.ip.link('add',
+                     ifname=ipvlan,
+                     kind='ipvlan',
+                     link=midx,
+                     mode=cmode)
         devs = self.ip.link_lookup(ifname=ipvlan)
         assert devs
         self.ifaces.extend(devs)
@@ -268,12 +308,13 @@ class TestIPRoute(object):
         return self._create_ipvlan('IPVLAN_MODE_L3')
 
     @skip_if_not_supported
-    def _create(self, kind):
+    def _create(self, kind, **kwarg):
         name = uifname()
-        self.ip.link_create(ifname=name, kind=kind)
+        self.ip.link('add', ifname=name, kind=kind, **kwarg)
         devs = self.ip.link_lookup(ifname=name)
         assert devs
         self.ifaces.extend(devs)
+        return (name, devs[0])
 
     def test_create_dummy(self):
         require_user('root')
@@ -297,6 +338,48 @@ class TestIPRoute(object):
                            for x in self.ip.get_ntables()]))
         setB = set([x['index'] for x in self.ip.get_links()])
         assert setA == setB
+
+    def test_fdb_vxlan(self):
+        require_user('root')
+        # create dummy
+        (dn, dx) = self._create('dummy')
+        # create vxlan on it
+        (vn, vx) = self._create('vxlan', vxlan_link=dx, vxlan_id=500)
+        # create FDB record
+        l2 = '00:11:22:33:44:55'
+        self.ip.fdb('add', lladdr=l2, ifindex=vx,
+                    vni=600, port=5678, dst='172.16.40.40')
+        # dump
+        r = self.ip.fdb('dump', ifindex=vx, lladdr=l2)
+        assert len(r) == 1
+        assert r[0]['ifindex'] == vx
+        assert r[0].get_attr('NDA_LLADDR') == l2
+        assert r[0].get_attr('NDA_DST') == '172.16.40.40'
+        assert r[0].get_attr('NDA_PORT') == 5678
+        assert r[0].get_attr('NDA_VNI') == 600
+
+    def test_fdb_bridge_simple(self):
+        require_user('root')
+        # create bridge
+        (bn, bx) = self._create('bridge')
+        # create FDB record
+        l2 = '00:11:22:33:44:55'
+        self.ip.fdb('add', lladdr=l2, ifindex=bx)
+        # dump FDB
+        r = self.ip.fdb('dump', ifindex=bx, lladdr=l2)
+        # one vlan == 1, one w/o vlan
+        assert len(r) == 2
+        assert len(list(filter(lambda x: x['ifindex'] == bx, r))) == 2
+        assert len(list(filter(lambda x: x.get_attr('NDA_VLAN'), r))) == 1
+        assert len(list(filter(lambda x: x.get_attr('NDA_MASTER') == bx,
+                               r))) == 2
+        assert len(list(filter(lambda x: x.get_attr('NDA_LLADDR') == l2,
+                               r))) == 2
+        r = self.ip.fdb('dump', ifindex=bx, lladdr=l2, vlan=1)
+        assert len(r) == 1
+        assert r[0].get_attr('NDA_VLAN') == 1
+        assert r[0].get_attr('NDA_MASTER') == bx
+        assert r[0].get_attr('NDA_LLADDR') == l2
 
     def test_neigh_real_links(self):
         links = set([x['index'] for x in self.ip.get_links()])
@@ -453,16 +536,16 @@ class TestIPRoute(object):
                                            'bos': 1}})
         assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
 
-    def test_route_mpls_via_ipv4(self):
+    def _test_route_mpls_via_ipv4(self):
         self._test_route_mpls_via_ipv(socket.AF_INET,
                                       '172.16.0.1', 0x20)
 
-    def test_route_mpls_via_ipv6(self):
+    def _test_route_mpls_via_ipv6(self):
         self._test_route_mpls_via_ipv(socket.AF_INET6,
                                       'fe80::5054:ff:fe4b:7c32', 0x20)
 
     @skip_if_not_supported
-    def test_route_mpls_swap_newdst_simple(self):
+    def _test_route_mpls_swap_newdst_simple(self):
         require_user('root')
         require_kernel(3)
         req = {'family': AF_MPLS,
@@ -481,7 +564,7 @@ class TestIPRoute(object):
         assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
 
     @skip_if_not_supported
-    def test_route_mpls_swap_newdst_list(self):
+    def _test_route_mpls_swap_newdst_list(self):
         require_user('root')
         require_kernel(3)
         req = {'family': AF_MPLS,
@@ -499,7 +582,7 @@ class TestIPRoute(object):
         self.ip.route('del', **req)
         assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
 
-    def test_route_multipath(self):
+    def test_route_multipath_raw(self):
         require_user('root')
         self.ip.route('add',
                       dst='172.16.241.0',
@@ -529,6 +612,149 @@ class TestIPRoute(object):
         assert grep('ip route show', pattern='nexthop.*127.0.0.2.*weight 21')
         assert grep('ip route show', pattern='nexthop.*127.0.0.3.*weight 31')
         self.ip.route('del', dst='172.16.242.0', mask=24)
+
+    def test_route_multipath(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.243.0/24',
+                      multipath=[{'gateway': '127.0.0.2'},
+                                 {'gateway': '127.0.0.3'}])
+        assert grep('ip route show', pattern='172.16.243.0/24')
+        assert grep('ip route show', pattern='nexthop.*127.0.0.2')
+        assert grep('ip route show', pattern='nexthop.*127.0.0.3')
+        self.ip.route('del', dst='172.16.243.0', mask=24)
+
+    @skip_if_not_supported
+    def test_lwtunnel_multipath_mpls(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.216.0/24',
+                      multipath=[{'encap': {'type': 'mpls',
+                                            'labels': 500},
+                                  'ifindex': 1},
+                                 {'encap': {'type': 'mpls',
+                                            'labels': '600/700'},
+                                  'gateway': '127.0.0.4'}])
+        routes = self.ip.route('dump', dst='172.16.216.0/24')
+        assert len(routes) == 1
+        mp = routes[0].get_attr('RTA_MULTIPATH')
+        assert len(mp) == 2
+        assert mp[0]['ifindex'] == 1
+        assert mp[0].get_attr('RTA_ENCAP_TYPE') == 1
+        labels = mp[0].get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 1
+        assert labels[0]['bos'] == 1
+        assert labels[0]['label'] == 500
+        assert mp[1].get_attr('RTA_ENCAP_TYPE') == 1
+        labels = mp[1].get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 2
+        assert labels[0]['bos'] == 0
+        assert labels[0]['label'] == 600
+        assert labels[1]['bos'] == 1
+        assert labels[1]['label'] == 700
+        self.ip.route('del', dst='172.16.216.0/24')
+
+    @skip_if_not_supported
+    def test_lwtunnel_mpls_dict_label(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.226.0/24',
+                      encap={'type': 'mpls',
+                             'labels': [{'bos': 0, 'label': 226},
+                                        {'bos': 1, 'label': 227}]},
+                      gateway='127.0.0.2')
+        routes = self.ip.route('dump', dst='172.16.226.0/24')
+        assert len(routes) == 1
+        route = routes[0]
+        assert route.get_attr('RTA_ENCAP_TYPE') == 1
+        assert route.get_attr('RTA_GATEWAY') == '127.0.0.2'
+        labels = route.get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 2
+        assert labels[0]['bos'] == 0
+        assert labels[0]['label'] == 226
+        assert labels[1]['bos'] == 1
+        assert labels[1]['label'] == 227
+        self.ip.route('del', dst='172.16.226.0/24')
+
+    @skip_if_not_supported
+    def test_lwtunnel_mpls_2_int_label(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.206.0/24',
+                      encap={'type': 'mpls',
+                             'labels': [206, 207]},
+                      oif=1)
+        routes = self.ip.route('dump', dst='172.16.206.0/24')
+        assert len(routes) == 1
+        route = routes[0]
+        assert route.get_attr('RTA_ENCAP_TYPE') == 1
+        assert route.get_attr('RTA_OIF') == 1
+        labels = route.get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 2
+        assert labels[0]['bos'] == 0
+        assert labels[0]['label'] == 206
+        assert labels[1]['bos'] == 1
+        assert labels[1]['label'] == 207
+        self.ip.route('del', dst='172.16.206.0/24')
+
+    @skip_if_not_supported
+    def test_lwtunnel_mpls_2_str_label(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.246.0/24',
+                      encap={'type': 'mpls',
+                             'labels': "246/247"},
+                      oif=1)
+        routes = self.ip.route('dump', dst='172.16.246.0/24')
+        assert len(routes) == 1
+        route = routes[0]
+        assert route.get_attr('RTA_ENCAP_TYPE') == 1
+        assert route.get_attr('RTA_OIF') == 1
+        labels = route.get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 2
+        assert labels[0]['bos'] == 0
+        assert labels[0]['label'] == 246
+        assert labels[1]['bos'] == 1
+        assert labels[1]['label'] == 247
+        self.ip.route('del', dst='172.16.246.0/24')
+
+    @skip_if_not_supported
+    def test_lwtunnel_mpls_1_str_label(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.244.0/24',
+                      encap={'type': 'mpls',
+                             'labels': "244"},
+                      oif=1)
+        routes = self.ip.route('dump', dst='172.16.244.0/24')
+        assert len(routes) == 1
+        route = routes[0]
+        assert route.get_attr('RTA_ENCAP_TYPE') == 1
+        assert route.get_attr('RTA_OIF') == 1
+        labels = route.get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 1
+        assert labels[0]['bos'] == 1
+        assert labels[0]['label'] == 244
+        self.ip.route('del', dst='172.16.244.0/24')
+
+    @skip_if_not_supported
+    def test_lwtunnel_mpls_1_int_label(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.245.0/24',
+                      encap={'type': 'mpls',
+                             'labels': 245},
+                      oif=1)
+        routes = self.ip.route('dump', dst='172.16.245.0/24')
+        assert len(routes) == 1
+        route = routes[0]
+        assert route.get_attr('RTA_ENCAP_TYPE') == 1
+        assert route.get_attr('RTA_OIF') == 1
+        labels = route.get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
+        assert len(labels) == 1
+        assert labels[0]['bos'] == 1
+        assert labels[0]['label'] == 245
+        self.ip.route('del', dst='172.16.245.0/24')
 
     def test_route_change_existing(self):
         # route('replace', ...) should succeed, if route exists

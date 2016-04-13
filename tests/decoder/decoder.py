@@ -16,8 +16,10 @@ import sys
 from pprint import pprint
 from importlib import import_module
 from pyroute2.common import load_dump
+from pyroute2.common import hexdump
 
 mod = sys.argv[1]
+mod = mod.replace('/', '.')
 f = open(sys.argv[2], 'r')
 s = mod.split('.')
 package = '.'.join(s[:-1])
@@ -33,5 +35,7 @@ inbox = []
 while offset < len(data):
     msg = met(data[offset:])
     msg.decode()
+    print(hexdump(msg.raw))
     pprint(msg)
+    print('.'*40)
     offset += msg['header']['length']

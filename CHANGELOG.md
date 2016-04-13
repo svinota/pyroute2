@@ -1,6 +1,39 @@
 changelog
 =========
 
+* 0.3.21
+    * ipdb: #231 -- return `ipdb.common` as deprecated
+* 0.3.20
+    * iproute: `vlan_filter()`
+    * iproute: #229 -- FDB management
+    * general: exceptions re-exported via the root module
+* 0.3.19
+    * rtmsg: #227 -- MPLS lwtunnel basic support
+    * iproute: `route()` docs updated
+    * general: #228 -- exceptions layout changed
+    * package-rh: rpm subpackages
+* 0.3.18
+    * version bump -- include docs in the release tarball
+* 0.3.17
+    * tcmsg: qdiscs and filters as plugins
+    * tcmsg: #223 -- tc clsact and bpf direct-action
+    * tcmsg: plug, codel, choke, drr qdiscs
+    * tests: CI in VMs (see civm project)
+    * tests: xunit output
+    * ifinfmsg: tuntap support in i386, i686
+    * ifinfmsg: #207 -- support vlan filters
+    * examples: #226 -- included in the release tarball
+    * ipdb: partial commits, initial support
+* 0.3.16
+    * ipdb: fix the multiple IPs in one commit case
+    * rtnl: support veth peer attributes
+    * netns: support 32bit i686
+    * netns: fix MIPS support
+    * netns: fix tun/tap creation
+    * netns: fix interface move between namespaces
+    * tcmsg: support hfsc, fq_codel, codel qdiscs
+    * nftables: initial support
+    * netlink: dump/load messages to/from simple types
 * 0.3.15
     * netns: #194 -- fix fd leak
     * iproute: #184 -- fix routes dump
@@ -160,7 +193,7 @@ changelog
 * 0.2.7
     * ipdb: use separate namespaces for utility functions and other stuff
     * ipdb: generic callbacks (see also IPDB.wait_interface())
-    * iocore: initial multipath support 
+    * iocore: initial multipath support
     * iocore: use of 16byte uuid4 for packet ids
 * 0.2.6
     * rpc: initial version, REQ/REP, PUSH/PULL

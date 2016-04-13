@@ -102,6 +102,7 @@ RTM_SETBOND = 91
 (RTM_NAMES, RTM_VALUES) = map_namespace('RTM', globals())
 
 TC_H_INGRESS = 0xfffffff1
+TC_H_CLSACT = TC_H_INGRESS
 TC_H_ROOT = 0xffffffff
 
 

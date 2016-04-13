@@ -102,15 +102,15 @@ from pyroute2.common import AddrPool
 from pyroute2.common import DEFAULT_RCVBUF
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import mtypes
-from pyroute2.netlink import NetlinkError
-from pyroute2.netlink import NetlinkDecodeError
-from pyroute2.netlink import NetlinkHeaderDecodeError
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NETLINK_GENERIC
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_MULTI
 from pyroute2.netlink import NLM_F_REQUEST
+from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.exceptions import NetlinkDecodeError
+from pyroute2.netlink.exceptions import NetlinkHeaderDecodeError
 
 try:
     from Queue import Queue
@@ -290,7 +290,6 @@ class NetlinkMixin(object):
         self._fileno = fileno
         self.backlog = {0: []}
         self.callbacks = []     # [(predicate, callback, args), ...]
-        self.clean_cbs = {}     # {msg_seq: [callback, ...], ...}
         self.pthread = None
         self.closed = False
         self.capabilities = {'create_bridge': True,
@@ -530,16 +529,16 @@ class NetlinkMixin(object):
             msg['header']['flags'] = msg_flags
             msg['header']['sequence_number'] = msg_seq
             msg['header']['pid'] = msg_pid
-            msg.encode()
-            if msg_seq not in self.clean_cbs:
-                self.clean_cbs[msg_seq] = []
-            self.clean_cbs[msg_seq].extend(msg.clean_cbs)
-            self.sendto(msg.buf.getvalue(), addr)
+            self.sendto_gate(msg, addr)
         except:
             raise
         finally:
             if msg_seq != 0:
                 self.lock[msg_seq].release()
+
+    def sendto_gate(self, msg, addr):
+        msg.encode()
+        self.sendto(msg.buf.getvalue(), addr)
 
     def get(self, bufsize=DEFAULT_RCVBUF, msg_seq=0, terminate=None):
         '''
@@ -701,15 +700,6 @@ class NetlinkMixin(object):
                         self.backlog_lock.acquire()
                         for msg in msgs:
                             seq = msg['header']['sequence_number']
-                            if seq in self.clean_cbs:
-                                for cb in self.clean_cbs[seq]:
-                                    try:
-                                        cb()
-                                    except:
-                                        logging.warning("Cleanup callback"
-                                                        "fail: %s" % (cb))
-                                        logging.warning(traceback.format_exc())
-                                del self.clean_cbs[seq]
                             if seq not in self.backlog:
                                 if msg['header']['type'] == NLMSG_ERROR:
                                     # Drop orphaned NLMSG_ERROR messages

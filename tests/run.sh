@@ -8,7 +8,6 @@
 }
 
 export PYTHONPATH="`pwd`:`pwd`/examples"
-echo $PYTHONPATH
 
 # Prepare test environment
 #
@@ -33,7 +32,7 @@ cd ./tests/
 # is not root and all requirements are met, this step will
 # be safely skipped.
 #
-pip install -q -r requirements.txt
+which pip >/dev/null 2>&1 && pip install -q -r requirements.txt
 
 [ -z "$VIRTUAL_ENV" ] || {
     . $$VIRTUAL_ENV/bin/activate ;
@@ -57,9 +56,12 @@ pip install -q -r requirements.txt
 [ -z "$SKIP_TESTS" ] || export SKIP_TESTS="--exclude $SKIP_TESTS"
 [ -z "$MODULE" ] || export MODULE=`echo $MODULE | sed -n '/:/{p;q};s/$/:/p'`
 
+echo "8<------------------------------------------------"
+echo "kernel: `uname -r`"
 echo "python: `which $PYTHON` [`$PYTHON --version 2>&1`]"
 echo "flake8: `which $FLAKE8` [`$FLAKE8 --version 2>&1`]"
 echo "nose: `which $NOSE` [`$NOSE --version 2>&1`]"
+echo "8<------------------------------------------------"
 
 $PYTHON `which $FLAKE8` . && echo "flake8 ... ok" || exit 254
 [ -z "$TRAVIS" ] || exit 0
@@ -81,7 +83,11 @@ for module in $@; do
     }
     $PYTHON $WLEVEL `which $NOSE` -P -v $PDB \
         --with-coverage \
+        --with-xunit \
         --cover-package=pyroute2 \
         $SKIP_TESTS \
-        $COVERAGE $module/$SUBMODULE || exit 252
+        $COVERAGE $module/$SUBMODULE
+    ret=$?
+    mv nosetests.xml xunit-$module.xml
+    [ $ret -eq 0 ] || exit 252
 done

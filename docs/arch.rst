@@ -21,7 +21,7 @@ can use it in `poll()`.
 There is an inheritance diagram of netlink sockets, provided
 by the library:
 
-.. inheritance-diagram:: pyroute2.iproute.IPRoute 
+.. inheritance-diagram:: pyroute2.iproute.IPRoute
     pyroute2.iwutil.IW
     pyroute2.ipset.IPSet
     pyroute2.netlink.taskstats.TaskStats

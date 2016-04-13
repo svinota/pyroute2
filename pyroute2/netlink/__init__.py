@@ -393,7 +393,6 @@ import types
 import sys
 import io
 import re
-import os
 
 from socket import inet_pton
 from socket import inet_ntop
@@ -403,6 +402,19 @@ from socket import AF_UNSPEC
 from pyroute2.common import AF_MPLS
 from pyroute2.common import hexdump
 from pyroute2.common import basestring
+from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.exceptions import NetlinkDecodeError
+from pyroute2.netlink.exceptions import NetlinkHeaderDecodeError
+from pyroute2.netlink.exceptions import NetlinkDataDecodeError
+from pyroute2.netlink.exceptions import NetlinkNLADecodeError
+
+# make pep8 happy
+_ne = NetlinkError        # reexport for compatibility
+_de = NetlinkDecodeError  #
+
+
+class NotInitialized(Exception):
+    pass
 
 _letters = re.compile('[A-Za-z]')
 _fmt_letters = re.compile('[^!><@=][!><@=]')
@@ -491,51 +503,6 @@ NLA_F_NESTED = 1 << 15
 NLA_F_NET_BYTEORDER = 1 << 14
 
 
-class NetlinkError(Exception):
-    '''
-    Base netlink error
-    '''
-    def __init__(self, code, msg=None):
-        msg = msg or os.strerror(code)
-        super(NetlinkError, self).__init__(code, msg)
-        self.code = code
-
-
-class NetlinkDecodeError(Exception):
-    '''
-    Base decoding error class.
-
-    Incapsulates underlying error for the following analysis
-    '''
-    def __init__(self, exception):
-        self.exception = exception
-
-
-class NetlinkHeaderDecodeError(NetlinkDecodeError):
-    '''
-    The error occured while decoding a header
-    '''
-    pass
-
-
-class NetlinkDataDecodeError(NetlinkDecodeError):
-    '''
-    The error occured while decoding the message fields
-    '''
-    pass
-
-
-class NetlinkNLADecodeError(NetlinkDecodeError):
-    '''
-    The error occured while decoding NLA chain
-    '''
-    pass
-
-
-class NotInitialized(Exception):
-    pass
-
-
 # Netlink message flags values (nlmsghdr.flags)
 #
 NLM_F_REQUEST = 1    # It is request message.
@@ -595,6 +562,8 @@ NETLINK_NO_ENOBUFS = 5
 NETLINK_RX_RING = 6
 NETLINK_TX_RING = 7
 
+clean_cbs = {}
+
 
 class nlmsg_base(dict):
     '''
@@ -617,6 +586,8 @@ class nlmsg_base(dict):
     nla_flags = 0                # NLA flags
     nla_init = None              # NLA initstring
     value_map = {}
+    __t_nla_map = None
+    __r_nla_map = None
 
     def msg_align(self, l):
         return (l + self.align - 1) & ~ (self.align - 1)
@@ -643,7 +614,6 @@ class nlmsg_base(dict):
         self.register_nlas()
         self.r_value_map = dict([(x[1], x[0]) for x in self.value_map.items()])
         self.reset(buf)
-        self.clean_cbs = []
         if self.header is not None:
             self['header'] = self.header(self.buf)
 
@@ -676,10 +646,31 @@ class nlmsg_base(dict):
             self['header'].buf = self.buf
 
     def register_clean_cb(self, cb):
+        global clean_cbs
         if self.parent is not None:
             return self.parent.register_clean_cb(cb)
         else:
-            self.clean_cbs.append(cb)
+            # get the msg_seq -- if applicable
+            seq = self.get('header', {}).get('sequence_number', None)
+            if seq is not None and seq not in clean_cbs:
+                clean_cbs[seq] = []
+            # attach the callback
+            clean_cbs[seq].append(cb)
+
+    def unregister_clean_cb(self):
+        global clean_cbs
+        seq = self.get('header', {}).get('sequence_number', None)
+        msf = self.get('header', {}).get('flags', 0)
+        if (seq is not None) and \
+                (not msf & NLM_F_REQUEST) and \
+                seq in clean_cbs:
+            for cb in clean_cbs[seq]:
+                try:
+                    cb()
+                except:
+                    logging.error('Cleanup callback fail: %s' % (cb))
+                    logging.error(traceback.format_exc())
+            del clean_cbs[seq]
 
     def _strip_one(self, name):
         for i in tuple(self['attrs']):
@@ -823,6 +814,61 @@ class nlmsg_base(dict):
             size += struct.calcsize(i[1])
         self.buf.seek(size, 1)
 
+    def decode_fields(self):
+        try:
+            if self.pack == 'struct':
+                names = []
+                formats = []
+                for field in self.fields:
+                    names.append(field[0])
+                    formats.append(field[1])
+                fields = ((','.join(names), ''.join(formats)), )
+            else:
+                fields = self.fields
+
+            for field in fields:
+                name = field[0]
+                fmt = field[1]
+
+                # 's' and 'z' can be used only in connection with
+                # length, encoded in the header
+                if field[1] in ('s', 'z'):
+                    fmt = '%is' % (self.length - 4)
+
+                size = struct.calcsize(fmt)
+                raw = self.buf.read(size)
+                actual_size = len(raw)
+
+                # FIXME: adjust string size again
+                if field[1] in ('s', 'z'):
+                    size = actual_size
+                    fmt = '%is' % (actual_size)
+                if size == actual_size:
+                    value = struct.unpack(fmt, raw)
+                    if len(value) == 1:
+                        self[name] = value[0]
+                        # cut zero-byte from z-strings
+                        # 0x00 -- python3; '\0' -- python2
+                        if field[1] == 'z' and self[name][-1] \
+                                in (0x00, '\0'):
+                            self[name] = self[name][:-1]
+                    else:
+                        if self.pack == 'struct':
+                            names = name.split(',')
+                            values = list(value)
+                            for name in names:
+                                if name[0] != '_':
+                                    self[name] = values.pop(0)
+                        else:
+                            self[name] = value
+
+                else:
+                    # FIXME: log an error
+                    pass
+
+        except Exception as e:
+            raise NetlinkDataDecodeError(e)
+
     def decode(self):
         '''
         Decode the message. The message should have the `buf`
@@ -866,62 +912,11 @@ class nlmsg_base(dict):
                 cell.decode()
                 self.value.append(cell)
         else:
-            # decode the data
-            try:
-                if self.pack == 'struct':
-                    names = []
-                    formats = []
-                    for field in self.fields:
-                        names.append(field[0])
-                        formats.append(field[1])
-                    fields = ((','.join(names), ''.join(formats)), )
-                else:
-                    fields = self.fields
-
-                for field in fields:
-                    name = field[0]
-                    fmt = field[1]
-
-                    # 's' and 'z' can be used only in connection with
-                    # length, encoded in the header
-                    if field[1] in ('s', 'z'):
-                        fmt = '%is' % (self.length - 4)
-
-                    size = struct.calcsize(fmt)
-                    raw = self.buf.read(size)
-                    actual_size = len(raw)
-
-                    # FIXME: adjust string size again
-                    if field[1] in ('s', 'z'):
-                        size = actual_size
-                        fmt = '%is' % (actual_size)
-                    if size == actual_size:
-                        value = struct.unpack(fmt, raw)
-                        if len(value) == 1:
-                            self[name] = value[0]
-                            # cut zero-byte from z-strings
-                            # 0x00 -- python3; '\0' -- python2
-                            if field[1] == 'z' and self[name][-1] \
-                                    in (0x00, '\0'):
-                                self[name] = self[name][:-1]
-                        else:
-                            if self.pack == 'struct':
-                                names = name.split(',')
-                                values = list(value)
-                                for name in names:
-                                    if name[0] != '_':
-                                        self[name] = values.pop(0)
-                            else:
-                                self[name] = value
-
-                    else:
-                        # FIXME: log an error
-                        pass
-
-            except Exception as e:
-                raise NetlinkDataDecodeError(e)
+            # decode data
+            self.decode_fields()
         # decode NLA
         try:
+            self.unregister_clean_cb()
             # read NLA chain
             if self.nla_map:
                 self.buf.seek(self.msg_align(self.buf.tell()))
@@ -1060,6 +1055,44 @@ class nlmsg_base(dict):
                    'encoded': 2}
         return [i[fmt_map[fmt]] for i in self['attrs'] if i[0] == attr]
 
+    def load(self, dump):
+        '''
+        Load packet from a structure
+        '''
+        if isinstance(dump, dict):
+            for (k, v) in dump.items():
+                if k == 'header':
+                    self['header'].load(dump['header'])
+                else:
+                    self[k] = v
+        else:
+            self.setvalue(dump)
+
+    def dump(self):
+        '''
+        Dump packet as a simple types struct
+        '''
+        a = self.getvalue()
+        if isinstance(a, dict):
+            ret = {}
+            for (k, v) in a.items():
+                if k == 'header':
+                    ret['header'] = a['header'].dump()
+                elif k == 'attrs':
+                    ret['attrs'] = attrs = []
+                    for i in a['attrs']:
+                        if isinstance(i[1], nlmsg_base):
+                            attrs.append([i[0], i[1].dump()])
+                        elif isinstance(i[1], set):
+                            attrs.append([i[0], tuple(i[1])])
+                        else:
+                            attrs.append([i[0], i[1]])
+                else:
+                    ret[k] = v
+        else:
+            ret = a
+        return ret
+
     def getvalue(self):
         '''
         Atomic NLAs return their value in the 'value' field,
@@ -1103,6 +1136,10 @@ class nlmsg_base(dict):
         be autonumerated from 0. If flags are not given, they are 0 by default.
 
         '''
+        if self.__class__.__t_nla_map is not None:
+            self.t_nla_map = self.__class__.__t_nla_map
+            self.r_nla_map = self.__class__.__r_nla_map
+            return
         # clean up NLA mappings
         self.t_nla_map = {}
         self.r_nla_map = {}
@@ -1152,8 +1189,16 @@ class nlmsg_base(dict):
             else:
                 nla_class = getattr(self, nla_class)
             # update mappings
-            self.t_nla_map[key] = (nla_class, name, nla_flags, nla_array, init)
-            self.r_nla_map[name] = (nla_class, key, nla_flags, nla_array, init)
+            prime = {'class': nla_class,
+                     'type': key,
+                     'name': name,
+                     'nla_flags': nla_flags,
+                     'nla_array': nla_array,
+                     'init': init}
+            self.t_nla_map[key] = self.r_nla_map[name] = prime
+
+        self.__class__.__t_nla_map = self.t_nla_map
+        self.__class__.__r_nla_map = self.r_nla_map
 
     def encode_nlas(self):
         '''
@@ -1162,19 +1207,17 @@ class nlmsg_base(dict):
         '''
         for i in self['attrs']:
             if i[0] in self.r_nla_map:
-                msg_class = self.r_nla_map[i[0]][0]
-                msg_type = self.r_nla_map[i[0]][1]
-                msg_array = self.r_nla_map[i[0]][3]
-                msg_init = self.r_nla_map[i[0]][4]
+                prime = self.r_nla_map[i[0]]
+                msg_class = prime['class']
                 # is it a class or a function?
-                if isinstance(msg_class, types.MethodType):
+                if isinstance(msg_class, types.FunctionType):
                     # if it is a function -- use it to get the class
-                    msg_class = msg_class()
+                    msg_class = msg_class(self)
                 # encode NLA
-                nla = msg_class(self.buf, parent=self, init=msg_init)
-                nla.nla_flags |= self.r_nla_map[i[0]][2]
-                nla.nla_array = msg_array
-                nla['header']['type'] = msg_type | nla.nla_flags
+                nla = msg_class(self.buf, parent=self, init=prime['init'])
+                nla.nla_flags |= prime['nla_flags']
+                nla.nla_array = prime['nla_array']
+                nla['header']['type'] = prime['type'] | nla.nla_flags
                 nla.setvalue(i[1])
                 try:
                     nla.encode()
@@ -1195,37 +1238,42 @@ class nlmsg_base(dict):
             init = self.buf.tell()
             nla = None
             # pick the length and the type
-            (length, msg_type) = struct.unpack('HH', self.buf.read(4))
+            try:
+                (length, msg_type) = struct.unpack('HH', self.buf.read(4))
+            except Exception:
+                # another alignment trick
+                if self.buf.tell() == (self.offset + self.length):
+                    break
             # first two bits of msg_type are flags:
             msg_type = msg_type & ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
             # rewind to the beginning
             self.buf.seek(init)
             length = min(max(length, 4),
                          (self.length - self.buf.tell() + self.offset))
-
+            if length < 4:
+                # alignment trick
+                self.buf.seek(init + length)
+                continue
             # we have a mapping for this NLA
             if msg_type in self.t_nla_map:
+
+                prime = self.t_nla_map[msg_type]
                 # get the class
-                msg_class = self.t_nla_map[msg_type][0]
+                msg_class = self.t_nla_map[msg_type]['class']
                 # is it a class or a function?
-                if isinstance(msg_class, types.MethodType):
+                if isinstance(msg_class, types.FunctionType):
                     # if it is a function -- use it to get the class
-                    msg_class = msg_class(buf=self.buf, length=length)
-                # and the name
-                msg_name = self.t_nla_map[msg_type][1]
-                # is it an array?
-                msg_array = self.t_nla_map[msg_type][3]
-                # initstring
-                msg_init = self.t_nla_map[msg_type][4]
+                    msg_class = msg_class(self, buf=self.buf, length=length)
                 # decode NLA
                 nla = msg_class(self.buf, length, self,
                                 debug=self.debug,
-                                init=msg_init)
-                nla.nla_array = msg_array
+                                init=prime['init'])
+                nla.nla_array = prime['nla_array']
                 try:
                     nla.decode()
                     nla.nla_flags = msg_type & (NLA_F_NESTED |
                                                 NLA_F_NET_BYTEORDER)
+                    msg_name = prime['name']
                 except Exception:
                     logging.warning("decoding %s" % (msg_name))
                     logging.warning(traceback.format_exc())
@@ -1383,8 +1431,11 @@ class nlmsg_atoms(nlmsg_base):
         * AF_MPLS: MPLS labels, 0 .. k: [{"label": 0x20, "ttl": 16}, ...]
         '''
         fields = [('value', 's')]
+        family = None
 
         def get_family(self):
+            if self.family is not None:
+                return self.family
             pointer = self
             while pointer.parent is not None:
                 pointer = pointer.parent
@@ -1432,6 +1483,9 @@ class nlmsg_atoms(nlmsg_base):
                     self.value.append(record)
             else:
                 raise TypeError('socket family not supported')
+
+    class mpls_target(target):
+        family = AF_MPLS
 
     class l2addr(nla_base):
         '''

@@ -1,6 +1,7 @@
 import os
 import time
 import fcntl
+import platform
 import subprocess
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
@@ -11,6 +12,7 @@ from pyroute2.netns.process.proxy import NSPopen as NSPopenDirect
 from pyroute2 import netns as netnsmod
 from uuid import uuid4
 from utils import require_user
+from nose.plugins.skip import SkipTest
 
 
 class TestNSPopen(object):
@@ -102,6 +104,89 @@ class TestNSPopen(object):
 
 
 class TestNetNS(object):
+
+    def test_create_tuntap(self):
+        # on CentOS 6.5 this test causes kernel panic
+        if platform.linux_distribution()[:2] == ('CentOS', '6.5'):
+            raise SkipTest('to avoid possible kernel panic')
+        # actually this test checks the nlsocket plugin feedback
+        # in a pair of remote client/server
+        foo = str(uuid4())
+        tun = uifname()
+        tap = uifname()
+
+        with IPDB(nl=NetNS(foo)) as ip:
+            ip.create(ifname=tun, kind='tuntap', mode='tun').commit()
+            ip.create(ifname=tap, kind='tuntap', mode='tap').commit()
+            assert tun in ip.interfaces.keys()
+            assert tap in ip.interfaces.keys()
+            ip.interfaces[tun].remove().commit()
+            ip.interfaces[tap].remove().commit()
+            assert tun not in ip.interfaces.keys()
+            assert tap not in ip.interfaces.keys()
+
+        netnsmod.remove(foo)
+
+    def test_create_peer_attrs(self):
+        foo = str(uuid4())
+        bar = str(uuid4())
+        ifA = uifname()
+        ifB = uifname()
+        netnsmod.create(foo)
+        netnsmod.create(bar)
+
+        with IPDB(nl=NetNS(foo)) as ip:
+            ip.create(ifname=ifA,
+                      kind='veth',
+                      peer={'ifname': ifB,
+                            'net_ns_fd': bar}).commit()
+            assert ifA in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        with IPDB(nl=NetNS(bar)) as ip:
+            assert ifA not in ip.interfaces.keys()
+            assert ifB in ip.interfaces.keys()
+            ip.interfaces[ifB].remove().commit()
+            assert ifA not in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        with IPDB(nl=NetNS(foo)) as ip:
+            assert ifA not in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        netnsmod.remove(foo)
+        netnsmod.remove(bar)
+
+    def test_move_interface(self):
+        foo = str(uuid4())
+        bar = str(uuid4())
+        ifA = uifname()
+        ifB = uifname()
+        netnsmod.create(foo)
+        netnsmod.create(bar)
+
+        with IPDB(nl=NetNS(foo)) as ip:
+            ip.create(ifname=ifA, kind='veth', peer=ifB).commit()
+            assert ifA in ip.interfaces.keys()
+            assert ifB in ip.interfaces.keys()
+            with ip.interfaces[ifB] as intf:
+                intf.net_ns_fd = bar
+            assert ifA in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        with IPDB(nl=NetNS(bar)) as ip:
+            assert ifA not in ip.interfaces.keys()
+            assert ifB in ip.interfaces.keys()
+            ip.interfaces[ifB].remove().commit()
+            assert ifA not in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        with IPDB(nl=NetNS(foo)) as ip:
+            assert ifA not in ip.interfaces.keys()
+            assert ifB not in ip.interfaces.keys()
+
+        netnsmod.remove(foo)
+        netnsmod.remove(bar)
 
     def test_create(self):
         require_user('root')

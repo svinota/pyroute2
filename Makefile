@@ -29,6 +29,7 @@ nosetests ?= nosetests
 flake8 ?= flake8
 setuplib ?= distutils.core
 epydoc ?= epydoc
+civm ?= civm
 ##
 # Python -W flags:
 #
@@ -71,39 +72,42 @@ all:
 	@echo
 
 clean: clean-version
-	rm -rf dist build MANIFEST
-	rm -f docs/general.rst
-	rm -f docs/changelog.rst
-	rm -f docs/makefile.rst
-	rm -rf docs/api
-	rm -rf docs/html
-	rm -rf docs/doctrees
-	rm -f  tests/.coverage
-	rm -rf tests/htmlcov
-	rm -rf tests/cover
-	rm -rf tests/examples
-	rm -rf tests/pyroute2
-	rm -rf pyroute2.egg-info
-	rm -f python-pyroute2.spec
-	find . -name "*pyc" -exec rm -f "{}" \;
-	find . -name "*pyo" -exec rm -f "{}" \;
+	@rm -rf dist build MANIFEST
+	@rm -f docs-build.log
+	@rm -f docs/general.rst
+	@rm -f docs/changelog.rst
+	@rm -f docs/makefile.rst
+	@rm -rf docs/api
+	@rm -rf docs/html
+	@rm -rf docs/doctrees
+	@rm -f  tests/.coverage
+	@rm -rf tests/htmlcov
+	@rm -rf tests/cover
+	@rm -rf tests/examples
+	@rm -rf tests/pyroute2
+	@rm -f  tests/*xml
+	@rm -rf tests/ci/results/test-*
+	@rm -rf pyroute2.egg-info
+	@rm -f python-pyroute2.spec
+	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
+	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
 
 setup.ini:
-	awk 'BEGIN {print "[setup]\nversion=${version}\nrelease=${release}\nsetuplib=${setuplib}"}' >setup.ini
+	@awk 'BEGIN {print "[setup]\nversion=${version}\nrelease=${release}\nsetuplib=${setuplib}"}' >setup.ini
 
 clean-version:
-	rm -f setup.ini
+	@rm -f setup.ini
 
 force-version: clean-version update-version
 
 update-version: setup.ini
 
 docs: clean force-version
-	cp README.md docs/general.rst
-	sed -i '1{s/.*docs\//.. image:: /;s/\ ".*/\n\ \ \ \ :align: right/}' docs/general.rst
-	cp README.make.md docs/makefile.rst
-	cp CHANGELOG.md docs/changelog.rst
-	export PYTHONPATH=`pwd`; make -C docs html; unset PYTHONPATH
+	@cp README.md docs/general.rst
+	@sed -i '1{s/.*docs\//.. image:: /;s/\ ".*/\n\ \ \ \ :align: right/}' docs/general.rst
+	@cp README.make.md docs/makefile.rst
+	@cp CHANGELOG.md docs/changelog.rst
+	@export PYTHONPATH=`pwd`; make -C docs html >docs-build.log 2>&1; unset PYTHONPATH
 
 epydoc: docs
 	${epydoc} -v \
@@ -114,23 +118,30 @@ epydoc: docs
 		--fail-on-docstring-warning \
 		pyroute2/
 
-test: dist
+check_parameters:
+	@if [ ! -z "${skip_tests}" ]; then \
+		echo "'skip_tests' is deprecated, use 'skip=...' instead"; false; fi
+
+test: check_parameters dist
 	@export PYTHON=${python}; \
 		export NOSE=${nosetests}; \
 		export FLAKE8=${flake8}; \
 		export WLEVEL=${wlevel}; \
-		export SKIP_TESTS=${skip_tests}; \
+		export SKIP_TESTS=${skip}; \
 		export PDB=${pdb}; \
 		export COVERAGE=${coverage}; \
 		export MODULE=${module}; \
 		cd tests; \
 		./run.sh general eventlet lnst
 
-upload: clean force-version
+test-ci:
+	@${civm} tests/ci
+
+upload: clean force-version docs
 	${python} setup.py sdist upload
 
 dist: clean force-version docs
-	${python} setup.py sdist
+	@${python} setup.py sdist >/dev/null 2>&1
 
 install: clean force-version
 	${python} setup.py install ${root} ${lib}
@@ -149,7 +160,7 @@ develop: clean force-version
 #
 # Packages
 #
-rpm: clean force-version
+rpm: force-version
 	cp packages/RedHat/python-pyroute2.spec .
 	${python} setup.py sdist
 	rpmbuild -ta dist/*tar.gz

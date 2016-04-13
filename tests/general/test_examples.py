@@ -7,8 +7,8 @@ from threading import Thread
 from utils import require_user
 from utils import skip_if_not_supported
 from nose.plugins.skip import SkipTest
-from pyroute2.netlink import NetlinkError
 from pyroute2.common import uifname
+from pyroute2.netlink.exceptions import NetlinkError
 
 try:
     import imp

@@ -34,10 +34,10 @@ class TestRtnl(TestNL):
     marshal = MarshalRtnl
 
     def test_addrmsg_ipv4(self):
-        self.load_data(fname='data/addrmsg_ipv4', packets=1)
+        self.load_data(fname='decoder/addrmsg_ipv4', packets=1)
 
     def test_gre(self):
-        self.load_data(fname='data/gre_01', packets=2)
+        self.load_data(fname='decoder/gre_01', packets=2)
 
 
 class TestNl80211(TestNL):
@@ -45,7 +45,7 @@ class TestNl80211(TestNL):
     marshal = MarshalNl80211
 
     def test_iw_info(self):
-        self.load_data(fname='data/iw_info_rsp', packets=1)
+        self.load_data(fname='decoder/iw_info_rsp', packets=1)
 
     def test_iw_scan(self):
-        self.load_data(fname='data/iw_scan_rsp', packets=4)
+        self.load_data(fname='decoder/iw_scan_rsp', packets=4)

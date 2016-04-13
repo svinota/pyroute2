@@ -1,22 +1,34 @@
 ##
-# Defer all root imports
 #
-# This allows to safely import config, change it, and
-# only after that actually run imports, though the
-# import statement can be on the top of the file
+# NB: the deferred import code may be removed
 #
-# Viva PEP8, morituri te salutant!
+# That should not affect neither the public API, nor the
+# type matching with isinstance() and issubclass()
 #
-# Surely, you still can import modules directly from their
-# places, like `from pyroute2.iproute import IPRoute`
-##
+import logging
 from abc import ABCMeta
+from pyroute2.ipdb.exceptions import \
+    DeprecationException, \
+    CommitException, \
+    CreateException, \
+    PartialCommitException
+from pyroute2.netlink.exceptions import \
+    NetlinkError, \
+    NetlinkDecodeError
+
+# reexport exceptions
+exceptions = [NetlinkError,
+              NetlinkDecodeError,
+              DeprecationException,
+              CommitException,
+              CreateException,
+              PartialCommitException]
 
 __all__ = []
 _modules = {'IPRoute': 'pyroute2.iproute',
             'RawIPRoute': 'pyroute2.iproute',
             'IPSet': 'pyroute2.ipset',
-            'IPDB': 'pyroute2.ipdb',
+            'IPDB': 'pyroute2.ipdb.main',
             'IW': 'pyroute2.iwutil',
             'NetNS': 'pyroute2.netns.nslink',
             'NSPopen': 'pyroute2.netns.process.proxy',
@@ -27,7 +39,8 @@ _modules = {'IPRoute': 'pyroute2.iproute',
             'NL80211': 'pyroute2.netlink.nl80211',
             'IPQSocket': 'pyroute2.netlink.ipq',
             'GenericNetlinkSocket': 'pyroute2.netlink.generic',
-            'NetlinkError': 'pyroute2.netlink'}
+            'NFTSocket': 'pyroute2.netlink.nfnetlink.nftables'}
+
 
 _DISCLAIMER = '''\n\nNotice:\n
 This is a proxy class. To read full docs, please run
@@ -103,3 +116,13 @@ for name in _modules:
     f = _bake(name)
     globals()[name] = f
     __all__.append(name)
+
+
+class __common(object):
+    def __getattribute__(self, key):
+        logging.warning('module pyroute2.ipdb.common is deprecated, '
+                        'use pyroute2.ipdb.exceptions instead')
+        return getattr(globals()['ipdb'].exceptions, key)
+globals()['ipdb'].common = __common()
+
+__all__.extend([x.__name__ for x in exceptions])

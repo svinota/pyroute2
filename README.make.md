@@ -38,7 +38,7 @@ Run tests against current code. Command line options:
 * coverage -- set `coverage=html` to get coverage report
 * pdb -- set `pdb=true` to launch pdb on errors
 * module -- run only specific test module
-* skip_tests -- skip tests by pattern
+* skip -- skip tests by pattern
 
 To run the full test cycle on the project, using a specific
 python, making html coverage report::
@@ -52,7 +52,7 @@ To run a specific test module::
 The module parameter syntax::
 
     ## module=package[:test_file.py[:TestClass[.test_case]]]
-    
+
     $ sudo make test module=lnst
     $ sudo make test module=general:test_ipr.py
     $ sudo make test module=general:test_ipdb.py:TestExplicit
@@ -68,7 +68,18 @@ in mind since it affects the code coverage collection.
 
 It is possible to skip tests by a pattern::
 
-    $ sudo make test skip_tests=test_stress
+    $ sudo make test skip=test_stress
+
+target: test-ci
+---------------
+
+Run tests on isolated VMs defined by `tests/ci/configs/*xml`.
+
+Requires qemu, kvm, libvirt and civm script: https://github.com/svinota/civm
+
+Command line options:
+
+* civm -- path to the civm script (if it is not in `$PATH`)
 
 target: dist
 ------------
