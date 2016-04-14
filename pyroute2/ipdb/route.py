@@ -1,5 +1,6 @@
 import logging
 import threading
+from collections import namedtuple
 from socket import AF_UNSPEC
 from pyroute2.common import basestring
 from pyroute2.netlink import nlmsg
@@ -72,7 +73,10 @@ class WatchdogKey(dict):
                                          'iif', 'table')])
 
 
-def RouteKey(msg):
+RouteKey = namedtuple('RouteKey', ('src', 'dst', 'gw', 'iif', 'oif'))
+
+
+def make_route_key(msg):
     '''
     Construct from a netlink message a key that can be used
     to locate the route in the table
@@ -88,15 +92,16 @@ def RouteKey(msg):
         # use output | input interfaces as key also
         iif = msg.get_attr(msg.name2nla('iif'))
         oif = msg.get_attr(msg.name2nla('oif'))
+        gw = msg.get_attr(msg.name2nla('gateway'))
     elif isinstance(msg, Transactional):
         src = None
         dst = msg.get('dst')
         iif = msg.get('iif')
         oif = msg.get('oif')
+        gw = msg.get('gateway')
     else:
         raise TypeError('prime not supported')
-    # key: src, dst, iif, oif
-    return (src, dst, iif, oif)
+    return RouteKey(src=src, dst=dst, gw=gw, iif=iif, oif=oif)
 
 
 class Route(Transactional):
@@ -224,9 +229,26 @@ class Route(Transactional):
 
         # work on existing route
         snapshot = self.pick()
+        diff = transaction - snapshot
+        # if any of these three key arguments is changed,
+        # create the cleanup key from snapshot
+        #
+        # the route reference with that key will be removed
+        # from the table.idx index
+        #
+        # it is needed to cleanup obsoleted references to
+        # routes with the key fields changed with 'set'
+        # operation, when only the RTM_NEWROUTE message comes
+        if diff['gateway'] or diff['src'] or diff['dst']:
+            cleanup_key = {'gateway': snapshot['gateway'],
+                           'src': snapshot['src'],
+                           'dst': snapshot['dst']}
+        else:
+            cleanup_key = None
+
         try:
             # route set
-            request = IPRouteRequest(transaction - snapshot)
+            request = IPRouteRequest(diff)
             if any([request[x] not in (None, {'attrs': []}) for x in request]):
                 self.ipdb.update_routes(
                     self.nl.route('set', **IPRouteRequest(transaction)))
@@ -266,6 +288,15 @@ class Route(Transactional):
             with self._direct_state:
                 self['multipath'] = transaction['multipath']
             self.reload()
+
+        if cleanup_key:
+            # On route updates there is no RTM_DELROUTE -- we have to
+            # remove the route key manually. Save the key and use it
+            # if no exceptions occur
+            try:
+                del self.ipdb.routes.tables[self['table']][cleanup_key]
+            except Exception as e:
+                logging.warning('lost route key: %s' % cleanup_key)
 
         return self
 
@@ -311,10 +342,14 @@ class RoutingTable(object):
         if isinstance(target, (tuple, list)):
             try:
                 # full match
-                return self.idx[target]
+                return self.idx[RouteKey(*target)]
             except KeyError:
-                # match w/o iif/oif
-                return self.idx[target[:2] + (None, None)]
+                # w/o iif and oif
+                # when a route is just created, there can be no oif and
+                # iif specified, if they weren't provided explicitly,
+                # and in that case there will be the key w/o oif and
+                # iif
+                return self.idx[RouteKey(*(target[:3] + (None, None)))]
 
         # match the route by string
         if isinstance(target, basestring):
@@ -362,7 +397,7 @@ class RoutingTable(object):
     def __delitem__(self, key):
         with self.lock:
             item = self.describe(key, forward=False)
-            del self.idx[RouteKey(item['route'])]
+            del self.idx[make_route_key(item['route'])]
 
     def __setitem__(self, key, value):
         with self.lock:
@@ -380,7 +415,7 @@ class RoutingTable(object):
                 with record['route']._direct_state:
                     record['route'].update(value)
 
-            key = RouteKey(record['route'])
+            key = make_route_key(record['route'])
             if record['key'] is None:
                 self.idx[key] = {'route': record['route'],
                                  'key': key}
@@ -446,7 +481,7 @@ class RoutingTableSet(object):
         # construct a key
         # FIXME: temporary solution
         # FIXME: can `Route()` be used as a key?
-        key = RouteKey(msg)
+        key = make_route_key(msg)
 
         # RTM_DELROUTE
         if msg['event'] == 'RTM_DELROUTE':
