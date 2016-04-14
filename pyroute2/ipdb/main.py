@@ -558,6 +558,8 @@ class IPDB(object):
             self.update_routes(routes4)
             self.update_routes(routes6)
         except Exception as e:
+            logging.error('initdb error: %s', e)
+            logging.error(traceback.format_exc())
             try:
                 self.nl.close()
             except:
