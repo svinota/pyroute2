@@ -99,6 +99,8 @@ from pyroute2.netlink.rtnl import RTM_DELNEIGH
 from pyroute2.netlink.rtnl import RTM_SETLINK
 from pyroute2.netlink.rtnl import RTM_GETNEIGHTBL
 from pyroute2.netlink.rtnl import TC_H_ROOT
+from pyroute2.netlink.rtnl import rt_proto
+from pyroute2.netlink.rtnl import rt_type
 from pyroute2.netlink.rtnl import rtprotos
 from pyroute2.netlink.rtnl import rtypes
 from pyroute2.netlink.rtnl import rtscopes
@@ -799,11 +801,10 @@ class IPRouteMixin(object):
         Link operations.
 
         Keywords to set up ifinfmsg fields:
-
-        * index -- interface index
-        * family -- AF_BRIDGE for bridge operations, otherwise 0
-        * flags -- device flags
-        * change -- change mask
+            * index -- interface index
+            * family -- AF_BRIDGE for bridge operations, otherwise 0
+            * flags -- device flags
+            * change -- change mask
 
         All other keywords will be translated to NLA names, e.g.
         `mtu -> IFLA_MTU`, `af_spec -> IFLA_AF_SPEC` etc. You can
@@ -1304,12 +1305,13 @@ class IPRouteMixin(object):
         '''
         Route operations.
 
-        * command -- add, delete, change, replace
-        * rtype -- route type (default: "RTN_UNICAST")
-        * rtproto -- routing protocol (default: "RTPROT_STATIC")
-        * rtscope -- routing scope (default: "RT_SCOPE_UNIVERSE")
-        * family -- socket.AF_INET (default) or socket.AF_INET6
-        * mask -- route prefix mask
+        Keywords to set up rtmsg fields:
+            * dst_len, src_len -- destination and source mask(see `dst` below)
+            * tos -- type of service
+            * table -- routing table
+            * proto -- `redirect`, `boot`, `static` (see `rt_proto`)
+            * scope -- routing realm
+            * type -- `unicast`, `local`, etc. (see `rt_type`)
 
         `pyroute2/netlink/rtnl/rtmsg.py` rtmsg.nla_map:
 
@@ -1323,13 +1325,16 @@ class IPRouteMixin(object):
 
         etc.
 
+        One can specify mask not as `dst_len`, but as a part of `dst`,
+        e.g.: `dst="10.0.0.0/24"`.
+
+        Commands:
+
+        **add**
+
         Example::
 
-            ip.route("add", dst="10.0.0.0", mask=24, gateway="192.168.0.1")
-
-        Commands `change` and `replace` have the same meanings, as
-        in ip-route(8): `change` modifies only existing route, while
-        `replace` creates a new one, if there is no such route yet.
+            ip.route("add", dst="10.0.0.0/24", gateway="192.168.0.1")
 
         It is possible to set also route metrics. There are two ways
         to do so. The first is to use 'raw' NLA notation::
@@ -1394,6 +1399,24 @@ class IPRouteMixin(object):
                        "label": 300,
                        "tc": 0,
                        "ttl": 16}
+
+        **change**, **replace**
+
+        Commands `change` and `replace` have the same meanings, as
+        in ip-route(8): `change` modifies only existing route, while
+        `replace` creates a new one, if there is no such route yet.
+
+        **del**
+
+        Remove the route. The same syntax as for **add**.
+
+        **get**
+
+        Get route by spec.
+
+        **dump**
+
+        Dump all routes.
         '''
 
         # 8<----------------------------------------------------
@@ -1411,6 +1434,10 @@ class IPRouteMixin(object):
             match = kwarg
         else:
             match = kwarg.pop('match', None)
+
+        if command in ('add', 'set', 'replace', 'change'):
+            kwarg['proto'] = kwarg.get('proto', 'static')
+            kwarg['type'] = kwarg.get('type', 'unicast')
 
         commands = {'add': (RTM_NEWROUTE, flags_make),
                     'set': (RTM_NEWROUTE, flags_replace),
@@ -1430,15 +1457,27 @@ class IPRouteMixin(object):
         table = kwarg.get('table', 254)
         msg['table'] = table if table <= 255 else 252
         msg['family'] = kwarg.pop('family', AF_INET)
-        msg['proto'] = rtprotos[kwarg.pop('rtproto', 'RTPROT_STATIC')]
-        msg['type'] = rtypes[kwarg.pop('rtype', 'RTN_UNICAST')]
         msg['scope'] = rtscopes[kwarg.pop('rtscope', 'RT_SCOPE_UNIVERSE')]
         msg['dst_len'] = kwarg.pop('dst_len', None) or kwarg.pop('mask', 0)
         msg['src_len'] = kwarg.pop('src_len', 0)
         msg['tos'] = kwarg.pop('tos', 0)
         msg['flags'] = kwarg.pop('flags', 0)
         msg['attrs'] = []
-        # FIXME
+        # deprecate rtproto, rtype
+        if 'rtproto' in kwarg:
+            logging.warning('`rtproto` argument is deprecated, see docs')
+            msg['proto'] = rtprotos[kwarg.pop('rtproto', 'RTPROT_STATIC')]
+        if 'rtype' in kwarg:
+            logging.warning('`rtype` argument is deprecated, see docs')
+            msg['type'] = rtypes[kwarg.pop('rtype', 'RTN_UNICAST')]
+        #
+        if 'proto' in kwarg:
+            msg['proto'] = rt_proto.get(kwarg['proto'], kwarg['proto'])
+            del kwarg['proto']
+        if 'type' in kwarg:
+            msg['type'] = rt_type.get(kwarg['type'], kwarg['type'])
+            del kwarg['type']
+
         # deprecated "prefix" support:
         if 'prefix' in kwarg:
             logging.warning('`prefix` argument is deprecated, use `dst`')

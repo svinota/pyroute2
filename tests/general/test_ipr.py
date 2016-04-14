@@ -1,4 +1,5 @@
 import os
+import time
 import errno
 import socket
 from pyroute2 import IPRoute
@@ -470,6 +471,38 @@ class TestIPRoute(object):
         except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname=self.dev)) == 0
+
+    def _test_route_proto(self, proto, fake, spec=''):
+        require_user('root')
+        os.system('ip route add 172.16.3.0/24 via 127.0.0.1 %s' % spec)
+
+        time.sleep(1)
+
+        assert grep('ip ro', pattern='172.16.3.0/24.*127.0.0.1')
+        try:
+            self.ip.route('del',
+                          dst='172.16.3.0/24',
+                          gateway='127.0.0.1',
+                          proto=fake)
+        except NetlinkError:
+            pass
+        self.ip.route('del',
+                      dst='172.16.3.0/24',
+                      gateway='127.0.0.1',
+                      proto=proto)
+        assert not grep('ip ro', pattern='172.16.3.0/24.*127.0.0.1')
+
+    def test_route_proto_static(self):
+        return self._test_route_proto('static', 'boot', 'proto static')
+
+    def test_route_proto_static_num(self):
+        return self._test_route_proto(4, 3, 'proto static')
+
+    def test_route_proto_boot(self):
+        return self._test_route_proto('boot', 4)
+
+    def test_route_proto_boot_num(self):
+        return self._test_route_proto(3, 'static')
 
     def test_route_oif_as_iterable(self):
         require_user('root')

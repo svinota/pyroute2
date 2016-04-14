@@ -129,6 +129,8 @@ rtypes = {'RTN_UNSPEC': 0,
           'RTN_THROW': 9,        # Not in this table
           'RTN_NAT': 10,         # Translate this address
           'RTN_XRESOLVE': 11}    # Use external resolver
+# normalized
+rt_type = dict([(x[0][4:].lower(), x[1]) for x in rtypes.items()])
 
 rtprotos = {'RTPROT_UNSPEC': 0,
             'RTPROT_REDIRECT': 1,  # Route installed by ICMP redirects;
@@ -148,6 +150,8 @@ rtprotos = {'RTPROT_UNSPEC': 0,
             'RTPROT_XORP': 14,      # XORP
             'RTPROT_NTK': 15,       # Netsukuku
             'RTPROT_DHCP': 16}      # DHCP client
+# normalized
+rt_proto = dict([(x[0][7:].lower(), x[1]) for x in rtprotos.items()])
 
 rtscopes = {'RT_SCOPE_UNIVERSE': 0,
             'RT_SCOPE_SITE': 200,

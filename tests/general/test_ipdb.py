@@ -326,6 +326,25 @@ class TestExplicit(BasicSetup):
         assert '172.16.0.0/24' in self.ip.routes
         assert '172.16.0.0/24' in list(self.ip.routes.keys())
 
+    def test_routes_proto(self):
+        require_user('root')
+        assert '172.16.2.0/24' not in self.ip.routes
+        assert '172.16.3.0/24' not in self.ip.routes
+        os.system('ip route add 172.16.2.0/24 via 127.0.0.1')  # proto boot
+        os.system('ip route add 172.16.3.0/24 via 127.0.0.1 proto static')
+
+        time.sleep(1)
+
+        assert grep('ip ro', pattern='172.16.2.0/24.*127.0.0.1')
+        with self.ip.routes['172.16.2.0/24'] as r:
+            r.remove()
+        assert not grep('ip ro', pattern='172.16.2.0/24.*127.0.0.1')
+
+        assert grep('ip ro', pattern='172.16.3.0/24.*127.0.0.1')
+        with self.ip.routes['172.16.3.0/24'] as r:
+            r.remove()
+        assert not grep('ip ro', pattern='172.16.3.0/24.*127.0.0.1')
+
     def test_routes(self):
         require_user('root')
         assert '172.16.0.0/24' not in self.ip.routes
