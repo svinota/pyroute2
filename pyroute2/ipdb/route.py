@@ -1,3 +1,4 @@
+import types
 import logging
 import threading
 from collections import namedtuple
@@ -331,7 +332,29 @@ class RoutingTable(object):
         with self.lock:
             return [x['route'][key] for x in self.idx.values()]
 
-    def describe(self, target, forward=True):
+    def filter(self, target):
+        #
+        if isinstance(target, types.FunctionType):
+            return filter(target, [x for x in self.idx.values()])
+
+        if isinstance(target, basestring):
+            target = {'dst': target}
+
+        if not isinstance(target, dict):
+            raise TypeError('target type not supported')
+
+        ret = []
+        for record in self.idx.values():
+            for key, value in target.items():
+                if (key not in record['route']) or \
+                        (value != record['route'][key]):
+                    break
+            else:
+                ret.append(record)
+
+        return ret
+
+    def describe(self, target, forward=False):
         # match the route by index -- a bit meaningless,
         # but for compatibility
         if isinstance(target, int):
@@ -515,6 +538,12 @@ class RoutingTableSet(object):
         else:
             table = table or 254
         self.tables[table][route].remove()
+
+    def filter(self, target):
+        ret = []
+        for table in self.tables.keys():
+            ret.extend(self.tables[table].filter(target))
+        return ret
 
     def describe(self, spec, table=254):
         return self.tables[table].describe(spec)
