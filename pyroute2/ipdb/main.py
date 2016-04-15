@@ -1015,6 +1015,12 @@ class IPDB(object):
         if dev['event'] == 'RTM_NEWLINK':
             self.device_put(dev)
         else:
+            for record in self.routes.filter({'oif': dev['index']}):
+                with record['route']._direct_state:
+                    record['route']['ipdb_scope'] = 'gc'
+            for record in self.routes.filter({'iif': dev['index']}):
+                with record['route']._direct_state:
+                    record['route']['ipdb_scope'] = 'gc'
             self.device_del(dev)
 
     def update_routes(self, routes):
