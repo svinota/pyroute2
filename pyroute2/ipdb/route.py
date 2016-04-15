@@ -557,8 +557,9 @@ class RoutingTableSet(object):
 
     def filter(self, target):
         ret = []
-        for table in self.tables.keys():
-            ret.extend(self.tables[table].filter(target))
+        for table in self.tables.values():
+            if table is not None:
+                ret.extend(table.filter(target))
         return ret
 
     def describe(self, spec, table=254):
