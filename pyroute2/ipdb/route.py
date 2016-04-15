@@ -430,7 +430,7 @@ class RoutingTable(object):
 
     def __getitem__(self, key):
         with self.lock:
-            return self.describe(key, forward=True)['route']
+            return self.describe(key, forward=False)['route']
 
     def __contains__(self, key):
         try:
