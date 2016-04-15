@@ -375,7 +375,7 @@ class RoutingTable(object):
                 return record
 
         if not forward:
-            raise KeyError('route not found')
+            raise KeyError('record not found')
 
         # split masks
         if target.get('dst', '').find('/') >= 0:
@@ -390,7 +390,10 @@ class RoutingTable(object):
 
         # load and return the route, if exists
         route = Route(self.ipdb)
-        route.load_netlink(self.ipdb.nl.get_routes(**target)[0])
+        ret = self.ipdb.nl.get_routes(**target)
+        if not ret:
+            raise KeyError('record not found')
+        route.load_netlink(ret[0])
         return {'route': route,
                 'key': None}
 
