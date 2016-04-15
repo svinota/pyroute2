@@ -318,14 +318,17 @@ class RoutingTable(object):
         self.idx = {}
         self.kdx = {}
 
+    def __nogc__(self):
+        return self.filter(lambda x: x['route']['ipdb_scope'] != 'gc')
+
     def __repr__(self):
-        return repr([x['route'] for x in self.idx.values()])
+        return repr([x['route'] for x in self.__nogc__()])
 
     def __len__(self):
         return len(self.keys())
 
     def __iter__(self):
-        for record in tuple(self.idx.values()):
+        for record in self.__nogc__():
             yield record['route']
 
     def gc(self):
@@ -339,7 +342,7 @@ class RoutingTable(object):
 
     def keys(self, key='dst'):
         with self.lock:
-            return [x['route'][key] for x in self.idx.values()]
+            return [x['route'][key] for x in self.__nogc__()]
 
     def filter(self, target):
         #
