@@ -365,7 +365,7 @@ class RoutingTable(object):
                 # it's a hack, but newly-created routes
                 # don't contain all the fields that are
                 # in the netlink message
-                if record['route'].get(key) is None:
+                if key not in record['route']:
                     continue
                 # if any key doesn't match
                 if target[key] != record['route'][key]:
