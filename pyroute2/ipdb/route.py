@@ -328,6 +328,15 @@ class RoutingTable(object):
         for record in tuple(self.idx.values()):
             yield record['route']
 
+    def gc(self):
+        for route in self.filter({'ipdb_scope': 'gc'}):
+            try:
+                self.ipdb.nl.route('get', **route['route'])
+                with route['route']._direct_state:
+                    route['route']['ipdb_scope'] = 'system'
+            except:
+                del self.idx[route['key']]
+
     def keys(self, key='dst'):
         with self.lock:
             return [x['route'][key] for x in self.idx.values()]
@@ -530,6 +539,10 @@ class RoutingTableSet(object):
             self.tables[table] = RoutingTable(self.ipdb)
         self.tables[table][key] = msg
         return self.tables[table][key]
+
+    def gc(self):
+        for table in self.tables.keys():
+            self.tables[table].gc()
 
     def remove(self, route, table=None):
         if isinstance(route, Route):
