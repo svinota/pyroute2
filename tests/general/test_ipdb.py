@@ -96,7 +96,7 @@ class BasicSetup(object):
         for name in self.ifaces:
             try:
                 # just a hardcore removal
-                self.ip.nl.link_remove(self.ip.interfaces[name].index)
+                self.ip.nl.link('del', index=self.ip.interfaces[name].index)
             except Exception:
                 pass
         self.ip.release()

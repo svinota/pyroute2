@@ -120,7 +120,7 @@ class TestCapsRtnl(object):
             self.rtm_events[ifname].wait()
             self.rtm_events[ifname].clear()
             if self.rtm_newlink.get(ifname):
-                self.ip.link_remove(self.rtm_newlink[ifname][0]['index'])
+                self.ip.link('del', index=self.rtm_newlink[ifname][0]['index'])
         self.ifnames = []
         # close the socket
         self.ip.close()

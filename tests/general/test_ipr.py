@@ -467,7 +467,7 @@ class TestIPRoute(object):
     def test_remove_link(self):
         require_user('root')
         try:
-            self.ip.link_remove(self.ifaces[0])
+            self.ip.link('del', index=self.ifaces[0])
         except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname=self.dev)) == 0
