@@ -74,6 +74,8 @@ function get_module() {
     [ "$prefix" = "$module" ] || exit 1
     echo $pattern
 }
+
+fail=0
 for module in $@; do
     [ -z "$MODULE" ] || {
         SUBMODULE="`get_module $module $MODULE`"
@@ -89,5 +91,7 @@ for module in $@; do
         $COVERAGE $module/$SUBMODULE
     ret=$?
     mv nosetests.xml xunit-$module.xml
-    [ $ret -eq 0 ] || exit 252
+    [ $ret -eq 0 ] || fail=$ret
 done
+
+[ $fail -eq 0 ] || exit $fail
