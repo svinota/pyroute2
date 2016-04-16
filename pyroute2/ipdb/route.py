@@ -344,7 +344,7 @@ class RoutingTable(object):
         with self.lock:
             return [x['route'][key] for x in self.__nogc__()]
 
-    def filter(self, target):
+    def filter(self, target, oneshot=False):
         #
         if isinstance(target, types.FunctionType):
             return filter(target, [x for x in self.idx.values()])
@@ -363,6 +363,8 @@ class RoutingTable(object):
                     break
             else:
                 ret.append(record)
+                if oneshot:
+                    return ret
 
         return ret
 
@@ -386,31 +388,17 @@ class RoutingTable(object):
                 # iif
                 return self.idx[RouteKey(*(target[:3] + (None, None)))]
 
-        # match the route by string
-        if isinstance(target, basestring):
-            target = {'dst': target}
-
-        # match the route by dict spec
-        if not isinstance(target, dict):
-            raise TypeError('unsupported key type')
-        for record in self.idx.values():
-            for key in target:
-                # skip non-existing keys
-                #
-                # it's a hack, but newly-created routes
-                # don't contain all the fields that are
-                # in the netlink message
-                if key not in record['route']:
-                    continue
-                # if any key doesn't match
-                if target[key] != record['route'][key]:
-                    break
-            else:
-                # if all keys match
-                return record
+        # match the route by filter
+        ret = self.filter(target, oneshot=True)
+        if ret:
+            return ret[0]
 
         if not forward:
             raise KeyError('record not found')
+
+        # match the route by dict spec
+        if not isinstance(target, dict):
+            raise TypeError('lookups can be done only with dict targets')
 
         # split masks
         if target.get('dst', '').find('/') >= 0:
