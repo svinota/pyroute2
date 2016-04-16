@@ -673,13 +673,15 @@ class Interface(Transactional):
             self['vlans'].set_target(transaction['vlans'])
             for i in removed['vlans']:
                 # remove vlan from the port
-                run(nl.link, 'vlan-del', index=self['index'],
-                             vlan_info=self['vlans'][i])
+                run(nl.vlan_filter, 'del',
+                    index=self['index'],
+                    vlan_info=self['vlans'][i])
 
             for i in added['vlans']:
                 # add vlan to the port
-                run(nl.link, 'vlan-add', index=self['index'],
-                             vlan_info=transaction['vlans'][i])
+                run(nl.vlan_filter, 'add',
+                    index=self['index'],
+                    vlan_info=transaction['vlans'][i])
 
             if (not transaction.partial) and \
                     (removed['vlans'] or added['vlans']):
