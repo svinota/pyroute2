@@ -815,12 +815,10 @@ class IPRouteMixin(object):
             ip.link("set", index=x, mtu=1000)
             ip.link("set", index=x, IFLA_MTU=1000)
 
-            # add vlan filter on a bridge port
-            ip.link("vlan-add", index=x,
-                    vlan_info={"vid": 500})
-            ip.link("vlan-add", index=x,
-                    IFLA_AF_SPEC={'attrs': [['IFLA_BRIDGE_VLAN_INFO',
-                                             {'vid': 500}]]})
+            # add vlan device
+            ip.link("add", ifname="test", kind="dummy")
+            ip.link("add", ifname="test",
+                    IFLA_LINKINFO={'attrs': [['IFLA_INFO_KIND', 'dummy']]})
 
         Filters are implemented in the `pyroute2.netlink.rtnl.req` module.
         You can contribute your own if you miss shortcuts.
