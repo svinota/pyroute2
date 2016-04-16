@@ -74,7 +74,14 @@ class WatchdogKey(dict):
                                          'iif', 'table')])
 
 
-RouteKey = namedtuple('RouteKey', ('src', 'dst', 'gw', 'iif', 'oif'))
+RouteKey = namedtuple('RouteKey',
+                      ('src',
+                       'dst',
+                       'gateway',
+                       'table',
+                       'iif',
+                       'oif'))
+RouteKey._required = 3  # number of required fields (should go first)
 
 
 def make_route_key(msg):
@@ -82,27 +89,25 @@ def make_route_key(msg):
     Construct from a netlink message a key that can be used
     to locate the route in the table
     '''
+    values = []
     if isinstance(msg, nlmsg):
-        src = None
-        # calculate dst
-        if msg.get_attr('RTA_DST', None) is not None:
-            dst = '%s/%s' % (msg.get_attr('RTA_DST'),
-                             msg['dst_len'])
-        else:
-            dst = 'default'
-        # use output | input interfaces as key also
-        iif = msg.get_attr(msg.name2nla('iif'))
-        oif = msg.get_attr(msg.name2nla('oif'))
-        gw = msg.get_attr(msg.name2nla('gateway'))
+        for field in RouteKey._fields:
+            v = msg.get_attr(msg.name2nla(field))
+            if field in ('src', 'dst'):
+                if v is not None:
+                    v = '%s/%s' % (v, msg['%s_len' % field])
+                elif field == 'dst':
+                    v = 'default'
+            if v is None:
+                v = msg.get(field, None)
+            values.append(v)
     elif isinstance(msg, Transactional):
-        src = None
-        dst = msg.get('dst')
-        iif = msg.get('iif')
-        oif = msg.get('oif')
-        gw = msg.get('gateway')
+        for field in RouteKey._fields:
+            v = msg.get(field, None)
+            values.append(v)
     else:
         raise TypeError('prime not supported')
-    return RouteKey(src=src, dst=dst, gw=gw, iif=iif, oif=oif)
+    return RouteKey(*values)
 
 
 class Route(Transactional):
@@ -386,7 +391,10 @@ class RoutingTable(object):
                 # iif specified, if they weren't provided explicitly,
                 # and in that case there will be the key w/o oif and
                 # iif
-                return self.idx[RouteKey(*(target[:3] + (None, None)))]
+                r = RouteKey._required
+                l = RouteKey._fields
+                return self.idx[RouteKey(*(target[:r] +
+                                           (None, ) * (len(l) - r)))]
 
         # match the route by filter
         ret = self.filter(target, oneshot=True)
