@@ -611,7 +611,13 @@ class nlmsg_base(dict):
         self['attrs'] = []
         self['value'] = NotInitialized
         self.value = NotInitialized
-        self.register_nlas()
+        # work only on non-empty mappings
+        if self.nla_map:
+            if self.__class__.__t_nla_map is not None:
+                self.t_nla_map = self.__class__.__t_nla_map
+                self.r_nla_map = self.__class__.__r_nla_map
+            else:
+                self.register_nlas()
         self.r_value_map = dict([(x[1], x[0]) for x in self.value_map.items()])
         self.reset(buf)
         if self.header is not None:
@@ -1136,17 +1142,10 @@ class nlmsg_base(dict):
         be autonumerated from 0. If flags are not given, they are 0 by default.
 
         '''
-        if self.__class__.__t_nla_map is not None:
-            self.t_nla_map = self.__class__.__t_nla_map
-            self.r_nla_map = self.__class__.__r_nla_map
-            return
         # clean up NLA mappings
         self.t_nla_map = {}
         self.r_nla_map = {}
 
-        # work only on non-empty mappings
-        if not self.nla_map:
-            return
 
         # fix nla flags
         nla_map = []
