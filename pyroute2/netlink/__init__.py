@@ -1146,7 +1146,6 @@ class nlmsg_base(dict):
         self.t_nla_map = {}
         self.r_nla_map = {}
 
-
         # fix nla flags
         nla_map = []
         for item in self.nla_map:
