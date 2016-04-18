@@ -480,15 +480,6 @@ class Interface(Transactional):
                 transaction._run(transaction.nl.addr, 'add',
                                  self['index'], i[0], i[1],
                                  **kwarg if kwarg else {}), 'add')
-            # if it is a partial commit, simply continue with
-            # the next address, do not wait
-            if transaction.partial:
-                continue
-            # wait feedback from the OS
-            # do not provide here the mask -- we're waiting
-            # not for any address from the network, but a
-            # specific one
-            self.wait_ip(i[0], timeout=SYNC_TIMEOUT)
 
             # 8<--------------------------------------
             # FIXME: kernel bug, sometimes `addr add` for
