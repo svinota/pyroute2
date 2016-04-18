@@ -937,6 +937,15 @@ class IPRouteMixin(object):
                     link=ip.link_lookup(ifname="eth0")[0],
                     vlan_id=100)
 
+        ► vrf
+
+        VRF interfaces (see linux/Documentation/networking/vrf.txt)::
+
+            ip.link("add",
+                    ifname="vrf-foo",
+                    kind="vrf",
+                    vrf_table=42)
+
         ► vxlan
 
         VXLAN interfaces are like VLAN ones, but require a bit more
@@ -952,15 +961,6 @@ class IPRouteMixin(object):
 
         All possible vxlan parameters are listed in the module
         `pyroute2.netlink.rtnl.ifinfmsg:... vxlan_data`.
-
-        ► vxlan
-
-        VRF interfaces (see linux/Documentation/networking/vrf.txt):
-
-            ip.link("add",
-                    ifname="vrf-foo",
-                    kind="vrf",
-                    vrf_table=42),
 
         **set**
 
