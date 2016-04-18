@@ -820,11 +820,13 @@ class Interface(Transactional):
 
             # 8<--------------------------------------
             target = added['ipaddr']
-            for i in range(3):  # just to be sure
+            for _ in range(3):  # just to be sure
                 self._commit_add_ip(target, transaction)
                 if transaction.partial:
                     break
                 for _ in range(3):
+                    # sometimes addr("dump") after addr("add")
+                    # fails with EBUSY, so try again
                     try:
                         real = set([(m.get_attr('IFA_ADDRESS'),
                                      m.get('prefixlen')) for m
@@ -840,7 +842,7 @@ class Interface(Transactional):
                 else:
                     target = set(transaction['ipaddr']) - real
             else:
-                raise CommitException('ipaddr setup error', i)
+                raise CommitException('ipaddr setup error')
 
             # 8<--------------------------------------
             if (not transaction.partial) and \
