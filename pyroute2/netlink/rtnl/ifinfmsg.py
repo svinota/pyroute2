@@ -428,7 +428,8 @@ class ifinfbase(object):
                         'veth': self.veth_data,
                         'tuntap': self.tuntap_data,
                         'bridge': self.bridge_data,
-                        'ipvlan': self.ipvlan_data}
+                        'ipvlan': self.ipvlan_data,
+                        'vrf': self.vrf_data}
             return data_map.get(kind, self.hex)
 
         class tuntap_data(nla):
@@ -632,6 +633,11 @@ class ifinfbase(object):
 
             class arp_ip_target(nla):
                 fields = (('targets', '16I'), )
+
+        class vrf_data(nla):
+            prefix = 'IFLA_'
+            nla_map = (('IFLA_VRF_UNSPEC', 'none'),
+                       ('IFLA_VRF_TABLE', 'uint32'))
 
     @staticmethod
     def af_spec(self, *argv, **kwarg):

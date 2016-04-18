@@ -30,7 +30,8 @@ def _get_data_fields():
                  'gre_data',
                  'macvlan_data',
                  'macvtap_data',
-                 'ipvlan_data'):
+                 'ipvlan_data',
+                 'vrf_data'):
         msg = getattr(ifinfmsg.ifinfo, data)
         ret += [msg.nla2name(i[0]) for i in msg.nla_map]
     return ret
