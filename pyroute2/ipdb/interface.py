@@ -462,18 +462,6 @@ class Interface(Transactional):
         else:
             return self.ipdb.interfaces.get(port, {}).get('index', None)
 
-    def _commit_real_ip(self):
-        for _ in range(3):
-            try:
-                return set([(x.get_attr('IFA_ADDRESS'),
-                             x.get('prefixlen')) for x
-                            in self.nl.get_addr(index=self.index)])
-            except NetlinkError as x:
-                if x.code == errno.EBUSY:
-                    time.sleep(0.5)
-                else:
-                    raise
-
     def _commit_add_ip(self, addrs, transaction):
         for i in addrs:
             # Ignore link-local IPv6 addresses
@@ -836,7 +824,17 @@ class Interface(Transactional):
                 self._commit_add_ip(target, transaction)
                 if transaction.partial:
                     break
-                real = self._commit_real_ip()
+                for _ in range(3):
+                    try:
+                        real = set([(m.get_attr('IFA_ADDRESS'),
+                                     m.get('prefixlen')) for m
+                                    in self.nl.get_addr(index=self.index)])
+                        break
+                    except NetlinkError as x:
+                        if x.code == errno.EBUSY:
+                            time.sleep(0.5)
+                        else:
+                            raise
                 if real >= set(transaction['ipaddr']):
                     break
                 else:
