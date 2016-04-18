@@ -787,6 +787,15 @@ class TestExplicit(BasicSetup):
     def test_ipv6_bridge(self):
         self._test_ipv(6, 'bridge')
 
+    def test_create_ip_up(self):
+        require_user('root')
+        ifA = self.get_ifname()
+        with self.ip.create(ifname=ifA, kind='dummy') as i:
+            i.up()
+            i.add_ip('172.16.7.8/24')
+        assert ifA in self.ip.interfaces
+        assert ('172.16.7.8', 24) in self.ip.interfaces[ifA].ipaddr
+
     @skip_if_not_supported
     def test_create_tuntap_fail(self):
         try:

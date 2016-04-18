@@ -617,6 +617,8 @@ class Interface(Transactional):
                         raise
 
         if wd is not None:
+            # Here we come only if the new interface is created
+            #
             wd.wait()
             if self['index'] == 0:
                 # Only the interface creation time issue on
@@ -624,6 +626,7 @@ class Interface(Transactional):
                 # may be not known yet, but we can not continue
                 # without it. It will be updated anyway, but
                 # it is better to force the lookup.
+                #
                 ix = self.nl.link_lookup(ifname=self['ifname'])
                 if ix:
                     self['index'] = ix[0]
@@ -633,6 +636,19 @@ class Interface(Transactional):
                         raise PartialCommitException()
                     else:
                         raise CreateException()
+            # Re-populate transaction.ipaddr to have a proper IP target
+            #
+            # The reason behind the code is that a new interface in the
+            # "up" state will have automatic IPv6 addresses, that aren't
+            # reflected in the transaction. This may cause a false IP
+            # target mismatch and a commit failure.
+            #
+            # To avoid that, collect automatic addresses to the
+            # transaction manually, since it is not yet properly linked.
+            #
+            map(transaction['ipaddr'].add,
+                map(lambda x: x['address'],
+                    self.ipdb.ipaddr[self['index']]))
 
         # now we have our index and IP set and all other stuff
         snapshot = self.pick()
@@ -777,15 +793,7 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # IP address changes
-            #
-            # There is one corner case: if the interface didn't
-            # exist before commit(), the transaction may not
-            # contain automatic IPv6 addresses.
-            #
-            # So fetch here possible addresses and use it to
-            # extend the transaction
-            target = self._commit_real_ip().union(set(transaction['ipaddr']))
-            self['ipaddr'].set_target(target)
+            self['ipaddr'].set_target(transaction['ipaddr'])
 
             # The promote_secondaries sysctl causes the kernel
             # to add secondary addresses back after the primary
