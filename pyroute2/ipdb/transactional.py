@@ -237,7 +237,9 @@ class Transactional(Dotkeys):
         return res.__repr__()
 
     def __sub__(self, vs):
-        res = self.__class__(ipdb=self.ipdb, mode='snapshot')
+        # create result
+        res = {}
+
         with self._direct_state:
             # simple keys
             for key in self:
@@ -250,6 +252,8 @@ class Transactional(Dotkeys):
             diff = type(self[key])(self[key] - vs[key])
             if diff:
                 res[key] = diff
+            else:
+                res[key] = set()
         return res
 
     def dump(self, not_none=True):
