@@ -490,8 +490,8 @@ class Interface(Transactional):
                 while True:
                     try:
                         # dirtiest hack, but we have to use it here
-                        time.sleep(0.1)
                         self.nl.addr('add', self['index'], i[0], i[1])
+                        time.sleep(0.1)
                     # continue to try to add the address
                     # until the kernel reports `file exists`
                     #
