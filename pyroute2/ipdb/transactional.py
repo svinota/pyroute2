@@ -395,43 +395,41 @@ class Transactional(Dotkeys):
 
     @update
     def __setitem__(self, direct, key, value):
-        with self._write_lock:
-            if not direct:
-                # automatically set target on the last transaction,
-                # which must be started prior to that call
-                transaction = self.last()
-                transaction[key] = value
-                transaction._targets[key] = threading.Event()
-            else:
-                # set the item
-                Dotkeys.__setitem__(self, key, value)
+        if not direct:
+            # automatically set target on the last transaction,
+            # which must be started prior to that call
+            transaction = self.last()
+            transaction[key] = value
+            transaction._targets[key] = threading.Event()
+        else:
+            # set the item
+            Dotkeys.__setitem__(self, key, value)
 
-                # update on local targets
-                if key in self._local_targets:
-                    func = self._fields_cmp.get(key, lambda x, y: x == y)
-                    if func(value, self._local_targets[key].value):
-                        self._local_targets[key].set()
+            # update on local targets
+            if key in self._local_targets:
+                func = self._fields_cmp.get(key, lambda x, y: x == y)
+                if func(value, self._local_targets[key].value):
+                    self._local_targets[key].set()
 
-                # cascade update on nested targets
-                for tn in tuple(self._transactions.values()):
-                    if (key in tn._targets) and (key in tn):
-                        if self._fields_cmp.\
-                                get(key, lambda x, y: x == y)(value, tn[key]):
-                            tn._targets[key].set()
+            # cascade update on nested targets
+            for tn in tuple(self._transactions.values()):
+                if (key in tn._targets) and (key in tn):
+                    if self._fields_cmp.\
+                            get(key, lambda x, y: x == y)(value, tn[key]):
+                        tn._targets[key].set()
 
     @update
     def __delitem__(self, direct, key):
-        with self._write_lock:
-            # firstly set targets
-            self[key] = None
+        # firstly set targets
+        self[key] = None
 
-            # then continue with delete
-            if not direct:
-                transaction = self.last()
-                if key in transaction:
-                    del transaction[key]
-            else:
-                Dotkeys.__delitem__(self, key)
+        # then continue with delete
+        if not direct:
+            transaction = self.last()
+            if key in transaction:
+                del transaction[key]
+        else:
+            Dotkeys.__delitem__(self, key)
 
     def option(self, key, value):
         self[key] = value
