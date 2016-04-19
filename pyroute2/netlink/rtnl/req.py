@@ -18,8 +18,11 @@ class IPRequest(dict):
 
     def update(self, obj):
         for key in obj:
-            if obj[key] is not None:
-                self[key] = obj[key]
+            v = obj[key]
+            if isinstance(v, dict):
+                self[key] = dict((x for x in v.items() if x[1] is not None))
+            elif v is not None:
+                self[key] = v
 
 
 class IPRouteRequest(IPRequest):
