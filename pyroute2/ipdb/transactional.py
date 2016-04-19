@@ -145,6 +145,9 @@ class Transactional(Dotkeys):
         self._write_lock = threading.RLock()
         self._direct_state = State(self._write_lock)
         self._linked_sets = self._linked_sets or set()
+        #
+        for i in self._fields:
+            Dotkeys.__setitem__(self, i, None)
 
     @property
     def _tids(self):

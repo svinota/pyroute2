@@ -133,8 +133,6 @@ class Route(Transactional):
         Transactional.__init__(self, ipdb, mode, parent, uid)
         self._load_event = threading.Event()
         with self._direct_state:
-            for i in self._fields:
-                self[i] = None
             self['metrics'] = Metrics(parent=self)
             self['multipath'] = NextHopSet()
             self['ipdb_priority'] = 0

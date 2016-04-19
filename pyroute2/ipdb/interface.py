@@ -109,8 +109,6 @@ class Interface(Transactional):
         # 8<-----------------------------------
         # local setup: direct state is required
         with self._direct_state:
-            for i in self._fields:
-                self[i] = None
             for i in ('change', 'mask'):
                 del self[i]
             self['ipaddr'] = IPaddrSet()
