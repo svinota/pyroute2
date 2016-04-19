@@ -224,8 +224,7 @@ class Route(Transactional):
         # create a new route
         if self['ipdb_scope'] != 'system':
             try:
-                self.ipdb.update_routes(
-                    self.nl.route('add', **IPRouteRequest(transaction)))
+                self.ipdb.update_routes(self.nl.route('add', **transaction))
             except Exception:
                 self.nl = None
                 self.ipdb.routes.remove(self)
@@ -255,7 +254,7 @@ class Route(Transactional):
             request = IPRouteRequest(diff)
             if any([request[x] not in (None, {'attrs': []}) for x in request]):
                 self.ipdb.update_routes(
-                    self.nl.route('set', **IPRouteRequest(transaction)))
+                    self.nl.route('set', **transaction))
 
             # route removal
             if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
@@ -263,7 +262,7 @@ class Route(Transactional):
                 if transaction['ipdb_scope'] == 'shadow':
                     self.set_item('ipdb_scope', 'locked')
                 self.ipdb.update_routes(
-                    self.nl.route('delete', **IPRouteRequest(snapshot)))
+                    self.nl.route('delete', **snapshot))
                 if transaction['ipdb_scope'] == 'shadow':
                     self.set_item('ipdb_scope', 'shadow')
 
