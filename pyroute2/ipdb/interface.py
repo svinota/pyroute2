@@ -623,9 +623,7 @@ class Interface(Transactional):
             # To avoid that, collect automatic addresses to the
             # transaction manually, since it is not yet properly linked.
             #
-            map(transaction['ipaddr'].add,
-                map(lambda x: x['address'],
-                    self.ipdb.ipaddr[self['index']]))
+            map(transaction['ipaddr'].add, self.ipdb.ipaddr[self['index']])
 
         # now we have our index and IP set and all other stuff
         snapshot = self.pick()

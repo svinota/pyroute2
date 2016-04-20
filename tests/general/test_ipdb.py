@@ -1052,6 +1052,22 @@ class TestExplicit(BasicSetup):
         assert ('172.16.0.1', 24) in self.ip.interfaces[ifA].ipaddr
         assert '172.16.0.1/24' in get_ip_addr(interface=ifA)
 
+    def test_create_reuse_addr(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        with self.ip.create(kind='dummy', ifname=ifA) as i:
+            i.add_ip('172.16.47.2/24')
+            i.down()
+        assert ('172.16.47.2', 24) in self.ip.interfaces[ifA].ipaddr
+        assert not self.ip.interfaces[ifA].flags & 1
+        with IPDB() as ip:
+            with ip.create(kind='dummy', ifname=ifA, reuse=True) as i:
+                i.up()
+            assert ('172.16.47.2', 24) in ip.interfaces[ifA].ipaddr
+            assert ip.interfaces[ifA].flags & 1
+        assert self.ip.interfaces[ifA].flags & 1
+
     def test_create_double_reuse(self):
         require_user('root')
 
