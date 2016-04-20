@@ -906,7 +906,9 @@ class nlmsg_base(dict):
             self.decode_fields()
         # decode NLA
         try:
-            self.unregister_clean_cb()
+            global clean_cbs
+            if clean_cbs:
+                self.unregister_clean_cb()
             # read NLA chain
             if self.nla_map:
                 self.buf.seek(self.msg_align(self.buf.tell()))
