@@ -843,34 +843,24 @@ class nlmsg_base(dict):
 
                 size = struct.calcsize(fmt)
                 raw = self.buf.read(size)
-                actual_size = len(raw)
+                value = struct.unpack(fmt, raw)
 
-                # FIXME: adjust string size again
-                if field[1] in ('s', 'z'):
-                    size = actual_size
-                    fmt = '%is' % (actual_size)
-                if size == actual_size:
-                    value = struct.unpack(fmt, raw)
-                    if len(value) == 1:
-                        self[name] = value[0]
-                        # cut zero-byte from z-strings
-                        # 0x00 -- python3; '\0' -- python2
-                        if field[1] == 'z' and self[name][-1] \
-                                in (0x00, '\0'):
-                            self[name] = self[name][:-1]
-                    else:
-                        if self.pack == 'struct':
-                            names = name.split(',')
-                            values = list(value)
-                            for name in names:
-                                if name[0] != '_':
-                                    self[name] = values.pop(0)
-                        else:
-                            self[name] = value
-
+                if len(value) == 1:
+                    self[name] = value[0]
+                    # cut zero-byte from z-strings
+                    # 0x00 -- python3; '\0' -- python2
+                    if field[1] == 'z' and self[name][-1] \
+                            in (0x00, '\0'):
+                        self[name] = self[name][:-1]
                 else:
-                    # FIXME: log an error
-                    pass
+                    if self.pack == 'struct':
+                        names = name.split(',')
+                        values = list(value)
+                        for name in names:
+                            if name[0] != '_':
+                                self[name] = values.pop(0)
+                    else:
+                        self[name] = value
 
         except Exception as e:
             raise NetlinkDataDecodeError(e)
