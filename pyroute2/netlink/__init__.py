@@ -601,7 +601,6 @@ class nlmsg_base(dict):
         dict.__init__(self)
         for i in self.fields:
             self[i[0]] = 0  # FIXME: only for number values
-        self.raw = None
         self.debug = debug
         self.length = length or 0
         self.parent = parent
@@ -889,10 +888,6 @@ class nlmsg_base(dict):
                 # update length from header
                 # it can not be less than 4
                 self.length = max(self['header']['length'], 4)
-                save = self.buf.tell()
-                self.buf.seek(self.offset)
-                self.raw = self.buf.read(self.length)
-                self.buf.seek(save)
             except Exception as e:
                 raise NetlinkHeaderDecodeError(e)
         # handle the array case

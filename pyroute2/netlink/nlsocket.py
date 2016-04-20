@@ -160,9 +160,10 @@ class Marshal(object):
                 msg['header']['error'] = error
                 # try to decode encapsulated error message
                 if error is not None:
-                    enc_type = struct.unpack('H', msg.raw[24:26])[0]
+                    raw = data[offset:offset+length]
+                    enc_type = struct.unpack('H', raw[24:26])[0]
                     enc_class = self.msg_map.get(enc_type, nlmsg)
-                    enc = enc_class(msg.raw[20:])
+                    enc = enc_class(raw[20:])
                     enc.decode()
                     msg['header']['errmsg'] = enc
             except NetlinkHeaderDecodeError as e:
