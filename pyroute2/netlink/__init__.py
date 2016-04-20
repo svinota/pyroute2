@@ -842,8 +842,7 @@ class nlmsg_base(dict):
                     fmt = '%is' % (self.length - 4)
 
                 size = struct.calcsize(fmt)
-                raw = self.buf.read(size)
-                value = struct.unpack(fmt, raw)
+                value = struct.unpack(fmt, self.buf.read(size))
 
                 if len(value) == 1:
                     self[name] = value[0]
