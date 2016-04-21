@@ -961,10 +961,9 @@ def proxy_setlink(data, nl):
         forward_map = {'team': manage_team_port,
                        'bridge': compat_bridge_port,
                        'bond': compat_bond_port}
-        forward = forward_map[master['kind']](cmd,
-                                              master['ifname'],
-                                              ifname,
-                                              nl)
+        if master['kind'] in forward_map:
+            func = forward_map[master['kind']]
+            forward = func(cmd, master['ifname'], ifname, nl)
 
     if forward is not None:
         return {'verdict': 'forward',
