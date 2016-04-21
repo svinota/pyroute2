@@ -116,10 +116,8 @@ class Route(Transactional):
     '''
 
     _fields = [rtmsg.nla2name(i[0]) for i in rtmsg.nla_map]
-    _fields.append('flags')
-    _fields.append('src_len')
-    _fields.append('dst_len')
-    _fields.append('table')
+    for key, _ in rtmsg.fields:
+        _fields.append(key)
     _fields.append('removal')
     _virtual_fields = ['ipdb_scope', 'ipdb_priority']
     _fields.extend(_virtual_fields)

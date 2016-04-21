@@ -318,6 +318,23 @@ class TestExplicit(BasicSetup):
         assert ifB not in self.ip.interfaces
         assert ifA in self.ip.interfaces
 
+    def test_routes_type(self):
+        require_user('root')
+        self.ip.routes.add(dst='default',
+                           table=202,
+                           type='unreachable').commit()
+        self.ip.routes.add(dst='default',
+                           table=2020,
+                           type='blackhole').commit()
+        assert grep('ip ro show table 202',
+                    pattern='unreachable default')
+        assert grep('ip ro show table 2020',
+                    pattern='blackhole default')
+        with self.ip.routes.tables[202]['default'] as r:
+            r.remove()
+        with self.ip.routes.tables[2020]['default'] as r:
+            r.remove()
+
     def test_routes_keys(self):
         assert '172.16.0.0/24' not in self.ip.routes
         # create but not commit
