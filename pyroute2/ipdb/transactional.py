@@ -456,6 +456,10 @@ class Transactional(Dotkeys):
     def mirror_target(self, key_from, key_to):
         self._local_targets[key_to] = self._local_targets[key_from]
 
+    def set(self, key, value):
+        self[key] = value
+        return self
+
     def set_item(self, key, value):
         with self._direct_state:
             self[key] = value
