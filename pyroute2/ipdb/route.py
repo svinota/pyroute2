@@ -503,6 +503,9 @@ class RoutingTableSet(object):
         Loads an existing route from a rtmsg
         '''
         table = msg.get('table', 254)
+        if table == 252:
+            table = msg.get_attr('RTA_TABLE')
+
         if table in self.ignore_rtables:
             return
 
