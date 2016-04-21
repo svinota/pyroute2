@@ -243,7 +243,7 @@ class ifinfbase(object):
     prefix = 'IFLA_'
 
     fields = (('family', 'B'),
-              ('__align', 'B'),
+              ('__align', 'x'),
               ('ifi_type', 'H'),
               ('index', 'i'),
               ('flags', 'I'),

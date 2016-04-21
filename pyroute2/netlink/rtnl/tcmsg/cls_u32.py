@@ -119,7 +119,7 @@ class options(nla, nla_plus_police):
         fields = (('flags', 'B'),
                   ('offshift', 'B'),
                   ('nkeys', 'B'),
-                  ('__align', 'B'),
+                  ('__align', 'x'),
                   ('offmask', '>H'),
                   ('off', 'H'),
                   ('offoff', 'h'),
