@@ -48,7 +48,8 @@ class IPRouteRequest(IPRequest):
              'labels': [{'bos': 0, 'label': 200, 'ttl': 16},
                         {'bos': 1, 'label': 300, 'ttl': 16}]}
         '''
-        if header['type'] in ('mpls', AF_MPLS):
+        if isinstance(header['type'], int) or \
+                (header['type'] in ('mpls', AF_MPLS)):
             ret = []
             override_bos = True
             labels = header['labels']
@@ -95,14 +96,26 @@ class IPRouteRequest(IPRequest):
                 dict.__setitem__(self, 'dst', dst)
                 if mask:
                     dict.__setitem__(self, 'dst_len', mask)
+        elif key == 'encap_type':
+            if value is not None:
+                dict.__setitem__(self, key, value)
         elif key == 'encap':
             if isinstance(value, dict):
-                dict.__setitem__(self, 'encap_type',
-                                 encap_types[value['type']])
-                dict.__setitem__(self, 'encap',
-                                 self.encap_header(value))
-            else:
-                dict.__setitem__(self, 'encap', value)
+                # human-friendly form:
+                #
+                # 'encap': {'type': 'mpls',
+                #           'labels': '200/300'}
+                #
+                # 'type' is mandatory
+                if 'type' in value:
+                    dict.__setitem__(self, 'encap_type',
+                                     encap_types.get(value['type'],
+                                                     value['type']))
+                    dict.__setitem__(self, 'encap',
+                                     self.encap_header(value))
+                # assume it is a ready-to-use NLA
+                elif 'attrs' in value:
+                    dict.__setitem__(self, 'encap', value)
         elif key == 'metrics':
             if 'attrs' in value:
                 ret = value
