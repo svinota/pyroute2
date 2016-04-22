@@ -17,6 +17,10 @@ class Metrics(Transactional):
     _fields = [rtmsg.metrics.nla2name(i[0]) for i in rtmsg.metrics.nla_map]
 
 
+class Encap(Transactional):
+    _fields = ['type', 'labels']
+
+
 class NextHopSet(LinkedSet):
 
     def __init__(self, prime=None):
@@ -122,6 +126,7 @@ class Route(Transactional):
     _virtual_fields = ['ipdb_scope', 'ipdb_priority']
     _fields.extend(_virtual_fields)
     _linked_sets = ['multipath', ]
+    _nested = ['encap', 'metrics']
     cleanup = ('attrs',
                'header',
                'event',
@@ -131,7 +136,6 @@ class Route(Transactional):
         Transactional.__init__(self, ipdb, mode, parent, uid)
         self._load_event = threading.Event()
         with self._direct_state:
-            self['metrics'] = Metrics(parent=self)
             self['multipath'] = NextHopSet()
             self['ipdb_priority'] = 0
 
@@ -156,19 +160,14 @@ class Route(Transactional):
             self['ipdb_scope'] = 'system'
             self.update(msg)
 
-            # re-init metrics
-            metrics = self.get('metrics', Metrics(parent=self))
-            with metrics._direct_state:
-                for metric in tuple(metrics.keys()):
-                    del metrics[metric]
-            self['metrics'] = metrics
-
             # merge key
             for (name, value) in msg['attrs']:
                 norm = rtmsg.nla2name(name)
                 # normalize RTAX
                 if norm == 'metrics':
                     with self['metrics']._direct_state:
+                        for metric in tuple(self['metrics'].keys()):
+                            del self['metrics'][metric]
                         for (rtax, rtax_value) in value['attrs']:
                             rtax_norm = rtmsg.metrics.nla2name(rtax)
                             self['metrics'][rtax_norm] = rtax_value
@@ -182,6 +181,12 @@ class Route(Transactional):
                             rta_norm = rtmsg.nla2name(rta)
                             nh[rta_norm] = rta_value
                         self['multipath'].add(nh)
+                elif norm == 'encap':
+                    with self['encap']._direct_state:
+                        ret = []
+                        for l in value.get_attr('MPLS_IPTUNNEL_DST'):
+                            ret.append(str(l['label']))
+                        self['encap']['labels'] = '/'.join(ret)
                 else:
                     self[norm] = value
 
@@ -191,12 +196,61 @@ class Route(Transactional):
             else:
                 dst = 'default'
             self['dst'] = dst
+
+            if self['encap_type'] is not None:
+                with self['encap']._direct_state:
+                    self['encap']['type'] = self['encap_type']
+                self['encap_type'] = None
+
             # finally, cleanup all not needed
             for item in self.cleanup:
                 if item in self:
                     del self[item]
 
             self.sync()
+
+    def __setitem__(self, key, value):
+        ret = value
+        if (key in ('encap', 'metrics')) and isinstance(value, dict):
+            # transactionals attach as is
+            if type(value) in (Encap, Metrics):
+                with self._direct_state:
+                    return Transactional.__setitem__(self, key, value)
+
+            # check, if it exists already
+            ret = Transactional.__getitem__(self, key)
+            # it doesn't
+            # (plain dict can be safely discarded)
+            if isinstance(ret, dict) or not ret:
+                # bake transactionals in place
+                if key == 'encap':
+                    ret = Encap(parent=self)
+                elif key == 'metrics':
+                    ret = Metrics(parent=self)
+                # attach transactional to the route
+                with self._direct_state:
+                    Transactional.__setitem__(self, key, ret)
+                # begin() works only if the transactional is attached
+                if any(value.values()):
+                    if self._mode in ('implicit', 'explicit'):
+                        ret._begin(tid=self.last().uid)
+                    [ret.__setitem__(k, v) for k, v
+                     in value.items() if v is not None]
+            # corresponding transactional exists
+            else:
+                # set fields
+                for k in ret:
+                    ret[k] = value.get(k, None)
+        else:
+            Transactional.__setitem__(self, key, ret)
+
+    def __getitem__(self, key):
+        ret = Transactional.__getitem__(self, key)
+        if (key in ('encap', 'metrics')) and (ret is None):
+            with self._direct_state:
+                self[key] = {}
+                ret = self[key]
+        return ret
 
     def sync(self):
         self._load_event.set()
@@ -240,7 +294,7 @@ class Route(Transactional):
         # it is needed to cleanup obsoleted references to
         # routes with the key fields changed with 'set'
         # operation, when only the RTM_NEWROUTE message comes
-        if diff['gateway'] or diff['src'] or diff['dst']:
+        if ('gateway' in diff) or ('src' in diff) or ('dst' in diff):
             cleanup_key = {'gateway': snapshot['gateway'],
                            'src': snapshot['src'],
                            'dst': snapshot['dst']}
@@ -250,7 +304,12 @@ class Route(Transactional):
         try:
             # route set
             request = IPRouteRequest(diff)
-            if any([request[x] not in (None, {'attrs': []}) for x in request]):
+            cleanup = [any(snapshot['metrics'].values()) and
+                       not any(diff.get('metrics', {}).values()),
+                       any(snapshot['encap'].values()) and
+                       not any(diff.get('encap', {}).values())]
+            if any([request[x] not in (None, {'attrs': []})
+                    for x in request]) or any(cleanup):
                 self.ipdb.update_routes(
                     self.nl.route('set', **transaction))
 
@@ -485,13 +544,14 @@ class RoutingTableSet(object):
         if table not in self.tables:
             self.tables[table] = RoutingTable(self.ipdb)
         route = Route(self.ipdb)
-        metrics = spec.pop('metrics', {})
         multipath = spec.pop('multipath', [])
         route.update(spec)
-        route.metrics.update(metrics)
         route.set_item('ipdb_scope', 'create')
         self.tables[table][route['dst']] = route
         route.begin()
+        for nested in route._nested:
+            if nested in spec:
+                route[nested] = spec[nested]
         for nh in multipath:
             route.add_nh(nh)
         return route

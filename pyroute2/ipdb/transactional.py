@@ -113,7 +113,8 @@ class Transactional(Dotkeys):
     '''
     _fields = []
     _fields_cmp = {}
-    _linked_sets = None
+    _linked_sets = []
+    _nested = []
 
     def __init__(self, ipdb=None, mode=None, parent=None, uid=None):
         #
@@ -180,7 +181,7 @@ class Transactional(Dotkeys):
                 if hook == cb:
                     self._commit_hooks.pop(self._commit_hooks.index(cb))
 
-    def pick(self, detached=True, uid=None, parent=None, forge_tids=False):
+    def pick(self, detached=True, uid=None, parent=None):
         '''
         Get a snapshot of the object. Can be of two
         types:
@@ -198,17 +199,7 @@ class Transactional(Dotkeys):
                                  uid=uid)
             for (key, value) in self.items():
                 if key in self._fields:
-                    if isinstance(value, Transactional):
-                        t = value.pick(detached=detached,
-                                       uid=res.uid,
-                                       parent=self)
-                        if forge_tids:
-                            # forge the transaction for nested objects
-                            value._transactions[res.uid] = t
-                            value._tids.append(res.uid)
-                        res[key] = t
-                    else:
-                        res[key] = self[key]
+                    res[key] = self[key]
             for key in self._linked_sets:
                 res[key] = type(self[key])(self[key])
                 if not detached:
@@ -249,14 +240,14 @@ class Transactional(Dotkeys):
                 if (key in self._fields):
                     if ((key not in vs) or (self[key] != vs[key])):
                         res[key] = self[key]
-                    elif (self[key] == vs[key]):
-                        res[key] = None
         for key in self._linked_sets:
             diff = type(self[key])(self[key] - vs[key])
             if diff:
                 res[key] = diff
             else:
                 res[key] = set()
+        for key in self._nested:
+            res[key] = self[key] - vs[key]
         return res
 
     def dump(self, not_none=True):
@@ -292,13 +283,21 @@ class Transactional(Dotkeys):
             del self._snapshots[sid]
             return self
 
-    def snapshot(self):
+    def snapshot(self, sid=None):
         '''
         Create new snapshot
         '''
-        return self._begin(mapping=self._snapshots,
-                           ids=self._sids,
-                           detached=True)
+        if self._parent:
+            raise RuntimeError("Can't init snapshot from a nested object")
+        if (self.ipdb is not None) and self.ipdb._stop:
+            raise RuntimeError("Can't create snapshots on released IPDB")
+        t = self.pick(detached=True, uid=sid)
+        self._snapshots[t.uid] = t
+        self._sids.append(t.uid)
+        for key, value in t.items():
+            if isinstance(value, Transactional):
+                value.snapshot(sid=t.uid)
+        return t.uid
 
     def begin(self):
         '''
@@ -307,18 +306,18 @@ class Transactional(Dotkeys):
         if self._parent is not None:
             self._parent.begin()
         else:
-            return self._begin(mapping=self._transactions,
-                               ids=self._tids,
-                               detached=False)
+            return self._begin()
 
-    def _begin(self, mapping, ids, detached):
-        # keep snapshot's ip addr set updated from the OS
-        # it is required by the commit logic
+    def _begin(self, tid=None):
         if (self.ipdb is not None) and self.ipdb._stop:
             raise RuntimeError("Can't start transaction on released IPDB")
-        t = self.pick(detached=detached, forge_tids=True)
-        mapping[t.uid] = t
-        ids.append(t.uid)
+        t = self.pick(detached=False, uid=tid)
+        self._transactions[t.uid] = t
+        self._tids.append(t.uid)
+        for key, value in t.items():
+            if isinstance(value, Transactional):
+                value._begin(tid=t.uid)
+                t[key] = value._transactions[t.uid]
         return t.uid
 
     def last_snapshot(self):
