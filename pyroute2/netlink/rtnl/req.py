@@ -107,7 +107,7 @@ class IPRouteRequest(IPRequest):
                 #           'labels': '200/300'}
                 #
                 # 'type' is mandatory
-                if 'type' in value:
+                if 'type' in value and 'labels' in value:
                     dict.__setitem__(self, 'encap_type',
                                      encap_types.get(value['type'],
                                                      value['type']))
