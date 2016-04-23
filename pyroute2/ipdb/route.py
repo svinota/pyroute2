@@ -190,17 +190,29 @@ class Route(Transactional):
                 else:
                     self[norm] = value
 
-            if msg.get_attr('RTA_DST', None) is not None:
+            if msg.get_attr('RTA_DST'):
                 dst = '%s/%s' % (msg.get_attr('RTA_DST'),
                                  msg['dst_len'])
             else:
                 dst = 'default'
             self['dst'] = dst
 
-            if self['encap_type'] is not None:
-                with self['encap']._direct_state:
-                    self['encap']['type'] = self['encap_type']
+            # fix RTA_ENCAP_TYPE if needed
+            if msg.get_attr('RTA_ENCAP'):
+                if self['encap_type'] is not None:
+                    with self['encap']._direct_state:
+                        self['encap']['type'] = self['encap_type']
+                    self['encap_type'] = None
+            # or drop encap, if there is no RTA_ENCAP in msg
+            else:
                 self['encap_type'] = None
+                with self['encap']._direct_state:
+                    self['encap'] = {}
+
+            # drop metrics, if there is no RTA_METRICS in msg
+            if not msg.get_attr('RTA_METRICS'):
+                with self['metrics']._direct_state:
+                    self['metrics'] = {}
 
             # finally, cleanup all not needed
             for item in self.cleanup:
@@ -221,7 +233,7 @@ class Route(Transactional):
             ret = Transactional.__getitem__(self, key)
             # it doesn't
             # (plain dict can be safely discarded)
-            if isinstance(ret, dict) or not ret:
+            if (type(ret) == dict) or not ret:
                 # bake transactionals in place
                 if key == 'encap':
                     ret = Encap(parent=self)
@@ -343,11 +355,6 @@ class Route(Transactional):
         if error is not None:
             error.transaction = transaction
             raise error
-
-        if not rollback:
-            with self._direct_state:
-                self['multipath'] = transaction['multipath']
-            self.reload()
 
         if cleanup_key:
             # On route updates there is no RTM_DELROUTE -- we have to
