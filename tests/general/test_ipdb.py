@@ -318,6 +318,130 @@ class TestExplicit(BasicSetup):
         assert ifB not in self.ip.interfaces
         assert ifA in self.ip.interfaces
 
+    @skip_if_not_supported
+    def test_routes_mpls_metrics(self):
+        require_user('root')
+        self.ip.routes.add({'dst': 'default',
+                            'table': 2020,
+                            'gateway': '127.0.0.2',
+                            'encap': {'type': 'mpls',
+                                      'labels': '200'}}).commit()
+
+        route = self.ip.routes.tables[2020]['default']
+        with route:
+            route.encap = {}
+            route.metrics = {'mtu': 1320}
+
+        routes = self.ip.nl.get_routes(table=2020)
+        assert len(routes) == 1
+        assert not routes[0].get_attr('RTA_ENCAP')
+        assert routes[0].get_attr('RTA_METRICS')
+
+        with route:
+            route.encap = {'type': 'mpls',
+                           'labels': '700/800'}
+        routes = self.ip.nl.get_routes(table=2020)
+        assert len(routes) == 1
+        assert routes[0].get_attr('RTA_ENCAP')
+        assert routes[0].get_attr('RTA_METRICS')
+
+        with route:
+            route.encap = {}
+            route.metrics = {}
+        routes = self.ip.nl.get_routes(table=2020)
+        assert len(routes) == 1
+        assert not routes[0].get_attr('RTA_ENCAP')
+        assert not routes[0].get_attr('RTA_METRICS')
+
+        with route:
+            route.remove()
+
+    @skip_if_not_supported
+    def test_routes_mpls(self):
+        require_user('root')
+        self.ip.routes.add({'dst': 'default',
+                            'table': 2020,
+                            'gateway': '127.0.0.2',
+                            'encap': {'type': 'mpls',
+                                      'labels': '200'}}).commit()
+        routes = self.ip.nl.get_routes(table=2020)
+        assert len(routes) == 1
+        assert routes[0].get_attr('RTA_GATEWAY') == '127.0.0.2'
+        encap = (routes[0]
+                 .get_attr('RTA_ENCAP')
+                 .get_attr('MPLS_IPTUNNEL_DST'))
+        assert len(encap) == 1
+        assert encap[0]['label'] == 200
+        assert encap[0]['bos'] == 1
+
+        assert len(self.ip.routes.tables[2020]) == 1
+        route = self.ip.routes.tables[2020]['default']
+        assert route['table'] == 2020
+        assert route['encap']['labels'] == '200'
+        assert route['gateway'] == '127.0.0.2'
+        assert route['oif'] and route['oif'] > 0
+
+        with route:
+            route.remove()
+
+    @skip_if_not_supported
+    def test_routes_mpls_change(self):
+        require_user('root')
+        self.ip.routes.add({'dst': 'default',
+                            'table': 2020,
+                            'gateway': '127.0.0.2',
+                            'encap': {'type': 'mpls',
+                                      'labels': '200'}}).commit()
+        assert 2020 in self.ip.routes.tables.keys()
+        assert len(self.ip.routes.tables[2020]) == 1
+        route = self.ip.routes.tables[2020]['default']
+        assert route['encap']['labels'] == '200'
+
+        with route:
+            route['encap']['labels'] = '200/300'
+        assert len(self.ip.routes.tables[2020]) == 1
+
+        routes = self.ip.nl.get_routes(table=2020)
+        assert len(routes) == 1
+        assert routes[0].get_attr('RTA_GATEWAY') == '127.0.0.2'
+        encap = (routes[0]
+                 .get_attr('RTA_ENCAP')
+                 .get_attr('MPLS_IPTUNNEL_DST'))
+        assert len(encap) == 2
+        assert encap[0]['label'] == 200
+        assert encap[0]['bos'] == 0
+        assert encap[1]['label'] == 300
+        assert encap[1]['bos'] == 1
+
+        with route:
+            route['encap'] = {'type': 'mpls',
+                              'labels': '500/600'}
+        assert len(self.ip.routes.tables[2020]) == 1
+
+        routes = self.ip.nl.get_routes(table=2020)
+        assert len(routes) == 1
+        assert routes[0].get_attr('RTA_GATEWAY') == '127.0.0.2'
+        encap = (routes[0]
+                 .get_attr('RTA_ENCAP')
+                 .get_attr('MPLS_IPTUNNEL_DST'))
+        assert len(encap) == 2
+        assert encap[0]['label'] == 500
+        assert encap[0]['bos'] == 0
+        assert encap[1]['label'] == 600
+        assert encap[1]['bos'] == 1
+
+        with route:
+            route['encap'] = {}
+        assert len(self.ip.routes.tables[2020]) == 1
+
+        routes = self.ip.nl.get_routes(table=2020)
+        assert len(routes) == 1
+        assert routes[0].get_attr('RTA_GATEWAY') == '127.0.0.2'
+        assert not routes[0].get_attr('RTA_ENCAP')
+
+        with route:
+            route.remove()
+
     def test_routes_type(self):
         require_user('root')
         self.ip.routes.add(dst='default',
