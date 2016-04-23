@@ -288,7 +288,9 @@ class ifinfbase(object):
                ('IFLA_PHYS_SWITCH_ID', 'hex'),
                ('IFLA_LINK_NETNSID', 'int32'),
                ('IFLA_PHYS_PORT_NAME', 'asciiz'),
-               ('IFLA_PROTO_DOWN', 'uint8'))
+               ('IFLA_PROTO_DOWN', 'uint8'),
+               ('IFLA_GSO_MAX_SEGS', 'uint32'),
+               ('IFLA_GSO_MAX_SIZE', 'uint32'))
 
     @staticmethod
     def flags2names(flags, mask=0xffffffff):
