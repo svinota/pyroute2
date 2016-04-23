@@ -82,7 +82,6 @@ RouteKey = namedtuple('RouteKey',
                       ('src',
                        'dst',
                        'gateway',
-                       'table',
                        'iif',
                        'oif'))
 RouteKey._required = 3  # number of required fields (should go first)
@@ -315,13 +314,11 @@ class Route(Transactional):
 
         try:
             # route set
-            request = IPRouteRequest(diff)
             cleanup = [any(snapshot['metrics'].values()) and
                        not any(diff.get('metrics', {}).values()),
                        any(snapshot['encap'].values()) and
                        not any(diff.get('encap', {}).values())]
-            if any([request[x] not in (None, {'attrs': []})
-                    for x in request]) or any(cleanup):
+            if any(diff.values()) or any(cleanup):
                 self.ipdb.update_routes(
                     self.nl.route('set', **transaction))
 
