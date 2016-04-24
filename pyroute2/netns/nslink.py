@@ -190,6 +190,9 @@ class NetNS(IPRouteMixin, RemoteSocket):
         super(NetNS, self).__init__()
         self.marshal = MarshalRtnl()
 
+    def clone(self):
+        return type(self)(self.netns, self.flags)
+
     def close(self):
         try:
             super(NetNS, self).close()

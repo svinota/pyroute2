@@ -74,6 +74,9 @@ class IPRSocketMixin(object):
         self._rproxy = NetlinkProxy(policy='forward', nl=recv_ns)
         self._rproxy.pmap = {rtnl.RTM_NEWLINK: proxy_linkinfo}
 
+    def clone(self):
+        return type(self)()
+
     def bind(self, groups=rtnl.RTNL_GROUPS, async=False):
         super(IPRSocketMixin, self).bind(groups, async=async)
 

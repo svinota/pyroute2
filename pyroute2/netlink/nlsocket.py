@@ -323,6 +323,9 @@ class NetlinkMixin(object):
         # Set defaults
         self.post_init()
 
+    def clone(self):
+        return type(self)(family=self.family)
+
     def close(self):
         try:
             os.close(self._ctrl_write)
