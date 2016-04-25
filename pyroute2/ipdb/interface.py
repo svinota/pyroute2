@@ -474,10 +474,9 @@ class Interface(Transactional):
             except KeyError:
                 kwarg = None
             # feed the address to the OS
-            self.ipdb.update_addr(
-                transaction._run(transaction.nl.addr, 'add',
-                                 self['index'], i[0], i[1],
-                                 **kwarg if kwarg else {}), 'add')
+            transaction._run(transaction.nl.addr, 'add',
+                             self['index'], i[0], i[1],
+                             **kwarg if kwarg else {})
 
             # 8<--------------------------------------
             # FIXME: kernel bug, sometimes `addr add` for
@@ -710,9 +709,6 @@ class Interface(Transactional):
 
             if (not transaction.partial) and \
                     (removed['ports'] or added['ports']):
-                for link in self.nl.get_links(
-                        *(removed['ports'] | added['ports'])):
-                    self.ipdb.device_put(link)
                 self['ports'].target.wait(SYNC_TIMEOUT)
                 if not self['ports'].target.is_set():
                     raise CommitException('ports target is not set')
@@ -791,9 +787,7 @@ class Interface(Transactional):
                 # can be removed. In this case you will fail, but
                 # it is OK, no need to roll back
                 try:
-                    self.ipdb.update_addr(
-                        run(nl.addr, 'delete', self['index'], i[0], i[1]),
-                        'remove')
+                    run(nl.addr, 'delete', self['index'], i[0], i[1])
                 except NetlinkError as x:
                     # bypass only errno 99, 'Cannot assign address'
                     if x.code != errno.EADDRNOTAVAIL:
