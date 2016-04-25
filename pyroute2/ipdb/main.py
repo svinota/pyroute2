@@ -524,6 +524,7 @@ class IPDB(object):
         from scratch. Can be used when sync is lost.
         '''
         self.nl = nl or IPRoute()
+        self.mnl = self.nl.clone()
 
         # resolvers
         self.interfaces = Dotkeys()
@@ -539,7 +540,7 @@ class IPDB(object):
         self.neighbours = {}
 
         try:
-            self.nl.bind(async=self._nl_async)
+            self.mnl.bind(async=self._nl_async)
             # load information
             links = self.nl.get_links()
             for link in links:
@@ -562,6 +563,7 @@ class IPDB(object):
             logging.error(traceback.format_exc())
             try:
                 self.nl.close()
+                self.mnl.close()
             except:
                 pass
             raise e
@@ -678,7 +680,7 @@ class IPDB(object):
                 # terminate the main loop
                 try:
                     for t in range(3):
-                        self.nl.put({'index': 1}, RTM_GETLINK)
+                        self.mnl.put({'index': 1}, RTM_GETLINK)
                         self._mthread.join(t)
                         if not self._mthread.is_alive():
                             break
@@ -688,6 +690,8 @@ class IPDB(object):
                     pass
                 self.nl.close()
                 self.nl = None
+                self.mnl.close()
+                self.mnl = None
 
                 # flush all the objects
                 # -- interfaces
@@ -1134,7 +1138,7 @@ class IPDB(object):
         '''
         while not self._stop:
             try:
-                messages = self.nl.get()
+                messages = self.mnl.get()
                 ##
                 # Check it again
                 #
