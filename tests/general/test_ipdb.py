@@ -1542,18 +1542,6 @@ class TestExplicit(BasicSetup):
         assert '172.16.0.2/24' not in get_ip_addr(interface=ifA)
 
 
-class TestCompat(TestExplicit):
-
-    def setup(self):
-        TestExplicit.setup(self)
-        self.caps = self.ip.nl.capabilities
-        self.ip.nl.capabilities = {'create_dummy': True,
-                                   'create_bridge': False,
-                                   'create_bond': False,
-                                   'provide_master': False}
-        config.kernel = [2, 6, 32]  # RHEL 6
-
-
 class TestPartial(BasicSetup):
     mode = 'implicit'
 

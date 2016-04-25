@@ -1060,31 +1060,9 @@ class IPRouteMixin(object):
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
-        def update_caps(e):
-            # update capabilities, if needed
-            if e.code == errno.EOPNOTSUPP:
-                kind = None
-                li = msg.get_attr('IFLA_LINKINFO')
-                if li:
-                    attrs = li.get('attrs', [])
-                    for attr in attrs:
-                        if attr[0] == 'IFLA_INFO_KIND':
-                            kind = attr[1]
-                if kind == 'bond' and self.capabilities['create_bond']:
-                    self.capabilities['create_bond'] = False
-                    return
-                if kind == 'bridge' and self.capabilities['create_bridge']:
-                    self.capabilities['create_bridge'] = False
-                    return
-
-            # let the exception to be forwarded
-            return True
-
         return self.nlm_request(msg,
                                 msg_type=command,
-                                msg_flags=msg_flags,
-                                exception_catch=NetlinkError,
-                                exception_handler=update_caps)
+                                msg_flags=msg_flags)
 
     def addr(self, command, index=None, address=None, mask=None,
              family=None, scope=None, match=None, **kwarg):

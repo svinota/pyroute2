@@ -14,8 +14,6 @@ from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifinfmsg import proxy_newlink
 from pyroute2.netlink.rtnl.ifinfmsg import proxy_setlink
-from pyroute2.netlink.rtnl.ifinfmsg import proxy_dellink
-from pyroute2.netlink.rtnl.ifinfmsg import proxy_linkinfo
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
 
@@ -65,14 +63,9 @@ class IPRSocketMixin(object):
         self._s_channel = None
         send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000, 0x1ffff),
                                    'monitor': False})
-        recv_ns = Namespace(self, {'addr_pool': AddrPool(0x20000, 0x2ffff),
-                                   'monitor': False})
         self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
         self._sproxy.pmap = {rtnl.RTM_NEWLINK: proxy_newlink,
-                             rtnl.RTM_SETLINK: proxy_setlink,
-                             rtnl.RTM_DELLINK: proxy_dellink}
-        self._rproxy = NetlinkProxy(policy='forward', nl=recv_ns)
-        self._rproxy.pmap = {rtnl.RTM_NEWLINK: proxy_linkinfo}
+                             rtnl.RTM_SETLINK: proxy_setlink}
 
     def clone(self):
         return type(self)()
@@ -104,17 +97,6 @@ class IPRSocketMixin(object):
                 ValueError('Incorrect verdict')
 
         return self._sendto(data, address)
-
-    def recv(self, bufsize, flags=0):
-        data = self._recv(bufsize, flags)
-        ret = self._rproxy.handle(data)
-        if ret is not None:
-            if ret['verdict'] in ('forward', 'error'):
-                return ret['data']
-            else:
-                ValueError('Incorrect verdict')
-
-        return data
 
 
 class IPRSocket(IPRSocketMixin, NetlinkSocket):
