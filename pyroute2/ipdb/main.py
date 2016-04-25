@@ -842,7 +842,8 @@ class IPDB(object):
                     device = self.interfaces[ifname]
                     kwarg['kind'] = kind
                     device.load_dict(kwarg)
-                    device.set_item('ipdb_scope', 'create')
+                    if self.interfaces[ifname]['ipdb_scope'] == 'shadow':
+                        device.set_item('ipdb_scope', 'create')
                 else:
                     raise CreateException("interface %s exists" %
                                           ifname)
