@@ -74,8 +74,14 @@ class WatchdogKey(dict):
     '''
     def __init__(self, route):
         dict.__init__(self, [x for x in IPRouteRequest(route).items()
-                             if x[0] in ('dst', 'dst_len', 'oif',
-                                         'iif', 'table')])
+                             if x[0] in ('dst',
+                                         'dst_len',
+                                         'src',
+                                         'src_len',
+                                         'oif',
+                                         'iif',
+                                         'gateway',
+                                         'table') and x[1]])
 
 
 RouteKey = namedtuple('RouteKey',
@@ -287,13 +293,17 @@ class Route(Transactional):
         # create a new route
         if self['ipdb_scope'] != 'system':
             try:
+                # create watchdog
+                wd = self.ipdb.watchdog('RTM_NEWROUTE',
+                                        **WatchdogKey(transaction))
                 self.ipdb.update_routes(self.nl.route('add', **transaction))
+                wd.wait()
             except Exception:
                 self.nl = None
                 self.ipdb.routes.remove(self)
                 raise
 
-        # work on existing route
+        # work on an existing route
         snapshot = self.pick()
         diff = transaction - snapshot
         # if any of these three key arguments is changed,
@@ -327,8 +337,12 @@ class Route(Transactional):
                     ((transaction['ipdb_scope'] == 'create') and rollback):
                 if transaction['ipdb_scope'] == 'shadow':
                     self.set_item('ipdb_scope', 'locked')
+                # create watchdog
+                wd = self.ipdb.watchdog('RTM_DELROUTE',
+                                        **WatchdogKey(snapshot))
                 self.ipdb.update_routes(
                     self.nl.route('delete', **snapshot))
+                wd.wait()
                 if transaction['ipdb_scope'] == 'shadow':
                     self.set_item('ipdb_scope', 'shadow')
 
