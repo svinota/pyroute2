@@ -8,6 +8,7 @@ from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh as rtmsg_nh
 from pyroute2.netlink.rtnl.req import IPRouteRequest
+from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.linkedset import LinkedSet
 
@@ -281,6 +282,7 @@ class Route(Transactional):
         self._load_event.clear()
         error = None
         drop = True
+        devop = 'set'
 
         if tid:
             transaction = self._transactions[tid]
@@ -292,35 +294,14 @@ class Route(Transactional):
 
         # create a new route
         if self['ipdb_scope'] != 'system':
-            try:
-                # create watchdog
-                wd = self.ipdb.watchdog('RTM_NEWROUTE',
-                                        **WatchdogKey(transaction))
-                self.ipdb.update_routes(self.nl.route('add', **transaction))
-                wd.wait()
-            except Exception:
-                self.nl = None
-                self.ipdb.routes.remove(self)
-                raise
+            devop = 'add'
 
         # work on an existing route
         snapshot = self.pick()
         diff = transaction - snapshot
-        # if any of these three key arguments is changed,
-        # create the cleanup key from snapshot
-        #
-        # the route reference with that key will be removed
-        # from the table.idx index
-        #
-        # it is needed to cleanup obsoleted references to
-        # routes with the key fields changed with 'set'
-        # operation, when only the RTM_NEWROUTE message comes
-        if ('gateway' in diff) or ('src' in diff) or ('dst' in diff):
-            cleanup_key = {'gateway': snapshot['gateway'],
-                           'src': snapshot['src'],
-                           'dst': snapshot['dst']}
-        else:
-            cleanup_key = None
+        # FIXME
+        if 'ipdb_scope' in diff:
+            del diff['ipdb_scope']
 
         try:
             # route set
@@ -328,10 +309,26 @@ class Route(Transactional):
                        not any(diff.get('metrics', {}).values()),
                        any(snapshot['encap'].values()) and
                        not any(diff.get('encap', {}).values())]
-            if any(diff.values()) or any(cleanup):
-                self.ipdb.update_routes(
-                    self.nl.route('set', **transaction))
-
+            if any(diff.values()) or any(cleanup) or devop == 'add':
+                # prepare the anchor key to catch *possible* route update
+                old_key = make_route_key(self)
+                new_key = make_route_key(transaction)
+                if old_key != new_key:
+                    # assume we can not move routes between tables (yet ;)
+                    route_index = (self.ipdb
+                                   .routes
+                                   .tables[self['table'] or 254]
+                                   .idx)
+                    if new_key not in route_index:
+                        route_index[new_key] = {'key': new_key,
+                                                'route': self}
+                    else:
+                        raise CommitException('Route idx conflict')
+                    self.nl.route(devop, **transaction)
+                    del route_index[old_key]
+                else:
+                    self.nl.route(devop, **transaction)
+                transaction._wait_all_targets()
             # route removal
             if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
                     ((transaction['ipdb_scope'] == 'create') and rollback):
@@ -347,6 +344,12 @@ class Route(Transactional):
                     self.set_item('ipdb_scope', 'shadow')
 
         except Exception as e:
+            if devop == 'add':
+                self.nl = None
+                self.drop()
+                self.ipdb.routes.remove(self)
+                self.set_item('ipdb_scope', 'invalid')
+                raise
             if not rollback:
                 ret = self.commit(transaction=snapshot, rollback=True)
                 if isinstance(ret, Exception):
@@ -366,15 +369,6 @@ class Route(Transactional):
         if error is not None:
             error.transaction = transaction
             raise error
-
-        if cleanup_key:
-            # On route updates there is no RTM_DELROUTE -- we have to
-            # remove the route key manually. Save the key and use it
-            # if no exceptions occur
-            try:
-                del self.ipdb.routes.tables[self['table']][cleanup_key]
-            except Exception as e:
-                logging.warning('lost route key: %s' % cleanup_key)
 
         return self
 
@@ -430,7 +424,7 @@ class RoutingTable(object):
             target = {'dst': target}
 
         if not isinstance(target, dict):
-            raise TypeError('target type not supported')
+            raise TypeError('target type not supported: %s' % type(target))
 
         ret = []
         for record in self.idx.values():
@@ -562,14 +556,13 @@ class RoutingTableSet(object):
         if table not in self.tables:
             self.tables[table] = RoutingTable(self.ipdb)
         route = Route(self.ipdb)
-        multipath = spec.pop('multipath', [])
         route.update(spec)
+        multipath = spec.pop('multipath', [])
         route.set_item('ipdb_scope', 'create')
         self.tables[table][route['dst']] = route
         route.begin()
-        for nested in route._nested:
-            if nested in spec:
-                route[nested] = spec[nested]
+        for (key, value) in spec.items():
+            route[key] = value
         for nh in multipath:
             route.add_nh(nh)
         return route
