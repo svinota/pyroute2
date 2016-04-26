@@ -345,12 +345,16 @@ class Route(Transactional):
 
         except Exception as e:
             if devop == 'add':
+                error = e
                 self.nl = None
-                self.drop()
-                self.ipdb.routes.remove(self)
                 self.set_item('ipdb_scope', 'invalid')
-                raise
-            if not rollback:
+                route_index = (self.ipdb
+                               .routes
+                               .tables[self['table'] or 254]
+                               .idx)
+                route_key = make_route_key(self)
+                del route_index[route_key]
+            elif not rollback:
                 ret = self.commit(transaction=snapshot, rollback=True)
                 if isinstance(ret, Exception):
                     error = ret
