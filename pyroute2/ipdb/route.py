@@ -5,6 +5,9 @@ from collections import namedtuple
 from socket import AF_UNSPEC
 from pyroute2.common import basestring
 from pyroute2.netlink import nlmsg
+from pyroute2.netlink.rtnl import rt_type
+from pyroute2.netlink.rtnl import rt_proto
+from pyroute2.netlink.rtnl import encap_type
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh as rtmsg_nh
 from pyroute2.netlink.rtnl.req import IPRouteRequest
@@ -259,8 +262,14 @@ class Route(Transactional):
                 # set fields
                 for k in ret:
                     ret[k] = value.get(k, None)
-        else:
-            Transactional.__setitem__(self, key, ret)
+            return
+        elif key == 'encap_type' and not isinstance(value, int):
+            ret = encap_type.get(value, value)
+        elif key == 'type' and not isinstance(value, int):
+            ret = rt_type.get(value, value)
+        elif key == 'proto' and not isinstance(value, int):
+            ret = rt_proto.get(value, value)
+        Transactional.__setitem__(self, key, ret)
 
     def __getitem__(self, key):
         ret = Transactional.__getitem__(self, key)
