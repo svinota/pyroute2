@@ -535,6 +535,7 @@ class TestExplicit(BasicSetup):
         assert grep('ip ro', pattern='nexthop.*172.16.231.5.*weight.*51')
         assert grep('ip ro', pattern='nexthop.*172.16.231.3.*weight.*31')
         assert grep('ip ro', pattern='nexthop.*172.16.231.4.*weight.*1')
+        assert not grep('ip ro', pattern='nexthop.*172.16.231.2.*weight.*21')
 
     def test_routes_metrics(self):
         require_user('root')

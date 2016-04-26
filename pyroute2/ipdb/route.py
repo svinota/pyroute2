@@ -41,10 +41,15 @@ class NextHopSet(LinkedSet):
         return ret
 
     def __make_nh(self, prime):
-        return (prime.get('flags', 0),
-                prime.get('hops', 0),
-                prime.get('ifindex', 0),
-                prime.get('gateway'))
+        if isinstance(prime, tuple):
+            return prime
+        elif isinstance(prime, dict):
+            return (prime.get('flags', 0),
+                    prime.get('hops', 0),
+                    prime.get('ifindex', 0),
+                    prime.get('gateway'))
+        else:
+            raise TypeError("unknown prime type")
 
     def __getitem__(self, key):
         return dict(zip(('flags', 'hops', 'ifindex', 'gateway'), key))
@@ -55,10 +60,10 @@ class NextHopSet(LinkedSet):
                 yield self[x]
         return NHIterator()
 
-    def add(self, prime, raw=None):
+    def add(self, prime, raw=None, cascade=False):
         return super(NextHopSet, self).add(self.__make_nh(prime))
 
-    def remove(self, prime, raw=None):
+    def remove(self, prime, raw=None, cascade=False):
         hit = False
         for nh in self:
             for key in prime:
@@ -145,7 +150,6 @@ class Route(Transactional):
         Transactional.__init__(self, ipdb, mode, parent, uid)
         self._load_event = threading.Event()
         with self._direct_state:
-            self['multipath'] = NextHopSet()
             self['ipdb_priority'] = 0
 
     def add_nh(self, prime):
@@ -182,7 +186,6 @@ class Route(Transactional):
                             rtax_norm = rtmsg.metrics.nla2name(rtax)
                             self['metrics'][rtax_norm] = rtax_value
                 elif norm == 'multipath':
-                    self['multipath'] = NextHopSet()
                     for v in value:
                         nh = {}
                         for name in [x[0] for x in rtmsg_nh.fields]:
@@ -264,6 +267,19 @@ class Route(Transactional):
                 for k in ret:
                     ret[k] = value.get(k, None)
             return
+        elif key == 'multipath':
+            cur = Transactional.__getitem__(self, key)
+            if isinstance(cur, NextHopSet):
+                # load entries
+                vs = NextHopSet(value)
+                for key in vs - cur:
+                    cur.add(key)
+                for key in cur - vs:
+                    cur.remove(key)
+            else:
+                # drop any result of `update()`
+                Transactional.__setitem__(self, key, NextHopSet(value))
+            return
         elif key == 'encap_type' and not isinstance(value, int):
             ret = encap_type.get(value, value)
         elif key == 'type' and not isinstance(value, int):
@@ -274,9 +290,9 @@ class Route(Transactional):
 
     def __getitem__(self, key):
         ret = Transactional.__getitem__(self, key)
-        if (key in ('encap', 'metrics')) and (ret is None):
+        if (key in ('encap', 'metrics', 'multipath')) and (ret is None):
             with self._direct_state:
-                self[key] = {}
+                self[key] = [] if key == 'multipath' else {}
                 ret = self[key]
         return ret
 
@@ -569,9 +585,9 @@ class RoutingTableSet(object):
             raise ValueError('dst not specified')
         if table not in self.tables:
             self.tables[table] = RoutingTable(self.ipdb)
+        multipath = spec.pop('multipath', [])
         route = Route(self.ipdb)
         route.update(spec)
-        multipath = spec.pop('multipath', [])
         route.set_item('ipdb_scope', 'create')
         self.tables[table][route['dst']] = route
         route.begin()
