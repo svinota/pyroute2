@@ -167,9 +167,10 @@ class Route(Transactional):
                 return
 
             self['ipdb_scope'] = 'system'
-            self.update(msg)
+            for (key, value) in msg.items():
+                self[key] = value
 
-            # merge key
+            # merge NLA
             for (name, value) in msg['attrs']:
                 norm = rtmsg.nla2name(name)
                 # normalize RTAX
