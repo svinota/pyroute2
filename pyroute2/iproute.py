@@ -99,11 +99,9 @@ from pyroute2.netlink.rtnl import RTM_DELNEIGH
 from pyroute2.netlink.rtnl import RTM_SETLINK
 from pyroute2.netlink.rtnl import RTM_GETNEIGHTBL
 from pyroute2.netlink.rtnl import TC_H_ROOT
-from pyroute2.netlink.rtnl import rt_proto
 from pyroute2.netlink.rtnl import rt_type
-from pyroute2.netlink.rtnl import rtprotos
-from pyroute2.netlink.rtnl import rtypes
-from pyroute2.netlink.rtnl import rtscopes
+from pyroute2.netlink.rtnl import rt_scope
+from pyroute2.netlink.rtnl import rt_proto
 from pyroute2.netlink.rtnl.req import IPLinkRequest
 from pyroute2.netlink.rtnl.req import IPBridgeRequest
 from pyroute2.netlink.rtnl.req import IPRouteRequest
@@ -1414,15 +1412,15 @@ class IPRouteMixin(object):
         flags_replace = flags_change | NLM_F_CREATE
         # 8<----------------------------------------------------
         # transform kwarg
+
+        if command in ('add', 'set', 'replace', 'change'):
+            kwarg['proto'] = kwarg.get('proto', 'static') or 'static'
+            kwarg['type'] = kwarg.get('type', 'unicast') or 'unicast'
         kwarg = IPRouteRequest(kwarg)
         if command == 'dump':
             match = kwarg
         else:
             match = kwarg.pop('match', None)
-
-        if command in ('add', 'set', 'replace', 'change'):
-            kwarg['proto'] = kwarg.get('proto', 'static')
-            kwarg['type'] = kwarg.get('type', 'unicast')
 
         commands = {'add': (RTM_NEWROUTE, flags_make),
                     'set': (RTM_NEWROUTE, flags_replace),
@@ -1442,31 +1440,14 @@ class IPRouteMixin(object):
         table = kwarg.get('table', 254)
         msg['table'] = table if table <= 255 else 252
         msg['family'] = kwarg.pop('family', AF_INET)
-        msg['scope'] = rtscopes[kwarg.pop('rtscope', 'RT_SCOPE_UNIVERSE')]
+        msg['scope'] = kwarg.pop('scope', rt_scope['universe'])
         msg['dst_len'] = kwarg.pop('dst_len', None) or kwarg.pop('mask', 0)
         msg['src_len'] = kwarg.pop('src_len', 0)
         msg['tos'] = kwarg.pop('tos', 0)
         msg['flags'] = kwarg.pop('flags', 0)
+        msg['type'] = kwarg.pop('type', rt_type['unspec'])
+        msg['proto'] = kwarg.pop('proto', rt_proto['unspec'])
         msg['attrs'] = []
-        # deprecate rtproto, rtype
-        if 'rtproto' in kwarg:
-            logging.warning('`rtproto` argument is deprecated, see docs')
-            msg['proto'] = rtprotos[kwarg.pop('rtproto', 'RTPROT_STATIC')]
-        if 'rtype' in kwarg:
-            logging.warning('`rtype` argument is deprecated, see docs')
-            msg['type'] = rtypes[kwarg.pop('rtype', 'RTN_UNICAST')]
-        #
-        if 'proto' in kwarg:
-            msg['proto'] = rt_proto.get(kwarg['proto'], kwarg['proto'])
-            del kwarg['proto']
-        if 'type' in kwarg:
-            msg['type'] = rt_type.get(kwarg['type'], kwarg['type'])
-            del kwarg['type']
-
-        # deprecated "prefix" support:
-        if 'prefix' in kwarg:
-            logging.warning('`prefix` argument is deprecated, use `dst`')
-            kwarg['dst'] = kwarg.pop('prefix')
 
         for key in kwarg:
             nla = rtmsg.name2nla(key)
