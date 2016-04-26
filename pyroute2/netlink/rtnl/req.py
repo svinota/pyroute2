@@ -1,6 +1,10 @@
 from socket import AF_INET6
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
+from pyroute2.netlink.rtnl import rt_type
+from pyroute2.netlink.rtnl import rt_proto
+from pyroute2.netlink.rtnl import rt_scope
+from pyroute2.netlink.rtnl import encap_type
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
@@ -30,6 +34,10 @@ class IPRouteRequest(IPRequest):
     Utility class, that converts human-readable dictionary
     into RTNL route request.
     '''
+    resolve = {'encap_type': encap_type,
+               'type': rt_type,
+               'proto': rt_proto,
+               'scope': rt_scope}
 
     def encap_header(self, header):
         '''
@@ -96,9 +104,10 @@ class IPRouteRequest(IPRequest):
                 dict.__setitem__(self, 'dst', dst)
                 if mask:
                     dict.__setitem__(self, 'dst_len', mask)
-        elif key == 'encap_type':
-            if value is not None:
-                dict.__setitem__(self, key, value)
+        elif key in self.resolve.keys():
+            if isinstance(value, basestring):
+                value = self.resolve[key][value]
+            dict.__setitem__(self, key, value)
         elif key == 'encap':
             if isinstance(value, dict):
                 # human-friendly form:
