@@ -141,6 +141,7 @@ class Transactional(Dotkeys):
         self._sids = []
         self._ts = threading.local()
         self._snapshots = {}
+        self._tx = {}
         self._targets = {}
         self._local_targets = {}
         self._write_lock = threading.RLock()
@@ -278,6 +279,7 @@ class Transactional(Dotkeys):
     def revert(self, sid):
         with self._write_lock:
             self._transactions[sid] = self._snapshots[sid]
+            self._tx[sid] = self._snapshots[sid]
             self._tids.append(sid)
             self._sids.remove(sid)
             del self._snapshots[sid]
@@ -313,11 +315,12 @@ class Transactional(Dotkeys):
             raise RuntimeError("Can't start transaction on released IPDB")
         t = self.pick(detached=False, uid=tid)
         self._transactions[t.uid] = t
+        self._tx[t.uid] = t
         self._tids.append(t.uid)
         for key, value in t.items():
             if isinstance(value, Transactional):
                 value._begin(tid=t.uid)
-                t[key] = value._transactions[t.uid]
+                t[key] = value._tx[t.uid]
         return t.uid
 
     def last_snapshot(self):
@@ -394,6 +397,7 @@ class Transactional(Dotkeys):
                         pass
             # finally -- delete the transaction
             del self._transactions[tid]
+            del self._tx[tid]
 
     @update
     def __setitem__(self, direct, key, value):
@@ -414,7 +418,7 @@ class Transactional(Dotkeys):
                     self._local_targets[key].set()
 
             # cascade update on nested targets
-            for tn in tuple(self._transactions.values()):
+            for tn in tuple(self._tx.values()):
                 if (key in tn._targets) and (key in tn):
                     if self._fields_cmp.\
                             get(key, lambda x, y: x == y)(value, tn[key]):
