@@ -719,80 +719,90 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # IP address changes
-            self['ipaddr'].set_target(transaction['ipaddr'])
+            for _ in range(3):
+                self['ipaddr'].set_target(transaction['ipaddr'])
+                ip_added = transaction['ipaddr'] - self['ipaddr']
+                ip_removed = self['ipaddr'] - transaction['ipaddr']
 
-            # The promote_secondaries sysctl causes the kernel
-            # to add secondary addresses back after the primary
-            # address is removed.
-            #
-            # The library can not tell this from the result of
-            # an external program.
-            #
-            # One simple way to work that around is to remove
-            # secondaries first.
-            rip = sorted(removed['ipaddr'],
-                         key=lambda x: self['ipaddr'][x]['flags'],
-                         reverse=True)
-            # 8<--------------------------------------
-            for i in rip:
-                # Ignore link-local IPv6 addresses
-                if i[0][:4] == 'fe80' and i[1] == 64:
-                    continue
-                # When you remove a primary IP addr, all the
-                # subnetwork can be removed. In this case you
-                # will fail, but it is OK, no need to roll back
-                try:
-                    run(nl.addr, 'delete', self['index'], i[0], i[1])
-                except NetlinkError as x:
-                    # bypass only errno 99,
-                    # 'Cannot assign address'
-                    if x.code != errno.EADDRNOTAVAIL:
-                        raise
-                except socket.error as x:
-                    # bypass illegal IP requests
-                    if isinstance(x.args[0], basestring) and \
-                            x.args[0].startswith('illegal IP'):
+                ###
+                # Removed
+                #
+                # The promote_secondaries sysctl causes the kernel
+                # to add secondary addresses back after the primary
+                # address is removed.
+                #
+                # The library can not tell this from the result of
+                # an external program.
+                #
+                # One simple way to work that around is to remove
+                # secondaries first.
+                rip = sorted(ip_removed,
+                             key=lambda x: self['ipaddr'][x]['flags'],
+                             reverse=True)
+                # 8<--------------------------------------
+                for i in rip:
+                    # Ignore link-local IPv6 addresses
+                    if i[0][:4] == 'fe80' and i[1] == 64:
                         continue
-                    raise
+                    # When you remove a primary IP addr, all the
+                    # subnetwork can be removed. In this case you
+                    # will fail, but it is OK, no need to roll back
+                    try:
+                        run(nl.addr, 'delete', self['index'], i[0], i[1])
+                    except NetlinkError as x:
+                        # bypass only errno 99,
+                        # 'Cannot assign address'
+                        if x.code != errno.EADDRNOTAVAIL:
+                            raise
+                    except socket.error as x:
+                        # bypass illegal IP requests
+                        if isinstance(x.args[0], basestring) and \
+                                x.args[0].startswith('illegal IP'):
+                            continue
+                        raise
 
-            # 8<--------------------------------------
-            for i in added['ipaddr']:
-                # Ignore link-local IPv6 addresses
-                if i[0][:4] == 'fe80' and i[1] == 64:
-                    continue
-                # Try to fetch additional address attributes
-                try:
-                    kwarg = dict([k for k in transaction.ipaddr[i].items()
-                                  if k[0] in ('broadcast',
-                                              'anycast',
-                                              'scope')])
-                except KeyError:
-                    kwarg = None
-                # feed the address to the OS
-                run(nl.addr, 'add', self['index'], i[0], i[1],
-                    **kwarg if kwarg else {})
+                # 8<--------------------------------------
+                for i in ip_added:
+                    # Ignore link-local IPv6 addresses
+                    if i[0][:4] == 'fe80' and i[1] == 64:
+                        continue
+                    # Try to fetch additional address attributes
+                    try:
+                        kwarg = dict([k for k in transaction.ipaddr[i].items()
+                                      if k[0] in ('broadcast',
+                                                  'anycast',
+                                                  'scope')])
+                    except KeyError:
+                        kwarg = None
+                    # feed the address to the OS
+                    run(nl.addr, 'add', self['index'], i[0], i[1],
+                        **kwarg if kwarg else {})
 
-            # 8<--------------------------------------
-            if (not transaction.partial) and \
-                    (removed['ipaddr'] or added['ipaddr']):
                 # 8<--------------------------------------
-                # bond and bridge interfaces do not send
-                # IPv6 address updates, when are down
-                #
-                # beside of that, bridge interfaces are
-                # down by default, so they never send
-                # address updates from beginning
-                #
-                # so if we need, force address load
-                #
-                # FIXME: probably, we should handle other
-                # types as well
-                if self['kind'] in ('bond', 'bridge', 'veth'):
-                    self.ipdb.update_addr(self.nl.get_addr(), 'add')
-                # 8<--------------------------------------
-                self['ipaddr'].target.wait(SYNC_TIMEOUT)
-                if not self['ipaddr'].target.is_set():
-                    raise CommitException('ipaddr target is not set')
+                if (not transaction.partial) and \
+                        (removed['ipaddr'] or added['ipaddr']):
+                    # 8<--------------------------------------
+                    # bond and bridge interfaces do not send
+                    # IPv6 address updates, when are down
+                    #
+                    # beside of that, bridge interfaces are
+                    # down by default, so they never send
+                    # address updates from beginning
+                    #
+                    # so if we need, force address load
+                    #
+                    # FIXME: probably, we should handle other
+                    # types as well
+                    if self['kind'] in ('bond', 'bridge', 'veth'):
+                        self.ipdb.update_addr(self.nl.get_addr(), 'add')
+                    # 8<--------------------------------------
+                    self['ipaddr'].target.wait(SYNC_TIMEOUT)
+                    if self['ipaddr'].target.is_set():
+                        break
+                else:
+                    break
+            else:
+                raise CommitException('ipaddr target is not set')
 
             # 8<---------------------------------------------
             # Iterate callback chain
