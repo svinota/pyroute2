@@ -243,7 +243,7 @@ class Interface(Transactional):
                 if (config.kernel[0] < 3) and \
                         (not dev.get_attr('IFLA_AF_SPEC')):
                     return
-            self['ipdb_scope'] = 'system'
+
             if self.ipdb.debug:
                 self.nlmsg = dev
             for (name, value) in dev.items():
@@ -296,6 +296,7 @@ class Interface(Transactional):
             if self.get('master', None) == self['index']:
                 self['master'] = None
 
+            self['ipdb_scope'] = 'system'
             self.sync()
 
     def sync(self):
@@ -465,6 +466,20 @@ class Interface(Transactional):
         Commit transaction. In the case of exception all
         changes applied during commit will be reverted.
         '''
+        def invalidate():
+            # on failure, invalidate the interface and detach it
+            # from the parent
+            # 1. drop the IPRoute() link
+            self.nl = None
+            # 2. clean up ipdb
+            self.detach()
+            # 3. invalidate the interface
+            with self._direct_state:
+                for i in tuple(self.keys()):
+                    del self[i]
+            # 4. the rest
+            self._mode = 'invalid'
+
         error = None
         added = None
         removed = None
@@ -479,16 +494,13 @@ class Interface(Transactional):
         if transaction.partial:
             transaction.errors = []
 
-        wd = None
         with self._write_lock:
             # if the interface does not exist, create it first ;)
             if self['ipdb_scope'] != 'system':
                 request = IPLinkRequest(self.filter('common'))
 
-                # create watchdog
-                wd = self.ipdb.watchdog(ifname=self['ifname'])
-
                 newif = True
+                self.set_target('ipdb_scope', 'system')
                 try:
                     # 8<----------------------------------------------------
                     # ACHTUNG: hack for old platforms
@@ -530,18 +542,7 @@ class Interface(Transactional):
                         else:
                             raise
                 except Exception as e:
-                    # on failure, invalidate the interface and detach it
-                    # from the parent
-                    # 1. drop the IPRoute() link
-                    self.nl = None
-                    # 2. clean up ipdb
-                    self.detach()
-                    # 3. invalidate the interface
-                    with self._direct_state:
-                        for i in tuple(self.keys()):
-                            del self[i]
-                    # 4. the rest
-                    self._mode = 'invalid'
+                    invalidate()
                     self._exception = e
                     self._tb = traceback.format_exc()
                     # raise the exception
@@ -551,10 +552,13 @@ class Interface(Transactional):
                     else:
                         raise
 
-        if wd is not None:
+        if newif:
             # Here we come only if the new interface is created
             #
-            wd.wait()
+            if not self.wait_target('ipdb_scope'):
+                invalidate()
+                raise CreateException()
+
             if self['index'] == 0:
                 # Only the interface creation time issue on
                 # old or compat platforms. The interface index
