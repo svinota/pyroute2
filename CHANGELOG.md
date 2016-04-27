@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.3.22
+    * ipdb: multiple performance improvements
+    * ipdb: #241, #234 -- fix `create(..., reuse=True)`
+    * ipdb: #239 -- route encap and metrics fixed
+    * ipdb: #238 -- generic port management
+    * ipdb: #235 -- support route scope and type
+    * ipdb: #230, #232 -- routes GC (work in progress)
+    * rtnl: #233 -- support VRF interfaces (requires net-next)
 * 0.3.21
     * ipdb: #231 -- return `ipdb.common` as deprecated
 * 0.3.20
