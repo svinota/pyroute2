@@ -455,9 +455,11 @@ class Transactional(Dotkeys):
     def set_target(self, key, value):
         self._local_targets[key] = threading.Event()
         self._local_targets[key].value = value
+        return self
 
     def mirror_target(self, key_from, key_to):
         self._local_targets[key_to] = self._local_targets[key_from]
+        return self
 
     def set(self, key, value):
         self[key] = value
