@@ -452,6 +452,10 @@ class Transactional(Dotkeys):
                 if not target.is_set():
                     raise CommitException('target %s is not set' % key)
 
+    def wait_target(self, key, timeout=SYNC_TIMEOUT):
+        self._local_targets[key].wait(SYNC_TIMEOUT)
+        return self._local_targets.pop(key).is_set()
+
     def set_target(self, key, value):
         self._local_targets[key] = threading.Event()
         self._local_targets[key].value = value
