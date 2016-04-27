@@ -1047,6 +1047,9 @@ class TestExplicit(BasicSetup):
         with b:
             b.add_port(p)
 
+        # IPDB doesn't sync on implicit vlans, so we have to
+        # wait here
+        time.sleep(1)
         assert len(p.vlans) == 1
 
         with p:
