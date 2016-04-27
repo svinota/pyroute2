@@ -460,47 +460,6 @@ class Interface(Transactional):
         else:
             return self.ipdb.interfaces.get(port, {}).get('index', None)
 
-    def _commit_add_ip(self, addrs, transaction):
-        for i in addrs:
-            # Ignore link-local IPv6 addresses
-            if i[0][:4] == 'fe80' and i[1] == 64:
-                continue
-            # Try to fetch additional address attributes
-            try:
-                kwarg = dict([k for k in transaction.ipaddr[i].items()
-                              if k[0] in ('broadcast',
-                                          'anycast',
-                                          'scope')])
-            except KeyError:
-                kwarg = None
-            # feed the address to the OS
-            transaction._run(transaction.nl.addr, 'add',
-                             self['index'], i[0], i[1],
-                             **kwarg if kwarg else {})
-
-            # 8<--------------------------------------
-            # FIXME: kernel bug, sometimes `addr add` for
-            # bond interfaces returns success, but does
-            # really nothing
-
-            if self['kind'] == 'bond':
-                while True:
-                    try:
-                        # dirtiest hack, but we have to use it here
-                        self.nl.addr('add', self['index'], i[0], i[1])
-                        time.sleep(0.1)
-                    # continue to try to add the address
-                    # until the kernel reports `file exists`
-                    #
-                    # a stupid solution, but must help
-                    except NetlinkError as e:
-                        if e.code == errno.EEXIST:
-                            break
-                        else:
-                            raise
-                    except Exception:
-                        raise
-
     def commit(self, tid=None, transaction=None, rollback=False, newif=False):
         '''
         Commit transaction. In the case of exception all
@@ -686,24 +645,20 @@ class Interface(Transactional):
             for i in removed['ports']:
                 # detach port
                 if i in self.ipdb.interfaces:
-                    port = self.ipdb.interfaces[i]
-                    port.set_target('master', None)
-                    port.mirror_target('master', 'link')
-                    run(nl.link, 'set',
-                        index=port['index'],
-                        master=0)
+                    (self.ipdb.interfaces[i]
+                     .set_target('master', None)
+                     .mirror_target('master', 'link'))
+                    run(nl.link, 'set', index=i, master=0)
                 else:
                     transaction.errors.append(KeyError(i))
 
             for i in added['ports']:
                 # attach port
                 if i in self.ipdb.interfaces:
-                    port = self.ipdb.interfaces[i]
-                    port.set_target('master', self['index'])
-                    port.mirror_target('master', 'link')
-                    run(nl.link, 'set',
-                        index=port['index'],
-                        master=self['index'])
+                    (self.ipdb.interfaces[i]
+                     .set_target('master', self['index'])
+                     .mirror_target('master', 'link'))
+                    run(nl.link, 'set', index=i, master=self['index'])
                 else:
                     transaction.errors.append(KeyError(i))
 
@@ -783,13 +738,14 @@ class Interface(Transactional):
                 # Ignore link-local IPv6 addresses
                 if i[0][:4] == 'fe80' and i[1] == 64:
                     continue
-                # When you remove a primary IP addr, all subnetwork
-                # can be removed. In this case you will fail, but
-                # it is OK, no need to roll back
+                # When you remove a primary IP addr, all the
+                # subnetwork can be removed. In this case you
+                # will fail, but it is OK, no need to roll back
                 try:
                     run(nl.addr, 'delete', self['index'], i[0], i[1])
                 except NetlinkError as x:
-                    # bypass only errno 99, 'Cannot assign address'
+                    # bypass only errno 99,
+                    # 'Cannot assign address'
                     if x.code != errno.EADDRNOTAVAIL:
                         raise
                 except socket.error as x:
@@ -800,30 +756,21 @@ class Interface(Transactional):
                     raise
 
             # 8<--------------------------------------
-            target = added['ipaddr']
-            for _ in range(3):  # just to be sure
-                self._commit_add_ip(target, transaction)
-                if transaction.partial:
-                    break
-                for _ in range(3):
-                    # sometimes addr("dump") after addr("add")
-                    # fails with EBUSY, so try again
-                    try:
-                        real = set([(m.get_attr('IFA_ADDRESS'),
-                                     m.get('prefixlen')) for m
-                                    in self.nl.get_addr(index=self.index)])
-                        break
-                    except NetlinkError as x:
-                        if x.code == errno.EBUSY:
-                            time.sleep(0.5)
-                        else:
-                            raise
-                if real >= set(transaction['ipaddr']):
-                    break
-                else:
-                    target = set(transaction['ipaddr']) - real
-            else:
-                raise CommitException('ipaddr setup error')
+            for i in added['ipaddr']:
+                # Ignore link-local IPv6 addresses
+                if i[0][:4] == 'fe80' and i[1] == 64:
+                    continue
+                # Try to fetch additional address attributes
+                try:
+                    kwarg = dict([k for k in transaction.ipaddr[i].items()
+                                  if k[0] in ('broadcast',
+                                              'anycast',
+                                              'scope')])
+                except KeyError:
+                    kwarg = None
+                # feed the address to the OS
+                run(nl.addr, 'add', self['index'], i[0], i[1],
+                    **kwarg if kwarg else {})
 
             # 8<--------------------------------------
             if (not transaction.partial) and \
