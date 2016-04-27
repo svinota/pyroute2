@@ -148,7 +148,6 @@ class Route(Transactional):
 
     def __init__(self, ipdb, mode=None, parent=None, uid=None):
         Transactional.__init__(self, ipdb, mode, parent, uid)
-        self._load_event = threading.Event()
         with self._direct_state:
             self['ipdb_priority'] = 0
 
@@ -232,8 +231,6 @@ class Route(Transactional):
                 if item in self:
                     del self[item]
 
-            self.sync()
-
     def __setitem__(self, key, value):
         ret = value
         if (key in ('encap', 'metrics')) and isinstance(value, dict):
@@ -296,16 +293,7 @@ class Route(Transactional):
                 ret = self[key]
         return ret
 
-    def sync(self):
-        self._load_event.set()
-
-    def reload(self):
-        # do NOT call get_routes() here, it can cause race condition
-        # self._load_event.wait()
-        return self
-
     def commit(self, tid=None, transaction=None, rollback=False):
-        self._load_event.clear()
         error = None
         drop = True
         devop = 'set'
@@ -625,8 +613,6 @@ class RoutingTableSet(object):
                 if record['ipdb_scope'] not in ('locked', 'shadow'):
                     del self.tables[table][key]
                     record.set_item('ipdb_scope', 'detached')
-                # sync ???
-                record.sync()
             except Exception as e:
                 logging.debug(e)
                 logging.debug(msg)

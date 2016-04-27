@@ -496,7 +496,6 @@ class IPDB(object):
         self._cb_threads = {}
 
         # locks and events
-        self._links_event = threading.Event()
         self.exclusive = threading.RLock()
         self._shutdown_lock = threading.Lock()
 
@@ -932,7 +931,6 @@ class IPDB(object):
             return
         # check for locked devices
         if target.get('ipdb_scope') in ('locked', 'shadow'):
-            self.interfaces[msg['index']].sync()
             return
         self.detach(None, msg['index'], msg)
 
@@ -1001,7 +999,6 @@ class IPDB(object):
             else:
                 target = self.interfaces[idx]
                 name = target['ifname']
-            target.sync()
             self.interfaces.pop(name, None)
             self.interfaces.pop(idx, None)
             self.ipaddr.pop(idx, None)
@@ -1175,7 +1172,6 @@ class IPDB(object):
                     if msg.get('event', None) in ('RTM_NEWLINK',
                                                   'RTM_DELLINK'):
                         self.update_dev(msg)
-                        self._links_event.set()
                     elif msg.get('event', None) == 'RTM_NEWADDR':
                         self.update_addr([msg], 'add')
                     elif msg.get('event', None) == 'RTM_DELADDR':

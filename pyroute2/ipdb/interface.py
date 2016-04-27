@@ -1,7 +1,6 @@
 import time
 import errno
 import socket
-import threading
 import traceback
 from pyroute2 import config
 from pyroute2.common import basestring
@@ -99,7 +98,6 @@ class Interface(Transactional):
         self.partial = False
         self._exception = None
         self._tb = None
-        self._load_event = threading.Event()
         self._linked_sets.add('ipaddr')
         self._linked_sets.add('ports')
         self._linked_sets.add('vlans')
@@ -297,10 +295,6 @@ class Interface(Transactional):
                 self['master'] = None
 
             self['ipdb_scope'] = 'system'
-            self.sync()
-
-    def sync(self):
-        self._load_event.set()
 
     def wait_ip(self, *argv, **kwarg):
         return self['ipaddr'].wait_ip(*argv, **kwarg)
