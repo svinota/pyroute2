@@ -412,10 +412,11 @@ class Transactional(Dotkeys):
             Dotkeys.__setitem__(self, key, value)
 
             # update on local targets
-            if key in self._local_targets:
-                func = self._fields_cmp.get(key, lambda x, y: x == y)
-                if func(value, self._local_targets[key].value):
-                    self._local_targets[key].set()
+            with self._write_lock:
+                if key in self._local_targets:
+                    func = self._fields_cmp.get(key, lambda x, y: x == y)
+                    if func(value, self._local_targets[key].value):
+                        self._local_targets[key].set()
 
             # cascade update on nested targets
             for tn in tuple(self._tx.values()):
@@ -454,16 +455,19 @@ class Transactional(Dotkeys):
 
     def wait_target(self, key, timeout=SYNC_TIMEOUT):
         self._local_targets[key].wait(SYNC_TIMEOUT)
-        return self._local_targets.pop(key).is_set()
+        with self._write_lock:
+            return self._local_targets.pop(key).is_set()
 
     def set_target(self, key, value):
-        self._local_targets[key] = threading.Event()
-        self._local_targets[key].value = value
-        return self
+        with self._write_lock:
+            self._local_targets[key] = threading.Event()
+            self._local_targets[key].value = value
+            return self
 
     def mirror_target(self, key_from, key_to):
-        self._local_targets[key_to] = self._local_targets[key_from]
-        return self
+        with self._write_lock:
+            self._local_targets[key_to] = self._local_targets[key_from]
+            return self
 
     def set(self, key, value):
         self[key] = value
