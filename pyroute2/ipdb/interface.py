@@ -621,18 +621,22 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # Port vlans
+            if added['vlans']:
+                transaction['vlans'].add(1)
             self['vlans'].set_target(transaction['vlans'])
             for i in removed['vlans']:
-                # remove vlan from the port
-                run(nl.vlan_filter, 'del',
-                    index=self['index'],
-                    vlan_info=self['vlans'][i])
+                if i != 1:
+                    # remove vlan from the port
+                    run(nl.vlan_filter, 'del',
+                        index=self['index'],
+                        vlan_info=self['vlans'][i])
 
             for i in added['vlans']:
-                # add vlan to the port
-                run(nl.vlan_filter, 'add',
-                    index=self['index'],
-                    vlan_info=transaction['vlans'][i])
+                if i != 1:
+                    # add vlan to the port
+                    run(nl.vlan_filter, 'add',
+                        index=self['index'],
+                        vlan_info=transaction['vlans'][i])
 
             if (not transaction.partial) and \
                     (removed['vlans'] or added['vlans']):
