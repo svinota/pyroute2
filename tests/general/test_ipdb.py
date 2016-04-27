@@ -1780,17 +1780,22 @@ class TestMisc(object):
                 assert async in (True, False)
                 raise NotImplementedError('mock thee')
 
+            def clone(self):
+                self.called.add('clone')
+                self.mnl = type(self)()
+                return self.mnl
+
             def close(self):
                 self.called.add('close')
-                raise NotImplementedError('mock thee')
 
-        mnl = MockNL()
+        mock = MockNL()
         try:
-            IPDB(nl=mnl)
+            IPDB(nl=mock)
         except NotImplementedError:
             pass
 
-        assert mnl.called == set(('bind', 'close'))
+        assert mock.called == set(('clone', 'close'))
+        assert mock.mnl.called == set(('bind', 'close'))
 
     def test_context_manager(self):
         with IPDB() as ip:
