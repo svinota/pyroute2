@@ -636,8 +636,7 @@ class Interface(Transactional):
                         index=self['index'],
                         vlan_info=transaction['vlans'][i])
 
-            if (not transaction.partial) and \
-                    (removed['vlans'] or added['vlans']):
+            if removed['vlans'] or added['vlans']:
                 self['vlans'].target.wait(SYNC_TIMEOUT)
                 if not self['vlans'].target.is_set():
                     raise CommitException('vlans target is not set')
@@ -665,8 +664,7 @@ class Interface(Transactional):
                 else:
                     transaction.errors.append(KeyError(i))
 
-            if (not transaction.partial) and \
-                    (removed['ports'] or added['ports']):
+            if removed['ports'] or added['ports']:
                 self['ports'].target.wait(SYNC_TIMEOUT)
                 if not self['ports'].target.is_set():
                     raise CommitException('ports target is not set')
@@ -705,7 +703,7 @@ class Interface(Transactional):
                 run(nl.link, 'set', **request)
                 # hardcoded pause -- if the interface was moved
                 # across network namespaces
-                if not transaction.partial and 'net_ns_fd' in request:
+                if 'net_ns_fd' in request:
                     while True:
                         # wait until the interface will disappear
                         # from the main network namespace
@@ -782,8 +780,7 @@ class Interface(Transactional):
                         **kwarg if kwarg else {})
 
                 # 8<--------------------------------------
-                if (not transaction.partial) and \
-                        (removed['ipaddr'] or added['ipaddr']):
+                if removed['ipaddr'] or added['ipaddr']:
                     # 8<--------------------------------------
                     # bond and bridge interfaces do not send
                     # IPv6 address updates, when are down
