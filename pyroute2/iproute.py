@@ -117,6 +117,7 @@ from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
 from pyroute2.netlink.rtnl.iprsocket import RawIPRSocket
 
+from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
 from pyroute2.common import getbroadcast
 from pyroute2.netlink.exceptions import NetlinkError
@@ -1448,6 +1449,11 @@ class IPRouteMixin(object):
         msg['type'] = kwarg.pop('type', rt_type['unspec'])
         msg['proto'] = kwarg.pop('proto', rt_proto['unspec'])
         msg['attrs'] = []
+
+        if msg['family'] == AF_MPLS:
+            for key in tuple(kwarg):
+                if key not in ('dst', 'newdst', 'via', 'multipath', 'oif'):
+                    kwarg.pop(key)
 
         for key in kwarg:
             nla = rtmsg.name2nla(key)
