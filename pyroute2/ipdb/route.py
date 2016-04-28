@@ -3,6 +3,7 @@ import logging
 import threading
 from collections import namedtuple
 from socket import AF_UNSPEC
+from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl import rt_type
@@ -76,6 +77,14 @@ class NextHopSet(LinkedSet):
             raise KeyError('nexthop not found')
 
 
+class WatchdogMPLSKey(dict):
+
+    def __init__(self, route):
+        dict.__init__(self)
+        self['oif'] = route['oif']
+        self['dst'] = [{'ttl': 0, 'bos': 1, 'tc': 0, 'label': route['dst']}]
+
+
 class WatchdogKey(dict):
     '''
     Construct from a route a dictionary that could be used as
@@ -93,6 +102,9 @@ class WatchdogKey(dict):
                                          'table') and x[1]])
 
 
+MPLSKey = namedtuple('MPLSKey',
+                     ('oif',
+                      'dst'))
 RouteKey = namedtuple('RouteKey',
                       ('src',
                        'dst',
@@ -102,33 +114,7 @@ RouteKey = namedtuple('RouteKey',
 RouteKey._required = 3  # number of required fields (should go first)
 
 
-def make_route_key(msg):
-    '''
-    Construct from a netlink message a key that can be used
-    to locate the route in the table
-    '''
-    values = []
-    if isinstance(msg, nlmsg):
-        for field in RouteKey._fields:
-            v = msg.get_attr(msg.name2nla(field))
-            if field in ('src', 'dst'):
-                if v is not None:
-                    v = '%s/%s' % (v, msg['%s_len' % field])
-                elif field == 'dst':
-                    v = 'default'
-            if v is None:
-                v = msg.get(field, None)
-            values.append(v)
-    elif isinstance(msg, Transactional):
-        for field in RouteKey._fields:
-            v = msg.get(field, None)
-            values.append(v)
-    else:
-        raise TypeError('prime not supported')
-    return RouteKey(*values)
-
-
-class Route(Transactional):
+class BaseRoute(Transactional):
     '''
     Persistent transactional route object
     '''
@@ -140,7 +126,7 @@ class Route(Transactional):
     _virtual_fields = ['ipdb_scope', 'ipdb_priority']
     _fields.extend(_virtual_fields)
     _linked_sets = ['multipath', ]
-    _nested = ['encap', 'metrics']
+    _nested = []
     cleanup = ('attrs',
                'header',
                'event',
@@ -199,14 +185,21 @@ class Route(Transactional):
                         for l in value.get_attr('MPLS_IPTUNNEL_DST'):
                             ret.append(str(l['label']))
                         self['encap']['labels'] = '/'.join(ret)
+                elif norm == 'newdst':
+                    self['newdst'] = [x['label'] for x in value]
                 else:
                     self[norm] = value
 
-            if msg.get_attr('RTA_DST'):
-                dst = '%s/%s' % (msg.get_attr('RTA_DST'),
-                                 msg['dst_len'])
+            if msg.get('family', 0) == AF_MPLS:
+                dst = msg.get_attr('RTA_DST')
+                if dst:
+                    dst = dst[0]['label']
             else:
-                dst = 'default'
+                if msg.get_attr('RTA_DST'):
+                    dst = '%s/%s' % (msg.get_attr('RTA_DST'),
+                                     msg['dst_len'])
+                else:
+                    dst = 'default'
             self['dst'] = dst
 
             # fix RTA_ENCAP_TYPE if needed
@@ -216,13 +209,13 @@ class Route(Transactional):
                         self['encap']['type'] = self['encap_type']
                     self['encap_type'] = None
             # or drop encap, if there is no RTA_ENCAP in msg
-            else:
+            elif self['encap'] is not None:
                 self['encap_type'] = None
                 with self['encap']._direct_state:
                     self['encap'] = {}
 
             # drop metrics, if there is no RTA_METRICS in msg
-            if not msg.get_attr('RTA_METRICS'):
+            if not msg.get_attr('RTA_METRICS') and self['metrics'] is not None:
                 with self['metrics']._direct_state:
                     self['metrics'] = {}
 
@@ -230,6 +223,147 @@ class Route(Transactional):
             for item in self.cleanup:
                 if item in self:
                     del self[item]
+
+    def commit(self, tid=None, transaction=None, rollback=False):
+        error = None
+        drop = True
+        devop = 'set'
+        cleanup = []
+
+        if tid:
+            transaction = self._transactions[tid]
+        else:
+            if transaction:
+                drop = False
+            else:
+                transaction = self.last()
+
+        # create a new route
+        if self['ipdb_scope'] != 'system':
+            devop = 'add'
+
+        # work on an existing route
+        snapshot = self.pick()
+        diff = transaction - snapshot
+        # FIXME
+        if 'ipdb_scope' in diff:
+            del diff['ipdb_scope']
+
+        try:
+            # route set
+            if self['family'] != AF_MPLS:
+                cleanup = [any(snapshot['metrics'].values()) and
+                           not any(diff.get('metrics', {}).values()),
+                           any(snapshot['encap'].values()) and
+                           not any(diff.get('encap', {}).values())]
+            if any(diff.values()) or any(cleanup) or devop == 'add':
+                # prepare the anchor key to catch *possible* route update
+                old_key = self.make_key(self)
+                new_key = self.make_key(transaction)
+                if old_key != new_key:
+                    # assume we can not move routes between tables (yet ;)
+                    if self['family'] == AF_MPLS:
+                        route_index = self.ipdb.routes.tables['mpls'].idx
+                    else:
+                        route_index = (self.ipdb
+                                       .routes
+                                       .tables[self['table'] or 254]
+                                       .idx)
+                    if new_key not in route_index:
+                        route_index[new_key] = {'key': new_key,
+                                                'route': self}
+                    else:
+                        raise CommitException('Route idx conflict')
+                    self.nl.route(devop, **transaction)
+                    del route_index[old_key]
+                else:
+                    self.nl.route(devop, **transaction)
+                transaction._wait_all_targets()
+            # route removal
+            if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
+                    ((transaction['ipdb_scope'] == 'create') and rollback):
+                if transaction['ipdb_scope'] == 'shadow':
+                    self.set_item('ipdb_scope', 'locked')
+                # create watchdog
+                wd = self.ipdb.watchdog('RTM_DELROUTE',
+                                        **self.wd_key(snapshot))
+                self.ipdb.update_routes(
+                    self.nl.route('delete', **snapshot))
+                wd.wait()
+                if transaction['ipdb_scope'] == 'shadow':
+                    self.set_item('ipdb_scope', 'shadow')
+
+        except Exception as e:
+            if devop == 'add':
+                error = e
+                self.nl = None
+                self.set_item('ipdb_scope', 'invalid')
+                route_index = (self.ipdb
+                               .routes
+                               .tables[self['table'] or 254]
+                               .idx)
+                route_key = self.make_key(self)
+                del route_index[route_key]
+            elif not rollback:
+                ret = self.commit(transaction=snapshot, rollback=True)
+                if isinstance(ret, Exception):
+                    error = ret
+                else:
+                    error = e
+            else:
+                if drop:
+                    self.drop()
+                x = RuntimeError()
+                x.cause = e
+                raise x
+
+        if drop and not rollback:
+            self.drop()
+
+        if error is not None:
+            error.transaction = transaction
+            raise error
+
+        return self
+
+    def remove(self):
+        self['ipdb_scope'] = 'remove'
+        return self
+
+    def shadow(self):
+        self['ipdb_scope'] = 'shadow'
+        return self
+
+
+class Route(BaseRoute):
+    _nested = ['encap', 'metrics']
+    wd_key = WatchdogKey
+
+    @classmethod
+    def make_key(cls, msg):
+        '''
+        Construct from a netlink message a key that can be used
+        to locate the route in the table
+        '''
+        values = []
+        if isinstance(msg, nlmsg):
+            for field in RouteKey._fields:
+                v = msg.get_attr(msg.name2nla(field))
+                if field in ('src', 'dst'):
+                    if v is not None:
+                        v = '%s/%s' % (v, msg['%s_len' % field])
+                    elif field == 'dst':
+                        v = 'default'
+                if v is None:
+                    v = msg.get(field, None)
+                values.append(v)
+        elif isinstance(msg, Transactional):
+            for field in RouteKey._fields:
+                v = msg.get(field, None)
+                values.append(v)
+        else:
+            raise TypeError('prime not supported')
+        return RouteKey(*values)
 
     def __setitem__(self, key, value):
         ret = value
@@ -293,113 +427,58 @@ class Route(Transactional):
                 ret = self[key]
         return ret
 
-    def commit(self, tid=None, transaction=None, rollback=False):
-        error = None
-        drop = True
-        devop = 'set'
 
-        if tid:
-            transaction = self._transactions[tid]
+class MPLSRoute(BaseRoute):
+    wd_key = WatchdogMPLSKey
+
+    @classmethod
+    def make_key(cls, msg):
+        '''
+        Construct from a netlink message a key that can be used
+        to locate the route in the table
+        '''
+        oif = None
+        label = None
+        if isinstance(msg, nlmsg):
+            oif = msg.get_attr('RTA_OIF')
+            label = msg.get_attr('RTA_DST')
+        elif isinstance(msg, Transactional):
+            oif = msg.get('oif')
+            label = msg.get('dst')
         else:
-            if transaction:
-                drop = False
+            raise TypeError('prime not supported')
+        if isinstance(label, list):
+            label = label[0]['label']
+        ret = MPLSKey(oif, label)
+        return ret
+
+    def __setitem__(self, key, value):
+        if key == 'multipath':
+            cur = BaseRoute.__getitem__(self, key)
+            if isinstance(cur, NextHopSet):
+                # load entries
+                vs = NextHopSet(value)
+                for key in vs - cur:
+                    cur.add(key)
+                for key in cur - vs:
+                    cur.remove(key)
             else:
-                transaction = self.last()
+                BaseRoute.__setitem__(self, key, NextHopSet(value))
+        else:
+            BaseRoute.__setitem__(self, key, value)
 
-        # create a new route
-        if self['ipdb_scope'] != 'system':
-            devop = 'add'
-
-        # work on an existing route
-        snapshot = self.pick()
-        diff = transaction - snapshot
-        # FIXME
-        if 'ipdb_scope' in diff:
-            del diff['ipdb_scope']
-
-        try:
-            # route set
-            cleanup = [any(snapshot['metrics'].values()) and
-                       not any(diff.get('metrics', {}).values()),
-                       any(snapshot['encap'].values()) and
-                       not any(diff.get('encap', {}).values())]
-            if any(diff.values()) or any(cleanup) or devop == 'add':
-                # prepare the anchor key to catch *possible* route update
-                old_key = make_route_key(self)
-                new_key = make_route_key(transaction)
-                if old_key != new_key:
-                    # assume we can not move routes between tables (yet ;)
-                    route_index = (self.ipdb
-                                   .routes
-                                   .tables[self['table'] or 254]
-                                   .idx)
-                    if new_key not in route_index:
-                        route_index[new_key] = {'key': new_key,
-                                                'route': self}
-                    else:
-                        raise CommitException('Route idx conflict')
-                    self.nl.route(devop, **transaction)
-                    del route_index[old_key]
-                else:
-                    self.nl.route(devop, **transaction)
-                transaction._wait_all_targets()
-            # route removal
-            if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
-                    ((transaction['ipdb_scope'] == 'create') and rollback):
-                if transaction['ipdb_scope'] == 'shadow':
-                    self.set_item('ipdb_scope', 'locked')
-                # create watchdog
-                wd = self.ipdb.watchdog('RTM_DELROUTE',
-                                        **WatchdogKey(snapshot))
-                self.ipdb.update_routes(
-                    self.nl.route('delete', **snapshot))
-                wd.wait()
-                if transaction['ipdb_scope'] == 'shadow':
-                    self.set_item('ipdb_scope', 'shadow')
-
-        except Exception as e:
-            if devop == 'add':
-                error = e
-                self.nl = None
-                self.set_item('ipdb_scope', 'invalid')
-                route_index = (self.ipdb
-                               .routes
-                               .tables[self['table'] or 254]
-                               .idx)
-                route_key = make_route_key(self)
-                del route_index[route_key]
-            elif not rollback:
-                ret = self.commit(transaction=snapshot, rollback=True)
-                if isinstance(ret, Exception):
-                    error = ret
-                else:
-                    error = e
-            else:
-                if drop:
-                    self.drop()
-                x = RuntimeError()
-                x.cause = e
-                raise x
-
-        if drop and not rollback:
-            self.drop()
-
-        if error is not None:
-            error.transaction = transaction
-            raise error
-
-        return self
-
-    def remove(self):
-        self['ipdb_scope'] = 'remove'
-        return self
-
-    def shadow(self):
-        self['ipdb_scope'] = 'shadow'
-        return self
+    def __getitem__(self, key):
+        ret = BaseRoute.__getitem__(self, key)
+        if key == 'multipath' and ret is None:
+            with self._direct_state:
+                self[key] = []
+                ret = self[key]
+        return ret
 
 
 class RoutingTable(object):
+
+    route_class = Route
 
     def __init__(self, ipdb, prime=None):
         self.ipdb = ipdb
@@ -480,6 +559,9 @@ class RoutingTable(object):
                 return self.idx[RouteKey(*(target[:r] +
                                            (None, ) * (len(l) - r)))]
 
+        if isinstance(target, nlmsg):
+            return self.idx[Route.make_key(target)]
+
         # match the route by filter
         ret = self.filter(target, oneshot=True)
         if ret:
@@ -515,25 +597,30 @@ class RoutingTable(object):
     def __delitem__(self, key):
         with self.lock:
             item = self.describe(key, forward=False)
-            del self.idx[make_route_key(item['route'])]
+            del self.idx[self.route_class.make_key(item['route'])]
+
+    def load(self, msg):
+        key = self.route_class.make_key(msg)
+        self[key] = msg
+        return key
 
     def __setitem__(self, key, value):
         with self.lock:
             try:
                 record = self.describe(key, forward=False)
             except KeyError:
-                record = {'route': Route(self.ipdb),
+                record = {'route': self.route_class(self.ipdb),
                           'key': None}
 
             if isinstance(value, nlmsg):
                 record['route'].load_netlink(value)
-            elif isinstance(value, Route):
+            elif isinstance(value, self.route_class):
                 record['route'] = value
             elif isinstance(value, dict):
                 with record['route']._direct_state:
                     record['route'].update(value)
 
-            key = make_route_key(record['route'])
+            key = self.route_class.make_key(record['route'])
             if record['key'] is None:
                 self.idx[key] = {'route': record['route'],
                                  'key': key}
@@ -556,6 +643,30 @@ class RoutingTable(object):
             return False
 
 
+class MPLSTable(RoutingTable):
+
+    route_class = MPLSRoute
+
+    def keys(self):
+        return [tuple(x) for x in self.idx.keys()]
+
+    def describe(self, target, forward=False):
+        # return route by index
+        if isinstance(target, int):
+            keys = tuple(self.idx.keys())
+            return self.idx[keys[target]]
+
+        # match by key
+        if isinstance(target, (tuple, list)):
+            return self.idx[MPLSKey(*target)]
+
+        # match by rtmsg
+        if isinstance(target, rtmsg):
+            return self.idx[self.route_class.make_key(target)]
+
+        raise KeyError('record not found')
+
+
 class RoutingTableSet(object):
 
     def __init__(self, ipdb, ignore_rtables=None):
@@ -568,16 +679,22 @@ class RoutingTableSet(object):
         Create a route from a dictionary
         '''
         spec = spec or kwarg
-        table = spec.get('table', 254)
         if 'dst' not in spec:
             raise ValueError('dst not specified')
-        if table not in self.tables:
-            self.tables[table] = RoutingTable(self.ipdb)
         multipath = spec.pop('multipath', [])
-        route = Route(self.ipdb)
+        if spec.get('family', 0) == AF_MPLS:
+            table = 'mpls'
+            if table not in self.tables:
+                self.tables[table] = MPLSTable(self.ipdb)
+            route = MPLSRoute(self.ipdb)
+        else:
+            table = spec.get('table', 254)
+            if table not in self.tables:
+                self.tables[table] = RoutingTable(self.ipdb)
+            route = Route(self.ipdb)
         route.update(spec)
         route.set_item('ipdb_scope', 'create')
-        self.tables[table][route['dst']] = route
+        self.tables[table][route.make_key(route)] = route
         route.begin()
         for (key, value) in spec.items():
             route[key] = value
@@ -589,29 +706,27 @@ class RoutingTableSet(object):
         '''
         Loads an existing route from a rtmsg
         '''
-        table = msg.get('table', 254)
-        if table == 252:
-            table = msg.get_attr('RTA_TABLE')
-
-        if table in self.ignore_rtables:
-            return
-
         if not isinstance(msg, rtmsg):
             return
 
-        # construct a key
-        # FIXME: temporary solution
-        # FIXME: can `Route()` be used as a key?
-        key = make_route_key(msg)
+        if msg.get('family', None) == AF_MPLS:
+            table = 'mpls'
+        else:
+            table = msg.get('table', 254)
+            if table == 252:
+                table = msg.get_attr('RTA_TABLE')
+
+        if table in self.ignore_rtables:
+            return
 
         # RTM_DELROUTE
         if msg['event'] == 'RTM_DELROUTE':
             try:
                 # locate the record
-                record = self.tables[table][key]
+                record = self.tables[table][msg]
                 # delete the record
                 if record['ipdb_scope'] not in ('locked', 'shadow'):
-                    del self.tables[table][key]
+                    del self.tables[table][msg]
                     record.set_item('ipdb_scope', 'detached')
             except Exception as e:
                 logging.debug(e)
@@ -620,8 +735,11 @@ class RoutingTableSet(object):
 
         # RTM_NEWROUTE
         if table not in self.tables:
-            self.tables[table] = RoutingTable(self.ipdb)
-        self.tables[table][key] = msg
+            if table == 'mpls':
+                self.tables[table] = MPLSTable(self.ipdb)
+            else:
+                self.tables[table] = RoutingTable(self.ipdb)
+        key = self.tables[table].load(msg)
         return self.tables[table][key]
 
     def gc(self):

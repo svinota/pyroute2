@@ -394,6 +394,7 @@ from pyroute2.common import Dotkeys
 from pyroute2.common import View
 from pyroute2.common import basestring
 from pyroute2.common import uuid32
+from pyroute2.common import AF_MPLS
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.ipdb.route import RoutingTableSet
@@ -555,8 +556,10 @@ class IPDB(object):
             self.update_neighbours(self.nl.get_neighbours())
             routes4 = self.nl.get_routes(family=AF_INET)
             routes6 = self.nl.get_routes(family=AF_INET6)
+            mpls = self.nl.get_routes(family=AF_MPLS)
             self.update_routes(routes4)
             self.update_routes(routes6)
+            self.update_routes(mpls)
         except Exception as e:
             logging.error('initdb error: %s', e)
             logging.error(traceback.format_exc())
