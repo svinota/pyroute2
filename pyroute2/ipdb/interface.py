@@ -549,7 +549,7 @@ class Interface(Transactional):
         if newif:
             # Here we come only if the new interface is created
             #
-            if not self.wait_target('ipdb_scope'):
+            if not rollback and not self.wait_target('ipdb_scope'):
                 invalidate()
                 raise CreateException()
 
