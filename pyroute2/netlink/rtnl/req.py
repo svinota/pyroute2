@@ -21,7 +21,11 @@ class IPRequest(dict):
             self.update(obj)
 
     def update(self, obj):
+        if obj.get('family', None):
+            self['family'] = obj['family']
         for key in obj:
+            if key == 'family':
+                continue
             v = obj[key]
             if isinstance(v, dict):
                 self[key] = dict((x for x in v.items() if x[1] is not None))
@@ -88,9 +92,17 @@ class IPRouteRequest(IPRequest):
         if isinstance(value, basestring) and value.find(':') >= 0:
             self['family'] = AF_INET6
         # work on the rest
+        if key == 'family' and value == AF_MPLS:
+            dict.__setitem__(self, 'family', value)
+            dict.__setitem__(self, 'dst_len', 20)
+            dict.__setitem__(self, 'table', 254)
+            dict.__setitem__(self, 'type', 1)
         if key == 'dst':
             if isinstance(value, dict):
                 dict.__setitem__(self, 'dst', value)
+            elif isinstance(value, int):
+                dict.__setitem__(self, 'dst', {'label': value,
+                                               'bos': 1})
             elif value != 'default':
                 value = value.split('/')
                 if len(value) == 1:
@@ -104,6 +116,23 @@ class IPRouteRequest(IPRequest):
                 dict.__setitem__(self, 'dst', dst)
                 if mask:
                     dict.__setitem__(self, 'dst_len', mask)
+        elif key == 'newdst':
+            ret = []
+            if not isinstance(value, (list, tuple, set)):
+                value = (value, )
+            for label in value:
+                if isinstance(label, int):
+                    label = {'label': label,
+                             'bos': 0}
+                elif isinstance(label, basestring):
+                    label = {'label': int(label),
+                             'bos': 0}
+                elif not isinstance(label, dict):
+                    raise ValueError('wrong MPLS label')
+                ret.append(label)
+            if ret:
+                ret[-1]['bos'] = 1
+            dict.__setitem__(self, 'newdst', ret)
         elif key in self.resolve.keys():
             if isinstance(value, basestring):
                 value = self.resolve[key][value]
