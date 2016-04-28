@@ -35,7 +35,7 @@ inbox = []
 while offset < len(data):
     msg = met(data[offset:])
     msg.decode()
-    print(hexdump(msg.raw))
+    print(hexdump(msg.buf.getvalue()))
     pprint(msg)
     print('.'*40)
     offset += msg['header']['length']
