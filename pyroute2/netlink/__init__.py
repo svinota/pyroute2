@@ -1259,7 +1259,7 @@ class nlmsg_base(dict):
                                                 NLA_F_NET_BYTEORDER)
                     msg_name = prime['name']
                 except Exception:
-                    logging.warning("decoding %s" % (msg_name))
+                    logging.warning("decoding %s" % (prime['name']))
                     logging.warning(traceback.format_exc())
                     self.buf.seek(init)
                     msg_name = 'UNDECODED'
