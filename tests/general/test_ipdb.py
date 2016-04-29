@@ -319,6 +319,51 @@ class TestExplicit(BasicSetup):
         assert ifA in self.ip.interfaces
 
     @skip_if_not_supported
+    def test_routes_mpls_via_change(self):
+        require_user('root')
+        idx = self.ip.interfaces[self.ifd]['index']
+        label = 20
+
+        self.ip.routes.add({'family': AF_MPLS,
+                            'dst': label,
+                            'newdst': [30],
+                            'oif': idx}).commit()
+        routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
+        assert len(routes) == 1
+        r = routes[0]
+        assert r.get_attr('RTA_VIA') is None
+        # 8<--------------
+        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+            r.via = {'family': socket.AF_INET,
+                     'addr': '176.16.70.70'}
+        routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
+        assert len(routes) == 1
+        r = routes[0]
+        assert r.get_attr('RTA_VIA')['family'] == socket.AF_INET
+        assert r.get_attr('RTA_VIA')['addr'] == '176.16.70.70'
+        # 8<--------------
+        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+            r.via = {'family': socket.AF_INET,
+                     'addr': '176.16.0.80'}
+        routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
+        assert len(routes) == 1
+        r = routes[0]
+        assert r.get_attr('RTA_VIA')['family'] == socket.AF_INET
+        assert r.get_attr('RTA_VIA')['addr'] == '176.16.0.80'
+        # 8<--------------
+        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+            r.via = {}
+        routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
+        assert len(routes) == 1
+        r = routes[0]
+        assert r.get_attr('RTA_VIA') is None
+        # 8<--------------
+        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+            r.remove()
+        routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
+        assert len(routes) == 0
+
+    @skip_if_not_supported
     def test_routes_mpls_via_ipv4(self):
         require_user('root')
         idx = self.ip.interfaces[self.ifd]['index']
