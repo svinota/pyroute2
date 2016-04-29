@@ -457,7 +457,12 @@ class IPRouteMixin(object):
         return [k['index'] for k in
                 [i for i in self.get_links() if 'attrs' in i] if
                 [l for l in k['attrs'] if l[0] == name and l[1] == value]]
+    # 8<---------------------------------------------------------------
 
+    # 8<---------------------------------------------------------------
+    #
+    # Shortcuts to flush RTNL objects
+    #
     def flush_routes(self, *argv, **kwarg):
         '''
         Flush routes -- purge route records from a table.
@@ -476,7 +481,7 @@ class IPRouteMixin(object):
 
     def flush_addr(self, *argv, **kwarg):
         '''
-        Flush addresses.
+        Flush IP addresses.
 
         Examples::
 
@@ -544,7 +549,7 @@ class IPRouteMixin(object):
             net --> | eth2 | <--> | eth0.500 | <---+
                     +------+      +----------+
 
-        It means that one had to create as many bridges, as there were
+        It means that one has to create as many bridges, as there were
         vlans. Vlan filters allow to bridge together underlying interfaces
         and create vlans already on the bridge::
 
@@ -742,12 +747,33 @@ class IPRouteMixin(object):
         '''
         Neighbours operations, same as `ip neigh` or `bridge fdb`
 
-        * command -- add, delete, change, replace
-        * match -- match rules
-        * ifindex -- device index
-        * family -- family: AF_INET, AF_INET6, AF_BRIDGE
-        * \*\*kwarg -- msg fields and NLA
+        **add**
 
+        Add a neighbour record, e.g.::
+
+            # add a permanent record on veth0
+            idx = ip.link_lookup(ifname='veth0')[0]
+            ip.neigh('add',
+                     dst='172.16.45.1',
+                     lladdr='00:11:22:33:44:55',
+                     ifindex=ip.link_lookup(ifname='veth0')[0]
+                     state=ndmsg.states['permanent'])
+
+        **set**
+
+        Set an existing record or create a new one, if it doesn't exist.
+
+        **change**
+
+        Change an existing record or fail, if it doesn't exist.
+
+        **del**
+
+        Delete an existing record.
+
+        **dump**
+
+        Dump all the records in the NDB.
         '''
 
         if (command == 'dump') and ('match' not in kwarg):
@@ -1603,11 +1629,7 @@ class IPRouteMixin(object):
 
 class IPRoute(IPRouteMixin, IPRSocket):
     '''
-    Production class that provides iproute API over normal Netlink
-    socket.
-
-    You can think of this class in some way as of plain old iproute2
-    utility.
+    Public class that provides iproute API over normal Netlink socket.
     '''
     pass
 
