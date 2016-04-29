@@ -98,7 +98,10 @@ class IPRouteRequest(IPRequest):
             dict.__setitem__(self, 'dst_len', 20)
             dict.__setitem__(self, 'table', 254)
             dict.__setitem__(self, 'type', 1)
-        if key == 'dst':
+        elif key == 'flags':
+            if self['family'] == AF_MPLS:
+                return
+        elif key == 'dst':
             if isinstance(value, dict):
                 dict.__setitem__(self, 'dst', value)
             elif isinstance(value, int):
