@@ -552,7 +552,7 @@ class TestIPRoute(object):
                                         'addr': address},
                                 'newdst': {'label': label,
                                            'bos': 1}})
-        rt = self.ip.get_routes(oif=self.ifaces[0])[0]
+        rt = self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)[0]
         assert rt.get_attr('RTA_VIA')['addr'] == address
         assert rt.get_attr('RTA_VIA')['family'] == family
         assert rt.get_attr('RTA_NEWDST')[0]['label'] == label
@@ -565,7 +565,7 @@ class TestIPRoute(object):
                                         'addr': address},
                                 'newdst': {'label': label,
                                            'bos': 1}})
-        assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
+        assert len(self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)) == 0
 
     def test_route_mpls_via_ipv4(self):
         self._test_route_mpls_via_ipv(socket.AF_INET,
@@ -585,13 +585,13 @@ class TestIPRoute(object):
                'newdst': {'label': 0x21,
                           'bos': 1}}
         self.ip.route('add', **req)
-        rt = self.ip.get_routes(oif=self.ifaces[0])[0]
+        rt = self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)[0]
         assert rt.get_attr('RTA_DST')[0]['label'] == 0x20
         assert len(rt.get_attr('RTA_DST')) == 1
         assert rt.get_attr('RTA_NEWDST')[0]['label'] == 0x21
         assert len(rt.get_attr('RTA_NEWDST')) == 1
         self.ip.route('del', **req)
-        assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
+        assert len(self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)) == 0
 
     @skip_if_not_supported
     def test_route_mpls_swap_newdst_list(self):
@@ -603,13 +603,13 @@ class TestIPRoute(object):
                'newdst': [{'label': 0x21,
                            'bos': 1}]}
         self.ip.route('add', **req)
-        rt = self.ip.get_routes(oif=self.ifaces[0])[0]
+        rt = self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)[0]
         assert rt.get_attr('RTA_DST')[0]['label'] == 0x20
         assert len(rt.get_attr('RTA_DST')) == 1
         assert rt.get_attr('RTA_NEWDST')[0]['label'] == 0x21
         assert len(rt.get_attr('RTA_NEWDST')) == 1
         self.ip.route('del', **req)
-        assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
+        assert len(self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)) == 0
 
     def test_route_multipath_raw(self):
         require_user('root')
