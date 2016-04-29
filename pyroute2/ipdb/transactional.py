@@ -406,7 +406,8 @@ class Transactional(Dotkeys):
             # which must be started prior to that call
             transaction = self.last()
             transaction[key] = value
-            transaction._targets[key] = threading.Event()
+            if value is not None:
+                transaction._targets[key] = threading.Event()
         else:
             # set the item
             Dotkeys.__setitem__(self, key, value)
