@@ -18,12 +18,15 @@ from pyroute2.ipdb.linkedset import LinkedSet
 
 
 class Metrics(Transactional):
-
     _fields = [rtmsg.metrics.nla2name(i[0]) for i in rtmsg.metrics.nla_map]
 
 
 class Encap(Transactional):
     _fields = ['type', 'labels']
+
+
+class Via(Transactional):
+    _fields = ['family', 'addr']
 
 
 class NextHopSet(LinkedSet):
@@ -185,6 +188,9 @@ class BaseRoute(Transactional):
                         for l in value.get_attr('MPLS_IPTUNNEL_DST'):
                             ret.append(str(l['label']))
                         self['encap']['labels'] = '/'.join(ret)
+                elif norm == 'via':
+                    with self['via']._direct_state:
+                        self['via'] = value
                 elif norm == 'newdst':
                     self['newdst'] = [x['label'] for x in value]
                 else:
@@ -218,6 +224,11 @@ class BaseRoute(Transactional):
             if not msg.get_attr('RTA_METRICS') and self['metrics'] is not None:
                 with self['metrics']._direct_state:
                     self['metrics'] = {}
+
+            # same for via
+            if not msg.get_attr('RTA_VIA') and self['via'] is not None:
+                with self['via']._direct_state:
+                    self['via'] = {}
 
             # finally, cleanup all not needed
             for item in self.cleanup:
@@ -433,6 +444,7 @@ class Route(BaseRoute):
 
 class MPLSRoute(BaseRoute):
     wd_key = WatchdogMPLSKey
+    _nested = ['via']
 
     @classmethod
     def make_key(cls, msg):
@@ -456,7 +468,31 @@ class MPLSRoute(BaseRoute):
         return ret
 
     def __setitem__(self, key, value):
-        if key == 'multipath':
+        if key == 'via' and isinstance(value, dict):
+            # replace with a new transactional
+            if type(value) == Via:
+                with self._direct_state:
+                    return BaseRoute.__setitem__(self, key, value)
+            # or load the dict
+            ret = BaseRoute.__getitem__(self, key)
+            if not isinstance(ret, Via):
+                ret = Via(parent=self)
+                # attach new transactional -- replace any
+                # non-Via object (may be a result of update())
+                with self._direct_state:
+                    BaseRoute.__setitem__(self, key, ret)
+                # load value into the new object
+                if any(value.values()):
+                    if self._mode in ('implicit', 'explicit'):
+                        ret._begin(tid=self.last().uid)
+                    [ret.__setitem__(k, v) for k, v
+                     in value.items() if v is not None]
+            else:
+                # load value into existing object
+                for k in ret:
+                    ret[k] = value.get(k, None)
+            return
+        elif key == 'multipath':
             cur = BaseRoute.__getitem__(self, key)
             if isinstance(cur, NextHopSet):
                 # load entries
@@ -471,12 +507,15 @@ class MPLSRoute(BaseRoute):
             BaseRoute.__setitem__(self, key, value)
 
     def __getitem__(self, key):
-        ret = BaseRoute.__getitem__(self, key)
-        if key == 'multipath' and ret is None:
-            with self._direct_state:
+        with self._direct_state:
+            ret = BaseRoute.__getitem__(self, key)
+            if key == 'multipath' and ret is None:
                 self[key] = []
                 ret = self[key]
-        return ret
+            elif key == 'via' and ret is None:
+                self[key] = {}
+                ret = self[key]
+            return ret
 
 
 class RoutingTable(object):
