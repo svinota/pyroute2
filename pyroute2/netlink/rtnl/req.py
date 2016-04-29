@@ -1,3 +1,4 @@
+from socket import AF_INET
 from socket import AF_INET6
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
@@ -154,6 +155,13 @@ class IPRouteRequest(IPRequest):
                 # assume it is a ready-to-use NLA
                 elif 'attrs' in value:
                     dict.__setitem__(self, 'encap', value)
+        elif key == 'via':
+            # ignore empty RTA_VIA
+            if isinstance(value, dict) and \
+                    set(value.keys()) == set(('addr', 'family')) and \
+                    value['family'] in (AF_INET, AF_INET6) and \
+                    isinstance(value['addr'], basestring):
+                        dict.__setitem__(self, 'via', value)
         elif key == 'metrics':
             if 'attrs' in value:
                 ret = value
