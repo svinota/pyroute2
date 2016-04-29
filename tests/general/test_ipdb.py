@@ -344,6 +344,36 @@ class TestExplicit(BasicSetup):
         assert len(routes) == 0
 
     @skip_if_not_supported
+    def _test_routes_mpls_ops(self, label_in, labels_out=None):
+        require_user('root')
+        idx = self.ip.interfaces[self.ifd]['index']
+
+        self.ip.routes.add({'family': AF_MPLS,
+                            'dst': label_in,
+                            'newdst': labels_out,
+                            'oif': idx}).commit()
+        routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
+        assert len(routes) == 1
+        r = routes[0]
+        assert r.get_attr('RTA_DST')[0]['label'] == label_in
+        if labels_out:
+            assert len(r.get_attr('RTA_NEWDST')) == len(labels_out)
+            assert [x['label'] for x in r.get_attr('RTA_NEWDST')] == labels_out
+        else:
+            assert r.get_attr('RTA_NEWDST') is None
+        with self.ip.routes.tables['mpls'][(idx, label_in)] as r:
+            r.remove()
+
+    def test_routes_mpls_push(self):
+        self._test_routes_mpls_ops(50, [50, 60])
+
+    def test_routes_mpls_pop(self):
+        self._test_routes_mpls_ops(50, None)
+
+    def test_routes_mpls_swap(self):
+        self._test_routes_mpls_ops(50, [60])
+
+    @skip_if_not_supported
     def test_routes_mpls(self):
         require_user('root')
         idx = self.ip.interfaces[self.ifd]['index']
