@@ -13,6 +13,7 @@ from pyroute2 import netns
 from pyroute2 import NetNS
 from pyroute2.common import basestring
 from pyroute2.common import uifname
+from pyroute2.common import AF_MPLS
 from pyroute2.ipdb.exceptions import CreateException
 from pyroute2.ipdb.exceptions import PartialCommitException
 from pyroute2.netlink.exceptions import NetlinkError
@@ -318,7 +319,74 @@ class TestExplicit(BasicSetup):
         assert ifA in self.ip.interfaces
 
     @skip_if_not_supported
-    def test_routes_mpls_metrics(self):
+    def test_routes_mpls_via_ipv4(self):
+        require_user('root')
+        idx = self.ip.interfaces[self.ifd]['index']
+        label = 20
+
+        self.ip.routes.add({'family': AF_MPLS,
+                            'dst': label,
+                            'newdst': [30],
+                            'via': {'family': socket.AF_INET,
+                                    'addr': '176.16.70.70'},
+                            'oif': idx}).commit()
+
+        routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
+        assert len(routes) == 1
+        r = routes[0]
+        assert r.get_attr('RTA_VIA')['family'] == socket.AF_INET
+        assert r.get_attr('RTA_VIA')['addr'] == '176.16.70.70'
+
+        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+            r.remove()
+
+        routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
+        assert len(routes) == 0
+
+    @skip_if_not_supported
+    def test_routes_mpls(self):
+        require_user('root')
+        idx = self.ip.interfaces[self.ifd]['index']
+        label = 20
+
+        self.ip.routes.add({'family': AF_MPLS,
+                            'dst': label,
+                            'newdst': [30],
+                            'oif': idx}).commit()
+
+        routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
+        assert len(routes) == 1
+        r = routes[0]
+        assert r['family'] == AF_MPLS
+        assert len(r.get_attr('RTA_DST')) == 1
+        assert r.get_attr('RTA_DST')[0]['label'] == label
+        assert len(r.get_attr('RTA_NEWDST')) == 1
+        assert r.get_attr('RTA_NEWDST')[0]['label'] == 30
+        assert r.get_attr('RTA_OIF') == idx
+        assert r.get_attr('RTA_VIA') is None
+
+        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+            r['newdst'] = [40, 50]
+
+        routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
+        assert len(routes) == 1
+        r = routes[0]
+        assert len(r.get_attr('RTA_DST')) == 1
+        assert r.get_attr('RTA_DST')[0]['label'] == label
+        assert len(r.get_attr('RTA_NEWDST')) == 2
+        assert r.get_attr('RTA_NEWDST')[0]['label'] == 40
+        assert r.get_attr('RTA_NEWDST')[0]['bos'] == 0
+        assert r.get_attr('RTA_NEWDST')[1]['label'] == 50
+        assert r.get_attr('RTA_NEWDST')[1]['bos'] == 1
+
+        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+            r.remove()
+
+        routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
+        assert len(routes) == 0
+
+    @skip_if_not_supported
+    def test_routes_lwtunnel_mpls_metrics(self):
         require_user('root')
         self.ip.routes.add({'dst': 'default',
                             'table': 2020,
@@ -356,7 +424,7 @@ class TestExplicit(BasicSetup):
             route.remove()
 
     @skip_if_not_supported
-    def test_routes_mpls(self):
+    def test_routes_lwtunnel_mpls(self):
         require_user('root')
         self.ip.routes.add({'dst': 'default',
                             'table': 2020,
@@ -384,7 +452,7 @@ class TestExplicit(BasicSetup):
             route.remove()
 
     @skip_if_not_supported
-    def test_routes_mpls_change(self):
+    def test_routes_lwtunnel_mpls_change(self):
         require_user('root')
         self.ip.routes.add({'dst': 'default',
                             'table': 2020,
