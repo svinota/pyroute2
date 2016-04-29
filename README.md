@@ -1,5 +1,8 @@
 ![E/// logo](docs/ericsson.png "supported by Ericsson")
 
+.. warning::
+    This is a development branch. Use branch 0.3.x to get stable releases.
+
 pyroute2
 ========
 
@@ -11,7 +14,7 @@ it is possible.
 The library provides several modules:
 
 * Netlink protocol implementations (RTNetlink, TaskStats, etc)
-    * **rtnl**, network settings --- addresses, routes, traffic controls
+    * **rtnl**, network settings --- addresses, routes, vlans, traffic controls
     * **nl80211** --- wireless functions API (work in progress)
     * **nfnetlink** --- netfilter API: **ipset**, **nftables** (work in progress), ...
     * **ipq** --- simplest userspace packet filtering, iptables QUEUE target
