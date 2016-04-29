@@ -116,6 +116,9 @@ class rtmsg_base(object):
             family = self.get('family', AF_UNSPEC)
             if family in (AF_INET, AF_INET6):
                 addr = inet_pton(family, self['addr'])
+            else:
+                raise TypeError('Family %s not supported for RTA_VIA'
+                                % family)
             self['value'] = struct.pack('H', family) + addr
             nla.encode(self)
 
