@@ -14,7 +14,7 @@ it is possible.
 The library provides several modules:
 
 * Netlink protocol implementations (RTNetlink, TaskStats, etc)
-    * **rtnl**, network settings --- addresses, routes, vlans, traffic controls
+    * **rtnl**, network settings --- addresses, routes, traffic controls
     * **nl80211** --- wireless functions API (work in progress)
     * **nfnetlink** --- netfilter API: **ipset**, **nftables** (work in progress), ...
     * **ipq** --- simplest userspace packet filtering, iptables QUEUE target
@@ -77,6 +77,15 @@ Some examples::
              encap={'type': 'mpls',
                     'labels': '200/300'})
 
+    # create MPLS route: push label
+    # $ sudo modprobe mpls_router
+    # $ sudo sysctl net.mpls.platform_labels=1024
+    ip.route('add',
+             family=AF_MPLS,
+             oif=idx,
+             dst=0x200,
+             newdst=[0x200, 0x300])
+
     # release Netlink socket
     ip.close()
 
@@ -84,20 +93,23 @@ Some examples::
 High-level transactional interface, **IPDB**, a network settings DB::
 
     from pyroute2 import IPDB
-    # local network settings
-    ip = IPDB()
-    # create bridge and add ports and addresses
-    # transaction will be started with `with` statement
-    # and will be committed at the end of the block
-    try:
+    #
+    # The `with` statement automatically calls `IPDB.release()`
+    # in the case of an exception.
+    with IPDB() as ip:
+        #
+        # Create bridge and add ports and addresses.
+        #
+        # Transaction will be started by `with` statement
+        # and will be committed at the end of the block
         with ip.create(kind='bridge', ifname='rhev') as i:
             i.add_port('em1')
             i.add_port('em2')
             i.add_ip('10.0.0.2/24')
-    except Exception as e:
-        print(e)
-    finally:
-        ip.release()
+        # --> <-- Here the system state is as described in
+        #         the transaction, if no error occurs. If
+        #         there is an error, all the changes will be
+        #         rolled back.
 
 The IPDB arch allows to use it transparently with network
 namespaces::
@@ -105,15 +117,19 @@ namespaces::
     from pyroute2 import IPDB
     from pyroute2 import NetNS
 
-    # create IPDB to work in the 'test' ip netns
-    # pls notice, that IPDB itself will work in the
-    # main netns
+    # Create IPDB to work with the 'test' ip netns.
+    #
+    # Pls notice, that IPDB itself will work in the
+    # main netns, only the netlink transport is
+    # working in the namespace `test`.
     ip = IPDB(nl=NetNS('test'))
 
-    # wait until someone will set up ipaddr 127.0.0.1
+    # Wait until someone will set up ipaddr 127.0.0.1
     # in the netns on the loopback device
     ip.interfaces.lo.wait_ip('127.0.0.1')
 
+    # The IPDB object must be released before exit to
+    # sync all the possible changes that are in progress.
     ip.release()
 
 The project contains several modules for different types of
