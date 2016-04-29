@@ -298,10 +298,13 @@ class BaseRoute(Transactional):
                 error = e
                 self.nl = None
                 self.set_item('ipdb_scope', 'invalid')
-                route_index = (self.ipdb
-                               .routes
-                               .tables[self['table'] or 254]
-                               .idx)
+                if self['family'] == AF_MPLS:
+                    route_index = self.ipdb.routes.tables['mpls'].idx
+                else:
+                    route_index = (self.ipdb
+                                   .routes
+                                   .tables[self['table'] or 254]
+                                   .idx)
                 route_key = self.make_key(self)
                 del route_index[route_key]
             elif not rollback:
