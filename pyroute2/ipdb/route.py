@@ -293,12 +293,13 @@ class BaseRoute(Transactional):
                     del route_index[old_key]
                 else:
                     self.nl.route(devop, **transaction)
-                transaction._wait_all_targets()
+                transaction.wait_all_targets()
             # route removal
             if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
                     ((transaction['ipdb_scope'] == 'create') and rollback):
                 if transaction['ipdb_scope'] == 'shadow':
-                    self.set_item('ipdb_scope', 'locked')
+                    with self._direct_state:
+                        self['ipdb_scope'] = 'locked'
                 # create watchdog
                 wd = self.ipdb.watchdog('RTM_DELROUTE',
                                         **self.wd_key(snapshot))
@@ -306,13 +307,15 @@ class BaseRoute(Transactional):
                     self.nl.route('delete', **snapshot))
                 wd.wait()
                 if transaction['ipdb_scope'] == 'shadow':
-                    self.set_item('ipdb_scope', 'shadow')
+                    with self._direct_state:
+                        self['ipdb_scope'] = 'shadow'
 
         except Exception as e:
             if devop == 'add':
                 error = e
                 self.nl = None
-                self.set_item('ipdb_scope', 'invalid')
+                with self._direct_state:
+                    self['ipdb_scope'] = 'invalid'
                 if self['family'] == AF_MPLS:
                     route_index = self.ipdb.routes.tables['mpls'].idx
                 else:
@@ -739,7 +742,8 @@ class RoutingTableSet(object):
                 self.tables[table] = RoutingTable(self.ipdb)
             route = Route(self.ipdb)
         route.update(spec)
-        route.set_item('ipdb_scope', 'create')
+        with route._direct_state:
+            route['ipdb_scope'] = 'create'
         self.tables[table][route.make_key(route)] = route
         route.begin()
         for (key, value) in spec.items():
@@ -773,7 +777,8 @@ class RoutingTableSet(object):
                 # delete the record
                 if record['ipdb_scope'] not in ('locked', 'shadow'):
                     del self.tables[table][msg]
-                    record.set_item('ipdb_scope', 'detached')
+                    with record._direct_state:
+                        record['ipdb_scope'] = 'detached'
             except Exception as e:
                 logging.debug(e)
                 logging.debug(msg)

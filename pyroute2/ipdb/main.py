@@ -849,7 +849,8 @@ class IPDB(object):
                     kwarg['kind'] = kind
                     device.load_dict(kwarg)
                     if self.interfaces[ifname]['ipdb_scope'] == 'shadow':
-                        device.set_item('ipdb_scope', 'create')
+                        with device._direct_state:
+                            device['ipdb_scope'] = 'create'
                 else:
                     raise CreateException("interface %s exists" %
                                           ifname)
@@ -923,7 +924,8 @@ class IPDB(object):
         target.nlmsg = msg
         # check for freezed devices
         if getattr(target, '_freeze', None):
-            self.interfaces[msg['index']].set_item('ipdb_scope', 'shadow')
+            with target._direct_state:
+                target['ipdb_scope'] = 'shadow'
             return
         # check for locked devices
         if target.get('ipdb_scope') in ('locked', 'shadow'):
@@ -999,7 +1001,8 @@ class IPDB(object):
             self.interfaces.pop(idx, None)
             self.ipaddr.pop(idx, None)
             self.neighbours.pop(idx, None)
-            target.set_item('ipdb_scope', 'detached')
+            with target._direct_state:
+                target['ipdb_scope'] = 'detached'
 
     def watchdog(self, action='RTM_NEWLINK', **kwarg):
         return Watchdog(self, action, kwarg)
@@ -1073,7 +1076,8 @@ class IPDB(object):
             master = device.if_master
             if master is not None:
                 if 'master' in device:
-                    device.set_item('master', None)
+                    with device._direct_state:
+                        device['master'] = None
                 if (master in self.interfaces) and \
                         (msg['index'] in self.interfaces[master].ports):
                     try:

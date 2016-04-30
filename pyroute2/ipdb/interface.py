@@ -826,7 +826,7 @@ class Interface(Transactional):
                                     self.drop(transaction.uid)
                                 return self
                 # wait for targets
-                transaction._wait_all_targets()
+                transaction.wait_all_targets()
 
             # 8<---------------------------------------------
             # Interface removal
@@ -835,11 +835,13 @@ class Interface(Transactional):
                 wd = self.ipdb.watchdog(action='RTM_DELLINK',
                                         ifname=self['ifname'])
                 if added.get('ipdb_scope') in ('shadow', 'create'):
-                    self.set_item('ipdb_scope', 'locked')
+                    with self._direct_state:
+                        self['ipdb_scope'] = 'locked'
                 self.nl.link('delete', **self)
                 wd.wait()
                 if added.get('ipdb_scope') == 'shadow':
-                    self.set_item('ipdb_scope', 'shadow')
+                    with self._direct_state:
+                        self['ipdb_scope'] = 'shadow'
                 if added['ipdb_scope'] == 'create':
                     self.load_dict(transaction)
                 if drop:

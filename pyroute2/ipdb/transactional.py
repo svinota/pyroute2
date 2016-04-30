@@ -445,7 +445,7 @@ class Transactional(Dotkeys):
         del self[key]
         return self
 
-    def _wait_all_targets(self):
+    def wait_all_targets(self):
         for key, target in self._targets.items():
             if key not in self._virtual_fields:
                 target.wait(SYNC_TIMEOUT)
@@ -471,11 +471,3 @@ class Transactional(Dotkeys):
     def set(self, key, value):
         self[key] = value
         return self
-
-    def set_item(self, key, value):
-        with self._direct_state:
-            self[key] = value
-
-    def del_item(self, key):
-        with self._direct_state:
-            del self[key]
