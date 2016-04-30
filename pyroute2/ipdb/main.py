@@ -696,19 +696,24 @@ class IPDB(object):
                 self.mnl = None
 
                 # flush all the objects
-                # -- interfaces
                 for (key, dev) in self.by_name.items():
-                    self.detach(key, dev['index'], dev.nlmsg)
-                # -- routes
-                for key in tuple(self.routes.tables.keys()):
-                    del self.routes.tables[key]
-                self.routes.tables[254] = None
-                # -- ipaddr
-                for key in tuple(self.ipaddr.keys()):
-                    del self.ipaddr[key]
-                # -- neighbours
-                for key in tuple(self.neighbours.keys()):
-                    del self.neighbours[key]
+                    try:
+                        self.detach(key, dev['index'], dev.nlmsg)
+                    except KeyError:
+                        pass
+
+                def flush(idx):
+                    for key in tuple(idx.keys()):
+                        try:
+                            del idx[key]
+                        except KeyError:
+                            pass
+                idx_list = [self.routes.tables[x] for x
+                            in self.routes.tables.keys()]
+                idx_list.append(self.ipaddr)
+                idx_list.append(self.neighbours)
+                for idx in idx_list:
+                    flush(idx)
 
     def create(self, kind, ifname, reuse=False, **kwarg):
         '''
