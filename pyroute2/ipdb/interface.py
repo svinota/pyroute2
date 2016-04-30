@@ -619,52 +619,55 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # Port vlans
-            if added['vlans']:
-                transaction['vlans'].add(1)
-            self['vlans'].set_target(transaction['vlans'])
-            for i in removed['vlans']:
-                if i != 1:
-                    # remove vlan from the port
-                    run(nl.vlan_filter, 'del',
-                        index=self['index'],
-                        vlan_info=self['vlans'][i])
-
-            for i in added['vlans']:
-                if i != 1:
-                    # add vlan to the port
-                    run(nl.vlan_filter, 'add',
-                        index=self['index'],
-                        vlan_info=transaction['vlans'][i])
-
             if removed['vlans'] or added['vlans']:
+
+                if added['vlans']:
+                    transaction['vlans'].add(1)
+                self['vlans'].set_target(transaction['vlans'])
+
+                for i in removed['vlans']:
+                    if i != 1:
+                        # remove vlan from the port
+                        run(nl.vlan_filter, 'del',
+                            index=self['index'],
+                            vlan_info=self['vlans'][i])
+
+                for i in added['vlans']:
+                    if i != 1:
+                        # add vlan to the port
+                        run(nl.vlan_filter, 'add',
+                            index=self['index'],
+                            vlan_info=transaction['vlans'][i])
+
                 self['vlans'].target.wait(SYNC_TIMEOUT)
                 if not self['vlans'].target.is_set():
                     raise CommitException('vlans target is not set')
 
             # 8<---------------------------------------------
             # Ports
-            self['ports'].set_target(transaction['ports'])
-            for i in removed['ports']:
-                # detach port
-                if i in self.ipdb.interfaces:
-                    (self.ipdb.interfaces[i]
-                     .set_target('master', None)
-                     .mirror_target('master', 'link'))
-                    run(nl.link, 'set', index=i, master=0)
-                else:
-                    transaction.errors.append(KeyError(i))
-
-            for i in added['ports']:
-                # attach port
-                if i in self.ipdb.interfaces:
-                    (self.ipdb.interfaces[i]
-                     .set_target('master', self['index'])
-                     .mirror_target('master', 'link'))
-                    run(nl.link, 'set', index=i, master=self['index'])
-                else:
-                    transaction.errors.append(KeyError(i))
-
             if removed['ports'] or added['ports']:
+                self['ports'].set_target(transaction['ports'])
+
+                for i in removed['ports']:
+                    # detach port
+                    if i in self.ipdb.interfaces:
+                        (self.ipdb.interfaces[i]
+                         .set_target('master', None)
+                         .mirror_target('master', 'link'))
+                        run(nl.link, 'set', index=i, master=0)
+                    else:
+                        transaction.errors.append(KeyError(i))
+
+                for i in added['ports']:
+                    # attach port
+                    if i in self.ipdb.interfaces:
+                        (self.ipdb.interfaces[i]
+                         .set_target('master', self['index'])
+                         .mirror_target('master', 'link'))
+                        run(nl.link, 'set', index=i, master=self['index'])
+                    else:
+                        transaction.errors.append(KeyError(i))
+
                 self['ports'].target.wait(SYNC_TIMEOUT)
                 if not self['ports'].target.is_set():
                     raise CommitException('ports target is not set')
@@ -721,12 +724,15 @@ class Interface(Transactional):
             # 8<---------------------------------------------
             # IP address changes
             for _ in range(3):
-                self['ipaddr'].set_target(transaction['ipaddr'])
-                ip_added = transaction['ipaddr'] - self['ipaddr']
-                ip_removed = self['ipaddr'] - transaction['ipaddr']
+                ip2add = transaction['ipaddr'] - self['ipaddr']
+                ip2remove = self['ipaddr'] - transaction['ipaddr']
 
+                if not ip2add and not ip2remove:
+                    break
+
+                self['ipaddr'].set_target(transaction['ipaddr'])
                 ###
-                # Removed
+                # Remove
                 #
                 # The promote_secondaries sysctl causes the kernel
                 # to add secondary addresses back after the primary
@@ -737,7 +743,7 @@ class Interface(Transactional):
                 #
                 # One simple way to work that around is to remove
                 # secondaries first.
-                rip = sorted(ip_removed,
+                rip = sorted(ip2remove,
                              key=lambda x: self['ipaddr'][x]['flags'],
                              reverse=True)
                 # 8<--------------------------------------
@@ -761,9 +767,10 @@ class Interface(Transactional):
                                 x.args[0].startswith('illegal IP'):
                             continue
                         raise
-
+                ###
+                # Add addresses
                 # 8<--------------------------------------
-                for i in ip_added:
+                for i in ip2add:
                     # Ignore link-local IPv6 addresses
                     if i[0][:4] == 'fe80' and i[1] == 64:
                         continue
@@ -780,26 +787,23 @@ class Interface(Transactional):
                         **kwarg if kwarg else {})
 
                 # 8<--------------------------------------
-                if removed['ipaddr'] or added['ipaddr']:
-                    # 8<--------------------------------------
-                    # bond and bridge interfaces do not send
-                    # IPv6 address updates, when are down
-                    #
-                    # beside of that, bridge interfaces are
-                    # down by default, so they never send
-                    # address updates from beginning
-                    #
-                    # so if we need, force address load
-                    #
-                    # FIXME: probably, we should handle other
-                    # types as well
-                    if self['kind'] in ('bond', 'bridge', 'veth'):
-                        self.ipdb.update_addr(self.nl.get_addr(), 'add')
-                    # 8<--------------------------------------
-                    self['ipaddr'].target.wait(SYNC_TIMEOUT)
-                    if self['ipaddr'].target.is_set():
-                        break
-                else:
+                # bond and bridge interfaces do not send
+                # IPv6 address updates, when are down
+                #
+                # beside of that, bridge interfaces are
+                # down by default, so they never send
+                # address updates from beginning
+                #
+                # so if we need, force address load
+                #
+                # FIXME: probably, we should handle other
+                # types as well
+                if self['kind'] in ('bond', 'bridge', 'veth'):
+                    self.ipdb.update_addr(self.nl.get_addr(), 'add')
+
+                # 8<--------------------------------------
+                self['ipaddr'].target.wait(SYNC_TIMEOUT)
+                if self['ipaddr'].target.is_set():
                     break
             else:
                 raise CommitException('ipaddr target is not set')
