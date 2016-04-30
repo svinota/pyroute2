@@ -416,7 +416,7 @@ class Interface(Transactional):
 
     def review(self):
         ret = super(Interface, self).review()
-        last = self.last()
+        last = self.current_tx
         if self['ipdb_scope'] == 'create':
             ret['+ipaddr'] = last['ipaddr']
             ret['+ports'] = last['ports']
@@ -479,12 +479,12 @@ class Interface(Transactional):
         removed = None
         drop = True
         if tid:
-            transaction = self._transactions[tid]
+            transaction = self.global_tx[tid]
         else:
             if transaction:
                 drop = False
             else:
-                transaction = self.last()
+                transaction = self.current_tx
         if transaction.partial:
             transaction.errors = []
 
@@ -596,7 +596,7 @@ class Interface(Transactional):
                         transaction.errors.append(error(port))
                     else:
                         if drop:
-                            self.drop(transaction)
+                            self.drop(transaction.uid)
                         raise error(port)
                 else:
                     ports.remove(port)
@@ -823,7 +823,7 @@ class Interface(Transactional):
                                 # it means, that the device was moved
                                 # to another netns; just give up
                                 if drop:
-                                    self.drop(transaction)
+                                    self.drop(transaction.uid)
                                 return self
                 # wait for targets
                 transaction._wait_all_targets()
@@ -843,7 +843,7 @@ class Interface(Transactional):
                 if added['ipdb_scope'] == 'create':
                     self.load_dict(transaction)
                 if drop:
-                    self.drop(transaction)
+                    self.drop(transaction.uid)
                 return self
             # 8<---------------------------------------------
 
@@ -883,7 +883,7 @@ class Interface(Transactional):
         # if it is not a rollback turn
         if drop and not rollback:
             # drop last transaction in any case
-            self.drop(transaction)
+            self.drop(transaction.uid)
 
         # raise exception for failed transaction
         if error is not None:

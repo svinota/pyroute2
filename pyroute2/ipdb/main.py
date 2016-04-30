@@ -198,7 +198,7 @@ The sample session with explicit transactions::
     In [10]: ifdb.tap0.commit()
 
 
-Note, that you can `review()` the `last()` transaction, and
+Note, that you can `review()` the `current_tx` transaction, and
 `commit()` or `drop()` it. Also, multiple `self._transactions`
 are supported, use uuid returned by `begin()` to identify them.
 
@@ -474,7 +474,7 @@ class IPDB(object):
         '''
         Parameters:
             - nl -- IPRoute() reference
-            - mode -- (implicit, explicit, direct)
+            - mode -- (implicit, explicit)
             - iclass -- the interface class type
 
         If you do not provide iproute instance, ipdb will
@@ -867,15 +867,7 @@ class IPDB(object):
                 device['ifname'] = ifname
                 device['ipdb_scope'] = 'create'
                 device._mode = self.mode
-            tid = device.begin()
-        #
-        # All the device methods are handled via `transactional.update()`
-        # except of the very creation.
-        #
-        # Commit the changes in the 'direct' mode, since this call is not
-        # decorated.
-        if self.mode == 'direct':
-            device.commit(tid)
+            device.begin()
         return device
 
     def commit(self, transactions=None, rollback=False):
@@ -883,12 +875,13 @@ class IPDB(object):
         # started transactions on existing objects
         if transactions is None:
             # collect interface transactions
-            txlist = [(x, x.last()) for x in self.by_name.values() if x._tids]
+            txlist = [(x, x.current_tx) for x
+                      in self.by_name.values() if x.local_tx.values()]
             # collect route transactions
             for table in self.routes.tables.keys():
-                txlist.extend([(x, x.last()) for x in
+                txlist.extend([(x, x.current_tx) for x in
                                self.routes.tables[table]
-                               if x._tids])
+                               if x.local_tx.values()])
             txlist = sorted(txlist,
                             key=lambda x: x[1]['ipdb_priority'],
                             reverse=True)
@@ -921,7 +914,7 @@ class IPDB(object):
         finally:
             if not rollback:
                 for (target, tx) in transactions:
-                    target.drop(tx)
+                    target.drop(tx.uid)
 
     def device_del(self, msg):
         target = self.interfaces.get(msg['index'])

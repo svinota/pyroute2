@@ -142,13 +142,17 @@ class BaseRoute(Transactional):
 
     def add_nh(self, prime):
         with self._write_lock:
-            tx = self.get_tx()
+            if self.current_tx is None:
+                self.begin()
+            tx = self.current_tx
             with tx._direct_state:
                 tx['multipath'].add(prime)
 
     def del_nh(self, prime):
         with self._write_lock:
-            tx = self.get_tx()
+            if self.current_tx is None:
+                self.begin()
+            tx = self.current_tx
             with tx._direct_state:
                 tx['multipath'].remove(prime)
 
@@ -242,12 +246,12 @@ class BaseRoute(Transactional):
         cleanup = []
 
         if tid:
-            transaction = self._transactions[tid]
+            transaction = self.global_tx[tid]
         else:
             if transaction:
                 drop = False
             else:
-                transaction = self.last()
+                transaction = self.current_tx
 
         # create a new route
         if self['ipdb_scope'] != 'system':
@@ -326,13 +330,13 @@ class BaseRoute(Transactional):
                     error = e
             else:
                 if drop:
-                    self.drop()
+                    self.drop(transaction.uid)
                 x = RuntimeError()
                 x.cause = e
                 raise x
 
         if drop and not rollback:
-            self.drop()
+            self.drop(transaction.uid)
 
         if error is not None:
             error.transaction = transaction
@@ -403,7 +407,7 @@ class Route(BaseRoute):
                 # begin() works only if the transactional is attached
                 if any(value.values()):
                     if self._mode in ('implicit', 'explicit'):
-                        ret._begin(tid=self.last().uid)
+                        ret._begin(tid=self.current_tx.uid)
                     [ret.__setitem__(k, v) for k, v
                      in value.items() if v is not None]
             # corresponding transactional exists
@@ -484,7 +488,7 @@ class MPLSRoute(BaseRoute):
                 # load value into the new object
                 if any(value.values()):
                     if self._mode in ('implicit', 'explicit'):
-                        ret._begin(tid=self.last().uid)
+                        ret._begin(tid=self.current_tx.uid)
                     [ret.__setitem__(k, v) for k, v
                      in value.items() if v is not None]
             else:

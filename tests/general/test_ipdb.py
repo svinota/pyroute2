@@ -266,7 +266,7 @@ class TestExplicit(BasicSetup):
         assert len(self.ip.interfaces[self.ifd]._commit_hooks) == 0
 
     def test_review(self):
-        assert len(self.ip.interfaces.lo._tids) == 0
+        assert len(self.ip.interfaces.lo.local_tx) == 0
         if self.ip.interfaces.lo._mode == 'explicit':
             self.ip.interfaces.lo.begin()
         self.ip.interfaces.lo.add_ip('172.16.21.1/24')
@@ -1703,7 +1703,7 @@ class TestPartial(BasicSetup):
 
         b.add_port(ifBp0)
         b.add_port(ifBp1)
-        t = b.last()
+        t = b.current_tx
         t.partial = True
         try:
             b.commit(transaction=t)
@@ -1801,64 +1801,6 @@ class TestImplicit(TestExplicit):
             self.ip.interfaces[ifM].ports
         # unregister callback
         self.ip.unregister_callback(cuid)
-
-
-class TestDirect(object):
-
-    def setup(self):
-        self.ifname = uifname()
-        self.ip = IPDB(mode='direct')
-        try:
-            self.ip.create(ifname=self.ifname, kind='dummy')
-        except:
-            pass
-
-    def teardown(self):
-        try:
-            self.ip.interfaces[self.ifname].remove()
-        except KeyError:
-            pass
-        self.ip.release()
-
-    def test_context_fail(self):
-        require_user('root')
-        try:
-            with self.ip.interfaces[self.ifname] as i:
-                i.down()
-        except TypeError:
-            pass
-
-    def test_create(self):
-        require_user('root')
-        ifname = uifname()
-        assert ifname not in self.ip.interfaces
-        self.ip.create(ifname=ifname, kind='dummy')
-        assert ifname in self.ip.interfaces
-        self.ip.interfaces[ifname].remove()
-        assert ifname not in self.ip.interfaces
-
-    def test_updown(self):
-        require_user('root')
-
-        assert not (self.ip.interfaces[self.ifname].flags & 1)
-        self.ip.interfaces[self.ifname].up()
-
-        assert self.ip.interfaces[self.ifname].flags & 1
-        self.ip.interfaces[self.ifname].down()
-
-        assert not (self.ip.interfaces[self.ifname].flags & 1)
-
-    def test_exceptions_last(self):
-        try:
-            self.ip.interfaces.lo.last()
-        except TypeError:
-            pass
-
-    def test_exception_review(self):
-        try:
-            self.ip.interfaces.lo.review()
-        except TypeError:
-            pass
 
 
 class TestMisc(object):
@@ -2012,11 +1954,11 @@ class TestMisc(object):
 
         with IPDB(mode='implicit') as i:
             # transaction aut-begin()
-            assert len(i.interfaces[self.ifname]._tids) == 0
+            assert len(i.interfaces[self.ifname].local_tx) == 0
             i.interfaces[self.ifname].up()
-            assert len(i.interfaces[self.ifname]._tids) == 1
+            assert len(i.interfaces[self.ifname].local_tx) == 1
             i.interfaces[self.ifname].drop()
-            assert len(i.interfaces[self.ifname]._tids) == 0
+            assert len(i.interfaces[self.ifname].local_tx) == 0
 
         with IPDB(mode='invalid') as i:
             # transaction mode not supported
