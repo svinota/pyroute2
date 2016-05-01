@@ -491,19 +491,19 @@ class Interface(Transactional):
         with self._write_lock:
             # if the interface does not exist, create it first ;)
             if self['ipdb_scope'] != 'system':
-                request = IPLinkRequest(self.filter('common'))
 
                 newif = True
                 self.set_target('ipdb_scope', 'system')
                 try:
                     # 8<----------------------------------------------------
                     # ACHTUNG: hack for old platforms
-                    if request.get('address', None) == '00:00:00:00:00:00':
-                        del request['address']
-                        del request['broadcast']
+                    if self['address'] == '00:00:00:00:00:00':
+                        with self._direct_state:
+                            self['address'] = None
+                            self['broadcast'] = None
                     # 8<----------------------------------------------------
                     try:
-                        self.nl.link('add', **request)
+                        self.nl.link('add', **self)
                     except NetlinkError as x:
                         # File exists
                         if x.code == errno.EEXIST:
