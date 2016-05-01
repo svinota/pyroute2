@@ -169,7 +169,8 @@ class Transactional(Dotkeys):
                                  uid=uid)
             for (key, value) in self.items():
                 if key in self._fields:
-                    res[key] = self[key]
+                    if self[key] is not None:
+                        res[key] = self[key]
             for key in self._linked_sets:
                 res[key] = type(self[key])(self[key])
                 if not detached:
