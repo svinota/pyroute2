@@ -1056,26 +1056,29 @@ class IPDB(object):
                 for device in self.by_index:
                     if index in self.interfaces[device]['ports']:
                         try:
-                            self.interfaces[device].del_port(
-                                index, direct=True)
+                            with self.interfaces[device]._direct_state:
+                                self.interfaces[device].del_port(index)
                         except KeyError:
                             pass
-                master.add_port(index, direct=True)
+                with master._direct_state:
+                    master.add_port(index)
             elif msg['event'] == 'RTM_DELLINK':
                 if index in master['ports']:
-                    master.del_port(index, direct=True)
+                    with master._direct_state:
+                        master.del_port(index)
         # there is NO masters for the interface, clean them if any
         else:
             device = self.interfaces[msg['index']]
             # clean vlan list from the port
             for vlan in tuple(device['vlans']):
-                device.del_vlan(vlan, direct=True)
+                with device._direct_state:
+                    device.del_vlan(vlan)
             # clean device from ports
             for master in self.by_index:
                 if index in self.interfaces[master]['ports']:
                     try:
-                        self.interfaces[master].del_port(
-                            index, direct=True)
+                        with self.interfaces[master]._direct_state:
+                            self.interfaces[master].del_port(index)
                     except KeyError:
                         pass
             master = device.if_master
@@ -1086,8 +1089,8 @@ class IPDB(object):
                 if (master in self.interfaces) and \
                         (msg['index'] in self.interfaces[master].ports):
                     try:
-                        self.interfaces[master].del_port(
-                            msg['index'], direct=True)
+                        with self.interfaces[master]._direct_state:
+                            self.interfaces[master].del_port(index)
                     except KeyError:
                         pass
 

@@ -600,7 +600,8 @@ class Interface(Transactional):
                         raise error(port)
                 else:
                     ports.remove(port)
-                    callback(ifindex, direct=True)
+                    with transaction._direct_state:  # ????
+                        callback(ifindex)
         resolve_ports(transaction,
                       transaction._delay_add_port,
                       transaction.add_port,

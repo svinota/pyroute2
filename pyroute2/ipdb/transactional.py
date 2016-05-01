@@ -48,10 +48,6 @@ def update(f):
         error = None
 
         with self._write_lock:
-            dcall = kwarg.pop('direct', False)
-            if dcall:
-                self._direct_state.acquire()
-
             direct = self._direct_state.is_set()
             try:
                 if not direct:
@@ -75,8 +71,6 @@ def update(f):
                 logging.error('transaction decorator error'
                               '\n%s', traceback.format_exc())
                 error = e
-            if dcall:
-                self._direct_state.release()
             if error is not None:
                 raise error
         return ret
