@@ -550,16 +550,18 @@ class IPDB(object):
             # bridge info
             links = self.nl.get_vlans()
             for link in links:
-                self.update_dev(link)
+                self.device_put(link)
             #
-            self.update_addr(self.nl.get_addr())
-            self.update_neighbours(self.nl.get_neighbours())
-            routes4 = self.nl.get_routes(family=AF_INET)
-            routes6 = self.nl.get_routes(family=AF_INET6)
-            mpls = self.nl.get_routes(family=AF_MPLS)
-            self.update_routes(routes4)
-            self.update_routes(routes6)
-            self.update_routes(mpls)
+            for msg in self.nl.get_addr():
+                self.addr_add(msg)
+            for msg in self.nl.get_neighbours():
+                self.neigh_add(msg)
+            for msg in self.nl.get_routes(family=AF_INET):
+                self.route_add(msg)
+            for msg in self.nl.get_routes(family=AF_INET6):
+                self.route_add(msg)
+            for msg in self.nl.get_routes(family=AF_MPLS):
+                self.route_add(msg)
         except Exception as e:
             logging.error('initdb error: %s', e)
             logging.error(traceback.format_exc())
@@ -926,6 +928,12 @@ class IPDB(object):
         target = self.interfaces.get(msg['index'])
         if target is None:
             return
+        for record in self.routes.filter({'oif': msg['index']}):
+            with record['route']._direct_state:
+                record['route']['ipdb_scope'] = 'gc'
+        for record in self.routes.filter({'iif': msg['index']}):
+            with record['route']._direct_state:
+                record['route']['ipdb_scope'] = 'gc'
         target.nlmsg = msg
         # check for freezed devices
         if getattr(target, '_freeze', None):
@@ -1012,26 +1020,11 @@ class IPDB(object):
     def watchdog(self, action='RTM_NEWLINK', **kwarg):
         return Watchdog(self, action, kwarg)
 
-    def update_dev(self, dev):
-        # ignore non-system updates on devices not
-        # registered in the DB
-        if (dev['index'] not in self.interfaces) and \
-                (dev['change'] != 0xffffffff):
-            return
-        if dev['event'] == 'RTM_NEWLINK':
-            self.device_put(dev)
-        else:
-            for record in self.routes.filter({'oif': dev['index']}):
-                with record['route']._direct_state:
-                    record['route']['ipdb_scope'] = 'gc'
-            for record in self.routes.filter({'iif': dev['index']}):
-                with record['route']._direct_state:
-                    record['route']['ipdb_scope'] = 'gc'
-            self.device_del(dev)
+    def route_add(self, msg):
+        self.routes.load_netlink(msg)
 
-    def update_routes(self, routes):
-        for msg in routes:
-            self.routes.load_netlink(msg)
+    def route_del(self, msg):
+        self.routes.load_netlink(msg)
 
     def update_slaves(self, msg):
         # Update slaves list -- only after update IPDB!
@@ -1094,43 +1087,57 @@ class IPDB(object):
                     except KeyError:
                         pass
 
-    def update_addr(self, addrs, action='add'):
-        # Update address list of an interface.
+    def addr_add(self, msg):
+        if msg['family'] == AF_INET:
+            addr = msg.get_attr('IFA_LOCAL')
+        elif msg['family'] == AF_INET6:
+            addr = msg.get_attr('IFA_ADDRESS')
+        else:
+            return
+        raw = {'local': msg.get_attr('IFA_LOCAL'),
+               'broadcast': msg.get_attr('IFA_BROADCAST'),
+               'address': msg.get_attr('IFA_ADDRESS'),
+               'flags': msg.get_attr('IFA_FLAGS'),
+               'prefixlen': msg['prefixlen']}
+        try:
+            self.ipaddr[msg['index']].add(key=(addr, raw['prefixlen']),
+                                          raw=raw)
+        except:
+            pass
 
-        for addr in addrs:
-            nla = get_addr_nla(addr)
-            if self.debug:
-                raw = addr
-            else:
-                raw = {'local': addr.get_attr('IFA_LOCAL'),
-                       'broadcast': addr.get_attr('IFA_BROADCAST'),
-                       'address': addr.get_attr('IFA_ADDRESS'),
-                       'flags': addr.get_attr('IFA_FLAGS'),
-                       'prefixlen': addr.get('prefixlen')}
-            if nla is not None:
-                try:
-                    method = getattr(self.ipaddr[addr['index']], action)
-                    method(key=(nla, addr['prefixlen']), raw=raw)
-                except:
-                    pass
+    def addr_del(self, msg):
+        if msg['family'] == AF_INET:
+            addr = msg.get_attr('IFA_LOCAL')
+        elif msg['family'] == AF_INET6:
+            addr = msg.get_attr('IFA_ADDRESS')
+        else:
+            return
+        try:
+            self.ipaddr[msg['index']].remove((addr, msg['prefixlen']))
+        except:
+            pass
 
-    def update_neighbours(self, neighs, action='add'):
+    def neigh_add(self, msg):
+        if msg['family'] == AF_BRIDGE:
+            return
 
-        for neigh in neighs:
-            if neigh['family'] == AF_BRIDGE:
-                # skip FDB records for now -- should be tracked separately
-                continue
-            nla = neigh.get_attr('NDA_DST')
-            if self.debug:
-                raw = neigh
-            else:
-                raw = {'lladdr': neigh.get_attr('NDA_LLADDR')}
-            if nla is not None:
-                try:
-                    method = getattr(self.neighbours[neigh['ifindex']], action)
-                    method(key=nla, raw=raw)
-                except:
-                    pass
+        try:
+            (self
+             .neighbours[msg['ifindex']]
+             .add(key=msg.get_attr('NDA_DST'),
+                  raw={'lladdr': msg.get_attr('MDA_LLADDR')}))
+        except:
+            pass
+
+    def neigh_del(self, msg):
+        if msg['family'] == AF_BRIDGE:
+            return
+        try:
+            (self
+             .neighbours[msg['ifindex']]
+             .remove(msg.get_attr('NDA_DST')))
+        except:
+            pass
 
     def serve_forever(self):
         '''
@@ -1141,6 +1148,14 @@ class IPDB(object):
         .. note::
             Should not be called manually.
         '''
+        event_map = {'RTM_NEWLINK': self.device_put,
+                     'RTM_DELLINK': self.device_del,
+                     'RTM_NEWADDR': self.addr_add,
+                     'RTM_DELADDR': self.addr_del,
+                     'RTM_NEWNEIGH': self.neigh_add,
+                     'RTM_DELNEIGH': self.neigh_del,
+                     'RTM_NEWROUTE': self.route_add,
+                     'RTM_DELROUTE': self.route_del}
         while not self._stop:
             try:
                 messages = self.mnl.get()
@@ -1176,21 +1191,9 @@ class IPDB(object):
                         pass
 
                 with self.exclusive:
-                    # FIXME: refactor it to a dict
-                    if msg.get('event', None) in ('RTM_NEWLINK',
-                                                  'RTM_DELLINK'):
-                        self.update_dev(msg)
-                    elif msg.get('event', None) == 'RTM_NEWADDR':
-                        self.update_addr([msg], 'add')
-                    elif msg.get('event', None) == 'RTM_DELADDR':
-                        self.update_addr([msg], 'remove')
-                    elif msg.get('event', None) == 'RTM_NEWNEIGH':
-                        self.update_neighbours([msg], 'add')
-                    elif msg.get('event', None) == 'RTM_DELNEIGH':
-                        self.update_neighbours([msg], 'remove')
-                    elif msg.get('event', None) in ('RTM_NEWROUTE',
-                                                    'RTM_DELROUTE'):
-                        self.update_routes([msg])
+                    event = msg.get('event', None)
+                    if event in event_map:
+                        event_map[event](msg)
 
                 # run post-callbacks
                 # NOTE: post-callbacks are asynchronous

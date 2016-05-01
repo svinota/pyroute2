@@ -792,7 +792,8 @@ class Interface(Transactional):
                 # FIXME: probably, we should handle other
                 # types as well
                 if self['kind'] in ('bond', 'bridge', 'veth'):
-                    self.ipdb.update_addr(self.nl.get_addr(), 'add')
+                    for addr in self.nl.get_addr():
+                        self.ipdb.addr_add(addr)
 
                 # 8<--------------------------------------
                 self['ipaddr'].target.wait(SYNC_TIMEOUT)
@@ -868,8 +869,9 @@ class Interface(Transactional):
                     self.ipdb.update_slaves(link)
                 links = self.nl.get_vlans()
                 for link in links:
-                    self.ipdb.update_dev(link)
-                self.ipdb.update_addr(self.nl.get_addr())
+                    self.ipdb.device_put(link)
+                for addr in self.nl.get_addr():
+                    self.ipdb.addr_add(addr)
 
             error.traceback = traceback.format_exc()
             for key in ('ipaddr', 'ports', 'vlans'):
