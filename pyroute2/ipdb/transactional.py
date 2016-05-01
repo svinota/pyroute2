@@ -1,8 +1,6 @@
 '''
 '''
-import logging
 import threading
-import traceback
 from pyroute2.common import Dotkeys
 from pyroute2.common import uuid32
 from pyroute2.ipdb.linkedset import LinkedSet
@@ -42,38 +40,28 @@ class State(object):
 
 def update(f):
     def decorated(self, *argv, **kwarg):
-        # obtain update lock
-        ret = None
-        direct = True
-        error = None
+
+        if self._mode == 'snapshot':
+            # short-circuit
+            with self._write_lock:
+                return f(self, True, *argv, **kwarg)
 
         with self._write_lock:
             direct = self._direct_state.is_set()
-            try:
-                if not direct:
-                    # 1. 'implicit': begin transaction, if there is none
-                    if self._mode == 'implicit':
-                        if not self.current_tx:
-                            self.begin()
-                    # 2. require open transaction for 'explicit' type
-                    elif self._mode == 'explicit':
-                        if not self.current_tx:
-                            raise TypeError('start a transaction first')
-                    # 3. transactions can not require transactions :)
-                    elif self._mode == 'snapshot':
-                        direct = True
-                    # do not support other modes
-                    else:
-                        raise TypeError('transaction mode not supported')
-                    # now that the transaction _is_ open
-                ret = f(self, direct, *argv, **kwarg)
-            except Exception as e:
-                logging.error('transaction decorator error'
-                              '\n%s', traceback.format_exc())
-                error = e
-            if error is not None:
-                raise error
-        return ret
+            if not direct:
+                # 1. 'implicit': begin transaction, if there is none
+                if self._mode == 'implicit':
+                    if not self.current_tx:
+                        self.begin()
+                # 2. require open transaction for 'explicit' type
+                elif self._mode == 'explicit':
+                    if not self.current_tx:
+                        raise TypeError('start a transaction first')
+                # do not support other modes
+                else:
+                    raise TypeError('transaction mode not supported')
+                # now that the transaction _is_ open
+            return f(self, direct, *argv, **kwarg)
     decorated.__doc__ = f.__doc__
     return decorated
 
