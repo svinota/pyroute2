@@ -525,14 +525,6 @@ class Interface(Transactional):
                             # continue, as it is created by us.
                             pass
 
-                        # Operation not supported
-                        elif x.code == errno.EOPNOTSUPP and \
-                                request.get('index', 0) != 0:
-                            # ACHTUNG: hack for old platforms
-                            request = IPLinkRequest({'ifname': self['ifname'],
-                                                     'kind': self['kind'],
-                                                     'index': 0})
-                            self.nl.link('add', **request)
                         else:
                             raise
                 except Exception as e:
