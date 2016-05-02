@@ -4,7 +4,6 @@ import socket
 import traceback
 from pyroute2 import config
 from pyroute2.common import basestring
-from pyroute2.common import reduce
 from pyroute2.common import dqn2int
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl.req import IPLinkRequest
@@ -58,20 +57,22 @@ class Interface(Transactional):
     will be attached to the exception.
     '''
     _fields_cmp = {'flags': lambda x, y: x & y & IFF_MASK == y & IFF_MASK}
-    _virtual_fields = ['ipdb_scope', 'ipdb_priority']
-    _xfields = {'common': [ifinfmsg.nla2name(i[0]) for i
-                           in ifinfmsg.nla_map]}
-    _xfields['common'].append('index')
-    _xfields['common'].append('flags')
-    _xfields['common'].append('mask')
-    _xfields['common'].append('change')
-    _xfields['common'].append('kind')
-    _xfields['common'].append('peer')
-    _xfields['common'].append('vlan_id')
-    _xfields['common'].append('bond_mode')
-    _xfields['common'].extend(_get_data_fields())
-
-    _fields = reduce(lambda x, y: x + y, _xfields.values())
+    _virtual_fields = ['ipdb_scope',
+                       'ipdb_priority',
+                       'vlans',
+                       'ipaddr',
+                       'ports',
+                       'net_ns_fd']
+    _fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
+    _fields.append('index')
+    _fields.append('flags')
+    _fields.append('mask')
+    _fields.append('change')
+    _fields.append('kind')
+    _fields.append('peer')
+    _fields.append('vlan_id')
+    _fields.append('bond_mode')
+    _fields.extend(_get_data_fields())
     _fields.extend(_virtual_fields)
 
     def __init__(self, ipdb, mode=None, parent=None, uid=None):
@@ -407,13 +408,6 @@ class Interface(Transactional):
                 time.sleep(1)
         return self
 
-    def filter(self, ftype):
-        ret = {}
-        for key in self:
-            if key in self._xfields[ftype]:
-                ret[key] = self[key]
-        return ret
-
     def review(self):
         ret = super(Interface, self).review()
         last = self.current_tx
@@ -685,7 +679,8 @@ class Interface(Transactional):
             # Interface changes
             request = IPLinkRequest()
             for key in added:
-                if (key in self._xfields['common']) and \
+                if (key == 'net_ns_fd') or \
+                        (key not in self._virtual_fields) and \
                         (key != 'kind'):
                     request[key] = added[key]
             request['index'] = self['index']
@@ -713,6 +708,8 @@ class Interface(Transactional):
                         except Exception:
                             raise
                     time.sleep(0.1)
+                if not transaction.partial:
+                    transaction.wait_all_targets()
 
             # 8<---------------------------------------------
             # IP address changes
@@ -809,24 +806,6 @@ class Interface(Transactional):
                 ch(self.dump(), snapshot.dump(), transaction.dump())
 
             # 8<---------------------------------------------
-            # reload interface to hit targets
-            if not transaction.partial:
-                if transaction._targets:
-                    try:
-                        self.reload()
-                    except NetlinkError as e:
-                        if e.code == errno.ENODEV:  # No such device
-                            if ('net_ns_fd' in added) or \
-                                    ('net_ns_pid' in added):
-                                # it means, that the device was moved
-                                # to another netns; just give up
-                                if drop:
-                                    self.drop(transaction.uid)
-                                return self
-                # wait for targets
-                transaction.wait_all_targets()
-
-            # 8<---------------------------------------------
             # Interface removal
             if (added.get('ipdb_scope') in ('shadow', 'remove')) or\
                     ((added.get('ipdb_scope') == 'create') and rollback):
@@ -835,7 +814,7 @@ class Interface(Transactional):
                 if added.get('ipdb_scope') in ('shadow', 'create'):
                     with self._direct_state:
                         self['ipdb_scope'] = 'locked'
-                self.nl.link('delete', **self)
+                self.nl.link('delete', index=self['index'])
                 wd.wait()
                 if added.get('ipdb_scope') == 'shadow':
                     with self._direct_state:
@@ -904,7 +883,8 @@ class Interface(Transactional):
         if self['flags'] is None:
             self['flags'] = 1
         else:
-            self['flags'] |= 1
+            if not self['flags'] & 1:
+                self['flags'] |= 1
         return self
 
     def down(self):
@@ -914,7 +894,8 @@ class Interface(Transactional):
         if self['flags'] is None:
             self['flags'] = 0
         else:
-            self['flags'] &= ~(self['flags'] & 1)
+            if self['flags'] & 1:
+                self['flags'] &= ~(self['flags'] & 1)
         return self
 
     def remove(self):

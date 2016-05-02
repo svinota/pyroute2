@@ -383,7 +383,7 @@ class Transactional(Dotkeys):
     @update
     def __setitem__(self, direct, key, value):
         if not direct:
-            # automatically set target on the last transaction,
+            # automatically set target on the active transaction,
             # which must be started prior to that call
             transaction = self.current_tx
             transaction[key] = value
