@@ -105,9 +105,6 @@ class WatchdogKey(dict):
                                          'table') and x[1]])
 
 
-MPLSKey = namedtuple('MPLSKey',
-                     ('oif',
-                      'dst'))
 RouteKey = namedtuple('RouteKey',
                       ('src',
                        'dst',
@@ -459,20 +456,16 @@ class MPLSRoute(BaseRoute):
         Construct from a netlink message a key that can be used
         to locate the route in the table
         '''
-        oif = None
         label = None
         if isinstance(msg, nlmsg):
-            oif = msg.get_attr('RTA_OIF')
             label = msg.get_attr('RTA_DST')
         elif isinstance(msg, Transactional):
-            oif = msg.get('oif')
             label = msg.get('dst')
         else:
             raise TypeError('prime not supported')
         if isinstance(label, list):
             label = label[0]['label']
-        ret = MPLSKey(oif, label)
-        return ret
+        return label
 
     def __setitem__(self, key, value):
         if key == 'via' and isinstance(value, dict):
@@ -697,17 +690,12 @@ class MPLSTable(RoutingTable):
     route_class = MPLSRoute
 
     def keys(self):
-        return [tuple(x) for x in self.idx.keys()]
+        return self.idx.keys()
 
     def describe(self, target, forward=False):
-        # return route by index
-        if isinstance(target, int):
-            keys = tuple(self.idx.keys())
-            return self.idx[keys[target]]
-
         # match by key
-        if isinstance(target, (tuple, list)):
-            return self.idx[MPLSKey(*target)]
+        if isinstance(target, int):
+            return self.idx[target]
 
         # match by rtmsg
         if isinstance(target, rtmsg):

@@ -333,7 +333,7 @@ class TestExplicit(BasicSetup):
         r = routes[0]
         assert r.get_attr('RTA_VIA') is None
         # 8<--------------
-        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+        with self.ip.routes.tables['mpls'][label] as r:
             r.via = {'family': socket.AF_INET,
                      'addr': '176.16.70.70'}
         routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
@@ -342,7 +342,7 @@ class TestExplicit(BasicSetup):
         assert r.get_attr('RTA_VIA')['family'] == socket.AF_INET
         assert r.get_attr('RTA_VIA')['addr'] == '176.16.70.70'
         # 8<--------------
-        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+        with self.ip.routes.tables['mpls'][label] as r:
             r.via = {'family': socket.AF_INET,
                      'addr': '176.16.0.80'}
         routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
@@ -351,14 +351,14 @@ class TestExplicit(BasicSetup):
         assert r.get_attr('RTA_VIA')['family'] == socket.AF_INET
         assert r.get_attr('RTA_VIA')['addr'] == '176.16.0.80'
         # 8<--------------
-        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+        with self.ip.routes.tables['mpls'][label] as r:
             r.via = {}
         routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
         assert len(routes) == 1
         r = routes[0]
         assert r.get_attr('RTA_VIA') is None
         # 8<--------------
-        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+        with self.ip.routes.tables['mpls'][label] as r:
             r.remove()
         routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
         assert len(routes) == 0
@@ -382,7 +382,7 @@ class TestExplicit(BasicSetup):
         assert r.get_attr('RTA_VIA')['family'] == socket.AF_INET
         assert r.get_attr('RTA_VIA')['addr'] == '176.16.70.70'
 
-        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+        with self.ip.routes.tables['mpls'][label] as r:
             r.remove()
 
         routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
@@ -406,7 +406,7 @@ class TestExplicit(BasicSetup):
             assert [x['label'] for x in r.get_attr('RTA_NEWDST')] == labels_out
         else:
             assert r.get_attr('RTA_NEWDST') is None
-        with self.ip.routes.tables['mpls'][(idx, label_in)] as r:
+        with self.ip.routes.tables['mpls'][label_in] as r:
             r.remove()
 
     def test_routes_mpls_push(self):
@@ -440,7 +440,7 @@ class TestExplicit(BasicSetup):
         assert r.get_attr('RTA_OIF') == idx
         assert r.get_attr('RTA_VIA') is None
 
-        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+        with self.ip.routes.tables['mpls'][label] as r:
             r['newdst'] = [40, 50]
 
         routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
@@ -454,7 +454,7 @@ class TestExplicit(BasicSetup):
         assert r.get_attr('RTA_NEWDST')[1]['label'] == 50
         assert r.get_attr('RTA_NEWDST')[1]['bos'] == 1
 
-        with self.ip.routes.tables['mpls'][(idx, label)] as r:
+        with self.ip.routes.tables['mpls'][label] as r:
             r.remove()
 
         routes = self.ip.nl.get_routes(family=AF_MPLS, oif=idx)
