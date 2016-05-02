@@ -544,24 +544,24 @@ class IPDB(object):
             # load information
             links = self.nl.get_links()
             for link in links:
-                self.device_put(link, skip_slaves=True)
+                self._interface_add(link, skip_slaves=True)
             for link in links:
                 self.update_slaves(link)
             # bridge info
             links = self.nl.get_vlans()
             for link in links:
-                self.device_put(link)
+                self._interface_add(link)
             #
             for msg in self.nl.get_addr():
-                self.addr_add(msg)
+                self._addr_add(msg)
             for msg in self.nl.get_neighbours():
-                self.neigh_add(msg)
+                self._neigh_add(msg)
             for msg in self.nl.get_routes(family=AF_INET):
-                self.route_add(msg)
+                self._route_add(msg)
             for msg in self.nl.get_routes(family=AF_INET6):
-                self.route_add(msg)
+                self._route_add(msg)
             for msg in self.nl.get_routes(family=AF_MPLS):
-                self.route_add(msg)
+                self._route_add(msg)
         except Exception as e:
             logging.error('initdb error: %s', e)
             logging.error(traceback.format_exc())
@@ -924,7 +924,7 @@ class IPDB(object):
                 for (target, tx) in transactions:
                     target.drop(tx.uid)
 
-    def device_del(self, msg):
+    def _interface_del(self, msg):
         target = self.interfaces.get(msg['index'])
         if target is None:
             return
@@ -945,7 +945,7 @@ class IPDB(object):
             return
         self.detach(None, msg['index'], msg)
 
-    def device_put(self, msg, skip_slaves=False):
+    def _interface_add(self, msg, skip_slaves=False):
         # check, if a record exists
         index = msg.get('index', None)
         ifname = msg.get_attr('IFLA_IFNAME', None)
@@ -1020,10 +1020,10 @@ class IPDB(object):
     def watchdog(self, action='RTM_NEWLINK', **kwarg):
         return Watchdog(self, action, kwarg)
 
-    def route_add(self, msg):
+    def _route_add(self, msg):
         self.routes.load_netlink(msg)
 
-    def route_del(self, msg):
+    def _route_del(self, msg):
         self.routes.load_netlink(msg)
 
     def update_slaves(self, msg):
@@ -1087,7 +1087,7 @@ class IPDB(object):
                     except KeyError:
                         pass
 
-    def addr_add(self, msg):
+    def _addr_add(self, msg):
         if msg['family'] == AF_INET:
             addr = msg.get_attr('IFA_LOCAL')
         elif msg['family'] == AF_INET6:
@@ -1105,7 +1105,7 @@ class IPDB(object):
         except:
             pass
 
-    def addr_del(self, msg):
+    def _addr_del(self, msg):
         if msg['family'] == AF_INET:
             addr = msg.get_attr('IFA_LOCAL')
         elif msg['family'] == AF_INET6:
@@ -1117,7 +1117,7 @@ class IPDB(object):
         except:
             pass
 
-    def neigh_add(self, msg):
+    def _neigh_add(self, msg):
         if msg['family'] == AF_BRIDGE:
             return
 
@@ -1129,7 +1129,7 @@ class IPDB(object):
         except:
             pass
 
-    def neigh_del(self, msg):
+    def _neigh_del(self, msg):
         if msg['family'] == AF_BRIDGE:
             return
         try:
@@ -1148,14 +1148,14 @@ class IPDB(object):
         .. note::
             Should not be called manually.
         '''
-        event_map = {'RTM_NEWLINK': self.device_put,
-                     'RTM_DELLINK': self.device_del,
-                     'RTM_NEWADDR': self.addr_add,
-                     'RTM_DELADDR': self.addr_del,
-                     'RTM_NEWNEIGH': self.neigh_add,
-                     'RTM_DELNEIGH': self.neigh_del,
-                     'RTM_NEWROUTE': self.route_add,
-                     'RTM_DELROUTE': self.route_del}
+        event_map = {'RTM_NEWLINK': self._interface_add,
+                     'RTM_DELLINK': self._interface_del,
+                     'RTM_NEWADDR': self._addr_add,
+                     'RTM_DELADDR': self._addr_del,
+                     'RTM_NEWNEIGH': self._neigh_add,
+                     'RTM_DELNEIGH': self._neigh_del,
+                     'RTM_NEWROUTE': self._route_add,
+                     'RTM_DELROUTE': self._route_del}
         while not self._stop:
             try:
                 messages = self.mnl.get()

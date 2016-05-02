@@ -700,7 +700,7 @@ class Interface(Transactional):
                         # from the main network namespace
                         try:
                             for link in self.nl.get_links(self['index']):
-                                self.ipdb.device_put(link)
+                                self.ipdb._interface_add(link)
                         except NetlinkError as e:
                             if e.code == errno.ENODEV:
                                 break
@@ -790,7 +790,7 @@ class Interface(Transactional):
                 # types as well
                 if self['kind'] in ('bond', 'bridge', 'veth'):
                     for addr in self.nl.get_addr():
-                        self.ipdb.addr_add(addr)
+                        self.ipdb._addr_add(addr)
 
                 # 8<--------------------------------------
                 self['ipaddr'].target.wait(SYNC_TIMEOUT)
@@ -843,14 +843,14 @@ class Interface(Transactional):
                 # the result of the failure
                 links = self.nl.get_links()
                 for link in links:
-                    self.ipdb.device_put(link, skip_slaves=True)
+                    self.ipdb._interface_add(link, skip_slaves=True)
                 for link in links:
                     self.ipdb.update_slaves(link)
                 links = self.nl.get_vlans()
                 for link in links:
-                    self.ipdb.device_put(link)
+                    self.ipdb._interface_add(link)
                 for addr in self.nl.get_addr():
-                    self.ipdb.addr_add(addr)
+                    self.ipdb._addr_add(addr)
 
             error.traceback = traceback.format_exc()
             for key in ('ipaddr', 'ports', 'vlans'):

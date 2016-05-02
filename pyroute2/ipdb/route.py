@@ -304,7 +304,7 @@ class BaseRoute(Transactional):
                 wd = self.ipdb.watchdog('RTM_DELROUTE',
                                         **self.wd_key(snapshot))
                 for route in self.nl.route('delete', **snapshot):
-                    self.ipdb.route_del(route)
+                    self.ipdb._route_del(route)
                 wd.wait()
                 if transaction['ipdb_scope'] == 'shadow':
                     with self._direct_state:
