@@ -2,7 +2,9 @@ import socket
 import platform
 import multiprocessing
 from distutils.version import LooseVersion
+from pyroute2.common import Dotkeys
 
+TransactionalBase = Dotkeys
 SocketBase = socket.socket
 MpPipe = multiprocessing.Pipe
 MpQueue = multiprocessing.Queue

@@ -390,7 +390,7 @@ from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_BRIDGE
 from pyroute2 import config
-from pyroute2.common import Dotkeys
+from pyroute2.config import TransactionalBase
 from pyroute2.common import View
 from pyroute2.common import basestring
 from pyroute2.common import uuid32
@@ -527,7 +527,7 @@ class IPDB(object):
         self.mnl = self.nl.clone()
 
         # resolvers
-        self.interfaces = Dotkeys()
+        self.interfaces = TransactionalBase()
         self.routes = RoutingTableSet(ipdb=self,
                                       ignore_rtables=self._ignore_rtables)
         self.by_name = View(src=self.interfaces,
@@ -1080,7 +1080,7 @@ class IPDB(object):
                     with device._direct_state:
                         device['master'] = None
                 if (master in self.interfaces) and \
-                        (msg['index'] in self.interfaces[master].ports):
+                        (msg['index'] in self.interfaces[master]['ports']):
                     try:
                         with self.interfaces[master]._direct_state:
                             self.interfaces[master].del_port(index)

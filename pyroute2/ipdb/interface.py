@@ -765,7 +765,8 @@ class Interface(Transactional):
                         continue
                     # Try to fetch additional address attributes
                     try:
-                        kwarg = dict([k for k in transaction.ipaddr[i].items()
+                        kwarg = dict([k for k
+                                      in transaction['ipaddr'][i].items()
                                       if k[0] in ('broadcast',
                                                   'anycast',
                                                   'scope')])

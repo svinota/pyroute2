@@ -1,7 +1,7 @@
 '''
 '''
 import threading
-from pyroute2.common import Dotkeys
+from pyroute2.config import TransactionalBase
 from pyroute2.common import uuid32
 from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.exceptions import CommitException
@@ -77,7 +77,7 @@ def with_transaction(f):
     return update(decorated)
 
 
-class Transactional(Dotkeys):
+class Transactional(TransactionalBase):
     '''
     Utility class that implements common transactional logic.
     '''
@@ -119,7 +119,7 @@ class Transactional(Dotkeys):
         self._linked_sets = self._linked_sets or set()
         #
         for i in self._fields:
-            Dotkeys.__setitem__(self, i, None)
+            TransactionalBase.__setitem__(self, i, None)
 
     def register_commit_hook(self, hook):
         '''
@@ -422,7 +422,7 @@ class Transactional(Dotkeys):
                 transaction._targets[key] = threading.Event()
         else:
             # set the item
-            Dotkeys.__setitem__(self, key, value)
+            TransactionalBase.__setitem__(self, key, value)
 
             # update on local targets
             with self._write_lock:
@@ -449,7 +449,7 @@ class Transactional(Dotkeys):
             if key in transaction:
                 del transaction[key]
         else:
-            Dotkeys.__delitem__(self, key)
+            TransactionalBase.__delitem__(self, key)
 
     def option(self, key, value):
         self[key] = value
