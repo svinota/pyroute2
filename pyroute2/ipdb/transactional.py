@@ -226,6 +226,35 @@ class Transactional(Dotkeys):
             res[key] = self[key] - vs[key]
         return res
 
+    def __div__(self, vs):
+        left = {}
+        right = {}
+        with self._direct_state:
+            with vs._direct_state:
+                for key in set(self.keys() + vs.keys()):
+                    if self.get(key, None) != vs.get(key, None):
+                        left[key] = self.get(key)
+                        right[key] = vs.get(key)
+                        continue
+                    if key not in self:
+                        right[key] = vs[key]
+                    elif key not in vs:
+                        left[key] = self[key]
+        for key in self._linked_sets:
+            ldiff = type(self[key])(self[key] - vs[key])
+            rdiff = type(vs[key])(vs[key] - self[key])
+            if ldiff:
+                left[key] = ldiff
+            else:
+                left[key] = set()
+            if rdiff:
+                right[key] = rdiff
+            else:
+                right[key] = set()
+        for key in self._nested:
+            left[key], right[key] = self[key] / vs[key]
+        return left, right
+
     ##
     # Methods to be overloaded
     def detach(self):
@@ -240,6 +269,8 @@ class Transactional(Dotkeys):
     def last_snapshot_id(self):
         return self._sids[-1]
 
+    ##
+    # Snapshot methods
     def revert(self, sid):
         with self._write_lock:
             assert sid in self._snapshots
