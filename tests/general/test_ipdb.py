@@ -419,6 +419,80 @@ class TestExplicit(BasicSetup):
         self._test_routes_mpls_ops(50, [60])
 
     @skip_if_not_supported
+    def test_routes_mpls_multipath(self):
+        require_user('root')
+
+        req = {'family': AF_MPLS,
+               'dst': 20,
+               'multipath': [{'via': {'family': socket.AF_INET,
+                                      'addr': '127.0.0.2'},
+                              'oif': 1,
+                              'newdst': [50]},
+                             {'via': {'family': socket.AF_INET,
+                                      'addr': '127.0.0.3'},
+                              'oif': 1,
+                              'newdst': [60, 70]}]}
+        r = self.ip.routes.add(req)
+        r.commit()
+        routes = filter(lambda x: x.get_attr('RTA_DST')[0]['label'] == 20,
+                        self.ip.nl.get_routes(family=AF_MPLS))
+        assert len(routes) == 1
+        r = routes[0]
+        assert r['family'] == AF_MPLS
+        assert not r.get_attr('RTA_OIF')
+        assert not r.get_attr('RTA_VIA')
+        assert not r.get_attr('RTA_NEWDST')
+        assert len(r.get_attr('RTA_MULTIPATH')) == 2
+        nh = r.get_attr('RTA_MULTIPATH')[0]
+        assert nh.get('oif', None) == 1
+        assert nh.get_attr('RTA_VIA')['addr'] == '127.0.0.2'
+        assert len(nh.get_attr('RTA_NEWDST')) == 1
+        assert nh.get_attr('RTA_NEWDST')[0]['label'] == 50
+        nh = r.get_attr('RTA_MULTIPATH')[1]
+        assert nh.get('oif', None) == 1
+        assert nh.get_attr('RTA_VIA')['addr'] == '127.0.0.3'
+        assert len(nh.get_attr('RTA_NEWDST')) == 2
+        assert nh.get_attr('RTA_NEWDST')[0]['label'] == 60
+        assert nh.get_attr('RTA_NEWDST')[1]['label'] == 70
+
+        with self.ip.routes.tables['mpls'][20] as r:
+            r.del_nh({'via': {'addr': '127.0.0.2'},
+                      'oif': 1,
+                      'newdst': [50],
+                      'family': AF_MPLS})
+            r.add_nh({'via': {'addr': '127.0.0.4',
+                              'family': socket.AF_INET},
+                      'oif': 1,
+                      'newdst': [80, 90],
+                      'family': AF_MPLS})
+
+        assert len(r['multipath']) == 2
+        routes = filter(lambda x: x.get_attr('RTA_DST')[0]['label'] == 20,
+                        self.ip.nl.get_routes(family=AF_MPLS))
+        assert len(routes) == 1
+        r = routes[0]
+        assert r['family'] == AF_MPLS
+        assert not r.get_attr('RTA_OIF')
+        assert not r.get_attr('RTA_VIA')
+        assert not r.get_attr('RTA_NEWDST')
+        assert len(r.get_attr('RTA_MULTIPATH')) == 2
+        nh = r.get_attr('RTA_MULTIPATH')[0]
+        assert nh.get('oif', None) == 1
+        assert nh.get_attr('RTA_VIA')['addr'] == '127.0.0.4'
+        assert len(nh.get_attr('RTA_NEWDST')) == 2
+        assert nh.get_attr('RTA_NEWDST')[0]['label'] == 80
+        assert nh.get_attr('RTA_NEWDST')[1]['label'] == 90
+        nh = r.get_attr('RTA_MULTIPATH')[1]
+        assert nh.get('oif', None) == 1
+        assert nh.get_attr('RTA_VIA')['addr'] == '127.0.0.3'
+        assert len(nh.get_attr('RTA_NEWDST')) == 2
+        assert nh.get_attr('RTA_NEWDST')[0]['label'] == 60
+        assert nh.get_attr('RTA_NEWDST')[1]['label'] == 70
+
+        with self.ip.routes.tables['mpls'][20] as r:
+            r.remove()
+
+    @skip_if_not_supported
     def test_routes_mpls(self):
         require_user('root')
         idx = self.ip.interfaces[self.ifd]['index']

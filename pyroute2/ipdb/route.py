@@ -117,7 +117,7 @@ class WatchdogKey(dict):
                                          'gateway',
                                          'table') and x[1]])
 
-
+# Universal route key
 RouteKey = namedtuple('RouteKey',
                       ('src',
                        'dst',
@@ -126,6 +126,13 @@ RouteKey = namedtuple('RouteKey',
                        'iif',
                        'oif'))
 RouteKey._required = 4  # number of required fields (should go first)
+
+# MPLS multipath NH key
+MPLSNHKey = namedtuple('MPLSNHKey',
+                       ('newdst',
+                        'via',
+                        'oif'))
+MPLSNHKey._required = 2
 
 
 class BaseRoute(Transactional):
@@ -170,6 +177,10 @@ class BaseRoute(Transactional):
             self['ipdb_scope'] = 'system'
             for (key, value) in msg.items():
                 self[key] = value
+
+            # cleanup multipath NH
+            for nh in self['multipath']:
+                self.del_nh(nh)
 
             # merge NLA
             for (name, value) in msg['attrs']:
@@ -510,16 +521,22 @@ class MPLSRoute(BaseRoute):
         Construct from a netlink message a key that can be used
         to locate the route in the table
         '''
-        label = None
+        ret = None
         if isinstance(msg, nlmsg):
-            label = msg.get_attr('RTA_DST')
-        elif isinstance(msg, Transactional):
-            label = msg.get('dst')
+            ret = msg.get_attr('RTA_DST')
+        elif isinstance(msg, dict):
+            ret = msg.get('dst', None)
         else:
             raise TypeError('prime not supported')
-        if isinstance(label, list):
-            label = label[0]['label']
-        return label
+        if isinstance(ret, list):
+            ret = ret[0]['label']
+        elif ret is None:
+            # key for nexthops
+            ret = MPLSNHKey(newdst=tuple(msg['newdst']),
+                            via=msg.get('via', {}).get('addr', None),
+                            oif=msg.get('oif', None))
+
+        return ret
 
     def __setitem__(self, key, value):
         if key == 'via' and isinstance(value, dict):
@@ -769,7 +786,7 @@ class RoutingTableSet(object):
         '''
         Create a route from a dictionary
         '''
-        spec = spec or kwarg
+        spec = dict(spec or kwarg)
         if 'dst' not in spec:
             raise ValueError('dst not specified')
         multipath = spec.pop('multipath', [])
@@ -789,6 +806,8 @@ class RoutingTableSet(object):
             for nh in multipath:
                 if 'encap' in nh:
                     nh['encap'] = route.make_encap(nh['encap'])
+                if table == 'mpls':
+                    nh['family'] = AF_MPLS
                 route.add_nh(nh)
         route.begin()
         for (key, value) in spec.items():

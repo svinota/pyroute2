@@ -155,7 +155,11 @@ class rtmsg(rtmsg_base, nlmsg):
             self['type'] = 1
             # assert NLA types
             for n in self.get('attrs', []):
-                if n[0] not in ('RTA_OIF', 'RTA_DST', 'RTA_VIA', 'RTA_NEWDST'):
+                if n[0] not in ('RTA_OIF',
+                                'RTA_DST',
+                                'RTA_VIA',
+                                'RTA_NEWDST',
+                                'RTA_MULTIPATH'):
                     raise TypeError('Incorrect NLA type %s for AF_MPLS' % n[0])
         nlmsg.encode(self)
 

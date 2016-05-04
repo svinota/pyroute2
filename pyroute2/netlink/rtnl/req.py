@@ -86,6 +86,24 @@ class IPRouteRequest(IPRequest):
                 ret[-1]['bos'] = 1
             return {'attrs': [['MPLS_IPTUNNEL_DST', ret]]}
 
+    def mpls_rta(self, value):
+        ret = []
+        if not isinstance(value, (list, tuple, set)):
+            value = (value, )
+        for label in value:
+            if isinstance(label, int):
+                label = {'label': label,
+                         'bos': 0}
+            elif isinstance(label, basestring):
+                label = {'label': int(label),
+                         'bos': 0}
+            elif not isinstance(label, dict):
+                raise ValueError('wrong MPLS label')
+            ret.append(label)
+        if ret:
+            ret[-1]['bos'] = 1
+        return ret
+
     def __setitem__(self, key, value):
         # skip virtual IPDB fields
         if key.startswith('ipdb_'):
@@ -122,22 +140,7 @@ class IPRouteRequest(IPRequest):
                 if mask:
                     dict.__setitem__(self, 'dst_len', mask)
         elif key == 'newdst':
-            ret = []
-            if not isinstance(value, (list, tuple, set)):
-                value = (value, )
-            for label in value:
-                if isinstance(label, int):
-                    label = {'label': label,
-                             'bos': 0}
-                elif isinstance(label, basestring):
-                    label = {'label': int(label),
-                             'bos': 0}
-                elif not isinstance(label, dict):
-                    raise ValueError('wrong MPLS label')
-                ret.append(label)
-            if ret:
-                ret[-1]['bos'] = 1
-            dict.__setitem__(self, 'newdst', ret)
+            dict.__setitem__(self, 'newdst', self.mpls_rta(value))
         elif key in self.resolve.keys():
             if isinstance(value, basestring):
                 value = self.resolve[key][value]
@@ -198,6 +201,9 @@ class IPRouteRequest(IPRequest):
                                                             v[name]['type'])])
                         nh['attrs'].append(['RTA_ENCAP',
                                             self.encap_header(v[name])])
+                    elif name == 'newdst':
+                        nh['attrs'].append(['RTA_NEWDST',
+                                            self.mpls_rta(v[name])])
                     else:
                         rta = rtmsg.name2nla(name)
                         nh['attrs'].append([rta, v[name]])
