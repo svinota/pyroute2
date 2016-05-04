@@ -411,8 +411,27 @@ class Route(BaseRoute):
         elif isinstance(msg, dict):
             for field in RouteKey._fields:
                 v = msg.get(field, None)
-                if field == 'encap' and v:
+                if field == 'encap' and v and v['labels']:
                     v = v['labels']
+                elif (field == 'encap') and \
+                        (len(msg.get('multipath', []) or []) == 1):
+                    v = (msg['multipath']
+                         .raw.values()[0]
+                         .get('encap', {})
+                         .get('labels', None))
+                elif field == 'encap':
+                    v = None
+                elif (field == 'gateway') and \
+                        (len(msg.get('multipath', []) or []) == 1) and \
+                        not v:
+                    v = (msg['multipath']
+                         .raw.values()[0]
+                         .get('gateway', None))
+
+                if field == 'encap' and isinstance(v, (list, tuple, set)):
+                    v = '/'.join(map(lambda x: str(x['label'])
+                                     if isinstance(x, dict)
+                                     else str(x), v))
                 values.append(v)
         else:
             raise TypeError('prime not supported: %s' % type(msg))
