@@ -226,12 +226,12 @@ class Transactional(TransactionalBase):
             res[key] = self[key] - vs[key]
         return res
 
-    def __div__(self, vs):
+    def __floordiv__(self, vs):
         left = {}
         right = {}
         with self._direct_state:
             with vs._direct_state:
-                for key in set(self.keys() + vs.keys()):
+                for key in set(tuple(self.keys()) + tuple(vs.keys())):
                     if self.get(key, None) != vs.get(key, None):
                         left[key] = self.get(key)
                         right[key] = vs.get(key)

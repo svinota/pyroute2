@@ -598,7 +598,7 @@ class Interface(Transactional):
                       self, drop)
 
         try:
-            removed, added = snapshot / transaction
+            removed, added = snapshot // transaction
 
             run = transaction._run
             nl = transaction.nl
