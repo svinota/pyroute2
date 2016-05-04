@@ -8,6 +8,7 @@ from pyroute2.netlink.rtnl import rt_scope
 from pyroute2.netlink.rtnl import encap_type
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
+from pyroute2.netlink.rtnl.rtmsg import nh as nh_header
 
 
 encap_types = {'mpls': 1,
@@ -182,12 +183,19 @@ class IPRouteRequest(IPRequest):
                     ret.append(v)
                     continue
                 nh = {'attrs': []}
-                for name in ('flag', 'hops', 'ifindex'):
-                    nh[name] = v.pop(name, 0)
+                nh_fields = [x[0] for x in nh_header.fields]
+                for name in nh_fields:
+                    nh[name] = v.get(name, 0)
                 for name in v:
+                    if name in nh_fields or v[name] is None:
+                        continue
                     if name == 'encap' and isinstance(v[name], dict):
+                        if v[name].get('type', None) is None or \
+                                v[name].get('labels', None) is None:
+                            continue
                         nh['attrs'].append(['RTA_ENCAP_TYPE',
-                                            encap_types[v[name]['type']]])
+                                            encap_types.get(v[name]['type'],
+                                                            v[name]['type'])])
                         nh['attrs'].append(['RTA_ENCAP',
                                             self.encap_header(v[name])])
                     else:

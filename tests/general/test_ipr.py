@@ -617,10 +617,10 @@ class TestIPRoute(object):
                       dst='172.16.241.0',
                       mask=24,
                       multipath=[{'hops': 20,
-                                  'ifindex': 1,
+                                  'oif': 1,
                                   'attrs': [['RTA_GATEWAY', '127.0.0.2']]},
                                  {'hops': 30,
-                                  'ifindex': 1,
+                                  'oif': 1,
                                   'attrs': [['RTA_GATEWAY', '127.0.0.3']]}])
         assert grep('ip route show', pattern='172.16.241.0/24')
         assert grep('ip route show', pattern='nexthop.*127.0.0.2.*weight 21')
@@ -631,10 +631,10 @@ class TestIPRoute(object):
         require_user('root')
         req = IPRouteRequest({'dst': '172.16.242.0/24',
                               'multipath': [{'hops': 20,
-                                             'ifindex': 1,
+                                             'oif': 1,
                                              'gateway': '127.0.0.2'},
                                             {'hops': 30,
-                                             'ifindex': 1,
+                                             'oif': 1,
                                              'gateway': '127.0.0.3'}]})
         self.ip.route('add', **req)
         assert grep('ip route show', pattern='172.16.242.0/24')
@@ -660,7 +660,7 @@ class TestIPRoute(object):
                       dst='172.16.216.0/24',
                       multipath=[{'encap': {'type': 'mpls',
                                             'labels': 500},
-                                  'ifindex': 1},
+                                  'oif': 1},
                                  {'encap': {'type': 'mpls',
                                             'labels': '600/700'},
                                   'gateway': '127.0.0.4'}])
@@ -668,7 +668,7 @@ class TestIPRoute(object):
         assert len(routes) == 1
         mp = routes[0].get_attr('RTA_MULTIPATH')
         assert len(mp) == 2
-        assert mp[0]['ifindex'] == 1
+        assert mp[0]['oif'] == 1
         assert mp[0].get_attr('RTA_ENCAP_TYPE') == 1
         labels = mp[0].get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
         assert len(labels) == 1

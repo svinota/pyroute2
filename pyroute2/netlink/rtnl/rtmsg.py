@@ -165,4 +165,4 @@ class nh(rtmsg_base, nla):
     cell_header = nh_header
     fields = (('flags', 'B'),
               ('hops', 'B'),
-              ('ifindex', 'i'))
+              ('oif', 'i'))

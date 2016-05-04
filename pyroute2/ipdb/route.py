@@ -6,14 +6,15 @@ from socket import AF_UNSPEC
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
 from pyroute2.netlink import nlmsg
+from pyroute2.netlink import nlmsg_base
 from pyroute2.netlink.rtnl import rt_type
 from pyroute2.netlink.rtnl import rt_proto
 from pyroute2.netlink.rtnl import encap_type
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
-from pyroute2.netlink.rtnl.rtmsg import nh as rtmsg_nh
 from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.transactional import Transactional
+from pyroute2.ipdb.transactional import with_transaction
 from pyroute2.ipdb.linkedset import LinkedSet
 
 
@@ -45,39 +46,51 @@ class NextHopSet(LinkedSet):
         return ret
 
     def __make_nh(self, prime):
-        if isinstance(prime, tuple):
-            return prime
+        if isinstance(prime, BaseRoute):
+            return prime.make_key(prime)
         elif isinstance(prime, dict):
-            return (prime.get('flags', 0),
-                    prime.get('hops', 0),
-                    prime.get('ifindex', 0),
-                    prime.get('gateway'))
+            if prime.get('family', None) == AF_MPLS:
+                return MPLSRoute.make_key(prime)
+            else:
+                return Route.make_key(prime)
+        elif isinstance(prime, tuple):
+            return prime
         else:
-            raise TypeError("unknown prime type")
+            raise TypeError("unknown prime type %s" % type(prime))
 
     def __getitem__(self, key):
-        return dict(zip(('flags', 'hops', 'ifindex', 'gateway'), key))
+        return self.raw[key]
 
     def __iter__(self):
         def NHIterator():
-            for x in tuple(self.raw.keys()):
-                yield self[x]
+            for x in tuple(self.raw.values()):
+                yield x
         return NHIterator()
 
     def add(self, prime, raw=None, cascade=False):
-        return super(NextHopSet, self).add(self.__make_nh(prime))
+        key = self.__make_nh(prime)
+        r = key._required
+        l = key._fields
+        skey = key[:r] + (None, ) * (len(l) - r)
+        if skey in self.raw:
+            del self.raw[skey]
+        return super(NextHopSet, self).add(key, raw=prime)
 
     def remove(self, prime, raw=None, cascade=False):
-        hit = False
-        for nh in self:
-            for key in prime:
-                if prime[key] != nh.get(key):
+        key = self.__make_nh(prime)
+        try:
+            super(NextHopSet, self).remove(key)
+        except KeyError as e:
+            for key in tuple(self.raw.keys()):
+                dct = dict(key._asdict())
+                for ref in prime:
+                    if prime[ref] and (dct[ref] != prime[ref]):
+                        break
+                else:
                     break
             else:
-                hit = True
-                super(NextHopSet, self).remove(self.__make_nh(nh))
-        if not hit:
-            raise KeyError('nexthop not found')
+                raise e
+            super(NextHopSet, self).remove(key)
 
 
 class WatchdogMPLSKey(dict):
@@ -109,9 +122,10 @@ RouteKey = namedtuple('RouteKey',
                       ('src',
                        'dst',
                        'gateway',
+                       'encap',
                        'iif',
                        'oif'))
-RouteKey._required = 3  # number of required fields (should go first)
+RouteKey._required = 4  # number of required fields (should go first)
 
 
 class BaseRoute(Transactional):
@@ -137,21 +151,15 @@ class BaseRoute(Transactional):
         with self._direct_state:
             self['ipdb_priority'] = 0
 
+    @with_transaction
     def add_nh(self, prime):
         with self._write_lock:
-            if self.current_tx is None:
-                self.begin()
-            tx = self.current_tx
-            with tx._direct_state:
-                tx['multipath'].add(prime)
+            self['multipath'].add(prime)
 
+    @with_transaction
     def del_nh(self, prime):
         with self._write_lock:
-            if self.current_tx is None:
-                self.begin()
-            tx = self.current_tx
-            with tx._direct_state:
-                tx['multipath'].remove(prime)
+            self['multipath'].remove(prime)
 
     def load_netlink(self, msg):
         with self._direct_state:
@@ -175,13 +183,15 @@ class BaseRoute(Transactional):
                             rtax_norm = rtmsg.metrics.nla2name(rtax)
                             self['metrics'][rtax_norm] = rtax_value
                 elif norm == 'multipath':
-                    for v in value:
-                        nh = {}
-                        for name in [x[0] for x in rtmsg_nh.fields]:
-                            nh[name] = v[name]
-                        for (rta, rta_value) in v.get('attrs', ()):
-                            rta_norm = rtmsg.nla2name(rta)
-                            nh[rta_norm] = rta_value
+                    for record in value:
+                        nh = type(self)(ipdb=self.ipdb, parent=self)
+                        nh.load_netlink(record)
+                        with nh._direct_state:
+                            del nh['dst']
+                            del nh['ipdb_scope']
+                            del nh['ipdb_priority']
+                            del nh['multipath']
+                            del nh['metrics']
                         self['multipath'].add(nh)
                 elif norm == 'encap':
                     with self['encap']._direct_state:
@@ -358,13 +368,28 @@ class Route(BaseRoute):
     wd_key = WatchdogKey
 
     @classmethod
+    def make_encap(cls, encap):
+        '''
+        Normalize encap object
+        '''
+        labels = encap.get('labels', None)
+        if isinstance(labels, (list, tuple, set)):
+            labels = '/'.join(map(lambda x: str(x['label'])
+                                  if isinstance(x, dict)
+                                  else str(x), labels))
+        if not isinstance(labels, basestring):
+            raise TypeError('labels struct not supported')
+        return {'type': encap.get('type', 'mpls'),
+                'labels': labels}
+
+    @classmethod
     def make_key(cls, msg):
         '''
         Construct from a netlink message a key that can be used
         to locate the route in the table
         '''
         values = []
-        if isinstance(msg, nlmsg):
+        if isinstance(msg, nlmsg_base):
             for field in RouteKey._fields:
                 v = msg.get_attr(msg.name2nla(field))
                 if field in ('src', 'dst'):
@@ -372,15 +397,25 @@ class Route(BaseRoute):
                         v = '%s/%s' % (v, msg['%s_len' % field])
                     elif field == 'dst':
                         v = 'default'
-                if v is None:
+                elif field == 'encap':
+                    # 1. encap type
+                    if msg.get_attr('RTA_ENCAP_TYPE') != 1:  # FIXME
+                        values.append(None)
+                        continue
+                    # 2. encap_type == 'mpls'
+                    v = '/'.join([str(x['label']) for x
+                                  in v.get_attr('MPLS_IPTUNNEL_DST')])
+                elif v is None:
                     v = msg.get(field, None)
                 values.append(v)
-        elif isinstance(msg, Transactional):
+        elif isinstance(msg, dict):
             for field in RouteKey._fields:
                 v = msg.get(field, None)
+                if field == 'encap' and v:
+                    v = v['labels']
                 values.append(v)
         else:
-            raise TypeError('prime not supported')
+            raise TypeError('prime not supported: %s' % type(msg))
         return RouteKey(*values)
 
     def __setitem__(self, key, value):
@@ -732,12 +767,17 @@ class RoutingTableSet(object):
         route.update(spec)
         with route._direct_state:
             route['ipdb_scope'] = 'create'
-        self.tables[table][route.make_key(route)] = route
+            for nh in multipath:
+                if 'encap' in nh:
+                    nh['encap'] = route.make_encap(nh['encap'])
+                route.add_nh(nh)
         route.begin()
         for (key, value) in spec.items():
-            route[key] = value
-        for nh in multipath:
-            route.add_nh(nh)
+            if key == 'encap':
+                route[key] = route.make_encap(value)
+            else:
+                route[key] = value
+        self.tables[table][route.make_key(route)] = route
         return route
 
     def load_netlink(self, msg):
