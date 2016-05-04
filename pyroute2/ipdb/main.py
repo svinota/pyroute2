@@ -4,33 +4,50 @@ IPDB module
 ===========
 
 Basically, IPDB is a transactional database, containing records,
-representing network stack objects. Any change in the database
-is not reflected immediately in OS (unless you ask for that
-explicitly), but waits until `commit()` is called. One failed
-operation during `commit()` rolls back all the changes, has been
-made so far. Moreover, IPDB has commit hooks API, that allows
-you to roll back changes depending on your own function calls,
-e.g. when a host or a network becomes unreachable.
+that represent network stack objects. Any change in the database
+is not reflected immediately in OS, but waits until `commit()`
+is called. One failed operation during `commit()` rolls back all
+the changes, has been made so far. Moreover, IPDB has commit
+hooks API, that allows you to roll back changes depending on
+your own function calls, e.g. when a host or a network becomes
+unreachable.
 
 IPDB vs. IPRoute
 ----------------
 
 These two modules, IPRoute and IPDB, use completely different
-approaches. The first one, IPRoute, is synchronous by default,
-and can be used in the same way, as usual Linux utilities. It
-doesn't spawn any additional threads or processes, until you
-explicitly ask for that.
+approaches. The first one, IPRoute, just forward requests to
+the kernel, and doesn't wait for the system state. So it's up
+to developer to check, whether the requested object is really
+set up, or not yet.
 
 The latter, IPDB, is an asynchronously updated database, that
 starts several additional threads by default. If your project's
-policy doesn't allow implicit threads, keep it in mind.
+policy doesn't allow implicit threads, keep it in mind. But
+unlike IPRoute, the IPDB ensures the changes to be reflected
+in the system::
 
-The choice depends on your project's workflow. If you plan to
-retrieve the system info not too often (or even once), or you
-are sure there will be not too many network object, it is better
-to use IPRoute. If you plan to lookup the network info  on a
-regular basis and there can be loads of network objects, it is
-better to use IPDB. Why?
+    with IPDB() as ipdb:
+        with ipdb.interfaces['eth0'] as i:
+            i.up()
+            i.add_ip('192.168.0.2/24')
+            i.add_ip('192.168.0.3/24')
+        # ---> <--- here you can expect `eth0` is up
+        #           and has these two addresses, so
+        #           the following code can rely on that
+
+So IPDB is updated asynchronously, but the `commit()` operation
+is synchronous.
+
+NB: *In the example above `commit()` is implied with the
+`__exit__()` of the `with` statement.*
+
+The choice between IPDB and IPRoute depends on your project's
+workflow. If you plan to retrieve the system info not too often
+(or even once), or you are sure there will be not too many
+network object, it is better to use IPRoute. If you plan to
+lookup the network info on the regular basis and there can be
+loads of network objects, it is better to use IPDB. Why?
 
 IPRoute just loads what you ask -- and loads all the information
 you ask to. While IPDB loads all the info upon startup, and
@@ -42,137 +59,64 @@ will load all the cache once, and then maintain it up-to-date
 just inserting new records or removing them by one.
 
 So, IPRoute is much simpler when you need to make a call and
-then exit. While IPDB is cheaper in terms of CPU performance
-if you implement a long-running program like a daemon. Later
-it can change, if there will be (an optional) cache for IPRoute
-too.
+then exit, while IPDB is cheaper in terms of CPU performance
+if you implement a long-running program like a daemon.
 
-quickstart
+Quickstart
 ----------
 
 Simple tutorial::
 
     from pyroute2 import IPDB
     # several IPDB instances are supported within on process
-    ip = IPDB()
+    ipdb = IPDB()
 
     # commit is called automatically upon the exit from `with`
     # statement
-    with ip.interfaces.eth0 as i:
+    with ipdb.interfaces.eth0 as i:
         i.address = '00:11:22:33:44:55'
         i.ifname = 'bala'
         i.txqlen = 2000
 
     # basic routing support
-    ip.routes.add({'dst': 'default', 'gateway': '10.0.0.1'}).commit()
+    ipdb.routes.add({'dst': 'default',
+                     'gateway': '10.0.0.1'}).commit()
 
     # do not forget to shutdown IPDB
-    ip.release()
+    ipdb.release()
 
 Please, notice `ip.release()` call in the end. Though it is
 not forced in an interactive python session for the better
 user experience, it is required in the scripts to sync the
 IPDB state before exit.
 
-IPDB uses IPRoute as a transport, and monitors all broadcast
-netlink messages from the kernel, thus keeping the database
-up-to-date in an asynchronous manner. IPDB inherits `dict`
-class, and has two keys::
+IPDB supports functional-like syntax also::
 
-    >>> from pyroute2 import IPDB
-    >>> ip = IPDB()
-    >>> ip.by_name.keys()
-    ['bond0', 'lo', 'em1', 'wlan0', 'dummy0', 'virbr0-nic', 'virbr0']
-    >>> ip.by_index.keys()
-    [32, 1, 2, 3, 4, 5, 8]
-    >>> ip.interfaces.keys()
-    [32,
-     1,
-     2,
-     3,
-     4,
-     5,
-     8,
-     'lo',
-     'em1',
-     'wlan0',
-     'bond0',
-     'dummy0',
-     'virbr0-nic',
-     'virbr0']
-    >>> ip.interfaces['em1']['address']
-    'f0:de:f1:93:94:0d'
-    >>> ip.interfaces['em1']['ipaddr']
-    [('10.34.131.210', 23),
-     ('2620:52:0:2282:f2de:f1ff:fe93:940d', 64),
-     ('fe80::f2de:f1ff:fe93:940d', 64)]
-    >>>
+    from pyroute2 import IPDB
+    with IPDB() as ipdb:
+        intf = (ipdb.interfaces['eth0']
+                .add_ip('10.0.0.2/24')
+                .add_ip('10.0.0.3/24')
+                .set_address('00:11:22:33:44:55')
+                .set_mtu(1460)
+                .set_name('external')
+                .commit())
+        # ---> <--- here you have the interface reference with
+        #           all the changes applied: renamed, added ipaddr,
+        #           changed macaddr and mtu.
+        ...  # some code
 
-One can address objects in IPDB not only with dict notation, but
-with dot notation also::
+    # pls notice, that the interface reference will not work
+    # outside of `with IPDB() ...`
 
-    >>> ip.interfaces.em1.address
-    'f0:de:f1:93:94:0d'
-    >>> ip.interfaces.em1.ipaddr
-    [('10.34.131.210', 23),
-     ('2620:52:0:2282:f2de:f1ff:fe93:940d', 64),
-     ('fe80::f2de:f1ff:fe93:940d', 64)]
-    ```
-
-It is up to you, which way to choose. The former, being more flexible,
-is better for developers, the latter, the shorter form -- for system
-administrators.
-
-
-The library has also IPDB module. It is a database synchronized with
-the kernel, containing some of the information. It can be used also
-to set up IP settings in a transactional manner:
-
-    >>> from pyroute2 import IPDB
-    >>> from pprint import pprint
-    >>> ip = IPDB()
-    >>> pprint(ip.by_name.keys())
-    ['bond0',
-     'lo',
-     'vnet0',
-     'em1',
-     'wlan0',
-     'macvtap0',
-     'dummy0',
-     'virbr0-nic',
-     'virbr0']
-    >>> ip.interfaces.lo
-    {'promiscuity': 0,
-     'operstate': 'UNKNOWN',
-     'qdisc': 'noqueue',
-     'group': 0,
-     'family': 0,
-     'index': 1,
-     'linkmode': 0,
-     'ipaddr': [('127.0.0.1', 8), ('::1', 128)],
-     'mtu': 65536,
-     'broadcast': '00:00:00:00:00:00',
-     'num_rx_queues': 1,
-     'txqlen': 0,
-     'ifi_type': 772,
-     'address': '00:00:00:00:00:00',
-     'flags': 65609,
-     'ifname': 'lo',
-     'num_tx_queues': 1,
-     'ports': [],
-     'change': 0}
-    >>>
-
-transaction modes
+Transaction modes
 -----------------
 IPDB has several operating modes:
 
-    - 'direct' -- any change goes immediately to the OS level
     - 'implicit' (default) -- the first change starts an implicit
         transaction, that have to be committed
     - 'explicit' -- you have to begin() a transaction prior to
         make any change
-    - 'snapshot' -- no changes will go to the OS in any case
 
 The default is to use implicit transaction. This behaviour can
 be changed in the future, so use 'mode' argument when creating
@@ -199,24 +143,24 @@ The sample session with explicit transactions::
 
 
 Note, that you can `review()` the `current_tx` transaction, and
-`commit()` or `drop()` it. Also, multiple `self._transactions`
-are supported, use uuid returned by `begin()` to identify them.
+`commit()` or `drop()` it. Also, multiple transactions are
+supported, use uuid returned by `begin()` to identify them.
 
 Actually, the form like 'ip.tap0.address' is an eye-candy. The
 IPDB objects are dictionaries, so you can write the code above
 as that::
 
-    ip.interfaces['tap0'].down()
-    ip.interfaces['tap0']['address'] = '00:11:22:33:44:55'
+    ipdb.interfaces['tap0'].down()
+    ipdb.interfaces['tap0']['address'] = '00:11:22:33:44:55'
     ...
 
-context managers
+Context managers
 ----------------
 
-Also, interface objects in transactional mode can operate as
-context managers::
+Transactional objects (interfaces, routes) can act as context
+managers in the same way as IPDB does itself::
 
-    with ip.interfaces.tap0 as i:
+    with ipdb.interfaces.tap0 as i:
         i.address = '00:11:22:33:44:55'
         i.ifname = 'vpn'
         i.add_ip('10.0.0.1', 24)
@@ -225,20 +169,22 @@ context managers::
 On exit, the context manager will authomatically `commit()` the
 transaction.
 
-create interfaces
+Create interfaces
 -----------------
 
-IPDB can also create interfaces::
+IPDB can also create virtual interfaces::
 
-    with ip.create(kind='bridge', ifname='control') as i:
+    with ipdb.create(kind='bridge', ifname='control') as i:
         i.add_port(ip.interfaces.eth1)
         i.add_port(ip.interfaces.eth2)
-        i.add_ip('10.0.0.1/24')  # the same as i.add_ip('10.0.0.1', 24)
+        i.add_ip('10.0.0.1/24')
 
-IPDB supports many interface types, see docs below for the
-`IPDB.create()` method.
 
-routing management
+The `IPDB.create()` call has the same syntax as `IPRoute.link('add', ...)`,
+except you shouldn't specify the `'add'` command. Refer to `IPRoute` docs
+for details.
+
+Routing management
 ------------------
 
 IPDB has a simple yet useful routing management interface.
@@ -252,13 +198,13 @@ To add a route, there is an easy to use syntax::
                         'advmss': 500}}
 
     # pass spec as is
-    ip.routes.add(spec).commit()
+    ipdb.routes.add(spec).commit()
 
     # pass spec as kwargs
-    ip.routes.add(**spec).commit()
+    ipdb.routes.add(**spec).commit()
 
     # use keyword arguments explicitly
-    ip.routes.add(dst='172.16.1.0/24', oif=4, ...).commit()
+    ipdb.routes.add(dst='172.16.1.0/24', oif=4, ...).commit()
 
 To access and change the routes, one can use notations as follows::
 
@@ -266,19 +212,19 @@ To access and change the routes, one can use notations as follows::
     #
     # change the route gateway and mtu
     #
-    with ip.routes['172.16.1.0/24'] as route:
+    with ipdb.routes['172.16.1.0/24'] as route:
         route.gateway = '192.168.122.60'
         route.metrics.mtu = 1500
 
     # access the default route
-    print(ip.routes['default])
+    print(ipdb.routes['default])
 
     # change the default gateway
-    with ip.routes['default'] as route:
+    with ipdb.routes['default'] as route:
         route.gateway = '10.0.0.1'
 
     # list automatic routes keys
-    print(ip.routes.tables[255].keys())
+    print(ipdb.routes.tables[255].keys())
 
 **Route specs**
 
@@ -290,25 +236,25 @@ To retrieve or create routes one should use route specs. The
 simplest case is to retrieve one route::
 
     # get route by prefix
-    ip.routes['172.16.1.0/24']
+    ipdb.routes['172.16.1.0/24']
 
     # get route by a special name
-    ip.routes['default']
+    ipdb.routes['default']
 
 If there are more than one route that matches the spec, only
 the first one will be retrieved. One should iterate all the
 records and filter by a key to retrieve all matches::
 
     # only one route will be retrieved
-    ip.routes['fe80::/64']
+    ipdb.routes['fe80::/64']
 
     # get all routes by this prefix
-    [ x for x in ip.routes if x['dst'] == 'fe80::/64' ]
+    [ x for x in ipdb.routes if x['dst'] == 'fe80::/64' ]
 
 It is possible to use dicts as specs::
 
-    ip.routes[{'dst': '172.16.0.0/16',
-               'oif': 2}]
+    ipdb.routes[{'dst': '172.16.0.0/16',
+                 'oif': 2}]
 
 The dict is just the same as a route representation in the
 records list.
@@ -319,10 +265,10 @@ A special object is dedicated to route metrics, one can access it
 via `route.metrics` or `route['metrics']`::
 
     # these two statements are equal:
-    with ip.routes['172.16.1.0/24'] as route:
+    with ipdb.routes['172.16.1.0/24'] as route:
         route['metrics']['mtu'] = 1400
 
-    with ip.routes['172.16.1.0/24'] as route:
+    with ipdb.routes['172.16.1.0/24'] as route:
         route.metrics.mtu = 1400
 
 Possible metrics are defined in `rtmsg.py:rtmsg.metrics`, e.g.
@@ -332,7 +278,7 @@ Possible metrics are defined in `rtmsg.py:rtmsg.metrics`, e.g.
 
 Multipath nexthops are managed via `route.add_nh()` and `route.del_nh()`
 methods. They are available to review via `route.multipath`, but one
-should not directly add/remove/modify nexthops `route.multipath`, as
+should not directly add/remove/modify nexthops in `route.multipath`, as
 the changes will not be committed correctly.
 
 To create a multipath route::
@@ -357,17 +303,20 @@ is number of hops + 1, so when one creates a nexthop with `hops == 2`,
 the `iproute2` utility will show `weight 3`.
 
 But the Linux kernel uses `rtnh_hops`, and the `pyroute2` library
-uses here no implications, directly mapping the kernel provided value.
+places here no implications, directly mapping the value provided by the
+kernel.
 
 **Multipath default routes**
 
 Deprecation notice: *As of the merge of kill_rtcache into the kernel,
-and it's release in ~3.6, weighted default routes no longer work*.
+and it's release in ~3.6, weighted default routes no longer work in
+Linux*.
+
 Please refer to
 https://github.com/svinota/pyroute2/issues/171#issuecomment-149297244
 for details.
 
-performance issues
+Performance issues
 ------------------
 
 In the case of bursts of Netlink broadcast messages, all
@@ -378,8 +327,8 @@ delays in the case of Netlink broadcast storms. It means
 also, that IPDB state will be synchronized with OS also
 after some delay.
 
-classes
--------
+The class API
+-------------
 '''
 import atexit
 import logging
@@ -406,23 +355,23 @@ from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 
 
 def get_addr_nla(msg):
-    '''
-    Utility function to get NLA, containing the interface
-    address.
-
-    Inconsistency in Linux IP addressing scheme is that
-    IPv4 uses IFA_LOCAL to store interface's ip address,
-    and IPv6 uses for the same IFA_ADDRESS.
-
-    IPv4 sets IFA_ADDRESS to == IFA_LOCAL or to a
-    tunneling endpoint.
-
-    Args:
-        - msg (nlmsg): RTM\_.*ADDR message
-
-    Returns:
-        - nla (nla): IFA_LOCAL for IPv4 and IFA_ADDRESS for IPv6
-    '''
+    ###
+    # Utility function to get NLA, containing the interface
+    # address.
+    #
+    # Inconsistency in Linux IP addressing scheme is that
+    # IPv4 uses IFA_LOCAL to store interface's ip address,
+    # and IPv6 uses for the same IFA_ADDRESS.
+    #
+    # IPv4 sets IFA_ADDRESS to == IFA_LOCAL or to a
+    # tunneling endpoint.
+    #
+    # Args:
+    #     - msg (nlmsg): RTM\_.*ADDR message
+    #
+    # Returns:
+    #     - nla (nla): IFA_LOCAL for IPv4 and IFA_ADDRESS for IPv6
+    ###
     nla = None
     if msg['family'] == AF_INET:
         nla = msg.get_attr('IFA_LOCAL')
@@ -471,15 +420,6 @@ class IPDB(object):
     def __init__(self, nl=None, mode='implicit',
                  restart_on_error=None, nl_async=None,
                  debug=False, ignore_rtables=None):
-        '''
-        Parameters:
-            - nl -- IPRoute() reference
-            - mode -- (implicit, explicit)
-            - iclass -- the interface class type
-
-        If you do not provide iproute instance, ipdb will
-        start it automatically.
-        '''
         self.mode = mode
         self.debug = debug
         if isinstance(ignore_rtables, int):
@@ -519,10 +459,6 @@ class IPDB(object):
         self.release()
 
     def initdb(self, nl=None):
-        '''
-        Restart IPRoute channel, and create all the DB
-        from scratch. Can be used when sync is lost.
-        '''
         self.nl = nl or IPRoute()
         self.mnl = self.nl.clone()
 
@@ -718,135 +654,6 @@ class IPDB(object):
                     flush(idx)
 
     def create(self, kind, ifname, reuse=False, **kwarg):
-        '''
-        Create an interface. Arguments 'kind' and 'ifname' are
-        required.
-
-            - kind — interface type, can be of:
-                - bridge
-                - bond
-                - vlan
-                - tun
-                - dummy
-                - veth
-                - macvlan
-                - macvtap
-                - gre
-                - team
-            - ifname — interface name
-            - reuse — if such interface exists, return it anyway
-
-        Different interface kinds can require different
-        arguments for creation.
-
-        ► **veth**
-
-        To properly create `veth` interface, one should specify
-        `peer` also, since `veth` interfaces are created in pairs::
-
-            with ip.create(ifname='v1p0', kind='veth', peer='v1p1') as i:
-                i.add_ip('10.0.0.1/24')
-                i.add_ip('10.0.0.2/24')
-
-        The code above creates two interfaces, `v1p0` and `v1p1`, and
-        adds two addresses to `v1p0`.
-
-        ► **macvlan**
-
-        Macvlan interfaces act like VLANs within OS. The macvlan driver
-        provides an ability to add several MAC addresses on one interface,
-        where every MAC address is reflected with a virtual interface in
-        the system.
-
-        In some setups macvlan interfaces can replace bridge interfaces,
-        providing more simple and at the same time high-performance
-        solution::
-
-            ip.create(ifname='mvlan0',
-                      kind='macvlan',
-                      link=ip.interfaces.em1,
-                      macvlan_mode='private').commit()
-
-        Several macvlan modes are available: 'private', 'vepa', 'bridge',
-        'passthru'. Ususally the default is 'vepa'.
-
-        ► **macvtap**
-
-        Almost the same as macvlan, but creates also a character tap device::
-
-            ip.create(ifname='mvtap0',
-                      kind='macvtap',
-                      link=ip.interfaces.em1,
-                      macvtap_mode='vepa').commit()
-
-        Will create a device file `"/dev/tap%s" % ip.interfaces.mvtap0.index`
-
-        ► **gre**
-
-        Create GRE tunnel::
-
-            with ip.create(ifname='grex',
-                           kind='gre',
-                           gre_local='172.16.0.1',
-                           gre_remote='172.16.0.101',
-                           gre_ttl=16) as i:
-                i.add_ip('192.168.0.1/24')
-                i.up()
-
-        The keyed GRE requires explicit iflags/oflags specification::
-
-            ip.create(ifname='grex',
-                      kind='gre',
-                      gre_local='172.16.0.1',
-                      gre_remote='172.16.0.101',
-                      gre_ttl=16,
-                      gre_ikey=10,
-                      gre_okey=10,
-                      gre_iflags=32,
-                      gre_oflags=32).commit()
-
-        ► **vlan**
-
-        VLAN interfaces require additional parameters, `vlan_id` and
-        `link`, where `link` is a master interface to create VLAN on::
-
-            ip.create(ifname='v100',
-                      kind='vlan',
-                      link=ip.interfaces.eth0,
-                      vlan_id=100)
-
-            ip.create(ifname='v100',
-                      kind='vlan',
-                      link=1,
-                      vlan_id=100)
-
-        The `link` parameter should be either integer, interface id, or
-        an interface object. VLAN id must be integer.
-
-        ► **vxlan**
-
-        VXLAN interfaces are like VLAN ones, but require a bit more
-        parameters::
-
-            ip.create(ifname='vx101',
-                      kind='vxlan',
-                      vxlan_link=ip.interfaces.eth0,
-                      vxlan_id=101,
-                      vxlan_group='239.1.1.1',
-                      vxlan_ttl=16)
-
-        All possible vxlan parameters are listed in the module
-        `pyroute2.netlink.rtnl.ifinfmsg:... vxlan_data`.
-
-        ► **tuntap**
-
-        Possible `tuntap` keywords:
-
-            - `mode` — "tun" or "tap"
-            - `uid` — integer
-            - `gid` — integer
-            - `ifr` — dict of tuntap flags (see tuntapmsg.py)
-        '''
         with self.exclusive:
             # check for existing interface
             if ifname in self.interfaces:
@@ -1140,14 +947,13 @@ class IPDB(object):
             pass
 
     def serve_forever(self):
-        '''
-        Main monitoring cycle. It gets messages from the
-        default iproute queue and updates objects in the
-        database.
-
-        .. note::
-            Should not be called manually.
-        '''
+        ###
+        # Main monitoring cycle. It gets messages from the
+        # default iproute queue and updates objects in the
+        # database.
+        #
+        # Should not be called manually.
+        ###
         event_map = {'RTM_NEWLINK': self._interface_add,
                      'RTM_DELLINK': self._interface_del,
                      'RTM_NEWADDR': self._addr_add,

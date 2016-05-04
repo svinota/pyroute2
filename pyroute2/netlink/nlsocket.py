@@ -193,7 +193,7 @@ class Marshal(object):
 #
 # Normally, you can open only one netlink connection for one
 # process, but there is a hack. Current PID_MAX_LIMIT is 2^22,
-# so we can use the rest to midify pid field.
+# so we can use the rest to modify the pid field.
 #
 # See also libnl library, lib/socket.c:generate_local_port()
 sockets = AddrPool(minaddr=0x0,
