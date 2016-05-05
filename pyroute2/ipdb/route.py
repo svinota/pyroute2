@@ -426,8 +426,7 @@ class Route(BaseRoute):
                     v = v['labels']
                 elif (field == 'encap') and \
                         (len(msg.get('multipath', []) or []) == 1):
-                    v = (msg['multipath']
-                         .raw.values()[0]
+                    v = (tuple(msg['multipath'].raw.values())[0]
                          .get('encap', {})
                          .get('labels', None))
                 elif field == 'encap':
@@ -435,8 +434,7 @@ class Route(BaseRoute):
                 elif (field == 'gateway') and \
                         (len(msg.get('multipath', []) or []) == 1) and \
                         not v:
-                    v = (msg['multipath']
-                         .raw.values()[0]
+                    v = (tuple(msg['multipath'].raw.values())[0]
                          .get('gateway', None))
 
                 if field == 'encap' and isinstance(v, (list, tuple, set)):
