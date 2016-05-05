@@ -537,6 +537,113 @@ class TestExplicit(BasicSetup):
         assert len(routes) == 0
 
     @skip_if_not_supported
+    def test_routes_lwtunnel_mpls_multipath(self):
+        require_user('root')
+
+        # ordinary route
+        req = {'table': 1002,
+               'dst': '12.11.11.1/32',
+               'oif': 1,
+               'gateway': '127.0.0.1',
+               # labels as a list of dicts
+               'encap': {'labels': [{'bos': 1, 'label': 192}],
+                         'type': 'mpls'}}
+        r = self.ip.routes.add(req).commit()
+        routes = self.ip.nl.get_routes(table=1002)
+        assert len(routes) == 1
+        assert (routes[0]
+                .get_attr('RTA_ENCAP')
+                .get_attr('MPLS_IPTUNNEL_DST')[0]['label']) == 192
+        with r:
+            r.remove()
+
+        # multipath with one target
+        #
+        # the request is valid, but on the OS level it
+        # results in an ordinary non-multipath route
+        #
+        # IPDB should deal with it
+        req = {'table': 1003,
+               'dst': '12.11.11.2/32',
+               'multipath': [{'oif': 1,
+                              'gateway': '127.0.0.1',
+                              # labels as a list of ints
+                              'encap': {'labels': [193],
+                                        'type': 'mpls'}}]}
+        r = self.ip.routes.add(req).commit()
+        routes = self.ip.nl.get_routes(table=1003)
+        assert len(routes) == 1
+        assert (routes[0]
+                .get_attr('RTA_ENCAP')
+                .get_attr('MPLS_IPTUNNEL_DST')[0]['label']) == 193
+        with r:
+            r.remove()
+
+        # multipath route with two targets
+        req = {'table': 1004,
+               'dst': '12.11.11.3/32',
+               'multipath': [{'oif': 1,
+                              'gateway': '127.0.0.1',
+                              # labels as a list of ints
+                              'encap': {'labels': [192, 200],
+                                        'type': 'mpls'}},
+                             {'oif': 1,
+                              'gateway': '127.0.0.1',
+                              # labels as a string
+                              'encap': {'labels': "177/300",
+                                        'type': 'mpls'}}]}
+        self.ip.routes.add(req).commit()
+        routes = self.ip.nl.get_routes(table=1004)
+        assert len(routes) == 1
+        for i in range(2):
+            l1 = (routes[0]
+                  .get_attr('RTA_MULTIPATH')[i]
+                  .get_attr('RTA_ENCAP')
+                  .get_attr('MPLS_IPTUNNEL_DST')[0]['label'])
+            l2 = (routes[0]
+                  .get_attr('RTA_MULTIPATH')[i]
+                  .get_attr('RTA_ENCAP')
+                  .get_attr('MPLS_IPTUNNEL_DST')[1]['label'])
+            try:
+                assert l1 == 192
+                assert l2 == 200
+            except:
+                assert l1 == 177
+                assert l2 == 300
+
+        with self.ip.routes.tables[1004]['12.11.11.3/32'] as r:
+            r.del_nh({'oif': 1,
+                      'gateway': '127.0.0.1',
+                      # labels as a list of dicts
+                      'encap': {'labels': [{'bos': 0, 'label': 192},
+                                           {'bos': 1, 'label': 200}],
+                                # type as int
+                                'type': 1}})
+            r.add_nh({'oif': 1,
+                      'gateway': '127.0.0.1',
+                      # type as string
+                      'encap': {'labels': '192/660', 'type': 'mpls'}})
+        routes = self.ip.nl.get_routes(table=1004)
+        assert len(routes) == 1
+        for i in range(2):
+            l1 = (routes[0]
+                  .get_attr('RTA_MULTIPATH')[i]
+                  .get_attr('RTA_ENCAP')
+                  .get_attr('MPLS_IPTUNNEL_DST')[0]['label'])
+            l2 = (routes[0]
+                  .get_attr('RTA_MULTIPATH')[i]
+                  .get_attr('RTA_ENCAP')
+                  .get_attr('MPLS_IPTUNNEL_DST')[1]['label'])
+            try:
+                assert l1 == 192
+                assert l2 == 660
+            except:
+                assert l1 == 177
+                assert l2 == 300
+        with self.ip.routes.tables[1004]['12.11.11.3/32'] as r:
+            r.remove()
+
+    @skip_if_not_supported
     def test_routes_lwtunnel_mpls_metrics(self):
         require_user('root')
         self.ip.routes.add({'dst': 'default',
