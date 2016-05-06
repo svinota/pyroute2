@@ -18,15 +18,20 @@ ATM_CELL_PAYLOAD = 48
 TCA_ACT_MAX_PRIO = 32
 TIME_UNITS_PER_SEC = 1000000
 
+try:
+    with open('/proc/net/psched', 'r') as psched:
+        [t2us,
+         us2t,
+         clock_res,
+         wee] = [int(i, 16) for i in psched.read().split()]
+    clock_factor = float(clock_res) / TIME_UNITS_PER_SEC
+    tick_in_usec = float(t2us) / us2t * clock_factor
+except IOError:
+    clock_res = 0
+    clock_factor = 1
+    tick_in_usec = 1
+    wee = 1000
 
-with open('/proc/net/psched', 'r') as psched:
-    [t2us,
-     us2t,
-     clock_res,
-     wee] = [int(i, 16) for i in psched.read().split()]
-
-clock_factor = float(clock_res) / TIME_UNITS_PER_SEC
-tick_in_usec = float(t2us) / us2t * clock_factor
 _first_letter = re.compile('[^0-9]+')
 
 
