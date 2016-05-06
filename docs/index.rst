@@ -27,6 +27,14 @@ Usage
     ipdb
     netns
 
+Howtos
+------
+
+.. toctree::
+    :maxdepth: 2
+
+    mpls
+
 Development
 -----------
 
