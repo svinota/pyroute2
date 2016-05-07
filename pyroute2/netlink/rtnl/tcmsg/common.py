@@ -28,8 +28,8 @@ try:
     clock_factor = float(clock_res) / TIME_UNITS_PER_SEC
     tick_in_usec = float(t2us) / us2t * clock_factor
 except IOError as e:
-    logging.warning("/proc/net/psched is not available, the "
-                    "tc functionality is limited")
+    logging.warning("tcmsg: %s", e)
+    logging.warning("the tc subsystem functionality is limited")
     clock_res = 0
     clock_factor = 1
     tick_in_usec = 1
