@@ -1,6 +1,18 @@
 changelog
 =========
 
+* 0.4.0
+    * ACHTUNG: old kernels compatibility code is dropped
+    * ACHTUNG: IPDB uses two separate sockets for monitoring and commands
+    * ipdb: #244 -- multipath lwtunnel
+    * ipdb: #242 -- AF_MPLS routes
+    * ipdb: #241, #234 -- fix create(..., reuse=True)
+    * ipdb: #239 -- route encap and metrics fixed
+    * ipdb: #238 -- generic port management
+    * ipdb: #235 -- support route scope and type
+    * ipdb: #230, #232 -- routes GC (work in progress)
+    * rtnl: #245 -- do not fail if `/proc/net/psched` doesn't exist
+    * rtnl: #233 -- support VRF interfaces (requires net-next)
 * 0.3.21
     * ipdb: #231 -- return `ipdb.common` as deprecated
 * 0.3.20
