@@ -346,6 +346,7 @@ from pyroute2.common import uuid32
 from pyroute2.common import AF_MPLS
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
+from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.ipdb.route import RoutingTableSet
 from pyroute2.ipdb.interface import Interface
 from pyroute2.ipdb.linkedset import LinkedSet
@@ -476,7 +477,7 @@ class IPDB(object):
         self.neighbours = {}
 
         try:
-            self.mnl.bind(async=self._nl_async)
+            self.mnl.bind(async=False)
             # load information
             links = self.nl.get_links()
             for link in links:
@@ -618,16 +619,17 @@ class IPDB(object):
                     for t in tuple(self._cb_threads[cuid]):
                         t.join()
                 # terminate the main loop
-                try:
-                    for t in range(3):
-                        self.mnl.put({'index': 1}, RTM_GETLINK)
-                        self._mthread.join(t)
-                        if not self._mthread.is_alive():
-                            break
-                except Exception:
-                    # Just give up.
-                    # We can not handle this case
-                    pass
+                for t in range(3):
+                    try:
+                        msg = ifinfmsg()
+                        msg['index'] = 1
+                        msg.reset()
+                        self.mnl.put(msg, RTM_GETLINK)
+                    except Exception as e:
+                        logging.warning("shotdown error: %s", e)
+                        # Just give up.
+                        # We can not handle this case
+                self._mthread.join()
                 self.nl.close()
                 self.nl = None
                 self.mnl.close()

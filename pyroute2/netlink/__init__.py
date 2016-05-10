@@ -404,8 +404,6 @@ from pyroute2.common import hexdump
 from pyroute2.common import basestring
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.exceptions import NetlinkDecodeError
-from pyroute2.netlink.exceptions import NetlinkHeaderDecodeError
-from pyroute2.netlink.exceptions import NetlinkDataDecodeError
 from pyroute2.netlink.exceptions import NetlinkNLADecodeError
 
 # make pep8 happy
@@ -576,8 +574,8 @@ class nlmsg_base(dict):
     only `decode()` and `encode()`.
     '''
 
-    fields = []                  # data field names, to build a dictionary
-    header = None                # optional header class
+    fields = tuple()
+    header = tuple()
     pack = None                  # pack pragma
     nla_array = False
     cell_header = None
@@ -593,18 +591,19 @@ class nlmsg_base(dict):
         return (l + self.align - 1) & ~ (self.align - 1)
 
     def __init__(self,
-                 buf=None,
+                 data=None,
+                 offset=0,
                  length=None,
                  parent=None,
-                 debug=False,
                  init=None):
         dict.__init__(self)
         for i in self.fields:
             self[i[0]] = 0  # FIXME: only for number values
-        self.debug = debug
+        self._buf = None
+        self.data = data
+        self.offset = offset
         self.length = length or 0
         self.parent = parent
-        self.offset = 0
         self.prefix = None
         self.nla_init = init
         self['attrs'] = []
@@ -618,9 +617,18 @@ class nlmsg_base(dict):
             else:
                 self.register_nlas()
         self.r_value_map = dict([(x[1], x[0]) for x in self.value_map.items()])
-        self.reset(buf)
-        if self.header is not None:
-            self['header'] = self.header(self.buf)
+        if self.header:
+            self['header'] = {}
+
+    @property
+    def buf(self):
+        logging.error('nlmsg.buf is deprecated:\n%s',
+                      ''.join(traceback.format_stack()))
+        if self._buf is None:
+            self._buf = io.BytesIO()
+            self._buf.write(self.data[self.offset:self.length or None])
+            self._buf.seek(0)
+        return self._buf
 
     def copy(self):
         '''
@@ -633,22 +641,8 @@ class nlmsg_base(dict):
         return ret
 
     def reset(self, buf=None):
-        '''
-        Reset the message buffer. Optionally, set the message
-        from the `buf` parameter. This parameter can be either
-        string, or io.BytesIO, or dict instance.
-        '''
-        if isinstance(buf, basestring):
-            b = io.BytesIO()
-            b.write(buf)
-            b.seek(0)
-            buf = b
-        if isinstance(buf, dict):
-            self.setvalue(buf)
-            buf = None
-        self.buf = buf or io.BytesIO()
-        if 'header' in self:
-            self['header'].buf = self.buf
+        self.data = bytearray()
+        self.offset = 0
 
     def register_clean_cb(self, cb):
         global clean_cbs
@@ -808,61 +802,6 @@ class nlmsg_base(dict):
             name = "%s%s" % (self.prefix, name)
         return name
 
-    def reserve(self):
-        '''
-        Reserve space in the buffer for data. This can be used
-        to skip encoding of the header until some fields will
-        be known.
-        '''
-        size = 0
-        for i in self.fields:
-            size += struct.calcsize(i[1])
-        self.buf.seek(size, 1)
-
-    def decode_fields(self):
-        try:
-            if self.pack == 'struct':
-                names = []
-                formats = []
-                for field in self.fields:
-                    names.append(field[0])
-                    formats.append(field[1])
-                fields = ((','.join(names), ''.join(formats)), )
-            else:
-                fields = self.fields
-
-            for field in fields:
-                name = field[0]
-                fmt = field[1]
-
-                # 's' and 'z' can be used only in connection with
-                # length, encoded in the header
-                if field[1] in ('s', 'z'):
-                    fmt = '%is' % (self.length - 4)
-
-                size = struct.calcsize(fmt)
-                value = struct.unpack(fmt, self.buf.read(size))
-
-                if len(value) == 1:
-                    self[name] = value[0]
-                    # cut zero-byte from z-strings
-                    # 0x00 -- python3; '\0' -- python2
-                    if field[1] == 'z' and self[name][-1] \
-                            in (0x00, '\0'):
-                        self[name] = self[name][:-1]
-                else:
-                    if self.pack == 'struct':
-                        names = name.split(',')
-                        values = list(value)
-                        for name in names:
-                            if name[0] != '_':
-                                self[name] = values.pop(0)
-                    else:
-                        self[name] = value
-
-        except Exception as e:
-            raise NetlinkDataDecodeError(e)
-
     def decode(self):
         '''
         Decode the message. The message should have the `buf`
@@ -880,39 +819,77 @@ class nlmsg_base(dict):
                     nlmsg.decode(self)
                     ...  # do some custom data tuning
         '''
-        self.offset = self.buf.tell()
+        offset = self.offset
         # decode the header
         if self.header is not None:
-            try:
-                self['header'].decode()
-                # update length from header
-                # it can not be less than 4
-                self.length = max(self['header']['length'], 4)
-            except Exception as e:
-                raise NetlinkHeaderDecodeError(e)
+            for name, fmt in self.header:
+                self['header'][name] = struct.unpack_from(fmt,
+                                                          self.data,
+                                                          offset)[0]
+                offset += struct.calcsize(fmt)
+            # update length from header
+            # it can not be less than 4
+            self.length = max(self['header']['length'], 4)
         # handle the array case
         if self.nla_array:
             self.setvalue([])
-            while self.buf.tell() < self.offset + self.length:
-                cell = type(self)(self.buf, parent=self, debug=self.debug)
+            while offset < self.offset + self.length:
+                cell = type(self)(data=self.data,
+                                  offset=offset,
+                                  parent=self)
                 cell.nla_array = False
                 if cell.cell_header is not None:
                     cell.header = cell.cell_header
-                    cell['header'] = cell.cell_header(self.buf)
                 cell.decode()
                 self.value.append(cell)
+                offset += (cell.length + 4 - 1) & ~ (4 - 1)
         else:
-            # decode data
-            self.decode_fields()
+            # decode fields
+            if self.pack == 'struct':
+                names = []
+                formats = []
+                for field in self.fields:
+                    names.append(field[0])
+                    formats.append(field[1])
+                fields = ((names, ''.join(formats)), )
+            else:
+                fields = self.fields
+
+            for name, fmt in fields:
+                if fmt in ('s', 'z'):
+                    efmt = '%is' % (self.length - 4)
+                else:
+                    efmt = fmt
+
+                size = struct.calcsize(efmt)
+                value = struct.unpack_from(efmt, self.data, offset)
+                offset += size
+
+                if len(value) == 1:
+                    self[name] = value[0]
+                    # cut zero-byte from z-strings
+                    # 0x00 -- python3; '\0' -- python2
+                    if fmt == 'z' and self[name][-1] \
+                            in (0x00, '\0'):
+                        self[name] = self[name][:-1]
+                else:
+                    if self.pack == 'struct':
+                        values = list(value)
+                        for n in name:
+                            if n[0] != '_':
+                                self[n] = values.pop(0)
+                    else:
+                        self[name] = value
+
+        global clean_cbs
+        if clean_cbs:
+            self.unregister_clean_cb()
         # decode NLA
         try:
-            global clean_cbs
-            if clean_cbs:
-                self.unregister_clean_cb()
             # read NLA chain
             if self.nla_map:
-                self.buf.seek(self.msg_align(self.buf.tell()))
-                self.decode_nlas()
+                offset = (offset + 4 - 1) & ~ (4 - 1)
+                self.decode_nlas(offset)
         except Exception as e:
             logging.warning(traceback.format_exc())
             raise NetlinkNLADecodeError(e)
@@ -937,35 +914,40 @@ class nlmsg_base(dict):
                     ...  # do some custom data tuning
                     nlmsg.encode(self)
         '''
-        init = self.buf.tell()
-        diff = 0
+        offset = self.offset
         # reserve space for the header
         if self.header is not None:
-            self['header'].reserve()
+            hsize = struct.calcsize(''.join([x[1] for x in self.header]))
+            self.data.extend([0] * hsize)
+            offset += hsize
 
         # handle the array case
         if self.nla_array:
             for value in self.getvalue():
-                cell = type(self)(self.buf, parent=self, debug=self.debug)
+                cell = type(self)(data=self.data,
+                                  offset=offset,
+                                  parent=self)
                 cell.nla_array = False
                 if cell.cell_header is not None:
                     cell.header = cell.cell_header
-                    cell['header'] = cell.cell_header(self.buf)
                 cell.setvalue(value)
                 cell.encode()
+                offset += (cell.length + 4 - 1) & ~ (4 - 1)
         elif self.getvalue() is not None:
-            payload = b''
-            for i in self.fields:
-                name = i[0]
-                fmt = i[1]
+            for name, fmt in self.fields:
                 value = self[name]
 
                 if fmt == 's':
                     length = len(value)
-                    fmt = '%is' % (length)
+                    efmt = '%is' % (length)
                 elif fmt == 'z':
                     length = len(value) + 1
-                    fmt = '%is' % (length)
+                    efmt = '%is' % (length)
+                else:
+                    length = struct.calcsize(fmt)
+                    efmt = fmt
+
+                self.data.extend([0] * length)
 
                 # in python3 we should force it
                 if sys.version[0] == '3':
@@ -979,35 +961,36 @@ class nlmsg_base(dict):
 
                 try:
                     if fmt[-1] == 'x':
-                        payload += struct.pack(fmt)
+                        struct.pack_into(efmt, self.data, offset)
                     elif type(value) in (list, tuple, set):
-                        payload += struct.pack(fmt, *value)
+                        struct.pack_into(efmt, self.data, offset, *value)
                     else:
-                        payload += struct.pack(fmt, value)
+                        struct.pack_into(efmt, self.data, offset, value)
                 except struct.error:
                     logging.error(''.join(traceback.format_stack()))
                     logging.error(traceback.format_exc())
                     logging.error("error pack: %s %s %s" %
-                                  (fmt, value, type(value)))
+                                  (efmt, value, type(value)))
                     raise
 
-            diff = self.msg_align(len(payload)) - len(payload)
-            self.buf.write(payload)
-            self.buf.write(b'\0' * diff)
+                offset += length
+
+            diff = ((offset + 4 - 1) & ~ (4 - 1)) - offset
+            offset += diff
+            self.data.extend([0] * diff)
         # write NLA chain
         if self.nla_map:
-            diff = 0
-            self.encode_nlas()
+            offset = self.encode_nlas(offset)
         # calculate the size and write it
         if self.header is not None:
-            self.update_length(init, diff)
-
-    def update_length(self, start, diff=0):
-        save = self.buf.tell()
-        self['header']['length'] = save - start - diff
-        self.buf.seek(start)
-        self['header'].encode()
-        self.buf.seek(save)
+            self.length = self['header']['length'] = offset - self.offset
+            offset = self.offset
+            for name, fmt in self.header:
+                struct.pack_into(fmt,
+                                 self.data,
+                                 offset,
+                                 self['header'][name])
+                offset += struct.calcsize(fmt)
 
     def setvalue(self, value):
         if isinstance(value, dict):
@@ -1184,7 +1167,7 @@ class nlmsg_base(dict):
         self.__class__.__t_nla_map = self.t_nla_map
         self.__class__.__r_nla_map = self.r_nla_map
 
-    def encode_nlas(self):
+    def encode_nlas(self, offset):
         '''
         Encode the NLA chain. Should not be called manually, since
         it is called from `encode()` routine.
@@ -1198,7 +1181,10 @@ class nlmsg_base(dict):
                     # if it is a function -- use it to get the class
                     msg_class = msg_class(self)
                 # encode NLA
-                nla = msg_class(self.buf, parent=self, init=prime['init'])
+                nla = msg_class(data=self.data,
+                                offset=offset,
+                                parent=self,
+                                init=prime['init'])
                 nla.nla_flags |= prime['nla_flags']
                 nla.nla_array = prime['nla_array']
                 nla['header']['type'] = prime['type'] | nla.nla_flags
@@ -1212,32 +1198,22 @@ class nlmsg_base(dict):
                         i.append(nla)
                     elif len(i) == 3:
                         i[2] = nla
+                offset += (nla.length + 4 - 1) & ~ (4 - 1)
+        return offset
 
-    def decode_nlas(self):
+    def decode_nlas(self, offset):
         '''
         Decode the NLA chain. Should not be called manually, since
         it is called from `decode()` routine.
         '''
-        while self.buf.tell() < (self.offset + self.length):
-            init = self.buf.tell()
+        while offset - self.offset <= self.length - 4:
             nla = None
             # pick the length and the type
-            try:
-                (length, msg_type) = struct.unpack('HH', self.buf.read(4))
-            except Exception:
-                # another alignment trick
-                if self.buf.tell() == (self.offset + self.length):
-                    break
+            (length, msg_type) = struct.unpack_from('HH', self.data, offset)
             # first two bits of msg_type are flags:
             msg_type = msg_type & ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
             # rewind to the beginning
-            self.buf.seek(init)
-            length = min(max(length, 4),
-                         (self.length - self.buf.tell() + self.offset))
-            if length < 4:
-                # alignment trick
-                self.buf.seek(init + length)
-                continue
+            length = min(max(length, 4), (self.length - offset + self.offset))
             # we have a mapping for this NLA
             if msg_type in self.t_nla_map:
 
@@ -1247,10 +1223,13 @@ class nlmsg_base(dict):
                 # is it a class or a function?
                 if isinstance(msg_class, types.FunctionType):
                     # if it is a function -- use it to get the class
-                    msg_class = msg_class(self, buf=self.buf, length=length)
+                    msg_class = msg_class(self,
+                                          data=self.data,
+                                          offset=offset)
                 # decode NLA
-                nla = msg_class(self.buf, length, self,
-                                debug=self.debug,
+                nla = msg_class(data=self.data,
+                                offset=offset,
+                                parent=self,
                                 init=prime['init'])
                 nla.nla_array = prime['nla_array']
                 try:
@@ -1261,45 +1240,24 @@ class nlmsg_base(dict):
                 except Exception:
                     logging.warning("decoding %s" % (prime['name']))
                     logging.warning(traceback.format_exc())
-                    self.buf.seek(init)
                     msg_name = 'UNDECODED'
-                    msg_value = hexdump(self.buf.read(length))
+                    msg_value = hexdump(str(self.data[offset:offset+length]))
                 else:
                     msg_value = nla.getvalue()
             else:
                 msg_name = 'UNKNOWN'
-                msg_value = hexdump(self.buf.read(length))
+                msg_value = hexdump(str(self.data[offset:offset+length]))
 
             self['attrs'].append([msg_name, msg_value])
-
-            # fix the offset
-            self.buf.seek(init + self.msg_align(length))
-
-
-class nla_header(nlmsg_base):
-    '''
-    The NLA header structure: uin16 length and uint16 type.
-    '''
-    fields = (('length', 'H'),
-              ('type', 'H'))
+            offset += (length + 4 - 1) & ~ (4 - 1)
 
 
 class nla_base(nlmsg_base):
     '''
     The NLA base class. Use `nla_header` class as the header.
     '''
-    header = nla_header
-
-
-class nlmsg_header(nlmsg_base):
-    '''
-    Common netlink message header
-    '''
-    fields = (('length', 'I'),
-              ('type', 'H'),
-              ('flags', 'H'),
-              ('sequence_number', 'I'),
-              ('pid', 'I'))
+    header = (('length', 'H'),
+              ('type', 'H'))
 
 
 class nlmsg_atoms(nlmsg_base):
@@ -1580,15 +1538,18 @@ class nla(nla_base, nlmsg_atoms):
     '''
     def decode(self):
         nla_base.decode(self)
-        if not self.debug:
-            del self['header']
+        del self['header']
 
 
 class nlmsg(nlmsg_atoms):
     '''
     Main netlink message class
     '''
-    header = nlmsg_header
+    header = (('length', 'I'),
+              ('type', 'H'),
+              ('flags', 'H'),
+              ('sequence_number', 'I'),
+              ('pid', 'I'))
 
 
 class genlmsg(nlmsg):

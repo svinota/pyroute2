@@ -145,25 +145,26 @@ class Marshal(object):
         result = []
         while offset < len(data):
             # pick type and length
-            (length, msg_type) = struct.unpack('IH', data[offset:offset+6])
+            (length, msg_type) = struct.unpack_from('IH', data, offset)
+            if length == 0:
+                break
             error = None
             if msg_type == NLMSG_ERROR:
-                code = abs(struct.unpack('i', data[offset+16:offset+20])[0])
+                code = abs(struct.unpack_from('i', data, offset+16)[0])
                 if code > 0:
                     error = NetlinkError(code)
 
             msg_class = self.msg_map.get(msg_type, nlmsg)
-            msg = msg_class(data[offset:offset+length], debug=self.debug)
+            msg = msg_class(data, offset=offset)
 
             try:
                 msg.decode()
                 msg['header']['error'] = error
                 # try to decode encapsulated error message
                 if error is not None:
-                    raw = data[offset:offset+length]
-                    enc_type = struct.unpack('H', raw[24:26])[0]
+                    enc_type = struct.unpack_from('H', data, offset+24)[0]
                     enc_class = self.msg_map.get(enc_type, nlmsg)
-                    enc = enc_class(raw[20:])
+                    enc = enc_class(data, offset=offset+20)
                     enc.decode()
                     msg['header']['errmsg'] = enc
             except NetlinkHeaderDecodeError as e:
@@ -542,7 +543,7 @@ class NetlinkMixin(object):
 
     def sendto_gate(self, msg, addr):
         msg.encode()
-        self.sendto(msg.buf.getvalue(), addr)
+        self.sendto(msg.data[msg.offset:msg.length], addr)
 
     def get(self, bufsize=DEFAULT_RCVBUF, msg_seq=0, terminate=None):
         '''
@@ -677,7 +678,8 @@ class NetlinkMixin(object):
                         #
                         # This is a time consuming process, so all the
                         # locks, except the read lock must be released
-                        data = self.recv(bufsize)
+                        data = bytearray(bufsize)
+                        self.recv_into(data, bufsize)
                         # Parse data
                         msgs = self.marshal.parse(data)
                         # Reset ctime -- timeout should be measured
