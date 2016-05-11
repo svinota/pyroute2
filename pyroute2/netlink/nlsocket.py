@@ -143,7 +143,9 @@ class Marshal(object):
         '''
         offset = 0
         result = []
-        while offset < len(data):
+        # there must be at least one header in the buffer,
+        # 'IHHII' == 16 bytes
+        while offset <= len(data) - 16:
             # pick type and length
             (length, msg_type) = struct.unpack_from('IH', data, offset)
             if length == 0:
