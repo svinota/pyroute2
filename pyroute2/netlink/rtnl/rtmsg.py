@@ -159,6 +159,7 @@ class rtmsg(rtmsg_base, nlmsg):
 
 
 class nh(rtmsg_base, nla):
+    is_nla = False
     cell_header = (('length', 'H'), )
     fields = (('flags', 'B'),
               ('hops', 'B'),

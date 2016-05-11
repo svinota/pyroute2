@@ -564,6 +564,11 @@ NETLINK_TX_RING = 7
 
 clean_cbs = {}
 
+# Cached results for some struct operations.
+# No cache invalidation required.
+cache_efmt = {}
+cache_hdr = {}
+
 
 class nlmsg_base(dict):
     '''
@@ -586,6 +591,7 @@ class nlmsg_base(dict):
     nla_flags = 0                # NLA flags
     nla_init = None              # NLA initstring
     value_map = {}
+    is_nla = False
     __t_nla_map = None
     __r_nla_map = None
 
@@ -822,16 +828,51 @@ class nlmsg_base(dict):
                     ...  # do some custom data tuning
         '''
         offset = self.offset
-        # decode the header
+        global cache_hdr
+        global cache_efmt
+        # Decode the header
         if self.header is not None:
-            for name, fmt in self.header:
-                self['header'][name] = struct.unpack_from(fmt,
-                                                          self.data,
-                                                          offset)[0]
-                offset += struct.calcsize(fmt)
-            # update length from header
-            # it can not be less than 4
-            self.length = max(self['header']['length'], 4)
+            ##
+            # ~ self['header'][name] = struct.unpack_from(...)
+            #
+            # Instead of `struct.unpack()` all the NLA headers, it is
+            # much cheaper to cache decoded values. The resulting dict
+            # will be not much bigger than some hundreds ov values.
+            #
+            # The code might look ugly, but line_profiler shows here
+            # a notable performance gain.
+            #
+            # The chain is:
+            # dict.get(key, None) or dict.set(unpack(key, ...)) or dict[key]
+            #
+            # If there is no such key in the dict, get() returns None, and
+            # Python executes __setitem__(), which always return None, and
+            # then dict[key] is returned.
+            #
+            # If the key exists, the statement after the first `or` is not
+            # executed.
+            if self.is_nla:
+                key = tuple(self.data[offset:offset+4])
+                self['header'] = cache_hdr.get(key, None) or \
+                    (cache_hdr
+                     .__setitem__(key,
+                                  dict(zip(('length', 'type'),
+                                           struct.unpack_from('HH',
+                                                              self.data,
+                                                              offset))))) or \
+                    cache_hdr[key]
+                ##
+                offset += 4
+                self.length = self['header']['length']
+            else:
+                for name, fmt in self.header:
+                    self['header'][name] = struct.unpack_from(fmt,
+                                                              self.data,
+                                                              offset)[0]
+                    offset += struct.calcsize(fmt)
+                # update length from header
+                # it can not be less than 4
+                self.length = max(self['header']['length'], 4)
         # handle the array case
         if self.nla_array:
             self.setvalue([])
@@ -863,7 +904,16 @@ class nlmsg_base(dict):
                 else:
                     efmt = fmt
 
-                size = struct.calcsize(efmt)
+                ##
+                # ~~ size = struct.calcsize(efmt)
+                #
+                # The use of the cache gives here a tiny performance
+                # improvement, but it is an improvement anyways
+                #
+                size = cache_efmt.get(efmt, None) or \
+                    cache_efmt.__setitem__(efmt, struct.calcsize(efmt)) or \
+                    cache_efmt[efmt]
+                ##
                 value = struct.unpack_from(efmt, self.data, offset)
                 offset += size
 
@@ -1261,6 +1311,7 @@ class nla_base(nlmsg_base):
     '''
     The NLA base class. Use `nla_header` class as the header.
     '''
+    is_nla = True
     header = (('length', 'H'),
               ('type', 'H'))
 
