@@ -435,7 +435,6 @@ class IPDB(object):
         self.iclass = Interface
         self._nl_async = config.ipdb_nl_async if nl_async is None else True
         self._stop = False
-        log.warning("started")
         # see also 'register_callback'
         self._post_callbacks = {}
         self._pre_callbacks = {}
