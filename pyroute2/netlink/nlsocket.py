@@ -484,7 +484,7 @@ class NetlinkMixin(object):
         return self._recv_into(*argv, **kwarg)
 
     def recv_ft(self, size=None):
-        raise NotImplementedError()
+        return self._recv(size)
 
     def async_recv(self):
         poll = select.poll()
