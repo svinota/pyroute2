@@ -600,7 +600,7 @@ class nlmsg_base(dict):
         for i in self.fields:
             self[i[0]] = 0  # FIXME: only for number values
         self._buf = None
-        self.data = data
+        self.data = data or bytearray()
         self.offset = offset
         self.length = length or 0
         self.parent = parent
@@ -1040,7 +1040,7 @@ class nlmsg_base(dict):
         if isinstance(dump, dict):
             for (k, v) in dump.items():
                 if k == 'header':
-                    self['header'].load(dump['header'])
+                    self['header'].update(dump['header'])
                 else:
                     self[k] = v
         else:
@@ -1055,7 +1055,7 @@ class nlmsg_base(dict):
             ret = {}
             for (k, v) in a.items():
                 if k == 'header':
-                    ret['header'] = a['header'].dump()
+                    ret['header'] = dict(a['header'])
                 elif k == 'attrs':
                     ret['attrs'] = attrs = []
                     for i in a['attrs']:
