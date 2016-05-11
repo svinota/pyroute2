@@ -915,6 +915,7 @@ class nlmsg_base(dict):
                     nlmsg.encode(self)
         '''
         offset = self.offset
+        diff = 0
         # reserve space for the header
         if self.header is not None:
             hsize = struct.calcsize(''.join([x[1] for x in self.header]))
@@ -983,7 +984,9 @@ class nlmsg_base(dict):
             offset = self.encode_nlas(offset)
         # calculate the size and write it
         if self.header is not None:
-            self.length = self['header']['length'] = offset - self.offset
+            self.length = self['header']['length'] = (offset -
+                                                      self.offset -
+                                                      diff)
             offset = self.offset
             for name, fmt in self.header:
                 struct.pack_into(fmt,
