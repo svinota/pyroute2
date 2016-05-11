@@ -480,6 +480,9 @@ class NetlinkMixin(object):
     def recv_into(self, *argv, **kwarg):
         return self._recv_into(*argv, **kwarg)
 
+    def recv_ft(self, size=None):
+        raise NotImplementedError()
+
     def async_recv(self):
         poll = select.poll()
         poll.register(self._sock, select.POLLIN | select.POLLPRI)
@@ -685,7 +688,7 @@ class NetlinkMixin(object):
                         #
                         # This is a time consuming process, so all the
                         # locks, except the read lock must be released
-                        data = bytearray(self.recv(bufsize))
+                        data = self.recv_ft(bufsize)
                         # Parse data
                         msgs = self.marshal.parse(data)
                         # Reset ctime -- timeout should be measured
@@ -811,6 +814,8 @@ class NetlinkSocket(NetlinkMixin):
             self._sendto = getattr(self._sock, 'sendto')
             self._recv = getattr(self._sock, 'recv')
             self._recv_into = getattr(self._sock, 'recv_into')
+            # setup fast-track
+            self.recv_ft = getattr(self._sock, 'recv')
 
             self.setsockopt(SOL_SOCKET, SO_SNDBUF, 32768)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
@@ -865,6 +870,7 @@ class NetlinkSocket(NetlinkMixin):
                     return len(data_in)
             self._recv = recv_plugin
             self._recv_into = recv_into_plugin
+            self.recv_ft = recv_plugin
             self.pthread = threading.Thread(target=self.async_recv)
             self.pthread.setDaemon(True)
             self.pthread.start()
