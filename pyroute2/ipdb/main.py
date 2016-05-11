@@ -477,7 +477,7 @@ class IPDB(object):
         self.neighbours = {}
 
         try:
-            self.mnl.bind(async=False)
+            self.mnl.bind(async=self._nl_async)
             # load information
             links = self.nl.get_links()
             for link in links:

@@ -477,6 +477,9 @@ class NetlinkMixin(object):
     def recv(self, *argv, **kwarg):
         return self._recv(*argv, **kwarg)
 
+    def recv_into(self, *argv, **kwarg):
+        return self._recv_into(*argv, **kwarg)
+
     def async_recv(self):
         poll = select.poll()
         poll.register(self._sock, select.POLLIN | select.POLLPRI)
@@ -487,7 +490,9 @@ class NetlinkMixin(object):
             for (fd, event) in events:
                 if fd == sockfd:
                     try:
-                        self.buffer_queue.put(self._sock.recv(1024 * 1024))
+                        data = bytearray(64000)
+                        self._sock.recv_into(data, 64000)
+                        self.buffer_queue.put(data)
                     except Exception as e:
                         self.buffer_queue.put(e)
                 else:
@@ -680,8 +685,7 @@ class NetlinkMixin(object):
                         #
                         # This is a time consuming process, so all the
                         # locks, except the read lock must be released
-                        data = bytearray(bufsize)
-                        self.recv_into(data, bufsize)
+                        data = bytearray(self.recv(bufsize))
                         # Parse data
                         msgs = self.marshal.parse(data)
                         # Reset ctime -- timeout should be measured
@@ -801,11 +805,12 @@ class NetlinkSocket(NetlinkMixin):
             for name in ('getsockname', 'getsockopt', 'makefile',
                          'setsockopt', 'setblocking', 'settimeout',
                          'gettimeout', 'shutdown', 'recvfrom',
-                         'recv_into', 'recvfrom_into', 'fileno'):
+                         'recvfrom_into', 'fileno'):
                 setattr(self, name, getattr(self._sock, name))
 
             self._sendto = getattr(self._sock, 'sendto')
             self._recv = getattr(self._sock, 'recv')
+            self._recv_into = getattr(self._sock, 'recv_into')
 
             self.setsockopt(SOL_SOCKET, SO_SNDBUF, 32768)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
@@ -845,12 +850,21 @@ class NetlinkSocket(NetlinkMixin):
         # all is OK till now, so start async recv, if we need
         if async:
             def recv_plugin(*argv, **kwarg):
-                data = self.buffer_queue.get()
-                if isinstance(data, Exception):
-                    raise data
+                data_in = self.buffer_queue.get()
+                if isinstance(data_in, Exception):
+                    raise data_in
                 else:
-                    return data
+                    return data_in
+
+            def recv_into_plugin(data, *argv, **kwarg):
+                data_in = self.buffer_queue.get()
+                if isinstance(data_in, Exception):
+                    raise data_in
+                else:
+                    data[:] = data_in
+                    return len(data_in)
             self._recv = recv_plugin
+            self._recv_into = recv_into_plugin
             self.pthread = threading.Thread(target=self.async_recv)
             self.pthread.setDaemon(True)
             self.pthread.start()
