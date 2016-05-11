@@ -32,6 +32,8 @@ from pyroute2.netlink.rtnl.tcmsg.common import red_eval_P
 from pyroute2.netlink.rtnl.tcmsg.common import red_eval_idle_damping
 from pyroute2.netlink.rtnl.tcmsg.common import stats2 as c_stats2
 
+logging.basicConfig()
+log = logging.getLogger('pyroute2.netlink.rtnl.tcmsg')
 parent = TC_H_ROOT
 
 
@@ -71,7 +73,7 @@ def get_parameters(kwarg):
     if opt['Wlog'] < 0:
         raise Exception('failed to calculate EWMA')
     elif opt['Wlog'] > 10:
-        logging.warning('choke: burst %s seems to be too large' % burst)
+        log.warning('choke: burst %s seems to be too large' % burst)
     # Plog
     opt['Plog'] = red_eval_P(opt['qth_min']*avpkt,
                              opt['qth_max']*avpkt,

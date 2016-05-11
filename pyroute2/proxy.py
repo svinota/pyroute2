@@ -8,6 +8,9 @@ import traceback
 import threading
 from pyroute2.netlink.exceptions import NetlinkError
 
+logging.basicConfig()
+log = logging.getLogger('pyroute2.proxy')
+
 
 class NetlinkProxy(object):
     '''
@@ -49,8 +52,8 @@ class NetlinkProxy(object):
                         return ret
 
                 except Exception as e:
-                    logging.error(''.join(traceback.format_stack()))
-                    logging.error(traceback.format_exc())
+                    log.error(''.join(traceback.format_stack()))
+                    log.error(traceback.format_exc())
                     # errmsg
                     if isinstance(e, (OSError, IOError)):
                         code = e.errno

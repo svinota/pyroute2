@@ -2,12 +2,15 @@ import re
 import os
 import struct
 import logging
-from math import log
+from math import log as logfm
 from pyroute2.common import size_suffixes
 from pyroute2.common import time_suffixes
 from pyroute2.common import rate_suffixes
 from pyroute2.common import basestring
 from pyroute2.netlink import nla
+
+logging.basicConfig()
+log = logging.getLogger('pyroute2.netlink.rtnl.tcmsg')
 
 LINKLAYER_UNSPEC = 0
 LINKLAYER_ETHERNET = 1
@@ -28,8 +31,8 @@ try:
     clock_factor = float(clock_res) / TIME_UNITS_PER_SEC
     tick_in_usec = float(t2us) / us2t * clock_factor
 except IOError as e:
-    logging.warning("tcmsg: %s", e)
-    logging.warning("the tc subsystem functionality is limited")
+    log.warning("tcmsg: %s", e)
+    log.warning("the tc subsystem functionality is limited")
     clock_res = 0
     clock_factor = 1
     tick_in_usec = 1
@@ -124,7 +127,7 @@ def red_eval_P(qmin, qmax, probability):
 def red_eval_idle_damping(Wlog, avpkt, bps):
     # The code is ported from tc utility
     xmit_time = calc_xmittime(bps, avpkt)
-    lW = -log(1.0 - 1.0 / (1 << Wlog)) / xmit_time
+    lW = -logfm(1.0 - 1.0 / (1 << Wlog)) / xmit_time
     maxtime = 31.0 / lW
     sbuf = []
     for clog in range(32):

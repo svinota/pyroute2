@@ -408,6 +408,8 @@ from pyroute2.netlink.exceptions import NetlinkHeaderDecodeError
 from pyroute2.netlink.exceptions import NetlinkDataDecodeError
 from pyroute2.netlink.exceptions import NetlinkNLADecodeError
 
+logging.basicConfig()
+log = logging.getLogger('pyroute2.netlink.parser')
 # make pep8 happy
 _ne = NetlinkError        # reexport for compatibility
 _de = NetlinkDecodeError  #
@@ -673,8 +675,8 @@ class nlmsg_base(dict):
                 try:
                     cb()
                 except:
-                    logging.error('Cleanup callback fail: %s' % (cb))
-                    logging.error(traceback.format_exc())
+                    log.error('Cleanup callback fail: %s' % (cb))
+                    log.error(traceback.format_exc())
             del clean_cbs[seq]
 
     def _strip_one(self, name):
@@ -914,7 +916,7 @@ class nlmsg_base(dict):
                 self.buf.seek(self.msg_align(self.buf.tell()))
                 self.decode_nlas()
         except Exception as e:
-            logging.warning(traceback.format_exc())
+            log.warning(traceback.format_exc())
             raise NetlinkNLADecodeError(e)
         if len(self['attrs']) == 0:
             del self['attrs']
@@ -985,10 +987,10 @@ class nlmsg_base(dict):
                     else:
                         payload += struct.pack(fmt, value)
                 except struct.error:
-                    logging.error(''.join(traceback.format_stack()))
-                    logging.error(traceback.format_exc())
-                    logging.error("error pack: %s %s %s" %
-                                  (fmt, value, type(value)))
+                    log.error(''.join(traceback.format_stack()))
+                    log.error(traceback.format_exc())
+                    log.error("error pack: %s %s %s" %
+                              (fmt, value, type(value)))
                     raise
 
             diff = self.msg_align(len(payload)) - len(payload)
@@ -1259,8 +1261,8 @@ class nlmsg_base(dict):
                                                 NLA_F_NET_BYTEORDER)
                     msg_name = prime['name']
                 except Exception:
-                    logging.warning("decoding %s" % (prime['name']))
-                    logging.warning(traceback.format_exc())
+                    log.warning("decoding %s" % (prime['name']))
+                    log.warning(traceback.format_exc())
                     self.buf.seek(init)
                     msg_name = 'UNDECODED'
                     msg_value = hexdump(self.buf.read(length))

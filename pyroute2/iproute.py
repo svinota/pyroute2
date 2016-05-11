@@ -123,6 +123,8 @@ from pyroute2.common import getbroadcast
 from pyroute2.netlink.exceptions import NetlinkError
 
 DEFAULT_TABLE = 254
+logging.basicConfig()
+log = logging.getLogger('pyroute2.iproute')
 
 
 def transform_handle(handle):
@@ -271,8 +273,8 @@ class IPRouteMixin(object):
         '''
         Alias of `get_neighbours()`, deprecated.
         '''
-        logging.warning('The `get_neighbors()` call is deprecated')
-        logging.warning('Use `get_neighbours() instead')
+        log.warning('The `get_neighbors()` call is deprecated')
+        log.warning('Use `get_neighbours() instead')
         return self.get_neighbours(family)
 
     def get_neighbours(self, family=AF_UNSPEC, match=None, **kwarg):
@@ -402,35 +404,35 @@ class IPRouteMixin(object):
         # Create interface
         #
         # Obsoleted method. Use `link("add", ...)` instead.
-        logging.warning("link_create() is obsoleted, use link('add', ...)")
+        log.warning("link_create() is obsoleted, use link('add', ...)")
         return self.link('add', **IPLinkRequest(kwarg))
 
     def link_up(self, index):
         # Link up.
         #
         # Obsoleted method. Use `link("set", ...)` instead.
-        logging.warning("link_up() is obsoleted, use link('set', ...)")
+        log.warning("link_up() is obsoleted, use link('set', ...)")
         return self.link('set', index=index, state='up')
 
     def link_down(self, index):
         # Link up.
         #
         # Obsoleted method. Use `link("set", ...)` instead.
-        logging.warning("link_down() is obsoleted, use link('set', ...)")
+        log.warning("link_down() is obsoleted, use link('set', ...)")
         return self.link('set', index=index, state='down')
 
     def link_rename(self, index, name):
         # Rename interface.
         #
         # Obsoleted method. Use `link("set", ...)` instead.
-        logging.warning("link_rename() is obsoleted, use link('set', ...)")
+        log.warning("link_rename() is obsoleted, use link('set', ...)")
         return self.link('set', index=index, ifname=name)
 
     def link_remove(self, index):
         # Remove interface.
         #
         # Obsoleted method. Use `link("del", ...)` instead.
-        logging.warning("link_remove() is obsoleted, use link('del', ...)")
+        log.warning("link_remove() is obsoleted, use link('del', ...)")
         return self.link('del', index=index)
 
     def link_lookup(self, **kwarg):
@@ -1032,8 +1034,8 @@ class IPRouteMixin(object):
         '''
 
         if command[:4] == 'vlan':
-            logging.warning('vlan filters are managed via `vlan_filter()`')
-            logging.warning('this compatibility hack will be removed soon')
+            log.warning('vlan filters are managed via `vlan_filter()`')
+            log.warning('this compatibility hack will be removed soon')
             return self.vlan_filter(command[5:], **kwarg)
 
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
@@ -1590,7 +1592,7 @@ class IPRouteMixin(object):
 
         if argv:
             # this code block will be removed in some release
-            logging.warning('rule(): positional parameters are deprecated')
+            log.warning('rule(): positional parameters are deprecated')
             names = ['table', 'priority', 'action', 'family',
                      'src', 'src_len', 'dst', 'dst_len', 'fwmark',
                      'iifname', 'oifname']

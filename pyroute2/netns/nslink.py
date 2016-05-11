@@ -78,6 +78,9 @@ from pyroute2.netns import remove
 from pyroute2.remote import Server
 from pyroute2.remote import RemoteSocket
 
+logging.basicConfig()
+log = logging.getLogger('pyroute2.netns')
+
 
 def NetNServer(netns, cmdch, brdch, flags=os.O_CREAT):
     '''
@@ -199,7 +202,7 @@ class NetNS(IPRouteMixin, RemoteSocket):
         except:
             # something went wrong, force server shutdown
             self.cmdch.send({'stage': 'shutdown'})
-            logging.error('forced shutdown procedure, clean up netns manually')
+            log.error('forced shutdown procedure, clean up netns manually')
         # force cleanup command channels
         self.cmdch.close()
         self.brdch.close()
