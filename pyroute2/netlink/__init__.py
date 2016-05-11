@@ -377,7 +377,7 @@ The code::
     msg.encode()
 
     # send the buffer
-    nlsock.sendto(msg.buf.getvalue(), (0, 0))
+    nlsock.sendto(msg.data, (0, 0))
 
 Please notice, that NLA list *MUST* be mutable.
 
@@ -636,7 +636,7 @@ class nlmsg_base(dict):
         correctly only if the message was encoded, or is
         received from the socket.
         '''
-        ret = type(self)(self.buf.getvalue())
+        ret = type(self)(data=self.data, offset=self.offset)
         ret.decode()
         return ret
 
@@ -903,7 +903,7 @@ class nlmsg_base(dict):
         Encode the message into the binary buffer::
 
             msg.encode()
-            sock.send(msg.buf.getvalue())
+            sock.send(msg.data)
 
         If you want to customize the encoding process, override
         the method::
