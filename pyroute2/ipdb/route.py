@@ -17,6 +17,9 @@ from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.transactional import with_transaction
 from pyroute2.ipdb.linkedset import LinkedSet
 
+logging.basicConfig()
+log = logging.getLogger('pyroute2.ipdb.route')
+
 
 class Metrics(Transactional):
     _fields = [rtmsg.metrics.nla2name(i[0]) for i in rtmsg.metrics.nla_map]
@@ -844,8 +847,8 @@ class RoutingTableSet(object):
                     with record._direct_state:
                         record['ipdb_scope'] = 'detached'
             except Exception as e:
-                logging.debug(e)
-                logging.debug(msg)
+                log.debug(e)
+                log.debug(msg)
             return
 
         # RTM_NEWROUTE

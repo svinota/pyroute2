@@ -354,6 +354,9 @@ from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.exceptions import CreateException
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 
+logging.basicConfig()
+log = logging.getLogger('pyroute2.ipdb.main')
+
 
 def get_addr_nla(msg):
     ###
@@ -432,6 +435,7 @@ class IPDB(object):
         self.iclass = Interface
         self._nl_async = config.ipdb_nl_async if nl_async is None else True
         self._stop = False
+        log.warning("started")
         # see also 'register_callback'
         self._post_callbacks = {}
         self._pre_callbacks = {}
@@ -500,8 +504,8 @@ class IPDB(object):
             for msg in self.nl.get_routes(family=AF_MPLS):
                 self._route_add(msg)
         except Exception as e:
-            logging.error('initdb error: %s', e)
-            logging.error(traceback.format_exc())
+            log.error('initdb error: %s', e)
+            log.error(traceback.format_exc())
             try:
                 self.nl.close()
                 self.mnl.close()
@@ -977,14 +981,14 @@ class IPDB(object):
                 if self._stop:
                     break
             except:
-                logging.error('Restarting IPDB instance after '
-                              'error:\n%s', traceback.format_exc())
+                log.error('Restarting IPDB instance after '
+                          'error:\n%s', traceback.format_exc())
                 if self.restart_on_error:
                     try:
                         self.initdb()
                     except:
-                        logging.error('Error restarting DB:\n%s',
-                                      traceback.format_exc())
+                        log.error('Error restarting DB:\n%s',
+                                  traceback.format_exc())
                         return
                     continue
                 else:

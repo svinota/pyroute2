@@ -4,6 +4,8 @@ from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl.tcmsg.common import get_time
 from pyroute2.netlink.rtnl.tcmsg.common import stats2 as c_stats2
 
+logging.basicConfig()
+log = logging.getLogger('pyroute2.netlink.rtnl.tcmsg')
 parent = TC_H_ROOT
 
 
@@ -21,8 +23,8 @@ def get_parameters(kwarg):
                  'cdl_interval': get_time}
     for key in transform.keys():
         if key in kwarg:
-            logging.warning('codel parameters naming will be changed '
-                            'in next releases (%s)' % key)
+            log.warning('codel parameters naming will be changed '
+                        'in next releases (%s)' % key)
             ret['attrs'].append(['TCA_CODEL_%s' % key[4:].upper(),
                                  transform[key](kwarg[key])])
     return ret

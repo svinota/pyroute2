@@ -117,6 +117,9 @@ try:
 except ImportError:
     from queue import Queue
 
+logging.basicConfig()
+log = logging.getLogger('pyroute2.netlink.nlsocket')
+
 
 class Marshal(object):
     '''
@@ -344,8 +347,8 @@ class NetlinkMixin(object):
         self.close()
 
     def release(self):
-        logging.warning("The `release()` call is deprecated")
-        logging.warning("Use `close()` instead")
+        log.warning("The `release()` call is deprecated")
+        log.warning("Use `close()` instead")
         self.close()
 
     def register_callback(self, callback,
@@ -705,9 +708,9 @@ class NetlinkMixin(object):
                                        "delta=%s qsize=%s delay=%s "
                                        % (delta, current, delay))
                             if delay < 1:
-                                logging.debug(message)
+                                log.debug(message)
                             else:
-                                logging.warning(message)
+                                log.warning(message)
                             time.sleep(delay)
                         self.qsize = current
 
@@ -727,8 +730,8 @@ class NetlinkMixin(object):
                                     if cr[0](msg):
                                         cr[1](msg, *cr[2])
                                 except:
-                                    logging.warning("Callback fail: %s" % (cr))
-                                    logging.warning(traceback.format_exc())
+                                    log.warning("Callback fail: %s" % (cr))
+                                    log.warning(traceback.format_exc())
                             # 8<-----------------------------------------------
                             self.backlog[seq].append(msg)
                         # We finished with the backlog, so release the lock
