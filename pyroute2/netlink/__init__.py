@@ -566,7 +566,7 @@ clean_cbs = {}
 
 # Cached results for some struct operations.
 # No cache invalidation required.
-cache_efmt = {}
+cache_fmt = {}
 cache_hdr = {}
 
 
@@ -592,6 +592,9 @@ class nlmsg_base(dict):
     nla_init = None              # NLA initstring
     value_map = {}
     is_nla = False
+    # caches
+    __compiled_nla = False
+    __compiled_ft = False
     __t_nla_map = None
     __r_nla_map = None
 
@@ -619,11 +622,16 @@ class nlmsg_base(dict):
         self.value = NotInitialized
         # work only on non-empty mappings
         if self.nla_map:
-            if self.__class__.__t_nla_map is not None:
+            if self.__class__.__compiled_nla:
                 self.t_nla_map = self.__class__.__t_nla_map
                 self.r_nla_map = self.__class__.__r_nla_map
             else:
-                self.register_nlas()
+                self.compile_nla()
+        # compile fast-track for particular types
+        if self.__class__.__compiled_ft:
+            self.ft_decode = self.__class__.__ft_decode
+        else:
+            self.compile_ft()
         self.r_value_map = dict([(x[1], x[0]) for x in self.value_map.items()])
         if self.header:
             self['header'] = {}
@@ -829,11 +837,11 @@ class nlmsg_base(dict):
         '''
         offset = self.offset
         global cache_hdr
-        global cache_efmt
+        global clean_cbs
         # Decode the header
         if self.header is not None:
             ##
-            # ~ self['header'][name] = struct.unpack_from(...)
+            # ~~ self['header'][name] = struct.unpack_from(...)
             #
             # Instead of `struct.unpack()` all the NLA headers, it is
             # much cheaper to cache decoded values. The resulting dict
@@ -887,68 +895,10 @@ class nlmsg_base(dict):
                 self.value.append(cell)
                 offset += (cell.length + 4 - 1) & ~ (4 - 1)
         else:
-            # decode fields
-            if self.pack == 'struct':
-                names = []
-                formats = []
-                for field in self.fields:
-                    names.append(field[0])
-                    formats.append(field[1])
-                fields = ((names, ''.join(formats)), )
-            else:
-                fields = self.fields
+            self.ft_decode(self, offset)
 
-            for name, fmt in fields:
-                if fmt in ('s', 'z'):
-                    efmt = '%is' % (self.length - 4)
-                else:
-                    efmt = fmt
-
-                ##
-                # ~~ size = struct.calcsize(efmt)
-                #
-                # The use of the cache gives here a tiny performance
-                # improvement, but it is an improvement anyways
-                #
-                size = cache_efmt.get(efmt, None) or \
-                    cache_efmt.__setitem__(efmt, struct.calcsize(efmt)) or \
-                    cache_efmt[efmt]
-                ##
-                value = struct.unpack_from(efmt, self.data, offset)
-                offset += size
-
-                if len(value) == 1:
-                    self[name] = value[0]
-                    # cut zero-byte from z-strings
-                    # 0x00 -- python3; '\0' -- python2
-                    if fmt == 'z' and self[name][-1] \
-                            in (0x00, '\0'):
-                        self[name] = self[name][:-1]
-                else:
-                    if self.pack == 'struct':
-                        values = list(value)
-                        for n in name:
-                            if n[0] != '_':
-                                self[n] = values.pop(0)
-                    else:
-                        self[name] = value
-
-        global clean_cbs
         if clean_cbs:
             self.unregister_clean_cb()
-        # decode NLA
-        try:
-            # read NLA chain
-            if self.nla_map:
-                offset = (offset + 4 - 1) & ~ (4 - 1)
-                self.decode_nlas(offset)
-        except Exception as e:
-            log.warning(traceback.format_exc())
-            raise NetlinkNLADecodeError(e)
-        if len(self['attrs']) == 0:
-            del self['attrs']
-        if self['value'] is NotInitialized:
-            del self['value']
 
     def encode(self):
         '''
@@ -1138,34 +1088,93 @@ class nlmsg_base(dict):
 
         return self
 
-    def register_nlas(self):
-        '''
-        Convert 'nla_map' tuple into two dictionaries for mapping
-        and reverse mapping of NLA types.
+    @staticmethod
+    def ft_decode(self, offset):
+        raise NotImplementedError()
 
-        ex: given::
+    @staticmethod
+    def _ft_decode_zstring(self, offset):
+        self['value'] = struct.unpack_from('%is' % (self.length - 4),
+                                           self.data,
+                                           offset)[0][:-1]
 
-            nla_map = (('TCA_HTB_UNSPEC', 'none'),
-                       ('TCA_HTB_PARMS', 'htb_parms'),
-                       ('TCA_HTB_INIT', 'htb_glob'))
+    @staticmethod
+    def _ft_decode_string(self, offset):
+        self['value'] = struct.unpack_from('%is' % (self.length - 4),
+                                           self.data,
+                                           offset)[0]
 
-        creates::
+    @staticmethod
+    def _ft_decode_packed(self, offset):
+        names = []
+        fmt = ''
+        for field in self.fields:
+            names.append(field[0])
+            fmt += field[1]
+        value = struct.unpack_from(fmt, self.data, offset)
+        values = list(value)
+        for name in names:
+            if name[0] != '_':
+                self[name] = values.pop(0)
+        # read NLA chain
+        if self.nla_map:
+            offset = (offset + 4 - 1) & ~ (4 - 1)
+            try:
+                self.decode_nlas(offset)
+            except Exception as e:
+                log.warning(traceback.format_exc())
+                raise NetlinkNLADecodeError(e)
+        else:
+            del self['attrs']
+        if self['value'] is NotInitialized:
+            del self['value']
 
-            t_nla_map = {0: (<class 'pyroute2...none'>, 'TCA_HTB_UNSPEC'),
-                         1: (<class 'pyroute2...htb_parms'>, 'TCA_HTB_PARMS'),
-                         2: (<class 'pyroute2...htb_glob'>, 'TCA_HTB_INIT')}
-            r_nla_map = {'TCA_HTB_UNSPEC': (<class 'pyroute2...none'>, 0),
-                         'TCA_HTB_PARMS': (<class 'pyroute2...htb_parms'>, 1),
-                         'TCA_HTB_INIT': (<class 'pyroute2...htb_glob'>, 2)}
+    @staticmethod
+    def _ft_decode_generic(self, offset):
+        global cache_fmt
+        for name, fmt in self.fields:
+            ##
+            # ~~ size = struct.calcsize(efmt)
+            #
+            # The use of the cache gives here a tiny performance
+            # improvement, but it is an improvement anyways
+            #
+            size = cache_fmt.get(fmt, None) or \
+                cache_fmt.__setitem__(fmt, struct.calcsize(fmt)) or \
+                cache_fmt[fmt]
+            ##
+            value = struct.unpack_from(fmt, self.data, offset)
+            offset += size
+            if len(value) == 1:
+                self[name] = value[0]
+            else:
+                self[name] = value
+        # read NLA chain
+        if self.nla_map:
+            offset = (offset + 4 - 1) & ~ (4 - 1)
+            try:
+                self.decode_nlas(offset)
+            except Exception as e:
+                log.warning(traceback.format_exc())
+                raise NetlinkNLADecodeError(e)
+        else:
+            del self['attrs']
+        if self['value'] is NotInitialized:
+            del self['value']
 
-        nla_map format::
+    def compile_ft(self):
+        if self.fields and self.fields[0][1] == 's':
+            self.ft_decode = self._ft_decode_string
+        elif self.fields and self.fields[0][1] == 'z':
+            self.ft_decode = self._ft_decode_zstring
+        elif self.pack == 'struct':
+            self.ft_decode = self._ft_decode_packed
+        else:
+            self.ft_decode = self._ft_decode_generic
+        self.__class__.__ft_decode = self.ft_decode
+        self.__class__.__compiled_ft = True
 
-            nla_map = (([ID, ] NAME, TYPE[, FLAGS]), ...)
-
-        Items in `[...]` are optional. If ID is not given, then the map will
-        be autonumerated from 0. If flags are not given, they are 0 by default.
-
-        '''
+    def compile_nla(self):
         # clean up NLA mappings
         self.t_nla_map = {}
         self.r_nla_map = {}
@@ -1221,6 +1230,7 @@ class nlmsg_base(dict):
 
         self.__class__.__t_nla_map = self.t_nla_map
         self.__class__.__r_nla_map = self.r_nla_map
+        self.__class__.__compiled_nla = True
 
     def encode_nlas(self, offset):
         '''
