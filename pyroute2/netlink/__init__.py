@@ -568,6 +568,7 @@ clean_cbs = {}
 # No cache invalidation required.
 cache_fmt = {}
 cache_hdr = {}
+cache_jit = {}
 
 
 class nlmsg_base(dict):
@@ -584,6 +585,7 @@ class nlmsg_base(dict):
     fields = tuple()
     header = tuple()
     pack = None                  # pack pragma
+    decoded = False
     nla_array = False
     cell_header = None
     align = 4
@@ -597,6 +599,7 @@ class nlmsg_base(dict):
     __compiled_ft = False
     __t_nla_map = None
     __r_nla_map = None
+    __ft_decode = None
 
     def msg_align(self, l):
         return (l + self.align - 1) & ~ (self.align - 1)
@@ -607,6 +610,7 @@ class nlmsg_base(dict):
                  length=None,
                  parent=None,
                  init=None):
+        global cache_jit
         dict.__init__(self)
         for i in self.fields:
             self[i[0]] = 0  # FIXME: only for number values
@@ -628,8 +632,8 @@ class nlmsg_base(dict):
             else:
                 self.compile_nla()
         # compile fast-track for particular types
-        if self.__class__.__compiled_ft:
-            self.ft_decode = self.__class__.__ft_decode
+        if id(self.__class__) in cache_jit:
+            self.ft_decode = cache_jit[id(self.__class__)]['ft_decode']
         else:
             self.compile_ft()
         self.r_value_map = dict([(x[1], x[0]) for x in self.value_map.items()])
@@ -659,6 +663,7 @@ class nlmsg_base(dict):
     def reset(self, buf=None):
         self.data = bytearray()
         self.offset = 0
+        self.decoded = False
 
     def register_clean_cb(self, cb):
         global clean_cbs
@@ -899,6 +904,7 @@ class nlmsg_base(dict):
 
         if clean_cbs:
             self.unregister_clean_cb()
+        self.decoded = True
 
     def encode(self):
         '''
@@ -1163,6 +1169,7 @@ class nlmsg_base(dict):
             del self['value']
 
     def compile_ft(self):
+        global cache_jit
         if self.fields and self.fields[0][1] == 's':
             self.ft_decode = self._ft_decode_string
         elif self.fields and self.fields[0][1] == 'z':
@@ -1171,8 +1178,7 @@ class nlmsg_base(dict):
             self.ft_decode = self._ft_decode_packed
         else:
             self.ft_decode = self._ft_decode_generic
-        self.__class__.__ft_decode = self.ft_decode
-        self.__class__.__compiled_ft = True
+        cache_jit[id(self.__class__)] = {'ft_decode': self.ft_decode}
 
     def compile_nla(self):
         # clean up NLA mappings
@@ -1237,6 +1243,7 @@ class nlmsg_base(dict):
         Encode the NLA chain. Should not be called manually, since
         it is called from `encode()` routine.
         '''
+        ret = []
         for i in self['attrs']:
             if i[0] in self.r_nla_map:
                 prime = self.r_nla_map[i[0]]
@@ -1259,11 +1266,10 @@ class nlmsg_base(dict):
                 except:
                     raise
                 else:
-                    if len(i) == 2:
-                        i.append(nla)
-                    elif len(i) == 3:
-                        i[2] = nla
+                    nla.decoded = True
+                    ret.append(nla_slot(prime['name'], nla))
                 offset += (nla.length + 4 - 1) & ~ (4 - 1)
+        self['attrs'] = ret
         return offset
 
     def decode_nlas(self, offset):
@@ -1295,26 +1301,53 @@ class nlmsg_base(dict):
                 nla = msg_class(data=self.data,
                                 offset=offset,
                                 parent=self,
+                                length=length,
                                 init=prime['init'])
                 nla.nla_array = prime['nla_array']
-                try:
-                    nla.decode()
-                    nla.nla_flags = msg_type & (NLA_F_NESTED |
-                                                NLA_F_NET_BYTEORDER)
-                    msg_name = prime['name']
-                except Exception:
-                    log.warning("decoding %s" % (prime['name']))
-                    log.warning(traceback.format_exc())
-                    msg_name = 'UNDECODED'
-                    msg_value = hexdump(str(self.data[offset:offset+length]))
-                else:
-                    msg_value = nla.getvalue()
+                nla.nla_flags = msg_type & (NLA_F_NESTED |
+                                            NLA_F_NET_BYTEORDER)
+                name = prime['name']
             else:
-                msg_name = 'UNKNOWN'
-                msg_value = hexdump(str(self.data[offset:offset+length]))
+                name = 'UNKNOWN'
+                nla = nla_base(data=self.data,
+                               offset=offset,
+                               length=length)
 
-            self['attrs'].append([msg_name, msg_value])
+            self['attrs'].append(nla_slot(name, nla))
             offset += (length + 4 - 1) & ~ (4 - 1)
+
+
+class nla_slot(object):
+
+    def __init__(self, name, value):
+        self.cell = (name, value)
+
+    def get_value(self):
+        try:
+            cell = self.cell[1]
+            if not cell.decoded:
+                cell.decode()
+            return cell.getvalue()
+        except Exception:
+            log.warning("decoding %s" % (self.cell[0]))
+            log.warning(traceback.format_exc())
+            return cell.data[cell.offset:cell.offset+cell.length]
+
+    def __getitem__(self, key):
+        if key == 1:
+            return self.get_value()
+        elif key == 0:
+            return self.cell[0]
+        elif isinstance(key, slice):
+            s = list(self.cell.__getitem__(key))
+            if self.cell[1] in s:
+                s[s.index(self.cell[1])] = self.get_value()
+            return s
+        else:
+            raise IndexError(key)
+
+    def __repr__(self):
+        return repr((self.cell[0], self.get_value()))
 
 
 class nla_base(nlmsg_base):

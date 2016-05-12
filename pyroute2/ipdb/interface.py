@@ -247,10 +247,11 @@ class Interface(Transactional):
                 self.nlmsg = dev
             for (name, value) in dev.items():
                 self[name] = value
-            for item in dev['attrs']:
-                name, value = item[:2]
-                norm = ifinfmsg.nla2name(name)
-                self[norm] = value
+            for name in [x[0] for x in dev['attrs']]:
+                if name not in self.cleanup:
+                    value = dev.get_attr(name)
+                    norm = ifinfmsg.nla2name(name)
+                    self[norm] = value
             # load interface kind
             linkinfo = dev.get_attr('IFLA_LINKINFO')
             if linkinfo is not None:
