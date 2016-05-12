@@ -1094,15 +1094,15 @@ class nlmsg_base(dict):
 
     @staticmethod
     def _ft_decode_zstring(self, offset):
-        self['value'] = struct.unpack_from('%is' % (self.length - 4),
-                                           self.data,
-                                           offset)[0][:-1]
+        self['value'], = struct.unpack_from('%is' % (self.length - 5),
+                                            self.data,
+                                            offset)
 
     @staticmethod
     def _ft_decode_string(self, offset):
-        self['value'] = struct.unpack_from('%is' % (self.length - 4),
-                                           self.data,
-                                           offset)[0]
+        self['value'], = struct.unpack_from('%is' % (self.length - 4),
+                                            self.data,
+                                            offset)
 
     @staticmethod
     def _ft_decode_packed(self, offset):
