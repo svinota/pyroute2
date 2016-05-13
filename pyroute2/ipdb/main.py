@@ -611,33 +611,33 @@ class IPDB(object):
         is enough time to sync the state. But for the scripts
         the `release()` call is required.
         '''
-        with self.exclusive:
-            with self._shutdown_lock:
-                if self._stop:
-                    return
+        with self._shutdown_lock:
+            if self._stop:
+                return
+            self._stop = True
+            # terminate the main loop
+            for t in range(3):
+                try:
+                    msg = ifinfmsg()
+                    msg['index'] = 1
+                    msg.reset()
+                    self.mnl.put(msg, RTM_GETLINK)
+                except Exception as e:
+                    logging.warning("shotdown error: %s", e)
+                    # Just give up.
+                    # We can not handle this case
 
-                self._stop = True
+            self._mthread.join()
+            self.nl.close()
+            self.nl = None
+            self.mnl.close()
+            self.mnl = None
+
+        with self.exclusive:
                 # collect all the callbacks
                 for cuid in tuple(self._cb_threads):
                     for t in tuple(self._cb_threads[cuid]):
                         t.join()
-                # terminate the main loop
-                for t in range(3):
-                    try:
-                        msg = ifinfmsg()
-                        msg['index'] = 1
-                        msg.reset()
-                        self.mnl.put(msg, RTM_GETLINK)
-                    except Exception as e:
-                        logging.warning("shotdown error: %s", e)
-                        # Just give up.
-                        # We can not handle this case
-                self._mthread.join()
-                self.nl.close()
-                self.nl = None
-                self.mnl.close()
-                self.mnl = None
-
                 # flush all the objects
                 for (key, dev) in self.by_name.items():
                     try:
