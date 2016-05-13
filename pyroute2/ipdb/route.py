@@ -186,8 +186,14 @@ class BaseRoute(Transactional):
                 self.del_nh(nh)
 
             # merge NLA
-            for (name, value) in msg['attrs']:
-                norm = rtmsg.nla2name(name)
+            for cell in msg['attrs']:
+                #
+                # Parse on demand
+                #
+                norm = rtmsg.nla2name(cell[0])
+                if norm in self.cleanup:
+                    continue
+                value = cell[1]
                 # normalize RTAX
                 if norm == 'metrics':
                     with self['metrics']._direct_state:
