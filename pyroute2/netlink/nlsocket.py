@@ -555,8 +555,7 @@ class NetlinkMixin(object):
                 self.lock[msg_seq].release()
 
     def sendto_gate(self, msg, addr):
-        msg.encode()
-        self.sendto(msg.data[msg.offset:msg.length], addr)
+        raise NotImplementedError()
 
     def get(self, bufsize=DEFAULT_RCVBUF, msg_seq=0, terminate=None):
         '''
@@ -765,7 +764,6 @@ class NetlinkMixin(object):
             msg_seq = self.addr_pool.alloc()
             with self.lock[msg_seq]:
                 try:
-                    msg.reset()
                     self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
                     ret = self.get(msg_seq=msg_seq, terminate=terminate)
                     return ret
@@ -819,9 +817,15 @@ class NetlinkSocket(NetlinkMixin):
             self._recv_into = getattr(self._sock, 'recv_into')
             # setup fast-track
             self.recv_ft = getattr(self._sock, 'recv')
+            self.sendto_gate = self._gate
 
             self.setsockopt(SOL_SOCKET, SO_SNDBUF, 32768)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
+
+    def _gate(self, msg, addr):
+        msg.reset()
+        msg.encode()
+        return self._sock.sendto(msg.data, addr)
 
     def bind(self, groups=0, pid=None, async=False):
         '''
