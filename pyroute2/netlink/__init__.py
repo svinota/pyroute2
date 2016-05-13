@@ -1000,7 +1000,7 @@ class nlmsg_base(dict):
                 struct.pack_into(fmt,
                                  self.data,
                                  offset,
-                                 self['header'][name])
+                                 self['header'].get(name, 0))
                 offset += struct.calcsize(fmt)
 
     def setvalue(self, value):
