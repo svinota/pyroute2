@@ -1018,14 +1018,16 @@ class nlmsg_base(dict):
         '''
         Return the first encoded NLA by name
         '''
-        return self.get_attr(attr, default, 'encoded')
+        cells = [i[1] for i in self['attrs'] if i[0] == attr]
+        if cells:
+            return cells[0]
 
-    def get_attr(self, attr, default=None, fmt='raw'):
+    def get_attr(self, attr, default=None):
         '''
         Return the first attr by name or None
         '''
         try:
-            attrs = self.get_attrs(attr, fmt)
+            attrs = self.get_attrs(attr)
         except KeyError:
             return default
         if attrs:
@@ -1033,13 +1035,11 @@ class nlmsg_base(dict):
         else:
             return default
 
-    def get_attrs(self, attr, fmt='raw'):
+    def get_attrs(self, attr):
         '''
         Return attrs by name
         '''
-        fmt_map = {'raw': 1,
-                   'encoded': 2}
-        return [i[fmt_map[fmt]] for i in self['attrs'] if i[0] == attr]
+        return [i[1] for i in self['attrs'] if i[0] == attr]
 
     def load(self, dump):
         '''
@@ -1243,10 +1243,10 @@ class nlmsg_base(dict):
         Encode the NLA chain. Should not be called manually, since
         it is called from `encode()` routine.
         '''
-        ret = []
-        for i in self['attrs']:
-            if i[0] in self.r_nla_map:
-                prime = self.r_nla_map[i[0]]
+        for i in range(len(self['attrs'])):
+            cell = self['attrs'][i]
+            if cell[0] in self.r_nla_map:
+                prime = self.r_nla_map[cell[0]]
                 msg_class = prime['class']
                 # is it a class or a function?
                 if isinstance(msg_class, types.FunctionType):
@@ -1260,16 +1260,15 @@ class nlmsg_base(dict):
                 nla.nla_flags |= prime['nla_flags']
                 nla.nla_array = prime['nla_array']
                 nla['header']['type'] = prime['type'] | nla.nla_flags
-                nla.setvalue(i[1])
+                nla.setvalue(cell[1])
                 try:
                     nla.encode()
                 except:
                     raise
                 else:
                     nla.decoded = True
-                    ret.append(nla_slot(prime['name'], nla))
+                    self['attrs'][i] = nla_slot(prime['name'], nla)
                 offset += (nla.length + 4 - 1) & ~ (4 - 1)
-        self['attrs'] = ret
         return offset
 
     def decode_nlas(self, offset):
