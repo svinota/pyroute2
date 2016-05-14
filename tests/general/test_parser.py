@@ -29,7 +29,7 @@ class TestNL(object):
             assert prime == pkts[idx]
 
 
-class TestRtnl(TestNL):
+class _TestRtnl(TestNL):
 
     marshal = MarshalRtnl
 
@@ -40,7 +40,7 @@ class TestRtnl(TestNL):
         self.load_data(fname='decoder/gre_01', packets=2)
 
 
-class TestNl80211(TestNL):
+class _TestNl80211(TestNL):
 
     marshal = MarshalNl80211
 
