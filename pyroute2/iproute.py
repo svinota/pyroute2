@@ -627,6 +627,23 @@ class IPRouteMixin(object):
             * kernel:Documentation/networking/switchdev.txt
             * pyroute2.netlink.rtnl.ifinfmsg:... vlan_info
 
+        One can specify `flags` as int or as a list of flag names:
+            * `master` == 0x1
+            * `pvid` == 0x2
+            * `untagged` == 0x4
+            * `range_begin` == 0x8
+            * `range_end` == 0x10
+            * `brentry` == 0x20
+
+        E.g.::
+
+            {"vid": 20,
+             "flags": ["pvid", "untagged"]}
+
+            # is equal to
+            {"vid": 20,
+             "flags": 6}
+
         Commands:
 
         **add**
