@@ -107,6 +107,20 @@ IFF_VOLATILE = IFF_LOOPBACK |\
     IFF_LOWER_UP |\
     IFF_DORMANT
 
+##
+#
+# vlan filter flags
+#
+BRIDGE_VLAN_INFO_MASTER = 0x1       # operate on bridge device
+BRIDGE_VLAN_INFO_PVID = 0x2         # ingress untagged
+BRIDGE_VLAN_INFO_UNTAGGED = 0x4     # egress untagged
+BRIDGE_VLAN_INFO_RANGE_BEGIN = 0x8  # range start
+BRIDGE_VLAN_INFO_RANGE_END = 0x10   # range end
+BRIDGE_VLAN_INFO_BRENTRY = 0x20     # global bridge vlan entry
+(BRIDGE_VLAN_NAMES, BRIDGE_VLAN_VALUES) = \
+    map_namespace('BRIDGE_VLAN_INFO', globals())
+
+
 states = ('UNKNOWN',
           'NOTPRESENT',
           'DOWN',
@@ -667,6 +681,28 @@ class ifinfbase(object):
         class vlan_info(nla):
             fields = (('flags', 'H'),
                       ('vid', 'H'))
+
+            @staticmethod
+            def flags2names(flags):
+                ret = []
+                for flag in BRIDGE_VLAN_VALUES:
+                    if (flag & flags) == flag:
+                        ret.append(BRIDGE_VLAN_VALUES[flag])
+                return ret
+
+            @staticmethod
+            def names2flags(flags):
+                ret = 0
+                for flag in flags:
+                    ret |= BRIDGE_VLAN_NAMES['BRIDGE_VLAN_INFO_' +
+                                             flag.upper()]
+                return ret
+
+            def encode(self):
+                # convert flags
+                if isinstance(self['flags'], (set, tuple, list)):
+                    self['flags'] = self.names2flags(self['flags'])
+                return super(nla, self).encode()
 
     class af_spec_inet(nla):
         nla_map = (('AF_UNSPEC', 'none'),
