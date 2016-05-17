@@ -1,14 +1,4 @@
 #!/usr/bin/env python
-'''
-Please be aware, that `setup.py.in` is just a template.
-Strings between `@` will be replaced with variables from
-Makefile, see target `setup.py`
-
-RELEASE will be replaced with `git describe`
-SETUPLIB by default is `distutils.core`
-
-To use `setuptools`, run `make ... setuplib=setuptools`
-'''
 try:
     import configparser
 except ImportError:
