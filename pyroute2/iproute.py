@@ -138,10 +138,11 @@ def transform_handle(handle):
 class IPRouteMixin(object):
     '''
     `IPRouteMixin` should not be instantiated by itself. It is intended
-    to be used as a mixin class that provides iproute2-like API. You
-    should use `IPRoute` or `NetNS` classes.
-
-    All following info you can consider as IPRoute info as well.
+    to be used as a mixin class that provides RTNL API. Following classes
+    use `IPRouteMixin`:
+        * `IPRoute` -- RTNL API to the current network namespace
+        * `NetNS` -- RTNL API to another network namespace
+        * `IPBatch` -- RTNL compiler
 
     It is an old-school API, that provides access to rtnetlink as is.
     It helps you to retrieve and change almost all the data, available
@@ -1631,15 +1632,44 @@ class IPRouteMixin(object):
 
 
 class IPBatch(IPRouteMixin, IPBatchSocket):
+    '''
+    Netlink requests compiler. Does not send any requests, but
+    instead stores them in the internal binary buffer. The
+    contents of the buffer can be used to send batch requests,
+    to test custom netlink parsers and so on.
+
+    Uses `IPRouteMixin` and provides all the same API as normal
+    `IPRoute` objects::
+
+        # create the batch compiler
+        ipb = IPBatch()
+        # compile requests into the internal buffer
+        ipb.link("add", index=550, ifname="test", kind="dummy")
+        ipb.link("set", index=550, state="up")
+        ipb.addr("add", index=550, address="10.0.0.2", mask=24)
+        # save the buffer
+        data = ipb.batch
+        # reset the buffer
+        ipb.reset()
+        ...
+        # send the buffer
+        IPRoute().sendto(data, (0, 0))
+
+    '''
     pass
 
 
 class IPRoute(IPRouteMixin, IPRSocket):
     '''
-    Public class that provides iproute API over normal Netlink socket.
+    Public class that provides RTNL API to the current network
+    namespace.
     '''
     pass
 
 
 class RawIPRoute(IPRouteMixin, RawIPRSocket):
+    '''
+    The same as `IPRoute`, but does not use the netlink proxy.
+    Thus it can not manage e.g. tun/tap interfaces.
+    '''
     pass
