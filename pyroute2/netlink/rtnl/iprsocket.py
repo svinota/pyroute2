@@ -5,6 +5,7 @@ from pyroute2.proxy import NetlinkProxy
 from pyroute2.netlink import NETLINK_ROUTE
 from pyroute2.netlink.nlsocket import Marshal
 from pyroute2.netlink.nlsocket import NetlinkSocket
+from pyroute2.netlink.nlsocket import BatchSocket
 from pyroute2.netlink import rtnl
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
@@ -96,6 +97,10 @@ class IPRSocketMixin(object):
                 ValueError('Incorrect verdict')
 
         return self._sendto(msg.data, addr)
+
+
+class IPBatchSocket(IPRSocketMixin, BatchSocket):
+    pass
 
 
 class IPRSocket(IPRSocketMixin, NetlinkSocket):

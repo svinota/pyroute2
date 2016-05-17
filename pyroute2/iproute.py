@@ -115,6 +115,7 @@ from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
+from pyroute2.netlink.rtnl.iprsocket import IPBatchSocket
 from pyroute2.netlink.rtnl.iprsocket import RawIPRSocket
 
 from pyroute2.common import AF_MPLS
@@ -1627,6 +1628,10 @@ class IPRouteMixin(object):
         else:
             return ret
     # 8<---------------------------------------------------------------
+
+
+class IPBatch(IPRouteMixin, IPBatchSocket):
+    pass
 
 
 class IPRoute(IPRouteMixin, IPRSocket):

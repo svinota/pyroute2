@@ -795,6 +795,57 @@ class NetlinkMixin(object):
                 raise
 
 
+class BatchAddrPool(object):
+
+    def alloc(self, *argv, **kwarg):
+        return 0
+
+    def free(self, *argv, **kwarg):
+        pass
+
+
+class BatchBacklogQueue(list):
+
+    def append(self, *argv, **kwarg):
+        pass
+
+    def pop(self, *argv, **kwarg):
+        pass
+
+
+class BatchBacklog(dict):
+
+    def __getitem__(self, key):
+        return BatchBacklogQueue()
+
+    def __setitem__(self, key, value):
+        pass
+
+    def __delitem__(self, key):
+        pass
+
+
+class BatchSocket(NetlinkMixin):
+
+    def post_init(self):
+
+        self.backlog = BatchBacklog()
+        self.addr_pool = BatchAddrPool()
+        self._sock = None
+        self.reset()
+
+    def reset(self):
+        self.batch = bytearray()
+
+    def sendto_gate(self, msg, addr):
+        msg.data = self.batch
+        msg.offset = len(self.batch)
+        msg.encode()
+
+    def get(self, *argv, **kwarg):
+        pass
+
+
 class NetlinkSocket(NetlinkMixin):
 
     def post_init(self):
