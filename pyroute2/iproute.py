@@ -140,9 +140,10 @@ class IPRouteMixin(object):
     `IPRouteMixin` should not be instantiated by itself. It is intended
     to be used as a mixin class that provides RTNL API. Following classes
     use `IPRouteMixin`:
-        * `IPRoute` -- RTNL API to the current network namespace
-        * `NetNS` -- RTNL API to another network namespace
-        * `IPBatch` -- RTNL compiler
+
+    * `IPRoute` -- RTNL API to the current network namespace
+    * `NetNS` -- RTNL API to another network namespace
+    * `IPBatch` -- RTNL compiler
 
     It is an old-school API, that provides access to rtnetlink as is.
     It helps you to retrieve and change almost all the data, available
@@ -1337,12 +1338,13 @@ class IPRouteMixin(object):
         Route operations.
 
         Keywords to set up rtmsg fields:
-            * dst_len, src_len -- destination and source mask(see `dst` below)
-            * tos -- type of service
-            * table -- routing table
-            * proto -- `redirect`, `boot`, `static` (see `rt_proto`)
-            * scope -- routing realm
-            * type -- `unicast`, `local`, etc. (see `rt_type`)
+
+        * dst_len, src_len -- destination and source mask(see `dst` below)
+        * tos -- type of service
+        * table -- routing table
+        * proto -- `redirect`, `boot`, `static` (see `rt_proto`)
+        * scope -- routing realm
+        * type -- `unicast`, `local`, etc. (see `rt_type`)
 
         `pyroute2/netlink/rtnl/rtmsg.py` rtmsg.nla_map:
 
@@ -1378,7 +1380,7 @@ class IPRouteMixin(object):
                                         ["RTAX_HOPLIMIT", 16]]})
 
         The second way is to use shortcuts, provided by `IPRouteRequest`
-        class, which is applied to `**kwarg` automatically:
+        class, which is applied to `**kwarg` automatically::
 
             ip.route("add",
                      dst="10.0.0.0/24",
