@@ -82,6 +82,7 @@ class Transactional(TransactionalBase):
     Utility class that implements common transactional logic.
     '''
     _fields = []
+    _virtual_fields = []
     _fields_cmp = {}
     _linked_sets = []
     _nested = []

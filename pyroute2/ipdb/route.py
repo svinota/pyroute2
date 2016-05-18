@@ -321,6 +321,8 @@ class BaseRoute(Transactional):
                 else:
                     self.nl.route(devop, **transaction)
                 transaction.wait_all_targets()
+                if transaction['metrics'] and transaction['metrics']._targets:
+                    transaction['metrics'].wait_all_targets()
             # route removal
             if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
                     ((transaction['ipdb_scope'] == 'create') and rollback):
