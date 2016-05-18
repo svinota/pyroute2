@@ -253,7 +253,7 @@ class Transactional(TransactionalBase):
             else:
                 right[key] = set()
         for key in self._nested:
-            left[key], right[key] = self[key] / vs[key]
+            left[key], right[key] = self[key] // vs[key]
         return left, right
 
     ##
