@@ -326,19 +326,21 @@ class BaseRoute(Transactional):
 
         # work on an existing route
         snapshot = self.pick()
-        diff = transaction - snapshot
-        # FIXME
-        if 'ipdb_scope' in diff:
-            del diff['ipdb_scope']
+        added, removed = transaction // snapshot
+        added.pop('ipdb_scope', None)
+        removed.pop('ipdb_scope', None)
 
         try:
             # route set
             if self['family'] != AF_MPLS:
                 cleanup = [any(snapshot['metrics'].values()) and
-                           not any(diff.get('metrics', {}).values()),
+                           not any(added.get('metrics', {}).values()),
                            any(snapshot['encap'].values()) and
-                           not any(diff.get('encap', {}).values())]
-            if any(diff.values()) or any(cleanup) or devop == 'add':
+                           not any(added.get('encap', {}).values())]
+            if any(added.values()) or \
+                    any(cleanup) or \
+                    removed.get('multipath', None) or \
+                    devop == 'add':
                 # prepare the anchor key to catch *possible* route update
                 old_key = self.make_key(self)
                 new_key = self.make_key(transaction)
