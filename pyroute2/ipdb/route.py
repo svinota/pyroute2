@@ -15,6 +15,7 @@ from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.transactional import with_transaction
+from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 from pyroute2.ipdb.linkedset import LinkedSet
 
 logging.basicConfig()
@@ -188,20 +189,28 @@ class BaseRoute(Transactional):
                     if self[key]:
                         first[key] = self[key]
                 if first:
+                    if self['family']:
+                        first['family'] = self['family']
                     for key in ('encap', 'via', 'metrics'):
                         if self[key] and any(self[key].values()):
                             first[key] = self[key]
+                            self[key] = None
                     self['multipath'].add(first)
                     # cleanup key fields
-                    for key in ('oif', 'iif', 'gateway'):
+                    for key in ('oif', 'iif', 'gateway', 'newdst'):
                         self[key] = None
             # add the prime as NH
+            if self['family'] == AF_MPLS:
+                prime['family'] = AF_MPLS
             self['multipath'].add(prime)
 
     @with_transaction
     def del_nh(self, prime):
         with self._write_lock:
-            self['multipath'].remove(prime)
+            nh = dict(prime)
+            if self['family'] == AF_MPLS:
+                nh['family'] = AF_MPLS
+            self['multipath'].remove(nh)
 
     def load_netlink(self, msg):
         with self._direct_state:
@@ -341,6 +350,26 @@ class BaseRoute(Transactional):
                     any(cleanup) or \
                     removed.get('multipath', None) or \
                     devop == 'add':
+                # prepare multipath target sync
+                wlist = []
+                if transaction['multipath']:
+                    mplen = len(transaction['multipath'])
+                    if mplen == 1:
+                        # set up local targets
+                        for nh in transaction['multipath']:
+                            for key in ('gateway', 'oif', 'newdst'):
+                                if nh.get(key, None):
+                                    self.set_target(key, nh[key])
+                                    wlist.append(key)
+                        mpt = None
+                    else:
+
+                        def mpcheck(mpset):
+                            return len(mpset) == mplen
+                        mpt = self['multipath'].set_target(mpcheck, True)
+                else:
+                    mpt = None
+
                 # prepare the anchor key to catch *possible* route update
                 old_key = self.make_key(self)
                 new_key = self.make_key(transaction)
@@ -357,7 +386,7 @@ class BaseRoute(Transactional):
                         route_index[new_key] = {'key': new_key,
                                                 'route': self}
                     else:
-                        raise CommitException('Route idx conflict')
+                        raise CommitException('route idx conflict')
                     self.nl.route(devop, **transaction)
                     del route_index[old_key]
                 else:
@@ -365,6 +394,13 @@ class BaseRoute(Transactional):
                 transaction.wait_all_targets()
                 if transaction['metrics'] and transaction['metrics']._targets:
                     transaction['metrics'].wait_all_targets()
+                if mpt is not None:
+                    mpt.wait(SYNC_TIMEOUT)
+                    if not mpt.is_set():
+                        raise CommitException('multipath target is not set')
+                    self['multipath'].clear_target(mpt)
+                for key in wlist:
+                    self.wait_target(key)
             # route removal
             if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
                     ((transaction['ipdb_scope'] == 'create') and rollback):

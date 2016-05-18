@@ -419,6 +419,63 @@ class TestExplicit(BasicSetup):
         self._test_routes_mpls_ops(50, [60])
 
     @skip_if_not_supported
+    def test_routes_multipath_transition_mpls(self):
+        require_user('root')
+
+        self.ip.routes.add({'family': AF_MPLS,
+                            'dst': 20,
+                            'via': {'family': socket.AF_INET,
+                                    'addr': '127.0.0.2'},
+                            'oif': 1,
+                            'newdst': [50]}).commit()
+
+        routes = tuple(
+            filter(lambda x: x.get_attr('RTA_DST')[0]['label'] == 20,
+                   self.ip.nl.get_routes(family=AF_MPLS)))
+        assert len(routes) == 1
+        r = routes[0]
+        assert r.get_attr('RTA_OIF') == 1
+        assert r.get_attr('RTA_NEWDST')[0]['label'] == 50
+        assert r.get_attr('RTA_VIA')
+
+        with self.ip.routes.tables['mpls'][20] as r:
+            r.add_nh({'via': {'family': socket.AF_INET, 'addr': '127.0.0.3'},
+                      'oif': 1,
+                      'newdst': [60]})
+
+        routes = tuple(
+            filter(lambda x: x.get_attr('RTA_DST')[0]['label'] == 20,
+                   self.ip.nl.get_routes(family=AF_MPLS)))
+        assert len(routes) == 1
+        r = routes[0]
+        assert not r.get_attr('RTA_NEWDST')
+        assert not r.get_attr('RTA_VIA')
+        mp = r.get_attr('RTA_MULTIPATH')
+        assert len(mp) == 2
+        l = [50, 60]
+        for r in mp:
+            l.remove(r.get_attr('RTA_NEWDST')[0]['label'])
+        assert len(l) == 0
+
+        with self.ip.routes.tables['mpls'][20] as r:
+            r.del_nh({'via': {'family': socket.AF_INET, 'addr': '127.0.0.2'},
+                      'oif': 1,
+                      'newdst': [50]})
+
+        routes = tuple(
+            filter(lambda x: x.get_attr('RTA_DST')[0]['label'] == 20,
+                   self.ip.nl.get_routes(family=AF_MPLS)))
+        assert len(routes) == 1
+        r = routes[0]
+        assert r.get_attr('RTA_OIF') == 1
+        assert r.get_attr('RTA_NEWDST')[0]['label'] == 60
+        assert r.get_attr('RTA_VIA')
+        assert not r.get_attr('RTA_MULTIPATH')
+
+        with self.ip.routes.tables['mpls'][20] as r:
+            r.remove()
+
+    @skip_if_not_supported
     def test_routes_mpls_multipath(self):
         require_user('root')
 
@@ -833,6 +890,46 @@ class TestExplicit(BasicSetup):
             r.remove()
         assert '172.16.0.0/24' not in self.ip.routes.keys()
         assert not grep('ip ro', pattern='172.16.0.0/24')
+
+    def test_routes_multipath_transition(self):
+        require_user('root')
+        ifR = self.get_ifname()
+
+        with self.ip.create(ifname=ifR, kind='dummy') as i:
+            i.add_ip('172.16.229.2/24')
+            i.up()
+
+        (self.ip
+         .routes
+         .add({'dst': '172.16.228.0/24', 'gateway': '172.16.229.3'})
+         .commit())
+
+        r = self.ip.nl.get_routes(match={'dst': '172.16.228.0'})
+        assert len(r) == 1
+        assert r[0].get_attr('RTA_GATEWAY') == '172.16.229.3'
+        assert self.ip.routes['172.16.228.0/24']['gateway'] == '172.16.229.3'
+
+        with self.ip.routes['172.16.228.0/24'] as i:
+            i.add_nh({'gateway': '172.16.229.4'})
+            i.add_nh({'gateway': '172.16.229.5'})
+
+        gws = set(('172.16.229.3', '172.16.229.4', '172.16.229.5'))
+        iws = set([x['gateway'] for x in
+                   self.ip.routes['172.16.228.0/24']['multipath']])
+        rws = set([x.get_attr('RTA_GATEWAY') for x in
+                   (self.ip.nl
+                    .get_routes(match={'dst': '172.16.228.0'})[0]
+                    .get_attr('RTA_MULTIPATH'))])
+        assert gws == rws == iws
+
+        with self.ip.routes['172.16.228.0/24'] as i:
+            i.del_nh({'gateway': '172.16.229.3'})
+            i.del_nh({'gateway': '172.16.229.5'})
+
+        r = self.ip.nl.get_routes(match={'dst': '172.16.228.0'})
+        assert len(r) == 1
+        assert r[0].get_attr('RTA_GATEWAY') == '172.16.229.4'
+        assert self.ip.routes['172.16.228.0/24']['gateway'] == '172.16.229.4'
 
     def test_routes_multipath_gateway(self):
         require_user('root')
