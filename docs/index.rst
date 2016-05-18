@@ -34,6 +34,7 @@ Howtos
     :maxdepth: 2
 
     mpls
+    debug
 
 Development
 -----------
