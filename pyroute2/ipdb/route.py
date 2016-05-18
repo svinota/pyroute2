@@ -164,6 +164,38 @@ class BaseRoute(Transactional):
     @with_transaction
     def add_nh(self, prime):
         with self._write_lock:
+            # if the multipath chain is empty, copy the current
+            # nexthop as the first in the multipath
+            if not self['multipath']:
+                first = {}
+                for key in [x for x in self._fields
+                            if x not in ('family',
+                                         'dst_len',
+                                         'src_len',
+                                         'tos',
+                                         'table',
+                                         'proto',
+                                         'scope',
+                                         'type',
+                                         'flags',
+                                         'dst',
+                                         'src',
+                                         'ipdb_scope',
+                                         'metrics',
+                                         'encap',
+                                         'via',
+                                         'multipath')]:
+                    if self[key]:
+                        first[key] = self[key]
+                if first:
+                    for key in ('encap', 'via', 'metrics'):
+                        if self[key] and any(self[key].values()):
+                            first[key] = self[key]
+                    self['multipath'].add(first)
+                    # cleanup key fields
+                    for key in ('oif', 'iif', 'gateway'):
+                        self[key] = None
+            # add the prime as NH
             self['multipath'].add(prime)
 
     @with_transaction
@@ -260,6 +292,14 @@ class BaseRoute(Transactional):
             if not msg.get_attr('RTA_VIA') and self['via'] is not None:
                 with self['via']._direct_state:
                     self['via'] = {}
+
+            # one hop -> multihop transition
+            if not msg.get_attr('RTA_GATEWAY') and self['gateway'] is not None:
+                self['gateway'] = None
+            if 'oif' not in msg and \
+                    not msg.get_attr('RTA_OIF') and \
+                    self['oif'] is not None:
+                self['oif'] = None
 
             # finally, cleanup all not needed
             for item in self.cleanup:
