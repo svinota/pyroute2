@@ -184,8 +184,8 @@ The `IPDB.create()` call has the same syntax as `IPRoute.link('add', ...)`,
 except you shouldn't specify the `'add'` command. Refer to `IPRoute` docs
 for details.
 
-Routing management
-------------------
+Routes management
+-----------------
 
 IPDB has a simple yet useful routing management interface.
 To add a route, there is an easy to use syntax::
@@ -226,7 +226,8 @@ To access and change the routes, one can use notations as follows::
     # list automatic routes keys
     print(ipdb.routes.tables[255].keys())
 
-**Route specs**
+Route specs
+~~~~~~~~~~~
 
 It is important to understand, that routing tables in IPDB
 are lists, not dicts. It is still possible to use a dict syntax
@@ -259,7 +260,8 @@ It is possible to use dicts as specs::
 The dict is just the same as a route representation in the
 records list.
 
-**Route metrics**
+Route metrics
+~~~~~~~~~~~~~
 
 A special object is dedicated to route metrics, one can access it
 via `route.metrics` or `route['metrics']`::
@@ -274,7 +276,8 @@ via `route.metrics` or `route['metrics']`::
 Possible metrics are defined in `rtmsg.py:rtmsg.metrics`, e.g.
 `RTAX_HOPLIMIT` means `hoplimit` metric etc.
 
-**Multipath routing**
+Multipath routing
+~~~~~~~~~~~~~~~~~
 
 Multipath nexthops are managed via `route.add_nh()` and `route.del_nh()`
 methods. They are available to review via `route.multipath`, but one
@@ -296,21 +299,66 @@ To change a multipath route::
         r.add_nh({'gateway': '172.16.231.5'})
         r.del_nh({'gateway': '172.16.231.4'})
 
-**On multipath hops**
+Differences from the iproute2 syntax
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The `iproute2` tool uses `weigth` instead of `hops`. The weight
-is number of hops + 1, so when one creates a nexthop with `hops == 2`,
-the `iproute2` utility will show `weight 3`.
+By historical reasons, `iproute2` uses names that differs from what
+the kernel uses. E.g., `iproute2` uses `weight` for multipath route
+hops instead of `hops`, where `weight == (hops + 1)`. Thus, a route
+created with `hops == 2` will be listed by `iproute2` as `weight 3`.
 
-But the Linux kernel uses `rtnh_hops`, and the `pyroute2` library
-places here no implications, directly mapping the value provided by the
-kernel.
+Another significant difference is `metrics`. The `pyroute2` library
+uses the kernel naming scheme, where `metrics` means mtu, rtt, window
+etc. The `iproute2` utility uses `metric` (not `metrics`) as a name
+for the `priority` field.
 
-**Multipath default routes**
+In examples::
 
-Deprecation notice: *As of the merge of kill_rtcache into the kernel,
-and it's release in ~3.6, weighted default routes no longer work in
-Linux*.
+    # -------------------------------------------------------
+    # iproute2 command:
+    $ ip route add default \\
+        nexthop via 172.16.0.1 weight 2 \\
+        nexthop via 172.16.0.2 weight 9
+
+    # pyroute2 code:
+    (ipdb
+     .routes
+     .add({'dst': 'default',
+           'multipath': [{'gateway': '172.16.0.1', 'hops': 1},
+                         {'gateway': '172.16.0.2', 'hops': 8}])
+     .commit())
+
+    # -------------------------------------------------------
+    # iproute2 command:
+    $ ip route add default via 172.16.0.2 metric 200
+
+    # pyroute2 code:
+    (ipdb
+     .routes
+     .add({'dst': 'default',
+           'gateway': '172.16.0.2',
+           'priority': 200})
+     .commit())
+
+    # -------------------------------------------------------
+    # iproute2 command:
+    $ ip route add default via 172.16.0.2 mtu 1460
+
+    # pyroute2 code:
+    (ipdb
+     .routes
+     .add({'dst': 'default',
+           'gateway': '172.16.0.2',
+           'metrics': {'mtu': 1460}})
+     .commit())
+
+Multipath default routes
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. warning::
+    As of the merge of kill_rtcache into the kernel, and it's
+    release in ~3.6, weighted default routes no longer work in
+    Linux.
 
 Please refer to
 https://github.com/svinota/pyroute2/issues/171#issuecomment-149297244
