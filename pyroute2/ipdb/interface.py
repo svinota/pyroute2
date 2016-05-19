@@ -465,16 +465,19 @@ class Interface(Transactional):
         def invalidate():
             # on failure, invalidate the interface and detach it
             # from the parent
-            # 1. drop the IPRoute() link
-            self.nl = None
-            # 2. clean up ipdb
-            self.detach()
-            # 3. invalidate the interface
-            with self._direct_state:
-                for i in tuple(self.keys()):
-                    del self[i]
-            # 4. the rest
-            self._mode = 'invalid'
+            # 0. obtain lock on IPDB, to avoid deadlocks
+            # ... all the DB updates will wait
+            with self.ipdb.exclusive:
+                # 1. drop the IPRoute() link
+                self.nl = None
+                # 2. clean up ipdb
+                self.detach()
+                # 3. invalidate the interface
+                with self._direct_state:
+                    for i in tuple(self.keys()):
+                        del self[i]
+                # 4. the rest
+                self._mode = 'invalid'
 
         error = None
         added = None
