@@ -5,6 +5,7 @@ from pyroute2.proxy import NetlinkProxy
 from pyroute2.netlink import NETLINK_ROUTE
 from pyroute2.netlink.nlsocket import Marshal
 from pyroute2.netlink.nlsocket import NetlinkSocket
+from pyroute2.netlink.nlsocket import BatchSocket
 from pyroute2.netlink import rtnl
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
@@ -73,14 +74,13 @@ class IPRSocketMixin(object):
     def bind(self, groups=rtnl.RTNL_GROUPS, async=False):
         super(IPRSocketMixin, self).bind(groups, async=async)
 
-    ##
-    # proxy-ng protocol
-    #
-    def sendto(self, data, address):
-        ret = self._sproxy.handle(data)
+    def _gate(self, msg, addr):
+        msg.reset()
+        msg.encode()
+        ret = self._sproxy.handle(msg)
         if ret is not None:
             if ret['verdict'] == 'forward':
-                return self._sendto(ret['data'], address)
+                return self._sendto(ret['data'], addr)
             elif ret['verdict'] in ('return', 'error'):
                 if self._s_channel is not None:
                     return self._s_channel.send(ret['data'])
@@ -96,7 +96,11 @@ class IPRSocketMixin(object):
             else:
                 ValueError('Incorrect verdict')
 
-        return self._sendto(data, address)
+        return self._sendto(msg.data, addr)
+
+
+class IPBatchSocket(IPRSocketMixin, BatchSocket):
+    pass
 
 
 class IPRSocket(IPRSocketMixin, NetlinkSocket):

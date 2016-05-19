@@ -863,7 +863,7 @@ class ifinfveth(ifinfbase, nla):
     pass
 
 
-def proxy_setlink(data, nl):
+def proxy_setlink(msg, nl):
 
     def get_interface(index):
         msg = nl.get_links(index)[0]
@@ -875,8 +875,6 @@ def proxy_setlink(data, nl):
                 'master': msg.get_attr('IFLA_MASTER'),
                 'kind': kind}
 
-    msg = ifinfmsg(data)
-    msg.decode()
     forward = True
 
     # is it a port setup?
@@ -906,7 +904,7 @@ def proxy_setlink(data, nl):
 
     if forward is not None:
         return {'verdict': 'forward',
-                'data': data}
+                'data': msg.data}
 
 
 def sync(f):
@@ -964,9 +962,7 @@ def sync(f):
     return decorated
 
 
-def proxy_newlink(data, nl):
-    msg = ifinfmsg(data)
-    msg.decode()
+def proxy_newlink(msg, nl):
     kind = None
 
     # get the interface kind
@@ -983,7 +979,7 @@ def proxy_newlink(data, nl):
         return manage_team(msg)
 
     return {'verdict': 'forward',
-            'data': data}
+            'data': msg.data}
 
 
 @map_enoent

@@ -346,6 +346,7 @@ from pyroute2.common import uuid32
 from pyroute2.common import AF_MPLS
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
+from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.ipdb.route import RoutingTableSet
 from pyroute2.ipdb.interface import Interface
 from pyroute2.ipdb.linkedset import LinkedSet
@@ -434,7 +435,6 @@ class IPDB(object):
         self.iclass = Interface
         self._nl_async = config.ipdb_nl_async if nl_async is None else True
         self._stop = False
-        log.warning("started")
         # see also 'register_callback'
         self._post_callbacks = {}
         self._pre_callbacks = {}
@@ -611,32 +611,33 @@ class IPDB(object):
         is enough time to sync the state. But for the scripts
         the `release()` call is required.
         '''
-        with self.exclusive:
-            with self._shutdown_lock:
-                if self._stop:
-                    return
+        with self._shutdown_lock:
+            if self._stop:
+                return
+            self._stop = True
+            # terminate the main loop
+            for t in range(3):
+                try:
+                    msg = ifinfmsg()
+                    msg['index'] = 1
+                    msg.reset()
+                    self.mnl.put(msg, RTM_GETLINK)
+                except Exception as e:
+                    logging.warning("shotdown error: %s", e)
+                    # Just give up.
+                    # We can not handle this case
 
-                self._stop = True
+            self._mthread.join()
+            self.nl.close()
+            self.nl = None
+            self.mnl.close()
+            self.mnl = None
+
+        with self.exclusive:
                 # collect all the callbacks
                 for cuid in tuple(self._cb_threads):
                     for t in tuple(self._cb_threads[cuid]):
                         t.join()
-                # terminate the main loop
-                try:
-                    for t in range(3):
-                        self.mnl.put({'index': 1}, RTM_GETLINK)
-                        self._mthread.join(t)
-                        if not self._mthread.is_alive():
-                            break
-                except Exception:
-                    # Just give up.
-                    # We can not handle this case
-                    pass
-                self.nl.close()
-                self.nl = None
-                self.mnl.close()
-                self.mnl = None
-
                 # flush all the objects
                 for (key, dev) in self.by_name.items():
                     try:

@@ -115,6 +115,7 @@ from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
+from pyroute2.netlink.rtnl.iprsocket import IPBatchSocket
 from pyroute2.netlink.rtnl.iprsocket import RawIPRSocket
 
 from pyroute2.common import AF_MPLS
@@ -137,10 +138,12 @@ def transform_handle(handle):
 class IPRouteMixin(object):
     '''
     `IPRouteMixin` should not be instantiated by itself. It is intended
-    to be used as a mixin class that provides iproute2-like API. You
-    should use `IPRoute` or `NetNS` classes.
+    to be used as a mixin class that provides RTNL API. Following classes
+    use `IPRouteMixin`:
 
-    All following info you can consider as IPRoute info as well.
+    * `IPRoute` -- RTNL API to the current network namespace
+    * `NetNS` -- RTNL API to another network namespace
+    * `IPBatch` -- RTNL compiler
 
     It is an old-school API, that provides access to rtnetlink as is.
     It helps you to retrieve and change almost all the data, available
@@ -1335,12 +1338,13 @@ class IPRouteMixin(object):
         Route operations.
 
         Keywords to set up rtmsg fields:
-            * dst_len, src_len -- destination and source mask(see `dst` below)
-            * tos -- type of service
-            * table -- routing table
-            * proto -- `redirect`, `boot`, `static` (see `rt_proto`)
-            * scope -- routing realm
-            * type -- `unicast`, `local`, etc. (see `rt_type`)
+
+        * dst_len, src_len -- destination and source mask(see `dst` below)
+        * tos -- type of service
+        * table -- routing table
+        * proto -- `redirect`, `boot`, `static` (see `rt_proto`)
+        * scope -- routing realm
+        * type -- `unicast`, `local`, etc. (see `rt_type`)
 
         `pyroute2/netlink/rtnl/rtmsg.py` rtmsg.nla_map:
 
@@ -1376,7 +1380,7 @@ class IPRouteMixin(object):
                                         ["RTAX_HOPLIMIT", 16]]})
 
         The second way is to use shortcuts, provided by `IPRouteRequest`
-        class, which is applied to `**kwarg` automatically:
+        class, which is applied to `**kwarg` automatically::
 
             ip.route("add",
                      dst="10.0.0.0/24",
@@ -1646,12 +1650,45 @@ class IPRouteMixin(object):
     # 8<---------------------------------------------------------------
 
 
+class IPBatch(IPRouteMixin, IPBatchSocket):
+    '''
+    Netlink requests compiler. Does not send any requests, but
+    instead stores them in the internal binary buffer. The
+    contents of the buffer can be used to send batch requests,
+    to test custom netlink parsers and so on.
+
+    Uses `IPRouteMixin` and provides all the same API as normal
+    `IPRoute` objects::
+
+        # create the batch compiler
+        ipb = IPBatch()
+        # compile requests into the internal buffer
+        ipb.link("add", index=550, ifname="test", kind="dummy")
+        ipb.link("set", index=550, state="up")
+        ipb.addr("add", index=550, address="10.0.0.2", mask=24)
+        # save the buffer
+        data = ipb.batch
+        # reset the buffer
+        ipb.reset()
+        ...
+        # send the buffer
+        IPRoute().sendto(data, (0, 0))
+
+    '''
+    pass
+
+
 class IPRoute(IPRouteMixin, IPRSocket):
     '''
-    Public class that provides iproute API over normal Netlink socket.
+    Public class that provides RTNL API to the current network
+    namespace.
     '''
     pass
 
 
 class RawIPRoute(IPRouteMixin, RawIPRSocket):
+    '''
+    The same as `IPRoute`, but does not use the netlink proxy.
+    Thus it can not manage e.g. tun/tap interfaces.
+    '''
     pass

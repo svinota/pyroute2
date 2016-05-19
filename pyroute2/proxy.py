@@ -30,24 +30,30 @@ class NetlinkProxy(object):
         self.pmap = {}
         self.policy = policy
 
-    def handle(self, data):
+    def handle(self, msg):
         #
         # match the packet
         #
-        ptype = struct.unpack('H', data[4:6])[0]
+        ptype = msg['header']['type']
         plugin = self.pmap.get(ptype, None)
         if plugin is not None:
             with self.lock:
                 try:
-                    ret = plugin(data, self.nl)
+                    ret = plugin(msg, self.nl)
                     if ret is None:
-                        msg = struct.pack('IHH', 40, 2, 0)
-                        msg += data[8:16]
-                        msg += struct.pack('I', 0)
+                        #
+                        # The packet is terminated in the plugin,
+                        # return the NLMSG_ERR == 0
+                        #
+                        # FIXME: optimize
+                        #
+                        newmsg = struct.pack('IHH', 40, 2, 0)
+                        newmsg += msg.data[8:16]
+                        newmsg += struct.pack('I', 0)
                         # nlmsgerr struct alignment
-                        msg += b'\0' * 20
+                        newmsg += b'\0' * 20
                         return {'verdict': self.policy,
-                                'data': msg}
+                                'data': newmsg}
                     else:
                         return ret
 
@@ -61,11 +67,11 @@ class NetlinkProxy(object):
                         code = e.code
                     else:
                         code = errno.ECOMM
-                    msg = struct.pack('HH', 2, 0)
-                    msg += data[8:16]
-                    msg += struct.pack('I', code)
-                    msg += data
-                    msg = struct.pack('I', len(msg) + 4) + msg
+                    newmsg = struct.pack('HH', 2, 0)
+                    newmsg += msg.data[8:16]
+                    newmsg += struct.pack('I', code)
+                    newmsg += msg.data
+                    newmsg = struct.pack('I', len(newmsg) + 4) + newmsg
                     return {'verdict': 'error',
-                            'data': msg}
+                            'data': newmsg}
         return None

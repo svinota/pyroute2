@@ -8,12 +8,6 @@ from pyroute2.common import AF_MPLS
 from pyroute2.common import hexdump
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
-from pyroute2.netlink import nlmsg_base
-
-
-class nh_header(nlmsg_base):
-    align = 2
-    fields = (('length', 'H'), )
 
 
 class rtmsg_base(object):
@@ -165,8 +159,8 @@ class rtmsg(rtmsg_base, nlmsg):
 
 
 class nh(rtmsg_base, nla):
-    align = 2
-    cell_header = nh_header
+    is_nla = False
+    cell_header = (('length', 'H'), )
     fields = (('flags', 'B'),
               ('hops', 'B'),
               ('oif', 'i'))

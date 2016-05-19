@@ -82,6 +82,7 @@ class Transactional(TransactionalBase):
     Utility class that implements common transactional logic.
     '''
     _fields = []
+    _virtual_fields = []
     _fields_cmp = {}
     _linked_sets = []
     _nested = []
@@ -252,7 +253,7 @@ class Transactional(TransactionalBase):
             else:
                 right[key] = set()
         for key in self._nested:
-            left[key], right[key] = self[key] / vs[key]
+            left[key], right[key] = self[key] // vs[key]
         return left, right
 
     ##

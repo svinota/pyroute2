@@ -1,14 +1,4 @@
 #!/usr/bin/env python
-'''
-Please be aware, that `setup.py.in` is just a template.
-Strings between `@` will be replaced with variables from
-Makefile, see target `setup.py`
-
-RELEASE will be replaced with `git describe`
-SETUPLIB by default is `distutils.core`
-
-To use `setuptools`, run `make ... setuplib=setuptools`
-'''
 try:
     import configparser
 except ImportError:
@@ -55,8 +45,12 @@ setup(name='pyroute2',
                    'Programming Language :: Python',
                    'Topic :: Software Development :: Libraries :: ' +
                    'Python Modules',
-                   'Operating System :: POSIX',
+                   'Topic :: System :: Networking',
+                   'Topic :: System :: Systems Administration',
+                   'Operating System :: POSIX :: Linux',
                    'Intended Audience :: Developers',
+                   'Intended Audience :: System Administrators',
+                   'Intended Audience :: Telecommunications Industry',
                    'Programming Language :: Python :: 2.6',
                    'Programming Language :: Python :: 2.7',
                    'Programming Language :: Python :: 3',

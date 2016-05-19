@@ -216,7 +216,7 @@ def Server(cmdch, brdch):
                         msg = cmd['argv'][0]()
                         msg.load(pickle.loads(cmd['argv'][1]))
                         msg.encode()
-                        ipr.sendto(msg.buf.getvalue(), cmd['argv'][2])
+                        ipr.sendto_gate(msg, cmd['argv'][2])
                     except Exception as e:
                         error = e
                         error.tb = traceback.format_exc()

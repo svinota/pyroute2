@@ -146,27 +146,30 @@ class Marshal(object):
         '''
         offset = 0
         result = []
-        while offset < len(data):
+        # there must be at least one header in the buffer,
+        # 'IHHII' == 16 bytes
+        while offset <= len(data) - 16:
             # pick type and length
-            (length, msg_type) = struct.unpack('IH', data[offset:offset+6])
+            (length, msg_type) = struct.unpack_from('IH', data, offset)
+            if length == 0:
+                break
             error = None
             if msg_type == NLMSG_ERROR:
-                code = abs(struct.unpack('i', data[offset+16:offset+20])[0])
+                code = abs(struct.unpack_from('i', data, offset+16)[0])
                 if code > 0:
                     error = NetlinkError(code)
 
             msg_class = self.msg_map.get(msg_type, nlmsg)
-            msg = msg_class(data[offset:offset+length], debug=self.debug)
+            msg = msg_class(data, offset=offset)
 
             try:
                 msg.decode()
                 msg['header']['error'] = error
                 # try to decode encapsulated error message
                 if error is not None:
-                    raw = data[offset:offset+length]
-                    enc_type = struct.unpack('H', raw[24:26])[0]
+                    enc_type = struct.unpack_from('H', data, offset+24)[0]
                     enc_class = self.msg_map.get(enc_type, nlmsg)
-                    enc = enc_class(raw[20:])
+                    enc = enc_class(data, offset=offset+20)
                     enc.decode()
                     msg['header']['errmsg'] = enc
             except NetlinkHeaderDecodeError as e:
@@ -477,6 +480,12 @@ class NetlinkMixin(object):
     def recv(self, *argv, **kwarg):
         return self._recv(*argv, **kwarg)
 
+    def recv_into(self, *argv, **kwarg):
+        return self._recv_into(*argv, **kwarg)
+
+    def recv_ft(self, size=None):
+        return self._recv(size)
+
     def async_recv(self):
         poll = select.poll()
         poll.register(self._sock, select.POLLIN | select.POLLPRI)
@@ -487,7 +496,9 @@ class NetlinkMixin(object):
             for (fd, event) in events:
                 if fd == sockfd:
                     try:
-                        self.buffer_queue.put(self._sock.recv(1024 * 1024))
+                        data = bytearray(64000)
+                        self._sock.recv_into(data, 64000)
+                        self.buffer_queue.put(data)
                     except Exception as e:
                         self.buffer_queue.put(e)
                 else:
@@ -544,8 +555,7 @@ class NetlinkMixin(object):
                 self.lock[msg_seq].release()
 
     def sendto_gate(self, msg, addr):
-        msg.encode()
-        self.sendto(msg.buf.getvalue(), addr)
+        raise NotImplementedError()
 
     def get(self, bufsize=DEFAULT_RCVBUF, msg_seq=0, terminate=None):
         '''
@@ -680,7 +690,7 @@ class NetlinkMixin(object):
                         #
                         # This is a time consuming process, so all the
                         # locks, except the read lock must be released
-                        data = self.recv(bufsize)
+                        data = self.recv_ft(bufsize)
                         # Parse data
                         msgs = self.marshal.parse(data)
                         # Reset ctime -- timeout should be measured
@@ -754,7 +764,6 @@ class NetlinkMixin(object):
             msg_seq = self.addr_pool.alloc()
             with self.lock[msg_seq]:
                 try:
-                    msg.reset()
                     self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
                     ret = self.get(msg_seq=msg_seq, terminate=terminate)
                     return ret
@@ -786,6 +795,57 @@ class NetlinkMixin(object):
                 raise
 
 
+class BatchAddrPool(object):
+
+    def alloc(self, *argv, **kwarg):
+        return 0
+
+    def free(self, *argv, **kwarg):
+        pass
+
+
+class BatchBacklogQueue(list):
+
+    def append(self, *argv, **kwarg):
+        pass
+
+    def pop(self, *argv, **kwarg):
+        pass
+
+
+class BatchBacklog(dict):
+
+    def __getitem__(self, key):
+        return BatchBacklogQueue()
+
+    def __setitem__(self, key, value):
+        pass
+
+    def __delitem__(self, key):
+        pass
+
+
+class BatchSocket(NetlinkMixin):
+
+    def post_init(self):
+
+        self.backlog = BatchBacklog()
+        self.addr_pool = BatchAddrPool()
+        self._sock = None
+        self.reset()
+
+    def reset(self):
+        self.batch = bytearray()
+
+    def sendto_gate(self, msg, addr):
+        msg.data = self.batch
+        msg.offset = len(self.batch)
+        msg.encode()
+
+    def get(self, *argv, **kwarg):
+        pass
+
+
 class NetlinkSocket(NetlinkMixin):
 
     def post_init(self):
@@ -800,14 +860,23 @@ class NetlinkSocket(NetlinkMixin):
             for name in ('getsockname', 'getsockopt', 'makefile',
                          'setsockopt', 'setblocking', 'settimeout',
                          'gettimeout', 'shutdown', 'recvfrom',
-                         'recv_into', 'recvfrom_into', 'fileno'):
+                         'recvfrom_into', 'fileno'):
                 setattr(self, name, getattr(self._sock, name))
 
             self._sendto = getattr(self._sock, 'sendto')
             self._recv = getattr(self._sock, 'recv')
+            self._recv_into = getattr(self._sock, 'recv_into')
+            # setup fast-track
+            self.recv_ft = getattr(self._sock, 'recv')
+            self.sendto_gate = self._gate
 
             self.setsockopt(SOL_SOCKET, SO_SNDBUF, 32768)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
+
+    def _gate(self, msg, addr):
+        msg.reset()
+        msg.encode()
+        return self._sock.sendto(msg.data, addr)
 
     def bind(self, groups=0, pid=None, async=False):
         '''
@@ -844,12 +913,22 @@ class NetlinkSocket(NetlinkMixin):
         # all is OK till now, so start async recv, if we need
         if async:
             def recv_plugin(*argv, **kwarg):
-                data = self.buffer_queue.get()
-                if isinstance(data, Exception):
-                    raise data
+                data_in = self.buffer_queue.get()
+                if isinstance(data_in, Exception):
+                    raise data_in
                 else:
-                    return data
+                    return data_in
+
+            def recv_into_plugin(data, *argv, **kwarg):
+                data_in = self.buffer_queue.get()
+                if isinstance(data_in, Exception):
+                    raise data_in
+                else:
+                    data[:] = data_in
+                    return len(data_in)
             self._recv = recv_plugin
+            self._recv_into = recv_into_plugin
+            self.recv_ft = recv_plugin
             self.pthread = threading.Thread(target=self.async_recv)
             self.pthread.setDaemon(True)
             self.pthread.start()

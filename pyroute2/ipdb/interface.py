@@ -247,10 +247,18 @@ class Interface(Transactional):
                 self.nlmsg = dev
             for (name, value) in dev.items():
                 self[name] = value
-            for item in dev['attrs']:
-                name, value = item[:2]
-                norm = ifinfmsg.nla2name(name)
-                self[norm] = value
+            for cell in dev['attrs']:
+                #
+                # Parse on demand
+                #
+                # At that moment, being not referenced, the
+                # NLA is not decoded (yet). Calling
+                # `__getitem__()` on nla_slot triggers the
+                # NLA decoding, if the nla is referenced:
+                #
+                norm = ifinfmsg.nla2name(cell[0])
+                if norm not in self.cleanup:
+                    self[norm] = cell[1]
             # load interface kind
             linkinfo = dev.get_attr('IFLA_LINKINFO')
             if linkinfo is not None:
