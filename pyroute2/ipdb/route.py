@@ -483,6 +483,33 @@ class Route(BaseRoute):
 
     @classmethod
     def make_key(cls, msg):
+        main_key = cls.make_nh_key(msg)
+        sets = {'gateway': set(),
+                'encap': set(),
+                'oif': set()}
+        if isinstance(msg, nlmsg_base):
+            mp = msg.get_attr('RTA_MULTIPATH') or ()
+        elif isinstance(msg, dict):
+            mp = msg.get('multipath', ())
+        for nh in mp:
+            mpkey = cls.make_nh_key(nh)
+            for skey in sets:
+                sets[skey].add(getattr(mpkey, skey))
+        for skey in sets:
+            sets[skey].add(getattr(main_key, skey))
+            if None in sets[skey]:
+                sets[skey].remove(None)
+        values = []
+        for field in RouteKey._fields:
+            if field in sets.keys():
+                v = tuple(sets[field]) or None
+            else:
+                v = getattr(main_key, field)
+            values.append(v)
+        return RouteKey(*values)
+
+    @classmethod
+    def make_nh_key(cls, msg):
         '''
         Construct from a netlink message a key that can be used
         to locate the route in the table
