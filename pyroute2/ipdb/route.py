@@ -51,12 +51,12 @@ class NextHopSet(LinkedSet):
 
     def __make_nh(self, prime):
         if isinstance(prime, BaseRoute):
-            return prime.make_key(prime)
+            return prime.make_nh_key(prime)
         elif isinstance(prime, dict):
             if prime.get('family', None) == AF_MPLS:
-                return MPLSRoute.make_key(prime)
+                return MPLSRoute.make_nh_key(prime)
             else:
-                return Route.make_key(prime)
+                return Route.make_nh_key(prime)
         elif isinstance(prime, tuple):
             return prime
         else:
@@ -122,13 +122,16 @@ class WatchdogKey(dict):
 
 # Universal route key
 RouteKey = namedtuple('RouteKey',
-                      ('src',
-                       'dst',
-                       'gateway',
-                       'encap',
-                       'iif',
-                       'oif'))
-RouteKey._required = 4  # number of required fields (should go first)
+                      ('dst',
+                       'priority'))
+RouteKey._required = 2  # number of required fields (should go first)
+
+# IP multipath NH key
+IPNHKey = namedtuple('IPNHKey',
+                     ('gateway',
+                      'encap',
+                      'oif'))
+IPNHKey._required = 2
 
 # MPLS multipath NH key
 MPLSNHKey = namedtuple('MPLSNHKey',
@@ -482,48 +485,15 @@ class Route(BaseRoute):
                 'labels': labels}
 
     @classmethod
-    def make_key(cls, msg):
-        main_key = cls.make_nh_key(msg)
-        sets = {'gateway': set(),
-                'encap': set(),
-                'oif': set()}
-        if isinstance(msg, nlmsg_base):
-            mp = msg.get_attr('RTA_MULTIPATH') or ()
-        elif isinstance(msg, dict):
-            mp = msg.get('multipath', ())
-        for nh in mp:
-            mpkey = cls.make_nh_key(nh)
-            for skey in sets:
-                sets[skey].add(getattr(mpkey, skey))
-        for skey in sets:
-            sets[skey].add(getattr(main_key, skey))
-            if None in sets[skey]:
-                sets[skey].remove(None)
-        values = []
-        for field in RouteKey._fields:
-            if field in sets.keys():
-                v = tuple(sets[field]) or None
-            else:
-                v = getattr(main_key, field)
-            values.append(v)
-        return RouteKey(*values)
-
-    @classmethod
     def make_nh_key(cls, msg):
         '''
-        Construct from a netlink message a key that can be used
-        to locate the route in the table
+        Construct from a netlink message a multipath nexthop key
         '''
         values = []
         if isinstance(msg, nlmsg_base):
-            for field in RouteKey._fields:
+            for field in IPNHKey._fields:
                 v = msg.get_attr(msg.name2nla(field))
-                if field in ('src', 'dst'):
-                    if v is not None:
-                        v = '%s/%s' % (v, msg['%s_len' % field])
-                    elif field == 'dst':
-                        v = 'default'
-                elif field == 'encap':
+                if field == 'encap':
                     # 1. encap type
                     if msg.get_attr('RTA_ENCAP_TYPE') != 1:  # FIXME
                         values.append(None)
@@ -535,7 +505,7 @@ class Route(BaseRoute):
                     v = msg.get(field, None)
                 values.append(v)
         elif isinstance(msg, dict):
-            for field in RouteKey._fields:
+            for field in IPNHKey._fields:
                 v = msg.get(field, None)
                 if field == 'encap' and v and v['labels']:
                     v = v['labels']
@@ -557,6 +527,31 @@ class Route(BaseRoute):
                                      if isinstance(x, dict)
                                      else str(x), v))
                 values.append(v)
+        else:
+            raise TypeError('prime not supported: %s' % type(msg))
+        return IPNHKey(*values)
+
+    @classmethod
+    def make_key(cls, msg):
+        '''
+        Construct from a netlink message a key that can be used
+        to locate the route in the table
+        '''
+        values = []
+        if isinstance(msg, nlmsg_base):
+            for field in RouteKey._fields:
+                v = msg.get_attr(msg.name2nla(field))
+                if field in ('src', 'dst'):
+                    if v is not None:
+                        v = '%s/%s' % (v, msg['%s_len' % field])
+                    elif field == 'dst':
+                        v = 'default'
+                elif v is None:
+                    v = msg.get(field, None)
+                values.append(v)
+        elif isinstance(msg, dict):
+            for field in RouteKey._fields:
+                values.append(msg.get(field, None))
         else:
             raise TypeError('prime not supported: %s' % type(msg))
         return RouteKey(*values)
@@ -629,6 +624,15 @@ class MPLSRoute(BaseRoute):
     _nested = ['via']
 
     @classmethod
+    def make_nh_key(cls, msg):
+        '''
+        Construct from a netlink message a multipath nexthop key
+        '''
+        return MPLSNHKey(newdst=tuple(msg['newdst']),
+                         via=msg.get('via', {}).get('addr', None),
+                         oif=msg.get('oif', None))
+
+    @classmethod
     def make_key(cls, msg):
         '''
         Construct from a netlink message a key that can be used
@@ -643,12 +647,6 @@ class MPLSRoute(BaseRoute):
             raise TypeError('prime not supported')
         if isinstance(ret, list):
             ret = ret[0]['label']
-        elif ret is None:
-            # key for nexthops
-            ret = MPLSNHKey(newdst=tuple(msg['newdst']),
-                            via=msg.get('via', {}).get('addr', None),
-                            oif=msg.get('oif', None))
-
         return ret
 
     def __setitem__(self, key, value):
