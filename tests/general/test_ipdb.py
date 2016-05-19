@@ -868,6 +868,20 @@ class TestExplicit(BasicSetup):
             r.remove()
         assert not grep('ip ro', pattern='172.16.3.0/24.*127.0.0.1')
 
+    def test_routes_del_nh_fail(self):
+        require_user('root')
+        with self.ip.routes.add({'dst': '172.16.0.0/24',
+                                 'gateway': '127.0.0.2'}):
+            pass
+        try:
+            with self.ip.routes['172.16.0.0/24'] as r:
+                r.del_nh({'gateway': '127.0.0.2'})
+        except KeyError:
+            pass
+        finally:
+            with self.ip.routes['172.16.0.0/24'] as r:
+                r.remove()
+
     def test_routes(self):
         require_user('root')
         assert '172.16.0.0/24' not in self.ip.routes

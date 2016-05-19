@@ -209,6 +209,9 @@ class BaseRoute(Transactional):
     @with_transaction
     def del_nh(self, prime):
         with self._write_lock:
+            if not self['multipath']:
+                raise KeyError('attempt to delete nexthop from '
+                               'non-multipath route')
             nh = dict(prime)
             if self['family'] == AF_MPLS:
                 nh['family'] = AF_MPLS
