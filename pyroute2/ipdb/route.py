@@ -85,16 +85,15 @@ class NextHopSet(LinkedSet):
         try:
             super(NextHopSet, self).remove(key)
         except KeyError as e:
-            for key in tuple(self.raw.keys()):
-                dct = dict(key._asdict())
-                for ref in prime:
-                    if prime[ref] and (dct[ref] != prime[ref]):
-                        break
-                else:
+            r = key._required
+            l = key._fields
+            skey = key[:r] + (None, ) * (len(l) - r)
+            for rkey in tuple(self.raw.keys()):
+                if skey == rkey[:r] + (None, ) * (len(l) - r):
                     break
             else:
                 raise e
-            super(NextHopSet, self).remove(key)
+            super(NextHopSet, self).remove(rkey)
 
 
 class WatchdogMPLSKey(dict):
