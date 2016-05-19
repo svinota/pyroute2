@@ -604,7 +604,7 @@ class TestExplicit(BasicSetup):
                'gateway': '127.0.0.1',
                # labels as a list of dicts
                'encap': {'labels': [{'bos': 1, 'label': 192}],
-                         'type': 'mpls'}}
+                         'type': AF_MPLS}}
         r = self.ip.routes.add(req).commit()
         routes = self.ip.nl.get_routes(table=1002)
         assert len(routes) == 1
@@ -643,7 +643,7 @@ class TestExplicit(BasicSetup):
                               'gateway': '127.0.0.1',
                               # labels as a list of ints
                               'encap': {'labels': [192, 200],
-                                        'type': 'mpls'}},
+                                        'type': AF_MPLS}},
                              {'oif': 1,
                               'gateway': '127.0.0.1',
                               # labels as a string
