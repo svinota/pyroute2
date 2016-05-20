@@ -398,8 +398,9 @@ class BaseRoute(Transactional):
                 else:
                     self.nl.route(devop, **transaction)
                 transaction.wait_all_targets()
-                if transaction['metrics'] and transaction['metrics']._targets:
-                    transaction['metrics'].wait_all_targets()
+                for key in ('metrics', 'via'):
+                    if transaction[key] and transaction[key]._targets:
+                        transaction[key].wait_all_targets()
                 if mpt is not None:
                     mpt.wait(SYNC_TIMEOUT)
                     if not mpt.is_set():
