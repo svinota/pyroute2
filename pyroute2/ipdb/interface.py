@@ -674,8 +674,9 @@ class Interface(Transactional):
                     port = self.ipdb.interfaces[i]
                     target = port._local_targets['master']
                     target.wait(SYNC_TIMEOUT)
-                    del port._local_targets['master']
-                    del port._local_targets['link']
+                    with port._write_lock:
+                        del port._local_targets['master']
+                        del port._local_targets['link']
                     if not target.is_set():
                         raise CommitException('master target failed')
                     if i in added['ports']:
