@@ -3,6 +3,7 @@ import logging
 import threading
 from collections import namedtuple
 from socket import AF_UNSPEC
+from socket import AF_INET6
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
 from pyroute2.netlink import nlmsg
@@ -939,15 +940,27 @@ class RoutingTableSet(object):
         if not isinstance(msg, rtmsg):
             return
 
-        if msg.get('family', None) == AF_MPLS:
+        if msg['family'] == AF_MPLS:
             table = 'mpls'
         else:
-            table = msg.get('table', 254)
+            table = msg['table']
             if table == 252:
                 table = msg.get_attr('RTA_TABLE')
 
         if table in self.ignore_rtables:
             return
+
+        if msg['family'] == AF_INET6:
+            # do not manage some reserved IETF ranges
+            # http://www.iana.org/assignments/
+            #        ipv6-address-space/ipv6-address-space.xhtml
+            reserved = (('ff00', 8),   # multicast
+                        ('fec0', 10),  # deprecated
+                        ('fe80', 10))  # link-scoped unicast
+            dst = msg.get_attr('RTA_DST') or ''
+            for v in reserved:
+                if dst[:4] == v[0] and msg['dst_len'] >= v[1]:
+                    return
 
         # RTM_DELROUTE
         if msg['event'] == 'RTM_DELROUTE':
@@ -960,8 +973,8 @@ class RoutingTableSet(object):
                     with record._direct_state:
                         record['ipdb_scope'] = 'detached'
             except Exception as e:
-                log.debug(e)
-                log.debug(msg)
+                # just ignore this failure for now
+                log.debug("delroute failed for %s", e)
             return
 
         # RTM_NEWROUTE
