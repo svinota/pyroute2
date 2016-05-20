@@ -701,10 +701,8 @@ class NetlinkMixin(object):
                         delta = current - self.qsize
                         if delta > 10:
                             delay = min(3, max(0.01, float(current) / 60000))
-                            message = ("Packet burst: the reader thread "
-                                       "priority is increased, beware of "
-                                       "delays on netlink calls\n\tCounters: "
-                                       "delta=%s qsize=%s delay=%s "
+                            message = ("Packet burst: "
+                                       "delta=%s qsize=%s delay=%s"
                                        % (delta, current, delay))
                             if delay < 1:
                                 log.debug(message)
