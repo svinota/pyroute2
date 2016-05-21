@@ -9,7 +9,7 @@ import threading
 from pyroute2.netlink.exceptions import NetlinkError
 
 logging.basicConfig()
-log = logging.getLogger('pyroute2.proxy')
+log = logging.getLogger(__name__)
 
 
 class NetlinkProxy(object):

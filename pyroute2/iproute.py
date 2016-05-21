@@ -125,7 +125,7 @@ from pyroute2.netlink.exceptions import NetlinkError
 
 DEFAULT_TABLE = 254
 logging.basicConfig()
-log = logging.getLogger('pyroute2.iproute')
+log = logging.getLogger(__name__)
 
 
 def transform_handle(handle):

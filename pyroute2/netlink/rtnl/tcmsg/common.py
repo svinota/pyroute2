@@ -10,7 +10,7 @@ from pyroute2.common import basestring
 from pyroute2.netlink import nla
 
 logging.basicConfig()
-log = logging.getLogger('pyroute2.netlink.rtnl.tcmsg')
+log = logging.getLogger(__name__)
 
 LINKLAYER_UNSPEC = 0
 LINKLAYER_ETHERNET = 1

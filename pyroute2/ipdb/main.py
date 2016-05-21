@@ -403,7 +403,7 @@ from pyroute2.ipdb.exceptions import CreateException
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 
 logging.basicConfig()
-log = logging.getLogger('pyroute2.ipdb.main')
+log = logging.getLogger(__name__)
 
 
 def get_addr_nla(msg):

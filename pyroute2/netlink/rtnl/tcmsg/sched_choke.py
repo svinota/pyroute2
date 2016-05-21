@@ -33,7 +33,7 @@ from pyroute2.netlink.rtnl.tcmsg.common import red_eval_idle_damping
 from pyroute2.netlink.rtnl.tcmsg.common import stats2 as c_stats2
 
 logging.basicConfig()
-log = logging.getLogger('pyroute2.netlink.rtnl.tcmsg')
+log = logging.getLogger(__name__)
 parent = TC_H_ROOT
 
 

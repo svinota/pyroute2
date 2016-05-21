@@ -118,7 +118,7 @@ except ImportError:
     from queue import Queue
 
 logging.basicConfig()
-log = logging.getLogger('pyroute2.netlink.nlsocket')
+log = logging.getLogger(__name__)
 
 
 class Marshal(object):

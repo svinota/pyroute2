@@ -20,7 +20,7 @@ from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 from pyroute2.ipdb.linkedset import LinkedSet
 
 logging.basicConfig()
-log = logging.getLogger('pyroute2.ipdb.route')
+log = logging.getLogger(__name__)
 
 
 class Metrics(Transactional):

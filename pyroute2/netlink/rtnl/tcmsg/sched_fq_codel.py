@@ -6,7 +6,7 @@ from pyroute2.netlink.rtnl.tcmsg import common
 from pyroute2.netlink.rtnl.tcmsg.common import get_time
 
 logging.basicConfig()
-log = logging.getLogger('pyroute2.netlink.rtnl.tcmsg')
+log = logging.getLogger(__name__)
 parent = TC_H_ROOT
 
 

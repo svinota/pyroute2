@@ -79,7 +79,7 @@ from pyroute2.remote import Server
 from pyroute2.remote import RemoteSocket
 
 logging.basicConfig()
-log = logging.getLogger('pyroute2.netns')
+log = logging.getLogger(__name__)
 
 
 def NetNServer(netns, cmdch, brdch, flags=os.O_CREAT):
