@@ -9,6 +9,7 @@ from pyroute2.netlink.rtnl import encap_type
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh as nh_header
+from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 
 
 encap_types = {'mpls': 1,
@@ -33,6 +34,37 @@ class IPRequest(dict):
                 self[key] = dict((x for x in v.items() if x[1] is not None))
             elif v is not None:
                 self[key] = v
+
+
+class IPRuleRequest(IPRequest):
+
+    def update(self, obj):
+        super(IPRuleRequest, self).update(obj)
+        # now fix the rest
+        if 'family' not in self:
+            self['family'] = AF_INET
+        if 'priority' not in self:
+            self['priority'] = 32000
+        if 'table' in self and 'action' not in self:
+            self['action'] = 'to_tbl'
+        for key in ('src_len', 'dst_len'):
+            if self.get(key, None) is None and key[:3] in self:
+                self[key] = {AF_INET6: 128, AF_INET: 32}[self['family']]
+
+    def __setitem__(self, key, value):
+        if key.startswith('ipdb_'):
+            return
+
+        if key in ('src', 'dst'):
+            v = value.split('/')
+            if len(v) == 2:
+                value, self['%s_len' % key] = v[0], int(v[1])
+        elif key == 'action' and isinstance(value, basestring):
+            value = (FR_ACT_NAMES
+                     .get(value, (FR_ACT_NAMES
+                                  .get('FR_ACT_' + value.upper(), value))))
+
+        dict.__setitem__(self, key, value)
 
 
 class IPRouteRequest(IPRequest):

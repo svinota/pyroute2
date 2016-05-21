@@ -105,13 +105,13 @@ from pyroute2.netlink.rtnl import rt_proto
 from pyroute2.netlink.rtnl.req import IPLinkRequest
 from pyroute2.netlink.rtnl.req import IPBridgeRequest
 from pyroute2.netlink.rtnl.req import IPRouteRequest
+from pyroute2.netlink.rtnl.req import IPRuleRequest
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl import ndmsg
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
-from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
@@ -1609,6 +1609,7 @@ class IPRouteMixin(object):
 
         commands = {'add': (RTM_NEWRULE, flags_make),
                     'del': (RTM_DELRULE, flags_make),
+                    'set': (RTM_NEWRULE, flags_replace),
                     'remove': (RTM_DELRULE, flags_make),
                     'delete': (RTM_DELRULE, flags_make),
                     'change': (RTM_NEWRULE, flags_change),
@@ -1619,36 +1620,24 @@ class IPRouteMixin(object):
 
         if argv:
             # this code block will be removed in some release
-            log.warning('rule(): positional parameters are deprecated')
+            log.error('rule(): positional parameters are deprecated')
             names = ['table', 'priority', 'action', 'family',
                      'src', 'src_len', 'dst', 'dst_len', 'fwmark',
                      'iifname', 'oifname']
             kwarg.update(dict(zip(names, argv)))
+
+        kwarg = IPRuleRequest(kwarg)
         msg = fibmsg()
-        table = kwarg.get('table', 254)
+        table = kwarg.get('table', 0)
         msg['table'] = table if table <= 255 else 252
-        msg['family'] = family = kwarg.pop('family', AF_INET)
-        msg['action'] = FR_ACT_NAMES[kwarg.pop('action', 'FR_ACT_NOP')]
+        for key in ('family',
+                    'src_len',
+                    'dst_len',
+                    'action',
+                    'tos',
+                    'flags'):
+            msg[key] = kwarg.pop(key, 0)
         msg['attrs'] = []
-
-        addr_len = {AF_INET6: 128, AF_INET:  32}.get(family, 0)
-        if 'priority' not in kwarg:
-            kwarg['priority'] = 32000
-        if ('dst' in kwarg):
-            dst = kwarg['dst'].split('/')
-            if len(dst) == 2:
-                kwarg['dst'], kwarg['dst_len'] = dst[0]
-            elif kwarg.get('dst_len') is None:
-                kwarg['dst_len'] = addr_len
-        if ('src' in kwarg):
-            src = kwarg['src'].split('/')
-            if len(src) == 2:
-                kwarg['src'], kwarg['src_len'] = src[0]
-            elif kwarg.get('src_len') is None:
-                kwarg['src_len'] = addr_len
-
-        msg['dst_len'] = kwarg.get('dst_len', 0)
-        msg['src_len'] = kwarg.get('src_len', 0)
 
         for key in kwarg:
             nla = fibmsg.name2nla(key)
