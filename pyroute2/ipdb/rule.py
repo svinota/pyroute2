@@ -1,9 +1,10 @@
 import logging
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
+from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.transactional import Transactional
 
 logging.basicConfig()
-log = logging.getLogger('pyroute2.ipdb.route')
+log = logging.getLogger(__name__)
 
 
 class Rule(Transactional):
@@ -92,7 +93,24 @@ class Rule(Transactional):
             # rule add/set
             if any(added.values()) or devop == 'add':
 
-                self.nl.rule(devop, **transaction)
+                old_key = self['priority']
+                new_key = transaction['priority']
+                if new_key != old_key:
+                    # check for the key conflict
+                    if new_key in self.ipdb.rules:
+                        raise CommitException('rule priority conflict')
+                    else:
+                        self.ipdb.rules[new_key] = self
+                        self.nl.rule('del', priority=old_key)
+                        self.nl.rule('add', **transaction)
+                else:
+                    if devop != 'add':
+                        with self._direct_state:
+                            self['ipdb_scope'] = 'shadow'
+                        self.nl.rule('del', priority=old_key)
+                        with self._direct_state:
+                            self['ipdb_scope'] = 'reload'
+                    self.nl.rule('add', **transaction)
                 transaction.wait_all_targets()
             # rule removal
             if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
@@ -115,7 +133,7 @@ class Rule(Transactional):
                 error = e
                 self.nl = None
                 self['ipdb_scope'] = 'invalid'
-                del self.ipdb.rules.idx[self['priority']]
+                del self.ipdb.rules[self['priority']]
             elif not rollback:
                 ret = self.commit(transaction=snapshot, rollback=True)
                 if isinstance(ret, Exception):
@@ -167,7 +185,7 @@ class RuleSet(dict):
         rule.begin()
         for (key, value) in spec.items():
             rule[key] = value
-        self[spec['prioriy']] = rule
+        self[spec['priority']] = rule
         return rule
 
     def load_netlink(self, msg):
@@ -195,5 +213,7 @@ class RuleSet(dict):
             return
 
         # RTM_NEWRULE
-        self[priority] = Rule(self.ipdb).load_netlink(msg)
+        if priority not in self:
+            self[priority] = Rule(self.ipdb)
+        self[priority].load_netlink(msg)
         return self[priority]
