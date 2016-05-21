@@ -427,6 +427,7 @@ from pyroute2.common import AF_MPLS
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.ipdb.rule import RuleSet
 from pyroute2.ipdb.route import RoutingTableSet
 from pyroute2.ipdb.interface import Interface
 from pyroute2.ipdb.linkedset import LinkedSet
@@ -548,6 +549,7 @@ class IPDB(object):
 
         # resolvers
         self.interfaces = TransactionalBase()
+        self.rules = RuleSet(ipdb=self)
         self.routes = RoutingTableSet(ipdb=self,
                                       ignore_rtables=self._ignore_rtables)
         self.by_name = View(src=self.interfaces,
@@ -572,6 +574,8 @@ class IPDB(object):
             for link in links:
                 self._interface_add(link)
             #
+            for msg in self.nl.get_rules():
+                self._rule_add(msg)
             for msg in self.nl.get_addr():
                 self._addr_add(msg)
             for msg in self.nl.get_neighbours():
@@ -912,6 +916,12 @@ class IPDB(object):
     def watchdog(self, action='RTM_NEWLINK', **kwarg):
         return Watchdog(self, action, kwarg)
 
+    def _rule_add(self, msg):
+        self.rules.load_netlink(msg)
+
+    def _rule_del(self, msg):
+        self.rules.load_netlink(msg)
+
     def _route_add(self, msg):
         self.routes.load_netlink(msg)
 
@@ -1045,6 +1055,8 @@ class IPDB(object):
                      'RTM_DELADDR': self._addr_del,
                      'RTM_NEWNEIGH': self._neigh_add,
                      'RTM_DELNEIGH': self._neigh_del,
+                     'RTM_NEWRULE': self._rule_add,
+                     'RTM_DELRULE': self._rule_del,
                      'RTM_NEWROUTE': self._route_add,
                      'RTM_DELROUTE': self._route_del}
         while not self._stop:
