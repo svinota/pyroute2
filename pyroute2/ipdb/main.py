@@ -286,18 +286,46 @@ the changes will not be committed correctly.
 
 To create a multipath route::
 
-    ip.routes.add({'dst': '172.16.232.0/24',
-                   'multipath': [{'gateway': '172.16.231.2',
-                                  'hops': 2},
-                                 {'gateway': '172.16.231.3',
-                                  'hops': 1},
-                                 {'gateway': '172.16.231.4'}]}).commit()
+    ipdb.routes.add({'dst': '172.16.232.0/24',
+                     'multipath': [{'gateway': '172.16.231.2',
+                                    'hops': 2},
+                                   {'gateway': '172.16.231.3',
+                                    'hops': 1},
+                                   {'gateway': '172.16.231.4'}]}).commit()
 
 To change a multipath route::
 
-    with ip.routes['172.16.232.0/24'] as r:
+    with ipdb.routes['172.16.232.0/24'] as r:
         r.add_nh({'gateway': '172.16.231.5'})
         r.del_nh({'gateway': '172.16.231.4'})
+
+Another possible way is to create a normal route and turn it into
+multipath by `add_nh()`::
+
+    # create a non-MP route with one gateway:
+    (ipdb
+     .routes
+     .add({'dst': '172.16.232.0/24',
+           'gateway': '172.16.231.2'})
+     .commit())
+
+    # turn it to become a MP route:
+    (ipdb
+     .routes['172.16.232.0/24']
+     .add_nh({'gateway': '172.16.231.3'})
+     .commit())
+
+    # here the route will contain two NH records, with
+    # gateways 172.16.231.2 and 172.16.231.3
+
+    # remove one NH and turn the route to be a normal one
+    (ipdb
+     .routes['172.16.232.0/24']
+     .del_nh({'gateway': '172.16.231.2'})
+     .commit())
+
+    # thereafter the traffic to 172.16.232.0/24 will go only
+    # via 172.16.231.3
 
 Differences from the iproute2 syntax
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
