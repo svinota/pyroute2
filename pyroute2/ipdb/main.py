@@ -206,6 +206,10 @@ To add a route, there is an easy to use syntax::
     # use keyword arguments explicitly
     ipdb.routes.add(dst='172.16.1.0/24', oif=4, ...).commit()
 
+Please notice, that the device can be specified with `oif` (output
+interface) or `iif` (input interface), the `device` keyword is not
+supported anymore.
+
 To access and change the routes, one can use notations as follows::
 
     # default table (254)
