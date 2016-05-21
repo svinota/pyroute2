@@ -1,8 +1,5 @@
 ![E/// logo](docs/ericsson.png "supported by Ericsson")
 
-.. warning::
-    This is a development branch. Use branch 0.3.x to get stable releases.
-
 pyroute2
 ========
 
@@ -184,6 +181,18 @@ Python >= 2.6
 
 The pyroute2 testing framework requires  **flake8**, **coverage**,
 **nosetests**.
+
+compatibility
+-------------
+
+Starting with the version 0.4.0, the library doesn't support bridge
+and bond management via external utilities, only via netlink. The
+main development and testing is done on the `net-next` kernel.
+
+The transparent use of the external utilities is still provided by
+the branch 0.3.x, which will be supported with critical bugfixes. It
+makes it suitable for LTS distros. But no new features will be
+provided for the branch 0.3.x.
 
 links
 -----

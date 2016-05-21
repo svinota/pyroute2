@@ -1,6 +1,12 @@
 changelog
 =========
 
+* 0.4.1
+    * netlink: no buffer copying in the parser
+    * netlink: parse NLA on demand
+    * ipdb: #244 -- lwtunnel multipath fixes
+    * iproute: #235 -- route types
+    * docs updated
 * 0.4.0
     * ACHTUNG: old kernels compatibility code is dropped
     * ACHTUNG: IPDB uses two separate sockets for monitoring and commands
