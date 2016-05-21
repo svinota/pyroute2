@@ -1390,7 +1390,13 @@ class IPRouteMixin(object):
 
         ...
 
-        More `route()` examples. Multipath route::
+        More `route()` examples. Blackhole route::
+
+            ip.route("add",
+                     dst="10.0.0.0/24",
+                     type="blackhole")
+
+        Multipath route::
 
             ip.route("add",
                      dst="10.0.0.0/24",
