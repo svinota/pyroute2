@@ -1634,10 +1634,18 @@ class IPRouteMixin(object):
         addr_len = {AF_INET6: 128, AF_INET:  32}.get(family, 0)
         if 'priority' not in kwarg:
             kwarg['priority'] = 32000
-        if ('src' in kwarg) and (kwarg.get('src_len') is None):
-            kwarg['src_len'] = addr_len
-        if ('dst' in kwarg) and (kwarg.get('dst_len') is None):
-            kwarg['dst_len'] = addr_len
+        if ('dst' in kwarg):
+            dst = kwarg['dst'].split('/')
+            if len(dst) == 2:
+                kwarg['dst'], kwarg['dst_len'] = dst[0]
+            elif kwarg.get('dst_len') is None:
+                kwarg['dst_len'] = addr_len
+        if ('src' in kwarg):
+            src = kwarg['src'].split('/')
+            if len(src) == 2:
+                kwarg['src'], kwarg['src_len'] = src[0]
+            elif kwarg.get('src_len') is None:
+                kwarg['src_len'] = addr_len
 
         msg['dst_len'] = kwarg.get('dst_len', 0)
         msg['src_len'] = kwarg.get('src_len', 0)
