@@ -43,7 +43,7 @@ class fibmsg(nlmsg):
               ('flags', 'I'))
 
     # fibmsg NLA numbers are not sequential, so
-    # give it here explicitly
+    # give them here explicitly
     nla_map = ((0, 'FRA_UNSPEC', 'none'),
                (1, 'FRA_DST', 'ipaddr'),
                (2, 'FRA_SRC', 'ipaddr'),
@@ -52,8 +52,10 @@ class fibmsg(nlmsg):
                (6, 'FRA_PRIORITY', 'uint32'),
                (10, 'FRA_FWMARK', 'uint32'),
                (11, 'FRA_FLOW', 'uint32'),
+               (12, 'FRA_TUN_ID', 'be64'),
                (13, 'FRA_SUPPRESS_IFGROUP', 'uint32'),
                (14, 'FRA_SUPPRESS_PREFIXLEN', 'uint32'),
                (15, 'FRA_TABLE', 'uint32'),
                (16, 'FRA_FWMASK', 'uint32'),
-               (17, 'FRA_OIFNAME', 'asciiz'))
+               (17, 'FRA_OIFNAME', 'asciiz'),
+               (18, 'FRA_PAD', 'hex'))
