@@ -179,6 +179,8 @@ methods of the `Transactional` objects.
     pyroute2.ipdb.route.RoutingTable
     pyroute2.ipdb.route.MPLSTable
     pyroute2.ipdb.route.RoutingTableSet
+    pyroute2.ipdb.rule.Rule
+    pyroute2.ipdb.rule.RuleSet
     :parts: 1
 
 Internet protocols

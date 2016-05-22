@@ -3,14 +3,14 @@
 IPDB module
 ===========
 
-Basically, IPDB is a transactional database, containing records,
-that represent network stack objects. Any change in the database
-is not reflected immediately in OS, but waits until `commit()`
-is called. One failed operation during `commit()` rolls back all
-the changes, has been made so far. Moreover, IPDB has commit
-hooks API, that allows you to roll back changes depending on
-your own function calls, e.g. when a host or a network becomes
-unreachable.
+Basically, IPDB is a transactional database, containing
+records, that represent network stack objects. Any change
+in the database is not reflected immediately in OS, but
+waits until `commit()` is called. One failed operation
+during `commit()` rolls back all the changes, has been made
+so far. Moreover, IPDB has commit hooks API, that allows
+you to roll back changes depending on your own function
+calls, e.g. when a host or a network becomes unreachable.
 
 IPDB vs. IPRoute
 ----------------
@@ -22,10 +22,10 @@ to developer to check, whether the requested object is really
 set up, or not yet.
 
 The latter, IPDB, is an asynchronously updated database, that
-starts several additional threads by default. If your project's
-policy doesn't allow implicit threads, keep it in mind. But
-unlike IPRoute, the IPDB ensures the changes to be reflected
-in the system::
+starts several additional threads by default. If your
+project's policy doesn't allow implicit threads, keep it in
+mind. But unlike IPRoute, the IPDB ensures the changes to
+be reflected in the system::
 
     with IPDB() as ipdb:
         with ipdb.interfaces['eth0'] as i:
@@ -36,27 +36,29 @@ in the system::
         #           and has these two addresses, so
         #           the following code can rely on that
 
-So IPDB is updated asynchronously, but the `commit()` operation
-is synchronous.
+So IPDB is updated asynchronously, but the `commit()`
+operation is synchronous. At least, it is planned to be such.
 
 NB: *In the example above `commit()` is implied with the
 `__exit__()` of the `with` statement.*
 
 The choice between IPDB and IPRoute depends on your project's
-workflow. If you plan to retrieve the system info not too often
-(or even once), or you are sure there will be not too many
-network object, it is better to use IPRoute. If you plan to
-lookup the network info on the regular basis and there can be
-loads of network objects, it is better to use IPDB. Why?
+workflow. If you plan to retrieve the system info not too
+often (or even once), or you are sure there will be not too
+many network object, it is better to use IPRoute. If you
+plan to lookup the network info on the regular basis and
+there can be loads of network objects, it is better to use
+IPDB. Why?
 
-IPRoute just loads what you ask -- and loads all the information
-you ask to. While IPDB loads all the info upon startup, and
-later is just updated by asynchronous broadcast netlink messages.
-Assume you want to lookup ARP cache that contains hundreds or
-even thousands of objects. Using IPRoute, you have to load all
-the ARP cache every time you want to make a lookup. While IPDB
-will load all the cache once, and then maintain it up-to-date
-just inserting new records or removing them by one.
+IPRoute just loads what you ask -- and loads all the
+information you ask to. While IPDB loads all the info upon
+startup, and later is just updated by asynchronous broadcast
+netlink messages. Assume you want to lookup ARP cache that
+contains hundreds or even thousands of objects. Using
+IPRoute, you have to load all the ARP cache every time you
+want to make a lookup. While IPDB will load all the cache
+once, and then maintain it up-to-date just inserting new
+records or removing them by one.
 
 So, IPRoute is much simpler when you need to make a call and
 then exit, while IPDB is cheaper in terms of CPU performance
@@ -118,9 +120,9 @@ IPDB has several operating modes:
     - 'explicit' -- you have to begin() a transaction prior to
         make any change
 
-The default is to use implicit transaction. This behaviour can
-be changed in the future, so use 'mode' argument when creating
-IPDB instances.
+The default is to use implicit transaction. This behaviour
+can be changed in the future, so use 'mode' argument when
+creating IPDB instances.
 
 The sample session with explicit transactions::
 
@@ -142,13 +144,14 @@ The sample session with explicit transactions::
     In [10]: ifdb.tap0.commit()
 
 
-Note, that you can `review()` the `current_tx` transaction, and
-`commit()` or `drop()` it. Also, multiple transactions are
-supported, use uuid returned by `begin()` to identify them.
+Note, that you can `review()` the `current_tx` transaction,
+and `commit()` or `drop()` it. Also, multiple transactions
+are supported, use uuid returned by `begin()` to identify
+them.
 
-Actually, the form like 'ip.tap0.address' is an eye-candy. The
-IPDB objects are dictionaries, so you can write the code above
-as that::
+Actually, the form like 'ip.tap0.address' is an eye-candy.
+The IPDB objects are dictionaries, so you can write the code
+above as that::
 
     ipdb.interfaces['tap0'].down()
     ipdb.interfaces['tap0']['address'] = '00:11:22:33:44:55'
@@ -166,8 +169,8 @@ managers in the same way as IPDB does itself::
         i.add_ip('10.0.0.1', 24)
         i.add_ip('10.0.0.1', 24)
 
-On exit, the context manager will authomatically `commit()` the
-transaction.
+On exit, the context manager will authomatically `commit()`
+the transaction.
 
 Create interfaces
 -----------------
@@ -180,14 +183,18 @@ IPDB can also create virtual interfaces::
         i.add_ip('10.0.0.1/24')
 
 
-The `IPDB.create()` call has the same syntax as `IPRoute.link('add', ...)`,
-except you shouldn't specify the `'add'` command. Refer to `IPRoute` docs
-for details.
+The `IPDB.create()` call has the same syntax as
+`IPRoute.link('add', ...)`, except you shouldn't specify
+the `'add'` command. Refer to `IPRoute` docs for details.
 
 Routes management
 -----------------
 
 IPDB has a simple yet useful routing management interface.
+
+Create a route
+~~~~~~~~~~~~~~
+
 To add a route, there is an easy to use syntax::
 
     # spec as a dictionary
@@ -206,11 +213,15 @@ To add a route, there is an easy to use syntax::
     # use keyword arguments explicitly
     ipdb.routes.add(dst='172.16.1.0/24', oif=4, ...).commit()
 
-Please notice, that the device can be specified with `oif` (output
-interface) or `iif` (input interface), the `device` keyword is not
-supported anymore.
+Please notice, that the device can be specified with `oif`
+(output interface) or `iif` (input interface), the `device`
+keyword is not supported anymore.
 
-To access and change the routes, one can use notations as follows::
+Get a route
+~~~~~~~~~~~
+
+To access and change the routes, one can use notations as
+follows::
 
     # default table (254)
     #
@@ -227,18 +238,29 @@ To access and change the routes, one can use notations as follows::
     with ipdb.routes['default'] as route:
         route.gateway = '10.0.0.1'
 
-    # list automatic routes keys
-    print(ipdb.routes.tables[255].keys())
+By default, the path `ipdb.routes` reflects only the main
+routing table (254). But Linux supports much more routing
+tables, so does IPDB::
 
-Route specs
-~~~~~~~~~~~
+    In [1]: ipdb.routes.tables.keys()
+    Out[1]: [0, 254, 255]
 
-It is important to understand, that routing tables in IPDB
-are lists, not dicts. It is still possible to use a dict syntax
-to retrieve records, but under the hood the tables are lists.
+    In [2]: len(ipdb.routes.tables[255])
+    Out[2]: 11  # => 11 automatic routes in the table local
 
-To retrieve or create routes one should use route specs. The
-simplest case is to retrieve one route::
+It is important to understand, that routing tables keys in
+IPDB are not only the destination prefix. The key consists
+of 'prefix/mask' string and the route priority (if any)::
+
+    In [1]: ipdb.routes.tables[254].idx.keys()
+    Out[1]:
+    [RouteKey(dst='default', priority=600),
+     RouteKey(dst='10.1.0.0/24', priority=600),
+     RouteKey(dst='192.168.122.0/24', priority=None)]
+
+But a routing table in IPDB allows several variants of the
+route spec. The simplest case is to retrieve a route by
+prefix, if there is only one match::
 
     # get route by prefix
     ipdb.routes['172.16.1.0/24']
@@ -256,19 +278,16 @@ records and filter by a key to retrieve all matches::
     # get all routes by this prefix
     [ x for x in ipdb.routes if x['dst'] == 'fe80::/64' ]
 
-It is possible to use dicts as specs::
+It is also possible to use dicts as specs::
 
     ipdb.routes[{'dst': '172.16.0.0/16',
                  'oif': 2}]
 
-The dict is just the same as a route representation in the
-records list.
-
 Route metrics
 ~~~~~~~~~~~~~
 
-A special object is dedicated to route metrics, one can access it
-via `route.metrics` or `route['metrics']`::
+A special object is dedicated to route metrics, one can
+access it via `route.metrics` or `route['metrics']`::
 
     # these two statements are equal:
     with ipdb.routes['172.16.1.0/24'] as route:
@@ -277,16 +296,17 @@ via `route.metrics` or `route['metrics']`::
     with ipdb.routes['172.16.1.0/24'] as route:
         route.metrics.mtu = 1400
 
-Possible metrics are defined in `rtmsg.py:rtmsg.metrics`, e.g.
-`RTAX_HOPLIMIT` means `hoplimit` metric etc.
+Possible metrics are defined in `rtmsg.py:rtmsg.metrics`,
+e.g. `RTAX_HOPLIMIT` means `hoplimit` metric etc.
 
 Multipath routing
 ~~~~~~~~~~~~~~~~~
 
-Multipath nexthops are managed via `route.add_nh()` and `route.del_nh()`
-methods. They are available to review via `route.multipath`, but one
-should not directly add/remove/modify nexthops in `route.multipath`, as
-the changes will not be committed correctly.
+Multipath nexthops are managed via `route.add_nh()` and
+`route.del_nh()` methods. They are available to review via
+`route.multipath`, but one should not directly
+add/remove/modify nexthops in `route.multipath`, as the
+changes will not be committed correctly.
 
 To create a multipath route::
 
@@ -303,8 +323,8 @@ To change a multipath route::
         r.add_nh({'gateway': '172.16.231.5'})
         r.del_nh({'gateway': '172.16.231.4'})
 
-Another possible way is to create a normal route and turn it into
-multipath by `add_nh()`::
+Another possible way is to create a normal route and turn
+it into multipath by `add_nh()`::
 
     # create a non-MP route with one gateway:
     (ipdb
@@ -334,15 +354,16 @@ multipath by `add_nh()`::
 Differences from the iproute2 syntax
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-By historical reasons, `iproute2` uses names that differs from what
-the kernel uses. E.g., `iproute2` uses `weight` for multipath route
-hops instead of `hops`, where `weight == (hops + 1)`. Thus, a route
-created with `hops == 2` will be listed by `iproute2` as `weight 3`.
+By historical reasons, `iproute2` uses names that differs
+from what the kernel uses. E.g., `iproute2` uses `weight`
+for multipath route hops instead of `hops`, where
+`weight == (hops + 1)`. Thus, a route created with
+`hops == 2` will be listed by `iproute2` as `weight 3`.
 
-Another significant difference is `metrics`. The `pyroute2` library
-uses the kernel naming scheme, where `metrics` means mtu, rtt, window
-etc. The `iproute2` utility uses `metric` (not `metrics`) as a name
-for the `priority` field.
+Another significant difference is `metrics`. The `pyroute2`
+library uses the kernel naming scheme, where `metrics` means
+mtu, rtt, window etc. The `iproute2` utility uses `metric`
+(not `metrics`) as a name for the `priority` field.
 
 In examples::
 
@@ -389,12 +410,75 @@ Multipath default routes
 
 .. warning::
     As of the merge of kill_rtcache into the kernel, and it's
-    release in ~3.6, weighted default routes no longer work in
-    Linux.
+    release in ~3.6, weighted default routes no longer work
+    in Linux.
 
 Please refer to
 https://github.com/svinota/pyroute2/issues/171#issuecomment-149297244
 for details.
+
+Rules management
+----------------
+
+IPDB provides a basic IP rules management system.
+
+Create a rule
+~~~~~~~~~~~~~
+
+Syntax is almost the same as for routes::
+
+    # rule spec
+    spec = {'src': '172.16.1.0/24',
+            'table': 200,
+            'priority': 15000}
+
+    ipdb.rules.add(spec).commit()
+
+Get a rule
+~~~~~~~~~~
+
+The way IPDB handles IP rules is almost the same as routes,
+but rule keys are more complicated -- the Linux kernel
+doesn't use keys for rules, but instead iterates all the
+records until the first one w/o any attribute mismatch.
+
+The fields that the kernel uses to compare rules, IPDB uses
+as the key fields (see `pyroute2/ipdb/rule.py:RuleKey`)
+
+There are also more ways to find a record, as with routes::
+
+    # 1. iterate all the records
+    for record in ipdb.rules:
+        match(record)
+
+    # 2. an integer as the key matches the first
+    #    rule with that priority
+    ipdb.rules[32565]
+
+    # 3. a dict as the key returns the first match
+    #    for all the specified attrs
+    ipdb.rules[{'dst': '10.0.0.0/24', 'table': 200}]
+
+Priorities
+~~~~~~~~~~
+
+Thus, the rule priority is **not** a key, neither in the
+kernel, nor in IPDB. One should **not** rely on priorities
+as on keys, there may be several rules with the same
+priority, and it often happens, e.g. on Android systems.
+
+Persistence
+~~~~~~~~~~~
+
+There is no *change* operation for the rule records in the
+kernel, so only *add/del* work. When IPDB changes a record,
+it effectively deletes the old one and creates the new with
+new parameters, but the object, referring the record, stays
+the same. Also that means, that IPDB can not recognize the
+situation, when someone else does the same. So if there is
+another program changing records by *del/add* operations,
+even another IPDB instance, referring objects in the IPDB
+will be recreated.
 
 Performance issues
 ------------------
