@@ -4,6 +4,7 @@ import os
 import json
 import time
 import uuid
+import random
 import socket
 import subprocess
 from pyroute2 import config
@@ -317,6 +318,57 @@ class TestExplicit(BasicSetup):
 
         assert ifB not in self.ip.interfaces
         assert ifA in self.ip.interfaces
+
+    def _test_rules_action(self, spec, check):
+        require_user('root')
+
+        self.ip.rules.add(spec).commit()
+
+        rules = self.ip.nl.get_rules(priority=spec['priority'])
+        assert len(rules) == 1
+        for field in check['fields']:
+            assert rules[0][field] == check['fields'][field]
+        for nla in check['nla']:
+            assert rules[0].get_attr(nla) == check['nla'][nla]
+
+        with self.ip.rules[spec['priority']] as r:
+            r.remove()
+        rules = self.ip.nl.get_rules(priority=spec['priority'])
+        assert len(rules) == 0
+
+    def test_rules_random_actions(self):
+        random.seed(time.time())
+        for _ in range(20):
+            # bake check
+            spec = {}
+            check = {'fields': {}, 'nla': {}}
+            # 1. priority
+            spec['priority'] = check['nla']['FRA_PRIORITY'] = \
+                random.randint(200, 2000)
+            # 2. action
+            spec['action'] = check['fields']['action'] = \
+                random.randint(1, 8)
+            if spec['action'] == 1:  # to_tbl
+                spec['table'] = check['nla']['FRA_TABLE'] = \
+                    random.randint(2, 20000)
+            elif spec['action'] == 2:  # goto
+                spec['goto'] = check['nla']['FRA_GOTO'] = \
+                    random.randint(0, 32767)
+            # 3. src
+            if random.random() > 0.5:
+                src = '10.%i.0.0' % random.randint(0, 254)
+                src_len = random.randint(16, 30)
+                spec['src'] = src + '/' + str(src_len)
+                check['fields']['src_len'] = src_len
+                check['nla']['FRA_SRC'] = src
+            # 4. dst
+            if random.random() > 0.5:
+                dst = '10.%i.0.0' % random.randint(0, 254)
+                dst_len = random.randint(16, 30)
+                spec['dst'] = dst + '/' + str(dst_len)
+                check['fields']['dst_len'] = dst_len
+                check['nla']['FRA_DST'] = dst
+            self._test_rules_action(spec, check)
 
     @skip_if_not_supported
     def test_routes_mpls_via_change(self):
