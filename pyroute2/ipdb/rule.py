@@ -1,10 +1,25 @@
 import logging
+import threading
+from collections import namedtuple
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
+from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.transactional import Transactional
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
+
+
+RuleKey = namedtuple('RuleKey',
+                     ('action',
+                      'table',
+                      'priority',
+                      'iifname',
+                      'oifname',
+                      'fwmark',
+                      'fwmask',
+                      'goto',
+                      'tun_id'))
 
 
 class Rule(Transactional):
@@ -25,6 +40,22 @@ class Rule(Transactional):
                'dst_len',
                'res1',
                'res2')
+
+    @classmethod
+    def make_key(cls, msg):
+        values = []
+        if isinstance(msg, fibmsg):
+            for field in RuleKey._fields:
+                v = msg.get_attr(msg.name2nla(field))
+                if v is None:
+                    v = msg.get(field, 0)
+                values.append(v)
+        elif isinstance(msg, dict):
+            for field in RuleKey._fields:
+                values.append(msg.get(field, 0))
+        else:
+            raise TypeError('prime not supported: %s' % type(msg))
+        return RuleKey(*values)
 
     def __init__(self, ipdb, mode=None, parent=None, uid=None):
         Transactional.__init__(self, ipdb, mode, parent, uid)
@@ -93,8 +124,9 @@ class Rule(Transactional):
             # rule add/set
             if any(added.values()) or devop == 'add':
 
-                old_key = self['priority']
-                new_key = transaction['priority']
+                old_key = self.make_key(self)
+                new_key = self.make_key(transaction)
+
                 if new_key != old_key:
                     # check for the key conflict
                     if new_key in self.ipdb.rules:
@@ -133,7 +165,7 @@ class Rule(Transactional):
                 error = e
                 self.nl = None
                 self['ipdb_scope'] = 'invalid'
-                del self.ipdb.rules[self['priority']]
+                del self.ipdb.rules[self.make_key(self)]
             elif not rollback:
                 ret = self.commit(transaction=snapshot, rollback=True)
                 if isinstance(ret, Exception):
@@ -169,23 +201,43 @@ class RuleSet(dict):
 
     def __init__(self, ipdb):
         self.ipdb = ipdb
+        self.lock = threading.Lock()
+
+    def __getitem__(self, key):
+        with self.lock:
+            try:
+                return super(RuleSet, self).__getitem__(key)
+            except KeyError:
+                # fallback: look up by priority
+                if isinstance(key, int):
+                    for k in self.keys():
+                        if key == k[2]:
+                            return super(RuleSet, self).__getitem__(k)
+                raise
 
     def add(self, spec=None, **kwarg):
         '''
         Create a route from a dictionary
         '''
         spec = dict(spec or kwarg)
-        if 'priority' not in spec:
-            raise ValueError('priority not specified')
-
         rule = Rule(self.ipdb)
         rule.update(spec)
+        # action and priority are parts of the key, so
+        # they must be specified
+        if 'priority' not in spec:
+            spec['priority'] = 32000
+        if 'table' in spec:
+            spec['action'] = FR_ACT_NAMES['FR_ACT_TO_TBL']
+        elif 'goto' in spec:
+            spec['action'] = FR_ACT_NAMES['FR_ACT_GOTO']
+        # setup the scope
         with rule._direct_state:
             rule['ipdb_scope'] = 'create'
+        #
         rule.begin()
         for (key, value) in spec.items():
             rule[key] = value
-        self[spec['priority']] = rule
+        self[rule.make_key(spec)] = rule
         return rule
 
     def load_netlink(self, msg):
@@ -195,16 +247,16 @@ class RuleSet(dict):
         if not isinstance(msg, fibmsg):
             return
 
-        priority = msg.get_attr('FRA_PRIORITY') or 0
+        key = Rule.make_key(msg)
 
         # RTM_DELRULE
         if msg['event'] == 'RTM_DELRULE':
             try:
                 # locate the record
-                record = self[priority]
+                record = self[key]
                 # delete the record
                 if record['ipdb_scope'] not in ('locked', 'shadow'):
-                    del self[priority]
+                    del self[key]
                     with record._direct_state:
                         record['ipdb_scope'] = 'detached'
             except Exception as e:
@@ -213,7 +265,7 @@ class RuleSet(dict):
             return
 
         # RTM_NEWRULE
-        if priority not in self:
-            self[priority] = Rule(self.ipdb)
-        self[priority].load_netlink(msg)
-        return self[priority]
+        if key not in self:
+            self[key] = Rule(self.ipdb)
+        self[key].load_netlink(msg)
+        return self[key]
