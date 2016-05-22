@@ -1604,16 +1604,13 @@ class IPRouteMixin(object):
         '''
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
-        flags_change = flags_base | NLM_F_REPLACE
-        flags_replace = flags_change | NLM_F_CREATE
+        flags_dump = NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC
 
         commands = {'add': (RTM_NEWRULE, flags_make),
                     'del': (RTM_DELRULE, flags_make),
-                    'set': (RTM_NEWRULE, flags_replace),
                     'remove': (RTM_DELRULE, flags_make),
                     'delete': (RTM_DELRULE, flags_make),
-                    'change': (RTM_NEWRULE, flags_change),
-                    'replace': (RTM_NEWRULE, flags_replace)}
+                    'dump': (RTM_GETRULE, flags_dump)}
         if isinstance(command, int):
             command = (command, flags_make)
         command, flags = commands.get(command, command)
