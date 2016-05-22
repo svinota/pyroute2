@@ -205,15 +205,21 @@ class RuleSet(dict):
 
     def __getitem__(self, key):
         with self.lock:
-            try:
+            if isinstance(key, RuleKey):
                 return super(RuleSet, self).__getitem__(key)
-            except KeyError:
-                # fallback: look up by priority
-                if isinstance(key, int):
-                    for k in self.keys():
-                        if key == k[2]:
-                            return super(RuleSet, self).__getitem__(k)
-                raise
+            elif isinstance(key, tuple):
+                return super(RuleSet, self).__getitem__(RuleKey(*key))
+            elif isinstance(key, int):
+                for k in self.keys():
+                    if key == k[2]:
+                        return super(RuleSet, self).__getitem__(k)
+            elif isinstance(key, dict):
+                for v in self.values():
+                    for k in key:
+                        if key[k] != v.get(k, None):
+                            break
+                    else:
+                        return v
 
     def add(self, spec=None, **kwarg):
         '''
