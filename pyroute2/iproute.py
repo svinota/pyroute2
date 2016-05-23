@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 '''
 
-iproute quickstart
+IPRoute quickstart
 ------------------
 
 **IPRoute** in two words::
@@ -16,7 +16,120 @@ iproute quickstart
     $ python example.py
     ['lo', 'p6p1', 'wlan0', 'virbr0', 'virbr0-nic']
 
-threaded vs. threadless architecture
+Responses
+---------
+
+The pyroute2 netlink socket implementation is agnostic
+to the particular netlink protocols, and always returns
+a list of messages as the response to a request sent to
+the kernel::
+
+    # this request returns one match
+    eth0 = ipr.link_lookup(ifname='eth0')
+    len(eth0)  # -> 1, if exists, else 0
+
+    # but that one returns a set of
+    up = ipr.link_lookup(operstate='UP')
+    len(up)  # -> k, where 0 <= k <= [interface count]
+
+Thus, always expect a list in the response, running any
+`IPRoute()` netlink request.
+
+NLMSG_ERROR responses
+~~~~~~~~~~~~~~~~~~~~~
+
+Some kernel subsystems return `NLMSG_ERROR` in the response
+to any request. It is OK as long as
+`nlmsg["header"]["error"] is None`. Otherwise an
+exception will be raised by the parser.
+
+So if instead of an exception you get a `NLMSG_ERROR` message,
+it means `error == 0`, the same as `$? == 0` in bash.
+
+How to work with messages
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Every netlink message contains header, fields and NLAs
+(netlink attributes). Every NLA is a netlink message...
+(see "recursion").
+
+And the library provides parsed messages according to
+this scheme. Every RTNL message contains:
+
+* `nlmsg['header']` -- parsed header
+* `nlmsg['attrs']` -- NLA chain (parsed on demand)
+* 0 .. k data fields, e.g. `nlmsg['flags']` etc.
+* `nlmsg.header` -- the header fields spec
+* `nlmsg.fields` -- the data fields spec
+* `nlmsg.nla_map` -- NLA spec
+
+An important parser feature is that NLAs are parsed
+on demand, when someone tries to access them. Otherwise
+the parser doesn't waste CPU cycles.
+
+The NLA chain is a list-like structure, not a dictionary.
+The netlink standard doesn't require NLAs to be unique
+within one message::
+
+    {'__align': (),
+     'attrs': [('IFLA_IFNAME', 'lo'),    # [1]
+               ('IFLA_TXQLEN', 1),
+               ('IFLA_OPERSTATE', 'UNKNOWN'),
+               ('IFLA_LINKMODE', 0),
+               ('IFLA_MTU', 65536),
+               ('IFLA_GROUP', 0),
+               ('IFLA_PROMISCUITY', 0),
+               ('IFLA_NUM_TX_QUEUES', 1),
+               ('IFLA_NUM_RX_QUEUES', 1),
+               ('IFLA_CARRIER', 1),
+               ...],
+     'change': 0,
+     'event': 'RTM_NEWLINK',             # [2]
+     'family': 0,
+     'flags': 65609,
+     'header': {'error': None,           # [3]
+                'flags': 2,
+                'length': 1180,
+                'pid': 28233,
+                'sequence_number': 257,  # [4]
+                'type': 16},             # [5]
+     'ifi_type': 772,
+     'index': 1}
+
+     # [1] every NLA is parsed upon access
+     # [2] this field is injected by the RTNL parser
+     # [3] if not None, an exception will be raised
+     # [4] more details in the netlink description
+     # [5] 16 == RTM_NEWLINK
+
+To access fields::
+
+    msg['index'] == 1
+
+To access one NLA::
+
+    msg.get_attr('IFLA_CARRIER') == 1
+
+When the NLA with the specified name is not present in the
+chain, `get_attr()` returns `None`. To get the list of all
+NLAs of that name, use `get_attrs()`. A real example with
+NLA hierarchy, take notice of `get_attr()` and
+`get_attrs()` usage::
+
+    # for macvlan interfaces there may be several
+    # IFLA_MACVLAN_MACADDR NLA provided, so use
+    # get_attrs() to get all the list, not only
+    # the first one
+
+    (msg
+     .get_attr('IFLA_LINKINFO')           # one NLA
+     .get_attr('IFLA_INFO_DATA')          # one NLA
+     .get_attrs('IFLA_MACVLAN_MACADDR'))  # a list of
+
+Pls read carefully the message structure prior to start the
+coding.
+
+Threaded vs. threadless architecture
 ------------------------------------
 
 Since v0.3.2, IPRoute class is threadless by default.
@@ -38,7 +151,7 @@ the programmer's perspective. Please read also
 `NetlinkSocket` documentation to know more about async
 mode.
 
-think about IPDB
+Think about IPDB
 ----------------
 
 If you plan to regularly fetch loads of objects, think
