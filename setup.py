@@ -9,11 +9,21 @@ SETUPLIB by default is `distutils.core`
 
 To use `setuptools`, run `make ... setuplib=setuptools`
 '''
+import os
 try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
 
+# When one runs pip install from the git repo, the setup.ini
+# doesn't exist. But we still have here a full git repo with
+# all the git log and with the Makefile.
+#
+# So just try to use it.
+try:
+    os.stat('setup.ini')
+except:
+    os.system('make force-version')
 config = configparser.ConfigParser()
 config.read('setup.ini')
 
