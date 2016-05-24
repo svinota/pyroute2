@@ -1411,6 +1411,41 @@ class TestExplicit(BasicSetup):
             return
         raise Exception('tuntap create succeded')
 
+    def test_bridge_controls_set(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+
+        self.ip.create(ifname=ifA,
+                       kind='dummy').commit()
+        self.ip.create(ifname=ifB,
+                       kind='bridge').commit()
+
+        with self.ip.interfaces[ifB] as i:
+            i.add_port(ifA)
+            i['br_stp_state'] = 0
+
+        assert self.ip.interfaces[ifB]['br_stp_state'] == 0
+        assert self.ip.interfaces[ifA]['master'] == \
+            self.ip.interfaces[ifB]['index']
+
+    def test_bridge_controls_add(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+
+        self.ip.create(ifname=ifA,
+                       kind='dummy').commit()
+        with self.ip.create(ifname=ifB, kind='bridge') as i:
+            i.add_port(ifA)
+            i.set_br_stp_state(0)
+
+        assert self.ip.interfaces[ifB]['br_stp_state'] == 0
+        assert self.ip.interfaces[ifA]['master'] == \
+            self.ip.interfaces[ifB]['index']
+
     @skip_if_not_supported
     def test_create_tuntap(self):
         require_user('root')
