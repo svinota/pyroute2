@@ -348,27 +348,35 @@ class IPLinkRequest(IPRequest):
             nla = ['IFTUN_IFR', value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'tuntap')
-        elif key.startswith('macvtap'):
+        elif key.startswith('macvtap_'):
             nla = [ifinfmsg.name2nla(key), value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'macvtap')
-        elif key.startswith('macvlan'):
+        elif key.startswith('macvlan_'):
             nla = [ifinfmsg.name2nla(key), value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'macvlan')
-        elif key.startswith('gre'):
+        elif key.startswith('gre_'):
             nla = [ifinfmsg.name2nla(key), value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'gre' or
                            x.get('kind', None) == 'gretap')
-        elif key.startswith('vxlan'):
+        elif key.startswith('vxlan_'):
             nla = [ifinfmsg.name2nla(key), value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'vxlan')
-        elif key.startswith('vrf'):
+        elif key.startswith('vrf_'):
             nla = [ifinfmsg.name2nla(key), value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'vrf')
+        elif key.startswith('br_'):
+            nla = [ifinfmsg.name2nla(key), value]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
+                           lambda x: x.get('kind', None) == 'bridge')
+        elif key.startswith('bond_'):
+            nla = [ifinfmsg.name2nla(key), value]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
+                           lambda x: x.get('kind', None) == 'bond')
         elif key == 'peer':
             if isinstance(value, dict):
                 attrs = []

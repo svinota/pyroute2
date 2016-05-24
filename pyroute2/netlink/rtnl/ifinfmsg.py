@@ -209,7 +209,6 @@ class protinfo_bridge(nla):
 
 
 class macvx_data(nla):
-    prefix = 'IFLA_'
     nla_map = (('IFLA_MACVLAN_UNSPEC', 'none'),
                ('IFLA_MACVLAN_MODE', 'mode'),
                ('IFLA_MACVLAN_FLAGS', 'flags'),
@@ -453,7 +452,6 @@ class ifinfbase(object):
             Fake data type
             '''
             prefix = 'IFTUN_'
-
             nla_map = (('IFTUN_UNSPEC', 'none'),
                        ('IFTUN_MODE', 'asciiz'),
                        ('IFTUN_UID', 'uint32'),
@@ -478,7 +476,6 @@ class ifinfbase(object):
                 return ifinfveth
 
         class vxlan_data(nla):
-            prefix = 'IFLA_'
             nla_map = (('IFLA_VXLAN_UNSPEC', 'none'),
                        ('IFLA_VXLAN_ID', 'uint32'),
                        ('IFLA_VXLAN_GROUP', 'ip4addr'),
@@ -511,8 +508,6 @@ class ifinfbase(object):
                           ('high', '>H'))
 
         class gre_data(nla):
-            prefix = 'IFLA_'
-
             nla_map = (('IFLA_GRE_UNSPEC', 'none'),
                        ('IFLA_GRE_LINK', 'uint32'),
                        ('IFLA_GRE_IFLAGS', 'uint16'),
@@ -541,8 +536,6 @@ class ifinfbase(object):
                        for x in macvx_data.nla_map]
 
         class ipvlan_data(nla):
-            prefix = 'IFLA_'
-
             nla_map = (('IFLA_IPVLAN_UNSPEC', 'none'),
                        ('IFLA_IPVLAN_MODE', 'uint16'))
 
@@ -572,7 +565,6 @@ class ifinfbase(object):
                               ('to', 'I'))
 
         class bridge_data(nla):
-            prefix = 'IFLA_BR_'
             nla_map = (('IFLA_BR_UNSPEC', 'none'),
                        ('IFLA_BR_FORWARD_DELAY', 'uint32'),
                        ('IFLA_BR_HELLO_TIME', 'uint32'),
@@ -618,7 +610,6 @@ class ifinfbase(object):
                 pass
 
         class bond_data(nla):
-            prefix = 'IFLA_BOND_'
             nla_map = (('IFLA_BOND_UNSPEC', 'none'),
                        ('IFLA_BOND_MODE', 'uint8'),
                        ('IFLA_BOND_ACTIVE_SLAVE', 'uint32'),
@@ -660,7 +651,6 @@ class ifinfbase(object):
                 fields = (('targets', '16I'), )
 
         class vrf_data(nla):
-            prefix = 'IFLA_'
             nla_map = (('IFLA_VRF_UNSPEC', 'none'),
                        ('IFLA_VRF_TABLE', 'uint32'))
 

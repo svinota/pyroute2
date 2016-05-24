@@ -5,7 +5,10 @@ import traceback
 from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.common import dqn2int
+from pyroute2.netlink import NLM_F_ACK
+from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.rtnl import RTM_NEWLINK
 from pyroute2.netlink.rtnl.req import IPLinkRequest
 from pyroute2.netlink.rtnl.ifinfmsg import IFF_MASK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -31,7 +34,7 @@ def _get_data_fields():
                  'ipvlan_data',
                  'vrf_data'):
         msg = getattr(ifinfmsg.ifinfo, data)
-        ret += [msg.nla2name(i[0]) for i in msg.nla_map]
+        ret += [ifinfmsg.nla2name(i[0]) for i in msg.nla_map]
     return ret
 
 
@@ -64,6 +67,9 @@ class Interface(Transactional):
                        'ports',
                        'net_ns_fd']
     _fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
+    for name in ('bridge_data', ):
+        data = getattr(ifinfmsg.ifinfo, name)
+        _fields.extend([ifinfmsg.nla2name(i[0]) for i in data.nla_map])
     _fields.append('index')
     _fields.append('flags')
     _fields.append('mask')
@@ -268,8 +274,8 @@ class Interface(Transactional):
                     if kind == 'vlan':
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
-                    if kind in ('vxlan', 'macvlan', 'macvtap',
-                                'gre', 'gretap', 'ipvlan'):
+                    if kind in ('vxlan', 'macvlan', 'macvtap', 'gre',
+                                'gretap', 'ipvlan', 'bridge'):
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         for nla in data.get('attrs', []):
                             norm = ifinfmsg.nla2name(nla[0])
@@ -694,15 +700,21 @@ class Interface(Transactional):
                         (key not in self._virtual_fields) and \
                         (key != 'kind'):
                     request[key] = added[key]
-            request['index'] = self['index']
 
             # apply changes only if there is something to apply
-            if any([request[item] is not None for item in request
-                    if item != 'index']):
+            if any([request[item] is not None for item in request]):
+                request['index'] = self['index']
+                request['kind'] = self['kind']
                 if request.get('address', None) == '00:00:00:00:00:00':
                     request.pop('address')
                     request.pop('broadcast', None)
-                run(nl.link, 'set', **request)
+                if filter(lambda x: x[:3] == 'br_', request):
+                    request['family'] = 7
+                    run(nl.link,
+                        (RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK),
+                        **request)
+                else:
+                    run(nl.link, 'set', **request)
                 # hardcoded pause -- if the interface was moved
                 # across network namespaces
                 if 'net_ns_fd' in request:
