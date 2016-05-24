@@ -1424,9 +1424,12 @@ class TestExplicit(BasicSetup):
 
         with self.ip.interfaces[ifB] as i:
             i.add_port(ifA)
+            i.up()
             i['br_stp_state'] = 0
+            i['br_forward_delay'] = 500
 
         assert self.ip.interfaces[ifB]['br_stp_state'] == 0
+        assert self.ip.interfaces[ifB]['br_forward_delay'] == 500
         assert self.ip.interfaces[ifA]['master'] == \
             self.ip.interfaces[ifB]['index']
 
@@ -1440,9 +1443,12 @@ class TestExplicit(BasicSetup):
                        kind='dummy').commit()
         with self.ip.create(ifname=ifB, kind='bridge') as i:
             i.add_port(ifA)
+            i.up()
             i.set_br_stp_state(0)
+            i.set_br_forward_delay(500)
 
         assert self.ip.interfaces[ifB]['br_stp_state'] == 0
+        assert self.ip.interfaces[ifB]['br_forward_delay'] == 500
         assert self.ip.interfaces[ifA]['master'] == \
             self.ip.interfaces[ifB]['index']
 
