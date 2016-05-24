@@ -8,7 +8,6 @@ import traceback
 import threading
 from pyroute2.netlink.exceptions import NetlinkError
 
-logging.basicConfig()
 log = logging.getLogger(__name__)
 
 

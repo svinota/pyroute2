@@ -6,7 +6,6 @@ from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.transactional import Transactional
 
-logging.basicConfig()
 log = logging.getLogger(__name__)
 
 

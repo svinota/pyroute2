@@ -519,7 +519,6 @@ from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.exceptions import CreateException
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 
-logging.basicConfig()
 log = logging.getLogger(__name__)
 
 

@@ -9,7 +9,6 @@ from pyroute2.common import rate_suffixes
 from pyroute2.common import basestring
 from pyroute2.netlink import nla
 
-logging.basicConfig()
 log = logging.getLogger(__name__)
 
 LINKLAYER_UNSPEC = 0

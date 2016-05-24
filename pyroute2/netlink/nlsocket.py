@@ -117,7 +117,6 @@ try:
 except ImportError:
     from queue import Queue
 
-logging.basicConfig()
 log = logging.getLogger(__name__)
 
 

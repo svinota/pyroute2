@@ -19,7 +19,6 @@ from pyroute2.ipdb.transactional import with_transaction
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 from pyroute2.ipdb.linkedset import LinkedSet
 
-logging.basicConfig()
 log = logging.getLogger(__name__)
 
 

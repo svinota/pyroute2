@@ -78,7 +78,6 @@ from pyroute2.netns import remove
 from pyroute2.remote import Server
 from pyroute2.remote import RemoteSocket
 
-logging.basicConfig()
 log = logging.getLogger(__name__)
 
 

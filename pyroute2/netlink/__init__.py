@@ -406,7 +406,6 @@ from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.exceptions import NetlinkDecodeError
 from pyroute2.netlink.exceptions import NetlinkNLADecodeError
 
-logging.basicConfig()
 log = logging.getLogger(__name__)
 # make pep8 happy
 _ne = NetlinkError        # reexport for compatibility

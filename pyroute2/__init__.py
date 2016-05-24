@@ -16,7 +16,6 @@ from pyroute2.netlink.exceptions import \
     NetlinkError, \
     NetlinkDecodeError
 
-logging.basicConfig()
 log = logging.getLogger(__name__)
 
 # reexport exceptions
