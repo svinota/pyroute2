@@ -1281,20 +1281,28 @@ class TestExplicit(BasicSetup):
 
         # change the interface somehow
         i2 = IPRoute()
-        i2.addr('delete', interface.index, '172.16.0.1', 24)
-        i2.addr('delete', interface.index, '172.16.1.1', 24)
+        for addr in ('172.16.0.1', '172.16.1.1'):
+            for _ in range(5):
+                try:
+                    i2.addr('delete', interface.index, addr, 24)
+                    break
+                except:
+                    pass
+                time.sleep(0.5)
         probe()
 
         # unfreeze
         self.ip.interfaces[self.ifd].unfreeze()
 
-        try:
-            i2.addr('delete', interface.index, '172.16.0.1', 24)
-            i2.addr('delete', interface.index, '172.16.1.1', 24)
-        except:
-            pass
-        finally:
-            i2.close()
+        for addr in ('172.16.0.1', '172.16.1.1'):
+            for _ in range(5):
+                try:
+                    i2.addr('delete', interface.index, addr, 24)
+                    break
+                except:
+                    pass
+                time.sleep(0.5)
+        i2.close()
 
         # should be up, but w/o addresses
         interface.ipaddr.set_target(set())
