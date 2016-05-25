@@ -96,7 +96,15 @@ class Rule(Transactional):
                     del self[item]
         return self
 
-    def commit(self, tid=None, transaction=None, rollback=False):
+    def commit(self,
+               tid=None,
+               transaction=None,
+               commit_phase=1,
+               commit_mask=0xff):
+
+        if not commit_phase & commit_mask:
+            return self
+
         error = None
         drop = True
         devop = 'set'
@@ -145,7 +153,8 @@ class Rule(Transactional):
                 transaction.wait_all_targets()
             # rule removal
             if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
-                    ((transaction['ipdb_scope'] == 'create') and rollback):
+                    ((transaction['ipdb_scope'] == 'create') and
+                     commit_phase == 2):
                 if transaction['ipdb_scope'] == 'shadow':
                     with self._direct_state:
                         self['ipdb_scope'] = 'locked'
@@ -165,8 +174,10 @@ class Rule(Transactional):
                 self.nl = None
                 self['ipdb_scope'] = 'invalid'
                 del self.ipdb.rules[self.make_key(self)]
-            elif not rollback:
-                ret = self.commit(transaction=snapshot, rollback=True)
+            elif commit_phase == 1:
+                ret = self.commit(transaction=snapshot,
+                                  commit_phase=2,
+                                  commit_mask=commit_mask)
                 if isinstance(ret, Exception):
                     error = ret
                 else:
@@ -178,7 +189,7 @@ class Rule(Transactional):
                 x.cause = e
                 raise x
 
-        if drop and not rollback:
+        if drop and commit_phase == 1:
             self.drop(transaction.uid)
 
         if error is not None:

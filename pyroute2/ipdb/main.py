@@ -857,7 +857,7 @@ class IPDB(object):
             device.begin()
         return device
 
-    def commit(self, transactions=None, rollback=False):
+    def commit(self, transactions=None, phase=1):
         # what to commit: either from transactions argument, or from
         # started transactions on existing objects
         if transactions is None:
@@ -884,22 +884,24 @@ class IPDB(object):
                 if tx['ipdb_scope'] == 'remove':
                     tx['ipdb_scope'] = 'shadow'
                     removed.append((target, tx))
-                if not rollback:
+                if phase == 1:
                     s = (target, target.pick(detached=True))
                     snapshots.append(s)
-                target.commit(transaction=tx, rollback=rollback)
+                target.commit(transaction=tx,
+                              commit_phase=phase,
+                              commit_mask=phase)
         except Exception:
-            if not rollback:
+            if phase == 1:
                 self.fallen = transactions
-                self.commit(transactions=snapshots, rollback=True)
+                self.commit(transactions=snapshots, phase=2)
             raise
         else:
-            if not rollback:
+            if phase == 1:
                 for (target, tx) in removed:
                     target['ipdb_scope'] = 'detached'
                     target.detach()
         finally:
-            if not rollback:
+            if phase == 1:
                 for (target, tx) in transactions:
                     target.drop(tx.uid)
 

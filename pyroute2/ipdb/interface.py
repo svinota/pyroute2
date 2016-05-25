@@ -144,7 +144,9 @@ class Interface(Transactional):
                 try:
                     # important: that's a rollback, so do not
                     # try to revert changes in the case of failure
-                    self.commit(transaction=dump, rollback=True)
+                    self.commit(transaction=dump,
+                                commit_phase=2,
+                                commit_mask=2)
                 except Exception:
                     pass
 
@@ -463,11 +465,20 @@ class Interface(Transactional):
         else:
             return self.ipdb.interfaces.get(port, {}).get('index', None)
 
-    def commit(self, tid=None, transaction=None, rollback=False, newif=False):
+    def commit(self,
+               tid=None,
+               transaction=None,
+               commit_phase=1,
+               commit_mask=0xff,
+               newif=False):
         '''
         Commit transaction. In the case of exception all
         changes applied during commit will be reverted.
         '''
+
+        if not commit_phase & commit_mask:
+            return self
+
         def invalidate():
             # on failure, invalidate the interface and detach it
             # from the parent
@@ -489,6 +500,8 @@ class Interface(Transactional):
         added = None
         removed = None
         drop = True
+        init = None
+
         if tid:
             transaction = self.global_tx[tid]
         else:
@@ -513,6 +526,7 @@ class Interface(Transactional):
                             self['address'] = None
                             self['broadcast'] = None
                     # 8<----------------------------------------------------
+                    init = self.pick()
                     try:
                         self.nl.link('add', **self)
                     except NetlinkError as x:
@@ -539,39 +553,34 @@ class Interface(Transactional):
                         else:
                             raise
                 except Exception as e:
-                    invalidate()
-                    self._exception = e
-                    self._tb = traceback.format_exc()
-                    # raise the exception
                     if transaction.partial:
                         transaction.errors.append(e)
                         raise PartialCommitException()
                     else:
+                        # If link('add', ...) raises an exception, no netlink
+                        # broadcast will be sent, and the object is unmodified.
+                        # After the exception forwarding, the object is ready
+                        # to repeat the commit() call.
                         raise
 
-        if newif:
-            # Here we come only if the new interface is created
+        if transaction['ipdb_scope'] == 'create' and commit_phase > 1:
+            if self['index']:
+                wd = self.ipdb.watchdog(action='RTM_DELLINK',
+                                        ifname=self['ifname'])
+                with self._direct_state:
+                    self['ipdb_scope'] = 'locked'
+                self.nl.link('delete', index=self['index'])
+                wd.wait()
+            self.load_dict(transaction)
+            return self
+
+        elif newif:
+            # Here we come only if a new interface is created
             #
-            if not rollback and not self.wait_target('ipdb_scope'):
+            if commit_phase == 1 and not self.wait_target('ipdb_scope'):
                 invalidate()
                 raise CreateException()
 
-            if self['index'] == 0:
-                # Only the interface creation time issue on
-                # old or compat platforms. The interface index
-                # may be not known yet, but we can not continue
-                # without it. It will be updated anyway, but
-                # it is better to force the lookup.
-                #
-                ix = self.nl.link_lookup(ifname=self['ifname'])
-                if ix:
-                    self['index'] = ix[0]
-                else:
-                    if transaction.partial:
-                        transaction.errors.append(CreateException())
-                        raise PartialCommitException()
-                    else:
-                        raise CreateException()
             # Re-populate transaction.ipaddr to have a proper IP target
             #
             # The reason behind the code is that a new interface in the
@@ -831,8 +840,7 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # Interface removal
-            if (added.get('ipdb_scope') in ('shadow', 'remove')) or\
-                    ((added.get('ipdb_scope') == 'create') and rollback):
+            if (added.get('ipdb_scope') in ('shadow', 'remove')):
                 wd = self.ipdb.watchdog(action='RTM_DELLINK',
                                         ifname=self['ifname'])
                 if added.get('ipdb_scope') in ('shadow', 'create'):
@@ -853,10 +861,13 @@ class Interface(Transactional):
         except Exception as e:
             error = e
             # something went wrong: roll the transaction back
-            if not rollback:
+            if commit_phase == 1:
+                if newif:
+                    drop = False
                 try:
-                    self.commit(transaction=snapshot,
-                                rollback=True,
+                    self.commit(transaction=init if newif else snapshot,
+                                commit_phase=2,
+                                commit_mask=commit_mask,
                                 newif=newif)
                 except Exception as i_e:
                     error = RuntimeError()
@@ -885,7 +896,7 @@ class Interface(Transactional):
             error = PartialCommitException('partial commit error')
 
         # if it is not a rollback turn
-        if drop and not rollback:
+        if drop and commit_phase == 1:
             # drop last transaction in any case
             self.drop(transaction.uid)
 

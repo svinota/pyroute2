@@ -1696,8 +1696,34 @@ class TestExplicit(BasicSetup):
         except NetlinkError:
             pass
 
-        assert i._mode == 'invalid'
-        assert ifA not in self.ip.interfaces
+        assert ifA in self.ip.interfaces
+        assert self.ip.interfaces[ifA]['ipdb_scope'] == 'create'
+        # mac specified in create()
+        assert self.ip.interfaces[ifA]['address'] == '11:22:33:44:55:66'
+
+    def test_create_fail_repeat(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        try:
+            with self.ip.create(kind='dummy', ifname=ifA) as i:
+                # invalid mac address
+                i['address'] = '11:22:33:44:55:66'
+        except NetlinkError:
+            pass
+
+        assert ifA in self.ip.interfaces
+        assert self.ip.interfaces[ifA]['ipdb_scope'] == 'create'
+        # mac NOT specified in create()
+        assert self.ip.interfaces[ifA]['address'] != '11:22:33:44:55:66'
+
+        # reset the mac to some valid, otherwise commit() will fail again
+        self.ip.interfaces[ifA]['address'] = '00:11:22:33:44:55'
+        self.ip.interfaces[ifA].commit()
+
+        assert self.ip.interfaces[ifA]['ipdb_scope'] == 'system'
+        assert self.ip.interfaces[ifA]['address'] is not None
+        assert self.ip.interfaces[ifA]['index'] > 0
 
     def test_create_dqn(self):
         require_user('root')
