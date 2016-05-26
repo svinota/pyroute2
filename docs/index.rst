@@ -27,8 +27,17 @@ Usage
     ipdb
     netns
 
-Contribution
-------------
+Howtos
+------
+
+.. toctree::
+    :maxdepth: 2
+
+    mpls
+    debug
+
+Development
+-----------
 
 .. toctree::
     :maxdepth: 2
@@ -37,9 +46,6 @@ Contribution
     arch
     netlink
     nlsocket
-    devmodules
-    dhcp
-
 
 Indices and tables
 ==================

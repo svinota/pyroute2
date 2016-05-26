@@ -5,6 +5,7 @@ from pyroute2.proxy import NetlinkProxy
 from pyroute2.netlink import NETLINK_ROUTE
 from pyroute2.netlink.nlsocket import Marshal
 from pyroute2.netlink.nlsocket import NetlinkSocket
+from pyroute2.netlink.nlsocket import BatchSocket
 from pyroute2.netlink import rtnl
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
@@ -14,8 +15,6 @@ from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifinfmsg import proxy_newlink
 from pyroute2.netlink.rtnl.ifinfmsg import proxy_setlink
-from pyroute2.netlink.rtnl.ifinfmsg import proxy_dellink
-from pyroute2.netlink.rtnl.ifinfmsg import proxy_linkinfo
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
 
@@ -65,26 +64,23 @@ class IPRSocketMixin(object):
         self._s_channel = None
         send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000, 0x1ffff),
                                    'monitor': False})
-        recv_ns = Namespace(self, {'addr_pool': AddrPool(0x20000, 0x2ffff),
-                                   'monitor': False})
         self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
         self._sproxy.pmap = {rtnl.RTM_NEWLINK: proxy_newlink,
-                             rtnl.RTM_SETLINK: proxy_setlink,
-                             rtnl.RTM_DELLINK: proxy_dellink}
-        self._rproxy = NetlinkProxy(policy='forward', nl=recv_ns)
-        self._rproxy.pmap = {rtnl.RTM_NEWLINK: proxy_linkinfo}
+                             rtnl.RTM_SETLINK: proxy_setlink}
+
+    def clone(self):
+        return type(self)()
 
     def bind(self, groups=rtnl.RTNL_GROUPS, async=False):
         super(IPRSocketMixin, self).bind(groups, async=async)
 
-    ##
-    # proxy-ng protocol
-    #
-    def sendto(self, data, address):
-        ret = self._sproxy.handle(data)
+    def _gate(self, msg, addr):
+        msg.reset()
+        msg.encode()
+        ret = self._sproxy.handle(msg)
         if ret is not None:
             if ret['verdict'] == 'forward':
-                return self._sendto(ret['data'], address)
+                return self._sendto(ret['data'], addr)
             elif ret['verdict'] in ('return', 'error'):
                 if self._s_channel is not None:
                     return self._s_channel.send(ret['data'])
@@ -100,18 +96,11 @@ class IPRSocketMixin(object):
             else:
                 ValueError('Incorrect verdict')
 
-        return self._sendto(data, address)
+        return self._sendto(msg.data, addr)
 
-    def recv(self, bufsize, flags=0):
-        data = self._recv(bufsize, flags)
-        ret = self._rproxy.handle(data)
-        if ret is not None:
-            if ret['verdict'] in ('forward', 'error'):
-                return ret['data']
-            else:
-                ValueError('Incorrect verdict')
 
-        return data
+class IPBatchSocket(IPRSocketMixin, BatchSocket):
+    pass
 
 
 class IPRSocket(IPRSocketMixin, NetlinkSocket):

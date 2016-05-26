@@ -119,7 +119,7 @@ class options(nla, nla_plus_police):
         fields = (('flags', 'B'),
                   ('offshift', 'B'),
                   ('nkeys', 'B'),
-                  ('__align', 'B'),
+                  ('__align', 'x'),
                   ('offmask', '>H'),
                   ('off', 'H'),
                   ('offoff', 'h'),
@@ -186,7 +186,7 @@ class options(nla, nla_plus_police):
                 value = int(key, 0)
                 bits = 24
                 if mask == 0 and value == 0:
-                    key = self.u32_key(self.buf)
+                    key = self.u32_key(data=self.data)
                     key['key_off'] = offset
                     key['key_mask'] = mask
                     key['key_val'] = value
@@ -205,7 +205,7 @@ class options(nla, nla_plus_police):
             for offset in range(256):
                 (bvalue, bmask) = header[offset]
                 if bmask > 0 and key is None:
-                    key = self.u32_key(self.buf)
+                    key = self.u32_key(data=self.data)
                     key['key_off'] = offset
                     key['key_mask'] = 0
                     key['key_val'] = 0
@@ -222,20 +222,28 @@ class options(nla, nla_plus_police):
             self['nkeys'] = len(keys)
             # FIXME: do not hardcode flags :)
             self['flags'] = 1
-            start = self.buf.tell()
 
             nla.encode(self)
+            offset = self.offset + 20  # 4 bytes header + 16 bytes fields
             for key in keys:
+                key.offset = offset
                 key.encode()
-            self.update_length(start)
+                offset += 16  # keys haven't header
+            self.length = offset - self.offset
+            struct.pack_into('H',
+                             self.data,
+                             self.offset,
+                             offset - self.offset)
 
         def decode(self):
             nla.decode(self)
+            offset = self.offset + 16
             self['keys'] = []
             nkeys = self['nkeys']
             while nkeys:
-                key = self.u32_key(self.buf)
+                key = self.u32_key(data=self.data, offset=offset)
                 key.decode()
+                offset += 16
                 self['keys'].append(key)
                 nkeys -= 1
 

@@ -107,6 +107,20 @@ IFF_VOLATILE = IFF_LOOPBACK |\
     IFF_LOWER_UP |\
     IFF_DORMANT
 
+##
+#
+# vlan filter flags
+#
+BRIDGE_VLAN_INFO_MASTER = 0x1       # operate on bridge device
+BRIDGE_VLAN_INFO_PVID = 0x2         # ingress untagged
+BRIDGE_VLAN_INFO_UNTAGGED = 0x4     # egress untagged
+BRIDGE_VLAN_INFO_RANGE_BEGIN = 0x8  # range start
+BRIDGE_VLAN_INFO_RANGE_END = 0x10   # range end
+BRIDGE_VLAN_INFO_BRENTRY = 0x20     # global bridge vlan entry
+(BRIDGE_VLAN_NAMES, BRIDGE_VLAN_VALUES) = \
+    map_namespace('BRIDGE_VLAN_INFO', globals())
+
+
 states = ('UNKNOWN',
           'NOTPRESENT',
           'DOWN',
@@ -195,7 +209,6 @@ class protinfo_bridge(nla):
 
 
 class macvx_data(nla):
-    prefix = 'IFLA_'
     nla_map = (('IFLA_MACVLAN_UNSPEC', 'none'),
                ('IFLA_MACVLAN_MODE', 'mode'),
                ('IFLA_MACVLAN_FLAGS', 'flags'),
@@ -243,7 +256,7 @@ class ifinfbase(object):
     prefix = 'IFLA_'
 
     fields = (('family', 'B'),
-              ('__align', 'B'),
+              ('__align', 'x'),
               ('ifi_type', 'H'),
               ('index', 'i'),
               ('flags', 'I'),
@@ -288,7 +301,9 @@ class ifinfbase(object):
                ('IFLA_PHYS_SWITCH_ID', 'hex'),
                ('IFLA_LINK_NETNSID', 'int32'),
                ('IFLA_PHYS_PORT_NAME', 'asciiz'),
-               ('IFLA_PROTO_DOWN', 'uint8'))
+               ('IFLA_PROTO_DOWN', 'uint8'),
+               ('IFLA_GSO_MAX_SEGS', 'uint32'),
+               ('IFLA_GSO_MAX_SIZE', 'uint32'))
 
     @staticmethod
     def flags2names(flags, mask=0xffffffff):
@@ -428,7 +443,8 @@ class ifinfbase(object):
                         'veth': self.veth_data,
                         'tuntap': self.tuntap_data,
                         'bridge': self.bridge_data,
-                        'ipvlan': self.ipvlan_data}
+                        'ipvlan': self.ipvlan_data,
+                        'vrf': self.vrf_data}
             return data_map.get(kind, self.hex)
 
         class tuntap_data(nla):
@@ -436,7 +452,6 @@ class ifinfbase(object):
             Fake data type
             '''
             prefix = 'IFTUN_'
-
             nla_map = (('IFTUN_UNSPEC', 'none'),
                        ('IFTUN_MODE', 'asciiz'),
                        ('IFTUN_UID', 'uint32'),
@@ -461,7 +476,6 @@ class ifinfbase(object):
                 return ifinfveth
 
         class vxlan_data(nla):
-            prefix = 'IFLA_'
             nla_map = (('IFLA_VXLAN_UNSPEC', 'none'),
                        ('IFLA_VXLAN_ID', 'uint32'),
                        ('IFLA_VXLAN_GROUP', 'ip4addr'),
@@ -494,8 +508,6 @@ class ifinfbase(object):
                           ('high', '>H'))
 
         class gre_data(nla):
-            prefix = 'IFLA_'
-
             nla_map = (('IFLA_GRE_UNSPEC', 'none'),
                        ('IFLA_GRE_LINK', 'uint32'),
                        ('IFLA_GRE_IFLAGS', 'uint16'),
@@ -524,8 +536,6 @@ class ifinfbase(object):
                        for x in macvx_data.nla_map]
 
         class ipvlan_data(nla):
-            prefix = 'IFLA_'
-
             nla_map = (('IFLA_IPVLAN_UNSPEC', 'none'),
                        ('IFLA_IPVLAN_MODE', 'uint16'))
 
@@ -538,15 +548,23 @@ class ifinfbase(object):
             nla_map = (('IFLA_VLAN_UNSPEC', 'none'),
                        ('IFLA_VLAN_ID', 'uint16'),
                        ('IFLA_VLAN_FLAGS', 'vlan_flags'),
-                       ('IFLA_VLAN_EGRESS_QOS', 'hex'),
-                       ('IFLA_VLAN_INGRESS_QOS', 'hex'))
+                       ('IFLA_VLAN_EGRESS_QOS', 'qos'),
+                       ('IFLA_VLAN_INGRESS_QOS', 'qos'),
+                       ('IFLA_VLAN_PROTOCOL', 'be16'))
 
             class vlan_flags(nla):
                 fields = (('flags', 'I'),
                           ('mask', 'I'))
 
+            class qos(nla):
+                nla_map = (('IFLA_VLAN_QOS_UNSPEC', 'none'),
+                           ('IFLA_VLAN_QOS_MAPPING', 'qos_mapping'))
+
+                class qos_mapping(nla):
+                    fields = (('from', 'I'),
+                              ('to', 'I'))
+
         class bridge_data(nla):
-            prefix = 'IFLA_BR_'
             nla_map = (('IFLA_BR_UNSPEC', 'none'),
                        ('IFLA_BR_FORWARD_DELAY', 'uint32'),
                        ('IFLA_BR_HELLO_TIME', 'uint32'),
@@ -592,7 +610,6 @@ class ifinfbase(object):
                 pass
 
         class bond_data(nla):
-            prefix = 'IFLA_BOND_'
             nla_map = (('IFLA_BOND_UNSPEC', 'none'),
                        ('IFLA_BOND_MODE', 'uint8'),
                        ('IFLA_BOND_ACTIVE_SLAVE', 'uint32'),
@@ -633,6 +650,10 @@ class ifinfbase(object):
             class arp_ip_target(nla):
                 fields = (('targets', '16I'), )
 
+        class vrf_data(nla):
+            nla_map = (('IFLA_VRF_UNSPEC', 'none'),
+                       ('IFLA_VRF_TABLE', 'uint32'))
+
     @staticmethod
     def af_spec(self, *argv, **kwarg):
         specs = {0: self.af_spec_inet,
@@ -650,6 +671,28 @@ class ifinfbase(object):
         class vlan_info(nla):
             fields = (('flags', 'H'),
                       ('vid', 'H'))
+
+            @staticmethod
+            def flags2names(flags):
+                ret = []
+                for flag in BRIDGE_VLAN_VALUES:
+                    if (flag & flags) == flag:
+                        ret.append(BRIDGE_VLAN_VALUES[flag])
+                return ret
+
+            @staticmethod
+            def names2flags(flags):
+                ret = 0
+                for flag in flags:
+                    ret |= BRIDGE_VLAN_NAMES['BRIDGE_VLAN_INFO_' +
+                                             flag.upper()]
+                return ret
+
+            def encode(self):
+                # convert flags
+                if isinstance(self['flags'], (set, tuple, list)):
+                    self['flags'] = self.names2flags(self['flags'])
+                return super(nla, self).encode()
 
     class af_spec_inet(nla):
         nla_map = (('AF_UNSPEC', 'none'),
@@ -810,89 +853,7 @@ class ifinfveth(ifinfbase, nla):
     pass
 
 
-def compat_fix_attrs(msg, nl):
-    kind = None
-    ifname = msg.get_attr('IFLA_IFNAME')
-
-    # fix master
-    if not nl.capabilities['provide_master']:
-        master = compat_get_master(ifname)
-        if master is not None:
-            msg['attrs'].append(['IFLA_MASTER', master])
-
-    # fix linkinfo & kind
-    li = msg.get_attr('IFLA_LINKINFO')
-    if li is not None:
-        kind = li.get_attr('IFLA_INFO_KIND')
-        if kind is None:
-            kind = get_interface_type(ifname)
-            li['attrs'].append(['IFLA_INFO_KIND', kind])
-    else:
-        kind = get_interface_type(ifname)
-        msg['attrs'].append(['IFLA_LINKINFO',
-                             {'attrs': [['IFLA_INFO_KIND', kind]]}])
-
-    li = msg.get_attr('IFLA_LINKINFO')
-    # fetch specific interface data
-
-    if (kind in ('bridge', 'bond')) and \
-            [x for x in li['attrs'] if x[0] == 'IFLA_INFO_DATA']:
-        if kind == 'bridge':
-            t = '/sys/class/net/%s/bridge/%s'
-            ifdata = ifinfmsg.ifinfo.bridge_data
-        elif kind == 'bond':
-            t = '/sys/class/net/%s/bonding/%s'
-            ifdata = ifinfmsg.ifinfo.bond_data
-
-        commands = []
-        for cmd, _ in ifdata.nla_map:
-            try:
-                with open(t % (ifname, ifdata.nla2name(cmd)), 'r') as f:
-                    value = f.read()
-                if cmd == 'IFLA_BOND_MODE':
-                    value = value.split()[1]
-                commands.append([cmd, int(value)])
-            except:
-                pass
-        if commands:
-            li['attrs'].append(['IFLA_INFO_DATA', {'attrs': commands}])
-
-
-def proxy_linkinfo(data, nl):
-    if config.kernel > [3, 2, 0]:
-        return {'verdict': 'forward',
-                'data': data}
-
-    offset = 0
-    inbox = []
-    while offset < len(data):
-        msg = ifinfmsg(data[offset:])
-        msg.decode()
-        inbox.append(msg)
-        offset += msg['header']['length']
-
-    data = b''
-    for msg in inbox:
-        # Sysfs operations can require root permissions,
-        # but the script can be run under a normal user
-        # Bug-Url: https://github.com/svinota/pyroute2/issues/113
-        try:
-            compat_fix_attrs(msg, nl)
-        except OSError:
-            # We can safely ignore here any OSError.
-            # In the worst case, we just return what we have got
-            # from the kernel via netlink
-            pass
-
-        msg.reset()
-        msg.encode()
-        data += msg.buf.getvalue()
-
-    return {'verdict': 'forward',
-            'data': data}
-
-
-def proxy_setlink(data, nl):
+def proxy_setlink(msg, nl):
 
     def get_interface(index):
         msg = nl.get_links(index)[0]
@@ -904,36 +865,7 @@ def proxy_setlink(data, nl):
                 'master': msg.get_attr('IFLA_MASTER'),
                 'kind': kind}
 
-    msg = ifinfmsg(data)
-    msg.decode()
     forward = True
-
-    kind = None
-    infodata = None
-
-    ifname = msg.get_attr('IFLA_IFNAME') or \
-        get_interface(msg['index'])['ifname']
-    linkinfo = msg.get_attr('IFLA_LINKINFO')
-    if linkinfo:
-        kind = linkinfo.get_attr('IFLA_INFO_KIND')
-        infodata = linkinfo.get_attr('IFLA_INFO_DATA')
-
-    if kind in ('bond', 'bridge') and infodata is not None:
-        code = 0
-        #
-        if kind == 'bond':
-            func = compat_set_bond
-        elif kind == 'bridge':
-            func = compat_set_bridge
-        #
-        for (cmd, value) in infodata.get('attrs', []):
-            cmd = infodata.nla2name(cmd)
-            code = func(ifname, cmd, value) or code
-        #
-        if code:
-            err = OSError()
-            err.errno = code
-            raise err
 
     # is it a port setup?
     master = msg.get_attr('IFLA_MASTER')
@@ -951,18 +883,18 @@ def proxy_setlink(data, nl):
             master = get_interface(master)
             cmd = 'add'
 
+        ifname = msg.get_attr('IFLA_IFNAME') or \
+            get_interface(msg['index'])['ifname']
+
         # 2. manage the port
-        forward_map = {'team': manage_team_port,
-                       'bridge': compat_bridge_port,
-                       'bond': compat_bond_port}
-        forward = forward_map[master['kind']](cmd,
-                                              master['ifname'],
-                                              ifname,
-                                              nl)
+        forward_map = {'team': manage_team_port}
+        if master['kind'] in forward_map:
+            func = forward_map[master['kind']]
+            forward = func(cmd, master['ifname'], ifname, nl)
 
     if forward is not None:
         return {'verdict': 'forward',
-                'data': data}
+                'data': msg.data}
 
 
 def sync(f):
@@ -1020,33 +952,7 @@ def sync(f):
     return decorated
 
 
-def proxy_dellink(data, nl):
-    orig_msg = ifinfmsg(data)
-    orig_msg.decode()
-
-    # get full interface description
-    msg = nl.get_links(orig_msg['index'])[0]
-    msg['header']['type'] = orig_msg['header']['type']
-
-    # get the interface kind
-    kind = None
-    li = msg.get_attr('IFLA_LINKINFO')
-    if li is not None:
-        kind = li.get_attr('IFLA_INFO_KIND')
-
-    # team interfaces can be stopped by a normal RTM_DELLINK
-    if kind == 'bond' and not nl.capabilities['create_bond']:
-        return compat_del_bond(msg)
-    elif kind == 'bridge' and not nl.capabilities['create_bridge']:
-        return compat_del_bridge(msg)
-
-    return {'verdict': 'forward',
-            'data': data}
-
-
-def proxy_newlink(data, nl):
-    msg = ifinfmsg(data)
-    msg.decode()
+def proxy_newlink(msg, nl):
     kind = None
 
     # get the interface kind
@@ -1061,13 +967,9 @@ def proxy_newlink(data, nl):
         return manage_tuntap(msg)
     elif kind == 'team':
         return manage_team(msg)
-    elif kind == 'bond' and not nl.capabilities['create_bond']:
-        return compat_create_bond(msg)
-    elif kind == 'bridge' and not nl.capabilities['create_bridge']:
-        return compat_create_bridge(msg)
 
     return {'verdict': 'forward',
-            'data': data}
+            'data': msg.data}
 
 
 @map_enoent
@@ -1147,132 +1049,3 @@ def manage_tuntap(msg):
         raise
     finally:
         os.close(fd)
-
-
-@sync
-def compat_create_bridge(msg):
-    name = msg.get_attr('IFLA_IFNAME')
-    with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['brctl', 'addbr', name],
-                              stdout=fnull,
-                              stderr=fnull)
-
-
-@sync
-def compat_create_bond(msg):
-    name = msg.get_attr('IFLA_IFNAME')
-    with open(_BONDING_MASTERS, 'w') as f:
-        f.write('+%s' % (name))
-
-
-def compat_set_bond(name, cmd, value):
-    # FIXME: join with bridge
-    # FIXME: use internal IO, not bash
-    t = 'echo %s >/sys/class/net/%s/bonding/%s'
-    with open(os.devnull, 'w') as fnull:
-        return subprocess.call(['bash', '-c', t % (value, name, cmd)],
-                               stdout=fnull,
-                               stderr=fnull)
-
-
-def compat_set_bridge(name, cmd, value):
-    t = 'echo %s >/sys/class/net/%s/bridge/%s'
-    with open(os.devnull, 'w') as fnull:
-        return subprocess.call(['bash', '-c', t % (value, name, cmd)],
-                               stdout=fnull,
-                               stderr=fnull)
-
-
-@sync
-def compat_del_bridge(msg):
-    name = msg.get_attr('IFLA_IFNAME')
-    with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['ip', 'link', 'set',
-                               'dev', name, 'down'])
-        subprocess.check_call(['brctl', 'delbr', name],
-                              stdout=fnull,
-                              stderr=fnull)
-
-
-@sync
-def compat_del_bond(msg):
-    name = msg.get_attr('IFLA_IFNAME')
-    subprocess.check_call(['ip', 'link', 'set',
-                           'dev', name, 'down'])
-    with open(_BONDING_MASTERS, 'w') as f:
-        f.write('-%s' % (name))
-
-
-def compat_bridge_port(cmd, master, port, nl):
-    if nl.capabilities['create_bridge']:
-        return True
-    with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['brctl', '%sif' % (cmd), master, port],
-                              stdout=fnull,
-                              stderr=fnull)
-
-
-def compat_bond_port(cmd, master, port, nl):
-    if nl.capabilities['create_bond']:
-        return True
-    remap = {'add': '+',
-             'del': '-'}
-    cmd = remap[cmd]
-    with open(_BONDING_SLAVES % (master), 'w') as f:
-        f.write('%s%s' % (cmd, port))
-
-
-def compat_get_master(name):
-    f = None
-
-    for i in (_BRIDGE_MASTER, _BONDING_MASTER):
-        try:
-            try:
-                f = open(i % (name))
-            except UnicodeEncodeError:
-                # a special case with python3 on Ubuntu 14
-                f = open(i % (name.encode('utf-8')))
-            break
-        except IOError:
-            pass
-
-    if f is not None:
-        master = int(f.read())
-        f.close()
-        return master
-
-
-def get_interface_type(name):
-    '''
-    Utility function to get interface type.
-
-    Unfortunately, we can not rely on RTNL or even ioctl().
-    RHEL doesn't support interface type in RTNL and doesn't
-    provide extended (private) interface flags via ioctl().
-
-    Args:
-    * name (str): interface name
-
-    Returns:
-    * False -- sysfs info unavailable
-    * None -- type not known
-    * str -- interface type:
-        - 'bond'
-        - 'bridge'
-    '''
-    # FIXME: support all interface types? Right now it is
-    # not needed
-    try:
-        ifattrs = os.listdir('/sys/class/net/%s/' % (name))
-    except OSError as e:
-        if e.errno == 2:
-            return 'unknown'
-        else:
-            raise
-
-    if 'bonding' in ifattrs:
-        return 'bond'
-    elif 'bridge' in ifattrs:
-        return 'bridge'
-    else:
-        return 'unknown'

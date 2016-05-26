@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 '''
 
-iproute quickstart
+IPRoute quickstart
 ------------------
 
 **IPRoute** in two words::
@@ -16,7 +16,120 @@ iproute quickstart
     $ python example.py
     ['lo', 'p6p1', 'wlan0', 'virbr0', 'virbr0-nic']
 
-threaded vs. threadless architecture
+Responses
+---------
+
+The pyroute2 netlink socket implementation is agnostic
+to the particular netlink protocols, and always returns
+a list of messages as the response to a request sent to
+the kernel::
+
+    # this request returns one match
+    eth0 = ipr.link_lookup(ifname='eth0')
+    len(eth0)  # -> 1, if exists, else 0
+
+    # but that one returns a set of
+    up = ipr.link_lookup(operstate='UP')
+    len(up)  # -> k, where 0 <= k <= [interface count]
+
+Thus, always expect a list in the response, running any
+`IPRoute()` netlink request.
+
+NLMSG_ERROR responses
+~~~~~~~~~~~~~~~~~~~~~
+
+Some kernel subsystems return `NLMSG_ERROR` in the response
+to any request. It is OK as long as
+`nlmsg["header"]["error"] is None`. Otherwise an
+exception will be raised by the parser.
+
+So if instead of an exception you get a `NLMSG_ERROR` message,
+it means `error == 0`, the same as `$? == 0` in bash.
+
+How to work with messages
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Every netlink message contains header, fields and NLAs
+(netlink attributes). Every NLA is a netlink message...
+(see "recursion").
+
+And the library provides parsed messages according to
+this scheme. Every RTNL message contains:
+
+* `nlmsg['header']` -- parsed header
+* `nlmsg['attrs']` -- NLA chain (parsed on demand)
+* 0 .. k data fields, e.g. `nlmsg['flags']` etc.
+* `nlmsg.header` -- the header fields spec
+* `nlmsg.fields` -- the data fields spec
+* `nlmsg.nla_map` -- NLA spec
+
+An important parser feature is that NLAs are parsed
+on demand, when someone tries to access them. Otherwise
+the parser doesn't waste CPU cycles.
+
+The NLA chain is a list-like structure, not a dictionary.
+The netlink standard doesn't require NLAs to be unique
+within one message::
+
+    {'__align': (),
+     'attrs': [('IFLA_IFNAME', 'lo'),    # [1]
+               ('IFLA_TXQLEN', 1),
+               ('IFLA_OPERSTATE', 'UNKNOWN'),
+               ('IFLA_LINKMODE', 0),
+               ('IFLA_MTU', 65536),
+               ('IFLA_GROUP', 0),
+               ('IFLA_PROMISCUITY', 0),
+               ('IFLA_NUM_TX_QUEUES', 1),
+               ('IFLA_NUM_RX_QUEUES', 1),
+               ('IFLA_CARRIER', 1),
+               ...],
+     'change': 0,
+     'event': 'RTM_NEWLINK',             # [2]
+     'family': 0,
+     'flags': 65609,
+     'header': {'error': None,           # [3]
+                'flags': 2,
+                'length': 1180,
+                'pid': 28233,
+                'sequence_number': 257,  # [4]
+                'type': 16},             # [5]
+     'ifi_type': 772,
+     'index': 1}
+
+     # [1] every NLA is parsed upon access
+     # [2] this field is injected by the RTNL parser
+     # [3] if not None, an exception will be raised
+     # [4] more details in the netlink description
+     # [5] 16 == RTM_NEWLINK
+
+To access fields::
+
+    msg['index'] == 1
+
+To access one NLA::
+
+    msg.get_attr('IFLA_CARRIER') == 1
+
+When the NLA with the specified name is not present in the
+chain, `get_attr()` returns `None`. To get the list of all
+NLAs of that name, use `get_attrs()`. A real example with
+NLA hierarchy, take notice of `get_attr()` and
+`get_attrs()` usage::
+
+    # for macvlan interfaces there may be several
+    # IFLA_MACVLAN_MACADDR NLA provided, so use
+    # get_attrs() to get all the list, not only
+    # the first one
+
+    (msg
+     .get_attr('IFLA_LINKINFO')           # one NLA
+     .get_attr('IFLA_INFO_DATA')          # one NLA
+     .get_attrs('IFLA_MACVLAN_MACADDR'))  # a list of
+
+Pls read carefully the message structure prior to start the
+coding.
+
+Threaded vs. threadless architecture
 ------------------------------------
 
 Since v0.3.2, IPRoute class is threadless by default.
@@ -38,7 +151,7 @@ the programmer's perspective. Please read also
 `NetlinkSocket` documentation to know more about async
 mode.
 
-think about IPDB
+Think about IPDB
 ----------------
 
 If you plan to regularly fetch loads of objects, think
@@ -99,29 +212,32 @@ from pyroute2.netlink.rtnl import RTM_DELNEIGH
 from pyroute2.netlink.rtnl import RTM_SETLINK
 from pyroute2.netlink.rtnl import RTM_GETNEIGHTBL
 from pyroute2.netlink.rtnl import TC_H_ROOT
-from pyroute2.netlink.rtnl import rtprotos
-from pyroute2.netlink.rtnl import rtypes
-from pyroute2.netlink.rtnl import rtscopes
+from pyroute2.netlink.rtnl import rt_type
+from pyroute2.netlink.rtnl import rt_scope
+from pyroute2.netlink.rtnl import rt_proto
 from pyroute2.netlink.rtnl.req import IPLinkRequest
 from pyroute2.netlink.rtnl.req import IPBridgeRequest
 from pyroute2.netlink.rtnl.req import IPRouteRequest
+from pyroute2.netlink.rtnl.req import IPRuleRequest
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl import ndmsg
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
-from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
+from pyroute2.netlink.rtnl.iprsocket import IPBatchSocket
 from pyroute2.netlink.rtnl.iprsocket import RawIPRSocket
 
+from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
 from pyroute2.common import getbroadcast
 from pyroute2.netlink.exceptions import NetlinkError
 
 DEFAULT_TABLE = 254
+log = logging.getLogger(__name__)
 
 
 def transform_handle(handle):
@@ -134,10 +250,12 @@ def transform_handle(handle):
 class IPRouteMixin(object):
     '''
     `IPRouteMixin` should not be instantiated by itself. It is intended
-    to be used as a mixin class that provides iproute2-like API. You
-    should use `IPRoute` or `NetNS` classes.
+    to be used as a mixin class that provides RTNL API. Following classes
+    use `IPRouteMixin`:
 
-    All following info you can consider as IPRoute info as well.
+    * `IPRoute` -- RTNL API to the current network namespace
+    * `NetNS` -- RTNL API to another network namespace
+    * `IPBatch` -- RTNL compiler
 
     It is an old-school API, that provides access to rtnetlink as is.
     It helps you to retrieve and change almost all the data, available
@@ -270,8 +388,8 @@ class IPRouteMixin(object):
         '''
         Alias of `get_neighbours()`, deprecated.
         '''
-        logging.warning('The `get_neighbors()` call is deprecated')
-        logging.warning('Use `get_neighbours() instead')
+        log.warning('The `get_neighbors()` call is deprecated')
+        log.warning('Use `get_neighbours() instead')
         return self.get_neighbours(family)
 
     def get_neighbours(self, family=AF_UNSPEC, match=None, **kwarg):
@@ -401,35 +519,35 @@ class IPRouteMixin(object):
         # Create interface
         #
         # Obsoleted method. Use `link("add", ...)` instead.
-        logging.warning("link_create() is obsoleted, use link('add', ...)")
+        log.warning("link_create() is obsoleted, use link('add', ...)")
         return self.link('add', **IPLinkRequest(kwarg))
 
     def link_up(self, index):
         # Link up.
         #
         # Obsoleted method. Use `link("set", ...)` instead.
-        logging.warning("link_up() is obsoleted, use link('set', ...)")
+        log.warning("link_up() is obsoleted, use link('set', ...)")
         return self.link('set', index=index, state='up')
 
     def link_down(self, index):
         # Link up.
         #
         # Obsoleted method. Use `link("set", ...)` instead.
-        logging.warning("link_down() is obsoleted, use link('set', ...)")
+        log.warning("link_down() is obsoleted, use link('set', ...)")
         return self.link('set', index=index, state='down')
 
     def link_rename(self, index, name):
         # Rename interface.
         #
         # Obsoleted method. Use `link("set", ...)` instead.
-        logging.warning("link_rename() is obsoleted, use link('set', ...)")
+        log.warning("link_rename() is obsoleted, use link('set', ...)")
         return self.link('set', index=index, ifname=name)
 
     def link_remove(self, index):
         # Remove interface.
         #
         # Obsoleted method. Use `link("del", ...)` instead.
-        logging.warning("link_remove() is obsoleted, use link('del', ...)")
+        log.warning("link_remove() is obsoleted, use link('del', ...)")
         return self.link('del', index=index)
 
     def link_lookup(self, **kwarg):
@@ -456,7 +574,12 @@ class IPRouteMixin(object):
         return [k['index'] for k in
                 [i for i in self.get_links() if 'attrs' in i] if
                 [l for l in k['attrs'] if l[0] == name and l[1] == value]]
+    # 8<---------------------------------------------------------------
 
+    # 8<---------------------------------------------------------------
+    #
+    # Shortcuts to flush RTNL objects
+    #
     def flush_routes(self, *argv, **kwarg):
         '''
         Flush routes -- purge route records from a table.
@@ -475,7 +598,7 @@ class IPRouteMixin(object):
 
     def flush_addr(self, *argv, **kwarg):
         '''
-        Flush addresses.
+        Flush IP addresses.
 
         Examples::
 
@@ -543,7 +666,7 @@ class IPRouteMixin(object):
             net --> | eth2 | <--> | eth0.500 | <---+
                     +------+      +----------+
 
-        It means that one had to create as many bridges, as there were
+        It means that one has to create as many bridges, as there were
         vlans. Vlan filters allow to bridge together underlying interfaces
         and create vlans already on the bridge::
 
@@ -618,6 +741,23 @@ class IPRouteMixin(object):
         More details:
             * kernel:Documentation/networking/switchdev.txt
             * pyroute2.netlink.rtnl.ifinfmsg:... vlan_info
+
+        One can specify `flags` as int or as a list of flag names:
+            * `master` == 0x1
+            * `pvid` == 0x2
+            * `untagged` == 0x4
+            * `range_begin` == 0x8
+            * `range_end` == 0x10
+            * `brentry` == 0x20
+
+        E.g.::
+
+            {"vid": 20,
+             "flags": ["pvid", "untagged"]}
+
+            # is equal to
+            {"vid": 20,
+             "flags": 6}
 
         Commands:
 
@@ -741,12 +881,33 @@ class IPRouteMixin(object):
         '''
         Neighbours operations, same as `ip neigh` or `bridge fdb`
 
-        * command -- add, delete, change, replace
-        * match -- match rules
-        * ifindex -- device index
-        * family -- family: AF_INET, AF_INET6, AF_BRIDGE
-        * \*\*kwarg -- msg fields and NLA
+        **add**
 
+        Add a neighbour record, e.g.::
+
+            # add a permanent record on veth0
+            idx = ip.link_lookup(ifname='veth0')[0]
+            ip.neigh('add',
+                     dst='172.16.45.1',
+                     lladdr='00:11:22:33:44:55',
+                     ifindex=ip.link_lookup(ifname='veth0')[0]
+                     state=ndmsg.states['permanent'])
+
+        **set**
+
+        Set an existing record or create a new one, if it doesn't exist.
+
+        **change**
+
+        Change an existing record or fail, if it doesn't exist.
+
+        **del**
+
+        Delete an existing record.
+
+        **dump**
+
+        Dump all the records in the NDB.
         '''
 
         if (command == 'dump') and ('match' not in kwarg):
@@ -799,11 +960,10 @@ class IPRouteMixin(object):
         Link operations.
 
         Keywords to set up ifinfmsg fields:
-
-        * index -- interface index
-        * family -- AF_BRIDGE for bridge operations, otherwise 0
-        * flags -- device flags
-        * change -- change mask
+            * index -- interface index
+            * family -- AF_BRIDGE for bridge operations, otherwise 0
+            * flags -- device flags
+            * change -- change mask
 
         All other keywords will be translated to NLA names, e.g.
         `mtu -> IFLA_MTU`, `af_spec -> IFLA_AF_SPEC` etc. You can
@@ -814,12 +974,10 @@ class IPRouteMixin(object):
             ip.link("set", index=x, mtu=1000)
             ip.link("set", index=x, IFLA_MTU=1000)
 
-            # add vlan filter on a bridge port
-            ip.link("vlan-add", index=x,
-                    vlan_info={"vid": 500})
-            ip.link("vlan-add", index=x,
-                    IFLA_AF_SPEC={'attrs': [['IFLA_BRIDGE_VLAN_INFO',
-                                             {'vid': 500}]]})
+            # add vlan device
+            ip.link("add", ifname="test", kind="dummy")
+            ip.link("add", ifname="test",
+                    IFLA_LINKINFO={'attrs': [['IFLA_INFO_KIND', 'dummy']]})
 
         Filters are implemented in the `pyroute2.netlink.rtnl.req` module.
         You can contribute your own if you miss shortcuts.
@@ -938,6 +1096,15 @@ class IPRouteMixin(object):
                     link=ip.link_lookup(ifname="eth0")[0],
                     vlan_id=100)
 
+        ► vrf
+
+        VRF interfaces (see linux/Documentation/networking/vrf.txt)::
+
+            ip.link("add",
+                    ifname="vrf-foo",
+                    kind="vrf",
+                    vrf_table=42)
+
         ► vxlan
 
         VXLAN interfaces are like VLAN ones, but require a bit more
@@ -999,8 +1166,8 @@ class IPRouteMixin(object):
         '''
 
         if command[:4] == 'vlan':
-            logging.warning('vlan filters are managed via `vlan_filter()`')
-            logging.warning('this compatibility hack will be removed soon')
+            log.warning('vlan filters are managed via `vlan_filter()`')
+            log.warning('this compatibility hack will be removed soon')
             return self.vlan_filter(command[5:], **kwarg)
 
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
@@ -1052,31 +1219,9 @@ class IPRouteMixin(object):
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
-        def update_caps(e):
-            # update capabilities, if needed
-            if e.code == errno.EOPNOTSUPP:
-                kind = None
-                li = msg.get_attr('IFLA_LINKINFO')
-                if li:
-                    attrs = li.get('attrs', [])
-                    for attr in attrs:
-                        if attr[0] == 'IFLA_INFO_KIND':
-                            kind = attr[1]
-                if kind == 'bond' and self.capabilities['create_bond']:
-                    self.capabilities['create_bond'] = False
-                    return
-                if kind == 'bridge' and self.capabilities['create_bridge']:
-                    self.capabilities['create_bridge'] = False
-                    return
-
-            # let the exception to be forwarded
-            return True
-
         return self.nlm_request(msg,
                                 msg_type=command,
-                                msg_flags=msg_flags,
-                                exception_catch=NetlinkError,
-                                exception_handler=update_caps)
+                                msg_flags=msg_flags)
 
     def addr(self, command, index=None, address=None, mask=None,
              family=None, scope=None, match=None, **kwarg):
@@ -1304,12 +1449,14 @@ class IPRouteMixin(object):
         '''
         Route operations.
 
-        * command -- add, delete, change, replace
-        * rtype -- route type (default: "RTN_UNICAST")
-        * rtproto -- routing protocol (default: "RTPROT_STATIC")
-        * rtscope -- routing scope (default: "RT_SCOPE_UNIVERSE")
-        * family -- socket.AF_INET (default) or socket.AF_INET6
-        * mask -- route prefix mask
+        Keywords to set up rtmsg fields:
+
+        * dst_len, src_len -- destination and source mask(see `dst` below)
+        * tos -- type of service
+        * table -- routing table
+        * proto -- `redirect`, `boot`, `static` (see `rt_proto`)
+        * scope -- routing realm
+        * type -- `unicast`, `local`, etc. (see `rt_type`)
 
         `pyroute2/netlink/rtnl/rtmsg.py` rtmsg.nla_map:
 
@@ -1323,13 +1470,16 @@ class IPRouteMixin(object):
 
         etc.
 
+        One can specify mask not as `dst_len`, but as a part of `dst`,
+        e.g.: `dst="10.0.0.0/24"`.
+
+        Commands:
+
+        **add**
+
         Example::
 
-            ip.route("add", dst="10.0.0.0", mask=24, gateway="192.168.0.1")
-
-        Commands `change` and `replace` have the same meanings, as
-        in ip-route(8): `change` modifies only existing route, while
-        `replace` creates a new one, if there is no such route yet.
+            ip.route("add", dst="10.0.0.0/24", gateway="192.168.0.1")
 
         It is possible to set also route metrics. There are two ways
         to do so. The first is to use 'raw' NLA notation::
@@ -1342,7 +1492,7 @@ class IPRouteMixin(object):
                                         ["RTAX_HOPLIMIT", 16]]})
 
         The second way is to use shortcuts, provided by `IPRouteRequest`
-        class, which is applied to `**kwarg` automatically:
+        class, which is applied to `**kwarg` automatically::
 
             ip.route("add",
                      dst="10.0.0.0/24",
@@ -1352,7 +1502,13 @@ class IPRouteMixin(object):
 
         ...
 
-        More `route()` examples. Multipath route::
+        More `route()` examples. Blackhole route::
+
+            ip.route("add",
+                     dst="10.0.0.0/24",
+                     type="blackhole")
+
+        Multipath route::
 
             ip.route("add",
                      dst="10.0.0.0/24",
@@ -1394,6 +1550,24 @@ class IPRouteMixin(object):
                        "label": 300,
                        "tc": 0,
                        "ttl": 16}
+
+        **change**, **replace**
+
+        Commands `change` and `replace` have the same meanings, as
+        in ip-route(8): `change` modifies only existing route, while
+        `replace` creates a new one, if there is no such route yet.
+
+        **del**
+
+        Remove the route. The same syntax as for **add**.
+
+        **get**
+
+        Get route by spec.
+
+        **dump**
+
+        Dump all routes.
         '''
 
         # 8<----------------------------------------------------
@@ -1406,6 +1580,10 @@ class IPRouteMixin(object):
         flags_replace = flags_change | NLM_F_CREATE
         # 8<----------------------------------------------------
         # transform kwarg
+
+        if command in ('add', 'set', 'replace', 'change'):
+            kwarg['proto'] = kwarg.get('proto', 'static') or 'static'
+            kwarg['type'] = kwarg.get('type', 'unicast') or 'unicast'
         kwarg = IPRouteRequest(kwarg)
         if command == 'dump':
             match = kwarg
@@ -1430,19 +1608,19 @@ class IPRouteMixin(object):
         table = kwarg.get('table', 254)
         msg['table'] = table if table <= 255 else 252
         msg['family'] = kwarg.pop('family', AF_INET)
-        msg['proto'] = rtprotos[kwarg.pop('rtproto', 'RTPROT_STATIC')]
-        msg['type'] = rtypes[kwarg.pop('rtype', 'RTN_UNICAST')]
-        msg['scope'] = rtscopes[kwarg.pop('rtscope', 'RT_SCOPE_UNIVERSE')]
+        msg['scope'] = kwarg.pop('scope', rt_scope['universe'])
         msg['dst_len'] = kwarg.pop('dst_len', None) or kwarg.pop('mask', 0)
         msg['src_len'] = kwarg.pop('src_len', 0)
         msg['tos'] = kwarg.pop('tos', 0)
         msg['flags'] = kwarg.pop('flags', 0)
+        msg['type'] = kwarg.pop('type', rt_type['unspec'])
+        msg['proto'] = kwarg.pop('proto', rt_proto['unspec'])
         msg['attrs'] = []
-        # FIXME
-        # deprecated "prefix" support:
-        if 'prefix' in kwarg:
-            logging.warning('`prefix` argument is deprecated, use `dst`')
-            kwarg['dst'] = kwarg.pop('prefix')
+
+        if msg['family'] == AF_MPLS:
+            for key in tuple(kwarg):
+                if key not in ('dst', 'newdst', 'via', 'multipath', 'oif'):
+                    kwarg.pop(key)
 
         for key in kwarg:
             nla = rtmsg.name2nla(key)
@@ -1538,43 +1716,37 @@ class IPRouteMixin(object):
         '''
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
-        flags_change = flags_base | NLM_F_REPLACE
-        flags_replace = flags_change | NLM_F_CREATE
+        flags_dump = NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC
 
         commands = {'add': (RTM_NEWRULE, flags_make),
                     'del': (RTM_DELRULE, flags_make),
                     'remove': (RTM_DELRULE, flags_make),
                     'delete': (RTM_DELRULE, flags_make),
-                    'change': (RTM_NEWRULE, flags_change),
-                    'replace': (RTM_NEWRULE, flags_replace)}
+                    'dump': (RTM_GETRULE, flags_dump)}
         if isinstance(command, int):
             command = (command, flags_make)
         command, flags = commands.get(command, command)
 
         if argv:
             # this code block will be removed in some release
-            logging.warning('rule(): positional parameters are deprecated')
+            log.error('rule(): positional parameters are deprecated')
             names = ['table', 'priority', 'action', 'family',
                      'src', 'src_len', 'dst', 'dst_len', 'fwmark',
                      'iifname', 'oifname']
             kwarg.update(dict(zip(names, argv)))
+
+        kwarg = IPRuleRequest(kwarg)
         msg = fibmsg()
-        table = kwarg.get('table', 254)
+        table = kwarg.get('table', 0)
         msg['table'] = table if table <= 255 else 252
-        msg['family'] = family = kwarg.pop('family', AF_INET)
-        msg['action'] = FR_ACT_NAMES[kwarg.pop('action', 'FR_ACT_NOP')]
+        for key in ('family',
+                    'src_len',
+                    'dst_len',
+                    'action',
+                    'tos',
+                    'flags'):
+            msg[key] = kwarg.pop(key, 0)
         msg['attrs'] = []
-
-        addr_len = {AF_INET6: 128, AF_INET:  32}.get(family, 0)
-        if 'priority' not in kwarg:
-            kwarg['priority'] = 32000
-        if ('src' in kwarg) and (kwarg.get('src_len') is None):
-            kwarg['src_len'] = addr_len
-        if ('dst' in kwarg) and (kwarg.get('dst_len') is None):
-            kwarg['dst_len'] = addr_len
-
-        msg['dst_len'] = kwarg.get('dst_len', 0)
-        msg['src_len'] = kwarg.get('src_len', 0)
 
         for key in kwarg:
             nla = fibmsg.name2nla(key)
@@ -1590,16 +1762,45 @@ class IPRouteMixin(object):
     # 8<---------------------------------------------------------------
 
 
+class IPBatch(IPRouteMixin, IPBatchSocket):
+    '''
+    Netlink requests compiler. Does not send any requests, but
+    instead stores them in the internal binary buffer. The
+    contents of the buffer can be used to send batch requests,
+    to test custom netlink parsers and so on.
+
+    Uses `IPRouteMixin` and provides all the same API as normal
+    `IPRoute` objects::
+
+        # create the batch compiler
+        ipb = IPBatch()
+        # compile requests into the internal buffer
+        ipb.link("add", index=550, ifname="test", kind="dummy")
+        ipb.link("set", index=550, state="up")
+        ipb.addr("add", index=550, address="10.0.0.2", mask=24)
+        # save the buffer
+        data = ipb.batch
+        # reset the buffer
+        ipb.reset()
+        ...
+        # send the buffer
+        IPRoute().sendto(data, (0, 0))
+
+    '''
+    pass
+
+
 class IPRoute(IPRouteMixin, IPRSocket):
     '''
-    Production class that provides iproute API over normal Netlink
-    socket.
-
-    You can think of this class in some way as of plain old iproute2
-    utility.
+    Public class that provides RTNL API to the current network
+    namespace.
     '''
     pass
 
 
 class RawIPRoute(IPRouteMixin, RawIPRSocket):
+    '''
+    The same as `IPRoute`, but does not use the netlink proxy.
+    Thus it can not manage e.g. tun/tap interfaces.
+    '''
     pass

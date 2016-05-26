@@ -4,17 +4,13 @@ NL80211 module
 
 TODO
 '''
+import struct
 from pyroute2.common import map_namespace
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink.generic import GenericNetlinkSocket
 from pyroute2.netlink.nlsocket import Marshal
 from pyroute2.netlink import nla
 from pyroute2.netlink import nla_base
-
-
-# import pdb
-import struct
-from pyroute2.common import hexdump
 
 # nl80211 commands
 
@@ -405,52 +401,36 @@ class nl80211cmd(genlmsg):
     class bss(nla):
         class elementsBinary(nla_base):
 
-            def binary_rates(self, rawdata):
-                # pdb.set_trace()
+            def binary_rates(self, offset, length):
+                init = offset
                 string = ""
-                for byteRaw in rawdata:
-                    (byte,) = struct.unpack("B", bytearray([byteRaw])[0:1])
+                while (offset - init) <= length:
+                    byte, = struct.unpack_from('B', self.data, init + offset)
                     r = byte & 0x7f
-
                     if r == BSS_MEMBERSHIP_SELECTOR_VHT_PHY and byte & 0x80:
                         string += "VHT"
                     elif r == BSS_MEMBERSHIP_SELECTOR_HT_PHY and byte & 0x80:
                         string += "HT"
                     else:
                         string += "%d.%d" % (r / 2, 5 * (r & 1))
-
+                    offset += 1
                     string += "%s " % ("*" if byte & 0x80 else "")
-
                 return string
 
-            def binary_tim(self, data):
-                (count,) = struct.unpack("B", data[0:1])
-                (period,) = struct.unpack("B", data[1:2])
-                (bitmapc,) = struct.unpack("B", data[2:3])
-                (bitmap0,) = struct.unpack("B", data[3:4])
+            def binary_tim(self, offset):
+                (count,
+                 period,
+                 bitmapc,
+                 bitmap0) = struct.unpack_from('BBBB',
+                                               self.data,
+                                               offset)
                 return ("DTIM Count {0} DTIM Period {1} Bitmap Control 0x{2} "
                         "Bitmap[0] 0x{3}".format(count,
                                                  period,
                                                  bitmapc,
                                                  bitmap0))
 
-            def binary_vendor(self, rawdata):
-                '''
-                Extract vendor data
-                '''
-                vendor = {}
-# pdb.set_trace()
-                size = len(rawdata)
-                # if len > 4 and rawdata[0] == ms_oui[0]
-                # and rawdata[1] == ms_oui[1] and rawdata[2] == ms_oui[2]
-
-                if size < 3:
-                    vendor["VENDOR_NAME"] = "Vendor specific: <too short data:"
-                    + hexdump(rawdata)
-                    return vendor
-
             def decode_nlas(self):
-
                 return
 
             def decode(self):
@@ -458,34 +438,43 @@ class nl80211cmd(genlmsg):
 
                 self.value = {}
 
-                init = self.buf.tell()
+                init = offset = self.offset + 4
 
-                while (self.buf.tell()-init) < (self.length-4):
-                    (msg_type, length) = struct.unpack('BB', self.buf.read(2))
-                    data = self.buf.read(length)
+                while (offset-init) < (self.length-4):
+                    (msg_type, length) = struct.unpack_from('BB',
+                                                            self.data,
+                                                            offset)
                     if msg_type == NL80211_BSS_ELEMENTS_SSID:
-                        self.value["SSID"] = data
+                        self.value["SSID"], = (struct
+                                               .unpack_from('%is' % length,
+                                                            self.data,
+                                                            offset + 2))
 
                     if msg_type == NL80211_BSS_ELEMENTS_SUPPORTED_RATES:
-                        supported_rates = self.binary_rates(data)
+                        supported_rates = self.binary_rates(offset + 2, length)
                         self.value["SUPPORTED_RATES"] = supported_rates
 
                     if msg_type == NL80211_BSS_ELEMENTS_CHANNEL:
-                        (channel,) = struct.unpack("B", data[0:1])
+                        channel, = struct.unpack_from('B',
+                                                      self.data,
+                                                      offset + 2)
                         self.value["CHANNEL"] = channel
 
                     if msg_type == NL80211_BSS_ELEMENTS_TIM:
                         self.value["TRAFFIC INDICATION MAP"] = \
-                            self.binary_tim(data)
+                            self.binary_tim(offset + 2)
 
                     if msg_type == NL80211_BSS_ELEMENTS_EXTENDED_RATE:
-                        extended_rates = self.binary_rates(data)
+                        extended_rates = self.binary_rates(offset + 2, length)
                         self.value["EXTENDED_RATES"] = extended_rates
 
                     if msg_type == NL80211_BSS_ELEMENTS_VENDOR:
-                        self.binary_vendor(data)
+                        self.value["VENDOR"], = (struct
+                                                 .unpack_from('%is' % length,
+                                                              self.data,
+                                                              offset + 2))
 
-                self.buf.seek(init)
+                    offset += length
 
         prefix = 'NL80211_BSS_'
         nla_map = (('__NL80211_BSS_INVALID', 'hex'),

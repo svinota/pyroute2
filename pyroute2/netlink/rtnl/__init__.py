@@ -57,6 +57,7 @@ RTNLGRP_DECnet_RULE = 0x8000
 RTNLGRP_NOP4 = 0x10000
 RTNLGRP_IPV6_PREFIX = 0x20000
 RTNLGRP_IPV6_RULE = 0x40000
+RTNLGRP_MPLS_ROUTE = 0x4000000
 
 # Types of messages
 # RTM_BASE = 16
@@ -110,10 +111,17 @@ RTNL_GROUPS = RTNLGRP_IPV4_IFADDR |\
     RTNLGRP_IPV6_IFADDR |\
     RTNLGRP_IPV4_ROUTE |\
     RTNLGRP_IPV6_ROUTE |\
+    RTNLGRP_IPV4_RULE |\
+    RTNLGRP_IPV6_RULE |\
     RTNLGRP_NEIGH |\
     RTNLGRP_LINK |\
-    RTNLGRP_TC
+    RTNLGRP_TC |\
+    RTNLGRP_MPLS_ROUTE
 
+encap_type = {'unspec': 0,
+              'mpls': 1,
+              0: 'unspec',
+              1: 'mpls'}
 
 rtypes = {'RTN_UNSPEC': 0,
           'RTN_UNICAST': 1,      # Gateway or direct route
@@ -129,6 +137,9 @@ rtypes = {'RTN_UNSPEC': 0,
           'RTN_THROW': 9,        # Not in this table
           'RTN_NAT': 10,         # Translate this address
           'RTN_XRESOLVE': 11}    # Use external resolver
+# normalized
+rt_type = dict([(x[0][4:].lower(), x[1]) for x in rtypes.items()] +
+               [(x[1], x[0][4:].lower()) for x in rtypes.items()])
 
 rtprotos = {'RTPROT_UNSPEC': 0,
             'RTPROT_REDIRECT': 1,  # Route installed by ICMP redirects;
@@ -148,9 +159,15 @@ rtprotos = {'RTPROT_UNSPEC': 0,
             'RTPROT_XORP': 14,      # XORP
             'RTPROT_NTK': 15,       # Netsukuku
             'RTPROT_DHCP': 16}      # DHCP client
+# normalized
+rt_proto = dict([(x[0][7:].lower(), x[1]) for x in rtprotos.items()] +
+                [(x[1], x[0][7:].lower()) for x in rtprotos.items()])
 
 rtscopes = {'RT_SCOPE_UNIVERSE': 0,
             'RT_SCOPE_SITE': 200,
             'RT_SCOPE_LINK': 253,
             'RT_SCOPE_HOST': 254,
             'RT_SCOPE_NOWHERE': 255}
+# normalized
+rt_scope = dict([(x[0][9:].lower(), x[1]) for x in rtscopes.items()] +
+                [(x[1], x[0][9:].lower()) for x in rtscopes.items()])

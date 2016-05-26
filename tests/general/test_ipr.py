@@ -1,4 +1,5 @@
 import os
+import time
 import errno
 import socket
 from pyroute2 import IPRoute
@@ -10,7 +11,6 @@ from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from utils import grep
 from utils import require_user
-from utils import require_kernel
 from utils import require_python
 from utils import get_ip_brd
 from utils import get_ip_addr
@@ -466,10 +466,42 @@ class TestIPRoute(object):
     def test_remove_link(self):
         require_user('root')
         try:
-            self.ip.link_remove(self.ifaces[0])
+            self.ip.link('del', index=self.ifaces[0])
         except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname=self.dev)) == 0
+
+    def _test_route_proto(self, proto, fake, spec=''):
+        require_user('root')
+        os.system('ip route add 172.16.3.0/24 via 127.0.0.1 %s' % spec)
+
+        time.sleep(1)
+
+        assert grep('ip ro', pattern='172.16.3.0/24.*127.0.0.1')
+        try:
+            self.ip.route('del',
+                          dst='172.16.3.0/24',
+                          gateway='127.0.0.1',
+                          proto=fake)
+        except NetlinkError:
+            pass
+        self.ip.route('del',
+                      dst='172.16.3.0/24',
+                      gateway='127.0.0.1',
+                      proto=proto)
+        assert not grep('ip ro', pattern='172.16.3.0/24.*127.0.0.1')
+
+    def test_route_proto_static(self):
+        return self._test_route_proto('static', 'boot', 'proto static')
+
+    def test_route_proto_static_num(self):
+        return self._test_route_proto(4, 3, 'proto static')
+
+    def test_route_proto_boot(self):
+        return self._test_route_proto('boot', 4)
+
+    def test_route_proto_boot_num(self):
+        return self._test_route_proto(3, 'static')
 
     def test_route_oif_as_iterable(self):
         require_user('root')
@@ -514,14 +546,13 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def _test_route_mpls_via_ipv(self, family, address, label):
         require_user('root')
-        require_kernel(3)
         self.ip.route('add', **{'family': AF_MPLS,
                                 'oif': self.ifaces[0],
                                 'via': {'family': family,
                                         'addr': address},
                                 'newdst': {'label': label,
                                            'bos': 1}})
-        rt = self.ip.get_routes(oif=self.ifaces[0])[0]
+        rt = self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)[0]
         assert rt.get_attr('RTA_VIA')['addr'] == address
         assert rt.get_attr('RTA_VIA')['family'] == family
         assert rt.get_attr('RTA_NEWDST')[0]['label'] == label
@@ -534,20 +565,19 @@ class TestIPRoute(object):
                                         'addr': address},
                                 'newdst': {'label': label,
                                            'bos': 1}})
-        assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
+        assert len(self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)) == 0
 
-    def _test_route_mpls_via_ipv4(self):
+    def test_route_mpls_via_ipv4(self):
         self._test_route_mpls_via_ipv(socket.AF_INET,
                                       '172.16.0.1', 0x20)
 
-    def _test_route_mpls_via_ipv6(self):
+    def test_route_mpls_via_ipv6(self):
         self._test_route_mpls_via_ipv(socket.AF_INET6,
                                       'fe80::5054:ff:fe4b:7c32', 0x20)
 
     @skip_if_not_supported
-    def _test_route_mpls_swap_newdst_simple(self):
+    def test_route_mpls_swap_newdst_simple(self):
         require_user('root')
-        require_kernel(3)
         req = {'family': AF_MPLS,
                'oif': self.ifaces[0],
                'dst': {'label': 0x20,
@@ -555,18 +585,17 @@ class TestIPRoute(object):
                'newdst': {'label': 0x21,
                           'bos': 1}}
         self.ip.route('add', **req)
-        rt = self.ip.get_routes(oif=self.ifaces[0])[0]
+        rt = self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)[0]
         assert rt.get_attr('RTA_DST')[0]['label'] == 0x20
         assert len(rt.get_attr('RTA_DST')) == 1
         assert rt.get_attr('RTA_NEWDST')[0]['label'] == 0x21
         assert len(rt.get_attr('RTA_NEWDST')) == 1
         self.ip.route('del', **req)
-        assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
+        assert len(self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)) == 0
 
     @skip_if_not_supported
-    def _test_route_mpls_swap_newdst_list(self):
+    def test_route_mpls_swap_newdst_list(self):
         require_user('root')
-        require_kernel(3)
         req = {'family': AF_MPLS,
                'oif': self.ifaces[0],
                'dst': {'label': 0x20,
@@ -574,13 +603,13 @@ class TestIPRoute(object):
                'newdst': [{'label': 0x21,
                            'bos': 1}]}
         self.ip.route('add', **req)
-        rt = self.ip.get_routes(oif=self.ifaces[0])[0]
+        rt = self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)[0]
         assert rt.get_attr('RTA_DST')[0]['label'] == 0x20
         assert len(rt.get_attr('RTA_DST')) == 1
         assert rt.get_attr('RTA_NEWDST')[0]['label'] == 0x21
         assert len(rt.get_attr('RTA_NEWDST')) == 1
         self.ip.route('del', **req)
-        assert len(self.ip.get_routes(oif=self.ifaces[0])) == 0
+        assert len(self.ip.get_routes(oif=self.ifaces[0], family=AF_MPLS)) == 0
 
     def test_route_multipath_raw(self):
         require_user('root')
@@ -588,10 +617,10 @@ class TestIPRoute(object):
                       dst='172.16.241.0',
                       mask=24,
                       multipath=[{'hops': 20,
-                                  'ifindex': 1,
+                                  'oif': 1,
                                   'attrs': [['RTA_GATEWAY', '127.0.0.2']]},
                                  {'hops': 30,
-                                  'ifindex': 1,
+                                  'oif': 1,
                                   'attrs': [['RTA_GATEWAY', '127.0.0.3']]}])
         assert grep('ip route show', pattern='172.16.241.0/24')
         assert grep('ip route show', pattern='nexthop.*127.0.0.2.*weight 21')
@@ -602,10 +631,10 @@ class TestIPRoute(object):
         require_user('root')
         req = IPRouteRequest({'dst': '172.16.242.0/24',
                               'multipath': [{'hops': 20,
-                                             'ifindex': 1,
+                                             'oif': 1,
                                              'gateway': '127.0.0.2'},
                                             {'hops': 30,
-                                             'ifindex': 1,
+                                             'oif': 1,
                                              'gateway': '127.0.0.3'}]})
         self.ip.route('add', **req)
         assert grep('ip route show', pattern='172.16.242.0/24')
@@ -631,7 +660,7 @@ class TestIPRoute(object):
                       dst='172.16.216.0/24',
                       multipath=[{'encap': {'type': 'mpls',
                                             'labels': 500},
-                                  'ifindex': 1},
+                                  'oif': 1},
                                  {'encap': {'type': 'mpls',
                                             'labels': '600/700'},
                                   'gateway': '127.0.0.4'}])
@@ -639,7 +668,7 @@ class TestIPRoute(object):
         assert len(routes) == 1
         mp = routes[0].get_attr('RTA_MULTIPATH')
         assert len(mp) == 2
-        assert mp[0]['ifindex'] == 1
+        assert mp[0]['oif'] == 1
         assert mp[0].get_attr('RTA_ENCAP_TYPE') == 1
         labels = mp[0].get_attr('RTA_ENCAP').get_attr('MPLS_IPTUNNEL_DST')
         assert len(labels) == 1

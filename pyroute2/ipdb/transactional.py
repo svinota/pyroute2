@@ -1,13 +1,10 @@
 '''
 '''
-import logging
 import threading
-import traceback
-from pyroute2.common import Dotkeys
+from pyroute2.config import TransactionalBase
 from pyroute2.common import uuid32
 from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.exceptions import CommitException
-from pyroute2.ipdb.exceptions import DeprecationException
 
 # How long should we wait on EACH commit() checkpoint: for ipaddr,
 # ports etc. That's not total commit() timeout.
@@ -43,55 +40,28 @@ class State(object):
 
 def update(f):
     def decorated(self, *argv, **kwarg):
-        # obtain update lock
-        ret = None
-        tid = None
-        direct = True
-        error = None
+
+        if self._mode == 'snapshot':
+            # short-circuit
+            with self._write_lock:
+                return f(self, True, *argv, **kwarg)
 
         with self._write_lock:
-            dcall = kwarg.pop('direct', False)
-            if dcall:
-                self._direct_state.acquire()
-
             direct = self._direct_state.is_set()
-            try:
-                if not direct:
-                    # 1. begin transaction for 'direct' type
-                    if self._mode == 'direct':
-                        tid = self.begin()
-                    # 2. begin transaction, if there is none
-                    elif self._mode == 'implicit':
-                        if not self._tids:
-                            self.begin()
-                    # 3. require open transaction for 'explicit' type
-                    elif self._mode == 'explicit':
-                        if not self._tids:
-                            raise TypeError('start a transaction first')
-                    # 4. transactions can not require transactions :)
-                    elif self._mode == 'snapshot':
-                        direct = True
-                    # do not support other modes
-                    else:
-                        raise TypeError('transaction mode not supported')
-                    # now that the transaction _is_ open
-                ret = f(self, direct, *argv, **kwarg)
-            except Exception as e:
-                logging.error('transaction decorator error'
-                              '\n%s', traceback.format_exc())
-                error = e
-
-            if dcall:
-                self._direct_state.release()
-
-            if error is not None:
-                raise error
-
-        if tid:
-            # close the transaction for 'direct' type
-            self.commit(tid)
-
-        return ret
+            if not direct:
+                # 1. 'implicit': begin transaction, if there is none
+                if self._mode == 'implicit':
+                    if not self.current_tx:
+                        self.begin()
+                # 2. require open transaction for 'explicit' type
+                elif self._mode == 'explicit':
+                    if not self.current_tx:
+                        raise TypeError('start a transaction first')
+                # do not support other modes
+                else:
+                    raise TypeError('transaction mode not supported')
+                # now that the transaction _is_ open
+            return f(self, direct, *argv, **kwarg)
     decorated.__doc__ = f.__doc__
     return decorated
 
@@ -101,19 +71,21 @@ def with_transaction(f):
         if direct:
             f(self, *argv, **kwarg)
         else:
-            transaction = self.last()
+            transaction = self.current_tx
             f(transaction, *argv, **kwarg)
         return self
     return update(decorated)
 
 
-class Transactional(Dotkeys):
+class Transactional(TransactionalBase):
     '''
     Utility class that implements common transactional logic.
     '''
     _fields = []
+    _virtual_fields = []
     _fields_cmp = {}
-    _linked_sets = None
+    _linked_sets = []
+    _nested = []
 
     def __init__(self, ipdb=None, mode=None, parent=None, uid=None):
         #
@@ -140,44 +112,47 @@ class Transactional(Dotkeys):
         self._sids = []
         self._ts = threading.local()
         self._snapshots = {}
+        self.global_tx = {}
         self._targets = {}
         self._local_targets = {}
         self._write_lock = threading.RLock()
         self._direct_state = State(self._write_lock)
         self._linked_sets = self._linked_sets or set()
-
-    @property
-    def _tids(self):
-        if not hasattr(self._ts, 'tids'):
-            self._ts.tids = []
-        return self._ts.tids
-
-    @property
-    def _transactions(self):
-        if not hasattr(self._ts, 'transactions'):
-            self._ts.transactions = {}
-        return self._ts.transactions
-
-    def register_callback(self, callback):
-        raise DeprecationException("deprecated since 0.2.15;"
-                                   "use `register_commit_hook()`")
+        #
+        for i in self._fields:
+            TransactionalBase.__setitem__(self, i, None)
 
     def register_commit_hook(self, hook):
-        # FIXME: write docs
+        '''
+        '''
         self._commit_hooks.append(hook)
 
-    def unregister_callback(self, callback):
-        raise DeprecationException("deprecated since 0.2.15;"
-                                   "use `unregister_commit_hook()`")
-
     def unregister_commit_hook(self, hook):
-        # FIXME: write docs
+        '''
+        '''
         with self._write_lock:
             for cb in tuple(self._commit_hooks):
                 if hook == cb:
                     self._commit_hooks.pop(self._commit_hooks.index(cb))
 
-    def pick(self, detached=True, uid=None, parent=None, forge_tids=False):
+    ##
+    # Object serialization: dump, pick
+    def dump(self, not_none=True):
+        '''
+        '''
+        with self._write_lock:
+            res = {}
+            for key in self:
+                if self[key] is not None and key[0] != '_':
+                    if isinstance(self[key], Transactional):
+                        res[key] = self[key].dump()
+                    elif isinstance(self[key], LinkedSet):
+                        res[key] = tuple(self[key])
+                    else:
+                        res[key] = self[key]
+            return res
+
+    def pick(self, detached=True, uid=None, parent=None):
         '''
         Get a snapshot of the object. Can be of two
         types:
@@ -195,16 +170,7 @@ class Transactional(Dotkeys):
                                  uid=uid)
             for (key, value) in self.items():
                 if key in self._fields:
-                    if isinstance(value, Transactional):
-                        t = value.pick(detached=detached,
-                                       uid=res.uid,
-                                       parent=self)
-                        if forge_tids:
-                            # forge the transaction for nested objects
-                            value._transactions[res.uid] = t
-                            value._tids.append(res.uid)
-                        res[key] = t
-                    else:
+                    if self[key] is not None:
                         res[key] = self[key]
             for key in self._linked_sets:
                 res[key] = type(self[key])(self[key])
@@ -212,11 +178,12 @@ class Transactional(Dotkeys):
                     self[key].connect(res[key])
             return res
 
+    ##
+    # Context management: enter, exit
     def __enter__(self):
-        # FIXME: use a bitmask?
         if self._mode not in ('implicit', 'explicit'):
             raise TypeError('context managers require a transactional mode')
-        if not self._tids:
+        if not self.current_tx:
             self.begin()
         return self
 
@@ -229,6 +196,8 @@ class Transactional(Dotkeys):
                 self.last_error = e
                 raise
 
+    ##
+    # Implicit object transfomations
     def __repr__(self):
         res = {}
         for i in tuple(self):
@@ -236,35 +205,59 @@ class Transactional(Dotkeys):
                 res[i] = self[i]
         return res.__repr__()
 
+    ##
+    # Object ops: +, -, /, ...
     def __sub__(self, vs):
-        res = self.__class__(ipdb=self.ipdb, mode='snapshot')
+        # create result
+        res = {}
+
         with self._direct_state:
             # simple keys
             for key in self:
                 if (key in self._fields):
                     if ((key not in vs) or (self[key] != vs[key])):
                         res[key] = self[key]
-                    elif (self[key] == vs[key]):
-                        res[key] = None
         for key in self._linked_sets:
             diff = type(self[key])(self[key] - vs[key])
             if diff:
                 res[key] = diff
+            else:
+                res[key] = set()
+        for key in self._nested:
+            res[key] = self[key] - vs[key]
         return res
 
-    def dump(self, not_none=True):
-        with self._write_lock:
-            res = {}
-            for key in self:
-                if self[key] is not None and key[0] != '_':
-                    if isinstance(self[key], Transactional):
-                        res[key] = self[key].dump()
-                    elif isinstance(self[key], LinkedSet):
-                        res[key] = tuple(self[key])
-                    else:
-                        res[key] = self[key]
-            return res
+    def __floordiv__(self, vs):
+        left = {}
+        right = {}
+        with self._direct_state:
+            with vs._direct_state:
+                for key in set(tuple(self.keys()) + tuple(vs.keys())):
+                    if self.get(key, None) != vs.get(key, None):
+                        left[key] = self.get(key)
+                        right[key] = vs.get(key)
+                        continue
+                    if key not in self:
+                        right[key] = vs[key]
+                    elif key not in vs:
+                        left[key] = self[key]
+        for key in self._linked_sets:
+            ldiff = type(self[key])(self[key] - vs[key])
+            rdiff = type(vs[key])(vs[key] - self[key])
+            if ldiff:
+                left[key] = ldiff
+            else:
+                left[key] = set()
+            if rdiff:
+                right[key] = rdiff
+            else:
+                right[key] = set()
+        for key in self._nested:
+            left[key], right[key] = self[key] // vs[key]
+        return left, right
 
+    ##
+    # Methods to be overloaded
     def detach(self):
         pass
 
@@ -277,41 +270,32 @@ class Transactional(Dotkeys):
     def last_snapshot_id(self):
         return self._sids[-1]
 
+    ##
+    # Snapshot methods
     def revert(self, sid):
         with self._write_lock:
-            self._transactions[sid] = self._snapshots[sid]
-            self._tids.append(sid)
+            assert sid in self._snapshots
+            self.local_tx[sid] = self._snapshots[sid]
+            self.global_tx[sid] = self._snapshots[sid]
+            self.current_tx = self._snapshots[sid]
             self._sids.remove(sid)
             del self._snapshots[sid]
             return self
 
-    def snapshot(self):
+    def snapshot(self, sid=None):
         '''
         Create new snapshot
         '''
-        return self._begin(mapping=self._snapshots,
-                           ids=self._sids,
-                           detached=True)
-
-    def begin(self):
-        '''
-        Start new transaction
-        '''
-        if self._parent is not None:
-            self._parent.begin()
-        else:
-            return self._begin(mapping=self._transactions,
-                               ids=self._tids,
-                               detached=False)
-
-    def _begin(self, mapping, ids, detached):
-        # keep snapshot's ip addr set updated from the OS
-        # it is required by the commit logic
+        if self._parent:
+            raise RuntimeError("Can't init snapshot from a nested object")
         if (self.ipdb is not None) and self.ipdb._stop:
-            raise RuntimeError("Can't start transaction on released IPDB")
-        t = self.pick(detached=detached, forge_tids=True)
-        mapping[t.uid] = t
-        ids.append(t.uid)
+            raise RuntimeError("Can't create snapshots on released IPDB")
+        t = self.pick(detached=True, uid=sid)
+        self._snapshots[t.uid] = t
+        self._sids.append(t.uid)
+        for key, value in t.items():
+            if isinstance(value, Transactional):
+                value.snapshot(sid=t.uid)
         return t.uid
 
     def last_snapshot(self):
@@ -319,38 +303,67 @@ class Transactional(Dotkeys):
             raise TypeError('create a snapshot first')
         return self._snapshots[self._sids[-1]]
 
-    def last(self):
+    ##
+    # Current tx
+    def _set_current_tx(self, tx):
+        with self._write_lock:
+            self._ts.current = tx
+
+    def _get_current_tx(self):
         '''
-        Return last open transaction
+        The current active transaction (thread-local)
         '''
         with self._write_lock:
-            if not self._tids:
-                raise TypeError('start a transaction first')
+            if not hasattr(self._ts, 'current'):
+                self._ts.current = None
+            return self._ts.current
 
-            return self._transactions[self._tids[-1]]
+    current_tx = property(_get_current_tx, _set_current_tx)
 
-    def get_tx(self):
-        '''
-        Return the current active transaction. If there is no
-        active transaction and the mode is 'implicit', start
-        a new transaction.
-        '''
+    ##
+    # Local tx registry
+    def _get_local_tx(self):
         with self._write_lock:
-            if self._mode == 'implicit':
-                if not self._tids:
-                    return self._transactions[self.begin()]
-            elif self._mode == 'explicit':
-                if not self._tids:
-                    raise TypeError('start a transaction first')
-            else:
-                raise TypeError('transaction mode not supported')
-            return self._transactions[self._tids[-1]]
+            if not hasattr(self._ts, 'tx'):
+                self._ts.tx = {}
+            return self._ts.tx
 
-    def review(self):
+    local_tx = property(_get_local_tx)
+
+    ##
+    # Transaction ops: begin, review, drop
+    def begin(self):
         '''
-        Review last open transaction
+        Start new transaction
         '''
-        if not self._tids:
+        if self._parent is not None:
+            self._parent.begin()
+        else:
+            return self._begin()
+
+    def _begin(self, tid=None):
+        if (self.ipdb is not None) and self.ipdb._stop:
+            raise RuntimeError("Can't start transaction on released IPDB")
+        t = self.pick(detached=False, uid=tid)
+        self.local_tx[t.uid] = t
+        self.global_tx[t.uid] = t
+        if self.current_tx is None:
+            self.current_tx = t
+        for key, value in t.items():
+            if isinstance(value, Transactional):
+                # start transaction on a nested object
+                value._begin(tid=t.uid)
+                # link transaction to own one
+                t[key] = value.global_tx[t.uid]
+        return t.uid
+
+    def review(self, tid=None):
+        '''
+        Review the changes made in the transaction `tid`
+        or in the current active transaction (thread-local)
+        '''
+        tid = tid or self.current_tx.uid
+        if tid is None:
             raise TypeError('start a transaction first')
 
         if self.get('ipdb_scope') == 'create':
@@ -358,8 +371,8 @@ class Transactional(Dotkeys):
                          if x[1] is not None])
 
         with self._write_lock:
-            added = self.last() - self
-            removed = self - self.last()
+            added = self.global_tx[tid] - self
+            removed = self - self.global_tx[tid]
             for key in self._linked_sets:
                 added['-%s' % (key)] = removed[key]
                 added['+%s' % (key)] = added[key]
@@ -368,66 +381,76 @@ class Transactional(Dotkeys):
 
     def drop(self, tid=None):
         '''
-        Drop a transaction.
+        Drop a transaction. If tid is not specified, drop
+        the current one.
         '''
         with self._write_lock:
-            if isinstance(tid, Transactional):
-                tid = tid.uid
-            elif tid is None:
-                tid = self._tids[-1]
-            self._tids.remove(tid)
+
+            if tid is None:
+                tx = self.current_tx
+                if tx is None:
+                    raise TypeError("no transaction")
+            else:
+                tx = self.global_tx[tid]
+
+            if self.current_tx and self.current_tx.uid == tid:
+                self.current_tx = None
+
             # detach linked sets
             for key in self._linked_sets:
-                if self._transactions[tid][key] in self[key].links:
-                    self[key].disconnect(self._transactions[tid][key])
+                if tx[key] in self[key].links:
+                    self[key].disconnect(tx[key])
             for (key, value) in self.items():
                 if isinstance(value, Transactional):
                     try:
-                        value.drop(tid)
+                        value.drop(tx.uid)
                     except KeyError:
                         pass
             # finally -- delete the transaction
-            del self._transactions[tid]
+            del self.local_tx[tx.uid]
+            del self.global_tx[tx.uid]
 
+    ##
+    # Property ops: set/get/delete
     @update
     def __setitem__(self, direct, key, value):
-        with self._write_lock:
-            if not direct:
-                # automatically set target on the last transaction,
-                # which must be started prior to that call
-                transaction = self.last()
-                transaction[key] = value
+        if not direct:
+            # automatically set target on the active transaction,
+            # which must be started prior to that call
+            transaction = self.current_tx
+            transaction[key] = value
+            if value is not None:
                 transaction._targets[key] = threading.Event()
-            else:
-                # set the item
-                Dotkeys.__setitem__(self, key, value)
+        else:
+            # set the item
+            TransactionalBase.__setitem__(self, key, value)
 
-                # update on local targets
+            # update on local targets
+            with self._write_lock:
                 if key in self._local_targets:
                     func = self._fields_cmp.get(key, lambda x, y: x == y)
                     if func(value, self._local_targets[key].value):
                         self._local_targets[key].set()
 
-                # cascade update on nested targets
-                for tn in tuple(self._transactions.values()):
-                    if (key in tn._targets) and (key in tn):
-                        if self._fields_cmp.\
-                                get(key, lambda x, y: x == y)(value, tn[key]):
-                            tn._targets[key].set()
+            # cascade update on nested targets
+            for tn in tuple(self.global_tx.values()):
+                if (key in tn._targets) and (key in tn):
+                    if self._fields_cmp.\
+                            get(key, lambda x, y: x == y)(value, tn[key]):
+                        tn._targets[key].set()
 
     @update
     def __delitem__(self, direct, key):
-        with self._write_lock:
-            # firstly set targets
-            self[key] = None
+        # firstly set targets
+        self[key] = None
 
-            # then continue with delete
-            if not direct:
-                transaction = self.last()
-                if key in transaction:
-                    del transaction[key]
-            else:
-                Dotkeys.__delitem__(self, key)
+        # then continue with delete
+        if not direct:
+            transaction = self.current_tx
+            if key in transaction:
+                del transaction[key]
+        else:
+            TransactionalBase.__delitem__(self, key)
 
     def option(self, key, value):
         self[key] = value
@@ -437,24 +460,29 @@ class Transactional(Dotkeys):
         del self[key]
         return self
 
-    def _wait_all_targets(self):
+    def wait_all_targets(self):
         for key, target in self._targets.items():
             if key not in self._virtual_fields:
                 target.wait(SYNC_TIMEOUT)
                 if not target.is_set():
                     raise CommitException('target %s is not set' % key)
 
+    def wait_target(self, key, timeout=SYNC_TIMEOUT):
+        self._local_targets[key].wait(SYNC_TIMEOUT)
+        with self._write_lock:
+            return self._local_targets.pop(key).is_set()
+
     def set_target(self, key, value):
-        self._local_targets[key] = threading.Event()
-        self._local_targets[key].value = value
+        with self._write_lock:
+            self._local_targets[key] = threading.Event()
+            self._local_targets[key].value = value
+            return self
 
     def mirror_target(self, key_from, key_to):
-        self._local_targets[key_to] = self._local_targets[key_from]
+        with self._write_lock:
+            self._local_targets[key_to] = self._local_targets[key_from]
+            return self
 
-    def set_item(self, key, value):
-        with self._direct_state:
-            self[key] = value
-
-    def del_item(self, key):
-        with self._direct_state:
-            del self[key]
+    def set(self, key, value):
+        self[key] = value
+        return self

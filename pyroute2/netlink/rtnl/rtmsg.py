@@ -8,12 +8,6 @@ from pyroute2.common import AF_MPLS
 from pyroute2.common import hexdump
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
-from pyroute2.netlink import nlmsg_base
-
-
-class nh_header(nlmsg_base):
-    align = 2
-    fields = (('length', 'H'), )
 
 
 class rtmsg_base(object):
@@ -116,6 +110,9 @@ class rtmsg_base(object):
             family = self.get('family', AF_UNSPEC)
             if family in (AF_INET, AF_INET6):
                 addr = inet_pton(family, self['addr'])
+            else:
+                raise TypeError('Family %s not supported for RTA_VIA'
+                                % family)
             self['value'] = struct.pack('H', family) + addr
             nla.encode(self)
 
@@ -152,14 +149,18 @@ class rtmsg(rtmsg_base, nlmsg):
             self['type'] = 1
             # assert NLA types
             for n in self.get('attrs', []):
-                if n[0] not in ('RTA_OIF', 'RTA_DST', 'RTA_VIA', 'RTA_NEWDST'):
+                if n[0] not in ('RTA_OIF',
+                                'RTA_DST',
+                                'RTA_VIA',
+                                'RTA_NEWDST',
+                                'RTA_MULTIPATH'):
                     raise TypeError('Incorrect NLA type %s for AF_MPLS' % n[0])
         nlmsg.encode(self)
 
 
 class nh(rtmsg_base, nla):
-    align = 2
-    cell_header = nh_header
+    is_nla = False
+    cell_header = (('length', 'H'), )
     fields = (('flags', 'B'),
               ('hops', 'B'),
-              ('ifindex', 'i'))
+              ('oif', 'i'))

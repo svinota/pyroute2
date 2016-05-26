@@ -16,6 +16,8 @@ from pyroute2.netlink.exceptions import \
     NetlinkError, \
     NetlinkDecodeError
 
+log = logging.getLogger(__name__)
+
 # reexport exceptions
 exceptions = [NetlinkError,
               NetlinkDecodeError,
@@ -26,6 +28,7 @@ exceptions = [NetlinkError,
 
 __all__ = []
 _modules = {'IPRoute': 'pyroute2.iproute',
+            'IPBatch': 'pyroute2.iproute',
             'RawIPRoute': 'pyroute2.iproute',
             'IPSet': 'pyroute2.ipset',
             'IPDB': 'pyroute2.ipdb.main',
@@ -120,8 +123,8 @@ for name in _modules:
 
 class __common(object):
     def __getattribute__(self, key):
-        logging.warning('module pyroute2.ipdb.common is deprecated, '
-                        'use pyroute2.ipdb.exceptions instead')
+        log.warning('module pyroute2.ipdb.common is deprecated, '
+                    'use pyroute2.ipdb.exceptions instead')
         return getattr(globals()['ipdb'].exceptions, key)
 globals()['ipdb'].common = __common()
 

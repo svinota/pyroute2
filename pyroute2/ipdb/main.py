@@ -3,180 +3,126 @@
 IPDB module
 ===========
 
-Basically, IPDB is a transactional database, containing records,
-representing network stack objects. Any change in the database
-is not reflected immediately in OS (unless you ask for that
-explicitly), but waits until `commit()` is called. One failed
-operation during `commit()` rolls back all the changes, has been
-made so far. Moreover, IPDB has commit hooks API, that allows
-you to roll back changes depending on your own function calls,
-e.g. when a host or a network becomes unreachable.
+Basically, IPDB is a transactional database, containing
+records, that represent network stack objects. Any change
+in the database is not reflected immediately in OS, but
+waits until `commit()` is called. One failed operation
+during `commit()` rolls back all the changes, has been made
+so far. Moreover, IPDB has commit hooks API, that allows
+you to roll back changes depending on your own function
+calls, e.g. when a host or a network becomes unreachable.
 
 IPDB vs. IPRoute
 ----------------
 
 These two modules, IPRoute and IPDB, use completely different
-approaches. The first one, IPRoute, is synchronous by default,
-and can be used in the same way, as usual Linux utilities. It
-doesn't spawn any additional threads or processes, until you
-explicitly ask for that.
+approaches. The first one, IPRoute, just forward requests to
+the kernel, and doesn't wait for the system state. So it's up
+to developer to check, whether the requested object is really
+set up, or not yet.
 
 The latter, IPDB, is an asynchronously updated database, that
-starts several additional threads by default. If your project's
-policy doesn't allow implicit threads, keep it in mind.
+starts several additional threads by default. If your
+project's policy doesn't allow implicit threads, keep it in
+mind. But unlike IPRoute, the IPDB ensures the changes to
+be reflected in the system::
 
-The choice depends on your project's workflow. If you plan to
-retrieve the system info not too often (or even once), or you
-are sure there will be not too many network object, it is better
-to use IPRoute. If you plan to lookup the network info  on a
-regular basis and there can be loads of network objects, it is
-better to use IPDB. Why?
+    with IPDB() as ipdb:
+        with ipdb.interfaces['eth0'] as i:
+            i.up()
+            i.add_ip('192.168.0.2/24')
+            i.add_ip('192.168.0.3/24')
+        # ---> <--- here you can expect `eth0` is up
+        #           and has these two addresses, so
+        #           the following code can rely on that
 
-IPRoute just loads what you ask -- and loads all the information
-you ask to. While IPDB loads all the info upon startup, and
-later is just updated by asynchronous broadcast netlink messages.
-Assume you want to lookup ARP cache that contains hundreds or
-even thousands of objects. Using IPRoute, you have to load all
-the ARP cache every time you want to make a lookup. While IPDB
-will load all the cache once, and then maintain it up-to-date
-just inserting new records or removing them by one.
+So IPDB is updated asynchronously, but the `commit()`
+operation is synchronous. At least, it is planned to be such.
+
+NB: *In the example above `commit()` is implied with the
+`__exit__()` of the `with` statement.*
+
+The choice between IPDB and IPRoute depends on your project's
+workflow. If you plan to retrieve the system info not too
+often (or even once), or you are sure there will be not too
+many network object, it is better to use IPRoute. If you
+plan to lookup the network info on the regular basis and
+there can be loads of network objects, it is better to use
+IPDB. Why?
+
+IPRoute just loads what you ask -- and loads all the
+information you ask to. While IPDB loads all the info upon
+startup, and later is just updated by asynchronous broadcast
+netlink messages. Assume you want to lookup ARP cache that
+contains hundreds or even thousands of objects. Using
+IPRoute, you have to load all the ARP cache every time you
+want to make a lookup. While IPDB will load all the cache
+once, and then maintain it up-to-date just inserting new
+records or removing them by one.
 
 So, IPRoute is much simpler when you need to make a call and
-then exit. While IPDB is cheaper in terms of CPU performance
-if you implement a long-running program like a daemon. Later
-it can change, if there will be (an optional) cache for IPRoute
-too.
+then exit, while IPDB is cheaper in terms of CPU performance
+if you implement a long-running program like a daemon.
 
-quickstart
+Quickstart
 ----------
 
 Simple tutorial::
 
     from pyroute2 import IPDB
     # several IPDB instances are supported within on process
-    ip = IPDB()
+    ipdb = IPDB()
 
     # commit is called automatically upon the exit from `with`
     # statement
-    with ip.interfaces.eth0 as i:
+    with ipdb.interfaces.eth0 as i:
         i.address = '00:11:22:33:44:55'
         i.ifname = 'bala'
         i.txqlen = 2000
 
     # basic routing support
-    ip.routes.add({'dst': 'default', 'gateway': '10.0.0.1'}).commit()
+    ipdb.routes.add({'dst': 'default',
+                     'gateway': '10.0.0.1'}).commit()
 
     # do not forget to shutdown IPDB
-    ip.release()
+    ipdb.release()
 
 Please, notice `ip.release()` call in the end. Though it is
 not forced in an interactive python session for the better
 user experience, it is required in the scripts to sync the
 IPDB state before exit.
 
-IPDB uses IPRoute as a transport, and monitors all broadcast
-netlink messages from the kernel, thus keeping the database
-up-to-date in an asynchronous manner. IPDB inherits `dict`
-class, and has two keys::
+IPDB supports functional-like syntax also::
 
-    >>> from pyroute2 import IPDB
-    >>> ip = IPDB()
-    >>> ip.by_name.keys()
-    ['bond0', 'lo', 'em1', 'wlan0', 'dummy0', 'virbr0-nic', 'virbr0']
-    >>> ip.by_index.keys()
-    [32, 1, 2, 3, 4, 5, 8]
-    >>> ip.interfaces.keys()
-    [32,
-     1,
-     2,
-     3,
-     4,
-     5,
-     8,
-     'lo',
-     'em1',
-     'wlan0',
-     'bond0',
-     'dummy0',
-     'virbr0-nic',
-     'virbr0']
-    >>> ip.interfaces['em1']['address']
-    'f0:de:f1:93:94:0d'
-    >>> ip.interfaces['em1']['ipaddr']
-    [('10.34.131.210', 23),
-     ('2620:52:0:2282:f2de:f1ff:fe93:940d', 64),
-     ('fe80::f2de:f1ff:fe93:940d', 64)]
-    >>>
+    from pyroute2 import IPDB
+    with IPDB() as ipdb:
+        intf = (ipdb.interfaces['eth0']
+                .add_ip('10.0.0.2/24')
+                .add_ip('10.0.0.3/24')
+                .set_address('00:11:22:33:44:55')
+                .set_mtu(1460)
+                .set_name('external')
+                .commit())
+        # ---> <--- here you have the interface reference with
+        #           all the changes applied: renamed, added ipaddr,
+        #           changed macaddr and mtu.
+        ...  # some code
 
-One can address objects in IPDB not only with dict notation, but
-with dot notation also::
+    # pls notice, that the interface reference will not work
+    # outside of `with IPDB() ...`
 
-    >>> ip.interfaces.em1.address
-    'f0:de:f1:93:94:0d'
-    >>> ip.interfaces.em1.ipaddr
-    [('10.34.131.210', 23),
-     ('2620:52:0:2282:f2de:f1ff:fe93:940d', 64),
-     ('fe80::f2de:f1ff:fe93:940d', 64)]
-    ```
-
-It is up to you, which way to choose. The former, being more flexible,
-is better for developers, the latter, the shorter form -- for system
-administrators.
-
-
-The library has also IPDB module. It is a database synchronized with
-the kernel, containing some of the information. It can be used also
-to set up IP settings in a transactional manner:
-
-    >>> from pyroute2 import IPDB
-    >>> from pprint import pprint
-    >>> ip = IPDB()
-    >>> pprint(ip.by_name.keys())
-    ['bond0',
-     'lo',
-     'vnet0',
-     'em1',
-     'wlan0',
-     'macvtap0',
-     'dummy0',
-     'virbr0-nic',
-     'virbr0']
-    >>> ip.interfaces.lo
-    {'promiscuity': 0,
-     'operstate': 'UNKNOWN',
-     'qdisc': 'noqueue',
-     'group': 0,
-     'family': 0,
-     'index': 1,
-     'linkmode': 0,
-     'ipaddr': [('127.0.0.1', 8), ('::1', 128)],
-     'mtu': 65536,
-     'broadcast': '00:00:00:00:00:00',
-     'num_rx_queues': 1,
-     'txqlen': 0,
-     'ifi_type': 772,
-     'address': '00:00:00:00:00:00',
-     'flags': 65609,
-     'ifname': 'lo',
-     'num_tx_queues': 1,
-     'ports': [],
-     'change': 0}
-    >>>
-
-transaction modes
+Transaction modes
 -----------------
 IPDB has several operating modes:
 
-    - 'direct' -- any change goes immediately to the OS level
     - 'implicit' (default) -- the first change starts an implicit
         transaction, that have to be committed
     - 'explicit' -- you have to begin() a transaction prior to
         make any change
-    - 'snapshot' -- no changes will go to the OS in any case
 
-The default is to use implicit transaction. This behaviour can
-be changed in the future, so use 'mode' argument when creating
-IPDB instances.
+The default is to use implicit transaction. This behaviour
+can be changed in the future, so use 'mode' argument when
+creating IPDB instances.
 
 The sample session with explicit transactions::
 
@@ -198,50 +144,57 @@ The sample session with explicit transactions::
     In [10]: ifdb.tap0.commit()
 
 
-Note, that you can `review()` the `last()` transaction, and
-`commit()` or `drop()` it. Also, multiple `self._transactions`
-are supported, use uuid returned by `begin()` to identify them.
+Note, that you can `review()` the `current_tx` transaction,
+and `commit()` or `drop()` it. Also, multiple transactions
+are supported, use uuid returned by `begin()` to identify
+them.
 
-Actually, the form like 'ip.tap0.address' is an eye-candy. The
-IPDB objects are dictionaries, so you can write the code above
-as that::
+Actually, the form like 'ip.tap0.address' is an eye-candy.
+The IPDB objects are dictionaries, so you can write the code
+above as that::
 
-    ip.interfaces['tap0'].down()
-    ip.interfaces['tap0']['address'] = '00:11:22:33:44:55'
+    ipdb.interfaces['tap0'].down()
+    ipdb.interfaces['tap0']['address'] = '00:11:22:33:44:55'
     ...
 
-context managers
+Context managers
 ----------------
 
-Also, interface objects in transactional mode can operate as
-context managers::
+Transactional objects (interfaces, routes) can act as context
+managers in the same way as IPDB does itself::
 
-    with ip.interfaces.tap0 as i:
+    with ipdb.interfaces.tap0 as i:
         i.address = '00:11:22:33:44:55'
         i.ifname = 'vpn'
         i.add_ip('10.0.0.1', 24)
         i.add_ip('10.0.0.1', 24)
 
-On exit, the context manager will authomatically `commit()` the
-transaction.
+On exit, the context manager will authomatically `commit()`
+the transaction.
 
-create interfaces
+Create interfaces
 -----------------
 
-IPDB can also create interfaces::
+IPDB can also create virtual interfaces::
 
-    with ip.create(kind='bridge', ifname='control') as i:
+    with ipdb.create(kind='bridge', ifname='control') as i:
         i.add_port(ip.interfaces.eth1)
         i.add_port(ip.interfaces.eth2)
-        i.add_ip('10.0.0.1/24')  # the same as i.add_ip('10.0.0.1', 24)
+        i.add_ip('10.0.0.1/24')
 
-IPDB supports many interface types, see docs below for the
-`IPDB.create()` method.
 
-routing management
-------------------
+The `IPDB.create()` call has the same syntax as
+`IPRoute.link('add', ...)`, except you shouldn't specify
+the `'add'` command. Refer to `IPRoute` docs for details.
+
+Routes management
+-----------------
 
 IPDB has a simple yet useful routing management interface.
+
+Create a route
+~~~~~~~~~~~~~~
+
 To add a route, there is an easy to use syntax::
 
     # spec as a dictionary
@@ -252,122 +205,282 @@ To add a route, there is an easy to use syntax::
                         'advmss': 500}}
 
     # pass spec as is
-    ip.routes.add(spec).commit()
+    ipdb.routes.add(spec).commit()
 
     # pass spec as kwargs
-    ip.routes.add(**spec).commit()
+    ipdb.routes.add(**spec).commit()
 
     # use keyword arguments explicitly
-    ip.routes.add(dst='172.16.1.0/24', oif=4, ...).commit()
+    ipdb.routes.add(dst='172.16.1.0/24', oif=4, ...).commit()
 
-To access and change the routes, one can use notations as follows::
+Please notice, that the device can be specified with `oif`
+(output interface) or `iif` (input interface), the `device`
+keyword is not supported anymore.
+
+Get a route
+~~~~~~~~~~~
+
+To access and change the routes, one can use notations as
+follows::
 
     # default table (254)
     #
     # change the route gateway and mtu
     #
-    with ip.routes['172.16.1.0/24'] as route:
+    with ipdb.routes['172.16.1.0/24'] as route:
         route.gateway = '192.168.122.60'
         route.metrics.mtu = 1500
 
     # access the default route
-    print(ip.routes['default])
+    print(ipdb.routes['default])
 
     # change the default gateway
-    with ip.routes['default'] as route:
+    with ipdb.routes['default'] as route:
         route.gateway = '10.0.0.1'
 
-    # list automatic routes keys
-    print(ip.routes.tables[255].keys())
+By default, the path `ipdb.routes` reflects only the main
+routing table (254). But Linux supports much more routing
+tables, so does IPDB::
 
-**Route specs**
+    In [1]: ipdb.routes.tables.keys()
+    Out[1]: [0, 254, 255]
 
-It is important to understand, that routing tables in IPDB
-are lists, not dicts. It is still possible to use a dict syntax
-to retrieve records, but under the hood the tables are lists.
+    In [2]: len(ipdb.routes.tables[255])
+    Out[2]: 11  # => 11 automatic routes in the table local
 
-To retrieve or create routes one should use route specs. The
-simplest case is to retrieve one route::
+It is important to understand, that routing tables keys in
+IPDB are not only the destination prefix. The key consists
+of 'prefix/mask' string and the route priority (if any)::
+
+    In [1]: ipdb.routes.tables[254].idx.keys()
+    Out[1]:
+    [RouteKey(dst='default', priority=600),
+     RouteKey(dst='10.1.0.0/24', priority=600),
+     RouteKey(dst='192.168.122.0/24', priority=None)]
+
+But a routing table in IPDB allows several variants of the
+route spec. The simplest case is to retrieve a route by
+prefix, if there is only one match::
 
     # get route by prefix
-    ip.routes['172.16.1.0/24']
+    ipdb.routes['172.16.1.0/24']
 
     # get route by a special name
-    ip.routes['default']
+    ipdb.routes['default']
 
 If there are more than one route that matches the spec, only
 the first one will be retrieved. One should iterate all the
 records and filter by a key to retrieve all matches::
 
     # only one route will be retrieved
-    ip.routes['fe80::/64']
+    ipdb.routes['fe80::/64']
 
     # get all routes by this prefix
-    [ x for x in ip.routes if x['dst'] == 'fe80::/64' ]
+    [ x for x in ipdb.routes if x['dst'] == 'fe80::/64' ]
 
-It is possible to use dicts as specs::
+It is also possible to use dicts as specs::
 
-    ip.routes[{'dst': '172.16.0.0/16',
-               'oif': 2}]
+    ipdb.routes[{'dst': '172.16.0.0/16',
+                 'oif': 2}]
 
-The dict is just the same as a route representation in the
-records list.
+Route metrics
+~~~~~~~~~~~~~
 
-**Route metrics**
-
-A special object is dedicated to route metrics, one can access it
-via `route.metrics` or `route['metrics']`::
+A special object is dedicated to route metrics, one can
+access it via `route.metrics` or `route['metrics']`::
 
     # these two statements are equal:
-    with ip.routes['172.16.1.0/24'] as route:
+    with ipdb.routes['172.16.1.0/24'] as route:
         route['metrics']['mtu'] = 1400
 
-    with ip.routes['172.16.1.0/24'] as route:
+    with ipdb.routes['172.16.1.0/24'] as route:
         route.metrics.mtu = 1400
 
-Possible metrics are defined in `rtmsg.py:rtmsg.metrics`, e.g.
-`RTAX_HOPLIMIT` means `hoplimit` metric etc.
+Possible metrics are defined in `rtmsg.py:rtmsg.metrics`,
+e.g. `RTAX_HOPLIMIT` means `hoplimit` metric etc.
 
-**Multipath routing**
+Multipath routing
+~~~~~~~~~~~~~~~~~
 
-Multipath nexthops are managed via `route.add_nh()` and `route.del_nh()`
-methods. They are available to review via `route.multipath`, but one
-should not directly add/remove/modify nexthops `route.multipath`, as
-the changes will not be committed correctly.
+Multipath nexthops are managed via `route.add_nh()` and
+`route.del_nh()` methods. They are available to review via
+`route.multipath`, but one should not directly
+add/remove/modify nexthops in `route.multipath`, as the
+changes will not be committed correctly.
 
 To create a multipath route::
 
-    ip.routes.add({'dst': '172.16.232.0/24',
-                   'multipath': [{'gateway': '172.16.231.2',
-                                  'hops': 2},
-                                 {'gateway': '172.16.231.3',
-                                  'hops': 1},
-                                 {'gateway': '172.16.231.4'}]}).commit()
+    ipdb.routes.add({'dst': '172.16.232.0/24',
+                     'multipath': [{'gateway': '172.16.231.2',
+                                    'hops': 2},
+                                   {'gateway': '172.16.231.3',
+                                    'hops': 1},
+                                   {'gateway': '172.16.231.4'}]}).commit()
 
 To change a multipath route::
 
-    with ip.routes['172.16.232.0/24'] as r:
+    with ipdb.routes['172.16.232.0/24'] as r:
         r.add_nh({'gateway': '172.16.231.5'})
         r.del_nh({'gateway': '172.16.231.4'})
 
-**On multipath hops**
+Another possible way is to create a normal route and turn
+it into multipath by `add_nh()`::
 
-The `iproute2` tool uses `weigth` instead of `hops`. The weight
-is number of hops + 1, so when one creates a nexthop with `hops == 2`,
-the `iproute2` utility will show `weight 3`.
+    # create a non-MP route with one gateway:
+    (ipdb
+     .routes
+     .add({'dst': '172.16.232.0/24',
+           'gateway': '172.16.231.2'})
+     .commit())
 
-But the Linux kernel uses `rtnh_hops`, and the `pyroute2` library
-uses here no implications, directly mapping the kernel provided value.
+    # turn it to become a MP route:
+    (ipdb
+     .routes['172.16.232.0/24']
+     .add_nh({'gateway': '172.16.231.3'})
+     .commit())
 
-**Multipath default routes**
+    # here the route will contain two NH records, with
+    # gateways 172.16.231.2 and 172.16.231.3
 
-Deprecation notice: *As of the merge of kill_rtcache into the kernel,
-and it's release in ~3.6, weighted default routes no longer work*.
+    # remove one NH and turn the route to be a normal one
+    (ipdb
+     .routes['172.16.232.0/24']
+     .del_nh({'gateway': '172.16.231.2'})
+     .commit())
+
+    # thereafter the traffic to 172.16.232.0/24 will go only
+    # via 172.16.231.3
+
+Differences from the iproute2 syntax
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By historical reasons, `iproute2` uses names that differs
+from what the kernel uses. E.g., `iproute2` uses `weight`
+for multipath route hops instead of `hops`, where
+`weight == (hops + 1)`. Thus, a route created with
+`hops == 2` will be listed by `iproute2` as `weight 3`.
+
+Another significant difference is `metrics`. The `pyroute2`
+library uses the kernel naming scheme, where `metrics` means
+mtu, rtt, window etc. The `iproute2` utility uses `metric`
+(not `metrics`) as a name for the `priority` field.
+
+In examples::
+
+    # -------------------------------------------------------
+    # iproute2 command:
+    $ ip route add default \\
+        nexthop via 172.16.0.1 weight 2 \\
+        nexthop via 172.16.0.2 weight 9
+
+    # pyroute2 code:
+    (ipdb
+     .routes
+     .add({'dst': 'default',
+           'multipath': [{'gateway': '172.16.0.1', 'hops': 1},
+                         {'gateway': '172.16.0.2', 'hops': 8}])
+     .commit())
+
+    # -------------------------------------------------------
+    # iproute2 command:
+    $ ip route add default via 172.16.0.2 metric 200
+
+    # pyroute2 code:
+    (ipdb
+     .routes
+     .add({'dst': 'default',
+           'gateway': '172.16.0.2',
+           'priority': 200})
+     .commit())
+
+    # -------------------------------------------------------
+    # iproute2 command:
+    $ ip route add default via 172.16.0.2 mtu 1460
+
+    # pyroute2 code:
+    (ipdb
+     .routes
+     .add({'dst': 'default',
+           'gateway': '172.16.0.2',
+           'metrics': {'mtu': 1460}})
+     .commit())
+
+Multipath default routes
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. warning::
+    As of the merge of kill_rtcache into the kernel, and it's
+    release in ~3.6, weighted default routes no longer work
+    in Linux.
+
 Please refer to
 https://github.com/svinota/pyroute2/issues/171#issuecomment-149297244
 for details.
 
-performance issues
+Rules management
+----------------
+
+IPDB provides a basic IP rules management system.
+
+Create a rule
+~~~~~~~~~~~~~
+
+Syntax is almost the same as for routes::
+
+    # rule spec
+    spec = {'src': '172.16.1.0/24',
+            'table': 200,
+            'priority': 15000}
+
+    ipdb.rules.add(spec).commit()
+
+Get a rule
+~~~~~~~~~~
+
+The way IPDB handles IP rules is almost the same as routes,
+but rule keys are more complicated -- the Linux kernel
+doesn't use keys for rules, but instead iterates all the
+records until the first one w/o any attribute mismatch.
+
+The fields that the kernel uses to compare rules, IPDB uses
+as the key fields (see `pyroute2/ipdb/rule.py:RuleKey`)
+
+There are also more ways to find a record, as with routes::
+
+    # 1. iterate all the records
+    for record in ipdb.rules:
+        match(record)
+
+    # 2. an integer as the key matches the first
+    #    rule with that priority
+    ipdb.rules[32565]
+
+    # 3. a dict as the key returns the first match
+    #    for all the specified attrs
+    ipdb.rules[{'dst': '10.0.0.0/24', 'table': 200}]
+
+Priorities
+~~~~~~~~~~
+
+Thus, the rule priority is **not** a key, neither in the
+kernel, nor in IPDB. One should **not** rely on priorities
+as on keys, there may be several rules with the same
+priority, and it often happens, e.g. on Android systems.
+
+Persistence
+~~~~~~~~~~~
+
+There is no *change* operation for the rule records in the
+kernel, so only *add/del* work. When IPDB changes a record,
+it effectively deletes the old one and creates the new with
+new parameters, but the object, referring the record, stays
+the same. Also that means, that IPDB can not recognize the
+situation, when someone else does the same. So if there is
+another program changing records by *del/add* operations,
+even another IPDB instance, referring objects in the IPDB
+will be recreated.
+
+Performance issues
 ------------------
 
 In the case of bursts of Netlink broadcast messages, all
@@ -378,8 +491,8 @@ delays in the case of Netlink broadcast storms. It means
 also, that IPDB state will be synchronized with OS also
 after some delay.
 
-classes
--------
+The class API
+-------------
 '''
 import atexit
 import logging
@@ -390,12 +503,15 @@ from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_BRIDGE
 from pyroute2 import config
-from pyroute2.common import Dotkeys
+from pyroute2.config import TransactionalBase
 from pyroute2.common import View
 from pyroute2.common import basestring
 from pyroute2.common import uuid32
+from pyroute2.common import AF_MPLS
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
+from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.ipdb.rule import RuleSet
 from pyroute2.ipdb.route import RoutingTableSet
 from pyroute2.ipdb.interface import Interface
 from pyroute2.ipdb.linkedset import LinkedSet
@@ -403,25 +519,27 @@ from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.exceptions import CreateException
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 
+log = logging.getLogger(__name__)
+
 
 def get_addr_nla(msg):
-    '''
-    Utility function to get NLA, containing the interface
-    address.
-
-    Inconsistency in Linux IP addressing scheme is that
-    IPv4 uses IFA_LOCAL to store interface's ip address,
-    and IPv6 uses for the same IFA_ADDRESS.
-
-    IPv4 sets IFA_ADDRESS to == IFA_LOCAL or to a
-    tunneling endpoint.
-
-    Args:
-        - msg (nlmsg): RTM\_.*ADDR message
-
-    Returns:
-        - nla (nla): IFA_LOCAL for IPv4 and IFA_ADDRESS for IPv6
-    '''
+    ###
+    # Utility function to get NLA, containing the interface
+    # address.
+    #
+    # Inconsistency in Linux IP addressing scheme is that
+    # IPv4 uses IFA_LOCAL to store interface's ip address,
+    # and IPv6 uses for the same IFA_ADDRESS.
+    #
+    # IPv4 sets IFA_ADDRESS to == IFA_LOCAL or to a
+    # tunneling endpoint.
+    #
+    # Args:
+    #     - msg (nlmsg): RTM\_.*ADDR message
+    #
+    # Returns:
+    #     - nla (nla): IFA_LOCAL for IPv4 and IFA_ADDRESS for IPv6
+    ###
     nla = None
     if msg['family'] == AF_INET:
         nla = msg.get_attr('IFA_LOCAL')
@@ -470,15 +588,6 @@ class IPDB(object):
     def __init__(self, nl=None, mode='implicit',
                  restart_on_error=None, nl_async=None,
                  debug=False, ignore_rtables=None):
-        '''
-        Parameters:
-            - nl -- IPRoute() reference
-            - mode -- (implicit, explicit, direct)
-            - iclass -- the interface class type
-
-        If you do not provide iproute instance, ipdb will
-        start it automatically.
-        '''
         self.mode = mode
         self.debug = debug
         if isinstance(ignore_rtables, int):
@@ -496,7 +605,6 @@ class IPDB(object):
         self._cb_threads = {}
 
         # locks and events
-        self._links_event = threading.Event()
         self.exclusive = threading.RLock()
         self._shutdown_lock = threading.Lock()
 
@@ -519,14 +627,12 @@ class IPDB(object):
         self.release()
 
     def initdb(self, nl=None):
-        '''
-        Restart IPRoute channel, and create all the DB
-        from scratch. Can be used when sync is lost.
-        '''
         self.nl = nl or IPRoute()
+        self.mnl = self.nl.clone()
 
         # resolvers
-        self.interfaces = Dotkeys()
+        self.interfaces = TransactionalBase()
+        self.rules = RuleSet(ipdb=self)
         self.routes = RoutingTableSet(ipdb=self,
                                       ignore_rtables=self._ignore_rtables)
         self.by_name = View(src=self.interfaces,
@@ -539,27 +645,36 @@ class IPDB(object):
         self.neighbours = {}
 
         try:
-            self.nl.bind(async=self._nl_async)
+            self.mnl.bind(async=self._nl_async)
             # load information
             links = self.nl.get_links()
             for link in links:
-                self.device_put(link, skip_slaves=True)
+                self._interface_add(link, skip_slaves=True)
             for link in links:
                 self.update_slaves(link)
             # bridge info
             links = self.nl.get_vlans()
             for link in links:
-                self.update_dev(link)
+                self._interface_add(link)
             #
-            self.update_addr(self.nl.get_addr())
-            self.update_neighbours(self.nl.get_neighbours())
-            routes4 = self.nl.get_routes(family=AF_INET)
-            routes6 = self.nl.get_routes(family=AF_INET6)
-            self.update_routes(routes4)
-            self.update_routes(routes6)
+            for msg in self.nl.get_rules():
+                self._rule_add(msg)
+            for msg in self.nl.get_addr():
+                self._addr_add(msg)
+            for msg in self.nl.get_neighbours():
+                self._neigh_add(msg)
+            for msg in self.nl.get_routes(family=AF_INET):
+                self._route_add(msg)
+            for msg in self.nl.get_routes(family=AF_INET6):
+                self._route_add(msg)
+            for msg in self.nl.get_routes(family=AF_MPLS):
+                self._route_add(msg)
         except Exception as e:
+            log.error('initdb error: %s', e)
+            log.error(traceback.format_exc())
             try:
                 self.nl.close()
+                self.mnl.close()
             except:
                 pass
             raise e
@@ -663,175 +778,54 @@ class IPDB(object):
         is enough time to sync the state. But for the scripts
         the `release()` call is required.
         '''
-        with self.exclusive:
-            with self._shutdown_lock:
-                if self._stop:
-                    return
+        with self._shutdown_lock:
+            if self._stop:
+                return
+            self._stop = True
+            # terminate the main loop
+            for t in range(3):
+                try:
+                    msg = ifinfmsg()
+                    msg['index'] = 1
+                    msg.reset()
+                    self.mnl.put(msg, RTM_GETLINK)
+                except Exception as e:
+                    logging.warning("shotdown error: %s", e)
+                    # Just give up.
+                    # We can not handle this case
 
-                self._stop = True
+            self._mthread.join()
+            self.nl.close()
+            self.nl = None
+            self.mnl.close()
+            self.mnl = None
+
+        with self.exclusive:
                 # collect all the callbacks
                 for cuid in tuple(self._cb_threads):
                     for t in tuple(self._cb_threads[cuid]):
                         t.join()
-                # terminate the main loop
-                try:
-                    for t in range(3):
-                        self.nl.put({'index': 1}, RTM_GETLINK)
-                        self._mthread.join(t)
-                        if not self._mthread.is_alive():
-                            break
-                except Exception:
-                    # Just give up.
-                    # We can not handle this case
-                    pass
-                self.nl.close()
-                self.nl = None
-
                 # flush all the objects
-                # -- interfaces
                 for (key, dev) in self.by_name.items():
-                    self.detach(key, dev['index'], dev.nlmsg)
-                # -- routes
-                for key in tuple(self.routes.tables.keys()):
-                    del self.routes.tables[key]
-                self.routes.tables[254] = None
-                # -- ipaddr
-                for key in tuple(self.ipaddr.keys()):
-                    del self.ipaddr[key]
-                # -- neighbours
-                for key in tuple(self.neighbours.keys()):
-                    del self.neighbours[key]
+                    try:
+                        self.detach(key, dev['index'], dev.nlmsg)
+                    except KeyError:
+                        pass
+
+                def flush(idx):
+                    for key in tuple(idx.keys()):
+                        try:
+                            del idx[key]
+                        except KeyError:
+                            pass
+                idx_list = [self.routes.tables[x] for x
+                            in self.routes.tables.keys()]
+                idx_list.append(self.ipaddr)
+                idx_list.append(self.neighbours)
+                for idx in idx_list:
+                    flush(idx)
 
     def create(self, kind, ifname, reuse=False, **kwarg):
-        '''
-        Create an interface. Arguments 'kind' and 'ifname' are
-        required.
-
-            - kind — interface type, can be of:
-                - bridge
-                - bond
-                - vlan
-                - tun
-                - dummy
-                - veth
-                - macvlan
-                - macvtap
-                - gre
-                - team
-            - ifname — interface name
-            - reuse — if such interface exists, return it anyway
-
-        Different interface kinds can require different
-        arguments for creation.
-
-        ► **veth**
-
-        To properly create `veth` interface, one should specify
-        `peer` also, since `veth` interfaces are created in pairs::
-
-            with ip.create(ifname='v1p0', kind='veth', peer='v1p1') as i:
-                i.add_ip('10.0.0.1/24')
-                i.add_ip('10.0.0.2/24')
-
-        The code above creates two interfaces, `v1p0` and `v1p1`, and
-        adds two addresses to `v1p0`.
-
-        ► **macvlan**
-
-        Macvlan interfaces act like VLANs within OS. The macvlan driver
-        provides an ability to add several MAC addresses on one interface,
-        where every MAC address is reflected with a virtual interface in
-        the system.
-
-        In some setups macvlan interfaces can replace bridge interfaces,
-        providing more simple and at the same time high-performance
-        solution::
-
-            ip.create(ifname='mvlan0',
-                      kind='macvlan',
-                      link=ip.interfaces.em1,
-                      macvlan_mode='private').commit()
-
-        Several macvlan modes are available: 'private', 'vepa', 'bridge',
-        'passthru'. Ususally the default is 'vepa'.
-
-        ► **macvtap**
-
-        Almost the same as macvlan, but creates also a character tap device::
-
-            ip.create(ifname='mvtap0',
-                      kind='macvtap',
-                      link=ip.interfaces.em1,
-                      macvtap_mode='vepa').commit()
-
-        Will create a device file `"/dev/tap%s" % ip.interfaces.mvtap0.index`
-
-        ► **gre**
-
-        Create GRE tunnel::
-
-            with ip.create(ifname='grex',
-                           kind='gre',
-                           gre_local='172.16.0.1',
-                           gre_remote='172.16.0.101',
-                           gre_ttl=16) as i:
-                i.add_ip('192.168.0.1/24')
-                i.up()
-
-        The keyed GRE requires explicit iflags/oflags specification::
-
-            ip.create(ifname='grex',
-                      kind='gre',
-                      gre_local='172.16.0.1',
-                      gre_remote='172.16.0.101',
-                      gre_ttl=16,
-                      gre_ikey=10,
-                      gre_okey=10,
-                      gre_iflags=32,
-                      gre_oflags=32).commit()
-
-        ► **vlan**
-
-        VLAN interfaces require additional parameters, `vlan_id` and
-        `link`, where `link` is a master interface to create VLAN on::
-
-            ip.create(ifname='v100',
-                      kind='vlan',
-                      link=ip.interfaces.eth0,
-                      vlan_id=100)
-
-            ip.create(ifname='v100',
-                      kind='vlan',
-                      link=1,
-                      vlan_id=100)
-
-        The `link` parameter should be either integer, interface id, or
-        an interface object. VLAN id must be integer.
-
-        ► **vxlan**
-
-        VXLAN interfaces are like VLAN ones, but require a bit more
-        parameters::
-
-            ip.create(ifname='vx101',
-                      kind='vxlan',
-                      vxlan_link=ip.interfaces.eth0,
-                      vxlan_id=101,
-                      vxlan_group='239.1.1.1',
-                      vxlan_ttl=16)
-
-        All possible vxlan parameters are listed in the module
-        `pyroute2.netlink.rtnl.ifinfmsg:... vxlan_data`.
-
-        ► **tuntap**
-
-        Possible `tuntap` keywords:
-
-            - `mode` — "tun" or "tap"
-            - `uid` — integer
-            - `gid` — integer
-            - `ifr` — dict of tuntap flags (see tuntapmsg.py)
-        '''
         with self.exclusive:
             # check for existing interface
             if ifname in self.interfaces:
@@ -840,7 +834,9 @@ class IPDB(object):
                     device = self.interfaces[ifname]
                     kwarg['kind'] = kind
                     device.load_dict(kwarg)
-                    device.set_item('ipdb_scope', 'create')
+                    if self.interfaces[ifname]['ipdb_scope'] == 'shadow':
+                        with device._direct_state:
+                            device['ipdb_scope'] = 'create'
                 else:
                     raise CreateException("interface %s exists" %
                                           ifname)
@@ -858,28 +854,21 @@ class IPDB(object):
                 device['ifname'] = ifname
                 device['ipdb_scope'] = 'create'
                 device._mode = self.mode
-            tid = device.begin()
-        #
-        # All the device methods are handled via `transactional.update()`
-        # except of the very creation.
-        #
-        # Commit the changes in the 'direct' mode, since this call is not
-        # decorated.
-        if self.mode == 'direct':
-            device.commit(tid)
+            device.begin()
         return device
 
-    def commit(self, transactions=None, rollback=False):
+    def commit(self, transactions=None, phase=1):
         # what to commit: either from transactions argument, or from
         # started transactions on existing objects
         if transactions is None:
             # collect interface transactions
-            txlist = [(x, x.last()) for x in self.by_name.values() if x._tids]
+            txlist = [(x, x.current_tx) for x
+                      in self.by_name.values() if x.local_tx.values()]
             # collect route transactions
             for table in self.routes.tables.keys():
-                txlist.extend([(x, x.last()) for x in
+                txlist.extend([(x, x.current_tx) for x in
                                self.routes.tables[table]
-                               if x._tids])
+                               if x.local_tx.values()])
             txlist = sorted(txlist,
                             key=lambda x: x[1]['ipdb_priority'],
                             reverse=True)
@@ -895,41 +884,49 @@ class IPDB(object):
                 if tx['ipdb_scope'] == 'remove':
                     tx['ipdb_scope'] = 'shadow'
                     removed.append((target, tx))
-                if not rollback:
+                if phase == 1:
                     s = (target, target.pick(detached=True))
                     snapshots.append(s)
-                target.commit(transaction=tx, rollback=rollback)
+                target.commit(transaction=tx,
+                              commit_phase=phase,
+                              commit_mask=phase)
         except Exception:
-            if not rollback:
+            if phase == 1:
                 self.fallen = transactions
-                self.commit(transactions=snapshots, rollback=True)
+                self.commit(transactions=snapshots, phase=2)
             raise
         else:
-            if not rollback:
+            if phase == 1:
                 for (target, tx) in removed:
                     target['ipdb_scope'] = 'detached'
                     target.detach()
         finally:
-            if not rollback:
+            if phase == 1:
                 for (target, tx) in transactions:
-                    target.drop(tx)
+                    target.drop(tx.uid)
 
-    def device_del(self, msg):
+    def _interface_del(self, msg):
         target = self.interfaces.get(msg['index'])
         if target is None:
             return
+        for record in self.routes.filter({'oif': msg['index']}):
+            with record['route']._direct_state:
+                record['route']['ipdb_scope'] = 'gc'
+        for record in self.routes.filter({'iif': msg['index']}):
+            with record['route']._direct_state:
+                record['route']['ipdb_scope'] = 'gc'
         target.nlmsg = msg
         # check for freezed devices
         if getattr(target, '_freeze', None):
-            self.interfaces[msg['index']].set_item('ipdb_scope', 'shadow')
+            with target._direct_state:
+                target['ipdb_scope'] = 'shadow'
             return
         # check for locked devices
         if target.get('ipdb_scope') in ('locked', 'shadow'):
-            self.interfaces[msg['index']].sync()
             return
         self.detach(None, msg['index'], msg)
 
-    def device_put(self, msg, skip_slaves=False):
+    def _interface_add(self, msg, skip_slaves=False):
         # check, if a record exists
         index = msg.get('index', None)
         ifname = msg.get_attr('IFLA_IFNAME', None)
@@ -994,30 +991,27 @@ class IPDB(object):
             else:
                 target = self.interfaces[idx]
                 name = target['ifname']
-            target.sync()
             self.interfaces.pop(name, None)
             self.interfaces.pop(idx, None)
             self.ipaddr.pop(idx, None)
             self.neighbours.pop(idx, None)
-            target.set_item('ipdb_scope', 'detached')
+            with target._direct_state:
+                target['ipdb_scope'] = 'detached'
 
     def watchdog(self, action='RTM_NEWLINK', **kwarg):
         return Watchdog(self, action, kwarg)
 
-    def update_dev(self, dev):
-        # ignore non-system updates on devices not
-        # registered in the DB
-        if (dev['index'] not in self.interfaces) and \
-                (dev['change'] != 0xffffffff):
-            return
-        if dev['event'] == 'RTM_NEWLINK':
-            self.device_put(dev)
-        else:
-            self.device_del(dev)
+    def _rule_add(self, msg):
+        self.rules.load_netlink(msg)
 
-    def update_routes(self, routes):
-        for msg in routes:
-            self.routes.load_netlink(msg)
+    def _rule_del(self, msg):
+        self.rules.load_netlink(msg)
+
+    def _route_add(self, msg):
+        self.routes.load_netlink(msg)
+
+    def _route_del(self, msg):
+        self.routes.load_netlink(msg)
 
     def update_slaves(self, msg):
         # Update slaves list -- only after update IPDB!
@@ -1042,90 +1036,117 @@ class IPDB(object):
                 for device in self.by_index:
                     if index in self.interfaces[device]['ports']:
                         try:
-                            self.interfaces[device].del_port(
-                                index, direct=True)
+                            with self.interfaces[device]._direct_state:
+                                self.interfaces[device].del_port(index)
                         except KeyError:
                             pass
-                master.add_port(index, direct=True)
+                with master._direct_state:
+                    master.add_port(index)
             elif msg['event'] == 'RTM_DELLINK':
                 if index in master['ports']:
-                    master.del_port(index, direct=True)
+                    with master._direct_state:
+                        master.del_port(index)
         # there is NO masters for the interface, clean them if any
         else:
             device = self.interfaces[msg['index']]
             # clean vlan list from the port
             for vlan in tuple(device['vlans']):
-                device.del_vlan(vlan, direct=True)
+                with device._direct_state:
+                    device.del_vlan(vlan)
             # clean device from ports
             for master in self.by_index:
                 if index in self.interfaces[master]['ports']:
                     try:
-                        self.interfaces[master].del_port(
-                            index, direct=True)
+                        with self.interfaces[master]._direct_state:
+                            self.interfaces[master].del_port(index)
                     except KeyError:
                         pass
             master = device.if_master
             if master is not None:
                 if 'master' in device:
-                    device.set_item('master', None)
+                    with device._direct_state:
+                        device['master'] = None
                 if (master in self.interfaces) and \
-                        (msg['index'] in self.interfaces[master].ports):
+                        (msg['index'] in self.interfaces[master]['ports']):
                     try:
-                        self.interfaces[master].del_port(
-                            msg['index'], direct=True)
+                        with self.interfaces[master]._direct_state:
+                            self.interfaces[master].del_port(index)
                     except KeyError:
                         pass
 
-    def update_addr(self, addrs, action='add'):
-        # Update address list of an interface.
+    def _addr_add(self, msg):
+        if msg['family'] == AF_INET:
+            addr = msg.get_attr('IFA_LOCAL')
+        elif msg['family'] == AF_INET6:
+            addr = msg.get_attr('IFA_ADDRESS')
+        else:
+            return
+        raw = {'local': msg.get_attr('IFA_LOCAL'),
+               'broadcast': msg.get_attr('IFA_BROADCAST'),
+               'address': msg.get_attr('IFA_ADDRESS'),
+               'flags': msg.get_attr('IFA_FLAGS'),
+               'prefixlen': msg['prefixlen']}
+        try:
+            self.ipaddr[msg['index']].add(key=(addr, raw['prefixlen']),
+                                          raw=raw)
+        except:
+            pass
 
-        for addr in addrs:
-            nla = get_addr_nla(addr)
-            if self.debug:
-                raw = addr
-            else:
-                raw = {'local': addr.get_attr('IFA_LOCAL'),
-                       'broadcast': addr.get_attr('IFA_BROADCAST'),
-                       'address': addr.get_attr('IFA_ADDRESS'),
-                       'flags': addr.get_attr('IFA_FLAGS'),
-                       'prefixlen': addr.get('prefixlen')}
-            if nla is not None:
-                try:
-                    method = getattr(self.ipaddr[addr['index']], action)
-                    method(key=(nla, addr['prefixlen']), raw=raw)
-                except:
-                    pass
+    def _addr_del(self, msg):
+        if msg['family'] == AF_INET:
+            addr = msg.get_attr('IFA_LOCAL')
+        elif msg['family'] == AF_INET6:
+            addr = msg.get_attr('IFA_ADDRESS')
+        else:
+            return
+        try:
+            self.ipaddr[msg['index']].remove((addr, msg['prefixlen']))
+        except:
+            pass
 
-    def update_neighbours(self, neighs, action='add'):
+    def _neigh_add(self, msg):
+        if msg['family'] == AF_BRIDGE:
+            return
 
-        for neigh in neighs:
-            if neigh['family'] == AF_BRIDGE:
-                # skip FDB records for now -- should be tracked separately
-                continue
-            nla = neigh.get_attr('NDA_DST')
-            if self.debug:
-                raw = neigh
-            else:
-                raw = {'lladdr': neigh.get_attr('NDA_LLADDR')}
-            if nla is not None:
-                try:
-                    method = getattr(self.neighbours[neigh['ifindex']], action)
-                    method(key=nla, raw=raw)
-                except:
-                    pass
+        try:
+            (self
+             .neighbours[msg['ifindex']]
+             .add(key=msg.get_attr('NDA_DST'),
+                  raw={'lladdr': msg.get_attr('MDA_LLADDR')}))
+        except:
+            pass
+
+    def _neigh_del(self, msg):
+        if msg['family'] == AF_BRIDGE:
+            return
+        try:
+            (self
+             .neighbours[msg['ifindex']]
+             .remove(msg.get_attr('NDA_DST')))
+        except:
+            pass
 
     def serve_forever(self):
-        '''
-        Main monitoring cycle. It gets messages from the
-        default iproute queue and updates objects in the
-        database.
-
-        .. note::
-            Should not be called manually.
-        '''
+        ###
+        # Main monitoring cycle. It gets messages from the
+        # default iproute queue and updates objects in the
+        # database.
+        #
+        # Should not be called manually.
+        ###
+        event_map = {'RTM_NEWLINK': self._interface_add,
+                     'RTM_DELLINK': self._interface_del,
+                     'RTM_NEWADDR': self._addr_add,
+                     'RTM_DELADDR': self._addr_del,
+                     'RTM_NEWNEIGH': self._neigh_add,
+                     'RTM_DELNEIGH': self._neigh_del,
+                     'RTM_NEWRULE': self._rule_add,
+                     'RTM_DELRULE': self._rule_del,
+                     'RTM_NEWROUTE': self._route_add,
+                     'RTM_DELROUTE': self._route_del}
         while not self._stop:
             try:
-                messages = self.nl.get()
+                messages = self.mnl.get()
                 ##
                 # Check it again
                 #
@@ -1136,14 +1157,14 @@ class IPDB(object):
                 if self._stop:
                     break
             except:
-                logging.error('Restarting IPDB instance after '
-                              'error:\n%s', traceback.format_exc())
+                log.error('Restarting IPDB instance after '
+                          'error:\n%s', traceback.format_exc())
                 if self.restart_on_error:
                     try:
                         self.initdb()
                     except:
-                        logging.error('Error restarting DB:\n%s',
-                                      traceback.format_exc())
+                        log.error('Error restarting DB:\n%s',
+                                  traceback.format_exc())
                         return
                     continue
                 else:
@@ -1158,22 +1179,9 @@ class IPDB(object):
                         pass
 
                 with self.exclusive:
-                    # FIXME: refactor it to a dict
-                    if msg.get('event', None) in ('RTM_NEWLINK',
-                                                  'RTM_DELLINK'):
-                        self.update_dev(msg)
-                        self._links_event.set()
-                    elif msg.get('event', None) == 'RTM_NEWADDR':
-                        self.update_addr([msg], 'add')
-                    elif msg.get('event', None) == 'RTM_DELADDR':
-                        self.update_addr([msg], 'remove')
-                    elif msg.get('event', None) == 'RTM_NEWNEIGH':
-                        self.update_neighbours([msg], 'add')
-                    elif msg.get('event', None) == 'RTM_DELNEIGH':
-                        self.update_neighbours([msg], 'remove')
-                    elif msg.get('event', None) in ('RTM_NEWROUTE',
-                                                    'RTM_DELROUTE'):
-                        self.update_routes([msg])
+                    event = msg.get('event', None)
+                    if event in event_map:
+                        event_map[event](msg)
 
                 # run post-callbacks
                 # NOTE: post-callbacks are asynchronous

@@ -1,4 +1,5 @@
 from socket import htons
+from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl.tcmsg.act_police import nla_plus_police
 from pyroute2.netlink.rtnl.tcmsg.act_police import get_parameters \
     as ap_parameters
@@ -31,7 +32,7 @@ def get_parameters(kwarg):
     return ret
 
 
-class options(nla_plus_police):
+class options(nla, nla_plus_police):
     nla_map = (('TCA_FW_UNSPEC', 'none'),
                ('TCA_FW_CLASSID', 'uint32'),
                ('TCA_FW_POLICE', 'police'),  # TODO string?

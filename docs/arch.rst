@@ -22,6 +22,8 @@ There is an inheritance diagram of netlink sockets, provided
 by the library:
 
 .. inheritance-diagram:: pyroute2.iproute.IPRoute
+    pyroute2.iproute.IPBatch
+    pyroute2.iproute.RawIPRoute
     pyroute2.iwutil.IW
     pyroute2.ipset.IPSet
     pyroute2.netlink.taskstats.TaskStats
@@ -163,14 +165,22 @@ The `IPDB` architecture is not too complicated, but it
 implements some useful transaction magic, see `commit()`
 methods of the `Transactional` objects.
 
-.. inheritance-diagram:: pyroute2.ipdb.IPDB
+.. inheritance-diagram:: pyroute2.ipdb.main.IPDB
     pyroute2.ipdb.interface.Interface
     pyroute2.ipdb.linkedset.LinkedSet
     pyroute2.ipdb.linkedset.IPaddrSet
+    pyroute2.ipdb.route.NextHopSet
+    pyroute2.ipdb.route.Via
+    pyroute2.ipdb.route.Encap
     pyroute2.ipdb.route.Metrics
+    pyroute2.ipdb.route.BaseRoute
     pyroute2.ipdb.route.Route
+    pyroute2.ipdb.route.MPLSRoute
     pyroute2.ipdb.route.RoutingTable
+    pyroute2.ipdb.route.MPLSTable
     pyroute2.ipdb.route.RoutingTableSet
+    pyroute2.ipdb.rule.Rule
+    pyroute2.ipdb.rule.RuleSet
     :parts: 1
 
 Internet protocols

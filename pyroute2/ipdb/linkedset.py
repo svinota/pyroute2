@@ -51,7 +51,7 @@ class LinkedSet(set):
                 target.clear()
                 del self.targets[target]
 
-    def set_target(self, value):
+    def set_target(self, value, ignore_state=False):
         '''
         Set target state for the object and clear the target
         event. Once the target is reached, the event will be
@@ -67,11 +67,13 @@ class LinkedSet(set):
                 # immediately check, if the target already
                 # reached -- otherwise you will miss the
                 # target forever
-                self.check_target()
+                if not ignore_state:
+                    self.check_target()
             elif hasattr(value, '__call__'):
                 new_target = threading.Event()
                 self.targets[new_target] = value
-                self.check_target()
+                if not ignore_state:
+                    self.check_target()
                 return new_target
             else:
                 raise TypeError("target type not supported")

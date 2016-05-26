@@ -1,19 +1,19 @@
 #!/usr/bin/env python
-'''
-Please be aware, that `setup.py.in` is just a template.
-Strings between `@` will be replaced with variables from
-Makefile, see target `setup.py`
-
-RELEASE will be replaced with `git describe`
-SETUPLIB by default is `distutils.core`
-
-To use `setuptools`, run `make ... setuplib=setuptools`
-'''
+import os
 try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
 
+# When one runs pip install from the git repo, the setup.ini
+# doesn't exist. But we still have here a full git repo with
+# all the git log and with the Makefile.
+#
+# So just try to use it.
+try:
+    os.stat('setup.ini')
+except:
+    os.system('make force-version')
 config = configparser.ConfigParser()
 config.read('setup.ini')
 
@@ -55,8 +55,12 @@ setup(name='pyroute2',
                    'Programming Language :: Python',
                    'Topic :: Software Development :: Libraries :: ' +
                    'Python Modules',
-                   'Operating System :: POSIX',
+                   'Topic :: System :: Networking',
+                   'Topic :: System :: Systems Administration',
+                   'Operating System :: POSIX :: Linux',
                    'Intended Audience :: Developers',
+                   'Intended Audience :: System Administrators',
+                   'Intended Audience :: Telecommunications Industry',
                    'Programming Language :: Python :: 2.6',
                    'Programming Language :: Python :: 2.7',
                    'Programming Language :: Python :: 3',

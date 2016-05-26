@@ -35,12 +35,12 @@ class ipset_msg(nfgen_msg):
                ('IPSET_ATTR_REVISION', 'uint8'),
                ('IPSET_ATTR_FAMILY', 'uint8'),
                ('IPSET_ATTR_FLAGS', 'hex'),
-               ('IPSET_ATTR_DATA', 'data'),
-               ('IPSET_ATTR_ADT', 'data'),
+               ('IPSET_ATTR_DATA', 'ipset_data'),
+               ('IPSET_ATTR_ADT', 'ipset_data'),
                ('IPSET_ATTR_LINENO', 'hex'),
                ('IPSET_ATTR_PROTOCOL_MIN', 'hex'))
 
-    class data(nla):
+    class ipset_data(nla):
         nla_flags = NLA_F_NESTED
         nla_map = ((0, 'IPSET_ATTR_UNSPEC', 'none'),
                    (1, 'IPSET_ATTR_IP', 'ipset_ip'),

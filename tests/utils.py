@@ -7,10 +7,7 @@ import platform
 import subprocess
 import ctypes
 from pyroute2 import NetlinkError
-from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bridge
-from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bond
-from pyroute2.netlink.rtnl.ifinfmsg import compat_del_bridge
-from pyroute2.netlink.rtnl.ifinfmsg import compat_del_bond
+from pyroute2 import IPRoute
 from nose.plugins.skip import SkipTest
 from nose.tools import make_decorator
 from distutils.version import LooseVersion
@@ -75,23 +72,27 @@ def require_8021q():
 
 
 def require_bridge():
-    try:
-        compat_create_bridge('test_req')
-    except OSError:
-        raise SkipTest('can not create <bridge>')
-    if not grep('ip link show', 'test_req'):
-        raise SkipTest('can not create <bridge>')
-    compat_del_bridge('test_req')
+    with IPRoute() as ip:
+        try:
+            ip.link('add', ifname='test_req', kind='bridge')
+        except Exception:
+            raise SkipTest('can not create <bridge>')
+        idx = ip.link_lookup(ifname='test_req')
+        if not idx:
+            raise SkipTest('can not create <bridge>')
+        ip.link('del', index=idx)
 
 
 def require_bond():
-    try:
-        compat_create_bond('test_req')
-    except IOError:
-        raise SkipTest('can not create <bond>')
-    if not grep('ip link show', 'test_req'):
-        raise SkipTest('can not create <bond>')
-    compat_del_bond('test_req')
+    with IPRoute() as ip:
+        try:
+            ip.link('add', ifname='test_req', kind='bond')
+        except Exception:
+            raise SkipTest('can not create <bond>')
+        idx = ip.link_lookup(ifname='test_req')
+        if not idx:
+            raise SkipTest('can not create <bond>')
+        ip.link('del', index=idx)
 
 
 def require_user(user):
