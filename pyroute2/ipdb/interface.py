@@ -717,8 +717,8 @@ class Interface(Transactional):
                 if request.get('address', None) == '00:00:00:00:00:00':
                     request.pop('address')
                     request.pop('broadcast', None)
-                if filter(lambda x: x[:3] == 'br_', request):
-                    request['family'] = 7
+                if tuple(filter(lambda x: x[:3] == 'br_', request)):
+                    request['family'] = 7  # AF_BRIDGE
                     run(nl.link,
                         (RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK),
                         **request)
