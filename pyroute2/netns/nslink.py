@@ -66,8 +66,10 @@ run `remove()`.
 
 import os
 import errno
+import fcntl
 import atexit
 import signal
+import sys
 import logging
 from pyroute2.config import MpPipe
 from pyroute2.config import MpProcess
@@ -209,6 +211,14 @@ class NetNS(IPRouteMixin, RemoteSocket):
         self._brdch.close()
         # join the server
         self.server.join()
+        # Workaround for http://bugs.python.org/issue27151
+        if sys.version_info > (3, 2) and sys.version_info < (3, 6):
+            try:
+                fcntl.fcntl(self.server.sentinel, fcntl.F_GETFD)
+            except:
+                pass
+            else:
+                os.close(self.server.sentinel)
 
     def post_init(self):
         pass
