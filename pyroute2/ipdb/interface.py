@@ -920,6 +920,8 @@ class Interface(Transactional):
         else:
             if not self['flags'] & 1:
                 self['flags'] |= 1
+            elif self.current_tx is None:
+                self.begin()
         return self
 
     def down(self):
@@ -931,6 +933,8 @@ class Interface(Transactional):
         else:
             if self['flags'] & 1:
                 self['flags'] &= ~(self['flags'] & 1)
+            elif self.current_tx is None:
+                self.begin()
         return self
 
     def remove(self):
