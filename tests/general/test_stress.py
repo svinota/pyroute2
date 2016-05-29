@@ -41,4 +41,4 @@ class TestNetNS(object):
         if sys.version_info > (3, 2) and sys.version_info < (3, 6):
             for n in namespaces:
                 assert_raises(OSError,
-                              fcntl.fcntl, ns.server.sentinel, fcntl.F_GETFD)
+                              fcntl.fcntl, n.server.sentinel, fcntl.F_GETFD)
