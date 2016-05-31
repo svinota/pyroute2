@@ -132,7 +132,7 @@ test: check_parameters dist
 		export COVERAGE=${coverage}; \
 		export MODULE=${module}; \
 		cd tests; \
-		./run.sh general eventlet lnst
+		./run.sh general eventlet integration
 
 test-ci:
 	@${civm} tests/ci

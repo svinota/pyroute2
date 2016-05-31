@@ -1,6 +1,15 @@
 import select
 
 
+class TestKuryr(object):
+
+    def test_exceptions(self):
+        import pyroute2
+        assert issubclass(pyroute2.NetlinkError, Exception)
+        assert issubclass(pyroute2.CreateException, Exception)
+        assert issubclass(pyroute2.CommitException, Exception)
+
+
 class TestLnst(object):
 
     def test_issubclass(self):
