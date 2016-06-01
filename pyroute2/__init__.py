@@ -5,6 +5,8 @@
 # That should not affect neither the public API, nor the
 # type matching with isinstance() and issubclass()
 #
+import sys
+import struct
 import logging
 from abc import ABCMeta
 from pyroute2.ipdb.exceptions import \
@@ -17,6 +19,21 @@ from pyroute2.netlink.exceptions import \
     NetlinkDecodeError
 
 log = logging.getLogger(__name__)
+
+try:
+    # probe, if the bytearray can be used in struct.unpack_from()
+    struct.unpack_from('I', bytearray((1, 0, 0, 0)), 0)
+except:
+    if sys.version_info[0] < 3:
+        # monkeypatch for old Python versions
+        log.warning('patching struct.unpack_from()')
+
+        def wrapped(fmt, buf, offset=0):
+            return struct._u_f_orig(fmt, str(buf), offset)
+        struct._u_f_orig = struct.unpack_from
+        struct.unpack_from = wrapped
+    else:
+        raise
 
 # reexport exceptions
 exceptions = [NetlinkError,
