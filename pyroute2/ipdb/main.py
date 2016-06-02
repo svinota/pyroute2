@@ -499,8 +499,6 @@ import logging
 import traceback
 import threading
 
-from socket import AF_INET
-from socket import AF_INET6
 from pyroute2 import config
 from pyroute2.common import uuid32
 from pyroute2.iproute import IPRoute
@@ -514,32 +512,6 @@ from pyroute2.ipdb.interface import NeighboursDict
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 
 log = logging.getLogger(__name__)
-
-
-def get_addr_nla(msg):
-    ###
-    # Utility function to get NLA, containing the interface
-    # address.
-    #
-    # Inconsistency in Linux IP addressing scheme is that
-    # IPv4 uses IFA_LOCAL to store interface's ip address,
-    # and IPv6 uses for the same IFA_ADDRESS.
-    #
-    # IPv4 sets IFA_ADDRESS to == IFA_LOCAL or to a
-    # tunneling endpoint.
-    #
-    # Args:
-    #     - msg (nlmsg): RTM\_.*ADDR message
-    #
-    # Returns:
-    #     - nla (nla): IFA_LOCAL for IPv4 and IFA_ADDRESS for IPv6
-    ###
-    nla = None
-    if msg['family'] == AF_INET:
-        nla = msg.get_attr('IFA_LOCAL')
-    elif msg['family'] == AF_INET6:
-        nla = msg.get_attr('IFA_ADDRESS')
-    return nla
 
 
 class Watchdog(object):
