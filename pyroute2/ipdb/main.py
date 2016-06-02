@@ -501,22 +501,16 @@ import threading
 
 from socket import AF_INET
 from socket import AF_INET6
-from socket import AF_BRIDGE
 from pyroute2 import config
-from pyroute2.config import TransactionalBase
-from pyroute2.common import View
-from pyroute2.common import basestring
 from pyroute2.common import uuid32
-from pyroute2.common import AF_MPLS
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.ipdb.rule import RuleSet
+from pyroute2.ipdb.rule import RulesDict
 from pyroute2.ipdb.route import RoutingTableSet
-from pyroute2.ipdb.interface import Interface
-from pyroute2.ipdb.linkedset import LinkedSet
-from pyroute2.ipdb.linkedset import IPaddrSet
-from pyroute2.ipdb.exceptions import CreateException
+from pyroute2.ipdb.interface import InterfacesDict
+from pyroute2.ipdb.interface import AddressesDict
+from pyroute2.ipdb.interface import NeighboursDict
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 
 log = logging.getLogger(__name__)
@@ -585,6 +579,8 @@ class IPDB(object):
     immediately. It uses no polling.
     '''
 
+    event_map = {}
+
     def __init__(self, nl=None, mode='implicit',
                  restart_on_error=None, nl_async=None,
                  debug=False, ignore_rtables=None):
@@ -596,7 +592,6 @@ class IPDB(object):
             self._ignore_rtables = ignore_rtables
         else:
             self._ignore_rtables = []
-        self.iclass = Interface
         self._nl_async = config.ipdb_nl_async if nl_async is None else True
         self._stop = False
         # see also 'register_callback'
@@ -611,6 +606,8 @@ class IPDB(object):
         # load information
         self.restart_on_error = restart_on_error if \
             restart_on_error is not None else nl is None
+
+        # init the database
         self.initdb(nl)
 
         # start monitoring thread
@@ -627,57 +624,37 @@ class IPDB(object):
         self.release()
 
     def initdb(self, nl=None):
+        # common event map, empty by default, so all the
+        # events aer just ignored
+        self.event_map = {}
+
+        # setup sockets, nl for commands and mnl for
+        # monitoring, subscribe for events only on the latter
         self.nl = nl or IPRoute()
         self.mnl = self.nl.clone()
-
-        # resolvers
-        self.interfaces = TransactionalBase()
-        self.rules = RuleSet(ipdb=self)
-        self.routes = RoutingTableSet(ipdb=self,
-                                      ignore_rtables=self._ignore_rtables)
-        self.by_name = View(src=self.interfaces,
-                            constraint=lambda k, v: isinstance(k, basestring))
-        self.by_index = View(src=self.interfaces,
-                             constraint=lambda k, v: isinstance(k, int))
-
-        # caches
-        self.ipaddr = {}
-        self.neighbours = {}
-
         try:
             self.mnl.bind(async=self._nl_async)
-            # load information
-            links = self.nl.get_links()
-            for link in links:
-                self._interface_add(link, skip_slaves=True)
-            for link in links:
-                self.update_slaves(link)
-            # bridge info
-            links = self.nl.get_vlans()
-            for link in links:
-                self._interface_add(link)
-            #
-            for msg in self.nl.get_rules():
-                self._rule_add(msg)
-            for msg in self.nl.get_addr():
-                self._addr_add(msg)
-            for msg in self.nl.get_neighbours():
-                self._neigh_add(msg)
-            for msg in self.nl.get_routes(family=AF_INET):
-                self._route_add(msg)
-            for msg in self.nl.get_routes(family=AF_INET6):
-                self._route_add(msg)
-            for msg in self.nl.get_routes(family=AF_MPLS):
-                self._route_add(msg)
-        except Exception as e:
-            log.error('initdb error: %s', e)
-            log.error(traceback.format_exc())
-            try:
+        except:
+            self.mnl.close()
+            if nl is None:
                 self.nl.close()
-                self.mnl.close()
-            except:
-                pass
-            raise e
+            raise
+
+        # create object containers
+        self.interfaces = InterfacesDict(self)
+        self.ipaddr = AddressesDict(self)
+        self.neighbours = NeighboursDict(self)
+        self.rules = RulesDict(self)
+        self.routes = RoutingTableSet(ipdb=self,
+                                      ignore_rtables=self._ignore_rtables)
+
+        # run registration routines, every container
+        # should register its events
+        self.interfaces._register()
+        self.neighbours._register()
+        self.ipaddr._register()
+        self.routes._register()
+        self.rules._register()
 
     def register_callback(self, callback, mode='post'):
         '''
@@ -794,7 +771,8 @@ class IPDB(object):
                     # Just give up.
                     # We can not handle this case
 
-            self._mthread.join()
+            if self._mthread is not None:
+                self._mthread.join()
             self.nl.close()
             self.nl = None
             self.mnl.close()
@@ -808,7 +786,8 @@ class IPDB(object):
                 # flush all the objects
                 for (key, dev) in self.by_name.items():
                     try:
-                        self.detach(key, dev['index'], dev.nlmsg)
+                        # FIXME
+                        self.interfaces._detach(key, dev['index'], dev.nlmsg)
                     except KeyError:
                         pass
 
@@ -826,36 +805,7 @@ class IPDB(object):
                     flush(idx)
 
     def create(self, kind, ifname, reuse=False, **kwarg):
-        with self.exclusive:
-            # check for existing interface
-            if ifname in self.interfaces:
-                if (self.interfaces[ifname]['ipdb_scope'] == 'shadow') \
-                        or reuse:
-                    device = self.interfaces[ifname]
-                    kwarg['kind'] = kind
-                    device.load_dict(kwarg)
-                    if self.interfaces[ifname]['ipdb_scope'] == 'shadow':
-                        with device._direct_state:
-                            device['ipdb_scope'] = 'create'
-                else:
-                    raise CreateException("interface %s exists" %
-                                          ifname)
-            else:
-                device = \
-                    self.interfaces[ifname] = \
-                    self.iclass(ipdb=self, mode='snapshot')
-                device.update(kwarg)
-                if isinstance(kwarg.get('link', None), Interface):
-                    device['link'] = kwarg['link']['index']
-                if isinstance(kwarg.get('vxlan_link', None), Interface):
-                    device['vxlan_link'] = kwarg['vxlan_link']['index']
-                device['kind'] = kind
-                device['index'] = kwarg.get('index', 0)
-                device['ifname'] = ifname
-                device['ipdb_scope'] = 'create'
-                device._mode = self.mode
-            device.begin()
-        return device
+        return self.interfaces.add(kind, ifname, reuse, **kwarg)
 
     def commit(self, transactions=None, phase=1):
         # what to commit: either from transactions argument, or from
@@ -905,226 +855,8 @@ class IPDB(object):
                 for (target, tx) in transactions:
                     target.drop(tx.uid)
 
-    def _interface_del(self, msg):
-        target = self.interfaces.get(msg['index'])
-        if target is None:
-            return
-        for record in self.routes.filter({'oif': msg['index']}):
-            with record['route']._direct_state:
-                record['route']['ipdb_scope'] = 'gc'
-        for record in self.routes.filter({'iif': msg['index']}):
-            with record['route']._direct_state:
-                record['route']['ipdb_scope'] = 'gc'
-        target.nlmsg = msg
-        # check for freezed devices
-        if getattr(target, '_freeze', None):
-            with target._direct_state:
-                target['ipdb_scope'] = 'shadow'
-            return
-        # check for locked devices
-        if target.get('ipdb_scope') in ('locked', 'shadow'):
-            return
-        self.detach(None, msg['index'], msg)
-
-    def _interface_add(self, msg, skip_slaves=False):
-        # check, if a record exists
-        index = msg.get('index', None)
-        ifname = msg.get_attr('IFLA_IFNAME', None)
-        # scenario #1: no matches for both: new interface
-        # scenario #2: ifname exists, index doesn't: index changed
-        # scenario #3: index exists, ifname doesn't: name changed
-        # scenario #4: both exist: assume simple update and
-        # an optional name change
-        if ((index not in self.interfaces) and
-                (ifname not in self.interfaces)):
-            # scenario #1, new interface
-            device = \
-                self.interfaces[index] = \
-                self.interfaces[ifname] = self.iclass(ipdb=self)
-        elif ((index not in self.interfaces) and
-                (ifname in self.interfaces)):
-            # scenario #2, index change
-            old_index = self.interfaces[ifname]['index']
-            device = self.interfaces[index] = self.interfaces[ifname]
-            if old_index in self.interfaces:
-                del self.interfaces[old_index]
-            if old_index in self.ipaddr:
-                self.ipaddr[index] = self.ipaddr[old_index]
-                del self.ipaddr[old_index]
-            if old_index in self.neighbours:
-                self.neighbours[index] = self.neighbours[old_index]
-                del self.neighbours[old_index]
-        else:
-            # scenario #3, interface rename
-            # scenario #4, assume rename
-            old_name = self.interfaces[index]['ifname']
-            if old_name != ifname:
-                # unlink old name
-                del self.interfaces[old_name]
-            device = self.interfaces[ifname] = self.interfaces[index]
-
-        if index not in self.ipaddr:
-            # for interfaces, created by IPDB
-            self.ipaddr[index] = IPaddrSet()
-
-        if index not in self.neighbours:
-            self.neighbours[index] = LinkedSet()
-
-        device.load_netlink(msg)
-
-        if not skip_slaves:
-            self.update_slaves(msg)
-
-    def detach(self, name, idx, msg=None):
-        with self.exclusive:
-            if msg is not None:
-                try:
-                    self.update_slaves(msg)
-                except KeyError:
-                    pass
-                if msg['event'] == 'RTM_DELLINK' and \
-                        msg['change'] != 0xffffffff:
-                    return
-            if idx is None or idx < 1:
-                target = self.interfaces[name]
-                idx = target['index']
-            else:
-                target = self.interfaces[idx]
-                name = target['ifname']
-            self.interfaces.pop(name, None)
-            self.interfaces.pop(idx, None)
-            self.ipaddr.pop(idx, None)
-            self.neighbours.pop(idx, None)
-            with target._direct_state:
-                target['ipdb_scope'] = 'detached'
-
     def watchdog(self, action='RTM_NEWLINK', **kwarg):
         return Watchdog(self, action, kwarg)
-
-    def _rule_add(self, msg):
-        self.rules.load_netlink(msg)
-
-    def _rule_del(self, msg):
-        self.rules.load_netlink(msg)
-
-    def _route_add(self, msg):
-        self.routes.load_netlink(msg)
-
-    def _route_del(self, msg):
-        self.routes.load_netlink(msg)
-
-    def update_slaves(self, msg):
-        # Update slaves list -- only after update IPDB!
-
-        index = msg['index']
-        master_index = msg.get_attr('IFLA_MASTER')
-        if index == master_index:
-            # one special case: links() call with AF_BRIDGE
-            # returns IFLA_MASTER == index
-            return
-        master = self.interfaces.get(master_index, None)
-        # there IS a master for the interface
-        if master is not None:
-            if msg['event'] == 'RTM_NEWLINK':
-                # TODO tags: ipdb
-                # The code serves one particular case, when
-                # an enslaved interface is set to belong to
-                # another master. In this case there will be
-                # no 'RTM_DELLINK', only 'RTM_NEWLINK', and
-                # we can end up in a broken state, when two
-                # masters refers to the same slave
-                for device in self.by_index:
-                    if index in self.interfaces[device]['ports']:
-                        try:
-                            with self.interfaces[device]._direct_state:
-                                self.interfaces[device].del_port(index)
-                        except KeyError:
-                            pass
-                with master._direct_state:
-                    master.add_port(index)
-            elif msg['event'] == 'RTM_DELLINK':
-                if index in master['ports']:
-                    with master._direct_state:
-                        master.del_port(index)
-        # there is NO masters for the interface, clean them if any
-        else:
-            device = self.interfaces[msg['index']]
-            # clean vlan list from the port
-            for vlan in tuple(device['vlans']):
-                with device._direct_state:
-                    device.del_vlan(vlan)
-            # clean device from ports
-            for master in self.by_index:
-                if index in self.interfaces[master]['ports']:
-                    try:
-                        with self.interfaces[master]._direct_state:
-                            self.interfaces[master].del_port(index)
-                    except KeyError:
-                        pass
-            master = device.if_master
-            if master is not None:
-                if 'master' in device:
-                    with device._direct_state:
-                        device['master'] = None
-                if (master in self.interfaces) and \
-                        (msg['index'] in self.interfaces[master]['ports']):
-                    try:
-                        with self.interfaces[master]._direct_state:
-                            self.interfaces[master].del_port(index)
-                    except KeyError:
-                        pass
-
-    def _addr_add(self, msg):
-        if msg['family'] == AF_INET:
-            addr = msg.get_attr('IFA_LOCAL')
-        elif msg['family'] == AF_INET6:
-            addr = msg.get_attr('IFA_ADDRESS')
-        else:
-            return
-        raw = {'local': msg.get_attr('IFA_LOCAL'),
-               'broadcast': msg.get_attr('IFA_BROADCAST'),
-               'address': msg.get_attr('IFA_ADDRESS'),
-               'flags': msg.get_attr('IFA_FLAGS'),
-               'prefixlen': msg['prefixlen']}
-        try:
-            self.ipaddr[msg['index']].add(key=(addr, raw['prefixlen']),
-                                          raw=raw)
-        except:
-            pass
-
-    def _addr_del(self, msg):
-        if msg['family'] == AF_INET:
-            addr = msg.get_attr('IFA_LOCAL')
-        elif msg['family'] == AF_INET6:
-            addr = msg.get_attr('IFA_ADDRESS')
-        else:
-            return
-        try:
-            self.ipaddr[msg['index']].remove((addr, msg['prefixlen']))
-        except:
-            pass
-
-    def _neigh_add(self, msg):
-        if msg['family'] == AF_BRIDGE:
-            return
-
-        try:
-            (self
-             .neighbours[msg['ifindex']]
-             .add(key=msg.get_attr('NDA_DST'),
-                  raw={'lladdr': msg.get_attr('MDA_LLADDR')}))
-        except:
-            pass
-
-    def _neigh_del(self, msg):
-        if msg['family'] == AF_BRIDGE:
-            return
-        try:
-            (self
-             .neighbours[msg['ifindex']]
-             .remove(msg.get_attr('NDA_DST')))
-        except:
-            pass
 
     def serve_forever(self):
         ###
@@ -1134,16 +866,7 @@ class IPDB(object):
         #
         # Should not be called manually.
         ###
-        event_map = {'RTM_NEWLINK': self._interface_add,
-                     'RTM_DELLINK': self._interface_del,
-                     'RTM_NEWADDR': self._addr_add,
-                     'RTM_DELADDR': self._addr_del,
-                     'RTM_NEWNEIGH': self._neigh_add,
-                     'RTM_DELNEIGH': self._neigh_del,
-                     'RTM_NEWRULE': self._rule_add,
-                     'RTM_DELRULE': self._rule_del,
-                     'RTM_NEWROUTE': self._route_add,
-                     'RTM_DELROUTE': self._route_del}
+
         while not self._stop:
             try:
                 messages = self.mnl.get()
@@ -1169,6 +892,7 @@ class IPDB(object):
                     continue
                 else:
                     raise RuntimeError('Emergency shutdown')
+
             for msg in messages:
                 # Run pre-callbacks
                 # NOTE: pre-callbacks are synchronous
@@ -1180,8 +904,8 @@ class IPDB(object):
 
                 with self.exclusive:
                     event = msg.get('event', None)
-                    if event in event_map:
-                        event_map[event](msg)
+                    if event in self.event_map:
+                        self.event_map[event](msg)
 
                 # run post-callbacks
                 # NOTE: post-callbacks are asynchronous

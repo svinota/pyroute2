@@ -162,7 +162,7 @@ class Rule(Transactional):
                 wd = self.ipdb.watchdog('RTM_DELRULE',
                                         priority=self['priority'])
                 for rule in self.nl.rule('delete', **snapshot):
-                    self.ipdb._rule_del(rule)
+                    self.ipdb.rules.load_netlink(rule)
                 wd.wait()
                 if transaction['ipdb_scope'] == 'shadow':
                     with self._direct_state:
@@ -207,22 +207,28 @@ class Rule(Transactional):
         return self
 
 
-class RuleSet(dict):
+class RulesDict(dict):
 
     def __init__(self, ipdb):
         self.ipdb = ipdb
         self.lock = threading.Lock()
 
+    def _register(self):
+        for msg in self.ipdb.nl.get_rules():
+            self.load_netlink(msg)
+        self.ipdb.event_map.update({'RTM_NEWRULE': self.load_netlink,
+                                    'RTM_DELRULE': self.load_netlink})
+
     def __getitem__(self, key):
         with self.lock:
             if isinstance(key, RuleKey):
-                return super(RuleSet, self).__getitem__(key)
+                return super(RulesDict, self).__getitem__(key)
             elif isinstance(key, tuple):
-                return super(RuleSet, self).__getitem__(RuleKey(*key))
+                return super(RulesDict, self).__getitem__(RuleKey(*key))
             elif isinstance(key, int):
                 for k in self.keys():
                     if key == k[2]:
-                        return super(RuleSet, self).__getitem__(k)
+                        return super(RulesDict, self).__getitem__(k)
             elif isinstance(key, dict):
                 for v in self.values():
                     for k in key:

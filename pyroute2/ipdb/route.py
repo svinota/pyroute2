@@ -4,6 +4,7 @@ import threading
 from collections import namedtuple
 from socket import AF_UNSPEC
 from socket import AF_INET6
+from socket import AF_INET
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
 from pyroute2.netlink import nlmsg
@@ -426,7 +427,7 @@ class BaseRoute(Transactional):
                 wd = self.ipdb.watchdog('RTM_DELROUTE',
                                         **self.wd_key(snapshot))
                 for route in self.nl.route('delete', **snapshot):
-                    self.ipdb._route_del(route)
+                    self.ipdb.routes.load_netlink(route)
                 wd.wait()
                 if transaction['ipdb_scope'] == 'shadow':
                     with self._direct_state:
@@ -907,6 +908,16 @@ class RoutingTableSet(object):
         self.ipdb = ipdb
         self.ignore_rtables = ignore_rtables or []
         self.tables = {254: RoutingTable(self.ipdb)}
+
+    def _register(self):
+        for msg in self.ipdb.nl.get_routes(family=AF_INET):
+            self.load_netlink(msg)
+        for msg in self.ipdb.nl.get_routes(family=AF_INET6):
+            self.load_netlink(msg)
+        for msg in self.ipdb.nl.get_routes(family=AF_MPLS):
+            self.load_netlink(msg)
+        self.ipdb.event_map.update({'RTM_NEWROUTE': self.load_netlink,
+                                    'RTM_DELROUTE': self.load_netlink})
 
     def add(self, spec=None, **kwarg):
         '''

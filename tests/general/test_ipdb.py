@@ -2300,7 +2300,7 @@ class TestMisc(object):
         except NotImplementedError:
             pass
 
-        assert mock.called == set(('clone', 'close'))
+        assert mock.called == set(('clone', ))
         assert mock.mnl.called == set(('bind', 'close'))
 
     def test_context_manager(self):

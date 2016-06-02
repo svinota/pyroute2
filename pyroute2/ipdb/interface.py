@@ -5,6 +5,8 @@ import traceback
 from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.common import dqn2int
+from pyroute2.common import View
+from pyroute2.config import TransactionalBase
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.exceptions import NetlinkError
@@ -97,6 +99,7 @@ class Interface(Transactional):
                         'map',
                         'stats',
                         'stats64',
+                        'change',
                         '__align')
         self.ingress = None
         self.egress = None
@@ -133,7 +136,7 @@ class Interface(Transactional):
         return self.get('master', None)
 
     def detach(self):
-        self.ipdb.detach(self['ifname'], self['index'], self.nlmsg)
+        self.ipdb.interfaces._detach(self['ifname'], self['index'], self.nlmsg)
         return self
 
     def freeze(self):
@@ -732,7 +735,7 @@ class Interface(Transactional):
                         # from the main network namespace
                         try:
                             for link in self.nl.get_links(self['index']):
-                                self.ipdb._interface_add(link)
+                                self.ipdb.interfaces._new(link)
                         except NetlinkError as e:
                             if e.code == errno.ENODEV:
                                 break
@@ -823,7 +826,7 @@ class Interface(Transactional):
                 # types as well
                 if self['kind'] in ('bond', 'bridge', 'veth'):
                     for addr in self.nl.get_addr():
-                        self.ipdb._addr_add(addr)
+                        self.ipdb.ipaddr._new(addr)
 
                 # 8<--------------------------------------
                 self['ipaddr'].target.wait(SYNC_TIMEOUT)
@@ -878,14 +881,12 @@ class Interface(Transactional):
                 # the result of the failure
                 links = self.nl.get_links()
                 for link in links:
-                    self.ipdb._interface_add(link, skip_slaves=True)
-                for link in links:
-                    self.ipdb.update_slaves(link)
+                    self.ipdb.interfaces._new(link)
                 links = self.nl.get_vlans()
                 for link in links:
-                    self.ipdb._interface_add(link)
+                    self.ipdb.interfaces._new(link)
                 for addr in self.nl.get_addr():
-                    self.ipdb._addr_add(addr)
+                    self.ipdb.ipaddr._new(addr)
 
             error.traceback = traceback.format_exc()
             for key in ('ipaddr', 'ports', 'vlans'):
@@ -956,3 +957,281 @@ class Interface(Transactional):
         '''
         self['ipdb_scope'] = 'shadow'
         return self
+
+
+class InterfacesDict(TransactionalBase):
+
+    def __init__(self, ipdb):
+        self.ipdb = ipdb
+
+    def add(self, kind, ifname, reuse=False, **kwarg):
+        with self.ipdb.exclusive:
+            # check for existing interface
+            if ifname in self:
+                if (self[ifname]['ipdb_scope'] == 'shadow') or reuse:
+                    device = self[ifname]
+                    kwarg['kind'] = kind
+                    device.load_dict(kwarg)
+                    if self[ifname]['ipdb_scope'] == 'shadow':
+                        with device._direct_state:
+                            device['ipdb_scope'] = 'create'
+                else:
+                    raise CreateException("interface %s exists" %
+                                          ifname)
+            else:
+                device = self[ifname] = Interface(ipdb=self.ipdb,
+                                                  mode='snapshot')
+                device.update(kwarg)
+                if isinstance(kwarg.get('link', None), Interface):
+                    device['link'] = kwarg['link']['index']
+                if isinstance(kwarg.get('vxlan_link', None), Interface):
+                    device['vxlan_link'] = kwarg['vxlan_link']['index']
+                device['kind'] = kind
+                device['index'] = kwarg.get('index', 0)
+                device['ifname'] = ifname
+                device['ipdb_scope'] = 'create'
+                device._mode = self.ipdb.mode
+            device.begin()
+        return device
+
+    def _register(self):
+        self.ipdb.by_name = View(src=self,
+                                 constraint=lambda k, v:
+                                 isinstance(k, basestring))
+        self.ipdb.by_index = View(src=self,
+                                  constraint=lambda k, v:
+                                  isinstance(k, int))
+        links = self.ipdb.nl.get_links()
+        # iterate twice to map port/master relations
+        for link in links:
+            self._new(link)
+        for link in links:
+            self._new(link)
+        # load bridge vlan information
+        links = self.ipdb.nl.get_vlans()
+        for link in links:
+            self._new(link)
+        # map operations
+        (self
+         .ipdb
+         .event_map
+         .update({'RTM_NEWLINK': self._new,
+                  'RTM_DELLINK': self._del}))
+
+    def _del(self, msg):
+
+        target = self.get(msg['index'])
+        if target is None:
+            return
+
+        if msg['family'] == socket.AF_BRIDGE:
+            with target._direct_state:
+                for vlan in tuple(target['vlans']):
+                    target.del_vlan(vlan)
+
+        # check for freezed devices
+        if getattr(target, '_freeze', None):
+            with target._direct_state:
+                target['ipdb_scope'] = 'shadow'
+            return
+
+        # check for locked devices
+        if target.get('ipdb_scope') in ('locked', 'shadow'):
+            return
+
+        # clean up port, if exists
+        master = target.get('master', None)
+        if master in self and target['index'] in self[master]['ports']:
+            with self[master]._direct_state:
+                self[master].del_port(target)
+
+        ###
+        # mark route records for GC
+        for record in (self
+                       .ipdb
+                       .routes
+                       .filter({'oif': msg['index']})):
+            with record['route']._direct_state:
+                record['route']['ipdb_scope'] = 'gc'
+        for record in (self
+                       .ipdb
+                       .routes
+                       .filter({'iif': msg['index']})):
+            with record['route']._direct_state:
+                record['route']['ipdb_scope'] = 'gc'
+
+        self._detach(None, msg['index'], msg)
+
+    def _new(self, msg):
+        # check, if a record exists
+        index = msg.get('index', None)
+        ifname = msg.get_attr('IFLA_IFNAME', None)
+        device = None
+        cleanup = None
+
+        # scenario #1: no matches for both: new interface
+        #
+        # scenario #2: ifname exists, index doesn't:
+        #              index changed
+        # scenario #3: index exists, ifname doesn't:
+        #              name changed
+        # scenario #4: both exist: assume simple update and
+        #              an optional name change
+
+        if (index not in self) and (ifname not in self):
+            # scenario #1, new interface
+            device = \
+                self[index] = \
+                self[ifname] = Interface(ipdb=self.ipdb)
+        elif (index not in self) and (ifname in self):
+            # scenario #2, index change
+            old_index = self[ifname]['index']
+            device = self[index] = self[ifname]
+            if old_index in self:
+                cleanup = old_index
+
+            if old_index in self.ipdb.ipaddr:
+                self.ipdb.ipaddr[index] = \
+                    self.ipdb.ipaddr[old_index]
+                del self.ipdb.ipaddr[old_index]
+
+            if old_index in self.ipdb.neighbours:
+                self.ipdb.neighbours[index] = \
+                    self.ipdb.neighbours[old_index]
+                del self.neighbours[old_index]
+        else:
+            # scenario #3, interface rename
+            # scenario #4, assume rename
+            old_name = self[index]['ifname']
+            if old_name != ifname:
+                # unlink old name
+                cleanup = old_name
+            device = self[ifname] = self[index]
+
+        if index not in self.ipdb.ipaddr:
+            self.ipdb.ipaddr[index] = IPaddrSet()
+
+        if index not in self.ipdb.neighbours:
+            self.ipdb.neighbours[index] = LinkedSet()
+
+        # update port references
+        old_master = device.get('master', None)
+        new_master = msg.get_attr('IFLA_MASTER')
+
+        if old_master != new_master:
+            if old_master in self:
+                with self[old_master]._direct_state:
+                    if index in self[old_master]['ports']:
+                        self[old_master].del_port(index)
+            if new_master in self and new_master != index:
+                with self[new_master]._direct_state:
+                    self[new_master].add_port(index)
+
+        if cleanup is not None:
+            del self[cleanup]
+
+        device.load_netlink(msg)
+        if new_master is None:
+            with device._direct_state:
+                device['master'] = None
+
+    def _detach(self, name, idx, msg=None):
+        with self.ipdb.exclusive:
+            if msg is not None:
+                if msg['event'] == 'RTM_DELLINK' and \
+                        msg['change'] != 0xffffffff:
+                    return
+            if idx is None or idx < 1:
+                target = self[name]
+                idx = target['index']
+            else:
+                target = self[idx]
+                name = target['ifname']
+            self.pop(name, None)
+            self.pop(idx, None)
+            self.ipdb.ipaddr.pop(idx, None)
+            self.ipdb.neighbours.pop(idx, None)
+            with target._direct_state:
+                target['ipdb_scope'] = 'detached'
+
+
+class AddressesDict(dict):
+
+    def __init__(self, ipdb):
+        self.ipdb = ipdb
+
+    def _register(self):
+        for msg in self.ipdb.nl.get_addr():
+            self._new(msg)
+        (self
+         .ipdb
+         .event_map
+         .update({'RTM_NEWADDR': self._new,
+                  'RTM_DELADDR': self._del}))
+
+    def _new(self, msg):
+        if msg['family'] == socket.AF_INET:
+            addr = msg.get_attr('IFA_LOCAL')
+        elif msg['family'] == socket.AF_INET6:
+            addr = msg.get_attr('IFA_ADDRESS')
+        else:
+            return
+        raw = {'local': msg.get_attr('IFA_LOCAL'),
+               'broadcast': msg.get_attr('IFA_BROADCAST'),
+               'address': msg.get_attr('IFA_ADDRESS'),
+               'flags': msg.get_attr('IFA_FLAGS'),
+               'prefixlen': msg['prefixlen']}
+        try:
+            self[msg['index']].add(key=(addr,
+                                        raw['prefixlen']),
+                                   raw=raw)
+        except:
+            pass
+
+    def _del(self, msg):
+        if msg['family'] == socket.AF_INET:
+            addr = msg.get_attr('IFA_LOCAL')
+        elif msg['family'] == socket.AF_INET6:
+            addr = msg.get_attr('IFA_ADDRESS')
+        else:
+            return
+        try:
+            self[msg['index']].remove((addr,
+                                       msg['prefixlen']))
+        except:
+            pass
+
+
+class NeighboursDict(dict):
+
+    def __init__(self, ipdb):
+        self.ipdb = ipdb
+
+    def _register(self):
+        for msg in self.ipdb.nl.get_neighbours():
+            self._new(msg)
+        (self
+         .ipdb
+         .event_map
+         .update({'RTM_NEWNEIGH': self._new,
+                  'RTM_DELNEIGH': self._del}))
+
+    def _new(self, msg):
+        if msg['family'] == socket.AF_BRIDGE:
+            return
+
+        try:
+            (self[msg['ifindex']]
+             .add(key=msg.get_attr('NDA_DST'),
+                  raw={'lladdr': msg.get_attr('MDA_LLADDR')}))
+        except:
+            pass
+
+    def _del(self, msg):
+        if msg['family'] == socket.AF_BRIDGE:
+            return
+        try:
+            (self[msg['ifindex']]
+             .remove(msg.get_attr('NDA_DST')))
+        except:
+            pass
