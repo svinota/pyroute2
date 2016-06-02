@@ -11,7 +11,10 @@ import errno
 import types
 import struct
 import socket
+import logging
 import threading
+
+log = logging.getLogger(__name__)
 
 try:
     basestring = basestring
@@ -104,7 +107,7 @@ class View(object):
                 if self.constraint(key, value):
                     ret.append((key, value))
             except Exception as e:
-                print(e)
+                log.error("view filter error: %s", e)
         return ret
 
     def keys(self):
