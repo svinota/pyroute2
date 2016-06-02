@@ -763,6 +763,9 @@ class nlmsg_base(dict):
         '''
         return self.__ops(rvalue, '__and__', '__eq__')
 
+    def __ne__(self, rvalue):
+        return not self.__eq__(rvalue)
+
     def __eq__(self, rvalue):
         '''
         Having nla, we are able to use it in operations like::
@@ -774,15 +777,28 @@ class nlmsg_base(dict):
         if lvalue is self:
             for key in self:
                 try:
-                    lv = self.get(key)
-                    rv = rvalue.get(key)
-                    # this strange condition means a simple thing:
-                    # None, 0, empty container and NotInitialized in
-                    # that context should be treated as equal.
-                    if (lv != rv) and not \
-                            ((not lv or lv is NotInitialized) and
-                             (not rv or rv is NotInitialized)):
-                        return False
+                    if key == 'attrs':
+                        for nla in self[key]:
+                            lv = self.get_attr(nla[0])
+                            if isinstance(lv, dict):
+                                lv = nlmsg().setvalue(lv)
+                            rv = rvalue.get_attr(nla[0])
+                            if isinstance(rv, dict):
+                                rv = nlmsg().setvalue(rv)
+                            # this strange condition means a simple thing:
+                            # None, 0, empty container and NotInitialized in
+                            # that context should be treated as equal.
+                            if (lv != rv) and not \
+                                    ((not lv or lv is NotInitialized) and
+                                     (not rv or rv is NotInitialized)):
+                                return False
+                    else:
+                        lv = self.get(key)
+                        rv = rvalue.get(key)
+                        if (lv != rv) and not \
+                                ((not lv or lv is NotInitialized) and
+                                 (not rv or rv is NotInitialized)):
+                            return False
                 except Exception:
                     # on any error -- is not equal
                     return False
@@ -1005,6 +1021,12 @@ class nlmsg_base(dict):
     def setvalue(self, value):
         if isinstance(value, dict):
             self.update(value)
+            if 'attrs' in value:
+                self['attrs'] = []
+                for nla in value['attrs']:
+                    nlv = nlmsg_base()
+                    nlv.setvalue(nla[1])
+                    self['attrs'].append([nla[0], nlv.getvalue()])
         else:
             try:
                 value = self.r_value_map.get(value, value)
@@ -1012,6 +1034,7 @@ class nlmsg_base(dict):
                 pass
             self['value'] = value
             self.value = value
+        return self
 
     def get_encoded(self, attr, default=None):
         '''
