@@ -1021,9 +1021,20 @@ class nlmsg_base(dict):
         if cells:
             return cells[0]
 
+    def get_nested(self, *attrs):
+        '''
+        Return nested NLA or None
+        '''
+        pointer = self
+        for attr in attrs:
+            pointer = pointer.get_attr(attr)
+            if pointer is None:
+                return
+        return pointer
+
     def get_attr(self, attr, default=None):
         '''
-        Return the first attr by name or None
+        Return the first NLA with that name or None
         '''
         try:
             attrs = self.get_attrs(attr)
@@ -1036,7 +1047,7 @@ class nlmsg_base(dict):
 
     def get_attrs(self, attr):
         '''
-        Return attrs by name
+        Return attrs by name or an empty list
         '''
         return [i[1] for i in self['attrs'] if i[0] == attr]
 
