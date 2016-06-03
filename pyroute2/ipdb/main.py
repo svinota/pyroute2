@@ -501,15 +501,12 @@ import threading
 
 from pyroute2 import config
 from pyroute2.common import uuid32
-from pyroute2.common import View
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.ipdb.rule import RulesDict
-from pyroute2.ipdb.route import RoutingTableSet
-from pyroute2.ipdb.interface import InterfacesDict
-from pyroute2.ipdb.interface import AddressesDict
-from pyroute2.ipdb.interface import NeighboursDict
+from pyroute2.ipdb import rule
+from pyroute2.ipdb import route
+from pyroute2.ipdb import interface
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 
 log = logging.getLogger(__name__)
@@ -559,6 +556,7 @@ class IPDB(object):
         self.debug = debug
         self._deferred = {}
         self._loaded = set()
+        self._plugins = [interface, route, rule]
         if isinstance(ignore_rtables, int):
             self._ignore_rtables = [ignore_rtables, ]
         elif isinstance(ignore_rtables, (list, tuple, set)):
@@ -613,62 +611,23 @@ class IPDB(object):
                 self.nl.close()
             raise
 
-        links = [{'name': 'interfaces',
-                  'class': InterfacesDict,
-                  'argv': (self, ),
-                  'kwarg': {}},
-                 {'name': 'by_name',
-                  'class': View,
-                  'argv': tuple(),
-                  'kwarg': {'src': self,
-                            'path': 'interfaces',
-                            'constraint':
-                            lambda k, v: isinstance(k, basestring)}},
-                 {'name': 'by_index',
-                  'class': View,
-                  'argv': tuple(),
-                  'kwarg': {'src': self,
-                            'path': 'interfaces',
-                            'constraint':
-                            lambda k, v: isinstance(k, int)}},
-                 {'name': 'ipaddr',
-                  'class': AddressesDict,
-                  'argv': (self, ),
-                  'kwarg': {}},
-                 {'name': 'neighbours',
-                  'class': NeighboursDict,
-                  'argv': (self, ),
-                  'kwarg': {}}]
-        routes = [{'name': 'routes',
-                   'class': RoutingTableSet,
-                   'argv': tuple(),
-                   'kwarg': {'ipdb': self,
-                             'ignore_rtables': self._ignore_rtables}}]
-        rules = [{'name': 'rules',
-                  'class': RulesDict,
-                  'argv': (self, ),
-                  'kwarg': {}}]
-
-        self._deferred = {'routes': routes,
-                          'rules': rules,
-                          'interfaces': links,
-                          'by_name': links,
-                          'by_index': links,
-                          'ipaddr': links,
-                          'neighbours': links}
         self._loaded = set()
+        self._deferred = {}
+        for module in self._plugins:
+            for plugin in module.spec:
+                self._deferred[plugin['name']] = module.spec
 
     def __getattribute__(self, name):
         deferred = super(IPDB, self).__getattribute__('_deferred')
         if name in deferred:
             register = []
-            prime = deferred[name]
-            for cell in prime:
-                obj = cell['class'](*cell['argv'], **cell['kwarg'])
-                setattr(self, cell['name'], obj)
+            spec = deferred[name]
+            for plugin in spec:
+                obj = plugin['class'](self, **plugin['kwarg'])
+                setattr(self, plugin['name'], obj)
                 register.append(obj)
-                self._loaded.add(cell['name'])
-                del deferred[cell['name']]
+                self._loaded.add(plugin['name'])
+                del deferred[plugin['name']]
             for obj in register:
                 if hasattr(obj, '_register'):
                     obj._register()

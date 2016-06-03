@@ -904,9 +904,9 @@ class MPLSTable(RoutingTable):
 
 class RoutingTableSet(object):
 
-    def __init__(self, ipdb, ignore_rtables=None):
+    def __init__(self, ipdb):
         self.ipdb = ipdb
-        self.ignore_rtables = ignore_rtables or []
+        self.ignore_rtables = ipdb._ignore_rtables or []
         self.tables = {254: RoutingTable(self.ipdb)}
         self._event_map = {'RTM_NEWROUTE': self.load_netlink,
                            'RTM_DELROUTE': self.load_netlink,
@@ -1073,3 +1073,8 @@ class RoutingTableSet(object):
 
     def __repr__(self):
         return repr(self.tables[254])
+
+
+spec = [{'name': 'routes',
+         'class': RoutingTableSet,
+         'kwarg': {}}]

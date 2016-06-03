@@ -289,3 +289,8 @@ class RulesDict(dict):
             self[key] = Rule(self.ipdb)
         self[key].load_netlink(msg)
         return self[key]
+
+
+spec = [{'name': 'rules',
+         'class': RulesDict,
+         'kwarg': {}}]

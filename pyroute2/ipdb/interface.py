@@ -5,6 +5,7 @@ import traceback
 from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.common import dqn2int
+from pyroute2.common import View
 from pyroute2.config import TransactionalBase
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_REQUEST
@@ -1206,3 +1207,22 @@ class NeighboursDict(dict):
              .remove(msg.get_attr('NDA_DST')))
         except:
             pass
+
+
+spec = [{'name': 'interfaces',
+         'class': InterfacesDict,
+         'kwarg': {}},
+        {'name': 'by_name',
+         'class': View,
+         'kwarg': {'path': 'interfaces',
+                   'constraint': lambda k, v: isinstance(k, basestring)}},
+        {'name': 'by_index',
+         'class': View,
+         'kwarg': {'path': 'interfaces',
+                   'constraint': lambda k, v: isinstance(k, int)}},
+        {'name': 'ipaddr',
+         'class': AddressesDict,
+         'kwarg': {}},
+        {'name': 'neighbours',
+         'class': NeighboursDict,
+         'kwarg': {}}]
