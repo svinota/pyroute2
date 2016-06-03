@@ -1164,6 +1164,10 @@ class IPRouteMixin(object):
         These command names are confusing and thus are deprecated.
         Use `IPRoute.vlan_filter()`.
         '''
+        if (command == 'dump') and ('match' not in kwarg):
+            match = kwarg
+        else:
+            match = kwarg.pop('match', None)
 
         if command[:4] == 'vlan':
             log.warning('vlan filters are managed via `vlan_filter()`')
@@ -1219,9 +1223,13 @@ class IPRouteMixin(object):
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
-        return self.nlm_request(msg,
-                                msg_type=command,
-                                msg_flags=msg_flags)
+        ret = self.nlm_request(msg,
+                               msg_type=command,
+                               msg_flags=msg_flags)
+        if match is not None:
+            return self._match(match, ret)
+        else:
+            return ret
 
     def addr(self, command, index=None, address=None, mask=None,
              family=None, scope=None, match=None, **kwarg):

@@ -961,7 +961,12 @@ class TestIPRoute(object):
         assert self.cb_counter == 0
         self.ip.unregister_callback(_callback)
 
-    def test_rename_link(self):
+    def test_link_filter(self):
+        l = self.ip.link('dump', ifname='lo')
+        assert len(l) == 1
+        assert l[0].get_attr('IFLA_IFNAME') == 'lo'
+
+    def test_link_rename(self):
         require_user('root')
         dev = self.ifaces[0]
         try:
