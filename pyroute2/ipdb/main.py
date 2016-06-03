@@ -501,6 +501,7 @@ import threading
 
 from pyroute2 import config
 from pyroute2.common import uuid32
+from pyroute2.common import View
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -551,13 +552,13 @@ class IPDB(object):
     immediately. It uses no polling.
     '''
 
-    event_map = {}
-
     def __init__(self, nl=None, mode='implicit',
                  restart_on_error=None, nl_async=None,
                  debug=False, ignore_rtables=None):
         self.mode = mode
         self.debug = debug
+        self._deferred = {}
+        self._loaded = set()
         if isinstance(ignore_rtables, int):
             self._ignore_rtables = [ignore_rtables, ]
         elif isinstance(ignore_rtables, (list, tuple, set)):
@@ -598,7 +599,7 @@ class IPDB(object):
     def initdb(self, nl=None):
         # common event map, empty by default, so all the
         # events aer just ignored
-        self.event_map = {}
+        self._event_map = {}
 
         # setup sockets, nl for commands and mnl for
         # monitoring, subscribe for events only on the latter
@@ -612,21 +613,71 @@ class IPDB(object):
                 self.nl.close()
             raise
 
-        # create object containers
-        self.interfaces = InterfacesDict(self)
-        self.ipaddr = AddressesDict(self)
-        self.neighbours = NeighboursDict(self)
-        self.rules = RulesDict(self)
-        self.routes = RoutingTableSet(ipdb=self,
-                                      ignore_rtables=self._ignore_rtables)
+        links = [{'name': 'interfaces',
+                  'class': InterfacesDict,
+                  'argv': (self, ),
+                  'kwarg': {}},
+                 {'name': 'by_name',
+                  'class': View,
+                  'argv': tuple(),
+                  'kwarg': {'src': self,
+                            'path': 'interfaces',
+                            'constraint':
+                            lambda k, v: isinstance(k, basestring)}},
+                 {'name': 'by_index',
+                  'class': View,
+                  'argv': tuple(),
+                  'kwarg': {'src': self,
+                            'path': 'interfaces',
+                            'constraint':
+                            lambda k, v: isinstance(k, int)}},
+                 {'name': 'ipaddr',
+                  'class': AddressesDict,
+                  'argv': (self, ),
+                  'kwarg': {}},
+                 {'name': 'neighbours',
+                  'class': NeighboursDict,
+                  'argv': (self, ),
+                  'kwarg': {}}]
+        routes = [{'name': 'routes',
+                   'class': RoutingTableSet,
+                   'argv': tuple(),
+                   'kwarg': {'ipdb': self,
+                             'ignore_rtables': self._ignore_rtables}}]
+        rules = [{'name': 'rules',
+                  'class': RulesDict,
+                  'argv': (self, ),
+                  'kwarg': {}}]
 
-        # run registration routines, every container
-        # should register its events
-        self.interfaces._register()
-        self.neighbours._register()
-        self.ipaddr._register()
-        self.routes._register()
-        self.rules._register()
+        self._deferred = {'routes': routes,
+                          'rules': rules,
+                          'interfaces': links,
+                          'by_name': links,
+                          'by_index': links,
+                          'ipaddr': links,
+                          'neighbours': links}
+        self._loaded = set()
+
+    def __getattribute__(self, name):
+        deferred = super(IPDB, self).__getattribute__('_deferred')
+        if name in deferred:
+            register = []
+            prime = deferred[name]
+            for cell in prime:
+                obj = cell['class'](*cell['argv'], **cell['kwarg'])
+                setattr(self, cell['name'], obj)
+                register.append(obj)
+                self._loaded.add(cell['name'])
+                del deferred[cell['name']]
+            for obj in register:
+                if hasattr(obj, '_register'):
+                    obj._register()
+                if hasattr(obj, '_event_map'):
+                    for event in obj._event_map:
+                        if event not in self._event_map:
+                            self._event_map[event] = []
+                        self._event_map[event].append(obj._event_map[event])
+        return super(IPDB, self).__getattribute__(name)
 
     def register_callback(self, callback, mode='post'):
         '''
@@ -755,24 +806,35 @@ class IPDB(object):
                 for cuid in tuple(self._cb_threads):
                     for t in tuple(self._cb_threads[cuid]):
                         t.join()
-                # flush all the objects
-                for (key, dev) in self.by_name.items():
-                    try:
-                        # FIXME
-                        self.interfaces._detach(key, dev['index'], dev.nlmsg)
-                    except KeyError:
-                        pass
 
+                # flush all the objects
                 def flush(idx):
                     for key in tuple(idx.keys()):
                         try:
                             del idx[key]
                         except KeyError:
                             pass
-                idx_list = [self.routes.tables[x] for x
-                            in self.routes.tables.keys()]
-                idx_list.append(self.ipaddr)
-                idx_list.append(self.neighbours)
+                idx_list = []
+
+                if 'interfaces' not in self._deferred:
+                    for (key, dev) in self.by_name.items():
+                        try:
+                            # FIXME
+                            self.interfaces._detach(key,
+                                                    dev['index'],
+                                                    dev.nlmsg)
+                        except KeyError:
+                            pass
+                    idx_list.append(self.ipaddr)
+                    idx_list.append(self.neighbours)
+
+                if 'routes' not in self._deferred:
+                    idx_list.extend([self.routes.tables[x] for x
+                                     in self.routes.tables.keys()])
+
+                if 'rules' not in self._deferred:
+                    idx_list.append(self.rules)
+
                 for idx in idx_list:
                     flush(idx)
 
@@ -876,8 +938,9 @@ class IPDB(object):
 
                 with self.exclusive:
                     event = msg.get('event', None)
-                    if event in self.event_map:
-                        self.event_map[event](msg)
+                    if event in self._event_map:
+                        for func in self._event_map[event]:
+                            func(msg)
 
                 # run post-callbacks
                 # NOTE: post-callbacks are asynchronous

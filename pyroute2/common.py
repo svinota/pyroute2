@@ -79,8 +79,12 @@ class View(object):
     '''
     A read-only view of a dictionary object.
     '''
-    def __init__(self, src=None, constraint=lambda k, v: True):
+    def __init__(self, src=None, path=None, constraint=lambda k, v: True):
         self.src = src if src is not None else {}
+        if path is not None:
+            path = path.split('/')
+            for step in path:
+                self.src = getattr(self.src, step)
         self.constraint = constraint
 
     def __getitem__(self, key):

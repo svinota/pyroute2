@@ -5,7 +5,6 @@ import traceback
 from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.common import dqn2int
-from pyroute2.common import View
 from pyroute2.config import TransactionalBase
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_REQUEST
@@ -963,8 +962,25 @@ class InterfacesDict(TransactionalBase):
 
     def __init__(self, ipdb):
         self.ipdb = ipdb
+        self._event_map = {'RTM_NEWLINK': self._new,
+                           'RTM_DELLINK': self._del}
+
+    def _register(self):
+        links = self.ipdb.nl.get_links()
+        # iterate twice to map port/master relations
+        for link in links:
+            self._new(link)
+        for link in links:
+            self._new(link)
+        # load bridge vlan information
+        links = self.ipdb.nl.get_vlans()
+        for link in links:
+            self._new(link)
 
     def add(self, kind, ifname, reuse=False, **kwarg):
+        '''
+        Create new network interface
+        '''
         with self.ipdb.exclusive:
             # check for existing interface
             if ifname in self:
@@ -994,30 +1010,6 @@ class InterfacesDict(TransactionalBase):
             device.begin()
         return device
 
-    def _register(self):
-        self.ipdb.by_name = View(src=self,
-                                 constraint=lambda k, v:
-                                 isinstance(k, basestring))
-        self.ipdb.by_index = View(src=self,
-                                  constraint=lambda k, v:
-                                  isinstance(k, int))
-        links = self.ipdb.nl.get_links()
-        # iterate twice to map port/master relations
-        for link in links:
-            self._new(link)
-        for link in links:
-            self._new(link)
-        # load bridge vlan information
-        links = self.ipdb.nl.get_vlans()
-        for link in links:
-            self._new(link)
-        # map operations
-        (self
-         .ipdb
-         .event_map
-         .update({'RTM_NEWLINK': self._new,
-                  'RTM_DELLINK': self._del}))
-
     def _del(self, msg):
 
         target = self.get(msg['index'])
@@ -1044,21 +1036,6 @@ class InterfacesDict(TransactionalBase):
         if master in self and target['index'] in self[master]['ports']:
             with self[master]._direct_state:
                 self[master].del_port(target)
-
-        ###
-        # mark route records for GC
-        for record in (self
-                       .ipdb
-                       .routes
-                       .filter({'oif': msg['index']})):
-            with record['route']._direct_state:
-                record['route']['ipdb_scope'] = 'gc'
-        for record in (self
-                       .ipdb
-                       .routes
-                       .filter({'iif': msg['index']})):
-            with record['route']._direct_state:
-                record['route']['ipdb_scope'] = 'gc'
 
         self._detach(None, msg['index'], msg)
 
@@ -1159,15 +1136,12 @@ class AddressesDict(dict):
 
     def __init__(self, ipdb):
         self.ipdb = ipdb
+        self._event_map = {'RTM_NEWADDR': self._new,
+                           'RTM_DELADDR': self._del}
 
     def _register(self):
         for msg in self.ipdb.nl.get_addr():
             self._new(msg)
-        (self
-         .ipdb
-         .event_map
-         .update({'RTM_NEWADDR': self._new,
-                  'RTM_DELADDR': self._del}))
 
     def _new(self, msg):
         if msg['family'] == socket.AF_INET:
@@ -1206,15 +1180,12 @@ class NeighboursDict(dict):
 
     def __init__(self, ipdb):
         self.ipdb = ipdb
+        self._event_map = {'RTM_NEWNEIGH': self._new,
+                           'RTM_DELNEIGH': self._del}
 
     def _register(self):
         for msg in self.ipdb.nl.get_neighbours():
             self._new(msg)
-        (self
-         .ipdb
-         .event_map
-         .update({'RTM_NEWNEIGH': self._new,
-                  'RTM_DELNEIGH': self._del}))
 
     def _new(self, msg):
         if msg['family'] == socket.AF_BRIDGE:

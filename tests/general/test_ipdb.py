@@ -2270,6 +2270,7 @@ class TestMisc(object):
 
     def test_fail_released(self):
         ip = IPDB()
+        assert len(ip.interfaces.keys()) > 0
         ip.release()
         assert len(ip.interfaces.keys()) == 0
 

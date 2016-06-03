@@ -908,6 +908,9 @@ class RoutingTableSet(object):
         self.ipdb = ipdb
         self.ignore_rtables = ignore_rtables or []
         self.tables = {254: RoutingTable(self.ipdb)}
+        self._event_map = {'RTM_NEWROUTE': self.load_netlink,
+                           'RTM_DELROUTE': self.load_netlink,
+                           'RTM_DELLINK': self.gc_mark}
 
     def _register(self):
         for msg in self.ipdb.nl.get_routes(family=AF_INET):
@@ -916,8 +919,6 @@ class RoutingTableSet(object):
             self.load_netlink(msg)
         for msg in self.ipdb.nl.get_routes(family=AF_MPLS):
             self.load_netlink(msg)
-        self.ipdb.event_map.update({'RTM_NEWROUTE': self.load_netlink,
-                                    'RTM_DELROUTE': self.load_netlink})
 
     def add(self, spec=None, **kwarg):
         '''
@@ -1007,6 +1008,20 @@ class RoutingTableSet(object):
                 self.tables[table] = RoutingTable(self.ipdb)
         key = self.tables[table].load(msg)
         return self.tables[table][key]
+
+    def gc_mark(self, msg):
+        ###
+        # mark route records for GC after link delete
+        #
+        if msg['family'] != 0:
+            return
+
+        for record in self.filter({'oif': msg['index']}):
+            with record['route']._direct_state:
+                record['route']['ipdb_scope'] = 'gc'
+        for record in self.filter({'iif': msg['index']}):
+            with record['route']._direct_state:
+                record['route']['ipdb_scope'] = 'gc'
 
     def gc(self):
         for table in self.tables.keys():

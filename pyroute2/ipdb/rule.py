@@ -212,12 +212,12 @@ class RulesDict(dict):
     def __init__(self, ipdb):
         self.ipdb = ipdb
         self.lock = threading.Lock()
+        self._event_map = {'RTM_NEWRULE': self.load_netlink,
+                           'RTM_DELRULE': self.load_netlink}
 
     def _register(self):
         for msg in self.ipdb.nl.get_rules():
             self.load_netlink(msg)
-        self.ipdb.event_map.update({'RTM_NEWRULE': self.load_netlink,
-                                    'RTM_DELRULE': self.load_netlink})
 
     def __getitem__(self, key):
         with self.lock:
@@ -239,7 +239,7 @@ class RulesDict(dict):
 
     def add(self, spec=None, **kwarg):
         '''
-        Create a route from a dictionary
+        Create a rule from a dictionary
         '''
         spec = dict(spec or kwarg)
         rule = Rule(self.ipdb)
@@ -263,9 +263,7 @@ class RulesDict(dict):
         return rule
 
     def load_netlink(self, msg):
-        '''
-        Loads an existing route from a rtmsg
-        '''
+
         if not isinstance(msg, fibmsg):
             return
 
@@ -283,7 +281,7 @@ class RulesDict(dict):
                         record['ipdb_scope'] = 'detached'
             except Exception as e:
                 # just ignore this failure for now
-                log.debug("delroute failed for %s", e)
+                log.debug("delrule failed for %s", e)
             return
 
         # RTM_NEWRULE
