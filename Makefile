@@ -80,9 +80,9 @@ clean: clean-version
 	@rm -rf docs/api
 	@rm -rf docs/html
 	@rm -rf docs/doctrees
-	@rm -f  tests/.coverage
+	@[ -z "${keep_coverage}" ] && rm -f  tests/.coverage ||:
 	@rm -rf tests/htmlcov
-	@rm -rf tests/cover
+	@[ -z "${keep_coverage}" ] && rm -rf tests/cover ||:
 	@rm -rf tests/examples
 	@rm -rf tests/pyroute2
 	@rm -f  tests/*xml
