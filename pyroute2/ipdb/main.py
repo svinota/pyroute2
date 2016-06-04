@@ -551,11 +551,16 @@ class IPDB(object):
 
     def __init__(self, nl=None, mode='implicit',
                  restart_on_error=None, nl_async=None,
-                 debug=False, ignore_rtables=None):
+                 ignore_rtables=None):
         self.mode = mode
-        self.debug = debug
+        self._event_map = {}
         self._deferred = {}
         self._loaded = set()
+        self._mthread = None
+        self._nl_own = nl is None
+        self._nl_async = config.ipdb_nl_async if nl_async is None else True
+        self.mnl = None
+        self.nl = nl
         self._plugins = [interface, route, rule]
         if isinstance(ignore_rtables, int):
             self._ignore_rtables = [ignore_rtables, ]
@@ -563,7 +568,6 @@ class IPDB(object):
             self._ignore_rtables = ignore_rtables
         else:
             self._ignore_rtables = []
-        self._nl_async = config.ipdb_nl_async if nl_async is None else True
         self._stop = False
         # see also 'register_callback'
         self._post_callbacks = {}
@@ -579,12 +583,8 @@ class IPDB(object):
             restart_on_error is not None else nl is None
 
         # init the database
-        self.initdb(nl)
+        self.initdb()
 
-        # start monitoring thread
-        self._mthread = threading.Thread(target=self.serve_forever)
-        self._mthread.setDaemon(True)
-        self._mthread.start()
         #
         atexit.register(self.release)
 
@@ -594,28 +594,44 @@ class IPDB(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.release()
 
-    def initdb(self, nl=None):
+    def initdb(self):
         # common event map, empty by default, so all the
         # events aer just ignored
-        self._event_map = {}
+        self.release(complete=False)
+        self._stop = False
+        # explicitly cleanup object references
+        for event in tuple(self._event_map):
+            del self._event_map[event]
 
-        # setup sockets, nl for commands and mnl for
-        # monitoring, subscribe for events only on the latter
-        self.nl = nl or IPRoute()
+        # if the command socket is not provided, create it
+        if self._nl_own:
+            self.nl = IPRoute()
+        # setup monitoring socket
         self.mnl = self.nl.clone()
         try:
             self.mnl.bind(async=self._nl_async)
         except:
             self.mnl.close()
-            if nl is None:
+            if self._nl_own is None:
                 self.nl.close()
             raise
 
-        self._loaded = set()
-        self._deferred = {}
+        # explicitly cleanup references
+        for key in tuple(self._deferred):
+            del self._deferred[key]
+
         for module in self._plugins:
             for plugin in module.spec:
                 self._deferred[plugin['name']] = module.spec
+                if plugin['name'] in self._loaded:
+                    delattr(self, plugin['name'])
+                    self._loaded.remove(plugin['name'])
+
+        # start the monitoring thread
+        self._mthread = threading.Thread(name="IPDB event loop",
+                                         target=self.serve_forever)
+        self._mthread.setDaemon(True)
+        self._mthread.start()
 
     def __getattribute__(self, name):
         deferred = super(IPDB, self).__getattribute__('_deferred')
@@ -725,7 +741,7 @@ class IPDB(object):
         ret = self._cb_threads.get(cuid, ())
         return ret
 
-    def release(self):
+    def release(self, complete=True):
         '''
         Shutdown IPDB instance and sync the state. Since
         IPDB is asyncronous, some operations continue in the
@@ -741,24 +757,28 @@ class IPDB(object):
             if self._stop:
                 return
             self._stop = True
-            # terminate the main loop
-            for t in range(3):
-                try:
-                    msg = ifinfmsg()
-                    msg['index'] = 1
-                    msg.reset()
-                    self.mnl.put(msg, RTM_GETLINK)
-                except Exception as e:
-                    logging.warning("shotdown error: %s", e)
-                    # Just give up.
-                    # We can not handle this case
+            if self.mnl is not None:
+                # terminate the main loop
+                for t in range(3):
+                    try:
+                        msg = ifinfmsg()
+                        msg['index'] = 1
+                        msg.reset()
+                        self.mnl.put(msg, RTM_GETLINK)
+                    except Exception as e:
+                        logging.warning("shotdown error: %s", e)
+                        # Just give up.
+                        # We can not handle this case
 
             if self._mthread is not None:
                 self._mthread.join()
-            self.nl.close()
-            self.nl = None
-            self.mnl.close()
-            self.mnl = None
+
+            if self.mnl is not None:
+                self.mnl.close()
+                self.mnl = None
+                if complete or self._nl_own:
+                    self.nl.close()
+                    self.nl = None
 
         with self.exclusive:
                 # collect all the callbacks
@@ -775,7 +795,7 @@ class IPDB(object):
                             pass
                 idx_list = []
 
-                if 'interfaces' not in self._deferred:
+                if 'interfaces' in self._loaded:
                     for (key, dev) in self.by_name.items():
                         try:
                             # FIXME
@@ -787,11 +807,11 @@ class IPDB(object):
                     idx_list.append(self.ipaddr)
                     idx_list.append(self.neighbours)
 
-                if 'routes' not in self._deferred:
+                if 'routes' in self._loaded:
                     idx_list.extend([self.routes.tables[x] for x
                                      in self.routes.tables.keys()])
 
-                if 'rules' not in self._deferred:
+                if 'rules' in self._loaded:
                     idx_list.append(self.rules)
 
                 for idx in idx_list:
@@ -904,7 +924,7 @@ class IPDB(object):
                 # run post-callbacks
                 # NOTE: post-callbacks are asynchronous
                 for (cuid, cb) in tuple(self._post_callbacks.items()):
-                    t = threading.Thread(name="callback %s" % (id(cb)),
+                    t = threading.Thread(name="IPDB callback %s" % (id(cb)),
                                          target=cb,
                                          args=(self, msg, msg['event']))
                     t.start()

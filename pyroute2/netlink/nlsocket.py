@@ -926,7 +926,8 @@ class NetlinkSocket(NetlinkMixin):
             self._recv = recv_plugin
             self._recv_into = recv_into_plugin
             self.recv_ft = recv_plugin
-            self.pthread = threading.Thread(target=self.async_recv)
+            self.pthread = threading.Thread(name="Netlink async cache",
+                                            target=self.async_recv)
             self.pthread.setDaemon(True)
             self.pthread.start()
 
