@@ -141,10 +141,6 @@ class TestExamples(object):
         require_user('root')
         self.launcher('nla_operators')
 
-    def test_nla_operators2(self):
-        require_user('root')
-        self.launcher('nla_operators2')
-
     def test_nl80211_interfaces(self):
         try:
             self.launcher('nl80211_interfaces')
