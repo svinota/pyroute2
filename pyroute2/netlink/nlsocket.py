@@ -92,6 +92,7 @@ import threading
 from socket import AF_NETLINK
 from socket import SOCK_DGRAM
 from socket import MSG_PEEK
+from socket import MSG_DONTWAIT
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from socket import SO_SNDBUF
@@ -866,6 +867,22 @@ class NetlinkSocket(NetlinkMixin):
             # setup fast-track
             self.recv_ft = getattr(self._sock, 'recv')
             self.sendto_gate = self._gate
+
+            # monkey patch recv_into
+            try:
+                # probe
+                self._sock.recv_into(bytearray((0, 0)), 2, MSG_DONTWAIT)
+            except TypeError:
+                # type error means that bytearray is not supported here
+                # --> monkey patch the socket
+                log.warning('patching socket.recv_into()')
+
+                def patch(data, bsize):
+                    data[0:] = self._sock.recv(bsize)
+                self._sock.recv_into = patch
+            except:
+                # here we get [Errno 11] Resource temporarily unavailable
+                pass
 
             self.setsockopt(SOL_SOCKET, SO_SNDBUF, 32768)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
