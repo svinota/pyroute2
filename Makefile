@@ -1,4 +1,4 @@
-# 	Copyright (c) 2013-2014 Peter V. Saveliev
+# 	Copyright (c) 2013-2016 Peter V. Saveliev
 #
 # 	This file is part of pyroute2 project.
 #
@@ -13,7 +13,7 @@
 # 	GNU General Public License for more details.
 #
 # 	You should have received a copy of the GNU General Public License
-# 	along with PyVFS; if not, write to the Free Software
+# 	along with Pyroute2; if not, write to the Free Software
 # 	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 ##
