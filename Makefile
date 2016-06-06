@@ -137,6 +137,12 @@ test: check_parameters dist
 test-ci:
 	@${civm} tests/ci
 
+test-platform:
+	@${python} -c "\
+from pyroute2.config.test_platform import TestCapsRtnl;\
+from pprint import pprint;\
+pprint(TestCapsRtnl().collect())"
+
 upload: clean force-version docs
 	${python} setup.py sdist upload
 

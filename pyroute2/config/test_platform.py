@@ -3,7 +3,9 @@ Platform tests to discover the system capabilities.
 '''
 import os
 import select
+import struct
 import threading
+from pyroute2 import config
 from pyroute2.common import uifname
 from pyroute2 import RawIPRoute
 from pyroute2.netlink.rtnl import RTNLGRP_LINK
@@ -162,6 +164,26 @@ class TestCapsRtnl(object):
         # stop the monitor
         os.write(self.cmdw, b'q')
         mthread.join()
+        return self.capabilities
+
+    def test_uname(self):
+        '''
+        Return collected uname
+        '''
+        return config.uname
+
+    def test_unpack_from(self):
+        '''
+        Does unpack_from() support bytearray as the buffer
+        '''
+        # probe unpack from
+        try:
+            struct.unpack_from('I', bytearray((1, 0, 0, 0)), 0)
+        except:
+            return False
+        # works... but may it be monkey patched?
+        if hasattr(struct, '_u_f_orig'):
+            return False
 
     def test_create_dummy(self):
         '''
@@ -182,7 +204,7 @@ class TestCapsRtnl(object):
         '''
         self.ip.link('add', ifname=self.ifname(), kind='bond')
 
-    def test_ghost_newlink(self):
+    def test_ghost_newlink_count(self):
         '''
         A normal flow (req == request, brd == broadcast message)::
 
