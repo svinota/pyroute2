@@ -2,6 +2,7 @@
 Platform tests to discover the system capabilities.
 '''
 import os
+import sys
 import select
 import struct
 import threading
@@ -171,6 +172,12 @@ class TestCapsRtnl(object):
         Return collected uname
         '''
         return config.uname
+
+    def test_python_version(self):
+        '''
+        Return Python version
+        '''
+        return sys.version
 
     def test_unpack_from(self):
         '''
