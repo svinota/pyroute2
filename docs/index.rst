@@ -15,6 +15,7 @@ General information
     general
     changelog
     makefile
+    report
 
 Usage
 -----

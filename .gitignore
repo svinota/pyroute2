@@ -18,6 +18,7 @@ setup.ini
 docs/changelog.rst
 docs/makefile.rst
 docs/general.rst
+docs/report.rst
 docs/html
 docs/doctrees
 docs-build.log

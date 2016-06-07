@@ -77,6 +77,7 @@ clean: clean-version
 	@rm -f docs/general.rst
 	@rm -f docs/changelog.rst
 	@rm -f docs/makefile.rst
+	@rm -f docs/report.rst
 	@rm -rf docs/api
 	@rm -rf docs/html
 	@rm -rf docs/doctrees
@@ -106,6 +107,7 @@ docs: clean force-version
 	@cp README.md docs/general.rst
 	@sed -i '1{s/.*docs\//.. image:: /;s/\ ".*/\n\ \ \ \ :align: right/}' docs/general.rst
 	@cp README.make.md docs/makefile.rst
+	@cp README.report.md docs/report.rst
 	@cp CHANGELOG.md docs/changelog.rst
 	@export PYTHONPATH=`pwd`; make -C docs html >docs-build.log 2>&1; unset PYTHONPATH
 

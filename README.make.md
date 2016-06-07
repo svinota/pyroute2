@@ -1,4 +1,4 @@
-Makefile documentation
+makefile documentation
 ======================
 
 Makefile is used to automate Pyroute2 deployment and test
