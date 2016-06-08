@@ -1074,9 +1074,26 @@ class nlmsg_base(dict):
         '''
         return [i[1] for i in self['attrs'] if i[0] == attr]
 
+    def __setstate__(self, state):
+        return self.load(state)
+
+    def __reduce__(self):
+        return (type(self), (), self.dump())
+
     def load(self, dump):
         '''
-        Load packet from a structure
+        Load packet from a dict::
+
+            ipr = IPRoute()
+            lo = ipr.link('dump', ifname='lo')[0]
+            msg_type, msg_value = type(lo), lo.dump()
+            ...
+            lo = msg_type()
+            lo.load(msg_value)
+
+        The same methods -- `dump()`/`load()` -- implement the
+        pickling protocol for the nlmsg class, see `__reduce__()`
+        and `__setstate__()`.
         '''
         if isinstance(dump, dict):
             for (k, v) in dump.items():
@@ -1086,10 +1103,11 @@ class nlmsg_base(dict):
                     self[k] = v
         else:
             self.setvalue(dump)
+        return self
 
     def dump(self):
         '''
-        Dump packet as a simple types struct
+        Dump packet as a dict
         '''
         a = self.getvalue()
         if isinstance(a, dict):
