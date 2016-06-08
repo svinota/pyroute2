@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.4.2
+    * ipdb: event modules
+    * ipdb: on-demand views
+    * ipdb: rules management
+    * ipdb: bridge controls
+    * ipdb: #258 -- important Python compatibility fixes
+    * netns: #257 -- pipe leak fix
+    * netlink: support pickling for nlmsg
 * 0.4.1
     * netlink: no buffer copying in the parser
     * netlink: parse NLA on demand
