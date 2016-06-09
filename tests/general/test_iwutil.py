@@ -1,6 +1,7 @@
 import errno
 from utils import require_user
 from pyroute2 import IW
+from pyroute2 import IPRoute
 from pyroute2.netlink.exceptions import NetlinkError
 from nose.plugins.skip import SkipTest
 
@@ -33,4 +34,6 @@ class TestIW(object):
 
     def test_scan(self):
         require_user('root')
+        with IPRoute() as ipr:
+            ipr.link('set', index=self.ifindex, state='up')
         self.iw.scan(self.ifindex)
