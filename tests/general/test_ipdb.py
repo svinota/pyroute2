@@ -368,7 +368,10 @@ class TestExplicit(BasicSetup):
                 spec['dst'] = dst + '/' + str(dst_len)
                 check['fields']['dst_len'] = dst_len
                 check['nla']['FRA_DST'] = dst
-            self._test_rules_action(spec, check)
+
+            # only if at least one of (dst, src) is specified
+            if spec.get('dst', None) or spec.get('src', None):
+                self._test_rules_action(spec, check)
 
     @skip_if_not_supported
     def test_routes_mpls_via_change(self):
