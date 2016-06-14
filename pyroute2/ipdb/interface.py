@@ -823,7 +823,7 @@ class Interface(Transactional):
                 # FIXME: probably, we should handle other
                 # types as well
                 if self['kind'] in ('bond', 'bridge', 'veth'):
-                    for addr in self.nl.get_addr():
+                    for addr in self.nl.get_addr(family=socket.AF_INET6):
                         self.ipdb.ipaddr._new(addr)
 
                 # 8<--------------------------------------
