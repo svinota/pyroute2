@@ -1,6 +1,9 @@
 changelog
 =========
 
+* 0.4.3
+    * ipdb: #259 -- critical `Interface` class fix
+    * benchmark: initial release
 * 0.4.2
     * ipdb: event modules
     * ipdb: on-demand views
