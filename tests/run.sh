@@ -45,6 +45,8 @@ which pip >/dev/null 2>&1 && pip install -q -r requirements.txt
     modprobe dummy 2>/dev/null ||:
     modprobe bonding 2>/dev/null ||:
     modprobe 8021q 2>/dev/null ||:
+    modprobe mpls_router 2>/dev/null ||:
+    modprobe mpls_iptunnel 2>/dev/null ||:
     sysctl net.mpls.platform_labels=2048 2>/dev/null ||:
 }
 
