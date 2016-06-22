@@ -1161,7 +1161,7 @@ class IPRouteMixin(object):
                 mask = mask or 128
             else:
                 family = AF_INET
-                mask = mask or 24
+                mask = mask or 32
 
         # setup the message
         msg = ifaddrmsg()
