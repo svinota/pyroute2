@@ -53,7 +53,7 @@ class rtmsg_base(object):
                ('RTA_METRICS', 'metrics'),
                ('RTA_MULTIPATH', '*get_nh'),
                ('RTA_PROTOINFO', 'uint32'),
-               ('RTA_FLOW', 'hex'),
+               ('RTA_FLOW', 'uint32'),
                ('RTA_CACHEINFO', 'cacheinfo'),
                ('RTA_SESSION', 'hex'),
                ('RTA_MP_ALGO', 'hex'),
