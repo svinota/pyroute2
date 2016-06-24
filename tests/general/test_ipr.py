@@ -341,6 +341,7 @@ class TestIPRoute(object):
         assert setA == setB
 
     def test_fdb_vxlan(self):
+        require_kernel(4, 4)
         require_user('root')
         # create dummy
         (dn, dx) = self._create('dummy')
@@ -360,6 +361,7 @@ class TestIPRoute(object):
         assert r[0].get_attr('NDA_VNI') == 600
 
     def test_fdb_bridge_simple(self):
+        require_kernel(4, 4)
         require_user('root')
         # create bridge
         (bn, bx) = self._create('bridge')
