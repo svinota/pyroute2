@@ -12,6 +12,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from utils import grep
 from utils import require_user
 from utils import require_python
+from utils import require_kernel
 from utils import get_ip_brd
 from utils import get_ip_addr
 from utils import get_ip_link
@@ -545,6 +546,7 @@ class TestIPRoute(object):
 
     @skip_if_not_supported
     def _test_route_mpls_via_ipv(self, family, address, label):
+        require_kernel(4, 4)
         require_user('root')
         self.ip.route('add', **{'family': AF_MPLS,
                                 'oif': self.ifaces[0],
@@ -577,6 +579,7 @@ class TestIPRoute(object):
 
     @skip_if_not_supported
     def test_route_mpls_swap_newdst_simple(self):
+        require_kernel(4, 4)
         require_user('root')
         req = {'family': AF_MPLS,
                'oif': self.ifaces[0],
@@ -595,6 +598,7 @@ class TestIPRoute(object):
 
     @skip_if_not_supported
     def test_route_mpls_swap_newdst_list(self):
+        require_kernel(4, 4)
         require_user('root')
         req = {'family': AF_MPLS,
                'oif': self.ifaces[0],
@@ -655,6 +659,7 @@ class TestIPRoute(object):
 
     @skip_if_not_supported
     def test_lwtunnel_multipath_mpls(self):
+        require_kernel(4, 4)
         require_user('root')
         self.ip.route('add',
                       dst='172.16.216.0/24',
@@ -685,6 +690,7 @@ class TestIPRoute(object):
 
     @skip_if_not_supported
     def test_lwtunnel_mpls_dict_label(self):
+        require_kernel(4, 4)
         require_user('root')
         self.ip.route('add',
                       dst='172.16.226.0/24',
@@ -707,6 +713,7 @@ class TestIPRoute(object):
 
     @skip_if_not_supported
     def test_lwtunnel_mpls_2_int_label(self):
+        require_kernel(4, 4)
         require_user('root')
         self.ip.route('add',
                       dst='172.16.206.0/24',
@@ -728,6 +735,7 @@ class TestIPRoute(object):
 
     @skip_if_not_supported
     def test_lwtunnel_mpls_2_str_label(self):
+        require_kernel(4, 4)
         require_user('root')
         self.ip.route('add',
                       dst='172.16.246.0/24',
@@ -749,6 +757,7 @@ class TestIPRoute(object):
 
     @skip_if_not_supported
     def test_lwtunnel_mpls_1_str_label(self):
+        require_kernel(4, 4)
         require_user('root')
         self.ip.route('add',
                       dst='172.16.244.0/24',
@@ -768,6 +777,7 @@ class TestIPRoute(object):
 
     @skip_if_not_supported
     def test_lwtunnel_mpls_1_int_label(self):
+        require_kernel(4, 4)
         require_user('root')
         self.ip.route('add',
                       dst='172.16.245.0/24',

@@ -24,6 +24,7 @@ from utils import kernel_version_ge
 from utils import remove_link
 from utils import require_user
 from utils import require_8021q
+from utils import require_kernel
 from utils import get_ip_addr
 from utils import skip_if_not_supported
 
@@ -375,6 +376,7 @@ class TestExplicit(BasicSetup):
 
     @skip_if_not_supported
     def test_routes_mpls_via_change(self):
+        require_kernel(4, 4)
         require_user('root')
         idx = self.ip.interfaces[self.ifd]['index']
         label = 20
@@ -420,6 +422,7 @@ class TestExplicit(BasicSetup):
 
     @skip_if_not_supported
     def test_routes_mpls_via_ipv4(self):
+        require_kernel(4, 4)
         require_user('root')
         idx = self.ip.interfaces[self.ifd]['index']
         label = 20
@@ -445,6 +448,7 @@ class TestExplicit(BasicSetup):
 
     @skip_if_not_supported
     def _test_routes_mpls_ops(self, label_in, labels_out=None):
+        require_kernel(4, 4)
         require_user('root')
         idx = self.ip.interfaces[self.ifd]['index']
 
@@ -475,6 +479,7 @@ class TestExplicit(BasicSetup):
 
     @skip_if_not_supported
     def test_routes_multipath_transition_mpls(self):
+        require_kernel(4, 4)
         require_user('root')
 
         self.ip.routes.add({'family': AF_MPLS,
@@ -532,6 +537,7 @@ class TestExplicit(BasicSetup):
 
     @skip_if_not_supported
     def test_routes_mpls_multipath(self):
+        require_kernel(4, 4)
         require_user('root')
 
         req = {'family': AF_MPLS,
@@ -608,6 +614,7 @@ class TestExplicit(BasicSetup):
 
     @skip_if_not_supported
     def test_routes_mpls(self):
+        require_kernel(4, 4)
         require_user('root')
         idx = self.ip.interfaces[self.ifd]['index']
         label = 20
@@ -650,6 +657,7 @@ class TestExplicit(BasicSetup):
 
     @skip_if_not_supported
     def test_routes_lwtunnel_mpls_multipath(self):
+        require_kernel(4, 4)
         require_user('root')
 
         # ordinary route
@@ -757,6 +765,7 @@ class TestExplicit(BasicSetup):
 
     @skip_if_not_supported
     def test_routes_lwtunnel_mpls_metrics(self):
+        require_kernel(4, 4)
         require_user('root')
         self.ip.routes.add({'dst': 'default',
                             'table': 2020,
@@ -795,6 +804,7 @@ class TestExplicit(BasicSetup):
 
     @skip_if_not_supported
     def test_routes_lwtunnel_mpls(self):
+        require_kernel(4, 4)
         require_user('root')
         self.ip.routes.add({'dst': 'default',
                             'table': 2020,
@@ -823,6 +833,7 @@ class TestExplicit(BasicSetup):
 
     @skip_if_not_supported
     def test_routes_lwtunnel_mpls_change(self):
+        require_kernel(4, 4)
         require_user('root')
         self.ip.routes.add({'dst': 'default',
                             'table': 2020,
