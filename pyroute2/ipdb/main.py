@@ -195,7 +195,26 @@ interface properties such as STP, forward delay, ageing
 time etc. Names of these properties start with `br_`, like
 `br_ageing_time`, `br_forward_delay` e.g.::
 
-    [x for x in dir(ip.interfaces.virbr0) if x.startswith('br_')]
+    [x for x in dir(ipdb.interfaces.virbr0) if x.startswith('br_')]
+
+Ports management
+----------------
+
+IPDB provides a uniform API to manage ports::
+
+    with ipdb.interfaces['br-int'] as br:
+        br.add_port('veth0')
+        br.add_port(ipdb.interfaces.veth1)
+        br.add_port(700)
+        br.del_port('veth2')
+
+Both `add_port()` and `del_port()` accept three types of arguments:
+
+    * `'veth0'` -- interface name as a string
+    * `ipdb.interfaces.veth1` -- IPDB interface object
+    * `700` -- interface index, an integer
+
+The same methods are used to manage bridge, bond and vrf ports.
 
 Routes management
 -----------------
