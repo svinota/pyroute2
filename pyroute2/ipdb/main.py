@@ -187,6 +187,16 @@ The `IPDB.create()` call has the same syntax as
 `IPRoute.link('add', ...)`, except you shouldn't specify
 the `'add'` command. Refer to `IPRoute` docs for details.
 
+Bridge interfaces
+-----------------
+
+Modern kernels provide possibility to manage bridge
+interface properties such as STP, forward delay, ageing
+time etc. Names of these properties start with `br_`, like
+`br_ageing_time`, `br_forward_delay` e.g.::
+
+    [x for x in dir(ip.interfaces.virbr0) if x.startswith('br_')]
+
 Routes management
 -----------------
 
