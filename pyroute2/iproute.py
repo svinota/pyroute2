@@ -348,11 +348,22 @@ class IPRouteMixin(object):
         msg['index'] = index
         return self.nlm_request(msg, RTM_GETTCLASS)
 
-    def get_vlans(self):
+    def get_vlans(self, **kwarg):
         '''
         Dump available vlan info on bridge ports
         '''
-        return self.get_links(family=AF_BRIDGE, ext_mask=2)
+        # IFLA_EXT_MASK, extended info mask
+        #
+        # include/uapi/linux/rtnetlink.h
+        # 1 << 0 => RTEXT_FILTER_VF
+        # 1 << 1 => RTEXT_FILTER_BRVLAN
+        # 1 << 2 => RTEXT_FILTER_BRVLAN_COMPRESSED
+        # 1 << 3 => RTEXT_FILTER_SKIP_STATS
+        #
+        # maybe place it as mapping into ifinfomsg.py?
+        #
+        match = kwarg.get('match', None) or kwarg or None
+        return self.link('dump', family=AF_BRIDGE, ext_mask=2, match=match)
 
     def get_links(self, *argv, **kwarg):
         '''

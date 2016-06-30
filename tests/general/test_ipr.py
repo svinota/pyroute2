@@ -167,6 +167,25 @@ class TestIPRoute(object):
         self.ip.addr('add', self.ifaces[0], address='172.16.0.1', mask=24)
         assert '172.16.0.1/24' in get_ip_addr()
 
+    def test_vlan_filter_dump(self):
+        require_user('root')
+        (an, ax) = self.create('bridge')
+        (bn, bx) = self.create('bridge')
+        self.ip.link('set', index=ax, state='up')
+        self.ip.link('set', index=bx, state='up')
+        assert len(self.ip.get_vlans()) >= 2
+        for name in (an, bn):
+            assert len(self.ip.get_vlans(ifname=name)) == 1
+            assert (self
+                    .ip
+                    .get_vlans(ifname=name)[0]
+                    .get_attr('IFLA_IFNAME')) == name
+            assert (self
+                    .ip
+                    .get_vlans(ifname=name)[0]
+                    .get_nested('IFLA_AF_SPEC',
+                                'IFLA_BRIDGE_VLAN_INFO'))['vid'] == 1
+
     def test_vlan_filter_add(self):
         require_user('root')
         (bn, bx) = self.create('bridge')
