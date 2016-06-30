@@ -1,6 +1,10 @@
 changelog
 =========
 
+* 0.4.4
+    * iproute: #262 -- `get_vlans()` fix
+    * iproute: default mask 32 for IPv4 in `addr()`
+    * rtmsg: #260 -- RTA_FLOW support
 * 0.4.3
     * ipdb: #259 -- critical `Interface` class fix
     * benchmark: initial release
