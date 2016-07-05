@@ -566,6 +566,25 @@ class TestExplicit(BasicSetup):
         assert (time.time() - ts) < 2
         assert ret
 
+    def test_wait_ipv6(self):
+        ifa = self.get_ifname()
+        with self.ip.create(ifname=ifa, kind='dummy') as i:
+            # add IPv6 addr
+            i.up()
+            i.add_ip('2001:21:21:21::/64')
+        ts1 = time.time()
+        a = self.ip.interfaces[ifa].wait_ip('2001:21:21:21::',
+                                            mask=64,
+                                            timeout=2)
+        b = self.ip.interfaces[ifa].wait_ip('2001:22:22:22::',
+                                            mask=64,
+                                            timeout=2)
+        ts2 = time.time()
+        assert (ts2 - ts1) > 2
+        assert (ts2 - ts1) < 4
+        assert a is True
+        assert b is False
+
     def test_wait_ip_net(self):
         ts = time.time()
         ret = self.ip.interfaces.lo.ipaddr.wait_ip('127.0.0.0', 8, timeout=2)
