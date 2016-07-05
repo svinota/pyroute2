@@ -184,7 +184,7 @@ class IPaddrSet(LinkedSet):
                     rnet = struct.unpack('>I', rnet)[0]
                 else:
                     rna, rnb = struct.unpack('>QQ', rnet)
-                    rnet = (na << 64) | nb
+                    rnet = (rna << 64) | rnb
                 if (rnet & (((1 << mask) - 1) << (alen - mask))) == match:
                     return True
             return False
