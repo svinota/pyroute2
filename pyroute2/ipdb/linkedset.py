@@ -163,11 +163,11 @@ class IPaddrSet(LinkedSet):
         family = AF_INET6 if net.find(':') >= 0 else AF_INET
         alen = 32 if family == AF_INET else 128
         net = inet_pton(family, net)
+        if mask is None:
+            mask = alen
         if family == AF_INET:
-            mask = mask or 32
             net = struct.unpack('>I', net)[0]
         else:
-            mask = mask or 128
             na, nb = struct.unpack('>QQ', net)
             net = (na << 64) | nb
         match = net & (((1 << mask) - 1) << (alen - mask))
