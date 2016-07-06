@@ -160,8 +160,12 @@ class IPaddrSet(LinkedSet):
     LinkedSet child class with different target filter. The
     filter ignores link local IPv6 addresses when sets and checks
     the target.
+
+    The `wait_ip()` routine by default does not ignore link local
+    IPv6 addresses, but it may be changed with the `ignore_link_local`
+    argument.
     '''
-    def wait_ip(self, net, mask=None, timeout=None):
+    def wait_ip(self, net, mask=None, timeout=None, ignore_link_local=False):
         family = AF_INET6 if net.find(':') >= 0 else AF_INET
         alen = 32 if family == AF_INET else 128
         net = inet_pton(family, net)
@@ -178,6 +182,11 @@ class IPaddrSet(LinkedSet):
             for rnet, rmask in ipset:
                 rfamily = AF_INET6 if rnet.find(':') >= 0 else AF_INET
                 if family != rfamily:
+                    continue
+                if family == AF_INET6 and \
+                        ignore_link_local and \
+                        rnet[:4] == 'fe80' and \
+                        rmask == 64:
                     continue
                 rnet = inet_pton(family, rnet)
                 if family == AF_INET:
