@@ -32,12 +32,22 @@ cd ./tests/
 # is not root and all requirements are met, this step will
 # be safely skipped.
 #
-which pip >/dev/null 2>&1 && pip install -q -r requirements.txt
 
-[ -z "$VIRTUAL_ENV" ] || {
-    . $$VIRTUAL_ENV/bin/activate ;
-    echo "Running in VirtualEnv"
+function install_test_reqs() {
+    which pip >/dev/null 2>&1 && pip install -q -r requirements.txt
 }
+
+if [ -z "$VIRTUAL_ENV" ]; then
+    install_test_reqs
+else
+    # Tox creates virtualenv and install all deps into before running tests
+    # Install requirements only into manually-made virtualenvs.
+    if [ -f "$VIRTUAL_ENV/bin/activate" ]; then
+        source "$VIRTUAL_ENV/bin/activate"
+        install_test_reqs
+    fi
+    echo "Running in VirtualEnv"
+fi
 
 [ "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && {
     echo "Running as root"
@@ -56,14 +66,24 @@ which pip >/dev/null 2>&1 && pip install -q -r requirements.txt
 [ -z "$SKIP_TESTS" ] || export SKIP_TESTS="--exclude $SKIP_TESTS"
 [ -z "$MODULE" ] || export MODULE=`echo $MODULE | sed -n '/:/{p;q};s/$/:/p'`
 
+if which pyenv 2>&1 >/dev/null; then
+    PYTHON_PATH=$(pyenv which $PYTHON)
+    FLAKE8_PATH=$(pyenv which $FLAKE8)
+    NOSE_PATH=$(pyenv which $NOSE)
+else
+    PYTHON_PATH=$(which $PYTHON)
+    FLAKE8_PATH=$(which $FLAKE8)
+    NOSE_PATH=$(which $NOSE)
+fi
+
 echo "8<------------------------------------------------"
 echo "kernel: `uname -r`"
-echo "python: `which $PYTHON` [`$PYTHON --version 2>&1`]"
-echo "flake8: `which $FLAKE8` [`$FLAKE8 --version 2>&1`]"
-echo "nose: `which $NOSE` [`$NOSE --version 2>&1`]"
+echo "python: $PYTHON_PATH [`$PYTHON --version 2>&1`]"
+echo "flake8: $FLAKE8_PATH [`$FLAKE8 --version 2>&1`]"
+echo "nose: $NOSE_PATH [`$NOSE --version 2>&1`]"
 echo "8<------------------------------------------------"
 
-$PYTHON `which $FLAKE8` . && echo "flake8 ... ok" || exit 254
+$PYTHON "$FLAKE8_PATH" . && echo "flake8 ... ok" || exit 254
 [ -z "$TRAVIS" ] || exit 0
 
 function get_module() {
@@ -83,7 +103,7 @@ for module in $@; do
         [ $RETVAL -eq 0 ] || continue
 
     }
-    $PYTHON $WLEVEL `which $NOSE` -P -v $PDB \
+    $PYTHON $WLEVEL "$NOSE_PATH" -P -v $PDB \
         --with-coverage \
         --with-xunit \
         --cover-package=pyroute2 \
