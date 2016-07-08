@@ -22,3 +22,4 @@ docs/html
 docs/doctrees
 docs-build.log
 pyroute2.egg-info
+.tox
