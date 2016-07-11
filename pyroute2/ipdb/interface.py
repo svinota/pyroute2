@@ -1193,7 +1193,7 @@ class NeighboursDict(dict):
         try:
             (self[msg['ifindex']]
              .add(key=msg.get_attr('NDA_DST'),
-                  raw={'lladdr': msg.get_attr('MDA_LLADDR')}))
+                  raw={'lladdr': msg.get_attr('NDA_LLADDR')}))
         except:
             pass
 
