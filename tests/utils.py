@@ -7,8 +7,8 @@ import platform
 import subprocess
 import ctypes
 from pyroute2 import NetlinkError
-from pyroute2.iproute import RTM_NEWLINK, RTM_DELLINK
 from pyroute2.netlink import nlmsg
+from pyroute2.netlink.rtnl import RTM_NEWLINK, RTM_DELLINK
 from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bridge
 from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bond
 from pyroute2.netlink.rtnl.ifinfmsg import compat_del_bridge
