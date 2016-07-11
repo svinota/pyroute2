@@ -20,8 +20,8 @@ from utils import grep
 from utils import create_link
 from utils import kernel_version_ge
 from utils import remove_link
-from utils import require_user
-from utils import require_8021q
+from utils import (require_user, require_bridge, require_bond, require_8021q,
+                   require_kernel)
 from utils import get_ip_addr
 from utils import skip_if_not_supported
 from nose.plugins.skip import SkipTest
@@ -176,6 +176,7 @@ class TestExplicit(BasicSetup):
 
     @skip_if_not_supported
     def test_vlan_slave_bridge(self):
+        require_bridge()
         # https://github.com/svinota/pyroute2/issues/58
         # based on the code by Petr Horáček
         dXname = self.get_ifname()
@@ -321,6 +322,7 @@ class TestExplicit(BasicSetup):
     @skip_if_not_supported
     def test_routes_mpls_metrics(self):
         require_user('root')
+        require_kernel(4, 2)
         self.ip.routes.add({'dst': 'default',
                             'table': 2020,
                             'gateway': '127.0.0.2',
@@ -359,6 +361,7 @@ class TestExplicit(BasicSetup):
     @skip_if_not_supported
     def test_routes_mpls(self):
         require_user('root')
+        require_kernel(4, 2)
         self.ip.routes.add({'dst': 'default',
                             'table': 2020,
                             'gateway': '127.0.0.2',
@@ -387,6 +390,7 @@ class TestExplicit(BasicSetup):
     @skip_if_not_supported
     def test_routes_mpls_change(self):
         require_user('root')
+        require_kernel(4, 2)
         self.ip.routes.add({'dst': 'default',
                             'table': 2020,
                             'gateway': '127.0.0.2',
@@ -620,10 +624,12 @@ class TestExplicit(BasicSetup):
 
     def test_shadow_bond(self):
         require_user('root')
+        require_bond()
         self._test_shadow('bond')
 
     def test_shadow_bridge(self):
         require_user('root')
+        require_bridge()
         self._test_shadow('bridge')
 
     def test_shadow_dummy(self):
@@ -647,6 +653,7 @@ class TestExplicit(BasicSetup):
 
     def test_slave_data(self):
         require_user('root')
+        require_bridge()
 
         ifBR = self.get_ifname()
         ifP = self.get_ifname()
@@ -933,18 +940,22 @@ class TestExplicit(BasicSetup):
         self._test_ipv(4, 'dummy')
 
     def test_ipv4_bond(self):
+        require_bond()
         self._test_ipv(4, 'bond')
 
     def test_ipv4_bridge(self):
+        require_bridge()
         self._test_ipv(4, 'bridge')
 
     def test_ipv6_dummy(self):
         self._test_ipv(6, 'dummy')
 
     def test_ipv6_bond(self):
+        require_bond()
         self._test_ipv(6, 'bond')
 
     def test_ipv6_bridge(self):
+        require_bridge()
         self._test_ipv(6, 'bridge')
 
     def test_create_ip_up(self):
@@ -1063,6 +1074,7 @@ class TestExplicit(BasicSetup):
 
     def test_bridge_vlans_flags(self):
         require_user('root')
+        require_bridge()
         ifB = self.get_ifname()
         ifP = self.get_ifname()
         b = self.ip.create(ifname=ifB, kind='bridge').commit()
@@ -1083,6 +1095,7 @@ class TestExplicit(BasicSetup):
 
     def test_bridge_vlans(self):
         require_user('root')
+        require_bridge()
         ifB = self.get_ifname()
         ifP = self.get_ifname()
         b = self.ip.create(ifname=ifB, kind='bridge').commit()
@@ -1248,8 +1261,10 @@ class TestExplicit(BasicSetup):
         assert i1 == i2
 
     @skip_if_not_supported
-    def _create_double(self, kind):
+    def _create_double(self, kind, require_fn=None):
         require_user('root')
+        if require_fn is not None:
+            require_fn()
         ifA = self.get_ifname()
 
         self.ip.create(kind=kind, ifname=ifA).commit()
@@ -1262,10 +1277,10 @@ class TestExplicit(BasicSetup):
         self._create_double('dummy')
 
     def test_create_double_bridge(self):
-        self._create_double('bridge')
+        self._create_double('bridge', require_fn=require_bridge)
 
     def test_create_double_bond(self):
-        self._create_double('bond')
+        self._create_double('bond', require_fn=require_bond)
 
     def test_create_plain(self):
         require_user('root')
@@ -1309,6 +1324,7 @@ class TestExplicit(BasicSetup):
     @skip_if_not_supported
     def test_master_cleanup_del_port(self):
         require_user('root')
+        require_bridge()
 
         ifMname = self.get_ifname()
         ifPname = self.get_ifname()
@@ -1375,10 +1391,12 @@ class TestExplicit(BasicSetup):
 
     def test_create_bridge(self):
         require_user('root')
+        require_bridge()
         self._create_master('bridge')
 
     def test_create_bond(self):
         require_user('root')
+        require_bond()
         self._create_master('bond')
 
     def test_create_team(self):
@@ -1387,6 +1405,7 @@ class TestExplicit(BasicSetup):
 
     def test_create_bond2(self):
         require_user('root')
+        require_bond()
         self._create_master('bond', bond_mode=2)
 
     @skip_if_not_supported

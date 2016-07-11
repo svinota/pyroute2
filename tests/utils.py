@@ -7,6 +7,8 @@ import platform
 import subprocess
 import ctypes
 from pyroute2 import NetlinkError
+from pyroute2.netlink import nlmsg
+from pyroute2.netlink.rtnl import RTM_NEWLINK, RTM_DELLINK
 from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bridge
 from pyroute2.netlink.rtnl.ifinfmsg import compat_create_bond
 from pyroute2.netlink.rtnl.ifinfmsg import compat_del_bridge
@@ -74,24 +76,39 @@ def require_8021q():
         raise
 
 
+def dummy_nlmsg():
+    msg = nlmsg()
+    msg['attrs'].append(['IFLA_IFNAME', 'test_req'])
+    msg['header']['type'] = RTM_NEWLINK
+    return msg
+
+
 def require_bridge():
+    msg = dummy_nlmsg()
     try:
-        compat_create_bridge('test_req')
-    except OSError:
-        raise SkipTest('can not create <bridge>')
+        compat_create_bridge(msg)
+    except OSError as e:
+        if e.errno == 2:
+            raise SkipTest('brctl is not installed')
+        raise
     if not grep('ip link show', 'test_req'):
         raise SkipTest('can not create <bridge>')
-    compat_del_bridge('test_req')
+    msg['header']['type'] = RTM_DELLINK
+    compat_del_bridge(msg)
 
 
 def require_bond():
+    msg = dummy_nlmsg()
     try:
-        compat_create_bond('test_req')
-    except IOError:
-        raise SkipTest('can not create <bond>')
+        compat_create_bond(msg)
+    except IOError as e:
+        if e.errno == 2:
+            raise SkipTest('missing bonding support, or module is not loaded')
+        raise
     if not grep('ip link show', 'test_req'):
         raise SkipTest('can not create <bond>')
-    compat_del_bond('test_req')
+    msg['header']['type'] = RTM_DELLINK
+    compat_del_bond(msg)
 
 
 def require_user(user):
