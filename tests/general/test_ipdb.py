@@ -329,6 +329,7 @@ class TestExplicit(BasicSetup):
                             'encap': {'type': 'mpls',
                                       'labels': '200'}}).commit()
 
+        self._assert_mpls()
         route = self.ip.routes.tables[2020]['default']
         with route:
             route.encap = {}
@@ -358,6 +359,18 @@ class TestExplicit(BasicSetup):
         with route:
             route.remove()
 
+    def _assert_mpls(self):
+        routes = self.ip.nl.get_routes(table=2020)
+        assert len(routes) == 1
+        try:
+            encap = (routes[0]
+                     .get_attr('RTA_ENCAP')
+                     .get_attr('MPLS_IPTUNNEL_DST'))
+            return encap
+        except AttributeError:
+            self.ip.nl.flush_routes(table=2020)
+            raise SkipTest('mpls not supported')
+
     @skip_if_not_supported
     def test_routes_mpls(self):
         require_user('root')
@@ -367,12 +380,8 @@ class TestExplicit(BasicSetup):
                             'gateway': '127.0.0.2',
                             'encap': {'type': 'mpls',
                                       'labels': '200'}}).commit()
-        routes = self.ip.nl.get_routes(table=2020)
-        assert len(routes) == 1
-        assert routes[0].get_attr('RTA_GATEWAY') == '127.0.0.2'
-        encap = (routes[0]
-                 .get_attr('RTA_ENCAP')
-                 .get_attr('MPLS_IPTUNNEL_DST'))
+
+        encap = self._assert_mpls()
         assert len(encap) == 1
         assert encap[0]['label'] == 200
         assert encap[0]['bos'] == 1
@@ -396,6 +405,7 @@ class TestExplicit(BasicSetup):
                             'gateway': '127.0.0.2',
                             'encap': {'type': 'mpls',
                                       'labels': '200'}}).commit()
+        self._assert_mpls()
         assert 2020 in self.ip.routes.tables.keys()
         assert len(self.ip.routes.tables[2020]) == 1
         route = self.ip.routes.tables[2020]['default']
