@@ -14,6 +14,7 @@ from pyroute2.netlink import nla_base
 
 # import pdb
 import struct
+import sys
 from pyroute2.common import hexdump
 
 # nl80211 commands
@@ -409,7 +410,9 @@ class nl80211cmd(genlmsg):
                 # pdb.set_trace()
                 string = ""
                 for byteRaw in rawdata:
-                    (byte,) = struct.unpack("B", bytearray([byteRaw])[0:1])
+                    if sys.version_info[0] > 2:
+                        byteRaw = bytearray([byteRaw])[0:1]
+                    (byte,) = struct.unpack("B", byteRaw)
                     r = byte & 0x7f
 
                     if r == BSS_MEMBERSHIP_SELECTOR_VHT_PHY and byte & 0x80:
