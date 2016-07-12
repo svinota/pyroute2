@@ -580,7 +580,7 @@ class IPDB(object):
 
     def __init__(self, nl=None, mode='implicit',
                  restart_on_error=None, nl_async=None,
-                 ignore_rtables=None):
+                 ignore_rtables=None, callbacks=None):
         self.mode = mode
         self._event_map = {}
         self._deferred = {}
@@ -606,6 +606,24 @@ class IPDB(object):
         # locks and events
         self.exclusive = threading.RLock()
         self._shutdown_lock = threading.Lock()
+
+        # register callbacks
+        #
+        # examples::
+        #   def cb1(ipdb, msg, event):
+        #       print(event, msg)
+        #   def cb2(...):
+        #       ...
+        #
+        #   # default mode: post
+        #   IPDB(callbacks=[cb1, cb2])
+        #   # specify the mode explicitly
+        #   IPDB(callbacks=[(cb1, 'pre'), (cb2, 'post')])
+        #
+        for cba in callbacks or []:
+            if not isinstance(cba, (tuple, list, set)):
+                cba = (cba, )
+            self.register_callback(*cba)
 
         # load information
         self.restart_on_error = restart_on_error if \
@@ -795,7 +813,7 @@ class IPDB(object):
                         msg.reset()
                         self.mnl.put(msg, RTM_GETLINK)
                     except Exception as e:
-                        logging.warning("shotdown error: %s", e)
+                        logging.warning("shutdown error: %s", e)
                         # Just give up.
                         # We can not handle this case
 
