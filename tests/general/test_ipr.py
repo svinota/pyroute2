@@ -361,6 +361,7 @@ class TestIPRoute(object):
 
     def test_fdb_bridge_simple(self):
         require_user('root')
+        require_kernel(4, 4)
         # create bridge
         (bn, bx) = self._create('bridge')
         # create FDB record
@@ -660,6 +661,7 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def test_lwtunnel_multipath_mpls(self):
         require_user('root')
+        require_kernel(4, 5)
         self.ip.route('add',
                       dst='172.16.216.0/24',
                       multipath=[{'encap': {'type': 'mpls',
@@ -690,6 +692,7 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def test_lwtunnel_mpls_dict_label(self):
         require_user('root')
+        require_kernel(4, 3)
         self.ip.route('add',
                       dst='172.16.226.0/24',
                       encap={'type': 'mpls',
@@ -712,6 +715,7 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def test_lwtunnel_mpls_2_int_label(self):
         require_user('root')
+        require_kernel(4, 3)
         self.ip.route('add',
                       dst='172.16.206.0/24',
                       encap={'type': 'mpls',
@@ -733,6 +737,7 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def test_lwtunnel_mpls_2_str_label(self):
         require_user('root')
+        require_kernel(4, 3)
         self.ip.route('add',
                       dst='172.16.246.0/24',
                       encap={'type': 'mpls',
@@ -754,6 +759,7 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def test_lwtunnel_mpls_1_str_label(self):
         require_user('root')
+        require_kernel(4, 3)
         self.ip.route('add',
                       dst='172.16.244.0/24',
                       encap={'type': 'mpls',
@@ -773,6 +779,7 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def test_lwtunnel_mpls_1_int_label(self):
         require_user('root')
+        require_kernel(4, 3)
         self.ip.route('add',
                       dst='172.16.245.0/24',
                       encap={'type': 'mpls',
