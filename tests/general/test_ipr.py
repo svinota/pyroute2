@@ -361,6 +361,7 @@ class TestIPRoute(object):
 
     def test_fdb_bridge_simple(self):
         require_user('root')
+        require_kernel(4, 4)
         # create bridge
         (bn, bx) = self._create('bridge')
         # create FDB record
