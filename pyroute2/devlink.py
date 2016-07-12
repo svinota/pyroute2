@@ -1,11 +1,11 @@
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
-from pyroute2.netlink.devlink import devlink
+from pyroute2.netlink.devlink import DevlinkSocket
 from pyroute2.netlink.devlink import devlinkcmd
 from pyroute2.netlink.devlink import DEVLINK_NAMES
 
 
-class DL(devlink):
+class DL(DevlinkSocket):
 
     def __init__(self, *argv, **kwarg):
         # get specific groups kwarg

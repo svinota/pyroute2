@@ -121,7 +121,7 @@ class MarshalDevlink(Marshal):
             pass
 
 
-class devlink(GenericNetlinkSocket):
+class DevlinkSocket(GenericNetlinkSocket):
     def __init__(self):
         GenericNetlinkSocket.__init__(self)
         self.marshal = MarshalDevlink()
