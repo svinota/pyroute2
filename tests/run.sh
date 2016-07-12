@@ -8,6 +8,7 @@
 }
 
 export PYTHONPATH="`pwd`:`pwd`/examples"
+TOP=$(readlink -f $(pwd)/..)
 
 # Prepare test environment
 #
@@ -21,12 +22,15 @@ export PYTHONPATH="`pwd`:`pwd`/examples"
 # since in that case only those files will be tests, that
 # are included in the package.
 #
-cd ../dist
+# Tox installs the package into each environment, so we can safely skip
+# extraction of the packaged files
+if [ -z "$WITHINTOX" ]; then
+    cd "$TOP/dist"
     tar xf *
-    mv pyroute2*/pyroute2 ../tests/
-cd ../
-    cp -a examples ./tests/
-cd ./tests/
+    mv pyroute2*/pyroute2 "$TOP/tests/"
+fi
+cp -a "$TOP/examples" "$TOP/tests/"
+cd "$TOP/tests/"
 
 # Install test requirements, if not installed. If the user
 # is not root and all requirements are met, this step will
