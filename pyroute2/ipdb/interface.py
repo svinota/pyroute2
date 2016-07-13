@@ -779,9 +779,18 @@ class Interface(Transactional):
             #
             # One simple way to work that around is to remove
             # secondaries first.
-            rip = sorted(removed['ipaddr'],
-                         key=lambda x: self['ipaddr'][x]['flags'],
+
+            r_addr = removed['ipaddr']
+
+            def get_flags(x):
+                return self['ipaddr'][x]['flags']
+            rip_not_sorted = [a for a in r_addr if get_flags(a) is not None]
+            rip_empty_flags = [a for a in r_addr if get_flags(a) is None]
+
+            rip = sorted(rip_not_sorted,
+                         key=get_flags,
                          reverse=True)
+            rip += rip_empty_flags
             # 8<--------------------------------------
             for i in rip:
                 # Ignore link-local IPv6 addresses
