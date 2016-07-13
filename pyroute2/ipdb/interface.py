@@ -781,7 +781,8 @@ class Interface(Transactional):
             # secondaries first.
 
             r_addr = removed['ipaddr']
-            get_flags = lambda x: self['ipaddr'][x]['flags']
+            def get_flags(x):
+                return self['ipaddr'][x]['flags']
             rip_not_sorted = [a for a in r_addr if get_flags(a) is not None]
             rip_empty_flags = [a for a in r_addr if get_flags(a) is None]
 
