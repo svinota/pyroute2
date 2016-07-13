@@ -65,7 +65,7 @@ class GenericNetlinkSocket(NetlinkSocket):
         msg['header']['flags'] = NLM_F_REQUEST
         msg['header']['pid'] = self.pid
         msg.encode()
-        self.sendto(msg.buf.getvalue(), (0, 0))
+        self.sendto(msg.data, (0, 0))
         msg = self.get()[0]
         err = msg['header'].get('error', None)
         if err is not None:
