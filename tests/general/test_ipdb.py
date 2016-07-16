@@ -142,11 +142,13 @@ class TestExplicit(BasicSetup):
         index = self.ip.interfaces[if1]['index']
         addr = self.ip.nl.get_addr(index=index)[0]
         assert addr['scope'] == 254
+        assert self.ip.interfaces[if1].ipaddr[0]['flags'] is not None
         assert addr.get_attr('IFA_BROADCAST') is None
 
         index = self.ip.interfaces[if2]['index']
         addr = self.ip.nl.get_addr(index=index)[0]
         assert addr['scope'] == 0
+        assert self.ip.interfaces[if2].ipaddr[0]['flags'] is not None
         assert addr.get_attr('IFA_BROADCAST') == '172.16.103.128'
 
     def test_addr_loaded(self):

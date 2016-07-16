@@ -1152,7 +1152,7 @@ class AddressesDict(dict):
         raw = {'local': msg.get_attr('IFA_LOCAL'),
                'broadcast': msg.get_attr('IFA_BROADCAST'),
                'address': msg.get_attr('IFA_ADDRESS'),
-               'flags': msg.get_attr('IFA_FLAGS'),
+               'flags': msg.get_attr('IFA_FLAGS') or msg.get('flags'),
                'prefixlen': msg['prefixlen']}
         try:
             self[msg['index']].add(key=(addr,
