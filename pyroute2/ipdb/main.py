@@ -1093,10 +1093,11 @@ class IPDB(object):
             if self.debug:
                 raw = addr
             else:
+                flags = addr.get_attr('IFA_FLAGS') or addr.get('flags')
                 raw = {'local': addr.get_attr('IFA_LOCAL'),
                        'broadcast': addr.get_attr('IFA_BROADCAST'),
                        'address': addr.get_attr('IFA_ADDRESS'),
-                       'flags': addr.get_attr('IFA_FLAGS'),
+                       'flags': flags,
                        'prefixlen': addr.get('prefixlen')}
             if nla is not None:
                 try:
