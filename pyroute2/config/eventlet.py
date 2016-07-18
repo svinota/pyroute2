@@ -72,7 +72,7 @@ class _MpConnection(object):
     def readline(self):
         buf = b''
         c = None
-        while c != '\n':
+        while c != b'\n':
             c = self.sock.recv(1)
             buf += c
         return buf
