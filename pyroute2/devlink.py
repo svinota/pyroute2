@@ -42,6 +42,7 @@ class DL(DevlinkSocket):
         return self.nlm_request(msg,
                                 msg_type=self.prid,
                                 msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+
     def port_list(self):
         return self.get_port_dump()
 
