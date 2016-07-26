@@ -444,7 +444,8 @@ class ifinfbase(object):
                         'tuntap': self.tuntap_data,
                         'bridge': self.bridge_data,
                         'ipvlan': self.ipvlan_data,
-                        'vrf': self.vrf_data}
+                        'vrf': self.vrf_data,
+                        'gtp': self.gtp_data}
             return data_map.get(kind, self.hex)
 
         class tuntap_data(nla):
@@ -563,6 +564,12 @@ class ifinfbase(object):
                 class qos_mapping(nla):
                     fields = (('from', 'I'),
                               ('to', 'I'))
+
+        class gtp_data(nla):
+            nla_map = (('IFLA_GTP_UNSPEC', 'none'),
+                       ('IFLA_GTP_FD0', 'uint32'),
+                       ('IFLA_GTP_FD1', 'uint32'),
+                       ('IFLA_GTP_PDP_HASHSIZE', 'uint32'))
 
         class bridge_data(nla):
             nla_map = (('IFLA_BR_UNSPEC', 'none'),
