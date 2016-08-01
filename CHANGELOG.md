@@ -1,6 +1,10 @@
 changelog
 =========
 
+* 0.4.5
+    * ifinfmsg: GTP interfaces support
+    * generic: devlink protocol support
+    * generic: code cleanup
 * 0.4.4
     * iproute: #262 -- `get_vlans()` fix
     * iproute: default mask 32 for IPv4 in `addr()`
