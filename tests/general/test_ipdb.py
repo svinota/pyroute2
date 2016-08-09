@@ -356,7 +356,7 @@ class TestExplicit(BasicSetup):
                     random.randint(2, 20000)
             elif spec['action'] == 2:  # goto
                 spec['goto'] = check['nla']['FRA_GOTO'] = \
-                    random.randint(0, 32767)
+                    random.randint(spec['priority'] + 1, 32767)
             # 3. src
             if random.random() > 0.5:
                 src = '10.%i.0.0' % random.randint(0, 254)
