@@ -176,6 +176,14 @@ NL80211_CHAN_WIDTH_10 = 7       # 10 MHz OFDM channel
                                            globals(),
                                            normalize=True)
 
+# BSS "status"
+NL80211_BSS_STATUS_AUTHENTICATED = 0  # Authenticated with this BS
+NL80211_BSS_STATUS_ASSOCIATED = 1     # Associated with this BSS
+NL80211_BSS_STATUS_IBSS_JOINED = 2    # Joined to this IBSS
+(BSS_STATUS_NAMES, BSS_STATUS_VALUES) = map_namespace('NL80211_BSS_STATUS_',
+                                                      globals(),
+                                                      normalize=True)
+
 
 class nl80211cmd(genlmsg):
     prefix = 'NL80211_ATTR_'
