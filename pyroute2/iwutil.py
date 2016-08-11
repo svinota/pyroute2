@@ -138,6 +138,7 @@ from pyroute2.netlink.nl80211 import nl80211cmd
 from pyroute2.netlink.nl80211 import NL80211_NAMES
 from pyroute2.netlink.nl80211 import IFTYPE_NAMES
 from pyroute2.netlink.nl80211 import CHAN_WIDTH
+from pyroute2.netlink.nl80211 import BSS_STATUS_NAMES
 
 
 class IW(NL80211):
@@ -405,7 +406,10 @@ class IW(NL80211):
 
     def scan(self, ifindex):
         '''
-        Scan wifi
+        Trigger scan and get results.
+
+        Triggering scan usually requires root, and can take a
+        couple of seconds.
         '''
         # Prepare a second netlink socket to get the scan results.
         # The issue is that the kernel can send the results notification
@@ -439,3 +443,34 @@ class IW(NL80211):
         msg2['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
         return self.nlm_request(msg2, msg_type=self.prid,
                                 msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+
+    def get_associated_bss(self, ifindex):
+        '''
+        Returns the same info like scan() does, but only about the
+        currently associated BSS.
+
+        Unlike scan(), it returns immediately and doesn't require root.
+        '''
+        # When getting scan results without triggering scan first,
+        # you'll always get the information about currently associated BSS
+        #
+        # However, it may return other BSS, if last scan wasn't very
+        # long time go
+
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_SCAN']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
+
+        res = self.nlm_request(msg, msg_type=self.prid,
+                               msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+
+        for x in res:
+            attr_bss = x.get_attr('NL80211_ATTR_BSS')
+            if attr_bss is not None:
+                status = attr_bss.get_attr('NL80211_BSS_STATUS')
+                if status in (BSS_STATUS_NAMES['associated'],
+                              BSS_STATUS_NAMES['ibss_joined']):
+
+                    return x
+
+        return None
