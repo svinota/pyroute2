@@ -404,8 +404,8 @@ class nl80211cmd(genlmsg):
             def binary_rates(self, offset, length):
                 init = offset
                 string = ""
-                while (offset - init) <= length:
-                    byte, = struct.unpack_from('B', self.data, init + offset)
+                while (offset - init) < length:
+                    byte, = struct.unpack_from('B', self.data, offset)
                     r = byte & 0x7f
                     if r == BSS_MEMBERSHIP_SELECTOR_VHT_PHY and byte & 0x80:
                         string += "VHT"
