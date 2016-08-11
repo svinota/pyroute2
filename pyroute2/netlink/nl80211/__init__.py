@@ -474,7 +474,7 @@ class nl80211cmd(genlmsg):
                                                               self.data,
                                                               offset + 2))
 
-                    offset += length
+                    offset += length + 2
 
         prefix = 'NL80211_BSS_'
         nla_map = (('__NL80211_BSS_INVALID', 'hex'),
