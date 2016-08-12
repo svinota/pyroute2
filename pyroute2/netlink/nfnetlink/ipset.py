@@ -35,12 +35,21 @@ class ipset_msg(nfgen_msg):
                ('IPSET_ATTR_REVISION', 'uint8'),
                ('IPSET_ATTR_FAMILY', 'uint8'),
                ('IPSET_ATTR_FLAGS', 'hex'),
-               ('IPSET_ATTR_DATA', 'ipset_data'),
-               ('IPSET_ATTR_ADT', 'ipset_data'),
+               ('IPSET_ATTR_DATA', 'cadt_data'),
+               ('IPSET_ATTR_ADT', 'adt_data'),
                ('IPSET_ATTR_LINENO', 'hex'),
                ('IPSET_ATTR_PROTOCOL_MIN', 'hex'))
 
-    class ipset_data(nla):
+    class ipset_generic(nla):
+        class ipset_ip(nla):
+            nla_flags = NLA_F_NESTED
+            nla_map = (('IPSET_ATTR_UNSPEC', 'none'),
+                       ('IPSET_ATTR_IPADDR_IPV4', 'ip4addr',
+                        NLA_F_NET_BYTEORDER),
+                       ('IPSET_ATTR_IPADDR_IPV6', 'ip6addr',
+                        NLA_F_NET_BYTEORDER))
+
+    class cadt_data(ipset_generic):
         nla_flags = NLA_F_NESTED
         nla_map = ((0, 'IPSET_ATTR_UNSPEC', 'none'),
                    (1, 'IPSET_ATTR_IP', 'ipset_ip'),
@@ -67,10 +76,32 @@ class ipset_msg(nfgen_msg):
                    (25, 'IPSET_ATTR_REFERENCES', 'be32'),
                    (26, 'IPSET_ATTR_MEMSIZE', 'be32'))
 
-        class ipset_ip(nla):
-            nla_flags = NLA_F_NESTED
-            nla_map = (('IPSET_ATTR_UNSPEC', 'none'),
-                       ('IPSET_ATTR_IPADDR_IPV4', 'ip4addr',
-                        NLA_F_NET_BYTEORDER),
-                       ('IPSET_ATTR_IPADDR_IPV6', 'ip6addr',
-                        NLA_F_NET_BYTEORDER))
+    class adt_data(ipset_generic):
+        nla_flags = NLA_F_NESTED
+        nla_map = ((0, 'IPSET_ATTR_UNSPEC', 'none'),
+                   (1, 'IPSET_ATTR_IP', 'ipset_ip'),
+                   (1, 'IPSET_ATTR_IP_FROM', 'ipset_ip'),
+                   (2, 'IPSET_ATTR_IP_TO', 'ipset_ip'),
+                   (3, 'IPSET_ATTR_CIDR', 'hex'),
+                   (4, 'IPSET_ATTR_PORT', 'hex'),
+                   (4, 'IPSET_ATTR_PORT_FROM', 'hex'),
+                   (5, 'IPSET_ATTR_PORT_TO', 'hex'),
+                   (6, 'IPSET_ATTR_TIMEOUT', 'hex'),
+                   (7, 'IPSET_ATTR_PROTO', 'recursive'),
+                   (8, 'IPSET_ATTR_CADT_FLAGS', 'hex'),
+                   (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
+                   (10, 'IPSET_ATTR_MARK', 'hex'),
+                   (11, 'IPSET_ATTR_MARKMASK', 'hex'),
+                   (17, 'IPSET_ATTR_ETHER', 'hex'),
+                   (18, 'PSET_ATTR_NAME', 'hex'),
+                   (19, 'IPSET_ATTR_NAMEREF', 'be32'),
+                   (20, 'IPSET_ATTR_IP2', 'be32'),
+                   (21, 'IPSET_ATTR_CIDR2', 'hex'),
+                   (22, 'IPSET_ATTR_IP2_TO', 'hex'),
+                   (23, 'IPSET_ATTR_IFACE', 'hex'),
+                   (24, 'IPSET_ATTR_BYTES', 'be64'),
+                   (25, 'IPSET_ATTR_PACKETS', 'be64'),
+                   (27, 'IPSET_ATTR_COMMENT', 'hex'),
+                   (27, 'IPSET_ATTR_SKBMARK', 'hex'),
+                   (28, 'IPSET_ATTR_SKBPRIO', 'be32'),
+                   (29, 'IPSET_ATTR_SKBQUEUE', 'hex'))
