@@ -177,7 +177,7 @@ installation
 requires
 --------
 
-Python >= 2.6
+Python >= 2.7
 
 The pyroute2 testing framework requires  **flake8**, **coverage**,
 **nosetests**.
