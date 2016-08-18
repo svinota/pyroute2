@@ -968,7 +968,7 @@ class InterfacesDict(TransactionalBase):
         links = self.ipdb.nl.get_links()
         # iterate twice to map port/master relations
         for link in links:
-            self._new(link)
+            self._new(link, skip_master=True)
         for link in links:
             self._new(link)
         # load bridge vlan information
@@ -1038,7 +1038,7 @@ class InterfacesDict(TransactionalBase):
 
         self._detach(None, msg['index'], msg)
 
-    def _new(self, msg):
+    def _new(self, msg, skip_master=False):
         # check, if a record exists
         index = msg.get('index', None)
         ifname = msg.get_attr('IFLA_IFNAME', None)
@@ -1105,6 +1105,9 @@ class InterfacesDict(TransactionalBase):
 
         if cleanup is not None:
             del self[cleanup]
+
+        if skip_master:
+            msg.strip('IFLA_MASTER')
 
         device.load_netlink(msg)
         if new_master is None:
