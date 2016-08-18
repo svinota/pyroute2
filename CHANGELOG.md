@@ -1,6 +1,10 @@
 changelog
 =========
 
+* 0.4.6
+    * ipdb: #278 -- fix initial ports mapping
+    * ipset: #277 -- fix ADT attributes parsing
+    * nl80211: #274, #275, #276 -- BSS-related fixes
 * 0.4.5
     * ifinfmsg: GTP interfaces support
     * generic: devlink protocol support
