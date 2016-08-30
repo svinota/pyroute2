@@ -5,6 +5,7 @@ from pyroute2.netlink.nfnetlink import nfgen_msg
 
 
 IPSET_MAXNAMELEN = 32
+IPSET_DEFAULT_MAXELEM = 65536
 
 IPSET_CMD_NONE = 0
 IPSET_CMD_PROTOCOL = 1  # Return protocol version
@@ -73,7 +74,7 @@ class ipset_msg(nfgen_msg):
                    (11, 'IPSET_ATTR_MARKMASK', 'hex'),
                    (17, 'IPSET_ATTR_GC', 'hex'),
                    (18, 'IPSET_ATTR_HASHSIZE', 'be32'),
-                   (19, 'IPSET_ATTR_MAXELEM', 'be32'),
+                   (19, 'IPSET_ATTR_MAXELEM', 'be32', NLA_F_NET_BYTEORDER),
                    (20, 'IPSET_ATTR_NETMASK', 'hex'),
                    (21, 'IPSET_ATTR_PROBES', 'hex'),
                    (22, 'IPSET_ATTR_RESIZE', 'hex'),

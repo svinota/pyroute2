@@ -27,6 +27,7 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_DEL
 from pyroute2.netlink.nfnetlink.ipset import ipset_msg
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
+from pyroute2.netlink.nfnetlink.ipset import IPSET_DEFAULT_MAXELEM
 
 
 def _nlmsg_error(msg):
@@ -86,7 +87,8 @@ class IPSet(NetlinkSocket):
                             terminate=_nlmsg_error)
 
     def create(self, name, stype='hash:ip', family=socket.AF_INET,
-               exclusive=True, counters=False, comment=False):
+               exclusive=True, counters=False, comment=False,
+               maxelem=IPSET_DEFAULT_MAXELEM):
         '''
         Create an ipset `name` of type `stype`, by default
         `hash:ip`.
@@ -106,7 +108,8 @@ class IPSet(NetlinkSocket):
                         ['IPSET_ATTR_TYPENAME', stype],
                         ['IPSET_ATTR_FAMILY', family],
                         ['IPSET_ATTR_REVISION', self._attr_revision],
-                        ["IPSET_ATTR_DATA", {"attrs": [["IPSET_ATTR_CADT_FLAGS", cadt_flags]]}]]
+                        ["IPSET_ATTR_DATA", {"attrs": [["IPSET_ATTR_CADT_FLAGS", cadt_flags],
+                                                       ["IPSET_ATTR_MAXELEM", maxelem]]}]]
 
         return self.request(msg, IPSET_CMD_CREATE,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,
