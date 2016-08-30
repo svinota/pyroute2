@@ -172,3 +172,13 @@ class TestIPSet(object):
         maxelem = data.get_attr("IPSET_ATTR_MAXELEM")
         self.ip.destroy(name)
         assert maxelem == 1
+
+    def test_hashsize(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        min_size = 64
+        self.ip.create(name, hashsize=min_size)
+        data = self.get_ipset(name)[0].get_attr("IPSET_ATTR_DATA")
+        hashsize = data.get_attr("IPSET_ATTR_HASHSIZE")
+        self.ip.destroy(name)
+        assert hashsize == min_size

@@ -88,7 +88,8 @@ class IPSet(NetlinkSocket):
 
     def create(self, name, stype='hash:ip', family=socket.AF_INET,
                exclusive=True, counters=False, comment=False,
-               maxelem=IPSET_DEFAULT_MAXELEM):
+               maxelem=IPSET_DEFAULT_MAXELEM,
+               hashsize=None):
         '''
         Create an ipset `name` of type `stype`, by default
         `hash:ip`.
@@ -103,13 +104,18 @@ class IPSet(NetlinkSocket):
             cadt_flags |= IPSET_FLAG_WITH_COUNTERS
         if comment:
             cadt_flags |= IPSET_FLAG_WITH_COMMENT
+
+        data = {"attrs": [["IPSET_ATTR_CADT_FLAGS", cadt_flags],
+                          ["IPSET_ATTR_MAXELEM", maxelem]]}
+        if hashsize is not None:
+            data['attrs'] += [["IPSET_ATTR_HASHSIZE", hashsize]]
+
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
                         ['IPSET_ATTR_SETNAME', name],
                         ['IPSET_ATTR_TYPENAME', stype],
                         ['IPSET_ATTR_FAMILY', family],
                         ['IPSET_ATTR_REVISION', self._attr_revision],
-                        ["IPSET_ATTR_DATA", {"attrs": [["IPSET_ATTR_CADT_FLAGS", cadt_flags],
-                                                       ["IPSET_ATTR_MAXELEM", maxelem]]}]]
+                        ["IPSET_ATTR_DATA", data]]
 
         return self.request(msg, IPSET_CMD_CREATE,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,

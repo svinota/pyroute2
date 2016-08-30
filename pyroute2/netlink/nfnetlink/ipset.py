@@ -73,7 +73,7 @@ class ipset_msg(nfgen_msg):
                    (10, 'IPSET_ATTR_MARK', 'hex'),
                    (11, 'IPSET_ATTR_MARKMASK', 'hex'),
                    (17, 'IPSET_ATTR_GC', 'hex'),
-                   (18, 'IPSET_ATTR_HASHSIZE', 'be32'),
+                   (18, 'IPSET_ATTR_HASHSIZE', 'be32', NLA_F_NET_BYTEORDER),
                    (19, 'IPSET_ATTR_MAXELEM', 'be32', NLA_F_NET_BYTEORDER),
                    (20, 'IPSET_ATTR_NETMASK', 'hex'),
                    (21, 'IPSET_ATTR_PROBES', 'hex'),
