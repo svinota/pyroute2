@@ -15,14 +15,18 @@ class TestIPSet(object):
 
     def list_ipset(self, name):
         try:
-            return {x.get_attr('IPSET_ATTR_IP_FROM').
-                    get_attr('IPSET_ATTR_IPADDR_IPV4'): (x.get_attr("IPSET_ATTR_PACKETS"),
-                                                         x.get_attr("IPSET_ATTR_BYTES"),
-                                                         x.get_attr("IPSET_ATTR_COMMENT"))
-                    for x in
-                    self.ip.list(name)[0].
-                    get_attr('IPSET_ATTR_ADT').
-                    get_attrs('IPSET_ATTR_PROTO')}
+            res = {}
+            msg_list = self.ip.list(name)
+            adt = 'IPSET_ATTR_ADT'
+            proto = 'IPSET_ATTR_PROTO'
+            ipaddr = 'IPSET_ATTR_IPADDR_IPV4'
+            for msg in msg_list:
+                for x in msg.get_attr(adt).get_attrs(proto):
+                    ip = x.get_attr('IPSET_ATTR_IP_FROM').get_attr(ipaddr)
+                    res[ip] = (x.get_attr("IPSET_ATTR_PACKETS"),
+                               x.get_attr("IPSET_ATTR_BYTES"),
+                               x.get_attr("IPSET_ATTR_COMMENT"))
+            return res
         except:
             return {}
 
@@ -182,3 +186,37 @@ class TestIPSet(object):
         hashsize = data.get_attr("IPSET_ATTR_HASHSIZE")
         self.ip.destroy(name)
         assert hashsize == min_size
+
+    def test_forceadd(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        # The forceadd option only works when the entry that we try to add
+        # share the same hash in the kernel hashtable than an entry already in
+        # the IPSet. That is not so easy to test: we must create collisions
+        # We achieve this goal with a very short hashsize (the kernel minimum)
+        # and many entries.
+        maxelem = 16384
+        ipaddr = "172.16.202.202"
+        self.ip.create(name, maxelem=maxelem, hashsize=64)
+
+        def fill_to_max_entries(name):
+            ip_start = "10.10.%d.%d"
+            for i in range(0, maxelem):
+                self.ip.add(name, ip_start % (i / 255, i % 255))
+
+        fill_to_max_entries(name)
+        try:
+            self.ip.add(name, ipaddr)
+            assert False
+        except NetlinkError:
+            pass
+        finally:
+            assert ipaddr not in self.list_ipset(name)
+            self.ip.destroy(name)
+
+        self.ip.create(name, hashsize=64, maxelem=maxelem, forceadd=True)
+        fill_to_max_entries(name)
+        self.ip.add(name, ipaddr)
+
+        assert ipaddr in self.list_ipset(name)
+        self.ip.destroy(name)
