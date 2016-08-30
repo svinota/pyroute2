@@ -17,7 +17,8 @@ class TestIPSet(object):
         try:
             return {x.get_attr('IPSET_ATTR_IP_FROM').
                     get_attr('IPSET_ATTR_IPADDR_IPV4'): (x.get_attr("IPSET_ATTR_PACKETS"),
-                                                         x.get_attr("IPSET_ATTR_BYTES"))
+                                                         x.get_attr("IPSET_ATTR_BYTES"),
+                                                         x.get_attr("IPSET_ATTR_COMMENT"))
                     for x in
                     self.ip.list(name)[0].
                     get_attr('IPSET_ATTR_ADT').
@@ -150,4 +151,15 @@ class TestIPSet(object):
         assert ipaddr in self.list_ipset(name)
         assert self.list_ipset(name)[ipaddr][0] is None
         assert self.list_ipset(name)[ipaddr][1] is None
+        self.ip.destroy(name)
+
+    def test_comments(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        ipaddr = '172.16.202.202'
+        comment = 'a very simple comment'
+        self.ip.create(name, comment=True)
+        self.ip.add(name, ipaddr, comment=comment)
+        assert ipaddr in self.list_ipset(name)
+        assert self.list_ipset(name)[ipaddr][2] == comment
         self.ip.destroy(name)
