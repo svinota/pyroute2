@@ -15,14 +15,15 @@ class TestIPSet(object):
 
     def list_ipset(self, name):
         try:
-            return [x.get_attr('IPSET_ATTR_IP_FROM').
-                    get_attr('IPSET_ATTR_IPADDR_IPV4')
+            return {x.get_attr('IPSET_ATTR_IP_FROM').
+                    get_attr('IPSET_ATTR_IPADDR_IPV4'): (x.get_attr("IPSET_ATTR_PACKETS"),
+                                                         x.get_attr("IPSET_ATTR_BYTES"))
                     for x in
                     self.ip.list(name)[0].
                     get_attr('IPSET_ATTR_ADT').
-                    get_attrs('IPSET_ATTR_PROTO')]
+                    get_attrs('IPSET_ATTR_PROTO')}
         except:
-            return []
+            return {}
 
     def get_ipset(self, name):
         return [x for x in self.ip.list()
@@ -132,3 +133,21 @@ class TestIPSet(object):
         self.ip.destroy(name_b)
         assert not self.get_ipset(name_a)
         assert not self.get_ipset(name_b)
+
+    def test_counters(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        ipaddr = '172.16.202.202'
+        self.ip.create(name, counters=True)
+        self.ip.add(name, ipaddr)
+        assert ipaddr in self.list_ipset(name)
+        assert self.list_ipset(name)[ipaddr][0] == 0  # Bytes
+        assert self.list_ipset(name)[ipaddr][1] == 0  # Packets
+        self.ip.destroy(name)
+
+        self.ip.create(name, counters=False)
+        self.ip.add(name, ipaddr)
+        assert ipaddr in self.list_ipset(name)
+        assert self.list_ipset(name)[ipaddr][0] is None
+        assert self.list_ipset(name)[ipaddr][1] is None
+        self.ip.destroy(name)

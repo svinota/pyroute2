@@ -22,6 +22,12 @@ IPSET_CMD_HEADER = 12  # Get set header data only
 IPSET_CMD_TYPE = 13  # 13: Get set type
 
 
+IPSET_FLAG_WITH_COUNTERS = 1 << 3
+IPSET_FLAG_WITH_COMMENT = 1 << 4
+IPSET_FLAG_WITH_FORCEADD = 1 << 5
+IPSET_FLAG_WITH_SKBINFO = 1 << 6
+
+
 class ipset_msg(nfgen_msg):
     '''
     Since the support just begins to be developed,
@@ -61,7 +67,7 @@ class ipset_msg(nfgen_msg):
                    (5, 'IPSET_ATTR_PORT_TO', 'hex'),
                    (6, 'IPSET_ATTR_TIMEOUT', 'hex'),
                    (7, 'IPSET_ATTR_PROTO', 'recursive'),
-                   (8, 'IPSET_ATTR_CADT_FLAGS', 'hex'),
+                   (8, 'IPSET_ATTR_CADT_FLAGS', 'be32', NLA_F_NET_BYTEORDER),
                    (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
                    (10, 'IPSET_ATTR_MARK', 'hex'),
                    (11, 'IPSET_ATTR_MARKMASK', 'hex'),
@@ -88,7 +94,7 @@ class ipset_msg(nfgen_msg):
                    (5, 'IPSET_ATTR_PORT_TO', 'hex'),
                    (6, 'IPSET_ATTR_TIMEOUT', 'hex'),
                    (7, 'IPSET_ATTR_PROTO', 'recursive'),
-                   (8, 'IPSET_ATTR_CADT_FLAGS', 'hex'),
+                   (8, 'IPSET_ATTR_CADT_FLAGS', 'be32', NLA_F_NET_BYTEORDER),
                    (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
                    (10, 'IPSET_ATTR_MARK', 'hex'),
                    (11, 'IPSET_ATTR_MARKMASK', 'hex'),
