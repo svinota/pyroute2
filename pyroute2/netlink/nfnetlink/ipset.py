@@ -107,7 +107,7 @@ class ipset_msg(nfgen_msg):
                    (23, 'IPSET_ATTR_IFACE', 'hex'),
                    (24, 'IPSET_ATTR_BYTES', 'be64'),
                    (25, 'IPSET_ATTR_PACKETS', 'be64'),
-                   (27, 'IPSET_ATTR_COMMENT', 'hex'),
+                   (26, 'IPSET_ATTR_COMMENT', 'asciiz'),
                    (27, 'IPSET_ATTR_SKBMARK', 'hex'),
                    (28, 'IPSET_ATTR_SKBPRIO', 'be32'),
                    (29, 'IPSET_ATTR_SKBQUEUE', 'hex'))
