@@ -5,6 +5,7 @@ from pyroute2.netlink.nfnetlink import nfgen_msg
 
 
 IPSET_MAXNAMELEN = 32
+IPSET_DEFAULT_MAXELEM = 65536
 
 IPSET_CMD_NONE = 0
 IPSET_CMD_PROTOCOL = 1  # Return protocol version
@@ -20,6 +21,12 @@ IPSET_CMD_DEL = 10  # Delete an element from a set
 IPSET_CMD_TEST = 11  # Test an element in a set
 IPSET_CMD_HEADER = 12  # Get set header data only
 IPSET_CMD_TYPE = 13  # 13: Get set type
+
+
+IPSET_FLAG_WITH_COUNTERS = 1 << 3
+IPSET_FLAG_WITH_COMMENT = 1 << 4
+IPSET_FLAG_WITH_FORCEADD = 1 << 5
+IPSET_FLAG_WITH_SKBINFO = 1 << 6
 
 
 class ipset_msg(nfgen_msg):
@@ -61,20 +68,23 @@ class ipset_msg(nfgen_msg):
                    (5, 'IPSET_ATTR_PORT_TO', 'hex'),
                    (6, 'IPSET_ATTR_TIMEOUT', 'hex'),
                    (7, 'IPSET_ATTR_PROTO', 'recursive'),
-                   (8, 'IPSET_ATTR_CADT_FLAGS', 'hex'),
+                   (8, 'IPSET_ATTR_CADT_FLAGS', 'be32', NLA_F_NET_BYTEORDER),
                    (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
                    (10, 'IPSET_ATTR_MARK', 'hex'),
                    (11, 'IPSET_ATTR_MARKMASK', 'hex'),
                    (17, 'IPSET_ATTR_GC', 'hex'),
-                   (18, 'IPSET_ATTR_HASHSIZE', 'be32'),
-                   (19, 'IPSET_ATTR_MAXELEM', 'be32'),
+                   (18, 'IPSET_ATTR_HASHSIZE', 'be32', NLA_F_NET_BYTEORDER),
+                   (19, 'IPSET_ATTR_MAXELEM', 'be32', NLA_F_NET_BYTEORDER),
                    (20, 'IPSET_ATTR_NETMASK', 'hex'),
                    (21, 'IPSET_ATTR_PROBES', 'hex'),
                    (22, 'IPSET_ATTR_RESIZE', 'hex'),
                    (23, 'IPSET_ATTR_SIZE', 'hex'),
-                   (24, 'IPSET_ATTR_ELEMENTS', 'hex'),
-                   (25, 'IPSET_ATTR_REFERENCES', 'be32'),
-                   (26, 'IPSET_ATTR_MEMSIZE', 'be32'))
+                   (24, 'IPSET_ATTR_BYTES', 'be64'),
+                   (25, 'IPSET_ATTR_PACKETS', 'be64'),
+                   (26, 'IPSET_ATTR_COMMENT', 'asciiz'),
+                   (27, 'IPSET_ATTR_SKBMARK', 'hex'),
+                   (28, 'IPSET_ATTR_SKBPRIO', 'be32'),
+                   (29, 'IPSET_ATTR_SKBQUEUE', 'hex'))
 
     class adt_data(ipset_generic):
         nla_flags = NLA_F_NESTED
@@ -88,7 +98,7 @@ class ipset_msg(nfgen_msg):
                    (5, 'IPSET_ATTR_PORT_TO', 'hex'),
                    (6, 'IPSET_ATTR_TIMEOUT', 'hex'),
                    (7, 'IPSET_ATTR_PROTO', 'recursive'),
-                   (8, 'IPSET_ATTR_CADT_FLAGS', 'hex'),
+                   (8, 'IPSET_ATTR_CADT_FLAGS', 'be32', NLA_F_NET_BYTEORDER),
                    (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
                    (10, 'IPSET_ATTR_MARK', 'hex'),
                    (11, 'IPSET_ATTR_MARKMASK', 'hex'),
@@ -101,7 +111,7 @@ class ipset_msg(nfgen_msg):
                    (23, 'IPSET_ATTR_IFACE', 'hex'),
                    (24, 'IPSET_ATTR_BYTES', 'be64'),
                    (25, 'IPSET_ATTR_PACKETS', 'be64'),
-                   (27, 'IPSET_ATTR_COMMENT', 'hex'),
+                   (26, 'IPSET_ATTR_COMMENT', 'asciiz'),
                    (27, 'IPSET_ATTR_SKBMARK', 'hex'),
                    (28, 'IPSET_ATTR_SKBPRIO', 'be32'),
                    (29, 'IPSET_ATTR_SKBQUEUE', 'hex'))
