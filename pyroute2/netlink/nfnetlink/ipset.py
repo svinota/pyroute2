@@ -78,9 +78,12 @@ class ipset_msg(nfgen_msg):
                    (21, 'IPSET_ATTR_PROBES', 'hex'),
                    (22, 'IPSET_ATTR_RESIZE', 'hex'),
                    (23, 'IPSET_ATTR_SIZE', 'hex'),
-                   (24, 'IPSET_ATTR_ELEMENTS', 'hex'),
-                   (25, 'IPSET_ATTR_REFERENCES', 'be32'),
-                   (26, 'IPSET_ATTR_MEMSIZE', 'be32'))
+                   (24, 'IPSET_ATTR_BYTES', 'be64'),
+                   (25, 'IPSET_ATTR_PACKETS', 'be64'),
+                   (26, 'IPSET_ATTR_COMMENT', 'asciiz'),
+                   (27, 'IPSET_ATTR_SKBMARK', 'hex'),
+                   (28, 'IPSET_ATTR_SKBPRIO', 'be32'),
+                   (29, 'IPSET_ATTR_SKBQUEUE', 'hex'))
 
     class adt_data(ipset_generic):
         nla_flags = NLA_F_NESTED
