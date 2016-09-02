@@ -25,6 +25,7 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_LIST
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_ADD
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_DEL
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_FLUSH
+from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_RENAME
 from pyroute2.netlink.nfnetlink.ipset import ipset_msg
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
@@ -182,5 +183,17 @@ class IPSet(NetlinkSocket):
         if name is not None:
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
         return self.request(msg, IPSET_CMD_FLUSH,
+                            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+                            terminate=_nlmsg_error)
+
+    def rename(self, name_src, name_dst):
+        '''
+        Rename the ipset.
+        '''
+        msg = ipset_msg()
+        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
+                        ['IPSET_ATTR_SETNAME', name_src],
+                        ['IPSET_ATTR_TYPENAME', name_dst]]
+        return self.request(msg, IPSET_CMD_RENAME,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK,
                             terminate=_nlmsg_error)

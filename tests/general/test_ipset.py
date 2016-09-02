@@ -235,3 +235,12 @@ class TestIPSet(object):
         assert ip_a not in self.list_ipset(name)
         assert ip_b not in self.list_ipset(name)
         self.ip.destroy(name)
+
+    def test_rename(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        name_bis = str(uuid4())[:16]
+        self.ip.create(name)
+        self.ip.rename(name, name_bis)
+        assert self.get_ipset(name_bis)
+        self.ip.destroy(name_bis)
