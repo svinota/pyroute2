@@ -1,4 +1,5 @@
 import errno
+from time import sleep
 from pyroute2.ipset import IPSet
 from pyroute2.netlink.exceptions import NetlinkError
 from utils import require_user
@@ -25,7 +26,8 @@ class TestIPSet(object):
                     ip = x.get_attr('IPSET_ATTR_IP_FROM').get_attr(ipaddr)
                     res[ip] = (x.get_attr("IPSET_ATTR_PACKETS"),
                                x.get_attr("IPSET_ATTR_BYTES"),
-                               x.get_attr("IPSET_ATTR_COMMENT"))
+                               x.get_attr("IPSET_ATTR_COMMENT"),
+                               x.get_attr("IPSET_ATTR_TIMEOUT"))
             return res
         except:
             return {}
@@ -244,3 +246,20 @@ class TestIPSet(object):
         self.ip.rename(name, name_bis)
         assert self.get_ipset(name_bis)
         self.ip.destroy(name_bis)
+
+    def test_timeout(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        ip = "1.2.3.4"
+        self.ip.create(name, timeout=1)
+        self.ip.add(name, ip)
+        sleep(2)
+        assert ip not in self.list_ipset(name)
+        # check that we can overwrite default timeout value
+        self.ip.add(name, ip, timeout=5)
+        sleep(2)
+        assert ip in self.list_ipset(name)
+        assert self.list_ipset(name)[ip][3] > 0  # timeout
+        sleep(3)
+        assert ip not in self.list_ipset(name)
+        self.ip.destroy(name)
