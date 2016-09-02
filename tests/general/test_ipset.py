@@ -220,3 +220,18 @@ class TestIPSet(object):
 
         assert ipaddr in self.list_ipset(name)
         self.ip.destroy(name)
+
+    def test_flush(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        self.ip.create(name)
+        ip_a = "1.1.1.1"
+        ip_b = "1.2.3.4"
+        self.ip.add(name, ip_a)
+        self.ip.add(name, ip_b)
+        assert ip_a in self.list_ipset(name)
+        assert ip_b in self.list_ipset(name)
+        self.ip.flush(name)
+        assert ip_a not in self.list_ipset(name)
+        assert ip_b not in self.list_ipset(name)
+        self.ip.destroy(name)
