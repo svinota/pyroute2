@@ -15,6 +15,7 @@ from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_EXCL
 from pyroute2.netlink import NETLINK_NETFILTER
+from pyroute2.netlink.exceptions import NetlinkError, IPSetError
 from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_IPSET
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_PROTOCOL
@@ -60,9 +61,12 @@ class IPSet(NetlinkSocket):
                 msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                 terminate=None):
         msg['nfgen_family'] = self._nfgen_family
-        return self.nlm_request(msg,
-                                msg_type | (NFNL_SUBSYS_IPSET << 8),
-                                msg_flags, terminate=terminate)
+        try:
+            return self.nlm_request(msg,
+                                    msg_type | (NFNL_SUBSYS_IPSET << 8),
+                                    msg_flags, terminate=terminate)
+        except NetlinkError as err:
+            raise IPSetError(err.code)
 
     def list(self, name=None):
         '''
