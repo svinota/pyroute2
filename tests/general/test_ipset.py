@@ -14,20 +14,50 @@ class TestIPSet(object):
     def teardown(self):
         self.ip.close()
 
+    @staticmethod
+    def parse_ip(entry):
+        ip_from = entry.get_attr('IPSET_ATTR_IP_FROM')
+        return ip_from.get_attr('IPSET_ATTR_IPADDR_IPV4')
+
+    def parse_net(self, entry):
+        net = self.parse_ip(entry)
+        cidr = entry.get_attr("IPSET_ATTR_CIDR")
+        if cidr is not None:
+            net += '/{0}'.format(cidr)
+        return net
+
+    @staticmethod
+    def ipset_type_to_entry_type(ipset_type):
+        return ipset_type.split(':', 1)[1].split(',')
+
     def list_ipset(self, name):
         try:
             res = {}
             msg_list = self.ip.list(name)
             adt = 'IPSET_ATTR_ADT'
             proto = 'IPSET_ATTR_PROTO'
-            ipaddr = 'IPSET_ATTR_IPADDR_IPV4'
+            stype = 'IPSET_ATTR_TYPENAME'
             for msg in msg_list:
                 for x in msg.get_attr(adt).get_attrs(proto):
-                    ip = x.get_attr('IPSET_ATTR_IP_FROM').get_attr(ipaddr)
-                    res[ip] = (x.get_attr("IPSET_ATTR_PACKETS"),
-                               x.get_attr("IPSET_ATTR_BYTES"),
-                               x.get_attr("IPSET_ATTR_COMMENT"),
-                               x.get_attr("IPSET_ATTR_TIMEOUT"))
+                    entry = ''
+                    msg_stypes = msg.get_attr(stype)
+                    if msg_stypes is None:
+                        msg_stypes = 'hash:ip'
+                    for st in self.ipset_type_to_entry_type(msg_stypes):
+                        if st == "ip":
+                            entry = self.parse_ip(x)
+                        elif st == "net":
+                            entry = self.parse_net(x)
+                        elif st == 'iface':
+                            entry += x.get_attr('IPSET_ATTR_IFACE')
+                        entry += ","
+
+                    entry = entry.strip(",")
+
+                    res[entry] = (x.get_attr("IPSET_ATTR_PACKETS"),
+                                  x.get_attr("IPSET_ATTR_BYTES"),
+                                  x.get_attr("IPSET_ATTR_COMMENT"),
+                                  x.get_attr("IPSET_ATTR_TIMEOUT"))
             return res
         except:
             return {}
@@ -219,7 +249,6 @@ class TestIPSet(object):
         self.ip.create(name, hashsize=64, maxelem=maxelem, forceadd=True)
         fill_to_max_entries(name)
         self.ip.add(name, ipaddr)
-
         assert ipaddr in self.list_ipset(name)
         self.ip.destroy(name)
 
@@ -262,4 +291,33 @@ class TestIPSet(object):
         assert self.list_ipset(name)[ip][3] > 0  # timeout
         sleep(3)
         assert ip not in self.list_ipset(name)
+        self.ip.destroy(name)
+
+    def test_net_and_iface_stypes(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        test_values = (('hash:net', ('192.168.1.0/31', '192.168.12.0/24')),
+                       ('hash:net,iface', ('192.168.1.0/24,eth0',
+                                           '192.168.2.0/24,wlan0')))
+        for stype, test_values in test_values:
+            self.ip.create(name, stype=stype)
+            etype = stype.split(':', 1)[1]
+            assert self.get_ipset(name)
+            for entry in test_values:
+                self.ip.add(name, entry, etype=etype)
+                assert entry in self.list_ipset(name)
+                self.ip.delete(name, entry, etype=etype)
+                assert entry not in self.list_ipset(name)
+            self.ip.destroy(name)
+            assert not self.get_ipset(name)
+
+    def test_net_with_dash(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        stype = "hash:net"
+        self.ip.create(name, stype=stype)
+        # The kernel will split this kind of strings to subnets
+        self.ip.add(name, "192.168.1.0-192.168.1.33", etype="net")
+        assert "192.168.1.0/27" in self.list_ipset(name)
+        assert "192.168.1.32/31" in self.list_ipset(name)
         self.ip.destroy(name)
