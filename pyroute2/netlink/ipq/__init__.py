@@ -114,7 +114,7 @@ class IPQSocket(NetlinkSocket):
         msg['header']['type'] = IPQM_MODE
         msg['header']['flags'] = NLM_F_REQUEST
         msg.encode()
-        self.sendto(msg.buf.getvalue(), (0, 0))
+        self.sendto(msg.data, (0, 0))
 
     def verdict(self, seq, v):
         '''
