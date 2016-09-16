@@ -132,17 +132,35 @@ class IPSet(NetlinkSocket):
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,
                             terminate=_nlmsg_error)
 
+    def _entry_to_data_attrs(self, entry, etype, family):
+        attrs = []
+        if family is not None:
+            if family == socket.AF_INET:
+                ip_version = 'IPSET_ATTR_IPADDR_IPV4'
+            elif family == socket.AF_INET6:
+                ip_version = 'IPSET_ATTR_IPADDR_IPV6'
+            else:
+                raise TypeError('unknown family')
+        for e, t in zip(entry.split(','), etype.split(',')):
+            if t in ('ip', 'net'):
+                if t == 'net':
+                    if '/' in e:
+                        e, cidr = e.split('/')
+                        attrs += [['IPSET_ATTR_CIDR', int(cidr)]]
+                    elif '-' in e:
+                        e, to = e.split('-')
+                        attrs += [['IPSET_ATTR_IP_TO',
+                                   {'attrs': [[ip_version, to]]}]]
+                attrs += [['IPSET_ATTR_IP_FROM', {'attrs': [[ip_version, e]]}]]
+            elif t == 'iface':
+                attrs += [['IPSET_ATTR_IFACE', e]]
+        return attrs
+
     def _add_delete(self, name, entry, family, cmd, exclusive, comment=None,
-                    timeout=None):
-        if family == socket.AF_INET:
-            entry_type = 'IPSET_ATTR_IPADDR_IPV4'
-        elif family == socket.AF_INET6:
-            entry_type = 'IPSET_ATTR_IPADDR_IPV6'
-        else:
-            raise TypeError('unknown family')
+                    timeout=None, etype="ip"):
         excl_flag = NLM_F_EXCL if exclusive else 0
 
-        data_attrs = [['IPSET_ATTR_IP', {'attrs': [[entry_type, entry]]}]]
+        data_attrs = self._entry_to_data_attrs(entry, etype, family)
         if comment is not None:
             data_attrs += [["IPSET_ATTR_COMMENT", comment],
                            ["IPSET_ATTR_CADT_LINENO", 0]]
@@ -158,18 +176,20 @@ class IPSet(NetlinkSocket):
                             terminate=_nlmsg_error)
 
     def add(self, name, entry, family=socket.AF_INET, exclusive=True,
-            comment=None, timeout=None):
+            comment=None, timeout=None, etype="ip"):
         '''
         Add a member to the ipset
         '''
         return self._add_delete(name, entry, family, IPSET_CMD_ADD, exclusive,
-                                comment=comment, timeout=timeout)
+                                comment=comment, timeout=timeout, etype=etype)
 
-    def delete(self, name, entry, family=socket.AF_INET, exclusive=True):
+    def delete(self, name, entry, family=socket.AF_INET, exclusive=True,
+               etype="ip"):
         '''
         Delete a member from the ipset
         '''
-        return self._add_delete(name, entry, family, IPSET_CMD_DEL, exclusive)
+        return self._add_delete(name, entry, family, IPSET_CMD_DEL, exclusive,
+                                etype=etype)
 
     def swap(self, set_a, set_b):
         '''
