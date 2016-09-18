@@ -4,17 +4,10 @@ from pyroute2.common import Namespace
 from pyroute2.common import AddrPool
 from pyroute2.proxy import NetlinkProxy
 from pyroute2.netlink import NETLINK_ROUTE
-from pyroute2.netlink.nlsocket import Marshal
 from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.nlsocket import BatchSocket
 from pyroute2.netlink import rtnl
-from pyroute2.netlink.rtnl.tcmsg import tcmsg
-from pyroute2.netlink.rtnl.rtmsg import rtmsg
-from pyroute2.netlink.rtnl.ndmsg import ndmsg
-from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
-from pyroute2.netlink.rtnl.fibmsg import fibmsg
-from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 
 if config.kernel < [3, 3, 0]:
     from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_newlink
@@ -24,44 +17,6 @@ if config.kernel < [3, 3, 0]:
 else:
     from pyroute2.netlink.rtnl.ifinfmsg import proxy_newlink
     from pyroute2.netlink.rtnl.ifinfmsg import proxy_setlink
-
-
-class MarshalRtnl(Marshal):
-    msg_map = {rtnl.RTM_NEWLINK: ifinfmsg,
-               rtnl.RTM_DELLINK: ifinfmsg,
-               rtnl.RTM_GETLINK: ifinfmsg,
-               rtnl.RTM_SETLINK: ifinfmsg,
-               rtnl.RTM_NEWADDR: ifaddrmsg,
-               rtnl.RTM_DELADDR: ifaddrmsg,
-               rtnl.RTM_GETADDR: ifaddrmsg,
-               rtnl.RTM_NEWROUTE: rtmsg,
-               rtnl.RTM_DELROUTE: rtmsg,
-               rtnl.RTM_GETROUTE: rtmsg,
-               rtnl.RTM_NEWRULE: fibmsg,
-               rtnl.RTM_DELRULE: fibmsg,
-               rtnl.RTM_GETRULE: fibmsg,
-               rtnl.RTM_NEWNEIGH: ndmsg,
-               rtnl.RTM_DELNEIGH: ndmsg,
-               rtnl.RTM_GETNEIGH: ndmsg,
-               rtnl.RTM_NEWQDISC: tcmsg,
-               rtnl.RTM_DELQDISC: tcmsg,
-               rtnl.RTM_GETQDISC: tcmsg,
-               rtnl.RTM_NEWTCLASS: tcmsg,
-               rtnl.RTM_DELTCLASS: tcmsg,
-               rtnl.RTM_GETTCLASS: tcmsg,
-               rtnl.RTM_NEWTFILTER: tcmsg,
-               rtnl.RTM_DELTFILTER: tcmsg,
-               rtnl.RTM_GETTFILTER: tcmsg,
-               rtnl.RTM_NEWNEIGHTBL: ndtmsg,
-               rtnl.RTM_GETNEIGHTBL: ndtmsg,
-               rtnl.RTM_SETNEIGHTBL: ndtmsg}
-
-    def fix_message(self, msg):
-        # FIXME: pls do something with it
-        try:
-            msg['event'] = rtnl.RTM_VALUES[msg['header']['type']]
-        except:
-            pass
 
 
 class IPRSocketMixin(object):
@@ -76,12 +31,16 @@ class IPRSocketMixin(object):
         self._sproxy.pmap = {rtnl.RTM_NEWLINK: proxy_newlink,
                              rtnl.RTM_SETLINK: proxy_setlink}
         if config.kernel < [3, 3, 0]:
-            recv_ns = Namespace(self, {'addr_pool': AddrPool(0x20000, 0x2ffff),
+            self._recv_ns = Namespace(self,
+                                      {'addr_pool': AddrPool(0x20000, 0x2ffff),
                                        'monitor': False})
             self._sproxy.pmap[rtnl.RTM_DELLINK] = proxy_dellink
-            self._rproxy = NetlinkProxy(policy='forward', nl=recv_ns)
-            self._rproxy.pmap = {rtnl.RTM_NEWLINK: proxy_linkinfo}
-            self.recv = self._p_recv
+            # inject proxy hooks into recv() and...
+            self.__recv = self._recv
+            self._recv = self._p_recv
+            # ... recv_into()
+            self._recv_ft = self.recv_ft
+            self.recv_ft = self._p_recv_ft
 
     def clone(self):
         return type(self)()
@@ -113,8 +72,19 @@ class IPRSocketMixin(object):
 
         return self._sendto(msg.data, addr)
 
+    def _p_recv_ft(self, bufsize, flags=0):
+        data = self._recv_ft(bufsize, flags)
+        ret = proxy_linkinfo(data, self._recv_ns)
+        if ret is not None:
+            if ret['verdict'] in ('forward', 'error'):
+                return ret['data']
+            else:
+                ValueError('Incorrect verdict')
+
+        return data
+
     def _p_recv(self, bufsize, flags=0):
-        data = self._recv(bufsize, flags)
+        data = self.__recv(bufsize, flags)
         ret = self._rproxy.handle(data)
         if ret is not None:
             if ret['verdict'] in ('forward', 'error'):

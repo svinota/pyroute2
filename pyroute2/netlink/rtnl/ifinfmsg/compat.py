@@ -10,6 +10,7 @@ from pyroute2 import RawIPRoute
 from pyroute2 import config
 from pyroute2.common import map_enoent
 from pyroute2.netlink.rtnl import RTM_VALUES
+from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.exceptions import NetlinkError
 
@@ -75,10 +76,12 @@ def compat_fix_attrs(msg, nl):
         if kind is None:
             kind = get_interface_type(ifname)
             li['attrs'].append(['IFLA_INFO_KIND', kind])
-    else:
+    elif 'attrs' in msg:
         kind = get_interface_type(ifname)
         msg['attrs'].append(['IFLA_LINKINFO',
                              {'attrs': [['IFLA_INFO_KIND', kind]]}])
+    else:
+        return
 
     li = msg.get_attr('IFLA_LINKINFO')
     # fetch specific interface data
@@ -107,20 +110,14 @@ def compat_fix_attrs(msg, nl):
 
 
 def proxy_linkinfo(data, nl):
-    if config.kernel > [3, 2, 0]:
-        return {'verdict': 'forward',
-                'data': data}
 
-    offset = 0
-    inbox = []
-    while offset < len(data):
-        msg = ifinfmsg(data[offset:])
-        msg.decode()
-        inbox.append(msg)
-        offset += msg['header']['length']
-
+    marshal = MarshalRtnl()
+    inbox = marshal.parse(data)
     data = b''
     for msg in inbox:
+        if msg['event'] == 'NLMSG_ERROR':
+            data += msg.data
+            continue
         # Sysfs operations can require root permissions,
         # but the script can be run under a normal user
         # Bug-Url: https://github.com/svinota/pyroute2/issues/113
@@ -134,7 +131,7 @@ def proxy_linkinfo(data, nl):
 
         msg.reset()
         msg.encode()
-        data += msg.buf.getvalue()
+        data += msg.data
 
     return {'verdict': 'forward',
             'data': data}

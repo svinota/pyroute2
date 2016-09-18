@@ -298,8 +298,8 @@ class NetlinkMixin(object):
         self.callbacks = []     # [(predicate, callback, args), ...]
         self.pthread = None
         self.closed = False
-        self.capabilities = {'create_bridge': True,
-                             'create_bond': True,
+        self.capabilities = {'create_bridge': config.kernel > [3, 2, 0],
+                             'create_bond': config.kernel > [3, 2, 0],
                              'create_dummy': True,
                              'provide_master': config.kernel[0] > 2}
         self.backlog_lock = threading.Lock()
