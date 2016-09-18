@@ -1,4 +1,5 @@
 
+from pyroute2 import config
 from pyroute2.common import Namespace
 from pyroute2.common import AddrPool
 from pyroute2.proxy import NetlinkProxy
@@ -13,9 +14,16 @@ from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtnl.ifinfmsg import proxy_newlink
-from pyroute2.netlink.rtnl.ifinfmsg import proxy_setlink
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+
+if config.kernel < [3, 3, 0]:
+    from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_newlink
+    from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_setlink
+    from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_dellink
+    from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_linkinfo
+else:
+    from pyroute2.netlink.rtnl.ifinfmsg import proxy_newlink
+    from pyroute2.netlink.rtnl.ifinfmsg import proxy_setlink
 
 
 class MarshalRtnl(Marshal):
@@ -67,6 +75,13 @@ class IPRSocketMixin(object):
         self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
         self._sproxy.pmap = {rtnl.RTM_NEWLINK: proxy_newlink,
                              rtnl.RTM_SETLINK: proxy_setlink}
+        if config.kernel < [3, 3, 0]:
+            recv_ns = Namespace(self, {'addr_pool': AddrPool(0x20000, 0x2ffff),
+                                       'monitor': False})
+            self._sproxy.pmap[rtnl.RTM_DELLINK] = proxy_dellink
+            self._rproxy = NetlinkProxy(policy='forward', nl=recv_ns)
+            self._rproxy.pmap = {rtnl.RTM_NEWLINK: proxy_linkinfo}
+            self.recv = self._p_recv
 
     def clone(self):
         return type(self)()
@@ -97,6 +112,17 @@ class IPRSocketMixin(object):
                 ValueError('Incorrect verdict')
 
         return self._sendto(msg.data, addr)
+
+    def _p_recv(self, bufsize, flags=0):
+        data = self._recv(bufsize, flags)
+        ret = self._rproxy.handle(data)
+        if ret is not None:
+            if ret['verdict'] in ('forward', 'error'):
+                return ret['data']
+            else:
+                ValueError('Incorrect verdict')
+
+        return data
 
 
 class IPBatchSocket(IPRSocketMixin, BatchSocket):
