@@ -65,6 +65,7 @@ run `remove()`.
 '''
 
 import os
+import os.path
 import errno
 import fcntl
 import atexit
@@ -76,6 +77,7 @@ from pyroute2.config import MpProcess
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
 from pyroute2.iproute import IPRouteMixin
 from pyroute2.netns import setns
+from pyroute2.netns import setns_from_path
 from pyroute2.netns import remove
 from pyroute2.remote import Server
 from pyroute2.remote import RemoteSocket
@@ -128,7 +130,13 @@ def NetNServer(netns, cmdch, brdch, flags=os.O_CREAT):
     '''
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
-        nsfd = setns(netns, flags)
+        # Check if we wrepassed a namespace name or the namespace full path
+        # In the latter case flags will be ignored as it is assumed the
+        # namespace already exists
+        if os.path.isfile(netns):
+            nsfd = setns_from_path(netns)
+        else:
+            nsfd = setns(netns, flags)
     except OSError as e:
         cmdch.send({'stage': 'init',
                     'error': e})

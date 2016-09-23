@@ -164,6 +164,15 @@ def remove(netns, libc=None):
     os.unlink(netnspath)
 
 
+def setns_from_path(netnspath, libc=None):
+    nsfd = os.open(netnspath, os.O_RDONLY)
+    libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
+    ret = libc.syscall(__NR_setns, nsfd, CLONE_NEWNET)
+    if ret != 0:
+        raise OSError(ctypes.get_errno(), 'failed to open netns', netnspath)
+    return nsfd
+
+
 def setns(netns, flags=os.O_CREAT, libc=None):
     '''
     Set netns for the current process.
@@ -174,7 +183,6 @@ def setns(netns, flags=os.O_CREAT, libc=None):
         - O_CREAT -- create netns, if doesn't exist
         - O_CREAT | O_EXCL -- create only if doesn't exist
     '''
-    libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
     netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
     netnspath = netnspath.encode('ascii')
 
@@ -185,8 +193,4 @@ def setns(netns, flags=os.O_CREAT, libc=None):
         if flags & os.O_CREAT:
             create(netns, libc=libc)
 
-    nsfd = os.open(netnspath, os.O_RDONLY)
-    ret = libc.syscall(__NR_setns, nsfd, CLONE_NEWNET)
-    if ret != 0:
-        raise OSError(ctypes.get_errno(), 'failed to open netns', netns)
-    return nsfd
+    return setns_from_path(netnspath, libc)
