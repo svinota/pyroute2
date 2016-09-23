@@ -3,6 +3,7 @@ import time
 import fcntl
 import platform
 import subprocess
+import tempfile
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
 from pyroute2 import NetNS
@@ -188,12 +189,11 @@ class TestNetNS(object):
         netnsmod.remove(foo)
         netnsmod.remove(bar)
 
-    def test_create(self):
+    def _test_create(self, ns_name, ns_fd=None):
         require_user('root')
-
-        nsid = str(uuid4())
         ipdb_main = IPDB()
-        ipdb_test = IPDB(nl=NetNS(nsid))
+        ipdb_test = IPDB(nl=NetNS(ns_name))
+
         if1 = uifname()
         if2 = uifname()
 
@@ -202,7 +202,7 @@ class TestNetNS(object):
 
         # move the peer to netns
         with ipdb_main.interfaces[if2] as veth:
-            veth.net_ns_fd = nsid
+            veth.net_ns_fd = ns_fd or ns_name
 
         # assign addresses
         with ipdb_main.interfaces[if1] as veth:
@@ -231,11 +231,31 @@ class TestNetNS(object):
         ipdb_main.interfaces[if1].remove().commit()
         ipdb_main.release()
         ipdb_test.release()
-        netnsmod.remove(nsid)
 
         assert ret_ping
         assert ret_arp
-        assert nsid not in netnsmod.listnetns()
+
+    def test_create(self):
+        ns_name = str(uuid4())
+        self._test_create(ns_name)
+        netnsmod.remove(ns_name)
+        assert ns_name not in netnsmod.listnetns()
+
+    def test_create_from_path(self):
+        ns_dir = tempfile.mkdtemp()
+        netns_run_dir = netnsmod.NETNS_RUN_DIR
+        netnsmod.NETNS_RUN_DIR = ns_dir
+        # Create namespace
+        ns_name = str(uuid4())
+        temp_ns = NetNS(ns_name)
+        temp_ns.close()
+        nspath = '%s/%s' % (ns_dir, ns_name)
+        fd = open(nspath)
+        self._test_create(nspath, fd.fileno())
+        fd.close()
+        netnsmod.remove(ns_name)
+        assert ns_name not in netnsmod.listnetns()
+        netnsmod.NETNS_RUN_DIR = netns_run_dir
 
     def test_rename_plus_ipv6(self):
         require_user('root')
