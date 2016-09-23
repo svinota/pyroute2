@@ -79,6 +79,7 @@ SELinux state with `getenforce` command.
 '''
 
 import os
+import os.path
 import errno
 import ctypes
 from pyroute2 import config
@@ -101,6 +102,15 @@ MS_SHARED = 1 << 20
 NETNS_RUN_DIR = '/var/run/netns'
 
 
+def _get_netnspath(name):
+    netnspath = name
+    dirname = os.path.dirname(name)
+    if not dirname:
+        netnspath = '%s/%s' % (NETNS_RUN_DIR, name)
+    netnspath = netnspath.encode('ascii')
+    return netnspath
+
+
 def listnetns():
     '''
     List available network namespaces.
@@ -119,11 +129,8 @@ def create(netns, libc=None):
     Create a network namespace.
     '''
     libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
-    # FIXME validate and prepare NETNS_RUN_DIR
-
-    netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
-    netnspath = netnspath.encode('ascii')
-    netnsdir = NETNS_RUN_DIR.encode('ascii')
+    netnspath = _get_netnspath(netns)
+    netnsdir = os.path.dirname(netnspath)
 
     # init netnsdir
     try:
@@ -158,8 +165,7 @@ def remove(netns, libc=None):
     Remove a network namespace.
     '''
     libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
-    netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
-    netnspath = netnspath.encode('ascii')
+    netnspath = _get_netnspath(netns)
     libc.umount2(netnspath, MNT_DETACH)
     os.unlink(netnspath)
 
@@ -175,8 +181,7 @@ def setns(netns, flags=os.O_CREAT, libc=None):
         - O_CREAT | O_EXCL -- create only if doesn't exist
     '''
     libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
-    netnspath = '%s/%s' % (NETNS_RUN_DIR, netns)
-    netnspath = netnspath.encode('ascii')
+    netnspath = _get_netnspath(netns)
 
     if netns in listnetns():
         if flags & (os.O_CREAT | os.O_EXCL) == (os.O_CREAT | os.O_EXCL):
