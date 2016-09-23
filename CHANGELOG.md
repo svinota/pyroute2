@@ -1,6 +1,10 @@
 changelog
 =========
 
+* 0.4.7
+    * rtnl: compat code is back
+    * netns: custom netns path support
+    * ipset: multiple improvements
 * 0.4.6
     * ipdb: #278 -- fix initial ports mapping
     * ipset: #277 -- fix ADT attributes parsing
