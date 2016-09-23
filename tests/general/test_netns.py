@@ -243,19 +243,17 @@ class TestNetNS(object):
 
     def test_create_from_path(self):
         ns_dir = tempfile.mkdtemp()
-        netns_run_dir = netnsmod.NETNS_RUN_DIR
-        netnsmod.NETNS_RUN_DIR = ns_dir
         # Create namespace
         ns_name = str(uuid4())
-        temp_ns = NetNS(ns_name)
-        temp_ns.close()
         nspath = '%s/%s' % (ns_dir, ns_name)
+        temp_ns = NetNS(nspath)
+        temp_ns.close()
         fd = open(nspath)
         self._test_create(nspath, fd.fileno())
         fd.close()
-        netnsmod.remove(ns_name)
+        netnsmod.remove(nspath)
         assert ns_name not in netnsmod.listnetns()
-        netnsmod.NETNS_RUN_DIR = netns_run_dir
+        assert ns_name not in netnsmod.listnetns(ns_dir)
 
     def test_rename_plus_ipv6(self):
         require_user('root')

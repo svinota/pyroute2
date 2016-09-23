@@ -111,12 +111,16 @@ def _get_netnspath(name):
     return netnspath
 
 
-def listnetns():
+def listnetns(nspath=None):
     '''
     List available network namespaces.
     '''
+    if nspath:
+        nsdir = nspath
+    else:
+        nsdir = NETNS_RUN_DIR
     try:
-        return os.listdir(NETNS_RUN_DIR)
+        return os.listdir(nsdir)
     except OSError as e:
         if e.errno == errno.ENOENT:
             return []
@@ -183,7 +187,7 @@ def setns(netns, flags=os.O_CREAT, libc=None):
     libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
     netnspath = _get_netnspath(netns)
 
-    if netns in listnetns():
+    if os.path.basename(netns) in listnetns(os.path.dirname(netns)):
         if flags & (os.O_CREAT | os.O_EXCL) == (os.O_CREAT | os.O_EXCL):
             raise OSError(errno.EEXIST, 'netns exists', netns)
     else:
