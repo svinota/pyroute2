@@ -1,6 +1,8 @@
 changelog
 =========
 
+* 0.4.8
+    * rtnl: compat proxying fix
 * 0.4.7
     * rtnl: compat code is back
     * netns: custom netns path support
