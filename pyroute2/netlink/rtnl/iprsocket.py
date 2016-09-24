@@ -85,7 +85,7 @@ class IPRSocketMixin(object):
 
     def _p_recv(self, bufsize, flags=0):
         data = self.__recv(bufsize, flags)
-        ret = self._rproxy.handle(data)
+        ret = proxy_linkinfo(data, self._recv_ns)
         if ret is not None:
             if ret['verdict'] in ('forward', 'error'):
                 return ret['data']
