@@ -203,9 +203,6 @@ class IPaddrSet(LinkedSet):
         self.clear_target(target)
         return ret
 
-    def target_filter(self, x):
-        return not ((x[0][:4] == 'fe80') and (x[1] == 64))
-
     def __repr__(self):
         return repr(['%s/%s' % x for x in self])
 

@@ -339,11 +339,6 @@ class Interface(Transactional):
         elif isinstance(mask, basestring):
             mask = dqn2int(mask)
 
-        # FIXME: make it more generic
-        # skip IPv6 link-local addresses
-        if ip[:4] == 'fe80' and mask == 64:
-            return self
-
         # if it is a transaction or an interface update, apply the change
         self['ipaddr'].unlink((ip, mask))
         request = {}
@@ -771,9 +766,6 @@ class Interface(Transactional):
                              reverse=True)
                 # 8<--------------------------------------
                 for i in rip:
-                    # Ignore link-local IPv6 addresses
-                    if i[0][:4] == 'fe80' and i[1] == 64:
-                        continue
                     # When you remove a primary IP addr, all the
                     # subnetwork can be removed. In this case you
                     # will fail, but it is OK, no need to roll back
@@ -794,9 +786,6 @@ class Interface(Transactional):
                 # Add addresses
                 # 8<--------------------------------------
                 for i in ip2add:
-                    # Ignore link-local IPv6 addresses
-                    if i[0][:4] == 'fe80' and i[1] == 64:
-                        continue
                     # Try to fetch additional address attributes
                     try:
                         kwarg = dict([k for k
