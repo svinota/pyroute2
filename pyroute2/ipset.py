@@ -27,6 +27,7 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_ADD
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_DEL
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_FLUSH
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_RENAME
+from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_TEST
 from pyroute2.netlink.nfnetlink.ipset import ipset_msg
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
@@ -156,8 +157,8 @@ class IPSet(NetlinkSocket):
                 attrs += [['IPSET_ATTR_IFACE', e]]
         return attrs
 
-    def _add_delete(self, name, entry, family, cmd, exclusive, comment=None,
-                    timeout=None, etype="ip"):
+    def _add_delete_test(self, name, entry, family, cmd, exclusive,
+                         comment=None, timeout=None, etype="ip"):
         excl_flag = NLM_F_EXCL if exclusive else 0
 
         data_attrs = self._entry_to_data_attrs(entry, etype, family)
@@ -180,16 +181,24 @@ class IPSet(NetlinkSocket):
         '''
         Add a member to the ipset
         '''
-        return self._add_delete(name, entry, family, IPSET_CMD_ADD, exclusive,
-                                comment=comment, timeout=timeout, etype=etype)
+        return self._add_delete_test(name, entry, family, IPSET_CMD_ADD,
+                                     exclusive, comment=comment,
+                                     timeout=timeout, etype=etype)
 
     def delete(self, name, entry, family=socket.AF_INET, exclusive=True,
                etype="ip"):
         '''
         Delete a member from the ipset
         '''
-        return self._add_delete(name, entry, family, IPSET_CMD_DEL, exclusive,
-                                etype=etype)
+        return self._add_delete_test(name, entry, family, IPSET_CMD_DEL,
+                                     exclusive, etype=etype)
+
+    def test(self, name, entry, family=socket.AF_INET, etype="ip"):
+        '''
+        Test if a member is part of an ipset
+        '''
+        return self._add_delete_test(name, entry, family, IPSET_CMD_TEST,
+                                     False, etype=etype)
 
     def swap(self, set_a, set_b):
         '''
