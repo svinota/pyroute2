@@ -48,7 +48,9 @@ class tstats(nla):
               ('cpu_run_virtual_total', 'Q'),             # 8
               ('ac_comm', '32s'),                         # 32 +++ 112
               ('ac_sched', 'B'),                          # 1
-              ('__pad', '3x'),                            # 1 --- 8 (!)
+              ('__ac_pad', '3x'),                         # 3
+              # (the ac_uid field is aligned(8), so we add more padding)
+              ('__implicit_pad', '4x'),                   # 4
               ('ac_uid', 'I'),                            # 4  +++ 120
               ('ac_gid', 'I'),                            # 4
               ('ac_pid', 'I'),                            # 4
