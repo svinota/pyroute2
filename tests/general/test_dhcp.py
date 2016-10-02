@@ -10,7 +10,7 @@ from pyroute2.dhcp import DHCPACK
 from pyroute2.common import uifname
 
 
-class TestDhcpClient(object):
+class _TestDhcpClient(object):
 
     def setup(self):
         require_user('root')
