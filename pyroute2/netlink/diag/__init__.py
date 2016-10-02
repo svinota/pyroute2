@@ -10,6 +10,27 @@ from pyroute2.netlink.nlsocket import NetlinkSocket
 SOCK_DIAG_BY_FAMILY = 20
 SOCK_DESTROY = 21
 
+# states
+SS_UNKNOWN = 0
+SS_ESTABLISHED = 1
+SS_SYN_SENT = 2
+SS_SYN_RECV = 3
+SS_FIN_WAIT1 = 4
+SS_FIN_WAIT2 = 5
+SS_TIME_WAIT = 6
+SS_CLOSE = 7
+SS_CLOSE_WAIT = 8
+SS_LAST_ACK = 9
+SS_LISTEN = 10
+SS_CLOSING = 11
+SS_MAX = 12
+
+SS_ALL = ((1 << SS_MAX) - 1)
+SS_CONN = (SS_ALL & ~((1 << SS_LISTEN) |
+                      (1 << SS_CLOSE) |
+                      (1 << SS_TIME_WAIT) |
+                      (1 << SS_SYN_RECV)))
+
 
 class sock_diag_req(nlmsg):
 
@@ -79,7 +100,7 @@ class DiagSocket(NetlinkSocket):
 
         req = unix_diag_req()
         req['sdiag_family'] = AF_UNIX
-        req['udiag_states'] = 0xb37
+        req['udiag_states'] = SS_ALL
         req['udiag_show'] = UDIAG_SHOW_NAME |\
             UDIAG_SHOW_VFS |\
             UDIAG_SHOW_PEER |\
