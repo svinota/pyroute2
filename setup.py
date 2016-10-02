@@ -49,6 +49,7 @@ setup(name='pyroute2',
                 'pyroute2.netlink.taskstats',
                 'pyroute2.netlink.nl80211',
                 'pyroute2.netlink.devlink',
+                'pyroute2.netlink.diag',
                 'pyroute2.protocols',
                 'pyroute2.remote'],
       classifiers=['License :: OSI Approved :: GNU General Public ' +

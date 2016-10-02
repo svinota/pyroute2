@@ -60,6 +60,7 @@ _modules = {'IPRoute': 'pyroute2.iproute',
             'NL80211': 'pyroute2.netlink.nl80211',
             'DevlinkSocket': 'pyroute2.netlink.devlink',
             'IPQSocket': 'pyroute2.netlink.ipq',
+            'DiagSocket': 'pyroute2.netlink.diag',
             'GenericNetlinkSocket': 'pyroute2.netlink.generic',
             'NFTSocket': 'pyroute2.netlink.nfnetlink.nftables'}
 
