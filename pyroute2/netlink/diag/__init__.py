@@ -78,33 +78,38 @@ class MarshalDiag(Marshal):
 
 
 class DiagSocket(NetlinkSocket):
+    '''
+    Usage::
+
+        from pyroute2 import DiagSocket
+        with DiagSocket() as ds:
+            ds.bind()
+            sstats = ds.get_sock_stats()
+
+    '''
 
     def __init__(self, fileno=None):
         super(DiagSocket, self).__init__(NETLINK_SOCK_DIAG)
         self.marshal = MarshalDiag()
 
-    def test(self):
+    def get_sock_stats(self,
+                       family=AF_UNIX,
+                       states=SS_ALL,
+                       show=(UDIAG_SHOW_NAME |
+                             UDIAG_SHOW_VFS |
+                             UDIAG_SHOW_PEER |
+                             UDIAG_SHOW_ICONS)):
         '''
-        This function is here only as an example and for
-        debugging purposes. It will be removed in the release.
-
-        Usage::
-
-            from pprint import pprint
-            from pyroute2.netlink.diag import DiagSocket
-            ds = DiagSocket()
-            ds.bind()
-            pprint(ds.test())
-
+        Get sockets statistics.
         '''
 
-        req = unix_diag_req()
-        req['sdiag_family'] = AF_UNIX
-        req['udiag_states'] = SS_ALL
-        req['udiag_show'] = UDIAG_SHOW_NAME |\
-            UDIAG_SHOW_VFS |\
-            UDIAG_SHOW_PEER |\
-            UDIAG_SHOW_ICONS
+        if family == AF_UNIX:
+            req = unix_diag_req()
+        else:
+            raise NotImplementedError()
+        req['sdiag_family'] = family
+        req['udiag_states'] = states
+        req['udiag_show'] = show
 
         return self.nlm_request(req, SOCK_DIAG_BY_FAMILY,
                                 NLM_F_REQUEST | NLM_F_ROOT | NLM_F_MATCH)
