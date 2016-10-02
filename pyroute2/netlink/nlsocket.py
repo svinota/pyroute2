@@ -126,6 +126,8 @@ class Marshal(object):
     '''
 
     msg_map = {}
+    type_offset = 4
+    type_format = 'H'
     debug = False
 
     def __init__(self):
@@ -149,10 +151,13 @@ class Marshal(object):
         # 'IHHII' == 16 bytes
         while offset <= len(data) - 16:
             # pick type and length
-            (length, msg_type) = struct.unpack_from('IH', data, offset)
+            length, = struct.unpack_from('I', data, offset)
             if length == 0:
                 break
             error = None
+            msg_type, = struct.unpack_from(self.type_format,
+                                           data,
+                                           offset + self.type_offset)
             if msg_type == NLMSG_ERROR:
                 code = abs(struct.unpack_from('i', data, offset+16)[0])
                 if code > 0:
