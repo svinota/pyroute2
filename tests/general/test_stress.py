@@ -1,6 +1,7 @@
 from pyroute2 import IPRoute
 from pyroute2 import IPDB
 from pyroute2 import NetNS
+from pyroute2.common import uifname
 from nose.tools import assert_raises
 import fcntl
 import sys
@@ -26,6 +27,23 @@ class TestRespawn(object):
         for _ in range(RESPAWNS):
             with IPDB():
                 pass
+
+
+class TestIfs(object):
+
+    def test_bridge_fd_leaks(self):
+        ifs = []
+
+        for _ in range(RESPAWNS):
+            ifs.append(uifname())
+
+        with IPDB() as ipdb:
+            for name in ifs:
+                ipdb.create(ifname=name, kind="bridge").commit()
+
+        with IPDB() as ipdb:
+            for name in ifs:
+                ipdb.interfaces[name].remove().commit()
 
 
 class TestNetNS(object):
