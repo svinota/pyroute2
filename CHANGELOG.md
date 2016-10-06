@@ -1,6 +1,9 @@
 changelog
 =========
 
+* 0.4.9
+    * sock_diag: initial NETLINK_SOCK_DIAG support
+    * rtnl: fix critical fd leak in the compat code
 * 0.4.8
     * rtnl: compat proxying fix
 * 0.4.7
