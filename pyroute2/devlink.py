@@ -31,7 +31,13 @@ class DL(DevlinkSocket):
 
         # do automatic bind
         # FIXME: unfortunately we can not omit it here
-        self.bind(groups, async)
+        try:
+            self.bind(groups, async)
+        except:
+            # thanks to jtluka at redhat.com and the LNST
+            # team for the fixed fd leak
+            super(DL, self).close()
+            raise
 
     def list(self):
         return self.get_dump()
