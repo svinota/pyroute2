@@ -1143,6 +1143,18 @@ class AddressesDict(dict):
         for msg in self.ipdb.nl.get_addr():
             self._new(msg)
 
+    def reload(self):
+        # Reload addresses from the kernel.
+        # (This is a workaround to reorder primary and secondary addresses.)
+        for k in self.keys():
+            self[k] = IPaddrSet()
+        for msg in self.ipdb.nl.get_addr():
+            self._new(msg)
+        for idx in self.keys():
+            iff = self.ipdb.interfaces[idx]
+            with iff._direct_state:
+                iff['ipaddr'] = self[idx]
+
     def _new(self, msg):
         if msg['family'] == socket.AF_INET:
             addr = msg.get_attr('IFA_LOCAL')
