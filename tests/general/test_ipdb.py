@@ -82,12 +82,13 @@ class TestRace(object):
 class BasicSetup(object):
     ip = None
     mode = 'explicit'
+    sort_addresses = True
 
     def setup(self):
         self.ifaces = []
         self.ifd = self.get_ifname()
         create_link(self.ifd, kind='dummy')
-        self.ip = IPDB(mode=self.mode)
+        self.ip = IPDB(mode=self.mode, sort_addresses=self.sort_addresses)
 
     def get_ifname(self):
         ifname = uifname()
@@ -155,6 +156,30 @@ class TestExplicit(BasicSetup):
         for name in self.ip.by_name:
             assert len(self.ip.interfaces[name]['ipaddr']) == \
                 len(get_ip_addr(name))
+
+    def test_addr_ordering(self):
+        require_user('root')
+
+        if1 = self.get_ifname()
+
+        primaries = list()
+        secondaries = list()
+        with self.ip.create(ifname=if1, kind='dummy') as i:
+            for o3 in reversed(range(1, 6)):
+                for o4 in range(1, 4):
+                    for mask in [24, 25]:
+                        addr = '172.16.%d.%d/%d' % (o3, o4, mask)
+                        i.add_ip(addr)
+                        if o4 == 1:
+                            primaries.append(addr)
+                        else:
+                            secondaries.append(addr)
+        truth = primaries + secondaries
+
+        self.ip.ipaddr.reload()
+        addresses = list('%s/%d' % a for a in self.ip.interfaces[if1].ipaddr)
+
+        assert truth == addresses
 
     def test_reprs(self):
         assert isinstance(repr(self.ip.interfaces.lo.ipaddr), basestring)
