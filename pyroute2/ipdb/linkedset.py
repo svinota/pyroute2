@@ -2,6 +2,7 @@
 '''
 import struct
 import threading
+from collections import OrderedDict
 from socket import inet_pton
 from socket import AF_INET
 from socket import AF_INET6
@@ -35,7 +36,7 @@ class LinkedSet(set):
         self.target = threading.Event()
         self.targets = {self.target: _check_default_target}
         self._ct = None
-        self.raw = {}
+        self.raw = OrderedDict()
         self.links = []
         self.exclusive = set()
 
@@ -217,3 +218,70 @@ class IPaddrSet(LinkedSet):
             return self.raw[key]
         else:
             TypeError('wrong key type')
+
+
+class SortedIPaddrSet(IPaddrSet):
+    def __init__(self, *argv, **kwarg):
+        super(SortedIPaddrSet, self).__init__(*argv, **kwarg)
+        if argv and isinstance(argv[0], SortedIPaddrSet):
+            # Re-initialize self.raw from argv[0].raw to preserve order:
+            self.raw = OrderedDict(argv[0].raw)
+
+    def __and__(self, other):
+        nset = SortedIPaddrSet(self)
+        return nset.__iand__(other)
+
+    def __iand__(self, other):
+        for key in self.raw:
+            if key not in other:
+                self.remove(key)
+        return self
+
+    def __rand__(self, other):
+        return self.__and__(other)
+
+    def __xor__(self, other):
+        nset = SortedIPaddrSet(self)
+        return nset.__ixor__(other)
+
+    def __ixor__(self, other):
+        if not isinstance(other, SortedIPaddrSet):
+            return RuntimeError('SortedIPaddrSet instance required')
+        xor_keys = set(self.raw.keys()) ^ set(other.raw.keys())
+        for key in xor_keys:
+            if key in self:
+                self.remove(key)
+            else:
+                self.add(key, raw=other.raw[key], cascade=False)
+        return self
+
+    def __rxor__(self, other):
+        return self.__xor__(other)
+
+    def __or__(self, other):
+        nset = SortedIPaddrSet(self)
+        return nset.__ior__(other)
+
+    def __ior__(self, other):
+        if not isinstance(other, SortedIPaddrSet):
+            return RuntimeError('SortedIPaddrSet instance required')
+        for key, value in other.raw.items():
+            if key not in self:
+                self.add(key, raw=value, cascade=False)
+        return self
+
+    def __ror__(self, other):
+        return self.__or__(other)
+
+    def __sub__(self, other):
+        nset = SortedIPaddrSet(self)
+        return nset.__isub__(other)
+
+    def __isub__(self, other):
+        for key in other:
+            if key in self:
+                self.remove(key)
+        return self
+
+    def __iter__(self):
+        return iter(self.raw)
