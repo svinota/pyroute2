@@ -1294,7 +1294,7 @@ class TestExplicit(BasicSetup):
                 err = None
                 interface.ipaddr.set_target((('172.16.0.1', 24),
                                              ('172.16.1.1', 24)))
-                interface.ipaddr.target.wait()
+                interface.ipaddr.target.wait(3)
                 try:
                     assert ('172.16.0.1', 24) in interface.ipaddr
                     assert ('172.16.1.1', 24) in interface.ipaddr
