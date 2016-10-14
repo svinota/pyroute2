@@ -5,7 +5,8 @@ Generic netlink
 
 Describe
 '''
-
+import errno
+import logging
 from pyroute2.netlink import CTRL_CMD_GETFAMILY
 from pyroute2.netlink import GENL_ID_CTRL
 from pyroute2.netlink import NLM_F_REQUEST
@@ -69,5 +70,8 @@ class GenericNetlinkSocket(NetlinkSocket):
         msg = self.get()[0]
         err = msg['header'].get('error', None)
         if err is not None:
+            if hasattr(err, 'code') and err.code == errno.ENOENT:
+                logging.error('Generic netlink protocol %s not found' % proto)
+                logging.error('Please check if the protocol module is loaded')
             raise err
         return msg
