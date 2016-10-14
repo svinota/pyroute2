@@ -1,6 +1,8 @@
 changelog
 =========
 
+* 0.4.10
+    * devlink: fix fd leak on broken init
 * 0.4.9
     * sock_diag: initial NETLINK_SOCK_DIAG support
     * rtnl: fix critical fd leak in the compat code
