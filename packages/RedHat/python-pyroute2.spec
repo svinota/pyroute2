@@ -4,7 +4,7 @@
 %{!?python3_pkgversion:%global python3_pkgversion 3}
 
 Name: python-%{srcname}
-Version: 0.4.9
+Version: 0.4.10
 Release: 1%{?dist}
 Summary: %{sum}
 License: GPLv2+
@@ -60,6 +60,9 @@ IPQ.
 %{python3_sitelib}/%{srcname}*
 
 %changelog
+* Fri Oct 14 2016 Peter V. Saveliev <peter@svinota.eu> 0.4.10-1
+- devlink fd leak fix
+
 * Thu Oct  6 2016 Peter V. Saveliev <peter@svinota.eu> 0.4.9-1
 - critical fd leak fix
 - initial NETLINK_SOCK_DIAG support
