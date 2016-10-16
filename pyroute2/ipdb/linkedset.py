@@ -2,6 +2,7 @@
 '''
 import struct
 import threading
+from collections import OrderedDict
 from socket import inet_pton
 from socket import AF_INET
 from socket import AF_INET6
@@ -35,7 +36,7 @@ class LinkedSet(set):
         self.target = threading.Event()
         self.targets = {self.target: _check_default_target}
         self._ct = None
-        self.raw = {}
+        self.raw = OrderedDict()
         self.links = []
         self.exclusive = set()
 
