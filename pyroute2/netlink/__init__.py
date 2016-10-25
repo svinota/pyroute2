@@ -561,6 +561,8 @@ NETLINK_NO_ENOBUFS = 5
 NETLINK_RX_RING = 6
 NETLINK_TX_RING = 7
 
+NETLINK_LISTEN_ALL_NSID = 8
+
 clean_cbs = {}
 
 # Cached results for some struct operations.
