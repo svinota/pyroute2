@@ -21,8 +21,9 @@ else:
 
 class IPRSocketMixin(object):
 
-    def __init__(self, fileno=None):
-        super(IPRSocketMixin, self).__init__(NETLINK_ROUTE, fileno=fileno)
+    def __init__(self, fileno=None, all_ns=False):
+        super(IPRSocketMixin, self).__init__(NETLINK_ROUTE, fileno=fileno,
+                                             all_ns=all_ns)
         self.marshal = MarshalRtnl()
         self._s_channel = None
         send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000, 0x1ffff),

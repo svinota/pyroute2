@@ -105,9 +105,11 @@ from pyroute2.netlink import mtypes
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NETLINK_GENERIC
+from pyroute2.netlink import NETLINK_LISTEN_ALL_NSID
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_MULTI
 from pyroute2.netlink import NLM_F_REQUEST
+from pyroute2.netlink import SOL_NETLINK
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.exceptions import NetlinkDecodeError
 from pyroute2.netlink.exceptions import NetlinkHeaderDecodeError
@@ -275,7 +277,8 @@ class NetlinkMixin(object):
                  family=NETLINK_GENERIC,
                  port=None,
                  pid=None,
-                 fileno=None):
+                 fileno=None,
+                 all_ns=False):
         #
         # That's a trick. Python 2 is not able to construct
         # sockets from an open FD.
@@ -318,6 +321,7 @@ class NetlinkMixin(object):
         self.log = []
         self.get_timeout = 30
         self.get_timeout_exception = None
+        self.all_ns = all_ns
         if pid is None:
             self.pid = os.getpid() & 0x3fffff
             self.port = port
@@ -880,9 +884,10 @@ class NetlinkSocket(NetlinkMixin):
                 def patch(data, bsize):
                     data[0:] = self._sock.recv(bsize)
                 self._sock.recv_into = patch
-
             self.setsockopt(SOL_SOCKET, SO_SNDBUF, 32768)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
+            if self.all_ns:
+                self.setsockopt(SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, 1)
 
     def _gate(self, msg, addr):
         msg.reset()
