@@ -497,6 +497,9 @@ class Interface(Transactional):
         removed = None
         drop = True
         init = None
+        debug = {'traceback': None,
+                 'transaction': None,
+                 'next_stage': None}
 
         if tid:
             transaction = self.global_tx[tid]
@@ -850,6 +853,11 @@ class Interface(Transactional):
 
         except Exception as e:
             error = e
+            # log the error environment
+            debug['traceback'] = traceback.format_exc()
+            debug['transaction'] = transaction
+            debug['next_stage'] = None
+
             # something went wrong: roll the transaction back
             if commit_phase == 1:
                 if newif:
@@ -860,8 +868,8 @@ class Interface(Transactional):
                                 commit_mask=commit_mask,
                                 newif=newif)
                 except Exception as i_e:
+                    debug['next_stage'] = i_e
                     error = RuntimeError()
-                    error.cause = i_e
             else:
                 # reload all the database -- it can take a long time,
                 # but it is required since we have no idea, what is
@@ -875,7 +883,6 @@ class Interface(Transactional):
                 for addr in self.nl.get_addr():
                     self.ipdb.ipaddr._new(addr)
 
-            error.traceback = traceback.format_exc()
             for key in ('ipaddr', 'ports', 'vlans'):
                 self[key].clear_target()
 
@@ -890,7 +897,7 @@ class Interface(Transactional):
 
         # raise exception for failed transaction
         if error is not None:
-            error.transaction = transaction
+            error.debug = debug
             raise error
 
         time.sleep(config.commit_barrier)
