@@ -67,7 +67,8 @@ class Interface(Transactional):
                        'vlans',
                        'ipaddr',
                        'ports',
-                       'net_ns_fd']
+                       'net_ns_fd',
+                       'net_ns_pid']
     _fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
     for name in ('bridge_data', ):
         data = getattr(ifinfmsg.ifinfo, name)
@@ -705,6 +706,7 @@ class Interface(Transactional):
             request = IPLinkRequest()
             for key in added:
                 if (key == 'net_ns_fd') or \
+                        (key == 'net_ns_pid') or \
                         (key not in self._virtual_fields) and \
                         (key != 'kind'):
                     request[key] = added[key]
@@ -725,7 +727,7 @@ class Interface(Transactional):
                     run(nl.link, 'set', **request)
                 # hardcoded pause -- if the interface was moved
                 # across network namespaces
-                if 'net_ns_fd' in request:
+                if ('net_ns_fd' in request) or ('net_ns_pid' in request):
                     while True:
                         # wait until the interface will disappear
                         # from the main network namespace

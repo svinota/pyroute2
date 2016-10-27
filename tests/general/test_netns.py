@@ -158,7 +158,37 @@ class TestNetNS(object):
         netnsmod.remove(foo)
         netnsmod.remove(bar)
 
-    def test_move_interface(self):
+    def test_move_ns_pid(self):
+        foo = str(uuid4())
+        bar = str(uuid4())
+        ifA = uifname()
+        netnsmod.create(foo)
+        netnsmod.create(bar)
+
+        ns_foo = IPDB(nl=NetNS(foo))
+        ns_bar = IPDB(nl=NetNS(bar))
+
+        try:
+            ns_foo.create(ifname=ifA, kind='dummy').commit()
+            with ns_foo.interfaces[ifA] as iface:
+                iface.net_ns_pid = ns_bar.nl.server.pid
+
+            assert ifA in ns_bar.interfaces.keys()
+            assert ifA not in ns_foo.interfaces.keys()
+
+            with ns_bar.interfaces[ifA] as iface:
+                iface.net_ns_pid = ns_foo.nl.server.pid
+
+            assert ifA not in ns_bar.interfaces.keys()
+            assert ifA in ns_foo.interfaces.keys()
+
+        finally:
+            ns_foo.release()
+            ns_bar.release()
+            netnsmod.remove(foo)
+            netnsmod.remove(bar)
+
+    def test_move_ns_fd(self):
         foo = str(uuid4())
         bar = str(uuid4())
         ifA = uifname()
