@@ -125,7 +125,7 @@ class WatchdogKey(dict):
 RouteKey = namedtuple('RouteKey',
                       ('dst',
                        'priority'))
-RouteKey._required = 2  # number of required fields (should go first)
+RouteKey._required = 1  # number of required fields (should go first)
 
 # IP multipath NH key
 IPNHKey = namedtuple('IPNHKey',

@@ -892,6 +892,28 @@ class TestExplicit(BasicSetup):
         with route:
             route.remove()
 
+    def test_routes_ipv6(self):
+        require_user('root')
+        i = self.ip.create(ifname=uifname(), kind='dummy')
+        with i:
+            i.add_ip('2001:4c8:1023:108::39/64')
+            i.up()
+        r = self.ip.routes.add({'dst': 'fd00:6d:3d1a::/64',
+                                'gateway': '2001:4c8:1023:108::40'})
+        r.commit()
+        assert grep('ip -6 ro', pattern='fd00:6d:3d1a::')
+        assert 'fd00:6d:3d1a::/64' in self.ip.routes.keys()
+
+        if self.ip.mode == 'explicit':
+            r.begin()
+        r.remove().commit()
+        assert not grep('ip -6 ro', pattern='fd00:6d:3d1a::')
+        assert 'fd00:6d:3d1a::/64' not in self.ip.routes.keys()
+
+        if self.ip.mode == 'explicit':
+            i.begin()
+        i.remove().commit()
+
     def test_routes_type(self):
         require_user('root')
         self.ip.routes.add(dst='default',
