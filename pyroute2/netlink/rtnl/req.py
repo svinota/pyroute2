@@ -269,7 +269,7 @@ class CBRequest(IPRequest):
 class IPBridgeRequest(IPRequest):
 
     def __setitem__(self, key, value):
-        if key in ('vlan_info', 'mode', 'flags'):
+        if key in ('vlan_info', 'mode', 'vlan_flags'):
             if 'IFLA_AF_SPEC' not in self:
                 dict.__setitem__(self, 'IFLA_AF_SPEC', {'attrs': []})
             nla = ifinfmsg.af_spec_bridge.name2nla(key)

@@ -13,6 +13,7 @@ from pyroute2 import RawIPRoute
 from pyroute2 import config
 from pyroute2.common import map_namespace
 from pyroute2.common import map_enoent
+from pyroute2.common import basestring
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nlmsg_atoms
@@ -120,6 +121,10 @@ BRIDGE_VLAN_INFO_BRENTRY = 0x20     # global bridge vlan entry
 (BRIDGE_VLAN_NAMES, BRIDGE_VLAN_VALUES) = \
     map_namespace('BRIDGE_VLAN_INFO', globals())
 
+BRIDGE_FLAGS_MASTER = 1
+BRIDGE_FLAGS_SELF = 2
+(BRIDGE_FLAGS_NAMES, BRIDGE_FLAGS_VALUES) = \
+    map_namespace('BRIDGE_FLAGS', globals())
 
 states = ('UNKNOWN',
           'NOTPRESENT',
@@ -671,9 +676,24 @@ class ifinfbase(object):
 
     class af_spec_bridge(nla):
         prefix = 'IFLA_BRIDGE_'
-        nla_map = (('IFLA_BRIDGE_FLAGS', 'uint16'),
-                   ('IFLA_BRIDGE_MODE', 'uint16'),
-                   ('IFLA_BRIDGE_VLAN_INFO', 'vlan_info'))
+        # Bug-Url: https://github.com/svinota/pyroute2/issues/284
+        # resolve conflict with link()/flags
+        # IFLA_BRIDGE_FLAGS is for compatibility, in nla dicts
+        # IFLA_BRIDGE_VLAN_FLAGS overrides it
+        nla_map = ((0, 'IFLA_BRIDGE_FLAGS', 'uint16'),
+                   (0, 'IFLA_BRIDGE_VLAN_FLAGS', 'vlan_flags'),
+                   (1, 'IFLA_BRIDGE_MODE', 'uint16'),
+                   (2, 'IFLA_BRIDGE_VLAN_INFO', 'vlan_info'))
+
+        class vlan_flags(nla):
+            fields = [('value', 'H')]
+
+            def encode(self):
+                # convert flags
+                if isinstance(self['value'], basestring):
+                    self['value'] = BRIDGE_FLAGS_NAMES['BRIDGE_FLAGS_' +
+                                                       self['value'].upper()]
+                nla.encode(self)
 
         class vlan_info(nla):
             fields = (('flags', 'H'),
