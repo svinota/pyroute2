@@ -18,7 +18,6 @@ from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.transactional import with_transaction
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 from pyroute2.ipdb.linkedset import LinkedSet
-from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.exceptions import CreateException
 from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.exceptions import PartialCommitException
@@ -120,7 +119,7 @@ class Interface(Transactional):
         with self._direct_state:
             for i in ('change', 'mask'):
                 del self[i]
-            self['ipaddr'] = IPaddrSet()
+            self['ipaddr'] = self.ipdb.init_ipaddr_set()
             self['ports'] = LinkedSet()
             self['vlans'] = LinkedSet()
             self['ipdb_priority'] = 0
@@ -1083,7 +1082,7 @@ class InterfacesDict(TransactionalBase):
             device = self[ifname] = self[index]
 
         if index not in self.ipdb.ipaddr:
-            self.ipdb.ipaddr[index] = IPaddrSet()
+            self.ipdb.ipaddr[index] = self.ipdb.init_ipaddr_set()
 
         if index not in self.ipdb.neighbours:
             self.ipdb.neighbours[index] = LinkedSet()
@@ -1147,7 +1146,7 @@ class AddressesDict(dict):
         # Reload addresses from the kernel.
         # (This is a workaround to reorder primary and secondary addresses.)
         for k in self.keys():
-            self[k] = IPaddrSet()
+            self[k] = self.ipdb.init_ipaddr_set()
         for msg in self.ipdb.nl.get_addr():
             self._new(msg)
         for idx in self.keys():
