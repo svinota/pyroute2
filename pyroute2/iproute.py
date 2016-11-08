@@ -1459,7 +1459,7 @@ class IPRouteMixin(object):
             msg['parent'] = kwarg.get('parent', TC_H_ROOT)
 
         if kind is not None:
-            msg['attrs'] = [['TCA_KIND', kind]]
+            msg['attrs'].append(['TCA_KIND', kind])
         if opts is not None:
             msg['attrs'].append(['TCA_OPTIONS', opts])
         return self.nlm_request(msg, msg_type=command, msg_flags=flags)

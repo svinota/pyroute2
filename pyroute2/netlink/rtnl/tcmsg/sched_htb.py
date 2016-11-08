@@ -122,6 +122,12 @@ def get_parameters(kwarg):
                                         'version': version}]]}
 
 
+def fix_msg(msg, kwarg):
+    if not kwarg:
+        opts = get_parameters({})
+        msg['attrs'].append(['TCA_OPTIONS', opts])
+
+
 class stats(nla):
     fields = (('lends', 'I'),
               ('borrows', 'I'),
