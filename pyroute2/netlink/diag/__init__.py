@@ -37,6 +37,7 @@ class sock_diag_req(nlmsg):
     fields = (('sdiag_family', 'B'),
               ('sdiag_protocol', 'B'))
 
+
 UDIAG_SHOW_NAME = 0x01
 UDIAG_SHOW_VFS = 0x02
 UDIAG_SHOW_PEER = 0x04

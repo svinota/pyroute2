@@ -52,6 +52,7 @@ class SocketWrapper(object):
     def dup(self):
         return self.__class__(_sock=self._sock.dup())
 
+
 config.SocketBase = SocketWrapper
 
 print(netns.listnetns())

@@ -146,6 +146,8 @@ class __common(object):
         log.warning('module pyroute2.ipdb.common is deprecated, '
                     'use pyroute2.ipdb.exceptions instead')
         return getattr(globals()['ipdb'].exceptions, key)
+
+
 globals()['ipdb'].common = __common()
 
 __all__.extend([x.__name__ for x in exceptions])

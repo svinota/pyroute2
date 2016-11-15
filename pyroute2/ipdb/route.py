@@ -121,6 +121,7 @@ class WatchdogKey(dict):
                                          'gateway',
                                          'table') and x[1]])
 
+
 # Universal route key
 RouteKey = namedtuple('RouteKey',
                       ('dst',

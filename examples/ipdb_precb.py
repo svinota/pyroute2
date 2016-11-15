@@ -18,6 +18,7 @@ def cb(ipdb, msg, action):
     if action == 'RTM_NEWLINK':
         msg['flags'] = 1234
 
+
 # create IPDB instance
 ip = IPDB()
 # register "pre" callback

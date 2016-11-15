@@ -415,6 +415,7 @@ _de = NetlinkDecodeError  #
 class NotInitialized(Exception):
     pass
 
+
 _letters = re.compile('[A-Za-z]')
 _fmt_letters = re.compile('[^!><@=][!><@=]')
 
