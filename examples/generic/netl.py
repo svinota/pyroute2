@@ -34,6 +34,7 @@ class Rlink(GenericNetlinkSocket):
                                msg_flags=NLM_F_REQUEST)[0]
         return ret.get_attr('RLINK_ATTR_DATA')
 
+
 try:
     # create protocol instance
     rlink = Rlink()
