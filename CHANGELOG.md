@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.4.11
+    * rtnl: #284 -- support vlan_flags
+    * ipdb: #288 -- do not inore link-local addresses
+    * ipdb: #300 -- sort ip addresses
+    * ipdb: #306 -- support net_ns_pid
+    * ipdb: #307 -- fix IPv6 routes management
+    * ipdb: #311 -- vlan interfaces address loading
+    * iprsocket: #305 -- support NETLINK_LISTEN_ALL_NSID
 * 0.4.10
     * devlink: fix fd leak on broken init
 * 0.4.9
