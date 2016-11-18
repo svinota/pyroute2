@@ -38,10 +38,13 @@ class dhcp4msg(dhcpmsg):
                (8, 'cookie_server', 'ip4list'),
                (9, 'lpr_server', 'ip4list'),
                (50, 'requested_ip', 'ip4addr'),
+               (51, 'lease_time', 'be32'),
                (53, 'message_type', 'uint8'),
                (54, 'server_id', 'ip4addr'),
                (55, 'parameter_list', 'array8'),
                (57, 'messagi_size', 'be16'),
+               (58, 'renewal_time', 'be32'),
+               (59, 'rebinding_time', 'be32'),
                (60, 'vendor_id', 'string'),
                (61, 'client_id', 'client_id'),
                (255, 'end', 'none'))
