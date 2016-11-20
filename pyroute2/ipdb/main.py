@@ -531,7 +531,7 @@ import threading
 from pyroute2 import config
 from pyroute2.common import uuid32
 from pyroute2.iproute import IPRoute
-from pyroute2.netlink.rtnl import RTM_GETLINK
+from pyroute2.netlink.rtnl import RTM_GETLINK, RTNL_GROUPS
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.ipdb import rule
 from pyroute2.ipdb import route
@@ -581,6 +581,7 @@ class IPDB(object):
 
     def __init__(self, nl=None, mode='implicit',
                  restart_on_error=None, nl_async=None,
+                 nl_bind_groups=RTNL_GROUPS,
                  ignore_rtables=None, callbacks=None,
                  sort_addresses=False):
         self.mode = mode
@@ -593,6 +594,7 @@ class IPDB(object):
         self._nl_async = config.ipdb_nl_async if nl_async is None else True
         self.mnl = None
         self.nl = nl
+        self.nl_bind_groups = nl_bind_groups
         self._plugins = [interface, route, rule]
         if isinstance(ignore_rtables, int):
             self._ignore_rtables = [ignore_rtables, ]
@@ -659,7 +661,7 @@ class IPDB(object):
         # setup monitoring socket
         self.mnl = self.nl.clone()
         try:
-            self.mnl.bind(async=self._nl_async)
+            self.mnl.bind(groups=self.nl_bind_groups, async=self._nl_async)
         except:
             self.mnl.close()
             if self._nl_own is None:
