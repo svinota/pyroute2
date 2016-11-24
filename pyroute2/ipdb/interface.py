@@ -7,6 +7,7 @@ from pyroute2.common import basestring
 from pyroute2.common import dqn2int
 from pyroute2.common import View
 from pyroute2.config import TransactionalBase
+from pyroute2.netlink import rtnl
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.exceptions import NetlinkError
@@ -21,6 +22,12 @@ from pyroute2.ipdb.linkedset import LinkedSet
 from pyroute2.ipdb.exceptions import CreateException
 from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.exceptions import PartialCommitException
+
+
+groups = rtnl.RTNLGRP_LINK |\
+    rtnl.RTNLGRP_NEIGH |\
+    rtnl.RTNLGRP_IPV4_IFADDR |\
+    rtnl.RTNLGRP_IPV6_IFADDR
 
 
 def _get_data_fields():

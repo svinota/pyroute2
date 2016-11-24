@@ -7,6 +7,7 @@ from socket import AF_INET6
 from socket import AF_INET
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
+from pyroute2.netlink import rtnl
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nlmsg_base
 from pyroute2.netlink.rtnl import rt_type
@@ -21,6 +22,9 @@ from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 from pyroute2.ipdb.linkedset import LinkedSet
 
 log = logging.getLogger(__name__)
+groups = rtnl.RTNLGRP_IPV4_ROUTE |\
+    rtnl.RTNLGRP_IPV6_ROUTE |\
+    rtnl.RTNLGRP_MPLS_ROUTE
 
 
 class Metrics(Transactional):

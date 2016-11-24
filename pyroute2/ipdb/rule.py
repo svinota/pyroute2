@@ -1,12 +1,15 @@
 import logging
 import threading
 from collections import namedtuple
+from pyroute2.netlink import rtnl
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.transactional import Transactional
 
 log = logging.getLogger(__name__)
+groups = rtnl.RTNLGRP_IPV4_RULE |\
+    rtnl.RTNLGRP_IPV6_RULE
 
 
 RuleKey = namedtuple('RuleKey',

@@ -673,6 +673,8 @@ class IPDB(object):
             del self._deferred[key]
 
         for module in self._plugins:
+            if (module.groups & self.nl_bind_groups) != module.groups:
+                continue
             for plugin in module.spec:
                 self._deferred[plugin['name']] = module.spec
                 if plugin['name'] in self._loaded:
