@@ -90,8 +90,8 @@ __NR = {'x86_': {'64bit': 308},
         'i686': {'32bit': 346},
         'mips': {'32bit': 4344,
                  '64bit': 5303},  # FIXME: NABI32?
-        'armv': {'32bit': 375,
-                 '64bit': 375}}  # FIXME: EABI vs. OABI?
+        'armv': {'32bit': 375},
+        'aarc': {'64bit': 268}}  # FIXME: EABI vs. OABI?
 __NR_setns = __NR.get(config.machine[:4], {}).get(config.arch, 308)
 
 CLONE_NEWNET = 0x40000000
