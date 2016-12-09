@@ -139,7 +139,7 @@ class Marshal(object):
         self.msg_map = self.msg_map or {}
         self.defragmentation = {}
 
-    def parse(self, data):
+    def parse(self, data, seq=None, callback=None):
         '''
         Parse string data.
 
@@ -178,6 +178,10 @@ class Marshal(object):
                     enc = enc_class(data, offset=offset+20)
                     enc.decode()
                     msg['header']['errmsg'] = enc
+                if callback and seq == msg['header']['sequence_number']:
+                    if callback(msg):
+                        offset += msg.length
+                        continue
             except NetlinkHeaderDecodeError as e:
                 # in the case of header decoding error,
                 # create an empty message
@@ -565,7 +569,10 @@ class NetlinkMixin(object):
     def sendto_gate(self, msg, addr):
         raise NotImplementedError()
 
-    def get(self, bufsize=DEFAULT_RCVBUF, msg_seq=0, terminate=None):
+    def get(self, bufsize=DEFAULT_RCVBUF,
+            msg_seq=0,
+            terminate=None,
+            callback=None):
         '''
         Get parsed messages list. If `msg_seq` is given, return
         only messages with that `msg['header']['sequence_number']`,
@@ -700,7 +707,7 @@ class NetlinkMixin(object):
                         # locks, except the read lock must be released
                         data = self.recv_ft(bufsize)
                         # Parse data
-                        msgs = self.marshal.parse(data)
+                        msgs = self.marshal.parse(data, msg_seq, callback)
                         # Reset ctime -- timeout should be measured
                         # for every turn separately
                         ctime = time.time()
@@ -763,6 +770,7 @@ class NetlinkMixin(object):
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                     terminate=None,
+                    callback=None,
                     exception_catch=Exception,
                     exception_handler=None):
 
@@ -771,7 +779,9 @@ class NetlinkMixin(object):
             with self.lock[msg_seq]:
                 try:
                     self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
-                    ret = self.get(msg_seq=msg_seq, terminate=terminate)
+                    ret = self.get(msg_seq=msg_seq,
+                                   terminate=terminate,
+                                   callback=callback)
                     return ret
                 except Exception:
                     raise

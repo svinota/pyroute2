@@ -175,6 +175,7 @@ from socket import AF_UNSPEC
 from socket import AF_BRIDGE
 from types import FunctionType
 from types import MethodType
+from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC
 from pyroute2.netlink import NLM_F_ROOT
@@ -500,6 +501,7 @@ class IPRouteMixin(object):
 
         msg_flags = NLM_F_DUMP | NLM_F_REQUEST
         nkw = {}
+        nkw['callback'] = kwarg.pop('callback', None)
 
         # get a particular route?
         if isinstance(kwarg.get('dst'), basestring):
@@ -598,13 +600,23 @@ class IPRouteMixin(object):
         routine. Actually, this routine implements a pipe from
         `get_routes()` to `nlm_request()`.
         '''
-        flags = NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST
         ret = []
+
+        def callback(msg):
+            if msg['header']['type'] == NLMSG_DONE:
+                # this message will pass to the get()
+                return False
+            # all other messages are filtered
+            table = msg.get_attr('RTA_TABLE') or msg.get('table', None)
+            if table == kwarg.get('table', DEFAULT_TABLE):
+                # delete matching routes
+                self.put(msg, msg_type=RTM_DELROUTE, msg_flags=NLM_F_REQUEST)
+            # ignore others
+            return True
+
         kwarg['table'] = kwarg.get('table', DEFAULT_TABLE)
-        for route in self.get_routes(*argv, **kwarg):
-            ret.append(self.nlm_request(route,
-                                        msg_type=RTM_DELROUTE,
-                                        msg_flags=flags))
+        kwarg['callback'] = callback
+        self.get_routes(*argv, **kwarg)
         return ret
 
     def flush_addr(self, *argv, **kwarg):
@@ -1608,6 +1620,7 @@ class IPRouteMixin(object):
             match = kwarg
         else:
             match = kwarg.pop('match', None)
+        callback = kwarg.pop('callback', None)
 
         commands = {'add': (RTM_NEWROUTE, flags_make),
                     'set': (RTM_NEWROUTE, flags_replace),
@@ -1660,7 +1673,10 @@ class IPRouteMixin(object):
                                     attr[1].find(':') >= 0 else AF_INET
                                 break
 
-        ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
+        ret = self.nlm_request(msg,
+                               msg_type=command,
+                               msg_flags=flags,
+                               callback=callback)
         if match:
             return self._match(match, ret)
         else:
