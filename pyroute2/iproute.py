@@ -1616,7 +1616,7 @@ class IPRouteMixin(object):
             kwarg['proto'] = kwarg.get('proto', 'static') or 'static'
             kwarg['type'] = kwarg.get('type', 'unicast') or 'unicast'
         kwarg = IPRouteRequest(kwarg)
-        if command == 'dump':
+        if command in ('dump', 'show'):
             match = kwarg
         else:
             match = kwarg.pop('match', None)
@@ -1630,6 +1630,7 @@ class IPRouteMixin(object):
                     'remove': (RTM_DELROUTE, flags_make),
                     'delete': (RTM_DELROUTE, flags_make),
                     'get': (RTM_GETROUTE, NLM_F_REQUEST),
+                    'show': (RTM_GETROUTE, flags_dump),
                     'dump': (RTM_GETROUTE, flags_dump)}
         (command, flags) = commands.get(command, command)
         msg = rtmsg()
