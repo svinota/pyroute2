@@ -2105,6 +2105,66 @@ class TestExplicit(BasicSetup):
             ip2.release()
 
     @skip_if_not_supported
+    def test_create_ip6gre(self):
+        require_user('root')
+
+        ifL = self.get_ifname()
+        ifV = self.get_ifname()
+        with self.ip.create(kind='dummy', ifname=ifL) as i:
+            i.add_ip('2001:dba::1/64')
+            i.up()
+
+        self.ip.create(kind='ip6gre',
+                       ifname=ifV,
+                       ip6gre_local='2001:dba::1',
+                       ip6gre_remote='2001:dba::2',
+                       ip6gre_ttl=16).commit()
+
+        ip2 = IPDB()
+        ifdb = ip2.interfaces
+        try:
+            assert ifdb[ifV].ip6gre_local == '2001:dba::1'
+            assert ifdb[ifV].ip6gre_remote == '2001:dba::2'
+            assert ifdb[ifV].ip6gre_ttl == 16
+        except Exception:
+            raise
+        finally:
+            ip2.release()
+
+    @skip_if_not_supported
+    def test_create_ip6gretap(self):
+        require_user('root')
+
+        ifL = self.get_ifname()
+        ifV = self.get_ifname()
+        with self.ip.create(kind='dummy', ifname=ifL) as i:
+            i.add_ip('2001:dba::1/64')
+            i.up()
+
+        self.ip.create(kind='ip6gretap',
+                       ifname=ifV,
+                       ip6gre_local='2001:dba::1',
+                       ip6gre_ikey=1,
+                       ip6gre_okey=2,
+                       ip6gre_iflags=0x0020,
+                       ip6gre_oflags=0x0020,
+                       ip6gre_ttl=16).commit()
+
+        ip2 = IPDB()
+        ifdb = ip2.interfaces
+        try:
+            assert ifdb[ifV].ip6gre_local == '2001:dba::1'
+            assert ifdb[ifV].ip6gre_ikey == 1
+            assert ifdb[ifV].ip6gre_okey == 2
+            assert ifdb[ifV].ip6gre_iflags == 0x0020
+            assert ifdb[ifV].ip6gre_oflags == 0x0020
+            assert ifdb[ifV].ip6gre_ttl == 16
+        except Exception:
+            raise
+        finally:
+            ip2.release()
+
+    @skip_if_not_supported
     def test_create_vxlan(self):
         require_user('root')
 

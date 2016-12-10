@@ -444,6 +444,8 @@ class ifinfbase(object):
                         'macvtap': self.macvtap_data,
                         'gre': self.gre_data,
                         'gretap': self.gre_data,
+                        'ip6gre': self.ip6gre_data,
+                        'ip6gretap': self.ip6gre_data,
                         'bond': self.bond_data,
                         'veth': self.veth_data,
                         'tuntap': self.tuntap_data,
@@ -533,6 +535,33 @@ class ifinfbase(object):
                        ('IFLA_GRE_ENCAP_SPORT', 'be16'),
                        ('IFLA_GRE_ENCAP_DPORT', 'be16'),
                        ('IFLA_GRE_COLLECT_METADATA', 'flag'))
+
+        class ip6gre_data(nla):
+            # Ostensibly the same as ip6gre_data except that local
+            # and remote are ipv6 addrs.
+            # As of Linux 4.8,IFLA_GRE_COLLECT_METADATA has not been
+            # implemented for IPv6.
+            # Linux uses the same enum names for v6 and v4 (in if_tunnel.h);
+            # Here we name them IFLA_IP6GRE_xxx instead to avoid conflicts
+            # with gre_data above.
+            nla_map = (('IFLA_IP6GRE_UNSPEC', 'none'),
+                       ('IFLA_IP6GRE_LINK', 'uint32'),
+                       ('IFLA_IP6GRE_IFLAGS', 'uint16'),
+                       ('IFLA_IP6GRE_OFLAGS', 'uint16'),
+                       ('IFLA_IP6GRE_IKEY', 'be32'),
+                       ('IFLA_IP6GRE_OKEY', 'be32'),
+                       ('IFLA_IP6GRE_LOCAL', 'ip6addr'),
+                       ('IFLA_IP6GRE_REMOTE', 'ip6addr'),
+                       ('IFLA_IP6GRE_TTL', 'uint8'),
+                       ('IFLA_IP6GRE_TOS', 'uint8'),
+                       ('IFLA_IP6GRE_PMTUDISC', 'uint8'),
+                       ('IFLA_IP6GRE_ENCAP_LIMIT', 'uint8'),
+                       ('IFLA_IP6GRE_FLOWINFO', 'be32'),
+                       ('IFLA_IP6GRE_FLAGS', 'uint32'),
+                       ('IFLA_IP6GRE_ENCAP_TYPE', 'uint16'),
+                       ('IFLA_IP6GRE_ENCAP_FLAGS', 'uint16'),
+                       ('IFLA_IP6GRE_ENCAP_SPORT', 'be16'),
+                       ('IFLA_IP6GRE_ENCAP_DPORT', 'be16'))
 
         class macvlan_data(macvx_data):
             pass
