@@ -355,8 +355,11 @@ class ifinfbase(object):
             if isinstance(self.value, int):
                 self['value'] = self.value
             else:
-                self.netns_fd = os.open('%s/%s' % (self.netns_run_dir,
-                                                   self.value), os.O_RDONLY)
+                if '/' in self.value:
+                    netns_path = self.value
+                else:
+                    netns_path = '%s/%s' % (self.netns_run_dir, self.value)
+                self.netns_fd = os.open(netns_path, os.O_RDONLY)
                 self['value'] = self.netns_fd
                 self.register_clean_cb(self.close)
             nla.encode(self)
