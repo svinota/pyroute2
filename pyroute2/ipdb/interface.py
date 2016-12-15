@@ -713,10 +713,7 @@ class Interface(Transactional):
             # Interface changes
             request = IPLinkRequest()
             for key in added:
-                if (key == 'net_ns_fd') or \
-                        (key == 'net_ns_pid') or \
-                        (key not in self._virtual_fields) and \
-                        (key != 'kind'):
+                if (key not in self._virtual_fields) and (key != 'kind'):
                     request[key] = added[key]
 
             # apply changes only if there is something to apply
@@ -733,23 +730,6 @@ class Interface(Transactional):
                         **request)
                 else:
                     run(nl.link, 'set', **request)
-                # hardcoded pause -- if the interface was moved
-                # across network namespaces
-                if ('net_ns_fd' in request) or ('net_ns_pid' in request):
-                    countdown = 10
-                    while countdown:
-                        # wait until the interface will disappear
-                        # from the current network namespace
-                        try:
-                            self.nl.get_links(self['index'])
-                        except NetlinkError as e:
-                            if e.code == errno.ENODEV:
-                                break
-                            raise
-                        except Exception:
-                            raise
-                        countdown -= 1
-                        time.sleep(0.1)
                 if not transaction.partial:
                     transaction.wait_all_targets()
 
@@ -841,6 +821,33 @@ class Interface(Transactional):
             for ch in self._commit_hooks:
                 # An exception will rollback the transaction
                 ch(self.dump(), snapshot.dump(), transaction.dump())
+
+            # 8<---------------------------------------------
+            # Move the interface to a netns
+            if ('net_ns_fd' in added) or ('net_ns_pid' in added):
+                request = IPLinkRequest()
+                for key in ('net_ns_fd', 'net_ns_pid'):
+                    if key in added:
+                        request[key] = added[key]
+
+                request['index'] = self['index']
+                run(nl.link, 'set', **request)
+
+                countdown = 10
+                while countdown:
+                    # wait until the interface will disappear
+                    # from the current network namespace --
+                    # up to 1 second (make it configurable?)
+                    try:
+                        self.nl.get_links(self['index'])
+                    except NetlinkError as e:
+                        if e.code == errno.ENODEV:
+                            break
+                        raise
+                    except Exception:
+                        raise
+                    countdown -= 1
+                    time.sleep(0.1)
 
             # 8<---------------------------------------------
             # Interface removal
