@@ -736,19 +736,20 @@ class Interface(Transactional):
                 # hardcoded pause -- if the interface was moved
                 # across network namespaces
                 if ('net_ns_fd' in request) or ('net_ns_pid' in request):
-                    while True:
+                    countdown = 10
+                    while countdown:
                         # wait until the interface will disappear
-                        # from the main network namespace
+                        # from the current network namespace
                         try:
-                            for link in self.nl.get_links(self['index']):
-                                self.ipdb.interfaces._new(link)
+                            self.nl.get_links(self['index'])
                         except NetlinkError as e:
                             if e.code == errno.ENODEV:
                                 break
                             raise
                         except Exception:
                             raise
-                    time.sleep(0.1)
+                        countdown -= 1
+                        time.sleep(0.1)
                 if not transaction.partial:
                     transaction.wait_all_targets()
 
