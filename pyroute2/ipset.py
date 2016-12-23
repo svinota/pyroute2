@@ -158,7 +158,8 @@ class IPSet(NetlinkSocket):
         return attrs
 
     def _add_delete_test(self, name, entry, family, cmd, exclusive,
-                         comment=None, timeout=None, etype="ip"):
+                         comment=None, timeout=None, etype="ip",
+                         packets=None, bytes=None):
         excl_flag = NLM_F_EXCL if exclusive else 0
 
         data_attrs = self._entry_to_data_attrs(entry, etype, family)
@@ -167,6 +168,10 @@ class IPSet(NetlinkSocket):
                            ["IPSET_ATTR_CADT_LINENO", 0]]
         if timeout is not None:
             data_attrs += [["IPSET_ATTR_TIMEOUT", timeout]]
+        if bytes is not None:
+            data_attrs += [["IPSET_ATTR_BYTES", bytes]]
+        if packets is not None:
+            data_attrs += [["IPSET_ATTR_PACKETS", packets]]
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
                         ['IPSET_ATTR_SETNAME', name],
@@ -177,13 +182,13 @@ class IPSet(NetlinkSocket):
                             terminate=_nlmsg_error)
 
     def add(self, name, entry, family=socket.AF_INET, exclusive=True,
-            comment=None, timeout=None, etype="ip"):
+            comment=None, timeout=None, etype="ip", **kwargs):
         '''
         Add a member to the ipset
         '''
         return self._add_delete_test(name, entry, family, IPSET_CMD_ADD,
                                      exclusive, comment=comment,
-                                     timeout=timeout, etype=etype)
+                                     timeout=timeout, etype=etype, **kwargs)
 
     def delete(self, name, entry, family=socket.AF_INET, exclusive=True,
                etype="ip"):
