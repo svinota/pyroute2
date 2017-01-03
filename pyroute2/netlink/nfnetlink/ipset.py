@@ -45,7 +45,7 @@ class ipset_msg(nfgen_msg):
                ('IPSET_ATTR_DATA', 'cadt_data'),
                ('IPSET_ATTR_ADT', 'adt_data'),
                ('IPSET_ATTR_LINENO', 'hex'),
-               ('IPSET_ATTR_PROTOCOL_MIN', 'hex'))
+               ('IPSET_ATTR_PROTOCOL_MIN', 'uint8'))
 
     class ipset_generic(nla):
         class ipset_ip(nla):

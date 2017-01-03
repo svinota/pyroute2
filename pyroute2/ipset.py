@@ -28,6 +28,7 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_DEL
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_FLUSH
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_RENAME
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_TEST
+from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_TYPE
 from pyroute2.netlink.nfnetlink.ipset import ipset_msg
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
@@ -47,7 +48,8 @@ class IPSet(NetlinkSocket):
     '''
 
     policy = {IPSET_CMD_PROTOCOL: ipset_msg,
-              IPSET_CMD_LIST: ipset_msg}
+              IPSET_CMD_LIST: ipset_msg,
+              IPSET_CMD_TYPE: ipset_msg}
 
     def __init__(self, version=6, attr_revision=3, nfgen_family=2):
         super(IPSet, self).__init__(family=NETLINK_NETFILTER)
@@ -240,3 +242,19 @@ class IPSet(NetlinkSocket):
         return self.request(msg, IPSET_CMD_RENAME,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK,
                             terminate=_nlmsg_error)
+
+    def get_supported_revisions(self, stype, family=socket.AF_INET):
+        '''
+        Return minimum and maximum of revisions supported by the kernel
+        '''
+        msg = ipset_msg()
+        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
+                        ['IPSET_ATTR_TYPENAME', stype],
+                        ['IPSET_ATTR_FAMILY', family]]
+        response = self.request(msg, IPSET_CMD_TYPE,
+                                msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+                                terminate=_nlmsg_error)
+
+        min_revision = response[0].get_attr("IPSET_ATTR_PROTOCOL_MIN")
+        max_revision = response[0].get_attr("IPSET_ATTR_REVISION")
+        return min_revision, max_revision
