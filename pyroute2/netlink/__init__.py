@@ -1376,16 +1376,28 @@ class nla_slot(object):
     def __init__(self, name, value):
         self.cell = (name, value)
 
-    def get_value(self):
+    def try_to_decode(self):
         try:
             cell = self.cell[1]
             if not cell.decoded:
                 cell.decode()
-            return cell.getvalue()
+            return True
         except Exception:
             log.warning("decoding %s" % (self.cell[0]))
             log.warning(traceback.format_exc())
+            return False
+
+    def get_value(self):
+        cell = self.cell[1]
+        if self.try_to_decode():
+            return cell.getvalue()
+        else:
             return cell.data[cell.offset:cell.offset+cell.length]
+
+    def get_flags(self):
+        if self.try_to_decode():
+            return self.cell[1].nla_flags
+        return None
 
     def __getitem__(self, key):
         if key == 1:
@@ -1401,6 +1413,8 @@ class nla_slot(object):
             raise IndexError(key)
 
     def __repr__(self):
+        if self.get_flags():
+            return repr((self.cell[0], self.get_value(), self.get_flags()))
         return repr((self.cell[0], self.get_value()))
 
 
