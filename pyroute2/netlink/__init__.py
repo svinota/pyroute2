@@ -1333,9 +1333,10 @@ class nlmsg_base(dict):
         while offset - self.offset <= self.length - 4:
             nla = None
             # pick the length and the type
-            (length, msg_type) = struct.unpack_from('HH', self.data, offset)
+            (length, base_msg_type) = struct.unpack_from('HH', self.data,
+                                                         offset)
             # first two bits of msg_type are flags:
-            msg_type = msg_type & ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
+            msg_type = base_msg_type & ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
             # rewind to the beginning
             length = min(max(length, 4), (self.length - offset + self.offset))
             # we have a mapping for this NLA
@@ -1357,8 +1358,8 @@ class nlmsg_base(dict):
                                 length=length,
                                 init=prime['init'])
                 nla.nla_array = prime['nla_array']
-                nla.nla_flags = msg_type & (NLA_F_NESTED |
-                                            NLA_F_NET_BYTEORDER)
+                nla.nla_flags = base_msg_type & (NLA_F_NESTED |
+                                                 NLA_F_NET_BYTEORDER)
                 name = prime['name']
             else:
                 name = 'UNKNOWN'
