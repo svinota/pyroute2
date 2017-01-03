@@ -51,7 +51,7 @@ class IPSet(NetlinkSocket):
               IPSET_CMD_LIST: ipset_msg,
               IPSET_CMD_TYPE: ipset_msg}
 
-    def __init__(self, version=6, attr_revision=3, nfgen_family=2):
+    def __init__(self, version=6, attr_revision=None, nfgen_family=2):
         super(IPSet, self).__init__(family=NETLINK_NETFILTER)
         policy = dict([(x | (NFNL_SUBSYS_IPSET << 8), y)
                        for (x, y) in self.policy.items()])
@@ -124,11 +124,16 @@ class IPSet(NetlinkSocket):
         if timeout is not None:
             data['attrs'] += [["IPSET_ATTR_TIMEOUT", timeout]]
 
+        if self._attr_revision is None:
+            # Get the last revision supported by kernel
+            revision = self.get_supported_revisions(stype)[1]
+        else:
+            revision = self._attr_revision
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
                         ['IPSET_ATTR_SETNAME', name],
                         ['IPSET_ATTR_TYPENAME', stype],
                         ['IPSET_ATTR_FAMILY', family],
-                        ['IPSET_ATTR_REVISION', self._attr_revision],
+                        ['IPSET_ATTR_REVISION', revision],
                         ["IPSET_ATTR_DATA", data]]
 
         return self.request(msg, IPSET_CMD_CREATE,
