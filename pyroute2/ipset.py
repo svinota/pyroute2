@@ -28,6 +28,8 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_DEL
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_FLUSH
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_RENAME
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_TEST
+from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_TYPE
+from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_HEADER
 from pyroute2.netlink.nfnetlink.ipset import ipset_msg
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
@@ -47,9 +49,11 @@ class IPSet(NetlinkSocket):
     '''
 
     policy = {IPSET_CMD_PROTOCOL: ipset_msg,
-              IPSET_CMD_LIST: ipset_msg}
+              IPSET_CMD_LIST: ipset_msg,
+              IPSET_CMD_TYPE: ipset_msg,
+              IPSET_CMD_HEADER: ipset_msg}
 
-    def __init__(self, version=6, attr_revision=3, nfgen_family=2):
+    def __init__(self, version=6, attr_revision=None, nfgen_family=2):
         super(IPSet, self).__init__(family=NETLINK_NETFILTER)
         policy = dict([(x | (NFNL_SUBSYS_IPSET << 8), y)
                        for (x, y) in self.policy.items()])
@@ -69,7 +73,13 @@ class IPSet(NetlinkSocket):
         except NetlinkError as err:
             raise IPSetError(err.code)
 
-    def list(self, name=None):
+    def headers(self, name):
+        '''
+        Get headers of the named ipset.
+        '''
+        return self._list_or_headers(IPSET_CMD_HEADER, name=name)
+
+    def list(self, **kwargs):
         '''
         List installed ipsets. If `name` is provided, list
         the named ipset or return an empty list.
@@ -77,11 +87,14 @@ class IPSet(NetlinkSocket):
         It looks like nfnetlink doesn't return an error,
         when requested ipset doesn't exist.
         '''
+        return self._list_or_headers(IPSET_CMD_LIST, **kwargs)
+
+    def _list_or_headers(self, cmd, name=None):
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version]]
         if name is not None:
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
-        return self.request(msg, IPSET_CMD_LIST)
+        return self.request(msg, cmd)
 
     def destroy(self, name):
         '''
@@ -122,11 +135,16 @@ class IPSet(NetlinkSocket):
         if timeout is not None:
             data['attrs'] += [["IPSET_ATTR_TIMEOUT", timeout]]
 
+        if self._attr_revision is None:
+            # Get the last revision supported by kernel
+            revision = self.get_supported_revisions(stype)[1]
+        else:
+            revision = self._attr_revision
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
                         ['IPSET_ATTR_SETNAME', name],
                         ['IPSET_ATTR_TYPENAME', stype],
                         ['IPSET_ATTR_FAMILY', family],
-                        ['IPSET_ATTR_REVISION', self._attr_revision],
+                        ['IPSET_ATTR_REVISION', revision],
                         ["IPSET_ATTR_DATA", data]]
 
         return self.request(msg, IPSET_CMD_CREATE,
@@ -240,3 +258,19 @@ class IPSet(NetlinkSocket):
         return self.request(msg, IPSET_CMD_RENAME,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK,
                             terminate=_nlmsg_error)
+
+    def get_supported_revisions(self, stype, family=socket.AF_INET):
+        '''
+        Return minimum and maximum of revisions supported by the kernel
+        '''
+        msg = ipset_msg()
+        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
+                        ['IPSET_ATTR_TYPENAME', stype],
+                        ['IPSET_ATTR_FAMILY', family]]
+        response = self.request(msg, IPSET_CMD_TYPE,
+                                msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+                                terminate=_nlmsg_error)
+
+        min_revision = response[0].get_attr("IPSET_ATTR_PROTOCOL_MIN")
+        max_revision = response[0].get_attr("IPSET_ATTR_REVISION")
+        return min_revision, max_revision
