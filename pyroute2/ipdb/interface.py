@@ -794,19 +794,16 @@ class Interface(Transactional):
                         **kwarg if kwarg else {})
 
                 # 8<--------------------------------------
-                # bond and bridge interfaces do not send
-                # IPv6 address updates, when are down
+                # some interfaces do not send IPv6 address
+                # updates, when are down
                 #
                 # beside of that, bridge interfaces are
                 # down by default, so they never send
                 # address updates from beginning
                 #
-                # so if we need, force address load
-                #
-                # FIXME: probably, we should handle other
-                # types as well
-                if self['kind'] in ('bond', 'bridge', 'veth', 'vlan'):
-                    for addr in self.nl.get_addr(family=socket.AF_INET6):
+                if not self['flags'] & 1:
+                    for addr in self.nl.get_addr(index=self['index'],
+                                                 family=socket.AF_INET6):
                         self.ipdb.ipaddr._new(addr)
 
                 # 8<--------------------------------------
