@@ -173,6 +173,8 @@ class IPSet(NetlinkSocket):
                 attrs += [['IPSET_ATTR_IP_FROM', {'attrs': [[ip_version, e]]}]]
             elif t == 'iface':
                 attrs += [['IPSET_ATTR_IFACE', e]]
+            elif t == 'mark':
+                attrs += [['IPSET_ATTR_MARK', int(e)]]
         return attrs
 
     def _add_delete_test(self, name, entry, family, cmd, exclusive,
