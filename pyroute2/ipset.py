@@ -79,7 +79,7 @@ class IPSet(NetlinkSocket):
         '''
         return self._list_or_headers(IPSET_CMD_HEADER, name=name)
 
-    def list(self, **kwargs):
+    def list(self, *argv, **kwarg):
         '''
         List installed ipsets. If `name` is provided, list
         the named ipset or return an empty list.
@@ -87,7 +87,9 @@ class IPSet(NetlinkSocket):
         It looks like nfnetlink doesn't return an error,
         when requested ipset doesn't exist.
         '''
-        return self._list_or_headers(IPSET_CMD_LIST, **kwargs)
+        if len(argv):
+            kwarg['name'] = argv[0]
+        return self._list_or_headers(IPSET_CMD_LIST, **kwarg)
 
     def _list_or_headers(self, cmd, name=None):
         msg = ipset_msg()
