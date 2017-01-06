@@ -1,6 +1,15 @@
 changelog
 =========
 
+* 0.4.12
+    * ipdb: #314 -- let users choose RTNL groups IPDB listens to
+    * ipdb: #321 -- isolate `net_ns_.*` setup in a separate code block
+    * ipdb: #322 -- IPv6 updates on interfaces in DOWN state
+    * ifinfmsg: allow absolute/relative paths in the net_ns_fd NLA
+    * ipset: #323 -- support setting counters on ipset add
+    * ipset: `headers()` command
+    * ipset: revisions
+    * ipset: #326 -- mark types
 * 0.4.11
     * rtnl: #284 -- support vlan_flags
     * ipdb: #288 -- do not inore link-local addresses
