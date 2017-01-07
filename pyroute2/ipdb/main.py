@@ -261,7 +261,7 @@ follows::
         route.metrics.mtu = 1500
 
     # access the default route
-    print(ipdb.routes['default])
+    print(ipdb.routes['default'])
 
     # change the default gateway
     with ipdb.routes['default'] as route:
