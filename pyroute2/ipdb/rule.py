@@ -245,8 +245,6 @@ class RulesDict(dict):
         Create a rule from a dictionary
         '''
         spec = dict(spec or kwarg)
-        rule = Rule(self.ipdb)
-        rule.update(spec)
         # action and priority are parts of the key, so
         # they must be specified
         if 'priority' not in spec:
@@ -255,6 +253,9 @@ class RulesDict(dict):
             spec['action'] = FR_ACT_NAMES['FR_ACT_TO_TBL']
         elif 'goto' in spec:
             spec['action'] = FR_ACT_NAMES['FR_ACT_GOTO']
+
+        rule = Rule(self.ipdb)
+        rule.update(spec)
         # setup the scope
         with rule._direct_state:
             rule['ipdb_scope'] = 'create'
