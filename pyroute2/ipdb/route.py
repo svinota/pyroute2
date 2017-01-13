@@ -393,6 +393,9 @@ class BaseRoute(Transactional):
                 old_key = self.make_key(self)
                 new_key = self.make_key(transaction)
                 if old_key != new_key:
+                    # delete old record
+                    if devop == 'set':
+                        self.nl.route('del', **dict(old_key._asdict()))
                     # assume we can not move routes between tables (yet ;)
                     if self['family'] == AF_MPLS:
                         route_index = self.ipdb.routes.tables['mpls'].idx
@@ -401,15 +404,16 @@ class BaseRoute(Transactional):
                                        .routes
                                        .tables[self['table'] or 254]
                                        .idx)
-                    if new_key not in route_index:
+                    # re-link the route record
+                    if new_key in route_index:
+                        raise CommitException('route idx conflict')
+                    else:
                         route_index[new_key] = {'key': new_key,
                                                 'route': self}
-                    else:
-                        raise CommitException('route idx conflict')
-                    self.nl.route(devop, **transaction)
-                    del route_index[old_key]
-                else:
-                    self.nl.route(devop, **transaction)
+                    # wipe the old key, if needed
+                    if old_key in route_index:
+                        del route_index[old_key]
+                self.nl.route(devop, **transaction)
                 transaction.wait_all_targets()
                 for key in ('metrics', 'via'):
                     if transaction[key] and transaction[key]._targets:

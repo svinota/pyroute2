@@ -997,6 +997,26 @@ class TestExplicit(BasicSetup):
             with self.ip.routes['172.16.0.0/24'] as r:
                 r.remove()
 
+    def test_routes_set_priority(self):
+        require_user('root')
+        assert '172.16.0.0/24' not in self.ip.routes
+        with self.ip.routes.add({'dst': '172.16.0.0/24',
+                                 'gateway': '127.0.0.2',
+                                 'priority': 100}) as r:
+            pass
+        assert '172.16.0.0/24' in self.ip.routes.keys()
+        assert grep('ip ro', pattern='172.16.0.0/24.*127.0.0.2.*100')
+        # change the priority
+        with self.ip.routes['172.16.0.0/24'] as r:
+            r.priority = 287
+        # check the changes
+        assert len(grep('ip ro', pattern='172.16.0.0/24.*127.0.0.2')) == 1
+        assert grep('ip ro', pattern='172.16.0.0/24.*127.0.0.2.*287')
+        assert self.ip.routes['172.16.0.0/24'].priority == 287
+        # delete the route
+        with self.ip.routes['172.16.0.0/24'] as r:
+            r.remove()
+
     def test_routes(self):
         require_user('root')
         assert '172.16.0.0/24' not in self.ip.routes
