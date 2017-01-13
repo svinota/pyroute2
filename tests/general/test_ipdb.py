@@ -2424,9 +2424,10 @@ class TestMisc(object):
             def __init__(self):
                 self.called = set()
 
-            def bind(self, async=False):
+            def bind(self, groups=None, async=None):
                 self.called.add('bind')
                 assert async in (True, False)
+                assert isinstance(groups, int)
                 raise NotImplementedError('mock thee')
 
             def clone(self):
