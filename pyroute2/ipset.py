@@ -8,6 +8,7 @@ Right now it is tested only for hash:ip and doesn't support
 many useful options. But it can be easily extended, so you
 are welcome to help with that.
 '''
+import errno
 import socket
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_REQUEST
@@ -35,7 +36,24 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
 from pyroute2.netlink.nfnetlink.ipset import IPSET_DEFAULT_MAXELEM
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_PROTOCOL
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_FIND_TYPE
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_MAX_SETS
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_BUSY
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_EXIST_SETNAME2
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_TYPE_MISMATCH
 from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_EXIST
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_INVALID_CIDR
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_INVALID_NETMASK
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_INVALID_FAMILY
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_TIMEOUT
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_REFERENCED
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_IPADDR_IPV4
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_IPADDR_IPV6
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_COUNTER
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_COMMENT
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_INVALID_MARKMASK
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_SKBINFO
 
 
 def _nlmsg_error(msg):
@@ -72,7 +90,7 @@ class IPSet(NetlinkSocket):
                                     msg_type | (NFNL_SUBSYS_IPSET << 8),
                                     msg_flags, terminate=terminate)
         except NetlinkError as err:
-            raise IPSetError(err.code)
+            raise _IPSetError(err.code, cmd=msg_type)
 
     def headers(self, name):
         '''
@@ -285,3 +303,74 @@ class IPSet(NetlinkSocket):
         min_revision = response[0].get_attr("IPSET_ATTR_PROTOCOL_MIN")
         max_revision = response[0].get_attr("IPSET_ATTR_REVISION")
         return min_revision, max_revision
+
+
+class _IPSetError(IPSetError):
+    '''
+    Proxy class to not import all specifics ipset code in exceptions.py
+
+    Out of the ipset module, a caller should use parent class instead
+    '''
+    def __init__(self, code, msg=None, cmd=None):
+        if code in self.base_map:
+            msg = self.base_map[code]
+        elif cmd in self.cmd_map:
+            error_map = self.cmd_map[cmd]
+            if code in error_map:
+                msg = error_map[code]
+        super(_IPSetError, self).__init__(code, msg)
+
+    base_map = {IPSET_ERR_PROTOCOL: "Kernel error received:"
+                                    " ipset protocol error",
+                IPSET_ERR_INVALID_CIDR: "The value of the CIDR parameter of"
+                                        " the IP address is invalid",
+                IPSET_ERR_TIMEOUT: "Timeout cannot be used: set was created"
+                                   " without timeout support",
+                IPSET_ERR_IPADDR_IPV4: "An IPv4 address is expected, but"
+                                       " not received",
+                IPSET_ERR_IPADDR_IPV6: "An IPv6 address is expected, but"
+                                       " not received",
+                IPSET_ERR_COUNTER: "Packet/byte counters cannot be used:"
+                                   " set was created without counter support",
+                IPSET_ERR_COMMENT: "Comment string is too long!",
+                IPSET_ERR_SKBINFO: "Skbinfo mapping cannot be used: "
+                                   " set was created without skbinfo support"}
+
+    c_map = {errno.EEXIST: "Set cannot be created: set with the same"
+                           " name already exists",
+             IPSET_ERR_FIND_TYPE: "Kernel error received: "
+                                  "set type not supported",
+             IPSET_ERR_MAX_SETS: "Kernel error received: maximal number of"
+                                 " sets reached, cannot create more.",
+             IPSET_ERR_INVALID_NETMASK: "The value of the netmask parameter"
+                                        " is invalid",
+             IPSET_ERR_INVALID_MARKMASK: "The value of the markmask parameter"
+                                         " is invalid",
+             IPSET_ERR_INVALID_FAMILY: "Protocol family not supported by the"
+                                       " set type"}
+
+    destroy_map = {IPSET_ERR_BUSY: "Set cannot be destroyed: it is in use"
+                                   " by a kernel component"}
+
+    r_map = {IPSET_ERR_EXIST_SETNAME2: "Set cannot be renamed: a set with the"
+                                       " new name already exists",
+             IPSET_ERR_REFERENCED: "Set cannot be renamed: it is in use by"
+                                   " another system"}
+
+    s_map = {IPSET_ERR_EXIST_SETNAME2: "Sets cannot be swapped: the second set"
+                                       " does not exist",
+             IPSET_ERR_TYPE_MISMATCH: "The sets cannot be swapped: their type"
+                                      " does not match"}
+
+    a_map = {IPSET_ERR_EXIST: "Element cannot be added to the set: it's"
+                              " already added"}
+
+    del_map = {IPSET_ERR_EXIST: "Element cannot be deleted from the set:"
+                                " it's not added"}
+
+    cmd_map = {IPSET_CMD_CREATE: c_map,
+               IPSET_CMD_DESTROY: destroy_map,
+               IPSET_CMD_RENAME: r_map,
+               IPSET_CMD_SWAP: s_map,
+               IPSET_CMD_ADD: a_map,
+               IPSET_CMD_DEL: del_map}
