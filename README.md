@@ -1,5 +1,3 @@
-![E/// logo](docs/ericsson.png "supported by Ericsson")
-
 pyroute2
 ========
 
