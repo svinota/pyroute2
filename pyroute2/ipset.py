@@ -35,6 +35,7 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
 from pyroute2.netlink.nfnetlink.ipset import IPSET_DEFAULT_MAXELEM
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_EXIST
 
 
 def _nlmsg_error(msg):
@@ -224,8 +225,14 @@ class IPSet(NetlinkSocket):
         '''
         Test if a member is part of an ipset
         '''
-        return self._add_delete_test(name, entry, family, IPSET_CMD_TEST,
-                                     False, etype=etype)
+        try:
+            self._add_delete_test(name, entry, family, IPSET_CMD_TEST,
+                                  False, etype=etype)
+            return True
+        except IPSetError as e:
+            if e.code == IPSET_ERR_EXIST:
+                return False
+            raise e
 
     def swap(self, set_a, set_b):
         '''
