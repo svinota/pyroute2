@@ -77,13 +77,17 @@ loading this module, dumps the core, one can check the
 SELinux state with `getenforce` command.
 
 '''
-
+import io
 import os
 import os.path
 import errno
 import ctypes
 from pyroute2 import config
 from pyroute2.common import basestring
+try:
+    file = file
+except NameError:
+    file = io.IOBase
 
 # FIXME: arch reference
 __NR = {'x86_': {'64bit': 308},
