@@ -188,6 +188,27 @@ class TestNetNS(object):
             netnsmod.remove(foo)
             netnsmod.remove(bar)
 
+    def test_there_and_back(self):
+        require_user('root')
+        fd = open('/proc/self/ns/net', 'r')
+        foo = str(uuid4())
+        #
+        # please notice, that IPRoute / IPDB, started in a netns, will continue
+        # to work in a given netns even if the process changes to another netns
+        #
+        with IPRoute() as ip:
+            links_main1 = set([x.get('index', None) for x in ip.get_links()])
+        netnsmod.setns(foo)
+        with IPRoute() as ip:
+            links_foo = set([x.get('index', None) for x in ip.get_links()])
+        netnsmod.setns(fd)
+        with IPRoute() as ip:
+            links_main2 = set([x.get('index', None) for x in ip.get_links()])
+        assert links_main1 == links_main2
+        assert links_main1 != links_foo
+        netnsmod.remove(foo)
+        fd.close()
+
     def test_move_ns_fd(self):
         foo = str(uuid4())
         bar = str(uuid4())

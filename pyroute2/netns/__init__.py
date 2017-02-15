@@ -83,6 +83,7 @@ import os.path
 import errno
 import ctypes
 from pyroute2 import config
+from pyroute2.common import basestring
 
 # FIXME: arch reference
 __NR = {'x86_': {'64bit': 308},
@@ -185,17 +186,25 @@ def setns(netns, flags=os.O_CREAT, libc=None):
         - O_CREAT | O_EXCL -- create only if doesn't exist
     '''
     libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
-    netnspath = _get_netnspath(netns)
-
-    if os.path.basename(netns) in listnetns(os.path.dirname(netns)):
-        if flags & (os.O_CREAT | os.O_EXCL) == (os.O_CREAT | os.O_EXCL):
-            raise OSError(errno.EEXIST, 'netns exists', netns)
+    if isinstance(netns, basestring):
+        netnspath = _get_netnspath(netns)
+        if os.path.basename(netns) in listnetns(os.path.dirname(netns)):
+            if flags & (os.O_CREAT | os.O_EXCL) == (os.O_CREAT | os.O_EXCL):
+                raise OSError(errno.EEXIST, 'netns exists', netns)
+        else:
+            if flags & os.O_CREAT:
+                create(netns, libc=libc)
+        nsfd = os.open(netnspath, os.O_RDONLY)
+        ret = nsfd
+    elif isinstance(netns, file):
+        nsfd = netns.fileno()
+        ret = netns
+    elif isinstance(netns, int):
+        nsfd = netns
+        ret = netns
     else:
-        if flags & os.O_CREAT:
-            create(netns, libc=libc)
-
-    nsfd = os.open(netnspath, os.O_RDONLY)
-    ret = libc.syscall(__NR_setns, nsfd, CLONE_NEWNET)
-    if ret != 0:
+        raise RuntimeError('netns should be a string or an open fd')
+    error = libc.syscall(__NR_setns, nsfd, CLONE_NEWNET)
+    if error != 0:
         raise OSError(ctypes.get_errno(), 'failed to open netns', netns)
-    return nsfd
+    return ret
