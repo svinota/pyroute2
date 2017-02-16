@@ -556,7 +556,13 @@ class Interface(Transactional):
                             #
                             # So we ignore this particular exception and try to
                             # continue, as it is created by us.
-                            pass
+                            #
+                            # 3. An attempt to create VLAN or VXLAN interface
+                            #    with the same ID but under different name
+                            #
+                            # In that case we should forward error properly
+                            if self['kind'] in ('vlan', 'vxlan'):
+                                newif = x
 
                         else:
                             raise
@@ -587,7 +593,10 @@ class Interface(Transactional):
             #
             if commit_phase == 1 and not self.wait_target('ipdb_scope'):
                 invalidate()
-                raise CreateException()
+                if isinstance(newif, Exception):
+                    raise newif
+                else:
+                    raise CreateException()
 
             # Re-populate transaction.ipaddr to have a proper IP target
             #
