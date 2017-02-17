@@ -121,13 +121,14 @@ class IPSet(NetlinkSocket):
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
         return self.request(msg, cmd)
 
-    def destroy(self, name):
+    def destroy(self, name=None):
         '''
-        Destroy an ipset
+        Destroy one or all ipset (when name is None)
         '''
         msg = ipset_msg()
-        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
-                        ['IPSET_ATTR_SETNAME', name]]
+        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version]]
+        if name is not None:
+            msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
         return self.request(msg, IPSET_CMD_DESTROY,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
                             terminate=_nlmsg_error)
