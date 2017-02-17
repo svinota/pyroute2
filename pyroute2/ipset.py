@@ -2,11 +2,14 @@
 IPSet module
 ============
 
-The very basic ipset support.
+ipset support.
 
-Right now it is tested only for hash:ip and doesn't support
-many useful options. But it can be easily extended, so you
-are welcome to help with that.
+This module is tested with hash:ip, hash:net, list:set and several
+other ipset structures (like hash:net,iface). There is no guarantee
+that this module is working with all available ipset modules.
+
+It supports almost all kernel commands (create, destroy, flush,
+rename, swap, test...)
 '''
 import errno
 import socket
@@ -94,7 +97,8 @@ class IPSet(NetlinkSocket):
 
     def headers(self, name):
         '''
-        Get headers of the named ipset.
+        Get headers of the named ipset. It can be used to test if one ipset
+        exists, since it returns a no such file or directory.
         '''
         return self._list_or_headers(IPSET_CMD_HEADER, name=name)
 
@@ -103,8 +107,8 @@ class IPSet(NetlinkSocket):
         List installed ipsets. If `name` is provided, list
         the named ipset or return an empty list.
 
-        It looks like nfnetlink doesn't return an error,
-        when requested ipset doesn't exist.
+        Be warned: netlink does not return an error if the ipset does not exist
+        you will receive an empty list.
         '''
         if len(argv):
             kwarg['name'] = argv[0]
@@ -136,8 +140,15 @@ class IPSet(NetlinkSocket):
         Create an ipset `name` of type `stype`, by default
         `hash:ip`.
 
-        Very simple and stupid method, should be extended
-        to support more ipset options.
+        Common ipset options are supported:
+
+        * exclusive -- if set, raise an error if the ipset exists
+        * counters -- enable data/packets counters
+        * comment -- enable comments capability
+        * maxelem -- max size of the ipset
+        * forceadd -- you should refer to the ipset manpage
+        * hashsize -- size of the hashtable (if any)
+        * timeout -- enable and set a default value for entries (if not None)
         '''
         excl_flag = NLM_F_EXCL if exclusive else 0
         msg = ipset_msg()
@@ -231,7 +242,14 @@ class IPSet(NetlinkSocket):
     def add(self, name, entry, family=socket.AF_INET, exclusive=True,
             comment=None, timeout=None, etype="ip", **kwargs):
         '''
-        Add a member to the ipset
+        Add a member to the ipset.
+
+        etype is the entry type that you add to the ipset. It's related to
+        the ipset type. For example, use "ip" for one hash:ip or bitmap:ip
+        ipset.
+
+        When your ipset store a tuple, like "hash:net,iface", you must use a
+        comma a separator (etype="net,iface")
         '''
         return self._add_delete_test(name, entry, family, IPSET_CMD_ADD,
                                      exclusive, comment=comment,
@@ -240,7 +258,9 @@ class IPSet(NetlinkSocket):
     def delete(self, name, entry, family=socket.AF_INET, exclusive=True,
                etype="ip"):
         '''
-        Delete a member from the ipset
+        Delete a member from the ipset.
+
+        See add method for more information on etype.
         '''
         return self._add_delete_test(name, entry, family, IPSET_CMD_DEL,
                                      exclusive, etype=etype)
@@ -248,6 +268,8 @@ class IPSet(NetlinkSocket):
     def test(self, name, entry, family=socket.AF_INET, etype="ip"):
         '''
         Test if a member is part of an ipset
+
+        See add method for more information on etype.
         '''
         try:
             self._add_delete_test(name, entry, family, IPSET_CMD_TEST,
