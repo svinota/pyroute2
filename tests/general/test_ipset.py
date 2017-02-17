@@ -226,9 +226,9 @@ class TestIPSet(object):
         require_user('root')
         name = str(uuid4())[:16]
         self.ip.create(name, forceadd=True)
-        res = self.ip.list(name)
+        res = self.ip.list(name)[0].get_attr("IPSET_ATTR_DATA")
 
-        flags = res[0].get_attr("IPSET_ATTR_DATA").get_attr("IPSET_ATTR_CADT_FLAGS")
+        flags = res.get_attr("IPSET_ATTR_CADT_FLAGS")
 
         assert flags & IPSET_FLAG_WITH_FORCEADD
         self.ip.destroy(name)

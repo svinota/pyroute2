@@ -107,8 +107,8 @@ class IPSet(NetlinkSocket):
         List installed ipsets. If `name` is provided, list
         the named ipset or return an empty list.
 
-        Be warned: netlink does not return an error if the ipset does not exist
-        you will receive an empty list.
+        Be warned: netlink does not return an error if given name does not
+        exit, you will receive an empty list.
         '''
         if len(argv):
             kwarg['name'] = argv[0]
