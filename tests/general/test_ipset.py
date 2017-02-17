@@ -35,7 +35,7 @@ class TestIPSet(object):
             res = {}
             msg_list = self.ip.list(name)
             adt = 'IPSET_ATTR_ADT'
-            proto = 'IPSET_ATTR_PROTO'
+            proto = 'IPSET_ATTR_DATA'
             stype = 'IPSET_ATTR_TYPENAME'
             for msg in msg_list:
                 for x in msg.get_attr(adt).get_attrs(proto):
