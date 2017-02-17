@@ -300,3 +300,19 @@ class TestIPSet(object):
         assert "192.168.1.0/27" in self.list_ipset(name)
         assert "192.168.1.32/31" in self.list_ipset(name)
         self.ip.destroy(name)
+
+    def test_custom_hash_values(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        stype = "hash:net"
+        maxelem = 16384
+        hashsize = 64
+        self.ip.create(name, stype=stype, maxelem=maxelem, hashsize=hashsize)
+
+        res = self.ip.list(name)[0].get_attr("IPSET_ATTR_DATA")
+
+        assert res.get_attr("IPSET_ATTR_HASHSIZE") == hashsize
+        assert res.get_attr("IPSET_ATTR_MAXELEM") == maxelem
+        assert res.get_attr("IPSET_ATTR_REFERENCES") == 0
+
+        self.ip.destroy(name)
