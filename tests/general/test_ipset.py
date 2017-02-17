@@ -51,6 +51,8 @@ class TestIPSet(object):
                             entry = self.parse_net(x)
                         elif st == 'iface':
                             entry += x.get_attr('IPSET_ATTR_IFACE')
+                        elif st == 'set':
+                            entry += x.get_attr("IPSET_ATTR_NAME")
                         entry += ","
 
                     entry = entry.strip(",")
@@ -315,4 +317,25 @@ class TestIPSet(object):
         assert res.get_attr("IPSET_ATTR_MAXELEM") == maxelem
         assert res.get_attr("IPSET_ATTR_REFERENCES") == 0
 
+        self.ip.destroy(name)
+
+    def test_list_set(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        subname = str(uuid4())[:16]
+        subtype = "hash:net"
+
+        self.ip.create(subname, stype=subtype)
+        self.ip.create(name, "list:set")
+
+        self.ip.add(name, subname, etype="set")
+        assert subname in self.list_ipset(name)
+        assert self.ip.test(name, subname, etype="set")
+
+        res = self.ip.list(subname)[0].get_attr("IPSET_ATTR_DATA")
+        assert res.get_attr("IPSET_ATTR_REFERENCES") == 1
+
+        self.ip.delete(name, subname, etype="set")
+        assert subname not in self.list_ipset(name)
+        self.ip.destroy(subname)
         self.ip.destroy(name)
