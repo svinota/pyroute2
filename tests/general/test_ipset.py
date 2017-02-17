@@ -2,6 +2,7 @@ import errno
 from time import sleep
 from pyroute2.ipset import IPSet
 from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
 from utils import require_user
 from uuid import uuid4
 
@@ -222,34 +223,12 @@ class TestIPSet(object):
     def test_forceadd(self):
         require_user('root')
         name = str(uuid4())[:16]
-        # The forceadd option only works when the entry that we try to add
-        # share the same hash in the kernel hashtable than an entry already in
-        # the IPSet. That is not so easy to test: we must create collisions
-        # We achieve this goal with a very short hashsize (the kernel minimum)
-        # and many entries.
-        maxelem = 16384
-        ipaddr = "172.16.202.202"
-        self.ip.create(name, maxelem=maxelem, hashsize=64)
+        self.ip.create(name, forceadd=True)
+        res = self.ip.list(name)
 
-        def fill_to_max_entries(name):
-            ip_start = "10.10.%d.%d"
-            for i in range(0, maxelem):
-                self.ip.add(name, ip_start % (i / 255, i % 255))
+        flags = res[0].get_attr("IPSET_ATTR_DATA").get_attr("IPSET_ATTR_CADT_FLAGS")
 
-        fill_to_max_entries(name)
-        try:
-            self.ip.add(name, ipaddr)
-            assert False
-        except NetlinkError:
-            pass
-        finally:
-            assert ipaddr not in self.list_ipset(name)
-            self.ip.destroy(name)
-
-        self.ip.create(name, hashsize=64, maxelem=maxelem, forceadd=True)
-        fill_to_max_entries(name)
-        self.ip.add(name, ipaddr)
-        assert ipaddr in self.list_ipset(name)
+        assert flags & IPSET_FLAG_WITH_FORCEADD
         self.ip.destroy(name)
 
     def test_flush(self):
