@@ -200,6 +200,8 @@ class IPSet(NetlinkSocket):
                 attrs += [['IPSET_ATTR_MARK', int(e)]]
             elif t == 'set':
                 attrs += [['IPSET_ATTR_NAME', e]]
+            elif t == "mac":
+                attrs += [['IPSET_ATTR_ETHER', e]]
         return attrs
 
     def _add_delete_test(self, name, entry, family, cmd, exclusive,
