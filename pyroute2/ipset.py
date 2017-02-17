@@ -179,6 +179,8 @@ class IPSet(NetlinkSocket):
                 ip_version = 'IPSET_ATTR_IPADDR_IPV4'
             elif family == socket.AF_INET6:
                 ip_version = 'IPSET_ATTR_IPADDR_IPV6'
+            elif family == socket.AF_UNSPEC:
+                ip_version = None
             else:
                 raise TypeError('unknown family')
         for e, t in zip(entry.split(','), etype.split(',')):
@@ -196,6 +198,8 @@ class IPSet(NetlinkSocket):
                 attrs += [['IPSET_ATTR_IFACE', e]]
             elif t == 'mark':
                 attrs += [['IPSET_ATTR_MARK', int(e)]]
+            elif t == 'set':
+                attrs += [['IPSET_ATTR_NAME', e]]
         return attrs
 
     def _add_delete_test(self, name, entry, family, cmd, exclusive,
