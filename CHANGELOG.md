@@ -1,6 +1,15 @@
 changelog
 =========
 
+* 0.4.13
+    * ipset: full rework of the IPSET_ATTR_DATA and IPSET_ATTR_ADT
+      ACHTUNG: this commit may break API compatibility
+    * ipset: hash:mac support
+    * ipset: list:set support
+    * ipdb: throw EEXIST when creates VLAN/VXLAN devs with same ID, but
+      under different names
+    * tests: #329 -- include unit tests into the bundle
+    * legal: E/// logo removed
 * 0.4.12
     * ipdb: #314 -- let users choose RTNL groups IPDB listens to
     * ipdb: #321 -- isolate `net_ns_.*` setup in a separate code block
