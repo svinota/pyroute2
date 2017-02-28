@@ -129,8 +129,10 @@ class WatchdogKey(dict):
 # Universal route key
 RouteKey = namedtuple('RouteKey',
                       ('dst',
+                       'scope',
+                       'table',
                        'priority'))
-RouteKey._required = 1  # number of required fields (should go first)
+RouteKey._required = 3  # number of required fields (should go first)
 
 # IP multipath NH key
 IPNHKey = namedtuple('IPNHKey',
@@ -934,6 +936,10 @@ class RoutingTableSet(object):
         Create a route from a dictionary
         '''
         spec = dict(spec or kwarg)
+        if 'scope' not in spec:
+            spec['scope'] = 0
+        if 'table' not in spec:
+            spec['table'] = 254
         if 'dst' not in spec:
             raise ValueError('dst not specified')
         multipath = spec.pop('multipath', [])
