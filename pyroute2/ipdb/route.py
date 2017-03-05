@@ -988,18 +988,6 @@ class RoutingTableSet(object):
         if table in self.ignore_rtables:
             return
 
-        if msg['family'] == AF_INET6:
-            # do not manage some reserved IETF ranges
-            # http://www.iana.org/assignments/
-            #        ipv6-address-space/ipv6-address-space.xhtml
-            reserved = (('ff00', 8),   # multicast
-                        ('fec0', 10),  # deprecated
-                        ('fe80', 10))  # link-scoped unicast
-            dst = msg.get_attr('RTA_DST') or ''
-            for v in reserved:
-                if dst[:4] == v[0] and msg['dst_len'] >= v[1]:
-                    return
-
         # RTM_DELROUTE
         if msg['event'] == 'RTM_DELROUTE':
             try:
