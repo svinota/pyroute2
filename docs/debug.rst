@@ -30,6 +30,17 @@ output in the hex format that can be passed to the pyroute2 decoder::
 
 Now you can copy `send…()` and `recv…()` buffer strings to a file.
 
+Strace compatibility note
+=========================
+
+Starting with version 4.13, `strace` parses Netlink message headers and
+displays them in their parsed form instead of displaying the whole buffer in
+its raw form. The rest of the buffer is still shown, but due to it being
+incomplete, the method mentioned above doesn't work anymore.
+
+For the time being, the easiest workaround is probably to use an older strace
+version as it only depends on libc6.
+
 Decode data
 ===========
 
