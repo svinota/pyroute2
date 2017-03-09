@@ -74,6 +74,7 @@ class Interface(Transactional):
                        'vlans',
                        'ipaddr',
                        'ports',
+                       'vlan_flags',
                        'net_ns_fd',
                        'net_ns_pid']
     _fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
@@ -285,6 +286,8 @@ class Interface(Transactional):
                     if kind == 'vlan':
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
+                        self['vlan_flags'] = data\
+                            .get_attr('IFLA_VLAN_FLAGS')['flags']
                     if kind in ('vxlan', 'macvlan', 'macvtap', 'gre',
                                 'gretap', 'ipvlan', 'bridge',
                                 'ip6gre', 'ip6gretap'):
@@ -741,6 +744,17 @@ class Interface(Transactional):
                     run(nl.link, 'set', **request)
                 if not transaction.partial:
                     transaction.wait_all_targets()
+
+            # 8<---------------------------------------------
+            # VLAN flags -- a dirty hack, pls do something with it
+            if 'vlan_flags' in added:
+                run(nl.link,
+                    (RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK),
+                    **{'kind': 'vlan',
+                       'index': self['index'],
+                       'vlan_flags': [added['vlan_flags'],
+                                      added['vlan_flags'] |
+                                      removed['vlan_flags']]})
 
             # 8<---------------------------------------------
             # IP address changes
