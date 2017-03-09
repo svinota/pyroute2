@@ -323,6 +323,15 @@ class IPLinkRequest(IPRequest):
             # FIXME: we need to replace, not add
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
                            lambda x: x.get('kind', None) == 'vlan')
+        elif key == 'vlan_flags':
+            if isinstance(value, (list, tuple)):
+                nla = ['IFLA_VLAN_FLAGS', {'flags': value[0],
+                                           'mask': value[1]}]
+            else:
+                nla = ['IFLA_VLAN_FLAGS', {'flags': value,
+                                           'mask': value}]
+            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
+                           lambda x: x.get('kind', None) == 'vlan')
         elif key == 'gid':
             nla = ['IFTUN_UID', value]
             self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
