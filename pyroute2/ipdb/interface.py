@@ -748,13 +748,13 @@ class Interface(Transactional):
             # 8<---------------------------------------------
             # VLAN flags -- a dirty hack, pls do something with it
             if 'vlan_flags' in added:
+                old = removed['vlan_flags'] or 0
+                new = added['vlan_flags'] or 0
                 run(nl.link,
                     (RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK),
                     **{'kind': 'vlan',
                        'index': self['index'],
-                       'vlan_flags': [added['vlan_flags'],
-                                      added['vlan_flags'] |
-                                      removed['vlan_flags']]})
+                       'vlan_flags': [new, new | old]})
 
             # 8<---------------------------------------------
             # IP address changes
