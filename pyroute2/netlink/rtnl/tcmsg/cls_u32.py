@@ -110,10 +110,9 @@ class options(nla, nla_plus_police):
                        ('TCA_ACT_KIND', 'asciiz'),
                        ('TCA_ACT_OPTIONS', 'get_act_options'),
                        ('TCA_ACT_INDEX', 'hex'),
-                       ('TCA_ACT_STATS', 'get_stats2'))
+                       ('TCA_ACT_STATS', 'stats2'))
 
-            def get_stats2(self, *argv, **kwarg):
-                return stats2
+            stats2 = stats2
 
     class u32_sel(nla):
         fields = (('flags', 'B'),
