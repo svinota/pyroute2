@@ -7,7 +7,7 @@ from pyroute2 import IPRoute
 from pyroute2 import protocols
 from pyroute2.common import uifname
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.rtnl import TC_H_INGRESS
+from pyroute2.netlink.rtnl import TC_H_INGRESS, TC_H_ROOT
 from nose.plugins.skip import SkipTest
 
 
@@ -152,6 +152,30 @@ class TestIngress(BasicTest):
             get_attr('TCA_POLICE_TBF')
         assert police['rate'] == 1250
         assert police['mtu'] == 2040
+
+    def test_action_stats(self):
+        self.test_simple()
+        self.ip.tc('add-filter', 'u32', self.interface,
+                   parent='ffff:',
+                   protocol=protocols.ETH_P_ALL,
+                   keys=['0x0/0x0+0'],
+                   target=TC_H_ROOT,
+                   action={'kind': 'gact', 'action:': 'ok'},
+                   )
+        filts = self.ip.get_filters(self.interface, parent=TC_H_INGRESS)
+
+        act = [x for x in filts
+               if x.get_attr('TCA_OPTIONS') is not None and
+               (x.get_attr('TCA_OPTIONS').get_attr('TCA_U32_ACT')
+                is not None)][0]
+        # assert we have a u32 filter with a gact action
+        assert act.get_attr('TCA_KIND') == 'u32'
+        gact = act.get_attr("TCA_OPTIONS")\
+                  .get_attr("TCA_U32_ACT")\
+                  .get_attr("TCA_ACT_PRIO_1")
+        assert gact.get_attr('TCA_ACT_KIND') == 'gact'
+        # assert our gact has stats
+        assert gact.get_attr('TCA_ACT_STATS')
 
 
 class TestSimpleQueues(BasicTest):
