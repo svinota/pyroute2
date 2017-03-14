@@ -19,6 +19,10 @@ from pyroute2.netlink.exceptions import \
     NetlinkDecodeError
 
 log = logging.getLogger(__name__)
+# Add a NullHandler to the library's top-level logger to avoid complaints
+# on logging calls when no handler is configured.
+# see https://docs.python.org/2/howto/logging.html#library-config
+log.addHandler(logging.NullHandler())
 
 try:
     # probe, if the bytearray can be used in struct.unpack_from()
