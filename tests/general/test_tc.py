@@ -360,3 +360,45 @@ class TestHtb(BasicTest):
 
         assert params['prio'] == 3
         assert params['quantum'] * 8 == 10200
+
+
+class TestActions(BasicTest):
+
+    def test_mirred(self):
+        # add a htb root
+        self.ip.tc('add', 'htb', self.interface, '1:', default='20:0')
+        # mirred action
+        action = dict(kind='mirred',
+                      direction='egress',
+                      action='mirror',
+                      ifindex=self.interface)
+        # create a filter with this action
+        self.ip.tc('add-filter', 'u32', self.interface, '0:0',
+                   parent='1:0',
+                   prio=10,
+                   protocol=protocols.ETH_P_IP,
+                   target='1:10',
+                   keys=['0x0006/0x00ff+8'],
+                   action=action
+                   )
+
+        # Fetch filters
+        filts = self.ip.get_filters(self.interface)
+        # Find our action
+        for i in filts:
+            try:
+                act = i.get_attr('TCA_OPTIONS')\
+                       .get_attr('TCA_U32_ACT')\
+                       .get_attr('TCA_ACT_PRIO_1')
+                assert act
+                break
+            except AttributeError:
+                continue
+        else:
+            raise Exception('Action not found')
+
+        # Check that it is a mirred action with the right parameters
+        assert act.get_attr('TCA_ACT_KIND') == 'mirred'
+        parms = act.get_attr('TCA_ACT_OPTIONS').get_attr('TCA_MIRRED_PARMS')
+        assert parms['eaction'] == 2  # egress mirror, see act_mirred.py
+        assert parms['ifindex'] == self.interface
