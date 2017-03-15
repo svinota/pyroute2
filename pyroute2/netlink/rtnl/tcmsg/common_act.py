@@ -2,11 +2,13 @@ from pyroute2.netlink.rtnl.tcmsg import act_gact
 from pyroute2.netlink.rtnl.tcmsg import act_bpf
 from pyroute2.netlink.rtnl.tcmsg import act_police
 from pyroute2.netlink.rtnl.tcmsg import act_mirred
+from pyroute2.netlink.rtnl.tcmsg import act_connmark
 
 plugins = {'gact': act_gact,
            'bpf': act_bpf,
            'police': act_police,
            'mirred': act_mirred,
+           'connmark': act_connmark,
            }
 
 

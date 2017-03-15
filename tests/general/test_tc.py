@@ -388,6 +388,24 @@ class TestHtb(BasicTest):
 
 class TestActions(BasicTest):
 
+    def find_action(self, prio=1, filter_name="u32"):
+        """Returns the first action with priority `prio`
+        under the filter with `filter_name`
+        """
+        # Fetch filters
+        filts = self.ip.get_filters(self.interface)
+        # Find our action
+        for i in filts:
+            try:
+                act = i.get_attr('TCA_OPTIONS')\
+                       .get_attr('TCA_%s_ACT' % filter_name.upper())\
+                       .get_attr('TCA_ACT_PRIO_%d' % prio)
+                assert act
+                return act
+            except AttributeError:
+                continue
+        raise Exception('Action not found')
+
     def test_mirred(self):
         # add a htb root
         self.ip.tc('add', 'htb', self.interface, '1:', default='20:0')
@@ -406,23 +424,33 @@ class TestActions(BasicTest):
                    action=action
                    )
 
-        # Fetch filters
-        filts = self.ip.get_filters(self.interface)
-        # Find our action
-        for i in filts:
-            try:
-                act = i.get_attr('TCA_OPTIONS')\
-                       .get_attr('TCA_U32_ACT')\
-                       .get_attr('TCA_ACT_PRIO_1')
-                assert act
-                break
-            except AttributeError:
-                continue
-        else:
-            raise Exception('Action not found')
+        act = self.find_action()
 
         # Check that it is a mirred action with the right parameters
         assert act.get_attr('TCA_ACT_KIND') == 'mirred'
         parms = act.get_attr('TCA_ACT_OPTIONS').get_attr('TCA_MIRRED_PARMS')
         assert parms['eaction'] == 2  # egress mirror, see act_mirred.py
         assert parms['ifindex'] == self.interface
+
+    @skip_if_not_supported
+    def test_connmark(self):
+        # add a htb root
+        self.ip.tc('add', 'htb', self.interface, '1:', default='20:0')
+        # connmark action
+        action = dict(kind='connmark', zone=63)
+        # create a filter with this action
+        self.ip.tc('add-filter', 'u32', self.interface, '0:0',
+                   parent='1:0',
+                   prio=10,
+                   protocol=protocols.ETH_P_IP,
+                   target='1:10',
+                   keys=['0x0006/0x00ff+8'],
+                   action=action
+                   )
+
+        act = self.find_action()
+
+        # Check that it is a connmark action with the right parameters
+        assert act.get_attr('TCA_ACT_KIND') == 'connmark'
+        parms = act.get_attr('TCA_ACT_OPTIONS').get_attr('TCA_CONNMARK_PARMS')
+        assert parms['zone'] == 63
