@@ -7,7 +7,7 @@ Name: python-%{srcname}
 Version: 0.4.13
 Release: 1%{?dist}
 Summary: %{sum}
-License: GPLv2+
+License: GPLv2+ or Apache-2.0
 Group: Development/Languages
 URL: https://github.com/svinota/%{srcname}
 
@@ -69,11 +69,6 @@ IPQ.
 - ipdb: #322 -- IPv6 updates on interfaces in DOWN state
 - rtnl: #284 -- support vlan_flags
 - ipdb: #307 -- fix IPv6 routes management
-<<<<<<< Updated upstream
-= ipdb: #311 -- vlan interfaces address loading
-- iprsocket: #305 -- support NETLINK_LISTEN_ALL_NSID
-
-=======
 - ipdb: #311 -- vlan interfaces address loading
 - iprsocket: #305 -- support NETLINK_LISTEN_ALL_NSID
 
@@ -83,7 +78,6 @@ IPQ.
 * Mon Dec 19 2016 Miro Hrončok <mhroncok@redhat.com> - 0.4.10-2
 - Rebuild for Python 3.6
 
->>>>>>> Stashed changes
 * Fri Oct 14 2016 Peter V. Saveliev <peter@svinota.eu> 0.4.10-1
 - devlink fd leak fix
 
