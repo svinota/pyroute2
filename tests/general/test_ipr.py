@@ -9,6 +9,7 @@ from pyroute2.common import AF_MPLS
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.rtmsg import RTNH_F_ONLINK
 from utils import grep
 from utils import require_user
 from utils import require_python
@@ -685,7 +686,7 @@ class TestIPRoute(object):
                       dst='172.16.244.0/24',
                       gateway='10.100.1.1',
                       oif=1,
-                      flags=4)
+                      flags=RTNH_F_ONLINK)
         assert grep('ip route show', pattern='10.100.1.1.*onlink')
         self.ip.route('del', dst='172.16.244.0/24')
 
@@ -695,10 +696,10 @@ class TestIPRoute(object):
                       dst='172.16.245.0/24',
                       multipath=[{'gateway': '10.100.1.1',
                                   'oif': 1,
-                                  'flags': 4},
+                                  'flags': RTNH_F_ONLINK},
                                  {'gateway': '10.100.1.2',
                                   'oif': 1,
-                                  'flags': 4}])
+                                  'flags': RTNH_F_ONLINK}])
         assert grep('ip route show', pattern='172.16.245.0/24')
         assert grep('ip route show', pattern='nexthop.*10.100.1.1.*onlink')
         assert grep('ip route show', pattern='nexthop.*10.100.1.2.*onlink')

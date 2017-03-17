@@ -6,8 +6,16 @@ from socket import AF_INET
 from socket import AF_INET6
 from pyroute2.common import AF_MPLS
 from pyroute2.common import hexdump
+from pyroute2.common import map_namespace
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
+
+RTNH_F_DEAD = 1
+RTNH_F_PERVASIVE = 2
+RTNH_F_ONLINK = 4
+RTNH_F_OFFLOAD = 8
+RTNH_F_LINKDOWN = 16
+(RTNH_F_NAMES, RTNH_F_VALUES) = map_namespace('RTNH_F', globals())
 
 
 class rtmsg_base(object):
