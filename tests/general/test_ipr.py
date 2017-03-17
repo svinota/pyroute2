@@ -705,6 +705,31 @@ class TestIPRoute(object):
         assert grep('ip route show', pattern='nexthop.*10.100.1.2.*onlink')
         self.ip.route('del', dst='172.16.245.0', mask=24)
 
+    def test_route_onlink_strflags(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.244.0/24',
+                      gateway='10.100.1.1',
+                      oif=1,
+                      flags=['onlink'])
+        assert grep('ip route show', pattern='10.100.1.1.*onlink')
+        self.ip.route('del', dst='172.16.244.0/24')
+
+    def test_route_onlink_multipath_strflags(self):
+        require_user('root')
+        self.ip.route('add',
+                      dst='172.16.245.0/24',
+                      multipath=[{'gateway': '10.100.1.1',
+                                  'oif': 1,
+                                  'flags': ['onlink']},
+                                 {'gateway': '10.100.1.2',
+                                  'oif': 1,
+                                  'flags': RTNH_F_ONLINK}])
+        assert grep('ip route show', pattern='172.16.245.0/24')
+        assert grep('ip route show', pattern='nexthop.*10.100.1.1.*onlink')
+        assert grep('ip route show', pattern='nexthop.*10.100.1.2.*onlink')
+        self.ip.route('del', dst='172.16.245.0', mask=24)
+
     @skip_if_not_supported
     def test_lwtunnel_multipath_mpls(self):
         require_kernel(4, 4)

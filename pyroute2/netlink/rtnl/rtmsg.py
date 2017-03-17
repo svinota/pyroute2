@@ -18,7 +18,28 @@ RTNH_F_LINKDOWN = 16
 (RTNH_F_NAMES, RTNH_F_VALUES) = map_namespace('RTNH_F', globals())
 
 
-class rtmsg_base(object):
+class nlflags(object):
+
+    def encode(self):
+        if isinstance(self['flags'], (set, tuple, list)):
+            self['flags'] = self.names2flags(self['flags'])
+        return super(nlflags, self).encode()
+
+    def flags2names(self, flags=None):
+        ret = []
+        for flag in RTNH_F_VALUES:
+            if (flag & flags) == flag:
+                ret.append(RTNH_F_VALUES[flag].lower()[7:])
+        return ret
+
+    def names2flags(self, flags=None):
+        ret = 0
+        for flag in flags or self['flags']:
+            ret |= RTNH_F_NAMES['RTNH_F_' + flag.upper()]
+        return ret
+
+
+class rtmsg_base(nlflags):
     '''
     Route message
 
@@ -163,7 +184,7 @@ class rtmsg(rtmsg_base, nlmsg):
                                 'RTA_NEWDST',
                                 'RTA_MULTIPATH'):
                     raise TypeError('Incorrect NLA type %s for AF_MPLS' % n[0])
-        nlmsg.encode(self)
+        super(rtmsg_base, self).encode()
 
 
 class nh(rtmsg_base, nla):
