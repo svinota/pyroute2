@@ -445,6 +445,7 @@ class ifinfbase(object):
                         'vxlan': self.vxlan_data,
                         'macvlan': self.macvlan_data,
                         'macvtap': self.macvtap_data,
+                        'vti': self.vti_data,
                         'gre': self.gre_data,
                         'gretap': self.gre_data,
                         'ip6gre': self.ip6gre_data,
@@ -517,6 +518,14 @@ class ifinfbase(object):
             class port_range(nla):
                 fields = (('low', '>H'),
                           ('high', '>H'))
+
+        class vti_data(nla):
+            nla_map = (('IFLA_VTI_UNSPEC', 'none'),
+                       ('IFLA_VTI_LINK', 'uint32'),
+                       ('IFLA_VTI_IKEY', 'be32'),
+                       ('IFLA_VTI_OKEY', 'be32'),
+                       ('IFLA_VTI_LOCAL', 'ip4addr'),
+                       ('IFLA_VTI_REMOTE', 'ip4addr'))
 
         class gre_data(nla):
             nla_map = (('IFLA_GRE_UNSPEC', 'none'),
