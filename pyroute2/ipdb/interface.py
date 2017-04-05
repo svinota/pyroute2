@@ -743,6 +743,12 @@ class Interface(Transactional):
                         **request)
                 else:
                     run(nl.link, 'set', **request)
+
+                # Yet another trick: setting ifalias doesn't cause
+                # netlink updates
+                if 'ifalias' in request:
+                    self.reload()
+
                 if not transaction.partial:
                     transaction.wait_all_targets()
 
