@@ -540,7 +540,10 @@ class Interface(Transactional):
                     # 8<----------------------------------------------------
                     init = self.pick()
                     try:
-                        self.nl.link('add', **self)
+                        self.nl.link('add',
+                                     **{key: self[key] for key in
+                                        filter(lambda x: x[:3] != 'br_',
+                                               self)})
                     except NetlinkError as x:
                         # File exists
                         if x.code == errno.EEXIST:
