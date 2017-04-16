@@ -976,6 +976,9 @@ class nlmsg_base(dict):
 
                 self.data.extend([0] * length)
 
+                if isinstance(value, unicode):
+                    value = str(value)
+
                 # in python3 we should force it
                 if sys.version[0] == '3':
                     if isinstance(value, str):
