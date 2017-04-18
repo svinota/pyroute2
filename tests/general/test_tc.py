@@ -410,10 +410,15 @@ class TestActions(BasicTest):
         # add a htb root
         self.ip.tc('add', 'htb', self.interface, '1:', default='20:0')
         # mirred action
-        action = dict(kind='mirred',
-                      direction='egress',
-                      action='mirror',
-                      ifindex=self.interface)
+        actions = [dict(kind='mirred',
+                        direction='egress',
+                        action='mirror',
+                        ifindex=self.interface),
+                   dict(kind='mirred',
+                        direction='egress',
+                        action='redirect',
+                        ifindex=self.interface),
+                   ]
         # create a filter with this action
         self.ip.tc('add-filter', 'u32', self.interface, '0:0',
                    parent='1:0',
@@ -421,16 +426,23 @@ class TestActions(BasicTest):
                    protocol=protocols.ETH_P_IP,
                    target='1:10',
                    keys=['0x0006/0x00ff+8'],
-                   action=action
+                   action=actions
                    )
 
-        act = self.find_action()
-
-        # Check that it is a mirred action with the right parameters
+        # Check that we have two mirred actions with the right parameters
+        act = self.find_action(1)
         assert act.get_attr('TCA_ACT_KIND') == 'mirred'
         parms = act.get_attr('TCA_ACT_OPTIONS').get_attr('TCA_MIRRED_PARMS')
         assert parms['eaction'] == 2  # egress mirror, see act_mirred.py
         assert parms['ifindex'] == self.interface
+        assert parms['action'] == 3  # TC_ACT_PIPE because action == mirror
+
+        act = self.find_action(2)
+        assert act.get_attr('TCA_ACT_KIND') == 'mirred'
+        parms = act.get_attr('TCA_ACT_OPTIONS').get_attr('TCA_MIRRED_PARMS')
+        assert parms['eaction'] == 1  # egress redirect, see act_mirred.py
+        assert parms['ifindex'] == self.interface
+        assert parms['action'] == 4  # TC_ACT_STOLEN because action == redirect
 
     @skip_if_not_supported
     def test_connmark(self):
