@@ -310,8 +310,8 @@ class TestIPRoute(object):
         midx = self.ip.link_lookup(ifname=master)[0]
         # check modes
         # maybe move modes dict somewhere else?
-        cmode = ifinfmsg.ifinfo.ipvlan_data.modes[smode]
-        assert ifinfmsg.ifinfo.ipvlan_data.modes[cmode] == smode
+        cmode = ifinfmsg.ifinfo.data_map['ipvlan'].modes[smode]
+        assert ifinfmsg.ifinfo.data_map['ipvlan'].modes[cmode] == smode
         # create ipvlan
         self.ip.link('add',
                      ifname=ipvlan,

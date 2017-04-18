@@ -32,17 +32,17 @@ groups = rtnl.RTNLGRP_LINK |\
 
 def _get_data_fields():
     ret = []
-    for data in ('bridge_data',
-                 'bond_data',
-                 'tuntap_data',
-                 'vxlan_data',
-                 'gre_data',
-                 'ip6gre_data',
-                 'macvlan_data',
-                 'macvtap_data',
-                 'ipvlan_data',
-                 'vrf_data'):
-        msg = getattr(ifinfmsg.ifinfo, data)
+    for data in ('bridge',
+                 'bond',
+                 'tuntap',
+                 'vxlan',
+                 'gre',
+                 'ip6gre',
+                 'macvlan',
+                 'macvtap',
+                 'ipvlan',
+                 'vrf'):
+        msg = ifinfmsg.ifinfo.data_map[data]
         ret += [ifinfmsg.nla2name(i[0]) for i in msg.nla_map]
     return ret
 

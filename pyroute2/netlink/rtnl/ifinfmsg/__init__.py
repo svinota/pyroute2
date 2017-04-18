@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import errno
 import select
@@ -158,6 +159,33 @@ stats_names = ('rx_packets',
                'tx_window_errors',
                'rx_compressed',
                'tx_compressed')
+
+
+##
+# IFLA_INFO_DATA plugin system prototype
+#
+def load_plugins(paths):
+    plugins = []
+    for directory in paths:
+        cwd = os.getcwd()
+        os.chdir(directory)
+        files = set([x.split('.')[0] for x in
+                     filter(lambda x: x.endswith(('.py', '.pyc', '.pyo')),
+                            os.listdir('.'))
+                     if not x.startswith('_')])
+        for name in files:
+            sys.path.append(directory)
+            try:
+                module = __import__(name, globals(), locals(), [], 0)
+                plugins.append((name, getattr(module, name)))
+            except:
+                pass
+            sys.path.pop()
+        os.chdir(cwd)
+    return plugins
+
+
+data_plugins = load_plugins(config.data_plugins_path)
 
 
 class ifla_bridge_id(nla):
@@ -441,43 +469,7 @@ class ifinfbase(object):
             kind is not known.
             '''
             kind = self.get_attr('IFLA_INFO_KIND')
-            data_map = {'vlan': self.vlan_data,
-                        'vxlan': self.vxlan_data,
-                        'macvlan': self.macvlan_data,
-                        'macvtap': self.macvtap_data,
-                        'vti': self.vti_data,
-                        'gre': self.gre_data,
-                        'gretap': self.gre_data,
-                        'ip6gre': self.ip6gre_data,
-                        'ip6gretap': self.ip6gre_data,
-                        'bond': self.bond_data,
-                        'veth': self.veth_data,
-                        'tuntap': self.tuntap_data,
-                        'bridge': self.bridge_data,
-                        'ipvlan': self.ipvlan_data,
-                        'vrf': self.vrf_data,
-                        'gtp': self.gtp_data}
-            return data_map.get(kind, self.hex)
-
-        class tuntap_data(nla):
-            '''
-            Fake data type
-            '''
-            prefix = 'IFTUN_'
-            nla_map = (('IFTUN_UNSPEC', 'none'),
-                       ('IFTUN_MODE', 'asciiz'),
-                       ('IFTUN_UID', 'uint32'),
-                       ('IFTUN_GID', 'uint32'),
-                       ('IFTUN_IFR', 'flags'))
-
-            class flags(nla):
-                fields = (('no_pi', 'B'),
-                          ('one_queue', 'B'),
-                          ('vnet_hdr', 'B'),
-                          ('tun_excl', 'B'),
-                          ('multi_queue', 'B'),
-                          ('persist', 'B'),
-                          ('nofilter', 'B'))
+            return self.data_map.get(kind, self.hex)
 
         class veth_data(nla):
             nla_map = (('VETH_INFO_UNSPEC', 'none'),
@@ -486,46 +478,6 @@ class ifinfbase(object):
             @staticmethod
             def info_peer(self, *argv, **kwarg):
                 return ifinfveth
-
-        class vxlan_data(nla):
-            nla_map = (('IFLA_VXLAN_UNSPEC', 'none'),
-                       ('IFLA_VXLAN_ID', 'uint32'),
-                       ('IFLA_VXLAN_GROUP', 'ip4addr'),
-                       ('IFLA_VXLAN_LINK', 'uint32'),
-                       ('IFLA_VXLAN_LOCAL', 'ip4addr'),
-                       ('IFLA_VXLAN_TTL', 'uint8'),
-                       ('IFLA_VXLAN_TOS', 'uint8'),
-                       ('IFLA_VXLAN_LEARNING', 'uint8'),
-                       ('IFLA_VXLAN_AGEING', 'uint32'),
-                       ('IFLA_VXLAN_LIMIT', 'uint32'),
-                       ('IFLA_VXLAN_PORT_RANGE', 'port_range'),
-                       ('IFLA_VXLAN_PROXY', 'uint8'),
-                       ('IFLA_VXLAN_RSC', 'uint8'),
-                       ('IFLA_VXLAN_L2MISS', 'uint8'),
-                       ('IFLA_VXLAN_L3MISS', 'uint8'),
-                       ('IFLA_VXLAN_PORT', 'be16'),
-                       ('IFLA_VXLAN_GROUP6', 'ip6addr'),
-                       ('IFLA_VXLAN_LOCAL6', 'ip6addr'),
-                       ('IFLA_VXLAN_UDP_CSUM', 'uint8'),
-                       ('IFLA_VXLAN_UDP_ZERO_CSUM6_TX', 'uint8'),
-                       ('IFLA_VXLAN_UDP_ZERO_CSUM6_RX', 'uint8'),
-                       ('IFLA_VXLAN_REMCSUM_TX', 'uint8'),
-                       ('IFLA_VXLAN_REMCSUM_RX', 'uint8'),
-                       ('IFLA_VXLAN_GBP', 'flag'),
-                       ('IFLA_VXLAN_REMCSUM_NOPARTIAL', 'flag'),
-                       ('IFLA_VXLAN_COLLECT_METADATA', 'uint8'))
-
-            class port_range(nla):
-                fields = (('low', '>H'),
-                          ('high', '>H'))
-
-        class vti_data(nla):
-            nla_map = (('IFLA_VTI_UNSPEC', 'none'),
-                       ('IFLA_VTI_LINK', 'uint32'),
-                       ('IFLA_VTI_IKEY', 'be32'),
-                       ('IFLA_VTI_OKEY', 'be32'),
-                       ('IFLA_VTI_LOCAL', 'ip4addr'),
-                       ('IFLA_VTI_REMOTE', 'ip4addr'))
 
         class gre_data(nla):
             nla_map = (('IFLA_GRE_UNSPEC', 'none'),
@@ -582,41 +534,6 @@ class ifinfbase(object):
             nla_map = [(x[0].replace('MACVLAN', 'MACVTAP'), x[1])
                        for x in macvx_data.nla_map]
 
-        class ipvlan_data(nla):
-            nla_map = (('IFLA_IPVLAN_UNSPEC', 'none'),
-                       ('IFLA_IPVLAN_MODE', 'uint16'))
-
-            modes = {0: 'IPVLAN_MODE_L2',
-                     1: 'IPVLAN_MODE_L3',
-                     'IPVLAN_MODE_L2': 0,
-                     'IPVLAN_MODE_L3': 1}
-
-        class vlan_data(nla):
-            nla_map = (('IFLA_VLAN_UNSPEC', 'none'),
-                       ('IFLA_VLAN_ID', 'uint16'),
-                       ('IFLA_VLAN_FLAGS', 'vlan_flags'),
-                       ('IFLA_VLAN_EGRESS_QOS', 'qos'),
-                       ('IFLA_VLAN_INGRESS_QOS', 'qos'),
-                       ('IFLA_VLAN_PROTOCOL', 'be16'))
-
-            class vlan_flags(nla):
-                fields = (('flags', 'I'),
-                          ('mask', 'I'))
-
-            class qos(nla):
-                nla_map = (('IFLA_VLAN_QOS_UNSPEC', 'none'),
-                           ('IFLA_VLAN_QOS_MAPPING', 'qos_mapping'))
-
-                class qos_mapping(nla):
-                    fields = (('from', 'I'),
-                              ('to', 'I'))
-
-        class gtp_data(nla):
-            nla_map = (('IFLA_GTP_UNSPEC', 'none'),
-                       ('IFLA_GTP_FD0', 'uint32'),
-                       ('IFLA_GTP_FD1', 'uint32'),
-                       ('IFLA_GTP_PDP_HASHSIZE', 'uint32'))
-
         class bridge_data(nla):
             nla_map = (('IFLA_BR_UNSPEC', 'none'),
                        ('IFLA_BR_FORWARD_DELAY', 'uint32'),
@@ -662,50 +579,18 @@ class ifinfbase(object):
             class br_id(ifla_bridge_id):
                 pass
 
-        class bond_data(nla):
-            nla_map = (('IFLA_BOND_UNSPEC', 'none'),
-                       ('IFLA_BOND_MODE', 'uint8'),
-                       ('IFLA_BOND_ACTIVE_SLAVE', 'uint32'),
-                       ('IFLA_BOND_MIIMON', 'uint32'),
-                       ('IFLA_BOND_UPDELAY', 'uint32'),
-                       ('IFLA_BOND_DOWNDELAY', 'uint32'),
-                       ('IFLA_BOND_USE_CARRIER', 'uint8'),
-                       ('IFLA_BOND_ARP_INTERVAL', 'uint32'),
-                       ('IFLA_BOND_ARP_IP_TARGET', 'arp_ip_target'),
-                       ('IFLA_BOND_ARP_VALIDATE', 'uint32'),
-                       ('IFLA_BOND_ARP_ALL_TARGETS', 'uint32'),
-                       ('IFLA_BOND_PRIMARY', 'uint32'),
-                       ('IFLA_BOND_PRIMARY_RESELECT', 'uint8'),
-                       ('IFLA_BOND_FAIL_OVER_MAC', 'uint8'),
-                       ('IFLA_BOND_XMIT_HASH_POLICY', 'uint8'),
-                       ('IFLA_BOND_RESEND_IGMP', 'uint32'),
-                       ('IFLA_BOND_NUM_PEER_NOTIF', 'uint8'),
-                       ('IFLA_BOND_ALL_SLAVES_ACTIVE', 'uint8'),
-                       ('IFLA_BOND_MIN_LINKS', 'uint32'),
-                       ('IFLA_BOND_LP_INTERVAL', 'uint32'),
-                       ('IFLA_BOND_PACKETS_PER_SLAVE', 'uint32'),
-                       ('IFLA_BOND_AD_LACP_RATE', 'uint8'),
-                       ('IFLA_BOND_AD_SELECT', 'uint8'),
-                       ('IFLA_BOND_AD_INFO', 'ad_info'),
-                       ('IFLA_BOND_AD_ACTOR_SYS_PRIO', 'uint16'),
-                       ('IFLA_BOND_AD_USER_PORT_KEY', 'uint16'),
-                       ('IFLA_BOND_AD_ACTOR_SYSTEM', 'hex'),
-                       ('IFLA_BOND_TLB_DYNAMIC_LB', 'uint8'))
-
-            class ad_info(nla):
-                nla_map = (('IFLA_BOND_AD_INFO_UNSPEC', 'none'),
-                           ('IFLA_BOND_AD_INFO_AGGREGATOR', 'uint16'),
-                           ('IFLA_BOND_AD_INFO_NUM_PORTS', 'uint16'),
-                           ('IFLA_BOND_AD_INFO_ACTOR_KEY', 'uint16'),
-                           ('IFLA_BOND_AD_INFO_PARTNER_KEY', 'uint16'),
-                           ('IFLA_BOND_AD_INFO_PARTNER_MAC', 'l2addr'))
-
-            class arp_ip_target(nla):
-                fields = (('targets', '16I'), )
-
-        class vrf_data(nla):
-            nla_map = (('IFLA_VRF_UNSPEC', 'none'),
-                       ('IFLA_VRF_TABLE', 'uint32'))
+        # IFLA_INFO_DATA plugin system prototype
+        data_map = {'macvlan': macvlan_data,
+                    'macvtap': macvtap_data,
+                    'gre': gre_data,
+                    'gretap': gre_data,
+                    'ip6gre': ip6gre_data,
+                    'ip6gretap': ip6gre_data,
+                    'veth': veth_data,
+                    'bridge': bridge_data}
+        # expand supported interface types
+        for kind, plugin in data_plugins:
+            data_map[kind] = plugin
 
     @staticmethod
     def af_spec(self, *argv, **kwarg):
