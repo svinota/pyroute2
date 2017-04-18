@@ -177,9 +177,15 @@ def get_rate_parameters(kwarg):
 
 tc_actions = {'unspec': -1,     # TC_ACT_UNSPEC
               'ok': 0,          # TC_ACT_OK
+              'reclassify': 1,  # TC_ACT_RECLASSIFY
               'shot': 2,        # TC_ACT_SHOT
               'drop': 2,        # TC_ACT_SHOT
-              'pipe': 3}        # TC_ACT_PIPE
+              'pipe': 3,        # TC_ACT_PIPE
+              'stolen': 4,      # TC_ACT_STOLEN
+              'queued': 5,      # TC_ACT_QUEUED
+              'repeat': 6,      # TC_ACT_REPEAT
+              'redirect': 7,    # TC_ACT_REDIRECT
+              }
 
 
 class nla_plus_rtab(nla):
