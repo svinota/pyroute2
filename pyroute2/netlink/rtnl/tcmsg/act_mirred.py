@@ -1,5 +1,6 @@
 from pyroute2.netlink import nla
 from pyroute2.netlink import NLA_F_NESTED
+from pyroute2.netlink.rtnl.tcmsg.common import tc_actions
 """
 Mirred - mirror/redirect action
 see tc-mirred(8)
@@ -48,6 +49,12 @@ def get_parameters(kwarg):
 
     if 'index' in kwarg:
         parms['index'] = int(kwarg['index'])
+
+    # From m_mirred.c
+    if kwarg['action'] == 'redirect':
+        parms['action'] = tc_actions['stolen']
+    else:  # mirror
+        parms['action'] = tc_actions['pipe']
 
     ret['attrs'].append(['TCA_MIRRED_PARMS', parms])
     return ret
