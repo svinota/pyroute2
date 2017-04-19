@@ -131,7 +131,8 @@ RouteKey = namedtuple('RouteKey',
                       ('dst',
                        'scope',
                        'table',
-                       'priority'))
+                       'priority',
+                       'oif'))
 RouteKey._required = 3  # number of required fields (should go first)
 
 # IP multipath NH key
@@ -807,8 +808,16 @@ class RoutingTable(object):
                 # iif
                 r = RouteKey._required
                 l = RouteKey._fields
-                return self.idx[RouteKey(*(target[:r] +
-                                           (None, ) * (len(l) - r)))]
+                try:
+                    return self.idx[RouteKey(*(target[:r] +
+                                               (None, ) * (len(l) - r)))]
+                except KeyError:
+                    # no luck with keys, fallback to simple search
+                    for key in self.idx:
+                        if key[:r] == target[:r]:
+                            return self.idx[key]
+                    else:
+                        raise
 
         if isinstance(target, nlmsg):
             return self.idx[Route.make_key(target)]
