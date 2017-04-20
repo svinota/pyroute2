@@ -728,32 +728,48 @@ class Interface(Transactional):
             # 8<---------------------------------------------
             # Interface changes
             request = IPLinkRequest()
+            brequest = IPLinkRequest()
+            # preseed requests with the interface kind
+            request['kind'] = self['kind']
+            brequest['kind'] = self['kind']
+            wait_all = False
             for key in added:
                 if (key not in self._virtual_fields) and (key != 'kind'):
-                    request[key] = added[key]
+                    if key[:3] == 'br_':
+                        brequest[key] = added[key]
+                    else:
+                        request[key] = added[key]
+            # FIXME: flush the interface type so the next two conditions
+            # will work correctly
+            request['kind'] = None
+            brequest['kind'] = None
 
             # apply changes only if there is something to apply
+            if (self['kind'] == 'bridge') and \
+                    any([brequest[item] is not None for item in brequest]):
+                brequest['index'] = self['index']
+                brequest['kind'] = self['kind']
+                brequest['family'] = socket.AF_BRIDGE
+                wait_all = True
+                run(nl.link, (RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK),
+                    **brequest)
+
             if any([request[item] is not None for item in request]):
                 request['index'] = self['index']
                 request['kind'] = self['kind']
                 if request.get('address', None) == '00:00:00:00:00:00':
                     request.pop('address')
                     request.pop('broadcast', None)
-                if tuple(filter(lambda x: x[:3] == 'br_', request)):
-                    request['family'] = socket.AF_BRIDGE
-                    run(nl.link,
-                        (RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK),
-                        **request)
-                else:
-                    run(nl.link, 'set', **request)
+                wait_all = True
+                run(nl.link, 'set', **request)
 
                 # Yet another trick: setting ifalias doesn't cause
                 # netlink updates
                 if 'ifalias' in request:
                     self.reload()
 
-                if not transaction.partial:
-                    transaction.wait_all_targets()
+            if (wait_all) and (not transaction.partial):
+                transaction.wait_all_targets()
 
             # 8<---------------------------------------------
             # VLAN flags -- a dirty hack, pls do something with it

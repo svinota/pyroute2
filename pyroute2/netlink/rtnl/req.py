@@ -285,11 +285,91 @@ class IPLinkRequest(IPRequest):
     blacklist = ['carrier',
                  'carrier_changes']
 
+    # get common ifinfmsg NLAs
+    common = [key[len(ifinfmsg.prefix):].lower()
+              for (key, _) in ifinfmsg.nla_map]
+    common.append('family')
+    common.append('ifi_type')
+    common.append('index')
+    common.append('flags')
+    common.append('change')
+
     def __init__(self, *argv, **kwarg):
         self.deferred = []
+        self.kind = None
+        self.specific = {}
+        self.linkinfo = None
+        self._info_data = None
         IPRequest.__init__(self, *argv, **kwarg)
         if 'index' not in self:
             self['index'] = 0
+
+    @property
+    def info_data(self):
+        if self._info_data is None:
+            info_data = ('IFLA_INFO_DATA', {'attrs': []})
+            self._info_data = info_data[1]['attrs']
+            self.linkinfo.append(info_data)
+        return self._info_data
+
+    def flush_deferred(self):
+        # create IFLA_LINKINFO
+        linkinfo = {'attrs': []}
+        self.linkinfo = linkinfo['attrs']
+        dict.__setitem__(self, 'IFLA_LINKINFO', linkinfo)
+        self.linkinfo.append(['IFLA_INFO_KIND', self.kind])
+        # load specific NLA names
+        cls = ifinfmsg.ifinfo.data_map.get(self.kind, None)
+        if cls is not None:
+            prefix = getattr(cls, 'prefix', 'IFLA_')
+            for nla, _ in cls.nla_map:
+                self.specific[nla[len(prefix):].lower()] = nla
+
+        # flush deferred NLAs
+        for (key, value) in self.deferred:
+            if not self.set_specific(key, value):
+                dict.__setitem__(self, key, value)
+
+        self.deferred = []
+
+    def set_specific(self, key, value):
+        # the kind is known: lookup the NLA
+        if key in self.specific:
+            self.info_data.append((self.specific[key], value))
+            return True
+        elif key == 'peer' and self.kind == 'veth':
+            # FIXME: veth hack
+            if isinstance(value, dict):
+                attrs = []
+                for k, v in value.items():
+                    attrs.append([ifinfmsg.name2nla(k), v])
+            else:
+                attrs = [['IFLA_IFNAME', value], ]
+            nla = ['VETH_INFO_PEER', {'attrs': attrs}]
+            self.info_data.append(nla)
+            return True
+        elif key == 'mode':
+            # FIXME: ipvlan / tuntap / bond hack
+            if self.kind == 'ipvlan':
+                nla = ['IFLA_IPVLAN_MODE', value]
+            elif self.kind == 'tuntap':
+                nla = ['IFTUN_MODE', value]
+            elif self.kind == 'bond':
+                nla = ['IFLA_BOND_MODE', value]
+            self.info_data.append(nla)
+            return True
+        elif key == 'vlan_flags':
+            # FIXME: vlan hack
+            if isinstance(value, (list, tuple)):
+                nla = ['IFLA_VLAN_FLAGS', {'flags': value[0],
+                                           'mask': value[1]}]
+            else:
+                nla = ['IFLA_VLAN_FLAGS', {'flags': value,
+                                           'mask': value}]
+            self.info_data.append(nla)
+            return True
+
+        return False
 
     def __setitem__(self, key, value):
         # ignore blacklisted attributes
@@ -307,128 +387,14 @@ class IPLinkRequest(IPRequest):
         except NameError:
             pass
 
-        # set up specific keys
-        if key == 'kind':
-            self['IFLA_LINKINFO'] = {'attrs': []}
-            linkinfo = self['IFLA_LINKINFO']['attrs']
-            linkinfo.append(['IFLA_INFO_KIND', value])
-            if value in ('vlan', 'bond', 'tuntap', 'veth',
-                         'vxlan', 'macvlan', 'macvtap', 'gre',
-                         'gretap', 'ipvlan', 'bridge', 'vrf',
-                         'ip6gre', 'ip6gretap', 'vti'):
-                linkinfo.append(['IFLA_INFO_DATA', {'attrs': []}])
-        elif key == 'vlan_id':
-            nla = ['IFLA_VLAN_ID', value]
-            # FIXME: we need to replace, not add
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'vlan')
-        elif key == 'vlan_flags':
-            if isinstance(value, (list, tuple)):
-                nla = ['IFLA_VLAN_FLAGS', {'flags': value[0],
-                                           'mask': value[1]}]
-            else:
-                nla = ['IFLA_VLAN_FLAGS', {'flags': value,
-                                           'mask': value}]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'vlan')
-        elif key == 'gid':
-            nla = ['IFTUN_UID', value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'tuntap')
-        elif key == 'uid':
-            nla = ['IFTUN_UID', value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'tuntap')
-        elif key == 'mode':
-            nla = ['IFLA_IPVLAN_MODE', value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'ipvlan')
-            nla = ['IFTUN_MODE', value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'tuntap')
-            nla = ['IFLA_BOND_MODE', value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'bond')
-        elif key == 'stp_state':
-            nla = ['IFLA_BRIDGE_STP_STATE', value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'bridge')
-        elif key == 'ifr':
-            nla = ['IFTUN_IFR', value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'tuntap')
-        elif key.startswith('macvtap_'):
-            nla = [ifinfmsg.name2nla(key), value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'macvtap')
-        elif key.startswith('macvlan_'):
-            nla = [ifinfmsg.name2nla(key), value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'macvlan')
-        elif key.startswith('vti_'):
-            nla = [ifinfmsg.name2nla(key), value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'vti' or
-                           x.get('kind', None) == 'vti')
-        elif key.startswith('gre_'):
-            nla = [ifinfmsg.name2nla(key), value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'gre' or
-                           x.get('kind', None) == 'gretap')
-        elif key.startswith('ip6gre_'):
-            nla = [ifinfmsg.name2nla(key), value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'ip6gre' or
-                           x.get('kind', None) == 'ip6gretap')
-        elif key.startswith('vxlan_'):
-            nla = [ifinfmsg.name2nla(key), value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'vxlan')
-        elif key.startswith('vrf_'):
-            nla = [ifinfmsg.name2nla(key), value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'vrf')
-        elif key.startswith('br_'):
-            nla = [ifinfmsg.name2nla(key), value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'bridge')
-        elif key.startswith('bond_'):
-            nla = [ifinfmsg.name2nla(key), value]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'bond')
-        elif key == 'peer':
-            if isinstance(value, dict):
-                attrs = []
-                for k, v in value.items():
-                    attrs.append([ifinfmsg.name2nla(k), v])
-            else:
-                attrs = [['IFLA_IFNAME', value], ]
-            nla = ['VETH_INFO_PEER', {'attrs': attrs}]
-            self.defer_nla(nla, ('IFLA_LINKINFO', 'IFLA_INFO_DATA'),
-                           lambda x: x.get('kind', None) == 'veth')
-        dict.__setitem__(self, key, value)
-        if self.deferred:
+        if key == 'kind' and not self.kind:
+            self.kind = value
             self.flush_deferred()
-
-    def flush_deferred(self):
-        deferred = []
-        for nla, path, predicate in self.deferred:
-            if predicate(self):
-                self.append_nla(nla, path)
+        elif self.kind is None:
+            if key in self.common:
+                dict.__setitem__(self, key, value)
             else:
-                deferred.append((nla, path, predicate))
-        self.deferred = deferred
-
-    def append_nla(self, nla, path):
-            pwd = self
-            for step in path:
-                if step in pwd:
-                    pwd = pwd[step]
-                else:
-                    pwd = [x[1] for x in pwd['attrs']
-                           if x[0] == step][0]['attrs']
-            pwd.append(nla)
-
-    def defer_nla(self, nla, path, predicate):
-        self.deferred.append((nla, path, predicate))
-        self.flush_deferred()
+                self.deferred.append((key, value))
+        else:
+            if not self.set_specific(key, value):
+                dict.__setitem__(self, key, value)

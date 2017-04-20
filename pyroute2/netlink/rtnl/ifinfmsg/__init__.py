@@ -535,6 +535,7 @@ class ifinfbase(object):
                        for x in macvx_data.nla_map]
 
         class bridge_data(nla):
+            prefix = 'IFLA_'
             nla_map = (('IFLA_BR_UNSPEC', 'none'),
                        ('IFLA_BR_FORWARD_DELAY', 'uint32'),
                        ('IFLA_BR_HELLO_TIME', 'uint32'),
