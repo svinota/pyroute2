@@ -533,9 +533,9 @@ from pyroute2.common import uuid32
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK, RTNL_GROUPS
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.ipdb import rule
-from pyroute2.ipdb import route
-from pyroute2.ipdb import interface
+from pyroute2.ipdb import rules
+from pyroute2.ipdb import routes
+from pyroute2.ipdb import interfaces
 from pyroute2.ipdb.linkedset import IPaddrSet, SortedIPaddrSet
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 
@@ -583,7 +583,11 @@ class IPDB(object):
                  restart_on_error=None, nl_async=None,
                  nl_bind_groups=RTNL_GROUPS,
                  ignore_rtables=None, callbacks=None,
-                 sort_addresses=False):
+                 sort_addresses=False, plugins=None):
+        plugins = plugins or ['interfaces', 'routes', 'rules']
+        pmap = {'interfaces': interfaces,
+                'routes': routes,
+                'rules': rules}
         self.mode = mode
         self.sort_addresses = sort_addresses
         self._event_map = {}
@@ -595,7 +599,7 @@ class IPDB(object):
         self.mnl = None
         self.nl = nl
         self.nl_bind_groups = nl_bind_groups
-        self._plugins = [interface, route, rule]
+        self._plugins = [pmap[x] for x in plugins if x in pmap]
         if isinstance(ignore_rtables, int):
             self._ignore_rtables = [ignore_rtables, ]
         elif isinstance(ignore_rtables, (list, tuple, set)):
