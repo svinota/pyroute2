@@ -59,6 +59,9 @@ class rtmsg_base(nlflags):
             unsigned int  rtm_flags;
         };
     '''
+
+    __slots__ = ()
+
     prefix = 'RTA_'
 
     fields = (('family', 'B'),
@@ -101,15 +104,24 @@ class rtmsg_base(nlflags):
         return self.mpls_encap_info
 
     class mpls_encap_info(nla):
+
+        __slots__ = ()
+
         nla_map = (('MPLS_IPTUNNEL_UNSPEC', 'none'),
                    ('MPLS_IPTUNNEL_DST', 'mpls_target'))
 
     class rta_mfc_stats(nla):
+
+        __slots__ = ()
+
         fields = (('mfcs_packets', 'uint64'),
                   ('mfcs_bytes', 'uint64'),
                   ('mfcs_wrong_if', 'uint64'))
 
     class metrics(nla):
+
+        __slots__ = ()
+
         prefix = 'RTAX_'
         nla_map = (('RTAX_UNSPEC', 'none'),
                    ('RTAX_LOCK', 'uint32'),
@@ -133,6 +145,9 @@ class rtmsg_base(nlflags):
         return nh
 
     class rtvia(nla):
+
+        __slots__ = ()
+
         fields = (('value', 's'), )
 
         def encode(self):
@@ -158,6 +173,9 @@ class rtmsg_base(nlflags):
             self.value = {'family': family, 'addr': addr}
 
     class cacheinfo(nla):
+
+        __slots__ = ()
+
         fields = (('rta_clntref', 'I'),
                   ('rta_lastuse', 'I'),
                   ('rta_expires', 'i'),
@@ -169,6 +187,8 @@ class rtmsg_base(nlflags):
 
 
 class rtmsg(rtmsg_base, nlmsg):
+
+    __slots__ = ()
 
     def encode(self):
         if self.get('family') == AF_MPLS:
@@ -188,6 +208,9 @@ class rtmsg(rtmsg_base, nlmsg):
 
 
 class nh(rtmsg_base, nla):
+
+    __slots__ = ()
+
     is_nla = False
     cell_header = (('length', 'H'), )
     fields = (('flags', 'B'),
