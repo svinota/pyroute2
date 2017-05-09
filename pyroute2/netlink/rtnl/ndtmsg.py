@@ -7,6 +7,9 @@ class ndtmsg(nlmsg):
     '''
     Neighbour table message
     '''
+
+    __slots__ = ()
+
     fields = (('family', 'B'),
               ('__pad', '3x'))
 
@@ -21,6 +24,9 @@ class ndtmsg(nlmsg):
                ('NDTA_GC_INTERVAL', 'uint64'))
 
     class config(nla):
+
+        __slots__ = ()
+
         fields = (('key_len', 'H'),
                   ('entry_size', 'H'),
                   ('entries', 'I'),
@@ -32,6 +38,9 @@ class ndtmsg(nlmsg):
                   ('proxy_qlen', 'I'))
 
     class stats(nla):
+
+        __slots__ = ()
+
         fields = (('allocs', 'Q'),
                   ('destroys', 'Q'),
                   ('hash_grows', 'Q'),
@@ -44,6 +53,9 @@ class ndtmsg(nlmsg):
                   ('forced_gc_runs', 'Q'))
 
     class parms(nla):
+
+        __slots__ = ()
+
         nla_map = (('NDTPA_UNSPEC', 'none'),
                    ('NDTPA_IFINDEX', 'uint32'),
                    ('NDTPA_REFCNT', 'uint32'),

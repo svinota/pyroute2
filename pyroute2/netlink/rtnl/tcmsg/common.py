@@ -240,6 +240,7 @@ class nla_plus_rtab(nla):
 
     class rtab(nla):
         fields = (('value', 's'), )
+        own_parent = True
 
         def encode(self):
             parms = self.parent.get_encoded('TCA_TBF_PARMS') or \

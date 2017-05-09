@@ -321,7 +321,7 @@ class IPLinkRequest(IPRequest):
         # load specific NLA names
         cls = ifinfmsg.ifinfo.data_map.get(self.kind, None)
         if cls is not None:
-            prefix = getattr(cls, 'prefix', 'IFLA_')
+            prefix = cls.prefix or 'IFLA_'
             for nla, _ in cls.nla_map:
                 self.specific[nla[len(prefix):].lower()] = nla
 
