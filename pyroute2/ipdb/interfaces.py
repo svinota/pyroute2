@@ -841,9 +841,13 @@ class Interface(Transactional):
                                                   'scope')])
                     except KeyError:
                         kwarg = None
-                    # feed the address to the OS
-                    run(nl.addr, 'add', self['index'], i[0], i[1],
-                        **kwarg if kwarg else {})
+                    try:
+                        # feed the address to the OS
+                        run(nl.addr, 'add', self['index'], i[0], i[1],
+                            **kwarg if kwarg else {})
+                    except NetlinkError as x:
+                        if x.code != errno.EEXIST:
+                            raise
 
                 # 8<--------------------------------------
                 # some interfaces do not send IPv6 address
