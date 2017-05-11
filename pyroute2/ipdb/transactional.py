@@ -382,9 +382,10 @@ class Transactional(TransactionalBase):
         Review the changes made in the transaction `tid`
         or in the current active transaction (thread-local)
         '''
-        tid = tid or self.current_tx.uid
-        if tid is None:
+        if self.current_tx is None:
             raise TypeError('start a transaction first')
+
+        tid = tid or self.current_tx.uid
 
         if self.get('ipdb_scope') == 'create':
             return dict([(x[0], x[1]) for x in self.items()
