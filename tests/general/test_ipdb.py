@@ -1790,23 +1790,23 @@ class TestExplicit(BasicSetup):
         assert ifB in self.ip.interfaces
 
     def test_create_fail(self):
-        require_user('root')
-
-        ifA = self.get_ifname()
-
-        # create with mac 11:22:33:44:55:66 should fail
-        i = self.ip.create(kind='dummy',
-                           ifname=ifA,
-                           address='11:22:33:44:55:66')
+        ifname = uifname()
+        kind = uifname()
+        interface = self.ip.create(ifname=ifname, kind=kind)
         try:
-            i.commit()
-        except NetlinkError:
+            with self.ip.interfaces[ifname] as i:
+                pass
+        except:
             pass
+        assert ifname in self.ip.interfaces
+        assert self.ip.interfaces[ifname]['ipdb_scope'] == 'create'
+        assert self.ip.interfaces[ifname]['kind'] == kind
 
-        assert ifA in self.ip.interfaces
-        assert self.ip.interfaces[ifA]['ipdb_scope'] == 'create'
-        # mac specified in create()
-        assert self.ip.interfaces[ifA]['address'] == '11:22:33:44:55:66'
+        with self.ip.interfaces[ifname] as i:
+            i.remove()
+
+        assert ifname not in self.ip.interfaces
+        assert interface['ipdb_scope'] == 'detached'
 
     def test_create_fail_repeat(self):
         require_user('root')
