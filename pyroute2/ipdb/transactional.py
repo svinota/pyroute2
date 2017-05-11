@@ -45,6 +45,8 @@ def update(f):
             # short-circuit
             with self._write_lock:
                 return f(self, True, *argv, **kwarg)
+        elif self._mode == 'readonly':
+            raise RuntimeError('can not change readonly object')
 
         with self._write_lock:
             direct = self._direct_state.is_set()
@@ -75,22 +77,6 @@ def with_transaction(f):
             f(transaction, *argv, **kwarg)
         return self
     return update(decorated)
-
-
-class CMProxy(object):
-    '''
-    Context manager proxy to create contexts w/o transactions
-    '''
-    def __init__(self, parent):
-        self.parent = parent
-
-    ##
-    # Context management: enter, exit
-    def __enter__(self):
-        return self.parent
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        pass
 
 
 class Transactional(TransactionalBase):
@@ -140,7 +126,7 @@ class Transactional(TransactionalBase):
 
     @property
     def ro(self):
-        return CMProxy(self)
+        return self.pick(detached=False, readonly=True)
 
     def register_commit_hook(self, hook):
         '''
@@ -172,7 +158,7 @@ class Transactional(TransactionalBase):
                         res[key] = self[key]
             return res
 
-    def pick(self, detached=True, uid=None, parent=None):
+    def pick(self, detached=True, uid=None, parent=None, readonly=False):
         '''
         Get a snapshot of the object. Can be of two
         types:
@@ -196,12 +182,17 @@ class Transactional(TransactionalBase):
                 res[key] = type(self[key])(self[key])
                 if not detached:
                     self[key].connect(res[key])
+            if readonly:
+                res._mode = 'readonly'
+
             return res
 
     ##
     # Context management: enter, exit
     def __enter__(self):
-        if self._mode not in ('implicit', 'explicit'):
+        if self._mode == 'readonly':
+            return self
+        elif self._mode not in ('implicit', 'explicit'):
             raise TypeError('context managers require a transactional mode')
         if not self.current_tx:
             self.begin()
@@ -209,7 +200,9 @@ class Transactional(TransactionalBase):
 
     def __exit__(self, exc_type, exc_value, traceback):
         # apply transaction only if there was no error
-        if exc_type is None:
+        if self._mode == 'readonly':
+            return
+        elif exc_type is None:
             try:
                 self.commit()
             except Exception as e:
