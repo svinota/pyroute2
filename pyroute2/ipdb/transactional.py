@@ -77,6 +77,22 @@ def with_transaction(f):
     return update(decorated)
 
 
+class CMProxy(object):
+    '''
+    Context manager proxy to create contexts w/o transactions
+    '''
+    def __init__(self, parent):
+        self.parent = parent
+
+    ##
+    # Context management: enter, exit
+    def __enter__(self):
+        return self.parent
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+
 class Transactional(TransactionalBase):
     '''
     Utility class that implements common transactional logic.
@@ -121,6 +137,10 @@ class Transactional(TransactionalBase):
         #
         for i in self._fields:
             TransactionalBase.__setitem__(self, i, None)
+
+    @property
+    def ro(self):
+        return CMProxy(self)
 
     def register_commit_hook(self, hook):
         '''

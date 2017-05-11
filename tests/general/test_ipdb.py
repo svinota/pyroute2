@@ -2430,6 +2430,11 @@ class TestMisc(object):
             ip.interfaces[ifname].remove().commit()
             ip.release()
 
+    def test_read_only_cm(self):
+        with IPDB() as ip:
+            with ip.interfaces.lo.ro as i:
+                assert i.current_tx is None
+
     def test_fail_released(self):
         ip = IPDB()
         assert len(ip.interfaces.keys()) > 0
