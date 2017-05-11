@@ -92,7 +92,7 @@ class Interface(Transactional):
     _fields.extend(_get_data_fields())
     _fields.extend(_virtual_fields)
 
-    def __init__(self, ipdb, mode=None, parent=None, uid=None, container=None):
+    def __init__(self, ipdb, mode=None, parent=None, uid=None):
         '''
         Parameters:
         * ipdb -- ipdb() reference
@@ -115,7 +115,6 @@ class Interface(Transactional):
         self.nlmsg = None
         self.errors = []
         self.partial = False
-        self.container = container
         self._exception = None
         self._tb = None
         self._linked_sets.add('ipaddr')
@@ -535,7 +534,7 @@ class Interface(Transactional):
                 # a special case: transition "create" -> "remove"
                 if transaction['ipdb_scope'] == 'remove' and \
                         self['ipdb_scope'] == 'create':
-                    self.container._detach(self['ifname'], 0)
+                    self.ipdb.interfaces._detach(self['ifname'], 0)
                     return self
 
                 newif = True
@@ -1069,7 +1068,6 @@ class InterfacesDict(TransactionalBase):
                                           ifname)
             else:
                 device = self[ifname] = Interface(ipdb=self.ipdb,
-                                                  container=self,
                                                   mode='snapshot')
                 device.update(kwarg)
                 if isinstance(kwarg.get('link', None), Interface):
