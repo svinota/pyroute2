@@ -1380,6 +1380,11 @@ class TestExplicit(BasicSetup):
 
         # freeze
         interface.freeze()
+        # double freeze: subsequent freezes should raise RuntimeError()
+        try:
+            interface.freeze()
+        except RuntimeError:
+            pass
 
         # change the interface somehow
         i2 = IPRoute()

@@ -149,6 +149,9 @@ class Interface(Transactional):
         return self
 
     def freeze(self):
+        if self._freeze is not None:
+            raise RuntimeError("the interface is frozen already")
+
         dump = self.pick()
 
         def cb(ipdb, msg, action):
