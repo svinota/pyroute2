@@ -19,6 +19,7 @@ only one message arrived. To get NLA values::
     major = msg.get_attr('QUOTA_NL_A_DEV_MAJOR')
     minor = msg.get_attr('QUOTA_NL_A_DEV_MINOR')
 '''
+from pyroute2.config import kernel
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink.generic import GenericNetlinkSocket
 from pyroute2.netlink.nlsocket import Marshal
@@ -48,6 +49,12 @@ class DQuotSocket(GenericNetlinkSocket):
     def __init__(self):
         GenericNetlinkSocket.__init__(self)
         self.marshal = MarshalDQuot()
+        if kernel[0] <= 2:
+            self.bind(groups=0xffffff)
+        else:
+            self.bind()
+        for group in self.mcast_groups:
+            self.add_membership(group)
 
     def bind(self, groups=0, async=False):
         GenericNetlinkSocket.bind(self, 'VFS_DQUOT', dquotmsg,
