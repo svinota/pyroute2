@@ -7,8 +7,6 @@ Usage::
     from pyroute2 import DQuotSocket
 
     ds = DQuotSocket()
-    ds.bind()
-    ds.add_membership('events')
     msgs = ds.get()
 
 Please notice, that `.get()` always returns a list, even if
