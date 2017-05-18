@@ -8,7 +8,7 @@ class TestDQuot(object):
     def setup(self):
         require_user('root')
         # setup the test fs
-        os.system('gunzip -k dquot.img.gz')
+        os.system('gunzip -c dquot.img.gz >dquot.img')
         with os.popen('losetup -f') as f:
             self.loop = f.read().strip()
         os.system('losetup %s dquot.img' % self.loop)
