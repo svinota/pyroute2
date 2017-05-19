@@ -1437,6 +1437,8 @@ class IPRouteMixin(object):
                     'del': (RTM_DELQDISC, flags_make),
                     'remove': (RTM_DELQDISC, flags_make),
                     'delete': (RTM_DELQDISC, flags_make),
+                    'change': (RTM_NEWQDISC, flags_change),
+                    'replace': (RTM_NEWQDISC, flags_replace),
                     'add-class': (RTM_NEWTCLASS, flags_make),
                     'del-class': (RTM_DELTCLASS, flags_make),
                     'change-class': (RTM_NEWTCLASS, flags_change),
