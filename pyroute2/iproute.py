@@ -1411,6 +1411,16 @@ class IPRouteMixin(object):
             flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
             ip.tc((RTM_NEWQDISC, flags), "sfq", 1)
 
+        It should be noted that "change", "change-class" and
+        "change-filter" work like "replace", "replace-class" and
+        "replace-filter", except they will fail if the node doesn't
+        exist (while it would have been created by "replace"). This is
+        not the same behaviour as with "tc" where "change" can be used
+        to modify the value of some options while leaving the others
+        unchanged. However, as not all entities support this
+        operation, we believe the "change" commands as implemented
+        here are more useful.
+
 
         Also available "modules" (returns tc plugins dict) and "help"
         commands::
