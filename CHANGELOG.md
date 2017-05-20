@@ -1,6 +1,20 @@
 changelog
 =========
 
+* 0.4.14
+    * event: new genl protocols set: VFS_DQUOT, acpi_event, thermal_event
+    * ipdb: #310 -- fixed priority change on routes
+    * ipdb: #349 -- fix setting ifalias on interfaces
+    * ipdb: #353 -- mitigate kernel oops during bridge creation
+    * ipdb: #354 -- allow to explicitly choose plugins to load
+    * ipdb: #359 -- provide read-only context managers
+    * rtnl: #336 -- vlan flags support
+    * rtnl: #352 -- support interface type plugins
+    * tc: #344 -- mirred action
+    * tc: #346 -- connmark action
+    * netlink: #358 -- memory optimization
+    * config: #360 -- generic asyncio config
+    * iproute: #362 -- allow to change or replace a qdisc
 * 0.4.13
     * ipset: full rework of the IPSET_ATTR_DATA and IPSET_ATTR_ADT
       ACHTUNG: this commit may break API compatibility
