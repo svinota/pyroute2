@@ -2,9 +2,10 @@ pyroute2
 ========
 
 Pyroute2 is a pure Python **netlink** library. It requires only Python stdlib,
-no 3rd party libraries.
+no 3rd party libraries. The library was started as an RTNL protocol
+implementation, so the name is **pyroute2**, but now it supports many netlink
+protocols. Some supported netlink families and protocols:
 
-Supported netlink families and protocols:
 * **rtnl**, network settings --- addresses, routes, traffic controls
 * **nfnetlink** --- netfilter API: **ipset**, **nftables**, ...
 * **ipq** --- simplest userspace packet filtering, iptables QUEUE target
