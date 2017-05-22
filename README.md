@@ -1,23 +1,48 @@
 pyroute2
 ========
 
-Pyroute2 is a pure Python **netlink** and Linux **network configuration**
-library. It requires only Python stdlib, no 3rd party libraries.
-Later it can change, but the deps tree will remain as simple, as
-it is possible.
+Pyroute2 is a pure Python **netlink** library. It requires only Python stdlib,
+no 3rd party libraries.
 
-The library provides several modules:
-
-* Netlink protocol implementations (RTNetlink, TaskStats, etc)
-    * **rtnl**, network settings --- addresses, routes, traffic controls
-    * **nl80211** --- wireless functions API (work in progress)
-    * **nfnetlink** --- netfilter API: **ipset**, **nftables** (work in progress), ...
-    * **ipq** --- simplest userspace packet filtering, iptables QUEUE target
+Supported netlink families and protocols:
+* **rtnl**, network settings --- addresses, routes, traffic controls
+* **nfnetlink** --- netfilter API: **ipset**, **nftables**, ...
+* **ipq** --- simplest userspace packet filtering, iptables QUEUE target
+* **devlink** --- manage and monitor devlink-enabled hardware
+* **generic** --- generic netlink families
+    * **nl80211** --- wireless functions API (basic support)
     * **taskstats** --- extended process statistics
-* Simple netlink socket object, that can be used in poll/select
-* Network configuration module IPRoute provides API that in some
-  way resembles ip/tc functionality
-* IPDB is an async transactional database of Linux network settings
+    * **acpi_events** --- ACPI events monitoring
+    * **thermal_events** --- thermal events monitoring
+    * **VFS_DQUOT** --- disk quota events monitoring
+
+the simplest usecase
+--------------------
+
+The socket objects, provided by the library, are actual socket objects with a
+little bit extended API. The additional functionality aims to:
+
+* Help to open/bind netlink sockets
+* Discover generic netlink protocols and multicast groups
+* Construct, encode and decode netlink messages
+
+Maybe the simplest usecase is to monitor events. Disk quota events::
+
+    from pyroute2 import DQuotSocket
+    # DQuotSocket automatically performs discovery and binding,
+    # since it has no other functionality beside of the monitoring
+    with DQuotSocket() as ds:
+        for message in ds.get():
+            print(message)
+
+Or IPRoute::
+
+    from pyroute2 import IPRoute
+    with IPRoute() as ipr:
+        # With IPRoute objects you have to call bind() manually
+        ipr.bind()
+        for message in ipr.get():
+            print(message)
 
 rtnetlink sample
 ----------------
@@ -35,6 +60,8 @@ Some examples::
 
     # get access to the netlink socket
     ip = IPRoute()
+
+    # no monitoring here -- thus no bind()
 
     # print interfaces
     print(ip.get_links())
