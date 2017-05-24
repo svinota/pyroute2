@@ -1329,6 +1329,8 @@ class nlmsg_base(dict):
                                 parent=self,
                                 init=prime['init'])
                 nla._nla_flags |= prime['nla_flags']
+                if isinstance(cell, tuple) and len(cell) > 2:
+                    nla._nla_flags |= cell[2]
                 nla._nla_array = prime['nla_array']
                 nla['header']['type'] = prime['type'] | nla._nla_flags
                 nla.setvalue(cell[1])
