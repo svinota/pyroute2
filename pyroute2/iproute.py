@@ -672,6 +672,16 @@ class IPRouteMixin(object):
     # Extensions to low-level functions
     #
     def brport(self, command, **kwarg):
+        '''
+        Set bridge port parameters. Example::
+
+            idx = ip.link_lookup(ifname='eth0')
+            ip.brport("set", index=idx, unicast_flood=0, cost=200)
+            ip.brport("show", index=idx)
+
+        Possible keywords are NLA names for the `protinfo_bridge` class,
+        without the prefix and in lower letters.
+        '''
         if (command in ('dump', 'show')) and ('match' not in kwarg):
             match = kwarg
         else:
