@@ -213,6 +213,26 @@ class TestIPRoute(object):
                                                 {'vid': 567}]]})
         assert not grep('bridge vlan show', pattern='567')
 
+    def test_brport_basic(self):
+        require_user('root')
+        (bn, bx) = self.create('bridge')
+        (sn, sx) = self.create('dummy')
+        self.ip.link('set', index=sx, master=bx)
+        self.ip.link('set', index=sx, state='up')
+        self.ip.link('set', index=bx, state='up')
+
+        self.ip.brport('set',
+                       index=sx,
+                       unicast_flood=0,
+                       cost=200,
+                       proxyarp=1)
+
+        port = self.ip.brport('show', index=sx)[0]
+        protinfo = port.get_attr('IFLA_PROTINFO')
+        assert protinfo.get_attr('IFLA_BRPORT_COST') == 200
+        assert protinfo.get_attr('IFLA_BRPORT_PROXYARP') == 1
+        assert protinfo.get_attr('IFLA_BRPORT_UNICAST_FLOOD') == 0
+
     def test_local_add(self):
         require_user('root')
         self.ip.addr('add', self.ifaces[0],
