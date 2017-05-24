@@ -218,6 +218,7 @@ from pyroute2.netlink.rtnl import rt_scope
 from pyroute2.netlink.rtnl import rt_proto
 from pyroute2.netlink.rtnl.req import IPLinkRequest
 from pyroute2.netlink.rtnl.req import IPBridgeRequest
+from pyroute2.netlink.rtnl.req import IPBrPortRequest
 from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.netlink.rtnl.req import IPRuleRequest
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
@@ -670,6 +671,35 @@ class IPRouteMixin(object):
     #
     # Extensions to low-level functions
     #
+    def brport(self, command, **kwarg):
+        if (command in ('dump', 'show')) and ('match' not in kwarg):
+            match = kwarg
+        else:
+            match = kwarg.pop('match', None)
+
+        flags_dump = NLM_F_REQUEST | NLM_F_DUMP
+        flags_req = NLM_F_REQUEST | NLM_F_ACK
+        commands = {'set': (RTM_SETLINK, flags_req),
+                    'dump': (RTM_GETLINK, flags_dump),
+                    'show': (RTM_GETLINK, flags_dump)}
+        (command, msg_flags) = commands.get(command, command)
+
+        msg = ifinfmsg()
+        if command == RTM_GETLINK:
+            msg['index'] = kwarg.get('index', 0)
+        else:
+            msg['index'] = kwarg.pop('index', 0)
+        msg['family'] = AF_BRIDGE
+        protinfo = IPBrPortRequest(kwarg)
+        msg['attrs'].append(('IFLA_PROTINFO', protinfo, 0x8000))
+        ret = self.nlm_request(msg,
+                               msg_type=command,
+                               msg_flags=msg_flags)
+        if match is not None:
+            return self._match(match, ret)
+        else:
+            return ret
+
     def vlan_filter(self, command, **kwarg):
         '''
         Vlan filters is another approach to support vlans in Linux.

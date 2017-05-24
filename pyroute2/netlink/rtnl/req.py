@@ -7,6 +7,7 @@ from pyroute2.netlink.rtnl import rt_proto
 from pyroute2.netlink.rtnl import rt_scope
 from pyroute2.netlink.rtnl import encap_type
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.ifinfmsg import protinfo_bridge
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh as nh_header
 from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
@@ -275,6 +276,25 @@ class IPBridgeRequest(IPRequest):
             self['IFLA_AF_SPEC']['attrs'].append([nla, value])
         else:
             dict.__setitem__(self, key, value)
+
+
+class IPBrPortRequest(dict):
+
+    def __init__(self, obj=None):
+        dict.__init__(self)
+        dict.__setitem__(self, 'attrs', [])
+        self.allowed = [x[0] for x in protinfo_bridge.nla_map]
+        if obj is not None:
+            self.update(obj)
+
+    def update(self, obj):
+        for key in obj:
+            self[key] = obj[key]
+
+    def __setitem__(self, key, value):
+        key = protinfo_bridge.name2nla(key)
+        if key in self.allowed:
+            self['attrs'].append((key, value))
 
 
 class IPLinkRequest(IPRequest):

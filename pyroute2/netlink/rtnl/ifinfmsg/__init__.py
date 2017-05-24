@@ -210,6 +210,7 @@ class ifla_bridge_id(nla):
 
 
 class protinfo_bridge(nla):
+    prefix = 'IFLA_BRPORT_'
     nla_map = (('IFLA_BRPORT_UNSPEC', 'none'),
                ('IFLA_BRPORT_STATE', 'uint8'),
                ('IFLA_BRPORT_PRIORITY', 'uint16'),
