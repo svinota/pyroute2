@@ -236,7 +236,12 @@ class protinfo_bridge(nla):
                ('IFLA_BRPORT_FORWARD_DELAY_TIMER', 'uint64'),
                ('IFLA_BRPORT_HOLD_TIMER', 'uint64'),
                ('IFLA_BRPORT_FLUSH', 'flag'),
-               ('IFLA_BRPORT_MULTICAST_ROUTER', 'uint8'))
+               ('IFLA_BRPORT_MULTICAST_ROUTER', 'uint8'),
+               ('IFLA_BRPORT_PAD', 'uint64'),
+               ('IFLA_BRPORT_MCAST_FLOOD', 'uint8'),
+               ('IFLA_BRPORT_MCAST_TO_UCAST', 'uint8'),
+               ('IFLA_BRPORT_VLAN_TUNNEL', 'uint8'),
+               ('IFLA_BRPORT_BCAST_FLOOD', 'uint8'))
 
     class br_id(ifla_bridge_id):
         pass
