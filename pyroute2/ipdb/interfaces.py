@@ -78,7 +78,7 @@ class Interface(Transactional):
                        'net_ns_fd',
                        'net_ns_pid']
     _fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
-    for name in ('bridge_data', ):
+    for name in ('bridge_data', 'bridge_slave_data'):
         data = getattr(ifinfmsg.ifinfo, name)
         _fields.extend([ifinfmsg.nla2name(i[0]) for i in data.nla_map])
     _fields.append('index')
@@ -313,6 +313,11 @@ class Interface(Transactional):
                         self.del_vlan(vid)
                     for vid in (vids - self['vlans']):
                         self.add_vlan(vmap[vid])
+                protinfo = dev.get_attr('IFLA_PROTINFO')
+                if protinfo is not None:
+                    for attr, value in protinfo['attrs']:
+                        attr = attr[5:].lower()
+                        self[attr] = value
             # the rest is possible only when interface
             # is used in IPDB, not standalone
             if self.ipdb is not None:
@@ -738,6 +743,7 @@ class Interface(Transactional):
             # Interface changes
             request = IPLinkRequest()
             brequest = IPLinkRequest()
+            prequest = {}
             # preseed requests with the interface kind
             request['kind'] = self['kind']
             brequest['kind'] = self['kind']
@@ -746,6 +752,8 @@ class Interface(Transactional):
                 if (key not in self._virtual_fields) and (key != 'kind'):
                     if key[:3] == 'br_':
                         brequest[key] = added[key]
+                    elif key[:7] == 'brport_':
+                        prequest[key[7:]] = added[key]
                     else:
                         request[key] = added[key]
             # FIXME: flush the interface type so the next two conditions
@@ -771,11 +779,15 @@ class Interface(Transactional):
                     request.pop('broadcast', None)
                 wait_all = True
                 run(nl.link, 'set', **request)
-
                 # Yet another trick: setting ifalias doesn't cause
                 # netlink updates
                 if 'ifalias' in request:
                     self.reload()
+
+            if any([prequest[item] is not None for item in prequest]):
+                prequest['index'] = self['index']
+                print(prequest)
+                run(nl.brport, "set", **prequest)
 
             if (wait_all) and (not transaction.partial):
                 transaction.wait_all_targets()

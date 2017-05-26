@@ -1526,6 +1526,30 @@ class TestExplicit(BasicSetup):
             return
         raise Exception('tuntap create succeded')
 
+    def test_bridge_port_options(self):
+        require_user('root')
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+
+        self.ip.create(ifname=ifA,
+                       kind='dummy').commit()
+        self.ip.create(ifname=ifB,
+                       kind='bridge').commit()
+
+        with self.ip.interfaces[ifB] as i:
+            i.add_port(ifA)
+            i.up()
+
+        with self.ip.interfaces[ifA] as i:
+            i.up()
+            i.brport_unicast_flood = 0
+            i.brport_cost = 500
+
+        assert self.ip.interfaces[ifA]['brport_unicast_flood'] == 0
+        assert self.ip.interfaces[ifA]['brport_cost'] == 500
+        assert self.ip.interfaces[ifA]['master'] == \
+            self.ip.interfaces[ifB]['index']
+
     def test_bridge_controls_set(self):
         require_user('root')
 
