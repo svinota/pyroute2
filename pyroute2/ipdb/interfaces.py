@@ -12,7 +12,6 @@ from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl import RTM_NEWLINK
-from pyroute2.netlink.rtnl.req import IPLinkRequest
 from pyroute2.netlink.rtnl.ifinfmsg import IFF_MASK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.ipdb.transactional import Transactional
@@ -741,8 +740,8 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # Interface changes
-            request = IPLinkRequest()
-            brequest = IPLinkRequest()
+            request = {}
+            brequest = {}
             prequest = {}
             # preseed requests with the interface kind
             request['kind'] = self['kind']
@@ -896,7 +895,7 @@ class Interface(Transactional):
             # 8<---------------------------------------------
             # Move the interface to a netns
             if ('net_ns_fd' in added) or ('net_ns_pid' in added):
-                request = IPLinkRequest()
+                request = {}
                 for key in ('net_ns_fd', 'net_ns_pid'):
                     if key in added:
                         request[key] = added[key]
