@@ -16,10 +16,10 @@ IPDB vs. IPRoute
 ----------------
 
 These two modules, IPRoute and IPDB, use completely different
-approaches. The first one, IPRoute, just forward requests to
+approaches. The first one, IPRoute, just forwards requests to
 the kernel, and doesn't wait for the system state. So it's up
 to developer to check, whether the requested object is really
-set up, or not yet.
+set up or not.
 
 The latter, IPDB, is an asynchronously updated database, that
 starts several additional threads by default. If your
@@ -63,6 +63,58 @@ records or removing them by one.
 So, IPRoute is much simpler when you need to make a call and
 then exit, while IPDB is cheaper in terms of CPU performance
 if you implement a long-running program like a daemon.
+
+IPDB and other software
+-----------------------
+
+IPDB is designed to be a non-exclusive network settings database.
+There may be several IPDB instances on the same OS, as well as
+other network management software, such as NetworkManager etc.
+
+The IPDB transactions should not interfere with other software
+settings, unless they touch the same objects. E.g., if IPDB
+brings an interface up, while NM shuts it down, there will be
+a race condition.
+
+An example::
+
+    # IPDB code                       #  NetworkManager at the same time:
+    ipdb.interfaces['eth0'].up()      #
+    ipdb.interfaces['eth0'].commit()  #  $ sudo nmcli con down eth0
+    # ---> <---
+    # The eth0 state here is undefined. Some of the commands
+    # above will fail
+
+But as long as the software doesn't touch the same objects, there
+will be no conflicts. Another example::
+
+    # IPDB code                         # At the same time, NetworkManager
+    with ipdb.interfaces['eth0'] as i:  # adds addresses:
+        i.add_ip('172.16.254.2/24')     #  * 10.0.0.2/24
+        i.add_ip('172.16.254.3/24')     #  * 10.0.0.3/24
+    # ---> <---
+    # At this point the eth0 interface will have all four addresses.
+    # If the IPDB transaction fails by some reason, only IPDB addresses
+    # will be rolled back.
+
+There may be a need to prevent other software from changing the network
+settings. There is no locking at the kernel level, but IPDB can revert
+all the changes as soon as they appear on the interface::
+
+    # IPDB code
+    ipdb.interfaces['eth0'].freeze()
+                                       # Here some other software tries to
+                                       # add an address, or to remove the old
+                                       # one
+    # ---> <---
+    # At this point the eth0 interface will have all the same settings as
+    # at the `freeze()` call moment. Newly added addresses will be removed,
+    # all the deleted addresses will be restored.
+    #
+    # Please notice, that an address removal may cause also a routes removal,
+    # and that is the thing that IPDB can not neither prevent, nor revert.
+
+    ipdb.interfaces['eth0'].unfreeze()
 
 Quickstart
 ----------
