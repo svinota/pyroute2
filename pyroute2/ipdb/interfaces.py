@@ -785,7 +785,6 @@ class Interface(Transactional):
 
             if any([prequest[item] is not None for item in prequest]):
                 prequest['index'] = self['index']
-                print(prequest)
                 run(nl.brport, "set", **prequest)
 
             if (wait_all) and (not transaction.partial):
