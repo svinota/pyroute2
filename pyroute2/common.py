@@ -167,7 +167,7 @@ class Namespace(object):
 class Dotkeys(dict):
     '''
     This is a sick-minded hack of dict, intended to be an eye-candy.
-    It allows to get dict's items byt dot reference:
+    It allows to get dict's items by dot reference:
 
     ipdb["lo"] == ipdb.lo
     ipdb["eth0"] == ipdb.eth0
