@@ -127,7 +127,7 @@ class Interface(Transactional):
         with self._direct_state:
             for i in ('change', 'mask'):
                 del self[i]
-            self['ipaddr'] = self.ipdb.init_ipaddr_set()
+            self['ipaddr'] = self.ipdb._ipaddr_set()
             self['ports'] = LinkedSet()
             self['vlans'] = LinkedSet()
             self['ipdb_priority'] = 0
@@ -1169,7 +1169,7 @@ class InterfacesDict(TransactionalBase):
             device = self[ifname] = self[index]
 
         if index not in self.ipdb.ipaddr:
-            self.ipdb.ipaddr[index] = self.ipdb.init_ipaddr_set()
+            self.ipdb.ipaddr[index] = self.ipdb._ipaddr_set()
 
         if index not in self.ipdb.neighbours:
             self.ipdb.neighbours[index] = LinkedSet()
@@ -1233,7 +1233,7 @@ class AddressesDict(dict):
         # Reload addresses from the kernel.
         # (This is a workaround to reorder primary and secondary addresses.)
         for k in self.keys():
-            self[k] = self.ipdb.init_ipaddr_set()
+            self[k] = self.ipdb._ipaddr_set()
         for msg in self.ipdb.nl.get_addr():
             self._new(msg)
         for idx in self.keys():

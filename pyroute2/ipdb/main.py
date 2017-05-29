@@ -588,8 +588,9 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.ipdb import rules
 from pyroute2.ipdb import routes
 from pyroute2.ipdb import interfaces
-from pyroute2.ipdb.linkedset import IPaddrSet, SortedIPaddrSet
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
+from pyroute2.ipdb.linkedset import IPaddrSet
+from pyroute2.ipdb.linkedset import SortedIPaddrSet
 
 log = logging.getLogger(__name__)
 
@@ -641,7 +642,7 @@ class IPDB(object):
                 'routes': routes,
                 'rules': rules}
         self.mode = mode
-        self.sort_addresses = sort_addresses
+        self._ipaddr_set = SortedIPaddrSet if sort_addresses else IPaddrSet
         self._event_map = {}
         self._deferred = {}
         self._loaded = set()
@@ -693,8 +694,17 @@ class IPDB(object):
         # init the database
         self.initdb()
 
+        # init the dir() cache
+        self.__dir_cache__ = [i for i in self.__class__.__dict__.keys()
+                              if i[0] != '_']
+        self.__dir_cache__.remove('serve_forever')
+        self.__dir_cache__.extend(list(self._deferred.keys()))
+
         #
         atexit.register(self.release)
+
+    def __dir__(self):
+        return self.__dir_cache__
 
     def __enter__(self):
         return self
@@ -1053,9 +1063,3 @@ class IPDB(object):
                                 pass
                             if len(self._cb_threads.get(cuid, ())) == 0:
                                 del self._cb_threads[cuid]
-
-    def init_ipaddr_set(self):
-        if self.sort_addresses:
-            return SortedIPaddrSet()
-        else:
-            return IPaddrSet()
