@@ -306,8 +306,10 @@ class IPLinkRequest(IPRequest):
                  'carrier_changes']
 
     # get common ifinfmsg NLAs
-    common = [key[len(ifinfmsg.prefix):].lower()
-              for (key, _) in ifinfmsg.nla_map]
+    common = []
+    for (key, _) in ifinfmsg.nla_map:
+        common.append(key)
+        common.append(key[len(ifinfmsg.prefix):].lower())
     common.append('family')
     common.append('ifi_type')
     common.append('index')
@@ -343,6 +345,7 @@ class IPLinkRequest(IPRequest):
         if cls is not None:
             prefix = cls.prefix or 'IFLA_'
             for nla, _ in cls.nla_map:
+                self.specific[nla] = nla
                 self.specific[nla[len(prefix):].lower()] = nla
 
         # flush deferred NLAs

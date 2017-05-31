@@ -1084,6 +1084,21 @@ class TestIPRoute(object):
         assert len(l) == 1
         assert l[0].get_attr('IFLA_IFNAME') == 'lo'
 
+    def test_link_legacy_nla(self):
+        require_user('root')
+        dev = self.ifaces[0]
+        try:
+            self.ip.link('set', index=dev, state='down')
+            self.ip.link('set', index=dev, IFLA_IFNAME='bala')
+        except NetlinkError:
+            pass
+        assert len(self.ip.link_lookup(ifname='bala')) == 1
+        try:
+            self.ip.link('set', index=dev, ifname=self.dev)
+        except NetlinkError:
+            pass
+        assert len(self.ip.link_lookup(ifname=self.dev)) == 1
+
     def test_link_rename(self):
         require_user('root')
         dev = self.ifaces[0]
