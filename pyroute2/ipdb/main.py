@@ -249,10 +249,21 @@ time etc. Names of these properties start with `br_`, like
 
     [x for x in dir(ipdb.interfaces.virbr0) if x.startswith('br_')]
 
+Bridge ports
+------------
+
+IPDB supports specific bridge port parameters, such as proxyarp,
+unicast/multicast flood, cost etc.::
+
+    with ipdb.interfaces['br-port0'] as p:
+        p.brport_cost = 200
+        p.brport_unicast_flood = 0
+        p.brport_proxyarp = 0
+
 Ports management
 ----------------
 
-IPDB provides a uniform API to manage ports::
+IPDB provides a uniform API to manage bridge, bond and vrf ports::
 
     with ipdb.interfaces['br-int'] as br:
         br.add_port('veth0')
@@ -265,8 +276,6 @@ Both `add_port()` and `del_port()` accept three types of arguments:
     * `'veth0'` -- interface name as a string
     * `ipdb.interfaces.veth1` -- IPDB interface object
     * `700` -- interface index, an integer
-
-The same methods are used to manage bridge, bond and vrf ports.
 
 Routes management
 -----------------
