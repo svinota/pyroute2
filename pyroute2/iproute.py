@@ -1162,6 +1162,24 @@ class IPRouteMixin(object):
                     link=ip.link_lookup(ifname="eth0")[0],
                     vlan_id=100)
 
+        There is a possibility to create also 802.1ad interfaces::
+
+            # create external vlan 802.1ad, s-tag
+            ip.link("add",
+                    ifname="v100s",
+                    kind="vlan",
+                    link=ip.link_lookup(ifname="eth0")[0],
+                    vlan_id=100,
+                    vlan_protocol=0x88a8)
+
+            # create internal vlan 802.1q, c-tag
+            ip.link("add",
+                    ifname="v100c",
+                    kind="vlan",
+                    link=ip.link_lookup(ifname="v100s")[0],
+                    vlan_protocol=0x8100)
+
+
         ► vrf
 
         VRF interfaces (see linux/Documentation/networking/vrf.txt)::
