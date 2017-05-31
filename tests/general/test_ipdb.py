@@ -1466,6 +1466,19 @@ class TestExplicit(BasicSetup):
         assert ('172.16.0.1', 24) in self.ip.interfaces[self.ifd].ipaddr
         assert self.ip.interfaces[self.ifd].flags & 1
 
+    def test_ipaddr_views(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        i = (self.ip
+             .create(kind='dummy', ifname=ifA)
+             .add_ip('172.16.0.1/24')
+             .add_ip('fdb3:84e5:4ff4:55e4::1/64')
+             .commit())
+
+        assert len(i.ipaddr.ipv4) + len(i.ipaddr.ipv6) == len(i.ipaddr)
+        assert len(i.ipaddr) >= 2
+
     @skip_if_not_supported
     def _test_ipv(self, ipv, kind):
         require_user('root')

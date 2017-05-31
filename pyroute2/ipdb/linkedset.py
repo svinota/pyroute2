@@ -153,7 +153,7 @@ class LinkedSet(set):
         self.links.remove(link)
 
     def __repr__(self):
-        return repr(list(self))
+        return repr(tuple(self))
 
 
 class IPaddrSet(LinkedSet):
@@ -166,6 +166,22 @@ class IPaddrSet(LinkedSet):
     IPv6 addresses, but it may be changed with the `ignore_link_local`
     argument.
     '''
+    @property
+    def ipv4(self):
+        ret = IPaddrSet()
+        for x in self:
+            if self[x]['family'] == AF_INET:
+                ret.add(x, self[x])
+        return ret
+
+    @property
+    def ipv6(self):
+        ret = IPaddrSet()
+        for x in self:
+            if self[x]['family'] == AF_INET6:
+                ret.add(x, self[x])
+        return ret
+
     def wait_ip(self, net, mask=None, timeout=None, ignore_link_local=False):
         family = AF_INET6 if net.find(':') >= 0 else AF_INET
         alen = 32 if family == AF_INET else 128
@@ -203,9 +219,6 @@ class IPaddrSet(LinkedSet):
         ret = target.is_set()
         self.clear_target(target)
         return ret
-
-    def __repr__(self):
-        return repr(['%s/%s' % x for x in self])
 
     def __getitem__(self, key):
         if isinstance(key, (tuple, list)):
