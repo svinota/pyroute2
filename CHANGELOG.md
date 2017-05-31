@@ -1,6 +1,10 @@
 changelog
 =========
 
+* 0.4.15
+    * req: #365 -- full and short nla notation fixed, critical
+    * iproute: #364 -- new method, `brport()`
+    * ipdb: -- support bridge port options
 * 0.4.14
     * event: new genl protocols set: VFS_DQUOT, acpi_event, thermal_event
     * ipdb: #310 -- fixed priority change on routes
