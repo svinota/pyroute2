@@ -46,6 +46,10 @@ def _get_data_fields():
     return ret
 
 
+def _br_time_check(x, y):
+    return abs(x - y) < 5
+
+
 class Interface(Transactional):
     '''
     Objects of this class represent network interface and
@@ -67,7 +71,16 @@ class Interface(Transactional):
     exception will be raised. Failed transaction review
     will be attached to the exception.
     '''
-    _fields_cmp = {'flags': lambda x, y: x & y & IFF_MASK == y & IFF_MASK}
+    _fields_cmp = {'flags': lambda x, y: x & y & IFF_MASK == y & IFF_MASK,
+                   'br_hello_time': _br_time_check,
+                   'br_max_age': _br_time_check,
+                   'br_ageing_time': _br_time_check,
+                   'br_forward_delay': _br_time_check,
+                   'br_mcast_membership_intvl': _br_time_check,
+                   'br_mcast_querier_intvl': _br_time_check,
+                   'br_mcast_query_intvl': _br_time_check,
+                   'br_mcast_query_response_intvl': _br_time_check,
+                   'br_mcast_startup_query_intvl': _br_time_check}
     _virtual_fields = ['ipdb_scope',
                        'ipdb_priority',
                        'vlans',
