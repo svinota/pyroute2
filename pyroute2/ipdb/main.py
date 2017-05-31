@@ -224,6 +224,23 @@ managers in the same way as IPDB does itself::
 On exit, the context manager will authomatically `commit()`
 the transaction.
 
+Read-only interface views
+-------------------------
+
+Using an interface as a context manager **will** start a
+transaction. Sometimes it is not what one needs. To avoid
+unnecessary transactions, and to avoid the risk to occasionally
+change interface attributes, one can use read-only views::
+
+    with ipdb.interfaces[1].ro as iface:
+        print(iface.ifname)
+        print(iface.address)
+
+The `.ro` view neither starts transactions, nor allows to
+change anything, raising the `RuntimeError` exception.
+
+The same read-only views are available for routes and rules.
+
 Create interfaces
 -----------------
 
