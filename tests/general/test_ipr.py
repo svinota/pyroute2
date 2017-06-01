@@ -2,6 +2,7 @@ import os
 import time
 import errno
 import socket
+from functools import partial
 from pyroute2 import IPRoute
 from pyroute2 import NetlinkError
 from pyroute2.common import uifname
@@ -302,6 +303,9 @@ class TestIPRoute(object):
                             priority=lambda x: 100 < x < 500)
         assert len(self.ip.get_rules(priority=lambda x: 100 < x < 500)) == 0
         assert len(self.ip.get_rules(family=socket.AF_INET)) == init
+
+    def test_match_callable(self):
+        assert len(self.ip.get_links(match=partial(lambda x: x))) > 0
 
     def test_addr_filter(self):
         require_user('root')

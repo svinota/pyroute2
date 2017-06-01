@@ -173,8 +173,6 @@ from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
 from socket import AF_BRIDGE
-from types import FunctionType
-from types import MethodType
 from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC
@@ -291,7 +289,7 @@ class IPRouteMixin(object):
         # filtered results
         f_ret = []
         for msg in msgs:
-            if isinstance(match, (FunctionType, MethodType)):
+            if hasattr(match, '__call__'):
                 if match(msg):
                     f_ret.append(msg)
             elif isinstance(match, dict):
