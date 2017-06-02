@@ -256,6 +256,12 @@ The `IPDB.create()` call has the same syntax as
 `IPRoute.link('add', ...)`, except you shouldn't specify
 the `'add'` command. Refer to `IPRoute` docs for details.
 
+Please notice, that the interface object stays in the database
+even if there was an error during the interface creation. It is
+done so to make it possible to fix the interface object and try
+to run `commit()` again. Or you can drop the interface object
+with the `.remove().commit()` call.
+
 Bridge interfaces
 -----------------
 
