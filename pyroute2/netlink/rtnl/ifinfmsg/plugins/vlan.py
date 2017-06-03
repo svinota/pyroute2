@@ -1,5 +1,10 @@
 from pyroute2.netlink import nla
 
+flags = {'reorder_hdr': 0x1,
+         'gvrp': 0x2,
+         'loose_binding': 0x4,
+         'mvrp': 0x8}
+
 
 class vlan(nla):
     nla_map = (('IFLA_VLAN_UNSPEC', 'none'),

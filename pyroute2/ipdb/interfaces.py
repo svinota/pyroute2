@@ -813,14 +813,12 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # VLAN flags -- a dirty hack, pls do something with it
-            if 'vlan_flags' in added:
-                old = removed['vlan_flags'] or 0
-                new = added['vlan_flags'] or 0
+            if added.get('vlan_flags') is not None:
                 run(nl.link,
                     (RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK),
                     **{'kind': 'vlan',
                        'index': self['index'],
-                       'vlan_flags': [new, new | old]})
+                       'vlan_flags': added['vlan_flags']})
 
             # 8<---------------------------------------------
             # IP address changes

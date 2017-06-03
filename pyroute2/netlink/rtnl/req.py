@@ -8,6 +8,7 @@ from pyroute2.netlink.rtnl import rt_scope
 from pyroute2.netlink.rtnl import encap_type
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifinfmsg import protinfo_bridge
+from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import flags as vlan_flags
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh as nh_header
 from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
@@ -356,6 +357,28 @@ class IPLinkRequest(IPRequest):
         self.deferred = []
 
     def set_specific(self, key, value):
+        # FIXME: vlan hack
+        if self.kind == 'vlan' and key == 'vlan_flags':
+            if isinstance(value, (list, tuple)):
+                if len(value) == 2 and \
+                        all((isinstance(x, int) for x in value)):
+                    value = {'flags': value[0],
+                             'mask': value[1]}
+                else:
+                    ret = 0
+                    for x in value:
+                        ret |= vlan_flags.get(x, 1)
+                    value = {'flags': ret,
+                             'mask': ret}
+            elif isinstance(value, int):
+                value = {'flags': value,
+                         'mask': value}
+            elif isinstance(value, basestring):
+                value = vlan_flags.get(value, 1)
+                value = {'flags': value,
+                         'mask': value}
+            elif not isinstance(value, dict):
+                raise ValueError()
         # the kind is known: lookup the NLA
         if key in self.specific:
             self.info_data.append((self.specific[key], value))
@@ -379,16 +402,6 @@ class IPLinkRequest(IPRequest):
                 nla = ['IFTUN_MODE', value]
             elif self.kind == 'bond':
                 nla = ['IFLA_BOND_MODE', value]
-            self.info_data.append(nla)
-            return True
-        elif key == 'vlan_flags':
-            # FIXME: vlan hack
-            if isinstance(value, (list, tuple)):
-                nla = ['IFLA_VLAN_FLAGS', {'flags': value[0],
-                                           'mask': value[1]}]
-            else:
-                nla = ['IFLA_VLAN_FLAGS', {'flags': value,
-                                           'mask': value}]
             self.info_data.append(nla)
             return True
 

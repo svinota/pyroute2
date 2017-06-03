@@ -203,6 +203,41 @@ class TestExplicit(BasicSetup):
         # test hasattr protocol
         assert hasattr(self.ip.interfaces, 'nonexistinginterface') is False
 
+    def _vlan_flags(self, flags, result):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ifV = self.get_ifname()
+        self.ip.create(ifname=ifA, kind='dummy').commit()
+        self.ip.create(ifname=ifV,
+                       kind='vlan',
+                       link=self.ip.interfaces[ifA],
+                       vlan_id=101,
+                       vlan_flags=flags).commit()
+        assert ifV in self.ip.interfaces
+        assert self.ip.interfaces[ifV].vlan_flags & result == result
+
+    def test_vlan_flags_int(self):
+        self._vlan_flags(2, 2)
+
+    def test_vlan_flags_str(self):
+        self._vlan_flags('gvrp', 2)
+
+    def test_vlan_flags_dict(self):
+        self._vlan_flags({'flags': 2, 'mask': 2}, 2)
+
+    def test_vlan_flags_tuple_int(self):
+        self._vlan_flags((2, 2), 2)
+
+    def test_vlan_flags_tuple_str(self):
+        self._vlan_flags(('gvrp', 'mvrp'), 10)
+
+    def test_vlan_flags_list_int(self):
+        self._vlan_flags([2, 2], 2)
+
+    def test_vlan_flags_list_str(self):
+        self._vlan_flags(['gvrp', 'mvrp'], 10)
+
     @skip_if_not_supported
     def test_vlan_slave_bridge(self):
         # https://github.com/svinota/pyroute2/issues/58
