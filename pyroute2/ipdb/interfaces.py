@@ -42,7 +42,10 @@ def _get_data_fields():
                  'ipvlan',
                  'vrf'):
         msg = ifinfmsg.ifinfo.data_map[data]
-        ret += [ifinfmsg.nla2name(i[0]) for i in msg.nla_map]
+        if getattr(msg, 'prefix', None) is not None:
+            ret += [msg.nla2name(i[0]) for i in msg.nla_map]
+        else:
+            ret += [ifinfmsg.nla2name(i[0]) for i in msg.nla_map]
     return ret
 
 
@@ -566,10 +569,15 @@ class Interface(Transactional):
                     # 8<----------------------------------------------------
                     init = self.pick()
                     try:
-                        self.nl.link('add',
-                                     **{key: self[key] for key in
-                                        filter(lambda x: x[:3] != 'br_',
-                                               self)})
+                        request = {key: transaction[key] for key in
+                                   filter(lambda x: x[:3] != 'br_',
+                                          transaction)}
+                        for key in ('net_ns_fd', 'net_ns_pid'):
+                            if key in request:
+                                with self._direct_state:
+                                    self[key] = None
+                                    del request[key]
+                        self.nl.link('add', **request)
                     except NetlinkError as x:
                         # File exists
                         if x.code == errno.EEXIST:

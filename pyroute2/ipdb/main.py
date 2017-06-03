@@ -1008,7 +1008,10 @@ class IPDB(object):
         except Exception:
             if phase == 1:
                 self.fallen = transactions
-                self.commit(transactions=snapshots, phase=2)
+                txs = filter(lambda x: not ('create' ==
+                                            x[0]['ipdb_scope'] ==
+                                            x[1]['ipdb_scope']), snapshots)
+                self.commit(transactions=txs, phase=2)
             raise
         else:
             if phase == 1:

@@ -1845,7 +1845,32 @@ class TestExplicit(BasicSetup):
         assert ifname not in self.ip.interfaces
         assert interface['ipdb_scope'] == 'detached'
 
-    def test_create_fail_repeat(self):
+    def test_create_fail_repeat1(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        try:
+            (self
+             .ip
+             .create(kind='dummy', ifname=ifA, address='11:22:33:44:55:66')
+             .commit())
+        except NetlinkError:
+            pass
+
+        assert ifA in self.ip.interfaces
+        assert self.ip.interfaces[ifA]['ipdb_scope'] == 'create'
+        # mac IS specified in create()
+        assert self.ip.interfaces[ifA]['address'] == '11:22:33:44:55:66'
+
+        # reset the address to some valid, otherwise commit() will fail again
+        self.ip.interfaces[ifA]['address'] = '00:11:22:33:44:55'
+        self.ip.interfaces[ifA].commit()
+
+        assert self.ip.interfaces[ifA]['ipdb_scope'] == 'system'
+        assert self.ip.interfaces[ifA]['address'] is not None
+        assert self.ip.interfaces[ifA]['index'] > 0
+
+    def test_create_fail_repeat2(self):
         require_user('root')
 
         ifA = self.get_ifname()
@@ -1861,7 +1886,7 @@ class TestExplicit(BasicSetup):
         # mac NOT specified in create()
         assert self.ip.interfaces[ifA]['address'] != '11:22:33:44:55:66'
 
-        # reset the mac to some valid, otherwise commit() will fail again
+        # reset the address to some valid, otherwise commit() will fail again
         self.ip.interfaces[ifA]['address'] = '00:11:22:33:44:55'
         self.ip.interfaces[ifA].commit()
 

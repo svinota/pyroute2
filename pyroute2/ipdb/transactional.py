@@ -1,5 +1,6 @@
 '''
 '''
+import logging
 import threading
 from pyroute2.config import TransactionalBase
 from pyroute2.common import uuid32
@@ -9,6 +10,7 @@ from pyroute2.ipdb.exceptions import CommitException
 # How long should we wait on EACH commit() checkpoint: for ipaddr,
 # ports etc. That's not total commit() timeout.
 SYNC_TIMEOUT = 5
+log = logging.getLogger(__name__)
 
 
 class State(object):
@@ -175,8 +177,8 @@ class Transactional(TransactionalBase):
                                  parent=parent,
                                  uid=uid)
             for (key, value) in self.items():
-                if key in self._fields:
-                    if self[key] is not None:
+                if self[key] is not None:
+                    if key in self._fields:
                         res[key] = self[key]
             for key in self._linked_sets:
                 res[key] = type(self[key])(self[key])
@@ -381,7 +383,12 @@ class Transactional(TransactionalBase):
         tid = tid or self.current_tx.uid
 
         if self.get('ipdb_scope') == 'create':
-            return dict([(x[0], x[1]) for x in self.items()
+            if self.current_tx is not None:
+                prime = self.current_tx
+            else:
+                log.warning('the "create" scope without transaction')
+                prime = self
+            return dict([(x[0], x[1]) for x in prime.items()
                          if x[1] is not None])
 
         with self._write_lock:
