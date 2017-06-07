@@ -11,7 +11,7 @@ try:
     import eventlet
 except ImportError:
     raise SkipTest('eventlet library is not installed')
-from pyroute2.config.eventlet import eventlet_config
+from pyroute2.config.asyncio import asyncio_config
 from pyroute2 import IPRoute
 from pyroute2 import NetNS
 from pyroute2 import IPDB
@@ -20,7 +20,7 @@ try:
     eventlet.monkey_patch()
 except AttributeError:
     raise SkipTest('eventlet library is not installed')
-eventlet_config()
+asyncio_config()
 
 
 class TestBasic(object):
@@ -38,7 +38,7 @@ class TestBasic(object):
         require_user('root')
         ns = NetNS(str(uuid.uuid4()))
         try:
-            assert len(ns.get_links()) > 1
+            assert len(ns.get_links()) >= 1
         except:
             raise
         finally:

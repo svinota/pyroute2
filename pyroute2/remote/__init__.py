@@ -168,13 +168,13 @@ def Server(cmdch, brdch):
         ipr = IPRoute()
         lock = ipr._sproxy.lock
         ipr._s_channel = ProxyChannel(brdch, 'broadcast')
-        poll = select.poll()
-        poll.register(ipr, select.POLLIN | select.POLLPRI)
-        poll.register(cmdch, select.POLLIN | select.POLLPRI)
     except Exception as e:
         cmdch.send({'stage': 'init',
                     'error': e})
         return 255
+
+    inputs = [ipr.fileno(), cmdch.fileno()]
+    outputs = []
 
     # all is OK so far
     cmdch.send({'stage': 'init',
@@ -186,10 +186,10 @@ def Server(cmdch, brdch):
     # 8<-------------------------------------------------------------
     while True:
         try:
-            events = poll.poll()
+            events, _, _ = select.select(inputs, outputs, inputs)
         except:
             continue
-        for (fd, event) in events:
+        for fd in events:
             if fd == ipr.fileno():
                 bufsize = ipr.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
                 with lock:
@@ -206,8 +206,6 @@ def Server(cmdch, brdch):
             elif fd == cmdch.fileno():
                 cmd = cmdch.recv()
                 if cmd['stage'] == 'shutdown':
-                    poll.unregister(ipr)
-                    poll.unregister(cmdch)
                     ipr.close()
                     return
                 elif cmd['stage'] == 'reconstruct':
