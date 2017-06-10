@@ -113,22 +113,12 @@ class TestIngress(BasicTest):
                       (x.get_attr('TCA_OPTIONS').get_attr('TCA_BPF_ACT')
                        is not None)][0]
         bpf_options = bpf_filter.get_attr('TCA_OPTIONS')
+        assert bpf_options.get_attr('TCA_BPF_NAME') == 'my_func'
         gact_parms = bpf_options.get_attr('TCA_BPF_ACT').\
             get_attr('TCA_ACT_PRIO_1').\
             get_attr('TCA_ACT_OPTIONS').\
             get_attr('TCA_GACT_PARMS')
         assert gact_parms['action'] == 0
-
-        u32_filter = [x for x in fls
-                      if x.get_attr('TCA_OPTIONS') is not None and
-                      (x.get_attr('TCA_OPTIONS').get_attr('TCA_U32_ACT')
-                       is not None)][0]
-        u32_options = u32_filter.get_attr('TCA_OPTIONS')
-        bpf_fd = u32_options.get_attr('TCA_U32_ACT').\
-            get_attr('TCA_ACT_PRIO_1').\
-            get_attr('TCA_ACT_OPTIONS').\
-            get_attr('TCA_ACT_BPF_FD')
-        assert bpf_fd == fd2
 
     @skip_if_not_supported
     def test_bpf_filter_policer(self):
