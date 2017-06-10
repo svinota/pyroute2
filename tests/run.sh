@@ -7,7 +7,7 @@
     exit 1
 }
 
-export PYTHONPATH="`pwd`:`pwd`/examples"
+export PYTHONPATH="`pwd`:`pwd`/examples:`pwd`/examples/generic"
 TOP=$(readlink -f $(pwd)/..)
 
 # Prepare test environment
