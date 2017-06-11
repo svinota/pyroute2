@@ -57,7 +57,7 @@ class TestBasic(object):
             ip.release()
 
 
-class TestComplex(object):
+class _TestComplex(object):
 
     def test_vrouter(self):
         require_user('root')
