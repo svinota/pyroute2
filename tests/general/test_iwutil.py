@@ -19,9 +19,13 @@ class TestIW(object):
         ifaces = self.iw.get_interfaces_dump()
         if not ifaces:
             raise SkipTest('no wireless interfaces found')
-        self.ifname = ifaces[0].get_attr('NL80211_ATTR_IFNAME')
-        self.ifindex = ifaces[0].get_attr('NL80211_ATTR_IFINDEX')
-        self.wiphy = ifaces[0].get_attr('NL80211_ATTR_WIPHY')
+        for i in ifaces:
+            self.ifname = i.get_attr('NL80211_ATTR_IFNAME')
+            self.ifindex = i.get_attr('NL80211_ATTR_IFINDEX')
+            self.wiphy = i.get_attr('NL80211_ATTR_WIPHY')
+            if self.ifindex:
+                return
+        raise Exception('can not detect the interface to use')
 
     def teardown(self):
         self.iw.close()
