@@ -30,6 +30,7 @@ class Console(code.InteractiveConsole):
               "debug\t-- run pdb\n"
               "exit\t-- exit cli\n"
               "ls\t-- list current namespace\n"
+              ".\t-- print the current object\n"
               ".. or ;\t-- one level up\n")
 
     def set_prompt(self, prompt=None):
@@ -66,27 +67,50 @@ class Console(code.InteractiveConsole):
                 sys.stdout.flush()
             elif cmd == 'help':
                 self.help()
+            elif cmd == '.':
+                print(repr(self.ptr))
             elif cmd in ('..', ';'):
                 if self.stack:
                     self.ptr, self.ptrname = self.stack.pop()
                 self.set_prompt(self.ptrname)
             else:
-                cmd = list(shlex.shlex(cmd))
-                obj = getattr(self.ptr, cmd[0], None)
+                # parse the command line into tokens
+                #
+                # symbols .:/ etc. are needed to represent IP addresses
+                # as whole tokens
+                #
+                # quotes should be stripped
+                #
+                parser = shlex.shlex(cmd)
+                parser.wordchars += '.:/-+*'
+                pre_args = list(parser)
+                args = []
+                for arg in pre_args:
+                    if arg[0] == arg[-1] and arg[0] in ("\"'"):
+                        args.append(arg[1:-1])
+                    else:
+                        args.append(arg)
+
+                # an attribute
+                obj = getattr(self.ptr, args[0], None)
                 if obj is None:
-                    print('attribute not found')
-                    sys.stdout.flush()
-                    continue
+                    # try a kay
+                    try:
+                        obj = self.ptr[self.convert(cmd)]
+                    except Exception:
+                        print('object not found')
+                        sys.stdout.flush()
+                        continue
                 if hasattr(obj, '__call__'):
                     argv = []
                     kwarg = {}
-                    length = len(cmd)
+                    length = len(args)
                     for x in range(1, length):
                         # is it a kwarg?
-                        if x < length - 2 and cmd[x + 1] == '=':
-                            kwarg[cmd[x]] = self.convert(cmd[x + 2])
+                        if x < length - 2 and args[x + 1] == '=':
+                            kwarg[cmd[x]] = self.convert(args[x + 2])
                         else:
-                            argv.append(self.convert(cmd[x]))
+                            argv.append(self.convert(args[x]))
                     try:
                         ret = obj(*argv, **kwarg)
                         if ret and not isinstance(ret, Transactional):
@@ -97,12 +121,16 @@ class Console(code.InteractiveConsole):
                 else:
                     self.stack.append((self.ptr, self.ptrname))
                     self.ptr = obj
-                    self.ptrname = cmd[0]
-                    self.set_prompt(cmd[0])
+                    self.ptrname = args[0]
+                    self.set_prompt(args[0])
 
     def completer(self, text, state):
         if state == 0:
-            self.matches = [x for x in dir(self.ptr) if x.startswith(text)]
+            d = [x for x in dir(self.ptr) if x.startswith(text)]
+            if isinstance(self.ptr, dict):
+                keys = [str(y) for y in self.ptr.keys()]
+                d.extend([x for x in keys if x.startswith(text)])
+            self.matches = d
         try:
             return self.matches[state]
         except:
@@ -111,7 +139,7 @@ class Console(code.InteractiveConsole):
     def display(self, line, matches, length):
         print()
         print(matches)
-        print("%s%s" % (self.prompt, line))
+        print('%s%s' % (self.prompt, line), end='')
         sys.stdout.flush()
 
 
