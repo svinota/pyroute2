@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+
+import re
+import pdb
+import sys
+import code
+import shlex
+import readline
+from pprint import pprint
+from pyroute2 import IPDB
+from pyroute2.ipdb.transactional import Transactional
+from pyroute2.ipdb.interfaces import Interface
+
+
+class Console(code.InteractiveConsole):
+    def __init__(self):
+        self.ipdb = IPDB()
+        self.ptr = self.ipdb
+        self.ptrname = None
+        self.stack = []
+        self.matches = []
+        self.set_prompt()
+        code.InteractiveConsole.__init__(self)
+        readline.parse_and_bind('tab: complete')
+        readline.set_completer(self.completer)
+        readline.set_completion_display_matches_hook(self.display)
+
+    def help(self):
+        print("Built-in commands: \n"
+              "debug\t-- run pdb\n"
+              "exit\t-- exit cli\n"
+              "ls\t-- list current namespace\n"
+              ".. or ;\t-- one level up\n")
+
+    def set_prompt(self, prompt=None):
+        if isinstance(self.ptr, Interface):
+            self.prompt = 'ifname: %s > ' % (self.ptr.ifname)
+        elif prompt is not None:
+            self.prompt = '%s > ' % (prompt)
+        else:
+            self.prompt = '%s > ' % (self.ptr.__class__.__name__)
+
+    def convert(self, arg):
+        if re.match('^[0-9]+$', arg):
+            return int(arg)
+        else:
+            return arg
+
+    def interact(self):
+        print("IPDB cli prototype. The first planned release: 0.4.17")
+        while True:
+            try:
+                cmd = self.raw_input(self.prompt)
+            except:
+                print("perkele")
+                break
+
+            if not cmd:
+                continue
+            elif cmd == 'debug':
+                pdb.set_trace()
+            elif cmd == 'exit':
+                break
+            elif cmd == 'ls':
+                print(dir(self.ptr))
+                sys.stdout.flush()
+            elif cmd == 'help':
+                self.help()
+            elif cmd in ('..', ';'):
+                if self.stack:
+                    self.ptr, self.ptrname = self.stack.pop()
+                self.set_prompt(self.ptrname)
+            else:
+                cmd = list(shlex.shlex(cmd))
+                obj = getattr(self.ptr, cmd[0], None)
+                if obj is None:
+                    print('attribute not found')
+                    sys.stdout.flush()
+                    continue
+                if hasattr(obj, '__call__'):
+                    argv = []
+                    kwarg = {}
+                    length = len(cmd)
+                    for x in range(1, length):
+                        # is it a kwarg?
+                        if x < length - 2 and cmd[x + 1] == '=':
+                            kwarg[cmd[x]] = self.convert(cmd[x + 2])
+                        else:
+                            argv.append(self.convert(cmd[x]))
+                    try:
+                        ret = obj(*argv, **kwarg)
+                        if ret and not isinstance(ret, Transactional):
+                            pprint(ret)
+                            sys.stdout.flush()
+                    except:
+                        self.showtraceback()
+                else:
+                    self.stack.append((self.ptr, self.ptrname))
+                    self.ptr = obj
+                    self.ptrname = cmd[0]
+                    self.set_prompt(cmd[0])
+
+    def completer(self, text, state):
+        if state == 0:
+            self.matches = [x for x in dir(self.ptr) if x.startswith(text)]
+        try:
+            return self.matches[state]
+        except:
+            pass
+
+    def display(self, line, matches, length):
+        print()
+        print(matches)
+        print("%s%s" % (self.prompt, line))
+        sys.stdout.flush()
+
+
+if __name__ == '__main__':
+    Console().interact()
