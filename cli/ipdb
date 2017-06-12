@@ -105,12 +105,15 @@ class Console(code.InteractiveConsole):
                     argv = []
                     kwarg = {}
                     length = len(args)
-                    for x in range(1, length):
+                    x = 1
+                    while x < len(args):
                         # is it a kwarg?
                         if x < length - 2 and args[x + 1] == '=':
-                            kwarg[cmd[x]] = self.convert(args[x + 2])
+                            kwarg[args[x]] = self.convert(args[x + 2])
+                            x += 3
                         else:
                             argv.append(self.convert(args[x]))
+                            x += 1
                     try:
                         ret = obj(*argv, **kwarg)
                         if ret and not isinstance(ret, Transactional):
