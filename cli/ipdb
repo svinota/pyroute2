@@ -55,7 +55,7 @@ class Console(code.InteractiveConsole):
             print("IPDB cli prototype. The first planned release: 0.4.17")
         while True:
             try:
-                cmd = self.raw_input(self.prompt)
+                cmd = self.raw_input(self.prompt).strip()
             except:
                 print("perkele")
                 break
