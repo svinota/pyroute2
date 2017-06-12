@@ -19,6 +19,8 @@ class Console(code.InteractiveConsole):
         self.ptrname = None
         self.stack = []
         self.matches = []
+        self.isatty = sys.stdin.isatty()
+        self.prompt = ''
         self.set_prompt()
         code.InteractiveConsole.__init__(self)
         readline.parse_and_bind('tab: complete')
@@ -34,12 +36,13 @@ class Console(code.InteractiveConsole):
               ".. or ;\t-- one level up\n")
 
     def set_prompt(self, prompt=None):
-        if isinstance(self.ptr, Interface):
-            self.prompt = 'ifname: %s > ' % (self.ptr.ifname)
-        elif prompt is not None:
-            self.prompt = '%s > ' % (prompt)
-        else:
-            self.prompt = '%s > ' % (self.ptr.__class__.__name__)
+        if self.isatty:
+            if isinstance(self.ptr, Interface):
+                self.prompt = 'ifname: %s > ' % (self.ptr.ifname)
+            elif prompt is not None:
+                self.prompt = '%s > ' % (prompt)
+            else:
+                self.prompt = '%s > ' % (self.ptr.__class__.__name__)
 
     def convert(self, arg):
         if re.match('^[0-9]+$', arg):
@@ -48,7 +51,8 @@ class Console(code.InteractiveConsole):
             return arg
 
     def interact(self):
-        print("IPDB cli prototype. The first planned release: 0.4.17")
+        if self.isatty:
+            print("IPDB cli prototype. The first planned release: 0.4.17")
         while True:
             try:
                 cmd = self.raw_input(self.prompt)
