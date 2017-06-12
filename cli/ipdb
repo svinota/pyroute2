@@ -66,17 +66,18 @@ class Console(code.InteractiveConsole):
             cmd = cmd.strip()
 
             # compare spaces with self.ptr
-            while self.stack and self.stack[-1][2] >= lspaces:
-                # pop stack
-                self.ptr, self.ptrname, spaces = self.stack.pop()
-                # compare spaces
-                if spaces == lspaces:
-                    break
-                elif spaces < lspaces:
-                    print('indentation warning: <%s>' % cmd)
-                    self.stdout.flush()
-                    break
-            self.set_prompt(self.ptrname)
+            if not self.isatty:
+                while self.stack and self.stack[-1][2] >= lspaces:
+                    # pop stack
+                    self.ptr, self.ptrname, spaces = self.stack.pop()
+                    # compare spaces
+                    if spaces == lspaces:
+                        break
+                    elif spaces < lspaces:
+                        print('indentation warning: <%s>' % cmd)
+                        self.stdout.flush()
+                        break
+                self.set_prompt(self.ptrname)
 
             if not cmd:
                 continue
