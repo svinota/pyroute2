@@ -1,0 +1,11 @@
+create ifname=test01 kind=dummy
+create ifname=test02 kind=dummy
+create ifname=testbr kind=bridge
+commit
+
+interfaces
+    testbr
+        add_port test01
+        add_port test02
+
+commit
