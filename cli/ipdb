@@ -55,10 +55,28 @@ class Console(code.InteractiveConsole):
             print("IPDB cli prototype. The first planned release: 0.4.17")
         while True:
             try:
-                cmd = self.raw_input(self.prompt).strip()
+                cmd = self.raw_input(self.prompt)
             except:
                 print("perkele")
                 break
+
+            # calculate leading whitespaces and strip cmd
+            lcmd = cmd.lstrip()
+            lspaces = len(cmd) - len(lcmd)
+            cmd = cmd.strip()
+
+            # compare spaces with self.ptr
+            while self.stack and self.stack[-1][2] >= lspaces:
+                # pop stack
+                self.ptr, self.ptrname, spaces = self.stack.pop()
+                # compare spaces
+                if spaces == lspaces:
+                    break
+                elif spaces < lspaces:
+                    print('indentation warning: <%s>' % cmd)
+                    self.stdout.flush()
+                    break
+            self.set_prompt(self.ptrname)
 
             if not cmd:
                 continue
@@ -75,7 +93,7 @@ class Console(code.InteractiveConsole):
                 print(repr(self.ptr))
             elif cmd in ('..', ';'):
                 if self.stack:
-                    self.ptr, self.ptrname = self.stack.pop()
+                    self.ptr, self.ptrname, lspaces = self.stack.pop()
                 self.set_prompt(self.ptrname)
             else:
                 # parse the command line into tokens
@@ -126,7 +144,7 @@ class Console(code.InteractiveConsole):
                     except:
                         self.showtraceback()
                 else:
-                    self.stack.append((self.ptr, self.ptrname))
+                    self.stack.append((self.ptr, self.ptrname, lspaces))
                     self.ptr = obj
                     self.ptrname = args[0]
                     self.set_prompt(args[0])
