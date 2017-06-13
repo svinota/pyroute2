@@ -9,10 +9,10 @@ commit
 
 interfaces
     test01
-        set_mtu 1280
+        mtu 1280
         up
     test02
-        set_mtu 1280
+        mtu 1280
         up
 commit
 
@@ -22,6 +22,6 @@ interfaces
         add_port test02
         add_ip 10.1.2.3/24
         add_ip 10.1.2.4/24
-        set_br_stp_state 1
+        br_stp_state 1
         up
 commit

@@ -8,6 +8,7 @@ import shlex
 import readline
 from pprint import pprint
 from pyroute2 import IPDB
+from pyroute2.common import basestring
 from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.interfaces import Interface
 
@@ -67,7 +68,7 @@ class Console(code.InteractiveConsole):
                 cmd = cmd[:fbang]
             if cmd.find('#') >= 0:
                 cmd = cmd[:fhash]
-            
+
             # skip empty strings
             if not len(cmd.strip()):
                 continue
@@ -119,16 +120,16 @@ class Console(code.InteractiveConsole):
                 #
                 parser = shlex.shlex(cmd)
                 parser.wordchars += '.:/-+*'
-                pre_args = list(parser)
-                args = []
-                for arg in pre_args:
-                    if arg[0] == arg[-1] and arg[0] in ("\"'"):
-                        args.append(arg[1:-1])
+                pre_tokens = list(parser)
+                tokens = []
+                for token in pre_tokens:
+                    if token[0] == token[-1] and token[0] in ("\"'"):
+                        tokens.append(token[1:-1])
                     else:
-                        args.append(arg)
+                        tokens.append(token)
 
                 # an attribute
-                obj = getattr(self.ptr, args[0], None)
+                obj = getattr(self.ptr, tokens[0], None)
                 if obj is None:
                     # try a kay
                     try:
@@ -140,15 +141,15 @@ class Console(code.InteractiveConsole):
                 if hasattr(obj, '__call__'):
                     argv = []
                     kwarg = {}
-                    length = len(args)
+                    length = len(tokens)
                     x = 1
-                    while x < len(args):
+                    while x < len(tokens):
                         # is it a kwarg?
-                        if x < length - 2 and args[x + 1] == '=':
-                            kwarg[args[x]] = self.convert(args[x + 2])
+                        if x < length - 2 and tokens[x + 1] == '=':
+                            kwarg[tokens[x]] = self.convert(tokens[x + 2])
                             x += 3
                         else:
-                            argv.append(self.convert(args[x]))
+                            argv.append(self.convert(tokens[x]))
                             x += 1
                     try:
                         ret = obj(*argv, **kwarg)
@@ -158,10 +159,21 @@ class Console(code.InteractiveConsole):
                     except:
                         self.showtraceback()
                 else:
-                    self.stack.append((self.ptr, self.ptrname, lspaces))
-                    self.ptr = obj
-                    self.ptrname = args[0]
-                    self.set_prompt(args[0])
+                    if isinstance(obj, (basestring, int, float)):
+                        # is it a simple attribute?
+                        if isinstance(self.ptr, Transactional) and \
+                                len(tokens) > 1:
+                            # set it
+                            self.ptr[tokens[0]] = self.convert(tokens[1])
+                        else:
+                            # or print it
+                            print(self.ptr[tokens[0]])
+                    else:
+                        # otherwise change the context
+                        self.stack.append((self.ptr, self.ptrname, lspaces))
+                        self.ptr = obj
+                        self.ptrname = tokens[0]
+                        self.set_prompt(tokens[0])
 
     def completer(self, text, state):
         if state == 0:
