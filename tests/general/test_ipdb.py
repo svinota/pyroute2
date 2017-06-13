@@ -2516,7 +2516,7 @@ class TestMisc(object):
             ts1 = time.time()
             ip.create(ifname=ifname, kind='dummy').commit()
             ts2 = time.time()
-            assert 0 < (ts2 - ts1) < 1
+            assert 0 < (ts2 - ts1) < 2
         except:
             raise
         finally:
@@ -2531,7 +2531,7 @@ class TestMisc(object):
             ts1 = time.time()
             ip.create(ifname=ifname, kind='dummy').commit()
             ts2 = time.time()
-            assert 5 < (ts2 - ts1) < 6
+            assert 5 < (ts2 - ts1) < 7
         except:
             raise
         finally:
