@@ -60,9 +60,22 @@ class Console(code.InteractiveConsole):
                 print("perkele")
                 break
 
-            # calculate leading whitespaces and strip cmd
+            # strip comments
+            fbang = cmd.find('!')
+            fhash = cmd.find('#')
+            if fbang >= 0:
+                cmd = cmd[:fbang]
+            if cmd.find('#') >= 0:
+                cmd = cmd[:fhash]
+            
+            # skip empty strings
+            if not len(cmd.strip()):
+                continue
+
+            # calculate leading whitespaces
             lcmd = cmd.lstrip()
             lspaces = len(cmd) - len(lcmd)
+            # strip all whitespaces
             cmd = cmd.strip()
 
             # compare spaces with self.ptr
