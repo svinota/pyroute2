@@ -27,6 +27,7 @@ from utils import require_8021q
 from utils import require_kernel
 from utils import get_ip_addr
 from utils import skip_if_not_supported
+from nose.plugins.skip import SkipTest
 
 
 class _TestException(Exception):
@@ -1733,6 +1734,7 @@ class TestExplicit(BasicSetup):
         assert grep('ip link', pattern=ifA)
         assert not grep('ip link', pattern=ifB)
 
+    @skip_if_not_supported
     def test_bridge_vlans_flags(self):
         require_user('root')
         ifB = self.get_ifname()
@@ -1767,6 +1769,11 @@ class TestExplicit(BasicSetup):
         # IPDB doesn't sync on implicit vlans, so we have to
         # wait here
         time.sleep(1)
+
+        # skip if not supported
+        if len(p.vlans) == 0:
+            raise SkipTest('feature not supported by platform')
+
         assert len(p.vlans) == 1
 
         with p:
