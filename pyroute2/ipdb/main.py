@@ -992,6 +992,21 @@ class IPDB(object):
         snapshots = []
         removed = []
 
+        # quick sort transactions in one turn
+        tx_first = []
+        tx_main = []
+        tx_last = []
+        for (target, tx) in transactions:
+            kind = target.get('kind', None)
+            if kind:
+                if kind in ('vlan', 'vxlan', 'gre', 'tuntap', 'vti', 'vrf'):
+                    tx_first.append((target, tx))
+                elif kind in ('bridge', 'bond'):
+                    tx_last.append((target, tx))
+                else:
+                    tx_main.append((target, tx))
+        transactions = tx_first + tx_main + tx_last
+
         try:
             for (target, tx) in transactions:
                 if target['ipdb_scope'] == 'detached':

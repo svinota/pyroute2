@@ -798,16 +798,7 @@ class Interface(Transactional):
                     request.pop('address')
                     request.pop('broadcast', None)
                 wait_all = True
-                try:
-                    run(nl.link, 'set', **request)
-                except:
-                    if added.get('ipdb_scope') in ('shadow', 'remove'):
-                        # FIXME
-                        # ignore 'set' errors for interface removals:
-                        # there may be races while removing bridge/port
-                        wait_all = False
-                    else:
-                        raise
+                run(nl.link, 'set', **request)
                 # Yet another trick: setting ifalias doesn't cause
                 # netlink updates
                 if 'ifalias' in request:
