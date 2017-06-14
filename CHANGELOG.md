@@ -1,6 +1,16 @@
 changelog
 =========
 
+* 0.4.16
+    * ipdb: race fixed: remove port/bridge
+    * ipdb: #280 -- race fixed: port/bridge
+    * ipdb: #302 -- ipaddr views: [ifname].ipaddr.ipv4, [ifname]ipaddr.ipv6
+    * ipdb: #357 -- allow bridge timings to have some delta
+    * ipdb: #338 -- allow to fix interface objects from failed `create()`
+    * rtnl: #336 -- fix vlan flags
+    * iproute: #342 -- the match method takes any callable
+    * nlsocket: #367 -- increase default SO_SNDBUF
+    * ifinfmsg: support tuntap on armv6l, armv7l platforms
 * 0.4.15
     * req: #365 -- full and short nla notation fixed, critical
     * iproute: #364 -- new method, `brport()`
