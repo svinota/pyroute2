@@ -497,6 +497,8 @@ class Transactional(TransactionalBase):
         with self._write_lock:
             self._local_targets[key] = threading.Event()
             self._local_targets[key].value = value
+            if self.get(key) == value:
+                self._local_targets[key].set()
             return self
 
     def mirror_target(self, key_from, key_to):
