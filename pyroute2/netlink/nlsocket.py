@@ -894,7 +894,7 @@ class NetlinkSocket(NetlinkMixin):
                 def patch(data, bsize):
                     data[0:] = self._sock.recv(bsize)
                 self._sock.recv_into = patch
-            self.setsockopt(SOL_SOCKET, SO_SNDBUF, 32768)
+            self.setsockopt(SOL_SOCKET, SO_SNDBUF, 1024 * 1024)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
             if self.all_ns:
                 self.setsockopt(SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, 1)
