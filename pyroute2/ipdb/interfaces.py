@@ -742,9 +742,16 @@ class Interface(Transactional):
                 if not self['ports'].target.is_set():
                     raise CommitException('ports target is not set')
 
-                # wait for proper targets on ports
+                # 1. wait for proper targets on ports
+                # 2. wait for mtu sync
+                #
+                # the bridge mtu is set from the port, if the latter is smaller
+                # the bond mtu sets the port mtu, if the latter is smaller
+                #
+                # FIXME: team interfaces?
                 for i in list(added['ports']) + list(removed['ports']):
                     port = self.ipdb.interfaces[i]
+                    # port update
                     target = port._local_targets['master']
                     target.wait(SYNC_TIMEOUT)
                     with port._write_lock:
@@ -758,6 +765,10 @@ class Interface(Transactional):
                     else:
                         if port.if_master == self['index']:
                             raise CommitException('master unset failed')
+                    # master update
+                    if self['kind'] == 'bridge' and self['mtu'] > port['mtu']:
+                        self.set_target('mtu', port['mtu'])
+                        self.wait_target('mtu')
 
             # 8<---------------------------------------------
             # Interface changes

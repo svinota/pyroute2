@@ -3,10 +3,46 @@ from pyroute2 import IPDB
 from pyroute2 import NetNS
 from pyroute2.common import uifname
 from nose.tools import assert_raises
+from utils import require_user
 import fcntl
 import sys
 
 RESPAWNS = 1200
+
+
+class TestIPDBRaces(object):
+
+    def setup(self):
+        self.ip = IPDB()
+
+    def teardown(self):
+        self.ip.release()
+
+    def _ports_mtu_race(self, kind):
+        require_user('root')
+        port1 = (self.ip
+                 .create(ifname=uifname(), kind='dummy', mtu=1280)
+                 .commit())
+        port2 = (self.ip
+                 .create(ifname=uifname(), kind='dummy')
+                 .commit())
+        master = (self.ip
+                  .create(ifname=uifname(), kind=kind)
+                  .commit())
+
+        try:
+            master.add_port(port1).commit()
+            master.add_port(port2).commit()
+        except:
+            raise
+        finally:
+            port1.remove().commit()
+            port2.remove().commit()
+            master.remove().commit()
+
+    def test_bridge_mtu(self):
+        for _ in range(300):
+            self._ports_mtu_race('bridge')
 
 
 class TestRespawn(object):
