@@ -903,10 +903,22 @@ class Interface(Transactional):
                 # down by default, so they never send
                 # address updates from beginning
                 #
-                if not self['flags'] & 1:
+                # FIXME:
+                #
+                # that all is a dirtiest hack ever, pls do
+                # something with it
+                #
+                if (not self['flags'] & 1) or hasattr(self.ipdb.nl, 'netns'):
+                    # 1. flush old IPv6 addresses
+                    for addr in list(self['ipaddr']):
+                        self['ipaddr'].remove(addr)
+                    # 2. reload addresses
                     for addr in self.nl.get_addr(index=self['index'],
                                                  family=socket.AF_INET6):
                         self.ipdb.ipaddr._new(addr)
+                    # if there are tons of IPv6 addresses, it may take a
+                    # really long time, and that's bad, but it's broken in
+                    # the kernel :|
 
                 # 8<--------------------------------------
                 self['ipaddr'].target.wait(SYNC_TIMEOUT)
