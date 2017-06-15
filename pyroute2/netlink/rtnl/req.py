@@ -402,6 +402,8 @@ class IPLinkRequest(IPRequest):
                 nla = ['IFTUN_MODE', value]
             elif self.kind == 'bond':
                 nla = ['IFLA_BOND_MODE', value]
+            elif self.kind == 'macvlan':
+                nla = ['IFLA_MACVLAN_MODE', value]
             self.info_data.append(nla)
             return True
 
