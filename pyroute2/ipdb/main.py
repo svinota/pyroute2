@@ -262,6 +262,67 @@ done so to make it possible to fix the interface object and try
 to run `commit()` again. Or you can drop the interface object
 with the `.remove().commit()` call.
 
+IP address management
+---------------------
+
+IP addresses on interfaces may be managed using `add_ip()` and
+`del_ip()`::
+
+    with ipdb.interfaces['eth0'] as eth:
+        eth.add_ip('10.0.0.1/24')
+        eth.add_ip('10.0.0.2/24')
+        eth.add_ip('2001:4c8:1023:108::39/64')
+        eth.del_ip('172.16.12.5/24')
+
+The address format may be either a string with `'address/mask'`
+notation, or a pair of `'address', mask`::
+
+    with ipdb.interfaces['eth0'] as eth:
+        eth.add_ip('10.0.0.1', 24)
+        eth.del_ip('172.16.12.5', 24)
+
+The `ipaddr` attribute contains all the IP addresses of the
+interface, which are acessible in different ways. Getting an
+iterator from `ipaddr` gives you a sequence of tuples
+`('address', mask)`::
+
+    >>> for addr in ipdb.interfaces['eth0'].ipaddr:
+    ...    print(ipaddr)
+    ...
+    ('10.0.0.2', 24)
+    ('10.0.0.1', 24)
+
+Getting one IP from `ipaddr` returns a dict object with full spec:
+
+    >>> ipdb.interfaces['eth0'].ipaddr[0]:
+        {'family': 2,
+         'broadcast': None,
+         'flags': 128,
+         'address': '10.0.0.2',
+         'prefixlen': 24,
+         'local': '10.0.0.2'}
+
+    >>> ipdb.intefaces['eth0'].ipaddr['10.0.0.2/24']:
+        {'family': 2,
+         'broadcast': None,
+         'flags': 128,
+         'address': '10.0.0.2',
+         'prefixlen': 24,
+         'local': '10.0.0.2'}
+
+The API is a bit weird, but it's because of historical reasons. In
+the future it may be changed.
+
+Another feature of the `ipaddr` attribute is views::
+
+    >>> ipdb.interfaces['eth0'].ipaddr.ipv4:
+        (('10.0.0.2', 24), ('10.0.0.1', 24))
+    >>> ipdb.interfaces['eth0'].ipaddr.ipv6:
+        (('2001:4c8:1023:108::39', 64),)
+
+The views, as well as the `ipaddr` attribute itself are not supposed
+to be changed by user, but only by the internal API.
+
 Bridge interfaces
 -----------------
 
