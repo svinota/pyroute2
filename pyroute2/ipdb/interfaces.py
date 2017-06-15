@@ -910,7 +910,7 @@ class Interface(Transactional):
                 #
                 if (not self['flags'] & 1) or hasattr(self.ipdb.nl, 'netns'):
                     # 1. flush old IPv6 addresses
-                    for addr in list(self['ipaddr']):
+                    for addr in list(self['ipaddr'].ipv6):
                         self['ipaddr'].remove(addr)
                     # 2. reload addresses
                     for addr in self.nl.get_addr(index=self['index'],
