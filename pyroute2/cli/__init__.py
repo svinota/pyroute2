@@ -14,7 +14,7 @@ from pyroute2.ipdb.interfaces import Interface
 
 
 class Console(code.InteractiveConsole):
-    def __init__(self):
+    def __init__(self, stdout=None):
         self.ipdb = IPDB()
         self.ptr = self.ipdb
         self.ptrname = None
@@ -22,19 +22,31 @@ class Console(code.InteractiveConsole):
         self.matches = []
         self.isatty = sys.stdin.isatty()
         self.prompt = ''
+        self.stdout = stdout or sys.stdout
         self.set_prompt()
         code.InteractiveConsole.__init__(self)
         readline.parse_and_bind('tab: complete')
         readline.set_completer(self.completer)
         readline.set_completion_display_matches_hook(self.display)
 
+    def write(self, text=''):
+        self.lprint(text)
+
+    def pprint(self, text=''):
+        pprint(text, stream=self.stdout)
+        self.stdout.flush()
+
+    def lprint(self, text='', end='\n'):
+        print(text, file=self.stdout, end=end)
+        self.stdout.flush()
+
     def help(self):
-        print("Built-in commands: \n"
-              "debug\t-- run pdb\n"
-              "exit\t-- exit cli\n"
-              "ls\t-- list current namespace\n"
-              ".\t-- print the current object\n"
-              ".. or ;\t-- one level up\n")
+        self.lprint("Built-in commands: \n"
+                    "debug\t-- run pdb\n"
+                    "exit\t-- exit cli\n"
+                    "ls\t-- list current namespace\n"
+                    ".\t-- print the current object\n"
+                    ".. or ;\t-- one level up\n")
 
     def set_prompt(self, prompt=None):
         if self.isatty:
@@ -51,14 +63,19 @@ class Console(code.InteractiveConsole):
         else:
             return arg
 
-    def interact(self):
+    def interact(self, readfunc=None):
+
+        if readfunc is None:
+            readfunc = self.raw_input
+
         if self.isatty:
-            print("IPDB cli prototype. The first planned release: 0.4.17")
+            self.lprint("IPDB cli prototype. "
+                        "The first planned release: 0.4.17")
         while True:
             try:
-                cmd = self.raw_input(self.prompt)
+                cmd = readfunc(self.prompt)
             except:
-                print("perkele")
+                self.lprint()
                 break
 
             # strip comments
@@ -88,8 +105,7 @@ class Console(code.InteractiveConsole):
                     if spaces == lspaces:
                         break
                     elif spaces < lspaces:
-                        print('indentation warning: <%s>' % cmd)
-                        self.stdout.flush()
+                        self.lprint('indentation warning: <%s>' % cmd)
                         break
                 self.set_prompt(self.ptrname)
 
@@ -100,12 +116,11 @@ class Console(code.InteractiveConsole):
             elif cmd == 'exit':
                 break
             elif cmd == 'ls':
-                print(dir(self.ptr))
-                sys.stdout.flush()
+                self.lprint(dir(self.ptr))
             elif cmd == 'help':
                 self.help()
             elif cmd == '.':
-                print(repr(self.ptr))
+                self.lprint(repr(self.ptr))
             elif cmd in ('..', ';'):
                 if self.stack:
                     self.ptr, self.ptrname, lspaces = self.stack.pop()
@@ -135,8 +150,7 @@ class Console(code.InteractiveConsole):
                     try:
                         obj = self.ptr[self.convert(cmd)]
                     except Exception:
-                        print('object not found')
-                        sys.stdout.flush()
+                        self.lprint('object not found')
                         continue
                 if hasattr(obj, '__call__'):
                     argv = []
@@ -154,8 +168,7 @@ class Console(code.InteractiveConsole):
                     try:
                         ret = obj(*argv, **kwarg)
                         if ret and not isinstance(ret, Transactional):
-                            pprint(ret)
-                            sys.stdout.flush()
+                            self.pprint(ret)
                     except:
                         self.showtraceback()
                 else:
@@ -167,7 +180,7 @@ class Console(code.InteractiveConsole):
                             self.ptr[tokens[0]] = self.convert(tokens[1])
                         else:
                             # or print it
-                            print(self.ptr[tokens[0]])
+                            self.pprint(self.ptr[tokens[0]])
                     else:
                         # otherwise change the context
                         self.stack.append((self.ptr, self.ptrname, lspaces))
@@ -188,10 +201,9 @@ class Console(code.InteractiveConsole):
             pass
 
     def display(self, line, matches, length):
-        print()
-        print(matches)
-        print('%s%s' % (self.prompt, line), end='')
-        sys.stdout.flush()
+        self.lprint()
+        self.lprint(matches)
+        self.lprint('%s%s' % (self.prompt, line), end='')
 
 
 if __name__ == '__main__':
