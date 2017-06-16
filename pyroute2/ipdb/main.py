@@ -668,13 +668,17 @@ after some delay.
 The class API
 -------------
 '''
+import sys
 import atexit
 import logging
 import traceback
 import threading
 
+from functools import partial
+from pprint import pprint
 from pyroute2 import config
 from pyroute2.common import uuid32
+from pyroute2.common import basestring
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.rtnl import RTM_GETLINK, RTNL_GROUPS
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -684,6 +688,7 @@ from pyroute2.ipdb import interfaces
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.linkedset import SortedIPaddrSet
+from pyroute2.ipdb.utils import test_reachable_icmp
 
 log = logging.getLogger(__name__)
 
@@ -738,6 +743,7 @@ class IPDB(object):
         self._ipaddr_set = SortedIPaddrSet if sort_addresses else IPaddrSet
         self._event_map = {}
         self._deferred = {}
+        self._ensure = []
         self._loaded = set()
         self._mthread = None
         self._nl_own = nl is None
@@ -1032,6 +1038,30 @@ class IPDB(object):
 
     def create(self, kind, ifname, reuse=False, **kwarg):
         return self.interfaces.add(kind, ifname, reuse, **kwarg)
+
+    def ensure(self, cmd='add', reachable=None, condition=None):
+        if cmd == 'reset':
+            self._ensure = []
+        elif cmd == 'run':
+            for f in self._ensure:
+                f()
+        elif cmd == 'add':
+            if isinstance(reachable, basestring):
+                reachable = reachable.split(':')
+                if len(reachable) == 1:
+                    f = partial(test_reachable_icmp, reachable[0])
+                else:
+                    raise NotImplementedError()
+                self._ensure.append(f)
+            else:
+                if sys.stdin.isatty():
+                    pprint(self._ensure)
+        elif cmd == 'print':
+            pprint(self._ensure)
+        elif cmd == 'get':
+            return self._ensure
+        else:
+            raise NotImplementedError()
 
     def commit(self, transactions=None, phase=1):
         # what to commit: either from transactions argument, or from

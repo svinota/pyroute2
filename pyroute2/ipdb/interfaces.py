@@ -962,23 +962,33 @@ class Interface(Transactional):
 
             # 8<---------------------------------------------
             # Interface removal
-            if (added.get('ipdb_scope') in ('shadow', 'remove')):
+            if added.get('ipdb_scope') in ('shadow', 'remove'):
                 wd = self.ipdb.watchdog(action='RTM_DELLINK',
                                         ifname=self['ifname'])
-                if added.get('ipdb_scope') in ('shadow', 'create'):
-                    with self._direct_state:
-                        self['ipdb_scope'] = 'locked'
+                with self._direct_state:
+                    self['ipdb_scope'] = 'locked'
                 self.nl.link('delete', index=self['index'])
                 wd.wait()
-                if added.get('ipdb_scope') == 'shadow':
-                    with self._direct_state:
-                        self['ipdb_scope'] = 'shadow'
-                if added['ipdb_scope'] == 'create':
-                    self.load_dict(transaction)
+
+                with self._direct_state:
+                    self['ipdb_scope'] = 'shadow'
+
+                # system-wide checks
+                if commit_phase == 1:
+                    self.ipdb.ensure('run')
+
+                if added.get('ipdb_scope') == 'remove':
+                    self.ipdb.interfaces._detach(None, self['index'], None)
+
                 if drop:
                     self.drop(transaction.uid)
+
                 return self
             # 8<---------------------------------------------
+
+            # system-wide checks
+            if commit_phase == 1:
+                self.ipdb.ensure('run')
 
         except Exception as e:
             error = e
@@ -1155,12 +1165,6 @@ class InterfacesDict(TransactionalBase):
         if target.get('ipdb_scope') in ('locked', 'shadow'):
             return
 
-        # clean up port, if exists
-        master = target.get('master', None)
-        if master in self and target['index'] in self[master]['ports']:
-            with self[master]._direct_state:
-                self[master].del_port(target)
-
         self._detach(None, msg['index'], msg)
 
     def _new(self, msg, skip_master=False):
@@ -1251,6 +1255,11 @@ class InterfacesDict(TransactionalBase):
             else:
                 target = self[idx]
                 name = target['ifname']
+            # clean up port, if exists
+            master = target.get('master', None)
+            if master in self and target['index'] in self[master]['ports']:
+                with self[master]._direct_state:
+                    self[master].del_port(target)
             self.pop(name, None)
             self.pop(idx, None)
             self.ipdb.ipaddr.pop(idx, None)
