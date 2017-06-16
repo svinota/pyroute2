@@ -69,7 +69,8 @@ _modules = {'IPRoute': 'pyroute2.iproute',
             'IPQSocket': 'pyroute2.netlink.ipq',
             'DiagSocket': 'pyroute2.netlink.diag',
             'GenericNetlinkSocket': 'pyroute2.netlink.generic',
-            'NFTSocket': 'pyroute2.netlink.nfnetlink.nftables'}
+            'NFTSocket': 'pyroute2.netlink.nfnetlink.nftables',
+            'Console': 'pyroute2.cli'}
 
 
 _DISCLAIMER = '''\n\nNotice:\n
