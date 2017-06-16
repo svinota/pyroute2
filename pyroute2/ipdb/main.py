@@ -740,6 +740,7 @@ class IPDB(object):
                 'routes': routes,
                 'rules': rules}
         self.mode = mode
+        self._stdout = sys.stdout
         self._ipaddr_set = SortedIPaddrSet if sort_addresses else IPaddrSet
         self._event_map = {}
         self._deferred = {}
@@ -1055,9 +1056,9 @@ class IPDB(object):
                 self._ensure.append(f)
             else:
                 if sys.stdin.isatty():
-                    pprint(self._ensure)
+                    pprint(self._ensure, stream=self._stdout)
         elif cmd == 'print':
-            pprint(self._ensure)
+            pprint(self._ensure, stream=self._stdout)
         elif cmd == 'get':
             return self._ensure
         else:
