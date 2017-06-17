@@ -121,8 +121,7 @@ test: check_parameters dist
 		export PDB=${pdb}; \
 		export COVERAGE=${coverage}; \
 		export MODULE=${module}; \
-		cd tests; \
-		./run.sh general eventlet integration unit
+		./tests/run.sh
 
 test-ci:
 	@${civm} tests/ci

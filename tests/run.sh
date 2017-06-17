@@ -1,14 +1,10 @@
 #!/bin/bash
 
-[ -z "$1" -o "`echo $1 | sed 's/^-.*/-/'`" = "-" ] && {
-    echo "This script is not intended to be ran manually."
-    echo "Use 'make test' in the parent directory. And"
-    echo "read the docs. Not a bad idea, really."
-    exit 1
-}
+cd "$( dirname "${BASH_SOURCE[0]}" )"
 
 export PYTHONPATH="`pwd`:`pwd`/examples:`pwd`/examples/generic"
 TOP=$(readlink -f $(pwd)/..)
+MODULES="general eventlet integration unit"
 
 # Prepare test environment
 #
@@ -19,24 +15,24 @@ TOP=$(readlink -f $(pwd)/..)
 # * run nosetests
 #
 # It is important to test not in-place, but after `make dist`,
-# since in that case only those files will be tests, that
-# are included in the package.
+# since in that case only those files will be tested, that are
+# included in the package.
 #
 # Tox installs the package into each environment, so we can safely skip
 # extraction of the packaged files
 if [ -z "$WITHINTOX" ]; then
     cd "$TOP/dist"
-    tar xf *
-    mv pyroute2*/pyroute2 "$TOP/tests/"
+    [ -f "*tar.gz" ] && {
+        tar xf *
+        mv pyroute2*/pyroute2 "$TOP/tests/"
+    } ||:
 fi
 cp -a "$TOP/examples" "$TOP/tests/"
 cd "$TOP/tests/"
 
-# Install test requirements, if not installed. If the user
-# is not root and all requirements are met, this step will
-# be safely skipped.
 #
-
+# Install test requirements, if not installed.
+#
 function install_test_reqs() {
     which pip >/dev/null 2>&1 && pip install -q -r requirements.txt
 }
@@ -44,7 +40,6 @@ function install_test_reqs() {
 if [ -z "$VIRTUAL_ENV" ]; then
     install_test_reqs
 else
-    # Tox creates virtualenv and install all deps into before running tests
     # Install requirements only into manually-made virtualenvs.
     if [ -f "$VIRTUAL_ENV/bin/activate" ]; then
         source "$VIRTUAL_ENV/bin/activate"
@@ -91,7 +86,6 @@ echo "nose: $NOSE_PATH [`$NOSE --version 2>&1`]"
 echo "8<------------------------------------------------"
 
 $PYTHON "$FLAKE8_PATH" . && echo "flake8 ... ok" || exit 254
-[ -z "$TRAVIS" ] || exit 0
 
 function get_module() {
     module=$1
@@ -103,7 +97,7 @@ function get_module() {
 }
 
 fail=0
-for module in $@; do
+for module in $MODULES; do
     [ -z "$MODULE" ] || {
         SUBMODULE="`get_module $module $MODULE`"
         RETVAL=$?
