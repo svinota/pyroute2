@@ -1,0 +1,16 @@
+#
+! Test mixed comments, both ! and #
+#
+create ifname=test01 kind=dummy address=00:11:22:33:44:55
+commit
+!
+interfaces # ... tail comments
+    !
+    # ... indented comments
+    !
+    test01
+        #
+        dump
+        !
+        remove
+        commit

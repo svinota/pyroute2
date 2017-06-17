@@ -1,0 +1,7 @@
+!
+! Just dump the loopback interface.
+!
+interfaces
+    lo
+        dump
+
