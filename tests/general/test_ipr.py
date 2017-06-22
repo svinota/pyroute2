@@ -1010,7 +1010,14 @@ class TestIPRoute(object):
         assert grep('ip route show table 100',
                     pattern='172.16.2.0/24.*172.16.0.1')
 
-        self.ip.flush_routes(table=100)
+        self.ip.flush_routes(table=100, family=socket.AF_INET6)
+
+        assert grep('ip route show table 100',
+                    pattern='172.16.1.0/24.*172.16.0.1')
+        assert grep('ip route show table 100',
+                    pattern='172.16.2.0/24.*172.16.0.1')
+
+        self.ip.flush_routes(table=100, family=socket.AF_INET)
 
         assert not grep('ip route show table 100',
                         pattern='172.16.1.0/24.*172.16.0.1')

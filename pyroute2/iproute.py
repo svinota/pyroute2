@@ -600,22 +600,22 @@ class IPRouteMixin(object):
         `get_routes()` to `nlm_request()`.
         '''
         ret = []
+        match = kwarg.get('match') or kwarg
 
         def callback(msg):
             if msg['header']['type'] == NLMSG_DONE:
                 # this message will pass to the get()
                 return False
-            # all other messages are filtered
-            table = msg.get_attr('RTA_TABLE') or msg.get('table', None)
-            if table == kwarg.get('table', DEFAULT_TABLE):
+            if self._match(match, [msg]):
                 # delete matching routes
                 self.put(msg, msg_type=RTM_DELROUTE, msg_flags=NLM_F_REQUEST)
-            # ignore others
             return True
 
-        kwarg['table'] = kwarg.get('table', DEFAULT_TABLE)
-        kwarg['callback'] = callback
-        self.get_routes(*argv, **kwarg)
+        nkw = {}
+        nkw.update(kwarg)
+        nkw['table'] = kwarg.get('table', 0)
+        nkw['callback'] = callback
+        self.get_routes(*argv, **nkw)
         return ret
 
     def flush_addr(self, *argv, **kwarg):
