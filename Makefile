@@ -112,7 +112,7 @@ check_parameters:
 	@if [ ! -z "${skip_tests}" ]; then \
 		echo "'skip_tests' is deprecated, use 'skip=...' instead"; false; fi
 
-test: check_parameters dist
+test: check_parameters
 	@export PYTHON=${python}; \
 		export NOSE=${nosetests}; \
 		export FLAKE8=${flake8}; \

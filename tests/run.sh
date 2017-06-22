@@ -21,13 +21,19 @@ MODULES="general eventlet integration unit"
 # Tox installs the package into each environment, so we can safely skip
 # extraction of the packaged files
 if [ -z "$WITHINTOX" ]; then
-    cd "$TOP/dist"
-    [ -f "*tar.gz" ] && {
+    # detect, if we run from git
+    cd $TOP
+    [ -d ".git" ] && {
+        # ok, make tarball
+        make dist
+        cp -a "$TOP/examples" "$TOP/tests/"
+        cd "$TOP/dist"
         tar xf *
         mv pyroute2*/pyroute2 "$TOP/tests/"
     } ||:
+    # or just give up and try to run as is
 fi
-cp -a "$TOP/examples" "$TOP/tests/"
+
 cd "$TOP/tests/"
 
 #
