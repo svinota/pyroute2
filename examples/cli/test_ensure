@@ -23,6 +23,6 @@ interfaces
         remove
         commit
 
-! Here we check with an external tools that the
+! Here we check with external tools that the
 ! interface still exists.
 !
