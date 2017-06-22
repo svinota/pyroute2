@@ -168,21 +168,18 @@ stats_names = ('rx_packets',
 
 def load_plugins_by_path(path):
     plugins = {}
-    cwd = os.getcwd()
-    os.chdir(path)
     files = set([x.split('.')[0] for x in
                  filter(lambda x: x.endswith(('.py', '.pyc', '.pyo')),
-                        os.listdir('.'))
+                        os.listdir(path))
                  if not x.startswith('_')])
+    sys.path.append(path)
     for name in files:
-        sys.path.append(path)
         try:
             module = __import__(name, globals(), locals(), [], 0)
             plugins[name] = getattr(module, name)
         except:
             pass
-        sys.path.pop()
-    os.chdir(cwd)
+    sys.path.pop()
     return plugins
 
 
