@@ -23,6 +23,4 @@ machine = platform.machine()
 arch = platform.architecture()[0]
 kernel = LooseVersion(uname[2]).version[:3]
 
-# IFLA_INFO_DATA plugin system prototype
-_absdir = os.path.dirname(os.path.abspath(common.__file__))
-data_plugins_path = [_absdir + '/netlink/rtnl/ifinfmsg/plugins', ]
+data_plugins_pkgs = []

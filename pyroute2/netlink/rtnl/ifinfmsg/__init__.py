@@ -1,4 +1,6 @@
+import importlib
 import os
+import pkgutil
 import sys
 import json
 import errno
@@ -21,6 +23,9 @@ from pyroute2.netlink import nlmsg_atoms
 from pyroute2.netlink.rtnl import RTM_VALUES
 from pyroute2.netlink.rtnl.iw_event import iw_event
 from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.rtnl.ifinfmsg import plugins
+
+config.data_plugins_pkgs.append(plugins)
 
 
 # it's simpler to double constants here, than to change all the
@@ -161,31 +166,40 @@ stats_names = ('rx_packets',
                'tx_compressed')
 
 
-##
-# IFLA_INFO_DATA plugin system prototype
-#
-def load_plugins(paths):
-    plugins = []
-    for directory in paths:
-        cwd = os.getcwd()
-        os.chdir(directory)
-        files = set([x.split('.')[0] for x in
-                     filter(lambda x: x.endswith(('.py', '.pyc', '.pyo')),
-                            os.listdir('.'))
-                     if not x.startswith('_')])
-        for name in files:
-            sys.path.append(directory)
-            try:
-                module = __import__(name, globals(), locals(), [], 0)
-                plugins.append((name, getattr(module, name)))
-            except:
-                pass
-            sys.path.pop()
-        os.chdir(cwd)
-    return plugins
+def load_plugins(pkg):
+    plugin_modules = {
+        name: name.split('.')[-1]
+        for loader, name, ispkg in pkgutil.iter_modules(
+            path=pkg.__path__, prefix=pkg.__name__ + '.')
+    }
 
+    # Hack to make it compatible with pyinstaller
+    # plugin loading will work with and without pyinstaller
+    # Inspired on:
+    # https://github.com/webcomics/dosage/blob/master/dosagelib/loader.py
+    # see: https://github.com/pyinstaller/pyinstaller/issues/1905
+    importers = map(pkgutil.get_importer, pkg.__path__)
+    toc = set()
 
-data_plugins = load_plugins(config.data_plugins_path)
+    for importer in importers:
+        if hasattr(importer, 'toc'):
+            toc |= importer.toc
+
+    for element in toc:
+        if (element.startswith(pkg.__name__) and
+                element != pkg.__name__):
+            plugin_modules[element] = element.split('.')[-1]
+
+    return {
+        mod_name: getattr(importlib.import_module(mod_path), mod_name)
+        for mod_path, mod_name in plugin_modules.items()
+        if not mod_name.startswith('_')
+    }
+
+data_plugins = {}
+
+for pkg in config.data_plugins_pkgs:
+    data_plugins.update(load_plugins(pkg))
 
 
 class ifla_bridge_id(nla):
@@ -596,8 +610,7 @@ class ifinfbase(object):
                     'veth': veth_data,
                     'bridge': bridge_data}
         # expand supported interface types
-        for kind, plugin in data_plugins:
-            data_map[kind] = plugin
+        data_map.update(data_plugins)
 
     @staticmethod
     def af_spec(self, *argv, **kwarg):
