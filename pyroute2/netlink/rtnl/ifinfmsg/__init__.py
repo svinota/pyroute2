@@ -166,7 +166,27 @@ stats_names = ('rx_packets',
                'tx_compressed')
 
 
-def load_plugins(pkg):
+def load_plugins_by_path(path):
+    plugins = {}
+    cwd = os.getcwd()
+    os.chdir(path)
+    files = set([x.split('.')[0] for x in
+                 filter(lambda x: x.endswith(('.py', '.pyc', '.pyo')),
+                        os.listdir('.'))
+                 if not x.startswith('_')])
+    for name in files:
+        sys.path.append(path)
+        try:
+            module = __import__(name, globals(), locals(), [], 0)
+            plugins[name] = getattr(module, name)
+        except:
+            pass
+        sys.path.pop()
+    os.chdir(cwd)
+    return plugins
+
+
+def load_plugins_by_pkg(pkg):
     plugin_modules = {
         name: name.split('.')[-1]
         for loader, name, ispkg in pkgutil.iter_modules(
@@ -196,10 +216,14 @@ def load_plugins(pkg):
         if not mod_name.startswith('_')
     }
 
+
 data_plugins = {}
 
 for pkg in config.data_plugins_pkgs:
-    data_plugins.update(load_plugins(pkg))
+    data_plugins.update(load_plugins_by_pkg(pkg))
+
+for path in config.data_plugins_path:
+    data_plugins.update(load_plugins_by_path(path))
 
 
 class ifla_bridge_id(nla):

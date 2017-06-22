@@ -1,4 +1,3 @@
-import os
 import socket
 import platform
 import multiprocessing
@@ -24,3 +23,4 @@ arch = platform.architecture()[0]
 kernel = LooseVersion(uname[2]).version[:3]
 
 data_plugins_pkgs = []
+data_plugins_path = []
