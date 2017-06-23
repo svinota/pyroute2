@@ -1,6 +1,10 @@
 changelog
 =========
 
+* 0.4.17
+    * req: #374 [critical] -- mode nla init
+    * iproute: #378 [critical] -- fix `flush_routes()` to respect filters
+    * ifinfmsg: #376 -- fix data plugins API to support pyinstaller
 * 0.4.16
     * ipdb: race fixed: remove port/bridge
     * ipdb: #280 -- race fixed: port/bridge
