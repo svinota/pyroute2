@@ -73,6 +73,7 @@ clean: clean-version
 	@rm -rf tests/htmlcov
 	@[ -z "${keep_coverage}" ] && rm -rf tests/cover ||:
 	@rm -rf tests/examples
+	@rm -rf tests/bin
 	@rm -rf tests/pyroute2
 	@rm -f  tests/*xml
 	@rm -rf tests/ci/results/test-*

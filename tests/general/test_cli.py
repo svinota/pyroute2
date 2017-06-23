@@ -1,6 +1,7 @@
 import io
 import os
 import threading
+import subprocess
 from pyroute2 import Console
 from pyroute2 import IPDB
 from utils import require_user
@@ -10,6 +11,7 @@ try:
 except ImportError:
     from queue import Queue
 
+TMPDIR = os.environ.get('TMPDIR', '.')
 scripts = {}
 try:
     os.chdir('examples/cli')
@@ -87,3 +89,19 @@ class TestBasic(object):
         interface = eval(self.io.getvalue())
         assert interface['address'] == '00:11:22:33:44:55'
         assert interface['ifname'] == 'test01'
+
+
+class TestPopen(TestBasic):
+
+    def setup(self):
+        self.ipdb = IPDB()
+        self.io = io.BytesIO()
+        self.con = subprocess.Popen(['python', '%s/bin/ipdb' % TMPDIR],
+                                    stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+
+    def feed(self, script):
+        out, err = self.con.communicate(script)
+        self.io.write(out)
+        self.con.wait()
