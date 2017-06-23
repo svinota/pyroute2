@@ -396,14 +396,10 @@ class IPLinkRequest(IPRequest):
             return True
         elif key == 'mode':
             # FIXME: ipvlan / tuntap / bond hack
-            if self.kind == 'ipvlan':
-                nla = ['IFLA_IPVLAN_MODE', value]
-            elif self.kind == 'tuntap':
+            if self.kind == 'tuntap':
                 nla = ['IFTUN_MODE', value]
-            elif self.kind == 'bond':
-                nla = ['IFLA_BOND_MODE', value]
-            elif self.kind == 'macvlan':
-                nla = ['IFLA_MACVLAN_MODE', value]
+            else:
+                nla = ['IFLA_%s_MODE' % self.kind.upper(), value]
             self.info_data.append(nla)
             return True
 
