@@ -73,7 +73,7 @@ class Console(code.InteractiveConsole):
                         "The first planned release: 0.4.17")
         while True:
             try:
-                cmd = readfunc(self.prompt)
+                cmd = readfunc(self.prompt).decode('utf-8')
             except:
                 self.lprint()
                 break

@@ -1,5 +1,6 @@
 import io
 import os
+import sys
 import threading
 import subprocess
 from pyroute2 import Console
@@ -35,7 +36,10 @@ class TestBasic(object):
 
     def setup(self):
         self.ipdb = IPDB()
-        self.io = io.BytesIO()
+        if sys.version_info[0] == 2:
+            self.io = io.BytesIO()
+        else:
+            self.io = io.StringIO()
         self.queue = Queue()
         self.con = Console(stdout=self.io)
         self.con.isatty = False
@@ -45,7 +49,7 @@ class TestBasic(object):
 
     def feed(self, script):
         for line in script.split("\n"):
-            self.queue.put(line)
+            self.queue.put(line.encode('ascii'))
         self.queue.put(None)
         self.thread.join()
         self.io.flush()
@@ -102,6 +106,6 @@ class TestPopen(TestBasic):
                                     stderr=subprocess.PIPE)
 
     def feed(self, script):
-        out, err = self.con.communicate(script)
+        out, err = self.con.communicate(script.encode('ascii'))
         self.io.write(out)
         self.con.wait()
