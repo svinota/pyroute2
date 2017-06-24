@@ -49,7 +49,7 @@ class TestBasic(object):
 
     def feed(self, script):
         for line in script.split("\n"):
-            self.queue.put(line.encode('ascii'))
+            self.queue.put(line)
         self.queue.put(None)
         self.thread.join()
         self.io.flush()
