@@ -1085,19 +1085,18 @@ class IPDB(object):
         removed = []
 
         # quick sort transactions in one turn
-        tx_first = []
         tx_main = []
-        tx_last = []
+        tx_prio1 = []
+        tx_prio2 = []
         for (target, tx) in transactions:
             kind = target.get('kind', None)
-            if kind:
-                if kind in ('vlan', 'vxlan', 'gre', 'tuntap', 'vti', 'vrf'):
-                    tx_first.append((target, tx))
-                elif kind in ('bridge', 'bond'):
-                    tx_last.append((target, tx))
-                else:
-                    tx_main.append((target, tx))
-        transactions = tx_first + tx_main + tx_last
+            if kind in ('vlan', 'vxlan', 'gre', 'tuntap', 'vti', 'vrf'):
+                tx_prio1.append((target, tx))
+            elif kind in ('bridge', 'bond'):
+                tx_prio2.append((target, tx))
+            else:
+                tx_main.append((target, tx))
+        transactions = tx_main + tx_prio1 + tx_prio2
 
         try:
             for (target, tx) in transactions:

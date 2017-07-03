@@ -1734,6 +1734,68 @@ class TestExplicit(BasicSetup):
         assert grep('ip link', pattern=ifA)
         assert not grep('ip link', pattern=ifB)
 
+    def test_global_mixed(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+        ifC = self.get_ifname()
+
+        self.ip.routes.add({'dst': '172.18.1.0/24',
+                            'gateway': '127.0.0.1'})
+        self.ip.routes.add({'dst': '172.18.2.0/24',
+                            'gateway': '127.0.0.1'})
+        self.ip.interfaces.add(ifname=ifA, kind='dummy')
+        self.ip.interfaces.add(ifname=ifB, kind='dummy')
+
+        self.ip.interfaces.add(ifname=ifA + 'v100',
+                               kind='vlan',
+                               vlan_id=100,
+                               link=self.ip.interfaces[ifA])
+        self.ip.interfaces.add(ifname=ifB + 'v200',
+                               kind='vlan',
+                               vlan_id=200,
+                               link=self.ip.interfaces[ifB])
+        self.ip.interfaces.add(ifname=ifC, kind='bridge')
+        self.ip.interfaces[ifC].add_port(ifA + 'v100')
+        self.ip.interfaces[ifC].add_port(ifB + 'v200')
+
+        self.ip.commit()
+        assert grep('ip ro', pattern='172.18.1.0/24.*127.0.0.1')
+        assert grep('ip ro', pattern='172.18.2.0/24.*127.0.0.1')
+
+        if self.ip.mode == 'explicit':
+            self.ip.routes['172.18.1.0/24'].begin()
+            self.ip.routes['172.18.2.0/24'].begin()
+        self.ip.routes['172.18.1.0/24'].remove()
+        self.ip.routes['172.18.2.0/24'].remove()
+
+        self.ip.commit()
+        assert not grep('ip ro', pattern='172.18.1.0/24.*127.0.0.1')
+        assert not grep('ip ro', pattern='172.18.2.0/24.*127.0.0.1')
+
+    def test_global_routes(self):
+        require_user('root')
+
+        self.ip.routes.add({'dst': '172.18.1.0/24',
+                            'gateway': '127.0.0.1'})
+        self.ip.routes.add({'dst': '172.18.2.0/24',
+                            'gateway': '127.0.0.1'})
+
+        self.ip.commit()
+        assert grep('ip ro', pattern='172.18.1.0/24.*127.0.0.1')
+        assert grep('ip ro', pattern='172.18.2.0/24.*127.0.0.1')
+
+        if self.ip.mode == 'explicit':
+            self.ip.routes['172.18.1.0/24'].begin()
+            self.ip.routes['172.18.2.0/24'].begin()
+        self.ip.routes['172.18.1.0/24'].remove()
+        self.ip.routes['172.18.2.0/24'].remove()
+
+        self.ip.commit()
+        assert not grep('ip ro', pattern='172.18.1.0/24.*127.0.0.1')
+        assert not grep('ip ro', pattern='172.18.2.0/24.*127.0.0.1')
+
     @skip_if_not_supported
     def test_bridge_vlans_flags(self):
         require_user('root')

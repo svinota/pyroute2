@@ -131,6 +131,7 @@ class Interface(Transactional):
         self.errors = []
         self.partial = False
         self._exception = None
+        self._deferred_link = None
         self._tb = None
         self._linked_sets.add('ipaddr')
         self._linked_sets.add('ports')
@@ -423,7 +424,7 @@ class Interface(Transactional):
         Add port to a bridge or bonding
         '''
         ifindex = self._resolve_port(port)
-        if ifindex is None:
+        if not ifindex:
             self._delay_add_port.add(port)
         else:
             self['ports'].unlink(ifindex)
@@ -435,7 +436,7 @@ class Interface(Transactional):
         Remove port from a bridge or bonding
         '''
         ifindex = self._resolve_port(port)
-        if ifindex is None:
+        if not ifindex:
             self._delay_del_port.add(port)
         else:
             self['ports'].unlink(ifindex)
@@ -560,6 +561,13 @@ class Interface(Transactional):
                 newif = True
                 self.set_target('ipdb_scope', 'system')
                 try:
+                    # 8<---------------------------------------------------
+                    # link resolve
+                    if self._deferred_link:
+                        link_key, link_obj = self._deferred_link
+                        transaction[link_key] = self._resolve_port(link_obj)
+                        self._deferred_link = None
+
                     # 8<----------------------------------------------------
                     # ACHTUNG: hack for old platforms
                     if self['address'] == '00:00:00:00:00:00':
@@ -661,7 +669,7 @@ class Interface(Transactional):
                 return KeyError('can not resolve port %s' % x)
             for port in tuple(ports):
                 ifindex = self._resolve_port(port)
-                if ifindex is None:
+                if not ifindex:
                     if transaction.partial:
                         transaction.errors.append(error(port))
                     else:
@@ -1131,11 +1139,16 @@ class InterfacesDict(TransactionalBase):
             else:
                 device = self[ifname] = Interface(ipdb=self.ipdb,
                                                   mode='snapshot')
+                # delay link resolve?
+                for key in kwarg:
+                    # any /.+link$/ attr
+                    if key[-4:] == 'link':
+                        if isinstance(kwarg[key], Interface):
+                            kwarg[key] = kwarg[key].get('index') or \
+                                    kwarg[key].get('ifname')
+                        if not isinstance(kwarg[key], int):
+                            device._deferred_link = (key, kwarg[key])
                 device.update(kwarg)
-                if isinstance(kwarg.get('link', None), Interface):
-                    device['link'] = kwarg['link']['index']
-                if isinstance(kwarg.get('vxlan_link', None), Interface):
-                    device['vxlan_link'] = kwarg['vxlan_link']['index']
                 device['kind'] = kind
                 device['index'] = kwarg.get('index', 0)
                 device['ifname'] = ifname
