@@ -5,6 +5,8 @@ import pdb
 import sys
 import code
 import shlex
+import socket
+import getpass
 import readline
 from pprint import pprint
 from pyroute2 import IPDB
@@ -51,11 +53,16 @@ class Console(code.InteractiveConsole):
     def set_prompt(self, prompt=None):
         if self.isatty:
             if isinstance(self.ptr, Interface):
-                self.prompt = 'ifname: %s > ' % (self.ptr.ifname)
+                self.prompt = 'if : %s > ' % (self.ptr.ifname)
             elif prompt is not None:
                 self.prompt = '%s > ' % (prompt)
             else:
                 self.prompt = '%s > ' % (self.ptr.__class__.__name__)
+            self.prompt = '%s@%s : %s' % (getpass.getuser(),
+                                          (socket
+                                           .gethostname()
+                                           .split('.')[0]),
+                                          self.prompt)
 
     def convert(self, arg):
         if re.match('^[0-9]+$', arg):
@@ -69,8 +76,7 @@ class Console(code.InteractiveConsole):
             readfunc = self.raw_input
 
         if self.isatty:
-            self.lprint("IPDB cli prototype. "
-                        "The first planned release: 0.4.17")
+            self.lprint("IPDB cli prototype")
         while True:
             try:
                 cmd = readfunc(self.prompt)
