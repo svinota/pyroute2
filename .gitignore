@@ -1,6 +1,8 @@
 .idea/
 *.swp
 *.pyc
+.v2
+.v3
 *~
 build/
 dist/
