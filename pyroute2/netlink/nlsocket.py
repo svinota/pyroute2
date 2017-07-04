@@ -97,7 +97,6 @@ from socket import SO_RCVBUF
 from socket import SO_SNDBUF
 
 from pyroute2 import config
-from pyroute2.config import SocketBase
 from pyroute2.common import AddrPool
 from pyroute2.common import DEFAULT_RCVBUF
 from pyroute2.netlink import nlmsg
@@ -869,10 +868,10 @@ class NetlinkSocket(NetlinkMixin):
         with self.lock:
             if self._sock is not None:
                 self._sock.close()
-            self._sock = SocketBase(AF_NETLINK,
-                                    SOCK_DGRAM,
-                                    self.family,
-                                    self._fileno)
+            self._sock = config.SocketBase(AF_NETLINK,
+                                           SOCK_DGRAM,
+                                           self.family,
+                                           self._fileno)
             for name in ('getsockname', 'getsockopt', 'makefile',
                          'setsockopt', 'setblocking', 'settimeout',
                          'gettimeout', 'shutdown', 'recvfrom',

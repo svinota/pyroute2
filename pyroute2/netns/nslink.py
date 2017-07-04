@@ -71,8 +71,7 @@ import atexit
 import signal
 import sys
 import logging
-from pyroute2.config import MpPipe
-from pyroute2.config import MpProcess
+from pyroute2 import config
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
 from pyroute2.iproute import IPRouteMixin
 from pyroute2.netns import setns
@@ -182,14 +181,14 @@ class NetNS(IPRouteMixin, RemoteSocket):
     def __init__(self, netns, flags=os.O_CREAT):
         self.netns = netns
         self.flags = flags
-        self.cmdch, self._cmdch = MpPipe()
-        self.brdch, self._brdch = MpPipe()
+        self.cmdch, self._cmdch = config.MpPipe()
+        self.brdch, self._brdch = config.MpPipe()
         atexit.register(self.close)
-        self.server = MpProcess(target=NetNServer,
-                                args=(self.netns,
-                                      self._cmdch,
-                                      self._brdch,
-                                      self.flags))
+        self.server = config.MpProcess(target=NetNServer,
+                                       args=(self.netns,
+                                             self._cmdch,
+                                             self._brdch,
+                                             self.flags))
         self.server.start()
         super(NetNS, self).__init__()
         self.marshal = MarshalRtnl()

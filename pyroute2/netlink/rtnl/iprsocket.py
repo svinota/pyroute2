@@ -15,8 +15,8 @@ if config.kernel < [3, 3, 0]:
     from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_dellink
     from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_linkinfo
 else:
-    from pyroute2.netlink.rtnl.ifinfmsg import proxy_newlink
-    from pyroute2.netlink.rtnl.ifinfmsg import proxy_setlink
+    from pyroute2.netlink.rtnl.ifinfmsg.proxy import proxy_newlink
+    from pyroute2.netlink.rtnl.ifinfmsg.proxy import proxy_setlink
 
 
 class IPRSocketMixin(object):
@@ -154,18 +154,4 @@ class IPRSocket(IPRSocketMixin, NetlinkSocket):
           'type': 1}]
         >>>
     '''
-    pass
-
-
-class RawIPRSocketMixin(object):
-
-    def __init__(self, fileno=None):
-        super(RawIPRSocketMixin, self).__init__(NETLINK_ROUTE, fileno=fileno)
-        self.marshal = MarshalRtnl()
-
-    def bind(self, groups=rtnl.RTNL_GROUPS, async=False):
-        super(RawIPRSocketMixin, self).bind(groups, async=async)
-
-
-class RawIPRSocket(RawIPRSocketMixin, NetlinkSocket):
     pass

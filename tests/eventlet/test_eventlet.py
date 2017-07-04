@@ -6,20 +6,17 @@ since eventlet affects all the runtime.
 '''
 import uuid
 from nose.plugins.skip import SkipTest
-from utils import require_user
 try:
     import eventlet
+    eventlet.monkey_patch()
 except ImportError:
     raise SkipTest('eventlet library is not installed')
+from utils import require_user
 from pyroute2.config.asyncio import asyncio_config
 from pyroute2 import IPRoute
 from pyroute2 import NetNS
 from pyroute2 import IPDB
 
-try:
-    eventlet.monkey_patch()
-except AttributeError:
-    raise SkipTest('eventlet library is not installed')
 asyncio_config()
 
 

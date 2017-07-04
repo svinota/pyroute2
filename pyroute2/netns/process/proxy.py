@@ -14,9 +14,8 @@ import types
 import atexit
 import threading
 import subprocess
+from pyroute2 import config
 from pyroute2.netns import setns
-from pyroute2.config import MpQueue
-from pyroute2.config import MpProcess
 from pyroute2.common import metaclass
 from pyroute2.netns.process import MetaPopen
 
@@ -257,16 +256,16 @@ class NSPopen(ObjNS):
             self.flags = kwarg.pop('flags')
         else:
             self.flags = 0
-        self.channel_out = MpQueue()
-        self.channel_in = MpQueue()
+        self.channel_out = config.MpQueue()
+        self.channel_in = config.MpQueue()
         self.lock = threading.Lock()
         self.released = False
-        self.server = MpProcess(target=NSPopenServer,
-                                args=(self.nsname,
-                                      self.flags,
-                                      self.channel_out,
-                                      self.channel_in,
-                                      argv, kwarg))
+        self.server = config.MpProcess(target=NSPopenServer,
+                                       args=(self.nsname,
+                                             self.flags,
+                                             self.channel_out,
+                                             self.channel_in,
+                                             argv, kwarg))
         # start the child and check the status
         self.server.start()
         response = self.channel_in.get()

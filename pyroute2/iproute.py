@@ -229,7 +229,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
 from pyroute2.netlink.rtnl.iprsocket import IPBatchSocket
-from pyroute2.netlink.rtnl.iprsocket import RawIPRSocket
+from pyroute2.netlink.rtnl.riprsocket import RawIPRSocket
 
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring

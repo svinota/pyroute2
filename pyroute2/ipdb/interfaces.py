@@ -6,7 +6,7 @@ from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.common import dqn2int
 from pyroute2.common import View
-from pyroute2.config import TransactionalBase
+from pyroute2.common import Dotkeys
 from pyroute2.netlink import rtnl
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_REQUEST
@@ -1100,7 +1100,7 @@ class Interface(Transactional):
         return self
 
 
-class InterfacesDict(TransactionalBase):
+class InterfacesDict(Dotkeys):
 
     def __init__(self, ipdb):
         self.ipdb = ipdb

@@ -8,15 +8,35 @@
 import sys
 import struct
 import logging
-from abc import ABCMeta
-from pyroute2.ipdb.exceptions import \
-    DeprecationException, \
-    CommitException, \
-    CreateException, \
-    PartialCommitException
-from pyroute2.netlink.exceptions import \
-    NetlinkError, \
-    NetlinkDecodeError
+from pyroute2.ipdb.exceptions import (DeprecationException,
+                                      CommitException,
+                                      CreateException,
+                                      PartialCommitException)
+from pyroute2.netlink.exceptions import (NetlinkError,
+                                         NetlinkDecodeError)
+from pyroute2.netlink.rtnl.req import (IPRouteRequest,
+                                       IPLinkRequest)
+from pyroute2.iproute import (IPRoute,
+                              IPBatch,
+                              RawIPRoute)
+from pyroute2.ipset import IPSet
+from pyroute2.ipdb.main import IPDB
+from pyroute2.iwutil import IW
+from pyroute2.devlink import DL
+from pyroute2.netns.nslink import NetNS
+from pyroute2.netns.process.proxy import NSPopen
+from pyroute2.netlink.rtnl.iprsocket import IPRSocket
+from pyroute2.netlink.taskstats import TaskStats
+from pyroute2.netlink.nl80211 import NL80211
+from pyroute2.netlink.devlink import DevlinkSocket
+from pyroute2.netlink.event.acpi_event import AcpiEventSocket
+from pyroute2.netlink.event.dquot import DQuotSocket
+from pyroute2.netlink.ipq import IPQSocket
+from pyroute2.netlink.diag import DiagSocket
+from pyroute2.netlink.generic import GenericNetlinkSocket
+from pyroute2.netlink.nfnetlink.nftables import NFTSocket
+from pyroute2.cli import Console
+
 
 log = logging.getLogger(__name__)
 # Add a NullHandler to the library's top-level logger to avoid complaints
@@ -48,105 +68,31 @@ exceptions = [NetlinkError,
               CreateException,
               PartialCommitException]
 
+# reexport classes
+classes = [IPRouteRequest,
+           IPLinkRequest,
+           IPRoute,
+           IPBatch,
+           RawIPRoute,
+           IPSet,
+           IPDB,
+           IW,
+           DL,
+           NetNS,
+           NSPopen,
+           IPRSocket,
+           TaskStats,
+           NL80211,
+           DevlinkSocket,
+           AcpiEventSocket,
+           DQuotSocket,
+           IPQSocket,
+           DiagSocket,
+           GenericNetlinkSocket,
+           NFTSocket,
+           Console]
+
 __all__ = []
-_modules = {'IPRoute': 'pyroute2.iproute',
-            'IPBatch': 'pyroute2.iproute',
-            'RawIPRoute': 'pyroute2.iproute',
-            'IPSet': 'pyroute2.ipset',
-            'IPDB': 'pyroute2.ipdb.main',
-            'IW': 'pyroute2.iwutil',
-            'DL': 'pyroute2.devlink',
-            'NetNS': 'pyroute2.netns.nslink',
-            'NSPopen': 'pyroute2.netns.process.proxy',
-            'IPRSocket': 'pyroute2.netlink.rtnl.iprsocket',
-            'IPRouteRequest': 'pyroute2.netlink.rtnl.req',
-            'IPLinkRequest': 'pyroute2.netlink.rtnl.req',
-            'TaskStats': 'pyroute2.netlink.taskstats',
-            'NL80211': 'pyroute2.netlink.nl80211',
-            'DevlinkSocket': 'pyroute2.netlink.devlink',
-            'AcpiEventSocket': 'pyroute2.netlink.event.acpi_event',
-            'DQuotSocket': 'pyroute2.netlink.event.dquot',
-            'IPQSocket': 'pyroute2.netlink.ipq',
-            'DiagSocket': 'pyroute2.netlink.diag',
-            'GenericNetlinkSocket': 'pyroute2.netlink.generic',
-            'NFTSocket': 'pyroute2.netlink.nfnetlink.nftables',
-            'Console': 'pyroute2.cli'}
-
-
-_DISCLAIMER = '''\n\nNotice:\n
-This is a proxy class. To read full docs, please run
-the `help()` method on the instance instead.
-
-Usage of the proxy allows to postpone the module load,
-thus providing a safe way to substitute base classes,
-if it is required. More details see in the `pyroute2.config`
-module.
-\n'''
-
-
-def _bake(name):
-
-    class Doc(str):
-
-        def __init__(self, registry, *argv, **kwarg):
-            self.registry = registry
-            super(Doc, self).__init__(*argv, **kwarg)
-
-        def __repr__(self):
-            return repr(self.registry['doc'])
-
-        def __str__(self):
-            return str(self.registry['doc'])
-
-        def expandtabs(self, ts=4):
-            return self.registry['doc'].expandtabs(ts)
-
-    class Registry(object):
-        def __init__(self):
-            self.target = {}
-
-        def __getitem__(self, key):
-            if not self.target:
-                module = __import__(_modules[name],
-                                    globals(),
-                                    locals(),
-                                    [name], 0)
-                self.target['class'] = getattr(module, name)
-                self.target['doc'] = self.target['class'].__doc__
-                try:
-                    self.target['doc'] += _DISCLAIMER
-                except TypeError:
-                    # ignore cases, when __doc__ is not a string, e.g. None
-                    pass
-            return self.target[key]
-
-    @classmethod
-    def __hook__(cls, C):
-        if hasattr(C, 'registry'):
-            try:
-                return issubclass(C.registry['class'], cls.registry['class'])
-            except Exception:
-                pass
-        return issubclass(C, cls.registry['class'])
-
-    def __new__(cls, *argv, **kwarg):
-        cls.register(cls.registry['class'])
-        return cls.registry['class'](*argv, **kwarg)
-
-    registry = Registry()
-    doc = Doc(registry)
-
-    proxy = ABCMeta('proxy', (object, ), {'__new__': __new__,
-                                          '__doc__': doc,
-                                          '__subclasshook__': __hook__,
-                                          'registry': registry})
-    return proxy
-
-
-for name in _modules:
-    f = _bake(name)
-    globals()[name] = f
-    __all__.append(name)
 
 
 class __common(object):
@@ -159,3 +105,4 @@ class __common(object):
 globals()['ipdb'].common = __common()
 
 __all__.extend([x.__name__ for x in exceptions])
+__all__.extend([x.__name__ for x in classes])
