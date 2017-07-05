@@ -510,7 +510,9 @@ class ifinfbase(object):
                        ('IFLA_GRE_ENCAP_FLAGS', 'uint16'),
                        ('IFLA_GRE_ENCAP_SPORT', 'be16'),
                        ('IFLA_GRE_ENCAP_DPORT', 'be16'),
-                       ('IFLA_GRE_COLLECT_METADATA', 'flag'))
+                       ('IFLA_GRE_COLLECT_METADATA', 'flag'),
+                       ('IFLA_GRE_IGNORE_DF', 'uint8'),
+                       ('IFLA_GRE_FWMARK', 'uint32'))
 
         class ip6gre_data(nla):
             # Ostensibly the same as ip6gre_data except that local
