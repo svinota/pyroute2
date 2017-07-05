@@ -587,7 +587,12 @@ class ifinfbase(object):
                        ('IFLA_BR_NF_CALL_IPTABLES', 'uint8'),
                        ('IFLA_BR_NF_CALL_IP6TABLES', 'uint8'),
                        ('IFLA_BR_NF_CALL_ARPTABLES', 'uint8'),
-                       ('IFLA_BR_VLAN_DEFAULT_PVID', 'uint16'))
+                       ('IFLA_BR_VLAN_DEFAULT_PVID', 'uint16'),
+                       ('IFLA_BR_PAD', 'uint64'),
+                       ('IFLA_BR_VLAN_STATS_ENABLED', 'uint8'),
+                       ('IFLA_BR_MCAST_STATS_ENABLED', 'uint8'),
+                       ('IFLA_BR_MCAST_IGMP_VERSION', 'uint8'),
+                       ('IFLA_BR_MCAST_MLD_VERSION', 'uint8'))
 
             class br_id(ifla_bridge_id):
                 pass
