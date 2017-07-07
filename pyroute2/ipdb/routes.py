@@ -1,10 +1,13 @@
+import time
 import types
+import struct
 import logging
 import threading
 from collections import namedtuple
 from socket import AF_UNSPEC
 from socket import AF_INET6
 from socket import AF_INET
+from socket import inet_pton
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
 from pyroute2.netlink import rtnl
@@ -15,6 +18,7 @@ from pyroute2.netlink.rtnl import rt_proto
 from pyroute2.netlink.rtnl import encap_type
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.req import IPRouteRequest
+from pyroute2.netlink.rtnl.ifaddrmsg import IFA_F_SECONDARY
 from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.transactional import with_transaction
@@ -163,6 +167,7 @@ class BaseRoute(Transactional):
     _fields.extend(_virtual_fields)
     _linked_sets = ['multipath', ]
     _nested = []
+    _gctime = None
     cleanup = ('attrs',
                'header',
                'event',
@@ -472,6 +477,7 @@ class BaseRoute(Transactional):
             error.transaction = transaction
             raise error
 
+        self.ipdb.routes.gc()
         return self
 
     def remove(self):
@@ -742,7 +748,10 @@ class RoutingTable(object):
             yield record['route']
 
     def gc(self):
+        now = time.time()
         for route in self.filter({'ipdb_scope': 'gc'}):
+            if now - route['route']._gctime < 2:
+                continue
             try:
                 self.ipdb.nl.route('get', **route['route'])
                 with route['route']._direct_state:
@@ -782,7 +791,7 @@ class RoutingTable(object):
         # match the route by index -- a bit meaningless,
         # but for compatibility
         if isinstance(target, int):
-            keys = tuple(self.idx.keys())
+            keys = [x['key'] for x in self.__nogc__()]
             return self.idx[keys[target]]
 
         # match the route by key
@@ -920,7 +929,8 @@ class RoutingTableSet(object):
         self.tables = {254: RoutingTable(self.ipdb)}
         self._event_map = {'RTM_NEWROUTE': self.load_netlink,
                            'RTM_DELROUTE': self.load_netlink,
-                           'RTM_DELLINK': self.gc_mark}
+                           'RTM_DELLINK': self.gc_mark_link,
+                           'RTM_DELADDR': self.gc_mark_addr}
 
     def _register(self):
         for msg in self.ipdb.nl.get_routes(family=AF_INET):
@@ -987,6 +997,8 @@ class RoutingTableSet(object):
         if table in self.ignore_rtables:
             return
 
+        self.gc()
+
         # RTM_DELROUTE
         if msg['event'] == 'RTM_DELROUTE':
             try:
@@ -1011,7 +1023,62 @@ class RoutingTableSet(object):
         key = self.tables[table].load(msg)
         return self.tables[table][key]
 
-    def gc_mark(self, msg):
+    def gc_mark_addr(self, msg):
+        ##
+        # Find invalid route records after addr delete
+        #
+        # Example::
+        #   $ sudo ip link add test0 type dummy
+        #   $ sudo ip link set dev test0 up
+        #   $ sudo ip addr add 172.18.0.5/24 dev test0
+        #   $ sudo ip route add 10.1.2.0/24 via 172.18.0.1
+        #   ...
+        #   $ sudo ip addr flush dev test0
+        #
+        # The route {'dst': '10.1.2.0/24', 'gateway': '172.18.0.1'}
+        # will stay in the routing table being removed from the system.
+        # That's because the kernel doesn't send route updates in that
+        # case, so we have to calculate the update here -- or load all
+        # the routes from scratch. The latter may be far too expensive.
+
+        # Simply ignore secondary addresses, as they don't matter
+        if msg['flags'] & IFA_F_SECONDARY:
+            return
+
+        # When the primary address is removed, corresponding routes
+        # may be silently discarded. But if promote_secondaries is set
+        # to 1, the next secondary becomes a new primary, and routes
+        # stay. There is no way to know here, whether promote_secondaries
+        # was set at the moment of the address removal, so we have to
+        # act as if it wasn't.
+
+        # Get the removed address:
+        family = msg['family']
+
+        if family == AF_INET:
+            addr = msg.get_attr('IFA_LOCAL')
+            net = struct.unpack('>I', inet_pton(family, addr))[0] &\
+                (0xffffffff << (32 - msg['prefixlen']))
+
+            # now iterate all registered routes and mark those with
+            # gateway from that network
+            for record in self.filter({'family': family}):
+                gw = record['route'].get('gateway')
+                if gw:
+                    gwnet = struct.unpack('>I', inet_pton(family, gw))[0] & net
+                    if gwnet == net:
+                        with record['route']._direct_state:
+                            record['route']['ipdb_scope'] = 'gc'
+                            record['route']._gctime = time.time()
+
+        elif family == AF_INET6:
+            # TODO: add IPv6 support
+            pass
+        else:
+            # ignore not (IPv4 or IPv6)
+            return
+
+    def gc_mark_link(self, msg):
         ###
         # mark route records for GC after link delete
         #
@@ -1021,9 +1088,11 @@ class RoutingTableSet(object):
         for record in self.filter({'oif': msg['index']}):
             with record['route']._direct_state:
                 record['route']['ipdb_scope'] = 'gc'
+                record['route']._gctime = time.time()
         for record in self.filter({'iif': msg['index']}):
             with record['route']._direct_state:
                 record['route']['ipdb_scope'] = 'gc'
+                record['route']._gctime = time.time()
 
     def gc(self):
         for table in self.tables.keys():
@@ -1038,6 +1107,7 @@ class RoutingTableSet(object):
         self.tables[table][route].remove()
 
     def filter(self, target):
+        # FIXME: turn into generator!
         ret = []
         for table in self.tables.values():
             if table is not None:
