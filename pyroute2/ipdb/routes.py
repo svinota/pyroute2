@@ -351,6 +351,10 @@ class BaseRoute(Transactional):
             else:
                 transaction = self.current_tx
 
+        # ignore global rollbacks on invalid routes
+        if self['ipdb_scope'] == 'create' and commit_phase > 1:
+            return
+
         # create a new route
         if self['ipdb_scope'] != 'system':
             devop = 'add'
@@ -446,21 +450,7 @@ class BaseRoute(Transactional):
                         self['ipdb_scope'] = 'shadow'
 
         except Exception as e:
-            if devop == 'add':
-                error = e
-                self.nl = None
-                with self._direct_state:
-                    self['ipdb_scope'] = 'invalid'
-                if self['family'] == AF_MPLS:
-                    route_index = self.ipdb.routes.tables['mpls'].idx
-                else:
-                    route_index = (self.ipdb
-                                   .routes
-                                   .tables[self['table'] or 254]
-                                   .idx)
-                route_key = self.make_key(self)
-                del route_index[route_key]
-            elif commit_phase == 1:
+            if commit_phase == 1:
                 ret = self.commit(transaction=snapshot,
                                   commit_phase=2,
                                   commit_mask=commit_mask)

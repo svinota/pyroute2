@@ -1774,6 +1774,32 @@ class TestExplicit(BasicSetup):
         assert not grep('ip ro', pattern='172.18.1.0/24.*127.0.0.1')
         assert not grep('ip ro', pattern='172.18.2.0/24.*127.0.0.1')
 
+    def test_global_routes_fail(self):
+
+        self.ip.routes.add(dst='172.18.0.0/24',
+                           gateway='1.1.1.1',
+                           table=100)
+
+        try:
+            self.ip.commit()
+        except NetlinkError:
+            pass
+
+        assert '172.18.0.0/24' in self.ip.routes.tables[100]
+        assert (self.ip
+                .routes
+                .tables[100]['172.18.0.0/24']['ipdb_scope'] == 'create')
+
+        with self.ip.routes.tables[100]['172.18.0.0/24'] as r:
+            r['gateway'] = '127.0.0.2'
+        assert '172.18.0.0/24' in self.ip.routes.tables[100]
+        assert grep('ip ro show table 100', pattern='172.18.0.0/24')
+
+        with self.ip.routes.tables[100]['172.18.0.0/24'] as r:
+            r.remove()
+        assert '172.18.0.0/24' not in self.ip.routes.tables[100]
+        assert not grep('ip ro show table 100', pattern='172.18.0.0/24')
+
     def test_global_routes(self):
         require_user('root')
 
