@@ -1070,9 +1070,11 @@ class IPDB(object):
         if transactions is None:
             # collect interface transactions
             txlist = [(x, x.current_tx) for x
-                      in self.by_name.values() if x.local_tx.values()]
+                      in getattr(self, 'by_name', {}).values()
+                      if x.local_tx.values()]
             # collect route transactions
-            for table in self.routes.tables.keys():
+            for table in getattr(getattr(self, 'routes', None),
+                                 'tables', {}).keys():
                 txlist.extend([(x, x.current_tx) for x in
                                self.routes.tables[table]
                                if x.local_tx.values()])

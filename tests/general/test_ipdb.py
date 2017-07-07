@@ -2566,6 +2566,45 @@ class TestMisc(object):
     def teardown(self):
         remove_link(self.ifname)
 
+    def test_global_only_routes(self):
+        require_user('root')
+        try:
+            with IPDB(plugins=['routes']) as ipdb:
+                (ipdb.routes
+                 .add(dst='172.18.0.0/24',
+                      gateway='127.0.0.2',
+                      table=100))
+
+                ipdb.commit()
+
+                assert grep('ip ro show table 100', pattern='172.18.0.0/24')
+        finally:
+            with IPDB() as ipdb:
+                if '172.18.0.0/24' in ipdb.routes.tables.get(100, {}):
+                    ipdb.routes.tables[100]['172.18.0.0/24'].remove().commit()
+
+    def test_global_only_interfaces(self):
+        require_user('root')
+        ifA = uifname()
+        try:
+            with IPDB(plugins=['interfaces']) as ipdb:
+                (ipdb.interfaces
+                 .add(ifname=ifA, kind='dummy')
+                 .add_ip('172.18.0.2/24')
+                 .up())
+
+                ipdb.commit()
+
+                assert grep('ip link', pattern=ifA)
+                assert grep('ip ad', pattern='172.18.0.2/24')
+        finally:
+            with IPDB() as ipdb:
+                if ifA in ipdb.interfaces:
+                    ipdb.interfaces[ifA].remove().commit()
+
+    def test_global_wo_interfaces(self):
+        pass
+
     def test_commit_barrier(self):
         require_user('root')
 
