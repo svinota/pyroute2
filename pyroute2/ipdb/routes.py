@@ -925,6 +925,7 @@ class RoutingTableSet(object):
 
     def __init__(self, ipdb):
         self.ipdb = ipdb
+        self._gctime = time.time()
         self.ignore_rtables = ipdb._ignore_rtables or []
         self.tables = {254: RoutingTable(self.ipdb)}
         self._event_map = {'RTM_NEWROUTE': self.load_netlink,
@@ -997,7 +998,10 @@ class RoutingTableSet(object):
         if table in self.ignore_rtables:
             return
 
-        self.gc()
+        now = time.time()
+        if now - self._gctime > 5:
+            self._gctime = now
+            self.gc()
 
         # RTM_DELROUTE
         if msg['event'] == 'RTM_DELROUTE':
