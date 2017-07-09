@@ -331,6 +331,11 @@ class TestExplicit(BasicSetup):
         assert len(self.ip.interfaces[self.ifd]._commit_hooks) == 0
 
     def test_review(self):
+        try:
+            self.ip.interfaces.lo.review()
+            raise Exception('you shall not pass')
+        except TypeError:
+            pass
         assert len(self.ip.interfaces.lo.local_tx) == 0
         if self.ip.interfaces.lo._mode == 'explicit':
             self.ip.interfaces.lo.begin()
@@ -345,6 +350,34 @@ class TestExplicit(BasicSetup):
         # +/-ipaddr, +/-ports
         assert len([i for i in r if r[i] is not None]) == 6
         self.ip.interfaces.lo.drop()
+        try:
+            self.ip.interfaces.lo.review()
+            raise Exception('you shall not pass')
+        except TypeError:
+            pass
+
+    def test_global_review(self):
+        try:
+            self.ip.review()
+            raise Exception('you shall not pass')
+        except TypeError:
+            pass
+
+        if self.ip.mode == 'explicit':
+            self.ip.interfaces.lo.begin()
+        self.ip.interfaces.lo.add_ip('172.16.21.1/24')
+
+        r = self.ip.review()
+        assert len(r) == 1
+        assert len(r['interfaces']['lo']['+ipaddr']) == 1
+
+        self.ip.drop()
+
+        try:
+            self.ip.review()
+            raise Exception('you shall not pass')
+        except TypeError:
+            pass
 
     def test_review_new(self):
         i = self.ip.create(ifname='none', kind='dummy')

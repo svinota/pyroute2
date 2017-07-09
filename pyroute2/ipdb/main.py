@@ -1065,6 +1065,40 @@ class IPDB(object):
         else:
             raise NotImplementedError()
 
+    def review(self):
+        ilist = {}
+        rlist = {}
+        ret = {}
+
+        # collect interface transactions
+        for ifname in getattr(self, 'by_name', {}):
+            try:
+                ilist[ifname] = self.interfaces[ifname].review()
+            except TypeError:
+                pass
+        # collect route transactions
+        for table in getattr(getattr(self, 'routes', None),
+                             'tables', {}):
+            for key in self.routes.tables[table].keys():
+                try:
+                    rlist[ifname] = self.routes.tables[table][key].review()
+                except TypeError:
+                    pass
+
+        if ilist:
+            ret['interfaces'] = ilist
+        if rlist:
+            ret['routes'] = rlist
+
+        if not ret:
+            raise TypeError('no transactions started')
+        return ret
+
+    def drop(self):
+        for (system, tx) in self.review().items():
+            for key in tx:
+                getattr(self, system)[key].drop()
+
     def commit(self, transactions=None, phase=1):
         # what to commit: either from transactions argument, or from
         # started transactions on existing objects

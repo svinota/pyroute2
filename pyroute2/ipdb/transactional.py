@@ -414,7 +414,7 @@ class Transactional(Dotkeys):
             else:
                 tx = self.global_tx[tid]
 
-            if self.current_tx and self.current_tx.uid == tid:
+            if self.current_tx == tx:
                 self.current_tx = None
 
             # detach linked sets
