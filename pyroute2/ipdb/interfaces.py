@@ -663,6 +663,14 @@ class Interface(Transactional):
         # now we have our index and IP set and all other stuff
         snapshot = self.pick()
 
+        # make snapshots of all dependent routes
+        if commit_phase == 1 and hasattr(self.ipdb, 'routes'):
+            self.routes = []
+            for record in self.ipdb.routes.filter({'oif': self['index']}):
+                if record['key'].table != 255:
+                    self.routes.append((record['route'],
+                                        record['route'].pick()))
+
         # resolve all delayed ports
         def resolve_ports(transaction, ports, callback, self, drop):
             def error(x):
@@ -1014,6 +1022,7 @@ class Interface(Transactional):
                                 commit_phase=2,
                                 commit_mask=commit_mask,
                                 newif=newif)
+
                 except Exception as i_e:
                     debug['next_stage'] = i_e
                     error = RuntimeError()
@@ -1046,6 +1055,22 @@ class Interface(Transactional):
         if error is not None:
             error.debug = debug
             raise error
+
+        # restore dependent routes for successful rollback
+        if commit_phase == 2:
+            for route in self.routes:
+                with route[0]._direct_state:
+                    route[0]['ipdb_scope'] = 'restore'
+                try:
+                    route[0].commit(transaction=route[1],
+                                    commit_phase=2,
+                                    commit_mask=2)
+                except RuntimeError as x:
+                    # RuntimeError is raised due to phase 2, so
+                    # an additional check is required
+                    if isinstance(x.cause, NetlinkError) and \
+                            x.cause.code == errno.EEXIST:
+                        pass
 
         time.sleep(config.commit_barrier)
 

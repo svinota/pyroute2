@@ -1711,26 +1711,127 @@ class TestExplicit(BasicSetup):
         assert wdb.is_set
         assert not wdc.is_set
 
-    def test_global_rollback(self):
+    def test_global_deps(self):
         require_user('root')
 
         ifA = self.get_ifname()
         ifB = self.get_ifname()
-        a = self.ip.create(ifname=ifA, kind='dummy').commit()
-        #
-        if a._mode == 'explicit':
-            a.begin()
-        a.remove()
-        b = self.ip.create(ifname=ifB, kind='dummy')
-        b.set_mtu(1500).set_address('11:22:33:44:55:66')
+
+        # Set up the environment:
+        # 1. interface 172.16.178.2/24
+        # 2. route 172.16.179.0/24 via 172.16.178.1
+
+        with self.ip.interfaces.add(ifname=ifA, kind='dummy') as i:
+            i.up()
+            i.set_address('00:11:22:33:44:55')
+            i.set_mtu(1280)
+            i.add_ip('172.16.178.2/24')
+
+        (self.ip.routes
+         .add(dst='172.16.179.0/24', gateway='172.16.178.1')
+         .commit())
+
+        # Now prepare the transaction that will fail
+        if self.ip.mode == 'explicit':
+            self.ip.interfaces[ifA].begin()
+
+        (self.ip.interfaces[ifA]
+         .set_ipdb_priority(20)  # <-- executed first
+         .remove())  # <-- causes the route to be dropped from the system
+
+        (self.ip.interfaces
+         .add(ifname=ifB, kind='dummy')
+         .up()
+         .set_ipdb_priority(10)  # <-- executed second
+         .set_address('11:22:33:44:55:66'))  # <--- error
+
         try:
             self.ip.commit()
         except NetlinkError:
             pass
 
+        # Expected result:
+        #
+        # ifA (re-created):
+        #   - is up
+        #   - ip address is back
+        #   - mtu 1280
+        #   - mac address is 00:11:22:33:44:55
+        # ifB:
+        #   - not created
+        #   - in the 'create' state
+        # the route:
+        #   - exists (re-created)
+        #
+        # Since the ifA interface was completely removed, we should
+        # ensure that the interface created from the scratch has
+        # the same mac address, the same index and other attributes.
+        #
+        # Pls keep in mind, that old kernels do not allow setting up
+        # the interface index, so this functionality will not be
+        # available.
+        #
+        # FIXME: check which the kernel version is required.
+
+        assert ifA in self.ip.interfaces
+        assert self.ip.interfaces[ifA]['flags'] & 1
+        assert ('172.16.178.2', 24) in self.ip.interfaces[ifA]['ipaddr']
+        assert self.ip.interfaces[ifA]['mtu'] == 1280
+        assert self.ip.interfaces[ifA]['address'] == '00:11:22:33:44:55'
+        assert ifB in self.ip.interfaces
+        assert self.ip.interfaces[ifB]['ipdb_scope'] == 'create'
+        assert '172.16.179.0/24' in self.ip.routes
+        assert self.ip.routes['172.16.179.0/24']['ipdb_scope'] == 'system'
+
+        assert grep('ip ro', pattern='172.16.179.0/24')
+        assert grep('ip ad', pattern='172.16.178.2/24')
+
+    def test_global_rollback(self):
+        require_user('root')
+
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+
+        # create interface and route
+        with self.ip.interfaces.add(ifname=ifA, kind='dummy') as i:
+            i.up()
+            i.add_ip('172.16.182.2/24')
+
+        (self.ip.routes
+         .add(dst='172.16.183.0/24', gateway='172.16.182.1')
+         .commit())
+
+        # now try a transaction:
+        # 1. remove the interface
+        # 2. create another inteface  <--- here comes an exception
+        # 3. create another route
+
+        if self.ip.mode == 'explicit':
+            self.ip.interfaces[ifA].begin()
+
+        self.ip.interfaces[ifA].remove()
+        self.ip.routes.add(dst='172.16.185.0/24', gateway='172.16.184.1')
+        (self.ip
+         .create(ifname=ifB, kind='dummy')
+         .set_mtu(1500)
+         .set_address('11:22:33:44:55:66')
+         .add_ip('172.16.184.2/24'))
+
+        # commit global transaction
+        try:
+            self.ip.commit()
+        except NetlinkError:
+            pass
+
+        # expected results:
+        # 1. interface ifA exists and has the same parameters
+        # 2. the route via 172.16.182.1 exists
+        # 3. interface ifB exists only in the DB, not on the system
+        # 4. the route via 172.16.184.1 doesn't exist
+
         assert ifA in self.ip.interfaces
         assert ifB in self.ip.interfaces
-        assert b.ipdb_scope == 'create'
+        assert self.ip.interfaces[ifB].ipdb_scope == 'create'
         assert grep('ip link', pattern=ifA)
         assert not grep('ip link', pattern=ifB)
 

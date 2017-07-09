@@ -685,6 +685,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.ipdb import rules
 from pyroute2.ipdb import routes
 from pyroute2.ipdb import interfaces
+from pyroute2.ipdb.routes import BaseRoute
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.linkedset import SortedIPaddrSet
@@ -1078,19 +1079,29 @@ class IPDB(object):
                 txlist.extend([(x, x.current_tx) for x in
                                self.routes.tables[table]
                                if x.local_tx.values()])
-            txlist = sorted(txlist,
-                            key=lambda x: x[1]['ipdb_priority'],
-                            reverse=True)
             transactions = txlist
 
         snapshots = []
         removed = []
 
-        # quick sort transactions in one turn
+        tx_ipdb_prio = []
         tx_main = []
         tx_prio1 = []
         tx_prio2 = []
+        tx_prio3 = []
         for (target, tx) in transactions:
+            # 8<------------------------------
+            # first -- explicit priorities
+            if tx['ipdb_priority']:
+                tx_ipdb_prio.append((target, tx))
+                continue
+            # 8<------------------------------
+            # routes
+            if isinstance(target, BaseRoute):
+                tx_prio3.append((target, tx))
+                continue
+            # 8<------------------------------
+            # intefaces
             kind = target.get('kind', None)
             if kind in ('vlan', 'vxlan', 'gre', 'tuntap', 'vti', 'vrf'):
                 tx_prio1.append((target, tx))
@@ -1098,7 +1109,24 @@ class IPDB(object):
                 tx_prio2.append((target, tx))
             else:
                 tx_main.append((target, tx))
-        transactions = tx_main + tx_prio1 + tx_prio2
+            # 8<------------------------------
+
+        # explicitly sorted transactions
+        tx_ipdb_prio = sorted(tx_ipdb_prio,
+                              key=lambda x: x[1]['ipdb_priority'],
+                              reverse=True)
+
+        # FIXME: this should be documented
+        #
+        # The final transactions order:
+        # 1. any txs with ipdb_priority (sorted by that field)
+        #
+        # Then come default priorities (no ipdb_priority specified):
+        # 2. all the rest
+        # 3. vlan, vxlan, gre, tuntap, vti, vrf
+        # 4. bridge, bond
+        # 5. routes
+        transactions = tx_ipdb_prio + tx_main + tx_prio1 + tx_prio2 + tx_prio3
 
         try:
             for (target, tx) in transactions:
@@ -1110,11 +1138,16 @@ class IPDB(object):
                 if phase == 1:
                     s = (target, target.pick(detached=True))
                     snapshots.append(s)
+                # apply the changes, but NO rollback -- only phase 1
                 target.commit(transaction=tx,
                               commit_phase=phase,
                               commit_mask=phase)
+                # if the commit above fails, the next code
+                # branch will run rollbacks
         except Exception:
             if phase == 1:
+                # run rollbacks for ALL the collected transactions,
+                # even successful ones
                 self.fallen = transactions
                 txs = filter(lambda x: not ('create' ==
                                             x[0]['ipdb_scope'] ==
