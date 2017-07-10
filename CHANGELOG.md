@@ -1,6 +1,15 @@
 changelog
 =========
 
+* 0.4.18
+    * ipdb: #379 [critical] -- routes in global commits
+    * ipdb: #380 -- global commit with disabled plugins
+    * ipdb: #381 -- exceptions fixed
+    * ipdb: #382 -- manage dependent routes during interface commits
+    * ipdb: #384 -- global `review()`
+    * ipdb: #385 -- global `drop()`
+    * netns: #383 -- support ppc64
+    * general: public API refactored (same signatures; to be documented)
 * 0.4.17
     * req: #374 [critical] -- mode nla init
     * iproute: #378 [critical] -- fix `flush_routes()` to respect filters
