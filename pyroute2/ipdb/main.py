@@ -1078,6 +1078,33 @@ class IPDB(object):
             for key, route in self.routes.tables[table].items():
                 yield (('routes', table, key), route)
 
+    def dump(self):
+        ret = {}
+        for key, obj in self.items():
+            ptr = ret
+            for step in key[:-1]:
+                if step not in ptr:
+                    ptr[step] = {}
+                ptr = ptr[step]
+            ptr[key[-1]] = obj
+        return ret
+
+    def load(self, config, ptr=None):
+        if ptr is None:
+            ptr = self
+
+        for key in config:
+            obj = getattr(ptr, key, None)
+            if obj is not None:
+                if hasattr(obj, 'load'):
+                    obj.load(config[key])
+                else:
+                    self.load(config[key], ptr=obj)
+            elif hasattr(ptr, 'add'):
+                ptr.add(**config[key])
+
+        return self
+
     def review(self):
         ret = {}
         for key, obj in self.items():
