@@ -763,6 +763,10 @@ class RoutingTable(object):
         with self.lock:
             return [x['route'][key] for x in self.__nogc__()]
 
+    def items(self):
+        for key in self.keys():
+            yield (key, self[key])
+
     def filter(self, target, oneshot=False):
         #
         if isinstance(target, types.FunctionType):

@@ -1065,39 +1065,48 @@ class IPDB(object):
         else:
             raise NotImplementedError()
 
-    def review(self):
-        ilist = {}
-        rlist = {}
-        ret = {}
+    def items(self):
+        # TODO: add support for filters?
 
-        # collect interface transactions
+        # iterate interfaces
         for ifname in getattr(self, 'by_name', {}):
-            try:
-                ilist[ifname] = self.interfaces[ifname].review()
-            except TypeError:
-                pass
-        # collect route transactions
+            yield (('interfaces', ifname), self.interfaces[ifname])
+
+        # iterate routes
         for table in getattr(getattr(self, 'routes', None),
                              'tables', {}):
-            for key in self.routes.tables[table].keys():
-                try:
-                    rlist[ifname] = self.routes.tables[table][key].review()
-                except TypeError:
-                    pass
+            for key, route in self.routes.tables[table].items():
+                yield (('routes', table, key), route)
 
-        if ilist:
-            ret['interfaces'] = ilist
-        if rlist:
-            ret['routes'] = rlist
+    def review(self):
+        ret = {}
+        for key, obj in self.items():
+            ptr = ret
+            try:
+                rev = obj.review()
+            except TypeError:
+                continue
+
+            for step in key[:-1]:
+                if step not in ptr:
+                    ptr[step] = {}
+                ptr = ptr[step]
+            ptr[key[-1]] = rev
 
         if not ret:
-            raise TypeError('no transactions started')
+            raise TypeError('no transaction started')
         return ret
 
     def drop(self):
-        for (system, tx) in self.review().items():
-            for key in tx:
-                getattr(self, system)[key].drop()
+        ok = False
+        for key, obj in self.items():
+            try:
+                obj.drop()
+            except TypeError:
+                continue
+            ok = True
+        if not ok:
+            raise TypeError('no transaction started')
 
     def commit(self, transactions=None, phase=1):
         # what to commit: either from transactions argument, or from
@@ -1197,6 +1206,8 @@ class IPDB(object):
             if phase == 1:
                 for (target, tx) in transactions:
                     target.drop(tx.uid)
+
+        return self
 
     def watchdog(self, action='RTM_NEWLINK', **kwarg):
         return Watchdog(self, action, kwarg)

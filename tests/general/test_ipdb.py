@@ -356,7 +356,7 @@ class TestExplicit(BasicSetup):
         except TypeError:
             pass
 
-    def test_global_review(self):
+    def test_global_review_interface(self):
         try:
             self.ip.review()
             raise Exception('you shall not pass')
@@ -368,8 +368,28 @@ class TestExplicit(BasicSetup):
         self.ip.interfaces.lo.add_ip('172.16.21.1/24')
 
         r = self.ip.review()
-        assert len(r) == 1
         assert len(r['interfaces']['lo']['+ipaddr']) == 1
+
+        self.ip.drop()
+
+        try:
+            self.ip.review()
+            raise Exception('you shall not pass')
+        except TypeError:
+            pass
+
+    def test_global_review_route(self):
+        try:
+            self.ip.review()
+            raise Exception('you shall not pass')
+        except TypeError:
+            pass
+
+        self.ip.routes.add(table=2, dst='10.0.0.0/24', gateway='1.1.1.1')
+
+        r = self.ip.review()
+        assert len(r['routes'][2]) == 1
+        assert r['routes'][2]['10.0.0.0/24']['gateway'] == '1.1.1.1'
 
         self.ip.drop()
 
