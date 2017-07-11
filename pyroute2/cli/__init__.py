@@ -173,7 +173,7 @@ class Console(code.InteractiveConsole):
                             x += 1
                     try:
                         ret = obj(*argv, **kwarg)
-                        if ret and not isinstance(ret, Transactional):
+                        if ret and not isinstance(ret, (Transactional, IPDB)):
                             self.pprint(ret)
                     except:
                         self.showtraceback()
