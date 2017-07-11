@@ -1161,6 +1161,7 @@ class InterfacesDict(Dotkeys):
                     if self[ifname]['ipdb_scope'] == 'shadow':
                         with device._direct_state:
                             device['ipdb_scope'] = 'create'
+                    device.begin()
                 else:
                     raise CreateException("interface %s exists" %
                                           ifname)
@@ -1176,13 +1177,24 @@ class InterfacesDict(Dotkeys):
                                     kwarg[key].get('ifname')
                         if not isinstance(kwarg[key], int):
                             device._deferred_link = (key, kwarg[key])
-                device.update(kwarg)
-                device['kind'] = kind
-                device['index'] = kwarg.get('index', 0)
-                device['ifname'] = ifname
-                device['ipdb_scope'] = 'create'
                 device._mode = self.ipdb.mode
-            device.begin()
+                with device._direct_state:
+                    device['kind'] = kind
+                    device['index'] = kwarg.get('index', 0)
+                    device['ifname'] = ifname
+                    device['ipdb_scope'] = 'create'
+                    # set some specific attrs
+                    for attr in ('peer',
+                                 'uid',
+                                 'gid',
+                                 'ifr',
+                                 'mode',
+                                 'bond_mode',
+                                 'address'):
+                        if attr in kwarg:
+                            device[attr] = kwarg.pop(attr)
+                device.begin()
+                device.load(kwarg)
         return device
 
     def _del(self, msg):
