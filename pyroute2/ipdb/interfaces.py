@@ -228,9 +228,10 @@ class Interface(Transactional):
                 for vlan in self['vlans']:
                     self.del_vlan(vlan)
                 for vlan in data[key]:
-                    self.add_vlan(vlan)
-            elif key == 'neighbours':
-                # ignore neighbours on load
+                    if vlan != 1:
+                        self.add_vlan(vlan)
+            elif key in ('neighbours', 'family'):
+                # ignore on load
                 pass
             else:
                 self[key] = data[key]
