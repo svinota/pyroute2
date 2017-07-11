@@ -210,6 +210,8 @@ class Interface(Transactional):
             i.commit()
         '''
         for key in data:
+            if data[key] is None:
+                continue
             if key == 'ipaddr':
                 for addr in self['ipaddr']:
                     self.del_ip(*addr)
