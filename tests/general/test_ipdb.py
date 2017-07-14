@@ -117,6 +117,10 @@ class TestExplicit(BasicSetup):
         with self.ip.interfaces.lo as i:
             assert isinstance(i.mtu, int)
 
+    def test_attr_same_value(self):
+        with self.ip.interfaces[self.ifd] as testif:
+            testif.set_mtu(testif.mtu)
+
     def test_idx_len(self):
         assert len(self.ip.by_name.keys()) == len(self.ip.by_index.keys())
 
