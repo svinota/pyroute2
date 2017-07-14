@@ -1010,6 +1010,49 @@ class TestExplicit(BasicSetup):
         with route:
             route.remove()
 
+    def test_routes_mixed_ipv4_ipv6(self):
+        require_user('root')
+
+        with self.ip.interfaces[self.ifd] as testif:
+            testif.add_ip('2001:4c8:1023:108::39/64')
+            testif.add_ip('172.19.0.2/24')
+            testif.up()
+
+        (self.ip.routes
+         .add({'dst': 'default',
+               'table': 100,
+               'gateway': '2001:4c8:1023:108::40'})
+         .commit())
+        (self.ip.routes
+         .add({'dst': 'default',
+               'table': 100,
+               'gateway': '172.19.0.1'})
+         .commit())
+
+        assert grep('ip -6 ro show table 100',
+                    pattern='default.*2001:4c8:1023:108::40')
+        assert grep('ip ro show table 100',
+                    pattern='default.*172.19.0.1')
+
+        r4 = self.ip.routes.tables[100][{'dst': 'default',
+                                         'family': socket.AF_INET}]
+        r6 = self.ip.routes.tables[100][{'dst': 'default',
+                                         'family': socket.AF_INET6}]
+
+        assert r4.gateway == '172.19.0.1'
+        assert r6.gateway == '2001:4c8:1023:108::40'
+
+        if self.ip.mode == 'explicit':
+            r4.begin()
+            r6.begin()
+        r4.remove().commit()
+        r6.remove().commit()
+
+        assert not grep('ip -6 ro show table 100',
+                        pattern='default.*2001:4c8:1023:108::40')
+        assert not grep('ip ro show table 100',
+                        pattern='default.*172.19.0.1')
+
     def test_routes_ipv6(self):
         require_user('root')
         i = self.ip.create(ifname=uifname(), kind='dummy')
