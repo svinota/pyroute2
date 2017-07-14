@@ -987,7 +987,7 @@ class IPDB(object):
                         msg.reset()
                         self.mnl.put(msg, RTM_GETLINK)
                     except Exception as e:
-                        logging.warning("shutdown error: %s", e)
+                        log.warning("shutdown error: %s", e)
                         # Just give up.
                         # We can not handle this case
 
