@@ -103,6 +103,7 @@ class Interface(Transactional):
     _fields.append('kind')
     _fields.append('peer')
     _fields.append('vlan_id')
+    _fields.append('vlan_protocol')
     _fields.append('bond_mode')
     _fields.extend(_get_data_fields())
     _fields.extend(_virtual_fields)
@@ -308,6 +309,7 @@ class Interface(Transactional):
                     if kind == 'vlan':
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
+                        self['vlan_protocol'] = data.get_attr('IFLA_VLAN_PROTOCOL')
                         self['vlan_flags'] = data\
                             .get_attr('IFLA_VLAN_FLAGS', {})\
                             .get('flags', 0)
