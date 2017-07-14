@@ -2563,6 +2563,34 @@ class TestExplicit(BasicSetup):
         finally:
             ip2.release()
 
+    def test_create_vlan_8021ad(self):
+        require_user('root')
+        require_8021q()
+
+        host = self.get_ifname()  # host interface
+        stag = self.get_ifname()  # 802.1ad, 0x88a8, s-tag
+        ctag = self.get_ifname()  # 802.1q, 0x8100, c-tag
+
+        (self.ip.interfaces
+         .add(ifname=host, kind='dummy')
+         .up()
+         .commit())
+
+        (self.ip.interfaces
+         .add(ifname=stag, kind='vlan', link=host,
+              vlan_id=101, vlan_protocol=0x88a8)
+         .up()
+         .commit())
+
+        (self.ip.interfaces
+         .add(ifname=ctag, kind='vlan', link=stag,
+              vlan_id=201, vlan_protocol=0x8100)
+         .up()
+         .commit())
+
+        assert self.ip.interfaces[stag]['vlan_protocol'] == 0x88a8
+        assert self.ip.interfaces[ctag]['vlan_protocol'] == 0x8100
+
     def test_create_vlan_by_interface(self):
         require_user('root')
         require_8021q()
