@@ -131,6 +131,13 @@ class TestExplicit(BasicSetup):
         assert all(isinstance(i, int) for i in self.ip.by_index.keys())
         assert all(isinstance(i, basestring) for i in self.ip.by_name.keys())
 
+    def test_addr_ipv6zero(self):
+        require_user('root')
+        with self.ip.interfaces[self.ifd] as testif:
+            testif.add_ip('0100::1/64')
+            testif.up()
+        assert ('100::1', 64) in self.ip.interfaces[self.ifd].ipaddr
+
     def test_addr_attributes(self):
         require_user('root')
 

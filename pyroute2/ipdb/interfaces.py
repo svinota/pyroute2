@@ -382,6 +382,12 @@ class Interface(Transactional):
         elif isinstance(mask, basestring):
             mask = dqn2int(mask)
 
+        # ipaddr with leading zero isn't an issue for the IPRoute by
+        # itself, but this confuses the target mech, so remove leading
+        # zeroes if any
+        while ip.startswith('0'):
+            ip = ip[1:]
+
         # if it is a transaction or an interface update, apply the change
         self['ipaddr'].unlink((ip, mask))
         request = {}
