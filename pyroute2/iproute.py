@@ -1566,7 +1566,6 @@ class IPRouteMixin(object):
         * gateway -- via address
         * prefsrc -- preferred source IP address
         * dst -- the same as `prefix`
-        * src -- source address
         * iif -- incoming traffic interface
         * oif -- outgoing traffic interface
 
