@@ -131,12 +131,21 @@ class TestExplicit(BasicSetup):
         assert all(isinstance(i, int) for i in self.ip.by_index.keys())
         assert all(isinstance(i, basestring) for i in self.ip.by_name.keys())
 
-    def test_addr_ipv6zero(self):
+    def test_norm_addr_ipv6(self):
         require_user('root')
         with self.ip.interfaces[self.ifd] as testif:
-            testif.add_ip('0100::1/64')
+            testif.add_ip('0100:0100::1/64')
             testif.up()
-        assert ('100::1', 64) in self.ip.interfaces[self.ifd].ipaddr
+        assert ('100:100::1', 64) in self.ip.interfaces[self.ifd].ipaddr
+
+    def test_norm_route_ipv6(self):
+        require_user('root')
+        with self.ip.interfaces[self.ifd] as testif:
+            testif.add_ip('0100:0100::1/64')
+            testif.up()
+        (self.ip.routes
+         .add(dst='0200:0200::/64', gateway='0100:0100::2')
+         .commit())
 
     def test_addr_attributes(self):
         require_user('root')

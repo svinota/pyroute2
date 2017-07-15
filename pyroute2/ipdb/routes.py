@@ -8,6 +8,7 @@ from socket import AF_UNSPEC
 from socket import AF_INET6
 from socket import AF_INET
 from socket import inet_pton
+from socket import inet_ntop
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
 from pyroute2.netlink import rtnl
@@ -155,6 +156,27 @@ MPLSNHKey = namedtuple('MPLSNHKey',
 MPLSNHKey._required = 2
 
 
+def _normalize_ipaddr(x, y):
+    if isinstance(y, basestring) and y.find(':') > -1:
+        y = inet_ntop(AF_INET6, inet_pton(AF_INET6, y))
+    return x == y
+
+
+def _normalize_ipnet(x, y):
+    #
+    # x -- incoming value
+    # y -- transaction value
+    #
+    if isinstance(y, basestring) and y.find(':') > -1:
+        s = y.split('/')
+        ip = inet_ntop(AF_INET6, inet_pton(AF_INET6, s[0]))
+        if len(s) > 1:
+            y = '%s/%s' % (ip, s[1])
+        else:
+            y = ip
+    return x == y
+
+
 class BaseRoute(Transactional):
     '''
     Persistent transactional route object
@@ -173,6 +195,10 @@ class BaseRoute(Transactional):
                'header',
                'event',
                'cacheinfo')
+    _fields_cmp = {'src': _normalize_ipnet,
+                   'dst': _normalize_ipnet,
+                   'gateway': _normalize_ipaddr,
+                   'prefsrc': _normalize_ipaddr}
 
     def __init__(self, ipdb, mode=None, parent=None, uid=None):
         Transactional.__init__(self, ipdb, mode, parent, uid)
@@ -568,6 +594,8 @@ class Route(BaseRoute):
                 v = msg.get_attr(msg.name2nla(field))
                 if field in ('src', 'dst'):
                     if v is not None:
+                        if v.find(':') > -1:
+                            v = inet_ntop(AF_INET6, inet_pton(AF_INET6, v))
                         v = '%s/%s' % (v, msg['%s_len' % field])
                     elif field == 'dst':
                         v = 'default'
@@ -576,7 +604,17 @@ class Route(BaseRoute):
                 values.append(v)
         elif isinstance(msg, dict):
             for field in RouteKey._fields:
-                values.append(msg.get(field, None))
+                v = msg.get(field, None)
+                if field == 'dst' and \
+                        isinstance(v, basestring) and \
+                        v.find(':') > -1:
+                    v = v.split('/')
+                    ip = inet_ntop(AF_INET6, inet_pton(AF_INET6, v[0]))
+                    if len(v) > 1:
+                        v = '%s/%s' % (ip, v[1])
+                    else:
+                        v = ip
+                values.append(v)
         else:
             raise TypeError('prime not supported: %s' % type(msg))
         return RouteKey(*values)

@@ -4,6 +4,8 @@ import traceback
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_BRIDGE
+from socket import inet_ntop
+from socket import inet_pton
 from socket import error as socket_error
 from pyroute2 import config
 from pyroute2.common import basestring
@@ -385,11 +387,9 @@ class Interface(Transactional):
         elif isinstance(mask, basestring):
             mask = dqn2int(mask)
 
-        # ipaddr with leading zero isn't an issue for the IPRoute by
-        # itself, but this confuses the target mech, so remove leading
-        # zeroes if any
-        while ip.startswith('0'):
-            ip = ip[1:]
+        # normalize the address
+        if ip.find(':') > -1:
+            ip = inet_ntop(AF_INET6, inet_pton(AF_INET6, ip))
 
         # if it is a transaction or an interface update, apply the change
         self['ipaddr'].unlink((ip, mask))
@@ -413,6 +413,9 @@ class Interface(Transactional):
                 mask = dqn2int(mask)
             else:
                 mask = int(mask, 0)
+        # normalize the address
+        if ip.find(':') > -1:
+            ip = inet_ntop(AF_INET6, inet_pton(AF_INET6, ip))
         if (ip, mask) in self['ipaddr']:
             self['ipaddr'].unlink((ip, mask))
             self['ipaddr'].remove((ip, mask))
