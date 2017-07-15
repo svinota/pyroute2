@@ -35,7 +35,16 @@ from pyroute2.netlink.ipq import IPQSocket
 from pyroute2.netlink.diag import DiagSocket
 from pyroute2.netlink.generic import GenericNetlinkSocket
 from pyroute2.netlink.nfnetlink.nftables import NFTSocket
-from pyroute2.cli import Console
+#
+# The Console class is a bit special, it tries to engage
+# modules from stdlib, that are sometimes stripped. Some
+# of them are optional, but some aren't. So catch possible
+# errors here.
+try:
+    from pyroute2.cli import Console
+    HAS_CONSOLE = True
+except ImportError:
+    HAS_CONSOLE = False
 
 
 log = logging.getLogger(__name__)
@@ -89,8 +98,12 @@ classes = [IPRouteRequest,
            IPQSocket,
            DiagSocket,
            GenericNetlinkSocket,
-           NFTSocket,
-           Console]
+           NFTSocket]
+
+if HAS_CONSOLE:
+    classes.append(Console)
+else:
+    log.warning("Couldn't import the Console class")
 
 __all__ = []
 

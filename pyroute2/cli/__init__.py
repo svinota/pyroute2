@@ -1,22 +1,31 @@
 from __future__ import print_function
 
 import re
-import pdb
 import sys
 import code
 import shlex
 import socket
 import getpass
-import readline
 from pprint import pprint
 from pyroute2 import IPDB
 from pyroute2.common import basestring
 from pyroute2.ipdb.transactional import Transactional
 from pyroute2.ipdb.interfaces import Interface
+try:
+    import pdb
+    HAS_PDB = True
+except ImportError:
+    HAS_PDB = False
+try:
+    import readline
+    HAS_READLINE = True
+except ImportError:
+    HAS_READLINE = False
 
 
 class Console(code.InteractiveConsole):
     def __init__(self, stdout=None):
+        global HAS_READLINE
         self.ipdb = IPDB()
         self.ptr = self.ipdb
         self.ptrname = None
@@ -27,9 +36,10 @@ class Console(code.InteractiveConsole):
         self.stdout = stdout or sys.stdout
         self.set_prompt()
         code.InteractiveConsole.__init__(self)
-        readline.parse_and_bind('tab: complete')
-        readline.set_completer(self.completer)
-        readline.set_completion_display_matches_hook(self.display)
+        if HAS_READLINE:
+            readline.parse_and_bind('tab: complete')
+            readline.set_completer(self.completer)
+            readline.set_completion_display_matches_hook(self.display)
 
     def write(self, text=''):
         self.lprint(text)
@@ -44,7 +54,7 @@ class Console(code.InteractiveConsole):
 
     def help(self):
         self.lprint("Built-in commands: \n"
-                    "debug\t-- run pdb\n"
+                    "debug\t-- run pdb (if installed)\n"
                     "exit\t-- exit cli\n"
                     "ls\t-- list current namespace\n"
                     ".\t-- print the current object\n"
@@ -118,7 +128,10 @@ class Console(code.InteractiveConsole):
             if not cmd:
                 continue
             elif cmd == 'debug':
-                pdb.set_trace()
+                if HAS_PDB:
+                    pdb.set_trace()
+                else:
+                    self.lprint("pdb is not available")
             elif cmd == 'exit':
                 break
             elif cmd == 'ls':
