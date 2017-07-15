@@ -30,6 +30,7 @@ log = logging.getLogger(__name__)
 groups = rtnl.RTNLGRP_IPV4_ROUTE |\
     rtnl.RTNLGRP_IPV6_ROUTE |\
     rtnl.RTNLGRP_MPLS_ROUTE
+IP6_RT_PRIO_USER = 1024
 
 
 class Metrics(Transactional):
@@ -1003,7 +1004,7 @@ class RoutingTableSet(object):
             raise ValueError('dst not specified')
         if 'priority' not in spec:
             if spec['family'] == AF_INET6:
-                spec['priority'] = 256
+                spec['priority'] = IP6_RT_PRIO_USER
             else:
                 spec['priority'] = None
         multipath = spec.pop('multipath', [])
