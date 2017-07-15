@@ -82,6 +82,9 @@ import os
 import os.path
 import errno
 import ctypes
+import pickle
+import struct
+import traceback
 from pyroute2 import config
 from pyroute2.common import basestring
 try:
@@ -134,10 +137,7 @@ def listnetns(nspath=None):
             raise
 
 
-def create(netns, libc=None):
-    '''
-    Create a network namespace.
-    '''
+def _create(netns, libc=None):
     libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
     netnspath = _get_netnspath(netns)
     netnsdir = os.path.dirname(netnspath)
@@ -168,6 +168,35 @@ def create(netns, libc=None):
     # bind the namespace
     if libc.mount(b'/proc/self/ns/net', netnspath, b'none', MS_BIND, None) < 0:
         raise OSError(ctypes.get_errno(), 'mount failed', netns)
+
+
+def create(netns, libc=None):
+    '''
+    Create a network namespace.
+    '''
+    rctl, wctl = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        # child
+        error = None
+        try:
+            _create(netns, libc)
+        except Exception as e:
+            error = e
+            error.tb = traceback.format_exc()
+        msg = pickle.dumps(error)
+        os.write(wctl, struct.pack('I', len(msg)))
+        os.write(wctl, msg)
+        os._exit(0)
+    else:
+        # parent
+        msglen = struct.unpack('I', os.read(rctl, 4))[0]
+        error = pickle.loads(os.read(rctl, msglen))
+        os.close(rctl)
+        os.close(wctl)
+        os.waitpid(pid, 0)
+        if error is not None:
+            raise error
 
 
 def remove(netns, libc=None):
