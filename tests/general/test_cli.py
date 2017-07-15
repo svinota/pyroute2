@@ -63,8 +63,7 @@ class TestBasic(object):
         self.feed(scripts['test_dump_lo'])
         interface = eval(self.io.getvalue())
         assert interface['address'] == '00:00:00:00:00:00'
-        assert interface['ipaddr'][0][0] == '127.0.0.1'
-        assert interface['ipaddr'][0][1] == 8
+        assert ('127.0.0.1', 8) in interface['ipaddr']
 
     def test_ensure(self):
         require_user('root')
