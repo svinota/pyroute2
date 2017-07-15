@@ -190,6 +190,9 @@ class TestNetNS(object):
 
     def test_there_and_back(self):
         require_user('root')
+        # wait until the previous test's side effects are gone
+        time.sleep(2)
+        #
         fd = open('/proc/self/ns/net', 'r')
         foo = str(uuid4())
         #
