@@ -138,7 +138,7 @@ RouteKey = namedtuple('RouteKey',
                        'family',
                        'priority',
                        'oif'))
-RouteKey._required = 4  # number of required fields (should go first)
+RouteKey._required = 5  # number of required fields (should go first)
 
 # IP multipath NH key
 IPNHKey = namedtuple('IPNHKey',
@@ -963,6 +963,11 @@ class RoutingTableSet(object):
                 spec['family'] = AF_INET
         if 'dst' not in spec:
             raise ValueError('dst not specified')
+        if 'priority' not in spec:
+            if spec['family'] == AF_INET6:
+                spec['priority'] = 256
+            else:
+                spec['priority'] = None
         multipath = spec.pop('multipath', [])
         if spec.get('family', 0) == AF_MPLS:
             table = 'mpls'
