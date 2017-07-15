@@ -1,7 +1,10 @@
 import time
 import errno
-import socket
 import traceback
+from socket import AF_INET
+from socket import AF_INET6
+from socket import AF_BRIDGE
+from socket import error as socket_error
 from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.common import dqn2int
@@ -322,7 +325,7 @@ class Interface(Transactional):
                             norm = ifinfmsg.nla2name(nla[0])
                             self[norm] = nla[1]
             # load vlans
-            if dev['family'] == socket.AF_BRIDGE:
+            if dev['family'] == AF_BRIDGE:
                 spec = dev.get_attr('IFLA_AF_SPEC')
                 if spec is not None:
                     vlans = spec.get_attrs('IFLA_BRIDGE_VLAN_INFO')
@@ -825,7 +828,7 @@ class Interface(Transactional):
                     any([brequest[item] is not None for item in brequest]):
                 brequest['index'] = self['index']
                 brequest['kind'] = self['kind']
-                brequest['family'] = socket.AF_BRIDGE
+                brequest['family'] = AF_BRIDGE
                 wait_all = True
                 run(nl.link, (RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK),
                     **brequest)
@@ -896,7 +899,7 @@ class Interface(Transactional):
                         # 'Cannot assign address'
                         if x.code != errno.EADDRNOTAVAIL:
                             raise
-                    except socket.error as x:
+                    except socket_error as x:
                         # bypass illegal IP requests
                         if isinstance(x.args[0], basestring) and \
                                 x.args[0].startswith('illegal IP'):
@@ -942,7 +945,7 @@ class Interface(Transactional):
                         self['ipaddr'].remove(addr)
                     # 2. reload addresses
                     for addr in self.nl.get_addr(index=self['index'],
-                                                 family=socket.AF_INET6):
+                                                 family=AF_INET6):
                         self.ipdb.ipaddr._new(addr)
                     # if there are tons of IPv6 addresses, it may take a
                     # really long time, and that's bad, but it's broken in
@@ -1212,7 +1215,7 @@ class InterfacesDict(Dotkeys):
         if target is None:
             return
 
-        if msg['family'] == socket.AF_BRIDGE:
+        if msg['family'] == AF_BRIDGE:
             with target._direct_state:
                 for vlan in tuple(target['vlans']):
                     target.del_vlan(vlan)
@@ -1354,9 +1357,9 @@ class AddressesDict(dict):
                 iff['ipaddr'] = self[idx]
 
     def _new(self, msg):
-        if msg['family'] == socket.AF_INET:
+        if msg['family'] == AF_INET:
             addr = msg.get_attr('IFA_LOCAL')
-        elif msg['family'] == socket.AF_INET6:
+        elif msg['family'] == AF_INET6:
             addr = msg.get_attr('IFA_ADDRESS')
         else:
             return
@@ -1374,9 +1377,9 @@ class AddressesDict(dict):
             pass
 
     def _del(self, msg):
-        if msg['family'] == socket.AF_INET:
+        if msg['family'] == AF_INET:
             addr = msg.get_attr('IFA_LOCAL')
-        elif msg['family'] == socket.AF_INET6:
+        elif msg['family'] == AF_INET6:
             addr = msg.get_attr('IFA_ADDRESS')
         else:
             return
@@ -1399,7 +1402,7 @@ class NeighboursDict(dict):
             self._new(msg)
 
     def _new(self, msg):
-        if msg['family'] == socket.AF_BRIDGE:
+        if msg['family'] == AF_BRIDGE:
             return
 
         try:
@@ -1410,7 +1413,7 @@ class NeighboursDict(dict):
             pass
 
     def _del(self, msg):
-        if msg['family'] == socket.AF_BRIDGE:
+        if msg['family'] == AF_BRIDGE:
             return
         try:
             (self[msg['ifindex']]
