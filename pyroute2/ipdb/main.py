@@ -441,9 +441,11 @@ of 'prefix/mask' string and the route priority (if any)::
 
     In [1]: ipdb.routes.tables[254].idx.keys()
     Out[1]:
-    [RouteKey(dst='default', priority=600),
-     RouteKey(dst='10.1.0.0/24', priority=600),
-     RouteKey(dst='192.168.122.0/24', priority=None)]
+    [RouteKey(dst='default', scope=0, table=254, family=2, ...),
+     RouteKey(dst='172.17.0.0/16', scope=253, table=254, ...),
+     RouteKey(dst='172.16.254.0/24', scope=253, table=254, ...),
+     RouteKey(dst='192.168.122.0/24', scope=253, table=254, ...),
+     RouteKey(dst='fe80::/64', scope=0, table=254, family=10, ...)]
 
 But a routing table in IPDB allows several variants of the
 route spec. The simplest case is to retrieve a route by
@@ -467,8 +469,23 @@ records and filter by a key to retrieve all matches::
 
 It is also possible to use dicts as specs::
 
-    ipdb.routes[{'dst': '172.16.0.0/16',
-                 'oif': 2}]
+    # get IPv4 default route
+    ipdb.routes[{'dst': 'default', 'family': AF_INET}]
+
+    # get IPv6 default route
+    ipdb.routes[{'dst': 'default', 'family': AF_INET6}]
+
+    # get route by priority
+    ipdb.routes.table[100][{'dst': '10.0.0.0/24', 'priority': 10}]
+
+While this notation returns one route, there is a method to get
+all the routes matching the spec::
+
+    # get all the routes from all the tables via some interface
+    ipdb.routes.filter({'oif': idx})
+
+    # get all IPv6 routes from some table
+    ipdb.routes.table[tnum].filter({'family': AF_INET6})
 
 Route metrics
 ~~~~~~~~~~~~~
