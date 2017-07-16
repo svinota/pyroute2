@@ -391,6 +391,19 @@ Please notice, that the device can be specified with `oif`
 (output interface) or `iif` (input interface), the `device`
 keyword is not supported anymore.
 
+More examples::
+
+    # specify table and priority
+    (ipdb.routes
+     .add(dst='172.16.1.0/24',
+          gateway='192.168.0.1',
+          table=100,
+          priority=10)
+     .commit())
+
+The `priority` field is what the `iproute2` utility calls
+`metric` -- see also below.
+
 Get a route
 ~~~~~~~~~~~
 
