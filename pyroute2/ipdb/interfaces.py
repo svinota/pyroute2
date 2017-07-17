@@ -243,23 +243,6 @@ class Interface(Transactional):
                 self[key] = data[key]
         return self
 
-    def make_transaction(self, data):
-        '''
-        Create a new transaction instance from a dictionary.
-        One can apply it the with `commit(transaction=...)`
-        call.
-
-        Sample::
-
-            data = json.loads(...)
-            t = ipdb.interfaces['dummy1'].make_transaction(data)
-            ipdb.interfaces['dummy1'].commit(transaction=t)
-        '''
-        with self._write_lock:
-            template = self.__class__(ipdb=self.ipdb, mode='snapshot')
-            template.load_dict(data)
-            return template
-
     def load_dict(self, data):
         '''
         Update the interface info from a dictionary.
