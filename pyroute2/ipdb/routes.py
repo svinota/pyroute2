@@ -593,10 +593,8 @@ class Route(BaseRoute):
         if isinstance(msg, nlmsg_base):
             for field in RouteKey._fields:
                 v = msg.get_attr(msg.name2nla(field))
-                if field in ('src', 'dst'):
+                if field == 'dst':
                     if v is not None:
-                        if v.find(':') > -1:
-                            v = inet_ntop(AF_INET6, inet_pton(AF_INET6, v))
                         v = '%s/%s' % (v, msg['%s_len' % field])
                     elif field == 'dst':
                         v = 'default'
