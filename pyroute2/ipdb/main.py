@@ -975,6 +975,8 @@ class IPDB(object):
             self._post_callbacks[safe.uuid] = safe
         elif mode == 'pre':
             self._pre_callbacks[safe.uuid] = safe
+        else:
+            raise KeyError('Unknown callback mode')
         return safe.uuid
 
     def unregister_callback(self, cuid, mode='post'):
