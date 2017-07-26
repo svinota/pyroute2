@@ -516,6 +516,13 @@ class BaseRoute(Transactional):
         self['ipdb_scope'] = 'shadow'
         return self
 
+    def detach(self):
+        if self.get('family') == AF_MPLS:
+            table = 'mpls'
+        else:
+            table = self.get('table', 254)
+        del self.ipdb.routes.tables[table][self.make_key(self)]
+
 
 class Route(BaseRoute):
     _nested = ['encap', 'metrics']
