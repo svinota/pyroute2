@@ -285,6 +285,24 @@ class Transactional(Dotkeys):
     def last_snapshot_id(self):
         return self._sids[-1]
 
+    def invalidate(self):
+        # on failure, invalidate the interface and detach it
+        # from the parent
+        # 0. obtain lock on IPDB, to avoid deadlocks
+        # ... all the DB updates will wait
+        with self.ipdb.exclusive:
+            # 1. drop the IPRoute() link
+            self.nl = None
+            # 2. clean up ipdb
+            self.detach()
+            # 3. invalidate the interface
+            with self._direct_state:
+                for i in tuple(self.keys()):
+                    del self[i]
+                self['ipdb_scope'] = 'invalid'
+            # 4. the rest
+            self._mode = 'invalid'
+
     ##
     # Snapshot methods
     def revert(self, sid):
