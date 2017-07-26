@@ -1,5 +1,7 @@
 import logging
 import threading
+from socket import AF_INET
+from socket import AF_INET6
 from collections import namedtuple
 from pyroute2.netlink import rtnl
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
@@ -20,6 +22,7 @@ RuleKey = namedtuple('RuleKey',
                       'oifname',
                       'fwmark',
                       'fwmask',
+                      'family',
                       'goto',
                       'tun_id'))
 
@@ -219,7 +222,9 @@ class RulesDict(dict):
                            'RTM_DELRULE': self.load_netlink}
 
     def _register(self):
-        for msg in self.ipdb.nl.get_rules():
+        for msg in self.ipdb.nl.get_rules(family=AF_INET):
+            self.load_netlink(msg)
+        for msg in self.ipdb.nl.get_rules(family=AF_INET6):
             self.load_netlink(msg)
 
     def __getitem__(self, key):
@@ -253,6 +258,8 @@ class RulesDict(dict):
             spec['action'] = FR_ACT_NAMES['FR_ACT_TO_TBL']
         elif 'goto' in spec:
             spec['action'] = FR_ACT_NAMES['FR_ACT_GOTO']
+        if 'family' not in spec:
+            spec['family'] = AF_INET
 
         rule = Rule(self.ipdb)
         rule.update(spec)
