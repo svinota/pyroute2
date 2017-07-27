@@ -771,6 +771,7 @@ class IPDB(object):
                 'routes': routes,
                 'rules': rules}
         self.mode = mode
+        self.txdrop = False
         self._stdout = sys.stdout
         self._ipaddr_set = SortedIPaddrSet if sort_addresses else IPaddrSet
         self._event_map = {}

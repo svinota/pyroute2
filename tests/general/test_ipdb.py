@@ -1376,6 +1376,7 @@ class TestExplicit(BasicSetup):
 
         i = self.ip.create(ifname=ifA, kind='dummy').commit()
         assert not len(i.ipaddr)
+
         if i._mode == 'explicit':
             i.begin()
         i.add_ip('123.456.789.1024/153')
@@ -1384,6 +1385,7 @@ class TestExplicit(BasicSetup):
         except socket.error as e:
             if not e.args[0].startswith('illegal IP'):
                 raise
+            i.drop()
         assert not len(i.ipaddr)
         if i._mode == 'explicit':
             i.begin()

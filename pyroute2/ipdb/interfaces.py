@@ -516,19 +516,22 @@ class Interface(Transactional):
         error = None
         added = None
         removed = None
-        drop = True
+        drop = self.ipdb.txdrop
+        notx = True
+
         init = None
         debug = {'traceback': None,
                  'transaction': None,
                  'next_stage': None}
 
+        if tid or transaction:
+            notx = False
+
         if tid:
             transaction = self.global_tx[tid]
         else:
-            if transaction:
-                drop = False
-            else:
-                transaction = self.current_tx
+            transaction = transaction or self.current_tx
+
         if transaction.partial:
             transaction.errors = []
 
@@ -608,6 +611,8 @@ class Interface(Transactional):
                         # broadcast will be sent, and the object is unmodified.
                         # After the exception forwarding, the object is ready
                         # to repeat the commit() call.
+                        if drop and notx:
+                            self.drop(transaction.uid)
                         raise
 
         if transaction['ipdb_scope'] == 'create' and commit_phase > 1:
@@ -625,6 +630,8 @@ class Interface(Transactional):
             # Here we come only if a new interface is created
             #
             if commit_phase == 1 and not self.wait_target('ipdb_scope'):
+                if drop and notx:
+                    self.drop(transaction.uid)
                 self.invalidate()
                 if isinstance(newif, Exception):
                     raise newif
@@ -675,11 +682,11 @@ class Interface(Transactional):
         resolve_ports(transaction,
                       transaction._delay_add_port,
                       transaction.add_port,
-                      self, drop)
+                      self, drop and notx)
         resolve_ports(transaction,
                       transaction._delay_del_port,
                       transaction.del_port,
-                      self, drop)
+                      self, drop and notx)
 
         try:
             removed, added = snapshot // transaction
@@ -980,7 +987,7 @@ class Interface(Transactional):
                 if added.get('ipdb_scope') == 'remove':
                     self.ipdb.interfaces._detach(None, self['index'], None)
 
-                if drop:
+                if notx:
                     self.drop(transaction.uid)
 
                 return self
@@ -989,6 +996,9 @@ class Interface(Transactional):
             # system-wide checks
             if commit_phase == 1:
                 self.ipdb.ensure('run')
+
+            # so far all's ok
+            drop = True
 
         except Exception as e:
             error = e
@@ -1030,8 +1040,8 @@ class Interface(Transactional):
         if transaction.partial and transaction.errors:
             error = PartialCommitException('partial commit error')
 
-        # if it is not a rollback turn
-        if drop and commit_phase == 1:
+        # drop only if required
+        if drop and notx:
             # drop last transaction in any case
             self.drop(transaction.uid)
 
