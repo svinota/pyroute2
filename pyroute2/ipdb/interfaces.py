@@ -1237,7 +1237,7 @@ class InterfacesDict(Dotkeys):
             if old_index in self.ipdb.neighbours:
                 self.ipdb.neighbours[index] = \
                     self.ipdb.neighbours[old_index]
-                del self.neighbours[old_index]
+                del self.ipdb.neighbours[old_index]
         else:
             # scenario #3, interface rename
             # scenario #4, assume rename
