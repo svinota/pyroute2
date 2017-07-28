@@ -542,7 +542,7 @@ class Interface(Transactional):
                 # a special case: transition "create" -> "remove"
                 if transaction['ipdb_scope'] == 'remove' and \
                         self['ipdb_scope'] == 'create':
-                    self.ipdb.interfaces._detach(self['ifname'], 0)
+                    self.invalidate()
                     return self
 
                 newif = True
