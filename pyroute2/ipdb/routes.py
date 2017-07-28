@@ -2,6 +2,7 @@ import time
 import types
 import struct
 import logging
+import traceback
 import threading
 from collections import namedtuple
 from socket import AF_UNSPEC
@@ -372,17 +373,21 @@ class BaseRoute(Transactional):
             return self
 
         error = None
-        drop = True
+        drop = self.ipdb.txdrop
         devop = 'set'
         cleanup = []
+        # FIXME -- make a debug object
+        debug = {'traceback': None,
+                 'next_stage': None}
+        notx = True
+
+        if tid or transaction:
+            notx = False
 
         if tid:
             transaction = self.global_tx[tid]
         else:
-            if transaction:
-                drop = False
-            else:
-                transaction = self.current_tx
+            transaction = transaction or self.current_tx
 
         # ignore global rollbacks on invalid routes
         if self['ipdb_scope'] == 'create' and commit_phase > 1:
@@ -482,27 +487,31 @@ class BaseRoute(Transactional):
                     with self._direct_state:
                         self['ipdb_scope'] = 'shadow'
 
-        except Exception as e:
-            if commit_phase == 1:
-                ret = self.commit(transaction=snapshot,
-                                  commit_phase=2,
-                                  commit_mask=commit_mask)
-                if isinstance(ret, Exception):
-                    error = ret
-                else:
-                    error = e
-            else:
-                if drop:
-                    self.drop(transaction.uid)
-                x = RuntimeError()
-                x.cause = e
-                raise x
+            # success, so it's safe to drop the transaction
+            drop = True
 
-        if drop and commit_phase == 1:
+        except Exception as e:
+
+            error = e
+            # prepare postmortem
+            debug['traceback'] = traceback.format_exc()
+            debug['error_stack'] = []
+            debug['next_stage'] = None
+
+            if commit_phase == 1:
+                try:
+                    self.commit(transaction=snapshot,
+                                commit_phase=2,
+                                commit_mask=commit_mask)
+                except Exception as i_e:
+                    debug['next_stage'] = i_e
+                    error = RuntimeError()
+
+        if drop and notx:
             self.drop(transaction.uid)
 
         if error is not None:
-            error.transaction = transaction
+            error.debug = debug
             raise error
 
         self.ipdb.routes.gc()
