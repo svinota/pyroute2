@@ -211,7 +211,7 @@ class NetNS(IPRouteMixin, RemoteSocket):
         # join the server
         self.server.join()
         # Workaround for http://bugs.python.org/issue27151
-        if sys.version_info > (3, 2) and sys.version_info < (3, 6):
+        if sys.version_info > (3, 2):
             try:
                 fcntl.fcntl(self.server.sentinel, fcntl.F_GETFD)
             except:
