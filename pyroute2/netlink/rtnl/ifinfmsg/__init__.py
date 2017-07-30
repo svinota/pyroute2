@@ -5,8 +5,8 @@ import pkgutil
 import importlib
 from socket import AF_INET
 from socket import AF_INET6
-from socket import AF_BRIDGE
 from pyroute2 import config
+from pyroute2.config import AF_BRIDGE
 from pyroute2.common import map_namespace
 from pyroute2.common import basestring
 from pyroute2.netlink import nla

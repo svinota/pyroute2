@@ -20,5 +20,7 @@ machine = platform.machine()
 arch = platform.architecture()[0]
 kernel = LooseVersion(uname[2]).version[:3]
 
+AF_BRIDGE = getattr(socket, 'AF_BRIDGE', 7)
+
 data_plugins_pkgs = []
 data_plugins_path = []
