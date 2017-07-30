@@ -172,7 +172,7 @@ import logging
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
-from socket import AF_BRIDGE
+from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC

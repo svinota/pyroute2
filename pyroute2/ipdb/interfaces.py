@@ -3,11 +3,11 @@ import errno
 import traceback
 from socket import AF_INET
 from socket import AF_INET6
-from socket import AF_BRIDGE
 from socket import inet_ntop
 from socket import inet_pton
 from socket import error as socket_error
 from pyroute2 import config
+from pyroute2.config import AF_BRIDGE
 from pyroute2.common import basestring
 from pyroute2.common import dqn2int
 from pyroute2.common import View
