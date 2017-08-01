@@ -19,6 +19,7 @@ from pyroute2.netlink.rtnl.tcmsg import sched_pfifo_fast
 from pyroute2.netlink.rtnl.tcmsg import sched_plug
 from pyroute2.netlink.rtnl.tcmsg import sched_sfq
 from pyroute2.netlink.rtnl.tcmsg import sched_tbf
+from pyroute2.netlink.rtnl.tcmsg import sched_prio
 from pyroute2.netlink.rtnl.tcmsg import sched_template
 
 plugins = {'plug': sched_plug,
@@ -36,7 +37,8 @@ plugins = {'plug': sched_plug,
            'ingress': sched_ingress,
            'pfifo_fast': sched_pfifo_fast,
            'choke': sched_choke,
-           'drr': sched_drr}
+           'drr': sched_drr,
+           'prio': sched_pfifo_fast}
 
 
 class tcmsg(nlmsg):
