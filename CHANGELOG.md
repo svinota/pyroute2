@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.4.19
+    * ipdb: global methods `review()`, `drop()`, `dump()`, `load()`
+    * ipdb: support VLAN protocol (802.1q, 802.1ad)
+    * ipdb: initial support for IPv6 rules
+    * ipdb: #388 -- normalize IPv6 addresses
+    * ipdb: #391 -- support both IPv4 and IPv6 default routes
+    * ipdb: #394 -- correctly work with route priorities
+    * netns: non-destructive `netns.create()`
 * 0.4.18
     * ipdb: #379 [critical] -- routes in global commits
     * ipdb: #380 -- global commit with disabled plugins
