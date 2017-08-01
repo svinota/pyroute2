@@ -38,7 +38,7 @@ plugins = {'plug': sched_plug,
            'pfifo_fast': sched_pfifo_fast,
            'choke': sched_choke,
            'drr': sched_drr,
-           'prio': sched_prio}
+           'prio': sched_pfifo_fast}
 
 
 class tcmsg(nlmsg):
