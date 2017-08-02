@@ -617,8 +617,7 @@ class Interface(Transactional):
 
         if transaction['ipdb_scope'] == 'create' and commit_phase > 1:
             if self['index']:
-                wd = self.ipdb.watchdog(action='RTM_DELLINK',
-                                        ifname=self['ifname'])
+                wd = self.ipdb.watchdog('RTM_DELLINK', ifname=self['ifname'])
                 with self._direct_state:
                     self['ipdb_scope'] = 'locked'
                 self.nl.link('delete', index=self['index'])
@@ -970,8 +969,7 @@ class Interface(Transactional):
             # 8<---------------------------------------------
             # Interface removal
             if added.get('ipdb_scope') in ('shadow', 'remove'):
-                wd = self.ipdb.watchdog(action='RTM_DELLINK',
-                                        ifname=self['ifname'])
+                wd = self.ipdb.watchdog('RTM_DELLINK', ifname=self['ifname'])
                 with self._direct_state:
                     self['ipdb_scope'] = 'locked'
                 self.nl.link('delete', index=self['index'])

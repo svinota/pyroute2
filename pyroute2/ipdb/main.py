@@ -1269,8 +1269,8 @@ class IPDB(object):
 
         return self
 
-    def watchdog(self, action='RTM_NEWLINK', **kwarg):
-        return Watchdog(self, action, kwarg)
+    def watchdog(self, wdops='RTM_NEWLINK', **kwarg):
+        return Watchdog(self, wdops, kwarg)
 
     def serve_forever(self):
         ###
