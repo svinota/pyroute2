@@ -2192,7 +2192,7 @@ class TestExplicit(BasicSetup):
             i.remove()
 
         assert ifname not in self.ip.interfaces
-        assert interface['ipdb_scope'] == 'detached'
+        assert interface['ipdb_scope'] == 'invalid'
 
     def test_create_fail_repeat1(self):
         require_user('root')
