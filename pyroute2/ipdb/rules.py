@@ -1,4 +1,5 @@
 import logging
+import traceback
 import threading
 from socket import AF_INET
 from socket import AF_INET6
@@ -112,16 +113,18 @@ class Rule(Transactional):
             return self
 
         error = None
-        drop = True
+        drop = self.ipdb.txdrop
         devop = 'set'
+        debug = {'traceback': None,
+                 'next_stage': None}
+        notx = True
 
+        if tid or transaction:
+            notx = False
         if tid:
             transaction = self.global_tx[tid]
         else:
-            if transaction:
-                drop = False
-            else:
-                transaction = self.current_tx
+            transaction = transaction or self.current_tx
 
         # create a new route
         if self['ipdb_scope'] != 'system':
@@ -146,13 +149,16 @@ class Rule(Transactional):
                         raise CommitException('rule priority conflict')
                     else:
                         self.ipdb.rules[new_key] = self
-                        self.nl.rule('del', priority=old_key)
+                        self.nl.rule('del', **old_key._asdict())
                         self.nl.rule('add', **transaction)
                 else:
                     if devop != 'add':
                         with self._direct_state:
-                            self['ipdb_scope'] = 'shadow'
-                        self.nl.rule('del', priority=old_key)
+                            self['ipdb_scope'] = 'locked'
+                        wd = self.ipdb.watchdog('RTM_DELRULE',
+                                                **old_key._asdict())
+                        self.nl.rule('del', **old_key._asdict())
+                        wd.wait()
                         with self._direct_state:
                             self['ipdb_scope'] = 'reload'
                     self.nl.rule('add', **transaction)
@@ -165,41 +171,38 @@ class Rule(Transactional):
                     with self._direct_state:
                         self['ipdb_scope'] = 'locked'
                 # create watchdog
-                wd = self.ipdb.watchdog('RTM_DELRULE',
-                                        priority=self['priority'])
-                for rule in self.nl.rule('delete', **snapshot):
-                    self.ipdb.rules.load_netlink(rule)
+                key = self.make_key(snapshot)
+                wd = self.ipdb.watchdog('RTM_DELRULE', **key._asdict())
+                self.nl.rule('del', **key._asdict())
                 wd.wait()
                 if transaction['ipdb_scope'] == 'shadow':
                     with self._direct_state:
                         self['ipdb_scope'] = 'shadow'
+            # everything ok
+            drop = True
 
         except Exception as e:
-            if devop == 'add':
-                error = e
-                self.nl = None
-                self['ipdb_scope'] = 'invalid'
-                del self.ipdb.rules[self.make_key(self)]
-            elif commit_phase == 1:
-                ret = self.commit(transaction=snapshot,
-                                  commit_phase=2,
-                                  commit_mask=commit_mask)
-                if isinstance(ret, Exception):
-                    error = ret
-                else:
-                    error = e
-            else:
-                if drop:
-                    self.drop(transaction.uid)
-                x = RuntimeError()
-                x.cause = e
-                raise x
 
-        if drop and commit_phase == 1:
+            error = e
+            # prepare postmortem
+            debug['traceback'] = traceback.format_exc()
+            debug['error_stack'] = []
+            debug['next_stage'] = None
+
+            if commit_phase == 1:
+                try:
+                    self.commit(transaction=snapshot,
+                                commit_phase=2,
+                                commit_mask=commit_mask)
+                except Exception as i_e:
+                    debug['next_stage'] = i_e
+                    error = RuntimeError()
+
+        if drop and notx:
             self.drop(transaction.uid)
 
         if error is not None:
-            error.transaction = transaction
+            error.debug = debug
             raise error
 
         return self
