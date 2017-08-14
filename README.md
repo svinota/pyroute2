@@ -68,7 +68,7 @@ Some examples::
     print(ip.get_links())
 
     # create VETH pair and move v0p1 to netns 'test'
-    ip.link_create(ifname='v0p0', peer='v0p1', kind='veth')
+    ip.link('add', ifname='v0p0', peer='v0p1', kind='veth')
     idx = ip.link_lookup(ifname='v0p1')[0]
     ip.link('set',
             index=idx,
