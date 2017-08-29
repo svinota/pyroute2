@@ -1061,9 +1061,7 @@ class RoutingTableSet(object):
         if msg['family'] == AF_MPLS:
             table = 'mpls'
         else:
-            table = msg['table']
-            if table == 252:
-                table = msg.get_attr('RTA_TABLE')
+            table = msg.get_attr('RTA_TABLE', msg['table'])
 
         if table in self.ignore_rtables:
             return
