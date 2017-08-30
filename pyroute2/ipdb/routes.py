@@ -139,8 +139,9 @@ RouteKey = namedtuple('RouteKey',
                        'table',
                        'family',
                        'priority',
+                       'tos',
                        'oif'))
-RouteKey._required = 4  # number of required fields (should go first)
+RouteKey._required = 5  # number of required fields (should go first)
 
 # IP multipath NH key
 IPNHKey = namedtuple('IPNHKey',
@@ -613,6 +614,10 @@ class Route(BaseRoute):
                         v = '%s/%s' % (v, msg['dst_len'])
                     else:
                         v = 'default'
+                elif field == 'tos' and msg.get('family') != AF_INET:
+                    # ignore tos field for non-IPv4 routes,
+                    # as it used as a key only there
+                    v = None
                 elif v is None:
                     v = msg.get(field, None)
                 values.append(v)
@@ -628,6 +633,10 @@ class Route(BaseRoute):
                         v = '%s/%s' % (ip, v[1])
                     else:
                         v = ip
+                elif field == 'tos' and msg.get('family') != AF_INET:
+                    # ignore tos field for non-IPv4 routes,
+                    # as it used as a key only there
+                    v = None
                 values.append(v)
         else:
             raise TypeError('prime not supported: %s' % type(msg))
@@ -1003,6 +1012,8 @@ class RoutingTableSet(object):
         Create a route from a dictionary
         '''
         spec = dict(spec or kwarg)
+        if 'tos' not in spec:
+            spec['tos'] = 0
         if 'scope' not in spec:
             spec['scope'] = 0
         if 'table' not in spec:
