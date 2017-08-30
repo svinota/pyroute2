@@ -651,7 +651,9 @@ class Interface(Transactional):
         if commit_phase == 1 and hasattr(self.ipdb, 'routes'):
             self.routes = []
             for record in self.ipdb.routes.filter({'oif': self['index']}):
-                if record['key'].table != 255:
+                # For MPLS routes the key is an integer
+                # They should match anyways
+                if getattr(record['key'], 'table', None) != 255:
                     self.routes.append((record['route'],
                                         record['route'].pick()))
 
