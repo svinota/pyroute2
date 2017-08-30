@@ -611,8 +611,8 @@ class Route(BaseRoute):
                 v = msg.get_attr(msg.name2nla(field))
                 if field == 'dst':
                     if v is not None:
-                        v = '%s/%s' % (v, msg['%s_len' % field])
-                    elif field == 'dst':
+                        v = '%s/%s' % (v, msg['dst_len'])
+                    else:
                         v = 'default'
                 elif v is None:
                     v = msg.get(field, None)
