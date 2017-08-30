@@ -1,6 +1,10 @@
 changelog
 =========
 
+* 0.4.20
+    * ipdb: #392 -- fix MPLS route key reference
+    * ipdb: #408 -- fix IPv6 routes in tables >= 256
+    * ipdb: use tos as a route key
 * 0.4.19
     * ipdb: global methods `review()`, `drop()`, `dump()`, `load()`
     * ipdb: support VLAN protocol (802.1q, 802.1ad)
