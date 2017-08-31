@@ -415,10 +415,6 @@ class BaseRoute(Transactional):
                 old_key = self.make_key(self)
                 new_key = self.make_key(transaction)
                 if old_key != new_key:
-                    # delete multipath before updating it, since there are
-                    # issues still
-                    if (devop == 'set') and (mpt is not None):
-                        self.nl.route('del', **dict(old_key._asdict()))
                     # assume we can not move routes between tables (yet ;)
                     if self['family'] == AF_MPLS:
                         route_index = self.ipdb.routes.tables['mpls'].idx
@@ -438,7 +434,7 @@ class BaseRoute(Transactional):
                         del route_index[old_key]
                 self.nl.route(devop, **transaction)
                 # delete old record, if required
-                if (old_key != new_key) and (devop == 'set') and (mpt is None):
+                if (old_key != new_key) and (devop == 'set'):
                     self.nl.route('del', **dict(old_key._asdict()))
                 transaction.wait_all_targets()
                 for key in ('metrics', 'via'):
