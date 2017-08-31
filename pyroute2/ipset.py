@@ -136,7 +136,7 @@ class IPSet(NetlinkSocket):
     def create(self, name, stype='hash:ip', family=socket.AF_INET,
                exclusive=True, counters=False, comment=False,
                maxelem=IPSET_DEFAULT_MAXELEM, forceadd=False,
-               hashsize=None, timeout=None):
+               hashsize=None, timeout=None, bitmap_ports_range=None):
         '''
         Create an ipset `name` of type `stype`, by default
         `hash:ip`.
@@ -150,6 +150,8 @@ class IPSet(NetlinkSocket):
         * forceadd -- you should refer to the ipset manpage
         * hashsize -- size of the hashtable (if any)
         * timeout -- enable and set a default value for entries (if not None)
+        * bitmap_ports_range -- set the specified inclusive portrange for
+                          the bitmap ipset structure (0-65536)
         '''
         excl_flag = NLM_F_EXCL if exclusive else 0
         msg = ipset_msg()
@@ -161,12 +163,24 @@ class IPSet(NetlinkSocket):
         if forceadd:
             cadt_flags |= IPSET_FLAG_WITH_FORCEADD
 
+        if stype == 'bitmap:port' and bitmap_ports_range is None:
+            raise ValueError('Missing value bitmap_ports_range')
+
         data = {"attrs": [["IPSET_ATTR_CADT_FLAGS", cadt_flags],
                           ["IPSET_ATTR_MAXELEM", maxelem]]}
         if hashsize is not None:
             data['attrs'] += [["IPSET_ATTR_HASHSIZE", hashsize]]
         if timeout is not None:
             data['attrs'] += [["IPSET_ATTR_TIMEOUT", timeout]]
+        if bitmap_ports_range is not None and stype == 'bitmap:port':
+            # Set the bitmap range A bitmap type of set
+            # can store up to 65536 entries
+            try:
+                f, t = [int(item) for item in bitmap_ports_range.split('-')]
+            except ValueError:
+                raise TypeError('Invalid bitmap_ports_range')
+            data['attrs'] += [['IPSET_ATTR_PORT_FROM', f]]
+            data['attrs'] += [['IPSET_ATTR_PORT_TO', t]]
 
         if self._attr_revision is None:
             # Get the last revision supported by kernel
