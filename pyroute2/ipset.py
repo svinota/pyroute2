@@ -186,6 +186,13 @@ class IPSet(NetlinkSocket):
                             terminate=_nlmsg_error)
 
     def _entry_to_data_attrs(self, entry, etype, family):
+        """
+        Construct the required attributes for IPSET_ATTR_DATA
+            :param entry: str: Entry needed to be added to the ipset
+            :param etype: str: IPSet type, ip, net, port supported
+            :param family: socket.AF_INET*: address family of
+                           entry
+        """
         attrs = []
         if family is not None:
             if family == socket.AF_INET:
