@@ -13,6 +13,7 @@ rename, swap, test...)
 '''
 import errno
 import socket
+from re import search
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
@@ -195,6 +196,20 @@ class IPSet(NetlinkSocket):
                 ip_version = None
             else:
                 raise TypeError('unknown family')
+
+        if etype == 'port':
+            if not search(r'(^\d+-\d+$)|(^\d+$)', entry):
+                raise ValueError('Bad port or port range')
+            if '-' in entry:
+                t, f = [int(x) for x in sorted(entry.split('-'))]
+                attrs += [
+                    ['IPSET_ATTR_PORT_FROM', f],
+                    ['IPSET_ATTR_PORT_TO', t]
+                ]
+            else:
+                attrs += [['IPSET_ATTR_PORT_FROM', int(entry)]]
+            return attrs
+
         for e, t in zip(entry.split(','), etype.split(',')):
             if t in ('ip', 'net'):
                 if t == 'net':
