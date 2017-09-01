@@ -1173,6 +1173,7 @@ class InterfacesDict(Dotkeys):
                                  'ifr',
                                  'mode',
                                  'bond_mode',
+                                 'vrf_table',
                                  'address'):
                         if attr in kwarg:
                             device[attr] = kwarg.pop(attr)
