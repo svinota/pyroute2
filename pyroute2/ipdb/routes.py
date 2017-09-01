@@ -117,6 +117,13 @@ class WatchdogKey(dict):
 
 
 # Universal route key
+# Holds the fields that the kernel uses to uniquely identify routes.
+# IPv4 allows redundant routes with different 'tos' but IPv6 does not,
+# so 'tos' is used for IPv4 but not IPv6.
+# For reference, see fib_table_insert() in
+# https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/ipv4/fib_trie.c#n1147
+# and fib6_add_rt2node() in
+# https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/ipv6/ip6_fib.c#n765
 RouteKey = namedtuple('RouteKey',
                       ('dst',
                        'table',
@@ -592,7 +599,7 @@ class Route(BaseRoute):
                     else:
                         v = 'default'
                 elif field == 'tos' and msg.get('family') != AF_INET:
-                    # ignore tos field for non-IPv4 routes,
+                    # ignore tos field for non-IPv6 routes,
                     # as it used as a key only there
                     v = None
                 elif v is None:
@@ -611,7 +618,7 @@ class Route(BaseRoute):
                     else:
                         v = ip
                 elif field == 'tos' and msg.get('family') != AF_INET:
-                    # ignore tos field for non-IPv4 routes,
+                    # ignore tos field for non-IPv6 routes,
                     # as it used as a key only there
                     v = None
                 values.append(v)
@@ -1063,7 +1070,7 @@ class RoutingTableSet(object):
 
     def gc_mark_addr(self, msg):
         ##
-        # Find invalid route records after addr delete
+        # Find invalid IPv4 route records after addr delete
         #
         # Example::
         #   $ sudo ip link add test0 type dummy
@@ -1075,9 +1082,13 @@ class RoutingTableSet(object):
         #
         # The route {'dst': '10.1.2.0/24', 'gateway': '172.18.0.1'}
         # will stay in the routing table being removed from the system.
-        # That's because the kernel doesn't send route updates in that
-        # case, so we have to calculate the update here -- or load all
-        # the routes from scratch. The latter may be far too expensive.
+        # That's because the kernel doesn't send IPv4 route updates in
+        # that case, so we have to calculate the update here -- or load
+        # all the routes from scratch. The latter may be far too
+        # expensive.
+        #
+        # See http://www.spinics.net/lists/netdev/msg254186.html for
+        # background on this kernel behavior.
 
         # Simply ignore secondary addresses, as they don't matter
         if msg['flags'] & IFA_F_SECONDARY:
@@ -1110,7 +1121,8 @@ class RoutingTableSet(object):
                             record['route']._gctime = time.time()
 
         elif family == AF_INET6:
-            # TODO: add IPv6 support
+            # Unlike IPv4, IPv6 route updates are sent after addr
+            # delete, so no need to delete them here.
             pass
         else:
             # ignore not (IPv4 or IPv6)

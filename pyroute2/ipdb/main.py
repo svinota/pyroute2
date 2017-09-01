@@ -441,11 +441,11 @@ of 'prefix/mask' string and the route priority (if any)::
 
     In [1]: ipdb.routes.tables[254].idx.keys()
     Out[1]:
-    [RouteKey(dst='default', scope=0, table=254, family=2, ...),
-     RouteKey(dst='172.17.0.0/16', scope=253, table=254, ...),
-     RouteKey(dst='172.16.254.0/24', scope=253, table=254, ...),
-     RouteKey(dst='192.168.122.0/24', scope=253, table=254, ...),
-     RouteKey(dst='fe80::/64', scope=0, table=254, family=10, ...)]
+    [RouteKey(dst='default', table=254, family=2, ...),
+     RouteKey(dst='172.17.0.0/16', table=254, ...),
+     RouteKey(dst='172.16.254.0/24', table=254, ...),
+     RouteKey(dst='192.168.122.0/24', table=254, ...),
+     RouteKey(dst='fe80::/64', table=254, family=10, ...)]
 
 But a routing table in IPDB allows several variants of the
 route spec. The simplest case is to retrieve a route by
