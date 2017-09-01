@@ -98,7 +98,7 @@ class Interface(Transactional):
                        'net_ns_fd',
                        'net_ns_pid']
     _fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
-    for name in ('bridge_data', 'bridge_slave_data'):
+    for name in ('bridge_slave_data', ):
         data = getattr(ifinfmsg.ifinfo, name)
         _fields.extend([ifinfmsg.nla2name(i[0]) for i in data.nla_map])
     _fields.append('index')
