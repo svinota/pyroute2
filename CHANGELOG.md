@@ -1,6 +1,8 @@
 changelog
 =========
 
+* 0.4.21
+    * ipdb: #416 -- workaround for the vrf_table issue
 * 0.4.20
     * ipdb: #392 -- fix MPLS route key reference
     * ipdb: #408 -- fix IPv6 routes in tables >= 256
