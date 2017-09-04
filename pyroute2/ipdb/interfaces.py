@@ -28,6 +28,19 @@ from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.exceptions import PartialCommitException
 
 
+supported_kinds = ('bridge',
+                   'bond',
+                   'tuntap',
+                   'vxlan',
+                   'gre',
+                   'gretap',
+                   'ip6gre',
+                   'ip6gretap',
+                   'macvlan',
+                   'macvtap',
+                   'ipvlan',
+                   'vrf')
+
 groups = rtnl.RTNLGRP_LINK |\
     rtnl.RTNLGRP_NEIGH |\
     rtnl.RTNLGRP_IPV4_IFADDR |\
@@ -35,17 +48,10 @@ groups = rtnl.RTNLGRP_LINK |\
 
 
 def _get_data_fields():
+    global supported_kinds
+
     ret = []
-    for data in ('bridge',
-                 'bond',
-                 'tuntap',
-                 'vxlan',
-                 'gre',
-                 'ip6gre',
-                 'macvlan',
-                 'macvtap',
-                 'ipvlan',
-                 'vrf'):
+    for data in supported_kinds:
         msg = ifinfmsg.ifinfo.data_map[data]
         if getattr(msg, 'prefix', None) is not None:
             ret += [msg.nla2name(i[0]) for i in msg.nla_map]
@@ -260,6 +266,8 @@ class Interface(Transactional):
         This call always bypasses open transactions, loading
         changes directly into the interface data.
         '''
+        global supported_kinds
+
         with self._direct_state:
             if self['ipdb_scope'] == 'locked':
                 # do not touch locked interfaces
@@ -302,9 +310,7 @@ class Interface(Transactional):
                         self['vlan_flags'] = data\
                             .get_attr('IFLA_VLAN_FLAGS', {})\
                             .get('flags', 0)
-                    if kind in ('vxlan', 'macvlan', 'macvtap', 'gre',
-                                'gretap', 'ipvlan', 'bridge',
-                                'ip6gre', 'ip6gretap'):
+                    if kind in supported_kinds:
                         data = linkinfo.get_attr('IFLA_INFO_DATA') or {}
                         for nla in data.get('attrs', []):
                             norm = ifinfmsg.nla2name(nla[0])
