@@ -196,7 +196,33 @@ class IPSet(NetlinkSocket):
             else:
                 raise TypeError('unknown family')
         for e, t in zip(entry.split(','), etype.split(',')):
-            if t in ('ip', 'net'):
+            if t == 'port':
+                if etype != 'port' and ':' in e:
+                    # Specifying protocol is only optional
+                    # in hash stypes
+                    proto, e = e.split(':')
+                else:
+                    proto = ''
+
+                if '-' in e:
+                    to, f = [int(x) for x in sorted(e.split('-'))]
+                    attrs += [
+                        ['IPSET_ATTR_PORT_FROM', f],
+                        ['IPSET_ATTR_PORT_TO', to]
+                    ]
+                else:
+                    attrs += [['IPSET_ATTR_PORT_FROM', int(e)]]
+
+                if etype != 'port':
+                    proto_map = {
+                        '': 1, # default value TCP
+                        'tcp': 1,
+                        'udp': 12,
+                    }
+                    attrs += [['IPSET_ATTR_PROTO', {'attrs': 
+                        [['IPSET_ATTR_NAME', 'x'*proto_map[proto]]]
+                    }]]
+            elif t in ('ip', 'net'):
                 if t == 'net':
                     if '/' in e:
                         e, cidr = e.split('/')
