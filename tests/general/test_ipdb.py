@@ -2601,6 +2601,20 @@ class TestExplicit(BasicSetup):
             ip2.release()
 
     @skip_if_not_supported
+    def test_create_vrf(self):
+        require_user('root')
+
+        ifL = self.get_ifname()
+        self.ip.create(kind='vrf',
+                       ifname=ifL,
+                       vrf_table=100,
+                       reuse=True).commit()
+
+        assert ifL in self.ip.interfaces
+        assert self.ip.interfaces[ifL].vrf_table == 100
+        assert self.ip.interfaces[ifL].kind == 'vrf'
+
+    @skip_if_not_supported
     def test_create_vxlan(self):
         require_user('root')
 
