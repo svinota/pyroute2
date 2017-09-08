@@ -85,17 +85,34 @@ class NextHopSet(LinkedSet):
 
     def add(self, prime, raw=None, cascade=False):
         key = self.__make_nh(prime)
+        r = key._required
+        l = key._fields
+        skey = key[:r] + (None, ) * (len(l) - r)
+        if skey in self.raw:
+            del self.raw[skey]
         return super(NextHopSet, self).add(key, raw=prime)
 
     def remove(self, prime, raw=None, cascade=False):
         key = self.__make_nh(prime)
-        super(NextHopSet, self).remove(key)
+        try:
+            super(NextHopSet, self).remove(key)
+        except KeyError as e:
+            r = key._required
+            l = key._fields
+            skey = key[:r] + (None, ) * (len(l) - r)
+            for rkey in tuple(self.raw.keys()):
+                if skey == rkey[:r] + (None, ) * (len(l) - r):
+                    break
+            else:
+                raise e
+            super(NextHopSet, self).remove(rkey)
 
 
 class WatchdogMPLSKey(dict):
 
     def __init__(self, route):
         dict.__init__(self)
+        self['oif'] = route['oif']
         self['dst'] = [{'ttl': 0, 'bos': 1, 'tc': 0, 'label': route['dst']}]
 
 
@@ -134,12 +151,16 @@ RouteKey = namedtuple('RouteKey',
 # IP multipath NH key
 IPNHKey = namedtuple('IPNHKey',
                      ('gateway',
-                      'encap'))
+                      'encap',
+                      'oif'))
+IPNHKey._required = 2
 
 # MPLS multipath NH key
 MPLSNHKey = namedtuple('MPLSNHKey',
                        ('newdst',
-                        'via'))
+                        'via',
+                        'oif'))
+MPLSNHKey._required = 2
 
 
 def _normalize_ipaddr(x, y):
@@ -226,7 +247,7 @@ class BaseRoute(Transactional):
                             self[key] = None
                     self['multipath'].add(first)
                     # cleanup key fields
-                    for key in ('gateway', 'newdst'):
+                    for key in ('oif', 'gateway', 'newdst'):
                         self[key] = None
             # add the prime as NH
             if self['family'] == AF_MPLS:
@@ -405,7 +426,7 @@ class BaseRoute(Transactional):
                     if mplen == 1:
                         # set up local targets
                         for nh in transaction['multipath']:
-                            for key in ('gateway', 'newdst'):
+                            for key in ('oif', 'gateway', 'newdst'):
                                 if nh.get(key, None):
                                     self.set_target(key, nh[key])
                                     wlist.append(key)
@@ -699,7 +720,8 @@ class MPLSRoute(BaseRoute):
         Construct from a netlink message a multipath nexthop key
         '''
         return MPLSNHKey(newdst=tuple(msg['newdst']),
-                         via=msg.get('via', {}).get('addr', None))
+                         via=msg.get('via', {}).get('addr', None),
+                         oif=msg.get('oif', None))
 
     @classmethod
     def make_key(cls, msg):
