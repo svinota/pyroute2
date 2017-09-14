@@ -3,6 +3,7 @@ from time import sleep
 from pyroute2.ipset import IPSet
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_TYPE_SPECIFIC
 from utils import require_user
 from uuid import uuid4
 
@@ -355,4 +356,22 @@ class TestIPSet(object):
         self.ip.delete(name, subname, etype="set")
         assert subname not in self.list_ipset(name)
         self.ip.destroy(subname)
+        self.ip.destroy(name)
+
+    def test_bitmap_port(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        ipset_type = "bitmap:port"
+        etype = "port"
+        port_range = (1000, 6000)
+
+        self.ip.create(name, stype=ipset_type, bitmap_ports_range=port_range)
+        self.ip.add(name, 1002, etype=etype)
+        assert self.ip.test(name, 1002, etype=etype)
+
+        try:
+            self.ip.add(name, 18, etype=etype)
+            assert False
+        except NetlinkError as e:
+            assert e.code == IPSET_ERR_TYPE_SPECIFIC
         self.ip.destroy(name)
