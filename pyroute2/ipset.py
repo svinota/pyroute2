@@ -211,6 +211,8 @@ class IPSet(NetlinkSocket):
         # function like a command line), and tupple/list
         if isinstance(entry, basestring):
             entry = entry.split(',')
+        if isinstance(entry, int):
+            entry = [entry]
 
         for e, t in zip(entry, etype.split(',')):
             if t in ('ip', 'net'):
@@ -231,6 +233,8 @@ class IPSet(NetlinkSocket):
                 attrs += [['IPSET_ATTR_NAME', e]]
             elif t == "mac":
                 attrs += [['IPSET_ATTR_ETHER', e]]
+            elif t == "port":
+                attrs += [['IPSET_ATTR_PORT', e]]
         return attrs
 
     def _add_delete_test(self, name, entry, family, cmd, exclusive,
