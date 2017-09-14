@@ -175,12 +175,8 @@ class IPSet(NetlinkSocket):
         if bitmap_ports_range is not None and stype == 'bitmap:port':
             # Set the bitmap range A bitmap type of set
             # can store up to 65536 entries
-            try:
-                f, t = [int(item) for item in bitmap_ports_range.split('-')]
-            except ValueError:
-                raise TypeError('Invalid bitmap_ports_range')
-            data['attrs'] += [['IPSET_ATTR_PORT_FROM', f]]
-            data['attrs'] += [['IPSET_ATTR_PORT_TO', t]]
+            data['attrs'] += [['IPSET_ATTR_PORT_FROM', bitmap_ports_range[0]]]
+            data['attrs'] += [['IPSET_ATTR_PORT_TO', bitmap_ports_range[1]]]
 
         if self._attr_revision is None:
             # Get the last revision supported by kernel
