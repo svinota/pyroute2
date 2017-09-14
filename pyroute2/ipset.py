@@ -63,6 +63,34 @@ def _nlmsg_error(msg):
     return msg['header']['type'] == NLMSG_ERROR
 
 
+class PortRange(object):
+    """ A simple container for port range with optional protocol
+
+        Note that optional protocol parameter is not supported by all
+        kernel ipset modules using ports. On the other hand, it's sometimes
+        mandatory to set it (like for hash:net,port ipsets)
+
+        Example::
+
+            udp_proto = socket.getprotobyname("udp")
+            port_range = PortRange(1000, 2000, protocol=udp_proto)
+            ipset.create("foo", stype="hash:net,port")
+            ipset.add("foo", ("192.0.2.0/24", port_range), etype="net,port")
+            ipset.test("foo", ("192.0.2.0/24", port_range), etype="net,port")
+        """
+    def __init__(self, begin, end, protocol=None):
+        self.begin = begin
+        self.end = end
+        self.protocol = protocol
+
+
+class PortEntry(object):
+    """ A simple container for port entry with optional protocol """
+    def __init__(self, port, protocol=None):
+        self.port = port
+        self.protocol = protocol
+
+
 class IPSet(NetlinkSocket):
     '''
     NFNetlink socket (family=NETLINK_NETFILTER).
@@ -211,7 +239,7 @@ class IPSet(NetlinkSocket):
         # function like a command line), and tupple/list
         if isinstance(entry, basestring):
             entry = entry.split(',')
-        if isinstance(entry, int):
+        if isinstance(entry, (int, PortRange, PortEntry)):
             entry = [entry]
 
         for e, t in zip(entry, etype.split(',')):
@@ -234,7 +262,18 @@ class IPSet(NetlinkSocket):
             elif t == "mac":
                 attrs += [['IPSET_ATTR_ETHER', e]]
             elif t == "port":
-                attrs += [['IPSET_ATTR_PORT', e]]
+                if isinstance(e, PortRange):
+                    attrs += [['IPSET_ATTR_PORT_FROM', e.begin]]
+                    attrs += [['IPSET_ATTR_PORT_TO', e.end]]
+                    if e.protocol is not None:
+                        attrs += [['IPSET_ATTR_PROTO', e.protocol]]
+                elif isinstance(e, PortEntry):
+                    attrs += [['IPSET_ATTR_PORT', e.port]]
+                    if e.protocol is not None:
+                        attrs += [['IPSET_ATTR_PROTO', e.protocol]]
+                else:
+                    attrs += [['IPSET_ATTR_PORT', e]]
+
         return attrs
 
     def _add_delete_test(self, name, entry, family, cmd, exclusive,
