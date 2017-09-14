@@ -292,6 +292,23 @@ class TestIPSet(object):
             self.ip.destroy(name)
             assert not self.get_ipset(name)
 
+    def test_tuple_support(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        test_values = (('hash:net,iface', (('192.168.1.0/24', 'eth0'),
+                                           ('192.168.2.0/24', 'wlan0'))),)
+        for stype, test_values in test_values:
+            self.ip.create(name, stype=stype)
+            etype = stype.split(':', 1)[1]
+            assert self.get_ipset(name)
+            for entry in test_values:
+                self.ip.add(name, entry, etype=etype)
+                assert self.ip.test(name, entry, etype=etype)
+                self.ip.delete(name, entry, etype=etype)
+                assert not self.ip.test(name, entry, etype=etype)
+            self.ip.destroy(name)
+            assert not self.get_ipset(name)
+
     def test_net_with_dash(self):
         require_user('root')
         name = str(uuid4())[:16]

@@ -211,7 +211,12 @@ class IPSet(NetlinkSocket):
 
     def _entry_to_data_attrs(self, entry, etype, ip_version):
         attrs = []
-        for e, t in zip(entry.split(','), etype.split(',')):
+        # We support string (for one element, and for users calling this
+        # function like a command line), and tupple/list
+        if isinstance(entry, basestring):
+            entry = entry.split(',')
+
+        for e, t in zip(entry, etype.split(',')):
             if t in ('ip', 'net'):
                 if t == 'net':
                     if '/' in e:
