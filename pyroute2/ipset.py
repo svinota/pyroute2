@@ -198,17 +198,19 @@ class IPSet(NetlinkSocket):
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,
                             terminate=_nlmsg_error)
 
-    def _entry_to_data_attrs(self, entry, etype, family):
-        attrs = []
+    @staticmethod
+    def _family_to_version(family):
         if family is not None:
             if family == socket.AF_INET:
-                ip_version = 'IPSET_ATTR_IPADDR_IPV4'
+                return 'IPSET_ATTR_IPADDR_IPV4'
             elif family == socket.AF_INET6:
-                ip_version = 'IPSET_ATTR_IPADDR_IPV6'
+                return 'IPSET_ATTR_IPADDR_IPV6'
             elif family == socket.AF_UNSPEC:
-                ip_version = None
-            else:
-                raise TypeError('unknown family')
+                return None
+            raise TypeError('unknown family')
+
+    def _entry_to_data_attrs(self, entry, etype, ip_version):
+        attrs = []
         for e, t in zip(entry.split(','), etype.split(',')):
             if t in ('ip', 'net'):
                 if t == 'net':
@@ -235,7 +237,8 @@ class IPSet(NetlinkSocket):
                          packets=None, bytes=None):
         excl_flag = NLM_F_EXCL if exclusive else 0
 
-        data_attrs = self._entry_to_data_attrs(entry, etype, family)
+        ip_version = self._family_to_version(family)
+        data_attrs = self._entry_to_data_attrs(entry, etype, ip_version)
         if comment is not None:
             data_attrs += [["IPSET_ATTR_COMMENT", comment],
                            ["IPSET_ATTR_CADT_LINENO", 0]]
