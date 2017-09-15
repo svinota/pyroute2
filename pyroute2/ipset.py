@@ -280,7 +280,7 @@ class IPSet(NetlinkSocket):
                     if e.protocol is not None:
                         attrs += [['IPSET_ATTR_PROTO', e.protocol]]
                 else:
-                    attrs += [['IPSET_ATTR_PORT', e]]
+                    attrs += [['IPSET_ATTR_PORT', int(e)]]
 
         return attrs
 
