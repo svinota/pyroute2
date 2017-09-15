@@ -26,6 +26,7 @@ Usage
     usage
     iproute
     ipdb
+    ipset
     netns
 
 Howtos
