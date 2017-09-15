@@ -151,7 +151,7 @@ class IPSet(NetlinkSocket):
 
     def destroy(self, name=None):
         '''
-        Destroy one or all ipset (when name is None)
+        Destroy one (when name is set) or all ipset (when name is None)
         '''
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version]]
@@ -179,7 +179,7 @@ class IPSet(NetlinkSocket):
         * hashsize -- size of the hashtable (if any)
         * timeout -- enable and set a default value for entries (if not None)
         * bitmap_ports_range -- set the specified inclusive portrange for
-                          the bitmap ipset structure (0-65536)
+                                the bitmap ipset structure (0, 65536)
         '''
         excl_flag = NLM_F_EXCL if exclusive else 0
         msg = ipset_msg()
@@ -312,6 +312,32 @@ class IPSet(NetlinkSocket):
 
         When your ipset store a tuple, like "hash:net,iface", you must use a
         comma a separator (etype="net,iface")
+
+        entry is a string for "ip" and "net" objects. For ipset with several
+        dimensions, you must use a tuple (or a list) of objects.
+
+        "port" type is specific, since you can use integer of specialized
+        containers like :class:`PortEntry` and :class:`PortRange`
+
+        Examples::
+
+            ipset = IPSet()
+            ipset.create("foo", stype="hash:ip")
+            ipset.add("foo", "198.51.100.1", etype="ip")
+
+            ipset = IPSet()
+            ipset.create("bar", stype="bitmap:port",
+                         bitmap_ports_range=(1000, 2000))
+            ipset.add("bar", 1001, etype="port")
+            ipset.add("bar", PortRange(1500, 2000), etype="port")
+
+            ipset = IPSet()
+            import socket
+            protocol = socket.getprotobyname("tcp")
+            ipset.create("foobar", stype="hash:net,port")
+            port_entry = PortEntry(80, protocol=protocol)
+            ipset.add("foobar", ("198.51.100.0/24", port_entry),
+                      etype="net,port")
         '''
         return self._add_delete_test(name, entry, family, IPSET_CMD_ADD,
                                      exclusive, comment=comment,
@@ -322,16 +348,16 @@ class IPSet(NetlinkSocket):
         '''
         Delete a member from the ipset.
 
-        See add method for more information on etype.
+        See :func:`add` method for more information on etype.
         '''
         return self._add_delete_test(name, entry, family, IPSET_CMD_DEL,
                                      exclusive, etype=etype)
 
     def test(self, name, entry, family=socket.AF_INET, etype="ip"):
         '''
-        Test if a member is part of an ipset
+        Test if entry is part of an ipset
 
-        See add method for more information on etype.
+        See :func:`add` method for more information on etype.
         '''
         try:
             self._add_delete_test(name, entry, family, IPSET_CMD_TEST,
@@ -344,7 +370,7 @@ class IPSet(NetlinkSocket):
 
     def swap(self, set_a, set_b):
         '''
-        Swap two ipsets
+        Swap two ipsets. They must have compatible content type.
         '''
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
@@ -380,7 +406,21 @@ class IPSet(NetlinkSocket):
 
     def get_supported_revisions(self, stype, family=socket.AF_INET):
         '''
-        Return minimum and maximum of revisions supported by the kernel
+        Return minimum and maximum of revisions supported by the kernel.
+
+        Each ipset module (like hash:net, hash:ip, etc) has several
+        revisions. Newer revisions often have more features or more
+        performances. Thanks to this call, you can ask the kernel
+        the list of supported revisions.
+
+        You can manually set/force revisions used in IPSet constructor.
+
+        Example::
+
+            ipset = IPSet()
+            ipset.get_supported_revisions("hash:net")
+
+            ipset.get_supported_revisions("hash:net,port,net")
         '''
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
