@@ -573,6 +573,8 @@ cache_fmt = {}
 cache_hdr = {}
 cache_jit = {}
 
+IPPROTO_TCP = 6
+IPPROTO_UDP = 17
 
 class nlmsg_base(dict):
     '''

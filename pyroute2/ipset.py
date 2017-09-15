@@ -19,6 +19,8 @@ from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_EXCL
 from pyroute2.netlink import NETLINK_NETFILTER
+from pyroute2.netlink import IPPROTO_TCP
+from pyroute2.netlink import IPPROTO_UDP
 from pyroute2.netlink.exceptions import NetlinkError, IPSetError
 from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_IPSET
@@ -199,6 +201,13 @@ class IPSet(NetlinkSocket):
                             terminate=_nlmsg_error)
 
     def _entry_to_data_attrs(self, entry, etype, family):
+        """
+        Construct the required attributes for IPSET_ATTR_DATA
+            :param entry: str: Entry needed to be added to the ipset
+            :param etype: str: IPSet type, ip, net, port supported
+            :param family: socket.AF_INET*: address family of
+                           entry
+        """
         attrs = []
         if family is not None:
             if family == socket.AF_INET:
@@ -210,7 +219,27 @@ class IPSet(NetlinkSocket):
             else:
                 raise TypeError('unknown family')
         for e, t in zip(entry.split(','), etype.split(',')):
-            if t in ('ip', 'net'):
+            if t == 'port':
+                if etype != 'port' and ':' in e:
+                    # Specifying protocol is only optional
+                    # in hash stypes
+                    proto, e = e.split(':')
+                    proto = IPPROTO_UDP if proto =='udp' else IPPROTO_TCP
+                else:
+                    proto = IPPROTO_TCP
+
+                if '-' in e:
+                    to, f = [int(x) for x in sorted(e.split('-'))]
+                    attrs += [
+                        ['IPSET_ATTR_PORT_FROM', f],
+                        ['IPSET_ATTR_PORT_TO', to]
+                    ]
+                else:
+                    attrs += [['IPSET_ATTR_PORT_FROM', int(e)]]
+
+                if etype != 'port':
+                    attrs += [['IPSET_ATTR_PROTO', proto]]
+            elif t in ('ip', 'net'):
                 if t == 'net':
                     if '/' in e:
                         e, cidr = e.split('/')
