@@ -1,10 +1,13 @@
 import errno
 from time import sleep
-from pyroute2.ipset import IPSet
+from pyroute2.ipset import IPSet, PortRange, PortEntry
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
+from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_TYPE_SPECIFIC
 from utils import require_user
 from uuid import uuid4
+
+import socket
 
 
 class TestIPSet(object):
@@ -292,6 +295,23 @@ class TestIPSet(object):
             self.ip.destroy(name)
             assert not self.get_ipset(name)
 
+    def test_tuple_support(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        test_values = (('hash:net,iface', (('192.168.1.0/24', 'eth0'),
+                                           ('192.168.2.0/24', 'wlan0'))),)
+        for stype, test_values in test_values:
+            self.ip.create(name, stype=stype)
+            etype = stype.split(':', 1)[1]
+            assert self.get_ipset(name)
+            for entry in test_values:
+                self.ip.add(name, entry, etype=etype)
+                assert self.ip.test(name, entry, etype=etype)
+                self.ip.delete(name, entry, etype=etype)
+                assert not self.ip.test(name, entry, etype=etype)
+            self.ip.destroy(name)
+            assert not self.get_ipset(name)
+
     def test_net_with_dash(self):
         require_user('root')
         name = str(uuid4())[:16]
@@ -338,4 +358,66 @@ class TestIPSet(object):
         self.ip.delete(name, subname, etype="set")
         assert subname not in self.list_ipset(name)
         self.ip.destroy(subname)
+        self.ip.destroy(name)
+
+    def test_bitmap_port(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        ipset_type = "bitmap:port"
+        etype = "port"
+        port_range = (1000, 6000)
+
+        self.ip.create(name, stype=ipset_type, bitmap_ports_range=port_range)
+        self.ip.add(name, 1002, etype=etype)
+        assert self.ip.test(name, 1002, etype=etype)
+
+        add_range = PortRange(2000, 3000, protocol=None)
+        self.ip.add(name, add_range, etype=etype)
+        assert self.ip.test(name, 2001, etype=etype)
+        assert self.ip.test(name, 3000, etype=etype)
+        assert not self.ip.test(name, 4000, etype=etype)
+
+        # Check that delete is working as well
+        self.ip.delete(name, add_range, etype=etype)
+        assert not self.ip.test(name, 2001, etype=etype)
+
+        # Test PortEntry without protocol set
+        port_entry = PortEntry(2001)
+        self.ip.add(name, port_entry, etype=etype)
+        try:
+            self.ip.add(name, 18, etype=etype)
+            assert False
+        except NetlinkError as e:
+            assert e.code == IPSET_ERR_TYPE_SPECIFIC
+        self.ip.destroy(name)
+
+    def test_port_range_with_proto(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        ipset_type = "hash:net,port"
+        etype = "net,port"
+        port_range = PortRange(1000, 2000, protocol=socket.IPPROTO_UDP)
+        port_entry = PortEntry(1001, protocol=socket.IPPROTO_UDP)
+
+        self.ip.create(name, stype=ipset_type)
+        self.ip.add(name, ("192.0.2.0/24", port_range), etype=etype)
+
+        assert self.ip.test("foo", ("192.0.2.0/24", port_range),
+                            etype="net,port")
+        assert self.ip.test("foo", ("192.0.2.2/32", port_entry), etype=etype)
+        # change protocol, that should not be in
+        port_range.protocol = socket.IPPROTO_TCP
+        assert not self.ip.test("foo", ("192.0.2.0/24", port_range),
+                                etype="net,port")
+        port_entry.port = 2
+        assert not self.ip.test("foo", ("192.0.2.0/24", port_entry),
+                                etype="net,port")
+
+        # same example than in ipset man pages
+        proto = socket.getprotobyname("vrrp")
+        port_entry.port = 0
+        port_entry.protocol = proto
+        self.ip.add(name, ("192.0.2.0/24", port_entry), etype=etype)
+        self.ip.test(name, ("192.0.2.0/24", port_entry), etype=etype)
+
         self.ip.destroy(name)
