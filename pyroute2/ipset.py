@@ -19,6 +19,8 @@ from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_EXCL
 from pyroute2.netlink import NETLINK_NETFILTER
+from pyroute2.netlink import IPPROTO_TCP
+from pyroute2.netlink import IPPROTO_UDP
 from pyroute2.netlink.exceptions import NetlinkError, IPSetError
 from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_IPSET
@@ -208,8 +210,9 @@ class IPSet(NetlinkSocket):
                     # Specifying protocol is only optional
                     # in hash stypes
                     proto, e = e.split(':')
+                    proto = IPPROTO_UDP if proto =='udp' else IPPROTO_TCP
                 else:
-                    proto = ''
+                    proto = IPPROTO_TCP
 
                 if '-' in e:
                     to, f = [int(x) for x in sorted(e.split('-'))]
@@ -221,14 +224,7 @@ class IPSet(NetlinkSocket):
                     attrs += [['IPSET_ATTR_PORT_FROM', int(e)]]
 
                 if etype != 'port':
-                    proto_map = {
-                        '': 1, # default value TCP
-                        'tcp': 1,
-                        'udp': 12,
-                    }
-                    attrs += [['IPSET_ATTR_PROTO', {'attrs': 
-                        [['IPSET_ATTR_NAME', 'x'*proto_map[proto]]]
-                    }]]
+                    attrs += [['IPSET_ATTR_PROTO', proto]]
             elif t in ('ip', 'net'):
                 if t == 'net':
                     if '/' in e:
