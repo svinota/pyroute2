@@ -243,6 +243,10 @@ class IPSet(NetlinkSocket):
 
     def _entry_to_data_attrs(self, entry, etype, ip_version):
         attrs = []
+
+        # Set the default protocol to tcp for hash:ports
+        p = lambda x: socket.getprotobyname('tcp') if x == None else x
+
         # We support string (for one element, and for users calling this
         # function like a command line), and tupple/list
         if isinstance(entry, basestring):
@@ -273,12 +277,12 @@ class IPSet(NetlinkSocket):
                 if isinstance(e, PortRange):
                     attrs += [['IPSET_ATTR_PORT_FROM', e.begin]]
                     attrs += [['IPSET_ATTR_PORT_TO', e.end]]
-                    if e.protocol is not None:
-                        attrs += [['IPSET_ATTR_PROTO', e.protocol]]
+                    if etype != 'port':
+                        attrs += [['IPSET_ATTR_PROTO', p(e.protocol)]]
                 elif isinstance(e, PortEntry):
                     attrs += [['IPSET_ATTR_PORT', e.port]]
-                    if e.protocol is not None:
-                        attrs += [['IPSET_ATTR_PROTO', e.protocol]]
+                    if etype != 'port':
+                        attrs += [['IPSET_ATTR_PROTO', p(e.protocol)]]
                 else:
                     attrs += [['IPSET_ATTR_PORT', int(e)]]
 
@@ -325,7 +329,8 @@ class IPSet(NetlinkSocket):
         dimensions, you must use a tuple (or a list) of objects.
 
         "port" type is specific, since you can use integer of specialized
-        containers like :class:`PortEntry` and :class:`PortRange`
+        containers like :class:`PortEntry` and :class:`PortRange`, default
+        protocol is tcp
 
         Examples::
 
