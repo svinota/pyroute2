@@ -69,7 +69,7 @@ class ifaddrmsg(nlmsg):
                ('IFA_FLAGS', 'uint32'))
 
     class cacheinfo(nla):
-        fields = (('ifa_prefered', 'I'),
+        fields = (('ifa_preferred', 'I'),
                   ('ifa_valid', 'I'),
                   ('cstamp', 'I'),
                   ('tstamp', 'I'))
