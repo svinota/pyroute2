@@ -402,15 +402,14 @@ class TestIPSet(object):
         self.ip.create(name, stype=ipset_type)
         self.ip.add(name, ("192.0.2.0/24", port_range), etype=etype)
 
-        assert self.ip.test("foo", ("192.0.2.0/24", port_range),
-                            etype="net,port")
-        assert self.ip.test("foo", ("192.0.2.2/32", port_entry), etype=etype)
+        assert self.ip.test(name, ("192.0.2.0/24", port_range), etype=etype)
+        assert self.ip.test(name, ("192.0.2.2/32", port_entry), etype=etype)
         # change protocol, that should not be in
         port_range.protocol = socket.IPPROTO_TCP
-        assert not self.ip.test("foo", ("192.0.2.0/24", port_range),
+        assert not self.ip.test(name, ("192.0.2.0/24", port_range),
                                 etype="net,port")
         port_entry.port = 2
-        assert not self.ip.test("foo", ("192.0.2.0/24", port_entry),
+        assert not self.ip.test(name, ("192.0.2.0/24", port_entry),
                                 etype="net,port")
 
         # same example than in ipset man pages
