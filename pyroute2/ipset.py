@@ -103,6 +103,12 @@ class IPSet(NetlinkSocket):
               IPSET_CMD_TYPE: ipset_msg,
               IPSET_CMD_HEADER: ipset_msg}
 
+    attr_map = {'iface': 'IPSET_ATTR_IFACE',
+                'mark': 'IPSET_ATTR_MARK',
+                'set': 'IPSET_ATTR_NAME',
+                'mac': 'IPSET_ATTR_ETHER',
+                'port': 'IPSET_ATTR_PORT'}
+
     def __init__(self, version=6, attr_revision=None, nfgen_family=2):
         super(IPSet, self).__init__(family=NETLINK_NETFILTER)
         policy = dict([(x | (NFNL_SUBSYS_IPSET << 8), y)
@@ -261,14 +267,6 @@ class IPSet(NetlinkSocket):
                         attrs += [['IPSET_ATTR_IP_TO',
                                    {'attrs': [[ip_version, to]]}]]
                 attrs += [['IPSET_ATTR_IP_FROM', {'attrs': [[ip_version, e]]}]]
-            elif t == 'iface':
-                attrs += [['IPSET_ATTR_IFACE', e]]
-            elif t == 'mark':
-                attrs += [['IPSET_ATTR_MARK', int(e)]]
-            elif t == 'set':
-                attrs += [['IPSET_ATTR_NAME', e]]
-            elif t == "mac":
-                attrs += [['IPSET_ATTR_ETHER', e]]
             elif t == "port":
                 if isinstance(e, PortRange):
                     attrs += [['IPSET_ATTR_PORT_FROM', e.begin]]
@@ -280,7 +278,9 @@ class IPSet(NetlinkSocket):
                     if e.protocol is not None:
                         attrs += [['IPSET_ATTR_PROTO', e.protocol]]
                 else:
-                    attrs += [['IPSET_ATTR_PORT', e]]
+                    attrs += [[self.attr_map[t], e]]
+            else:
+                attrs += [[self.attr_map[t], e]]
 
         return attrs
 
