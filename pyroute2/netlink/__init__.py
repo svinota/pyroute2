@@ -195,7 +195,7 @@ You can also make your own NLA descriptions::
                    ...)
 
         class cacheinfo(nla):
-            fields = (('ifa_prefered', 'I'),
+            fields = (('ifa_preferred', 'I'),
                       ('ifa_valid', 'I'),
                       ('cstamp', 'I'),
                       ('tstamp', 'I'))

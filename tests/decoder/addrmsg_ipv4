@@ -11,7 +11,7 @@
             ['IFA_FLAGS', 128],
             ['IFA_CACHEINFO',
              {'cstamp': 261,
-              'ifa_prefered': 4294967295,
+              'ifa_preferred': 4294967295,
               'ifa_valid': 4294967295,
               'tstamp': 261}]],
   'event': 'RTM_NEWADDR',

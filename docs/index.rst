@@ -27,6 +27,7 @@ Usage
     iproute
     ipdb
     wiset
+    ipset
     netns
 
 Howtos

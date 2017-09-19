@@ -739,7 +739,7 @@ class ifinfbase(object):
                                'router_solicitation_delay',
                                'use_tempaddr',
                                'temp_valid_lft',
-                               'temp_prefered_lft',
+                               'temp_preferred_lft',
                                'regen_max_retry',
                                'max_desync_factor',
                                'max_addresses',

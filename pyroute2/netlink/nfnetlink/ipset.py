@@ -47,6 +47,7 @@ IPSET_ERR_COUNTER = 4111
 IPSET_ERR_COMMENT = 4112
 IPSET_ERR_INVALID_MARKMASK = 4113
 IPSET_ERR_SKBINFO = 4114
+IPSET_ERR_TYPE_SPECIFIC = 4352
 
 
 class ipset_base(nla):
@@ -100,7 +101,7 @@ class ipset_msg(nfgen_msg):
                         NLA_F_NET_BYTEORDER),
                        (5, 'IPSET_ATTR_PORT_TO', 'be16', NLA_F_NET_BYTEORDER),
                        (6, 'IPSET_ATTR_TIMEOUT', 'be32', NLA_F_NET_BYTEORDER),
-                       (7, 'IPSET_ATTR_PROTO', 'recursive'),
+                       (7, 'IPSET_ATTR_PROTO', 'be8', NLA_F_NET_BYTEORDER),
                        (8, 'IPSET_ATTR_CADT_FLAGS', 'be32',
                         NLA_F_NET_BYTEORDER),
                        (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
@@ -110,9 +111,9 @@ class ipset_msg(nfgen_msg):
                        (17, 'IPSET_ATTR_ETHER', 'l2addr'),
                        (18, 'IPSET_ATTR_NAME', 'asciiz'),
                        (19, 'IPSET_ATTR_NAMEREF', 'be32'),
-                       (20, 'IPSET_ATTR_IP2', 'be32'),
-                       (21, 'IPSET_ATTR_CIDR2', 'hex'),
-                       (22, 'IPSET_ATTR_IP2_TO', 'hex'),
+                       (20, 'IPSET_ATTR_IP2', 'ipset_ip'),
+                       (21, 'IPSET_ATTR_CIDR2', 'be8', NLA_F_NET_BYTEORDER),
+                       (22, 'IPSET_ATTR_IP2_TO', 'ipset_ip'),
                        (23, 'IPSET_ATTR_IFACE', 'asciiz'),
                        (24, 'IPSET_ATTR_BYTES', 'be64', NLA_F_NET_BYTEORDER),
                        (25, 'IPSET_ATTR_PACKETS', 'be64', NLA_F_NET_BYTEORDER),
@@ -132,7 +133,7 @@ class ipset_msg(nfgen_msg):
                    (4, 'IPSET_ATTR_PORT_FROM', 'be16', NLA_F_NET_BYTEORDER),
                    (5, 'IPSET_ATTR_PORT_TO', 'be16', NLA_F_NET_BYTEORDER),
                    (6, 'IPSET_ATTR_TIMEOUT', 'be32', NLA_F_NET_BYTEORDER),
-                   (7, 'IPSET_ATTR_PROTO', 'recursive'),
+                   (7, 'IPSET_ATTR_PROTO', 'be8', NLA_F_NET_BYTEORDER),
                    (8, 'IPSET_ATTR_CADT_FLAGS', 'be32', NLA_F_NET_BYTEORDER),
                    (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
                    (10, 'IPSET_ATTR_MARK', 'be32', NLA_F_NET_BYTEORDER),
