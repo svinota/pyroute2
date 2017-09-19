@@ -91,6 +91,8 @@ def sync(f):
         finally:
             os.write(cmd, b'q')
             t.join()
+            os.close(rcmd)
+            os.close(cmd)
         return ret
 
     return decorated

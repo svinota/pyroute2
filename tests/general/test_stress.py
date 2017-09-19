@@ -81,6 +81,20 @@ class TestIfs(object):
             for name in ifs:
                 ipdb.interfaces[name].remove().commit()
 
+    def test_tuntap_fd_leaks(self):
+        ifs = []
+
+        for _ in range(RESPAWNS):
+            ifs.append(uifname())
+
+        with IPRoute() as ipr:
+            for name in ifs:
+                ipr.link("add", ifname=name, kind="tuntap", mode="tun")
+
+        with IPDB() as ipdb:
+            for name in ifs:
+                ipdb.interfaces[name].remove().commit()
+
 
 class TestNetNS(object):
 
