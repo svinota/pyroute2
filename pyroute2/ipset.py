@@ -13,6 +13,7 @@ rename, swap, test...)
 '''
 import errno
 import socket
+from pyroute2.common import basestring
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
