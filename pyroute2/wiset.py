@@ -5,8 +5,8 @@ WiSet module
 High level ipset support.
 
 When :doc:`ipset` is providing a direct netlink socket with low level
-functions, a :class:`WiSet` object is built to map ipset objects from kernel. It
-helps to add/remove entries, list content, etc.
+functions, a :class:`WiSet` object is built to map ipset objects from kernel.
+It helps to add/remove entries, list content, etc.
 
 For example, adding an entry with :class:`pyroute2.ipset.IPSet` object
 implies to set a various number of parameters:
@@ -355,7 +355,8 @@ def load_all_ipsets(content=False, sock=None, inherit_sock=False, prefix=None):
     :param inherit_sock: use the netlink sock passed in ipset arg to
                          fill WiSets sock
     :type inherit_sock: bool
-    :param prefix: filter out all ipset with a name not beginning by this prefix
+    :param prefix: filter out all ipset with a name not beginning by this
+                   prefix
     :type prefix: str or None
     """
     res = {}
@@ -406,8 +407,8 @@ def load_ipset(name, content=False, sock=None, inherit_sock=False):
 def update_wiset_content(wiset, sock=None):
     """ Update content/statistics of a wiset.
 
-    You should never call yourself this function. It is only a helper to use the
-    :func:`need_ipset_socket` decorator out of WiSet object.
+    You should never call yourself this function. It is only a helper to use
+    the :func:`need_ipset_socket` decorator out of WiSet object.
     """
     for msg in sock.list(name=wiset.name):
         wiset.update_dict_content(msg)
