@@ -107,7 +107,13 @@ class IPSet(NetlinkSocket):
                 'mark': 'IPSET_ATTR_MARK',
                 'set': 'IPSET_ATTR_NAME',
                 'mac': 'IPSET_ATTR_ETHER',
-                'port': 'IPSET_ATTR_PORT'}
+                'port': 'IPSET_ATTR_PORT',
+                ('ip_from', 1): 'IPSET_ATTR_IP_FROM',
+                ('ip_from', 2): 'IPSET_ATTR_IP2',
+                ('cidr', 1): 'IPSET_ATTR_CIDR',
+                ('cidr', 2): 'IPSET_ATTR_CIDR2',
+                ('ip_to', 1): 'IPSET_ATTR_IP_TO',
+                ('ip_to', 2): 'IPSET_ATTR_IP2_TO'}
 
     def __init__(self, version=6, attr_revision=None, nfgen_family=2):
         super(IPSet, self).__init__(family=NETLINK_NETFILTER)
@@ -249,6 +255,7 @@ class IPSet(NetlinkSocket):
 
     def _entry_to_data_attrs(self, entry, etype, ip_version):
         attrs = []
+        ip_count = 0
         # We support string (for one element, and for users calling this
         # function like a command line), and tupple/list
         if isinstance(entry, basestring):
@@ -258,15 +265,18 @@ class IPSet(NetlinkSocket):
 
         for e, t in zip(entry, etype.split(',')):
             if t in ('ip', 'net'):
+                ip_count += 1
                 if t == 'net':
                     if '/' in e:
                         e, cidr = e.split('/')
-                        attrs += [['IPSET_ATTR_CIDR', int(cidr)]]
+                        attrs += [[self.attr_map[('cidr', ip_count)],
+                                   int(cidr)]]
                     elif '-' in e:
                         e, to = e.split('-')
-                        attrs += [['IPSET_ATTR_IP_TO',
+                        attrs += [[self.attr_map[('ip_to', ip_count)],
                                    {'attrs': [[ip_version, to]]}]]
-                attrs += [['IPSET_ATTR_IP_FROM', {'attrs': [[ip_version, e]]}]]
+                attrs += [[self.attr_map[('ip_from', ip_count)],
+                           {'attrs': [[ip_version, e]]}]]
             elif t == "port":
                 if isinstance(e, PortRange):
                     attrs += [['IPSET_ATTR_PORT_FROM', e.begin]]

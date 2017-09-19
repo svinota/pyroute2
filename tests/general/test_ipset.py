@@ -323,6 +323,18 @@ class TestIPSet(object):
         assert "192.168.1.32/31" in self.list_ipset(name)
         self.ip.destroy(name)
 
+    def test_double_net(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        stype = "hash:net,port,net"
+        etype = "net,port,net"
+        self.ip.create(name, stype=stype)
+        port = PortEntry(80, protocol=socket.getprotobyname("tcp"))
+
+        self.ip.add(name, ("192.168.0.0/24", port, "192.168.2.0/24"),
+                    etype=etype)
+        self.ip.destroy(name)
+
     def test_custom_hash_values(self):
         require_user('root')
         name = str(uuid4())[:16]
