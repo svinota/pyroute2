@@ -17,6 +17,15 @@ RTNH_F_OFFLOAD = 8
 RTNH_F_LINKDOWN = 16
 (RTNH_F_NAMES, RTNH_F_VALUES) = map_namespace('RTNH_F', globals())
 
+LWTUNNEL_ENCAP_NONE = 0
+LWTUNNEL_ENCAP_MPLS = 1
+LWTUNNEL_ENCAP_IP = 2
+LWTUNNEL_ENCAP_ILA = 3
+LWTUNNEL_ENCAP_IP6 = 4
+LWTUNNEL_ENCAP_SEG6 = 5
+LWTUNNEL_ENCAP_BPF = 6
+LWTUNNEL_ENCAP_SEG6_LOCAL = 7
+
 
 class nlflags(object):
 
@@ -101,7 +110,51 @@ class rtmsg_base(nlflags):
 
     @staticmethod
     def encap_info(self, *argv, **kwarg):
-        return self.mpls_encap_info
+        encap_type = None
+
+        # Check, if RTA_ENCAP_TYPE is decoded already
+        #
+        for name, value in self['attrs']:
+            if name == 'RTA_ENCAP_TYPE':
+                encap_type = value
+                break
+        else:
+            # No RTA_ENCAP_TYPE met, so iterate all the chain.
+            # Ugly, but to do otherwise would be too complicated.
+            #
+            data = kwarg['data']
+            offset = kwarg['offset']
+            while offset < len(data):
+                # Shift offset to the next NLA
+                # NLA header:
+                #
+                # uint16 length
+                # uint16 type
+                #
+                try:
+                    offset += struct.unpack('H', data[offset:offset + 2])[0]
+                    # 21 == RTA_ENCAP_TYPE
+                    # FIXME: should not be hardcoded
+                    if struct.unpack('H', data[offset + 2:
+                                               offset + 4])[0] == 21:
+                        encap_type = struct.unpack('H', data[offset + 4:
+                                                             offset + 6])[0]
+                        break
+                except:
+                    # in the case of any decoding error return self.hex
+                    break
+
+        # return specific classes
+        #
+        if encap_type == LWTUNNEL_ENCAP_MPLS:
+            return self.mpls_encap_info
+        #
+        # TODO: add here other lwtunnel types
+        #
+        # elif encap_type == LWTUNNEL_ENCAP_SEG6:
+        #     ...
+        #
+        return self.hex
 
     class mpls_encap_info(nla):
 
