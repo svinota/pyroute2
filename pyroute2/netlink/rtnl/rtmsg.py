@@ -146,15 +146,7 @@ class rtmsg_base(nlflags):
 
         # return specific classes
         #
-        if encap_type == LWTUNNEL_ENCAP_MPLS:
-            return self.mpls_encap_info
-        #
-        # TODO: add here other lwtunnel types
-        #
-        # elif encap_type == LWTUNNEL_ENCAP_SEG6:
-        #     ...
-        #
-        return self.hex
+        return self.encaps.get(encap_type, self.hex)
 
     class mpls_encap_info(nla):
 
@@ -162,6 +154,19 @@ class rtmsg_base(nlflags):
 
         nla_map = (('MPLS_IPTUNNEL_UNSPEC', 'none'),
                    ('MPLS_IPTUNNEL_DST', 'mpls_target'))
+
+    class seg6_encap_info(nla):
+
+        __slots__ = ()
+
+        nla_map = (('SEG6_IPTUNNEL_UNSPEC', 'none'),
+                   ('SEG6_IPTUNNEL_SRH', 'hex'))
+
+    #
+    # TODO: add here other lwtunnel types
+    #
+    encaps = {LWTUNNEL_ENCAP_MPLS: mpls_encap_info,
+              LWTUNNEL_ENCAP_SEG6: seg6_encap_info}
 
     class rta_mfc_stats(nla):
 
