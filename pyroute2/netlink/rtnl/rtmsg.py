@@ -160,7 +160,144 @@ class rtmsg_base(nlflags):
         __slots__ = ()
 
         nla_map = (('SEG6_IPTUNNEL_UNSPEC', 'none'),
-                   ('SEG6_IPTUNNEL_SRH', 'hex'))
+                   ('SEG6_IPTUNNEL_SRH', 'ipv6_sr_hdr'))
+
+        class ipv6_sr_hdr(nla):
+
+            __slots__ = ()
+
+            fields = (('encapmode', 'I'),
+                      ('nexthdr', 'B'),
+                      ('hdrlen', 'B'),
+                      ('type', 'B'),
+                      ('segments_left', 'B'),
+                      ('first_segment', 'B'),
+                      ('flags', 'B'),
+                      ('reserved', 'H'),
+                      ('segs', 's'),
+                      # Potentially several type-length-value
+                      ('tlvs', 's'))
+
+            # Corresponding values for seg6 encap modes
+            SEG6_IPTUN_MODE_INLINE = 0
+            SEG6_IPTUN_MODE_ENCAP = 1
+
+            # Mapping string to nla value
+            encapmodes = {
+              "inline": SEG6_IPTUN_MODE_INLINE,
+              "encap": SEG6_IPTUN_MODE_ENCAP
+            }
+
+            # Nla value for seg6 type
+            SEG6_TYPE = 4
+
+            # Flag value for hmac
+            SR6_FLAG1_HMAC = 1 << 3
+
+            # Tlv value for hmac
+            SR6_TLV_HMAC = 5
+
+            # Utility function to get the family from the msg
+            def get_family(self):
+                pointer = self
+                while pointer.parent is not None:
+                    pointer = pointer.parent
+                return pointer.get('family', AF_UNSPEC)
+
+            def encode(self):
+                # Retrieve the family
+                family = self.get_family()
+                # Seg6 can be applied only to IPv6
+                if family == AF_INET6:
+                    # Get mode
+                    mode = self['mode']
+                    # Get segs
+                    segs = self['segs']
+                    # Get hmac
+                    hmac = self.get('hmac', None)
+                    # With "inline" mode there is not
+                    # encap into an outer IPv6 header
+                    if mode == "inline":
+                        # Add :: to segs
+                        segs.insert(0, "::")
+                    # Add mode to value
+                    self['encapmode'] = self.encapmodes.get(mode, self.SEG6_IPTUN_MODE_ENCAP)
+                    # Calculate srlen
+                    srhlen = 8 + 16 * len(segs);
+                    # If we are using hmac we have a tlv as trailer data
+                    if hmac:
+                        # Since we can use sha1 or sha256
+                        srhlen += 40
+                    # Calculate and set hdrlen
+                    self['hdrlen'] = (srhlen >> 3) - 1
+                    # Add seg6 type
+                    self['type'] = self.SEG6_TYPE
+                    # Add segments left
+                    self['segments_left'] = len(segs) - 1
+                    # Add fitst segment
+                    self['first_segment'] = len(segs) - 1
+                    # If hmac is used we have to set the flags
+                    if hmac:
+                        # Add SR6_FLAG1_HMAC
+                        self['flags'] |= self.SR6_FLAG1_HMAC
+                    # Init segs
+                    self['segs'] = b''
+                    # Iterate over segments
+                    for seg in segs:
+                        # Convert to network byte order and add to value
+                        self['segs'] += inet_pton(family, seg)
+                    # Initialize tlvs
+                    self['tlvs'] = b''
+                    # If hmac is used we have to properly init tlvs
+                    if hmac:
+                      # Put type
+                      self['tlvs'] += struct.pack('B', self.SR6_TLV_HMAC)
+                      # Put length -> 40-2
+                      self['tlvs'] += struct.pack('B', 38)
+                      # Put reserved
+                      self['tlvs'] += struct.pack('H', 0)
+                      # Put hmac key
+                      self['tlvs'] += struct.pack('>I', hmac)
+                      # Put hmac
+                      self['tlvs'] += struct.pack('QQQQ', 0, 0, 0, 0)
+                else:
+                    raise TypeError('Family %s not supported for seg6 tunnel'
+                                    % family)
+                # Finally encode as nla
+                nla.encode(self)
+
+            # Utility function to verify if hmac is present
+            def has_hmac(self):
+                # Useful during the decoding
+                return self['flags'] & self.SR6_FLAG1_HMAC
+
+            def decode(self):
+                # Decode the data
+                nla.decode(self)
+                # Calculate offset of the segs
+                offset = self.offset + 16
+                # Point the addresses
+                addresses = self.data[offset:]
+                # Extract the number of segs
+                n_segs = self['segments_left'] + 1
+                # Init segs
+                segs = []
+                # Move 128 bit in each step
+                for i in range(n_segs):
+                    # Save the segment
+                    segs.append(inet_ntop(AF_INET6, addresses[i*16:i*16+16]))
+                # Save segs
+                self['segs'] = segs
+                # Init tlvs
+                self['tlvs'] = ''
+                # If hmac is used
+                if self.has_hmac():
+                  # Point to the start of hmac
+                  hmac = addresses[n_segs*16:n_segs*16+40]
+                  # Save tlvs section
+                  self['tlvs'] = hexdump(hmac)
+                  # Show also the hmac key
+                  self['hmac'] = hexdump(hmac[4:8])
 
     #
     # TODO: add here other lwtunnel types
