@@ -219,23 +219,7 @@ class BaseRoute(Transactional):
             # nexthop as the first in the multipath
             if not self['multipath']:
                 first = {}
-                for key in [x for x in self._fields
-                            if x not in ('family',
-                                         'dst_len',
-                                         'src_len',
-                                         'tos',
-                                         'table',
-                                         'proto',
-                                         'scope',
-                                         'type',
-                                         'flags',
-                                         'dst',
-                                         'src',
-                                         'ipdb_scope',
-                                         'metrics',
-                                         'encap',
-                                         'via',
-                                         'multipath')]:
+                for key in ('oif', 'gateway', 'newdst'):
                     if self[key]:
                         first[key] = self[key]
                 if first:
