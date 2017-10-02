@@ -109,6 +109,32 @@ Some examples::
              dst=0x200,
              newdst=[0x200, 0x300])
 
+    # create SEG6 tunnel encap mode
+    # Kernel >= 4.10
+    ip.route('add',
+             dst='2001:0:0:10::2/128',
+             oif=idx,
+             encap={'type': 'seg6',
+                    'mode': 'encap',
+                    'segs': '2000::5,2000::6'})
+    # create SEG6 tunnel inline mode
+    # Kernel >= 4.10
+    ip.route('add',
+             dst='2001:0:0:10::2/128',
+             oif=idx,
+             encap={'type': 'seg6',
+                    'mode': 'inline',
+                    'segs': ['2000::5', '2000::6']})
+    # create SEG6 tunnel inline mode with hmac
+    # Kernel >= 4.10
+    ip.route('add',
+             dst='2001:0:0:22::2/128',
+             oif=idx,
+             encap={'type': 'seg6',
+                    'mode': 'inline',
+                    'segs':'2000::5,2000::6,2000::7,2000::8',
+                    'hmac':0xf})
+
     # release Netlink socket
     ip.close()
 
