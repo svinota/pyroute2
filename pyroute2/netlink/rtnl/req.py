@@ -15,7 +15,8 @@ from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 
 
 encap_types = {'mpls': 1,
-               AF_MPLS: 1}
+               AF_MPLS: 1,
+               'seg6': 5}
 
 
 class IPRequest(dict):
@@ -119,6 +120,47 @@ class IPRouteRequest(IPRequest):
             if override_bos:
                 ret[-1]['bos'] = 1
             return {'attrs': [['MPLS_IPTUNNEL_DST', ret]]}
+        '''
+        Seg6 encap header transform. Format samples:
+
+            {'type': 'seg6',
+             'mode': 'encap',
+             'segs': '2000::5,2000::6'}
+
+            {'type': 'seg6',
+             'mode': 'encap'
+             'segs': '2000::5,2000::6',
+             'hmac': 1}
+        '''
+        if header['type'] == 'seg6':
+            # Init step
+            ret = {}
+            # Parse segs
+            segs = header['segs']
+            # If they are in the form in_addr6,in_addr6
+            if isinstance(segs, basestring):
+                # Create an array with the splitted values
+                temp = segs.split(',')
+                # Init segs
+                segs = []
+                # Iterate over the values
+                for seg in temp:
+                    # Discard empty string
+                    if seg != '':
+                        # Add seg to segs
+                        segs.append(seg)
+            # Retrieve mode
+            mode = header['mode']
+            # hmac is optional and contains the hmac key
+            hmac = header.get('hmac', None)
+            # Construct the new object
+            ret = {'mode': mode, 'segs': segs}
+            # If hmac is present convert to u32
+            if hmac:
+                # Add to ret the hmac key
+                ret['hmac'] = hmac & 0xffffffff
+            # Done return the object
+            return {'attrs': [['SEG6_IPTUNNEL_SRH', ret]]}
 
     def mpls_rta(self, value):
         ret = []
@@ -187,6 +229,29 @@ class IPRouteRequest(IPRequest):
                 #
                 # 'type' is mandatory
                 if 'type' in value and 'labels' in value:
+                    dict.__setitem__(self, 'encap_type',
+                                     encap_types.get(value['type'],
+                                                     value['type']))
+                    dict.__setitem__(self, 'encap',
+                                     self.encap_header(value))
+                # human-friendly form:
+                #
+                # 'encap': {'type': 'seg6',
+                #           'mode': 'encap'
+                #           'segs':'2000::5,2000::6'}
+                #
+                # 'encap': {'type': 'seg6',
+                #           'mode': 'encap'
+                #           'segs':'2000::5,2000::6'
+                #           'hmac': 1}
+                #
+                # 'encap': {'type': 'seg6',
+                #           'mode': 'encap'
+                #           'segs':'2000::5,2000::6'
+                #           'hmac': 0xf}
+                #
+                # 'type', 'mode' and 'segs' are mandatory
+                if 'type' in value and 'mode' in value and 'segs' in value:
                     dict.__setitem__(self, 'encap_type',
                                      encap_types.get(value['type'],
                                                      value['type']))
