@@ -238,17 +238,21 @@ class IPRouteRequest(IPRequest):
                 #
                 # 'encap': {'type': 'seg6',
                 #           'mode': 'encap'
-                #           'segs':'2000::5,2000::6'}
+                #           'segs': '2000::5,2000::6'}
                 #
                 # 'encap': {'type': 'seg6',
-                #           'mode': 'encap'
-                #           'segs':'2000::5,2000::6'
+                #           'mode': 'inline'
+                #           'segs': '2000::5,2000::6'
                 #           'hmac': 1}
                 #
                 # 'encap': {'type': 'seg6',
                 #           'mode': 'encap'
-                #           'segs':'2000::5,2000::6'
+                #           'segs': '2000::5,2000::6'
                 #           'hmac': 0xf}
+                #
+                # 'encap': {'type': 'seg6',
+                #           'mode': 'inline'
+                #           'segs': ['2000::5', '2000::6']}
                 #
                 # 'type', 'mode' and 'segs' are mandatory
                 if 'type' in value and 'mode' in value and 'segs' in value:
