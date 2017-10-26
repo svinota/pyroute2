@@ -987,6 +987,8 @@ class RoutingTableSet(object):
         Create a route from a dictionary
         '''
         spec = dict(spec or kwarg)
+        gateway = spec.get('gateway') or ''
+        dst = spec.get('dst') or ''
         if 'tos' not in spec:
             spec['tos'] = 0
         if 'scope' not in spec:
@@ -994,12 +996,11 @@ class RoutingTableSet(object):
         if 'table' not in spec:
             spec['table'] = 254
         if 'family' not in spec:
-            if (spec.get('dst', '').find(':') > -1) or \
-                    (spec.get('gateway', '').find(':') > -1):
+            if (dst.find(':') > -1) or (gateway.find(':') > -1):
                 spec['family'] = AF_INET6
             else:
                 spec['family'] = AF_INET
-        if 'dst' not in spec:
+        if not dst:
             raise ValueError('dst not specified')
         if 'priority' not in spec:
             if spec['family'] == AF_INET6:
