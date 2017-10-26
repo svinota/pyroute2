@@ -826,7 +826,7 @@ class RoutingTable(object):
     def filter(self, target, oneshot=False):
         #
         if isinstance(target, types.FunctionType):
-            return filter(target, [x for x in self.idx.values()])
+            return filter(target, [x for x in tuple(self.idx.values())])
 
         if isinstance(target, basestring):
             target = {'dst': target}
@@ -835,8 +835,8 @@ class RoutingTable(object):
             raise TypeError('target type not supported: %s' % type(target))
 
         ret = []
-        for record in self.idx.values():
-            for key, value in target.items():
+        for record in tuple(self.idx.values()):
+            for key, value in tuple(target.items()):
                 if (key not in record['route']) or \
                         (value != record['route'][key]):
                     break
@@ -1171,7 +1171,7 @@ class RoutingTableSet(object):
     def filter(self, target):
         # FIXME: turn into generator!
         ret = []
-        for table in self.tables.values():
+        for table in tuple(self.tables.values()):
             if table is not None:
                 ret.extend(table.filter(target))
         return ret
