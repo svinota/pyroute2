@@ -221,9 +221,12 @@ class rtmsg_base(nlflags):
                         # Add :: to segs
                         segs.insert(0, "::")
                     # Add mode to value
-                    self['encapmode'] = self.encapmodes.get(mode, self.SEG6_IPTUN_MODE_ENCAP)
+                    self['encapmode'] = (self
+                                         .encapmodes
+                                         .get(mode,
+                                              self.SEG6_IPTUN_MODE_ENCAP))
                     # Calculate srlen
-                    srhlen = 8 + 16 * len(segs);
+                    srhlen = 8 + 16 * len(segs)
                     # If we are using hmac we have a tlv as trailer data
                     if hmac:
                         # Since we can use sha1 or sha256
@@ -250,16 +253,16 @@ class rtmsg_base(nlflags):
                     self['tlvs'] = b''
                     # If hmac is used we have to properly init tlvs
                     if hmac:
-                      # Put type
-                      self['tlvs'] += struct.pack('B', self.SR6_TLV_HMAC)
-                      # Put length -> 40-2
-                      self['tlvs'] += struct.pack('B', 38)
-                      # Put reserved
-                      self['tlvs'] += struct.pack('H', 0)
-                      # Put hmac key
-                      self['tlvs'] += struct.pack('>I', hmac)
-                      # Put hmac
-                      self['tlvs'] += struct.pack('QQQQ', 0, 0, 0, 0)
+                        # Put type
+                        self['tlvs'] += struct.pack('B', self.SR6_TLV_HMAC)
+                        # Put length -> 40-2
+                        self['tlvs'] += struct.pack('B', 38)
+                        # Put reserved
+                        self['tlvs'] += struct.pack('H', 0)
+                        # Put hmac key
+                        self['tlvs'] += struct.pack('>I', hmac)
+                        # Put hmac
+                        self['tlvs'] += struct.pack('QQQQ', 0, 0, 0, 0)
                 else:
                     raise TypeError('Family %s not supported for seg6 tunnel'
                                     % family)
@@ -292,12 +295,12 @@ class rtmsg_base(nlflags):
                 self['tlvs'] = ''
                 # If hmac is used
                 if self.has_hmac():
-                  # Point to the start of hmac
-                  hmac = addresses[n_segs*16:n_segs*16+40]
-                  # Save tlvs section
-                  self['tlvs'] = hexdump(hmac)
-                  # Show also the hmac key
-                  self['hmac'] = hexdump(hmac[4:8])
+                    # Point to the start of hmac
+                    hmac = addresses[n_segs*16:n_segs*16+40]
+                    # Save tlvs section
+                    self['tlvs'] = hexdump(hmac)
+                    # Show also the hmac key
+                    self['hmac'] = hexdump(hmac[4:8])
 
     #
     # TODO: add here other lwtunnel types
