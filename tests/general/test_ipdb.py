@@ -2058,9 +2058,9 @@ class TestExplicit(BasicSetup):
             p.add_vlan({'vid': 204, 'flags': 0})
             p.add_vlan(206)
         assert p.vlans == set((1, 202, 204, 206))
-        assert p.vlans[202]['flags'] == 6
-        assert p.vlans[204]['flags'] == 0
-        assert p.vlans[206]['flags'] == 0
+        assert p.vlans[202][0]['flags'] == 6
+        assert p.vlans[204][0]['flags'] == 0
+        assert p.vlans[206][0]['flags'] == 0
 
     def test_bridge_vlans(self):
         require_user('root')

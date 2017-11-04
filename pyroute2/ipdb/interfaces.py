@@ -410,14 +410,14 @@ class Interface(Transactional):
             self['ipaddr'].remove((ip, mask))
 
     @with_transaction
-    def add_vlan(self, vlan):
+    def add_vlan(self, vlan, flags=None):
         if isinstance(vlan, dict):
             vid = vlan['vid']
         else:
             vid = vlan
             vlan = {'vid': vlan, 'flags': 0}
         self['vlans'].unlink(vid)
-        self['vlans'].add(vid, raw=vlan)
+        self['vlans'].add(vid, raw=(vlan, flags))
 
     @with_transaction
     def del_vlan(self, vlan):
@@ -705,23 +705,27 @@ class Interface(Transactional):
             # Port vlans
             if removed['vlans'] or added['vlans']:
 
-                if added['vlans']:
-                    transaction['vlans'].add(1)
                 self['vlans'].set_target(transaction['vlans'])
 
                 for i in removed['vlans']:
-                    if i != 1:
-                        # remove vlan from the port
-                        run(nl.vlan_filter, 'del',
-                            index=self['index'],
-                            vlan_info=self['vlans'][i])
+                    # remove vlan from the port
+                    run(nl.vlan_filter, 'del',
+                        index=self['index'],
+                        vlan_info=self['vlans'][i][0])
 
                 for i in added['vlans']:
-                    if i != 1:
-                        # add vlan to the port
-                        run(nl.vlan_filter, 'add',
-                            index=self['index'],
-                            vlan_info=transaction['vlans'][i])
+                    # add vlan to the port
+                    vinfo = transaction['vlans'][i][0]
+                    flags = transaction['vlans'][i][1]
+                    req = {'index': self['index'],
+                           'vlan_info': vinfo}
+                    if flags == 'self':
+                        req['vlan_flags'] = flags
+                        # this request will NOT give echo,
+                        # so bypass the check
+                        with self._direct_state:
+                            self.add_vlan(vinfo['vid'])
+                    run(nl.vlan_filter, 'add', **req)
 
                 self['vlans'].target.wait(SYNC_TIMEOUT)
                 if not self['vlans'].target.is_set():
