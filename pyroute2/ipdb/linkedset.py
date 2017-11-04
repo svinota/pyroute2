@@ -63,7 +63,7 @@ class LinkedSet(set):
         '''
         with self.lock:
             if isinstance(value, (set, tuple, list)):
-                self._ct = set(value)
+                self._ct = value
                 self.target.clear()
                 # immediately check, if the target already
                 # reached -- otherwise you will miss the
