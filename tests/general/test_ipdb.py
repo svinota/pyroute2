@@ -2041,6 +2041,51 @@ class TestExplicit(BasicSetup):
         assert not grep('ip ro', pattern='172.18.1.0/24.*127.0.0.1')
         assert not grep('ip ro', pattern='172.18.2.0/24.*127.0.0.1')
 
+    # @skip_if_not_supported
+    def test_bridge_vlans_self(self):
+        require_user('root')
+        ifB = self.get_ifname()
+        ifP1 = self.get_ifname()
+        ifP2 = self.get_ifname()
+
+        br = (self.ip
+              .interfaces
+              .add(ifname=ifB, kind='bridge')
+              .commit())
+        p1 = (self.ip
+              .interfaces
+              .add(ifname=ifP1, kind='dummy')
+              .commit())
+        p2 = (self.ip
+              .interfaces
+              .add(ifname=ifP2, kind='dummy')
+              .commit())
+
+        assert len(p1.vlans) == 0
+        assert len(p2.vlans) == 0
+
+        with br:
+            br.add_port(p1)
+            br.add_port(p2)
+
+        with p1:
+            p1.add_vlan(302)
+            p1.add_vlan(304)
+
+        with p2:
+            p2.add_vlan(303)
+            p2.add_vlan(305)
+
+        with br:
+            br.add_vlan(302, 'self')
+            br.add_vlan(303, 'self')
+            br.add_vlan(304, 'self')
+            br.add_vlan(305, 'self')
+
+        assert p1.vlans == set((1, 302, 304))
+        assert p2.vlans == set((1, 303, 305))
+        assert br.vlans == set((1, 302, 303, 304, 305))
+
     @skip_if_not_supported
     def test_bridge_vlans_flags(self):
         require_user('root')
