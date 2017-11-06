@@ -757,7 +757,10 @@ class Interface(Transactional):
                         transaction.errors.append(KeyError(i))
 
                 self['ports'].target.wait(SYNC_TIMEOUT)
-                if not self['ports'].target.is_set():
+                if self['ports'].target.is_set():
+                    for msg in self.nl.get_vlans(index=self['index']):
+                        self.load_netlink(msg)
+                else:
                     raise CommitException('ports target is not set')
 
                 # 1. wait for proper targets on ports
