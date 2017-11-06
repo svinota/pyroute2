@@ -571,7 +571,9 @@ class Interface(Transactional):
                     init = self.pick()
                     try:
                         request = {key: transaction[key] for key in
-                                   filter(lambda x: x[:3] != 'br_',
+                                   filter(lambda x: x[:5] != 'bond_' and
+                                          x[:7] != 'brport_' and
+                                          x[:3] != 'br_',
                                           transaction)}
                         for key in ('net_ns_fd', 'net_ns_pid'):
                             if key in request:
