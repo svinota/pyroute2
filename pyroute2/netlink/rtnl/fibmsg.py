@@ -58,4 +58,5 @@ class fibmsg(nlmsg):
                (15, 'FRA_TABLE', 'uint32'),
                (16, 'FRA_FWMASK', 'uint32'),
                (17, 'FRA_OIFNAME', 'asciiz'),
-               (18, 'FRA_PAD', 'hex'))
+               (18, 'FRA_PAD', 'hex'),
+               (19, 'FRA_L3MDEV', 'uint8'))
