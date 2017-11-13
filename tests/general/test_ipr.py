@@ -386,6 +386,15 @@ class TestIPRoute(object):
                      vti_ikey=64,
                      vti_okey=72)
 
+    def test_create_vti6(self):
+        require_user('root')
+        self._create('vti6',
+                     vti_link=2,
+                     vti_local='fd00:1:2:3:4:1::1',
+                     vti_remote='fd00:1:2:3:4:2::1',
+                     vti_ikey=80,
+                     vti_okey=88)
+
     def test_ntables(self):
         setA = set(filter(lambda x: x is not None,
                           [x.get_attr('NDTA_PARMS').get_attr('NDTPA_IFINDEX')
