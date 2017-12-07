@@ -200,6 +200,11 @@ class IPSet(NetlinkSocket):
 
     def _entry_to_data_attrs(self, entry, etype, family):
         attrs = []
+        
+        if etype == 'set':
+            attrs += [['IPSET_ATTR_NAME', entry]]
+            return attrs
+        
         if family is not None:
             if family == socket.AF_INET:
                 ip_version = 'IPSET_ATTR_IPADDR_IPV4'
