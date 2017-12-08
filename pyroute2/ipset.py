@@ -257,6 +257,11 @@ class IPSet(NetlinkSocket):
     def _entry_to_data_attrs(self, entry, etype, ip_version):
         attrs = []
         ip_count = 0
+
+        if etype == 'set':
+            attrs += [['IPSET_ATTR_NAME', entry]]
+            return attrs
+
         # We support string (for one element, and for users calling this
         # function like a command line), and tupple/list
         if isinstance(entry, basestring):
