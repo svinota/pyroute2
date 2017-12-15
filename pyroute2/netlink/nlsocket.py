@@ -598,171 +598,176 @@ class NetlinkMixin(object):
 
             ret = []
             enough = False
-            while not enough:
-                # 8<-----------------------------------------------------------
-                #
-                # This stage changes the backlog, so use mutex to
-                # prevent side changes
-                self.backlog_lock.acquire()
-                ##
-                # Stage 1. BEGIN
-                #
-                # 8<-----------------------------------------------------------
-                #
-                # Check backlog and return already collected
-                # messages.
-                #
-                if msg_seq == 0 and self.backlog[0]:
-                    # Zero queue.
+            backlog_acquired = False
+            try:
+                while not enough:
+                    # 8<-----------------------------------------------------------
                     #
-                    # Load the backlog, if there is valid
-                    # content in it
-                    ret.extend(self.backlog[0])
-                    self.backlog[0] = []
-                    # And just exit
-                    self.backlog_lock.release()
-                    break
-                elif self.backlog.get(msg_seq, None):
-                    # Any other msg_seq.
+                    # This stage changes the backlog, so use mutex to
+                    # prevent side changes
+                    self.backlog_lock.acquire()
+                    backlog_acquired = True
+                    ##
+                    # Stage 1. BEGIN
                     #
-                    # Collect messages up to the terminator.
-                    # Terminator conditions:
-                    #  * NLMSG_ERROR != 0
-                    #  * NLMSG_DONE
-                    #  * terminate() function (if defined)
-                    #  * not NLM_F_MULTI
+                    # 8<-----------------------------------------------------------
                     #
-                    # Please note, that if terminator not occured,
-                    # more `recv()` rounds CAN be required.
-                    for msg in tuple(self.backlog[msg_seq]):
+                    # Check backlog and return already collected
+                    # messages.
+                    #
+                    if msg_seq == 0 and self.backlog[0]:
+                        # Zero queue.
+                        #
+                        # Load the backlog, if there is valid
+                        # content in it
+                        ret.extend(self.backlog[0])
+                        self.backlog[0] = []
+                        # And just exit
+                        break
+                    elif self.backlog.get(msg_seq, None):
+                        # Any other msg_seq.
+                        #
+                        # Collect messages up to the terminator.
+                        # Terminator conditions:
+                        #  * NLMSG_ERROR != 0
+                        #  * NLMSG_DONE
+                        #  * terminate() function (if defined)
+                        #  * not NLM_F_MULTI
+                        #
+                        # Please note, that if terminator not occured,
+                        # more `recv()` rounds CAN be required.
+                        for msg in tuple(self.backlog[msg_seq]):
 
-                        # Drop the message from the backlog, if any
-                        self.backlog[msg_seq].remove(msg)
+                            # Drop the message from the backlog, if any
+                            self.backlog[msg_seq].remove(msg)
 
-                        # If there is an error, raise exception
-                        if msg['header'].get('error', None) is not None:
-                            self.backlog[0].extend(self.backlog[msg_seq])
-                            del self.backlog[msg_seq]
-                            # The loop is done
-                            self.backlog_lock.release()
-                            raise msg['header']['error']
+                            # If there is an error, raise exception
+                            if msg['header'].get('error', None) is not None:
+                                self.backlog[0].extend(self.backlog[msg_seq])
+                                del self.backlog[msg_seq]
+                                # The loop is done
+                                raise msg['header']['error']
 
-                        # If it is the terminator message, say "enough"
-                        # and requeue all the rest into Zero queue
-                        if (msg['header']['type'] == NLMSG_DONE) or \
-                                (terminate is not None and terminate(msg)):
-                            # The loop is done
-                            enough = True
-
-                        # If it is just a normal message, append it to
-                        # the response
-                        if not enough:
-                            ret.append(msg)
-                            # But finish the loop on single messages
-                            if not msg['header']['flags'] & NLM_F_MULTI:
-                                # but not multi -- so end the loop
+                            # If it is the terminator message, say "enough"
+                            # and requeue all the rest into Zero queue
+                            if (msg['header']['type'] == NLMSG_DONE) or \
+                                    (terminate is not None and terminate(msg)):
+                                # The loop is done
                                 enough = True
 
-                        # Enough is enough, requeue the rest and delete
-                        # our backlog
-                        if enough:
-                            self.backlog[0].extend(self.backlog[msg_seq])
-                            del self.backlog[msg_seq]
-                            break
+                            # If it is just a normal message, append it to
+                            # the response
+                            if not enough:
+                                ret.append(msg)
+                                # But finish the loop on single messages
+                                if not msg['header']['flags'] & NLM_F_MULTI:
+                                    # but not multi -- so end the loop
+                                    enough = True
 
-                    # Next iteration
-                    self.backlog_lock.release()
-                else:
-                    # Stage 1. END
-                    #
-                    # 8<-------------------------------------------------------
-                    #
-                    # Stage 2. BEGIN
-                    #
-                    # 8<-------------------------------------------------------
-                    #
-                    # Receive the data from the socket and put the messages
-                    # into the backlog
-                    #
-                    self.backlog_lock.release()
-                    ##
-                    #
-                    # Control the timeout. We should not be within the
-                    # function more than TIMEOUT seconds. All the locks
-                    # MUST be released here.
-                    #
-                    if time.time() - ctime > self.get_timeout:
-                        if self.get_timeout_exception:
-                            raise self.get_timeout_exception()
-                        else:
-                            return ret
-                    #
-                    if self.read_lock.acquire(False):
-                        self.change_master.clear()
-                        # If the socket is free to read from, occupy
-                        # it and wait for the data
-                        #
-                        # This is a time consuming process, so all the
-                        # locks, except the read lock must be released
-                        data = self.recv_ft(bufsize)
-                        # Parse data
-                        msgs = self.marshal.parse(data, msg_seq, callback)
-                        # Reset ctime -- timeout should be measured
-                        # for every turn separately
-                        ctime = time.time()
-                        #
-                        current = self.buffer_queue.qsize()
-                        delta = current - self.qsize
-                        if delta > 10:
-                            delay = min(3, max(0.01, float(current) / 60000))
-                            message = ("Packet burst: "
-                                       "delta=%s qsize=%s delay=%s"
-                                       % (delta, current, delay))
-                            if delay < 1:
-                                log.debug(message)
-                            else:
-                                log.warning(message)
-                            time.sleep(delay)
-                        self.qsize = current
+                            # Enough is enough, requeue the rest and delete
+                            # our backlog
+                            if enough:
+                                self.backlog[0].extend(self.backlog[msg_seq])
+                                del self.backlog[msg_seq]
+                                break
 
-                        # We've got the data, lock the backlog again
-                        self.backlog_lock.acquire()
-                        for msg in msgs:
-                            seq = msg['header']['sequence_number']
-                            if seq not in self.backlog:
-                                if msg['header']['type'] == NLMSG_ERROR:
-                                    # Drop orphaned NLMSG_ERROR messages
-                                    continue
-                                seq = 0
-                            # 8<-----------------------------------------------
-                            # Callbacks section
-                            for cr in self.callbacks:
-                                try:
-                                    if cr[0](msg):
-                                        cr[1](msg, *cr[2])
-                                except:
-                                    log.warning("Callback fail: %s" % (cr))
-                                    log.warning(traceback.format_exc())
-                            # 8<-----------------------------------------------
-                            self.backlog[seq].append(msg)
-                        # We finished with the backlog, so release the lock
+                        # Next iteration
                         self.backlog_lock.release()
-
-                        # Now wake up other threads
-                        self.change_master.set()
-
-                        # Finally, release the read lock: all data processed
-                        self.read_lock.release()
+                        backlog_acquired = False
                     else:
-                        # If the socket is occupied and there is still no
-                        # data for us, wait for the next master change or
-                        # for a timeout
-                        self.change_master.wait(1)
-                    # 8<-------------------------------------------------------
-                    #
-                    # Stage 2. END
-                    #
-                    # 8<-------------------------------------------------------
+                        # Stage 1. END
+                        #
+                        # 8<-------------------------------------------------------
+                        #
+                        # Stage 2. BEGIN
+                        #
+                        # 8<-------------------------------------------------------
+                        #
+                        # Receive the data from the socket and put the messages
+                        # into the backlog
+                        #
+                        self.backlog_lock.release()
+                        backlog_acquired = False
+                        ##
+                        #
+                        # Control the timeout. We should not be within the
+                        # function more than TIMEOUT seconds. All the locks
+                        # MUST be released here.
+                        #
+                        if time.time() - ctime > self.get_timeout:
+                            if self.get_timeout_exception:
+                                raise self.get_timeout_exception()
+                            else:
+                                return ret
+                        #
+                        if self.read_lock.acquire(False):
+                            try:
+                                self.change_master.clear()
+                                # If the socket is free to read from, occupy
+                                # it and wait for the data
+                                #
+                                # This is a time consuming process, so all the
+                                # locks, except the read lock must be released
+                                data = self.recv_ft(bufsize)
+                                # Parse data
+                                msgs = self.marshal.parse(data, msg_seq, callback)
+                                # Reset ctime -- timeout should be measured
+                                # for every turn separately
+                                ctime = time.time()
+                                #
+                                current = self.buffer_queue.qsize()
+                                delta = current - self.qsize
+                                if delta > 10:
+                                    delay = min(3, max(0.01, float(current) / 60000))
+                                    message = ("Packet burst: "
+                                               "delta=%s qsize=%s delay=%s"
+                                               % (delta, current, delay))
+                                    if delay < 1:
+                                        log.debug(message)
+                                    else:
+                                        log.warning(message)
+                                    time.sleep(delay)
+                                self.qsize = current
+
+                                # We've got the data, lock the backlog again
+                                with self.backlog_lock:
+                                    for msg in msgs:
+                                        seq = msg['header']['sequence_number']
+                                        if seq not in self.backlog:
+                                            if msg['header']['type'] == NLMSG_ERROR:
+                                                # Drop orphaned NLMSG_ERROR messages
+                                                continue
+                                            seq = 0
+                                        # 8<-----------------------------------------------
+                                        # Callbacks section
+                                        for cr in self.callbacks:
+                                            try:
+                                                if cr[0](msg):
+                                                    cr[1](msg, *cr[2])
+                                            except:
+                                                log.warning("Callback fail: %s" % (cr))
+                                                log.warning(traceback.format_exc())
+                                        # 8<-----------------------------------------------
+                                        self.backlog[seq].append(msg)
+
+                                # Now wake up other threads
+                                self.change_master.set()
+                            finally:
+                                # Finally, release the read lock: all data processed
+                                self.read_lock.release()
+                        else:
+                            # If the socket is occupied and there is still no
+                            # data for us, wait for the next master change or
+                            # for a timeout
+                            self.change_master.wait(1)
+                        # 8<-------------------------------------------------------
+                        #
+                        # Stage 2. END
+                        #
+                        # 8<-------------------------------------------------------
+            finally:
+                if backlog_acquired:
+                    self.backlog_lock.release()
 
             return ret
 
