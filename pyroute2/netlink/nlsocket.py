@@ -710,7 +710,9 @@ class NetlinkMixin(object):
                                 # locks, except the read lock must be released
                                 data = self.recv_ft(bufsize)
                                 # Parse data
-                                msgs = self.marshal.parse(data, msg_seq, callback)
+                                msgs = self.marshal.parse(data,
+                                                          msg_seq,
+                                                          callback)
                                 # Reset ctime -- timeout should be measured
                                 # for every turn separately
                                 ctime = time.time()
@@ -718,7 +720,8 @@ class NetlinkMixin(object):
                                 current = self.buffer_queue.qsize()
                                 delta = current - self.qsize
                                 if delta > 10:
-                                    delay = min(3, max(0.01, float(current) / 60000))
+                                    delay = min(3, max(0.01,
+                                                       float(current) / 60000))
                                     message = ("Packet burst: "
                                                "delta=%s qsize=%s delay=%s"
                                                % (delta, current, delay))
@@ -734,26 +737,39 @@ class NetlinkMixin(object):
                                     for msg in msgs:
                                         seq = msg['header']['sequence_number']
                                         if seq not in self.backlog:
-                                            if msg['header']['type'] == NLMSG_ERROR:
-                                                # Drop orphaned NLMSG_ERROR messages
+                                            if msg['header']['type'] == \
+                                                    NLMSG_ERROR:
+                                                # Drop orphaned NLMSG_ERROR
+                                                # messages
                                                 continue
                                             seq = 0
-                                        # 8<-----------------------------------------------
+                                        # 8<-----------------------------------
                                         # Callbacks section
                                         for cr in self.callbacks:
                                             try:
                                                 if cr[0](msg):
                                                     cr[1](msg, *cr[2])
                                             except:
-                                                log.warning("Callback fail: %s" % (cr))
-                                                log.warning(traceback.format_exc())
-                                        # 8<-----------------------------------------------
+                                                # FIXME
+                                                #
+                                                # Usually such code formatting
+                                                # means that the method should
+                                                # be refactored to avoid such
+                                                # indentation.
+                                                #
+                                                # Plz do something with it.
+                                                #
+                                                lw = log.warning
+                                                lw("Callback fail: %s" % (cr))
+                                                lw(traceback.format_exc())
+                                        # 8<-----------------------------------
                                         self.backlog[seq].append(msg)
 
                                 # Now wake up other threads
                                 self.change_master.set()
                             finally:
-                                # Finally, release the read lock: all data processed
+                                # Finally, release the read lock: all data
+                                # processed
                                 self.read_lock.release()
                         else:
                             # If the socket is occupied and there is still no
