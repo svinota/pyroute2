@@ -25,6 +25,7 @@ from utils import create_link
 from utils import remove_link
 from utils import skip_if_not_supported
 from nose.plugins.skip import SkipTest
+from nose.tools import assert_raises
 
 
 class TestSetup(object):
@@ -45,6 +46,15 @@ class TestSetup(object):
             IPRoute(fileno=13)
         except NotImplementedError:
             pass
+
+    def test_close(self):
+        ip = IPRoute()
+        ip.get_links()
+        ip.close()
+
+        # Shouldn't be able to use the socket after closing
+        with assert_raises(socket.error):
+            ip.get_links()
 
     def test_fileno(self):
         require_python(3)

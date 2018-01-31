@@ -893,17 +893,6 @@ class NetlinkSocket(NetlinkMixin):
                                            SOCK_DGRAM,
                                            self.family,
                                            self._fileno)
-            for name in ('getsockname', 'getsockopt', 'makefile',
-                         'setsockopt', 'setblocking', 'settimeout',
-                         'gettimeout', 'shutdown', 'recvfrom',
-                         'recvfrom_into', 'fileno'):
-                setattr(self, name, getattr(self._sock, name))
-
-            self._sendto = getattr(self._sock, 'sendto')
-            self._recv = getattr(self._sock, 'recv')
-            self._recv_into = getattr(self._sock, 'recv_into')
-            # setup fast-track
-            self.recv_ft = getattr(self._sock, 'recv')
             self.sendto_gate = self._gate
 
             # monkey patch recv_into on Python 2.6
@@ -918,6 +907,19 @@ class NetlinkSocket(NetlinkMixin):
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
             if self.all_ns:
                 self.setsockopt(SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, 1)
+
+    def __getattr__(self, attr):
+        if attr in ('getsockname', 'getsockopt', 'makefile',
+                    'setsockopt', 'setblocking', 'settimeout',
+                    'gettimeout', 'shutdown', 'recvfrom',
+                     'recvfrom_into', 'fileno'):
+            return getattr(self._sock, attr)
+        elif attr in ('_sendto', '_recv', '_recv_into'):
+            return getattr(self._sock, attr.lstrip("_"))
+        elif attr == "recv_ft":
+            return self._sock.recv
+
+        raise AttributeError(attr)
 
     def _gate(self, msg, addr):
         msg.reset()
