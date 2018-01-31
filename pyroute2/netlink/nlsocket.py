@@ -912,7 +912,7 @@ class NetlinkSocket(NetlinkMixin):
         if attr in ('getsockname', 'getsockopt', 'makefile',
                     'setsockopt', 'setblocking', 'settimeout',
                     'gettimeout', 'shutdown', 'recvfrom',
-                     'recvfrom_into', 'fileno'):
+                    'recvfrom_into', 'fileno'):
             return getattr(self._sock, attr)
         elif attr in ('_sendto', '_recv', '_recv_into'):
             return getattr(self._sock, attr.lstrip("_"))
