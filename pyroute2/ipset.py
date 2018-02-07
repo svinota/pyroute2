@@ -177,7 +177,8 @@ class IPSet(NetlinkSocket):
     def create(self, name, stype='hash:ip', family=socket.AF_INET,
                exclusive=True, counters=False, comment=False,
                maxelem=IPSET_DEFAULT_MAXELEM, forceadd=False,
-               hashsize=None, timeout=None, bitmap_ports_range=None):
+               hashsize=None, timeout=None, bitmap_ports_range=None
+               size=None):
         '''
         Create an ipset `name` of type `stype`, by default
         `hash:ip`.
@@ -193,6 +194,7 @@ class IPSet(NetlinkSocket):
         * timeout -- enable and set a default value for entries (if not None)
         * bitmap_ports_range -- set the specified inclusive portrange for
                                 the bitmap ipset structure (0, 65536)
+        * size -- Size of the list:set, the default is 8
         '''
         excl_flag = NLM_F_EXCL if exclusive else 0
         msg = ipset_msg()
@@ -211,6 +213,8 @@ class IPSet(NetlinkSocket):
                           ["IPSET_ATTR_MAXELEM", maxelem]]}
         if hashsize is not None:
             data['attrs'] += [["IPSET_ATTR_HASHSIZE", hashsize]]
+        elif size is not None and stype == 'list:set':
+            data['attrs'] += [['IPSET_ATTR_SIZE', size]]
         if timeout is not None:
             data['attrs'] += [["IPSET_ATTR_TIMEOUT", timeout]]
         if bitmap_ports_range is not None and stype == 'bitmap:port':
