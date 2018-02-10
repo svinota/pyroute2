@@ -99,7 +99,8 @@ __NR = {'x86_': {'64bit': 308},
         'mips': {'32bit': 4344,
                  '64bit': 5303},  # FIXME: NABI32?
         'armv': {'32bit': 375},
-        'aarc': {'64bit': 268},  # FIXME: EABI vs. OABI?
+        'aarc': {'32bit': 375,
+                 '64bit': 268},  # FIXME: EABI vs. OABI?
         'ppc6': {'64bit': 350}}
 __NR_setns = __NR.get(config.machine[:4], {}).get(config.arch, 308)
 
