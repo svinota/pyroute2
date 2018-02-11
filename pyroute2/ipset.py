@@ -177,7 +177,7 @@ class IPSet(NetlinkSocket):
     def create(self, name, stype='hash:ip', family=socket.AF_INET,
                exclusive=True, counters=False, comment=False,
                maxelem=IPSET_DEFAULT_MAXELEM, forceadd=False,
-               hashsize=None, timeout=None, bitmap_ports_range=None
+               hashsize=None, timeout=None, bitmap_ports_range=None,
                size=None):
         '''
         Create an ipset `name` of type `stype`, by default
