@@ -703,6 +703,7 @@ import atexit
 import logging
 import traceback
 import threading
+import weakref
 
 from functools import partial
 from pprint import pprint
@@ -832,8 +833,11 @@ class IPDB(object):
         self.__dir_cache__.remove('serve_forever')
         self.__dir_cache__.extend(list(self._deferred.keys()))
 
-        #
-        atexit.register(self.release)
+        def cleanup(ref):
+            ipdb_obj = ref()
+            if ipdb_obj is not None:
+                ipdb_obj.release()
+        atexit.register(cleanup, weakref.ref(self))
 
     def __dir__(self):
         return self.__dir_cache__
