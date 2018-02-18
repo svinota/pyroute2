@@ -16,7 +16,8 @@ from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 
 encap_types = {'mpls': 1,
                AF_MPLS: 1,
-               'seg6': 5}
+               'seg6': 5,
+               'bpf': 6}
 
 
 class IPRequest(dict):
@@ -161,6 +162,36 @@ class IPRouteRequest(IPRequest):
                 ret['hmac'] = hmac & 0xffffffff
             # Done return the object
             return {'attrs': [['SEG6_IPTUNNEL_SRH', ret]]}
+        '''
+        BPF encap header transform. Format samples:
+
+            {'type': 'bpf',
+             'in': {'fd':4, 'name':'firewall'}}
+
+            {'type': 'bpf',
+             'in'  : {'fd':4, 'name':'firewall'},
+             'out' : {'fd':5, 'name':'stats'},
+             'xmit': {'fd':6, 'name':'vlan_push', 'headroom':4}}
+        '''
+        if header['type'] == 'bpf':
+            attrs = {}
+            for key, value in header.items():
+                if key not in ['in', 'out', 'xmit']:
+                    continue
+
+                obj = [
+                        ['LWT_BPF_PROG_FD', value['fd']],
+                        ['LWT_BPF_PROG_NAME', value['name']]]
+                if key == 'in':
+                    attrs['LWT_BPF_IN'] = {'attrs': obj}
+                elif key == 'out':
+                    attrs['LWT_BPF_OUT'] = {'attrs': obj}
+                elif key == 'xmit':
+                    attrs['LWT_BPF_XMIT'] = {'attrs': obj}
+                    if 'headroom' in value:
+                        attrs['LWT_BPF_XMIT_HEADROOM'] = value['headroom']
+
+            return {'attrs': attrs.items()}
 
     def mpls_rta(self, value):
         ret = []
@@ -256,6 +287,13 @@ class IPRouteRequest(IPRequest):
                 #
                 # 'type', 'mode' and 'segs' are mandatory
                 if 'type' in value and 'mode' in value and 'segs' in value:
+                    dict.__setitem__(self, 'encap_type',
+                                     encap_types.get(value['type'],
+                                                     value['type']))
+                    dict.__setitem__(self, 'encap',
+                                     self.encap_header(value))
+                elif 'type' in value and ('in' in value or 'out' in value
+                                          or 'xmit' in value):
                     dict.__setitem__(self, 'encap_type',
                                      encap_types.get(value['type'],
                                                      value['type']))
