@@ -1,4 +1,3 @@
-import struct
 from pyroute2.netlink import nla
 from pyroute2.netlink import NLA_F_NESTED
 from pyroute2.netlink import NLA_F_NET_BYTEORDER
@@ -124,32 +123,13 @@ class ipset_msg(nfgen_msg):
                        (29, 'IPSET_ATTR_SKBQUEUE', 'be16',
                         NLA_F_NET_BYTEORDER))
 
-            class skbinfo_base(nla):
+            class skbmark(nla):
                 nla_flags = NLA_F_NET_BYTEORDER
+                fields = [('value', '>II')]
 
-                def calcmask(self):
-                    bits = struct.calcsize(self.fields[0][1]) * 4
-                    return (1 << bits) - 1, bits
-
-                def encode(self):
-                    if isinstance(self['value'], tuple):
-                        mask, bits = self.calcmask()
-                        self['value'] = (self['value'][0] << bits) | \
-                                        (self['value'][1] & mask)
-                    nla.encode(self)
-
-                def decode(self):
-                    nla.decode(self)
-                    if not isinstance(self['value'], tuple):
-                        mask, bits = self.calcmask()
-                        self['value'] = (self['value'] >> bits,
-                                         self['value'] & mask)
-
-            class skbmark(skbinfo_base):
-                fields = [('value', '>Q')]
-
-            class skbprio(skbinfo_base):
-                fields = [('value', '>I')]
+            class skbprio(nla):
+                nla_flags = NLA_F_NET_BYTEORDER
+                fields = [('value', '>HH')]
 
     class cadt_data(ipset_base):
         nla_flags = NLA_F_NESTED
