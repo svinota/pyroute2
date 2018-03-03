@@ -1,5 +1,6 @@
 from socket import AF_UNIX
 from pyroute2.netlink import nlmsg
+from pyroute2.netlink import nla 
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_ROOT
 from pyroute2.netlink import NLM_F_MATCH
@@ -66,6 +67,9 @@ class unix_diag_msg(nlmsg):
               ('udiag_ino', 'I'),
               ('udiag_cookie', 'Q'))
 
+    nla_map = ((UDIAG_SHOW_PEER, 'UDIAG_SHOW_PEER', 'uint32'), 
+               ( UDIAG_SHOW_NAME, 'UDIAG_SHOW_NAME', 'string' ))
+
 
 class MarshalDiag(Marshal):
     type_format = 'B'
@@ -77,6 +81,10 @@ class MarshalDiag(Marshal):
     # to choose the proper class
     msg_map = {AF_UNIX: unix_diag_msg}
 
+def udiag_tst_cb(msg):
+    #print '---'
+    #print msg
+    pass
 
 class DiagSocket(NetlinkSocket):
     '''
@@ -113,4 +121,4 @@ class DiagSocket(NetlinkSocket):
         req['udiag_show'] = show
 
         return self.nlm_request(req, SOCK_DIAG_BY_FAMILY,
-                                NLM_F_REQUEST | NLM_F_ROOT | NLM_F_MATCH)
+                                NLM_F_REQUEST | NLM_F_ROOT | NLM_F_MATCH, callback=udiag_tst_cb)
