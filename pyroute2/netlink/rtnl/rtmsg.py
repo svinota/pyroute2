@@ -302,11 +302,30 @@ class rtmsg_base(nlflags):
                     # Show also the hmac key
                     self['hmac'] = hexdump(hmac[4:8])
 
+    class bpf_encap_info(nla):
+
+        __slots__ = ()
+
+        nla_map = (('LWT_BPF_UNSPEC', 'none'),
+                   ('LWT_BPF_IN', 'bpf_obj'),
+                   ('LWT_BPF_OUT', 'bpf_obj'),
+                   ('LWT_BPF_XMIT', 'bpf_obj'),
+                   ('LWT_BPF_XMIT_HEADROOM', 'uint32'))
+
+        class bpf_obj(nla):
+
+            __slots__ = ()
+
+            nla_map = (('LWT_BPF_PROG_UNSPEC', 'none'),
+                       ('LWT_BPF_PROG_FD', 'uint32'),
+                       ('LWT_BPF_PROG_NAME', 'asciiz'))
+
     #
     # TODO: add here other lwtunnel types
     #
     encaps = {LWTUNNEL_ENCAP_MPLS: mpls_encap_info,
-              LWTUNNEL_ENCAP_SEG6: seg6_encap_info}
+              LWTUNNEL_ENCAP_SEG6: seg6_encap_info,
+              LWTUNNEL_ENCAP_BPF:  bpf_encap_info}
 
     class rta_mfc_stats(nla):
 
