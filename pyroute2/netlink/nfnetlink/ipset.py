@@ -118,9 +118,18 @@ class ipset_msg(nfgen_msg):
                        (24, 'IPSET_ATTR_BYTES', 'be64', NLA_F_NET_BYTEORDER),
                        (25, 'IPSET_ATTR_PACKETS', 'be64', NLA_F_NET_BYTEORDER),
                        (26, 'IPSET_ATTR_COMMENT', 'asciiz'),
-                       (27, 'IPSET_ATTR_SKBMARK', 'hex'),
-                       (28, 'IPSET_ATTR_SKBPRIO', 'be32'),
-                       (29, 'IPSET_ATTR_SKBQUEUE', 'hex'))
+                       (27, 'IPSET_ATTR_SKBMARK', 'skbmark'),
+                       (28, 'IPSET_ATTR_SKBPRIO', 'skbprio'),
+                       (29, 'IPSET_ATTR_SKBQUEUE', 'be16',
+                        NLA_F_NET_BYTEORDER))
+
+            class skbmark(nla):
+                nla_flags = NLA_F_NET_BYTEORDER
+                fields = [('value', '>II')]
+
+            class skbprio(nla):
+                nla_flags = NLA_F_NET_BYTEORDER
+                fields = [('value', '>HH')]
 
     class cadt_data(ipset_base):
         nla_flags = NLA_F_NESTED

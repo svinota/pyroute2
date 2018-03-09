@@ -39,6 +39,7 @@ from pyroute2.netlink.nfnetlink.ipset import ipset_msg
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
+from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
 from pyroute2.netlink.nfnetlink.ipset import IPSET_DEFAULT_MAXELEM
 from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_PROTOCOL
 from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_FIND_TYPE
@@ -178,7 +179,7 @@ class IPSet(NetlinkSocket):
                exclusive=True, counters=False, comment=False,
                maxelem=IPSET_DEFAULT_MAXELEM, forceadd=False,
                hashsize=None, timeout=None, bitmap_ports_range=None,
-               size=None):
+               size=None, skbinfo=False):
         '''
         Create an ipset `name` of type `stype`, by default
         `hash:ip`.
@@ -195,6 +196,7 @@ class IPSet(NetlinkSocket):
         * bitmap_ports_range -- set the specified inclusive portrange for
                                 the bitmap ipset structure (0, 65536)
         * size -- Size of the list:set, the default is 8
+        * skbinfo -- enable skbinfo capability
         '''
         excl_flag = NLM_F_EXCL if exclusive else 0
         msg = ipset_msg()
@@ -205,6 +207,8 @@ class IPSet(NetlinkSocket):
             cadt_flags |= IPSET_FLAG_WITH_COMMENT
         if forceadd:
             cadt_flags |= IPSET_FLAG_WITH_FORCEADD
+        if skbinfo:
+            cadt_flags |= IPSET_FLAG_WITH_SKBINFO
 
         if stype == 'bitmap:port' and bitmap_ports_range is None:
             raise ValueError('Missing value bitmap_ports_range')
@@ -306,7 +310,8 @@ class IPSet(NetlinkSocket):
 
     def _add_delete_test(self, name, entry, family, cmd, exclusive,
                          comment=None, timeout=None, etype="ip",
-                         packets=None, bytes=None):
+                         packets=None, bytes=None, skbmark=None,
+                         skbprio=None, skbqueue=None):
         excl_flag = NLM_F_EXCL if exclusive else 0
 
         ip_version = self._family_to_version(family)
@@ -320,6 +325,12 @@ class IPSet(NetlinkSocket):
             data_attrs += [["IPSET_ATTR_BYTES", bytes]]
         if packets is not None:
             data_attrs += [["IPSET_ATTR_PACKETS", packets]]
+        if skbmark is not None:
+            data_attrs += [["IPSET_ATTR_SKBMARK", skbmark]]
+        if skbprio is not None:
+            data_attrs += [["IPSET_ATTR_SKBPRIO", skbprio]]
+        if skbqueue is not None:
+            data_attrs += [["IPSET_ATTR_SKBQUEUE", skbqueue]]
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
                         ['IPSET_ATTR_SETNAME', name],
@@ -330,7 +341,8 @@ class IPSet(NetlinkSocket):
                             terminate=_nlmsg_error)
 
     def add(self, name, entry, family=socket.AF_INET, exclusive=True,
-            comment=None, timeout=None, etype="ip", **kwargs):
+            comment=None, timeout=None, etype="ip", skbmark=None,
+            skbprio=None, skbqueue=None, **kwargs):
         '''
         Add a member to the ipset.
 
@@ -369,7 +381,9 @@ class IPSet(NetlinkSocket):
         '''
         return self._add_delete_test(name, entry, family, IPSET_CMD_ADD,
                                      exclusive, comment=comment,
-                                     timeout=timeout, etype=etype, **kwargs)
+                                     timeout=timeout, etype=etype,
+                                     skbmark=skbmark, skbprio=skbprio,
+                                     skbqueue=skbqueue, **kwargs)
 
     def delete(self, name, entry, family=socket.AF_INET, exclusive=True,
                etype="ip"):

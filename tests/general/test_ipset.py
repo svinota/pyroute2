@@ -63,7 +63,10 @@ class TestIPSet(object):
                     res[entry] = (x.get_attr("IPSET_ATTR_PACKETS"),
                                   x.get_attr("IPSET_ATTR_BYTES"),
                                   x.get_attr("IPSET_ATTR_COMMENT"),
-                                  x.get_attr("IPSET_ATTR_TIMEOUT"))
+                                  x.get_attr("IPSET_ATTR_TIMEOUT"),
+                                  x.get_attr("IPSET_ATTR_SKBMARK"),
+                                  x.get_attr("IPSET_ATTR_SKBPRIO"),
+                                  x.get_attr("IPSET_ATTR_SKBQUEUE"))
             return res
         except:
             return {}
@@ -204,6 +207,39 @@ class TestIPSet(object):
         self.ip.add(name, ipaddr, comment=comment)
         assert ipaddr in self.list_ipset(name)
         assert self.list_ipset(name)[ipaddr][2] == comment
+        self.ip.destroy(name)
+
+    def test_skbmark(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        ipaddr = '172.16.202.202'
+        skbmark = (0x100, 0xffffffff)
+        self.ip.create(name, skbinfo=True)
+        self.ip.add(name, ipaddr, skbmark=skbmark)
+        assert ipaddr in self.list_ipset(name)
+        assert self.list_ipset(name)[ipaddr][4] == skbmark
+        self.ip.destroy(name)
+
+    def test_skbprio(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        ipaddr = '172.16.202.202'
+        skbprio = (1, 10)
+        self.ip.create(name, skbinfo=True)
+        self.ip.add(name, ipaddr, skbprio=skbprio)
+        assert ipaddr in self.list_ipset(name)
+        assert self.list_ipset(name)[ipaddr][5] == skbprio
+        self.ip.destroy(name)
+
+    def test_skbqueue(self):
+        require_user('root')
+        name = str(uuid4())[:16]
+        ipaddr = '172.16.202.202'
+        skbqueue = 1
+        self.ip.create(name, skbinfo=True)
+        self.ip.add(name, ipaddr, skbqueue=skbqueue)
+        assert ipaddr in self.list_ipset(name)
+        assert self.list_ipset(name)[ipaddr][6] == skbqueue
         self.ip.destroy(name)
 
     def test_maxelem(self):
