@@ -809,6 +809,8 @@ class Interface(Transactional):
                     elif key[:7] == 'brport_':
                         prequest[key[7:]] = added[key]
                     else:
+                        if key == 'address' and added[key] is not None:
+                            self[key] = added[key].lower()
                         request[key] = added[key]
             # FIXME: flush the interface type so the next two conditions
             # will work correctly

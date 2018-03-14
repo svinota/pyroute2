@@ -2220,6 +2220,32 @@ class TestExplicit(BasicSetup):
         assert ifA in self.ip.interfaces
         assert ifB in self.ip.interfaces
 
+    def test_create_macaddr(self):
+        #
+        # https://github.com/svinota/pyroute2/issues/454
+        #
+        require_user('root')
+        ifA = self.get_ifname()
+        ifB = self.get_ifname()
+        ifC = self.get_ifname()
+
+        # lowercase
+        (self.ip.interfaces
+         .add(ifname=ifA, kind='dummy')
+         .set_address('00:11:22:aa:bb:c0')
+         .commit())
+
+        # uppercase
+        (self.ip.interfaces
+         .add(ifname=ifB, kind='dummy')
+         .set_address('00:11:22:AA:BB:C1')
+         .commit())
+
+        # one request, mix cases
+        (self.ip.interfaces
+         .add(ifname=ifC, kind='dummy', address='00:11:22:AA:bb:C2')
+         .commit())
+
     def test_create_fail(self):
         ifname = uifname()
         kind = uifname()
