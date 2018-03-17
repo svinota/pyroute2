@@ -44,7 +44,7 @@ structure is as follows::
     NLA header:
         uint16 length
         uint16 type
-    NLA data:1297,
+    NLA data:
         data-specific struct
         # optional:
         NLA
@@ -1259,11 +1259,11 @@ class nlmsg_base(dict):
         nla_map = []
         for item in self.nla_map:
             if not isinstance(item[-1], int):
-                item = item + (0,)
+                item = list(item)
+                item.append(0)
             nla_map.append(item)
 
         # detect, whether we have pre-defined keys
-        print nla_map[0][0]
         if not isinstance(nla_map[0][0], int):
             # create enumeration
             nla_types = enumerate((i[0] for i in nla_map))
