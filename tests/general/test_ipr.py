@@ -1110,9 +1110,9 @@ class TestIPRoute(object):
         self.ip.unregister_callback(_callback)
 
     def test_link_filter(self):
-        l = self.ip.link('dump', ifname='lo')
-        assert len(l) == 1
-        assert l[0].get_attr('IFLA_IFNAME') == 'lo'
+        links = self.ip.link('dump', ifname='lo')
+        assert len(links) == 1
+        assert links[0].get_attr('IFLA_IFNAME') == 'lo'
 
     def test_link_legacy_nla(self):
         require_user('root')

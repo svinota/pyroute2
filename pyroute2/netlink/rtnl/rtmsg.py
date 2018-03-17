@@ -184,8 +184,8 @@ class rtmsg_base(nlflags):
 
             # Mapping string to nla value
             encapmodes = {
-              "inline": SEG6_IPTUN_MODE_INLINE,
-              "encap": SEG6_IPTUN_MODE_ENCAP
+                "inline": SEG6_IPTUN_MODE_INLINE,
+                "encap": SEG6_IPTUN_MODE_ENCAP
             }
 
             # Nla value for seg6 type
@@ -288,7 +288,8 @@ class rtmsg_base(nlflags):
                 # Move 128 bit in each step
                 for i in range(n_segs):
                     # Save the segment
-                    segs.append(inet_ntop(AF_INET6, addresses[i*16:i*16+16]))
+                    segs.append(inet_ntop(AF_INET6,
+                                          addresses[i * 16:i * 16 + 16]))
                 # Save segs
                 self['segs'] = segs
                 # Init tlvs
@@ -296,7 +297,7 @@ class rtmsg_base(nlflags):
                 # If hmac is used
                 if self.has_hmac():
                     # Point to the start of hmac
-                    hmac = addresses[n_segs*16:n_segs*16+40]
+                    hmac = addresses[n_segs * 16:n_segs * 16 + 40]
                     # Save tlvs section
                     self['tlvs'] = hexdump(hmac)
                     # Show also the hmac key
@@ -325,7 +326,7 @@ class rtmsg_base(nlflags):
     #
     encaps = {LWTUNNEL_ENCAP_MPLS: mpls_encap_info,
               LWTUNNEL_ENCAP_SEG6: seg6_encap_info,
-              LWTUNNEL_ENCAP_BPF:  bpf_encap_info}
+              LWTUNNEL_ENCAP_BPF: bpf_encap_info}
 
     class rta_mfc_stats(nla):
 

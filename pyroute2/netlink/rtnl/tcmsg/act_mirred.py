@@ -14,10 +14,10 @@ Use like any other action, with the following parameters available:
 
 # see tc_mirred.h
 MIRRED_EACTIONS = {
-    ("egress", "redirect"):     1,  # redirect packet to egress
-    ("egress", "mirror"):       2,  # mirror packet to egress
-    ("ingress", "redirect"):    3,  # redirect packet to ingress
-    ("ingress", "mirror"):      4,  # mirror packet to ingress
+    ("egress", "redirect"): 1,   # redirect packet to egress
+    ("egress", "mirror"): 2,     # mirror packet to egress
+    ("ingress", "redirect"): 3,  # redirect packet to ingress
+    ("ingress", "mirror"): 4,    # mirror packet to ingress
 }
 
 

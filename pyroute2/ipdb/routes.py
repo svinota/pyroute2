@@ -85,9 +85,9 @@ class NextHopSet(LinkedSet):
 
     def add(self, prime, raw=None, cascade=False):
         key = self.__make_nh(prime)
-        r = key._required
-        l = key._fields
-        skey = key[:r] + (None, ) * (len(l) - r)
+        req = key._required
+        fields = key._fields
+        skey = key[:req] + (None, ) * (len(fields) - req)
         if skey in self.raw:
             del self.raw[skey]
         return super(NextHopSet, self).add(key, raw=prime)
@@ -97,11 +97,11 @@ class NextHopSet(LinkedSet):
         try:
             super(NextHopSet, self).remove(key)
         except KeyError as e:
-            r = key._required
-            l = key._fields
-            skey = key[:r] + (None, ) * (len(l) - r)
+            req = key._required
+            fields = key._fields
+            skey = key[:req] + (None, ) * (len(fields) - req)
             for rkey in tuple(self.raw.keys()):
-                if skey == rkey[:r] + (None, ) * (len(l) - r):
+                if skey == rkey[:req] + (None, ) * (len(fields) - req):
                     break
             else:
                 raise e

@@ -179,9 +179,8 @@ class IPRouteRequest(IPRequest):
                 if key not in ['in', 'out', 'xmit']:
                     continue
 
-                obj = [
-                        ['LWT_BPF_PROG_FD', value['fd']],
-                        ['LWT_BPF_PROG_NAME', value['name']]]
+                obj = [['LWT_BPF_PROG_FD', value['fd']],
+                       ['LWT_BPF_PROG_NAME', value['name']]]
                 if key == 'in':
                     attrs['LWT_BPF_IN'] = {'attrs': obj}
                 elif key == 'out':
@@ -292,8 +291,8 @@ class IPRouteRequest(IPRequest):
                                                      value['type']))
                     dict.__setitem__(self, 'encap',
                                      self.encap_header(value))
-                elif 'type' in value and ('in' in value or 'out' in value
-                                          or 'xmit' in value):
+                elif 'type' in value and ('in' in value or 'out' in value or
+                                          'xmit' in value):
                     dict.__setitem__(self, 'encap_type',
                                      encap_types.get(value['type'],
                                                      value['type']))

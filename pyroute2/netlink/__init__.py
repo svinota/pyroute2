@@ -903,7 +903,7 @@ class nlmsg_base(dict):
             # If the key exists, the statement after the first `or` is not
             # executed.
             if self.is_nla:
-                key = tuple(self.data[offset:offset+4])
+                key = tuple(self.data[offset:offset + 4])
                 self['header'] = cache_hdr.get(key, None) or \
                     (cache_hdr
                      .__setitem__(key,
@@ -1416,7 +1416,7 @@ class nla_slot(object):
         if self.try_to_decode():
             return cell.getvalue()
         else:
-            return cell.data[cell.offset:cell.offset+cell.length]
+            return cell.data[cell.offset:cell.offset + cell.length]
 
     def get_flags(self):
         if self.try_to_decode():
@@ -1663,7 +1663,8 @@ class nlmsg_atoms(nlmsg_base):
             elif family == AF_MPLS:
                 self.value = []
                 for i in range(len(self['value']) // 4):
-                    label = struct.unpack('>I', self['value'][i*4:i*4+4])[0]
+                    label = struct.unpack('>I',
+                                          self['value'][i * 4:i * 4 + 4])[0]
                     record = {'label': (label & 0xFFFFF000) >> 12,
                               'tc': (label & 0x00000E00) >> 9,
                               'bos': (label & 0x00000100) >> 8,

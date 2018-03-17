@@ -90,7 +90,7 @@ def percent2u32(pct):
     '''xlate a percentage to an uint32 value
     0% -> 0
     100% -> 2**32 - 1'''
-    return int((2**32 - 1)*pct/100)
+    return int((2 ** 32 - 1) * pct / 100)
 
 
 def red_eval_ewma(qmin, burst, avpkt):

@@ -448,7 +448,7 @@ class nl80211cmd(genlmsg):
 
                 init = offset = self.offset + 4
 
-                while (offset-init) < (self.length-4):
+                while (offset - init) < (self.length - 4):
                     (msg_type, length) = struct.unpack_from('BB',
                                                             self.data,
                                                             offset)

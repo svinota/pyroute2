@@ -58,7 +58,7 @@ class ifaddrmsg(nlmsg):
               ('scope', 'B'),
               ('index', 'I'))
 
-    nla_map = (('IFA_UNSPEC',  'hex'),
+    nla_map = (('IFA_UNSPEC', 'hex'),
                ('IFA_ADDRESS', 'ipaddr'),
                ('IFA_LOCAL', 'ipaddr'),
                ('IFA_LABEL', 'asciiz'),

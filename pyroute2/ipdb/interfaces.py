@@ -1182,7 +1182,7 @@ class InterfacesDict(Dotkeys):
                     if key[-4:] == 'link':
                         if isinstance(kwarg[key], Interface):
                             kwarg[key] = kwarg[key].get('index') or \
-                                    kwarg[key].get('ifname')
+                                kwarg[key].get('ifname')
                         if not isinstance(kwarg[key], int):
                             device._deferred_link = (key, kwarg[key])
                 device._mode = self.ipdb.mode

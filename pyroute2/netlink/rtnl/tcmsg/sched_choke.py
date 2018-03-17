@@ -66,7 +66,7 @@ def get_parameters(kwarg):
         raise Exception('min is not smaller than max')
 
     # Wlog
-    opt['Wlog'] = red_eval_ewma(opt['qth_min']*avpkt,
+    opt['Wlog'] = red_eval_ewma(opt['qth_min'] * avpkt,
                                 burst,
                                 avpkt)
     if opt['Wlog'] < 0:
@@ -74,8 +74,8 @@ def get_parameters(kwarg):
     elif opt['Wlog'] > 10:
         log.warning('choke: burst %s seems to be too large' % burst)
     # Plog
-    opt['Plog'] = red_eval_P(opt['qth_min']*avpkt,
-                             opt['qth_max']*avpkt,
+    opt['Plog'] = red_eval_P(opt['qth_min'] * avpkt,
+                             opt['qth_max'] * avpkt,
                              probability)
     if opt['Plog'] < 0:
         raise Exception('choke: failed to calculate probability')

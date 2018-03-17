@@ -37,5 +37,5 @@ while offset < len(data):
     msg.decode()
     print(hexdump(msg.data))
     pprint(msg)
-    print('.'*40)
+    print('.' * 40)
     offset += msg['header']['length']

@@ -38,7 +38,7 @@ class nft_chain_msg(nfgen_msg):
                ('NFTA_CHAIN_NAME', 'asciiz'),
                ('NFTA_CHAIN_HOOK', 'hook'),
                ('NFTA_CHAIN_POLICY', 'be32'),
-               ('NFTA_CHAIN_USE',  'be32'),
+               ('NFTA_CHAIN_USE', 'be32'),
                ('NFTA_CHAIN_TYPE', 'asciiz'),
                ('NFTA_CHAIN_COUNTERS', 'counters'))
 

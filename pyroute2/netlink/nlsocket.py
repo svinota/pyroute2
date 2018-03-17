@@ -160,7 +160,7 @@ class Marshal(object):
                                            data,
                                            offset + self.type_offset)
             if msg_type == NLMSG_ERROR:
-                code = abs(struct.unpack_from('i', data, offset+16)[0])
+                code = abs(struct.unpack_from('i', data, offset + 16)[0])
                 if code > 0:
                     error = NetlinkError(code)
 
@@ -172,9 +172,9 @@ class Marshal(object):
                 msg['header']['error'] = error
                 # try to decode encapsulated error message
                 if error is not None:
-                    enc_type = struct.unpack_from('H', data, offset+24)[0]
+                    enc_type = struct.unpack_from('H', data, offset + 24)[0]
                     enc_class = self.msg_map.get(enc_type, nlmsg)
-                    enc = enc_class(data, offset=offset+20)
+                    enc = enc_class(data, offset=offset + 20)
                     enc.decode()
                     msg['header']['errmsg'] = enc
                 if callback and seq == msg['header']['sequence_number']:

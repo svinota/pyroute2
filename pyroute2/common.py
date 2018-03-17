@@ -261,16 +261,16 @@ def getbroadcast(addr, mask, family=socket.AF_INET):
     if family == socket.AF_INET:
         i = struct.unpack('>I', i)[0]
         a = 0xffffffff
-        l = 32
+        length = 32
     elif family == socket.AF_INET6:
         i = struct.unpack('>QQ', i)
         i = i[0] << 64 | i[1]
         a = 0xffffffffffffffffffffffffffffffff
-        l = 128
+        length = 128
     else:
         raise NotImplementedError('family not supported')
     # 2. calculate mask
-    m = (a << l - mask) & a
+    m = (a << length - mask) & a
     # 3. calculate default broadcast
     n = (i & m) | a >> mask
     # 4. convert it back to the normal address form
@@ -338,7 +338,7 @@ def load_dump(f, meta=None):
             if a[offset] in (' ', '\t', '\n'):
                 offset += 1
             elif a[offset] == '#':
-                if a[offset:offset+2] == '#!':
+                if a[offset:offset + 2] == '#!':
                     # read and save the code block;
                     # do not parse it here
                     code = ''
@@ -347,11 +347,11 @@ def load_dump(f, meta=None):
                 return data
             elif a[offset] == '\\':
                 # strace hex format
-                data += chr(int(a[offset+2:offset+4], 16))
+                data += chr(int(a[offset + 2:offset + 4], 16))
                 offset += 4
             else:
                 # pyroute2 hex format
-                data += chr(int(a[offset:offset+2], 16))
+                data += chr(int(a[offset:offset + 2], 16))
                 offset += 3
 
     if isinstance(meta, dict):

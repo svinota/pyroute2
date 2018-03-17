@@ -17,10 +17,10 @@ class TestDiag(object):
                 sstats_set.add(s['udiag_ino'])
 
         with open('/proc/net/unix') as fd:
-            for l in fd.readlines():
-                l = l.split()
-                if l[0][:2] != 'ff':
+            for line in fd.readlines():
+                line = line.split()
+                if line[0][:2] != 'ff':
                     continue
-                pstats_set.add(int(l[6]))
+                pstats_set.add(int(line[6]))
 
         assert sstats_set == pstats_set

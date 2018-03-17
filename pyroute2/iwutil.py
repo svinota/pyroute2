@@ -246,10 +246,7 @@ class IW(NL80211):
         return 'phy%i' % attr.get_attr('NL80211_ATTR_WIPHY')
 
     def _get_frequency(self, attr):
-        try:
-            return attr.get_attr('NL80211_ATTR_WIPHY_FREQ')
-        except:
-            return 0
+        return attr.get_attr('NL80211_ATTR_WIPHY_FREQ') or 0
 
     def get_interfaces_dict(self):
         '''

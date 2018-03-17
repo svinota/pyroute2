@@ -648,10 +648,10 @@ class TestExplicit(BasicSetup):
         assert not r.get_attr('RTA_VIA')
         mp = r.get_attr('RTA_MULTIPATH')
         assert len(mp) == 2
-        l = [50, 60]
+        labels = [50, 60]
         for r in mp:
-            l.remove(r.get_attr('RTA_NEWDST')[0]['label'])
-        assert len(l) == 0
+            labels.remove(r.get_attr('RTA_NEWDST')[0]['label'])
+        assert len(labels) == 0
 
         with self.ip.routes.tables['mpls'][20] as r:
             r.del_nh({'via': {'family': socket.AF_INET, 'addr': '127.0.0.2'},
