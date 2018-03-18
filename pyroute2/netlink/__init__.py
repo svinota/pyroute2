@@ -1739,7 +1739,7 @@ class nlmsg_atoms(nlmsg_base):
 
         def encode(self):
             fmt = '%s%i%s' % (self.fmt[:-1], len(self.value), self.fmt[-1:])
-            self['value'] = struct.pack(fmt, self.value)
+            self['value'] = struct.pack(fmt, *self.value)
             nla_base.encode(self)
 
         def decode(self):
