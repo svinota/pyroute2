@@ -66,14 +66,13 @@ class unix_diag_msg(nlmsg):
               ('udiag_ino', 'I'),
               ('udiag_cookie', 'Q'))
 
-    nla_map = (('UNIX_DIAG_NONE', 'none'),
-               ('UNIX_DIAG_NAME', 'hex'),
+    nla_map = (('UNIX_DIAG_NAME', 'asciiz'),
                ('UNIX_DIAG_VFS', 'hex'),
-               ('UNIX_DIAG_PEER', 'hex'),
+               ('UNIX_DIAG_PEER', 'uint32'),
                ('UNIX_DIAG_ICONS', 'hex'),
                ('UNIX_DIAG_RQLEN', 'hex'),
                ('UNIX_DIAG_MEMINFO', 'hex'),
-               ('UNIX_DIAG_SHUTDOWN', 'hex'))
+               ('UNIX_DIAG_SHUTDOWN', 'uint8'))
 
 
 class MarshalDiag(Marshal):
