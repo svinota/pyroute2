@@ -4,6 +4,7 @@ from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
+from pyroute2.netlink.rtnl.nsidmsg import nsidmsg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
@@ -37,7 +38,10 @@ class MarshalRtnl(Marshal):
                rtnl.RTM_GETTFILTER: tcmsg,
                rtnl.RTM_NEWNEIGHTBL: ndtmsg,
                rtnl.RTM_GETNEIGHTBL: ndtmsg,
-               rtnl.RTM_SETNEIGHTBL: ndtmsg}
+               rtnl.RTM_SETNEIGHTBL: ndtmsg,
+               rtnl.RTM_NEWNSID: nsidmsg,
+               rtnl.RTM_DELNSID: nsidmsg,
+               rtnl.RTM_GETNSID: nsidmsg}
 
     def fix_message(self, msg):
         # FIXME: pls do something with it
