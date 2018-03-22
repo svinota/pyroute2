@@ -1,5 +1,6 @@
 from socket import AF_UNIX
 from pyroute2.netlink import nlmsg
+from pyroute2.netlink import nla
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_ROOT
 from pyroute2.netlink import NLM_F_MATCH
@@ -67,12 +68,20 @@ class unix_diag_msg(nlmsg):
               ('udiag_cookie', 'Q'))
 
     nla_map = (('UNIX_DIAG_NAME', 'asciiz'),
-               ('UNIX_DIAG_VFS', 'hex'),
+               ('UNIX_DIAG_VFS', 'unix_diag_vfs'),
                ('UNIX_DIAG_PEER', 'uint32'),
                ('UNIX_DIAG_ICONS', 'hex'),
-               ('UNIX_DIAG_RQLEN', 'hex'),
+               ('UNIX_DIAG_RQLEN', 'unix_diag_rqlen'),
                ('UNIX_DIAG_MEMINFO', 'hex'),
                ('UNIX_DIAG_SHUTDOWN', 'uint8'))
+
+    class unix_diag_vfs(nla):
+        fields = (('udiag_vfs_ino', 'I'),
+                  ('udiag_vfs_dev', 'I'))
+
+    class unix_diag_rqlen(nla):
+        fields = (('udiag_rqueue', 'I'),
+                  ('udiag_wqueue', 'I'))
 
 
 class MarshalDiag(Marshal):
