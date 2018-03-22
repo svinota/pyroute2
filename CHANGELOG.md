@@ -1,6 +1,19 @@
 changelog
 =========
 
+* 0.5.0
+    * ACHTUNG: ipdb commit logic is changed
+    * ipdb: do not drop failed transactions
+    * ipdb: #388 -- normalize IPv6 addresses
+    * ipdb: #391 -- support both IPv4 and IPv6 default routes
+    * ipdb: #392 -- fix MPLS route key reference
+    * ipdb: #394 -- correctly work with route priorities
+    * ipdb: #408 -- fix IPv6 routes in tables >= 256
+    * ipdb: #416 -- fix VRF interfaces creation
+    * ipset: multiple improvements
+    * tuntap: #469 -- support s390x arch
+    * nlsocket: #443 -- fix socket methods resolve order for Python2
+    * netns: non-destructive `netns.create()`
 * 0.4.18
     * ipdb: #379 [critical] -- routes in global commits
     * ipdb: #380 -- global commit with disabled plugins
