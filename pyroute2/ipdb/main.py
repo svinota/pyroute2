@@ -711,7 +711,7 @@ from pyroute2 import config
 from pyroute2.common import uuid32
 from pyroute2.common import basestring
 from pyroute2.iproute import IPRoute
-from pyroute2.netlink.rtnl import RTM_GETLINK, RTNL_GROUPS
+from pyroute2.netlink.rtnl import RTM_GETLINK, RTMGRP_DEFAULTS
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.ipdb import rules
 from pyroute2.ipdb import routes
@@ -764,7 +764,7 @@ class IPDB(object):
 
     def __init__(self, nl=None, mode='implicit',
                  restart_on_error=None, nl_async=None,
-                 nl_bind_groups=RTNL_GROUPS,
+                 nl_bind_groups=RTMGRP_DEFAULTS,
                  ignore_rtables=None, callbacks=None,
                  sort_addresses=False, plugins=None):
         plugins = plugins or ['interfaces', 'routes', 'rules']

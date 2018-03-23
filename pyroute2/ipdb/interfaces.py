@@ -41,10 +41,10 @@ supported_kinds = ('bridge',
                    'ipvlan',
                    'vrf')
 
-groups = rtnl.RTNLGRP_LINK |\
-    rtnl.RTNLGRP_NEIGH |\
-    rtnl.RTNLGRP_IPV4_IFADDR |\
-    rtnl.RTNLGRP_IPV6_IFADDR
+groups = rtnl.RTMGRP_LINK |\
+    rtnl.RTMGRP_NEIGH |\
+    rtnl.RTMGRP_IPV4_IFADDR |\
+    rtnl.RTMGRP_IPV6_IFADDR
 
 
 def _get_data_fields():

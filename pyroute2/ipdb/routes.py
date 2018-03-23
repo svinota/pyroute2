@@ -28,9 +28,9 @@ from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 from pyroute2.ipdb.linkedset import LinkedSet
 
 log = logging.getLogger(__name__)
-groups = rtnl.RTNLGRP_IPV4_ROUTE |\
-    rtnl.RTNLGRP_IPV6_ROUTE |\
-    rtnl.RTNLGRP_MPLS_ROUTE
+groups = rtnl.RTMGRP_IPV4_ROUTE |\
+    rtnl.RTMGRP_IPV6_ROUTE |\
+    rtnl.RTMGRP_MPLS_ROUTE
 IP6_RT_PRIO_USER = 1024
 
 
