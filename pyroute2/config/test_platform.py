@@ -9,7 +9,7 @@ import threading
 from pyroute2 import config
 from pyroute2.common import uifname
 from pyroute2 import RawIPRoute
-from pyroute2.netlink.rtnl import RTNLGRP_LINK
+from pyroute2.netlink.rtnl import RTMGRP_LINK
 
 
 class SkipTest(Exception):
@@ -90,7 +90,7 @@ class TestCapsRtnl(object):
 
         # use a separate socket for monitoring
         ip = RawIPRoute()
-        ip.bind(RTNLGRP_LINK)
+        ip.bind(RTMGRP_LINK)
         poll = select.poll()
         poll.register(ip, select.POLLIN | select.POLLPRI)
         poll.register(self.cmd, select.POLLIN | select.POLLPRI)

@@ -11,8 +11,8 @@ from pyroute2.ipdb.exceptions import CommitException
 from pyroute2.ipdb.transactional import Transactional
 
 log = logging.getLogger(__name__)
-groups = rtnl.RTNLGRP_IPV4_RULE |\
-    rtnl.RTNLGRP_IPV6_RULE
+groups = rtnl.RTMGRP_IPV4_RULE |\
+    rtnl.RTMGRP_IPV6_RULE
 
 
 RuleKey = namedtuple('RuleKey',

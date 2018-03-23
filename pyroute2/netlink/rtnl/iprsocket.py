@@ -46,7 +46,7 @@ class IPRSocketMixin(object):
     def clone(self):
         return type(self)()
 
-    def bind(self, groups=rtnl.RTNL_GROUPS, async=False):
+    def bind(self, groups=rtnl.RTMGRP_DEFAULTS, async=False):
         super(IPRSocketMixin, self).bind(groups, async=async)
 
     def _gate(self, msg, addr):
