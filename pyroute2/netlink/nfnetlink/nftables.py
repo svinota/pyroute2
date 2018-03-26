@@ -1,5 +1,7 @@
+import threading
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
+from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NETLINK_NETFILTER
 from pyroute2.netlink import nla
 from pyroute2.netlink.nlsocket import NetlinkSocket
@@ -32,6 +34,7 @@ class nft_gen_msg(nfgen_msg):
 
 
 class nft_chain_msg(nfgen_msg):
+    prefix = 'NFTA_CHAIN_'
     nla_map = (('NFTA_CHAIN_UNSPEC', 'none'),
                ('NFTA_CHAIN_TABLE', 'asciiz'),
                ('NFTA_CHAIN_HANDLE', 'be64'),
@@ -318,6 +321,7 @@ class nft_set_msg(nfgen_msg):
 
 
 class nft_table_msg(nfgen_msg):
+    prefix = 'NFTA_TABLE_'
     nla_map = (('NFTA_TABLE_UNSPEC', 'none'),
                ('NFTA_TABLE_NAME', 'asciiz'),
                ('NFTA_TABLE_FLAGS', 'be32'),
@@ -353,10 +357,49 @@ class NFTSocket(NetlinkSocket):
         self._proto_version = version
         self._attr_revision = attr_revision
         self._nfgen_family = nfgen_family
+        self._ts = threading.local()
+        self._write_lock = threading.RLock()
+
+    def begin(self):
+        with self._write_lock:
+            if hasattr(self._ts, 'data'):
+                # transaction is already started
+                return False
+
+            self._ts.data = b''
+            self._ts.seqnum = (self.addr_pool.alloc(),  # begin
+                               self.addr_pool.alloc(),  # tx
+                               self.addr_pool.alloc())  # commit
+            msg = nfgen_msg()
+            msg['res_id'] = NFNL_SUBSYS_NFTABLES
+            msg['header']['type'] = 0x10
+            msg['header']['flags'] = NLM_F_REQUEST
+            msg['header']['sequence_number'] = self._ts.seqnum[0]
+            msg.encode()
+            self._ts.data += msg.data
+            return True
+
+    def commit(self):
+        with self._write_lock:
+            msg = nfgen_msg()
+            msg['res_id'] = NFNL_SUBSYS_NFTABLES
+            msg['header']['type'] = 0x11
+            msg['header']['flags'] = NLM_F_REQUEST
+            msg['header']['sequence_number'] = self._ts.seqnum[2]
+            msg.encode()
+            self._ts.data += msg.data
+            self.sendto(self._ts.data, (0, 0))
+            for seqnum in self._ts.seqnum:
+                self.addr_pool.free(seqnum, ban=10)
+            del self._ts.data
 
     def request(self, msg, msg_type,
                 msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                 terminate=None):
+        '''
+        Read-only requests do not require transactions. Just run
+        the request and get an answer.
+        '''
         msg['nfgen_family'] = self._nfgen_family
         return self.nlm_request(msg,
                                 msg_type | (NFNL_SUBSYS_NFTABLES << 8),
@@ -373,3 +416,68 @@ class NFTSocket(NetlinkSocket):
 
     def get_sets(self):
         return self.request(nfgen_msg(), NFT_MSG_GETSET)
+
+    #
+    # The nft API is in the prototype stage and may be
+    # changed until the release. The planned release for
+    # the API is 0.5.2
+    #
+    def table(self, cmd, **kwarg):
+        commands = {'add': NFT_MSG_NEWTABLE,
+                    'del': NFT_MSG_DELTABLE}
+        cmd = commands[cmd]
+
+        # fix default kwargs
+        if 'flags' not in kwarg:
+            kwarg['flags'] = 0
+
+        one_shot = self.begin()
+        msg = nft_table_msg()
+        msg['header']['type'] = (NFNL_SUBSYS_NFTABLES << 8) | cmd
+        msg['header']['flags'] = NLM_F_REQUEST
+        msg['header']['sequence_number'] = self._ts.seqnum[1]
+        msg['nfgen_family'] = self._nfgen_family
+        msg['attrs'] = []
+        for key in kwarg:
+            nla = nft_table_msg.name2nla(key)
+            msg['attrs'].append([nla, kwarg[key]])
+
+        msg.encode()
+        self._ts.data += msg.data
+        if one_shot:
+            self.commit()
+
+    def chain(self, cmd, **kwarg):
+        commands = {'add': NFT_MSG_NEWCHAIN,
+                    'del': NFT_MSG_DELCHAIN}
+        hooks = {'input': 1,
+                 'forward': 2,
+                 'output': 3}
+        cmd = commands[cmd]
+
+        if 'type' not in kwarg:
+            kwarg['type'] = 'filter'
+
+        # FIXME
+        # 1. merge the common logic in the methods
+        # 2. use request filters like in IPRoute to transform the kwarg
+        #
+        one_shot = self.begin()
+        msg = nft_chain_msg()
+        msg['header']['type'] = (NFNL_SUBSYS_NFTABLES << 8) | cmd
+        msg['header']['flags'] = NLM_F_REQUEST | NLM_F_CREATE
+        msg['header']['sequence_number'] = self._ts.seqnum[1]
+        msg['nfgen_family'] = self._nfgen_family
+        msg['attrs'] = []
+        for key in kwarg:
+            if key == 'hook':
+                kwarg[key] = {'attrs':
+                              [['NFTA_HOOK_HOOKNUM', hooks[kwarg[key]]],
+                               ['NFTA_HOOK_PRIORITY', 0]]}
+            nla = nft_chain_msg.name2nla(key)
+            msg['attrs'].append([nla, kwarg[key]])
+
+        msg.encode()
+        self._ts.data += msg.data
+        if one_shot:
+            self.commit()
