@@ -103,6 +103,8 @@ from pyroute2.netlink import nlmsg
 from pyroute2.netlink import mtypes
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLMSG_DONE
+from pyroute2.netlink import NETLINK_ADD_MEMBERSHIP
+from pyroute2.netlink import NETLINK_DROP_MEMBERSHIP
 from pyroute2.netlink import NETLINK_GENERIC
 from pyroute2.netlink import NETLINK_LISTEN_ALL_NSID
 from pyroute2.netlink import NLM_F_DUMP
@@ -981,6 +983,12 @@ class NetlinkSocket(NetlinkMixin):
                                             target=self.async_recv)
             self.pthread.setDaemon(True)
             self.pthread.start()
+
+    def add_membership(self, group):
+        self.setsockopt(SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, group)
+
+    def drop_membership(self, group):
+        self.setsockopt(SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, group)
 
     def close(self):
         '''

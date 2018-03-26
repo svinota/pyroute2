@@ -32,6 +32,12 @@ SS_CONN = (SS_ALL & ~((1 << SS_LISTEN) |
                       (1 << SS_TIME_WAIT) |
                       (1 << SS_SYN_RECV)))
 
+# multicast groups ids (for use with {add,drop}_membership)
+SKNLGRP_NONE = 0
+SKNLGRP_INET_TCP_DESTROY = 1
+SKNLGRP_INET_UDP_DESTROY = 2
+SKNLGRP_INET6_TCP_DESTROY = 3
+SKNLGRP_INET6_UDP_DESTROY = 4
 
 class sock_diag_req(nlmsg):
 
