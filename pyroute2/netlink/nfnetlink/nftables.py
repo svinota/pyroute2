@@ -96,7 +96,7 @@ class nft_regs(nla):
 
 
 class nft_data(nla):
-    class data(nla):
+    class nfta_data(nla):
         nla_map = (('NFTA_DATA_UNSPEC', 'none'),
                    ('NFTA_DATA_VALUE', 'cdata'),
                    ('NFTA_DATA_VERDICT', 'verdict'))
@@ -127,8 +127,8 @@ class nft_rule_msg(nfgen_msg):
                        ('NFTA_BITWISE_SREG', 'regs'),
                        ('NFTA_BITWISE_DREG', 'regs'),
                        ('NFTA_BITWISE_LEN', 'be32'),
-                       ('NFTA_BITWISE_MASK', 'data'),
-                       ('NFTA_BITWISE_XOR', 'data'))
+                       ('NFTA_BITWISE_MASK', 'nfta_data'),
+                       ('NFTA_BITWISE_XOR', 'nfta_data'))
 
         class nft_byteorder(nft_regs):
             nla_map = (('NFTA_BYTEORDER_UNSPEC', 'none'),
@@ -146,7 +146,7 @@ class nft_rule_msg(nfgen_msg):
             nla_map = (('NFTA_CMP_UNSPEC', 'none'),
                        ('NFTA_CMP_SREG', 'regs'),
                        ('NFTA_CMP_OP', 'ops'),
-                       ('NFTA_CMP_DATA', 'data'))
+                       ('NFTA_CMP_DATA', 'nfta_data'))
 
             class ops(nft_map_be32):
                 ops = {0: 'NFT_CMP_EQ',
@@ -196,7 +196,7 @@ class nft_rule_msg(nfgen_msg):
         class nft_immediate(nft_data, nft_regs):
             nla_map = (('NFTA_IMMEDIATE_UNSPEC', 'none'),
                        ('NFTA_IMMEDIATE_DREG', 'regs'),
-                       ('NFTA_IMMEDIATE_DATA', 'data'))
+                       ('NFTA_IMMEDIATE_DATA', 'nfta_data'))
 
         class nft_limit(nla):
             nla_map = (('NFTA_LIMIT_UNSPEC', 'none'),
