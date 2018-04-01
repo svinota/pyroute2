@@ -113,6 +113,26 @@ class inet_diag_msg(inet_addr_codec):
               ('idiag_uid', 'I'),
               ('idiag_inode', 'I'))
 
+    nla_map = (('INET_DIAG_NONE', 'none'),
+               ('INET_DIAG_MEMINFO', 'hex'),
+               ('INET_DIAG_INFO', 'hex'),
+               ('INET_DIAG_VEGASINFO', 'hex'),
+               ('INET_DIAG_CONG', 'asciiz'),
+               ('INET_DIAG_TOS', 'hex'),
+               ('INET_DIAG_TCLASS', 'hex'),
+               ('INET_DIAG_SKMEMINFO', 'hex'),
+               ('INET_DIAG_SHUTDOWN', 'uint8'),
+               ('INET_DIAG_DCTCPINFO', 'hex'),
+               ('INET_DIAG_PROTOCOL', 'hex'),
+               ('INET_DIAG_SKV6ONLY', 'hex'),
+               ('INET_DIAG_LOCALS', 'hex'),
+               ('INET_DIAG_PEERS', 'hex'),
+               ('INET_DIAG_PAD', 'hex'),
+               ('INET_DIAG_MARK', 'hex'),
+               ('INET_DIAG_BBRINFO', 'hex'),
+               ('INET_DIAG_CLASS_ID', 'hex'),
+               ('INET_DIAG_MD5SIG', 'hex'))
+
 
 class unix_diag_req(nlmsg):
 
@@ -186,12 +206,16 @@ class DiagSocket(NetlinkSocket):
                        family=AF_UNIX,
                        states=SS_ALL,
                        protocol=IPPROTO_TCP,
+                       extensions=0,
                        show=(UDIAG_SHOW_NAME |
                              UDIAG_SHOW_VFS |
                              UDIAG_SHOW_PEER |
                              UDIAG_SHOW_ICONS)):
         '''
         Get sockets statistics.
+
+        ACHTUNG: the get_sock_stats() signature will be changed
+        before the next release, this one is a WIP-code!
         '''
 
         if family == AF_UNIX:
@@ -202,6 +226,7 @@ class DiagSocket(NetlinkSocket):
             req = inet_diag_req()
             req['idiag_states'] = states
             req['sdiag_protocol'] = protocol
+            req['idiag_ext'] = extensions
         else:
             raise NotImplementedError()
         req['sdiag_family'] = family
