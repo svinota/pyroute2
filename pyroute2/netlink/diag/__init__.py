@@ -1,4 +1,8 @@
+from struct import pack
+from socket import inet_ntop
 from socket import AF_UNIX
+from socket import AF_INET
+from socket import IPPROTO_TCP
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
 from pyroute2.netlink import NLM_F_REQUEST
@@ -54,6 +58,62 @@ UDIAG_SHOW_RQLEN = 0x10
 UDIAG_SHOW_MEMINFO = 0x20
 
 
+class inet_addr_codec(nlmsg):
+
+    def encode(self):
+        # FIXME: add human-friendly API to specify IP addresses as str
+        # (see also decode())
+        if self['idiag_src'] == 0:
+            self['idiag_src'] = (0, 0, 0, 0)
+        if self['idiag_dst'] == 0:
+            self['idiag_dst'] = (0, 0, 0, 0)
+        nlmsg.encode(self)
+
+    def decode(self):
+        nlmsg.decode(self)
+        if self[self.ffname] == AF_INET:
+            self['idiag_dst'] = inet_ntop(AF_INET,
+                                          pack('>I', self['idiag_dst'][0]))
+            self['idiag_src'] = inet_ntop(AF_INET,
+                                          pack('>I', self['idiag_src'][0]))
+
+
+class inet_diag_req(inet_addr_codec):
+
+    ffname = 'sdiag_family'
+    fields = (('sdiag_family', 'B'),
+              ('sdiag_protocol', 'B'),
+              ('idiag_ext', 'B'),
+              ('__pad', 'B'),
+              ('idiag_states', 'I'),
+              ('idiag_sport', '>H'),
+              ('idiag_dport', '>H'),
+              ('idiag_src', '>4I'),
+              ('idiag_dst', '>4I'),
+              ('idiag_if', 'I'),
+              ('idiag_cookie', 'Q'))
+
+
+class inet_diag_msg(inet_addr_codec):
+
+    ffname = 'idiag_family'
+    fields = (('idiag_family', 'B'),
+              ('idiag_state', 'B'),
+              ('idiag_timer', 'B'),
+              ('idiag_retrans', 'B'),
+              ('idiag_sport', '>H'),
+              ('idiag_dport', '>H'),
+              ('idiag_src', '>4I'),
+              ('idiag_dst', '>4I'),
+              ('idiag_if', 'I'),
+              ('idiag_cookie', 'Q'),
+              ('idiag_expires', 'I'),
+              ('idiag_rqueue', 'I'),
+              ('idiag_wqueue', 'I'),
+              ('idiag_uid', 'I'),
+              ('idiag_inode', 'I'))
+
+
 class unix_diag_req(nlmsg):
 
     fields = (('sdiag_family', 'B'),
@@ -99,7 +159,12 @@ class MarshalDiag(Marshal):
     # Please notice that the SOCK_DIAG Marshal
     # uses not the nlmsg type, but sdiag_family
     # to choose the proper class
-    msg_map = {AF_UNIX: unix_diag_msg}
+    msg_map = {AF_UNIX: unix_diag_msg,
+               AF_INET: inet_diag_msg}
+    # error type NLMSG_ERROR == 2 == AF_INET,
+    # it doesn't work for DiagSocket that way,
+    # so disable the error messages for now
+    error_type = -1
 
 
 class DiagSocket(NetlinkSocket):
@@ -120,6 +185,7 @@ class DiagSocket(NetlinkSocket):
     def get_sock_stats(self,
                        family=AF_UNIX,
                        states=SS_ALL,
+                       protocol=IPPROTO_TCP,
                        show=(UDIAG_SHOW_NAME |
                              UDIAG_SHOW_VFS |
                              UDIAG_SHOW_PEER |
@@ -130,11 +196,15 @@ class DiagSocket(NetlinkSocket):
 
         if family == AF_UNIX:
             req = unix_diag_req()
+            req['udiag_states'] = states
+            req['udiag_show'] = show
+        elif family == AF_INET:
+            req = inet_diag_req()
+            req['idiag_states'] = states
+            req['sdiag_protocol'] = protocol
         else:
             raise NotImplementedError()
         req['sdiag_family'] = family
-        req['udiag_states'] = states
-        req['udiag_show'] = show
 
         return self.nlm_request(req, SOCK_DIAG_BY_FAMILY,
                                 NLM_F_REQUEST | NLM_F_ROOT | NLM_F_MATCH)

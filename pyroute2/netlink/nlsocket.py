@@ -131,6 +131,7 @@ class Marshal(object):
     msg_map = {}
     type_offset = 4
     type_format = 'H'
+    error_type = NLMSG_ERROR
     debug = False
 
     def __init__(self):
@@ -161,7 +162,7 @@ class Marshal(object):
             msg_type, = struct.unpack_from(self.type_format,
                                            data,
                                            offset + self.type_offset)
-            if msg_type == NLMSG_ERROR:
+            if msg_type == self.error_type:
                 code = abs(struct.unpack_from('i', data, offset + 16)[0])
                 if code > 0:
                     error = NetlinkError(code)
