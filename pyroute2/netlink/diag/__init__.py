@@ -115,7 +115,8 @@ class inet_diag_msg(inet_addr_codec):
 
     nla_map = (('INET_DIAG_NONE', 'none'),
                ('INET_DIAG_MEMINFO', 'hex'),
-               ('INET_DIAG_INFO', 'hex'),
+               # FIXME: must be protocol specific?
+               ('INET_DIAG_INFO', 'tcp_info'),
                ('INET_DIAG_VEGASINFO', 'hex'),
                ('INET_DIAG_CONG', 'asciiz'),
                ('INET_DIAG_TOS', 'hex'),
@@ -132,6 +133,39 @@ class inet_diag_msg(inet_addr_codec):
                ('INET_DIAG_BBRINFO', 'hex'),
                ('INET_DIAG_CLASS_ID', 'hex'),
                ('INET_DIAG_MD5SIG', 'hex'))
+
+    class tcp_info(nla):
+        fields = (('tcpi_state', 'B'),
+                  ('tcpi_ca_state', 'B'),
+                  ('tcpi_retransmits', 'B'),
+                  ('tcpi_probes', 'B'),
+                  ('tcpi_backoff', 'B'),
+                  ('tcpi_options', 'B'),
+                  ('tcpi_wscale', 'B'),
+                  ('tcpi_rto', 'I'),
+                  ('tcpi_ato', 'I'),
+                  ('tcpi_snd_mss', 'I'),
+                  ('tcpi_rcv_mss', 'I'),
+                  ('tcpi_unacked', 'I'),
+                  ('tcpi_sacked', 'I'),
+                  ('tcpi_lost', 'I'),
+                  ('tcpi_retrans', 'I'),
+                  ('tcpi_fackets', 'I'),
+                  ('tcpi_last_data_sent', 'I'),
+                  ('tcpi_last_ack_sent', 'I'),
+                  ('tcpi_last_data_recv', 'I'),
+                  ('tcpi_last_ack_recv', 'I'),
+                  ('tcpi_pmtu', 'I'),
+                  ('tcpi_rcv_ssthresh', 'I'),
+                  ('tcpi_rtt', 'I'),
+                  ('tcpi_rttvar', 'I'),
+                  ('tcpi_snd_ssthresh', 'I'),
+                  ('tcpi_snd_cwnd', 'I'),
+                  ('tcpi_advmss', 'I'),
+                  ('tcpi_reordering', 'I'),
+                  ('tcpi_rcv_rtt', 'I'),
+                  ('tcpi_rcv_space', 'I'),
+                  ('tcpiotal_retrans', 'I'))
 
 
 class unix_diag_req(nlmsg):
