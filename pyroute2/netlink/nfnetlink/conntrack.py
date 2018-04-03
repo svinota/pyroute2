@@ -36,6 +36,16 @@ IP_CT_TCP_FLAG_DATA_UNACKNOWLEDGED = 0x10
 # The field td_maxack has been set
 IP_CT_TCP_FLAG_MAXACK_SET = 0x20
 
+def terminate_single_msg(msg):
+    return msg
+
+
+class nfct_stats(nfgen_msg):
+    nla_map = (
+        ('CTA_STATS_GLOBAL_UNSPEC', 'none'),
+        ('CTA_STATS_GLOBAL_ENTRIES', 'be32'),
+    )
+
 
 def terminate_single_msg(msg):
     return msg
