@@ -35,6 +35,7 @@ from pyroute2.netlink.ipq import IPQSocket
 from pyroute2.netlink.diag import DiagSocket
 from pyroute2.netlink.generic import GenericNetlinkSocket
 from pyroute2.netlink.nfnetlink.nftables import NFTSocket
+from pyroute2.netlink.nfnetlink.conntrack import NFCTSocket
 #
 # The Console class is a bit special, it tries to engage
 # modules from stdlib, that are sometimes stripped. Some
@@ -98,7 +99,8 @@ classes = [IPRouteRequest,
            IPQSocket,
            DiagSocket,
            GenericNetlinkSocket,
-           NFTSocket]
+           NFTSocket,
+           NFCTSocket]
 
 if HAS_CONSOLE:
     classes.append(Console)
