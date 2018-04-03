@@ -600,6 +600,7 @@ class NetlinkMixin(object):
                 bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
 
             ret = []
+            tmsg = None
             enough = False
             backlog_acquired = False
             try:
@@ -653,8 +654,11 @@ class NetlinkMixin(object):
 
                             # If it is the terminator message, say "enough"
                             # and requeue all the rest into Zero queue
-                            if (msg['header']['type'] == NLMSG_DONE) or \
-                                    (terminate is not None and terminate(msg)):
+                            if terminate is not None:
+                                tmsg = terminate(msg)
+                                if isinstance(tmsg, nlmsg):
+                                    ret.append(msg)
+                            if (msg['header']['type'] == NLMSG_DONE) or tmsg:
                                 # The loop is done
                                 enough = True
 
