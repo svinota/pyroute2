@@ -113,9 +113,11 @@ class inet_diag_msg(inet_addr_codec):
               ('idiag_uid', 'I'),
               ('idiag_inode', 'I'))
 
+
+class tcp_inet_diag_msg(inet_diag_msg):
+
     nla_map = (('INET_DIAG_NONE', 'none'),
                ('INET_DIAG_MEMINFO', 'hex'),
-               # FIXME: must be protocol specific?
                ('INET_DIAG_INFO', 'tcp_info'),
                ('INET_DIAG_VEGASINFO', 'hex'),
                ('INET_DIAG_CONG', 'asciiz'),
@@ -214,11 +216,16 @@ class MarshalDiag(Marshal):
     # uses not the nlmsg type, but sdiag_family
     # to choose the proper class
     msg_map = {AF_UNIX: unix_diag_msg,
-               AF_INET: inet_diag_msg}
+               # set prot specific 
+               AF_INET: None}
     # error type NLMSG_ERROR == 2 == AF_INET,
     # it doesn't work for DiagSocket that way,
     # so disable the error messages for now
     error_type = -1
+
+    def adapt(self, protocol):
+        if protocol == IPPROTO_TCP:
+            self.msg_map[AF_INET] = tcp_inet_diag_msg
 
 
 class DiagSocket(NetlinkSocket):
@@ -261,6 +268,7 @@ class DiagSocket(NetlinkSocket):
             req['idiag_states'] = states
             req['sdiag_protocol'] = protocol
             req['idiag_ext'] = extensions
+            self.marshal.adapt(protocol)
         else:
             raise NotImplementedError()
         req['sdiag_family'] = family
