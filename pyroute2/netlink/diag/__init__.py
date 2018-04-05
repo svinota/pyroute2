@@ -113,13 +113,20 @@ class inet_diag_msg(inet_addr_codec):
               ('idiag_uid', 'I'),
               ('idiag_inode', 'I'))
 
+    class inet_diag_meminfo(nla):
+        fields = (('idiag_rmem', 'I'),
+                  ('idiag_wmem', 'I'),
+                  ('idiag_fmem', 'I'),
+                  ('idiag_tmem', 'I')
+                 )
+
 
 class tcp_inet_diag_msg(inet_diag_msg):
 
     nla_map = (('INET_DIAG_NONE', 'none'),
-               ('INET_DIAG_MEMINFO', 'hex'),
+               ('INET_DIAG_MEMINFO', 'inet_diag_meminfo'),
                ('INET_DIAG_INFO', 'tcp_info'),
-               ('INET_DIAG_VEGASINFO', 'hex'),
+               ('INET_DIAG_VEGASINFO', 'tcpvegas_info'),
                ('INET_DIAG_CONG', 'asciiz'),
                ('INET_DIAG_TOS', 'hex'),
                ('INET_DIAG_TCLASS', 'hex'),
@@ -167,7 +174,16 @@ class tcp_inet_diag_msg(inet_diag_msg):
                   ('tcpi_reordering', 'I'),
                   ('tcpi_rcv_rtt', 'I'),
                   ('tcpi_rcv_space', 'I'),
-                  ('tcpiotal_retrans', 'I'))
+                  ('tcpi_total_retrans', 'I'))
+
+    class tcpvegas_info(nla):
+        fields = (('tcpv_enabled', 'I'),
+                  ('tcpv_rttcnt',  'I'),
+                  ('tcpv_rtt',     'I'),
+                  ('tcpv_minrtt',  'I')
+                 )
+
+
 
 
 class unix_diag_req(nlmsg):
