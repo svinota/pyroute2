@@ -2,6 +2,7 @@ from struct import pack
 from socket import inet_ntop
 from socket import AF_UNIX
 from socket import AF_INET
+from socket import AF_INET6
 from socket import IPPROTO_TCP
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
@@ -71,10 +72,11 @@ class inet_addr_codec(nlmsg):
 
     def decode(self):
         nlmsg.decode(self)
-        if self[self.ffname] == AF_INET:
-            self['idiag_dst'] = inet_ntop(AF_INET,
+        current_familiy = self[self.ffname]
+        if  current_familiy in [AF_INET, AF_INET6]:
+            self['idiag_dst'] = inet_ntop(current_familiy,
                                           pack('>I', self['idiag_dst'][0]))
-            self['idiag_src'] = inet_ntop(AF_INET,
+            self['idiag_src'] = inet_ntop(current_familiy,
                                           pack('>I', self['idiag_src'][0]))
 
 
@@ -279,7 +281,7 @@ class DiagSocket(NetlinkSocket):
             req = unix_diag_req()
             req['udiag_states'] = states
             req['udiag_show'] = show
-        elif family == AF_INET:
+        elif family == AF_INET or family == AF_INET6:
             req = inet_diag_req()
             req['idiag_states'] = states
             req['sdiag_protocol'] = protocol
