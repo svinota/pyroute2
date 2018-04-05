@@ -2,6 +2,7 @@ from struct import pack
 from socket import inet_ntop
 from socket import AF_UNIX
 from socket import AF_INET
+from socket import AF_INET6
 from socket import IPPROTO_TCP
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
@@ -71,10 +72,11 @@ class inet_addr_codec(nlmsg):
 
     def decode(self):
         nlmsg.decode(self)
-        if self[self.ffname] == AF_INET:
-            self['idiag_dst'] = inet_ntop(AF_INET,
+        current_familiy = self[self.ffname]
+        if  current_familiy in [AF_INET, AF_INET6]:
+            self['idiag_dst'] = inet_ntop(current_familiy,
                                           pack('>I', self['idiag_dst'][0]))
-            self['idiag_src'] = inet_ntop(AF_INET,
+            self['idiag_src'] = inet_ntop(current_familiy,
                                           pack('>I', self['idiag_src'][0]))
 
 
@@ -113,11 +115,20 @@ class inet_diag_msg(inet_addr_codec):
               ('idiag_uid', 'I'),
               ('idiag_inode', 'I'))
 
+    class inet_diag_meminfo(nla):
+        fields = (('idiag_rmem', 'I'),
+                  ('idiag_wmem', 'I'),
+                  ('idiag_fmem', 'I'),
+                  ('idiag_tmem', 'I')
+                 )
+
+
+class tcp_inet_diag_msg(inet_diag_msg):
+
     nla_map = (('INET_DIAG_NONE', 'none'),
-               ('INET_DIAG_MEMINFO', 'hex'),
-               # FIXME: must be protocol specific?
+               ('INET_DIAG_MEMINFO', 'inet_diag_meminfo'),
                ('INET_DIAG_INFO', 'tcp_info'),
-               ('INET_DIAG_VEGASINFO', 'hex'),
+               ('INET_DIAG_VEGASINFO', 'tcpvegas_info'),
                ('INET_DIAG_CONG', 'asciiz'),
                ('INET_DIAG_TOS', 'hex'),
                ('INET_DIAG_TCLASS', 'hex'),
@@ -165,7 +176,16 @@ class inet_diag_msg(inet_addr_codec):
                   ('tcpi_reordering', 'I'),
                   ('tcpi_rcv_rtt', 'I'),
                   ('tcpi_rcv_space', 'I'),
-                  ('tcpiotal_retrans', 'I'))
+                  ('tcpi_total_retrans', 'I'))
+
+    class tcpvegas_info(nla):
+        fields = (('tcpv_enabled', 'I'),
+                  ('tcpv_rttcnt',  'I'),
+                  ('tcpv_rtt',     'I'),
+                  ('tcpv_minrtt',  'I')
+                 )
+
+
 
 
 class unix_diag_req(nlmsg):
@@ -214,11 +234,16 @@ class MarshalDiag(Marshal):
     # uses not the nlmsg type, but sdiag_family
     # to choose the proper class
     msg_map = {AF_UNIX: unix_diag_msg,
-               AF_INET: inet_diag_msg}
+               # set prot specific 
+               AF_INET: None}
     # error type NLMSG_ERROR == 2 == AF_INET,
     # it doesn't work for DiagSocket that way,
     # so disable the error messages for now
     error_type = -1
+
+    def adapt(self, protocol):
+        if protocol == IPPROTO_TCP:
+            self.msg_map[AF_INET] = tcp_inet_diag_msg
 
 
 class DiagSocket(NetlinkSocket):
@@ -256,11 +281,12 @@ class DiagSocket(NetlinkSocket):
             req = unix_diag_req()
             req['udiag_states'] = states
             req['udiag_show'] = show
-        elif family == AF_INET:
+        elif family == AF_INET or family == AF_INET6:
             req = inet_diag_req()
             req['idiag_states'] = states
             req['sdiag_protocol'] = protocol
             req['idiag_ext'] = extensions
+            self.marshal.adapt(protocol)
         else:
             raise NotImplementedError()
         req['sdiag_family'] = family
