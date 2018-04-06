@@ -131,7 +131,7 @@ class inet_diag_msg(inet_addr_codec):
                ('INET_DIAG_SHUTDOWN', 'uint8'),
                ('INET_DIAG_DCTCPINFO', 'hex'),
                ('INET_DIAG_PROTOCOL', 'hex'),
-               ('INET_DIAG_SKV6ONLY', 'hex'),
+               ('INET_DIAG_SKV6ONLY', 'uint8'),
                ('INET_DIAG_LOCALS', 'hex'),
                ('INET_DIAG_PEERS', 'hex'),
                ('INET_DIAG_PAD', 'hex'),
@@ -147,7 +147,8 @@ class inet_diag_msg(inet_addr_codec):
                   ('tcpi_probes', 'B'),
                   ('tcpi_backoff', 'B'),
                   ('tcpi_options', 'B'),
-                  ('tcpi_wscale', 'B'),
+                  ('tcpi_snd_wscale', 'B'),  # tcpi_rcv_wscale -- in decode()
+                  ('tcpi_delivery_rate_app_limited', 'B'),
                   ('tcpi_rto', 'I'),
                   ('tcpi_ato', 'I'),
                   ('tcpi_snd_mss', 'I'),
@@ -157,10 +158,12 @@ class inet_diag_msg(inet_addr_codec):
                   ('tcpi_lost', 'I'),
                   ('tcpi_retrans', 'I'),
                   ('tcpi_fackets', 'I'),
+                  # Times
                   ('tcpi_last_data_sent', 'I'),
                   ('tcpi_last_ack_sent', 'I'),
                   ('tcpi_last_data_recv', 'I'),
                   ('tcpi_last_ack_recv', 'I'),
+                  # Metrics
                   ('tcpi_pmtu', 'I'),
                   ('tcpi_rcv_ssthresh', 'I'),
                   ('tcpi_rtt', 'I'),
@@ -171,7 +174,34 @@ class inet_diag_msg(inet_addr_codec):
                   ('tcpi_reordering', 'I'),
                   ('tcpi_rcv_rtt', 'I'),
                   ('tcpi_rcv_space', 'I'),
-                  ('tcpiotal_retrans', 'I'))
+                  ('tcpi_total_retrans', 'I'),
+                  ('tcpi_pacing_rate', 'Q'),
+                  ('tcpi_max_pacing_rate', 'Q'),
+                  ('tcpi_bytes_acked', 'Q'),
+                  ('tcpi_bytes_received', 'Q'),
+                  ('tcpi_segs_out', 'I'),
+                  ('tcpi_segs_in', 'I'),
+                  ('tcpi_notsent_bytes', 'I'),
+                  ('tcpi_min_rtt', 'I'),
+                  ('tcpi_data_segs_in', 'I'),
+                  ('tcpi_data_segs_out', 'I'),
+                  ('tcpi_delivery_rate', 'Q'),
+                  ('tcpi_busy_time', 'Q'),
+                  ('tcpi_rwnd_limited', 'Q'),
+                  ('tcpi_sndbuf_limited', 'Q'))
+
+        def decode(self):
+            # Fix tcpi_rcv_scale amd delivery_rate bit fields.
+            # In the C:
+            #
+            # __u8    tcpi_snd_wscale : 4, tcpi_rcv_wscale : 4;
+            # __u8    tcpi_delivery_rate_app_limited:1;
+            #
+            nla.decode(self)
+            self['tcpi_rcv_wscale'] = self['tcpi_snd_wscale'] & 0xf
+            self['tcpi_snd_wscale'] = self['tcpi_snd_wscale'] & 0xf0 >> 4
+            self['tcpi_delivery_rate_app_limited'] = \
+                self['tcpi_delivery_rate_app_limited'] & 0x80 >> 7
 
 
 class unix_diag_req(nlmsg):
