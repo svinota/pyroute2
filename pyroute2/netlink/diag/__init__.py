@@ -2,6 +2,7 @@ from struct import pack
 from socket import inet_ntop
 from socket import AF_UNIX
 from socket import AF_INET
+from socket import AF_INET6
 from socket import IPPROTO_TCP
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
@@ -76,6 +77,11 @@ class inet_addr_codec(nlmsg):
                                           pack('>I', self['idiag_dst'][0]))
             self['idiag_src'] = inet_ntop(AF_INET,
                                           pack('>I', self['idiag_src'][0]))
+        elif self[self.ffname] == AF_INET6:
+            self['idiag_dst'] = inet_ntop(AF_INET6,
+                                          pack('>IIII', *self['idiag_dst']))
+            self['idiag_src'] = inet_ntop(AF_INET6,
+                                          pack('>IIII', *self['idiag_src']))
 
 
 class inet_diag_req(inet_addr_codec):
@@ -214,7 +220,8 @@ class MarshalDiag(Marshal):
     # uses not the nlmsg type, but sdiag_family
     # to choose the proper class
     msg_map = {AF_UNIX: unix_diag_msg,
-               AF_INET: inet_diag_msg}
+               AF_INET: inet_diag_msg,
+               AF_INET6: inet_diag_msg}
     # error type NLMSG_ERROR == 2 == AF_INET,
     # it doesn't work for DiagSocket that way,
     # so disable the error messages for now
@@ -256,7 +263,7 @@ class DiagSocket(NetlinkSocket):
             req = unix_diag_req()
             req['udiag_states'] = states
             req['udiag_show'] = show
-        elif family == AF_INET:
+        elif family in (AF_INET, AF_INET6):
             req = inet_diag_req()
             req['idiag_states'] = states
             req['sdiag_protocol'] = protocol
