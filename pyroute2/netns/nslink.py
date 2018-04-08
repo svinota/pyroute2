@@ -44,7 +44,7 @@ or uses existing one. To control this behaviour, one can use flags
 as for `open(2)` system call::
 
     # create a new netns or fail, if it already exists
-    netns = NetNS('test', flags=os.O_CREAT | os.O_EXIST)
+    netns = NetNS('test', flags=os.O_CREAT | os.O_EXCL)
 
     # create a new netns or use existing one
     netns = NetNS('test', flags=os.O_CREAT)
