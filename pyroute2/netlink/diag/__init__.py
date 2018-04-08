@@ -120,25 +120,51 @@ class inet_diag_msg(inet_addr_codec):
               ('idiag_inode', 'I'))
 
     nla_map = (('INET_DIAG_NONE', 'none'),
-               ('INET_DIAG_MEMINFO', 'hex'),
+               ('INET_DIAG_MEMINFO', 'inet_diag_meminfo'),
                # FIXME: must be protocol specific?
                ('INET_DIAG_INFO', 'tcp_info'),
-               ('INET_DIAG_VEGASINFO', 'hex'),
+               ('INET_DIAG_VEGASINFO', 'tcpvegas_info'),
                ('INET_DIAG_CONG', 'asciiz'),
                ('INET_DIAG_TOS', 'hex'),
                ('INET_DIAG_TCLASS', 'hex'),
                ('INET_DIAG_SKMEMINFO', 'hex'),
                ('INET_DIAG_SHUTDOWN', 'uint8'),
-               ('INET_DIAG_DCTCPINFO', 'hex'),
+               ('INET_DIAG_DCTCPINFO', 'tcp_dctcp_info'),
                ('INET_DIAG_PROTOCOL', 'hex'),
                ('INET_DIAG_SKV6ONLY', 'uint8'),
                ('INET_DIAG_LOCALS', 'hex'),
                ('INET_DIAG_PEERS', 'hex'),
                ('INET_DIAG_PAD', 'hex'),
                ('INET_DIAG_MARK', 'hex'),
-               ('INET_DIAG_BBRINFO', 'hex'),
+               ('INET_DIAG_BBRINFO', 'tcp_bbr_info'),
                ('INET_DIAG_CLASS_ID', 'hex'),
                ('INET_DIAG_MD5SIG', 'hex'))
+
+    class inet_diag_meminfo(nla):
+        fields = (('idiag_rmem', 'I'),
+                  ('idiag_wmem', 'I'),
+                  ('idiag_fmem', 'I'),
+                  ('idiag_tmem', 'I'))
+
+    class tcpvegas_info(nla):
+        fields = (('tcpv_enabled', 'I'),
+                  ('tcpv_rttcnt', 'I'),
+                  ('tcpv_rtt', 'I'),
+                  ('tcpv_minrtt', 'I'))
+
+    class tcp_dctcp_info(nla):
+        fields = (('dctcp_enabled', 'H'),
+                  ('dctcp_ce_state', 'H'),
+                  ('dctcp_alpha', 'I'),
+                  ('dctcp_ab_ecn', 'I'),
+                  ('dctcp_ab_tot', 'I'))
+
+    class tcp_bbr_info(nla):
+        fields = (('bbr_bw_lo', 'I'),
+                  ('bbr_bw_hi', 'I'),
+                  ('bbr_min_rtt', 'I'),
+                  ('bbr_pacing_gain', 'I'),
+                  ('bbr_cwnd_gain', 'I'))
 
     class tcp_info(nla):
         fields = (('tcpi_state', 'B'),
