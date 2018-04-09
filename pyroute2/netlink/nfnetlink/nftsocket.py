@@ -1,7 +1,6 @@
 import threading
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
-from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NETLINK_NETFILTER
 from pyroute2.netlink import nla
 from pyroute2.netlink.nlsocket import NetlinkSocket
@@ -108,6 +107,7 @@ class nft_data(nla):
 
 
 class nft_rule_msg(nfgen_msg):
+    prefix = 'NFTA_RULE_'
     nla_map = (('NFTA_RULE_UNSPEC', 'none'),
                ('NFTA_RULE_TABLE', 'asciiz'),
                ('NFTA_RULE_CHAIN', 'asciiz'),
@@ -393,9 +393,9 @@ class NFTSocket(NetlinkSocket):
                 self.addr_pool.free(seqnum, ban=10)
             del self._ts.data
 
-    def request(self, msg, msg_type,
-                msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-                terminate=None):
+    def request_get(self, msg, msg_type,
+                    msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+                    terminate=None):
         '''
         Read-only requests do not require transactions. Just run
         the request and get an answer.
@@ -405,79 +405,41 @@ class NFTSocket(NetlinkSocket):
                                 msg_type | (NFNL_SUBSYS_NFTABLES << 8),
                                 msg_flags, terminate=terminate)
 
-    def get_tables(self):
-        return self.request(nfgen_msg(), NFT_MSG_GETTABLE)
-
-    def get_chains(self):
-        return self.request(nfgen_msg(), NFT_MSG_GETCHAIN)
-
-    def get_rules(self):
-        return self.request(nfgen_msg(), NFT_MSG_GETRULE)
-
-    def get_sets(self):
-        return self.request(nfgen_msg(), NFT_MSG_GETSET)
-
-    #
-    # The nft API is in the prototype stage and may be
-    # changed until the release. The planned release for
-    # the API is 0.5.2
-    #
-    def table(self, cmd, **kwarg):
-        commands = {'add': NFT_MSG_NEWTABLE,
-                    'del': NFT_MSG_DELTABLE}
-        cmd = commands[cmd]
-
-        # fix default kwargs
-        if 'flags' not in kwarg:
-            kwarg['flags'] = 0
-
+    def request_put(self, msg, msg_type,
+                    msg_flags=NLM_F_REQUEST):
+        '''
+        Read-write requests.
+        '''
         one_shot = self.begin()
-        msg = nft_table_msg()
-        msg['header']['type'] = (NFNL_SUBSYS_NFTABLES << 8) | cmd
-        msg['header']['flags'] = NLM_F_REQUEST
+        msg['header']['type'] = (NFNL_SUBSYS_NFTABLES << 8) | msg_type
+        msg['header']['flags'] = msg_flags
         msg['header']['sequence_number'] = self._ts.seqnum[1]
         msg['nfgen_family'] = self._nfgen_family
-        msg['attrs'] = []
-        for key in kwarg:
-            nla = nft_table_msg.name2nla(key)
-            msg['attrs'].append([nla, kwarg[key]])
-
         msg.encode()
         self._ts.data += msg.data
         if one_shot:
             self.commit()
 
-    def chain(self, cmd, **kwarg):
-        commands = {'add': NFT_MSG_NEWCHAIN,
-                    'del': NFT_MSG_DELCHAIN}
-        hooks = {'input': 1,
-                 'forward': 2,
-                 'output': 3}
+    def _command(self, msg_class, commands, cmd, kwarg, flags=NLM_F_REQUEST):
         cmd = commands[cmd]
-
-        if 'type' not in kwarg:
-            kwarg['type'] = 'filter'
-
-        # FIXME
-        # 1. merge the common logic in the methods
-        # 2. use request filters like in IPRoute to transform the kwarg
+        msg = msg_class()
+        msg['attrs'] = []
         #
-        one_shot = self.begin()
-        msg = nft_chain_msg()
-        msg['header']['type'] = (NFNL_SUBSYS_NFTABLES << 8) | cmd
-        msg['header']['flags'] = NLM_F_REQUEST | NLM_F_CREATE
-        msg['header']['sequence_number'] = self._ts.seqnum[1]
-        msg['nfgen_family'] = self._nfgen_family
-        msg['attrs'] = []
-        for key in kwarg:
-            if key == 'hook':
-                kwarg[key] = {'attrs':
-                              [['NFTA_HOOK_HOOKNUM', hooks[kwarg[key]]],
-                               ['NFTA_HOOK_PRIORITY', 0]]}
-            nla = nft_chain_msg.name2nla(key)
-            msg['attrs'].append([nla, kwarg[key]])
-
-        msg.encode()
-        self._ts.data += msg.data
-        if one_shot:
-            self.commit()
+        # a trick to pass keyword arguments as On rderedDict instance:
+        #
+        # ordered_args = OrderedDict()
+        # ordered_args['arg1'] = value1
+        # ordered_args['arg2'] = value2
+        # ...
+        # nft.rule('add', kwarg=ordered_args)
+        #
+        if 'kwarg' in kwarg:
+            kwarg = kwarg['kwarg']
+        #
+        for key, value in kwarg.items():
+            nla = msg_class.name2nla(key)
+            msg['attrs'].append([nla, value])
+        #
+        return self.request_put(msg,
+                                msg_type=cmd,
+                                msg_flags=flags)

@@ -24,6 +24,7 @@ from pyroute2.ipdb.main import IPDB
 from pyroute2.iwutil import IW
 from pyroute2.devlink import DL
 from pyroute2.conntrack import Conntrack
+from pyroute2.nftables.main import NFTables
 from pyroute2.netns.nslink import NetNS
 from pyroute2.netns.process.proxy import NSPopen
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
@@ -35,7 +36,7 @@ from pyroute2.netlink.event.dquot import DQuotSocket
 from pyroute2.netlink.ipq import IPQSocket
 from pyroute2.netlink.diag import DiagSocket
 from pyroute2.netlink.generic import GenericNetlinkSocket
-from pyroute2.netlink.nfnetlink.nftables import NFTSocket
+from pyroute2.netlink.nfnetlink.nftsocket import NFTSocket
 from pyroute2.netlink.nfnetlink.nfctsocket import NFCTSocket
 #
 # The Console class is a bit special, it tries to engage
@@ -90,6 +91,7 @@ classes = [IPRouteRequest,
            IW,
            DL,
            Conntrack,
+           NFTables,
            NetNS,
            NSPopen,
            IPRSocket,
