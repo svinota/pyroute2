@@ -975,6 +975,7 @@ class nlmsg_base(dict):
                                   offset=offset,
                                   parent=self)
                 cell._nla_array = False
+                cell['header']['type'] = 1
                 if cell.cell_header is not None:
                     cell.header = cell.cell_header
                 cell.setvalue(value)
