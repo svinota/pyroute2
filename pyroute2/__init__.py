@@ -23,6 +23,7 @@ from pyroute2.ipset import IPSet
 from pyroute2.ipdb.main import IPDB
 from pyroute2.iwutil import IW
 from pyroute2.devlink import DL
+from pyroute2.conntrack import Conntrack
 from pyroute2.netns.nslink import NetNS
 from pyroute2.netns.process.proxy import NSPopen
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
@@ -88,6 +89,7 @@ classes = [IPRouteRequest,
            IPDB,
            IW,
            DL,
+           Conntrack,
            NetNS,
            NSPopen,
            IPRSocket,
