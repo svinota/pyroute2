@@ -48,6 +48,25 @@ class nfct_stats(nfgen_msg):
     )
 
 
+class nfct_stats_cpu(nfgen_msg):
+    nla_map = (
+        ('CTA_STATS_UNSPEC', 'none'),
+        ('CTA_STATS_SEARCHED', 'be32'),
+        ('CTA_STATS_FOUND', 'be32'),
+        ('CTA_STATS_NEW', 'be32'),
+        ('CTA_STATS_INVALID', 'be32'),
+        ('CTA_STATS_IGNORE', 'be32'),
+        ('CTA_STATS_DELETE', 'be32'),
+        ('CTA_STATS_DELETE_LIST', 'be32'),
+        ('CTA_STATS_INSERT', 'be32'),
+        ('CTA_STATS_INSERT_FAILED', 'be32'),
+        ('CTA_STATS_DROP', 'be32'),
+        ('CTA_STATS_EARLY_DROP', 'be32'),
+        ('CTA_STATS_ERROR', 'be32'),
+        ('CTA_STATS_SEARCH_RESTART', 'be32'),
+    )
+
+
 class nfct_msg(nfgen_msg):
     nla_map = (
         ('CTA_UNSPEC', 'none'),
@@ -212,7 +231,7 @@ class NFCTSocket(NetlinkSocket):
         IPCTNL_MSG_CT_GET: nfct_msg,
         IPCTNL_MSG_CT_DELETE: nfct_msg,
         IPCTNL_MSG_CT_GET_CTRZERO: nfct_msg,
-        IPCTNL_MSG_CT_GET_STATS_CPU: nfct_msg,
+        IPCTNL_MSG_CT_GET_STATS_CPU: nfct_stats_cpu,
         IPCTNL_MSG_CT_GET_STATS: nfct_stats,
         IPCTNL_MSG_CT_GET_DYING: nfct_msg,
         IPCTNL_MSG_CT_GET_UNCONFIRMED: nfct_msg,
@@ -236,6 +255,10 @@ class NFCTSocket(NetlinkSocket):
             msg['attrs'] += [['CTA_MARK_MASK', mark_mask]]
 
         return self.request(msg, IPCTNL_MSG_CT_GET,
+                            msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+
+    def stat(self):
+        return self.request(nfct_stats_cpu(), IPCTNL_MSG_CT_GET_STATS_CPU,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def count(self):
