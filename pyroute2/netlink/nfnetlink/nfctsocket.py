@@ -37,10 +37,6 @@ IP_CT_TCP_FLAG_DATA_UNACKNOWLEDGED = 0x10
 IP_CT_TCP_FLAG_MAXACK_SET = 0x20
 
 
-def terminate_single_msg(msg):
-    return msg
-
-
 class nfct_stats(nfgen_msg):
     nla_map = (
         ('CTA_STATS_GLOBAL_UNSPEC', 'none'),
@@ -260,16 +256,3 @@ class NFCTSocket(NetlinkSocket):
     def stat(self):
         return self.request(nfct_stats_cpu(), IPCTNL_MSG_CT_GET_STATS_CPU,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
-
-    def count(self):
-        """ Return current number of conntrack entries
-
-        Same result than /proc/sys/net/netfilter/nf_conntrack_count file
-        or conntrack -C command
-        """
-        msg = nfct_stats()
-
-        ndmsg = self.request(msg, IPCTNL_MSG_CT_GET_STATS,
-                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-                             terminate=terminate_single_msg)
-        return ndmsg[0].get_attr('CTA_STATS_GLOBAL_ENTRIES')
