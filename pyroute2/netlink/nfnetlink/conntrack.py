@@ -258,15 +258,8 @@ class NFCTSocket(NetlinkSocket):
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def stat(self):
-        stats = []
-
-        for msg in self.request(nfct_stats_cpu(), IPCTNL_MSG_CT_GET_STATS_CPU,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP):
-            stats.append({'cpu': socket.ntohs(msg['res_id'])})
-            stats[-1].update((attr[0][10:].lower(), attr[1])
-                             for attr in msg['attrs'])
-
-        return stats
+        return self.request(nfct_stats_cpu(), IPCTNL_MSG_CT_GET_STATS_CPU,
+                            msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def count(self):
         """ Return current number of conntrack entries
