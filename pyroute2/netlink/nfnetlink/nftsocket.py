@@ -1,3 +1,9 @@
+"""
+NFTSocket -- low level nftables API
+
+See also: pyroute2.nftables
+"""
+
 import threading
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP

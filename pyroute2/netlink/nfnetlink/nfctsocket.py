@@ -1,3 +1,9 @@
+"""
+NFCTSocket -- low level connection tracking API
+
+See also: pyroute2.conntrack
+"""
+
 import socket
 
 from pyroute2.netlink import NLM_F_REQUEST
