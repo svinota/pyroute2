@@ -46,4 +46,4 @@ NFNLGRP_NFTRACE = 9
 class nfgen_msg(nlmsg):
     fields = (('nfgen_family', 'B'),
               ('version', 'B'),
-              ('res_id', 'H'))
+              ('res_id', '!H'))
