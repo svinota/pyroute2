@@ -264,10 +264,10 @@ class NFCTSocket(NetlinkSocket):
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def stat(self):
-        return self.request(nfct_stats_cpu(), IPCTNL_MSG_CT_GET_STATS_CPU,
+        return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS_CPU,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def count(self):
-        return self.request(nfct_stats(), IPCTNL_MSG_CT_GET_STATS,
+        return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                             terminate=terminate_single_msg)
