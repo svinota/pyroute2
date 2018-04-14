@@ -8,6 +8,7 @@ import socket
 
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
+from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NETLINK_NETFILTER
 from pyroute2.netlink import nla
 from pyroute2.netlink.nlsocket import NetlinkSocket
@@ -254,12 +255,7 @@ class NFCTSocket(NetlinkSocket):
         return self.nlm_request(msg, msg_type, **kwargs)
 
     def dump(self, mark=None, mark_mask=0xffffffff):
-        msg = nfct_msg()
-
-        if mark is not None:
-            msg['attrs'] += [['CTA_MARK', mark]]
-            msg['attrs'] += [['CTA_MARK_MASK', mark_mask]]
-
+        msg = self._mkmsg(mark=mark, mark_mask=mark_mask)
         return self.request(msg, IPCTNL_MSG_CT_GET,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
@@ -271,3 +267,92 @@ class NFCTSocket(NetlinkSocket):
         return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                             terminate=terminate_single_msg)
+
+    def flush(self, mark=None, mark_mask=0xffffffff, zone=None):
+        msg = self._mkmsg(mark=mark, mark_mask=mark_mask, zone=zone)
+        return self.request(msg, IPCTNL_MSG_CT_DELETE,
+                            msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
+    def delete(self, saddr, daddr, proto, sport=None, dport=None,
+               icmp_id=None, icmp_type=None, icmp_code=None,
+               id=None, mark=None, mark_mask=0xffffffff, zone=None,
+               direction='orig'):
+        if direction not in ['orig', 'reply']:
+            raise ValueError('Invalid direction: %s' % direction)
+
+        msg = self._mkmsg(
+            tuple_type=direction,
+            saddr=saddr, daddr=daddr, proto=proto,
+            sport=sport, dport=dport,
+            icmp_id=icmp_id, icmp_type=icmp_type, icmp_code=icmp_code,
+            id=id, mark=mark, mark_mask=mark_mask, zone=zone)
+        return self.request(msg, IPCTNL_MSG_CT_DELETE,
+                            msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
+    def _mkmsg(self, **kwargs):
+        def haskey(key):
+            return kwargs.get(key) is not None
+
+        msg = nfct_msg()
+
+        if haskey('id'):
+            msg['attrs'] += [['CTA_ID', kwargs['id']]]
+
+        if haskey('zone'):
+            msg['attrs'] += [['CTA_ZONE', kwargs['zone']]]
+
+        if haskey('mark'):
+            mark = kwargs['mark']
+            mark_mask = kwargs.get('mark_mask', 0xffffffff)
+            msg['attrs'] += [['CTA_MARK', mark]]
+            msg['attrs'] += [['CTA_MARK_MASK', mark_mask]]
+
+        if haskey('tuple_type'):
+            cta_ip = []
+            cta_proto = []
+            cta_tuple = []
+
+            if self._nfgen_family == socket.AF_INET:
+                ipkey = 'CTA_IP_V4'
+                icmpkey = 'CTA_PROTO_ICMP'
+            elif self._nfgen_family == socket.AF_INET6:
+                ipkey = 'CTA_IP_V6'
+                icmpkey = 'CTA_PROTO_ICMPV6'
+            else:
+                raise ValueError('Unknown family: %s' % self._nfgen_family)
+
+            if haskey('saddr'):
+                cta_ip += [[ipkey + '_SRC', kwargs['saddr']]]
+
+            if haskey('daddr'):
+                cta_ip += [[ipkey + '_DST', kwargs['daddr']]]
+
+            if haskey('proto'):
+                cta_proto += [['CTA_PROTO_NUM', kwargs['proto']]]
+
+            if haskey('sport'):
+                cta_proto += [['CTA_PROTO_SRC_PORT', kwargs['sport']]]
+
+            if haskey('dport'):
+                cta_proto += [['CTA_PROTO_DST_PORT', kwargs['dport']]]
+
+            if haskey('icmp_id'):
+                cta_proto += [[icmpkey + '_ID', kwargs['icmp_id']]]
+
+            if haskey('icmp_type'):
+                cta_proto += [[icmpkey + '_TYPE', kwargs['icmp_type']]]
+
+            if haskey('icmp_code'):
+                cta_proto += [[icmpkey + '_CODE', kwargs['icmp_code']]]
+
+            if cta_ip:
+                cta_tuple += [['CTA_TUPLE_IP', {'attrs': cta_ip}]]
+
+            if cta_proto:
+                cta_tuple += [['CTA_TUPLE_PROTO', {'attrs': cta_proto}]]
+
+            if cta_tuple:
+                tuple_type = 'CTA_TUPLE_' + kwargs['tuple_type'].upper()
+                msg['attrs'] += [[tuple_type, {'attrs': cta_tuple}]]
+
+        return msg
