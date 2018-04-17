@@ -5,10 +5,12 @@ See also: pyroute2.conntrack
 """
 
 import socket
-
+from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_ACK
+from pyroute2.netlink import NLM_F_EXCL
+from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NETLINK_NETFILTER
 from pyroute2.netlink import nla
 from pyroute2.netlink.nlsocket import NetlinkSocket
@@ -48,6 +50,10 @@ def terminate_single_msg(msg):
     return msg
 
 
+def terminate_error_msg(msg):
+    return msg['header']['type'] == NLMSG_ERROR
+
+
 class nfct_stats(nfgen_msg):
     nla_map = (
         ('CTA_STATS_GLOBAL_UNSPEC', 'none'),
@@ -75,6 +81,7 @@ class nfct_stats_cpu(nfgen_msg):
 
 
 class nfct_msg(nfgen_msg):
+    prefix = 'CTA_'
     nla_map = (
         ('CTA_UNSPEC', 'none'),
         ('CTA_TUPLE_ORIG', 'cta_tuple'),
@@ -232,6 +239,67 @@ class nfct_msg(nfgen_msg):
                                 (self['value'][1] << 64)
 
 
+class NFCTAttr(object):
+    def attrs(self):
+        return []
+
+
+class NFCTAttrTuple(NFCTAttr):
+    def __init__(self, family=socket.AF_INET,
+                 saddr=None, daddr=None, proto=None, sport=None, dport=None,
+                 icmp_id=None, icmp_type=None, icmp_code=None):
+        self.saddr = saddr
+        self.daddr = daddr
+        self.proto = proto
+        self.sport = sport
+        self.dport = dport
+        self.icmp_id = icmp_id
+        self.icmp_type = icmp_type
+        self.icmp_code = icmp_code
+
+        self._attr_ip, self._attr_icmp = {
+            socket.AF_INET: ['CTA_IP_V4', 'CTA_PROTO_ICMP'],
+            socket.AF_INET6: ['CTA_IP_V6', 'CTA_PROTO_ICMPV6'],
+        }[family]
+
+    def attrs(self):
+        cta_ip = []
+        cta_proto = []
+        cta_tuple = []
+
+        if self.saddr is not None:
+            cta_ip.append([self._attr_ip + '_SRC', self.saddr])
+
+        if self.daddr is not None:
+            cta_ip.append([self._attr_ip + '_DST', self.daddr])
+
+        if self.proto is not None:
+            cta_proto.append(['CTA_PROTO_NUM', self.proto])
+
+        if self.sport is not None:
+            cta_proto.append(['CTA_PROTO_SRC_PORT', self.sport])
+
+        if self.dport is not None:
+            cta_proto.append(['CTA_PROTO_DST_PORT', self.dport])
+
+        if self.icmp_id is not None:
+            cta_proto.append([self._attr_icmp + '_ID', self.icmp_id])
+
+        if self.icmp_type is not None:
+            cta_proto.append([self._attr_icmp + '_TYPE', self.icmp_type])
+
+        if self.icmp_code is not None:
+            cta_proto.append([self._attr_icmp + '_CODE', self.icmp_code])
+
+        if cta_ip:
+            cta_tuple.append(['CTA_TUPLE_IP', {'attrs': cta_ip}])
+
+        if cta_proto:
+            cta_tuple.append(['CTA_TUPLE_PROTO', {'attrs': cta_proto}])
+
+        return cta_tuple
+
+
 class NFCTSocket(NetlinkSocket):
     policy = dict((k | (NFNL_SUBSYS_CTNETLINK << 8), v) for k, v in {
         IPCTNL_MSG_CT_NEW: nfct_msg,
@@ -260,99 +328,74 @@ class NFCTSocket(NetlinkSocket):
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def stat(self):
-        return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS_CPU,
+        return self.request(self._mkmsg(), IPCTNL_MSG_CT_GET_STATS_CPU,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def count(self):
-        return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS,
+        return self.request(self._mkmsg(), IPCTNL_MSG_CT_GET_STATS,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                             terminate=terminate_single_msg)
 
     def flush(self, mark=None, mark_mask=0xffffffff):
         msg = self._mkmsg(mark=mark, mark_mask=mark_mask)
         return self.request(msg, IPCTNL_MSG_CT_DELETE,
-                            msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+                            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+                            terminate=terminate_error_msg)
 
-    def delete(self, saddr, daddr, proto, sport=None, dport=None,
-               icmp_id=None, icmp_type=None, icmp_code=None,
-               id=None, mark=None, mark_mask=0xffffffff, zone=None,
-               direction='orig'):
-        if direction not in ['orig', 'reply']:
-            raise ValueError('Invalid direction: %s' % direction)
+    def entry(self, cmd, **kwargs):
+        """
+        Get or change a conntrack entry.
 
-        msg = self._mkmsg(
-            tuple_type=direction,
-            saddr=saddr, daddr=daddr, proto=proto,
-            sport=sport, dport=dport,
-            icmp_id=icmp_id, icmp_type=icmp_type, icmp_code=icmp_code,
-            id=id, mark=mark, mark_mask=mark_mask, zone=zone)
-        return self.request(msg, IPCTNL_MSG_CT_DELETE,
-                            msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        Examples::
+            # add an entry
+            ct.entry('add', timeout=30,
+                     tuple_orig=NFCTAttrTuple(
+                         saddr='192.168.122.1', daddr='192.168.122.67',
+                         proto=6, sport=34857, dport=5599),
+                     tuple_reply=NFCTAttrTuple(
+                         saddr='192.168.122.67', daddr='192.168.122.1',
+                         proto=6, sport=5599, dport=34857))
+
+            # set mark=5 on the matching entry
+            ct.entry('set', mark=5,
+                     tuple_orig=NFCTAttrTuple(
+                         saddr='192.168.122.1', daddr='192.168.122.67',
+                         proto=6, sport=34857, dport=5599))
+
+            # get an entry
+            ct.entry('get',
+                     tuple_orig=NFCTAttrTuple(
+                         saddr='192.168.122.1', daddr='192.168.122.67',
+                         proto=6, sport=34857, dport=5599))
+
+            # delete an entry
+            ct.entry('del',
+                     tuple_orig=NFCTAttrTuple(
+                         saddr='192.168.122.1', daddr='192.168.122.67',
+                         proto=6, sport=34857, dport=5599))
+        """
+        msg_type, msg_flags = {
+            'add': [IPCTNL_MSG_CT_NEW, NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE],
+            'set': [IPCTNL_MSG_CT_NEW, NLM_F_ACK],
+            'get': [IPCTNL_MSG_CT_GET, NLM_F_ACK],
+            'del': [IPCTNL_MSG_CT_DELETE, NLM_F_ACK],
+        }[cmd]
+
+        if msg_type == IPCTNL_MSG_CT_DELETE and \
+           not ('tuple_orig' in kwargs or 'tuple_reply' in kwargs):
+            raise ValueError('Deletion requires a tuple at least')
+
+        return self.request(self._mkmsg(**kwargs), msg_type,
+                            msg_flags=NLM_F_REQUEST | msg_flags,
+                            terminate=terminate_error_msg)
 
     def _mkmsg(self, **kwargs):
-        def haskey(key):
-            return kwargs.get(key) is not None
-
         msg = nfct_msg()
 
-        if haskey('id'):
-            msg['attrs'] += [['CTA_ID', kwargs['id']]]
-
-        if haskey('zone'):
-            msg['attrs'] += [['CTA_ZONE', kwargs['zone']]]
-
-        if haskey('mark'):
-            mark = kwargs['mark']
-            mark_mask = kwargs.get('mark_mask', 0xffffffff)
-            msg['attrs'] += [['CTA_MARK', mark]]
-            msg['attrs'] += [['CTA_MARK_MASK', mark_mask]]
-
-        if haskey('tuple_type'):
-            cta_ip = []
-            cta_proto = []
-            cta_tuple = []
-
-            if self._nfgen_family == socket.AF_INET:
-                ipkey = 'CTA_IP_V4'
-                icmpkey = 'CTA_PROTO_ICMP'
-            elif self._nfgen_family == socket.AF_INET6:
-                ipkey = 'CTA_IP_V6'
-                icmpkey = 'CTA_PROTO_ICMPV6'
-            else:
-                raise ValueError('Unknown family: %s' % self._nfgen_family)
-
-            if haskey('saddr'):
-                cta_ip += [[ipkey + '_SRC', kwargs['saddr']]]
-
-            if haskey('daddr'):
-                cta_ip += [[ipkey + '_DST', kwargs['daddr']]]
-
-            if haskey('proto'):
-                cta_proto += [['CTA_PROTO_NUM', kwargs['proto']]]
-
-            if haskey('sport'):
-                cta_proto += [['CTA_PROTO_SRC_PORT', kwargs['sport']]]
-
-            if haskey('dport'):
-                cta_proto += [['CTA_PROTO_DST_PORT', kwargs['dport']]]
-
-            if haskey('icmp_id'):
-                cta_proto += [[icmpkey + '_ID', kwargs['icmp_id']]]
-
-            if haskey('icmp_type'):
-                cta_proto += [[icmpkey + '_TYPE', kwargs['icmp_type']]]
-
-            if haskey('icmp_code'):
-                cta_proto += [[icmpkey + '_CODE', kwargs['icmp_code']]]
-
-            if cta_ip:
-                cta_tuple += [['CTA_TUPLE_IP', {'attrs': cta_ip}]]
-
-            if cta_proto:
-                cta_tuple += [['CTA_TUPLE_PROTO', {'attrs': cta_proto}]]
-
-            if cta_tuple:
-                tuple_type = 'CTA_TUPLE_' + kwargs['tuple_type'].upper()
-                msg['attrs'] += [[tuple_type, {'attrs': cta_tuple}]]
+        for key, value in kwargs.items():
+            if isinstance(value, NFCTAttr):
+                value = {'attrs': value.attrs()}
+            if value is not None:
+                msg['attrs'].append([msg.name2nla(key), value])
 
         return msg
