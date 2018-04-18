@@ -1026,6 +1026,19 @@ class TestExplicit(BasicSetup):
         with route:
             route.remove()
 
+    def test_default_route_notation(self):
+        require_user('root')
+
+        (self.ip.routes
+         .add(dst='0.0.0.0/0', gateway='127.0.0.6', table=180)
+         .commit())
+
+        assert self.ip.routes.tables[180]['default']['gateway'] == '127.0.0.6'
+        assert grep('ip ro show table 180',
+                    pattern='default.*127.0.0.6')
+        with self.ip.routes.tables[180]['default'] as r:
+            r.remove()
+
     def test_routes_mixed_ipv4_ipv6(self):
         require_user('root')
 
