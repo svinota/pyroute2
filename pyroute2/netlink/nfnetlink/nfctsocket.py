@@ -5,9 +5,12 @@ See also: pyroute2.conntrack
 """
 
 import socket
-
+from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
+from pyroute2.netlink import NLM_F_ACK
+from pyroute2.netlink import NLM_F_EXCL
+from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink import NETLINK_NETFILTER
 from pyroute2.netlink import nla
 from pyroute2.netlink.nlsocket import NetlinkSocket
@@ -47,6 +50,10 @@ def terminate_single_msg(msg):
     return msg
 
 
+def terminate_error_msg(msg):
+    return msg['header']['type'] == NLMSG_ERROR
+
+
 class nfct_stats(nfgen_msg):
     nla_map = (
         ('CTA_STATS_GLOBAL_UNSPEC', 'none'),
@@ -74,6 +81,7 @@ class nfct_stats_cpu(nfgen_msg):
 
 
 class nfct_msg(nfgen_msg):
+    prefix = 'CTA_'
     nla_map = (
         ('CTA_UNSPEC', 'none'),
         ('CTA_TUPLE_ORIG', 'cta_tuple'),
@@ -100,6 +108,18 @@ class nfct_msg(nfgen_msg):
         ('CTA_LABELS', 'cta_labels'),
         ('CTA_LABELS_MASK', 'cta_labels'),
     )
+
+    @classmethod
+    def create_from(cls, **kwargs):
+        self = cls()
+
+        for key, value in kwargs.items():
+            if isinstance(value, NFCTAttr):
+                value = {'attrs': value.attrs()}
+            if value is not None:
+                self['attrs'].append([self.name2nla(key), value])
+
+        return self
 
     class cta_tuple(nla):
         nla_map = (
@@ -231,6 +251,67 @@ class nfct_msg(nfgen_msg):
                                 (self['value'][1] << 64)
 
 
+class NFCTAttr(object):
+    def attrs(self):
+        return []
+
+
+class NFCTAttrTuple(NFCTAttr):
+    def __init__(self, family=socket.AF_INET,
+                 saddr=None, daddr=None, proto=None, sport=None, dport=None,
+                 icmp_id=None, icmp_type=None, icmp_code=None):
+        self.saddr = saddr
+        self.daddr = daddr
+        self.proto = proto
+        self.sport = sport
+        self.dport = dport
+        self.icmp_id = icmp_id
+        self.icmp_type = icmp_type
+        self.icmp_code = icmp_code
+
+        self._attr_ip, self._attr_icmp = {
+            socket.AF_INET: ['CTA_IP_V4', 'CTA_PROTO_ICMP'],
+            socket.AF_INET6: ['CTA_IP_V6', 'CTA_PROTO_ICMPV6'],
+        }[family]
+
+    def attrs(self):
+        cta_ip = []
+        cta_proto = []
+        cta_tuple = []
+
+        if self.saddr is not None:
+            cta_ip.append([self._attr_ip + '_SRC', self.saddr])
+
+        if self.daddr is not None:
+            cta_ip.append([self._attr_ip + '_DST', self.daddr])
+
+        if self.proto is not None:
+            cta_proto.append(['CTA_PROTO_NUM', self.proto])
+
+        if self.sport is not None:
+            cta_proto.append(['CTA_PROTO_SRC_PORT', self.sport])
+
+        if self.dport is not None:
+            cta_proto.append(['CTA_PROTO_DST_PORT', self.dport])
+
+        if self.icmp_id is not None:
+            cta_proto.append([self._attr_icmp + '_ID', self.icmp_id])
+
+        if self.icmp_type is not None:
+            cta_proto.append([self._attr_icmp + '_TYPE', self.icmp_type])
+
+        if self.icmp_code is not None:
+            cta_proto.append([self._attr_icmp + '_CODE', self.icmp_code])
+
+        if cta_ip:
+            cta_tuple.append(['CTA_TUPLE_IP', {'attrs': cta_ip}])
+
+        if cta_proto:
+            cta_tuple.append(['CTA_TUPLE_PROTO', {'attrs': cta_proto}])
+
+        return cta_tuple
+
+
 class NFCTSocket(NetlinkSocket):
     policy = dict((k | (NFNL_SUBSYS_CTNETLINK << 8), v) for k, v in {
         IPCTNL_MSG_CT_NEW: nfct_msg,
@@ -254,12 +335,7 @@ class NFCTSocket(NetlinkSocket):
         return self.nlm_request(msg, msg_type, **kwargs)
 
     def dump(self, mark=None, mark_mask=0xffffffff):
-        msg = nfct_msg()
-
-        if mark is not None:
-            msg['attrs'] += [['CTA_MARK', mark]]
-            msg['attrs'] += [['CTA_MARK_MASK', mark_mask]]
-
+        msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
         return self.request(msg, IPCTNL_MSG_CT_GET,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
@@ -271,3 +347,56 @@ class NFCTSocket(NetlinkSocket):
         return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                             terminate=terminate_single_msg)
+
+    def flush(self, mark=None, mark_mask=0xffffffff):
+        msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
+        return self.request(msg, IPCTNL_MSG_CT_DELETE,
+                            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+                            terminate=terminate_error_msg)
+
+    def entry(self, cmd, **kwargs):
+        """
+        Get or change a conntrack entry.
+
+        Examples::
+            # add an entry
+            ct.entry('add', timeout=30,
+                     tuple_orig=NFCTAttrTuple(
+                         saddr='192.168.122.1', daddr='192.168.122.67',
+                         proto=6, sport=34857, dport=5599),
+                     tuple_reply=NFCTAttrTuple(
+                         saddr='192.168.122.67', daddr='192.168.122.1',
+                         proto=6, sport=5599, dport=34857))
+
+            # set mark=5 on the matching entry
+            ct.entry('set', mark=5,
+                     tuple_orig=NFCTAttrTuple(
+                         saddr='192.168.122.1', daddr='192.168.122.67',
+                         proto=6, sport=34857, dport=5599))
+
+            # get an entry
+            ct.entry('get',
+                     tuple_orig=NFCTAttrTuple(
+                         saddr='192.168.122.1', daddr='192.168.122.67',
+                         proto=6, sport=34857, dport=5599))
+
+            # delete an entry
+            ct.entry('del',
+                     tuple_orig=NFCTAttrTuple(
+                         saddr='192.168.122.1', daddr='192.168.122.67',
+                         proto=6, sport=34857, dport=5599))
+        """
+        msg_type, msg_flags = {
+            'add': [IPCTNL_MSG_CT_NEW, NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE],
+            'set': [IPCTNL_MSG_CT_NEW, NLM_F_ACK],
+            'get': [IPCTNL_MSG_CT_GET, NLM_F_ACK],
+            'del': [IPCTNL_MSG_CT_DELETE, NLM_F_ACK],
+        }[cmd]
+
+        if msg_type == IPCTNL_MSG_CT_DELETE and \
+           not ('tuple_orig' in kwargs or 'tuple_reply' in kwargs):
+            raise ValueError('Deletion requires a tuple at least')
+
+        return self.request(nfct_msg.create_from(**kwargs), msg_type,
+                            msg_flags=NLM_F_REQUEST | msg_flags,
+                            terminate=terminate_error_msg)
