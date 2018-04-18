@@ -138,6 +138,13 @@ class TestExplicit(BasicSetup):
             testif.up()
         assert ('100:100::1', 64) in self.ip.interfaces[self.ifd].ipaddr
 
+    def test_addr_mask_ipv6(self):
+        require_user('root')
+        with self.ip.interfaces[self.ifd] as testif:
+            testif.add_ip('100:100::1', 'ffff:ffff:ffff:ffff::')
+            testif.up()
+        assert ('100:100::1', 64) in self.ip.interfaces[self.ifd].ipaddr
+
     def test_norm_route_ipv6(self):
         require_user('root')
         with self.ip.interfaces[self.ifd] as testif:

@@ -359,26 +359,33 @@ class Interface(Transactional):
         '''
         Add IP address to an interface
 
-        Keyword arguments:
+        Address formats:
 
-        * mask
-        * broadcast
-        * anycast
-        * scope
+            with ipdb.interfaces.eth0 as i:
+                i.add_ip('192.168.0.1', 24)
+                i.add_ip('192.168.0.2/24')
+                i.add_ip('192.168.0.3/255.255.255.0')
+                i.add_ip('192.168.0.4/24',
+                         broadcast='192.168.0.255',
+                         scope=254)
         '''
+        family = 0
         # split mask
         if mask is None:
             ip, mask = ip.split('/')
-            if mask.find('.') > -1:
-                mask = dqn2int(mask)
-            else:
-                mask = int(mask, 0)
-        elif isinstance(mask, basestring):
-            mask = dqn2int(mask)
 
-        # normalize the address
         if ip.find(':') > -1:
+            family = AF_INET6
+            # normalize IPv6 format
             ip = inet_ntop(AF_INET6, inet_pton(AF_INET6, ip))
+        else:
+            family = AF_INET
+
+        if isinstance(mask, basestring):
+            try:
+                mask = int(mask, 0)
+            except:
+                mask = dqn2int(mask, family)
 
         # if it is a transaction or an interface update, apply the change
         self['ipaddr'].unlink((ip, mask))

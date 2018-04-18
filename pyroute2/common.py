@@ -281,11 +281,16 @@ def getbroadcast(addr, mask, family=socket.AF_INET):
     return socket.inet_ntop(family, n)
 
 
-def dqn2int(mask):
+def dqn2int(mask, family=socket.AF_INET):
     '''
     IPv4 dotted quad notation to int mask conversion
     '''
-    return bin(struct.unpack('>L', socket.inet_aton(mask))[0]).count('1')
+    ret = 0
+    binary = socket.inet_pton(family, mask)
+    for offset in range(len(binary) // 4):
+        ret += bin(struct.unpack('I', binary[offset * 4:
+                                             offset * 4 + 4])[0]).count('1')
+    return ret
 
 
 def hexdump(payload, length=0):
