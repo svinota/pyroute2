@@ -109,6 +109,18 @@ class nfct_msg(nfgen_msg):
         ('CTA_LABELS_MASK', 'cta_labels'),
     )
 
+    @classmethod
+    def create_from(cls, **kwargs):
+        self = cls()
+
+        for key, value in kwargs.items():
+            if isinstance(value, NFCTAttr):
+                value = {'attrs': value.attrs()}
+            if value is not None:
+                self['attrs'].append([self.name2nla(key), value])
+
+        return self
+
     class cta_tuple(nla):
         nla_map = (
             ('CTA_TUPLE_UNSPEC', 'none'),
@@ -323,21 +335,21 @@ class NFCTSocket(NetlinkSocket):
         return self.nlm_request(msg, msg_type, **kwargs)
 
     def dump(self, mark=None, mark_mask=0xffffffff):
-        msg = self._mkmsg(mark=mark, mark_mask=mark_mask)
+        msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
         return self.request(msg, IPCTNL_MSG_CT_GET,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def stat(self):
-        return self.request(self._mkmsg(), IPCTNL_MSG_CT_GET_STATS_CPU,
+        return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS_CPU,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def count(self):
-        return self.request(self._mkmsg(), IPCTNL_MSG_CT_GET_STATS,
+        return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                             terminate=terminate_single_msg)
 
     def flush(self, mark=None, mark_mask=0xffffffff):
-        msg = self._mkmsg(mark=mark, mark_mask=mark_mask)
+        msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
         return self.request(msg, IPCTNL_MSG_CT_DELETE,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK,
                             terminate=terminate_error_msg)
@@ -385,17 +397,6 @@ class NFCTSocket(NetlinkSocket):
            not ('tuple_orig' in kwargs or 'tuple_reply' in kwargs):
             raise ValueError('Deletion requires a tuple at least')
 
-        return self.request(self._mkmsg(**kwargs), msg_type,
+        return self.request(nfct_msg.create_from(**kwargs), msg_type,
                             msg_flags=NLM_F_REQUEST | msg_flags,
                             terminate=terminate_error_msg)
-
-    def _mkmsg(self, **kwargs):
-        msg = nfct_msg()
-
-        for key, value in kwargs.items():
-            if isinstance(value, NFCTAttr):
-                value = {'attrs': value.attrs()}
-            if value is not None:
-                msg['attrs'].append([msg.name2nla(key), value])
-
-        return msg
