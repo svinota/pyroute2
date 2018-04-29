@@ -26,7 +26,7 @@ pyroute2_root = os.path.join(os.path.dirname(__file__), "..")
 sys.path.insert(1, pyroute2_root)
 
 from pyroute2 import DiagSocket
-from pyroute2.netlink.diag import SS_ESTABLISHED, SS_SYN_SENT, SS_SYN_RECV, SS_FIN_WAIT1, SS_FIN_WAIT2, SS_TIME_WAIT, SS_CLOSE, SS_CLOSE_WAIT, SS_LAST_ACK, SS_LISTEN, SS_CLOSING
+from pyroute2.netlink.diag import SS_ESTABLISHED, SS_SYN_SENT, SS_SYN_RECV, SS_FIN_WAIT1, SS_FIN_WAIT2, SS_TIME_WAIT, SS_CLOSE, SS_CLOSE_WAIT, SS_LAST_ACK, SS_LISTEN, SS_CLOSING, SS_ALL, SS_CONN
 from socket import AF_UNIX, AF_INET, AF_INET6, IPPROTO_TCP
 
 
@@ -46,7 +46,9 @@ class TCP(Protocol):
     INET_DIAG_VEGASINFO  = 3
     INET_DIAG_CONG       = 4
 
-    def __init__(self, fmt='json'):
+    def __init__(self, sk_states=SS_CONN, fmt='json'):
+        self._states = sk_states
+
         fmter = "_fmt_%s" % fmt
         self._fmt = getattr(self, fmter, None)
 
@@ -63,7 +65,7 @@ class TCP(Protocol):
             self.ext_f |= (1<<(f-1))
 
     def __call__(self, nl_diag_sk):
-        sstats = nl_diag_sk.get_sock_stats(family=AF_INET, extensions=self.ext_f)
+        sstats = nl_diag_sk.get_sock_stats(states=self._states, family=AF_INET, extensions=self.ext_f)
         refined_stats = self._refine_diag_raw(sstats)
         printable = self._fmt(refined_stats)
 
@@ -310,6 +312,8 @@ def prepare_args():
                                      a complete and convenient surrogate for iproute2/misc/ss2
                                      """)
     parser.add_argument('-t', '--tcp', help='Display TCP sockets.', action='store_true')
+    parser.add_argument('-l', '--listen', help='Display listening sockets.', action='store_true')
+    parser.add_argument('-a', '--all', help='Display all sockets.', action='store_true')
 
     args = parser.parse_args()
     
@@ -319,9 +323,15 @@ def run():
     args = prepare_args()
 
     protocol = None
+
+    _states = SS_CONN
+    if args.listen: 
+        _states = (1<<SS_LISTEN)
+    if args.all: 
+        _states = SS_ALL
     
     if args.tcp:
-        protocol = TCP()
+        protocol = TCP(sk_states=_states)
 
     if not protocol:
         raise RuntimeError('not implemented - ss2 in fledging mode')
