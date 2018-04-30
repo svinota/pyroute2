@@ -396,12 +396,7 @@ class IPRouteMixin(object):
         return result
 
     def get_neighbors(self, family=AF_UNSPEC):
-        '''
-        Alias of `get_neighbours()`, deprecated.
-        '''
-        log.warning('The `get_neighbors()` call is deprecated')
-        log.warning('Use `get_neighbours() instead')
-        return self.get_neighbours(family)
+        raise DeprecationWarning('`get_neighbors()` call is deprecated')
 
     def get_neighbours(self, family=AF_UNSPEC, match=None, **kwarg):
         '''
