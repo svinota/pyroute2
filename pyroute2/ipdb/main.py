@@ -1383,10 +1383,14 @@ class IPDB(object):
                 # anymore
                 if self._stop:
                     break
-            except:
-                log.error('Restarting IPDB instance after '
-                          'error:\n%s', traceback.format_exc())
+            except Exception as e:
+                with self.exclusive:
+                    if self._evq:
+                        self._evq.put(e)
+                        return
                 if self.restart_on_error:
+                    log.error('Restarting IPDB instance after '
+                              'error:\n%s', traceback.format_exc())
                     try:
                         self.initdb()
                     except:
