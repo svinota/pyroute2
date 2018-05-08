@@ -768,6 +768,7 @@ class IPDB(object):
 
     def __init__(self, nl=None, mode='implicit',
                  restart_on_error=None, nl_async=None,
+                 sndbuf=1048576, rcvbuf=1048576,
                  nl_bind_groups=RTMGRP_DEFAULTS,
                  ignore_rtables=None, callbacks=None,
                  sort_addresses=False, plugins=None):
@@ -788,6 +789,8 @@ class IPDB(object):
         self._nl_async = config.ipdb_nl_async if nl_async is None else True
         self.mnl = None
         self.nl = nl
+        self._sndbuf = sndbuf
+        self._rcvbuf = rcvbuf
         self.nl_bind_groups = nl_bind_groups
         self._plugins = [pmap[x] for x in plugins if x in pmap]
         if isinstance(ignore_rtables, int):
@@ -894,7 +897,7 @@ class IPDB(object):
             if self._nl_own:
                 if self.nl is not None:
                     self.nl.close()
-                self.nl = IPRoute()
+                self.nl = IPRoute(sndbuf=self._sndbuf, rcvbuf=self._rcvbuf)
             # setup monitoring socket
             if self.mnl is not None:
                 self._flush_mnl()
@@ -1050,6 +1053,8 @@ class IPDB(object):
 
         def __enter__(self):
             with self._ipdb.exclusive:
+                if self._ipdb._evq:
+                    raise RuntimeError("Only one eventqueue per IPDB allowed")
                 self._ipdb._evq = queue.Queue(maxsize=self._qsize)
                 self._ipdb._evqdrop = 0
             return self
@@ -1062,17 +1067,17 @@ class IPDB(object):
 
         def __del__(self):
             if self._ipdb:
-                # Note: this should not happen if the class is used as a
-                # context manager. In case somebody initialized it
+                # Note: this should not happen if the class is used as
+                # a context manager. In case somebody initialized it
                 # directly, make sure that orphan event queue is not
-                # hanging in the ipdb instance after our instance is
-                # garbage collected.
+                # hanging in the ipdb instance after the instance of
+                # _evq_context is garbage collected.
                 with self._ipdb.exclusive:
                     self._ipdb._evq = None
                     self._ipdb._evqdrop = 0
 
         def nextmsg(self):
-            if not self._ipdb:
+            if not self._ipdb._evq:
                 raise RuntimeError('eventqueue must be used as context manager')
             while True:
                 msg = self._ipdb._evq.get(self._block, self._timeout)

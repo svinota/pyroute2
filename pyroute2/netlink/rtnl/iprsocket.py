@@ -21,8 +21,10 @@ else:
 
 class IPRSocketMixin(object):
 
-    def __init__(self, fileno=None, all_ns=False):
+    def __init__(self, fileno=None, sndbuf=1048576, rcvbuf=1048576,
+                 all_ns=False):
         super(IPRSocketMixin, self).__init__(NETLINK_ROUTE, fileno=fileno,
+                                             sndbuf=sndbuf, rcvbuf=rcvbuf,
                                              all_ns=all_ns)
         self.marshal = MarshalRtnl()
         self._s_channel = None
@@ -44,7 +46,7 @@ class IPRSocketMixin(object):
             self.recv_ft = self._p_recv_ft
 
     def clone(self):
-        return type(self)()
+        return type(self)(sndbuf=self._sndbuf, rcvbuf=self._rcvbuf)
 
     def bind(self, groups=rtnl.RTMGRP_DEFAULTS, async=False):
         super(IPRSocketMixin, self).bind(groups, async=async)
