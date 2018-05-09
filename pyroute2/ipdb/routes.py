@@ -690,7 +690,7 @@ class Route(BaseRoute):
             ret = rt_proto.get(value, value)
         elif key == 'dst' and \
                 isinstance(value, basestring) and \
-                value.split('/')[0] in ('0.0.0.0', '::'):
+                value in ('0.0.0.0/0', '::/0'):
             ret = 'default'
         Transactional.__setitem__(self, key, ret)
 
