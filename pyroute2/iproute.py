@@ -491,6 +491,11 @@ class IPRouteMixin(object):
             ip.get_routes()  # get all the routes for all families
             ip.get_routes(family=AF_INET6)  # get only IPv6 routes
             ip.get_routes(table=254)  # get routes from 254 table
+
+        The issue with getting all the routes is that the kernel
+        returns only AF_INET routes despite of AF_UNSPEC in the
+        parameters. So to dump AF_INET and AF_INET6 routes at the
+        same time use family=255.
         '''
 
         msg_flags = NLM_F_DUMP | NLM_F_REQUEST
