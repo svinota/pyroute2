@@ -15,6 +15,8 @@ from pyroute2.common import basestring
 from pyroute2.netlink import rtnl
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nlmsg_base
+from pyroute2.netlink import NLM_F_MULTI
+from pyroute2.netlink import NLM_F_CREATE
 from pyroute2.netlink.rtnl import rt_type
 from pyroute2.netlink.rtnl import rt_proto
 from pyroute2.netlink.rtnl import encap_type
@@ -259,11 +261,55 @@ class BaseRoute(Transactional):
             for (key, value) in msg.items():
                 self[key] = value
 
-            # cleanup multipath NH
-            for nh in self['multipath']:
-                self.del_nh(nh)
+            # IPv6 multipath via several devices (not networks) is a very
+            # special case, since we get only the first hop notification. Ask
+            # the kernel guys why. I've got no idea.
+            #
+            # So load all the rest
+            flags = msg.get('header', {}).get('flags', 0)
+            family = msg.get('family', 0)
+            clean_mp = True
+            #
+            # It MAY be a multipath hop
+            #
+            if family == AF_INET6 and not msg.get_attr('RTA_MULTIPATH'):
+                #
+                # It is a notification about the route created
+                #
+                if flags == NLM_F_CREATE:
+                    #
+                    # This routine can significantly slow down the IPDB
+                    # instance, but I see no way around. Some are born
+                    # to endless night.
+                    #
+                    clean_mp = False
+                    msgs = self.nl.route('show',
+                                         table=self['table'],
+                                         dst=self['dst'],
+                                         family=self['family'])
+                    for nhmsg in msgs:
+                        nh = type(self)(ipdb=self.ipdb, parent=self)
+                        nh.load_netlink(nhmsg)
+                        with nh._direct_state:
+                            del nh['dst']
+                            del nh['ipdb_scope']
+                            del nh['ipdb_priority']
+                            del nh['multipath']
+                            del nh['metrics']
+                        self.add_nh(nh)
+                #
+                # it IS a multipath hop loaded during IPDB init
+                #
+                elif flags == NLM_F_MULTI and self.get('dst'):
+                    nh = type(self)(ipdb=self.ipdb, parent=self)
+                    nh.load_netlink(msg)
+                    return
 
-            # merge NLA
+            # cleanup multipath NH
+            if clean_mp:
+                for nh in self['multipath']:
+                    self.del_nh(nh)
+
             for cell in msg['attrs']:
                 #
                 # Parse on demand
