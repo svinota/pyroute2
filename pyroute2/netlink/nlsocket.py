@@ -318,6 +318,7 @@ class NetlinkMixin(object):
                              'provide_master': config.kernel[0] > 2}
         self.backlog_lock = threading.Lock()
         self.read_lock = threading.Lock()
+        self.sys_lock = threading.Lock()
         self.change_master = threading.Event()
         self.lock = LockFactory()
         self._sock = None
@@ -893,7 +894,7 @@ class NetlinkSocket(NetlinkMixin):
 
     def post_init(self):
         # recreate the underlying socket
-        with self.lock:
+        with self.sys_lock:
             if self._sock is not None:
                 self._sock.close()
             self._sock = config.SocketBase(AF_NETLINK,
@@ -999,7 +1000,7 @@ class NetlinkSocket(NetlinkMixin):
         '''
         Correctly close the socket and free all resources.
         '''
-        with self.lock:
+        with self.sys_lock:
             if self.closed:
                 return
             self.closed = True
