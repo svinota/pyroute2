@@ -849,45 +849,78 @@ class IPDB(object):
         self.release()
 
     def initdb(self):
-        # common event map, empty by default, so all the
-        # events aer just ignored
-        self.release(complete=False)
-        self._stop = False
-        # explicitly cleanup object references
-        for event in tuple(self._event_map):
-            del self._event_map[event]
 
-        # if the command socket is not provided, create it
-        if self._nl_own:
-            self.nl = IPRoute()
-        # setup monitoring socket
-        self.mnl = self.nl.clone()
-        try:
-            self.mnl.bind(groups=self.nl_bind_groups, async=self._nl_async)
-        except:
-            self.mnl.close()
-            if self._nl_own is None:
-                self.nl.close()
-            raise
+        # flush all the DB objects
+        with self.exclusive:
+            self._join_cb()
 
-        # explicitly cleanup references
-        for key in tuple(self._deferred):
-            del self._deferred[key]
+            # explicitly cleanup object references
+            for event in tuple(self._event_map):
+                del self._event_map[event]
 
-        for module in self._plugins:
-            if (module.groups & self.nl_bind_groups) != module.groups:
-                continue
-            for plugin in module.spec:
-                self._deferred[plugin['name']] = module.spec
-                if plugin['name'] in self._loaded:
-                    delattr(self, plugin['name'])
-                    self._loaded.remove(plugin['name'])
+            def flush(idx):
+                for key in tuple(idx.keys()):
+                    try:
+                        del idx[key]
+                    except KeyError:
+                        pass
+            idx_list = []
+            if 'interfaces' in self._loaded:
+                for (key, dev) in self.by_name.items():
+                    try:
+                        # FIXME
+                        self.interfaces._detach(key,
+                                                dev['index'],
+                                                dev.nlmsg)
+                    except KeyError:
+                        pass
+                idx_list.append(self.ipaddr)
+                idx_list.append(self.neighbours)
+            if 'routes' in self._loaded:
+                idx_list.extend([self.routes.tables[x] for x
+                                 in self.routes.tables.keys()])
+            if 'rules' in self._loaded:
+                idx_list.append(self.rules)
+            for idx in idx_list:
+                flush(idx)
 
-        # start the monitoring thread
-        self._mthread = threading.Thread(name="IPDB event loop",
-                                         target=self.serve_forever)
-        self._mthread.setDaemon(True)
-        self._mthread.start()
+            # if the command socket is not provided, create it
+            if self._nl_own:
+                if self.nl is not None:
+                    self.nl.close()
+                self.nl = IPRoute()
+            # setup monitoring socket
+            if self.mnl is not None:
+                self._flush_mnl()
+                self.mnl.close()
+            self.mnl = self.nl.clone()
+            try:
+                self.mnl.bind(groups=self.nl_bind_groups, async=self._nl_async)
+            except:
+                self.mnl.close()
+                if self._nl_own is None:
+                    self.nl.close()
+                raise
+
+            # explicitly cleanup references
+            for key in tuple(self._deferred):
+                del self._deferred[key]
+
+            for module in self._plugins:
+                if (module.groups & self.nl_bind_groups) != module.groups:
+                    continue
+                for plugin in module.spec:
+                    self._deferred[plugin['name']] = module.spec
+                    if plugin['name'] in self._loaded:
+                        delattr(self, plugin['name'])
+                        self._loaded.remove(plugin['name'])
+
+            if not getattr(self._mthread, 'is_alive', lambda: False)():
+                # start the monitoring thread
+                self._mthread = threading.Thread(name="IPDB event loop",
+                                                 target=self.serve_forever)
+                self._mthread.setDaemon(True)
+                self._mthread.start()
 
     def __getattribute__(self, name):
         deferred = super(IPDB, self).__getattribute__('_deferred')
@@ -999,7 +1032,7 @@ class IPDB(object):
         ret = self._cb_threads.get(cuid, ())
         return ret
 
-    def release(self, complete=True):
+    def release(self):
         '''
         Shutdown IPDB instance and sync the state. Since
         IPDB is asyncronous, some operations continue in the
@@ -1013,67 +1046,42 @@ class IPDB(object):
         '''
         with self._shutdown_lock:
             if self._stop:
+                log.warning("shutdown in progress")
                 return
             self._stop = True
-            if self.mnl is not None:
-                # terminate the main loop
-                for t in range(3):
-                    try:
-                        msg = ifinfmsg()
-                        msg['index'] = 1
-                        msg.reset()
-                        self.mnl.put(msg, RTM_GETLINK)
-                    except Exception as e:
-                        log.warning("shutdown error: %s", e)
-                        # Just give up.
-                        # We can not handle this case
+            self._join_cb()
 
             if self._mthread is not None:
+                self._flush_mnl()
                 self._mthread.join()
 
             if self.mnl is not None:
                 self.mnl.close()
                 self.mnl = None
-                if complete or self._nl_own:
-                    self.nl.close()
-                    self.nl = None
 
-        with self.exclusive:
-                # collect all the callbacks
-                for cuid in tuple(self._cb_threads):
-                    for t in tuple(self._cb_threads[cuid]):
-                        t.join()
+            if self._nl_own:
+                self.nl.close()
+                self.nl = None
 
-                # flush all the objects
-                def flush(idx):
-                    for key in tuple(idx.keys()):
-                        try:
-                            del idx[key]
-                        except KeyError:
-                            pass
-                idx_list = []
+    def _join_cb(self):
+        # join all the running callbacks
+        for cuid in tuple(self._cb_threads):
+            for t in tuple(self._cb_threads[cuid]):
+                t.join()
 
-                if 'interfaces' in self._loaded:
-                    for (key, dev) in self.by_name.items():
-                        try:
-                            # FIXME
-                            self.interfaces._detach(key,
-                                                    dev['index'],
-                                                    dev.nlmsg)
-                        except KeyError:
-                            pass
-                    idx_list.append(self.ipaddr)
-                    idx_list.append(self.neighbours)
-
-                if 'routes' in self._loaded:
-                    idx_list.extend([self.routes.tables[x] for x
-                                     in self.routes.tables.keys()])
-
-                if 'rules' in self._loaded:
-                    idx_list.append(self.rules)
-
-                for idx in idx_list:
-                    flush(idx)
+    def _flush_mnl(self):
+        if self.mnl is not None:
+            # terminate the main loop
+            for t in range(3):
+                try:
+                    msg = ifinfmsg()
+                    msg['index'] = 1
+                    msg.reset()
+                    self.mnl.put(msg, RTM_GETLINK)
+                except Exception as e:
+                    log.error("shutdown error: %s", e)
+                    # Just give up.
+                    # We can not handle this case
 
     def create(self, kind, ifname, reuse=False, **kwarg):
         return self.interfaces.add(kind, ifname, reuse, **kwarg)

@@ -1,3 +1,4 @@
+import threading
 from pyroute2 import IPRoute
 from pyroute2 import IPDB
 from pyroute2 import NetNS
@@ -17,6 +18,15 @@ class TestIPDBRaces(object):
 
     def teardown(self):
         self.ip.release()
+
+    def test_initdb(self):
+        tnum = len(threading.enumerate())
+        for _ in range(RESPAWNS):
+            len(self.ip.interfaces.keys())
+            len(self.ip.routes.keys())
+            len(self.ip.rules.keys())
+            self.ip.initdb()
+            assert len(threading.enumerate()) <= tnum
 
     def _ports_mtu_race(self, kind):
         require_user('root')
@@ -61,7 +71,10 @@ class TestRespawn(object):
 
     def test_respawn_ipdb(self):
         for _ in range(RESPAWNS):
-            with IPDB():
+            with IPDB() as i:
+                len(i.interfaces.keys())
+                len(i.routes.keys())
+                len(i.rules.keys())
                 pass
 
 
