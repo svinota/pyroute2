@@ -284,6 +284,8 @@ class NetlinkMixin(object):
                  port=None,
                  pid=None,
                  fileno=None,
+                 sndbuf=1048576,
+                 rcvbuf=1048576,
                  all_ns=False):
         #
         # That's a trick. Python 2 is not able to construct
@@ -308,6 +310,8 @@ class NetlinkMixin(object):
         self.fixed = True
         self.family = family
         self._fileno = fileno
+        self._sndbuf = sndbuf
+        self._rcvbuf = rcvbuf
         self.backlog = {0: []}
         self.callbacks = []     # [(predicate, callback, args), ...]
         self.pthread = None
@@ -911,8 +915,8 @@ class NetlinkSocket(NetlinkMixin):
                 def patch(data, bsize):
                     data[0:] = self._sock.recv(bsize)
                 self._sock.recv_into = patch
-            self.setsockopt(SOL_SOCKET, SO_SNDBUF, 1024 * 1024)
-            self.setsockopt(SOL_SOCKET, SO_RCVBUF, 1024 * 1024)
+            self.setsockopt(SOL_SOCKET, SO_SNDBUF, self._sndbuf)
+            self.setsockopt(SOL_SOCKET, SO_RCVBUF, self._rcvbuf)
             if self.all_ns:
                 self.setsockopt(SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, 1)
 

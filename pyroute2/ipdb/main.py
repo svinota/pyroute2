@@ -704,6 +704,10 @@ import logging
 import traceback
 import threading
 import weakref
+try:
+    import queue
+except ImportError:
+    import Queue as queue  # The module is called 'Queue' in Python2
 
 from functools import partial
 from pprint import pprint
@@ -764,6 +768,7 @@ class IPDB(object):
 
     def __init__(self, nl=None, mode='implicit',
                  restart_on_error=None, nl_async=None,
+                 sndbuf=1048576, rcvbuf=1048576,
                  nl_bind_groups=RTMGRP_DEFAULTS,
                  ignore_rtables=None, callbacks=None,
                  sort_addresses=False, plugins=None):
@@ -784,6 +789,8 @@ class IPDB(object):
         self._nl_async = config.ipdb_nl_async if nl_async is None else True
         self.mnl = None
         self.nl = nl
+        self._sndbuf = sndbuf
+        self._rcvbuf = rcvbuf
         self.nl_bind_groups = nl_bind_groups
         self._plugins = [pmap[x] for x in plugins if x in pmap]
         if isinstance(ignore_rtables, int):
@@ -797,6 +804,8 @@ class IPDB(object):
         self._post_callbacks = {}
         self._pre_callbacks = {}
         self._cb_threads = {}
+        self._evq = None
+        self._evqdrop = 0
 
         # locks and events
         self.exclusive = threading.RLock()
@@ -888,7 +897,7 @@ class IPDB(object):
             if self._nl_own:
                 if self.nl is not None:
                     self.nl.close()
-                self.nl = IPRoute()
+                self.nl = IPRoute(sndbuf=self._sndbuf, rcvbuf=self._rcvbuf)
             # setup monitoring socket
             if self.mnl is not None:
                 self._flush_mnl()
@@ -1031,6 +1040,79 @@ class IPDB(object):
             t.join(3)
         ret = self._cb_threads.get(cuid, ())
         return ret
+
+    class _evq_context(object):
+        """
+        Context manager class for the event queue used by the event loop
+        """
+        def __init__(self, ipdb, qsize, block, timeout):
+            self._ipdb = ipdb
+            self._qsize = qsize
+            self._block = block
+            self._timeout = timeout
+
+        def __enter__(self):
+            with self._ipdb.exclusive:
+                if self._ipdb._evq:
+                    raise RuntimeError("Only one eventqueue per IPDB allowed")
+                self._ipdb._evq = queue.Queue(maxsize=self._qsize)
+                self._ipdb._evqdrop = 0
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            with self._ipdb.exclusive:
+                self._ipdb._evq = None
+                self._ipdb._evqdrop = 0
+                self._ipdb = None
+
+        def __del__(self):
+            if self._ipdb:
+                # Note: this should not happen if the class is used as
+                # a context manager. In case somebody initialized it
+                # directly, make sure that orphan event queue is not
+                # hanging in the ipdb instance after the instance of
+                # _evq_context is garbage collected.
+                with self._ipdb.exclusive:
+                    self._ipdb._evq = None
+                    self._ipdb._evqdrop = 0
+
+        def nextmsg(self):
+            if not self._ipdb._evq:
+                raise RuntimeError('eventqueue must be used as context manager')
+            while True:
+                msg = self._ipdb._evq.get(self._block, self._timeout)
+                self._ipdb._evq.task_done()
+                # Mechanism for the monitoring thread to notify the processing
+                # thread(s) about an error condition.
+                if isinstance(msg, Exception):
+                    raise msg
+                yield msg
+
+    def eventqueue(self, qsize=8192, block=True, timeout=None):
+        """
+        Initializes event queue and returns event queue context manager.
+        Once the context manager is initialized, events start to be collected,
+        so it is possible to read initial state from the system witout losing
+        last moment changes, and once that is done, start processing events.
+
+        Example:
+
+            ipdb = IPDB()
+            with ipdb.eventqueue() as evq:
+                my_state = ipdb.<needed_attribute>...
+                for evq.nextmsg() as msg:
+                    update_state_by_msg(my_state, msg)
+        """
+        return self._evq_context(self, qsize, block, timeout)
+
+    def eventloop(self, qsize=8192, block=True, timeout=None):
+        """
+        Event generator for simple cases when there is no need for initial
+        state setup. Initialize event queue and yield events as they happen.
+        """
+        with self.eventqueue(qsize=qsize, block=block, timeout=timeout) as evq:
+            for msg in evq.nextmsg():
+                yield msg
 
     def release(self):
         '''
@@ -1306,10 +1388,14 @@ class IPDB(object):
                 # anymore
                 if self._stop:
                     break
-            except:
-                log.error('Restarting IPDB instance after '
-                          'error:\n%s', traceback.format_exc())
+            except Exception as e:
+                with self.exclusive:
+                    if self._evq:
+                        self._evq.put(e)
+                        return
                 if self.restart_on_error:
+                    log.error('Restarting IPDB instance after '
+                              'error:\n%s', traceback.format_exc())
                     try:
                         self.initdb()
                     except:
@@ -1334,6 +1420,14 @@ class IPDB(object):
                     if event in self._event_map:
                         for func in self._event_map[event]:
                             func(msg)
+                    if self._evq:
+                        try:
+                            self._evq.put_nowait(msg)
+                            if self._evqdrop:
+                                log.warning("dropped %d events", self._evqdrop)
+                            self._evqdrop = 0
+                        except queue.Full:
+                            self._evqdrop += 1
 
                 # run post-callbacks
                 # NOTE: post-callbacks are asynchronous
