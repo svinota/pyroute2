@@ -956,8 +956,8 @@ class Interface(Transactional):
                 self['ipaddr'].target.wait(SYNC_TIMEOUT)
                 if self['ipaddr'].target.is_set():
                     break
-            else:
-                raise CommitException('ipaddr target is not set')
+                else:
+                    raise CommitException('ipaddr target is not set')
 
             # 8<---------------------------------------------
             # Iterate callback chain
