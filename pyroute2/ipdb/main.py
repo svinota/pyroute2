@@ -1078,7 +1078,8 @@ class IPDB(object):
 
         def nextmsg(self):
             if not self._ipdb._evq:
-                raise RuntimeError('eventqueue must be used as context manager')
+                raise RuntimeError('eventqueue must be used '
+                                   'as a context manager')
             while True:
                 msg = self._ipdb._evq.get(self._block, self._timeout)
                 self._ipdb._evq.task_done()
