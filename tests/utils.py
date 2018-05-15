@@ -1,6 +1,7 @@
 import os
 import re
 import pwd
+import stat
 import sys
 import errno
 import platform
@@ -268,3 +269,16 @@ def get_simple_bpf_program(prog_type):
     libc.syscall.restype = ctypes.c_int
     fd = libc.syscall(NR_bpf, BPF_PROG_LOAD, attr, ctypes.sizeof(attr))
     return fd
+
+
+def count_socket_fds():
+    pid_fd = '/proc/%s/fd' % os.getpid()
+    sockets = 0
+    for fd in os.listdir(pid_fd):
+        try:
+            if stat.S_ISSOCK(os.stat(os.path.join(pid_fd, fd)).st_mode):
+                sockets += 1
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
+    return sockets
