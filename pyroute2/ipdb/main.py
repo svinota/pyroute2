@@ -759,6 +759,49 @@ class Watchdog(object):
         self.ipdb.unregister_callback(self.uuid)
 
 
+class _evq_context(object):
+    '''
+    Context manager class for the event queue used by the event loop
+    '''
+    def __init__(self, ipdb, qsize, block, timeout):
+        self._ipdb = ipdb
+        self._qsize = qsize
+        self._block = block
+        self._timeout = timeout
+
+    def __enter__(self):
+        # Context manager protocol
+        self._ipdb._evq_lock.acquire()
+        self._ipdb._evq = queue.Queue(maxsize=self._qsize)
+        self._ipdb._evq_drop = 0
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # Context manager protocol
+        self._ipdb._evq = None
+        self._ipdb._evq_drop = 0
+        self._ipdb._evq_lock.release()
+
+    def __iter__(self):
+        # Iterator protocol
+        if not self._ipdb._evq:
+            raise RuntimeError('eventqueue must be used '
+                               'as a context manager')
+        return self
+
+    def next(self):
+        # Iterator protocol -- Python 2.x compatibility
+        return self.__next__()
+
+    def __next__(self):
+        # Iterator protocol -- Python 3.x
+        msg = self._ipdb._evq.get(self._block, self._timeout)
+        self._ipdb._evq.task_done()
+        if isinstance(msg, Exception):
+            raise msg
+        return msg
+
+
 class IPDB(object):
     '''
     The class that maintains information about network setup
@@ -1042,48 +1085,6 @@ class IPDB(object):
         ret = self._cb_threads.get(cuid, ())
         return ret
 
-    class _evq_context(object):
-        '''
-        Context manager class for the event queue used by the event loop
-        '''
-        def __init__(self, ipdb, qsize, block, timeout):
-            self._ipdb = ipdb
-            self._qsize = qsize
-            self._block = block
-            self._timeout = timeout
-
-        def __enter__(self):
-            # Context manager protocol
-            self._ipdb._evq_lock.acquire()
-            self._ipdb._evq = queue.Queue(maxsize=self._qsize)
-            self._ipdb._evq_drop = 0
-            return self
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            # Context manager protocol
-            self._ipdb._evq = None
-            self._ipdb._evq_drop = 0
-            self._ipdb._evq_lock.release()
-
-        def __iter__(self):
-            # Iterator protocol
-            if not self._ipdb._evq:
-                raise RuntimeError('eventqueue must be used '
-                                   'as a context manager')
-            return self
-
-        def next(self):
-            # Iterator protocol -- Python 2.x compatibility
-            return self.__next__()
-
-        def __next__(self):
-            # Iterator protocol -- Python 3.x
-            msg = self._ipdb._evq.get(self._block, self._timeout)
-            self._ipdb._evq.task_done()
-            if isinstance(msg, Exception):
-                raise msg
-            return msg
-
     def eventqueue(self, qsize=8192, block=True, timeout=None):
         '''
         Initializes event queue and returns event queue context manager.
@@ -1099,7 +1100,7 @@ class IPDB(object):
                 for msg in evq:
                     update_state_by_msg(my_state, msg)
         '''
-        return self._evq_context(self, qsize, block, timeout)
+        return _evq_context(self, qsize, block, timeout)
 
     def eventloop(self, qsize=8192, block=True, timeout=None):
         """
