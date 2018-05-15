@@ -348,7 +348,15 @@ class ifinfbase(object):
                ('IFLA_PHYS_PORT_NAME', 'asciiz'),
                ('IFLA_PROTO_DOWN', 'uint8'),
                ('IFLA_GSO_MAX_SEGS', 'uint32'),
-               ('IFLA_GSO_MAX_SIZE', 'uint32'))
+               ('IFLA_GSO_MAX_SIZE', 'uint32'),
+               ('IFLA_PAD', 'hex'),
+               ('IFLA_XDP', 'hex'),
+               ('IFLA_EVENT', 'hex'),
+               ('IFLA_NEW_NETNSID', 'hex'),
+               ('IFLA_IF_NETNSID', 'hex'),
+               ('IFLA_CARRIER_UP_COUNT', 'hex'),
+               ('IFLA_CARRIER_DOWN_COUNT', 'hex'),
+               ('IFLA_NEW_IFINDEX', 'hex'))
 
     @staticmethod
     def flags2names(flags, mask=0xffffffff):
