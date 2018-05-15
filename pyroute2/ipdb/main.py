@@ -805,7 +805,7 @@ class IPDB(object):
         self._pre_callbacks = {}
         self._cb_threads = {}
         self._evq = None
-        self._evq_run = False
+        self._evq_lock = threading.Lock()
         self._evq_drop = 0
 
         # locks and events
@@ -1042,32 +1042,6 @@ class IPDB(object):
         ret = self._cb_threads.get(cuid, ())
         return ret
 
-    def _evq_ref_inc(self, qsize):
-        '''
-        Increment evq reference counter.
-
-        Start the evq if needed.
-        '''
-        with self.exclusive:
-            self._evq_run += 1
-            if self._evq_run == 1:
-                self._evq = queue.Queue(maxsize=qsize)
-                self._evq_drop = 0
-            return self._evq_run
-
-    def _evq_ref_dec(self):
-        '''
-        Decrement evq reference counter.
-
-        Stop the evq with the last reference.
-        '''
-        with self.exclusive:
-            if self._evq_run > 0:
-                self._evq_run -= 1
-            if self._evq_run == 0:
-                self._evq = None
-                self._evq_drop = 0
-
     class _evq_context(object):
         '''
         Context manager class for the event queue used by the event loop
@@ -1077,21 +1051,23 @@ class IPDB(object):
             self._qsize = qsize
             self._block = block
             self._timeout = timeout
-            self._ref = 0
 
         def __enter__(self):
             # Context manager protocol
-            self._ref = self._ipdb._evq_ref_inc(self._qsize)
+            self._ipdb._evq_lock.acquire()
+            self._ipdb._evq = queue.Queue(maxsize=self._qsize)
+            self._ipdb._evq_drop = 0
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
             # Context manager protocol
-            self._ipdb._evq_ref_dec()
-            self._ref = 0
+            self._ipdb._evq = None
+            self._ipdb._evq_drop = 0
+            self._ipdb._evq_lock.release()
 
         def __iter__(self):
             # Iterator protocol
-            if not self._ref:
+            if not self._ipdb._evq:
                 raise RuntimeError('eventqueue must be used '
                                    'as a context manager')
             return self
@@ -1424,6 +1400,7 @@ class IPDB(object):
                         return
                     continue
                 else:
+                    log.error('Emergency shutdown, cleanup manually')
                     raise RuntimeError('Emergency shutdown')
 
             for msg in messages:
@@ -1440,7 +1417,7 @@ class IPDB(object):
                     if event in self._event_map:
                         for func in self._event_map[event]:
                             func(msg)
-                    if self._evq_run:
+                    if self._evq:
                         try:
                             self._evq.put_nowait(msg)
                             if self._evq_drop:
@@ -1449,6 +1426,9 @@ class IPDB(object):
                             self._evq_drop = 0
                         except queue.Full:
                             self._evq_drop += 1
+                        except Exception as e:
+                            log.error('Emergency shutdown, cleanup manually')
+                            raise RuntimeError('Emergency shutdown')
 
                 # run post-callbacks
                 # NOTE: post-callbacks are asynchronous
