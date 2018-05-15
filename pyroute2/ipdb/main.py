@@ -805,7 +805,8 @@ class IPDB(object):
         self._pre_callbacks = {}
         self._cb_threads = {}
         self._evq = None
-        self._evqdrop = 0
+        self._evq_run = False
+        self._evq_drop = 0
 
         # locks and events
         self.exclusive = threading.RLock()
@@ -1041,56 +1042,74 @@ class IPDB(object):
         ret = self._cb_threads.get(cuid, ())
         return ret
 
+    def _evq_ref_inc(self, qsize):
+        '''
+        Increment evq reference counter.
+
+        Start the evq if needed.
+        '''
+        with self.exclusive:
+            self._evq_run += 1
+            if self._evq_run == 1:
+                self._evq = queue.Queue(maxsize=qsize)
+                self._evq_drop = 0
+            return self._evq_run
+
+    def _evq_ref_dec(self):
+        '''
+        Decrement evq reference counter.
+
+        Stop the evq with the last reference.
+        '''
+        with self.exclusive:
+            if self._evq_run > 0:
+                self._evq_run -= 1
+            if self._evq_run == 0:
+                self._evq = None
+                self._evq_drop = 0
+
     class _evq_context(object):
-        """
+        '''
         Context manager class for the event queue used by the event loop
-        """
+        '''
         def __init__(self, ipdb, qsize, block, timeout):
             self._ipdb = ipdb
             self._qsize = qsize
             self._block = block
             self._timeout = timeout
+            self._ref = 0
 
         def __enter__(self):
-            with self._ipdb.exclusive:
-                if self._ipdb._evq:
-                    raise RuntimeError("Only one eventqueue per IPDB allowed")
-                self._ipdb._evq = queue.Queue(maxsize=self._qsize)
-                self._ipdb._evqdrop = 0
+            # Context manager protocol
+            self._ref = self._ipdb._evq_ref_inc(self._qsize)
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
-            with self._ipdb.exclusive:
-                self._ipdb._evq = None
-                self._ipdb._evqdrop = 0
-                self._ipdb = None
+            # Context manager protocol
+            self._ipdb._evq_ref_dec()
+            self._ref = 0
 
-        def __del__(self):
-            if self._ipdb:
-                # Note: this should not happen if the class is used as
-                # a context manager. In case somebody initialized it
-                # directly, make sure that orphan event queue is not
-                # hanging in the ipdb instance after the instance of
-                # _evq_context is garbage collected.
-                with self._ipdb.exclusive:
-                    self._ipdb._evq = None
-                    self._ipdb._evqdrop = 0
-
-        def nextmsg(self):
-            if not self._ipdb._evq:
+        def __iter__(self):
+            # Iterator protocol
+            if not self._ref:
                 raise RuntimeError('eventqueue must be used '
                                    'as a context manager')
-            while True:
-                msg = self._ipdb._evq.get(self._block, self._timeout)
-                self._ipdb._evq.task_done()
-                # Mechanism for the monitoring thread to notify the processing
-                # thread(s) about an error condition.
-                if isinstance(msg, Exception):
-                    raise msg
-                yield msg
+            return self
+
+        def next(self):
+            # Iterator protocol -- Python 2.x compatibility
+            return self.__next__()
+
+        def __next__(self):
+            # Iterator protocol -- Python 3.x
+            msg = self._ipdb._evq.get(self._block, self._timeout)
+            self._ipdb._evq.task_done()
+            if isinstance(msg, Exception):
+                raise msg
+            return msg
 
     def eventqueue(self, qsize=8192, block=True, timeout=None):
-        """
+        '''
         Initializes event queue and returns event queue context manager.
         Once the context manager is initialized, events start to be collected,
         so it is possible to read initial state from the system witout losing
@@ -1101,9 +1120,9 @@ class IPDB(object):
             ipdb = IPDB()
             with ipdb.eventqueue() as evq:
                 my_state = ipdb.<needed_attribute>...
-                for evq.nextmsg() as msg:
+                for msg in evq:
                     update_state_by_msg(my_state, msg)
-        """
+        '''
         return self._evq_context(self, qsize, block, timeout)
 
     def eventloop(self, qsize=8192, block=True, timeout=None):
@@ -1112,7 +1131,7 @@ class IPDB(object):
         state setup. Initialize event queue and yield events as they happen.
         """
         with self.eventqueue(qsize=qsize, block=block, timeout=timeout) as evq:
-            for msg in evq.nextmsg():
+            for msg in evq:
                 yield msg
 
     def release(self):
@@ -1421,14 +1440,15 @@ class IPDB(object):
                     if event in self._event_map:
                         for func in self._event_map[event]:
                             func(msg)
-                    if self._evq:
+                    if self._evq_run:
                         try:
                             self._evq.put_nowait(msg)
-                            if self._evqdrop:
-                                log.warning("dropped %d events", self._evqdrop)
-                            self._evqdrop = 0
+                            if self._evq_drop:
+                                log.warning("dropped %d events",
+                                            self._evq_drop)
+                            self._evq_drop = 0
                         except queue.Full:
-                            self._evqdrop += 1
+                            self._evq_drop += 1
 
                 # run post-callbacks
                 # NOTE: post-callbacks are asynchronous
