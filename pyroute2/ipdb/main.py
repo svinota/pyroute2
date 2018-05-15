@@ -907,6 +907,34 @@ class IPDB(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.release()
 
+    def _flush_db(self):
+
+        def flush(idx):
+            for key in tuple(idx.keys()):
+                try:
+                    del idx[key]
+                except KeyError:
+                    pass
+        idx_list = []
+        if 'interfaces' in self._loaded:
+            for (key, dev) in self.by_name.items():
+                try:
+                    # FIXME
+                    self.interfaces._detach(key,
+                                            dev['index'],
+                                            dev.nlmsg)
+                except KeyError:
+                    pass
+            idx_list.append(self.ipaddr)
+            idx_list.append(self.neighbours)
+        if 'routes' in self._loaded:
+            idx_list.extend([self.routes.tables[x] for x
+                             in self.routes.tables.keys()])
+        if 'rules' in self._loaded:
+            idx_list.append(self.rules)
+        for idx in idx_list:
+            flush(idx)
+
     def initdb(self):
 
         # flush all the DB objects
@@ -916,31 +944,7 @@ class IPDB(object):
             for event in tuple(self._event_map):
                 del self._event_map[event]
 
-            def flush(idx):
-                for key in tuple(idx.keys()):
-                    try:
-                        del idx[key]
-                    except KeyError:
-                        pass
-            idx_list = []
-            if 'interfaces' in self._loaded:
-                for (key, dev) in self.by_name.items():
-                    try:
-                        # FIXME
-                        self.interfaces._detach(key,
-                                                dev['index'],
-                                                dev.nlmsg)
-                    except KeyError:
-                        pass
-                idx_list.append(self.ipaddr)
-                idx_list.append(self.neighbours)
-            if 'routes' in self._loaded:
-                idx_list.extend([self.routes.tables[x] for x
-                                 in self.routes.tables.keys()])
-            if 'rules' in self._loaded:
-                idx_list.append(self.rules)
-            for idx in idx_list:
-                flush(idx)
+            self._flush_db()
 
             # if the command socket is not provided, create it
             if self._nl_own:
@@ -1148,6 +1152,7 @@ class IPDB(object):
                 self.nl.close()
                 self.nl = None
 
+            self._flush_db()
 
     def _flush_mnl(self):
         if self.mnl is not None:
