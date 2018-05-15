@@ -3,7 +3,7 @@ from pyroute2 import DQuotSocket
 from utils import require_user
 
 
-class TestDQuot(object):
+class _TestDQuot(object):
 
     def setup(self):
         require_user('root')
