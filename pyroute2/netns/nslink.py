@@ -127,7 +127,7 @@ def NetNServer(netns, cmdch, brdch, flags=os.O_CREAT):
     '''
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
-        nsfd = setns(netns, flags)
+        setns(netns, flags)
     except OSError as e:
         cmdch.send({'stage': 'init',
                     'error': e})
@@ -138,7 +138,6 @@ def NetNServer(netns, cmdch, brdch, flags=os.O_CREAT):
         return 255
 
     Server(cmdch, brdch)
-    os.close(nsfd)
 
 
 class NetNS(IPRouteMixin, RemoteSocket):

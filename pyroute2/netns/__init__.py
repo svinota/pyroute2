@@ -220,7 +220,11 @@ def setns(netns, flags=os.O_CREAT, libc=None):
 
         - O_CREAT -- create netns, if doesn't exist
         - O_CREAT | O_EXCL -- create only if doesn't exist
+
+    Changed in 0.5.1: the routine closes the ns fd if it's
+    not provided via arguments.
     '''
+    newfd = False
     libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
     if isinstance(netns, basestring):
         netnspath = _get_netnspath(netns)
@@ -231,16 +235,15 @@ def setns(netns, flags=os.O_CREAT, libc=None):
             if flags & os.O_CREAT:
                 create(netns, libc=libc)
         nsfd = os.open(netnspath, os.O_RDONLY)
-        ret = nsfd
+        newfd = True
     elif isinstance(netns, file):
         nsfd = netns.fileno()
-        ret = netns
     elif isinstance(netns, int):
         nsfd = netns
-        ret = netns
     else:
         raise RuntimeError('netns should be a string or an open fd')
     error = libc.syscall(__NR_setns, nsfd, CLONE_NEWNET)
+    if newfd:
+        os.close(nsfd)
     if error != 0:
         raise OSError(ctypes.get_errno(), 'failed to open netns', netns)
-    return ret
