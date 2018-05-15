@@ -721,6 +721,7 @@ from pyroute2.ipdb import rules
 from pyroute2.ipdb import routes
 from pyroute2.ipdb import interfaces
 from pyroute2.ipdb.routes import BaseRoute
+from pyroute2.ipdb.exceptions import ShutdownException
 from pyroute2.ipdb.transactional import SYNC_TIMEOUT
 from pyroute2.ipdb.linkedset import IPaddrSet
 from pyroute2.ipdb.linkedset import SortedIPaddrSet
@@ -846,7 +847,12 @@ class IPDB(object):
         # see also 'register_callback'
         self._post_callbacks = {}
         self._pre_callbacks = {}
-        self._cb_threads = {}
+
+        # local event queues
+        # - callbacks event queue
+        self._cbq = queue.Queue(maxsize=8192)
+        self._cbq_drop = 0
+        # - users event queue
         self._evq = None
         self._evq_lock = threading.Lock()
         self._evq_drop = 0
@@ -905,7 +911,6 @@ class IPDB(object):
 
         # flush all the DB objects
         with self.exclusive:
-            self._join_cb()
 
             # explicitly cleanup object references
             for event in tuple(self._event_map):
@@ -968,12 +973,16 @@ class IPDB(object):
                         delattr(self, plugin['name'])
                         self._loaded.remove(plugin['name'])
 
-            if not getattr(self._mthread, 'is_alive', lambda: False)():
-                # start the monitoring thread
-                self._mthread = threading.Thread(name="IPDB event loop",
-                                                 target=self.serve_forever)
-                self._mthread.setDaemon(True)
-                self._mthread.start()
+            # start service threads
+            for tspec in (('_mthread', 'serve_forever', 'IPDB event loop'),
+                          ('_cthread', 'serve_callbacks', 'IPDB cb loop')):
+                tg = getattr(self, tspec[0], None)
+                if not getattr(tg, 'is_alive', lambda: False)():
+                    tx = threading.Thread(name=tspec[2],
+                                          target=getattr(self, tspec[1]))
+                    setattr(self, tspec[0], tx)
+                    tx.setDaemon(True)
+                    tx.start()
 
     def __getattribute__(self, name):
         deferred = super(IPDB, self).__getattribute__('_deferred')
@@ -1079,10 +1088,7 @@ class IPDB(object):
             raise KeyError('Unknown callback mode')
         safe = cbchain[cuid]
         with safe.lock:
-            cbchain.pop(cuid)
-        for t in tuple(self._cb_threads.get(cuid, ())):
-            t.join(3)
-        ret = self._cb_threads.get(cuid, ())
+            ret = cbchain.pop(cuid)
         return ret
 
     def eventqueue(self, qsize=8192, block=True, timeout=None):
@@ -1128,7 +1134,7 @@ class IPDB(object):
                 log.warning("shutdown in progress")
                 return
             self._stop = True
-            self._join_cb()
+            self._cbq.put(ShutdownException("shutdown"))
 
             if self._mthread is not None:
                 self._flush_mnl()
@@ -1142,11 +1148,6 @@ class IPDB(object):
                 self.nl.close()
                 self.nl = None
 
-    def _join_cb(self):
-        # join all the running callbacks
-        for cuid in tuple(self._cb_threads):
-            for t in tuple(self._cb_threads[cuid]):
-                t.join()
 
     def _flush_mnl(self):
         if self.mnl is not None:
@@ -1364,6 +1365,24 @@ class IPDB(object):
     def watchdog(self, wdops='RTM_NEWLINK', **kwarg):
         return Watchdog(self, wdops, kwarg)
 
+    def serve_callbacks(self):
+        ###
+        # Callbacks thread working on a dedicated event queue.
+        ###
+
+        while not self._stop:
+            msg = self._cbq.get()
+            self._cbq.task_done()
+            if isinstance(msg, ShutdownException):
+                return
+            elif isinstance(msg, Exception):
+                raise msg
+            for cb in tuple(self._post_callbacks.values()):
+                try:
+                    cb(self, msg, msg['event'])
+                except:
+                    pass
+
     def serve_forever(self):
         ###
         # Main monitoring cycle. It gets messages from the
@@ -1418,38 +1437,36 @@ class IPDB(object):
                     if event in self._event_map:
                         for func in self._event_map[event]:
                             func(msg)
+
+                    # Post-callbacks
+                    try:
+                        self._cbq.put_nowait(msg)
+                        if self._cbq_drop:
+                            log.warning('dropped %d events',
+                                        self._cbq_drop)
+                            self._cbq_drop = 0
+                    except queue.Full:
+                        self._cbq_drop += 1
+                    except Exception:
+                        log.error('Emergency shutdown, cleanup manually')
+                        raise RuntimeError('Emergency shutdown')
+
+                    #
+                    # Why not to put these two pieces of the code
+                    # it in a routine?
+                    #
+                    # TODO: run performance tests with routines
+
+                    # Users event queue
                     if self._evq:
                         try:
                             self._evq.put_nowait(msg)
                             if self._evq_drop:
                                 log.warning("dropped %d events",
                                             self._evq_drop)
-                            self._evq_drop = 0
+                                self._evq_drop = 0
                         except queue.Full:
                             self._evq_drop += 1
                         except Exception as e:
                             log.error('Emergency shutdown, cleanup manually')
                             raise RuntimeError('Emergency shutdown')
-
-                # run post-callbacks
-                # NOTE: post-callbacks are asynchronous
-                for (cuid, cb) in tuple(self._post_callbacks.items()):
-                    t = threading.Thread(name="IPDB callback %s" % (id(cb)),
-                                         target=cb,
-                                         args=(self, msg, msg['event']))
-                    t.start()
-                    if cuid not in self._cb_threads:
-                        self._cb_threads[cuid] = set()
-                    self._cb_threads[cuid].add(t)
-
-                # occasionally join cb threads
-                for cuid in tuple(self._cb_threads):
-                    for t in tuple(self._cb_threads.get(cuid, ())):
-                        t.join(0)
-                        if not t.is_alive():
-                            try:
-                                self._cb_threads[cuid].remove(t)
-                            except KeyError:
-                                pass
-                            if len(self._cb_threads.get(cuid, ())) == 0:
-                                del self._cb_threads[cuid]

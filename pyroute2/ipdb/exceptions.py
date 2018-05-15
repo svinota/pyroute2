@@ -14,3 +14,7 @@ class CreateException(Exception):
 
 class PartialCommitException(Exception):
     pass
+
+
+class ShutdownException(Exception):
+    pass
