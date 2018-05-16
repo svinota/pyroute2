@@ -889,7 +889,6 @@ class IPDB(object):
         # init the dir() cache
         self.__dir_cache__ = [i for i in self.__class__.__dict__.keys()
                               if i[0] != '_']
-        self.__dir_cache__.remove('serve_forever')
         self.__dir_cache__.extend(list(self._deferred.keys()))
 
         def cleanup(ref):
@@ -978,8 +977,8 @@ class IPDB(object):
                         self._loaded.remove(plugin['name'])
 
             # start service threads
-            for tspec in (('_mthread', 'serve_forever', 'IPDB event loop'),
-                          ('_cthread', 'serve_callbacks', 'IPDB cb loop')):
+            for tspec in (('_mthread', '_serve_main', 'IPDB main event loop'),
+                          ('_cthread', '_serve_cb', 'IPDB cb event loop')):
                 tg = getattr(self, tspec[0], None)
                 if not getattr(tg, 'is_alive', lambda: False)():
                     tx = threading.Thread(name=tspec[2],
@@ -1370,7 +1369,7 @@ class IPDB(object):
     def watchdog(self, wdops='RTM_NEWLINK', **kwarg):
         return Watchdog(self, wdops, kwarg)
 
-    def serve_callbacks(self):
+    def _serve_cb(self):
         ###
         # Callbacks thread working on a dedicated event queue.
         ###
@@ -1388,13 +1387,11 @@ class IPDB(object):
                 except:
                     pass
 
-    def serve_forever(self):
+    def _serve_main(self):
         ###
         # Main monitoring cycle. It gets messages from the
         # default iproute queue and updates objects in the
         # database.
-        #
-        # Should not be called manually.
         ###
 
         while not self._stop:
