@@ -395,9 +395,6 @@ class IPRouteMixin(object):
             result.extend(self.link(cmd, **kwarg))
         return result
 
-    def get_neighbors(self, family=AF_UNSPEC):
-        raise DeprecationWarning('`get_neighbors()` call is deprecated')
-
     def get_neighbours(self, family=AF_UNSPEC, match=None, **kwarg):
         '''
         Dump ARP cache records.
@@ -946,21 +943,32 @@ class IPRouteMixin(object):
 
         Add a neighbour record, e.g.::
 
+            from pyroute2 import IPRoute
+            from pyroute2.netlink.rtnl import ndmsg
+
             # add a permanent record on veth0
             idx = ip.link_lookup(ifname='veth0')[0]
             ip.neigh('add',
                      dst='172.16.45.1',
                      lladdr='00:11:22:33:44:55',
-                     ifindex=ip.link_lookup(ifname='veth0')[0]
+                     ifindex=idx,
                      state=ndmsg.states['permanent'])
 
         **set**
 
         Set an existing record or create a new one, if it doesn't exist.
+        The same as above, but the command is "set"::
+
+            ip.neigh('set',
+                     dst='172.16.45.1',
+                     lladdr='00:11:22:33:44:55',
+                     ifindex=idx,
+                     state=ndmsg.states['permanent'])
+
 
         **change**
 
-        Change an existing record or fail, if it doesn't exist.
+        Change an existing record. If the record doesn't exist, fail.
 
         **del**
 
@@ -968,7 +976,9 @@ class IPRouteMixin(object):
 
         **dump**
 
-        Dump all the records in the NDB.
+        Dump all the records in the NDB::
+
+            ip.neigh('dump')
         '''
 
         if (command == 'dump') and ('match' not in kwarg):
