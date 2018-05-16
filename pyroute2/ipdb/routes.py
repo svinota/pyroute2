@@ -498,7 +498,14 @@ class BaseRoute(Transactional):
                 self.nl.route(devop, **transaction)
                 # delete old record, if required
                 if (old_key != new_key) and (devop == 'set'):
-                    self.nl.route('del', **dict(old_key._asdict()))
+                    req = dict(old_key._asdict())
+                    # update the request with the scope.
+                    #
+                    # though the scope isn't a part of the
+                    # key, it is required for the correct
+                    # removal -- only if it is set
+                    req['scope'] = self.get('scope', 0)
+                    self.nl.route('del', **req)
                 transaction.wait_all_targets()
                 for key in ('metrics', 'via'):
                     if transaction[key] and transaction[key]._targets:
