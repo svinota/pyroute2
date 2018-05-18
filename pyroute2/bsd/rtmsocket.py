@@ -2,9 +2,9 @@ import struct
 from socket import AF_ROUTE
 from socket import SOCK_RAW
 from pyroute2 import config
-from pyroute2.bsd.route import (if_msg,
-                                if_announcemsg,
-                                ifa_msg)
+from pyroute2.bsd.pf_route import (if_msg,
+                                   if_announcemsg,
+                                   ifa_msg)
 
 RTM_ADD = 0x1          # Add Route
 RTM_DELETE = 0x2       # Delete Route
