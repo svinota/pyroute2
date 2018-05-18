@@ -1,0 +1,9 @@
+BSD platform support
+====================
+
+BSD systems have PF_ROUTE -- a protocol similar to Netlink, but
+with very limited functionality. Still it is possible to use it
+in almost the same way one uses Netlink. Almost.
+
+This module is in the very early development stage. No docs, no
+tests, it's not included in the pypi bundle. Ye warned.
