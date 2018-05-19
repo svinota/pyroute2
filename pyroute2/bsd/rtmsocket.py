@@ -3,7 +3,9 @@ from socket import AF_ROUTE
 from socket import SOCK_RAW
 from pyroute2 import config
 from pyroute2.bsd.pf_route import (if_msg,
+                                   rt_msg,
                                    if_announcemsg,
+                                   ifma_msg,
                                    ifa_msg)
 
 RTM_ADD = 0x1          # Add Route
@@ -26,20 +28,20 @@ RTM_IEEE80211 = 0x12   # IEEE80211 wireless event
 
 class RTMSocket(object):
 
-    msg_map = {RTM_ADD: None,
-               RTM_DELETE: None,
-               RTM_CHANGE: None,
-               RTM_GET: None,
-               RTM_LOSING: None,
-               RTM_REDIRECT: None,
-               RTM_MISS: None,
-               RTM_LOCK: None,
-               RTM_RESOLVE: None,
+    msg_map = {RTM_ADD: rt_msg,
+               RTM_DELETE: rt_msg,
+               RTM_CHANGE: rt_msg,
+               RTM_GET: rt_msg,
+               RTM_LOSING: rt_msg,
+               RTM_REDIRECT: rt_msg,
+               RTM_MISS: rt_msg,
+               RTM_LOCK: rt_msg,
+               RTM_RESOLVE: rt_msg,
                RTM_NEWADDR: ifa_msg,
                RTM_DELADDR: ifa_msg,
                RTM_IFINFO: if_msg,
-               RTM_NEWMADDR: None,
-               RTM_DELMADDR: None,
+               RTM_NEWMADDR: ifma_msg,
+               RTM_DELMADDR: ifma_msg,
                RTM_IFANNOUNCE: if_announcemsg,
                RTM_IEEE80211: if_announcemsg}
 
