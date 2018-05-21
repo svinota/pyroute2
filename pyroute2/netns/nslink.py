@@ -66,10 +66,8 @@ run `remove()`.
 
 import os
 import errno
-import fcntl
 import atexit
 import signal
-import sys
 import logging
 from pyroute2 import config
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
@@ -82,7 +80,8 @@ from pyroute2.remote import RemoteSocket
 log = logging.getLogger(__name__)
 
 
-def NetNServer(netns, cmdch, brdch, flags=os.O_CREAT):
+def NetNServer(netns, parent_cmdch, cmdch, parent_brdch, brdch,
+               flags=os.O_CREAT):
     '''
     The netns server supposed to be started automatically by NetNS.
     It has two communication channels: one simplex to forward incoming
@@ -137,6 +136,8 @@ def NetNServer(netns, cmdch, brdch, flags=os.O_CREAT):
                     'error': OSError(errno.ECOMM, str(e), netns)})
         return 255
 
+    parent_cmdch.close()
+    parent_brdch.close()
     Server(cmdch, brdch)
 
 
@@ -180,43 +181,57 @@ class NetNS(IPRouteMixin, RemoteSocket):
     def __init__(self, netns, flags=os.O_CREAT):
         self.netns = netns
         self.flags = flags
-        self.cmdch, self._cmdch = config.MpPipe()
-        self.brdch, self._brdch = config.MpPipe()
-        atexit.register(self.close)
+        self.cmdch, _cmdch = config.MpPipe()
+        self.brdch, _brdch = config.MpPipe()
         self.server = config.MpProcess(target=NetNServer,
                                        args=(self.netns,
-                                             self._cmdch,
-                                             self._brdch,
+                                             self.cmdch,
+                                             _cmdch,
+                                             self.brdch,
+                                             _brdch,
                                              self.flags))
         self.server.start()
-        super(NetNS, self).__init__()
+        _cmdch.close()
+        _brdch.close()
+        try:
+            super(NetNS, self).__init__()
+        except Exception:
+            self.close()
+            raise
+        atexit.register(self.close)
         self.marshal = MarshalRtnl()
 
     def clone(self):
         return type(self)(self.netns, self.flags)
 
+    def _cleanup_atexit(self):
+        if hasattr(atexit, 'unregister'):
+            atexit.unregister(self.close)
+        else:
+            try:
+                atexit._exithandlers.remove((self.close, (), {}))
+            except ValueError:
+                pass
+
     def close(self):
+        self._cleanup_atexit()
         try:
             super(NetNS, self).close()
         except:
             # something went wrong, force server shutdown
-            self.cmdch.send({'stage': 'shutdown'})
+            try:
+                self.cmdch.send({'stage': 'shutdown'})
+            except Exception:
+                pass
             log.error('forced shutdown procedure, clean up netns manually')
         # force cleanup command channels
-        self.cmdch.close()
-        self.brdch.close()
-        self._cmdch.close()
-        self._brdch.close()
+        for close in (self.cmdch.close, self.brdch.close):
+            try:
+                close()
+            except Exception:
+                pass  # Maybe already closed in remote.Client.close
         # join the server
         self.server.join()
-        # Workaround for http://bugs.python.org/issue27151
-        if sys.version_info > (3, 2):
-            try:
-                fcntl.fcntl(self.server.sentinel, fcntl.F_GETFD)
-            except:
-                pass
-            else:
-                os.close(self.server.sentinel)
 
     def post_init(self):
         pass

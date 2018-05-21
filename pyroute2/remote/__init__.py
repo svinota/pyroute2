@@ -281,10 +281,20 @@ class Client(object):
             raise msg['error']
         return msg['data']
 
+    def _cleanup_atexit(self):
+        if hasattr(atexit, 'unregister'):
+            atexit.unregister(self.close)
+        else:
+            try:
+                atexit._exithandlers.remove((self.close, (), {}))
+            except ValueError:
+                pass
+
     def close(self):
         with self.lock:
             if not self.closed:
                 self.closed = True
+                self._cleanup_atexit()
                 self.cmdch.send({'stage': 'shutdown'})
                 if hasattr(self.cmdch, 'close'):
                     self.cmdch.close()

@@ -1,12 +1,13 @@
+import atexit
+import errno
+import resource
 import threading
 from pyroute2 import IPRoute
 from pyroute2 import IPDB
 from pyroute2 import NetNS
 from pyroute2.common import uifname
-from nose.tools import assert_raises
 from utils import require_user
-import fcntl
-import sys
+from utils import count_socket_fds
 
 RESPAWNS = 1200
 
@@ -111,15 +112,31 @@ class TestIfs(object):
 
 class TestNetNS(object):
 
+    def setup(self):
+        self._nofile = resource.getrlimit(resource.RLIMIT_NOFILE)
+        soft, hard = self._nofile
+        new_limit = (min(soft, RESPAWNS / 2), min(hard, RESPAWNS / 2))
+        resource.setrlimit(resource.RLIMIT_NOFILE, new_limit)
+        self._socket_fd_count = count_socket_fds()
+
+    def teardown(self):
+        resource.setrlimit(resource.RLIMIT_NOFILE, self._nofile)
+        assert self._socket_fd_count == count_socket_fds()
+
     def test_fd_leaks(self):
-        namespaces = []
         for i in range(RESPAWNS):
             nsid = 'leak_%i' % i
             ns = NetNS(nsid)
             ns.close()
             ns.remove()
-            namespaces.append(ns)
-        if sys.version_info > (3, 2) and sys.version_info < (3, 6):
-            for n in namespaces:
-                assert_raises(OSError,
-                              fcntl.fcntl, n.server.sentinel, fcntl.F_GETFD)
+            if hasattr(atexit, '_exithandlers'):
+                assert ns.close not in atexit._exithandlers
+
+    def test_fd_leaks_nonexistent_ns(self):
+        for i in range(RESPAWNS):
+            nsid = 'non_existent_leak_%i' % i
+            try:
+                with NetNS(nsid, flags=0):
+                    pass
+            except OSError as e:
+                assert e.errno in (errno.ENOENT, errno.EPIPE)
