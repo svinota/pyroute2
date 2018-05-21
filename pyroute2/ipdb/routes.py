@@ -1134,8 +1134,7 @@ class RoutingTableSet(object):
                 self.tables[table] = MPLSTable(self.ipdb)
             else:
                 self.tables[table] = RoutingTable(self.ipdb)
-        key = self.tables[table].load(msg)
-        return self.tables[table][key]
+        self.tables[table].load(msg)
 
     def gc_mark_addr(self, msg):
         ##
