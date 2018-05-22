@@ -2,9 +2,18 @@
 # NDB is NOT a production but a proof-of-concept
 #
 # It is intended to become IPDB version 2.0 that can handle
-# thousands network objects -- something that IPDB can not
+# thousands of network objects -- something that IPDB can not
 # due to memory consupmtion
 #
+#
+# Proposed design:
+#
+# 0. multiple event sources -- IPRoute (Linux), RTMSocket (BSD), etc
+# 1. the main loop dispatches incoming events to plugins
+# 2. plugins store serialized events as records in an internal DB (SQL)
+# 3. plugins provide an API to access records as Python objects
+# 4. objects are spawned only on demand
+# 5. plugins provide transactional API to change objects + OS reflection
 
 import logging
 import threading
@@ -13,7 +22,7 @@ from pyroute2.ndb import interfaces
 try:
     import queue
 except ImportError:
-    import Queue as queue  # The module is called 'Queue' in Python2
+    import Queue as queue
 
 plugins = [interfaces, ]
 
@@ -24,21 +33,13 @@ class ShutdownException(Exception):
 
 class NDB(object):
 
-    def __init__(self, nl=None):
+    def __init__(self, nl=None, db_uri=':memory:'):
 
         self._dbm_thread = None
         self._event_queue = None
         self._nl_own = nl is None
-
-        ipr = IPRoute()
-        ipr.bind()
-        self.nl = {'localhost': ipr}
-
-        # channels to OS
-        # self.nl = nl if isinstance(nl, dict) else {"localhost": nl}
-        # monitoring channels
-        # self.mnl = {}
-
+        self._nl = nl
+        self._db_uri = db_uri
         self.initdb()
 
     def initdb(self):
@@ -46,6 +47,19 @@ class NDB(object):
         if self._dbm_thread is not None:
             self._event_queue.put(ShutdownException("restart NDB"))
             self._dbm_thread.join()
+
+        # FIXME
+        # stop event sources!
+        # FIXME
+
+        # start event sources
+        # FIXME
+        # just for debug: work on a simple sync IPRoute source
+        ipr = IPRoute()
+        ipr.bind()
+        self.nl = {'localhost': ipr}
+
+        # start the main loop
         self._dbm_thread = threading.Thread(target=self.__dbm__,
                                             name='NDB main loop')
         self._dbm_thread.setDaemon(True)
@@ -64,16 +78,14 @@ class NDB(object):
                 raise event
             logging.warning('unsupported event ignored: %s' % type(event))
 
-        for plugin in plugins:
-            plugin.thread = threading.current_thread()
-            plugin.db = plugin.createdb()
+        for module in plugins:
+            plugin = module.init(self._db_uri, id(threading.current_thread()))
             for (event, handler) in plugin.event_map.items():
                 if event not in event_map:
                     event_map[event] = []
                 event_map[event].append(handler)
 
         for (target, channel) in tuple(self.nl.items()):
-            # an instance must support register_evq()
             def t():
                 while True:
                     event_queue.put(channel.get())
@@ -93,3 +105,4 @@ class NDB(object):
                     except:
                         import traceback
                         traceback.print_exc()
+        # cleanup procedures?
