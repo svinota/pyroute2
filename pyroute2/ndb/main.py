@@ -80,6 +80,7 @@ class NDB(object):
 
         for module in plugins:
             plugin = module.init(self._db_uri, id(threading.current_thread()))
+            setattr(self, plugin.__class__.__name__.lower(), plugin)
             for (event, handler) in plugin.event_map.items():
                 if event not in event_map:
                     event_map[event] = []
