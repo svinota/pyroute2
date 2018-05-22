@@ -662,6 +662,25 @@ class nlmsg_base(dict):
         if self.header:
             self['header'] = {}
 
+    @classmethod
+    def sql_schema(cls):
+        ret = []
+        for field in cls.fields:
+            if field[0][0] != '_':
+                ret.append((field[0], 'INTEGER'))
+        for nla in cls.nla_map:
+            if isinstance(nla[0], basestring):
+                nla_name = nla[0]
+                nla_type = nla[1]
+            else:
+                nla_name = nla[1]
+                nla_type = nla[2]
+            nla_type = getattr(cls, nla_type, None)
+            sql_type = getattr(nla_type, 'sql_type', None)
+            if sql_type:
+                ret.append((nla_name, sql_type))
+        return ret
+
     @property
     def buf(self):
         logging.error('nlmsg.buf is deprecated:\n%s',
@@ -1490,60 +1509,70 @@ class nlmsg_atoms(nlmsg_base):
     class uint8(nla_base):
 
         __slots__ = ()
+        sql_type = 'INTEGER'
 
         fields = [('value', 'B')]
 
     class uint16(nla_base):
 
         __slots__ = ()
+        sql_type = 'INTEGER'
 
         fields = [('value', 'H')]
 
     class uint32(nla_base):
 
         __slots__ = ()
+        sql_type = 'INTEGER'
 
         fields = [('value', 'I')]
 
     class uint64(nla_base):
 
         __slots__ = ()
+        sql_type = 'INTEGER'
 
         fields = [('value', 'Q')]
 
     class int32(nla_base):
 
         __slots__ = ()
+        sql_type = 'INTEGER'
 
         fields = [('value', 'i')]
 
     class be8(nla_base):
 
         __slots__ = ()
+        sql_type = 'INTEGER'
 
         fields = [('value', '>B')]
 
     class be16(nla_base):
 
         __slots__ = ()
+        sql_type = 'INTEGER'
 
         fields = [('value', '>H')]
 
     class be32(nla_base):
 
         __slots__ = ()
+        sql_type = 'INTEGER'
 
         fields = [('value', '>I')]
 
     class be64(nla_base):
 
         __slots__ = ()
+        sql_type = 'INTEGER'
 
         fields = [('value', '>Q')]
 
     class ipXaddr(nla_base):
 
         __slots__ = ()
+        sql_type = 'TEXT'
 
         fields = [('value', 's')]
         family = None
@@ -1585,6 +1614,7 @@ class nlmsg_atoms(nlmsg_base):
         '''
 
         __slots__ = ()
+        sql_type = 'TEXT'
 
         fields = [('value', 's')]
 
@@ -1686,6 +1716,7 @@ class nlmsg_atoms(nlmsg_base):
         '''
 
         __slots__ = ()
+        sql_type = 'TEXT'
 
         fields = [('value', '=6s')]
 
@@ -1768,6 +1799,7 @@ class nlmsg_atoms(nlmsg_base):
         '''
 
         __slots__ = ()
+        sql_type = 'TEXT'
 
         fields = [('value', 's')]
 
