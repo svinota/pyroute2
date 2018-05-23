@@ -6,6 +6,7 @@ import time
 import uuid
 import random
 import socket
+import threading
 import subprocess
 from pyroute2 import config
 from pyroute2 import IPDB
@@ -2943,6 +2944,32 @@ class TestMisc(object):
 
     def teardown(self):
         remove_link(self.ifname)
+
+    def test_eventqueue(self):
+        require_user('root')
+        # prepare the queue thread
+
+        def t(ret):
+            with IPDB() as ipdb:
+                with ipdb.eventqueue() as evq:
+                    for msg in evq:
+                        if msg.get_attr('IFLA_IFNAME') == 'test1984':
+                            ret.append(msg)
+                            return
+        ret = []
+        th = threading.Thread(target=t, args=(ret, ))
+        th.setDaemon(True)
+        th.start()
+        # generate the event
+        with IPDB() as ipdb:
+            ipdb.interfaces.add(ifname='test1984', kind='dummy').commit()
+
+        # join the thread
+        th.join(5)
+        assert len(ret) == 1
+
+        with IPDB() as ipdb:
+            ipdb.interfaces.test1984.remove().commit()
 
     def test_global_only_routes(self):
         require_user('root')
