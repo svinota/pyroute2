@@ -2966,10 +2966,11 @@ class TestMisc(object):
 
         # join the thread
         th.join(5)
-        assert len(ret) == 1
-
-        with IPDB() as ipdb:
-            ipdb.interfaces.test1984.remove().commit()
+        try:
+            assert len(ret) == 1
+        finally:
+            with IPDB() as ipdb:
+                ipdb.interfaces.test1984.remove().commit()
 
     def test_global_only_routes(self):
         require_user('root')
