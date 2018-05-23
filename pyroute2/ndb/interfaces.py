@@ -1,6 +1,9 @@
 import sqlite3
 import threading
+from functools import partial
+from collections import OrderedDict
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.ndmsg import ndmsg
 
 
 class Interfaces(object):
@@ -8,7 +11,10 @@ class Interfaces(object):
     db = None
     thread = None
     event_map = None
-    schema = {ifinfmsg: dict(ifinfmsg.sql_schema())}
+    schema = {'interfaces': OrderedDict(ifinfmsg.sql_schema()),
+              'neighbours': OrderedDict(ndmsg.sql_schema())}
+    classes = {'interfaces': ifinfmsg,
+               'neighbours': ndmsg}
 
     def __init__(self, db_uri, tid):
         self.thread = tid
@@ -20,8 +26,16 @@ class Interfaces(object):
         # those which are called from the __dbm__ thread!
         #
         self.db = sqlite3.connect(db_uri, check_same_thread=False)
+        self.create_table('interfaces')
+        self.create_table('neighbours')
+        self.db.execute('CREATE UNIQUE INDEX interfaces_idx ON interfaces'
+                        ' (f_index, f_IFLA_IFNAME)')
+        self.db.execute('CREATE UNIQUE INDEX neighbours_idx ON neighbours'
+                        ' (f_ifindex, f_NDA_LLADDR)')
+
+    def create_table(self, table):
         req = []
-        for field in self.schema[ifinfmsg].items():
+        for field in self.schema[table].items():
             #
             # Why f_?
             # 'Cause there are attributes like 'index' and such
@@ -29,12 +43,10 @@ class Interfaces(object):
             #
             req.append('f_%s %s' % field)
         req = ','.join(req)
-        req = 'CREATE TABLE interfaces (%s)' % (req)
+        req = 'CREATE TABLE %s (%s)' % (table, req)
         self.db.execute(req)
-        self.db.execute('CREATE UNIQUE INDEX interfaces_idx ON interfaces'
-                        ' (f_index, f_IFLA_IFNAME)')
 
-    def get(self, spec):
+    def get(self, table, spec):
         #
         # Retrieve info from the DB
         #
@@ -42,15 +54,19 @@ class Interfaces(object):
         #
         conditions = []
         values = []
+        ret = []
+        cls = self.classes[table]
         for key, value in spec.items():
-            if key not in [x[0] for x in ifinfmsg.fields]:
-                key = ifinfmsg.name2nla(key)
+            if key not in [x[0] for x in cls.fields]:
+                key = cls.name2nla(key)
             conditions.append('f_%s = ?' % key)
             values.append(value)
-        req = 'SELECT * FROM interfaces WHERE %s' % ' AND '.join(conditions)
-        return tuple(self.db.execute(req, values).fetchall())
+        req = 'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(conditions))
+        for record in self.db.execute(req, values).fetchall():
+            ret.append(dict(zip(self.schema[table].keys(), record)))
+        return ret
 
-    def load_netlink(self, event):
+    def load_netlink(self, table, event):
         #
         # Simple barrier to work with the DB only from
         # one thread
@@ -61,19 +77,21 @@ class Interfaces(object):
         #
         # Parse the event
         #
-        fkeys = tuple(self.schema[ifinfmsg].keys())
+        fkeys = tuple(self.schema[table].keys())
         fields = ','.join(['f_%s' % x for x in fkeys])
         pch = ','.join('?' * len(fkeys))
         values = []
         for field in fkeys:
             values.append(event.get(field) or event.get_attr(field))
 
-        req = 'INSERT OR REPLACE INTO interfaces (%s) VALUES (%s)' % (fields,
-                                                                      pch)
+        req = 'INSERT OR REPLACE INTO %s (%s) VALUES (%s)' % (table,
+                                                              fields,
+                                                              pch)
         self.db.execute(req, values)
 
 
 def init(db_uri, tid):
     ret = Interfaces(db_uri, tid)
-    ret.event_map = {ifinfmsg: ret.load_netlink}
+    ret.event_map = {ifinfmsg: partial(ret.load_netlink, 'interfaces'),
+                     ndmsg: partial(ret.load_netlink, 'neighbours')}
     return ret
