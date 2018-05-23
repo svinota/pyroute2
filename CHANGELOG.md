@@ -1,6 +1,14 @@
 changelog
 =========
 
+* 0.5.1
+    * ipdb: #310 -- route keying fix
+    * ipdb: #483, #484 -- callback internals change
+    * ipdb: #499 -- eventloop interface
+    * ipdb: #500 -- fix non-default :: routes
+    * netns: #448 -- API change: setns() doesn't remove FD
+    * netns: #504 -- fix resource leakage
+    * bsd: initial commits
 * 0.5.0
     * ACHTUNG: ipdb commit logic is changed
     * ipdb: do not drop failed transactions
