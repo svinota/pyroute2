@@ -1647,6 +1647,7 @@ class nlmsg_atoms(nlmsg_base):
         '''
 
         __slots__ = ()
+        sql_type = 'TEXT'
 
         fields = [('value', 's')]
         family = None

@@ -15,16 +15,15 @@
 # 4. objects are spawned only on demand
 # 5. plugins provide transactional API to change objects + OS reflection
 
+import sqlite3
 import logging
 import threading
 from pyroute2 import IPRoute
-from pyroute2.ndb import interfaces
+from pyroute2.ndb import dbschema
 try:
     import queue
 except ImportError:
     import Queue as queue
-
-plugins = [interfaces, ]
 
 
 class ShutdownException(Exception):
@@ -69,27 +68,32 @@ class NDB(object):
         ##
         # Database management thread
         ##
-        global plugins
         event_map = {}
         self._event_queue = event_queue = queue.Queue()
+        #
+        # ACHTUNG!
+        # check_same_thread=False
+        #
+        # Do NOT write into the DB from ANY other thread!
+        #
+        self.db = sqlite3.connect(self._db_uri, check_same_thread=False)
 
         def default_handler(event):
             if isinstance(event, Exception):
                 raise event
             logging.warning('unsupported event ignored: %s' % type(event))
 
-        for module in plugins:
-            plugin = module.init(self._db_uri, id(threading.current_thread()))
-            setattr(self, plugin.__class__.__name__.lower(), plugin)
-            for (event, handler) in plugin.event_map.items():
-                if event not in event_map:
-                    event_map[event] = []
-                event_map[event].append(handler)
+        self.dbschema = dbschema.init(self.db, id(threading.current_thread()))
+        for (event, handler) in self.dbschema.event_map.items():
+            if event not in event_map:
+                event_map[event] = []
+            event_map[event].append(handler)
 
         # initial load
         for (target, channel) in tuple(self.nl.items()):
             event_queue.put(channel.get_links())
             event_queue.put(channel.get_neighbours())
+            event_queue.put(channel.get_routes())
         #
         for (target, channel) in tuple(self.nl.items()):
             def t():

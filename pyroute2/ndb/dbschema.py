@@ -1,34 +1,36 @@
-import sqlite3
 import threading
 from functools import partial
 from collections import OrderedDict
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
+from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
 
-class Interfaces(object):
+class DBSchema(object):
 
     db = None
     thread = None
     event_map = None
     schema = {'interfaces': OrderedDict(ifinfmsg.sql_schema()),
-              'neighbours': OrderedDict(ndmsg.sql_schema())}
+              'neighbours': OrderedDict(ndmsg.sql_schema()),
+              'routes': OrderedDict(rtmsg.sql_schema())}
     classes = {'interfaces': ifinfmsg,
-               'neighbours': ndmsg}
-    index = {'interfaces': ('index', 'IFLA_IFNAME'),
-             'neighbours': ('ifindex', 'NDA_LLADDR')}
+               'neighbours': ndmsg,
+               'routes': rtmsg}
+    index = {'interfaces': ('index',
+                            'IFLA_IFNAME'),
+             'neighbours': ('ifindex',
+                            'NDA_LLADDR'),
+             'routes': ('family',
+                        'tos',
+                        'RTA_TABLE',
+                        'RTA_DST',
+                        'RTA_PRIORITY')}
 
-    def __init__(self, db_uri, tid):
+    def __init__(self, db, tid):
         self.thread = tid
-        #
-        # ACHTUNG!
-        # check_same_thread=False
-        #
-        # Do NOT write into the DB from ANY of the methods except
-        # those which are called from the __dbm__ thread!
-        #
-        self.db = sqlite3.connect(db_uri, check_same_thread=False)
-        for table in ('interfaces', 'neighbours'):
+        self.db = db
+        for table in ('interfaces', 'neighbours', 'routes'):
             self.create_table(table)
 
     def create_table(self, table):
@@ -104,8 +106,9 @@ class Interfaces(object):
                             ' VALUES (%s)' % (table, fields, pch), values)
 
 
-def init(db_uri, tid):
-    ret = Interfaces(db_uri, tid)
+def init(db, tid):
+    ret = DBSchema(db, tid)
     ret.event_map = {ifinfmsg: partial(ret.load_netlink, 'interfaces'),
-                     ndmsg: partial(ret.load_netlink, 'neighbours')}
+                     ndmsg: partial(ret.load_netlink, 'neighbours'),
+                     rtmsg: partial(ret.load_netlink, 'routes')}
     return ret
