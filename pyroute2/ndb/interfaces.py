@@ -15,6 +15,8 @@ class Interfaces(object):
               'neighbours': OrderedDict(ndmsg.sql_schema())}
     classes = {'interfaces': ifinfmsg,
                'neighbours': ndmsg}
+    index = {'interfaces': ('index', 'IFLA_IFNAME'),
+             'neighbours': ('ifindex', 'NDA_LLADDR')}
 
     def __init__(self, db_uri, tid):
         self.thread = tid
@@ -26,12 +28,8 @@ class Interfaces(object):
         # those which are called from the __dbm__ thread!
         #
         self.db = sqlite3.connect(db_uri, check_same_thread=False)
-        self.create_table('interfaces')
-        self.create_table('neighbours')
-        self.db.execute('CREATE UNIQUE INDEX interfaces_idx ON interfaces'
-                        ' (f_index, f_IFLA_IFNAME)')
-        self.db.execute('CREATE UNIQUE INDEX neighbours_idx ON neighbours'
-                        ' (f_ifindex, f_NDA_LLADDR)')
+        for table in ('interfaces', 'neighbours'):
+            self.create_table(table)
 
     def create_table(self, table):
         req = []
@@ -44,6 +42,9 @@ class Interfaces(object):
             req.append('f_%s %s' % field)
         req = ','.join(req)
         req = 'CREATE TABLE %s (%s)' % (table, req)
+        self.db.execute(req)
+        index = ','.join(['f_%s' % x for x in self.index[table]])
+        req = 'CREATE UNIQUE INDEX %s_idx ON %s (%s)' % (table, table, index)
         self.db.execute(req)
 
     def get(self, table, spec):
@@ -75,19 +76,32 @@ class Interfaces(object):
         if self.thread != id(threading.current_thread()):
             return
         #
-        # Parse the event
+        # The event type
         #
-        fkeys = tuple(self.schema[table].keys())
-        fields = ','.join(['f_%s' % x for x in fkeys])
-        pch = ','.join('?' * len(fkeys))
-        values = []
-        for field in fkeys:
-            values.append(event.get(field) or event.get_attr(field))
+        if event['header']['type'] % 2:
+            #
+            # Delete an object
+            #
+            conditions = []
+            values = []
+            for key in self.index[table]:
+                conditions.append('f_%s = ?' % key)
+                values.append(event.get(key) or event.get_attr(key))
+            self.db.execute('DELETE FROM %s WHERE'
+                            ' %s' % (table, ' AND '.join(conditions)), values)
+        else:
+            #
+            # Create or set an object
+            #
+            fkeys = tuple(self.schema[table].keys())
+            fields = ','.join(['f_%s' % x for x in fkeys])
+            pch = ','.join('?' * len(fkeys))
+            values = []
+            for field in fkeys:
+                values.append(event.get(field) or event.get_attr(field))
 
-        req = 'INSERT OR REPLACE INTO %s (%s) VALUES (%s)' % (table,
-                                                              fields,
-                                                              pch)
-        self.db.execute(req, values)
+            self.db.execute('INSERT OR REPLACE INTO %s (%s)'
+                            ' VALUES (%s)' % (table, fields, pch), values)
 
 
 def init(db_uri, tid):
