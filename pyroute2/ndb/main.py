@@ -70,7 +70,7 @@ class NDB(object):
         ##
         # Database management thread
         ##
-        event_map = {}
+        event_map = {type(self._dbm_ready): [lambda x: x.set()]}
         self._event_queue = event_queue = queue.Queue()
         #
         # ACHTUNG!
@@ -96,7 +96,7 @@ class NDB(object):
             event_queue.put(channel.get_links())
             event_queue.put(channel.get_neighbours())
             event_queue.put(channel.get_routes())
-        self._dbm_ready.set()
+        event_queue.put((self._dbm_ready, ))
         #
         for (target, channel) in tuple(self.nl.items()):
             def t():
