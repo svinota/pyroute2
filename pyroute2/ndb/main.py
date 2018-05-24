@@ -35,6 +35,7 @@ class NDB(object):
     def __init__(self, nl=None, db_uri=':memory:'):
 
         self._dbm_thread = None
+        self._dbm_ready = threading.Event()
         self._event_queue = None
         self._nl_own = nl is None
         self._nl = nl
@@ -59,6 +60,7 @@ class NDB(object):
         self.nl = {'localhost': ipr}
 
         # start the main loop
+        self._dbm_ready.clear()
         self._dbm_thread = threading.Thread(target=self.__dbm__,
                                             name='NDB main loop')
         self._dbm_thread.setDaemon(True)
@@ -94,6 +96,7 @@ class NDB(object):
             event_queue.put(channel.get_links())
             event_queue.put(channel.get_neighbours())
             event_queue.put(channel.get_routes())
+        self._dbm_ready.set()
         #
         for (target, channel) in tuple(self.nl.items()):
             def t():
