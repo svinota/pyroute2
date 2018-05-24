@@ -86,6 +86,11 @@ class NDB(object):
                     event_map[event] = []
                 event_map[event].append(handler)
 
+        # initial load
+        for (target, channel) in tuple(self.nl.items()):
+            event_queue.put(channel.get_links())
+            event_queue.put(channel.get_neighbours())
+        #
         for (target, channel) in tuple(self.nl.items()):
             def t():
                 while True:
