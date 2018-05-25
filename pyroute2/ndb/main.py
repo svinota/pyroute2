@@ -22,6 +22,7 @@ import threading
 from socket import AF_INET
 from socket import AF_INET6
 from pyroute2 import IPRoute
+from pyroute2 import NetNS
 from pyroute2.ndb import dbschema
 from pyroute2.common import AF_MPLS
 try:
@@ -81,7 +82,7 @@ class NDB(object):
         ##
         # Database management thread
         ##
-        event_map = {type(self._dbm_ready): [lambda x: x.set()]}
+        event_map = {type(self._dbm_ready): [lambda t, x: x.set()]}
         self._event_queue = event_queue = queue.Queue()
         #
         # ACHTUNG!
@@ -104,17 +105,18 @@ class NDB(object):
 
         # initial load
         for (target, channel) in tuple(self.nl.items()):
-            event_queue.put(channel.get_links())
-            event_queue.put(channel.get_neighbours())
-            event_queue.put(channel.get_routes(family=AF_INET))
-            event_queue.put(channel.get_routes(family=AF_INET6))
-            event_queue.put(channel.get_routes(family=AF_MPLS))
-        event_queue.put((self._dbm_ready, ))
+            event_queue.put((target, channel.get_links()))
+            event_queue.put((target, channel.get_neighbours()))
+            event_queue.put((target, channel.get_routes(family=AF_INET)))
+            event_queue.put((target, channel.get_routes(family=AF_INET6)))
+            event_queue.put((target, channel.get_routes(family=AF_MPLS)))
+            event_queue.put((target, channel.get_addr()))
+        event_queue.put(('localhost', (self._dbm_ready, ), ))
         #
         for (target, channel) in tuple(self.nl.items()):
             def t():
                 while True:
-                    event_queue.put(channel.get())
+                    event_queue.put((target, channel.get()))
 
             th = threading.Thread(target=t,
                                   name='NDB event source: %s' % (target))
@@ -122,12 +124,12 @@ class NDB(object):
             th.start()
 
         while True:
-            events = event_queue.get()
+            target, events = event_queue.get()
             for event in events:
                 handlers = event_map.get(event.__class__, [default_handler, ])
                 for handler in handlers:
                     try:
-                        handler(event)
+                        handler(target, event)
                     except:
                         import traceback
                         traceback.print_exc()

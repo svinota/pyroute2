@@ -2,6 +2,7 @@ import threading
 from functools import partial
 from collections import OrderedDict
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
@@ -12,13 +13,18 @@ class DBSchema(object):
     thread = None
     event_map = None
     schema = {'interfaces': OrderedDict(ifinfmsg.sql_schema()),
+              'addresses': OrderedDict(ifaddrmsg.sql_schema()),
               'neighbours': OrderedDict(ndmsg.sql_schema()),
               'routes': OrderedDict(rtmsg.sql_schema())}
     classes = {'interfaces': ifinfmsg,
+               'addresses': ifaddrmsg,
                'neighbours': ndmsg,
                'routes': rtmsg}
     index = {'interfaces': ('index',
                             'IFLA_IFNAME'),
+             'addresses': ('index',
+                           'IFA_ADDRESS',
+                           'IFA_LOCAL'),
              'neighbours': ('ifindex',
                             'NDA_LLADDR'),
              'routes': ('family',
@@ -30,11 +36,14 @@ class DBSchema(object):
     def __init__(self, db, tid):
         self.thread = tid
         self.db = db
-        for table in ('interfaces', 'neighbours', 'routes'):
+        for table in ('interfaces',
+                      'addresses',
+                      'neighbours',
+                      'routes'):
             self.create_table(table)
 
     def create_table(self, table):
-        req = []
+        req = ['target']
         for field in self.schema[table].items():
             #
             # Why f_?
@@ -45,7 +54,7 @@ class DBSchema(object):
         req = ','.join(req)
         req = 'CREATE TABLE %s (%s)' % (table, req)
         self.db.execute(req)
-        index = ','.join(['f_%s' % x for x in self.index[table]])
+        index = ','.join(['target'] + ['f_%s' % x for x in self.index[table]])
         req = 'CREATE UNIQUE INDEX %s_idx ON %s (%s)' % (table, table, index)
         self.db.execute(req)
 
@@ -69,7 +78,7 @@ class DBSchema(object):
             ret.append(dict(zip(self.schema[table].keys(), record)))
         return ret
 
-    def load_netlink(self, table, event):
+    def load_netlink(self, table, target, event):
         #
         # Simple barrier to work with the DB only from
         # one thread
@@ -84,8 +93,8 @@ class DBSchema(object):
             #
             # Delete an object
             #
-            conditions = []
-            values = []
+            conditions = ['target = ?']
+            values = [target]
             for key in self.index[table]:
                 conditions.append('f_%s = ?' % key)
                 values.append(event.get(key) or event.get_attr(key))
@@ -96,9 +105,9 @@ class DBSchema(object):
             # Create or set an object
             #
             fkeys = tuple(self.schema[table].keys())
-            fields = ','.join(['f_%s' % x for x in fkeys])
-            pch = ','.join('?' * len(fkeys))
-            values = []
+            fields = ','.join(['target'] + ['f_%s' % x for x in fkeys])
+            pch = ','.join('?' * (len(fkeys) + 1))
+            values = [target]
             for field in fkeys:
                 values.append(event.get(field) or event.get_attr(field))
 
@@ -109,6 +118,7 @@ class DBSchema(object):
 def init(db, tid):
     ret = DBSchema(db, tid)
     ret.event_map = {ifinfmsg: partial(ret.load_netlink, 'interfaces'),
+                     ifaddrmsg: partial(ret.load_netlink, 'addresses'),
                      ndmsg: partial(ret.load_netlink, 'neighbours'),
                      rtmsg: partial(ret.load_netlink, 'routes')}
     return ret
