@@ -15,15 +15,26 @@
 # 4. objects are spawned only on demand
 # 5. plugins provide transactional API to change objects + OS reflection
 
+import json
 import sqlite3
 import logging
 import threading
+from socket import AF_INET
+from socket import AF_INET6
 from pyroute2 import IPRoute
 from pyroute2.ndb import dbschema
+from pyroute2.common import AF_MPLS
 try:
     import queue
 except ImportError:
     import Queue as queue
+
+
+def target_adapter(value):
+    return json.dumps(value)
+
+
+sqlite3.register_adapter(list, target_adapter)
 
 
 class ShutdownException(Exception):
@@ -95,7 +106,9 @@ class NDB(object):
         for (target, channel) in tuple(self.nl.items()):
             event_queue.put(channel.get_links())
             event_queue.put(channel.get_neighbours())
-            event_queue.put(channel.get_routes())
+            event_queue.put(channel.get_routes(family=AF_INET))
+            event_queue.put(channel.get_routes(family=AF_INET6))
+            event_queue.put(channel.get_routes(family=AF_MPLS))
         event_queue.put((self._dbm_ready, ))
         #
         for (target, channel) in tuple(self.nl.items()):
