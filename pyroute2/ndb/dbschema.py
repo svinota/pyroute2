@@ -52,10 +52,12 @@ class DBSchema(object):
             #
             req.append('f_%s %s' % field)
         req = ','.join(req)
-        req = 'CREATE TABLE %s (%s)' % (table, req)
+        req = ('CREATE TABLE IF NOT EXISTS '
+               '%s (%s)' % (table, req))
         self.db.execute(req)
         index = ','.join(['target'] + ['f_%s' % x for x in self.index[table]])
-        req = 'CREATE UNIQUE INDEX %s_idx ON %s (%s)' % (table, table, index)
+        req = ('CREATE UNIQUE INDEX IF NOT EXISTS '
+               '%s_idx ON %s (%s)' % (table, table, index))
         self.db.execute(req)
 
     def get(self, table, spec):
