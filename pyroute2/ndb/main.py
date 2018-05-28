@@ -22,7 +22,6 @@ import threading
 from socket import AF_INET
 from socket import AF_INET6
 from pyroute2 import IPRoute
-from pyroute2 import NetNS
 from pyroute2.ndb import dbschema
 from pyroute2.common import AF_MPLS
 try:
@@ -49,9 +48,9 @@ class NDB(object):
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
         self._event_queue = None
-        self._nl_own = nl is None
         self._nl = nl
         self._db_uri = db_uri
+        self.db = None
         self.initdb()
 
     def initdb(self):
@@ -65,11 +64,15 @@ class NDB(object):
         # FIXME
 
         # start event sources
-        # FIXME
-        # just for debug: work on a simple sync IPRoute source
-        ipr = IPRoute()
-        ipr.bind()
-        self.nl = {'localhost': ipr}
+        if self._nl is None:
+            ipr = IPRoute()
+            self.nl = {'localhost': ipr}
+        elif isinstance(self._nl, dict):
+            self.nl = dict([(x[0], x[1].clone()) for x in self._nl.items()])
+        else:
+            self.nl = {'localhost': self._nl.clone()}
+        for target in self.nl:
+            self.nl[target].bind()
 
         # start the main loop
         self._dbm_ready.clear()
@@ -92,7 +95,7 @@ class NDB(object):
         #
         self.db = sqlite3.connect(self._db_uri, check_same_thread=False)
 
-        def default_handler(event):
+        def default_handler(target, event):
             if isinstance(event, Exception):
                 raise event
             logging.warning('unsupported event ignored: %s' % type(event))
@@ -114,11 +117,12 @@ class NDB(object):
         event_queue.put(('localhost', (self._dbm_ready, ), ))
         #
         for (target, channel) in tuple(self.nl.items()):
-            def t():
+            def t(event_queue, target, channel):
                 while True:
                     event_queue.put((target, channel.get()))
 
             th = threading.Thread(target=t,
+                                  args=(event_queue, target, channel),
                                   name='NDB event source: %s' % (target))
             th.setDaemon(True)
             th.start()
