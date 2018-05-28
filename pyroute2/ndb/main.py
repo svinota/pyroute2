@@ -81,6 +81,14 @@ class NDB(object):
         self._dbm_thread.setDaemon(True)
         self._dbm_thread.start()
 
+    def close(self):
+        if self.db:
+            self._event_queue.put(('localhost', (ShutdownException(), )))
+            self.db.commit()
+            self.db.close()
+            for (target, channel) in self.nl.items():
+                channel.close()
+
     def __dbm__(self):
         ##
         # Database management thread
@@ -134,7 +142,8 @@ class NDB(object):
                 for handler in handlers:
                     try:
                         handler(target, event)
+                    except ShutdownException:
+                        return
                     except:
                         import traceback
                         traceback.print_exc()
-        # cleanup procedures?
