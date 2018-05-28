@@ -111,7 +111,14 @@ class DBSchema(object):
             pch = ','.join('?' * (len(fkeys) + 1))
             values = [target]
             for field in fkeys:
-                values.append(event.get(field) or event.get_attr(field))
+                value = event.get_attr(field) or event.get(field)
+                if field in self.index[table] and value is None:
+                    if self.schema[table][field] == 'INTEGER':
+                        value = 0
+                    else:
+                        value = ''
+
+                values.append(value)
 
             self.db.execute('INSERT OR REPLACE INTO %s (%s)'
                             ' VALUES (%s)' % (table, fields, pch), values)
