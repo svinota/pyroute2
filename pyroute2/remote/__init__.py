@@ -163,7 +163,7 @@ class Client(object):
 
     def __init__(self):
         self.cmdlock = threading.Lock()
-        self.lock = threading.Lock()
+        self.shutdown_lock = threading.Lock()
         self.closed = False
         init = self.trnsp_in.recv_cmd()
         if init['stage'] != 'init':
@@ -210,7 +210,7 @@ class Client(object):
                 pass
 
     def close(self):
-        with self.lock:
+        with self.shutdown_lock:
             if not self.closed:
                 self.closed = True
                 self._cleanup_atexit()
