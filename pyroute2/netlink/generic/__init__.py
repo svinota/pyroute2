@@ -26,14 +26,14 @@ class GenericNetlinkSocket(NetlinkSocket):
 
     mcast_groups = {}
 
-    def bind(self, proto, msg_class, groups=0, pid=None, async=False):
+    def bind(self, proto, msg_class, groups=0, pid=None, **kwarg):
         '''
         Bind the socket and performs generic netlink
         proto lookup. The `proto` parameter is a string,
         like "TASKSTATS", `msg_class` is a class to
         parse messages with.
         '''
-        NetlinkSocket.bind(self, groups, pid, async)
+        NetlinkSocket.bind(self, groups, pid, **kwarg)
         self.marshal.msg_map[GENL_ID_CTRL] = ctrlmsg
         msg = self.discovery(proto)
         self.prid = msg.get_attr('CTRL_ATTR_FAMILY_ID')

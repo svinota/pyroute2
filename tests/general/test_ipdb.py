@@ -3065,9 +3065,9 @@ class TestMisc(object):
             def __init__(self):
                 self.called = set()
 
-            def bind(self, groups=None, async=None):
+            def bind(self, groups=None, async_cache=None):
                 self.called.add('bind')
-                assert async in (True, False)
+                assert async_cache in (True, False)
                 assert isinstance(groups, int)
                 raise NotImplementedError('mock thee')
 

@@ -638,6 +638,6 @@ class NL80211(GenericNetlinkSocket):
         GenericNetlinkSocket.__init__(self)
         self.marshal = MarshalNl80211()
 
-    def bind(self, groups=0, async=False):
+    def bind(self, groups=0, **kwarg):
         GenericNetlinkSocket.bind(self, 'nl80211', nl80211cmd,
-                                  groups, None, async)
+                                  groups, None, **kwarg)

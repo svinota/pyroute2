@@ -126,6 +126,6 @@ class DevlinkSocket(GenericNetlinkSocket):
         GenericNetlinkSocket.__init__(self)
         self.marshal = MarshalDevlink()
 
-    def bind(self, groups=0, async=False):
+    def bind(self, groups=0, **kwarg):
         GenericNetlinkSocket.bind(self, 'devlink', devlinkcmd,
-                                  groups, None, async)
+                                  groups, None, **kwarg)

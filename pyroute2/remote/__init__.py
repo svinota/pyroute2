@@ -3,6 +3,7 @@ import atexit
 import pickle
 import select
 import struct
+import logging
 import threading
 import traceback
 from io import BytesIO
@@ -14,6 +15,8 @@ try:
     import queue
 except ImportError:
     import Queue as queue
+
+log = logging.getLogger(__name__)
 
 
 class Transport(object):
@@ -237,8 +240,14 @@ class Client(object):
 
     def bind(self, *argv, **kwarg):
         if 'async' in kwarg:
-            # do not work with async servers
-            kwarg['async'] = False
+            # FIXME
+            # raise deprecation error after 0.5.3
+            #
+            log.warning('use "async_cache" instead of "async", '
+                        '"async" is a keyword from Python 3.7')
+            del kwarg['async']
+        # do not work with async servers
+        kwarg['async_cache'] = False
         return self.proxy('bind', *argv, **kwarg)
 
     def send(self, *argv, **kwarg):

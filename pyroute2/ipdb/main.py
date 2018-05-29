@@ -956,7 +956,8 @@ class IPDB(object):
                 self.mnl.close()
             self.mnl = self.nl.clone()
             try:
-                self.mnl.bind(groups=self.nl_bind_groups, async=self._nl_async)
+                self.mnl.bind(groups=self.nl_bind_groups,
+                              async_cache=self._nl_async)
             except:
                 self.mnl.close()
                 if self._nl_own is None:

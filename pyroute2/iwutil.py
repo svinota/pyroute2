@@ -130,6 +130,7 @@ Submit changes
 Please do not hesitate to submit the changes on github. Without
 your patches this module will not evolve.
 '''
+import logging
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
@@ -139,6 +140,8 @@ from pyroute2.netlink.nl80211 import NL80211_NAMES
 from pyroute2.netlink.nl80211 import IFTYPE_NAMES
 from pyroute2.netlink.nl80211 import CHAN_WIDTH
 from pyroute2.netlink.nl80211 import BSS_STATUS_NAMES
+
+log = logging.getLogger(__name__)
 
 
 class IW(NL80211):
@@ -153,21 +156,28 @@ class IW(NL80211):
 
         # get specific async kwarg
         if 'async' in kwarg:
-            async = kwarg['async']
-            del kwarg['async']
-        else:
-            async = False
+            # FIXME
+            # raise deprecation error after 0.5.3
+            #
+            log.warning('use "async_cache" instead of "async", '
+                        '"async" is a keyword from Python 3.7')
+            kwarg['async_cache'] = kwarg.pop('async')
 
-        # align groups with async
+        if 'async_cache' in kwarg:
+            async_cache = kwarg.pop('async_cache')
+        else:
+            async_cache = False
+
+        # align groups with async_cache
         if groups is None:
-            groups = ~0 if async else 0
+            groups = ~0 if async_cache else 0
 
         # continue with init
         super(IW, self).__init__(*argv, **kwarg)
 
         # do automatic bind
         # FIXME: unfortunately we can not omit it here
-        self.bind(groups, async)
+        self.bind(groups, async_cache)
 
     def del_interface(self, dev):
         '''

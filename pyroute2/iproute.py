@@ -144,10 +144,10 @@ MUST get all the messages in time. In the case of the
 kernel buffer overflow, you will have to restart the
 socket.
 
-With `IPRoute.bind(async=True)` one can launch async
-message receiver thread with `Queue`-based buffer. The
-buffer is thread-safe and completely transparent from
-the programmer's perspective. Please read also
+With `IPRoute.bind(async_cache=True)` one can launch
+async message receiver thread with `Queue`-based buffer.
+The buffer is thread-safe and completely transparent
+from the programmer's perspective. Please read also
 `NetlinkSocket` documentation to know more about async
 mode.
 

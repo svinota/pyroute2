@@ -1,8 +1,11 @@
+import logging
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink.devlink import DevlinkSocket
 from pyroute2.netlink.devlink import devlinkcmd
 from pyroute2.netlink.devlink import DEVLINK_NAMES
+
+log = logging.getLogger(__name__)
 
 
 class DL(DevlinkSocket):
@@ -17,14 +20,21 @@ class DL(DevlinkSocket):
 
         # get specific async kwarg
         if 'async' in kwarg:
-            async = kwarg['async']
-            del kwarg['async']
-        else:
-            async = False
+            # FIXME
+            # raise deprecation error after 0.5.3
+            #
+            log.warning('use "async_cache" instead of "async", '
+                        '"async" is a keyword from Python 3.7')
+            kwarg['async_cache'] = kwarg.pop('async')
 
-        # align groups with async
+        if 'async_cache' in kwarg:
+            async_cache = kwarg.pop('async_cache')
+        else:
+            async_cache = False
+
+        # align groups with async_cache
         if groups is None:
-            groups = ~0 if async else 0
+            groups = ~0 if async_cache else 0
 
         # continue with init
         super(DL, self).__init__(*argv, **kwarg)
@@ -32,7 +42,7 @@ class DL(DevlinkSocket):
         # do automatic bind
         # FIXME: unfortunately we can not omit it here
         try:
-            self.bind(groups, async)
+            self.bind(groups, async_cache)
         except:
             # thanks to jtluka at redhat.com and the LNST
             # team for the fixed fd leak

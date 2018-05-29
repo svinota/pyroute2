@@ -11,8 +11,8 @@ asynchronous I/O
 ----------------
 
 To run async reader thread, one should call
-`NetlinkSocket.bind(async=True)`. In that case a
-background thread will be launched. The thread will
+`NetlinkSocket.bind(async_cache=True)`. In that case
+a background thread will be launched. The thread will
 automatically collect all the messages and store
 into a userspace buffer.
 
@@ -938,7 +938,7 @@ class NetlinkSocket(NetlinkMixin):
         msg.encode()
         return self._sock.sendto(msg.data, addr)
 
-    def bind(self, groups=0, pid=None, async=False):
+    def bind(self, groups=0, pid=None, **kwarg):
         '''
         Bind the socket to given multicast groups, using
         given pid.
@@ -951,6 +951,14 @@ class NetlinkSocket(NetlinkMixin):
             self.port = 0
             self.fixed = True
             self.pid = pid or os.getpid()
+
+        if 'async' in kwarg:
+            # FIXME
+            # raise deprecation error after 0.5.3
+            #
+            log.warning('use "async_cache" instead of "async", '
+                        '"async" is a keyword from Python 3.7')
+        async_cache = kwarg.get('async_cache') or kwarg.get('async')
 
         self.groups = groups
         # if we have pre-defined port, use it strictly
@@ -971,7 +979,7 @@ class NetlinkSocket(NetlinkMixin):
             else:
                 raise KeyError('no free address available')
         # all is OK till now, so start async recv, if we need
-        if async:
+        if async_cache:
             def recv_plugin(*argv, **kwarg):
                 data_in = self.buffer_queue.get()
                 if isinstance(data_in, Exception):

@@ -18,8 +18,8 @@ class EventSocket(GenericNetlinkSocket):
         for group in self.mcast_groups:
             self.add_membership(group)
 
-    def bind(self, groups=0, async=False):
+    def bind(self, groups=0, **kwarg):
         GenericNetlinkSocket.bind(self,
                                   self.genl_family,
                                   self.marshal_class.msg_map[0],
-                                  groups, None, async)
+                                  groups, None, **kwarg)

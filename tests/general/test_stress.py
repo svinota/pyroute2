@@ -67,7 +67,7 @@ class TestRespawn(object):
     def test_respawn_iproute_async(self):
         for _ in range(RESPAWNS):
             with IPRoute() as i:
-                i.bind(async=True)
+                i.bind(async_cache=True)
                 i.link_lookup(ifname='lo')
 
     def test_respawn_ipdb(self):

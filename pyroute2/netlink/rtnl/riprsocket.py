@@ -10,8 +10,8 @@ class RawIPRSocketMixin(object):
         super(RawIPRSocketMixin, self).__init__(NETLINK_ROUTE, fileno=fileno)
         self.marshal = MarshalRtnl()
 
-    def bind(self, groups=rtnl.RTMGRP_DEFAULTS, async=False):
-        super(RawIPRSocketMixin, self).bind(groups, async=async)
+    def bind(self, groups=rtnl.RTMGRP_DEFAULTS, **kwarg):
+        super(RawIPRSocketMixin, self).bind(groups, **kwarg)
 
 
 class RawIPRSocket(RawIPRSocketMixin, NetlinkSocket):

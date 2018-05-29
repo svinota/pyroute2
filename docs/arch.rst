@@ -71,10 +71,10 @@ messages as they arrive. The thread doesn't affect the
 socket behaviour: it will behave exactly in the same way,
 the only difference is that `recv()` will return already
 cached in the userspace message. To start the thread,
-one should call `bind()` with `async=True`::
+one should call `bind()` with `async_cache=True`::
 
     ipr = IPRoute()
-    ipr.bind(async=True)
+    ipr.bind(async_cache=True)
     ...  # do some stuff
     ipr.close()
 
