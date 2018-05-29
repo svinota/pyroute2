@@ -2,8 +2,6 @@ import os
 import atexit
 import pickle
 import select
-import signal
-import socket
 import struct
 import threading
 import traceback
@@ -11,60 +9,67 @@ from io import BytesIO
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from pyroute2 import IPRoute
-from pyroute2.common import uuid32
 from pyroute2.netlink.nlsocket import NetlinkMixin
-from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
-from pyroute2.iproute import IPRouteMixin
 try:
-    from urlparse import urlparse
+    import queue
 except ImportError:
-    from urllib.parse import urlparse
+    import Queue as queue
 
 
 class Transport(object):
     '''
     A simple transport protocols to send objects between two
-    end-points. Requires an open socket-like object at init.
+    end-points. Requires an open file-like object at init.
     '''
-    def __init__(self, sock):
-        self.sock = sock
-        self.sock.setblocking(True)
+    def __init__(self, file_obj):
+        self.file_obj = file_obj
+        self.lock = threading.Lock()
+        self.cmd_queue = queue.Queue()
+        self.brd_queue = queue.Queue()
 
     def fileno(self):
-        return self.sock.fileno()
+        return self.file_obj.fileno()
 
     def send(self, obj):
         dump = BytesIO()
         pickle.dump(obj, dump)
         packet = struct.pack("II", len(dump.getvalue()) + 8, 0)
         packet += dump.getvalue()
-        self.sock.sendall(packet)
+        self.file_obj.write(packet)
+        self.file_obj.flush()
 
-    def recv(self):
-        length, offset = struct.unpack("II", self.sock.recv(8))
+    def __recv(self):
+        length, offset = struct.unpack("II", self.file_obj.read(8))
         dump = BytesIO()
-        actual = 0
-        while actual < (length - 8):
-            chunk = self.sock.recv(length - 8 - actual)
-            actual += len(chunk)
-            dump.write(chunk)
+        dump.write(self.file_obj.read(length - 8))
         dump.seek(0)
         ret = pickle.load(dump)
         return ret
 
+    def recv(self):
+        with self.lock:
+            if not self.brd_queue.empty():
+                return self.brd_queue.get()
+
+            while True:
+                ret = self.__recv()
+                if ret['stage'] == 'broadcast':
+                    return ret
+                self.cmd_queue.put(ret)
+
+    def recv_cmd(self):
+        with self.lock:
+            if not self.cmd_queue.empty():
+                return self.cmd_queue.get()
+
+            while True:
+                ret = self.__recv()
+                if ret['stage'] != 'broadcast':
+                    return ret
+                self.brd_queue.put(ret)
+
     def close(self):
-        self.sock.close()
-
-
-class SocketChannel(Transport):
-    '''
-    A data channel over ordinary AF_INET socket.
-    '''
-
-    def __init__(self, host, port):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host, port))
-        Transport.__init__(self, sock)
+        self.file_obj.close()
 
 
 class ProxyChannel(object):
@@ -79,109 +84,23 @@ class ProxyChannel(object):
                                  'error': None})
 
 
-def Server(cmdch, brdch):
-    '''
-    A server routine to run an IPRoute object and expose it via
-    custom RPC.
-
-    many TODOs:
-
-    * document the protocol
-    * provide not only IPRoute
-
-    RPC
-
-    Messages sent via channels are dictionaries with predefined
-    structure. There are 4 s.c. stages::
-
-        init        (server <-----> client)
-        command     (server <-----> client)
-        broadcast   (server ------> client)
-        shutdown    (server <------ client)
-
-
-    Stage 'init' is used during initialization. The client
-    establishes connections to the server and announces them
-    by sending a single message via each channel::
-
-        {'stage': 'init',
-         'domain': ch_domain,
-         'client': client.uuid}
-
-    Here, the client uuid is used to group all the connections
-    of the same client and `ch_domain` is either 'command', or
-    'broadcast'. The latter will become a unidirectional
-    channel from the server to the client, all data that
-    arrives on the server side via netlink socket will be
-    forwarded to the broadcast channel.
-
-    The command channel will be used to make RPC calls and
-    to shut the worker thread down before the client
-    disconnects from the server.
-
-    When all the registration is done, the server sends a
-    single message via the command channel::
-
-        {'stage': 'init',
-         'error': exception or None}
-
-    If the `error` field is None, everything is ok. If it
-    is an exception, the init is failed and the exception
-    should be thrown on the client side.
-
-    In the runtime, all the data that arrives on the netlink
-    socket fd, is to be forwarded directly via the
-    broadcast channel.
-
-    Commands are handled with the `command` stage::
-
-        # request
-
-        {'stage': 'command',
-         'name': str,
-         'cookie': cookie,
-         'argv': [...],
-         'kwarg': {...}}
-
-        # response
-
-        {'stage': 'command',
-         'error': exception or None,
-         'return': retval,
-         'cookie': cookie}
-
-    Right now the protocol is synchronous, so there is not
-    need in cookie yet. But in some future it can turn into
-    async, and then cookies will be used to match messages.
-
-    The final stage is 'shutdown'. It terminates the worker
-    thread, has no response and no messages can passed after.
-
-    '''
-
-    def close(s, frame):
-        # just leave everything else as is
-        brdch.send({'stage': 'signal',
-                    'data': s})
+def Server(trnsp_in, trnsp_out):
 
     try:
         ipr = IPRoute()
         lock = ipr._sproxy.lock
-        ipr._s_channel = ProxyChannel(brdch, 'broadcast')
+        ipr._s_channel = ProxyChannel(trnsp_out, 'broadcast')
     except Exception as e:
-        cmdch.send({'stage': 'init',
-                    'error': e})
+        trnsp_out.send({'stage': 'init',
+                        'error': e})
         return 255
 
-    inputs = [ipr.fileno(), cmdch.fileno()]
+    inputs = [ipr.fileno(), trnsp_in.fileno()]
     outputs = []
 
     # all is OK so far
-    cmdch.send({'stage': 'init',
-                'error': None})
-    signal.signal(signal.SIGHUP, close)
-    signal.signal(signal.SIGINT, close)
-    signal.signal(signal.SIGTERM, close)
+    trnsp_out.send({'stage': 'init',
+                    'error': None})
 
     # 8<-------------------------------------------------------------
     while True:
@@ -200,11 +119,11 @@ def Server(cmdch, brdch):
                     except Exception as e:
                         error = e
                         error.tb = traceback.format_exc()
-                    brdch.send({'stage': 'broadcast',
-                                'data': data,
-                                'error': error})
-            elif fd == cmdch.fileno():
-                cmd = cmdch.recv()
+                    trnsp_out.send({'stage': 'broadcast',
+                                    'data': data,
+                                    'error': error})
+            elif fd == trnsp_in.fileno():
+                cmd = trnsp_in.recv_cmd()
                 if cmd['stage'] == 'shutdown':
                     ipr.close()
                     return
@@ -218,10 +137,10 @@ def Server(cmdch, brdch):
                     except Exception as e:
                         error = e
                         error.tb = traceback.format_exc()
-                    cmdch.send({'stage': 'reconstruct',
-                                'error': error,
-                                'return': None,
-                                'cookie': cmd['cookie']})
+                    trnsp_out.send({'stage': 'reconstruct',
+                                    'error': error,
+                                    'return': None,
+                                    'cookie': cmd['cookie']})
 
                 elif cmd['stage'] == 'command':
                     error = None
@@ -231,22 +150,22 @@ def Server(cmdch, brdch):
                     except Exception as e:
                         error = e
                         error.tb = traceback.format_exc()
-                    cmdch.send({'stage': 'command',
-                                'error': error,
-                                'return': ret,
-                                'cookie': cmd['cookie']})
+                    trnsp_out.send({'stage': 'command',
+                                    'error': error,
+                                    'return': ret,
+                                    'cookie': cmd['cookie']})
 
 
 class Client(object):
 
-    brdch = None
-    cmdch = None
+    trnsp_in = None
+    trnsp_out = None
 
     def __init__(self):
         self.cmdlock = threading.Lock()
         self.lock = threading.Lock()
         self.closed = False
-        init = self.cmdch.recv()
+        init = self.trnsp_in.recv_cmd()
         if init['stage'] != 'init':
             raise TypeError('incorrect protocol init')
         if init['error'] is not None:
@@ -257,14 +176,14 @@ class Client(object):
 
     def _gate(self, msg, addr):
         with self.cmdlock:
-            self.cmdch.send({'stage': 'reconstruct',
-                             'cookie': None,
-                             'name': None,
-                             'argv': [type(msg),
-                                      pickle.dumps(msg.dump()),
-                                      addr],
-                             'kwarg': None})
-            ret = self.cmdch.recv()
+            self.trnsp_out.send({'stage': 'reconstruct',
+                                 'cookie': None,
+                                 'name': None,
+                                 'argv': [type(msg),
+                                          pickle.dumps(msg.dump()),
+                                          addr],
+                                 'kwarg': None})
+            ret = self.trnsp_in.recv_cmd()
             if ret['error'] is not None:
                 raise ret['error']
             return ret['return']
@@ -272,7 +191,7 @@ class Client(object):
     def recv(self, bufsize, flags=0):
         msg = None
         while True:
-            msg = self.brdch.recv()
+            msg = self.trnsp_in.recv()
             if msg['stage'] == 'signal':
                 os.kill(os.getpid(), msg['data'])
             else:
@@ -295,26 +214,26 @@ class Client(object):
             if not self.closed:
                 self.closed = True
                 self._cleanup_atexit()
-                self.cmdch.send({'stage': 'shutdown'})
-                if hasattr(self.cmdch, 'close'):
-                    self.cmdch.close()
-                if hasattr(self.brdch, 'close'):
-                    self.brdch.close()
+                self.trnsp_out.send({'stage': 'shutdown'})
+                if hasattr(self.trnsp_out, 'close'):
+                    self.trnsp_out.close()
+                if hasattr(self.trnsp_in, 'close'):
+                    self.trnsp_in.close()
 
     def proxy(self, cmd, *argv, **kwarg):
         with self.cmdlock:
-            self.cmdch.send({'stage': 'command',
-                             'cookie': None,
-                             'name': cmd,
-                             'argv': argv,
-                             'kwarg': kwarg})
-            ret = self.cmdch.recv()
+            self.trnsp_out.send({'stage': 'command',
+                                 'cookie': None,
+                                 'name': cmd,
+                                 'argv': argv,
+                                 'kwarg': kwarg})
+            ret = self.trnsp_in.recv_cmd()
             if ret['error'] is not None:
                 raise ret['error']
             return ret['return']
 
     def fileno(self):
-        return self.brdch.fileno()
+        return self.trnsp_in.fileno()
 
     def bind(self, *argv, **kwarg):
         if 'async' in kwarg:
@@ -349,70 +268,3 @@ class RemoteSocket(NetlinkMixin, Client):
 
     def _recv(self, *argv, **kwarg):
         return Client.recv(self, *argv, **kwarg)
-
-
-class Remote(IPRouteMixin, RemoteSocket):
-    '''
-    Experimental TCP server.
-
-    Only for debug purposes now.
-    '''
-    def __init__(self, url):
-        if url.startswith('tcp://'):
-            hostname = urlparse(url).netloc
-            self.cmdch = SocketChannel(hostname, 4336)
-            self.brdch = SocketChannel(hostname, 4336)
-            self.uuid = uuid32()
-            self.cmdch.send({'stage': 'init',
-                             'domain': 'command',
-                             'client': self.uuid})
-            self.brdch.send({'stage': 'init',
-                             'domain': 'broadcast',
-                             'client': self.uuid})
-        else:
-            raise TypeError('remote connection type not supported')
-        super(RemoteSocket, self).__init__()
-        self.marshal = MarshalRtnl()
-
-    def post_init(self):
-        pass
-
-
-class Master(object):
-
-    def __init__(self, host='localhost', port=4336):
-        self.master_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.master_sock.bind((host, port))
-        self.new = {}
-        self.clients = {}
-        self.threads = []
-
-    def start(self):
-        self.master_sock.listen(4)
-
-        poll = select.poll()
-        poll.register(self.master_sock, select.POLLIN | select.POLLPRI)
-        while True:
-            for (fd, event) in poll.poll():
-                if fd == self.master_sock.fileno():
-                    (sock, info) = self.master_sock.accept()
-                    self.new[sock.fileno()] = Transport(sock)
-                    poll.register(sock, select.POLLIN | select.POLLPRI)
-                elif fd in self.new:
-                    init = self.new[fd].recv()
-                    if init['client'] in self.clients:
-                        client = self.clients.pop(init['client'])
-                        client[init['domain']] = self.new.pop(fd)
-                        args = (client['command'],
-                                client['broadcast'])
-                        t = threading.Thread(target=Server, args=args)
-                        t.start()
-                        self.threads.append(t)
-                        poll.unregister(client['command'].sock)
-                        poll.unregister(client['broadcast'].sock)
-                    else:
-                        cid = init['client']
-                        self.clients[cid] = {}
-                        self.clients[cid][init['domain']] = self.new.pop(fd)
-                else:
-                    raise Exception('lost socket fd')

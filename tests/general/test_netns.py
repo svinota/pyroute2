@@ -171,13 +171,13 @@ class TestNetNS(object):
         try:
             ns_foo.create(ifname=ifA, kind='dummy').commit()
             with ns_foo.interfaces[ifA] as iface:
-                iface.net_ns_pid = ns_bar.nl.server.pid
+                iface.net_ns_pid = ns_bar.nl.child
 
             assert ifA in ns_bar.interfaces.keys()
             assert ifA not in ns_foo.interfaces.keys()
 
             with ns_bar.interfaces[ifA] as iface:
-                iface.net_ns_pid = ns_foo.nl.server.pid
+                iface.net_ns_pid = ns_foo.nl.child
 
             assert ifA not in ns_bar.interfaces.keys()
             assert ifA in ns_foo.interfaces.keys()
