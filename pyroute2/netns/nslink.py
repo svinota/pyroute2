@@ -66,79 +66,33 @@ run `remove()`.
 
 import os
 import errno
-import atexit
 import signal
+import atexit
 import logging
-from pyroute2 import config
+from functools import partial
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
 from pyroute2.iproute import IPRouteMixin
 from pyroute2.netns import setns
 from pyroute2.netns import remove
 from pyroute2.remote import Server
+from pyroute2.remote import Transport
 from pyroute2.remote import RemoteSocket
 
 log = logging.getLogger(__name__)
 
 
-def NetNServer(netns, parent_cmdch, cmdch, parent_brdch, brdch,
-               flags=os.O_CREAT):
-    '''
-    The netns server supposed to be started automatically by NetNS.
-    It has two communication channels: one simplex to forward incoming
-    netlink packets, `rcvch`, and other synchronous duplex to get
-    commands and send back responses, `cmdch`.
+class FD(object):
 
-    Channels should support standard socket API, should be compatible
-    with poll/select and should be able to transparently pickle objects.
-    NetNS uses `multiprocessing.Pipe` for this purpose, but it can be
-    any other implementation with compatible API.
+    def __init__(self, fd):
+        self.fd = fd
+        for name in ('read', 'write', 'close'):
+            setattr(self, name, partial(getattr(os, name), self.fd))
 
-    The first parameter, `netns`, is a netns name. Depending on the
-    `flags`, the netns can be created automatically. The `flags` semantics
-    is exactly the same as for `open(2)` system call.
+    def fileno(self):
+        return self.fd
 
-    ...
-
-    The server workflow is simple. The startup sequence::
-
-        1. Create or open a netns.
-
-        2. Start `IPRoute` instance. It will be used only on the low level,
-           the `IPRoute` will not parse any packet.
-
-        3. Start poll/select loop on `cmdch` and `IPRoute`.
-
-    On the startup, the server sends via `cmdch` the status packet. It can be
-    `None` if all is OK, or some exception.
-
-    Further data handling, depending on the channel, server side::
-
-        1. `IPRoute`: read an incoming netlink packet and send it unmodified
-           to the peer via `rcvch`. The peer, polling `rcvch`, can handle
-           the packet on its side.
-
-        2. `cmdch`: read tuple (cmd, argv, kwarg). If the `cmd` starts with
-           "send", then take `argv[0]` as a packet buffer, treat it as one
-           netlink packet and substitute PID field (offset 12, uint32) with
-           its own. Strictly speaking, it is not mandatory for modern netlink
-           implementations, but it is required by the protocol standard.
-
-    '''
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-    try:
-        setns(netns, flags)
-    except OSError as e:
-        cmdch.send({'stage': 'init',
-                    'error': e})
-        return e.errno
-    except Exception as e:
-        cmdch.send({'stage': 'init',
-                    'error': OSError(errno.ECOMM, str(e), netns)})
-        return 255
-
-    parent_cmdch.close()
-    parent_brdch.close()
-    Server(cmdch, brdch)
+    def flush(self):
+        return None
 
 
 class NetNS(IPRouteMixin, RemoteSocket):
@@ -181,18 +135,34 @@ class NetNS(IPRouteMixin, RemoteSocket):
     def __init__(self, netns, flags=os.O_CREAT):
         self.netns = netns
         self.flags = flags
-        self.cmdch, _cmdch = config.MpPipe()
-        self.brdch, _brdch = config.MpPipe()
-        self.server = config.MpProcess(target=NetNServer,
-                                       args=(self.netns,
-                                             self.cmdch,
-                                             _cmdch,
-                                             self.brdch,
-                                             _brdch,
-                                             self.flags))
-        self.server.start()
-        _cmdch.close()
-        _brdch.close()
+        self.trnsp_in, remote_trnsp_out = [Transport(FD(x)) for x in os.pipe()]
+        remote_trnsp_in, self.trnsp_out = [Transport(FD(x)) for x in os.pipe()]
+
+        self.child = os.fork()
+        if self.child == 0:
+            # child process
+            self.trnsp_in.close()
+            self.trnsp_out.close()
+            try:
+                setns(self.netns, self.flags)
+            except OSError as e:
+                remote_trnsp_out.send({'stage': 'init',
+                                       'error': e})
+                os._exit(e.errno)
+            except Exception as e:
+                remote_trnsp_out.send({'stage': 'init',
+                                       'error': OSError(errno.ECOMM,
+                                                        str(e),
+                                                        self.netns)})
+                os._exit(255)
+
+            try:
+                Server(remote_trnsp_in, remote_trnsp_out)
+            finally:
+                os._exit(0)
+
+        remote_trnsp_in.close()
+        remote_trnsp_out.close()
         try:
             super(NetNS, self).__init__()
         except Exception:
@@ -220,18 +190,19 @@ class NetNS(IPRouteMixin, RemoteSocket):
         except:
             # something went wrong, force server shutdown
             try:
-                self.cmdch.send({'stage': 'shutdown'})
+                self.trnsp_out.send({'stage': 'shutdown'})
             except Exception:
                 pass
             log.error('forced shutdown procedure, clean up netns manually')
         # force cleanup command channels
-        for close in (self.cmdch.close, self.brdch.close):
+        for close in (self.trnsp_in.close, self.trnsp_out.close):
             try:
                 close()
             except Exception:
                 pass  # Maybe already closed in remote.Client.close
-        # join the server
-        self.server.join()
+
+        os.kill(self.child, signal.SIGKILL)
+        os.waitpid(self.child, 0)
 
     def post_init(self):
         pass
