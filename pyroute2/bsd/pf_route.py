@@ -82,7 +82,7 @@ class rt_msg(bsdmsg):
     sockaddr_offset = 92
 
     ifa_slots = {0: ('DST', 'rt_slot_addr'),
-                 1: ('GATEWAY', 'hex'),
+                 1: ('GATEWAY', 'rt_slot_addr'),
                  2: ('NETMASK', 'rt_slot_addr'),
                  3: ('GENMASK', 'hex'),
                  4: ('IFP', 'rt_slot_ifp'),
