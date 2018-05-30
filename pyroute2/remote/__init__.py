@@ -151,6 +151,7 @@ def Server(trnsp_in, trnsp_out):
                         ret = getattr(ipr, cmd['name'])(*cmd['argv'],
                                                         **cmd['kwarg'])
                     except Exception as e:
+                        ret = None
                         error = e
                         error.tb = traceback.format_exc()
                     trnsp_out.send({'stage': 'command',
