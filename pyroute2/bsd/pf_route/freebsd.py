@@ -1,10 +1,6 @@
-import socket
-import struct
-from pyroute2.common import hexdump
 from pyroute2.netlink import nlmsg_base
 
 IFNAMSIZ = 16
-RTAX_MAX = 8
 
 
 class bsdmsg(nlmsg_base):
@@ -49,14 +45,7 @@ class if_msg(bsdmsg):
               ('ifu_tv2', 'Q'))
 
 
-class rt_slot(nlmsg_base):
-
-    __slots__ = ()
-    header = (('length', 'B'),
-              ('family', 'B'))
-
-
-class rt_msg(bsdmsg):
+class rt_msg_base(bsdmsg):
 
     __slots__ = ()
     fields = (('rtm_index', 'I'),
@@ -90,82 +79,8 @@ class rt_msg(bsdmsg):
                  6: ('AUTHOR', 'hex'),
                  7: ('BRD', 'rt_slot_addr')}
 
-    class hex(rt_slot):
 
-        def decode(self):
-            rt_slot.decode(self)
-            length = self['header']['length']
-            self['value'] = hexdump(self.data[self.offset + 2:
-                                              self.offset + length])
-
-    class rt_slot_ifp(rt_slot):
-
-        def decode(self):
-            rt_slot.decode(self)
-            #
-            # Structure
-            #     0       1       2       3       4       5       6       7
-            # |-------+-------+-------+-------|-------+-------+-------+-------|
-            # |  len  |  fam  |    ifindex    |   ?   |  nlen |    padding?   |
-            # |-------+-------+-------+-------|-------+-------+-------+-------|
-            # | ...
-            # | ...
-            #
-            # len -- sockaddr len
-            # fam -- sockaddr family
-            # ifindex -- interface index
-            # ? -- no idea, probably again some sockaddr related info?
-            # nlen -- device name length
-            # padding? -- probably structure alignment
-            #
-            (self['index'], _,
-             name_length) = struct.unpack('HBB', self.data[self.offset + 2:
-                                                           self.offset + 6])
-            self['ifname'] = self.data[self.offset + 8:
-                                       self.offset + 8 + name_length]
-
-    class rt_slot_addr(rt_slot):
-
-        def decode(self):
-            alen = {socket.AF_INET: 4,
-                    socket.AF_INET6: 16}
-            rt_slot.decode(self)
-            #
-            # Yksinkertainen: only the sockaddr family (one byte) and the
-            # network address.
-            #
-            # But for netmask it's completely screwed up. E.g.:
-            #
-            #  ifconfig disc2 10.0.0.1 255.255.255.0 up
-            # -->
-            #  ... NETMASK: 38:12:00:00:ff:00:00:00:00:00:00:...
-            #
-            # Why?!
-            #
-            addrlen = alen.get(self['header']['family'], 0)
-            family = self['header']['family']
-            length = self['header']['length']
-            data = self.data[self.offset + 4:
-                             self.offset + 4 + addrlen]
-            if family in (socket.AF_INET, socket.AF_INET6):
-                self['address'] = socket.inet_ntop(family, data)
-            else:
-                self['raw'] = self.data[self.offset:
-                                        self.offset + length]
-
-    def decode(self):
-        bsdmsg.decode(self)
-        offset = self.sockaddr_offset
-        for i in range(RTAX_MAX):
-            if self['rtm_addrs'] & (1 << i):
-                handler = getattr(self, self.ifa_slots[i][1])
-                slot = handler(self.data[offset:])
-                slot.decode()
-                offset += slot['header']['length']
-                self[self.ifa_slots[i][0]] = slot
-
-
-class ifa_msg(rt_msg):
+class ifa_msg_base(bsdmsg):
 
     __slots__ = ()
     fields = (('rtm_addrs', 'i'),
@@ -175,7 +90,7 @@ class ifa_msg(rt_msg):
     sockaddr_offset = 20
 
 
-class ifma_msg(rt_msg):
+class ifma_msg_base(bsdmsg):
 
     __slots__ = ()
     fields = (('rtm_addrs', 'i'),

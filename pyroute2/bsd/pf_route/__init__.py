@@ -35,6 +35,7 @@ class rt_slot(nlmsg_base):
 class rt_msg(rt_msg_base):
 
     __slots__ = ()
+    force_mask = False
 
     class hex(rt_slot):
 
@@ -99,7 +100,7 @@ class rt_msg(rt_msg_base):
                 # FreeBSD and OpenBSD use different approaches
                 # FreeBSD: family == 0x12
                 # OpenBSD: family == 0x0
-                if family in (0x0, 0x12):
+                if self.parent.force_mask and family in (0x0, 0x12):
                     data = self.data[self.offset + 4:
                                      self.offset + 8]
                     data = data + b'\0' * (4 - len(data))
@@ -113,14 +114,14 @@ class rt_msg(rt_msg_base):
         for i in range(RTAX_MAX):
             if self['rtm_addrs'] & (1 << i):
                 handler = getattr(self, self.ifa_slots[i][1])
-                slot = handler(self.data[offset:])
+                slot = handler(self.data[offset:], parent=self)
                 slot.decode()
                 offset += slot['header']['length']
                 self[self.ifa_slots[i][0]] = slot
 
 
 class ifa_msg(ifa_msg_base, rt_msg):
-    pass
+    force_mask = True
 
 
 class ifma_msg(ifma_msg_base, rt_msg):
