@@ -1,4 +1,6 @@
 import os
+import select
+import threading
 
 from pyroute2.netlink import (NLM_F_REQUEST,
                               NLM_F_DUMP,
@@ -39,17 +41,68 @@ class IPRoute(object):
                                    'monitor': False})
         self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
         self._fd = None
-        self._pfdr, self._pfdw = os.pipe()
+        self._mon_th = None
+        self._pfdr, self._pfdw = os.pipe()  # notify external poll/select
+        self._ctlr, self._ctlw = os.pipe()  # notify monitoring thread
         self._outq = queue.Queue()
+        self._system_lock = threading.Lock()
+
+    def close(self):
+        with self._system_lock:
+            if self._mon_th is not None:
+                os.write(self._ctlw, b'\0')
+                self._mon_th.join()
+                self._rtm.close()
 
     def bind(self, *argv, **kwarg):
-        self._rtm = RTMSocket()
-        self._fd = self._rtm._sock.fileno()
+        with self._system_lock:
+            if self._mon_th is not None:
+                return
+
+            self._mon_th = threading.Thread(target=self._monitor_thread,
+                                            name='PF_ROUTE monitoring')
+            self._mon_th.setDaemon(True)
+            self._mon_th.start()
+
+    def _monitor_thread(self):
+        # Monitoring thread to convert arriving PF_ROUTE data into
+        # the netlink format, enqueue it and notify poll/select.
+        self._rtm = RTMSocket(output='netlink')
+        inputs = [self._rtm.fileno(), self._ctlr]
+        outputs = []
+        while True:
+            try:
+                events, _, _ = select.select(inputs, outputs, inputs)
+            except:
+                continue
+            for fd in events:
+                if fd == self._ctlr:
+                    # Main thread <-> monitor thread protocol is
+                    # pretty simple: discard the data and terminate
+                    # the monitor thread.
+                    os.read(self._ctlr, 1)
+                    return
+                else:
+                    # Read the data from the socket and queue it
+                    msg = self._rtm.get()
+                    if msg is not None:
+                        msg.encode()
+                        self._outq.put(msg.data)
+                        # Notify external poll/select
+                        os.write(self._pfdw, b'\0')
 
     def fileno(self):
+        # Every time when some new data arrives, one should write
+        # into self._pfdw one byte to kick possible poll/select.
+        #
+        # Resp. recv() discards one byte from self._pfdr each call.
         return self._pfdr
 
-    def recv(self, bufsize):
+    def get(self):
+        data = self.recv()
+        return self.marshal.parse(data)
+
+    def recv(self, bufsize=None):
         os.read(self._pfdr, 1)
         return self._outq.get()
 
