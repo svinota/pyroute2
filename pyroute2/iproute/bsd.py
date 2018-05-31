@@ -130,3 +130,7 @@ class IPRoute(object):
 
     def get_routes(self, *argv, **kwarg):
         return []
+
+
+class RawIPRoute(IPRoute):
+    pass

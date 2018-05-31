@@ -4,23 +4,17 @@ import pickle
 import select
 import struct
 import logging
-import platform
 import threading
 import traceback
 from io import BytesIO
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
+from pyroute2 import IPRoute
 from pyroute2.netlink.nlsocket import NetlinkMixin
 try:
     import queue
 except ImportError:
     import Queue as queue
-if platform.uname()[0] == 'Linux':
-    from pyroute2.iproute import IPRoute
-elif platform.uname()[0][-3:] == 'BSD':
-    from pyroute2.bsd.iproute import IPRoute
-else:
-    raise ImportError('no IPRoute module for the platform')
 
 log = logging.getLogger(__name__)
 
