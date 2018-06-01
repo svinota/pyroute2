@@ -119,5 +119,14 @@ class RTMSocket(RTMSocketBase):
                 msg = convert[type(msg)](msg)
         return msg
 
+    def close(self):
+        self._sock.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
 
 __all__ = [RTMSocket, ]

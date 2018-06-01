@@ -32,6 +32,23 @@ except ImportError:
 
 class IPRoute(object):
     '''
+    BSD support for the RTNL API: the very initial version,
+    only getters are supported, no setters.
+
+    BSD employs PF_ROUTE sockets to send notifications about
+    network object changes, but the protocol doesn not allow
+    changing links/addresses/etc like Netlink.
+
+    To change network setting one have to rely on system calls
+    or external tools. Thus IPRoute on BSD systems is not as
+    effective as on Linux, where all the changes are done via
+    Netlink.
+
+    The monitoring, started with `bind()`, is implemented as
+    an implicit thread, started by the `bind()` call. This is
+    done to have only one notification FD, used both for normal
+    calls and notifications. This allows to use IPRoute objects
+    in poll/select calls.
     '''
 
     def __init__(self, *argv, **kwarg):
@@ -40,12 +57,18 @@ class IPRoute(object):
         send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000, 0x1ffff),
                                    'monitor': False})
         self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
-        self._fd = None
         self._mon_th = None
+        self._rtm = None
         self._pfdr, self._pfdw = os.pipe()  # notify external poll/select
         self._ctlr, self._ctlw = os.pipe()  # notify monitoring thread
         self._outq = queue.Queue()
         self._system_lock = threading.Lock()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
     def close(self):
         with self._system_lock:
@@ -53,6 +76,11 @@ class IPRoute(object):
                 os.write(self._ctlw, b'\0')
                 self._mon_th.join()
                 self._rtm.close()
+                for ep in (self._pfdr, self._pfdw, self._ctlr, self._ctlw):
+                    try:
+                        os.close(ep)
+                    except OSError:
+                        pass
 
     def bind(self, *argv, **kwarg):
         with self._system_lock:
