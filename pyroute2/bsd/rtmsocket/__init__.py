@@ -4,6 +4,7 @@ from socket import SOCK_RAW
 from socket import AF_INET
 from socket import AF_INET6
 from pyroute2 import config
+from pyroute2.common import dqn2int
 from pyroute2.bsd.pf_route import (if_msg,
                                    rt_msg,
                                    if_announcemsg,
@@ -41,7 +42,7 @@ def convert_rt_msg(msg):
     ret['attrs'] = []
     if 'NETMASK' in msg and \
             msg['NETMASK']['header']['family'] == ret['family']:
-        ret['dst_len'] = 0  # FIXME!!!
+        ret['dst_len'] = dqn2int(msg['NETMASK']['address'], ret['family'])
     if 'GATEWAY' in msg:
         if msg['GATEWAY']['header']['family'] not in (AF_INET, AF_INET6):
             # interface routes, table 255
@@ -67,8 +68,8 @@ def convert_ifa_msg(msg):
         msg['header']['type'] == RTM_NEWADDR else \
         RTNL_DELADDR
     ret['index'] = msg['IFP']['index']
-    ret['prefixlen'] = 0  # FIXME!!!
     ret['family'] = msg['IFA']['header']['family']
+    ret['prefixlen'] = dqn2int(msg['NETMASK']['address'], ret['family'])
     ret['attrs'] = [['IFA_ADDRESS', msg['IFA']['address']],
                     ['IFA_BROADCAST', msg['BRD']['address']],
                     ['IFA_LABEL', msg['IFP']['ifname']]]
