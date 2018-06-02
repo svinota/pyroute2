@@ -80,11 +80,10 @@ def transform_handle(handle):
     return handle
 
 
-class IPRouteMixin(object):
+class RTNL_API(object):
     '''
-    `IPRouteMixin` should not be instantiated by itself. It is intended
-    to be used as a mixin class that provides RTNL API. Following classes
-    use `IPRouteMixin`:
+    `RTNL_API` should not be instantiated by itself. It is intended
+    to be used as a mixin class. Following classes use `RTNL_API`:
 
     * `IPRoute` -- RTNL API to the current network namespace
     * `NetNS` -- RTNL API to another network namespace
@@ -1712,14 +1711,14 @@ class IPRouteMixin(object):
     # 8<---------------------------------------------------------------
 
 
-class IPBatch(IPRouteMixin, IPBatchSocket):
+class IPBatch(RTNL_API, IPBatchSocket):
     '''
     Netlink requests compiler. Does not send any requests, but
     instead stores them in the internal binary buffer. The
     contents of the buffer can be used to send batch requests,
     to test custom netlink parsers and so on.
 
-    Uses `IPRouteMixin` and provides all the same API as normal
+    Uses `RTNL_API` and provides all the same API as normal
     `IPRoute` objects::
 
         # create the batch compiler
@@ -1740,15 +1739,14 @@ class IPBatch(IPRouteMixin, IPBatchSocket):
     pass
 
 
-class IPRoute(IPRouteMixin, IPRSocket):
+class IPRoute(RTNL_API, IPRSocket):
     '''
-    Public class that provides RTNL API to the current network
-    namespace.
+    Regular ordinary utility class, see RTNL API for the list of methods.
     '''
     pass
 
 
-class RawIPRoute(IPRouteMixin, RawIPRSocket):
+class RawIPRoute(RTNL_API, RawIPRSocket):
     '''
     The same as `IPRoute`, but does not use the netlink proxy.
     Thus it can not manage e.g. tun/tap interfaces.

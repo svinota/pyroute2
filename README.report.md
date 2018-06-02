@@ -1,4 +1,4 @@
-report a bug
+Report a bug
 ============
 
 In the case you have issues, please report them to the project

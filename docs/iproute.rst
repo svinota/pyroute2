@@ -6,6 +6,17 @@ IPRoute module
 .. automodule:: pyroute2.iproute
     :members:
 
+BSD notes
+---------
+
+.. automodule:: pyroute2.iproute.bsd
+
+IPRoute API
+-----------
+
+.. automodule:: pyroute2.iproute.linux
+    :members:
+
 Queueing disciplines
 --------------------
 

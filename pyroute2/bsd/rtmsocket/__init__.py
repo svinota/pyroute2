@@ -21,16 +21,14 @@ from pyroute2.netlink.rtnl import (RTM_NEWLINK as RTNL_NEWLINK,
                                    RTM_NEWROUTE as RTNL_NEWROUTE,
                                    RTM_DELROUTE as RTNL_DELROUTE)
 
-if config.uname[0] == 'FreeBSD':
-    from pyroute2.bsd.rtmsocket.freebsd import (RTMSocketBase,
-                                                RTM_ADD,
-                                                RTM_NEWADDR)
-elif config.uname[0] == 'OpenBSD':
+if config.uname[0] == 'OpenBSD':
     from pyroute2.bsd.rtmsocket.openbsd import (RTMSocketBase,
                                                 RTM_ADD,
                                                 RTM_NEWADDR)
 else:
-    raise ImportError('platform not supported')
+    from pyroute2.bsd.rtmsocket.freebsd import (RTMSocketBase,
+                                                RTM_ADD,
+                                                RTM_NEWADDR)
 
 
 def convert_rt_msg(msg):

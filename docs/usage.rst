@@ -3,7 +3,19 @@
 Quickstart
 ==========
 
-Runtime
+Hello, world::
+
+    $ sudo pip install pyroute2
+
+    $ cat example.py
+    from pyroute2 import IPRoute
+    with IPRoute() as ipr:
+        print([x.get_attr('IFLA_IFNAME') for x in ipr.get_links()])
+
+    $ python example.py
+    ['lo', 'p6p1', 'wlan0', 'virbr0', 'virbr0-nic']
+
+Sockets
 -------
 
 In the runtime pyroute2 socket objects behave as normal
@@ -36,22 +48,15 @@ But pyroute2 objects have a lot of methods, written to
 handle specific tasks::
 
     from pyroute2 import IPRoute
-    from pyroute2 import IW
 
     # RTNL interface
-    ipr = IPRoute()
+    with IPRoute() as ipr:
 
-    # WIFI interface
-    iw = IW()
+        # get devices list
+        ipr.get_links()
 
-    # get devices list
-    ipr.get_links()
-
-    # scan WIFI networks on wlo1
-    iw.scan(ipr.link_lookup(ifname='wlo1'))
-
-More info on specific modules is written in the next
-chapters.
+        # get addresses
+        ipr.get_addr()
 
 Resource release
 ----------------
@@ -60,39 +65,16 @@ Do not forget to release resources and close sockets. Also
 keep in mind, that the real fd will be closed only when the
 Python GC will collect closed objects.
 
-Signal handlers
----------------
-
-If you place exclusive operations in a signal handler, the
-locking will not help. The only way to guard the handler is
-to ignore the signal from the handler::
-
-    import signal
-    from pyroute2 import IPDB
-
-    def handler(signum, frame):
-        # emergency shutdown
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
-        ipdb.interfaces.test_if.remove().commit()
-        ipdb.release()
-
-    def main():
-        with IPDB() as ipdb:
-            signal.signal(signal.SIGTERM, handler)
-            test_if = ipdb.create(ifname='test_if', kind='dummy').commit()
-            ...  # do some work
-
 Imports
 -------
 
-The public API is exported by `pyroute2/__init__.py`. There
-are two main reasons for such approach.
+The public API is exported by `pyroute2/__init__.py`. 
 
-First, it is done so to provide a stable API, that will not
-be affected by changes in the package layout. There can be
-significant layout changes between versions, but if a
-symbol is re-exported via `pyroute2/__init__.py`, it will be
-available with the same import signature.
+It is done so to provide a stable API that will not be affected
+by changes in the package layout. There may be significant
+layout changes between versions, but if a symbol is re-exported
+via `pyroute2/__init__.py`, it will be available with the same
+import signature.
 
 .. warning::
     All other objects are also available for import, but they
@@ -114,31 +96,6 @@ E.g.::
     from pyroute2 import NetNS
     ns = NetNS('test')
 
-Another function of `pyroute2/__init__.py` is to provide
-deferred imports. Being imported from the root of the
-package, classes will be really imported only with the first
-constructor call. This make possible to change the base
-of pyroute2 classes on the fly.
-
-The proxy class, used in the second case, supports correct
-`isinstance()` and `issubclass()` semantics, and in both
-cases the code will work in the same way.
-
-There is an exception from the scheme: the exception classes.
-
-Exceptions
-----------
-
-Since the deferred import provides wrappers, not real classes,
-one can not use them in `try: ... except: ...` statements. So
-exception classes are simply reexported here.
-
-Developers note: new exceptions modules **must not** import any
-other pyroute2 modules neither directly, nor indirectly. It means
-that `__init__.py` files in the import path should not contain
-pyroute2 symbols referred in the root module as that would cause
-import error due to recursion.
-
 Special cases
 =============
 
@@ -146,7 +103,7 @@ eventlet
 --------
 
 The eventlet environment conflicts in some way with socket
-objects, and pyroute2 provides a workaround for that::
+objects, and pyroute2 provides some workaround for that::
 
     # import symbols
     #
@@ -162,3 +119,6 @@ objects, and pyroute2 provides a workaround for that::
     ns = NetNS('nsname')
     ns.get_routes()
     ...
+
+This may help, but not always. In general, the pyroute2 library
+is not eventlet-friendly.

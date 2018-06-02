@@ -1,4 +1,4 @@
-changelog
+Changelog
 =========
 
 * 0.5.1

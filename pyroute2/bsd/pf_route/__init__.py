@@ -4,14 +4,7 @@ from pyroute2 import config
 from pyroute2.common import hexdump
 from pyroute2.netlink import nlmsg_base
 
-if config.uname[0] == 'FreeBSD':
-    from pyroute2.bsd.pf_route.freebsd import (bsdmsg,
-                                               if_msg,
-                                               rt_msg_base,
-                                               ifa_msg_base,
-                                               ifma_msg_base,
-                                               if_announcemsg)
-elif config.uname[0] == 'OpenBSD':
+if config.uname[0] == 'OpenBSD':
     from pyroute2.bsd.pf_route.openbsd import (bsdmsg,
                                                if_msg,
                                                rt_msg_base,
@@ -19,7 +12,12 @@ elif config.uname[0] == 'OpenBSD':
                                                ifma_msg_base,
                                                if_announcemsg)
 else:
-    raise ImportError('platform not supported')
+    from pyroute2.bsd.pf_route.freebsd import (bsdmsg,
+                                               if_msg,
+                                               rt_msg_base,
+                                               ifa_msg_base,
+                                               ifma_msg_base,
+                                               if_announcemsg)
 
 
 RTAX_MAX = 8

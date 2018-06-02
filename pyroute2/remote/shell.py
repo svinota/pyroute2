@@ -3,13 +3,13 @@ import logging
 import subprocess
 from pyroute2.remote import Transport
 from pyroute2.remote import RemoteSocket
-from pyroute2.iproute import IPRouteMixin
+from pyroute2.iproute import RTNL_API
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
 
 log = logging.getLogger(__name__)
 
 
-class ShellIPR(IPRouteMixin, RemoteSocket):
+class ShellIPR(RTNL_API, RemoteSocket):
 
     def __init__(self, target):
 

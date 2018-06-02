@@ -71,7 +71,7 @@ import atexit
 import logging
 from functools import partial
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
-from pyroute2.iproute import IPRouteMixin
+from pyroute2.iproute import RTNL_API
 from pyroute2.netns import setns
 from pyroute2.netns import remove
 from pyroute2.remote import Server
@@ -95,7 +95,7 @@ class FD(object):
         return None
 
 
-class NetNS(IPRouteMixin, RemoteSocket):
+class NetNS(RTNL_API, RemoteSocket):
     '''
     NetNS is the IPRoute API with network namespace support.
 

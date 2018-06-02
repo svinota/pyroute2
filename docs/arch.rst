@@ -21,16 +21,16 @@ can use it in `poll()`.
 There is an inheritance diagram of netlink sockets, provided
 by the library:
 
-.. inheritance-diagram:: pyroute2.iproute.IPRoute
-    pyroute2.iproute.IPBatch
-    pyroute2.iproute.RawIPRoute
+.. inheritance-diagram:: pyroute2.iproute.linux.IPRoute
+    pyroute2.iproute.linux.IPBatch
+    pyroute2.iproute.linux.RawIPRoute
     pyroute2.iwutil.IW
     pyroute2.ipset.IPSet
     pyroute2.netlink.taskstats.TaskStats
     pyroute2.netlink.ipq.IPQSocket
     pyroute2.remote.Client
     pyroute2.remote.RemoteSocket
-    pyroute2.remote.Remote
+    pyroute2.remote.shell.ShellIPR
     pyroute2.netns.nslink.NetNS
     :parts: 1
 
@@ -147,6 +147,24 @@ The messages hierarchy:
     pyroute2.netlink.ipq.ipq_verdict_msg
     :parts: 1
 
+PF_ROUTE messages
+=================
+
+PF_ROUTE socket is used to receive notifications from the BSD
+kernel. The PF_ROUTE messages:
+
+.. inheritance-diagram:: pyroute2.bsd.pf_route.freebsd.bsdmsg
+    pyroute2.bsd.pf_route.freebsd.if_msg
+    pyroute2.bsd.pf_route.freebsd.rt_msg_base
+    pyroute2.bsd.pf_route.freebsd.ifa_msg_base
+    pyroute2.bsd.pf_route.freebsd.ifma_msg_base
+    pyroute2.bsd.pf_route.freebsd.if_announcemsg
+    pyroute2.bsd.pf_route.rt_slot
+    pyroute2.bsd.pf_route.rt_msg
+    pyroute2.bsd.pf_route.ifa_msg
+    pyroute2.bsd.pf_route.ifma_msg
+    :parts: 1
+
 IPDB
 ====
 
@@ -166,21 +184,21 @@ implements some useful transaction magic, see `commit()`
 methods of the `Transactional` objects.
 
 .. inheritance-diagram:: pyroute2.ipdb.main.IPDB
-    pyroute2.ipdb.interface.Interface
+    pyroute2.ipdb.interfaces.Interface
     pyroute2.ipdb.linkedset.LinkedSet
     pyroute2.ipdb.linkedset.IPaddrSet
-    pyroute2.ipdb.route.NextHopSet
-    pyroute2.ipdb.route.Via
-    pyroute2.ipdb.route.Encap
-    pyroute2.ipdb.route.Metrics
-    pyroute2.ipdb.route.BaseRoute
-    pyroute2.ipdb.route.Route
-    pyroute2.ipdb.route.MPLSRoute
-    pyroute2.ipdb.route.RoutingTable
-    pyroute2.ipdb.route.MPLSTable
-    pyroute2.ipdb.route.RoutingTableSet
-    pyroute2.ipdb.rule.Rule
-    pyroute2.ipdb.rule.RuleSet
+    pyroute2.ipdb.routes.NextHopSet
+    pyroute2.ipdb.routes.Via
+    pyroute2.ipdb.routes.Encap
+    pyroute2.ipdb.routes.Metrics
+    pyroute2.ipdb.routes.BaseRoute
+    pyroute2.ipdb.routes.Route
+    pyroute2.ipdb.routes.MPLSRoute
+    pyroute2.ipdb.routes.RoutingTable
+    pyroute2.ipdb.routes.MPLSTable
+    pyroute2.ipdb.routes.RoutingTableSet
+    pyroute2.ipdb.rules.Rule
+    pyroute2.ipdb.rules.RulesDict
     :parts: 1
 
 Internet protocols

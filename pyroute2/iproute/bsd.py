@@ -1,3 +1,48 @@
+'''
+The library provides very basic RTNL API for BSD systems
+via protocol emulation. Only getters are supported yet, no
+setters.
+
+BSD employs PF_ROUTE sockets to send notifications about
+network object changes, but the protocol doesn not allow
+changing links/addresses/etc like Netlink.
+
+To change network setting one have to rely on system calls
+or external tools. Thus IPRoute on BSD systems is not as
+effective as on Linux, where all the changes are done via
+Netlink.
+
+The monitoring started with `bind()` is implemented as an
+implicit thread, started by the `bind()` call. This is done
+to have only one notification FD, used both for normal calls
+and notifications. This allows to use IPRoute objects in
+poll/select calls.
+
+On Linux systems RTNL API is provided by the netlink protocol,
+so no implicit threads are started by default to monitor the
+system updates. `IPRoute.bind(...)` may start the async cache
+thread, but only when asked explicitly::
+
+    #
+    # Normal monitoring. Always starts monitoring thread on
+    # FreeBSD / OpenBSD, no threads on Linux.
+    #
+    with IPRoute() as ipr:
+        ipr.bind()
+        ...
+
+    #
+    # Monitoring with async cache. Always starts cache thread
+    # on Linux, ignored on FreeBSD / OpenBSD.
+    #
+    with IPRoute() as ipr:
+        ipr.bind(async_cache=True)
+        ...
+
+On all the supported platforms, be it Linux or BSD, the
+`IPRoute.recv(...)` method returns valid netlink RTNL raw binary
+payload and `IPRoute.get(...)` returns parsed RTNL messages.
+'''
 import os
 import select
 import threading
@@ -31,25 +76,6 @@ except ImportError:
 
 
 class IPRoute(object):
-    '''
-    BSD support for the RTNL API: the very initial version,
-    only getters are supported, no setters.
-
-    BSD employs PF_ROUTE sockets to send notifications about
-    network object changes, but the protocol doesn not allow
-    changing links/addresses/etc like Netlink.
-
-    To change network setting one have to rely on system calls
-    or external tools. Thus IPRoute on BSD systems is not as
-    effective as on Linux, where all the changes are done via
-    Netlink.
-
-    The monitoring, started with `bind()`, is implemented as
-    an implicit thread, started by the `bind()` call. This is
-    done to have only one notification FD, used both for normal
-    calls and notifications. This allows to use IPRoute objects
-    in poll/select calls.
-    '''
 
     def __init__(self, *argv, **kwarg):
         self._ifc = Ifconfig()

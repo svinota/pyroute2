@@ -1,54 +1,15 @@
 # -*- coding: utf-8 -*-
 '''
+Classes
+-------
 
-IPRoute quickstart
-------------------
-
-**IPRoute** in two words::
-
-    $ sudo pip install pyroute2
-
-    $ cat example.py
-    from pyroute2 import IPRoute
-    ip = IPRoute()
-    print([x.get_attr('IFLA_IFNAME') for x in ip.get_links()])
-
-    $ python example.py
-    ['lo', 'p6p1', 'wlan0', 'virbr0', 'virbr0-nic']
-
-IPRoute on Linux vs. BSD
-------------------------
-
-The pyroute2 library provides a simple RTNL API on FreeBSD and
-OpenBSD systems as well. BSD systems have no netlink, so it is
-implemented there with external utilities for requests and
-PF_ROUTE socket for notifications. On BSD the IPRoute objects
-spawn an additional thread when asked to monitor events.
-
-On Linux systems RTNL API is provided by the netlink protocol,
-so no implicit threads are started by default to monitor the
-system updates. `IPRoute.bind(...)` may start the async cache
-thread, but only when asked explicitly::
-
-    #
-    # Normal monitoring. Always starts monitoring thread on
-    # FreeBSD / OpenBSD, but no threads on Linux.
-    #
-    with IPRoute() as ipr:
-        ipr.bind()
-        ...
-
-    #
-    # Monitoring with async cache. Always starts cache thread
-    # on Linux, ignored on FreeBSD / OpenBSD.
-    #
-    with IPRoute() as ipr:
-        ipr.bind(async_cache=True)
-        ...
-
-On all the supported platforms, be it Linux or BSD, the
-`IPRoute.recv(...)` method returns valid netlink RTNL raw binary
-payload and `IPRoute.get(...)` returns parsed RTNL messages.
+The RTNL API is provided by the class `RTNL_API`. It is a
+mixin class that works on top of any RTNL-compatible socket,
+so several classes with almost the same API are available:
+    * `IPRoute` -- simple RTNL API
+    * `NetNS` -- RTNL API in a network namespace
+    * `IPBatch` -- RTNL packet compiler
+    * `ShellIPR` -- run RTNL in a (remote) shell
 
 Responses as lists
 ------------------
@@ -58,13 +19,15 @@ agnostic to particular netlink protocols, and always returns
 a list of messages as the response to a request sent to the
 kernel::
 
-    # this request returns one match
-    eth0 = ipr.link_lookup(ifname='eth0')
-    len(eth0)  # -> 1, if exists, else 0
+    with IPRoute() as ipr:
 
-    # but that one returns a set of
-    up = ipr.link_lookup(operstate='UP')
-    len(up)  # -> k, where 0 <= k <= [interface count]
+        # this request returns one match
+        eth0 = ipr.link_lookup(ifname='eth0')
+        len(eth0)  # -> 1, if exists, else 0
+
+        # but that one returns a set of
+        up = ipr.link_lookup(operstate='UP')
+        len(up)  # -> k, where 0 <= k <= [interface count]
 
 Thus, always expect a list in the response, running any
 `IPRoute()` netlink request.
@@ -104,8 +67,7 @@ The NLA chain is a list-like structure, not a dictionary.
 The netlink standard doesn't require NLAs to be unique
 within one message::
 
-    {'__align': (),
-     'attrs': [('IFLA_IFNAME', 'lo'),    # [1]
+    {'attrs': [('IFLA_IFNAME', 'lo'),    # [1]
                ('IFLA_TXQLEN', 1),
                ('IFLA_OPERSTATE', 'UNKNOWN'),
                ('IFLA_LINKMODE', 0),
@@ -143,7 +105,7 @@ To access one NLA::
 
     msg.get_attr('IFLA_CARRIER') == 1
 
-When the NLA with the specified name is not present in the
+When an NLA with the specified name is not present in the
 chain, `get_attr()` returns `None`. To get the list of all
 NLAs of that name, use `get_attrs()`. A real example with
 NLA hierarchy, take notice of `get_attr()` and
@@ -159,26 +121,13 @@ NLA hierarchy, take notice of `get_attr()` and
      .get_attr('IFLA_INFO_DATA')          # one NLA
      .get_attrs('IFLA_MACVLAN_MACADDR'))  # a list of
 
-Pls read carefully the message structure prior to start the
-coding.
+The protocol itself has no limit for number of NLAs of the
+same type in one message, that's why we can not make a dictionary
+from them -- unlike PF_ROUTE messages.
 
-Think about IPDB
-----------------
-
-If you plan to regularly fetch loads of objects, think
-about IPDB also. Unlike to IPRoute, IPDB does not fetch
-all the objects from OS every time you request them, but
-keeps a cache that is asynchronously updated by the netlink
-broadcasts. For a long-term running programs, that often
-retrieve info about hundreds or thousands of objects, it
-can be better to use IPDB as it will load CPU significantly
-less.
-
-API
----
 '''
 from pyroute2 import config
-from pyroute2.iproute.linux import IPRouteMixin
+from pyroute2.iproute.linux import RTNL_API
 from pyroute2.iproute.linux import IPBatch
 
 
@@ -191,7 +140,7 @@ elif config.uname[0][-3:] == 'BSD':
 else:
     raise ImportError('no IPRoute module for the platform')
 
-classes = [IPRouteMixin,
+classes = [RTNL_API,
            IPBatch,
            IPRoute,
            RawIPRoute]

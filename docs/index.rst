@@ -1,6 +1,6 @@
 .. pyroute2 documentation master file
 
-pyroute2 netlink library
+Pyroute2 netlink library
 ========================
 
 General information

@@ -26,6 +26,7 @@ pygments_style = 'sphinx'
 html_theme = 'default'
 html_static_path = ['_static']
 htmlhelp_basename = 'pyroute2doc'
+templates_path = ['_templates']
 
 
 latex_elements = {}
@@ -47,3 +48,6 @@ texinfo_documents = [('index',
                       'pyroute2',
                       'One line description of project.',
                       'Miscellaneous'), ]
+
+def setup(app):
+    app.add_stylesheet('custom.css')

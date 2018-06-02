@@ -1,4 +1,4 @@
-pyroute2
+Pyroute2
 ========
 
 Pyroute2 is a pure Python **netlink** library. It requires only Python stdlib,
@@ -17,15 +17,26 @@ protocols. Some supported netlink families and protocols:
     * **thermal_events** --- thermal events monitoring
     * **VFS_DQUOT** --- disk quota events monitoring
 
-the simplest usecase
+Starting with 0.5.2 the library supports also PF_ROUTE sockets on BSD systems.
+
+Supported systems
+-----------------
+
+Pyroute2 runs natively on Linux and emulates some limited subset
+of RTNL netlink API on BSD systems on top of PF_ROUTE notifications
+and standard system tools.
+
+Other platforms are not supported.
+
+The simplest usecase
 --------------------
 
-The socket objects, provided by the library, are actual socket objects with a
-little bit extended API. The additional functionality aims to:
+The objects, provided by the library, are socket objects with an
+extended API. The additional functionality aims to:
 
 * Help to open/bind netlink sockets
 * Discover generic netlink protocols and multicast groups
-* Construct, encode and decode netlink messages
+* Construct, encode and decode netlink and PF_ROUTE messages
 
 Maybe the simplest usecase is to monitor events. Disk quota events::
 
@@ -36,7 +47,7 @@ Maybe the simplest usecase is to monitor events. Disk quota events::
         for message in ds.get():
             print(message)
 
-Or IPRoute::
+Get notifications about network settings changes with IPRoute::
 
     from pyroute2 import IPRoute
     with IPRoute() as ipr:
@@ -45,8 +56,8 @@ Or IPRoute::
         for message in ipr.get():
             print(message)
 
-rtnetlink sample
-----------------
+RTNetlink examples
+------------------
 
 More samples you can read in the project documentation.
 
@@ -117,6 +128,7 @@ Some examples::
              encap={'type': 'seg6',
                     'mode': 'encap',
                     'segs': '2000::5,2000::6'})
+
     # create SEG6 tunnel inline mode
     # Kernel >= 4.10
     ip.route('add',
@@ -125,6 +137,7 @@ Some examples::
              encap={'type': 'seg6',
                     'mode': 'inline',
                     'segs': ['2000::5', '2000::6']})
+
     # create SEG6 tunnel inline mode with hmac
     # Kernel >= 4.10
     ip.route('add',
@@ -184,8 +197,8 @@ namespaces::
 The project contains several modules for different types of
 netlink messages, not only RTNL.
 
-network namespace samples
--------------------------
+Network namespace examples
+--------------------------
 
 Network namespace manipulation::
 
@@ -221,23 +234,24 @@ List interfaces in some **netns**::
 
 More details and samples see in the documentation.
 
-installation
+Installation
 ------------
 
 `make install` or `pip install pyroute2`
 
-requires
---------
+Requirements
+------------
 
 Python >= 2.7
 
 The pyroute2 testing framework requires  **flake8**, **coverage**,
 **nosetests**.
 
-links
+Links
 -----
 
-* home: https://github.com/svinota/pyroute2
+* home: https://pyroute2.org/
+* srcs: https://github.com/svinota/pyroute2
 * bugs: https://github.com/svinota/pyroute2/issues
 * pypi: https://pypi.python.org/pypi/pyroute2
 * docs: http://docs.pyroute2.org/

@@ -1,4 +1,4 @@
-makefile documentation
+Makefile documentation
 ======================
 
 Makefile is used to automate Pyroute2 deployment and test
@@ -15,17 +15,6 @@ target: docs
 ------------
 
 Build documentation. Requires `sphinx`.
-
-target: epydoc
---------------
-
-Build API documentation. Requires `epydoc`.
-
-Pls notice that epydoc is discontinued. The reason to support
-it here is that it performs additional API testing and helps
-to highlight API inconsistencies.
-
-No issues regarding epydoc output format are accepted.
 
 target: test
 ------------
@@ -69,17 +58,6 @@ in mind since it affects the code coverage collection.
 It is possible to skip tests by a pattern::
 
     $ sudo make test skip=test_stress
-
-target: test-ci
----------------
-
-Run tests on isolated VMs defined by `tests/ci/configs/*xml`.
-
-Requires qemu, kvm, libvirt and civm script: https://github.com/svinota/civm
-
-Command line options:
-
-* civm -- path to the civm script (if it is not in `$PATH`)
 
 target: dist
 ------------
