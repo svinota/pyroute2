@@ -140,6 +140,7 @@ from pyroute2.netlink.nl80211 import NL80211_NAMES
 from pyroute2.netlink.nl80211 import IFTYPE_NAMES
 from pyroute2.netlink.nl80211 import CHAN_WIDTH
 from pyroute2.netlink.nl80211 import BSS_STATUS_NAMES
+from pyroute2.netlink.nl80211 import SCAN_FLAGS_NAMES
 
 log = logging.getLogger(__name__)
 
@@ -481,7 +482,7 @@ class IW(NL80211):
                          msg_type=self.prid,
                          msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
-    def scan(self, ifindex, ssids=None):
+    def scan(self, ifindex, ssids=None, flush_cache=False):
         '''
         Trigger scan and get results.
 
@@ -504,6 +505,12 @@ class IW(NL80211):
         if ssids is not None:
             if isinstance(ssids, list):
                 msg['attrs'].append(['NL80211_ATTR_SCAN_SSIDS', ssids])
+
+        scan_flags = 0
+        if flush_cache:
+            # Flush the cache before scanning
+            scan_flags |= SCAN_FLAGS_NAMES['NL80211_SCAN_FLAG_FLUSH']
+            msg['attrs'].append(['NL80211_ATTR_SCAN_FLAGS', scan_flags])
 
         self.nlm_request(msg,
                          msg_type=self.prid,
