@@ -184,6 +184,17 @@ NL80211_BSS_STATUS_IBSS_JOINED = 2    # Joined to this IBSS
                                                       globals(),
                                                       normalize=True)
 
+NL80211_SCAN_FLAG_LOW_PRIORITY = 1 << 0
+NL80211_SCAN_FLAG_FLUSH = 1 << 1
+NL80211_SCAN_FLAG_AP = 1 << 2
+NL80211_SCAN_FLAG_RANDOM_ADDR = 1 << 3
+NL80211_SCAN_FLAG_FILS_MAX_CHANNEL_TIME = 1 << 4
+NL80211_SCAN_FLAG_ACCEPT_BCAST_PROBE_RESP = 1 << 5
+NL80211_SCAN_FLAG_OCE_PROBE_REQ_HIGH_TX_RATE = 1 << 6
+NL80211_SCAN_FLAG_OCE_PROBE_REQ_DEFERRAL_SUPPRESSION = 1 << 7
+(SCAN_FLAGS_NAMES, SCAN_FLAGS_VALUES) = map_namespace('NL80211_SCAN_FLAG_',
+                                                      globals())
+
 
 class nl80211cmd(genlmsg):
     prefix = 'NL80211_ATTR_'
@@ -345,7 +356,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_CONN_FAILED_REASON', 'hex'),
                ('NL80211_ATTR_SAE_DATA', 'hex'),
                ('NL80211_ATTR_VHT_CAPABILITY', 'hex'),
-               ('NL80211_ATTR_SCAN_FLAGS', 'hex'),
+               ('NL80211_ATTR_SCAN_FLAGS', 'uint32'),
                ('NL80211_ATTR_CHANNEL_WIDTH', 'uint32'),
                ('NL80211_ATTR_CENTER_FREQ1', 'uint32'),
                ('NL80211_ATTR_CENTER_FREQ2', 'uint32'),
