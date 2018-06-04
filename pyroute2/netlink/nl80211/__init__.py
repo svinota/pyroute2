@@ -140,6 +140,7 @@ NL80211_BSS_ELEMENTS_SSID = 0
 NL80211_BSS_ELEMENTS_SUPPORTED_RATES = 1
 NL80211_BSS_ELEMENTS_CHANNEL = 3
 NL80211_BSS_ELEMENTS_TIM = 5
+NL80211_BSS_ELEMENTS_RSN = 48
 NL80211_BSS_ELEMENTS_EXTENDED_RATE = 50
 NL80211_BSS_ELEMENTS_VENDOR = 221
 
@@ -483,15 +484,24 @@ class nl80211cmd(genlmsg):
                         self.value["TRAFFIC INDICATION MAP"] = \
                             self.binary_tim(offset + 2)
 
+                    if msg_type == NL80211_BSS_ELEMENTS_RSN:
+                        self.value["RSN"], = (struct
+                                              .unpack_from('%is' % length,
+                                                           self.data,
+                                                           offset + 2))
+
                     if msg_type == NL80211_BSS_ELEMENTS_EXTENDED_RATE:
                         extended_rates = self.binary_rates(offset + 2, length)
                         self.value["EXTENDED_RATES"] = extended_rates
 
                     if msg_type == NL80211_BSS_ELEMENTS_VENDOR:
-                        self.value["VENDOR"], = (struct
-                                                 .unpack_from('%is' % length,
-                                                              self.data,
-                                                              offset + 2))
+                        # There may be multiple vendor IEs, create a list
+                        if "VENDOR" not in self.value.keys():
+                            self.value["VENDOR"] = []
+                        vendor_ie, = (struct.unpack_from('%is' % length,
+                                                         self.data,
+                                                         offset + 2))
+                        self.value["VENDOR"].append(vendor_ie)
 
                     offset += length + 2
 
