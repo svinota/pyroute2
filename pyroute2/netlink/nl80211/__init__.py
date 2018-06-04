@@ -232,7 +232,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_IE', 'hex'),
                ('NL80211_ATTR_MAX_NUM_SCAN_SSIDS', 'uint8'),
                ('NL80211_ATTR_SCAN_FREQUENCIES', 'hex'),
-               ('NL80211_ATTR_SCAN_SSIDS', 'hex'),
+               ('NL80211_ATTR_SCAN_SSIDS', '*string'),
                ('NL80211_ATTR_GENERATION', 'uint32'),
                ('NL80211_ATTR_BSS', 'bss'),
                ('NL80211_ATTR_REG_INITIATOR', 'hex'),
