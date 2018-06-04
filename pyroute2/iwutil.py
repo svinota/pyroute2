@@ -385,6 +385,76 @@ class IW(NL80211):
                          msg_type=self.prid,
                          msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
+    def authenticate(self, ifindex, bssid, ssid, freq, auth_type=0):
+
+        '''
+        Send an Authentication management frame.
+        '''
+
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_AUTHENTICATE']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
+                        ['NL80211_ATTR_MAC', bssid],
+                        ['NL80211_ATTR_SSID', ssid],
+                        ['NL80211_ATTR_WIPHY_FREQ', freq],
+                        ['NL80211_ATTR_AUTH_TYPE', auth_type]]
+
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
+    def deauthenticate(self, ifindex, bssid, reason_code=0x01):
+
+        '''
+        Send a Deauthentication management frame.
+        '''
+
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_DEAUTHENTICATE']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
+                        ['NL80211_ATTR_MAC', bssid],
+                        ['NL80211_ATTR_REASON_CODE', reason_code]]
+
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
+    def associate(self, ifindex, bssid, ssid, freq, info_elements=None):
+
+        '''
+        Send an Association request frame.
+        '''
+
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_ASSOCIATE']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
+                        ['NL80211_ATTR_MAC', bssid],
+                        ['NL80211_ATTR_SSID', ssid],
+                        ['NL80211_ATTR_WIPHY_FREQ', freq]]
+
+        if info_elements is not None:
+            msg['attrs'].append(['NL80211_ATTR_IE', info_elements])
+
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
+    def disassociate(self, ifindex, bssid, reason_code=0x03):
+
+        '''
+        Send a Disassociation management frame.
+        '''
+
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_DISASSOCIATE']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
+                        ['NL80211_ATTR_MAC', bssid],
+                        ['NL80211_ATTR_REASON_CODE', reason_code]]
+
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
     def connect(self, ifindex, ssid, bssid=None):
         '''
         Connect to the ap with ssid and bssid
