@@ -300,6 +300,8 @@ class ifinfbase(object):
     '''
     prefix = 'IFLA_'
 
+    sql_constraints = {'index': 'PRIMARY KEY'}
+
     fields = (('family', 'B'),
               ('__align', 'x'),
               ('ifi_type', 'H'),
