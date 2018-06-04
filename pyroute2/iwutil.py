@@ -177,7 +177,7 @@ class IW(NL80211):
 
         # do automatic bind
         # FIXME: unfortunately we can not omit it here
-        self.bind(groups, async_cache)
+        self.bind(groups, async_cache=async_cache)
 
     def del_interface(self, dev):
         '''
