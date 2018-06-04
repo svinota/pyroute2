@@ -196,6 +196,16 @@ NL80211_SCAN_FLAG_OCE_PROBE_REQ_DEFERRAL_SUPPRESSION = 1 << 7
 (SCAN_FLAGS_NAMES, SCAN_FLAGS_VALUES) = map_namespace('NL80211_SCAN_FLAG_',
                                                       globals())
 
+NL80211_STA_FLAG_AUTHORIZED = 1
+NL80211_STA_FLAG_SHORT_PREAMBLE = 2
+NL80211_STA_FLAG_WME = 3
+NL80211_STA_FLAG_MFP = 4
+NL80211_STA_FLAG_AUTHENTICATED = 5
+NL80211_STA_FLAG_TDLS_PEER = 6
+NL80211_STA_FLAG_ASSOCIATED = 7
+(STA_FLAG_NAMES, STA_FLAG_VALUES) = map_namespace('NL80211_STA_FLAG_',
+                                                  globals())
+
 
 class nl80211cmd(genlmsg):
     prefix = 'NL80211_ATTR_'
@@ -220,7 +230,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_STA_LISTEN_INTERVAL', 'hex'),
                ('NL80211_ATTR_STA_SUPPORTED_RATES', 'hex'),
                ('NL80211_ATTR_STA_VLAN', 'hex'),
-               ('NL80211_ATTR_STA_INFO', 'hex'),
+               ('NL80211_ATTR_STA_INFO', 'STAInfo'),
                ('NL80211_ATTR_WIPHY_BANDS', 'hex'),
                ('NL80211_ATTR_MNTR_FLAGS', 'hex'),
                ('NL80211_ATTR_MESH_ID', 'hex'),
@@ -522,6 +532,105 @@ class nl80211cmd(genlmsg):
                    ('NL80211_BSS_BEACON_TSF', 'uint64'),
                    ('NL80211_BSS_PRESP_DATA', 'hex'),
                    ('NL80211_BSS_MAX', 'hex')
+                   )
+
+    class STAInfo(nla):
+        class STAFlags(nla_base):
+            '''
+            Decode the flags that may be set.
+            See nl80211.h: struct nl80211_sta_flag_update,
+            NL80211_STA_INFO_STA_FLAGS
+            '''
+
+            def decode_nlas(self):
+                return
+
+            def decode(self):
+                nla_base.decode(self)
+                self.value = {}
+                self.value["AUTHORIZED"] = False
+                self.value["SHORT_PREAMBLE"] = False
+                self.value["WME"] = False
+                self.value["MFP"] = False
+                self.value["AUTHENTICATED"] = False
+                self.value["TDLS_PEER"] = False
+                self.value["ASSOCIATED"] = False
+
+                init = offset = self.offset + 4
+                while (offset - init) < (self.length - 4):
+                    (msg_type, length) = struct.unpack_from('BB',
+                                                            self.data,
+                                                            offset)
+                    mask, set_ = struct.unpack_from('II',
+                                                    self.data,
+                                                    offset + 2)
+
+                    if mask & NL80211_STA_FLAG_AUTHORIZED:
+                        if set_ & NL80211_STA_FLAG_AUTHORIZED:
+                            self.value["AUTHORIZED"] = True
+
+                    if mask & NL80211_STA_FLAG_SHORT_PREAMBLE:
+                        if set_ & NL80211_STA_FLAG_SHORT_PREAMBLE:
+                            self.value["SHORT_PREAMBLE"] = True
+
+                    if mask & NL80211_STA_FLAG_WME:
+                        if set_ & NL80211_STA_FLAG_WME:
+                            self.value["WME"] = True
+
+                    if mask & NL80211_STA_FLAG_MFP:
+                        if set_ & NL80211_STA_FLAG_MFP:
+                            self.value["MFP"] = True
+
+                    if mask & NL80211_STA_FLAG_AUTHENTICATED:
+                        if set_ & NL80211_STA_FLAG_AUTHENTICATED:
+                            self.value["AUTHENTICATED"] = True
+
+                    if mask & NL80211_STA_FLAG_TDLS_PEER:
+                        if set_ & NL80211_STA_FLAG_TDLS_PEER:
+                            self.value["TDLS_PEER"] = True
+
+                    if mask & NL80211_STA_FLAG_ASSOCIATED:
+                        if set_ & NL80211_STA_FLAG_ASSOCIATED:
+                            self.value["ASSOCIATED"] = True
+
+                    offset += length + 2
+
+        prefix = 'NL80211_STA_INFO_'
+        nla_map = (('__NL80211_STA_INFO_INVALID', 'hex'),
+                   ('NL80211_STA_INFO_INACTIVE_TIME', 'uint32'),
+                   ('NL80211_STA_INFO_RX_BYTES', 'uint32'),
+                   ('NL80211_STA_INFO_TX_BYTES', 'uint32'),
+                   ('NL80211_STA_INFO_LLID', 'uint16'),
+                   ('NL80211_STA_INFO_PLID', 'uint16'),
+                   ('NL80211_STA_INFO_PLINK_STATE', 'uint8'),
+                   ('NL80211_STA_INFO_SIGNAL', 'int8'),
+                   ('NL80211_STA_INFO_TX_BITRATE', 'hex'),
+                   ('NL80211_STA_INFO_RX_PACKETS', 'uint32'),
+                   ('NL80211_STA_INFO_TX_PACKETS', 'uint32'),
+                   ('NL80211_STA_INFO_TX_RETRIES', 'uint32'),
+                   ('NL80211_STA_INFO_TX_FAILED', 'uint32'),
+                   ('NL80211_STA_INFO_SIGNAL_AVG', 'int8'),
+                   ('NL80211_STA_INFO_RX_BITRATE', 'hex'),
+                   ('NL80211_STA_INFO_BSS_PARAM', 'hex'),
+                   ('NL80211_STA_INFO_CONNECTED_TIME', 'uint32'),
+                   ('NL80211_STA_INFO_STA_FLAGS', 'STAFlags'),
+                   ('NL80211_STA_INFO_BEACON_LOSS', 'uint32'),
+                   ('NL80211_STA_INFO_T_OFFSET', 'int64'),
+                   ('NL80211_STA_INFO_LOCAL_PM', 'hex'),
+                   ('NL80211_STA_INFO_PEER_PM', 'hex'),
+                   ('NL80211_STA_INFO_NONPEER_PM', 'hex'),
+                   ('NL80211_STA_INFO_RX_BYTES64', 'uint64'),
+                   ('NL80211_STA_INFO_TX_BYTES64', 'uint64'),
+                   ('NL80211_STA_INFO_CHAIN_SIGNAL', 'string'),
+                   ('NL80211_STA_INFO_CHAIN_SIGNAL_AVG', 'string'),
+                   ('NL80211_STA_INFO_EXPECTED_THROUGHPUT', 'uint32'),
+                   ('NL80211_STA_INFO_RX_DROP_MISC', 'uint32'),
+                   ('NL80211_STA_INFO_BEACON_RX', 'uint64'),
+                   ('NL80211_STA_INFO_BEACON_SIGNAL_AVG', 'uint8'),
+                   ('NL80211_STA_INFO_TID_STATS', 'hex'),
+                   ('NL80211_STA_INFO_RX_DURATION', 'uint64'),
+                   ('NL80211_STA_INFO_PAD', 'hex'),
+                   ('NL80211_STA_INFO_MAX', 'hex')
                    )
 
 
