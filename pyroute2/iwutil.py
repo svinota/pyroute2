@@ -411,7 +411,7 @@ class IW(NL80211):
                          msg_type=self.prid,
                          msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
-    def scan(self, ifindex):
+    def scan(self, ifindex, ssids=None):
         '''
         Trigger scan and get results.
 
@@ -429,6 +429,12 @@ class IW(NL80211):
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_TRIGGER_SCAN']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
+
+        # If a list of SSIDs is provided, active scanning should be performed
+        if ssids is not None:
+            if isinstance(ssids, list):
+                msg['attrs'].append(['NL80211_ATTR_SCAN_SSIDS', ssids])
+
         self.nlm_request(msg,
                          msg_type=self.prid,
                          msg_flags=NLM_F_REQUEST | NLM_F_ACK)
