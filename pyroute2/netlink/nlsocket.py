@@ -352,6 +352,9 @@ class NetlinkMixin(object):
         return type(self)(family=self.family)
 
     def close(self):
+        if self.pthread:
+            self.buffer_queue.put(struct.pack('IHHQIQQ',
+                                              28, 2, 0, 0, 104, 0, 0))
         try:
             os.close(self._ctrl_write)
             os.close(self._ctrl_read)
