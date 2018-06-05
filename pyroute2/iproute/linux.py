@@ -331,6 +331,7 @@ class RTNL_API(object):
         msg_flags = NLM_F_DUMP | NLM_F_REQUEST
         nkw = {}
         nkw['callback'] = kwarg.pop('callback', None)
+        nlm_generator = kwarg.pop('nlm_generator', False)
 
         # get a particular route?
         if isinstance(kwarg.get('dst'), basestring):
@@ -341,7 +342,8 @@ class RTNL_API(object):
             nkw['dst_len'] = kwarg.pop('dst_len', dlen)
 
         return self.route((RTM_GETROUTE, msg_flags),
-                          family=family, match=match or kwarg, **nkw)
+                          family=family, match=match or kwarg,
+                          nlm_generator=nlm_generator, **nkw)
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
@@ -814,6 +816,11 @@ class RTNL_API(object):
             ip.neigh('dump')
         '''
 
+        if 'nlm_generator' in kwarg:
+            nlm_generator = kwarg.pop('nlm_generator')
+        else:
+            nlm_generator = False
+
         if (command == 'dump') and ('match' not in kwarg):
             match = kwarg
         else:
@@ -853,7 +860,10 @@ class RTNL_API(object):
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
 
-        ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
+        ret = self.nlm_request(msg,
+                               msg_type=command,
+                               msg_flags=flags,
+                               nlm_generator=nlm_generator)
         if match is not None:
             return self._match(match, ret)
         else:
@@ -1089,6 +1099,11 @@ class RTNL_API(object):
         These command names are confusing and thus are deprecated.
         Use `IPRoute.vlan_filter()`.
         '''
+        if 'nlm_generator' in kwarg:
+            nlm_generator = kwarg.pop('nlm_generator')
+        else:
+            nlm_generator = False
+
         if (command == 'dump') and ('match' not in kwarg):
             match = kwarg
         else:
@@ -1150,7 +1165,8 @@ class RTNL_API(object):
 
         ret = self.nlm_request(msg,
                                msg_type=command,
-                               msg_flags=msg_flags)
+                               msg_flags=msg_flags,
+                               nlm_generator=nlm_generator)
         if match is not None:
             return self._match(match, ret)
         else:
@@ -1206,6 +1222,11 @@ class RTNL_API(object):
                     local='10.1.1.1')
         '''
 
+        if 'nlm_generator' in kwarg:
+            nlm_generator = kwarg.pop('nlm_generator')
+        else:
+            nlm_generator = False
+
         flags_create = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         commands = {'add': (RTM_NEWADDR, flags_create),
                     'del': (RTM_DELADDR, flags_create),
@@ -1259,6 +1280,7 @@ class RTNL_API(object):
         ret = self.nlm_request(msg,
                                msg_type=command,
                                msg_flags=flags,
+                               nlm_generator=nlm_generator,
                                terminate=lambda x: x['header']['type'] ==
                                NLMSG_ERROR)
         if match:
@@ -1525,6 +1547,11 @@ class RTNL_API(object):
         # 8<----------------------------------------------------
         # transform kwarg
 
+        if 'nlm_generator' in kwarg:
+            nlm_generator = kwarg.pop('nlm_generator')
+        else:
+            nlm_generator = False
+
         if command in ('add', 'set', 'replace', 'change'):
             kwarg['proto'] = kwarg.get('proto', 'static') or 'static'
             kwarg['type'] = kwarg.get('type', 'unicast') or 'unicast'
@@ -1590,7 +1617,8 @@ class RTNL_API(object):
         ret = self.nlm_request(msg,
                                msg_type=command,
                                msg_flags=flags,
-                               callback=callback)
+                               callback=callback,
+                               nlm_generator=nlm_generator)
         if match:
             return self._match(match, ret)
         else:
