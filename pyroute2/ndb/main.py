@@ -14,9 +14,7 @@
 # 3. plugins provide an API to access records as Python objects
 # 4. objects are spawned only on demand
 # 5. plugins provide transactional API to change objects + OS reflection
-import os
 import json
-import select
 import sqlite3
 import logging
 import threading
@@ -54,42 +52,31 @@ class NDB(object):
         self._event_queue = queue.Queue()
         self._nl = nl
         self._db_uri = db_uri
-        self._control_channels = []
         self._src_threads = []
         self._dbm_ready.clear()
         self._dbm_thread = threading.Thread(target=self.__dbm__,
                                             name='NDB main loop')
         self._dbm_thread.start()
+        self._dbm_ready.wait()
 
     def close(self):
         with self._global_lock:
             if self.db:
                 self._event_queue.put(('localhost', (ShutdownException(), )))
-                self.db.commit()
-                self.db.close()
-                for (ctlr, ctlw) in self._control_channels:
-                    os.write(ctlw, b'\0')
-                    os.close(ctlw)
-                    os.close(ctlr)
-                for (target, channel) in self.nl.items():
-                    channel.close()
-                self.control_channels = []
                 for src in self._src_threads:
+                    src.nl.close()
                     src.join()
                 self._dbm_thread.join()
+                self.db.commit()
+                self.db.close()
 
     def __initdb__(self):
         with self._global_lock:
             #
             # stop running sources, if any
-            if self._control_channels:
-                for (ctlr, ctlw) in self._control_channels:
-                    os.write(ctlw, b'\0')
-                    os.close(ctlw)
-                    os.close(ctlr)
-                for src in self._src_threads:
-                    src.join()
-                self._control_channels = []
+            for src in self._src_threads:
+                src.nl.close()
+                src.join()
                 self._src_threads = []
             #
             # start event sockets
@@ -102,7 +89,8 @@ class NDB(object):
             else:
                 self.nl = {'localhost': self._nl.clone()}
             for target in self.nl:
-                self.nl[target].bind()
+                self.nl[target].get_timeout = 300
+                self.nl[target].bind(async_cache=True)
             #
             # close the current db
             if self.db:
@@ -122,41 +110,36 @@ class NDB(object):
             # initial load
             evq = self._event_queue
             for (target, channel) in tuple(self.nl.items()):
-                evq.put((target, channel.get_links()))
-                evq.put((target, channel.get_neighbours()))
-                evq.put((target, channel.get_routes(family=AF_INET)))
-                evq.put((target, channel.get_routes(family=AF_INET6)))
-                evq.put((target, channel.get_routes(family=AF_MPLS)))
-                evq.put((target, channel.get_addr()))
-            evq.put(('localhost', (self._dbm_ready, ), ))
+                evq.put((target, channel.get_links(nlm_generator=True)))
+                evq.put((target, channel.get_neighbours(nlm_generator=True)))
+                evq.put((target, channel.get_routes(nlm_generator=True,
+                                                    family=AF_INET)))
+                evq.put((target, channel.get_routes(nlm_generator=True,
+                                                    family=AF_INET6)))
+                evq.put((target, channel.get_routes(nlm_generator=True,
+                                                    family=AF_MPLS)))
+                evq.put((target, channel.get_addr(nlm_generator=True)))
             #
             # start source threads
             for (target, channel) in tuple(self.nl.items()):
-                ctlr, ctlw = os.pipe()
-                self._control_channels.append((ctlr, ctlw))
 
-                def t(event_queue, target, channel, control):
-                    ins = [channel.fileno(), control]
-                    outs = []
+                def t(event_queue, target, channel):
                     while True:
-                        try:
-                            events, _, _ = select.select(ins, outs, ins)
-                        except:
-                            continue
-                        for fd in events:
-                            if fd == control:
-                                return
-                            else:
-                                event_queue.put((target, channel.get()))
+                        msg = tuple(channel.get())
+                        if msg[0]['header']['error'] and \
+                                msg[0]['header']['error'].code == 104:
+                                    return
+                        event_queue.put((target, msg))
 
                 th = threading.Thread(target=t,
                                       args=(self._event_queue,
                                             target,
-                                            channel,
-                                            ctlr),
+                                            channel),
                                       name='NDB event source: %s' % (target))
+                th.nl = channel
                 th.start()
                 self._src_threads.append(th)
+            evq.put(('localhost', (self._dbm_ready, ), ))
 
     def __dbm__(self):
 
