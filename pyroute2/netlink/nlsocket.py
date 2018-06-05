@@ -633,7 +633,7 @@ class NetlinkMixin(object):
                         self.backlog[0] = []
                         # And just exit
                         break
-                    elif self.backlog.get(msg_seq, None):
+                    elif msg_seq != 0 and len(self.backlog.get(msg_seq, [])):
                         # Any other msg_seq.
                         #
                         # Collect messages up to the terminator.
@@ -706,7 +706,12 @@ class NetlinkMixin(object):
                         # function more than TIMEOUT seconds. All the locks
                         # MUST be released here.
                         #
-                        if time.time() - ctime > self.get_timeout:
+                        if (msg_seq != 0) and \
+                                (time.time() - ctime > self.get_timeout):
+                            # requeue already received for that msg_seq
+                            self.backlog[0].extend(self.backlog[msg_seq])
+                            del self.backlog[msg_seq]
+                            # throw an exception
                             if self.get_timeout_exception:
                                 raise self.get_timeout_exception()
                             else:
