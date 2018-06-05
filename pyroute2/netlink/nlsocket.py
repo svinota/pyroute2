@@ -604,7 +604,6 @@ class NetlinkMixin(object):
                 # get bufsize from SO_RCVBUF
                 bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
 
-            ret = []
             tmsg = None
             enough = False
             backlog_acquired = False
@@ -629,7 +628,8 @@ class NetlinkMixin(object):
                         #
                         # Load the backlog, if there is valid
                         # content in it
-                        ret.extend(self.backlog[0])
+                        for msg in self.backlog[0]:
+                            yield msg
                         self.backlog[0] = []
                         # And just exit
                         break
@@ -662,7 +662,7 @@ class NetlinkMixin(object):
                             if terminate is not None:
                                 tmsg = terminate(msg)
                                 if isinstance(tmsg, nlmsg):
-                                    ret.append(msg)
+                                    yield msg
                             if (msg['header']['type'] == NLMSG_DONE) or tmsg:
                                 # The loop is done
                                 enough = True
@@ -670,7 +670,7 @@ class NetlinkMixin(object):
                             # If it is just a normal message, append it to
                             # the response
                             if not enough:
-                                ret.append(msg)
+                                yield msg
                                 # But finish the loop on single messages
                                 if not msg['header']['flags'] & NLM_F_MULTI:
                                     # but not multi -- so end the loop
@@ -710,7 +710,7 @@ class NetlinkMixin(object):
                             if self.get_timeout_exception:
                                 raise self.get_timeout_exception()
                             else:
-                                return ret
+                                return
                         #
                         if self.read_lock.acquire(False):
                             try:
@@ -797,24 +797,24 @@ class NetlinkMixin(object):
                 if backlog_acquired:
                     self.backlog_lock.release()
 
-            return ret
+            return
 
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                     terminate=None,
                     callback=None,
-                    exception_catch=Exception,
-                    exception_handler=None):
+                    nlm_generator=False):
 
-        def do_try():
+        def generator(self, msg, msg_type, msg_flags, terminate, callback):
             msg_seq = self.addr_pool.alloc()
             with self.lock[msg_seq]:
                 try:
                     self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
-                    ret = self.get(msg_seq=msg_seq,
-                                   terminate=terminate,
-                                   callback=callback)
-                    return ret
+                    for msg in self.get(msg_seq=msg_seq,
+                                        terminate=terminate,
+                                        callback=callback):
+                        yield msg
+
                 except Exception:
                     raise
                 finally:
@@ -832,15 +832,12 @@ class NetlinkMixin(object):
                     # Hack, but true.
                     self.addr_pool.free(msg_seq, ban=0xff)
 
-        while True:
-            try:
-                return do_try()
-            except exception_catch as e:
-                if exception_handler and not exception_handler(e):
-                    continue
-                raise
-            except Exception:
-                raise
+        if nlm_generator:
+            return generator(self, msg, msg_type,
+                             msg_flags, terminate, callback)
+        else:
+            return tuple(generator(self, msg, msg_type,
+                                   msg_flags, terminate, callback))
 
 
 class BatchAddrPool(object):
