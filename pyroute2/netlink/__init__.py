@@ -1543,12 +1543,33 @@ class nlmsg_atoms(nlmsg_base):
 
         fields = [('value', 'Q')]
 
+    class int8(nla_base):
+
+        __slots__ = ()
+        sql_type = 'INTEGER'
+
+        fields = [('value', 'b')]
+
+    class int16(nla_base):
+
+        __slots__ = ()
+        sql_type = 'INTEGER'
+
+        fields = [('value', 'h')]
+
     class int32(nla_base):
 
         __slots__ = ()
         sql_type = 'INTEGER'
 
         fields = [('value', 'i')]
+
+    class int64(nla_base):
+
+        __slots__ = ()
+        sql_type = 'INTEGER'
+
+        fields = [('value', 'q')]
 
     class be8(nla_base):
 
