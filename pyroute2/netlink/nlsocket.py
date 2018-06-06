@@ -579,10 +579,10 @@ class NetlinkMixin(object):
     def sendto_gate(self, msg, addr):
         raise NotImplementedError()
 
-    def get(self, bufsize=DEFAULT_RCVBUF,
-            msg_seq=0,
-            terminate=None,
-            callback=None):
+    def get_iterator(self, bufsize=DEFAULT_RCVBUF,
+                     msg_seq=0,
+                     terminate=None,
+                     callback=None):
         '''
         Get parsed messages list. If `msg_seq` is given, return
         only messages with that `msg['header']['sequence_number']`,
@@ -807,20 +807,28 @@ class NetlinkMixin(object):
 
             return
 
+    def get(self, *argv, **kwarg):
+        if kwarg.pop('nlm_generator', False):
+            return self.get_iterator(*argv, **kwarg)
+        else:
+            return tuple(self.get_iterator(*argv, **kwarg))
+
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                     terminate=None,
                     callback=None,
                     nlm_generator=False):
 
-        def generator(self, msg, msg_type, msg_flags, terminate, callback):
+        def generator(self, msg, msg_type, msg_flags,
+                      terminate, callback, nlm_generator):
             msg_seq = self.addr_pool.alloc()
             with self.lock[msg_seq]:
                 try:
                     self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
                     for msg in self.get(msg_seq=msg_seq,
                                         terminate=terminate,
-                                        callback=callback):
+                                        callback=callback,
+                                        nlm_generator=nlm_generator):
                         yield msg
 
                 except Exception:
@@ -841,11 +849,11 @@ class NetlinkMixin(object):
                     self.addr_pool.free(msg_seq, ban=0xff)
 
         if nlm_generator:
-            return generator(self, msg, msg_type,
-                             msg_flags, terminate, callback)
+            return generator(self, msg, msg_type, msg_flags,
+                             terminate, callback, nlm_generator)
         else:
-            return tuple(generator(self, msg, msg_type,
-                                   msg_flags, terminate, callback))
+            return tuple(generator(self, msg, msg_type, msg_flags,
+                                   terminate, callback, nlm_generator))
 
 
 class BatchAddrPool(object):
