@@ -128,9 +128,9 @@ class WiSet(object):
     # pylint: disable=too-many-arguments
     def __init__(self, name=None, attr_type='hash:ip', family=AF_INET,
                  sock=None, timeout=None, counters=False, comment=False,
-                 revision=None):
+                 hashsize=None, revision=None):
         self.name = name
-        self.hashsize = None
+        self.hashsize = hashsize
         self._attr_type = None
         self.entry_type = None
         self.attr_type = attr_type
@@ -242,12 +242,14 @@ class WiSet(object):
     def create(self, **kwargs):
         """ Insert this Set in the kernel
 
-        You can pass in kwargs all options supported by ipset module, like
-        counters, comments, hashsize, etc. See :doc:`ipset` documentation.
+        Many options are set with python object attributes (like comments,
+        counters, etc). For non-supported type, kwargs are provided. See
+        :doc:`ipset` documentation for more information.
         """
         create_ipset(self.name, stype=self.attr_type, family=self.family,
                      sock=self.sock, timeout=self.timeout,
-                     comment=self.comment, counters=self.counters, **kwargs)
+                     comment=self.comment, counters=self.counters,
+                     hashsize=self.hashsize, **kwargs)
 
     def destroy(self):
         """ Destroy this ipset in the kernel list.
