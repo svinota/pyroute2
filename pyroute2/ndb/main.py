@@ -15,14 +15,12 @@
 # 4. objects are spawned only on demand
 # 5. plugins provide transactional API to change objects + OS reflection
 import json
+import atexit
 import sqlite3
 import logging
 import threading
-from socket import AF_INET
-from socket import AF_INET6
 from pyroute2 import IPRoute
 from pyroute2.ndb import dbschema
-from pyroute2.common import AF_MPLS
 try:
     import queue
 except ImportError:
@@ -53,14 +51,26 @@ class NDB(object):
         self._nl = nl
         self._db_uri = db_uri
         self._src_threads = []
+        atexit.register(self.close)
         self._dbm_ready.clear()
         self._dbm_thread = threading.Thread(target=self.__dbm__,
                                             name='NDB main loop')
+        self._dbm_thread.setDaemon(True)
         self._dbm_thread.start()
         self._dbm_ready.wait()
 
+    def execute(self, *argv, **kwarg):
+        return self.db.execute(*argv, **kwarg)
+
     def close(self):
         with self._global_lock:
+            if hasattr(atexit, 'unregister'):
+                atexit.unregister(self.close)
+            else:
+                try:
+                    atexit._exithandlers.remove((self.close, (), {}))
+                except ValueError:
+                    pass
             if self.db:
                 self._event_queue.put(('localhost', (ShutdownException(), )))
                 for src in self._src_threads:
@@ -110,15 +120,10 @@ class NDB(object):
             # initial load
             evq = self._event_queue
             for (target, channel) in tuple(self.nl.items()):
-                evq.put((target, channel.get_links(nlm_generator=True)))
-                evq.put((target, channel.get_neighbours(nlm_generator=True)))
-                evq.put((target, channel.get_routes(nlm_generator=True,
-                                                    family=AF_INET)))
-                evq.put((target, channel.get_routes(nlm_generator=True,
-                                                    family=AF_INET6)))
-                evq.put((target, channel.get_routes(nlm_generator=True,
-                                                    family=AF_MPLS)))
-                evq.put((target, channel.get_addr(nlm_generator=True)))
+                evq.put((target, channel.get_links()))
+                evq.put((target, channel.get_addr()))
+                evq.put((target, channel.get_neighbours()))
+                evq.put((target, channel.get_routes()))
             #
             # start source threads
             for (target, channel) in tuple(self.nl.items()):

@@ -19,6 +19,7 @@ class DBSchema(object):
               'neighbours': OrderedDict(ndmsg.sql_schema()),
               'routes': OrderedDict(rtmsg.sql_schema()),
               'nh': OrderedDict(nh.sql_schema())}
+    key_defaults = {}
     classes = {'interfaces': ifinfmsg,
                'addresses': ifaddrmsg,
                'neighbours': ndmsg,
@@ -32,6 +33,7 @@ class DBSchema(object):
                             'NDA_LLADDR'),
              'routes': ('family',
                         'tos',
+                        'dst_len',
                         'RTA_TABLE',
                         'RTA_DST',
                         'RTA_PRIORITY'),
@@ -57,6 +59,7 @@ class DBSchema(object):
 
     def create_table(self, table):
         req = ['target']
+        self.key_defaults[table] = {}
         for field in self.schema[table].items():
             #
             # Why f_?
@@ -64,6 +67,10 @@ class DBSchema(object):
             # names may not be used in SQL statements
             #
             req.append('f_%s %s' % field)
+            if field[1].strip().startswith('TEXT'):
+                self.key_defaults[table][field[0]] = ''
+            else:
+                self.key_defaults[table][field[0]] = 0
         if table in self.foreign_key:
             for key in self.foreign_key[table]:
                 req.append('FOREIGN KEY %s REFERENCES %s '
@@ -163,7 +170,10 @@ class DBSchema(object):
             values = [target]
             for key in self.index[table]:
                 conditions.append('f_%s = ?' % key)
-                values.append(event.get(key) or event.get_attr(key))
+                value = event.get(key) or event.get_attr(key)
+                if value is None:
+                    value = self.key_defaults[table][key]
+                values.append(value)
             self.db.execute('DELETE FROM %s WHERE'
                             ' %s' % (table, ' AND '.join(conditions)), values)
         else:
