@@ -345,6 +345,20 @@ class NetlinkMixin(object):
         self.groups = 0
         self.marshal = Marshal()
         # 8<-----------------------------------------
+        if not config.nlm_generator:
+
+            def nlm_request(*argv, **kwarg):
+                return tuple(self._genlm_request(*argv, **kwarg))
+
+            def get(*argv, **kwarg):
+                return tuple(self._genlm_get(*argv, **kwarg))
+
+            self._genlm_request = self.nlm_request
+            self._genlm_get = self.get
+
+            self.nlm_request = nlm_request
+            self.get = get
+
         # Set defaults
         self.post_init()
 
@@ -579,10 +593,10 @@ class NetlinkMixin(object):
     def sendto_gate(self, msg, addr):
         raise NotImplementedError()
 
-    def get_iterator(self, bufsize=DEFAULT_RCVBUF,
-                     msg_seq=0,
-                     terminate=None,
-                     callback=None):
+    def get(self, bufsize=DEFAULT_RCVBUF,
+            msg_seq=0,
+            terminate=None,
+            callback=None):
         '''
         Get parsed messages list. If `msg_seq` is given, return
         only messages with that `msg['header']['sequence_number']`,
@@ -673,11 +687,10 @@ class NetlinkMixin(object):
                             # If it is just a normal message, append it to
                             # the response
                             if not enough:
-                                yield msg
-                                # But finish the loop on single messages
+                                # finish the loop on single messages
                                 if not msg['header']['flags'] & NLM_F_MULTI:
-                                    # but not multi -- so end the loop
                                     enough = True
+                                yield msg
 
                             # Enough is enough, requeue the rest and delete
                             # our backlog
@@ -805,55 +818,36 @@ class NetlinkMixin(object):
                 if backlog_acquired:
                     self.backlog_lock.release()
 
-            return
-
-    def get(self, *argv, **kwarg):
-        if kwarg.pop('nlm_generator', False):
-            return self.get_iterator(*argv, **kwarg)
-        else:
-            return tuple(self.get_iterator(*argv, **kwarg))
-
     def nlm_request(self, msg, msg_type,
                     msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                     terminate=None,
-                    callback=None,
-                    nlm_generator=False):
+                    callback=None):
 
-        def generator(self, msg, msg_type, msg_flags,
-                      terminate, callback, nlm_generator):
-            msg_seq = self.addr_pool.alloc()
-            with self.lock[msg_seq]:
-                try:
-                    self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
-                    for msg in self.get(msg_seq=msg_seq,
-                                        terminate=terminate,
-                                        callback=callback,
-                                        nlm_generator=nlm_generator):
-                        yield msg
+        msg_seq = self.addr_pool.alloc()
+        with self.lock[msg_seq]:
+            try:
+                self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
+                for msg in self.get(msg_seq=msg_seq,
+                                    terminate=terminate,
+                                    callback=callback):
+                    yield msg
 
-                except Exception:
-                    raise
-                finally:
-                    # Ban this msg_seq for 0xff rounds
-                    #
-                    # It's a long story. Modern kernels for RTM_SET.*
-                    # operations always return NLMSG_ERROR(0) == success,
-                    # even not setting NLM_F_MULTY flag on other response
-                    # messages and thus w/o any NLMSG_DONE. So, how to detect
-                    # the response end? One can not rely on NLMSG_ERROR on
-                    # old kernels, but we have to support them too. Ty, we
-                    # just ban msg_seq for several rounds, and NLMSG_ERROR,
-                    # being received, will become orphaned and just dropped.
-                    #
-                    # Hack, but true.
-                    self.addr_pool.free(msg_seq, ban=0xff)
-
-        if nlm_generator:
-            return generator(self, msg, msg_type, msg_flags,
-                             terminate, callback, nlm_generator)
-        else:
-            return tuple(generator(self, msg, msg_type, msg_flags,
-                                   terminate, callback, nlm_generator))
+            except Exception:
+                raise
+            finally:
+                # Ban this msg_seq for 0xff rounds
+                #
+                # It's a long story. Modern kernels for RTM_SET.*
+                # operations always return NLMSG_ERROR(0) == success,
+                # even not setting NLM_F_MULTY flag on other response
+                # messages and thus w/o any NLMSG_DONE. So, how to detect
+                # the response end? One can not rely on NLMSG_ERROR on
+                # old kernels, but we have to support them too. Ty, we
+                # just ban msg_seq for several rounds, and NLMSG_ERROR,
+                # being received, will become orphaned and just dropped.
+                #
+                # Hack, but true.
+                self.addr_pool.free(msg_seq, ban=0xff)
 
 
 class BatchAddrPool(object):

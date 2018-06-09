@@ -8,6 +8,7 @@ MpPipe = multiprocessing.Pipe
 MpQueue = multiprocessing.Queue
 MpProcess = multiprocessing.Process
 ipdb_nl_async = True
+nlm_generator = False
 
 commit_barrier = 0
 
