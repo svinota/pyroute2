@@ -1076,12 +1076,14 @@ class TestIPRoute(object):
     def test_updown_link(self):
         require_user('root')
         try:
-            self.ip.link_up(*self.ifaces)
+            for i in self.ifaces:
+                self.ip.link('set', index=i, state='up')
         except NetlinkError:
             pass
         assert self.ip.get_links(*self.ifaces)[0]['flags'] & 1
         try:
-            self.ip.link_down(*self.ifaces)
+            for i in self.ifaces:
+                self.ip.link('set', index=i, state='down')
         except NetlinkError:
             pass
         assert not (self.ip.get_links(*self.ifaces)[0]['flags'] & 1)
@@ -1133,12 +1135,12 @@ class TestIPRoute(object):
         require_user('root')
         dev = self.ifaces[0]
         try:
-            self.ip.link_rename(dev, 'bala')
+            self.ip.link('set', index=dev, ifname='bala')
         except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname='bala')) == 1
         try:
-            self.ip.link_rename(dev, self.dev)
+            self.ip.link('set', index=dev, ifname=self.dev)
         except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname=self.dev)) == 1

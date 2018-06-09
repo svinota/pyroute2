@@ -359,41 +359,6 @@ class RTNL_API(object):
                 if (x.get_attr('RTA_DST', None) is None and
                     x['dst_len'] == 0)]
 
-    def link_create(self, **kwarg):
-        # Create interface
-        #
-        # Obsoleted method. Use `link("add", ...)` instead.
-        log.warning("link_create() is obsoleted, use link('add', ...)")
-        return self.link('add', **IPLinkRequest(kwarg))
-
-    def link_up(self, index):
-        # Link up.
-        #
-        # Obsoleted method. Use `link("set", ...)` instead.
-        log.warning("link_up() is obsoleted, use link('set', ...)")
-        return self.link('set', index=index, state='up')
-
-    def link_down(self, index):
-        # Link up.
-        #
-        # Obsoleted method. Use `link("set", ...)` instead.
-        log.warning("link_down() is obsoleted, use link('set', ...)")
-        return self.link('set', index=index, state='down')
-
-    def link_rename(self, index, name):
-        # Rename interface.
-        #
-        # Obsoleted method. Use `link("set", ...)` instead.
-        log.warning("link_rename() is obsoleted, use link('set', ...)")
-        return self.link('set', index=index, ifname=name)
-
-    def link_remove(self, index):
-        # Remove interface.
-        #
-        # Obsoleted method. Use `link("del", ...)` instead.
-        log.warning("link_remove() is obsoleted, use link('del', ...)")
-        return self.link('del', index=index)
-
     def link_lookup(self, **kwarg):
         '''
         Lookup interface index (indeces) by first level NLA
