@@ -81,6 +81,10 @@ class IPRouteRequest(IPRequest):
                'proto': rt_proto,
                'scope': rt_scope}
 
+    def __init__(self, obj=None):
+        self._mask = []
+        IPRequest.__init__(self, obj)
+
     def encap_header(self, header):
         '''
         Encap header transform. Format samples:
@@ -225,25 +229,31 @@ class IPRouteRequest(IPRequest):
             dict.__setitem__(self, 'type', 1)
         elif key == 'flags' and self.get('family', None) == AF_MPLS:
             return
-        elif key == 'dst':
+        elif key in ('dst', 'src'):
             if isinstance(value, dict):
-                dict.__setitem__(self, 'dst', value)
+                dict.__setitem__(self, key, value)
             elif isinstance(value, int):
-                dict.__setitem__(self, 'dst', {'label': value,
-                                               'bos': 1})
+                dict.__setitem__(self, key, {'label': value,
+                                             'bos': 1})
             elif value != 'default':
                 value = value.split('/')
+                mask = None
                 if len(value) == 1:
                     dst = value[0]
-                    mask = 0
+                    if self.get('family', 0) == AF_INET:
+                        mask = 32
+                    elif self.get('family', 0) == AF_INET6:
+                        mask = 128
+                    else:
+                        self._mask.append('%s_len' % key)
                 elif len(value) == 2:
                     dst = value[0]
                     mask = int(value[1])
                 else:
-                    raise ValueError('wrong destination')
-                dict.__setitem__(self, 'dst', dst)
-                if mask:
-                    dict.__setitem__(self, 'dst_len', mask)
+                    raise ValueError('wrong address spec')
+                dict.__setitem__(self, key, dst)
+                if mask is not None:
+                    dict.__setitem__(self, '%s_len' % key, mask)
         elif key == 'newdst':
             dict.__setitem__(self, 'newdst', self.mpls_rta(value))
         elif key in self.resolve.keys():
@@ -349,6 +359,14 @@ class IPRouteRequest(IPRequest):
                 ret.append(nh)
             if ret:
                 dict.__setitem__(self, 'multipath', ret)
+        elif key == 'family':
+            for d in self._mask:
+                if value == AF_INET:
+                    dict.__setitem__(self, d, 32)
+                elif value == AF_INET6:
+                    dict.__setitem__(self, d, 128)
+            self._mask = []
+            dict.__setitem__(self, key, value)
         else:
             dict.__setitem__(self, key, value)
 
