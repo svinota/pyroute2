@@ -125,14 +125,14 @@ Again, 45324 kbytes of RSS.
 Configuration
 =============
 
-To turn the generator option on, one should set `pyroute2.config.nlm_generator`
-to `True`. By 0.5.2 it is `False` by default, but from 0.5.3 it will be `True`.
+To turn the generator option on, one should set ``pyroute2.config.nlm_generator``
+to ``True``. By 0.5.2 it is ``False`` by default, but from 0.5.3 it will be ``True``.
 
-Please use the option to try the new behaviour before it is set to `True` by
+Please use the option to try the new behaviour before it is set to ``True`` by
 default.
 
 The simplest way to reproduce the old behaviour is to unfold the results with
-`tuple` or `list`::
+``tuple`` or ``list``::
 
     tuple(nlsocket.nlm_request(...))
     tuple(nlsocket.get(...))
@@ -140,6 +140,6 @@ The simplest way to reproduce the old behaviour is to unfold the results with
 IPRoute and generators
 ======================
 
-IPRoute objects will return generators only for methods that employ `GET_...`
-requests like `get_routes()`, `get_links()`, `link('dump', ...)`, `addr('dump', ...)`.
-Setters will work as usually to apply them immediately.
+IPRoute objects will return generators only for methods that employ ``GET_...``
+requests like ``get_routes()``, ``get_links()``, ``link('dump', ...)``, ``addr('dump', ...)``.
+Setters will work as usually to apply changes immediately.
