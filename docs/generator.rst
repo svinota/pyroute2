@@ -126,16 +126,15 @@ Configuration
 =============
 
 To turn the generator option on, one should set ``pyroute2.config.nlm_generator``
-to ``True``. By 0.5.2 it is ``False`` by default, but from 0.5.3 it will be ``True``.
+to ``True``. By default is ``False`` not to break existing projects.::
 
-Please use the option to try the new behaviour before it is set to ``True`` by
-default.
-
-The simplest way to reproduce the old behaviour is to unfold the results with
-``tuple`` or ``list``::
-
-    tuple(nlsocket.nlm_request(...))
-    tuple(nlsocket.get(...))
+    from pyroute2 import config
+    from pyroute2 import IPRoute
+    
+    config.nlm_generator = True
+    with IPRoute() as ipr:
+        for route in ipr.get_routes():
+            handle(route)
 
 IPRoute and generators
 ======================
