@@ -943,7 +943,15 @@ class RTNL_API(object):
         To properly create `veth` interface, one should specify
         `peer` also, since `veth` interfaces are created in pairs::
 
+            # simple call
             ip.link("add", ifname="v1p0", kind="veth", peer="v1p1")
+
+            # set up specific veth peer attributes
+            ip.link("add",
+                    ifname="v1p0",
+                    kind="veth",
+                    peer={"ifname": "v1p1",
+                          "net_ns_fd": "test_netns"})
 
         ► vlan
 
