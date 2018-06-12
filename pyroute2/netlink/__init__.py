@@ -1199,9 +1199,10 @@ class nlmsg_base(dict):
 
     @staticmethod
     def _ft_decode_zstring(self, offset):
-        self['value'], = struct.unpack_from('%is' % (self.length - 5),
-                                            self.data,
-                                            offset)
+        value, = struct.unpack_from('%is' % (self.length - 4),
+                                    self.data,
+                                    offset)
+        self['value'] = value.strip(b'\0')
 
     @staticmethod
     def _ft_decode_string(self, offset):
