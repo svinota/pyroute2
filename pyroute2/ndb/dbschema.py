@@ -1,3 +1,4 @@
+import re
 import uuid
 import threading
 from functools import partial
@@ -7,6 +8,8 @@ from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
+
+_RPL = re.compile(r'[(), ]')
 
 
 class DBSchema(object):
@@ -40,10 +43,14 @@ class DBSchema(object):
              'nh': ('route_id',
                     'nh_id')}
 
-    foreign_key = {'addresses': [('(f_index)', 'interfaces(f_index)'), ],
-                   'neighbours': [('(f_ifindex)', 'interfaces(f_index)'), ],
-                   'routes': [('(f_RTA_OIF)', 'interfaces(f_index)'),
-                              ('(f_RTA_IIF)', 'interfaces(f_index)')],
+    foreign_key = {'addresses': [('(target, f_index)',
+                                  'interfaces(target, f_index)'), ],
+                   'neighbours': [('(target, f_ifindex)',
+                                   'interfaces(target, f_index)'), ],
+                   'routes': [('(target, f_RTA_OIF)',
+                               'interfaces(target, f_index)'),
+                              ('(target, f_RTA_IIF)',
+                               'interfaces(target, f_index)')],
                    'nh': [('(f_route_id)', 'routes(f_route_id)'), ]}
 
     def __init__(self, db, tid):
@@ -58,7 +65,7 @@ class DBSchema(object):
             self.create_table(table)
 
     def create_table(self, table):
-        req = ['target']
+        req = ['target TEXT NOT NULL']
         self.key_defaults[table] = {}
         for field in self.schema[table].items():
             #
@@ -76,6 +83,22 @@ class DBSchema(object):
                 req.append('FOREIGN KEY %s REFERENCES %s '
                            'ON UPDATE CASCADE '
                            'ON DELETE CASCADE ' % key)
+                #
+                # make a unique index for compound keys on
+                # the parent table
+                #
+                # https://sqlite.org/foreignkeys.html
+                #
+                # only for compound keys
+                #
+                # for simple keys use
+                if len(key[0].split(',')) > 1:
+                    # split out the parent table
+                    idxname = _RPL.sub('_', key[1])
+                    self.db.execute('CREATE UNIQUE INDEX '
+                                    'IF NOT EXISTS %s ON %s' %
+                                    (idxname, key[1]))
+
         req = ','.join(req)
         req = ('CREATE TABLE IF NOT EXISTS '
                '%s (%s)' % (table, req))

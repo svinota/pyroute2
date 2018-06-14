@@ -300,7 +300,27 @@ class ifinfbase(object):
     '''
     prefix = 'IFLA_'
 
-    sql_constraints = {'index': 'PRIMARY KEY'}
+    #
+    # Changed from PRIMARY KEY to NOT NULL to support multiple
+    # targets in one table, so we can collect info from multiple
+    # systems.
+    #
+    # To provide data integrity one should use foreign keys,
+    # but when you create a foreign key using interfaces as
+    # the parent table, create also a unique index on
+    # the fields specified in the foreign key definition.
+    #
+    # E.g.
+    #
+    # CREATE TABLE interfaces (f_target TEXT NOT NULL,
+    #                          f_index INTEGER NOT NULL, ...)
+    # CREATE TABLE routes (f_target TEXT NOT NULL,
+    #                      f_RTA_OIF INTEGER, ...
+    #                      FOREIGN KEY (f_target, f_RTA_OIF)
+    #                      REFERENCES interfaces(f_target, f_index))
+    # CREATE UNIQUE INDEX if_idx ON interfaces(f_target, f_index)
+    #
+    sql_constraints = {'index': 'NOT NULL'}
 
     fields = (('family', 'B'),
               ('__align', 'x'),
