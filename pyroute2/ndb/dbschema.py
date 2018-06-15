@@ -89,11 +89,7 @@ class DBSchema(object):
                 #
                 # https://sqlite.org/foreignkeys.html
                 #
-                # only for compound keys
-                #
-                # for simple keys use
                 if len(key[0].split(',')) > 1:
-                    # split out the parent table
                     idxname = _RPL.sub('_', key[1])
                     self.db.execute('CREATE UNIQUE INDEX '
                                     'IF NOT EXISTS %s ON %s' %
