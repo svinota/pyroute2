@@ -43,14 +43,14 @@ class DBSchema(object):
              'nh': ('route_id',
                     'nh_id')}
 
-    foreign_key = {'addresses': [('(target, f_index)',
-                                  'interfaces(target, f_index)'), ],
-                   'neighbours': [('(target, f_ifindex)',
-                                   'interfaces(target, f_index)'), ],
-                   'routes': [('(target, f_RTA_OIF)',
-                               'interfaces(target, f_index)'),
-                              ('(target, f_RTA_IIF)',
-                               'interfaces(target, f_index)')],
+    foreign_key = {'addresses': [('(f_target, f_index)',
+                                  'interfaces(f_target, f_index)'), ],
+                   'neighbours': [('(f_target, f_ifindex)',
+                                   'interfaces(f_target, f_index)'), ],
+                   'routes': [('(f_target, f_RTA_OIF)',
+                               'interfaces(f_target, f_index)'),
+                              ('(f_target, f_RTA_IIF)',
+                               'interfaces(f_target, f_index)')],
                    'nh': [('(f_route_id)', 'routes(f_route_id)'), ]}
 
     def __init__(self, db, tid):
@@ -64,8 +64,17 @@ class DBSchema(object):
                       'nh'):
             self.create_table(table)
 
+    def execute(self, *argv, **kwarg):
+        return self.db.execute(*argv, **kwarg)
+
+    def close(self):
+        return self.db.close()
+
+    def commit(self):
+        return self.db.commit()
+
     def create_table(self, table):
-        req = ['target TEXT NOT NULL']
+        req = ['f_target TEXT NOT NULL']
         self.key_defaults[table] = {}
         for field in self.schema[table].items():
             #
@@ -99,7 +108,8 @@ class DBSchema(object):
         req = ('CREATE TABLE IF NOT EXISTS '
                '%s (%s)' % (table, req))
         self.db.execute(req)
-        index = ','.join(['target'] + ['f_%s' % x for x in self.index[table]])
+        index = ','.join(['f_target'] + ['f_%s' % x for x
+                                         in self.index[table]])
         req = ('CREATE UNIQUE INDEX IF NOT EXISTS '
                '%s_idx ON %s (%s)' % (table, table, index))
         self.db.execute(req)
@@ -131,7 +141,7 @@ class DBSchema(object):
             # create & mp route
             #
             # create key
-            keys = ['target = ?']
+            keys = ['f_target = ?']
             values = [target]
             for key in self.index['routes']:
                 keys.append('f_%s = ?' % key)
@@ -185,7 +195,7 @@ class DBSchema(object):
             #
             # Delete an object
             #
-            conditions = ['target = ?']
+            conditions = ['f_target = ?']
             values = [target]
             for key in self.index[table]:
                 conditions.append('f_%s = ?' % key)
@@ -200,7 +210,7 @@ class DBSchema(object):
             # Create or set an object
             #
             fkeys = tuple(self.schema[table].keys())
-            fields = ','.join(['target'] + ['f_%s' % x for x in fkeys])
+            fields = ','.join(['f_target'] + ['f_%s' % x for x in fkeys])
             pch = ','.join('?' * (len(fkeys) + 1))
             values = [target]
             for field in fkeys:

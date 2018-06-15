@@ -21,6 +21,7 @@ import logging
 import threading
 from pyroute2 import IPRoute
 from pyroute2.ndb import dbschema
+from pyroute2.ndb.interface import Interface
 try:
     import queue
 except ImportError:
@@ -38,12 +39,37 @@ class ShutdownException(Exception):
     pass
 
 
+class View(dict):
+
+    def __init__(self, db, iclass):
+        self.db = db
+        self.iclass = iclass
+
+    def __getitem__(self, key):
+        return self.iclass(self.db, key)
+
+    def __setitem__(self, key, value):
+        raise NotImplementedError()
+
+    def __delitem__(self, key):
+        raise NotImplementedError()
+
+    def keys(self):
+        raise NotImplementedError()
+
+    def items(self):
+        raise NotImplementedError()
+
+    def values(self):
+        raise NotImplementedError()
+
+
 class NDB(object):
 
     def __init__(self, nl=None, db_uri=':memory:'):
 
         self.db = None
-        self.dbschema = None
+        self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
         self._global_lock = threading.Lock()
@@ -58,6 +84,7 @@ class NDB(object):
         self._dbm_thread.setDaemon(True)
         self._dbm_thread.start()
         self._dbm_ready.wait()
+        self.interfaces = View(self.db, Interface)
 
     def execute(self, *argv, **kwarg):
         return self.db.execute(*argv, **kwarg)
@@ -113,9 +140,9 @@ class NDB(object):
             # Do NOT write into the DB from ANY other thread
             # than self._dbm_thread!
             #
-            self.db = sqlite3.connect(self._db_uri, check_same_thread=False)
-            if self.dbschema:
-                self.dbschema.db = self.db
+            self._db = sqlite3.connect(self._db_uri, check_same_thread=False)
+            if self.db:
+                self.db.db = self._db
             #
             # initial load
             evq = self._event_queue
@@ -159,8 +186,8 @@ class NDB(object):
 
         self.__initdb__()
 
-        self.dbschema = dbschema.init(self.db, id(threading.current_thread()))
-        for (event, handler) in self.dbschema.event_map.items():
+        self.db = dbschema.init(self._db, id(threading.current_thread()))
+        for (event, handler) in self.db.event_map.items():
             if event not in event_map:
                 event_map[event] = []
             event_map[event].append(handler)
