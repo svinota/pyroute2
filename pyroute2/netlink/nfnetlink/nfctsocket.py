@@ -58,6 +58,7 @@ class nfct_stats(nfgen_msg):
     nla_map = (
         ('CTA_STATS_GLOBAL_UNSPEC', 'none'),
         ('CTA_STATS_GLOBAL_ENTRIES', 'be32'),
+        ('CTA_STATS_GLOBAL_MAX_ENTRIES', 'be32'),
     )
 
 
@@ -353,6 +354,11 @@ class NFCTSocket(NetlinkSocket):
         return self.request(msg, IPCTNL_MSG_CT_DELETE,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK,
                             terminate=terminate_error_msg)
+
+    def conntrack_max_size(self):
+        return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS,
+                            msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+                            terminate=terminate_single_msg)
 
     def entry(self, cmd, **kwargs):
         """

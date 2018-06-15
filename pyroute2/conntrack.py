@@ -28,3 +28,11 @@ class Conntrack(NFCTSocket):
         """
         ndmsg = super(Conntrack, self).count()
         return ndmsg[0].get_attr('CTA_STATS_GLOBAL_ENTRIES')
+
+    def conntrack_max_size(self):
+        """
+        Return the max size of connection tracking table
+        /proc/sys/net/netfilter/nf_conntrack_max
+        """
+        ndmsg = super(Conntrack, self).conntrack_max_size()
+        return ndmsg[0].get_attr('CTA_STATS_GLOBAL_MAX_ENTRIES')
