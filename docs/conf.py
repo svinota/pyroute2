@@ -49,5 +49,6 @@ texinfo_documents = [('index',
                       'One line description of project.',
                       'Miscellaneous'), ]
 
+
 def setup(app):
     app.add_stylesheet('custom.css')
