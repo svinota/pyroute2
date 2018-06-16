@@ -10,7 +10,7 @@ class Interface(dict):
         self.kspec = ('target', ) + db.index['interfaces']
         self.schema = ('target', ) + \
             tuple(db.schema['interfaces'].keys())
-        self.names = (ifinfmsg.nla2name(x) for x in self.schema)
+        self.names = tuple((ifinfmsg.nla2name(x) for x in self.schema))
         self.key = self.complete_key(key)
         self.changed = set()
         self.load_sql()
@@ -18,6 +18,9 @@ class Interface(dict):
     def __setitem__(self, key, value):
         self.changed.add(key)
         dict.__setitem__(self, key, value)
+
+    def snapshot(self):
+        return type(self)(self.db, self.key)
 
     def complete_key(self, key):
         if isinstance(key, dict):
@@ -65,7 +68,6 @@ class Interface(dict):
         # ...
 
         # full match
-        print(id(self), self)
         for name, value in self.key.items():
             if name == 'target':
                 if value != target:
@@ -78,7 +80,6 @@ class Interface(dict):
             value = event.get_attr(name) or event.get(name)
             if value is not None:
                 self.load_value(ifinfmsg.nla2name(name), value)
-        print(id(self), self)
 
     def load_sql(self):
         keys = []
