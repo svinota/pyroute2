@@ -18,7 +18,9 @@ import json
 import atexit
 import sqlite3
 import logging
+import weakref
 import threading
+from functools import partial
 from pyroute2 import IPRoute
 from pyroute2.ndb import dbschema
 from pyroute2.ndb.interface import Interface
@@ -39,14 +41,51 @@ class ShutdownException(Exception):
     pass
 
 
-class View(dict):
+class InvalidateHandlerException(Exception):
+    pass
 
-    def __init__(self, db, iclass):
-        self.db = db
+
+class View(dict):
+    '''
+    The View() object returns RTNL objects on demand::
+
+        ifobj1 = ndb.interfaces['eth0']
+        ifobj2 = ndb.interfaces['eth0']
+        # ifobj1 != ifobj2
+    '''
+
+    def __init__(self, ndb, iclass):
+        self.ndb = ndb
         self.iclass = iclass
 
     def __getitem__(self, key):
-        return self.iclass(self.db, key)
+        ret = self.iclass(self.ndb.db, key)
+        for event, handler in ret.event_map.items():
+            if event not in self.ndb._event_map:
+                self.ndb._event_map[event] = []
+            # Construct a weakref handler for events.
+            # If the referent doesn't exist, raise the
+            # exception to remove the handler from the
+            # chain.
+            #
+
+            def wr_handler(wr, *argv):
+                try:
+                    return wr()(*argv)
+                except TypeError:
+                    # check if the weakref became invalid
+                    if wr() is None:
+                        raise InvalidateHandlerException()
+                    else:
+                        raise
+
+            wr = weakref.ref(handler)
+            #
+            # Do not trust the implicit scope and pass the
+            # weakref explicitly via partial
+            #
+            self.ndb._event_map[event].append(partial(wr_handler, wr))
+        return ret
 
     def __setitem__(self, key, value):
         raise NotImplementedError()
@@ -73,6 +112,7 @@ class NDB(object):
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
         self._global_lock = threading.Lock()
+        self._event_map = None
         self._event_queue = queue.Queue()
         self._nl = nl
         self._db_uri = db_uri
@@ -84,7 +124,7 @@ class NDB(object):
         self._dbm_thread.setDaemon(True)
         self._dbm_thread.start()
         self._dbm_ready.wait()
-        self.interfaces = View(self.db, Interface)
+        self.interfaces = View(self, Interface)
 
     def execute(self, *argv, **kwarg):
         return self.db.execute(*argv, **kwarg)
@@ -176,7 +216,8 @@ class NDB(object):
     def __dbm__(self):
 
         # init the events map
-        event_map = {type(self._dbm_ready): [lambda t, x: x.set()]}
+        self._event_map = event_map = {type(self._dbm_ready):
+                                       [lambda t, x: x.set()]}
         event_queue = self._event_queue
 
         def default_handler(target, event):
@@ -196,9 +237,15 @@ class NDB(object):
             target, events = event_queue.get()
             for event in events:
                 handlers = event_map.get(event.__class__, [default_handler, ])
-                for handler in handlers:
+                for handler in tuple(handlers):
                     try:
                         handler(target, event)
+                    except InvalidateHandlerException:
+                        try:
+                            handlers.remove(handler)
+                        except:
+                            import traceback
+                            traceback.print_exc()
                     except ShutdownException:
                         return
                     except:
