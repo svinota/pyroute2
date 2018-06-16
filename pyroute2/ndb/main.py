@@ -59,32 +59,35 @@ class View(dict):
         self.iclass = iclass
 
     def __getitem__(self, key):
+        #
+        # Construct a weakref handler for events.
+        #
+        # If the referent doesn't exist, raise the
+        # exception to remove the handler from the
+        # chain.
+        #
+
+        def wr_handler(wr, *argv):
+            try:
+                return wr()(*argv)
+            except TypeError:
+                # check if the weakref became invalid
+                if wr() is None:
+                    raise InvalidateHandlerException()
+                else:
+                    raise
+
         ret = self.iclass(self.ndb.db, key)
         for event, handler in ret.event_map.items():
             if event not in self.ndb._event_map:
                 self.ndb._event_map[event] = []
-            # Construct a weakref handler for events.
-            # If the referent doesn't exist, raise the
-            # exception to remove the handler from the
-            # chain.
-            #
-
-            def wr_handler(wr, *argv):
-                try:
-                    return wr()(*argv)
-                except TypeError:
-                    # check if the weakref became invalid
-                    if wr() is None:
-                        raise InvalidateHandlerException()
-                    else:
-                        raise
-
-            wr = weakref.ref(handler)
             #
             # Do not trust the implicit scope and pass the
             # weakref explicitly via partial
             #
+            wr = weakref.ref(handler)
             self.ndb._event_map[event].append(partial(wr_handler, wr))
+
         return ret
 
     def __setitem__(self, key, value):
