@@ -9,6 +9,7 @@ class Interface(dict):
 
     def __init__(self, db, key):
         self.db = db
+        self.event_map = {ifinfmsg: "load_ifinfmsg"}
         self.kspec = ('target', ) + db.indices[self.table]
         self.schema = ('target', ) + \
             tuple(db.schema[self.table].keys())
@@ -17,13 +18,6 @@ class Interface(dict):
         self.changed = set()
         self.load_sql()
 
-    @property
-    def event_map(self):
-        #
-        # return event_map on demand -- decrease the number of
-        # references for the garbage collector
-        #
-        return {ifinfmsg: self.load_ifinfmsg}
 
     def __setitem__(self, key, value):
         self.changed.add(key)

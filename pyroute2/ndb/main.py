@@ -67,26 +67,28 @@ class View(dict):
         # chain.
         #
 
-        def wr_handler(wr, *argv):
+        def wr_handler(wr, fname, *argv):
             try:
-                return wr()(*argv)
-            except TypeError:
+                return getattr(wr(), fname)(*argv)
+            except:
                 # check if the weakref became invalid
                 if wr() is None:
                     raise InvalidateHandlerException()
-                else:
-                    raise
+                raise
 
         ret = self.iclass(self.ndb.db, key)
-        for event, handler in ret.event_map.items():
+        for event, fname in ret.event_map.items():
             if event not in self.ndb._event_map:
                 self.ndb._event_map[event] = []
             #
             # Do not trust the implicit scope and pass the
             # weakref explicitly via partial
             #
-            wr = weakref.ref(handler)
-            self.ndb._event_map[event].append(partial(wr_handler, wr))
+            wr = weakref.ref(ret)
+            (self
+             .ndb
+             ._event_map[event]
+             .append(partial(wr_handler, wr, fname)))
 
         return ret
 
