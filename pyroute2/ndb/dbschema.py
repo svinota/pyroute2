@@ -27,21 +27,21 @@ class DBSchema(object):
                'addresses': ifaddrmsg,
                'neighbours': ndmsg,
                'routes': rtmsg}
-    index = {'interfaces': ('index',
-                            'IFLA_IFNAME'),
-             'addresses': ('index',
-                           'IFA_ADDRESS',
-                           'IFA_LOCAL'),
-             'neighbours': ('ifindex',
-                            'NDA_LLADDR'),
-             'routes': ('family',
-                        'tos',
-                        'dst_len',
-                        'RTA_TABLE',
-                        'RTA_DST',
-                        'RTA_PRIORITY'),
-             'nh': ('route_id',
-                    'nh_id')}
+    indices = {'interfaces': ('index',
+                              'IFLA_IFNAME'),
+               'addresses': ('index',
+                             'IFA_ADDRESS',
+                             'IFA_LOCAL'),
+               'neighbours': ('ifindex',
+                              'NDA_LLADDR'),
+               'routes': ('family',
+                          'tos',
+                          'dst_len',
+                          'RTA_TABLE',
+                          'RTA_DST',
+                          'RTA_PRIORITY'),
+               'nh': ('route_id',
+                      'nh_id')}
 
     foreign_key = {'addresses': [('(f_target, f_index)',
                                   'interfaces(f_target, f_index)'), ],
@@ -109,7 +109,7 @@ class DBSchema(object):
                '%s (%s)' % (table, req))
         self.db.execute(req)
         index = ','.join(['f_target'] + ['f_%s' % x for x
-                                         in self.index[table]])
+                                         in self.indices[table]])
         req = ('CREATE UNIQUE INDEX IF NOT EXISTS '
                '%s_idx ON %s (%s)' % (table, table, index))
         self.db.execute(req)
@@ -143,7 +143,7 @@ class DBSchema(object):
             # create key
             keys = ['f_target = ?']
             values = [target]
-            for key in self.index['routes']:
+            for key in self.indices['routes']:
                 keys.append('f_%s = ?' % key)
                 values.append(event.get(key) or event.get_attr(key))
             #
@@ -197,7 +197,7 @@ class DBSchema(object):
             #
             conditions = ['f_target = ?']
             values = [target]
-            for key in self.index[table]:
+            for key in self.indices[table]:
                 conditions.append('f_%s = ?' % key)
                 value = event.get(key) or event.get_attr(key)
                 if value is None:

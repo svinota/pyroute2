@@ -7,7 +7,7 @@ class Interface(dict):
     def __init__(self, db, key):
         self.event_map = {ifinfmsg: self.load_ifinfmsg}
         self.db = db
-        self.kspec = ('target', ) + db.index['interfaces']
+        self.kspec = ('target', ) + db.indices['interfaces']
         self.schema = ('target', ) + \
             tuple(db.schema['interfaces'].keys())
         self.names = tuple((ifinfmsg.nla2name(x) for x in self.schema))
