@@ -11,6 +11,7 @@ ipdb_nl_async = True
 nlm_generator = False
 
 commit_barrier = 0
+gc_timeout = 60
 
 # save uname() on startup time: it is not so
 # highly possible that the kernel will be

@@ -1,26 +1,38 @@
+import weakref
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
 
 class Interface(dict):
 
+    table = 'interfaces'
+
     def __init__(self, db, key):
-        self.event_map = {ifinfmsg: self.load_ifinfmsg}
         self.db = db
-        self.kspec = ('target', ) + db.indices['interfaces']
+        self.kspec = ('target', ) + db.indices[self.table]
         self.schema = ('target', ) + \
-            tuple(db.schema['interfaces'].keys())
+            tuple(db.schema[self.table].keys())
         self.names = tuple((ifinfmsg.nla2name(x) for x in self.schema))
         self.key = self.complete_key(key)
         self.changed = set()
         self.load_sql()
+
+    @property
+    def event_map(self):
+        #
+        # return event_map on demand -- decrease the number of
+        # references for the garbage collector
+        #
+        return {ifinfmsg: self.load_ifinfmsg}
 
     def __setitem__(self, key, value):
         self.changed.add(key)
         dict.__setitem__(self, key, value)
 
     def snapshot(self):
-        return type(self)(self.db, self.key)
+        snp = type(self)(self.db, self.key)
+        self.db.save_deps(self.table, id(snp), weakref.ref(snp))
+        return snp
 
     def complete_key(self, key):
         if isinstance(key, dict):
