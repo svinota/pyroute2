@@ -38,6 +38,8 @@ def convert_rt_msg(msg):
         RTNL_DELROUTE
     ret['family'] = msg['DST']['header']['family']
     ret['attrs'] = []
+    if 'address' in msg['DST']:
+        ret['attrs'].append(['RTA_DST', msg['DST']['address']])
     if 'NETMASK' in msg and \
             msg['NETMASK']['header']['family'] == ret['family']:
         ret['dst_len'] = dqn2int(msg['NETMASK']['address'], ret['family'])
@@ -46,11 +48,13 @@ def convert_rt_msg(msg):
             # interface routes, table 255
             # discard for now
             return None
-        ret['attrs'].append(['RTA_DST', msg['GATEWAY']['address']])
+        ret['attrs'].append(['RTA_GATEWAY', msg['GATEWAY']['address']])
     if 'IFA' in msg:
         ret['attrs'].append(['RTA_SRC', msg['IFA']['address']])
     if 'IFP' in msg:
         ret['attrs'].append(['RTA_OIF', msg['IFP']['index']])
+    elif msg['rtm_index'] != 0:
+        ret['attrs'].append(['RTA_OIF', msg['rtm_index']])
     del ret['value']
     return ret
 
