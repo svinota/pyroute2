@@ -11,6 +11,42 @@ import socket
 import subprocess
 
 
+class ARP(object):
+
+    def run(self):
+        '''
+        Run the command and get stdout
+        '''
+        cmd = ['arp', '-an']
+        stdout = stderr = ''
+        try:
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            (stdout, stderr) = process.communicate()
+        except Exception:
+            process.kill()
+        finally:
+            process.wait()
+        return stdout
+
+    def parse(self, data):
+
+        ret = []
+        for line in data.split('\n'):
+            sl = line.split()
+            if not sl:
+                continue
+            dst = sl[1][1:-1]
+            addr = sl[3]
+            ifname = sl[5]
+            neighbour = {'ifindex': 0,
+                         'ifname': ifname,
+                         'family': 2,
+                         'attrs': [['NDA_DST', dst],
+                                   ['NDA_LLADDR', addr]]}
+            ret.append(neighbour)
+        return ret
+
+
 class Ifconfig(object):
 
     match = {'NR': re.compile(r'^\b').match}

@@ -18,7 +18,6 @@ class Interface(dict):
         self.changed = set()
         self.load_sql()
 
-
     def __setitem__(self, key, value):
         self.changed.add(key)
         dict.__setitem__(self, key, value)

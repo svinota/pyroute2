@@ -62,7 +62,8 @@ from pyroute2.netlink.rtnl import (RTM_NEWLINK,
                                    RTM_GETNEIGH)
 
 from pyroute2.bsd.rtmsocket import RTMSocket
-from pyroute2.bsd.util import Ifconfig
+from pyroute2.bsd.util import (ARP,
+                               Ifconfig)
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
@@ -79,6 +80,7 @@ class IPRoute(object):
 
     def __init__(self, *argv, **kwarg):
         self._ifc = Ifconfig()
+        self._arp = ARP()
         self.marshal = MarshalRtnl()
         send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000, 0x1ffff),
                                    'monitor': False})
@@ -233,7 +235,11 @@ class IPRoute(object):
         return ret
 
     def get_neighbours(self, *argv, **kwarg):
-        return []
+        ifc = self._ifc.parse(self._ifc.run())
+        arp = self._arp.parse(self._arp.run())
+        for neigh in arp:
+            neigh['ifindex'] = ifc['links'][neigh['ifname']]['index']
+        return arp
 
     def get_routes(self, *argv, **kwarg):
         return []
