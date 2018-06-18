@@ -35,8 +35,9 @@ class Route(object):
         for line in data.split('\n'):
             if line == 'Internet:':
                 family = socket.AF_INET
-            elif line == 'Internet6':
-                family = socket.AF_INET6
+            elif line == 'Internet6:':
+                # do NOT support IPv6 routes yet
+                break
 
             sl = line.split()
             if len(sl) < 4 or sl[0] == 'Destination':
@@ -65,7 +66,7 @@ class Route(object):
                 else:
                     dst = dst[0]
 
-                route['dst_len'] = dst_len
+                route['dst_len'] = int(dst_len)
                 route['attrs'].append(['RTA_DST', dst])
             #
             # RTA_GATEWAY
