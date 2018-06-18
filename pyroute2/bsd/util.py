@@ -46,7 +46,6 @@ class Route(object):
             route = {'family': family,
                      'attrs': []}
 
-            table = 254
             #
             # RTA_DST
             if sl[0] != 'default':
@@ -55,7 +54,6 @@ class Route(object):
                     dst, dst_len = dst
                 else:
                     dst = dst[0]
-                    table = 255
                     if family == socket.AF_INET:
                         dst_len = 32
                     else:
@@ -75,10 +73,6 @@ class Route(object):
             #
             # RTA_OIF -- do not resolve it here! just save
             route['ifname'] = sl[3]
-            #
-            # RTA_TABLE
-            route['table'] = table
-            route['attrs'].append(['RTA_TABLE', table])
 
             ret.append(route)
         return ret
