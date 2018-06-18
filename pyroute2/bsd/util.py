@@ -11,6 +11,78 @@ import socket
 import subprocess
 
 
+class Route(object):
+
+    def run(self):
+        '''
+        Run the command and get stdout
+        '''
+        cmd = ['netstat', '-nr']
+        stdout = stderr = ''
+        try:
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            (stdout, stderr) = process.communicate()
+        except Exception:
+            process.kill()
+        finally:
+            process.wait()
+        return stdout
+
+    def parse(self, data):
+
+        ret = []
+        family = 0
+        for line in data.split('\n'):
+            if line == 'Internet:':
+                family = socket.AF_INET
+            elif line == 'Internet6':
+                family = socket.AF_INET6
+
+            sl = line.split()
+            if len(sl) < 4 or sl[0] == 'Destination':
+                continue
+
+            route = {'family': family,
+                     'attrs': []}
+
+            table = 254
+            #
+            # RTA_DST
+            if sl[0] != 'default':
+                dst = sl[0].split('/')
+                if len(dst) == 2:
+                    dst, dst_len = dst
+                else:
+                    dst = dst[0]
+                    table = 255
+                    if family == socket.AF_INET:
+                        dst_len = 32
+                    else:
+                        dst_len = 128
+                dst = dst.split('%')
+                if len(dst) == 2:
+                    dst, _ = dst
+                else:
+                    dst = dst[0]
+
+                route['dst_len'] = dst_len
+                route['attrs'].append(['RTA_DST', dst])
+            #
+            # RTA_GATEWAY
+            if not sl[1].startswith('link'):
+                route['attrs'].append(['RTA_GATEWAY', sl[1]])
+            #
+            # RTA_OIF -- do not resolve it here! just save
+            route['ifname'] = sl[3]
+            #
+            # RTA_TABLE
+            route['table'] = table
+            route['attrs'].append(['RTA_TABLE', table])
+
+            ret.append(route)
+        return ret
+
+
 class ARP(object):
 
     def run(self):

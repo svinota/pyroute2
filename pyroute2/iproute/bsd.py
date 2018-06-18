@@ -63,10 +63,13 @@ from pyroute2.netlink.rtnl import (RTM_NEWLINK,
 
 from pyroute2.bsd.rtmsocket import RTMSocket
 from pyroute2.bsd.util import (ARP,
+                               Route,
                                Ifconfig)
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink.rtnl.ndmsg import ndmsg
+from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.common import AddrPool
 from pyroute2.common import Namespace
 from pyroute2.proxy import NetlinkProxy
@@ -81,6 +84,7 @@ class IPRoute(object):
     def __init__(self, *argv, **kwarg):
         self._ifc = Ifconfig()
         self._arp = ARP()
+        self._route = Route()
         self.marshal = MarshalRtnl()
         send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000, 0x1ffff),
                                    'monitor': False})
@@ -237,12 +241,25 @@ class IPRoute(object):
     def get_neighbours(self, *argv, **kwarg):
         ifc = self._ifc.parse(self._ifc.run())
         arp = self._arp.parse(self._arp.run())
-        for neigh in arp:
-            neigh['ifindex'] = ifc['links'][neigh['ifname']]['index']
-        return arp
+        ret = []
+        for spec in arp:
+            spec['ifindex'] = ifc['links'][spec['ifname']]['index']
+            msg = ndmsg().load(spec)
+            del msg['value']
+            ret.append(msg)
+        return ret
 
     def get_routes(self, *argv, **kwarg):
-        return []
+        ifc = self._ifc.parse(self._ifc.run())
+        rta = self._route.parse(self._route.run())
+        ret = []
+        for spec in rta:
+            idx = ifc['links'][spec['ifname']]['index']
+            spec['attrs'].append(['RTA_OIF', idx])
+            msg = rtmsg().load(spec)
+            del msg['value']
+            ret.append(msg)
+        return ret
 
 
 class RawIPRoute(IPRoute):
