@@ -1,6 +1,19 @@
 Changelog
 =========
 
+* 0.5.2
+    * ndb: read-only DB prototype
+    * remote: support communication via stdio
+    * general: fix async keyword -- Python 3.7 compatibility
+        * <https://github.com/svinota/pyroute2/issues/467>
+        * <https://bugzilla.redhat.com/show_bug.cgi?id=1583800>
+    * iproute: support monitoring on BSD systems via PF_ROUTE
+    * rtnl: support for SQL schema in message classes
+    * nl80211: improvements
+        * <https://github.com/svinota/pyroute2/issues/512>
+        * <https://github.com/svinota/pyroute2/issues/514>
+        * <https://github.com/svinota/pyroute2/issues/515>
+    * netlink: support generators
 * 0.5.1
     * ipdb: #310 -- route keying fix
     * ipdb: #483, #484 -- callback internals change
