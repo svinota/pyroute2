@@ -40,7 +40,13 @@ class Route(object):
                 break
 
             sl = line.split()
-            if len(sl) < 4 or sl[0] == 'Destination':
+            if len(sl) < 4:
+                continue
+            if sl[0] == 'Destination':
+                # create the field map
+                fmap = dict([(x[1], x[0]) for x in enumerate(sl)])
+                if 'Netif' not in fmap:
+                    fmap['Netif'] = fmap['Iface']
                 continue
 
             route = {'family': family,
@@ -48,8 +54,8 @@ class Route(object):
 
             #
             # RTA_DST
-            if sl[0] != 'default':
-                dst = sl[0].split('/')
+            if sl[fmap['Destination']] != 'default':
+                dst = sl[fmap['Destination']].split('/')
                 if len(dst) == 2:
                     dst, dst_len = dst
                 else:
@@ -68,11 +74,11 @@ class Route(object):
                 route['attrs'].append(['RTA_DST', dst])
             #
             # RTA_GATEWAY
-            if not sl[1].startswith('link'):
-                route['attrs'].append(['RTA_GATEWAY', sl[1]])
+            if not sl[fmap['Gateway']].startswith('link'):
+                route['attrs'].append(['RTA_GATEWAY', sl[fmap['Gateway']]])
             #
             # RTA_OIF -- do not resolve it here! just save
-            route['ifname'] = sl[3]
+            route['ifname'] = sl[fmap['Netif']]
 
             ret.append(route)
         return ret
