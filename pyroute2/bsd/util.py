@@ -54,8 +54,9 @@ class Route(object):
 
             #
             # RTA_DST
-            if sl[fmap['Destination']] != 'default':
-                dst = sl[fmap['Destination']].split('/')
+            dst = sl[fmap['Destination']]
+            if dst != 'default':
+                dst = dst.split('/')
                 if len(dst) == 2:
                     dst, dst_len = dst
                 else:
@@ -70,11 +71,13 @@ class Route(object):
                 else:
                     dst = dst[0]
 
+                dst = '%s%s' % (dst, '.0' * (3 - dst.count('.')))
                 route['dst_len'] = int(dst_len)
                 route['attrs'].append(['RTA_DST', dst])
             #
             # RTA_GATEWAY
-            if not sl[fmap['Gateway']].startswith('link'):
+            gw = sl[fmap['Gateway']]
+            if not gw.startswith('link') and not gw.find(':') >= 0:
                 route['attrs'].append(['RTA_GATEWAY', sl[fmap['Gateway']]])
             #
             # RTA_OIF -- do not resolve it here! just save
