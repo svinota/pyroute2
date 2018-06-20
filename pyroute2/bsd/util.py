@@ -107,13 +107,23 @@ class ARP(object):
     def parse(self, data):
 
         ret = []
+        f_dst = 1
+        f_addr = 3
+        f_ifname = 5
         for line in data.split('\n'):
             sl = line.split()
             if not sl:
                 continue
-            dst = sl[1][1:-1]
-            addr = sl[3]
-            ifname = sl[5]
+
+            if sl[0] == 'Host':
+                f_dst = 0
+                f_addr = 1
+                f_ifname = 2
+                continue
+
+            dst = sl[f_dst].strip('(').strip(')')
+            addr = sl[f_addr]
+            ifname = sl[f_ifname]
             neighbour = {'ifindex': 0,
                          'ifname': ifname,
                          'family': 2,
