@@ -20,10 +20,14 @@ import sqlite3
 import logging
 import weakref
 import threading
+import traceback
 from functools import partial
 from pyroute2 import IPRoute
 from pyroute2.ndb import dbschema
 from pyroute2.ndb.interface import Interface
+from pyroute2.ndb.address import Address
+from pyroute2.ndb.route import Route
+from pyroute2.ndb.neighbour import Neighbour
 try:
     import queue
 except ImportError:
@@ -78,8 +82,6 @@ class View(dict):
 
         ret = self.iclass(self.ndb.db, key)
         for event, fname in ret.event_map.items():
-            if event not in self.ndb._event_map:
-                self.ndb._event_map[event] = []
             #
             # Do not trust the implicit scope and pass the
             # weakref explicitly via partial
@@ -87,8 +89,8 @@ class View(dict):
             wr = weakref.ref(ret)
             (self
              .ndb
-             ._event_map[event]
-             .append(partial(wr_handler, wr, fname)))
+             .register_handler(event,
+                               partial(wr_handler, wr, fname)))
 
         return ret
 
@@ -106,6 +108,57 @@ class View(dict):
 
     def values(self):
         raise NotImplementedError()
+
+    def dump(self):
+        if self.iclass.dump and self.iclass.dump_header:
+            yield self.iclass.dump_header
+            for stmt in self.iclass.dump_pre:
+                self.ndb.execute(stmt)
+            for record in self.ndb.execute(self.iclass.dump):
+                yield record
+            for stmt in self.iclass.dump_post:
+                self.ndb.execute(stmt)
+        else:
+            cls = self.ndb.db.classes[self.iclass.table]
+            keys = self.ndb.db.schema[self.iclass.table].keys()
+            yield ('system', ) + tuple([cls.nla2name(x) for x in keys])
+            for record in self.ndb.execute('SELECT * FROM %s' %
+                                           self.iclass.table):
+                yield record
+
+    def csv(self, dump):
+        for record in dump:
+            row = []
+            for field in record:
+                if isinstance(field, int):
+                    row.append('%i' % field)
+                elif field is None:
+                    row.append('')
+                else:
+                    row.append("'%s'" % field)
+            yield ','.join(row)
+
+    def summary(self):
+        if self.iclass.summary is not None:
+            if self.iclass.summary_header is not None:
+                yield self.iclass.summary_header
+            for record in (self
+                           .ndb
+                           .execute(self.iclass.summary)
+                           .fetchall()):
+                yield record
+        else:
+            header = tuple(['f_%s' % x for x in
+                            ('target', ) +
+                            self.ndb.db.indices[self.iclass.table]])
+            yield header
+            key_fields = ','.join(header)
+            for record in (self
+                           .ndb
+                           .execute('SELECT %s FROM %s'
+                                    % (key_fields, self.iclass.table))
+                           .fetchall()):
+                yield record
 
 
 class NDB(object):
@@ -130,6 +183,14 @@ class NDB(object):
         self._dbm_thread.start()
         self._dbm_ready.wait()
         self.interfaces = View(self, Interface)
+        self.addresses = View(self, Address)
+        self.routes = View(self, Route)
+        self.neighbours = View(self, Neighbour)
+
+    def register_handler(self, event, handler):
+        if event not in self._event_map:
+            self._event_map[event] = []
+        self._event_map[event].append(handler)
 
     def execute(self, *argv, **kwarg):
         return self.db.execute(*argv, **kwarg)
@@ -234,9 +295,7 @@ class NDB(object):
 
         self.db = dbschema.init(self._db, id(threading.current_thread()))
         for (event, handler) in self.db.event_map.items():
-            if event not in event_map:
-                event_map[event] = []
-            event_map[event].append(handler)
+            self.register_handler(event, handler)
 
         while True:
             target, events = event_queue.get()
@@ -249,10 +308,8 @@ class NDB(object):
                         try:
                             handlers.remove(handler)
                         except:
-                            import traceback
                             traceback.print_exc()
                     except ShutdownException:
                         return
                     except:
-                        import traceback
                         traceback.print_exc()
