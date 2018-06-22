@@ -21,6 +21,7 @@ from pyroute2.iproute import (IPRoute,
                               RawIPRoute)
 from pyroute2.ipset import IPSet
 from pyroute2.ipdb.main import IPDB
+from pyroute2.ndb.main import NDB
 from pyroute2.iwutil import IW
 from pyroute2.devlink import DL
 from pyroute2.conntrack import Conntrack
@@ -87,6 +88,7 @@ classes = [IPRouteRequest,
            IPBatch,
            RawIPRoute,
            IPSet,
+           NDB,
            IPDB,
            IW,
            DL,
