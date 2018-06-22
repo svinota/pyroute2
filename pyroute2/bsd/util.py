@@ -11,22 +11,32 @@ import socket
 import subprocess
 
 
-class Route(object):
+class CMD(object):
+
+    cmd = ['uname', '-s']
+
+    def __init__(self, cmd=None):
+        if cmd is not None:
+            self.cmd = cmd
 
     def run(self):
         '''
         Run the command and get stdout
         '''
-        cmd = ['netstat', '-nr']
         stdout = stderr = ''
         try:
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE)
             (stdout, stderr) = process.communicate()
         except Exception:
             process.kill()
         finally:
             process.wait()
         return stdout
+
+
+class Route(CMD):
+
+    cmd = ['netstat', '-rn']
 
     def parse(self, data):
 
@@ -87,22 +97,9 @@ class Route(object):
         return ret
 
 
-class ARP(object):
+class ARP(CMD):
 
-    def run(self):
-        '''
-        Run the command and get stdout
-        '''
-        cmd = ['arp', '-an']
-        stdout = stderr = ''
-        try:
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-            (stdout, stderr) = process.communicate()
-        except Exception:
-            process.kill()
-        finally:
-            process.wait()
-        return stdout
+    cmd = ['arp', '-an']
 
     def parse(self, data):
 
@@ -133,27 +130,10 @@ class ARP(object):
         return ret
 
 
-class Ifconfig(object):
+class Ifconfig(CMD):
 
     match = {'NR': re.compile(r'^\b').match}
-
-    def __init__(self, path=''):
-        self.path = path
-
-    def run(self):
-        '''
-        Run the command and get stdout
-        '''
-        cmd = ['ifconfig', ]
-        stdout = stderr = ''
-        try:
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-            (stdout, stderr) = process.communicate()
-        except Exception:
-            process.kill()
-        finally:
-            process.wait()
-        return stdout
+    cmd = ['ifconfig', '-a']
 
     def parse_line(self, line):
         '''
@@ -207,6 +187,10 @@ class Ifconfig(object):
                 link['attrs'].append(['IFLA_ADDRESS', pl['ether']])
 
             elif 'inet' in pl:
+                if ('netmask' not in pl) or \
+                        ('inet' not in pl):
+                    print(pl)
+                    continue
                 addr = {'index': idx,
                         'family': socket.AF_INET,
                         'prefixlen': bin(int(pl['netmask'], 16)).count('1'),
@@ -215,6 +199,10 @@ class Ifconfig(object):
                     addr['attrs'].append(['IFA_BROADCAST', pl['broadcast']])
                 addrs.append(addr)
             elif 'inet6' in pl:
+                if ('prefixlen' not in pl) or \
+                        ('inet6' not in pl):
+                    print(pl)
+                    continue
                 addr = {'index': idx,
                         'family': socket.AF_INET6,
                         'prefixlen': int(pl['prefixlen']),

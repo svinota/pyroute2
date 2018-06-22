@@ -82,9 +82,13 @@ except ImportError:
 class IPRoute(object):
 
     def __init__(self, *argv, **kwarg):
-        self._ifc = Ifconfig()
-        self._arp = ARP()
-        self._route = Route()
+        if 'ssh' in kwarg:
+            self._ssh = ['ssh', kwarg.pop('ssh')]
+        else:
+            self._ssh = []
+        self._ifc = Ifconfig(cmd=self._ssh + ['ifconfig', '-a'])
+        self._arp = ARP(cmd=self._ssh + ['arp', '-an'])
+        self._route = Route(cmd=self._ssh + ['netstat', '-rn'])
         self.marshal = MarshalRtnl()
         send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000, 0x1ffff),
                                    'monitor': False})
@@ -102,6 +106,9 @@ class IPRoute(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
+    def clone(self):
+        return self
+
     def close(self):
         with self._system_lock:
             if self._mon_th is not None:
@@ -117,6 +124,9 @@ class IPRoute(object):
     def bind(self, *argv, **kwarg):
         with self._system_lock:
             if self._mon_th is not None:
+                return
+
+            if self._ssh:
                 return
 
             self._mon_th = threading.Thread(target=self._monitor_thread,
@@ -223,6 +233,7 @@ class IPRoute(object):
         parsed = self._ifc.parse(data)
         for name, spec in parsed['links'].items():
             msg = ifinfmsg().load(spec)
+            msg['header']['type'] = RTM_NEWLINK
             del msg['value']
             ret.append(msg)
         return ret
@@ -234,6 +245,7 @@ class IPRoute(object):
         for name, specs in parsed['addrs'].items():
             for spec in specs:
                 msg = ifaddrmsg().load(spec)
+                msg['header']['type'] = RTM_NEWADDR
                 del msg['value']
                 ret.append(msg)
         return ret
@@ -243,8 +255,11 @@ class IPRoute(object):
         arp = self._arp.parse(self._arp.run())
         ret = []
         for spec in arp:
+            if spec['ifname'] not in ifc['links']:
+                continue
             spec['ifindex'] = ifc['links'][spec['ifname']]['index']
             msg = ndmsg().load(spec)
+            msg['header']['type'] = RTM_NEWNEIGH
             del msg['value']
             ret.append(msg)
         return ret
@@ -254,9 +269,12 @@ class IPRoute(object):
         rta = self._route.parse(self._route.run())
         ret = []
         for spec in rta:
+            if spec['ifname'] not in ifc['links']:
+                continue
             idx = ifc['links'][spec['ifname']]['index']
             spec['attrs'].append(['RTA_OIF', idx])
             msg = rtmsg().load(spec)
+            msg['header']['type'] = RTM_NEWROUTE
             del msg['value']
             ret.append(msg)
         return ret
