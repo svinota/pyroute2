@@ -503,7 +503,7 @@ class RTNL_API(object):
                     +------+                    +-----+
                                                    ^
                     +------+      +----------+     |
-            net --> | eth2 | <--> | eth0.500 | <---+
+            net --> | eth2 | <--> | eth2.500 | <---+
                     +------+      +----------+
 
         It means that one has to create as many bridges, as there were
