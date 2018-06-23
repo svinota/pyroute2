@@ -1,19 +1,46 @@
-#
-# NDB is NOT a production but a proof-of-concept
-#
-# It is intended to become IPDB version 2.0 that can handle
-# thousands of network objects -- something that IPDB can not
-# due to memory consupmtion
-#
-#
-# Proposed design:
-#
-# 0. multiple event sources -- IPRoute (Linux), RTMSocket (BSD), etc
-# 1. the main loop dispatches incoming events to plugins
-# 2. plugins store serialized events as records in an internal DB (SQL)
-# 3. plugins provide an API to access records as Python objects
-# 4. objects are spawned only on demand
-# 5. plugins provide transactional API to change objects + OS reflection
+'''
+NDB
+===
+
+An experimental module that probably will obsolete IPDB.
+
+Examples::
+
+    from pyroute2 import NDB
+    from pprint import pprint
+
+    ndb = NDB()
+    # ...
+    for line ndb.routes.csv():
+        print(line)
+    # ...
+    for record in ndb.interfaces.summary():
+        print(record)
+    # ...
+    pprint(ndb.interfaces['eth0'])
+
+    # ...
+    pprint(ndb.interfaces[{'system': 'localhost',
+                           'IFLA_IFNAME': 'eth0'}])
+
+Multiple sources::
+
+    from pyroute2 import NDB
+    from pyroute2 import IPRoute
+    from pyroute2 import NetNS
+
+    nl = {'localhost': IPRoute(),
+          'netns0': NetNS('netns0'),
+          'docket': NetNS('/var/run/docker/netns/f2d2ba3e5987')}
+
+    ndb = NDB(nl=nl)
+
+    # ...
+
+    for system, source in nl.items():
+        source.close()
+    ndb.close()
+'''
 import json
 import atexit
 import sqlite3
@@ -32,9 +59,13 @@ try:
     import queue
 except ImportError:
     import Queue as queue
+log = logging.getLogger(__name__)
 
 
 def target_adapter(value):
+    #
+    # MPLS target adapter for SQLite3
+    #
     return json.dumps(value)
 
 
@@ -121,12 +152,14 @@ class View(dict):
         else:
             cls = self.ndb.db.classes[self.iclass.table]
             keys = self.ndb.db.schema[self.iclass.table].keys()
-            yield ('system', ) + tuple([cls.nla2name(x) for x in keys])
+            yield ('target', ) + tuple([cls.nla2name(x) for x in keys])
             for record in self.ndb.execute('SELECT * FROM %s' %
                                            self.iclass.table):
                 yield record
 
-    def csv(self, dump):
+    def csv(self, dump=None):
+        if dump is None:
+            dump = self.dump()
         for record in dump:
             row = []
             for field in record:
@@ -308,8 +341,10 @@ class NDB(object):
                         try:
                             handlers.remove(handler)
                         except:
-                            traceback.print_exc()
+                            log.error('could not invalidate event handler:\n%s'
+                                      % traceback.format_exc())
                     except ShutdownException:
                         return
                     except:
-                        traceback.print_exc()
+                        log.error('could not load event:\n%s\n%s'
+                                  % (event, traceback.format_exc()))

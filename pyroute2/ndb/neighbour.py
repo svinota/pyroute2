@@ -16,7 +16,7 @@ class Neighbour(RTNL_Object):
               ON
                   n.f_ifindex = i.f_index
               '''
-    summary_header = ('system', 'ifname', 'lladdr', 'neighbour')
+    summary_header = ('target', 'ifname', 'lladdr', 'neighbour')
 
     def __init__(self, db, key):
         self.event_map = {ndmsg: "load_rtnlmsg"}

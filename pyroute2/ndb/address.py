@@ -15,8 +15,9 @@ class Address(RTNL_Object):
                   interfaces AS i
               ON
                   a.f_index = i.f_index
+                  AND a.f_target = i.f_target
               '''
-    summary_header = ('system', 'ifname', 'address', 'mask')
+    summary_header = ('target', 'ifname', 'address', 'mask')
 
     def __init__(self, db, key):
         self.event_map = {ifaddrmsg: "load_rtnlmsg"}

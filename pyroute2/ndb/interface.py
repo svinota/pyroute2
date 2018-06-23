@@ -13,7 +13,7 @@ class Interface(RTNL_Object):
               FROM
                   interfaces
               '''
-    summary_header = ('system', 'index', 'ifname', 'lladdr', 'flags')
+    summary_header = ('target', 'index', 'ifname', 'lladdr', 'flags')
 
     def __init__(self, db, key):
         self.event_map = {ifinfmsg: "load_rtnlmsg"}

@@ -20,13 +20,14 @@ class Route(RTNL_Object):
               ON
                   rt.f_route_id = nh.f_route_id
               '''
-    summary_header = ('system', 'table', 'dst',
+    summary_header = ('target', 'table', 'dst',
                       'dst_len', 'gateway', 'nexthop')
     dump = '''
            SELECT rt.f_target,%s
            FROM routes AS rt
            LEFT JOIN nh AS nh
            ON rt.f_route_id = nh.f_route_id
+               AND rt.f_target = nh.f_target
            ''' % ','.join(['%s' % x for x in _dump_rt + _dump_nh])
     dump_header = ([rtmsg.nla2name(x[5:]) for x in _dump_rt] +
                    ['nh_%s' % nh.nla2name(x[5:]) for x in _dump_nh])
