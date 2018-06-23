@@ -16,6 +16,7 @@ class RTNL_Object(dict):
     def __init__(self, db, key, iclass):
         self.db = db
         self.changed = set()
+        self.iclass = iclass
         self.kspec = ('target', ) + db.indices[self.table]
         self.schema = ('target', ) + \
             tuple(db.schema[self.table].keys())
