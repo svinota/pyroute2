@@ -42,6 +42,7 @@ Multiple sources::
     ndb.close()
 '''
 import json
+import time
 import atexit
 import sqlite3
 import logging
@@ -49,6 +50,7 @@ import weakref
 import threading
 import traceback
 from functools import partial
+from pyroute2 import config
 from pyroute2 import IPRoute
 from pyroute2.ndb import dbschema
 from pyroute2.ndb.interface import Interface
@@ -112,12 +114,13 @@ class View(dict):
                 raise
 
         ret = self.iclass(self.ndb.db, key)
+        wr = weakref.ref(ret)
+        self.ndb._rtnl_objects.add(wr)
         for event, fname in ret.event_map.items():
             #
             # Do not trust the implicit scope and pass the
             # weakref explicitly via partial
             #
-            wr = weakref.ref(ret)
             (self
              .ndb
              .register_handler(event,
@@ -198,6 +201,7 @@ class NDB(object):
 
     def __init__(self, nl=None, db_uri=':memory:'):
 
+        self.ctime = self.gctime = time.time()
         self.db = None
         self._db = None
         self._dbm_thread = None
@@ -215,6 +219,7 @@ class NDB(object):
         self._dbm_thread.setDaemon(True)
         self._dbm_thread.start()
         self._dbm_ready.wait()
+        self._rtnl_objects = set()
         self.interfaces = View(self, Interface)
         self.addresses = View(self, Address)
         self.routes = View(self, Route)
@@ -348,3 +353,8 @@ class NDB(object):
                     except:
                         log.error('could not load event:\n%s\n%s'
                                   % (event, traceback.format_exc()))
+                if time.time() - self.gctime > config.gc_timeout:
+                    self.gctime = time.time()
+                    for wr in tuple(self._rtnl_objects):
+                        if wr() is None:
+                            self._rtnl_objects.remove(wr)

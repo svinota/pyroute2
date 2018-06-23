@@ -68,7 +68,7 @@ class DBSchema(object):
         self.thread = tid
         self.db = db
         self.db.execute('PRAGMA foreign_keys = ON')
-        self.mtime = self.ctime = time.time()
+        self.gctime = self.ctime = time.time()
         for table in ('interfaces',
                       'addresses',
                       'neighbours',
@@ -303,8 +303,8 @@ class DBSchema(object):
         #
         # Periodic jobs
         #
-        if time.time() - self.mtime > config.gc_timeout:
-            self.mtime = time.time()
+        if time.time() - self.gctime > config.gc_timeout:
+            self.gctime = time.time()
             # clean dead snapshots after GC timeout
             for name, wref in self.snapshots.items():
                 if wref() is None:

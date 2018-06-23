@@ -24,6 +24,9 @@ class RTNL_Object(dict):
         self.key = self.complete_key(key)
         self.load_sql()
 
+    def __hash__(self):
+        return id(self)
+
     def __setitem__(self, key, value):
         self.changed.add(key)
         dict.__setitem__(self, key, value)
