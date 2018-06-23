@@ -136,7 +136,8 @@ from pprint import pprint;\
 pprint(TestCapsRtnl().collect())"
 
 upload: clean force-version docs
-	${python} setup.py sdist upload
+	${python} setup.py sdist
+	${python} -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/*
 
 dist: clean force-version docs
 	@${python} setup.py sdist >/dev/null 2>&1
