@@ -15,9 +15,9 @@ class Interface(RTNL_Object):
               '''
     summary_header = ('target', 'index', 'ifname', 'lladdr', 'flags')
 
-    def __init__(self, db, key):
+    def __init__(self, schema, key):
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
-        super(Interface, self).__init__(db, key, ifinfmsg)
+        super(Interface, self).__init__(schema, key, ifinfmsg)
 
     def complete_key(self, key):
         if isinstance(key, dict):
@@ -39,10 +39,10 @@ class Interface(RTNL_Object):
             keys = []
             values = []
             for name, value in ret_key.items():
-                keys.append('f_%s = ?' % name)
+                keys.append('f_%s = %s' % (name, self.schema.plch))
                 values.append(value)
             spec = (self
-                    .db
+                    .schema
                     .execute('SELECT %s FROM interfaces WHERE %s' %
                              (' , '.join(fetch), ' AND '.join(keys)),
                              values)

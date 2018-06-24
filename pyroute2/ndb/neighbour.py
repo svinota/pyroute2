@@ -18,9 +18,9 @@ class Neighbour(RTNL_Object):
               '''
     summary_header = ('target', 'ifname', 'lladdr', 'neighbour')
 
-    def __init__(self, db, key):
+    def __init__(self, schema, key):
         self.event_map = {ndmsg: "load_rtnlmsg"}
-        super(Neighbour, self).__init__(db, key, ndmsg)
+        super(Neighbour, self).__init__(schema, key, ndmsg)
 
     def complete_key(self, key):
         if isinstance(key, dict):

@@ -72,9 +72,8 @@ class rtmsg_base(nlflags):
     __slots__ = ()
 
     prefix = 'RTA_'
-    sql_extra_fields = (('route_id', 'TEXT PRIMARY KEY'), )
     sql_constraints = {'RTA_TABLE': 'NOT NULL DEFAULT 0',
-                       'RTA_DST': 'NOT NULL DEFAULT ""',
+                       'RTA_DST': "NOT NULL DEFAULT ''",
                        'RTA_PRIORITY': 'NOT NULL DEFAULT 0'}
 
     fields = (('family', 'B'),
@@ -434,8 +433,6 @@ class nh(rtmsg_base, nla):
     __slots__ = ()
 
     is_nla = False
-    sql_extra_fields = (('route_id', 'TEXT'),
-                        ('nh_id', 'INTEGER'))
 
     cell_header = (('length', 'H'), )
     fields = (('flags', 'B'),

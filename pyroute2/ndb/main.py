@@ -61,6 +61,10 @@ try:
     import queue
 except ImportError:
     import Queue as queue
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
 log = logging.getLogger(__name__)
 
 
@@ -113,7 +117,7 @@ class View(dict):
                     raise InvalidateHandlerException()
                 raise
 
-        ret = self.iclass(self.ndb.db, key)
+        ret = self.iclass(self.ndb.schema, key)
         wr = weakref.ref(ret)
         self.ndb._rtnl_objects.add(wr)
         for event, fname in ret.event_map.items():
@@ -153,8 +157,8 @@ class View(dict):
             for stmt in self.iclass.dump_post:
                 self.ndb.execute(stmt)
         else:
-            cls = self.ndb.db.classes[self.iclass.table]
-            keys = self.ndb.db.schema[self.iclass.table].keys()
+            cls = self.ndb.schema.classes[self.iclass.table]
+            keys = self.ndb.schema.spec[self.iclass.table].keys()
             yield ('target', ) + tuple([cls.nla2name(x) for x in keys])
             for record in self.ndb.execute('SELECT * FROM %s' %
                                            self.iclass.table):
@@ -186,7 +190,7 @@ class View(dict):
         else:
             header = tuple(['f_%s' % x for x in
                             ('target', ) +
-                            self.ndb.db.indices[self.iclass.table]])
+                            self.ndb.schema.indices[self.iclass.table]])
             yield header
             key_fields = ','.join(header)
             for record in (self
@@ -199,10 +203,10 @@ class View(dict):
 
 class NDB(object):
 
-    def __init__(self, nl=None, db_uri=':memory:'):
+    def __init__(self, nl=None, db_provider='sqlite3', db_spec=':memory:'):
 
         self.ctime = self.gctime = time.time()
-        self.db = None
+        self.schema = None
         self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
@@ -210,7 +214,8 @@ class NDB(object):
         self._event_map = None
         self._event_queue = queue.Queue()
         self._nl = nl
-        self._db_uri = db_uri
+        self._db_provider = db_provider
+        self._db_spec = db_spec
         self._src_threads = []
         atexit.register(self.close)
         self._dbm_ready.clear()
@@ -231,7 +236,7 @@ class NDB(object):
         self._event_map[event].append(handler)
 
     def execute(self, *argv, **kwarg):
-        return self.db.execute(*argv, **kwarg)
+        return self.schema.execute(*argv, **kwarg)
 
     def close(self):
         with self._global_lock:
@@ -242,14 +247,14 @@ class NDB(object):
                     atexit._exithandlers.remove((self.close, (), {}))
                 except ValueError:
                     pass
-            if self.db:
+            if self.schema:
                 self._event_queue.put(('localhost', (ShutdownException(), )))
                 for src in self._src_threads:
                     src.nl.close()
                     src.join()
                 self._dbm_thread.join()
-                self.db.commit()
-                self.db.close()
+                self.schema.commit()
+                self.schema.close()
 
     def __initdb__(self):
         with self._global_lock:
@@ -274,9 +279,9 @@ class NDB(object):
                 self.nl[target].bind(async_cache=True)
             #
             # close the current db
-            if self.db:
-                self.db.commit()
-                self.db.close()
+            if self.schema:
+                self.schema.commit()
+                self.schema.close()
             #
             # ACHTUNG!
             # check_same_thread=False
@@ -284,9 +289,14 @@ class NDB(object):
             # Do NOT write into the DB from ANY other thread
             # than self._dbm_thread!
             #
-            self._db = sqlite3.connect(self._db_uri, check_same_thread=False)
-            if self.db:
-                self.db.db = self._db
+            if self._db_provider == 'sqlite3':
+                self._db = sqlite3.connect(self._db_spec,
+                                           check_same_thread=False)
+            elif self._db_provider == 'psycopg2':
+                self._db = psycopg2.connect(**self._db_spec)
+
+            if self.schema:
+                self.schema.db = self._db
             #
             # initial load
             evq = self._event_queue
@@ -331,8 +341,9 @@ class NDB(object):
 
         self.__initdb__()
 
-        self.db = dbschema.init(self._db, id(threading.current_thread()))
-        for (event, handler) in self.db.event_map.items():
+        self.schema = dbschema.init(self._db, self._db_provider,
+                                    id(threading.current_thread()))
+        for (event, handler) in self.schema.event_map.items():
             self.register_handler(event, handler)
 
         while True:

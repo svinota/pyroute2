@@ -52,7 +52,7 @@ class ifaddrmsg(nlmsg):
     '''
     prefix = 'IFA_'
 
-    sql_constraints = {'IFA_LOCAL': 'NOT NULL DEFAULT ""'}
+    sql_constraints = {'IFA_LOCAL': "NOT NULL DEFAULT ''"}
 
     fields = (('family', 'B'),
               ('prefixlen', 'B'),

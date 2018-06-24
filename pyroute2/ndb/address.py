@@ -19,9 +19,9 @@ class Address(RTNL_Object):
               '''
     summary_header = ('target', 'ifname', 'address', 'mask')
 
-    def __init__(self, db, key):
+    def __init__(self, schema, key):
         self.event_map = {ifaddrmsg: "load_rtnlmsg"}
-        super(Address, self).__init__(db, key, ifaddrmsg)
+        super(Address, self).__init__(schema, key, ifaddrmsg)
 
     def complete_key(self, key):
         if isinstance(key, dict):

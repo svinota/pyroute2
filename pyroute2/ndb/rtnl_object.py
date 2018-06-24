@@ -4,7 +4,7 @@ import weakref
 class RTNL_Object(dict):
 
     table = None
-    db = None
+    schema = None
     event_map = None
     summary = None
     summary_header = None
@@ -13,14 +13,14 @@ class RTNL_Object(dict):
     dump_pre = []
     dump_post = []
 
-    def __init__(self, db, key, iclass):
-        self.db = db
+    def __init__(self, schema, key, iclass):
+        self.schema = schema
         self.changed = set()
         self.iclass = iclass
-        self.kspec = ('target', ) + db.indices[self.table]
-        self.schema = ('target', ) + \
-            tuple(db.schema[self.table].keys())
-        self.names = tuple((iclass.nla2name(x) for x in self.schema))
+        self.kspec = ('target', ) + schema.indices[self.table]
+        self.spec = ('target', ) + \
+            tuple(schema.spec[self.table].keys())
+        self.names = tuple((iclass.nla2name(x) for x in self.spec))
         self.key = self.complete_key(key)
         self.load_sql()
 
@@ -32,8 +32,8 @@ class RTNL_Object(dict):
         dict.__setitem__(self, key, value)
 
     def snapshot(self):
-        snp = type(self)(self.db, self.key)
-        self.db.save_deps(self.table, id(snp), weakref.ref(snp))
+        snp = type(self)(self.schema, self.key)
+        self.schema.save_deps(self.table, id(snp), weakref.ref(snp))
         return snp
 
     def complete_key(self, key):
@@ -46,10 +46,10 @@ class RTNL_Object(dict):
             keys = []
             values = []
             for name, value in key.items():
-                keys.append('f_%s = ?' % name)
+                keys.append('f_%s = %s' % (name, self.schema.plch))
                 values.append(value)
             spec = (self
-                    .db
+                    .schema
                     .execute('SELECT %s FROM %s WHERE %s' %
                              (' , '.join(fetch),
                               self.table,
@@ -73,10 +73,10 @@ class RTNL_Object(dict):
         keys = []
         values = []
         for name, value in self.key.items():
-            keys.append('f_%s = ?' % name)
+            keys.append('f_%s = %s' % (name, self.schema.plch))
             values.append(value)
         spec = (self
-                .db
+                .schema
                 .execute('SELECT * FROM %s WHERE %s' %
                          (self.table, ' AND '.join(keys)), values)
                 .fetchone())
@@ -96,7 +96,7 @@ class RTNL_Object(dict):
                 return
         #
         # load the event
-        for name in self.schema:
+        for name in self.spec:
             value = event.get_attr(name) or event.get(name)
             if value is not None:
                 self.load_value(self.iclass.nla2name(name), value)

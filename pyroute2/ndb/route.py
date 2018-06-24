@@ -3,7 +3,7 @@ from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
 
-_dump_rt = ['rt.f_%s' % x[0] for x in rtmsg.sql_schema()][:-1]
+_dump_rt = ['rt.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
 _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
 
 
@@ -29,12 +29,13 @@ class Route(RTNL_Object):
            ON rt.f_route_id = nh.f_route_id
                AND rt.f_target = nh.f_target
            ''' % ','.join(['%s' % x for x in _dump_rt + _dump_nh])
-    dump_header = ([rtmsg.nla2name(x[5:]) for x in _dump_rt] +
+    dump_header = (['target'] +
+                   [rtmsg.nla2name(x[5:]) for x in _dump_rt] +
                    ['nh_%s' % nh.nla2name(x[5:]) for x in _dump_nh])
 
-    def __init__(self, db, key):
+    def __init__(self, schema, key):
         self.event_map = {rtmsg: "load_rtnlmsg"}
-        super(Route, self).__init__(db, key, rtmsg)
+        super(Route, self).__init__(schema, key, rtmsg)
 
     def complete_key(self, key):
         if isinstance(key, dict):
