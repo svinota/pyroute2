@@ -307,6 +307,19 @@ class DBSchema(object):
                           % (self.plch, self.plch, key_query),
                           (gc_mark, target) + route[:-1]))
 
+    def load_ifinfmsg(self, target, event):
+        #
+        # link goes down: flush all related routes
+        #
+        if not event['flags'] & 1:
+            self.execute('DELETE FROM routes WHERE '
+                         'f_RTA_OIF = %s OR f_RTA_IIF = %s'
+                         % (self.plch, self.plch),
+                         (event['index'], event['index']))
+        #
+        # continue with load_netlink()
+        self.load_netlink('interfaces', target, event)
+
     def load_rtmsg(self, target, event):
         mp = event.get_attr('RTA_MULTIPATH')
 
@@ -448,7 +461,7 @@ class DBSchema(object):
 
 def init(connection, mode, tid):
     ret = DBSchema(connection, mode, tid)
-    ret.event_map = {ifinfmsg: partial(ret.load_netlink, 'interfaces'),
+    ret.event_map = {ifinfmsg: ret.load_ifinfmsg,
                      ifaddrmsg: partial(ret.load_netlink, 'addresses'),
                      ndmsg: partial(ret.load_netlink, 'neighbours'),
                      rtmsg: ret.load_rtmsg}
