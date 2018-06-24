@@ -326,6 +326,13 @@ class DBSchema(object):
                          % (self.plch, self.plch),
                          (event['index'], event['index']))
         #
+        # ignore wireless updates
+        #
+        if event.get_attr('IFLA_WIRELESS'):
+            if self.rtnl_log:
+                self.log_netlink('interfaces', target, event)
+            return
+        #
         # continue with load_netlink()
         self.load_netlink('interfaces', target, event)
 
