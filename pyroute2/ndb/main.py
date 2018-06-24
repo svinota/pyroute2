@@ -147,26 +147,41 @@ class View(dict):
     def values(self):
         raise NotImplementedError()
 
-    def dump(self):
+    def dump(self, match=None):
+        cls = self.ndb.schema.classes[self.iclass.table]
+        keys = self.ndb.schema.spec[self.iclass.table].keys()
+        values = []
+
+        if isinstance(match, dict):
+            spec = ' WHERE '
+            conditions = []
+            for key, value in match.items():
+                if cls.name2nla(key) in keys:
+                    key = cls.name2nla(key)
+                if key not in keys:
+                    raise KeyError('key %s not found' % key)
+                conditions.append('rs.f_%s = %s' % (key, self.ndb.schema.plch))
+                values.append(value)
+            spec = ' WHERE %s' % ' AND '.join(conditions)
+        else:
+            spec = ''
         if self.iclass.dump and self.iclass.dump_header:
             yield self.iclass.dump_header
             for stmt in self.iclass.dump_pre:
                 self.ndb.execute(stmt)
-            for record in self.ndb.execute(self.iclass.dump):
+            for record in self.ndb.execute(self.iclass.dump + spec, values):
                 yield record
             for stmt in self.iclass.dump_post:
                 self.ndb.execute(stmt)
         else:
-            cls = self.ndb.schema.classes[self.iclass.table]
-            keys = self.ndb.schema.spec[self.iclass.table].keys()
             yield ('target', ) + tuple([cls.nla2name(x) for x in keys])
-            for record in self.ndb.execute('SELECT * FROM %s' %
-                                           self.iclass.table):
+            for record in self.ndb.execute('SELECT * FROM %s AS rs %s' %
+                                           (self.iclass.table, spec), values):
                 yield record
 
-    def csv(self, dump=None):
+    def csv(self, match=None, dump=None):
         if dump is None:
-            dump = self.dump()
+            dump = self.dump(match)
         for record in dump:
             row = []
             for field in record:

@@ -3,7 +3,7 @@ from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
 
-_dump_rt = ['rt.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
+_dump_rt = ['rs.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
 _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
 
 
@@ -23,11 +23,11 @@ class Route(RTNL_Object):
     summary_header = ('target', 'table', 'dst',
                       'dst_len', 'gateway', 'nexthop')
     dump = '''
-           SELECT rt.f_target,%s
-           FROM routes AS rt
+           SELECT rs.f_target,%s
+           FROM routes AS rs
            LEFT JOIN nh AS nh
-           ON rt.f_route_id = nh.f_route_id
-               AND rt.f_target = nh.f_target
+           ON rs.f_route_id = nh.f_route_id
+               AND rs.f_target = nh.f_target
            ''' % ','.join(['%s' % x for x in _dump_rt + _dump_nh])
     dump_header = (['target'] +
                    [rtmsg.nla2name(x[5:]) for x in _dump_rt] +
