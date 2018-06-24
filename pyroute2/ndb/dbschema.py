@@ -329,8 +329,6 @@ class DBSchema(object):
         # ignore wireless updates
         #
         if event.get_attr('IFLA_WIRELESS'):
-            if self.rtnl_log:
-                self.log_netlink('interfaces', target, event)
             return
         #
         # continue with load_netlink()
@@ -429,9 +427,6 @@ class DBSchema(object):
         if self.thread != id(threading.current_thread()):
             return
         #
-        if self.rtnl_log:
-            self.log_netlink(table, target, event, ctable)
-        #
         # Periodic jobs
         #
         if time.time() - self.gctime > config.gc_timeout:
@@ -503,8 +498,12 @@ class DBSchema(object):
 
 def init(connection, mode, rtnl_log, tid):
     ret = DBSchema(connection, mode, rtnl_log, tid)
-    ret.event_map = {ifinfmsg: ret.load_ifinfmsg,
-                     ifaddrmsg: partial(ret.load_netlink, 'addresses'),
-                     ndmsg: partial(ret.load_netlink, 'neighbours'),
-                     rtmsg: ret.load_rtmsg}
+    ret.event_map = {ifinfmsg: [ret.load_ifinfmsg],
+                     ifaddrmsg: [partial(ret.load_netlink, 'addresses')],
+                     ndmsg: [partial(ret.load_netlink, 'neighbours')],
+                     rtmsg: [ret.load_rtmsg]}
+    if rtnl_log:
+        types = dict([(x[1], x[0]) for x in ret.classes.items()])
+        for msg_type, handlers in ret.event_map.items():
+            handlers.append(partial(ret.log_netlink, types[msg_type]))
     return ret

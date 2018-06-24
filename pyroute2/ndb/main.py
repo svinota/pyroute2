@@ -365,8 +365,9 @@ class NDB(object):
                                     self._db_provider,
                                     self._db_rtnl_log,
                                     id(threading.current_thread()))
-        for (event, handler) in self.schema.event_map.items():
-            self.register_handler(event, handler)
+        for (event, handlers) in self.schema.event_map.items():
+            for handler in handlers:
+                self.register_handler(event, handler)
 
         while True:
             target, events = event_queue.get()
