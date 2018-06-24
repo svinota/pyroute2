@@ -400,11 +400,17 @@ class DBSchema(object):
         #
         if time.time() - self.gctime > config.gc_timeout:
             self.gctime = time.time()
+
             # clean dead snapshots after GC timeout
             for name, wref in self.snapshots.items():
                 if wref() is None:
                     del self.snapshots[name]
                     self.execute('DROP TABLE %s' % name)
+
+            # clean marked routes
+            self.execute('DELETE FROM routes WHERE '
+                         '(f_gc_mark + 5) < %s' % self.plch,
+                         (int(time.time()), ))
         #
         # The event type
         #
