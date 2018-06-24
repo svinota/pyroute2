@@ -309,6 +309,62 @@ class DBSchema(object):
             # we're done with an MP-route, just exit
             return
         #
+        # delete route: gc mark all the routes from that subnet
+        #
+        # only for automatic routes:
+        #   - table 254 (main)
+        #   - proto 2 (kernel)
+        #   - scope 253 (link)
+        elif (event['header']['type'] % 2) and \
+                (event.get_attr('RTA_TABLE') == 254) and \
+                (event['proto'] == 2) and \
+                (event['scope'] == 253) and \
+                (event['family'] == AF_INET):
+            print("match", event)
+            #
+            # select all routes for that OIF and pick those
+            # that are using this subnet
+            #
+            key_fields = ','.join(['f_%s' % x for x
+                                   in self.indices['routes']])
+            key_query = ' AND '.join(['f_%s = %s' % (x, self.plch) for x
+                                      in self.indices['routes']])
+            routes = (self
+                      .execute('SELECT %s,f_RTA_GATEWAY FROM routes WHERE '
+                               'f_target = %s AND f_RTA_OIF = %s AND '
+                               'f_RTA_GATEWAY IS NOT NULL'
+                               % (key_fields, self.plch, self.plch),
+                               (target, event.get_attr('RTA_OIF')))
+                      .fetchall())
+            #
+            # get the route's RTA_DST and calculate the network
+            #
+            addr = event.get_attr('RTA_DST')
+            net = struct.unpack('>I', inet_pton(AF_INET, addr))[0] &\
+                (0xffffffff << (32 - event['dst_len']))
+            #
+            # now iterate all the routes from the query above and
+            # mark those with matching RTA_GATEWAY
+            #
+            for route in routes:
+                # get route GW
+                gw = route[-1]
+                gwnet = struct.unpack('>I', inet_pton(AF_INET, gw))[0] & net
+                print(net, gwnet)
+                print('UPDATE routes SET f_gc_mark = %s '
+                      'WHERE f_target = %s AND %s'
+                      % (self.plch, self.plch, key_query),
+                      (int(time.time()), target, ) + route[:-1])
+                if gwnet == net:
+                    (self
+                     .execute('UPDATE routes SET f_gc_mark = %s '
+                              'WHERE f_target = %s AND %s'
+                              % (self.plch, self.plch, key_query),
+                              (int(time.time()), target, ) + route[:-1]))
+            #
+            # continue with load_netlink()
+            #
+        #
         # ... or work on a regular route
         self.load_netlink("routes", target, event)
 
