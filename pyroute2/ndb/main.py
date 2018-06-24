@@ -218,7 +218,11 @@ class View(dict):
 
 class NDB(object):
 
-    def __init__(self, nl=None, db_provider='sqlite3', db_spec=':memory:'):
+    def __init__(self,
+                 nl=None,
+                 db_provider='sqlite3',
+                 db_spec=':memory:',
+                 rtnl_log=False):
 
         self.ctime = self.gctime = time.time()
         self.schema = None
@@ -231,6 +235,7 @@ class NDB(object):
         self._nl = nl
         self._db_provider = db_provider
         self._db_spec = db_spec
+        self._db_rtnl_log = rtnl_log
         self._src_threads = []
         atexit.register(self.close)
         self._dbm_ready.clear()
@@ -356,7 +361,9 @@ class NDB(object):
 
         self.__initdb__()
 
-        self.schema = dbschema.init(self._db, self._db_provider,
+        self.schema = dbschema.init(self._db,
+                                    self._db_provider,
+                                    self._db_rtnl_log,
                                     id(threading.current_thread()))
         for (event, handler) in self.schema.event_map.items():
             self.register_handler(event, handler)

@@ -72,10 +72,11 @@ class DBSchema(object):
                             'pcls': ('f_route_id', ),
                             'parent': 'routes'}]}
 
-    def __init__(self, connection, mode, tid):
+    def __init__(self, connection, mode, rtnl_log, tid):
         self.mode = mode
         self.thread = tid
         self.connection = connection
+        self.rtnl_log = rtnl_log
         if self.mode == 'sqlite3':
             # SQLite3
             self.connection.execute('PRAGMA foreign_keys = ON')
@@ -109,6 +110,7 @@ class DBSchema(object):
 
     def create_table(self, table):
         req = ['f_target TEXT NOT NULL']
+        fields = []
         self.key_defaults[table] = {}
         for field in self.spec[table].items():
             #
@@ -116,6 +118,7 @@ class DBSchema(object):
             # 'Cause there are attributes like 'index' and such
             # names may not be used in SQL statements
             #
+            fields.append('f_%s %s' % field)
             req.append('f_%s %s' % field)
             if field[1].strip().startswith('TEXT'):
                 self.key_defaults[table][field[0]] = ''
@@ -145,6 +148,12 @@ class DBSchema(object):
         req = ('CREATE TABLE IF NOT EXISTS '
                '%s (%s)' % (table, req))
         self.execute(req)
+        if self.rtnl_log:
+            req = ['f_tstamp INTEGER NOT NULL',
+                   'f_target TEXT NOT NULL'] + fields
+            req = ','.join(req)
+            self.execute('CREATE TABLE IF NOT EXISTS '
+                         '%s_log (%s)' % (table, req))
         index = ','.join(['f_target'] + ['f_%s' % x for x
                                          in self.indices[table]])
         req = ('CREATE UNIQUE INDEX IF NOT EXISTS '
@@ -387,6 +396,23 @@ class DBSchema(object):
         # ... or work on a regular route
         self.load_netlink("routes", target, event)
 
+    def log_netlink(self, table, target, event, ctable=None):
+        #
+        # RTNL Logs
+        #
+        fkeys = tuple(self.spec[table].keys())
+        fields = ','.join(['f_tstamp', 'f_target'] +
+                          ['f_%s' % x for x in fkeys])
+        pch = ','.join([self.plch] * (len(fkeys) + 2))
+        values = [int(time.time() * 1000), target]
+        for field in fkeys:
+            value = event.get_attr(field) or event.get(field)
+            if value is None and field in self.indices[ctable or table]:
+                value = self.key_defaults[table][field]
+            values.append(value)
+        self.execute('INSERT INTO %s_log (%s) VALUES (%s)'
+                     % (table, fields, pch), values)
+
     def load_netlink(self, table, target, event, ctable=None):
         #
         # Simple barrier to work with the DB only from
@@ -395,6 +421,9 @@ class DBSchema(object):
         # ? make a decorator ?
         if self.thread != id(threading.current_thread()):
             return
+        #
+        if self.rtnl_log:
+            self.log_netlink(table, target, event, ctable)
         #
         # Periodic jobs
         #
@@ -465,8 +494,8 @@ class DBSchema(object):
                 traceback.print_exc()
 
 
-def init(connection, mode, tid):
-    ret = DBSchema(connection, mode, tid)
+def init(connection, mode, rtnl_log, tid):
+    ret = DBSchema(connection, mode, rtnl_log, tid)
     ret.event_map = {ifinfmsg: ret.load_ifinfmsg,
                      ifaddrmsg: partial(ret.load_netlink, 'addresses'),
                      ndmsg: partial(ret.load_netlink, 'neighbours'),
