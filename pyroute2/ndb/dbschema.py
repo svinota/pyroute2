@@ -21,6 +21,8 @@ class DBSchema(object):
     connection = None
     thread = None
     event_map = None
+    key_defaults = None
+    snapshots = None  # <table_name>: <obj_weakref>
 
     spec = {'interfaces': OrderedDict(ifinfmsg.sql_schema()),
             'addresses': OrderedDict(ifaddrmsg.sql_schema()),
@@ -31,9 +33,6 @@ class DBSchema(object):
             'nh': OrderedDict(nh.sql_schema() +
                               [('route_id', 'TEXT'),
                                ('nh_id', 'INTEGER')])}
-    key_defaults = {}
-
-    snapshots = {}  # <table_name>: <obj_weakref>
 
     classes = {'interfaces': ifinfmsg,
                'addresses': ifaddrmsg,
@@ -77,6 +76,8 @@ class DBSchema(object):
         self.thread = tid
         self.connection = connection
         self.rtnl_log = rtnl_log
+        self.snapshots = {}
+        self.key_defaults = {}
         if self.mode == 'sqlite3':
             # SQLite3
             self.connection.execute('PRAGMA foreign_keys = ON')
