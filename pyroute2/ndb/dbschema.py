@@ -1,6 +1,7 @@
 import time
 import uuid
 import struct
+import sqlite3
 import threading
 import traceback
 from functools import partial
@@ -39,6 +40,11 @@ class DBSchema(object):
                'neighbours': ndmsg,
                'routes': rtmsg}
 
+    #
+    # OBS: field names MUST go in the same order as in the spec,
+    # that's for the load_netlink() to work correctly -- it uses
+    # one loop to fetch both index and row values
+    #
     indices = {'interfaces': ('index',
                               'IFLA_IFNAME'),
                'addresses': ('index',
@@ -47,25 +53,41 @@ class DBSchema(object):
                'neighbours': ('ifindex',
                               'NDA_LLADDR'),
                'routes': ('family',
-                          'tos',
                           'dst_len',
-                          'RTA_TABLE',
+                          'tos',
                           'RTA_DST',
-                          'RTA_PRIORITY'),
+                          'RTA_PRIORITY',
+                          'RTA_TABLE'),
                'nh': ('route_id',
                       'nh_id')}
 
-    foreign_keys = {'addresses': [{'cols': ('f_target', 'f_index'),
-                                   'pcls': ('f_target', 'f_index'),
+    foreign_keys = {'addresses': [{'cols': ('f_target',
+                                            'f_tflags',
+                                            'f_index'),
+                                   'pcls': ('f_target',
+                                            'f_tflags',
+                                            'f_index'),
                                    'parent': 'interfaces'}],
-                    'neighbours': [{'cols': ('f_target', 'f_ifindex'),
-                                    'pcls': ('f_target', 'f_index'),
+                    'neighbours': [{'cols': ('f_target',
+                                             'f_tflags',
+                                             'f_ifindex'),
+                                    'pcls': ('f_target',
+                                             'f_tflags',
+                                             'f_index'),
                                     'parent': 'interfaces'}],
-                    'routes': [{'cols': ('f_target', 'f_RTA_OIF'),
-                                'pcls': ('f_target', 'f_index'),
+                    'routes': [{'cols': ('f_target',
+                                         'f_tflags',
+                                         'f_RTA_OIF'),
+                                'pcls': ('f_target',
+                                         'f_tflags',
+                                         'f_index'),
                                 'parent': 'interfaces'},
-                               {'cols': ('f_target', 'f_RTA_IIF'),
-                                'pcls': ('f_target', 'f_index'),
+                               {'cols': ('f_target',
+                                         'f_tflags',
+                                         'f_RTA_IIF'),
+                                'pcls': ('f_target',
+                                         'f_tflags',
+                                         'f_index'),
                                 'parent': 'interfaces'}],
                     'nh': [{'cols': ('f_route_id', ),
                             'pcls': ('f_route_id', ),
@@ -110,7 +132,8 @@ class DBSchema(object):
         return self.connection.commit()
 
     def create_table(self, table):
-        req = ['f_target TEXT NOT NULL']
+        req = ['f_target TEXT NOT NULL',
+               'f_tflags INTEGER NOT NULL DEFAULT 0']
         fields = []
         self.key_defaults[table] = {}
         for field in self.spec[table].items():
@@ -149,17 +172,33 @@ class DBSchema(object):
         req = ('CREATE TABLE IF NOT EXISTS '
                '%s (%s)' % (table, req))
         self.execute(req)
+
+        index = ','.join(['f_target', 'f_tflags'] + ['f_%s' % x for x
+                                                     in self.indices[table]])
+        req = ('CREATE UNIQUE INDEX IF NOT EXISTS '
+               '%s_idx ON %s (%s)' % (table, table, index))
+        self.execute(req)
+
+        #
+        # create table for the transaction buffer: there go the system
+        # updates while the transaction is not committed.
+        #
+        # w/o keys (yet)
+        #
+        # req = ['f_target TEXT NOT NULL',
+        #        'f_tflags INTEGER NOT NULL DEFAULT 0']
+        # req = ','.join(req)
+        # self.execute('CREATE TABLE IF NOT EXISTS '
+        #              '%s_buffer (%s)' % (table, req))
+        #
+        # create the log table, if required
+        #
         if self.rtnl_log:
             req = ['f_tstamp INTEGER NOT NULL',
                    'f_target TEXT NOT NULL'] + fields
             req = ','.join(req)
             self.execute('CREATE TABLE IF NOT EXISTS '
                          '%s_log (%s)' % (table, req))
-        index = ','.join(['f_target'] + ['f_%s' % x for x
-                                         in self.indices[table]])
-        req = ('CREATE UNIQUE INDEX IF NOT EXISTS '
-               '%s_idx ON %s (%s)' % (table, table, index))
-        self.execute(req)
 
     def save_deps(self, parent, objid, wref):
         #
@@ -464,33 +503,59 @@ class DBSchema(object):
             #
             # Create or set an object
             #
-            fkeys = tuple(self.spec[table].keys())
-            fields = ','.join(['f_target'] + ['f_%s' % x for x in fkeys])
-            pch = ','.join([self.plch] * (len(fkeys) + 1))
-            values = [target]
-            for field in fkeys:
+            # table spec
+            spec = ('target', 'tflags') + tuple(self.spec[table].keys())
+            # index spec
+            ispec = ('target', 'tflags') + self.indices[table]
+            # reference table index spec
+            cspec = ('target', 'tflags') + self.indices[ctable or table]
+            # field values
+            values = [target, 0]
+            # index values
+            ivalues = [target, 0]
+
+            # fetch values (exc. the first two columns)
+            for field in spec[len(values):]:
+                # NLA have priority
                 value = event.get_attr(field) or event.get(field)
-                if value is None and field in self.indices[ctable or table]:
+                if value is None and field in cspec:
                     value = self.key_defaults[table][field]
+                if field in ispec:
+                    ivalues.append(value)
                 values.append(value)
+
+            # 1. generate field names list
+            fnames = ','.join(['f_%s' % x
+                               for x in spec])
+            # 2. generage placeholders list
+            plchls = ','.join([self.plch] * len(spec))
+            # 3. generate set equations list
+            setlst = ','.join(['f_%s = %s' % (x, self.plch)
+                               for x in spec])
+            # 4. generate index conditions
+            idxlst = ' AND '.join(['%s.f_%s = %s' % (table, x, self.plch)
+                                   for x in ispec])
+            # 5. generate index field names list
+            knames = ','.join(['f_%s' % x
+                               for x in ispec])
             try:
-                self.execute('INSERT INTO %s (%s)'
-                             ' VALUES (%s)' % (table, fields, pch), values)
-            except sql_err[self.mode]['IntegrityError']:
-                try:
-                    cs = ['f_target = %s' % self.plch]
-                    values.append(target)
-                    for key in self.indices[table]:
-                        cs.append('f_%s = %s' % (key, self.plch))
-                        value = event.get(key) or event.get_attr(key)
-                        if value is None:
-                            value = self.key_defaults[table][key]
-                        values.append(value)
-                    self.execute('UPDATE %s SET (%s) = (%s) WHERE %s'
-                                 % (table, fields, pch, ' AND '.join(cs)),
-                                 values)
-                except:
-                    traceback.print_exc()
+                #
+                # run UPSERT -- the DB provider must support it
+                #
+                (self
+                 .execute('INSERT INTO %s (%s) VALUES (%s) '
+                          'ON CONFLICT (%s) '
+                          'DO UPDATE SET %s WHERE %s'
+                          % (table, fnames, plchls, knames, setlst, idxlst),
+                          (values + values + ivalues)))
+                #
+            except sqlite3.OperationalError:
+                #
+                # on SQLite3 < 3.24 fall back to INSERT OR REPLACE
+                #
+                self.execute('INSERT OR REPLACE INTO %s (%s) VALUES (%s)'
+                             % (table, fnames, plchls), values)
+                #
             except Exception:
                 #
                 # A good question, what should we do here

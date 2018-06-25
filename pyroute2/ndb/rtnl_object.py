@@ -18,7 +18,7 @@ class RTNL_Object(dict):
         self.changed = set()
         self.iclass = iclass
         self.kspec = ('target', ) + schema.indices[self.table]
-        self.spec = ('target', ) + \
+        self.spec = ('target', 'tflags') + \
             tuple(schema.spec[self.table].keys())
         self.names = tuple((iclass.nla2name(x) for x in self.spec))
         self.key = self.complete_key(key)

@@ -174,7 +174,7 @@ class View(dict):
             for stmt in self.iclass.dump_post:
                 self.ndb.execute(stmt)
         else:
-            yield ('target', ) + tuple([cls.nla2name(x) for x in keys])
+            yield ('target', 'tflags') + tuple([cls.nla2name(x) for x in keys])
             for record in self.ndb.execute('SELECT * FROM %s AS rs %s' %
                                            (self.iclass.table, spec), values):
                 yield record
