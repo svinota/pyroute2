@@ -130,15 +130,31 @@ class DBSchema(object):
         #
         # specific SQL code
         #
-        self.execute('''
-                     CREATE TRIGGER IF NOT EXISTS nh_f_tflags
-                     BEFORE UPDATE OF f_tflags ON nh FOR EACH ROW
-                     BEGIN
-                         UPDATE routes
-                         SET f_tflags = NEW.f_tflags
-                         WHERE f_route_id = NEW.f_route_id ;
-                     END
-                     ''')
+        if self.mode == 'sqlite3':
+            self.execute('''
+                         CREATE TRIGGER IF NOT EXISTS nh_f_tflags
+                         BEFORE UPDATE OF f_tflags ON nh FOR EACH ROW
+                             BEGIN
+                                 UPDATE routes
+                                 SET f_tflags = NEW.f_tflags
+                                 WHERE f_route_id = NEW.f_route_id;
+                             END
+                         ''')
+        elif self.mode == 'psycopg2':
+            self.execute('''
+                         CREATE OR REPLACE FUNCTION nh_f_tflags()
+                         RETURNS trigger AS $nh_f_tflags$
+                             BEGIN
+                                 UPDATE routes
+                                 SET f_tflags = NEW.f_tflags
+                                 WHERE f_route_id = NEW.f_route_id;
+                                 RETURN NEW;
+                             END;
+                         $nh_f_tflags$ LANGUAGE plpgsql;
+                         CREATE TRIGGER nh_f_tflags
+                         BEFORE UPDATE OF f_tflags ON nh FOR EACH ROW
+                         EXECUTE PROCEDURE nh_f_tflags();
+                         ''')
 
     def execute(self, *argv, **kwarg):
         cursor = self.connection.cursor()
@@ -224,7 +240,7 @@ class DBSchema(object):
                          '%s_log (%s)' % (table, req))
 
     def save_deps(self, objid, wref):
-        uuid = uuid32()
+        uuid = uuid32() & 0x7fffffff  # max signed int
         obj = wref()
         idx = self.indices[obj.table]
         conditions = []
@@ -233,29 +249,62 @@ class DBSchema(object):
             conditions.append('f_%s = %s' % (key, self.plch))
             values.append(obj.get(self.classes[obj.table].nla2name(key)))
         #
+        # save the old f_tflags value
+        #
+        tflags = self.execute('''
+                              SELECT f_tflags FROM %s
+                              WHERE %s
+                              '''
+                              % (obj.table,
+                                 ' AND '.join(conditions)),
+                              values).fetchone()[0]
+        #
         # mark tflags for obj
         #
-        self.execute('UPDATE %s SET f_tflags = %s WHERE %s'
-                     % (obj.table, self.plch, ' AND '.join(conditions)),
+        self.execute('''
+                     UPDATE %s SET
+                         f_tflags = %s
+                     WHERE %s
+                     '''
+                     % (obj.table,
+                        self.plch,
+                        ' AND '.join(conditions)),
                      [uuid] + values)
         #
         # t_flags is used in foreign keys ON UPDATE CASCADE, so all
         # related records will be marked, now just copy the marked data
         #
         for table in self.spec:
-            self.execute('CREATE TABLE %s_%s AS SELECT * FROM %s '
-                         'WHERE f_tflags = %s'
+            self.execute('''
+                         CREATE TABLE %s_%s AS SELECT * FROM %s
+                         WHERE
+                             f_tflags = %s
+                         '''
                          % (table, objid, table, self.plch),
                          [uuid])
         #
         # unmark all the data
         #
-        self.execute('UPDATE %s SET f_tflags = 0 WHERE %s'
-                     % (obj.table, ' AND '.join(conditions)),
-                     values)
+        self.execute('''
+                     UPDATE %s SET
+                         f_tflags = %s
+                     WHERE %s
+                     '''
+                     % (obj.table,
+                        self.plch,
+                        ' AND '.join(conditions)),
+                     [tflags] + values)
         for table in self.spec:
-            self.execute('UPDATE %s_%s SET f_tflags = 0' % (table, objid))
+            self.execute('''
+                         UPDATE %s_%s SET f_tflags = %s
+                         ''' % (table, objid, self.plch),
+                         [tflags])
             self.snapshots['%s_%s' % (table, objid)] = wref
+
+    def purge_snapshots(self):
+        for table in tuple(self.snapshots):
+            self.execute('DROP TABLE %s' % table)
+            del self.snapshots[table]
 
     def get(self, table, spec):
         #
