@@ -61,47 +61,47 @@ class DBSchema(object):
                'nh': ('route_id',
                       'nh_id')}
 
-    foreign_keys = {'addresses': [{'cols': ('f_target',
-                                            'f_tflags',
-                                            'f_index'),
-                                   'pcls': ('f_target',
-                                            'f_tflags',
-                                            'f_index'),
+    foreign_keys = {'addresses': [{'fields': ('f_target',
+                                              'f_tflags',
+                                              'f_index'),
+                                   'parent_fields': ('f_target',
+                                                     'f_tflags',
+                                                     'f_index'),
                                    'parent': 'interfaces'}],
-                    'neighbours': [{'cols': ('f_target',
-                                             'f_tflags',
-                                             'f_ifindex'),
-                                    'pcls': ('f_target',
-                                             'f_tflags',
-                                             'f_index'),
+                    'neighbours': [{'fields': ('f_target',
+                                               'f_tflags',
+                                               'f_ifindex'),
+                                    'parent_fields': ('f_target',
+                                                      'f_tflags',
+                                                      'f_index'),
                                     'parent': 'interfaces'}],
-                    'routes': [{'cols': ('f_target',
-                                         'f_tflags',
-                                         'f_RTA_OIF'),
-                                'pcls': ('f_target',
-                                         'f_tflags',
-                                         'f_index'),
+                    'routes': [{'fields': ('f_target',
+                                           'f_tflags',
+                                           'f_RTA_OIF'),
+                                'parent_fields': ('f_target',
+                                                  'f_tflags',
+                                                  'f_index'),
                                 'parent': 'interfaces'},
-                               {'cols': ('f_target',
-                                         'f_tflags',
-                                         'f_RTA_IIF'),
-                                'pcls': ('f_target',
-                                         'f_tflags',
-                                         'f_index'),
+                               {'fields': ('f_target',
+                                           'f_tflags',
+                                           'f_RTA_IIF'),
+                                'parent_fields': ('f_target',
+                                                  'f_tflags',
+                                                  'f_index'),
                                 'parent': 'interfaces'}],
                     #
                     # man kan not use f_tflags together with f_route_id
                     # 'cause it breaks ON UPDATE CASCADE for interfaces
                     #
-                    'nh': [{'cols': ('f_route_id', ),
-                            'pcls': ('f_route_id', ),
+                    'nh': [{'fields': ('f_route_id', ),
+                            'parent_fields': ('f_route_id', ),
                             'parent': 'routes'},
-                           {'cols': ('f_target',
-                                     'f_tflags',
-                                     'f_oif'),
-                            'pcls': ('f_target',
-                                     'f_tflags',
-                                     'f_index'),
+                           {'fields': ('f_target',
+                                       'f_tflags',
+                                       'f_oif'),
+                            'parent_fields': ('f_target',
+                                              'f_tflags',
+                                              'f_index'),
                             'parent': 'interfaces'}]}
 
     def __init__(self, connection, mode, rtnl_log, tid):
@@ -189,8 +189,9 @@ class DBSchema(object):
                 self.key_defaults[table][field[0]] = 0
         if table in self.foreign_keys:
             for key in self.foreign_keys[table]:
-                spec = ('(%s)' % ','.join(key['cols']),
-                        '%s(%s)' % (key['parent'], ','.join(key['pcls'])))
+                spec = ('(%s)' % ','.join(key['fields']),
+                        '%s(%s)' % (key['parent'],
+                                    ','.join(key['parent_fields'])))
                 req.append('FOREIGN KEY %s REFERENCES %s '
                            'ON UPDATE CASCADE '
                            'ON DELETE CASCADE ' % spec)
@@ -200,9 +201,9 @@ class DBSchema(object):
                 #
                 # https://sqlite.org/foreignkeys.html
                 #
-                if len(key['cols']) > 1:
+                if len(key['fields']) > 1:
                     idxname = 'uidx_%s_%s' % (key['parent'],
-                                              '_'.join(key['pcls']))
+                                              '_'.join(key['parent_fields']))
                     self.execute('CREATE UNIQUE INDEX '
                                  'IF NOT EXISTS %s ON %s' %
                                  (idxname, spec[1]))
