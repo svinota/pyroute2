@@ -42,6 +42,7 @@ Development
 .. toctree::
     :maxdepth: 2
 
+    ndb
     devcontribute
     arch
     netlink
