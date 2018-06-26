@@ -2,7 +2,7 @@
 NDB
 ===
 
-An experimental module that probably will obsolete IPDB.
+An experimental module that may obsolete IPDB.
 
 Examples::
 
@@ -31,7 +31,7 @@ Multiple sources::
 
     nl = {'localhost': IPRoute(),
           'netns0': NetNS('netns0'),
-          'docket': NetNS('/var/run/docker/netns/f2d2ba3e5987')}
+          'docker': NetNS('/var/run/docker/netns/f2d2ba3e5987')}
 
     ndb = NDB(nl=nl)
 
@@ -40,6 +40,30 @@ Multiple sources::
     for system, source in nl.items():
         source.close()
     ndb.close()
+
+Different DB providers. PostgreSQL access requires psycopg2 module::
+
+    from pyroute2 import NDB
+
+    # SQLite3 -- simple in-memory DB
+    ndb = NDB(db_provider='sqlite3')
+
+    # SQLite3 -- same as above
+    ndb = NDB(db_provider='sqlite3',
+              db_spec=':memory:')
+
+    # SQLite3 -- file DB
+    ndb = NDB(db_provider='sqlite3',
+              db_spec='test.db')
+
+    # PostgreSQL -- local DB
+    ndb = NDB(db_provider='psycopg2',
+              db_spec={'dbname': 'test'})
+
+    # PostgreSQL -- remote DB
+    ndb = NDB(db_provider='psycopg2',
+              db_spec={'dbname': 'test',
+                       'host': 'db1.example.com'})
 '''
 import json
 import time
