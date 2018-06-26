@@ -172,7 +172,7 @@ class DBSchema(object):
 
     def create_table(self, table):
         req = ['f_target TEXT NOT NULL',
-               'f_tflags INTEGER NOT NULL DEFAULT 0']
+               'f_tflags BIGINT NOT NULL DEFAULT 0']
         fields = []
         self.key_defaults[table] = {}
         for field in self.spec[table].items():
@@ -234,14 +234,14 @@ class DBSchema(object):
         # create the log table, if required
         #
         if self.rtnl_log:
-            req = ['f_tstamp INTEGER NOT NULL',
+            req = ['f_tstamp BIGINT NOT NULL',
                    'f_target TEXT NOT NULL'] + fields
             req = ','.join(req)
             self.execute('CREATE TABLE IF NOT EXISTS '
                          '%s_log (%s)' % (table, req))
 
     def save_deps(self, objid, wref):
-        uuid = uuid32() & 0x7fffffff  # max signed int
+        uuid = uuid32()
         obj = wref()
         idx = self.indices[obj.table]
         conditions = []
