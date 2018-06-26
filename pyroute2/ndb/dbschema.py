@@ -89,9 +89,20 @@ class DBSchema(object):
                                          'f_tflags',
                                          'f_index'),
                                 'parent': 'interfaces'}],
+                    #
+                    # man kan not use f_tflags together with f_route_id
+                    # 'cause it breaks ON UPDATE CASCADE for interfaces
+                    #
                     'nh': [{'cols': ('f_route_id', ),
                             'pcls': ('f_route_id', ),
-                            'parent': 'routes'}]}
+                            'parent': 'routes'},
+                           {'cols': ('f_target',
+                                     'f_tflags',
+                                     'f_oif'),
+                            'pcls': ('f_target',
+                                     'f_tflags',
+                                     'f_index'),
+                            'parent': 'interfaces'}]}
 
     def __init__(self, connection, mode, rtnl_log, tid):
         self.mode = mode
@@ -116,6 +127,18 @@ class DBSchema(object):
                       'routes',
                       'nh'):
             self.create_table(table)
+        #
+        # specific SQL code
+        #
+        self.execute('''
+                     CREATE TRIGGER IF NOT EXISTS nh_f_tflags
+                     BEFORE UPDATE OF f_tflags ON nh FOR EACH ROW
+                     BEGIN
+                         UPDATE routes
+                         SET f_tflags = NEW.f_tflags
+                         WHERE f_route_id = NEW.f_route_id ;
+                     END
+                     ''')
 
     def execute(self, *argv, **kwarg):
         cursor = self.connection.cursor()
@@ -222,7 +245,7 @@ class DBSchema(object):
         for table in self.spec:
             self.execute('CREATE TABLE %s_%s AS SELECT * FROM %s '
                          'WHERE f_tflags = %s'
-                         % (table, objid, obj.table, self.plch),
+                         % (table, objid, table, self.plch),
                          [uuid])
         #
         # unmark all the data
