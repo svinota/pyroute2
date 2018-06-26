@@ -33,7 +33,7 @@ class RTNL_Object(dict):
 
     def snapshot(self):
         snp = type(self)(self.schema, self.key)
-        self.schema.save_deps(self.table, id(snp), weakref.ref(snp))
+        self.schema.save_deps(id(snp), weakref.ref(snp))
         return snp
 
     def complete_key(self, key):

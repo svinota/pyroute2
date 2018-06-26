@@ -9,7 +9,7 @@ from collections import OrderedDict
 from socket import (AF_INET,
                     inet_pton)
 from pyroute2 import config
-from pyroute2.ndb.sql import sql_err
+from pyroute2.common import uuid32
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
@@ -200,100 +200,39 @@ class DBSchema(object):
             self.execute('CREATE TABLE IF NOT EXISTS '
                          '%s_log (%s)' % (table, req))
 
-    def save_deps(self, parent, objid, wref):
-        #
-        # Stage 1 of saving deps.
-        #
-        # Create tables for direct dependencies and copy there the data
-        # matching the object.
-        #
-        # E.g.::
-        #
-        #   interfaces -> addresses
-        #                 routes
-        #                 neighbours
-        #
+    def save_deps(self, objid, wref):
+        uuid = uuid32()
         obj = wref()
-        for table, keys in self.foreign_keys.items():
-            new_table = '%s_%s' % (table, objid)
-            #
-            # There may be multiple foreign keys
-            for key in keys:
-                #
-                # Work on matching tables
-                if key['parent'] == parent:
-                    #
-                    # Create the WHERE clause
-                    reqs = []
-                    for cols in key['cols']:
-                        reqs.append('%s = %s' % (cols, self.plch))
-                    values = [obj[self
-                                  .classes[parent]
-                                  .nla2name(x[2:])] for x in key['pcls']]
-                    #
-                    # Create the tables as a copy of the related data...
-                    #
-                    try:
-                        self.execute('CREATE TABLE %s AS '
-                                     'SELECT * FROM %s WHERE %s' %
-                                     (new_table, table, ' AND '.join(reqs)),
-                                     values)
-                    #
-                    # ... or append the data, if the table is created --
-                    # happens when there are multiple foreign keys, as
-                    # for routes
-                    #
-                    except sql_err[self.mode]['ProgrammingError']:
-                        self.execute('INSERT INTO %s '
-                                     'SELECT * FROM %s WHERE %s' %
-                                     (new_table, table, ' AND '.join(reqs)),
-                                     values)
-                    #
-                    # Save the reference into the registry.
-                    #
-                    # The registry should be cleaned up periodically.
-                    # When the wref() call returns None, the record
-                    # should be removed from the registry and the table
-                    # should be dropped.
-                    #
-                    self.snapshots[new_table] = wref
-                    self.save_deps_s2(table, new_table, objid, wref)
-
-    def save_deps_s2(self, parent, snp_table, objid, wref):
-        # Stage 2 of saving deps.
+        idx = self.indices[obj.table]
+        conditions = []
+        values = []
+        for key in idx:
+            conditions.append('f_%s = %s' % (key, self.plch))
+            values.append(obj.get(self.classes[obj.table].nla2name(key)))
         #
-        # Create additional tables to track nested deps (recursively)
+        # mark tflags for obj
         #
-        # E.g.::
+        self.execute('UPDATE %s SET f_tflags = %s WHERE %s'
+                     % (obj.table, self.plch, ' AND '.join(conditions)),
+                     [uuid] + values)
         #
-        #   routes -> nh
+        # t_flags is used in foreign keys ON UPDATE CASCADE, so all
+        # related records will be marked, now just copy the marked data
         #
-        for table, keys in self.foreign_keys.items():
-            new_table = '%s_%s' % (table, objid)
-            #
-            # There may be multiple foreign keys
-            for key in keys:
-                #
-                # Work on matching tables
-                if key['parent'] == parent:
-                    try:
-                        self.execute('CREATE TABLE %s AS '
-                                     'SELECT * FROM %s WHERE '
-                                     '(%s) IN (SELECT %s FROM %s)' %
-                                     (new_table, table,
-                                      ','.join(key['cols']),
-                                      ','.join(key['pcls']),
-                                      snp_table))
-                    except sql_err[self.mode]['ProgrammingError']:
-                        self.execute('INSERT INTO %s '
-                                     'SELECT * FROM %s WHERE '
-                                     '(%s) IN (SELECT %s FROM %s)' %
-                                     (new_table, table,
-                                      ','.join(key['cols']),
-                                      ','.join(key['pcls']),
-                                      snp_table))
-                    self.snapshots[new_table] = wref
-                    self.save_deps_s2(table, new_table, objid, wref)
+        for table in self.spec:
+            self.execute('CREATE TABLE %s_%s AS SELECT * FROM %s '
+                         'WHERE f_tflags = %s'
+                         % (table, objid, obj.table, self.plch),
+                         [uuid])
+        #
+        # unmark all the data
+        #
+        self.execute('UPDATE %s SET f_tflags = 0 WHERE %s'
+                     % (obj.table, ' AND '.join(conditions)),
+                     values)
+        for table in self.spec:
+            self.execute('UPDATE %s_%s SET f_tflags = 0' % (table, objid))
+            self.snapshots['%s_%s' % (table, objid)] = wref
 
     def get(self, table, spec):
         #
