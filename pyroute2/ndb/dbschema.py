@@ -1,7 +1,6 @@
 import time
 import uuid
 import struct
-import sqlite3
 import threading
 import traceback
 from functools import partial
@@ -138,6 +137,27 @@ class DBSchema(object):
                       'routes',
                       'nh'):
             self.create_table(table)
+        #
+        # compile request lines
+        #
+        self.compiled = {}
+        tables = self.spec.keys()
+        for table in tables:
+            names = ('target', 'tflags') + tuple(self.spec[table].keys())
+            fnames = ['f_%s' % x for x in names]
+            fset = ['f_%s = %s' % (x, self.plch) for x in names]
+            plchs = [self.plch] * len(fnames)
+            idx = ('target', 'tflags') + self.indices[table]
+            knames = ['f_%s' % x for x in idx]
+            fidx = ['%s.%s = %s' % (table, x, self.plch) for x in knames]
+            self.compiled[table] = {'names': names,
+                                    'idx': idx,
+                                    'fnames': ','.join(fnames),
+                                    'plchs': ','.join(plchs),
+                                    'fset': ','.join(fset),
+                                    'knames': ','.join(knames),
+                                    'fidx': ' AND '.join(fidx)}
+
         #
         # specific SQL code
         #
@@ -555,58 +575,50 @@ class DBSchema(object):
             #
             # Create or set an object
             #
-            # table spec
-            spec = ('target', 'tflags') + tuple(self.spec[table].keys())
-            # index spec
-            ispec = ('target', 'tflags') + self.indices[table]
-            # reference table index spec
-            cspec = ('target', 'tflags') + self.indices[ctable or table]
             # field values
             values = [target, 0]
             # index values
             ivalues = [target, 0]
+            compiled = self.compiled[table]
 
             # fetch values (exc. the first two columns)
-            for field in spec[len(values):]:
+            for field in compiled['names'][len(values):]:
                 # NLA have priority
                 value = event.get_attr(field) or event.get(field)
-                if value is None and field in cspec:
+                if value is None and \
+                        field in self.compiled[ctable or table]['idx']:
                     value = self.key_defaults[table][field]
-                if field in ispec:
+                if field in compiled['idx']:
                     ivalues.append(value)
                 values.append(value)
 
-            # 1. generate field names list
-            fnames = ','.join(['f_%s' % x
-                               for x in spec])
-            # 2. generage placeholders list
-            plchls = ','.join([self.plch] * len(spec))
-            # 3. generate set equations list
-            setlst = ','.join(['f_%s = %s' % (x, self.plch)
-                               for x in spec])
-            # 4. generate index conditions
-            idxlst = ' AND '.join(['%s.f_%s = %s' % (table, x, self.plch)
-                                   for x in ispec])
-            # 5. generate index field names list
-            knames = ','.join(['f_%s' % x
-                               for x in ispec])
             try:
-                #
-                # run UPSERT -- the DB provider must support it
-                #
-                (self
-                 .execute('INSERT INTO %s (%s) VALUES (%s) '
-                          'ON CONFLICT (%s) '
-                          'DO UPDATE SET %s WHERE %s'
-                          % (table, fnames, plchls, knames, setlst, idxlst),
-                          (values + values + ivalues)))
-                #
-            except sqlite3.OperationalError:
-                #
-                # on SQLite3 < 3.24 fall back to INSERT OR REPLACE
-                #
-                self.execute('INSERT OR REPLACE INTO %s (%s) VALUES (%s)'
-                             % (table, fnames, plchls), values)
+                if self.mode == 'psycopg2':
+                    #
+                    # run UPSERT -- the DB provider must support it
+                    #
+                    (self
+                     .execute('INSERT INTO %s (%s) VALUES (%s) '
+                              'ON CONFLICT (%s) '
+                              'DO UPDATE SET %s WHERE %s'
+                              % (table,
+                                 compiled['fnames'],
+                                 compiled['plchs'],
+                                 compiled['knames'],
+                                 compiled['fset'],
+                                 compiled['fidx']),
+                              (values + values + ivalues)))
+                    #
+                elif self.mode == 'sqlite3':
+                    #
+                    # on SQLite3 >= 3.24 actually has UPSERT, but ...
+                    #
+                    self.execute('INSERT OR REPLACE INTO %s (%s) VALUES (%s)'
+                                 % (table,
+                                    compiled['fnames'],
+                                    compiled['plchs']), values)
+                else:
+                    raise NotImplementedError()
                 #
             except Exception:
                 #
