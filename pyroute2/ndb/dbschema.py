@@ -611,7 +611,7 @@ class DBSchema(object):
                     #
                 elif self.mode == 'sqlite3':
                     #
-                    # on SQLite3 >= 3.24 actually has UPSERT, but ...
+                    # SQLite3 >= 3.24 actually has UPSERT, but ...
                     #
                     self.execute('INSERT OR REPLACE INTO %s (%s) VALUES (%s)'
                                  % (table,
