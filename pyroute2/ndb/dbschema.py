@@ -17,6 +17,13 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
 
 
+def db_lock(method):
+    def f(self, *argv, **kwarg):
+        with self.db_lock:
+            return method(self, *argv, **kwarg)
+    return f
+
+
 class DBSchema(object):
 
     connection = None
@@ -111,6 +118,10 @@ class DBSchema(object):
         self.rtnl_log = rtnl_log
         self.snapshots = {}
         self.key_defaults = {}
+        self.db_lock = threading.RLock()
+        self._cursor = None
+        self._counter = 0
+        self.share_cursor()
         if self.mode == 'sqlite3':
             # SQLite3
             self.connection.execute('PRAGMA foreign_keys = ON')
@@ -156,20 +167,41 @@ class DBSchema(object):
                          EXECUTE PROCEDURE nh_f_tflags();
                          ''')
 
+    @db_lock
     def execute(self, *argv, **kwarg):
-        cursor = self.connection.cursor()
+        if self._cursor:
+            cursor = self._cursor
+        else:
+            cursor = self.connection.cursor()
+            self._counter = config.db_transaction_limit + 1
         try:
             cursor.execute(*argv, **kwarg)
         finally:
-            self.connection.commit()  # no performance optimisation yet
+            if self._counter > config.db_transaction_limit:
+                self.connection.commit()  # no performance optimisation yet
+                self._counter = 0
         return cursor
 
+    @db_lock
+    def share_cursor(self):
+        self._cursor = self.connection.cursor()
+        self._counter = 0
+
+    @db_lock
+    def unshare_cursor(self):
+        self._cursor = None
+        self._counter = 0
+        self.connection.commit()
+
+    @db_lock
     def close(self):
         return self.connection.close()
 
+    @db_lock
     def commit(self):
         return self.connection.commit()
 
+    @db_lock
     def create_table(self, table):
         req = ['f_target TEXT NOT NULL',
                'f_tflags BIGINT NOT NULL DEFAULT 0']
@@ -240,6 +272,7 @@ class DBSchema(object):
             self.execute('CREATE TABLE IF NOT EXISTS '
                          '%s_log (%s)' % (table, req))
 
+    @db_lock
     def save_deps(self, objid, wref):
         uuid = uuid32()
         obj = wref()
@@ -302,11 +335,13 @@ class DBSchema(object):
                          [tflags])
             self.snapshots['%s_%s' % (table, objid)] = wref
 
+    @db_lock
     def purge_snapshots(self):
         for table in tuple(self.snapshots):
             self.execute('DROP TABLE %s' % table)
             del self.snapshots[table]
 
+    @db_lock
     def get(self, table, spec):
         #
         # Retrieve info from the DB
@@ -327,6 +362,7 @@ class DBSchema(object):
             ret.append(dict(zip(self.spec[table].keys(), record)))
         return ret
 
+    @db_lock
     def rtmsg_gc_mark(self, target, event, gc_mark=None):
         #
         if gc_mark is None:
@@ -368,6 +404,7 @@ class DBSchema(object):
                           % (self.plch, self.plch, key_query),
                           (gc_mark, target) + route[:-1]))
 
+    @db_lock
     def load_ifinfmsg(self, target, event):
         #
         # link goes down: flush all related routes
@@ -386,6 +423,7 @@ class DBSchema(object):
         # continue with load_netlink()
         self.load_netlink('interfaces', target, event)
 
+    @db_lock
     def load_rtmsg(self, target, event):
         mp = event.get_attr('RTA_MULTIPATH')
 
@@ -453,6 +491,7 @@ class DBSchema(object):
         # ... or work on a regular route
         self.load_netlink("routes", target, event)
 
+    @db_lock
     def log_netlink(self, table, target, event, ctable=None):
         #
         # RTNL Logs
@@ -470,6 +509,7 @@ class DBSchema(object):
         self.execute('INSERT INTO %s_log (%s) VALUES (%s)'
                      % (table, fields, pch), values)
 
+    @db_lock
     def load_netlink(self, table, target, event, ctable=None):
         #
         # Simple barrier to work with the DB only from

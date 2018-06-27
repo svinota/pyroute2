@@ -64,6 +64,92 @@ Different DB providers. PostgreSQL access requires psycopg2 module::
     ndb = NDB(db_provider='psycopg2',
               db_spec={'dbname': 'test',
                        'host': 'db1.example.com'})
+
+Performance
+-----------
+
+\~100K routes, simple NDB start in a 2 CPU VM. Times are not absolute and
+can be used only as a reference to compare DB alternatives.
+
+SQLite3, in-memory DB, transaction size does not matter -- **ca 30 secs**::
+
+    Command being timed: "python e3.py"
+    User time (seconds): 29.39
+    System time (seconds): 2.77
+    Percent of CPU this job got: 105%
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 0:30.47
+    Average shared text size (kbytes): 0
+    Average unshared data size (kbytes): 0
+    Average stack size (kbytes): 0
+    Average total size (kbytes): 0
+    Maximum resident set size (kbytes): 86840
+    Average resident set size (kbytes): 0
+    Major (requiring I/O) page faults: 0
+    Minor (reclaiming a frame) page faults: 25083
+    Voluntary context switches: 649483
+    Involuntary context switches: 553
+    Swaps: 0
+    File system inputs: 0
+    File system outputs: 32
+    Socket messages sent: 0
+    Socket messages received: 0
+    Signals delivered: 0
+    Page size (bytes): 4096
+    Exit status: 0
+
+Local PostgreSQL via UNIX socket, transaction size 10K .. 50K --
+**ca 1 minute**::
+
+    Command being timed: "python e3.py"
+    User time (seconds): 30.09
+    System time (seconds): 3.70
+    Percent of CPU this job got: 54%
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 1:02.43
+    Average shared text size (kbytes): 0
+    Average unshared data size (kbytes): 0
+    Average stack size (kbytes): 0
+    Average total size (kbytes): 0
+    Maximum resident set size (kbytes): 65824
+    Average resident set size (kbytes): 0
+    Major (requiring I/O) page faults: 0
+    Minor (reclaiming a frame) page faults: 18999
+    Voluntary context switches: 496725
+    Involuntary context switches: 26281
+    Swaps: 0
+    File system inputs: 0
+    File system outputs: 8
+    Socket messages sent: 0
+    Socket messages received: 0
+    Signals delivered: 0
+    Page size (bytes): 4096
+    Exit status: 0
+
+Local PostgreSQL via UNIX socket, w/o transactions -- **ca 8 minutes**::
+
+    Command being timed: "python e3.py"
+    User time (seconds): 100.40
+    System time (seconds): 19.16
+    Percent of CPU this job got: 24%
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 8:03.51
+    Average shared text size (kbytes): 0
+    Average unshared data size (kbytes): 0
+    Average stack size (kbytes): 0
+    Average total size (kbytes): 0
+    Maximum resident set size (kbytes): 234680
+    Average resident set size (kbytes): 0
+    Major (requiring I/O) page faults: 0
+    Minor (reclaiming a frame) page faults: 62016
+    Voluntary context switches: 716556
+    Involuntary context switches: 14259
+    Swaps: 0
+    File system inputs: 0
+    File system outputs: 64
+    Socket messages sent: 0
+    Socket messages received: 0
+    Signals delivered: 0
+    Page size (bytes): 4096
+    Exit status: 0
+
 '''
 import json
 import time
@@ -262,13 +348,13 @@ class NDB(object):
         self._db_rtnl_log = rtnl_log
         self._src_threads = []
         atexit.register(self.close)
+        self._rtnl_objects = set()
         self._dbm_ready.clear()
         self._dbm_thread = threading.Thread(target=self.__dbm__,
                                             name='NDB main loop')
         self._dbm_thread.setDaemon(True)
         self._dbm_thread.start()
         self._dbm_ready.wait()
-        self._rtnl_objects = set()
         self.interfaces = View(self, Interface)
         self.addresses = View(self, Address)
         self.routes = View(self, Route)
