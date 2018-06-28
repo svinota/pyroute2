@@ -428,7 +428,8 @@ class IPLinkRequest(IPRequest):
     into RTNL link request.
     '''
     blacklist = ['carrier',
-                 'carrier_changes']
+                 'carrier_changes',
+                 'info_slave_kind']
 
     # get common ifinfmsg NLAs
     common = []
@@ -545,7 +546,7 @@ class IPLinkRequest(IPRequest):
         except NameError:
             pass
 
-        if key == 'kind' and not self.kind:
+        if key in ('kind', 'info_kind') and not self.kind:
             self.kind = value
             self.flush_deferred()
         elif self.kind is None:
