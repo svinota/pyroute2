@@ -51,8 +51,7 @@ class DBSchema(object):
     # that's for the load_netlink() to work correctly -- it uses
     # one loop to fetch both index and row values
     #
-    indices = {'interfaces': ('index',
-                              'IFLA_IFNAME'),
+    indices = {'interfaces': ('index', ),
                'addresses': ('index',
                              'IFA_ADDRESS',
                              'IFA_LOCAL'),
