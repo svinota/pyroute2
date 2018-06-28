@@ -259,7 +259,7 @@ class View(dict):
 
     def dump(self, match=None):
         cls = self.ndb.schema.classes[self.iclass.table]
-        keys = self.ndb.schema.spec[self.iclass.table].keys()
+        keys = self.ndb.schema.compiled[self.iclass.table]['names']
         values = []
 
         if isinstance(match, dict):

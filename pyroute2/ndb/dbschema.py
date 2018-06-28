@@ -35,11 +35,11 @@ class DBSchema(object):
             'addresses': OrderedDict(ifaddrmsg.sql_schema()),
             'neighbours': OrderedDict(ndmsg.sql_schema()),
             'routes': OrderedDict(rtmsg.sql_schema() +
-                                  [('route_id', 'TEXT UNIQUE'),
-                                   ('gc_mark', 'INTEGER')]),
+                                  [(('route_id', ), 'TEXT UNIQUE'),
+                                   (('gc_mark', ), 'INTEGER')]),
             'nh': OrderedDict(nh.sql_schema() +
-                              [('route_id', 'TEXT'),
-                               ('nh_id', 'INTEGER')])}
+                              [(('route_id', ), 'TEXT'),
+                               (('nh_id', ), 'INTEGER')])}
 
     classes = {'interfaces': ifinfmsg,
                'addresses': ifaddrmsg,
@@ -130,26 +130,22 @@ class DBSchema(object):
         else:
             raise NotImplementedError('database provider not supported')
         self.gctime = self.ctime = time.time()
-        for table in ('interfaces',
-                      'addresses',
-                      'neighbours',
-                      'routes',
-                      'nh'):
-            self.create_table(table)
         #
         # compile request lines
         #
         self.compiled = {}
         tables = self.spec.keys()
         for table in tables:
-            names = ('target', 'tflags') + tuple(self.spec[table].keys())
-            fnames = ['f_%s' % x for x in names]
-            fset = ['f_%s = %s' % (x, self.plch) for x in names]
+            names = tuple([x[-1] for x in self.spec[table].keys()])
+            anames = ('target', 'tflags') + names
+            fnames = ['f_%s' % x for x in anames]
+            fset = ['f_%s = %s' % (x, self.plch) for x in anames]
             plchs = [self.plch] * len(fnames)
             idx = ('target', 'tflags') + self.indices[table]
             knames = ['f_%s' % x for x in idx]
             fidx = ['%s.%s = %s' % (table, x, self.plch) for x in knames]
             self.compiled[table] = {'names': names,
+                                    'anames': anames,
                                     'idx': idx,
                                     'fnames': ','.join(fnames),
                                     'plchs': ','.join(plchs),
@@ -157,6 +153,12 @@ class DBSchema(object):
                                     'knames': ','.join(knames),
                                     'fidx': ' AND '.join(fidx)}
 
+        for table in ('interfaces',
+                      'addresses',
+                      'neighbours',
+                      'routes',
+                      'nh'):
+            self.create_table(table)
         #
         # specific SQL code
         #
@@ -237,6 +239,7 @@ class DBSchema(object):
             # 'Cause there are attributes like 'index' and such
             # names may not be used in SQL statements
             #
+            field = (field[0][-1], field[1])
             fields.append('f_%s %s' % field)
             req.append('f_%s %s' % field)
             if field[1].strip().startswith('TEXT'):
@@ -397,7 +400,7 @@ class DBSchema(object):
             values.append(value)
         req = 'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(conditions))
         for record in self.execute(req, values).fetchall():
-            ret.append(dict(zip(self.spec[table].keys(), record)))
+            ret.append(dict(zip(self.compiled[table]['anames'], record)))
         return ret
 
     @db_lock
@@ -534,7 +537,7 @@ class DBSchema(object):
         #
         # RTNL Logs
         #
-        fkeys = tuple(self.spec[table].keys())
+        fkeys = self.compiled[table]['names']
         fields = ','.join(['f_tstamp', 'f_target'] +
                           ['f_%s' % x for x in fkeys])
         pch = ','.join([self.plch] * (len(fkeys) + 2))
@@ -598,15 +601,36 @@ class DBSchema(object):
             # index values
             ivalues = [target, 0]
             compiled = self.compiled[table]
+            # a map of sub-NLAs
+            nodes = {}
 
             # fetch values (exc. the first two columns)
-            for field in compiled['names'][len(values):]:
+            for fname, ftype in self.spec[table].items():
+                node = event
+
+                # if the field is located in a sub-NLA
+                if len(fname) > 1:
+                    # see if we tried to get it already
+                    if fname[:-1] not in nodes:
+                        # descend
+                        for steg in fname[:-1]:
+                            node = node.get_attr(steg)
+                            if node is None:
+                                break
+                        nodes[fname[:-1]] = node
+                    # lookup the sub-NLA in the map
+                    node = nodes[fname[:-1]]
+                    # the event has no such sub-NLA
+                    if node is None:
+                        values.append(None)
+                        continue
+
                 # NLA have priority
-                value = event.get_attr(field) or event.get(field)
+                value = node.get_attr(fname[-1]) or node.get(fname[-1])
                 if value is None and \
-                        field in self.compiled[ctable or table]['idx']:
-                    value = self.key_defaults[table][field]
-                if field in compiled['idx']:
+                        fname[-1] in self.compiled[ctable or table]['idx']:
+                    value = self.key_defaults[table][fname[-1]]
+                if fname[-1] in compiled['idx']:
                     ivalues.append(value)
                 values.append(value)
 

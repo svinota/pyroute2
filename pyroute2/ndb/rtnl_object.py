@@ -22,8 +22,7 @@ class RTNL_Object(dict):
         self.iclass = iclass
         self.etable = self.table
         self.kspec = ('target', ) + schema.indices[self.table]
-        self.spec = ('target', 'tflags') + \
-            tuple(schema.spec[self.table].keys())
+        self.spec = schema.compiled[self.table]['anames']
         self.names = tuple((iclass.nla2name(x) for x in self.spec))
         self.key = self.complete_key(key)
         self.load_sql()
