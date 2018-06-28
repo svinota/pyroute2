@@ -181,6 +181,9 @@ class DBSchema(object):
                                  RETURN NEW;
                              END;
                          $nh_f_tflags$ LANGUAGE plpgsql;
+
+                         DROP TRIGGER IF EXISTS nh_f_tflags ON nh;
+
                          CREATE TRIGGER nh_f_tflags
                          BEFORE UPDATE OF f_tflags ON nh FOR EACH ROW
                          EXECUTE PROCEDURE nh_f_tflags();
