@@ -333,8 +333,22 @@ class DBSchema(object):
         # related records will be marked, now just copy the marked data
         #
         for table in self.spec:
+            #
+            # create the snapshot table
+            #
             self.execute('''
-                         CREATE TABLE %s_%s AS SELECT * FROM %s
+                         CREATE TABLE IF NOT EXISTS %s_%s
+                         AS SELECT * FROM %s
+                         WHERE
+                             f_tflags IS NULL
+                         '''
+                         % (table, objid, table))
+            #
+            # copy the data -- is it possible to do it in one step?
+            #
+            self.execute('''
+                         INSERT INTO %s_%s
+                         SELECT * FROM %s
                          WHERE
                              f_tflags = %s
                          '''
