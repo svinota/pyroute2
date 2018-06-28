@@ -593,6 +593,7 @@ class nlmsg_base(dict):
     nla_map = {}                 # NLA mapping
     sql_constraints = {}
     sql_extra_fields = tuple()
+    sql_extend = tuple()
     nla_flags = 0        # NLA flags
     value_map = {}
     is_nla = False
@@ -669,7 +670,7 @@ class nlmsg_base(dict):
         ret = []
         for field in cls.fields:
             if field[0][0] != '_':
-                ret.append((field[0],
+                ret.append(((field[0], ),
                             ' '.join(('INTEGER',
                                       cls.sql_constraints.get(field[0], '')))))
         for nla in cls.nla_map:
@@ -684,10 +685,17 @@ class nlmsg_base(dict):
             if sql_type:
                 sql_type = ' '.join((sql_type,
                                      cls.sql_constraints.get(nla_name, '')))
-                ret.append((nla_name, sql_type))
+                ret.append(((nla_name, ), sql_type))
 
-        for field in cls.sql_extra_fields:
-            ret.append(field)
+        for (fname, ftype) in cls.sql_extra_fields:
+            if isinstance(fname, basestring):
+                fname = (fname, )
+            ret.append((fname, ftype))
+
+        for (dcls, prefix) in cls.sql_extend:
+            for fname, ftype in dcls.sql_schema():
+                ret.append(((prefix, ) + fname, ftype))
+
         return ret
 
     @property

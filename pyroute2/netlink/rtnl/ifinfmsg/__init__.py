@@ -472,6 +472,7 @@ class ifinfbase(object):
         return proto_map.get(self['family'], self.hex)
 
     class ifinfo(nla):
+        prefix = 'IFLA_INFO_'
         nla_map = (('IFLA_INFO_UNSPEC', 'none'),
                    ('IFLA_INFO_KIND', 'asciiz'),
                    ('IFLA_INFO_DATA', 'info_data'),
@@ -640,6 +641,8 @@ class ifinfbase(object):
                     'bridge': bridge_data}
         # expand supported interface types
         data_map.update(data_plugins)
+
+    sql_extend = ((ifinfo, 'IFLA_LINKINFO'), )
 
     @staticmethod
     def af_spec(self, *argv, **kwarg):
