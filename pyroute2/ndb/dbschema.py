@@ -217,7 +217,9 @@ class DBSchema(object):
 
     @db_lock
     def close(self):
-        return self.connection.close()
+        self.purge_snapshots()
+        self.connection.commit()
+        self.connection.close()
 
     @db_lock
     def commit(self):
