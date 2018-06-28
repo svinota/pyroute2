@@ -6,6 +6,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 class Interface(RTNL_Object):
 
     table = 'interfaces'
+    api = 'link'
     summary = '''
               SELECT
                   f_target, f_index, f_IFLA_IFNAME,
@@ -15,9 +16,9 @@ class Interface(RTNL_Object):
               '''
     summary_header = ('target', 'index', 'ifname', 'lladdr', 'flags')
 
-    def __init__(self, schema, key):
+    def __init__(self, schema, nl, key, ctxid=None):
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
-        super(Interface, self).__init__(schema, key, ifinfmsg)
+        super(Interface, self).__init__(schema, nl, key, ifinfmsg, ctxid)
 
     def complete_key(self, key):
         if isinstance(key, dict):
@@ -51,3 +52,11 @@ class Interface(RTNL_Object):
                 ret_key[name[2:]] = value
 
         return ret_key
+
+    def load_sql(self, *argv, **kwarg):
+        super(Interface, self).load_sql(*argv, **kwarg)
+        self.load_value('state', 'up' if self['flags'] & 1 else 'down')
+
+    def load_rtnl(self, *argv, **kwarg):
+        super(Interface, self).load_rtnl(*argv, **kwarg)
+        self.load_value('state', 'up' if self['flags'] & 1 else 'down')

@@ -10,6 +10,7 @@ _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
 class Route(RTNL_Object):
 
     table = 'routes'
+    api = 'route'
     summary = '''
               SELECT
                   rt.f_target, rt.f_RTA_TABLE, rt.f_RTA_DST,
@@ -33,9 +34,9 @@ class Route(RTNL_Object):
                    [rtmsg.nla2name(x[5:]) for x in _dump_rt] +
                    ['nh_%s' % nh.nla2name(x[5:]) for x in _dump_nh])
 
-    def __init__(self, schema, key):
+    def __init__(self, schema, nl, key, ctxid=None):
         self.event_map = {rtmsg: "load_rtnlmsg"}
-        super(Route, self).__init__(schema, key, rtmsg)
+        super(Route, self).__init__(schema, nl, key, rtmsg, ctxid)
 
     def complete_key(self, key):
         if isinstance(key, dict):

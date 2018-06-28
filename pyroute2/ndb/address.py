@@ -6,6 +6,7 @@ from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 class Address(RTNL_Object):
 
     table = 'addresses'
+    api = 'addr'
     summary = '''
               SELECT
                   a.f_target, i.f_IFLA_IFNAME, a.f_IFA_ADDRESS, a.f_prefixlen
@@ -19,9 +20,9 @@ class Address(RTNL_Object):
               '''
     summary_header = ('target', 'ifname', 'address', 'mask')
 
-    def __init__(self, schema, key):
+    def __init__(self, schema, nl, key, ctxid=None):
         self.event_map = {ifaddrmsg: "load_rtnlmsg"}
-        super(Address, self).__init__(schema, key, ifaddrmsg)
+        super(Address, self).__init__(schema, nl, key, ifaddrmsg, ctxid)
 
     def complete_key(self, key):
         if isinstance(key, dict):

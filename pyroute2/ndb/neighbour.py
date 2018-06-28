@@ -6,6 +6,7 @@ from pyroute2.netlink.rtnl.ndmsg import ndmsg
 class Neighbour(RTNL_Object):
 
     table = 'neighbours'
+    api = 'neigh'
     summary = '''
               SELECT
                   n.f_target, i.f_IFLA_IFNAME, n.f_NDA_LLADDR, n.f_NDA_DST
@@ -18,9 +19,9 @@ class Neighbour(RTNL_Object):
               '''
     summary_header = ('target', 'ifname', 'lladdr', 'neighbour')
 
-    def __init__(self, schema, key):
+    def __init__(self, schema, nl, key, ctxid=None):
         self.event_map = {ndmsg: "load_rtnlmsg"}
-        super(Neighbour, self).__init__(schema, key, ndmsg)
+        super(Neighbour, self).__init__(schema, nl, key, ndmsg, ctxid)
 
     def complete_key(self, key):
         if isinstance(key, dict):

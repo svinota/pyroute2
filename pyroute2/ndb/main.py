@@ -227,7 +227,7 @@ class View(dict):
                     raise InvalidateHandlerException()
                 raise
 
-        ret = self.iclass(self.ndb.schema, key)
+        ret = self.iclass(self.ndb.schema, self.ndb.nl, key)
         wr = weakref.ref(ret)
         self.ndb._rtnl_objects.add(wr)
         for event, fname in ret.event_map.items():
