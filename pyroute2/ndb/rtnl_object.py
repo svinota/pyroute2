@@ -3,10 +3,13 @@ import weakref
 
 class RTNL_Object(dict):
 
-    table = None
+    table = None   # model table -- always one of the main tables
+    etable = None  # effective table -- may be a snapshot
+
     schema = None
     event_map = None
     scope = None
+    set_scope = None
     summary = None
     summary_header = None
     dump = None
@@ -39,6 +42,7 @@ class RTNL_Object(dict):
         snp = type(self)(self.schema, self.nl, self.key, ctxid)
         self.schema.save_deps(snp.ctxid, weakref.ref(snp))
         snp.etable = '%s_%s' % (snp.table, snp.ctxid)
+        snp.changed = set(self.changed)
         return snp
 
     def complete_key(self, key):
@@ -66,9 +70,13 @@ class RTNL_Object(dict):
 
         return key
 
+    def rollback(self, snapshot=None):
+        snapshot = snapshot or self.last_save
+        snapshot.apply(scope=self.scope, rollback=True)
+
     def commit(self):
         # Save the context
-        snapshot = self.snapshot()
+        self.last_save = self.snapshot()
 
         # The snapshot tables in the DB will be dropped as soon as the GC
         # collects the object. But in the case of an exception the `snp`
@@ -84,19 +92,21 @@ class RTNL_Object(dict):
         except Exception as e_c:
             # Rollback in the case of any error
             try:
-                self.load_sql()
-                snapshot.apply(scope=self.scope)
+                self.rollback()
             except Exception as e_r:
                 e_c.chain = [e_r]
                 if hasattr(e_r, 'chain'):
                     e_c.chain.extend(e_r.chain)
                 e_r.chain = None
             raise
+        self.changed = set()
+        self.set_scope = None
+        return self
 
     def remove(self):
-        self.scope = 'remove'
+        self.set_scope = 'remove'
 
-    def apply(self, scope=None):
+    def apply(self, scope=None, rollback=False):
 
         # Get the API entry point. The RTNL source must comply to the
         # IPRoute API.
@@ -111,9 +121,8 @@ class RTNL_Object(dict):
         api = getattr(self.nl[self['target']], self.api)
 
         # Load the current state
-        if self.scope != 'remove':
-            self.load_sql()
-        scope = scope or self.scope
+        self.load_sql()
+        scope = scope or self.set_scope or self.scope
 
         # Create the request.
         idx_req = dict([(x, self[self.iclass.nla2name(x)]) for x in
@@ -123,11 +132,20 @@ class RTNL_Object(dict):
             req[key] = self[key]
         #
         if scope == 'invalid':
-            api('add', **self)
+            api('add', **dict([x for x in self.items() if x[1] is not None]))
         elif scope == 'system':
             api('set', **req)
         elif scope == 'remove':
             api('del', **idx_req)
+
+        #
+        if rollback:
+            #
+            # Iterate all the snapshot tables and collect the diff
+            for table in self.schema.spec:
+                if table == self.table:
+                    continue
+                pass
 
     def update(self, data):
         for key, value in data.items():
@@ -170,9 +188,8 @@ class RTNL_Object(dict):
                     return
             elif value != (event.get_attr(name) or event.get(name)):
                 return
-        #
-        # load the event
-        for name in self.spec:
-            value = event.get_attr(name) or event.get(name)
-            if value is not None:
-                self.load_value(self.iclass.nla2name(name), value)
+
+        if event['header'].get('type', 0) % 2:
+            self.scope = 'invalid'
+        else:
+            self.load_sql()
