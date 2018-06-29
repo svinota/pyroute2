@@ -31,15 +31,16 @@ class DBSchema(object):
     key_defaults = None
     snapshots = None  # <table_name>: <obj_weakref>
 
-    spec = {'interfaces': OrderedDict(ifinfmsg.sql_schema()),
-            'addresses': OrderedDict(ifaddrmsg.sql_schema()),
-            'neighbours': OrderedDict(ndmsg.sql_schema()),
-            'routes': OrderedDict(rtmsg.sql_schema() +
-                                  [(('route_id', ), 'TEXT UNIQUE'),
-                                   (('gc_mark', ), 'INTEGER')]),
-            'nh': OrderedDict(nh.sql_schema() +
-                              [(('route_id', ), 'TEXT'),
-                               (('nh_id', ), 'INTEGER')])}
+    spec = OrderedDict()
+    spec['interfaces'] = OrderedDict(ifinfmsg.sql_schema())
+    spec['addresses'] = OrderedDict(ifaddrmsg.sql_schema())
+    spec['neighbours'] = OrderedDict(ndmsg.sql_schema())
+    spec['routes'] = OrderedDict(rtmsg.sql_schema() +
+                                 [(('route_id', ), 'TEXT UNIQUE'),
+                                  (('gc_mark', ), 'INTEGER')])
+    spec['nh'] = OrderedDict(nh.sql_schema() +
+                             [(('route_id', ), 'TEXT'),
+                              (('nh_id', ), 'INTEGER')])
 
     classes = {'interfaces': ifinfmsg,
                'addresses': ifaddrmsg,
@@ -51,7 +52,7 @@ class DBSchema(object):
     # that's for the load_netlink() to work correctly -- it uses
     # one loop to fetch both index and row values
     #
-    indices = {'interfaces': ('index', ),
+    indices = {'interfaces': ('family', 'index', ),
                'addresses': ('index',
                              'IFA_ADDRESS',
                              'IFA_LOCAL'),
@@ -144,9 +145,9 @@ class DBSchema(object):
             idx = ('target', 'tflags') + self.indices[table]
             knames = ['f_%s' % x for x in idx]
             fidx = ['%s.%s = %s' % (table, x, self.plch) for x in knames]
-            self.compiled[table] = {'names': names,
-                                    'anames': anames,
-                                    'idx': idx,
+            self.compiled[table] = {'names': names,    # schema field names
+                                    'all_names': anames,  # + ndb-specific
+                                    'idx': idx,        # index field names
                                     'fnames': ','.join(fnames),
                                     'plchs': ','.join(plchs),
                                     'fset': ','.join(fset),
@@ -400,7 +401,7 @@ class DBSchema(object):
             values.append(value)
         req = 'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(conditions))
         for record in self.execute(req, values).fetchall():
-            ret.append(dict(zip(self.compiled[table]['anames'], record)))
+            ret.append(dict(zip(self.compiled[table]['all_names'], record)))
         return ret
 
     @db_lock

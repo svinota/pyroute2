@@ -34,9 +34,9 @@ class Route(RTNL_Object):
                    [rtmsg.nla2name(x[5:]) for x in _dump_rt] +
                    ['nh_%s' % nh.nla2name(x[5:]) for x in _dump_nh])
 
-    def __init__(self, schema, nl, key, ctxid=None):
+    def __init__(self, view, key, ctxid=None):
         self.event_map = {rtmsg: "load_rtnlmsg"}
-        super(Route, self).__init__(schema, nl, key, rtmsg, ctxid)
+        super(Route, self).__init__(view, key, rtmsg, ctxid)
 
     def complete_key(self, key):
         if isinstance(key, dict):

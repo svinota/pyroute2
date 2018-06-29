@@ -1,3 +1,4 @@
+import time
 import weakref
 
 
@@ -16,16 +17,19 @@ class RTNL_Object(dict):
     dump_header = None
     dump_pre = []
     dump_post = []
+    errors = None
 
-    def __init__(self, schema, nl, key, iclass, ctxid=None):
-        self.nl = nl
+    def __init__(self, view, key, iclass, ctxid=None):
+        self.view = view
+        self.nl = view.ndb.nl
         self.ctxid = ctxid or id(self)
-        self.schema = schema
+        self.schema = view.ndb.schema
         self.changed = set()
         self.iclass = iclass
         self.etable = self.table
-        self.kspec = ('target', ) + schema.indices[self.table]
-        self.spec = schema.compiled[self.table]['anames']
+        self.errors = []
+        self.kspec = ('target', ) + self.schema.indices[self.table]
+        self.spec = self.schema.compiled[self.table]['all_names']
         self.names = tuple((iclass.nla2name(x) for x in self.spec))
         self.key = self.complete_key(key)
         self.load_sql()
@@ -39,7 +43,7 @@ class RTNL_Object(dict):
             dict.__setitem__(self, key, value)
 
     def snapshot(self, ctxid=None):
-        snp = type(self)(self.schema, self.nl, self.key, ctxid)
+        snp = type(self)(self.view, self.key, ctxid)
         self.schema.save_deps(snp.ctxid, weakref.ref(snp))
         snp.etable = '%s_%s' % (snp.table, snp.ctxid)
         snp.changed = set(self.changed)
@@ -145,7 +149,31 @@ class RTNL_Object(dict):
             for table in self.schema.spec:
                 if table == self.table:
                     continue
-                pass
+                # comprare the tables
+                diff = (self
+                        .schema
+                        .execute('''
+                                 SELECT * FROM %s_%s
+                                     EXCEPT
+                                 SELECT * FROM %s
+                                 '''
+                                 % (table, self.ctxid, table))
+                        .fetchall())
+                for record in diff:
+                    record = dict(zip((self
+                                       .schema
+                                       .compiled[table]['all_names']),
+                                      record))
+                    key = dict([x for x in record.items()
+                                if x[0] in self.schema.compiled[table]['idx']])
+                    obj = self.view.get(key, table)
+                    obj.etable = '%s_%s' % (table, self.ctxid)
+                    obj.load_sql()
+                    obj.set_scope = 'invalid'
+                    try:
+                        obj.apply()
+                    except Exception as e:
+                        self.errors.append((time.time(), obj, e))
 
     def update(self, data):
         for key, value in data.items():

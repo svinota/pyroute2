@@ -16,9 +16,9 @@ class Interface(RTNL_Object):
               '''
     summary_header = ('target', 'index', 'ifname', 'lladdr', 'flags')
 
-    def __init__(self, schema, nl, key, ctxid=None):
+    def __init__(self, view, key, ctxid=None):
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
-        super(Interface, self).__init__(schema, nl, key, ifinfmsg, ctxid)
+        super(Interface, self).__init__(view, key, ifinfmsg, ctxid)
 
     def complete_key(self, key):
         if isinstance(key, dict):
