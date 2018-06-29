@@ -219,10 +219,22 @@ class Client(object):
                 self.closed = True
                 self._cleanup_atexit()
                 self.trnsp_out.send({'stage': 'shutdown'})
-                if hasattr(self.trnsp_out, 'close'):
-                    self.trnsp_out.close()
-                if hasattr(self.trnsp_in, 'close'):
-                    self.trnsp_in.close()
+                # send loopback nlmsg to terminate possible .get()
+                data = struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0)
+                self.remote_trnsp_out.send({'stage': 'broadcast',
+                                            'data': data,
+                                            'error': None})
+                with self.trnsp_in.lock:
+                    pass
+                for trnsp in (self.trnsp_out,
+                              self.trnsp_in,
+                              self.remote_trnsp_in,
+                              self.remote_trnsp_out):
+                    try:
+                        if hasattr(trnsp, 'close'):
+                            trnsp.close()
+                    except Exception:
+                        pass
 
     def proxy(self, cmd, *argv, **kwarg):
         with self.cmdlock:

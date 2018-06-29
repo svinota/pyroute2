@@ -135,8 +135,10 @@ class NetNS(RTNL_API, RemoteSocket):
     def __init__(self, netns, flags=os.O_CREAT):
         self.netns = netns
         self.flags = flags
-        self.trnsp_in, remote_trnsp_out = [Transport(FD(x)) for x in os.pipe()]
-        remote_trnsp_in, self.trnsp_out = [Transport(FD(x)) for x in os.pipe()]
+        self.trnsp_in, self.remote_trnsp_out = [Transport(FD(x))
+                                                for x in os.pipe()]
+        self.remote_trnsp_in, self.trnsp_out = [Transport(FD(x))
+                                                for x in os.pipe()]
 
         self.child = os.fork()
         if self.child == 0:
@@ -146,23 +148,24 @@ class NetNS(RTNL_API, RemoteSocket):
             try:
                 setns(self.netns, self.flags)
             except OSError as e:
-                remote_trnsp_out.send({'stage': 'init',
-                                       'error': e})
+                (self
+                 .remote_trnsp_out
+                 .send({'stage': 'init', 'error': e}))
                 os._exit(e.errno)
             except Exception as e:
-                remote_trnsp_out.send({'stage': 'init',
-                                       'error': OSError(errno.ECOMM,
-                                                        str(e),
-                                                        self.netns)})
+                (self.
+                 remote_trnsp_out
+                 .send({'stage': 'init',
+                        'error': OSError(errno.ECOMM,
+                                         str(e),
+                                         self.netns)}))
                 os._exit(255)
 
             try:
-                Server(remote_trnsp_in, remote_trnsp_out)
+                Server(self.remote_trnsp_in, self.remote_trnsp_out)
             finally:
                 os._exit(0)
 
-        remote_trnsp_in.close()
-        remote_trnsp_out.close()
         try:
             super(NetNS, self).__init__()
         except Exception:
@@ -195,14 +198,20 @@ class NetNS(RTNL_API, RemoteSocket):
                 pass
             log.error('forced shutdown procedure, clean up netns manually')
         # force cleanup command channels
-        for close in (self.trnsp_in.close, self.trnsp_out.close):
+        for close in (self.trnsp_in.close,
+                      self.trnsp_out.close,
+                      self.remote_trnsp_in.close,
+                      self.remote_trnsp_out.close):
             try:
                 close()
             except Exception:
                 pass  # Maybe already closed in remote.Client.close
 
-        os.kill(self.child, signal.SIGKILL)
-        os.waitpid(self.child, 0)
+        try:
+            os.kill(self.child, signal.SIGKILL)
+            os.waitpid(self.child, 0)
+        except OSError:
+            pass
 
     def post_init(self):
         pass
