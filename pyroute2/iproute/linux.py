@@ -1043,12 +1043,6 @@ class RTNL_API(object):
         Get specific interface info::
 
             ip.link("get", index=ip.link_lookup(ifname="br0")[0])
-
-        **vlan-add**
-        **vlan-del**
-
-        These command names are confusing and thus are deprecated.
-        Use `IPRoute.vlan_filter()`.
         '''
         if (command == 'dump') and ('match' not in kwarg):
             match = kwarg
