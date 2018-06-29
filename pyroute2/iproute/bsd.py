@@ -116,13 +116,14 @@ class IPRoute(object):
                 os.write(self._ctlw, b'\0')
                 self._mon_th.join()
                 self._rtm.close()
-                self._outq.put(struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0))
-                os.write(self._pfdw, b'\0')
-                for ep in (self._pfdr, self._pfdw, self._ctlr, self._ctlw):
-                    try:
-                        os.close(ep)
-                    except OSError:
-                        pass
+
+            self._outq.put(struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0))
+            os.write(self._pfdw, b'\0')
+            for ep in (self._pfdr, self._pfdw, self._ctlr, self._ctlw):
+                try:
+                    os.close(ep)
+                except OSError:
+                    pass
 
     def bind(self, *argv, **kwarg):
         with self._system_lock:
