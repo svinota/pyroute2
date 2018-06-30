@@ -238,6 +238,10 @@ class DBSchema(object):
         return self.execute(*argv, **kwarg).fetchall()
 
     @db_lock
+    def fetchone(self, *argv, **kwarg):
+        return self.execute(*argv, **kwarg).fetchone()
+
+    @db_lock
     def share_cursor(self):
         self._cursor = self.connection.cursor()
         self._counter = 0
@@ -343,13 +347,13 @@ class DBSchema(object):
         #
         # save the old f_tflags value
         #
-        tflags = self.execute('''
-                              SELECT f_tflags FROM %s
-                              WHERE %s
-                              '''
-                              % (obj.table,
-                                 ' AND '.join(conditions)),
-                              values).fetchone()[0]
+        tflags = self.fetchone('''
+                               SELECT f_tflags FROM %s
+                               WHERE %s
+                               '''
+                               % (obj.table,
+                                  ' AND '.join(conditions)),
+                               values)[0]
         #
         # mark tflags for obj
         #

@@ -220,9 +220,8 @@ class RTNL_Object(dict):
             values.append(value)
         spec = (self
                 .schema
-                .execute('SELECT * FROM %s WHERE %s' %
-                         (table, ' AND '.join(keys)), values)
-                .fetchone())
+                .fetchone('SELECT * FROM %s WHERE %s' %
+                          (table, ' AND '.join(keys)), values))
         if set_scope:
             if spec is None:
                 # No such object (anymore)
