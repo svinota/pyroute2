@@ -671,7 +671,7 @@ class nlmsg_base(dict):
         for field in cls.fields:
             if field[0][0] != '_':
                 ret.append(((field[0], ),
-                            ' '.join(('INTEGER',
+                            ' '.join(('BIGINT',
                                       cls.sql_constraints.get(field[0], '')))))
         for nla in cls.nla_map:
             if isinstance(nla[0], basestring):
