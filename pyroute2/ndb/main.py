@@ -288,15 +288,21 @@ class View(dict):
         if iclass.dump and iclass.dump_header:
             yield iclass.dump_header
             for stmt in iclass.dump_pre:
-                self.ndb.execute(stmt)
-            for record in self.ndb.execute(iclass.dump + spec, values):
+                self.ndb.schema.execute(stmt)
+            for record in (self
+                           .ndb
+                           .schema
+                           .execute(iclass.dump + spec, values)):
                 yield record
             for stmt in iclass.dump_post:
-                self.ndb.execute(stmt)
+                self.ndb.schema.execute(stmt)
         else:
             yield ('target', 'tflags') + tuple([cls.nla2name(x) for x in keys])
-            for record in self.ndb.execute('SELECT * FROM %s AS rs %s' %
-                                           (iclass.table, spec), values):
+            for record in (self
+                           .ndb
+                           .schema
+                           .execute('SELECT * FROM %s AS rs %s' %
+                                    (iclass.table, spec), values)):
                 yield record
 
     def csv(self, match=None, dump=None):
@@ -320,6 +326,7 @@ class View(dict):
                 yield iclass.summary_header
             for record in (self
                            .ndb
+                           .schema
                            .fetchall(iclass.summary)):
                 yield record
         else:
@@ -330,6 +337,7 @@ class View(dict):
             key_fields = ','.join(header)
             for record in (self
                            .ndb
+                           .schema
                            .fetchall('SELECT %s FROM %s'
                                      % (key_fields, iclass.table))):
                 yield record
