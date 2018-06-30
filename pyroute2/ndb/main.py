@@ -406,17 +406,17 @@ class NDB(object):
                 self._src_threads = []
             #
             # start event sockets
+            self.nl = {}
+            self.mnl = {}
             if self._nl is None:
                 ipr = IPRoute()
                 self.nl = {'localhost': ipr}
-            elif isinstance(self._nl, dict):
-                self.nl = dict([(x[0], x[1].clone()) for x
-                                in self._nl.items()])
             else:
-                self.nl = {'localhost': self._nl.clone()}
+                self.nl = dict(self._nl)
             for target in self.nl:
-                self.nl[target].get_timeout = 300
-                self.nl[target].bind(async_cache=True)
+                self.mnl[target] = self.nl[target].clone()
+                # self.mnl[target].get_timeout = 300
+                self.mnl[target].bind(async_cache=True)
             #
             # close the current db
             if self.schema:
@@ -447,7 +447,7 @@ class NDB(object):
                 evq.put((target, channel.get_routes()))
             #
             # start source threads
-            for (target, channel) in tuple(self.nl.items()):
+            for (target, channel) in tuple(self.mnl.items()):
 
                 def t(event_queue, target, channel):
                     while True:
