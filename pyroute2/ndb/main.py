@@ -205,6 +205,7 @@ class View(dict):
         # ifobj1 != ifobj2
     '''
     classes = {'interfaces': Interface,
+               'vlans': Interface,
                'addresses': Address,
                'routes': Route,
                'neighbours': Neighbour}

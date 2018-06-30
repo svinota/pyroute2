@@ -161,6 +161,32 @@ class DBSchema(object):
                       'nh'):
             self.create_table(table)
         #
+        # create views
+        #
+        #
+        # vlans view with an additional field f_QINQ == 1 for nested vlans
+        #
+        self.execute('''
+                     DROP VIEW IF EXISTS vlans
+                     ''')
+        self.execute('''
+                     CREATE VIEW vlans AS
+                         WITH vid AS
+                             (SELECT f_index
+                                 FROM interfaces
+                                 WHERE f_IFLA_INFO_KIND = 'vlan')
+                         SELECT *, 1 AS f_QINQ
+                             FROM interfaces
+                             WHERE f_IFLA_LINK IN
+                             (SELECT * FROM vid)
+                         UNION
+                         SELECT *, 0 AS f_QINQ
+                            FROM interfaces
+                            WHERE f_IFLA_LINK NOT IN
+                            (SELECT * FROM vid)
+                         ORDER BY f_QINQ
+                     ''')
+        #
         # specific SQL code
         #
         if self.mode == 'sqlite3':
