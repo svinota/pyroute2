@@ -319,8 +319,7 @@ class View(dict):
                 yield iclass.summary_header
             for record in (self
                            .ndb
-                           .execute(iclass.summary)
-                           .fetchall()):
+                           .fetchall(iclass.summary)):
                 yield record
         else:
             header = tuple(['f_%s' % x for x in
@@ -330,9 +329,8 @@ class View(dict):
             key_fields = ','.join(header)
             for record in (self
                            .ndb
-                           .execute('SELECT %s FROM %s'
-                                    % (key_fields, iclass.table))
-                           .fetchall()):
+                           .fetchall('SELECT %s FROM %s'
+                                     % (key_fields, iclass.table))):
                 yield record
 
 

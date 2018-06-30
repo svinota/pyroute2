@@ -208,6 +208,10 @@ class DBSchema(object):
         return cursor
 
     @db_lock
+    def fetchall(self, *argv, **kwarg):
+        return self.execute(*argv, **kwarg).fetchall()
+
+    @db_lock
     def share_cursor(self):
         self._cursor = self.connection.cursor()
         self._counter = 0
@@ -400,7 +404,7 @@ class DBSchema(object):
             conditions.append('f_%s = %s' % (key, self.plch))
             values.append(value)
         req = 'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(conditions))
-        for record in self.execute(req, values).fetchall():
+        for record in self.fetchall(req, values):
             ret.append(dict(zip(self.compiled[table]['all_names'], record)))
         return ret
 
@@ -419,12 +423,11 @@ class DBSchema(object):
         key_query = ' AND '.join(['f_%s = %s' % (x, self.plch) for x
                                   in self.indices['routes']])
         routes = (self
-                  .execute('SELECT %s,f_RTA_GATEWAY FROM routes WHERE '
-                           'f_target = %s AND f_RTA_OIF = %s AND '
-                           'f_RTA_GATEWAY IS NOT NULL %s'
-                           % (key_fields, self.plch, self.plch, gc_clause),
-                           (target, event.get_attr('RTA_OIF')))
-                  .fetchall())
+                  .fetchall('SELECT %s,f_RTA_GATEWAY FROM routes WHERE '
+                            'f_target = %s AND f_RTA_OIF = %s AND '
+                            'f_RTA_GATEWAY IS NOT NULL %s'
+                            % (key_fields, self.plch, self.plch, gc_clause),
+                            (target, event.get_attr('RTA_OIF'))))
         #
         # get the route's RTA_DST and calculate the network
         #
@@ -483,7 +486,7 @@ class DBSchema(object):
             s_req = 'SELECT f_route_id FROM routes %s' % spec
             #
             # get existing route_id
-            route_id = self.execute(s_req, values).fetchall()
+            route_id = self.fetchall(s_req, values)
             if route_id:
                 #
                 # if exists
