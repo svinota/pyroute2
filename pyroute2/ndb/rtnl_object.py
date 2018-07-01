@@ -6,6 +6,7 @@ import threading
 class RTNL_Object(dict):
 
     table = None   # model table -- always one of the main tables
+    view = None    # (optional) view to load values for the summary etc.
     etable = None  # effective table -- may be a snapshot
 
     schema = None
@@ -19,6 +20,7 @@ class RTNL_Object(dict):
     dump_pre = []
     dump_post = []
     errors = None
+    msg_class = None
 
     def __init__(self, view, key, iclass, ctxid=None):
         self.view = view

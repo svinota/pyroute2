@@ -163,7 +163,8 @@ from functools import partial
 from pyroute2 import config
 from pyroute2 import IPRoute
 from pyroute2.ndb import dbschema
-from pyroute2.ndb.interface import Interface
+from pyroute2.ndb.interface import (Interface,
+                                    Vlan)
 from pyroute2.ndb.address import Address
 from pyroute2.ndb.route import Route
 from pyroute2.ndb.neighbour import Neighbour
@@ -205,7 +206,7 @@ class View(dict):
         # ifobj1 != ifobj2
     '''
     classes = {'interfaces': Interface,
-               'vlans': Interface,
+               'vlans': Vlan,
                'addresses': Address,
                'routes': Route,
                'neighbours': Neighbour}
@@ -268,8 +269,8 @@ class View(dict):
 
     def dump(self, match=None):
         iclass = self.classes[self.table]
-        cls = self.ndb.schema.classes[iclass.table]
-        keys = self.ndb.schema.compiled[iclass.table]['names']
+        cls = iclass.msg_class or self.ndb.schema.classes[iclass.table]
+        keys = self.ndb.schema.compiled[iclass.view or iclass.table]['names']
         values = []
 
         if isinstance(match, dict):
@@ -301,8 +302,9 @@ class View(dict):
             for record in (self
                            .ndb
                            .schema
-                           .execute('SELECT * FROM %s AS rs %s' %
-                                    (iclass.table, spec), values)):
+                           .execute('SELECT * FROM %s AS rs %s'
+                                    % (iclass.view or iclass.table, spec),
+                                    values)):
                 yield record
 
     def csv(self, match=None, dump=None):
@@ -339,7 +341,8 @@ class View(dict):
                            .ndb
                            .schema
                            .fetchall('SELECT %s FROM %s'
-                                     % (key_fields, iclass.table))):
+                                     % (key_fields,
+                                        iclass.view or iclass.table))):
                 yield record
 
 
@@ -376,6 +379,7 @@ class NDB(object):
         self.addresses = View(self, 'addresses')
         self.routes = View(self, 'routes')
         self.neighbours = View(self, 'neighbours')
+        self.vlans = View(self, 'vlans')
 
     def register_handler(self, event, handler):
         if event not in self._event_map:

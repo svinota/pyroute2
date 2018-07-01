@@ -6,6 +6,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 class Interface(RTNL_Object):
 
     table = 'interfaces'
+    msg_class = ifinfmsg
     api = 'link'
     summary = '''
               SELECT
@@ -60,3 +61,30 @@ class Interface(RTNL_Object):
     def load_rtnl(self, *argv, **kwarg):
         super(Interface, self).load_rtnl(*argv, **kwarg)
         self.load_value('state', 'up' if self['flags'] & 1 else 'down')
+
+
+class Vlan(Interface):
+
+    view = 'vlans'
+    summary = '''
+              SELECT
+                  v.f_target, v.f_index, v.f_IFLA_IFNAME, v.f_IFLA_ADDRESS,
+                  v.f_IFLA_LINK, v.f_QINQ, d.f_IFLA_VLAN_ID
+              FROM
+                  vlans AS v
+              INNER JOIN ifinfo_vlan AS d ON
+                  v.f_index = d.f_index
+              '''
+    summary_header = ('target', 'index', 'ifname',
+                      'lladdr', 'master', 'qinq', 'vlan')
+    dump = '''
+           SELECT
+               v.*, d.f_IFLA_VLAN_ID
+           FROM vlans AS v
+           INNER JOIN ifinfo_vlan AS d ON
+               v.f_index = d.f_index
+           '''
+    dump_header = (['target', 'tflags'] +
+                   [ifinfmsg.nla2name(x[0][-1]) for x
+                    in ifinfmsg.sql_schema()] +
+                   ['qinq', 'vlan'])

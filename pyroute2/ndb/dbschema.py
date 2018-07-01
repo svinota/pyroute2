@@ -10,6 +10,7 @@ from socket import (AF_INET,
 from pyroute2 import config
 from pyroute2.common import uuid32
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import vlan
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
@@ -41,6 +42,12 @@ class DBSchema(object):
     spec['nh'] = OrderedDict(nh.sql_schema() +
                              [(('route_id', ), 'TEXT'),
                               (('nh_id', ), 'INTEGER')])
+    spec['ifinfo_vlan'] = OrderedDict(vlan.sql_schema() +
+                                      [(('index', ), 'BIGINT')])
+
+    views = OrderedDict()
+    views['vlans'] = OrderedDict(ifinfmsg.sql_schema() +
+                                 [(('f_QINQ', ), 'INTEGER')])
 
     classes = {'interfaces': ifinfmsg,
                'addresses': ifaddrmsg,
@@ -52,7 +59,9 @@ class DBSchema(object):
     # that's for the load_netlink() to work correctly -- it uses
     # one loop to fetch both index and row values
     #
-    indices = {'interfaces': ('family', 'index', ),
+    indices = {'interfaces': ('family', 'index'),
+               'vlans': ('family', 'index'),
+               'ifinfo_vlan': ('IFLA_VLAN_ID', 'index'),
                'addresses': ('index',
                              'IFA_ADDRESS',
                              'IFA_LOCAL'),
@@ -108,7 +117,15 @@ class DBSchema(object):
                             'parent_fields': ('f_target',
                                               'f_tflags',
                                               'f_index'),
-                            'parent': 'interfaces'}]}
+                            'parent': 'interfaces'}],
+                    #
+                    # IFINFO tables
+                    #
+                    'ifinfo_vlan': [{'fields': ('f_target',
+                                                'f_index'),
+                                     'parent_fields': ('f_target',
+                                                       'f_index'),
+                                     'parent': 'interfaces'}]}
 
     def __init__(self, connection, mode, rtnl_log, tid):
         self.mode = mode
@@ -135,30 +152,17 @@ class DBSchema(object):
         # compile request lines
         #
         self.compiled = {}
-        tables = self.spec.keys()
-        for table in tables:
-            names = tuple([x[-1] for x in self.spec[table].keys()])
-            anames = ('target', 'tflags') + names
-            fnames = ['f_%s' % x for x in anames]
-            fset = ['f_%s = %s' % (x, self.plch) for x in anames]
-            plchs = [self.plch] * len(fnames)
-            idx = ('target', 'tflags') + self.indices[table]
-            knames = ['f_%s' % x for x in idx]
-            fidx = ['%s.%s = %s' % (table, x, self.plch) for x in knames]
-            self.compiled[table] = {'names': names,    # schema field names
-                                    'all_names': anames,  # + ndb-specific
-                                    'idx': idx,        # index field names
-                                    'fnames': ','.join(fnames),
-                                    'plchs': ','.join(plchs),
-                                    'fset': ','.join(fset),
-                                    'knames': ','.join(knames),
-                                    'fidx': ' AND '.join(fidx)}
+        for table in self.spec.keys():
+            self.compiled[table] = self.compile_spec(self.spec, table)
+        for view in self.views.keys():
+            self.compiled[view] = self.compile_spec(self.views, view)
 
         for table in ('interfaces',
                       'addresses',
                       'neighbours',
                       'routes',
-                      'nh'):
+                      'nh',
+                      'ifinfo_vlan'):
             self.create_table(table)
         #
         # create views
@@ -171,20 +175,25 @@ class DBSchema(object):
                      ''')
         self.execute('''
                      CREATE VIEW vlans AS
-                         WITH vid AS
-                             (SELECT f_index
-                                 FROM interfaces
-                                 WHERE f_IFLA_INFO_KIND = 'vlan')
-                         SELECT *, 1 AS f_QINQ
-                             FROM interfaces
-                             WHERE f_IFLA_LINK IN
-                             (SELECT * FROM vid)
-                         UNION
-                         SELECT *, 0 AS f_QINQ
-                            FROM interfaces
-                            WHERE f_IFLA_LINK NOT IN
-                            (SELECT * FROM vid)
-                         ORDER BY f_QINQ
+                         WITH
+                             vid AS
+                                 (SELECT f_index
+                                     FROM interfaces
+                                     WHERE f_IFLA_INFO_KIND = 'vlan'),
+                             tvl AS
+                                 (SELECT *, 1 AS f_QINQ
+                                     FROM interfaces
+                                     WHERE f_IFLA_LINK IN
+                                     (SELECT * FROM vid)
+                                 UNION
+                                 SELECT *, 0 AS f_QINQ
+                                    FROM interfaces
+                                    WHERE f_IFLA_LINK NOT IN
+                                    (SELECT * FROM vid)
+                                 ORDER BY f_QINQ)
+                         SELECT *
+                            FROM tvl
+                            WHERE f_IFLA_INFO_KIND='vlan'
                      ''')
         #
         # specific SQL code
@@ -217,6 +226,25 @@ class DBSchema(object):
                          BEFORE UPDATE OF f_tflags ON nh FOR EACH ROW
                          EXECUTE PROCEDURE nh_f_tflags();
                          ''')
+
+    def compile_spec(self, source, name):
+        names = tuple([x[-1] for x in source[name].keys()])
+        anames = ('target', 'tflags') + names
+        fnames = ['f_%s' % x for x in anames]
+        fset = ['f_%s = %s' % (x, self.plch) for x in anames]
+        plchs = [self.plch] * len(fnames)
+        idx = ('target', 'tflags') + self.indices[name]
+        knames = ['f_%s' % x for x in idx]
+        fidx = ['%s.%s = %s' % (name, x, self.plch) for x in knames]
+
+        return {'names': names,    # schema field names
+                'all_names': anames,  # + ndb-specific
+                'idx': idx,        # index field names
+                'fnames': ','.join(fnames),
+                'plchs': ','.join(plchs),
+                'fset': ','.join(fset),
+                'knames': ','.join(knames),
+                'fidx': ' AND '.join(fidx)}
 
     @db_lock
     def execute(self, *argv, **kwarg):
@@ -305,6 +333,8 @@ class DBSchema(object):
         req = ','.join(req)
         req = ('CREATE TABLE IF NOT EXISTS '
                '%s (%s)' % (table, req))
+        # self.execute('DROP TABLE IF EXISTS %s %s'
+        #              % (table, 'CASCADE' if self.mode == 'psycopg2' else ''))
         self.execute(req)
 
         index = ','.join(['f_target', 'f_tflags'] + ['f_%s' % x for x
@@ -495,8 +525,18 @@ class DBSchema(object):
         if event.get_attr('IFLA_WIRELESS'):
             return
         #
-        # continue with load_netlink()
         self.load_netlink('interfaces', target, event)
+        #
+        # load ifinfo, if exists
+        #
+        linkinfo = event.get_attr('IFLA_LINKINFO')
+        if linkinfo is not None:
+            iftype = linkinfo.get_attr('IFLA_INFO_KIND')
+            if iftype == 'vlan':
+                ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
+                ifdata['header'] = {}
+                ifdata['index'] = event['index']
+                self.load_netlink('ifinfo_vlan', target, ifdata)
 
     @db_lock
     def load_rtmsg(self, target, event):
