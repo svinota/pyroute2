@@ -63,28 +63,30 @@ class Interface(RTNL_Object):
         self.load_value('state', 'up' if self['flags'] & 1 else 'down')
 
 
-class Vlan(Interface):
+class Bridge(Interface):
 
-    view = 'vlans'
+    table = 'bridge'
     summary = '''
               SELECT
-                  v.f_target, v.f_index, v.f_IFLA_IFNAME, v.f_IFLA_ADDRESS,
-                  v.f_IFLA_LINK, v.f_QINQ, d.f_IFLA_VLAN_ID
+                  f_target, f_index, f_IFLA_IFNAME,
+                  f_IFLA_ADDRESS, f_IFLA_BR_STP_STATE,
+                  f_IFLA_BR_VLAN_FILTERING
               FROM
-                  vlans AS v
-              INNER JOIN ifinfo_vlan AS d ON
-                  v.f_index = d.f_index
+                  bridge
               '''
     summary_header = ('target', 'index', 'ifname',
-                      'lladdr', 'master', 'qinq', 'vlan')
-    dump = '''
-           SELECT
-               v.*, d.f_IFLA_VLAN_ID
-           FROM vlans AS v
-           INNER JOIN ifinfo_vlan AS d ON
-               v.f_index = d.f_index
-           '''
-    dump_header = (['target', 'tflags'] +
-                   [ifinfmsg.nla2name(x[0][-1]) for x
-                    in ifinfmsg.sql_schema()] +
-                   ['qinq', 'vlan'])
+                      'lladdr', 'stp', 'vlan_filtering')
+
+
+class Vlan(Interface):
+
+    table = 'vlan'
+    summary = '''
+              SELECT
+                  f_target, f_index, f_IFLA_IFNAME,
+                  f_IFLA_ADDRESS, f_IFLA_LINK, f_IFLA_VLAN_ID
+              FROM
+                  vlan
+              '''
+    summary_header = ('target', 'index', 'ifname',
+                      'lladdr', 'master', 'vlan')

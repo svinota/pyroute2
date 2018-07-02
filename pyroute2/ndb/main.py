@@ -164,6 +164,7 @@ from pyroute2 import config
 from pyroute2 import IPRoute
 from pyroute2.ndb import dbschema
 from pyroute2.ndb.interface import (Interface,
+                                    Bridge,
                                     Vlan)
 from pyroute2.ndb.address import Address
 from pyroute2.ndb.route import Route
@@ -206,7 +207,8 @@ class View(dict):
         # ifobj1 != ifobj2
     '''
     classes = {'interfaces': Interface,
-               'vlans': Vlan,
+               'vlan': Vlan,
+               'bridge': Bridge,
                'addresses': Address,
                'routes': Route,
                'neighbours': Neighbour}
@@ -379,7 +381,8 @@ class NDB(object):
         self.addresses = View(self, 'addresses')
         self.routes = View(self, 'routes')
         self.neighbours = View(self, 'neighbours')
-        self.vlans = View(self, 'vlans')
+        self.vlans = View(self, 'vlan')
+        self.bridges = View(self, 'bridge')
 
     def register_handler(self, event, handler):
         if event not in self._event_map:

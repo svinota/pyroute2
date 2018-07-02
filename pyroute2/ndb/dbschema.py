@@ -8,13 +8,16 @@ from collections import OrderedDict
 from socket import (AF_INET,
                     inet_pton)
 from pyroute2 import config
+from pyroute2.config import AF_BRIDGE
 from pyroute2.common import uuid32
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import vlan
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
+
+# ifinfo plugins
+from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import vlan
 
 
 def db_lock(method):
@@ -33,6 +36,7 @@ class DBSchema(object):
     snapshots = None  # <table_name>: <obj_weakref>
 
     spec = OrderedDict()
+    # main tables
     spec['interfaces'] = OrderedDict(ifinfmsg.sql_schema())
     spec['addresses'] = OrderedDict(ifaddrmsg.sql_schema())
     spec['neighbours'] = OrderedDict(ndmsg.sql_schema())
@@ -42,12 +46,14 @@ class DBSchema(object):
     spec['nh'] = OrderedDict(nh.sql_schema() +
                              [(('route_id', ), 'TEXT'),
                               (('nh_id', ), 'INTEGER')])
+    # ifinfo tables
     spec['ifinfo_vlan'] = OrderedDict(vlan.sql_schema() +
                                       [(('index', ), 'BIGINT')])
-
-    views = OrderedDict()
-    views['vlans'] = OrderedDict(ifinfmsg.sql_schema() +
-                                 [(('f_QINQ', ), 'INTEGER')])
+    spec['ifinfo_bridge'] = OrderedDict(ifinfmsg
+                                        .ifinfo
+                                        .bridge_data
+                                        .sql_schema() +
+                                        [(('index', ), 'BIGINT')])
 
     classes = {'interfaces': ifinfmsg,
                'addresses': ifaddrmsg,
@@ -59,9 +65,11 @@ class DBSchema(object):
     # that's for the load_netlink() to work correctly -- it uses
     # one loop to fetch both index and row values
     #
-    indices = {'interfaces': ('family', 'index'),
-               'vlans': ('family', 'index'),
-               'ifinfo_vlan': ('IFLA_VLAN_ID', 'index'),
+    indices = {'interfaces': ('index', ),
+               'ifinfo_vlan': ('index', ),
+               'ifinfo_bridge': ('index', ),
+               'vlan': ('index', ),
+               'bridge': ('index', ),
                'addresses': ('index',
                              'IFA_ADDRESS',
                              'IFA_LOCAL'),
@@ -119,13 +127,22 @@ class DBSchema(object):
                                               'f_index'),
                             'parent': 'interfaces'}],
                     #
-                    # IFINFO tables
+                    # ifinfo tables
                     #
                     'ifinfo_vlan': [{'fields': ('f_target',
+                                                'f_tflags',
                                                 'f_index'),
                                      'parent_fields': ('f_target',
+                                                       'f_tflags',
                                                        'f_index'),
-                                     'parent': 'interfaces'}]}
+                                     'parent': 'interfaces'}],
+                    'ifinfo_bridge': [{'fields': ('f_target',
+                                                  'f_tflags',
+                                                  'f_index'),
+                                       'parent_fields': ('f_target',
+                                                         'f_tflags',
+                                                         'f_index'),
+                                       'parent': 'interfaces'}]}
 
     def __init__(self, connection, mode, rtnl_log, tid):
         self.mode = mode
@@ -153,48 +170,20 @@ class DBSchema(object):
         #
         self.compiled = {}
         for table in self.spec.keys():
-            self.compiled[table] = self.compile_spec(self.spec, table)
-        for view in self.views.keys():
-            self.compiled[view] = self.compile_spec(self.views, view)
-
-        for table in ('interfaces',
-                      'addresses',
-                      'neighbours',
-                      'routes',
-                      'nh',
-                      'ifinfo_vlan'):
+            self.compiled[table] = (self
+                                    .compile_spec(table,
+                                                  self.spec[table],
+                                                  self.indices[table]))
             self.create_table(table)
-        #
-        # create views
-        #
-        #
-        # vlans view with an additional field f_QINQ == 1 for nested vlans
-        #
-        self.execute('''
-                     DROP VIEW IF EXISTS vlans
-                     ''')
-        self.execute('''
-                     CREATE VIEW vlans AS
-                         WITH
-                             vid AS
-                                 (SELECT f_index
-                                     FROM interfaces
-                                     WHERE f_IFLA_INFO_KIND = 'vlan'),
-                             tvl AS
-                                 (SELECT *, 1 AS f_QINQ
-                                     FROM interfaces
-                                     WHERE f_IFLA_LINK IN
-                                     (SELECT * FROM vid)
-                                 UNION
-                                 SELECT *, 0 AS f_QINQ
-                                    FROM interfaces
-                                    WHERE f_IFLA_LINK NOT IN
-                                    (SELECT * FROM vid)
-                                 ORDER BY f_QINQ)
-                         SELECT *
-                            FROM tvl
-                            WHERE f_IFLA_INFO_KIND='vlan'
-                     ''')
+
+            if table.startswith('ifinfo_'):
+                spec = OrderedDict(tuple(self.spec['interfaces'].items()) +
+                                   tuple(self.spec[table].items())[:-1])
+                idx = ('index', )
+                self.compiled[table[7:]] = self.compile_spec(table[7:],
+                                                             spec, idx)
+                self.create_ifinfo_view(table)
+
         #
         # specific SQL code
         #
@@ -226,20 +215,59 @@ class DBSchema(object):
                          BEFORE UPDATE OF f_tflags ON nh FOR EACH ROW
                          EXECUTE PROCEDURE nh_f_tflags();
                          ''')
+        self.connection.commit()
 
-    def compile_spec(self, source, name):
-        names = tuple([x[-1] for x in source[name].keys()])
+    def compile_spec(self, table, schema_names, schema_idx):
+        # e.g.: index, flags, IFLA_IFNAME
+        #
+        names = tuple([x[-1] for x in schema_names])
+        #
+        # same + two internal fields
+        #
         anames = ('target', 'tflags') + names
+        #
+        # escaped names: f_index, f_flags, f_IFLA_IFNAME
+        #
+        # the reason: words like "index" are keywords in SQL
+        # and we can not use them; neither can we change the
+        # C structure
+        #
         fnames = ['f_%s' % x for x in anames]
+        #
+        # set the fields
+        #
+        # e.g.: f_flags = ?, f_IFLA_IFNAME = ?
+        #
+        # there are different placeholders:
+        # ? -- SQLite3
+        # %s -- PostgreSQL
+        # so use self.plch here
+        #
         fset = ['f_%s = %s' % (x, self.plch) for x in anames]
+        #
+        # the set of the placeholders to use in the INSERT statements
+        #
         plchs = [self.plch] * len(fnames)
-        idx = ('target', 'tflags') + self.indices[name]
+        #
+        # the index schema; use target and tflags in every index
+        #
+        idx = ('target', 'tflags') + schema_idx
+        #
+        # the same, escaped: f_target, f_tflags etc.
+        #
         knames = ['f_%s' % x for x in idx]
-        fidx = ['%s.%s = %s' % (name, x, self.plch) for x in knames]
+        #
+        # match the index fields, fully qualified
+        #
+        # interfaces.f_index = ?, interfaces.f_IFLA_IFNAME = ?
+        #
+        # the same issue with the placeholders
+        #
+        fidx = ['%s.%s = %s' % (table, x, self.plch) for x in knames]
 
-        return {'names': names,    # schema field names
-                'all_names': anames,  # + ndb-specific
-                'idx': idx,        # index field names
+        return {'names': names,
+                'all_names': anames,
+                'idx': idx,
                 'fnames': ','.join(fnames),
                 'plchs': ','.join(plchs),
                 'fset': ','.join(fset),
@@ -255,6 +283,11 @@ class DBSchema(object):
             self._counter = config.db_transaction_limit + 1
         try:
             cursor.execute(*argv, **kwarg)
+        except Exception:
+            self.connection.commit()
+            if self._cursor:
+                self._cursor = self.connection.cursor()
+            raise
         finally:
             if self._counter > config.db_transaction_limit:
                 self.connection.commit()  # no performance optimisation yet
@@ -289,6 +322,27 @@ class DBSchema(object):
     @db_lock
     def commit(self):
         return self.connection.commit()
+
+    @db_lock
+    def create_ifinfo_view(self, table):
+
+        req = (('main.f_target', 'main.f_tflags') +
+               tuple(['main.f_%s' % x[-1] for x
+                      in self.spec['interfaces'].keys()]) +
+               tuple(['data.f_%s' % x[-1] for x
+                      in self.spec[table].keys()])[:-2])
+        # -> ... main.f_index, main.f_IFLA_IFNAME, ..., data.f_IFLA_BR_GC_TIMER
+        self.execute('''
+                     DROP VIEW IF EXISTS %s
+                     ''' % table[7:])
+        self.execute('''
+                     CREATE VIEW %s AS
+                     SELECT %s FROM interfaces AS main
+                     INNER JOIN %s AS data ON
+                         main.f_index = data.f_index
+                     AND
+                         main.f_target = data.f_target
+                     ''' % (table[7:], ','.join(req), table))
 
     @db_lock
     def create_table(self, table):
@@ -510,6 +564,16 @@ class DBSchema(object):
                           (gc_mark, target) + route[:-1]))
 
     @db_lock
+    def load_ndmsg(self, target, event):
+        #
+        # ignore events with ifindex == 0
+        #
+        if event['ifindex'] == 0:
+            return
+
+        self.load_netlink('neighbours', target, event)
+
+    @db_lock
     def load_ifinfmsg(self, target, event):
         #
         # link goes down: flush all related routes
@@ -525,18 +589,28 @@ class DBSchema(object):
         if event.get_attr('IFLA_WIRELESS'):
             return
         #
+        # AF_BRIDGE events
+        #
+        if event['family'] == AF_BRIDGE:
+            #
+            # bypass for now
+            #
+            return
+
         self.load_netlink('interfaces', target, event)
         #
         # load ifinfo, if exists
         #
-        linkinfo = event.get_attr('IFLA_LINKINFO')
-        if linkinfo is not None:
-            iftype = linkinfo.get_attr('IFLA_INFO_KIND')
-            if iftype == 'vlan':
-                ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
-                ifdata['header'] = {}
-                ifdata['index'] = event['index']
-                self.load_netlink('ifinfo_vlan', target, ifdata)
+        if not event['header'].get('type', 0) % 2:
+            linkinfo = event.get_attr('IFLA_LINKINFO')
+            if linkinfo is not None:
+                iftype = linkinfo.get_attr('IFLA_INFO_KIND')
+                table = 'ifinfo_%s' % iftype
+                if table in self.spec:
+                    ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
+                    ifdata['header'] = {}
+                    ifdata['index'] = event['index']
+                    self.load_netlink(table, target, ifdata)
 
     @db_lock
     def load_rtmsg(self, target, event):
@@ -746,7 +820,7 @@ def init(connection, mode, rtnl_log, tid):
     ret = DBSchema(connection, mode, rtnl_log, tid)
     ret.event_map = {ifinfmsg: [ret.load_ifinfmsg],
                      ifaddrmsg: [partial(ret.load_netlink, 'addresses')],
-                     ndmsg: [partial(ret.load_netlink, 'neighbours')],
+                     ndmsg: [ret.load_ndmsg],
                      rtmsg: [ret.load_rtmsg]}
     if rtnl_log:
         types = dict([(x[1], x[0]) for x in ret.classes.items()])
