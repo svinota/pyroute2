@@ -20,8 +20,7 @@ class nla_plus_tca_act_opt(object):
         kind = self.get_attr('TCA_ACT_KIND')
         if kind in plugins:
             return plugins[kind].options
-        else:
-            return self.hex
+
         return self.hex
 
 
