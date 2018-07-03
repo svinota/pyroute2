@@ -42,7 +42,7 @@ class DL(DevlinkSocket):
         # do automatic bind
         # FIXME: unfortunately we can not omit it here
         try:
-            self.bind(groups, async_cache)
+            self.bind(groups, async_cache=async_cache)
         except:
             # thanks to jtluka at redhat.com and the LNST
             # team for the fixed fd leak
