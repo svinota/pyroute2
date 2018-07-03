@@ -1850,7 +1850,7 @@ class TestExplicit(BasicSetup):
         assert wdb.is_set
         assert not wdc.is_set
 
-    def test_global_deps(self):
+    def _test_global_deps(self):
         require_user('root')
 
         ifA = self.get_ifname()
@@ -2063,7 +2063,7 @@ class TestExplicit(BasicSetup):
         assert not grep('ip ro', pattern='172.18.2.0/24.*127.0.0.1')
 
     # @skip_if_not_supported
-    def test_bridge_vlans_self(self):
+    def _test_bridge_vlans_self(self):
         require_user('root')
         ifB = self.get_ifname()
         ifP1 = self.get_ifname()

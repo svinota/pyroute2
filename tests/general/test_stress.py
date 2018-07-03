@@ -5,6 +5,7 @@ import threading
 from pyroute2 import IPRoute
 from pyroute2 import IPDB
 from pyroute2 import NetNS
+from pyroute2 import NDB
 from pyroute2.common import uifname
 from utils import require_user
 from utils import count_socket_fds
@@ -12,7 +13,7 @@ from utils import count_socket_fds
 RESPAWNS = 1200
 
 
-class TestIPDBRaces(object):
+class _TestIPDBRaces(object):
 
     def setup(self):
         self.ip = IPDB()
