@@ -41,6 +41,9 @@ class Console(code.InteractiveConsole):
             readline.set_completer(self.completer)
             readline.set_completion_display_matches_hook(self.display)
 
+    def close(self):
+        self.ipdb.release()
+
     def write(self, text=''):
         self.lprint(text)
 
