@@ -389,10 +389,13 @@ class TestIPRoute(object):
 
     def test_create_vti(self):
         require_user('root')
+        (ifname, idx) = self.create()
+        self.ip.link('set', index=idx, state='up')
+        self.ip.addr('add', index=idx, address='172.16.128.10', mask=24)
         self._create('vti',
-                     vti_link=1,
-                     vti_local='127.0.0.1',
-                     vti_remote='127.0.0.10',
+                     vti_link=idx,
+                     vti_local='172.16.128.10',
+                     vti_remote='172.16.128.11',
                      vti_ikey=64,
                      vti_okey=72)
 
