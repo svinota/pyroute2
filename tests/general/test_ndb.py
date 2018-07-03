@@ -3,9 +3,12 @@ from utils import require_user
 from pyroute2 import NDB
 from pyroute2 import IPRoute
 from pyroute2.common import uifname
+from pyroute2.common import basestring
+from pyroute2.ndb import main
+from pyroute2.ndb.main import Report
 
 
-class TestSchema(object):
+class TestBase(object):
 
     db_provider = 'sqlite3'
     db_spec = ':memory:'
@@ -84,6 +87,9 @@ class TestSchema(object):
                     .execute(request, values)
                     .fetchall())
 
+
+class TestSchema(TestBase):
+
     def test_basic(self):
         assert len(set(self.interfaces) -
                    set([x[0] for x in
@@ -94,3 +100,15 @@ class TestSchema(object):
 
     def test_bridge_interfaces(self):
         assert len(self.fetch('select * from bridge')) >= 2
+
+
+class TestReports(TestBase):
+
+    def test_types(self):
+        main.MAX_REPORT_LINES = 1
+        # check for the report type here
+        assert isinstance(self.ndb.interfaces.summary(), Report)
+        # repr must be a string
+        assert isinstance(repr(self.ndb.interfaces.summary()), basestring)
+        # header + MAX_REPORT_LINES + (...)
+        assert len(repr(self.ndb.interfaces.summary()).split('\n')) == 3

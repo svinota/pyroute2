@@ -188,6 +188,7 @@ def target_adapter(value):
 
 
 sqlite3.register_adapter(list, target_adapter)
+MAX_REPORT_LINES = 100
 
 
 class ShutdownException(Exception):
@@ -196,6 +197,26 @@ class ShutdownException(Exception):
 
 class InvalidateHandlerException(Exception):
     pass
+
+
+class Report(object):
+
+    def __init__(self, generator):
+        self.generator = generator
+
+    def __iter__(self):
+        return self.generator
+
+    def __repr__(self):
+        counter = 0
+        ret = []
+        for record in self.generator:
+            ret.append(repr(record))
+            counter += 1
+            if counter > MAX_REPORT_LINES:
+                ret.append('(...)')
+                break
+        return '\n'.join(ret)
 
 
 class View(dict):
@@ -269,7 +290,7 @@ class View(dict):
     def values(self):
         raise NotImplementedError()
 
-    def dump(self, match=None):
+    def _dump(self, match=None):
         iclass = self.classes[self.table]
         cls = iclass.msg_class or self.ndb.schema.classes[iclass.table]
         keys = self.ndb.schema.compiled[iclass.view or iclass.table]['names']
@@ -309,9 +330,9 @@ class View(dict):
                                     values)):
                 yield record
 
-    def csv(self, match=None, dump=None):
+    def _csv(self, match=None, dump=None):
         if dump is None:
-            dump = self.dump(match)
+            dump = self._dump(match)
         for record in dump:
             row = []
             for field in record:
@@ -323,7 +344,7 @@ class View(dict):
                     row.append("'%s'" % field)
             yield ','.join(row)
 
-    def summary(self):
+    def _summary(self):
         iclass = self.classes[self.table]
         if iclass.summary is not None:
             if iclass.summary_header is not None:
@@ -346,6 +367,15 @@ class View(dict):
                                      % (key_fields,
                                         iclass.view or iclass.table))):
                 yield record
+
+    def csv(self, *argv, **kwarg):
+        return Report(self._csv(*argv, **kwarg))
+
+    def dump(self, *argv, **kwarg):
+        return Report(self._dump(*argv, **kwarg))
+
+    def summary(self, *argv, **kwarg):
+        return Report(self._summary(*argv, **kwarg))
 
 
 class NDB(object):
@@ -384,6 +414,12 @@ class NDB(object):
         self.vlans = View(self, 'vlan')
         self.bridges = View(self, 'bridge')
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     def register_handler(self, event, handler):
         if event not in self._event_map:
             self._event_map[event] = []
@@ -403,8 +439,11 @@ class NDB(object):
                     pass
             if self.schema:
                 self._event_queue.put(('localhost', (ShutdownException(), )))
+                for target, channel in self.nl.items():
+                    channel.close()
+                for target, channel in self.mnl.items():
+                    channel.close()
                 for src in self._src_threads:
-                    src.nl.close()
                     src.join()
                 self._dbm_thread.join()
                 self.schema.commit()
