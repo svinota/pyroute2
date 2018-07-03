@@ -74,10 +74,19 @@ class TestRespawn(object):
     def test_respawn_ipdb(self):
         for _ in range(RESPAWNS):
             with IPDB() as i:
-                len(i.interfaces.keys())
-                len(i.routes.keys())
-                len(i.rules.keys())
-                pass
+                assert len(i.interfaces.keys())
+                assert len(i.routes.keys())
+                assert len(i.rules.keys())
+
+    def test_respawn_ndb_sqlite3(self):
+        for _ in range(RESPAWNS):
+            with NDB() as i:
+                assert len(tuple(i.interfaces.summary()))
+                assert len(tuple(i.addresses.summary()))
+                assert len(tuple(i.routes.summary()))
+                assert len(tuple(i.interfaces.csv()))
+                assert len(tuple(i.addresses.csv()))
+                assert len(tuple(i.routes.csv()))
 
 
 class TestIfs(object):
