@@ -56,6 +56,7 @@ class TestBasic(object):
 
     def teardown(self):
         self.ipdb.release()
+        self.con.close()
 
     # 8<---------------- test routines ------------------------------
 
@@ -103,6 +104,9 @@ class TestPopen(TestBasic):
                                     stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
+
+    def teardown(self):
+        self.ipdb.release()
 
     def feed(self, script):
         out, err = self.con.communicate(script.encode('ascii'))
