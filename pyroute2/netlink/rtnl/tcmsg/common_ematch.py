@@ -37,10 +37,10 @@ class nla_plus_tcf_ematch_opt(object):
         print 'Loading plugin {}'.format(
               plugins_translate.keys()[plugins_translate.values().index(kind)])
         if kind in plugins:
-            return plugins[kind].options
-        else:
-            return self.hex
-        return self.hex
+            ret = plugins[kind].data(data=self.data)
+            ret.decode()
+            return ret
+        return hexdump(self.data)
 
 
 def get_ematch_parms(kwarg):

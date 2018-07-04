@@ -1,7 +1,5 @@
 import struct
-from pyroute2.netlink import nla
-from pyroute2.netlink import nlmsg
-#from pyroute2 import IPSet
+from pyroute2.netlink import nlmsg_base
 
 # see em_ipset.c
 IPSET_DIM = {
@@ -123,17 +121,8 @@ def set_parameters(kwarg):
     return ret
 
 
-class options(nla):
-    nla_map = (('TCF_IP_SET_OPT', 'parse_ip_set_options'),
-               )
-
-    def encode(self):
-        print 'Coucou from em_ipset'
-        print self
-
-
-    class parse_ip_set_options(nlmsg):
-        fields = (('ip_set_index', 'H'),
-                  ('ip_set_dim', 'B'),
-                  ('ip_set_flags', 'B'),
-                  )
+class data(nlmsg_base):
+    fields = (('ip_set_index', 'H'),
+              ('ip_set_flags', 'B'),
+              ('ip_set_mode', 'B'),
+              )

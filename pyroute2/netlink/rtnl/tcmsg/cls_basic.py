@@ -73,22 +73,6 @@ class options(nla):
                     size += struct.calcsize(field[1])
 
                 start = self.offset + size
-                end = start + (self.length - size)
+                end = self.offset + self.length
                 data = self.data[start:end]
-                self.offset += size
-                try:
-                    self['opt'] = self.parse_ematch_options(self, data)(data=data)
-                    self['opt'].decode()
-                except Exception as e:
-                    print e
-
-                #print self
-
-            #def encode(self):
-            #    print self
-            #    import binascii
-            #    print binascii.hexlify(self.data)
-
-                # Encode ematch options
-                #data = self.parse_ematch_options(self, self['opt']) # returns an NLA object
-                #data().encode()
+                self['opt'] = self.parse_ematch_options(self, data)
