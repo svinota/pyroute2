@@ -20,7 +20,6 @@ def get_parameters(kwarg):
     attrs_map = (
         ('action', 'TCA_BASIC_ACT'),
         ('classid', 'TCA_BASIC_CLASSID'),
-        #('match', 'TCA_BASIC_EMATCHES'),
     )
 
     if kwarg.get('match'):
@@ -62,7 +61,7 @@ class options(nla):
                       ('kind', 'H'),
                       ('flags', 'H'),
                       ('pad', 'H'),
-                      ('opt', 'I') #Would be better if hex format is supported
+                      ('opt', 's'),
                       )
 
 
@@ -70,6 +69,9 @@ class options(nla):
                 nla.decode(self)
                 size = 0
                 for field in self.fields + self.header:
+                    if 'opt' in field:
+                        # Ignore this field as it a hack used to brain encoder
+                        continue
                     size += struct.calcsize(field[1])
 
                 start = self.offset + size
