@@ -959,7 +959,8 @@ class nlmsg_base(dict):
                     offset += struct.calcsize(fmt)
                 # update length from header
                 # it can not be less than 4
-                self.length = max(self['header']['length'], 4)
+                if 'header' in self:
+                    self.length = max(self['header']['length'], 4)
         # handle the array case
         if self._nla_array:
             self.setvalue([])
