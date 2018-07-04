@@ -1067,7 +1067,7 @@ class nlmsg_base(dict):
         if self.nla_map:
             offset = self.encode_nlas(offset)
         # calculate the size and write it
-        if self.header is not None:
+        if 'header' in self and self.header is not None:
             self.length = self['header']['length'] = (offset -
                                                       self.offset -
                                                       diff)
