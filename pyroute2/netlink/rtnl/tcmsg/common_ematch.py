@@ -34,13 +34,11 @@ class nla_plus_tcf_ematch_opt(object):
             raise Exception('ematch requires "kind" parameter')
 
         kind = self['kind']
-        print 'Loading plugin {}'.format(
-              plugins_translate.keys()[plugins_translate.values().index(kind)])
         if kind in plugins:
-            ret = plugins[kind].data(data=self.data)
+            ret = plugins[kind].data(data=argv[0])
             ret.decode()
             return ret
-        return hexdump(self.data)
+        return self.hex
 
 
 def get_ematch_parms(kwarg):
@@ -64,16 +62,19 @@ def get_tcf_ematches(kwarg):
              'pad': 0,
              'opt': None}
 
-    kind = kwarg['match'][0]['kind']
+    kind = kwarg['em_kind']
 
     # Translate string kind into numeric kind
     kind = plugins_translate[kind]
     match['kind'] = kind
 
     # Load plugin and transfer data
-    data = plugins[kind].set_parameters(kwarg)
-    match['opt'] = data.get('attrs')[0].get('opt')
-    match['flags'] = data.get('attrs')[1].get('flags')
+    data = plugins[kind].data()
+    data.setvalue(kwarg['match'][0])
+    data.encode()
+
+    match['opt'] = data.data.decode('utf-8')
+    #match['flags'] = data.get('attrs')[1].get('flags')
 
     ret['attrs'].append(['TCA_EMATCH_TREE_HDR', header])
     ret['attrs'].append(['TCA_EMATCH_TREE_LIST', [match]])

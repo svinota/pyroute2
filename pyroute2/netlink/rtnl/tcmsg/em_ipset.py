@@ -72,57 +72,15 @@ def get_parameters(kwarg):
     return ret
 
 
-def set_parameters(kwarg):
-    ret = {'attrs': []}
-
-    if 'name' in kwarg['match'][0] and 'index' in kwarg['match'][0]:
-        raise Exception('You cannot use name and index to select an IPSet')
-
-    if 'name' in kwarg['match'][0]:
-        name = kwarg['match'][0]['name']
-        raise Exception('IPSet match with name is not implemented!')
-        #with IPSet() as ips:
-        #    if ips.headers(name).get_attr('IPSET_ATTR_INDEX') is None:
-        #        raise Exception('Your kernel is too old! Use index instead of name')
-        #    else:
-        #        ip_set_index = None # IMPLEMENT ME
-
-    if 'index' in kwarg['match'][0]:
-        ip_set_index = int(kwarg['match'][0]['index'])
-
-    # Translate IP set mode
-    ip_set_mode = kwarg['match'][0]['mode']
-    if ip_set_mode == 'dst':
-        ip_set_flags = TCF_IPSET_MODE_DST
-    elif ip_set_mode == 'src':
-        ip_set_flags = TCF_IPSET_MODE_SRC
-    else:
-        raise Exception('Unknown IP set mode "{0}"'.format(ip_set_mode))
-
-    # TODO: inverse flag might also be set in ip_set_flags as it is referenced in the xt_set.h file
-
-    # Force IPSet dimension to 1
-    ip_set_dim = IPSET_DIM['IPSET_DIM_ONE']
-
-    # FIXME: return a static integer for the moment...
-    data = struct.pack('HBB', ip_set_index, ip_set_dim, ip_set_flags)
-    ret['attrs'].append({'opt': struct.unpack('I', data)[0]})
-
-    # Build match flags, currently force to only one relation in expression
-    match_flags = TCF_EM_REL_END
-
-    # Check for inverse flag
-    if 'inverse' in kwarg['match'][0]:
-        inverse = kwarg['match'][0]['inverse']
-        if inverse:
-            match_flags |= TCF_EM_INVERSE_MASK
-    ret['attrs'].append({'flags': match_flags})
-
-    return ret
-
-
 class data(nlmsg_base):
     fields = (('ip_set_index', 'H'),
+              ('ip_set_dim', 'B'),
               ('ip_set_flags', 'B'),
-              ('ip_set_mode', 'B'),
               )
+
+
+    def encode(self):
+        self['ip_set_index'] = self['index']
+        self['ip_set_dim'] = IPSET_DIM['IPSET_DIM_ONE']
+        self['ip_set_flags'] = TCF_IPSET_MODE_SRC
+        nlmsg_base.encode(self)
