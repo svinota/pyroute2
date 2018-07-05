@@ -26,12 +26,14 @@ plugins_translate = {
                     'ipt': 9,
                     }
 
+TCF_EM_INVERSE_MASK = 4
+
 
 class nla_plus_tcf_ematch_opt(object):
     @staticmethod
     def parse_ematch_options(self, *argv, **kwarg):
         if 'kind' not in self:
-            raise Exception('ematch requires "kind" parameter')
+            raise ValueError('ematch requires "kind" parameter')
 
         kind = self['kind']
         if kind in plugins:
@@ -43,7 +45,7 @@ class nla_plus_tcf_ematch_opt(object):
 
 def get_ematch_parms(kwarg):
     if 'kind' not in kwarg:
-        raise Exception('ematch requires "kind" parameter')
+        raise ValueError('ematch requires "kind" parameter')
 
     if kwarg['kind'] in plugins:
         return plugins[kwarg['kind']].get_parameters(kwarg)
@@ -68,13 +70,18 @@ def get_tcf_ematches(kwarg):
     kind = plugins_translate[kind]
     match['kind'] = kind
 
+    # Handle ematch flags
+    if 'em_inverse' in kwarg:
+        if kwarg['em_inverse']:
+            match['flags'] |= TCF_EM_INVERSE_MASK
+
     # Load plugin and transfer data
     data = plugins[kind].data()
     data.setvalue(kwarg['match'][0])
     data.encode()
 
+    # Add ematch encoded data
     match['opt'] = data.data.decode('utf-8')
-    #match['flags'] = data.get('attrs')[1].get('flags')
 
     ret['attrs'].append(['TCA_EMATCH_TREE_HDR', header])
     ret['attrs'].append(['TCA_EMATCH_TREE_LIST', [match]])
