@@ -1,4 +1,3 @@
-import struct
 from pyroute2.netlink import nlmsg_base
 
 # see em_ipset.c
@@ -22,11 +21,6 @@ def get_parameters(kwarg):
         ('flags', 'TCF_EM_FLAGS'),
         ('pad', 'TCF_EM_PAD')
     )
-
-    if 'flags' in kwarg:
-        flags = kwarg['flags']
-        if not TCF_EM_REL_VALID(flags):
-            raise Exception('Invalid relation flag')
 
     for k, v in attrs_map:
         r = kwarg.get(k, None)
@@ -62,7 +56,7 @@ class data(nlmsg_base):
             raise ValueError('IPSet dimension could not be greater than {0}'.
                              format(IPSET_DIM['IPSET_DIM_MAX']))
 
-        for i in xrange(0, dim):
+        for i in range(0, dim):
             if modes[i] == 'dst':
                 flags |= TCF_IPSET_MODE_DST << i
             elif modes[i] == 'src':

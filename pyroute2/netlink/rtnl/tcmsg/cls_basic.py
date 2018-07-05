@@ -45,7 +45,6 @@ import struct
 from socket import htons
 from pyroute2 import protocols
 from pyroute2.netlink import nla
-from pyroute2.netlink.rtnl.tcmsg.common_ematch import get_ematch_parms
 from pyroute2.netlink.rtnl.tcmsg.common_ematch import get_tcf_ematches
 from pyroute2.netlink.rtnl.tcmsg.common_ematch import nla_plus_tcf_ematch_opt
 
@@ -86,8 +85,7 @@ class options(nla):
                )
 
     class parse_basic_ematch_tree(nla):
-        nla_map = (
-                   ('TCA_EMATCH_TREE_UNSPEC', 'none'),
+        nla_map = (('TCA_EMATCH_TREE_UNSPEC', 'none'),
                    ('TCA_EMATCH_TREE_HDR', 'tcf_parse_header'),
                    ('TCA_EMATCH_TREE_LIST', '*tcf_parse_list'),
                    )
