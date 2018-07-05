@@ -1007,12 +1007,15 @@ class nlmsg_base(dict):
 
         # handle the array case
         if self._nla_array:
+            header_type = 1
             for value in self.getvalue():
                 cell = type(self)(data=self.data,
                                   offset=offset,
                                   parent=self)
                 cell._nla_array = False
-                cell['header']['type'] = 1
+                cell['header']['type'] = header_type
+                header_type += 1
+
                 if cell.cell_header is not None:
                     cell.header = cell.cell_header
                 cell.setvalue(value)
