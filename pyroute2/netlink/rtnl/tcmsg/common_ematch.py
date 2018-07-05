@@ -26,7 +26,17 @@ plugins_translate = {
                     'ipt': 9,
                     }
 
+TCF_EM_REL_END = 0
+TCF_EM_REL_AND = 1
+TCF_EM_REL_OR = 2
 TCF_EM_INVERSE_MASK = 4
+
+RELATIONS_DICT = {'and': TCF_EM_REL_AND,
+                  'AND': TCF_EM_REL_AND,
+                  '&&': TCF_EM_REL_AND,
+                  'or': TCF_EM_REL_OR,
+                  'OR': TCF_EM_REL_OR,
+                  '||': TCF_EM_REL_OR}
 
 
 class nla_plus_tcf_ematch_opt(object):
@@ -55,35 +65,63 @@ def get_ematch_parms(kwarg):
 
 def get_tcf_ematches(kwarg):
     ret = {'attrs': []}
-    header = {'nmatches': 1,
+    matches = []
+    header = {'nmatches': 0,
               'progid': 0}
 
-    match = {'matchid': 0,
-             'kind': None,
-             'flags': 0,
-             'pad': 0,
-             'opt': None}
-
-    kind = kwarg['em_kind']
-
     # Translate string kind into numeric kind
+    kind = kwarg['em_kind']
     kind = plugins_translate[kind]
-    match['kind'] = kind
 
-    # Handle ematch flags
-    if 'em_inverse' in kwarg:
-        if kwarg['em_inverse']:
-            match['flags'] |= TCF_EM_INVERSE_MASK
+    # Get the number of expressions
+    expr_count = len(kwarg['match'])
+    header['nmatches'] = expr_count
 
     # Load plugin and transfer data
-    data = plugins[kind].data()
-    data.setvalue(kwarg['match'][0])
-    data.encode()
+    for i in xrange(0, expr_count):
+        match = {'matchid': 0,
+                 'kind': None,
+                 'flags': 0,
+                 'pad': 0,
+                 'opt': None}
 
-    # Add ematch encoded data
-    match['opt'] = data.data.decode('utf-8')
+        cur_match = kwarg['match'][i]
+
+        match['kind'] = kind
+        data = plugins[kind].data()
+        data.setvalue(cur_match)
+        data.encode()
+
+        # Add ematch encoded data
+        match['opt'] = data.data.decode('utf-8')
+
+        # Safety check
+        if i == expr_count - 1 and 'relation' in cur_match:
+            raise ValueError('Could not set a relation to the last expression')
+
+        if i < expr_count - 1 and 'relation' not in cur_match:
+            raise ValueError('You must specify a relation for every expression'
+                             ' except the last one')
+
+        # Set relation to flags
+        if 'relation' in cur_match:
+            relation = cur_match['relation']
+            if relation in RELATIONS_DICT:
+                match['flags'] |= RELATIONS_DICT.get(relation)
+            else:
+                raise ValueError('Unknown relation {0}'.format(relation));
+        else:
+            match['flags'] = TCF_EM_REL_END
+
+        # Handle inverse flag
+        if 'inverse' in cur_match:
+            if cur_match['inverse']:
+                match['flags'] |= TCF_EM_INVERSE_MASK
+
+        # Append new match to list of matches
+        matches.append(match)
 
     ret['attrs'].append(['TCA_EMATCH_TREE_HDR', header])
-    ret['attrs'].append(['TCA_EMATCH_TREE_LIST', [match]])
+    ret['attrs'].append(['TCA_EMATCH_TREE_LIST', matches])
 
     return ret
