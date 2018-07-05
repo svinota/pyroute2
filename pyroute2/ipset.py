@@ -137,14 +137,14 @@ class IPSet(NetlinkSocket):
         except NetlinkError as err:
             raise _IPSetError(err.code, cmd=msg_type)
 
-    def headers(self, name):
+    def headers(self, name, **kwargs):
         '''
         Get headers of the named ipset. It can be used to test if one ipset
         exists, since it returns a no such file or directory.
         '''
-        return self._list_or_headers(IPSET_CMD_HEADER, name=name)
+        return self._list_or_headers(IPSET_CMD_HEADER, name=name, **kwargs)
 
-    def list(self, *argv, **kwarg):
+    def list(self, *argv, **kwargs):
         '''
         List installed ipsets. If `name` is provided, list
         the named ipset or return an empty list.
@@ -153,14 +153,16 @@ class IPSet(NetlinkSocket):
         exit, you will receive an empty list.
         '''
         if len(argv):
-            kwarg['name'] = argv[0]
-        return self._list_or_headers(IPSET_CMD_LIST, **kwarg)
+            kwargs['name'] = argv[0]
+        return self._list_or_headers(IPSET_CMD_LIST, **kwargs)
 
-    def _list_or_headers(self, cmd, name=None):
+    def _list_or_headers(self, cmd, name=None, flags=None):
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version]]
         if name is not None:
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
+        if flags is not None:
+            msg['attrs'].append(['IPSET_ATTR_FLAGS', flags])
         return self.request(msg, cmd)
 
     def destroy(self, name=None):

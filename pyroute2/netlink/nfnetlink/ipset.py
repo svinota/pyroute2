@@ -23,7 +23,15 @@ IPSET_CMD_TEST = 11  # Test an element in a set
 IPSET_CMD_HEADER = 12  # Get set header data only
 IPSET_CMD_TYPE = 13  # 13: Get set type
 
+# flags at command level (IPSET_ATTR_FLAGS)
+IPSET_FLAG_LIST_SETNAME = 1 << 1
+IPSET_FLAG_LIST_HEADER = 1 << 2
+IPSET_FLAG_SKIP_COUNTER_UPDATE = 1 << 3
+IPSET_FLAG_SKIP_SUBCOUNTER_UPDATE = 1 << 4
+IPSET_FLAG_MATCH_COUNTERS = 1 << 5
+IPSET_FLAG_RETURN_NOMATCH = 1 << 7
 
+# flags at cadt attribute (IPSET_ATTR_CADT_FLAGS)
 IPSET_FLAG_WITH_COUNTERS = 1 << 3
 IPSET_FLAG_WITH_COMMENT = 1 << 4
 IPSET_FLAG_WITH_FORCEADD = 1 << 5
@@ -72,7 +80,7 @@ class ipset_msg(nfgen_msg):
                ('IPSET_ATTR_TYPENAME', 'asciiz'),
                ('IPSET_ATTR_REVISION', 'uint8'),
                ('IPSET_ATTR_FAMILY', 'uint8'),
-               ('IPSET_ATTR_FLAGS', 'hex'),
+               ('IPSET_ATTR_FLAGS', 'be32'),
                ('IPSET_ATTR_DATA', 'get_data_type'),
                ('IPSET_ATTR_ADT', 'attr_adt'),
                ('IPSET_ATTR_LINENO', 'hex'),
