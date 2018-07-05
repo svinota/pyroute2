@@ -1,3 +1,35 @@
+'''
+basic
++++++
+
+Basic filter type supports ipset matches::
+
+    # Prepare a simple match on an ipset at index 0 src (the first ipset name that appears when running `ipset list`
+    match = [{"index": 0, "mode": "src"}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="ipset", parent=0x10000, classid=0x10010, match=match)
+
+    # The same match but inverted, simply add inverse flag
+    match = [{"index": 0, "mode": "src", "inverse": True}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="ipset", parent=0x10000, classid=0x10010, match=match)
+
+    # Still one ipset but with multiple dimensions: comma separated list of modes
+    match = [{"index": 0, "mode": "src,dst"}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="ipset", parent=0x10000, classid=0x10010, match=match)
+
+    # Now let's add multiple expressions (ipset 0 src and ipset 1 src)
+    match = [{"index": 0, "mode": "src", "relation": "and"}, {"index": 1, "mode": "src"}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="ipset", parent=0x10000, classid=0x10010, match=match)
+
+    # The same works with OR (ipset 0 src or ipset 1 src)
+    match = [{"index": 0, "mode": "src", "relation": "OR"}, {"index": 1, "mode": "src"}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="ipset", parent=0x10000, classid=0x10010, match=match)
+
+NOTES:
+    When not specified, `inverse` flag is set to False.
+    Do not specify `relation` keyword on the last expression or if there is only one expression.
+    `relation` can be written using multiple format: "and", "AND", "&&", "or", "OR", "||"
+'''
+
 import struct
 from socket import htons
 from pyroute2 import protocols
