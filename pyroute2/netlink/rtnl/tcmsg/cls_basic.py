@@ -4,30 +4,41 @@ basic
 
 Basic filter type supports ipset matches::
 
-    # Prepare a simple match on an ipset at index 0 src (the first ipset name that appears when running `ipset list`
+    # Prepare a simple match on an ipset at index 0 src
+    # (the first ipset name that appears when running `ipset list`
     match = [{"index": 0, "mode": "src"}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="ipset", parent=0x10000, classid=0x10010, match=match)
+    ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
+          parent=0x10000, classid=0x10010, match=match)
 
     # The same match but inverted, simply add inverse flag
     match = [{"index": 0, "mode": "src", "inverse": True}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="ipset", parent=0x10000, classid=0x10010, match=match)
+    ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
+          parent=0x10000, classid=0x10010, match=match)
 
-    # Still one ipset but with multiple dimensions: comma separated list of modes
+    # Still one ipset but with multiple dimensions:
+    # comma separated list of modes
     match = [{"index": 0, "mode": "src,dst"}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="ipset", parent=0x10000, classid=0x10010, match=match)
+    ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
+          parent=0x10000, classid=0x10010, match=match)
 
     # Now let's add multiple expressions (ipset 0 src and ipset 1 src)
-    match = [{"index": 0, "mode": "src", "relation": "and"}, {"index": 1, "mode": "src"}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="ipset", parent=0x10000, classid=0x10010, match=match)
+    match = [{"index": 0, "mode": "src", "relation": "and"},
+             {"index": 1, "mode": "src"}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
+          parent=0x10000, classid=0x10010, match=match)
 
     # The same works with OR (ipset 0 src or ipset 1 src)
-    match = [{"index": 0, "mode": "src", "relation": "OR"}, {"index": 1, "mode": "src"}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="ipset", parent=0x10000, classid=0x10010, match=match)
+    match = [{"index": 0, "mode": "src", "relation": "OR"},
+             {"index": 1, "mode": "src"}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
+          parent=0x10000, classid=0x10010, match=match)
 
 NOTES:
     When not specified, `inverse` flag is set to False.
-    Do not specify `relation` keyword on the last expression or if there is only one expression.
-    `relation` can be written using multiple format: "and", "AND", "&&", "or", "OR", "||"
+    Do not specify `relation` keyword on the last expression or
+    if there is only one expression.
+    `relation` can be written using multiple format:
+      "and", "AND", "&&", "or", "OR", "||"
 '''
 
 import struct
@@ -37,6 +48,7 @@ from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl.tcmsg.common_ematch import get_ematch_parms
 from pyroute2.netlink.rtnl.tcmsg.common_ematch import get_tcf_ematches
 from pyroute2.netlink.rtnl.tcmsg.common_ematch import nla_plus_tcf_ematch_opt
+
 
 def fix_msg(msg, kwarg):
     if 'protocol' not in kwarg:
@@ -73,7 +85,6 @@ class options(nla):
                ('TCA_BASIC_POLICE', 'hex'),
                )
 
-
     class parse_basic_ematch_tree(nla):
         nla_map = (
                    ('TCA_EMATCH_TREE_UNSPEC', 'none'),
@@ -81,12 +92,10 @@ class options(nla):
                    ('TCA_EMATCH_TREE_LIST', '*tcf_parse_list'),
                    )
 
-
         class tcf_parse_header(nla):
             fields = (('nmatches', 'H'),
                       ('progid', 'H'),
                       )
-
 
         class tcf_parse_list(nla, nla_plus_tcf_ematch_opt):
             fields = (('matchid', 'H'),
@@ -95,7 +104,6 @@ class options(nla):
                       ('pad', 'H'),
                       ('opt', 's'),
                       )
-
 
             def decode(self):
                 nla.decode(self)
