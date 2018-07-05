@@ -1,30 +1,30 @@
 from pyroute2.netlink.rtnl.tcmsg import em_ipset
 
 plugins = {
-           # 0: em_container,
-           # 1: em_cmp,
-           # 2: em_nbyte,
-           # 3: em_u32,
-           # 4: em_meta,
-           # 5: em_text,
-           # 6: em_vlan,
-           # 7: em_canid,
-           8: em_ipset,
-           # 9: em_ipt,
-          }
+    # 0: em_container,
+    # 1: em_cmp,
+    # 2: em_nbyte,
+    # 3: em_u32,
+    # 4: em_meta,
+    # 5: em_text,
+    # 6: em_vlan,
+    # 7: em_canid,
+    8: em_ipset,
+    # 9: em_ipt,
+}
 
 plugins_translate = {
-                    'container': 0,
-                    'cmp': 1,
-                    'nbyte': 2,
-                    'u32': 3,
-                    'meta': 4,
-                    'text': 5,
-                    'vlan': 6,
-                    'canid': 7,
-                    'ipset': 8,
-                    'ipt': 9,
-                    }
+    'container': 0,
+    'cmp': 1,
+    'nbyte': 2,
+    'u32': 3,
+    'meta': 4,
+    'text': 5,
+    'vlan': 6,
+    'canid': 7,
+    'ipset': 8,
+    'ipt': 9,
+}
 
 TCF_EM_REL_END = 0
 TCF_EM_REL_AND = 1
@@ -78,7 +78,7 @@ def get_tcf_ematches(kwarg):
     header['nmatches'] = expr_count
 
     # Load plugin and transfer data
-    for i in xrange(0, expr_count):
+    for i in range(0, expr_count):
         match = {'matchid': 0,
                  'kind': None,
                  'flags': 0,
@@ -109,7 +109,7 @@ def get_tcf_ematches(kwarg):
             if relation in RELATIONS_DICT:
                 match['flags'] |= RELATIONS_DICT.get(relation)
             else:
-                raise ValueError('Unknown relation {0}'.format(relation));
+                raise ValueError('Unknown relation {0}'.format(relation))
         else:
             match['flags'] = TCF_EM_REL_END
 
