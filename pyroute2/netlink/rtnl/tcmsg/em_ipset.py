@@ -80,7 +80,32 @@ class data(nlmsg_base):
 
 
     def encode(self):
+        flags, dim = self._get_ip_set_parms()
+
         self['ip_set_index'] = self['index']
-        self['ip_set_dim'] = IPSET_DIM['IPSET_DIM_ONE']
-        self['ip_set_flags'] = TCF_IPSET_MODE_SRC
+        self['ip_set_dim'] = dim
+        self['ip_set_flags'] = flags
         nlmsg_base.encode(self)
+
+
+    def _get_ip_set_parms(self):
+        flags = 0
+        dim = 0
+        mode = self['mode']
+
+        # Split to get dimension
+        modes = mode.split(',')
+        dim = len(modes)
+        if dim > IPSET_DIM['IPSET_DIM_MAX']:
+            raise ValueError('IPSet dimension could not be greater than {0}'.
+                             format(IPSET_DIM['IPSET_DIM_MAX']))
+
+        for i in xrange(0, dim):
+            if modes[i] == 'dst':
+                flags |= TCF_IPSET_MODE_DST << i
+            elif modes[i] == 'src':
+                flags |= TCF_IPSET_MODE_SRC << i
+            else:
+                raise ValueError('Unknown IP set mode "{0}"'.format(modes[i]))
+
+        return (flags, dim)
