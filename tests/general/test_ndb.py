@@ -1,4 +1,5 @@
 import time
+from utils import grep
 from utils import require_user
 from pyroute2 import NDB
 from pyroute2 import IPRoute
@@ -66,9 +67,34 @@ class TestBase(object):
             ipr.link('set', index=ret[-2], master=ret[-1])
             return ret
 
+    def create_deps(self):
+        with IPRoute() as ipr:
+            ret = []
+            #
+            # simple dummy interface with one address and
+            # one dependent route
+            #
+            self.if_simple = uifname()
+            ipr.link('add',
+                     ifname=self.if_simple,
+                     kind='dummy')
+            ret.append(self.link_wait(self.if_simple))
+            ipr.link('set', index=ret[-1], state='up')
+            ipr.addr('add',
+                     index=ret[-1],
+                     address='172.16.172.16',
+                     prefixlen=24)
+            ipr.route('add',
+                      dst='172.16.127.0',
+                      dst_len=24,
+                      gateway='172.16.172.17')
+            return ret
+
     def setup(self):
         require_user('root')
+        self.if_simple = None
         self.interfaces = self.create_interfaces()
+        self.interfaces += self.create_deps()
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec)
         self.interfaces += self.create_interfaces()
@@ -86,6 +112,31 @@ class TestBase(object):
                     .schema
                     .execute(request, values)
                     .fetchall())
+
+
+class TestRollback(TestBase):
+
+    def test_simple_deps(self):
+        iface = self.ndb.interfaces[self.if_simple]
+        # check everything is in place
+        assert grep('ip link show', pattern=self.if_simple)
+        assert grep('ip route show', pattern=self.if_simple)
+        assert grep('ip route show', pattern='172.16.127.*172.16.172.17')
+
+        # remove the interface
+        iface.remove()
+        iface.commit()
+
+        # check there is no interface, no route
+        assert not grep('ip link show', pattern=self.if_simple)
+        assert not grep('ip route show', pattern=self.if_simple)
+        assert not grep('ip route show', pattern='172.16.127.*172.16.172.17')
+
+        # revert the changes using the implicit last_save
+        iface.rollback()
+        assert grep('ip link show', pattern=self.if_simple)
+        assert grep('ip route show', pattern=self.if_simple)
+        assert grep('ip route show', pattern='172.16.127.*172.16.172.17')
 
 
 class TestSchema(TestBase):
