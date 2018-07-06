@@ -98,7 +98,15 @@ docs: clean force-version
 	@cp README.make.md docs/makefile.rst
 	@cp README.report.md docs/report.rst
 	@cp CHANGELOG.md docs/changelog.rst
-	@export PYTHONPATH=`pwd`; make -C docs html >docs-build.log 2>&1; unset PYTHONPATH
+	@[ -f docs/_templates/private.layout.html ] && ( \
+	    mv -f docs/_templates/layout.html docs/_templates/layout.html.orig; \
+		cp docs/_templates/private.layout.html docs/_templates/layout.html; ) ||:
+	@export PYTHONPATH=`pwd`; \
+		make -C docs html >docs-build.log 2>&1 || export FAIL=true ; \
+		[ -f docs/_templates/layout.html.orig ] && ( \
+			mv -f docs/_templates/layout.html.orig docs/_templates/layout.html; ) ||: ;\
+		unset PYTHONPATH ;\
+		[ -z "$$FAIL" ] || false
 
 epydoc: docs
 	${epydoc} -v \

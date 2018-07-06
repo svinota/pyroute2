@@ -23,6 +23,7 @@ docs/general.rst
 docs/report.rst
 docs/html
 docs/doctrees
+docs/_templates/private.layout.html
 docs-build.log
 pyroute2.egg-info
 benchmark.log
