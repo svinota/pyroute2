@@ -352,7 +352,7 @@ class View(dict):
             for record in (self
                            .ndb
                            .schema
-                           .fetchall(iclass.summary)):
+                           .fetch(iclass.summary)):
                 yield record
         else:
             header = tuple(['f_%s' % x for x in
@@ -363,9 +363,9 @@ class View(dict):
             for record in (self
                            .ndb
                            .schema
-                           .fetchall('SELECT %s FROM %s'
-                                     % (key_fields,
-                                        iclass.view or iclass.table))):
+                           .fetch('SELECT %s FROM %s'
+                                  % (key_fields,
+                                     iclass.view or iclass.table))):
                 yield record
 
     def csv(self, *argv, **kwarg):

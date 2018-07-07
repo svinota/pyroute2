@@ -294,6 +294,21 @@ class DBSchema(object):
                 self._counter = 0
         return cursor
 
+    def fetch(self, *argv, **kwarg):
+        #
+        # fetch() always requires a separate cursor, so there is
+        # no need to lock the DB
+        #
+        self.connection.commit()
+        cursor = self.connection.cursor()
+        cursor.execute(*argv, **kwarg)
+        while True:
+            record_set = cursor.fetchmany()
+            if not record_set:
+                return
+            for record in record_set:
+                yield record
+
     @db_lock
     def fetchall(self, *argv, **kwarg):
         return self.execute(*argv, **kwarg).fetchall()
@@ -510,7 +525,6 @@ class DBSchema(object):
         #
         conditions = []
         values = []
-        ret = []
         cls = self.classes[table]
         for key, value in spec.items():
             if key not in [x[0] for x in cls.fields]:
@@ -519,8 +533,7 @@ class DBSchema(object):
             values.append(value)
         req = 'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(conditions))
         for record in self.fetchall(req, values):
-            ret.append(dict(zip(self.compiled[table]['all_names'], record)))
-        return ret
+            yield dict(zip(self.compiled[table]['all_names'], record))
 
     @db_lock
     def rtmsg_gc_mark(self, target, event, gc_mark=None):
@@ -537,11 +550,11 @@ class DBSchema(object):
         key_query = ' AND '.join(['f_%s = %s' % (x, self.plch) for x
                                   in self.indices['routes']])
         routes = (self
-                  .fetchall('SELECT %s,f_RTA_GATEWAY FROM routes WHERE '
-                            'f_target = %s AND f_RTA_OIF = %s AND '
-                            'f_RTA_GATEWAY IS NOT NULL %s'
-                            % (key_fields, self.plch, self.plch, gc_clause),
-                            (target, event.get_attr('RTA_OIF'))))
+                  .fetch('SELECT %s,f_RTA_GATEWAY FROM routes WHERE '
+                         'f_target = %s AND f_RTA_OIF = %s AND '
+                         'f_RTA_GATEWAY IS NOT NULL %s'
+                         % (key_fields, self.plch, self.plch, gc_clause),
+                         (target, event.get_attr('RTA_OIF'))))
         #
         # get the route's RTA_DST and calculate the network
         #
@@ -630,8 +643,7 @@ class DBSchema(object):
             s_req = 'SELECT f_route_id FROM routes %s' % spec
             #
             # get existing route_id
-            route_id = self.fetchall(s_req, values)
-            if route_id:
+            for route_id in self.fetchall(s_req, values):
                 #
                 # if exists
                 route_id = route_id[0][0]
@@ -639,6 +651,7 @@ class DBSchema(object):
                 # flush all previous MP hops
                 d_req = 'DELETE FROM nh WHERE f_route_id= %s' % self.plch
                 self.execute(d_req, (route_id, ))
+                break
             else:
                 #
                 # or create a new route_id

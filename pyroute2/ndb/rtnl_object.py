@@ -178,12 +178,12 @@ class RTNL_Object(dict):
                 # comprare the tables
                 diff = (self
                         .schema
-                        .fetchall('''
-                                  SELECT * FROM %s_%s
-                                      EXCEPT
-                                  SELECT * FROM %s
-                                  '''
-                                  % (table, self.ctxid, table)))
+                        .fetch('''
+                               SELECT * FROM %s_%s
+                                   EXCEPT
+                               SELECT * FROM %s
+                               '''
+                               % (table, self.ctxid, table)))
                 for record in diff:
                     record = dict(zip((self
                                        .schema
