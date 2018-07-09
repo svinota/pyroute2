@@ -517,7 +517,6 @@ class DBSchema(object):
             self.execute('DROP TABLE %s' % table)
             del self.snapshots[table]
 
-    @db_lock
     def get(self, table, spec):
         #
         # Retrieve info from the DB
@@ -533,7 +532,7 @@ class DBSchema(object):
             conditions.append('f_%s = %s' % (key, self.plch))
             values.append(value)
         req = 'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(conditions))
-        for record in self.fetchall(req, values):
+        for record in self.fetch(req, values):
             yield dict(zip(self.compiled[table]['all_names'], record))
 
     @db_lock
