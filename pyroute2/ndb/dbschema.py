@@ -428,7 +428,8 @@ class DBSchema(object):
         #
         if self.rtnl_log:
             req = ['f_tstamp BIGINT NOT NULL',
-                   'f_target TEXT NOT NULL'] + fields
+                   'f_target TEXT NOT NULL',
+                   'f_event INTEGER NOT NULL'] + fields
             req = ','.join(req)
             self.execute('CREATE TABLE IF NOT EXISTS '
                          '%s_log (%s)' % (table, req))
@@ -699,10 +700,12 @@ class DBSchema(object):
         # RTNL Logs
         #
         fkeys = self.compiled[table]['names']
-        fields = ','.join(['f_tstamp', 'f_target'] +
+        fields = ','.join(['f_tstamp', 'f_target', 'f_event'] +
                           ['f_%s' % x for x in fkeys])
-        pch = ','.join([self.plch] * (len(fkeys) + 2))
-        values = [int(time.time() * 1000), target]
+        pch = ','.join([self.plch] * (len(fkeys) + 3))
+        values = [int(time.time() * 1000),
+                  target,
+                  event.get('header', {}).get('type', 0)]
         for field in fkeys:
             value = event.get_attr(field) or event.get(field)
             if value is None and field in self.indices[ctable or table]:
