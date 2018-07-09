@@ -2,6 +2,7 @@ import time
 import uuid
 import struct
 import sqlite3
+import logging
 import threading
 import traceback
 from functools import partial
@@ -19,6 +20,8 @@ from pyroute2.netlink.rtnl.rtmsg import nh
 
 # ifinfo plugins
 from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import vlan
+
+log = logging.getLogger(__name__)
 
 
 def db_lock(method):
@@ -856,7 +859,7 @@ class DBSchema(object):
             except Exception:
                 #
                 # A good question, what should we do here
-                traceback.print_exc()
+                log.warning('load_netlink: %s' % traceback.format_exc())
 
 
 def init(connection, mode, rtnl_log, tid):
