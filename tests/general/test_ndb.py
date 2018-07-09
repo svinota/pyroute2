@@ -243,3 +243,19 @@ class TestReports(TestBase):
         assert isinstance(repr(self.ndb.interfaces.summary()), basestring)
         # header + MAX_REPORT_LINES + (...)
         assert len(repr(self.ndb.interfaces.summary()).split('\n')) == 3
+
+    def test_dump(self):
+        for record in self.ndb.addresses.dump():
+            assert isinstance(record, tuple)
+
+    def test_csv(self):
+        l = 0
+
+        for record in self.ndb.routes.dump():
+            if l == 0:
+                l = len(record)
+            else:
+                assert len(record) == l
+
+        for record in self.ndb.routes.csv():
+            assert len(record.split(',')) == l
