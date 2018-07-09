@@ -54,6 +54,32 @@ class Interface(RTNL_Object):
 
         return ret_key
 
+    def snapshot(self, ctxid=None):
+        with self.schema.db_lock:
+            # 1. make own snapshot
+            snp = super(Interface, self).snapshot(ctxid=ctxid)
+            # 2. collect dependencies and store in self.snapshot_deps
+            for spec in (self
+                         .schema
+                         .get('interfaces', {'IFLA_MASTER': self['index']})):
+                # vlans
+                link = type(self)(self.view, spec)
+                snp.snapshot_deps.append((link, link.snapshot()))
+            for spec in (self
+                         .schema
+                         .get('interfaces', {'IFLA_LINK': self['index']})):
+                # bridges
+                link = type(self)(self.view, spec)
+                snp.snapshot_deps.append((link, link.snapshot()))
+            # return the root node
+            return snp
+
+    def make_req(self, scope, prime):
+        req = super(Interface, self).make_req(scope, prime)
+        if scope == 'system':  # --> link('set', ...)
+            req['master'] = self['master']
+        return req
+
     def load_sql(self, *argv, **kwarg):
         super(Interface, self).load_sql(*argv, **kwarg)
         self.load_value('state', 'up' if self['flags'] & 1 else 'down')

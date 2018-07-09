@@ -31,6 +31,7 @@ class RTNL_Object(dict):
         self.iclass = iclass
         self.etable = self.table
         self.errors = []
+        self.snapshot_deps = []
         self.load_event = threading.Event()
         self.kspec = ('target', ) + self.schema.indices[self.table]
         self.spec = self.schema.compiled[self.table]['all_names']
@@ -83,6 +84,8 @@ class RTNL_Object(dict):
         snapshot.scope = self.scope
         snapshot.next_scope = 'system'
         snapshot.apply(rollback=True)
+        for link, snp in snapshot.snapshot_deps:
+            link.rollback(snapshot=snp)
 
     def commit(self):
         # Save the context
@@ -126,6 +129,12 @@ class RTNL_Object(dict):
 
         return True
 
+    def make_req(self, scope, prime):
+        req = dict(prime)
+        for key in self.changed:
+            req[key] = self[key]
+        return req
+
     def apply(self, rollback=False):
 
         self.load_event.clear()
@@ -143,15 +152,15 @@ class RTNL_Object(dict):
         api = getattr(self.nl[self['target']], self.api)
 
         # Load the current state
+        self.schema.connection.commit()
         self.load_sql(set_scope=False)
         scope = self.scope
 
         # Create the request.
         idx_req = dict([(x, self[self.iclass.nla2name(x)]) for x in
                         self.schema.compiled[self.table]['idx']])
-        req = dict(idx_req)
-        for key in self.changed:
-            req[key] = self[key]
+        req = self.make_req(scope, idx_req)
+
         #
         if scope == 'invalid':
             api('add', **dict([x for x in self.items() if x[1] is not None]))
@@ -172,8 +181,9 @@ class RTNL_Object(dict):
         if rollback:
             #
             # Iterate all the snapshot tables and collect the diff
-            for table in self.schema.spec:
-                if table == self.table:
+            for (table, cls) in self.view.classes.items():
+                if issubclass(type(self), cls) or \
+                        issubclass(cls, type(self)):
                     continue
                 # comprare the tables
                 diff = (self
@@ -218,8 +228,9 @@ class RTNL_Object(dict):
         keys = []
         values = []
         for name, value in self.key.items():
-            keys.append('f_%s = %s' % (name, self.schema.plch))
-            values.append(value)
+            if name in self.kspec:
+                keys.append('f_%s = %s' % (name, self.schema.plch))
+                values.append(value)
         spec = (self
                 .schema
                 .fetchone('SELECT * FROM %s WHERE %s' %

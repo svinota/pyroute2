@@ -67,34 +67,10 @@ class TestBase(object):
             ipr.link('set', index=ret[-2], master=ret[-1])
             return ret
 
-    def create_deps(self):
-        with IPRoute() as ipr:
-            ret = []
-            #
-            # simple dummy interface with one address and
-            # one dependent route
-            #
-            self.if_simple = uifname()
-            ipr.link('add',
-                     ifname=self.if_simple,
-                     kind='dummy')
-            ret.append(self.link_wait(self.if_simple))
-            ipr.link('set', index=ret[-1], state='up')
-            ipr.addr('add',
-                     index=ret[-1],
-                     address='172.16.172.16',
-                     prefixlen=24)
-            ipr.route('add',
-                      dst='172.16.127.0',
-                      dst_len=24,
-                      gateway='172.16.172.17')
-            return ret
-
     def setup(self):
         require_user('root')
         self.if_simple = None
         self.interfaces = self.create_interfaces()
-        self.interfaces += self.create_deps()
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec)
         self.interfaces += self.create_interfaces()
@@ -116,7 +92,35 @@ class TestBase(object):
 
 class TestRollback(TestBase):
 
+    def setup(self):
+        require_user('root')
+        self.ndb = NDB(db_provider=self.db_provider,
+                       db_spec=self.db_spec)
+
     def test_simple_deps(self):
+        with IPRoute() as ipr:
+            self.interfaces = []
+            #
+            # simple dummy interface with one address and
+            # one dependent route
+            #
+            self.if_simple = uifname()
+            ipr.link('add',
+                     ifname=self.if_simple,
+                     kind='dummy')
+            self.interfaces.append(self.link_wait(self.if_simple))
+            ipr.link('set',
+                     index=self.interfaces[-1],
+                     state='up')
+            ipr.addr('add',
+                     index=self.interfaces[-1],
+                     address='172.16.172.16',
+                     prefixlen=24)
+            ipr.route('add',
+                      dst='172.16.127.0',
+                      dst_len=24,
+                      gateway='172.16.172.17')
+
         iface = self.ndb.interfaces[self.if_simple]
         # check everything is in place
         assert grep('ip link show', pattern=self.if_simple)
@@ -137,6 +141,82 @@ class TestRollback(TestBase):
         assert grep('ip link show', pattern=self.if_simple)
         assert grep('ip route show', pattern=self.if_simple)
         assert grep('ip route show', pattern='172.16.127.*172.16.172.17')
+
+    def test_bridge_deps(self):
+        with IPRoute() as ipr:
+            self.interfaces = []
+            self.if_br0 = uifname()
+            ipr.link('add',
+                     ifname=self.if_br0,
+                     kind='bridge')
+            self.interfaces.append(self.link_wait(self.if_br0))
+            ipr.link('set',
+                     index=self.interfaces[-1],
+                     state='up')
+            ipr.addr('add',
+                     index=self.interfaces[-1],
+                     address='172.16.173.16',
+                     prefixlen=24)
+            ipr.addr('add',
+                     index=self.interfaces[-1],
+                     address='172.16.173.17',
+                     prefixlen=24)
+            ipr.route('add',
+                      dst='172.16.128.0',
+                      dst_len=24,
+                      gateway='172.16.173.18')
+            self.if_br0p0 = uifname()
+            ipr.link('add',
+                     ifname=self.if_br0p0,
+                     kind='dummy')
+            self.interfaces.append(self.link_wait(self.if_br0p0))
+            ipr.link('set',
+                     index=self.interfaces[-1],
+                     state='up',
+                     master=self.interfaces[-2])
+            self.if_br0p1 = uifname()
+            ipr.link('add',
+                     ifname=self.if_br0p1,
+                     kind='dummy')
+            self.interfaces.append(self.link_wait(self.if_br0p1))
+            ipr.link('set',
+                     index=self.interfaces[-1],
+                     state='up',
+                     master=self.interfaces[-3])
+        iface = self.ndb.interfaces[self.if_br0]
+        # check everything is in place
+        assert grep('ip link show', pattern=self.if_br0)
+        assert grep('ip link show', pattern=self.if_br0p0)
+        assert grep('ip link show', pattern=self.if_br0p1)
+        assert grep('ip addr show', pattern='172.16.173.16')
+        assert grep('ip addr show', pattern='172.16.173.17')
+        assert grep('ip route show', pattern=self.if_br0)
+        assert grep('ip route show', pattern='172.16.128.*172.16.173.18')
+        # import rpdb2
+        # rpdb2.start_embedded_debugger("bala")
+
+        # remove the interface
+        iface.remove()
+        iface.commit()
+
+        # check there is no interface, no route
+        assert not grep('ip link show', pattern=self.if_br0)
+        assert grep('ip link show', pattern=self.if_br0p0)
+        assert grep('ip link show', pattern=self.if_br0p1)
+        assert not grep('ip addr show', pattern='172.16.173.16')
+        assert not grep('ip addr show', pattern='172.16.173.17')
+        assert not grep('ip route show', pattern=self.if_br0)
+        assert not grep('ip route show', pattern='172.16.128.*172.16.173.18')
+
+        # revert the changes using the implicit last_save
+        iface.rollback()
+        assert grep('ip link show', pattern=self.if_br0)
+        assert grep('ip link show', pattern=self.if_br0p0)
+        assert grep('ip link show', pattern=self.if_br0p1)
+        assert grep('ip addr show', pattern='172.16.173.16')
+        assert grep('ip addr show', pattern='172.16.173.17')
+        assert grep('ip route show', pattern=self.if_br0)
+        assert grep('ip route show', pattern='172.16.128.*172.16.173.18')
 
 
 class TestSchema(TestBase):
