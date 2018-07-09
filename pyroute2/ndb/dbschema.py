@@ -1,6 +1,7 @@
 import time
 import uuid
 import struct
+import sqlite3
 import threading
 import traceback
 from functools import partial
@@ -299,7 +300,13 @@ class DBSchema(object):
         # fetch() always requires a separate cursor, so there is
         # no need to lock the DB
         #
-        self.connection.commit()
+        try:
+            self.connection.commit()
+        except sqlite3.OperationalError:
+            # Ignore commit errors for SQLite3:
+            #
+            # OperationalError: cannot commit - no transaction is active
+            pass
         cursor = self.connection.cursor()
         cursor.execute(*argv, **kwarg)
         while True:
