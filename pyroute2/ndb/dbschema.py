@@ -819,10 +819,31 @@ class DBSchema(object):
                     #
                     # SQLite3 >= 3.24 actually has UPSERT, but ...
                     #
-                    self.execute('INSERT OR REPLACE INTO %s (%s) VALUES (%s)'
-                                 % (table,
-                                    compiled['fnames'],
-                                    compiled['plchs']), values)
+                    # We can not use here INSERT OR REPLACE as well, since
+                    # it drops (almost always) records with foreign key
+                    # dependencies. Maybe a bug in SQLite3, who knows.
+                    #
+                    count = (self
+                             .execute('''
+                                      SELECT count(*) FROM %s WHERE %s
+                                      ''' % (table,
+                                             compiled['fidx']),
+                                      ivalues)
+                             .fetchone())[0]
+                    if count == 0:
+                        self.execute('''
+                                     INSERT INTO %s (%s) VALUES (%s)
+                                     ''' % (table,
+                                            compiled['fnames'],
+                                            compiled['plchs']),
+                                     values)
+                    else:
+                        self.execute('''
+                                     UPDATE %s SET %s WHERE %s
+                                     ''' % (table,
+                                            compiled['fset'],
+                                            compiled['fidx']),
+                                     (values + ivalues))
                 else:
                     raise NotImplementedError()
                 #
