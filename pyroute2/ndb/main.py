@@ -311,24 +311,26 @@ class View(dict):
             spec = ''
         if iclass.dump and iclass.dump_header:
             yield iclass.dump_header
-            for stmt in iclass.dump_pre:
-                self.ndb.schema.execute(stmt)
-            for record in (self
-                           .ndb
-                           .schema
-                           .execute(iclass.dump + spec, values)):
-                yield record
-            for stmt in iclass.dump_post:
-                self.ndb.schema.execute(stmt)
+            with self.ndb.schema.db_lock:
+                for stmt in iclass.dump_pre:
+                    self.ndb.schema.execute(stmt)
+                for record in (self
+                               .ndb
+                               .schema
+                               .execute(iclass.dump + spec, values)):
+                    yield record
+                for stmt in iclass.dump_post:
+                    self.ndb.schema.execute(stmt)
         else:
             yield ('target', 'tflags') + tuple([cls.nla2name(x) for x in keys])
-            for record in (self
-                           .ndb
-                           .schema
-                           .execute('SELECT * FROM %s AS rs %s'
-                                    % (iclass.view or iclass.table, spec),
-                                    values)):
-                yield record
+            with self.ndb.schema.db_lock:
+                for record in (self
+                               .ndb
+                               .schema
+                               .execute('SELECT * FROM %s AS rs %s'
+                                        % (iclass.view or iclass.table, spec),
+                                        values)):
+                    yield record
 
     def _csv(self, match=None, dump=None):
         if dump is None:
