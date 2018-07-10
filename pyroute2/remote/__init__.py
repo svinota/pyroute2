@@ -55,7 +55,13 @@ class Transport(object):
                 return self.brd_queue.get()
 
             while True:
-                ret = self.__recv()
+                try:
+                    ret = self.__recv()
+                except struct.error:
+                    try:
+                        return self.brd_queue.get(timeout=5)
+                    except queue.Empty:
+                        raise Exception('I/O error')
                 if ret['stage'] == 'broadcast':
                     return ret
                 self.cmd_queue.put(ret)
