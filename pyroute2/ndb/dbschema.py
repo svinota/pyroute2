@@ -445,6 +445,14 @@ class DBSchema(object):
                          '%s_log (%s)' % (table, req))
 
     @db_lock
+    def flush(self, target):
+        for table in self.spec:
+            self.execute('''
+                         DELETE FROM %s WHERE f_target = %s
+                         ''' % (table, self.plch),
+                         (target, ))
+
+    @db_lock
     def save_deps(self, objid, wref):
         uuid = uuid32()
         obj = wref()

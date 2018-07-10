@@ -1,7 +1,11 @@
 import time
+import uuid
+import threading
 from utils import grep
 from utils import require_user
+from pyroute2 import netns
 from pyroute2 import NDB
+from pyroute2 import NetNS
 from pyroute2 import IPRoute
 from pyroute2.common import uifname
 from pyroute2.common import basestring
@@ -73,7 +77,6 @@ class TestBase(object):
         self.interfaces = self.create_interfaces()
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec)
-        self.interfaces += self.create_interfaces()
 
     def teardown(self):
         with IPRoute() as ipr:
@@ -227,10 +230,62 @@ class TestSchema(TestBase):
                         self.fetch('select f_index from interfaces')])) == 0
 
     def test_vlan_interfaces(self):
-        assert len(self.fetch('select * from vlan')) >= 4
+        assert len(self.fetch('select * from vlan')) >= 2
 
     def test_bridge_interfaces(self):
-        assert len(self.fetch('select * from bridge')) >= 2
+        assert len(self.fetch('select * from bridge')) >= 1
+
+
+class TestSources(TestBase):
+
+    def count_interfaces(self, target):
+        with self.ndb.schema.db_lock:
+            return (self
+                    .ndb
+                    .schema
+                    .execute('''
+                             SELECT count(*) FROM interfaces
+                             WHERE f_target = '%s'
+                             ''' % target)
+                    .fetchone()[0])
+
+    def test_connect_netns(self):
+        nsname = str(uuid.uuid4())
+        with self.ndb.schema.db_lock:
+            s = len(tuple(self.ndb.interfaces.summary())) - 1
+            assert self.count_interfaces(nsname) == 0
+            assert self.count_interfaces('localhost') == s
+
+        # connect RTNL source
+        event = threading.Event()
+        self.ndb.connect_source(nsname, NetNS(nsname), event)
+        assert event.wait(5)
+
+        with self.ndb.schema.db_lock:
+            s = len(tuple(self.ndb.interfaces.summary())) - 1
+            assert self.count_interfaces(nsname) > 0
+            assert self.count_interfaces('localhost') < s
+
+        # disconnect the source
+        self.ndb.disconnect_source(nsname)
+        with self.ndb.schema.db_lock:
+            s = len(tuple(self.ndb.interfaces.summary())) - 1
+            assert self.count_interfaces(nsname) == 0
+            assert self.count_interfaces('localhost') == s
+
+        netns.remove(nsname)
+
+    def test_disconnect_localhost(self):
+        with self.ndb.schema.db_lock:
+            s = len(tuple(self.ndb.interfaces.summary())) - 1
+            assert self.count_interfaces('localhost') == s
+
+        self.ndb.disconnect_source('localhost')
+
+        with self.ndb.schema.db_lock:
+            s = len(tuple(self.ndb.interfaces.summary())) - 1
+            assert self.count_interfaces('localhost') == s
+            assert s == 0
 
 
 class TestReports(TestBase):

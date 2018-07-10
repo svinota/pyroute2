@@ -142,14 +142,16 @@ class RTNL_Object(dict):
         # Get the API entry point. The RTNL source must comply to the
         # IPRoute API.
         #
-        # self.nl = {'localhost': IPRoute(),
+        # self.nl = {'localhost': Source(),
         #            'remote': ...}
         #
         # self.api = 'link'
+        # Source().nl -- command API
+        # Source().mnl -- monitoring API
         #
         # -> api(...) = iproute.link(...)
         #
-        api = getattr(self.nl[self['target']], self.api)
+        api = getattr(self.nl[self['target']].nl, self.api)
 
         # Load the current state
         self.schema.connection.commit()

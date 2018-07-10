@@ -162,6 +162,7 @@ import traceback
 from functools import partial
 from pyroute2 import config
 from pyroute2 import IPRoute
+from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.ndb import dbschema
 from pyroute2.ndb.interface import (Interface,
                                     Bridge,
@@ -380,6 +381,79 @@ class View(dict):
         return Report(self._summary(*argv, **kwarg))
 
 
+class Source(object):
+    '''
+    The RNTL source. The channel that is used to init the source
+    must comply to IPRoute API, must support clone() call and
+    the async_cache. If the channel starts additional threads,
+    they must be joined in the channel.close()
+
+    The reason to keep two separate channels (command and async)
+    is that the command channel even being subscribed to async
+    events does not receive all the updates initiated by an RTNL
+    API call, say, route() or address().
+
+    Thus we need a separate channel that will receive all the events.
+    '''
+
+    def __init__(self, evq, target, channel, event=None):
+        # the event queue to send events to
+        self.evq = evq
+        # the target id -- just in case
+        self.target = target
+        # the channel to run API commands on
+        self.nl = channel
+        # the async events source
+        self.mnl = channel.clone()
+        self.mnl.bind(async_cache=True)
+        #
+        self.started = event
+
+    def start(self):
+        #
+        # Initial load -- enqueue the data
+        #
+        self.evq.put((self.target, self.nl.get_links()))
+        self.evq.put((self.target, self.nl.get_addr()))
+        self.evq.put((self.target, self.nl.get_neighbours()))
+        self.evq.put((self.target, self.nl.get_routes()))
+        if self.started is not None:
+            self.evq.put((self.target, (self.started, )))
+
+        #
+        # The source thread routine -- get events from the
+        # channel and forward them into the common event queue
+        #
+        # The routine exists on an event with error code == 104
+        #
+        def t(event_queue, target, channel):
+            while True:
+                msg = tuple(channel.get())
+                if msg[0]['header']['error'] and \
+                        msg[0]['header']['error'].code == 104:
+                            return
+                event_queue.put((target, msg))
+
+        #
+        # Start source thread
+        self.th = (threading
+                   .Thread(target=t,
+                           args=(self.evq, self.target, self.mnl),
+                           name='NDB event source: %s' % (self.target)))
+        self.th.start()
+
+    def close(self):
+        self.nl.close()
+        self.mnl.close()
+        self.th.join()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+
 class NDB(object):
 
     def __init__(self,
@@ -396,11 +470,19 @@ class NDB(object):
         self._global_lock = threading.Lock()
         self._event_map = None
         self._event_queue = queue.Queue()
-        self._nl = nl
+        #
+        # fix sources prime
+        if nl is None:
+            self._nl = {'localhost': IPRoute()}
+        elif issubclass(nl, NetlinkMixin):
+            self._nl = {'localhost': nl}
+        elif isinstance(nl, dict):
+            self._nl = nl
+
+        self.nl = {}
         self._db_provider = db_provider
         self._db_spec = db_spec
         self._db_rtnl_log = rtnl_log
-        self._src_threads = []
         atexit.register(self.close)
         self._rtnl_objects = set()
         self._dbm_ready.clear()
@@ -441,12 +523,8 @@ class NDB(object):
                     pass
             if self.schema:
                 self._event_queue.put(('localhost', (ShutdownException(), )))
-                for target, channel in self.nl.items():
-                    channel.close()
-                for target, channel in self.mnl.items():
-                    channel.close()
-                for src in self._src_threads:
-                    src.join()
+                for target, source in self.nl.items():
+                    source.close()
                 self._dbm_thread.join()
                 self.schema.commit()
                 self.schema.close()
@@ -454,26 +532,7 @@ class NDB(object):
     def __initdb__(self):
         with self._global_lock:
             #
-            # stop running sources, if any
-            for src in self._src_threads:
-                src.nl.close()
-                src.join()
-                self._src_threads = []
-            #
-            # start event sockets
-            self.nl = {}
-            self.mnl = {}
-            if self._nl is None:
-                ipr = IPRoute()
-                self.nl = {'localhost': ipr}
-            else:
-                self.nl = dict(self._nl)
-            for target in self.nl:
-                self.mnl[target] = self.nl[target].clone()
-                # self.mnl[target].get_timeout = 300
-                self.mnl[target].bind(async_cache=True)
-            #
-            # close the current db
+            # close the current db, if opened
             if self.schema:
                 self.schema.commit()
                 self.schema.close()
@@ -481,8 +540,7 @@ class NDB(object):
             # ACHTUNG!
             # check_same_thread=False
             #
-            # Do NOT write into the DB from ANY other thread
-            # than self._dbm_thread!
+            # Please be very careful with the DB locks!
             #
             if self._db_provider == 'sqlite3':
                 self._db = sqlite3.connect(self._db_spec,
@@ -492,35 +550,46 @@ class NDB(object):
 
             if self.schema:
                 self.schema.db = self._db
-            #
-            # initial load
-            evq = self._event_queue
-            for (target, channel) in tuple(self.nl.items()):
-                evq.put((target, channel.get_links()))
-                evq.put((target, channel.get_addr()))
-                evq.put((target, channel.get_neighbours()))
-                evq.put((target, channel.get_routes()))
-            #
-            # start source threads
-            for (target, channel) in tuple(self.mnl.items()):
 
-                def t(event_queue, target, channel):
-                    while True:
-                        msg = tuple(channel.get())
-                        if msg[0]['header']['error'] and \
-                                msg[0]['header']['error'].code == 104:
-                                    return
-                        event_queue.put((target, msg))
+    def disconnect_source(self, target, flush=True):
+        '''
+        Disconnect an event source from the DB. Raise KeyError if
+        there is no such source.
 
-                th = threading.Thread(target=t,
-                                      args=(self._event_queue,
-                                            target,
-                                            channel),
-                                      name='NDB event source: %s' % (target))
-                th.nl = channel
-                th.start()
-                self._src_threads.append(th)
-            evq.put(('localhost', (self._dbm_ready, ), ))
+        :param target: node name or UUID
+        '''
+        # close the source
+        self.nl[target].close()
+        del self.nl[target]
+        #
+        if flush:
+            self.schema.flush(target)
+
+    def connect_source(self, target, channel, event=None):
+        '''
+        Connect an event source to the DB. All arguments are required.
+
+        :param target: node name or UUID, any hashable value
+        :param nl: an IPRoute channel to init Source() class
+        :param event: an optional Event() to send in the end
+
+        The source connection is an async process so there should be
+        a way to wain until it is registered. One can provide an Event()
+        that will be set by the main NDB loop when the source is
+        connected.
+        '''
+        #
+        if event is not None:
+            event.clear()
+        #
+        # flush the DB
+        self.schema.flush(target)
+        #
+        # register the channel
+        if target in self.nl:
+            self.disconnect_source(target)
+        self.nl[target] = Source(self._event_queue, target, channel, event)
+        self.nl[target].start()
 
     def __dbm__(self):
 
@@ -535,11 +604,13 @@ class NDB(object):
             logging.warning('unsupported event ignored: %s' % type(event))
 
         self.__initdb__()
-
         self.schema = dbschema.init(self._db,
                                     self._db_provider,
                                     self._db_rtnl_log,
                                     id(threading.current_thread()))
+        for target, channel in self._nl.items():
+            self.connect_source(target, channel, self._dbm_ready)
+
         for (event, handlers) in self.schema.event_map.items():
             for handler in handlers:
                 self.register_handler(event, handler)
