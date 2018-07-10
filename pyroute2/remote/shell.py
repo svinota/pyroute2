@@ -1,3 +1,4 @@
+import struct
 import atexit
 import logging
 import subprocess
@@ -44,15 +45,15 @@ class ShellIPR(RTNL_API, RemoteSocket):
 
     def close(self):
         self._cleanup_atexit()
+        # something went wrong, force server shutdown
         try:
-            super(ShellIPR, self).close()
-        except:
-            # something went wrong, force server shutdown
-            try:
-                self.trnsp_out.send({'stage': 'shutdown'})
-            except Exception:
-                pass
-            log.error('forced shutdown procedure, clean up netns manually')
+            self.trnsp_out.send({'stage': 'shutdown'})
+            data = {'stage': 'broadcast',
+                    'data': struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0),
+                    'error': None}
+            self.trnsp_in.brd_queue.put(data)
+        except Exception:
+            pass
         # force cleanup command channels
         for close in (self.trnsp_in.close, self.trnsp_out.close):
             try:
