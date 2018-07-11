@@ -306,12 +306,33 @@ class DBSchema(object):
         try:
             self.connection.commit()
         except sqlite3.OperationalError:
-            # Ignore commit errors for SQLite3:
             #
-            # OperationalError: cannot commit - no transaction is active
+            # Ignore commit errors for SQLite3:
+            # -- OperationalError: cannot commit - no transaction is activea
+            #
             pass
-        cursor = self.connection.cursor()
-        cursor.execute(*argv, **kwarg)
+        #
+        # FIXME: How many tries should we do here? A good question to SQLite3
+        #
+        for _ in range(5):
+            cursor = self.connection.cursor()
+            try:
+                cursor.execute(*argv, **kwarg)
+                break
+            except (sqlite3.InterfaceError, sqlite3.OperationalError):
+                #
+                # Retry on:
+                # -- InterfaceError: Error binding parameter ...
+                # -- OperationalError: SQL logic error
+                #
+                # SQLite3 has a lot of issues with concurrency, so one
+                # may expect exceptions here, as the routine is used in
+                # the transaction rollbacks.
+                #
+                pass
+        else:
+            raise Exception('DB fetch error')
+
         while True:
             record_set = cursor.fetchmany()
             if not record_set:
