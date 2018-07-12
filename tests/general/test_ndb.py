@@ -221,6 +221,73 @@ class TestRollback(TestBase):
         assert grep('ip route show', pattern=self.if_br0)
         assert grep('ip route show', pattern='172.16.128.*172.16.173.18')
 
+    def test_vlan_deps(self):
+        with IPRoute() as ipr:
+            self.interfaces = []
+            if_host = uifname()
+            ipr.link('add',
+                     ifname=if_host,
+                     kind='dummy')
+            self.interfaces.append(self.link_wait(if_host))
+            ipr.link('set',
+                     index=self.interfaces[-1],
+                     state='up')
+            if_vlan = uifname()
+            ipr.link('add',
+                     ifname=if_vlan,
+                     kind='vlan',
+                     link=self.interfaces[-1],
+                     vlan_id=1001)
+            self.interfaces.append(self.link_wait(if_vlan))
+            ipr.link('set',
+                     index=self.interfaces[-1],
+                     state='up')
+            ipr.addr('add',
+                     index=self.interfaces[-1],
+                     address='172.16.174.16',
+                     prefixlen=24)
+            ipr.addr('add',
+                     index=self.interfaces[-1],
+                     address='172.16.174.17',
+                     prefixlen=24)
+            ipr.route('add',
+                      dst='172.16.129.0',
+                      dst_len=24,
+                      gateway='172.16.174.18')
+
+        iface = self.ndb.interfaces[if_host]
+        # check everything is in place
+        assert grep('ip link show', pattern=if_host)
+        assert grep('ip link show', pattern=if_vlan)
+        assert grep('ip addr show', pattern='172.16.174.16')
+        assert grep('ip addr show', pattern='172.16.174.17')
+        assert grep('ip route show', pattern=if_vlan)
+        assert grep('ip route show', pattern='172.16.129.*172.16.174.18')
+        assert grep('cat /proc/net/vlan/config', pattern=if_vlan)
+
+        # remove the interface
+        iface.remove()
+        iface.commit()
+
+        # check there is no interface, no route
+        assert not grep('ip link show', pattern=if_host)
+        assert not grep('ip link show', pattern=if_vlan)
+        assert not grep('ip addr show', pattern='172.16.174.16')
+        assert not grep('ip addr show', pattern='172.16.174.17')
+        assert not grep('ip route show', pattern=if_vlan)
+        assert not grep('ip route show', pattern='172.16.129.*172.16.174.18')
+        assert not grep('cat /proc/net/vlan/config', pattern=if_vlan)
+
+        # revert the changes using the implicit last_save
+        iface.rollback()
+        assert grep('ip link show', pattern=if_host)
+        assert grep('ip link show', pattern=if_vlan)
+        assert grep('ip addr show', pattern='172.16.174.16')
+        assert grep('ip addr show', pattern='172.16.174.17')
+        assert grep('ip route show', pattern=if_vlan)
+        assert grep('ip route show', pattern='172.16.129.*172.16.174.18')
+        assert grep('cat /proc/net/vlan/config', pattern=if_vlan)
+
 
 class TestSchema(TestBase):
 
