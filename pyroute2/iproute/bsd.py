@@ -100,6 +100,7 @@ class IPRoute(object):
         self._ctlr, self._ctlw = os.pipe()  # notify monitoring thread
         self._outq = queue.Queue()
         self._system_lock = threading.Lock()
+        self.closed = threading.Event()
 
     def __enter__(self):
         return self
@@ -112,6 +113,9 @@ class IPRoute(object):
 
     def close(self):
         with self._system_lock:
+            if self.closed.is_set():
+                return
+
             if self._mon_th is not None:
                 os.write(self._ctlw, b'\0')
                 self._mon_th.join()
@@ -124,6 +128,7 @@ class IPRoute(object):
                     os.close(ep)
                 except OSError:
                     pass
+            self.closed.set()
 
     def bind(self, *argv, **kwarg):
         with self._system_lock:
