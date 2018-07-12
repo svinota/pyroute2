@@ -52,11 +52,12 @@ def _get_data_fields():
 
     ret = []
     for data in supported_kinds:
-        msg = ifinfmsg.ifinfo.data_map[data]
-        if getattr(msg, 'prefix', None) is not None:
-            ret += [msg.nla2name(i[0]) for i in msg.nla_map]
-        else:
-            ret += [ifinfmsg.nla2name(i[0]) for i in msg.nla_map]
+        msg = ifinfmsg.ifinfo.data_map.get(data)
+        if msg is not None:
+            if getattr(msg, 'prefix', None) is not None:
+                ret += [msg.nla2name(i[0]) for i in msg.nla_map]
+            else:
+                ret += [ifinfmsg.nla2name(i[0]) for i in msg.nla_map]
     return ret
 
 
