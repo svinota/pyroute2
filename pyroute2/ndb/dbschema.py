@@ -370,7 +370,8 @@ class DBSchema(object):
         return self.connection.commit()
 
     @db_lock
-    def create_ifinfo_view(self, table):
+    def create_ifinfo_view(self, table, ctxid=None):
+        iftable = 'interfaces'
 
         req = (('main.f_target', 'main.f_tflags') +
                tuple(['main.f_%s' % x[-1] for x
@@ -378,17 +379,20 @@ class DBSchema(object):
                tuple(['data.f_%s' % x[-1] for x
                       in self.spec[table].keys()])[:-2])
         # -> ... main.f_index, main.f_IFLA_IFNAME, ..., data.f_IFLA_BR_GC_TIMER
+        if ctxid is not None:
+            iftable = '%s_%s' % (iftable, ctxid)
+            table = '%s_%s' % (table, ctxid)
         self.execute('''
                      DROP VIEW IF EXISTS %s
                      ''' % table[7:])
         self.execute('''
                      CREATE VIEW %s AS
-                     SELECT %s FROM interfaces AS main
+                     SELECT %s FROM %s AS main
                      INNER JOIN %s AS data ON
                          main.f_index = data.f_index
                      AND
                          main.f_target = data.f_target
-                     ''' % (table[7:], ','.join(req), table))
+                     ''' % (table[7:], ','.join(req), iftable, table))
 
     @db_lock
     def create_table(self, table):
@@ -474,7 +478,7 @@ class DBSchema(object):
                          (target, ))
 
     @db_lock
-    def save_deps(self, objid, wref):
+    def save_deps(self, objid, wref, iclass):
         uuid = uuid32()
         obj = wref()
         idx = self.indices[obj.table]
@@ -482,7 +486,7 @@ class DBSchema(object):
         values = []
         for key in idx:
             conditions.append('f_%s = %s' % (key, self.plch))
-            values.append(obj.get(self.classes[obj.table].nla2name(key)))
+            values.append(obj.get(iclass.nla2name(key)))
         #
         # save the old f_tflags value
         #
@@ -501,7 +505,7 @@ class DBSchema(object):
                          f_tflags = %s
                      WHERE %s
                      '''
-                     % (obj.table,
+                     % (obj.utable,
                         self.plch,
                         ' AND '.join(conditions)),
                      [uuid] + values)
@@ -531,6 +535,9 @@ class DBSchema(object):
                          '''
                          % (table, objid, table, self.plch),
                          [uuid])
+
+            if table.startswith('ifinfo_'):
+                self.create_ifinfo_view(table, objid)
         #
         # unmark all the data
         #
@@ -539,7 +546,7 @@ class DBSchema(object):
                          f_tflags = %s
                      WHERE %s
                      '''
-                     % (obj.table,
+                     % (obj.utable,
                         self.plch,
                         ' AND '.join(conditions)),
                      [tflags] + values)
@@ -553,6 +560,8 @@ class DBSchema(object):
     @db_lock
     def purge_snapshots(self):
         for table in tuple(self.snapshots):
+            if table.startswith('ifinfo_'):
+                self.execute('DROP VIEW %s' % table[7:])
             self.execute('DROP TABLE %s' % table)
             del self.snapshots[table]
 
@@ -771,6 +780,8 @@ class DBSchema(object):
             for name, wref in self.snapshots.items():
                 if wref() is None:
                     del self.snapshots[name]
+                    if name.startswith('ifinfo_'):
+                        self.execute('DROP VIEW %s' % name[7:])
                     self.execute('DROP TABLE %s' % name)
 
             # clean marked routes

@@ -8,6 +8,7 @@ class RTNL_Object(dict):
     table = None   # model table -- always one of the main tables
     view = None    # (optional) view to load values for the summary etc.
     etable = None  # effective table -- may be a snapshot
+    utable = None  # table to send updates to
 
     schema = None
     event_map = None
@@ -30,6 +31,7 @@ class RTNL_Object(dict):
         self.changed = set()
         self.iclass = iclass
         self.etable = self.table
+        self.utable = self.utable or self.table
         self.errors = []
         self.snapshot_deps = []
         self.load_event = threading.Event()
@@ -49,7 +51,7 @@ class RTNL_Object(dict):
 
     def snapshot(self, ctxid=None):
         snp = type(self)(self.view, self.key, ctxid)
-        self.schema.save_deps(snp.ctxid, weakref.ref(snp))
+        self.schema.save_deps(snp.ctxid, weakref.ref(snp), self.iclass)
         snp.etable = '%s_%s' % (snp.table, snp.ctxid)
         snp.changed = set(self.changed)
         return snp
@@ -135,6 +137,20 @@ class RTNL_Object(dict):
             req[key] = self[key]
         return req
 
+    def get_scope(self):
+        conditions = []
+        values = []
+        for name in self.kspec:
+            conditions.append('f_%s = %s' % (name, self.schema.plch))
+            values.append(self.get(self.iclass.nla2name(name), None))
+        return (self
+                .schema
+                .fetchone('''
+                          SELECT count(*) FROM %s WHERE %s
+                          ''' % (self.table,
+                                 ' AND '.join(conditions)),
+                          values)[0])
+
     def apply(self, rollback=False):
 
         self.load_event.clear()
@@ -156,7 +172,10 @@ class RTNL_Object(dict):
         # Load the current state
         self.schema.connection.commit()
         self.load_sql(set_scope=False)
-        scope = self.scope
+        if self.get_scope() == 0:
+            scope = 'invalid'
+        else:
+            scope = self.scope
 
         # Create the request.
         idx_req = dict([(x, self[self.iclass.nla2name(x)]) for x in

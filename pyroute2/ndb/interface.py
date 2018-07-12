@@ -62,14 +62,14 @@ class Interface(RTNL_Object):
             for spec in (self
                          .schema
                          .get('interfaces', {'IFLA_MASTER': self['index']})):
-                # vlans
+                # bridge ports
                 link = type(self)(self.view, spec)
                 snp.snapshot_deps.append((link, link.snapshot()))
             for spec in (self
                          .schema
                          .get('interfaces', {'IFLA_LINK': self['index']})):
-                # bridges
-                link = type(self)(self.view, spec)
+                # vlans
+                link = Vlan(self.view, spec)
                 snp.snapshot_deps.append((link, link.snapshot()))
             # return the root node
             return snp
@@ -92,6 +92,7 @@ class Interface(RTNL_Object):
 class Bridge(Interface):
 
     table = 'bridge'
+    utable = 'interfaces'
     summary = '''
               SELECT
                   f_target, f_index, f_IFLA_IFNAME,
@@ -107,6 +108,7 @@ class Bridge(Interface):
 class Vlan(Interface):
 
     table = 'vlan'
+    utable = 'interfaces'
     summary = '''
               SELECT
                   f_target, f_index, f_IFLA_IFNAME,
