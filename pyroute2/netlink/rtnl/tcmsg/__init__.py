@@ -7,6 +7,7 @@ from pyroute2.netlink.rtnl.tcmsg import cls_fw
 from pyroute2.netlink.rtnl.tcmsg import cls_u32
 from pyroute2.netlink.rtnl.tcmsg import cls_matchall
 from pyroute2.netlink.rtnl.tcmsg import cls_basic
+from pyroute2.netlink.rtnl.tcmsg import cls_flow
 from pyroute2.netlink.rtnl.tcmsg import sched_bpf
 from pyroute2.netlink.rtnl.tcmsg import sched_choke
 from pyroute2.netlink.rtnl.tcmsg import sched_clsact
@@ -37,6 +38,7 @@ plugins = {'plug': sched_plug,
            'u32': cls_u32,
            'matchall': cls_matchall,
            'basic': cls_basic,
+           'flow': cls_flow,
            'ingress': sched_ingress,
            'pfifo_fast': sched_pfifo_fast,
            'choke': sched_choke,

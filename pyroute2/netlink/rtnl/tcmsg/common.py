@@ -177,6 +177,56 @@ def get_rate_parameters(kwarg):
             'limit': int(limit)}
 
 
+tc_flow_keys = {'src': 0x01,
+                'dst': 0x02,
+                'proto': 0x04,
+                'proto-src': 0x08,
+                'proto-dst': 0x10,
+                'iif': 0x20,
+                'priority': 0x40,
+                'mark': 0x80,
+                'nfct': 0x0100,
+                'nfct-src': 0x0200,
+                'nfct-dst': 0x0400,
+                'nfct-proto-src': 0x0800,
+                'nfct-proto-dst': 0x1000,
+                'rt-classid': 0x2000,
+                'sk-uid': 0x4000,
+                'sk-gid': 0x8000,
+                'vlan-tag': 0x010000,
+                'rxhash': 0x020000,
+                }
+
+
+def get_tca_keys(kwarg):
+    if 'keys' not in kwarg:
+        raise ValueError('Missing attribute: keys')
+
+    res = 0
+    keys = kwarg['keys'].split(',')
+
+    for key, value in tc_flow_keys.items():
+        if key in keys:
+            res |= value
+
+    return res
+
+
+tc_flow_modes = {'map': 0,
+                 'hash': 1, }
+
+
+def get_tca_mode(kwarg):
+    if 'mode' not in kwarg:
+        raise ValueError('Missing attribute: mode')
+
+    for key, value in tc_flow_modes.items():
+        if key == kwarg['mode']:
+            return value
+
+    raise ValueError('Unknown flow mode {0}'.format(kwarg['mode']))
+
+
 tc_actions = {'unspec': -1,     # TC_ACT_UNSPEC
               'ok': 0,          # TC_ACT_OK
               'reclassify': 1,  # TC_ACT_RECLASSIFY
