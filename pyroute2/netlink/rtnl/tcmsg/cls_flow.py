@@ -1,3 +1,27 @@
+'''
+flow
+++++
+
+Flow filter supports two types of modes::
+    - map
+    - hash
+
+    # Prepare a Qdisc with fq-codel
+    ip.tc("add", "fq_codel", ifb0,
+          parent=0x10001, handle=0x10010)
+
+    # Create flow filter with hash mode
+    # Single:
+    keys = "src"
+    # Multi (comma separated list of keys):
+    keys = "src,nfct-src"
+    ip.tc("add-filter", "flow", ifb0,
+          mode="hash", keys=keys,
+          divisor=1024, perturb=60,
+          handle=0x10, baseclass=0x10010,
+          parent=0x10001)
+'''
+
 from socket import htons
 from pyroute2 import protocols
 from pyroute2.netlink import nla
