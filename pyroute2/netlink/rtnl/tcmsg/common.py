@@ -3,6 +3,7 @@ import os
 import struct
 import logging
 from math import log as logfm
+from socket import inet_aton
 from pyroute2 import config
 from pyroute2.common import size_suffixes
 from pyroute2.common import time_suffixes
@@ -198,12 +199,14 @@ tc_flow_keys = {'src': 0x01,
                 }
 
 
-def get_tca_keys(kwarg):
-    if 'keys' not in kwarg:
-        raise ValueError('Missing attribute: keys')
+def get_tca_keys(kwarg, name):
+    if name not in kwarg:
+        raise ValueError('Missing attribute: {0}'.format(name))
 
     res = 0
-    keys = kwarg['keys'].split(',')
+    keys = kwarg[name]
+    if name == 'hash':
+        keys = keys.split(',')
 
     for key, value in tc_flow_keys.items():
         if key in keys:
@@ -225,6 +228,56 @@ def get_tca_mode(kwarg):
             return value
 
     raise ValueError('Unknown flow mode {0}'.format(kwarg['mode']))
+
+
+def get_tca_ops(kwarg, attrs):
+    xor_value = 0
+    mask_value = 0
+    addend_value = 0
+    rshift_value = 0
+
+    for elem in kwarg['ops']:
+        op = elem['op']
+        num = elem['num']
+
+        if op == 'and':
+            mask_value = num
+            attrs.append(['TCA_FLOW_XOR', xor_value])
+            attrs.append(['TCA_FLOW_MASK', mask_value])
+        elif op == 'or':
+            if mask_value == 0:
+                mask_value = (~num + 1) & 0xFFFFFFFF
+            xor_value = num
+            attrs.append(['TCA_FLOW_XOR', xor_value])
+            attrs.append(['TCA_FLOW_MASK', mask_value])
+        elif op == 'xor':
+            if mask_value == 0:
+                mask_value = 0xFFFFFFFF
+            xor_value = num
+            attrs.append(['TCA_FLOW_XOR', xor_value])
+            attrs.append(['TCA_FLOW_MASK', mask_value])
+        elif op == 'rshift':
+            rshift_value = num
+            attrs.append(['TCA_FLOW_RSHIFT', rshift_value])
+        elif op == 'addend':
+            # Check if an IP was specified
+            if type(num) == str and len(num.split('.')) == 4:
+                if num.startswith('-'):
+                    inverse = True
+                else:
+                    inverse = False
+                ip = num.strip('-')
+
+                # Convert IP to uint32
+                ip = inet_aton(ip)
+                ip = struct.unpack('>I', ip)[0]
+
+                if inverse:
+                    ip = (~ip + 1) & 0xFFFFFFFF
+                addend_value = ip
+            else:
+                addend_value = num
+            attrs.append(['TCA_FLOW_ADDEND', addend_value])
 
 
 tc_actions = {'unspec': -1,     # TC_ACT_UNSPEC
