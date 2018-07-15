@@ -25,6 +25,7 @@ Flow filter supports two types of modes::
 from socket import htons
 from pyroute2 import protocols
 from pyroute2.netlink import nla
+from pyroute2.netlink.rtnl.tcmsg.common import get_tca_ops
 from pyroute2.netlink.rtnl.tcmsg.common import get_tca_mode
 from pyroute2.netlink.rtnl.tcmsg.common import get_tca_keys
 from pyroute2.netlink.rtnl.tcmsg.common import tc_flow_keys
@@ -49,9 +50,14 @@ def get_parameters(kwarg):
 
     if kwarg.get('mode'):
         ret['attrs'].append(['TCA_FLOW_MODE', get_tca_mode(kwarg)])
+        if kwarg.get('mode') == 'hash':
+            ret['attrs'].append(['TCA_FLOW_KEYS', get_tca_keys(kwarg, 'keys')])
 
-    if kwarg.get('keys'):
-        ret['attrs'].append(['TCA_FLOW_KEYS', get_tca_keys(kwarg)])
+        if kwarg.get('mode') == 'map':
+            ret['attrs'].append(['TCA_FLOW_KEYS', get_tca_keys(kwarg, 'key')])
+            # Check for OPS presence
+            if 'ops' in kwarg:
+                get_tca_ops(kwarg, ret['attrs'])
 
     for k, v in attrs_map:
         r = kwarg.get(k, None)
