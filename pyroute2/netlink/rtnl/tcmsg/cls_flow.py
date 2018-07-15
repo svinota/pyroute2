@@ -20,6 +20,47 @@ Flow filter supports two types of modes::
           divisor=1024, perturb=60,
           handle=0x10, baseclass=0x10010,
           parent=0x10001)
+
+
+    # Create flow filter with map mode
+    # Simple map dst with no OP:
+    ip.tc("add-filter", "flow", ifb0,
+    mode="map", key="dst",
+    divisor=1024, handle=10
+    baseclass=0x10010)
+
+    # Same filter with xor OP:
+    ops = [{"op": "xor", "num": 0xFF}]
+    ip.tc("add-filter", "flow", ifb0,
+    mode="map", key="dst",
+    divisor=1024, handle=10
+    baseclass=0x10010, ops=ops)
+
+    # Complex one with addend OP (incl. minus support):
+    ops = [{"op": "addend", "num": '-192.168.0.0'}]
+    ip.tc("add-filter", "flow", ifb0,
+    mode="map", key="dst",
+    divisor=1024, handle=10
+    baseclass=0x10010, ops=ops)
+
+    # Example with multiple OPS:
+    ops = [{"op": "and", "num": 0xFF},
+           {"op": "rshift", "num": 4}]
+    ip.tc("add-filter", "flow", ifb0,
+    mode="map", key="dst",
+    divisor=1024, handle=10
+    baseclass=0x10010, ops=ops)
+
+
+NOTES:
+    When using `map` mode, use the keyword `key` to pass a key.
+    When using `hash` mode, use the keyword `keys` to pass a key
+    even if there is only one key.
+    In `map` mode, the `num` parameter in `OPS` is always an
+    integer unless if you use the OP `addend`, which can be
+    a string IPv4 address. You can also add a minus sign at
+    the begining of the `num` value even if it is an IPv4
+    address.
 '''
 
 from socket import htons
