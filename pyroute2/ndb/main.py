@@ -219,6 +219,12 @@ class Report(object):
                 break
         return '\n'.join(ret)
 
+    def __len__(self):
+        counter = 0
+        for _ in self.generator:
+            counter += 1
+        return counter
+
 
 class View(dict):
     '''

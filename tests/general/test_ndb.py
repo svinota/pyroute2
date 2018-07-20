@@ -319,7 +319,7 @@ class TestSources(TestBase):
     def test_connect_netns(self):
         nsname = str(uuid.uuid4())
         with self.ndb.schema.db_lock:
-            s = len(tuple(self.ndb.interfaces.summary())) - 1
+            s = len(self.ndb.interfaces.summary()) - 1
             assert self.count_interfaces(nsname) == 0
             assert self.count_interfaces('localhost') == s
 
@@ -329,14 +329,14 @@ class TestSources(TestBase):
         assert event.wait(5)
 
         with self.ndb.schema.db_lock:
-            s = len(tuple(self.ndb.interfaces.summary())) - 1
+            s = len(self.ndb.interfaces.summary()) - 1
             assert self.count_interfaces(nsname) > 0
             assert self.count_interfaces('localhost') < s
 
         # disconnect the source
         self.ndb.disconnect_source(nsname)
         with self.ndb.schema.db_lock:
-            s = len(tuple(self.ndb.interfaces.summary())) - 1
+            s = len(self.ndb.interfaces.summary()) - 1
             assert self.count_interfaces(nsname) == 0
             assert self.count_interfaces('localhost') == s
 
@@ -344,13 +344,13 @@ class TestSources(TestBase):
 
     def test_disconnect_localhost(self):
         with self.ndb.schema.db_lock:
-            s = len(tuple(self.ndb.interfaces.summary())) - 1
+            s = len(self.ndb.interfaces.summary()) - 1
             assert self.count_interfaces('localhost') == s
 
         self.ndb.disconnect_source('localhost')
 
         with self.ndb.schema.db_lock:
-            s = len(tuple(self.ndb.interfaces.summary())) - 1
+            s = len(self.ndb.interfaces.summary()) - 1
             assert self.count_interfaces('localhost') == s
             assert s == 0
 
