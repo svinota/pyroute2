@@ -19,6 +19,8 @@ class Interface(RTNL_Object):
 
     def __init__(self, view, key, ctxid=None):
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
+        dict.__setitem__(self, 'flags', 0)
+        dict.__setitem__(self, 'state', 'unknown')
         super(Interface, self).__init__(view, key, ifinfmsg, ctxid)
 
     def complete_key(self, key):
