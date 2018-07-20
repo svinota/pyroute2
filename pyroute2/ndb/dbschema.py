@@ -1,6 +1,7 @@
 import time
 import uuid
 import struct
+import random
 import sqlite3
 import logging
 import threading
@@ -22,6 +23,7 @@ from pyroute2.netlink.rtnl.rtmsg import nh
 from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import vlan
 
 log = logging.getLogger(__name__)
+MAX_ATTEMPTS = 5
 
 
 def db_lock(method):
@@ -286,7 +288,19 @@ class DBSchema(object):
             cursor = self.connection.cursor()
             self._counter = config.db_transaction_limit + 1
         try:
-            cursor.execute(*argv, **kwarg)
+            for _ in range(MAX_ATTEMPTS):
+                try:
+                    cursor.execute(*argv, **kwarg)
+                    break
+                except (sqlite3.InterfaceError, sqlite3.OperationalError):
+                    #
+                    # Retry on:
+                    # -- InterfaceError: Error binding parameter ...
+                    # -- OperationalError: SQL logic error
+                    #
+                    pass
+            else:
+                raise Exception('DB execute error')
         except Exception:
             self.connection.commit()
             if self._cursor:
@@ -314,7 +328,7 @@ class DBSchema(object):
         #
         # FIXME: How many tries should we do here? A good question to SQLite3
         #
-        for _ in range(5):
+        for _ in range(MAX_ATTEMPTS):
             cursor = self.connection.cursor()
             try:
                 cursor.execute(*argv, **kwarg)
@@ -560,10 +574,21 @@ class DBSchema(object):
     @db_lock
     def purge_snapshots(self):
         for table in tuple(self.snapshots):
-            if table.startswith('ifinfo_'):
-                self.execute('DROP VIEW %s' % table[7:])
-            self.execute('DROP TABLE %s' % table)
-            del self.snapshots[table]
+            for _ in range(MAX_ATTEMPTS):
+                try:
+                    if table.startswith('ifinfo_'):
+                        self.execute('DROP VIEW %s' % table[7:])
+                    self.execute('DROP TABLE %s' % table)
+                    del self.snapshots[table]
+                    break
+                except sqlite3.OperationalError:
+                    #
+                    # Retry on:
+                    # -- OperationalError: database table is locked
+                    #
+                    time.sleep(random.random())
+            else:
+                raise Exception('DB snapshot error')
 
     def get(self, table, spec):
         #
