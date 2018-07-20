@@ -45,12 +45,13 @@ class Interface(RTNL_Object):
             for name, value in ret_key.items():
                 keys.append('f_%s = %s' % (name, self.schema.plch))
                 values.append(value)
-            spec = (self
-                    .schema
-                    .execute('SELECT %s FROM interfaces WHERE %s' %
-                             (' , '.join(fetch), ' AND '.join(keys)),
-                             values)
-                    .fetchone())
+            with self.schema.db_lock:
+                spec = (self
+                        .schema
+                        .execute('SELECT %s FROM interfaces WHERE %s' %
+                                 (' , '.join(fetch), ' AND '.join(keys)),
+                                 values)
+                        .fetchone())
             for name, value in zip(fetch, spec):
                 ret_key[name[2:]] = value
 

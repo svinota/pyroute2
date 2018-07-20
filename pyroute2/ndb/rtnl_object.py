@@ -68,14 +68,15 @@ class RTNL_Object(dict):
             for name, value in key.items():
                 keys.append('f_%s = %s' % (name, self.schema.plch))
                 values.append(value)
-            spec = (self
-                    .schema
-                    .execute('SELECT %s FROM %s WHERE %s' %
-                             (' , '.join(fetch),
-                              self.etable,
-                              ' AND '.join(keys)),
-                             values)
-                    .fetchone())
+            with self.schema.db_lock:
+                spec = (self
+                        .schema
+                        .execute('SELECT %s FROM %s WHERE %s' %
+                                 (' , '.join(fetch),
+                                  self.etable,
+                                  ' AND '.join(keys)),
+                                 values)
+                        .fetchone())
             for name, value in zip(fetch, spec):
                 key[name[2:]] = value
 
