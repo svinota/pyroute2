@@ -384,7 +384,7 @@ class stats2(nla):
 
     class basic(nla):
         fields = (('bytes', 'Q'),
-                  ('packets', 'Q'))
+                  ('packets', 'I'))
 
     class rate_est(nla):
         fields = (('bps', 'I'),
