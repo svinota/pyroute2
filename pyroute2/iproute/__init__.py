@@ -129,6 +129,13 @@ from them -- unlike PF_ROUTE messages.
 from pyroute2 import config
 from pyroute2.iproute.linux import RTNL_API
 from pyroute2.iproute.linux import IPBatch
+# compatibility fix -- LNST:
+from pyroute2.netlink.rtnl import (RTM_GETLINK,
+                                   RTM_NEWLINK,
+                                   RTM_DELLINK,
+                                   RTM_GETADDR,
+                                   RTM_NEWADDR,
+                                   RTM_DELADDR)
 
 
 if config.uname[0][-3:] == 'BSD':
@@ -142,3 +149,10 @@ classes = [RTNL_API,
            IPBatch,
            IPRoute,
            RawIPRoute]
+
+constants = [RTM_GETLINK,
+             RTM_NEWLINK,
+             RTM_DELLINK,
+             RTM_GETADDR,
+             RTM_NEWADDR,
+             RTM_DELADDR]
