@@ -131,14 +131,12 @@ from pyroute2.iproute.linux import RTNL_API
 from pyroute2.iproute.linux import IPBatch
 
 
-if config.uname[0] == 'Linux':
-    from pyroute2.iproute.linux import IPRoute
-    from pyroute2.iproute.linux import RawIPRoute
-elif config.uname[0][-3:] == 'BSD':
+if config.uname[0][-3:] == 'BSD':
     from pyroute2.iproute.bsd import IPRoute
     from pyroute2.iproute.bsd import RawIPRoute
 else:
-    raise ImportError('no IPRoute module for the platform')
+    from pyroute2.iproute.linux import IPRoute
+    from pyroute2.iproute.linux import RawIPRoute
 
 classes = [RTNL_API,
            IPBatch,
