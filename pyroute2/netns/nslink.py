@@ -135,16 +135,16 @@ class NetNS(RTNL_API, RemoteSocket):
     def __init__(self, netns, flags=os.O_CREAT):
         self.netns = netns
         self.flags = flags
-        self.trnsp_in, self.remote_trnsp_out = [Transport(FD(x))
-                                                for x in os.pipe()]
-        self.remote_trnsp_in, self.trnsp_out = [Transport(FD(x))
-                                                for x in os.pipe()]
+        trnsp_in, self.remote_trnsp_out = [Transport(FD(x))
+                                           for x in os.pipe()]
+        self.remote_trnsp_in, trnsp_out = [Transport(FD(x))
+                                           for x in os.pipe()]
 
         self.child = os.fork()
         if self.child == 0:
             # child process
-            self.trnsp_in.close()
-            self.trnsp_out.close()
+            trnsp_in.close()
+            trnsp_out.close()
             try:
                 setns(self.netns, self.flags)
             except OSError as e:
@@ -167,7 +167,7 @@ class NetNS(RTNL_API, RemoteSocket):
                 os._exit(0)
 
         try:
-            super(NetNS, self).__init__()
+            super(NetNS, self).__init__(trnsp_in, trnsp_out)
         except Exception:
             self.close()
             raise

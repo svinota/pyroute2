@@ -166,12 +166,17 @@ def Server(trnsp_in, trnsp_out):
                                     'cookie': cmd['cookie']})
 
 
-class Client(object):
+class RemoteSocket(NetlinkMixin):
 
     trnsp_in = None
     trnsp_out = None
+    remote_trnsp_in = None
+    remote_trnsp_out = None
 
-    def __init__(self):
+    def __init__(self, trnsp_in, trnsp_out):
+        super(RemoteSocket, self).__init__()
+        self.trnsp_in = trnsp_in
+        self.trnsp_out = trnsp_out
         self.cmdlock = threading.Lock()
         self.shutdown_lock = threading.Lock()
         self.closed = False
@@ -222,14 +227,16 @@ class Client(object):
     def close(self):
         with self.shutdown_lock:
             if not self.closed:
+                super(RemoteSocket, self).close()
                 self.closed = True
                 self._cleanup_atexit()
                 self.trnsp_out.send({'stage': 'shutdown'})
                 # send loopback nlmsg to terminate possible .get()
-                data = struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0)
-                self.remote_trnsp_out.send({'stage': 'broadcast',
-                                            'data': data,
-                                            'error': None})
+                if self.remote_trnsp_out is not None:
+                    data = struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0)
+                    self.remote_trnsp_out.send({'stage': 'broadcast',
+                                                'data': data,
+                                                'error': None})
                 with self.trnsp_in.lock:
                     pass
                 for trnsp in (self.trnsp_out,
@@ -281,18 +288,8 @@ class Client(object):
     def setsockopt(self, *argv, **kwarg):
         return self.proxy('setsockopt', *argv, **kwarg)
 
-
-class RemoteSocket(NetlinkMixin, Client):
-
-    def bind(self, *argv, **kwarg):
-        return Client.bind(self, *argv, **kwarg)
-
-    def close(self):
-        NetlinkMixin.close(self)
-        Client.close(self)
-
     def _sendto(self, *argv, **kwarg):
-        return Client.sendto(self, *argv, **kwarg)
+        return self.sendto(*argv, **kwarg)
 
     def _recv(self, *argv, **kwarg):
-        return Client.recv(self, *argv, **kwarg)
+        return self.recv(*argv, **kwarg)

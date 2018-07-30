@@ -20,11 +20,11 @@ class ShellIPR(RTNL_API, RemoteSocket):
                                       bufsize=0,
                                       stdin=subprocess.PIPE,
                                       stdout=subprocess.PIPE)
-        self.trnsp_in = Transport(self.shell.stdout)
-        self.trnsp_out = Transport(self.shell.stdin)
+        trnsp_in = Transport(self.shell.stdout)
+        trnsp_out = Transport(self.shell.stdin)
 
         try:
-            super(ShellIPR, self).__init__()
+            super(ShellIPR, self).__init__(trnsp_in, trnsp_out)
         except Exception:
             self.close()
             raise

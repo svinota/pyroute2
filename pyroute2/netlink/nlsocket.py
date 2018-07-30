@@ -362,6 +362,9 @@ class NetlinkMixin(object):
         # Set defaults
         self.post_init()
 
+    def post_init(self):
+        pass
+
     def clone(self):
         return type(self)(family=self.family)
 
