@@ -598,6 +598,8 @@ def failed_class(message):
     class FailedClass(object):
 
         def __init__(self, *argv, **kwarg):
-            raise RuntimeError(message)
+            ret = RuntimeError(message)
+            ret.feature_supported = False
+            raise ret
 
     return FailedClass

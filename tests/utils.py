@@ -29,6 +29,8 @@ def skip_if_not_supported(f):
                     (isinstance(e.server_error, NetlinkError) and
                      e.server_error.code == errno.EOPNOTSUPP)):
                     raise SkipTest('feature not supported by platform')
+            elif not getattr(e, 'feature_supported', True):
+                raise SkipTest(e.args[0])
             raise
         except Exception as e:
             raise
