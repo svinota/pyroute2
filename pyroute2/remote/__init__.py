@@ -178,7 +178,7 @@ class RemoteSocket(NetlinkMixin):
         self.trnsp_in = trnsp_in
         self.trnsp_out = trnsp_out
         self.cmdlock = threading.Lock()
-        self.shutdown_lock = threading.Lock()
+        self.shutdown_lock = threading.RLock()
         self.closed = False
         init = self.trnsp_in.recv_cmd()
         if init['stage'] != 'init':
