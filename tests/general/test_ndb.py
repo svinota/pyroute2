@@ -3,14 +3,39 @@ import uuid
 import threading
 from utils import grep
 from utils import require_user
+from utils import skip_if_not_supported
 from pyroute2 import netns
 from pyroute2 import NDB
 from pyroute2 import NetNS
 from pyroute2 import IPRoute
+from pyroute2 import RemoteIPRoute
 from pyroute2.common import uifname
 from pyroute2.common import basestring
 from pyroute2.ndb import main
 from pyroute2.ndb.main import Report
+
+
+class TestMisc(object):
+
+    @skip_if_not_supported
+    def test_multiple_sources(self):
+
+        # NB: no 'localhost' record -- important
+        #
+        nl = {'localhost0': IPRoute(),
+              'localhost1': RemoteIPRoute(),  # mitogen localhost connection
+              'localhost2': RemoteIPRoute()}  # one more
+
+        # check all the views
+        #
+        with NDB(nl=nl) as ndb:
+            assert len(ndb.interfaces.csv())
+            assert len(ndb.neighbours.csv())
+            assert len(ndb.addresses.csv())
+            assert len(ndb.routes.csv())
+
+        for source in nl:
+            assert nl[source].closed
 
 
 class TestBase(object):
