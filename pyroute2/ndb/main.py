@@ -480,7 +480,7 @@ class NDB(object):
         # fix sources prime
         if nl is None:
             self._nl = {'localhost': IPRoute()}
-        elif issubclass(nl, NetlinkMixin):
+        elif isinstance(nl, NetlinkMixin):
             self._nl = {'localhost': nl}
         elif isinstance(nl, dict):
             self._nl = nl
