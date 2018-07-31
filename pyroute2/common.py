@@ -591,3 +591,13 @@ def metaclass(mc):
                 nvars[k] = v
         return mc(cls.__name__, cls.__bases__, nvars)
     return wrapped
+
+
+def failed_class(message):
+
+    class FailedClass(object):
+
+        def __init__(self, *argv, **kwarg):
+            raise RuntimeError(message)
+
+    return FailedClass

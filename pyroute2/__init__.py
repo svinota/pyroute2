@@ -18,7 +18,8 @@ from pyroute2.netlink.rtnl.req import (IPRouteRequest,
                                        IPLinkRequest)
 from pyroute2.iproute import (IPRoute,
                               IPBatch,
-                              RawIPRoute)
+                              RawIPRoute,
+                              RemoteIPRoute)
 from pyroute2.ipset import IPSet
 from pyroute2.ipdb.main import IPDB
 from pyroute2.ndb.main import NDB
@@ -87,6 +88,7 @@ classes = [IPRouteRequest,
            IPRoute,
            IPBatch,
            RawIPRoute,
+           RemoteIPRoute,
            IPSet,
            NDB,
            IPDB,
