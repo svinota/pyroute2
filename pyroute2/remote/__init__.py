@@ -135,6 +135,10 @@ def Server(trnsp_in, trnsp_out):
                 cmd = trnsp_in.recv_cmd()
                 if cmd['stage'] == 'shutdown':
                     ipr.close()
+                    data = struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0)
+                    trnsp_out.send({'stage': 'broadcast',
+                                    'data': data,
+                                    'error': None})
                     return
                 elif cmd['stage'] == 'reconstruct':
                     error = None
