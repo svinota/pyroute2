@@ -615,7 +615,8 @@ class NDB(object):
                                     self._db_rtnl_log,
                                     id(threading.current_thread()))
         for target, channel in self._nl.items():
-            self.connect_source(target, channel, self._dbm_ready)
+            self.connect_source(target, channel, None)
+        event_queue.put(('localhost', (self._dbm_ready, )))
 
         for (event, handlers) in self.schema.event_map.items():
             for handler in handlers:
