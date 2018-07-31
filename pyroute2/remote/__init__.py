@@ -237,8 +237,8 @@ class RemoteSocket(NetlinkMixin):
                     self.remote_trnsp_out.send({'stage': 'broadcast',
                                                 'data': data,
                                                 'error': None})
-                with self.trnsp_in.lock:
-                    pass
+                    with self.trnsp_in.lock:
+                        pass
                 for trnsp in (self.trnsp_out,
                               self.trnsp_in,
                               self.remote_trnsp_in,
