@@ -20,6 +20,7 @@ class Route(RTNL_Object):
               LEFT JOIN nh
               ON
                   rt.f_route_id = nh.f_route_id
+                  AND rt.f_target = nh.f_target
               '''
     summary_header = ('target', 'table', 'dst',
                       'dst_len', 'gateway', 'nexthop')

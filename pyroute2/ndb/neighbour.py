@@ -16,6 +16,7 @@ class Neighbour(RTNL_Object):
                   interfaces AS i
               ON
                   n.f_ifindex = i.f_index
+                  AND n.f_target = i.f_target
               '''
     summary_header = ('target', 'ifname', 'lladdr', 'neighbour')
 
