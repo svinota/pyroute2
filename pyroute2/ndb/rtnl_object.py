@@ -163,8 +163,7 @@ class RTNL_Object(dict):
         #            'remote': ...}
         #
         # self.api = 'link'
-        # Source().nl -- command API
-        # Source().mnl -- monitoring API
+        # Source().nl -- RTNL API
         #
         # -> api(...) = iproute.link(...)
         #

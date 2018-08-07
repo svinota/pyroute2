@@ -1,7 +1,8 @@
-
+import types
 from pyroute2 import config
 from pyroute2.common import Namespace
 from pyroute2.common import AddrPool
+from pyroute2.common import DEFAULT_RCVBUF
 from pyroute2.proxy import NetlinkProxy
 from pyroute2.netlink import NETLINK_ROUTE
 from pyroute2.netlink.nlsocket import NetlinkSocket
@@ -156,4 +157,35 @@ class IPRSocket(IPRSocketMixin, NetlinkSocket):
           'type': 1}]
         >>>
     '''
-    pass
+    _brd_socket = None
+
+    def bind(self, *argv, **kwarg):
+        if kwarg.pop('clone_socket', False):
+            self._brd_socket = self.clone()
+
+            def get(self, bufsize=DEFAULT_RCVBUF,
+                    msg_seq=0,
+                    terminate=None,
+                    callback=None):
+                if msg_seq == 0:
+                    return self._brd_socket.get(bufsize,
+                                                msg_seq,
+                                                terminate,
+                                                callback)
+                else:
+                    return super(IPRSocket, self).get(bufsize,
+                                                      msg_seq,
+                                                      terminate,
+                                                      callback)
+
+            def close(self):
+                with self.sys_lock:
+                    self._brd_socket.close()
+                    return super(IPRSocket, self).close()
+
+            self.get = types.MethodType(get, self)
+            self.close = types.MethodType(close, self)
+            kwarg['recursive'] = True
+            return self._brd_socket.bind(*argv, **kwarg)
+        else:
+            return super(IPRSocket, self).bind(*argv, **kwarg)

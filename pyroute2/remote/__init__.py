@@ -109,10 +109,12 @@ def Server(trnsp_in, trnsp_out):
         return 255
 
     inputs = [ipr.fileno(), trnsp_in.fileno()]
+    broadcasts = {ipr.fileno(): ipr}
     outputs = []
 
     # all is OK so far
     trnsp_out.send({'stage': 'init',
+                    'uname': config.uname,
                     'error': None})
 
     # 8<-------------------------------------------------------------
@@ -122,13 +124,14 @@ def Server(trnsp_in, trnsp_out):
         except:
             continue
         for fd in events:
-            if fd == ipr.fileno():
-                bufsize = ipr.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
+            if fd in broadcasts:
+                sock = broadcasts[fd]
+                bufsize = sock.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
                 with lock:
                     error = None
                     data = None
                     try:
-                        data = ipr.recv(bufsize)
+                        data = sock.recv(bufsize)
                     except Exception as e:
                         error = e
                         error.tb = traceback.format_exc()
@@ -164,6 +167,11 @@ def Server(trnsp_in, trnsp_out):
                     try:
                         ret = getattr(ipr, cmd['name'])(*cmd['argv'],
                                                         **cmd['kwarg'])
+                        if cmd['name'] == 'bind' and \
+                                ipr._brd_socket is not None:
+                            inputs.append(ipr._brd_socket.fileno())
+                            broadcasts[ipr._brd_socket.fileno()] = \
+                                ipr._brd_socket
                     except Exception as e:
                         ret = None
                         error = e
@@ -194,6 +202,7 @@ class RemoteSocket(NetlinkMixin):
         if init['error'] is not None:
             raise init['error']
         else:
+            self.uname = init['uname']
             atexit.register(self.close)
         self.sendto_gate = self._gate
 

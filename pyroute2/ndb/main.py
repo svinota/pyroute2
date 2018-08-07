@@ -390,9 +390,9 @@ class View(dict):
 class Source(object):
     '''
     The RNTL source. The channel that is used to init the source
-    must comply to IPRoute API, must support clone() call and
-    the async_cache. If the channel starts additional threads,
-    they must be joined in the channel.close()
+    must comply to IPRoute API, must support the async_cache. If
+    the channel starts additional threads, they must be joined
+    in the channel.close()
 
     The reason to keep two separate channels (command and async)
     is that the command channel even being subscribed to async
@@ -407,11 +407,9 @@ class Source(object):
         self.evq = evq
         # the target id -- just in case
         self.target = target
-        # the channel to run API commands on
+        # RTNL API
         self.nl = channel
-        # the async events source
-        self.mnl = channel.clone()
-        self.mnl.bind(async_cache=True)
+        self.nl.bind(async_cache=True, clone_socket=True)
         #
         self.started = event
 
@@ -444,13 +442,12 @@ class Source(object):
         # Start source thread
         self.th = (threading
                    .Thread(target=t,
-                           args=(self.evq, self.target, self.mnl),
+                           args=(self.evq, self.target, self.nl),
                            name='NDB event source: %s' % (self.target)))
         self.th.start()
 
     def close(self):
         self.nl.close()
-        self.mnl.close()
         self.th.join()
 
     def __enter__(self):
