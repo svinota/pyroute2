@@ -14,6 +14,8 @@ from pyroute2.common import basestring
 from pyroute2.ndb import main
 from pyroute2.ndb.main import Report
 
+SSH = ''
+
 
 class TestMisc(object):
 
@@ -155,24 +157,27 @@ class TestRollback(TestBase):
 
         iface = self.ndb.interfaces[self.if_simple]
         # check everything is in place
-        assert grep('ip link show', pattern=self.if_simple)
-        assert grep('ip route show', pattern=self.if_simple)
-        assert grep('ip route show', pattern='172.16.127.*172.16.172.17')
+        assert grep('%s ip link show' % SSH, pattern=self.if_simple)
+        assert grep('%s ip route show' % SSH, pattern=self.if_simple)
+        assert grep('%s ip route show' % SSH,
+                    pattern='172.16.127.*172.16.172.17')
 
         # remove the interface
         iface.remove()
         iface.commit()
 
         # check there is no interface, no route
-        assert not grep('ip link show', pattern=self.if_simple)
-        assert not grep('ip route show', pattern=self.if_simple)
-        assert not grep('ip route show', pattern='172.16.127.*172.16.172.17')
+        assert not grep('%s ip link show' % SSH, pattern=self.if_simple)
+        assert not grep('%s ip route show' % SSH, pattern=self.if_simple)
+        assert not grep('%s ip route show' % SSH,
+                        pattern='172.16.127.*172.16.172.17')
 
         # revert the changes using the implicit last_save
         iface.rollback()
-        assert grep('ip link show', pattern=self.if_simple)
-        assert grep('ip route show', pattern=self.if_simple)
-        assert grep('ip route show', pattern='172.16.127.*172.16.172.17')
+        assert grep('%s ip link show' % SSH, pattern=self.if_simple)
+        assert grep('%s ip route show' % SSH, pattern=self.if_simple)
+        assert grep('%s ip route show' % SSH,
+                    pattern='172.16.127.*172.16.172.17')
 
     def test_bridge_deps(self):
         with self.nl_class(**self.nl_kwarg) as ipr:
@@ -217,13 +222,14 @@ class TestRollback(TestBase):
                      master=self.interfaces[-3])
         iface = self.ndb.interfaces[self.if_br0]
         # check everything is in place
-        assert grep('ip link show', pattern=self.if_br0)
-        assert grep('ip link show', pattern=self.if_br0p0)
-        assert grep('ip link show', pattern=self.if_br0p1)
-        assert grep('ip addr show', pattern='172.16.173.16')
-        assert grep('ip addr show', pattern='172.16.173.17')
-        assert grep('ip route show', pattern=self.if_br0)
-        assert grep('ip route show', pattern='172.16.128.*172.16.173.18')
+        assert grep('%s ip link show' % SSH, pattern=self.if_br0)
+        assert grep('%s ip link show' % SSH, pattern=self.if_br0p0)
+        assert grep('%s ip link show' % SSH, pattern=self.if_br0p1)
+        assert grep('%s ip addr show' % SSH, pattern='172.16.173.16')
+        assert grep('%s ip addr show' % SSH, pattern='172.16.173.17')
+        assert grep('%s ip route show' % SSH, pattern=self.if_br0)
+        assert grep('%s ip route show' % SSH,
+                    pattern='172.16.128.*172.16.173.18')
         # import rpdb2
         # rpdb2.start_embedded_debugger("bala")
 
@@ -232,23 +238,25 @@ class TestRollback(TestBase):
         iface.commit()
 
         # check there is no interface, no route
-        assert not grep('ip link show', pattern=self.if_br0)
-        assert grep('ip link show', pattern=self.if_br0p0)
-        assert grep('ip link show', pattern=self.if_br0p1)
-        assert not grep('ip addr show', pattern='172.16.173.16')
-        assert not grep('ip addr show', pattern='172.16.173.17')
-        assert not grep('ip route show', pattern=self.if_br0)
-        assert not grep('ip route show', pattern='172.16.128.*172.16.173.18')
+        assert not grep('%s ip link show' % SSH, pattern=self.if_br0)
+        assert grep('%s ip link show' % SSH, pattern=self.if_br0p0)
+        assert grep('%s ip link show' % SSH, pattern=self.if_br0p1)
+        assert not grep('%s ip addr show' % SSH, pattern='172.16.173.16')
+        assert not grep('%s ip addr show' % SSH, pattern='172.16.173.17')
+        assert not grep('%s ip route show' % SSH, pattern=self.if_br0)
+        assert not grep('%s ip route show' % SSH,
+                        pattern='172.16.128.*172.16.173.18')
 
         # revert the changes using the implicit last_save
         iface.rollback()
-        assert grep('ip link show', pattern=self.if_br0)
-        assert grep('ip link show', pattern=self.if_br0p0)
-        assert grep('ip link show', pattern=self.if_br0p1)
-        assert grep('ip addr show', pattern='172.16.173.16')
-        assert grep('ip addr show', pattern='172.16.173.17')
-        assert grep('ip route show', pattern=self.if_br0)
-        assert grep('ip route show', pattern='172.16.128.*172.16.173.18')
+        assert grep('%s ip link show' % SSH, pattern=self.if_br0)
+        assert grep('%s ip link show' % SSH, pattern=self.if_br0p0)
+        assert grep('%s ip link show' % SSH, pattern=self.if_br0p1)
+        assert grep('%s ip addr show' % SSH, pattern='172.16.173.16')
+        assert grep('%s ip addr show' % SSH, pattern='172.16.173.17')
+        assert grep('%s ip route show' % SSH, pattern=self.if_br0)
+        assert grep('%s ip route show' % SSH,
+                    pattern='172.16.128.*172.16.173.18')
 
     def test_vlan_deps(self):
         with self.nl_class(**self.nl_kwarg) as ipr:
@@ -286,36 +294,39 @@ class TestRollback(TestBase):
 
         iface = self.ndb.interfaces[if_host]
         # check everything is in place
-        assert grep('ip link show', pattern=if_host)
-        assert grep('ip link show', pattern=if_vlan)
-        assert grep('ip addr show', pattern='172.16.174.16')
-        assert grep('ip addr show', pattern='172.16.174.17')
-        assert grep('ip route show', pattern=if_vlan)
-        assert grep('ip route show', pattern='172.16.129.*172.16.174.18')
-        assert grep('cat /proc/net/vlan/config', pattern=if_vlan)
+        assert grep('%s ip link show' % SSH, pattern=if_host)
+        assert grep('%s ip link show' % SSH, pattern=if_vlan)
+        assert grep('%s ip addr show' % SSH, pattern='172.16.174.16')
+        assert grep('%s ip addr show' % SSH, pattern='172.16.174.17')
+        assert grep('%s ip route show' % SSH, pattern=if_vlan)
+        assert grep('%s ip route show' % SSH,
+                    pattern='172.16.129.*172.16.174.18')
+        assert grep('%s cat /proc/net/vlan/config' % SSH, pattern=if_vlan)
 
         # remove the interface
         iface.remove()
         iface.commit()
 
         # check there is no interface, no route
-        assert not grep('ip link show', pattern=if_host)
-        assert not grep('ip link show', pattern=if_vlan)
-        assert not grep('ip addr show', pattern='172.16.174.16')
-        assert not grep('ip addr show', pattern='172.16.174.17')
-        assert not grep('ip route show', pattern=if_vlan)
-        assert not grep('ip route show', pattern='172.16.129.*172.16.174.18')
-        assert not grep('cat /proc/net/vlan/config', pattern=if_vlan)
+        assert not grep('%s ip link show' % SSH, pattern=if_host)
+        assert not grep('%s ip link show' % SSH, pattern=if_vlan)
+        assert not grep('%s ip addr show' % SSH, pattern='172.16.174.16')
+        assert not grep('%s ip addr show' % SSH, pattern='172.16.174.17')
+        assert not grep('%s ip route show' % SSH, pattern=if_vlan)
+        assert not grep('%s ip route show' % SSH,
+                        pattern='172.16.129.*172.16.174.18')
+        assert not grep('%s cat /proc/net/vlan/config' % SSH, pattern=if_vlan)
 
         # revert the changes using the implicit last_save
         iface.rollback()
-        assert grep('ip link show', pattern=if_host)
-        assert grep('ip link show', pattern=if_vlan)
-        assert grep('ip addr show', pattern='172.16.174.16')
-        assert grep('ip addr show', pattern='172.16.174.17')
-        assert grep('ip route show', pattern=if_vlan)
-        assert grep('ip route show', pattern='172.16.129.*172.16.174.18')
-        assert grep('cat /proc/net/vlan/config', pattern=if_vlan)
+        assert grep('%s ip link show' % SSH, pattern=if_host)
+        assert grep('%s ip link show' % SSH, pattern=if_vlan)
+        assert grep('%s ip addr show' % SSH, pattern='172.16.174.16')
+        assert grep('%s ip addr show' % SSH, pattern='172.16.174.17')
+        assert grep('%s ip route show' % SSH, pattern=if_vlan)
+        assert grep('%s ip route show' % SSH,
+                    pattern='172.16.129.*172.16.174.18')
+        assert grep('%s cat /proc/net/vlan/config' % SSH, pattern=if_vlan)
 
 
 class TestSchema(TestBase):
