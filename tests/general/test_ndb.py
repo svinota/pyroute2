@@ -42,9 +42,11 @@ class TestBase(object):
 
     db_provider = 'sqlite3'
     db_spec = ':memory:'
+    nl_class = IPRoute
+    nl_kwarg = {}
 
     def link_wait(self, ifname):
-        with IPRoute() as ipr:
+        with self.nl_class(**self.nl_kwarg) as ipr:
             for _ in range(5):
                 try:
                     return ipr.link_lookup(ifname=ifname)[0]
@@ -61,7 +63,7 @@ class TestBase(object):
         if_port = uifname()
         ret = []
 
-        with IPRoute() as ipr:
+        with self.nl_class(**self.nl_kwarg) as ipr:
 
             ipr.link('add',
                      ifname=if_dummy,
@@ -101,10 +103,11 @@ class TestBase(object):
         self.if_simple = None
         self.interfaces = self.create_interfaces()
         self.ndb = NDB(db_provider=self.db_provider,
-                       db_spec=self.db_spec)
+                       db_spec=self.db_spec,
+                       nl=self.nl_class(**self.nl_kwarg))
 
     def teardown(self):
-        with IPRoute() as ipr:
+        with self.nl_class(**self.nl_kwarg) as ipr:
             for link in reversed(self.interfaces):
                 ipr.link('del', index=link)
         self.ndb.close()
@@ -123,10 +126,11 @@ class TestRollback(TestBase):
     def setup(self):
         require_user('root')
         self.ndb = NDB(db_provider=self.db_provider,
-                       db_spec=self.db_spec)
+                       db_spec=self.db_spec,
+                       nl=self.nl_class(**self.nl_kwarg))
 
     def test_simple_deps(self):
-        with IPRoute() as ipr:
+        with self.nl_class(**self.nl_kwarg) as ipr:
             self.interfaces = []
             #
             # simple dummy interface with one address and
@@ -171,7 +175,7 @@ class TestRollback(TestBase):
         assert grep('ip route show', pattern='172.16.127.*172.16.172.17')
 
     def test_bridge_deps(self):
-        with IPRoute() as ipr:
+        with self.nl_class(**self.nl_kwarg) as ipr:
             self.interfaces = []
             self.if_br0 = uifname()
             ipr.link('add',
@@ -247,7 +251,7 @@ class TestRollback(TestBase):
         assert grep('ip route show', pattern='172.16.128.*172.16.173.18')
 
     def test_vlan_deps(self):
-        with IPRoute() as ipr:
+        with self.nl_class(**self.nl_kwarg) as ipr:
             self.interfaces = []
             if_host = uifname()
             ipr.link('add',
