@@ -2611,8 +2611,8 @@ class TestExplicit(BasicSetup):
                        gre_local='172.16.0.1',
                        gre_ikey=1,
                        gre_okey=2,
-                       gre_iflags=0x0020,
-                       gre_oflags=0x0020,
+                       gre_iflags=0x8000,
+                       gre_oflags=0x8000,
                        gre_collect_metadata=True,
                        gre_ttl=16).commit()
 
@@ -2622,8 +2622,8 @@ class TestExplicit(BasicSetup):
             assert ifdb[ifV].gre_local == '172.16.0.1'
             assert ifdb[ifV].gre_ikey == 1
             assert ifdb[ifV].gre_okey == 2
-            assert ifdb[ifV].gre_iflags == 0x0020
-            assert ifdb[ifV].gre_oflags == 0x0020
+            assert ifdb[ifV].gre_iflags == 0x8000
+            assert ifdb[ifV].gre_oflags == 0x8000
             if kernel_version_ge(4, 3):
                 assert ifdb[ifV].gre_collect_metadata
             assert ifdb[ifV].gre_ttl == 16

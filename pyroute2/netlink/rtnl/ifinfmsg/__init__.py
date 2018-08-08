@@ -2,6 +2,7 @@ import os
 import sys
 import struct
 import pkgutil
+import logging
 import importlib
 from socket import AF_INET
 from socket import AF_INET6
@@ -22,6 +23,8 @@ from pyroute2.netlink.rtnl.ifinfmsg.plugins import (bond,
                                                     vti,
                                                     vti6,
                                                     vxlan)
+
+log = logging.getLogger(__name__)
 
 # it's simpler to double constants here, than to change all the
 # module layout; but it is a subject of the future refactoring
@@ -89,6 +92,20 @@ IFF_VOLATILE = IFF_LOOPBACK |\
     IFF_RUNNING |\
     IFF_LOWER_UP |\
     IFF_DORMANT
+
+##
+#
+# gre flags
+#
+GRE_ACK = 0x0080
+GRE_REC = 0x0700
+GRE_STRICT = 0x0800
+GRE_SEQ = 0x1000
+GRE_KEY = 0x2000
+GRE_ROUTING = 0x4000
+GRE_CSUM = 0x8000
+
+(GRE_NAMES, GRE_VALUES) = map_namespace('GRE_', globals())
 
 ##
 #
@@ -542,10 +559,10 @@ class ifinfbase(object):
         class gre_data(nla):
             nla_map = (('IFLA_GRE_UNSPEC', 'none'),
                        ('IFLA_GRE_LINK', 'uint32'),
-                       ('IFLA_GRE_IFLAGS', 'uint16'),
-                       ('IFLA_GRE_OFLAGS', 'uint16'),
-                       ('IFLA_GRE_IKEY', 'be32'),
-                       ('IFLA_GRE_OKEY', 'be32'),
+                       ('IFLA_GRE_IFLAGS', 'gre_flags'),
+                       ('IFLA_GRE_OFLAGS', 'gre_flags'),
+                       ('IFLA_GRE_IKEY', 'uint32'),
+                       ('IFLA_GRE_OKEY', 'uint32'),
                        ('IFLA_GRE_LOCAL', 'ip4addr'),
                        ('IFLA_GRE_REMOTE', 'ip4addr'),
                        ('IFLA_GRE_TTL', 'uint8'),
@@ -561,6 +578,22 @@ class ifinfbase(object):
                        ('IFLA_GRE_COLLECT_METADATA', 'flag'),
                        ('IFLA_GRE_IGNORE_DF', 'uint8'),
                        ('IFLA_GRE_FWMARK', 'uint32'))
+
+            class gre_flags(nla):
+                fields = [('value', '>H')]
+
+                def encode(self):
+                    #
+                    # for details see:
+                    url = 'https://github.com/svinota/pyroute2/issues/531'
+
+                    v = self.value
+                    for flag in GRE_VALUES:
+                        v &= ~flag
+                    if v != 0:
+                        log.warning('possibly incorrect GRE flags, '
+                                    'see %s' % url)
+                    nla.encode(self)
 
         class ip6gre_data(nla):
             # Ostensibly the same as ip6gre_data except that local
