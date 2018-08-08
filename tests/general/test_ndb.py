@@ -230,8 +230,6 @@ class TestRollback(TestBase):
         assert grep('%s ip route show' % SSH, pattern=self.if_br0)
         assert grep('%s ip route show' % SSH,
                     pattern='172.16.128.*172.16.173.18')
-        # import rpdb2
-        # rpdb2.start_embedded_debugger("bala")
 
         # remove the interface
         iface.remove()
