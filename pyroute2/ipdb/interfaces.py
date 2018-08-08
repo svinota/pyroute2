@@ -13,10 +13,7 @@ from pyroute2.common import dqn2int
 from pyroute2.common import View
 from pyroute2.common import Dotkeys
 from pyroute2.netlink import rtnl
-from pyroute2.netlink import NLM_F_ACK
-from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.rtnl import RTM_NEWLINK
 from pyroute2.netlink.rtnl.ifinfmsg import IFF_MASK
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.ipdb.transactional import Transactional
@@ -752,7 +749,7 @@ class Interface(Transactional):
                         (self.ipdb.interfaces[i]
                          .set_target('master', None)
                          .mirror_target('master', 'link'))
-                        run(nl.link, 'set', index=i, master=0)
+                        run(nl.link, 'update', index=i, master=0)
                     else:
                         transaction.errors.append(KeyError(i))
 
@@ -762,7 +759,7 @@ class Interface(Transactional):
                         (self.ipdb.interfaces[i]
                          .set_target('master', self['index'])
                          .mirror_target('master', 'link'))
-                        run(nl.link, 'set', index=i, master=self['index'])
+                        run(nl.link, 'update', index=i, master=self['index'])
                     else:
                         transaction.errors.append(KeyError(i))
 
@@ -832,8 +829,7 @@ class Interface(Transactional):
                 brequest['kind'] = self['kind']
                 brequest['family'] = AF_BRIDGE
                 wait_all = True
-                run(nl.link, (RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK),
-                    **brequest)
+                run(nl.link, 'set', **brequest)
 
             if any([request[item] is not None for item in request]):
                 request['index'] = self['index']
@@ -842,7 +838,7 @@ class Interface(Transactional):
                     request.pop('address')
                     request.pop('broadcast', None)
                 wait_all = True
-                run(nl.link, 'set', **request)
+                run(nl.link, 'update', **request)
                 # Yet another trick: setting ifalias doesn't cause
                 # netlink updates
                 if 'ifalias' in request:
@@ -850,7 +846,7 @@ class Interface(Transactional):
 
             if any([prequest[item] is not None for item in prequest]):
                 prequest['index'] = self['index']
-                run(nl.brport, "set", **prequest)
+                run(nl.brport, 'set', **prequest)
 
             if (wait_all) and (not transaction.partial):
                 transaction.wait_all_targets()
@@ -858,8 +854,7 @@ class Interface(Transactional):
             # 8<---------------------------------------------
             # VLAN flags -- a dirty hack, pls do something with it
             if added.get('vlan_flags') is not None:
-                run(nl.link,
-                    (RTM_NEWLINK, NLM_F_REQUEST | NLM_F_ACK),
+                run(nl.link, 'set',
                     **{'kind': 'vlan',
                        'index': self['index'],
                        'vlan_flags': added['vlan_flags']})
@@ -975,7 +970,7 @@ class Interface(Transactional):
                         request[key] = added[key]
 
                 request['index'] = self['index']
-                run(nl.link, 'set', **request)
+                run(nl.link, 'update', **request)
 
                 countdown = 10
                 while countdown:

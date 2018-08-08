@@ -1028,6 +1028,12 @@ class RTNL_API(object):
             state="up":   flags=1, mask=1
             state="down": flags=0, mask=0
 
+        **update**
+
+        Almost the same as `set`, except it uses different flags
+        and message type. Mostly does the same, but in some cases
+        differs. If you're not sure what to use, use `set`.
+
         **del**
 
         Destroy the interface::
@@ -1057,7 +1063,8 @@ class RTNL_API(object):
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_req = NLM_F_REQUEST | NLM_F_ACK
         flags_create = flags_req | NLM_F_CREATE | NLM_F_EXCL
-        commands = {'set': (RTM_SETLINK, flags_create),
+        commands = {'set': (RTM_NEWLINK, flags_req),
+                    'update': (RTM_SETLINK, flags_create),
                     'add': (RTM_NEWLINK, flags_create),
                     'del': (RTM_DELLINK, flags_create),
                     'remove': (RTM_DELLINK, flags_create),
