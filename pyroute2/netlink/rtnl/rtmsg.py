@@ -156,7 +156,8 @@ class rtmsg_base(nlflags):
         __slots__ = ()
 
         nla_map = (('MPLS_IPTUNNEL_UNSPEC', 'none'),
-                   ('MPLS_IPTUNNEL_DST', 'mpls_target'))
+                   ('MPLS_IPTUNNEL_DST', 'mpls_target'),
+                   ('MPLS_IPTUNNEL_TTL', 'uint8'))
 
     class seg6_encap_info(nla):
 
