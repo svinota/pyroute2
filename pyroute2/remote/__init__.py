@@ -54,11 +54,10 @@ class Transport(object):
         return ret
 
     def recv(self):
-        with self.lock:
-            if not self.brd_queue.empty():
-                return self.brd_queue.get()
-
-            while True:
+        while True:
+            with self.lock:
+                if not self.brd_queue.empty():
+                    return self.brd_queue.get()
                 try:
                     ret = self.__recv()
                 except struct.error:
@@ -71,11 +70,10 @@ class Transport(object):
                 self.cmd_queue.put(ret)
 
     def recv_cmd(self):
-        with self.lock:
-            if not self.cmd_queue.empty():
-                return self.cmd_queue.get()
-
-            while True:
+        while True:
+            with self.lock:
+                if not self.cmd_queue.empty():
+                    return self.cmd_queue.get()
                 ret = self.__recv()
                 if ret['stage'] != 'broadcast':
                     return ret
