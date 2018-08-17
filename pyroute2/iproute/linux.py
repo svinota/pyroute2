@@ -1219,7 +1219,7 @@ class RTNL_API(object):
         # work on NLA
         for key in kwarg:
             nla = ifaddrmsg.name2nla(key)
-            if kwarg[key] is not None:
+            if kwarg[key] not in (None, ''):
                 msg['attrs'].append([nla, kwarg[key]])
 
         ret = self.nlm_request(msg,
