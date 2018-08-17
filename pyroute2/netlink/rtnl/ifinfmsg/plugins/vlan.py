@@ -7,6 +7,8 @@ flags = {'reorder_hdr': 0x1,
 
 
 class vlan(nla):
+    prefix = 'IFLA_'
+
     nla_map = (('IFLA_VLAN_UNSPEC', 'none'),
                ('IFLA_VLAN_ID', 'uint16'),
                ('IFLA_VLAN_FLAGS', 'vlan_flags'),
