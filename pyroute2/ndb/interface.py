@@ -21,6 +21,10 @@ class Interface(RTNL_Object):
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
         dict.__setitem__(self, 'flags', 0)
         dict.__setitem__(self, 'state', 'unknown')
+        if isinstance(key, dict) and key.get('create'):
+            if 'ifname' not in key:
+                raise Exception('specify at least ifname')
+            self.key_ext = {'IFLA_IFNAME': key['ifname']}
         super(Interface, self).__init__(view, key, ifinfmsg, ctxid)
 
     def complete_key(self, key):
@@ -30,32 +34,11 @@ class Interface(RTNL_Object):
             ret_key = {'target': 'localhost'}
 
         if isinstance(key, basestring):
-            ret_key['IFLA_IFNAME'] = key
+            ret_key['ifname'] = key
         elif isinstance(key, int):
             ret_key['index'] = key
 
-        fetch = []
-        for name in self.kspec:
-            if name not in ret_key:
-                fetch.append('f_%s' % name)
-
-        if fetch:
-            keys = []
-            values = []
-            for name, value in ret_key.items():
-                keys.append('f_%s = %s' % (name, self.schema.plch))
-                values.append(value)
-            with self.schema.db_lock:
-                spec = (self
-                        .schema
-                        .execute('SELECT %s FROM interfaces WHERE %s' %
-                                 (' , '.join(fetch), ' AND '.join(keys)),
-                                 values)
-                        .fetchone())
-            for name, value in zip(fetch, spec):
-                ret_key[name[2:]] = value
-
-        return ret_key
+        return super(Interface, self).complete_key(ret_key)
 
     def snapshot(self, ctxid=None):
         with self.schema.db_lock:

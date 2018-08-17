@@ -10,6 +10,9 @@ class RTNL_Object(dict):
     etable = None  # effective table -- may be a snapshot
     utable = None  # table to send updates to
 
+    key = None
+    key_ext = None
+
     schema = None
     event_map = None
     scope = None
@@ -37,9 +40,25 @@ class RTNL_Object(dict):
         self.load_event = threading.Event()
         self.kspec = ('target', ) + self.schema.indices[self.table]
         self.spec = self.schema.compiled[self.table]['all_names']
-        self.names = tuple((iclass.nla2name(x) for x in self.spec))
+        self.names = self.schema.compiled[self.table]['norm_names']
+        create = key.pop('create', False) if isinstance(key, dict) else False
         self.key = self.complete_key(key)
-        self.load_sql()
+        if self.key_ext is None:
+            self.key_ext = {}
+        if create and self.key is not None:
+            raise KeyError('object exists')
+        elif not create and self.key is None:
+            raise KeyError('object does not exists')
+        elif create:
+            for name in key:
+                self[name] = key[name]
+            self.scope = 'invalid'
+            self.key = {}
+            # FIXME -- merge with complete_key()
+            if 'target' not in self:
+                self.load_value('target', 'localhost')
+        else:
+            self.load_sql()
 
     def __hash__(self):
         return id(self)
@@ -66,8 +85,11 @@ class RTNL_Object(dict):
             keys = []
             values = []
             for name, value in key.items():
-                keys.append('f_%s = %s' % (name, self.schema.plch))
-                values.append(value)
+                if name not in self.spec:
+                    name = self.msg_class.name2nla(name)
+                if name in self.spec:
+                    keys.append('f_%s = %s' % (name, self.schema.plch))
+                    values.append(value)
             with self.schema.db_lock:
                 spec = (self
                         .schema
@@ -77,6 +99,8 @@ class RTNL_Object(dict):
                                   ' AND '.join(keys)),
                                  values)
                         .fetchone())
+            if spec is None:
+                return None
             for name, value in zip(fetch, spec):
                 key[name[2:]] = value
 
@@ -91,6 +115,24 @@ class RTNL_Object(dict):
             link.rollback(snapshot=snp)
 
     def commit(self):
+        # Is it a new object?
+        if self.scope == 'invalid':
+            # Save values, try to apply
+            save = dict(self)
+            try:
+                return self.apply()
+            except Exception as e_i:
+                # ACHTUNG! The routine doesn't clean up the system
+                #
+                # Drop all the values and rollback to the initial state
+                for key in tuple(self.keys()):
+                    del self[key]
+                for key in save:
+                    dict.__setitem__(self, key, save[key])
+                raise e_i
+
+        # Continue with an existing object
+
         # Save the context
         self.last_save = self.snapshot()
 
@@ -120,6 +162,7 @@ class RTNL_Object(dict):
     def remove(self):
         self.scope = 'remove'
         self.next_scope = 'invalid'
+        return self
 
     def check(self):
         self.load_sql()
@@ -178,8 +221,9 @@ class RTNL_Object(dict):
             scope = self.scope
 
         # Create the request.
-        idx_req = dict([(x, self[self.iclass.nla2name(x)]) for x in
-                        self.schema.compiled[self.table]['idx']])
+        idx_req = dict([(x, self[self.iclass.nla2name(x)]) for x
+                        in self.schema.compiled[self.table]['idx']
+                        if self.iclass.nla2name(x) in self])
         req = self.make_req(scope, idx_req)
 
         #
@@ -238,20 +282,29 @@ class RTNL_Object(dict):
     def load_value(self, key, value):
         if key not in self.changed:
             dict.__setitem__(self, key, value)
-        elif self[key] == value:
+        elif self.get(key) == value:
             self.changed.remove(key)
 
     def load_sql(self, ctxid=None, set_scope=True):
+
+        if not self.key and not self.key_ext:
+            return
+
         if ctxid is None:
             table = self.etable
         else:
             table = '%s_%s' % (self.table, ctxid)
         keys = []
         values = []
+
         for name, value in self.key.items():
             if name in self.kspec:
                 keys.append('f_%s = %s' % (name, self.schema.plch))
                 values.append(value)
+        for name, value in self.key_ext.items():
+            keys.append('f_%s = %s' % (name, self.schema.plch))
+            values.append(value)
+
         spec = (self
                 .schema
                 .fetchone('SELECT * FROM %s WHERE %s' %
@@ -269,12 +322,13 @@ class RTNL_Object(dict):
         # ...
 
         # full match
-        for name, value in self.key.items():
-            if name == 'target':
-                if value != target:
+        for key in (self.key, self.key_ext):
+            for name, value in key.items():
+                if name == 'target':
+                    if value != target:
+                        return
+                elif value != (event.get_attr(name) or event.get(name)):
                     return
-            elif value != (event.get_attr(name) or event.get(name)):
-                return
 
         if event['header'].get('type', 0) % 2:
             self.scope = 'invalid'

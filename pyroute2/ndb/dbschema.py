@@ -64,7 +64,10 @@ class DBSchema(object):
     classes = {'interfaces': ifinfmsg,
                'addresses': ifaddrmsg,
                'neighbours': ndmsg,
-               'routes': rtmsg}
+               'routes': rtmsg,
+               'nh': nh,
+               'ifinfo_vlan': vlan,
+               'ifinfo_bridge': ifinfmsg.ifinfo.bridge_data}
 
     #
     # OBS: field names MUST go in the same order as in the spec,
@@ -183,11 +186,11 @@ class DBSchema(object):
             self.create_table(table)
 
             if table.startswith('ifinfo_'):
-                spec = OrderedDict(tuple(self.spec['interfaces'].items()) +
-                                   tuple(self.spec[table].items())[:-1])
                 idx = ('index', )
-                self.compiled[table[7:]] = self.compile_spec(table[7:],
-                                                             spec, idx)
+                self.compiled[table[7:]] = self.merge_spec('interfaces',
+                                                           table,
+                                                           table[7:],
+                                                           idx)
                 self.create_ifinfo_view(table)
 
         #
@@ -223,14 +226,53 @@ class DBSchema(object):
                          ''')
         self.connection.commit()
 
+    def merge_spec(self, table1, table2, table, schema_idx):
+        spec1 = self.compiled[table1]
+        spec2 = self.compiled[table2]
+        names = spec1['names'] + spec2['names'][:-1]
+        all_names = spec1['all_names'] + spec2['all_names'][2:-1]
+        norm_names = spec1['norm_names'] + spec2['norm_names'][2:-1]
+        idx = ('target', 'tflags') + schema_idx
+        f_names = ['f_%s' % x for x in all_names]
+        f_set = ['f_%s = %s' % (x, self.plch) for x in all_names]
+        f_idx = ['f_%s' % x for x in idx]
+        f_idx_match = ['%s.%s = %s' % (table2, x, self.plch) for x in f_idx]
+        plchs = [self.plch] * len(f_names)
+        return {'names': names,
+                'all_names': all_names,
+                'norm_names': norm_names,
+                'idx': idx,
+                'fnames': ','.join(f_names),
+                'plchs': ','.join(plchs),
+                'fset': ','.join(f_set),
+                'knames': ','.join(f_idx),
+                'fidx': ' AND '.join(f_idx_match)}
+
     def compile_spec(self, table, schema_names, schema_idx):
         # e.g.: index, flags, IFLA_IFNAME
         #
-        names = tuple([x[-1] for x in schema_names])
+        names = []
         #
         # same + two internal fields
         #
-        anames = ('target', 'tflags') + names
+        all_names = ['target', 'tflags']
+        #
+        #
+        norm_names = ['target', 'tflags']
+
+        bclass = self.classes.get(table)
+
+        for name in schema_names:
+            names.append(name[-1])
+            all_names.append(name[-1])
+
+            iclass = bclass
+            if len(name) > 1:
+                for step in name[:-1]:
+                    imap = dict(iclass.nla_map)
+                    iclass = getattr(iclass, imap[step])
+            norm_names.append(iclass.nla2name(name[-1]))
+
         #
         # escaped names: f_index, f_flags, f_IFLA_IFNAME
         #
@@ -238,7 +280,7 @@ class DBSchema(object):
         # and we can not use them; neither can we change the
         # C structure
         #
-        fnames = ['f_%s' % x for x in anames]
+        f_names = ['f_%s' % x for x in all_names]
         #
         # set the fields
         #
@@ -249,11 +291,11 @@ class DBSchema(object):
         # %s -- PostgreSQL
         # so use self.plch here
         #
-        fset = ['f_%s = %s' % (x, self.plch) for x in anames]
+        f_set = ['f_%s = %s' % (x, self.plch) for x in all_names]
         #
         # the set of the placeholders to use in the INSERT statements
         #
-        plchs = [self.plch] * len(fnames)
+        plchs = [self.plch] * len(f_names)
         #
         # the index schema; use target and tflags in every index
         #
@@ -261,7 +303,7 @@ class DBSchema(object):
         #
         # the same, escaped: f_target, f_tflags etc.
         #
-        knames = ['f_%s' % x for x in idx]
+        f_idx = ['f_%s' % x for x in idx]
         #
         # match the index fields, fully qualified
         #
@@ -269,16 +311,17 @@ class DBSchema(object):
         #
         # the same issue with the placeholders
         #
-        fidx = ['%s.%s = %s' % (table, x, self.plch) for x in knames]
+        f_idx_match = ['%s.%s = %s' % (table, x, self.plch) for x in f_idx]
 
         return {'names': names,
-                'all_names': anames,
+                'all_names': all_names,
+                'norm_names': norm_names,
                 'idx': idx,
-                'fnames': ','.join(fnames),
+                'fnames': ','.join(f_names),
                 'plchs': ','.join(plchs),
-                'fset': ','.join(fset),
-                'knames': ','.join(knames),
-                'fidx': ' AND '.join(fidx)}
+                'fset': ','.join(f_set),
+                'knames': ','.join(f_idx),
+                'fidx': ' AND '.join(f_idx_match)}
 
     @db_lock
     def execute(self, *argv, **kwarg):

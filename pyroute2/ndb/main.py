@@ -248,6 +248,10 @@ class View(dict):
     def get(self, key, table=None):
         return self.__getitem__(key, table)
 
+    def add(self, **spec):
+        spec['create'] = True
+        return self[spec]
+
     def __getitem__(self, key, table=None):
         #
         # Construct a weakref handler for events.
