@@ -323,8 +323,10 @@ def prepare_args():
     return args
 
 
-def run():
-    args = prepare_args()
+def run(args=None):
+
+    if not args:
+        args = prepare_args()
 
     protocol = None
 
