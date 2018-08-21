@@ -61,6 +61,7 @@ setup(name='pyroute2',
                 'pyroute2.nftables',
                 'pyroute2.protocols',
                 'pyroute2.remote'],
+      scripts=['./cli/ss2'],
       classifiers=['License :: OSI Approved :: GNU General Public ' +
                    'License v2 or later (GPLv2+)',
                    'License :: OSI Approved :: Apache Software License',

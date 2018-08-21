@@ -82,8 +82,8 @@ class TCP(Protocol):
 
         refined = {'TCP': {'flows': []}}
 
-        idiag_refine_map = {'dst': 'idiag_src',
-                            'src': 'idiag_dst',
+        idiag_refine_map = {'src': 'idiag_src',
+                            'dst': 'idiag_dst',
                             'src_port': 'idiag_sport',
                             'dst_port': 'idiag_dport',
                             'inode': 'idiag_inode',
@@ -323,8 +323,10 @@ def prepare_args():
     return args
 
 
-def run():
-    args = prepare_args()
+def run(args=None):
+
+    if not args:
+        args = prepare_args()
 
     protocol = None
 
