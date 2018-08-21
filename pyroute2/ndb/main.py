@@ -407,6 +407,7 @@ class Source(object):
     '''
 
     def __init__(self, evq, target, channel, event=None):
+        self.th = None
         # the event queue to send events to
         self.evq = evq
         # the target id -- just in case
@@ -452,7 +453,8 @@ class Source(object):
 
     def close(self):
         self.nl.close()
-        self.th.join()
+        if self.th is not None:
+            self.th.join()
 
     def __enter__(self):
         return self
@@ -595,8 +597,15 @@ class NDB(object):
         # register the channel
         if target in self.nl:
             self.disconnect_source(target)
-        self.nl[target] = Source(self._event_queue, target, channel, event)
-        self.nl[target].start()
+        try:
+            self.nl[target] = Source(self._event_queue, target, channel, event)
+            self.nl[target].start()
+        except:
+            if target in self.nl:
+                self.nl[target].close()
+                del self.nl[target]
+            self.schema.flush(target)
+            raise
 
     def __dbm__(self):
 
