@@ -96,6 +96,7 @@ class IPRoute(object):
         self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
         self._mon_th = None
         self._rtm = None
+        self._brd_socket = None
         self._pfdr, self._pfdw = os.pipe()  # notify external poll/select
         self._ctlr, self._ctlw = os.pipe()  # notify monitoring thread
         self._outq = queue.Queue()
