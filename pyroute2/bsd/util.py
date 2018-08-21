@@ -119,7 +119,10 @@ class ARP(CMD):
                 continue
 
             dst = sl[f_dst].strip('(').strip(')')
-            addr = sl[f_addr]
+            addr = sl[f_addr].strip('(').strip(')')
+            if addr == 'incomplete':
+                continue
+
             ifname = sl[f_ifname]
             neighbour = {'ifindex': 0,
                          'ifname': ifname,
