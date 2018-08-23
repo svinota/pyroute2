@@ -189,6 +189,12 @@ class Ifconfig(CMD):
             elif 'ether' in pl:
                 link['attrs'].append(['IFLA_ADDRESS', pl['ether']])
 
+            elif 'lladdr' in pl:
+                link['attrs'].append(['IFLA_ADDRESS', pl['lladdr']])
+
+            elif 'index' in pl:
+                link['index'] = int(pl['index'])
+
             elif 'inet' in pl:
                 if ('netmask' not in pl) or \
                         ('inet' not in pl):
