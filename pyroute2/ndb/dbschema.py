@@ -527,6 +527,15 @@ class DBSchema(object):
                          '%s_log (%s)' % (table, req))
 
     @db_lock
+    def mark(self, target, mark):
+        for table in self.spec:
+            self.execute('''
+                         UPDATE %s SET f_tflags = %s
+                         WHERE f_target = %s
+                         ''' % (table, self.plch, self.plch),
+                         (mark, target))
+
+    @db_lock
     def flush(self, target):
         for table in self.spec:
             self.execute('''
