@@ -9,7 +9,8 @@ class Neighbour(RTNL_Object):
     api = 'neigh'
     summary = '''
               SELECT
-                  n.f_target, i.f_IFLA_IFNAME, n.f_NDA_LLADDR, n.f_NDA_DST
+                  n.f_target, n.f_tflags,
+                  i.f_IFLA_IFNAME, n.f_NDA_LLADDR, n.f_NDA_DST
               FROM
                   neighbours AS n
               INNER JOIN
@@ -18,7 +19,7 @@ class Neighbour(RTNL_Object):
                   n.f_ifindex = i.f_index
                   AND n.f_target = i.f_target
               '''
-    summary_header = ('target', 'ifname', 'lladdr', 'neighbour')
+    summary_header = ('target', 'flags', 'ifname', 'lladdr', 'neighbour')
 
     def __init__(self, view, key, ctxid=None):
         self.event_map = {ndmsg: "load_rtnlmsg"}

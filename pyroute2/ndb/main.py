@@ -190,6 +190,15 @@ def target_adapter(value):
 
 sqlite3.register_adapter(list, target_adapter)
 MAX_REPORT_LINES = 100
+SOURCE_FAIL_PAUSE = 5
+
+
+class SchemaFlush(Exception):
+    pass
+
+
+class MarkFailed(Exception):
+    pass
 
 
 class ShutdownException(Exception):
@@ -397,37 +406,39 @@ class Source(object):
     must comply to IPRoute API, must support the async_cache. If
     the channel starts additional threads, they must be joined
     in the channel.close()
-
-    The reason to keep two separate channels (command and async)
-    is that the command channel even being subscribed to async
-    events does not receive all the updates initiated by an RTNL
-    API call, say, route() or address().
-
-    Thus we need a separate channel that will receive all the events.
     '''
 
-    def __init__(self, evq, target, channel, event=None):
+    def __init__(self, evq, target, channel,
+                 event=None,
+                 persistent=False,
+                 **nl_kwarg):
         self.th = None
+        self.nl = None
         # the event queue to send events to
         self.evq = evq
         # the target id -- just in case
         self.target = target
         # RTNL API
-        self.nl = channel
-        self.nl.bind(async_cache=True, clone_socket=True)
+        self.nl_prime = channel
+        self.nl_kwarg = nl_kwarg
         #
-        self.started = event
+        self.event = event
+        self.shutdown = threading.Event()
+        self.started = threading.Event()
+        self.started.clear()
+        self.persistent = persistent
+        self.status = 'init'
+
+    def __repr__(self):
+        if isinstance(self.nl_prime, NetlinkMixin):
+            name = self.nl_prime.__class__.__name__
+        elif isinstance(self.nl_prime, type) and \
+                issubclass(self.nl_prime, NetlinkMixin):
+            name = self.nl_prime.__name__
+
+        return '<%s %s [%s]>' % (name, self.nl_kwarg, self.status)
 
     def start(self):
-        #
-        # Initial load -- enqueue the data
-        #
-        self.evq.put((self.target, self.nl.get_links()))
-        self.evq.put((self.target, self.nl.get_addr()))
-        self.evq.put((self.target, self.nl.get_neighbours()))
-        self.evq.put((self.target, self.nl.get_routes()))
-        if self.started is not None:
-            self.evq.put((self.target, (self.started, )))
 
         #
         # The source thread routine -- get events from the
@@ -435,24 +446,74 @@ class Source(object):
         #
         # The routine exists on an event with error code == 104
         #
-        def t(event_queue, target, channel):
+        def t(self):
             while True:
-                msg = tuple(channel.get())
-                if msg[0]['header']['error'] and \
-                        msg[0]['header']['error'].code == 104:
+                if self.nl is not None:
+                    try:
+                        self.nl.close()
+                    except Exception as e:
+                        log.warning('[%s] source restart: %s'
+                                    % (self.target, e))
+                try:
+                    self.status = 'connecting'
+                    if isinstance(self.nl_prime, NetlinkMixin):
+                        self.nl = self.nl_prime
+                    elif isinstance(self.nl_prime, type) and \
+                            issubclass(self.nl_prime, NetlinkMixin):
+                        self.nl = self.nl_prime(**self.nl_kwarg)
+                    else:
+                        raise TypeError('source channel not supported')
+                    self.status = 'loading'
+                    #
+                    self.nl.bind(async_cache=True, clone_socket=True)
+                    #
+                    # Initial load -- enqueue the data
+                    #
+                    self.evq.put((self.target, (SchemaFlush(), )))
+                    self.evq.put((self.target, self.nl.get_links()))
+                    self.evq.put((self.target, self.nl.get_addr()))
+                    self.evq.put((self.target, self.nl.get_neighbours()))
+                    self.evq.put((self.target, self.nl.get_routes()))
+                    if self.event is not None:
+                        self.evq.put((self.target, (self.event, )))
+                    self.started.set()
+                    self.shutdown.clear()
+                    self.status = 'running'
+                    while True:
+                        msg = tuple(self.nl.get())
+                        if msg[0]['header']['error'] and \
+                                msg[0]['header']['error'].code == 104:
+                                    return
+                        self.evq.put((self.target, msg))
+                except TypeError:
+                    raise
+                except Exception as e:
+                    self.status = 'failed'
+                    log.error('[%s] source error: %s' % (self.target, e))
+                    self.evq.put((self.target, (MarkFailed(), )))
+                    if self.persistent:
+                        log.debug('[%s] sleeping before restart' % self.target)
+                        self.shutdown.wait(SOURCE_FAIL_PAUSE)
+                        if self.shutdown.is_set():
+                            log.debug('[%s] source shutdown' % self.target)
                             return
-                event_queue.put((target, msg))
+                    else:
+                        raise
 
         #
         # Start source thread
         self.th = (threading
-                   .Thread(target=t,
-                           args=(self.evq, self.target, self.nl),
+                   .Thread(target=t, args=(self, ),
                            name='NDB event source: %s' % (self.target)))
         self.th.start()
+        self.started.wait()
 
     def close(self):
-        self.nl.close()
+        if self.nl is not None:
+            try:
+                self.nl.close()
+            except Exception as e:
+                log.error('[%s] source close: %s' % (self.target, e))
         if self.th is not None:
             self.th.join()
 
@@ -598,7 +659,20 @@ class NDB(object):
         if target in self.nl:
             self.disconnect_source(target)
         try:
-            self.nl[target] = Source(self._event_queue, target, channel, event)
+            if isinstance(channel, NetlinkMixin):
+                self.nl[target] = Source(self._event_queue,
+                                         target, channel, event)
+            elif isinstance(channel, dict):
+                iclass = channel.pop('class')
+                persistent = channel.pop('persistent', False)
+                self.nl[target] = Source(self._event_queue,
+                                         target, iclass, event,
+                                         persistent, **channel)
+            elif isinstance(channel, Source):
+                self.nl[target] = Source
+            else:
+                raise TypeError('source channel not supported')
+
             self.nl[target].start()
         except:
             if target in self.nl:
@@ -610,8 +684,11 @@ class NDB(object):
     def __dbm__(self):
 
         # init the events map
-        self._event_map = event_map = {type(self._dbm_ready):
-                                       [lambda t, x: x.set()]}
+        event_map = {type(self._dbm_ready): [lambda t, x: x.set()],
+                     SchemaFlush: [lambda t, x: self.schema.flush(t)],
+                     MarkFailed: [lambda t, x: self.schema.mark(t, 1)]}
+        self._event_map = event_map
+
         event_queue = self._event_queue
 
         def default_handler(target, event):
@@ -625,7 +702,10 @@ class NDB(object):
                                     self._db_rtnl_log,
                                     id(threading.current_thread()))
         for target, channel in self._nl.items():
-            self.connect_source(target, channel, None)
+            try:
+                self.connect_source(target, channel, None)
+            except Exception as e:
+                log.error('could not connect source %s: %s' % (target, e))
         event_queue.put(('localhost', (self._dbm_ready, )))
 
         for (event, handlers) in self.schema.event_map.items():
@@ -646,6 +726,8 @@ class NDB(object):
                             log.error('could not invalidate event handler:\n%s'
                                       % traceback.format_exc())
                     except ShutdownException:
+                        for target, channel in self.nl.items():
+                            channel.shutdown.set()
                         return
                     except:
                         log.error('could not load event:\n%s\n%s'

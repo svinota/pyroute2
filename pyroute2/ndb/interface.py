@@ -10,12 +10,12 @@ class Interface(RTNL_Object):
     api = 'link'
     summary = '''
               SELECT
-                  f_target, f_index, f_IFLA_IFNAME,
+                  f_target, f_tflags, f_index, f_IFLA_IFNAME,
                   f_IFLA_ADDRESS, f_flags
               FROM
                   interfaces
               '''
-    summary_header = ('target', 'index', 'ifname', 'lladdr', 'flags')
+    summary_header = ('target', 'flags', 'index', 'ifname', 'lladdr', 'flags')
 
     def __init__(self, view, key, ctxid=None):
         self.event_map = {ifinfmsg: "load_rtnlmsg"}

@@ -13,7 +13,7 @@ class Route(RTNL_Object):
     api = 'route'
     summary = '''
               SELECT
-                  rt.f_target, rt.f_RTA_TABLE, rt.f_RTA_DST,
+                  rt.f_target, rt.f_tflags, rt.f_RTA_TABLE, rt.f_RTA_DST,
                   rt.f_dst_len, rt.f_RTA_GATEWAY, nh.f_RTA_GATEWAY
               FROM
                   routes AS rt
@@ -22,7 +22,7 @@ class Route(RTNL_Object):
                   rt.f_route_id = nh.f_route_id
                   AND rt.f_target = nh.f_target
               '''
-    summary_header = ('target', 'table', 'dst',
+    summary_header = ('target', 'flags', 'table', 'dst',
                       'dst_len', 'gateway', 'nexthop')
     dump = '''
            SELECT rs.f_target,rs.f_tflags,%s

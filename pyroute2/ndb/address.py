@@ -9,7 +9,8 @@ class Address(RTNL_Object):
     api = 'addr'
     summary = '''
               SELECT
-                  a.f_target, i.f_IFLA_IFNAME, a.f_IFA_ADDRESS, a.f_prefixlen
+                  a.f_target, a.f_tflags,
+                  i.f_IFLA_IFNAME, a.f_IFA_ADDRESS, a.f_prefixlen
               FROM
                   addresses AS a
               INNER JOIN
@@ -18,7 +19,7 @@ class Address(RTNL_Object):
                   a.f_index = i.f_index
                   AND a.f_target = i.f_target
               '''
-    summary_header = ('target', 'ifname', 'address', 'mask')
+    summary_header = ('target', 'flags', 'ifname', 'address', 'mask')
 
     def __init__(self, view, key, ctxid=None):
         self.event_map = {ifaddrmsg: "load_rtnlmsg"}
