@@ -1,10 +1,7 @@
 import os
-import pickle
-import struct
 import mitogen.core
 import mitogen.master
 import threading
-from io import BytesIO
 from pyroute2.remote import (Transport,
                              Server,
                              RemoteSocket)
@@ -33,17 +30,7 @@ class Channel(object):
                 ret = self.buf[:size]
                 self.buf = self.buf[size:]
                 return ret
-            try:
-                ret = self.ch.get().unpickle()
-            except mitogen.core.ChannelError:
-                data = struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0)
-                obj = {'stage': 'broadcast',
-                       'data': data,
-                       'error': None}
-                dump = BytesIO()
-                pickle.dump(obj, dump)
-                ret = struct.pack('II', len(dump.getvalue()) + 8, 0)
-                ret += dump.getvalue()
+            ret = self.ch.get().unpickle()
             if len(ret) > size:
                 self.buf = ret[size:]
             return ret[:size]
@@ -83,16 +70,7 @@ class Channel(object):
         while True:
             msg = self.ch.get().unpickle()
             if msg is None:
-                data = struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0)
-                obj = {'stage': 'broadcast',
-                       'data': data,
-                       'error': None}
-                dump = BytesIO()
-                pickle.dump(obj, dump)
-                msg = struct.pack('II', len(dump.getvalue()) + 8, 0)
-                msg += dump.getvalue()
-                os.write(self._pfdw, msg)
-                break
+                raise EOFError()
             os.write(self._pfdw, msg)
 
 
@@ -125,7 +103,8 @@ class RemoteIPRoute(RTNL_API, RemoteSocket):
         try:
             context = getattr(self._mitogen_router,
                               self._mitogen_protocol)(*argv, **kwarg)
-            ch_in = mitogen.core.Receiver(self._mitogen_router)
+            ch_in = mitogen.core.Receiver(self._mitogen_router,
+                                          respondent=context)
             self._mitogen_call = context.call_async(MitogenServer,
                                                     ch_out=ch_in.to_sender())
             ch_out = ch_in.get().unpickle()
