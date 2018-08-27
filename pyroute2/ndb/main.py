@@ -193,6 +193,10 @@ MAX_REPORT_LINES = 100
 SOURCE_FAIL_PAUSE = 5
 
 
+class SyncStart(Exception):
+    pass
+
+
 class SchemaFlush(Exception):
     pass
 
@@ -432,8 +436,7 @@ class Source(object):
     def __repr__(self):
         if isinstance(self.nl_prime, NetlinkMixin):
             name = self.nl_prime.__class__.__name__
-        elif isinstance(self.nl_prime, type) and \
-                issubclass(self.nl_prime, NetlinkMixin):
+        elif isinstance(self.nl_prime, type):
             name = self.nl_prime.__name__
 
         return '<%s %s [%s]>' % (name, self.nl_kwarg, self.status)
@@ -458,8 +461,7 @@ class Source(object):
                     self.status = 'connecting'
                     if isinstance(self.nl_prime, NetlinkMixin):
                         self.nl = self.nl_prime
-                    elif isinstance(self.nl_prime, type) and \
-                            issubclass(self.nl_prime, NetlinkMixin):
+                    elif isinstance(self.nl_prime, type):
                         self.nl = self.nl_prime(**self.nl_kwarg)
                     else:
                         raise TypeError('source channel not supported')
@@ -474,11 +476,11 @@ class Source(object):
                     self.evq.put((self.target, self.nl.get_addr()))
                     self.evq.put((self.target, self.nl.get_neighbours()))
                     self.evq.put((self.target, self.nl.get_routes()))
-                    if self.event is not None:
-                        self.evq.put((self.target, (self.event, )))
                     self.started.set()
                     self.shutdown.clear()
                     self.status = 'running'
+                    if self.event is not None:
+                        self.evq.put((self.target, (self.event, )))
                     while True:
                         msg = tuple(self.nl.get())
                         if msg[0]['header']['error'] and \
@@ -488,6 +490,7 @@ class Source(object):
                 except TypeError:
                     raise
                 except Exception as e:
+                    self.started.set()
                     self.status = 'failed'
                     log.error('[%s] source error: %s' % (self.target, e))
                     self.evq.put((self.target, (MarkFailed(), )))
@@ -498,15 +501,16 @@ class Source(object):
                             log.debug('[%s] source shutdown' % self.target)
                             return
                     else:
-                        raise
+                        return
 
         #
         # Start source thread
         self.th = (threading
                    .Thread(target=t, args=(self, ),
                            name='NDB event source: %s' % (self.target)))
+        # self.th.setDaemon(True)
         self.th.start()
-        self.started.wait()
+        # self.started.wait()
 
     def close(self):
         if self.nl is not None:
@@ -558,7 +562,6 @@ class NDB(object):
         self._dbm_ready.clear()
         self._dbm_thread = threading.Thread(target=self.__dbm__,
                                             name='NDB main loop')
-        self._dbm_thread.setDaemon(True)
         self._dbm_thread.start()
         self._dbm_ready.wait()
         self.interfaces = View(self, 'interfaces')
@@ -649,9 +652,6 @@ class NDB(object):
         connected.
         '''
         #
-        if event is not None:
-            event.clear()
-        #
         # flush the DB
         self.schema.flush(target)
         #
@@ -683,18 +683,23 @@ class NDB(object):
 
     def __dbm__(self):
 
-        # init the events map
-        event_map = {type(self._dbm_ready): [lambda t, x: x.set()],
-                     SchemaFlush: [lambda t, x: self.schema.flush(t)],
-                     MarkFailed: [lambda t, x: self.schema.mark(t, 1)]}
-        self._event_map = event_map
-
-        event_queue = self._event_queue
-
         def default_handler(target, event):
             if isinstance(event, Exception):
                 raise event
             logging.warning('unsupported event ignored: %s' % type(event))
+
+        def check_sources_started(target, event):
+            if all([x.started.is_set() for x in self.nl.values()]):
+                self._event_queue.put(('localhost', (self._dbm_ready, )))
+
+        # init the events map
+        event_map = {type(self._dbm_ready): [lambda t, x: x.set()],
+                     SchemaFlush: [lambda t, x: self.schema.flush(t)],
+                     MarkFailed: [lambda t, x: self.schema.mark(t, 1)],
+                     SyncStart: [check_sources_started]}
+        self._event_map = event_map
+
+        event_queue = self._event_queue
 
         self.__initdb__()
         self.schema = dbschema.init(self._db,
@@ -703,10 +708,9 @@ class NDB(object):
                                     id(threading.current_thread()))
         for target, channel in self._nl.items():
             try:
-                self.connect_source(target, channel, None)
+                self.connect_source(target, channel, SyncStart())
             except Exception as e:
                 log.error('could not connect source %s: %s' % (target, e))
-        event_queue.put(('localhost', (self._dbm_ready, )))
 
         for (event, handlers) in self.schema.event_map.items():
             for handler in handlers:
