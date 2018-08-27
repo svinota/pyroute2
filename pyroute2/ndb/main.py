@@ -528,6 +528,59 @@ class Source(object):
         self.close()
 
 
+class Info(object):
+
+    def __init__(self, schema, fmt='csv'):
+        self._schema = schema
+        self._fmt = fmt
+
+    def _formatter(self, cursor, fmt=None, header=None):
+        fmt = fmt or self._fmt
+
+        if fmt == 'csv':
+            if header:
+                yield ','.join(header)
+            for record in cursor:
+                yield ','.join([str(x) for x in record])
+        elif fmt == 'raw':
+            for record in cursor:
+                yield record
+        else:
+            raise TypeError('format not supported')
+
+    def nodes(self, fmt=None):
+        return self._formatter(self._schema.fetch('''
+            SELECT DISTINCT f_target
+            FROM interfaces
+        '''), fmt)
+
+    def l3connections(self, fmt=None):
+        header = ('gateway_node',
+                  'gateway_address',
+                  'source_node',
+                  'dst',
+                  'dst_len')
+        return self._formatter(self._schema.fetch('''
+            SELECT
+                a.f_target, a.f_IFA_ADDRESS,
+                r.f_target, r.f_RTA_DST, r.f_dst_len
+            FROM
+                addresses AS a
+            INNER JOIN
+                routes AS r
+            ON
+                r.f_target != a.f_target
+                AND r.f_RTA_GATEWAY = a.f_IFA_ADDRESS
+                AND r.f_RTA_GATEWAY NOT IN
+            (SELECT
+                f_IFA_ADDRESS
+             FROM
+                addresses
+             WHERE
+                f_target = r.f_target)
+        '''), fmt, header)
+
+
 class NDB(object):
 
     def __init__(self,
@@ -570,6 +623,7 @@ class NDB(object):
         self.neighbours = View(self, 'neighbours')
         self.vlans = View(self, 'vlan')
         self.bridges = View(self, 'bridge')
+        self.info = Info(self.schema)
 
     def __enter__(self):
         return self
