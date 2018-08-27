@@ -28,7 +28,7 @@ class RTNL_Object(dict):
 
     def __init__(self, view, key, iclass, ctxid=None):
         self.view = view
-        self.nl = view.ndb.nl
+        self.sources = view.ndb.sources
         self.ctxid = ctxid or id(self)
         self.schema = view.ndb.schema
         self.changed = set()
@@ -202,15 +202,15 @@ class RTNL_Object(dict):
         # Get the API entry point. The RTNL source must comply to the
         # IPRoute API.
         #
-        # self.nl = {'localhost': Source(),
-        #            'remote': ...}
+        # self.sources = {'localhost': Source(),
+        #                 'remote': ...}
         #
         # self.api = 'link'
         # Source().nl -- RTNL API
         #
         # -> api(...) = iproute.link(...)
         #
-        api = getattr(self.nl[self['target']].nl, self.api)
+        api = getattr(self.sources[self['target']].nl, self.api)
 
         # Load the current state
         self.schema.connection.commit()

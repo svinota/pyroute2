@@ -406,13 +406,13 @@ class View(dict):
 
 class Source(object):
     '''
-    The RNTL source. The channel that is used to init the source
+    The RNTL source. The source that is used to init the object
     must comply to IPRoute API, must support the async_cache. If
-    the channel starts additional threads, they must be joined
-    in the channel.close()
+    the source starts additional threads, they must be joined
+    in the source.close()
     '''
 
-    def __init__(self, evq, target, channel,
+    def __init__(self, evq, target, source,
                  event=None,
                  persistent=False,
                  **nl_kwarg):
@@ -423,7 +423,7 @@ class Source(object):
         # the target id -- just in case
         self.target = target
         # RTNL API
-        self.nl_prime = channel
+        self.nl_prime = source
         self.nl_kwarg = nl_kwarg
         #
         self.event = event
@@ -549,18 +549,18 @@ class Info(object):
             raise TypeError('format not supported')
 
     def nodes(self, fmt=None):
-        return self._formatter(self._schema.fetch('''
+        return Report(self._formatter(self._schema.fetch('''
             SELECT DISTINCT f_target
             FROM interfaces
-        '''), fmt)
+        '''), fmt))
 
-    def l3connections(self, fmt=None):
+    def routers(self, fmt=None):
         header = ('gateway_node',
                   'gateway_address',
                   'source_node',
                   'dst',
                   'dst_len')
-        return self._formatter(self._schema.fetch('''
+        return Report(self._formatter(self._schema.fetch('''
             SELECT
                 a.f_target, a.f_IFA_ADDRESS,
                 r.f_target, r.f_RTA_DST, r.f_dst_len
@@ -578,7 +578,7 @@ class Info(object):
                 addresses
              WHERE
                 f_target = r.f_target)
-        '''), fmt, header)
+        '''), fmt, header))
 
 
 class NDB(object):
@@ -606,7 +606,7 @@ class NDB(object):
         elif isinstance(nl, dict):
             self._nl = nl
 
-        self.nl = {}
+        self.sources = {}
         self._db_provider = db_provider
         self._db_spec = db_spec
         self._db_rtnl_log = rtnl_log
@@ -650,7 +650,7 @@ class NDB(object):
                     pass
             if self.schema:
                 self._event_queue.put(('localhost', (ShutdownException(), )))
-                for target, source in self.nl.items():
+                for target, source in self.sources.items():
                     source.close()
                 self._dbm_thread.join()
                 self.schema.commit()
@@ -686,18 +686,18 @@ class NDB(object):
         :param target: node name or UUID
         '''
         # close the source
-        self.nl[target].close()
-        del self.nl[target]
+        self.sources[target].close()
+        del self.sources[target]
         #
         if flush:
             self.schema.flush(target)
 
-    def connect_source(self, target, channel, event=None):
+    def connect_source(self, target, source, event=None):
         '''
         Connect an event source to the DB. All arguments are required.
 
         :param target: node name or UUID, any hashable value
-        :param nl: an IPRoute channel to init Source() class
+        :param nl: an IPRoute object to init Source() class
         :param event: an optional Event() to send in the end
 
         The source connection is an async process so there should be
@@ -710,28 +710,28 @@ class NDB(object):
         self.schema.flush(target)
         #
         # register the channel
-        if target in self.nl:
+        if target in self.sources:
             self.disconnect_source(target)
         try:
-            if isinstance(channel, NetlinkMixin):
-                self.nl[target] = Source(self._event_queue,
-                                         target, channel, event)
-            elif isinstance(channel, dict):
-                iclass = channel.pop('class')
-                persistent = channel.pop('persistent', False)
-                self.nl[target] = Source(self._event_queue,
-                                         target, iclass, event,
-                                         persistent, **channel)
-            elif isinstance(channel, Source):
-                self.nl[target] = Source
+            if isinstance(source, NetlinkMixin):
+                self.sources[target] = Source(self._event_queue,
+                                              target, source, event)
+            elif isinstance(source, dict):
+                iclass = source.pop('class')
+                persistent = source.pop('persistent', False)
+                self.sources[target] = Source(self._event_queue,
+                                              target, iclass, event,
+                                              persistent, **source)
+            elif isinstance(source, Source):
+                self.sources[target] = Source
             else:
-                raise TypeError('source channel not supported')
+                raise TypeError('source not supported')
 
-            self.nl[target].start()
+            self.sources[target].start()
         except:
-            if target in self.nl:
-                self.nl[target].close()
-                del self.nl[target]
+            if target in self.sources:
+                self.sources[target].close()
+                del self.sources[target]
             self.schema.flush(target)
             raise
 
@@ -743,7 +743,7 @@ class NDB(object):
             logging.warning('unsupported event ignored: %s' % type(event))
 
         def check_sources_started(target, event):
-            if all([x.started.is_set() for x in self.nl.values()]):
+            if all([x.started.is_set() for x in self.sources.values()]):
                 self._event_queue.put(('localhost', (self._dbm_ready, )))
 
         # init the events map
@@ -760,9 +760,9 @@ class NDB(object):
                                     self._db_provider,
                                     self._db_rtnl_log,
                                     id(threading.current_thread()))
-        for target, channel in self._nl.items():
+        for target, source in self._nl.items():
             try:
-                self.connect_source(target, channel, SyncStart())
+                self.connect_source(target, source, SyncStart())
             except Exception as e:
                 log.error('could not connect source %s: %s' % (target, e))
 
@@ -784,8 +784,8 @@ class NDB(object):
                             log.error('could not invalidate event handler:\n%s'
                                       % traceback.format_exc())
                     except ShutdownException:
-                        for target, channel in self.nl.items():
-                            channel.shutdown.set()
+                        for target, source in self.sources.items():
+                            source.shutdown.set()
                         return
                     except:
                         log.error('could not load event:\n%s\n%s'
