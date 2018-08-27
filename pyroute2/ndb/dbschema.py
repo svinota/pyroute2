@@ -718,9 +718,10 @@ class DBSchema(object):
         #
         if not event['flags'] & 1:
             self.execute('DELETE FROM routes WHERE '
+                         'f_target = %s AND '
                          'f_RTA_OIF = %s OR f_RTA_IIF = %s'
-                         % (self.plch, self.plch),
-                         (event['index'], event['index']))
+                         % (self.plch, self.plch, self.plch),
+                         (target, event['index'], event['index']))
         #
         # ignore wireless updates
         #
