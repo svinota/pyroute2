@@ -193,7 +193,11 @@ class Ifconfig(CMD):
                 link['attrs'].append(['IFLA_ADDRESS', pl['lladdr']])
 
             elif 'index' in pl:
+                idx = int(pl['index'])
                 link['index'] = int(pl['index'])
+
+            elif 'tunnel:' in pl:
+                continue
 
             elif 'inet' in pl:
                 if ('netmask' not in pl) or \
