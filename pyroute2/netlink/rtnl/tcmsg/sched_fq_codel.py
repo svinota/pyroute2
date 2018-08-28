@@ -1,9 +1,10 @@
 import logging
-import struct
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
-from pyroute2.netlink.rtnl.tcmsg import common
+from pyroute2.netlink.rtnl.tcmsg.common import stats2
 from pyroute2.netlink.rtnl.tcmsg.common import get_time
+from pyroute2.netlink.rtnl import RTM_NEWQDISC
+from pyroute2.netlink.rtnl import RTM_DELQDISC
 
 log = logging.getLogger(__name__)
 parent = TC_H_ROOT
@@ -45,39 +46,49 @@ class options(nla):
                ('TCA_FQ_CODEL_MEMORY_LIMIT', 'uint32'))
 
 
-class stats(nla):
-
-    TCA_FQ_CODEL_XSTATS_QDISC = 0
-    TCA_FQ_CODEL_XSTATS_CLASS = 1
-
-    qdisc_fields = (('maxpacket', 'I'),
-                    ('drop_overlimit', 'I'),
-                    ('ecn_mark', 'I'),
-                    ('new_flow_count', 'I'),
-                    ('new_flows_len', 'I'),
-                    ('old_flows_len', 'I'),
-                    ('ce_mark', 'I'))
-
-    class_fields = (('deficit', 'i'),
-                    ('ldelay', 'I'),
-                    ('count', 'I'),
-                    ('lastcount', 'I'),
-                    ('dropping', 'I'),
-                    ('drop_next', 'i'))
-
-    def decode(self):
-        nla.decode(self)
-        # read the type
-        kind = struct.unpack('I', self.buf.read(4))[0]
-        if kind == self.TCA_FQ_CODEL_XSTATS_QDISC:
-            self.fields = self.qdisc_fields
-        elif kind == self.TCA_FQ_CODEL_XSTATS_CLASS:
-            self.fields = self.class_fields
-        else:
-            raise TypeError("Unknown xstats type")
-        self.decode_fields()
+class qdisc_stats(nla):
+    fields = (('type', 'I'),
+              ('maxpacket', 'I'),
+              ('drop_overlimit', 'I'),
+              ('ecn_mark', 'I'),
+              ('new_flow_count', 'I'),
+              ('new_flows_len', 'I'),
+              ('old_flows_len', 'I'),
+              ('ce_mark', 'I'),
+              ('memory_usage', 'I'),
+              ('drop_overmemory', 'I'))
 
 
-class stats2(common.stats2):
-    class stats_app(stats):
+class class_stats(nla):
+    fields = (('type', 'I'),
+              ('deficit', 'i'),
+              ('ldelay', 'I'),
+              ('count', 'I'),
+              ('lastcount', 'I'),
+              ('dropping', 'I'),
+              ('drop_next', 'i'))
+
+
+class qdisc_stats2(stats2):
+    class stats_app(qdisc_stats):
         pass
+
+
+class class_stats2(stats2):
+    class stats_app(class_stats):
+        pass
+
+
+def stats2(msg, *argv, **kwarg):
+    if msg['header']['type'] in (RTM_NEWQDISC, RTM_DELQDISC):
+        return qdisc_stats2
+    else:
+        return class_stats2
+
+
+# To keep the compatibility with TCA_XSTATS
+def stats(msg, *argv, **kwarg):
+    if msg['header']['type'] in (RTM_NEWQDISC, RTM_DELQDISC):
+        return qdisc_stats
+    else:
+        return class_stats
