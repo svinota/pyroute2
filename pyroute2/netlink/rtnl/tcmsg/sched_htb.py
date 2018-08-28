@@ -128,12 +128,14 @@ def fix_msg(msg, kwarg):
         msg['attrs'].append(['TCA_OPTIONS', opts])
 
 
+# The tokens and ctokens are badly defined in the kernel structure
+# as unsigned int instead of signed int. (cf net/sched/sch_htb.c in linux source)
 class stats(nla):
     fields = (('lends', 'I'),
               ('borrows', 'I'),
               ('giants', 'I'),
-              ('tokens', 'I'),
-              ('ctokens', 'I'))
+              ('tokens', 'i'),
+              ('ctokens', 'i'))
 
 
 class options(nla_plus_rtab):
