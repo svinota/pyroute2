@@ -439,7 +439,7 @@ class Source(object):
         elif isinstance(self.nl_prime, type):
             name = self.nl_prime.__name__
 
-        return '<%s %s [%s]>' % (name, self.nl_kwarg, self.status)
+        return '[%s] <%s %s>' % (self.status, name, self.nl_kwarg)
 
     def start(self):
 
@@ -485,6 +485,7 @@ class Source(object):
                         msg = tuple(self.nl.get())
                         if msg[0]['header']['error'] and \
                                 msg[0]['header']['error'].code == 104:
+                                    self.status = 'stopped'
                                     return
                         self.evq.put((self.target, msg))
                 except TypeError:
