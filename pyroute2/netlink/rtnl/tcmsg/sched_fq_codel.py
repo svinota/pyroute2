@@ -40,7 +40,9 @@ class options(nla):
                ('TCA_FQ_CODEL_ECN', 'uint32'),
                ('TCA_FQ_CODEL_FLOWS', 'uint32'),
                ('TCA_FQ_CODEL_QUANTUM', 'uint32'),
-               ('TCA_FQ_CODEL_CE_THRESHOLD', 'uint32'))
+               ('TCA_FQ_CODEL_CE_THRESHOLD', 'uint32'),
+               ('TCA_FQ_CODEL_DROP_BATCH_SIZE', 'uint32'),
+               ('TCA_FQ_CODEL_MEMORY_LIMIT', 'uint32'))
 
 
 class stats(nla):
