@@ -63,6 +63,9 @@ from pyroute2.netlink.rtnl.tcmsg.common import get_hz
 from pyroute2.netlink.rtnl.tcmsg.common import get_rate
 from pyroute2.netlink.rtnl.tcmsg.common import calc_xmittime
 from pyroute2.netlink.rtnl.tcmsg.common import nla_plus_rtab
+from pyroute2.netlink.rtnl.tcmsg.common import stats2
+from pyroute2.netlink.rtnl import RTM_NEWQDISC
+from pyroute2.netlink.rtnl import RTM_DELQDISC
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 
@@ -136,6 +139,25 @@ class stats(nla):
               ('giants', 'I'),
               ('tokens', 'i'),
               ('ctokens', 'i'))
+
+
+class qdisc_stats2(stats2):
+    nla_map = (('TCA_STATS_UNSPEC', 'none'),
+               ('TCA_STATS_BASIC', 'basic'),
+               ('TCA_STATS_RATE_EST', 'rate_est'),
+               ('TCA_STATS_QUEUE', 'queue'))
+
+
+class class_stats2(stats2):
+    class stats_app(stats):
+        pass
+
+
+def stats2(msg, *argv, **kwarg):
+    if msg['header']['type'] in (RTM_NEWQDISC, RTM_DELQDISC):
+        return qdisc_stats2
+    else:
+        return class_stats2
 
 
 class options(nla_plus_rtab):
