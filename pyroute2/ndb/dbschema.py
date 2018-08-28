@@ -651,9 +651,12 @@ class DBSchema(object):
         conditions = []
         values = []
         cls = self.classes[table]
+        cspec = self.compiled[table]
         for key, value in spec.items():
-            if key not in [x[0] for x in cls.fields]:
+            if key not in cspec['all_names']:
                 key = cls.name2nla(key)
+            if key not in cspec['all_names']:
+                raise KeyError('field name not found')
             conditions.append('f_%s = %s' % (key, self.plch))
             values.append(value)
         req = 'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(conditions))
