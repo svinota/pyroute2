@@ -7,6 +7,7 @@ import errno
 import platform
 import subprocess
 import ctypes
+import ctypes.util
 from pyroute2 import NetlinkError
 from pyroute2 import IPRoute
 from nose.plugins.skip import SkipTest
@@ -265,7 +266,7 @@ def get_simple_bpf_program(prog_type):
     elif prog_type.lower() == "sched_act":
         attr = BPFAttr(BPF_PROG_TYPE_SCHED_ACT, len(insns),
                        insns, license, 0, 0, None, 0)
-    libc = ctypes.CDLL('libc.so.6')
+    libc = ctypes.CDLL(ctypes.util.find_library('c'))
     libc.syscall.argtypes = [ctypes.c_long, ctypes.c_int,
                              ctypes.POINTER(type(attr)), ctypes.c_uint]
     libc.syscall.restype = ctypes.c_int
