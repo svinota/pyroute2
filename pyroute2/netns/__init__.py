@@ -82,6 +82,7 @@ import os
 import os.path
 import errno
 import ctypes
+import ctypes.util
 import pickle
 import struct
 import traceback
@@ -140,7 +141,7 @@ def listnetns(nspath=None):
 
 
 def _create(netns, libc=None):
-    libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
+    libc = libc or ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
     netnspath = _get_netnspath(netns)
     netnsdir = os.path.dirname(netnspath)
 
@@ -205,7 +206,7 @@ def remove(netns, libc=None):
     '''
     Remove a network namespace.
     '''
-    libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
+    libc = libc or ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
     netnspath = _get_netnspath(netns)
     libc.umount2(netnspath, MNT_DETACH)
     os.unlink(netnspath)
@@ -225,7 +226,7 @@ def setns(netns, flags=os.O_CREAT, libc=None):
     not provided via arguments.
     '''
     newfd = False
-    libc = libc or ctypes.CDLL('libc.so.6', use_errno=True)
+    libc = libc or ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
     if isinstance(netns, basestring):
         netnspath = _get_netnspath(netns)
         if os.path.basename(netns) in listnetns(os.path.dirname(netns)):
