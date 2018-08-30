@@ -1,6 +1,25 @@
+from pyroute2.common import map_namespace
 from pyroute2.netlink import nlmsg_base
 
 IFNAMSIZ = 16
+
+IFF_UP = 0x1
+IFF_BROADCAST = 0x2
+IFF_DEBUG = 0x4
+IFF_LOOPBACK = 0x8
+IFF_POINTOPOINT = 0x10
+IFF_STATICARP = 0x20
+IFF_RUNNING = 0x40
+IFF_NOARP = 0x80
+IFF_PROMISC = 0x100
+IFF_ALLMULTI = 0x200
+IFF_OACTIVE = 0x400
+IFF_SIMPLEX = 0x800
+IFF_LINK0 = 0x1000
+IFF_LINK1 = 0x2000
+IFF_LINK2 = 0x4000
+IFF_MULTICAST = 0x8000
+(IFF_NAMES, IFF_VALUES) = map_namespace('IFF', globals())
 
 
 class bsdmsg(nlmsg_base):

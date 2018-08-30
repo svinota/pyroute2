@@ -10,14 +10,18 @@ if config.uname[0] == 'OpenBSD':
                                                rt_msg_base,
                                                ifa_msg_base,
                                                ifma_msg_base,
-                                               if_announcemsg)
+                                               if_announcemsg,
+                                               IFF_NAMES,
+                                               IFF_VALUES)
 else:
     from pyroute2.bsd.pf_route.freebsd import (bsdmsg,
                                                if_msg,
                                                rt_msg_base,
                                                ifa_msg_base,
                                                ifma_msg_base,
-                                               if_announcemsg)
+                                               if_announcemsg,
+                                               IFF_NAMES,
+                                               IFF_VALUES)
 
 
 RTAX_MAX = 8
@@ -131,4 +135,6 @@ __all__ = (bsdmsg,
            rt_msg,
            ifa_msg,
            ifma_msg,
-           if_announcemsg)
+           if_announcemsg,
+           IFF_NAMES,
+           IFF_VALUES)
