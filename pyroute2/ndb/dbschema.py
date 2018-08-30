@@ -18,6 +18,7 @@ from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
+from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 
 # ifinfo plugins
 from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import vlan
@@ -60,6 +61,8 @@ class DBSchema(object):
                                         .bridge_data
                                         .sql_schema() +
                                         [(('index', ), 'BIGINT')])
+    # additional tables
+    spec['p2p'] = OrderedDict(p2pmsg.sql_schema())
 
     classes = {'interfaces': ifinfmsg,
                'addresses': ifaddrmsg,
@@ -67,7 +70,8 @@ class DBSchema(object):
                'routes': rtmsg,
                'nh': nh,
                'ifinfo_vlan': vlan,
-               'ifinfo_bridge': ifinfmsg.ifinfo.bridge_data}
+               'ifinfo_bridge': ifinfmsg.ifinfo.bridge_data,
+               'p2p': p2pmsg}
 
     #
     # OBS: field names MUST go in the same order as in the spec,
@@ -79,6 +83,7 @@ class DBSchema(object):
                'ifinfo_bridge': ('index', ),
                'vlan': ('index', ),
                'bridge': ('index', ),
+               'p2p': ('index', ),
                'addresses': ('index',
                              'IFA_ADDRESS',
                              'IFA_LOCAL'),
@@ -151,7 +156,17 @@ class DBSchema(object):
                                        'parent_fields': ('f_target',
                                                          'f_tflags',
                                                          'f_index'),
-                                       'parent': 'interfaces'}]}
+                                       'parent': 'interfaces'}],
+                    #
+                    # additional tables
+                    #
+                    'p2p': [{'fields': ('f_target',
+                                        'f_tflags',
+                                        'f_index'),
+                             'parent_fields': ('f_target',
+                                               'f_tflags',
+                                               'f_index'),
+                             'parent': 'interfaces'}]}
 
     def __init__(self, connection, mode, rtnl_log, tid):
         self.mode = mode
@@ -748,6 +763,17 @@ class DBSchema(object):
             if linkinfo is not None:
                 iftype = linkinfo.get_attr('IFLA_INFO_KIND')
                 table = 'ifinfo_%s' % iftype
+                if iftype == 'gre':
+                    ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
+                    local = ifdata.get_attr('IFLA_GRE_LOCAL')
+                    remote = ifdata.get_attr('IFLA_GRE_REMOTE')
+                    p2p = p2pmsg()
+                    p2p['index'] = event['index']
+                    p2p['family'] = 2
+                    p2p['attrs'] = [('P2P_LOCAL', local),
+                                    ('P2P_REMOTE', remote)]
+                    self.load_netlink('p2p', target, p2p)
+
                 if table in self.spec:
                     ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
                     ifdata['header'] = {}
