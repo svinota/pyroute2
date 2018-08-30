@@ -35,7 +35,7 @@ class Cluster(object):
         return Report(self._formatter(self._schema.fetch('''
             SELECT DISTINCT f_target
             FROM interfaces
-        '''), fmt))
+        '''), fmt, transform=lambda x: x[0]))
 
     def p2p_edges(self, fmt=None):
         '''
