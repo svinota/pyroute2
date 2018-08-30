@@ -170,6 +170,8 @@ from pyroute2.ndb.interface import (Interface,
 from pyroute2.ndb.address import Address
 from pyroute2.ndb.route import Route
 from pyroute2.ndb.neighbour import Neighbour
+from pyroute2.ndb.cluster import Cluster
+from pyroute2.ndb.report import Report
 try:
     import queue
 except ImportError:
@@ -189,7 +191,6 @@ def target_adapter(value):
 
 
 sqlite3.register_adapter(list, target_adapter)
-MAX_REPORT_LINES = 100
 SOURCE_FAIL_PAUSE = 5
 
 
@@ -211,32 +212,6 @@ class ShutdownException(Exception):
 
 class InvalidateHandlerException(Exception):
     pass
-
-
-class Report(object):
-
-    def __init__(self, generator):
-        self.generator = generator
-
-    def __iter__(self):
-        return self.generator
-
-    def __repr__(self):
-        counter = 0
-        ret = []
-        for record in self.generator:
-            ret.append(repr(record))
-            counter += 1
-            if counter > MAX_REPORT_LINES:
-                ret.append('(...)')
-                break
-        return '\n'.join(ret)
-
-    def __len__(self):
-        counter = 0
-        for _ in self.generator:
-            counter += 1
-        return counter
 
 
 class View(dict):
@@ -527,89 +502,6 @@ class Source(object):
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
-
-
-class Cluster(object):
-
-    def __init__(self, schema, fmt='csv'):
-        self._schema = schema
-        self._fmt = fmt
-
-    def _formatter(self, cursor, fmt=None, header=None):
-        fmt = fmt or self._fmt
-
-        if fmt == 'csv':
-            if header:
-                yield ','.join(header)
-            for record in cursor:
-                yield ','.join([str(x) for x in record])
-        elif fmt == 'raw':
-            for record in cursor:
-                yield record
-        else:
-            raise TypeError('format not supported')
-
-    def nodes(self, fmt=None):
-        return Report(self._formatter(self._schema.fetch('''
-            SELECT DISTINCT f_target
-            FROM interfaces
-        '''), fmt))
-
-    def links(self, fmt=None):
-        header = ('left_node',
-                  'left_ifname',
-                  'left_lladdr',
-                  'right_node',
-                  'right_ifname',
-                  'right_lladdr')
-        return Report(self._formatter(self._schema.fetch('''
-        SELECT
-            j.f_target, j.f_IFLA_IFNAME, j.f_IFLA_ADDRESS,
-            d.f_target, d.f_IFLA_IFNAME, j.f_NDA_LLADDR
-        FROM
-            (SELECT
-                n.f_target, i.f_IFLA_IFNAME,
-                i.f_IFLA_ADDRESS, n.f_NDA_LLADDR
-             FROM
-                neighbours AS n
-             INNER JOIN
-                interfaces AS i
-             ON
-                n.f_target = i.f_target
-                AND i.f_IFLA_ADDRESS != '00:00:00:00:00:00'
-                AND n.f_ifindex = i.f_index) AS j
-        INNER JOIN
-            interfaces AS d
-        ON
-            j.f_NDA_LLADDR = d.f_IFLA_ADDRESS
-            AND j.f_target != d.f_target
-        '''), fmt, header))
-
-    def routers(self, fmt=None):
-        header = ('source_node',
-                  'gateway_node',
-                  'gateway_address',
-                  'dst',
-                  'dst_len')
-        return Report(self._formatter(self._schema.fetch('''
-            SELECT
-                r.f_target, a.f_target, a.f_IFA_ADDRESS,
-                r.f_RTA_DST, r.f_dst_len
-            FROM
-                addresses AS a
-            INNER JOIN
-                routes AS r
-            ON
-                r.f_target != a.f_target
-                AND r.f_RTA_GATEWAY = a.f_IFA_ADDRESS
-                AND r.f_RTA_GATEWAY NOT IN
-            (SELECT
-                f_IFA_ADDRESS
-             FROM
-                addresses
-             WHERE
-                f_target = r.f_target)
-        '''), fmt, header))
 
 
 class NDB(object):

@@ -12,7 +12,7 @@ from pyroute2 import NetlinkError
 from pyroute2 import RemoteIPRoute
 from pyroute2.common import uifname
 from pyroute2.common import basestring
-from pyroute2.ndb import main
+from pyroute2.ndb import report
 from pyroute2.ndb.main import Report
 
 
@@ -456,7 +456,7 @@ class TestSources(TestBase):
 class TestReports(TestBase):
 
     def test_types(self):
-        main.MAX_REPORT_LINES = 1
+        report.MAX_REPORT_LINES = 1
         # check for the report type here
         assert isinstance(self.ndb.interfaces.summary(), Report)
         # repr must be a string
