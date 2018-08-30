@@ -30,6 +30,23 @@ class Cluster(object):
             FROM interfaces
         '''), fmt))
 
+    def p2p_edges(self, fmt=None):
+        '''
+        Report point to point edges within the cluster, like
+        GRE or PPP interfaces.
+        '''
+        header = ('left_node',
+                  'right_node')
+        return Report(self._formatter(self._schema.fetch('''
+            SELECT DISTINCT
+                l.f_target, r.f_target
+            FROM p2p AS l
+            INNER JOIN p2p AS r
+            ON
+                l.f_p2p_local = r.f_p2p_remote
+                AND l.f_target != r.f_target
+        '''), fmt, header))
+
     def l2_edges(self, fmt=None):
         '''
         Report l2 links within the cluster, reconstructed
