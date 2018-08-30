@@ -529,7 +529,7 @@ class Source(object):
         self.close()
 
 
-class Info(object):
+class Cluster(object):
 
     def __init__(self, schema, fmt='csv'):
         self._schema = schema
@@ -555,16 +555,46 @@ class Info(object):
             FROM interfaces
         '''), fmt))
 
+    def links(self, fmt=None):
+        header = ('left_node',
+                  'left_ifname',
+                  'left_lladdr',
+                  'right_node',
+                  'right_ifname',
+                  'right_lladdr')
+        return Report(self._formatter(self._schema.fetch('''
+        SELECT
+            j.f_target, j.f_IFLA_IFNAME, j.f_IFLA_ADDRESS,
+            d.f_target, d.f_IFLA_IFNAME, j.f_NDA_LLADDR
+        FROM
+            (SELECT
+                n.f_target, i.f_IFLA_IFNAME,
+                i.f_IFLA_ADDRESS, n.f_NDA_LLADDR
+             FROM
+                neighbours AS n
+             INNER JOIN
+                interfaces AS i
+             ON
+                n.f_target = i.f_target
+                AND i.f_IFLA_ADDRESS != '00:00:00:00:00:00'
+                AND n.f_ifindex = i.f_index) AS j
+        INNER JOIN
+            interfaces AS d
+        ON
+            j.f_NDA_LLADDR = d.f_IFLA_ADDRESS
+            AND j.f_target != d.f_target
+        '''), fmt, header))
+
     def routers(self, fmt=None):
-        header = ('gateway_node',
+        header = ('source_node',
+                  'gateway_node',
                   'gateway_address',
-                  'source_node',
                   'dst',
                   'dst_len')
         return Report(self._formatter(self._schema.fetch('''
             SELECT
-                a.f_target, a.f_IFA_ADDRESS,
-                r.f_target, r.f_RTA_DST, r.f_dst_len
+                r.f_target, a.f_target, a.f_IFA_ADDRESS,
+                r.f_RTA_DST, r.f_dst_len
             FROM
                 addresses AS a
             INNER JOIN
@@ -624,7 +654,7 @@ class NDB(object):
         self.neighbours = View(self, 'neighbours')
         self.vlans = View(self, 'vlan')
         self.bridges = View(self, 'bridge')
-        self.info = Info(self.schema)
+        self.cluster = Cluster(self.schema)
 
     def __enter__(self):
         return self
