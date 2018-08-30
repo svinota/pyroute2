@@ -132,7 +132,8 @@ def fix_msg(msg, kwarg):
 
 
 # The tokens and ctokens are badly defined in the kernel structure
-# as unsigned int instead of signed int. (cf net/sched/sch_htb.c in linux source)
+# as unsigned int instead of signed int. (cf net/sched/sch_htb.c
+# in linux source)
 class stats(nla):
     fields = (('lends', 'I'),
               ('borrows', 'I'),
