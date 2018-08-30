@@ -165,22 +165,55 @@ class Ifconfig(CMD):
                 for name, spec in ifc.parse(data)["links"].items():
                     yield ifinfmsg().load(spec)
         '''
-        current = None
+        ifname = None
+        kind = None
         ret = {'links': {},
                'addrs': {}}
         idx = 0
+        info_data = {'attrs': None}
+
         for line in data.split('\n'):
             sl = line.split()
             pl = self.parse_line(sl)
 
+            # type-specific
+            if kind == 'gre' and 'inet' in sl and not info_data['attrs']:
+                # first "inet" -- low-level addresses
+                arrow = None
+                try:
+                    arrow = sl.index('->')
+                except ValueError:
+                    try:
+                        arrow = sl.index('-->')
+                    except ValueError:
+                        continue
+                if arrow is not None:
+                    info_data['attrs'] = [('IFLA_GRE_LOCAL', sl[arrow - 1]),
+                                          ('IFLA_GRE_REMOTE', sl[arrow + 1])]
+                continue
+
             # first line -- ifname, flags, mtu
             if self.match['NR'](line):
-                current = sl[0][:-1]
+                ifname = sl[0][:-1]
+                kind = None
                 idx += 1
-                ret['links'][current] = link = {'index': idx,
-                                                'attrs': []}
-                ret['addrs'][current] = addrs = []
-                link['attrs'].append(['IFLA_IFNAME', current])
+                ret['links'][ifname] = link = {'index': idx,
+                                               'attrs': []}
+                ret['addrs'][ifname] = addrs = []
+                link['attrs'].append(['IFLA_IFNAME', ifname])
+                #
+                if ifname[:3] == 'gre':
+                    kind = 'gre'
+                    info_data = {'attrs': []}
+                    linkinfo = {'attrs': [('IFLA_INFO_KIND', kind),
+                                          ('IFLA_INFO_DATA', info_data)]}
+                    link['attrs'].append(['IFLA_LINKINFO', linkinfo])
+
+                # extract flags
+                try:
+                    link['flags'] = int(sl[1].split('=')[1].split('<')[0])
+                except Exception:
+                    pass
 
                 # extract MTU
                 if 'mtu' in pl:
@@ -195,9 +228,6 @@ class Ifconfig(CMD):
             elif 'index' in pl:
                 idx = int(pl['index'])
                 link['index'] = int(pl['index'])
-
-            elif 'tunnel:' in pl:
-                continue
 
             elif 'inet' in pl:
                 if ('netmask' not in pl) or \
@@ -223,4 +253,5 @@ class Ifconfig(CMD):
                 if 'scopeid' in pl:
                     addr['scope'] = int(pl['scopeid'], 16)
                 addrs.append(addr)
+
         return ret
