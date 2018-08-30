@@ -75,7 +75,7 @@ class Cluster(object):
                   'right_ifname',
                   'right_lladdr')
         return Report(self._formatter(self._schema.fetch('''
-        SELECT
+        SELECT DISTINCT
             j.f_target, j.f_IFLA_IFNAME, j.f_IFLA_ADDRESS,
             d.f_target, d.f_IFLA_IFNAME, j.f_NDA_LLADDR
         FROM
@@ -113,7 +113,7 @@ class Cluster(object):
                   'dst',
                   'dst_len')
         return Report(self._formatter(self._schema.fetch('''
-            SELECT
+            SELECT DISTINCT
                 r.f_target, a.f_target, a.f_IFA_ADDRESS,
                 r.f_RTA_DST, r.f_dst_len
             FROM
