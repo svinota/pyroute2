@@ -63,6 +63,8 @@ from pyroute2.netlink.rtnl import (RTM_NEWLINK,
                                    RTM_GETNEIGH)
 
 from pyroute2.bsd.rtmsocket import RTMSocket
+from pyroute2.bsd.pf_route import IFF_VALUES
+from pyroute2.netlink.rtnl.ifinfmsg import IFF_NAMES
 from pyroute2.bsd.util import (ARP,
                                Route,
                                Ifconfig)
@@ -245,6 +247,12 @@ class IPRoute(object):
             msg = ifinfmsg().load(spec)
             msg['header']['type'] = RTM_NEWLINK
             del msg['value']
+            flags = msg['flags']
+            new_flags = 0
+            for value, name in IFF_VALUES.items():
+                if value & flags and name in IFF_NAMES:
+                    new_flags |= IFF_NAMES[name]
+            msg['flags'] = new_flags
             ret.append(msg)
         return ret
 
