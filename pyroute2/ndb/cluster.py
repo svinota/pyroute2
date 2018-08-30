@@ -7,16 +7,23 @@ class Cluster(object):
         self._schema = schema
         self._fmt = fmt
 
-    def _formatter(self, cursor, fmt=None, header=None):
+    def _formatter(self, cursor, fmt=None, header=None, transform=None):
         fmt = fmt or self._fmt
 
         if fmt == 'csv':
             if header:
                 yield ','.join(header)
             for record in cursor:
-                yield ','.join([str(x) for x in record])
+                if transform:
+                    record = transform(record)
+                if isinstance(record, (list, tuple)):
+                    yield ','.join([str(x) for x in record])
+                else:
+                    yield record
         elif fmt == 'raw':
             for record in cursor:
+                if transform:
+                    record = transform(record)
                 yield record
         else:
             raise TypeError('format not supported')
