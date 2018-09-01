@@ -170,7 +170,7 @@ from pyroute2.ndb.interface import (Interface,
 from pyroute2.ndb.address import Address
 from pyroute2.ndb.route import Route
 from pyroute2.ndb.neighbour import Neighbour
-from pyroute2.ndb.cluster import Cluster
+from pyroute2.ndb.view import View
 from pyroute2.ndb.report import Report
 try:
     import queue
@@ -214,9 +214,9 @@ class InvalidateHandlerException(Exception):
     pass
 
 
-class View(dict):
+class Factory(dict):
     '''
-    The View() object returns RTNL objects on demand::
+    The Factory() object returns RTNL objects on demand::
 
         ifobj1 = ndb.interfaces['eth0']
         ifobj2 = ndb.interfaces['eth0']
@@ -540,13 +540,13 @@ class NDB(object):
                                             name='NDB main loop')
         self._dbm_thread.start()
         self._dbm_ready.wait()
-        self.interfaces = View(self, 'interfaces')
-        self.addresses = View(self, 'addresses')
-        self.routes = View(self, 'routes')
-        self.neighbours = View(self, 'neighbours')
-        self.vlans = View(self, 'vlan')
-        self.bridges = View(self, 'bridge')
-        self.cluster = Cluster(self.schema)
+        self.interfaces = Factory(self, 'interfaces')
+        self.addresses = Factory(self, 'addresses')
+        self.routes = Factory(self, 'routes')
+        self.neighbours = Factory(self, 'neighbours')
+        self.vlans = Factory(self, 'vlan')
+        self.bridges = Factory(self, 'bridge')
+        self.view = View(self.schema)
 
     def __enter__(self):
         return self

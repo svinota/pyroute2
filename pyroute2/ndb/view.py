@@ -1,7 +1,7 @@
 from pyroute2.ndb.report import Report
 
 
-class Cluster(object):
+class View(object):
 
     def __init__(self, schema, fmt='csv'):
         self._schema = schema
