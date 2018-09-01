@@ -24,11 +24,12 @@ by the library:
 .. inheritance-diagram:: pyroute2.iproute.linux.IPRoute
     pyroute2.iproute.linux.IPBatch
     pyroute2.iproute.linux.RawIPRoute
+    pyroute2.iproute.bsd.IPRoute
+    pyroute2.iproute.RemoteIPRoute
     pyroute2.iwutil.IW
     pyroute2.ipset.IPSet
     pyroute2.netlink.taskstats.TaskStats
     pyroute2.netlink.ipq.IPQSocket
-    pyroute2.remote.Client
     pyroute2.remote.RemoteSocket
     pyroute2.remote.shell.ShellIPR
     pyroute2.netns.nslink.NetNS
