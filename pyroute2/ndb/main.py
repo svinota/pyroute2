@@ -507,7 +507,7 @@ class Source(object):
 class NDB(object):
 
     def __init__(self,
-                 nl=None,
+                 sources=None,
                  db_provider='sqlite3',
                  db_spec=':memory:',
                  rtnl_log=False):
@@ -522,12 +522,12 @@ class NDB(object):
         self._event_queue = queue.Queue()
         #
         # fix sources prime
-        if nl is None:
+        if sources is None:
             self._nl = {'localhost': IPRoute()}
-        elif isinstance(nl, NetlinkMixin):
-            self._nl = {'localhost': nl}
-        elif isinstance(nl, dict):
-            self._nl = nl
+        elif isinstance(sources, NetlinkMixin):
+            self._nl = {'localhost': sources}
+        elif isinstance(sources, dict):
+            self._nl = sources
 
         self.sources = {}
         self._db_provider = db_provider

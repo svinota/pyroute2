@@ -23,20 +23,20 @@ class TestMisc(object):
 
         # NB: no 'localhost' record -- important
         #
-        nl = {'localhost0': IPRoute(),
-              'localhost1': RemoteIPRoute(),  # mitogen localhost connection
-              'localhost2': RemoteIPRoute()}  # one more
+        sources = {'localhost0': IPRoute(),
+                   'localhost1': RemoteIPRoute(),  # local mitogen source
+                   'localhost2': RemoteIPRoute()}  # one more
 
         # check all the views
         #
-        with NDB(nl=nl) as ndb:
+        with NDB(sources=sources) as ndb:
             assert len(ndb.interfaces.csv())
             assert len(ndb.neighbours.csv())
             assert len(ndb.addresses.csv())
             assert len(ndb.routes.csv())
 
-        for source in nl:
-            assert nl[source].closed
+        for source in sources:
+            assert sources[source].closed
 
 
 class TestBase(object):
@@ -106,7 +106,7 @@ class TestBase(object):
         self.interfaces = self.create_interfaces()
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
-                       nl=self.nl_class(**self.nl_kwarg))
+                       sources=self.nl_class(**self.nl_kwarg))
 
     def teardown(self):
         with self.nl_class(**self.nl_kwarg) as ipr:
@@ -141,7 +141,7 @@ class TestCreate(object):
         self.interfaces = []
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
-                       nl=self.nl_class(**self.nl_kwarg))
+                       sources=self.nl_class(**self.nl_kwarg))
 
     def teardown(self):
         with self.nl_class(**self.nl_kwarg) as ipr:
@@ -188,7 +188,7 @@ class TestRollback(TestBase):
         require_user('root')
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
-                       nl=self.nl_class(**self.nl_kwarg))
+                       sources=self.nl_class(**self.nl_kwarg))
 
     def test_simple_deps(self):
         with self.nl_class(**self.nl_kwarg) as ipr:
