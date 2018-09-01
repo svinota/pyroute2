@@ -20,28 +20,84 @@ Examples::
     pprint(ndb.interfaces['eth0'])
 
     # ...
-    pprint(ndb.interfaces[{'system': 'localhost',
-                           'IFLA_IFNAME': 'eth0'}])
+    pprint(ndb.interfaces[{'target': 'localhost',
+                           'ifname': 'eth0'}])
+
+    #
+    # change object parameters
+    #
+    eth0 = ndb.interfaces['eth0']
+    eth0['state'] = 'up'
+    eth0.commit()
+
+    #
+    # create objects
+    #
+    test0 = ndb.interfaces.add(ifname='test0', kind='dummy')
+    test0.commit()
+    # ...
+    test0.remove()
+    test0.commit()
+
+    #
+    # it is mandatory to call close()
+    #
+    ndb.close()
+
+Difference with IPDB
+--------------------
+
+NDB is designed to work with multiple event sources and with loads of
+network objects.
 
 Multiple sources::
 
-    from pyroute2 import NDB
-    from pyroute2 import IPRoute
-    from pyroute2 import NetNS
+    from pyroute2 import (NDB,
+                          IPRoute,
+                          NetNS,
+                          RemoteIPRoute)
 
-    nl = {'localhost': IPRoute(),
-          'netns0': NetNS('netns0'),
-          'docker': NetNS('/var/run/docker/netns/f2d2ba3e5987')}
+    sources = {'localhost': IPRoute(),
+               'debian.test': RemoteIPRoute(protocol='ssh',
+                                            hostname='192.168.122.54',
+                                            username='netops'),
+               'openbsd.test': RemoteIPRoute(protocol='ssh',
+                                             hostname='192.168.122.60',
+                                             username='netops'),
+               'netns0': NetNS('netns0'),
+               'docker': NetNS('/var/run/docker/netns/f2d2ba3e5987')}
 
-    ndb = NDB(nl=nl)
+    # NDB supports the context protocol, close() is called automatically
+    with NDB(sources=sources) as ndb:
+        # ...
 
-    # ...
+NDB stores all the data in an SQL database and creates objects on
+demand. Statements like `ndb.interfaces['eth0']` create a new object
+every time you run this statement. Thus::
 
-    for system, source in nl.items():
-        source.close()
-    ndb.close()
+    with NDB() as ndb:
 
-Different DB providers. PostgreSQL access requires psycopg2 module::
+        #
+        # This will NOT work, as every line creates a new object
+        #
+        ndb.interfaces['eth0']['state'] = 'up'
+        ndb.interfaces['eth0'].commit()
+
+        #
+        # This works
+        #
+        eth0 = ndb.interfaces['eth0']  # get the reference
+        eth0['state'] = 'up'
+        eth0.commit()
+
+Objects do not support yet the context protocol and can not be used
+in `with` statements: this will be fixed later.
+
+DB providers
+------------
+
+NDB supports different DB providers, now they are SQLite3 and PostgreSQL.
+PostgreSQL access requires psycopg2 module::
 
     from pyroute2 import NDB
 
@@ -65,90 +121,6 @@ Different DB providers. PostgreSQL access requires psycopg2 module::
               db_spec={'dbname': 'test',
                        'host': 'db1.example.com'})
 
-Performance
------------
-
-\~100K routes, simple NDB start in a 2 CPU VM. Times are not absolute and
-can be used only as a reference to compare DB alternatives.
-
-SQLite3, in-memory DB, transaction size does not matter -- **ca 30 secs**::
-
-    Command being timed: "python e3.py"
-    User time (seconds): 29.39
-    System time (seconds): 2.77
-    Percent of CPU this job got: 105%
-    Elapsed (wall clock) time (h:mm:ss or m:ss): 0:30.47
-    Average shared text size (kbytes): 0
-    Average unshared data size (kbytes): 0
-    Average stack size (kbytes): 0
-    Average total size (kbytes): 0
-    Maximum resident set size (kbytes): 86840
-    Average resident set size (kbytes): 0
-    Major (requiring I/O) page faults: 0
-    Minor (reclaiming a frame) page faults: 25083
-    Voluntary context switches: 649483
-    Involuntary context switches: 553
-    Swaps: 0
-    File system inputs: 0
-    File system outputs: 32
-    Socket messages sent: 0
-    Socket messages received: 0
-    Signals delivered: 0
-    Page size (bytes): 4096
-    Exit status: 0
-
-Local PostgreSQL via UNIX socket, transaction size 10K .. 50K --
-**ca 1 minute**::
-
-    Command being timed: "python e3.py"
-    User time (seconds): 30.09
-    System time (seconds): 3.70
-    Percent of CPU this job got: 54%
-    Elapsed (wall clock) time (h:mm:ss or m:ss): 1:02.43
-    Average shared text size (kbytes): 0
-    Average unshared data size (kbytes): 0
-    Average stack size (kbytes): 0
-    Average total size (kbytes): 0
-    Maximum resident set size (kbytes): 65824
-    Average resident set size (kbytes): 0
-    Major (requiring I/O) page faults: 0
-    Minor (reclaiming a frame) page faults: 18999
-    Voluntary context switches: 496725
-    Involuntary context switches: 26281
-    Swaps: 0
-    File system inputs: 0
-    File system outputs: 8
-    Socket messages sent: 0
-    Socket messages received: 0
-    Signals delivered: 0
-    Page size (bytes): 4096
-    Exit status: 0
-
-Local PostgreSQL via UNIX socket, w/o transactions -- **ca 8 minutes**::
-
-    Command being timed: "python e3.py"
-    User time (seconds): 100.40
-    System time (seconds): 19.16
-    Percent of CPU this job got: 24%
-    Elapsed (wall clock) time (h:mm:ss or m:ss): 8:03.51
-    Average shared text size (kbytes): 0
-    Average unshared data size (kbytes): 0
-    Average stack size (kbytes): 0
-    Average total size (kbytes): 0
-    Maximum resident set size (kbytes): 234680
-    Average resident set size (kbytes): 0
-    Major (requiring I/O) page faults: 0
-    Minor (reclaiming a frame) page faults: 62016
-    Voluntary context switches: 716556
-    Involuntary context switches: 14259
-    Swaps: 0
-    File system inputs: 0
-    File system outputs: 64
-    Socket messages sent: 0
-    Socket messages received: 0
-    Signals delivered: 0
-    Page size (bytes): 4096
-    Exit status: 0
 
 '''
 import json
