@@ -9,7 +9,7 @@ so several classes with almost the same API are available:
     * `IPRoute` -- simple RTNL API
     * `NetNS` -- RTNL API in a network namespace
     * `IPBatch` -- RTNL packet compiler
-    * `ShellIPR` -- run RTNL in a (remote) shell
+    * `RemoteIPRoute` -- run RTNL remotely (no deployment required)
 
 Responses as lists
 ------------------

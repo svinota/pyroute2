@@ -12,20 +12,23 @@ so far. Moreover, IPDB has commit hooks API, that allows
 you to roll back changes depending on your own function
 calls, e.g. when a host or a network becomes unreachable.
 
-IPDB vs. IPRoute
-----------------
+IPDB, NDB, IPRoute
+------------------
 
-These two modules, IPRoute and IPDB, use completely different
-approaches. The first one, IPRoute, just forwards requests to
-the kernel, and doesn't wait for the system state. So it's up
-to developer to check, whether the requested object is really
-set up or not.
+These modules use completely different approaches.
 
-The latter, IPDB, is an asynchronously updated database, that
-starts several additional threads by default. If your
-project's policy doesn't allow implicit threads, keep it in
-mind. But unlike IPRoute, the IPDB ensures the changes to
-be reflected in the system::
+* IPRoute just forwards requests to the kernel, and doesn't
+  wait for the system state. So it's up to developer to check,
+  whether the requested object is really set up or not.
+* IPDB is an asynchronously updated database, that starts
+  several additional threads by default. If your project's policy
+  doesn't allow implicit threads, keep it in mind. But unlike IPRoute,
+  the IPDB ensures the changes to be reflected in the system.
+* NDB is like IPDB, and may obsolete it in the future. The difference
+  is that IPDB creates Python object for every RTNL object, while
+  NDB stores everything in an SQL DB, and creates objects on demand.
+
+Sync on commit::
 
     with IPDB() as ipdb:
         with ipdb.interfaces['eth0'] as i:
@@ -48,11 +51,11 @@ often (or even once), or you are sure there will be not too
 many network object, it is better to use IPRoute. If you
 plan to lookup the network info on the regular basis and
 there can be loads of network objects, it is better to use
-IPDB. Why?
+IPDB or NDB. Why?
 
 IPRoute just loads what you ask -- and loads all the
-information you ask to. While IPDB loads all the info upon
-startup, and later is just updated by asynchronous broadcast
+information you ask to. While IPDB and NDB load all the info upon
+startup, and later the DB is just updated by asynchronous broadcast
 netlink messages. Assume you want to lookup ARP cache that
 contains hundreds or even thousands of objects. Using
 IPRoute, you have to load all the ARP cache every time you
@@ -63,6 +66,16 @@ records or removing them by one.
 So, IPRoute is much simpler when you need to make a call and
 then exit, while IPDB is cheaper in terms of CPU performance
 if you implement a long-running program like a daemon.
+
+Memory footprint issues
+-----------------------
+
+One of the major issues with IPDB is its memory footprint. It
+proved to be not suitable for environments with thousands of
+routes or neighbours. Being a design issue, it could not be
+fixed, so a new module was started, NDB, that aims to replace
+IPDB, but it isn't yet production ready. IPDB is still more
+feature rich and in some sense more stable.
 
 IPDB and other software
 -----------------------
