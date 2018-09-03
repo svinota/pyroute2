@@ -8,6 +8,7 @@ class Interface(RTNL_Object):
     table = 'interfaces'
     msg_class = ifinfmsg
     api = 'link'
+    key_extra_fields = ['IFLA_IFNAME']
     summary = '''
               SELECT
                   f_target, f_tflags, f_index, f_IFLA_IFNAME,
@@ -24,7 +25,6 @@ class Interface(RTNL_Object):
         if isinstance(key, dict) and key.get('create'):
             if 'ifname' not in key:
                 raise Exception('specify at least ifname')
-            self.key_ext = {'IFLA_IFNAME': key['ifname']}
         super(Interface, self).__init__(view, key, ifinfmsg, ctxid)
 
     def complete_key(self, key):

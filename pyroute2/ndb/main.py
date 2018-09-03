@@ -90,8 +90,13 @@ every time you run this statement. Thus::
         eth0['state'] = 'up'
         eth0.commit()
 
-Objects do not support yet the context protocol and can not be used
-in `with` statements: this will be fixed later.
+        #
+        # The same with a context manager
+        #
+        with ndb.interfaces['eth0'] as eth0:
+            eth0['state'] = 'up'
+        # ---> <--- the context manager runs commit() at __exit__()
+
 
 DB providers
 ------------

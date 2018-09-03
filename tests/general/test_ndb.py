@@ -149,6 +149,27 @@ class TestCreate(object):
                 ipr.link('del', index=ipr.link_lookup(ifname=link)[0])
         self.ndb.close()
 
+    def test_context_manager(self):
+
+        ifname = uifname()
+        address = '00:11:22:36:47:58'
+        ifobj = (self
+                 .ndb
+                 .interfaces
+                 .add(ifname=ifname, kind='dummy'))
+
+        with ifobj:
+            pass
+
+        assert grep('%s ip link show' % self.ssh, pattern=ifname)
+
+        with ifobj:
+            ifobj['state'] = 'up'
+            ifobj['address'] = address
+
+        assert grep('%s ip link show' % self.ssh, pattern=address)
+        assert self.ndb.interfaces[ifname]['state'] == 'up'
+
     def test_fail(self):
 
         ifname = uifname()
