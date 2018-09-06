@@ -84,7 +84,6 @@ class RTNL_Object(dict):
                 kname = self.iclass.nla2name(name)
                 if self.get(kname):
                     ret[name] = self[kname]
-        print(ret)
         return ret
 
     @key.setter
@@ -113,7 +112,7 @@ class RTNL_Object(dict):
             values = []
             for name, value in key.items():
                 if name not in self.spec:
-                    name = self.msg_class.name2nla(name)
+                    name = self.iclass.name2nla(name)
                 if name in self.spec:
                     keys.append('f_%s = %s' % (name, self.schema.plch))
                     values.append(value)
