@@ -254,9 +254,6 @@ class RTNL_Object(dict):
 
         #
         if scope == 'invalid':
-            print(id(self), "add", self.key)
-            print(id(self), self)
-            print(id(self), self.kspec)
             api('add', **dict([x for x in self.items() if x[1] is not None]))
         elif scope == 'system':
             api('set', **req)
