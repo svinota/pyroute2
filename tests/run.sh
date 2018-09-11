@@ -29,6 +29,7 @@ if [ -z "$WITHINTOX" ]; then
         mkdir "$TOP/tests/bin/"
         cp -a "$TOP/examples" "$TOP/tests/"
         cp -a "$TOP/cli/ipdb" "$TOP/tests/bin/"
+        cp -a "$TOP/cli/ss2" "$TOP/tests/bin/"
         cd "$TOP/dist"
         tar xf *
         mv pyroute2*/pyroute2 "$TOP/tests/"

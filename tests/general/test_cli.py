@@ -220,7 +220,7 @@ class TestTools(object):
         utils = TestTools.Utils
         self.ss_bin = utils.which('ss')
 
-        ss2_script = utils.which('ss2')
+        ss2_script = './bin/ss2'
         self.ss2 = imp.load_source('ss2', ss2_script)
 
         if sys.version_info[0] == 2:
