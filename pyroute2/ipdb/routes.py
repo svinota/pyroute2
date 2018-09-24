@@ -258,8 +258,6 @@ class BaseRoute(Transactional):
                 return
 
             self['ipdb_scope'] = 'system'
-            for (key, value) in msg.items():
-                self[key] = value
 
             # IPv6 multipath via several devices (not networks) is a very
             # special case, since we get only the first hop notification. Ask
@@ -269,6 +267,8 @@ class BaseRoute(Transactional):
             flags = msg.get('header', {}).get('flags', 0)
             family = msg.get('family', 0)
             clean_mp = True
+            table = msg.get_attr('RTA_TABLE') or msg.get('table')
+            dst = msg.get_attr('RTA_DST')
             #
             # It MAY be a multipath hop
             #
@@ -284,9 +284,9 @@ class BaseRoute(Transactional):
                     #
                     clean_mp = False
                     msgs = self.nl.route('show',
-                                         table=self['table'],
-                                         dst=self['dst'],
-                                         family=self['family'])
+                                         table=table,
+                                         dst=dst,
+                                         family=family)
                     for nhmsg in msgs:
                         nh = type(self)(ipdb=self.ipdb, parent=self)
                         nh.load_netlink(nhmsg)
@@ -303,7 +303,17 @@ class BaseRoute(Transactional):
                 elif flags == NLM_F_MULTI and self.get('dst'):
                     nh = type(self)(ipdb=self.ipdb, parent=self)
                     nh.load_netlink(msg)
+                    with nh._direct_state:
+                        del nh['dst']
+                        del nh['ipdb_scope']
+                        del nh['ipdb_priority']
+                        del nh['multipath']
+                        del nh['metrics']
+                    self.add_nh(nh)
                     return
+
+            for (key, value) in msg.items():
+                self[key] = value
 
             # cleanup multipath NH
             if clean_mp:
@@ -1032,11 +1042,14 @@ class RoutingTableSet(object):
                            'RTM_DELADDR': self.gc_mark_addr}
 
     def _register(self):
-        for msg in self.ipdb.nl.get_routes(family=AF_INET):
+        for msg in self.ipdb.nl.get_routes(family=AF_INET,
+                                           match={'family': AF_INET}):
             self.load_netlink(msg)
-        for msg in self.ipdb.nl.get_routes(family=AF_INET6):
+        for msg in self.ipdb.nl.get_routes(family=AF_INET6,
+                                           match={'family': AF_INET6}):
             self.load_netlink(msg)
-        for msg in self.ipdb.nl.get_routes(family=AF_MPLS):
+        for msg in self.ipdb.nl.get_routes(family=AF_MPLS,
+                                           match={'family': AF_MPLS}):
             self.load_netlink(msg)
 
     def add(self, spec=None, **kwarg):
