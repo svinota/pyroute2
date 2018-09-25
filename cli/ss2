@@ -16,9 +16,12 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import re
+import os
 import argparse
 from socket import AF_INET
-from collections import Callable
+import collections
+import psutil
 from pyroute2 import DiagSocket
 from pyroute2.netlink.diag import (SS_ESTABLISHED,
                                    SS_SYN_SENT,
@@ -35,12 +38,116 @@ from pyroute2.netlink.diag import (SS_ESTABLISHED,
                                    SS_CONN)
 
 
-class Protocol(Callable):
+class UserCtxtMap(collections.Mapping):
+
+    _data = {}
+
+    _sk_inode_re = re.compile(r"socket:\[(?P<ino>\d+)\]")
+
+    _proc_sk_fd_cast = "/proc/%d/fd/%d"
+
+    _BUILD_RECURS_PATH = ["inode",
+                          "usr",
+                          "pid",
+                          "fd"]
+
+    def _parse_inode(self, pid, pconn):
+        sk_path = self._proc_sk_fd_cast % (pid, pconn.fd)
+        inode = None
+
+        sk_inode_raw = os.readlink(sk_path)
+        inode = self._sk_inode_re.search(sk_inode_raw).group('ino')
+
+        if not inode:
+            raise RuntimeError("Unexpected kernel sk inode outline")
+
+        return inode
+
+    def __recurs_enter(self,
+                       _sk_inode=None,
+                       _sk_fd=None,
+                       _usr=None,
+                       _pid=None,
+                       _ctxt=None,
+                       _recurs_path=[]):
+
+        step = _recurs_path.pop(0)
+
+        if self._BUILD_RECURS_PATH[0] == step:
+            if _sk_inode not in self._data.keys():
+                self._data[_sk_inode] = {}
+
+        elif self._BUILD_RECURS_PATH[1] == step:
+            if _usr not in self._data[_sk_inode].keys():
+                self._data[_sk_inode][_usr] = {}
+
+        elif self._BUILD_RECURS_PATH[2] == step:
+            if _pid not in self._data[_sk_inode][_usr].keys():
+                self._data[_sk_inode][_usr].__setitem__(_pid, _ctxt)
+
+        elif self._BUILD_RECURS_PATH[3] == step:
+            self._data[_sk_inode][_usr][_pid]["fds"].append(_sk_fd)
+
+            # end recursion
+            return
+        else:
+            raise RuntimeError("Unexpected step in recursion")
+
+        # descend
+        self.__recurs_enter(_sk_inode=_sk_inode,
+                            _sk_fd=_sk_fd,
+                            _usr=_usr,
+                            _pid=_pid,
+                            _ctxt=_ctxt,
+                            _recurs_path=_recurs_path)
+
+    def _enter_item(self, usr, pid, flow, ctxt):
+        sk_inode = int(self._parse_inode(pid, flow))
+        sk_fd = flow.fd
+
+        recurs_path = list(self._BUILD_RECURS_PATH)
+
+        self.__recurs_enter(_sk_inode=sk_inode,
+                            _sk_fd=sk_fd,
+                            _usr=usr,
+                            _pid=pid,
+                            _ctxt=ctxt,
+                            _recurs_path=recurs_path)
+
+    def _build(self):
+        for pid in psutil.pids():
+            proc = psutil.Process(pid)
+            usr = proc.username()
+
+            ctxt = {"cmd": proc.exe(),
+                    "full_cmd": proc.cmdline(),
+                    "fds": []}
+
+            for flow in proc.connections():
+                self._enter_item(usr, pid, flow, ctxt)
+
+    def __init__(self):
+        self._build()
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __len__(self):
+        return len(self._data.keys())
+
+    def __delitem__(self, key):
+        raise RuntimeError("Not implemented")
+
+    def __iter__(self):
+        raise RuntimeError("Not implemented")
+
+
+class Protocol(collections.Callable):
 
     def __init__(self, fmt='json'):
         raise RuntimeError('not implemented')
 
-    def __call__(self, nl_diag_sk):
+    def __call__(self, nl_diag_sk, usr_ctxt):
         raise RuntimeError('not implemented')
 
 
@@ -69,16 +176,16 @@ class TCP(Protocol):
         for f in IDIAG_EXT_FLAGS:
             self.ext_f |= (1 << (f - 1))
 
-    def __call__(self, nl_diag_sk):
+    def __call__(self, nl_diag_sk, usr_ctxt):
         sstats = nl_diag_sk.get_sock_stats(states=self._states,
                                            family=AF_INET,
                                            extensions=self.ext_f)
-        refined_stats = self._refine_diag_raw(sstats)
+        refined_stats = self._refine_diag_raw(sstats, usr_ctxt)
         printable = self._fmt(refined_stats)
 
         print(printable)
 
-    def _refine_diag_raw(self, raw_stats):
+    def _refine_diag_raw(self, raw_stats, usr_ctxt):
 
         refined = {'TCP': {'flows': []}}
 
@@ -99,6 +206,15 @@ class TCP(Protocol):
                 vessel = self._refine_extension(vessel, ext_bundle)
 
             refined['TCP']['flows'].append(vessel)
+
+        if usr_ctxt:
+            for flow in refined['TCP']['flows']:
+                try:
+                    sk_inode = flow['inode']
+                    flow['usr_ctxt'] = usr_ctxt[sk_inode]
+                except KeyError:
+                    # might define sentinel val
+                    pass
 
         return refined
 
@@ -317,6 +433,9 @@ def prepare_args():
     parser.add_argument('-a', '--all',
                         help='Display all sockets.',
                         action='store_true')
+    parser.add_argument('-p', '--process',
+                        help='show socket holding context',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -342,9 +461,13 @@ def run(args=None):
     if not protocol:
         raise RuntimeError('not implemented - ss2 in fledging mode')
 
+    _user_ctxt_map = None
+    if args.process:
+        _user_ctxt_map = UserCtxtMap()
+
     with DiagSocket() as ds:
         ds.bind()
-        protocol(ds)
+        protocol(ds, _user_ctxt_map)
 
 
 if __name__ == "__main__":
