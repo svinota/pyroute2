@@ -249,10 +249,14 @@ class TestTools(object):
 
     def do_ss2(self):
         # emulate cli args
-        args = collections.namedtuple('args', ['tcp', 'listen', 'all'])
+        args = collections.namedtuple('args', ['tcp',
+                                               'listen',
+                                               'all',
+                                               'process'])
         args.tcp = True
         args.listen = False
         args.all = False
+        args.process = False
 
         _stdout = sys.stdout
         sys.stdout = self.stream_sink
