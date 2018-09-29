@@ -7,7 +7,7 @@
 ##
 # Pyroute version and release
 #
-version ?= 0.4
+version ?= 0.5
 release := $(shell git describe | sed 's/-[^-]*$$//;s/-/.post/')
 ##
 # Python-related configuration
