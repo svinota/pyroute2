@@ -1,9 +1,9 @@
 from pyroute2.ndb.report import Report
 
 
-class View(object):
+class Query(object):
 
-    def __init__(self, schema, fmt='csv'):
+    def __init__(self, schema, fmt='raw'):
         self._schema = schema
         self._fmt = fmt
 
@@ -21,6 +21,8 @@ class View(object):
                 else:
                     yield record
         elif fmt == 'raw':
+            if header:
+                yield header
             for record in cursor:
                 if transform:
                     record = transform(record)
@@ -32,10 +34,11 @@ class View(object):
         '''
         Report all the nodes within the cluster.
         '''
+        header = ('nodename',)
         return Report(self._formatter(self._schema.fetch('''
             SELECT DISTINCT f_target
             FROM interfaces
-        '''), fmt, transform=lambda x: x[0]))
+        '''), fmt, header))
 
     def p2p_edges(self, fmt=None):
         '''

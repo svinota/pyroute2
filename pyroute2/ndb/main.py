@@ -147,7 +147,7 @@ from pyroute2.ndb.interface import (Interface,
 from pyroute2.ndb.address import Address
 from pyroute2.ndb.route import Route
 from pyroute2.ndb.neighbour import Neighbour
-from pyroute2.ndb.view import View
+from pyroute2.ndb.query import Query
 from pyroute2.ndb.report import Report
 try:
     import queue
@@ -523,7 +523,7 @@ class NDB(object):
         self.neighbours = Factory(self, 'neighbours')
         self.vlans = Factory(self, 'vlan')
         self.bridges = Factory(self, 'bridge')
-        self.view = View(self.schema)
+        self.query = Query(self.schema)
 
     def __enter__(self):
         return self
