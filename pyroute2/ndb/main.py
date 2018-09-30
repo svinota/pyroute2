@@ -381,6 +381,7 @@ class Source(object):
         self.event = event
         self.shutdown = threading.Event()
         self.started = threading.Event()
+        self.lock = threading.Lock()
         self.started.clear()
         self.persistent = persistent
         self.status = 'init'
@@ -458,21 +459,24 @@ class Source(object):
 
         #
         # Start source thread
-        self.th = (threading
-                   .Thread(target=t, args=(self, ),
-                           name='NDB event source: %s' % (self.target)))
-        # self.th.setDaemon(True)
-        self.th.start()
-        # self.started.wait()
+        with self.lock:
+            if (self.th is not None) and self.th.is_alive():
+                raise RuntimeError('source is running')
+
+            self.th = (threading
+                       .Thread(target=t, args=(self, ),
+                               name='NDB event source: %s' % (self.target)))
+            self.th.start()
 
     def close(self):
-        if self.nl is not None:
-            try:
-                self.nl.close()
-            except Exception as e:
-                log.error('[%s] source close: %s' % (self.target, e))
-        if self.th is not None:
-            self.th.join()
+        with self.lock:
+            if self.nl is not None:
+                try:
+                    self.nl.close()
+                except Exception as e:
+                    log.error('[%s] source close: %s' % (self.target, e))
+            if self.th is not None:
+                self.th.join()
 
     def __enter__(self):
         return self
