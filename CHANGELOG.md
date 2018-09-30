@@ -1,6 +1,21 @@
 Changelog
 =========
 
+* 0.5.3
+    * bsd: parser improvements
+    * ndb: PostgreSQL support
+    * ndb: transactions commit/rollback
+    * ndb: dependencies rollback
+    * ipdb: IPv6 routes fix
+        * <https://github.com/svinota/pyroute2/issues/543>
+    * tcmsg: ematch support
+    * tcmsg: flow filter
+    * tcmsg: stats2 support improvements
+    * ifinfmsg: GRE i/oflags, i/okey format fixed
+        * <https://github.com/svinota/pyroute2/issues/531>
+    * cli/ss2: improvements, tests
+    * nlsocket: fix work on kernels < 3.2
+        * <https://github.com/svinota/pyroute2/issues/526>
 * 0.5.2
     * ndb: read-only DB prototype
     * remote: support communication via stdio
