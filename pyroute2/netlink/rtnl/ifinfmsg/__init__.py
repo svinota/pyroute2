@@ -318,6 +318,30 @@ class macvx_data(nla):
         nla_map = ((4, 'IFLA_MACVLAN_MACADDR', 'l2addr'), )
 
 
+class iptnl_data(nla):
+    nla_map = (('IFLA_IPIP_UNSPEC', 'none'),
+               ('IFLA_IPIP_LINK', 'uint32'),
+               ('IFLA_IPIP_LOCAL', 'ip4addr'),
+               ('IFLA_IPIP_REMOTE', 'ip4addr'),
+               ('IFLA_IPIP_TTL', 'uint8'),
+               ('IFLA_IPIP_TOS', 'uint8'),
+               ('IFLA_IPIP_ENCAP_LIMIT', 'uint8'),
+               ('IFLA_IPIP_FLOWINFO', 'be32'),
+               ('IFLA_IPIP_FLAGS', 'be16'),
+               ('IFLA_IPIP_PROTO', 'uint8'),
+               ('IFLA_IPIP_PMTUDISC', 'uint8'),
+               ('IFLA_IPIP_6RD_PREFIX', 'ip6addr'),
+               ('IFLA_IPIP_6RD_RELAY_PREFIX', 'ip4addr'),
+               ('IFLA_IPIP_6RD_PREFIXLEN', 'uint16'),
+               ('IFLA_IPIP_6RD_RELAY_PREFIXLEN', 'uint16'),
+               ('IFLA_IPIP_ENCAP_TYPE', 'uint16'),
+               ('IFLA_IPIP_ENCAP_FLAGS', 'uint16'),
+               ('IFLA_IPIP_ENCAP_SPORT', 'be16'),
+               ('IFLA_IPIP_ENCAP_DPORT', 'be16'),
+               ('IFLA_IPIP_COLLECT_METADATA', 'flag'),
+               ('IFLA_IPIP_FWMARK', 'uint32'))
+
+
 class ifinfbase(object):
     '''
     Network interface message.
@@ -642,6 +666,36 @@ class ifinfbase(object):
             def info_peer(self, *argv, **kwarg):
                 return ifinfveth
 
+        class ipip_data(iptnl_data):
+            pass
+
+        class sit_data(iptnl_data):
+            nla_map = [(x[0].replace('IPIP', 'SIT'), x[1])
+                       for x in iptnl_data.nla_map]
+
+        class ip6tnl_data(nla):
+            nla_map = (('IFLA_IP6TNL_UNSPEC', 'none'),
+                       ('IFLA_IP6TNL_LINK', 'uint32'),
+                       ('IFLA_IP6TNL_LOCAL', 'ip6addr'),
+                       ('IFLA_IP6TNL_REMOTE', 'ip6addr'),
+                       ('IFLA_IP6TNL_TTL', 'uint8'),
+                       ('IFLA_IP6TNL_TOS', 'uint8'),
+                       ('IFLA_IP6TNL_ENCAP_LIMIT', 'uint8'),
+                       ('IFLA_IP6TNL_FLOWINFO', 'be32'),
+                       ('IFLA_IP6TNL_FLAGS', 'be16'),
+                       ('IFLA_IP6TNL_PROTO', 'uint8'),
+                       ('IFLA_IP6TNL_PMTUDISC', 'uint8'),
+                       ('IFLA_IP6TNL_6RD_PREFIX', 'ip6addr'),
+                       ('IFLA_IP6TNL_6RD_RELAY_PREFIX', 'ip4addr'),
+                       ('IFLA_IP6TNL_6RD_PREFIXLEN', 'uint16'),
+                       ('IFLA_IP6TNL_6RD_RELAY_PREFIXLEN', 'uint16'),
+                       ('IFLA_IP6TNL_ENCAP_TYPE', 'uint16'),
+                       ('IFLA_IP6TNL_ENCAP_FLAGS', 'uint16'),
+                       ('IFLA_IP6TNL_ENCAP_SPORT', 'be16'),
+                       ('IFLA_IP6TNL_ENCAP_DPORT', 'be16'),
+                       ('IFLA_IP6TNL_COLLECT_METADATA', 'flag'),
+                       ('IFLA_IP6TNL_FWMARK', 'uint32'))
+
         class gre_data(nla):
             nla_map = (('IFLA_GRE_UNSPEC', 'none'),
                        ('IFLA_GRE_LINK', 'uint32'),
@@ -769,6 +823,9 @@ class ifinfbase(object):
         # IFLA_INFO_DATA plugin system prototype
         data_map = {'macvlan': macvlan_data,
                     'macvtap': macvtap_data,
+                    'ipip': ipip_data,
+                    'sit': sit_data,
+                    'ip6tnl': ip6tnl_data,
                     'gre': gre_data,
                     'gretap': gre_data,
                     'ip6gre': ip6gre_data,
