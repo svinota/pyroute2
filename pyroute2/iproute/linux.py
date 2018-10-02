@@ -887,6 +887,21 @@ class RTNL_API(object):
         Support for GRE over IPv6 is also included; use `kind=ip6gre` and
         `ip6gre_` as the prefix for its values.
 
+        ► ipip
+
+        Create ipip tunnel::
+
+            ip.link("add",
+                    ifname="tun1",
+                    kind="ipip",
+                    ipip_local="172.16.0.1",
+                    ipip_remote="172.16.0.101",
+                    ipip_ttl=16)
+
+        Support for sit and ip6tnl is also included; use `kind=sit` and `sit_`
+        as prefix for sit tunnels, and `kind=ip6tnl` and `ip6tnl_` prefix for
+        ip6tnl tunnels.
+
         ► macvlan
 
         Macvlan interfaces act like VLANs within OS. The macvlan driver
