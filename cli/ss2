@@ -16,6 +16,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import socket
 import re
 import os
 import argparse
@@ -143,11 +144,21 @@ class UserCtxtMap(collections.Mapping):
 
 
 class Protocol(collections.Callable):
+    class Resolver:
+        @staticmethod
+        def getHost(ip):
+            try:
+                data = socket.gethostbyaddr(ip)
+                host = str(data[0])
+                return host
+            except Exception:
+                # gracefully
+                return None
 
     def __init__(self, fmt='json'):
         raise RuntimeError('not implemented')
 
-    def __call__(self, nl_diag_sk, usr_ctxt):
+    def __call__(self, nl_diag_sk, args, usr_ctxt):
         raise RuntimeError('not implemented')
 
 
@@ -176,16 +187,18 @@ class TCP(Protocol):
         for f in IDIAG_EXT_FLAGS:
             self.ext_f |= (1 << (f - 1))
 
-    def __call__(self, nl_diag_sk, usr_ctxt):
+    def __call__(self, nl_diag_sk, args, usr_ctxt):
         sstats = nl_diag_sk.get_sock_stats(states=self._states,
                                            family=AF_INET,
                                            extensions=self.ext_f)
-        refined_stats = self._refine_diag_raw(sstats, usr_ctxt)
+        refined_stats = self._refine_diag_raw(sstats,
+                                              args.resolve,
+                                              usr_ctxt)
         printable = self._fmt(refined_stats)
 
         print(printable)
 
-    def _refine_diag_raw(self, raw_stats, usr_ctxt):
+    def _refine_diag_raw(self, raw_stats, do_resolve, usr_ctxt):
 
         refined = {'TCP': {'flows': []}}
 
@@ -215,6 +228,16 @@ class TCP(Protocol):
                 except KeyError:
                     # might define sentinel val
                     pass
+
+        if do_resolve:
+            for flow in refined['TCP']['flows']:
+                src_host = Protocol.Resolver.getHost(flow['src'])
+                if src_host:
+                    flow['src_host'] = src_host
+
+                dst_host = Protocol.Resolver.getHost(flow['dst'])
+                if dst_host:
+                    flow['dst_host'] = dst_host
 
         return refined
 
@@ -436,6 +459,9 @@ def prepare_args():
     parser.add_argument('-p', '--process',
                         help='show socket holding context',
                         action='store_true')
+    parser.add_argument('-r', '--resolve',
+                        help='resolve host names in addition',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -467,7 +493,7 @@ def run(args=None):
 
     with DiagSocket() as ds:
         ds.bind()
-        protocol(ds, _user_ctxt_map)
+        protocol(ds, args, _user_ctxt_map)
 
 
 if __name__ == "__main__":
