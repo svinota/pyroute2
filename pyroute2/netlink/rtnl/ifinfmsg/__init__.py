@@ -385,7 +385,7 @@ class ifinfbase(object):
                ('IFLA_NET_NS_PID', 'uint32'),
                ('IFLA_IFALIAS', 'asciiz'),
                ('IFLA_NUM_VF', 'uint32'),
-               ('IFLA_VFINFO_LIST', 'hex'),
+               ('IFLA_VFINFO_LIST', 'vflist'),
                ('IFLA_STATS64', 'ifstats64'),
                ('IFLA_VF_PORTS', 'hex'),
                ('IFLA_PORT_SELF', 'hex'),
@@ -471,6 +471,91 @@ class ifinfbase(object):
         def close(self):
             if self.netns_fd is not None:
                 os.close(self.netns_fd)
+
+    class vflist(nla):
+        nla_map = (('IFLA_VF_INFO_UNSPEC', 'none'),
+                   ('IFLA_VF_INFO', 'vfinfo'))
+
+        class vfinfo(nla):
+            nla_map = (('IFLA_VF_UNSPEC', 'none'),
+                       ('IFLA_VF_MAC', 'vf_mac'),
+                       ('IFLA_VF_VLAN', 'vf_vlan'),
+                       ('IFLA_VF_TX_RATE', 'vf_tx_rate'),
+                       ('IFLA_VF_SPOOFCHK', 'vf_spoofchk'),
+                       ('IFLA_VF_LINK_STATE', 'vf_link_state'),
+                       ('IFLA_VF_RATE', 'vf_rate'),
+                       ('IFLA_VF_RSS_QUERY_EN', 'vf_rssqe'),
+                       ('IFLA_VF_STATS', 'vf_stats'),
+                       ('IFLA_VF_TRUST', 'vf_trust'),
+                       ('IFLA_VF_IB_NODE_GUID', 'hex'),
+                       ('IFLA_VF_IB_PORT_GUID', 'hex'),
+                       ('IFLA_VF_VLAN_LIST', 'vf_vlist'))
+
+            class vf_mac(nla):
+                fields = (('vf', 'I'),
+                          ('mac', '32B'))
+
+                def decode(self):
+                    nla.decode(self)
+                    self['mac'] = ':'.join(['%02x' % x for x
+                                            in self['mac'][:6]])
+
+                def encode(self):
+                    self['mac'] = ([int(x, 16) for x
+                                    in self['mac'].split(':')] +
+                                   [0] * 26)
+                    nla.encode(self)
+
+            class vf_vlan(nla):
+                fields = (('vf', 'I'),
+                          ('vlan', 'I'),
+                          ('qos', 'I'))
+
+            class vf_tx_rate(nla):
+                fields = (('vf', 'I'),
+                          ('rate', 'I'))
+
+            class vf_spoofchk(nla):
+                fields = (('vf', 'I'),
+                          ('setting', 'I'))
+
+            class vf_link_state(nla):
+                fields = (('vf', 'I'),
+                          ('link_state', 'I'))
+
+            class vf_rate(nla):
+                fields = (('vf', 'I'),
+                          ('min_tx_rate', 'I'),
+                          ('max_tx_rate', 'I'))
+
+            class vf_rssqe(nla):
+                fields = (('vf', 'I'),
+                          ('setting', 'I'))
+
+            class vf_stats(nla):
+                nla_map = (('IFLA_VF_STATS_RX_PACKETS', 'uint64'),
+                           ('IFLA_VF_STATS_TX_PACKETS', 'uint64'),
+                           ('IFLA_VF_STATS_RX_BYTES', 'uint64'),
+                           ('IFLA_VF_STATS_TX_BYTES', 'uint64'),
+                           ('IFLA_VF_STATS_BROADCAST', 'uint64'),
+                           ('IFLA_VF_STATS_MULTICAST', 'uint64'),
+                           ('IFLA_VF_STATS_PAD', 'uint64'),
+                           ('IFLA_VF_STATS_RX_DROPPED', 'uint64'),
+                           ('IFLA_VF_STATS_TX_DROPPED', 'uint64'))
+
+            class vf_trust(nla):
+                fields = (('vf', 'I'),
+                          ('setting', 'I'))
+
+            class vf_vlist(nla):
+                nla_map = (('IFLA_VF_VLAN_INFO_UNSPEC', 'none'),
+                           ('IFLA_VF_VLAN_INFO', 'ivvi'))
+
+                class ivvi(nla):
+                    fields = (('vf', 'I'),
+                              ('vlan', 'I'),
+                              ('qos', 'I'),
+                              ('proto', '>H'))
 
     class wireless(iw_event):
         pass
