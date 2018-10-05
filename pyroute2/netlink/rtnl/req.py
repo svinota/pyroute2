@@ -483,6 +483,41 @@ class IPLinkRequest(IPRequest):
 
         self.deferred = []
 
+    def set_vf(self, spec):
+        vflist = []
+        if not isinstance(spec, (list, tuple)):
+            spec = (spec, )
+        for vf in spec:
+            vfcfg = []
+            # pop VF index
+            vfid = vf.pop('vf')          # mandatory
+            # pop VLAN spec
+            vlan = vf.pop('vlan', None)  # optional
+            if isinstance(vlan, int):
+                vfcfg.append(('IFLA_VF_VLAN', {'vf': vfid,
+                                               'vlan': vlan}))
+            elif isinstance(vlan, dict):
+                vlan['vf'] = vfid
+                vfcfg.append(('IFLA_VF_VLAN', vlan))
+            elif isinstance(vlan, (list, tuple)):
+                vlist = []
+                for vspec in vlan:
+                    vspec['vf'] = vfid
+                    vlist.append(('IFLA_VF_VLAN_INFO', vspec))
+                vfcfg.append(('IFLA_VF_VLAN_LIST', {'attrs': vlist}))
+            # pop rate spec
+            rate = vf.pop('rate', None)  # optional
+            if rate is not None:
+                rate['vf'] = vfid
+                vfcfg.append(('IFLA_VF_RATE', rate))
+            # create simple VF attrs
+            for attr in vf:
+                vfcfg.append((ifinfmsg.vflist.vfinfo.name2nla(attr),
+                              {'vf': vfid,
+                               attr: vf[attr]}))
+            vflist.append(('IFLA_VF_INFO', {'attrs': vfcfg}))
+        dict.__setitem__(self, 'IFLA_VFINFO_LIST', {'attrs': vflist})
+
     def set_specific(self, key, value):
         # FIXME: vlan hack
         if self.kind == 'vlan' and key == 'vlan_flags':
@@ -551,6 +586,8 @@ class IPLinkRequest(IPRequest):
         if key in ('kind', 'info_kind') and not self.kind:
             self.kind = value
             self.flush_deferred()
+        elif key == 'vf':  # SR-IOV virtual function setup
+            self.set_vf(value)
         elif self.kind is None:
             if key in self.common:
                 dict.__setitem__(self, key, value)

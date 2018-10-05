@@ -976,9 +976,10 @@ class RTNL_API(object):
 
             # create internal vlan 802.1q, c-tag
             ip.link("add",
-                    ifname="v100c",
+                    ifname="v200c",
                     kind="vlan",
                     link=ip.link_lookup(ifname="v100s")[0],
+                    vlan_id=200,
                     vlan_protocol=0x8100)
 
 
@@ -1028,6 +1029,29 @@ class RTNL_API(object):
             state="up":   flags=1, mask=1
             state="down": flags=0, mask=0
 
+        SR-IOV virtual function setup::
+
+            # get PF index
+            x = ip.link_lookup(ifname="eth0")[0]
+            # setup macaddr
+            ip.link("set",
+                    index=x,                          # PF index
+                    vf={"vf": 0,                      # VF index
+                        "mac": "00:11:22:33:44:55"})  # address
+            # setup vlan
+            ip.link("set",
+                    index=x,           # PF index
+                    vf={"vf": 0,       # VF index
+                        "vlan": 100})  # the simplest case
+            # setup QinQ
+            ip.link("set",
+                    index=x,                           # PF index
+                    vf={"vf": 0,                       # VF index
+                        "vlan": [{"vlan": 100,         # vlan id
+                                  "proto": 0x88a8},    # 802.1ad
+                                 {"vlan": 200,         # vlan id
+                                  "proto": 0x8100}]})  # 802.1q
+
         **update**
 
         Almost the same as `set`, except it uses different flags
@@ -1049,6 +1073,10 @@ class RTNL_API(object):
         Get specific interface info::
 
             ip.link("get", index=ip.link_lookup(ifname="br0")[0])
+
+        Get extended attributes like SR-IOV setup::
+
+            ip.link("get", index=3, ext_mask=1)
         '''
         if (command == 'dump') and ('match' not in kwarg):
             match = kwarg

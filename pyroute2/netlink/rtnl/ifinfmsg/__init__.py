@@ -477,6 +477,7 @@ class ifinfbase(object):
                    ('IFLA_VF_INFO', 'vfinfo'))
 
         class vfinfo(nla):
+            prefix = 'IFLA_VF_'
             nla_map = (('IFLA_VF_UNSPEC', 'none'),
                        ('IFLA_VF_MAC', 'vf_mac'),
                        ('IFLA_VF_VLAN', 'vf_vlan'),
@@ -484,7 +485,7 @@ class ifinfbase(object):
                        ('IFLA_VF_SPOOFCHK', 'vf_spoofchk'),
                        ('IFLA_VF_LINK_STATE', 'vf_link_state'),
                        ('IFLA_VF_RATE', 'vf_rate'),
-                       ('IFLA_VF_RSS_QUERY_EN', 'vf_rssqe'),
+                       ('IFLA_VF_RSS_QUERY_EN', 'vf_rss_query_en'),
                        ('IFLA_VF_STATS', 'vf_stats'),
                        ('IFLA_VF_TRUST', 'vf_trust'),
                        ('IFLA_VF_IB_NODE_GUID', 'hex'),
@@ -513,11 +514,11 @@ class ifinfbase(object):
 
             class vf_tx_rate(nla):
                 fields = (('vf', 'I'),
-                          ('rate', 'I'))
+                          ('tx_rate', 'I'))
 
             class vf_spoofchk(nla):
                 fields = (('vf', 'I'),
-                          ('setting', 'I'))
+                          ('spoofchk', 'I'))
 
             class vf_link_state(nla):
                 fields = (('vf', 'I'),
@@ -528,9 +529,9 @@ class ifinfbase(object):
                           ('min_tx_rate', 'I'),
                           ('max_tx_rate', 'I'))
 
-            class vf_rssqe(nla):
+            class vf_rss_query_en(nla):
                 fields = (('vf', 'I'),
-                          ('setting', 'I'))
+                          ('rss_query_en', 'I'))
 
             class vf_stats(nla):
                 nla_map = (('IFLA_VF_STATS_RX_PACKETS', 'uint64'),
@@ -545,7 +546,7 @@ class ifinfbase(object):
 
             class vf_trust(nla):
                 fields = (('vf', 'I'),
-                          ('setting', 'I'))
+                          ('trust', 'I'))
 
             class vf_vlist(nla):
                 nla_map = (('IFLA_VF_VLAN_INFO_UNSPEC', 'none'),
