@@ -252,6 +252,7 @@ class TestTools(object):
         args = collections.namedtuple('args', ['tcp',
                                                'listen',
                                                'all',
+                                               'resolve',
                                                'process'])
         args.tcp = True
         args.listen = False
