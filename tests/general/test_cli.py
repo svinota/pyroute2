@@ -253,11 +253,13 @@ class TestTools(object):
                                                'listen',
                                                'all',
                                                'resolve',
+                                               'unix',
                                                'process'])
         args.tcp = True
         args.listen = False
         args.all = False
         args.process = False
+        args.unix = False
 
         _stdout = sys.stdout
         sys.stdout = self.stream_sink
