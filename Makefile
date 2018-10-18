@@ -162,12 +162,3 @@ uninstall: clean
 develop: setuplib = "setuptools"
 develop: clean force-version
 	${python} setup.py develop
-
-# 8<--------------------------------------------------------------------
-#
-# Packages
-#
-rpm: force-version
-	cp packages/RedHat/python-pyroute2.spec .
-	${python} setup.py sdist
-	rpmbuild -ta dist/*tar.gz
