@@ -387,6 +387,7 @@ Please notice, that NLA list *MUST* be mutable.
 '''
 
 import weakref
+import threading
 import traceback
 import logging
 import struct
@@ -565,7 +566,7 @@ NETLINK_TX_RING = 7
 
 NETLINK_LISTEN_ALL_NSID = 8
 
-clean_cbs = {}
+clean_cbs = threading.local()
 
 # Cached results for some struct operations.
 # No cache invalidation required.
@@ -730,10 +731,10 @@ class nlmsg_base(dict):
         else:
             # get the msg_seq -- if applicable
             seq = self.get('header', {}).get('sequence_number', None)
-            if seq is not None and seq not in clean_cbs:
-                clean_cbs[seq] = []
+            if seq is not None and seq not in clean_cbs.__dict__:
+                clean_cbs.__dict__[seq] = []
             # attach the callback
-            clean_cbs[seq].append(cb)
+            clean_cbs.__dict__[seq].append(cb)
 
     def unregister_clean_cb(self):
         global clean_cbs
@@ -741,14 +742,14 @@ class nlmsg_base(dict):
         msf = self.get('header', {}).get('flags', 0)
         if (seq is not None) and \
                 (not msf & NLM_F_REQUEST) and \
-                seq in clean_cbs:
-            for cb in clean_cbs[seq]:
+                seq in clean_cbs.__dict__:
+            for cb in clean_cbs.__dict__[seq]:
                 try:
                     cb()
                 except:
                     log.error('Cleanup callback fail: %s' % (cb))
                     log.error(traceback.format_exc())
-            del clean_cbs[seq]
+            del clean_cbs.__dict__[seq]
 
     def _strip_one(self, name):
         for i in tuple(self['attrs']):
@@ -977,7 +978,7 @@ class nlmsg_base(dict):
         else:
             self._ft_decode(self, offset)
 
-        if clean_cbs:
+        if clean_cbs.__dict__:
             self.unregister_clean_cb()
         self.decoded = True
 
