@@ -4,6 +4,8 @@ import fcntl
 import platform
 import subprocess
 import tempfile
+from threading import Thread
+
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
 from pyroute2 import NetNS
@@ -352,3 +354,50 @@ class TestNetNS(object):
         assert veth.flags & 1
         assert veth.mtu == mtu
         assert veth.txqlen == txqlen
+
+    def test_multithread(self):
+        require_user('root')
+
+        parallel_count = 5
+        test_count = 10
+
+        ns_names = ['testns%i' % i for i in range(parallel_count)]
+
+        success = [True]
+
+        for ns_name in ns_names:
+            NetNS(ns_name)
+
+        for _t in range(test_count):
+            threads = [
+                Thread(target=_ns_worker,
+                       args=(netnsmod._get_netnspath(ns_name), i, success))
+                for i, ns_name in enumerate(ns_names)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+        for ns_name in ns_names:
+            netnsmod.remove(ns_name)
+
+        assert success[0]
+
+
+def _ns_worker(netns_path, worker_index, success):
+    with IPRoute() as ip, NetNS(netns_path) as ns:
+        try:
+            veth_outside = 'veth%s-o' % worker_index
+            veth_inside = 'veth%s-i' % worker_index
+            ip.link('add', ifname=veth_outside, kind='veth', peer=veth_inside)
+            veth_outside_idx = ip.link_lookup(ifname=veth_outside)[0]
+            ip.link('set', index=veth_outside_idx, state='up')
+            veth_inside_idx = ip.link_lookup(ifname=veth_inside)[0]
+            ip.link('set', index=veth_inside_idx, net_ns_fd=netns_path)
+            veth_inside_idx = ns.link_lookup(ifname=veth_inside)[0]
+            ns.link('set', index=veth_inside_idx, state='up')
+        except Exception:
+            success[0] = False
+        finally:
+            if veth_outside_idx is not None:
+                ip.link('del', index=veth_outside_idx)
