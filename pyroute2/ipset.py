@@ -144,6 +144,17 @@ class IPSet(NetlinkSocket):
         '''
         return self._list_or_headers(IPSET_CMD_HEADER, name=name, **kwargs)
 
+    def get_proto_version(self, version=6):
+        '''
+        Get supported protocol version by kernel.
+
+        version parameter allow to set mandatory (but unused?)
+        IPSET_ATTR_PROTOCOL netlink attribute in the request.
+        '''
+        msg = ipset_msg()
+        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', version]]
+        return self.request(msg, IPSET_CMD_PROTOCOL)
+
     def list(self, *argv, **kwargs):
         '''
         List installed ipsets. If `name` is provided, list
