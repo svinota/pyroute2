@@ -841,8 +841,9 @@ class NetlinkMixin(object):
                 except NetlinkError as e:
                     if e.code != 16:
                         raise
-                    if retry_count >= 3:
+                    if retry_count >= 30:
                         raise
+                    print('Error 16, retry {}.'.format(retry_count))
                     time.sleep(0.3)
                     retry_count += 1
                     continue
