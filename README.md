@@ -148,6 +148,43 @@ Some examples::
                     'segs':'2000::5,2000::6,2000::7,2000::8',
                     'hmac':0xf})
 
+    # create SEG6LOCAL tunnel End.DX4 action
+    # Kernel >= 4.14
+    ip.route('add',
+             dst='2001:0:0:10::2/128',
+             oif=idx,
+             encap={'type': 'seg6local',
+                    'action': 'End.DX4',
+                    'nh4': '172.16.0.10'})
+
+    # create SEG6LOCAL tunnel End.DT6 action
+    # Kernel >= 4.14
+    ip.route('add',
+             dst='2001:0:0:10::2/128',
+             oif=idx,
+             encap={'type': 'seg6local',
+                    'action': 'End.DT6',
+                    'table':'10'})
+
+    # create SEG6LOCAL tunnel End.B6 action
+    # Kernel >= 4.14
+    ip.route('add',
+             dst='2001:0:0:10::2/128',
+             oif=idx,
+             encap={'type': 'seg6local',
+                    'action': 'End.B6',
+                    'srh':{'segs': '2000::5,2000::6'}})
+
+    # create SEG6LOCAL tunnel End.B6 action with hmac
+    # Kernel >= 4.14
+    ip.route('add',
+             dst='2001:0:0:10::2/128',
+             oif=idx,
+             encap={'type': 'seg6local',
+                    'action': 'End.B6',
+                    'srh': {'segs': '2000::5,2000::6',
+                            'hmac':0xf}})
+
     # release Netlink socket
     ip.close()
 
