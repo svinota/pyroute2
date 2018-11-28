@@ -17,7 +17,8 @@ from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 encap_types = {'mpls': 1,
                AF_MPLS: 1,
                'seg6': 5,
-               'bpf': 6}
+               'bpf': 6,
+               'seg6local': 7}
 
 
 class IPRequest(dict):
@@ -195,6 +196,134 @@ class IPRouteRequest(IPRequest):
                         attrs['LWT_BPF_XMIT_HEADROOM'] = value['headroom']
 
             return {'attrs': attrs.items()}
+        '''
+        Seg6 encap header transform. Format samples:
+
+            {'type': 'seg6local',
+             'action': 'End.DT6',
+             'table': '10'}
+
+            {'type': 'seg6local',
+             'action': 'End.B6',
+             'table': '10'
+             'srh': {'segs': '2000::5,2000::6'}}
+        '''
+        if header['type'] == 'seg6local':
+            # Init step
+            ret = {}
+            table = None
+            nh4 = None
+            nh6 = None
+            iif = None  # Actually not used
+            oif = None
+            srh = {}
+            segs = []
+            hmac = None
+            # Parse segs
+            if srh:
+                segs = header['srh']['segs']
+                # If they are in the form in_addr6,in_addr6
+                if isinstance(segs, basestring):
+                    # Create an array with the splitted values
+                    temp = segs.split(',')
+                    # Init segs
+                    segs = []
+                    # Iterate over the values
+                    for seg in temp:
+                        # Discard empty string
+                        if seg != '':
+                            # Add seg to segs
+                            segs.append(seg)
+                # hmac is optional and contains the hmac key
+                hmac = header.get('hmac', None)
+            # Retrieve action
+            action = header['action']
+            if action == 'End.X':
+                # Retrieve nh6
+                nh6 = header['nh6']
+            elif action == 'End.T':
+                # Retrieve table and convert to u32
+                table = header['table'] & 0xffffffff
+            elif action == 'End.DX2':
+                # Retrieve oif and convert to u32
+                oif = header['oif'] & 0xffffffff
+            elif action == 'End.DX6':
+                # Retrieve nh6
+                nh6 = header['nh6']
+            elif action == 'End.DX4':
+                # Retrieve nh6
+                nh4 = header['nh4']
+            elif action == 'End.DT6':
+                # Retrieve table
+                table = header['table']
+            elif action == 'End.B6':
+                # Parse segs
+                segs = header['srh']['segs']
+                # If they are in the form in_addr6,in_addr6
+                if isinstance(segs, basestring):
+                    # Create an array with the splitted values
+                    temp = segs.split(',')
+                    # Init segs
+                    segs = []
+                    # Iterate over the values
+                    for seg in temp:
+                        # Discard empty string
+                        if seg != '':
+                            # Add seg to segs
+                            segs.append(seg)
+                # hmac is optional and contains the hmac key
+                hmac = header.get('hmac', None)
+                srh['segs'] = segs
+                # If hmac is present convert to u32
+                if hmac:
+                    # Add to ret the hmac key
+                    srh['hmac'] = hmac & 0xffffffff
+                srh['mode'] = 'inline'
+            elif action == 'End.B6.Encaps':
+                # Parse segs
+                segs = header['srh']['segs']
+                # If they are in the form in_addr6,in_addr6
+                if isinstance(segs, basestring):
+                    # Create an array with the splitted values
+                    temp = segs.split(',')
+                    # Init segs
+                    segs = []
+                    # Iterate over the values
+                    for seg in temp:
+                        # Discard empty string
+                        if seg != '':
+                            # Add seg to segs
+                            segs.append(seg)
+                # hmac is optional and contains the hmac key
+                hmac = header.get('hmac', None)
+                srh['segs'] = segs
+                if hmac:
+                    # Add to ret the hmac key
+                    srh['hmac'] = hmac & 0xffffffff
+                srh['mode'] = 'encap'
+            # Construct the new object
+            ret = []
+            ret.append(['SEG6_LOCAL_ACTION', {'value': action}])
+            if table:
+                # Add the table to ret
+                ret.append(['SEG6_LOCAL_TABLE', {'value': table}])
+            if nh4:
+                # Add the nh4 to ret
+                ret.append(['SEG6_LOCAL_NH4', {'value': nh4}])
+            if nh6:
+                # Add the nh6 to ret
+                ret.append(['SEG6_LOCAL_NH6', {'value': nh6}])
+            if iif:
+                # Add the iif to ret
+                ret.append(['SEG6_LOCAL_IIF', {'value': iif}])
+            if oif:
+                # Add the oif to ret
+                ret.append(['SEG6_LOCAL_OIF', {'value': oif}])
+            if srh:
+                # Add the srh to ret
+                ret.append(['SEG6_LOCAL_SRH', srh])
+            # Done return the object
+            return {'attrs': ret}
 
     def mpls_rta(self, value):
         ret = []
@@ -304,6 +433,31 @@ class IPRouteRequest(IPRequest):
                                      self.encap_header(value))
                 elif 'type' in value and ('in' in value or 'out' in value or
                                           'xmit' in value):
+                    dict.__setitem__(self, 'encap_type',
+                                     encap_types.get(value['type'],
+                                                     value['type']))
+                    dict.__setitem__(self, 'encap',
+                                     self.encap_header(value))
+                # human-friendly form:
+                #
+                # 'encap': {'type': 'seg6local',
+                #           'action': 'End'}
+                #
+                # 'encap': {'type': 'seg6local',
+                #           'action': 'End.DT6',
+                #           'table': '10'}
+                #
+                # 'encap': {'type': 'seg6local',
+                #           'action': 'End.DX6',
+                #           'nh6': '2000::5'}
+                #
+                # 'encap': {'type': 'seg6local',
+                #           'action': 'End.B6'
+                #           'srh': {'segs': '2000::5,2000::6',
+                #                   'hmac': 0xf}}
+                #
+                # 'type' and 'action' are mandatory
+                elif 'type' in value and 'action' in value:
                     dict.__setitem__(self, 'encap_type',
                                      encap_types.get(value['type'],
                                                      value['type']))
