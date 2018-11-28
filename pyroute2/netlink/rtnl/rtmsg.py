@@ -193,7 +193,7 @@ class rtmsg_base(nlflags):
             }
 
             # Reverse mapping: mapping nla value to string
-            r_encapmodes = {v : k for k, v in encapmodes.iteritems()}
+            r_encapmodes = {v: k for k, v in encapmodes.iteritems()}
 
             # Nla value for seg6 type
             SEG6_TYPE = 4
@@ -371,7 +371,7 @@ class rtmsg_base(nlflags):
             }
 
             # Reverse mapping: mapping nla value to string
-            r_encapmodes = {v : k for k, v in encapmodes.iteritems()}
+            r_encapmodes = {v: k for k, v in encapmodes.iteritems()}
 
             # Nla value for seg6 type
             SEG6_TYPE = 4
@@ -458,7 +458,7 @@ class rtmsg_base(nlflags):
             def has_hmac(self):
                 # Useful during the decoding
                 return self['flags'] & self.SR6_FLAG1_HMAC
-            
+
             def decode(self):
                 # Decode the data
                 nla.decode(self)
@@ -492,65 +492,59 @@ class rtmsg_base(nlflags):
                     self['hmac'] = hexdump(hmac[4:8])
 
         class table(nla):
-
-          __slots__ = ()
-          
-          # Table ID
-          fields = (('value', 'I'),)
+            __slots__ = ()
+            # Table ID
+            fields = (('value', 'I'),)
 
         class action(nla):
-
             __slots__ = ()
-
             # Action
             fields = (('value', 'I'),)
 
             SEG6_LOCAL_ACTION_UNSPEC = 0
-            SEG6_LOCAL_ACTION_END     = 1
-            SEG6_LOCAL_ACTION_END_X   = 2
-            SEG6_LOCAL_ACTION_END_T   = 3
-            SEG6_LOCAL_ACTION_END_DX2   = 4
-            SEG6_LOCAL_ACTION_END_DX6   = 5
-            SEG6_LOCAL_ACTION_END_DX4   = 6
-            SEG6_LOCAL_ACTION_END_DT6   = 7
-            SEG6_LOCAL_ACTION_END_DT4   = 8
-            SEG6_LOCAL_ACTION_END_B6    = 9
-            SEG6_LOCAL_ACTION_END_B6_ENCAP  = 10
-            SEG6_LOCAL_ACTION_END_BM    = 11
-            SEG6_LOCAL_ACTION_END_S   = 12
-            SEG6_LOCAL_ACTION_END_AS    = 13
-            SEG6_LOCAL_ACTION_END_AM    = 14
-            SEG6_LOCAL_ACTION_END_BPF   = 15
+            SEG6_LOCAL_ACTION_END = 1
+            SEG6_LOCAL_ACTION_END_X = 2
+            SEG6_LOCAL_ACTION_END_T = 3
+            SEG6_LOCAL_ACTION_END_DX2 = 4
+            SEG6_LOCAL_ACTION_END_DX6 = 5
+            SEG6_LOCAL_ACTION_END_DX4 = 6
+            SEG6_LOCAL_ACTION_END_DT6 = 7
+            SEG6_LOCAL_ACTION_END_DT4 = 8
+            SEG6_LOCAL_ACTION_END_B6 = 9
+            SEG6_LOCAL_ACTION_END_B6_ENCAP = 10
+            SEG6_LOCAL_ACTION_END_BM = 11
+            SEG6_LOCAL_ACTION_END_S = 12
+            SEG6_LOCAL_ACTION_END_AS = 13
+            SEG6_LOCAL_ACTION_END_AM = 14
+            SEG6_LOCAL_ACTION_END_BPF = 15
 
-            actions = {
-              'End': SEG6_LOCAL_ACTION_END,
-              'End.X': SEG6_LOCAL_ACTION_END_X,
-              'End.T': SEG6_LOCAL_ACTION_END_T,
-              'End.DX2': SEG6_LOCAL_ACTION_END_DX2,
-              'End.DX6': SEG6_LOCAL_ACTION_END_DX6,
-              'End.DX4': SEG6_LOCAL_ACTION_END_DX4,
-              'End.DT6': SEG6_LOCAL_ACTION_END_DT6,
-              'End.DT4': SEG6_LOCAL_ACTION_END_DT4,
-              'End.B6': SEG6_LOCAL_ACTION_END_B6,
-              'End.B6.Encaps': SEG6_LOCAL_ACTION_END_B6_ENCAP,
-              'End.BM': SEG6_LOCAL_ACTION_END_BM,
-              'End.S': SEG6_LOCAL_ACTION_END_S,
-              'End.AS': SEG6_LOCAL_ACTION_END_AS,
-              'End.AM': SEG6_LOCAL_ACTION_END_AM,
-              'End.BPF': SEG6_LOCAL_ACTION_END_BPF
-            }
-            
+            actions = {'End': SEG6_LOCAL_ACTION_END,
+                       'End.X': SEG6_LOCAL_ACTION_END_X,
+                       'End.T': SEG6_LOCAL_ACTION_END_T,
+                       'End.DX2': SEG6_LOCAL_ACTION_END_DX2,
+                       'End.DX6': SEG6_LOCAL_ACTION_END_DX6,
+                       'End.DX4': SEG6_LOCAL_ACTION_END_DX4,
+                       'End.DT6': SEG6_LOCAL_ACTION_END_DT6,
+                       'End.DT4': SEG6_LOCAL_ACTION_END_DT4,
+                       'End.B6': SEG6_LOCAL_ACTION_END_B6,
+                       'End.B6.Encaps': SEG6_LOCAL_ACTION_END_B6_ENCAP,
+                       'End.BM': SEG6_LOCAL_ACTION_END_BM,
+                       'End.S': SEG6_LOCAL_ACTION_END_S,
+                       'End.AS': SEG6_LOCAL_ACTION_END_AS,
+                       'End.AM': SEG6_LOCAL_ACTION_END_AM,
+                       'End.BPF': SEG6_LOCAL_ACTION_END_BPF}
+
             def encode(self):
-              # Get action type and convert string to value
-              action = self['value']
-              self['value'] = (self
+                # Get action type and convert string to value
+                action = self['value']
+                self['value'] = (self
                                  .actions
                                  .get(action,
                                       self.SEG6_LOCAL_ACTION_UNSPEC))
-              # Convert action type to u32
-              self['value'] = self['value'] & 0xffffffff
-              # Finally encode as nla
-              nla.encode(self)
+                # Convert action type to u32
+                self['value'] = self['value'] & 0xffffffff
+                # Finally encode as nla
+                nla.encode(self)
 
         class iif(nla):
 
@@ -558,7 +552,7 @@ class rtmsg_base(nlflags):
 
             # Index of the incoming interface
             fields = (('value', 'I'),)
-        
+
         class oif(nla):
 
             __slots__ = ()
@@ -572,19 +566,19 @@ class rtmsg_base(nlflags):
 
             # Nexthop of the IPv4 family
             fields = (('value', 's'),)
-            
+
             def encode(self):
-              # Convert to network byte order
-              self['value'] = inet_pton(AF_INET, self['value']) 
-              # Finally encode as nla
-              nla.encode(self)
+                # Convert to network byte order
+                self['value'] = inet_pton(AF_INET, self['value'])
+                # Finally encode as nla
+                nla.encode(self)
 
             def decode(self):
-              # Decode the data
-              nla.decode(self)
-              # Convert the packed IP address to its string representation
-              self['value'] = inet_ntop(AF_INET,
-                                        self['value'])
+                # Decode the data
+                nla.decode(self)
+                # Convert the packed IP address to its string representation
+                self['value'] = inet_ntop(AF_INET,
+                                          self['value'])
 
         class nh6(nla):
 
@@ -592,18 +586,18 @@ class rtmsg_base(nlflags):
 
             # Nexthop of the IPv6 family
             fields = (('value', 's'),)
-            
+
             def encode(self):
-              # Convert to network byte order
-              self['value'] = inet_pton(AF_INET6, self['value']) 
-              # Finally encode as nla
-              nla.encode(self)
+                # Convert to network byte order
+                self['value'] = inet_pton(AF_INET6, self['value'])
+                # Finally encode as nla
+                nla.encode(self)
 
             def decode(self):
-              # Decode the data
-              nla.decode(self)
-              # Convert the packed IP address to its string representation
-              self['value'] = inet_ntop(AF_INET6, self['value'])
+                # Decode the data
+                nla.decode(self)
+                # Convert the packed IP address to its string representation
+                self['value'] = inet_ntop(AF_INET6, self['value'])
 
     #
     # TODO: add here other lwtunnel types

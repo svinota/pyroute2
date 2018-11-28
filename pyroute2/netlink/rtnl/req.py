@@ -207,8 +207,8 @@ class IPRouteRequest(IPRequest):
              'action': 'End.B6',
              'table': '10'
              'srh': {'segs': '2000::5,2000::6'}}
-        '''        
-        if header['type'] == 'seg6local':        
+        '''
+        if header['type'] == 'seg6local':
             # Init step
             ret = {}
             table = None
