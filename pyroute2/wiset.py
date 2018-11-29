@@ -141,6 +141,7 @@ class WiSet(object):
         self.counters = counters
         self.comment = comment
         self.revision = revision
+        self.index = None
 
     def open_netlink(self):
         """ Open manually a netlink socket. You can use "with WiSet()" instead
@@ -185,6 +186,7 @@ class WiSet(object):
         self.hashsize = ndmsg.get_attr("IPSET_ATTR_HASHSIZE")
         self.family = ndmsg.get_attr("IPSET_ATTR_FAMILY")
         self.revision = ndmsg.get_attr("IPSET_ATTR_REVISION")
+        self.index = ndmsg.get_attr("IPSET_ATTR_INDEX")
         data = ndmsg.get_attr("IPSET_ATTR_DATA")
         self.timeout = data.get_attr("IPSET_ATTR_TIMEOUT")
         flags = data.get_attr("IPSET_ATTR_CADT_FLAGS")
