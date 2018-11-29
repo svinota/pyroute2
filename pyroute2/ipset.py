@@ -35,6 +35,8 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_RENAME
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_TEST
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_TYPE
 from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_HEADER
+from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_GET_BYNAME
+from pyroute2.netlink.nfnetlink.ipset import IPSET_CMD_GET_BYINDEX
 from pyroute2.netlink.nfnetlink.ipset import ipset_msg
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
@@ -103,7 +105,9 @@ class IPSet(NetlinkSocket):
     policy = {IPSET_CMD_PROTOCOL: ipset_msg,
               IPSET_CMD_LIST: ipset_msg,
               IPSET_CMD_TYPE: ipset_msg,
-              IPSET_CMD_HEADER: ipset_msg}
+              IPSET_CMD_HEADER: ipset_msg,
+              IPSET_CMD_GET_BYNAME: ipset_msg,
+              IPSET_CMD_GET_BYINDEX: ipset_msg}
 
     attr_map = {'iface': 'IPSET_ATTR_IFACE',
                 'mark': 'IPSET_ATTR_MARK',
@@ -458,6 +462,35 @@ class IPSet(NetlinkSocket):
         return self.request(msg, IPSET_CMD_RENAME,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK,
                             terminate=_nlmsg_error)
+
+    def _get_set_by(self, cmd, value):
+        # Check that IPSet version is supported
+        if self._proto_version < 7:
+            raise NotImplementedError()
+
+        msg = ipset_msg()
+        if cmd == IPSET_CMD_GET_BYNAME:
+            msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
+                            ['IPSET_ATTR_SETNAME', value]]
+
+        if cmd == IPSET_CMD_GET_BYINDEX:
+            msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
+                            ['IPSET_ATTR_INDEX', value]]
+        return self.request(msg, cmd)
+
+    def get_set_byname(self, name):
+        '''
+        Get a set by its name
+        '''
+
+        return self._get_set_by(IPSET_CMD_GET_BYNAME, name)
+
+    def get_set_byindex(self, index):
+        '''
+        Get a set by its index
+        '''
+
+        return self._get_set_by(IPSET_CMD_GET_BYINDEX, index)
 
     def get_supported_revisions(self, stype, family=socket.AF_INET):
         '''

@@ -1,5 +1,6 @@
 import errno
 from time import sleep
+from nose.plugins.skip import SkipTest
 from pyroute2.ipset import IPSet, PortRange, PortEntry
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
@@ -468,3 +469,30 @@ class TestIPSet(object):
         self.ip.test(name, ("192.0.2.0/24", port_entry), etype=etype)
 
         self.ip.destroy(name)
+
+    def test_set_by(self):
+        require_user('root')
+        name_a = str(uuid4())[:16]
+        old_vers = self.ip._proto_version
+
+        # check revision supported by kernel
+        msg = self.ip.get_proto_version()
+        version = msg[0].get_attr("IPSET_ATTR_PROTOCOL")
+        if version < 7:
+            raise SkipTest("Kernel does not support this feature")
+
+        # set version
+        self.ip._proto_version = 7
+        # create set
+        self.ip.create(name_a)
+        # get index
+        msg = self.ip.get_set_byname(name_a)
+        idx = msg[0].get_attr("IPSET_ATTR_INDEX")
+        # get set name by index
+        msg = self.ip.get_set_byindex(idx)
+        name_b = msg[0].get_attr("IPSET_ATTR_SETNAME")
+        # remove set
+        self.ip.destroy(name_a)
+        # restore version back to original
+        self.ip._proto_version = old_vers
+        assert name_a == name_b
