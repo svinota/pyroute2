@@ -121,14 +121,17 @@ class IPSet(NetlinkSocket):
                 ('ip_to', 1): 'IPSET_ATTR_IP_TO',
                 ('ip_to', 2): 'IPSET_ATTR_IP2_TO'}
 
-    def __init__(self, version=6, attr_revision=None, nfgen_family=2):
+    def __init__(self, version=None, attr_revision=None, nfgen_family=2):
         super(IPSet, self).__init__(family=NETLINK_NETFILTER)
         policy = dict([(x | (NFNL_SUBSYS_IPSET << 8), y)
                        for (x, y) in self.policy.items()])
         self.register_policy(policy)
+        self._nfgen_family = nfgen_family
+        if version is None:
+            msg = self.get_proto_version()
+            version = msg[0].get_attr('IPSET_ATTR_PROTOCOL')
         self._proto_version = version
         self._attr_revision = attr_revision
-        self._nfgen_family = nfgen_family
 
     def request(self, msg, msg_type,
                 msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
