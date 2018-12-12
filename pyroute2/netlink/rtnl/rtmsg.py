@@ -193,7 +193,7 @@ class rtmsg_base(nlflags):
             }
 
             # Reverse mapping: mapping nla value to string
-            r_encapmodes = {v: k for k, v in encapmodes.iteritems()}
+            r_encapmodes = {v: k for k, v in encapmodes.items()}
 
             # Nla value for seg6 type
             SEG6_TYPE = 4
@@ -371,7 +371,7 @@ class rtmsg_base(nlflags):
             }
 
             # Reverse mapping: mapping nla value to string
-            r_encapmodes = {v: k for k, v in encapmodes.iteritems()}
+            r_encapmodes = {v: k for k, v in encapmodes.items()}
 
             # Nla value for seg6 type
             SEG6_TYPE = 4
