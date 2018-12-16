@@ -1317,7 +1317,7 @@ class IPDB(object):
             # intefaces
             kind = target.get('kind', None)
             if kind in ('vlan', 'vxlan', 'gre', 'tuntap', 'vti', 'vti6',
-                        'vrf'):
+                        'vrf', 'xfrm'):
                 tx_prio1.append((target, tx))
             elif kind in ('bridge', 'bond'):
                 tx_prio2.append((target, tx))
