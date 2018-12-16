@@ -408,6 +408,18 @@ class TestIPRoute(object):
                      vti_ikey=80,
                      vti_okey=88)
 
+    def test_create_xfrm(self):
+        require_user('root')
+        # XXX: Currently does not work on top of a dummy device
+        idx = self.ip.link_lookup(ifname='lo')[0]
+        # # Create Dummy for Parent
+        # (_, idx) = self.create()
+        self.ip.link('set', index=idx, state='up')
+        # Create XFRM Interface on It
+        self._create('xfrm',
+                     xfrm_link=idx,
+                     xfrm_if_id=555)
+
     def test_ntables(self):
         setA = set(filter(lambda x: x is not None,
                           [x.get_attr('NDTA_PARMS').get_attr('NDTPA_IFINDEX')

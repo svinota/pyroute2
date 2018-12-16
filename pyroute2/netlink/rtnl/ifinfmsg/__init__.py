@@ -22,7 +22,8 @@ from pyroute2.netlink.rtnl.ifinfmsg.plugins import (bond,
                                                     vrf,
                                                     vti,
                                                     vti6,
-                                                    vxlan)
+                                                    vxlan,
+                                                    xfrm)
 
 log = logging.getLogger(__name__)
 
@@ -217,7 +218,8 @@ for module in (bond,
                vrf,
                vti,
                vti6,
-               vxlan):
+               vxlan,
+               xfrm):
     name = module.__name__.split('.')[-1]
     data_plugins[name] = getattr(module, name)
 
