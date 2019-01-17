@@ -4,6 +4,7 @@ import pickle
 import select
 import struct
 import logging
+import signal
 import threading
 import traceback
 from io import BytesIO
@@ -33,6 +34,7 @@ class Transport(object):
         self.lock = threading.Lock()
         self.cmd_queue = queue.Queue()
         self.brd_queue = queue.Queue()
+        self.run = True
 
     def fileno(self):
         return self.file_obj.fileno()
@@ -54,7 +56,7 @@ class Transport(object):
         return ret
 
     def recv(self):
-        while True:
+        while self.run:
             with self.lock:
                 if not self.brd_queue.empty():
                     return self.brd_queue.get()
@@ -70,7 +72,7 @@ class Transport(object):
                 self.cmd_queue.put(ret)
 
     def recv_cmd(self):
-        while True:
+        while self.run:
             with self.lock:
                 if not self.cmd_queue.empty():
                     return self.cmd_queue.get()
@@ -80,7 +82,7 @@ class Transport(object):
                 self.brd_queue.put(ret)
 
     def close(self):
-        self.file_obj.close()
+        self.run = False
 
 
 class ProxyChannel(object):
@@ -96,6 +98,12 @@ class ProxyChannel(object):
 
 
 def Server(trnsp_in, trnsp_out):
+
+    def stop_server(signum, frame):
+        Server.run = False
+
+    Server.run = True
+    signal.signal(signal.SIGTERM, stop_server)
 
     try:
         ipr = IPRoute()
@@ -116,7 +124,7 @@ def Server(trnsp_in, trnsp_out):
                     'error': None})
 
     # 8<-------------------------------------------------------------
-    while True:
+    while Server.run:
         try:
             events, _, _ = select.select(inputs, outputs, inputs)
         except:
@@ -253,13 +261,22 @@ class RemoteSocket(NetlinkMixin):
                                                 'error': None})
                     with self.trnsp_in.lock:
                         pass
-                for trnsp in (self.trnsp_out,
-                              self.trnsp_in,
-                              self.remote_trnsp_in,
-                              self.remote_trnsp_out):
+
+                transport_objs = (self.trnsp_out, self.trnsp_in,
+                                  self.remote_trnsp_in, self.remote_trnsp_out)
+
+                # Stop the transport objects.
+                for trnsp in transport_objs:
                     try:
                         if hasattr(trnsp, 'close'):
                             trnsp.close()
+                    except Exception:
+                        pass
+
+                # Close the file descriptors.
+                for trnsp in transport_objs:
+                    try:
+                        trnsp.file_obj.close()
                     except Exception:
                         pass
 
