@@ -167,6 +167,8 @@ class NetNS(RTNL_API, RemoteSocket):
                 os._exit(0)
 
         try:
+            self.remote_trnsp_in.close()
+            self.remote_trnsp_out.close()
             super(NetNS, self).__init__(trnsp_in, trnsp_out)
         except Exception:
             self.close()
@@ -197,18 +199,9 @@ class NetNS(RTNL_API, RemoteSocket):
             except Exception:
                 pass
             log.error('forced shutdown procedure, clean up netns manually')
-        # force cleanup command channels
-        for close in (self.trnsp_in.close,
-                      self.trnsp_out.close,
-                      self.remote_trnsp_in.close,
-                      self.remote_trnsp_out.close):
-            try:
-                close()
-            except Exception:
-                pass  # Maybe already closed in remote.Client.close
 
         try:
-            os.kill(self.child, signal.SIGKILL)
+            os.kill(self.child, signal.SIGTERM)
             os.waitpid(self.child, 0)
         except OSError:
             pass
