@@ -5,6 +5,7 @@
 # That should not affect neither the public API, nor the
 # type matching with isinstance() and issubclass()
 #
+import pkg_resources
 import sys
 import struct
 import logging
@@ -129,3 +130,5 @@ globals()['ipdb'].common = __common()
 
 __all__.extend([x.__name__ for x in exceptions])
 __all__.extend([x.__name__ for x in classes])
+
+__version__ = pkg_resources.get_distribution('pyroute2').version
