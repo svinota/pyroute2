@@ -53,8 +53,8 @@ class BasicSetup(object):
                 self.client = Client('127.0.0.1', 5591)
                 time.sleep(1)
                 break
-            except Exception as e:
-                pass
+            except Exception as exc:
+                e = exc
         else:
             raise e
 

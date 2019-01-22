@@ -490,13 +490,13 @@ class TestReports(TestBase):
             assert isinstance(record, tuple)
 
     def test_csv(self):
-        l = 0
+        record_length = 0
 
         for record in self.ndb.routes.dump():
-            if l == 0:
-                l = len(record)
+            if record_length == 0:
+                record_length = len(record)
             else:
-                assert len(record) == l
+                assert len(record) == record_length
 
         for record in self.ndb.routes.csv():
-            assert len(record.split(',')) == l
+            assert len(record.split(',')) == record_length
