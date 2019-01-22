@@ -58,6 +58,7 @@ from pyroute2.netlink.rtnl import ndmsg
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.ifinfmsg import IFF_NOARP
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
 from pyroute2.netlink.rtnl.iprsocket import IPBatchSocket
@@ -1140,6 +1141,12 @@ class RTNL_API(object):
             if kwarg['state'].lower() == 'up':
                 flags = 1             # 0 (down) or 1 (up)
             del kwarg['state']
+
+        # arp on/off shortcut
+        if 'arp' in kwarg:
+            mask |= IFF_NOARP
+            if not kwarg.pop('arp'):
+                flags |= IFF_NOARP
 
         msg['flags'] = flags
         msg['change'] = mask

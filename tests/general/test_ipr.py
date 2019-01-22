@@ -10,6 +10,7 @@ from pyroute2.common import AF_MPLS
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.ifinfmsg import IFF_NOARP
 from pyroute2.netlink.rtnl.rtmsg import RTNH_F_ONLINK
 from utils import grep
 from utils import require_user
@@ -1147,6 +1148,15 @@ class TestIPRoute(object):
         except NetlinkError:
             pass
         assert len(self.ip.link_lookup(ifname=self.dev)) == 1
+
+    def test_link_arp_flag(self):
+        dev = self.ifaces[0]
+        # by default dummy interface have NOARP set
+        assert self.ip.get_links(dev)[0]['flags'] & IFF_NOARP
+        self.ip.link('set', index=dev, arp=True)
+        assert not self.ip.get_links(dev)[0]['flags'] & IFF_NOARP
+        self.ip.link('set', index=dev, arp=False)
+        assert self.ip.get_links(dev)[0]['flags'] & IFF_NOARP
 
     def test_rules(self):
         assert len(get_ip_rules('-4')) == \
