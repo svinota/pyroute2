@@ -33,7 +33,7 @@ def skip_if_not_supported(f):
             elif not getattr(e, 'feature_supported', True):
                 raise SkipTest(e.args[0])
             raise
-        except Exception as e:
+        except Exception:
             raise
     return make_decorator(f)(test_wrapper)
 
