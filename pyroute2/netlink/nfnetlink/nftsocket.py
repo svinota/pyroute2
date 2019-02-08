@@ -239,8 +239,35 @@ class nft_rule_msg(nfgen_msg):
         class nft_meta(nft_regs):
             nla_map = (('NFTA_META_UNSPEC', 'none'),
                        ('NFTA_META_DREG', 'regs'),
-                       ('NFTA_META_KEY', 'be32'),
+                       ('NFTA_META_KEY', 'meta_key'),
                        ('NFTA_META_SREG', 'regs'))
+
+            class meta_key(nft_map_be32):
+                ops = {0: 'NFT_META_LEN',
+                       1: 'NFT_META_PROTOCOL',
+                       2: 'NFT_META_PRIORITY',
+                       3: 'NFT_META_MARK',
+                       4: 'NFT_META_IIF',
+                       5: 'NFT_META_OIF',
+                       6: 'NFT_META_IIFNAME',
+                       7: 'NFT_META_OIFNAME',
+                       8: 'NFT_META_IIFTYPE',
+                       9: 'NFT_META_OIFTYPE',
+                       10: 'NFT_META_SKUID',
+                       11: 'NFT_META_SKGID',
+                       12: 'NFT_META_NFTRACE',
+                       13: 'NFT_META_RTCLASSID',
+                       14: 'NFT_META_SECMARK',
+                       15: 'NFT_META_NFPROTO',
+                       16: 'NFT_META_L4PROTO',
+                       17: 'NFT_META_BRI_IIFNAME',
+                       18: 'NFT_META_BRI_OIFNAME',
+                       19: 'NFT_META_PKTTYPE',
+                       20: 'NFT_META_CPU',
+                       21: 'NFT_META_IIFGROUP',
+                       22: 'NFT_META_OIFGROUP',
+                       23: 'NFT_META_CGROUP',
+                       24: 'NFT_META_PRANDOM'}
 
         class nft_nat(nft_regs):
             nla_map = (('NFTA_NAT_UNSPEC', 'none'),
