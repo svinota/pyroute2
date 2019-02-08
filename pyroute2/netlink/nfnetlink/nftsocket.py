@@ -75,6 +75,10 @@ class nft_map_be32(nft_map_uint8):
     fields = [('value', '>I')]
 
 
+class nft_map_be32_signed(nft_map_uint8):
+    fields = [('value', '>i')]
+
+
 class nft_regs(nla):
     class regs(nft_map_be32):
         ops = {0x00: 'NFT_REG_VERDICT',
@@ -108,8 +112,21 @@ class nft_data(nla):
 
         class verdict(nla):
             nla_map = (('NFTA_VERDICT_UNSPEC', 'none'),
-                       ('NFTA_VERDICT_CODE', 'be32'),
+                       ('NFTA_VERDICT_CODE', 'verdict_code'),
                        ('NFTA_VERDICT_CHAIN', 'asciiz'))
+
+            class verdict_code(nft_map_be32_signed):
+                ops = {0: 'NF_DROP',
+                       1: 'NF_ACCEPT',
+                       2: 'NF_STOLEN',
+                       3: 'NF_QUEUE',
+                       4: 'NF_REPEAT',
+                       5: 'NF_STOP',
+                       -1: 'NFT_CONTINUE',
+                       -2: 'NFT_BREAK',
+                       -3: 'NFT_JUMP',
+                       -4: 'NFT_GOTO',
+                       -5: 'NFT_RETURN'}
 
 
 class nft_rule_msg(nfgen_msg):
