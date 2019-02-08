@@ -232,7 +232,17 @@ class nft_rule_msg(nfgen_msg):
                        ('NFTA_EXTHDR_DREG', 'regs'),
                        ('NFTA_EXTHDR_TYPE', 'uint8'),
                        ('NFTA_EXTHDR_OFFSET', 'be32'),
-                       ('NFTA_EXTHDR_LEN', 'be32'))
+                       ('NFTA_EXTHDR_LEN', 'be32'),
+                       ('NFTA_EXTHDR_FLAGS', 'exthdr_flags'),
+                       ('NFTA_EXTHDR_OP', 'exthdr_op'),
+                       ('NFTA_EXTHDR_SREG', 'regs'))
+
+            class exthdr_flags(nft_flags_be32):
+                ops = ('NFT_EXTHDR_F_PRESENT',)
+
+            class exthdr_op(nft_map_be32):
+                ops = {0: 'NFT_EXTHDR_OP_IPV6',
+                       1: 'NFT_EXTHDR_OP_TCPOPT'}
 
         class nft_immediate(nft_data, nft_regs):
             nla_map = (('NFTA_IMMEDIATE_UNSPEC', 'none'),
