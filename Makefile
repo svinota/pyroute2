@@ -147,6 +147,9 @@ upload: clean force-version docs
 	${python} setup.py sdist
 	${python} -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/*
 
+test-dist: clean force-version
+	@${python} setup.py sdist >/dev/null 2>&1
+
 dist: clean force-version docs
 	@${python} setup.py sdist >/dev/null 2>&1
 

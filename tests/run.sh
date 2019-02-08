@@ -25,7 +25,7 @@ if [ -z "$WITHINTOX" ]; then
     cd $TOP
     [ -d ".git" ] && {
         # ok, make tarball
-        make dist
+        make test-dist
         mkdir "$TOP/tests/bin/"
         cp -a "$TOP/examples" "$TOP/tests/"
         cp -a "$TOP/cli/ipdb" "$TOP/tests/bin/"
