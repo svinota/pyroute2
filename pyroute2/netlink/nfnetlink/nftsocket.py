@@ -377,7 +377,7 @@ class nft_set_msg(nfgen_msg):
     nla_map = (('NFTA_SET_UNSPEC', 'none'),
                ('NFTA_SET_TABLE', 'asciiz'),
                ('NFTA_SET_NAME', 'asciiz'),
-               ('NFTA_SET_FLAGS', 'be32'),
+               ('NFTA_SET_FLAGS', 'set_flags'),
                ('NFTA_SET_KEY_TYPE', 'be32'),
                ('NFTA_SET_KEY_LEN', 'be32'),
                ('NFTA_SET_DATA_TYPE', 'be32'),
@@ -387,7 +387,18 @@ class nft_set_msg(nfgen_msg):
                ('NFTA_SET_ID', 'be32'),
                ('NFTA_SET_TIMEOUT', 'be32'),
                ('NFTA_SET_GC_INTERVAL', 'be32'),
-               ('NFTA_SET_USERDATA', 'hex'))
+               ('NFTA_SET_USERDATA', 'hex'),
+               ('NFTA_SET_PAD', 'hex'),
+               ('NFTA_SET_OBJ_TYPE', 'be32'))
+
+    class set_flags(nft_flags_be32):
+        ops = ('NFT_SET_ANONYMOUS',
+               'NFT_SET_CONSTANT',
+               'NFT_SET_INTERVAL',
+               'NFT_SET_MAP',
+               'NFT_SET_TIMEOUT',
+               'NFT_SET_EVAL',
+               'NFT_SET_OBJECT')
 
 
 class nft_table_msg(nfgen_msg):
