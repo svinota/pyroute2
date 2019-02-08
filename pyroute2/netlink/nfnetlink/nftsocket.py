@@ -265,7 +265,11 @@ class nft_rule_msg(nfgen_msg):
                        ('NFTA_LOOKUP_SET', 'asciiz'),
                        ('NFTA_LOOKUP_SREG', 'regs'),
                        ('NFTA_LOOKUP_DREG', 'regs'),
-                       ('NFTA_LOOKUP_SET_ID', 'be32'))
+                       ('NFTA_LOOKUP_SET_ID', 'be32'),
+                       ('NFTA_LOOKUP_FLAGS', 'lookup_flags'))
+
+            class lookup_flags(nft_flags_be32):
+                ops = ('NFT_LOOKUP_F_INV',)
 
         class nft_masq(nft_regs, nat_flags):
             nla_map = (('NFTA_MASQ_UNSPEC', 'none'),
