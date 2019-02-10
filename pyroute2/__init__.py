@@ -58,7 +58,7 @@ log = logging.getLogger(__name__)
 # on logging calls when no handler is configured.
 # see https://docs.python.org/2/howto/logging.html#library-config
 if sys.version_info >= (2, 7):  # This is only available from 2.7 onwards
-    log.addHandler(logging.NullHandler())
+    logging.getLogger('').addHandler(logging.NullHandler())
 
 try:
     # probe, if the bytearray can be used in struct.unpack_from()
