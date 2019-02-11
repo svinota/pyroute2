@@ -1182,7 +1182,7 @@ class RTNL_API(object):
         * mask -- address mask
         * family -- socket.AF_INET for IPv4 or socket.AF_INET6 for IPv6
         * scope -- the address scope, see /etc/iproute2/rt_scopes
-        * \*\*kwarg -- any ifaddrmsg field or NLA
+        * kwarg -- dictionary, any ifaddrmsg field or NLA
 
         Later the method signature will be changed to::
 
