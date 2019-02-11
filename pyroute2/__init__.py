@@ -131,4 +131,7 @@ globals()['ipdb'].common = __common()
 __all__.extend([x.__name__ for x in exceptions])
 __all__.extend([x.__name__ for x in classes])
 
-__version__ = pkg_resources.get_distribution('pyroute2').version
+try:
+    __version__ = pkg_resources.get_distribution('pyroute2').version
+except:
+    __version__ = 'unknown'
