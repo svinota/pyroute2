@@ -381,10 +381,33 @@ class nft_rule_msg(nfgen_msg):
                        2: 'NFT_REJECT_ICMPX_HOST_UNREACH',
                        3: 'NFT_REJECT_ICMPX_ADMIN_PROHIBITED'}
 
+        class nft_dynset(nft_regs):
+            rule_expr = None
+            nla_map = (('NFTA_QUEUE_UNSPEC', 'none'),
+                       ('NFTA_DYNSET_SET_NAME', 'asciiz'),
+                       ('NFTA_DYNSET_SET_ID', 'be32'),
+                       ('NFTA_DYNSET_OP', 'dynset_op'),
+                       ('NFTA_DYNSET_SREG_KEY', 'regs'),
+                       ('NFTA_DYNSET_SREG_DATA', 'regs'),
+                       ('NFTA_DYNSET_TIMEOUT', 'be64'),
+                       ('NFTA_DYNSET_EXPR', 'rule_expr'),
+                       ('NFTA_DYNSET_PAD', 'hex'),
+                       ('NFTA_DYNSET_FLAGS', 'dynset_flags'))
+
+            class dynset_flags(nft_flags_be32):
+                ops = ('NFT_DYNSET_F_INV',)
+
+            class dynset_op(nft_map_be32):
+                ops = {0: 'NFT_DYNSET_OP_ADD',
+                       1: 'NFT_DYNSET_OP_UPDATE'}
+
         @staticmethod
         def expr(self, *argv, **kwarg):
             data_type = self.get_attr('NFTA_EXPR_NAME')
-            return getattr(self, 'nft_%s' % data_type, self.hex)
+            expr = getattr(self, 'nft_%s' % data_type, self.hex)
+            if hasattr(expr, 'rule_expr'):
+                expr.rule_expr = self.__class__
+            return expr
 
 
 class nft_set_msg(nfgen_msg):
