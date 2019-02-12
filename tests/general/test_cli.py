@@ -7,7 +7,6 @@ import subprocess
 import json
 import collections
 import imp
-from concurrent import futures
 from pyroute2 import Console
 from pyroute2 import IPDB
 from utils import require_user
@@ -16,6 +15,11 @@ try:
     from Queue import Queue
 except ImportError:
     from queue import Queue
+try:
+    from concurrent import futures
+    with_concurrent = True
+except ImportError:
+    with_concurrent = False
 
 TMPDIR = os.environ.get('TMPDIR', '.')
 scripts = {}
@@ -278,6 +282,8 @@ class TestTools(object):
 
     def test_ss2(self):
         require_user('root')
+        if not with_concurrent:
+            raise SkipTest('no concurrent.futures')
 
         future_result_map = {}
         tcp_flows_hive = {}
