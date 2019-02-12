@@ -57,9 +57,13 @@ class TestBasic(object):
             self.queue.put(line)
         self.queue.put(None)
         self.thread.join()
+        self.thread = None
         self.io.flush()
 
     def teardown(self):
+        if self.thread is not None:
+            self.queue.put(None)
+            self.thread.join()
         self.ipdb.release()
         self.con.close()
 
@@ -273,6 +277,8 @@ class TestTools(object):
         return json.loads(tcp_flows)
 
     def test_ss2(self):
+        require_user('root')
+
         future_result_map = {}
         tcp_flows_hive = {}
 
