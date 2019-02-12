@@ -225,11 +225,18 @@ class TestTools(object):
             return res
 
     def setup(self):
+        require_user('root')
+        if not with_concurrent:
+            raise SkipTest('no concurrent.futures')
+
         utils = TestTools.Utils
         self.ss_bin = utils.which('ss')
 
         ss2_script = './bin/ss2'
-        self.ss2 = imp.load_source('ss2', ss2_script)
+        try:
+            self.ss2 = imp.load_source('ss2', ss2_script)
+        except ImportError:
+            raise SkipTest('ss2 not imported')
 
         if sys.version_info[0] == 2:
             import cStringIO
@@ -281,9 +288,6 @@ class TestTools(object):
         return json.loads(tcp_flows)
 
     def test_ss2(self):
-        require_user('root')
-        if not with_concurrent:
-            raise SkipTest('no concurrent.futures')
 
         future_result_map = {}
         tcp_flows_hive = {}
