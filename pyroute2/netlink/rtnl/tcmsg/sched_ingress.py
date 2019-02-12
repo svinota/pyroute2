@@ -9,4 +9,4 @@ def fix_msg(msg, kwarg):
 
 
 class options(nla):
-        fields = (('value', 'I'), )
+    fields = (('value', 'I'), )

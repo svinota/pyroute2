@@ -438,8 +438,8 @@ class Source(object):
                         msg = tuple(self.nl.get())
                         if msg[0]['header']['error'] and \
                                 msg[0]['header']['error'].code == 104:
-                                    self.status = 'stopped'
-                                    return
+                            self.status = 'stopped'
+                            return
                         self.evq.put((self.target, msg))
                 except TypeError:
                     raise

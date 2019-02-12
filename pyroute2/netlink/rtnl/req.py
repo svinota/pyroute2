@@ -472,7 +472,7 @@ class IPRouteRequest(IPRequest):
                     set(value.keys()) == set(('addr', 'family')) and \
                     value['family'] in (AF_INET, AF_INET6) and \
                     isinstance(value['addr'], basestring):
-                        dict.__setitem__(self, 'via', value)
+                dict.__setitem__(self, 'via', value)
         elif key == 'metrics':
             if 'attrs' in value:
                 ret = value

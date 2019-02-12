@@ -1483,6 +1483,6 @@ class IPDB(object):
                                 self._evq_drop = 0
                         except queue.Full:
                             self._evq_drop += 1
-                        except Exception as e:
+                        except Exception:
                             log.error('Emergency shutdown, cleanup manually')
                             raise RuntimeError('Emergency shutdown')
