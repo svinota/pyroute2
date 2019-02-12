@@ -94,7 +94,7 @@ echo "flake8: $FLAKE8_PATH [`$FLAKE8 --version 2>&1`]"
 echo "nose: $NOSE_PATH [`$NOSE --version 2>&1`]"
 echo "8<------------------------------------------------"
 
-$PYTHON "$FLAKE8_PATH" . && echo "flake8 ... ok" || exit 254
+$FLAKE8_PATH . && echo "flake8 ... ok" || exit 254
 
 function get_module() {
     module=$1
