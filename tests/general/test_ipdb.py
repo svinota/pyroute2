@@ -119,6 +119,7 @@ class TestExplicit(BasicSetup):
             assert isinstance(i.mtu, int)
 
     def test_attr_same_value(self):
+        require_user('root')
         with self.ip.interfaces[self.ifd] as testif:
             testif.set_mtu(testif.mtu)
 
@@ -1312,6 +1313,7 @@ class TestExplicit(BasicSetup):
         assert ret
 
     def test_wait_ipv6(self):
+        require_user('root')
         ifa = self.get_ifname()
         with self.ip.create(ifname=ifa, kind='dummy') as i:
             # add IPv6 addr
@@ -2015,6 +2017,7 @@ class TestExplicit(BasicSetup):
         assert not grep('ip ro', pattern='172.18.2.0/24.*127.0.0.1')
 
     def test_global_routes_fail(self):
+        require_user('root')
 
         self.ip.routes.add(dst='172.18.0.0/24',
                            gateway='1.1.1.1',

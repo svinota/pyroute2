@@ -338,6 +338,7 @@ class TestIPRoute(object):
 
     @skip_if_not_supported
     def _create_ipvlan(self, smode):
+        require_user('root')
         master = uifname()
         ipvlan = uifname()
         # create the master link
@@ -1162,6 +1163,7 @@ class TestIPRoute(object):
         assert len(self.ip.link_lookup(ifname=self.dev)) == 1
 
     def test_link_arp_flag(self):
+        require_user('root')
         dev = self.ifaces[0]
         # by default dummy interface have NOARP set
         assert self.ip.get_links(dev)[0]['flags'] & IFF_NOARP

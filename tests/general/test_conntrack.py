@@ -5,6 +5,7 @@ import subprocess
 from pyroute2 import Conntrack
 from pyroute2 import NFCTSocket
 from nose.plugins.skip import SkipTest
+from utils import require_user
 
 
 def server(address, port, env):
@@ -35,6 +36,7 @@ class Client(object):
 class BasicSetup(object):
 
     def setup(self):
+        require_user('root')
 
         # run server / client
         self.env = {}

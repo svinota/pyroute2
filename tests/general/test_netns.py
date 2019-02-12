@@ -109,6 +109,7 @@ class TestNSPopen(object):
 class TestNetNS(object):
 
     def test_create_tuntap(self):
+        require_user('root')
         # on CentOS 6.5 this test causes kernel panic
         if platform.linux_distribution()[:2] == ('CentOS', '6.5'):
             raise SkipTest('to avoid possible kernel panic')
@@ -131,6 +132,7 @@ class TestNetNS(object):
         netnsmod.remove(foo)
 
     def test_create_peer_attrs(self):
+        require_user('root')
         foo = str(uuid4())
         bar = str(uuid4())
         ifA = uifname()
@@ -161,6 +163,7 @@ class TestNetNS(object):
         netnsmod.remove(bar)
 
     def test_move_ns_pid(self):
+        require_user('root')
         foo = str(uuid4())
         bar = str(uuid4())
         ifA = uifname()
@@ -215,6 +218,7 @@ class TestNetNS(object):
         fd.close()
 
     def test_move_ns_fd(self):
+        require_user('root')
         foo = str(uuid4())
         bar = str(uuid4())
         ifA = uifname()
@@ -298,6 +302,7 @@ class TestNetNS(object):
         assert ns_name not in netnsmod.listnetns()
 
     def test_create_from_path(self):
+        require_user('root')
         ns_dir = tempfile.mkdtemp()
         # Create namespace
         ns_name = str(uuid4())
