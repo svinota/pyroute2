@@ -1,4 +1,5 @@
 from socket import htons
+from pyroute2 import protocols
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl.tcmsg.act_police import nla_plus_police
 from pyroute2.netlink.rtnl.tcmsg.act_police import get_parameters \
@@ -6,7 +7,7 @@ from pyroute2.netlink.rtnl.tcmsg.act_police import get_parameters \
 
 
 def fix_msg(msg, kwarg):
-    msg['info'] = htons(kwarg.get('protocol', 0) & 0xffff) |\
+    msg['info'] = htons(kwarg.get('protocol', protocols.ETH_P_ALL) & 0xffff) |\
         ((kwarg.get('prio', 0) << 16) & 0xffff0000)
 
 
