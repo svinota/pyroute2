@@ -12,10 +12,15 @@ from socket import htons
 from socket import AF_PACKET
 from socket import SOCK_RAW
 from socket import SOL_SOCKET
+from socket import error
 from pyroute2 import IPRoute
 
 ETH_P_ALL = 3
 SO_ATTACH_FILTER = 26
+SO_DETACH_FILTER = 27
+
+
+total_filter = [[0x06, 0, 0, 0]]
 
 
 class sock_filter(Structure):
@@ -56,8 +61,33 @@ class RawSocket(socket):
         socket.__init__(self, AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))
         socket.bind(self, (self.ifname, ETH_P_ALL))
         if bpf:
+            self.clear_buffer()
             fstring, self.fprog = compile_bpf(bpf)
             socket.setsockopt(self, SOL_SOCKET, SO_ATTACH_FILTER, fstring)
+        else:
+            self.clear_buffer(remove_total_filter=True)
+
+    def clear_buffer(self, remove_total_filter=False):
+        #there is a window of time after the socket has been created and before
+        #bind/attaching filter where packets can be queued onto the socket buffer
+        #see comments in function set_kernel_filter() in libpcap's pcap-linux.c
+        #libpcap sets a total filter which does not match any packet.
+        #It then clears what is already in the socket
+        #before setting the desired filter
+        total_fstring, prog = compile_bpf(total_filter)
+        socket.setsockopt(self, SOL_SOCKET, SO_ATTACH_FILTER, total_fstring)
+        self.setblocking(0)
+        while True:
+            try:
+                self.recvfrom(0)
+            except error as e:
+                #Resource temporarily unavailable
+                if e.args[0] != 11:
+                    raise
+                break
+        self.setblocking(1)
+        if remove_total_filter:
+            socket.setsockopt(self, SOL_SOCKET, SO_DETACH_FILTER, total_fstring)
 
     def csum(self, data):
         if len(data) % 2:
