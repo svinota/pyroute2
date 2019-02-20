@@ -50,12 +50,8 @@ from pyroute2.netlink.rtnl.tcmsg.common_ematch import nla_plus_tcf_ematch_opt
 
 
 def fix_msg(msg, kwarg):
-    if 'protocol' not in kwarg:
-        msg['info'] = htons(protocols.ETH_P_ALL & 0xffff) |\
-            ((kwarg.get('prio', 0) << 16) & 0xffff0000)
-    else:
-        msg['info'] = htons(kwarg.get('protocol', 0) & 0xffff) |\
-            ((kwarg.get('prio', 0) << 16) & 0xffff0000)
+    msg['info'] = htons(kwarg.get('protocol', protocols.ETH_P_ALL) & 0xffff) |\
+        ((kwarg.get('prio', 0) << 16) & 0xffff0000)
 
 
 def get_parameters(kwarg):
