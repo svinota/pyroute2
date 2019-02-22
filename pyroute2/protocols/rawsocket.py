@@ -68,12 +68,13 @@ class RawSocket(socket):
             self.clear_buffer(remove_total_filter=True)
 
     def clear_buffer(self, remove_total_filter=False):
-        #there is a window of time after the socket has been created and before
-        #bind/attaching filter where packets can be queued onto the socket buffer
-        #see comments in function set_kernel_filter() in libpcap's pcap-linux.c
-        #libpcap sets a total filter which does not match any packet.
-        #It then clears what is already in the socket
-        #before setting the desired filter
+        # there is a window of time after the socket has been created and
+        # before bind/attaching a filter where packets can be queued onto the
+        # socket buffer
+        # see comments in function set_kernel_filter() in libpcap's
+        # pcap-linux.c. libpcap sets a total filter which does not match any
+        # packet.  It then clears what is already in the socket
+        # before setting the desired filter
         total_fstring, prog = compile_bpf(total_filter)
         socket.setsockopt(self, SOL_SOCKET, SO_ATTACH_FILTER, total_fstring)
         self.setblocking(0)
@@ -81,13 +82,15 @@ class RawSocket(socket):
             try:
                 self.recvfrom(0)
             except error as e:
-                #Resource temporarily unavailable
+                # Resource temporarily unavailable
                 if e.args[0] != 11:
                     raise
                 break
         self.setblocking(1)
         if remove_total_filter:
-            socket.setsockopt(self, SOL_SOCKET, SO_DETACH_FILTER, total_fstring)
+            # total_fstring ignored
+            socket.setsockopt(self, SOL_SOCKET, SO_DETACH_FILTER,
+                              total_fstring)
 
     def csum(self, data):
         if len(data) % 2:
