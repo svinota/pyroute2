@@ -197,6 +197,15 @@ class nft_rule_msg(nfgen_msg):
                        4: 'NFT_CMP_GT',
                        5: 'NFT_CMP_GTE'}
 
+        class nft_match(nla):
+            nla_map = (('NFTA_MATCH_UNSPEC', 'none'),
+                       ('NFTA_MATCH_NAME', 'asciiz'),
+                       ('NFTA_MATCH_REV', 'be32'),
+                       ('NFTA_MATCH_INFO', 'hex'),
+                       ('NFTA_MATCH_PROTOCOL', 'hex'),
+                       ('NFTA_MATCH_FLAGS', 'hex'),
+            )
+
         class nft_counter(nla):
             nla_map = (('NFTA_COUNTER_UNSPEC', 'none'),
                        ('NFTA_COUNTER_BYTES', 'be64'),
