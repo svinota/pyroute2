@@ -206,6 +206,15 @@ class nft_rule_msg(nfgen_msg):
                        ('NFTA_MATCH_FLAGS', 'hex'),
             )
 
+        class nft_target(nla):
+            nla_map = (('NFTA_TARGET_UNSPEC', 'none'),
+                       ('NFTA_TARGET_NAME', 'asciiz'),
+                       ('NFTA_TARGET_REV', 'be32'),
+                       ('NFTA_TARGET_INFO', 'hex'),
+                       ('NFTA_TARGET_PROTOCOL', 'hex'),
+                       ('NFTA_TARGET_FLAGS', 'hex'),
+            )
+
         class nft_counter(nla):
             nla_map = (('NFTA_COUNTER_UNSPEC', 'none'),
                        ('NFTA_COUNTER_BYTES', 'be64'),
