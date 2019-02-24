@@ -35,6 +35,17 @@ class Route(RTNL_Object):
                    [rtmsg.nla2name(x[5:]) for x in _dump_rt] +
                    ['nh_%s' % nh.nla2name(x[5:]) for x in _dump_nh])
 
+    reverse_update = {'table': 'routes',
+                      'name': 'routes_f_tflags',
+                      'field': 'f_tflags',
+                      'sql': '''
+                          UPDATE interfaces
+                          SET f_tflags = NEW.f_tflags
+                          WHERE (f_index = NEW.f_RTA_OIF OR
+                                 f_index = NEW.f_RTA_IIF) AND
+                                 f_target = NEW.f_target;
+                      '''}
+
     def __init__(self, view, key, ctxid=None):
         self.event_map = {rtmsg: "load_rtnlmsg"}
         super(Route, self).__init__(view, key, rtmsg, ctxid)
@@ -49,3 +60,15 @@ class Route(RTNL_Object):
             ret_key['RTA_DST'], ret_key['dst_len'] = key.split('/')
 
         return super(Route, self).complete_key(ret_key)
+
+
+class NextHop(Route):
+
+    reverse_update = {'table': 'nh',
+                      'name': 'nh_f_tflags',
+                      'field': 'f_tflags',
+                      'sql': '''
+                          UPDATE routes
+                          SET f_tflags = NEW.f_tflags
+                          WHERE f_route_id = NEW.f_route_id;
+                      '''}

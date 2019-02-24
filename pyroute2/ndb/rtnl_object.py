@@ -25,6 +25,7 @@ class RTNL_Object(dict):
     dump_post = []
     errors = None
     msg_class = None
+    reverse_update = None
 
     def __init__(self, view, key, iclass, ctxid=None):
         self.view = view

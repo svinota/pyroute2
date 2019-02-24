@@ -20,6 +20,15 @@ class Address(RTNL_Object):
                   AND a.f_target = i.f_target
               '''
     summary_header = ('target', 'flags', 'ifname', 'address', 'mask')
+    reverse_update = {'table': 'addresses',
+                      'name': 'addresses_f_tflags',
+                      'field': 'f_tflags',
+                      'sql': '''
+                          UPDATE interfaces
+                          SET f_tflags = NEW.f_tflags
+                          WHERE f_index = NEW.f_index AND
+                                f_target = NEW.f_target;
+                      '''}
 
     def __init__(self, view, key, ctxid=None):
         self.event_map = {ifaddrmsg: "load_rtnlmsg"}

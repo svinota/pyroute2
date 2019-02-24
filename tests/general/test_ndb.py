@@ -202,6 +202,58 @@ class TestCreate(object):
         assert grep('%s ip link show' % self.ssh, pattern=ifname)
         assert self.ndb.interfaces[ifname]['address'] == '00:11:22:33:44:55'
 
+    def test_basic_address(self):
+
+        ifname = self.ifname()
+        i = (self
+             .ndb
+             .interfaces
+             .add(ifname=ifname, kind='dummy', state='up'))
+        i.commit()
+
+        a = (self
+             .ndb
+             .addresses
+             .add(index=i['index'],
+                  address='192.168.153.5',
+                  prefixlen=24))
+        a.commit()
+        assert grep('%s ip link show' % self.ssh,
+                    pattern=ifname)
+        assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
+                    pattern='192.168.153.5')
+
+    def test_basic_route(self):
+
+        ifname = self.ifname()
+        i = (self
+             .ndb
+             .interfaces
+             .add(ifname=ifname, kind='dummy', state='up'))
+        i.commit()
+
+        a = (self
+             .ndb
+             .addresses
+             .add(index=i['index'],
+                  address='192.168.154.5',
+                  prefixlen=24))
+        a.commit()
+
+        r = (self
+             .ndb
+             .routes
+             .add(dst_len=24,
+                  dst='192.168.155.0',
+                  gateway='192.168.154.10'))
+        r.commit()
+        assert grep('%s ip link show' % self.ssh,
+                    pattern=ifname)
+        assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
+                    pattern='192.168.154.5')
+        assert grep('%s ip route show' % self.ssh,
+                    pattern='192.168.155.0/24.*%s' % ifname)
+
 
 class TestRollback(TestBase):
 

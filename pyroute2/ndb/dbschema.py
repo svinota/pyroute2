@@ -23,6 +23,11 @@ from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 # ifinfo plugins
 from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import vlan
 
+# rtnl objects
+from pyroute2.ndb.route import Route
+from pyroute2.ndb.route import NextHop
+from pyroute2.ndb.address import Address
+
 log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 5
 
@@ -212,34 +217,33 @@ class DBSchema(object):
         # specific SQL code
         #
         if self.mode == 'sqlite3':
-            self.execute('''
-                         CREATE TRIGGER IF NOT EXISTS nh_f_tflags
-                         BEFORE UPDATE OF f_tflags ON nh FOR EACH ROW
-                             BEGIN
-                                 UPDATE routes
-                                 SET f_tflags = NEW.f_tflags
-                                 WHERE f_route_id = NEW.f_route_id;
-                             END
-                         ''')
+            template = '''
+                       CREATE TRIGGER IF NOT EXISTS {name}
+                       BEFORE UPDATE OF {field} ON {table} FOR EACH ROW
+                           BEGIN
+                               {sql}
+                           END
+                       '''
         elif self.mode == 'psycopg2':
-            self.execute('''
-                         CREATE OR REPLACE FUNCTION nh_f_tflags()
-                         RETURNS trigger AS $nh_f_tflags$
-                             BEGIN
-                                 UPDATE routes
-                                 SET f_tflags = NEW.f_tflags
-                                 WHERE f_route_id = NEW.f_route_id;
-                                 RETURN NEW;
-                             END;
-                         $nh_f_tflags$ LANGUAGE plpgsql;
+            template = '''
+                       CREATE OR REPLACE FUNCTION {name}()
+                       RETURNS trigger AS ${name}$
+                           BEGIN
+                               {sql}
+                               RETURN NEW;
+                           END;
+                       ${name}$ LANGUAGE plpgsql;
 
-                         DROP TRIGGER IF EXISTS nh_f_tflags ON nh;
+                       DROP TRIGGER IF EXISTS {name} ON {table};
 
-                         CREATE TRIGGER nh_f_tflags
-                         BEFORE UPDATE OF f_tflags ON nh FOR EACH ROW
-                         EXECUTE PROCEDURE nh_f_tflags();
-                         ''')
-        self.connection.commit()
+                       CREATE TRIGGER {name}
+                       BEFORE UPDATE OF {field} ON {table} FOR EACH ROW
+                       EXECUTE PROCEDURE {name}();
+                       '''
+
+        for cls in (NextHop, Route, Address):
+            self.execute(template.format(**cls.reverse_update))
+            self.connection.commit()
 
     def merge_spec(self, table1, table2, table, schema_idx):
         spec1 = self.compiled[table1]
@@ -644,8 +648,16 @@ class DBSchema(object):
             for _ in range(MAX_ATTEMPTS):
                 try:
                     if table.startswith('ifinfo_'):
-                        self.execute('DROP VIEW %s' % table[7:])
-                    self.execute('DROP TABLE %s' % table)
+                        try:
+                            self.execute('DROP VIEW %s' % table[7:])
+                        except Exception:
+                            # GC collision?
+                            log.warning('purge_snapshots: %s'
+                                        % traceback.format_exc())
+                    if self.mode == 'sqlite3':
+                        self.execute('DROP TABLE %s' % table)
+                    elif self.mode == 'psycopg2':
+                        self.execute('DROP TABLE %s CASCADE' % table)
                     del self.snapshots[table]
                     break
                 except sqlite3.OperationalError:
