@@ -83,8 +83,19 @@ class NFTRuleExpr(nfta_nla_parser):
             return val
 
 
+class ExprMeta(NFTRuleExpr):
+
+    conv_maps = NFTRuleExpr.conv_maps + (
+        conv_map_tuple('key', 'NFTA_META_KEY', 'key', 'meta_key'),
+        conv_map_tuple('dreg', 'NFTA_META_DREG', 'dreg', 'reg'),
+    )
+
+    class cparser_meta_key(NFTRuleExpr.cparser_extract_str):
+        STRVAL = 'NFT_META_{0}'
+
 
 NFTA_EXPR_NAME_MAP = {
+    'meta': ExprMeta,
 }
 
 
