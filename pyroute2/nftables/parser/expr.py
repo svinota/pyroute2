@@ -7,6 +7,39 @@ See EXPRESSIONS in nft(8).
 from pyroute2.nftables.parser.parser import nfta_nla_parser, conv_map_tuple
 
 
+class NFTReg(object):
+
+    def __init__(self, num):
+        self.num = num
+
+    @classmethod
+    def from_netlink(cls, nlval):
+        # please, for more information read nf_tables.h.
+        if nlval == 'NFT_REG_VERDICT':
+            num = 0
+        else:
+            num = int(nlval.split('_')[-1].lower())
+            if nlval.startswith('NFT_REG32_'):
+                num += 8
+        return cls(num=num)
+
+    @staticmethod
+    def to_netlink(reg):
+        # please, for more information read nf_tables.h.
+        if reg.num == 0:
+            return 'NFT_REG_VERDICT'
+        if reg.num < 8:
+            return 'NFT_REG_{0}'.format(reg.num)
+        return 'NFT_REG32_{0}'.format(reg.num)
+
+    @classmethod
+    def from_dict(cls, val):
+        return cls(num=val)
+
+    def to_dict(self):
+        return self.num
+
+
 class NFTRuleExpr(nfta_nla_parser):
 
     #######################################################################
@@ -20,6 +53,8 @@ class NFTRuleExpr(nfta_nla_parser):
         inst = super(NFTRuleExpr, cls).from_netlink(ndmsg)
         inst.name = expr_type
         return inst
+
+    cparser_reg = NFTReg
 
 
 NFTA_EXPR_NAME_MAP = {
