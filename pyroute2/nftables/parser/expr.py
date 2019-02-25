@@ -196,8 +196,21 @@ class ExprMeta(NFTRuleExpr):
         STRVAL = 'NFT_META_{0}'
 
 
+class ExprCmp(NFTRuleExpr):
+
+    conv_maps = NFTRuleExpr.conv_maps + (
+        conv_map_tuple('sreg', 'NFTA_CMP_SREG', 'sreg', 'reg'),
+        conv_map_tuple('op', 'NFTA_CMP_OP', 'op', 'cmp_op'),
+        conv_map_tuple('data', 'NFTA_CMP_DATA', 'data', 'data'),
+    )
+
+    class cparser_cmp_op(NFTRuleExpr.cparser_extract_str):
+        STRVAL = 'NFT_CMP_{0}'
+
+
 NFTA_EXPR_NAME_MAP = {
     'meta': ExprMeta,
+    'cmp': ExprCmp,
 }
 
 
