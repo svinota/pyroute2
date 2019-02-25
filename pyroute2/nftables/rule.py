@@ -6,12 +6,12 @@ from pyroute2.nftables.parser.expr import get_expression_from_netlink, get_expre
 class NFTRule(nfta_nla_parser):
 
     conv_maps = (
-        conv_map_tuple('table', 'NFTA_RULE_TABLE', 'table', 'ascii'),
-        conv_map_tuple('chain', 'NFTA_RULE_CHAIN', 'chain', 'ascii'),
-        conv_map_tuple('handle', 'NFTA_RULE_HANDLE', 'handle', 'ascii'),
+        conv_map_tuple('table', 'NFTA_RULE_TABLE', 'table', 'raw'),
+        conv_map_tuple('chain', 'NFTA_RULE_CHAIN', 'chain', 'raw'),
+        conv_map_tuple('handle', 'NFTA_RULE_HANDLE', 'handle', 'raw'),
         conv_map_tuple('expressions', 'NFTA_RULE_EXPRESSIONS', 'expr', 'expressions_list'),
         #conv_map_tuple('compat', 'NFTA_RULE_COMPAT', 'compat', 'ascii'),
-        conv_map_tuple('position', 'NFTA_RULE_POSITION', 'position', 'ascii'),
+        conv_map_tuple('position', 'NFTA_RULE_POSITION', 'position', 'raw'),
         conv_map_tuple('userdata', 'NFTA_RULE_USERDATA', 'userdata', 'user_data'),
         #conv_map_tuple('rule_id', 'NFTA_RULE_ID', 'rule_id', 'NLA_U32'),
         #conv_map_tuple('position_id', 'NFTA_RULE_POSITION_ID', 'position_id', 'NLA_U32'),

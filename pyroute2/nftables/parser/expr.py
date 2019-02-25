@@ -280,9 +280,9 @@ class ExprPayload(NFTRuleExpr):
 class ExprLookup(NFTRuleExpr):
 
     conv_maps = NFTRuleExpr.conv_maps + (
-        conv_map_tuple('setid', 'NFTA_LOOKUP_SET', 'set', 'ascii'),
+        conv_map_tuple('setid', 'NFTA_LOOKUP_SET', 'set', 'raw'),
         conv_map_tuple('sreg', 'NFTA_LOOKUP_SREG', 'sreg', 'reg'),
-        conv_map_tuple('flags', 'NFTA_LOOKUP_FLAGS', 'flags', 'ascii'),
+        conv_map_tuple('flags', 'NFTA_LOOKUP_FLAGS', 'flags', 'raw'),
     )
 
 
@@ -304,7 +304,7 @@ class ExprBitwise(NFTRuleExpr):
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('sreg', 'NFTA_BITWISE_SREG', 'sreg', 'reg'),
         conv_map_tuple('dreg', 'NFTA_BITWISE_DREG', 'dreg', 'reg'),
-        conv_map_tuple('len', 'NFTA_BITWISE_LEN', 'len', 'ascii'),
+        conv_map_tuple('len', 'NFTA_BITWISE_LEN', 'len', 'raw'),
         conv_map_tuple('mask', 'NFTA_BITWISE_MASK', 'mask', 'data'),
         conv_map_tuple('xor', 'NFTA_BITWISE_XOR', 'xor', 'data'),
     )
@@ -313,22 +313,22 @@ class ExprBitwise(NFTRuleExpr):
 class ExprCounter(NFTRuleExpr):
 
     conv_maps = NFTRuleExpr.conv_maps + (
-        conv_map_tuple('bytes', 'NFTA_COUNTER_BYTES', 'bytes', 'ascii'),
-        conv_map_tuple('packets', 'NFTA_COUNTER_PACKETS', 'pkts', 'ascii'),
+        conv_map_tuple('bytes', 'NFTA_COUNTER_BYTES', 'bytes', 'raw'),
+        conv_map_tuple('packets', 'NFTA_COUNTER_PACKETS', 'pkts', 'raw'),
     )
 
 
 class ExprMatch(NFTRuleExpr):
 
     conv_maps = NFTRuleExpr.conv_maps + (
-        conv_map_tuple('match_name', 'NFTA_MATCH_NAME', 'name', 'ascii'),
+        conv_map_tuple('match_name', 'NFTA_MATCH_NAME', 'name', 'raw'),
     )
 
 
 class ExprTarget(NFTRuleExpr):
 
     conv_maps = NFTRuleExpr.conv_maps + (
-        conv_map_tuple('target_name', 'NFTA_TARGET_NAME', 'name', 'ascii'),
+        conv_map_tuple('target_name', 'NFTA_TARGET_NAME', 'name', 'raw'),
     )
 
 
