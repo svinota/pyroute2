@@ -4,6 +4,24 @@ nf_tables expression netlink attributes
 See EXPRESSIONS in nft(8).
 """
 
+from pyroute2.nftables.parser.parser import nfta_nla_parser, conv_map_tuple
+
+
+class NFTRuleExpr(nfta_nla_parser):
+
+    #######################################################################
+    conv_maps = (
+        conv_map_tuple('name', 'NFTA_EXPR_NAME', 'type', 'raw'),
+    )
+    #######################################################################
+
+    @classmethod
+    def from_netlink(cls, expr_type, ndmsg):
+        inst = super(NFTRuleExpr, cls).from_netlink(ndmsg)
+        inst.name = expr_type
+        return inst
+
+
 NFTA_EXPR_NAME_MAP = {
 }
 
