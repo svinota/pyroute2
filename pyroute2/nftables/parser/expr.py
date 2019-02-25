@@ -57,6 +57,33 @@ class NFTRuleExpr(nfta_nla_parser):
     cparser_reg = NFTReg
 
 
+    class cparser_extract_str(object):
+        STRVAL = None
+
+        @classmethod
+        def from_netlink(cls, val):
+            magic = '{0}'
+            left, right = cls.STRVAL.split(magic, 1)
+            if right:
+                val = val[len(left):-len(right)]
+            else:
+                val = val[len(left):]
+            return val.lower()
+
+        @classmethod
+        def to_netlink(cls, val):
+            return cls.STRVAL.format(val).upper()
+
+        @staticmethod
+        def from_dict(val):
+            return val
+
+        @staticmethod
+        def to_dict(val):
+            return val
+
+
+
 NFTA_EXPR_NAME_MAP = {
 }
 
