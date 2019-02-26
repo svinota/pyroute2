@@ -216,10 +216,45 @@ class ExprImmediate(NFTRuleExpr):
     )
 
 
+class ExprPayload(NFTRuleExpr):
+
+    conv_maps = NFTRuleExpr.conv_maps + (
+        conv_map_tuple('dreg', 'NFTA_PAYLOAD_DREG', 'dreg', 'reg'),
+        conv_map_tuple('base', 'NFTA_PAYLOAD_BASE', 'base', 'payload_base'),
+        conv_map_tuple('offset', 'NFTA_PAYLOAD_OFFSET', 'offset', 'raw'),
+        conv_map_tuple('len', 'NFTA_PAYLOAD_LEN', 'len', 'raw'),
+    )
+
+    class cparser_payload_base(NFTRuleExpr.cparser_extract_str):
+        STRVAL = 'NFT_PAYLOAD_{0}_HEADER'
+
+        @classmethod
+        def from_netlink(cls, ndmsg):
+            val = super(ExprPayload.cparser_payload_base, cls).from_netlink(ndmsg)
+            if val == 'll':
+                return 'link'
+            return val
+
+        @classmethod
+        def to_netlink(cls, val):
+            if val == 'link':
+                val = 'll'
+            return super(ExprPayload.cparser_payload_base, cls).to_netlink(val)
+
+        @staticmethod
+        def from_dict(val):
+            return val
+
+        @staticmethod
+        def to_dict(val):
+            return val
+
+
 NFTA_EXPR_NAME_MAP = {
     'meta': ExprMeta,
     'cmp': ExprCmp,
     'immediate': ExprImmediate,
+    'payload': ExprPayload,
 }
 
 
