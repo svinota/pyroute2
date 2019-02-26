@@ -325,6 +325,13 @@ class ExprMatch(NFTRuleExpr):
     )
 
 
+class ExprTarget(NFTRuleExpr):
+
+    conv_maps = NFTRuleExpr.conv_maps + (
+        conv_map_tuple('target_name', 'NFTA_TARGET_NAME', 'name', 'ascii'),
+    )
+
+
 NFTA_EXPR_NAME_MAP = {
     'meta': ExprMeta,
     'cmp': ExprCmp,
@@ -335,6 +342,7 @@ NFTA_EXPR_NAME_MAP = {
     'bitwise': ExprBitwise,
     'counter': ExprCounter,
     'match': ExprMatch,
+    'target': ExprTarget,
 }
 
 
