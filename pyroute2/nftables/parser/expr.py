@@ -250,11 +250,21 @@ class ExprPayload(NFTRuleExpr):
             return val
 
 
+class ExprLookup(NFTRuleExpr):
+
+    conv_maps = NFTRuleExpr.conv_maps + (
+        conv_map_tuple('setid', 'NFTA_LOOKUP_SET', 'set', 'ascii'),
+        conv_map_tuple('sreg', 'NFTA_LOOKUP_SREG', 'sreg', 'reg'),
+        conv_map_tuple('flags', 'NFTA_LOOKUP_FLAGS', 'flags', 'ascii'),
+    )
+
+
 NFTA_EXPR_NAME_MAP = {
     'meta': ExprMeta,
     'cmp': ExprCmp,
     'immediate': ExprImmediate,
     'payload': ExprPayload,
+    'lookup': ExprLookup,
 }
 
 
