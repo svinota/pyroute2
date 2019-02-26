@@ -11,6 +11,13 @@ class nfta_nla_parser(object):
         for c in self.conv_maps:
             setattr(self, c.has_attr, kwargs[c.has_attr])
 
+
+    def __repr__(self):
+        s = ''
+        for c in self.conv_maps:
+            s += 'c={0}, VALUE={1}\n'.format(c, getattr(self, c.has_attr))
+        return s
+
     @classmethod
     def from_netlink(cls, ndmsg):
         kwargs = {}
