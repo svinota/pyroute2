@@ -4,6 +4,7 @@ nf_tables expression netlink attributes
 See EXPRESSIONS in nft(8).
 """
 
+from socket import AF_INET, AF_INET6
 from pyroute2.nftables.parser.parser import nfta_nla_parser, conv_map_tuple
 
 
@@ -185,6 +186,32 @@ class NFTRuleExpr(nfta_nla_parser):
             return val
 
 
+    class cparser_inet_family(object):
+        @staticmethod
+        def from_netlink(val):
+            if val == AF_INET:
+                return 'ip'
+            if val == AF_INET6:
+                return 'ip6'
+            return val
+
+        @staticmethod
+        def to_netlink(val):
+            if val == 'ip':
+                return AF_INET
+            if val == 'ip6':
+                return AF_INET6
+            return val
+
+        @staticmethod
+        def from_dict(val):
+            return val
+
+        @staticmethod
+        def to_dict(val):
+            return val
+
+
 class ExprMeta(NFTRuleExpr):
 
     conv_maps = NFTRuleExpr.conv_maps + (
@@ -259,12 +286,26 @@ class ExprLookup(NFTRuleExpr):
     )
 
 
+class ExprNat(NFTRuleExpr):
+
+    conv_maps = NFTRuleExpr.conv_maps + (
+        conv_map_tuple('nat_type', 'NFTA_NAT_TYPE', 'nat_type', 'nat_type'),
+        conv_map_tuple('family', 'NFTA_NAT_FAMILY', 'family', 'inet_family'),
+        conv_map_tuple('sreg_addr_min', 'NFTA_NAT_REG_ADDR_MIN', 'sreg_addr_min', 'reg'),
+        conv_map_tuple('sreg_addr_max', 'NFTA_NAT_REG_ADDR_MAX', 'sreg_addr_max', 'reg'),
+    )
+
+    class cparser_nat_type(NFTRuleExpr.cparser_extract_str):
+        STRVAL = 'NFT_NAT_{0}'
+
+
 NFTA_EXPR_NAME_MAP = {
     'meta': ExprMeta,
     'cmp': ExprCmp,
     'immediate': ExprImmediate,
     'payload': ExprPayload,
     'lookup': ExprLookup,
+    'nat': ExprNat,
 }
 
 
