@@ -310,6 +310,14 @@ class ExprBitwise(NFTRuleExpr):
     )
 
 
+class ExprCounter(NFTRuleExpr):
+
+    conv_maps = NFTRuleExpr.conv_maps + (
+        conv_map_tuple('bytes', 'NFTA_COUNTER_BYTES', 'bytes', 'ascii'),
+        conv_map_tuple('packets', 'NFTA_COUNTER_PACKETS', 'pkts', 'ascii'),
+    )
+
+
 NFTA_EXPR_NAME_MAP = {
     'meta': ExprMeta,
     'cmp': ExprCmp,
@@ -318,6 +326,7 @@ NFTA_EXPR_NAME_MAP = {
     'lookup': ExprLookup,
     'nat': ExprNat,
     'bitwise': ExprBitwise,
+    'counter': ExprCounter,
 }
 
 
