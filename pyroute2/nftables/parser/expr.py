@@ -299,6 +299,17 @@ class ExprNat(NFTRuleExpr):
         STRVAL = 'NFT_NAT_{0}'
 
 
+class ExprBitwise(NFTRuleExpr):
+
+    conv_maps = NFTRuleExpr.conv_maps + (
+        conv_map_tuple('sreg', 'NFTA_BITWISE_SREG', 'sreg', 'reg'),
+        conv_map_tuple('dreg', 'NFTA_BITWISE_DREG', 'dreg', 'reg'),
+        conv_map_tuple('len', 'NFTA_BITWISE_LEN', 'len', 'ascii'),
+        conv_map_tuple('mask', 'NFTA_BITWISE_MASK', 'mask', 'data'),
+        conv_map_tuple('xor', 'NFTA_BITWISE_XOR', 'xor', 'data'),
+    )
+
+
 NFTA_EXPR_NAME_MAP = {
     'meta': ExprMeta,
     'cmp': ExprCmp,
@@ -306,6 +317,7 @@ NFTA_EXPR_NAME_MAP = {
     'payload': ExprPayload,
     'lookup': ExprLookup,
     'nat': ExprNat,
+    'bitwise': ExprBitwise,
 }
 
 
