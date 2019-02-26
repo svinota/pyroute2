@@ -208,9 +208,18 @@ class ExprCmp(NFTRuleExpr):
         STRVAL = 'NFT_CMP_{0}'
 
 
+class ExprImmediate(NFTRuleExpr):
+
+    conv_maps = NFTRuleExpr.conv_maps + (
+        conv_map_tuple('dreg', 'NFTA_IMMEDIATE_DREG', 'dreg', 'reg'),
+        conv_map_tuple('data', 'NFTA_IMMEDIATE_DATA', 'data', 'data'),
+    )
+
+
 NFTA_EXPR_NAME_MAP = {
     'meta': ExprMeta,
     'cmp': ExprCmp,
+    'immediate': ExprImmediate,
 }
 
 
