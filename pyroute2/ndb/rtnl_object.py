@@ -39,6 +39,7 @@ class RTNL_Object(dict):
         self.errors = []
         self.snapshot_deps = []
         self.load_event = threading.Event()
+        self.lock = threading.Lock()
         self.kspec = ('target', ) + self.schema.indices[self.table]
         self.spec = self.schema.compiled[self.table]['all_names']
         self.names = self.schema.compiled[self.table]['norm_names']
@@ -187,9 +188,10 @@ class RTNL_Object(dict):
         return self
 
     def remove(self):
-        self.scope = 'remove'
-        self.next_scope = 'invalid'
-        return self
+        with self.lock:
+            self.scope = 'remove'
+            self.next_scope = 'invalid'
+            return self
 
     def check(self):
         self.load_sql()
@@ -240,7 +242,10 @@ class RTNL_Object(dict):
         api = getattr(self.sources[self['target']].nl, self.api)
 
         # Load the current state
-        self.schema.connection.commit()
+        try:
+            self.schema.connection.commit()
+        except:
+            pass
         self.load_sql(set_scope=False)
         if self.get_scope() == 0:
             scope = 'invalid'
@@ -333,12 +338,13 @@ class RTNL_Object(dict):
                 .fetchone('SELECT * FROM %s WHERE %s' %
                           (table, ' AND '.join(keys)), values))
         if set_scope:
-            if spec is None:
-                # No such object (anymore)
-                self.scope = 'invalid'
-            else:
-                self.update(dict(zip(self.names, spec)))
-                self.scope = 'system'
+            with self.lock:
+                if spec is None:
+                    # No such object (anymore)
+                    self.scope = 'invalid'
+                elif self.scope != 'remove':
+                    self.update(dict(zip(self.names, spec)))
+                    self.scope = 'system'
 
     def load_rtnlmsg(self, target, event):
         # TODO: partial match (object rename / restore)
