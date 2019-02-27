@@ -14,9 +14,11 @@ from pyroute2.common import basestring
 from pyroute2.ndb import report
 from pyroute2.ndb.main import Report
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
 
-_link_locks = {}
+_locks = {}
 
 
 class TestMisc(object):
@@ -51,17 +53,46 @@ class TestBase(object):
     ssh = ''
 
     def link_register(self, ifnme):
-        global _link_locks
+        global _locks
 
         def handler(target, event):
             if event.get_attr('IFLA_IFNAME') == ifnme:
-                _link_locks[ifnme].set()
+                _locks[ifnme].set()
 
-        _link_locks[ifnme] = threading.Event()
+        _locks[ifnme] = threading.Event()
         self.ndb.register_handler(ifinfmsg, handler)
 
+    def addr_register(self, addr):
+        global _locks
+
+        def handler(target, event):
+            if event.get_attr('IFA_ADDRESS') == addr:
+                _locks[addr].set()
+
+        _locks[addr] = threading.Event()
+        self.ndb.register_handler(ifaddrmsg, handler)
+
+    def route_register(self, addr):
+        global _locks
+
+        def handler(target, event):
+            if event.get_attr('RTA_DST') == addr:
+                _locks[addr].set()
+
+        _locks[addr] = threading.Event()
+        self.ndb.register_handler(rtmsg, handler)
+
+    def route_wait(self, addr):
+        global _locks
+        _locks[addr].wait(3)
+
+    def addr_wait(self, addr):
+        global _locks
+        _locks[addr].wait(3)
+
     def link_wait(self, ifname):
-        _link_locks[ifname].wait(3)
+        global _locks
+        _locks[ifname].wait(3)
         with self.nl_class(**self.nl_kwarg) as ipr:
             return ipr.link_lookup(ifname=ifname)[0]
 
@@ -185,6 +216,9 @@ class TestCreate(object):
         assert grep('%s ip link show' % self.ssh, pattern=address)
         assert self.ndb.interfaces[ifname]['state'] == 'up'
 
+        with ifobj:
+            ifobj.remove()
+
     def test_fail(self):
 
         ifname = uifname()
@@ -276,6 +310,7 @@ class TestRollback(TestBase):
         require_user('root')
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
+                       rtnl_log=True,
                        sources=self.nl_class(**self.nl_kwarg))
 
     def test_simple_deps(self):
@@ -283,6 +318,8 @@ class TestRollback(TestBase):
         # register NDB handler to wait for the interface
         self.if_simple = uifname()
         self.link_register(self.if_simple)
+        self.addr_register('172.16.172.16')
+        self.route_register('172.16.127.0')
 
         with self.nl_class(**self.nl_kwarg) as ipr:
             self.interfaces = []
@@ -301,10 +338,12 @@ class TestRollback(TestBase):
                      index=self.interfaces[-1],
                      address='172.16.172.16',
                      prefixlen=24)
+            self.addr_wait('172.16.172.16')
             ipr.route('add',
                       dst='172.16.127.0',
                       dst_len=24,
                       gateway='172.16.172.17')
+            self.route_wait('172.16.127.0')
 
         iface = self.ndb.interfaces[self.if_simple]
         # check everything is in place
@@ -338,6 +377,9 @@ class TestRollback(TestBase):
         self.link_register(self.if_br0)
         self.link_register(self.if_br0p0)
         self.link_register(self.if_br0p1)
+        self.addr_register('172.16.173.16')
+        self.addr_register('172.16.173.17')
+        self.route_register('172.16.128.0')
 
         with self.nl_class(**self.nl_kwarg) as ipr:
             self.interfaces = []
@@ -352,14 +394,17 @@ class TestRollback(TestBase):
                      index=self.interfaces[-1],
                      address='172.16.173.16',
                      prefixlen=24)
+            self.addr_wait('172.16.173.16')
             ipr.addr('add',
                      index=self.interfaces[-1],
                      address='172.16.173.17',
                      prefixlen=24)
+            self.addr_wait('172.16.173.17')
             ipr.route('add',
                       dst='172.16.128.0',
                       dst_len=24,
                       gateway='172.16.173.18')
+            self.route_wait('172.16.128.0')
             ipr.link('add',
                      ifname=self.if_br0p0,
                      kind='dummy')
