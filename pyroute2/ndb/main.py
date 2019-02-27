@@ -183,6 +183,10 @@ class MarkFailed(Exception):
     pass
 
 
+class DBMExitException(Exception):
+    pass
+
+
 class ShutdownException(Exception):
     pass
 
@@ -439,6 +443,12 @@ class Source(object):
                         if msg[0]['header']['error'] and \
                                 msg[0]['header']['error'].code == 104:
                             self.status = 'stopped'
+                            # thus we make sure that all the events from
+                            # this source are consumed by the main loop
+                            # in __dbm__() routine
+                            sync = threading.Event()
+                            self.evq.put((self.target, (sync, )))
+                            sync.wait()
                             return
                         self.evq.put((self.target, msg))
                 except TypeError:
@@ -553,10 +563,15 @@ class NDB(object):
                 except ValueError:
                     pass
             if self.schema:
+                # release all the failed sources waiting for restart
                 self._event_queue.put(('localhost', (ShutdownException(), )))
+                # release all the sources
                 for target, source in self.sources.items():
                     source.close()
+                # shutdown the _dbm_thread
+                self._event_queue.put(('localhost', (DBMExitException(), )))
                 self._dbm_thread.join()
+                # close the database
                 self.schema.commit()
                 self.schema.close()
 
@@ -690,6 +705,7 @@ class NDB(object):
                     except ShutdownException:
                         for target, source in self.sources.items():
                             source.shutdown.set()
+                    except DBMExitException:
                         return
                     except:
                         log.error('could not load event:\n%s\n%s'
