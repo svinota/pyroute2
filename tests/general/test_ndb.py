@@ -1,4 +1,3 @@
-import time
 import uuid
 import threading
 from utils import grep
@@ -14,6 +13,10 @@ from pyroute2.common import uifname
 from pyroute2.common import basestring
 from pyroute2.ndb import report
 from pyroute2.ndb.main import Report
+from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+
+
+_link_locks = {}
 
 
 class TestMisc(object):
@@ -47,14 +50,20 @@ class TestBase(object):
     nl_kwarg = {}
     ssh = ''
 
+    def link_register(self, ifnme):
+        global _link_locks
+
+        def handler(target, event):
+            if event.get_attr('IFLA_IFNAME') == ifnme:
+                _link_locks[ifnme].set()
+
+        _link_locks[ifnme] = threading.Event()
+        self.ndb.register_handler(ifinfmsg, handler)
+
     def link_wait(self, ifname):
+        _link_locks[ifname].wait(3)
         with self.nl_class(**self.nl_kwarg) as ipr:
-            for _ in range(5):
-                try:
-                    return ipr.link_lookup(ifname=ifname)[0]
-                except:
-                    time.sleep(0.1)
-            raise Exception('link setup error')
+            return ipr.link_lookup(ifname=ifname)[0]
 
     def create_interfaces(self):
         # dummy interface
@@ -64,6 +73,12 @@ class TestBase(object):
         if_bridge = uifname()
         if_port = uifname()
         ret = []
+        for ifname in (if_dummy,
+                       if_vlan_stag,
+                       if_vlan_ctag,
+                       if_port,
+                       if_bridge):
+            self.link_register(ifname)
 
         with self.nl_class(**self.nl_kwarg) as ipr:
 
@@ -103,10 +118,10 @@ class TestBase(object):
     def setup(self):
         require_user('root')
         self.if_simple = None
-        self.interfaces = self.create_interfaces()
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        sources=self.nl_class(**self.nl_kwarg))
+        self.interfaces = self.create_interfaces()
 
     def teardown(self):
         with self.nl_class(**self.nl_kwarg) as ipr:
@@ -264,13 +279,17 @@ class TestRollback(TestBase):
                        sources=self.nl_class(**self.nl_kwarg))
 
     def test_simple_deps(self):
+
+        # register NDB handler to wait for the interface
+        self.if_simple = uifname()
+        self.link_register(self.if_simple)
+
         with self.nl_class(**self.nl_kwarg) as ipr:
             self.interfaces = []
             #
             # simple dummy interface with one address and
             # one dependent route
             #
-            self.if_simple = uifname()
             ipr.link('add',
                      ifname=self.if_simple,
                      kind='dummy')
@@ -312,9 +331,16 @@ class TestRollback(TestBase):
                     pattern='172.16.127.*172.16.172.17')
 
     def test_bridge_deps(self):
+
+        self.if_br0 = uifname()
+        self.if_br0p0 = uifname()
+        self.if_br0p1 = uifname()
+        self.link_register(self.if_br0)
+        self.link_register(self.if_br0p0)
+        self.link_register(self.if_br0p1)
+
         with self.nl_class(**self.nl_kwarg) as ipr:
             self.interfaces = []
-            self.if_br0 = uifname()
             ipr.link('add',
                      ifname=self.if_br0,
                      kind='bridge')
@@ -334,7 +360,6 @@ class TestRollback(TestBase):
                       dst='172.16.128.0',
                       dst_len=24,
                       gateway='172.16.173.18')
-            self.if_br0p0 = uifname()
             ipr.link('add',
                      ifname=self.if_br0p0,
                      kind='dummy')
@@ -343,7 +368,6 @@ class TestRollback(TestBase):
                      index=self.interfaces[-1],
                      state='up',
                      master=self.interfaces[-2])
-            self.if_br0p1 = uifname()
             ipr.link('add',
                      ifname=self.if_br0p1,
                      kind='dummy')
@@ -389,9 +413,14 @@ class TestRollback(TestBase):
                     pattern='172.16.128.*172.16.173.18')
 
     def test_vlan_deps(self):
+
+        if_host = uifname()
+        if_vlan = uifname()
+        self.link_register(if_host)
+        self.link_register(if_vlan)
+
         with self.nl_class(**self.nl_kwarg) as ipr:
             self.interfaces = []
-            if_host = uifname()
             ipr.link('add',
                      ifname=if_host,
                      kind='dummy')
@@ -399,7 +428,6 @@ class TestRollback(TestBase):
             ipr.link('set',
                      index=self.interfaces[-1],
                      state='up')
-            if_vlan = uifname()
             ipr.link('add',
                      ifname=if_vlan,
                      kind='vlan',
