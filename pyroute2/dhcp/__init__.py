@@ -174,9 +174,9 @@ class option(msg):
         return self
 
     def decode(self):
+        self.data_length = struct.unpack('B', self.buf[self.offset + 1:
+                                                       self.offset + 2])[0]
         if self.policy is not None:
-            self.data_length = struct.unpack('B', self.buf[self.offset + 1:
-                                                           self.offset + 2])[0]
             if self.policy['format'] == 'string':
                 fmt = '%is' % self.data_length
             else:
@@ -192,7 +192,15 @@ class option(msg):
                 value = value[:value.find('\x00')]
             self.value = value
         else:
+            # remember current offset as msg.decode() will advance it
+            offset = self.offset
+            # move past the code and option length bytes so that msg.decode()
+            # starts parsing at the right location
+            self.offset += 2
             msg.decode(self)
+            # restore offset so that dhcpmsg.decode() advances it correctly
+            self.offset = offset
+
         return self
 
 
