@@ -124,6 +124,9 @@ class nft_rule_msg(nfgen_msg):
                ('NFTA_RULE_USERDATA', 'hex'))
 
     class rule_expr(nla):
+
+        header_type = 1
+
         nla_map = (('NFTA_EXPR_UNSPEC', 'none'),
                    ('NFTA_EXPR_NAME', 'asciiz'),
                    ('NFTA_EXPR_DATA', 'expr'))
