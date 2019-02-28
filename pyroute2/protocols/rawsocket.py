@@ -97,7 +97,7 @@ class RawSocket(socket):
                     # we only get this exception once per down event
                     # there may be more packets left to clean
                     pass
-                elif e.args[0] == errno.EAGAIN:
+                elif e.args[0] in [errno.EAGAIN, errno.EWOULDBLOCK]:
                     break
                 else:
                     raise
