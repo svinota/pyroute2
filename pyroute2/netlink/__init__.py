@@ -600,6 +600,7 @@ class nlmsg_base(dict):
     is_nla = False
     prefix = None
     own_parent = False
+    header_type = None
     # caches
     __compiled_nla = False
     __compiled_ft = False
@@ -1014,7 +1015,7 @@ class nlmsg_base(dict):
                                   offset=offset,
                                   parent=self)
                 cell._nla_array = False
-                cell['header']['type'] = header_type
+                cell['header']['type'] = self.header_type or header_type
                 header_type += 1
 
                 if cell.cell_header is not None:
