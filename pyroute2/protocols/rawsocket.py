@@ -13,6 +13,7 @@ from socket import AF_PACKET
 from socket import SOCK_RAW
 from socket import SOL_SOCKET
 from socket import error
+from socket import errno
 from pyroute2 import IPRoute
 
 ETH_P_ALL = 3
@@ -43,6 +44,16 @@ def compile_bpf(code):
 
 
 class RawSocket(socket):
+    '''
+    This raw socket binds to an interface and optionally installs a BPF
+    filter.
+    When created, the socket's buffer is cleared to remove packets that
+    arrived before bind() or the BPF filter is installed.  Doing so
+    requires calling recvfrom() which may raise an exception if the
+    interface is down.
+    In order to allow creating the socket when the interface is
+    down, the ENETDOWN exception is caught and discarded.
+    '''
 
     fprog = None
 
@@ -82,10 +93,14 @@ class RawSocket(socket):
             try:
                 self.recvfrom(0)
             except error as e:
-                # Resource temporarily unavailable
-                if e.args[0] != 11:
+                if e.args[0] == errno.ENETDOWN:
+                    # we only get this exception once per down event
+                    # there may be more packets left to clean
+                    pass
+                elif e.args[0] == errno.EAGAIN:
+                    break
+                else:
                     raise
-                break
         self.setblocking(1)
         if remove_total_filter:
             # total_fstring ignored
