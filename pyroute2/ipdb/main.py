@@ -906,7 +906,7 @@ class IPDB(object):
 
         def cleanup(ref):
             ipdb_obj = ref()
-            if ipdb_obj is not None:
+            if (ipdb_obj is not None) and (not ipdb_obj._stop):
                 ipdb_obj.release()
         atexit.register(cleanup, weakref.ref(self))
 
