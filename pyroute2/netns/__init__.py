@@ -113,6 +113,8 @@ MS_REC = 16384
 MS_SHARED = 1 << 20
 NETNS_RUN_DIR = '/var/run/netns'
 
+__saved_ns = []
+
 
 def _get_netnspath(name):
     netnspath = name
@@ -248,3 +250,46 @@ def setns(netns, flags=os.O_CREAT, libc=None):
         os.close(nsfd)
     if error != 0:
         raise OSError(ctypes.get_errno(), 'failed to open netns', netns)
+
+
+def pushns(newns=None, libc=None):
+    '''
+    Save the current netns in order to return to it later. If newns is
+    specified, change to it::
+
+        # --> the script in the "main" netns
+        netns.pushns("test")
+        # --> changed to "test", the "main" is saved
+        netns.popns()
+        # --> "test" is dropped, back to the "main"
+    '''
+    global __saved_ns
+    __saved_ns.append(os.open('/proc/self/ns/net', os.O_RDONLY))
+    if newns is not None:
+        setns(newns, libc=libc)
+
+
+def popns(libc=None):
+    '''
+    Restore the previously saved netns.
+    '''
+    global __saved_ns
+    fd = __saved_ns.pop()
+    try:
+        setns(fd, libc=libc)
+    except Exception:
+        __saved_ns.append(fd)
+        raise
+    os.close(fd)
+
+
+def dropns(libc=None):
+    '''
+    Discard the last saved with `pushns()` namespace
+    '''
+    global __saved_ns
+    fd = __saved_ns.pop()
+    try:
+        os.close(fd)
+    except Exception:
+        pass

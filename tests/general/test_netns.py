@@ -295,6 +295,27 @@ class TestNetNS(object):
         assert ret_ping
         assert ret_arp
 
+    def test_pushns(self):
+        require_user('root')
+        foo = str(uuid4())
+        ifA = uifname()
+
+        with IPRoute() as ipr:
+            ipr.link('add', ifname=ifA, kind='dummy')
+
+        netnsmod.pushns(foo)
+        with IPRoute() as ipr:
+            assert ifA not in [x.get_attr('IFLA_IFNAME') for x
+                               in ipr.link('dump')]
+        netnsmod.popns()
+        with IPRoute() as ipr:
+            assert ifA in [x.get_attr('IFLA_IFNAME') for x
+                           in ipr.link('dump')]
+
+            ipr.link('del', index=ipr.link_lookup(ifname=ifA)[0])
+
+        netnsmod.remove(foo)
+
     def test_create(self):
         ns_name = str(uuid4())
         self._test_create(ns_name)
