@@ -222,6 +222,11 @@ def setns(netns, flags=os.O_CREAT, libc=None):
         - O_CREAT -- create netns, if doesn't exist
         - O_CREAT | O_EXCL -- create only if doesn't exist
 
+    Note that "main" netns as no name. But you can access it with::
+
+        setns('foo')  # move to netns foo
+        setns('/proc/1/ns/net')  # go back to default netns
+
     Changed in 0.5.1: the routine closes the ns fd if it's
     not provided via arguments.
     '''
