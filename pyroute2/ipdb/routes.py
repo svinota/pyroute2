@@ -1072,6 +1072,13 @@ class RoutingTableSet(object):
                 spec['family'] = AF_INET
         if not dst:
             raise ValueError('dst not specified')
+        if isinstance(dst, basestring) and \
+                (dst not in ('', 'default')) and \
+                ('/' not in dst):
+            if spec['family'] == AF_INET:
+                spec['dst'] = dst + '/32'
+            elif spec['family'] == AF_INET6:
+                spec['dst'] = dst + '/128'
         if 'priority' not in spec:
             if spec['family'] == AF_INET6:
                 spec['priority'] = IP6_RT_PRIO_USER
