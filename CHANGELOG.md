@@ -1,6 +1,14 @@
 Changelog
 =========
 
+* 0.5.4
+    * iproute: basic SR-IOV support, virtual functions setup
+    * ipdb: shutdown logging fixed
+        * <https://github.com/svinota/pyroute2/issues/553>
+    * ipset: fix regression
+        * <https://github.com/svinota/pyroute2/issues/575>
+    * netns: pushns() / popns() / dropns() calls
+        * <https://github.com/svinota/pyroute2/pull/590>
 * 0.5.3
     * bsd: parser improvements
     * ndb: PostgreSQL support
