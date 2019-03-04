@@ -85,7 +85,8 @@ class nft_flags_be32(nla):
 
     def decode(self):
         nla.decode(self)
-        self.value = frozenset(o for i, o in enumerate(self.ops) if self['value'] & 1 << i)
+        self.value = frozenset(o for i, o in enumerate(self.ops)
+                               if self['value'] & 1 << i)
 
 
 class nat_flags(nla):
@@ -203,8 +204,7 @@ class nft_rule_msg(nfgen_msg):
                        ('NFTA_MATCH_REV', 'be32'),
                        ('NFTA_MATCH_INFO', 'hex'),
                        ('NFTA_MATCH_PROTOCOL', 'hex'),
-                       ('NFTA_MATCH_FLAGS', 'hex'),
-            )
+                       ('NFTA_MATCH_FLAGS', 'hex'))
 
         class nft_target(nla):
             nla_map = (('NFTA_TARGET_UNSPEC', 'none'),
@@ -212,8 +212,7 @@ class nft_rule_msg(nfgen_msg):
                        ('NFTA_TARGET_REV', 'be32'),
                        ('NFTA_TARGET_INFO', 'hex'),
                        ('NFTA_TARGET_PROTOCOL', 'hex'),
-                       ('NFTA_TARGET_FLAGS', 'hex'),
-            )
+                       ('NFTA_TARGET_FLAGS', 'hex'))
 
         class nft_counter(nla):
             nla_map = (('NFTA_COUNTER_UNSPEC', 'none'),
