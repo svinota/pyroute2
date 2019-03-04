@@ -4,9 +4,23 @@ from pyroute2.nftables.parser.expr import (
     get_expression_from_dict)
 
 
+NAME_2_NFPROTO = {
+    "unspec": 0,
+    "inet": 1,
+    "ipv4": 2,
+    "arp": 3,
+    "netdev": 5,
+    "bridge": 7,
+    "ipv6": 10,
+    "decnet": 12,
+}
+NFPROTO_2_NAME = {v: k for k, v in NAME_2_NFPROTO.items()}
+
+
 class NFTRule(nfta_nla_parser):
 
     conv_maps = (
+        conv_map_tuple('family', 'nfgen_family', 'family', 'nfproto'),
         conv_map_tuple('table', 'NFTA_RULE_TABLE', 'table', 'raw'),
         conv_map_tuple('chain', 'NFTA_RULE_CHAIN', 'chain', 'raw'),
         conv_map_tuple('handle', 'NFTA_RULE_HANDLE', 'handle', 'raw'),
@@ -85,3 +99,21 @@ class NFTRule(nfta_nla_parser):
         @staticmethod
         def to_dict(expressions):
             return [e.to_dict() for e in expressions]
+
+    class cparser_nfproto(object):
+
+        @staticmethod
+        def from_netlink(val):
+            return NFPROTO_2_NAME[val]
+
+        @staticmethod
+        def to_netlink(val):
+            return NAME_2_NFPROTO[val]
+
+        @staticmethod
+        def from_dict(val):
+            return val
+
+        @staticmethod
+        def to_dict(val):
+            return val
