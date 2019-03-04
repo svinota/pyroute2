@@ -5,7 +5,7 @@ Changelog
     * iproute: basic SR-IOV support, virtual functions setup
     * ipdb: shutdown logging fixed
         * <https://github.com/svinota/pyroute2/issues/553>
-    * ipset: fix regression
+    * nftables: fix regression (errata: previously mentioned ipset)
         * <https://github.com/svinota/pyroute2/issues/575>
     * netns: pushns() / popns() / dropns() calls
         * <https://github.com/svinota/pyroute2/pull/590>
