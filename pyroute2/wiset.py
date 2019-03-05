@@ -24,7 +24,8 @@ Listing entries is also easier using :class:`WiSet`, since it parses for you
 netlink messages:
 
 >>> wiset.content
-{'1.2.3.0/24': IPStats(packets=None, bytes=None, comment=None, timeout=None)}
+{'1.2.3.0/24': IPStats(packets=None, bytes=None, comment=None,
+                       timeout=None, skbmark=None)}
 '''
 
 import errno
@@ -79,7 +80,8 @@ def need_ipset_socket(fun):
     return wrap
 
 
-IPStats = namedtuple("IPStats", ["packets", "bytes", "comment", "timeout"])
+IPStats = namedtuple("IPStats", ["packets", "bytes", "comment",
+                                 "timeout", "skbmark"])
 
 
 # pylint: disable=too-many-instance-attributes
@@ -237,9 +239,18 @@ class WiSet(object):
 
             if self.timeout is not None:
                 timeout = entry.get_attr("IPSET_ATTR_TIMEOUT")
+            skbmark = entry.get_attr("IPSET_ATTR_SKBMARK")
+            if skbmark is not None:
+                # Convert integer to hex for mark/mask
+                # Only display mask if != 0xffffffff
+                if skbmark[1] != (2**32 - 1):
+                    skbmark = "/".join([str(hex(mark)) for mark in skbmark])
+                else:
+                    skbmark = str(hex(skbmark[0]))
             value = IPStats(packets=entry.get_attr("IPSET_ATTR_PACKETS"),
                             bytes=entry.get_attr("IPSET_ATTR_BYTES"),
                             comment=entry.get_attr("IPSET_ATTR_COMMENT"),
+                            skbmark=skbmark,
                             timeout=timeout)
             self._content[key] = value
 
