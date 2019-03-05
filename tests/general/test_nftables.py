@@ -1,6 +1,7 @@
 import json
 import errno
 from subprocess import check_output, CalledProcessError
+from nose.plugins.skip import SkipTest
 
 from pyroute2 import netns
 from pyroute2.nftables.main import NFTables
@@ -8,7 +9,6 @@ from pyroute2.nftables.rule import NFTRule
 
 from utils import require_user
 
-#NFT_BIN_PATH = "/root/nft/nftables/src/nft"
 NFT_BIN_PATH = "nft"
 NS_NAME = 'pyroute2_test_nftable'
 
@@ -29,7 +29,7 @@ class NFTables_test(object):
             check_output([NFT_BIN_PATH, "-f", "nftables.ruleset"])
         except OSError as e:
             if e.errno == errno.ENOENT:
-                raise Exception("You must install nftables for the test")
+                raise SkipTest("You must install nftables for the test")
             else:
                 raise
 
@@ -41,7 +41,7 @@ class NFTables_test(object):
             nft_res = json.loads(
                 check_output([NFT_BIN_PATH, "export", "json"]))
         except CalledProcessError:
-            raise Exception(
+            raise SkipTest(
                 "Please install nft compiled with --with-json option")
         nft_res = [e['rule'] for e in nft_res['nftables'] if 'rule' in e]
         my_res = []
