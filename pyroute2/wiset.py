@@ -34,6 +34,7 @@ from inspect import getcallargs
 from socket import AF_INET
 
 from pyroute2 import IPSet
+from pyroute2.common import basestring
 from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
@@ -128,7 +129,7 @@ class WiSet(object):
     # pylint: disable=too-many-arguments
     def __init__(self, name=None, attr_type='hash:ip', family=AF_INET,
                  sock=None, timeout=None, counters=False, comment=False,
-                 hashsize=None, revision=None):
+                 hashsize=None, revision=None, skbinfo=False):
         self.name = name
         self.hashsize = hashsize
         self._attr_type = None
@@ -142,6 +143,7 @@ class WiSet(object):
         self.comment = comment
         self.revision = revision
         self.index = None
+        self.skbinfo = skbinfo
 
     def open_netlink(self):
         """ Open manually a netlink socket. You can use "with WiSet()" instead
@@ -251,7 +253,7 @@ class WiSet(object):
         create_ipset(self.name, stype=self.attr_type, family=self.family,
                      sock=self.sock, timeout=self.timeout,
                      comment=self.comment, counters=self.counters,
-                     hashsize=self.hashsize, **kwargs)
+                     hashsize=self.hashsize, skbinfo=self.skbinfo, **kwargs)
 
     def destroy(self):
         """ Destroy this ipset in the kernel list.
@@ -272,6 +274,15 @@ class WiSet(object):
         if self.counters:
             kwargs["packets"] = kwargs.pop("packets", 0)
             kwargs["bytes"] = kwargs.pop("bytes", 0)
+        skbmark = kwargs.get("skbmark")
+        if isinstance(skbmark, basestring):
+            skbmark = skbmark.split('/')
+            mark = int(skbmark[0], 16)
+            try:
+                mask = int(skbmark[1], 16)
+            except IndexError:
+                mask = int("0xffffffff", 16)
+            kwargs["skbmark"] = (mark, mask)
         add_ipset_entry(self.name, entry, etype=self.entry_type,
                         sock=self.sock, **kwargs)
 
