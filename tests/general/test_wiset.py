@@ -79,6 +79,22 @@ class WiSet_test(object):
 
         assert set_list["8.8.8.8"].comment == comment
 
+    def test_ipset_with_skbinfo(self, sock=None):
+        require_user('root')
+        with WiSet(name=self.name, sock=sock, skbinfo=True) as myset:
+            myset.create()
+            myset.add("192.168.1.1", skbmark=(0xc8, 0xc8))
+            myset.add("192.168.1.2", skbmark=(0xc9, 0xffffffff))
+            myset.add("192.168.1.3", skbmark="0xca/0xca")
+            myset.add("192.168.1.4", skbmark="0xCB")
+            set_list = myset.content
+            myset.destroy()
+
+        assert set_list["192.168.1.1"].skbmark == "0xc8/0xc8"
+        assert set_list["192.168.1.2"].skbmark == "0xc9"
+        assert set_list["192.168.1.3"].skbmark == "0xca/0xca"
+        assert set_list["192.168.1.4"].skbmark == "0xcb"
+
     def test_list_on_large_set(self, sock=None):
         require_user('root')
         set_size = 30000
