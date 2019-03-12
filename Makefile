@@ -17,7 +17,6 @@ nosetests ?= nosetests
 flake8 ?= flake8
 setuplib ?= distutils.core
 epydoc ?= epydoc
-civm ?= civm
 ##
 # Python -W flags:
 #
@@ -76,7 +75,6 @@ clean: clean-version
 	@rm -rf tests/bin
 	@rm -rf tests/pyroute2
 	@rm -f  tests/*xml
-	@rm -rf tests/ci/results/test-*
 	@rm -rf pyroute2.egg-info
 	@rm -f python-pyroute2.spec
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
@@ -131,9 +129,6 @@ test: check_parameters
 		export COVERAGE=${coverage}; \
 		export MODULE=${module}; \
 		./tests/run.sh
-
-test-ci:
-	@${civm} tests/ci
 
 test-platform:
 	@${python} -c "\
