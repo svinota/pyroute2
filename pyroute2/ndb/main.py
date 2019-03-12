@@ -550,8 +550,76 @@ class NDB(object):
             self._event_map[event] = []
         self._event_map[event].append(handler)
 
+    def unregister_handler(self, event, handler):
+        self._event_map[event].remove(handler)
+
     def execute(self, *argv, **kwarg):
         return self.schema.execute(*argv, **kwarg)
+
+    def wait(self, spec):
+        '''
+        Example::
+
+            ndb.wait({'interfaces': [{'ifname': 'eth0'}],
+                      'addresses': [{'address': '10.0.0.1',
+                                     'prefixlen': 24},
+                                    {'address': '10.0.0.2',
+                                     'prefixlen': 24}]})
+        '''
+        if not isinstance(spec, dict):
+            raise ValueError('wrong spec type, must be dict')
+
+        # install the queue
+        evq = queue.Queue()
+
+        def handler(target, event):
+            evq.put((target, event))
+
+        #
+        for event in spec:
+            self.register_handler(self.schema.classes[event], handler)
+
+        #
+        wait_for = []
+        for event, objs in spec.items():
+            for obj in objs:
+                wait_for.append((event, self.schema.classes[event], obj))
+
+        #
+        def check_db(l):
+            for event, evc, obj in tuple(l):
+                try:
+                    getattr(self, event)[obj]
+                except KeyError:
+                    continue
+                l.remove((event, evc, obj))
+
+        #
+        check_db(wait_for)
+
+        #
+        while wait_for:
+            try:
+                target, msg = evq.get(timeout=1)
+            except queue.Empty:
+                check_db(wait_for)
+                continue
+            #
+            for event, evc, obj in tuple(wait_for):
+                if evc != type(msg):
+                    continue
+                for key, value in obj.items():
+                    if key == 'target' and value != target:
+                        break
+                    elif value not in (msg.get(key),
+                                       msg.get_attr(msg.name2nla(key))):
+                        break
+                else:
+                    wait_for.remove((event, evc, obj))
+
+        #
+        for event in spec:
+            self.unregister_handler(self.schema.classes[event], handler)
 
     def close(self):
         with self._global_lock:
