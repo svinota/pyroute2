@@ -1018,7 +1018,8 @@ class DBSchema(object):
             except Exception:
                 #
                 # A good question, what should we do here
-                log.warning('load_netlink: %s' % traceback.format_exc())
+                log.debug('load_netlink: %s %s %s' % (table, target, event))
+                log.error('load_netlink: %s' % traceback.format_exc())
 
 
 def init(connection, mode, rtnl_log, tid):
