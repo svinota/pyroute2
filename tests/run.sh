@@ -1,10 +1,13 @@
 #!/bin/bash
 
 cd "$( dirname "${BASH_SOURCE[0]}" )"
-
 export PYTHONPATH="`pwd`:`pwd`/examples:`pwd`/examples/generic"
 TOP=$(readlink -f $(pwd)/..)
-MODULES="general eventlet integration unit"
+
+#
+# Load the configuration
+#
+. conf.sh
 
 # Prepare test environment
 #
@@ -25,7 +28,7 @@ if [ -z "$WITHINTOX" ]; then
     cd $TOP
     [ -d ".git" ] && {
         # ok, make tarball
-        make test-dist
+        make dist
         mkdir "$TOP/tests/bin/"
         cp -a "$TOP/examples" "$TOP/tests/"
         cp -a "$TOP/cli/ipdb" "$TOP/tests/bin/"
@@ -36,7 +39,6 @@ if [ -z "$WITHINTOX" ]; then
     } ||:
     # or just give up and try to run as is
 fi
-
 cd "$TOP/tests/"
 
 #
@@ -57,6 +59,9 @@ else
     echo "Running in VirtualEnv"
 fi
 
+#
+# Setup kernel parameters
+#
 [ "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && {
     echo "Running as root"
     ulimit -n 2048
@@ -68,15 +73,10 @@ fi
     sysctl net.mpls.platform_labels=2048 2>/dev/null ||:
 }
 
-[ -z "$PYTHON" ] && export PYTHON=python
-[ -z "$NOSE" ] && export NOSE=nosetests
-[ -z "$FLAKE8" ] && export FLAKE8=flake8
-[ -z "$WLEVEL" ] || export WLEVEL="-W $WLEVEL"
-[ -z "$PDB" ] || export PDB="--pdb --pdb-failures"
-[ -z "$COVERAGE" ] || export COVERAGE="--cover-html"
-[ -z "$SKIP_TESTS" ] || export SKIP_TESTS="--exclude $SKIP_TESTS"
-[ -z "$MODULE" ] || export MODULE=`echo $MODULE | sed -n '/:/{p;q};s/$/:/p'`
 
+#
+# Adjust paths
+#
 if which pyenv 2>&1 >/dev/null; then
     PYTHON_PATH=$(pyenv which $PYTHON)
     FLAKE8_PATH=$(pyenv which $FLAKE8)
@@ -89,13 +89,19 @@ fi
 
 echo "8<------------------------------------------------"
 echo "kernel: `uname -r`"
-echo "python: $PYTHON_PATH [`$PYTHON --version 2>&1`]"
-echo "flake8: $FLAKE8_PATH [`$FLAKE8 --version 2>&1`]"
-echo "nose: $NOSE_PATH [`$NOSE --version 2>&1`]"
+echo "python: $PYTHON_PATH [`$PYTHON_PATH --version 2>&1`]"
+echo "flake8: $FLAKE8_PATH [`$FLAKE8_PATH --version 2>&1`]"
+echo "nose: $NOSE_PATH [`$NOSE_PATH --version 2>&1`]"
 echo "8<------------------------------------------------"
 
+#
+# Check PEP8
+#
 $FLAKE8_PATH . && echo "flake8 ... ok" || exit 254
 
+#
+# Run tests
+#
 function get_module() {
     module=$1
     pattern=$2
@@ -105,23 +111,25 @@ function get_module() {
     echo $pattern
 }
 
-fail=0
-for module in $MODULES; do
-    [ -z "$MODULE" ] || {
-        SUBMODULE="`get_module $module $MODULE`"
-        RETVAL=$?
-        [ $RETVAL -eq 0 ] || continue
+errors=0
+for i in `seq $LOOP`; do
+    tstamp=`date +%s`
+    echo "iteration $i of $LOOP [timestamp: $tstamp] [errors: $errors]"
+    for module in $MODULES; do
+        [ -z "$MODULE" ] || {
+            SUBMODULE="`get_module $module $MODULE`"
+            RETVAL=$?
+            [ $RETVAL -eq 0 ] || continue
 
-    }
-    $PYTHON $WLEVEL "$NOSE_PATH" -P -v $PDB \
-        --with-coverage \
-        --with-xunit \
-        --cover-package=pyroute2 \
-        $SKIP_TESTS \
-        $COVERAGE $module/$SUBMODULE
-    ret=$?
-    mv nosetests.xml xunit-$module.xml
-    [ $ret -eq 0 ] || fail=$ret
+        }
+        $PYTHON $WLEVEL "$NOSE_PATH" -P -v $PDB \
+            --with-coverage \
+            --with-xunit \
+            --cover-package=pyroute2 \
+            $SKIP_TESTS \
+            $COVERAGE $module/$SUBMODULE
+        errors=$(($errors + $?))
+        mv nosetests.xml xunit-$module.xml
+    done
 done
-
-[ $fail -eq 0 ] || exit $fail
+exit $errors
