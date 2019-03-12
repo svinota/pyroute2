@@ -1,6 +1,63 @@
 import time
+import errno
+import logging
 import weakref
 import threading
+from pyroute2.netlink.exceptions import NetlinkError
+
+log = logging.getLogger(__name__)
+
+
+class State(object):
+
+    events = None
+
+    def __init__(self, prime=None):
+        self.events = []
+        if prime is not None:
+            self.load(prime)
+
+    def load(self, prime):
+        self.events = []
+        for state in prime.events:
+            self.events.append(state)
+
+    def transition(self):
+        if len(self.events) < 2:
+            return None
+        return (self.events[-2][0], self.events[-1][0])
+
+    def get(self):
+        if not self.events:
+            return None
+        return self.events[-1][0]
+
+    def set(self, state):
+        if self.events and self.events[-1][0] == state:
+            self.events.pop()
+        self.events.append((state, time.time()))
+        return state
+
+    def __eq__(self, other):
+        if not self.events:
+            return False
+        return self.events[-1][0] == other
+
+    def __ne__(self, other):
+        if not self.events:
+            return True
+        return self.events[-1][0] != other
+
+
+class Log(object):
+
+    events = None
+
+    def __init__(self):
+        self.events = []
+
+    def append(self, event):
+        self.events.append((time.time(), event))
 
 
 class RTNL_Object(dict):
@@ -15,8 +72,8 @@ class RTNL_Object(dict):
 
     schema = None
     event_map = None
-    scope = None
-    next_scope = None
+    state = None
+    log = None
     summary = None
     summary_header = None
     dump = None
@@ -37,6 +94,10 @@ class RTNL_Object(dict):
         self.etable = self.table
         self.utable = self.utable or self.table
         self.errors = []
+        self.log = Log()
+        self.log.append('init')
+        self.state = State()
+        self.state.set('invalid')
         self.snapshot_deps = []
         self.load_event = threading.Event()
         self.lock = threading.Lock()
@@ -52,7 +113,6 @@ class RTNL_Object(dict):
         elif create:
             for name in key:
                 self[name] = key[name]
-            self.scope = 'invalid'
             # FIXME -- merge with complete_key()
             if 'target' not in self:
                 self.load_value('target', 'localhost')
@@ -135,16 +195,16 @@ class RTNL_Object(dict):
         return key
 
     def rollback(self, snapshot=None):
+        self.log.append('rollback: %s' % str(self.state.events))
         snapshot = snapshot or self.last_save
-        snapshot.scope = self.scope
-        snapshot.next_scope = 'system'
         snapshot.apply(rollback=True)
         for link, snp in snapshot.snapshot_deps:
             link.rollback(snapshot=snp)
 
     def commit(self):
+        self.log.append('commit: %s' % str(self.state.events))
         # Is it a new object?
-        if self.scope == 'invalid':
+        if self.state == 'invalid':
             # Save values, try to apply
             save = dict(self)
             try:
@@ -189,28 +249,34 @@ class RTNL_Object(dict):
 
     def remove(self):
         with self.lock:
-            self.scope = 'remove'
-            self.next_scope = 'invalid'
+            self.state.set('remove')
             return self
 
     def check(self):
-        self.load_sql()
+        state_map = (('invalid', 'system'),
+                     ('remove', 'invalid'))
 
-        if self.next_scope and self.scope != self.next_scope:
+        self.load_sql()
+        self.log.append('check: %s' % str(self.state.events))
+
+        if self.state.transition() not in state_map:
+            self.log.append('check state: False')
             return False
 
         if self.changed:
+            self.log.append('check changed: False')
             return False
 
+        self.log.append('check: True')
         return True
 
-    def make_req(self, scope, prime):
+    def make_req(self, prime):
         req = dict(prime)
         for key in self.changed:
             req[key] = self[key]
         return req
 
-    def get_scope(self):
+    def get_count(self):
         conditions = []
         values = []
         for name in self.kspec:
@@ -224,8 +290,9 @@ class RTNL_Object(dict):
                                  ' AND '.join(conditions)),
                           values)[0])
 
-    def apply(self, rollback=False):
+    def apply(self, rollback=False, fix_remove=True):
 
+        self.log.append('apply: %s' % str(self.state.events))
         self.load_event.clear()
 
         # Get the API entry point. The RTNL source must comply to the
@@ -246,33 +313,53 @@ class RTNL_Object(dict):
             self.schema.connection.commit()
         except:
             pass
-        self.load_sql(set_scope=False)
-        if self.get_scope() == 0:
-            scope = 'invalid'
+        self.load_sql(set_state=False)
+        if self.get_count() == 0:
+            state = self.state.set('invalid')
         else:
-            scope = self.scope
+            state = self.state.get()
 
         # Create the request.
         idx_req = dict([(x, self[self.iclass.nla2name(x)]) for x
                         in self.schema.compiled[self.table]['idx']
                         if self.iclass.nla2name(x) in self])
-        req = self.make_req(scope, idx_req)
+        req = self.make_req(idx_req)
+        self.log.append('apply req: %s' % str(req))
+        self.log.append('apply idx_req: %s' % str(idx_req))
+        self.log.append('apply state: %s' % state)
 
         #
-        if scope == 'invalid':
+        if state == 'invalid':
             api('add', **dict([x for x in self.items() if x[1] is not None]))
-        elif scope == 'system':
+        elif state == 'system':
             api('set', **req)
-        elif scope == 'remove':
-            api('del', **idx_req)
+        elif state == 'remove':
+            # the removal protocol: in some cases the message order is wrong
+            # and RTM_NEW comes immediately after RTM_DEL, so it's not clear
+            # if the object is actually removed
+            for _ in range(3):
+                try:
+                    self.log.append('remove')
+                    api('del', **idx_req)
+                except NetlinkError as e:
+                    self.log.append('error: %s' % e)
+                    if e.code != errno.ENODEV:
+                        raise e
+                self.load_event.wait(1)
+                self.load_event.clear()
+                if self.check():
+                    self.log.append('checked')
+                    break
+                self.log.append('check failed')
 
-        for _ in range(3):
-            if self.check():
-                break
-            self.load_event.wait(1)
-            self.load_event.clear()
-        else:
-            raise Exception('timeout while applying changes')
+        if state != 'remove':
+            for _ in range(3):
+                if self.check():
+                    break
+                self.load_event.wait(1)
+                self.load_event.clear()
+            else:
+                raise Exception('timeout while applying changes')
 
         #
         if rollback:
@@ -300,8 +387,7 @@ class RTNL_Object(dict):
                                 if x[0] in self.schema.compiled[table]['idx']])
                     obj = self.view.get(key, table)
                     obj.load_sql(ctxid=self.ctxid)
-                    obj.scope = 'invalid'
-                    obj.next_scope = 'system'
+                    obj.state.set('invalid')
                     try:
                         obj.apply()
                     except Exception as e:
@@ -317,7 +403,7 @@ class RTNL_Object(dict):
         elif self.get(key) == value:
             self.changed.remove(key)
 
-    def load_sql(self, ctxid=None, set_scope=True):
+    def load_sql(self, ctxid=None, set_state=True):
 
         if not self.key:
             return
@@ -337,14 +423,15 @@ class RTNL_Object(dict):
                 .schema
                 .fetchone('SELECT * FROM %s WHERE %s' %
                           (table, ' AND '.join(keys)), values))
-        if set_scope:
+        self.log.append('load_sql: %s' % str(spec))
+        if set_state:
             with self.lock:
                 if spec is None:
                     # No such object (anymore)
-                    self.scope = 'invalid'
-                elif self.scope != 'remove':
+                    self.state.set('invalid')
+                elif self.state != 'remove':
                     self.update(dict(zip(self.names, spec)))
-                    self.scope = 'system'
+                    self.state.set('system')
 
     def load_rtnlmsg(self, target, event):
         # TODO: partial match (object rename / restore)
@@ -358,8 +445,9 @@ class RTNL_Object(dict):
             elif value != (event.get_attr(name) or event.get(name)):
                 return
 
+        self.log.append('load_rtnl: %s' % str(event.get('header'), None))
         if event['header'].get('type', 0) % 2:
-            self.scope = 'invalid'
+            self.state.set('invalid')
             self.changed = set()
         else:
             self.load_sql()

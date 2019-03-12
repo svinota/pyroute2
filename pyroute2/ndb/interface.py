@@ -60,9 +60,9 @@ class Interface(RTNL_Object):
             # return the root node
             return snp
 
-    def make_req(self, scope, prime):
-        req = super(Interface, self).make_req(scope, prime)
-        if scope == 'system':  # --> link('set', ...)
+    def make_req(self, prime):
+        req = super(Interface, self).make_req(prime)
+        if self.state == 'system':  # --> link('set', ...)
             req['master'] = self['master']
         return req
 
