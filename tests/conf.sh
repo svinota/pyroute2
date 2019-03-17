@@ -4,9 +4,11 @@
 #
 
 MODULES="general eventlet integration unit"
+VERSION=`git describe`
 
 [ -z "$LOOP" ] && export LOOP=1
-[ -z "$REPORT" ] && export REPORT="http://localhost:8080/"
+[ -z "$REPORT" ] && export REPORT=""
+[ -z "$WORKER" ] && export WORKER="default"
 [ -z "$PYTHON" ] && export PYTHON=python
 [ -z "$NOSE" ] && export NOSE=nosetests
 [ -z "$FLAKE8" ] && export FLAKE8=flake8

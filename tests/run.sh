@@ -9,26 +9,23 @@ TOP=$(readlink -f $(pwd)/..)
 #
 . conf.sh
 
-# Prepare test environment
-#
-# * make dist
-# * install packaged files into /tests
-# * copy examples into /tests
-# * run pep8 checks against /tests -- to cover test code also
-# * run nosetests
-#
-# It is important to test not in-place, but after `make dist`,
-# since in that case only those files will be tested, that are
-# included in the package.
-#
-# Tox installs the package into each environment, so we can safely skip
-# extraction of the packaged files
-if [ -z "$WITHINTOX" ]; then
-    # detect, if we run from git
+function deploy() {
+    # Prepare test environment
+    #
+    # * make dist
+    # * install packaged files into /tests
+    # * copy examples into /tests
+    # * run pep8 checks against /tests -- to cover test code also
+    # * run nosetests
+    #
+    # It is important to test not in-place, but after `make dist`,
+    # since in that case only those files will be tested, that are
+    # included in the package.
+    #
     cd $TOP
-    [ -d ".git" ] && {
+    [ -d ".git" ] && { # detect, if we run from git
         # ok, make tarball
-        make dist
+        make dist >/dev/null
         mkdir "$TOP/tests/bin/"
         cp -a "$TOP/examples" "$TOP/tests/"
         cp -a "$TOP/cli/ipdb" "$TOP/tests/bin/"
@@ -36,10 +33,13 @@ if [ -z "$WITHINTOX" ]; then
         cd "$TOP/dist"
         tar xf *
         mv pyroute2*/pyroute2 "$TOP/tests/"
-    } ||:
-    # or just give up and try to run as is
-fi
-cd "$TOP/tests/"
+    } ||:  # or just give up and try to run as is
+    cd "$TOP/tests/"
+    $FLAKE8_PATH .
+    ret=$?
+    [ $ret -eq 0 ] && echo "flake8 ... ok"
+    return $ret
+}
 
 #
 # Install test requirements, if not installed.
@@ -88,16 +88,13 @@ else
 fi
 
 echo "8<------------------------------------------------"
+echo "version: $VERSION"
 echo "kernel: `uname -r`"
 echo "python: $PYTHON_PATH [`$PYTHON_PATH --version 2>&1`]"
 echo "flake8: $FLAKE8_PATH [`$FLAKE8_PATH --version 2>&1`]"
 echo "nose: $NOSE_PATH [`$NOSE_PATH --version 2>&1`]"
 echo "8<------------------------------------------------"
 
-#
-# Check PEP8
-#
-$FLAKE8_PATH . && echo "flake8 ... ok" || exit 254
 
 #
 # Run tests
@@ -112,9 +109,17 @@ function get_module() {
 }
 
 errors=0
+avgtime=0
 for i in `seq $LOOP`; do
-    tstamp=`date +%s`
-    echo "iteration $i of $LOOP [timestamp: $tstamp] [errors: $errors]"
+
+    echo "[`date +%s`] iteration $i of $LOOP"
+
+    deploy || {
+        echo "flake 8 failed, sleeping for 30 seconds"
+        sleep 30
+        continue
+    }
+
     for module in $MODULES; do
         [ -z "$MODULE" ] || {
             SUBMODULE="`get_module $module $MODULE`"
@@ -122,14 +127,49 @@ for i in `seq $LOOP`; do
             [ $RETVAL -eq 0 ] || continue
 
         }
+        tst1=`date +%s`
+        uuid=`python -c "import uuid; print(str(uuid.uuid4()))"`
+        echo "[$tst1][$uuid][$i/$LOOP]"
         $PYTHON $WLEVEL "$NOSE_PATH" -P -v $PDB \
             --with-coverage \
             --with-xunit \
             --cover-package=pyroute2 \
             $SKIP_TESTS \
-            $COVERAGE $module/$SUBMODULE
-        errors=$(($errors + $?))
-        mv nosetests.xml xunit-$module.xml
+            $COVERAGE $module/$SUBMODULE 2>&1 | tee tests.log
+        ret=${PIPESTATUS[0]}
+        [ $ret -eq 0 ] || {
+            errors=$(($errors + 1))
+        }
+        mv nosetests.xml xunit-$module.xmla
+        tst2=`date +%s`
+        [ $i -eq 1 ] && d=1 || d=2
+        rtime=$(($tst2 - $tst1))
+        avgtime=$((($avgtime + $rtime) / $d))
+        echo "[$tst2][$uuid][$i/$LOOP] avgtime: $avgtime; iterations failed: $errors"
+        [ -z "$REPORT" ] || {
+            cat >tests.json << EOF
+{"worker": "$WORKER",
+ "run_id": "$uuid",
+ "report": {"rtime": $rtime,
+            "avgtime": $avgtime,
+            "code": $ret,
+            "run": $i,
+            "total": $LOOP,
+            "module": "$module/$SUBMODULE",
+            "skip": "$SKIP_TESTS",
+            "errors": $errors,
+            "version": "$VERSION",
+            "kernel": "`uname -r`",
+            "python": "`$PYTHON_PATH --version 2>&1`"
+            }
+}
+EOF
+            curl -X POST \
+                -d @tests.json \
+                $REPORT
+            echo " reports in the DB"
+            curl -X PUT --data-binary @tests.log "$REPORT$WORKER/$uuid/" >/dev/null 2>&1
+        }
     done
 done
 exit $errors

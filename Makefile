@@ -129,6 +129,8 @@ test: check_parameters
 		export COVERAGE=${coverage}; \
 		export MODULE=${module}; \
 		export LOOP=${loop}; \
+		export REPORT=${report}; \
+		export WORKER=${worker}; \
 		./tests/run.sh
 
 test-platform:

@@ -28,6 +28,9 @@ Run tests against current code. Command line options:
 * pdb -- set `pdb=true` to launch pdb on errors
 * module -- run only specific test module
 * skip -- skip tests by pattern
+* loop -- number of test iterations for each module
+* report -- url to submit reports to (see tests/collector.py)
+* worker -- the worker id
 
 To run the full test cycle on the project, using a specific
 python, making html coverage report::
@@ -58,6 +61,20 @@ in mind since it affects the code coverage collection.
 It is possible to skip tests by a pattern::
 
     $ sudo make test skip=test_stress
+
+To run tests in a loop, use the loop parameter::
+
+    $ sudo make test loop=10
+
+For every iteration the code will be packed again with `make dist`
+and checked against PEP8.
+
+All the statistic may be collected with a simple web-script, see
+`tests/collector.py` (requires the bottle framework). To retrieve
+the collected data one can use curl::
+
+    $ sudo make test report=http://localhost:8080/v1/report/
+    $ curl http://localhost:8080/v1/report/ | python -m json.tool
 
 target: dist
 ------------
