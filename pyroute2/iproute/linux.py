@@ -1514,6 +1514,71 @@ class RTNL_API(object):
                        "tc": 0,
                        "ttl": 16}
 
+        Create SEG6 tunnel encap mode (kernel >= 4.10)::
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6',
+                            'mode': 'encap',
+                            'segs': '2000::5,2000::6'})
+
+        Create SEG6 tunnel inline mode (kernel >= 4.10)::
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6',
+                            'mode': 'inline',
+                            'segs': ['2000::5', '2000::6']})
+
+        Create SEG6 tunnel inline mode with hmac (kernel >= 4.10)::
+
+            ip.route('add',
+                     dst='2001:0:0:22::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6',
+                            'mode': 'inline',
+                            'segs':'2000::5,2000::6,2000::7,2000::8',
+                            'hmac':0xf})
+
+        Create SEG6LOCAL tunnel End.DX4 action (kernel >= 4.14)::
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6local',
+                            'action': 'End.DX4',
+                            'nh4': '172.16.0.10'})
+
+        Create SEG6LOCAL tunnel End.DT6 action (kernel >= 4.14)::
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6local',
+                            'action': 'End.DT6',
+                            'table':'10'})
+
+        Create SEG6LOCAL tunnel End.B6 action (kernel >= 4.14)::
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6local',
+                            'action': 'End.B6',
+                            'srh':{'segs': '2000::5,2000::6'}})
+
+        Create SEG6LOCAL tunnel End.B6 action with hmac (kernel >= 4.14)::
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6local',
+                            'action': 'End.B6',
+                            'srh': {'segs': '2000::5,2000::6',
+                                    'hmac':0xf}})
+
         **change**, **replace**
 
         Commands `change` and `replace` have the same meanings, as

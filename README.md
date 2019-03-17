@@ -138,98 +138,10 @@ Some examples::
                     'mode': 'inline',
                     'segs': ['2000::5', '2000::6']})
 
-    # create SEG6 tunnel inline mode with hmac
-    # Kernel >= 4.10
-    ip.route('add',
-             dst='2001:0:0:22::2/128',
-             oif=idx,
-             encap={'type': 'seg6',
-                    'mode': 'inline',
-                    'segs':'2000::5,2000::6,2000::7,2000::8',
-                    'hmac':0xf})
-
-    # create SEG6LOCAL tunnel End.DX4 action
-    # Kernel >= 4.14
-    ip.route('add',
-             dst='2001:0:0:10::2/128',
-             oif=idx,
-             encap={'type': 'seg6local',
-                    'action': 'End.DX4',
-                    'nh4': '172.16.0.10'})
-
-    # create SEG6LOCAL tunnel End.DT6 action
-    # Kernel >= 4.14
-    ip.route('add',
-             dst='2001:0:0:10::2/128',
-             oif=idx,
-             encap={'type': 'seg6local',
-                    'action': 'End.DT6',
-                    'table':'10'})
-
-    # create SEG6LOCAL tunnel End.B6 action
-    # Kernel >= 4.14
-    ip.route('add',
-             dst='2001:0:0:10::2/128',
-             oif=idx,
-             encap={'type': 'seg6local',
-                    'action': 'End.B6',
-                    'srh':{'segs': '2000::5,2000::6'}})
-
-    # create SEG6LOCAL tunnel End.B6 action with hmac
-    # Kernel >= 4.14
-    ip.route('add',
-             dst='2001:0:0:10::2/128',
-             oif=idx,
-             encap={'type': 'seg6local',
-                    'action': 'End.B6',
-                    'srh': {'segs': '2000::5,2000::6',
-                            'hmac':0xf}})
 
     # release Netlink socket
     ip.close()
 
-
-High-level transactional interface, **IPDB**, a network settings DB::
-
-    from pyroute2 import IPDB
-    #
-    # The `with` statement automatically calls `IPDB.release()`
-    # in the case of an exception.
-    with IPDB() as ip:
-        #
-        # Create bridge and add ports and addresses.
-        #
-        # Transaction will be started by `with` statement
-        # and will be committed at the end of the block
-        with ip.create(kind='bridge', ifname='rhev') as i:
-            i.add_port('em1')
-            i.add_port('em2')
-            i.add_ip('10.0.0.2/24')
-        # --> <-- Here the system state is as described in
-        #         the transaction, if no error occurs. If
-        #         there is an error, all the changes will be
-        #         rolled back.
-
-The IPDB arch allows to use it transparently with network
-namespaces::
-
-    from pyroute2 import IPDB
-    from pyroute2 import NetNS
-
-    # Create IPDB to work with the 'test' ip netns.
-    #
-    # Pls notice, that IPDB itself will work in the
-    # main netns, only the netlink transport is
-    # working in the namespace `test`.
-    ip = IPDB(nl=NetNS('test'))
-
-    # Wait until someone will set up ipaddr 127.0.0.1
-    # in the netns on the loopback device
-    ip.interfaces.lo.wait_ip('127.0.0.1')
-
-    # The IPDB object must be released before exit to
-    # sync all the possible changes that are in progress.
-    ip.release()
 
 The project contains several modules for different types of
 netlink messages, not only RTNL.
@@ -249,16 +161,23 @@ Network namespace manipulation::
 
 Create **veth** interfaces pair and move to **netns**::
 
-    from pyroute2 import IPDB
+    from pyroute2 import IPRoute
 
-    ip = IPDB()
-    # create interface pair
-    ip.create(ifname='v0p0', kind='veth', peer='v0p1').commit()
-    # move peer to netns
-    with ip.interfaces.v0p1 as veth:
-        veth.net_ns_fd = 'test'
-    # don't forget to release before exit
-    ip.release()
+    with IPRoute() as ipr:
+
+        # create interface pair
+        ipr.link('add',
+                 ifname='v0p0',
+                 kind='veth',
+                 peer='v0p1')
+
+        # lookup the peer index
+        idx = ipr.link_lookup(ifname='v0p1')[0]
+
+        # move the peer to the 'test' netns:
+        ipr.link('set',
+                 index='v0p1',
+                 net_ns_fd='test')
 
 List interfaces in some **netns**::
 
@@ -281,8 +200,17 @@ Requirements
 
 Python >= 2.7
 
-The pyroute2 testing framework requires  **flake8**, **coverage**,
-**nosetests**.
+The pyroute2 testing framework requirements:
+* flake8
+* coverage
+* nosetests
+* sphinx
+
+Optional dependencies for testing:
+* eventlet
+* mitogen
+* bottle
+* team (http://libteam.org/)
 
 Links
 -----
