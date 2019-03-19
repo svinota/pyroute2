@@ -142,6 +142,39 @@ def listnetns(nspath=None):
             raise
 
 
+def ns_pids(nspath=NETNS_RUN_DIR):
+    '''
+    List pids in all netns
+
+    If a pid is in a unknown netns do not return it
+    '''
+    result = {}
+    ns_by_dev_inode = {}
+    for ns_name in listnetns(nspath=nspath):
+        ns_path = os.path.join(nspath, ns_name)
+        result[ns_name] = []
+        st = os.stat(ns_path)
+        if st.st_dev not in ns_by_dev_inode:
+            ns_by_dev_inode[st.st_dev] = {}
+        ns_by_dev_inode[st.st_dev][st.st_ino] = ns_name
+
+    for pid in os.listdir('/proc'):
+        if not pid.isdigit():
+            continue
+        try:
+            st = os.stat(os.path.join('/proc', pid, 'ns', 'net'))
+        except OSError as e:
+            if e.errno in (errno.EACCES, errno.ENOENT):
+                continue
+            raise
+        try:
+            ns_name = ns_by_dev_inode[st.st_dev][st.st_ino]
+        except KeyError:
+            continue
+        result[ns_name].append(int(pid))
+    return result
+
+
 def _create(netns, libc=None):
     libc = libc or ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
     netnspath = _get_netnspath(netns)
