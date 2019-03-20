@@ -47,7 +47,7 @@ from pyroute2.netlink.nfnetlink.nfctsocket import NFCTSocket
 # of them are optional, but some aren't. So catch possible
 # errors here.
 try:
-    from pyroute2.cli import Console
+    from pyroute2.cli.console import Console
     HAS_CONSOLE = True
 except ImportError:
     HAS_CONSOLE = False

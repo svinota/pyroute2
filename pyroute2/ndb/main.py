@@ -220,6 +220,7 @@ class Factory(dict):
     def add(self, **spec):
         spec['create'] = True
         return self[spec]
+    add.__cptr__ = True
 
     def __getitem__(self, key, table=None):
         #

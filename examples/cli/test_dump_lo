@@ -3,5 +3,5 @@
 !
 interfaces
     lo
-        dump
+        show
 

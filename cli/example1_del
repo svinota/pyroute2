@@ -1,8 +1,0 @@
-interfaces
-    testbr
-        remove
-    test01
-        remove
-    test02
-        remove
-commit
