@@ -24,6 +24,12 @@ class Token(object):
         if prohibit and self.kind in prohibit:
             raise SyntaxError('unexpected %s' % (self.name, ))
 
+    def convert(self, arg):
+        if re.match('^[0-9]+$', arg):
+            return int(arg)
+        else:
+            return arg
+
     def parse(self):
         # triage
         first = self.lex.get_token()
@@ -103,7 +109,7 @@ class Token(object):
                 if nt.kind == t_dict:
                     self.kwarg = nt.kwarg
                 elif nt.kind == t_stmt:
-                    self.argv.append(nt.name)
+                    self.argv.append(self.convert(nt.name))
                 else:
                     self.lex.push_token(nt.name)
                     return

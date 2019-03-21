@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import re
 import sys
 import code
 import socket
@@ -74,12 +73,6 @@ class Console(code.InteractiveConsole):
                                            .split('.')[0]),
                                           self.prompt)
 
-    def convert(self, arg):
-        if re.match('^[0-9]+$', arg):
-            return int(arg)
-        else:
-            return arg
-
     def handle_statement(self, stmt):
         obj = None
         if stmt.name == 'debug':
@@ -115,7 +108,7 @@ class Console(code.InteractiveConsole):
 
             if obj is None:
                 if isinstance(self.ptr, dict):
-                    self.ptr[stmt.name] = self.convert(stmt.argv[0])
+                    self.ptr[stmt.name] = stmt.argv[0]
                     return
                 else:
                     raise KeyError()
@@ -136,7 +129,7 @@ class Console(code.InteractiveConsole):
 
             if isinstance(obj, (basestring, int, float)):
                 if stmt.argv:
-                    self.ptr[stmt.name] = self.convert(stmt.argv[0])
+                    self.ptr[stmt.name] = stmt.argv[0]
                 else:
                     self.pprint(obj)
             else:
