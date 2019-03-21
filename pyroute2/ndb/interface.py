@@ -1,3 +1,4 @@
+import weakref
 from pyroute2.ndb.rtnl_object import RTNL_Object
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -18,14 +19,29 @@ class Interface(RTNL_Object):
               '''
     summary_header = ('target', 'flags', 'index', 'ifname', 'lladdr', 'flags')
 
-    def __init__(self, view, key, ctxid=None):
+    def __init__(self, *argv, **kwarg):
+        kwarg['iclass'] = ifinfmsg
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
         dict.__setitem__(self, 'flags', 0)
         dict.__setitem__(self, 'state', 'unknown')
-        if isinstance(key, dict) and key.get('create'):
-            if 'ifname' not in key:
+        if isinstance(argv[1], dict) and argv[1].get('create'):
+            if 'ifname' not in argv[1]:
                 raise Exception('specify at least ifname')
-        super(Interface, self).__init__(view, key, ifinfmsg, ctxid)
+        super(Interface, self).__init__(*argv, **kwarg)
+        self.ipaddr = (self
+                       .view
+                       .ndb
+                       ._get_view('addresses',
+                                  match_src=[weakref.proxy(self),
+                                             {'index': self.get('index', 0)}],
+                                  match_pairs={'index': 'index'}))
+        self.ports = (self
+                      .view
+                      .ndb
+                      ._get_view('interfaces',
+                                 match_src=[weakref.proxy(self),
+                                            {'index': self.get('index', 0)}],
+                                 match_pairs={'master': 'index'}))
 
     def complete_key(self, key):
         if isinstance(key, dict):

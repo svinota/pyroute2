@@ -46,9 +46,10 @@ class Route(RTNL_Object):
                                  f_target = NEW.f_target;
                       '''}
 
-    def __init__(self, view, key, ctxid=None):
+    def __init__(self, *argv, **kwarg):
+        kwarg['iclass'] = rtmsg
         self.event_map = {rtmsg: "load_rtnlmsg"}
-        super(Route, self).__init__(view, key, rtmsg, ctxid)
+        super(Route, self).__init__(*argv, **kwarg)
 
     def complete_key(self, key):
         if isinstance(key, dict):

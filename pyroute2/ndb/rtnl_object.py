@@ -84,11 +84,19 @@ class RTNL_Object(dict):
     msg_class = None
     reverse_update = None
 
-    def __init__(self, view, key, iclass, ctxid=None):
+    def __init__(self,
+                 view,
+                 key,
+                 iclass,
+                 ctxid=None,
+                 match_src=None,
+                 match_pairs=None):
         self.view = view
         self.sources = view.ndb.sources
         self.ctxid = ctxid or id(self)
         self.schema = view.ndb.schema
+        self.match_src = match_src or tuple()
+        self.match_pairs = match_pairs or dict()
         self.changed = set()
         self.iclass = iclass
         self.etable = self.table
@@ -129,6 +137,15 @@ class RTNL_Object(dict):
     def __hash__(self):
         return id(self)
 
+    def __getitem__(self, key):
+        if key in self.match_pairs:
+            for src in self.match_src:
+                try:
+                    return src[self.match_pairs[key]]
+                except:
+                    pass
+        return dict.__getitem__(self, key)
+
     def __setitem__(self, key, value):
         if value != self.get(key, None):
             self.changed.add(key)
@@ -157,7 +174,7 @@ class RTNL_Object(dict):
                 dict.__setitem__(self, self.iclass.nla2name(key), value)
 
     def snapshot(self, ctxid=None):
-        snp = type(self)(self.view, self.key, ctxid)
+        snp = type(self)(self.view, self.key, ctxid=ctxid)
         self.schema.save_deps(snp.ctxid, weakref.ref(snp), self.iclass)
         snp.etable = '%s_%s' % (snp.table, snp.ctxid)
         snp.changed = set(self.changed)
@@ -330,7 +347,15 @@ class RTNL_Object(dict):
 
         #
         if state == 'invalid':
-            api('add', **dict([x for x in self.items() if x[1] is not None]))
+            req = dict([x for x in self.items() if x[1] is not None])
+            for l_key, r_key in self.match_pairs.items():
+                for src in self.match_src:
+                    try:
+                        req[l_key] = src[r_key]
+                        break
+                    except:
+                        pass
+            api('add', **req)
         elif state == 'system':
             api('set', **req)
         elif state == 'remove':

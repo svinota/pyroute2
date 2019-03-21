@@ -210,9 +210,11 @@ class Factory(dict):
                'routes': Route,
                'neighbours': Neighbour}
 
-    def __init__(self, ndb, table):
+    def __init__(self, ndb, table, match_src=None, match_pairs=None):
         self.ndb = ndb
         self.table = table
+        self.match_src = match_src
+        self.match_pairs = match_pairs
 
     def get(self, key, table=None):
         return self.__getitem__(key, table)
@@ -241,7 +243,10 @@ class Factory(dict):
                 raise
 
         iclass = self.classes[table or self.table]
-        ret = iclass(self, key)
+        ret = iclass(self,
+                     key,
+                     match_src=self.match_src,
+                     match_pairs=self.match_pairs)
         wr = weakref.ref(ret)
         self.ndb._rtnl_objects.add(wr)
         for event, fname in ret.event_map.items():
@@ -277,7 +282,17 @@ class Factory(dict):
         keys = self.ndb.schema.compiled[iclass.view or iclass.table]['names']
         values = []
 
-        if isinstance(match, dict):
+        match = match or {}
+        if self.match_src and self.match_pairs:
+            for l_key, r_key in self.match_pairs.items():
+                for src in self.match_src:
+                    try:
+                        match[l_key] = src[r_key]
+                        break
+                    except:
+                        pass
+
+        if match:
             spec = ' WHERE '
             conditions = []
             for key, value in match.items():
@@ -539,6 +554,9 @@ class NDB(object):
         self.vlans = Factory(self, 'vlan')
         self.bridges = Factory(self, 'bridge')
         self.query = Query(self.schema)
+
+    def _get_view(self, name, match_src=None, match_pairs=None):
+        return Factory(self, name, match_src, match_pairs)
 
     def __enter__(self):
         return self
