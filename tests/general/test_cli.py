@@ -119,7 +119,7 @@ class TestPopen(TestBasic):
     def setup(self):
         self.ipdb = IPDB()
         self.io = io.BytesIO()
-        self.con = subprocess.Popen(['python', '%s/bin/ipdb' % TMPDIR],
+        self.con = subprocess.Popen(['python', '%s/bin/pyroute2-cli' % TMPDIR],
                                     stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
