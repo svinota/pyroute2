@@ -28,7 +28,7 @@ function deploy() {
         make dist >/dev/null
         mkdir "$TOP/tests/bin/"
         cp -a "$TOP/examples" "$TOP/tests/"
-        cp -a "$TOP/cli/ipdb" "$TOP/tests/bin/"
+        cp -a "$TOP/cli/pyroute2-cli" "$TOP/tests/bin/"
         cp -a "$TOP/cli/ss2" "$TOP/tests/bin/"
         cd "$TOP/dist"
         tar xf *
