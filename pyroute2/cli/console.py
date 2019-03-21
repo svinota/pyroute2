@@ -126,9 +126,9 @@ class Console(code.InteractiveConsole):
                     if hasattr(obj, '__cptr__'):
                         obj = ret
                     else:
-                        if hasattr(ret, 'generator'):
+                        if hasattr(ret, 'generator') or hasattr(ret, 'next'):
                             for line in ret:
-                                self.lprint(line)
+                                self.pprint(line)
                         return
                 except:
                     self.showtraceback()
