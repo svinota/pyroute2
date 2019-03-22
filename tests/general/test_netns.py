@@ -409,6 +409,28 @@ class TestNetNS(object):
 
         assert success[0]
 
+    def test_ns_pids(self):
+        def waiting_child(fd):
+            while True:
+                if not os.read(fd, 32):
+                    exit(0)
+
+        require_user('root')
+        foo = str(uuid4())
+        netnsmod.create(foo)
+        netnsmod.pushns(foo)
+        foo_pid, foo_fd = os.forkpty()
+        if not foo_pid:
+            waiting_child(foo_fd)
+        netnsmod.popns()
+
+        pids = netnsmod.ns_pids()
+        try:
+            assert pids[foo] == [foo_pid]
+        finally:
+            os.close(foo_fd)
+            netnsmod.remove(foo)
+
 
 def _ns_worker(netns_path, worker_index, success):
     with IPRoute() as ip, NetNS(netns_path) as ns:
