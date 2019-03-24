@@ -130,12 +130,22 @@ for i in `seq $LOOP`; do
         tst1=`date +%s`
         uuid=`python -c "import uuid; print(str(uuid.uuid4()))"`
         echo "[$tst1][$uuid][$i/$LOOP]"
-        $PYTHON $WLEVEL "$NOSE_PATH" -P -v $PDB \
-            --with-coverage \
-            --with-xunit \
-            --cover-package=pyroute2 \
-            $SKIP_TESTS \
-            $COVERAGE $module/$SUBMODULE 2>&1 | tee tests.log
+        if [ -z "$PDB" ]; then {
+            $PYTHON $WLEVEL "$NOSE_PATH" -P -v \
+                --with-coverage \
+                --with-xunit \
+                --cover-package=pyroute2 \
+                $SKIP_TESTS \
+                $COVERAGE $module/$SUBMODULE 2>&1 | tee tests.log
+        } else {
+            echo "tests log is not available with pdb" >tests.log
+            $PYTHON $WLEVEL "$NOSE_PATH" -P -v $PDB \
+                --with-coverage \
+                --with-xunit \
+                --cover-package=pyroute2 \
+                $SKIP_TESTS \
+                $COVERAGE $module/$SUBMODULE 2>&1
+        } fi
         ret=${PIPESTATUS[0]}
         [ $ret -eq 0 ] || {
             errors=$(($errors + 1))
