@@ -19,6 +19,7 @@ class Neighbour(RTNL_Object):
                   n.f_ifindex = i.f_index
                   AND n.f_target = i.f_target
               '''
+    table_alias = 'n'
     summary_header = ('target', 'flags', 'ifname', 'lladdr', 'neighbour')
 
     def __init__(self, *argv, **kwarg):

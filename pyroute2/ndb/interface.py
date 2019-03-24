@@ -12,11 +12,12 @@ class Interface(RTNL_Object):
     key_extra_fields = ['IFLA_IFNAME']
     summary = '''
               SELECT
-                  f_target, f_tflags, f_index, f_IFLA_IFNAME,
-                  f_IFLA_ADDRESS, f_flags
+                  a.f_target, a.f_tflags, a.f_index, a.f_IFLA_IFNAME,
+                  a.f_IFLA_ADDRESS, a.f_flags
               FROM
-                  interfaces
+                  interfaces AS a
               '''
+    table_alias = 'a'
     summary_header = ('target', 'flags', 'index', 'ifname', 'lladdr', 'flags')
 
     def __init__(self, *argv, **kwarg):

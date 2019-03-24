@@ -19,6 +19,7 @@ class Address(RTNL_Object):
                   a.f_index = i.f_index
                   AND a.f_target = i.f_target
               '''
+    table_alias = 'a'
     summary_header = ('target', 'flags', 'ifname', 'address', 'mask')
     reverse_update = {'table': 'addresses',
                       'name': 'addresses_f_tflags',

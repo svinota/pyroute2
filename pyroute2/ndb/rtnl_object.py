@@ -66,6 +66,7 @@ class RTNL_Object(dict):
     view = None    # (optional) view to load values for the summary etc.
     etable = None  # effective table -- may be a snapshot
     utable = None  # table to send updates to
+    table_alias = ''
 
     key = None
     key_extra_fields = []

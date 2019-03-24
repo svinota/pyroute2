@@ -22,6 +22,7 @@ class Route(RTNL_Object):
                   rt.f_route_id = nh.f_route_id
                   AND rt.f_target = nh.f_target
               '''
+    table_alias = 'rt'
     summary_header = ('target', 'flags', 'table', 'dst',
                       'dst_len', 'gateway', 'nexthop')
     dump = '''

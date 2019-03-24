@@ -280,31 +280,8 @@ class Factory(dict):
         iclass = self.classes[self.table]
         cls = iclass.msg_class or self.ndb.schema.classes[iclass.table]
         keys = self.ndb.schema.compiled[iclass.view or iclass.table]['names']
-        values = []
 
-        match = match or {}
-        if self.match_src and self.match_pairs:
-            for l_key, r_key in self.match_pairs.items():
-                for src in self.match_src:
-                    try:
-                        match[l_key] = src[r_key]
-                        break
-                    except:
-                        pass
-
-        if match:
-            spec = ' WHERE '
-            conditions = []
-            for key, value in match.items():
-                if cls.name2nla(key) in keys:
-                    key = cls.name2nla(key)
-                if key not in keys:
-                    raise KeyError('key %s not found' % key)
-                conditions.append('rs.f_%s = %s' % (key, self.ndb.schema.plch))
-                values.append(value)
-            spec = ' WHERE %s' % ' AND '.join(conditions)
-        else:
-            spec = ''
+        spec, values = self._match(match, cls, keys, iclass.table_alias)
         if iclass.dump and iclass.dump_header:
             yield iclass.dump_header
             with self.ndb.schema.db_lock:
@@ -323,8 +300,10 @@ class Factory(dict):
                 for record in (self
                                .ndb
                                .schema
-                               .execute('SELECT * FROM %s AS rs %s'
-                                        % (iclass.view or iclass.table, spec),
+                               .execute('SELECT * FROM %s AS %s %s'
+                                        % (iclass.view or iclass.table,
+                                           iclass.table_alias,
+                                           spec),
                                         values)):
                     yield record
 
@@ -342,15 +321,19 @@ class Factory(dict):
                     row.append("'%s'" % field)
             yield ','.join(row)
 
-    def _summary(self):
+    def _summary(self, match=None):
         iclass = self.classes[self.table]
+        cls = iclass.msg_class or self.ndb.schema.classes[iclass.table]
+        keys = self.ndb.schema.compiled[iclass.view or iclass.table]['names']
+
+        spec, values = self._match(match, cls, keys, iclass.table_alias)
         if iclass.summary is not None:
             if iclass.summary_header is not None:
                 yield iclass.summary_header
             for record in (self
                            .ndb
                            .schema
-                           .fetch(iclass.summary)):
+                           .fetch(iclass.summary + spec, values)):
                 yield record
         else:
             header = tuple(['f_%s' % x for x in
@@ -361,10 +344,40 @@ class Factory(dict):
             for record in (self
                            .ndb
                            .schema
-                           .fetch('SELECT %s FROM %s'
+                           .fetch('SELECT %s FROM %s AS %s %s'
                                   % (key_fields,
-                                     iclass.view or iclass.table))):
+                                     iclass.view or iclass.table,
+                                     iclass.table_alias,
+                                     spec), values)):
                 yield record
+
+    def _match(self, match, cls, keys, alias):
+        values = []
+        match = match or {}
+        if self.match_src and self.match_pairs:
+            for l_key, r_key in self.match_pairs.items():
+                for src in self.match_src:
+                    try:
+                        match[l_key] = src[r_key]
+                        break
+                    except:
+                        pass
+
+        if match:
+            spec = ' WHERE '
+            conditions = []
+            for key, value in match.items():
+                if cls.name2nla(key) in keys:
+                    key = cls.name2nla(key)
+                if key not in keys:
+                    raise KeyError('key %s not found' % key)
+                conditions.append('%s.f_%s = %s' % (alias, key,
+                                                    self.ndb.schema.plch))
+                values.append(value)
+            spec = ' WHERE %s' % ' AND '.join(conditions)
+        else:
+            spec = ''
+        return spec, values
 
     def csv(self, *argv, **kwarg):
         return Report(self._csv(*argv, **kwarg))
