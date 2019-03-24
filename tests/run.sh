@@ -150,7 +150,7 @@ for i in `seq $LOOP`; do
         [ $ret -eq 0 ] || {
             errors=$(($errors + 1))
         }
-        mv nosetests.xml xunit-$module.xmla
+        mv nosetests.xml xunit-$module.xml
         tst2=`date +%s`
         [ $i -eq 1 ] && d=1 || d=2
         rtime=$(($tst2 - $tst1))
