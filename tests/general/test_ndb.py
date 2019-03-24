@@ -68,7 +68,7 @@ class TestBase(object):
 
             ipr.link('add',
                      ifname=if_vlan_stag,
-                     link=ret[-1],
+                     link=self.ndb.interfaces[if_dummy]['index'],
                      vlan_id=101,
                      vlan_protocol=0x88a8,
                      kind='vlan')
@@ -77,7 +77,7 @@ class TestBase(object):
 
             ipr.link('add',
                      ifname=if_vlan_ctag,
-                     link=ret[-1],
+                     link=self.ndb.interfaces[if_vlan_stag]['index'],
                      vlan_id=1001,
                      vlan_protocol=0x8100,
                      kind='vlan')
@@ -94,8 +94,21 @@ class TestBase(object):
                      ifname=if_bridge,
                      kind='bridge')
             self.ndb.wait({'interfaces': [{'ifname': if_bridge}]})
+            ipr.link('set',
+                     index=self.ndb.interfaces[if_port]['index'],
+                     master=self.ndb.interfaces[if_bridge]['index'])
             ret.append(self.ndb.interfaces[if_bridge]['index'])
-            ipr.link('set', index=ret[-2], master=ret[-1])
+            ipr.addr('add',
+                     index=self.ndb.interfaces[if_bridge]['index'],
+                     address='192.168.13.24',
+                     prefixlen=24)
+            ipr.addr('add',
+                     index=self.ndb.interfaces[if_bridge]['index'],
+                     address='192.168.13.25',
+                     prefixlen=24)
+            self.ndb.wait({'addresses': [{'address': '192.168.13.24'},
+                                         {'address': '192.168.13.25'}]})
+            self.if_bridge = if_bridge
             return ret
 
     def setup(self):
@@ -587,3 +600,21 @@ class TestReports(TestBase):
 
         for record in self.ndb.routes.csv():
             assert len(record.split(',')) == record_length
+
+    def test_nested_ipaddr(self):
+        records = len(repr(self
+                           .ndb
+                           .interfaces[self.if_bridge]
+                           .ipaddr
+                           .summary()).split('\n'))
+        # 2 ipaddr + header
+        assert records == 3
+
+    def test_nested_ports(self):
+        records = len(repr(self
+                           .ndb
+                           .interfaces[self.if_bridge]
+                           .ports
+                           .summary()).split('\n'))
+        # 1 port + header
+        assert records == 2
