@@ -75,6 +75,8 @@ clean: clean-version
 	@rm -rf tests/bin
 	@rm -rf tests/pyroute2
 	@rm -f  tests/*xml
+	@rm -f  tests/tests.json
+	@rm -f  tests/tests.log
 	@rm -rf pyroute2.egg-info
 	@rm -f python-pyroute2.spec
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
