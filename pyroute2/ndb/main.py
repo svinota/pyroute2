@@ -367,13 +367,23 @@ class Factory(dict):
             spec = ' WHERE '
             conditions = []
             for key, value in match.items():
+                keyc = []
                 if cls.name2nla(key) in keys:
-                    key = cls.name2nla(key)
-                if key not in keys:
+                    keyc.append(cls.name2nla(key))
+                if key in keys:
+                    keyc.append(key)
+                if not keyc:
                     raise KeyError('key %s not found' % key)
-                conditions.append('%s.f_%s = %s' % (alias, key,
-                                                    self.ndb.schema.plch))
-                values.append(value)
+                if len(keyc) == 1:
+                    conditions.append('%s.f_%s = %s' % (alias, keyc[0],
+                                                        self.ndb.schema.plch))
+                    values.append(value)
+                elif len(keyc) == 2:
+                    conditions.append('(%s.f_%s = %s OR %s.f_%s = %s)'
+                                      % (alias, keyc[0], self.ndb.schema.plch,
+                                         alias, keyc[1], self.ndb.schema.plch))
+                    values.append(value)
+                    values.append(value)
             spec = ' WHERE %s' % ' AND '.join(conditions)
         else:
             spec = ''
