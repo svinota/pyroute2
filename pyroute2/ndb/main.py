@@ -333,7 +333,7 @@ class Factory(dict):
             for record in (self
                            .ndb
                            .schema
-                           .fetch(iclass.summary + spec, values)):
+                           .execute(iclass.summary + spec, values)):
                 yield record
         else:
             header = tuple(['f_%s' % x for x in
@@ -344,11 +344,11 @@ class Factory(dict):
             for record in (self
                            .ndb
                            .schema
-                           .fetch('SELECT %s FROM %s AS %s %s'
-                                  % (key_fields,
-                                     iclass.view or iclass.table,
-                                     iclass.table_alias,
-                                     spec), values)):
+                           .execute('SELECT %s FROM %s AS %s %s'
+                                    % (key_fields,
+                                       iclass.view or iclass.table,
+                                       iclass.table_alias,
+                                       spec), values)):
                 yield record
 
     def _match(self, match, cls, keys, alias):
