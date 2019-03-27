@@ -34,15 +34,33 @@ class Interface(RTNL_Object):
                        .ndb
                        ._get_view('addresses',
                                   match_src=[weakref.proxy(self),
-                                             {'index': self.get('index', 0)}],
+                                             {'index':
+                                              self.get('index', 0)}],
                                   match_pairs={'index': 'index'}))
         self.ports = (self
                       .view
                       .ndb
                       ._get_view('interfaces',
                                  match_src=[weakref.proxy(self),
-                                            {'index': self.get('index', 0)}],
+                                            {'index':
+                                             self.get('index', 0)}],
                                  match_pairs={'master': 'index'}))
+        self.routes = (self
+                       .view
+                       .ndb
+                       ._get_view('routes',
+                                  match_src=[weakref.proxy(self),
+                                             {'index':
+                                              self.get('index', 0)}],
+                                  match_pairs={'oif': 'index'}))
+        self.neighbours = (self
+                           .view
+                           .ndb
+                           ._get_view('neighbours',
+                                      match_src=[weakref.proxy(self),
+                                                 {'index':
+                                                  self.get('index', 0)}],
+                                      match_pairs={'ifindex': 'index'}))
 
     def complete_key(self, key):
         if isinstance(key, dict):
