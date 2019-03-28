@@ -11,6 +11,7 @@ from io import BytesIO
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from pyroute2 import config
+from pyroute2 import netns as netnsmod
 from pyroute2.netlink.nlsocket import NetlinkMixin
 if config.uname[0][-3:] == 'BSD':
     from pyroute2.iproute.bsd import IPRoute
@@ -97,7 +98,7 @@ class ProxyChannel(object):
                                  'error': None})
 
 
-def Server(trnsp_in, trnsp_out):
+def Server(trnsp_in, trnsp_out, netns=None):
 
     def stop_server(signum, frame):
         Server.run = False
@@ -106,6 +107,8 @@ def Server(trnsp_in, trnsp_out):
     signal.signal(signal.SIGTERM, stop_server)
 
     try:
+        if netns is not None:
+            netnsmod.setns(netns)
         ipr = IPRoute()
         lock = ipr._sproxy.lock
         ipr._s_channel = ProxyChannel(trnsp_out, 'broadcast')
