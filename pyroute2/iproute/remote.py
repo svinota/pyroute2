@@ -75,7 +75,7 @@ class Channel(object):
 
 
 @mitogen.core.takes_router
-def MitogenServer(ch_out, router):
+def MitogenServer(ch_out, netns, router):
 
     ch_in = mitogen.core.Receiver(router)
     ch_out.send(ch_in.to_sender())
@@ -84,7 +84,7 @@ def MitogenServer(ch_out, router):
     trnsp_in.file_obj.start()
     trnsp_out = Transport(Channel(ch_out))
 
-    return Server(trnsp_in, trnsp_out)
+    return Server(trnsp_in, trnsp_out, netns)
 
 
 class RemoteIPRoute(RTNL_API, RemoteSocket):
@@ -99,14 +99,19 @@ class RemoteIPRoute(RTNL_API, RemoteSocket):
         else:
             self._mitogen_broker = mitogen.master.Broker()
             self._mitogen_router = mitogen.master.Router(self._mitogen_broker)
-        self._mitogen_protocol = kwarg.pop('protocol', 'local')
+
+        netns = kwarg.get('netns', None)
+        if 'context' in kwarg:
+            context = kwarg['context']
+        else:
+            protocol = kwarg.pop('protocol', 'local')
+            context = getattr(self._mitogen_router, protocol)(*argv, **kwarg)
         try:
-            context = getattr(self._mitogen_router,
-                              self._mitogen_protocol)(*argv, **kwarg)
             ch_in = mitogen.core.Receiver(self._mitogen_router,
                                           respondent=context)
             self._mitogen_call = context.call_async(MitogenServer,
-                                                    ch_out=ch_in.to_sender())
+                                                    ch_out=ch_in.to_sender(),
+                                                    netns=netns)
             ch_out = ch_in.get().unpickle()
             super(RemoteIPRoute, self).__init__(Transport(Channel(ch_in)),
                                                 Transport(Channel(ch_out)))
