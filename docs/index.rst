@@ -22,6 +22,8 @@ Usage
 
     usage
     iproute
+    remote
+    ndb
     ipdb
     wiset
     ipset
@@ -42,7 +44,6 @@ Development
 .. toctree::
     :maxdepth: 2
 
-    ndb
     devcontribute
     arch
     netlink

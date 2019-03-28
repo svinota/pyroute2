@@ -2,47 +2,50 @@
 NDB
 ===
 
-An experimental module that may obsolete IPDB.
+An experimental high-level RTNL management module.
+
+.. warning::
+    And it means really experimental.
 
 Examples::
 
     from pyroute2 import NDB
     from pprint import pprint
 
-    ndb = NDB()
-    # ...
-    for line ndb.routes.csv():
-        print(line)
-    # ...
-    for record in ndb.interfaces.summary():
-        print(record)
-    # ...
-    pprint(ndb.interfaces['eth0'])
+    with NDB() as ndb:
+        # ...
+        for line ndb.routes.csv():
+            print(line)
+        # ...
+        for record in ndb.interfaces.summary():
+            print(record)
+        # ...
+        pprint(ndb.interfaces['eth0'])
 
-    # ...
-    pprint(ndb.interfaces[{'target': 'localhost',
-                           'ifname': 'eth0'}])
+        # ...
+        pprint(ndb.interfaces[{'target': 'localhost',
+                               'ifname': 'eth0'}])
 
-    #
-    # change object parameters
-    #
-    eth0 = ndb.interfaces['eth0']
-    eth0['state'] = 'up'
-    eth0.commit()
+        #
+        # change object parameters
+        #
+        eth0 = ndb.interfaces['eth0']
+        eth0['state'] = 'up'
+        eth0.commit()
 
-    #
-    # create objects
-    #
-    test0 = ndb.interfaces.add(ifname='test0', kind='dummy')
-    test0.commit()
-    # ...
-    test0.remove()
-    test0.commit()
+        #
+        # create objects
+        #
+        test0 = ndb.interfaces.add(ifname='test0', kind='dummy')
+        test0.commit()
+        # ...
+        test0.remove()
+        test0.commit()
 
-    #
-    # it is mandatory to call close()
-    #
-    ndb.close()
+        #
+        # it is mandatory to call ndb.close() or to use NDB
+        # as a context manager
+        #
 
 Difference with IPDB
 --------------------
@@ -69,7 +72,15 @@ Multiple sources::
 
     # NDB supports the context protocol, close() is called automatically
     with NDB(sources=sources) as ndb:
-        # ...
+        # local interface
+        print(ndb.interfaces[{'target': 'localhost',
+                              'ifname': 'eth0'}])
+        # remote interface
+        print(ndb.interfaces[{'target': 'openbsd.test',
+                              'ifname': 'ix0'}])
+        # all the interfaces
+        for i in ndb.interfaces.summary():
+            print(i)
 
 NDB stores all the data in an SQL database and creates objects on
 demand. Statements like `ndb.interfaces['eth0']` create a new object
