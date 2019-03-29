@@ -36,7 +36,8 @@ supported_kinds = ('bridge',
                    'macvlan',
                    'macvtap',
                    'ipvlan',
-                   'vrf')
+                   'vrf',
+                   'vti')
 
 groups = rtnl.RTMGRP_LINK |\
     rtnl.RTMGRP_NEIGH |\
