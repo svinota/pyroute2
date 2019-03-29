@@ -9,6 +9,16 @@ import logging
 
 ##
 #
+# Windows platform specific: socket module monkey patching
+#
+# To start library on Windows, run::
+#   pip install win-inet-pton
+#
+if sys.platform.startswith('win'):  # noqa: E402
+    import win_inet_pton            # noqa: F401
+
+##
+#
 # Platform independent modules
 #
 from pyroute2.ipdb.exceptions import (DeprecationException,

@@ -126,6 +126,7 @@ same type in one message, that's why we can not make a dictionary
 from them -- unlike PF_ROUTE messages.
 
 '''
+import sys
 from pyroute2 import config
 from pyroute2.common import failed_class
 from pyroute2.iproute.linux import RTNL_API
@@ -142,7 +143,10 @@ try:
 except ImportError:
     RemoteIPRoute = failed_class('missing mitogen library')
 
-if config.uname[0][-3:] == 'BSD':
+if sys.platform.startswith('win'):
+    from pyroute2.iproute.windows import IPRoute
+    from pyroute2.iproute.windows import RawIPRoute
+elif config.uname[0][-3:] == 'BSD':
     from pyroute2.iproute.bsd import IPRoute
     from pyroute2.iproute.bsd import RawIPRoute
 else:
