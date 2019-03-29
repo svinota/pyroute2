@@ -1,3 +1,4 @@
+import sys
 import types
 from pyroute2 import config
 from pyroute2.common import Namespace
@@ -10,14 +11,15 @@ from pyroute2.netlink.nlsocket import BatchSocket
 from pyroute2.netlink import rtnl
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 
-if config.kernel < [3, 3, 0]:
-    from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_newlink
-    from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_setlink
-    from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_dellink
-    from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_linkinfo
-else:
-    from pyroute2.netlink.rtnl.ifinfmsg.proxy import proxy_newlink
-    from pyroute2.netlink.rtnl.ifinfmsg.proxy import proxy_setlink
+if sys.platform.startswith('linux'):
+    if config.kernel < [3, 3, 0]:
+        from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_newlink
+        from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_setlink
+        from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_dellink
+        from pyroute2.netlink.rtnl.ifinfmsg.compat import proxy_linkinfo
+    else:
+        from pyroute2.netlink.rtnl.ifinfmsg.proxy import proxy_newlink
+        from pyroute2.netlink.rtnl.ifinfmsg.proxy import proxy_setlink
 
 
 class IPRSocketMixin(object):
@@ -29,22 +31,26 @@ class IPRSocketMixin(object):
                                              all_ns=all_ns)
         self.marshal = MarshalRtnl()
         self._s_channel = None
-        send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000, 0x1ffff),
-                                   'monitor': False})
-        self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
-        self._sproxy.pmap = {rtnl.RTM_NEWLINK: proxy_newlink,
-                             rtnl.RTM_SETLINK: proxy_setlink}
-        if config.kernel < [3, 3, 0]:
-            self._recv_ns = Namespace(self,
-                                      {'addr_pool': AddrPool(0x20000, 0x2ffff),
+        if sys.platform.startswith('linux'):
+            self._gate = self._gate_linux
+            send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000,
+                                                             0x1ffff),
                                        'monitor': False})
-            self._sproxy.pmap[rtnl.RTM_DELLINK] = proxy_dellink
-            # inject proxy hooks into recv() and...
-            self.__recv = self._recv
-            self._recv = self._p_recv
-            # ... recv_into()
-            self._recv_ft = self.recv_ft
-            self.recv_ft = self._p_recv_ft
+            self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
+            self._sproxy.pmap = {rtnl.RTM_NEWLINK: proxy_newlink,
+                                 rtnl.RTM_SETLINK: proxy_setlink}
+            if config.kernel < [3, 3, 0]:
+                self._recv_ns = Namespace(self,
+                                          {'addr_pool': AddrPool(0x20000,
+                                                                 0x2ffff),
+                                           'monitor': False})
+                self._sproxy.pmap[rtnl.RTM_DELLINK] = proxy_dellink
+                # inject proxy hooks into recv() and...
+                self.__recv = self._recv
+                self._recv = self._p_recv
+                # ... recv_into()
+                self._recv_ft = self.recv_ft
+                self.recv_ft = self._p_recv_ft
 
     def clone(self):
         return type(self)(sndbuf=self._sndbuf, rcvbuf=self._rcvbuf)
@@ -52,7 +58,7 @@ class IPRSocketMixin(object):
     def bind(self, groups=rtnl.RTMGRP_DEFAULTS, **kwarg):
         super(IPRSocketMixin, self).bind(groups, **kwarg)
 
-    def _gate(self, msg, addr):
+    def _gate_linux(self, msg, addr):
         msg.reset()
         msg.encode()
         ret = self._sproxy.handle(msg)
