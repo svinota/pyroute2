@@ -1,6 +1,17 @@
 Changelog
 =========
 
+* 0.5.5
+    * nftables: rules expressions
+        * <https://github.com/svinota/pyroute2/pull/592>
+    * netns: ns_pids
+        * <https://github.com/svinota/pyroute2/pull/593>
+    * ndb: wait() method
+    * ndb: add extra logging, log state transitions
+    * ndb: nested views, e.g. `ndb.interfaces['br0'].ports
+    * cli: port pyroute2-cli to use NDB instead of IPDB
+    * iproute: basic Windows support (proof of concept only)
+    * remote: support mitogen proxy chains, support remote netns
 * 0.5.4
     * iproute: basic SR-IOV support, virtual functions setup
     * ipdb: shutdown logging fixed
