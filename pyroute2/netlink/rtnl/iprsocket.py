@@ -33,6 +33,7 @@ class IPRSocketMixin(object):
         self._s_channel = None
         if sys.platform.startswith('linux'):
             self._gate = self._gate_linux
+            self.sendto_gate = self._gate_linux
             send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000,
                                                              0x1ffff),
                                        'monitor': False})
