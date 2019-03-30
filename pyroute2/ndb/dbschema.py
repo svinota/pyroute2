@@ -20,9 +20,6 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
 from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 
-# ifinfo plugins
-from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import vlan
-
 # rtnl objects
 from pyroute2.ndb.route import Route
 from pyroute2.ndb.route import NextHop
@@ -30,6 +27,14 @@ from pyroute2.ndb.address import Address
 
 log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 5
+ifinfo_names = ('bridge',
+                'bond',
+                'vlan',
+                'vxlan',
+                'gre',
+                'vti',
+                'vti6')
+supported_ifinfo = {x: ifinfmsg.ifinfo.data_map[x] for x in ifinfo_names}
 
 
 def db_lock(method):
@@ -58,14 +63,6 @@ class DBSchema(object):
     spec['nh'] = OrderedDict(nh.sql_schema() +
                              [(('route_id', ), 'TEXT'),
                               (('nh_id', ), 'INTEGER')])
-    # ifinfo tables
-    spec['ifinfo_vlan'] = OrderedDict(vlan.sql_schema() +
-                                      [(('index', ), 'BIGINT')])
-    spec['ifinfo_bridge'] = OrderedDict(ifinfmsg
-                                        .ifinfo
-                                        .bridge_data
-                                        .sql_schema() +
-                                        [(('index', ), 'BIGINT')])
     # additional tables
     spec['p2p'] = OrderedDict(p2pmsg.sql_schema())
 
@@ -74,8 +71,6 @@ class DBSchema(object):
                'neighbours': ndmsg,
                'routes': rtmsg,
                'nh': nh,
-               'ifinfo_vlan': vlan,
-               'ifinfo_bridge': ifinfmsg.ifinfo.bridge_data,
                'p2p': p2pmsg}
 
     #
@@ -84,8 +79,6 @@ class DBSchema(object):
     # one loop to fetch both index and row values
     #
     indices = {'interfaces': ('index', ),
-               'ifinfo_vlan': ('index', ),
-               'ifinfo_bridge': ('index', ),
                'vlan': ('index', ),
                'bridge': ('index', ),
                'p2p': ('index', ),
@@ -148,23 +141,6 @@ class DBSchema(object):
                                               'f_index'),
                             'parent': 'interfaces'}],
                     #
-                    # ifinfo tables
-                    #
-                    'ifinfo_vlan': [{'fields': ('f_target',
-                                                'f_tflags',
-                                                'f_index'),
-                                     'parent_fields': ('f_target',
-                                                       'f_tflags',
-                                                       'f_index'),
-                                     'parent': 'interfaces'}],
-                    'ifinfo_bridge': [{'fields': ('f_target',
-                                                  'f_tflags',
-                                                  'f_index'),
-                                       'parent_fields': ('f_target',
-                                                         'f_tflags',
-                                                         'f_index'),
-                                       'parent': 'interfaces'}],
-                    #
                     # additional tables
                     #
                     'p2p': [{'fields': ('f_target',
@@ -174,6 +150,32 @@ class DBSchema(object):
                                                'f_tflags',
                                                'f_index'),
                              'parent': 'interfaces'}]}
+
+    #
+    # load supported ifinfo
+    #
+    for (name, data) in supported_ifinfo.items():
+        name = 'ifinfo_%s' % name
+        #
+        # classes
+        #
+        classes[name] = data
+        #
+        # indices
+        #
+        indices[name] = ('index', )
+        #
+        # spec
+        #
+        spec[name] = \
+            OrderedDict(data.sql_schema() + [(('index', ), 'BIGINT')])
+        #
+        # foreign keys
+        #
+        foreign_keys[name] = \
+            [{'fields': ('f_target', 'f_tflags', 'f_index'),
+              'parent_fields': ('f_target', 'f_tflags', 'f_index'),
+              'parent': 'interfaces'}]
 
     def __init__(self, connection, mode, rtnl_log, tid):
         self.mode = mode

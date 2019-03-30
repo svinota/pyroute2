@@ -699,6 +699,7 @@ class ifinfbase(object):
                        ('IFLA_IP6TNL_FWMARK', 'uint32'))
 
         class gre_data(nla):
+            prefix = 'IFLA_'
             nla_map = (('IFLA_GRE_UNSPEC', 'none'),
                        ('IFLA_GRE_LINK', 'uint32'),
                        ('IFLA_GRE_IFLAGS', 'gre_flags'),
