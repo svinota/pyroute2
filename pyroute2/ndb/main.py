@@ -564,7 +564,7 @@ class NDB(object):
         #
         # fix sources prime
         if sources is None:
-            self._nl = {'localhost': IPRoute()}
+            self._nl = {'localhost': {'class': IPRoute}}
         elif isinstance(sources, NetlinkMixin):
             self._nl = {'localhost': sources}
         elif isinstance(sources, dict):
