@@ -567,9 +567,9 @@ class DBSchema(object):
                          (target, ))
 
     @db_lock
-    def save_deps(self, objid, wref, iclass):
+    def save_deps(self, ctxid, weak_ref, iclass):
         uuid = uuid32()
-        obj = wref()
+        obj = weak_ref()
         idx = self.indices[obj.table]
         conditions = []
         values = []
@@ -612,7 +612,7 @@ class DBSchema(object):
                          WHERE
                              f_tflags IS NULL
                          '''
-                         % (table, objid, table))
+                         % (table, ctxid, table))
             #
             # copy the data -- is it possible to do it in one step?
             #
@@ -622,11 +622,11 @@ class DBSchema(object):
                          WHERE
                              f_tflags = %s
                          '''
-                         % (table, objid, table, self.plch),
+                         % (table, ctxid, table, self.plch),
                          [uuid])
 
             if table.startswith('ifinfo_'):
-                self.create_ifinfo_view(table, objid)
+                self.create_ifinfo_view(table, ctxid)
         #
         # unmark all the data
         #
@@ -642,9 +642,9 @@ class DBSchema(object):
         for table in self.spec:
             self.execute('''
                          UPDATE %s_%s SET f_tflags = %s
-                         ''' % (table, objid, self.plch),
+                         ''' % (table, ctxid, self.plch),
                          [tflags])
-            self.snapshots['%s_%s' % (table, objid)] = wref
+            self.snapshots['%s_%s' % (table, ctxid)] = weak_ref
 
     @db_lock
     def purge_snapshots(self):

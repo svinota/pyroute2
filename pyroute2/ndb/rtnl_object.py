@@ -64,7 +64,6 @@ class RTNL_Object(dict):
 
     table = None   # model table -- always one of the main tables
     view = None    # (optional) view to load values for the summary etc.
-    etable = None  # effective table -- may be a snapshot
     utable = None  # table to send updates to
     table_alias = ''
 
@@ -94,13 +93,12 @@ class RTNL_Object(dict):
                  match_pairs=None):
         self.view = view
         self.sources = view.ndb.sources
-        self.ctxid = ctxid or id(self)
+        self.ctxid = ctxid
         self.schema = view.ndb.schema
         self.match_src = match_src or tuple()
         self.match_pairs = match_pairs or dict()
         self.changed = set()
         self.iclass = iclass
-        self.etable = self.table
         self.utable = self.utable or self.table
         self.errors = []
         self.log = Log()
@@ -125,9 +123,12 @@ class RTNL_Object(dict):
             # FIXME -- merge with complete_key()
             if 'target' not in self:
                 self.load_value('target', 'localhost')
-        else:
+        elif ctxid is None:
             self.key = ckey
             self.load_sql()
+        else:
+            self.key = ckey
+            self.load_sql(table=self.table)
 
     def __enter__(self):
         return self
@@ -152,6 +153,17 @@ class RTNL_Object(dict):
             self.changed.add(key)
             dict.__setitem__(self, key, value)
 
+    def set(self, key, value):
+        self[key] = value
+        return self
+
+    @property
+    def etable(self):
+        if self.ctxid:
+            return '%s_%s' % (self.table, self.ctxid)
+        else:
+            return self.table
+
     @property
     def key(self):
         ret = {}
@@ -175,9 +187,9 @@ class RTNL_Object(dict):
                 dict.__setitem__(self, self.iclass.nla2name(key), value)
 
     def snapshot(self, ctxid=None):
+        ctxid = ctxid or self.ctxid or id(self)
         snp = type(self)(self.view, self.key, ctxid=ctxid)
-        self.schema.save_deps(snp.ctxid, weakref.ref(snp), self.iclass)
-        snp.etable = '%s_%s' % (snp.table, snp.ctxid)
+        self.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
         snp.changed = set(self.changed)
         return snp
 
@@ -429,15 +441,16 @@ class RTNL_Object(dict):
         elif self.get(key) == value:
             self.changed.remove(key)
 
-    def load_sql(self, ctxid=None, set_state=True):
+    def load_sql(self, table=None, ctxid=None, set_state=True):
 
         if not self.key:
             return
 
-        if ctxid is None:
-            table = self.etable
-        else:
-            table = '%s_%s' % (self.table, ctxid)
+        if table is None:
+            if ctxid is None:
+                table = self.etable
+            else:
+                table = '%s_%s' % (self.table, ctxid)
         keys = []
         values = []
 
