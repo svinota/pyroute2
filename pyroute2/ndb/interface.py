@@ -102,11 +102,22 @@ class Interface(RTNL_Object):
         return req
 
     def load_sql(self, *argv, **kwarg):
-        super(Interface, self).load_sql(*argv, **kwarg)
+        spec = super(Interface, self).load_sql(*argv, **kwarg)
+        if spec:
+            tname = 'ifinfo_%s' % self['kind']
+            if tname in self.schema.compiled:
+                names = self.schema.compiled[tname]['norm_names']
+                spec = (self
+                        .schema
+                        .fetchone('SELECT * from %s WHERE f_index = %s' %
+                                  (tname, self.schema.plch),
+                                  (self['index'], )))
+                if spec:
+                    self.update(dict(zip(names, spec)))
         self.load_value('state', 'up' if self['flags'] & 1 else 'down')
 
-    def load_rtnl(self, *argv, **kwarg):
-        super(Interface, self).load_rtnl(*argv, **kwarg)
+    def load_rtnlmsg(self, *argv, **kwarg):
+        super(Interface, self).load_rtnlmsg(*argv, **kwarg)
         self.load_value('state', 'up' if self['flags'] & 1 else 'down')
 
 

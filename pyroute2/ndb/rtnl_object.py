@@ -471,6 +471,7 @@ class RTNL_Object(dict):
                 elif self.state != 'remove':
                     self.update(dict(zip(self.names, spec)))
                     self.state.set('system')
+        return spec
 
     def load_rtnlmsg(self, target, event):
         # TODO: partial match (object rename / restore)
@@ -484,7 +485,7 @@ class RTNL_Object(dict):
             elif value != (event.get_attr(name) or event.get(name)):
                 return
 
-        self.log.append('load_rtnl: %s' % str(event.get('header'), None))
+        self.log.append('load_rtnl: %s' % str(event.get('header')))
         if event['header'].get('type', 0) % 2:
             self.state.set('invalid')
             self.changed = set()
