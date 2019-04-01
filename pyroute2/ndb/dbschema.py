@@ -32,6 +32,7 @@ ifinfo_names = ('bridge',
                 'vlan',
                 'vxlan',
                 'gre',
+                'vrf',
                 'vti',
                 'vti6')
 supported_ifinfo = {x: ifinfmsg.ifinfo.data_map[x] for x in ifinfo_names}
