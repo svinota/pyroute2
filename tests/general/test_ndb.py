@@ -218,6 +218,74 @@ class TestCreate(object):
         assert grep('%s ip link show' % self.ssh, pattern=ifname)
         assert self.ndb.interfaces[ifname]['address'] == '00:11:22:33:44:55'
 
+    def test_bridge(self):
+
+        bridge = self.ifname()
+        brport = self.ifname()
+
+        (self
+         .ndb
+         .interfaces
+         .add(ifname=bridge, kind='bridge')
+         .commit())
+        (self
+         .ndb
+         .interfaces
+         .add(ifname=brport, kind='dummy')
+         .set('master', self.ndb.interfaces[bridge]['index'])
+         .commit())
+
+        assert grep('%s ip link show' % self.ssh,
+                    pattern=bridge)
+        assert grep('%s ip link show' % self.ssh,
+                    pattern='%s.*%s' % (brport, bridge))
+
+    def test_vrf(self):
+        vrf = self.ifname()
+        (self
+         .ndb
+         .interfaces
+         .add(ifname=vrf, kind='vrf')
+         .set('vrf_table', 42)
+         .commit())
+        assert grep('%s ip link show' % self.ssh, pattern=vrf)
+
+    def test_vlan(self):
+        host = self.ifname()
+        vlan = self.ifname()
+        (self
+         .ndb
+         .interfaces
+         .add(ifname=host, kind='dummy')
+         .commit())
+        (self
+         .ndb
+         .interfaces
+         .add(ifname=vlan, kind='vlan')
+         .set('link', self.ndb.interfaces[host]['index'])
+         .set('vlan_id', 101)
+         .commit())
+        assert grep('%s ip link show' % self.ssh, pattern=vlan)
+
+    def test_vxlan(self):
+        host = self.ifname()
+        vxlan = self.ifname()
+        (self
+         .ndb
+         .interfaces
+         .add(ifname=host, kind='dummy')
+         .commit())
+        (self
+         .ndb
+         .interfaces
+         .add(ifname=vxlan, kind='vxlan')
+         .set('vxlan_link', self.ndb.interfaces[host]['index'])
+         .set('vxlan_id', 101)
+         .set('vxlan_group', '239.1.1.1')
+         .set('vxlan_ttl', 16)
+         .commit())
+        assert grep('%s ip link show' % self.ssh, pattern=vxlan)
+
     def test_basic_address(self):
 
         ifname = self.ifname()
