@@ -13,12 +13,18 @@ class Interface(RTNL_Object):
     summary = '''
               SELECT
                   a.f_target, a.f_tflags, a.f_index, a.f_IFLA_IFNAME,
-                  a.f_IFLA_ADDRESS, a.f_flags
+                  a.f_IFLA_ADDRESS, a.f_flags, a.f_IFLA_INFO_KIND
               FROM
                   interfaces AS a
               '''
     table_alias = 'a'
-    summary_header = ('target', 'flags', 'index', 'ifname', 'lladdr', 'flags')
+    summary_header = ('target',
+                      'flags',
+                      'index',
+                      'ifname',
+                      'lladdr',
+                      'flags',
+                      'kind')
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifinfmsg
