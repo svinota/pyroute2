@@ -30,6 +30,7 @@ AF_MPLS = 28
 AF_PIPE = 255  # Right now AF_MAX == 40
 DEFAULT_RCVBUF = 16384
 _uuid32 = 0  # (singleton) the last uuid32 value saved to avoid collisions
+_uuid32_lock = threading.Lock()
 
 size_suffixes = {'b': 1,
                  'k': 1024,
@@ -540,12 +541,16 @@ def uuid32():
     The uuid is guaranteed to be unique within one process.
     '''
     global _uuid32
-    candidate = _uuid32
-    while candidate == _uuid32:
-        candidate = fnv1(struct.pack('QQ',
-                                     int(time.time() * 1000000),
-                                     os.getpid()))
-    return candidate
+    global _uuid32_lock
+
+    with _uuid32_lock:
+        candidate = _uuid32
+        while candidate == _uuid32:
+            candidate = fnv1(struct.pack('QQ',
+                                         int(time.time() * 1000000),
+                                         os.getpid()))
+        _uuid32 = candidate
+        return candidate
 
 
 def uifname():
