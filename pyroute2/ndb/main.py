@@ -400,10 +400,22 @@ class Factory(dict):
         return Report(self._csv(*argv, **kwarg))
 
     def dump(self, *argv, **kwarg):
-        return Report(self._dump(*argv, **kwarg))
+        fmt = kwarg.pop('fmt', 'native')
+        if fmt == 'native':
+            return Report(self._dump(*argv, **kwarg))
+        elif fmt == 'csv':
+            return Report(self._csv(dump=self._dump(*argv, **kwarg)))
+        else:
+            raise ValueError('format not supported')
 
     def summary(self, *argv, **kwarg):
-        return Report(self._summary(*argv, **kwarg))
+        fmt = kwarg.pop('fmt', 'native')
+        if fmt == 'native':
+            return Report(self._summary(*argv, **kwarg))
+        elif fmt == 'csv':
+            return Report(self._csv(dump=self._summary(*argv, **kwarg)))
+        else:
+            raise ValueError('format not supported')
 
 
 class Source(object):
