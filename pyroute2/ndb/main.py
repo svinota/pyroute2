@@ -669,8 +669,9 @@ class NDB(object):
             try:
                 target, msg = evq.get(timeout=1)
             except queue.Empty:
-                check_db(wait_for)
                 continue
+            #
+            check_db(wait_for)
             #
             for event, evc, obj in tuple(wait_for):
                 if evc != type(msg):
