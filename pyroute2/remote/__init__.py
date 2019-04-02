@@ -232,6 +232,8 @@ class RemoteSocket(NetlinkMixin):
         msg = None
         while True:
             msg = self.trnsp_in.recv()
+            if msg is None:
+                raise EOFError()
             if msg['stage'] == 'signal':
                 os.kill(os.getpid(), msg['data'])
             else:
