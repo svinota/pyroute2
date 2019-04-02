@@ -296,26 +296,22 @@ class Factory(dict):
         if iclass.dump and iclass.dump_header:
             yield iclass.dump_header
             with self.ndb.schema.db_lock:
-                for stmt in iclass.dump_pre:
-                    self.ndb.schema.execute(stmt)
                 for record in (self
                                .ndb
                                .schema
-                               .execute(iclass.dump + spec, values)):
+                               .fetch(iclass.dump + spec, values)):
                     yield record
-                for stmt in iclass.dump_post:
-                    self.ndb.schema.execute(stmt)
         else:
             yield ('target', 'tflags') + tuple([cls.nla2name(x) for x in keys])
             with self.ndb.schema.db_lock:
                 for record in (self
                                .ndb
                                .schema
-                               .execute('SELECT * FROM %s AS %s %s'
-                                        % (iclass.view or iclass.table,
-                                           iclass.table_alias,
-                                           spec),
-                                        values)):
+                               .fetch('SELECT * FROM %s AS %s %s'
+                                      % (iclass.view or iclass.table,
+                                         iclass.table_alias,
+                                         spec),
+                                      values)):
                     yield record
 
     def _csv(self, match=None, dump=None):
@@ -344,7 +340,7 @@ class Factory(dict):
             for record in (self
                            .ndb
                            .schema
-                           .execute(iclass.summary + spec, values)):
+                           .fetch(iclass.summary + spec, values)):
                 yield record
         else:
             header = tuple(['f_%s' % x for x in
@@ -355,11 +351,11 @@ class Factory(dict):
             for record in (self
                            .ndb
                            .schema
-                           .execute('SELECT %s FROM %s AS %s %s'
-                                    % (key_fields,
-                                       iclass.view or iclass.table,
-                                       iclass.table_alias,
-                                       spec), values)):
+                           .fetch('SELECT %s FROM %s AS %s %s'
+                                  % (key_fields,
+                                     iclass.view or iclass.table,
+                                     iclass.table_alias,
+                                     spec), values)):
                 yield record
 
     def _match(self, match, cls, keys, alias):

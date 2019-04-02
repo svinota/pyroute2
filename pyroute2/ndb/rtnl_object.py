@@ -78,8 +78,6 @@ class RTNL_Object(dict):
     summary_header = None
     dump = None
     dump_header = None
-    dump_pre = []
-    dump_post = []
     errors = None
     msg_class = None
     reverse_update = None
