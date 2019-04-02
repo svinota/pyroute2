@@ -497,8 +497,14 @@ class Source(object):
                     if self.event is not None:
                         self.evq.put((self.target, (self.event, )))
                     while True:
-                        msg = tuple(self.nl.get())
-                        if msg[0]['header']['error'] and \
+                        try:
+                            msg = tuple(self.nl.get())
+                        except Exception as e:
+                            log.error('[%s] source error: %s' %
+                                      (self.target, e))
+                            msg = None
+                        if msg is None or \
+                                msg[0]['header']['error'] and \
                                 msg[0]['header']['error'].code == 104:
                             self.status = 'stopped'
                             # thus we make sure that all the events from
