@@ -42,7 +42,7 @@ class TestExamples(object):
 
     def setup(self):
         self.pwd = os.getcwd()
-        os.chdir('../examples/')
+        os.chdir('./examples/')
         newdir = os.getcwd()
         if newdir not in sys.path:
             sys.path.append(newdir)
