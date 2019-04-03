@@ -29,3 +29,4 @@ docs-build.log
 pyroute2.egg-info
 benchmark.log
 .tox
+tests-workspaces/
