@@ -39,6 +39,7 @@ from pyroute2.common import basestring
 from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
+from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
 
 
 # Debug variable to detect netlink socket leaks
@@ -197,6 +198,7 @@ class WiSet(object):
         if flags is not None:
             self.counters = bool(flags & IPSET_FLAG_WITH_COUNTERS)
             self.comment = bool(flags & IPSET_FLAG_WITH_COMMENT)
+            self.skbinfo = bool(flags & IPSET_FLAG_WITH_SKBINFO)
 
         if content:
             self.update_dict_content(ndmsg)
