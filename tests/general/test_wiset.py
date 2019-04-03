@@ -209,6 +209,34 @@ class WiSet_test(object):
         test_replace(list_a, list_b)
         test_replace(set(list_a), set(list_b))
 
+    def test_replace_content_with_comment(self, sock=None):
+        require_user('root')
+        list_a = [{'entry': "1.2.3.4", 'comment': 'foo'},
+                  {'entry': "2.3.4.5", 'comment': 'foo'},
+                  {'entry': "6.7.8.9", 'comment': 'bar'}]
+        list_b = [{'entry': "1.1.1.1", 'comment': 'foo'},
+                  {'entry': "2.2.2.2", 'comment': 'bar'},
+                  {'entry': "3.3.3.3", 'comment': 'foo'}]
+
+        def test_replace(content_a, content_b):
+            myset = WiSet(name=self.name, sock=sock, comment=True)
+            myset.create()
+            myset.insert_list(content_a)
+            myset.update_content()
+            for value in content_a:
+                assert value['entry'] in myset.content
+                assert value['comment'] == myset.content[value['entry']].comment
+            myset.replace_entries(content_b)
+            myset.update_content()
+            for value in content_a:
+                assert value['entry'] not in myset.content
+            for value in content_b:
+                assert value['entry'] in myset.content
+                assert value['comment'] == myset.content[value['entry']].comment
+            myset.destroy()
+
+        test_replace(list_a, list_b)
+
     def test_hash_net_ipset(self, sock=None):
         require_user('root')
         to_add = ["192.168.1.0/24", "192.168.2.0/23", "10.0.0.0/8"]
