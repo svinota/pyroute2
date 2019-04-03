@@ -17,3 +17,4 @@ VERSION=`git describe`
 [ -z "$COVERAGE" ] || export COVERAGE="--cover-html"
 [ -z "$SKIP_TESTS" ] || export SKIP_TESTS="--exclude $SKIP_TESTS"
 [ -z "$MODULE" ] || export MODULE=`echo $MODULE | sed -n '/:/{p;q};s/$/:/p'`
+[ -z "$WORKSPACE" ] && export WORKSPACE="$TOP/tests-workspaces/$$"

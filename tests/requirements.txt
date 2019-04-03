@@ -5,3 +5,4 @@ eventlet
 mitogen
 bottle
 sphinx
+netaddr

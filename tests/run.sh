@@ -1,7 +1,6 @@
 #!/bin/bash
 
 cd "$( dirname "${BASH_SOURCE[0]}" )"
-export PYTHONPATH="`pwd`:`pwd`/examples:`pwd`/examples/generic"
 TOP=$(readlink -f $(pwd)/..)
 
 #
@@ -9,32 +8,40 @@ TOP=$(readlink -f $(pwd)/..)
 #
 . conf.sh
 
+export PYTHONPATH="$WORKSPACE:$WORKSPACE/examples:$WORKSPACE/examples/generic"
+
 function deploy() {
     # Prepare test environment
     #
     # * make dist
-    # * install packaged files into /tests
-    # * copy examples into /tests
-    # * run pep8 checks against /tests -- to cover test code also
+    # * install packaged files into $WORKSPACE
+    # * copy examples into $WORKSPACE
+    # * run pep8 checks against $WORKSPACE -- to cover test code also
     # * run nosetests
     #
     # It is important to test not in-place, but after `make dist`,
     # since in that case only those files will be tested, that are
     # included in the package.
     #
+    curl http://localhost:7623/v1/lock/ >/dev/null 2>&1 && \
+    while [ -z "`curl -s -X POST --data test http://localhost:7623/v1/lock/ 2>/dev/null`" ]; do {
+        sleep 1
+    } done
     cd $TOP
-    [ -d ".git" ] && { # detect, if we run from git
-        # ok, make tarball
-        make dist >/dev/null
-        mkdir "$TOP/tests/bin/"
-        cp -a "$TOP/examples" "$TOP/tests/"
-        cp -a "$TOP/cli/pyroute2-cli" "$TOP/tests/bin/"
-        cp -a "$TOP/cli/ss2" "$TOP/tests/bin/"
-        cd "$TOP/dist"
-        tar xf *
-        mv pyroute2*/pyroute2 "$TOP/tests/"
-    } ||:  # or just give up and try to run as is
-    cd "$TOP/tests/"
+    DIST_NAME=pyroute2-$(git describe | sed 's/-[^-]*$//;s/-/.post/')
+    make dist >/dev/null
+    rm -rf "$WORKSPACE"
+    mkdir -p "$WORKSPACE/bin"
+    cp -a "$TOP/.flake8" "$WORKSPACE/"
+    cp -a "$TOP/tests/"* "$WORKSPACE/"
+    cp -a "$TOP/examples" "$WORKSPACE/"
+    cp -a "$TOP/cli/pyroute2-cli" "$WORKSPACE/bin/"
+    cp -a "$TOP/cli/ss2" "$WORKSPACE/bin/"
+    cd "$TOP/dist"
+    tar xf $DIST_NAME.tar.gz
+    mv $DIST_NAME/pyroute2 "$WORKSPACE/"
+    curl -X DELETE --data test http://localhost:7623/v1/lock/ >/dev/null 2>&1
+    cd "$WORKSPACE/"
     $FLAKE8_PATH .
     ret=$?
     [ $ret -eq 0 ] && echo "flake8 ... ok"
@@ -180,6 +187,7 @@ EOF
             echo " reports in the DB"
             curl -X PUT --data-binary @tests.log "$REPORT$WORKER/$uuid/" >/dev/null 2>&1
         }
+        [ $ret -eq 0 ] || exit $ret
     done
 done
 exit $errors

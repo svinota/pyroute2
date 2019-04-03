@@ -78,6 +78,7 @@ clean: clean-version
 	@rm -f  tests/tests.json
 	@rm -f  tests/tests.log
 	@rm -rf pyroute2.egg-info
+	@rm -rf tests-workspaces
 	@rm -f python-pyroute2.spec
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
 	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
@@ -92,7 +93,7 @@ force-version: clean-version update-version
 
 update-version: setup.ini
 
-docs: clean force-version
+docs: force-version
 	@cp README.md docs/general.rst
 	@sed -i '1{s/.*docs\//.. image:: /;s/\ ".*/\n\ \ \ \ :align: right/}' docs/general.rst
 	@cp README.make.md docs/makefile.rst
@@ -133,6 +134,7 @@ test: check_parameters
 		export LOOP=${loop}; \
 		export REPORT=${report}; \
 		export WORKER=${worker}; \
+		export WORKSPACE=${workspace}; \
 		./tests/run.sh
 
 test-platform:
@@ -147,7 +149,7 @@ upload: clean force-version docs
 	${python} setup.py sdist
 	${python} -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/*
 
-dist: clean force-version docs
+dist: force-version docs
 	@${python} setup.py sdist >/dev/null 2>&1
 
 install: clean force-version

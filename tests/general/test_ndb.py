@@ -1,4 +1,6 @@
 import uuid
+import httplib
+import netaddr
 import threading
 from utils import grep
 from utils import require_user
@@ -16,6 +18,58 @@ from pyroute2.ndb.main import Report
 
 
 _locks = {}
+dtcd_uuid = str(uuid.uuid4())
+
+# check the dtcd
+try:
+    cx = httplib.HTTPConnection('localhost:7623')
+    cx.request('GET', '/v1/network/')
+    cx.getresponse()
+    has_dtcd = True
+except:
+    has_dtcd = False
+
+supernet = netaddr.IPNetwork('172.16.0.0/16')
+network_pool = list(supernet.subnet(24))
+allocations = {}
+
+
+def allocate_network():
+    global dtcd_uuid
+    global network_pool
+    global allocations
+
+    network = None
+
+    try:
+        cx = httplib.HTTPConnection('localhost:7623')
+        cx.request('POST', '/v1/network/', body=dtcd_uuid)
+        resp = cx.getresponse()
+        if resp.status == 200:
+            network = netaddr.IPNetwork(resp.read())
+        cx.close()
+    except:
+        pass
+
+    if network is None:
+        network = network_pool.pop()
+        allocations[network] = True
+
+    return network
+
+
+def free_network(network):
+    global network_pool
+    global allocations
+
+    if network in allocations:
+        allocations.pop(network)
+        network_pool.append(network)
+    else:
+        cx = httplib.HTTPConnection('localhost:7623')
+        cx.request('DELETE', '/v1/network/', body=str(network))
+        cx.getresponse()
+        cx.close()
 
 
 class TestMisc(object):
@@ -48,6 +102,8 @@ class TestBase(object):
     nl_class = IPRoute
     nl_kwarg = {}
     ssh = ''
+    ipnets = []
+    ipranges = []
 
     def create_interfaces(self):
         # dummy interface
@@ -56,6 +112,8 @@ class TestBase(object):
         if_vlan_ctag = uifname()
         if_bridge = uifname()
         if_port = uifname()
+        if_addr1 = self.ifaddr()
+        if_addr2 = self.ifaddr()
         ret = []
 
         with self.nl_class(**self.nl_kwarg) as ipr:
@@ -100,20 +158,25 @@ class TestBase(object):
             ret.append(self.ndb.interfaces[if_bridge]['index'])
             ipr.addr('add',
                      index=self.ndb.interfaces[if_bridge]['index'],
-                     address='192.168.13.24',
+                     address=if_addr1,
                      prefixlen=24)
             ipr.addr('add',
                      index=self.ndb.interfaces[if_bridge]['index'],
-                     address='192.168.13.25',
+                     address=if_addr2,
                      prefixlen=24)
-            self.ndb.wait({'addresses': [{'address': '192.168.13.24'},
-                                         {'address': '192.168.13.25'}]})
+            self.ndb.wait({'addresses': [{'address': if_addr1},
+                                         {'address': if_addr2}]})
             self.if_bridge = if_bridge
             return ret
+
+    def ifaddr(self, r=0):
+        return str(self.ipranges[r].pop())
 
     def setup(self):
         require_user('root')
         self.if_simple = None
+        self.ipnets = [allocate_network() for _ in range(5)]
+        self.ipranges = [[str(x) for x in net] for net in self.ipnets]
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        rtnl_log=True,
@@ -125,6 +188,8 @@ class TestBase(object):
             for link in reversed(self.interfaces):
                 ipr.link('del', index=link)
         self.ndb.close()
+        for net in self.ipnets:
+            free_network(net)
 
     def fetch(self, request, values=[]):
         with self.ndb.schema.db_lock:
@@ -142,6 +207,11 @@ class TestCreate(object):
     nl_class = IPRoute
     nl_kwarg = {}
     ssh = ''
+    ipnets = []
+    ipranges = []
+
+    def ifaddr(self):
+        return str(self.ipranges[0].pop())
 
     def ifname(self):
         ret = uifname()
@@ -151,6 +221,8 @@ class TestCreate(object):
     def setup(self):
         require_user('root')
         self.interfaces = []
+        self.ipnets = [allocate_network() for _ in range(2)]
+        self.ipranges = [[str(x) for x in net] for net in self.ipnets]
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        rtnl_log=True,
@@ -161,6 +233,8 @@ class TestCreate(object):
             for link in reversed(self.interfaces):
                 ipr.link('del', index=ipr.link_lookup(ifname=link)[0])
         self.ndb.close()
+        for net in self.ipnets:
+            free_network(net)
 
     def test_context_manager(self):
 
@@ -288,6 +362,7 @@ class TestCreate(object):
 
     def test_basic_address(self):
 
+        ifaddr = self.ifaddr()
         ifname = self.ifname()
         i = (self
              .ndb
@@ -299,16 +374,18 @@ class TestCreate(object):
              .ndb
              .addresses
              .add(index=i['index'],
-                  address='192.168.153.5',
+                  address=ifaddr,
                   prefixlen=24))
         a.commit()
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
         assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
-                    pattern='192.168.153.5')
+                    pattern=ifaddr)
 
     def test_basic_route(self):
 
+        ifaddr = self.ifaddr()
+        router = self.ifaddr()
         ifname = self.ifname()
         i = (self
              .ndb
@@ -320,7 +397,7 @@ class TestCreate(object):
              .ndb
              .addresses
              .add(index=i['index'],
-                  address='192.168.154.5',
+                  address=ifaddr,
                   prefixlen=24))
         a.commit()
 
@@ -328,21 +405,23 @@ class TestCreate(object):
              .ndb
              .routes
              .add(dst_len=24,
-                  dst='192.168.155.0',
-                  gateway='192.168.154.10'))
+                  dst=str(self.ipnets[1].network),
+                  gateway=router))
         r.commit()
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
         assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
-                    pattern='192.168.154.5')
+                    pattern=ifaddr)
         assert grep('%s ip route show' % self.ssh,
-                    pattern='192.168.155.0/24.*%s' % ifname)
+                    pattern='%s.*%s' % (str(self.ipnets[1]), ifname))
 
 
 class TestRollback(TestBase):
 
     def setup(self):
         require_user('root')
+        self.ipnets = [allocate_network() for _ in range(5)]
+        self.ipranges = [[str(x) for x in net] for net in self.ipnets]
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        rtnl_log=True,
@@ -352,6 +431,10 @@ class TestRollback(TestBase):
 
         # register NDB handler to wait for the interface
         self.if_simple = uifname()
+
+        ifaddr = self.ifaddr()
+        router = self.ifaddr()
+        dst = str(self.ipnets[1].network)
 
         with self.nl_class(**self.nl_kwarg) as ipr:
             self.interfaces = []
@@ -373,21 +456,21 @@ class TestRollback(TestBase):
                      state='up')
             ipr.addr('add',
                      index=self.interfaces[-1],
-                     address='192.168.172.16',
+                     address=ifaddr,
                      prefixlen=24)
             ipr.route('add',
-                      dst='192.168.127.0',
+                      dst=dst,
                       dst_len=24,
-                      gateway='192.168.172.17')
+                      gateway=router)
 
-        self.ndb.wait({'addresses': [{'address': '192.168.172.16'}],
-                       'routes': [{'dst': '192.168.127.0'}]})
+        self.ndb.wait({'addresses': [{'address': ifaddr}],
+                       'routes': [{'dst': dst}]})
         iface = self.ndb.interfaces[self.if_simple]
         # check everything is in place
         assert grep('%s ip link show' % self.ssh, pattern=self.if_simple)
         assert grep('%s ip route show' % self.ssh, pattern=self.if_simple)
         assert grep('%s ip route show' % self.ssh,
-                    pattern='192.168.127.*192.168.172.17')
+                    pattern='%s.*%s' % (dst, router))
 
         # remove the interface
         iface.remove()
@@ -397,20 +480,24 @@ class TestRollback(TestBase):
         assert not grep('%s ip link show' % self.ssh, pattern=self.if_simple)
         assert not grep('%s ip route show' % self.ssh, pattern=self.if_simple)
         assert not grep('%s ip route show' % self.ssh,
-                        pattern='192.168.127.*192.168.172.17')
+                        pattern='%s.*%s' % (dst, router))
 
         # revert the changes using the implicit last_save
         iface.rollback()
         assert grep('%s ip link show' % self.ssh, pattern=self.if_simple)
         assert grep('%s ip route show' % self.ssh, pattern=self.if_simple)
         assert grep('%s ip route show' % self.ssh,
-                    pattern='192.168.127.*192.168.172.17')
+                    pattern='%s.*%s' % (dst, router))
 
     def test_bridge_deps(self):
 
         self.if_br0 = uifname()
         self.if_br0p0 = uifname()
         self.if_br0p1 = uifname()
+        ifaddr1 = self.ifaddr()
+        ifaddr2 = self.ifaddr()
+        router = self.ifaddr()
+        dst = str(self.ipnets[1].network)
 
         with self.nl_class(**self.nl_kwarg) as ipr:
             self.interfaces = []
@@ -434,16 +521,16 @@ class TestRollback(TestBase):
                      state='up')
             ipr.addr('add',
                      index=self.interfaces[-3],
-                     address='192.168.173.16',
+                     address=ifaddr1,
                      prefixlen=24)
             ipr.addr('add',
                      index=self.interfaces[-3],
-                     address='192.168.173.17',
+                     address=ifaddr2,
                      prefixlen=24)
             ipr.route('add',
-                      dst='192.168.128.0',
+                      dst=dst,
                       dst_len=24,
-                      gateway='192.168.173.18')
+                      gateway=router)
             ipr.link('set',
                      index=self.interfaces[-1],
                      state='up',
@@ -458,19 +545,19 @@ class TestRollback(TestBase):
                                        'master': master},
                                       {'ifname': self.if_br0p1,
                                        'master': master}],
-                       'addresses': [{'address': '192.168.173.16'},
-                                     {'address': '192.168.173.17'}],
-                       'routes': [{'dst': '192.168.128.0'}]})
+                       'addresses': [{'address': ifaddr1},
+                                     {'address': ifaddr2}],
+                       'routes': [{'dst': dst}]})
         iface = self.ndb.interfaces[self.if_br0]
         # check everything is in place
         assert grep('%s ip link show' % self.ssh, pattern=self.if_br0)
         assert grep('%s ip link show' % self.ssh, pattern=self.if_br0p0)
         assert grep('%s ip link show' % self.ssh, pattern=self.if_br0p1)
-        assert grep('%s ip addr show' % self.ssh, pattern='192.168.173.16')
-        assert grep('%s ip addr show' % self.ssh, pattern='192.168.173.17')
+        assert grep('%s ip addr show' % self.ssh, pattern=ifaddr1)
+        assert grep('%s ip addr show' % self.ssh, pattern=ifaddr2)
         assert grep('%s ip route show' % self.ssh, pattern=self.if_br0)
         assert grep('%s ip route show' % self.ssh,
-                    pattern='192.168.128.*192.168.173.18')
+                    pattern='%s.*%s' % (dst, router))
 
         # remove the interface
         iface.remove()
@@ -480,27 +567,31 @@ class TestRollback(TestBase):
         assert not grep('%s ip link show' % self.ssh, pattern=self.if_br0)
         assert grep('%s ip link show' % self.ssh, pattern=self.if_br0p0)
         assert grep('%s ip link show' % self.ssh, pattern=self.if_br0p1)
-        assert not grep('%s ip addr show' % self.ssh, pattern='192.168.173.16')
-        assert not grep('%s ip addr show' % self.ssh, pattern='192.168.173.17')
+        assert not grep('%s ip addr show' % self.ssh, pattern=ifaddr1)
+        assert not grep('%s ip addr show' % self.ssh, pattern=ifaddr2)
         assert not grep('%s ip route show' % self.ssh, pattern=self.if_br0)
         assert not grep('%s ip route show' % self.ssh,
-                        pattern='192.168.128.*192.168.173.18')
+                        pattern='%s.*%s' % (dst, router))
 
         # revert the changes using the implicit last_save
         iface.rollback()
         assert grep('%s ip link show' % self.ssh, pattern=self.if_br0)
         assert grep('%s ip link show' % self.ssh, pattern=self.if_br0p0)
         assert grep('%s ip link show' % self.ssh, pattern=self.if_br0p1)
-        assert grep('%s ip addr show' % self.ssh, pattern='192.168.173.16')
-        assert grep('%s ip addr show' % self.ssh, pattern='192.168.173.17')
+        assert grep('%s ip addr show' % self.ssh, pattern=ifaddr1)
+        assert grep('%s ip addr show' % self.ssh, pattern=ifaddr2)
         assert grep('%s ip route show' % self.ssh, pattern=self.if_br0)
         assert grep('%s ip route show' % self.ssh,
-                    pattern='192.168.128.*192.168.173.18')
+                    pattern='%s.*%s' % (dst, router))
 
     def test_vlan_deps(self):
 
         if_host = uifname()
         if_vlan = uifname()
+        ifaddr1 = self.ifaddr()
+        ifaddr2 = self.ifaddr()
+        router = self.ifaddr()
+        dst = str(self.ipnets[1].network)
 
         with self.nl_class(**self.nl_kwarg) as ipr:
             self.interfaces = []
@@ -524,29 +615,29 @@ class TestRollback(TestBase):
                      state='up')
             ipr.addr('add',
                      index=self.interfaces[-1],
-                     address='192.168.174.16',
+                     address=ifaddr1,
                      prefixlen=24)
             ipr.addr('add',
                      index=self.interfaces[-1],
-                     address='192.168.174.17',
+                     address=ifaddr2,
                      prefixlen=24)
             ipr.route('add',
-                      dst='192.168.129.0',
+                      dst=dst,
                       dst_len=24,
-                      gateway='192.168.174.18')
-            self.ndb.wait({'addresses': [{'address': '192.168.174.16'},
-                                         {'address': '192.168.174.17'}],
-                           'routes': [{'dst': '192.168.129.0'}]})
+                      gateway=router)
+            self.ndb.wait({'addresses': [{'address': ifaddr1},
+                                         {'address': ifaddr2}],
+                           'routes': [{'dst': dst}]})
 
         iface = self.ndb.interfaces[if_host]
         # check everything is in place
         assert grep('%s ip link show' % self.ssh, pattern=if_host)
         assert grep('%s ip link show' % self.ssh, pattern=if_vlan)
-        assert grep('%s ip addr show' % self.ssh, pattern='192.168.174.16')
-        assert grep('%s ip addr show' % self.ssh, pattern='192.168.174.17')
+        assert grep('%s ip addr show' % self.ssh, pattern=ifaddr1)
+        assert grep('%s ip addr show' % self.ssh, pattern=ifaddr2)
         assert grep('%s ip route show' % self.ssh, pattern=if_vlan)
         assert grep('%s ip route show' % self.ssh,
-                    pattern='192.168.129.*192.168.174.18')
+                    pattern='%s.*%s' % (dst, router))
         assert grep('%s cat /proc/net/vlan/config' % self.ssh, pattern=if_vlan)
 
         # remove the interface
@@ -556,11 +647,11 @@ class TestRollback(TestBase):
         # check there is no interface, no route
         assert not grep('%s ip link show' % self.ssh, pattern=if_host)
         assert not grep('%s ip link show' % self.ssh, pattern=if_vlan)
-        assert not grep('%s ip addr show' % self.ssh, pattern='192.168.174.16')
-        assert not grep('%s ip addr show' % self.ssh, pattern='192.168.174.17')
+        assert not grep('%s ip addr show' % self.ssh, pattern=ifaddr1)
+        assert not grep('%s ip addr show' % self.ssh, pattern=ifaddr2)
         assert not grep('%s ip route show' % self.ssh, pattern=if_vlan)
         assert not grep('%s ip route show' % self.ssh,
-                        pattern='192.168.129.*192.168.174.18')
+                        pattern='%s.*%s' % (dst, router))
         assert not grep('%s cat /proc/net/vlan/config' % self.ssh,
                         pattern=if_vlan)
 
@@ -568,11 +659,11 @@ class TestRollback(TestBase):
         iface.rollback()
         assert grep('%s ip link show' % self.ssh, pattern=if_host)
         assert grep('%s ip link show' % self.ssh, pattern=if_vlan)
-        assert grep('%s ip addr show' % self.ssh, pattern='192.168.174.16')
-        assert grep('%s ip addr show' % self.ssh, pattern='192.168.174.17')
+        assert grep('%s ip addr show' % self.ssh, pattern=ifaddr1)
+        assert grep('%s ip addr show' % self.ssh, pattern=ifaddr2)
         assert grep('%s ip route show' % self.ssh, pattern=if_vlan)
         assert grep('%s ip route show' % self.ssh,
-                    pattern='192.168.129.*192.168.174.18')
+                    pattern='%s.*%s' % (dst, router))
         assert grep('%s cat /proc/net/vlan/config' % self.ssh, pattern=if_vlan)
 
 

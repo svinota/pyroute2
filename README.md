@@ -205,6 +205,7 @@ The pyroute2 testing framework requirements:
 * coverage
 * nosetests
 * sphinx
+* netaddr
 
 Optional dependencies for testing:
 * eventlet
