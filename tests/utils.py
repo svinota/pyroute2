@@ -3,9 +3,12 @@ import re
 import pwd
 import stat
 import sys
+import uuid
 import errno
 import platform
 import subprocess
+import netaddr
+import httplib
 import ctypes
 import ctypes.util
 from pyroute2 import NetlinkError
@@ -13,6 +16,60 @@ from pyroute2 import IPRoute
 from nose.plugins.skip import SkipTest
 from nose.tools import make_decorator
 from distutils.version import LooseVersion
+
+dtcd_uuid = str(uuid.uuid4())
+# check the dtcd
+try:
+    cx = httplib.HTTPConnection('localhost:7623')
+    cx.request('GET', '/v1/network/')
+    cx.getresponse()
+    has_dtcd = True
+except:
+    has_dtcd = False
+
+supernet = {'ipv4': netaddr.IPNetwork('172.16.0.0/16'),
+            'ipv6': netaddr.IPNetwork('fdb3:84e5:4ff4::/48')}
+network_pool = {'ipv4': list(supernet['ipv4'].subnet(24)),
+                'ipv6': list(supernet['ipv6'].subnet(64))}
+allocations = {}
+
+
+def allocate_network(ipv='ipv4'):
+    global dtcd_uuid
+    global network_pool
+    global allocations
+
+    network = None
+
+    try:
+        cx = httplib.HTTPConnection('localhost:7623')
+        cx.request('POST', '/v1/network/%s/' % ipv, body=dtcd_uuid)
+        resp = cx.getresponse()
+        if resp.status == 200:
+            network = netaddr.IPNetwork(resp.read())
+        cx.close()
+    except:
+        pass
+
+    if network is None:
+        network = network_pool[ipv].pop()
+        allocations[network] = True
+
+    return network
+
+
+def free_network(network, ipv='ipv4'):
+    global network_pool
+    global allocations
+
+    if network in allocations:
+        allocations.pop(network)
+        network_pool[ipv].append(network)
+    else:
+        cx = httplib.HTTPConnection('localhost:7623')
+        cx.request('DELETE', '/v1/network/%s/' % ipv, body=str(network))
+        cx.getresponse()
+        cx.close()
 
 
 def skip_if_not_supported(f):

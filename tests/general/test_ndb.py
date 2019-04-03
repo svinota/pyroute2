@@ -1,10 +1,10 @@
 import uuid
-import httplib
-import netaddr
 import threading
 from utils import grep
 from utils import require_user
 from utils import skip_if_not_supported
+from utils import allocate_network
+from utils import free_network
 from pyroute2 import netns
 from pyroute2 import NDB
 from pyroute2 import NetNS
@@ -15,61 +15,6 @@ from pyroute2.common import uifname
 from pyroute2.common import basestring
 from pyroute2.ndb import report
 from pyroute2.ndb.main import Report
-
-
-_locks = {}
-dtcd_uuid = str(uuid.uuid4())
-
-# check the dtcd
-try:
-    cx = httplib.HTTPConnection('localhost:7623')
-    cx.request('GET', '/v1/network/')
-    cx.getresponse()
-    has_dtcd = True
-except:
-    has_dtcd = False
-
-supernet = netaddr.IPNetwork('172.16.0.0/16')
-network_pool = list(supernet.subnet(24))
-allocations = {}
-
-
-def allocate_network():
-    global dtcd_uuid
-    global network_pool
-    global allocations
-
-    network = None
-
-    try:
-        cx = httplib.HTTPConnection('localhost:7623')
-        cx.request('POST', '/v1/network/', body=dtcd_uuid)
-        resp = cx.getresponse()
-        if resp.status == 200:
-            network = netaddr.IPNetwork(resp.read())
-        cx.close()
-    except:
-        pass
-
-    if network is None:
-        network = network_pool.pop()
-        allocations[network] = True
-
-    return network
-
-
-def free_network(network):
-    global network_pool
-    global allocations
-
-    if network in allocations:
-        allocations.pop(network)
-        network_pool.append(network)
-    else:
-        cx = httplib.HTTPConnection('localhost:7623')
-        cx.request('DELETE', '/v1/network/', body=str(network))
-        cx.getresponse()
-        cx.close()
 
 
 class TestMisc(object):
