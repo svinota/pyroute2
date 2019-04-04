@@ -2,8 +2,14 @@ from time import sleep
 
 from pyroute2.common import uifname
 from pyroute2.netlink.exceptions import IPSetError
-from pyroute2.wiset import WiSet, load_all_ipsets, COUNT, get_ipset_socket, IPStats
-from pyroute2.wiset import test_ipset_exist, load_ipset
+from pyroute2.wiset import COUNT
+from pyroute2.wiset import IPStats
+from pyroute2.wiset import WiSet
+from pyroute2.wiset import get_ipset_socket
+from pyroute2.wiset import load_all_ipsets
+from pyroute2.wiset import load_ipset
+from pyroute2.wiset import test_ipset_exist
+
 from utils import require_user
 
 
