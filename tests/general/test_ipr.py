@@ -452,7 +452,7 @@ class TestIPRoute(object):
                      xfrm_link=idx,
                      xfrm_if_id=555)
 
-    def test_ntables(self):
+    def _test_ntables(self):
         setA = set(filter(lambda x: x is not None,
                           [x.get_attr('NDTA_PARMS').get_attr('NDTPA_IFINDEX')
                            for x in self.ip.get_ntables()]))
