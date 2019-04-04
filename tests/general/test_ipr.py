@@ -150,6 +150,7 @@ class TestIPRoute(object):
             pass
 
     def create(self, kind='dummy'):
+        require_user('root')
         name = uifname()
         self.ip.link('add', ifname=name, kind=kind)
         idx = None
