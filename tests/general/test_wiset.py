@@ -225,14 +225,18 @@ class WiSet_test(object):
             myset.update_content()
             for value in content_a:
                 assert value['entry'] in myset.content
-                assert value['comment'] == myset.content[value['entry']].comment
+                assert value['comment'] == (myset
+                                            .content[value['entry']]
+                                            .comment)
             myset.replace_entries(content_b)
             myset.update_content()
             for value in content_a:
                 assert value['entry'] not in myset.content
             for value in content_b:
                 assert value['entry'] in myset.content
-                assert value['comment'] == myset.content[value['entry']].comment
+                assert value['comment'] == (myset
+                                            .content[value['entry']]
+                                            .comment)
             myset.destroy()
 
         test_replace(list_a, list_b)
