@@ -2,7 +2,7 @@ from time import sleep
 
 from pyroute2.common import uifname
 from pyroute2.netlink.exceptions import IPSetError
-from pyroute2.wiset import WiSet, load_all_ipsets, COUNT, get_ipset_socket
+from pyroute2.wiset import WiSet, load_all_ipsets, COUNT, get_ipset_socket, IPStats
 from pyroute2.wiset import test_ipset_exist, load_ipset
 from utils import require_user
 
@@ -288,6 +288,20 @@ class WiSet_test(object):
 
         myset.destroy()
 
+    def test_add_ipstats(self, sock=None):
+        data = IPStats(packets=10, bytes=1000, comment="hello world",
+                       skbmark="0x10/0x10", timeout=None)
+        myset = WiSet(name=self.name, attr_type="hash:net",
+                      comment=True, skbinfo=True, counters=True,
+                      sock=sock)
+        myset.create()
+        myset.add("198.51.100.0/24", **data._asdict())
+
+        assert "198.51.100.0/24" in myset.content
+        assert data == myset.content["198.51.100.0/24"]
+
+        myset.destroy()
+
     def test_revision(self, sock=None):
         myset = WiSet(name=self.name, attr_type="hash:net", sock=sock)
 
@@ -314,7 +328,7 @@ class WiSet_test(object):
                 self.test_basic_attribute_reads, self.test_replace_content,
                 self.test_hash_net_ipset, self.test_stats_consistency,
                 self.test_list_in, self.test_hashnet_with_comment,
-                self.test_revision]
+                self.test_revision, self.test_add_ipstats]
         for fun in func:
             sock = get_ipset_socket()
             fun(sock=sock)
