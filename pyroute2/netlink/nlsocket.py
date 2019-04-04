@@ -83,6 +83,7 @@ classes
 import os
 import sys
 import time
+import errno
 import select
 import struct
 import logging
@@ -369,10 +370,10 @@ class NetlinkMixin(object):
     def clone(self):
         return type(self)(family=self.family)
 
-    def close(self):
-        if self.pthread:
+    def close(self, code=errno.ECONNRESET):
+        if code > 0 and self.pthread:
             self.buffer_queue.put(struct.pack('IHHQIQQ',
-                                              28, 2, 0, 0, 104, 0, 0))
+                                              28, 2, 0, 0, code, 0, 0))
         try:
             os.close(self._ctrl_write)
             os.close(self._ctrl_read)
@@ -1030,7 +1031,7 @@ class NetlinkSocket(NetlinkMixin):
     def drop_membership(self, group):
         self.setsockopt(SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, group)
 
-    def close(self):
+    def close(self, code=errno.ECONNRESET):
         '''
         Correctly close the socket and free all resources.
         '''
@@ -1042,7 +1043,7 @@ class NetlinkSocket(NetlinkMixin):
         if self.pthread:
             os.write(self._ctrl_write, b'exit')
             self.pthread.join()
-        super(NetlinkSocket, self).close()
+        super(NetlinkSocket, self).close(code=code)
 
         # Common shutdown procedure
         self._sock.close()

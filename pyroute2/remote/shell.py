@@ -1,3 +1,4 @@
+import errno
 import struct
 import atexit
 import logging
@@ -43,15 +44,17 @@ class ShellIPR(RTNL_API, RemoteSocket):
             except ValueError:
                 pass
 
-    def close(self):
+    def close(self, code=errno.ECONNRESET):
         self._cleanup_atexit()
         # something went wrong, force server shutdown
         try:
             self.trnsp_out.send({'stage': 'shutdown'})
-            data = {'stage': 'broadcast',
-                    'data': struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0),
-                    'error': None}
-            self.trnsp_in.brd_queue.put(data)
+            if code > 0:
+                data = {'stage': 'broadcast',
+                        'data': struct.pack('IHHQIQQ', 28,
+                                            2, 0, 0, code, 0, 0),
+                        'error': None}
+                self.trnsp_in.brd_queue.put(data)
         except Exception:
             pass
         # force cleanup command channels

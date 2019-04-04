@@ -188,10 +188,10 @@ class NetNS(RTNL_API, RemoteSocket):
             except ValueError:
                 pass
 
-    def close(self):
+    def close(self, code=errno.ECONNRESET):
         self._cleanup_atexit()
         try:
-            super(NetNS, self).close()
+            super(NetNS, self).close(code=code)
         except:
             # something went wrong, force server shutdown
             try:

@@ -44,6 +44,7 @@ On all the supported platforms, be it Linux or BSD, the
 payload and `IPRoute.get(...)` returns parsed RTNL messages.
 '''
 import os
+import errno
 import struct
 import select
 import threading
@@ -114,7 +115,7 @@ class IPRoute(object):
     def clone(self):
         return self
 
-    def close(self):
+    def close(self, code=errno.ECONNRESET):
         with self._system_lock:
             if self.closed.is_set():
                 return
@@ -124,7 +125,8 @@ class IPRoute(object):
                 self._mon_th.join()
                 self._rtm.close()
 
-            self._outq.put(struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0))
+            if code > 0:
+                self._outq.put(struct.pack('IHHQIQQ', 28, 2, 0, 0, code, 0, 0))
             os.write(self._pfdw, b'\0')
             for ep in (self._pfdr, self._pfdw, self._ctlr, self._ctlw):
                 try:

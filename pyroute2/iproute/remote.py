@@ -1,4 +1,5 @@
 import os
+import errno
 import mitogen.core
 import mitogen.master
 import threading
@@ -125,10 +126,10 @@ class RemoteIPRoute(RTNL_API, RemoteSocket):
     def clone(self):
         return type(self)(*self._argv, **self._kwarg)
 
-    def close(self):
+    def close(self, code=errno.ECONNRESET):
         with self.shutdown_lock:
             if not self.closed:
-                super(RemoteIPRoute, self).close()
+                super(RemoteIPRoute, self).close(code=code)
                 self.closed = True
                 try:
                     self._mitogen_call.get()

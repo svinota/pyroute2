@@ -1,4 +1,5 @@
 import sys
+import errno
 import types
 from pyroute2 import config
 from pyroute2.common import Namespace
@@ -185,10 +186,10 @@ class IPRSocket(IPRSocketMixin, NetlinkSocket):
                                                       terminate,
                                                       callback)
 
-            def close(self):
+            def close(self, code=errno.ECONNRESET):
                 with self.sys_lock:
                     self._brd_socket.close()
-                    return super(IPRSocket, self).close()
+                    return super(IPRSocket, self).close(code=code)
 
             self.get = types.MethodType(get, self)
             self.close = types.MethodType(close, self)

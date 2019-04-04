@@ -428,7 +428,7 @@ class Source(object):
 
     def __init__(self, evq, target, source,
                  event=None,
-                 persistent=False,
+                 persistent=True,
                  **nl_kwarg):
         self.th = None
         self.nl = None
@@ -468,7 +468,7 @@ class Source(object):
             while True:
                 if self.nl is not None:
                     try:
-                        self.nl.close()
+                        self.nl.close(err=0)
                     except Exception as e:
                         log.warning('[%s] source restart: %s'
                                     % (self.target, e))

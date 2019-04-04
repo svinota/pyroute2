@@ -84,7 +84,7 @@ class IPRoute(object):
     def clone(self):
         return self
 
-    def close(self):
+    def close(self, code=None):
         pass
 
     def bind(self, *argv, **kwarg):

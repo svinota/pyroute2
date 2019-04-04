@@ -1,4 +1,5 @@
 import os
+import errno
 import atexit
 import pickle
 import select
@@ -251,7 +252,7 @@ class RemoteSocket(NetlinkMixin):
             except ValueError:
                 pass
 
-    def close(self):
+    def close(self, code=errno.ECONNRESET):
         with self.shutdown_lock:
             if not self.closed:
                 super(RemoteSocket, self).close()
@@ -259,8 +260,8 @@ class RemoteSocket(NetlinkMixin):
                 self._cleanup_atexit()
                 self.trnsp_out.send({'stage': 'shutdown'})
                 # send loopback nlmsg to terminate possible .get()
-                if self.remote_trnsp_out is not None:
-                    data = struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0)
+                if code > 0 and self.remote_trnsp_out is not None:
+                    data = struct.pack('IHHQIQQ', 28, 2, 0, 0, code, 0, 0)
                     self.remote_trnsp_out.send({'stage': 'broadcast',
                                                 'data': data,
                                                 'error': None})
