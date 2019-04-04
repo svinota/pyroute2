@@ -2,18 +2,24 @@ from time import sleep
 
 from pyroute2.common import uifname
 from pyroute2.netlink.exceptions import IPSetError
-from pyroute2.wiset import WiSet, load_all_ipsets, COUNT, get_ipset_socket
-from pyroute2.wiset import test_ipset_exist, load_ipset
+from pyroute2.wiset import COUNT
+from pyroute2.wiset import IPStats
+from pyroute2.wiset import WiSet
+from pyroute2.wiset import get_ipset_socket
+from pyroute2.wiset import load_all_ipsets
+from pyroute2.wiset import load_ipset
+from pyroute2.wiset import test_ipset_exist
+
 from utils import require_user
 
 
 class WiSet_test(object):
 
     def setUp(self):
+        require_user('root')
         self.name = uifname()
 
     def test_create_one_ipset(self, sock=None):
-        require_user('root')
         with WiSet(name=self.name, sock=sock) as myset:
             myset.create()
 
@@ -26,7 +32,6 @@ class WiSet_test(object):
             assert self.name not in load_all_ipsets(sock=sock)
 
     def test_create_ipset_twice(self, sock=None):
-        require_user('root')
         with WiSet(name=self.name, sock=sock) as myset:
             myset.create()
 
@@ -41,7 +46,6 @@ class WiSet_test(object):
             assert self.name not in load_all_ipsets(sock=sock)
 
     def test_check_ipset_stats(self, sock=None):
-        require_user('root')
 
         def test_stats(myset, res=None, counters=False):
             myset.counters = counters
@@ -68,7 +72,6 @@ class WiSet_test(object):
             test_stats(myset)
 
     def test_ipset_with_comment(self, sock=None):
-        require_user('root')
         comment = "test comment"
 
         with WiSet(name=self.name, sock=sock, comment=True) as myset:
@@ -80,7 +83,6 @@ class WiSet_test(object):
         assert set_list["8.8.8.8"].comment == comment
 
     def test_ipset_with_skbinfo(self, sock=None):
-        require_user('root')
         with WiSet(name=self.name, sock=sock, skbinfo=True) as myset:
             myset.create()
             myset.add("192.168.1.1", skbmark=(0xc8, 0xc8))
@@ -96,7 +98,6 @@ class WiSet_test(object):
         assert set_list["192.168.1.4"].skbmark == "0xcb"
 
     def test_list_on_large_set(self, sock=None):
-        require_user('root')
         set_size = 30000
         base_ip = "10.10.%d.%d"
 
@@ -113,7 +114,6 @@ class WiSet_test(object):
         assert stats_len2 == set_size
 
     def test_remove_entry(self, sock=None):
-        require_user('root')
         ip = "1.1.1.1"
 
         with WiSet(name=self.name, sock=sock, counters=True) as myset:
@@ -126,7 +126,6 @@ class WiSet_test(object):
             myset.destroy()
 
     def test_flush(self, sock=None):
-        require_user('root')
         ip_list = ["1.2.3.4", "1.1.1.1", "7.7.7.7"]
 
         with WiSet(name=self.name, sock=sock) as myset:
@@ -140,7 +139,6 @@ class WiSet_test(object):
             myset.destroy()
 
     def test_list_in(self, sock=None):
-        require_user('root')
         ip_list_good = ["1.2.3.4", "1.1.1.1", "7.7.7.7"]
         ip_list_bad = ["4.4.4.4", "5.5.5.5", "6.6.6.6"]
 
@@ -156,7 +154,6 @@ class WiSet_test(object):
             myset.destroy()
 
     def test_timeout(self, sock=None):
-        require_user('root')
         ip = "1.2.3.4"
         timeout = 2
 
@@ -173,7 +170,6 @@ class WiSet_test(object):
             myset.destroy()
 
     def test_basic_attribute_reads(self, sock=None):
-        require_user('root')
         for value in [True, False]:
             myset = WiSet(name=self.name, sock=sock, counters=value,
                           comment=value)
@@ -188,7 +184,6 @@ class WiSet_test(object):
                 myset.close_netlink()
 
     def test_replace_content(self, sock=None):
-        require_user('root')
         list_a = ["1.2.3.4", "2.3.4.5", "6.7.8.9"]
         list_b = ["1.1.1.1", "2.2.2.2", "3.3.3.3"]
 
@@ -210,7 +205,6 @@ class WiSet_test(object):
         test_replace(set(list_a), set(list_b))
 
     def test_replace_content_with_comment(self, sock=None):
-        require_user('root')
         list_a = [{'entry': "1.2.3.4", 'comment': 'foo'},
                   {'entry': "2.3.4.5", 'comment': 'foo'},
                   {'entry': "6.7.8.9", 'comment': 'bar'}]
@@ -242,7 +236,6 @@ class WiSet_test(object):
         test_replace(list_a, list_b)
 
     def test_hash_net_ipset(self, sock=None):
-        require_user('root')
         to_add = ["192.168.1.0/24", "192.168.2.0/23", "10.0.0.0/8"]
         atype = "hash:net"
 
@@ -254,7 +247,6 @@ class WiSet_test(object):
             myset.destroy()
 
     def test_two_dimensions_ipset(self, sock=None):
-        require_user('root')
         to_add = ["192.168.1.0/24,eth0", "192.168.2.0/23,eth1",
                   "10.0.0.0/8,tun0"]
         atype = "hash:net,iface"
@@ -268,7 +260,6 @@ class WiSet_test(object):
 
     def test_stats_consistency(self, sock=None):
         """ Test several way to fill the statistics of one IPSet """
-        require_user('root')
         entries = ["1.2.3.4", "1.2.3.5", "1.2.3.6"]
 
         myset = WiSet(name=self.name, sock=sock)
@@ -286,7 +277,6 @@ class WiSet_test(object):
         myset.destroy()
 
     def test_hashnet_with_comment(self, sock=None):
-        require_user('root')
         comment = "abcdef"
         myset = WiSet(name=self.name, attr_type="hash:net", comment=True,
                       sock=sock)
@@ -304,8 +294,21 @@ class WiSet_test(object):
 
         myset.destroy()
 
+    def test_add_ipstats(self, sock=None):
+        data = IPStats(packets=10, bytes=1000, comment="hello world",
+                       skbmark="0x10/0x10", timeout=None)
+        myset = WiSet(name=self.name, attr_type="hash:net",
+                      comment=True, skbinfo=True, counters=True,
+                      sock=sock)
+        myset.create()
+        myset.add("198.51.100.0/24", **data._asdict())
+
+        assert "198.51.100.0/24" in myset.content
+        assert data == myset.content["198.51.100.0/24"]
+
+        myset.destroy()
+
     def test_revision(self, sock=None):
-        require_user('root')
         myset = WiSet(name=self.name, attr_type="hash:net", sock=sock)
 
         myset.create()
@@ -314,7 +317,6 @@ class WiSet_test(object):
         myset.destroy()
 
     def test_force_attr_revision(self):
-        require_user('root')
         sock = get_ipset_socket(attr_revision=2)
 
         myset = WiSet(name=self.name, attr_type="hash:net", sock=sock)
@@ -332,7 +334,7 @@ class WiSet_test(object):
                 self.test_basic_attribute_reads, self.test_replace_content,
                 self.test_hash_net_ipset, self.test_stats_consistency,
                 self.test_list_in, self.test_hashnet_with_comment,
-                self.test_revision]
+                self.test_revision, self.test_add_ipstats]
         for fun in func:
             sock = get_ipset_socket()
             fun(sock=sock)
