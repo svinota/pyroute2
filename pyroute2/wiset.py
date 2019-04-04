@@ -39,6 +39,7 @@ from pyroute2.common import basestring
 from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
+from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
 
 
 # Debug variable to detect netlink socket leaks
@@ -197,6 +198,7 @@ class WiSet(object):
         if flags is not None:
             self.counters = bool(flags & IPSET_FLAG_WITH_COUNTERS)
             self.comment = bool(flags & IPSET_FLAG_WITH_COMMENT)
+            self.skbinfo = bool(flags & IPSET_FLAG_WITH_SKBINFO)
 
         if content:
             self.update_dict_content(ndmsg)
@@ -338,7 +340,10 @@ class WiSet(object):
     def insert_list(self, entries):
         """ Just a small helper to reduce the number of loops in main code. """
         for entry in entries:
-            self.add(entry)
+            if isinstance(entry, basestring):
+                self.add(entry)
+            elif isinstance(entry, dict):
+                self.add(**entry)
 
     def replace_entries(self, new_list):
         """ Replace the content of an ipset with a new list of entries.
@@ -347,7 +352,8 @@ class WiSet(object):
         this call is atomic: it creates a temporary ipset and swap the content.
 
         :param new_list: list of entries to add
-        :type new_list: list or :py:class:`set`
+        :type new_list: list or :py:class:`set` of basestring or of
+        keyword arguments dict
         """
         temp_name = str(uuid.uuid4())[0:8]
         # Get a copy of ourself
