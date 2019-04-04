@@ -284,6 +284,9 @@ class WiSet(object):
         we add the element. Without this reset, kernel sometimes store old
         values and can add very strange behavior on counters.
         """
+        if isinstance(entry, dict):
+            kwargs.update(entry)
+            entry = kwargs.pop("entry")
         if self.counters:
             kwargs["packets"] = kwargs.pop("packets", 0)
             kwargs["bytes"] = kwargs.pop("bytes", 0)
@@ -340,10 +343,7 @@ class WiSet(object):
     def insert_list(self, entries):
         """ Just a small helper to reduce the number of loops in main code. """
         for entry in entries:
-            if isinstance(entry, basestring):
-                self.add(entry)
-            elif isinstance(entry, dict):
-                self.add(**entry)
+            self.add(entry)
 
     def replace_entries(self, new_list):
         """ Replace the content of an ipset with a new list of entries.
