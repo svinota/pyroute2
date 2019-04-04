@@ -22,7 +22,6 @@ from utils import get_ip_link
 from utils import get_ip_route
 from utils import get_ip_default_routes
 from utils import get_ip_rules
-from utils import create_link
 from utils import remove_link
 from utils import allocate_network
 from utils import free_network
@@ -137,33 +136,52 @@ class TestIPRoute(object):
 
     ipnets = []
     ipranges = []
+    ifnames = []
 
     def setup(self):
         self.ip = IPRoute()
         self.ipnets = [allocate_network() for _ in range(3)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
+        self.ifaces = []
+        self.ifnames = []
         try:
-            self.ifaces = []
             self.dev, idx = self.create()
         except IndexError:
             pass
 
     def create(self, kind='dummy'):
         name = uifname()
-        create_link(name, kind=kind)
-        idx = self.ip.link_lookup(ifname=name)[0]
+        self.ip.link('add', ifname=name, kind=kind)
+        idx = None
+        while not idx:
+            idx = self.ip.link_lookup(ifname=name)
+        idx = idx[0]
         self.ifaces.append(idx)
         return (name, idx)
+
+    def uifname(self):
+        ifname = uifname()
+        self.ifnames.append(ifname)
+        return ifname
 
     def teardown(self):
         for net in self.ipnets:
             free_network(net)
         if hasattr(self, 'ifaces'):
-            for dev in self.ifaces:
+            for dev in reversed(self.ifaces):
                 try:
                     self.ip.link('delete', index=dev)
                 except:
                     pass
+        for name in reversed(self.ifnames):
+            try:
+                (self
+                 .ip
+                 .link('del', index=(self
+                                     .ip
+                                     .link_lookup(ifname=name)[0])))
+            except:
+                pass
         self.ip.close()
 
     def ifaddr(self, r=0):
@@ -367,8 +385,8 @@ class TestIPRoute(object):
     @skip_if_not_supported
     def _create_ipvlan(self, smode):
         require_user('root')
-        master = uifname()
-        ipvlan = uifname()
+        master = self.uifname()
+        ipvlan = self.uifname()
         # create the master link
         self.ip.link('add', ifname=master, kind='dummy')
         midx = self.ip.link_lookup(ifname=master)[0]
@@ -384,7 +402,6 @@ class TestIPRoute(object):
                      mode=cmode)
         devs = self.ip.link_lookup(ifname=ipvlan)
         assert devs
-        self.ifaces.extend(devs)
 
     def test_create_ipvlan_l2(self):
         return self._create_ipvlan('IPVLAN_MODE_L2')
@@ -394,11 +411,10 @@ class TestIPRoute(object):
 
     @skip_if_not_supported
     def _create(self, kind, **kwarg):
-        name = uifname()
+        name = self.uifname()
         self.ip.link('add', ifname=name, kind=kind, **kwarg)
         devs = self.ip.link_lookup(ifname=name)
         assert devs
-        self.ifaces.extend(devs)
         return (name, devs[0])
 
     def test_create_dummy(self):
