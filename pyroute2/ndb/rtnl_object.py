@@ -156,6 +156,14 @@ class RTNL_Object(dict):
         return self
 
     @property
+    def wtime(self):
+        stats = self.schema.stats.get(self['target'])
+        if stats:
+            return max(5, stats.qsize / 1000)
+        else:
+            return 5
+
+    @property
     def etable(self):
         if self.ctxid:
             return '%s_%s' % (self.table, self.ctxid)
@@ -379,7 +387,8 @@ class RTNL_Object(dict):
             # the removal protocol: in some cases the message order is wrong
             # and RTM_NEW comes immediately after RTM_DEL, so it's not clear
             # if the object is actually removed
-            for _ in range(3):
+            for _ in range(10):
+                wt = []
                 try:
                     self.log.append('remove')
                     api('del', **idx_req)
@@ -387,21 +396,32 @@ class RTNL_Object(dict):
                     self.log.append('error: %s' % e)
                     if e.code != errno.ENODEV:
                         raise e
-                self.load_event.wait(1)
+                wtime = self.wtime
+                wt.append(wtime)
+                self.load_event.wait(wtime)
                 self.load_event.clear()
                 if self.check():
                     self.log.append('checked')
                     break
                 self.log.append('check failed')
+            else:
+                e = Exception('lost sync while removal')
+                e.wtime = wt
+                raise e
 
         if state != 'remove':
-            for _ in range(3):
+            wt = []
+            for _ in range(10):
                 if self.check():
                     break
-                self.load_event.wait(1)
+                wtime = self.wtime
+                wt.append(wtime)
+                self.load_event.wait(wtime)
                 self.load_event.clear()
             else:
-                raise Exception('timeout while applying changes')
+                e = Exception('timeout while applying changes')
+                e.wtime = wt
+                raise e
 
         #
         if rollback:
