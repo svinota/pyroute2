@@ -180,6 +180,7 @@ class DBSchema(object):
 
     def __init__(self, connection, mode, rtnl_log, tid):
         self.mode = mode
+        self.stats = {}
         self.thread = tid
         self.connection = connection
         self.rtnl_log = rtnl_log
@@ -894,6 +895,11 @@ class DBSchema(object):
         # ? make a decorator ?
         if self.thread != id(threading.current_thread()):
             return
+        #
+        # Update metrics
+        #
+        if 'stats' in event['header']:
+            self.stats[target] = event['header']['stats']
         #
         # Periodic jobs
         #
