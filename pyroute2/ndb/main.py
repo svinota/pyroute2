@@ -614,6 +614,15 @@ class NDB(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
+    def show(self, *argv, **kwarg):
+        ptr = self
+        for word in argv:
+            ptr = getattr(ptr, word)
+        if hasattr(ptr, '__call__'):
+            return ptr(**kwarg)
+        else:
+            return ptr
+
     def debug(self, mode=None):
         if mode is None:
             return self._debug is not None
