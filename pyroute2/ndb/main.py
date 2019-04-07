@@ -446,7 +446,7 @@ class Source(object):
         self.lock = threading.Lock()
         self.started.clear()
         self.persistent = persistent
-        self.status = 'init'
+        self.state = 'init'
 
     def __repr__(self):
         if isinstance(self.nl_prime, NetlinkMixin):
@@ -454,7 +454,7 @@ class Source(object):
         elif isinstance(self.nl_prime, type):
             name = self.nl_prime.__name__
 
-        return '[%s] <%s %s>' % (self.status, name, self.nl_kwarg)
+        return '[%s] <%s %s>' % (self.state, name, self.nl_kwarg)
 
     def start(self):
 
@@ -473,14 +473,14 @@ class Source(object):
                         log.warning('[%s] source restart: %s'
                                     % (self.target, e))
                 try:
-                    self.status = 'connecting'
+                    self.state = 'connecting'
                     if isinstance(self.nl_prime, NetlinkMixin):
                         self.nl = self.nl_prime
                     elif isinstance(self.nl_prime, type):
                         self.nl = self.nl_prime(**self.nl_kwarg)
                     else:
                         raise TypeError('source channel not supported')
-                    self.status = 'loading'
+                    self.state = 'loading'
                     #
                     self.nl.bind(async_cache=True, clone_socket=True)
                     #
@@ -493,7 +493,7 @@ class Source(object):
                     self.evq.put((self.target, self.nl.get_routes()))
                     self.started.set()
                     self.shutdown.clear()
-                    self.status = 'running'
+                    self.state = 'running'
                     if self.event is not None:
                         self.evq.put((self.target, (self.event, )))
                     while True:
@@ -506,7 +506,7 @@ class Source(object):
                         if msg is None or \
                                 msg[0]['header']['error'] and \
                                 msg[0]['header']['error'].code == 104:
-                            self.status = 'stopped'
+                            self.state = 'stopped'
                             # thus we make sure that all the events from
                             # this source are consumed by the main loop
                             # in __dbm__() routine
@@ -519,7 +519,7 @@ class Source(object):
                     raise
                 except Exception as e:
                     self.started.set()
-                    self.status = 'failed'
+                    self.state = 'failed'
                     log.error('[%s] source error: %s' % (self.target, e))
                     self.evq.put((self.target, (MarkFailed(), )))
                     if self.persistent:
@@ -655,6 +655,10 @@ class NDB(object):
         #
         def check_db(l):
             for event, evc, obj in tuple(l):
+                target = obj.get('target', 'localhost')
+                source = self.sources[target]
+                if source.state != 'running':
+                    raise RuntimeError('rtnl source not available')
                 try:
                     getattr(self, event)[obj]
                 except KeyError:
