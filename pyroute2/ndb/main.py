@@ -575,7 +575,7 @@ class NDB(object):
         self._dbm_ready = threading.Event()
         self._global_lock = threading.Lock()
         self._event_map = None
-        self._event_queue = queue.Queue()
+        self._event_queue = queue.Queue(maxsize=100)
         #
         # fix sources prime
         if sources is None:
