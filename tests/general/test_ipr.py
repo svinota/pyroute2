@@ -18,7 +18,6 @@ from utils import require_python
 from utils import require_kernel
 from utils import get_ip_brd
 from utils import get_ip_addr
-from utils import get_ip_link
 from utils import get_ip_route
 from utils import get_ip_default_routes
 from utils import get_ip_rules
@@ -1280,12 +1279,6 @@ class TestIPRoute(object):
             len(self.ip.get_rules(socket.AF_INET))
         assert len(get_ip_rules('-6')) == \
             len(self.ip.get_rules(socket.AF_INET6))
-
-    def test_addr(self):
-        assert len(get_ip_addr()) == len(self.ip.get_addr())
-
-    def test_links(self):
-        assert len(get_ip_link()) == len(self.ip.get_links())
 
     def test_one_link(self):
         lo = self.ip.get_links(1)[0]
