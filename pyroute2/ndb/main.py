@@ -570,6 +570,7 @@ class NDB(object):
 
         self.ctime = self.gctime = time.time()
         self.schema = None
+        self._debug = None
         self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
@@ -612,6 +613,26 @@ class NDB(object):
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
+
+    def debug(self, mode=None):
+        if mode is None:
+            return self._debug is not None
+        elif mode == 'on' and self._debug is None:
+            self._debug = {'logger': logging.getLogger(''),
+                           'handler': logging.StreamHandler()}
+            (self
+             ._debug['logger']
+             .addHandler(self._debug['handler']))
+            (self
+             ._debug['logger']
+             .setLevel(logging.DEBUG))
+        elif mode == 'off' and self._debug is not None:
+            (self
+             ._debug['logger']
+             .setLevel(logging.INFO))
+            (self
+             ._debug['logger']
+             .removeHandler(self._debug['handler']))
 
     def register_handler(self, event, handler):
         if event not in self._event_map:
