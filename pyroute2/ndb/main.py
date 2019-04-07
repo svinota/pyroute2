@@ -849,15 +849,19 @@ class NDB(object):
                 raise event
             logging.warning('unsupported event ignored: %s' % type(event))
 
-        def check_sources_started(target, event):
-            if all([x.started.is_set() for x in self.sources.values()]):
-                self._event_queue.put(('localhost', (self._dbm_ready, )))
+        def check_sources_started(self, _locals, target, event):
+            _locals['countdown'] -= 1
+            if _locals['countdown'] == 0:
+                self._dbm_ready.set()
+
+        _locals = {'countdown': len(self._nl)}
 
         # init the events map
         event_map = {type(self._dbm_ready): [lambda t, x: x.set()],
                      SchemaFlush: [lambda t, x: self.schema.flush(t)],
                      MarkFailed: [lambda t, x: self.schema.mark(t, 1)],
-                     SyncStart: [check_sources_started]}
+                     SyncStart: [partial(check_sources_started,
+                                         self, _locals)]}
         self._event_map = event_map
 
         event_queue = self._event_queue
