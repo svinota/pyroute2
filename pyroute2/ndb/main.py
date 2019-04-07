@@ -139,6 +139,7 @@ PostgreSQL access requires psycopg2 module::
 
 
 '''
+import gc
 import json
 import time
 import atexit
@@ -636,15 +637,26 @@ class NDB(object):
         if not isinstance(spec, dict):
             raise ValueError('wrong spec type, must be dict')
 
-        # install the queue
-        evq = queue.Queue()
+        # install a limited events queue -- for a possible immediate reaction
+        evq = queue.Queue(maxsize=512)
 
-        def handler(target, event):
-            evq.put((target, event))
+        def handler(evq, target, event):
+            # ignore the "queue full" exception
+            #
+            # if we miss some events here, nothing bad happens: we just
+            # load them from the DB after a timeout, falling back to
+            # the DB polling
+            #
+            # the most important here is not to allocate too much memory
+            try:
+                evq.put_nowait((target, event))
+            except queue.Full:
+                pass
 
         #
+        hdl = partial(handler, evq)
         for event in spec:
-            self.register_handler(self.schema.classes[event], handler)
+            self.register_handler(self.schema.classes[event], hdl)
 
         #
         wait_for = []
@@ -691,7 +703,12 @@ class NDB(object):
 
         #
         for event in spec:
-            self.unregister_handler(self.schema.classes[event], handler)
+            self.unregister_handler(self.schema.classes[event], hdl)
+
+        del evq
+        del hdl
+        del wait_for
+        gc.collect()
 
     def close(self):
         with self._global_lock:
