@@ -89,6 +89,7 @@ import struct
 import logging
 import traceback
 import threading
+import collections
 
 from socket import SOCK_DGRAM
 from socket import MSG_PEEK
@@ -122,6 +123,7 @@ except ImportError:
     from queue import Queue
 
 log = logging.getLogger(__name__)
+Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
 
 
 class Marshal(object):
@@ -757,6 +759,7 @@ class NetlinkMixin(object):
                                 #
                                 current = self.buffer_queue.qsize()
                                 delta = current - self.qsize
+                                delay = 0
                                 if delta > 10:
                                     delay = min(3, max(0.01,
                                                        float(current) / 60000))
@@ -773,6 +776,9 @@ class NetlinkMixin(object):
                                 # We've got the data, lock the backlog again
                                 with self.backlog_lock:
                                     for msg in msgs:
+                                        msg['header']['stats'] = Stats(current,
+                                                                       delta,
+                                                                       delay)
                                         seq = msg['header']['sequence_number']
                                         if seq not in self.backlog:
                                             if msg['header']['type'] == \
