@@ -55,7 +55,7 @@ class Console(code.InteractiveConsole):
 
     def help(self):
         self.lprint("Built-in commands: \n"
-                    "debug\t-- run pdb (if installed)\n"
+                    "pdb\t-- run pdb (if installed)\n"
                     "exit\t-- exit cli\n"
                     "ls\t-- list current namespace\n"
                     ".\t-- print the current object\n"
@@ -75,7 +75,7 @@ class Console(code.InteractiveConsole):
 
     def handle_statement(self, stmt):
         obj = None
-        if stmt.name == 'debug':
+        if stmt.name == 'pdb':
             if HAS_PDB:
                 pdb.set_trace()
             else:
@@ -86,8 +86,6 @@ class Console(code.InteractiveConsole):
             self.lprint(dir(self.ptr))
         elif stmt.name == 'help':
             self.help()
-        elif stmt.name == 'show':
-            self.pprint(self.ptr)
         elif stmt.name == '.':
             self.lprint(repr(self.ptr))
         elif stmt.name == '..':
