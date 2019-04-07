@@ -225,6 +225,7 @@ class RTNL_Object(dict):
     def rollback(self, snapshot=None):
         self.log.append('rollback: %s' % str(self.state.events))
         snapshot = snapshot or self.last_save
+        snapshot.state.set(self.state.get())
         snapshot.apply(rollback=True)
         for link, snp in snapshot.snapshot_deps:
             link.rollback(snapshot=snp)
@@ -273,6 +274,11 @@ class RTNL_Object(dict):
                     e_c.chain.extend(e_r.chain)
                 e_r.chain = None
             raise
+        finally:
+            (self
+             .last_save
+             .state
+             .set(self.state.get()))
         return self
 
     def remove(self):
