@@ -825,7 +825,7 @@ class NDB(object):
                                               target, source, event)
             elif isinstance(source, dict):
                 iclass = source.pop('class')
-                persistent = source.pop('persistent', False)
+                persistent = source.pop('persistent', True)
                 self.sources[target] = Source(self._event_queue,
                                               target, iclass, event,
                                               persistent, **source)
