@@ -159,9 +159,9 @@ class RTNL_Object(dict):
     def wtime(self):
         stats = self.schema.stats.get(self['target'])
         if stats:
-            return max(5, stats.qsize / 1000)
+            return max(1, stats.qsize / 100)
         else:
-            return 5
+            return 1
 
     @property
     def etable(self):
