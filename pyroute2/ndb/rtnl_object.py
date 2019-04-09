@@ -337,19 +337,6 @@ class RTNL_Object(dict):
         self.log.append('apply: %s' % str(self.state.events))
         self.load_event.clear()
 
-        # Get the API entry point. The RTNL source must comply to the
-        # IPRoute API.
-        #
-        # self.sources = {'localhost': Source(),
-        #                 'remote': ...}
-        #
-        # self.api = 'link'
-        # Source().nl -- RTNL API
-        #
-        # -> api(...) = iproute.link(...)
-        #
-        api = getattr(self.sources[self['target']].nl, self.api)
-
         # Load the current state
         try:
             self.schema.connection.commit()
@@ -380,9 +367,13 @@ class RTNL_Object(dict):
                         break
                     except:
                         pass
-            api('add', **req)
+            (self
+             .sources[self['target']]
+             .api(self.api, 'add', **req))
         elif state == 'system':
-            api('set', **req)
+            (self
+             .sources[self['target']]
+             .api(self.api, 'set', **req))
         elif state == 'remove':
             # the removal protocol: in some cases the message order is wrong
             # and RTM_NEW comes immediately after RTM_DEL, so it's not clear
@@ -391,13 +382,21 @@ class RTNL_Object(dict):
                 wt = []
                 try:
                     self.log.append('remove')
-                    api('del', **idx_req)
+                    (self
+                     .sources[self['target']]
+                     .api(self.api, 'del', **idx_req))
                 except NetlinkError as e:
                     self.log.append('error: %s' % e)
                     if e.code != errno.ENODEV:
                         raise e
                 wtime = self.wtime
+                mqsize = self.view.ndb._event_queue.qsize()
+                nqsize = self.schema.stats.get(self['target']).qsize
                 wt.append(wtime)
+                log.debug('telemetry: apply remove {'
+                          'objid %s, wtime %s, '
+                          'mqsize %s, nqsize %s'
+                          '}' % (id(self), wtime, mqsize, nqsize))
                 self.load_event.wait(wtime)
                 self.load_event.clear()
                 if self.check():
@@ -405,6 +404,7 @@ class RTNL_Object(dict):
                     break
                 self.log.append('check failed')
             else:
+                log.debug('telemetry: %s wtime remove fail' % (id(self)))
                 e = Exception('lost sync while removal')
                 e.wtime = wt
                 raise e
@@ -415,14 +415,22 @@ class RTNL_Object(dict):
                 if self.check():
                     break
                 wtime = self.wtime
+                mqsize = self.view.ndb._event_queue.qsize()
+                nqsize = self.schema.stats.get(self['target']).qsize
                 wt.append(wtime)
+                log.debug('telemetry: apply system {'
+                          'objid %s, wtime %s, '
+                          'mqsize %s, nqsize %s'
+                          '}' % (id(self), wtime, mqsize, nqsize))
                 self.load_event.wait(wtime)
                 self.load_event.clear()
             else:
+                log.debug('telemetry: %s wtime system fail' % (id(self)))
                 e = Exception('timeout while applying changes')
                 e.wtime = wt
                 raise e
 
+        log.debug('telemetry: %s pass' % (id(self)))
         #
         if rollback:
             #
