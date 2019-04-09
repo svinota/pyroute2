@@ -151,6 +151,7 @@ import traceback
 from functools import partial
 from pyroute2 import config
 from pyroute2 import IPRoute
+from pyroute2.common import basestring
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.ndb import dbschema
 from pyroute2.ndb.interface import (Interface,
@@ -163,13 +164,20 @@ from pyroute2.ndb.query import Query
 from pyroute2.ndb.report import Report
 from pyroute2.netlink.exceptions import NetlinkError
 try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
+
+try:
     import queue
 except ImportError:
     import Queue as queue
+
 try:
     import psycopg2
 except ImportError:
     psycopg2 = None
+
 log = logging.getLogger(__name__)
 
 
@@ -603,7 +611,8 @@ class NDB(object):
                  sources=None,
                  db_provider='sqlite3',
                  db_spec=':memory:',
-                 rtnl_log=False):
+                 rtnl_log=False,
+                 debug=False):
 
         self.ctime = self.gctime = time.time()
         self.schema = None
@@ -614,6 +623,9 @@ class NDB(object):
         self._global_lock = threading.Lock()
         self._event_map = None
         self._event_queue = queue.Queue(maxsize=100)
+        #
+        if debug:
+            self.debug(debug)
         #
         # fix sources prime
         if sources is None:
@@ -660,25 +672,33 @@ class NDB(object):
         else:
             return ptr
 
-    def debug(self, mode=None):
-        if mode is None:
+    def debug(self, target=None):
+        if target is None:
             return self._debug is not None
-        elif mode == 'on' and self._debug is None:
-            self._debug = {'logger': logging.getLogger(''),
-                           'handler': logging.StreamHandler()}
-            (self
-             ._debug['logger']
-             .addHandler(self._debug['handler']))
-            (self
-             ._debug['logger']
-             .setLevel(logging.DEBUG))
-        elif mode == 'off' and self._debug is not None:
-            (self
-             ._debug['logger']
-             .setLevel(logging.INFO))
-            (self
-             ._debug['logger']
-             .removeHandler(self._debug['handler']))
+
+        if target == 'off':
+            if self._debug is not None:
+                self._debug['logger'].setLevel(logging.INFO)
+                self._debug['logger'].removeHandler(self._debug['handler'])
+                self._debug = None
+            return
+
+        if target == 'on':
+            handler = logging.StreamHandler()
+        elif isinstance(target, basestring):
+            url = urlparse(target)
+            if not url.scheme and url.path:
+                handler = logging.FileHandler(url.path)
+            elif url.scheme == 'syslog':
+                handler = logging.SysLogHandler(address=url.netloc.split(':'))
+            else:
+                raise ValueError('logging scheme not supported')
+        else:
+            handler = target
+
+        self._debug = {'logger': logging.getLogger(''), 'handler': handler}
+        self._debug['logger'].addHandler(self._debug['handler'])
+        self._debug['logger'].setLevel(logging.DEBUG)
 
     def register_handler(self, event, handler):
         if event not in self._event_map:
