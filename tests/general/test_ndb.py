@@ -1,3 +1,4 @@
+import os
 import uuid
 import threading
 from utils import grep
@@ -24,9 +25,9 @@ class TestMisc(object):
 
         # NB: no 'localhost' record -- important
         #
-        sources = {'localhost0': IPRoute(),
-                   'localhost1': RemoteIPRoute(),  # local mitogen source
-                   'localhost2': RemoteIPRoute()}  # one more
+        sources = {'localhost0': {'class': IPRoute},
+                   'localhost1': {'class': RemoteIPRoute},  # local mitogen
+                   'localhost2': {'class': RemoteIPRoute}}  # one more
 
         # check all the views
         #
@@ -36,8 +37,8 @@ class TestMisc(object):
             assert len(ndb.addresses.csv())
             assert len(ndb.routes.csv())
 
-        for source in sources:
-            assert sources[source].closed
+        for source in ndb.sources:
+            assert ndb.sources[source].nl.closed
 
 
 class TestBase(object):
@@ -122,10 +123,12 @@ class TestBase(object):
         self.if_simple = None
         self.ipnets = [allocate_network() for _ in range(5)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
+        self.nl_kwarg['class'] = self.nl_class
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        rtnl_log=True,
-                       sources=self.nl_class(**self.nl_kwarg))
+                       sources={'localhost': self.nl_kwarg})
+        self.ndb.debug('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
         self.interfaces = self.create_interfaces()
 
     def teardown(self):
@@ -168,10 +171,12 @@ class TestCreate(object):
         self.interfaces = []
         self.ipnets = [allocate_network() for _ in range(2)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
+        self.nl_kwarg['class'] = self.nl_class
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        rtnl_log=True,
-                       sources=self.nl_class(**self.nl_kwarg))
+                       sources={'localhost': self.nl_kwarg})
+        self.ndb.debug('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
 
     def teardown(self):
         with self.nl_class(**self.nl_kwarg) as ipr:
@@ -367,10 +372,12 @@ class TestRollback(TestBase):
         require_user('root')
         self.ipnets = [allocate_network() for _ in range(5)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
+        self.nl_kwarg['class'] = self.nl_class
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        rtnl_log=True,
-                       sources=self.nl_class(**self.nl_kwarg))
+                       sources={'localhost': self.nl_kwarg})
+        self.ndb.debug('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
 
     def test_simple_deps(self):
 
