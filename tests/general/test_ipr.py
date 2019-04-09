@@ -235,26 +235,26 @@ class TestIPRoute(object):
         (bn, bx) = self.create('bridge')
         (sn, sx) = self.create('dummy')
         self.ip.link('set', index=sx, master=bx)
-        assert not grep('bridge vlan show', pattern='568')
+        assert not grep('bridge vlan show', pattern=' 568')
         self.ip.vlan_filter('add', index=sx, vlan_info={'vid': 568})
-        assert grep('bridge vlan show', pattern='568')
+        assert grep('bridge vlan show', pattern=' 568')
         self.ip.vlan_filter('del', index=sx, vlan_info={'vid': 568})
-        assert not grep('bridge vlan show', pattern='568')
+        assert not grep('bridge vlan show', pattern=' 568')
 
     def test_vlan_filter_add_raw(self):
         require_user('root')
         (bn, bx) = self.create('bridge')
         (sn, sx) = self.create('dummy')
         self.ip.link('set', index=sx, master=bx)
-        assert not grep('bridge vlan show', pattern='567')
+        assert not grep('bridge vlan show', pattern=' 567')
         self.ip.vlan_filter('add', index=sx,
                             af_spec={'attrs': [['IFLA_BRIDGE_VLAN_INFO',
                                                 {'vid': 567}]]})
-        assert grep('bridge vlan show', pattern='567')
+        assert grep('bridge vlan show', pattern=' 567')
         self.ip.vlan_filter('del', index=sx,
                             af_spec={'attrs': [['IFLA_BRIDGE_VLAN_INFO',
                                                 {'vid': 567}]]})
-        assert not grep('bridge vlan show', pattern='567')
+        assert not grep('bridge vlan show', pattern=' 567')
 
     def test_brport_basic(self):
         require_user('root')
