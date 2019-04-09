@@ -747,9 +747,12 @@ class NDB(object):
 
         #
         wait_for = []
+        post = []
+
         for event, objs in spec.items():
             for obj in objs:
                 wait_for.append((event, self.schema.classes[event], obj))
+                post.append((event, self.schema.classes[event], obj))
 
         #
         def check_db(l):
@@ -797,6 +800,10 @@ class NDB(object):
         #
         for event in spec:
             self.unregister_handler(self.schema.classes[event], hdl)
+
+        #
+        while post:
+            check_db(post)
 
         del evq
         del hdl
