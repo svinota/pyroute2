@@ -331,7 +331,7 @@ class NetlinkMixin(object):
         self.lock = LockFactory()
         self._sock = None
         self._ctrl_read, self._ctrl_write = os.pipe()
-        self.buffer_queue = Queue()
+        self.buffer_queue = Queue(maxsize=4096)
         self.qsize = 0
         self.log = []
         self.get_timeout = 30
@@ -541,9 +541,10 @@ class NetlinkMixin(object):
                     try:
                         data = bytearray(64000)
                         self._sock.recv_into(data, 64000)
-                        self.buffer_queue.put(data)
+                        self.buffer_queue.put_nowait(data)
                     except Exception as e:
                         self.buffer_queue.put(e)
+                        return
                 else:
                     return
 
