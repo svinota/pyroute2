@@ -157,11 +157,7 @@ class RTNL_Object(dict):
 
     @property
     def wtime(self):
-        stats = self.schema.stats.get(self['target'])
-        if stats:
-            return max(1, stats.qsize / 100)
-        else:
-            return 1
+        return max(1, self.view.ndb._event_queue.qsize() / 10)
 
     @property
     def etable(self):
