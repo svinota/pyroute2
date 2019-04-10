@@ -8,7 +8,6 @@ import errno
 import platform
 import subprocess
 import netaddr
-import httplib
 import ctypes
 import ctypes.util
 from pyroute2 import NetlinkError
@@ -16,6 +15,10 @@ from pyroute2 import IPRoute
 from nose.plugins.skip import SkipTest
 from nose.tools import make_decorator
 from distutils.version import LooseVersion
+try:
+    import httplib
+except ImportError:
+    import http.client as httplib
 
 dtcd_uuid = str(uuid.uuid4())
 # check the dtcd
