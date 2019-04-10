@@ -237,6 +237,7 @@ class RTNL_Object(dict):
         snapshot.apply(rollback=True)
         for link, snp in snapshot.snapshot_deps:
             link.rollback(snapshot=snp)
+        return self
 
     def commit(self):
         self.log.append('commit: %s' % str(self.state.events))
@@ -462,6 +463,7 @@ class RTNL_Object(dict):
                         obj.apply()
                     except Exception as e:
                         self.errors.append((time.time(), obj, e))
+        return self
 
     def update(self, data):
         for key, value in data.items():
