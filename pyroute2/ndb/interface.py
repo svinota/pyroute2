@@ -96,7 +96,7 @@ class Interface(RTNL_Object):
                          .schema
                          .get('interfaces', {'IFLA_LINK': self['index']})):
                 # vlans
-                link = Vlan(self.view, spec)
+                link = type(self)(self.view, spec)
                 snp.snapshot_deps.append((link, link.snapshot()))
             # return the root node
             return snp
@@ -125,34 +125,3 @@ class Interface(RTNL_Object):
     def load_rtnlmsg(self, *argv, **kwarg):
         super(Interface, self).load_rtnlmsg(*argv, **kwarg)
         self.load_value('state', 'up' if self['flags'] & 1 else 'down')
-
-
-class Bridge(Interface):
-
-    table = 'bridge'
-    utable = 'interfaces'
-    summary = '''
-              SELECT
-                  f_target, f_index, f_IFLA_IFNAME,
-                  f_IFLA_ADDRESS, f_IFLA_BR_STP_STATE,
-                  f_IFLA_BR_VLAN_FILTERING
-              FROM
-                  bridge
-              '''
-    summary_header = ('target', 'index', 'ifname',
-                      'lladdr', 'stp', 'vlan_filtering')
-
-
-class Vlan(Interface):
-
-    table = 'vlan'
-    utable = 'interfaces'
-    summary = '''
-              SELECT
-                  f_target, f_index, f_IFLA_IFNAME,
-                  f_IFLA_ADDRESS, f_IFLA_LINK, f_IFLA_VLAN_ID
-              FROM
-                  vlan
-              '''
-    summary_header = ('target', 'index', 'ifname',
-                      'lladdr', 'master', 'vlan')

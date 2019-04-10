@@ -149,14 +149,13 @@ import weakref
 import threading
 import traceback
 from functools import partial
+from collections import OrderedDict
 from pyroute2 import config
 from pyroute2 import IPRoute
 from pyroute2.common import basestring
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.ndb import dbschema
-from pyroute2.ndb.interface import (Interface,
-                                    Bridge,
-                                    Vlan)
+from pyroute2.ndb.interface import Interface
 from pyroute2.ndb.address import Address
 from pyroute2.ndb.route import Route
 from pyroute2.ndb.neighbour import Neighbour
@@ -224,12 +223,6 @@ class Factory(dict):
         ifobj2 = ndb.interfaces['eth0']
         # ifobj1 != ifobj2
     '''
-    classes = {'interfaces': Interface,
-               'vlan': Vlan,
-               'bridge': Bridge,
-               'addresses': Address,
-               'routes': Route,
-               'neighbours': Neighbour}
 
     def __init__(self, ndb, table, match_src=None, match_pairs=None):
         self.ndb = ndb
@@ -237,6 +230,11 @@ class Factory(dict):
         self.event = table  # FIXME
         self.match_src = match_src
         self.match_pairs = match_pairs
+        self.classes = OrderedDict()
+        self.classes['interfaces'] = Interface
+        self.classes['addresses'] = Address
+        self.classes['neighbours'] = Neighbour
+        self.classes['routes'] = Route
 
     def get(self, key, table=None):
         return self.__getitem__(key, table)
@@ -720,8 +718,6 @@ class NDB(object):
         self.addresses = Factory(self, 'addresses')
         self.routes = Factory(self, 'routes')
         self.neighbours = Factory(self, 'neighbours')
-        self.vlans = Factory(self, 'vlan')
-        self.bridges = Factory(self, 'bridge')
         self.query = Query(self.schema)
 
     def _get_view(self, name, match_src=None, match_pairs=None):

@@ -80,8 +80,6 @@ class DBSchema(object):
     # one loop to fetch both index and row values
     #
     indices = {'interfaces': ('index', ),
-               'vlan': ('index', ),
-               'bridge': ('index', ),
                'p2p': ('index', ),
                'addresses': ('family',
                              'prefixlen',
