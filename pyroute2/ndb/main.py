@@ -234,6 +234,7 @@ class Factory(dict):
     def __init__(self, ndb, table, match_src=None, match_pairs=None):
         self.ndb = ndb
         self.table = table
+        self.event = table  # FIXME
         self.match_src = match_src
         self.match_pairs = match_pairs
 
@@ -244,6 +245,75 @@ class Factory(dict):
         spec['create'] = True
         return self[spec]
     add.__cptr__ = True
+
+    def wait(self, **spec):
+        ret = None
+
+        # install a limited events queue -- for a possible immediate reaction
+        evq = queue.Queue(maxsize=100)
+
+        def handler(evq, target, event):
+            # ignore the "queue full" exception
+            #
+            # if we miss some events here, nothing bad happens: we just
+            # load them from the DB after a timeout, falling back to
+            # the DB polling
+            #
+            # the most important here is not to allocate too much memory
+            try:
+                evq.put_nowait((target, event))
+            except queue.Full:
+                pass
+        #
+        hdl = partial(handler, evq)
+        (self
+         .ndb
+         .register_handler(self
+                           .ndb
+                           .schema
+                           .classes[self.event], hdl))
+        #
+        try:
+            ret = self.__getitem__(spec)
+        except KeyError:
+            pass
+
+        while ret is None:
+            try:
+                target, msg = evq.get(timeout=1)
+            except queue.Empty:
+                try:
+                    ret = self.__getitem__(spec)
+                    break
+                except KeyError:
+                    continue
+
+            #
+            for key, value in spec.items():
+                if key == 'target' and value != target:
+                    break
+                elif value not in (msg.get(key),
+                                   msg.get_attr(msg.name2nla(key))):
+                    break
+            else:
+                while ret is None:
+                    try:
+                        ret = self.__getitem__(spec)
+                    except KeyError:
+                        time.sleep(0.1)
+
+        #
+        (self
+         .ndb
+         .unregister_handler(self
+                             .ndb
+                             .schema
+                             .classes[self.event], hdl))
+
+        del evq
+        del hdl
+        gc.collect()
+        return ret
 
     def __getitem__(self, key, table=None):
         #
@@ -710,105 +780,6 @@ class NDB(object):
 
     def execute(self, *argv, **kwarg):
         return self.schema.execute(*argv, **kwarg)
-
-    def wait(self, spec):
-        '''
-        Example::
-
-            ndb.wait({'interfaces': [{'ifname': 'eth0'}],
-                      'addresses': [{'address': '10.0.0.1',
-                                     'prefixlen': 24},
-                                    {'address': '10.0.0.2',
-                                     'prefixlen': 24}]})
-        '''
-        if not isinstance(spec, dict):
-            raise ValueError('wrong spec type, must be dict')
-
-        # install a limited events queue -- for a possible immediate reaction
-        evq = queue.Queue(maxsize=512)
-
-        def handler(evq, target, event):
-            # ignore the "queue full" exception
-            #
-            # if we miss some events here, nothing bad happens: we just
-            # load them from the DB after a timeout, falling back to
-            # the DB polling
-            #
-            # the most important here is not to allocate too much memory
-            try:
-                evq.put_nowait((target, event))
-            except queue.Full:
-                pass
-
-        #
-        hdl = partial(handler, evq)
-        for event in spec:
-            self.register_handler(self.schema.classes[event], hdl)
-
-        #
-        wait_for = []
-        post = []
-
-        for event, objs in spec.items():
-            for obj in objs:
-                wait_for.append((event, self.schema.classes[event], obj))
-                post.append((event, self.schema.classes[event], obj))
-
-        #
-        def check_db(l):
-            states = {False: ('running', ),
-                      True: ('connecting',
-                             'loading',
-                             'running',
-                             'failed')}
-            for event, evc, obj in tuple(l):
-                target = obj.get('target', 'localhost')
-                source = self.sources[target]
-                if source.state not in states[source.persistent]:
-                    raise RuntimeError('rtnl source not available')
-                try:
-                    getattr(self, event)[obj]
-                except KeyError:
-                    continue
-                l.remove((event, evc, obj))
-
-        #
-        check_db(wait_for)
-
-        #
-        while wait_for:
-            try:
-                target, msg = evq.get(timeout=1)
-            except queue.Empty:
-                continue
-            finally:
-                check_db(wait_for)
-
-            #
-            for event, evc, obj in tuple(wait_for):
-                if evc != type(msg):
-                    continue
-                for key, value in obj.items():
-                    if key == 'target' and value != target:
-                        break
-                    elif value not in (msg.get(key),
-                                       msg.get_attr(msg.name2nla(key))):
-                        break
-                else:
-                    wait_for.remove((event, evc, obj))
-
-        #
-        for event in spec:
-            self.unregister_handler(self.schema.classes[event], hdl)
-
-        #
-        while post:
-            check_db(post)
-
-        del evq
-        del hdl
-        del wait_for
-        gc.collect()
 
     def close(self):
         with self._global_lock:

@@ -67,8 +67,7 @@ class TestBase(object):
             ipr.link('add',
                      ifname=if_dummy,
                      kind='dummy')
-            self.ndb.wait({'interfaces': [{'ifname': if_dummy}]})
-            ret.append(self.ndb.interfaces[if_dummy]['index'])
+            ret.append(self.ndb.interfaces.wait(ifname=if_dummy)['index'])
 
             ipr.link('add',
                      ifname=if_vlan_stag,
@@ -76,8 +75,7 @@ class TestBase(object):
                      vlan_id=101,
                      vlan_protocol=0x88a8,
                      kind='vlan')
-            self.ndb.wait({'interfaces': [{'ifname': if_vlan_stag}]})
-            ret.append(self.ndb.interfaces[if_vlan_stag]['index'])
+            ret.append(self.ndb.interfaces.wait(ifname=if_vlan_stag)['index'])
 
             ipr.link('add',
                      ifname=if_vlan_ctag,
@@ -85,33 +83,24 @@ class TestBase(object):
                      vlan_id=1001,
                      vlan_protocol=0x8100,
                      kind='vlan')
-            self.ndb.wait({'interfaces': [{'ifname': if_vlan_ctag}]})
-            ret.append(self.ndb.interfaces[if_vlan_ctag]['index'])
+            ret.append(self.ndb.interfaces.wait(ifname=if_vlan_ctag)['index'])
 
             ipr.link('add',
                      ifname=if_port,
                      kind='dummy')
-            self.ndb.wait({'interfaces': [{'ifname': if_port}]})
-            ret.append(self.ndb.interfaces[if_port]['index'])
+            port = self.ndb.interfaces.wait(ifname=if_port)
+            ret.append(port['index'])
 
             ipr.link('add',
                      ifname=if_bridge,
                      kind='bridge')
-            self.ndb.wait({'interfaces': [{'ifname': if_bridge}]})
-            ipr.link('set',
-                     index=self.ndb.interfaces[if_port]['index'],
-                     master=self.ndb.interfaces[if_bridge]['index'])
-            ret.append(self.ndb.interfaces[if_bridge]['index'])
-            ipr.addr('add',
-                     index=self.ndb.interfaces[if_bridge]['index'],
-                     address=if_addr1,
-                     prefixlen=24)
-            ipr.addr('add',
-                     index=self.ndb.interfaces[if_bridge]['index'],
-                     address=if_addr2,
-                     prefixlen=24)
-            self.ndb.wait({'addresses': [{'address': if_addr1},
-                                         {'address': if_addr2}]})
+            bridge = self.ndb.interfaces.wait(ifname=if_bridge)
+            ret.append(bridge['index'])
+            ipr.link('set', index=port['index'], master=bridge['index'])
+            ipr.addr('add', index=bridge['index'], address=if_addr1, prefixlen=24)
+            ipr.addr('add', index=bridge['index'], address=if_addr2, prefixlen=24)
+            self.ndb.addresses.wait(address=if_addr1)
+            self.ndb.addresses.wait(address=if_addr2)
             self.if_bridge = if_bridge
             return ret
 
@@ -397,12 +386,12 @@ class TestRollback(TestBase):
             ipr.link('add',
                      ifname=self.if_simple,
                      kind='dummy')
-            self.ndb.wait({'interfaces': [{'ifname': self.if_simple}]})
             (self
              .interfaces
              .append(self
                      .ndb
-                     .interfaces[self.if_simple]['index']))
+                     .interfaces
+                     .wait(ifname=self.if_simple)['index']))
             ipr.link('set',
                      index=self.interfaces[-1],
                      state='up')
@@ -415,8 +404,8 @@ class TestRollback(TestBase):
                       dst_len=24,
                       gateway=router)
 
-        self.ndb.wait({'addresses': [{'address': ifaddr}],
-                       'routes': [{'dst': dst}]})
+        self.ndb.addresses.wait(address=ifaddr)
+        self.ndb.routes.wait(dst=dst)
         iface = self.ndb.interfaces[self.if_simple]
         # check everything is in place
         assert grep('%s ip link show' % self.ssh, pattern=self.if_simple)
@@ -462,12 +451,24 @@ class TestRollback(TestBase):
             ipr.link('add',
                      ifname=self.if_br0p1,
                      kind='dummy')
-            self.ndb.wait({'interfaces': [{'ifname': self.if_br0},
-                                          {'ifname': self.if_br0p0},
-                                          {'ifname': self.if_br0p1}]})
-            self.interfaces.append(self.ndb.interfaces[self.if_br0]['index'])
-            self.interfaces.append(self.ndb.interfaces[self.if_br0p0]['index'])
-            self.interfaces.append(self.ndb.interfaces[self.if_br0p1]['index'])
+            (self
+             .interfaces
+             .append(self
+                     .ndb
+                     .interfaces
+                     .wait(ifname=self.if_br0)['index']))
+            (self
+             .interfaces
+             .append(self
+                     .ndb
+                     .interfaces
+                     .wait(ifname=self.if_br0p0)['index']))
+            (self
+             .interfaces
+             .append(self
+                     .ndb
+                     .interfaces
+                     .wait(ifname=self.if_br0p1)['index']))
             ipr.link('set',
                      index=self.interfaces[-3],
                      state='up')
@@ -493,13 +494,11 @@ class TestRollback(TestBase):
                      master=self.interfaces[-3])
 
         master = self.ndb.interfaces[self.if_br0]['index']
-        self.ndb.wait({'interfaces': [{'ifname': self.if_br0p0,
-                                       'master': master},
-                                      {'ifname': self.if_br0p1,
-                                       'master': master}],
-                       'addresses': [{'address': ifaddr1},
-                                     {'address': ifaddr2}],
-                       'routes': [{'dst': dst}]})
+        self.ndb.interfaces.wait(ifname=self.if_br0p0, master=master)
+        self.ndb.interfaces.wait(ifname=self.if_br0p1, master=master)
+        self.ndb.addresses.wait(address=ifaddr1)
+        self.ndb.addresses.wait(address=ifaddr2)
+        self.ndb.routes.wait(dst=dst)
         iface = self.ndb.interfaces[self.if_br0]
         # check everything is in place
         assert grep('%s ip link show' % self.ssh, pattern=self.if_br0)
@@ -550,8 +549,12 @@ class TestRollback(TestBase):
             ipr.link('add',
                      ifname=if_host,
                      kind='dummy')
-            self.ndb.wait({'interfaces': [{'ifname': if_host}]})
-            self.interfaces.append(self.ndb.interfaces[if_host]['index'])
+            (self
+             .interfaces
+             .append(self
+                     .ndb
+                     .interfaces
+                     .wait(ifname=if_host)['index']))
             ipr.link('set',
                      index=self.interfaces[-1],
                      state='up')
@@ -560,8 +563,12 @@ class TestRollback(TestBase):
                      kind='vlan',
                      link=self.interfaces[-1],
                      vlan_id=1001)
-            self.ndb.wait({'interfaces': [{'ifname': if_vlan}]})
-            self.interfaces.append(self.ndb.interfaces[if_vlan]['index'])
+            (self
+             .interfaces
+             .append(self
+                     .ndb
+                     .interfaces
+                     .wait(ifname=if_vlan)['index']))
             ipr.link('set',
                      index=self.interfaces[-1],
                      state='up')
@@ -577,9 +584,9 @@ class TestRollback(TestBase):
                       dst=dst,
                       dst_len=24,
                       gateway=router)
-            self.ndb.wait({'addresses': [{'address': ifaddr1},
-                                         {'address': ifaddr2}],
-                           'routes': [{'dst': dst}]})
+            self.ndb.addresses.wait(address=ifaddr1)
+            self.ndb.addresses.wait(address=ifaddr2)
+            self.ndb.routes.wait(dst=dst)
 
         iface = self.ndb.interfaces[if_host]
         # check everything is in place
