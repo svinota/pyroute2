@@ -78,7 +78,7 @@ class TestBasic(object):
 
     def test_dump_lo(self):
         self.feed(scripts['test_dump_lo'])
-        interface = eval(self.io.getvalue())
+        interface = json.loads(self.io.getvalue())
         assert interface['address'] == '00:00:00:00:00:00'
         #
         # ip addresses not present in the NDB dumps yet
@@ -95,21 +95,21 @@ class TestBasic(object):
     def test_comments_bang(self):
         require_user('root')
         self.feed(scripts['test_comments_bang'])
-        interface = eval(self.io.getvalue())
+        interface = json.loads(self.io.getvalue())
         assert interface['address'] == '00:11:22:33:44:55'
         assert interface['ifname'] == 'test01'
 
     def test_comments_hash(self):
         require_user('root')
         self.feed(scripts['test_comments_hash'])
-        interface = eval(self.io.getvalue())
+        interface = json.loads(self.io.getvalue())
         assert interface['address'] == '00:11:22:33:44:55'
         assert interface['ifname'] == 'test01'
 
     def test_comments_mixed(self):
         require_user('root')
         self.feed(scripts['test_comments_mixed'])
-        interface = eval(self.io.getvalue())
+        interface = json.loads(self.io.getvalue())
         assert interface['address'] == '00:11:22:33:44:55'
         assert interface['ifname'] == 'test01'
 

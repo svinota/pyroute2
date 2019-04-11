@@ -1,3 +1,4 @@
+import json
 import time
 import errno
 import logging
@@ -150,6 +151,9 @@ class RTNL_Object(dict):
         if value != self.get(key, None):
             self.changed.add(key)
             dict.__setitem__(self, key, value)
+
+    def show(self):
+        return json.dumps(self, indent=4, separators=(',', ': '))
 
     def set(self, key, value):
         self[key] = value

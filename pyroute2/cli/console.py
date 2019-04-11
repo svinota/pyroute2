@@ -105,7 +105,7 @@ class Console(code.InteractiveConsole):
                     obj = getattr(self.ptr, stmt.name, None)
 
             if obj is None:
-                if isinstance(self.ptr, dict):
+                if isinstance(self.ptr, dict) and stmt.argv:
                     self.ptr[stmt.name] = stmt.argv[0]
                     return
                 else:
@@ -119,7 +119,9 @@ class Console(code.InteractiveConsole):
                     else:
                         if hasattr(ret, 'generator') or hasattr(ret, 'next'):
                             for line in ret:
-                                self.pprint(line)
+                                self.lprint(line)
+                        elif isinstance(ret, basestring):
+                            self.lprint(ret)
                         return
                 except:
                     self.showtraceback()
