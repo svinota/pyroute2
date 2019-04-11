@@ -345,8 +345,10 @@ class NetlinkMixin(object):
         self._ctrl_read, self._ctrl_write = os.pipe()
         if async_qsize is None:
             async_qsize = config.async_qsize
+        self.async_qsize = async_qsize
         if nlm_generator is None:
             nlm_generator = config.nlm_generator
+        self.nlm_generator = nlm_generator
         self.buffer_queue = Queue(maxsize=async_qsize)
         self.qsize = 0
         self.log = []

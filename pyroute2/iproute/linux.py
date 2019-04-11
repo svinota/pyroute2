@@ -4,7 +4,6 @@ import logging
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
-from pyroute2 import config
 from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_ATOMIC
@@ -117,15 +116,14 @@ class RTNL_API(object):
         ipr.link('set', index=dev, state='up')
     '''
     def __init__(self, *argv, **kwarg):
-        if not config.nlm_generator:
+        super(RTNL_API, self).__init__(*argv, **kwarg)
+        if not self.nlm_generator:
 
             def _match(*argv, **kwarg):
                 return tuple(self._genmatch(*argv, **kwarg))
 
             self._genmatch = self._match
             self._match = _match
-
-        super(RTNL_API, self).__init__(*argv, **kwarg)
 
     def _match(self, match, msgs):
         # filtered results, the generator version
@@ -483,7 +481,7 @@ class RTNL_API(object):
         if match is not None:
             ret = self._match(match, ret)
 
-        if not (command == RTM_GETLINK and config.nlm_generator):
+        if not (command == RTM_GETLINK and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
@@ -808,7 +806,7 @@ class RTNL_API(object):
         if match is not None:
             ret = self._match(match, ret)
 
-        if not (command == RTM_GETNEIGH and config.nlm_generator):
+        if not (command == RTM_GETNEIGH and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
@@ -1166,7 +1164,7 @@ class RTNL_API(object):
         if match is not None:
             ret = self._match(match, ret)
 
-        if not (command == RTM_GETLINK and config.nlm_generator):
+        if not (command == RTM_GETLINK and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
@@ -1280,7 +1278,7 @@ class RTNL_API(object):
         if match:
             ret = self._match(match, ret)
 
-        if not (command == RTM_GETADDR and config.nlm_generator):
+        if not (command == RTM_GETADDR and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
@@ -1677,7 +1675,7 @@ class RTNL_API(object):
         if match:
             ret = self._match(match, ret)
 
-        if not (command == RTM_GETROUTE and config.nlm_generator):
+        if not (command == RTM_GETROUTE and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
@@ -1795,7 +1793,7 @@ class RTNL_API(object):
         if 'match' in kwarg:
             ret = self._match(kwarg['match'], ret)
 
-        if not (command == RTM_GETRULE and config.nlm_generator):
+        if not (command == RTM_GETRULE and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
