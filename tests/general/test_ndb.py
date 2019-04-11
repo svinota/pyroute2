@@ -97,8 +97,14 @@ class TestBase(object):
             bridge = self.ndb.interfaces.wait(ifname=if_bridge)
             ret.append(bridge['index'])
             ipr.link('set', index=port['index'], master=bridge['index'])
-            ipr.addr('add', index=bridge['index'], address=if_addr1, prefixlen=24)
-            ipr.addr('add', index=bridge['index'], address=if_addr2, prefixlen=24)
+            ipr.addr('add',
+                     index=bridge['index'],
+                     address=if_addr1,
+                     prefixlen=24)
+            ipr.addr('add',
+                     index=bridge['index'],
+                     address=if_addr2,
+                     prefixlen=24)
             self.ndb.addresses.wait(address=if_addr1)
             self.ndb.addresses.wait(address=if_addr2)
             self.if_bridge = if_bridge
