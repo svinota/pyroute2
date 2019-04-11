@@ -362,6 +362,15 @@ class Factory(dict):
     def items(self):
         raise NotImplementedError()
 
+    def count(self):
+        return tuple(self
+                     .ndb
+                     .schema
+                     .fetch('SELECT count(*) FROM %s' % self.table))[0][0]
+
+    def __len__(self):
+        return self.count()
+
     def values(self):
         raise NotImplementedError()
 
