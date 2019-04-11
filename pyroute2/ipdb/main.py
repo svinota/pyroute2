@@ -941,7 +941,9 @@ class IPDB(object):
             if self._nl_own:
                 if self.nl is not None:
                     self.nl.close()
-                self.nl = IPRoute(sndbuf=self._sndbuf, rcvbuf=self._rcvbuf)
+                self.nl = IPRoute(sndbuf=self._sndbuf,
+                                  rcvbuf=self._rcvbuf,
+                                  async_qsize=0)  # OBS: legacy design
             # setup monitoring socket
             if self.mnl is not None:
                 self._flush_mnl()

@@ -49,6 +49,7 @@ import struct
 import select
 import threading
 
+from pyroute2 import config
 from pyroute2.netlink import (NLM_F_REQUEST,
                               NLM_F_DUMP,
                               NLM_F_MULTI,
@@ -90,6 +91,7 @@ class IPRoute(object):
             self._ssh = ['ssh', kwarg.pop('ssh')]
         else:
             self._ssh = []
+        async_qsize = kwarg.get('async_qsize')
         self._ifc = Ifconfig(cmd=self._ssh + ['ifconfig', '-a'])
         self._arp = ARP(cmd=self._ssh + ['arp', '-an'])
         self._route = Route(cmd=self._ssh + ['netstat', '-rn'])
@@ -102,7 +104,7 @@ class IPRoute(object):
         self._brd_socket = None
         self._pfdr, self._pfdw = os.pipe()  # notify external poll/select
         self._ctlr, self._ctlw = os.pipe()  # notify monitoring thread
-        self._outq = queue.Queue()
+        self._outq = queue.Queue(maxsize=async_qsize or config.async_qsize)
         self._system_lock = threading.Lock()
         self.closed = threading.Event()
 

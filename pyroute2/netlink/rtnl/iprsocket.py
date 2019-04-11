@@ -25,11 +25,10 @@ if sys.platform.startswith('linux'):
 
 class IPRSocketMixin(object):
 
-    def __init__(self, fileno=None, sndbuf=1048576, rcvbuf=1048576,
-                 all_ns=False):
-        super(IPRSocketMixin, self).__init__(NETLINK_ROUTE, fileno=fileno,
-                                             sndbuf=sndbuf, rcvbuf=rcvbuf,
-                                             all_ns=all_ns)
+    def __init__(self, *argv, **kwarg):
+        if 'family' in kwarg:
+            kwarg.pop('family')
+        super(IPRSocketMixin, self).__init__(NETLINK_ROUTE, *argv[1:], **kwarg)
         self.marshal = MarshalRtnl()
         self._s_channel = None
         if sys.platform.startswith('linux'):
@@ -53,9 +52,6 @@ class IPRSocketMixin(object):
                 # ... recv_into()
                 self._recv_ft = self.recv_ft
                 self.recv_ft = self._p_recv_ft
-
-    def clone(self):
-        return type(self)(sndbuf=self._sndbuf, rcvbuf=self._rcvbuf)
 
     def bind(self, groups=rtnl.RTMGRP_DEFAULTS, **kwarg):
         super(IPRSocketMixin, self).bind(groups, **kwarg)

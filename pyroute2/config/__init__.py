@@ -9,7 +9,7 @@ MpQueue = multiprocessing.Queue
 MpProcess = multiprocessing.Process
 ipdb_nl_async = True
 nlm_generator = False
-
+async_qsize = 4096
 commit_barrier = 0
 gc_timeout = 60
 db_transaction_limit = 10000

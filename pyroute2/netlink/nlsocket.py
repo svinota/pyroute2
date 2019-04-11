@@ -289,7 +289,9 @@ class NetlinkMixin(object):
                  fileno=None,
                  sndbuf=1048576,
                  rcvbuf=1048576,
-                 all_ns=False):
+                 all_ns=False,
+                 async_qsize=None,
+                 nlm_generator=None):
         #
         # That's a trick. Python 2 is not able to construct
         # sockets from an open FD.
@@ -306,6 +308,16 @@ class NetlinkMixin(object):
             raise NotImplementedError('fileno parameter is not supported '
                                       'on Python < 3.2')
 
+        # 8<-----------------------------------------
+        self.config = {'family': family,
+                       'port': port,
+                       'pid': pid,
+                       'fileno': fileno,
+                       'sndbuf': sndbuf,
+                       'rcvbuf': rcvbuf,
+                       'all_ns': all_ns,
+                       'async_qsize': async_qsize,
+                       'nlm_generator': nlm_generator}
         # 8<-----------------------------------------
         self.addr_pool = AddrPool(minaddr=0x000000ff, maxaddr=0x0000ffff)
         self.epid = None
@@ -331,7 +343,11 @@ class NetlinkMixin(object):
         self.lock = LockFactory()
         self._sock = None
         self._ctrl_read, self._ctrl_write = os.pipe()
-        self.buffer_queue = Queue(maxsize=4096)
+        if async_qsize is None:
+            async_qsize = config.async_qsize
+        if nlm_generator is None:
+            nlm_generator = config.nlm_generator
+        self.buffer_queue = Queue(maxsize=async_qsize)
         self.qsize = 0
         self.log = []
         self.get_timeout = 30
@@ -349,7 +365,7 @@ class NetlinkMixin(object):
         self.groups = 0
         self.marshal = Marshal()
         # 8<-----------------------------------------
-        if not config.nlm_generator:
+        if not nlm_generator:
 
             def nlm_request(*argv, **kwarg):
                 return tuple(self._genlm_request(*argv, **kwarg))
@@ -370,7 +386,7 @@ class NetlinkMixin(object):
         pass
 
     def clone(self):
-        return type(self)(family=self.family)
+        return type(self)(**self.config)
 
     def close(self, code=errno.ECONNRESET):
         if code > 0 and self.pthread:
