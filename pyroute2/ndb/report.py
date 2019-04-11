@@ -1,3 +1,5 @@
+from pyroute2.common import basestring
+
 MAX_REPORT_LINES = 100
 
 
@@ -13,12 +15,18 @@ class Report(object):
         counter = 0
         ret = []
         for record in self.generator:
-            ret.append(repr(record))
+            if isinstance(record, basestring):
+                ret.append(record)
+            else:
+                ret.append(repr(record))
+                ret.append('\n')
             counter += 1
             if counter > MAX_REPORT_LINES:
                 ret.append('(...)')
                 break
-        return '\n'.join(ret)
+        if ret[-1] == '\n':
+            ret.pop()
+        return ''.join(ret)
 
     def __len__(self):
         counter = 0

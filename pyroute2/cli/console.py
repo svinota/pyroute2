@@ -119,7 +119,10 @@ class Console(code.InteractiveConsole):
                     else:
                         if hasattr(ret, 'generator') or hasattr(ret, 'next'):
                             for line in ret:
-                                self.lprint(line)
+                                if isinstance(line, basestring):
+                                    self.lprint(line, end='')
+                                else:
+                                    self.lprint(repr(line))
                         elif isinstance(ret, basestring):
                             self.lprint(ret)
                         return

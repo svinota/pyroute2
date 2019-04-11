@@ -404,7 +404,17 @@ class Factory(dict):
                     row.append('')
                 else:
                     row.append("'%s'" % field)
+            row[-1] += '\n'
             yield ','.join(row)
+
+    def _json(self, match=None, dump=None):
+        if dump is None:
+            dump = self._dump(match)
+        yield '[\n'
+        yield '    %s' % json.dumps(dump.next())
+        for record in dump:
+            yield ',\n    %s' % json.dumps(record)
+        yield '\n]'
 
     def _summary(self, match=None):
         iclass = self.classes[self.table]
@@ -478,20 +488,24 @@ class Factory(dict):
         return Report(self._csv(*argv, **kwarg))
 
     def dump(self, *argv, **kwarg):
-        fmt = kwarg.pop('fmt', 'native')
+        fmt = kwarg.pop('format', kwarg.pop('fmt', 'native'))
         if fmt == 'native':
             return Report(self._dump(*argv, **kwarg))
         elif fmt == 'csv':
             return Report(self._csv(dump=self._dump(*argv, **kwarg)))
+        elif fmt == 'json':
+            return Report(self._json(dump=self._dump(*argv, **kwarg)))
         else:
             raise ValueError('format not supported')
 
     def summary(self, *argv, **kwarg):
-        fmt = kwarg.pop('fmt', 'native')
+        fmt = kwarg.pop('format', kwarg.pop('fmt', 'native'))
         if fmt == 'native':
             return Report(self._summary(*argv, **kwarg))
         elif fmt == 'csv':
             return Report(self._csv(dump=self._summary(*argv, **kwarg)))
+        elif fmt == 'json':
+            return Report(self._json(dump=self._summary(*argv, **kwarg)))
         else:
             raise ValueError('format not supported')
 

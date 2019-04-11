@@ -1,4 +1,5 @@
 import os
+import json
 import uuid
 import threading
 from utils import grep
@@ -712,6 +713,12 @@ class TestReports(TestBase):
     def test_dump(self):
         for record in self.ndb.addresses.dump():
             assert isinstance(record, tuple)
+
+    def test_json(self):
+        data = json.loads(''.join(self.ndb.interfaces.summary(format='json')))
+        assert isinstance(data, list)
+        for row in data:
+            assert isinstance(row, list)
 
     def test_csv(self):
         record_length = 0
