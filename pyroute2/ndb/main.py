@@ -419,7 +419,7 @@ class Factory(dict):
     def _json(self, match=None, dump=None):
         if dump is None:
             dump = self._dump(match)
-        fnames = dump.next()
+        fnames = next(dump)
         yield '['
         comma = ''
         for record in dump:
