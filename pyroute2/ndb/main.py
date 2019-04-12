@@ -429,7 +429,7 @@ class Factory(dict):
                 comma = ','
             for line in lines[1:]:
                 yield '\n    %s' % line
-        yield '\n]'
+        yield '\n]\n'
 
     def _summary(self, match=None):
         iclass = self.classes[self.table]

@@ -152,8 +152,12 @@ class RTNL_Object(dict):
             self.changed.add(key)
             dict.__setitem__(self, key, value)
 
-    def show(self):
-        return json.dumps(self, indent=4, separators=(',', ': '))
+    def show(self, **kwarg):
+        fmt = kwarg.pop('format', kwarg.pop('fmt', 'native'))
+        if fmt == 'native':
+            return dict(self)
+        else:
+            return '%s\n' % json.dumps(self, indent=4, separators=(',', ': '))
 
     def set(self, key, value):
         self[key] = value

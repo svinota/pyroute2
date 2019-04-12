@@ -123,8 +123,8 @@ class Console(code.InteractiveConsole):
                                     self.lprint(line, end='')
                                 else:
                                     self.lprint(repr(line))
-                        elif isinstance(ret, basestring):
-                            self.lprint(ret)
+                        else:
+                            self.lprint(ret, end='')
                         return
                 except:
                     self.showtraceback()
@@ -154,7 +154,6 @@ class Console(code.InteractiveConsole):
             try:
                 text = readfunc(self.prompt)
             except:
-                self.lprint()
                 self.close()
                 break
 

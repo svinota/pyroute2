@@ -26,6 +26,4 @@ class Report(object):
             if self.ellipsis and counter > MAX_REPORT_LINES:
                 ret.append('(...)')
                 break
-        if ret[-1] == '\n':
-            ret.pop()
         return ''.join(ret)

@@ -738,8 +738,8 @@ class TestReports(TestBase):
                            .interfaces[self.if_bridge]
                            .ipaddr
                            .summary()).split('\n'))
-        # 2 ipaddr + header
-        assert records == 3
+        # 2 ipaddr + header + final new line
+        assert records == 4
 
     def test_nested_ports(self):
         records = len(repr(self
@@ -747,5 +747,5 @@ class TestReports(TestBase):
                            .interfaces[self.if_bridge]
                            .ports
                            .summary()).split('\n'))
-        # 1 port + header
-        assert records == 2
+        # 1 port + header + final new line
+        assert records == 3
