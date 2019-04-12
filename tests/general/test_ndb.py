@@ -718,7 +718,7 @@ class TestReports(TestBase):
         data = json.loads(''.join(self.ndb.interfaces.summary(format='json')))
         assert isinstance(data, list)
         for row in data:
-            assert isinstance(row, list)
+            assert isinstance(row, dict)
 
     def test_csv(self):
         record_length = 0

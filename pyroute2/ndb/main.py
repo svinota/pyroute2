@@ -419,10 +419,16 @@ class Factory(dict):
     def _json(self, match=None, dump=None):
         if dump is None:
             dump = self._dump(match)
-        yield '[\n'
-        yield '    %s' % json.dumps(dump.next())
+        fnames = dump.next()
+        yield '['
+        comma = ''
         for record in dump:
-            yield ',\n    %s' % json.dumps(record)
+            lines = json.dumps(dict(zip(fnames, record)), indent=4).split('\n')
+            yield '%s\n    %s' % (comma, lines[0])
+            if not comma:
+                comma = ','
+            for line in lines[1:]:
+                yield '\n    %s' % line
         yield '\n]'
 
     def _summary(self, match=None):
@@ -496,14 +502,19 @@ class Factory(dict):
     def csv(self, *argv, **kwarg):
         return Report(self._csv(*argv, **kwarg))
 
+    def json(self, *argv, **kwarg):
+        return Report(self._json(*argv, **kwarg))
+
     def dump(self, *argv, **kwarg):
         fmt = kwarg.pop('format', kwarg.pop('fmt', 'native'))
         if fmt == 'native':
             return Report(self._dump(*argv, **kwarg))
         elif fmt == 'csv':
-            return Report(self._csv(dump=self._dump(*argv, **kwarg)))
+            return Report(self._csv(dump=self._dump(*argv, **kwarg)),
+                          ellipsis=False)
         elif fmt == 'json':
-            return Report(self._json(dump=self._dump(*argv, **kwarg)))
+            return Report(self._json(dump=self._dump(*argv, **kwarg)),
+                          ellipsis=False)
         else:
             raise ValueError('format not supported')
 
@@ -512,9 +523,11 @@ class Factory(dict):
         if fmt == 'native':
             return Report(self._summary(*argv, **kwarg))
         elif fmt == 'csv':
-            return Report(self._csv(dump=self._summary(*argv, **kwarg)))
+            return Report(self._csv(dump=self._summary(*argv, **kwarg)),
+                          ellipsis=False)
         elif fmt == 'json':
-            return Report(self._json(dump=self._summary(*argv, **kwarg)))
+            return Report(self._json(dump=self._summary(*argv, **kwarg)),
+                          ellipsis=False)
         else:
             raise ValueError('format not supported')
 

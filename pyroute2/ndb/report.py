@@ -5,8 +5,10 @@ MAX_REPORT_LINES = 100
 
 class Report(object):
 
-    def __init__(self, generator):
+    def __init__(self, generator, ellipsis=True):
         self.generator = generator
+        self.ellipsis = ellipsis
+        self.cached = []
 
     def __iter__(self):
         return self.generator
@@ -21,7 +23,7 @@ class Report(object):
                 ret.append(repr(record))
                 ret.append('\n')
             counter += 1
-            if counter > MAX_REPORT_LINES:
+            if self.ellipsis and counter > MAX_REPORT_LINES:
                 ret.append('(...)')
                 break
         if ret[-1] == '\n':
