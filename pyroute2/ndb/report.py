@@ -27,9 +27,3 @@ class Report(object):
         if ret[-1] == '\n':
             ret.pop()
         return ''.join(ret)
-
-    def __len__(self):
-        counter = 0
-        for _ in self.generator:
-            counter += 1
-        return counter
