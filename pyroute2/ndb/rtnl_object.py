@@ -358,6 +358,8 @@ class RTNL_Object(dict):
         self.log.append('apply idx_req: %s' % str(idx_req))
         self.log.append('apply state: %s' % state)
 
+        method = None
+        ignore = tuple()
         #
         if state == 'invalid':
             req = dict([x for x in self.items() if x[1] is not None])
@@ -368,70 +370,48 @@ class RTNL_Object(dict):
                         break
                     except:
                         pass
-            (self
-             .sources[self['target']]
-             .api(self.api, 'add', **req))
+            method = 'add'
+            ignore = (errno.EEXIST, )
         elif state == 'system':
-            (self
-             .sources[self['target']]
-             .api(self.api, 'set', **req))
+            method = 'set'
         elif state == 'remove':
-            # the removal protocol: in some cases the message order is wrong
-            # and RTM_NEW comes immediately after RTM_DEL, so it's not clear
-            # if the object is actually removed
-            for _ in range(10):
-                wt = []
-                try:
-                    self.log.append('remove')
-                    (self
-                     .sources[self['target']]
-                     .api(self.api, 'del', **idx_req))
-                except NetlinkError as e:
-                    self.log.append('error: %s' % e)
-                    if e.code != errno.ENODEV:
-                        raise e
-                wtime = self.wtime
-                mqsize = self.view.ndb._event_queue.qsize()
-                nqsize = self.schema.stats.get(self['target']).qsize
-                wt.append(wtime)
-                log.debug('telemetry: apply remove {'
-                          'objid %s, wtime %s, '
-                          'mqsize %s, nqsize %s'
-                          '}' % (id(self), wtime, mqsize, nqsize))
-                self.load_event.wait(wtime)
-                self.load_event.clear()
-                if self.check():
-                    self.log.append('checked')
-                    break
-                self.log.append('check failed')
-            else:
-                log.debug('telemetry: %s wtime remove fail' % (id(self)))
-                e = Exception('lost sync while removal')
-                e.wtime = wt
-                raise e
+            method = 'del'
+            req = idx_req
+            ignore = (errno.ENODEV, )
+        else:
+            raise Exception('state transition not supported')
 
-        if state != 'remove':
-            wt = []
-            for _ in range(10):
-                if self.check():
-                    break
-                wtime = self.wtime
-                mqsize = self.view.ndb._event_queue.qsize()
-                nqsize = self.schema.stats.get(self['target']).qsize
-                wt.append(wtime)
-                log.debug('telemetry: apply system {'
-                          'objid %s, wtime %s, '
-                          'mqsize %s, nqsize %s'
-                          '}' % (id(self), wtime, mqsize, nqsize))
-                self.load_event.wait(wtime)
-                self.load_event.clear()
-            else:
-                log.debug('telemetry: %s wtime system fail' % (id(self)))
-                e = Exception('timeout while applying changes')
-                e.wtime = wt
-                raise e
+        for _ in range(10):
+            try:
+                self.log.append(method)
+                (self
+                 .sources[self['target']]
+                 .api(self.api, method, **req))
+            except NetlinkError as e:
+                self.log.append('error: %s' % e)
+                if e.code in ignore:
+                    log.debug('ignore error %s for %s' % (e.code, self))
+                else:
+                    raise e
 
-        log.debug('telemetry: %s pass' % (id(self)))
+            wtime = self.wtime
+            mqsize = self.view.ndb._event_queue.qsize()
+            nqsize = self.schema.stats.get(self['target']).qsize
+            log.debug('stats: apply %s {'
+                      'objid %s, wtime %s, '
+                      'mqsize %s, nqsize %s'
+                      '}' % (method, id(self), wtime, mqsize, nqsize))
+            self.load_event.wait(wtime)
+            self.load_event.clear()
+            if self.check():
+                self.log.append('checked')
+                break
+            self.log.append('check failed')
+        else:
+            log.debug('stats: %s apply %s fail' % (id(self), method))
+            raise Exception('lost sync in apply()')
+
+        log.debug('stats: %s pass' % (id(self)))
         #
         if rollback:
             #
