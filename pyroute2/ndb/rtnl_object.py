@@ -4,6 +4,7 @@ import errno
 import logging
 import weakref
 import threading
+from pyroute2 import cli
 from pyroute2.netlink.exceptions import NetlinkError
 
 log = logging.getLogger(__name__)
@@ -152,8 +153,12 @@ class RTNL_Object(dict):
             self.changed.add(key)
             dict.__setitem__(self, key, value)
 
+    @cli.show_result
     def show(self, **kwarg):
-        fmt = kwarg.pop('format', kwarg.pop('fmt', 'native'))
+        fmt = kwarg.pop('format',
+                        kwarg.pop('fmt',
+                                  self.view.ndb.config.get('show_format',
+                                                           'native')))
         if fmt == 'native':
             return dict(self)
         else:

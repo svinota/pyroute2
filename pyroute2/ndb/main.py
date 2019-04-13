@@ -151,6 +151,7 @@ import traceback
 from functools import partial
 from collections import OrderedDict
 from pyroute2 import config
+from pyroute2 import cli
 from pyroute2 import IPRoute
 from pyroute2.common import basestring
 from pyroute2.netlink.nlsocket import NetlinkMixin
@@ -239,10 +240,10 @@ class Factory(dict):
     def get(self, key, table=None):
         return self.__getitem__(key, table)
 
+    @cli.change_pointer
     def add(self, **spec):
         spec['create'] = True
         return self[spec]
-    add.__cptr__ = True
 
     def wait(self, **spec):
         ret = None
@@ -506,7 +507,10 @@ class Factory(dict):
         return Report(self._json(*argv, **kwarg))
 
     def dump(self, *argv, **kwarg):
-        fmt = kwarg.pop('format', kwarg.pop('fmt', 'native'))
+        fmt = kwarg.pop('format',
+                        kwarg.pop('fmt',
+                                  self.ndb.config.get('show_format',
+                                                      'native')))
         if fmt == 'native':
             return Report(self._dump(*argv, **kwarg))
         elif fmt == 'csv':
@@ -519,7 +523,10 @@ class Factory(dict):
             raise ValueError('format not supported')
 
     def summary(self, *argv, **kwarg):
-        fmt = kwarg.pop('format', kwarg.pop('fmt', 'native'))
+        fmt = kwarg.pop('format',
+                        kwarg.pop('fmt',
+                                  self.ndb.config.get('show_format',
+                                                      'native')))
         if fmt == 'native':
             return Report(self._summary(*argv, **kwarg))
         elif fmt == 'csv':
@@ -720,6 +727,7 @@ class NDB(object):
 
         self.ctime = self.gctime = time.time()
         self.schema = None
+        self.config = {}
         self._debug = None
         self._db = None
         self._dbm_thread = None
@@ -766,6 +774,7 @@ class NDB(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
+    @cli.show_result
     def show(self, *argv, **kwarg):
         ptr = self
         for word in argv:

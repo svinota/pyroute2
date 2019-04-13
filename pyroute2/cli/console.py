@@ -25,9 +25,11 @@ class Console(code.InteractiveConsole):
     def __init__(self, stdout=None):
         global HAS_READLINE
         self.db = NDB()
+        self.db.config = {'show_format': 'json'}
         self.ptr = self.db
         self.ptrname = None
         self.stack = []
+        self.log = []
         self.matches = []
         self.isatty = sys.stdin.isatty()
         self.prompt = ''
@@ -46,10 +48,12 @@ class Console(code.InteractiveConsole):
         self.lprint(text)
 
     def pprint(self, text=''):
+        self.log.append(("pprint", text))
         pprint(text, stream=self.stdout)
         self.stdout.flush()
 
     def lprint(self, text='', end='\n'):
+        self.log.append(("lprint", text))
         print(text, file=self.stdout, end=end)
         self.stdout.flush()
 
@@ -114,9 +118,9 @@ class Console(code.InteractiveConsole):
             if hasattr(obj, '__call__'):
                 try:
                     ret = obj(*stmt.argv, **stmt.kwarg)
-                    if hasattr(obj, '__cptr__'):
+                    if hasattr(obj, '__cli_cptr__'):
                         obj = ret
-                    else:
+                    elif hasattr(obj, '__cli_publish__'):
                         if hasattr(ret, 'generator') or hasattr(ret, 'next'):
                             for line in ret:
                                 if isinstance(line, basestring):
@@ -125,6 +129,8 @@ class Console(code.InteractiveConsole):
                                     self.lprint(repr(line))
                         else:
                             self.lprint(ret, end='')
+                        return
+                    else:
                         return
                 except:
                     self.showtraceback()
@@ -143,11 +149,11 @@ class Console(code.InteractiveConsole):
 
     def interact(self, readfunc=None):
 
+        if self.isatty and readfunc is None:
+            self.lprint("pyroute2 cli prototype")
+
         if readfunc is None:
             readfunc = self.raw_input
-
-        if self.isatty:
-            self.lprint("pyroute2 cli prototype")
 
         indent = 0
         while True:
