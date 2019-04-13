@@ -1,5 +1,15 @@
 #!/usr/bin/env python
-
+import argparse
 from pyroute2 import Console
 
-Console().interact()
+argp = argparse.ArgumentParser()
+argp.add_argument('-c')
+args = argp.parse_args()
+commands = []
+console = Console()
+
+if args.c:
+    commands.append(args.c)
+    console.interact(readfunc=lambda x: commands.pop(0))
+else:
+    console.interact()
