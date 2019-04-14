@@ -50,7 +50,9 @@ class Token(object):
                                              t_comma,
                                              t_end_of_dict))
                 if nt.kind == t_stmt:
-                    if len(nt.argv) < 1:
+                    if nt.kwarg:
+                        self.kwarg[nt.name] = nt.kwarg
+                    elif len(nt.argv) < 1:
                         raise SyntaxError('value expected')
                     elif len(nt.argv) == 1:
                         self.kwarg[nt.name] = nt.argv[0]
