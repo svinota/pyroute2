@@ -33,10 +33,10 @@ class TestMisc(object):
         # check all the views
         #
         with NDB(sources=sources) as ndb:
-            assert len(list(ndb.interfaces.csv()))
-            assert len(list(ndb.neighbours.csv()))
-            assert len(list(ndb.addresses.csv()))
-            assert len(list(ndb.routes.csv()))
+            assert len(list(ndb.interfaces.dump()))
+            assert len(list(ndb.neighbours.dump()))
+            assert len(list(ndb.addresses.dump()))
+            assert len(list(ndb.routes.dump()))
 
         for source in ndb.sources:
             assert ndb.sources[source].nl.closed
@@ -729,7 +729,7 @@ class TestReports(TestBase):
             else:
                 assert len(record) == record_length
 
-        for record in self.ndb.routes.csv():
+        for record in self.ndb.routes.dump(format='csv'):
             assert len(record.split(',')) == record_length
 
     def test_nested_ipaddr(self):

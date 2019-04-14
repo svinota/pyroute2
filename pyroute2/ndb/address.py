@@ -6,6 +6,7 @@ from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 class Address(RTNL_Object):
 
     table = 'addresses'
+    msg_class = ifaddrmsg
     api = 'addr'
     summary = '''
               SELECT
