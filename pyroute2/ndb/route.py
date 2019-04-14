@@ -10,6 +10,7 @@ _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
 class Route(RTNL_Object):
 
     table = 'routes'
+    msg_class = rtmsg
     api = 'route'
     summary = '''
               SELECT
@@ -66,6 +67,7 @@ class Route(RTNL_Object):
 
 class NextHop(Route):
 
+    msg_class = nh
     reverse_update = {'table': 'nh',
                       'name': 'nh_f_tflags',
                       'field': 'f_tflags',

@@ -377,10 +377,9 @@ class Factory(dict):
 
     def _dump(self, match=None):
         iclass = self.classes[self.table]
-        cls = iclass.msg_class or self.ndb.schema.classes[iclass.table]
         keys = self.ndb.schema.compiled[iclass.view or iclass.table]['names']
 
-        spec, values = self._match(match, cls, keys, iclass.table_alias)
+        spec, values = self._match(match, iclass, keys, iclass.table_alias)
         if iclass.dump and iclass.dump_header:
             yield iclass.dump_header
             with self.ndb.schema.db_lock:
@@ -390,7 +389,8 @@ class Factory(dict):
                                .fetch(iclass.dump + spec, values)):
                     yield record
         else:
-            yield ('target', 'tflags') + tuple([cls.nla2name(x) for x in keys])
+            yield ('target', 'tflags') + tuple([iclass.nla2name(x)
+                                                for x in keys])
             with self.ndb.schema.db_lock:
                 for record in (self
                                .ndb
@@ -434,10 +434,9 @@ class Factory(dict):
 
     def _summary(self, match=None):
         iclass = self.classes[self.table]
-        cls = iclass.msg_class or self.ndb.schema.classes[iclass.table]
         keys = self.ndb.schema.compiled[iclass.view or iclass.table]['names']
 
-        spec, values = self._match(match, cls, keys, iclass.table_alias)
+        spec, values = self._match(match, iclass, keys, iclass.table_alias)
         if iclass.summary is not None:
             if iclass.summary_header is not None:
                 yield iclass.summary_header
@@ -499,12 +498,6 @@ class Factory(dict):
         else:
             spec = ''
         return spec, values
-
-    def csv(self, *argv, **kwarg):
-        return Report(self._csv(*argv, **kwarg))
-
-    def json(self, *argv, **kwarg):
-        return Report(self._json(*argv, **kwarg))
 
     def dump(self, *argv, **kwarg):
         fmt = kwarg.pop('format',

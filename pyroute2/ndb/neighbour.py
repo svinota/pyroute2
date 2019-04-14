@@ -6,6 +6,7 @@ from pyroute2.netlink.rtnl.ndmsg import ndmsg
 class Neighbour(RTNL_Object):
 
     table = 'neighbours'
+    msg_class = ndmsg
     api = 'neigh'
     summary = '''
               SELECT

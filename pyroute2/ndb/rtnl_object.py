@@ -130,6 +130,14 @@ class RTNL_Object(dict):
             self.key = ckey
             self.load_sql(table=self.table)
 
+    @classmethod
+    def nla2name(self, name):
+        return self.msg_class.nla2name(name)
+
+    @classmethod
+    def name2nla(self, name):
+        return self.msg_class.name2nla(name)
+
     def __enter__(self):
         return self
 
