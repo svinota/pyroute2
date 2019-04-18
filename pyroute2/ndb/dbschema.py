@@ -441,11 +441,15 @@ class DBSchema(object):
 
     @db_lock
     def fetchall(self, *argv, **kwarg):
-        return self.execute(*argv, **kwarg).fetchall()
+        return tuple(self.fetch(*argv, **kwarg))
 
     @db_lock
     def fetchone(self, *argv, **kwarg):
-        return self.execute(*argv, **kwarg).fetchone()
+        ret = tuple(self.fetch(*argv, **kwarg))
+        if ret:
+            return ret[0]
+        else:
+            return None
 
     @db_lock
     def share_cursor(self):
@@ -598,13 +602,15 @@ class DBSchema(object):
         #
         # save the old f_tflags value
         #
-        tflags = self.fetchone('''
-                               SELECT f_tflags FROM %s
-                               WHERE %s
-                               '''
-                               % (obj.table,
-                                  ' AND '.join(conditions)),
-                               values)[0]
+        tflags = (self
+                  .execute('''
+                           SELECT f_tflags FROM %s
+                           WHERE %s
+                           '''
+                           % (obj.table,
+                              ' AND '.join(conditions)),
+                           values)
+                  .fetchone()[0])
         #
         # mark tflags for obj
         #
@@ -833,7 +839,7 @@ class DBSchema(object):
             s_req = 'SELECT f_route_id FROM routes %s' % spec
             #
             # get existing route_id
-            for route_id in self.fetchall(s_req, values):
+            for route_id in self.execute(s_req, values).fetchall():
                 #
                 # if exists
                 route_id = route_id[0][0]

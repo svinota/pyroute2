@@ -234,12 +234,11 @@ class RTNL_Object(dict):
             with self.schema.db_lock:
                 spec = (self
                         .schema
-                        .execute('SELECT %s FROM %s WHERE %s' %
-                                 (' , '.join(fetch),
-                                  self.etable,
-                                  ' AND '.join(keys)),
-                                 values)
-                        .fetchone())
+                        .fetchone('SELECT %s FROM %s WHERE %s' %
+                                  (' , '.join(fetch),
+                                   self.etable,
+                                   ' AND '.join(keys)),
+                                  values))
             if spec is None:
                 return None
             for name, value in zip(fetch, spec):
