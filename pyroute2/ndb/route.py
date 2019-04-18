@@ -24,7 +24,7 @@ class Route(RTNL_Object):
                   AND rt.f_target = nh.f_target
               '''
     table_alias = 'rt'
-    summary_header = ('target', 'flags', 'table', 'dst',
+    summary_header = ('target', 'tflags', 'table', 'dst',
                       'dst_len', 'gateway', 'nexthop')
     dump = '''
            SELECT rt.f_target,rt.f_tflags,%s

@@ -19,7 +19,7 @@ class Interface(RTNL_Object):
               '''
     table_alias = 'a'
     summary_header = ('target',
-                      'flags',
+                      'tflags',
                       'index',
                       'ifname',
                       'lladdr',
@@ -41,32 +41,40 @@ class Interface(RTNL_Object):
                        ._get_view('addresses',
                                   match_src=[weakref.proxy(self),
                                              {'index':
-                                              self.get('index', 0)}],
-                                  match_pairs={'index': 'index'}))
+                                              self.get('index', 0),
+                                              'target': self['target']}],
+                                  match_pairs={'index': 'index',
+                                               'target': 'target'}))
         self.ports = (self
                       .view
                       .ndb
                       ._get_view('interfaces',
                                  match_src=[weakref.proxy(self),
                                             {'index':
-                                             self.get('index', 0)}],
-                                 match_pairs={'master': 'index'}))
+                                             self.get('index', 0),
+                                             'target': self['target']}],
+                                 match_pairs={'master': 'index',
+                                              'target': 'target'}))
         self.routes = (self
                        .view
                        .ndb
                        ._get_view('routes',
                                   match_src=[weakref.proxy(self),
                                              {'index':
-                                              self.get('index', 0)}],
-                                  match_pairs={'oif': 'index'}))
+                                              self.get('index', 0),
+                                              'target': self['target']}],
+                                  match_pairs={'oif': 'index',
+                                               'target': 'target'}))
         self.neighbours = (self
                            .view
                            .ndb
                            ._get_view('neighbours',
                                       match_src=[weakref.proxy(self),
                                                  {'index':
-                                                  self.get('index', 0)}],
-                                      match_pairs={'ifindex': 'index'}))
+                                                  self.get('index', 0),
+                                                  'target': self['target']}],
+                                      match_pairs={'ifindex': 'index',
+                                                   'target': 'target'}))
 
     def complete_key(self, key):
         if isinstance(key, dict):

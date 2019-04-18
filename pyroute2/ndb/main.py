@@ -210,7 +210,6 @@ class View(dict):
         self.event = table  # FIXME
         self.match_src = match_src
         self.match_pairs = match_pairs
-        self.fix_header = True
         self.classes = OrderedDict()
         self.classes['interfaces'] = Interface
         self.classes['addresses'] = Address
@@ -356,7 +355,8 @@ class View(dict):
         raise NotImplementedError()
 
     def _keys(self, iclass):
-        return self.ndb.schema.compiled[iclass.view or iclass.table]['names']
+        return (['target', 'tflags'] +
+                self.ndb.schema.compiled[iclass.view or iclass.table]['names'])
 
     def _dump(self, match=None):
         iclass = self.classes[self.table]
@@ -372,11 +372,7 @@ class View(dict):
                                .fetch(iclass.dump + spec, values)):
                     yield record
         else:
-            if self.fix_header:
-                prefix = ('target', 'tflags')
-            else:
-                prefix = tuple()
-            yield prefix + tuple([iclass.nla2name(x) for x in keys])
+            yield tuple([iclass.nla2name(x) for x in keys])
             with self.ndb.schema.db_lock:
                 for record in (self
                                .ndb
@@ -563,7 +559,6 @@ class SourcesView(View):
         super(SourcesView, self).__init__(ndb, 'sources')
         self.classes['sources'] = Source
         self.cache = {}
-        self.fix_header = False
 
     def add(self, **spec):
         spec = dict(spec)
