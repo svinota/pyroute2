@@ -218,6 +218,12 @@ class Source(dict):
             self.th.join()
         self.ndb.schema.flush(self.target)
 
+    def restart(self):
+        with self.lock:
+            if not self.shutdown.is_set():
+                self.close()
+                self.start()
+
     def __enter__(self):
         return self
 

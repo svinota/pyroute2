@@ -789,27 +789,37 @@ class NDB(object):
 
         while True:
             target, events = event_queue.get()
-            for event in events:
-                handlers = event_map.get(event.__class__, [default_handler, ])
-                for handler in tuple(handlers):
-                    try:
-                        handler(target, event)
-                    except InvalidateHandlerException:
+            try:
+                # if nlm_generator is True, an exception can come
+                # here while iterating events
+                for event in events:
+                    handlers = event_map.get(event.__class__,
+                                             [default_handler, ])
+                    for handler in tuple(handlers):
                         try:
-                            handlers.remove(handler)
+                            handler(target, event)
+                        except InvalidateHandlerException:
+                            try:
+                                handlers.remove(handler)
+                            except:
+                                log.error('could not invalidate '
+                                          'event handler:\n%s'
+                                          % traceback.format_exc())
+                        except ShutdownException:
+                            for target, source in self.sources.cache.items():
+                                with source.lock:
+                                    source.shutdown.set()
+                        except DBMExitException:
+                            return
                         except:
-                            log.error('could not invalidate event handler:\n%s'
-                                      % traceback.format_exc())
-                    except ShutdownException:
-                        for target, source in self.sources.cache.items():
-                            source.shutdown.set()
-                    except DBMExitException:
-                        return
-                    except:
-                        log.error('could not load event:\n%s\n%s'
-                                  % (event, traceback.format_exc()))
-                if time.time() - self.gctime > config.gc_timeout:
-                    self.gctime = time.time()
-                    for wr in tuple(self._rtnl_objects):
-                        if wr() is None:
-                            self._rtnl_objects.remove(wr)
+                            log.error('could not load event:\n%s\n%s'
+                                      % (event, traceback.format_exc()))
+                    if time.time() - self.gctime > config.gc_timeout:
+                        self.gctime = time.time()
+                        for wr in tuple(self._rtnl_objects):
+                            if wr() is None:
+                                self._rtnl_objects.remove(wr)
+            except:
+                log.error('exception in source %s' % target)
+                # restart the target
+                self.sources[target].restart()
