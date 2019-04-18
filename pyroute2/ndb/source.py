@@ -1,7 +1,11 @@
 import time
 import logging
 import threading
-from pyroute2.ndb.events import (SchemaFlush,
+from pyroute2 import IPRoute
+from pyroute2 import RemoteIPRoute
+from pyroute2.netns.nslink import NetNS
+from pyroute2.ndb.events import (SyncStart,
+                                 SchemaFlush,
                                  MarkFailed)
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.exceptions import NetlinkError
@@ -10,35 +14,61 @@ log = logging.getLogger(__name__)
 SOURCE_FAIL_PAUSE = 5
 
 
-class Source(object):
+class Source(dict):
     '''
     The RNTL source. The source that is used to init the object
     must comply to IPRoute API, must support the async_cache. If
     the source starts additional threads, they must be joined
     in the source.close()
     '''
+    table_alias = 'src'
+    dump = None
+    dump_header = None
+    summary = None
+    summary_header = None
+    view = None
+    table = 'sources'
+    vmap = {'local': IPRoute,
+            'netns': NetNS,
+            'remote': RemoteIPRoute}
 
-    def __init__(self, evq, target, source,
-                 event=None,
-                 persistent=True,
-                 **nl_kwarg):
+    def __init__(self, ndb, **spec):
         self.th = None
         self.nl = None
-        # the event queue to send events to
-        self.evq = evq
+        self.ndb = ndb
+        self.evq = self.ndb._event_queue
         # the target id -- just in case
-        self.target = target
+        self.target = spec.pop('target')
+        kind = spec.pop('kind', 'local')
+        self.persistent = spec.pop('persistent', True)
+        self.event = spec.pop('event', SyncStart())
         # RTNL API
-        self.nl_prime = source
-        self.nl_kwarg = nl_kwarg
+        self.nl_prime = self.vmap[kind]
+        self.nl_kwarg = spec
         #
-        self.event = event
         self.shutdown = threading.Event()
         self.started = threading.Event()
         self.lock = threading.Lock()
         self.started.clear()
-        self.persistent = persistent
         self.state = 'init'
+
+        self.ndb.schema.execute('''
+                                INSERT INTO sources (f_target, f_kind)
+                                VALUES (%s, %s)
+                                ''' % tuple(self.ndb.schema.plch * 2),
+                                (self.target, kind))
+        for key, value in spec.items():
+            vtype = 'int' if isinstance(value, int) else 'str'
+            self.ndb.schema.execute('''
+                                    INSERT INTO options (f_target,
+                                                         f_name,
+                                                         f_type,
+                                                         f_value)
+                                    VALUES (%s, %s, %s, %s)
+                                    ''' % tuple(self.ndb.schema.plch * 4),
+                                    (self.target, key, vtype, value))
+
+        self.load_sql()
 
     def __repr__(self):
         if isinstance(self.nl_prime, NetlinkMixin):
@@ -47,6 +77,14 @@ class Source(object):
             name = self.nl_prime.__name__
 
         return '[%s] <%s %s>' % (self.state, name, self.nl_kwarg)
+
+    @classmethod
+    def nla2name(cls, name):
+        return name
+
+    @classmethod
+    def name2nla(cls, name):
+        return name
 
     def api(self, name, *argv, **kwarg):
         for _ in range(100):  # FIXME make a constant
@@ -88,9 +126,7 @@ class Source(object):
                 try:
                     log.debug('[%s] connecting' % self.target)
                     self.state = 'connecting'
-                    if isinstance(self.nl_prime, NetlinkMixin):
-                        self.nl = self.nl_prime
-                    elif isinstance(self.nl_prime, type):
+                    if isinstance(self.nl_prime, type):
                         self.nl = self.nl_prime(**self.nl_kwarg)
                     else:
                         raise TypeError('source channel not supported')
@@ -168,6 +204,7 @@ class Source(object):
                        .Thread(target=self.receiver,
                                name='NDB event source: %s' % (self.target)))
             self.th.start()
+            return self
 
     def close(self):
         with self.lock:
@@ -179,9 +216,26 @@ class Source(object):
                     log.error('[%s] source close: %s' % (self.target, e))
         if self.th is not None:
             self.th.join()
+        self.ndb.schema.flush(self.target)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
+
+    def load_sql(self):
+        #
+        spec = self.ndb.schema.fetchone('''
+                                        SELECT * FROM sources
+                                        WHERE f_target = %s
+                                        ''' % self.ndb.schema.plch,
+                                        (self.target, ))
+        self['target'], self['kind'] = spec
+        for spec in self.ndb.schema.fetch('''
+                                          SELECT * FROM options
+                                          WHERE f_target = %s
+                                          ''' % self.ndb.schema.plch,
+                                          (self.target, )):
+            f_target, f_name, f_type, f_value = spec
+            self[f_name] = int(f_value) if f_type == 'int' else f_value

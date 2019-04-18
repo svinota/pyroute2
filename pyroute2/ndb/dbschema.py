@@ -248,6 +248,25 @@ class DBSchema(object):
         for cls in (NextHop, Route, Address):
             self.execute(template.format(**cls.reverse_update))
             self.connection.commit()
+        #
+        # service tables
+        #
+        self.execute('''
+                     CREATE TABLE IF NOT EXISTS sources
+                     (f_target TEXT PRIMARY KEY,
+                      f_kind TEXT NOT NULL)
+                     ''')
+        self.execute('''
+                     CREATE TABLE IF NOT EXISTS options
+                     (f_target TEXT NOT NULL,
+                      f_name TEXT NOT NULL,
+                      f_type TEXT NOT NULL,
+                      f_value TEXT NOT NULL,
+                      FOREIGN KEY (f_target)
+                          REFERENCES sources(f_target)
+                          ON UPDATE CASCADE
+                          ON DELETE CASCADE)
+                     ''')
 
     def merge_spec(self, table1, table2, table, schema_idx):
         spec1 = self.compiled[table1]

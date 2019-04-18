@@ -9,10 +9,8 @@ from utils import allocate_network
 from utils import free_network
 from pyroute2 import netns
 from pyroute2 import NDB
-from pyroute2 import NetNS
 from pyroute2 import IPRoute
 from pyroute2 import NetlinkError
-from pyroute2 import RemoteIPRoute
 from pyroute2.common import uifname
 from pyroute2.common import basestring
 from pyroute2.ndb import report
@@ -26,9 +24,9 @@ class TestMisc(object):
 
         # NB: no 'localhost' record -- important
         #
-        sources = {'localhost0': {'class': IPRoute},
-                   'localhost1': {'class': RemoteIPRoute},  # local mitogen
-                   'localhost2': {'class': RemoteIPRoute}}  # one more
+        sources = [{'target': 'localhost0', 'kind': 'local'},
+                   {'target': 'localhost1', 'kind': 'remote'},
+                   {'target': 'localhost2', 'kind': 'remote'}]
 
         # check all the views
         #
@@ -119,11 +117,9 @@ class TestBase(object):
         self.if_simple = None
         self.ipnets = [allocate_network() for _ in range(5)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
-        self.nl_kwarg['class'] = self.nl_class
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
-                       rtnl_log=True,
-                       sources={'localhost': self.nl_kwarg})
+                       rtnl_log=True)
         self.ndb.debug('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
         self.interfaces = self.create_interfaces()
 
@@ -167,11 +163,9 @@ class TestCreate(object):
         self.interfaces = []
         self.ipnets = [allocate_network() for _ in range(2)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
-        self.nl_kwarg['class'] = self.nl_class
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
-                       rtnl_log=True,
-                       sources={'localhost': self.nl_kwarg})
+                       rtnl_log=True)
         self.ndb.debug('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
 
     def teardown(self):
@@ -368,11 +362,9 @@ class TestRollback(TestBase):
         require_user('root')
         self.ipnets = [allocate_network() for _ in range(5)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
-        self.nl_kwarg['class'] = self.nl_class
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
-                       rtnl_log=True,
-                       sources={'localhost': self.nl_kwarg})
+                       rtnl_log=True)
         self.ndb.debug('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
 
     def test_simple_deps(self):
@@ -669,7 +661,10 @@ class TestSources(TestBase):
 
         # connect RTNL source
         event = threading.Event()
-        self.ndb.connect_source(nsname, NetNS(nsname), event)
+        self.ndb.sources.add(**{'target': nsname,
+                                'kind': 'netns',
+                                'netns': nsname,
+                                'event': event})
         assert event.wait(5)
 
         with self.ndb.schema.db_lock:
@@ -678,7 +673,7 @@ class TestSources(TestBase):
             assert self.count_interfaces('localhost') < s
 
         # disconnect the source
-        self.ndb.disconnect_source(nsname)
+        self.ndb.sources[nsname].close()
         with self.ndb.schema.db_lock:
             s = len(list(self.ndb.interfaces.summary())) - 1
             assert self.count_interfaces(nsname) == 0
@@ -691,7 +686,7 @@ class TestSources(TestBase):
             s = len(list(self.ndb.interfaces.summary())) - 1
             assert self.count_interfaces('localhost') == s
 
-        self.ndb.disconnect_source('localhost')
+        self.ndb.sources['localhost'].close()
 
         with self.ndb.schema.db_lock:
             s = len(list(self.ndb.interfaces.summary())) - 1

@@ -152,9 +152,7 @@ from functools import partial
 from collections import OrderedDict
 from pyroute2 import config
 from pyroute2 import cli
-from pyroute2 import IPRoute
 from pyroute2.common import basestring
-from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.ndb import dbschema
 from pyroute2.ndb.events import (SyncStart,
                                  SchemaFlush,
@@ -197,9 +195,9 @@ def target_adapter(value):
 sqlite3.register_adapter(list, target_adapter)
 
 
-class Factory(dict):
+class View(dict):
     '''
-    The Factory() object returns RTNL objects on demand::
+    The View() object returns RTNL objects on demand::
 
         ifobj1 = ndb.interfaces['eth0']
         ifobj2 = ndb.interfaces['eth0']
@@ -212,6 +210,7 @@ class Factory(dict):
         self.event = table  # FIXME
         self.match_src = match_src
         self.match_pairs = match_pairs
+        self.fix_header = True
         self.classes = OrderedDict()
         self.classes['interfaces'] = Interface
         self.classes['addresses'] = Address
@@ -356,9 +355,12 @@ class Factory(dict):
     def values(self):
         raise NotImplementedError()
 
+    def _keys(self, iclass):
+        return self.ndb.schema.compiled[iclass.view or iclass.table]['names']
+
     def _dump(self, match=None):
         iclass = self.classes[self.table]
-        keys = self.ndb.schema.compiled[iclass.view or iclass.table]['names']
+        keys = self._keys(iclass)
 
         spec, values = self._match(match, iclass, keys, iclass.table_alias)
         if iclass.dump and iclass.dump_header:
@@ -370,8 +372,11 @@ class Factory(dict):
                                .fetch(iclass.dump + spec, values)):
                     yield record
         else:
-            yield ('target', 'tflags') + tuple([iclass.nla2name(x)
-                                                for x in keys])
+            if self.fix_header:
+                prefix = ('target', 'tflags')
+            else:
+                prefix = tuple()
+            yield prefix + tuple([iclass.nla2name(x) for x in keys])
             with self.ndb.schema.db_lock:
                 for record in (self
                                .ndb
@@ -413,9 +418,35 @@ class Factory(dict):
                 yield '\n    %s' % line
         yield '\n]\n'
 
+    def _details(self, match=None, dump=None, format=None):
+        # get the raw dump generator and get the fields description
+        if dump is None:
+            dump = self._dump(match)
+        fnames = next(dump)
+        if format == 'json':
+            yield '['
+            comma = ''
+        # iterate all the records and yield a dict for every record
+        for record in dump:
+            obj = self[dict(zip(fnames, record))]
+            if format == 'json':
+                ret = OrderedDict()
+                for key in sorted(obj):
+                    ret[key] = obj[key]
+                lines = json.dumps(ret, indent=4).split('\n')
+                yield '%s\n    %s' % (comma, lines[0])
+                if not comma:
+                    comma = ','
+                for line in lines[1:]:
+                    yield '\n    %s' % line
+            else:
+                yield dict(obj)
+        if format == 'json':
+            yield '\n]\n'
+
     def _summary(self, match=None):
         iclass = self.classes[self.table]
-        keys = self.ndb.schema.compiled[iclass.view or iclass.table]['names']
+        keys = self._keys(iclass)
 
         spec, values = self._match(match, iclass, keys, iclass.table_alias)
         if iclass.summary is not None:
@@ -512,6 +543,52 @@ class Factory(dict):
         else:
             raise ValueError('format not supported')
 
+    def details(self, *argv, **kwarg):
+        fmt = kwarg.pop('format',
+                        kwarg.pop('fmt',
+                                  self.ndb.config.get('show_format',
+                                                      'native')))
+        if fmt == 'native':
+            return Report(self._details(*argv, **kwarg))
+        elif fmt == 'json':
+            kwarg['format'] = 'json'
+            return Report(self._details(*argv, **kwarg), ellipsis=False)
+        else:
+            raise ValueError('format not supported')
+
+
+class SourcesView(View):
+
+    def __init__(self, ndb):
+        super(SourcesView, self).__init__(ndb, 'sources')
+        self.classes['sources'] = Source
+        self.cache = {}
+        self.fix_header = False
+
+    def add(self, **spec):
+        spec = dict(spec)
+        self.cache[spec['target']] = Source(self.ndb, **spec).start()
+        return self.cache[spec['target']]
+
+    def _keys(self, iclass):
+        return ['target', 'kind']
+
+    def wait(self, **spec):
+        raise NotImplementedError()
+
+    def _summary(self, *argv, **kwarg):
+        return self._dump(*argv, **kwarg)
+
+    def __getitem__(self, key, table=None):
+        if isinstance(key, basestring):
+            target = key
+        elif isinstance(key, dict) and 'target' in key.keys():
+            target = key['target']
+        else:
+            raise ValueError('key format not supported')
+
+        return self.cache[target]
+
 
 class NDB(object):
 
@@ -538,14 +615,14 @@ class NDB(object):
         #
         # fix sources prime
         if sources is None:
-            self._nl = {'localhost': {'class': IPRoute,
-                                      'nlm_generator': True}}
-        elif isinstance(sources, NetlinkMixin):
-            self._nl = {'localhost': sources}
-        elif isinstance(sources, dict):
-            self._nl = sources
+            sources = [{'target': 'localhost',
+                        'kind': 'local',
+                        'nlm_generator': 1}]
+        elif not isinstance(sources, (list, tuple)):
+            raise ValueError('sources format not supported')
 
-        self.sources = {}
+        self.sources = SourcesView(self)
+        self._nl = sources
         self._db_provider = db_provider
         self._db_spec = db_spec
         self._db_rtnl_log = rtnl_log
@@ -556,14 +633,14 @@ class NDB(object):
                                             name='NDB main loop')
         self._dbm_thread.start()
         self._dbm_ready.wait()
-        self.interfaces = Factory(self, 'interfaces')
-        self.addresses = Factory(self, 'addresses')
-        self.routes = Factory(self, 'routes')
-        self.neighbours = Factory(self, 'neighbours')
+        self.interfaces = View(self, 'interfaces')
+        self.addresses = View(self, 'addresses')
+        self.routes = View(self, 'routes')
+        self.neighbours = View(self, 'neighbours')
         self.query = Query(self.schema)
 
     def _get_view(self, name, match_src=None, match_pairs=None):
-        return Factory(self, name, match_src, match_pairs)
+        return View(self, name, match_src, match_pairs)
 
     def __enter__(self):
         return self
@@ -640,7 +717,7 @@ class NDB(object):
                 # release all the failed sources waiting for restart
                 self._event_queue.put(('localhost', (ShutdownException(), )))
                 # release all the sources
-                for target, source in self.sources.items():
+                for target, source in self.sources.cache.items():
                     source.close()
                 # shutdown the _dbm_thread
                 self._event_queue.put(('localhost', (DBMExitException(), )))
@@ -671,63 +748,6 @@ class NDB(object):
             if self.schema:
                 self.schema.db = self._db
 
-    def disconnect_source(self, target, flush=True):
-        '''
-        Disconnect an event source from the DB. Raise KeyError if
-        there is no such source.
-
-        :param target: node name or UUID
-        '''
-        # close the source
-        self.sources[target].close()
-        del self.sources[target]
-        #
-        if flush:
-            self.schema.flush(target)
-
-    def connect_source(self, target, source, event=None):
-        '''
-        Connect an event source to the DB. All arguments are required.
-
-        :param target: node name or UUID, any hashable value
-        :param nl: an IPRoute object to init Source() class
-        :param event: an optional Event() to send in the end
-
-        The source connection is an async process so there should be
-        a way to wain until it is registered. One can provide an Event()
-        that will be set by the main NDB loop when the source is
-        connected.
-        '''
-        #
-        # flush the DB
-        self.schema.flush(target)
-        #
-        # register the channel
-        if target in self.sources:
-            self.disconnect_source(target)
-        try:
-            if isinstance(source, NetlinkMixin):
-                self.sources[target] = Source(self._event_queue,
-                                              target, source, event)
-            elif isinstance(source, dict):
-                iclass = source.pop('class')
-                persistent = source.pop('persistent', True)
-                self.sources[target] = Source(self._event_queue,
-                                              target, iclass, event,
-                                              persistent, **source)
-            elif isinstance(source, Source):
-                self.sources[target] = Source
-            else:
-                raise TypeError('source not supported')
-
-            self.sources[target].start()
-        except:
-            if target in self.sources:
-                self.sources[target].close()
-                del self.sources[target]
-            self.schema.flush(target)
-            raise
-
     def __dbm__(self):
 
         def default_handler(target, event):
@@ -757,11 +777,8 @@ class NDB(object):
                                     self._db_provider,
                                     self._db_rtnl_log,
                                     id(threading.current_thread()))
-        for target, source in self._nl.items():
-            try:
-                self.connect_source(target, source, SyncStart())
-            except Exception as e:
-                log.error('could not connect source %s: %s' % (target, e))
+        for spec in self._nl:
+            self.sources.add(**spec)
 
         for (event, handlers) in self.schema.event_map.items():
             for handler in handlers:
@@ -781,7 +798,7 @@ class NDB(object):
                             log.error('could not invalidate event handler:\n%s'
                                       % traceback.format_exc())
                     except ShutdownException:
-                        for target, source in self.sources.items():
+                        for target, source in self.sources.cache.items():
                             source.shutdown.set()
                     except DBMExitException:
                         return
