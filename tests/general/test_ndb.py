@@ -519,7 +519,7 @@ class TestRollback(TestBase):
         self.ndb.interfaces.wait(ifname=self.if_br0p1, master=master)
         self.ndb.addresses.wait(address=ifaddr1)
         self.ndb.addresses.wait(address=ifaddr2)
-        self.ndb.routes.wait(dst=dst)
+        self.ndb.routes.wait(dst=dst, gateway=router)
         iface = self.ndb.interfaces[self.if_br0]
         # check everything is in place
         assert grep('%s ip link show' % self.ssh, pattern=self.if_br0)
