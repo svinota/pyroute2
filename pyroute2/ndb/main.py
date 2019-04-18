@@ -253,8 +253,12 @@ class View(dict):
         #
         try:
             ret = self.__getitem__(spec)
+            for key in spec:
+                if ret[key] != spec[key]:
+                    ret = None
+                    break
         except KeyError:
-            pass
+            ret = None
 
         while ret is None:
             try:
@@ -262,6 +266,10 @@ class View(dict):
             except queue.Empty:
                 try:
                     ret = self.__getitem__(spec)
+                    for key in spec:
+                        if ret[key] != spec[key]:
+                            ret = None
+                            raise KeyError()
                     break
                 except KeyError:
                     continue

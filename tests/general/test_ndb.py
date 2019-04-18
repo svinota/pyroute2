@@ -394,6 +394,12 @@ class TestRollback(TestBase):
             ipr.link('set',
                      index=self.interfaces[-1],
                      state='up')
+            (self
+             .ndb
+             .interfaces
+             .wait(ifname=self.if_simple,
+                   state='up'))
+
             ipr.addr('add',
                      index=self.interfaces[-1],
                      address=ifaddr,
@@ -471,6 +477,12 @@ class TestRollback(TestBase):
             ipr.link('set',
                      index=self.interfaces[-3],
                      state='up')
+            (self
+             .ndb
+             .interfaces
+             .wait(ifname=self.if_br0,
+                   state='up'))
+
             ipr.addr('add',
                      index=self.interfaces[-3],
                      address=ifaddr1,
@@ -491,6 +503,16 @@ class TestRollback(TestBase):
                      index=self.interfaces[-2],
                      state='up',
                      master=self.interfaces[-3])
+            (self
+             .ndb
+             .interfaces
+             .wait(ifname=self.if_br0p0,
+                   state='up'))
+            (self
+             .ndb
+             .interfaces
+             .wait(ifname=self.if_br0p1,
+                   state='up'))
 
         master = self.ndb.interfaces[self.if_br0]['index']
         self.ndb.interfaces.wait(ifname=self.if_br0p0, master=master)
@@ -557,6 +579,12 @@ class TestRollback(TestBase):
             ipr.link('set',
                      index=self.interfaces[-1],
                      state='up')
+            (self
+             .ndb
+             .interfaces
+             .wait(ifname=if_host,
+                   state='up'))
+
             ipr.link('add',
                      ifname=if_vlan,
                      kind='vlan',
@@ -571,6 +599,12 @@ class TestRollback(TestBase):
             ipr.link('set',
                      index=self.interfaces[-1],
                      state='up')
+            (self
+             .ndb
+             .interfaces
+             .wait(ifname=if_vlan,
+                   state='up'))
+
             ipr.addr('add',
                      index=self.interfaces[-1],
                      address=ifaddr1,
