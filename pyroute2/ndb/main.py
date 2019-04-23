@@ -156,6 +156,8 @@ from pyroute2.common import basestring
 from pyroute2.ndb import dbschema
 from pyroute2.ndb.events import (SyncStart,
                                  SchemaFlush,
+                                 SchemaReadLock,
+                                 SchemaReadUnlock,
                                  MarkFailed,
                                  DBMExitException,
                                  ShutdownException,
@@ -767,8 +769,20 @@ class NDB(object):
 
         # init the events map
         event_map = {type(self._dbm_ready): [lambda t, x: x.set()],
-                     SchemaFlush: [lambda t, x: self.schema.flush(t)],
-                     MarkFailed: [lambda t, x: self.schema.mark(t, 1)],
+                     SchemaFlush: [lambda t, x: (self
+                                                 .schema
+                                                 .flush(t))],
+                     SchemaReadLock: [lambda t, x: (self
+                                                    .schema
+                                                    .read_lock
+                                                    .acquire())],
+                     SchemaReadUnlock: [lambda t, x: (self
+                                                      .schema
+                                                      .read_lock
+                                                      .release())],
+                     MarkFailed: [lambda t, x: (self
+                                                .schema
+                                                .mark(t, 1))],
                      SyncStart: [partial(check_sources_started,
                                          self, _locals)]}
         self._event_map = event_map

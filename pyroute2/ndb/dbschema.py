@@ -45,6 +45,13 @@ def db_lock(method):
     return f
 
 
+def read_lock(method):
+    def f(self, *argv, **kwarg):
+        with self.read_lock:
+            return method(self, *argv, **kwarg)
+    return f
+
+
 class DBSchema(object):
 
     connection = None
@@ -185,6 +192,7 @@ class DBSchema(object):
         self.snapshots = {}
         self.key_defaults = {}
         self.db_lock = threading.RLock()
+        self.read_lock = threading.RLock()
         self._cursor = None
         self._counter = 0
         self.share_cursor()
@@ -373,6 +381,9 @@ class DBSchema(object):
             cursor = self.connection.cursor()
             self._counter = config.db_transaction_limit + 1
         try:
+            #
+            # FIXME: add logging
+            #
             for _ in range(MAX_ATTEMPTS):
                 try:
                     cursor.execute(*argv, **kwarg)
@@ -397,21 +408,18 @@ class DBSchema(object):
                 self._counter = 0
         return cursor
 
+    @read_lock
     def fetch(self, *argv, **kwarg):
-        #
-        # fetch() always requires a separate cursor, so there is
-        # no need to lock the DB
-        #
         try:
             self.connection.commit()
         except sqlite3.OperationalError:
             #
             # Ignore commit errors for SQLite3:
-            # -- OperationalError: cannot commit - no transaction is activea
+            # -- OperationalError: cannot commit - no transaction is active
             #
             pass
         #
-        # FIXME: How many tries should we do here? A good question to SQLite3
+        # FIXME: add logging
         #
         for _ in range(MAX_ATTEMPTS):
             cursor = self.connection.cursor()
@@ -420,13 +428,9 @@ class DBSchema(object):
                 break
             except (sqlite3.InterfaceError, sqlite3.OperationalError):
                 #
-                # Retry on:
+                # Retry on SQLite3:
                 # -- InterfaceError: Error binding parameter ...
                 # -- OperationalError: SQL logic error
-                #
-                # SQLite3 has a lot of issues with concurrency, so one
-                # may expect exceptions here, as the routine is used in
-                # the transaction rollbacks.
                 #
                 pass
         else:
@@ -439,11 +443,9 @@ class DBSchema(object):
             for record in record_set:
                 yield record
 
-    @db_lock
     def fetchall(self, *argv, **kwarg):
         return tuple(self.fetch(*argv, **kwarg))
 
-    @db_lock
     def fetchone(self, *argv, **kwarg):
         ret = tuple(self.fetch(*argv, **kwarg))
         if ret:
@@ -734,11 +736,16 @@ class DBSchema(object):
         key_query = ' AND '.join(['f_%s = %s' % (x, self.plch) for x
                                   in self.indices['routes']])
         routes = (self
-                  .fetch('SELECT %s,f_RTA_GATEWAY FROM routes WHERE '
-                         'f_target = %s AND f_RTA_OIF = %s AND '
-                         'f_RTA_GATEWAY IS NOT NULL %s'
-                         % (key_fields, self.plch, self.plch, gc_clause),
-                         (target, event.get_attr('RTA_OIF'))))
+                  .execute('''
+                           SELECT %s,f_RTA_GATEWAY FROM routes WHERE
+                           f_target = %s AND f_RTA_OIF = %s AND
+                           f_RTA_GATEWAY IS NOT NULL %s
+                           ''' % (key_fields,
+                                  self.plch,
+                                  self.plch,
+                                  gc_clause),
+                           (target, event.get_attr('RTA_OIF')))
+                  .fetchmany())
         #
         # get the route's RTA_DST and calculate the network
         #

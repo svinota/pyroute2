@@ -5,64 +5,50 @@ import logging
 import weakref
 import threading
 from pyroute2 import cli
+from pyroute2.ndb.events import State
+from pyroute2.ndb.events import Log
 from pyroute2.netlink.exceptions import NetlinkError
 
 log = logging.getLogger(__name__)
 
 
-class State(object):
-
-    events = None
-
-    def __init__(self, prime=None):
-        self.events = []
-        if prime is not None:
-            self.load(prime)
-
-    def load(self, prime):
-        self.events = []
-        for state in prime.events:
-            self.events.append(state)
-
-    def transition(self):
-        if len(self.events) < 2:
-            return None
-        return (self.events[-2][0], self.events[-1][0])
-
-    def get(self):
-        if not self.events:
-            return None
-        return self.events[-1][0]
-
-    def set(self, state):
-        if self.events and self.events[-1][0] == state:
-            self.events.pop()
-        self.events.append((state, time.time()))
-        return state
-
-    def __eq__(self, other):
-        if not self.events:
-            return False
-        return self.events[-1][0] == other
-
-    def __ne__(self, other):
-        if not self.events:
-            return True
-        return self.events[-1][0] != other
-
-
-class Log(object):
-
-    events = None
-
-    def __init__(self):
-        self.events = []
-
-    def append(self, event):
-        self.events.append((time.time(), event))
-
-
 class RTNL_Object(dict):
+    '''
+    Base RTNL object class.
+
+    **schema writes**
+
+      * self.snapshot() - schema.save_deps() @ db_lock
+      * self.commit() - self.snapshot() - schema.save_deps() @ db_lock
+
+    **schema reads**
+
+      * schema.indices
+      * schema.compiled
+      * schema.stats
+      * schema.plch
+      * self.complete_key() - schema.fetchone() @ read_lock
+      * self.get_count() - schema.fetchone() @ read_lock
+      * self.load_sql() - schema.fetchone() @ read_lock
+      * self.apply() - schema.fetch() @ read_lock
+      * self.apply() - schema.connection.commit()
+
+    **RTNL flow**
+
+      * ndb.{view}.__getitem__(key, ...):
+        * create object
+          * complete_key() @ read_lock
+          * load_sql() @ read_lock
+        * create weakref
+        * register_handler()
+      * source:
+        * receiver() @ thread
+          * nl.get() -> ndb._event_queue
+      * main:
+        * __dbm__() @ thread
+          * rtnl_object: load_rtnlmsg ! no DB access
+          * schema: load_rtnlmsg @ db_lock
+    '''
 
     table = None   # model table -- always one of the main tables
     view = None    # (optional) view to load values for the summary etc.
@@ -231,14 +217,13 @@ class RTNL_Object(dict):
                 if value is not None and name in self.spec:
                     keys.append('f_%s = %s' % (name, self.schema.plch))
                     values.append(value)
-            with self.schema.db_lock:
-                spec = (self
-                        .schema
-                        .fetchone('SELECT %s FROM %s WHERE %s' %
-                                  (' , '.join(fetch),
-                                   self.etable,
-                                   ' AND '.join(keys)),
-                                  values))
+            spec = (self
+                    .schema
+                    .fetchone('SELECT %s FROM %s WHERE %s' %
+                              (' , '.join(fetch),
+                               self.etable,
+                               ' AND '.join(keys)),
+                              values))
             if spec is None:
                 return None
             for name, value in zip(fetch, spec):
