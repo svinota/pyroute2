@@ -821,8 +821,7 @@ class NDB(object):
                                           % traceback.format_exc())
                         except ShutdownException:
                             for target, source in self.sources.cache.items():
-                                with source.lock:
-                                    source.shutdown.set()
+                                source.shutdown.set()
                         except DBMExitException:
                             return
                         except:
