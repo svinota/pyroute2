@@ -372,9 +372,20 @@ class DBSchema(object):
         else:
             cursor = self.connection.cursor()
             self._counter = config.db_transaction_limit + 1
-
         try:
-            cursor.execute(*argv, **kwarg)
+            for _ in range(MAX_ATTEMPTS):
+                try:
+                    cursor.execute(*argv, **kwarg)
+                    break
+                except (sqlite3.InterfaceError, sqlite3.OperationalError):
+                    #
+                    # Retry on:
+                    # -- InterfaceError: Error binding parameter ...
+                    # -- OperationalError: SQL logic error
+                    #
+                    pass
+            else:
+                raise Exception('DB execute error')
         except Exception:
             self.connection.commit()
             if self._cursor:
@@ -384,11 +395,13 @@ class DBSchema(object):
             if self._counter > config.db_transaction_limit:
                 self.connection.commit()  # no performance optimisation yet
                 self._counter = 0
-
         return cursor
 
-    @db_lock
     def fetch(self, *argv, **kwarg):
+        #
+        # fetch() always requires a separate cursor, so there is
+        # no need to lock the DB
+        #
         try:
             self.connection.commit()
         except sqlite3.OperationalError:
@@ -397,9 +410,27 @@ class DBSchema(object):
             # -- OperationalError: cannot commit - no transaction is activea
             #
             pass
-
-        cursor = self.connection.cursor()
-        cursor.execute(*argv, **kwarg)
+        #
+        # FIXME: How many tries should we do here? A good question to SQLite3
+        #
+        for _ in range(MAX_ATTEMPTS):
+            cursor = self.connection.cursor()
+            try:
+                cursor.execute(*argv, **kwarg)
+                break
+            except (sqlite3.InterfaceError, sqlite3.OperationalError):
+                #
+                # Retry on:
+                # -- InterfaceError: Error binding parameter ...
+                # -- OperationalError: SQL logic error
+                #
+                # SQLite3 has a lot of issues with concurrency, so one
+                # may expect exceptions here, as the routine is used in
+                # the transaction rollbacks.
+                #
+                pass
+        else:
+            raise Exception('DB fetch error')
 
         while True:
             record_set = cursor.fetchmany()
