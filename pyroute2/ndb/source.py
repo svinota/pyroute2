@@ -52,7 +52,7 @@ class Source(dict):
         #
         self.shutdown = threading.Event()
         self.started = threading.Event()
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.started.clear()
         self.state = State()
         self.log = Log()
@@ -75,6 +75,23 @@ class Source(dict):
                                     (self.target, key, vtype, value))
 
         self.load_sql()
+
+    def remove(self):
+        with self.lock:
+            self.close()
+            (self
+             .ndb
+             .schema
+             .execute('''
+                      DELETE FROM sources WHERE f_target=%s
+                      ''' % self.ndb.schema.plch, (self.target, )))
+            (self
+             .ndb
+             .schema
+             .execute('''
+                      DELETE FROM options WHERE f_target=%s
+                      ''' % self.ndb.schema.plch, (self.target, )))
+            return self
 
     def __repr__(self):
         if isinstance(self.nl_prime, NetlinkMixin):

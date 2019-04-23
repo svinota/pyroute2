@@ -575,6 +575,12 @@ class SourcesView(View):
         self.cache[spec['target']] = Source(self.ndb, **spec).start()
         return self.cache[spec['target']]
 
+    def remove(self, target):
+        return (self
+                .cache
+                .pop(target)
+                .remove())
+
     def _keys(self, iclass):
         return ['target', 'kind']
 
