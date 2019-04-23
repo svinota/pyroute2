@@ -1047,7 +1047,13 @@ class ifinfbase(object):
 
 
 class ifinfmsg(ifinfbase, nlmsg):
-    pass
+
+    def decode(self):
+        nlmsg.decode(self)
+        if self['flags'] & 1:
+            self['state'] = 'up'
+        else:
+            self['state'] = 'down'
 
 
 class ifinfveth(ifinfbase, nla):
