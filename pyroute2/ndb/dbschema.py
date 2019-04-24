@@ -260,6 +260,12 @@ class DBSchema(object):
         # service tables
         #
         self.execute('''
+                     DROP TABLE IF EXISTS options
+                     ''')
+        self.execute('''
+                     DROP TABLE IF EXISTS sources
+                     ''')
+        self.execute('''
                      CREATE TABLE IF NOT EXISTS sources
                      (f_target TEXT PRIMARY KEY,
                       f_kind TEXT NOT NULL)
