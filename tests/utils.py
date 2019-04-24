@@ -49,9 +49,9 @@ def allocate_network(ipv='ipv4'):
         cx.request('POST', '/v1/network/%s/' % ipv, body=dtcd_uuid)
         resp = cx.getresponse()
         if resp.status == 200:
-            network = netaddr.IPNetwork(resp.read())
+            network = netaddr.IPNetwork(resp.read().decode('utf-8'))
         cx.close()
-    except:
+    except Exception:
         pass
 
     if network is None:
