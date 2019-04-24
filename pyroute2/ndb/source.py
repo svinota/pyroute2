@@ -57,11 +57,11 @@ class Source(dict):
         self.state = State()
         self.log = Log()
         self.state.set('init')
-
         self.ndb.schema.execute('''
                                 INSERT INTO sources (f_target, f_kind)
                                 VALUES (%s, %s)
-                                ''' % tuple(self.ndb.schema.plch * 2),
+                                ''' % (self.ndb.schema.plch,
+                                       self.ndb.schema.plch),
                                 (self.target, kind))
         for key, value in spec.items():
             vtype = 'int' if isinstance(value, int) else 'str'
@@ -71,7 +71,10 @@ class Source(dict):
                                                          f_type,
                                                          f_value)
                                     VALUES (%s, %s, %s, %s)
-                                    ''' % tuple(self.ndb.schema.plch * 4),
+                                    ''' % (self.ndb.schema.plch,
+                                           self.ndb.schema.plch,
+                                           self.ndb.schema.plch,
+                                           self.ndb.schema.plch),
                                     (self.target, key, vtype, value))
 
         self.load_sql()
