@@ -751,7 +751,8 @@ class NDB(object):
             #
             if self._db_provider == 'sqlite3':
                 self._db = sqlite3.connect(self._db_spec,
-                                           check_same_thread=False)
+                                           check_same_thread=False,
+                                           cached_statements=1000)
             elif self._db_provider == 'psycopg2':
                 self._db = psycopg2.connect(**self._db_spec)
 
