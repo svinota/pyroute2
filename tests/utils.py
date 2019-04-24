@@ -264,15 +264,6 @@ def get_ip_default_routes():
     return ret
 
 
-def get_ip_route():
-    ret = []
-    out = _check_output('ip', '-4', 'ro', 'li', 'ta', '255')
-    for string in out:
-        if len(string):
-            ret.append(string)
-    return ret
-
-
 def get_ip_rules(proto='-4'):
     ret = []
     out = _check_output('ip', proto, 'rule', 'show')

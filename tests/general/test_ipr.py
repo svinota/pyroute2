@@ -18,7 +18,6 @@ from utils import require_python
 from utils import require_kernel
 from utils import get_ip_brd
 from utils import get_ip_addr
-from utils import get_ip_route
 from utils import get_ip_default_routes
 from utils import get_ip_rules
 from utils import remove_link
@@ -1289,5 +1288,7 @@ class TestIPRoute(object):
             len(self.ip.get_default_routes(family=socket.AF_INET, table=254))
 
     def test_routes(self):
-        assert len(get_ip_route()) == \
-            len(self.ip.get_routes(family=socket.AF_INET, table=255))
+        routes = list(self.ip.get_routes(family=socket.AF_INET, table=255))
+        assert len(routes)
+        assert all([isinstance(x, dict) for x in routes])
+        assert all([x['event'] == 'RTM_NEWROUTE' for x in routes])
