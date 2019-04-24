@@ -375,24 +375,22 @@ class View(dict):
         spec, values = self._match(match, iclass, keys, iclass.table_alias)
         if iclass.dump and iclass.dump_header:
             yield iclass.dump_header
-            with self.ndb.schema.db_lock:
-                for record in (self
-                               .ndb
-                               .schema
-                               .fetch(iclass.dump + spec, values)):
-                    yield record
+            for record in (self
+                           .ndb
+                           .schema
+                           .fetch(iclass.dump + spec, values)):
+                yield record
         else:
             yield tuple([iclass.nla2name(x) for x in keys])
-            with self.ndb.schema.db_lock:
-                for record in (self
-                               .ndb
-                               .schema
-                               .fetch('SELECT * FROM %s AS %s %s'
-                                      % (iclass.view or iclass.table,
-                                         iclass.table_alias,
-                                         spec),
-                                      values)):
-                    yield record
+            for record in (self
+                           .ndb
+                           .schema
+                           .fetch('SELECT * FROM %s AS %s %s'
+                                  % (iclass.view or iclass.table,
+                                     iclass.table_alias,
+                                     spec),
+                                  values)):
+                yield record
 
     def _csv(self, match=None, dump=None):
         if dump is None:
