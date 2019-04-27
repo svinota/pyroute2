@@ -155,9 +155,6 @@ from pyroute2 import cli
 from pyroute2.common import basestring
 from pyroute2.ndb import dbschema
 from pyroute2.ndb.events import (SyncStart,
-                                 SchemaFlush,
-                                 SchemaReadLock,
-                                 SchemaReadUnlock,
                                  MarkFailed,
                                  DBMExitException,
                                  ShutdownException,
@@ -218,8 +215,15 @@ class View(dict):
         self.classes['neighbours'] = Neighbour
         self.classes['routes'] = Route
 
-    def get(self, key, table=None):
-        return self.__getitem__(key, table)
+    def getmany(self, spec, table=None):
+        return self.ndb.schema.get(table or self.table, spec)
+
+    def getone(self, spec, table=None):
+        for obj in self.getmany(spec, table):
+            return obj
+
+    def get(self, spec, table=None):
+        return self.__getitem__(spec, table)
 
     @cli.change_pointer
     def add(self, **spec):
@@ -353,10 +357,10 @@ class View(dict):
         raise NotImplementedError()
 
     def count(self):
-        return tuple(self
-                     .ndb
-                     .schema
-                     .fetch('SELECT count(*) FROM %s' % self.table))[0][0]
+        return (self
+                .ndb
+                .schema
+                .fetchone('SELECT count(*) FROM %s' % self.table))[0]
 
     def __len__(self):
         return self.count()
@@ -729,12 +733,12 @@ class NDB(object):
                 # release all the sources
                 for target, source in self.sources.cache.items():
                     source.close()
-                # shutdown the _dbm_thread
-                self._event_queue.put(('localhost', (DBMExitException(), )))
-                self._dbm_thread.join()
                 # close the database
                 self.schema.commit()
                 self.schema.close()
+                # shutdown the _dbm_thread
+                self._event_queue.put(('localhost', (DBMExitException(), )))
+                self._dbm_thread.join()
 
     def __initdb__(self):
         with self._global_lock:
@@ -743,16 +747,8 @@ class NDB(object):
             if self.schema:
                 self.schema.commit()
                 self.schema.close()
-            #
-            # ACHTUNG!
-            # check_same_thread=False
-            #
-            # Please be very careful with the DB locks!
-            #
             if self._db_provider == 'sqlite3':
-                self._db = sqlite3.connect(self._db_spec,
-                                           check_same_thread=False,
-                                           cached_statements=1000)
+                self._db = sqlite3.connect(self._db_spec)
             elif self._db_provider == 'psycopg2':
                 self._db = psycopg2.connect(**self._db_spec)
 
@@ -775,17 +771,6 @@ class NDB(object):
 
         # init the events map
         event_map = {type(self._dbm_ready): [lambda t, x: x.set()],
-                     SchemaFlush: [lambda t, x: (self
-                                                 .schema
-                                                 .flush(t))],
-                     SchemaReadLock: [lambda t, x: (self
-                                                    .schema
-                                                    .read_lock
-                                                    .acquire())],
-                     SchemaReadUnlock: [lambda t, x: (self
-                                                      .schema
-                                                      .read_lock
-                                                      .release())],
                      MarkFailed: [lambda t, x: (self
                                                 .schema
                                                 .mark(t, 1))],
@@ -796,10 +781,12 @@ class NDB(object):
         event_queue = self._event_queue
 
         self.__initdb__()
-        self.schema = dbschema.init(self._db,
+        self.schema = dbschema.init(self,
+                                    self._db,
                                     self._db_provider,
                                     self._db_rtnl_log,
                                     id(threading.current_thread()))
+
         for spec in self._nl:
             self.sources.add(**spec)
 

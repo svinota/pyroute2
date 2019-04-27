@@ -5,7 +5,6 @@ from pyroute2 import IPRoute
 from pyroute2 import RemoteIPRoute
 from pyroute2.netns.nslink import NetNS
 from pyroute2.ndb.events import (SyncStart,
-                                 SchemaFlush,
                                  SchemaReadLock,
                                  SchemaReadUnlock,
                                  MarkFailed,
@@ -166,15 +165,15 @@ class Source(dict):
                     #
                     # Initial load -- enqueue the data
                     #
-                    self.evq.put((self.target, (SchemaReadLock(), )))
+                    self.ndb.schema.allow_read(False)
                     try:
-                        self.evq.put((self.target, (SchemaFlush(), )))
+                        self.ndb.schema.flush(self.target)
                         self.evq.put((self.target, self.nl.get_links()))
                         self.evq.put((self.target, self.nl.get_addr()))
                         self.evq.put((self.target, self.nl.get_neighbours()))
                         self.evq.put((self.target, self.nl.get_routes()))
                     finally:
-                        self.evq.put((self.target, (SchemaReadUnlock(), )))
+                        self.ndb.schema.allow_read(True)
                     self.started.set()
                     self.shutdown.clear()
                     self.log.append('running')
@@ -229,6 +228,7 @@ class Source(dict):
                     sync.wait()
                     return
 
+                self.ndb.schema._allow_write.wait()
                 self.evq.put((self.target, msg))
 
     def start(self):

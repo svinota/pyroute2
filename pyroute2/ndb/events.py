@@ -17,6 +17,13 @@ class SchemaReadUnlock(Exception):
     pass
 
 
+class SchemaGenericRequest(object):
+    def __init__(self, response, *argv, **kwarg):
+        self.response = response
+        self.argv = argv
+        self.kwarg = kwarg
+
+
 class MarkFailed(Exception):
     pass
 

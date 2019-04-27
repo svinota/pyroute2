@@ -25,6 +25,14 @@ from pyroute2.ndb.route import Route
 from pyroute2.ndb.route import NextHop
 from pyroute2.ndb.address import Address
 
+# events
+from pyroute2.ndb.events import SchemaGenericRequest
+
+try:
+    import queue
+except ImportError:
+    import Queue as queue
+
 log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 5
 ifinfo_names = ('bridge',
@@ -38,18 +46,99 @@ ifinfo_names = ('bridge',
 supported_ifinfo = {x: ifinfmsg.ifinfo.data_map[x] for x in ifinfo_names}
 
 
-def db_lock(method):
-    def f(self, *argv, **kwarg):
-        with self.db_lock:
-            return method(self, *argv, **kwarg)
-    return f
+def publish(method):
+    #
+    # this wrapper will be published in the DBM thread
+    #
+    def _do_local(self, target, request):
+        try:
+            for item in method(self, *request.argv, **request.kwarg):
+                request.response.put(item)
+            request.response.put(StopIteration())
+        except Exception as e:
+            request.response.put(e)
+
+    #
+    # this class will be used to map the requests
+    #
+    class SchemaRequest(SchemaGenericRequest):
+        pass
+
+    #
+    # this method will replace the source one
+    #
+    def _do_dispatch(self, *argv, **kwarg):
+        if self.thread == id(threading.current_thread()):
+            # same thread, run method locally
+            for item in method(self, *argv, **kwarg):
+                yield item
+        else:
+            # another thread, run via message bus
+            self._allow_read.wait()
+            response = queue.Queue(maxsize=4096)
+            request = SchemaRequest(response, *argv, **kwarg)
+            self.ndb._event_queue.put((None, (request, )))
+            while True:
+                item = response.get()
+                if isinstance(item, StopIteration):
+                    return
+                elif isinstance(item, Exception):
+                    raise item
+                else:
+                    yield item
+
+    #
+    # announce the function so it will be published
+    #
+    _do_dispatch.publish = (SchemaRequest, _do_local)
+
+    return _do_dispatch
 
 
-def read_lock(method):
-    def f(self, *argv, **kwarg):
-        with self.read_lock:
+def publish_exec(method):
+    #
+    # this wrapper will be published in the DBM thread
+    #
+    def _do_local(self, target, request):
+        try:
+            (request
+             .response
+             .put(method(self, *request.argv, **request.kwarg)))
+        except Exception as e:
+            (request
+             .response
+             .put(e))
+
+    #
+    # this class will be used to map the requests
+    #
+    class SchemaRequest(SchemaGenericRequest):
+        pass
+
+    #
+    # this method will replace the source one
+    #
+    def _do_dispatch(self, *argv, **kwarg):
+        if self.thread == id(threading.current_thread()):
+            # same thread, run method locally
             return method(self, *argv, **kwarg)
-    return f
+        else:
+            # another thread, run via message bus
+            response = queue.Queue(maxsize=1)
+            request = SchemaRequest(response, *argv, **kwarg)
+            self.ndb._event_queue.put((None, (request, )))
+            ret = response.get()
+            if isinstance(ret, Exception):
+                raise ret
+            else:
+                return ret
+
+    #
+    # announce the function so it will be published
+    #
+    _do_dispatch.publish = (SchemaRequest, _do_local)
+
+    return _do_dispatch
 
 
 class DBSchema(object):
@@ -183,7 +272,15 @@ class DBSchema(object):
               'parent_fields': ('f_target', 'f_tflags', 'f_index'),
               'parent': 'interfaces'}]
 
-    def __init__(self, connection, mode, rtnl_log, tid):
+    def __init__(self, ndb, connection, mode, rtnl_log, tid):
+        self.ndb = ndb
+        # collect all the dispatched methods and publish them
+        for name in dir(self):
+            obj = getattr(self, name, None)
+            if hasattr(obj, 'publish'):
+                event, fbody = obj.publish
+                self.ndb._event_map[event] = [partial(fbody, self)]
+
         self.mode = mode
         self.stats = {}
         self.thread = tid
@@ -191,10 +288,12 @@ class DBSchema(object):
         self.rtnl_log = rtnl_log
         self.snapshots = {}
         self.key_defaults = {}
-        self.db_lock = threading.RLock()
-        self.read_lock = threading.RLock()
         self._cursor = None
         self._counter = 0
+        self._allow_read = threading.Event()
+        self._allow_read.set()
+        self._allow_write = threading.Event()
+        self._allow_write.set()
         self.share_cursor()
         if self.mode == 'sqlite3':
             # SQLite3
@@ -379,7 +478,7 @@ class DBSchema(object):
                 'knames': ','.join(f_idx),
                 'fidx': ' AND '.join(f_idx_match)}
 
-    @db_lock
+    @publish_exec
     def execute(self, *argv, **kwarg):
         if self._cursor:
             cursor = self._cursor
@@ -414,73 +513,75 @@ class DBSchema(object):
                 self._counter = 0
         return cursor
 
-    @read_lock
-    def fetch(self, *argv, **kwarg):
-        try:
-            self.connection.commit()
-        except sqlite3.OperationalError:
-            #
-            # Ignore commit errors for SQLite3:
-            # -- OperationalError: cannot commit - no transaction is active
-            #
-            pass
-        #
-        # FIXME: add logging
-        #
-        for _ in range(MAX_ATTEMPTS):
-            cursor = self.connection.cursor()
-            try:
-                cursor.execute(*argv, **kwarg)
-                break
-            except (sqlite3.InterfaceError, sqlite3.OperationalError):
-                #
-                # Retry on SQLite3:
-                # -- InterfaceError: Error binding parameter ...
-                # -- OperationalError: SQL logic error
-                #
-                pass
-        else:
-            raise Exception('DB fetch error')
-
-        while True:
-            record_set = cursor.fetchmany()
-            if not record_set:
-                return
-            for record in record_set:
-                yield record
-
-    def fetchall(self, *argv, **kwarg):
-        return tuple(self.fetch(*argv, **kwarg))
-
-    def fetchone(self, *argv, **kwarg):
-        ret = tuple(self.fetch(*argv, **kwarg))
-        if ret:
-            return ret[0]
-        else:
-            return None
-
-    @db_lock
     def share_cursor(self):
         self._cursor = self.connection.cursor()
         self._counter = 0
 
-    @db_lock
     def unshare_cursor(self):
         self._cursor = None
         self._counter = 0
         self.connection.commit()
 
-    @db_lock
+    def fetchone(self, *argv, **kwarg):
+        for row in self.fetch(*argv, **kwarg):
+            return row
+        return None
+
+    @publish_exec
+    def wait_read(self, timeout=None):
+        return self._allow_read.wait(timeout)
+
+    @publish_exec
+    def wait_write(self, timeout=None):
+        return self._allow_write.wait(timeout)
+
+    def allow_read(self, flag=True):
+        if not flag:
+            # block immediately...
+            self._allow_read.clear()
+        # ...then forward the request through the message bus
+        # in the case of different threads, or simply run stage2
+        self._r_allow_read(flag)
+
+    @publish_exec
+    def _r_allow_read(self, flag):
+        if flag:
+            self._allow_read.set()
+        else:
+            self._allow_read.clear()
+
+    def allow_write(self, flag=True):
+        if not flag:
+            self._allow_write.clear()
+        self._r_allow_write(flag)
+
+    @publish_exec
+    def _r_allow_write(self, flag):
+        if flag:
+            self._allow_write.set()
+        else:
+            self._allow_write.clear()
+
+    @publish
+    def fetch(self, *argv, **kwarg):
+        cursor = self.execute(*argv, **kwarg)
+        while True:
+            row_set = cursor.fetchmany()
+            if not row_set:
+                return
+            for row in row_set:
+                yield row
+
+    @publish_exec
     def close(self):
         self.purge_snapshots()
         self.connection.commit()
         self.connection.close()
 
-    @db_lock
+    @publish_exec
     def commit(self):
-        return self.connection.commit()
+        self.connection.commit()
 
-    @db_lock
     def create_ifinfo_view(self, table, ctxid=None):
         iftable = 'interfaces'
 
@@ -505,7 +606,6 @@ class DBSchema(object):
                          main.f_target = data.f_target
                      ''' % (table[7:], ','.join(req), iftable, table))
 
-    @db_lock
     def create_table(self, table):
         req = ['f_target TEXT NOT NULL',
                'f_tflags BIGINT NOT NULL DEFAULT 0']
@@ -580,7 +680,6 @@ class DBSchema(object):
             self.execute('CREATE TABLE IF NOT EXISTS '
                          '%s_log (%s)' % (table, req))
 
-    @db_lock
     def mark(self, target, mark):
         for table in self.spec:
             self.execute('''
@@ -589,7 +688,7 @@ class DBSchema(object):
                          ''' % (table, self.plch, self.plch),
                          (mark, target))
 
-    @db_lock
+    @publish_exec
     def flush(self, target):
         for table in self.spec:
             self.execute('''
@@ -597,7 +696,7 @@ class DBSchema(object):
                          ''' % (table, self.plch),
                          (target, ))
 
-    @db_lock
+    @publish_exec
     def save_deps(self, ctxid, weak_ref, iclass):
         uuid = uuid32()
         obj = weak_ref()
@@ -679,7 +778,6 @@ class DBSchema(object):
                          [tflags])
             self.snapshots['%s_%s' % (table, ctxid)] = weak_ref
 
-    @db_lock
     def purge_snapshots(self):
         for table in tuple(self.snapshots):
             for _ in range(MAX_ATTEMPTS):
@@ -706,6 +804,7 @@ class DBSchema(object):
             else:
                 raise Exception('DB snapshot error')
 
+    @publish
     def get(self, table, spec):
         #
         # Retrieve info from the DB
@@ -727,7 +826,6 @@ class DBSchema(object):
         for record in self.fetch(req, values):
             yield dict(zip(self.compiled[table]['all_names'], record))
 
-    @db_lock
     def rtmsg_gc_mark(self, target, event, gc_mark=None):
         #
         if gc_mark is None:
@@ -773,7 +871,6 @@ class DBSchema(object):
                           % (self.plch, self.plch, key_query),
                           (gc_mark, target) + route[:-1]))
 
-    @db_lock
     def load_ndmsg(self, target, event):
         #
         # ignore events with ifindex == 0
@@ -783,7 +880,6 @@ class DBSchema(object):
 
         self.load_netlink('neighbours', target, event)
 
-    @db_lock
     def load_ifinfmsg(self, target, event):
         #
         # link goes down: flush all related routes
@@ -834,7 +930,6 @@ class DBSchema(object):
                     ifdata['index'] = event['index']
                     self.load_netlink(table, target, ifdata)
 
-    @db_lock
     def load_rtmsg(self, target, event):
         mp = event.get_attr('RTA_MULTIPATH')
 
@@ -902,7 +997,6 @@ class DBSchema(object):
         # ... or work on a regular route
         self.load_netlink("routes", target, event)
 
-    @db_lock
     def log_netlink(self, table, target, event, ctable=None):
         #
         # RTNL Logs
@@ -922,7 +1016,6 @@ class DBSchema(object):
         self.execute('INSERT INTO %s_log (%s) VALUES (%s)'
                      % (table, fields, pch), values)
 
-    @db_lock
     def load_netlink(self, table, target, event, ctable=None):
         #
         # Simple barrier to work with the DB only from
@@ -1069,8 +1162,8 @@ class DBSchema(object):
                 log.error('load_netlink: %s' % traceback.format_exc())
 
 
-def init(connection, mode, rtnl_log, tid):
-    ret = DBSchema(connection, mode, rtnl_log, tid)
+def init(ndb, connection, mode, rtnl_log, tid):
+    ret = DBSchema(ndb, connection, mode, rtnl_log, tid)
     ret.event_map = {ifinfmsg: [ret.load_ifinfmsg],
                      ifaddrmsg: [partial(ret.load_netlink, 'addresses')],
                      ndmsg: [ret.load_ndmsg],

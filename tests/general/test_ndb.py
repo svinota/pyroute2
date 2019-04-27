@@ -142,12 +142,10 @@ class TestBase(object):
             free_network(net)
 
     def fetch(self, request, values=[]):
-        with self.ndb.schema.db_lock:
-            return (self
-                    .ndb
-                    .schema
-                    .execute(request, values)
-                    .fetchall())
+        return (self
+                .ndb
+                .schema
+                .fetch(request, values))
 
 
 class TestCreate(object):
@@ -631,31 +629,30 @@ class TestSchema(TestBase):
                         self.fetch('select f_index from interfaces')])) == 0
 
     def test_vlan_interfaces(self):
-        assert len(self.fetch('select * from vlan')) >= 2
+        assert len(tuple(self.fetch('select * from vlan'))) >= 2
 
     def test_bridge_interfaces(self):
-        assert len(self.fetch('select * from bridge')) >= 1
+        assert len(tuple(self.fetch('select * from bridge'))) >= 1
 
 
 class TestSources(TestBase):
 
     def count_interfaces(self, target):
-        with self.ndb.schema.db_lock:
-            return (self
-                    .ndb
-                    .schema
-                    .execute('''
-                             SELECT count(*) FROM interfaces
-                             WHERE f_target = '%s'
-                             ''' % target)
-                    .fetchone()[0])
+        return (self
+                .ndb
+                .schema
+                .fetchone('''
+                          SELECT count(*) FROM interfaces
+                          WHERE f_target = '%s'
+                          ''' % target))[0]
 
     def test_connect_netns(self):
         nsname = str(uuid.uuid4())
-        with self.ndb.schema.db_lock:
-            s = len(list(self.ndb.interfaces.summary())) - 1
-            assert self.count_interfaces(nsname) == 0
-            assert self.count_interfaces('localhost') == s
+        self.ndb.schema.allow_write(False)
+        s = len(list(self.ndb.interfaces.summary())) - 1
+        assert self.count_interfaces(nsname) == 0
+        assert self.count_interfaces('localhost') == s
+        self.ndb.schema.allow_write(True)
 
         # connect RTNL source
         event = threading.Event()
@@ -665,31 +662,35 @@ class TestSources(TestBase):
                                 'event': event})
         assert event.wait(5)
 
-        with self.ndb.schema.db_lock:
-            s = len(list(self.ndb.interfaces.summary())) - 1
-            assert self.count_interfaces(nsname) > 0
-            assert self.count_interfaces('localhost') < s
+        self.ndb.schema.allow_write(False)
+        s = len(list(self.ndb.interfaces.summary())) - 1
+        assert self.count_interfaces(nsname) > 0
+        assert self.count_interfaces('localhost') < s
+        self.ndb.schema.allow_write(True)
 
         # disconnect the source
         self.ndb.sources[nsname].close()
-        with self.ndb.schema.db_lock:
-            s = len(list(self.ndb.interfaces.summary())) - 1
-            assert self.count_interfaces(nsname) == 0
-            assert self.count_interfaces('localhost') == s
+        self.ndb.schema.allow_write(False)
+        s = len(list(self.ndb.interfaces.summary())) - 1
+        assert self.count_interfaces(nsname) == 0
+        assert self.count_interfaces('localhost') == s
+        self.ndb.schema.allow_write(True)
 
         netns.remove(nsname)
 
     def test_disconnect_localhost(self):
-        with self.ndb.schema.db_lock:
-            s = len(list(self.ndb.interfaces.summary())) - 1
-            assert self.count_interfaces('localhost') == s
+        self.ndb.schema.allow_write(False)
+        s = len(list(self.ndb.interfaces.summary())) - 1
+        assert self.count_interfaces('localhost') == s
+        self.ndb.schema.allow_write(True)
 
         self.ndb.sources['localhost'].close()
 
-        with self.ndb.schema.db_lock:
-            s = len(list(self.ndb.interfaces.summary())) - 1
-            assert self.count_interfaces('localhost') == s
-            assert s == 0
+        self.ndb.schema.allow_write(False)
+        s = len(list(self.ndb.interfaces.summary())) - 1
+        assert self.count_interfaces('localhost') == s
+        assert s == 0
+        self.ndb.schema.allow_write(True)
 
 
 class TestReports(TestBase):

@@ -15,39 +15,6 @@ log = logging.getLogger(__name__)
 class RTNL_Object(dict):
     '''
     Base RTNL object class.
-
-    **schema writes**
-
-      * self.snapshot() - schema.save_deps() @ db_lock
-      * self.commit() - self.snapshot() - schema.save_deps() @ db_lock
-
-    **schema reads**
-
-      * schema.indices
-      * schema.compiled
-      * schema.stats
-      * schema.plch
-      * self.complete_key() - schema.fetchone() @ read_lock
-      * self.get_count() - schema.fetchone() @ read_lock
-      * self.load_sql() - schema.fetchone() @ read_lock
-      * self.apply() - schema.fetch() @ read_lock
-      * self.apply() - schema.connection.commit()
-
-    **RTNL flow**
-
-      * ndb.{view}.__getitem__(key, ...):
-        * create object
-          * complete_key() @ read_lock
-          * load_sql() @ read_lock
-        * create weakref
-        * register_handler()
-      * source:
-        * receiver() @ thread
-          * nl.get() -> ndb._event_queue
-      * main:
-        * __dbm__() @ thread
-          * rtnl_object: load_rtnlmsg ! no DB access
-          * schema: load_rtnlmsg @ db_lock
     '''
 
     table = None   # model table -- always one of the main tables
@@ -78,6 +45,7 @@ class RTNL_Object(dict):
                  match_src=None,
                  match_pairs=None):
         self.view = view
+        self.ndb = view.ndb
         self.sources = view.ndb.sources
         self.ctxid = ctxid
         self.schema = view.ndb.schema
@@ -198,7 +166,7 @@ class RTNL_Object(dict):
     def snapshot(self, ctxid=None):
         ctxid = ctxid or self.ctxid or id(self)
         snp = type(self)(self.view, self.key, ctxid=ctxid)
-        self.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
+        self.ndb.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
         snp.changed = set(self.changed)
         return snp
 
@@ -218,6 +186,7 @@ class RTNL_Object(dict):
                     keys.append('f_%s = %s' % (name, self.schema.plch))
                     values.append(value)
             spec = (self
+                    .ndb
                     .schema
                     .fetchone('SELECT %s FROM %s WHERE %s' %
                               (' , '.join(fetch),
@@ -327,12 +296,13 @@ class RTNL_Object(dict):
             conditions.append('f_%s = %s' % (name, self.schema.plch))
             values.append(self.get(self.iclass.nla2name(name), None))
         return (self
+                .ndb
                 .schema
                 .fetchone('''
                           SELECT count(*) FROM %s WHERE %s
                           ''' % (self.table,
                                  ' AND '.join(conditions)),
-                          values)[0])
+                          values))[0]
 
     def apply(self, rollback=False, fix_remove=True):
 
@@ -341,7 +311,7 @@ class RTNL_Object(dict):
 
         # Load the current state
         try:
-            self.schema.connection.commit()
+            self.schema.commit()
         except:
             pass
         self.load_sql(set_state=False)
@@ -423,10 +393,11 @@ class RTNL_Object(dict):
                     continue
                 # comprare the tables
                 diff = (self
+                        .ndb
                         .schema
                         .fetch('''
                                SELECT * FROM %s_%s
-                                   EXCEPT
+                                 EXCEPT
                                SELECT * FROM %s
                                '''
                                % (table, self.ctxid, table)))
@@ -474,6 +445,7 @@ class RTNL_Object(dict):
             values.append(value)
 
         spec = (self
+                .ndb
                 .schema
                 .fetchone('SELECT * FROM %s WHERE %s' %
                           (table, ' AND '.join(keys)), values))

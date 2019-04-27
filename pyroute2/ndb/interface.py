@@ -90,24 +90,25 @@ class Interface(RTNL_Object):
         return super(Interface, self).complete_key(ret_key)
 
     def snapshot(self, ctxid=None):
-        with self.schema.db_lock:
-            # 1. make own snapshot
-            snp = super(Interface, self).snapshot(ctxid=ctxid)
-            # 2. collect dependencies and store in self.snapshot_deps
-            for spec in (self
-                         .schema
-                         .get('interfaces', {'IFLA_MASTER': self['index']})):
-                # bridge ports
-                link = type(self)(self.view, spec)
-                snp.snapshot_deps.append((link, link.snapshot()))
-            for spec in (self
-                         .schema
-                         .get('interfaces', {'IFLA_LINK': self['index']})):
-                # vlans
-                link = type(self)(self.view, spec)
-                snp.snapshot_deps.append((link, link.snapshot()))
-            # return the root node
-            return snp
+        # 1. make own snapshot
+        snp = super(Interface, self).snapshot(ctxid=ctxid)
+        # 2. collect dependencies and store in self.snapshot_deps
+        for spec in (self
+                     .ndb
+                     .interfaces
+                     .getmany({'IFLA_MASTER': self['index']})):
+            # bridge ports
+            link = type(self)(self.view, spec)
+            snp.snapshot_deps.append((link, link.snapshot()))
+        for spec in (self
+                     .ndb
+                     .interfaces
+                     .getmany({'IFLA_LINK': self['index']})):
+            # vlans
+            link = type(self)(self.view, spec)
+            snp.snapshot_deps.append((link, link.snapshot()))
+        # return the root node
+        return snp
 
     def make_req(self, prime):
         req = super(Interface, self).make_req(prime)
@@ -122,6 +123,7 @@ class Interface(RTNL_Object):
             if tname in self.schema.compiled:
                 names = self.schema.compiled[tname]['norm_names']
                 spec = (self
+                        .ndb
                         .schema
                         .fetchone('SELECT * from %s WHERE f_index = %s' %
                                   (tname, self.schema.plch),
