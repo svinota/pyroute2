@@ -11,7 +11,7 @@ import logging
 #
 # Windows platform specific: socket module monkey patching
 #
-# To start library on Windows, run::
+# To use the library on Windows, run::
 #   pip install win-inet-pton
 #
 if sys.platform.startswith('win'):  # noqa: E402
@@ -35,7 +35,6 @@ from pyroute2.iproute import (IPRoute,
                               RemoteIPRoute)
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
 from pyroute2.ipdb.main import IPDB
-from pyroute2.ndb.main import NDB
 
 ##
 #
@@ -69,7 +68,16 @@ try:
     HAS_CONSOLE = True
 except ImportError:
     HAS_CONSOLE = False
-
+#
+# The NDB module has extra requirements that may not be present.
+# It is not the core functionality, so simply skip the import if
+# requirements are not met.
+#
+try:
+    from pyroute2.ndb.main import NDB
+    HAS_NDB = True
+except ImportError:
+    HAS_NDB = False
 
 log = logging.getLogger(__name__)
 # Add a NullHandler to the library's top-level logger to avoid complaints
@@ -135,6 +143,11 @@ if HAS_CONSOLE:
     classes.append(Console)
 else:
     log.warning("Couldn't import the Console class")
+
+if HAS_NDB:
+    classes.append(NDB)
+else:
+    log.warning("Couldn't import NDB")
 
 __all__ = []
 __all__.extend([x.__name__ for x in exceptions])
