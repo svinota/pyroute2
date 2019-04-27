@@ -59,16 +59,6 @@ if sys.platform.startswith('linux'):
     from pyroute2.netlink.nfnetlink.nftsocket import NFTSocket
     from pyroute2.netlink.nfnetlink.nfctsocket import NFCTSocket
 #
-# The Console class is a bit special, it tries to engage
-# modules from stdlib, that are sometimes stripped. Some
-# of them are optional, but some aren't. So catch possible
-# errors here.
-try:
-    from pyroute2.cli.console import Console
-    HAS_CONSOLE = True
-except ImportError:
-    HAS_CONSOLE = False
-#
 # The NDB module has extra requirements that may not be present.
 # It is not the core functionality, so simply skip the import if
 # requirements are not met.
@@ -78,6 +68,16 @@ try:
     HAS_NDB = True
 except ImportError:
     HAS_NDB = False
+#
+# The Console class is a bit special, it tries to engage
+# modules from stdlib, that are sometimes stripped. Some
+# of them are optional, but some aren't. So catch possible
+# errors here.
+try:
+    from pyroute2.cli.console import Console
+    HAS_CONSOLE = True
+except ImportError:
+    HAS_CONSOLE = False
 
 log = logging.getLogger(__name__)
 # Add a NullHandler to the library's top-level logger to avoid complaints
