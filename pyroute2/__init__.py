@@ -117,7 +117,6 @@ classes = [IPRouteRequest,
            RawIPRoute,
            RemoteIPRoute,
            IPRSocket,
-           NDB,
            IPDB]
 
 if sys.platform.startswith('linux'):
