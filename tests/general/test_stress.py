@@ -81,12 +81,12 @@ class TestRespawn(object):
     def test_respawn_ndb_sqlite3(self):
         for _ in range(RESPAWNS):
             with NDB() as i:
-                assert len(i.interfaces.summary())
-                assert len(i.addresses.summary())
-                assert len(i.routes.summary())
-                assert len(i.interfaces.csv())
-                assert len(i.addresses.csv())
-                assert len(i.routes.csv())
+                assert len(tuple(i.interfaces.summary()))
+                assert len(tuple(i.addresses.summary()))
+                assert len(tuple(i.routes.summary()))
+                assert len(tuple(i.interfaces.dump(format='csv')))
+                assert len(tuple(i.addresses.dump(format='csv')))
+                assert len(tuple(i.routes.dump(format='csv')))
 
 
 class TestIfs(object):
