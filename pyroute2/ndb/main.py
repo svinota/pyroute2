@@ -619,6 +619,7 @@ class NDB(object):
         self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
+        self._dbm_shutdown = threading.Event()
         self._global_lock = threading.Lock()
         self._event_map = None
         self._event_queue = queue.Queue(maxsize=100)
@@ -720,6 +721,11 @@ class NDB(object):
 
     def close(self):
         with self._global_lock:
+            if self._dbm_shutdown.is_set():
+                return
+            else:
+                self._dbm_shutdown.set()
+
             if hasattr(atexit, 'unregister'):
                 atexit.unregister(self.close)
             else:
@@ -727,6 +733,7 @@ class NDB(object):
                     atexit._exithandlers.remove((self.close, (), {}))
                 except ValueError:
                     pass
+
             if self.schema:
                 # release all the failed sources waiting for restart
                 self._event_queue.put(('localhost', (ShutdownException(), )))
