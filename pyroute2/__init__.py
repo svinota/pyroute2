@@ -2,7 +2,10 @@
 #
 # This module contains all the public symbols from the library.
 #
-import pkg_resources
+try:
+    import pkg_resources
+except ImportError:
+    pass
 import sys
 import struct
 import logging
