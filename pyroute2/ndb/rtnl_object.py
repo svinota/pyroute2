@@ -115,6 +115,9 @@ class RTNL_Object(dict):
             self.changed.add(key)
             dict.__setitem__(self, key, value)
 
+    def key_repr(self):
+        return repr(self.key)
+
     @cli.show_result
     def show(self, **kwarg):
         fmt = kwarg.pop('format',

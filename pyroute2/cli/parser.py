@@ -120,7 +120,9 @@ class Token(object):
 class Sentence(object):
 
     def __init__(self, text, indent=0, master=None):
+        self.offset = 0
         self.statements = []
+        self.text = text
         self.lex = shlex.shlex(text)
         self.lex.wordchars += '.:/'
         self.lex.commenters = '#!'
@@ -131,6 +133,18 @@ class Sentence(object):
         else:
             self.chain = []
             self.parse()
+
+    def shift(self):
+        self.lex = shlex.shlex(self.text)
+        self.lex.wordchars += '.:/'
+        self.lex.commenters = '#!'
+        self.lex.debug = False
+        self.offset += 1
+        for _ in range(self.offset):
+            self.lex.get_token()
+        self.statements = []
+        self.chain = []
+        self.parse()
 
     def parse(self):
         sentence = self

@@ -135,3 +135,7 @@ class Interface(RTNL_Object):
     def load_rtnlmsg(self, *argv, **kwarg):
         super(Interface, self).load_rtnlmsg(*argv, **kwarg)
         self.load_value('state', 'up' if self['flags'] & 1 else 'down')
+
+    def key_repr(self):
+        return '%s/%s' % (self.get('target', ''),
+                          self.get('ifname', self.get('index', '')))

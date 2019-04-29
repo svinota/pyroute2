@@ -356,6 +356,7 @@ class View(dict):
     def items(self):
         raise NotImplementedError()
 
+    @cli.show_result
     def count(self):
         return (self
                 .ndb
@@ -519,6 +520,7 @@ class View(dict):
             spec = ''
         return spec, values
 
+    @cli.show_result
     def dump(self, *argv, **kwarg):
         fmt = kwarg.pop('format',
                         kwarg.pop('fmt',
@@ -535,6 +537,7 @@ class View(dict):
         else:
             raise ValueError('format not supported')
 
+    @cli.show_result
     def summary(self, *argv, **kwarg):
         fmt = kwarg.pop('format',
                         kwarg.pop('fmt',
@@ -551,6 +554,7 @@ class View(dict):
         else:
             raise ValueError('format not supported')
 
+    @cli.show_result
     def details(self, *argv, **kwarg):
         fmt = kwarg.pop('format',
                         kwarg.pop('fmt',

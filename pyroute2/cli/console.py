@@ -20,6 +20,10 @@ try:
 except ImportError:
     HAS_READLINE = False
 
+STMT_NOOP = 0
+STMT_SHIFT = 1
+STMT_POP = 2
+
 
 class Console(code.InteractiveConsole):
     def __init__(self, stdout=None):
@@ -95,6 +99,7 @@ class Console(code.InteractiveConsole):
         elif stmt.name == '..':
             if self.stack:
                 self.ptr, self.ptrname = self.stack.pop()
+                print(self.ptr, self.ptrname)
             self.set_prompt(self.ptrname)
         else:
             if stmt.kind == t_dict:
@@ -111,10 +116,9 @@ class Console(code.InteractiveConsole):
             if obj is None:
                 if isinstance(self.ptr, dict) and stmt.argv:
                     self.ptr[stmt.name] = stmt.argv[0]
-                    return
+                    return STMT_NOOP
                 else:
                     raise KeyError()
-
             if hasattr(obj, '__call__'):
                 try:
                     ret = obj(*stmt.argv, **stmt.kwarg)
@@ -129,12 +133,15 @@ class Console(code.InteractiveConsole):
                                     self.lprint(repr(line))
                         else:
                             self.lprint(ret, end='')
-                        return
+                        return STMT_POP
+                    elif isinstance(ret, (bool, basestring, int, float)):
+                        self.lprint(ret, end='')
+                        return STMT_POP
                     else:
-                        return
+                        return STMT_POP
                 except:
                     self.showtraceback()
-                    return
+                    return STMT_NOOP
 
             if isinstance(obj, (basestring, int, float)):
                 if stmt.argv:
@@ -144,8 +151,36 @@ class Console(code.InteractiveConsole):
             else:
                 self.stack.append((self.ptr, self.ptrname))
                 self.ptr = obj
-                self.ptrname = stmt.name
-                self.set_prompt(stmt.name)
+                if hasattr(obj, 'key_repr'):
+                    self.ptrname = obj.key_repr()
+                else:
+                    self.ptrname = stmt.name
+                self.set_prompt(self.ptrname)
+                return STMT_SHIFT
+
+            return STMT_NOOP
+
+    def handle_sentence(self, sentence, indent, pop):
+        if sentence.indent < indent:
+            if self.stack:
+                self.ptr, self.ptrname = self.stack.pop()
+        indent = sentence.indent
+        rcode = STMT_NOOP
+        for stmt in sentence.statements:
+            try:
+                rcode = self.handle_statement(stmt)
+                if rcode & STMT_SHIFT and stmt.argv:
+                    sentence.shift()
+                    pop += 1
+                    return self.handle_sentence(sentence, indent, pop)
+            except SystemExit:
+                self.close()
+                return
+            except KeyError:
+                self.lprint('object not found')
+            except:
+                self.showtraceback()
+        return (indent, pop, rcode)
 
     def interact(self, readfunc=None):
 
@@ -159,7 +194,16 @@ class Console(code.InteractiveConsole):
         while True:
             try:
                 text = readfunc(self.prompt)
-            except:
+            except EOFError:
+                if self.stack:
+                    self.lprint()
+                    self.ptr, self.ptrname = self.stack.pop()
+                    self.set_prompt(self.ptrname)
+                    continue
+                else:
+                    self.close()
+                    break
+            except Exception:
                 self.close()
                 break
 
@@ -169,20 +213,13 @@ class Console(code.InteractiveConsole):
                 self.showtraceback()
                 continue
             for sentence in parser.sentences:
-                if sentence.indent < indent:
-                    if self.stack:
+                (indent,
+                 pop,
+                 rcode) = self.handle_sentence(sentence, indent, 0)
+                if self.stack and rcode & STMT_POP:
+                    for _ in range(pop):
                         self.ptr, self.ptrname = self.stack.pop()
-                indent = sentence.indent
-                for stmt in sentence.statements:
-                    try:
-                        self.handle_statement(stmt)
-                    except SystemExit:
-                        self.close()
-                        return
-                    except KeyError:
-                        self.lprint('object not found')
-                    except:
-                        self.showtraceback()
+                        self.set_prompt(self.ptrname)
 
     def completer(self, text, state):
         if state == 0:

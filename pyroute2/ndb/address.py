@@ -47,3 +47,9 @@ class Address(RTNL_Object):
             ret_key['IFA_ADDRESS'], ret_key['prefixlen'] = key.split('/')
 
         return super(Address, self).complete_key(ret_key)
+
+    def key_repr(self):
+        return '%s/%s %s/%s' % (self.get('target', ''),
+                                self.get('label', self.get('index', '')),
+                                self.get('local', self.get('address', '')),
+                                self.get('prefixlen', ''))
