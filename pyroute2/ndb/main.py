@@ -607,6 +607,51 @@ class SourcesView(View):
         return self.cache[target]
 
 
+class Debug(object):
+
+    def __init__(self):
+        self.logger = None
+        self.handler = None
+
+    def __call__(self, target=None):
+        if target is None:
+            return self.logger is not None
+
+        if target == 'off':
+            if self.logger is not None:
+                self.logger.setLevel(logging.INFO)
+                self.logger.removeHandler(self.handler)
+                self.logger = None
+                self.handler = None
+            return
+
+        if target == 'on':
+            handler = logging.StreamHandler()
+        elif isinstance(target, basestring):
+            url = urlparse(target)
+            if not url.scheme and url.path:
+                handler = logging.FileHandler(url.path)
+            elif url.scheme == 'syslog':
+                handler = logging.SysLogHandler(address=url.netloc.split(':'))
+            else:
+                raise ValueError('logging scheme not supported')
+        else:
+            handler = target
+
+        self.handler = handler
+        self.logger = logging.getLogger('')
+        self.logger.addHandler(self.handler)
+        self.logger.setLevel(logging.DEBUG)
+
+    @property
+    def on(self):
+        self.__call__(target='on')
+
+    @property
+    def off(self):
+        self.__call__(target='off')
+
+
 class NDB(object):
 
     def __init__(self,
@@ -619,7 +664,7 @@ class NDB(object):
         self.ctime = self.gctime = time.time()
         self.schema = None
         self.config = {}
-        self._debug = None
+        self.debug = Debug()
         self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
@@ -683,34 +728,6 @@ class NDB(object):
             return ptr.show(**kwarg)
         else:
             return ptr
-
-    def debug(self, target=None):
-        if target is None:
-            return self._debug is not None
-
-        if target == 'off':
-            if self._debug is not None:
-                self._debug['logger'].setLevel(logging.INFO)
-                self._debug['logger'].removeHandler(self._debug['handler'])
-                self._debug = None
-            return
-
-        if target == 'on':
-            handler = logging.StreamHandler()
-        elif isinstance(target, basestring):
-            url = urlparse(target)
-            if not url.scheme and url.path:
-                handler = logging.FileHandler(url.path)
-            elif url.scheme == 'syslog':
-                handler = logging.SysLogHandler(address=url.netloc.split(':'))
-            else:
-                raise ValueError('logging scheme not supported')
-        else:
-            handler = target
-
-        self._debug = {'logger': logging.getLogger(''), 'handler': handler}
-        self._debug['logger'].addHandler(self._debug['handler'])
-        self._debug['logger'].setLevel(logging.DEBUG)
 
     def register_handler(self, event, handler):
         if event not in self._event_map:
