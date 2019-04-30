@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import json
 import argparse
 from pyroute2 import Console
 
@@ -6,9 +7,15 @@ argp = argparse.ArgumentParser()
 argp.add_argument('-c')
 argp.add_argument('-r')
 argp.add_argument('-d')
+argp.add_argument('-s')
 args = argp.parse_args()
 commands = []
-console = Console(debug=args.d)
+sources = None
+if args.s:
+    with open(args.s, 'r') as f:
+        sources = json.loads(f.read())
+
+console = Console(debug=args.d, sources=sources)
 if args.r:
     console.loadrc(args.r)
 
