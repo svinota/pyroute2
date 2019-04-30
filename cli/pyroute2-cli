@@ -4,9 +4,13 @@ from pyroute2 import Console
 
 argp = argparse.ArgumentParser()
 argp.add_argument('-c')
+argp.add_argument('-r')
+argp.add_argument('-d')
 args = argp.parse_args()
 commands = []
-console = Console()
+console = Console(debug=args.d)
+if args.r:
+    console.loadrc(args.r)
 
 if args.c:
     commands.append(args.c)

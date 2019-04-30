@@ -22,15 +22,11 @@ try:
 except ImportError:
     HAS_READLINE = False
 
-STMT_NOOP = 0
-STMT_SHIFT = 1
-STMT_POP = 2
-
 
 class Console(code.InteractiveConsole):
-    def __init__(self, stdout=None):
+    def __init__(self, stdout=None, debug=None, sources=None):
         global HAS_READLINE
-        self.db = NDB()
+        self.db = NDB(debug=debug, sources=sources)
         self.db.config = {'show_format': 'json'}
         self.ptr = self.db
         self.ptrname = None
@@ -174,7 +170,7 @@ class Console(code.InteractiveConsole):
                 else:
                     self.ptrname = stmt.name
                 self.set_prompt(self.ptrname)
-                return
+                return True
 
         return
 
@@ -184,9 +180,13 @@ class Console(code.InteractiveConsole):
                 self.ptr, self.ptrname = self.stack.pop()
         indent = sentence.indent
         iterator = iter(sentence)
+        rcode = None
+        rcounter = 0
         for stmt in iterator:
             try:
-                self.handle_statement(stmt, iterator)
+                rcode = self.handle_statement(stmt, iterator)
+                if rcode:
+                    rcounter += 1
             except SystemExit:
                 self.close()
                 return
@@ -194,7 +194,23 @@ class Console(code.InteractiveConsole):
                 self.lprint('object not found')
             except:
                 self.showtraceback()
+        if not rcode:
+            for _ in range(rcounter):
+                self.ptr, self.ptrname = self.stack.pop()
+                self.set_prompt(self.ptrname)
         return indent
+
+    def loadrc(self, fname):
+        with open(fname, 'r') as f:
+            indent = 0
+            for line in f.readlines():
+                try:
+                    parser = Parser(line)
+                except:
+                    self.showtraceback()
+                    continue
+                for sentence in parser.sentences:
+                    indent = self.handle_sentence(sentence, indent)
 
     def interact(self, readfunc=None):
 
