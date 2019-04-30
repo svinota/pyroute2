@@ -157,10 +157,14 @@ class Console(code.InteractiveConsole):
                         else:
                             raise TypeError('failed setting a key/value pair')
                         return
+                    except NotImplementedError:
+                        raise KeyError()
                     except StopIteration:
                         pass
 
-            if isinstance(obj, (basestring, int, float)):
+            if obj is None:
+                raise KeyError()
+            elif isinstance(obj, (basestring, int, float)):
                 self.pprint(obj)
             else:
                 self.stack.append((self.ptr, self.ptrname))
@@ -182,22 +186,26 @@ class Console(code.InteractiveConsole):
         iterator = iter(sentence)
         rcode = None
         rcounter = 0
-        for stmt in iterator:
-            try:
-                rcode = self.handle_statement(stmt, iterator)
-                if rcode:
-                    rcounter += 1
-            except SystemExit:
-                self.close()
-                return
-            except KeyError:
-                self.lprint('object not found')
-            except:
-                self.showtraceback()
-        if not rcode:
-            for _ in range(rcounter):
-                self.ptr, self.ptrname = self.stack.pop()
-                self.set_prompt(self.ptrname)
+        try:
+            for stmt in iterator:
+                try:
+                    rcode = self.handle_statement(stmt, iterator)
+                    if rcode:
+                        rcounter += 1
+                except SystemExit:
+                    self.close()
+                    return
+                except KeyError:
+                    self.lprint('object not found')
+                    rcode = False
+                    return indent
+                except:
+                    self.showtraceback()
+        finally:
+            if not rcode:
+                for _ in range(rcounter):
+                    self.ptr, self.ptrname = self.stack.pop()
+                    self.set_prompt(self.ptrname)
         return indent
 
     def loadrc(self, fname):
