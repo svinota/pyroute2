@@ -577,7 +577,7 @@ class SourcesView(View):
         self.cache = {}
 
     def add(self, **spec):
-        spec = dict(spec)
+        spec = dict(Source.defaults(spec))
         if 'event' not in spec:
             sync = True
             spec['event'] = threading.Event()

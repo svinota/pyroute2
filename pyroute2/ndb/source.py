@@ -80,6 +80,22 @@ class Source(dict):
 
         self.load_sql()
 
+    @classmethod
+    def defaults(cls, spec):
+        ret = dict(spec)
+        defaults = {}
+        if 'hostname' in spec:
+            defaults['kind'] = 'remote'
+            defaults['protocol'] = 'ssh'
+            defaults['target'] = spec['hostname']
+        if 'netns' in spec:
+            defaults['kind'] = 'netns'
+            defaults['target'] = spec['netns']
+        for key in defaults:
+            if key not in ret:
+                ret[key] = defaults[key]
+        return ret
+
     def remove(self):
         with self.lock:
             self.close()
