@@ -5,9 +5,11 @@ import code
 import socket
 import getpass
 from pprint import pprint
+from collections import namedtuple
 from pyroute2 import NDB
 from pyroute2.common import basestring
 from pyroute2.cli import t_dict
+from pyroute2.cli import t_stmt
 from pyroute2.cli.parser import Parser
 try:
     import pdb
@@ -67,7 +69,7 @@ class Console(code.InteractiveConsole):
                     "exit\t-- exit cli\n"
                     "ls\t-- list current namespace\n"
                     ".\t-- print the current object\n"
-                    ".. or ;\t-- one level up\n")
+                    ".. or Ctrl-D\t-- one level up\n")
 
     def set_prompt(self, prompt=None):
         if self.isatty:
@@ -81,7 +83,7 @@ class Console(code.InteractiveConsole):
                                            .split('.')[0]),
                                           self.prompt)
 
-    def handle_statement(self, stmt):
+    def handle_statement(self, stmt, token):
         obj = None
         if stmt.name == 'pdb':
             if HAS_PDB:
@@ -99,12 +101,11 @@ class Console(code.InteractiveConsole):
         elif stmt.name == '..':
             if self.stack:
                 self.ptr, self.ptrname = self.stack.pop()
-                print(self.ptr, self.ptrname)
             self.set_prompt(self.ptrname)
         else:
             if stmt.kind == t_dict:
                 obj = self.ptr[stmt.kwarg]
-            else:
+            elif stmt.kind == t_stmt:
                 if isinstance(self.ptr, dict):
                     try:
                         obj = self.ptr.get(stmt.name, None)
@@ -113,15 +114,20 @@ class Console(code.InteractiveConsole):
                 if obj is None:
                     obj = getattr(self.ptr, stmt.name, None)
 
-            if obj is None:
-                if isinstance(self.ptr, dict) and stmt.argv:
-                    self.ptr[stmt.name] = stmt.argv[0]
-                    return STMT_NOOP
-                else:
-                    raise KeyError()
             if hasattr(obj, '__call__'):
                 try:
-                    ret = obj(*stmt.argv, **stmt.kwarg)
+                    nt = next(token)
+                except StopIteration:
+                    nt = (namedtuple('Token',
+                                     ('kind',
+                                      'argv',
+                                      'kwarg'))(t_dict, [], {}))
+
+                if nt.kind != t_dict:
+                    raise TypeError('function arguments expected')
+
+                try:
+                    ret = obj(*nt.argv, **nt.kwarg)
                     if hasattr(obj, '__cli_cptr__'):
                         obj = ret
                     elif hasattr(obj, '__cli_publish__'):
@@ -133,21 +139,33 @@ class Console(code.InteractiveConsole):
                                     self.lprint(repr(line))
                         else:
                             self.lprint(ret, end='')
-                        return STMT_POP
+                        return
                     elif isinstance(ret, (bool, basestring, int, float)):
                         self.lprint(ret, end='')
-                        return STMT_POP
+                        return
                     else:
-                        return STMT_POP
+                        return
                 except:
                     self.showtraceback()
-                    return STMT_NOOP
+                    return
+            else:
+                if isinstance(self.ptr, dict) and not isinstance(obj, dict):
+                    try:
+                        nt = next(token)
+                        if nt.kind == t_stmt:
+                            self.ptr[stmt.name] = nt.name
+                        elif nt.kind == t_dict and nt.argv:
+                            self.ptr[stmt.name] = nt.argv
+                        elif nt.kind == t_dict and nt.kwarg:
+                            self.ptr[stmt.name] = nt.kwarg
+                        else:
+                            raise TypeError('failed setting a key/value pair')
+                        return
+                    except StopIteration:
+                        pass
 
             if isinstance(obj, (basestring, int, float)):
-                if stmt.argv:
-                    self.ptr[stmt.name] = stmt.argv[0]
-                else:
-                    self.pprint(obj)
+                self.pprint(obj)
             else:
                 self.stack.append((self.ptr, self.ptrname))
                 self.ptr = obj
@@ -156,23 +174,19 @@ class Console(code.InteractiveConsole):
                 else:
                     self.ptrname = stmt.name
                 self.set_prompt(self.ptrname)
-                return STMT_SHIFT
+                return
 
-            return STMT_NOOP
+        return
 
-    def handle_sentence(self, sentence, indent, pop):
+    def handle_sentence(self, sentence, indent):
         if sentence.indent < indent:
             if self.stack:
                 self.ptr, self.ptrname = self.stack.pop()
         indent = sentence.indent
-        rcode = STMT_NOOP
-        for stmt in sentence.statements:
+        iterator = iter(sentence)
+        for stmt in iterator:
             try:
-                rcode = self.handle_statement(stmt)
-                if rcode & STMT_SHIFT and stmt.argv:
-                    sentence.shift()
-                    pop += 1
-                    return self.handle_sentence(sentence, indent, pop)
+                self.handle_statement(stmt, iterator)
             except SystemExit:
                 self.close()
                 return
@@ -180,7 +194,7 @@ class Console(code.InteractiveConsole):
                 self.lprint('object not found')
             except:
                 self.showtraceback()
-        return (indent, pop, rcode)
+        return indent
 
     def interact(self, readfunc=None):
 
@@ -213,13 +227,7 @@ class Console(code.InteractiveConsole):
                 self.showtraceback()
                 continue
             for sentence in parser.sentences:
-                (indent,
-                 pop,
-                 rcode) = self.handle_sentence(sentence, indent, 0)
-                if self.stack and rcode & STMT_POP:
-                    for _ in range(pop):
-                        self.ptr, self.ptrname = self.stack.pop()
-                        self.set_prompt(self.ptrname)
+                indent = self.handle_sentence(sentence, indent)
 
     def completer(self, text, state):
         if state == 0:

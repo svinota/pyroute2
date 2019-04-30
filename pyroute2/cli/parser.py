@@ -42,25 +42,39 @@ class Token(object):
             self.kind = t_end_of_stream
 
         ##
-        # dict, e.g. {ifname eth0, target localhost}
+        # dict, e.g.
+        #
+        # resource spec, function arguments::
+        #   {arg1, arg2}
+        #   {key1 value1, key2 value2}
+        #   {key {skey1 value}}
         #
         elif first == '{':
+            arg_name = None
             while True:
                 nt = Token(self.lex, expect=(t_stmt,
+                                             t_dict,
                                              t_comma,
                                              t_end_of_dict))
-                if nt.kind == t_stmt:
-                    if nt.kwarg:
-                        self.kwarg[nt.name] = nt.kwarg
-                    elif len(nt.argv) < 1:
-                        raise SyntaxError('value expected')
-                    elif len(nt.argv) == 1:
-                        self.kwarg[nt.name] = nt.argv[0]
-                    else:
-                        self.kwarg[nt.name] = nt.argv
-                elif nt.kind == t_end_of_dict:
+                if arg_name is None:
+                    if nt.kind == t_dict:
+                        self.argv.append(nt)
+                    elif nt.kind == t_comma:
+                        continue
+                    elif nt.kind == t_stmt:
+                        arg_name = nt.name
+                else:
+                    if nt.kind in (t_end_of_dict, t_comma):
+                        self.argv.append(arg_name)
+                    elif nt.kind == t_stmt:
+                        self.kwarg[arg_name] = nt.name
+                    elif nt.kind == t_dict:
+                        self.kwarg[arg_name] = nt.kwarg
+                    arg_name = None
+
+                if nt.kind == t_end_of_dict:
                     self.kind = t_dict
-                    self.name = '%s' % (self.kwarg)
+                    self.name = '%s %s' % (self.argv, self.kwarg)
                     return
 
         ##
@@ -85,36 +99,16 @@ class Token(object):
         # simple statement
         #
         # object name::
-        #   interfaces;
+        #   name
         #
         # function call::
-        #   commit
-        #   add {ifname test0, kind dummy}
-        #   add test0 dummy
-        #
-        # locator key/value::
-        #   {ifname eth0,
-        #    target localhost}
+        #   func
+        #   func {arg1, arg2}
+        #   func {key1 value1, key2 value2}
         #
         else:
             self.name = first
             self.kind = t_stmt
-            while not self.leaf:
-                nt = Token(self.lex,
-                           leaf=True,
-                           expect=(t_comma,
-                                   t_end_of_dict,
-                                   t_end_of_stream,
-                                   t_end_of_sentence,
-                                   t_stmt,
-                                   t_dict))
-                if nt.kind == t_dict:
-                    self.kwarg = nt.kwarg
-                elif nt.kind == t_stmt:
-                    self.argv.append(self.convert(nt.name))
-                else:
-                    self.lex.push_token(nt.name)
-                    return
 
 
 class Sentence(object):
@@ -134,17 +128,9 @@ class Sentence(object):
             self.chain = []
             self.parse()
 
-    def shift(self):
-        self.lex = shlex.shlex(self.text)
-        self.lex.wordchars += '.:/'
-        self.lex.commenters = '#!'
-        self.lex.debug = False
-        self.offset += 1
-        for _ in range(self.offset):
-            self.lex.get_token()
-        self.statements = []
-        self.chain = []
-        self.parse()
+    def __iter__(self):
+        for stmt in self.statements:
+            yield stmt
 
     def parse(self):
         sentence = self
