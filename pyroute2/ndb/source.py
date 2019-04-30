@@ -44,7 +44,9 @@ class Source(dict):
         self.target = spec.pop('target')
         kind = spec.pop('kind', 'local')
         self.persistent = spec.pop('persistent', True)
-        self.event = spec.pop('event', SyncStart())
+        self.event = spec.pop('event')
+        if not self.event:
+            self.event = SyncStart()
         # RTNL API
         self.nl_prime = self.vmap[kind]
         self.nl_kwarg = spec

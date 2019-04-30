@@ -578,7 +578,14 @@ class SourcesView(View):
 
     def add(self, **spec):
         spec = dict(spec)
+        if 'event' not in spec:
+            sync = True
+            spec['event'] = threading.Event()
+        else:
+            sync = False
         self.cache[spec['target']] = Source(self.ndb, **spec).start()
+        if sync:
+            self.cache[spec['target']].event.wait()
         return self.cache[spec['target']]
 
     def remove(self, target):
@@ -816,6 +823,7 @@ class NDB(object):
                                     id(threading.current_thread()))
 
         for spec in self._nl:
+            spec['event'] = None
             self.sources.add(**spec)
 
         for (event, handlers) in self.schema.event_map.items():
