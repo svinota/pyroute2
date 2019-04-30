@@ -36,7 +36,7 @@ Examples::
         #
         # create objects
         #
-        test0 = ndb.interfaces.add(ifname='test0', kind='dummy')
+        test0 = ndb.interfaces.create(ifname='test0', kind='dummy')
         test0.commit()
         # ...
         test0.remove()
@@ -226,7 +226,7 @@ class View(dict):
         return self.__getitem__(spec, table)
 
     @cli.change_pointer
-    def add(self, **spec):
+    def create(self, **spec):
         spec['create'] = True
         return self[spec]
 

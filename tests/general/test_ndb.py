@@ -64,55 +64,55 @@ class TestBase(object):
         ret.append(self
                    .ndb
                    .interfaces
-                   .add(ifname=if_dummy, kind='dummy')
+                   .create(ifname=if_dummy, kind='dummy')
                    .commit()['index'])
 
         ret.append(self
                    .ndb
                    .interfaces
-                   .add(ifname=if_vlan_stag,
-                        link=self.ndb.interfaces[if_dummy]['index'],
-                        vlan_id=101,
-                        vlan_protocol=0x88a8,
-                        kind='vlan')
+                   .create(ifname=if_vlan_stag,
+                           link=self.ndb.interfaces[if_dummy]['index'],
+                           vlan_id=101,
+                           vlan_protocol=0x88a8,
+                           kind='vlan')
                    .commit()['index'])
 
         ret.append(self
                    .ndb
                    .interfaces
-                   .add(ifname=if_vlan_ctag,
-                        link=self.ndb.interfaces[if_vlan_stag]['index'],
-                        vlan_id=1001,
-                        vlan_protocol=0x8100,
-                        kind='vlan')
+                   .create(ifname=if_vlan_ctag,
+                           link=self.ndb.interfaces[if_vlan_stag]['index'],
+                           vlan_id=1001,
+                           vlan_protocol=0x8100,
+                           kind='vlan')
                    .commit()['index'])
 
         ret.append(self
                    .ndb
                    .interfaces
-                   .add(ifname=if_bridge, kind='bridge')
+                   .create(ifname=if_bridge, kind='bridge')
                    .commit()['index'])
 
         ret.append(self
                    .ndb
                    .interfaces
-                   .add(ifname=if_port,
-                        master=self.ndb.interfaces[if_bridge]['index'],
-                        kind='dummy')
+                   .create(ifname=if_port,
+                           master=self.ndb.interfaces[if_bridge]['index'],
+                           kind='dummy')
                    .commit()['index'])
 
         (self
          .ndb
          .interfaces[if_bridge]
          .ipaddr
-         .add(address=if_addr1, prefixlen=24)
+         .create(address=if_addr1, prefixlen=24)
          .commit())
 
         (self
          .ndb
          .interfaces[if_bridge]
          .ipaddr
-         .add(address=if_addr2, prefixlen=24)
+         .create(address=if_addr2, prefixlen=24)
          .commit())
 
         self.if_bridge = if_bridge
@@ -191,7 +191,7 @@ class TestCreate(object):
         ifobj = (self
                  .ndb
                  .interfaces
-                 .add(ifname=ifname, kind='dummy'))
+                 .create(ifname=ifname, kind='dummy'))
 
         with ifobj:
             pass
@@ -216,7 +216,7 @@ class TestCreate(object):
         ifobj = (self
                  .ndb
                  .interfaces
-                 .add(ifname=ifname, kind=kind))
+                 .create(ifname=ifname, kind=kind))
 
         save = dict(ifobj)
 
@@ -234,7 +234,7 @@ class TestCreate(object):
         (self
          .ndb
          .interfaces
-         .add(ifname=ifname, kind='dummy', address='00:11:22:33:44:55')
+         .create(ifname=ifname, kind='dummy', address='00:11:22:33:44:55')
          .commit())
 
         assert grep('%s ip link show' % self.ssh, pattern=ifname)
@@ -248,12 +248,12 @@ class TestCreate(object):
         (self
          .ndb
          .interfaces
-         .add(ifname=bridge, kind='bridge')
+         .create(ifname=bridge, kind='bridge')
          .commit())
         (self
          .ndb
          .interfaces
-         .add(ifname=brport, kind='dummy')
+         .create(ifname=brport, kind='dummy')
          .set('master', self.ndb.interfaces[bridge]['index'])
          .commit())
 
@@ -267,7 +267,7 @@ class TestCreate(object):
         (self
          .ndb
          .interfaces
-         .add(ifname=vrf, kind='vrf')
+         .create(ifname=vrf, kind='vrf')
          .set('vrf_table', 42)
          .commit())
         assert grep('%s ip link show' % self.ssh, pattern=vrf)
@@ -278,12 +278,12 @@ class TestCreate(object):
         (self
          .ndb
          .interfaces
-         .add(ifname=host, kind='dummy')
+         .create(ifname=host, kind='dummy')
          .commit())
         (self
          .ndb
          .interfaces
-         .add(ifname=vlan, kind='vlan')
+         .create(ifname=vlan, kind='vlan')
          .set('link', self.ndb.interfaces[host]['index'])
          .set('vlan_id', 101)
          .commit())
@@ -295,12 +295,12 @@ class TestCreate(object):
         (self
          .ndb
          .interfaces
-         .add(ifname=host, kind='dummy')
+         .create(ifname=host, kind='dummy')
          .commit())
         (self
          .ndb
          .interfaces
-         .add(ifname=vxlan, kind='vxlan')
+         .create(ifname=vxlan, kind='vxlan')
          .set('vxlan_link', self.ndb.interfaces[host]['index'])
          .set('vxlan_id', 101)
          .set('vxlan_group', '239.1.1.1')
@@ -315,15 +315,15 @@ class TestCreate(object):
         i = (self
              .ndb
              .interfaces
-             .add(ifname=ifname, kind='dummy', state='up'))
+             .create(ifname=ifname, kind='dummy', state='up'))
         i.commit()
 
         a = (self
              .ndb
              .addresses
-             .add(index=i['index'],
-                  address=ifaddr,
-                  prefixlen=24))
+             .create(index=i['index'],
+                     address=ifaddr,
+                     prefixlen=24))
         a.commit()
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
@@ -338,23 +338,23 @@ class TestCreate(object):
         i = (self
              .ndb
              .interfaces
-             .add(ifname=ifname, kind='dummy', state='up'))
+             .create(ifname=ifname, kind='dummy', state='up'))
         i.commit()
 
         a = (self
              .ndb
              .addresses
-             .add(index=i['index'],
-                  address=ifaddr,
-                  prefixlen=24))
+             .create(index=i['index'],
+                     address=ifaddr,
+                     prefixlen=24))
         a.commit()
 
         r = (self
              .ndb
              .routes
-             .add(dst_len=24,
-                  dst=str(self.ipnets[1].network),
-                  gateway=router))
+             .create(dst_len=24,
+                     dst=str(self.ipnets[1].network),
+                     gateway=router))
         r.commit()
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
@@ -394,21 +394,21 @@ class TestRollback(TestBase):
          .append(self
                  .ndb
                  .interfaces
-                 .add(ifname=self.if_simple, kind='dummy')
+                 .create(ifname=self.if_simple, kind='dummy')
                  .set('state', 'up')
                  .commit()['index']))
         (self
          .ndb
          .addresses
-         .add(address=ifaddr,
-              prefixlen=24,
-              index=self.interfaces[-1])
+         .create(address=ifaddr,
+                 prefixlen=24,
+                 index=self.interfaces[-1])
          .commit())
 
         (self
          .ndb
          .routes
-         .add(dst=dst, dst_len=24, gateway=router)
+         .create(dst=dst, dst_len=24, gateway=router)
          .commit())
 
         iface = self.ndb.interfaces[self.if_simple]
@@ -450,46 +450,46 @@ class TestRollback(TestBase):
          .append(self
                  .ndb
                  .interfaces
-                 .add(ifname=self.if_br0,
-                      kind='bridge',
-                      state='up')
+                 .create(ifname=self.if_br0,
+                         kind='bridge',
+                         state='up')
                  .commit()['index']))
         (self
          .interfaces
          .append(self
                  .ndb
                  .interfaces
-                 .add(ifname=self.if_br0p0,
-                      kind='dummy',
-                      state='up',
-                      master=self.ndb.interfaces[self.if_br0]['index'])
+                 .create(ifname=self.if_br0p0,
+                         kind='dummy',
+                         state='up',
+                         master=self.ndb.interfaces[self.if_br0]['index'])
                  .commit()['index']))
         (self
          .interfaces
          .append(self
                  .ndb
                  .interfaces
-                 .add(ifname=self.if_br0p1,
-                      kind='dummy',
-                      state='up',
-                      master=self.ndb.interfaces[self.if_br0]['index'])
+                 .create(ifname=self.if_br0p1,
+                         kind='dummy',
+                         state='up',
+                         master=self.ndb.interfaces[self.if_br0]['index'])
                  .commit()['index']))
         (self
          .ndb
          .interfaces[self.if_br0]
          .ipaddr
-         .add(address=ifaddr1, prefixlen=24)
+         .create(address=ifaddr1, prefixlen=24)
          .commit())
         (self
          .ndb
          .interfaces[self.if_br0]
          .ipaddr
-         .add(address=ifaddr2, prefixlen=24)
+         .create(address=ifaddr2, prefixlen=24)
          .commit())
         (self
          .ndb
          .routes
-         .add(dst=dst, dst_len=24, gateway=router)
+         .create(dst=dst, dst_len=24, gateway=router)
          .commit())
 
         master = self.ndb.interfaces[self.if_br0]['index']
@@ -548,39 +548,39 @@ class TestRollback(TestBase):
          .append(self
                  .ndb
                  .interfaces
-                 .add(ifname=if_host,
-                      kind='dummy',
-                      state='up')
+                 .create(ifname=if_host,
+                         kind='dummy',
+                         state='up')
                  .commit()['index']))
         (self
          .interfaces
          .append(self
                  .ndb
                  .interfaces
-                 .add(ifname=if_vlan,
-                      kind='vlan',
-                      link=self.interfaces[-1],
-                      state='up',
-                      vlan_id=1001)
+                 .create(ifname=if_vlan,
+                         kind='vlan',
+                         link=self.interfaces[-1],
+                         state='up',
+                         vlan_id=1001)
                  .commit()['index']))
         (self
          .ndb
          .addresses
-         .add(address=ifaddr1,
-              prefixlen=24,
-              index=self.interfaces[-1])
+         .create(address=ifaddr1,
+                 prefixlen=24,
+                 index=self.interfaces[-1])
          .commit())
         (self
          .ndb
          .addresses
-         .add(address=ifaddr2,
-              prefixlen=24,
-              index=self.interfaces[-1])
+         .create(address=ifaddr2,
+                 prefixlen=24,
+                 index=self.interfaces[-1])
          .commit())
         (self
          .ndb
          .routes
-         .add(dst=dst, dst_len=24, gateway=router)
+         .create(dst=dst, dst_len=24, gateway=router)
          .commit())
 
         iface = self.ndb.interfaces[if_host]
