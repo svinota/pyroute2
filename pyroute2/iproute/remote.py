@@ -102,12 +102,13 @@ class RemoteIPRoute(RTNL_API, RemoteSocket):
             self._mitogen_router = mitogen.master.Router(self._mitogen_broker)
 
         netns = kwarg.get('netns', None)
-        if 'context' in kwarg:
-            context = kwarg['context']
-        else:
-            protocol = kwarg.pop('protocol', 'local')
-            context = getattr(self._mitogen_router, protocol)(*argv, **kwarg)
         try:
+            if 'context' in kwarg:
+                context = kwarg['context']
+            else:
+                protocol = kwarg.pop('protocol', 'local')
+                context = getattr(self._mitogen_router,
+                                  protocol)(*argv, **kwarg)
             ch_in = mitogen.core.Receiver(self._mitogen_router,
                                           respondent=context)
             self._mitogen_call = context.call_async(MitogenServer,
