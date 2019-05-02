@@ -2,12 +2,17 @@
 import json
 import argparse
 from pyroute2 import Console
+from pyroute2 import Server
 
 argp = argparse.ArgumentParser()
-argp.add_argument('-c')
-argp.add_argument('-r')
-argp.add_argument('-d')
-argp.add_argument('-s')
+for spec in (('-a', '[S] IP address to listen on'),
+             ('-c', '[C] Command line to run'),
+             ('-d', '[C,S] Debug spec'),
+             ('-m', 'set mode (C,S)'),
+             ('-p', '[S] Port to listen on'),
+             ('-r', '[C] Load rc file'),
+             ('-s', '[C,S] Load sources from a json file')):
+    argp.add_argument(spec[0], help=spec[1])
 args = argp.parse_args()
 commands = []
 sources = None
@@ -15,12 +20,19 @@ if args.s:
     with open(args.s, 'r') as f:
         sources = json.loads(f.read())
 
-console = Console(debug=args.d, sources=sources)
-if args.r:
-    console.loadrc(args.r)
-
-if args.c:
-    commands.append(args.c)
-    console.interact(readfunc=lambda x: commands.pop(0))
+if args.m == 'S':
+    server = Server(args.a or 'localhost',
+                    int(args.p) or 8080,
+                    args.d,
+                    args.s)
+    server.serve_forever()
 else:
-    console.interact()
+    console = Console(debug=args.d, sources=sources)
+    if args.r:
+        console.loadrc(args.r)
+
+    if args.c:
+        commands.append(args.c)
+        console.interact(readfunc=lambda x: commands.pop(0))
+    else:
+        console.interact()

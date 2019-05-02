@@ -78,6 +78,7 @@ except ImportError:
 # errors here.
 try:
     from pyroute2.cli.console import Console
+    from pyroute2.cli.server import Server
     HAS_CONSOLE = True
 except ImportError:
     HAS_CONSOLE = False
@@ -143,6 +144,7 @@ if sys.platform.startswith('linux'):
 
 if HAS_CONSOLE:
     classes.append(Console)
+    classes.append(Server)
 else:
     log.warning("Couldn't import the Console class")
 

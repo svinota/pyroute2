@@ -58,7 +58,7 @@ class Token(object):
                                              t_end_of_dict))
                 if arg_name is None:
                     if nt.kind == t_dict:
-                        self.argv.append(nt)
+                        self.argv.append(nt.kwarg)
                     elif nt.kind == t_comma:
                         continue
                     elif nt.kind == t_stmt:
@@ -107,7 +107,7 @@ class Token(object):
         #   func {key1 value1, key2 value2}
         #
         else:
-            self.name = first
+            self.name = self.convert(first)
             self.kind = t_stmt
 
 
