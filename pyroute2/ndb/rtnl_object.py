@@ -375,12 +375,12 @@ class RTNL_Object(dict):
                       'objid %s, wtime %s, '
                       'mqsize %s, nqsize %s'
                       '}' % (method, id(self), wtime, mqsize, nqsize))
-            self.load_event.wait(wtime)
-            self.load_event.clear()
             if self.check():
                 self.log.append('checked')
                 break
             self.log.append('check failed')
+            self.load_event.wait(wtime)
+            self.load_event.clear()
         else:
             log.debug('stats: %s apply %s fail' % (id(self), method))
             raise Exception('lost sync in apply()')
