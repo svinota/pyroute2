@@ -656,10 +656,10 @@ class TestSources(TestBase):
 
         # connect RTNL source
         event = threading.Event()
-        self.ndb.sources.add(**{'target': nsname,
-                                'kind': 'netns',
-                                'netns': nsname,
-                                'event': event})
+        self.ndb.sources.create(**{'target': nsname,
+                                   'kind': 'netns',
+                                   'netns': nsname,
+                                   'event': event})
         assert event.wait(5)
 
         self.ndb.schema.allow_write(False)
