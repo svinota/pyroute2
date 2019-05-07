@@ -1,4 +1,5 @@
 import weakref
+from pyroute2.config import AF_BRIDGE
 from pyroute2.ndb.rtnl_object import RTNL_Object
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -115,6 +116,20 @@ class Interface(RTNL_Object):
         if self.state == 'system':  # --> link('set', ...)
             req['master'] = self['master']
         return req
+
+    def hook_apply(self, method, **spec):
+        if method == 'set':
+            if self['kind'] == 'bridge':
+                keys = filter(lambda x: x.startswith('br_'), self.changed)
+                if keys:
+                    req = {'index': self['index'],
+                           'kind': 'bridge',
+                           'family': AF_BRIDGE}
+                    for key in keys:
+                        req[key] = self[key]
+                    (self
+                     .sources[self['target']]
+                     .api(self.api, method, **req))
 
     def load_sql(self, *argv, **kwarg):
         spec = super(Interface, self).load_sql(*argv, **kwarg)

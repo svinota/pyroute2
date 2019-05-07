@@ -311,6 +311,9 @@ class RTNL_Object(dict):
                                  ' AND '.join(conditions)),
                           values))[0]
 
+    def hook_apply(self, method, **spec):
+        pass
+
     def apply(self, rollback=False, fix_remove=True):
 
         self.log.append('apply: %s' % str(self.state.events))
@@ -365,8 +368,12 @@ class RTNL_Object(dict):
                 (self
                  .sources[self['target']]
                  .api(self.api, method, **req))
+                (self
+                 .hook_apply(method, **req))
             except NetlinkError as e:
-                self.log.append('error: %s' % e)
+                (self
+                 .log
+                 .append('error: %s' % e))
                 if e.code in ignore:
                     log.debug('ignore error %s for %s' % (e.code, self))
                 else:
