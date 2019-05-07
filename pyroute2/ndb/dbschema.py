@@ -1098,7 +1098,9 @@ class DBSchema(object):
                         continue
 
                 # NLA have priority
-                value = node.get_attr(fname[-1]) or node.get(fname[-1])
+                value = node.get_attr(fname[-1])
+                if value is None:
+                    value = node.get(fname[-1])
                 if value is None and \
                         fname[-1] in self.compiled[ctable or table]['idx']:
                     value = self.key_defaults[table][fname[-1]]
