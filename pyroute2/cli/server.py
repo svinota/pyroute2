@@ -12,10 +12,36 @@ except ImportError:
 
 class Handler(BaseHTTPRequestHandler):
 
+    def do_error(self, code, reason):
+        self.send_error(code, reason)
+        self.end_headers()
+
     def do_POST(self):
-        assert self.path == '/v1/'
-        clen = int(self.headers['Content-Length'])
-        request = json.loads(self.rfile.read(clen))
+        #
+        # sanity checks:
+        #
+        # * path
+        if self.path != '/v1/':
+            return self.do_error(404, 'url not found')
+        # * content length
+        if 'Content-Length' not in self.headers:
+            return self.do_error(500, 'Content-Length')
+        # * content type
+        if 'Content-Type' not in self.headers:
+            return self.do_error(500, 'Content-Type')
+        #
+
+        content_length = int(self.headers['Content-Length'])
+        content_type = self.headers['Content-Type']
+        data = self.rfile.read(content_length)
+        if content_type == 'application/json':
+            try:
+                request = json.loads(data)
+            except ValueError:
+                return self.do_error(500, 'Incorrect JSON input')
+        else:
+            request = {'commands': [data]}
+
         session = Session(ndb=self.server.ndb, stdout=self.wfile)
         self.send_response(200)
         self.end_headers()
