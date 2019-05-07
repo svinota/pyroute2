@@ -20,11 +20,11 @@ if args.s:
     with open(args.s, 'r') as f:
         sources = json.loads(f.read())
 
-if args.m == 'S':
-    server = Server(args.a or 'localhost',
-                    int(args.p) or 8080,
-                    args.d,
-                    args.s)
+if args.m in ('S', 'server'):
+    server = Server(address=args.a or 'localhost',
+                    port=int(args.p) or 8080,
+                    debug=args.d,
+                    sources=sources)
     server.serve_forever()
 else:
     console = Console(debug=args.d, sources=sources)
