@@ -719,23 +719,6 @@ class NDB(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
-    @cli.show_result
-    def show(self, *argv, **kwarg):
-        ptr = self
-        for word in argv:
-            if hasattr(ptr, word):
-                ptr = getattr(ptr, word)
-            elif isinstance(ptr, dict):
-                ptr = ptr[word]
-            else:
-                raise AttributeError('object not found')
-        if hasattr(ptr, '__call__'):
-            return ptr(**kwarg)
-        elif hasattr(ptr, 'show'):
-            return ptr.show(**kwarg)
-        else:
-            return ptr
-
     def register_handler(self, event, handler):
         if event not in self._event_map:
             self._event_map[event] = []
