@@ -4,6 +4,7 @@ import errno
 import logging
 import weakref
 import threading
+import collections
 from pyroute2 import cli
 from pyroute2.ndb.events import State
 from pyroute2.ndb.events import Log
@@ -127,7 +128,10 @@ class RTNL_Object(dict):
         if fmt == 'native':
             return dict(self)
         else:
-            return '%s\n' % json.dumps(self, indent=4, separators=(',', ': '))
+            out = collections.OrderedDict()
+            for key in sorted(self):
+                out[key] = self[key]
+            return '%s\n' % json.dumps(out, indent=4, separators=(',', ': '))
 
     def set(self, key, value):
         self[key] = value
