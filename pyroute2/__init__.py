@@ -8,7 +8,6 @@ except ImportError:
     pass
 import sys
 import struct
-import logging
 
 ##
 #
@@ -19,6 +18,19 @@ import logging
 #
 if sys.platform.startswith('win'):  # noqa: E402
     import win_inet_pton            # noqa: F401
+
+##
+#
+# Logging setup
+#
+# See the history:
+#  * https://github.com/svinota/pyroute2/issues/246
+#  * https://github.com/svinota/pyroute2/issues/255
+#  * https://github.com/svinota/pyroute2/issues/270
+#  * https://github.com/svinota/pyroute2/issues/573
+#  * https://github.com/svinota/pyroute2/issues/601
+#
+from pyroute2.config import log
 
 ##
 #
@@ -82,13 +94,6 @@ try:
     HAS_CONSOLE = True
 except ImportError:
     HAS_CONSOLE = False
-
-log = logging.getLogger(__name__)
-# Add a NullHandler to the library's top-level logger to avoid complaints
-# on logging calls when no handler is configured.
-# see https://docs.python.org/2/howto/logging.html#library-config
-if sys.version_info >= (2, 7):  # This is only available from 2.7 onwards
-    logging.getLogger('').addHandler(logging.NullHandler())
 
 try:
     # probe, if the bytearray can be used in struct.unpack_from()
