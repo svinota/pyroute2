@@ -57,31 +57,44 @@ class Transport(object):
         ret = pickle.load(dump)
         return ret
 
-    def recv(self):
+    def _m_recv(self, own_queue, other_queue, check):
         while self.run:
-            with self.lock:
-                if not self.brd_queue.empty():
-                    return self.brd_queue.get()
+            if self.lock.acquire(False):
                 try:
-                    ret = self.__recv()
-                except struct.error:
                     try:
-                        return self.brd_queue.get(timeout=5)
+                        ret = own_queue.get(False)
+                        if ret is None:
+                            continue
+                        else:
+                            return ret
                     except queue.Empty:
-                        raise Exception('I/O error')
-                if ret['stage'] == 'broadcast':
+                        pass
+                    ret = self.__recv()
+                    if not check(ret['stage']):
+                        other_queue.put(ret)
+                    else:
+                        other_queue.put(None)
+                        return ret
+                finally:
+                    self.lock.release()
+            else:
+                ret = None
+                try:
+                    ret = own_queue.get(timeout=1)
+                except queue.Empty:
+                    pass
+                if ret is not None:
                     return ret
-                self.cmd_queue.put(ret)
+
+    def recv(self):
+        return self._m_recv(self.brd_queue,
+                            self.cmd_queue,
+                            lambda x: x == 'broadcast')
 
     def recv_cmd(self):
-        while self.run:
-            with self.lock:
-                if not self.cmd_queue.empty():
-                    return self.cmd_queue.get()
-                ret = self.__recv()
-                if ret['stage'] != 'broadcast':
-                    return ret
-                self.brd_queue.put(ret)
+        return self._m_recv(self.cmd_queue,
+                            self.brd_queue,
+                            lambda x: x != 'broadcast')
 
     def close(self):
         self.run = False
