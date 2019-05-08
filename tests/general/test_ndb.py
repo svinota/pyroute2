@@ -9,6 +9,7 @@ from utils import allocate_network
 from utils import free_network
 from pyroute2 import netns
 from pyroute2 import NDB
+from pyroute2 import NetNS
 from pyroute2 import IPRoute
 from pyroute2 import NetlinkError
 from pyroute2.common import uifname
@@ -362,6 +363,61 @@ class TestCreate(object):
                     pattern=ifaddr)
         assert grep('%s ip route show' % self.ssh,
                     pattern='%s.*%s' % (str(self.ipnets[1]), ifname))
+
+
+class TestNetNS(object):
+
+    db_provider = 'sqlite3'
+    db_spec = ':memory:'
+
+    def setup(self):
+        require_user('root')
+        self.netns = str(uuid.uuid4())
+        self.ipnets = [allocate_network() for _ in range(3)]
+        self.ipranges = [[str(x) for x in net] for net in self.ipnets]
+        self.sources = [{'target': 'localhost'},
+                        {'netns': self.netns}]
+        self.ndb = NDB(db_provider=self.db_provider,
+                       db_spec=self.db_spec,
+                       sources=self.sources,
+                       rtnl_log=True)
+        self.ndb.debug('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
+
+    def ifaddr(self, r=0):
+        return str(self.ipranges[r].pop())
+
+    def teardown(self):
+        for net in self.ipnets:
+            free_network(net)
+        self.ndb.close()
+        netns.remove(self.netns)
+
+    def test_basic(self):
+        ifname = uifname()
+        ifaddr = self.ifaddr()
+
+        (self
+         .ndb
+         .interfaces
+         .create(target=self.netns,
+                 ifname=ifname,
+                 kind='dummy')
+         .commit())
+
+        (self
+         .ndb
+         .interfaces[{'target': self.netns,
+                      'ifname': ifname}]
+         .ipaddr
+         .create(address=ifaddr,
+                 prefixlen=24)
+         .commit())
+
+        with NetNS(self.netns) as ns:
+            idx = tuple(ns.link_lookup(ifname=ifname))[0]
+            addr = tuple(ns.addr('dump', match={'index': idx}))
+
+        assert len(addr) >= 1
 
 
 class TestRollback(TestBase):
