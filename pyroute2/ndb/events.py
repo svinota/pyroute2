@@ -44,8 +44,9 @@ class State(object):
 
     events = None
 
-    def __init__(self, prime=None):
+    def __init__(self, prime=None, log=None):
         self.events = []
+        self.log = log
         if prime is not None:
             self.load(prime)
 
@@ -65,6 +66,8 @@ class State(object):
         return self.events[-1][1]
 
     def set(self, state):
+        if self.log is not None:
+            self.log.debug(state)
         if self.events and self.events[-1][1] == state:
             self.events.pop()
         self.events.append((time.time(), state))

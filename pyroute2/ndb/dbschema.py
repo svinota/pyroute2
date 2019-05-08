@@ -3,7 +3,6 @@ import uuid
 import struct
 import random
 import sqlite3
-import logging
 import threading
 import traceback
 from functools import partial
@@ -33,7 +32,6 @@ try:
 except ImportError:
     import Queue as queue
 
-log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 5
 ifinfo_names = ('bridge',
                 'bond',
@@ -286,6 +284,7 @@ class DBSchema(object):
         self.thread = tid
         self.connection = connection
         self.rtnl_log = rtnl_log
+        self.log = ndb.debug.channel('schema')
         self.snapshots = {}
         self.key_defaults = {}
         self._cursor = None
@@ -787,8 +786,8 @@ class DBSchema(object):
                             self.execute('DROP VIEW %s' % table[7:])
                         except Exception:
                             # GC collision?
-                            log.warning('purge_snapshots: %s'
-                                        % traceback.format_exc())
+                            self.log.warning('purge_snapshots: %s'
+                                             % traceback.format_exc())
                     if self.mode == 'sqlite3':
                         self.execute('DROP TABLE %s' % table)
                     elif self.mode == 'psycopg2':
@@ -1160,8 +1159,10 @@ class DBSchema(object):
             except Exception:
                 #
                 # A good question, what should we do here
-                log.debug('load_netlink: %s %s %s' % (table, target, event))
-                log.error('load_netlink: %s' % traceback.format_exc())
+                self.log.debug('load_netlink: %s %s %s'
+                               % (table, target, event))
+                self.log.error('load_netlink: %s'
+                               % traceback.format_exc())
 
 
 def init(ndb, connection, mode, rtnl_log, tid):

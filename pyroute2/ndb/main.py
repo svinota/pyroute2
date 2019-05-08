@@ -616,20 +616,24 @@ class SourcesView(View):
 
 class Debug(object):
 
-    def __init__(self):
+    def __init__(self, log_id=None):
         self.logger = None
-        self.handler = None
+        self.state = False
+        self.log_id = log_id or id(self)
+        self.logger = logging.getLogger('pyroute2.ndb.%s' % self.log_id)
 
     def __call__(self, target=None):
         if target is None:
             return self.logger is not None
 
-        if target == 'off':
-            if self.logger is not None:
-                self.logger.setLevel(logging.INFO)
-                self.logger.removeHandler(self.handler)
-                self.logger = None
-                self.handler = None
+        if self.logger is not None:
+            for handler in tuple(self.logger.handlers):
+                self.logger.removeHandler(handler)
+
+        if target in ('off', False):
+            if self.state:
+                self.logger.setLevel(0)
+                self.logger.addHandler(logging.NullHandler())
             return
 
         if target == 'on':
@@ -645,9 +649,10 @@ class Debug(object):
         else:
             handler = target
 
-        self.handler = handler
-        self.logger = logging.getLogger('')
-        self.logger.addHandler(self.handler)
+        fmt = '%(asctime)s %(levelname)8s %(name)s: %(message)s'
+        formatter = logging.Formatter(fmt)
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
         self.logger.setLevel(logging.DEBUG)
 
     @property
@@ -657,6 +662,9 @@ class Debug(object):
     @property
     def off(self):
         self.__call__(target='off')
+
+    def channel(self, name):
+        return logging.getLogger('pyroute2.ndb.%s.%s' % (self.log_id, name))
 
 
 class NDB(object):
@@ -671,7 +679,7 @@ class NDB(object):
         self.ctime = self.gctime = time.time()
         self.schema = None
         self.config = {}
-        self.debug = Debug()
+        self.debug = Debug(log_id=id(self))
         self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
@@ -778,7 +786,7 @@ class NDB(object):
         def default_handler(target, event):
             if isinstance(event, Exception):
                 raise event
-            logging.warning('unsupported event ignored: %s' % type(event))
+            log.warning('unsupported event ignored: %s' % type(event))
 
         def check_sources_started(self, _locals, target, event):
             _locals['countdown'] -= 1

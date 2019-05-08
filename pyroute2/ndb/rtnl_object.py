@@ -1,16 +1,12 @@
 import json
 import time
 import errno
-import logging
 import weakref
 import threading
 import collections
 from pyroute2 import cli
 from pyroute2.ndb.events import State
-from pyroute2.ndb.events import Log
 from pyroute2.netlink.exceptions import NetlinkError
-
-log = logging.getLogger(__name__)
 
 
 class RTNL_Object(dict):
@@ -56,8 +52,8 @@ class RTNL_Object(dict):
         self.iclass = iclass
         self.utable = self.utable or self.table
         self.errors = []
-        self.log = Log()
-        self.log.append('init')
+        self.log = self.ndb.debug.channel('rtnl_object')
+        self.log.debug('init')
         self.state = State()
         self.state.set('invalid')
         self.snapshot_deps = []
@@ -208,7 +204,7 @@ class RTNL_Object(dict):
         return key
 
     def rollback(self, snapshot=None):
-        self.log.append('rollback: %s' % str(self.state.events))
+        self.log.debug('rollback: %s' % str(self.state.events))
         snapshot = snapshot or self.last_save
         snapshot.state.set(self.state.get())
         snapshot.apply(rollback=True)
@@ -217,7 +213,7 @@ class RTNL_Object(dict):
         return self
 
     def commit(self):
-        self.log.append('commit: %s' % str(self.state.events))
+        self.log.debug('commit: %s' % str(self.state.events))
         # Is it a new object?
         if self.state == 'invalid':
             # Save values, try to apply
@@ -277,17 +273,17 @@ class RTNL_Object(dict):
                      ('remove', 'invalid'))
 
         self.load_sql()
-        self.log.append('check: %s' % str(self.state.events))
+        self.log.debug('check: %s' % str(self.state.events))
 
         if self.state.transition() not in state_map:
-            self.log.append('check state: False')
+            self.log.debug('check state: False')
             return False
 
         if self.changed:
-            self.log.append('check changed: False')
+            self.log.debug('check changed: False')
             return False
 
-        self.log.append('check: True')
+        self.log.debug('check: True')
         return True
 
     def make_req(self, prime):
@@ -316,7 +312,7 @@ class RTNL_Object(dict):
 
     def apply(self, rollback=False, fix_remove=True):
 
-        self.log.append('apply: %s' % str(self.state.events))
+        self.log.debug('apply: %s' % str(self.state.events))
         self.load_event.clear()
 
         # Load the current state
@@ -335,9 +331,9 @@ class RTNL_Object(dict):
                         in self.schema.compiled[self.table]['idx']
                         if self.iclass.nla2name(x) in self])
         req = self.make_req(idx_req)
-        self.log.append('apply req: %s' % str(req))
-        self.log.append('apply idx_req: %s' % str(idx_req))
-        self.log.append('apply state: %s' % state)
+        self.log.debug('apply req: %s' % str(req))
+        self.log.debug('apply idx_req: %s' % str(idx_req))
+        self.log.debug('apply state: %s' % state)
 
         method = None
         ignore = tuple()
@@ -364,7 +360,7 @@ class RTNL_Object(dict):
 
         for _ in range(10):
             try:
-                self.log.append(method)
+                self.log.debug(method)
                 (self
                  .sources[self['target']]
                  .api(self.api, method, **req))
@@ -373,30 +369,30 @@ class RTNL_Object(dict):
             except NetlinkError as e:
                 (self
                  .log
-                 .append('error: %s' % e))
+                 .debug('error: %s' % e))
                 if e.code in ignore:
-                    log.debug('ignore error %s for %s' % (e.code, self))
+                    self.log.debug('ignore error %s for %s' % (e.code, self))
                 else:
                     raise e
 
             wtime = self.wtime
             mqsize = self.view.ndb._event_queue.qsize()
             nqsize = self.schema.stats.get(self['target']).qsize
-            log.debug('stats: apply %s {'
-                      'objid %s, wtime %s, '
-                      'mqsize %s, nqsize %s'
-                      '}' % (method, id(self), wtime, mqsize, nqsize))
+            self.log.debug('stats: apply %s {'
+                           'objid %s, wtime %s, '
+                           'mqsize %s, nqsize %s'
+                           '}' % (method, id(self), wtime, mqsize, nqsize))
             if self.check():
-                self.log.append('checked')
+                self.log.debug('checked')
                 break
-            self.log.append('check failed')
+            self.log.debug('check failed')
             self.load_event.wait(wtime)
             self.load_event.clear()
         else:
-            log.debug('stats: %s apply %s fail' % (id(self), method))
+            self.log.debug('stats: %s apply %s fail' % (id(self), method))
             raise Exception('lost sync in apply()')
 
-        log.debug('stats: %s pass' % (id(self)))
+        self.log.debug('stats: %s pass' % (id(self)))
         #
         if rollback:
             #
@@ -463,7 +459,7 @@ class RTNL_Object(dict):
                 .schema
                 .fetchone('SELECT * FROM %s WHERE %s' %
                           (table, ' AND '.join(keys)), values))
-        self.log.append('load_sql: %s' % str(spec))
+        self.log.debug('load_sql: %s' % str(spec))
         if set_state:
             with self.lock:
                 if spec is None:
@@ -486,7 +482,7 @@ class RTNL_Object(dict):
             elif value != (event.get_attr(name) or event.get(name)):
                 return
 
-        self.log.append('load_rtnl: %s' % str(event.get('header')))
+        self.log.debug('load_rtnl: %s' % str(event.get('header')))
         if event['header'].get('type', 0) % 2:
             self.state.set('invalid')
             self.changed = set()

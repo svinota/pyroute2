@@ -1,5 +1,4 @@
 import time
-import logging
 import threading
 from pyroute2 import IPRoute
 from pyroute2 import RemoteIPRoute
@@ -8,12 +7,10 @@ from pyroute2.ndb.events import (SyncStart,
                                  SchemaReadLock,
                                  SchemaReadUnlock,
                                  MarkFailed,
-                                 State,
-                                 Log)
+                                 State)
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.exceptions import NetlinkError
 
-log = logging.getLogger(__name__)
 SOURCE_FAIL_PAUSE = 5
 
 
@@ -55,8 +52,8 @@ class Source(dict):
         self.started = threading.Event()
         self.lock = threading.RLock()
         self.started.clear()
-        self.state = State()
-        self.log = Log()
+        self.log = ndb.debug.channel('sources.%s' % self.target)
+        self.state = State(log=self.log)
         self.state.set('init')
         self.ndb.schema.execute('''
                                 INSERT INTO sources (f_target, f_kind)
@@ -141,8 +138,7 @@ class Source(dict):
                     raise
                 except Exception as e:
                     # probably the source is restarting
-                    log.debug('[%s] source api error: %s' %
-                              (self.target, e))
+                    self.log.debug('source api error: %s' % e)
                     time.sleep(1)
         raise RuntimeError('api call failed')
 
@@ -156,7 +152,6 @@ class Source(dict):
         while True:
             with self.lock:
                 if self.shutdown.is_set():
-                    log.debug('[%s] stopped' % self.target)
                     self.state.set('stopped')
                     return
 
@@ -164,19 +159,13 @@ class Source(dict):
                     try:
                         self.nl.close(code=0)
                     except Exception as e:
-                        self.log.append('restarting the nl transport')
-                        log.warning('[%s] source restart: %s'
-                                    % (self.target, e))
+                        self.log.warning('source restart: %s' % e)
                 try:
-                    self.log.append('connecting')
-                    log.debug('[%s] connecting' % self.target)
                     self.state.set('connecting')
                     if isinstance(self.nl_prime, type):
                         self.nl = self.nl_prime(**self.nl_kwarg)
                     else:
                         raise TypeError('source channel not supported')
-                    self.log.append('loading')
-                    log.debug('[%s] loading' % self.target)
                     self.state.set('loading')
                     #
                     self.nl.bind(async_cache=True, clone_socket=True)
@@ -194,8 +183,6 @@ class Source(dict):
                         self.ndb.schema.allow_read(True)
                     self.started.set()
                     self.shutdown.clear()
-                    self.log.append('running')
-                    log.debug('[%s] running' % self.target)
                     self.state.set('running')
                     if self.event is not None:
                         self.evq.put((self.target, (self.event, )))
@@ -203,19 +190,14 @@ class Source(dict):
                     raise
                 except Exception as e:
                     self.started.set()
-                    self.log.append('failed')
-                    log.debug('[%s] failed' % self.target)
                     self.state.set('failed')
-                    log.error('[%s] source error: %s %s' %
-                              (self.target, type(e), e))
+                    self.log.error('source error: %s %s' % (type(e), e))
                     self.evq.put((self.target, (MarkFailed(), )))
                     if self.persistent:
-                        self.log.append('sleeping before restart')
-                        log.debug('[%s] sleeping before restart' % self.target)
+                        self.log.debug('sleeping before restart')
                         self.shutdown.wait(SOURCE_FAIL_PAUSE)
                         if self.shutdown.is_set():
-                            self.log.append('source shutdown')
-                            log.debug('[%s] source shutdown' % self.target)
+                            self.log.debug('source shutdown')
                             return
                     else:
                         return
@@ -225,9 +207,7 @@ class Source(dict):
                 try:
                     msg = tuple(self.nl.get())
                 except Exception as e:
-                    self.log.append('error: %s %s' % (type(e), e))
-                    log.error('[%s] source error: %s %s' %
-                              (self.target, type(e), e))
+                    self.log.error('source error: %s %s' % (type(e), e))
                     msg = None
                     if self.persistent:
                         break
@@ -235,8 +215,6 @@ class Source(dict):
                 if msg is None or \
                         msg[0]['header']['error'] and \
                         msg[0]['header']['error'].code == 104:
-                    self.log.append('stopped')
-                    log.debug('[%s] stopped' % self.target)
                     self.state.set('stopped')
                     # thus we make sure that all the events from
                     # this source are consumed by the main loop
@@ -254,7 +232,7 @@ class Source(dict):
         #
         # Start source thread
         with self.lock:
-            self.log.append('starting the source')
+            self.log.debug('starting the source')
             if (self.th is not None) and self.th.is_alive():
                 raise RuntimeError('source is running')
 
@@ -266,22 +244,22 @@ class Source(dict):
 
     def close(self):
         with self.lock:
-            self.log.append('stopping the source')
+            self.log.debug('stopping the source')
             self.shutdown.set()
             if self.nl is not None:
                 try:
                     self.nl.close()
                 except Exception as e:
-                    log.error('[%s] source close: %s' % (self.target, e))
+                    self.log.error('source close: %s' % e)
         if self.th is not None:
             self.th.join()
-        self.log.append('flushing the DB for the target')
+        self.log.debug('flushing the DB for the target')
         self.ndb.schema.flush(self.target)
 
     def restart(self):
         with self.lock:
             if not self.shutdown.is_set():
-                self.log.append('restarting the source')
+                self.log.debug('restarting the source')
                 self.evq.put((self.target, (SchemaReadLock(), )))
                 try:
                     self.close()
