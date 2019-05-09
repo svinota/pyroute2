@@ -62,7 +62,12 @@ class RTNL_Object(dict):
         self.kspec = ('target', ) + self.schema.indices[self.table]
         self.spec = self.schema.compiled[self.table]['all_names']
         self.names = self.schema.compiled[self.table]['norm_names']
-        create = key.pop('create', False) if isinstance(key, dict) else False
+        if isinstance(key, dict):
+            self.chain = key.pop('ndb_chain', None)
+            create = key.pop('create', False)
+        else:
+            self.chain = None
+            create = False
         ckey = self.complete_key(key)
         if create and ckey is not None:
             raise KeyError('object exists')
@@ -114,6 +119,12 @@ class RTNL_Object(dict):
 
     def key_repr(self):
         return repr(self.key)
+
+    @cli.change_pointer
+    def create(self, **spec):
+        spec['create'] = True
+        spec['ndb_chain'] = self
+        return self.view[spec]
 
     @cli.show_result
     def show(self, **kwarg):
@@ -213,6 +224,8 @@ class RTNL_Object(dict):
         return self
 
     def commit(self):
+        if self.chain:
+            self.chain.commit()
         self.log.debug('commit: %s' % str(self.state.events))
         # Is it a new object?
         if self.state == 'invalid':

@@ -203,10 +203,16 @@ class View(dict):
         # ifobj1 != ifobj2
     '''
 
-    def __init__(self, ndb, table, match_src=None, match_pairs=None):
+    def __init__(self,
+                 ndb,
+                 table,
+                 match_src=None,
+                 match_pairs=None,
+                 chain=None):
         self.ndb = ndb
         self.table = table
         self.event = table  # FIXME
+        self.chain = chain
         self.match_src = match_src
         self.match_pairs = match_pairs
         self.classes = OrderedDict()
@@ -227,6 +233,8 @@ class View(dict):
 
     @cli.change_pointer
     def create(self, **spec):
+        if self.chain:
+            spec['ndb_chain'] = self.chain
         spec['create'] = True
         return self[spec]
 
@@ -718,8 +726,8 @@ class NDB(object):
         self.neighbours = View(self, 'neighbours')
         self.query = Query(self.schema)
 
-    def _get_view(self, name, match_src=None, match_pairs=None):
-        return View(self, name, match_src, match_pairs)
+    def _get_view(self, name, match_src=None, match_pairs=None, chain=None):
+        return View(self, name, match_src, match_pairs, chain)
 
     def __enter__(self):
         return self

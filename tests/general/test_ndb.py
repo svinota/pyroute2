@@ -394,15 +394,18 @@ class TestNetNS(object):
 
     def test_basic(self):
         ifname = uifname()
-        ifaddr = self.ifaddr()
+        ifaddr1 = self.ifaddr()
+        ifaddr2 = self.ifaddr()
+        ifaddr3 = self.ifaddr()
 
         (self
          .ndb
          .interfaces
          .create(target=self.netns, ifname=ifname, kind='dummy')
-         .commit()
          .ipaddr
-         .create(address=ifaddr, prefixlen=24)
+         .create(address=ifaddr1, prefixlen=24)
+         .create(address=ifaddr2, prefixlen=24)
+         .create(address=ifaddr3, prefixlen=24)
          .commit())
 
         with NetNS(self.netns) as ns:

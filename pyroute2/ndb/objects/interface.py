@@ -43,6 +43,7 @@ class Interface(RTNL_Object):
                 .view
                 .ndb
                 ._get_view('addresses',
+                           chain=self,
                            match_src=[weakref.proxy(self),
                                       {'index':
                                        self.get('index', 0),
@@ -56,6 +57,7 @@ class Interface(RTNL_Object):
                 .view
                 .ndb
                 ._get_view('interfaces',
+                           chain=self,
                            match_src=[weakref.proxy(self),
                                       {'index':
                                        self.get('index', 0),
@@ -69,6 +71,7 @@ class Interface(RTNL_Object):
                 .view
                 .ndb
                 ._get_view('routes',
+                           chain=self,
                            match_src=[weakref.proxy(self),
                                       {'index':
                                        self.get('index', 0),
@@ -82,6 +85,7 @@ class Interface(RTNL_Object):
                 .view
                 .ndb
                 ._get_view('neighbours',
+                           chain=self,
                            match_src=[weakref.proxy(self),
                                       {'index':
                                        self.get('index', 0),
