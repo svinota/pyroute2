@@ -1,6 +1,6 @@
 import weakref
 from pyroute2.config import AF_BRIDGE
-from pyroute2.ndb.rtnl_object import RTNL_Object
+from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 

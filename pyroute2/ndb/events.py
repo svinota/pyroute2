@@ -82,14 +82,3 @@ class State(object):
         if not self.events:
             return True
         return self.events[-1][1] != other
-
-
-class Log(object):
-
-    events = None
-
-    def __init__(self):
-        self.events = []
-
-    def append(self, event):
-        self.events.append((time.time(), event))

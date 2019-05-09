@@ -160,10 +160,10 @@ from pyroute2.ndb.events import (SyncStart,
                                  ShutdownException,
                                  InvalidateHandlerException)
 from pyroute2.ndb.source import Source
-from pyroute2.ndb.interface import Interface
-from pyroute2.ndb.address import Address
-from pyroute2.ndb.route import Route
-from pyroute2.ndb.neighbour import Neighbour
+from pyroute2.ndb.objects.interface import Interface
+from pyroute2.ndb.objects.address import Address
+from pyroute2.ndb.objects.route import Route
+from pyroute2.ndb.objects.neighbour import Neighbour
 from pyroute2.ndb.query import Query
 from pyroute2.ndb.report import Report
 try:

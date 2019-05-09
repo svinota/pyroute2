@@ -20,9 +20,9 @@ from pyroute2.netlink.rtnl.rtmsg import nh
 from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 
 # rtnl objects
-from pyroute2.ndb.route import Route
-from pyroute2.ndb.route import NextHop
-from pyroute2.ndb.address import Address
+from pyroute2.ndb.objects.route import Route
+from pyroute2.ndb.objects.route import NextHop
+from pyroute2.ndb.objects.address import Address
 
 # events
 from pyroute2.ndb.events import SchemaGenericRequest
