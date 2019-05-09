@@ -417,10 +417,27 @@ class TestNetNS(object):
 
         assert if_idx == addr1_idx == addr2_idx == addr3_idx
 
+    def _assert_test_view(self, ifname, ifaddr):
+        with NDB(sources=[{'target': 'localhost',
+                           'netns': self.netns,
+                           'kind': 'netns'}]) as ndb:
+            (if_idx,
+             if_state,
+             if_addr,
+             if_flags) = ndb.interfaces[ifname].fields('index',
+                                                       'state',
+                                                       'address',
+                                                       'flags')
+            addr_idx = ndb.addresses['%s/24' % ifaddr]['index']
+
+        assert if_idx == addr_idx
+        assert if_state == 'up'
+        assert if_flags & 1
+        assert if_addr == '00:11:22:33:44:55'
+
     def test_view_constraints_pipeline(self):
         ifname = uifname()
         ifaddr = self.ifaddr()
-
         (self
          .ndb
          .interfaces
@@ -431,19 +448,11 @@ class TestNetNS(object):
          .ipaddr
          .create(address=ifaddr, prefixlen=24)
          .commit())
-
-        with NDB(sources=[{'target': 'localhost',
-                           'netns': self.netns,
-                           'kind': 'netns'}]) as ndb:
-            if_idx = ndb.interfaces[ifname]['index']
-            addr_idx = ndb.addresses['%s/24' % ifaddr]['index']
-
-        assert if_idx == addr_idx
+        self._assert_test_view(ifname, ifaddr)
 
     def test_view_constraints_cmanager(self):
         ifname = uifname()
         ifaddr = self.ifaddr()
-
         with self.ndb.interfaces as view:
             view.constraints['target'] = self.netns
             with view.create(ifname=ifname, kind='dummy') as interface:
@@ -452,14 +461,7 @@ class TestNetNS(object):
                 with interface.ipaddr as aview:
                     with aview.create(address=ifaddr, prefixlen=24):
                         pass
-
-        with NDB(sources=[{'target': 'localhost',
-                           'netns': self.netns,
-                           'kind': 'netns'}]) as ndb:
-            if_idx = ndb.interfaces[ifname]['index']
-            addr_idx = ndb.addresses['%s/24' % ifaddr]['index']
-
-        assert if_idx == addr_idx
+        self._assert_test_view(ifname, ifaddr)
 
 
 class TestRollback(TestBase):
