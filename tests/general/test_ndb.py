@@ -9,7 +9,6 @@ from utils import allocate_network
 from utils import free_network
 from pyroute2 import netns
 from pyroute2 import NDB
-from pyroute2 import NetNS
 from pyroute2 import IPRoute
 from pyroute2 import NetlinkError
 from pyroute2.common import uifname
@@ -408,11 +407,15 @@ class TestNetNS(object):
          .create(address=ifaddr3, prefixlen=24)
          .commit())
 
-        with NetNS(self.netns) as ns:
-            idx = tuple(ns.link_lookup(ifname=ifname))[0]
-            addr = tuple(ns.addr('dump', match={'index': idx}))
+        with NDB(sources=[{'target': 'localhost',
+                           'netns': self.netns,
+                           'kind': 'netns'}]) as ndb:
+            if_idx = ndb.interfaces[ifname]['index']
+            addr1_idx = ndb.addresses['%s/24' % ifaddr1]['index']
+            addr2_idx = ndb.addresses['%s/24' % ifaddr2]['index']
+            addr3_idx = ndb.addresses['%s/24' % ifaddr3]['index']
 
-        assert len(addr) >= 1
+        assert if_idx == addr1_idx == addr2_idx == addr3_idx
 
     def test_view_constraints(self):
         ifname = uifname()
