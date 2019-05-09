@@ -222,6 +222,19 @@ class View(dict):
         self.classes['neighbours'] = Neighbour
         self.classes['routes'] = Route
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+    def constraint(self, key, value):
+        if value is None:
+            self.constraints.pop(key)
+        else:
+            self.constraints[key] = value
+        return self
+
     def getmany(self, spec, table=None):
         return self.ndb.schema.get(table or self.table, spec)
 
