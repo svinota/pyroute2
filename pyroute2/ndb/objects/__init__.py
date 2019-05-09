@@ -113,6 +113,8 @@ class RTNL_Object(dict):
         return dict.__getitem__(self, key)
 
     def __setitem__(self, key, value):
+        if key in ('net_ns_fd', 'net_ns_pid'):
+            self.state.set('setns')
         if value != self.get(key, None):
             self.changed.add(key)
             dict.__setitem__(self, key, value)
@@ -287,7 +289,8 @@ class RTNL_Object(dict):
 
     def check(self):
         state_map = (('invalid', 'system'),
-                     ('remove', 'invalid'))
+                     ('remove', 'invalid'),
+                     ('setns', 'invalid'))
 
         self.load_sql()
         self.log.debug('check: %s' % str(self.state.events))
@@ -366,7 +369,7 @@ class RTNL_Object(dict):
                         pass
             method = 'add'
             ignore = (errno.EEXIST, )
-        elif state == 'system':
+        elif state in ('system', 'setns'):
             method = 'set'
         elif state == 'remove':
             method = 'del'
@@ -482,7 +485,7 @@ class RTNL_Object(dict):
                 if spec is None:
                     # No such object (anymore)
                     self.state.set('invalid')
-                elif self.state != 'remove':
+                elif self.state not in ('remove', 'setns'):
                     self.update(dict(zip(self.names, spec)))
                     self.state.set('system')
         return spec

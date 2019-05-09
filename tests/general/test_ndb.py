@@ -463,6 +463,33 @@ class TestNetNS(object):
                         pass
         self._assert_test_view(ifname, ifaddr)
 
+    def test_move(self):
+        ifname = uifname()
+        ifaddr = self.ifaddr()
+        # create the interfaces
+        (self
+         .ndb
+         .interfaces
+         .create(ifname=ifname, kind='dummy')
+         .commit())
+        # move it to a netns
+        (self
+         .ndb
+         .interfaces[ifname]
+         .set('net_ns_fd', self.netns)
+         .commit())
+        # setup the interfaces only when it is moved
+        (self
+         .ndb
+         .interfaces
+         .wait(target=self.netns, ifname=ifname)
+         .set('state', 'up')
+         .set('address', '00:11:22:33:44:55')
+         .ipaddr
+         .create(address=ifaddr, prefixlen=24)
+         .commit())
+        self._assert_test_view(ifname, ifaddr)
+
 
 class TestRollback(TestBase):
 
