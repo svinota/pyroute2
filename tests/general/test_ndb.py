@@ -399,18 +399,10 @@ class TestNetNS(object):
         (self
          .ndb
          .interfaces
-         .create(target=self.netns,
-                 ifname=ifname,
-                 kind='dummy')
-         .commit())
-
-        (self
-         .ndb
-         .interfaces[{'target': self.netns,
-                      'ifname': ifname}]
+         .create(target=self.netns, ifname=ifname, kind='dummy')
+         .commit()
          .ipaddr
-         .create(address=ifaddr,
-                 prefixlen=24)
+         .create(address=ifaddr, prefixlen=24)
          .commit())
 
         with NetNS(self.netns) as ns:

@@ -36,46 +36,58 @@ class Interface(RTNL_Object):
             if 'ifname' not in argv[1]:
                 raise Exception('specify at least ifname')
         super(Interface, self).__init__(*argv, **kwarg)
-        self.ipaddr = (self
-                       .view
-                       .ndb
-                       ._get_view('addresses',
-                                  match_src=[weakref.proxy(self),
-                                             {'index':
-                                              self.get('index', 0),
-                                              'target': self['target']}],
-                                  match_pairs={'index': 'index',
-                                               'target': 'target'}))
-        self.ports = (self
-                      .view
-                      .ndb
-                      ._get_view('interfaces',
-                                 match_src=[weakref.proxy(self),
-                                            {'index':
-                                             self.get('index', 0),
-                                             'target': self['target']}],
-                                 match_pairs={'master': 'index',
-                                              'target': 'target'}))
-        self.routes = (self
-                       .view
-                       .ndb
-                       ._get_view('routes',
-                                  match_src=[weakref.proxy(self),
-                                             {'index':
-                                              self.get('index', 0),
-                                              'target': self['target']}],
-                                  match_pairs={'oif': 'index',
-                                               'target': 'target'}))
-        self.neighbours = (self
-                           .view
-                           .ndb
-                           ._get_view('neighbours',
-                                      match_src=[weakref.proxy(self),
-                                                 {'index':
-                                                  self.get('index', 0),
-                                                  'target': self['target']}],
-                                      match_pairs={'ifindex': 'index',
-                                                   'target': 'target'}))
+
+    @property
+    def ipaddr(self):
+        return (self
+                .view
+                .ndb
+                ._get_view('addresses',
+                           match_src=[weakref.proxy(self),
+                                      {'index':
+                                       self.get('index', 0),
+                                       'target': self['target']}],
+                           match_pairs={'index': 'index',
+                                        'target': 'target'}))
+
+    @property
+    def ports(self):
+        return (self
+                .view
+                .ndb
+                ._get_view('interfaces',
+                           match_src=[weakref.proxy(self),
+                                      {'index':
+                                       self.get('index', 0),
+                                       'target': self['target']}],
+                           match_pairs={'master': 'index',
+                                        'target': 'target'}))
+
+    @property
+    def routes(self):
+        return (self
+                .view
+                .ndb
+                ._get_view('routes',
+                           match_src=[weakref.proxy(self),
+                                      {'index':
+                                       self.get('index', 0),
+                                       'target': self['target']}],
+                           match_pairs={'oif': 'index',
+                                        'target': 'target'}))
+
+    @property
+    def neighbours(self):
+        return (self
+                .view
+                .ndb
+                ._get_view('neighbours',
+                           match_src=[weakref.proxy(self),
+                                      {'index':
+                                       self.get('index', 0),
+                                       'target': self['target']}],
+                           match_pairs={'ifindex': 'index',
+                                        'target': 'target'}))
 
     def complete_key(self, key):
         if isinstance(key, dict):
