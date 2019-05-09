@@ -414,6 +414,31 @@ class TestNetNS(object):
 
         assert len(addr) >= 1
 
+    def test_view_constraints(self):
+        ifname = uifname()
+        ifaddr = self.ifaddr()
+
+        (self
+         .ndb
+         .interfaces
+         .constraints['target']) = self.netns
+
+        (self
+         .ndb
+         .interfaces
+         .create(ifname=ifname, kind='dummy')
+         .ipaddr
+         .create(address=ifaddr, prefixlen=24)
+         .commit())
+
+        with NDB(sources=[{'target': 'localhost',
+                           'netns': self.netns,
+                           'kind': 'netns'}]) as ndb:
+            if_idx = ndb.interfaces[ifname]['index']
+            addr_idx = ndb.addresses['%s/24' % ifaddr]['index']
+
+        assert if_idx == addr_idx
+
 
 class TestRollback(TestBase):
 

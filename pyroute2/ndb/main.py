@@ -213,6 +213,7 @@ class View(dict):
         self.table = table
         self.event = table  # FIXME
         self.chain = chain
+        self.constraints = {}
         self.match_src = match_src
         self.match_pairs = match_pairs
         self.classes = OrderedDict()
@@ -334,10 +335,20 @@ class View(dict):
                 raise
 
         iclass = self.classes[table or self.table]
+        if self.match_src:
+            match_src = [x for x in self.match_src]
+            match_pairs = dict(self.match_pairs)
+        else:
+            match_src = []
+            match_pairs = {}
+        if self.constraints:
+            match_src.insert(0, self.constraints)
+            for cskey, csvalue in self.constraints.items():
+                match_pairs[cskey] = cskey
         ret = iclass(self,
                      key,
-                     match_src=self.match_src,
-                     match_pairs=self.match_pairs)
+                     match_src=match_src,
+                     match_pairs=match_pairs)
         wr = weakref.ref(ret)
         self.ndb._rtnl_objects.add(wr)
         for event, fname in ret.event_map.items():
