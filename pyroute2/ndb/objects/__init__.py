@@ -369,8 +369,11 @@ class RTNL_Object(dict):
                         pass
             method = 'add'
             ignore = (errno.EEXIST, )
-        elif state in ('system', 'setns'):
+        elif state == 'system':
             method = 'set'
+        elif state == 'setns':
+            method = 'set'
+            ignore = (errno.ENODEV, )
         elif state == 'remove':
             method = 'del'
             req = idx_req
@@ -485,6 +488,7 @@ class RTNL_Object(dict):
                 if spec is None:
                     # No such object (anymore)
                     self.state.set('invalid')
+                    self.changed = set()
                 elif self.state not in ('remove', 'setns'):
                     self.update(dict(zip(self.names, spec)))
                     self.state.set('system')

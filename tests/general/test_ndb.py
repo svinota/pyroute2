@@ -478,7 +478,7 @@ class TestNetNS(object):
          .interfaces[ifname]
          .set('net_ns_fd', self.netns)
          .commit())
-        # setup the interfaces only when it is moved
+        # setup the interface only when it is moved
         (self
          .ndb
          .interfaces
