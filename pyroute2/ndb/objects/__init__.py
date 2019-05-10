@@ -200,8 +200,9 @@ class RTNL_Object(dict):
             keys = []
             values = []
             for name, value in key.items():
-                if name not in self.spec:
-                    name = self.iclass.name2nla(name)
+                nla_name = self.iclass.name2nla(name)
+                if nla_name in self.spec:
+                    name = nla_name
                 if value is not None and name in self.spec:
                     keys.append('f_%s = %s' % (name, self.schema.plch))
                     values.append(value)
