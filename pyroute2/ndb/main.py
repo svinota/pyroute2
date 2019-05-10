@@ -165,7 +165,8 @@ from pyroute2.ndb.objects.address import Address
 from pyroute2.ndb.objects.route import Route
 from pyroute2.ndb.objects.neighbour import Neighbour
 from pyroute2.ndb.query import Query
-from pyroute2.ndb.report import Report
+from pyroute2.ndb.report import (Report,
+                                 Record)
 try:
     from urlparse import urlparse
 except ImportError:
@@ -441,23 +442,36 @@ class View(dict):
                     row.append('')
                 else:
                     row.append("'%s'" % field)
-            row[-1] += '\n'
             yield ','.join(row)
 
     def _json(self, match=None, dump=None):
         if dump is None:
             dump = self._dump(match)
         fnames = next(dump)
+        buf = []
         yield '['
-        comma = ''
         for record in dump:
+            if buf:
+                buf[-1] += ','
+                for line in buf:
+                    yield line
+                buf = []
             lines = json.dumps(dict(zip(fnames, record)), indent=4).split('\n')
-            yield '%s\n    %s' % (comma, lines[0])
-            if not comma:
-                comma = ','
-            for line in lines[1:]:
-                yield '\n    %s' % line
-        yield '\n]\n'
+            buf.append('    {')
+            for line in sorted(lines[1:-1]):
+                buf.append('    %s,' % line.split(',')[0])
+            buf[-1] = buf[-1][:-1]
+            buf.append('    }')
+        for line in buf:
+            yield line
+        yield ']'
+
+    def _native(self, match=None, dump=None):
+        if dump is None:
+            dump = self._dump(match)
+        fnames = next(dump)
+        for record in dump:
+            yield Record(fnames, record)
 
     def _details(self, match=None, dump=None, format=None):
         # get the raw dump generator and get the fields description
@@ -466,24 +480,28 @@ class View(dict):
         fnames = next(dump)
         if format == 'json':
             yield '['
-            comma = ''
+        buf = []
         # iterate all the records and yield a dict for every record
         for record in dump:
             obj = self[dict(zip(fnames, record))]
             if format == 'json':
+                if buf:
+                    buf[-1] += ','
+                    for line in buf:
+                        yield line
+                    buf = []
                 ret = OrderedDict()
                 for key in sorted(obj):
                     ret[key] = obj[key]
                 lines = json.dumps(ret, indent=4).split('\n')
-                yield '%s\n    %s' % (comma, lines[0])
-                if not comma:
-                    comma = ','
-                for line in lines[1:]:
-                    yield '\n    %s' % line
+                for line in lines:
+                    buf.append('    %s' % line)
             else:
                 yield dict(obj)
         if format == 'json':
-            yield '\n]\n'
+            for line in buf:
+                yield line
+            yield ']'
 
     def _summary(self, match=None):
         iclass = self.classes[self.table]
@@ -559,7 +577,7 @@ class View(dict):
                                   self.ndb.config.get('show_format',
                                                       'native')))
         if fmt == 'native':
-            return Report(self._dump(*argv, **kwarg))
+            return Report(self._native(dump=self._dump(*argv, **kwarg)))
         elif fmt == 'csv':
             return Report(self._csv(dump=self._dump(*argv, **kwarg)),
                           ellipsis=False)
@@ -576,7 +594,7 @@ class View(dict):
                                   self.ndb.config.get('show_format',
                                                       'native')))
         if fmt == 'native':
-            return Report(self._summary(*argv, **kwarg))
+            return Report(self._native(dump=self._summary(*argv, **kwarg)))
         elif fmt == 'csv':
             return Report(self._csv(dump=self._summary(*argv, **kwarg)),
                           ellipsis=False)

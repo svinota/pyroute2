@@ -83,14 +83,14 @@ class Session(object):
                         if hasattr(ret, 'generator') or hasattr(ret, 'next'):
                             for line in ret:
                                 if isinstance(line, basestring):
-                                    self.lprint(line, end='')
+                                    self.lprint(line)
                                 else:
                                     self.lprint(repr(line))
                         else:
-                            self.lprint(ret, end='')
+                            self.lprint(ret)
                         return
                     elif isinstance(ret, (bool, basestring, int, float)):
-                        self.lprint(ret, end='')
+                        self.lprint(ret)
                         return
                     else:
                         return

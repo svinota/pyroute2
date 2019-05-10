@@ -776,7 +776,7 @@ class TestSources(TestBase):
     def test_connect_netns(self):
         nsname = str(uuid.uuid4())
         self.ndb.schema.allow_write(False)
-        s = len(list(self.ndb.interfaces.summary())) - 1
+        s = len(list(self.ndb.interfaces.summary()))
         assert self.count_interfaces(nsname) == 0
         assert self.count_interfaces('localhost') == s
         self.ndb.schema.allow_write(True)
@@ -790,7 +790,7 @@ class TestSources(TestBase):
         assert event.wait(5)
 
         self.ndb.schema.allow_write(False)
-        s = len(list(self.ndb.interfaces.summary())) - 1
+        s = len(list(self.ndb.interfaces.summary()))
         assert self.count_interfaces(nsname) > 0
         assert self.count_interfaces('localhost') < s
         self.ndb.schema.allow_write(True)
@@ -798,7 +798,7 @@ class TestSources(TestBase):
         # disconnect the source
         self.ndb.sources[nsname].close()
         self.ndb.schema.allow_write(False)
-        s = len(list(self.ndb.interfaces.summary())) - 1
+        s = len(list(self.ndb.interfaces.summary()))
         assert self.count_interfaces(nsname) == 0
         assert self.count_interfaces('localhost') == s
         self.ndb.schema.allow_write(True)
@@ -807,14 +807,14 @@ class TestSources(TestBase):
 
     def test_disconnect_localhost(self):
         self.ndb.schema.allow_write(False)
-        s = len(list(self.ndb.interfaces.summary())) - 1
+        s = len(list(self.ndb.interfaces.summary()))
         assert self.count_interfaces('localhost') == s
         self.ndb.schema.allow_write(True)
 
         self.ndb.sources['localhost'].close()
 
         self.ndb.schema.allow_write(False)
-        s = len(list(self.ndb.interfaces.summary())) - 1
+        s = len(list(self.ndb.interfaces.summary()))
         assert self.count_interfaces('localhost') == s
         assert s == 0
         self.ndb.schema.allow_write(True)
@@ -830,10 +830,6 @@ class TestReports(TestBase):
         assert isinstance(repr(self.ndb.interfaces.summary()), basestring)
         # header + MAX_REPORT_LINES + (...)
         assert len(repr(self.ndb.interfaces.summary()).split('\n')) == 3
-
-    def test_dump(self):
-        for record in self.ndb.addresses.dump():
-            assert isinstance(record, tuple)
 
     def test_json(self):
         data = json.loads(''.join(self.ndb.interfaces.summary(format='json')))
@@ -859,8 +855,8 @@ class TestReports(TestBase):
                            .interfaces[self.if_bridge]
                            .ipaddr
                            .summary()).split('\n'))
-        # 2 ipaddr + header + final new line
-        assert records == 4
+        # 2 ipaddr
+        assert records == 2
 
     def test_nested_ports(self):
         records = len(repr(self
@@ -868,5 +864,5 @@ class TestReports(TestBase):
                            .interfaces[self.if_bridge]
                            .ports
                            .summary()).split('\n'))
-        # 1 port + header + final new line
-        assert records == 3
+        # 1 port
+        assert records == 1
