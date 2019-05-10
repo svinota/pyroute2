@@ -570,7 +570,7 @@ class SourcesView(View):
         self.classes['sources'] = Source
         self.cache = {}
 
-    def create(self, **spec):
+    def add(self, **spec):
         spec = dict(Source.defaults(spec))
         if 'event' not in spec:
             sync = True
@@ -809,7 +809,7 @@ class NDB(object):
 
         for spec in self._nl:
             spec['event'] = None
-            self.sources.create(**spec)
+            self.sources.add(**spec)
 
         for (event, handlers) in self.schema.event_map.items():
             for handler in handlers:
