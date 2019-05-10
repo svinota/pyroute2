@@ -3,6 +3,11 @@
 IPDB module
 ===========
 
+.. warning::
+    The IPDB module has design issues that may not be
+    fixed. It is recommended to switch to NDB wherever
+    it's possible.
+
 Basically, IPDB is a transactional database, containing
 records, that represent network stack objects. Any change
 in the database is not reflected immediately in OS, but
@@ -12,10 +17,6 @@ so far. Moreover, IPDB has commit hooks API, that allows
 you to roll back changes depending on your own function
 calls, e.g. when a host or a network becomes unreachable.
 
-.. warning::
-    The IPDB module has design flows. The module will be
-    replaced by the NDB module in the nearest future.
-
 Limitations
 -----------
 
@@ -23,8 +24,8 @@ One of the major issues with IPDB is its memory footprint. It
 proved not to be suitable for environments with thousands of
 routes or neighbours. Being a design issue, it could not be
 fixed, so a new module was started, NDB, that aims to replace
-IPDB, but it isn't yet production ready. IPDB is still more
-feature rich, but NDB is already more fast and stable.
+IPDB. IPDB is still more feature rich, but NDB is already more
+fast and stable.
 
 IPDB, NDB, IPRoute
 ------------------

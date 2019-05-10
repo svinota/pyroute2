@@ -1,132 +1,76 @@
 '''
-NDB
-===
+NDB module
+==========
 
-An experimental high-level RTNL management module.
+A high-level RTNL management module. It provides a database
+of actual network settings, the database is being updated in
+the real time.
 
-.. warning::
-    And it means really experimental.
+Quick start
+-----------
 
-Examples::
-
-    from pyroute2 import NDB
-    from pprint import pprint
+Print the routing infotmation in the CSV format::
 
     with NDB() as ndb:
-        # ...
-        for line ndb.routes.csv():
-            print(line)
-        # ...
-        for record in ndb.interfaces.summary():
+        for record in ndb.routes.summary(format='csv'):
             print(record)
-        # ...
-        pprint(ndb.interfaces['eth0'])
 
-        # ...
-        pprint(ndb.interfaces[{'target': 'localhost',
-                               'ifname': 'eth0'}])
-
-        #
-        # change object parameters
-        #
-        eth0 = ndb.interfaces['eth0']
-        eth0['state'] = 'up'
-        eth0.commit()
-
-        #
-        # create objects
-        #
-        test0 = ndb.interfaces.create(ifname='test0', kind='dummy')
-        test0.commit()
-        # ...
-        test0.remove()
-        test0.commit()
-
-        #
-        # it is mandatory to call ndb.close() or to use NDB
-        # as a context manager
-        #
-
-Difference with IPDB
---------------------
-
-NDB is designed to work with multiple event sources and with loads of
-network objects.
-
-Multiple sources::
-
-    from pyroute2 import (NDB,
-                          IPRoute,
-                          NetNS,
-                          RemoteIPRoute)
-
-    sources = {'localhost': IPRoute(),
-               'debian.test': RemoteIPRoute(protocol='ssh',
-                                            hostname='192.168.122.54',
-                                            username='netops'),
-               'openbsd.test': RemoteIPRoute(protocol='ssh',
-                                             hostname='192.168.122.60',
-                                             username='netops'),
-               'netns0': NetNS('netns0'),
-               'docker': NetNS('/var/run/docker/netns/f2d2ba3e5987')}
-
-    # NDB supports the context protocol, close() is called automatically
-    with NDB(sources=sources) as ndb:
-        # local interface
-        print(ndb.interfaces[{'target': 'localhost',
-                              'ifname': 'eth0'}])
-        # remote interface
-        print(ndb.interfaces[{'target': 'openbsd.test',
-                              'ifname': 'ix0'}])
-        # all the interfaces
-        for i in ndb.interfaces.summary():
-            print(i)
-
-NDB stores all the data in an SQL database and creates objects on
-demand. Statements like `ndb.interfaces['eth0']` create a new object
-every time you run this statement. Thus::
+Print all the interface names on the system::
 
     with NDB() as ndb:
+        print([x.ifname for x in ndb.interfaces.summary()])
 
-        #
-        # This will NOT work, as every line creates a new object
-        #
-        ndb.interfaces['eth0']['state'] = 'up'
-        ndb.interfaces['eth0'].commit()
+Print IP addresses of interfaces in several network namespaces::
 
-        #
-        # This works
-        #
-        eth0 = ndb.interfaces['eth0']  # get the reference
-        eth0['state'] = 'up'
-        eth0.commit()
+    nslist = ['netns01',
+              'netns02',
+              'netns03']
 
-        #
-        # The same with a context manager
-        #
-        with ndb.interfaces['eth0'] as eth0:
-            eth0['state'] = 'up'
-        # ---> <--- the context manager runs commit() at __exit__()
+    with NDB() as ndb:
+        for nsname in nslist:
+            ndb.sources.add(netns=nsname)
+        for record in ndb.interfaces.summary(format='json'):
+            print(record)
+
+Add an IP address on an interface::
+
+    with NDB() as ndb:
+        with ndb.interfaces['eth0'] as i:
+            i.ipaddr.create(address='10.0.0.1', prefixlen=24).commit()
+            # ---> <---  NDB waits until the address actually
+            #            becomes available
+
+Change an interface property::
+
+    with NDB() as ndb:
+        with ndb.interfaces['eth0'] as i:
+            i['state'] = 'up'
+            i['address'] = '00:11:22:33:44:55'
+        # ---> <---  the commit() is called authomatically by
+        #            the context manager's __exit__()
 
 
-DB providers
-------------
+Key NDB features:
+    * Asynchronously updated database of RTNL objects
+    * Data integrity
+    * Multiple data sources -- local, netns, remote
+    * Fault tolerance and memory consumtion limits
+    * Transactions
 
-NDB supports different DB providers, now they are SQLite3 and PostgreSQL.
-PostgreSQL access requires psycopg2 module::
+DB backends
+-----------
 
-    from pyroute2 import NDB
+NDB supports different DB providers, for now SQLite3 and PostgreSQL.
+The default backend is SQLite3 which is a part of the Python standard
+library, no extra dependencies are employed in that case::
 
     # SQLite3 -- simple in-memory DB
-    ndb = NDB(db_provider='sqlite3')
-
-    # SQLite3 -- same as above
-    ndb = NDB(db_provider='sqlite3',
-              db_spec=':memory:')
+    ndb = NDB()
 
     # SQLite3 -- file DB
-    ndb = NDB(db_provider='sqlite3',
-              db_spec='test.db')
+    ndb = NDB(db_provider='sqlite3', db_spec='test.db')
+
+The PostgreSQL backend requires psycopg2 module::
 
     # PostgreSQL -- local DB
     ndb = NDB(db_provider='psycopg2',
