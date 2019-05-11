@@ -1,4 +1,4 @@
-.. remote:
+.. _remote:
 
 RemoteIPRoute
 -------------

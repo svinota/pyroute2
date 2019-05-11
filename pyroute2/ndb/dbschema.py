@@ -1,3 +1,97 @@
+'''
+Database
+========
+
+Backends
+--------
+
+NDB stores all the records in an SQL database. By default it uses
+the SQLite3 module, which is a part of the Python stdlib, so no
+extra packages are required::
+
+    # SQLite3 -- simple in-memory DB
+    ndb = NDB()
+
+    # SQLite3 -- file DB
+    ndb = NDB(db_provider='sqlite3', db_spec='test.db')
+
+It is also possible to use a PostgreSQL database via psycopg2
+module::
+
+    # PostgreSQL -- local DB
+    ndb = NDB(db_provider='psycopg2',
+              db_spec={'dbname': 'test'})
+
+    # PostgreSQL -- remote DB
+    ndb = NDB(db_provider='psycopg2',
+              db_spec={'dbname': 'test',
+                       'host': 'db1.example.com'})
+
+SQL schema
+----------
+
+A file based SQLite3 DB or PostgreSQL may be useful for inspection
+of the collected data. Here is an example schema::
+
+    rtnl=# \\dt
+                List of relations
+     Schema |      Name       | Type  | Owner
+    --------+-----------------+-------+-------
+     public | addresses       | table | root
+     public | ifinfo_bond     | table | root
+     public | ifinfo_bridge   | table | root
+     public | ifinfo_gre      | table | root
+     public | ifinfo_vlan     | table | root
+     public | ifinfo_vrf      | table | root
+     public | ifinfo_vti      | table | root
+     public | ifinfo_vti6     | table | root
+     public | ifinfo_vxlan    | table | root
+     public | interfaces      | table | root
+     public | neighbours      | table | root
+     public | nh              | table | root
+     public | routes          | table | root
+     public | sources         | table | root
+     public | sources_options | table | root
+    (15 rows)
+
+    rtnl=# select f_index, f_ifla_ifname from interfaces;
+     f_index | f_ifla_ifname
+    ---------+---------------
+           1 | lo
+           2 | eth0
+          28 | ip_vti0
+          31 | ip6tnl0
+          32 | ip6_vti0
+       36445 | br0
+       11434 | dummy0
+           3 | eth1
+    (8 rows)
+
+    rtnl=# select f_index, f_ifla_br_stp_state from ifinfo_bridge;
+     f_index | f_ifla_br_stp_state
+    ---------+---------------------
+       36445 |                   0
+    (1 row)
+
+There are also some useful views, that join `ifinfo` tables with
+`interfaces`::
+
+    rtnl=# \\dv
+           List of relations
+     Schema |  Name  | Type | Owner
+    --------+--------+------+-------
+     public | bond   | view | root
+     public | bridge | view | root
+     public | gre    | view | root
+     public | vlan   | view | root
+     public | vrf    | view | root
+     public | vti    | view | root
+     public | vti6   | view | root
+     public | vxlan  | view | root
+    (8 rows)
+
+'''
+
 import time
 import uuid
 import struct
@@ -358,7 +452,7 @@ class DBSchema(object):
         # service tables
         #
         self.execute('''
-                     DROP TABLE IF EXISTS options
+                     DROP TABLE IF EXISTS sources_options
                      ''')
         self.execute('''
                      DROP TABLE IF EXISTS sources
@@ -369,7 +463,7 @@ class DBSchema(object):
                       f_kind TEXT NOT NULL)
                      ''')
         self.execute('''
-                     CREATE TABLE IF NOT EXISTS options
+                     CREATE TABLE IF NOT EXISTS sources_options
                      (f_target TEXT NOT NULL,
                       f_name TEXT NOT NULL,
                       f_type TEXT NOT NULL,

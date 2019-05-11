@@ -1,4 +1,4 @@
-.. iproute:
+.. _iproute:
 
 IPRoute module
 ==============

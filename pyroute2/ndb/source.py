@@ -1,3 +1,75 @@
+'''
+RTNL sources
+============
+
+Local RTNL
+----------
+
+Local RTNL source is a simple `IPRoute` instance. By default NDB
+starts with one local RTNL source names `localhost`::
+
+    >>> ndb = NDB()
+    >>> ndb.sources.details()
+    {'kind': u'local', u'nlm_generator': 1, 'target': u'localhost'}
+    >>> ndb.sources['localhost']
+    [running] <IPRoute {'nlm_generator': 1}>
+
+The `localhost` RTNL source starts an additional async cache thread.
+The `nlm_generator` option means that instead of collections the
+`IPRoute` object returns generators, so `IPRoute` responses will not
+consume memory regardless of the RTNL objects number::
+
+    >>> ndb.sources['localhost'].nl.link('dump')
+    <generator object _match at 0x7fa444961e10>
+
+See also: :ref:`iproute`
+
+Network namespaces
+------------------
+
+There are two ways to connect additional sources to an NDB instance.
+One is to specify sources when creating an NDB object::
+
+    ndb = NDB(sources=[{'target': 'localhost'}, {'netns': 'test01'}])
+
+Another way is to call `ndb.sources.add()` method::
+
+    ndb.sources.add(netns='test01')
+
+This syntax: `{target': 'localhost'}` and `{'netns': 'test01'}` is the
+short form. The full form would be::
+
+    {'target': 'localhost', # the label for the DB
+     'kind': 'local',       # use IPRoute class to start the source
+     'nlm_generator': 1}    #
+
+    {'target': 'test01',    # the label
+     'kind': 'netns',       # use NetNS class
+     'netns': 'test01'}     #
+
+See also: :ref:`netns`
+
+Remote systems
+--------------
+
+It is possible also to connect to remote systems using SSH. In order to
+use this kind of sources it is required to install the
+`mitogen <https://github.com/dw/mitogen>`_ module. The `remote` kind
+of sources uses the `RemoteIPRoute` class. The short form::
+
+    ndb.sources.add(hostname='worker1.example.com')
+
+
+In some more extended form::
+
+    ndb.sources.add(**{'target': 'worker1.example.com',
+                       'kind': 'remote',
+                       'hostname': 'worker1.example.com',
+                       'username': 'jenkins',
+                       'check_host_keys': False})
+
+See also: :ref:`remote`
+'''
 import time
 import threading
 from pyroute2 import IPRoute
@@ -64,10 +136,8 @@ class Source(dict):
         for key, value in spec.items():
             vtype = 'int' if isinstance(value, int) else 'str'
             self.ndb.schema.execute('''
-                                    INSERT INTO options (f_target,
-                                                         f_name,
-                                                         f_type,
-                                                         f_value)
+                                    INSERT INTO sources_options
+                                    (f_target, f_name, f_type, f_value)
                                     VALUES (%s, %s, %s, %s)
                                     ''' % (self.ndb.schema.plch,
                                            self.ndb.schema.plch,
@@ -106,7 +176,7 @@ class Source(dict):
              .ndb
              .schema
              .execute('''
-                      DELETE FROM options WHERE f_target=%s
+                      DELETE FROM sources_options WHERE f_target=%s
                       ''' % self.ndb.schema.plch, (self.target, )))
             return self
 
@@ -242,7 +312,7 @@ class Source(dict):
             self.th.start()
             return self
 
-    def close(self):
+    def close(self, flush=True):
         with self.lock:
             self.log.debug('stopping the source')
             self.shutdown.set()
@@ -254,7 +324,8 @@ class Source(dict):
         if self.th is not None:
             self.th.join()
         self.log.debug('flushing the DB for the target')
-        self.ndb.schema.flush(self.target)
+        if flush:
+            self.ndb.schema.flush(self.target)
 
     def restart(self):
         with self.lock:
@@ -282,7 +353,7 @@ class Source(dict):
                                         (self.target, ))
         self['target'], self['kind'] = spec
         for spec in self.ndb.schema.fetch('''
-                                          SELECT * FROM options
+                                          SELECT * FROM sources_options
                                           WHERE f_target = %s
                                           ''' % self.ndb.schema.plch,
                                           (self.target, )):

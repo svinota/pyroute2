@@ -1,6 +1,6 @@
 '''
-NetNS
-=====
+NetNS objects
+=============
 
 A NetNS object is IPRoute-like. It runs in the main network
 namespace, but also creates a proxy process running in

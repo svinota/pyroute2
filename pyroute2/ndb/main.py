@@ -1,10 +1,13 @@
 '''
-NDB module
-==========
 
-A high-level RTNL management module. It provides a database
-of actual network settings, the database is being updated in
-the real time.
+NDB is a high level network management module. IT allows to manage interfaces,
+routes, addresses etc. of connected systems, containers and network
+namespaces.
+
+NDB work with remote systems via ssh, in that case
+`mitogen <https://github.com/dw/mitogen>`_ module is required. It is
+possible to connect also OpenBSD and FreeBSD systems, but in read-only
+mode for now.
 
 Quick start
 -----------
@@ -56,31 +59,6 @@ Key NDB features:
     * Multiple data sources -- local, netns, remote
     * Fault tolerance and memory consumtion limits
     * Transactions
-
-DB backends
------------
-
-NDB supports different DB providers, for now SQLite3 and PostgreSQL.
-The default backend is SQLite3 which is a part of the Python standard
-library, no extra dependencies are employed in that case::
-
-    # SQLite3 -- simple in-memory DB
-    ndb = NDB()
-
-    # SQLite3 -- file DB
-    ndb = NDB(db_provider='sqlite3', db_spec='test.db')
-
-The PostgreSQL backend requires psycopg2 module::
-
-    # PostgreSQL -- local DB
-    ndb = NDB(db_provider='psycopg2',
-              db_spec={'dbname': 'test'})
-
-    # PostgreSQL -- remote DB
-    ndb = NDB(db_provider='psycopg2',
-              db_spec={'dbname': 'test',
-                       'host': 'db1.example.com'})
-
 
 '''
 import gc
@@ -732,7 +710,7 @@ class NDB(object):
     def execute(self, *argv, **kwarg):
         return self.schema.execute(*argv, **kwarg)
 
-    def close(self):
+    def close(self, flush=False):
         with self._global_lock:
             if self._dbm_shutdown.is_set():
                 return
@@ -752,7 +730,7 @@ class NDB(object):
                 self._event_queue.put(('localhost', (ShutdownException(), )))
                 # release all the sources
                 for target, source in self.sources.cache.items():
-                    source.close()
+                    source.close(flush)
                 # close the database
                 self.schema.commit()
                 self.schema.close()
