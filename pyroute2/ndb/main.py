@@ -586,7 +586,7 @@ class SourcesView(View):
         return self.cache[target]
 
 
-class Debug(object):
+class Log(object):
 
     def __init__(self, log_id=None):
         self.logger = None
@@ -645,13 +645,13 @@ class NDB(object):
                  sources=None,
                  db_provider='sqlite3',
                  db_spec=':memory:',
-                 rtnl_log=False,
-                 debug=False):
+                 debug=False,
+                 log=False):
 
         self.ctime = self.gctime = time.time()
         self.schema = None
         self.config = {}
-        self.debug = Debug(log_id=id(self))
+        self.log = Log(log_id=id(self))
         self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
@@ -660,8 +660,8 @@ class NDB(object):
         self._event_map = None
         self._event_queue = queue.Queue(maxsize=100)
         #
-        if debug:
-            self.debug(debug)
+        if log:
+            self.log(log)
         #
         # fix sources prime
         if sources is None:
@@ -675,7 +675,7 @@ class NDB(object):
         self._nl = sources
         self._db_provider = db_provider
         self._db_spec = db_spec
-        self._db_rtnl_log = rtnl_log
+        self._db_rtnl_log = debug
         atexit.register(self.close)
         self._rtnl_objects = set()
         self._dbm_ready.clear()

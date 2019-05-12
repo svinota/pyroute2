@@ -12,9 +12,9 @@ except ImportError:
 
 
 class Console(code.InteractiveConsole):
-    def __init__(self, stdout=None, debug=None, sources=None):
+    def __init__(self, stdout=None, log=None, sources=None):
         global HAS_READLINE
-        self.db = NDB(debug=debug, sources=sources)
+        self.db = NDB(log=log, sources=sources)
         self.db.config = {'show_format': 'json'}
         self.stdout = stdout or sys.stdout
         self.session = Session(self.db, self.stdout, self.set_prompt)

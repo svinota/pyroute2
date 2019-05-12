@@ -378,7 +378,7 @@ class DBSchema(object):
         self.thread = tid
         self.connection = connection
         self.rtnl_log = rtnl_log
-        self.log = ndb.debug.channel('schema')
+        self.log = ndb.log.channel('schema')
         self.snapshots = {}
         self.key_defaults = {}
         self._cursor = None

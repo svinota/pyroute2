@@ -124,7 +124,7 @@ class Source(dict):
         self.started = threading.Event()
         self.lock = threading.RLock()
         self.started.clear()
-        self.log = ndb.debug.channel('sources.%s' % self.target)
+        self.log = ndb.log.channel('sources.%s' % self.target)
         self.state = State(log=self.log)
         self.state.set('init')
         self.ndb.schema.execute('''

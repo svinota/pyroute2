@@ -52,7 +52,7 @@ class RTNL_Object(dict):
         self.iclass = iclass
         self.utable = self.utable or self.table
         self.errors = []
-        self.log = self.ndb.debug.channel('rtnl_object')
+        self.log = self.ndb.log.channel('rtnl_object')
         self.log.debug('init')
         self.state = State()
         self.state.set('invalid')
