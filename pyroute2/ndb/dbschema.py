@@ -666,6 +666,22 @@ class DBSchema(object):
                 yield row
 
     @publish_exec
+    def export_debug(self, fname='pr2_debug'):
+        if self.rtnl_log:
+            with open(fname, 'w') as f:
+                for table in self.spec.keys():
+                    f.write('\ntable %s\n' % table)
+                    for record in (self
+                                   .execute('SELECT * FROM %s' % table)):
+                        f.write(' '.join([str(x) for x in record]))
+                        f.write('\n')
+                    f.write('\ntable %s_log\n' % table)
+                    for record in (self
+                                   .execute('SELECT * FROM %s_log' % table)):
+                        f.write(' '.join([str(x) for x in record]))
+                        f.write('\n')
+
+    @publish_exec
     def close(self):
         self.purge_snapshots()
         self.connection.commit()
@@ -1111,12 +1127,8 @@ class DBSchema(object):
 
     def load_netlink(self, table, target, event, ctable=None):
         #
-        # Simple barrier to work with the DB only from
-        # one thread
-        #
-        # ? make a decorator ?
-        if self.thread != id(threading.current_thread()):
-            return
+        if self.rtnl_log:
+            self.log_netlink(table, target, event, ctable)
         #
         # Update metrics
         #
@@ -1265,8 +1277,4 @@ def init(ndb, connection, mode, rtnl_log, tid):
                      ifaddrmsg: [partial(ret.load_netlink, 'addresses')],
                      ndmsg: [ret.load_ndmsg],
                      rtmsg: [ret.load_rtmsg]}
-    if rtnl_log:
-        types = dict([(x[1], x[0]) for x in ret.classes.items()])
-        for msg_type, handlers in ret.event_map.items():
-            handlers.append(partial(ret.log_netlink, types[msg_type]))
     return ret
