@@ -487,9 +487,10 @@ class RTNL_Object(dict):
         if set_state:
             with self.lock:
                 if spec is None:
-                    # No such object (anymore)
-                    self.state.set('invalid')
-                    self.changed = set()
+                    if self.state != 'invalid':
+                        # No such object (anymore)
+                        self.state.set('invalid')
+                        self.changed = set()
                 elif self.state not in ('remove', 'setns'):
                     self.update(dict(zip(self.names, spec)))
                     self.state.set('system')
