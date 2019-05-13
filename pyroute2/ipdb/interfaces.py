@@ -1097,26 +1097,14 @@ class Interface(Transactional):
         '''
         Shortcut: change the interface state to 'up'.
         '''
-        if self['flags'] is None:
-            self['flags'] = 1
-        else:
-            if not self['flags'] & 1:
-                self['flags'] |= 1
-            elif self.current_tx is None:
-                self.begin()
+        self['state'] = 'up'
         return self
 
     def down(self):
         '''
         Shortcut: change the interface state to 'down'.
         '''
-        if self['flags'] is None:
-            self['flags'] = 0
-        else:
-            if self['flags'] & 1:
-                self['flags'] &= ~(self['flags'] & 1)
-            elif self.current_tx is None:
-                self.begin()
+        self['state'] = 'down'
         return self
 
     def remove(self):
