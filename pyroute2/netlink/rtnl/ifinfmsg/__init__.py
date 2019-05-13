@@ -381,6 +381,7 @@ class ifinfbase(object):
     # CREATE UNIQUE INDEX if_idx ON interfaces(f_target, f_index)
     #
     sql_constraints = {'index': 'NOT NULL'}
+    sql_extra_fields = (('state', 'TEXT'), )
 
     fields = (('family', 'B'),
               ('__align', 'x'),
