@@ -301,7 +301,7 @@ class RTNL_Object(dict):
             return False
 
         if self.changed:
-            self.log.debug('check changed: False')
+            self.log.debug('check changed: %s' % (self.changed))
             return False
 
         self.log.debug('check: True')
