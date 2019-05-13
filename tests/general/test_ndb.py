@@ -129,8 +129,8 @@ class TestBase(object):
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
-                       rtnl_log=True)
-        self.ndb.debug('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
+                       debug=True)
+        self.ndb.log('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
         self.interfaces = self.create_interfaces()
 
     def teardown(self):
@@ -173,8 +173,8 @@ class TestCreate(object):
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
-                       rtnl_log=True)
-        self.ndb.debug('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
+                       debug=True)
+        self.ndb.log('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
 
     def teardown(self):
         with self.nl_class(**self.nl_kwarg) as ipr:
@@ -379,8 +379,8 @@ class TestNetNS(object):
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        sources=self.sources,
-                       rtnl_log=True)
-        self.ndb.debug('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
+                       debug=True)
+        self.ndb.log('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
 
     def ifaddr(self, r=0):
         return str(self.ipranges[r].pop())
@@ -499,8 +499,8 @@ class TestRollback(TestBase):
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
-                       rtnl_log=True)
-        self.ndb.debug('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
+                       debug=True)
+        self.ndb.log('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
         self.interfaces = []
 
     def test_simple_deps(self):
