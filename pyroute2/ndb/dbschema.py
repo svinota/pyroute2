@@ -1,7 +1,4 @@
 '''
-Database
-========
-
 Backends
 --------
 

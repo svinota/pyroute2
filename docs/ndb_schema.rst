@@ -1,3 +1,6 @@
-.. ndb_schema:
+.. _ndbschema:
+
+Database
+========
 
 .. automodule:: pyroute2.ndb.dbschema
