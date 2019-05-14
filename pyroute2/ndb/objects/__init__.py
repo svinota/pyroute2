@@ -369,22 +369,22 @@ class RTNL_Object(dict):
                     except:
                         pass
             method = 'add'
-            ignore = (errno.EEXIST, )
+            ignore = {errno.EEXIST: 'set'}
         elif state == 'system':
             method = 'set'
         elif state == 'setns':
             method = 'set'
-            ignore = (errno.ENODEV, )
+            ignore = {errno.ENODEV: None}
         elif state == 'remove':
             method = 'del'
             req = idx_req
-            ignore = (errno.ENODEV, )
+            ignore = {errno.ENODEV: None}
         else:
             raise Exception('state transition not supported')
 
         for _ in range(10):
             try:
-                self.log.debug(method)
+                self.log.debug('run %s (%s)' % (method, req))
                 (self
                  .sources[self['target']]
                  .api(self.api, method, **req))
@@ -396,6 +396,15 @@ class RTNL_Object(dict):
                  .debug('error: %s' % e))
                 if e.code in ignore:
                     self.log.debug('ignore error %s for %s' % (e.code, self))
+                    if ignore[e.code] is not None:
+                        self.log.debug('run fallback %s (%s)'
+                                       % (ignore[e.code], req))
+                        try:
+                            (self
+                             .sources[self['target']]
+                             .api(self.api, ignore[e.code], **req))
+                        except NetlinkError:
+                            pass
                 else:
                     raise e
 

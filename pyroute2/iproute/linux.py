@@ -1218,6 +1218,9 @@ class RTNL_API(object):
                     mask=24,
                     local='10.1.1.1')
         '''
+        if command == 'set':
+            return
+
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_create = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         commands = {'add': (RTM_NEWADDR, flags_create),
@@ -1344,6 +1347,9 @@ class RTNL_API(object):
             help(ip.tc("modules")["htb"])
             print(ip.tc("help", "htb"))
         '''
+        if command == 'set':
+            return
+
         if command == 'modules':
             return tc_plugins
 
@@ -1747,6 +1753,9 @@ class RTNL_API(object):
                          dst='10.64.75.141',
                          fwmark=10)
         '''
+        if command == 'set':
+            return
+
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_dump = NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC
