@@ -664,6 +664,12 @@ class Interface(Transactional):
             for addr in self.ipdb.ipaddr[self['index']]:
                 transaction['ipaddr'].add(addr)
 
+            # Reload the interface data
+            try:
+                self.load_netlink(self.nl.link('get', **request)[0])
+            except Exception:
+                pass
+
         # now we have our index and IP set and all other stuff
         snapshot = self.pick()
 
