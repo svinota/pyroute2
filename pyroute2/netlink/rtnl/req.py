@@ -256,6 +256,9 @@ class IPRouteRequest(IPRequest):
             elif action == 'End.DT6':
                 # Retrieve table
                 table = header['table']
+            elif action == 'End.DT4':
+                # Retrieve table
+                table = header['table']
             elif action == 'End.B6':
                 # Parse segs
                 segs = header['srh']['segs']

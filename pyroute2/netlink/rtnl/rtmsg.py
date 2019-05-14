@@ -214,8 +214,8 @@ class rtmsg_base(nlflags):
             def encode(self):
                 # Retrieve the family
                 family = self.get_family()
-                # Seg6 can be applied only to IPv6
-                if family == AF_INET6:
+                # Seg6 can be applied only to IPv6 and IPv4
+                if family == AF_INET6 or family == AF_INET:
                     # Get mode
                     mode = self['mode']
                     # Get segs
@@ -255,7 +255,7 @@ class rtmsg_base(nlflags):
                     # Iterate over segments
                     for seg in segs:
                         # Convert to network byte order and add to value
-                        self['segs'] += inet_pton(family, seg)
+                        self['segs'] += inet_pton(AF_INET6, seg)
                     # Initialize tlvs
                     self['tlvs'] = b''
                     # If hmac is used we have to properly init tlvs
