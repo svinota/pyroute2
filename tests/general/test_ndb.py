@@ -179,7 +179,10 @@ class TestCreate(object):
     def teardown(self):
         with self.nl_class(**self.nl_kwarg) as ipr:
             for link in reversed(self.interfaces):
-                ipr.link('del', index=ipr.link_lookup(ifname=link)[0])
+                try:
+                    ipr.link('del', index=ipr.link_lookup(ifname=link)[0])
+                except Exception:
+                    pass
         self.ndb.close()
         for net in self.ipnets:
             free_network(net)
@@ -262,6 +265,7 @@ class TestCreate(object):
         assert grep('%s ip link show' % self.ssh,
                     pattern='%s.*%s' % (brport, bridge))
 
+    @skip_if_not_supported
     def test_vrf(self):
         vrf = self.ifname()
         (self
