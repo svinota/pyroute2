@@ -138,6 +138,15 @@ Some examples::
                     'mode': 'inline',
                     'segs': ['2000::5', '2000::6']})
 
+    # create SEG6 tunnel with ip4ip6 encapsulation
+    # Kernel >= 4.14
+    ip.route('add',
+             dst='172.16.0.0/24',
+             oif=idx,
+             encap={'type': 'seg6',
+                    'mode': 'encap',
+                    'segs': '2000::5,2000::6'})
+
 
     # release Netlink socket
     ip.close()

@@ -1546,6 +1546,15 @@ class RTNL_API(object):
                             'segs':'2000::5,2000::6,2000::7,2000::8',
                             'hmac':0xf})
 
+        Create SEG6 tunnel with ip4ip6 encapsulation (kernel >= 4.14)::
+
+            ip.route('add',
+                     dst='172.16.0.0/24',
+                     oif=idx,
+                     encap={'type': 'seg6',
+                            'mode': 'encap',
+                            'segs': '2000::5,2000::6'})
+
         Create SEG6LOCAL tunnel End.DX4 action (kernel >= 4.14)::
 
             ip.route('add',
