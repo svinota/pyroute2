@@ -323,8 +323,8 @@ class Source(dict):
                     self.log.error('source close: %s' % e)
         if self.th is not None:
             self.th.join()
-        self.log.debug('flushing the DB for the target')
         if flush:
+            self.log.debug('flushing the DB for the target')
             self.ndb.schema.flush(self.target)
 
     def restart(self):
