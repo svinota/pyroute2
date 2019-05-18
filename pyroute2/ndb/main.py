@@ -133,9 +133,11 @@ class View(dict):
                  match_pairs=None,
                  chain=None):
         self.ndb = ndb
+        self.log = ndb.log.channel('view.%s' % table)
         self.table = table
         self.event = table  # FIXME
         self.chain = chain
+        self.cache = {}
         self.constraints = {}
         self.match_src = match_src
         self.match_pairs = match_pairs
@@ -285,6 +287,44 @@ class View(dict):
                      key,
                      match_src=match_src,
                      match_pairs=match_pairs)
+
+        # rtnl_object.key() returns a dcitionary that can not
+        # be used as a cache key. Create here a tuple from it.
+        # The key order guaranteed by the dictionary.
+        cache_key = tuple(ret.key.items())
+
+        # iterate all the cache to remove unused and clean
+        # (without any started transaction) objects.
+        for ckey in tuple(self.cache):
+            # skip the current cache_key to avoid extra
+            # cache del/add records in the logs
+            if ckey == cache_key:
+                continue
+            # the number of referrers must be > 1, the first
+            # one is the cache itself
+            rcount = len(gc.get_referrers(self.cache[ckey]))
+            # the number of changed rtnl_object fields must
+            # be 0 which means that no transaction is started
+            ccount = len(self.cache[ckey].changed)
+            if rcount == 1 and ccount == 0:
+                self.log.debug('cache del %s' % (ckey, ))
+                del self.cache[ckey]
+
+        # cache only existing objects
+        if ret.state == 'system':
+            if cache_key in self.cache:
+                self.log.debug('cache hit %s' % (cache_key, ))
+                # explicitly get rid of the created object
+                del ret
+                # the object from the cache has already
+                # registered callbacks, simply return it
+                ret = self.cache[cache_key]
+                return ret
+            else:
+                self.log.debug('cache add %s' % (cache_key, ))
+                # otherwise create a cache entry
+                self.cache[cache_key] = ret
+
         wr = weakref.ref(ret)
         self.ndb._rtnl_objects.add(wr)
         for event, fname in ret.event_map.items():

@@ -163,7 +163,7 @@ class RTNL_Object(dict):
 
     @property
     def key(self):
-        ret = {}
+        ret = collections.OrderedDict()
         for name in self.kspec:
             kname = self.iclass.nla2name(name)
             if self.get(kname):
