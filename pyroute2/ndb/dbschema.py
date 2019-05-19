@@ -550,6 +550,10 @@ class DBSchema(object):
         #
         f_idx = ['f_%s' % x for x in idx]
         #
+        # normalized idx names
+        #
+        norm_idx = [iclass.nla2name(x) for x in idx]
+        #
         # match the index fields, fully qualified
         #
         # interfaces.f_index = ?, interfaces.f_IFLA_IFNAME = ?
@@ -562,6 +566,7 @@ class DBSchema(object):
                 'all_names': all_names,
                 'norm_names': norm_names,
                 'idx': idx,
+                'norm_idx': norm_idx,
                 'fnames': ','.join(f_names),
                 'plchs': ','.join(plchs),
                 'fset': ','.join(f_set),
@@ -591,7 +596,7 @@ class DBSchema(object):
                     #
                     pass
             else:
-                raise Exception('DB execute error')
+                raise Exception('DB execute error: %s %s' % (argv, kwarg))
         except Exception:
             self.connection.commit()
             if self._cursor:
@@ -841,6 +846,7 @@ class DBSchema(object):
         # related records will be marked, now just copy the marked data
         #
         for table in self.spec:
+            self.log.debug('create snapshot %s_%s' % (table, ctxid))
             #
             # create the snapshot table
             #

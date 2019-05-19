@@ -59,7 +59,8 @@ class RTNL_Object(dict):
         self.snapshot_deps = []
         self.load_event = threading.Event()
         self.lock = threading.Lock()
-        self.kspec = ('target', ) + self.schema.indices[self.table]
+        self.kspec = self.schema.compiled[self.table]['idx']
+        self.knorm = self.schema.compiled[self.table]['norm_idx']
         self.spec = self.schema.compiled[self.table]['all_names']
         self.names = self.schema.compiled[self.table]['norm_names']
         if isinstance(key, dict):
@@ -113,6 +114,8 @@ class RTNL_Object(dict):
         return dict.__getitem__(self, key)
 
     def __setitem__(self, key, value):
+        if self.state == 'system' and key in self.knorm:
+            raise ValueError('Attempt to change a key field (%s)' % key)
         if key in ('net_ns_fd', 'net_ns_pid'):
             self.state.set('setns')
         if value != self.get(key, None):
@@ -166,7 +169,7 @@ class RTNL_Object(dict):
         ret = collections.OrderedDict()
         for name in self.kspec:
             kname = self.iclass.nla2name(name)
-            if self.get(kname):
+            if kname in self:
                 ret[name] = self[kname]
         if len(ret) < len(self.kspec):
             for name in self.key_extra_fields:
