@@ -61,21 +61,14 @@ RTNL objects
 ------------
 
 NDB creates RTNL objects on demand, it doesn't keep them all the time.
-Weak references to all created objects are linked to the `ndb._rtnl_objects`
-set::
+References to created objects are linked to the `ndb.<view>.cache` set::
 
-   >>> [x for x in ndb._rtnl_objects]
-   <weakref at 0x7f4296bf1a48; to 'Interface' at 0x7f4298465db0>
-   <weakref at 0x7f4296bf1a98; to 'Interface' at 0x7f4298465678>
+   >>> ndb.interfaces.cache.keys()
+   [(('target', u'localhost'), ('index', 2)),
+    (('target', u'localhost'), ('index', 39615))]
 
-   >>> [type(x) for x in ndb._rtnl_objects]
-   [<class 'weakref'>, <class 'weakref'>]
-
-   >>> [type(x()) for x in ndb._rtnl_objects]
-   [
-      <class 'pyroute2.ndb.objects.interface.Interface'>,
-      <class 'pyroute2.ndb.objects.interface.Interface'>
-   ]
+   >>> [x['ifname'] for x in ndb.interfaces.cache.values()]
+   [u'eth0', u't2']
 
 Object states
 -------------

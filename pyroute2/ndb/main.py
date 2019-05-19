@@ -293,40 +293,39 @@ class View(dict):
         # The key order guaranteed by the dictionary.
         cache_key = tuple(ret.key.items())
 
-        # iterate all the cache to remove unused and clean
+        # Iterate all the cache to remove unused and clean
         # (without any started transaction) objects.
         for ckey in tuple(self.cache):
-            # skip the current cache_key to avoid extra
+            # Skip the current cache_key to avoid extra
             # cache del/add records in the logs
             if ckey == cache_key:
                 continue
-            # the number of referrers must be > 1, the first
+            # The number of referrers must be > 1, the first
             # one is the cache itself
             rcount = len(gc.get_referrers(self.cache[ckey]))
-            # the number of changed rtnl_object fields must
+            # The number of changed rtnl_object fields must
             # be 0 which means that no transaction is started
             ccount = len(self.cache[ckey].changed)
             if rcount == 1 and ccount == 0:
                 self.log.debug('cache del %s' % (ckey, ))
                 del self.cache[ckey]
 
-        # cache only existing objects
+        # Cache only existing objects
         if ret.state == 'system':
             if cache_key in self.cache:
                 self.log.debug('cache hit %s' % (cache_key, ))
-                # explicitly get rid of the created object
+                # Explicitly get rid of the created object
                 del ret
-                # the object from the cache has already
+                # The object from the cache has already
                 # registered callbacks, simply return it
                 ret = self.cache[cache_key]
                 return ret
             else:
                 self.log.debug('cache add %s' % (cache_key, ))
-                # otherwise create a cache entry
+                # Otherwise create a cache entry
                 self.cache[cache_key] = ret
 
         wr = weakref.ref(ret)
-        self.ndb._rtnl_objects.add(wr)
         for event, fname in ret.event_map.items():
             #
             # Do not trust the implicit scope and pass the
@@ -336,7 +335,6 @@ class View(dict):
              .ndb
              .register_handler(event,
                                partial(wr_handler, wr, fname)))
-
         return ret
 
     def __setitem__(self, key, value):
@@ -717,7 +715,6 @@ class NDB(object):
         self._db_spec = db_spec
         self._db_rtnl_log = debug
         atexit.register(self.close)
-        self._rtnl_objects = set()
         self._dbm_ready.clear()
         self._dbm_thread = threading.Thread(target=self.__dbm__,
                                             name='NDB main loop')
@@ -861,9 +858,6 @@ class NDB(object):
                                       % (event, traceback.format_exc()))
                     if time.time() - self.gctime > config.gc_timeout:
                         self.gctime = time.time()
-                        for wr in tuple(self._rtnl_objects):
-                            if wr() is None:
-                                self._rtnl_objects.remove(wr)
             except:
                 log.error('exception in source %s' % target)
                 # restart the target
