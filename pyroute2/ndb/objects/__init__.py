@@ -153,9 +153,9 @@ class RTNL_Object(dict):
         self[key] = value
         return self
 
-    @property
-    def wtime(self):
-        return max(1, self.view.ndb._event_queue.qsize() / 10)
+    def wtime(self, itn=1):
+        return max(min(itn * 0.1, 1),
+                   self.view.ndb._event_queue.qsize() / 10)
 
     @property
     def etable(self):
@@ -385,7 +385,7 @@ class RTNL_Object(dict):
         else:
             raise Exception('state transition not supported')
 
-        for _ in range(10):
+        for itn in range(20):
             try:
                 self.log.debug('run %s (%s)' % (method, req))
                 (self
@@ -411,7 +411,7 @@ class RTNL_Object(dict):
                 else:
                     raise e
 
-            wtime = self.wtime
+            wtime = self.wtime(itn)
             mqsize = self.view.ndb._event_queue.qsize()
             nqsize = self.schema.stats.get(self['target']).qsize
             self.log.debug('stats: apply %s {'
