@@ -51,9 +51,11 @@ One can even start `IPDB` on the top of `NetNS`::
 
     from pyroute2 import NetNS
     from pyroute2 import IPDB
-    ipdb = IPDB(nl=NetNS('netns_name'))
+    ns = NetNS('netns_name')
+    ipdb = IPDB(nl=ns)
     # do some stuff within the netns
     ipdb.release()
+    ns.close()
 
 Spawn a process within a netns
 ------------------------------
