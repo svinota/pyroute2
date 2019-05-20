@@ -33,6 +33,7 @@ class RTNL_Object(dict):
     errors = None
     msg_class = None
     reverse_update = None
+    _replace = None
 
     def __init__(self,
                  view,
@@ -188,7 +189,11 @@ class RTNL_Object(dict):
 
     def snapshot(self, ctxid=None):
         ctxid = ctxid or self.ctxid or id(self)
-        snp = type(self)(self.view, self.key, ctxid=ctxid)
+        if self._replace is None:
+            key = self.key
+        else:
+            key = self._replace.key
+        snp = type(self)(self.view, key, ctxid=ctxid)
         self.ndb.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
         snp.changed = set(self.changed)
         return snp
@@ -225,6 +230,14 @@ class RTNL_Object(dict):
         return key
 
     def rollback(self, snapshot=None):
+        if self._replace is not None:
+            self.log.debug('rollback replace: %s :: %s'
+                           % (self.key, self._replace.key))
+            new_replace = type(self)(self.view, self.key)
+            new_replace.state.set('remove')
+            self.state.set('replace')
+            self.update(self._replace)
+            self._replace = new_replace
         self.log.debug('rollback: %s' % str(self.state.events))
         snapshot = snapshot or self.last_save
         snapshot.state.set(self.state.get())
@@ -294,7 +307,8 @@ class RTNL_Object(dict):
     def check(self):
         state_map = (('invalid', 'system'),
                      ('remove', 'invalid'),
-                     ('setns', 'invalid'))
+                     ('setns', 'invalid'),
+                     ('replace', 'system'))
 
         self.load_sql()
         self.log.debug('check: %s' % str(self.state.events))
@@ -345,7 +359,7 @@ class RTNL_Object(dict):
         except:
             pass
         self.load_sql(set_state=False)
-        if self.get_count() == 0:
+        if self.state == 'system' and self.get_count() == 0:
             state = self.state.set('invalid')
         else:
             state = self.state.get()
@@ -362,7 +376,7 @@ class RTNL_Object(dict):
         method = None
         ignore = tuple()
         #
-        if state == 'invalid':
+        if state in ('invalid', 'replace'):
             req = dict([x for x in self.items() if x[1] is not None])
             for l_key, r_key in self.match_pairs.items():
                 for src in self.match_src:
@@ -381,7 +395,8 @@ class RTNL_Object(dict):
         elif state == 'remove':
             method = 'del'
             req = idx_req
-            ignore = {errno.ENODEV: None}
+            ignore = {errno.ENODEV: None,
+                      errno.ESRCH: None}
         else:
             raise Exception('state transition not supported')
 
@@ -429,6 +444,11 @@ class RTNL_Object(dict):
             raise Exception('lost sync in apply()')
 
         self.log.debug('stats: %s pass' % (id(self)))
+        #
+        if state == 'replace':
+            self._replace.remove()
+            self._replace.apply()
+            self._replace = None
         #
         if rollback:
             #
