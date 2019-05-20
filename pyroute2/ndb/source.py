@@ -71,6 +71,7 @@ In some more extended form::
 See also: :ref:`remote`
 '''
 import time
+import struct
 import threading
 from pyroute2 import IPRoute
 from pyroute2 import RemoteIPRoute
@@ -204,9 +205,11 @@ class Source(dict):
                 except (NetlinkError,
                         AttributeError,
                         ValueError,
-                        KeyError):
+                        KeyError,
+                        struct.error):
                     raise
                 except Exception as e:
+                    print(type(e))
                     # probably the source is restarting
                     self.log.debug('source api error: %s' % e)
                     time.sleep(1)
