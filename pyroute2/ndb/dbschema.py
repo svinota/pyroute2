@@ -1210,7 +1210,7 @@ class DBSchema(object):
                 if value is None:
                     value = node.get(fname[-1])
                 if value is None and \
-                        fname[-1] in self.compiled[ctable or table]['idx']:
+                        fname[-1] in self.compiled[table]['idx']:
                     value = self.key_defaults[table][fname[-1]]
                 if fname[-1] in compiled['idx']:
                     ivalues.append(value)
