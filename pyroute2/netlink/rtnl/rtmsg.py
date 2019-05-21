@@ -710,6 +710,7 @@ class nh(rtmsg_base, nla):
 
     is_nla = False
 
+    sql_constraints = {}
     cell_header = (('length', 'H'), )
     fields = (('flags', 'B'),
               ('hops', 'B'),
