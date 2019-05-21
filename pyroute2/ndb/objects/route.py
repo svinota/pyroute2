@@ -51,6 +51,7 @@ class Route(RTNL_Object):
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = rtmsg
         self.event_map = {rtmsg: "load_rtnlmsg"}
+        dict.__setitem__(self, 'multipath', [])
         super(Route, self).__init__(*argv, **kwarg)
 
     def complete_key(self, key):
@@ -74,10 +75,48 @@ class Route(RTNL_Object):
             self.changed.add(key)
             dict.__setitem__(self, key, value)
 
+    def make_req(self, prime):
+        req = dict(prime)
+        for key in self.changed:
+            req[key] = self[key]
+        if self['multipath']:
+            req['multipath'] = self['multipath']
+        return req
+
+    def load_sql(self, *argv, **kwarg):
+        super(Route, self).load_sql(*argv, **kwarg)
+        if not self.load_event.is_set():
+            return
+        if 'nh_id' not in self and self.get('route_id') is not None:
+            nhs = (self
+                   .schema
+                   .fetch('SELECT * FROM nh WHERE f_route_id = %s' %
+                          (self.schema.plch, ), (self['route_id'], )))
+            flush = False
+            for nexthop in tuple(self['multipath']):
+                if not flush:
+                    try:
+                        spec = next(nhs)
+                    except StopIteration:
+                        flush = True
+                    for key, value in zip(nexthop.names, spec):
+                        if key in nexthop and value is None:
+                            continue
+                        else:
+                            nexthop.load_value(key, value)
+                if flush:
+                    self['multipath'].pop()
+                    continue
+            for nexthop in nhs:
+                key = {'route_id': self['route_id'],
+                       'nh_id': nexthop[-1]}
+                self['multipath'].append(NextHop(self.view, key))
+
 
 class NextHop(Route):
 
     msg_class = nh
+    table = 'nh'
     reverse_update = {'table': 'nh',
                       'name': 'nh_f_tflags',
                       'field': 'f_tflags',
