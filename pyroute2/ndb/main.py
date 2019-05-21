@@ -75,7 +75,7 @@ from collections import OrderedDict
 from pyroute2 import config
 from pyroute2 import cli
 from pyroute2.common import basestring
-from pyroute2.ndb import dbschema
+from pyroute2.ndb import schema
 from pyroute2.ndb.events import (SyncStart,
                                  MarkFailed,
                                  DBMExitException,
@@ -816,11 +816,11 @@ class NDB(object):
         event_queue = self._event_queue
 
         self.__initdb__()
-        self.schema = dbschema.init(self,
-                                    self._db,
-                                    self._db_provider,
-                                    self._db_rtnl_log,
-                                    id(threading.current_thread()))
+        self.schema = schema.init(self,
+                                  self._db,
+                                  self._db_provider,
+                                  self._db_rtnl_log,
+                                  id(threading.current_thread()))
 
         for spec in self._nl:
             spec['event'] = None

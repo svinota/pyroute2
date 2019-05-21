@@ -3,4 +3,4 @@
 Database
 ========
 
-.. automodule:: pyroute2.ndb.dbschema
+.. automodule:: pyroute2.ndb.schema
