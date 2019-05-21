@@ -2,6 +2,7 @@ import json
 import time
 import errno
 import weakref
+import traceback
 import threading
 import collections
 from pyroute2 import cli
@@ -257,6 +258,8 @@ class RTNL_Object(dict):
             try:
                 return self.apply()
             except Exception as e_i:
+                # Save the debug info
+                e_i.trace = traceback.format_exc()
                 # ACHTUNG! The routine doesn't clean up the system
                 #
                 # Drop all the values and rollback to the initial state
