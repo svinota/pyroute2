@@ -60,6 +60,7 @@ class RTNL_Object(dict):
         self.state.set('invalid')
         self.snapshot_deps = []
         self.load_event = threading.Event()
+        self.load_event.set()
         self.lock = threading.Lock()
         self.kspec = self.schema.compiled[self.table]['idx']
         self.knorm = self.schema.compiled[self.table]['norm_idx']
