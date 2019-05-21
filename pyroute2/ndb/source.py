@@ -71,6 +71,7 @@ In some more extended form::
 See also: :ref:`remote`
 '''
 import time
+import socket
 import struct
 import threading
 from pyroute2 import IPRoute
@@ -206,6 +207,8 @@ class Source(dict):
                         AttributeError,
                         ValueError,
                         KeyError,
+                        TypeError,
+                        socket.error,
                         struct.error):
                     raise
                 except Exception as e:
