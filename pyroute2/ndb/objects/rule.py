@@ -10,6 +10,15 @@ class Rule(RTNL_Object):
     api = 'rule'
     table_alias = 'n'
     _replace_on_key_change = True
+    summary = '''
+              SELECT
+                f_target, f_tflags, f_family,
+                f_FRA_PRIORITY, f_action, f_FRA_TABLE
+              FROM
+                rules
+              '''
+    summary_header = ('target', 'tflags', 'family',
+                      'priority', 'action', 'table')
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = fibmsg
