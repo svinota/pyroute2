@@ -588,7 +588,8 @@ class DBSchema(object):
                 try:
                     cursor.execute(*argv, **kwarg)
                     break
-                except (sqlite3.InterfaceError, sqlite3.OperationalError):
+                except (sqlite3.InterfaceError, sqlite3.OperationalError) as e:
+                    self.log.debug('%s' % e)
                     #
                     # Retry on:
                     # -- InterfaceError: Error binding parameter ...
