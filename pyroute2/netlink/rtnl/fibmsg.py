@@ -1,6 +1,7 @@
 
 from pyroute2.common import map_namespace
 from pyroute2.netlink import nlmsg
+from pyroute2.netlink import nla
 
 FR_ACT_UNSPEC = 0
 FR_ACT_TO_TBL = 1
@@ -59,4 +60,29 @@ class fibmsg(nlmsg):
                (16, 'FRA_FWMASK', 'uint32'),
                (17, 'FRA_OIFNAME', 'asciiz'),
                (18, 'FRA_PAD', 'hex'),
-               (19, 'FRA_L3MDEV', 'uint8'))
+               (19, 'FRA_L3MDEV', 'uint8'),
+               (20, 'FRA_UID_RANGE', 'uid_range'),
+               (21, 'FRA_PROTOCOL', 'uint8'),
+               (22, 'FRA_IP_PROTO', 'uint8'),
+               (23, 'FRA_SPORT_RANGE', 'port_range'),
+               (24, 'FRA_DPORT_RANGE', 'port_range'))
+
+    class fra_range(nla):
+        __slots__ = ()
+        sql_type = 'TEXT'
+
+        def encode(self):
+            self['start'], self['end'] = self.value.split(':')
+            nla.encode(self)
+
+        def decode(self):
+            nla.decode(self)
+            self.value = '%s:%s' % (self['start'], self['end'])
+
+    class uid_range(fra_range):
+        fields = (('start', 'I'),
+                  ('end', 'I'))
+
+    class port_range(fra_range):
+        fields = (('start', 'H'),
+                  ('end', 'H'))
