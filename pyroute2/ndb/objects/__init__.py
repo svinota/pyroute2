@@ -120,6 +120,7 @@ class RTNL_Object(dict):
     def __setitem__(self, key, value):
         if self.state == 'system' and key in self.knorm:
             if self._replace_on_key_change:
+                self.log.debug('prepare replace for key %s' % (self.key))
                 self._replace = type(self)(self.view, self.key)
                 self.state.set('replace')
             else:
@@ -210,7 +211,7 @@ class RTNL_Object(dict):
         return snp
 
     def complete_key(self, key):
-        self.log.debug('complete key from %s' % self.etable)
+        self.log.debug('complete key from table %s' % self.etable)
         fetch = []
         for name in self.kspec:
             if name not in key:
