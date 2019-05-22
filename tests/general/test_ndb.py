@@ -148,7 +148,7 @@ class TestBase(object):
                 .fetch(request, values))
 
 
-class TestCreate(object):
+class Basic(object):
 
     db_provider = 'sqlite3'
     db_spec = ':memory:'
@@ -186,6 +186,9 @@ class TestCreate(object):
         self.ndb.close()
         for net in self.ipnets:
             free_network(net)
+
+
+class TestCreate(Basic):
 
     def test_context_manager(self):
 
@@ -334,7 +337,10 @@ class TestCreate(object):
         assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
                     pattern=ifaddr)
 
-    def test_basic_route(self):
+
+class TestRoutes(Basic):
+
+    def test_basic(self):
 
         ifaddr = self.ifaddr()
         router = self.ifaddr()
@@ -367,7 +373,7 @@ class TestCreate(object):
         assert grep('%s ip route show' % self.ssh,
                     pattern='%s.*%s' % (str(self.ipnets[1]), ifname))
 
-    def test_route_multipath_ipv4(self):
+    def test_multipath_ipv4(self):
 
         ifname = self.ifname()
         ifaddr = self.ifaddr()
