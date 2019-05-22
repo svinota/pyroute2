@@ -108,6 +108,7 @@ from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
+from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 
 # rtnl objects
@@ -249,6 +250,7 @@ class DBSchema(object):
     spec['nh'] = OrderedDict(nh.sql_schema() +
                              [(('route_id', ), 'TEXT'),
                               (('nh_id', ), 'INTEGER')])
+    spec['rules'] = OrderedDict(fibmsg.sql_schema())
     # additional tables
     spec['p2p'] = OrderedDict(p2pmsg.sql_schema())
 
@@ -257,6 +259,7 @@ class DBSchema(object):
                'neighbours': ndmsg,
                'routes': rtmsg,
                'nh': nh,
+               'rules': fibmsg,
                'p2p': p2pmsg}
 
     #
@@ -280,7 +283,32 @@ class DBSchema(object):
                           'RTA_PRIORITY',
                           'RTA_TABLE'),
                'nh': ('route_id',
-                      'nh_id')}
+                      'nh_id'),
+               'rules': ('family',
+                         'dst_len',
+                         'src_len',
+                         'tos',
+                         'action',
+                         'flags',
+                         'FRA_DST',
+                         'FRA_SRC',
+                         'FRA_IIFNAME',
+                         'FRA_GOTO',
+                         'FRA_PRIORITY',
+                         'FRA_FWMARK',
+                         'FRA_FLOW',
+                         'FRA_TUN_ID',
+                         'FRA_SUPPRESS_IFGROUP',
+                         'FRA_SUPPRESS_PREFIXLEN',
+                         'FRA_TABLE',
+                         'FRA_FWMASK',
+                         'FRA_OIFNAME',
+                         'FRA_L3MDEV',
+                         'FRA_UID_RANGE',
+                         'FRA_PROTOCOL',
+                         'FRA_IP_PROTO',
+                         'FRA_SPORT_RANGE',
+                         'FRA_DPORT_RANGE')}
 
     foreign_keys = {'addresses': [{'fields': ('f_target',
                                               'f_tflags',
@@ -812,12 +840,16 @@ class DBSchema(object):
     def save_deps(self, ctxid, weak_ref, iclass):
         uuid = uuid32()
         obj = weak_ref()
+        obj_k = obj.key
         idx = self.indices[obj.table]
         conditions = []
         values = []
         for key in idx:
             conditions.append('f_%s = %s' % (key, self.plch))
-            values.append(obj.get(iclass.nla2name(key)))
+            if key in obj_k:
+                values.append(obj_k[key])
+            else:
+                values.append(obj.get(iclass.nla2name(key)))
         #
         # save the old f_tflags value
         #
@@ -1280,5 +1312,6 @@ def init(ndb, connection, mode, rtnl_log, tid):
     ret.event_map = {ifinfmsg: [ret.load_ifinfmsg],
                      ifaddrmsg: [partial(ret.load_netlink, 'addresses')],
                      ndmsg: [ret.load_ndmsg],
-                     rtmsg: [ret.load_rtmsg]}
+                     rtmsg: [ret.load_rtmsg],
+                     fibmsg: [partial(ret.load_netlink, 'rules')]}
     return ret

@@ -48,6 +48,8 @@ class Route(RTNL_Object):
                                  f_target = NEW.f_target;
                       '''}
 
+    _replace_on_key_change = True
+
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = rtmsg
         self.event_map = {rtmsg: "load_rtnlmsg"}
@@ -64,16 +66,6 @@ class Route(RTNL_Object):
             ret_key['RTA_DST'], ret_key['dst_len'] = key.split('/')
 
         return super(Route, self).complete_key(ret_key)
-
-    def __setitem__(self, key, value):
-        if self.state == 'system' and key in self.knorm:
-            self._replace = type(self)(self.view, self.key)
-            self.state.set('replace')
-        if key in ('net_ns_fd', 'net_ns_pid'):
-            self.state.set('setns')
-        if value != self.get(key, None):
-            self.changed.add(key)
-            dict.__setitem__(self, key, value)
 
     def make_req(self, prime):
         req = dict(prime)

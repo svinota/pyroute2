@@ -86,6 +86,7 @@ from pyroute2.ndb.objects.interface import Interface
 from pyroute2.ndb.objects.address import Address
 from pyroute2.ndb.objects.route import Route
 from pyroute2.ndb.objects.neighbour import Neighbour
+from pyroute2.ndb.objects.rule import Rule
 from pyroute2.ndb.query import Query
 from pyroute2.ndb.report import (Report,
                                  Record)
@@ -146,6 +147,7 @@ class View(dict):
         self.classes['addresses'] = Address
         self.classes['neighbours'] = Neighbour
         self.classes['routes'] = Route
+        self.classes['rules'] = Rule
 
     def __enter__(self):
         return self
@@ -477,11 +479,9 @@ class View(dict):
                            .fetch(iclass.summary + spec, values)):
                 yield record
         else:
-            header = tuple(['f_%s' % x for x in
-                            ('target', ) +
-                            self.ndb.schema.indices[iclass.table]])
-            yield header
-            key_fields = ','.join(header)
+            header = ('target', ) + self.ndb.schema.indices[iclass.table]
+            yield tuple([iclass.nla2name(x) for x in header])
+            key_fields = ','.join(['f_%s' % x for x in header])
             for record in (self
                            .ndb
                            .schema
@@ -725,6 +725,7 @@ class NDB(object):
         self.addresses = View(self, 'addresses')
         self.routes = View(self, 'routes')
         self.neighbours = View(self, 'neighbours')
+        self.rules = View(self, 'rules')
         self.query = Query(self.schema)
 
     def _get_view(self, name, match_src=None, match_pairs=None, chain=None):

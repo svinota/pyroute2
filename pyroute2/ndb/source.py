@@ -255,6 +255,11 @@ class Source(dict):
                         self.evq.put((self.target, self.nl.get_addr()))
                         self.evq.put((self.target, self.nl.get_neighbours()))
                         self.evq.put((self.target, self.nl.get_routes()))
+                        self.evq.put((self.target, self.nl.get_rules()))
+                        self.evq.put((self.target,
+                                      (self
+                                       .nl
+                                       .get_rules(family=socket.AF_INET6))))
                     finally:
                         self.ndb.schema.allow_read(True)
                     self.started.set()

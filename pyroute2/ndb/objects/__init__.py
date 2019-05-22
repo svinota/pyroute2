@@ -20,7 +20,6 @@ class RTNL_Object(dict):
     utable = None  # table to send updates to
     table_alias = ''
 
-    key = None
     key_extra_fields = []
 
     schema = None
@@ -34,7 +33,9 @@ class RTNL_Object(dict):
     errors = None
     msg_class = None
     reverse_update = None
+    _key = None
     _replace = None
+    _replace_on_key_change = False
 
     def __init__(self,
                  view,
@@ -118,7 +119,11 @@ class RTNL_Object(dict):
 
     def __setitem__(self, key, value):
         if self.state == 'system' and key in self.knorm:
-            raise ValueError('Attempt to change a key field (%s)' % key)
+            if self._replace_on_key_change:
+                self._replace = type(self)(self.view, self.key)
+                self.state.set('replace')
+            else:
+                raise ValueError('Attempt to change a key field (%s)' % key)
         if key in ('net_ns_fd', 'net_ns_pid'):
             self.state.set('setns')
         if value != self.get(key, None):
@@ -169,11 +174,15 @@ class RTNL_Object(dict):
 
     @property
     def key(self):
+        nkey = self._key or {}
         ret = collections.OrderedDict()
         for name in self.kspec:
             kname = self.iclass.nla2name(name)
             if kname in self:
-                ret[name] = self[kname]
+                value = self[kname]
+                if value is None and name in nkey:
+                    value = nkey[name]
+                ret[name] = value
         if len(ret) < len(self.kspec):
             for name in self.key_extra_fields:
                 kname = self.iclass.nla2name(name)
@@ -201,6 +210,7 @@ class RTNL_Object(dict):
         return snp
 
     def complete_key(self, key):
+        self.log.debug('complete key from %s' % self.etable)
         fetch = []
         for name in self.kspec:
             if name not in key:
@@ -301,6 +311,8 @@ class RTNL_Object(dict):
              .last_save
              .state
              .set(self.state.get()))
+        if self._replace is not None:
+            self._replace = None
         return self
 
     def remove(self):
@@ -452,7 +464,6 @@ class RTNL_Object(dict):
         if state == 'replace':
             self._replace.remove()
             self._replace.apply()
-            self._replace = None
         #
         if rollback:
             #
