@@ -373,6 +373,88 @@ class TestRoutes(Basic):
         assert grep('%s ip route show' % self.ssh,
                     pattern='%s.*%s' % (str(self.ipnets[1]), ifname))
 
+    def test_update_set(self):
+        ifaddr = self.ifaddr()
+        router1 = self.ifaddr()
+        router2 = self.ifaddr()
+        ifname = self.ifname()
+        network = str(self.ipnets[1].network)
+
+        (self
+         .ndb
+         .interfaces
+         .create(ifname=ifname, kind='dummy', state='up')
+         .ipaddr
+         .create(address=ifaddr, prefixlen=24)
+         .commit())
+
+        (self
+         .ndb
+         .routes
+         .create(dst_len=24,
+                 dst=network,
+                 gateway=router1)
+         .commit())
+
+        assert grep('%s ip link show' % self.ssh,
+                    pattern=ifname)
+        assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
+                    pattern=ifaddr)
+        assert grep('%s ip route show' % self.ssh,
+                    pattern='%s.*via %s.*%s' % (network, router1, ifname))
+
+        (self
+         .ndb
+         .routes['%s/24' % network]
+         .set('gateway', router2)
+         .commit())
+
+        assert not grep('%s ip route show' % self.ssh,
+                        pattern='%s.*via %s.*%s' % (network, router1, ifname))
+        assert grep('%s ip route show' % self.ssh,
+                    pattern='%s.*via %s.*%s' % (network, router2, ifname))
+
+    def test_update_replace(self):
+        ifaddr = self.ifaddr()
+        router = self.ifaddr()
+        ifname = self.ifname()
+        network = str(self.ipnets[1].network)
+
+        (self
+         .ndb
+         .interfaces
+         .create(ifname=ifname, kind='dummy', state='up')
+         .ipaddr
+         .create(address=ifaddr, prefixlen=24)
+         .commit())
+
+        (self
+         .ndb
+         .routes
+         .create(dst_len=24,
+                 dst=network,
+                 priority=10,
+                 gateway=router)
+         .commit())
+
+        assert grep('%s ip link show' % self.ssh,
+                    pattern=ifname)
+        assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
+                    pattern=ifaddr)
+        assert grep('%s ip route show' % self.ssh,
+                    pattern='%s.*%s.*metric %s' % (network, ifname, 10))
+
+        (self
+         .ndb
+         .routes['%s/24' % network]
+         .set('priority', 15)
+         .commit())
+
+        assert not grep('%s ip route show' % self.ssh,
+                        pattern='%s.*%s.*metric %s' % (network, ifname, 10))
+        assert grep('%s ip route show' % self.ssh,
+                    pattern='%s.*%s.*metric %s' % (network, ifname, 15))
+
     def test_multipath_ipv4(self):
 
         ifname = self.ifname()
