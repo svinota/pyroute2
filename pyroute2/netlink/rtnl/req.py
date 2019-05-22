@@ -48,7 +48,7 @@ class IPRuleRequest(IPRequest):
         # now fix the rest
         if 'family' not in self:
             self['family'] = AF_INET
-        if 'priority' not in self:
+        if ('priority' not in self) and ('FRA_PRIORITY' not in self):
             self['priority'] = 32000
         if 'table' in self and 'action' not in self:
             self['action'] = 'to_tbl'
