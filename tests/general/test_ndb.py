@@ -367,6 +367,41 @@ class TestCreate(object):
         assert grep('%s ip route show' % self.ssh,
                     pattern='%s.*%s' % (str(self.ipnets[1]), ifname))
 
+    def test_route_multipath_ipv4(self):
+
+        ifname = self.ifname()
+        ifaddr = self.ifaddr()
+        hop1 = self.ifaddr()
+        hop2 = self.ifaddr()
+
+        (self
+         .ndb
+         .interfaces
+         .create(ifname=ifname, kind='dummy', state='up')
+         .ipaddr
+         .create(address=ifaddr, prefixlen=24)
+         .commit())
+
+        (self
+         .ndb
+         .routes
+         .create(**{'dst_len': 24,
+                    'dst': str(self.ipnets[1].network),
+                    'multipath': [{'gateway': hop1},
+                                  {'gateway': hop2}]})
+         .commit())
+
+        assert grep('%s ip link show' % self.ssh,
+                    pattern=ifname)
+        assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
+                    pattern=ifaddr)
+        assert grep('%s ip route show' % self.ssh,
+                    pattern='%s' % str(self.ipnets[1]))
+        assert grep('%s ip route show' % self.ssh,
+                    pattern='nexthop.*%s.*%s' % (hop1, ifname))
+        assert grep('%s ip route show' % self.ssh,
+                    pattern='nexthop.*%s.*%s' % (hop2, ifname))
+
 
 class TestNetNS(object):
 

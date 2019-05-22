@@ -75,6 +75,11 @@ class Route(RTNL_Object):
             req['multipath'] = self['multipath']
         return req
 
+    def __setitem__(self, key, value):
+        super(Route, self).__setitem__(key, value)
+        if key == 'multipath':
+            self.changed.remove(key)
+
     def load_sql(self, *argv, **kwarg):
         super(Route, self).load_sql(*argv, **kwarg)
         if not self.load_event.is_set():
@@ -85,7 +90,11 @@ class Route(RTNL_Object):
                    .fetch('SELECT * FROM nh WHERE f_route_id = %s' %
                           (self.schema.plch, ), (self['route_id'], )))
             flush = False
+            idx = 0
             for nexthop in tuple(self['multipath']):
+                if not isinstance(nexthop, NextHop):
+                    flush = True
+
                 if not flush:
                     try:
                         spec = next(nhs)
@@ -97,8 +106,10 @@ class Route(RTNL_Object):
                         else:
                             nexthop.load_value(key, value)
                 if flush:
-                    self['multipath'].pop()
+                    self['multipath'].pop(idx)
                     continue
+                idx += 1
+
             for nexthop in nhs:
                 key = {'route_id': self['route_id'],
                        'nh_id': nexthop[-1]}
