@@ -345,11 +345,20 @@ class View(dict):
     def __delitem__(self, key):
         raise NotImplementedError()
 
+    def __iter__(self):
+        return self.keys()
+
     def keys(self):
-        raise NotImplementedError()
+        for record in self.dump():
+            yield record
+
+    def values(self):
+        for key in self.keys():
+            yield self[key]
 
     def items(self):
-        raise NotImplementedError()
+        for key in self.keys():
+            yield (key, self[key])
 
     @cli.show_result
     def count(self):
@@ -360,9 +369,6 @@ class View(dict):
 
     def __len__(self):
         return self.count()
-
-    def values(self):
-        raise NotImplementedError()
 
     def _keys(self, iclass):
         return (['target', 'tflags'] +
@@ -603,6 +609,10 @@ class SourcesView(View):
                 .cache
                 .pop(target)
                 .remove())
+
+    def keys(self):
+        for key in self.cache:
+            yield key
 
     def _keys(self, iclass):
         return ['target', 'kind']

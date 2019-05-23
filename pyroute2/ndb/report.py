@@ -41,6 +41,12 @@ class Record(object):
     def __len__(self):
         return len(self._values)
 
+    def _as_dict(self):
+        ret = {}
+        for key, value in zip(self._names, self._values):
+            ret[key] = value
+        return ret
+
 
 class Report(object):
 

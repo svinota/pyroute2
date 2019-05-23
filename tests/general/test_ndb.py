@@ -14,7 +14,9 @@ from pyroute2 import NetlinkError
 from pyroute2.common import uifname
 from pyroute2.common import basestring
 from pyroute2.ndb import report
-from pyroute2.ndb.main import Report
+from pyroute2.ndb.main import (Report,
+                               Record)
+from pyroute2.ndb.objects import RTNL_Object
 
 
 class TestMisc(object):
@@ -957,6 +959,18 @@ class TestReports(TestBase):
         assert isinstance(repr(self.ndb.interfaces.summary()), basestring)
         # header + MAX_REPORT_LINES + (...)
         assert len(repr(self.ndb.interfaces.summary()).split('\n')) == 3
+
+    def test_iter_keys(self):
+        for name in ('interfaces',
+                     'addresses',
+                     'neighbours',
+                     'routes',
+                     'rules'):
+            view = getattr(self.ndb, name)
+            for key in view:
+                assert isinstance(key, Record)
+                obj = view[key]
+                assert isinstance(obj, RTNL_Object)
 
     def test_json(self):
         data = json.loads(''.join(self.ndb.interfaces.summary(format='json')))
