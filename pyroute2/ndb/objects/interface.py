@@ -99,10 +99,20 @@ Create a bridge and add a port, `eth0`::
 '''
 
 import weakref
+import traceback
 from pyroute2.config import AF_BRIDGE
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+
+
+def _cmp_master(self, value):
+    if self['master'] == value:
+        return True
+    elif self['master'] == 0 and value is None:
+        dict.__setitem__(self, 'master', None)
+        return True
+    return False
 
 
 class Interface(RTNL_Object):
@@ -126,6 +136,7 @@ class Interface(RTNL_Object):
                       'lladdr',
                       'flags',
                       'kind')
+    fields_cmp = {'master': _cmp_master}
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifinfmsg
@@ -192,6 +203,36 @@ class Interface(RTNL_Object):
                                        'target': self['target']}],
                            match_pairs={'ifindex': 'index',
                                         'target': 'target'}))
+
+    def add_port(self, spec):
+        def do(self, spec):
+            try:
+                port = self.view[spec]
+                assert port['target'] == self['target']
+                port['master'] = self['index']
+                port.apply()
+            except Exception as e_s:
+                e_s.trace = traceback.format_stack()
+                return e_s
+            return port.last_save
+        self._apply_script.append((do, (self, spec), {}))
+        return self
+
+    def del_port(self, spec):
+        def do(self, spec):
+            try:
+                port = self.view[spec]
+                assert port['master'] == self['index']
+                assert port['target'] == self['target']
+                port['master'] = 0
+                print(port)
+                port.apply()
+            except Exception as e_s:
+                e_s.trace = traceback.format_stack()
+                return e_s
+            return port.last_save
+        self._apply_script.append((do, (self, spec), {}))
+        return self
 
     def complete_key(self, key):
         if isinstance(key, dict):

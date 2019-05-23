@@ -7,6 +7,7 @@ import threading
 import collections
 from pyroute2 import cli
 from pyroute2.ndb.events import State
+from pyroute2.ndb.report import Record
 from pyroute2.netlink.exceptions import NetlinkError
 
 
@@ -21,6 +22,7 @@ class RTNL_Object(dict):
     table_alias = ''
 
     key_extra_fields = []
+    fields_cmp = {}
 
     schema = None
     event_map = None
@@ -33,6 +35,7 @@ class RTNL_Object(dict):
     errors = None
     msg_class = None
     reverse_update = None
+    _apply_script = None
     _key = None
     _replace = None
     _replace_on_key_change = False
@@ -67,6 +70,7 @@ class RTNL_Object(dict):
         self.knorm = self.schema.compiled[self.table]['norm_idx']
         self.spec = self.schema.compiled[self.table]['all_names']
         self.names = self.schema.compiled[self.table]['norm_names']
+        self._apply_script = []
         if isinstance(key, dict):
             self.chain = key.pop('ndb_chain', None)
             create = key.pop('create', False)
@@ -213,6 +217,8 @@ class RTNL_Object(dict):
     def complete_key(self, key):
         self.log.debug('complete key from table %s' % self.etable)
         fetch = []
+        if isinstance(key, Record):
+            key = key._as_dict()
         for name in self.kspec:
             if name not in key:
                 fetch.append('f_%s' % name)
@@ -282,9 +288,6 @@ class RTNL_Object(dict):
                 raise e_i
 
         # Continue with an existing object
-
-        # Save the context
-        self.last_save = self.snapshot()
 
         # The snapshot tables in the DB will be dropped as soon as the GC
         # collects the object. But in the case of an exception the `snp`
@@ -367,8 +370,13 @@ class RTNL_Object(dict):
 
     def apply(self, rollback=False, fix_remove=True):
 
+        # Save the context
+        if not rollback and self.state != 'invalid':
+            self.last_save = self.snapshot()
+
         self.log.debug('apply: %s' % str(self.state.events))
         self.load_event.clear()
+        self._apply_script_snapshots = []
 
         # Load the current state
         try:
@@ -497,6 +505,14 @@ class RTNL_Object(dict):
                         obj.apply()
                     except Exception as e:
                         self.errors.append((time.time(), obj, e))
+        else:
+            for op, argv, kwarg in self._apply_script:
+                ret = op(*argv, **kwarg)
+                if isinstance(ret, Exception):
+                    raise ret
+                else:
+                    self._apply_script_snapshots.append(ret)
+            self._apply_script = []
         return self
 
     def update(self, data):
@@ -507,6 +523,8 @@ class RTNL_Object(dict):
         if key not in self.changed:
             dict.__setitem__(self, key, value)
         elif self.get(key) == value:
+            self.changed.remove(key)
+        elif key in self.fields_cmp and self.fields_cmp[key](self, value):
             self.changed.remove(key)
 
     def load_sql(self, table=None, ctxid=None, set_state=True):
