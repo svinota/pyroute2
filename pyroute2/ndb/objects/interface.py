@@ -225,7 +225,6 @@ class Interface(RTNL_Object):
                 assert port['master'] == self['index']
                 assert port['target'] == self['target']
                 port['master'] = 0
-                print(port)
                 port.apply()
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
