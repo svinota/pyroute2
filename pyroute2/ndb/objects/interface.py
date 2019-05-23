@@ -1,3 +1,103 @@
+'''
+List interfaces
+===============
+
+List interface keys::
+
+    with NDB(log='on') as ndb:
+        for key in ndb.interfaces:
+            print(key)
+
+NDB views support some dict methods: `items()`, `values()`, `keys()`::
+
+    with NDB(log='on') as ndb:
+        for key, nic in ndb.interfaces.items():
+            nic.set('state', 'up')
+            nic.commit()
+
+Get interface objects
+=====================
+
+The keys may be used as selectors to get interface objects::
+
+    with NDB(log='on') as ndb:
+        for key in ndb.interfaces:
+            print(ndb.interfaces[key])
+
+Also possible selector formats are `dict()` and simple string. The latter
+means the interface name::
+
+    eth0 = ndb.interfaces['eth0']
+
+Dict selectors are necessary to get interfaces by other properties::
+
+    wrk1_eth0 = ndb.interfaces[{'target': 'worker1.sample.com',
+                                'ifname': 'eth0'}]
+
+    wrk2_eth0 = ndb.interfaces[{'target': 'worker2.sample.com',
+                                'address': '52:54:00:22:a1:b7'}]
+
+Change nic properties
+=====================
+
+Changing MTU and MAC address::
+
+    with NDB(log='on') as ndb:
+        with ndb.interfaces['eth0'] as eth0:
+            eth0['mtu'] = 1248
+            eth0['address'] = '00:11:22:33:44:55'
+        # --> <-- eth0.commit() is called by the context manager
+    # --> <-- ndb.close() is called by the context manager
+
+One can change a property either using the assignment statement, or
+using the `.set()` routine::
+
+    # same code
+    with NDB(log='on') as ndb:
+        with ndb.interfaces['eth0'] as eth0:
+            eth0.set('mtu', 1248)
+            eth0.set('address', '00:11:22:33:44:55')
+
+The `.set()` routine returns the object itself, that makes possible
+chain calls::
+
+    # same as above
+    with NDB(log='on') as ndb:
+        with ndb.interfaces['eth0'] as eth0:
+            eth0.set('mtu', 1248).set('address', '00:11:22:33:44:55')
+
+    # or
+    with NDB(log='on') as ndb:
+        with ndb.interfaces['eth0'] as eth0:
+            (eth0
+             .set('mtu', 1248)
+             .set('address', '00:11:22:33:44:55'))
+
+    # or without the context manager, call commit() explicitly
+    with NDB(log='on') as ndb:
+        (ndb
+         .interfaces['eth0']
+         .set('mtu', 1248)
+         .set('address', '00:11:22:33:44:55')
+         .commit())
+
+Create virtual interfaces
+=========================
+
+Create a bridge and add a port, `eth0`::
+
+    (ndb
+     .interfaces
+     .create(ifname='br0', kind='bridge')
+     .commit())
+
+    (ndb
+     .interfaces['eth0']
+     .set('master', ndb.interfaces['br0']['index'])
+     .commit())
+
+'''
+
 import weakref
 from pyroute2.config import AF_BRIDGE
 from pyroute2.ndb.objects import RTNL_Object
