@@ -567,10 +567,13 @@ class RTNL_Object(dict):
         # ...
 
         # full match
-        for name, value in self.key.items():
+        for name in self.knorm:
+            value = self[name]
             if name == 'target':
                 if value != target:
                     return
+            elif name == 'tflags':
+                continue
             elif value != (event.get_attr(name) or event.get(name)):
                 return
 
