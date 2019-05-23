@@ -558,11 +558,7 @@ class RTNL_Object(dict):
                         self.state.set('invalid')
                         self.changed = set()
                 elif self.state not in ('remove', 'setns'):
-                    for key, value in zip(self.names, spec):
-                        if key in self and value is None:
-                            continue
-                        else:
-                            self.load_value(key, value)
+                    self.update(dict(zip(self.names, spec)))
                     self.state.set('system')
         return spec
 
