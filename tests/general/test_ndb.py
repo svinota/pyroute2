@@ -493,6 +493,99 @@ class TestRoutes(Basic):
                     pattern='nexthop.*%s.*%s' % (hop2, ifname))
 
 
+class TestBridge(Basic):
+
+    def get_stp(self, name):
+        with open('/sys/class/net/%s/bridge/stp_state' % name, 'r') as f:
+            return int(f.read())
+
+    def _test_stp_link(self, state, cond):
+        bridge = self.ifname()
+
+        r = (self
+             .ndb
+             .interfaces
+             .create(ifname=bridge,
+                     kind='bridge',
+                     br_stp_state=0,
+                     state=state)
+             .commit())
+
+        assert self.get_stp(bridge) == 0
+        assert r['state'] == state
+        assert cond(r['flags'])
+
+        (self
+         .ndb
+         .interfaces[bridge]
+         .set('br_stp_state', 1)
+         .commit())
+
+        assert self.get_stp(bridge) == 1
+        assert r['br_stp_state'] == 1
+
+        (self
+         .ndb
+         .interfaces[bridge]
+         .set('br_stp_state', 0)
+         .commit())
+
+        assert self.get_stp(bridge) == 0
+        assert r['br_stp_state'] == 0
+
+    def test_stp_link_up(self):
+        self._test_stp_link('up', lambda x: x % 2 != 0)
+
+    def test_stp_link_down(self):
+        self._test_stp_link('down', lambda x: x % 2 == 0)
+
+    def test_manage_ports(self):
+        bridge = self.ifname()
+        brport1 = self.ifname()
+        brport2 = self.ifname()
+
+        (self
+         .ndb
+         .interfaces
+         .create(ifname=brport1, kind='dummy')
+         .commit())
+        (self
+         .ndb
+         .interfaces
+         .create(ifname=brport2, kind='dummy')
+         .commit())
+        (self
+         .ndb
+         .interfaces
+         .create(ifname=bridge, kind='bridge')
+         .add_port(brport1)
+         .add_port(brport2)
+         .commit())
+
+        assert grep('%s ip link show' % self.ssh,
+                    pattern=bridge)
+        assert grep('%s ip link show' % self.ssh,
+                    pattern='%s.*master %s' % (brport1, bridge))
+        assert grep('%s ip link show' % self.ssh,
+                    pattern='%s.*master %s' % (brport2, bridge))
+
+        (self
+         .ndb
+         .interfaces[bridge]
+         .del_port(brport1)
+         .del_port(brport2)
+         .commit())
+
+        assert grep('%s ip link show' % self.ssh,
+                    pattern=brport1)
+        assert grep('%s ip link show' % self.ssh,
+                    pattern=brport2)
+        assert not grep('%s ip link show' % self.ssh,
+                        pattern='%s.*master %s' % (brport1, bridge))
+        assert not grep('%s ip link show' % self.ssh,
+                        pattern='%s.*master %s' % (brport2, bridge))
+
+
 class TestNetNS(object):
 
     db_provider = 'sqlite3'
