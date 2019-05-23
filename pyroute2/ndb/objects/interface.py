@@ -286,6 +286,11 @@ class Interface(RTNL_Object):
                     (self
                      .sources[self['target']]
                      .api(self.api, method, **req))
+                    update = (self
+                              .sources[self['target']]
+                              .api(self.api, 'get',
+                                   **{'index': self['index']}))
+                    self.ndb._event_queue.put((self['target'], update))
 
     def load_sql(self, *argv, **kwarg):
         spec = super(Interface, self).load_sql(*argv, **kwarg)
