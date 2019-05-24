@@ -321,7 +321,6 @@ class Interface(RTNL_Object):
                     self.ndb._event_queue.put((self['target'], update))
         elif method == 'add':
             if self['kind'] == 'veth':
-                self.log.debug('reload veth peer %s' % (self['peer']))
                 pname = None
                 netns = None
                 if isinstance(self['peer'], basestring):
@@ -331,7 +330,7 @@ class Interface(RTNL_Object):
                     netns = self['peer'].get('net_ns_fd')
                 if pname is None or netns is not None:
                     return
-                self.log.debug('wait for veth %s' % pname)
+                self.log.debug('wait for veth peer %s' % pname)
                 for _ in range(5):
                     peer = self.view.get(pname)
                     if peer is not None:
