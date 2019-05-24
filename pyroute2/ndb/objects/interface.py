@@ -254,6 +254,12 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_del_port, (self, spec), {}))
         return self
 
+    def __setitem__(self, key, value):
+        if key == 'peer':
+            dict.__setitem__(self, key, value)
+        else:
+            super(Interface, self).__setitem__(key, value)
+
     def complete_key(self, key):
         if isinstance(key, dict):
             ret_key = key
@@ -282,9 +288,10 @@ class Interface(RTNL_Object):
                      .ndb
                      .interfaces
                      .getmany({'IFLA_LINK': self['index']})):
-            # vlans
-            link = type(self)(self.view, spec)
-            snp.snapshot_deps.append((link, link.snapshot()))
+            # vlans & veth
+            if self.get('link') != spec['index']:
+                link = type(self)(self.view, spec)
+                snp.snapshot_deps.append((link, link.snapshot()))
         # return the root node
         return snp
 
@@ -312,6 +319,29 @@ class Interface(RTNL_Object):
                               .api(self.api, 'get',
                                    **{'index': self['index']}))
                     self.ndb._event_queue.put((self['target'], update))
+        elif method == 'add':
+            if self['kind'] == 'veth':
+                self.log.debug('reload veth peer %s' % (self['peer']))
+                pname = None
+                netns = None
+                if isinstance(self['peer'], basestring):
+                    pname = self['peer']
+                elif isinstance(self['peer'], dict):
+                    pname = self['peer'].get('ifname')
+                    netns = self['peer'].get('net_ns_fd')
+                if pname is None or netns is not None:
+                    return
+                for _ in range(5):
+                    peer = self.view.get(pname)
+                    if peer is not None:
+                        self.log.debug('force update on veth peer')
+                        update = (self
+                                  .sources[self['target']]
+                                  .api(self.api, 'get',
+                                       **{'index': peer['index']}))
+                        self.ndb._event_queue.put((self['target'], update))
+                        break
+                    self.load_event.wait(0.1)
 
     def load_sql(self, *argv, **kwarg):
         spec = super(Interface, self).load_sql(*argv, **kwarg)

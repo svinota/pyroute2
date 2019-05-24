@@ -236,6 +236,33 @@ class TestCreate(Basic):
         assert save == dict(ifobj)
         assert ifobj.state == 'invalid'
 
+    def test_veth_simple(self):
+        ifname = uifname()
+        peername = uifname()
+
+        (self
+         .ndb
+         .interfaces
+         .create(ifname=ifname, peer=peername, kind='veth')
+         .commit())
+
+        iflink = self.ndb.interfaces[ifname]['link']
+        plink = self.ndb.interfaces[peername]['link']
+
+        assert iflink == self.ndb.interfaces[peername]['index']
+        assert plink == self.ndb.interfaces[ifname]['index']
+        assert grep('%s ip link show' % self.ssh, pattern=ifname)
+        assert grep('%s ip link show' % self.ssh, pattern=peername)
+
+        (self
+         .ndb
+         .interfaces[ifname]
+         .remove()
+         .commit())
+
+        assert not grep('%s ip link show' % self.ssh, pattern=ifname)
+        assert not grep('%s ip link show' % self.ssh, pattern=peername)
+
     def test_dummy(self):
 
         ifname = self.ifname()
