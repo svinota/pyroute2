@@ -493,6 +493,69 @@ class TestRoutes(Basic):
                     pattern='nexthop.*%s.*%s' % (hop2, ifname))
 
 
+class TestAddress(Basic):
+
+    def test_add_del_ip_dict(self):
+        ifname = self.ifname()
+        ifaddr1 = self.ifaddr()
+        ifaddr2 = self.ifaddr()
+
+        (self
+         .ndb
+         .interfaces
+         .create(ifname=ifname, kind='dummy', state='down')
+         .add_ip({'address': ifaddr1, 'prefixlen': 24})
+         .add_ip({'address': ifaddr2, 'prefixlen': 24})
+         .commit())
+
+        assert grep('%s ip -o addr show' % self.ssh,
+                    pattern='%s.*%s' % (ifname, ifaddr1))
+        assert grep('%s ip -o addr show' % self.ssh,
+                    pattern='%s.*%s' % (ifname, ifaddr2))
+
+        (self
+         .ndb
+         .interfaces[ifname]
+         .del_ip({'address': ifaddr2, 'prefixlen': 24})
+         .del_ip({'address': ifaddr1, 'prefixlen': 24})
+         .commit())
+
+        assert not grep('%s ip -o addr show' % self.ssh,
+                        pattern='%s.*%s' % (ifname, ifaddr1))
+        assert not grep('%s ip -o addr show' % self.ssh,
+                        pattern='%s.*%s' % (ifname, ifaddr2))
+
+    def test_add_del_ip_string(self):
+        ifname = self.ifname()
+        ifaddr1 = '%s/24' % (self.ifaddr())
+        ifaddr2 = '%s/24' % (self.ifaddr())
+
+        (self
+         .ndb
+         .interfaces
+         .create(ifname=ifname, kind='dummy', state='down')
+         .add_ip(ifaddr1)
+         .add_ip(ifaddr2)
+         .commit())
+
+        assert grep('%s ip -o addr show' % self.ssh,
+                    pattern='%s.*%s' % (ifname, ifaddr1))
+        assert grep('%s ip -o addr show' % self.ssh,
+                    pattern='%s.*%s' % (ifname, ifaddr2))
+
+        (self
+         .ndb
+         .interfaces[ifname]
+         .del_ip(ifaddr2)
+         .del_ip(ifaddr1)
+         .commit())
+
+        assert not grep('%s ip -o addr show' % self.ssh,
+                        pattern='%s.*%s' % (ifname, ifaddr1))
+        assert not grep('%s ip -o addr show' % self.ssh,
+                        pattern='%s.*%s' % (ifname, ifaddr2))
+
+
 class TestBridge(Basic):
 
     def get_stp(self, name):
@@ -1062,8 +1125,9 @@ class TestReports(TestBase):
             view = getattr(self.ndb, name)
             for key in view:
                 assert isinstance(key, Record)
-                obj = view[key]
-                assert isinstance(obj, RTNL_Object)
+                obj = view.get(key)
+                if obj is not None:
+                    assert isinstance(obj, RTNL_Object)
 
     def test_json(self):
         data = json.loads(''.join(self.ndb.interfaces.summary(format='json')))

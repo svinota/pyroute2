@@ -219,7 +219,7 @@ class RTNL_Object(dict):
         return snp
 
     def complete_key(self, key):
-        self.log.debug('complete key from table %s' % self.etable)
+        self.log.debug('complete key %s from table %s' % (key, self.etable))
         fetch = []
         if isinstance(key, Record):
             key = key._as_dict()
@@ -246,10 +246,12 @@ class RTNL_Object(dict):
                                ' AND '.join(keys)),
                               values))
             if spec is None:
+                self.log.debug('got none')
                 return None
             for name, value in zip(fetch, spec):
                 key[name[2:]] = value
 
+        self.log.debug('got %s' % key)
         return key
 
     def rollback(self, snapshot=None):
@@ -515,7 +517,7 @@ class RTNL_Object(dict):
                 ret = op(*argv, **kwarg)
                 if isinstance(ret, Exception):
                     raise ret
-                else:
+                elif ret is not None:
                     self._apply_script_snapshots.append(ret)
             self._apply_script = []
         return self
@@ -573,7 +575,7 @@ class RTNL_Object(dict):
 
         # full match
         for name in self.knorm:
-            value = self[name]
+            value = self.get(name)
             if name == 'target':
                 if value != target:
                     return

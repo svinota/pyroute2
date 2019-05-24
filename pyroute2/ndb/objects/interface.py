@@ -204,8 +204,29 @@ class Interface(RTNL_Object):
                            match_pairs={'ifindex': 'index',
                                         'target': 'target'}))
 
+    def add_ip(self, spec):
+        def do_add_ip(self, spec):
+            try:
+                self.ipaddr.create(spec).apply()
+            except Exception as e_s:
+                e_s.trace = traceback.format_stack()
+                return e_s
+        self._apply_script.append((do_add_ip, (self, spec), {}))
+        return self
+
+    def del_ip(self, spec):
+        def do_del_ip(self, spec):
+            try:
+                ret = self.ipaddr[spec].remove().apply()
+            except Exception as e_s:
+                e_s.trace = traceback.format_stack()
+                return e_s
+            return ret.last_save
+        self._apply_script.append((do_del_ip, (self, spec), {}))
+        return self
+
     def add_port(self, spec):
-        def do(self, spec):
+        def do_add_port(self, spec):
             try:
                 port = self.view[spec]
                 assert port['target'] == self['target']
@@ -215,11 +236,11 @@ class Interface(RTNL_Object):
                 e_s.trace = traceback.format_stack()
                 return e_s
             return port.last_save
-        self._apply_script.append((do, (self, spec), {}))
+        self._apply_script.append((do_add_port, (self, spec), {}))
         return self
 
     def del_port(self, spec):
-        def do(self, spec):
+        def do_del_port(self, spec):
             try:
                 port = self.view[spec]
                 assert port['master'] == self['index']
@@ -230,7 +251,7 @@ class Interface(RTNL_Object):
                 e_s.trace = traceback.format_stack()
                 return e_s
             return port.last_save
-        self._apply_script.append((do, (self, spec), {}))
+        self._apply_script.append((do_del_port, (self, spec), {}))
         return self
 
     def complete_key(self, key):
