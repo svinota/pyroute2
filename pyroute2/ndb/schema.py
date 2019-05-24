@@ -1068,6 +1068,19 @@ class DBSchema(object):
                     p2p['attrs'] = [('P2P_LOCAL', local),
                                     ('P2P_REMOTE', remote)]
                     self.load_netlink('p2p', target, p2p)
+                elif iftype == 'veth':
+                    link = event.get_attr('IFLA_LINK')
+                    # for veth interfaces, IFLA_LINK points to
+                    # the peer -- but NOT in automatic updates
+                    if (not link) and \
+                            (target in self.ndb.sources.keys()):
+                        self.log.debug('reload veth %s' % event['index'])
+                        update = (self
+                                  .ndb
+                                  .sources[target]
+                                  .api('link', 'get', index=event['index']))
+                        update = tuple(update)[0]
+                        return self.load_netlink('interfaces', target, update)
 
                 if table in self.spec:
                     ifdata = linkinfo.get_attr('IFLA_INFO_DATA')

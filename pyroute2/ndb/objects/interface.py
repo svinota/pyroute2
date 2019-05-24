@@ -331,15 +331,11 @@ class Interface(RTNL_Object):
                     netns = self['peer'].get('net_ns_fd')
                 if pname is None or netns is not None:
                     return
+                self.log.debug('wait for veth %s' % pname)
                 for _ in range(5):
                     peer = self.view.get(pname)
                     if peer is not None:
-                        self.log.debug('force update on veth peer')
-                        update = (self
-                                  .sources[self['target']]
-                                  .api(self.api, 'get',
-                                       **{'index': peer['index']}))
-                        self.ndb._event_queue.put((self['target'], update))
+                        self.log.debug('got idx %s' % peer['index'])
                         break
                     self.load_event.wait(0.1)
 

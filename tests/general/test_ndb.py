@@ -263,6 +263,68 @@ class TestCreate(Basic):
         assert not grep('%s ip link show' % self.ssh, pattern=ifname)
         assert not grep('%s ip link show' % self.ssh, pattern=peername)
 
+    def test_veth_spec(self):
+        ifname = uifname()
+        peername = uifname()
+        nsname = str(uuid.uuid4())
+
+        (self
+         .ndb
+         .sources
+         .add(netns=nsname))
+
+        (self
+         .ndb
+         .interfaces
+         .create(**{'ifname': ifname,
+                    'kind': 'veth',
+                    'peer': {'ifname': peername,
+                             'address': '00:11:22:33:44:55',
+                             'net_ns_fd': nsname}})
+         .commit())
+
+        (self
+         .ndb
+         .interfaces
+         .wait(target=nsname, ifname=peername))
+
+        iflink = (self
+                  .ndb
+                  .interfaces[{'target': 'localhost',
+                               'ifname': ifname}]['link'])
+        plink = (self
+                 .ndb
+                 .interfaces[{'target': nsname,
+                              'ifname': peername}]['link'])
+
+        assert iflink == (self
+                          .ndb
+                          .interfaces[{'target': nsname,
+                                       'ifname': peername}]['index'])
+        assert plink == (self
+                         .ndb
+                         .interfaces[{'target': 'localhost',
+                                      'ifname': ifname}]['index'])
+        assert grep('%s ip link show' % self.ssh, pattern=ifname)
+        assert not grep('%s ip link show' % self.ssh, pattern=peername)
+
+        (self
+         .ndb
+         .interfaces[ifname]
+         .remove()
+         .commit())
+
+        assert not grep('%s ip link show' % self.ssh, pattern=ifname)
+        assert not grep('%s ip link show' % self.ssh, pattern=peername)
+
+        (self
+         .ndb
+         .sources[nsname]
+         .remove()
+         .close())
+
+        netns.remove(nsname)
+
     def test_dummy(self):
 
         ifname = self.ifname()
