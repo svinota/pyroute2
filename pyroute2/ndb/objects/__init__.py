@@ -424,8 +424,9 @@ class RTNL_Object(dict):
         elif state == 'remove':
             method = 'del'
             req = idx_req
-            ignore = {errno.ENODEV: None,
-                      errno.ESRCH: None}
+            ignore = {errno.ENODEV: None,         # interfaces
+                      errno.ESRCH: None,          # routes
+                      errno.EADDRNOTAVAIL: None}  # addresses
         else:
             raise Exception('state transition not supported')
 
