@@ -96,6 +96,10 @@ class RTNL_Object(dict):
             self.load_sql(table=self.table)
 
     @classmethod
+    def adjust_spec(cls, spec):
+        return spec
+
+    @classmethod
     def nla2name(self, name):
         return self.msg_class.nla2name(name)
 

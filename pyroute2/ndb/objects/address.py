@@ -37,16 +37,14 @@ class Address(RTNL_Object):
         self.event_map = {ifaddrmsg: "load_rtnlmsg"}
         super(Address, self).__init__(*argv, **kwarg)
 
-    def complete_key(self, key):
-        if isinstance(key, dict):
-            ret_key = key
-        else:
-            ret_key = {'target': 'localhost'}
-
-        if isinstance(key, basestring):
-            ret_key['IFA_ADDRESS'], ret_key['prefixlen'] = key.split('/')
-
-        return super(Address, self).complete_key(ret_key)
+    @classmethod
+    def adjust_spec(cls, spec):
+        if isinstance(spec, basestring):
+            ret = {'target': 'localhost'}
+            ret['address'], prefixlen = spec.split('/')
+            ret['prefixlen'] = int(prefixlen)
+            return ret
+        return spec
 
     def key_repr(self):
         return '%s/%s %s/%s' % (self.get('target', ''),

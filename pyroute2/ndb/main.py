@@ -176,7 +176,8 @@ class View(dict):
             return None
 
     @cli.change_pointer
-    def create(self, **spec):
+    def create(self, *argspec, **kwspec):
+        spec = self.classes[self.table].adjust_spec(kwspec or argspec[0])
         if self.chain:
             spec['ndb_chain'] = self.chain
         spec['create'] = True
@@ -278,6 +279,7 @@ class View(dict):
                 raise
 
         iclass = self.classes[table or self.table]
+        key = iclass.adjust_spec(key)
         if self.match_src:
             match_src = [x for x in self.match_src]
             match_pairs = dict(self.match_pairs)
