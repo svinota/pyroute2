@@ -183,6 +183,19 @@ class View(dict):
         spec['create'] = True
         return self[spec]
 
+    @cli.change_pointer
+    def add(self, *argspec, **kwspec):
+        self.log.warning('''\n
+        The name add() will be removed in future releases, use create()
+        instead. If you believe that the idea to rename is wrong, please
+        file your opinion to the project's bugtracker.
+
+        The reason behind the rename is not to confuse interfaces.add() with
+        bridge and bond port operations, that don't create any new interfaces
+        but work on existing ones.
+        ''')
+        return self.create(*argspec, **kwspec)
+
     def wait(self, **spec):
         ret = None
 
