@@ -170,7 +170,10 @@ class View(dict):
             return obj
 
     def get(self, spec, table=None):
-        return self.__getitem__(spec, table)
+        try:
+            return self.__getitem__(spec, table)
+        except KeyError:
+            return None
 
     @cli.change_pointer
     def create(self, **spec):
