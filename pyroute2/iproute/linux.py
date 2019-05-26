@@ -1218,7 +1218,7 @@ class RTNL_API(object):
                     mask=24,
                     local='10.1.1.1')
         '''
-        if command == 'set':
+        if command in ('get', 'set'):
             return
 
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
