@@ -338,10 +338,10 @@ class Source(dict):
             self.log.debug('flushing the DB for the target')
             self.ndb.schema.flush(self.target)
 
-    def restart(self):
+    def restart(self, reason='unknown'):
         with self.lock:
             if not self.shutdown.is_set():
-                self.log.debug('restarting the source')
+                self.log.debug('restarting the source, reason <%s>' % (reason))
                 self.evq.put((self.target, (SchemaReadLock(), )))
                 try:
                     self.close()

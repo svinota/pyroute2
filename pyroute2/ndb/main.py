@@ -902,7 +902,7 @@ class NDB(object):
                                       % (event, traceback.format_exc()))
                     if time.time() - self.gctime > config.gc_timeout:
                         self.gctime = time.time()
-            except:
-                log.error('exception in source %s' % target)
+            except Exception as e:
+                self.log.error('exception <%s> in source %s' % (e, target))
                 # restart the target
-                self.sources[target].restart()
+                self.sources[target].restart(reason=e)
