@@ -720,6 +720,20 @@ class Log(object):
     def critical(self, *argv, **kwarg):
         return self.main.critical(*argv, **kwarg)
 
+
+class ReadOnly(object):
+
+    def __init__(self, ndb):
+        self.ndb = ndb
+
+    def __enter__(self):
+        self.ndb.schema.allow_write(False)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.ndb.schema.allow_write(True)
+
+
 class NDB(object):
 
     def __init__(self,
@@ -733,6 +747,7 @@ class NDB(object):
         self.schema = None
         self.config = {}
         self.log = Log(log_id=id(self))
+        self.readonly = ReadOnly(self)
         self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
