@@ -659,6 +659,7 @@ class Log(object):
         self.state = False
         self.log_id = log_id or id(self)
         self.logger = logging.getLogger('pyroute2.ndb.%s' % self.log_id)
+        self.main = self.channel('main')
 
     def __call__(self, target=None):
         if target is None:
@@ -704,6 +705,20 @@ class Log(object):
     def channel(self, name):
         return logging.getLogger('pyroute2.ndb.%s.%s' % (self.log_id, name))
 
+    def debug(self, *argv, **kwarg):
+        return self.main.debug(*argv, **kwarg)
+
+    def info(self, *argv, **kwarg):
+        return self.main.info(*argv, **kwarg)
+
+    def warning(self, *argv, **kwarg):
+        return self.main.warning(*argv, **kwarg)
+
+    def error(self, *argv, **kwarg):
+        return self.main.error(*argv, **kwarg)
+
+    def critical(self, *argv, **kwarg):
+        return self.main.critical(*argv, **kwarg)
 
 class NDB(object):
 
