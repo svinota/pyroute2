@@ -1,6 +1,12 @@
 Changelog
 =========
 
+* 0.5.6
+    * ndb.objects.route: multipath routes
+    * ndb.objects.rule: basic support
+    * ndb.objects.interface: veth fixed
+    * ndb.source: fix source restart
+    * ndb.log: logging setup
 * 0.5.5
     * nftables: rules expressions
         * <https://github.com/svinota/pyroute2/pull/592>
