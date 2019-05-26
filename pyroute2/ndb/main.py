@@ -892,6 +892,8 @@ class NDB(object):
         while True:
             target, events = event_queue.get()
             try:
+                if events is None:
+                    continue
                 # if nlm_generator is True, an exception can come
                 # here while iterating events
                 for event in events:
