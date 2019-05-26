@@ -80,6 +80,15 @@ class Route(RTNL_Object):
         if key == 'multipath':
             self.changed.remove(key)
 
+    def apply(self, rollback=False):
+        if (self.get('table') == 255) and \
+                (self.get('family') == 10) and \
+                (self.get('proto') == 2):
+            # skip automatic ipv6 routes with proto kernel
+            return self
+        else:
+            return super(Route, self).apply(rollback)
+
     def load_sql(self, *argv, **kwarg):
         super(Route, self).load_sql(*argv, **kwarg)
         if not self.load_event.is_set():

@@ -374,7 +374,7 @@ class RTNL_Object(dict):
     def hook_apply(self, method, **spec):
         pass
 
-    def apply(self, rollback=False, fix_remove=True):
+    def apply(self, rollback=False):
 
         # Save the context
         if not rollback and self.state != 'invalid':
