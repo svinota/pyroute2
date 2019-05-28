@@ -87,6 +87,7 @@ from pyroute2.ndb.objects.address import Address
 from pyroute2.ndb.objects.route import Route
 from pyroute2.ndb.objects.neighbour import Neighbour
 from pyroute2.ndb.objects.rule import Rule
+from pyroute2.ndb.objects.netns import NetNS
 from pyroute2.ndb.query import Query
 from pyroute2.ndb.report import (Report,
                                  Record)
@@ -148,6 +149,7 @@ class View(dict):
         self.classes['neighbours'] = Neighbour
         self.classes['routes'] = Route
         self.classes['rules'] = Rule
+        self.classes['netns'] = NetNS
 
     def __enter__(self):
         return self
@@ -784,6 +786,7 @@ class NDB(object):
         self.routes = View(self, 'routes')
         self.neighbours = View(self, 'neighbours')
         self.rules = View(self, 'rules')
+        self.netns = View(self, 'netns')
         self.query = Query(self.schema)
 
     def _get_view(self, name, match_src=None, match_pairs=None, chain=None):

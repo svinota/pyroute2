@@ -256,6 +256,7 @@ class Source(dict):
                         self.evq.put((self.target, self.nl.get_neighbours()))
                         self.evq.put((self.target, self.nl.get_routes()))
                         self.evq.put((self.target, self.nl.get_rules()))
+                        self.evq.put((self.target, self.nl.get_netns_info()))
                         self.evq.put((self.target,
                                       (self
                                        .nl

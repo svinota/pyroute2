@@ -110,6 +110,7 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
+from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
 
 # rtnl objects
 from pyroute2.ndb.objects.route import Route
@@ -251,6 +252,7 @@ class DBSchema(object):
                              [(('route_id', ), 'TEXT'),
                               (('nh_id', ), 'INTEGER')])
     spec['rules'] = OrderedDict(fibmsg.sql_schema())
+    spec['netns'] = OrderedDict(nsinfmsg.sql_schema())
     # additional tables
     spec['p2p'] = OrderedDict(p2pmsg.sql_schema())
 
@@ -260,6 +262,7 @@ class DBSchema(object):
                'routes': rtmsg,
                'nh': nh,
                'rules': fibmsg,
+               'netns': nsinfmsg,
                'p2p': p2pmsg}
 
     #
@@ -284,6 +287,7 @@ class DBSchema(object):
                           'RTA_TABLE'),
                'nh': ('route_id',
                       'nh_id'),
+               'netns': ('inode', ),
                'rules': ('family',
                          'dst_len',
                          'src_len',
@@ -1326,5 +1330,6 @@ def init(ndb, connection, mode, rtnl_log, tid):
                      ifaddrmsg: [partial(ret.load_netlink, 'addresses')],
                      ndmsg: [ret.load_ndmsg],
                      rtmsg: [ret.load_rtmsg],
-                     fibmsg: [partial(ret.load_netlink, 'rules')]}
+                     fibmsg: [partial(ret.load_netlink, 'rules')],
+                     nsinfmsg: [partial(ret.load_netlink, 'netns')]}
     return ret
