@@ -1,8 +1,10 @@
 import os
 import time
+import uuid
 import errno
 import socket
 from functools import partial
+from pyroute2 import NetNS
 from pyroute2 import IPRoute
 from pyroute2 import NetlinkError
 from pyroute2.common import uifname
@@ -407,6 +409,55 @@ class TestIPRoute(object):
 
     def test_create_ipvlan_l3(self):
         return self._create_ipvlan('IPVLAN_MODE_L3')
+
+    def _create_veth(self, peer):
+        ifname = self.uifname()
+        self.ip.link('add', kind='veth', ifname=ifname, peer=peer)
+        assert len(self.ip.link_lookup(ifname=ifname)) > 0
+        return ifname
+
+    def test_create_veth_simple(self):
+        require_user('root')
+        peer = self.uifname()
+        self._create_veth(peer)
+        assert len(self.ip.link_lookup(ifname=peer)) > 0
+
+    def test_create_veth_attrs(self):
+        require_user('root')
+        nsname = str(uuid.uuid4())
+        netns = NetNS(nsname)
+        try:
+            peer = {'ifname': self.uifname(),
+                    'net_ns_fd': nsname}
+            self._create_veth(peer)
+            assert len(self.ip.link_lookup(ifname=peer['ifname'])) == 0
+            assert len(netns.link_lookup(ifname=peer['ifname'])) > 0
+        finally:
+            netns.close()
+            netns.remove()
+
+    def test_get_netns_info(self):
+        require_user('root')
+        nsname = str(uuid.uuid4())
+        netns = NetNS(nsname)
+        try:
+            peer = {'ifname': self.uifname(),
+                    'net_ns_fd': nsname}
+            ifname = self._create_veth(peer)
+            # get veth
+            veth = self.ip.link('get', ifname=ifname)[0]
+            target = veth.get_attr('IFLA_LINK_NETNSID')
+            for info in self.ip.get_netns_info():
+                path = info.get_attr('NSINFO_PATH')
+                assert path.endswith(nsname)
+                netnsid = info['netnsid']
+                if target == netnsid:
+                    break
+            else:
+                raise KeyError('peer netns not found')
+        finally:
+            netns.close()
+            netns.remove()
 
     @skip_if_not_supported
     def _create(self, kind, **kwarg):

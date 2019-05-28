@@ -28,3 +28,6 @@ AF_NETLINK = getattr(socket, 'AF_NETLINK', 16)
 
 data_plugins_pkgs = []
 data_plugins_path = []
+
+netns_path = ['/var/run/netns',
+              '/var/run/docker/netns']
