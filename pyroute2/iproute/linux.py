@@ -5,7 +5,6 @@ import logging
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
-from itertools import chain
 from pyroute2 import config
 from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink import NLMSG_ERROR
@@ -1929,7 +1928,7 @@ class IPRoute(RTNL_API, IPRSocket):
             except SkipInode:
                 pass
 
-    def get_netns_info(self):
+    def get_netns_info(self, list_proc=False):
         '''
         A prototype method to list available netns and associated
         interfaces. A bit weird to have it here and not under
@@ -1955,14 +1954,15 @@ class IPRoute(RTNL_API, IPRSocket):
         # * one iterator for every item in self.path
         # * one iterator for /proc/<pid>/ns/net
         #
-        iters = []
+        views = []
         for path in self.netns_path:
-            iters.append(self._dump_dir(path, registry))
-        iters.append(self._dump_proc(registry))
+            views.append(self._dump_dir(path, registry))
+        if list_proc:
+            views.append(self._dump_proc(registry))
         #
         # iterate all the items
         #
-        for view in chain(iters):
+        for view in views:
             try:
                 for item in view:
                     #
