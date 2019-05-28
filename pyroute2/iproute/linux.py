@@ -358,6 +358,122 @@ class RTNL_API(object):
 
     # 8<---------------------------------------------------------------
     #
+    # List NetNS info
+    #
+    def _dump_one_ns(self, path, registry):
+        item = nsinfmsg()
+        item['netnsid'] = 0xffffffff  # default netnsid "unknown"
+        nsfd = 0
+        info = nsidmsg()
+        msg = nsidmsg()
+        try:
+            nsfd = os.open(path, os.O_RDONLY)
+            item['inode'] = os.fstat(nsfd).st_ino
+            #
+            # if the inode is registered, skip it
+            #
+            if item['inode'] in registry:
+                raise SkipInode()
+            registry.add(item['inode'])
+            #
+            # request NETNSA_NSID
+            #
+            # may not work on older kernels ( <4.20 ?)
+            #
+            msg['attrs'] = [('NETNSA_FD', nsfd)]
+            try:
+                for info in self.nlm_request(msg,
+                                             RTM_GETNSID,
+                                             NLM_F_REQUEST):
+                    # response to nlm_request() is a list or a generator,
+                    # that's why loop
+                    item['netnsid'] = info.get_attr('NETNSA_NSID')
+                    break
+            except Exception:
+                pass
+            item['attrs'] = [('NSINFO_PATH', path)]
+        except OSError:
+            raise SkipInode()
+        finally:
+            if nsfd > 0:
+                os.close(nsfd)
+        return item
+
+    def _dump_dir(self, path, registry):
+        for name in os.listdir(path):
+            # strictly speaking, there is no need to use os.sep,
+            # since the code is not portable outside of Linux
+            nspath = '%s%s%s' % (path, os.sep, name)
+            try:
+                yield self._dump_one_ns(nspath, registry)
+            except SkipInode:
+                pass
+
+    def _dump_proc(self, registry):
+        for name in os.listdir('/proc'):
+            try:
+                int(name)
+            except ValueError:
+                continue
+
+            try:
+                yield self._dump_one_ns('/proc/%s/ns/net' % name, registry)
+            except SkipInode:
+                pass
+
+    def get_netns_info(self, list_proc=False):
+        '''
+        A prototype method to list available netns and associated
+        interfaces. A bit weird to have it here and not under
+        `pyroute2.netns`, but it uses RTNL to get all the info.
+        '''
+        #
+        # register all the ns inodes, not to repeat items in the output
+        #
+        registry = set()
+        #
+        # fetch veth peers
+        #
+        peers = {}
+        for peer in self.get_links():
+            netnsid = peer.get_attr('IFLA_LINK_NETNSID')
+            if netnsid is not None:
+                if netnsid not in peers:
+                    peers[netnsid] = []
+                peers[netnsid].append(peer.get_attr('IFLA_IFNAME'))
+        #
+        # chain iterators:
+        #
+        # * one iterator for every item in self.path
+        # * one iterator for /proc/<pid>/ns/net
+        #
+        views = []
+        for path in self.netns_path:
+            views.append(self._dump_dir(path, registry))
+        if list_proc:
+            views.append(self._dump_proc(registry))
+        #
+        # iterate all the items
+        #
+        for view in views:
+            try:
+                for item in view:
+                    #
+                    # remove uninitialized 'value' field
+                    #
+                    del item['value']
+                    #
+                    # fetch peers for that ns
+                    #
+                    for peer in peers.get(item['netnsid'], []):
+                        item['attrs'].append(('NSINFO_PEER', peer))
+                    yield item
+            except OSError:
+                pass
+    # 8<---------------------------------------------------------------
+
+    # 8<---------------------------------------------------------------
+    #
     # Shortcuts
     #
     def get_default_routes(self, family=AF_UNSPEC, table=DEFAULT_TABLE):
@@ -1863,121 +1979,7 @@ class IPRoute(RTNL_API, IPRSocket):
     '''
     Regular ordinary utility class, see RTNL API for the list of methods.
     '''
-    # 8<---------------------------------------------------------------
-    #
-    # List NetNS info
-    #
-    def _dump_one_ns(self, path, registry):
-        item = nsinfmsg()
-        item['netnsid'] = 0xffffffff  # default netnsid "unknown"
-        nsfd = 0
-        info = nsidmsg()
-        msg = nsidmsg()
-        try:
-            nsfd = os.open(path, os.O_RDONLY)
-            item['inode'] = os.fstat(nsfd).st_ino
-            #
-            # if the inode is registered, skip it
-            #
-            if item['inode'] in registry:
-                raise SkipInode()
-            registry.add(item['inode'])
-            #
-            # request NETNSA_NSID
-            #
-            # may not work on older kernels ( <4.20 ?)
-            #
-            msg['attrs'] = [('NETNSA_FD', nsfd)]
-            try:
-                for info in self.nlm_request(msg,
-                                             RTM_GETNSID,
-                                             NLM_F_REQUEST):
-                    # response to nlm_request() is a list or a generator,
-                    # that's why loop
-                    item['netnsid'] = info.get_attr('NETNSA_NSID')
-                    break
-            except Exception:
-                pass
-            item['attrs'] = [('NSINFO_PATH', path)]
-        except OSError:
-            raise SkipInode()
-        finally:
-            if nsfd > 0:
-                os.close(nsfd)
-        return item
-
-    def _dump_dir(self, path, registry):
-        for name in os.listdir(path):
-            # strictly speaking, there is no need to use os.sep,
-            # since the code is not portable outside of Linux
-            nspath = '%s%s%s' % (path, os.sep, name)
-            try:
-                yield self._dump_one_ns(nspath, registry)
-            except SkipInode:
-                pass
-
-    def _dump_proc(self, registry):
-        for name in os.listdir('/proc'):
-            try:
-                int(name)
-            except ValueError:
-                continue
-
-            try:
-                yield self._dump_one_ns('/proc/%s/ns/net' % name, registry)
-            except SkipInode:
-                pass
-
-    def get_netns_info(self, list_proc=False):
-        '''
-        A prototype method to list available netns and associated
-        interfaces. A bit weird to have it here and not under
-        `pyroute2.netns`, but it uses RTNL to get all the info.
-        '''
-        #
-        # register all the ns inodes, not to repeat items in the output
-        #
-        registry = set()
-        #
-        # fetch veth peers
-        #
-        peers = {}
-        for peer in self.get_links():
-            netnsid = peer.get_attr('IFLA_LINK_NETNSID')
-            if netnsid is not None:
-                if netnsid not in peers:
-                    peers[netnsid] = []
-                peers[netnsid].append(peer.get_attr('IFLA_IFNAME'))
-        #
-        # chain iterators:
-        #
-        # * one iterator for every item in self.path
-        # * one iterator for /proc/<pid>/ns/net
-        #
-        views = []
-        for path in self.netns_path:
-            views.append(self._dump_dir(path, registry))
-        if list_proc:
-            views.append(self._dump_proc(registry))
-        #
-        # iterate all the items
-        #
-        for view in views:
-            try:
-                for item in view:
-                    #
-                    # remove uninitialized 'value' field
-                    #
-                    del item['value']
-                    #
-                    # fetch peers for that ns
-                    #
-                    for peer in peers.get(item['netnsid'], []):
-                        item['attrs'].append(('NSINFO_PEER', peer))
-                    yield item
-            except OSError:
-                pass
-    # 8<---------------------------------------------------------------
+    pass
 
 
 class RawIPRoute(RTNL_API, RawIPRSocket):
