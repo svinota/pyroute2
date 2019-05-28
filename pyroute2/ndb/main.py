@@ -830,8 +830,9 @@ class NDB(object):
                 # release all the sources
                 for target, source in self.sources.cache.items():
                     source.close(flush)
-                # flush the DB cache
+                # close the database
                 self.schema.commit()
+                self.schema.close()
                 # shutdown the _dbm_thread
                 self._event_queue.put(('localhost', (DBMExitException(), )))
                 self._dbm_thread.join()
@@ -891,51 +892,37 @@ class NDB(object):
             for handler in handlers:
                 self.register_handler(event, handler)
 
-        try:
-            while True:
-                target, events = event_queue.get()
-                try:
-                    if events is None:
-                        continue
-                    # if nlm_generator is True, an exception can come
-                    # here while iterating events
-                    for event in events:
-                        handlers = event_map.get(event.__class__,
-                                                 [default_handler, ])
-                        for handler in tuple(handlers):
+        while True:
+            target, events = event_queue.get()
+            try:
+                if events is None:
+                    continue
+                # if nlm_generator is True, an exception can come
+                # here while iterating events
+                for event in events:
+                    handlers = event_map.get(event.__class__,
+                                             [default_handler, ])
+                    for handler in tuple(handlers):
+                        try:
+                            handler(target, event)
+                        except InvalidateHandlerException:
                             try:
-                                handler(target, event)
-                            except InvalidateHandlerException:
-                                try:
-                                    handlers.remove(handler)
-                                except:
-                                    log.error('could not invalidate '
-                                              'event handler:\n%s'
-                                              % traceback.format_exc())
-                            except ShutdownException:
-                                for target, source in (self
-                                                       .sources
-                                                       .cache
-                                                       .items()):
-                                    source.shutdown.set()
-                            except DBMExitException:
-                                return
+                                handlers.remove(handler)
                             except:
-                                log.error('could not load event:\n%s\n%s'
-                                          % (event, traceback.format_exc()))
-                        if time.time() - self.gctime > config.gc_timeout:
-                            self.gctime = time.time()
-                except Exception as e:
-                    self.log.error('exception <%s> in source %s' % (e, target))
-                    # restart the target
-                    self.sources[target].restart(reason=e)
-        finally:
-            if self._db_rtnl_log:
-                for table in self.schema.spec:
-                    self.log.debug('rtnl log for <%s>' % table)
-                    for record in (self
-                                   .schema
-                                   .fetch('SELECT * FROM %s_log' % table)):
-                        self.log.debug('%s' % str(record))
-            self.schema.connection.commit()
-            self.schema.connection.close()
+                                log.error('could not invalidate '
+                                          'event handler:\n%s'
+                                          % traceback.format_exc())
+                        except ShutdownException:
+                            for target, source in self.sources.cache.items():
+                                source.shutdown.set()
+                        except DBMExitException:
+                            return
+                        except:
+                            log.error('could not load event:\n%s\n%s'
+                                      % (event, traceback.format_exc()))
+                    if time.time() - self.gctime > config.gc_timeout:
+                        self.gctime = time.time()
+            except Exception as e:
+                self.log.error('exception <%s> in source %s' % (e, target))
+                # restart the target
+                self.sources[target].restart(reason=e)
