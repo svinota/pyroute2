@@ -5,10 +5,12 @@ import weakref
 import traceback
 import threading
 import collections
+from functools import partial
 from pyroute2 import cli
 from pyroute2.ndb.events import State
 from pyroute2.ndb.report import Record
 from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.ndb.events import InvalidateHandlerException
 
 
 class RTNL_Object(dict):
@@ -206,6 +208,34 @@ class RTNL_Object(dict):
         for key, value in k.items():
             if value is not None:
                 dict.__setitem__(self, self.iclass.nla2name(key), value)
+
+    def register(self):
+        #
+        # Construct a weakref handler for events.
+        #
+        # If the referent doesn't exist, raise the
+        # exception to remove the handler from the
+        # chain.
+        #
+        def wr_handler(wr, fname, *argv):
+            try:
+                return getattr(wr(), fname)(*argv)
+            except:
+                # check if the weakref became invalid
+                if wr() is None:
+                    raise InvalidateHandlerException()
+                raise
+
+        wr = weakref.ref(self)
+        for event, fname in self.event_map.items():
+            #
+            # Do not trust the implicit scope and pass the
+            # weakref explicitly via partial
+            #
+            (self
+             .ndb
+             .register_handler(event,
+                               partial(wr_handler, wr, fname)))
 
     def snapshot(self, ctxid=None):
         ctxid = ctxid or self.ctxid or id(self)

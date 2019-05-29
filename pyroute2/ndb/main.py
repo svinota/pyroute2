@@ -67,7 +67,6 @@ import time
 import atexit
 import sqlite3
 import logging
-import weakref
 import threading
 import traceback
 from functools import partial
@@ -276,22 +275,6 @@ class View(dict):
         return ret
 
     def __getitem__(self, key, table=None):
-        #
-        # Construct a weakref handler for events.
-        #
-        # If the referent doesn't exist, raise the
-        # exception to remove the handler from the
-        # chain.
-        #
-
-        def wr_handler(wr, fname, *argv):
-            try:
-                return getattr(wr(), fname)(*argv)
-            except:
-                # check if the weakref became invalid
-                if wr() is None:
-                    raise InvalidateHandlerException()
-                raise
 
         iclass = self.classes[table or self.table]
         key = iclass.adjust_spec(key)
@@ -347,16 +330,7 @@ class View(dict):
                 # Otherwise create a cache entry
                 self.cache[cache_key] = ret
 
-        wr = weakref.ref(ret)
-        for event, fname in ret.event_map.items():
-            #
-            # Do not trust the implicit scope and pass the
-            # weakref explicitly via partial
-            #
-            (self
-             .ndb
-             .register_handler(event,
-                               partial(wr_handler, wr, fname)))
+        ret.register()
         return ret
 
     def __setitem__(self, key, value):
