@@ -104,6 +104,7 @@ from pyroute2.config import AF_BRIDGE
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.exceptions import NetlinkError
 
 
 def _cmp_master(self, value):
@@ -300,6 +301,27 @@ class Interface(RTNL_Object):
         if self.state == 'system':  # --> link('set', ...)
             req['master'] = self['master']
         return req
+
+    def apply(self, rollback=False, fallback=False):
+        try:
+            super(Interface, self).apply(rollback)
+        except NetlinkError as e:
+            if e.code == 95 and \
+                    'master' in self and \
+                    self.state == 'invalid':
+                key = dict(self)
+                key['create'] = True
+                del key['master']
+                fb = type(self)(self.view, key)
+                fb.register()
+                fb.apply(rollback)
+                fb.set('master', self['master'])
+                fb.apply(rollback)
+                del fb
+                self.apply()
+            else:
+                raise
+        return self
 
     def hook_apply(self, method, **spec):
         if method == 'set':
