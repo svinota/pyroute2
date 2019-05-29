@@ -341,24 +341,6 @@ class Interface(RTNL_Object):
                               .api(self.api, 'get',
                                    **{'index': self['index']}))
                     self.ndb._event_queue.put((self['target'], update))
-        elif method == 'add':
-            if self['kind'] == 'veth':
-                pname = None
-                netns = None
-                if isinstance(self['peer'], basestring):
-                    pname = self['peer']
-                elif isinstance(self['peer'], dict):
-                    pname = self['peer'].get('ifname')
-                    netns = self['peer'].get('net_ns_fd')
-                if pname is None or netns is not None:
-                    return
-                self.log.debug('wait for veth peer %s' % pname)
-                for _ in range(5):
-                    peer = self.view.get(pname)
-                    if peer is not None:
-                        self.log.debug('got idx %s' % peer['index'])
-                        break
-                    self.load_event.wait(0.1)
 
     def load_sql(self, *argv, **kwarg):
         spec = super(Interface, self).load_sql(*argv, **kwarg)
