@@ -8,6 +8,7 @@ from pyroute2.netlink.rtnl import RTM_NEWNETNS
 from pyroute2.netlink.rtnl import RTM_DELNETNS
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
 from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.exceptions import SkipInode
 
 
 class NetNSManager(Inotify):
@@ -61,23 +62,49 @@ class NetNSManager(Inotify):
         os.remove('%s/close' % self.control_dir)
         os.rmdir(self.control_dir)
 
-    def create(self, name):
-        netnspath = netns._get_netnspath(name)
-        netns.create(netnspath, self.libc)
+    def create(self, path):
+        netnspath = netns._get_netnspath(path)
+        try:
+            netns.create(netnspath, self.libc)
+        except OSError as e:
+            raise NetlinkError(e.errno)
         info = self.ipr._dump_one_ns(netnspath, set())
         info['header']['type'] = RTM_NEWNETNS
         info['event'] = 'RTM_NEWNETNS'
         del info['value']
         return info,
 
-    def remove(self, name):
-        netnspath = netns._get_netnspath(name)
-        info = self.ipr._dump_one_ns(netnspath, set())
+    def remove(self, path):
+        netnspath = netns._get_netnspath(path)
+        infp = None
+        try:
+            info = self.ipr._dump_one_ns(netnspath, set())
+        except SkipInode:
+            raise NetlinkError(errno.EEXIST)
         info['header']['type'] = RTM_DELNETNS
         info['event'] = 'RTM_DELNETNS'
         del info['value']
-        netns.remove(netnspath, self.libc)
+        try:
+            netns.remove(netnspath, self.libc)
+        except OSError as e:
+            raise NetlinkError(e.errno)
         return info,
+
+    def netns(self, cmd, *argv, **kwarg):
+        path = kwarg.get('path', kwarg.get('NSINFO_PATH'))
+        if path is None:
+            raise ValueError('netns spec is required')
+        netnspath = netns._get_netnspath(path)
+        if cmd == 'add':
+            return self.create(netnspath)
+        elif cmd == 'del':
+            return self.remove(netnspath)
+        elif cmd not in ('get', 'set'):
+            raise ValueError('method not supported')
+        for item in self.dump():
+            if item.get_attr('NSINFO_PATH') == netnspath:
+                return (item, )
+        return tuple()
 
     def dump(self):
         return self.ipr.get_netns_info()

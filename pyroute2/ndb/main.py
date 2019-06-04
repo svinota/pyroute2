@@ -132,13 +132,15 @@ class View(dict):
                  table,
                  match_src=None,
                  match_pairs=None,
-                 chain=None):
+                 chain=None,
+                 default_target='localhost'):
         self.ndb = ndb
         self.log = ndb.log.channel('view.%s' % table)
         self.table = table
         self.event = table  # FIXME
         self.chain = chain
         self.cache = {}
+        self.default_target = default_target
         self.constraints = {}
         self.match_src = match_src
         self.match_pairs = match_pairs
@@ -740,7 +742,7 @@ class NDB(object):
             sources = [{'target': 'localhost',
                         'kind': 'local',
                         'nlm_generator': 1},
-                       {'target': 'nsmanager',
+                       {'target': 'localhost/netns',
                         'kind': 'nsmanager'}]
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
@@ -762,7 +764,7 @@ class NDB(object):
         self.routes = View(self, 'routes')
         self.neighbours = View(self, 'neighbours')
         self.rules = View(self, 'rules')
-        self.netns = View(self, 'netns')
+        self.netns = View(self, 'netns', default_target='localhost/netns')
         self.query = Query(self.schema)
 
     def _get_view(self, name, match_src=None, match_pairs=None, chain=None):

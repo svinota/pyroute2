@@ -69,6 +69,7 @@ from pyroute2.netlink.rtnl.iprsocket import IPBatchSocket
 from pyroute2.netlink.rtnl.riprsocket import RawIPRSocket
 from pyroute2.netlink.rtnl.nsidmsg import nsidmsg
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
+from pyroute2.netlink.exceptions import SkipInode
 
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
@@ -76,10 +77,6 @@ from pyroute2.common import getbroadcast
 
 DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)
-
-
-class SkipInode(Exception):
-    pass
 
 
 def transform_handle(handle):

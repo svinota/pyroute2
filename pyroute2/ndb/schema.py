@@ -287,7 +287,7 @@ class DBSchema(object):
                           'RTA_TABLE'),
                'nh': ('route_id',
                       'nh_id'),
-               'netns': ('inode', ),
+               'netns': ('NSINFO_PATH', ),
                'rules': ('family',
                          'dst_len',
                          'src_len',

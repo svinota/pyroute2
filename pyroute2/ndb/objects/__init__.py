@@ -89,7 +89,7 @@ class RTNL_Object(dict):
                 self[name] = key[name]
             # FIXME -- merge with complete_key()
             if 'target' not in self:
-                self.load_value('target', 'localhost')
+                self.load_value('target', self.view.default_target)
         elif ctxid is None:
             self.key = ckey
             self.load_sql()
@@ -134,7 +134,7 @@ class RTNL_Object(dict):
                 self._replace = type(self)(self.view, self.key)
                 self.state.set('replace')
             else:
-                raise ValueError('Attempt to change a key field (%s)' % key)
+                raise ValueError('attempt to change a key field (%s)' % key)
         if key in ('net_ns_fd', 'net_ns_pid'):
             self.state.set('setns')
         if value != self.get(key, None):
@@ -490,7 +490,11 @@ class RTNL_Object(dict):
 
             wtime = self.wtime(itn)
             mqsize = self.view.ndb._event_queue.qsize()
-            nqsize = self.schema.stats.get(self['target']).qsize
+            nq = self.schema.stats.get(self['target'])
+            if nq is not None:
+                nqsize = nq.qsize
+            else:
+                nqsize = 0
             self.log.debug('stats: apply %s {'
                            'objid %s, wtime %s, '
                            'mqsize %s, nqsize %s'
