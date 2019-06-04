@@ -76,7 +76,7 @@ class NetNSManager(Inotify):
 
     def remove(self, path):
         netnspath = netns._get_netnspath(path)
-        infp = None
+        info = None
         try:
             info = self.ipr._dump_one_ns(netnspath, set())
         except SkipInode:
