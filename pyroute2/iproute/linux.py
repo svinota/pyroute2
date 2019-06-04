@@ -5,6 +5,7 @@ import logging
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
+from functools import partial
 from pyroute2 import config
 from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink import NLMSG_ERROR
@@ -162,6 +163,21 @@ class RTNL_API(object):
                                        match[key])
                 if all(matches):
                     yield msg
+
+    # 8<---------------------------------------------------------------
+    #
+    def dump(self):
+        '''
+        Iterate all the objects -- links, routes, addresses etc.
+        '''
+        for method in (self.get_links,
+                       self.get_addr,
+                       self.get_neighbours,
+                       self.get_routes,
+                       partial(self.get_rules, family=AF_INET),
+                       partial(self.get_rules, family=AF_INET6)):
+            for msg in method():
+                yield msg
 
     # 8<---------------------------------------------------------------
     #

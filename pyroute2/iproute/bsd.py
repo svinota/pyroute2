@@ -243,6 +243,20 @@ class IPRoute(object):
         self._outq.put(data)
         os.write(self._pfdw, b'\0')
 
+    # 8<---------------------------------------------------------------
+    #
+    def dump(self):
+        '''
+        Iterate all the objects -- links, routes, addresses etc.
+        '''
+        for method in (self.get_links,
+                       self.get_addr,
+                       self.get_neighbours,
+                       self.get_routes):
+            for msg in method():
+                yield msg
+    # 8<---------------------------------------------------------------
+
     def get_links(self, *argv, **kwarg):
         ret = []
         data = self._ifc.run()
