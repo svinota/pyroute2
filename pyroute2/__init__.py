@@ -63,6 +63,7 @@ if sys.platform.startswith('linux'):
     from pyroute2.nftables.main import NFTables
     from pyroute2.netns.nslink import NetNS
     from pyroute2.netns.process.proxy import NSPopen
+    from pyroute2.inotify.inotify_fd import Inotify
     from pyroute2.netlink.taskstats import TaskStats
     from pyroute2.netlink.nl80211 import NL80211
     from pyroute2.netlink.devlink import DevlinkSocket
@@ -73,6 +74,7 @@ if sys.platform.startswith('linux'):
     from pyroute2.netlink.generic import GenericNetlinkSocket
     from pyroute2.netlink.nfnetlink.nftsocket import NFTSocket
     from pyroute2.netlink.nfnetlink.nfctsocket import NFCTSocket
+    from pyroute2.netns.manager import NetNSManager
 #
 # The NDB module has extra requirements that may not be present.
 # It is not the core functionality, so simply skip the import if
@@ -145,7 +147,9 @@ if sys.platform.startswith('linux'):
                     DiagSocket,
                     GenericNetlinkSocket,
                     NFTSocket,
-                    NFCTSocket])
+                    NFCTSocket,
+                    Inotify,
+                    NetNSManager])
 
 if HAS_CONSOLE:
     classes.append(Console)
