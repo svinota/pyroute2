@@ -44,6 +44,7 @@ from pyroute2.netlink.rtnl import RTM_DELNEIGH
 from pyroute2.netlink.rtnl import RTM_SETLINK
 from pyroute2.netlink.rtnl import RTM_GETNEIGHTBL
 from pyroute2.netlink.rtnl import RTM_GETNSID
+from pyroute2.netlink.rtnl import RTM_NEWNETNS
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rt_type
 from pyroute2.netlink.rtnl import rt_scope
@@ -397,6 +398,8 @@ class RTNL_API(object):
         finally:
             if nsfd > 0:
                 os.close(nsfd)
+        item['header']['type'] = RTM_NEWNETNS
+        item['event'] = 'RTM_NEWNETNS'
         return item
 
     def _dump_dir(self, path, registry):
