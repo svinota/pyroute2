@@ -739,7 +739,9 @@ class NDB(object):
         if sources is None:
             sources = [{'target': 'localhost',
                         'kind': 'local',
-                        'nlm_generator': 1}]
+                        'nlm_generator': 1},
+                       {'target': 'nsmanager',
+                        'kind': 'nsmanager'}]
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
 

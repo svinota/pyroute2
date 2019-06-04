@@ -77,6 +77,7 @@ import threading
 from pyroute2 import IPRoute
 from pyroute2 import RemoteIPRoute
 from pyroute2.netns.nslink import NetNS
+from pyroute2.netns.manager import NetNSManager
 from pyroute2.ndb.events import (SyncStart,
                                  SchemaReadLock,
                                  SchemaReadUnlock,
@@ -104,7 +105,8 @@ class Source(dict):
     table = 'sources'
     vmap = {'local': IPRoute,
             'netns': NetNS,
-            'remote': RemoteIPRoute}
+            'remote': RemoteIPRoute,
+            'nsmanager': NetNSManager}
 
     def __init__(self, ndb, **spec):
         self.th = None
@@ -251,16 +253,7 @@ class Source(dict):
                     self.ndb.schema.allow_read(False)
                     try:
                         self.ndb.schema.flush(self.target)
-                        self.evq.put((self.target, self.nl.get_links()))
-                        self.evq.put((self.target, self.nl.get_addr()))
-                        self.evq.put((self.target, self.nl.get_neighbours()))
-                        self.evq.put((self.target, self.nl.get_routes()))
-                        self.evq.put((self.target, self.nl.get_rules()))
-                        self.evq.put((self.target, self.nl.get_netns_info()))
-                        self.evq.put((self.target,
-                                      (self
-                                       .nl
-                                       .get_rules(family=socket.AF_INET6))))
+                        self.evq.put((self.target, self.nl.dump()))
                     finally:
                         self.ndb.schema.allow_read(True)
                     self.started.set()
