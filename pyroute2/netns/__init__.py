@@ -144,6 +144,22 @@ def listnetns(nspath=None):
             raise
 
 
+def _get_ns_by_inode(nspath=NETNS_RUN_DIR):
+    '''
+    Return a dict with inode as key and
+    namespace name as value
+    '''
+    ns_by_dev_inode = {}
+    for ns_name in listnetns(nspath=nspath):
+        ns_path = os.path.join(nspath, ns_name)
+        st = os.stat(ns_path)
+        if st.st_dev not in ns_by_dev_inode:
+            ns_by_dev_inode[st.st_dev] = {}
+        ns_by_dev_inode[st.st_dev][st.st_ino] = ns_name
+
+    return ns_by_dev_inode
+
+
 def ns_pids(nspath=NETNS_RUN_DIR):
     '''
     List pids in all netns
@@ -151,14 +167,7 @@ def ns_pids(nspath=NETNS_RUN_DIR):
     If a pid is in a unknown netns do not return it
     '''
     result = {}
-    ns_by_dev_inode = {}
-    for ns_name in listnetns(nspath=nspath):
-        ns_path = os.path.join(nspath, ns_name)
-        result[ns_name] = []
-        st = os.stat(ns_path)
-        if st.st_dev not in ns_by_dev_inode:
-            ns_by_dev_inode[st.st_dev] = {}
-        ns_by_dev_inode[st.st_dev][st.st_ino] = ns_name
+    ns_by_dev_inode = _get_ns_by_inode(nspath)
 
     for pid in os.listdir('/proc'):
         if not pid.isdigit():
@@ -173,8 +182,27 @@ def ns_pids(nspath=NETNS_RUN_DIR):
             ns_name = ns_by_dev_inode[st.st_dev][st.st_ino]
         except KeyError:
             continue
+        if ns_name not in result:
+            result[ns_name] = []
         result[ns_name].append(int(pid))
     return result
+
+
+def pid_to_ns(pid=1, nspath=NETNS_RUN_DIR):
+    '''
+    Return netns name which matches the given pid,
+    None otherwise
+    '''
+    try:
+        st = os.stat(os.path.join('/proc', str(pid), 'ns', 'net'))
+        ns_by_dev_inode = _get_ns_by_inode(nspath)
+        return ns_by_dev_inode[st.st_dev][st.st_ino]
+    except OSError as e:
+        if e.errno in (errno.EACCES, errno.ENOENT):
+            return None
+        raise
+    except KeyError:
+        return None
 
 
 def _create(netns, libc=None):
