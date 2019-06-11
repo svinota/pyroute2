@@ -5,6 +5,7 @@ NL80211 module
 TODO
 '''
 import struct
+import datetime
 from pyroute2.common import map_namespace
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink.generic import GenericNetlinkSocket
@@ -515,19 +516,108 @@ class nl80211cmd(genlmsg):
 
                     offset += length + 2
 
+        class TSF(nla_base):
+            """Timing Synchronization Function"""
+            def decode(self):
+                nla_base.decode(self)
+
+                init = offset = self.offset + 4
+                self.value = {}
+                tsf, = struct.unpack_from('Q', self.data, offset)
+                self.value["VALUE"] = tsf
+                # TSF is in microseconds
+                self.value["TIME"] = datetime.timedelta(microseconds=tsf)
+
+        class SignalMBM(nla_base):
+            def decode(self):
+                nla_base.decode(self)
+                offset = self.offset + 4
+                self.value = {}
+                ss, = struct.unpack_from('i', self.data, offset)
+                self.value["VALUE"] = ss
+                self.value["SIGNAL_STRENGTH"] = {"VALUE":ss/100.0, "UNITS":"dBm"}
+
+
+        class capability(nla_base):
+            # iw scan.c
+            WLAN_CAPABILITY_ESS= (1<<0)
+            WLAN_CAPABILITY_IBSS= (1<<1)
+            WLAN_CAPABILITY_CF_POLLABLE=(1<<2)
+            WLAN_CAPABILITY_CF_POLL_REQUEST=(1<<3)
+            WLAN_CAPABILITY_PRIVACY= (1<<4)
+            WLAN_CAPABILITY_SHORT_PREAMBLE=(1<<5)
+            WLAN_CAPABILITY_PBCC= (1<<6)
+            WLAN_CAPABILITY_CHANNEL_AGILITY=(1<<7)
+            WLAN_CAPABILITY_SPECTRUM_MGMT=(1<<8)
+            WLAN_CAPABILITY_QOS= (1<<9)
+            WLAN_CAPABILITY_SHORT_SLOT_TIME=(1<<10)
+            WLAN_CAPABILITY_APSD= (1<<11)
+            WLAN_CAPABILITY_RADIO_MEASURE=(1<<12)
+            WLAN_CAPABILITY_DSSS_OFDM=(1<<13)
+            WLAN_CAPABILITY_DEL_BACK=(1<<14)
+            WLAN_CAPABILITY_IMM_BACK=(1<<15)
+
+#            def decode_nlas(self):
+#                return
+
+            def decode(self):
+                nla_base.decode(self)
+
+                init = offset = self.offset + 4
+                self.value = {}
+                capa, = struct.unpack_from('H', self.data, offset)
+                self.value["VALUE"] = capa
+
+                s = []
+                if capa & self.WLAN_CAPABILITY_ESS:
+                    s.append("ESS")
+                if capa & self.WLAN_CAPABILITY_IBSS:
+                    s.append("IBSS")
+                if capa & self.WLAN_CAPABILITY_CF_POLLABLE:
+                    s.append("CfPollable")
+                if capa & self.WLAN_CAPABILITY_CF_POLL_REQUEST:
+                    s.append("CfPollReq")
+                if capa & self.WLAN_CAPABILITY_PRIVACY:
+                    s.append("Privacy")
+                if capa & self.WLAN_CAPABILITY_SHORT_PREAMBLE:
+                    s.append("ShortPreamble")
+                if capa & self.WLAN_CAPABILITY_PBCC:
+                    s.append("PBCC")
+                if capa & self.WLAN_CAPABILITY_CHANNEL_AGILITY:
+                    s.append("ChannelAgility")
+                if capa & self.WLAN_CAPABILITY_SPECTRUM_MGMT:
+                    s.append("SpectrumMgmt")
+                if capa & self.WLAN_CAPABILITY_QOS:
+                    s.append("QoS")
+                if capa & self.WLAN_CAPABILITY_SHORT_SLOT_TIME:
+                    s.append("ShortSlotTime")
+                if capa & self.WLAN_CAPABILITY_APSD:
+                    s.append("APSD")
+                if capa & self.WLAN_CAPABILITY_RADIO_MEASURE:
+                    s.append("RadioMeasure")
+                if capa & self.WLAN_CAPABILITY_DSSS_OFDM:
+                    s.append("DSSS-OFDM")
+                if capa & self.WLAN_CAPABILITY_DEL_BACK:
+                    s.append("DelayedBACK")
+                if capa & self.WLAN_CAPABILITY_IMM_BACK:
+                    s.append("ImmediateBACK")
+
+                self.value['CAPABILITIES'] = " ".join(s)
+
+
         prefix = 'NL80211_BSS_'
         nla_map = (('__NL80211_BSS_INVALID', 'hex'),
                    ('NL80211_BSS_BSSID', 'hex'),
                    ('NL80211_BSS_FREQUENCY', 'uint32'),
-                   ('NL80211_BSS_TSF', 'uint64'),
+                   ('NL80211_BSS_TSF', 'TSF'),
                    ('NL80211_BSS_BEACON_INTERVAL', 'uint16'),
-                   ('NL80211_BSS_CAPABILITY', 'uint16'),
+                   ('NL80211_BSS_CAPABILITY', 'capability'),
                    ('NL80211_BSS_INFORMATION_ELEMENTS', 'elementsBinary'),
-                   ('NL80211_BSS_SIGNAL_MBM', 'int32'),
+                   ('NL80211_BSS_SIGNAL_MBM', 'SignalMBM'),
                    ('NL80211_BSS_SIGNAL_UNSPEC', 'uint8'),
                    ('NL80211_BSS_STATUS', 'uint32'),
                    ('NL80211_BSS_SEEN_MS_AGO', 'uint32'),
-                   ('NL80211_BSS_BEACON_IES', 'hex'),
+                   ('NL80211_BSS_BEACON_IES', 'elementsBinary'),
                    ('NL80211_BSS_CHAN_WIDTH', 'uint32'),
                    ('NL80211_BSS_BEACON_TSF', 'uint64'),
                    ('NL80211_BSS_PRESP_DATA', 'hex'),
