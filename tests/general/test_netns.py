@@ -425,8 +425,10 @@ class TestNetNS(object):
         netnsmod.popns()
 
         pids = netnsmod.ns_pids()
+        ns_name = netnsmod.pid_to_ns(foo_pid)
         try:
             assert pids[foo] == [foo_pid]
+            assert ns_name == foo
         finally:
             os.close(foo_fd)
             netnsmod.remove(foo)
