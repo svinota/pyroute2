@@ -1,6 +1,4 @@
-import os
 import errno
-import tempfile
 from pyroute2 import netns
 from pyroute2 import Inotify
 from pyroute2 import IPRoute
@@ -15,7 +13,6 @@ class NetNSManager(Inotify):
 
     def __init__(self, libc=None, path=None):
         path = set(path or [])
-        self.control_dir = tempfile.mkdtemp()
         super(NetNSManager, self).__init__(libc, path)
         if not self.path:
             for d in ['/var/run/netns', '/var/run/docker/netns']:
@@ -23,7 +20,6 @@ class NetNSManager(Inotify):
                     self.register_path(d)
                 except OSError:
                     pass
-        self.register_path(self.control_dir)
         self.ipr = IPRoute()
         self.registry = {}
         self.update()
@@ -35,11 +31,14 @@ class NetNSManager(Inotify):
 
     def get(self):
         for msg in super(NetNSManager, self).get():
-            if msg['path'] == self.control_dir:
-                error = NetlinkError(errno.ECONNRESET)
-                raise error
-            path = '{path}/{name}'.format(**msg)
             info = nsinfmsg()
+            if msg is None:
+                info['header']['error'] = NetlinkError(errno.ECONNRESET)
+                info['header']['type'] = RTM_DELNETNS
+                info['event'] = 'RTM_DELNETNS'
+                yield info
+                return
+            path = '{path}/{name}'.format(**msg)
             info['header']['error'] = None
             if path not in self.registry:
                 self.update()
@@ -55,12 +54,9 @@ class NetNSManager(Inotify):
                 continue
             yield info
 
-    def close(self):
-        with open('%s/close' % self.control_dir, 'w'):
-            pass
+    def close(self, code=None):
+        self.ipr.close()
         super(NetNSManager, self).close()
-        os.remove('%s/close' % self.control_dir)
-        os.rmdir(self.control_dir)
 
     def create(self, path):
         netnspath = netns._get_netnspath(path)
