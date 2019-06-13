@@ -71,6 +71,7 @@ In some more extended form::
 See also: :ref:`remote`
 '''
 import time
+import errno
 import socket
 import struct
 import threading
@@ -81,6 +82,7 @@ from pyroute2.netns.manager import NetNSManager
 from pyroute2.ndb.events import (SyncStart,
                                  SchemaReadLock,
                                  SchemaReadUnlock,
+                                 ShutdownException,
                                  MarkFailed,
                                  State)
 from pyroute2.netlink.nlsocket import NetlinkMixin
@@ -127,6 +129,7 @@ class Source(dict):
         self.shutdown = threading.Event()
         self.started = threading.Event()
         self.lock = threading.RLock()
+        self.shutdown_lock = threading.Lock()
         self.started.clear()
         self.log = ndb.log.channel('sources.%s' % self.target)
         self.state = State(log=self.log)
@@ -166,23 +169,6 @@ class Source(dict):
             if key not in ret:
                 ret[key] = defaults[key]
         return ret
-
-    def remove(self):
-        with self.lock:
-            self.close()
-            (self
-             .ndb
-             .schema
-             .execute('''
-                      DELETE FROM sources WHERE f_target=%s
-                      ''' % self.ndb.schema.plch, (self.target, )))
-            (self
-             .ndb
-             .schema
-             .execute('''
-                      DELETE FROM sources_options WHERE f_target=%s
-                      ''' % self.ndb.schema.plch, (self.target, )))
-            return self
 
     def __repr__(self):
         if isinstance(self.nl_prime, NetlinkMixin):
@@ -227,11 +213,11 @@ class Source(dict):
         #
         # The routine exists on an event with error code == 104
         #
-        while True:
+        stop = False
+        while not stop:
             with self.lock:
                 if self.shutdown.is_set():
-                    self.state.set('stopped')
-                    return
+                    break
 
                 if self.nl is not None:
                     try:
@@ -273,34 +259,55 @@ class Source(dict):
                         self.shutdown.wait(SOURCE_FAIL_PAUSE)
                         if self.shutdown.is_set():
                             self.log.debug('source shutdown')
-                            return
+                            stop = True
+                            break
                     else:
+                        self.event.set()
                         return
                     continue
 
-            while True:
+            while not stop:
                 try:
                     msg = tuple(self.nl.get())
                 except Exception as e:
                     self.log.error('source error: %s %s' % (type(e), e))
                     msg = None
-                    if self.persistent:
-                        break
+                    if not self.persistent:
+                        stop = True
+                    break
 
-                if msg is None or \
-                        msg[0]['header']['error'] and \
-                        msg[0]['header']['error'].code == 104:
-                    self.state.set('stopped')
-                    # thus we make sure that all the events from
-                    # this source are consumed by the main loop
-                    # in __dbm__() routine
-                    sync = threading.Event()
-                    self.evq.put((self.target, (sync, )))
-                    sync.wait()
-                    return
+                code = 0
+                if msg and msg[0]['header']['error']:
+                    code = msg[0]['header']['error'].code
+
+                if msg is None or code == errno.ECONNRESET:
+                    stop = True
+                    break
 
                 self.ndb.schema._allow_write.wait()
-                self.evq.put((self.target, msg))
+                try:
+                    self.evq.put((self.target, msg))
+                except ShutdownException:
+                    stop = True
+                    break
+
+        # thus we make sure that all the events from
+        # this source are consumed by the main loop
+        # in __dbm__() routine
+        try:
+            self.sync()
+            self.log.debug('flush DB for the target')
+            self.ndb.schema.flush(self.target)
+        except ShutdownException:
+            self.log.debug('shutdown handled by the main thread')
+            pass
+        self.state.set('stopped')
+
+    def sync(self):
+        self.log.debug('sync')
+        sync = threading.Event()
+        self.evq.put((self.target, (sync, )))
+        sync.wait()
 
     def start(self):
 
@@ -317,20 +324,24 @@ class Source(dict):
             self.th.start()
             return self
 
-    def close(self, flush=True):
-        with self.lock:
-            self.log.debug('stopping the source')
+    def close(self, code=errno.ECONNRESET, sync=True):
+        with self.shutdown_lock:
+            if self.shutdown.is_set():
+                self.log.debug('already stopped')
+                return
+            self.log.info('source shutdown')
             self.shutdown.set()
             if self.nl is not None:
                 try:
-                    self.nl.close()
+                    self.nl.close(code=code)
                 except Exception as e:
                     self.log.error('source close: %s' % e)
-        if self.th is not None:
-            self.th.join()
-        if flush:
-            self.log.debug('flushing the DB for the target')
-            self.ndb.schema.flush(self.target)
+        if sync:
+            if self.th is not None:
+                self.th.join()
+                self.th = None
+            else:
+                self.log.debug('receiver thread missing')
 
     def restart(self, reason='unknown'):
         with self.lock:
@@ -339,6 +350,8 @@ class Source(dict):
                 self.evq.put((self.target, (SchemaReadLock(), )))
                 try:
                     self.close()
+                    if self.th:
+                        self.th.join()
                     self.start()
                 finally:
                     self.evq.put((self.target, (SchemaReadUnlock(), )))

@@ -64,6 +64,7 @@ Key NDB features:
 import gc
 import json
 import time
+import errno
 import atexit
 import sqlite3
 import logging
@@ -587,6 +588,12 @@ class SourcesView(View):
         super(SourcesView, self).__init__(ndb, 'sources')
         self.classes['sources'] = Source
         self.cache = {}
+        self.lock = threading.Lock()
+
+    def async_add(self, **spec):
+        spec = dict(Source.defaults(spec))
+        self.cache[spec['target']] = Source(self.ndb, **spec).start()
+        return self.cache[spec['target']]
 
     def add(self, **spec):
         spec = dict(Source.defaults(spec))
@@ -600,11 +607,12 @@ class SourcesView(View):
             self.cache[spec['target']].event.wait()
         return self.cache[spec['target']]
 
-    def remove(self, target):
-        return (self
-                .cache
-                .pop(target)
-                .remove())
+    def remove(self, target, code=errno.ECONNRESET, sync=True):
+        with self.lock:
+            if target in self.cache:
+                source = self.cache[target]
+                source.close(code=code, sync=sync)
+                return self.cache.pop(target)
 
     def keys(self):
         for key in self.cache:
@@ -712,6 +720,33 @@ class ReadOnly(object):
         self.ndb.schema.allow_write(True)
 
 
+class DeadEnd(object):
+
+    def put(self, *argv, **kwarg):
+        raise ShutdownException('shutdown in progress')
+
+
+class EventQueue(object):
+
+    def __init__(self, *argv, **kwarg):
+        self._bypass = self._queue = queue.Queue(*argv, **kwarg)
+
+    def put(self, *argv, **kwarg):
+        return self._queue.put(*argv, **kwarg)
+
+    def shutdown(self):
+        self._queue = DeadEnd()
+
+    def bypass(self, *argv, **kwarg):
+        return self._bypass.put(*argv, **kwarg)
+
+    def get(self, *argv, **kwarg):
+        return self._bypass.get(*argv, **kwarg)
+
+    def qsize(self):
+        return self._bypass.qsize()
+
+
 class NDB(object):
 
     def __init__(self,
@@ -719,20 +754,22 @@ class NDB(object):
                  db_provider='sqlite3',
                  db_spec=':memory:',
                  debug=False,
-                 log=False):
+                 log=False,
+                 auto_netns=False):
 
         self.ctime = self.gctime = time.time()
         self.schema = None
         self.config = {}
         self.log = Log(log_id=id(self))
         self.readonly = ReadOnly(self)
+        self._auto_netns = auto_netns
         self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
         self._dbm_shutdown = threading.Event()
         self._global_lock = threading.Lock()
         self._event_map = None
-        self._event_queue = queue.Queue(maxsize=100)
+        self._event_queue = EventQueue(maxsize=100)
         #
         if log:
             self.log(log)
@@ -754,11 +791,15 @@ class NDB(object):
         self._db_rtnl_log = debug
         atexit.register(self.close)
         self._dbm_ready.clear()
+        self._dbm_autoload = set()
         self._dbm_thread = threading.Thread(target=self.__dbm__,
                                             name='NDB main loop')
         self._dbm_thread.setDaemon(True)
         self._dbm_thread.start()
         self._dbm_ready.wait()
+        for event in tuple(self._dbm_autoload):
+            event.wait()
+        self._dbm_autoload = None
         self.interfaces = View(self, 'interfaces')
         self.addresses = View(self, 'addresses')
         self.routes = View(self, 'routes')
@@ -787,13 +828,12 @@ class NDB(object):
     def execute(self, *argv, **kwarg):
         return self.schema.execute(*argv, **kwarg)
 
-    def close(self, flush=False):
+    def close(self):
         with self._global_lock:
             if self._dbm_shutdown.is_set():
                 return
             else:
                 self._dbm_shutdown.set()
-
             if hasattr(atexit, 'unregister'):
                 atexit.unregister(self.close)
             else:
@@ -801,34 +841,10 @@ class NDB(object):
                     atexit._exithandlers.remove((self.close, (), {}))
                 except ValueError:
                     pass
-
-            if self.schema:
-                # release all the failed sources waiting for restart
-                self._event_queue.put(('localhost', (ShutdownException(), )))
-                # release all the sources
-                for target, source in self.sources.cache.items():
-                    source.close(flush)
-                # close the database
-                self.schema.commit()
-                self.schema.close()
-                # shutdown the _dbm_thread
-                self._event_queue.put(('localhost', (DBMExitException(), )))
-                self._dbm_thread.join()
-
-    def __initdb__(self):
-        with self._global_lock:
-            #
-            # close the current db, if opened
-            if self.schema:
-                self.schema.commit()
-                self.schema.close()
-            if self._db_provider == 'sqlite3':
-                self._db = sqlite3.connect(self._db_spec)
-            elif self._db_provider == 'psycopg2':
-                self._db = psycopg2.connect(**self._db_spec)
-
-            if self.schema:
-                self.schema.db = self._db
+            # shutdown the _dbm_thread
+            self._event_queue.shutdown()
+            self._event_queue.bypass(('localhost', (ShutdownException(), )))
+            self._dbm_thread.join()
 
     def __dbm__(self):
 
@@ -855,7 +871,11 @@ class NDB(object):
 
         event_queue = self._event_queue
 
-        self.__initdb__()
+        if self._db_provider == 'sqlite3':
+            self._db = sqlite3.connect(self._db_spec)
+        elif self._db_provider == 'psycopg2':
+            self._db = psycopg2.connect(**self._db_spec)
+
         self.schema = schema.init(self,
                                   self._db,
                                   self._db_provider,
@@ -870,7 +890,8 @@ class NDB(object):
             for handler in handlers:
                 self.register_handler(event, handler)
 
-        while True:
+        stop = False
+        while not stop:
             target, events = event_queue.get()
             try:
                 if events is None:
@@ -891,8 +912,8 @@ class NDB(object):
                                           'event handler:\n%s'
                                           % traceback.format_exc())
                         except ShutdownException:
-                            for target, source in self.sources.cache.items():
-                                source.shutdown.set()
+                            stop = True
+                            break
                         except DBMExitException:
                             return
                         except:
@@ -903,4 +924,20 @@ class NDB(object):
             except Exception as e:
                 self.log.error('exception <%s> in source %s' % (e, target))
                 # restart the target
-                self.sources[target].restart(reason=e)
+                try:
+                    self.sources[target].restart(reason=e)
+                except KeyError:
+                    pass
+
+        # release all the sources
+        for target in tuple(self.sources.cache):
+            source = self.sources.remove(target, sync=False)
+            if source is not None and source.th is not None:
+                source.shutdown.set()
+                source.th.join()
+                self.log.debug('flush DB for the target %s' % target)
+                self.schema.flush(target)
+
+        # close the database
+        self.schema.commit()
+        self.schema.close()

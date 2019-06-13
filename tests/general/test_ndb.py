@@ -319,9 +319,8 @@ class TestCreate(Basic):
 
         (self
          .ndb
-         .sources[nsname]
-         .remove()
-         .close())
+         .sources
+         .remove(nsname))
 
         netns.remove(nsname)
 
@@ -749,11 +748,14 @@ class TestNetNS(object):
         self.ipnets = [allocate_network() for _ in range(3)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
         self.sources = [{'target': 'localhost'},
-                        {'netns': self.netns}]
+                        {'netns': self.netns},
+                        {'target': 'localhost/netns',
+                         'kind': 'nsmanager'}]
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        sources=self.sources,
-                       debug=True)
+                       debug=True,
+                       auto_netns=True)
         self.ndb.log('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
 
     def ifaddr(self, r=0):
@@ -764,6 +766,20 @@ class TestNetNS(object):
             free_network(net)
         self.ndb.close()
         netns.remove(self.netns)
+
+    def test_nsmanager(self):
+        assert self.ndb.netns.count() > 0
+
+    def test_auto_netns(self):
+        newns = str(uuid.uuid4())
+        assert self.ndb.interfaces.count() > 0
+        assert len(tuple(self
+                         .ndb
+                         .interfaces
+                         .summary(match={'target': 'netns/%s' % newns}))) == 0
+        netns.create(newns)
+        self.ndb.interfaces.wait(**{'target': 'netns/%s' % newns})
+        netns.remove(newns)
 
     def test_basic(self):
         ifname = uifname()
@@ -1152,7 +1168,7 @@ class TestSources(TestBase):
         with self.ndb.readonly:
             s = len(list(self.ndb.interfaces.summary()))
             assert self.count_interfaces(nsname) == 0
-            assert self.count_interfaces('localhost') == s
+            assert self.count_interfaces('localhost') <= s
 
         # connect RTNL source
         event = threading.Event()
@@ -1172,19 +1188,22 @@ class TestSources(TestBase):
         with self.ndb.readonly:
             s = len(list(self.ndb.interfaces.summary()))
             assert self.count_interfaces(nsname) == 0
-            assert self.count_interfaces('localhost') == s
+            assert self.count_interfaces('localhost') <= s
 
         netns.remove(nsname)
 
     def test_disconnect_localhost(self):
         with self.ndb.readonly:
             s = len(list(self.ndb.interfaces.summary()))
-            assert self.count_interfaces('localhost') == s
+            assert self.count_interfaces('localhost') <= s
 
-        self.ndb.sources['localhost'].close()
+        self.ndb.sources.remove('localhost')
 
         with self.ndb.readonly:
-            s = len(list(self.ndb.interfaces.summary()))
+            s = len(list(self
+                         .ndb
+                         .interfaces
+                         .summary(match={'target': 'localhost'})))
             assert self.count_interfaces('localhost') == s
             assert s == 0
 
@@ -1192,6 +1211,7 @@ class TestSources(TestBase):
 class TestReports(TestBase):
 
     def test_types(self):
+        save = report.MAX_REPORT_LINES
         report.MAX_REPORT_LINES = 1
         # check for the report type here
         assert isinstance(self.ndb.interfaces.summary(), Report)
@@ -1199,6 +1219,7 @@ class TestReports(TestBase):
         assert isinstance(repr(self.ndb.interfaces.summary()), basestring)
         # header + MAX_REPORT_LINES + (...)
         assert len(repr(self.ndb.interfaces.summary()).split('\n')) == 3
+        report.MAX_REPORT_LINES = save
 
     def test_iter_keys(self):
         for name in ('interfaces',

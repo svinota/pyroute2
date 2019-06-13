@@ -1020,6 +1020,35 @@ class DBSchema(object):
                           % (self.plch, self.plch, key_query),
                           (gc_mark, target) + route[:-1]))
 
+    def load_nsinfmsg(self, target, event):
+        #
+        # check if there is corresponding source
+        #
+        netns_path = event.get_attr('NSINFO_PATH')
+        if netns_path is None:
+            self.log.debug('ignore %s %s' % (target, event))
+            return
+        if self.ndb._auto_netns:
+            if netns_path.find('/var/run/docker') > -1:
+                source_name = 'docker/%s' % netns_path.split('/')[-1]
+            else:
+                source_name = 'netns/%s' % netns_path.split('/')[-1]
+            if event['header'].get('type', 0) % 2:
+                if source_name in self.ndb.sources.cache:
+                    self.ndb.sources.remove(source_name, code=108, sync=False)
+            else:
+                sync_event = None
+                if self.ndb._dbm_autoload is not None:
+                    sync_event = threading.Event()
+                    self.ndb._dbm_autoload.add(sync_event)
+                else:
+                    sync_event = None
+                self.ndb.sources.async_add(target=source_name,
+                                           netns=netns_path,
+                                           persistent=False,
+                                           event=sync_event)
+        self.load_netlink('netns', target, event)
+
     def load_ndmsg(self, target, event):
         #
         # ignore events with ifindex == 0
@@ -1331,5 +1360,5 @@ def init(ndb, connection, mode, rtnl_log, tid):
                      ndmsg: [ret.load_ndmsg],
                      rtmsg: [ret.load_rtmsg],
                      fibmsg: [partial(ret.load_netlink, 'rules')],
-                     nsinfmsg: [partial(ret.load_netlink, 'netns')]}
+                     nsinfmsg: [ret.load_nsinfmsg]}
     return ret
