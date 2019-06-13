@@ -521,7 +521,7 @@ class nl80211cmd(genlmsg):
             def decode(self):
                 nla_base.decode(self)
 
-                init = offset = self.offset + 4
+                offset = self.offset + 4
                 self.value = {}
                 tsf, = struct.unpack_from('Q', self.data, offset)
                 self.value["VALUE"] = tsf
@@ -535,27 +535,27 @@ class nl80211cmd(genlmsg):
                 self.value = {}
                 ss, = struct.unpack_from('i', self.data, offset)
                 self.value["VALUE"] = ss
-                self.value["SIGNAL_STRENGTH"] = {"VALUE":ss/100.0, "UNITS":"dBm"}
-
+                self.value["SIGNAL_STRENGTH"] = {"VALUE": ss / 100.0,
+                                                 "UNITS": "dBm"}
 
         class capability(nla_base):
             # iw scan.c
-            WLAN_CAPABILITY_ESS= (1<<0)
-            WLAN_CAPABILITY_IBSS= (1<<1)
-            WLAN_CAPABILITY_CF_POLLABLE=(1<<2)
-            WLAN_CAPABILITY_CF_POLL_REQUEST=(1<<3)
-            WLAN_CAPABILITY_PRIVACY= (1<<4)
-            WLAN_CAPABILITY_SHORT_PREAMBLE=(1<<5)
-            WLAN_CAPABILITY_PBCC= (1<<6)
-            WLAN_CAPABILITY_CHANNEL_AGILITY=(1<<7)
-            WLAN_CAPABILITY_SPECTRUM_MGMT=(1<<8)
-            WLAN_CAPABILITY_QOS= (1<<9)
-            WLAN_CAPABILITY_SHORT_SLOT_TIME=(1<<10)
-            WLAN_CAPABILITY_APSD= (1<<11)
-            WLAN_CAPABILITY_RADIO_MEASURE=(1<<12)
-            WLAN_CAPABILITY_DSSS_OFDM=(1<<13)
-            WLAN_CAPABILITY_DEL_BACK=(1<<14)
-            WLAN_CAPABILITY_IMM_BACK=(1<<15)
+            WLAN_CAPABILITY_ESS = (1 << 0)
+            WLAN_CAPABILITY_IBSS = (1 << 1)
+            WLAN_CAPABILITY_CF_POLLABLE = (1 << 2)
+            WLAN_CAPABILITY_CF_POLL_REQUEST = (1 << 3)
+            WLAN_CAPABILITY_PRIVACY = (1 << 4)
+            WLAN_CAPABILITY_SHORT_PREAMBLE = (1 << 5)
+            WLAN_CAPABILITY_PBCC = (1 << 6)
+            WLAN_CAPABILITY_CHANNEL_AGILITY = (1 << 7)
+            WLAN_CAPABILITY_SPECTRUM_MGMT = (1 << 8)
+            WLAN_CAPABILITY_QOS = (1 << 9)
+            WLAN_CAPABILITY_SHORT_SLOT_TIME = (1 << 10)
+            WLAN_CAPABILITY_APSD = (1 << 11)
+            WLAN_CAPABILITY_RADIO_MEASURE = (1 << 12)
+            WLAN_CAPABILITY_DSSS_OFDM = (1 << 13)
+            WLAN_CAPABILITY_DEL_BACK = (1 << 14)
+            WLAN_CAPABILITY_IMM_BACK = (1 << 15)
 
 #            def decode_nlas(self):
 #                return
@@ -563,7 +563,7 @@ class nl80211cmd(genlmsg):
             def decode(self):
                 nla_base.decode(self)
 
-                init = offset = self.offset + 4
+                offset = self.offset + 4
                 self.value = {}
                 capa, = struct.unpack_from('H', self.data, offset)
                 self.value["VALUE"] = capa
@@ -603,7 +603,6 @@ class nl80211cmd(genlmsg):
                     s.append("ImmediateBACK")
 
                 self.value['CAPABILITIES'] = " ".join(s)
-
 
         prefix = 'NL80211_BSS_'
         nla_map = (('__NL80211_BSS_INVALID', 'hex'),
