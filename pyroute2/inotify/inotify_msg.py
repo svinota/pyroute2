@@ -13,5 +13,5 @@ class inotify_msg(nlmsg_base):
         super(inotify_msg, self).decode()
         name, = struct.unpack_from('%is' % self['name_length'],
                                    self.data, self.offset + 16)
-        self['name'] = name.strip('\0')
+        self['name'] = name.decode('utf-8').strip('\0')
         self.length = self['name_length'] + 16
