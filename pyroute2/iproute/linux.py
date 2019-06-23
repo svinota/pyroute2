@@ -1167,6 +1167,30 @@ class RTNL_API(object):
         All possible vxlan parameters are listed in the module
         `pyroute2.netlink.rtnl.ifinfmsg:... vxlan_data`.
 
+        ► ipoib
+
+        IPoIB driver provides an ability to create several ip interfaces
+        on one interface.
+        IPoIB interfaces requires the following parameter:
+
+        `link` : The master interface to create IPoIB on.
+
+        The following parameters can also be provided:
+
+        `pkey` : Inifiniband partition key the ip interface is associated with
+        `mode` : Underlying infiniband transport mode.
+                 One of:  ['datagram' ,'connected']
+        `umcast` : If set(1), multicast group membership for this interface is
+                   handled by user space.
+
+        Example::
+
+            ip.link("add",
+                    ifname="ipoib1",
+                    kind="ipoib",
+                    link=ip.link_lookup(ifname="ib0")[0],
+                    pkey=10)
+
         **set**
 
         Set interface attributes::
