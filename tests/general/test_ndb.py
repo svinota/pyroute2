@@ -126,13 +126,14 @@ class TestBase(object):
 
     def setup(self):
         require_user('root')
+        self.log_id = str(uuid.uuid4())
         self.if_simple = None
         self.ipnets = [allocate_network() for _ in range(5)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
+                       log='../ndb-%s-%s.log' % (os.getpid(), self.log_id),
                        debug=True)
-        self.ndb.log('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
         self.interfaces = self.create_interfaces()
 
     def teardown(self):
@@ -171,12 +172,13 @@ class Basic(object):
     def setup(self):
         require_user('root')
         self.interfaces = []
+        self.log_id = str(uuid.uuid4())
         self.ipnets = [allocate_network() for _ in range(2)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
+                       log='../ndb-%s-%s.log' % (os.getpid(), self.log_id),
                        debug=True)
-        self.ndb.log('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
 
     def teardown(self):
         with self.nl_class(**self.nl_kwarg) as ipr:
@@ -744,6 +746,7 @@ class TestNetNS(object):
 
     def setup(self):
         require_user('root')
+        self.log_id = str(uuid.uuid4())
         self.netns = str(uuid.uuid4())
         self.ipnets = [allocate_network() for _ in range(3)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
@@ -754,9 +757,9 @@ class TestNetNS(object):
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        sources=self.sources,
+                       log='../ndb-%s-%s.log' % (os.getpid(), self.log_id),
                        debug=True,
                        auto_netns=True)
-        self.ndb.log('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
 
     def ifaddr(self, r=0):
         return str(self.ipranges[r].pop())
@@ -885,12 +888,13 @@ class TestRollback(TestBase):
 
     def setup(self):
         require_user('root')
+        self.log_id = str(uuid.uuid4())
         self.ipnets = [allocate_network() for _ in range(5)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
+                       log='../ndb-%s-%s.log' % (os.getpid(), self.log_id),
                        debug=True)
-        self.ndb.log('../ndb-%s-%s.log' % (os.getpid(), id(self.ndb)))
         self.interfaces = []
 
     def test_simple_deps(self):
