@@ -70,6 +70,8 @@ import sqlite3
 import logging
 import threading
 import traceback
+import ctypes
+import ctypes.util
 from functools import partial
 from collections import OrderedDict
 from pyroute2 import config
@@ -755,11 +757,14 @@ class NDB(object):
                  db_spec=':memory:',
                  debug=False,
                  log=False,
-                 auto_netns=False):
+                 auto_netns=False,
+                 libc=None):
 
         self.ctime = self.gctime = time.time()
         self.schema = None
         self.config = {}
+        self.libc = libc or ctypes.CDLL(ctypes.util.find_library('c'),
+                                        use_errno=True)
         self.log = Log(log_id=id(self))
         self.readonly = ReadOnly(self)
         self._auto_netns = auto_netns
