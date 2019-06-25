@@ -1036,13 +1036,15 @@ class DBSchema(object):
             if event['header'].get('type', 0) % 2:
                 if source_name in self.ndb.sources.cache:
                     self.ndb.sources.remove(source_name, code=108, sync=False)
-            else:
+            elif source_name not in self.ndb.sources.cache:
                 sync_event = None
-                if self.ndb._dbm_autoload is not None:
+                if self.ndb._dbm_autoload and not self.ndb._dbm_ready.is_set():
                     sync_event = threading.Event()
                     self.ndb._dbm_autoload.add(sync_event)
+                    self.log.debug('queued event %s' % sync_event)
                 else:
                     sync_event = None
+                self.log.debug('starting netns source %s' % source_name)
                 self.ndb.sources.async_add(target=source_name,
                                            netns=netns_path,
                                            persistent=False,
