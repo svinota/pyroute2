@@ -117,13 +117,13 @@ class Source(dict):
         self.evq = self.ndb._event_queue
         # the target id -- just in case
         self.target = spec.pop('target')
-        kind = spec.pop('kind', 'local')
+        self.kind = spec.pop('kind', 'local')
         self.persistent = spec.pop('persistent', True)
         self.event = spec.pop('event')
         if not self.event:
             self.event = SyncStart()
         # RTNL API
-        self.nl_prime = self.vmap[kind]
+        self.nl_prime = self.vmap[self.kind]
         self.nl_kwarg = spec
         #
         self.shutdown = threading.Event()
@@ -139,7 +139,7 @@ class Source(dict):
                                 VALUES (%s, %s)
                                 ''' % (self.ndb.schema.plch,
                                        self.ndb.schema.plch),
-                                (self.target, kind))
+                                (self.target, self.kind))
         for key, value in spec.items():
             vtype = 'int' if isinstance(value, int) else 'str'
             self.ndb.schema.execute('''
@@ -227,7 +227,11 @@ class Source(dict):
                 try:
                     self.state.set('connecting')
                     if isinstance(self.nl_prime, type):
-                        self.nl = self.nl_prime(**self.nl_kwarg)
+                        spec = {}
+                        spec.update(self.nl_kwarg)
+                        if self.kind in ('nsmanager', ):
+                            spec['libc'] = self.ndb.libc
+                        self.nl = self.nl_prime(**spec)
                     else:
                         raise TypeError('source channel not supported')
                     self.state.set('loading')
@@ -247,13 +251,15 @@ class Source(dict):
                     self.state.set('running')
                     if self.event is not None:
                         self.evq.put((self.target, (self.event, )))
-                except TypeError:
-                    raise
                 except Exception as e:
                     self.started.set()
                     self.state.set('failed')
                     self.log.error('source error: %s %s' % (type(e), e))
-                    self.evq.put((self.target, (MarkFailed(), )))
+                    try:
+                        self.evq.put((self.target, (MarkFailed(), )))
+                    except ShutdownException:
+                        stop = True
+                        break
                     if self.persistent:
                         self.log.debug('sleeping before restart')
                         self.shutdown.wait(SOURCE_FAIL_PAUSE)
