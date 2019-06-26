@@ -258,6 +258,10 @@ class Interface(RTNL_Object):
     def __setitem__(self, key, value):
         if key == 'peer':
             dict.__setitem__(self, key, value)
+        elif key == 'target' and \
+                self.get('target') and \
+                self['target'] != value:
+            super(Interface, self).__setitem__('net_ns_fd', value)
         else:
             super(Interface, self).__setitem__(key, value)
 
