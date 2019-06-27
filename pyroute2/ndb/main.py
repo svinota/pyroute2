@@ -663,7 +663,7 @@ class Log(object):
                 self.logger.addHandler(logging.NullHandler())
             return
 
-        if target == 'on':
+        if target in ('on', 'stderr'):
             handler = logging.StreamHandler()
         elif isinstance(target, basestring):
             url = urlparse(target)
