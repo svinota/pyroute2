@@ -1,3 +1,85 @@
+'''
+Structure and API
+=================
+
+The NDB objects are dictionary-like structures that represent network
+objects -- interfaces, routes, addresses etc. In addition to the
+usual dictionary API they have some NDB-specific methods, see the
+`RTNL_Object` class description below.
+
+The dictionary fields represent RTNL messages fields and NLA names,
+and the objects are used as argument dictionaries to normal `IPRoute`
+methods like `link()` or `route()`. Thus everything described for
+the `IPRoute` methods is valid here as well.
+
+See also: :ref:`iproute`
+
+E.g.::
+
+    # create a vlan interface with IPRoute
+    with IPRoute() as ipr:
+        ipr.link("add",
+                 ifname="vlan1108",
+                 kind="vlan",
+                 link=ipr.link_lookup(ifname="eth0"),
+                 vlan_id=1108)
+
+    # same with NDB:
+    with NDB(log="stderr") as ndb:
+        (ndb
+         .interfaces
+         .add(ifname="vlan1108",
+              kind="vlan",
+              link="eth0",
+              vlan_id=1108)
+         .commit())
+
+Slightly simplifying, if a network object doesn't exist, NDB will run
+an RTNL method with "add" argument, if exists -- "set", and to remove
+an object NDB will call the method with "del" argument.
+
+Accessing objects
+=================
+
+NDB objects are grouped into "views":
+
+    * interfaces
+    * addresses
+    * routes
+    * neighbours
+    * rules
+    * netns
+
+Views are dictionary-like objects that accept strings or dict selectors::
+
+    # access eth0
+    ndb.interfaces["eth0"]
+
+    # access eth0 in the netns test01
+    ndb.sources.add(netns="test01")
+    ndb.interfaces[{"target": "test01", "ifname": "eth0"}]
+
+    # access a route to 10.4.0.0/24
+    ndb.routes["10.4.0.0/24"]
+
+    # same with a dict selector
+    ndb.routes[{"dst": "10.4.0.0", "dst_len": 24}]
+
+Objects cache
+=============
+
+NDB create objects on demand, it doesn't create thousands of route objects
+for thousands of routes by default. The object is being created only when
+accessed for the first time, and stays in the cache as long as it has any
+not committed changes. To inspect cached objects, use views' `.cache`::
+
+    >>> ndb.interfaces.cache.keys()
+    [(('target', u'localhost'), ('tflags', 0), ('index', 1)),  # lo
+     (('target', u'localhost'), ('tflags', 0), ('index', 5))]  # eth3
+
+There is no asynchronous cache invalidation, the cache is being cleaned up
+every time when an object is accessed.
+'''
 import json
 import time
 import errno
@@ -18,7 +100,6 @@ class RTNL_Object(dict):
     Base RTNL object class.
     '''
 
-    table = None   # model table -- always one of the main tables
     view = None    # (optional) view to load values for the summary etc.
     utable = None  # table to send updates to
     table_alias = ''
@@ -37,10 +118,74 @@ class RTNL_Object(dict):
     errors = None
     msg_class = None
     reverse_update = None
+    _table = None
     _apply_script = None
     _key = None
     _replace = None
     _replace_on_key_change = False
+
+    # 8<------------------------------------------------------------
+    #
+    # Documented public properties section
+    #
+    @property
+    def table(self):
+        '''
+        The main reference table for the object. The SQL schema of the
+        table is used to build the key and to verify the fields.
+        '''
+        return self._table
+
+    @table.setter
+    def table(self, value):
+        self._table = value
+
+    @property
+    def etable(self):
+        '''
+        The table where the object actually fetches the data from. It
+        is not always equal `self.table`, e.g. snapshot objects fetch
+        the data from snapshot tables.
+
+        Read-only property.
+        '''
+        if self.ctxid:
+            return '%s_%s' % (self.table, self.ctxid)
+        else:
+            return self.table
+
+    @property
+    def key(self):
+        '''
+        The key of the object, used to fetch it from the DB.
+        '''
+        nkey = self._key or {}
+        ret = collections.OrderedDict()
+        for name in self.kspec:
+            kname = self.iclass.nla2name(name)
+            if kname in self:
+                value = self[kname]
+                if value is None and name in nkey:
+                    value = nkey[name]
+                ret[name] = value
+        if len(ret) < len(self.kspec):
+            for name in self.key_extra_fields:
+                kname = self.iclass.nla2name(name)
+                if self.get(kname):
+                    ret[name] = self[kname]
+        return ret
+
+    @key.setter
+    def key(self, k):
+        if not isinstance(k, dict):
+            return
+        for key, value in k.items():
+            if value is not None:
+                dict.__setitem__(self, self.iclass.nla2name(key), value)
+
+    #
+    # 8<------------------------------------------------------------
+    #
 
     def __init__(self,
                  view,
@@ -156,6 +301,13 @@ class RTNL_Object(dict):
 
     @cli.show_result
     def show(self, **kwarg):
+        '''
+        Return the object in a specified format. The format may be
+        specified with the keyword argument `format` or in the
+        `ndb.config['show_format']`.
+
+        TODO: document different formats
+        '''
         fmt = kwarg.pop('format',
                         kwarg.pop('fmt',
                                   self.view.ndb.config.get('show_format',
@@ -169,45 +321,23 @@ class RTNL_Object(dict):
             return '%s\n' % json.dumps(out, indent=4, separators=(',', ': '))
 
     def set(self, key, value):
+        '''
+        Set a field specified by `key` to `value`, and return self. The
+        method is useful to write call chains like that::
+
+            (ndb
+             .interfaces["eth0"]
+             .set('mtu', 1200)
+             .set('state', 'up')
+             .set('address', '00:11:22:33:44:55')
+             .commit())
+        '''
         self[key] = value
         return self
 
     def wtime(self, itn=1):
         return max(min(itn * 0.1, 1),
                    self.view.ndb._event_queue.qsize() / 10)
-
-    @property
-    def etable(self):
-        if self.ctxid:
-            return '%s_%s' % (self.table, self.ctxid)
-        else:
-            return self.table
-
-    @property
-    def key(self):
-        nkey = self._key or {}
-        ret = collections.OrderedDict()
-        for name in self.kspec:
-            kname = self.iclass.nla2name(name)
-            if kname in self:
-                value = self[kname]
-                if value is None and name in nkey:
-                    value = nkey[name]
-                ret[name] = value
-        if len(ret) < len(self.kspec):
-            for name in self.key_extra_fields:
-                kname = self.iclass.nla2name(name)
-                if self.get(kname):
-                    ret[name] = self[kname]
-        return ret
-
-    @key.setter
-    def key(self, k):
-        if not isinstance(k, dict):
-            return
-        for key, value in k.items():
-            if value is not None:
-                dict.__setitem__(self, self.iclass.nla2name(key), value)
 
     def register(self):
         #
@@ -238,6 +368,14 @@ class RTNL_Object(dict):
                                partial(wr_handler, wr, fname)))
 
     def snapshot(self, ctxid=None):
+        '''
+        Create and return a snapshot of the object. The method creates
+        corresponding SQL tables for the object itself and for detected
+        dependencies.
+
+        The snapshot tables will be removed as soon as the snapshot gets
+        collected by the GC.
+        '''
         ctxid = ctxid or self.ctxid or id(self)
         if self._replace is None:
             key = self.key
@@ -249,6 +387,18 @@ class RTNL_Object(dict):
         return snp
 
     def complete_key(self, key):
+        '''
+        Try to complete the object key based on the provided fields.
+        E.g.::
+
+            >>> ndb.interfaces['eth0'].complete_key({"ifname": "eth0"})
+            {'ifname': 'eth0',
+             'index': 2,
+             'target': u'localhost',
+             'tflags': 0}
+
+        It is an internal method and is not supposed to be used externally.
+        '''
         self.log.debug('complete key %s from table %s' % (key, self.etable))
         fetch = []
         if isinstance(key, Record):
@@ -285,6 +435,10 @@ class RTNL_Object(dict):
         return key
 
     def rollback(self, snapshot=None):
+        '''
+        Try to rollback the object state using the snapshot provided as
+        an argument or using `self.last_save`.
+        '''
         if self._replace is not None:
             self.log.debug('rollback replace: %s :: %s'
                            % (self.key, self._replace.key))
@@ -302,6 +456,10 @@ class RTNL_Object(dict):
         return self
 
     def commit(self):
+        '''
+        Try to commit the pending changes. If the commit fails,
+        automatically revert the state.
+        '''
         if self.chain:
             self.chain.commit()
         self.log.debug('commit: %s' % str(self.state.events))
@@ -405,6 +563,10 @@ class RTNL_Object(dict):
         pass
 
     def apply(self, rollback=False):
+        '''
+        Create a snapshot and apply pending changes. Do not revert
+        the changes in the case of an exception.
+        '''
 
         # Save the context
         if not rollback and self.state != 'invalid':
@@ -561,6 +723,10 @@ class RTNL_Object(dict):
             self.load_value(key, value)
 
     def load_value(self, key, value):
+        '''
+        Load a value and clean up the `self.changed` set if the
+        loaded value matches the expectation.
+        '''
         if key not in self.changed:
             dict.__setitem__(self, key, value)
         elif self.get(key) == value:
@@ -569,6 +735,9 @@ class RTNL_Object(dict):
             self.changed.remove(key)
 
     def load_sql(self, table=None, ctxid=None, set_state=True):
+        '''
+        Load the data from the database.
+        '''
 
         if not self.key:
             return
@@ -604,6 +773,10 @@ class RTNL_Object(dict):
         return spec
 
     def load_rtnlmsg(self, target, event):
+        '''
+        Check if the RTNL event matches the object and load the
+        data from the database if it does.
+        '''
         # TODO: partial match (object rename / restore)
         # ...
 

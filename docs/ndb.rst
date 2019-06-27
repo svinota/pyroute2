@@ -11,6 +11,7 @@ Reference
 .. toctree::
    :maxdepth: 2
 
+   ndb_objects
    ndb_interfaces
    ndb_schema
    ndb_sources
