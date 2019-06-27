@@ -933,10 +933,21 @@ class BatchSocket(NetlinkMixin):
     def reset(self):
         self.batch = bytearray()
 
-    def sendto_gate(self, msg, addr):
+    def nlm_request(self, msg, msg_type,
+                    msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+                    terminate=None,
+                    callback=None):
+        msg_seq = self.addr_pool.alloc()
+        msg_pid = self.epid or os.getpid()
+
+        msg['header']['type'] = msg_type
+        msg['header']['flags'] = msg_flags
+        msg['header']['sequence_number'] = msg_seq
+        msg['header']['pid'] = msg_pid
         msg.data = self.batch
         msg.offset = len(self.batch)
         msg.encode()
+        return []
 
     def get(self, *argv, **kwarg):
         pass
