@@ -307,6 +307,10 @@ class Interface(RTNL_Object):
         return req
 
     def apply(self, rollback=False, fallback=False):
+        # translate string link references into numbers
+        for key in ('link', ):
+            if key in self and isinstance(self[key], basestring):
+                self[key] = self.ndb.interfaces[self[key]]['index']
         try:
             super(Interface, self).apply(rollback)
         except NetlinkError as e:
