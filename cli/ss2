@@ -111,6 +111,11 @@ class UserCtxtMap(collections.Mapping):
                             _recurs_path=_recurs_path)
 
     def _enter_item(self, usr, flow, ctxt):
+        if not flow.pid:
+            # corner case of eg anonnymous AddressFamily.AF_UNIX
+            # sockets
+            return
+
         sk_inode = int(self._parse_inode(flow))
         sk_fd = flow.fd
 
