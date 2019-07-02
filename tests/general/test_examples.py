@@ -129,10 +129,6 @@ class TestExamples(object):
         require_user('root')
         self.launcher('ipdb_chain')
 
-    def test_ipdb_precb(self):
-        require_user('root')
-        self.launcher('ipdb_precb')
-
     def test_ipdb_routes(self):
         require_user('root')
         self.launcher('ipdb_routes')
