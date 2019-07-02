@@ -1427,7 +1427,7 @@ class TestExplicit(BasicSetup):
         idx = self.ip.interfaces[ifA].index
         assert len(self.ip.nl.get_addr(index=idx, family=2)) == 254
 
-    def test_json_dump(self):
+    def _test_json_dump(self):
         require_user('root')
 
         ifA = self.get_ifname()
@@ -2883,14 +2883,14 @@ class TestImplicit(TestExplicit):
         def cb(ipdb, msg, action):
             if action == 'RTM_NEWLINK':
                 # fake the incoming message
-                msg['flags'] = 1234
+                msg['status'] = 'left'
         ifA = self.get_ifname()
         # register callback
         cuid = self.ip.register_callback(cb, mode='pre')
         # create an interface bala
         self.ip.create(kind='dummy', ifname=ifA).commit()
         # assert flags
-        assert self.ip.interfaces[ifA].flags == 1234
+        assert self.ip.interfaces[ifA]['status'] == 'left'
         # cleanup
         self.ip.unregister_callback(cuid, mode='pre')
         self.ip.interfaces[ifA].remove()
