@@ -35,9 +35,9 @@ class Session(object):
     def lprint(self, text='', end='\n'):
         if not isinstance(text, basestring):
             text = str(text)
-        self.stdout.write(text.encode('utf-8'))
+        self.stdout.write(text)
         if end:
-            self.stdout.write(end.encode('utf-8'))
+            self.stdout.write(end)
         self.stdout.flush()
 
     def handle_statement(self, stmt, token):
