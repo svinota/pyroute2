@@ -6,12 +6,17 @@ TODO
 '''
 import struct
 import datetime
+import collections
+import logging
+
 from pyroute2.common import map_namespace
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink.generic import GenericNetlinkSocket
 from pyroute2.netlink.nlsocket import Marshal
 from pyroute2.netlink import nla
 from pyroute2.netlink import nla_base
+
+log = logging.getLogger(__name__)
 
 # nl80211 commands
 
@@ -141,9 +146,16 @@ NL80211_BSS_ELEMENTS_SSID = 0
 NL80211_BSS_ELEMENTS_SUPPORTED_RATES = 1
 NL80211_BSS_ELEMENTS_CHANNEL = 3
 NL80211_BSS_ELEMENTS_TIM = 5
+NL80211_BSS_ELEMENTS_HT_CAPABILITIES = 45
 NL80211_BSS_ELEMENTS_RSN = 48
 NL80211_BSS_ELEMENTS_EXTENDED_RATE = 50
+NL80211_BSS_ELEMENTS_HT_OPERATION = 61
+NL80211_BSS_ELEMENTS_EXT_CAPABILITIES = 127
+NL80211_BSS_ELEMENTS_VHT_CAPABILITIES = 191
+NL80211_BSS_ELEMENTS_VHT_OPERATION = 192
 NL80211_BSS_ELEMENTS_VENDOR = 221
+(NL80211_BSS_ELEMENTS_NAMES, NL80211_BSS_ELEMENTS_VALUES) =\
+    map_namespace('NL80211_BSS_ELEMENTS_', globals())
 
 BSS_MEMBERSHIP_SELECTOR_HT_PHY = 127
 BSS_MEMBERSHIP_SELECTOR_VHT_PHY = 126
@@ -206,6 +218,575 @@ NL80211_STA_FLAG_TDLS_PEER = 6
 NL80211_STA_FLAG_ASSOCIATED = 7
 (STA_FLAG_NAMES, STA_FLAG_VALUES) = map_namespace('NL80211_STA_FLAG_',
                                                   globals())
+
+
+class IE:
+    # note: using the raw integers in the descendents so can keep the hierarchy
+    # in numerical order
+    ID = -1
+
+    Grammar = collections.namedtuple("Grammar",
+                                     ("offset", "mask", "name"))
+
+    Value = collections.namedtuple("Value",
+                                   ("name", "value",))
+
+    def __init__(self, data):
+        # data is the buffer
+        # Caller is responsible for parsing:
+        #   id: octet
+        #   len: octet
+        #   data: octet(s) <-- we get this
+        # and sending us the data
+        self.data = data
+
+        # array of IE.Value
+        self.fields = []
+
+    def __getitem__(self, idx):
+        return self.fields[idx]
+
+    def decode_integer(self, grammar, value):
+        """An Information element consisting of a bit fields that fits into an
+        intrinsic integer type. Straightforward to decode.
+        """
+        decode = [None] * (grammar[-1].offset + 1)
+        for field in grammar:
+            num = (value >> field.offset) & field.mask
+            log.debug("num=%r name=%r", num, field.name)
+            decode[field.offset] = IE.Value(field.name, num)
+        return decode
+
+    def decode(self):
+        """IE child will decode its contents into self.fields."""
+        pass
+
+    def pretty_print(self):
+        """IE child will decode its self.fields into a human useful value"""
+        return ""
+
+
+class SSID(IE):
+    ID = 0
+
+    def decode(self):
+        # Be VERY careful with the SSID. Can contain hostile input.
+        # SQL injection. Terminal characters. HTML injection. XSS. etc.
+        fmt = '%is' % len(self.data)
+        self.fields.append(IE.Value("SSID", struct.unpack(fmt, self.data)[0]))
+
+    def pretty_print(self):
+        # TODO utf8 encoding of SSID is optional. Shouldn't be unconditionally 
+        # treating as UTF8
+        return self.fields[0].value.decode("utf8")
+
+class Supported_Rates(IE):
+    ID = 1
+
+    def decode(self):
+        offset = 0
+        length = len(self.data)
+        while offset < length:
+            byte, = struct.unpack_from('B', self.data, offset)
+            self.fields.append(byte)
+            offset += 1
+
+    def pretty_print(self):
+        string = ""
+        for byte in self.fields:
+            r = byte & 0x7f
+            if r == BSS_MEMBERSHIP_SELECTOR_VHT_PHY and byte & 0x80:
+                string += "VHT"
+            elif r == BSS_MEMBERSHIP_SELECTOR_HT_PHY and byte & 0x80:
+                string += "HT"
+            else:
+                string += "%d.%d" % (r / 2, 5 * (r & 1))
+            string += "%s " % ("*" if byte & 0x80 else "")
+
+        return string
+
+
+class DSSS_Parameter_Set(IE):
+    ID = 3
+
+    def decode(self):
+        self.fields = list(struct.unpack('B', self.data))
+
+    def pretty_print(self):
+        # single valued field
+        return "channel {}".format(self.fields[0])
+
+
+class TIM(IE):
+    # Traffic Indication Map
+    ID = 5
+
+    # TODO
+#    def decode(self):
+#        (count,
+#         period,
+#         bitmapc,
+#         bitmap0) = struct.unpack_from('BBBB',
+#                                       self.data,
+#                                       offset)
+#        return ("DTIM Count {0} DTIM Period {1} Bitmap Control 0x{2} "
+#                "Bitmap[0] 0x{3}".format(count,
+#                                         period,
+#                                         bitmapc,
+#                                         bitmap0))
+
+
+class HT_Capabilities(IE):
+    # iw scan.c print_ht_capa()
+    # iw util. print_ht_capability()
+    ID = 45
+
+    # Capability Info bit 1
+    channel_width = ("HT20", "HT20/HT40")
+
+    # Capability Info bits 2,3
+    power_save = ("Static SM Power Save",
+                  "Dynamic SM Power Save",
+                  "Reserved",
+                  "SM Power Save disabled")
+
+    # Capability Info bits 8,9
+    rx_stbc_streams = ("No RX STBC",
+                       "RX STBC 1-stream",
+                       "RX STBC 2-streams",
+                       "RX STBC 3-streams")
+
+    # Capability Info bit 11
+    amsdu_length = (3839, 7935)
+
+    # Capability Info
+    capa_grammar = (
+        IE.Grammar(0, 1, "RX LDPC"),
+        IE.Grammar(1, 1, "HT20/HT40"),
+        IE.Grammar(2, 3, "SM Power Save"),
+        IE.Grammar(4, 1, "RX Greenfield"),
+        IE.Grammar(5, 1, "RX HT20 SGI"),
+        IE.Grammar(6, 1, "RX HT40 SGI"),
+        IE.Grammar(7, 1, "TX STBC"),
+        IE.Grammar(8, 3, "RX STBC"),
+        IE.Grammar(10, 1, "HT Delayed Block Ack"),
+        IE.Grammar(11, 1, "Max AMSDU length"),
+        IE.Grammar(12, 1, "DSSS/CCK HT40"),
+        # 13 is reserved
+        IE.Grammar(14, 1, "40 Mhz Intolerant"),
+        IE.Grammar(15, 1, "L-SIG TXOP protection"),
+    )
+
+    ampdu_grammar = (
+        IE.Grammar(0, 2, "Maximum RX AMPDU length"),
+        IE.Grammar(2, 3, "Minimum RX AMPDU time"),
+    )
+
+    extended_capa_grammar = (
+        IE.Grammar(0, 1, "PCO"),
+        IE.Grammar(1, 2, "PCO Transition Time"),
+        # bits 3-7 reserved
+        IE.Grammar(8, 2, "MCS Feedback"),
+        IE.Grammar(10, 1, "HTC-HT Support"),
+        IE.Grammar(11, 1, "RD Responder"),
+        # bits 12-15 reserved
+    )
+
+    tx_beam_form_capabilities_grammar = (
+        IE.Grammar(0, 1, "Implicit Tx Beamforming Receive"),
+        IE.Grammar(1, 1, "Receive Staggered Sound"),
+        IE.Grammar(2, 1, "Transmit Staggered Sound"),
+        IE.Grammar(3, 1, "Receive NDP"),
+        IE.Grammar(4, 1, "Transmit NDP"),
+        IE.Grammar(5, 1, "Implicit Transmit Beamforming"),
+        IE.Grammar(6, 2, "Calibration"),
+        IE.Grammar(8, 1, "Explicit CSI Transmit Beamform"),
+        IE.Grammar(9, 1, "Explicit Noncompressed Steering"),
+        IE.Grammar(10, 1, "Explicit Compressed Steering"),
+        IE.Grammar(11, 2, "Explicit Transform Beamforming CSI Feedback"),
+        IE.Grammar(13, 2, "Explicit Noncompressed Beamforming Feedback"),
+        IE.Grammar(15, 2, "Explicit Compressed Beamforming Feedback"),
+        IE.Grammar(17, 2, "Minimal Grouping"),
+        IE.Grammar(19, 2, "CSI Number of Beamformer Antennae"),
+        IE.Grammar(21, 2, "Noncompressed Steering Num of Beamformer Antennae"),
+        IE.Grammar(23, 2, "Compressed Steering Number of Beamformer Antennae"),
+        IE.Grammar(25, 2, "CSI Max Number of Rows Beamformer"),
+        IE.Grammar(27, 2, "Channel Estimation"),
+    )
+
+    asel_capabilities = (
+        IE.Grammar(0, 1, "Antenna Selection Capable"),
+        IE.Grammar(1, 1, "Explicit CSI Feedback Based TX ASEL"),
+        IE.Grammar(2, 1, "Antenna Indices Feedback"),
+        IE.Grammar(3, 1, "Explicit CSI Feedback"),
+        IE.Grammar(4, 1, "Antennae Indices Feedback"),
+        IE.Grammar(5, 1, "Receive ASEL"),
+        IE.Grammar(6, 1, "Transmit Sounding PPDUs"),
+        IE.Grammar(7, 1, "Reserved"),
+    )
+
+    # iw util.c compute_ampdu_length()
+    #
+    # "There are only 4 possible values, we just use a case instead of
+    # computing it, but technically this can also be computed through the
+    # formula:
+    #   Max AMPDU length = (2 ^ (13 + exponent)) - 1 bytes"
+    #
+    ampdu_length = (8191,   # /* (2 ^(13 + 0)) -1 */
+                    16383,  # /* (2 ^(13 + 1)) -1 */
+                    32767,  # /* (2 ^(13 + 2)) -1 */
+                    65535,  # /* (2 ^(13 + 3)) -1 */
+                    )
+
+    # iw util.c print_ampdu_space()
+    ampdu_space = (
+        "No restriction",
+        "1/4 usec",
+        "1/2 usec",
+        "1 usec",
+        "2 usec",
+        "4 usec",
+        "8 usec",
+        "16 usec",
+    )
+
+    def decode(self):
+        # 9.4.2.56.1. HT Capabilities Information Structure
+        # (Section numbers are from 80211-2016.pdf)
+        offset = 0
+
+        # 9.4.2.56.2 HT Capability Info Field
+        # 2 octets
+        num, = struct.unpack_from("<H", self.data, offset)
+        self.fields.append(IE.Value('HT Capability Info',
+                           self.decode_integer(self.capa_grammar, num)))
+        offset += 2
+
+        # 9.4.2.56.3 A-MPDU Parameters
+        # 1 octet
+        num, = struct.unpack_from("B", self.data, offset)
+        self.fields.append(IE.Value('AMPDU Parameters',
+                           self.decode_integer(self.ampdu_grammar, num)))
+        offset += 1
+
+        # 9.4.2.56.4 Supported MCS Set
+        # 16 octets
+        # iw util.c print_ht_mcs
+        mcs = struct.unpack_from("16B", self.data, offset)
+        self.fields.append(IE.Value("Supported MCS Set", mcs))
+        # TODO MCS crazy complicated so finish later
+        # max_rx_supp_data_rate = (mcs[10] | ((mcs[11] & 0x3) << 8));
+        # tx_mcs_set_defined = not(not(mcs[12] & (1 << 0)));
+        # tx_mcs_set_equal = not(mcs[12] & (1 << 1));
+        # tx_max_num_spatial_streams = ((mcs[12] >> 2) & 3) + 1;
+        # tx_unequal_modulation = not(not(mcs[12] & (1 << 4)));
+        offset += 16
+
+        # HT Extended Capabilities
+        # 2 octets
+        num, = struct.unpack_from("<H", self.data, offset)
+        self.fields.append(IE.Value("HT Extended Capabilities",
+                           self.decode_integer(self.extended_capa_grammar,
+                                               num)))
+        offset += 2
+
+        # TX beamforming capabilities
+        # 4 octets
+        num, = struct.unpack_from("<L", self.data, offset)
+        val = self.decode_integer(self.tx_beam_form_capabilities_grammar, num)
+        self.fields.append(IE.Value("TX Beamforming Capabilities", val))
+        offset += 4
+
+        # ASEL capabilities
+        # 1 octet
+        num, = struct.unpack_from("B", self.data, offset)
+        self.fields.append(IE.Value("ASEL Capability",
+                           self.decode_integer(self.asel_capabilities, num)))
+        offset += 1
+
+    def channel_width_str(self, value):
+        return self.channel_width[value]
+
+    def sm_power_save_str(self, value):
+        return self.power_save[value]
+
+    def rx_stbc_str(self, value):
+        return self.rx_stbc_streams[value]
+
+    def max_amsdu_len(self, value):
+        return self.amsdu_length[value]
+
+
+class RSN(IE):
+    # Robust Security Network
+    ID = 48
+    # TODO
+
+
+class Extended_Rates(IE):
+    ID = 50
+
+    # TODO
+    def decode(self):
+        self.fields.append(-1)
+
+
+class HT_Operation(IE):
+    # iw scan.c print_ht_op()
+    ID = 61
+
+    # Note: using the same strings as being used in 'iw' to be as compatible as
+    # possible
+    info_1_grammar = (
+        IE.Grammar(0, 2, "secondary channel offset"),
+        IE.Grammar(2, 1, "STA channel width"),
+        IE.Grammar(3, 1, "RIFS"),
+        IE.Grammar(8, 2, "HT Protection"),
+        IE.Grammar(10, 1, "non-GF present"),
+        IE.Grammar(12, 1, "OBSS non-GF present"),
+        IE.Grammar(13, 2047, "Channel Center Frequency Segment 2"),   # 11 bits
+        IE.Grammar(30, 1, "dual beacon"),
+        IE.Grammar(31, 1, "dual CTS protection"),
+    )
+
+    info_2_grammar = (
+        IE.Grammar(0, 1, "STBC Beacon"),
+        IE.Grammar(1, 1, "L-SIG TXOP Prot"),
+        IE.Grammar(2, 1, "PCO active"),
+        IE.Grammar(3, 1, "PCO phase"),
+    )
+
+    # iw scan.c ht_secondary_offset[]
+    ht_secondary_offset = (
+        "no secondary",
+        "above",
+        "[reserved!]",
+        "below",
+    )
+
+    # iw scan.c sta_chan_width[]
+    sta_chan_width = (
+        "20 MHz",
+        "any",
+    )
+
+    def decode(self):
+        # 9.4.2.57 HT Operation element
+        offset = 0
+
+        # primary channel
+        # 1 octet
+        num, = struct.unpack_from("B", self.data, offset)
+        self.fields.append(IE.Value("Primary Channel", num))
+        offset += 1
+
+        # HT Operation Information
+        # 5 octets
+        #  - fields are spread unevenly across bytes
+        #  - want to be easily compatible with 32-bit systems
+        #  - natural break occurs at B31 "Dual CTS Protection"
+        # therefore decode into a uint32_t and uint16_t
+        info = struct.unpack_from("<LH", self.data, offset)
+        info_fields = self.decode_integer(self.info_1_grammar, info[0])
+        info_fields.extend(self.decode_integer(self.info_2_grammar, info[1]))
+        self.fields.append(IE.Value("Information", info_fields))
+        offset += 5
+
+        # Basic MT-MCS Set
+        # 16 octets
+        mcs = struct.unpack_from("16B", self.data, offset)
+        self.fields.append(IE.Value("Basic HT-MCS Set", mcs))
+        offset += 16
+
+    def secondary_channel_offset(self, value):
+        return self.ht_secondary_offset[value]
+
+    def sta_channel_width(self, value):
+        return self.sta_chan_width[value]
+
+
+class Extended_Capabilities(IE):
+    ID = 127
+
+    # iw scan.c print_capabilities()
+    bits = (
+        (
+            "HT Information Exchange Supported",  # 0
+            "reserved (On-demand Beacon)",
+            "Extended Channel Switching",
+            "reserved (Wave Indication)",
+            "PSMP Capability",
+            "reserved (Service Interval Granularity)",
+            "S-PSMP Capability",
+            "Event",
+        ),
+        (
+            "Diagnostics",  # 8
+            "Multicast Diagnostics",
+            "Location Tracking",
+            "FMS",
+            "Proxy ARP Service",
+            "Collocated Interference Reporting",
+            "Civic Location",
+            "Geospatial Location",
+        ),
+        (
+            "TFS",  # 16
+            "WNM-Sleep Mode",
+            "TIM Broadcast",
+            "BSS Transition",
+            "QoS Traffic Capability",
+            "AC Station Count",
+            "Multiple BSSID",
+            "Timing Measurement",
+        ),
+        (
+            "Channel Usage",  # 24
+            "SSID List",
+            "DMS",
+            "UTC TSF Offset",
+            "TDLS Peer U-APSD Buffer STA Support",
+            "TDLS Peer PSM Support",
+            "TDLS channel switching",
+            "Interworking",
+        ),
+        (
+            "QoS Map",  # 32
+            "EBR",
+            "SSPN Interface",
+            "Reserved",
+            "MSGCF Capability",
+            "TDLS Support",
+            "TDLS Prohibited",
+            "TDLS Channel Switching Prohibited",
+        ),
+        (
+            "Reject Unadmitted Frame",  # 40
+            "SI Duration Bit0",
+            "SI Duration Bit1",
+            "SI Duration Bit2",
+            "Identifier Location",
+            "U-APSD Coexistence",
+            "WNM-Notification",
+            "Reserved",
+        ),
+        (
+            "UTF-8 SSID",  # 48
+            "QMFActivated",
+            "QMFReconfigurationActivated",
+            "Robust AV Streaming",
+            "Advanced GCR",
+            "Mesh GCR",
+            "SCS",
+            "QLoad Report",
+        ),
+        (
+            "Alternate EDCA",  # 56
+            "Unprotected TXOP Negotiation",
+            "Protected TXOP egotiation",
+            "Reserved",
+            "Protected QLoad Report",
+            "TDLS Wider Bandwidth",
+            "Operating Mode Notification",
+            "MAX AMSDU bit0",
+        ),
+        (
+            "MAX AMSDU bit1",
+            "Channel Schedule Management",
+            "Geodatabase Inband Enabling Signal",
+            "Network Channel Control",
+            "White Space Map",
+            "Channel Availability Query",
+            "FTM Responder",
+            "FTM Initiator",
+        ),
+        (
+            "Reserved",
+            "Extended Spectrum Management Capable",
+            "Reserved",
+        )
+    )
+
+    def decode(self):
+        # variable length field
+
+        nums = struct.unpack("%dB" % len(self.data), self.data)
+
+        # TODO use is_vht to decode Max AMSDU (somehow...)
+        self.fields = [IE.Value(self.bits[byte][bit], nums[byte] & (1 << bit))
+                       for byte in range(min(8, len(nums)))
+                       for bit in range(0, 8)]
+
+
+class VHT_Capabilities(IE):
+    # iw scan.c print_vht_capa()
+    # iw util.c print_vht_info()
+    # iw scan.c print_vht_oper()
+    ID = 191
+
+    # -1 for invalid/reserved
+    max_mpdu = (3895, 7991, 11454, -1)
+
+    channel_width = ("neither 160 nor 80+80",
+                     "160 MHz",
+                     "160 Mhz, 80+80 Mhz",
+                     "(reserved)")
+
+    capa_grammar = (
+        # offset, mask, type, name
+        IE.Grammar(0, 2, "Max MPDU length"),
+        IE.Grammar(2, 2, "Supported Channel Width"),
+        IE.Grammar(4, 1, "RX LDPC"),
+        IE.Grammar(5, 1, "short GI (80 MHz)"),
+        IE.Grammar(6, 1, "short GI (160/80+80 MHz)"),
+        IE.Grammar(7, 1, "TX STBC"),
+        # TODO RX STBC bits 8,9,10
+        IE.Grammar(11, 1, "SU Beamformer"),
+        IE.Grammar(12, 1, "SU Beamformee"),
+        # TODO compressed steering bits 13,14,15
+        # TODO num of sounding dimensions bits 16,17,18
+        IE.Grammar(19, 1, "MU Beamformer"),
+        IE.Grammar(20, 1, "MU Beamformee"),
+        IE.Grammar(21, 1, "VHT TXOP PS"),
+        IE.Grammar(22, 1, "+HTC-VHT"),
+        # TODO max A-MPDU bits 23,24,25
+        # TODO VHT link adaptation bits 26,27
+        IE.Grammar(28, 1, "RX antenna pattern consistency"),
+        IE.Grammar(29, 1, "TX antenna pattern consistency")
+        # TODO NSS BW Support bits 30,31
+    )
+
+    def decode(self):
+        offset = 0
+        # 4 octets
+        num, = struct.unpack_from("<L", self.data, offset)
+        self.fields.append(IE.Value("VHT Capability Info",
+                           self.decode_integer(self.capa_grammar, num)))
+        offset += 4
+
+        # 8 octets
+        num = struct.unpack_from("<4H", self.data, offset)
+        # TODO decode MCS
+        self.fields.append(IE.Value("MCS", num))
+
+    def max_mpdu_len(self, value):
+        return self.max_mpdu[value]
+
+    def supported_chan_width_str(self, value):
+        return self.channel_width[value]
+
+
+class VHT_Operation(IE):
+    ID = 192
+    # TODO
+
+    def decode(self):
+        # TODO
+        self.fields.append(-1)
+
+
+class Vendor_Specific(IE):
+    ID = 221
 
 
 class nl80211cmd(genlmsg):
@@ -471,50 +1052,45 @@ class nl80211cmd(genlmsg):
 
                 init = offset = self.offset + 4
 
+                ie_class_map = {
+                    NL80211_BSS_ELEMENTS_SSID: SSID,
+                    NL80211_BSS_ELEMENTS_SUPPORTED_RATES: Supported_Rates,
+                    NL80211_BSS_ELEMENTS_CHANNEL: DSSS_Parameter_Set,
+                    NL80211_BSS_ELEMENTS_TIM: TIM,
+                    NL80211_BSS_ELEMENTS_HT_CAPABILITIES: HT_Capabilities,
+                    NL80211_BSS_ELEMENTS_RSN: RSN,
+                    NL80211_BSS_ELEMENTS_EXTENDED_RATE: Extended_Rates,
+                    NL80211_BSS_ELEMENTS_HT_OPERATION: HT_Operation,
+                    NL80211_BSS_ELEMENTS_EXT_CAPABILITIES:
+                        Extended_Capabilities,
+                    NL80211_BSS_ELEMENTS_VHT_CAPABILITIES: VHT_Capabilities,
+                    NL80211_BSS_ELEMENTS_VHT_OPERATION: VHT_Operation,
+                    NL80211_BSS_ELEMENTS_VENDOR: Vendor_Specific,
+                }
+
                 while (offset - init) < (self.length - 4):
                     (msg_type, length) = struct.unpack_from('BB',
                                                             self.data,
                                                             offset)
-                    if msg_type == NL80211_BSS_ELEMENTS_SSID:
-                        self.value["SSID"], = (struct
-                                               .unpack_from('%is' % length,
-                                                            self.data,
-                                                            offset + 2))
 
-                    if msg_type == NL80211_BSS_ELEMENTS_SUPPORTED_RATES:
-                        supported_rates = self.binary_rates(offset + 2, length)
-                        self.value["SUPPORTED_RATES"] = supported_rates
+                    # TODO so I can keep keep an eye on what needs to be
+                    # decoded
+                    try:
+                        msg_name = NL80211_BSS_ELEMENTS_VALUES[msg_type]
+                    except KeyError:
+                        if "TODO" in self.value:
+                            self.value["TODO"].append(msg_type)
+                        else:
+                            self.value["TODO"] = [msg_type, ]
+                        offset += length + 2
+                        continue
 
-                    if msg_type == NL80211_BSS_ELEMENTS_CHANNEL:
-                        channel, = struct.unpack_from('B',
-                                                      self.data,
-                                                      offset + 2)
-                        self.value["CHANNEL"] = channel
-
-                    if msg_type == NL80211_BSS_ELEMENTS_TIM:
-                        self.value["TRAFFIC INDICATION MAP"] = \
-                            self.binary_tim(offset + 2)
-
-                    if msg_type == NL80211_BSS_ELEMENTS_RSN:
-                        self.value["RSN"], = (struct
-                                              .unpack_from('%is' % length,
-                                                           self.data,
-                                                           offset + 2))
-
-                    if msg_type == NL80211_BSS_ELEMENTS_EXTENDED_RATE:
-                        extended_rates = self.binary_rates(offset + 2, length)
-                        self.value["EXTENDED_RATES"] = extended_rates
-
-                    if msg_type == NL80211_BSS_ELEMENTS_VENDOR:
-                        # There may be multiple vendor IEs, create a list
-                        if "VENDOR" not in self.value.keys():
-                            self.value["VENDOR"] = []
-                        vendor_ie, = (struct.unpack_from('%is' % length,
-                                                         self.data,
-                                                         offset + 2))
-                        self.value["VENDOR"].append(vendor_ie)
-
-                    offset += length + 2
+                    cls = ie_class_map[msg_type]
+                    offset += 2
+                    val = cls(self.data[offset:offset + length])
+                    val.decode()
+                    self.value[msg_name] = val
+                    offset += length
 
         class TSF(nla_base):
             """Timing Synchronization Function"""
@@ -526,6 +1102,7 @@ class nl80211cmd(genlmsg):
                 tsf, = struct.unpack_from('Q', self.data, offset)
                 self.value["VALUE"] = tsf
                 # TSF is in microseconds
+                # TODO verify this won't overflow internally
                 self.value["TIME"] = datetime.timedelta(microseconds=tsf)
 
         class SignalMBM(nla_base):
