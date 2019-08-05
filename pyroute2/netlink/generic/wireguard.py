@@ -1,18 +1,24 @@
-from base64 import b64encode
+from base64 import b64encode, b64decode
 from binascii import a2b_hex
-from socket import inet_ntoa, AF_INET
-from struct import pack
+import errno
+import logging
+from socket import inet_ntoa, inet_aton, inet_pton, AF_INET, AF_INET6
+from struct import pack, pack_into, unpack
 from time import ctime
 
+from pyroute2.netlink import ctrlmsg
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink import nla
 from pyroute2.netlink import nla_base
+from pyroute2.netlink import NLM_F_REQUEST
+from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink.generic import GenericNetlinkSocket
 from pyroute2.netlink.nlsocket import Marshal
 
 
 # Defines from uapi/wireguard.h
 WG_GENL_NAME = "wireguard"
+WG_GENL_VERSION = 1
 WG_KEY_LEN = 32
 
 # WireGuard Device commands
@@ -30,11 +36,17 @@ WG_DEVICE_A_LISTEN_PORT = 6
 WG_DEVICE_A_FWMARK = 7
 WG_DEVICE_A_PEERS = 8
 
+# WireGuard Device flags
+WGDEVICE_F_REPLACE_PEERS = 1
+
 # WireGuard Allowed IP attributes
 WGALLOWEDIP_A_UNSPEC = 0
 WGALLOWEDIP_A_FAMILY = 1
 WGALLOWEDIP_A_IPADDR = 2
 WGALLOWEDIP_A_CIDR_MASK = 3
+
+# WireGuard Peer attributes
+WGPEER_A_PROTOCOL_VERSION = 1
 
 # Netlink internal family ID for WireGuard (0x18)
 WG_FAMILY_ID = 24
@@ -73,25 +85,46 @@ class wgmsg(genlmsg):
                        ('WGPEER_A_PROTOCOL_VERSION', 'uint32'))
 
             class parse_peer_key(nla):
+                fields = (('key', 's'),
+                         )
 
                 def decode(self):
                     nla.decode(self)
-                    self['key'] = b64encode(bytearray(self.data[self.offset:self.offset + WG_KEY_LEN]))
+                    self['value'] = b64encode(self['value'])
+
+                def encode(self):
+                    self['key'] = b64decode(self['value'])
+                    nla.encode(self)
 
             class parse_endpoint(nla):
                 fields = (('family', 'H'),
                           ('port', '>H'),
                           ('addr4', '>I'),
-                          ('addr6', 's'))
+                          ('addr6', 's'),
+                          ('__padding', '>I'))
 
                 def decode(self):
                     nla.decode(self)
                     if self['family'] == AF_INET:
                         self['addr'] = inet_ntoa(pack('>I', self['addr4']))
                     else:
-                        self['addr'] = self['addr6']
+                        self['addr'] = inet_ntoa(AF_INET6, self['addr6'])
                     del self['addr4']
                     del self['addr6']
+                    del self['__padding']
+
+                def encode(self):
+                    if self['addr'].find(":") > -1:
+                        self['family'] = AF_INET6
+                        self['addr4'] = 0 # Set to NULL
+                        self['addr6'] = inet_pton(AF_INET6, self['addr'])
+                    else:
+                        self['family'] = AF_INET
+                        self['addr4'] = unpack('>I', inet_aton(self['addr']))[0]
+                        self['addr6'] = bytearray(4) # Set 4 bytes to NULL
+                    self['port'] = int(self['port'])
+                    self['__padding'] = 0
+                    nla.encode(self)
 
             class parse_handshake_time(nla):
                 fields = (('tv_sec', 'Q'),
@@ -122,10 +155,16 @@ class wgmsg(genlmsg):
                         self['addr'] = '{0}/{1}'.format(self['addr'], self.get_attr('WGALLOWEDIP_A_CIDR_MASK'))
 
     class parse_wg_key(nla):
+        fields = (('key', 's'),
+                 )
 
         def decode(self):
             nla.decode(self)
             self['value'] = b64encode(self['value'])
+
+        def encode(self):
+            self['key'] = b64decode(self['value'])
+            nla.encode(self)
 
 
 class MarshalWireGuard(Marshal):
@@ -141,3 +180,107 @@ class WireGuard(GenericNetlinkSocket):
     def bind(self, groups=0, **kwarg):
         GenericNetlinkSocket.bind(self, WG_GENL_NAME, wgmsg,
                                   groups, None, **kwarg)
+
+    def set(self, interface, listen_port=None, fwmark=None, private_key=None, peer=None):
+        msg = wgmsg()
+        msg['attrs'].append(['WGDEVICE_A_IFNAME', interface])
+
+        if listen_port is not None:
+            msg['attrs'].append(['WGDEVICE_A_LISTEN_PORT', listen_port])
+
+        if fwmark is not None:
+            msg['attrs'].append(['WGDEVICE_A_FWMARK', fwmark])
+
+        if private_key is not None:
+            self._wg_test_key(private_key)
+            msg['attrs'].append(['WGDEVICE_A_PRIVATE_KEY', private_key])
+
+        if peer is not None:
+            self._wg_set_peer(msg, peer)
+
+        # Message attributes
+        msg['cmd'] = WG_CMD_SET_DEVICE
+        msg['version'] = WG_GENL_VERSION
+        msg['header']['type'] = WG_FAMILY_ID
+        msg['header']['flags'] = NLM_F_REQUEST | NLM_F_ACK
+        msg['header']['pid'] = self.pid
+        msg.encode()
+        self.sendto(msg.data, (0, 0))
+        msg = self.get()[0]
+        err = msg['header'].get('error', None)
+        if err is not None:
+            if hasattr(err, 'code') and err.code == errno.ENOENT:
+                logging.error('Generic netlink protocol %s not found' % proto)
+                logging.error('Please check if the protocol module is loaded')
+            raise err
+        return msg
+
+    def _wg_test_key(self, key):
+        try:
+            if len(b64decode(key)) != WG_KEY_LEN:
+                raise ValueError('Invalid WireGuard key length')
+        except TypeError:
+            raise ValueError('Failed to decode Base64 key')
+
+    def _wg_set_peer(self, msg, peer):
+        attrs = []
+        wg_peer = {'attrs': [['WGDEVICE_A_PEER_0', {'attrs': attrs}]]}
+        if 'public_key' not in peer:
+            raise ValueError('Peer Public key required')
+
+        # Check public key validity
+        public_key = peer['public_key']
+        self._wg_test_key(public_key)
+        attrs.append(['WGPEER_A_PUBLIC_KEY', public_key])
+
+        # If peer removal is set to True
+        if 'remove' in peer and peer['remove']:
+            attrs.append(['WGPEER_A_FLAGS', WGDEVICE_F_REPLACE_PEERS])
+            msg['attrs'].append(['WGDEVICE_A_PEERS', wg_peer])
+            return
+
+        # Set Endpoint
+        if 'endpoint_addr' in peer and 'endpoint_port' in peer:
+            attrs.append(['WGPEER_A_ENDPOINT', {'addr': peer['endpoint_addr'],
+                                                'port': peer['endpoint_port']}])
+
+        # Set Preshared key
+        if 'preshared_key' in peer:
+            pkey = peer['preshared_key']
+            self._wg_test_key(pkey)
+            attrs.append(['WGPEER_A_PRESHARED_KEY', pkey])
+
+        # Set Persistent Keepalive time
+        if 'persistent_keepalive' in peer:
+            keepalive = peer['persistent_keepalive']
+            attrs.append(['WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL',
+                          keepalive])
+
+        # Set allowed IPs
+        if 'allowed_ips' in peer:
+            allowed_ips = self._wg_build_allowedips(peer['allowed_ips'])
+            attrs.append(['WGPEER_A_ALLOWEDIPS', allowed_ips])
+
+        msg['attrs'].append(['WGDEVICE_A_PEERS', wg_peer])
+
+    def _wg_build_allowedips(self, allowed_ips):
+        attrs = {'attrs': []}
+
+        for index, ip in enumerate(allowed_ips):
+            attrs['attrs'].append(['WGPEER_A_ALLOWEDIPS_{}'.format(index)])
+            attrs['attrs'][index].append({'attrs': []})
+            allowed_ip = attrs['attrs'][index][1]['attrs']
+
+            if ip.find("/") == -1:
+                raise ValueError('No CIDR set in allowed ip #{}'.format(index))
+
+            addr, mask = ip.split('/')
+            if addr.find(":") > -1:
+                allowed_ip.append(['WGALLOWEDIP_A_FAMILY', AF_INET6])
+                allowed_ip.append(['WGALLOWEDIP_A_IPADDR', inet_pton(AF_INET6, addr)])
+            else:
+                allowed_ip.append(['WGALLOWEDIP_A_FAMILY', AF_INET])
+                allowed_ip.append(['WGALLOWEDIP_A_IPADDR', inet_aton(addr)])
+            allowed_ip.append(['WGALLOWEDIP_A_CIDR_MASK', int(mask)])
+
+        return attrs
