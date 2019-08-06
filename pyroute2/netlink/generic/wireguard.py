@@ -111,6 +111,10 @@ WGPEER_A_PROTOCOL_VERSION = 1
 # Netlink internal family ID for WireGuard (0x18)
 WG_FAMILY_ID = 24
 
+# Specific defines
+WG_MAX_PEERS = 1000
+WG_MAX_ALLOWEDIPS = 1000
+
 
 class wgmsg(genlmsg):
     prefix = 'WGDEVICE_A_'
@@ -127,7 +131,7 @@ class wgmsg(genlmsg):
 
     class wgdevice_a_peers(nla):
         nla_map = tuple([('WGDEVICE_A_PEER_%i' % x, 'wgdevice_peer') for x
-                         in range(1000)])
+                         in range(WG_MAX_PEERS)])
 
         class wgdevice_peer(nla):
             prefix = 'WGPEER_A_'
@@ -196,7 +200,7 @@ class wgmsg(genlmsg):
 
             class wgpeer_a_allowedips(nla):
                 nla_map = tuple([('WGPEER_A_ALLOWEDIPS_%i' % x, 'wgpeer_allowedip') for x
-                                 in range(1000)])
+                                 in range(WG_MAX_ALLOWEDIPS)])
 
                 class wgpeer_allowedip(nla):
                     prefix = 'WGALLOWEDIP_A_'
