@@ -1,3 +1,63 @@
+'''
+WireGuard
++++++++++
+
+Usage:
+
+    # Imports
+    from pyroute2 import IPDB, WireGuard
+
+    IFNAME = 'wg1'
+
+    # Create a WireGuard interface
+    with IPDB() as ip:
+        wg1 = ip.create(kind='wireguard', ifname=IFNAME)
+        wg1.add_ip('10.0.0.1/24')
+        wg1.up()
+        wg1.commit()
+
+    # Create WireGuard object
+    wg = WireGuard()
+
+    # Add a WireGuard configuration + first peer
+    peer = {'public_key': 'TGFHcm9zc2VCaWNoZV9DJ2VzdExhUGx1c0JlbGxlPDM=',
+            'endpoint_addr': '8.8.8.8',
+            'endpoint_port': 8888,
+            'persistent_keepalive': 15,
+            'allowed_ips': ['10.0.0.0/24', '8.8.8.8/32']}
+    wg.set(IFNAME, private_key='RCdhcHJlc0JpY2hlLEplU2VyYWlzTGFQbHVzQm9ubmU=',
+           fwmark=0x1337, listen_port=2525, peer=peer)
+
+    # Add second peer with preshared key
+    peer = {'public_key': 'RCdBcHJlc0JpY2hlLFZpdmVMZXNQcm9iaW90aXF1ZXM=',
+            'preshared_key': 'Pz8/V2FudFRvVHJ5TXlBZXJvR3Jvc3NlQmljaGU/Pz8=',
+            'endpoint_addr': '8.8.8.8',
+            'endpoint_port': 9999,
+            'persistent_keepalive': 25,
+            'allowed_ips': ['::/0']}
+    wg.set(IFNAME, peer=peer)
+
+    # Delete second peer
+    peer = {'public_key': 'RCdBcHJlc0JpY2hlLFZpdmVMZXNQcm9iaW90aXF1ZXM=',
+            'remove': True}
+    wg.set(IFNAME, peer=peer)
+
+
+NOTES:
+    Using `set` method only requires an interface name.
+    The `peer` structure is described as follow:
+    struct peer_s {
+        public_key: Base64 public key - required
+        remove: Boolean - optional
+        preshared_key: Base64 PreShared key - optional
+        endpoint_addr: IPv4 or IPv6 endpoint - optional
+        endpoint_port : endpoint Port - optional or required if endpoint_addr is specified
+        persistent_keepalive: time in seconds to send keep alive to remote endpoint - optional
+        allowed_ips: list of CIDRs allowed - optional
+    }
+'''
+
+
 from base64 import b64encode, b64decode
 from binascii import a2b_hex
 import errno
