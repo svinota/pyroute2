@@ -51,8 +51,10 @@ NOTES:
         remove: Boolean - optional
         preshared_key: Base64 PreShared key - optional
         endpoint_addr: IPv4 or IPv6 endpoint - optional
-        endpoint_port : endpoint Port - optional or required if endpoint_addr is specified
-        persistent_keepalive: time in seconds to send keep alive to remote endpoint - optional
+        endpoint_port : endpoint Port - optional or required if
+            endpoint_addr is specified
+        persistent_keepalive: time in seconds to send keep alive
+            to remote endpoint - optional
         allowed_ips: list of CIDRs allowed - optional
     }
 '''
@@ -63,13 +65,11 @@ from binascii import a2b_hex
 import errno
 import logging
 from socket import inet_ntoa, inet_aton, inet_pton, AF_INET, AF_INET6
-from struct import pack, pack_into, unpack
+from struct import pack, unpack
 from time import ctime
 
-from pyroute2.netlink import ctrlmsg
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink import nla
-from pyroute2.netlink import nla_base
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink.generic import GenericNetlinkSocket
@@ -142,15 +142,15 @@ class wgmsg(genlmsg):
                        ('WGPEER_A_FLAGS', 'uint32'),
                        ('WGPEER_A_ENDPOINT', 'parse_endpoint'),
                        ('WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL', 'uint16'),
-                       ('WGPEER_A_LAST_HANDSHAKE_TIME', 'parse_handshake_time'),
+                       ('WGPEER_A_LAST_HANDSHAKE_TIME',
+                        'parse_handshake_time'),
                        ('WGPEER_A_RX_BYTES', 'uint64'),
                        ('WGPEER_A_TX_BYTES', 'uint64'),
                        ('WGPEER_A_ALLOWEDIPS', 'wgpeer_a_allowedips'),
                        ('WGPEER_A_PROTOCOL_VERSION', 'uint32'))
 
             class parse_peer_key(nla):
-                fields = (('key', 's'),
-                         )
+                fields = (('key', 's'), )
 
                 def decode(self):
                     nla.decode(self)
@@ -180,12 +180,13 @@ class wgmsg(genlmsg):
                 def encode(self):
                     if self['addr'].find(":") > -1:
                         self['family'] = AF_INET6
-                        self['addr4'] = 0 # Set to NULL
+                        self['addr4'] = 0  # Set to NULL
                         self['addr6'] = inet_pton(AF_INET6, self['addr'])
                     else:
                         self['family'] = AF_INET
-                        self['addr4'] = unpack('>I', inet_aton(self['addr']))[0]
-                        self['addr6'] = bytearray(4) # Set 4 bytes to NULL
+                        self['addr4'] = unpack('>I',
+                                               inet_aton(self['addr']))[0]
+                        self['addr6'] = bytearray(4)  # Set 4 bytes to NULL
                     self['port'] = int(self['port'])
                     self['__padding'] = 0
                     nla.encode(self)
@@ -199,7 +200,8 @@ class wgmsg(genlmsg):
                     self['latest handshake'] = ctime(self['tv_sec'])
 
             class wgpeer_a_allowedips(nla):
-                nla_map = tuple([('WGPEER_A_ALLOWEDIPS_%i' % x, 'wgpeer_allowedip') for x
+                nla_map = tuple([('WGPEER_A_ALLOWEDIPS_%i' % x,
+                                  'wgpeer_allowedip') for x
                                  in range(WG_MAX_ALLOWEDIPS)])
 
                 class wgpeer_allowedip(nla):
@@ -213,14 +215,18 @@ class wgmsg(genlmsg):
                     def decode(self):
                         nla.decode(self)
                         if self.get_attr('WGALLOWEDIP_A_FAMILY') == AF_INET:
-                            self['addr'] = inet_ntoa(a2b_hex(self.get_attr('WGALLOWEDIP_A_IPADDR').replace(':', '')))
+                            pre = (self
+                                   .get_attr('WGALLOWEDIP_A_IPADDR')
+                                   .replace(':', ''))
+                            self['addr'] = inet_ntoa(a2b_hex(pre))
                         else:
-                            self['addr'] = self.get_attr('WGALLOWEDIP_A_IPADDR')
-                        self['addr'] = '{0}/{1}'.format(self['addr'], self.get_attr('WGALLOWEDIP_A_CIDR_MASK'))
+                            self['addr'] = (self
+                                            .get_attr('WGALLOWEDIP_A_IPADDR'))
+                        wgaddr = self.get_attr('WGALLOWEDIP_A_CIDR_MASK')
+                        self['addr'] = '{0}/{1}'.format(self['addr'], wgaddr)
 
     class parse_wg_key(nla):
-        fields = (('key', 's'),
-                 )
+        fields = (('key', 's'), )
 
         def decode(self):
             nla.decode(self)
@@ -245,7 +251,12 @@ class WireGuard(GenericNetlinkSocket):
         GenericNetlinkSocket.bind(self, WG_GENL_NAME, wgmsg,
                                   groups, None, **kwarg)
 
-    def set(self, interface, listen_port=None, fwmark=None, private_key=None, peer=None):
+    def set(self,
+            interface,
+            listen_port=None,
+            fwmark=None,
+            private_key=None,
+            peer=None):
         msg = wgmsg()
         msg['attrs'].append(['WGDEVICE_A_IFNAME', interface])
 
@@ -274,7 +285,8 @@ class WireGuard(GenericNetlinkSocket):
         err = msg['header'].get('error', None)
         if err is not None:
             if hasattr(err, 'code') and err.code == errno.ENOENT:
-                logging.error('Generic netlink protocol %s not found' % proto)
+                logging.error('Generic netlink protocol %s not found'
+                              % WG_FAMILY_ID)
                 logging.error('Please check if the protocol module is loaded')
             raise err
         return msg
@@ -305,8 +317,9 @@ class WireGuard(GenericNetlinkSocket):
 
         # Set Endpoint
         if 'endpoint_addr' in peer and 'endpoint_port' in peer:
-            attrs.append(['WGPEER_A_ENDPOINT', {'addr': peer['endpoint_addr'],
-                                                'port': peer['endpoint_port']}])
+            attrs.append(['WGPEER_A_ENDPOINT',
+                          {'addr': peer['endpoint_addr'],
+                           'port': peer['endpoint_port']}])
 
         # Set Preshared key
         if 'preshared_key' in peer:
@@ -341,7 +354,8 @@ class WireGuard(GenericNetlinkSocket):
             addr, mask = ip.split('/')
             if addr.find(":") > -1:
                 allowed_ip.append(['WGALLOWEDIP_A_FAMILY', AF_INET6])
-                allowed_ip.append(['WGALLOWEDIP_A_IPADDR', inet_pton(AF_INET6, addr)])
+                allowed_ip.append(['WGALLOWEDIP_A_IPADDR', inet_pton(AF_INET6,
+                                                                     addr)])
             else:
                 allowed_ip.append(['WGALLOWEDIP_A_FAMILY', AF_INET])
                 allowed_ip.append(['WGALLOWEDIP_A_IPADDR', inet_aton(addr)])
