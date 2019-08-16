@@ -73,7 +73,6 @@ from pyroute2.netlink import nla
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink.generic import GenericNetlinkSocket
-from pyroute2.netlink.nlsocket import Marshal
 
 
 # Defines from uapi/wireguard.h
@@ -107,9 +106,6 @@ WGALLOWEDIP_A_CIDR_MASK = 3
 
 # WireGuard Peer attributes
 WGPEER_A_PROTOCOL_VERSION = 1
-
-# Netlink internal family ID for WireGuard (0x18)
-WG_FAMILY_ID = 24
 
 # Specific defines
 WG_MAX_PEERS = 1000
@@ -237,19 +233,11 @@ class wgmsg(genlmsg):
             nla.encode(self)
 
 
-class MarshalWireGuard(Marshal):
-    msg_map = {WG_FAMILY_ID: wgmsg}
-
-
 class WireGuard(GenericNetlinkSocket):
 
     def __init__(self):
         GenericNetlinkSocket.__init__(self)
-        self.marshal = MarshalWireGuard()
-
-    def bind(self, groups=0, **kwarg):
-        GenericNetlinkSocket.bind(self, WG_GENL_NAME, wgmsg,
-                                  groups, None, **kwarg)
+        self.bind(WG_GENL_NAME, wgmsg)
 
     def set(self,
             interface,
@@ -276,7 +264,7 @@ class WireGuard(GenericNetlinkSocket):
         # Message attributes
         msg['cmd'] = WG_CMD_SET_DEVICE
         msg['version'] = WG_GENL_VERSION
-        msg['header']['type'] = WG_FAMILY_ID
+        msg['header']['type'] = self.prid
         msg['header']['flags'] = NLM_F_REQUEST | NLM_F_ACK
         msg['header']['pid'] = self.pid
         msg.encode()
@@ -286,7 +274,7 @@ class WireGuard(GenericNetlinkSocket):
         if err is not None:
             if hasattr(err, 'code') and err.code == errno.ENOENT:
                 logging.error('Generic netlink protocol %s not found'
-                              % WG_FAMILY_ID)
+                              % self.prid)
                 logging.error('Please check if the protocol module is loaded')
             raise err
         return msg
