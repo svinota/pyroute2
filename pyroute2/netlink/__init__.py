@@ -1149,6 +1149,7 @@ class nlmsg_base(dict):
             response = nlmsg_base()
             del response['value']
             del response['attrs']
+            response.value = None
         chain = self.get('attrs', [])
         if attr is not None:
             chain = [i.nla for i in chain if i.name == attr]
@@ -1164,8 +1165,7 @@ class nlmsg_base(dict):
         try:
             return super(nlmsg_base, self).__getattribute__(key)
         except AttributeError:
-            rnm = self.__class__.__r_nla_map
-            if rnm and key in rnm:
+            if ord(key[0]) < 90:
                 return self.nla(key)
             raise AttributeError(key)
 
