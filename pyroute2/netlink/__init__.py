@@ -610,6 +610,7 @@ class nlmsg_base(dict):
     __slots__ = (
         "_buf",
         "data",
+        "chain",
         "offset",
         "length",
         "parent",
@@ -1158,6 +1159,17 @@ class nlmsg_base(dict):
                 link.chain = chain
             response = chain[0]
         return response
+
+    def __getattribute__(self, key):
+        try:
+            return super(nlmsg_base, self).__getattribute__(key)
+        except AttributeError:
+            rnm = self.__class__.__r_nla_map
+            if rnm and key in rnm:
+                chain = self.nla(key)
+                if chain:
+                    return chain[0]
+            raise AttributeError(key)
 
     def __getitem__(self, key):
         if isinstance(key, int):
