@@ -640,6 +640,7 @@ class nlmsg_base(dict):
         self.data = data or bytearray()
         self.offset = offset
         self.length = length or 0
+        self.chain = [self, ]
         if parent is not None:
             # some structures use parents, some not,
             # so don't create cycles without need
@@ -1140,6 +1141,29 @@ class nlmsg_base(dict):
         '''
         return [i[1] for i in self['attrs'] if i[0] == attr]
 
+    def nla(self, attr=None, default=NotInitialized):
+        '''
+        '''
+        if default is NotInitialized:
+            response = nlmsg_base()
+            del response['value']
+            del response['attrs']
+        chain = self.get('attrs', [])
+        if attr is not None:
+            chain = [i.nla for i in chain if i.name == attr]
+        else:
+            chain = [i.nla for i in chain]
+        if chain:
+            for link in chain:
+                link.chain = chain
+            response = chain[0]
+        return response
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self.chain[key]
+        return dict.__getitem__(self, key)
+
     def __setstate__(self, state):
         return self.load(state)
 
@@ -1466,6 +1490,19 @@ class nla_slot(object):
         if self.try_to_decode():
             return self.cell[1]._nla_flags
         return None
+
+    @property
+    def name(self):
+        return self.cell[0]
+
+    @property
+    def value(self):
+        return self.get_value()
+
+    @property
+    def nla(self):
+        self.try_to_decode()
+        return self.cell[1]
 
     def __getitem__(self, key):
         if key == 1:
