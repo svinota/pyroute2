@@ -1166,9 +1166,7 @@ class nlmsg_base(dict):
         except AttributeError:
             rnm = self.__class__.__r_nla_map
             if rnm and key in rnm:
-                chain = self.nla(key)
-                if chain:
-                    return chain[0]
+                return self.nla(key)
             raise AttributeError(key)
 
     def __getitem__(self, key):
