@@ -103,11 +103,7 @@ class NFTData(object):
     @classmethod
     def from_dict(cls, data):
         def from_32hex(val):
-            val = val[2:]
-            res = bytes()
-            for i in range(0, len(val), 2):
-                res = chr(int(val[i:i + 2], 16)) + res
-            return res
+            return bytes(bytearray.fromhex(val[2:]))[::-1]
 
         kwargs = {}
         data = data["reg"]
@@ -125,12 +121,8 @@ class NFTData(object):
 
     def to_dict(self):
         def to_32hex(s):
-            res = ''
-            for c in s:
-                res += format(ord(c), '02x')[::-1]
-            while len(res) % 8:
-                res += '0'
-            return '0x' + res[::-1]
+            res = ''.join('{:02x}'.format(c) for c in bytearray(s)[::-1])
+            return '0x' + res.zfill(8)
 
         if self.type == 'value':
             len_data = len(self.data)
