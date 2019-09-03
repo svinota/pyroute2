@@ -42,6 +42,12 @@ Usage:
             'remove': True}
     wg.set(IFNAME, peer=peer)
 
+    # Get information of the interface
+    wg.info(IFNAME)
+
+    # Get specific value from the interface
+    wg.info(IFNAME)[0].WGDEVICE_A_PRIVATE_KEY.value
+
 
 NOTES:
     Using `set` method only requires an interface name.
@@ -72,6 +78,7 @@ from pyroute2.netlink import genlmsg
 from pyroute2.netlink import nla
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_ACK
+from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink.generic import GenericNetlinkSocket
 
 
@@ -238,6 +245,15 @@ class WireGuard(GenericNetlinkSocket):
     def __init__(self):
         GenericNetlinkSocket.__init__(self)
         self.bind(WG_GENL_NAME, wgmsg)
+
+    def info(self,
+             interface):
+        msg = wgmsg()
+        msg['cmd'] = WG_CMD_GET_DEVICE
+        msg['attrs'].append(['WGDEVICE_A_IFNAME', interface])
+        return self.nlm_request(msg,
+                                msg_type=self.prid,
+                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
     def set(self,
             interface,
