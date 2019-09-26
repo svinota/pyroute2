@@ -1138,6 +1138,13 @@ class RoutingTableSet(object):
         # RTM_DELROUTE
         if msg['event'] == 'RTM_DELROUTE':
             try:
+                # If a route is updated such that the RouteKey changes,
+                # then a new kernel route is added, the old kernel route
+                # is deleted, and there is no record to delete when the
+                # RTM_DELROUTE message for the old kernel route is
+                # received.
+                if msg not in self.tables[table]:
+                    return
                 # locate the record
                 record = self.tables[table][msg]
                 # delete the record
