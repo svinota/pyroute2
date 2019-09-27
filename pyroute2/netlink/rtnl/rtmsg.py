@@ -106,7 +106,7 @@ class rtmsg_base(nlflags):
                ('RTA_MFC_STATS', 'rta_mfc_stats'),
                ('RTA_VIA', 'rtvia'),
                ('RTA_NEWDST', 'target'),
-               ('RTA_PREF', 'hex'),
+               ('RTA_PREF', 'uint8'),
                ('RTA_ENCAP_TYPE', 'uint16'),
                ('RTA_ENCAP', 'encap_info'),
                ('RTA_EXPIRES', 'hex'))
