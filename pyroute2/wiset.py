@@ -235,6 +235,8 @@ class WiSet(object):
                     key += entry.get_attr("IPSET_ATTR_IFACE")
                 elif parse_type == "set":
                     key += entry.get_attr("IPSET_ATTR_NAME")
+                elif parse_type == "mark":
+                    key += str(hex(entry.get_attr("IPSET_ATTR_MARK")))
                 key += ","
 
             key = key.strip(",")
