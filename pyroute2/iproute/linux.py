@@ -1761,11 +1761,12 @@ class RTNL_API(object):
                             'srh': {'segs': '2000::5,2000::6',
                                     'hmac':0xf}})
 
-        **change**, **replace**
+        **change**, **replace**, **append**
 
-        Commands `change` and `replace` have the same meanings, as
-        in ip-route(8): `change` modifies only existing route, while
+        Commands `change`, `replace` and `append` have the same meanings
+        as in ip-route(8): `change` modifies only existing route, while
         `replace` creates a new one, if there is no such route yet.
+        `append` allows to create an IPv6 multipath route.
 
         **del**
 
@@ -1787,10 +1788,11 @@ class RTNL_API(object):
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_change = flags_base | NLM_F_REPLACE
         flags_replace = flags_change | NLM_F_CREATE
+        flags_append = flags_base | NLM_F_CREATE | NLM_F_APPEND
         # 8<----------------------------------------------------
         # transform kwarg
 
-        if command in ('add', 'set', 'replace', 'change'):
+        if command in ('add', 'set', 'replace', 'change', 'append'):
             kwarg['proto'] = kwarg.get('proto', 'static') or 'static'
             kwarg['type'] = kwarg.get('type', 'unicast') or 'unicast'
         kwarg = IPRouteRequest(kwarg)
@@ -1804,6 +1806,7 @@ class RTNL_API(object):
                     'set': (RTM_NEWROUTE, flags_replace),
                     'replace': (RTM_NEWROUTE, flags_replace),
                     'change': (RTM_NEWROUTE, flags_change),
+                    'append': (RTM_NEWROUTE, flags_append),
                     'del': (RTM_DELROUTE, flags_make),
                     'remove': (RTM_DELROUTE, flags_make),
                     'delete': (RTM_DELROUTE, flags_make),
