@@ -1,6 +1,18 @@
 Changelog
 =========
 
+* 0.5.7
+    * ndb.objects.netns: prototype
+    * ndb: netns management
+    * ndb: netns sources autoconnect (disabled by default)
+    * wireguard: basic support
+    * netns: fix FD leakage
+        * <https://github.com/svinota/pyroute2/issues/623>
+    * cli: Python3 fixes
+    * iproute: support `route('append', ...)`
+    * ipdb: fix routes cleanup on link down
+        * <https://github.com/svinota/pyroute2/issues/620>
+    * wiset: support "mark" ipset type
 * 0.5.6
     * ndb.objects.route: multipath routes
     * ndb.objects.rule: basic support
