@@ -222,7 +222,8 @@ def _create(netns, libc=None):
     while libc.mount(b'', netnsdir, b'none', MS_SHARED | MS_REC, None) != 0:
         if done:
             raise OSError(ctypes.get_errno(), 'share rundir failed', netns)
-        if libc.mount(netnsdir, netnsdir, b'none', MS_BIND, None) != 0:
+        if libc.mount(netnsdir, netnsdir, b'none', MS_BIND | MS_REC,
+                      None) != 0:
             raise OSError(ctypes.get_errno(), 'mount rundir failed', netns)
         done = True
 
