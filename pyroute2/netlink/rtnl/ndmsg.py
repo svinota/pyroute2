@@ -89,7 +89,7 @@ class ndmsg(nlmsg):
     #
     nla_map = (('NDA_UNSPEC', 'none'),
                ('NDA_DST', 'ipaddr'),
-               ('NDA_LLADDR', 'l2addr'),
+               ('NDA_LLADDR', 'l2orv4'),
                ('NDA_CACHEINFO', 'cacheinfo'),
                ('NDA_PROBES', 'uint32'),
                ('NDA_VLAN', 'uint16'),
