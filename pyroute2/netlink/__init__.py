@@ -1823,6 +1823,36 @@ class nlmsg_atoms(nlmsg_base):
             nla_base.decode(self)
             self.value = ':'.join('%02x' % (i) for i in
                                   struct.unpack('BBBBBB', self['value']))
+            
+    class l2orv4(nla_base):
+        '''
+        Decode MAC or IPv4 address.
+        '''
+
+        __slots__ = ()
+        sql_type = 'TEXT'
+        fields = [('value', 's')]
+
+        def encode(self):
+            if self.value.find(':') > -1:
+                self['value'] = struct.pack('BBBBBB',
+                                            *[int(i, 16) for i in 
+                                              self.value.split(':')])
+            elif self.value.find('.') > -1:
+                self['value'] = inet_pton(AF_INET, self.value)
+            else:
+                raise TypeError('Unsupported value {}'.format(self.value))
+            nla_base.encode(self)
+
+        def decode(self):
+            nla_base.decode(self)
+            if self.length == 6: 
+                self.value = ':'.join('%02x' % (i) for i in
+                                  struct.unpack('BBBBBB', self['value']))
+            elif self.length == 4:
+                self.value = inet_ntop(family, self['value'])     
+            else:
+                raise TypeError('Unsupported value if length {}'.format(self.length))            
 
     class hex(nla_base):
         '''
