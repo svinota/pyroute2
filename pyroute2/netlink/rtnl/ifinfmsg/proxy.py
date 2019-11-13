@@ -27,7 +27,8 @@ _BONDING_MASTER = '/sys/class/net/%s/master/ifindex'
 IFNAMSIZ = 16
 
 TUNDEV = '/dev/net/tun'
-if config.machine in ('i386', 'i686', 'x86_64', 'armv6l', 'armv7l', 's390x'):
+PLATFORMS = ('i386', 'i686', 'x86_64', 'armv6l', 'armv7l', 's390x', 'aarch64')
+if config.machine in PLATFORMS:
     TUNSETIFF = 0x400454ca
     TUNSETPERSIST = 0x400454cb
     TUNSETOWNER = 0x400454cc
