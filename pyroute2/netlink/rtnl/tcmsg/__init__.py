@@ -9,6 +9,7 @@ from pyroute2.netlink.rtnl.tcmsg import cls_matchall
 from pyroute2.netlink.rtnl.tcmsg import cls_basic
 from pyroute2.netlink.rtnl.tcmsg import cls_flow
 from pyroute2.netlink.rtnl.tcmsg import sched_bpf
+from pyroute2.netlink.rtnl.tcmsg import sched_cake
 from pyroute2.netlink.rtnl.tcmsg import sched_choke
 from pyroute2.netlink.rtnl.tcmsg import sched_clsact
 from pyroute2.netlink.rtnl.tcmsg import sched_codel
@@ -43,7 +44,8 @@ plugins = {'plug': sched_plug,
            'pfifo_fast': sched_pfifo_fast,
            'choke': sched_choke,
            'drr': sched_drr,
-           'prio': sched_pfifo_fast}
+           'prio': sched_pfifo_fast,
+           'cake': sched_cake}
 
 
 class tcmsg(nlmsg):
