@@ -73,8 +73,6 @@ NOTES:
 '''
 
 
-from socket import htons
-from pyroute2 import protocols
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 
@@ -113,7 +111,7 @@ def convert_bandwidth(value):
     types = [('kbit', 1000),
              ('mbit', 1000000),
              ('gbit', 1000000000)
-            ]
+             ]
 
     if 'unlimited' == value:
         return 0
@@ -144,7 +142,7 @@ def convert_rtt(value):
              ('oceanic', 300000),
              ('satellite', 1000000),
              ('interplanetary', 3600000000),
-            ]
+             ]
 
     try:
         # Value is passed as an int
