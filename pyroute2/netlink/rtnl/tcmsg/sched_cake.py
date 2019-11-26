@@ -1,3 +1,27 @@
+'''
+cake
+++++
+
+Usage:
+
+    # Imports
+    from pyroute2 import IPRoute
+
+
+    # Add cake with 2048kbit of bandwidth capacity
+    with IPRoute() as ipr:
+        # Get interface index
+        index = ipr.link_lookup(ifname='lo')
+        ipr.tc('add', kind='cake', index=index, bandwidth='2048kbit')
+
+    # Same with 15mbit of bandwidth capacity
+    with IPRoute() as ipr:
+        # Get interface index
+        index = ipr.link_lookup(ifname='lo')
+        ipr.tc('add', kind='cake', index=index, bandwidth='15mbit')
+'''
+
+
 from socket import htons
 from pyroute2 import protocols
 from pyroute2.netlink import nla
