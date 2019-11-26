@@ -19,6 +19,13 @@ Usage:
         # Get interface index
         index = ipr.link_lookup(ifname='lo')
         ipr.tc('add', kind='cake', index=index, bandwidth='15mbit')
+
+    # If you don't known the bandwidth capacity, use autorate
+    with IPRoute() as ipr:
+        # Get interface index
+        index = ipr.link_lookup(ifname='lo')
+        ipr.tc('add', kind='cake', index=index, bandwidth='unlimited',
+               autorate=True)
 '''
 
 
@@ -86,18 +93,116 @@ def convert_bandwidth(value):
             t, mul = entry
             if len(value.split(t)) == 2:
                 x = int(value.split(t)[0]) * mul
-                return x >> 3;
+                return x >> 3
 
     raise ValueError('Invalid bandwidth value. Specify either an integer, \
-                      "unlimited" or a value with "bit", "kbit", "mbit" or \
+                      "unlimited" or a value with "kbit", "mbit" or \
                       "gbit" appended')
+
+
+def convert_rtt(value):
+    types = [('datacentre', 100),
+             ('lan', 1000),
+             ('metro', 10000),
+             ('regional', 30000),
+             ('internet', 100000),
+             ('oceanic', 300000),
+             ('satellite', 1000000),
+             ('interplanetary', 3600000000),
+            ]
+
+    try:
+        # Value is passed as an int
+        x = int(value)
+        return x
+    except ValueError:
+        value = value.lower()
+        for entry in types:
+            t, rtt = entry
+            if value == t:
+                return rtt
+
+    raise ValueError('Invalid rtt value. Specify either an integer (us), \
+                      or datacentre, lan, metro, regional, internet, oceanic \
+                      or interplanetary.')
+
+
+def convert_atm(value):
+    if type(value) is bool:
+        if not value:
+            return CAKE_ATM_NONE
+        else:
+            return CAKE_ATM_ATM
+    else:
+        if value == 'ptm':
+            return CAKE_ATM_PTM
+
+
+def convert_flowmode(value):
+    if 'flowblind' == value:
+        return CAKE_FLOW_NONE
+    elif 'srchost' == value:
+        return CAKE_FLOW_SRC_IP
+    elif 'dsthost' == value:
+        return CAKE_FLOW_DST_IP
+    elif 'hosts' == value:
+        return CAKE_FLOW_HOSTS
+    elif 'flows' == value:
+        return CAKE_FLOW_FLOWS
+    elif 'dual-srchost' == value:
+        return CAKE_FLOW_DUAL_SRC
+    elif 'dual-dsthost' == value:
+        return CAKE_FLOW_DUAL_DST
+    elif 'triple-isolate' == value:
+        return CAKE_FLOW_TRIPLE
+    else:
+        raise ValueError('Invalid flow mode specified! See tc-cake man \
+                          page for valid values.')
+
+
+def convert_diffserv(value):
+    if 'diffserv3' == value:
+        return CAKE_DIFFSERV_DIFFSERV3
+    elif 'diffserv4' == value:
+        return CAKE_DIFFSERV_DIFFSERV4
+    elif 'diffserv8' == value:
+        return CAKE_DIFFSERV_DIFFSERV8
+    elif 'besteffort' == value:
+        return CAKE_DIFFSERV_BESTEFFORT
+    elif 'precedence' == value:
+        return CAKE_DIFFSERV_PRECEDENCE
+    else:
+        raise ValueError('Invalid diffserv mode specified! See tc-cake man \
+                          page for valid values.')
+
+
+def convert_ackfilter(value):
+    if type(value) is bool:
+        if not value:
+            return CAKE_ACK_NONE
+        else:
+            return CAKE_ACK_FILTER
+    else:
+        if value == 'aggressive':
+            return CAKE_ACK_AGGRESSIVE
 
 
 def get_parameters(kwarg):
     ret = {'attrs': []}
-    attrs_map = (('bandwidth', 'TCA_CAKE_BASE_RATE64'),
+    attrs_map = (('ack_filter', 'TCA_CAKE_ACK_FILTER'),
+                 ('atm_mode', 'TCA_CAKE_ATM'),
                  ('autorate', 'TCA_CAKE_AUTORATE'),
+                 ('bandwidth', 'TCA_CAKE_BASE_RATE64'),
+                 ('diffserv_mode', 'TCA_CAKE_DIFFSERV_MODE'),
+                 ('flow_mode', 'TCA_CAKE_FLOW_MODE'),
+                 ('fwmark', 'TCA_CAKE_FWMARK'),
+                 ('memlimit', 'TCA_CAKE_MEMORY'),
+                 ('mpu', 'TCA_CAKE_MPU'),
                  ('nat', 'TCA_CAKE_NAT'),
+                 ('raw', 'TCA_CAKE_RAW'),
+                 ('rtt', 'TCA_CAKE_RTT'),
+                 ('wash', 'TCA_CAKE_WASH'),
+                 ('overhead', 'TCA_CAKE_OVERHEAD'), #
                  )
 
     for k, v in attrs_map:
@@ -105,6 +210,16 @@ def get_parameters(kwarg):
         if r is not None:
             if k == 'bandwidth':
                 r = convert_bandwidth(r)
+            elif k == 'rtt':
+                r = convert_rtt(r)
+            elif k == 'atm':
+                r = convert_atm(r)
+            elif k == 'flow_mode':
+                r = convert_flowmode(r)
+            elif k == 'diffserv_mode':
+                r = convert_diffserv(r)
+            elif k == 'ack_filter':
+                r = convert_ackfilter(r)
             ret['attrs'].append([v, r])
 
     return ret
