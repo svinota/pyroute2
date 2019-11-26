@@ -20,12 +20,56 @@ Usage:
         index = ipr.link_lookup(ifname='lo')
         ipr.tc('add', kind='cake', index=index, bandwidth='15mbit')
 
-    # If you don't known the bandwidth capacity, use autorate
+    # If you don't know the bandwidth capacity, use autorate
     with IPRoute() as ipr:
         # Get interface index
         index = ipr.link_lookup(ifname='lo')
         ipr.tc('add', kind='cake', index=index, bandwidth='unlimited',
                autorate=True)
+
+    # If you want to tune ATM properties use:
+    # atm=False # For no ATM tuning
+    # atm=True # For ADSL tuning
+    # atm='ptm' # For VDSL2 tuning
+    with IPRoute() as ipr:
+        # Get interface index
+        index = ipr.link_lookup(ifname='lo')
+        ipr.tc('add', kind='cake', index=index, bandwidth='unlimited',
+               autorate=True)
+
+    # Complex example which has no-sense
+    with IPRoute() as ipr:
+        # Get interface index
+        index = ipr.link_lookup(ifname='lo')
+        ipr.tc('add', kind='cake', index=index, bandwidth='unlimited',
+               autorate=True, nat=True, rtt='interplanetary', target=10000,
+               flow_mode='dsthost', diffserv_mode='precedence', fwmark=0x1337)
+
+NOTES:
+    Here is the list of all supported options with their values:
+    - ack_filter: False, True or 'aggressive' (False by default)
+    - atm_mode: False, True or 'ptm' (False by default)
+    - autorate: False or True (False by default)
+    - bandwidth: any integer, 'N[kbit|mbit|gbit]' or 'unlimited'
+    - diffserv_mode: 'diffserv3', 'diffserv4', 'diffserv8',
+        'besteffort', 'precedence' ('diffserv3' by default)
+    - ingress: False or True (False by default)
+    - overhead: any integer between -64 and 256 inclusive (0 by default)
+    - flow_mode: 'flowblind', 'srchost', 'dsthost', 'hosts', 'flows',
+        'dual-srchost', 'dual-dsthost', 'triple-isolate'
+        ('triple-isolate' by default)
+    - fwmark: any integer (0 by default)
+    - memlimit: any integer (by default, calculated based on the bandwidth
+        and RTT settings)
+    - mpu: any integer between 0 and 256 inclusive (0 by default)
+    - nat: False or True (False by default)
+    - raw: False or True (True by default)
+    - rtt: any integer or 'datacentre', 'lan', 'metro', 'regional',
+        'internet', 'oceanic', 'satellite', 'interplanetary'
+        ('internet' by default)
+    - split_gso: False or True (True by default)
+    - target: any integer (5000 by default)
+    - wash: False or True (False by default)
 '''
 
 
@@ -185,6 +229,8 @@ def get_parameters(kwarg):
                  ('autorate', 'TCA_CAKE_AUTORATE'),
                  ('bandwidth', 'TCA_CAKE_BASE_RATE64'),
                  ('diffserv_mode', 'TCA_CAKE_DIFFSERV_MODE'),
+                 ('ingress', 'TCA_CAKE_INGRESS'),
+                 ('overhead', 'TCA_CAKE_OVERHEAD'),
                  ('flow_mode', 'TCA_CAKE_FLOW_MODE'),
                  ('fwmark', 'TCA_CAKE_FWMARK'),
                  ('memlimit', 'TCA_CAKE_MEMORY'),
@@ -192,8 +238,9 @@ def get_parameters(kwarg):
                  ('nat', 'TCA_CAKE_NAT'),
                  ('raw', 'TCA_CAKE_RAW'),
                  ('rtt', 'TCA_CAKE_RTT'),
+                 ('split_gso', 'TCA_CAKE_SPLIT_GSO'),
+                 ('target', 'TCA_CAKE_TARGET'),
                  ('wash', 'TCA_CAKE_WASH'),
-                 ('overhead', 'TCA_CAKE_OVERHEAD'), #
                  )
 
     for k, v in attrs_map:
@@ -234,9 +281,8 @@ class options(nla):
                ('TCA_CAKE_MPU', 'uint32'),
                ('TCA_CAKE_INGRESS', 'uint32'),
                ('TCA_CAKE_ACK_FILTER', 'uint32'),
+               ('TCA_CAKE_SPLIT_GSO', 'uint32'),
                ('TCA_CAKE_FWMARK', 'uint32'),
-               ('TCA_CAKE_FWMARK_STORE', 'uint32'),
-               ('TCA_CAKE_SCE', 'uint32'),
                )
 
     def encode(self):
