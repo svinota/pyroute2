@@ -43,6 +43,32 @@ def fix_msg(msg, kwarg):
         msg['parent'] = TC_H_ROOT
 
 
+def convert_bandwidth(value):
+    types = [('kbit', 1000),
+             ('mbit', 1000000),
+             ('gbit', 1000000000)
+            ]
+
+    if 'unlimited' == value:
+        return 0
+
+    try:
+        # Value is passed as an int
+        x = int(value)
+        return x >> 3
+    except ValueError:
+        value = value.lower()
+        for entry in types:
+            t, mul = entry
+            if len(value.split(t)) == 2:
+                x = int(value.split(t)[0]) * mul
+                return x >> 3;
+
+    raise ValueError('Invalid bandwidth value. Specify either an integer, \
+                      "unlimited" or a value with "bit", "kbit", "mbit" or \
+                      "gbit" appended')
+
+
 def get_parameters(kwarg):
     ret = {'attrs': []}
     attrs_map = (('bandwidth', 'TCA_CAKE_BASE_RATE64'),
@@ -54,10 +80,7 @@ def get_parameters(kwarg):
         r = kwarg.get(k, None)
         if r is not None:
             if k == 'bandwidth':
-                if r == 'unlimited':
-                    r = 0
-                else:
-                    r >>= 3
+                r = convert_bandwidth(r)
             ret['attrs'].append([v, r])
 
     return ret
