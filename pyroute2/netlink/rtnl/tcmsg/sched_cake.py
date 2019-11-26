@@ -35,15 +35,6 @@ from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 
 
-# Defines from sch_cake.c
-CAKE_FLAG_OVERHEAD = 0
-CAKE_FLAG_AUTORATE_INGRESS = 1
-CAKE_FLAG_INGRESS = 2
-CAKE_FLAG_WASH = 3
-CAKE_FLAG_SPLIT_GSO = 4
-CAKE_FLAG_STORE_MARK = 5
-CAKE_FLAG_SCE = 6
-
 # Defines from pkt_sched.h
 CAKE_FLOW_NONE = 0
 CAKE_FLOW_SRC_IP = 1
