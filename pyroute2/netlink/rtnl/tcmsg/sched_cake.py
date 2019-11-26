@@ -222,6 +222,16 @@ def convert_ackfilter(value):
             return CAKE_ACK_AGGRESSIVE
 
 
+def check_range(name, value, start, end):
+    if not type(value) == int:
+        raise ValueError('{} value must be an integer'.format(name))
+
+    x = int(value)
+    if not start <= x <= end:
+        raise ValueError('{0} value must be between {1} and {2} \
+                          inclusive.'.format(name, start, end))
+
+
 def get_parameters(kwarg):
     ret = {'attrs': []}
     attrs_map = (('ack_filter', 'TCA_CAKE_ACK_FILTER'),
@@ -258,6 +268,10 @@ def get_parameters(kwarg):
                 r = convert_diffserv(r)
             elif k == 'ack_filter':
                 r = convert_ackfilter(r)
+            elif k == 'mpu':
+                check_range(k, r, 0, 256)
+            elif k == 'overhead':
+                check_range(k, r, -64, 256)
             ret['attrs'].append([v, r])
 
     return ret
