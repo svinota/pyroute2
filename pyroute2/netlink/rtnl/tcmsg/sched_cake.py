@@ -1,4 +1,7 @@
+from socket import htons
+from pyroute2 import protocols
 from pyroute2.netlink import nla
+from pyroute2.netlink.rtnl import TC_H_ROOT
 
 
 # Defines from sch_cake.c
@@ -35,6 +38,31 @@ CAKE_ATM_ATM = 1
 CAKE_ATM_PTM = 2
 
 
+def fix_msg(msg, kwarg):
+    if 'parent' not in kwarg:
+        msg['parent'] = TC_H_ROOT
+
+
+def get_parameters(kwarg):
+    ret = {'attrs': []}
+    attrs_map = (('bandwidth', 'TCA_CAKE_BASE_RATE64'),
+                 ('autorate', 'TCA_CAKE_AUTORATE'),
+                 ('nat', 'TCA_CAKE_NAT'),
+                 )
+
+    for k, v in attrs_map:
+        r = kwarg.get(k, None)
+        if r is not None:
+            if k == 'bandwidth':
+                if r == 'unlimited':
+                    r = 0
+                else:
+                    r >>= 3
+            ret['attrs'].append([v, r])
+
+    return ret
+
+
 class options(nla):
     nla_map = (('TCA_CAKE_UNSPEC', 'none'),
                ('TCA_CAKE_PAD', 'uint64'),
@@ -57,3 +85,9 @@ class options(nla):
                ('TCA_CAKE_FWMARK_STORE', 'uint32'),
                ('TCA_CAKE_SCE', 'uint32'),
                )
+
+    def encode(self):
+        # Set default Auto-Rate value
+        if not self.get_attr('TCA_CAKE_AUTORATE'):
+            self['attrs'].append(['TCA_CAKE_AUTORATE', 0])
+        nla.encode(self)
