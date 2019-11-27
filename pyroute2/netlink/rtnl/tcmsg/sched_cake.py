@@ -28,14 +28,14 @@ Usage:
                autorate=True)
 
     # If you want to tune ATM properties use:
-    # atm=False # For no ATM tuning
-    # atm=True # For ADSL tuning
-    # atm='ptm' # For VDSL2 tuning
+    # atm_mode=False # For no ATM tuning
+    # atm_mode=True # For ADSL tuning
+    # atm_mode='ptm' # For VDSL2 tuning
     with IPRoute() as ipr:
         # Get interface index
         index = ipr.link_lookup(ifname='lo')
         ipr.tc('add', kind='cake', index=index, bandwidth='unlimited',
-               autorate=True)
+               autorate=True, atm_mode=True)
 
     # Complex example which has no-sense
     with IPRoute() as ipr:
@@ -122,46 +122,42 @@ def convert_bandwidth(value):
         return x >> 3
     except ValueError:
         value = value.lower()
-        for entry in types:
-            t, mul = entry
+        for t, mul in types:
             if len(value.split(t)) == 2:
                 x = int(value.split(t)[0]) * mul
                 return x >> 3
 
-    raise ValueError('Invalid bandwidth value. Specify either an integer, \
-                      "unlimited" or a value with "kbit", "mbit" or \
-                      "gbit" appended')
+    raise ValueError('Invalid bandwidth value. Specify either an integer, '
+                     '"unlimited" or a value with "kbit", "mbit" or '
+                     '"gbit" appended')
 
 
 def convert_rtt(value):
-    types = [('datacentre', 100),
-             ('lan', 1000),
-             ('metro', 10000),
-             ('regional', 30000),
-             ('internet', 100000),
-             ('oceanic', 300000),
-             ('satellite', 1000000),
-             ('interplanetary', 3600000000),
-             ]
+    types = {'datacentre': 100,
+             'lan': 1000,
+             'metro': 10000,
+             'regional': 30000,
+             'internet': 100000,
+             'oceanic': 300000,
+             'satellite': 1000000,
+             'interplanetary': 3600000000,
+             }
 
     try:
         # Value is passed as an int
         x = int(value)
         return x
     except ValueError:
-        value = value.lower()
-        for entry in types:
-            t, rtt = entry
-            if value == t:
-                return rtt
-
-    raise ValueError('Invalid rtt value. Specify either an integer (us), \
-                      or datacentre, lan, metro, regional, internet, oceanic \
-                      or interplanetary.')
+        rtt = types.get(value.lower())
+        if rtt is not None:
+            return rtt
+        raise ValueError('Invalid rtt value. Specify either an integer (us), '
+                         'or datacentre, lan, metro, regional, internet, '
+                         'oceanic or interplanetary.')
 
 
 def convert_atm(value):
-    if type(value) is bool:
+    if isinstance(value, bool):
         if not value:
             return CAKE_ATM_NONE
         else:
@@ -170,47 +166,44 @@ def convert_atm(value):
         if value == 'ptm':
             return CAKE_ATM_PTM
 
+    raise ValueError('Invalid ATM value!')
+
 
 def convert_flowmode(value):
-    if 'flowblind' == value:
-        return CAKE_FLOW_NONE
-    elif 'srchost' == value:
-        return CAKE_FLOW_SRC_IP
-    elif 'dsthost' == value:
-        return CAKE_FLOW_DST_IP
-    elif 'hosts' == value:
-        return CAKE_FLOW_HOSTS
-    elif 'flows' == value:
-        return CAKE_FLOW_FLOWS
-    elif 'dual-srchost' == value:
-        return CAKE_FLOW_DUAL_SRC
-    elif 'dual-dsthost' == value:
-        return CAKE_FLOW_DUAL_DST
-    elif 'triple-isolate' == value:
-        return CAKE_FLOW_TRIPLE
-    else:
-        raise ValueError('Invalid flow mode specified! See tc-cake man \
-                          page for valid values.')
+    modes = {'flowblind': CAKE_FLOW_NONE,
+             'srchost': CAKE_FLOW_SRC_IP,
+             'dsthost': CAKE_FLOW_DST_IP,
+             'hosts': CAKE_FLOW_HOSTS,
+             'flows': CAKE_FLOW_FLOWS,
+             'dual-srchost': CAKE_FLOW_DUAL_SRC,
+             'dual-dsthost': CAKE_FLOW_DUAL_DST,
+             'triple-isolate': CAKE_FLOW_TRIPLE,
+             }
+
+    res = modes.get(value.lower())
+    if res:
+        return res
+    raise ValueError('Invalid flow mode specified! See tc-cake man '
+                     'page for valid values.')
 
 
 def convert_diffserv(value):
-    if 'diffserv3' == value:
-        return CAKE_DIFFSERV_DIFFSERV3
-    elif 'diffserv4' == value:
-        return CAKE_DIFFSERV_DIFFSERV4
-    elif 'diffserv8' == value:
-        return CAKE_DIFFSERV_DIFFSERV8
-    elif 'besteffort' == value:
-        return CAKE_DIFFSERV_BESTEFFORT
-    elif 'precedence' == value:
-        return CAKE_DIFFSERV_PRECEDENCE
-    else:
-        raise ValueError('Invalid diffserv mode specified! See tc-cake man \
-                          page for valid values.')
+    modes = {'diffserv3': CAKE_DIFFSERV_DIFFSERV3,
+             'diffserv4': CAKE_DIFFSERV_DIFFSERV4,
+             'diffserv8': CAKE_DIFFSERV_DIFFSERV8,
+             'besteffort': CAKE_DIFFSERV_BESTEFFORT,
+             'precedence': CAKE_DIFFSERV_PRECEDENCE,
+             }
+
+    res = modes.get(value.lower())
+    if res is not None:
+        return res
+    raise ValueError('Invalid diffserv mode specified! See tc-cake man '
+                     'page for valid values.')
 
 
 def convert_ackfilter(value):
-    if type(value) is bool:
+    if isinstance(value, bool):
         if not value:
             return CAKE_ACK_NONE
         else:
@@ -219,15 +212,16 @@ def convert_ackfilter(value):
         if value == 'aggressive':
             return CAKE_ACK_AGGRESSIVE
 
+    raise ValueError('Invalid ACK filter!')
+
 
 def check_range(name, value, start, end):
-    if not type(value) == int:
+    if not isinstance(value, int):
         raise ValueError('{} value must be an integer'.format(name))
 
-    x = int(value)
-    if not start <= x <= end:
-        raise ValueError('{0} value must be between {1} and {2} \
-                          inclusive.'.format(name, start, end))
+    if not start <= value <= end:
+        raise ValueError('{0} value must be between {1} and {2} '
+                         'inclusive.'.format(name, start, end))
 
 
 def get_parameters(kwarg):
@@ -258,7 +252,7 @@ def get_parameters(kwarg):
                 r = convert_bandwidth(r)
             elif k == 'rtt':
                 r = convert_rtt(r)
-            elif k == 'atm':
+            elif k == 'atm_mode':
                 r = convert_atm(r)
             elif k == 'flow_mode':
                 r = convert_flowmode(r)
