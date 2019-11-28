@@ -76,9 +76,10 @@ from time import ctime
 
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink import nla
-from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_ACK
 from pyroute2.netlink import NLM_F_DUMP
+from pyroute2.netlink import NLA_F_NESTED
+from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.generic import GenericNetlinkSocket
 
 
@@ -111,8 +112,10 @@ WGALLOWEDIP_A_FAMILY = 1
 WGALLOWEDIP_A_IPADDR = 2
 WGALLOWEDIP_A_CIDR_MASK = 3
 
-# WireGuard Peer attributes
-WGPEER_A_PROTOCOL_VERSION = 1
+# WireGuard Peer flags
+WGPEER_F_REMOVE_ME = 0
+WGPEER_F_REPLACE_ALLOWEDIPS = 1
+WGPEER_F_UPDATE_ONLY = 2
 
 # Specific defines
 WG_MAX_PEERS = 1000
@@ -133,12 +136,14 @@ class wgmsg(genlmsg):
                ('WGDEVICE_A_PEERS', 'wgdevice_a_peers'))
 
     class wgdevice_a_peers(nla):
+        nla_flags = NLA_F_NESTED
         nla_map = tuple([('WGDEVICE_A_PEER_%i' % x, 'wgdevice_peer') for x
                          in range(WG_MAX_PEERS)])
 
         class wgdevice_peer(nla):
             prefix = 'WGPEER_A_'
 
+            nla_flags = NLA_F_NESTED
             nla_map = (('WGPEER_A_UNSPEC', 'none'),
                        ('WGPEER_A_PUBLIC_KEY', 'parse_peer_key'),
                        ('WGPEER_A_PRESHARED_KEY', 'parse_peer_key'),
@@ -189,7 +194,7 @@ class wgmsg(genlmsg):
                         self['family'] = AF_INET
                         self['addr4'] = unpack('>I',
                                                inet_aton(self['addr']))[0]
-                        self['addr6'] = bytearray(4)  # Set 4 bytes to NULL
+                        self['addr6'] = b'\x00\x00\x00\x00\x00\x00\x00\x00'
                     self['port'] = int(self['port'])
                     self['__padding'] = 0
                     nla.encode(self)
@@ -203,6 +208,7 @@ class wgmsg(genlmsg):
                     self['latest handshake'] = ctime(self['tv_sec'])
 
             class wgpeer_a_allowedips(nla):
+                nla_flags = NLA_F_NESTED
                 nla_map = tuple([('WGPEER_A_ALLOWEDIPS_%i' % x,
                                   'wgpeer_allowedip') for x
                                  in range(WG_MAX_ALLOWEDIPS)])
@@ -210,6 +216,7 @@ class wgmsg(genlmsg):
                 class wgpeer_allowedip(nla):
                     prefix = 'WGALLOWEDIP_A_'
 
+                    nla_flags = NLA_F_NESTED
                     nla_map = (('WGALLOWEDIP_A_UNSPEC', 'none'),
                                ('WGALLOWEDIP_A_FAMILY', 'uint16'),
                                ('WGALLOWEDIP_A_IPADDR', 'hex'),
@@ -264,15 +271,15 @@ class WireGuard(GenericNetlinkSocket):
         msg = wgmsg()
         msg['attrs'].append(['WGDEVICE_A_IFNAME', interface])
 
+        if private_key is not None:
+            self._wg_test_key(private_key)
+            msg['attrs'].append(['WGDEVICE_A_PRIVATE_KEY', private_key])
+
         if listen_port is not None:
             msg['attrs'].append(['WGDEVICE_A_LISTEN_PORT', listen_port])
 
         if fwmark is not None:
             msg['attrs'].append(['WGDEVICE_A_FWMARK', fwmark])
-
-        if private_key is not None:
-            self._wg_test_key(private_key)
-            msg['attrs'].append(['WGDEVICE_A_PRIVATE_KEY', private_key])
 
         if peer is not None:
             self._wg_set_peer(msg, peer)
@@ -336,6 +343,9 @@ class WireGuard(GenericNetlinkSocket):
             keepalive = peer['persistent_keepalive']
             attrs.append(['WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL',
                           keepalive])
+
+        # Set Peer flags
+        attrs.append(['WGPEER_A_FLAGS', WGPEER_F_UPDATE_ONLY])
 
         # Set allowed IPs
         if 'allowed_ips' in peer:
