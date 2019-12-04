@@ -1,3 +1,48 @@
+'''
+skbedit
++++++++
+
+Usage::
+
+    from pyroute2 import IPRoute
+
+    # Assume you are working with eth1 interface
+    IFNAME = "eth1"
+
+    ipr = IPRoute()
+    ifindex = ipr.link_lookup(ifname=IFNAME)
+
+    # First create parent qdisc
+    ipr.tc("add", "htb", index=ifindex, handle=0x10000)
+
+    # Then add a matchall filter with skbedit action
+    # Simple action example
+    action = {"kind": "skbedit",
+              "priority": 0x10001 # Also known as "1:1" in TC format
+              }
+    ipr.tc("add-filter", "matchall", index=ifindex, parent=0x10000,
+           prio=1, action=action)
+
+    # Extended action example
+    action = {"kind": "skbedit",
+              "priority": 0x10001, # Also known as "1:1" in TC format
+              "mark": 0x1337,
+              "mask": 0xFFFFFFFF,
+              "ptype": "host"
+              }
+    ipr.tc("add-filter", "matchall", index=ifindex, parent=0x10000,
+           prio=1, action=action)
+
+NOTES:
+    Here is the list of all supported options::
+    - mark: integer
+    - mask: integer
+    - priority: integer
+    - ptype: "host", "otherhost", "broadcast" or "multicast"
+    - queue: integer
+'''
+
+
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl.tcmsg.common import tc_actions
 
