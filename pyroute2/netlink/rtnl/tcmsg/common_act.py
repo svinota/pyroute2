@@ -4,6 +4,7 @@ from pyroute2.netlink.rtnl.tcmsg import act_police
 from pyroute2.netlink.rtnl.tcmsg import act_mirred
 from pyroute2.netlink.rtnl.tcmsg import act_connmark
 from pyroute2.netlink.rtnl.tcmsg import act_vlan
+from pyroute2.netlink.rtnl.tcmsg import act_skbedit
 
 plugins = {'gact': act_gact,
            'bpf': act_bpf,
@@ -11,6 +12,7 @@ plugins = {'gact': act_gact,
            'mirred': act_mirred,
            'connmark': act_connmark,
            'vlan': act_vlan,
+           'skbedit': act_skbedit,
            }
 
 
