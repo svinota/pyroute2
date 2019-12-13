@@ -367,6 +367,40 @@ class NFCTAttrTuple(NFCTAttr):
 
         return cls(**kwargs)
 
+    def is_attr_match(self, other, attrname):
+        l_attr = getattr(self, attrname)
+        if l_attr is not None:
+            r_attr = getattr(other, attrname)
+            if l_attr != r_attr:
+                return False
+        return True
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            raise NotImplementedError()
+
+        if self.family != other.family:
+            return False
+
+        for attrname in ('saddr', 'daddr'):
+            if not self.is_attr_match(other, attrname):
+                return False
+
+        if self.proto is not None:
+            if self.proto != other.proto:
+                return False
+
+            if self.proto in (socket.IPPROTO_UDP, socket.IPPROTO_TCP):
+                for attrname in ('sport', 'dport'):
+                    if not self.is_attr_match(other, attrname):
+                        return False
+            elif self.proto in (socket.IPPROTO_ICMP, socket.IPPROTO_ICMPV6):
+                for attrname in ('icmp_id', 'icmp_type', 'icmp_code'):
+                    if not self.is_attr_match(other, attrname):
+                        return False
+
+        return True
+
     def __repr__(self):
         proto_name = self.proto_name()
         if proto_name is None:
