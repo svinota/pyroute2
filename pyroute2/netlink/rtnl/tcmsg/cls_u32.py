@@ -159,14 +159,20 @@ class options(nla, nla_plus_police):
                 return (new_key, field)
 
             # 'header' array to pack keys to
-            header = [(0, 0) for i in range(256)]
+            header = [(0, 0) for i in range(-256, 256)]
 
             keys = []
             # iterate keys and pack them to the 'header'
             for key in self['keys']:
                 # TODO tags: filter
                 (key, nh) = cut_field(key, '@')  # FIXME: do not ignore nh
-                (key, offset) = cut_field(key, '+')
+                if key.find('-') != -1:
+                  (key, offset) = cut_field(key, '-')
+                  use_minus = True
+                else:
+                  (key, offset) = cut_field(key, '+')
+                  use_minus = False
+
                 offset = int(offset, 0)
                 # a little trick: if you provide /00ff+8, that
                 # really means /ff+9, so we should take it into
@@ -184,6 +190,8 @@ class options(nla, nla_plus_police):
                 mask = int(mask, 0)
                 value = int(key, 0)
                 bits = 24
+                if use_minus:
+                  offset *= -1
                 if mask == 0 and value == 0:
                     key = self.u32_key(data=self.data)
                     key['key_off'] = offset
@@ -201,7 +209,7 @@ class options(nla, nla_plus_police):
             key = None
             value = 0
             mask = 0
-            for offset in range(256):
+            for offset in range(-256, 256):
                 (bvalue, bmask) = header[offset]
                 if bmask > 0 and key is None:
                     key = self.u32_key(data=self.data)
