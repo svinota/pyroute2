@@ -5,6 +5,7 @@ See also: pyroute2.conntrack
 """
 
 import socket
+
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
@@ -26,6 +27,15 @@ IPCTNL_MSG_CT_GET_STATS = 5
 IPCTNL_MSG_CT_GET_DYING = 6
 IPCTNL_MSG_CT_GET_UNCONFIRMED = 7
 IPCTNL_MSG_MAX = 8
+
+
+try:
+    IP_PROTOCOLS = {num: name[8:]
+                    for name, num in vars(socket).items()
+                    if name.startswith("IPPROTO")}
+except (IOError, OSError):
+    IP_PROTOCOLS = {}
+
 
 # Window scaling is advertised by the sender
 IP_CT_TCP_FLAG_WINDOW_SCALE = 0x01
@@ -285,6 +295,9 @@ class NFCTAttrTuple(NFCTAttr):
             socket.AF_INET6: ['CTA_IP_V6', 'CTA_PROTO_ICMPV6'],
         }[self.family]
 
+    def proto_name(self):
+        return IP_PROTOCOLS.get(self.proto, None)
+
     def attrs(self):
         cta_ip = []
         cta_proto = []
@@ -353,6 +366,26 @@ class NFCTAttrTuple(NFCTAttr):
             kwargs['dport'] = cta_proto.get_attr('CTA_PROTO_DST_PORT')
 
         return cls(**kwargs)
+
+    def __repr__(self):
+        proto_name = self.proto_name()
+        if proto_name is None:
+            proto_name = 'UNKNOWN'
+
+        if self.family == socket.AF_INET:
+            r = 'IPv4('
+        elif self.family == socket.AF_INET6:
+            r = 'IPv6('
+        else:
+            r = 'Unkown[family={}]('.format(self.family)
+        r += 'saddr={}, daddr={}, '.format(self.saddr, self.daddr)
+
+        r += '{}('.format(proto_name)
+        if self.proto in (socket.IPPROTO_ICMP, socket.IPPROTO_ICMPV6):
+            r += 'id={}, type={}, code={}'.format(self.icmp_id, self.icmp_type, self.icmp_code)
+        elif self.proto in (socket.IPPROTO_TCP, socket.IPPROTO_UDP):
+            r += 'sport={}, dport={}'.format(self.sport, self.dport)
+        return r + '))'
 
 
 class NFCTSocket(NetlinkSocket):
