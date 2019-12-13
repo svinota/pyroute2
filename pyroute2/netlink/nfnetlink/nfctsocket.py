@@ -278,11 +278,12 @@ class NFCTAttrTuple(NFCTAttr):
         self.icmp_id = icmp_id
         self.icmp_type = icmp_type
         self.icmp_code = icmp_code
+        self.family = family
 
         self._attr_ip, self._attr_icmp = {
             socket.AF_INET: ['CTA_IP_V4', 'CTA_PROTO_ICMP'],
             socket.AF_INET6: ['CTA_IP_V6', 'CTA_PROTO_ICMPV6'],
-        }[family]
+        }[self.family]
 
     def attrs(self):
         cta_ip = []
