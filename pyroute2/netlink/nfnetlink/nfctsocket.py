@@ -108,6 +108,7 @@ class nfct_msg(nfgen_msg):
         ('CTA_MARK_MASK', 'be32'),
         ('CTA_LABELS', 'cta_labels'),
         ('CTA_LABELS_MASK', 'cta_labels'),
+        ('CTA_SYNPROXY', 'cta_synproxy'),
     )
 
     @classmethod
@@ -250,6 +251,14 @@ class nfct_msg(nfgen_msg):
             if isinstance(self['value'], tuple):
                 self['value'] = (self['value'][0] & 0xffffffffffffffff) | \
                                 (self['value'][1] << 64)
+
+    class cta_synproxy(nla):
+        nla_map = (
+            ('CTA_SYNPROXY_UNSPEC', 'none'),
+            ('CTA_SYNPROXY_ISN', 'be32'),
+            ('CTA_SYNPROXY_ITS', 'be32'),
+            ('CTA_SYNPROXY_TSOFF', 'be32'),
+        )
 
 
 class NFCTAttr(object):
