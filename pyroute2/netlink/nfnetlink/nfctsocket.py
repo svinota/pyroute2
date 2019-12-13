@@ -321,6 +321,38 @@ class NFCTAttrTuple(NFCTAttr):
 
         return cta_tuple
 
+    @classmethod
+    def from_netlink(cls, family, ndmsg):
+        cta_ip = ndmsg.get_attr('CTA_TUPLE_IP')
+        cta_proto = ndmsg.get_attr('CTA_TUPLE_PROTO')
+        kwargs = {'family': family}
+
+        if family == socket.AF_INET:
+            kwargs['saddr'] = cta_ip.get_attr('CTA_IP_V4_SRC')
+            kwargs['daddr'] = cta_ip.get_attr('CTA_IP_V4_DST')
+        elif family == socket.AF_INET6:
+            kwargs['saddr'] = cta_ip.get_attr('CTA_IP_V6_SRC')
+            kwargs['daddr'] = cta_ip.get_attr('CTA_IP_V6_DST')
+        else:
+            raise NotImplementedError(family)
+
+        proto = cta_proto.get_attr('CTA_PROTO_NUM')
+        kwargs['proto'] = proto
+
+        if proto == socket.IPPROTO_ICMP:
+            kwargs['icmp_id'] = cta_proto.get_attr('CTA_PROTO_ICMP_ID')
+            kwargs['icmp_type'] = cta_proto.get_attr('CTA_PROTO_ICMP_TYPE')
+            kwargs['icmp_code'] = cta_proto.get_attr('CTA_PROTO_ICMP_CODE')
+        elif proto == socket.IPPROTO_ICMPV6:
+            kwargs['icmp_id'] = cta_proto.get_attr('CTA_PROTO_ICMPV6_ID')
+            kwargs['icmp_type'] = cta_proto.get_attr('CTA_PROTO_ICMPV6_TYPE')
+            kwargs['icmp_code'] = cta_proto.get_attr('CTA_PROTO_ICMPV6_CODE')
+        elif proto in (socket.IPPROTO_TCP, socket.IPPROTO_UDP):
+            kwargs['sport'] = cta_proto.get_attr('CTA_PROTO_SRC_PORT')
+            kwargs['dport'] = cta_proto.get_attr('CTA_PROTO_DST_PORT')
+
+        return cls(**kwargs)
+
 
 class NFCTSocket(NetlinkSocket):
     policy = dict((k | (NFNL_SUBSYS_CTNETLINK << 8), v) for k, v in {
