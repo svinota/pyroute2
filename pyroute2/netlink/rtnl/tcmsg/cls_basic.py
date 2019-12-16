@@ -45,6 +45,9 @@ import struct
 from socket import htons
 from pyroute2 import protocols
 from pyroute2.netlink import nla
+from pyroute2.netlink.rtnl.tcmsg.common import TCA_ACT_MAX_PRIO
+from pyroute2.netlink.rtnl.tcmsg.common_act import get_tca_action
+from pyroute2.netlink.rtnl.tcmsg.common_act import nla_plus_tca_act_opt
 from pyroute2.netlink.rtnl.tcmsg.common_ematch import get_tcf_ematches
 from pyroute2.netlink.rtnl.tcmsg.common_ematch import nla_plus_tcf_ematch_opt
 
@@ -57,12 +60,14 @@ def fix_msg(msg, kwarg):
 def get_parameters(kwarg):
     ret = {'attrs': []}
     attrs_map = (
-        ('action', 'TCA_BASIC_ACT'),
         ('classid', 'TCA_BASIC_CLASSID'),
     )
 
     if kwarg.get('match'):
         ret['attrs'].append(['TCA_BASIC_EMATCHES', get_tcf_ematches(kwarg)])
+
+    if kwarg.get('action'):
+        ret['attrs'].append(['TCA_BASIC_ACT', get_tca_action(kwarg)])
 
     for k, v in attrs_map:
         r = kwarg.get(k, None)
@@ -76,7 +81,7 @@ class options(nla):
     nla_map = (('TCA_BASIC_UNSPEC', 'none'),
                ('TCA_BASIC_CLASSID', 'uint32'),
                ('TCA_BASIC_EMATCHES', 'parse_basic_ematch_tree'),
-               ('TCA_BASIC_ACT', 'hex'),
+               ('TCA_BASIC_ACT', 'tca_act_prio'),
                ('TCA_BASIC_POLICE', 'hex'),
                )
 
@@ -112,3 +117,14 @@ class options(nla):
                 end = self.offset + self.length
                 data = self.data[start:end]
                 self['opt'] = self.parse_ematch_options(self, data)
+
+    class tca_act_prio(nla):
+        nla_map = tuple([('TCA_ACT_PRIO_%i' % x, 'tca_act') for x
+                         in range(TCA_ACT_MAX_PRIO)])
+
+        class tca_act(nla,
+                      nla_plus_tca_act_opt):
+            nla_map = (('TCA_ACT_UNSPEC', 'none'),
+                       ('TCA_ACT_KIND', 'asciiz'),
+                       ('TCA_ACT_OPTIONS', 'get_act_options'),
+                       ('TCA_ACT_INDEX', 'hex'))
