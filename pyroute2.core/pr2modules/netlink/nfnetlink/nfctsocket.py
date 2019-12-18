@@ -6,6 +6,7 @@ See also: pr2modules.conntrack
 
 import socket
 
+from pr2modules.netlink import NLA_F_NESTED
 from pr2modules.netlink import NLMSG_ERROR
 from pr2modules.netlink import NLM_F_REQUEST
 from pr2modules.netlink import NLM_F_DUMP
@@ -339,6 +340,7 @@ class nfct_msg(nfgen_msg):
         )
 
     class cta_filter(nla):
+        nla_flags = NLA_F_NESTED
         nla_map = (
             ('CTA_FILTER_UNSPEC', 'none'),
             ('CTA_FILTER_ORIG_FLAGS', 'uint32'),
