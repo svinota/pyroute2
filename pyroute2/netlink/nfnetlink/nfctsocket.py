@@ -298,6 +298,19 @@ class NFCTAttrTuple(NFCTAttr):
     def proto_name(self):
         return IP_PROTOCOLS.get(self.proto, None)
 
+    def reverse(self):
+        return NFCTAttrTuple(
+            family=self.family,
+            saddr=self.daddr,
+            daddr=self.saddr,
+            proto=self.proto,
+            sport=self.dport,
+            dport=self.sport,
+            icmp_id=self.icmp_id,
+            icmp_type=self.icmp_type,
+            icmp_code=self.icmp_code,
+        )
+
     def attrs(self):
         cta_ip = []
         cta_proto = []
