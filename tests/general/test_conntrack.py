@@ -4,6 +4,9 @@ import threading
 import subprocess
 from pyroute2 import Conntrack
 from pyroute2 import NFCTSocket
+from pyroute2.netlink.nfnetlink.nfctsocket import NFCTAttrTuple
+
+
 from nose.plugins.skip import SkipTest
 from utils import require_user
 
@@ -105,3 +108,48 @@ class TestNFCTSocket(BasicSetup):
                 break
         else:
             raise Exception('connection not found')
+
+
+class TestDumpEntries(object):
+
+    def add_tuple(self, saddr, daddr, proto, sport, dport):
+        tuple_orig = NFCTAttrTuple(
+            saddr=saddr, daddr=daddr, proto=proto, sport=sport, dport=dport)
+        self.tuples.append(tuple_orig)
+        return tuple_orig
+
+    def setup(self):
+        require_user('root')
+        self.tuples = []
+        self.COUNT_CT = 20
+        self.ct = Conntrack()
+
+        for sport in range(20000, 20000 + self.COUNT_CT):
+            tuple_orig = self.add_tuple(
+                saddr='192.168.122.1', daddr='192.168.122.67',
+                proto=socket.IPPROTO_TCP, sport=sport, dport=5599)
+            self.ct.entry('add', timeout=60,
+                          tuple_orig=tuple_orig,
+                          tuple_reply=tuple_orig.reverse())
+
+    def test_dump(self):
+        tuple_match = NFCTAttrTuple(saddr='192.168.122.1',
+                                    daddr='192.168.122.67')
+
+        count_found = 0
+        tuple_filter = tuple_match
+        for entry in self.ct.dump_entries(tuple_orig=tuple_match):
+            count_found += 1
+        assert count_found == self.COUNT_CT
+
+        count_found = 0
+        tuple_filter = NFCTAttrTuple(proto=socket.IPPROTO_TCP)
+        for entry in self.ct.dump_entries(tuple_orig=tuple_filter):
+            if tuple_match == entry.tuple_orig:
+                count_found += 1
+
+        assert count_found == self.COUNT_CT
+
+    def teardown(self):
+        for tuple_orig in self.tuples:
+            self.ct.entry('del', tuple_orig=tuple_orig)
