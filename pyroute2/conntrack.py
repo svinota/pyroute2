@@ -118,6 +118,15 @@ class Conntrack(NFCTSocket):
         ndmsg = super(Conntrack, self).conntrack_max_size()
         return ndmsg[0].get_attr('CTA_STATS_GLOBAL_MAX_ENTRIES')
 
+    def delete(self, entry):
+        if isinstance(entry, ConntrackEntry):
+            tuple_orig = entry.tuple_orig
+        elif isinstance(entry, NFCTAttrTuple):
+            tuple_orig = entry
+        else:
+            raise NotImplementedError()
+        self.entry('del', tuple_orig=tuple_orig)
+
     def dump_entries(self, mark=None, mark_mask=0xffffffff, tuple_orig=None,
                      tuple_reply=None):
         """
