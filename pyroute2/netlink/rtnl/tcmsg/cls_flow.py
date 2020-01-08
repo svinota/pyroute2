@@ -71,9 +71,8 @@ from pyroute2.netlink.rtnl.tcmsg.common import get_tca_mode
 from pyroute2.netlink.rtnl.tcmsg.common import get_tca_keys
 from pyroute2.netlink.rtnl.tcmsg.common import tc_flow_keys
 from pyroute2.netlink.rtnl.tcmsg.common import tc_flow_modes
-from pyroute2.netlink.rtnl.tcmsg.common import TCA_ACT_MAX_PRIO
 from pyroute2.netlink.rtnl.tcmsg.common_act import get_tca_action
-from pyroute2.netlink.rtnl.tcmsg.common_act import nla_plus_tca_act_opt
+from pyroute2.netlink.rtnl.tcmsg.common_act import tca_act_prio
 
 
 def fix_msg(msg, kwarg):
@@ -159,13 +158,4 @@ class options(nla):
             self['flow_keys'] = self['value']
             nla.encode(self)
 
-    class tca_act_prio(nla):
-        nla_map = tuple([('TCA_ACT_PRIO_%i' % x, 'tca_act') for x
-                         in range(TCA_ACT_MAX_PRIO)])
-
-        class tca_act(nla,
-                      nla_plus_tca_act_opt):
-            nla_map = (('TCA_ACT_UNSPEC', 'none'),
-                       ('TCA_ACT_KIND', 'asciiz'),
-                       ('TCA_ACT_OPTIONS', 'get_act_options'),
-                       ('TCA_ACT_INDEX', 'hex'))
+    tca_act_prio = tca_act_prio
