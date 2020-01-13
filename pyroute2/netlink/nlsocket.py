@@ -384,12 +384,6 @@ class NetlinkMixin(object):
         # Set defaults
         self.post_init()
 
-    def __del__(self):
-        try:
-            self.close()
-        except Exception:
-            pass
-
     def post_init(self):
         pass
 
