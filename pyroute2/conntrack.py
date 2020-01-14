@@ -136,6 +136,18 @@ class Conntrack(NFCTSocket):
 
         :param NFCTAttrTuple tuple_orig: filter on original tuple
         :param NFCTAttrTuple tuple_reply: filter on reply tuple
+
+        Examples::
+            # Filter only on tcp connections
+            for entry in ct.dump_entries(tuple_orig=NFCTAttrTuple(
+                                             proto=socket.IPPROTO_TCP)):
+                print("This entry is tcp: {}".format(entry))
+
+            # Filter only on icmp message to 8.8.8.8
+            for entry in ct.dump_entries(tuple_orig=NFCTAttrTuple(
+                                             proto=socket.IPPROTO_ICMP,
+                                             daddr='8.8.8.8')):
+                print("This entry is icmp to 8.8.8.8: {}".format(entry))
         """
         for ndmsg in super(Conntrack, self).dump(mark=mark, mark_mask=mark_mask):
             if tuple_orig is not None and not tuple_orig.nla_eq(
