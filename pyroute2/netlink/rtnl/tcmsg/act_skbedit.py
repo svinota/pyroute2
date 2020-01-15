@@ -94,7 +94,7 @@ def get_parameters(kwarg):
 
 class options(nla):
     nla_map = (('TCA_SKBEDIT_UNSPEC', 'none'),
-               ('TCA_SKBEDIT_TM', 'hex'),
+               ('TCA_SKBEDIT_TM', 'tca_parse_tm'),
                ('TCA_SKBEDIT_PARMS', 'tca_parse_parms'),
                ('TCA_SKBEDIT_PRIORITY', 'uint32'),
                ('TCA_SKBEDIT_QUEUE_MAPPING', 'uint16'),
@@ -113,4 +113,12 @@ class options(nla):
                   ('action', 'i'),
                   ('refcnt', 'i'),
                   ('bindcnt', 'i'),
+                  )
+
+    class tca_parse_tm(nla):
+        # See struct tcf_t
+        fields = (('install', 'Q'),
+                  ('lastuse', 'Q'),
+                  ('expires', 'Q'),
+                  ('firstuse', 'Q'),
                   )
