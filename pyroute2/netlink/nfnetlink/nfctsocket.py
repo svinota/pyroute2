@@ -478,6 +478,46 @@ class NFCTAttrTuple(NFCTAttr):
                 return False
         return True
 
+    def nla_eq(self, family, ndmsg):
+        if self.family != family:
+            return False
+
+        test_attr = []
+        cta_ip = ndmsg.get_attr('CTA_TUPLE_IP')
+        if family == socket.AF_INET:
+            test_attr.append((self.saddr, cta_ip, 'CTA_IP_V4_SRC'))
+            test_attr.append((self.daddr, cta_ip, 'CTA_IP_V4_DST'))
+        elif family == socket.AF_INET6:
+            test_attr.append((self.saddr, cta_ip, 'CTA_IP_V6_SRC'))
+            test_attr.append((self.daddr, cta_ip, 'CTA_IP_V6_DST'))
+        else:
+            raise NotImplementedError(family)
+
+        if self.proto is not None:
+            cta_proto = ndmsg.get_attr('CTA_TUPLE_PROTO')
+            if self.proto != cta_proto.get_attr('CTA_PROTO_NUM'):
+                return False
+
+            if self.proto == socket.IPPROTO_ICMP:
+                test_attr.append((self.icmp_id, cta_proto, 'CTA_PROTO_ICMP_ID'))
+                test_attr.append((self.icmp_type, cta_proto, 'CTA_PROTO_ICMP_TYPE'))
+                test_attr.append((self.icmp_code, cta_proto, 'CTA_PROTO_ICMP_CODE'))
+            elif self.proto == socket.IPPROTO_ICMPV6:
+                test_attr.append((self.icmp_id, cta_proto, 'CTA_PROTO_ICMPV6_ID'))
+                test_attr.append((self.icmp_type, cta_proto, 'CTA_PROTO_ICMPV6_TYPE'))
+                test_attr.append((self.icmp_code, cta_proto, 'CTA_PROTO_ICMPV6_CODE'))
+            elif self.proto in (socket.IPPROTO_TCP, socket.IPPROTO_UDP):
+                test_attr.append((self.sport, cta_proto, 'CTA_PROTO_SRC_PORT'))
+                test_attr.append((self.dport, cta_proto, 'CTA_PROTO_DST_PORT'))
+
+        for val, ndmsg, attrname in test_attr:
+            if val is not None and val != ndmsg.get_attr(attrname):
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             raise NotImplementedError()
