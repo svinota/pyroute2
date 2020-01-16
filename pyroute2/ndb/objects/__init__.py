@@ -283,7 +283,8 @@ class RTNL_Object(dict):
         if key in ('net_ns_fd', 'net_ns_pid'):
             self.state.set('setns')
         if value != self.get(key, None):
-            self.changed.add(key)
+            if key != 'target':
+                self.changed.add(key)
             dict.__setitem__(self, key, value)
 
     def fields(self, *argv):
