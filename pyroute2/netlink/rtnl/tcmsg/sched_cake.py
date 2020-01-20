@@ -101,6 +101,8 @@ CAKE_ATM_NONE = 0
 CAKE_ATM_ATM = 1
 CAKE_ATM_PTM = 2
 
+TCA_CAKE_MAX_TINS = 8
+
 
 def fix_msg(msg, kwarg):
     if 'parent' not in kwarg:
@@ -296,3 +298,80 @@ class options(nla):
         if not self.get_attr('TCA_CAKE_AUTORATE'):
             self['attrs'].append(['TCA_CAKE_AUTORATE', 0])
         nla.encode(self)
+
+
+class stats2(nla):
+    nla_map = (('TCA_STATS_UNSPEC', 'none'),
+               ('TCA_STATS_BASIC', 'basic'),
+               ('TCA_STATS_RATE_EST', 'rate_est'),
+               ('TCA_STATS_QUEUE', 'queue'),
+               ('TCA_STATS_APP', 'stats_app'))
+
+    class basic(nla):
+        fields = (('bytes', 'Q'),
+                  ('packets', 'I'))
+
+    class rate_est(nla):
+        fields = (('bps', 'I'),
+                  ('pps', 'I'))
+
+    class queue(nla):
+        fields = (('qlen', 'I'),
+                  ('backlog', 'I'),
+                  ('drops', 'I'),
+                  ('requeues', 'I'),
+                  ('overlimits', 'I'))
+
+    class stats_app(nla):
+        nla_map = (('__TCA_CAKE_STATS_INVALID', 'none'),
+                   ('TCA_CAKE_STATS_PAD', 'hex'),
+                   ('TCA_CAKE_STATS_CAPACITY_ESTIMATE64', 'uint64'),
+                   ('TCA_CAKE_STATS_MEMORY_LIMIT', 'uint32'),
+                   ('TCA_CAKE_STATS_MEMORY_USED', 'uint32'),
+                   ('TCA_CAKE_STATS_AVG_NETOFF', 'uint32'),
+                   ('TCA_CAKE_STATS_MAX_NETLEN', 'uint32'),
+                   ('TCA_CAKE_STATS_MAX_ADJLEN', 'uint32'),
+                   ('TCA_CAKE_STATS_MIN_NETLEN', 'uint32'),
+                   ('TCA_CAKE_STATS_MIN_ADJLEN', 'uint32'),
+                   ('TCA_CAKE_STATS_TIN_STATS', 'tca_parse_tins'),
+                   ('TCA_CAKE_STATS_DEFICIT', 'uint32'),
+                   ('TCA_CAKE_STATS_COBALT_COUNT', 'uint32'),
+                   ('TCA_CAKE_STATS_DROPPING', 'uint32'),
+                   ('TCA_CAKE_STATS_DROP_NEXT_US', 'uint32'),
+                   ('TCA_CAKE_STATS_P_DROP', 'uint32'),
+                   ('TCA_CAKE_STATS_BLUE_TIMER_US', 'uint32'),
+                   )
+
+        class tca_parse_tins(nla):
+            nla_map = tuple([('TCA_CAKE_TIN_STATS_%i' % x,
+                              'tca_parse_tin_stats') for x
+                             in range(TCA_CAKE_MAX_TINS)])
+
+            class tca_parse_tin_stats(nla):
+                nla_map = (('__TCA_CAKE_TIN_STATS_INVALID', 'none'),
+                           ('TCA_CAKE_TIN_STATS_PAD', 'hex'),
+                           ('TCA_CAKE_TIN_STATS_SENT_PACKETS', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_SENT_BYTES64', 'uint64'),
+                           ('TCA_CAKE_TIN_STATS_DROPPED_PACKETS', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_DROPPED_BYTES64', 'uint64'),
+                           ('TCA_CAKE_TIN_STATS_ACKS_DROPPED_PACKETS', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_ACKS_DROPPED_BYTES64', 'uint64'),
+                           ('TCA_CAKE_TIN_STATS_ECN_MARKED_PACKETS', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_ECN_MARKED_BYTES64', 'uint64'),
+                           ('TCA_CAKE_TIN_STATS_BACKLOG_PACKETS', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_BACKLOG_BYTES', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_THRESHOLD_RATE64', 'uint64'),
+                           ('TCA_CAKE_TIN_STATS_TARGET_US', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_INTERVAL_US', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_WAY_INDIRECT_HITS', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_WAY_MISSES', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_WAY_COLLISIONS', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_PEAK_DELAY_US', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_AVG_DELAY_US', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_BASE_DELAY_US', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_SPARSE_FLOWS', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_BULK_FLOWS', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_UNRESPONSIVE_FLOWS', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_MAX_SKBLEN', 'uint32'),
+                           ('TCA_CAKE_TIN_STATS_FLOW_QUANTUM', 'uint32'),
+                           )
