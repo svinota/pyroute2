@@ -25,7 +25,7 @@ netlink messages:
 
 >>> wiset.content
 {'1.2.3.0/24': IPStats(packets=None, bytes=None, comment=None,
-                       timeout=None, skbmark=None)}
+                       timeout=None, skbmark=None, physdev=False)}
 '''
 
 import errno
@@ -40,6 +40,8 @@ from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
+from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_PHYSDEV
+from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_IFACE_WILDCARD
 
 
 # Debug variable to detect netlink socket leaks
@@ -81,8 +83,14 @@ def need_ipset_socket(fun):
     return wrap
 
 
-IPStats = namedtuple("IPStats", ["packets", "bytes", "comment",
-                                 "timeout", "skbmark"])
+class IPStats(namedtuple("IPStats", ["packets", "bytes", "comment",
+                                     "timeout", "skbmark", "physdev",
+                                     "wildcard"])):
+    __slots__ = ()
+    def __new__(cls, packets, bytes, comment, timeout, skbmark, physdev=False,
+                wildcard=False):
+        return super(IPStats, cls).__new__(cls, packets, bytes, comment, timeout,
+                                           skbmark, physdev=physdev, wildcard=wildcard)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -251,11 +259,18 @@ class WiSet(object):
                     skbmark = "/".join([str(hex(mark)) for mark in skbmark])
                 else:
                     skbmark = str(hex(skbmark[0]))
+            entry_flag_parsed = {"physdev": False}
+            flags = entry.get_attr("IPSET_ATTR_CADT_FLAGS")
+            if flags is not None:
+                entry_flag_parsed["physdev"] = bool(flags & IPSET_FLAG_PHYSDEV)
+                entry_flag_parsed["wildcard"] = bool(flags & IPSET_FLAG_IFACE_WILDCARD)
+
             value = IPStats(packets=entry.get_attr("IPSET_ATTR_PACKETS"),
                             bytes=entry.get_attr("IPSET_ATTR_BYTES"),
                             comment=entry.get_attr("IPSET_ATTR_COMMENT"),
                             skbmark=skbmark,
-                            timeout=timeout)
+                            timeout=timeout,
+                            **entry_flag_parsed)
             self._content[key] = value
 
     def create(self, **kwargs):
