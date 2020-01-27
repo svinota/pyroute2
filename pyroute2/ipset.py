@@ -42,6 +42,7 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
+from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_IFACE_WILDCARD
 from pyroute2.netlink.nfnetlink.ipset import IPSET_DEFAULT_MAXELEM
 from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_PROTOCOL
 from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_FIND_TYPE
@@ -331,8 +332,11 @@ class IPSet(NetlinkSocket):
     def _add_delete_test(self, name, entry, family, cmd, exclusive,
                          comment=None, timeout=None, etype="ip",
                          packets=None, bytes=None, skbmark=None,
-                         skbprio=None, skbqueue=None):
+                         skbprio=None, skbqueue=None, wildcard=False):
         excl_flag = NLM_F_EXCL if exclusive else 0
+        adt_flags = 0
+        if wildcard:
+            adt_flags |= IPSET_FLAG_IFACE_WILDCARD
 
         ip_version = self._family_to_version(family)
         data_attrs = self._entry_to_data_attrs(entry, etype, ip_version)
@@ -351,6 +355,8 @@ class IPSet(NetlinkSocket):
             data_attrs += [["IPSET_ATTR_SKBPRIO", skbprio]]
         if skbqueue is not None:
             data_attrs += [["IPSET_ATTR_SKBQUEUE", skbqueue]]
+        if adt_flags:
+            data_attrs += [["IPSET_ATTR_CADT_FLAGS", adt_flags]]
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
                         ['IPSET_ATTR_SETNAME', name],
@@ -362,7 +368,7 @@ class IPSet(NetlinkSocket):
 
     def add(self, name, entry, family=socket.AF_INET, exclusive=True,
             comment=None, timeout=None, etype="ip", skbmark=None,
-            skbprio=None, skbqueue=None, **kwargs):
+            skbprio=None, skbqueue=None, wildcard=False, **kwargs):
         '''
         Add a member to the ipset.
 
@@ -398,12 +404,16 @@ class IPSet(NetlinkSocket):
             port_entry = PortEntry(80, protocol=protocol)
             ipset.add("foobar", ("198.51.100.0/24", port_entry),
                       etype="net,port")
+
+        wildcard option enable kernel wildcard matching on interface
+        name for net,iface entries.
         '''
         return self._add_delete_test(name, entry, family, IPSET_CMD_ADD,
                                      exclusive, comment=comment,
                                      timeout=timeout, etype=etype,
                                      skbmark=skbmark, skbprio=skbprio,
-                                     skbqueue=skbqueue, **kwargs)
+                                     skbqueue=skbqueue, wildcard=wildcard,
+                                     **kwargs)
 
     def delete(self, name, entry, family=socket.AF_INET, exclusive=True,
                etype="ip"):
