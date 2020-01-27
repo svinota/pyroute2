@@ -87,10 +87,12 @@ class IPStats(namedtuple("IPStats", ["packets", "bytes", "comment",
                                      "timeout", "skbmark", "physdev",
                                      "wildcard"])):
     __slots__ = ()
+
     def __new__(cls, packets, bytes, comment, timeout, skbmark, physdev=False,
                 wildcard=False):
-        return super(IPStats, cls).__new__(cls, packets, bytes, comment, timeout,
-                                           skbmark, physdev=physdev, wildcard=wildcard)
+        return super(IPStats, cls).__new__(cls, packets, bytes, comment,
+                                           timeout, skbmark, physdev=physdev,
+                                           wildcard=wildcard)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -262,8 +264,10 @@ class WiSet(object):
             entry_flag_parsed = {"physdev": False}
             flags = entry.get_attr("IPSET_ATTR_CADT_FLAGS")
             if flags is not None:
-                entry_flag_parsed["physdev"] = bool(flags & IPSET_FLAG_PHYSDEV)
-                entry_flag_parsed["wildcard"] = bool(flags & IPSET_FLAG_IFACE_WILDCARD)
+                entry_flag_parsed["physdev"] = bool(flags &
+                                                    IPSET_FLAG_PHYSDEV)
+                entry_flag_parsed["wildcard"] = bool(flags &
+                                                     IPSET_FLAG_IFACE_WILDCARD)
 
             value = IPStats(packets=entry.get_attr("IPSET_ATTR_PACKETS"),
                             bytes=entry.get_attr("IPSET_ATTR_BYTES"),

@@ -499,16 +499,24 @@ class NFCTAttrTuple(NFCTAttr):
                 return False
 
             if self.proto == socket.IPPROTO_ICMP:
-                test_attr.append((self.icmp_id, cta_proto, 'CTA_PROTO_ICMP_ID'))
-                test_attr.append((self.icmp_type, cta_proto, 'CTA_PROTO_ICMP_TYPE'))
-                test_attr.append((self.icmp_code, cta_proto, 'CTA_PROTO_ICMP_CODE'))
+                (test_attr
+                 .append((self.icmp_id, cta_proto, 'CTA_PROTO_ICMP_ID')))
+                (test_attr
+                 .append((self.icmp_type, cta_proto, 'CTA_PROTO_ICMP_TYPE')))
+                (test_attr
+                 .append((self.icmp_code, cta_proto, 'CTA_PROTO_ICMP_CODE')))
             elif self.proto == socket.IPPROTO_ICMPV6:
-                test_attr.append((self.icmp_id, cta_proto, 'CTA_PROTO_ICMPV6_ID'))
-                test_attr.append((self.icmp_type, cta_proto, 'CTA_PROTO_ICMPV6_TYPE'))
-                test_attr.append((self.icmp_code, cta_proto, 'CTA_PROTO_ICMPV6_CODE'))
+                (test_attr
+                 .append((self.icmp_id, cta_proto, 'CTA_PROTO_ICMPV6_ID')))
+                (test_attr
+                 .append((self.icmp_type, cta_proto, 'CTA_PROTO_ICMPV6_TYPE')))
+                (test_attr
+                 .append((self.icmp_code, cta_proto, 'CTA_PROTO_ICMPV6_CODE')))
             elif self.proto in (socket.IPPROTO_TCP, socket.IPPROTO_UDP):
-                test_attr.append((self.sport, cta_proto, 'CTA_PROTO_SRC_PORT'))
-                test_attr.append((self.dport, cta_proto, 'CTA_PROTO_DST_PORT'))
+                (test_attr
+                 .append((self.sport, cta_proto, 'CTA_PROTO_SRC_PORT')))
+                (test_attr
+                 .append((self.dport, cta_proto, 'CTA_PROTO_DST_PORT')))
 
         for val, ndmsg, attrname in test_attr:
             if val is not None and val != ndmsg.get_attr(attrname):
@@ -559,7 +567,9 @@ class NFCTAttrTuple(NFCTAttr):
 
         r += '{}('.format(proto_name)
         if self.proto in (socket.IPPROTO_ICMP, socket.IPPROTO_ICMPV6):
-            r += 'id={}, type={}, code={}'.format(self.icmp_id, self.icmp_type, self.icmp_code)
+            r += 'id={}, type={}, code={}'.format(self.icmp_id,
+                                                  self.icmp_type,
+                                                  self.icmp_code)
         elif self.proto in (socket.IPPROTO_TCP, socket.IPPROTO_UDP):
             r += 'sport={}, dport={}'.format(self.sport, self.dport)
         return r + '))'
