@@ -326,6 +326,19 @@ class WiSet_test(object):
         myset.destroy()
         sock.close()
 
+    def test_physdev(self):
+        myset = WiSet(name=self.name, attr_type="hash:net,iface")
+        myset.create()
+        myset.add("192.168.0.0/24,eth0", physdev=False)
+        myset.add("192.168.1.0/24,eth0", physdev=True)
+
+        content = myset.content
+        myset.destroy()
+
+        print(content)
+        assert content["192.168.0.0/24,eth0"].physdev is False
+        assert content["192.168.1.0/24,eth0"].physdev is True
+
     def test_ipset_context(self):
         before_count = COUNT["count"]
         func = [self.test_create_one_ipset, self.test_create_ipset_twice,

@@ -43,6 +43,7 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_IFACE_WILDCARD
+from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_PHYSDEV
 from pyroute2.netlink.nfnetlink.ipset import IPSET_DEFAULT_MAXELEM
 from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_PROTOCOL
 from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_FIND_TYPE
@@ -332,11 +333,14 @@ class IPSet(NetlinkSocket):
     def _add_delete_test(self, name, entry, family, cmd, exclusive,
                          comment=None, timeout=None, etype="ip",
                          packets=None, bytes=None, skbmark=None,
-                         skbprio=None, skbqueue=None, wildcard=False):
+                         skbprio=None, skbqueue=None, wildcard=False,
+                         physdev=False):
         excl_flag = NLM_F_EXCL if exclusive else 0
         adt_flags = 0
         if wildcard:
             adt_flags |= IPSET_FLAG_IFACE_WILDCARD
+        if physdev:
+            adt_flags |= IPSET_FLAG_PHYSDEV
 
         ip_version = self._family_to_version(family)
         data_attrs = self._entry_to_data_attrs(entry, etype, ip_version)
