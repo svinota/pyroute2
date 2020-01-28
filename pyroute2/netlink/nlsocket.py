@@ -880,7 +880,7 @@ class NetlinkMixin(object):
                     #
                     # It's a long story. Modern kernels for RTM_SET.*
                     # operations always return NLMSG_ERROR(0) == success,
-                    # even not setting NLM_F_MULTY flag on other response
+                    # even not setting NLM_F_MULTI flag on other response
                     # messages and thus w/o any NLMSG_DONE. So, how to detect
                     # the response end? One can not rely on NLMSG_ERROR on
                     # old kernels, but we have to support them too. Ty, we
