@@ -10,7 +10,9 @@ from pyroute2.wiset import load_all_ipsets
 from pyroute2.wiset import load_ipset
 from pyroute2.wiset import test_ipset_exist
 
+from utils import require_kernel
 from utils import require_user
+from utils import skip_if_not_supported
 
 
 class WiSet_test(object):
@@ -335,9 +337,22 @@ class WiSet_test(object):
         content = myset.content
         myset.destroy()
 
-        print(content)
         assert content["192.168.0.0/24,eth0"].physdev is False
         assert content["192.168.1.0/24,eth0"].physdev is True
+
+    @skip_if_not_supported
+    def test_wildcard_entries(self):
+        require_kernel(5, 5)
+        myset = WiSet(name=self.name, attr_type="hash:net,iface")
+        myset.create()
+        myset.add("192.168.0.0/24,eth", wildcard=True)
+        myset.add("192.168.1.0/24,wlan0", wildcard=False)
+
+        content = myset.content
+        myset.destroy()
+
+        assert content["192.168.0.0/24,eth"].wildcard is True
+        assert content["192.168.1.0/24,wlan0"].wildcard is False
 
     def test_ipset_context(self):
         before_count = COUNT["count"]
