@@ -461,6 +461,11 @@ class RTNL_Object(dict):
         Try to commit the pending changes. If the commit fails,
         automatically revert the state.
         '''
+        if self.state == 'system' and \
+                not self.changed and \
+                not self._apply_script:
+            return self
+
         if self.chain:
             self.chain.commit()
         self.log.debug('commit: %s' % str(self.state.events))
