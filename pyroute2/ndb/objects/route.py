@@ -63,7 +63,10 @@ class Route(RTNL_Object):
             ret_key = {'target': 'localhost'}
 
         if isinstance(key, basestring):
-            ret_key['RTA_DST'], ret_key['dst_len'] = key.split('/')
+            if key == 'default':
+                ret_key['RTA_DST'], ret_key['dst_len'] = '', '0'
+            else:
+                ret_key['RTA_DST'], ret_key['dst_len'] = key.split('/')
 
         return super(Route, self).complete_key(ret_key)
 
