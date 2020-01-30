@@ -1225,7 +1225,7 @@ class DBSchema(object):
             self.gctime = time.time()
 
             # clean dead snapshots after GC timeout
-            for name, wref in self.snapshots.items():
+            for name, wref in tuple(self.snapshots.items()):
                 if wref() is None:
                     del self.snapshots[name]
                     if name.startswith('ifinfo_'):
