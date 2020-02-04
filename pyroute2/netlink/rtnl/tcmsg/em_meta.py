@@ -67,6 +67,7 @@ META_ID = {
     'rxhash': 47,
 }
 
+
 class data(nla):
     nla_map = (('TCA_EM_META_UNSPEC', 'none'),
                ('TCA_EM_META_HDR', 'tca_em_meta_match_parse'),
@@ -78,6 +79,20 @@ class data(nla):
         self.header = None
         self.length = 24
         nla.decode(self)
+
+    def encode(self):
+        if 'object' not in self:
+            raise ValueError('An object definition must be given!')
+
+        if 'value' not in self:
+            raise ValueError('A value must be given!')
+
+        self['attrs'].append(['TCA_EM_META_HDR', self['object']])
+        self['attrs'].append(['TCA_EM_META_LVALUE', self.get('mask', 0)])
+        self['attrs'].append(['TCA_EM_META_RVALUE', self['value']])
+        nla.encode(self)
+        self['header']['length'] -= 4
+        self.data = self.data[4:]
 
     class tca_em_meta_match_parse(nla):
         fields = (('kind', 'H'),
@@ -108,18 +123,20 @@ class data(nla):
             del self['pad']
 
         def encode(self):
-            if not 'kind' in self or not 'op' in self:
+            if 'kind' not in self or 'op' not in self:
                 raise ValueError("'op' and 'kind' keywords must be set!")
 
             # FIXME: I can be something else than an INT!
+            self['id'] = TCF_META_TYPE_INT << 12
+
             for k, v in META_ID.items():
                 if self['kind'].lower() == k:
-                    self['kind'] = (TCF_META_TYPE_INT << 12) | v
+                    self['kind'] = self['id'] | v
                     break
 
             for k, v in OPERANDS_DICT.items():
-                if self['op'].lower() == k:
-                    self['op'] = v
+                if self['op'].lower() in v:
+                    self['op'] = k
                     break
 
             # Perform sanity checks on 'shift' value
@@ -133,7 +150,4 @@ class data(nla):
                                      "0 and 255 included!")
             else:
                 self['shift'] = 0
-
-            # FIXME: I can be something else than an INT!
-            self['id'] = TCF_META_TYPE_INT << 12
             nla.encode(self)
