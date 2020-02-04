@@ -1,4 +1,5 @@
 from pyroute2.ndb.objects import RTNL_Object
+from pyroute2.ndb.report import Record
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
@@ -57,16 +58,31 @@ class Route(RTNL_Object):
         super(Route, self).__init__(*argv, **kwarg)
 
     def complete_key(self, key):
-        if isinstance(key, dict):
-            ret_key = key
-        else:
-            ret_key = {'target': 'localhost'}
-
+        ret_key = {}
         if isinstance(key, basestring):
-            if key == 'default':
-                ret_key['RTA_DST'], ret_key['dst_len'] = '', '0'
-            else:
-                ret_key['RTA_DST'], ret_key['dst_len'] = key.split('/')
+            ret_key['dst'] = key
+        elif isinstance(key, (Record, tuple, list)):
+            return super(Route, self).complete_key(key)
+        elif isinstance(key, dict):
+            ret_key.update(key)
+        else:
+            raise TypeError('unsupported key type')
+
+        if 'target' not in ret_key:
+            ret_key['target'] = 'localhost'
+
+        if 'table' not in ret_key:
+            ret_key['table'] = 254
+
+        if isinstance(ret_key.get('dst_len'), basestring):
+            ret_key['dst_len'] = int(ret_key['dst_len'])
+
+        if isinstance(ret_key.get('dst'), basestring):
+            if ret_key.get('dst') == 'default':
+                ret_key['dst'] = ''
+                ret_key['dst_len'] = 0
+            elif '/' in ret_key['dst']:
+                ret_key['dst'], ret_key['dst_len'] = ret_key['dst'].split('/')
 
         return super(Route, self).complete_key(ret_key)
 
