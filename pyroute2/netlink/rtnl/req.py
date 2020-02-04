@@ -367,6 +367,9 @@ class IPRouteRequest(IPRequest):
             elif isinstance(value, int):
                 dict.__setitem__(self, key, {'label': value,
                                              'bos': 1})
+            elif value == '':
+                # ignore empty values for src/dst
+                return
             elif value != 'default':
                 value = value.split('/')
                 mask = None

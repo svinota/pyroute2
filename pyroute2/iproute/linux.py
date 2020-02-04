@@ -1838,6 +1838,8 @@ class RTNL_API(object):
 
         for key in kwarg:
             nla = rtmsg.name2nla(key)
+            if nla == 'RTA_DST' and not kwarg[key]:
+                continue
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
                 # fix IP family, if needed
