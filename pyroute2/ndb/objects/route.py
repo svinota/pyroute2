@@ -95,9 +95,14 @@ class Route(RTNL_Object):
         return req
 
     def __setitem__(self, key, value):
-        super(Route, self).__setitem__(key, value)
-        if key == 'multipath':
-            self.changed.remove(key)
+        if key in ('dst', 'src') and '/' in value:
+            net, net_len = value.split('/')
+            super(Route, self).__setitem__(key, net)
+            super(Route, self).__setitem__('%s_len' % key, int(net_len))
+        else:
+            super(Route, self).__setitem__(key, value)
+            if key == 'multipath':
+                self.changed.remove(key)
 
     def apply(self, rollback=False):
         if (self.get('table') == 255) and \
