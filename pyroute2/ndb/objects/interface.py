@@ -311,6 +311,7 @@ class Interface(RTNL_Object):
         for key in ('link', ):
             if key in self and isinstance(self[key], basestring):
                 self[key] = self.ndb.interfaces[self[key]]['index']
+        setns = self.state.get() is 'setns'
         try:
             super(Interface, self).apply(rollback)
         except NetlinkError as e:
@@ -329,6 +330,12 @@ class Interface(RTNL_Object):
                 self.apply()
             else:
                 raise
+        if setns:
+            self.load_value('target', self['net_ns_fd'])
+            dict.__setitem__(self, 'net_ns_fd', None)
+            spec = self.load_sql()
+            if spec:
+                self.state.set('system')
         return self
 
     def hook_apply(self, method, **spec):
@@ -364,6 +371,7 @@ class Interface(RTNL_Object):
                                   (self['index'], )))
                 if spec:
                     self.update(dict(zip(names, spec)))
+        return spec
 
     def load_rtnlmsg(self, *argv, **kwarg):
         super(Interface, self).load_rtnlmsg(*argv, **kwarg)

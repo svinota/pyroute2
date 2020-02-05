@@ -528,6 +528,7 @@ class RTNL_Object(dict):
         state_map = (('invalid', 'system'),
                      ('remove', 'invalid'),
                      ('setns', 'invalid'),
+                     ('setns', 'system'),
                      ('replace', 'system'))
 
         self.load_sql()
