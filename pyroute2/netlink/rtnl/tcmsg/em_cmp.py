@@ -56,3 +56,42 @@ class data(nla):
                                          .upper()
         self['opnd'] = 'TCF_EM_OPND_{}'.format(OPERANDS_DICT[self['opnd']][0])\
                                        .upper()
+
+    def encode(self):
+        # Set default values
+        self['layer_opnd'] = 0
+        self['align_flags'] = 0
+
+        # Build align_flags byte
+        if 'trans' in self:
+            self['align_flags'] = TCF_EM_CMP_TRANS << 4
+        for k, v in ALIGNS_DICT.items():
+            if self['align'].lower() == v:
+                self['align_flags'] |= k
+                break
+
+        # Build layer_opnd byte
+        if isinstance(self['opnd'], int):
+            self['layer_opnd'] = self['opnd'] << 4
+        else:
+            for k, v in OPERANDS_DICT.items():
+                if self['opnd'].lower() in v:
+                    self['layer_opnd'] = k << 4
+                    break
+
+        # Layer code
+        if isinstance(self['layer'], int):
+            self['layer_opnd'] |= self['layer']
+        else:
+            for k, v in LAYERS_DICT.items():
+                if self['layer'].lower() in v:
+                    self['layer_opnd'] |= k
+                    break
+
+        self['off'] = self.get('offset', 0)
+        self['val'] = self.get('value', 0)
+        nla.encode(self)
+
+        # Patch NLA structure
+        self['header']['length'] -= 4
+        self.data = self.data[4:]
