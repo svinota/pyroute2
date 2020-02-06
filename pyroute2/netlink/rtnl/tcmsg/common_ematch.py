@@ -1,8 +1,9 @@
+from pyroute2.netlink.rtnl.tcmsg import em_cmp
 from pyroute2.netlink.rtnl.tcmsg import em_ipset
 
 plugins = {
     # 0: em_container,
-    # 1: em_cmp,
+    1: em_cmp,
     # 2: em_nbyte,
     # 3: em_u32,
     # 4: em_meta,
