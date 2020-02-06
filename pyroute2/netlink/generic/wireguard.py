@@ -133,107 +133,96 @@ class wgmsg(genlmsg):
                ('WGDEVICE_A_FLAGS', 'uint32'),
                ('WGDEVICE_A_LISTEN_PORT', 'uint16'),
                ('WGDEVICE_A_FWMARK', 'uint32'),
-               ('WGDEVICE_A_PEERS', 'wgdevice_a_peers'))
+               ('WGDEVICE_A_PEERS', '*wgdevice_peer'))
 
-    class wgdevice_a_peers(nla):
+    class wgdevice_peer(nla):
+        prefix = 'WGPEER_A_'
+
         nla_flags = NLA_F_NESTED
-        nla_map = tuple([('WGDEVICE_A_PEER_%i' % x, 'wgdevice_peer') for x
-                         in range(WG_MAX_PEERS)])
+        nla_map = (('WGPEER_A_UNSPEC', 'none'),
+                   ('WGPEER_A_PUBLIC_KEY', 'parse_peer_key'),
+                   ('WGPEER_A_PRESHARED_KEY', 'parse_peer_key'),
+                   ('WGPEER_A_FLAGS', 'uint32'),
+                   ('WGPEER_A_ENDPOINT', 'parse_endpoint'),
+                   ('WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL', 'uint16'),
+                   ('WGPEER_A_LAST_HANDSHAKE_TIME',
+                    'parse_handshake_time'),
+                   ('WGPEER_A_RX_BYTES', 'uint64'),
+                   ('WGPEER_A_TX_BYTES', 'uint64'),
+                   ('WGPEER_A_ALLOWEDIPS', '*wgpeer_allowedip'),
+                   ('WGPEER_A_PROTOCOL_VERSION', 'uint32'))
 
-        class wgdevice_peer(nla):
-            prefix = 'WGPEER_A_'
+        class parse_peer_key(nla):
+            fields = (('key', 's'), )
+
+            def decode(self):
+                nla.decode(self)
+                self['value'] = b64encode(self['value'])
+
+            def encode(self):
+                self['key'] = b64decode(self['value'])
+                nla.encode(self)
+
+        class parse_endpoint(nla):
+            fields = (('family', 'H'),
+                      ('port', '>H'),
+                      ('addr4', '>I'),
+                      ('addr6', 's'),
+                      ('__padding', '>I'))
+
+            def decode(self):
+                nla.decode(self)
+                if self['family'] == AF_INET:
+                    self['addr'] = inet_ntoa(pack('>I', self['addr4']))
+                else:
+                    self['addr'] = inet_ntoa(AF_INET6, self['addr6'])
+                del self['addr4']
+                del self['addr6']
+                del self['__padding']
+
+            def encode(self):
+                if self['addr'].find(":") > -1:
+                    self['family'] = AF_INET6
+                    self['addr4'] = 0  # Set to NULL
+                    self['addr6'] = inet_pton(AF_INET6, self['addr'])
+                else:
+                    self['family'] = AF_INET
+                    self['addr4'] = unpack('>I',
+                                           inet_aton(self['addr']))[0]
+                    self['addr6'] = b'\x00\x00\x00\x00\x00\x00\x00\x00'
+                self['port'] = int(self['port'])
+                self['__padding'] = 0
+                nla.encode(self)
+
+        class parse_handshake_time(nla):
+            fields = (('tv_sec', 'Q'),
+                      ('tv_nsec', 'Q'))
+
+            def decode(self):
+                nla.decode(self)
+                self['latest handshake'] = ctime(self['tv_sec'])
+
+        class wgpeer_allowedip(nla):
+            prefix = 'WGALLOWEDIP_A_'
 
             nla_flags = NLA_F_NESTED
-            nla_map = (('WGPEER_A_UNSPEC', 'none'),
-                       ('WGPEER_A_PUBLIC_KEY', 'parse_peer_key'),
-                       ('WGPEER_A_PRESHARED_KEY', 'parse_peer_key'),
-                       ('WGPEER_A_FLAGS', 'uint32'),
-                       ('WGPEER_A_ENDPOINT', 'parse_endpoint'),
-                       ('WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL', 'uint16'),
-                       ('WGPEER_A_LAST_HANDSHAKE_TIME',
-                        'parse_handshake_time'),
-                       ('WGPEER_A_RX_BYTES', 'uint64'),
-                       ('WGPEER_A_TX_BYTES', 'uint64'),
-                       ('WGPEER_A_ALLOWEDIPS', 'wgpeer_a_allowedips'),
-                       ('WGPEER_A_PROTOCOL_VERSION', 'uint32'))
+            nla_map = (('WGALLOWEDIP_A_UNSPEC', 'none'),
+                       ('WGALLOWEDIP_A_FAMILY', 'uint16'),
+                       ('WGALLOWEDIP_A_IPADDR', 'hex'),
+                       ('WGALLOWEDIP_A_CIDR_MASK', 'uint8'))
 
-            class parse_peer_key(nla):
-                fields = (('key', 's'), )
-
-                def decode(self):
-                    nla.decode(self)
-                    self['value'] = b64encode(self['value'])
-
-                def encode(self):
-                    self['key'] = b64decode(self['value'])
-                    nla.encode(self)
-
-            class parse_endpoint(nla):
-                fields = (('family', 'H'),
-                          ('port', '>H'),
-                          ('addr4', '>I'),
-                          ('addr6', 's'),
-                          ('__padding', '>I'))
-
-                def decode(self):
-                    nla.decode(self)
-                    if self['family'] == AF_INET:
-                        self['addr'] = inet_ntoa(pack('>I', self['addr4']))
-                    else:
-                        self['addr'] = inet_ntoa(AF_INET6, self['addr6'])
-                    del self['addr4']
-                    del self['addr6']
-                    del self['__padding']
-
-                def encode(self):
-                    if self['addr'].find(":") > -1:
-                        self['family'] = AF_INET6
-                        self['addr4'] = 0  # Set to NULL
-                        self['addr6'] = inet_pton(AF_INET6, self['addr'])
-                    else:
-                        self['family'] = AF_INET
-                        self['addr4'] = unpack('>I',
-                                               inet_aton(self['addr']))[0]
-                        self['addr6'] = b'\x00\x00\x00\x00\x00\x00\x00\x00'
-                    self['port'] = int(self['port'])
-                    self['__padding'] = 0
-                    nla.encode(self)
-
-            class parse_handshake_time(nla):
-                fields = (('tv_sec', 'Q'),
-                          ('tv_nsec', 'Q'))
-
-                def decode(self):
-                    nla.decode(self)
-                    self['latest handshake'] = ctime(self['tv_sec'])
-
-            class wgpeer_a_allowedips(nla):
-                nla_flags = NLA_F_NESTED
-                nla_map = tuple([('WGPEER_A_ALLOWEDIPS_%i' % x,
-                                  'wgpeer_allowedip') for x
-                                 in range(WG_MAX_ALLOWEDIPS)])
-
-                class wgpeer_allowedip(nla):
-                    prefix = 'WGALLOWEDIP_A_'
-
-                    nla_flags = NLA_F_NESTED
-                    nla_map = (('WGALLOWEDIP_A_UNSPEC', 'none'),
-                               ('WGALLOWEDIP_A_FAMILY', 'uint16'),
-                               ('WGALLOWEDIP_A_IPADDR', 'hex'),
-                               ('WGALLOWEDIP_A_CIDR_MASK', 'uint8'))
-
-                    def decode(self):
-                        nla.decode(self)
-                        if self.get_attr('WGALLOWEDIP_A_FAMILY') == AF_INET:
-                            pre = (self
-                                   .get_attr('WGALLOWEDIP_A_IPADDR')
-                                   .replace(':', ''))
-                            self['addr'] = inet_ntoa(a2b_hex(pre))
-                        else:
-                            self['addr'] = (self
-                                            .get_attr('WGALLOWEDIP_A_IPADDR'))
-                        wgaddr = self.get_attr('WGALLOWEDIP_A_CIDR_MASK')
-                        self['addr'] = '{0}/{1}'.format(self['addr'], wgaddr)
+            def decode(self):
+                nla.decode(self)
+                if self.get_attr('WGALLOWEDIP_A_FAMILY') == AF_INET:
+                    pre = (self
+                           .get_attr('WGALLOWEDIP_A_IPADDR')
+                           .replace(':', ''))
+                    self['addr'] = inet_ntoa(a2b_hex(pre))
+                else:
+                    self['addr'] = (self
+                                    .get_attr('WGALLOWEDIP_A_IPADDR'))
+                wgaddr = self.get_attr('WGALLOWEDIP_A_CIDR_MASK')
+                self['addr'] = '{0}/{1}'.format(self['addr'], wgaddr)
 
     class parse_wg_key(nla):
         fields = (('key', 's'), )
@@ -311,7 +300,7 @@ class WireGuard(GenericNetlinkSocket):
 
     def _wg_set_peer(self, msg, peer):
         attrs = []
-        wg_peer = {'attrs': [['WGDEVICE_A_PEER_0', {'attrs': attrs}]]}
+        wg_peer = [{'attrs': attrs}]
         if 'public_key' not in peer:
             raise ValueError('Peer Public key required')
 
@@ -355,12 +344,11 @@ class WireGuard(GenericNetlinkSocket):
         msg['attrs'].append(['WGDEVICE_A_PEERS', wg_peer])
 
     def _wg_build_allowedips(self, allowed_ips):
-        attrs = {'attrs': []}
+        ret = []
 
         for index, ip in enumerate(allowed_ips):
-            attrs['attrs'].append(['WGPEER_A_ALLOWEDIPS_{}'.format(index)])
-            attrs['attrs'][index].append({'attrs': []})
-            allowed_ip = attrs['attrs'][index][1]['attrs']
+            allowed_ip = []
+            ret.append({'attrs': allowed_ip})
 
             if ip.find("/") == -1:
                 raise ValueError('No CIDR set in allowed ip #{}'.format(index))
@@ -375,4 +363,4 @@ class WireGuard(GenericNetlinkSocket):
                 allowed_ip.append(['WGALLOWEDIP_A_IPADDR', inet_aton(addr)])
             allowed_ip.append(['WGALLOWEDIP_A_CIDR_MASK', int(mask)])
 
-        return attrs
+        return ret
