@@ -38,20 +38,22 @@ a file DB or a PostgreSQL as the backend.
 
 See more: :ref:`ndbschema`
 
+It is possible to dump all the DB data with `schema.export()`::
+
+   with NDB() as ndb:
+      ndb.schema.export('stderr')  # dump the DB to stderr
+      ...
+      ndb.schema.export('pr2_debug')  # dump the DB to a file
+
 RTNL events
 -----------
 
 All the loaded RTNL events may be stored in the DB. To turn that feature
 on, one should start NDB with the `debug` option::
 
-   ndb = NDB(debug=True)
+   ndb = NDB(rtnl_debug=True)
 
-The events may be downloaded later, e.g. before exit, with
-`schema.export_debug()`::
-
-   with NDB(log='on', debug=True) as ndb:
-      # ... here some NDB operations
-      ndb.schema.export_debug('ndb.schema')
+The events may be exported with the same `schema.export()`.
 
 Unlike ordinary table, limited with the number of network objects in the
 system, the events log tables are not limited. Do not enable the events

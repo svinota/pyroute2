@@ -133,7 +133,7 @@ class TestBase(object):
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        log='../ndb-%s-%s.log' % (os.getpid(), self.log_id),
-                       debug=True)
+                       rtnl_debug=True)
         self.interfaces = self.create_interfaces()
 
     def teardown(self):
@@ -178,7 +178,7 @@ class Basic(object):
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        log='../ndb-%s-%s.log' % (os.getpid(), self.log_id),
-                       debug=True)
+                       rtnl_debug=True)
 
     def teardown(self):
         with self.nl_class(**self.nl_kwarg) as ipr:
@@ -758,7 +758,7 @@ class TestNetNS(object):
                        db_spec=self.db_spec,
                        sources=self.sources,
                        log='../ndb-%s-%s.log' % (os.getpid(), self.log_id),
-                       debug=True,
+                       rtnl_debug=True,
                        auto_netns=True)
 
     def ifaddr(self, r=0):
@@ -894,7 +894,7 @@ class TestRollback(TestBase):
         self.ndb = NDB(db_provider=self.db_provider,
                        db_spec=self.db_spec,
                        log='../ndb-%s-%s.log' % (os.getpid(), self.log_id),
-                       debug=True)
+                       rtnl_debug=True)
         self.interfaces = []
 
     def test_simple_deps(self):

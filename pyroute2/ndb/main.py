@@ -755,7 +755,7 @@ class NDB(object):
                  sources=None,
                  db_provider='sqlite3',
                  db_spec=':memory:',
-                 debug=False,
+                 rtnl_debug=False,
                  log=False,
                  auto_netns=False,
                  libc=None):
@@ -793,7 +793,7 @@ class NDB(object):
         self._nl = sources
         self._db_provider = db_provider
         self._db_spec = db_spec
-        self._db_rtnl_log = debug
+        self._db_rtnl_log = rtnl_debug
         atexit.register(self.close)
         self._dbm_ready.clear()
         self._dbm_autoload = set()

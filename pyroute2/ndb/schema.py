@@ -88,7 +88,7 @@ There are also some useful views, that join `ifinfo` tables with
     (8 rows)
 
 '''
-
+import sys
 import time
 import uuid
 import struct
@@ -701,20 +701,27 @@ class DBSchema(object):
                 yield row
 
     @publish_exec
-    def export_debug(self, fname='pr2_debug'):
-        if self.rtnl_log:
-            with open(fname, 'w') as f:
-                for table in self.spec.keys():
-                    f.write('\ntable %s\n' % table)
-                    for record in (self
-                                   .execute('SELECT * FROM %s' % table)):
-                        f.write(' '.join([str(x) for x in record]))
-                        f.write('\n')
+    def export(self, fname='stdout'):
+        if fname in ('stdout', 'stderr'):
+            f = getattr(sys, fname)
+        else:
+            f = open(fname, 'w')
+        try:
+            for table in self.spec.keys():
+                f.write('\ntable %s\n' % table)
+                for record in (self
+                               .execute('SELECT * FROM %s' % table)):
+                    f.write(' '.join([str(x) for x in record]))
+                    f.write('\n')
+                if self.rtnl_log:
                     f.write('\ntable %s_log\n' % table)
                     for record in (self
                                    .execute('SELECT * FROM %s_log' % table)):
                         f.write(' '.join([str(x) for x in record]))
                         f.write('\n')
+        finally:
+            if fname not in ('stdout', 'stderr'):
+                f.close()
 
     @publish_exec
     def close(self):
