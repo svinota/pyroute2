@@ -123,7 +123,8 @@ def _get_netnspath(name):
     dirname = os.path.dirname(name)
     if not dirname:
         netnspath = '%s/%s' % (NETNS_RUN_DIR, name)
-    netnspath = netnspath.encode('ascii')
+    if hasattr(netnspath, 'encode'):
+        netnspath = netnspath.encode('ascii')
     return netnspath
 
 
