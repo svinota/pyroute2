@@ -1,4 +1,5 @@
 from pyroute2.netlink import nla
+from struct import pack
 
 TCF_EM_OPND_EQ = 0
 TCF_EM_OPND_GT = 1
@@ -67,12 +68,14 @@ META_ID = {
     'rxhash': 47,
 }
 
+strings_meta = ('dev', 'sk_bound_if')
+
 
 class data(nla):
     nla_map = (('TCA_EM_META_UNSPEC', 'none'),
                ('TCA_EM_META_HDR', 'tca_em_meta_match_parse'),
                ('TCA_EM_META_LVALUE', 'uint32'),
-               ('TCA_EM_META_RVALUE', 'uint32')
+               ('TCA_EM_META_RVALUE', 'hex')
                )
 
     def decode(self):
@@ -87,9 +90,31 @@ class data(nla):
         if 'value' not in self:
             raise ValueError('A value must be given!')
 
+        # The value can either be a string or an int depending
+        # on the selected meta kind.
+        # It is really important to distinct them otherwise
+        # the kernel won't be nice with us...
+        value = self['value']
+        kind = self['object'].get('kind')
+        if not kind:
+            raise ValueError('Not meta kind specified!')
+        else:
+            if kind in strings_meta:
+                if not isinstance(value, str):
+                    raise ValueError('{} kinds have to use string value!'
+                                     .format(' and '.join(strings_meta)))
+                else:
+                    value = value.encode('utf-8')
+            else:
+                if not isinstance(value, int):
+                    raise ValueError('Invalid value specified, it must '
+                                     'be an integer')
+                else:
+                    value = pack('<I', value)
+
         self['attrs'].append(['TCA_EM_META_HDR', self['object']])
         self['attrs'].append(['TCA_EM_META_LVALUE', self.get('mask', 0)])
-        self['attrs'].append(['TCA_EM_META_RVALUE', self['value']])
+        self['attrs'].append(['TCA_EM_META_RVALUE', value])
         nla.encode(self)
         self['header']['length'] -= 4
         self.data = self.data[4:]
@@ -126,11 +151,15 @@ class data(nla):
             if 'kind' not in self or 'op' not in self:
                 raise ValueError("'op' and 'kind' keywords must be set!")
 
-            # FIXME: I can be something else than an INT!
-            self['id'] = TCF_META_TYPE_INT << 12
+            kind = self['kind'].lower()
+            if kind in strings_meta:
+                self['id'] = TCF_META_TYPE_VAR
+            else:
+                self['id'] = TCF_META_TYPE_INT
+            self['id'] <<= 12
 
             for k, v in META_ID.items():
-                if self['kind'].lower() == k:
+                if kind == k:
                     self['kind'] = self['id'] | v
                     break
 
