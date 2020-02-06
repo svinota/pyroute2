@@ -94,7 +94,7 @@ def get_tcf_ematches(kwarg):
         data.encode()
 
         # Add ematch encoded data
-        match['opt'] = data.data.decode('utf-8')
+        match['opt'] = data.data
 
         # Safety check
         if i == expr_count - 1 and 'relation' in cur_match:
