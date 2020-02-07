@@ -167,8 +167,7 @@ class wgmsg(genlmsg):
             fields = (('family', 'H'),
                       ('port', '>H'),
                       ('addr4', '>I'),
-                      ('addr6', 's'),
-                      ('__padding', '>I'))
+                      ('addr6', 's'))
 
             def decode(self):
                 nla.decode(self)
@@ -178,7 +177,6 @@ class wgmsg(genlmsg):
                     self['addr'] = inet_ntoa(AF_INET6, self['addr6'])
                 del self['addr4']
                 del self['addr6']
-                del self['__padding']
 
             def encode(self):
                 if self['addr'].find(":") > -1:
@@ -191,7 +189,6 @@ class wgmsg(genlmsg):
                                            inet_aton(self['addr']))[0]
                     self['addr6'] = b'\x00\x00\x00\x00\x00\x00\x00\x00'
                 self['port'] = int(self['port'])
-                self['__padding'] = 0
                 nla.encode(self)
 
         class parse_handshake_time(nla):
