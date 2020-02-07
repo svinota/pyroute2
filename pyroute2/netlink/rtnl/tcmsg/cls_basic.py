@@ -82,6 +82,48 @@ Examples with cmp matches::
     # "trans": True or False
     # "offset", "mask" and "value": any integer
 
+
+Examples with meta matches::
+
+    # Repeating the example given in the man page
+    match = [{"object":{"kind": "nfmark", "opnd": "gt"},
+              "value": 24, "relation": "and"},
+             {"object":{"kind": "tcindex", "opnd": "eq"},
+              "value": 0xf0, "mask": 0xf0}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="meta",
+          parent=0x10000, classid=0x10010, match=match)
+
+    # Now, the same example but with variations
+    # - use operand sign instead of name
+    match = [{"object":{"kind": "nfmark", "opnd": ">"},
+              "value": 24, "relation": "and"},
+             {"object":{"kind": "tcindex", "opnd": "="},
+              "value": 0xf0, "mask": 0xf0}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="meta",
+          parent=0x10000, classid=0x10010, match=match)
+
+    # Another example given by the tc helper
+    # meta(indev shift 1 eq "ppp")
+    match = [{"object":{"kind": "dev", "opnd": "eq", "shift": 1},
+              "value": "ppp"}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="meta",
+          parent=0x10000, classid=0x10010, match=match)
+
+    # Another example, drop every packets arriving on ifb0
+    match = [{"object":{"kind": "dev", "opnd": "eq"},
+              "value": "ifb0"}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="meta",
+          parent=0x10000, classid=0x10010, match=match, action="drop")
+
+    # As the man page says, here are the different key-value pairs you can use:
+    # "opnd": "eq" or "=" or 0
+    # "opnd": "gt" or ">" or 1
+    # "opnd": "lt" or "<" or 2
+    # "shift": any integer between 0 and 255 included
+    # "kind": see `tc filter add dev iface basic match 'meta(list)'` result
+    # "value": any string if kind matches 'dev' or 'sk_bound_if',
+    #          any integer otherwise
+
 NOTES:
     When not specified, `inverse` flag is set to False.
     Do not specify `relation` keyword on the last expression or
