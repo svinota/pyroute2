@@ -70,6 +70,7 @@ In some more extended form::
 
 See also: :ref:`remote`
 '''
+import sys
 import time
 import errno
 import socket
@@ -77,8 +78,6 @@ import struct
 import threading
 from pyroute2 import IPRoute
 from pyroute2 import RemoteIPRoute
-from pyroute2.netns.nslink import NetNS
-from pyroute2.netns.manager import NetNSManager
 from pyroute2.ndb.events import (SyncStart,
                                  SchemaReadLock,
                                  SchemaReadUnlock,
@@ -87,6 +86,12 @@ from pyroute2.ndb.events import (SyncStart,
                                  State)
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.exceptions import NetlinkError
+if sys.platform.startswith('linux'):
+    from pyroute2.netns.nslink import NetNS
+    from pyroute2.netns.manager import NetNSManager
+else:
+    NetNS = None
+    NetNSManager = None
 
 SOURCE_FAIL_PAUSE = 5
 

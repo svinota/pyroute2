@@ -62,6 +62,7 @@ Key NDB features:
 
 '''
 import gc
+import sys
 import json
 import time
 import errno
@@ -783,9 +784,10 @@ class NDB(object):
         if sources is None:
             sources = [{'target': 'localhost',
                         'kind': 'local',
-                        'nlm_generator': 1},
-                       {'target': 'localhost/netns',
-                        'kind': 'nsmanager'}]
+                        'nlm_generator': 1}]
+            if sys.platform.startswith('linux'):
+                sources.append({'target': 'localhost/netns',
+                                'kind': 'nsmanager'})
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
 
