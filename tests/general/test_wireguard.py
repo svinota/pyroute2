@@ -53,3 +53,6 @@ class TestBasic(object):
 
         assert grep('wg show %s' % self.ifnames[0],
                     pattern='peer: %s' % peer['public_key'])
+        assert grep('wg show %s' % self.ifnames[0],
+                    pattern='endpoint: %s:%s' %
+                    (peer['endpoint_addr'], peer['endpoint_port']))
