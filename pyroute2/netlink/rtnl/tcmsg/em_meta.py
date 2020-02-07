@@ -1,5 +1,5 @@
 from pyroute2.netlink import nla
-from struct import pack
+from struct import pack, unpack
 
 TCF_EM_OPND_EQ = 0
 TCF_EM_OPND_GT = 1
@@ -73,7 +73,7 @@ strings_meta = ('dev', 'sk_bound_if')
 
 class data(nla):
     nla_map = (('TCA_EM_META_UNSPEC', 'none'),
-               ('TCA_EM_META_HDR', 'tca_em_meta_match_parse'),
+               ('TCA_EM_META_HDR', 'tca_em_meta_header_parse'),
                ('TCA_EM_META_LVALUE', 'uint32'),
                ('TCA_EM_META_RVALUE', 'hex')
                )
@@ -82,6 +82,18 @@ class data(nla):
         self.header = None
         self.length = 24
         nla.decode(self)
+
+        # Patch to have a better view in nldecap
+        attrs = dict(self['attrs'])
+        rvalue = attrs.get('TCA_EM_META_RVALUE')
+        meta_hdr = attrs.get('TCA_EM_META_HDR')
+        meta_id = meta_hdr['id']
+        rvalue = bytearray.fromhex(rvalue.replace(':', ''))
+        if meta_id == 'TCF_META_TYPE_VAR':
+            rvalue.decode('utf-8')
+        if meta_id == 'TCF_META_TYPE_INT':
+            rvalue = unpack('<I', rvalue)[0]
+        self['attrs'][2] = ('TCA_EM_META_RVALUE', rvalue)
 
     def encode(self):
         if 'object' not in self:
@@ -119,7 +131,7 @@ class data(nla):
         self['header']['length'] -= 4
         self.data = self.data[4:]
 
-    class tca_em_meta_match_parse(nla):
+    class tca_em_meta_header_parse(nla):
         fields = (('kind', 'H'),
                   ('shift', 'B'),
                   ('op', 'B'),
