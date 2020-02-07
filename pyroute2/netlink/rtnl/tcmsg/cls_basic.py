@@ -2,10 +2,11 @@
 basic
 +++++
 
-Basic filter type supports ipset matches::
+Basic filter has multiple types supports.
+Examples with ipset matches::
 
     # Prepare a simple match on an ipset at index 0 src
-    # (the first ipset name that appears when running `ipset list`
+    # (the first ipset name that appears when running `ipset list`)
     match = [{"index": 0, "mode": "src"}]
     ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
           parent=0x10000, classid=0x10010, match=match)
@@ -32,6 +33,54 @@ Basic filter type supports ipset matches::
              {"index": 1, "mode": "src"}]
     ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
           parent=0x10000, classid=0x10010, match=match)
+
+
+Examples with cmp matches::
+
+    # Repeating the example given in the man page
+    match = [{"layer": 2, "opnd": "gt", "align": "u16", "offset": 3,
+              "mask": 0xff00, "value": 20}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="cmd",
+          parent=0x10000, classid=0x10010, match=match)
+
+    # Now, the same example but with variations
+    # - use layer name instead of enum
+    # - use operand sign instead of name
+    match = [{"layer": "transport", "opnd": ">", "align": "u16", "offset": 3,
+              "mask": 0xff00, "value": 20}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="cmd",
+          parent=0x10000, classid=0x10010, match=match)
+
+    # Again, the same example with all possible keywords even if they are
+    # ignored
+    match = [{"layer": "tcp", "opnd": ">", "align": "u16", "offset": 3,
+              "mask": 0xff00, "value": 20, "trans": False}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="cmd",
+          parent=0x10000, classid=0x10010, match=match)
+
+    # Another example, we want to work at the link layer
+    # and filter incoming packets matching hwaddr 00:DE:AD:C0:DE:00
+    # OSI model tells us that the source hwaddr is at offset 0 of
+    # the link layer.
+    # Size of hwaddr is 6-bytes in length, so I use an u32 then an u16
+    # to do the complete match
+    match = [{"layer": "link", "opnd": "eq", "align": "u32", "offset": 0,
+              "mask": 0xffffffff, "value": 0x00DEADC0, "relation": "and"},
+              {"layer": "link", "opnd": "eq", "align": "u16", "offset": 4,
+              "mask": 0xffff, "value": 0xDE00}]
+    ip.tc("add-filter", "basic", ifb0, em_kind="cmd",
+          parent=0x10000, classid=0x10010, match=match)
+
+    # As the man page says, here are the different key-value pairs you can use:
+    # "layer": "link" or "eth" or 0
+    # "layer": "network" or "ip" or 1
+    # "layer": "transport" or "tcp" or 2
+    # "opnd": "eq" or "=" or 0
+    # "opnd": "gt" or ">" or 1
+    # "opnd": "lt" or "<" or 2
+    # "align": "u8" or "u16" or "u32"
+    # "trans": True or False
+    # "offset", "mask" and "value": any integer
 
 NOTES:
     When not specified, `inverse` flag is set to False.
