@@ -128,13 +128,15 @@ class data(nla):
         self['attrs'].append(['TCA_EM_META_LVALUE', self.get('mask', 0)])
         self['attrs'].append(['TCA_EM_META_RVALUE', value])
         nla.encode(self)
+
+        # Patch NLA structure
         self['header']['length'] -= 4
         self.data = self.data[4:]
 
     class tca_em_meta_header_parse(nla):
         fields = (('kind', 'H'),
                   ('shift', 'B'),
-                  ('op', 'B'),
+                  ('opnd', 'B'),
                   ('id', 'H'),
                   ('pad', 'H')
                   )
@@ -155,13 +157,14 @@ class data(nla):
                 if self['kind'] == v:
                     self['kind'] = 'TCF_META_ID_{}'.format(k.upper())
 
-            self['op'] = 'TCF_EM_OPND_{}'.format(OPERANDS_DICT[self['op']][0]
-                                                 .upper())
+            fmt = 'TCF_EM_OPND_{}'.format(OPERANDS_DICT[self['opnd']][0]
+                                          .upper())
+            self['opnd'] = fmt
             del self['pad']
 
         def encode(self):
-            if 'kind' not in self or 'op' not in self:
-                raise ValueError("'op' and 'kind' keywords must be set!")
+            if not isinstance(self['kind'], str):
+                raise ValueError("kind' keywords must be set!")
 
             kind = self['kind'].lower()
             if kind in strings_meta:
@@ -175,20 +178,18 @@ class data(nla):
                     self['kind'] = self['id'] | v
                     break
 
-            for k, v in OPERANDS_DICT.items():
-                if self['op'].lower() in v:
-                    self['op'] = k
-                    break
+            if isinstance(self['opnd'], str):
+                for k, v in OPERANDS_DICT.items():
+                    if self['opnd'].lower() in v:
+                        self['opnd'] = k
+                        break
 
             # Perform sanity checks on 'shift' value
-            if 'shift' in self:
-                if isinstance(self['shift'], str):
-                    # If it fails, it will raise a ValueError
-                    # which is what we want
-                    self['shift'] = int(self['shift'])
-                if not 0 <= self['shift'] <= 255:
-                    raise ValueError("'shift' value must be between"
-                                     "0 and 255 included!")
-            else:
-                self['shift'] = 0
+            if isinstance(self['shift'], str):
+                # If it fails, it will raise a ValueError
+                # which is what we want
+                self['shift'] = int(self['shift'])
+            if not 0 <= self['shift'] <= 255:
+                raise ValueError("'shift' value must be between"
+                                 "0 and 255 included!")
             nla.encode(self)
