@@ -1017,7 +1017,8 @@ class nlmsg_base(dict):
                                   offset=offset,
                                   parent=self)
                 cell._nla_array = False
-                cell['header']['type'] = self.header_type or header_type
+                cell['header']['type'] = self.header_type or \
+                    (header_type | self._nla_flags)
                 header_type += 1
 
                 if cell.cell_header is not None:
