@@ -7,55 +7,58 @@ Examples with ipset matches::
 
     # Prepare a simple match on an ipset at index 0 src
     # (the first ipset name that appears when running `ipset list`)
-    match = [{"index": 0, "mode": "src"}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
+    match = [{"kind": "ipset", index": 0, "mode": "src"}]
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
     # The same match but inverted, simply add inverse flag
-    match = [{"index": 0, "mode": "src", "inverse": True}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
+    match = [{"kind": "ipset", "index": 0, "mode": "src",
+              "inverse": True}]
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
     # Still one ipset but with multiple dimensions:
     # comma separated list of modes
-    match = [{"index": 0, "mode": "src,dst"}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
+    match = [{"kind": "ipset", "index": 0, "mode": "src,dst"}]
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
     # Now let's add multiple expressions (ipset 0 src and ipset 1 src)
-    match = [{"index": 0, "mode": "src", "relation": "and"},
-             {"index": 1, "mode": "src"}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
+    match = [{"kind": "ipset", "index": 0, "mode": "src",
+              "relation": "and"},
+             {"kind": "ipset", "index": 1, "mode": "src"}]
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
     # The same works with OR (ipset 0 src or ipset 1 src)
-    match = [{"index": 0, "mode": "src", "relation": "OR"},
-             {"index": 1, "mode": "src"}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="ipset",
+    match = [{"kind": "ipset", "index": 0, "mode": "src",
+              "relation": "OR"},
+             {"kind": "ipset", "index": 1, "mode": "src"}]
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
 
 Examples with cmp matches::
 
     # Repeating the example given in the man page
-    match = [{"layer": 2, "opnd": "gt", "align": "u16", "offset": 3,
-              "mask": 0xff00, "value": 20}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="cmd",
+    match = [{"kind": "cmp", "layer": 2, "opnd": "gt", "align": "u16",
+              "offset": 3, "mask": 0xff00, "value": 20}]
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
     # Now, the same example but with variations
     # - use layer name instead of enum
     # - use operand sign instead of name
-    match = [{"layer": "transport", "opnd": ">", "align": "u16", "offset": 3,
-              "mask": 0xff00, "value": 20}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="cmd",
+    match = [{"kind": "cmp", "layer": "transport", "opnd": ">","align": "u16",
+              "offset": 3, "mask": 0xff00, "value": 20}]
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
     # Again, the same example with all possible keywords even if they are
     # ignored
-    match = [{"layer": "tcp", "opnd": ">", "align": "u16", "offset": 3,
-              "mask": 0xff00, "value": 20, "trans": False}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="cmd",
+    match = [{"kind": "cmp", "layer": "tcp", "opnd": ">", "align": "u16",
+              "offset": 3, "mask": 0xff00, "value": 20, "trans": False}]
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
     # Another example, we want to work at the link layer
@@ -64,11 +67,12 @@ Examples with cmp matches::
     # the link layer.
     # Size of hwaddr is 6-bytes in length, so I use an u32 then an u16
     # to do the complete match
-    match = [{"layer": "link", "opnd": "eq", "align": "u32", "offset": 0,
-              "mask": 0xffffffff, "value": 0x00DEADC0, "relation": "and"},
-              {"layer": "link", "opnd": "eq", "align": "u16", "offset": 4,
-              "mask": 0xffff, "value": 0xDE00}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="cmd",
+    match = [{"kind": "cmp", "layer": "link", "opnd": "eq", "align": "u32",
+              "offset": 0, "mask": 0xffffffff, "value": 0x00DEADC0,
+              "relation": "and"},
+             {"kind": "cmp", "layer": "link", "opnd": "eq", "align": "u16",
+              "offset": 4, "mask": 0xffff, "value": 0xDE00}]
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
     # As the man page says, here are the different key-value pairs you can use:
@@ -86,33 +90,33 @@ Examples with cmp matches::
 Examples with meta matches::
 
     # Repeating the example given in the man page
-    match = [{"object":{"kind": "nfmark", "opnd": "gt"},
+    match = [{"kind": "meta", "object":{"kind": "nfmark", "opnd": "gt"},
               "value": 24, "relation": "and"},
-             {"object":{"kind": "tcindex", "opnd": "eq"},
+             {"kind": "meta", "object":{"kind": "tcindex", "opnd": "eq"},
               "value": 0xf0, "mask": 0xf0}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="meta",
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
     # Now, the same example but with variations
     # - use operand sign instead of name
-    match = [{"object":{"kind": "nfmark", "opnd": ">"},
+    match = [{"kind": "meta", "object":{"kind": "nfmark", "opnd": ">"},
               "value": 24, "relation": "and"},
-             {"object":{"kind": "tcindex", "opnd": "="},
+             {"kind": "meta", "object":{"kind": "tcindex", "opnd": "="},
               "value": 0xf0, "mask": 0xf0}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="meta",
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
     # Another example given by the tc helper
     # meta(indev shift 1 eq "ppp")
-    match = [{"object":{"kind": "dev", "opnd": "eq", "shift": 1},
-              "value": "ppp"}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="meta",
+    match = [{"kind": "meta", "object":{"kind": "dev", "opnd": "eq",
+              "shift": 1}, "value": "ppp"}]
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
     # Another example, drop every packets arriving on ifb0
-    match = [{"object":{"kind": "dev", "opnd": "eq"},
+    match = [{"kind": "meta", "object":{"kind": "dev", "opnd": "eq"},
               "value": "ifb0"}]
-    ip.tc("add-filter", "basic", ifb0, em_kind="meta",
+    ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match, action="drop")
 
     # As the man page says, here are the different key-value pairs you can use:
@@ -120,7 +124,8 @@ Examples with meta matches::
     # "opnd": "gt" or ">" or 1
     # "opnd": "lt" or "<" or 2
     # "shift": any integer between 0 and 255 included
-    # "kind": see `tc filter add dev iface basic match 'meta(list)'` result
+    # "kind" object: see `tc filter add dev iface basic match 'meta(list)'`
+                     result
     # "value": any string if kind matches 'dev' or 'sk_bound_if',
     #          any integer otherwise
 
@@ -130,6 +135,15 @@ NOTES:
     if there is only one expression.
     `relation` can be written using multiple format:
       "and", "AND", "&&", "or", "OR", "||"
+
+    You can combine multiple different types of ematch. Here is an example::
+    match = [{"kind": "cmp", "layer": 2, "opnd": "eq", "align": "u32",
+              "offset": 0, "value": 32, "relation": "&&"},
+             {"kind": "meta",
+              "object":{"kind": "vlan_tag", "opnd": "eq"}, "value": 100,
+              "relation": "||"},
+             {"kind": "ipset", "index": 0, "mode": "src", "inverse": True}
+            ]
 '''
 
 import struct
