@@ -71,10 +71,6 @@ def get_tcf_ematches(kwarg):
     header = {'nmatches': 0,
               'progid': 0}
 
-    # Translate string kind into numeric kind
-    kind = kwarg['em_kind']
-    kind = plugins_translate[kind]
-
     # Get the number of expressions
     expr_count = len(kwarg['match'])
     header['nmatches'] = expr_count
@@ -89,6 +85,8 @@ def get_tcf_ematches(kwarg):
 
         cur_match = kwarg['match'][i]
 
+        # Translate string kind into numeric kind
+        kind = plugins_translate[cur_match['kind']]
         match['kind'] = kind
         data = plugins[kind].data()
         data.setvalue(cur_match)
