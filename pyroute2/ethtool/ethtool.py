@@ -25,6 +25,10 @@ log = logging.getLogger(__name__)
 EthtoolBitsetBit = namedtuple('EthtoolBitsetBit', ('index', 'name', 'enable', 'set'))
 
 
+class UseIoctl(Exception):
+    pass
+
+
 class EthtoolCoalesce(object):
 
     @staticmethod
@@ -232,50 +236,45 @@ class Ethtool(object):
         self._with_nl = NlEthtool()
         self._is_nl_working = self._with_nl.is_nlethtool_in_kernel()
 
-    def get_link_mode(self, ifname):
-        nl_working = self._is_nl_working
-        if nl_working is True:
-            try:
-                link_mode = self._with_nl.get_linkmode(ifname)
-            except NetlinkError:
-                nl_working = False
+    def _nl_exec(self, f, with_netlink, *args, **kwargs):
+        if with_netlink is None:
+            with_netlink = self._is_nl_working
+        if with_netlink is False:
+            raise UseIoctl()
 
-        if nl_working is True:
+        try:
+            return f(*args, **kwargs)
+        except NetlinkError:
+            raise UseIoctl()
+
+    def get_link_mode(self, ifname, with_netlink=None):
+        try:
+            link_mode = self._nl_exec(self._with_nl.get_linkmode,
+                                      with_netlink, ifname)
             link_mode = EthtoolLinkMode.from_netlink(link_mode)
-        if nl_working is False:
+        except UseIoctl:
             self._with_ioctl.change_ifname(ifname)
             link_settings = self._with_ioctl.get_link_settings()
             link_mode = EthtoolLinkMode.from_ioctl(link_settings)
-
         return link_mode
 
-    def get_link_info(self, ifname):
-        nl_working = self._is_nl_working
-        if nl_working is True:
-            try:
-                link_info = self._with_nl.get_linkinfo(ifname)
-            except NetlinkError:
-                nl_working = False
-
-        if nl_working is True:
+    def get_link_info(self, ifname, with_netlink=None):
+        try:
+            link_info = self._nl_exec(self._with_nl.get_linkinfo,
+                                      with_netlink, ifname)
             link_info = EthtoolLinkInfo.from_netlink(link_info)
-        if nl_working is False:
+        except UseIoctl:
             self._with_ioctl.change_ifname(ifname)
             link_settings = self._with_ioctl.get_link_settings()
             link_info = EthtoolLinkInfo.from_ioctl(link_settings)
-
         return link_info
 
-    def get_strings_set(self, ifname):
-        nl_working = self._is_nl_working
-        if nl_working is True:
-            try:
-                stringsets = self._with_nl.get_stringset(ifname)
-                return EthtoolStringBit.from_netlink(stringsets)
-            except NetlinkError:
-                nl_working = False
-
-        if nl_working is False:
+    def get_strings_set(self, ifname, with_netlink=None):
+        try:
+            stringsets = self._nl_exec(self._with_nl.get_stringset,
+                                       with_netlink, ifname)
+            return EthtoolStringBit.from_netlink(stringsets)
+        except UseIoctl:
             self._with_ioctl.change_ifname(ifname)
             stringsets = self._with_ioctl.get_stringset()
             return EthtoolStringBit.from_ioctl(stringsets)
