@@ -28,6 +28,7 @@ Usage
     wiset
     ipset
     netns
+    wireguard
 
 Howtos
 ------

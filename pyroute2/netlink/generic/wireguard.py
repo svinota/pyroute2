@@ -1,8 +1,6 @@
 '''
-WireGuard
-+++++++++
 
-Usage:
+Usage::
 
     # Imports
     from pyroute2 import IPDB, WireGuard
@@ -50,18 +48,18 @@ Usage:
 
 
 NOTES:
-    Using `set` method only requires an interface name.
-    The `peer` structure is described as follow:
+
+* Using `set` method only requires an interface name.
+* The `peer` structure is described as follow::
+
     struct peer_s {
-        public_key: Base64 public key - required
-        remove: Boolean - optional
-        preshared_key: Base64 PreShared key - optional
-        endpoint_addr: IPv4 or IPv6 endpoint - optional
-        endpoint_port : endpoint Port - optional or required if
-            endpoint_addr is specified
-        persistent_keepalive: time in seconds to send keep alive
-            to remote endpoint - optional
-        allowed_ips: list of CIDRs allowed - optional
+        public_key:            # Base64 public key - required
+        remove:                # Boolean - optional
+        preshared_key:         # Base64 preshared key - optional
+        endpoint_addr:         # IPv4 or IPv6 endpoint - optional
+        endpoint_port :        # endpoint Port - required only if endpoint_addr
+        persistent_keepalive:  # time in seconds to send keep alive - optional
+        allowed_ips:           # list of CIDRs allowed - optional
     }
 '''
 
