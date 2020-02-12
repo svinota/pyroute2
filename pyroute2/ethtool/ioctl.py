@@ -577,37 +577,3 @@ class IoctlEthtool(object):
         self.ifreq.wolinfo = ctypes.pointer(cmd)
         self.ioctl()
         return cmd
-
-
-if __name__ == "__main__":
-    def main():
-        import sys
-
-        if len(sys.argv) != 2:
-            raise Exception("USAGE: {0} IFNAME".format(sys.argv[0]))
-
-        dev = IoctlEthtool(sys.argv[1])
-        for f in (dev.get_cmd, dev.get_coalesce):
-            print("=== Device {}: ===".format(f.__name__))
-            try:
-                infos = f()
-            except NotSupportedError:
-                print("Not supported by driver.\n")
-                continue
-
-            for name, value in infos.items():
-                print("\t{}: {}".format(name, value))
-            print("")
-
-        print("=== Device feature: ===")
-        for name, value, not_fixed, _, _ in dev.get_features():
-            value = "on" if value else "off"
-            if not not_fixed:
-                # I love double negations
-                value += " [fixed]"
-            print("\t{}: {}".format(name, value))
-
-        print("\n=== Device coalesce: ===")
-        for name, value in dev.get_coalesce().items():
-            print("\t{}: {}".format(name, value))
-    main()

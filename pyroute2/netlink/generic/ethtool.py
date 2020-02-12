@@ -203,23 +203,3 @@ class NlEthtool(GenericNetlinkSocket):
         return self.nlm_request(msg,
                                 msg_type=self.prid,
                                 msg_flags=NLM_F_REQUEST)
-
-
-if __name__ == '__main__':
-    IFNAME = "wan0"
-    eth = NlEthtool()
-
-    print("kernel ok?:", eth.is_nlethtool_in_kernel())
-    pprint.pprint(eth.get_linkmode(IFNAME))
-    print(".")
-    print(".")
-    pprint.pprint(eth.get_linkinfo(IFNAME))
-    print(".")
-    print(".")
-    pprint.pprint(eth.get_stringset(IFNAME))
-    print(".")
-    print(".")
-    pprint.pprint(eth.get_linkstate(IFNAME))
-    print(".")
-    print(".")
-    pprint.pprint(eth.get_wol(IFNAME))

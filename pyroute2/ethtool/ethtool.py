@@ -137,7 +137,6 @@ class EthtoolLinkInfo(namedtuple('EthtoolLinkInfo', (
 
     @classmethod
     def from_ioctl(cls, link_settings):
-        print(link_settings)
         return cls(
             port=link_settings.port,
             phyaddr=link_settings.phy_address,
@@ -312,18 +311,3 @@ class Ethtool(object):
         ioctl_coalesce = self._with_ioctl.get_coalesce()
         EthtoolCoalesce.to_ioctl(ioctl_coalesce, coalesce)
         self._with_ioctl.set_coalesce(ioctl_coalesce)
-
-
-if __name__ == '__main__':
-    def main():
-        import sys
-        ethtool = Ethtool()
-        ifname = sys.argv[1]
-        print(ethtool.get_link_mode(ifname))
-        print(ethtool.get_link_info(ifname))
-        print(ethtool.get_strings_set(ifname))
-        print(ethtool.get_wol(ifname))
-        print(ethtool.get_features(ifname))
-        print(ethtool.get_coalesce(ifname))
-
-    main()
