@@ -4,7 +4,6 @@ from pyroute2.netlink import NLA_F_NESTED
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.generic import GenericNetlinkSocket
-import pprint
 
 ETHTOOL_GENL_NAME = "ethtool"
 ETHTOOL_GENL_VERSION = 1
@@ -129,6 +128,9 @@ class ethtool_wol_msg(genlmsg):
 
 class NlEthtool(GenericNetlinkSocket):
 
+    def _do_request(self, msg, msg_flags=NLM_F_REQUEST):
+        return self.nlm_request(msg, msg_type=self.prid, msg_flags=msg_flags)
+
     def is_nlethtool_in_kernel(self):
         try:
             self.bind(ETHTOOL_GENL_NAME, ethtool_linkinfo_msg)
@@ -152,9 +154,7 @@ class NlEthtool(GenericNetlinkSocket):
                              self._get_dev_header(ifname, ifindex)))
 
         self.bind(ETHTOOL_GENL_NAME, ethtool_linkinfo_msg)
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST)
+        return self._do_request(msg)
 
     def get_linkmode(self, ifname=None, ifindex=None):
         msg = ethtool_linkmode_msg()
@@ -164,9 +164,7 @@ class NlEthtool(GenericNetlinkSocket):
                              self._get_dev_header(ifname, ifindex)))
 
         self.bind(ETHTOOL_GENL_NAME, ethtool_linkmode_msg)
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST)
+        return self._do_request(msg)
 
     def get_stringset(self, ifname=None, ifindex=None):
         msg = ethtool_strset_msg()
@@ -176,9 +174,7 @@ class NlEthtool(GenericNetlinkSocket):
                              self._get_dev_header(ifname, ifindex)))
 
         self.bind(ETHTOOL_GENL_NAME, ethtool_strset_msg)
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST)
+        return self._do_request(msg)
 
     def get_linkstate(self, ifname=None, ifindex=None):
         msg = ethtool_linkstate_msg()
@@ -188,9 +184,7 @@ class NlEthtool(GenericNetlinkSocket):
                              self._get_dev_header(ifname, ifindex)))
 
         self.bind(ETHTOOL_GENL_NAME, ethtool_linkstate_msg)
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST)
+        return self._do_request(msg)
 
     def get_wol(self, ifname=None, ifindex=None):
         msg = ethtool_wol_msg()
@@ -200,6 +194,4 @@ class NlEthtool(GenericNetlinkSocket):
                              self._get_dev_header(ifname, ifindex)))
 
         self.bind(ETHTOOL_GENL_NAME, ethtool_wol_msg)
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST)
+        return self._do_request(msg)
