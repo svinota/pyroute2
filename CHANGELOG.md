@@ -1,6 +1,16 @@
 Changelog
 =========
 
+* 0.5.8
+    * ethtool: initial support <https://github.com/svinota/pyroute2/pull/675>
+    * tc: multimatch support <https://github.com/svinota/pyroute2/pull/674>
+    * tc: meta support <https://github.com/svinota/pyroute2/pull/671>
+    * tc: cake: add stats_app decoder <https://github.com/svinota/pyroute2/pull/662>
+    * conntrack: filter <https://github.com/svinota/pyroute2/pull/660>
+    * ndb.objects.interface: reload after setns
+    * ndb.objects.route: create() dst syntax
+    * ndb.objects.route: 'default' syntax
+    * wireguard: basic testing
 * 0.5.7
     * ndb.objects.netns: prototype
     * ndb: netns management

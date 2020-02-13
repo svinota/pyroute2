@@ -11,13 +11,18 @@ protocols. Some supported netlink families and protocols:
 * **ipq** --- simplest userspace packet filtering, iptables QUEUE target
 * **devlink** --- manage and monitor devlink-enabled hardware
 * **generic** --- generic netlink families
+    * **ethtool** --- low-level network interface setup
     * **nl80211** --- wireless functions API (basic support)
     * **taskstats** --- extended process statistics
     * **acpi_events** --- ACPI events monitoring
     * **thermal_events** --- thermal events monitoring
     * **VFS_DQUOT** --- disk quota events monitoring
 
-Starting with 0.5.2 the library supports also PF_ROUTE sockets on BSD systems.
+Latest important milestones:
+
+* 0.5.8 --- **Ethtool** support
+* 0.5.7 --- **WireGuard** support
+* 0.5.2 --- **PF_ROUTE** support on FreeBSD and OpenBSD
 
 Supported systems
 -----------------
@@ -210,6 +215,7 @@ Requirements
 Python >= 2.7
 
 The pyroute2 testing framework requirements:
+
 * flake8
 * coverage
 * nosetests
@@ -217,6 +223,7 @@ The pyroute2 testing framework requirements:
 * netaddr
 
 Optional dependencies for testing:
+
 * eventlet
 * mitogen
 * bottle
