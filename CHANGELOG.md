@@ -1,6 +1,8 @@
 Changelog
 =========
 
+* 0.5.9
+    * ethtool: fix module setup
 * 0.5.8
     * ethtool: initial support <https://github.com/svinota/pyroute2/pull/675>
     * tc: multimatch support <https://github.com/svinota/pyroute2/pull/674>
