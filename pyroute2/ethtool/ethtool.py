@@ -22,7 +22,8 @@ INT16MINUS_UINT16 = c_uint16(-1).value
 
 log = logging.getLogger(__name__)
 
-EthtoolBitsetBit = namedtuple('EthtoolBitsetBit', ('index', 'name', 'enable', 'set'))
+EthtoolBitsetBit = namedtuple('EthtoolBitsetBit',
+                              ('index', 'name', 'enable', 'set'))
 
 
 class UseIoctl(Exception):
@@ -90,17 +91,20 @@ class EthtoolWakeOnLan(namedtuple('EthtoolWolMode', ('modes', 'sopass'))):
         for bit_index, name in WAKE_NAMES.items():
             if wol_mode.supported & bit_index:
                 dict_wol_modes[name] = EthtoolBitsetBit(
-                    bit_index, name, wol_mode.wolopts & bit_index != 0, set=None)
+                    bit_index, name,
+                    wol_mode.wolopts & bit_index != 0, set=None)
         return EthtoolWakeOnLan(modes=dict_wol_modes, sopass=None)
 
 
-class EthtoolStringBit(namedtuple('EthtoolStringBit', ('set', 'index', 'name'))):
+class EthtoolStringBit(namedtuple('EthtoolStringBit',
+                                  ('set', 'index', 'name'))):
 
     @classmethod
     def from_netlink(cls, nl_string_sets):
         nl_string_sets = nl_string_sets[0]
         ethtool_strings_set = set()
-        for i in nl_string_sets.get_attr('ETHTOOL_A_STRSET_STRINGSETS')['attrs']:
+        for i in (nl_string_sets
+                  .get_attr('ETHTOOL_A_STRSET_STRINGSETS')['attrs']):
             i = i[1]
 
             set_id = i.get_attr('ETHTOOL_A_STRINGSET_ID')
@@ -116,7 +120,8 @@ class EthtoolStringBit(namedtuple('EthtoolStringBit', ('set', 'index', 'name')))
 
     @classmethod
     def from_ioctl(cls, string_sets):
-        return {cls(i // 32, i % 32, string) for i, string in enumerate(string_sets)}
+        return {cls(i // 32, i % 32, string) for i, string
+                in enumerate(string_sets)}
 
 
 class EthtoolLinkInfo(namedtuple('EthtoolLinkInfo', (
@@ -152,8 +157,10 @@ class EthtoolLinkInfo(namedtuple('EthtoolLinkInfo', (
             port=nl_link_mode.get_attr('ETHTOOL_A_LINKINFO_PORT'),
             phyaddr=nl_link_mode.get_attr('ETHTOOL_A_LINKINFO_PHYADDR'),
             tp_mdix=nl_link_mode.get_attr('ETHTOOL_A_LINKINFO_TP_MDIX'),
-            tp_mdix_ctrl=nl_link_mode.get_attr('ETHTOOL_A_LINKINFO_TP_MDIX_CTR'),
-            transceiver=nl_link_mode.get_attr('ETHTOOL_A_LINKINFO_TRANSCEIVER'),
+            tp_mdix_ctrl=(nl_link_mode
+                          .get_attr('ETHTOOL_A_LINKINFO_TP_MDIX_CTR')),
+            transceiver=(nl_link_mode
+                         .get_attr('ETHTOOL_A_LINKINFO_TRANSCEIVER')),
         )
 
 
@@ -165,12 +172,15 @@ class EthtoolLinkMode(namedtuple('EthtoolLinkMode', (
         'supported_modes'))):
 
     def __new__(cls, speed, duplex, autoneg, supported_ports, supported_modes):
-        if speed == 0 or speed == INT32MINUS_UINT32 or speed == INT16MINUS_UINT16:
+        if speed == 0 or \
+                speed == INT32MINUS_UINT32 or \
+                speed == INT16MINUS_UINT16:
             speed = None
         duplex = LINK_DUPLEX_NAMES.get(duplex, None)
 
         return super(EthtoolLinkMode, cls).__new__(
-            cls, speed, duplex, bool(autoneg), supported_ports, supported_modes)
+            cls, speed, duplex,
+            bool(autoneg), supported_ports, supported_modes)
 
     @classmethod
     def from_ioctl(cls, link_settings):
@@ -199,8 +209,9 @@ class EthtoolLinkMode(namedtuple('EthtoolLinkMode', (
         supported_ports = []
         supported_modes = []
 
-        for bitset_bit in nl_link_mode.get_attr('ETHTOOL_A_LINKMODES_OURS')\
-                                      .get_attr('ETHTOOL_A_BITSET_BITS')['attrs']:
+        for bitset_bit in (nl_link_mode
+                           .get_attr('ETHTOOL_A_LINKMODES_OURS')
+                           .get_attr('ETHTOOL_A_BITSET_BITS')['attrs']):
             bitset_bit = bitset_bit[1]
             bit_index = bitset_bit.get_attr('ETHTOOL_A_BITSET_BIT_INDEX')
             bit_name = bitset_bit.get_attr('ETHTOOL_A_BITSET_BIT_NAME')

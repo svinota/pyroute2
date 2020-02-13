@@ -170,7 +170,8 @@ class IoctlEthtoolLinkSettings(DictStruct):
         ("transceiver", ctypes.c_uint8),
         ("reserved1", ctypes.c_uint8 * 3),
         ("reserved", ctypes.c_uint32 * 7),
-        ("link_mode_data", ctypes.c_uint32 * (3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32)),
+        ("link_mode_data", ctypes.c_uint32 *
+         (3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32)),
     ]
 
 
@@ -183,7 +184,7 @@ class EthtoolCoalesce(DictStruct):
 
         # How many usecs to delay an RX interrupt after
         # a packet arrives.  If 0, only rx_max_coalesced_frames
-        #is used.
+        # is used.
         ("rx_coalesce_usecs", ctypes.c_uint32),
 
         # How many packets to delay an RX interrupt after
@@ -460,8 +461,13 @@ class IoctlEthtool(object):
                 raise NoSuchDevice(self.ifname.decode("utf-8"))
             raise
 
-    def get_stringset(self, set_id=ETH_SS_FEATURES, drvinfo_offset=0, null_terminate=1):
-        sset_info = EthtoolSsetInfo(cmd=ETHTOOL_GSSET_INFO, reserved=0, sset_mask=1 << set_id)
+    def get_stringset(self,
+                      set_id=ETH_SS_FEATURES,
+                      drvinfo_offset=0,
+                      null_terminate=1):
+        sset_info = EthtoolSsetInfo(cmd=ETHTOOL_GSSET_INFO,
+                                    reserved=0,
+                                    sset_mask=1 << set_id)
         self.ifreq.sset_info = ctypes.pointer(sset_info)
         fcntl.ioctl(self.sock, SIOCETHTOOL, self.ifreq)
         if sset_info.sset_mask:
@@ -470,7 +476,9 @@ class IoctlEthtool(object):
             length = 0
 
         strings_found = []
-        gstrings = EthtoolGstrings(cmd=ETHTOOL_GSTRINGS, string_set=set_id, len=length)
+        gstrings = EthtoolGstrings(cmd=ETHTOOL_GSTRINGS,
+                                   string_set=set_id,
+                                   len=length)
         self.ifreq.gstrings = ctypes.pointer(gstrings)
         self.ioctl()
 
