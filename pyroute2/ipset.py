@@ -44,7 +44,6 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_IFACE_WILDCARD
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_PHYSDEV
-from pyroute2.netlink.nfnetlink.ipset import IPSET_DEFAULT_MAXELEM
 from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_PROTOCOL
 from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_FIND_TYPE
 from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_MAX_SETS
@@ -199,7 +198,7 @@ class IPSet(NetlinkSocket):
 
     def create(self, name, stype='hash:ip', family=socket.AF_INET,
                exclusive=True, counters=False, comment=False,
-               maxelem=IPSET_DEFAULT_MAXELEM, forceadd=False,
+               maxelem=None, forceadd=False,
                hashsize=None, timeout=None, bitmap_ports_range=None,
                size=None, skbinfo=False):
         '''
@@ -235,8 +234,11 @@ class IPSet(NetlinkSocket):
         if stype == 'bitmap:port' and bitmap_ports_range is None:
             raise ValueError('Missing value bitmap_ports_range')
 
-        data = {"attrs": [["IPSET_ATTR_CADT_FLAGS", cadt_flags],
-                          ["IPSET_ATTR_MAXELEM", maxelem]]}
+        data = {'attrs': []}
+        if cadt_flags:
+            data['attrs'] += [['IPSET_ATTR_CADT_FLAGS', cadt_flags]]
+        if maxelem is not None:
+            data['attrs'] += [['IPSET_ATTR_MAXELEM', maxelem]]
         if hashsize is not None:
             data['attrs'] += [["IPSET_ATTR_HASHSIZE", hashsize]]
         elif size is not None and stype == 'list:set':
