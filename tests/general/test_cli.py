@@ -220,8 +220,11 @@ class TestTools(object):
 
             src_addr, src_p = self._dissect_ep(fl_end_p.group('src_ep'))
             dst_addr, dst_p = self._dissect_ep(fl_end_p.group('dst_ep'))
-            pid = self.pid_re.search(matter).group('pid')
-
+            ret = self.pid_re.search(matter)
+            if ret is None:
+                pid = None
+            else:
+                pid = ret.group('pid')
             res = {"src": src_addr,
                    "src_port": int(src_p),
                    "dst": dst_addr,
