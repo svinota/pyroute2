@@ -23,7 +23,6 @@ import argparse
 from socket import (AF_INET,
                     AF_UNIX
                     )
-import collections
 import psutil
 from pyroute2 import DiagSocket
 from pyroute2.netlink.diag import (SS_ESTABLISHED,
@@ -42,12 +41,18 @@ from pyroute2.netlink.diag import (SS_ESTABLISHED,
 from pyroute2.netlink.diag import (UDIAG_SHOW_NAME,
                                    UDIAG_SHOW_VFS,
                                    UDIAG_SHOW_PEER)
+try:
+    from collections.abc import Mapping
+    from collections.abc import Callable
+except ImportError:
+    from collections import Mapping
+    from collections import Callable
 # UDIAG_SHOW_ICONS,
 # UDIAG_SHOW_RQLEN,
 # UDIAG_SHOW_MEMINFO
 
 
-class UserCtxtMap(collections.Mapping):
+class UserCtxtMap(Mapping):
 
     _data = {}
 
@@ -155,7 +160,7 @@ class UserCtxtMap(collections.Mapping):
         raise RuntimeError("Not implemented")
 
 
-class Protocol(collections.Callable):
+class Protocol(Callable):
     class Resolver:
         @staticmethod
         def getHost(ip):
