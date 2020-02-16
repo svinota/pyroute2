@@ -31,7 +31,7 @@ class Client(object):
         self.ss.connect((address, port))
 
     def stop(self):
-        self.ss.send('\x00' * 16)
+        self.ss.send(b'\x00' * 16)
         self.ss.shutdown(socket.SHUT_RDWR)
         self.ss.close()
 
@@ -79,7 +79,7 @@ class TestConntrack(BasicSetup):
         stat = self.ct.stat()
         cpus = [x for x in (subprocess
                             .check_output('cat /proc/cpuinfo', shell=True)
-                            .split('\n')) if x.startswith('processor')]
+                            .split(b'\n')) if x.startswith(b'processor')]
         assert len(stat) == len(cpus)
 
     def test_count_dump(self):
