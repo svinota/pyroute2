@@ -611,13 +611,14 @@ class DBSchema(object):
             cursor = self._cursor
         else:
             cursor = self.connection.cursor()
-            self._counter = config.db_transaction_limit + 1
+            self._counter = config.db_transaction_limit
         try:
             #
             # FIXME: add logging
             #
             for _ in range(MAX_ATTEMPTS):
                 try:
+                    self._counter += 1
                     cursor.execute(*argv, **kwarg)
                     break
                 except (sqlite3.InterfaceError, sqlite3.OperationalError) as e:
