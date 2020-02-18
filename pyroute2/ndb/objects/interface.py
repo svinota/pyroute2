@@ -315,7 +315,7 @@ class Interface(RTNL_Object):
         for key in ('link', ):
             if key in self and isinstance(self[key], basestring):
                 self[key] = self.ndb.interfaces[self[key]]['index']
-        setns = self.state.get() is 'setns'
+        setns = self.state.get() == 'setns'
         try:
             super(Interface, self).apply(rollback)
         except NetlinkError as e:
