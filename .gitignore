@@ -30,3 +30,4 @@ pyroute2.egg-info
 benchmark.log
 .tox
 tests-workspaces/
+pyroute2/config/version.py

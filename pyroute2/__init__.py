@@ -2,12 +2,17 @@
 #
 # This module contains all the public symbols from the library.
 #
-try:
-    import pkg_resources
-except ImportError:
-    pass
 import sys
 import struct
+
+##
+#
+# Version
+#
+try:
+    from pyroute2.config.version import __version__
+except ImportError:
+    __version__ = 'unknown'
 
 ##
 #
@@ -167,8 +172,3 @@ else:
 __all__ = []
 __all__.extend([x.__name__ for x in exceptions])
 __all__.extend([x.__name__ for x in classes])
-
-try:
-    __version__ = pkg_resources.get_distribution('pyroute2').version
-except:
-    __version__ = 'unknown'

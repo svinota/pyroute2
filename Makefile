@@ -80,11 +80,13 @@ clean: clean-version
 	@rm -rf pyroute2.egg-info
 	@rm -rf tests-workspaces
 	@rm -f python-pyroute2.spec
+	@rm -f pyroute2/config/version.py
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
 	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
 
 setup.ini:
 	@awk 'BEGIN {print "[setup]\nversion=${version}\nrelease=${release}\nsetuplib=${setuplib}"}' >setup.ini
+	@awk 'BEGIN {print "__version__ = \"${release}\""}' >pyroute2/config/version.py
 
 clean-version:
 	@rm -f setup.ini
