@@ -97,8 +97,13 @@ class Route(RTNL_Object):
     def __setitem__(self, key, value):
         if key in ('dst', 'src') and '/' in value:
             net, net_len = value.split('/')
+            if net in ('0', '0.0.0.0'):
+                net = ''
             super(Route, self).__setitem__(key, net)
             super(Route, self).__setitem__('%s_len' % key, int(net_len))
+        elif key == 'dst' and value == 'default':
+            super(Route, self).__setitem__('dst', '')
+            super(Route, self).__setitem__('dst_len', 0)
         else:
             super(Route, self).__setitem__(key, value)
             if key == 'multipath':
