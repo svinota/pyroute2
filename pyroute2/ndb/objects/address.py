@@ -38,12 +38,17 @@ class Address(RTNL_Object):
         super(Address, self).__init__(*argv, **kwarg)
 
     @classmethod
-    def adjust_spec(cls, spec):
+    def adjust_spec(cls, spec, context):
+        if context is None:
+            context = {}
         if isinstance(spec, basestring):
-            ret = {'target': 'localhost'}
+            ret = {}
             ret['address'], prefixlen = spec.split('/')
             ret['prefixlen'] = int(prefixlen)
-            return ret
+            spec = ret
+        for key in context:
+            if key not in spec:
+                spec[key] = context[key]
         return spec
 
     def key_repr(self):

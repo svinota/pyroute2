@@ -17,7 +17,7 @@ class NetNS(RTNL_Object):
         super(NetNS, self).__init__(*argv, **kwarg)
 
     @classmethod
-    def adjust_spec(cls, spec):
+    def adjust_spec(cls, spec, context):
         if isinstance(spec, dict):
             ret_spec = spec
         else:

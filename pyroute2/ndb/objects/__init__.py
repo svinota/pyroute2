@@ -243,7 +243,7 @@ class RTNL_Object(dict):
             self.load_sql(table=self.table)
 
     @classmethod
-    def adjust_spec(cls, spec):
+    def adjust_spec(cls, spec, context):
         return spec
 
     @classmethod
@@ -253,6 +253,10 @@ class RTNL_Object(dict):
     @classmethod
     def name2nla(self, name):
         return self.msg_class.name2nla(name)
+
+    @property
+    def context(self):
+        return {'target': self.get('target', 'localhost')}
 
     def __enter__(self):
         return self

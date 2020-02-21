@@ -162,6 +162,13 @@ class View(dict):
     def __exit__(self, exc_type, exc_value, traceback):
         pass
 
+    @property
+    def context(self):
+        if self.chain is not None:
+            return self.chain.context
+        else:
+            return {}
+
     def constraint(self, key, value):
         if value is None:
             self.constraints.pop(key)
@@ -184,7 +191,9 @@ class View(dict):
 
     @cli.change_pointer
     def create(self, *argspec, **kwspec):
-        spec = self.classes[self.table].adjust_spec(kwspec or argspec[0])
+        spec = (self
+                .classes[self.table]
+                .adjust_spec(kwspec or argspec[0], self.context))
         if self.chain:
             spec['ndb_chain'] = self.chain
         spec['create'] = True
@@ -283,7 +292,7 @@ class View(dict):
     def __getitem__(self, key, table=None):
 
         iclass = self.classes[table or self.table]
-        key = iclass.adjust_spec(key)
+        key = iclass.adjust_spec(key, self.context)
         if self.match_src:
             match_src = [x for x in self.match_src]
             match_pairs = dict(self.match_pairs)
