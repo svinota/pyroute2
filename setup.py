@@ -66,6 +66,7 @@ setup(name='pyroute2',
                 'pyroute2.remote'],
       scripts=['./cli/ss2',
                './cli/pyroute2-cli'],
+      extras_require={'ss2': ['psutil>=5.0']},
       classifiers=['License :: OSI Approved :: GNU General Public ' +
                    'License v2 or later (GPLv2+)',
                    'License :: OSI Approved :: Apache Software License',

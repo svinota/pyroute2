@@ -15,7 +15,7 @@ release := $(shell git describe | sed 's/-[^-]*$$//;s/-/.post/')
 python ?= python
 nosetests ?= nosetests
 flake8 ?= flake8
-setuplib ?= distutils.core
+setuplib ?= setuptools
 epydoc ?= epydoc
 ##
 # Python -W flags:
