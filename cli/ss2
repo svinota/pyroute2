@@ -584,7 +584,7 @@ def run(args=None):
     with DiagSocket() as ds:
         ds.bind()
         for p in protocols:
-                p(ds, args, _user_ctxt_map)
+            p(ds, args, _user_ctxt_map)
 
 
 if __name__ == "__main__":
