@@ -1,8 +1,8 @@
 Pyroute2
 ========
 
-Pyroute2 is a pure Python **netlink** library. It requires only Python stdlib,
-no 3rd party libraries. The library was started as an RTNL protocol
+Pyroute2 is a pure Python **netlink** library. The core requires only Python
+stdlib, no 3rd party libraries. The library was started as an RTNL protocol
 implementation, so the name is **pyroute2**, but now it supports many netlink
 protocols. Some supported netlink families and protocols:
 
@@ -221,13 +221,12 @@ The pyroute2 testing framework requirements:
 * nosetests
 * sphinx
 * netaddr
+* dtcd (optional, https://github.com/svinota/dtcd)
 
-Optional dependencies for testing:
+Optional dependencies:
 
-* eventlet
-* mitogen
-* bottle
-* team (http://libteam.org/)
+* mitogen -- for distributed rtnl
+* psutil -- for ss2 tool
 
 Links
 -----

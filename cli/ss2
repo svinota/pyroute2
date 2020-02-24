@@ -23,7 +23,10 @@ import argparse
 from socket import (AF_INET,
                     AF_UNIX
                     )
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None
 from pyroute2 import DiagSocket
 from pyroute2.netlink.diag import (SS_ESTABLISHED,
                                    SS_SYN_SENT,
@@ -551,6 +554,9 @@ def prepare_args():
 
 
 def run(args=None):
+
+    if psutil is None:
+        raise RuntimeError('ss2 requires python-psutil >= 5.0 to run')
 
     if not args:
         args = prepare_args()
