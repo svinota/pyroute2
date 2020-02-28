@@ -42,7 +42,7 @@ class TestMisc(object):
             assert ndb.sources[source].nl.closed
 
 
-class TestBase(object):
+class TestPreSet(object):
 
     db_provider = 'sqlite3'
     db_spec = ':memory:'
@@ -151,6 +151,11 @@ class TestBase(object):
                 .fetch(request, values))
 
 
+class AddNS(object):
+    nsname = uifname()
+    ssh = 'ip netns exec %s' % nsname
+
+
 class Basic(object):
 
     db_provider = 'sqlite3'
@@ -160,6 +165,7 @@ class Basic(object):
     ssh = ''
     ipnets = []
     ipranges = []
+    nsname = None
 
     def ifaddr(self):
         return str(self.ipranges[0].pop())
@@ -168,6 +174,12 @@ class Basic(object):
         ret = uifname()
         self.interfaces.append(ret)
         return ret
+
+    def getspec(self, **kwarg):
+        spec = dict(kwarg)
+        if self.nsname is not None:
+            spec['target'] = self.nsname
+        return spec
 
     def setup(self):
         require_user('root')
@@ -179,17 +191,40 @@ class Basic(object):
                        db_spec=self.db_spec,
                        log='../ndb-%s-%s.log' % (os.getpid(), self.log_id),
                        rtnl_debug=True)
+        if self.nsname:
+            netns.create(self.nsname)
+            (self
+             .ndb
+             .sources
+             .add(netns=self.nsname))
 
     def teardown(self):
-        with self.nl_class(**self.nl_kwarg) as ipr:
+        with NDB() as indb:
+            if self.nsname:
+                (indb
+                 .sources
+                 .add(netns=self.nsname))
             for link in reversed(self.interfaces):
                 try:
-                    ipr.link('del', index=ipr.link_lookup(ifname=link)[0])
+                    (indb
+                     .interfaces[link]
+                     .remove()
+                     .commit())
+                except Exception:
+                    pass
+            for link in reversed(self.interfaces):
+                try:
+                    (indb
+                     .interfaces[self.getspec(ifname=link)]
+                     .remove()
+                     .commit())
                 except Exception:
                     pass
         self.ndb.close()
         for net in self.ipnets:
             free_network(net)
+        if self.nsname:
+            netns.remove(self.nsname)
 
 
 class TestCreate(Basic):
@@ -198,10 +233,11 @@ class TestCreate(Basic):
 
         ifname = uifname()
         address = '00:11:22:36:47:58'
+        spec = self.getspec(ifname=ifname, kind='dummy')
         ifobj = (self
                  .ndb
                  .interfaces
-                 .create(ifname=ifname, kind='dummy'))
+                 .create(**spec))
 
         with ifobj:
             pass
@@ -212,8 +248,9 @@ class TestCreate(Basic):
             ifobj['state'] = 'up'
             ifobj['address'] = address
 
+        spec = self.getspec(ifname=ifname)
         assert grep('%s ip link show' % self.ssh, pattern=address)
-        assert self.ndb.interfaces[ifname]['state'] == 'up'
+        assert self.ndb.interfaces[spec]['state'] == 'up'
 
         with ifobj:
             ifobj.remove()
@@ -222,11 +259,12 @@ class TestCreate(Basic):
 
         ifname = uifname()
         kind = uifname()
+        spec = self.getspec(ifname=ifname, kind=kind)
 
         ifobj = (self
                  .ndb
                  .interfaces
-                 .create(ifname=ifname, kind=kind))
+                 .create(**spec))
 
         save = dict(ifobj)
 
@@ -241,24 +279,30 @@ class TestCreate(Basic):
     def test_veth_simple(self):
         ifname = uifname()
         peername = uifname()
+        spec = self.getspec(ifname=ifname,
+                            peer=peername,
+                            kind='veth')
 
         (self
          .ndb
          .interfaces
-         .create(ifname=ifname, peer=peername, kind='veth')
+         .create(**spec)
          .commit())
 
-        iflink = self.ndb.interfaces[ifname]['link']
-        plink = self.ndb.interfaces[peername]['link']
+        spec_ifl = self.getspec(ifname=ifname)
+        spec_pl = self.getspec(ifname=peername)
 
-        assert iflink == self.ndb.interfaces[peername]['index']
-        assert plink == self.ndb.interfaces[ifname]['index']
+        iflink = self.ndb.interfaces[spec_ifl]['link']
+        plink = self.ndb.interfaces[spec_pl]['link']
+
+        assert iflink == self.ndb.interfaces[spec_pl]['index']
+        assert plink == self.ndb.interfaces[spec_ifl]['index']
         assert grep('%s ip link show' % self.ssh, pattern=ifname)
         assert grep('%s ip link show' % self.ssh, pattern=peername)
 
         (self
          .ndb
-         .interfaces[ifname]
+         .interfaces[spec_ifl]
          .remove()
          .commit())
 
@@ -275,14 +319,15 @@ class TestCreate(Basic):
          .sources
          .add(netns=nsname))
 
+        spec = self.getspec(**{'ifname': ifname,
+                               'kind': 'veth',
+                               'peer': {'ifname': peername,
+                                        'address': '00:11:22:33:44:55',
+                                        'net_ns_fd': nsname}})
         (self
          .ndb
          .interfaces
-         .create(**{'ifname': ifname,
-                    'kind': 'veth',
-                    'peer': {'ifname': peername,
-                             'address': '00:11:22:33:44:55',
-                             'net_ns_fd': nsname}})
+         .create(**spec)
          .commit())
 
         (self
@@ -292,8 +337,7 @@ class TestCreate(Basic):
 
         iflink = (self
                   .ndb
-                  .interfaces[{'target': 'localhost',
-                               'ifname': ifname}]['link'])
+                  .interfaces[self.getspec(ifname=ifname)]['link'])
         plink = (self
                  .ndb
                  .interfaces[{'target': nsname,
@@ -305,14 +349,13 @@ class TestCreate(Basic):
                                        'ifname': peername}]['index'])
         assert plink == (self
                          .ndb
-                         .interfaces[{'target': 'localhost',
-                                      'ifname': ifname}]['index'])
+                         .interfaces[self.getspec(ifname=ifname)]['index'])
         assert grep('%s ip link show' % self.ssh, pattern=ifname)
         assert not grep('%s ip link show' % self.ssh, pattern=peername)
 
         (self
          .ndb
-         .interfaces[ifname]
+         .interfaces[self.getspec(ifname=ifname)]
          .remove()
          .commit())
 
@@ -329,30 +372,35 @@ class TestCreate(Basic):
     def test_dummy(self):
 
         ifname = self.ifname()
+        spec = self.getspec(ifname=ifname,
+                            kind='dummy',
+                            address='00:11:22:33:44:55')
         (self
          .ndb
          .interfaces
-         .create(ifname=ifname, kind='dummy', address='00:11:22:33:44:55')
+         .create(**spec)
          .commit())
 
         assert grep('%s ip link show' % self.ssh, pattern=ifname)
-        assert self.ndb.interfaces[ifname]['address'] == '00:11:22:33:44:55'
+        assert self.ndb.interfaces[spec]['address'] == '00:11:22:33:44:55'
 
     def test_bridge(self):
 
         bridge = self.ifname()
         brport = self.ifname()
+        spec_br = self.getspec(ifname=bridge, kind='bridge')
+        spec_pt = self.getspec(ifname=brport, kind='dummy')
 
         (self
          .ndb
          .interfaces
-         .create(ifname=bridge, kind='bridge')
+         .create(**spec_br)
          .commit())
         (self
          .ndb
          .interfaces
-         .create(ifname=brport, kind='dummy')
-         .set('master', self.ndb.interfaces[bridge]['index'])
+         .create(**spec_pt)
+         .set('master', self.ndb.interfaces[spec_br]['index'])
          .commit())
 
         assert grep('%s ip link show' % self.ssh,
@@ -363,10 +411,11 @@ class TestCreate(Basic):
     @skip_if_not_supported
     def test_vrf(self):
         vrf = self.ifname()
+        spec = self.getspec(ifname=vrf, kind='vrf')
         (self
          .ndb
          .interfaces
-         .create(ifname=vrf, kind='vrf')
+         .create(**spec)
          .set('vrf_table', 42)
          .commit())
         assert grep('%s ip link show' % self.ssh, pattern=vrf)
@@ -374,16 +423,18 @@ class TestCreate(Basic):
     def test_vlan(self):
         host = self.ifname()
         vlan = self.ifname()
+        spec_host = self.getspec(ifname=host, kind='dummy')
+        spec_vlan = self.getspec(ifname=vlan, kind='vlan')
         (self
          .ndb
          .interfaces
-         .create(ifname=host, kind='dummy')
+         .create(**spec_host)
          .commit())
         (self
          .ndb
          .interfaces
-         .create(ifname=vlan, kind='vlan')
-         .set('link', self.ndb.interfaces[host]['index'])
+         .create(**spec_vlan)
+         .set('link', self.ndb.interfaces[spec_host]['index'])
          .set('vlan_id', 101)
          .commit())
         assert grep('%s ip link show' % self.ssh, pattern=vlan)
@@ -391,16 +442,18 @@ class TestCreate(Basic):
     def test_vxlan(self):
         host = self.ifname()
         vxlan = self.ifname()
+        spec_host = self.getspec(ifname=host, kind='dummy')
+        spec_vxlan = self.getspec(ifname=vxlan, kind='vxlan')
         (self
          .ndb
          .interfaces
-         .create(ifname=host, kind='dummy')
+         .create(**spec_host)
          .commit())
         (self
          .ndb
          .interfaces
-         .create(ifname=vxlan, kind='vxlan')
-         .set('vxlan_link', self.ndb.interfaces[host]['index'])
+         .create(**spec_vxlan)
+         .set('vxlan_link', self.ndb.interfaces[spec_host]['index'])
          .set('vxlan_id', 101)
          .set('vxlan_group', '239.1.1.1')
          .set('vxlan_ttl', 16)
@@ -411,23 +464,27 @@ class TestCreate(Basic):
 
         ifaddr = self.ifaddr()
         ifname = self.ifname()
+        spec_if = self.getspec(ifname=ifname, kind='dummy', state='up')
         i = (self
              .ndb
              .interfaces
-             .create(ifname=ifname, kind='dummy', state='up'))
+             .create(**spec_if))
         i.commit()
 
+        spec_ad = self.getspec(index=i['index'], address=ifaddr, prefixlen=24)
         a = (self
              .ndb
              .addresses
-             .create(index=i['index'],
-                     address=ifaddr,
-                     prefixlen=24))
+             .create(**spec_ad))
         a.commit()
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
         assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
                     pattern=ifaddr)
+
+
+class TestCreateNS(AddNS, TestCreate):
+    pass
 
 
 class TestRoutes(Basic):
@@ -440,23 +497,23 @@ class TestRoutes(Basic):
         i = (self
              .ndb
              .interfaces
-             .create(ifname=ifname, kind='dummy', state='up'))
+             .create(self.getspec(ifname=ifname, kind='dummy', state='up')))
         i.commit()
 
         a = (self
              .ndb
              .addresses
-             .create(index=i['index'],
-                     address=ifaddr,
-                     prefixlen=24))
+             .create(self.getspec(index=i['index'],
+                                  address=ifaddr,
+                                  prefixlen=24)))
         a.commit()
 
         r = (self
              .ndb
              .routes
-             .create(dst_len=24,
-                     dst=str(self.ipnets[1].network),
-                     gateway=router))
+             .create(self.getspec(dst_len=24,
+                                  dst=str(self.ipnets[1].network),
+                                  gateway=router)))
         r.commit()
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
@@ -475,7 +532,7 @@ class TestRoutes(Basic):
         (self
          .ndb
          .interfaces
-         .create(ifname=ifname, kind='dummy', state='up')
+         .create(self.getspec(ifname=ifname, kind='dummy', state='up'))
          .ipaddr
          .create(address=ifaddr, prefixlen=24)
          .commit())
@@ -483,9 +540,9 @@ class TestRoutes(Basic):
         (self
          .ndb
          .routes
-         .create(dst_len=24,
-                 dst=network,
-                 gateway=router1)
+         .create(self.getspec(dst_len=24,
+                              dst=network,
+                              gateway=router1))
          .commit())
 
         assert grep('%s ip link show' % self.ssh,
@@ -497,7 +554,7 @@ class TestRoutes(Basic):
 
         (self
          .ndb
-         .routes['%s/24' % network]
+         .routes[self.getspec(dst='%s/24' % network)]
          .set('gateway', router2)
          .commit())
 
@@ -515,7 +572,7 @@ class TestRoutes(Basic):
         (self
          .ndb
          .interfaces
-         .create(ifname=ifname, kind='dummy', state='up')
+         .create(self.getspec(ifname=ifname, kind='dummy', state='up'))
          .ipaddr
          .create(address=ifaddr, prefixlen=24)
          .commit())
@@ -523,10 +580,10 @@ class TestRoutes(Basic):
         (self
          .ndb
          .routes
-         .create(dst_len=24,
-                 dst=network,
-                 priority=10,
-                 gateway=router)
+         .create(self.getspec(dst_len=24,
+                              dst=network,
+                              priority=10,
+                              gateway=router))
          .commit())
 
         assert grep('%s ip link show' % self.ssh,
@@ -538,7 +595,7 @@ class TestRoutes(Basic):
 
         (self
          .ndb
-         .routes['%s/24' % network]
+         .routes[self.getspec(dst='%s/24' % network)]
          .set('priority', 15)
          .commit())
 
@@ -557,7 +614,7 @@ class TestRoutes(Basic):
         (self
          .ndb
          .interfaces
-         .create(ifname=ifname, kind='dummy', state='up')
+         .create(self.getspec(ifname=ifname, kind='dummy', state='up'))
          .ipaddr
          .create(address=ifaddr, prefixlen=24)
          .commit())
@@ -565,10 +622,10 @@ class TestRoutes(Basic):
         (self
          .ndb
          .routes
-         .create(**{'dst_len': 24,
-                    'dst': str(self.ipnets[1].network),
-                    'multipath': [{'gateway': hop1},
-                                  {'gateway': hop2}]})
+         .create(**self.getspec(**{'dst_len': 24,
+                                   'dst': str(self.ipnets[1].network),
+                                   'multipath': [{'gateway': hop1},
+                                                 {'gateway': hop2}]}))
          .commit())
 
         assert grep('%s ip link show' % self.ssh,
@@ -583,6 +640,10 @@ class TestRoutes(Basic):
                     pattern='nexthop.*%s.*%s' % (hop2, ifname))
 
 
+class TestRoutesNS(AddNS, TestRoutes):
+    pass
+
+
 class TestAddress(Basic):
 
     def test_add_del_ip_dict(self):
@@ -593,7 +654,7 @@ class TestAddress(Basic):
         (self
          .ndb
          .interfaces
-         .create(ifname=ifname, kind='dummy', state='down')
+         .create(self.getspec(ifname=ifname, kind='dummy', state='down'))
          .add_ip({'address': ifaddr1, 'prefixlen': 24})
          .add_ip({'address': ifaddr2, 'prefixlen': 24})
          .commit())
@@ -605,7 +666,7 @@ class TestAddress(Basic):
 
         (self
          .ndb
-         .interfaces[ifname]
+         .interfaces[self.getspec(ifname=ifname)]
          .del_ip({'address': ifaddr2, 'prefixlen': 24})
          .del_ip({'address': ifaddr1, 'prefixlen': 24})
          .commit())
@@ -623,7 +684,7 @@ class TestAddress(Basic):
         (self
          .ndb
          .interfaces
-         .create(ifname=ifname, kind='dummy', state='down')
+         .create(self.getspec(ifname=ifname, kind='dummy', state='down'))
          .add_ip(ifaddr1)
          .add_ip(ifaddr2)
          .commit())
@@ -635,7 +696,7 @@ class TestAddress(Basic):
 
         (self
          .ndb
-         .interfaces[ifname]
+         .interfaces[self.getspec(ifname=ifname)]
          .del_ip(ifaddr2)
          .del_ip(ifaddr1)
          .commit())
@@ -644,6 +705,10 @@ class TestAddress(Basic):
                         pattern='%s.*%s' % (ifname, ifaddr1))
         assert not grep('%s ip -o addr show' % self.ssh,
                         pattern='%s.*%s' % (ifname, ifaddr2))
+
+
+class TestAddressNS(AddNS, TestAddress):
+    pass
 
 
 class TestBridge(Basic):
@@ -884,7 +949,7 @@ class TestNetNS(object):
         self._assert_test_view(ifname, ifaddr)
 
 
-class TestRollback(TestBase):
+class TestRollback(TestPreSet):
 
     def setup(self):
         require_user('root')
@@ -1142,7 +1207,7 @@ class TestRollback(TestBase):
         assert grep('%s cat /proc/net/vlan/config' % self.ssh, pattern=if_vlan)
 
 
-class TestSchema(TestBase):
+class TestSchema(TestPreSet):
 
     def test_basic(self):
         assert len(set(self.interfaces) -
@@ -1156,7 +1221,7 @@ class TestSchema(TestBase):
         assert len(tuple(self.fetch('select * from bridge'))) >= 1
 
 
-class TestSources(TestBase):
+class TestSources(TestPreSet):
 
     def count_interfaces(self, target):
         return (self
@@ -1212,7 +1277,7 @@ class TestSources(TestBase):
             assert s == 0
 
 
-class TestReports(TestBase):
+class TestReports(TestPreSet):
 
     def test_types(self):
         save = report.MAX_REPORT_LINES
