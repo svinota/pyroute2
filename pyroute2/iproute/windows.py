@@ -156,7 +156,9 @@ class IPRoute(object):
         adapter = IP_ADAPTER_INFO.from_address(ctypes.addressof(buf))
         while True:
             mac = ':'.join(['%02x' % x for x in adapter.Address][:6])
-            ifname = ctypes.string_at(ctypes.addressof(adapter.AdapterName))
+            ifname = (ctypes
+                      .string_at(ctypes.addressof(adapter.AdapterName))
+                      .decode('utf-8'))
             spec = {'index': adapter.Index,
                     'attrs': (['IFLA_ADDRESS', mac],
                               ['IFLA_IFNAME', ifname])}
@@ -167,8 +169,12 @@ class IPRoute(object):
 
             ipaddr = adapter.IpAddressList
             while True:
-                addr = ctypes.string_at(ctypes.addressof(ipaddr.IpAddress))
-                mask = ctypes.string_at(ctypes.addressof(ipaddr.IpMask))
+                addr = (ctypes
+                        .string_at(ctypes.addressof(ipaddr.IpAddress))
+                        .decode('utf-8'))
+                mask = (ctypes
+                        .string_at(ctypes.addressof(ipaddr.IpMask))
+                        .decode('utf-8'))
                 spec = {'index': adapter.Index,
                         'family': AF_INET,
                         'prefixlen': dqn2int(mask),
