@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+import random
 import threading
 from utils import grep
 from utils import require_user
@@ -521,6 +522,32 @@ class TestRoutes(Basic):
                     pattern=ifaddr)
         assert grep('%s ip route show' % self.ssh,
                     pattern='%s.*%s' % (str(self.ipnets[1]), ifname))
+
+    def test_default(self):
+
+        ifaddr = self.ifaddr()
+        router = self.ifaddr()
+        ifname = self.ifname()
+        random.seed()
+        tnum = random.randint(500, 600)
+
+        (self
+         .ndb
+         .interfaces
+         .create(self.getspec(ifname=ifname, kind='dummy', state='up'))
+         .add_ip('%s/24' % ifaddr)
+         .commit())
+
+        (self
+         .ndb
+         .routes
+         .create(self.getspec(dst='default', gateway=router, table=tnum))
+         .commit())
+
+        assert grep('%s ip link show' % self.ssh,
+                    pattern=ifname)
+        assert grep('%s ip route show table %s' % (self.ssh, tnum),
+                    pattern=router)
 
     def test_update_set(self):
         ifaddr = self.ifaddr()
