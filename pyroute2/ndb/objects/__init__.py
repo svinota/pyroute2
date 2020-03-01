@@ -105,6 +105,7 @@ class RTNL_Object(dict):
     table_alias = ''
 
     key_extra_fields = []
+    hidden_fields = []
     fields_cmp = {}
 
     schema = None
@@ -241,6 +242,14 @@ class RTNL_Object(dict):
         else:
             self.key = ckey
             self.load_sql(table=self.table)
+
+    def keys(self):
+        return filter(lambda x: x not in self.hidden_fields,
+                      dict.keys(self))
+
+    def items(self):
+        return filter(lambda x: x[0] not in self.hidden_fields,
+                      dict.items(self))
 
     @classmethod
     def adjust_spec(cls, spec, context):
