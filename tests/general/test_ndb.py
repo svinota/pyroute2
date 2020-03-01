@@ -153,8 +153,10 @@ class TestPreSet(object):
 
 
 class AddNS(object):
-    nsname = uifname()
-    ssh = 'ip netns exec %s' % nsname
+
+    def __init__(self):
+        self.nsname = str(uuid.uuid4())
+        self.ssh = 'ip netns exec %s' % self.nsname
 
 
 class Basic(object):
