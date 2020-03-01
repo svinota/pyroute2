@@ -12,6 +12,7 @@ class Route(RTNL_Object):
 
     table = 'routes'
     msg_class = rtmsg
+    hidden_fields = ['route_id']
     api = 'route'
     summary = '''
               SELECT
@@ -55,6 +56,7 @@ class Route(RTNL_Object):
         kwarg['iclass'] = rtmsg
         self.event_map = {rtmsg: "load_rtnlmsg"}
         dict.__setitem__(self, 'multipath', [])
+        dict.__setitem__(self, 'metrics', {})
         super(Route, self).__init__(*argv, **kwarg)
 
     def complete_key(self, key):
@@ -92,6 +94,8 @@ class Route(RTNL_Object):
             req[key] = self[key]
         if self['multipath']:
             req['multipath'] = self['multipath']
+        if self['metrics']:
+            req['metrics'] = self['metrics']
         return req
 
     def __setitem__(self, key, value):
@@ -104,9 +108,11 @@ class Route(RTNL_Object):
         elif key == 'dst' and value == 'default':
             super(Route, self).__setitem__('dst', '')
             super(Route, self).__setitem__('dst_len', 0)
+        elif key == 'route_id':
+            raise ValueError('route_id is read only')
         else:
             super(Route, self).__setitem__(key, value)
-            if key == 'multipath':
+            if key in ('multipath', 'metrics'):
                 self.changed.remove(key)
 
     def apply(self, rollback=False):
@@ -127,6 +133,14 @@ class Route(RTNL_Object):
                    .schema
                    .fetch('SELECT * FROM nh WHERE f_route_id = %s' %
                           (self.schema.plch, ), (self['route_id'], )))
+            metrics = (self
+                       .schema
+                       .fetch('SELECT * FROM metrics WHERE f_route_id = %s' %
+                              (self.schema.plch, ), (self['route_id'], )))
+
+            if len(tuple(metrics)):
+                self['metrics'] = Metrics(self.view,
+                                          {'route_id': self['route_id']})
             flush = False
             idx = 0
             for nexthop in tuple(self['multipath']):
@@ -154,10 +168,11 @@ class Route(RTNL_Object):
                 self['multipath'].append(NextHop(self.view, key))
 
 
-class NextHop(Route):
+class NextHop(RTNL_Object):
 
     msg_class = nh
     table = 'nh'
+    hidden_fields = ('route_id', 'target')
     reverse_update = {'table': 'nh',
                       'name': 'nh_f_tflags',
                       'field': 'f_tflags',
@@ -166,3 +181,18 @@ class NextHop(Route):
                           SET f_tflags = NEW.f_tflags
                           WHERE f_route_id = NEW.f_route_id;
                       '''}
+
+    def __init__(self, *argv, **kwarg):
+        kwarg['iclass'] = nh
+        super(NextHop, self).__init__(*argv, **kwarg)
+
+
+class Metrics(RTNL_Object):
+
+    msg_class = rtmsg.metrics
+    table = 'metrics'
+    hidden_fields = ('route_id', 'target')
+
+    def __init__(self, *argv, **kwarg):
+        kwarg['iclass'] = rtmsg.metrics
+        super(Metrics, self).__init__(*argv, **kwarg)
