@@ -251,6 +251,8 @@ class DBSchema(object):
     spec['nh'] = OrderedDict(nh.sql_schema() +
                              [(('route_id', ), 'TEXT'),
                               (('nh_id', ), 'INTEGER')])
+    spec['metrics'] = OrderedDict(rtmsg.metrics.sql_schema() +
+                                  [(('route_id', ), 'TEXT'), ])
     spec['rules'] = OrderedDict(fibmsg.sql_schema())
     spec['netns'] = OrderedDict(nsinfmsg.sql_schema())
     # additional tables
@@ -261,6 +263,7 @@ class DBSchema(object):
                'neighbours': ndmsg,
                'routes': rtmsg,
                'nh': nh,
+               'metrics': rtmsg.metrics,
                'rules': fibmsg,
                'netns': nsinfmsg,
                'p2p': p2pmsg}
@@ -287,6 +290,7 @@ class DBSchema(object):
                           'RTA_TABLE'),
                'nh': ('route_id',
                       'nh_id'),
+               'metrics': ('route_id', ),
                'netns': ('NSINFO_PATH', ),
                'rules': ('family',
                          'dst_len',
@@ -356,6 +360,9 @@ class DBSchema(object):
                                               'f_tflags',
                                               'f_index'),
                             'parent': 'interfaces'}],
+                    'metrics': [{'fields': ('f_route_id', ),
+                                 'parent_fields': ('f_route_id', ),
+                                 'parent': 'routes'}],
                     #
                     # additional tables
                     #
@@ -1165,6 +1172,8 @@ class DBSchema(object):
             # set route_id on the route itself
             event['route_id'] = route_id
             self.load_netlink('routes', target, event)
+            #
+            # load multipath
             for idx in range(len(mp)):
                 mp[idx]['header'] = {}          # for load_netlink()
                 mp[idx]['route_id'] = route_id  # set route_id on NH
@@ -1194,6 +1203,40 @@ class DBSchema(object):
             #
             # continue with load_netlink()
             #
+        #
+        # load metrics
+        metrics = event.get_attr('RTA_METRICS')
+        if metrics:
+            #
+            # create key
+            keys = ['f_target = %s' % self.plch]
+            values = [target]
+            for key in self.indices['routes']:
+                keys.append('f_%s = %s' % (key, self.plch))
+                values.append(event.get(key) or event.get_attr(key))
+            #
+            spec = 'WHERE %s' % ' AND '.join(keys)
+            s_req = 'SELECT f_route_id FROM routes %s' % spec
+            #
+            # get existing route_id
+            for route_id in self.execute(s_req, values).fetchall():
+                #
+                # if exists
+                route_id = route_id[0][0]
+                break
+            else:
+                #
+                # or create a new route_id
+                route_id = str(uuid.uuid4())
+            #
+            # set route_id on the route itself
+            event['route_id'] = route_id
+            self.load_netlink("routes", target, event)
+            #
+            metrics['header'] = {}
+            metrics['route_id'] = route_id
+            self.load_netlink('metrics', target, metrics, 'routes')
+            return
         #
         # ... or work on a regular route
         self.load_netlink("routes", target, event)
