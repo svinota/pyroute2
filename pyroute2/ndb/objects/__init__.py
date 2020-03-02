@@ -469,14 +469,21 @@ class RTNL_Object(dict):
             link.rollback(snapshot=snp)
         return self
 
+    def clear(self):
+        pass
+
+    @property
+    def clean(self):
+        return self.state == 'system' and \
+            not self.changed and \
+            not self._apply_script
+
     def commit(self):
         '''
         Try to commit the pending changes. If the commit fails,
         automatically revert the state.
         '''
-        if self.state == 'system' and \
-                not self.changed and \
-                not self._apply_script:
+        if self.clean:
             return self
 
         if self.chain:

@@ -89,6 +89,14 @@ class Route(RTNL_Object):
 
         return super(Route, self).complete_key(ret_key)
 
+    @property
+    def clean(self):
+        clean = True
+        for s in (self['metrics'], ) + tuple(self['multipath']):
+            if hasattr(s, 'changed'):
+                clean &= len(s.changed) == 0
+        return clean & super(Route, self).clean
+
     def make_req(self, prime):
         req = dict(prime)
         for key in self.changed:
