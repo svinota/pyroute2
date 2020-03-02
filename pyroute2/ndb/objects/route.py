@@ -105,7 +105,8 @@ class Route(RTNL_Object):
             req['multipath'] = self['multipath']
         if self['metrics']:
             req['metrics'] = self['metrics']
-        req['gateway'] = self['gateway']
+        if self.get('gateway'):
+            req['gateway'] = self['gateway']
         return req
 
     def __setitem__(self, key, value):
