@@ -491,6 +491,7 @@ class TestCreateNS(AddNS, TestCreate):
 
 
 class TestRoutes(Basic):
+    table = None
 
     def test_basic(self):
 
@@ -511,21 +512,28 @@ class TestRoutes(Basic):
                                   prefixlen=24)))
         a.commit()
 
+        spec = {'dst_len': 24,
+                'dst': str(self.ipnets[1].network),
+                'gateway': router}
+
+        if self.table:
+            spec['table'] = self.table
+
         r = (self
              .ndb
              .routes
-             .create(self.getspec(dst_len=24,
-                                  dst=str(self.ipnets[1].network),
-                                  gateway=router)))
+             .create(self.getspec(**spec)))
+
         r.commit()
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
         assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
                     pattern=ifaddr)
-        assert grep('%s ip route show' % self.ssh,
+        assert grep('%s ip route show table %i' % (self.ssh,
+                                                   self.table or 254),
                     pattern='%s.*%s' % (str(self.ipnets[1]), ifname))
 
-    def test_metrics_update_apply(self):
+    def _test_metrics_update(self, method):
 
         ifaddr = self.ifaddr()
         gateway1 = self.ifaddr()
@@ -544,28 +552,42 @@ class TestRoutes(Basic):
                                   prefixlen=24)))
         a.commit()
 
+        spec = {'dst_len': 24,
+                'dst': str(self.ipnets[1].network),
+                'gateway': gateway1,
+                'metrics': {'mtu': 1300}}
+
+        if self.table:
+            spec['table'] = self.table
+
         r = (self
              .ndb
              .routes
-             .create(self.getspec(dst_len=24,
-                                  dst=str(self.ipnets[1].network),
-                                  gateway=gateway1,
-                                  metrics={'mtu': 1300})))
+             .create(self.getspec(**spec)))
+
         r.commit()
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
         assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
                     pattern=ifaddr)
-        assert grep('%s ip route show' % self.ssh,
+        assert grep('%s ip route show table %i' % (self.ssh,
+                                                   self.table or 254),
                     pattern='%s.*%s.*%s.*mtu 1300' % (str(self.ipnets[1]),
                                                       gateway1, ifname))
 
         r['metrics']['mtu'] = 1500
-        r.apply()
+        getattr(r, method)()
 
-        assert grep('%s ip route show' % self.ssh,
+        assert grep('%s ip route show table %i' % (self.ssh,
+                                                   self.table or 254),
                     pattern='%s.*%s.*%s.*mtu 1500' % (str(self.ipnets[1]),
                                                       gateway1, ifname))
+
+    def test_metrics_update_apply(self):
+        return self._test_metrics_update('apply')
+
+    def test_metrics_update_commit(self):
+        return self._test_metrics_update('commit')
 
     def test_default(self):
 
@@ -582,15 +604,24 @@ class TestRoutes(Basic):
          .add_ip('%s/24' % ifaddr)
          .commit())
 
+        spec = {'dst': 'default',
+                'gateway': router}
+
+        if self.table:
+            spec['table'] = self.table
+        else:
+            spec['table'] = tnum
+
         (self
          .ndb
          .routes
-         .create(self.getspec(dst='default', gateway=router, table=tnum))
+         .create(self.getspec(**spec))
          .commit())
 
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
-        assert grep('%s ip route show table %s' % (self.ssh, tnum),
+        assert grep('%s ip route show table %i' % (self.ssh,
+                                                   self.table or tnum),
                     pattern=router)
 
     def test_update_set(self):
@@ -608,30 +639,34 @@ class TestRoutes(Basic):
          .create(address=ifaddr, prefixlen=24)
          .commit())
 
-        (self
-         .ndb
-         .routes
-         .create(self.getspec(dst_len=24,
-                              dst=network,
-                              gateway=router1))
-         .commit())
+        spec = {'dst_len': 24,
+                'dst': network,
+                'gateway': router1}
+
+        if self.table:
+            spec['table'] = self.table
+
+        r = (self
+             .ndb
+             .routes
+             .create(self.getspec(**spec))
+             .commit())
 
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
         assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
                     pattern=ifaddr)
-        assert grep('%s ip route show' % self.ssh,
+        assert grep('%s ip route show table %i' % (self.ssh,
+                                                   self.table or 254),
                     pattern='%s.*via %s.*%s' % (network, router1, ifname))
 
-        (self
-         .ndb
-         .routes[self.getspec(dst='%s/24' % network)]
-         .set('gateway', router2)
-         .commit())
+        r.set('gateway', router2).commit()
 
-        assert not grep('%s ip route show' % self.ssh,
+        assert not grep('%s ip route show table %i' % (self.ssh,
+                                                       self.table or 254),
                         pattern='%s.*via %s.*%s' % (network, router1, ifname))
-        assert grep('%s ip route show' % self.ssh,
+        assert grep('%s ip route show table %i' % (self.ssh,
+                                                   self.table or 254),
                     pattern='%s.*via %s.*%s' % (network, router2, ifname))
 
     def test_update_replace(self):
@@ -648,31 +683,35 @@ class TestRoutes(Basic):
          .create(address=ifaddr, prefixlen=24)
          .commit())
 
-        (self
-         .ndb
-         .routes
-         .create(self.getspec(dst_len=24,
-                              dst=network,
-                              priority=10,
-                              gateway=router))
-         .commit())
+        spec = {'dst_len': 24,
+                'dst': network,
+                'priority': 10,
+                'gateway': router}
+
+        if self.table:
+            spec['table'] = self.table
+
+        r = (self
+             .ndb
+             .routes
+             .create(self.getspec(**spec))
+             .commit())
 
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
         assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
                     pattern=ifaddr)
-        assert grep('%s ip route show' % self.ssh,
+        assert grep('%s ip route show table %i' % (self.ssh,
+                                                   self.table or 254),
                     pattern='%s.*%s.*metric %s' % (network, ifname, 10))
 
-        (self
-         .ndb
-         .routes[self.getspec(dst='%s/24' % network)]
-         .set('priority', 15)
-         .commit())
+        r.set('priority', 15).commit()
 
-        assert not grep('%s ip route show' % self.ssh,
+        assert not grep('%s ip route show table %i' % (self.ssh,
+                                                       self.table or 254),
                         pattern='%s.*%s.*metric %s' % (network, ifname, 10))
-        assert grep('%s ip route show' % self.ssh,
+        assert grep('%s ip route show table %i' % (self.ssh,
+                                                   self.table or 254),
                     pattern='%s.*%s.*metric %s' % (network, ifname, 15))
 
     def test_multipath_ipv4(self):
@@ -690,29 +729,53 @@ class TestRoutes(Basic):
          .create(address=ifaddr, prefixlen=24)
          .commit())
 
+        spec = {'dst_len': 24,
+                'dst': str(self.ipnets[1].network),
+                'multipath': [{'gateway': hop1},
+                              {'gateway': hop2}]}
+
+        if self.table:
+            spec['table'] = self.table
+
         (self
          .ndb
          .routes
-         .create(**self.getspec(**{'dst_len': 24,
-                                   'dst': str(self.ipnets[1].network),
-                                   'multipath': [{'gateway': hop1},
-                                                 {'gateway': hop2}]}))
+         .create(**self.getspec(**spec))
          .commit())
 
         assert grep('%s ip link show' % self.ssh,
                     pattern=ifname)
         assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
                     pattern=ifaddr)
-        assert grep('%s ip route show' % self.ssh,
+        assert grep('%s ip route show table %i' % (self.ssh,
+                                                   self.table or 254),
                     pattern='%s' % str(self.ipnets[1]))
-        assert grep('%s ip route show' % self.ssh,
+        assert grep('%s ip route show table %i' % (self.ssh,
+                                                   self.table or 254),
                     pattern='nexthop.*%s.*%s' % (hop1, ifname))
-        assert grep('%s ip route show' % self.ssh,
+        assert grep('%s ip route show table %i' % (self.ssh,
+                                                   self.table or 254),
                     pattern='nexthop.*%s.*%s' % (hop2, ifname))
+
+
+class TestRoutes_501(TestRoutes):
+    table = 501
+
+
+class TestRoutes_6001(TestRoutes):
+    table = 6001
 
 
 class TestRoutesNS(AddNS, TestRoutes):
     pass
+
+
+class TestRoutesNS_501(TestRoutesNS):
+    table = 501
+
+
+class TestRoutesNS_6001(TestRoutesNS):
+    table = 6001
 
 
 class TestAddress(Basic):
