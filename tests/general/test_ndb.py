@@ -525,6 +525,48 @@ class TestRoutes(Basic):
         assert grep('%s ip route show' % self.ssh,
                     pattern='%s.*%s' % (str(self.ipnets[1]), ifname))
 
+    def test_metrics_update_apply(self):
+
+        ifaddr = self.ifaddr()
+        gateway1 = self.ifaddr()
+        ifname = self.ifname()
+        i = (self
+             .ndb
+             .interfaces
+             .create(self.getspec(ifname=ifname, kind='dummy', state='up')))
+        i.commit()
+
+        a = (self
+             .ndb
+             .addresses
+             .create(self.getspec(index=i['index'],
+                                  address=ifaddr,
+                                  prefixlen=24)))
+        a.commit()
+
+        r = (self
+             .ndb
+             .routes
+             .create(self.getspec(dst_len=24,
+                                  dst=str(self.ipnets[1].network),
+                                  gateway=gateway1,
+                                  metrics={'mtu': 1300})))
+        r.commit()
+        assert grep('%s ip link show' % self.ssh,
+                    pattern=ifname)
+        assert grep('%s ip addr show dev %s' % (self.ssh, ifname),
+                    pattern=ifaddr)
+        assert grep('%s ip route show' % self.ssh,
+                    pattern='%s.*%s.*%s.*mtu 1300' % (str(self.ipnets[1]),
+                                                      gateway1, ifname))
+
+        r['metrics']['mtu'] = 1500
+        r.apply()
+
+        assert grep('%s ip route show' % self.ssh,
+                    pattern='%s.*%s.*%s.*mtu 1500' % (str(self.ipnets[1]),
+                                                      gateway1, ifname))
+
     def test_default(self):
 
         ifaddr = self.ifaddr()
