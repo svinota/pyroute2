@@ -194,6 +194,14 @@ class Metrics(RTNL_Object):
     msg_class = rtmsg.metrics
     table = 'metrics'
     hidden_fields = ('route_id', 'target')
+    reverse_update = {'table': 'metrics',
+                      'name': 'metrics_f_tflags',
+                      'field': 'f_tflags',
+                      'sql': '''
+                          UPDATE routes
+                          SET f_tflags = NEW.f_tflags
+                          WHERE f_route_id = NEW.f_route_id;
+                      '''}
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = rtmsg.metrics
