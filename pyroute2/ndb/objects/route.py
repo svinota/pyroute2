@@ -73,8 +73,9 @@ class Route(RTNL_Object):
         if 'target' not in ret_key:
             ret_key['target'] = 'localhost'
 
+        table = ret_key.get('table', ret_key.get('RTA_TABLE', 254))
         if 'table' not in ret_key:
-            ret_key['table'] = 254
+            ret_key['table'] = table
 
         if isinstance(ret_key.get('dst_len'), basestring):
             ret_key['dst_len'] = int(ret_key['dst_len'])
