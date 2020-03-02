@@ -121,10 +121,28 @@ class Route(RTNL_Object):
             super(Route, self).__setitem__('dst_len', 0)
         elif key == 'route_id':
             raise ValueError('route_id is read only')
+        elif key == 'multipath':
+            super(Route, self).__setitem__('multipath', [])
+            for mp in value:
+                mp = dict(mp)
+                if self.state == 'invalid':
+                    mp['create'] = True
+                obj = NextHop(self.view, mp)
+                obj.state.set(self.state.get())
+                self['multipath'].append(obj)
+            if key in self.changed:
+                self.changed.remove(key)
+        elif key == 'metrics':
+            value = dict(value)
+            if self.state == 'invalid':
+                value['create'] = True
+            obj = Metrics(self.view, value)
+            obj.state.set(self.state.get())
+            super(Route, self).__setitem__('metrics', obj)
+            if key in self.changed:
+                self.changed.remove(key)
         else:
             super(Route, self).__setitem__(key, value)
-            if key in ('multipath', 'metrics'):
-                self.changed.remove(key)
 
     def apply(self, rollback=False):
         if (self.get('table') == 255) and \
