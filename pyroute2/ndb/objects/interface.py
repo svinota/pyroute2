@@ -139,6 +139,14 @@ class Interface(RTNL_Object):
                       'kind')
     fields_cmp = {'master': _cmp_master}
 
+    def mark_tflags(self, mark):
+        plch = (self.schema.plch, ) * 3
+        self.schema.execute('''
+                            UPDATE interfaces SET
+                                f_tflags = %s
+                            WHERE f_index = %s AND f_target = %s
+                            ''' % plch, (mark, self['index'], self['target']))
+
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifinfmsg
         self.event_map = {ifinfmsg: "load_rtnlmsg"}

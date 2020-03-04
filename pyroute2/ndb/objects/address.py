@@ -78,15 +78,14 @@ class Address(RTNL_Object):
               '''
     table_alias = 'a'
     summary_header = ('target', 'tflags', 'ifname', 'address', 'prefixlen')
-    reverse_update = {'table': 'addresses',
-                      'name': 'addresses_f_tflags',
-                      'field': 'f_tflags',
-                      'sql': '''
-                          UPDATE interfaces
-                          SET f_tflags = NEW.f_tflags
-                          WHERE f_index = NEW.f_index AND
-                                f_target = NEW.f_target;
-                      '''}
+
+    def mark_tflags(self, mark):
+        plch = (self.schema.plch, ) * 3
+        self.schema.execute('''
+                            UPDATE interfaces SET
+                                f_tflags = %s
+                            WHERE f_index = %s AND f_target = %s
+                            ''' % plch, (mark, self['index'], self['target']))
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifaddrmsg

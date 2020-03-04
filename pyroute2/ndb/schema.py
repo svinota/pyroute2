@@ -112,11 +112,6 @@ from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
 
-# rtnl objects
-from pyroute2.ndb.objects.route import Route
-from pyroute2.ndb.objects.route import NextHop
-from pyroute2.ndb.objects.address import Address
-
 # events
 from pyroute2.ndb.events import SchemaGenericRequest
 
@@ -453,37 +448,6 @@ class DBSchema(object):
                                                            idx)
                 self.create_ifinfo_view(table)
 
-        #
-        # specific SQL code
-        #
-        if self.mode == 'sqlite3':
-            template = '''
-                       CREATE TRIGGER IF NOT EXISTS {name}
-                       BEFORE UPDATE OF {field} ON {table} FOR EACH ROW
-                           BEGIN
-                               {sql}
-                           END
-                       '''
-        elif self.mode == 'psycopg2':
-            template = '''
-                       CREATE OR REPLACE FUNCTION {name}()
-                       RETURNS trigger AS ${name}$
-                           BEGIN
-                               {sql}
-                               RETURN NEW;
-                           END;
-                       ${name}$ LANGUAGE plpgsql;
-
-                       DROP TRIGGER IF EXISTS {name} ON {table};
-
-                       CREATE TRIGGER {name}
-                       BEFORE UPDATE OF {field} ON {table} FOR EACH ROW
-                       EXECUTE PROCEDURE {name}();
-                       '''
-
-        for cls in (NextHop, Route, Address):
-            self.execute(template.format(**cls.reverse_update))
-            self.connection.commit()
         #
         # service tables
         #
@@ -884,18 +848,11 @@ class DBSchema(object):
         #
         # mark tflags for obj
         #
-        self.execute('''
-                     UPDATE %s SET
-                         f_tflags = %s
-                     WHERE %s
-                     '''
-                     % (obj.utable,
-                        self.plch,
-                        ' AND '.join(conditions)),
-                     [uuid] + values)
+        obj.mark_tflags(uuid)
+
         #
-        # t_flags is used in foreign keys ON UPDATE CASCADE, so all
-        # related records will be marked, now just copy the marked data
+        # f_tflags is used in foreign keys ON UPDATE CASCADE, so all
+        # related records will be marked
         #
         for table in self.spec:
             self.log.debug('create snapshot %s_%s' % (table, ctxid))
@@ -926,15 +883,8 @@ class DBSchema(object):
         #
         # unmark all the data
         #
-        self.execute('''
-                     UPDATE %s SET
-                         f_tflags = %s
-                     WHERE %s
-                     '''
-                     % (obj.utable,
-                        self.plch,
-                        ' AND '.join(conditions)),
-                     [tflags] + values)
+        obj.mark_tflags(tflags)
+
         for table in self.spec:
             self.execute('''
                          UPDATE %s_%s SET f_tflags = %s
@@ -949,14 +899,15 @@ class DBSchema(object):
                     if table.startswith('ifinfo_'):
                         try:
                             self.execute('DROP VIEW %s' % table[7:])
+                            self.connection.commit()
                         except Exception:
                             # GC collision?
-                            self.log.warning('purge_snapshots: %s'
-                                             % traceback.format_exc())
+                            pass
                     if self.mode == 'sqlite3':
                         self.execute('DROP TABLE %s' % table)
                     elif self.mode == 'psycopg2':
                         self.execute('DROP TABLE %s CASCADE' % table)
+                    self.connection.commit()
                     del self.snapshots[table]
                     break
                 except sqlite3.OperationalError:

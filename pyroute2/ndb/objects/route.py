@@ -111,18 +111,21 @@ class Route(RTNL_Object):
                    [rtmsg.nla2name(x[5:]) for x in _dump_rt] +
                    ['nh_%s' % nh.nla2name(x[5:]) for x in _dump_nh])
 
-    reverse_update = {'table': 'routes',
-                      'name': 'routes_f_tflags',
-                      'field': 'f_tflags',
-                      'sql': '''
-                          UPDATE interfaces
-                          SET f_tflags = NEW.f_tflags
-                          WHERE (f_index = NEW.f_RTA_OIF OR
-                                 f_index = NEW.f_RTA_IIF) AND
-                                 f_target = NEW.f_target;
-                      '''}
-
     _replace_on_key_change = True
+
+    def mark_tflags(self, mark):
+        plch = (self.schema.plch, ) * 4
+        self.schema.execute('''
+                            UPDATE interfaces SET
+                                f_tflags = %s
+                            WHERE
+                                (f_index = %s OR f_index = %s)
+                                AND f_target = %s
+                            ''' % plch,
+                            (mark,
+                             self['iif'],
+                             self['oif'],
+                             self['target']))
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = rtmsg
@@ -283,14 +286,20 @@ class NextHop(RouteSub, RTNL_Object):
     msg_class = nh
     table = 'nh'
     hidden_fields = ('route_id', 'target')
-    reverse_update = {'table': 'nh',
-                      'name': 'nh_f_tflags',
-                      'field': 'f_tflags',
-                      'sql': '''
-                          UPDATE routes
-                          SET f_tflags = NEW.f_tflags
-                          WHERE f_route_id = NEW.f_route_id;
-                      '''}
+
+    def mark_tflags(self, mark):
+        plch = (self.schema.plch, ) * 4
+        self.schema.execute('''
+                            UPDATE interfaces SET
+                                f_tflags = %s
+                            WHERE
+                                (f_index = %s OR f_index = %s)
+                                AND f_target = %s
+                            ''' % plch,
+                            (mark,
+                             self.route['iif'],
+                             self.route['oif'],
+                             self.route['target']))
 
     def __init__(self, route, *argv, **kwarg):
         self.route = route
@@ -303,14 +312,20 @@ class Metrics(RouteSub, RTNL_Object):
     msg_class = rtmsg.metrics
     table = 'metrics'
     hidden_fields = ('route_id', 'target')
-    reverse_update = {'table': 'metrics',
-                      'name': 'metrics_f_tflags',
-                      'field': 'f_tflags',
-                      'sql': '''
-                          UPDATE routes
-                          SET f_tflags = NEW.f_tflags
-                          WHERE f_route_id = NEW.f_route_id;
-                      '''}
+
+    def mark_tflags(self, mark):
+        plch = (self.schema.plch, ) * 4
+        self.schema.execute('''
+                            UPDATE interfaces SET
+                                f_tflags = %s
+                            WHERE
+                                (f_index = %s OR f_index = %s)
+                                AND f_target = %s
+                            ''' % plch,
+                            (mark,
+                             self.route['iif'],
+                             self.route['oif'],
+                             self.route['target']))
 
     def __init__(self, route, *argv, **kwarg):
         self.route = route

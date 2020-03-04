@@ -244,6 +244,9 @@ class RTNL_Object(dict):
             self.key = ckey
             self.load_sql(table=self.table)
 
+    def mark_tflags(self, mark):
+        pass
+
     def keys(self):
         return filter(lambda x: x not in self.hidden_fields,
                       dict.keys(self))
