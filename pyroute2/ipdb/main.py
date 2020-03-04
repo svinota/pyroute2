@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 '''
-IPDB module
-===========
+IPDB guide
+==========
 
 .. warning::
     The IPDB module has design issues that may not be

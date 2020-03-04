@@ -28,10 +28,10 @@ E.g.::
     with NDB(log="stderr") as ndb:
         (ndb
          .interfaces
-         .add(ifname="vlan1108",
-              kind="vlan",
-              link="eth0",
-              vlan_id=1108)
+         .create(ifname="vlan1108",
+                 kind="vlan",
+                 link="eth0",
+                 vlan_id=1108)
          .commit())
 
 Slightly simplifying, if a network object doesn't exist, NDB will run
@@ -49,6 +49,7 @@ NDB objects are grouped into "views":
     * neighbours
     * rules
     * netns
+    * ...
 
 Views are dictionary-like objects that accept strings or dict selectors::
 

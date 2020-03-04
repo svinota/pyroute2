@@ -24,7 +24,7 @@ Usage
     iproute
     remote
     ndb
-    ipdb
+    ipdb_toc
     wiset
     ipset
     netns

@@ -13,6 +13,8 @@ Reference
 
    ndb_objects
    ndb_interfaces
+   ndb_addresses
+   ndb_routes
    ndb_schema
    ndb_sources
    ndb_debug

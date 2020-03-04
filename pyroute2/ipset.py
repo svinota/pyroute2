@@ -1,7 +1,4 @@
 '''
-IPSet module
-============
-
 ipset support.
 
 This module is tested with hash:ip, hash:net, list:set and several

@@ -1,4 +1,14 @@
 '''
+Windows systems are not supported, but the library provides some
+proof-of-concept how to build an RTNL-compatible core on top of
+WinAPI calls.
+
+Only two methods are provided so far. If you're interested in
+extending the functionality, you're welcome to propose PRs.
+
+.. warning::
+    Using pyroute2 on Windows requires installing `win_inet_pton` module,
+    you can use `pip install win_inet_pton`.
 '''
 import os
 import ctypes
@@ -196,9 +206,36 @@ class IPRoute(object):
         return ret
 
     def get_links(self, *argv, **kwarg):
+        '''
+Get network interfaces list::
+
+    >>> pprint(ipr.get_links())
+    [{'attrs': (['IFLA_ADDRESS', '52:54:00:7a:8a:49'],
+                ['IFLA_IFNAME', '{F444467B-3549-455D-81F2-AB617C7421AB}']),
+      'change': 0,
+      'family': 0,
+      'flags': 0,
+      'header': {},
+      'ifi_type': 0,
+      'index': 7}]
+        '''
         return self._GetAdaptersInfo()['interfaces']
 
     def get_addr(self, *argv, **kwarg):
+        '''
+Get IP addresses::
+
+    >>> pprint(ipr.get_addr())
+    [{'attrs': (['IFA_ADDRESS', '192.168.122.81'],
+                ['IFA_LOCAL', '192.168.122.81'],
+                ['IFA_LABEL', '{F444467B-3549-455D-81F2-AB617C7421AB}']),
+      'family': <AddressFamily.AF_INET: 2>,
+      'flags': 0,
+      'header': {},
+      'index': 7,
+      'prefixlen': 24,
+      'scope': 0}]
+        '''
         return self._GetAdaptersInfo()['addresses']
 
     def get_neighbours(self, *argv, **kwarg):

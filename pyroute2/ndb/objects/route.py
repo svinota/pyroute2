@@ -1,3 +1,56 @@
+'''
+Simple routes
+=============
+
+Ordinary routes management is really simple::
+
+    (ndb            # create a route
+     .routes
+     .create(dst='10.0.0.0/24', gateway='192.168.122.1')
+     .commit())
+
+    (ndb            # retrieve a route and change it
+     .routes['10.0.0.0/24']
+     .set('gateway', '192.168.122.10')
+     .set('priority', 500)
+     .commit())
+
+    (ndb            # remove a route
+     .routes['10.0.0.0/24']
+     .remove()
+     .commit())
+
+
+Multiple routing tables
+=======================
+
+But Linux systems have more than one routing table::
+
+    >>> set((x.table for x in ndb.routes.summary()))
+    {101, 254, 255, 5001, 5002}
+
+The main routing table is 254. All the routes people mostly work with are
+in that table. To address routes in other routing tables, you can use dict
+specs::
+
+    (ndb
+     .routes
+     .create(dst='10.0.0.0/24', gateway='192.168.122.1', table=101)
+     .commit())
+
+    (ndb
+     .routes[{'table': 101, 'dst': '10.0.0.0/24'}]
+     .set('gateway', '192.168.122.10')
+     .set('priority', 500)
+     .commit())
+
+    (ndb
+     .routes[{'table': 101, 'dst': '10.0.0.0/24'}]
+     .remove()
+     .commit())
+
+'''
+
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.ndb.report import Record
 from pyroute2.common import basestring

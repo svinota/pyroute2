@@ -1,3 +1,59 @@
+'''
+
+Using the view
+==============
+
+The `addresses` view provides access to all the addresses registered in the DB,
+as well as methods to create and remove them::
+
+    eth0 = ndb.interfaces['eth0']
+
+    # create an address
+    (ndb
+     .addresses
+     .create(address='10.0.0.1', prefixlen=24, index=eth0['index'])
+     .commit())
+
+    # remove it
+    (ndb
+     .addresses['10.0.0.1/24']
+     .remove()
+     .commit())
+
+    # list addresses
+    (ndb
+     .addresses
+     .summary())  # see also other view dump methods
+
+Using interfaces
+================
+
+One can use interface objects to inspect addresses as well::
+
+    (ndb
+     .interfaces['eth0']
+     .ipaddr
+     .summary())  # see also other view dump methods
+
+Or to manage them::
+
+    (ndb
+     .interfaces['eth0']
+     .add_ip('10.0.0.1/24')    # add a new IP address
+     .del_ip('172.16.0.1/24')  # remove an existing address
+     .set('state', 'up')
+     .commit())
+
+Accessing one address details
+=============================
+
+Access an address as a separate RTNL object::
+
+    print(ndb.addresses['10.0.0.1/24'])
+
+Please notice that address objects are read-only, you may not change them,
+only remove old ones, and create new.
+'''
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg

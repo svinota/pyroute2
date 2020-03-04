@@ -1,7 +1,4 @@
 '''
-WiSet module
-============
-
 High level ipset support.
 
 When :doc:`ipset` is providing a direct netlink socket with low level

@@ -12,7 +12,7 @@ mode for now.
 Quick start
 -----------
 
-Print the routing infotmation in the CSV format::
+Print the routing information in the CSV format::
 
     with NDB() as ndb:
         for record in ndb.routes.summary(format='csv'):
@@ -51,14 +51,6 @@ Change an interface property::
             i['address'] = '00:11:22:33:44:55'
         # ---> <---  the commit() is called authomatically by
         #            the context manager's __exit__()
-
-
-Key NDB features:
-    * Asynchronously updated database of RTNL objects
-    * Data integrity
-    * Multiple data sources -- local, netns, remote
-    * Fault tolerance and memory consumtion limits
-    * Transactions
 
 '''
 import gc
