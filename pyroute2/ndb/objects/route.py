@@ -49,6 +49,25 @@ specs::
      .remove()
      .commit())
 
+Route metrics
+=============
+
+`route['metrics']` attribute provides a dictionary-like object that
+reflects route metrics like hop limit, mtu etc::
+
+    # set up all metrics from a dictionary
+    (ndb
+     .routes['10.0.0.0/24']
+     .set('metrics', {'mtu': 1500, 'hoplimit': 20})
+     .commit())
+
+    # fix individual metrics
+    (ndb
+     .routes['10.0.0.0/24']['metrics']
+     .set('mtu', 1500)
+     .set('hoplimit', 20)
+     .commit())
+
 '''
 
 from pyroute2.ndb.objects import RTNL_Object
@@ -180,7 +199,7 @@ class Route(RTNL_Object):
                 mp = dict(mp)
                 if self.state == 'invalid':
                     mp['create'] = True
-                obj = NextHop(self.view, mp)
+                obj = NextHop(self, self.view, mp)
                 obj.state.set(self.state.get())
                 self['multipath'].append(obj)
             if key in self.changed:
@@ -189,7 +208,7 @@ class Route(RTNL_Object):
             value = dict(value)
             if self.state == 'invalid':
                 value['create'] = True
-            obj = Metrics(self.view, value)
+            obj = Metrics(self, self.view, value)
             obj.state.set(self.state.get())
             super(Route, self).__setitem__('metrics', obj)
             if key in self.changed:
@@ -221,7 +240,7 @@ class Route(RTNL_Object):
                               (self.schema.plch, ), (self['route_id'], )))
 
             if len(tuple(metrics)):
-                self['metrics'] = Metrics(self.view,
+                self['metrics'] = Metrics(self, self.view,
                                           {'route_id': self['route_id']})
             flush = False
             idx = 0
@@ -247,10 +266,19 @@ class Route(RTNL_Object):
             for nexthop in nhs:
                 key = {'route_id': self['route_id'],
                        'nh_id': nexthop[-1]}
-                self['multipath'].append(NextHop(self.view, key))
+                self['multipath'].append(NextHop(self, self.view, key))
 
 
-class NextHop(RTNL_Object):
+class RouteSub(object):
+
+    def apply(self, *argv, **kwarg):
+        return self.route.apply(*argv, **kwarg)
+
+    def commit(self, *argv, **kwarg):
+        return self.route.commit(*argv, **kwarg)
+
+
+class NextHop(RouteSub, RTNL_Object):
 
     msg_class = nh
     table = 'nh'
@@ -264,12 +292,13 @@ class NextHop(RTNL_Object):
                           WHERE f_route_id = NEW.f_route_id;
                       '''}
 
-    def __init__(self, *argv, **kwarg):
+    def __init__(self, route, *argv, **kwarg):
+        self.route = route
         kwarg['iclass'] = nh
         super(NextHop, self).__init__(*argv, **kwarg)
 
 
-class Metrics(RTNL_Object):
+class Metrics(RouteSub, RTNL_Object):
 
     msg_class = rtmsg.metrics
     table = 'metrics'
@@ -283,6 +312,7 @@ class Metrics(RTNL_Object):
                           WHERE f_route_id = NEW.f_route_id;
                       '''}
 
-    def __init__(self, *argv, **kwarg):
+    def __init__(self, route, *argv, **kwarg):
+        self.route = route
         kwarg['iclass'] = rtmsg.metrics
         super(Metrics, self).__init__(*argv, **kwarg)
