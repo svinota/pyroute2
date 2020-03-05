@@ -1,6 +1,37 @@
-import collections
+from collections import OrderedDict
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
+
+
+init = {'specs': [['rules', OrderedDict(fibmsg.sql_schema())]],
+        'classes': [['rules', fibmsg]],
+        'indices': [['rules', ('family',
+                               'dst_len',
+                               'src_len',
+                               'tos',
+                               'action',
+                               'flags',
+                               'FRA_DST',
+                               'FRA_SRC',
+                               'FRA_IIFNAME',
+                               'FRA_GOTO',
+                               'FRA_PRIORITY',
+                               'FRA_FWMARK',
+                               'FRA_FLOW',
+                               'FRA_TUN_ID',
+                               'FRA_SUPPRESS_IFGROUP',
+                               'FRA_SUPPRESS_PREFIXLEN',
+                               'FRA_TABLE',
+                               'FRA_FWMASK',
+                               'FRA_OIFNAME',
+                               'FRA_L3MDEV',
+                               'FRA_UID_RANGE',
+                               'FRA_PROTOCOL',
+                               'FRA_IP_PROTO',
+                               'FRA_SPORT_RANGE',
+                               'FRA_DPORT_RANGE')]],
+        'foreign_keys': [],
+        'event_map': {fibmsg: ['rules']}}
 
 
 class Rule(RTNL_Object):
@@ -30,7 +61,7 @@ class Rule(RTNL_Object):
         spec = super(Rule, self).load_sql(*argv, **kwarg)
         if spec is None:
             return
-        nkey = collections.OrderedDict()
+        nkey = OrderedDict()
         for name_norm, name_raw, value in zip(self.names, self.spec, spec):
             if name_raw in self.kspec:
                 nkey[name_raw] = value

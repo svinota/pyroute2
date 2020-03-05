@@ -69,7 +69,12 @@ reflects route metrics like hop limit, mtu etc::
      .commit())
 
 '''
-
+import time
+import uuid
+import struct
+from socket import AF_INET
+from socket import inet_pton
+from collections import OrderedDict
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.ndb.report import Record
 from pyroute2.common import basestring
@@ -78,6 +83,207 @@ from pyroute2.netlink.rtnl.rtmsg import nh
 
 _dump_rt = ['rt.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
 _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
+
+
+def load_rtmsg(schema, target, event):
+    mp = event.get_attr('RTA_MULTIPATH')
+
+    # create an mp route
+    if (not event['header']['type'] % 2) and mp:
+        #
+        # create key
+        keys = ['f_target = %s' % schema.plch]
+        values = [target]
+        for key in schema.indices['routes']:
+            keys.append('f_%s = %s' % (key, schema.plch))
+            values.append(event.get(key) or event.get_attr(key))
+        #
+        spec = 'WHERE %s' % ' AND '.join(keys)
+        s_req = 'SELECT f_route_id FROM routes %s' % spec
+        #
+        # get existing route_id
+        for route_id in schema.execute(s_req, values).fetchall():
+            #
+            # if exists
+            route_id = route_id[0][0]
+            #
+            # flush all previous MP hops
+            d_req = 'DELETE FROM nh WHERE f_route_id= %s' % schema.plch
+            schema.execute(d_req, (route_id, ))
+            break
+        else:
+            #
+            # or create a new route_id
+            route_id = str(uuid.uuid4())
+        #
+        # set route_id on the route itself
+        event['route_id'] = route_id
+        schema.load_netlink('routes', target, event)
+        #
+        # load multipath
+        for idx in range(len(mp)):
+            mp[idx]['header'] = {}          # for load_netlink()
+            mp[idx]['route_id'] = route_id  # set route_id on NH
+            mp[idx]['nh_id'] = idx          # add NH number
+            schema.load_netlink('nh', target, mp[idx], 'routes')
+        #
+        # we're done with an MP-route, just exit
+        return
+    #
+    # manage gc marks on related routes
+    #
+    # only for automatic routes:
+    #   - table 254 (main)
+    #   - proto 2 (kernel)
+    #   - scope 253 (link)
+    elif (event.get_attr('RTA_TABLE') == 254) and \
+            (event['proto'] == 2) and \
+            (event['scope'] == 253) and \
+            (event['family'] == AF_INET):
+        evt = event['header']['type']
+        #
+        # set f_gc_mark = timestamp for "del" events
+        # and clean it for "new" events
+        #
+        schema.rtmsg_gc_mark(schema, target, event,
+                             int(time.time()) if (evt % 2) else None)
+        #
+        # continue with load_netlink()
+        #
+    #
+    # load metrics
+    metrics = event.get_attr('RTA_METRICS')
+    if metrics:
+        #
+        # create key
+        keys = ['f_target = %s' % schema.plch]
+        values = [target]
+        for key in schema.indices['routes']:
+            keys.append('f_%s = %s' % (key, schema.plch))
+            values.append(event.get(key) or event.get_attr(key))
+        #
+        spec = 'WHERE %s' % ' AND '.join(keys)
+        s_req = 'SELECT f_route_id FROM routes %s' % spec
+        #
+        # get existing route_id
+        for route_id in schema.execute(s_req, values).fetchall():
+            #
+            # if exists
+            route_id = route_id[0][0]
+            break
+        else:
+            #
+            # or create a new route_id
+            route_id = str(uuid.uuid4())
+        #
+        # set route_id on the route itself
+        event['route_id'] = route_id
+        schema.load_netlink("routes", target, event)
+        #
+        metrics['header'] = {}
+        metrics['route_id'] = route_id
+        schema.load_netlink('metrics', target, metrics, 'routes')
+        return
+    #
+    # ... or work on a regular route
+    schema.load_netlink("routes", target, event)
+
+
+def rtmsg_gc_mark(schema, target, event, gc_mark=None):
+    #
+    if gc_mark is None:
+        gc_clause = ' AND f_gc_mark IS NOT NULL'
+    else:
+        gc_clause = ''
+    #
+    # select all routes for that OIF where f_gc_mark is not null
+    #
+    key_fields = ','.join(['f_%s' % x for x
+                           in schema.indices['routes']])
+    key_query = ' AND '.join(['f_%s = %s' % (x, schema.plch) for x
+                              in schema.indices['routes']])
+    routes = (schema
+              .execute('''
+                       SELECT %s,f_RTA_GATEWAY FROM routes WHERE
+                       f_target = %s AND f_RTA_OIF = %s AND
+                       f_RTA_GATEWAY IS NOT NULL %s
+                       ''' % (key_fields,
+                              schema.plch,
+                              schema.plch,
+                              gc_clause),
+                       (target, event.get_attr('RTA_OIF')))
+              .fetchmany())
+    #
+    # get the route's RTA_DST and calculate the network
+    #
+    addr = event.get_attr('RTA_DST')
+    net = struct.unpack('>I', inet_pton(AF_INET, addr))[0] &\
+        (0xffffffff << (32 - event['dst_len']))
+    #
+    # now iterate all the routes from the query above and
+    # mark those with matching RTA_GATEWAY
+    #
+    for route in routes:
+        # get route GW
+        gw = route[-1]
+        gwnet = struct.unpack('>I', inet_pton(AF_INET, gw))[0] & net
+        if gwnet == net:
+            (schema
+             .execute('UPDATE routes SET f_gc_mark = %s '
+                      'WHERE f_target = %s AND %s'
+                      % (schema.plch, schema.plch, key_query),
+                      (gc_mark, target) + route[:-1]))
+
+
+init = {'specs': [['routes', OrderedDict(rtmsg.sql_schema() +
+                                         [(('route_id', ), 'TEXT UNIQUE'),
+                                          (('gc_mark', ), 'INTEGER')])],
+                  ['nh', OrderedDict(nh.sql_schema() +
+                                     [(('route_id', ), 'TEXT'),
+                                      (('nh_id', ), 'INTEGER')])],
+                  ['metrics', OrderedDict(rtmsg.metrics.sql_schema() +
+                                          [(('route_id', ), 'TEXT'), ])]],
+        'classes': [['routes', rtmsg],
+                    ['nh', nh],
+                    ['metrics', rtmsg.metrics]],
+        'indices': [['routes', ('family',
+                                'dst_len',
+                                'tos',
+                                'RTA_DST',
+                                'RTA_PRIORITY',
+                                'RTA_TABLE')],
+                    ['nh', ('route_id', 'nh_id')],
+                    ['metrics', ('route_id', )]],
+        'foreign_keys': [['routes', [{'fields': ('f_target',
+                                                 'f_tflags',
+                                                 'f_RTA_OIF'),
+                                      'parent_fields': ('f_target',
+                                                        'f_tflags',
+                                                        'f_index'),
+                                      'parent': 'interfaces'},
+                                     {'fields': ('f_target',
+                                                 'f_tflags',
+                                                 'f_RTA_IIF'),
+                                      'parent_fields': ('f_target',
+                                                        'f_tflags',
+                                                        'f_index'),
+                                      'parent': 'interfaces'}]],
+                         # man kan not use f_tflags together with f_route_id
+                         # 'cause it breaks ON UPDATE CASCADE for interfaces
+                         ['nh', [{'fields': ('f_route_id', ),
+                                  'parent_fields': ('f_route_id', ),
+                                  'parent': 'routes'},
+                                 {'fields': ('f_target',
+                                             'f_tflags',
+                                             'f_oif'),
+                                  'parent_fields': ('f_target',
+                                                    'f_tflags',
+                                                    'f_index'),
+                                  'parent': 'interfaces'}]],
+                         ['metrics', [{'fields': ('f_route_id', ),
+                                       'parent_fields': ('f_route_id', ),
+                                       'parent': 'routes'}]]],
+        'event_map': {rtmsg: [load_rtmsg]}}
 
 
 class Route(RTNL_Object):

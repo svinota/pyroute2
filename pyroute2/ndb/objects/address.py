@@ -54,9 +54,27 @@ Access an address as a separate RTNL object::
 Please notice that address objects are read-only, you may not change them,
 only remove old ones, and create new.
 '''
+from collections import OrderedDict
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+
+
+init = {'specs': [['addresses', OrderedDict(ifaddrmsg.sql_schema())]],
+        'classes': [['addresses', ifaddrmsg]],
+        'indices': [['addresses', ('family',
+                                   'prefixlen',
+                                   'index',
+                                   'IFA_ADDRESS',
+                                   'IFA_LOCAL')]],
+        'foreign_keys': [['addresses', [{'fields': ('f_target',
+                                                    'f_tflags',
+                                                    'f_index'),
+                                         'parent_fields': ('f_target',
+                                                           'f_tflags',
+                                                           'f_index'),
+                                         'parent': 'interfaces'}]]],
+        'event_map': {ifaddrmsg: ['addresses']}}
 
 
 class Address(RTNL_Object):

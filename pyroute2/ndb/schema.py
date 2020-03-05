@@ -90,27 +90,22 @@ There are also some useful views, that join `ifinfo` tables with
 '''
 import sys
 import time
-import uuid
-import struct
 import random
 import sqlite3
 import threading
 import traceback
 from functools import partial
 from collections import OrderedDict
-from socket import (AF_INET,
-                    inet_pton)
 from pyroute2 import config
-from pyroute2.config import AF_BRIDGE
 from pyroute2.common import uuid32
-from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
-from pyroute2.netlink.rtnl.ndmsg import ndmsg
-from pyroute2.netlink.rtnl.rtmsg import rtmsg
-from pyroute2.netlink.rtnl.rtmsg import nh
-from pyroute2.netlink.rtnl.fibmsg import fibmsg
-from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
-from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
+from pyroute2.common import basestring
+# plugins
+from pyroute2.ndb.objects import address
+from pyroute2.ndb.objects import interface
+from pyroute2.ndb.objects import neighbour
+from pyroute2.ndb.objects import netns
+from pyroute2.ndb.objects import route
+from pyroute2.ndb.objects import rule
 
 # events
 from pyroute2.ndb.events import SchemaGenericRequest
@@ -120,16 +115,17 @@ try:
 except ImportError:
     import Queue as queue
 
+#
+# the order is important
+#
+plugins = [interface,
+           address,
+           neighbour,
+           route,
+           netns,
+           rule]
+
 MAX_ATTEMPTS = 5
-ifinfo_names = ('bridge',
-                'bond',
-                'vlan',
-                'vxlan',
-                'gre',
-                'vrf',
-                'vti',
-                'vti6')
-supported_ifinfo = {x: ifinfmsg.ifinfo.data_map[x] for x in ifinfo_names}
 
 
 def publish(method):
@@ -236,164 +232,14 @@ class DBSchema(object):
     snapshots = None  # <table_name>: <obj_weakref>
 
     spec = OrderedDict()
-    # main tables
-    spec['interfaces'] = OrderedDict(ifinfmsg.sql_schema())
-    spec['addresses'] = OrderedDict(ifaddrmsg.sql_schema())
-    spec['neighbours'] = OrderedDict(ndmsg.sql_schema())
-    spec['routes'] = OrderedDict(rtmsg.sql_schema() +
-                                 [(('route_id', ), 'TEXT UNIQUE'),
-                                  (('gc_mark', ), 'INTEGER')])
-    spec['nh'] = OrderedDict(nh.sql_schema() +
-                             [(('route_id', ), 'TEXT'),
-                              (('nh_id', ), 'INTEGER')])
-    spec['metrics'] = OrderedDict(rtmsg.metrics.sql_schema() +
-                                  [(('route_id', ), 'TEXT'), ])
-    spec['rules'] = OrderedDict(fibmsg.sql_schema())
-    spec['netns'] = OrderedDict(nsinfmsg.sql_schema())
-    # additional tables
-    spec['p2p'] = OrderedDict(p2pmsg.sql_schema())
-
-    classes = {'interfaces': ifinfmsg,
-               'addresses': ifaddrmsg,
-               'neighbours': ndmsg,
-               'routes': rtmsg,
-               'nh': nh,
-               'metrics': rtmsg.metrics,
-               'rules': fibmsg,
-               'netns': nsinfmsg,
-               'p2p': p2pmsg}
-
+    classes = {}
     #
     # OBS: field names MUST go in the same order as in the spec,
     # that's for the load_netlink() to work correctly -- it uses
     # one loop to fetch both index and row values
     #
-    indices = {'interfaces': ('index', ),
-               'p2p': ('index', ),
-               'addresses': ('family',
-                             'prefixlen',
-                             'index',
-                             'IFA_ADDRESS',
-                             'IFA_LOCAL'),
-               'neighbours': ('ifindex',
-                              'NDA_LLADDR'),
-               'routes': ('family',
-                          'dst_len',
-                          'tos',
-                          'RTA_DST',
-                          'RTA_PRIORITY',
-                          'RTA_TABLE'),
-               'nh': ('route_id',
-                      'nh_id'),
-               'metrics': ('route_id', ),
-               'netns': ('NSINFO_PATH', ),
-               'rules': ('family',
-                         'dst_len',
-                         'src_len',
-                         'tos',
-                         'action',
-                         'flags',
-                         'FRA_DST',
-                         'FRA_SRC',
-                         'FRA_IIFNAME',
-                         'FRA_GOTO',
-                         'FRA_PRIORITY',
-                         'FRA_FWMARK',
-                         'FRA_FLOW',
-                         'FRA_TUN_ID',
-                         'FRA_SUPPRESS_IFGROUP',
-                         'FRA_SUPPRESS_PREFIXLEN',
-                         'FRA_TABLE',
-                         'FRA_FWMASK',
-                         'FRA_OIFNAME',
-                         'FRA_L3MDEV',
-                         'FRA_UID_RANGE',
-                         'FRA_PROTOCOL',
-                         'FRA_IP_PROTO',
-                         'FRA_SPORT_RANGE',
-                         'FRA_DPORT_RANGE')}
-
-    foreign_keys = {'addresses': [{'fields': ('f_target',
-                                              'f_tflags',
-                                              'f_index'),
-                                   'parent_fields': ('f_target',
-                                                     'f_tflags',
-                                                     'f_index'),
-                                   'parent': 'interfaces'}],
-                    'neighbours': [{'fields': ('f_target',
-                                               'f_tflags',
-                                               'f_ifindex'),
-                                    'parent_fields': ('f_target',
-                                                      'f_tflags',
-                                                      'f_index'),
-                                    'parent': 'interfaces'}],
-                    'routes': [{'fields': ('f_target',
-                                           'f_tflags',
-                                           'f_RTA_OIF'),
-                                'parent_fields': ('f_target',
-                                                  'f_tflags',
-                                                  'f_index'),
-                                'parent': 'interfaces'},
-                               {'fields': ('f_target',
-                                           'f_tflags',
-                                           'f_RTA_IIF'),
-                                'parent_fields': ('f_target',
-                                                  'f_tflags',
-                                                  'f_index'),
-                                'parent': 'interfaces'}],
-                    #
-                    # man kan not use f_tflags together with f_route_id
-                    # 'cause it breaks ON UPDATE CASCADE for interfaces
-                    #
-                    'nh': [{'fields': ('f_route_id', ),
-                            'parent_fields': ('f_route_id', ),
-                            'parent': 'routes'},
-                           {'fields': ('f_target',
-                                       'f_tflags',
-                                       'f_oif'),
-                            'parent_fields': ('f_target',
-                                              'f_tflags',
-                                              'f_index'),
-                            'parent': 'interfaces'}],
-                    'metrics': [{'fields': ('f_route_id', ),
-                                 'parent_fields': ('f_route_id', ),
-                                 'parent': 'routes'}],
-                    #
-                    # additional tables
-                    #
-                    'p2p': [{'fields': ('f_target',
-                                        'f_tflags',
-                                        'f_index'),
-                             'parent_fields': ('f_target',
-                                               'f_tflags',
-                                               'f_index'),
-                             'parent': 'interfaces'}]}
-
-    #
-    # load supported ifinfo
-    #
-    for (name, data) in supported_ifinfo.items():
-        name = 'ifinfo_%s' % name
-        #
-        # classes
-        #
-        classes[name] = data
-        #
-        # indices
-        #
-        indices[name] = ('index', )
-        #
-        # spec
-        #
-        spec[name] = \
-            OrderedDict(data.sql_schema() + [(('index', ), 'BIGINT')])
-        #
-        # foreign keys
-        #
-        foreign_keys[name] = \
-            [{'fields': ('f_target', 'f_tflags', 'f_index'),
-              'parent_fields': ('f_target', 'f_tflags', 'f_index'),
-              'parent': 'interfaces'}]
+    indices = {}
+    foreign_keys = {}
 
     def __init__(self, ndb, connection, mode, rtnl_log, tid):
         self.ndb = ndb
@@ -412,6 +258,7 @@ class DBSchema(object):
         self.log = ndb.log.channel('schema')
         self.snapshots = {}
         self.key_defaults = {}
+        self.event_map = {}
         self._cursor = None
         self._counter = 0
         self._allow_read = threading.Event()
@@ -706,6 +553,7 @@ class DBSchema(object):
         self.connection.commit()
 
     def create_ifinfo_view(self, table, ctxid=None):
+        # FIXME: move to the object module
         iftable = 'interfaces'
 
         req = (('main.f_target', 'main.f_tflags') +
@@ -941,257 +789,6 @@ class DBSchema(object):
         for record in self.fetch(req, values):
             yield dict(zip(self.compiled[table]['all_names'], record))
 
-    def rtmsg_gc_mark(self, target, event, gc_mark=None):
-        #
-        if gc_mark is None:
-            gc_clause = ' AND f_gc_mark IS NOT NULL'
-        else:
-            gc_clause = ''
-        #
-        # select all routes for that OIF where f_gc_mark is not null
-        #
-        key_fields = ','.join(['f_%s' % x for x
-                               in self.indices['routes']])
-        key_query = ' AND '.join(['f_%s = %s' % (x, self.plch) for x
-                                  in self.indices['routes']])
-        routes = (self
-                  .execute('''
-                           SELECT %s,f_RTA_GATEWAY FROM routes WHERE
-                           f_target = %s AND f_RTA_OIF = %s AND
-                           f_RTA_GATEWAY IS NOT NULL %s
-                           ''' % (key_fields,
-                                  self.plch,
-                                  self.plch,
-                                  gc_clause),
-                           (target, event.get_attr('RTA_OIF')))
-                  .fetchmany())
-        #
-        # get the route's RTA_DST and calculate the network
-        #
-        addr = event.get_attr('RTA_DST')
-        net = struct.unpack('>I', inet_pton(AF_INET, addr))[0] &\
-            (0xffffffff << (32 - event['dst_len']))
-        #
-        # now iterate all the routes from the query above and
-        # mark those with matching RTA_GATEWAY
-        #
-        for route in routes:
-            # get route GW
-            gw = route[-1]
-            gwnet = struct.unpack('>I', inet_pton(AF_INET, gw))[0] & net
-            if gwnet == net:
-                (self
-                 .execute('UPDATE routes SET f_gc_mark = %s '
-                          'WHERE f_target = %s AND %s'
-                          % (self.plch, self.plch, key_query),
-                          (gc_mark, target) + route[:-1]))
-
-    def load_nsinfmsg(self, target, event):
-        #
-        # check if there is corresponding source
-        #
-        netns_path = event.get_attr('NSINFO_PATH')
-        if netns_path is None:
-            self.log.debug('ignore %s %s' % (target, event))
-            return
-        if self.ndb._auto_netns:
-            if netns_path.find('/var/run/docker') > -1:
-                source_name = 'docker/%s' % netns_path.split('/')[-1]
-            else:
-                source_name = 'netns/%s' % netns_path.split('/')[-1]
-            if event['header'].get('type', 0) % 2:
-                if source_name in self.ndb.sources.cache:
-                    self.ndb.sources.remove(source_name, code=108, sync=False)
-            elif source_name not in self.ndb.sources.cache:
-                sync_event = None
-                if self.ndb._dbm_autoload and not self.ndb._dbm_ready.is_set():
-                    sync_event = threading.Event()
-                    self.ndb._dbm_autoload.add(sync_event)
-                    self.log.debug('queued event %s' % sync_event)
-                else:
-                    sync_event = None
-                self.log.debug('starting netns source %s' % source_name)
-                self.ndb.sources.async_add(target=source_name,
-                                           netns=netns_path,
-                                           persistent=False,
-                                           event=sync_event)
-        self.load_netlink('netns', target, event)
-
-    def load_ndmsg(self, target, event):
-        #
-        # ignore events with ifindex == 0
-        #
-        if event['ifindex'] == 0:
-            return
-
-        self.load_netlink('neighbours', target, event)
-
-    def load_ifinfmsg(self, target, event):
-        #
-        # link goes down: flush all related routes
-        #
-        if not event['flags'] & 1:
-            self.execute('DELETE FROM routes WHERE '
-                         'f_target = %s AND '
-                         'f_RTA_OIF = %s OR f_RTA_IIF = %s'
-                         % (self.plch, self.plch, self.plch),
-                         (target, event['index'], event['index']))
-        #
-        # ignore wireless updates
-        #
-        if event.get_attr('IFLA_WIRELESS'):
-            return
-        #
-        # AF_BRIDGE events
-        #
-        if event['family'] == AF_BRIDGE:
-            #
-            # bypass for now
-            #
-            return
-
-        self.load_netlink('interfaces', target, event)
-        #
-        # load ifinfo, if exists
-        #
-        if not event['header'].get('type', 0) % 2:
-            linkinfo = event.get_attr('IFLA_LINKINFO')
-            if linkinfo is not None:
-                iftype = linkinfo.get_attr('IFLA_INFO_KIND')
-                table = 'ifinfo_%s' % iftype
-                if iftype == 'gre':
-                    ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
-                    local = ifdata.get_attr('IFLA_GRE_LOCAL')
-                    remote = ifdata.get_attr('IFLA_GRE_REMOTE')
-                    p2p = p2pmsg()
-                    p2p['index'] = event['index']
-                    p2p['family'] = 2
-                    p2p['attrs'] = [('P2P_LOCAL', local),
-                                    ('P2P_REMOTE', remote)]
-                    self.load_netlink('p2p', target, p2p)
-                elif iftype == 'veth':
-                    link = event.get_attr('IFLA_LINK')
-                    # for veth interfaces, IFLA_LINK points to
-                    # the peer -- but NOT in automatic updates
-                    if (not link) and \
-                            (target in self.ndb.sources.keys()):
-                        self.log.debug('reload veth %s' % event['index'])
-                        update = (self
-                                  .ndb
-                                  .sources[target]
-                                  .api('link', 'get', index=event['index']))
-                        update = tuple(update)[0]
-                        return self.load_netlink('interfaces', target, update)
-
-                if table in self.spec:
-                    ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
-                    ifdata['header'] = {}
-                    ifdata['index'] = event['index']
-                    self.load_netlink(table, target, ifdata)
-
-    def load_rtmsg(self, target, event):
-        mp = event.get_attr('RTA_MULTIPATH')
-
-        # create an mp route
-        if (not event['header']['type'] % 2) and mp:
-            #
-            # create key
-            keys = ['f_target = %s' % self.plch]
-            values = [target]
-            for key in self.indices['routes']:
-                keys.append('f_%s = %s' % (key, self.plch))
-                values.append(event.get(key) or event.get_attr(key))
-            #
-            spec = 'WHERE %s' % ' AND '.join(keys)
-            s_req = 'SELECT f_route_id FROM routes %s' % spec
-            #
-            # get existing route_id
-            for route_id in self.execute(s_req, values).fetchall():
-                #
-                # if exists
-                route_id = route_id[0][0]
-                #
-                # flush all previous MP hops
-                d_req = 'DELETE FROM nh WHERE f_route_id= %s' % self.plch
-                self.execute(d_req, (route_id, ))
-                break
-            else:
-                #
-                # or create a new route_id
-                route_id = str(uuid.uuid4())
-            #
-            # set route_id on the route itself
-            event['route_id'] = route_id
-            self.load_netlink('routes', target, event)
-            #
-            # load multipath
-            for idx in range(len(mp)):
-                mp[idx]['header'] = {}          # for load_netlink()
-                mp[idx]['route_id'] = route_id  # set route_id on NH
-                mp[idx]['nh_id'] = idx          # add NH number
-                self.load_netlink('nh', target, mp[idx], 'routes')
-            #
-            # we're done with an MP-route, just exit
-            return
-        #
-        # manage gc marks on related routes
-        #
-        # only for automatic routes:
-        #   - table 254 (main)
-        #   - proto 2 (kernel)
-        #   - scope 253 (link)
-        elif (event.get_attr('RTA_TABLE') == 254) and \
-                (event['proto'] == 2) and \
-                (event['scope'] == 253) and \
-                (event['family'] == AF_INET):
-            evt = event['header']['type']
-            #
-            # set f_gc_mark = timestamp for "del" events
-            # and clean it for "new" events
-            #
-            self.rtmsg_gc_mark(target, event,
-                               int(time.time()) if (evt % 2) else None)
-            #
-            # continue with load_netlink()
-            #
-        #
-        # load metrics
-        metrics = event.get_attr('RTA_METRICS')
-        if metrics:
-            #
-            # create key
-            keys = ['f_target = %s' % self.plch]
-            values = [target]
-            for key in self.indices['routes']:
-                keys.append('f_%s = %s' % (key, self.plch))
-                values.append(event.get(key) or event.get_attr(key))
-            #
-            spec = 'WHERE %s' % ' AND '.join(keys)
-            s_req = 'SELECT f_route_id FROM routes %s' % spec
-            #
-            # get existing route_id
-            for route_id in self.execute(s_req, values).fetchall():
-                #
-                # if exists
-                route_id = route_id[0][0]
-                break
-            else:
-                #
-                # or create a new route_id
-                route_id = str(uuid.uuid4())
-            #
-            # set route_id on the route itself
-            event['route_id'] = route_id
-            self.load_netlink("routes", target, event)
-            #
-            metrics['header'] = {}
-            metrics['route_id'] = route_id
-            self.load_netlink('metrics', target, metrics, 'routes')
-            return
-        #
-        # ... or work on a regular route
-        self.load_netlink("routes", target, event)
-
     def log_netlink(self, table, target, event, ctable=None):
         #
         # RTNL Logs
@@ -1358,11 +955,47 @@ class DBSchema(object):
 
 
 def init(ndb, connection, mode, rtnl_log, tid):
+    #
+    # first prepare the schema and init the DB
+    #
+    for plugin in plugins:
+        #
+        # 1. spec
+        #
+        for name, spec in plugin.init['specs']:
+            DBSchema.spec[name] = spec
+        #
+        # 2. classes
+        #
+        for name, cls in plugin.init['classes']:
+            DBSchema.classes[name] = cls
+        #
+        # 3. indices
+        #
+        for name, idx in plugin.init['indices']:
+            DBSchema.indices[name] = idx
+        #
+        # 4. foreign keys
+        #
+        for name, kspec in plugin.init['foreign_keys']:
+            DBSchema.foreign_keys[name] = kspec
+
     ret = DBSchema(ndb, connection, mode, rtnl_log, tid)
-    ret.event_map = {ifinfmsg: [ret.load_ifinfmsg],
-                     ifaddrmsg: [partial(ret.load_netlink, 'addresses')],
-                     ndmsg: [ret.load_ndmsg],
-                     rtmsg: [ret.load_rtmsg],
-                     fibmsg: [partial(ret.load_netlink, 'rules')],
-                     nsinfmsg: [ret.load_nsinfmsg]}
+
+    #
+    # init the event mapping
+    #
+    for plugin in plugins:
+        #
+        emap = plugin.init['event_map']
+        #
+        for etype, ehndl in emap.items():
+            handlers = []
+            for h in ehndl:
+                if isinstance(h, basestring):
+                    handlers.append(partial(ret.load_netlink, h))
+                else:
+                    handlers.append(partial(h, ret))
+            ret.event_map[etype] = handlers
+
     return ret

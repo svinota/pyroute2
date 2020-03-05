@@ -100,11 +100,131 @@ Create a bridge and add a port, `eth0`::
 
 import weakref
 import traceback
+from collections import OrderedDict
 from pyroute2.config import AF_BRIDGE
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 from pyroute2.netlink.exceptions import NetlinkError
+
+
+def load_ifinfmsg(schema, target, event):
+    #
+    # link goes down: flush all related routes
+    #
+    if not event['flags'] & 1:
+        schema.execute('DELETE FROM routes WHERE '
+                       'f_target = %s AND '
+                       'f_RTA_OIF = %s OR f_RTA_IIF = %s'
+                       % (schema.plch, schema.plch, schema.plch),
+                       (target, event['index'], event['index']))
+    #
+    # ignore wireless updates
+    #
+    if event.get_attr('IFLA_WIRELESS'):
+        return
+    #
+    # AF_BRIDGE events
+    #
+    if event['family'] == AF_BRIDGE:
+        #
+        # bypass for now
+        #
+        return
+
+    schema.load_netlink('interfaces', target, event)
+    #
+    # load ifinfo, if exists
+    #
+    if not event['header'].get('type', 0) % 2:
+        linkinfo = event.get_attr('IFLA_LINKINFO')
+        if linkinfo is not None:
+            iftype = linkinfo.get_attr('IFLA_INFO_KIND')
+            table = 'ifinfo_%s' % iftype
+            if iftype == 'gre':
+                ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
+                local = ifdata.get_attr('IFLA_GRE_LOCAL')
+                remote = ifdata.get_attr('IFLA_GRE_REMOTE')
+                p2p = p2pmsg()
+                p2p['index'] = event['index']
+                p2p['family'] = 2
+                p2p['attrs'] = [('P2P_LOCAL', local),
+                                ('P2P_REMOTE', remote)]
+                schema.load_netlink('p2p', target, p2p)
+            elif iftype == 'veth':
+                link = event.get_attr('IFLA_LINK')
+                # for veth interfaces, IFLA_LINK points to
+                # the peer -- but NOT in automatic updates
+                if (not link) and \
+                        (target in schema.ndb.sources.keys()):
+                    schema.log.debug('reload veth %s' % event['index'])
+                    update = (schema
+                              .ndb
+                              .sources[target]
+                              .api('link', 'get', index=event['index']))
+                    update = tuple(update)[0]
+                    return schema.load_netlink('interfaces', target, update)
+
+            if table in schema.spec:
+                ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
+                ifdata['header'] = {}
+                ifdata['index'] = event['index']
+                schema.load_netlink(table, target, ifdata)
+
+
+init = {'specs': [['interfaces', OrderedDict(ifinfmsg.sql_schema())],
+                  ['p2p', OrderedDict(p2pmsg.sql_schema())]],
+        'classes': [['interfaces', ifinfmsg],
+                    ['p2p', p2pmsg]],
+        'indices': [['interfaces', ('index', )],
+                    ['p2p', ('index', )]],
+        'foreign_keys': [['p2p', [{'fields': ('f_target',
+                                              'f_tflags',
+                                              'f_index'),
+                                   'parent_fields': ('f_target',
+                                                     'f_tflags',
+                                                     'f_index'),
+                                   'parent': 'interfaces'}]]],
+        'event_map': {ifinfmsg: [load_ifinfmsg]}}
+
+ifinfo_names = ('bridge',
+                'bond',
+                'vlan',
+                'vxlan',
+                'gre',
+                'vrf',
+                'vti',
+                'vti6')
+supported_ifinfo = {x: ifinfmsg.ifinfo.data_map[x] for x in ifinfo_names}
+#
+# load supported ifinfo
+#
+for (name, data) in supported_ifinfo.items():
+    name = 'ifinfo_%s' % name
+    #
+    # classes
+    #
+    init['classes'].append([name, data])
+    #
+    # indices
+    #
+    init['indices'].append([name, ('index', )])
+    #
+    # spec
+    #
+    init['specs'].append([name, OrderedDict(data.sql_schema() +
+                                            [(('index', ), 'BIGINT')])])
+    #
+    # foreign keys
+    #
+    init['foreign_keys'].append([name, [{'fields': ('f_target',
+                                                    'f_tflags',
+                                                    'f_index'),
+                                         'parent_fields': ('f_target',
+                                                           'f_tflags',
+                                                           'f_index'),
+                                         'parent': 'interfaces'}]])
 
 
 def _cmp_master(self, value):
