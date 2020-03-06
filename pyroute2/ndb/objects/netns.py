@@ -3,6 +3,7 @@ from collections import OrderedDict
 from pyroute2 import netns
 from pyroute2.common import basestring
 from pyroute2.ndb.objects import RTNL_Object
+from pyroute2.ndb.report import Record
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
 
 
@@ -65,7 +66,15 @@ class NetNS(RTNL_Object):
             ret_spec = {'target': 'localhost/netns'}
         if isinstance(spec, basestring):
             ret_spec['path'] = spec
-        ret_spec['path'] = netns._get_netnspath(ret_spec['path'])
+        elif isinstance(spec, Record):
+            ret_spec.update(spec._as_dict())
+        path = netns._get_netnspath(ret_spec['path'])
+        # on Python3 _get_netnspath() returns bytes, not str, so
+        # we have to decode it here in order to avoid issues with
+        # cache keys and DB inserts
+        if hasattr(path, 'decode'):
+            path = path.decode('utf-8')
+        ret_spec['path'] = path
         return ret_spec
 
     def __setitem__(self, key, value):
