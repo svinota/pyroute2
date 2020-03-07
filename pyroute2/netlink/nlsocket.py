@@ -291,7 +291,8 @@ class NetlinkMixin(object):
                  rcvbuf=1048576,
                  all_ns=False,
                  async_qsize=None,
-                 nlm_generator=None):
+                 nlm_generator=None,
+                 target='localhost'):
         #
         # That's a trick. Python 2 is not able to construct
         # sockets from an open FD.
@@ -332,6 +333,7 @@ class NetlinkMixin(object):
         self.pthread = None
         self.closed = False
         self.uname = config.uname
+        self.target = target
         self.capabilities = {'create_bridge': config.kernel > [3, 2, 0],
                              'create_bond': config.kernel > [3, 2, 0],
                              'create_dummy': True,
@@ -795,6 +797,7 @@ class NetlinkMixin(object):
                                 # We've got the data, lock the backlog again
                                 with self.backlog_lock:
                                     for msg in msgs:
+                                        msg['header']['target'] = self.target
                                         msg['header']['stats'] = Stats(current,
                                                                        delta,
                                                                        delay)

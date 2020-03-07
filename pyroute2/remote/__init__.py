@@ -112,7 +112,7 @@ class ProxyChannel(object):
                                  'error': None})
 
 
-def Server(trnsp_in, trnsp_out, netns=None):
+def Server(trnsp_in, trnsp_out, netns=None, target='localhost'):
 
     def stop_server(signum, frame):
         Server.run = False
@@ -123,7 +123,7 @@ def Server(trnsp_in, trnsp_out, netns=None):
     try:
         if netns is not None:
             netnsmod.setns(netns)
-        ipr = IPRoute()
+        ipr = IPRoute(target=target)
         lock = ipr._sproxy.lock
         ipr._s_channel = ProxyChannel(trnsp_out, 'broadcast')
     except Exception as e:

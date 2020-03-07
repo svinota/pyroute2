@@ -11,7 +11,7 @@ from pyroute2.netlink.exceptions import SkipInode
 
 class NetNSManager(Inotify):
 
-    def __init__(self, libc=None, path=None):
+    def __init__(self, libc=None, path=None, target='netns_manager'):
         path = set(path or [])
         super(NetNSManager, self).__init__(libc, path)
         if not self.path:
@@ -23,6 +23,7 @@ class NetNSManager(Inotify):
         self.ipr = IPRoute()
         self.registry = {}
         self.update()
+        self.target = target
 
     def update(self):
         self.ipr.netns_path = self.path
@@ -35,11 +36,13 @@ class NetNSManager(Inotify):
             if msg is None:
                 info['header']['error'] = NetlinkError(errno.ECONNRESET)
                 info['header']['type'] = RTM_DELNETNS
+                info['header']['target'] = self.target
                 info['event'] = 'RTM_DELNETNS'
                 yield info
                 return
             path = '{path}/{name}'.format(**msg)
             info['header']['error'] = None
+            info['header']['target'] = self.target
             if path not in self.registry:
                 self.update()
             if path in self.registry:
@@ -66,6 +69,7 @@ class NetNSManager(Inotify):
             raise NetlinkError(e.errno)
         info = self.ipr._dump_one_ns(netnspath, set())
         info['header']['type'] = RTM_NEWNETNS
+        info['header']['target'] = self.target
         info['event'] = 'RTM_NEWNETNS'
         del info['value']
         return info,
@@ -78,6 +82,7 @@ class NetNSManager(Inotify):
         except SkipInode:
             raise NetlinkError(errno.EEXIST)
         info['header']['type'] = RTM_DELNETNS
+        info['header']['target'] = self.target
         info['event'] = 'RTM_DELNETNS'
         del info['value']
         try:

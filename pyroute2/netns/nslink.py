@@ -132,9 +132,10 @@ class NetNS(RTNL_API, RemoteSocket):
     Do not forget to call `release()` when the work is done. It will shut
     down `NetNS` instance as well.
     '''
-    def __init__(self, netns, flags=os.O_CREAT):
+    def __init__(self, netns, flags=os.O_CREAT, target=None):
         self.netns = netns
         self.flags = flags
+        target = target or netns
         trnsp_in, self.remote_trnsp_out = [Transport(FD(x))
                                            for x in os.pipe()]
         self.remote_trnsp_in, trnsp_out = [Transport(FD(x))
@@ -164,7 +165,9 @@ class NetNS(RTNL_API, RemoteSocket):
                 os._exit(255)
 
             try:
-                Server(self.remote_trnsp_in, self.remote_trnsp_out)
+                Server(self.remote_trnsp_in,
+                       self.remote_trnsp_out,
+                       target=target)
             finally:
                 os._exit(0)
 
@@ -172,6 +175,7 @@ class NetNS(RTNL_API, RemoteSocket):
             self.remote_trnsp_in.close()
             self.remote_trnsp_out.close()
             super(NetNS, self).__init__(trnsp_in, trnsp_out)
+            self.target = target
         except Exception:
             self.close()
             raise

@@ -412,6 +412,7 @@ class RTNL_API(object):
             if nsfd > 0:
                 os.close(nsfd)
         item['header']['type'] = RTM_NEWNETNS
+        item['header']['target'] = self.target
         item['event'] = 'RTM_NEWNETNS'
         return item
 
