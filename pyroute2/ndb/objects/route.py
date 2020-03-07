@@ -145,8 +145,8 @@ def load_rtmsg(schema, target, event):
         # set f_gc_mark = timestamp for "del" events
         # and clean it for "new" events
         #
-        schema.rtmsg_gc_mark(schema, target, event,
-                             int(time.time()) if (evt % 2) else None)
+        rtmsg_gc_mark(schema, target, event,
+                      int(time.time()) if (evt % 2) else None)
         #
         # continue with load_netlink()
         #

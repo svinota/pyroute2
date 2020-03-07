@@ -71,11 +71,13 @@ from pyroute2 import config
 from pyroute2 import cli
 from pyroute2.common import basestring
 from pyroute2.ndb import schema
-from pyroute2.ndb.events import (SyncStart,
-                                 MarkFailed,
-                                 DBMExitException,
+from pyroute2.ndb.events import (DBMExitException,
                                  ShutdownException,
                                  InvalidateHandlerException)
+from pyroute2.ndb.messages import (cmsg,
+                                   cmsg_event,
+                                   cmsg_failed,
+                                   cmsg_sstart)
 from pyroute2.ndb.source import Source
 from pyroute2.ndb.objects.interface import Interface
 from pyroute2.ndb.objects.address import Address
@@ -787,7 +789,7 @@ class NDB(object):
                         'kind': 'local',
                         'nlm_generator': 1}]
             if sys.platform.startswith('linux'):
-                sources.append({'target': 'localhost/netns',
+                sources.append({'target': 'nsmanager',
                                 'kind': 'nsmanager'})
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
@@ -813,7 +815,7 @@ class NDB(object):
         self.routes = View(self, 'routes')
         self.neighbours = View(self, 'neighbours')
         self.rules = View(self, 'rules')
-        self.netns = View(self, 'netns', default_target='localhost/netns')
+        self.netns = View(self, 'netns', default_target='nsmanager')
         self.query = Query(self.schema)
 
     def _get_view(self, name, match_src=None, match_pairs=None, chain=None):
@@ -851,14 +853,14 @@ class NDB(object):
                     pass
             # shutdown the _dbm_thread
             self._event_queue.shutdown()
-            self._event_queue.bypass(('localhost', (ShutdownException(), )))
+            self._event_queue.bypass((cmsg(None, ShutdownException()), ))
             self._dbm_thread.join()
 
     def __dbm__(self):
 
         def default_handler(target, event):
-            if isinstance(event, Exception):
-                raise event
+            if isinstance(getattr(event, 'payload', None), Exception):
+                raise event.payload
             log.warning('unsupported event ignored: %s' % type(event))
 
         def check_sources_started(self, _locals, target, event):
@@ -869,12 +871,12 @@ class NDB(object):
         _locals = {'countdown': len(self._nl)}
 
         # init the events map
-        event_map = {type(self._dbm_ready): [lambda t, x: x.set()],
-                     MarkFailed: [lambda t, x: (self
-                                                .schema
-                                                .mark(t, 1))],
-                     SyncStart: [partial(check_sources_started,
-                                         self, _locals)]}
+        event_map = {cmsg_event: [lambda t, x: x.payload.set()],
+                     cmsg_failed: [lambda t, x: (self
+                                                 .schema
+                                                 .mark(t, 1))],
+                     cmsg_sstart: [partial(check_sources_started,
+                                           self, _locals)]}
         self._event_map = event_map
 
         event_queue = self._event_queue
@@ -900,7 +902,8 @@ class NDB(object):
 
         stop = False
         while not stop:
-            target, events = event_queue.get()
+            events = event_queue.get()
+            log.error(events)
             try:
                 if events is None:
                     continue
@@ -911,6 +914,7 @@ class NDB(object):
                                              [default_handler, ])
                     for handler in tuple(handlers):
                         try:
+                            target = event['header']['target']
                             handler(target, event)
                         except InvalidateHandlerException:
                             try:

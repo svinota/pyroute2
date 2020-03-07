@@ -107,8 +107,8 @@ from pyroute2.ndb.objects import netns
 from pyroute2.ndb.objects import route
 from pyroute2.ndb.objects import rule
 
-# events
-from pyroute2.ndb.events import SchemaGenericRequest
+#
+from pyroute2.ndb.messages import cmsg
 
 try:
     import queue
@@ -143,8 +143,12 @@ def publish(method):
     #
     # this class will be used to map the requests
     #
-    class SchemaRequest(SchemaGenericRequest):
-        pass
+    class cmsg_req(cmsg):
+        def __init__(self, response, *argv, **kwarg):
+            self['header'] = {'target': None}
+            self.response = response
+            self.argv = argv
+            self.kwarg = kwarg
 
     #
     # this method will replace the source one
@@ -158,8 +162,8 @@ def publish(method):
             # another thread, run via message bus
             self._allow_read.wait()
             response = queue.Queue(maxsize=4096)
-            request = SchemaRequest(response, *argv, **kwarg)
-            self.ndb._event_queue.put((None, (request, )))
+            request = cmsg_req(response, *argv, **kwarg)
+            self.ndb._event_queue.put((request, ))
             while True:
                 item = response.get()
                 if isinstance(item, StopIteration):
@@ -172,7 +176,7 @@ def publish(method):
     #
     # announce the function so it will be published
     #
-    _do_dispatch.publish = (SchemaRequest, _do_local)
+    _do_dispatch.publish = (cmsg_req, _do_local)
 
     return _do_dispatch
 
@@ -194,8 +198,12 @@ def publish_exec(method):
     #
     # this class will be used to map the requests
     #
-    class SchemaRequest(SchemaGenericRequest):
-        pass
+    class cmsg_req(cmsg):
+        def __init__(self, response, *argv, **kwarg):
+            self['header'] = {'target': None}
+            self.response = response
+            self.argv = argv
+            self.kwarg = kwarg
 
     #
     # this method will replace the source one
@@ -207,8 +215,8 @@ def publish_exec(method):
         else:
             # another thread, run via message bus
             response = queue.Queue(maxsize=1)
-            request = SchemaRequest(response, *argv, **kwarg)
-            self.ndb._event_queue.put((None, (request, )))
+            request = cmsg_req(response, *argv, **kwarg)
+            self.ndb._event_queue.put((request, ))
             ret = response.get()
             if isinstance(ret, Exception):
                 raise ret
@@ -218,7 +226,7 @@ def publish_exec(method):
     #
     # announce the function so it will be published
     #
-    _do_dispatch.publish = (SchemaRequest, _do_local)
+    _do_dispatch.publish = (cmsg_req, _do_local)
 
     return _do_dispatch
 

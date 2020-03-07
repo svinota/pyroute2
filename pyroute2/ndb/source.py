@@ -78,12 +78,14 @@ import struct
 import threading
 from pyroute2 import IPRoute
 from pyroute2 import RemoteIPRoute
-from pyroute2.ndb.events import (SyncStart,
-                                 SchemaReadLock,
+from pyroute2.ndb.events import (SchemaReadLock,
                                  SchemaReadUnlock,
                                  ShutdownException,
-                                 MarkFailed,
                                  State)
+from pyroute2.ndb.messages import (cmsg,
+                                   cmsg_event,
+                                   cmsg_failed,
+                                   cmsg_sstart)
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.exceptions import NetlinkError
 if sys.platform.startswith('linux'):
@@ -121,12 +123,10 @@ class Source(dict):
         self.ndb = ndb
         self.evq = self.ndb._event_queue
         # the target id -- just in case
-        self.target = spec.pop('target')
+        self.target = spec['target']
         self.kind = spec.pop('kind', 'local')
         self.persistent = spec.pop('persistent', True)
         self.event = spec.pop('event')
-        if not self.event:
-            self.event = SyncStart()
         # RTNL API
         self.nl_prime = self.vmap[self.kind]
         self.nl_kwarg = spec
@@ -205,7 +205,6 @@ class Source(dict):
                         struct.error):
                     raise
                 except Exception as e:
-                    print(type(e))
                     # probably the source is restarting
                     self.log.debug('source api error: %s' % e)
                     time.sleep(1)
@@ -248,20 +247,22 @@ class Source(dict):
                     self.ndb.schema.allow_read(False)
                     try:
                         self.ndb.schema.flush(self.target)
-                        self.evq.put((self.target, self.nl.dump()))
+                        self.evq.put(self.nl.dump())
                     finally:
                         self.ndb.schema.allow_read(True)
                     self.started.set()
                     self.shutdown.clear()
                     self.state.set('running')
                     if self.event is not None:
-                        self.evq.put((self.target, (self.event, )))
+                        self.evq.put((cmsg_event(self.target, self.event), ))
+                    else:
+                        self.evq.put((cmsg_sstart(self.target), ))
                 except Exception as e:
                     self.started.set()
                     self.state.set('failed')
                     self.log.error('source error: %s %s' % (type(e), e))
                     try:
-                        self.evq.put((self.target, (MarkFailed(), )))
+                        self.evq.put((cmsg_failed(self.target), ))
                     except ShutdownException:
                         stop = True
                         break
@@ -297,7 +298,7 @@ class Source(dict):
 
                 self.ndb.schema._allow_write.wait()
                 try:
-                    self.evq.put((self.target, msg))
+                    self.evq.put(msg)
                 except ShutdownException:
                     stop = True
                     break
@@ -317,7 +318,7 @@ class Source(dict):
     def sync(self):
         self.log.debug('sync')
         sync = threading.Event()
-        self.evq.put((self.target, (sync, )))
+        self.evq.put((cmsg_event(self.target, sync), ))
         sync.wait()
 
     def start(self):
@@ -358,14 +359,14 @@ class Source(dict):
         with self.lock:
             if not self.shutdown.is_set():
                 self.log.debug('restarting the source, reason <%s>' % (reason))
-                self.evq.put((self.target, (SchemaReadLock(), )))
+                self.evq.put((cmsg(self.target, SchemaReadLock()), ))
                 try:
                     self.close()
                     if self.th:
                         self.th.join()
                     self.start()
                 finally:
-                    self.evq.put((self.target, (SchemaReadUnlock(), )))
+                    self.evq.put((cmsg(self.target, SchemaReadUnlock()), ))
 
     def __enter__(self):
         return self
