@@ -319,10 +319,9 @@ class View(dict):
             rcount = len(gc.get_referrers(self.cache[ckey]))
             # The number of changed rtnl_object fields must
             # be 0 which means that no transaction is started
-            ccount = len(self.cache[ckey].changed)
-            if rcount == 1 and ccount == 0:
+            if rcount == 1 and self.cache[ckey].clean:
                 self.log.debug('cache del %s' % (ckey, ))
-                del self.cache[ckey]
+                self.cache.pop(ckey, None)
 
         # Cache only existing objects
         if ret.state == 'system':
