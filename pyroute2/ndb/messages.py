@@ -3,8 +3,8 @@
 class cmsg(dict):
 
     def __init__(self, target, payload=None):
-            self['header'] = {'target': target}
-            self.payload = payload
+        self['header'] = {'target': target}
+        self.payload = payload
 
 
 class cmsg_event(cmsg):
