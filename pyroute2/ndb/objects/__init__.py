@@ -195,7 +195,8 @@ class RTNL_Object(dict):
                  iclass,
                  ctxid=None,
                  match_src=None,
-                 match_pairs=None):
+                 match_pairs=None,
+                 load=True):
         self.view = view
         self.ndb = view.ndb
         self.sources = view.ndb.sources
@@ -207,6 +208,7 @@ class RTNL_Object(dict):
         self.iclass = iclass
         self.utable = self.utable or self.table
         self.errors = []
+        self.atime = time.time()
         self.log = self.ndb.log.channel('rtnl_object')
         self.log.debug('init')
         self.state = State()
@@ -227,22 +229,23 @@ class RTNL_Object(dict):
             self.chain = None
             create = False
         ckey = self.complete_key(key)
-        if create and ckey is not None:
-            raise KeyError('object exists')
-        elif not create and ckey is None:
-            raise KeyError('object does not exists')
-        elif create:
+        if create:
+            if ckey is not None:
+                raise KeyError('object exists')
             for name in key:
                 self[name] = key[name]
             # FIXME -- merge with complete_key()
             if 'target' not in self:
                 self.load_value('target', self.view.default_target)
-        elif ctxid is None:
-            self.key = ckey
-            self.load_sql()
         else:
+            if ckey is None:
+                raise KeyError('object does not exists')
             self.key = ckey
-            self.load_sql(table=self.table)
+            if load:
+                if ctxid is None:
+                    self.load_sql()
+                else:
+                    self.load_sql(table=self.table)
 
     def mark_tflags(self, mark):
         pass

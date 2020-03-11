@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+import time
 import random
 import threading
 from utils import grep
@@ -8,6 +9,7 @@ from utils import require_user
 from utils import skip_if_not_supported
 from utils import allocate_network
 from utils import free_network
+from pyroute2 import config
 from pyroute2 import netns
 from pyroute2 import NDB
 from pyroute2 import IPRoute
@@ -21,6 +23,39 @@ from pyroute2.ndb.objects import RTNL_Object
 
 
 class TestMisc(object):
+
+    def test_view_cache(self):
+        require_user('root')
+        log_id = str(uuid.uuid4())
+        ifname1 = uifname()
+        ifname2 = uifname()
+        with NDB(log='../ndb-%s-%s.log' % (os.getpid(), log_id),
+                 rtnl_debug=True) as ndb:
+            # the cache is empty from the beginning
+            assert len(list(ndb.interfaces.cache)) == 0
+            # create test interfaces
+            ndb.interfaces.create(ifname=ifname1, kind='dummy').commit()
+            ndb.interfaces.create(ifname=ifname2, kind='dummy').commit()
+            # the interfaces must not be cached
+            assert len(list(ndb.interfaces.cache)) == 0
+            # setup the cache expiration time
+            ce = config.cache_expire
+            config.cache_expire = 1
+            # access the interfaces via __getitem__()
+            assert ndb.interfaces[ifname1] is not None
+            assert ndb.interfaces[ifname2] is not None
+            # both must be in the cache
+            assert len(list(ndb.interfaces.cache)) == 2
+            # expire the cache
+            time.sleep(1)
+            # access the second interface to trigger the cache invalidation
+            assert ndb.interfaces[ifname2] is not None
+            # only ifname2 must remain in the cache
+            assert len(list(ndb.interfaces.cache)) == 1
+            # restore the environment
+            config.cache_expire = ce
+            ndb.interfaces[ifname1].remove().commit()
+            ndb.interfaces[ifname2].remove().commit()
 
     @skip_if_not_supported
     def test_multiple_sources(self):

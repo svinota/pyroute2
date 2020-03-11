@@ -14,6 +14,7 @@ async_qsize = 4096
 commit_barrier = 0
 gc_timeout = 60
 db_transaction_limit = 1
+cache_expire = 60
 
 # save uname() on startup time: it is not so
 # highly possible that the kernel will be

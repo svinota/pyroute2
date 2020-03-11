@@ -300,12 +300,15 @@ class View(dict):
         ret = iclass(self,
                      key,
                      match_src=match_src,
-                     match_pairs=match_pairs)
+                     match_pairs=match_pairs,
+                     load=False)
 
         # rtnl_object.key() returns a dcitionary that can not
         # be used as a cache key. Create here a tuple from it.
         # The key order guaranteed by the dictionary.
         cache_key = tuple(ret.key.items())
+
+        rtime = time.time()
 
         # Iterate all the cache to remove unused and clean
         # (without any started transaction) objects.
@@ -317,25 +320,27 @@ class View(dict):
             # The number of referrers must be > 1, the first
             # one is the cache itself
             rcount = len(gc.get_referrers(self.cache[ckey]))
+            # Remove only expired items
+            expired = (rtime - self.cache[ckey].atime) > config.cache_expire
             # The number of changed rtnl_object fields must
             # be 0 which means that no transaction is started
-            if rcount == 1 and self.cache[ckey].clean:
+            if rcount == 1 and self.cache[ckey].clean and expired:
                 self.log.debug('cache del %s' % (ckey, ))
                 self.cache.pop(ckey, None)
 
-        # Cache only existing objects
-        if ret.state == 'system':
-            if cache_key in self.cache:
-                self.log.debug('cache hit %s' % (cache_key, ))
-                # Explicitly get rid of the created object
-                del ret
-                # The object from the cache has already
-                # registered callbacks, simply return it
-                ret = self.cache[cache_key]
-                return ret
-            else:
+        if cache_key in self.cache:
+            self.log.debug('cache hit %s' % (cache_key, ))
+            # Explicitly get rid of the created object
+            del ret
+            # The object from the cache has already
+            # registered callbacks, simply return it
+            ret = self.cache[cache_key]
+            ret.atime = rtime
+            return ret
+        else:
+            # Cache only existing objects
+            if ret.load_sql():
                 self.log.debug('cache add %s' % (cache_key, ))
-                # Otherwise create a cache entry
                 self.cache[cache_key] = ret
 
         ret.register()
