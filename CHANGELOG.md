@@ -1,6 +1,17 @@
 Changelog
 =========
 
+* 0.5.10
+    * general: don't use pkg_resources <https://github.com/svinota/pyroute2/issues/677>
+    * iproute: fix Windows support
+    * netlink: provide the target field
+    * ndb: use the target field from the netlink header
+    * ndb: multiple SQL fixes, transactions fixed with the PostgreSQL backend
+    * ndb: multiple object cache fixes <https://github.com/svinota/pyroute2/issues/683>
+    * ndb.schema: drop DB triggers
+    * ndb.objects: fix object management within a netns <https://github.com/svinota/pyroute2/issues/628>
+    * ndb.objects.route: support route metrics
+    * ndb.objects.route: fix default route syntax
 * 0.5.9
     * ethtool: fix module setup
 * 0.5.8
