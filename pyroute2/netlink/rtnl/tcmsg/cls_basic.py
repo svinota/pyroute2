@@ -7,7 +7,7 @@ Examples with ipset matches::
 
     # Prepare a simple match on an ipset at index 0 src
     # (the first ipset name that appears when running `ipset list`)
-    match = [{"kind": "ipset", index": 0, "mode": "src"}]
+    match = [{"kind": "ipset", "index": 0, "mode": "src"}]
     ip.tc("add-filter", "basic", ifb0,
           parent=0x10000, classid=0x10010, match=match)
 
