@@ -907,7 +907,6 @@ class NDB(object):
         stop = False
         while not stop:
             events = event_queue.get()
-            log.error(events)
             try:
                 if events is None:
                     continue
