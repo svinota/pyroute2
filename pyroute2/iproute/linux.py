@@ -46,6 +46,7 @@ from pyroute2.netlink.rtnl import RTM_SETLINK
 from pyroute2.netlink.rtnl import RTM_GETNEIGHTBL
 from pyroute2.netlink.rtnl import RTM_GETNSID
 from pyroute2.netlink.rtnl import RTM_NEWNETNS
+from pyroute2.netlink.rtnl import RTM_GETSTATS
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rt_type
 from pyroute2.netlink.rtnl import rt_scope
@@ -64,6 +65,7 @@ from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifinfmsg import IFF_NOARP
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink.rtnl.ifstatsmsg import ifstatsmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
 from pyroute2.netlink.rtnl.iprsocket import IPBatchSocket
 from pyroute2.netlink.rtnl.riprsocket import RawIPRSocket
@@ -1987,6 +1989,34 @@ class RTNL_API(object):
             ret = self._match(kwarg['match'], ret)
 
         if not (command == RTM_GETRULE and self.nlm_generator):
+            ret = tuple(ret)
+
+        return ret
+
+    def stats(self, command, **kwarg):
+        '''
+        Stats prototype.
+        '''
+        if (command == 'dump') and ('match' not in kwarg):
+            match = kwarg
+        else:
+            match = kwarg.pop('match', None)
+
+        commands = {'dump': (RTM_GETSTATS, NLM_F_REQUEST | NLM_F_DUMP),
+                    'get': (RTM_GETSTATS, NLM_F_REQUEST | NLM_F_ACK)}
+        command, flags = commands.get(command, command)
+
+        msg = ifstatsmsg()
+        msg['filter_mask'] = kwarg.get('filter_mask', 31)
+        msg['ifindex'] = kwarg.get('ifindex', 0)
+
+        ret = self.nlm_request(msg,
+                               msg_type=command,
+                               msg_flags=flags)
+        if match is not None:
+            ret = self._match(match, ret)
+
+        if not (command == RTM_GETSTATS and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
