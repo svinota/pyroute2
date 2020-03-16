@@ -1383,10 +1383,10 @@ class TestSchema(TestPreSet):
                    set([x[0] for x in
                         self.fetch('select f_index from interfaces')])) == 0
 
-    def test_vlan_interfaces(self):
+    def _test_vlan_interfaces(self):
         assert len(tuple(self.fetch('select * from vlan'))) >= 2
 
-    def test_bridge_interfaces(self):
+    def _test_bridge_interfaces(self):
         assert len(tuple(self.fetch('select * from bridge'))) >= 1
 
 

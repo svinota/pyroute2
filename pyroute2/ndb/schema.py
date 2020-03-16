@@ -295,14 +295,6 @@ class DBSchema(object):
                                                   self.indices[table]))
             self.create_table(table)
 
-            if table.startswith('ifinfo_'):
-                idx = ('index', )
-                self.compiled[table[7:]] = self.merge_spec('interfaces',
-                                                           table,
-                                                           table[7:],
-                                                           idx)
-                self.create_ifinfo_view(table)
-
         #
         # service tables
         #
@@ -560,31 +552,6 @@ class DBSchema(object):
     def commit(self):
         self.connection.commit()
 
-    def create_ifinfo_view(self, table, ctxid=None):
-        # FIXME: move to the object module
-        iftable = 'interfaces'
-
-        req = (('main.f_target', 'main.f_tflags') +
-               tuple(['main.f_%s' % x[-1] for x
-                      in self.spec['interfaces'].keys()]) +
-               tuple(['data.f_%s' % x[-1] for x
-                      in self.spec[table].keys()])[:-2])
-        # -> ... main.f_index, main.f_IFLA_IFNAME, ..., data.f_IFLA_BR_GC_TIMER
-        if ctxid is not None:
-            iftable = '%s_%s' % (iftable, ctxid)
-            table = '%s_%s' % (table, ctxid)
-        self.execute('''
-                     DROP VIEW IF EXISTS %s
-                     ''' % table[7:])
-        self.execute('''
-                     CREATE VIEW %s AS
-                     SELECT %s FROM %s AS main
-                     INNER JOIN %s AS data ON
-                         main.f_index = data.f_index
-                     AND
-                         main.f_target = data.f_target
-                     ''' % (table[7:], ','.join(req), iftable, table))
-
     def create_table(self, table):
         req = ['f_target TEXT NOT NULL',
                'f_tflags BIGINT NOT NULL DEFAULT 0']
@@ -733,9 +700,6 @@ class DBSchema(object):
                          '''
                          % (table, ctxid, table, self.plch),
                          [uuid])
-
-            if table.startswith('ifinfo_'):
-                self.create_ifinfo_view(table, ctxid)
         #
         # unmark all the data
         #
