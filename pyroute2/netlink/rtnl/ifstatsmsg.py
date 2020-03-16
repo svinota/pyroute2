@@ -13,7 +13,7 @@ class ifstatsmsg(nlmsg):
     nla_map = (('IFLA_STATS_UNSPEC', 'none'),
                ('IFLA_STATS_LINK_64', 'ifstats64'),
                ('IFLA_STATS_LINK_XSTATS', 'ifxstats'),
-               ('IFLA_STATS_LINK_XSTATS_SLAVE', 'hex'),
+               ('IFLA_STATS_LINK_XSTATS_SLAVE', 'ifxstats'),
                ('IFLA_STATS_LINK_OFFLOAD_XSTATS', 'hex'),
                ('IFLA_STATS_AF_SPEC', 'hex'))
 
