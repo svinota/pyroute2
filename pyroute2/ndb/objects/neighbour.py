@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from pyroute2.config import AF_BRIDGE
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
@@ -10,15 +11,33 @@ def load_ndmsg(schema, target, event):
     #
     if event['ifindex'] == 0:
         return
+    #
+    # AF_BRIDGE events
+    #
+    if event['family'] == AF_BRIDGE:
+        #
+        # bypass for now
+        #
+        schema.load_netlink('bridge_fdb', target, event)
+        return
 
     schema.load_netlink('neighbours', target, event)
 
 
-init = {'specs': [['neighbours', OrderedDict(ndmsg.sql_schema())]],
-        'classes': [['neighbours', ndmsg]],
-        'indices': [['neighbours', ('ifindex',
-                                    'NDA_LLADDR')]],
+init = {'specs': [['neighbours', OrderedDict(ndmsg.sql_schema())],
+                  ['bridge_fdb', OrderedDict(ndmsg.sql_schema())]],
+        'classes': [['neighbours', ndmsg],
+                    ['bridge_fdb', ndmsg]],
+        'indices': [['neighbours', ('ifindex', 'NDA_LLADDR')],
+                    ['bridge_fdb', ('ifindex', 'NDA_LLADDR')]],
         'foreign_keys': [['neighbours', [{'fields': ('f_target',
+                                                     'f_tflags',
+                                                     'f_ifindex'),
+                                          'parent_fields': ('f_target',
+                                                            'f_tflags',
+                                                            'f_index'),
+                                          'parent': 'interfaces'}]],
+                         ['bridge_fdb', [{'fields': ('f_target',
                                                      'f_tflags',
                                                      'f_ifindex'),
                                           'parent_fields': ('f_target',
