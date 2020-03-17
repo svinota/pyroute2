@@ -173,6 +173,8 @@ class RTNL_API(object):
                        self.get_addr,
                        self.get_neighbours,
                        self.get_routes,
+                       self.get_vlans,
+                       partial(self.fdb, 'dump'),
                        partial(self.get_rules, family=AF_INET),
                        partial(self.get_rules, family=AF_INET6)):
             for msg in method():
