@@ -905,6 +905,7 @@ class ifinfbase(object):
                 nla.encode(self)
 
         class vlan_info(nla):
+            prefix = ''
             fields = (('flags', 'H'),
                       ('vid', 'H'))
 

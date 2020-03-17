@@ -28,8 +28,8 @@ init = {'specs': [['neighbours', OrderedDict(ndmsg.sql_schema())],
                   ['bridge_fdb', OrderedDict(ndmsg.sql_schema())]],
         'classes': [['neighbours', ndmsg],
                     ['bridge_fdb', ndmsg]],
-        'indices': [['neighbours', ('ifindex', 'NDA_LLADDR')],
-                    ['bridge_fdb', ('ifindex', 'NDA_LLADDR')]],
+        'indices': [['neighbours', ('ifindex', 'NDA_LLADDR', 'NDA_VLAN')],
+                    ['bridge_fdb', ('ifindex', 'NDA_LLADDR', 'NDA_VLAN')]],
         'foreign_keys': [['neighbours', [{'fields': ('f_target',
                                                      'f_tflags',
                                                      'f_ifindex'),
@@ -82,3 +82,9 @@ class Neighbour(RTNL_Object):
             ret_key['NDA_DST'] = key
 
         return super(Neighbour, self).complete_key(ret_key)
+
+    def make_req(self, prime):
+        req = super(Neighbour, self).make_req(prime)
+        if 'vlan' in req and req['vlan'] == 0:
+            req.pop('vlan')
+        return req

@@ -131,6 +131,15 @@ def load_ifinfmsg(schema, target, event):
         #
         # bypass for now
         #
+        schema.load_netlink('bridge_vlans', target, event)
+        vlans = (event
+                 .get_attr('IFLA_AF_SPEC')
+                 .get_attrs('IFLA_BRIDGE_VLAN_INFO'))
+        for v in vlans:
+            v['index'] = event['index']
+            v['header'] = {'type': event['header']['type']}
+            schema.load_netlink('bridge_vlan_info', target, v)
+
         return
 
     schema.load_netlink('interfaces', target, event)
@@ -175,12 +184,20 @@ def load_ifinfmsg(schema, target, event):
 
 init = {'specs': [['interfaces', OrderedDict(ifinfmsg.sql_schema())],
                   ['bridge_vlans', OrderedDict(ifinfmsg.sql_schema())],
+                  ['bridge_vlan_info', OrderedDict(ifinfmsg
+                                                   .af_spec_bridge
+                                                   .vlan_info
+                                                   .sql_schema() +
+                                                   [(('index', ),
+                                                    'INTEGER')])],
                   ['p2p', OrderedDict(p2pmsg.sql_schema())]],
         'classes': [['interfaces', ifinfmsg],
                     ['bridge_vlans', ifinfmsg],
+                    ['bridge_vlan_info', ifinfmsg.af_spec_bridge.vlan_info],
                     ['p2p', p2pmsg]],
         'indices': [['interfaces', ('index', )],
                     ['bridge_vlans', ('index', )],
+                    ['bridge_vlan_info', ('vid', 'index')],
                     ['p2p', ('index', )]],
         'foreign_keys': [['bridge_vlans', [{'fields': ('f_target',
                                                        'f_tflags',
@@ -189,6 +206,13 @@ init = {'specs': [['interfaces', OrderedDict(ifinfmsg.sql_schema())],
                                                               'f_tflags',
                                                               'f_index'),
                                             'parent': 'interfaces'}]],
+                         ['bridge_vlan_info', [{'fields': ('f_target',
+                                                           'f_tflags',
+                                                           'f_index', ),
+                                                'parent_fields': ('f_target',
+                                                                  'f_tflags',
+                                                                  'f_index', ),
+                                                'parent': 'bridge_vlans'}]],
                          ['p2p', [{'fields': ('f_target',
                                               'f_tflags',
                                               'f_index'),
