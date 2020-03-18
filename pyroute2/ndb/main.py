@@ -1,14 +1,4 @@
 '''
-
-NDB is a high level network management module. IT allows to manage interfaces,
-routes, addresses etc. of connected systems, containers and network
-namespaces.
-
-NDB work with remote systems via ssh, in that case
-`mitogen <https://github.com/dw/mitogen>`_ module is required. It is
-possible to connect also OpenBSD and FreeBSD systems, but in read-only
-mode for now.
-
 Quick start
 -----------
 
