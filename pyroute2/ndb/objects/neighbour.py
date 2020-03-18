@@ -20,7 +20,7 @@ def load_ndmsg(schema, target, event):
         # bypass for now
         #
         try:
-            schema.load_netlink('bridge_fdb', target, event, propagate=True)
+            schema.load_netlink('af_bridge_fdb', target, event, propagate=True)
         except Exception:
             raise RescheduleException()
 
@@ -29,11 +29,11 @@ def load_ndmsg(schema, target, event):
 
 
 init = {'specs': [['neighbours', OrderedDict(ndmsg.sql_schema())],
-                  ['bridge_fdb', OrderedDict(ndmsg.sql_schema())]],
+                  ['af_bridge_fdb', OrderedDict(ndmsg.sql_schema())]],
         'classes': [['neighbours', ndmsg],
-                    ['bridge_fdb', ndmsg]],
+                    ['af_bridge_fdb', ndmsg]],
         'indices': [['neighbours', ('ifindex', 'NDA_LLADDR', 'NDA_VLAN')],
-                    ['bridge_fdb', ('ifindex', 'NDA_LLADDR', 'NDA_VLAN')]],
+                    ['af_bridge_fdb', ('ifindex', 'NDA_LLADDR', 'NDA_VLAN')]],
         'foreign_keys': [['neighbours', [{'fields': ('f_target',
                                                      'f_tflags',
                                                      'f_ifindex'),
@@ -41,13 +41,13 @@ init = {'specs': [['neighbours', OrderedDict(ndmsg.sql_schema())],
                                                             'f_tflags',
                                                             'f_index'),
                                           'parent': 'interfaces'}]],
-                         ['bridge_fdb', [{'fields': ('f_target',
-                                                     'f_tflags',
-                                                     'f_ifindex'),
-                                          'parent_fields': ('f_target',
-                                                            'f_tflags',
-                                                            'f_index'),
-                                          'parent': 'interfaces'}]]],
+                         ['af_bridge_fdb', [{'fields': ('f_target',
+                                                        'f_tflags',
+                                                        'f_ifindex'),
+                                             'parent_fields': ('f_target',
+                                                               'f_tflags',
+                                                               'f_index'),
+                                             'parent': 'interfaces'}]]],
         'event_map': {ndmsg: [load_ndmsg]}}
 
 
