@@ -780,7 +780,7 @@ class DBSchema(object):
         self.execute('INSERT INTO %s_log (%s) VALUES (%s)'
                      % (table, fields, pch), values)
 
-    def load_netlink(self, table, target, event, ctable=None):
+    def load_netlink(self, table, target, event, ctable=None, propagate=False):
         #
         if self.rtnl_log:
             self.log_netlink(table, target, event, ctable)
@@ -917,7 +917,10 @@ class DBSchema(object):
                 else:
                     raise NotImplementedError()
                 #
-            except Exception:
+            except Exception as e:
+                #
+                if propagate:
+                    raise e
                 #
                 # A good question, what should we do here
                 self.log.debug('load_netlink: %s %s %s'
