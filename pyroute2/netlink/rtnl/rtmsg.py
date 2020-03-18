@@ -646,6 +646,7 @@ class rtmsg_base(nlflags):
         __slots__ = ()
 
         fields = (('value', 's'), )
+        sql_type = 'TEXT'
 
         def encode(self):
             family = self.get('family', AF_UNSPEC)
