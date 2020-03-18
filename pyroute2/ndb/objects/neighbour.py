@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from pyroute2.config import AF_BRIDGE
 from pyroute2.ndb.objects import RTNL_Object
+from pyroute2.ndb.events import RescheduleException
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 
@@ -18,10 +19,13 @@ def load_ndmsg(schema, target, event):
         #
         # bypass for now
         #
-        schema.load_netlink('bridge_fdb', target, event)
-        return
+        try:
+            schema.load_netlink('bridge_fdb', target, event, propagate=True)
+        except Exception:
+            raise RescheduleException()
 
-    schema.load_netlink('neighbours', target, event)
+    else:
+        schema.load_netlink('neighbours', target, event)
 
 
 init = {'specs': [['neighbours', OrderedDict(ndmsg.sql_schema())],
