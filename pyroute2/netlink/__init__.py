@@ -1595,14 +1595,14 @@ class nlmsg_atoms(nlmsg_base):
     class uint32(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', 'I')]
 
     class uint64(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', 'Q')]
 
@@ -1623,14 +1623,14 @@ class nlmsg_atoms(nlmsg_base):
     class int32(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', 'i')]
 
     class int64(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', 'q')]
 
@@ -1651,14 +1651,14 @@ class nlmsg_atoms(nlmsg_base):
     class be32(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', '>I')]
 
     class be64(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', '>Q')]
 
