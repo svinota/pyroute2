@@ -7,22 +7,23 @@ implementation, so the name is **pyroute2**, but now it supports many netlink
 protocols. Some supported netlink families and protocols:
 
 * **rtnl**, network settings --- addresses, routes, traffic controls
-* **nfnetlink** --- netfilter API: **ipset**, **nftables**, ...
+* **nfnetlink** --- netfilter API:
+
+    * **ipset** --- IP sets
+    * **nftables** --- packet filtering
+    * **nfct** --- connection tracking
+
 * **ipq** --- simplest userspace packet filtering, iptables QUEUE target
 * **devlink** --- manage and monitor devlink-enabled hardware
-* **generic** --- generic netlink families
+* **generic** --- generic netlink families:
+
     * **ethtool** --- low-level network interface setup
+    * **wireguard** --- VPN setup
     * **nl80211** --- wireless functions API (basic support)
     * **taskstats** --- extended process statistics
     * **acpi_events** --- ACPI events monitoring
     * **thermal_events** --- thermal events monitoring
     * **VFS_DQUOT** --- disk quota events monitoring
-
-Latest important milestones:
-
-* 0.5.8 --- **Ethtool** support
-* 0.5.7 --- **WireGuard** support
-* 0.5.2 --- **PF_ROUTE** support on FreeBSD and OpenBSD
 
 Supported systems
 -----------------
@@ -214,12 +215,13 @@ Requirements
 
 Python >= 2.7
 
-The pyroute2 testing framework requirements:
+The pyroute2 testing and documentaion framework requirements:
 
 * flake8
 * coverage
 * nosetests
 * sphinx
+* aafigure
 * netaddr
 * dtcd (optional, https://github.com/svinota/dtcd)
 
