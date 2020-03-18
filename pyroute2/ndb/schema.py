@@ -89,6 +89,7 @@ There are also some useful views, that join `ifinfo` tables with
 
 '''
 import sys
+import json
 import time
 import random
 import sqlite3
@@ -864,6 +865,8 @@ class DBSchema(object):
                 if value is None and \
                         fname[-1] in self.compiled[table]['idx']:
                     value = self.key_defaults[table][fname[-1]]
+                if isinstance(value, (list, dict, tuple)):
+                    value = json.dumps(value)
                 if fname[-1] in compiled['idx']:
                     ivalues.append(value)
                 values.append(value)
