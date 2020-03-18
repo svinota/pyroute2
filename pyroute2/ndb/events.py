@@ -36,6 +36,10 @@ class ShutdownException(Exception):
     pass
 
 
+class RescheduleException(Exception):
+    pass
+
+
 class InvalidateHandlerException(Exception):
     pass
 

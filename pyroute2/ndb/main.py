@@ -73,7 +73,8 @@ from pyroute2.common import basestring
 from pyroute2.ndb import schema
 from pyroute2.ndb.events import (DBMExitException,
                                  ShutdownException,
-                                 InvalidateHandlerException)
+                                 InvalidateHandlerException,
+                                 RescheduleException)
 from pyroute2.ndb.messages import (cmsg,
                                    cmsg_event,
                                    cmsg_failed,
@@ -757,6 +758,13 @@ class EventQueue(object):
         return self._bypass.qsize()
 
 
+def Events(*argv):
+    for sequence in argv:
+        if sequence is not None:
+            for item in sequence:
+                yield item
+
+
 class NDB(object):
 
     def __init__(self,
@@ -905,13 +913,11 @@ class NDB(object):
                 self.register_handler(event, handler)
 
         stop = False
+        reschedule = []
         while not stop:
-            events = event_queue.get()
+            events = Events(event_queue.get(), reschedule)
+            reschedule = []
             try:
-                if events is None:
-                    continue
-                # if nlm_generator is True, an exception can come
-                # here while iterating events
                 for event in events:
                     handlers = event_map.get(event.__class__,
                                              [default_handler, ])
@@ -919,21 +925,30 @@ class NDB(object):
                         try:
                             target = event['header']['target']
                             handler(target, event)
+                        except RescheduleException:
+                            if 'rcounter' not in event['header']:
+                                event['header']['rcounter'] = 0
+                            if event['header']['rcounter'] < 3:
+                                event['header']['rcounter'] += 1
+                                self.log.debug('reschedule %s' % (event, ))
+                                reschedule.append(event)
+                            else:
+                                self.log.error('drop %s' % (event, ))
                         except InvalidateHandlerException:
                             try:
                                 handlers.remove(handler)
                             except:
-                                log.error('could not invalidate '
-                                          'event handler:\n%s'
-                                          % traceback.format_exc())
+                                self.log.error('could not invalidate '
+                                               'event handler:\n%s'
+                                               % traceback.format_exc())
                         except ShutdownException:
                             stop = True
                             break
                         except DBMExitException:
                             return
                         except:
-                            log.error('could not load event:\n%s\n%s'
-                                      % (event, traceback.format_exc()))
+                            self.log.error('could not load event:\n%s\n%s'
+                                           % (event, traceback.format_exc()))
                     if time.time() - self.gctime > config.gc_timeout:
                         self.gctime = time.time()
             except Exception as e:
