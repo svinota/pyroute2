@@ -88,6 +88,11 @@ _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
 def load_rtmsg(schema, target, event):
     mp = event.get_attr('RTA_MULTIPATH')
 
+    # fix RTA_TABLE
+    rta_table = event.get_attr('RTA_TABLE', -1)
+    if rta_table == -1:
+        event['attrs'].append(['RTA_TABLE', 254])
+
     # create an mp route
     if (not event['header']['type'] % 2) and mp:
         #
