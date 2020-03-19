@@ -71,6 +71,7 @@ reflects route metrics like hop limit, mtu etc::
 '''
 import time
 import uuid
+import json
 import struct
 from socket import AF_INET
 from socket import inet_pton
@@ -78,6 +79,7 @@ from collections import OrderedDict
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.ndb.report import Record
 from pyroute2.common import basestring
+from pyroute2.common import AF_MPLS
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
 
@@ -441,6 +443,13 @@ class Route(RTNL_Object):
 
     def load_sql(self, *argv, **kwarg):
         super(Route, self).load_sql(*argv, **kwarg)
+        # transform MPLS
+        if self.get('family', 0) == AF_MPLS:
+            for field in ('newdst', 'dst', 'src', 'via'):
+                value = self.get(field, None)
+                if value is not None:
+                    dict.__setitem__(self, field, json.loads(value))
+
         if not self.load_event.is_set():
             return
         if 'nh_id' not in self and self.get('route_id') is not None:
