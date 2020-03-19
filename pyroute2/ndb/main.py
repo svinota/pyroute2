@@ -104,7 +104,20 @@ def target_adapter(value):
     return json.dumps(value)
 
 
+class PostgreSQLAdapter(object):
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def getquoted(self):
+        return "'%s'" % json.dumps(self.obj)
+
+
 sqlite3.register_adapter(list, target_adapter)
+sqlite3.register_adapter(dict, target_adapter)
+if psycopg2 is not None:
+    psycopg2.extensions.register_adapter(list, PostgreSQLAdapter)
+    psycopg2.extensions.register_adapter(dict, PostgreSQLAdapter)
 
 
 class View(dict):
@@ -425,7 +438,9 @@ class View(dict):
             lines = json.dumps(dict(zip(fnames, record)), indent=4).split('\n')
             buf.append('    {')
             for line in sorted(lines[1:-1]):
-                buf.append('    %s,' % line.split(',')[0])
+                if line[-1] == ',':
+                    line = line[:-1]
+                buf.append('    %s,' % line)
             buf[-1] = buf[-1][:-1]
             buf.append('    }')
         for line in buf:
