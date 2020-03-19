@@ -74,7 +74,9 @@ class rtmsg_base(nlflags):
     prefix = 'RTA_'
     sql_constraints = {'RTA_TABLE': 'NOT NULL DEFAULT 0',
                        'RTA_DST': "NOT NULL DEFAULT ''",
-                       'RTA_PRIORITY': 'NOT NULL DEFAULT 0'}
+                       'RTA_PRIORITY': 'NOT NULL DEFAULT 0',
+                       'RTA_VIA': "NOT NULL DEFAULT ''",
+                       'RTA_NEWDST': "NOT NULL DEFAULT ''"}
 
     fields = (('family', 'B'),
               ('dst_len', 'B'),
