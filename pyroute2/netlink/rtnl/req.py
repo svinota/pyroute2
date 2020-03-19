@@ -353,6 +353,9 @@ class IPRouteRequest(IPRequest):
         # fix family
         if isinstance(value, basestring) and value.find(':') >= 0:
             self['family'] = AF_INET6
+        # ignore empty strings as value
+        if value == '':
+            return
         # work on the rest
         if key == 'family' and value == AF_MPLS:
             dict.__setitem__(self, 'family', value)
@@ -362,14 +365,11 @@ class IPRouteRequest(IPRequest):
         elif key == 'flags' and self.get('family', None) == AF_MPLS:
             return
         elif key in ('dst', 'src'):
-            if isinstance(value, dict):
+            if isinstance(value, (tuple, list, dict)):
                 dict.__setitem__(self, key, value)
             elif isinstance(value, int):
                 dict.__setitem__(self, key, {'label': value,
                                              'bos': 1})
-            elif value == '':
-                # ignore empty values for src/dst
-                return
             elif value != 'default':
                 value = value.split('/')
                 mask = None
