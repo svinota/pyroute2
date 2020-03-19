@@ -1,4 +1,5 @@
 import os
+import csv
 import json
 import uuid
 import time
@@ -1446,6 +1447,14 @@ class TestSources(TestPreSet):
             assert s == 0
 
 
+class MD(csv.Dialect):
+    quotechar = "'"
+    doublequote = False
+    quoting = csv.QUOTE_MINIMAL
+    delimiter = ","
+    lineterminator = "\n"
+
+
 class TestReports(TestPreSet):
 
     def test_types(self):
@@ -1487,8 +1496,9 @@ class TestReports(TestPreSet):
             else:
                 assert len(record) == record_length
 
-        for record in self.ndb.routes.dump(format='csv'):
-            assert len(record.split(',')) == record_length
+        reader = csv.reader(self.ndb.routes.dump(format='csv'), dialect=MD())
+        for record in reader:
+            assert len(record) == record_length
 
     def test_nested_ipaddr(self):
         records = len(repr(self
