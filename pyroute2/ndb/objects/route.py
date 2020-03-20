@@ -75,6 +75,7 @@ import json
 import struct
 from socket import AF_INET
 from socket import inet_pton
+from functools import partial
 from collections import OrderedDict
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.ndb.report import Record
@@ -295,6 +296,50 @@ init = {'specs': [['routes', OrderedDict(rtmsg.sql_schema() +
         'event_map': {rtmsg: [load_rtmsg]}}
 
 
+class Via(OrderedDict):
+
+    def __init__(self, prime=None):
+        super(OrderedDict, self).__init__()
+        if prime is None:
+            prime = {}
+        elif not isinstance(prime, dict):
+            raise TypeError()
+        self['family'] = prime.get('family', AF_INET)
+        self['addr'] = prime.get('addr', '0.0.0.0')
+
+    def __eq__(self, right):
+        return isinstance(right, (dict, Target)) and \
+            self['family'] == right.get('family', AF_INET) and \
+            self['addr'] == right.get('addr', '0.0.0.0')
+
+    def __repr__(self):
+        return repr(dict(self))
+
+
+class Target(OrderedDict):
+
+    def __init__(self, prime=None):
+        super(OrderedDict, self).__init__()
+        if prime is None:
+            prime = {}
+        elif not isinstance(prime, dict):
+            raise TypeError()
+        self['label'] = prime.get('label', 16)
+        self['tc'] = prime.get('tc', 0)
+        self['bos'] = prime.get('bos', 1)
+        self['ttl'] = prime.get('ttl', 0)
+
+    def __eq__(self, right):
+        return isinstance(right, (dict, Target)) and \
+            self['label'] == right.get('label', 16) and \
+            self['tc'] == right.get('tc', 0) and \
+            self['bos'] == right.get('bos', 1) and \
+            self['ttl'] == right.get('ttl', 0)
+
+    def __repr__(self):
+        return repr(dict(self))
+
+
 class Route(RTNL_Object):
 
     table = 'routes'
@@ -327,6 +372,18 @@ class Route(RTNL_Object):
                    ['nh_%s' % nh.nla2name(x[5:]) for x in _dump_nh])
 
     _replace_on_key_change = True
+
+    def _cmp_target(key, self, right):
+        right = [Target(x) for x in json.loads(right)]
+        return all([x[0] == x[1] for x in zip(self[key], right)])
+
+    def _cmp_via(self, right):
+        return self['via'] == Via(json.loads(right))
+
+    fields_cmp = {'dst': partial(_cmp_target, 'dst'),
+                  'src': partial(_cmp_target, 'src'),
+                  'newdst': partial(_cmp_target, 'newdst'),
+                  'via': _cmp_via}
 
     def mark_tflags(self, mark):
         plch = (self.schema.plch, ) * 4
@@ -376,6 +433,12 @@ class Route(RTNL_Object):
                 ret_key['dst_len'] = 0
             elif '/' in ret_key['dst']:
                 ret_key['dst'], ret_key['dst_len'] = ret_key['dst'].split('/')
+
+        if key.get('family', 0) == AF_MPLS:
+            for field in ('dst', 'src', 'newdst', 'via'):
+                value = ret_key.get(field, key.get(field, None))
+                if isinstance(value, (list, tuple, dict)):
+                    ret_key[field] = json.dumps(value)
 
         return super(Route, self).complete_key(ret_key)
 
@@ -431,6 +494,14 @@ class Route(RTNL_Object):
             super(Route, self).__setitem__('metrics', obj)
             if key in self.changed:
                 self.changed.remove(key)
+        elif self.get('family', 0) == AF_MPLS and \
+                key in ('dst', 'src', 'newdst'):
+            na = []
+            if isinstance(value, dict):
+                value = [value, ]
+            for tag in value:
+                na.append(Target(tag))
+            super(Route, self).__setitem__(key, na)
         else:
             super(Route, self).__setitem__(key, value)
 
@@ -441,6 +512,8 @@ class Route(RTNL_Object):
             # skip automatic ipv6 routes with proto kernel
             return self
         else:
+            if self.get('family', AF_INET) == AF_MPLS and not self.get('dst'):
+                dict.__setitem__(self, 'dst', [Target()])
             return super(Route, self).apply(rollback)
 
     def load_sql(self, *argv, **kwarg):
@@ -449,8 +522,9 @@ class Route(RTNL_Object):
         if self.get('family', 0) == AF_MPLS:
             for field in ('newdst', 'dst', 'src', 'via'):
                 value = self.get(field, None)
-                if value is not None:
-                    dict.__setitem__(self, field, json.loads(value))
+                if isinstance(value, basestring):
+                    na = [Target(x) for x in json.loads(value)]
+                    dict.__setitem__(self, field, na)
 
         if not self.load_event.is_set():
             return

@@ -169,6 +169,8 @@ class RTNL_Object(dict):
                 value = self[kname]
                 if value is None and name in nkey:
                     value = nkey[name]
+                if isinstance(value, (list, tuple, dict)):
+                    value = json.dumps(value)
                 ret[name] = value
         if len(ret) < len(self.kspec):
             for name in self.key_extra_fields:
@@ -786,6 +788,8 @@ class RTNL_Object(dict):
 
         for name, value in self.key.items():
             keys.append('f_%s = %s' % (name, self.schema.plch))
+            if isinstance(value, (list, tuple, dict)):
+                value = json.dumps(value)
             values.append(value)
 
         spec = (self
