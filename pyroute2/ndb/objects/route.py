@@ -523,7 +523,10 @@ class Route(RTNL_Object):
             for field in ('newdst', 'dst', 'src', 'via'):
                 value = self.get(field, None)
                 if isinstance(value, basestring):
-                    na = [Target(x) for x in json.loads(value)]
+                    if field == 'via':
+                        na = json.loads(value)
+                    else:
+                        na = [Target(x) for x in json.loads(value)]
                     dict.__setitem__(self, field, na)
 
         if not self.load_event.is_set():
