@@ -1475,7 +1475,7 @@ class TestExplicit(BasicSetup):
             assert tuple(ipaddr) in self.ip.interfaces[ifA].ipaddr
         assert self.ip.interfaces[ifA].flags & 1
 
-    def test_freeze_del(self):
+    def _test_freeze_del(self):
         require_user('root')
 
         interface = self.ip.interfaces[self.ifd]
@@ -1512,7 +1512,7 @@ class TestExplicit(BasicSetup):
             interface.unfreeze()
             ipdb.release()
 
-    def test_freeze(self):
+    def _test_freeze(self):
         require_user('root')
 
         interface = self.ip.interfaces[self.ifd]
