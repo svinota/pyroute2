@@ -347,6 +347,8 @@ class IPRouteRequest(IPRequest):
         return ret
 
     def __setitem__(self, key, value):
+        if key[:4] == 'RTA_':
+            key = key[4:].lower()
         # skip virtual IPDB fields
         if key.startswith('ipdb_'):
             return
