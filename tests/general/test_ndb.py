@@ -5,8 +5,10 @@ import uuid
 import time
 import random
 import threading
+from socket import AF_INET
 from utils import grep
 from utils import require_user
+from utils import require_kernel
 from utils import skip_if_not_supported
 from utils import allocate_network
 from utils import free_network
@@ -17,6 +19,7 @@ from pyroute2 import IPRoute
 from pyroute2 import NetlinkError
 from pyroute2.common import uifname
 from pyroute2.common import basestring
+from pyroute2.common import AF_MPLS
 from pyroute2.ndb import report
 from pyroute2.ndb.main import (Report,
                                Record)
@@ -524,6 +527,54 @@ class TestCreate(Basic):
 
 class TestCreateNS(AddNS, TestCreate):
     pass
+
+
+class TestRoutesMPLS(Basic):
+
+    def get_mpls_routes(self):
+        return len(tuple(self
+                         .ndb
+                         .routes
+                         .getmany({'family': AF_MPLS})))
+
+    def test_via_ipv4(self):
+        require_kernel(4, 4)
+        require_user('root')
+
+        ifname = self.ifname()
+        ifaddr = self.ifaddr()
+        router = self.ifaddr()
+
+        if_spec = self.getspec(ifname=ifname,
+                               kind='dummy',
+                               state='up')
+
+        l1 = self.get_mpls_routes()
+
+        i = (self
+             .ndb
+             .interfaces
+             .create(**if_spec)
+             .add_ip('%s/24' % (ifaddr, ))
+             .commit())
+
+        rt_spec = self.getspec(family=AF_MPLS,
+                               oif=i['index'],
+                               via={'family': AF_INET, 'addr': router},
+                               newdst={'label': 0x20})
+
+        rt = (self
+              .ndb
+              .routes
+              .create(**rt_spec)
+              .commit())
+
+        l2 = self.get_mpls_routes()
+        assert l2 > l1
+        rt.remove().commit()
+        l3 = self.get_mpls_routes()
+        assert l3 < l2
+        assert rt.state == 'invalid'
 
 
 class TestRoutes(Basic):
