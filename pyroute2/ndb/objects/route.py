@@ -112,7 +112,6 @@ def get_route_id(schema, target, event):
 def load_rtmsg(schema, target, event):
     route_id = None
     post = []
-    print(event)
 
     # fix RTA_TABLE
     rta_table = event.get_attr('RTA_TABLE', -1)
