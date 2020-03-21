@@ -83,60 +83,42 @@ from pyroute2.common import basestring
 from pyroute2.common import AF_MPLS
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
+from pyroute2.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
 
 _dump_rt = ['rt.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
 _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
 
 
+def get_route_id(schema, target, event):
+    keys = ['f_target = %s' % schema.plch]
+    values = [target]
+    for key in schema.indices['routes']:
+        keys.append('f_%s = %s' % (key, schema.plch))
+        values.append(event.get(key) or event.get_attr(key))
+    #
+    spec = 'WHERE %s' % ' AND '.join(keys)
+    s_req = 'SELECT f_route_id FROM routes %s' % spec
+    #
+    # get existing route_id
+    for route_id in schema.execute(s_req, values).fetchall():
+        #
+        # if exists
+        return route_id[0][0]
+    #
+    # or create a new route_id
+    return str(uuid.uuid4())
+
+
 def load_rtmsg(schema, target, event):
-    mp = event.get_attr('RTA_MULTIPATH')
+    route_id = None
+    post = []
+    print(event)
 
     # fix RTA_TABLE
     rta_table = event.get_attr('RTA_TABLE', -1)
     if rta_table == -1:
         event['attrs'].append(['RTA_TABLE', 254])
 
-    # create an mp route
-    if (not event['header']['type'] % 2) and mp:
-        #
-        # create key
-        keys = ['f_target = %s' % schema.plch]
-        values = [target]
-        for key in schema.indices['routes']:
-            keys.append('f_%s = %s' % (key, schema.plch))
-            values.append(event.get(key) or event.get_attr(key))
-        #
-        spec = 'WHERE %s' % ' AND '.join(keys)
-        s_req = 'SELECT f_route_id FROM routes %s' % spec
-        #
-        # get existing route_id
-        for route_id in schema.execute(s_req, values).fetchall():
-            #
-            # if exists
-            route_id = route_id[0][0]
-            #
-            # flush all previous MP hops
-            d_req = 'DELETE FROM nh WHERE f_route_id= %s' % schema.plch
-            schema.execute(d_req, (route_id, ))
-            break
-        else:
-            #
-            # or create a new route_id
-            route_id = str(uuid.uuid4())
-        #
-        # set route_id on the route itself
-        event['route_id'] = route_id
-        schema.load_netlink('routes', target, event)
-        #
-        # load multipath
-        for idx in range(len(mp)):
-            mp[idx]['header'] = {}          # for load_netlink()
-            mp[idx]['route_id'] = route_id  # set route_id on NH
-            mp[idx]['nh_id'] = idx          # add NH number
-            schema.load_netlink('nh', target, mp[idx], 'routes')
-        #
-        # we're done with an MP-route, just exit
-        return
     #
     # manage gc marks on related routes
     #
@@ -155,46 +137,59 @@ def load_rtmsg(schema, target, event):
         #
         rtmsg_gc_mark(schema, target, event,
                       int(time.time()) if (evt % 2) else None)
-        #
-        # continue with load_netlink()
-        #
+
     #
-    # load metrics
-    metrics = event.get_attr('RTA_METRICS')
-    if metrics:
+    # only for RTM_NEWROUTE events
+    #
+    if not event['header']['type'] % 2:
         #
-        # create key
-        keys = ['f_target = %s' % schema.plch]
-        values = [target]
-        for key in schema.indices['routes']:
-            keys.append('f_%s = %s' % (key, schema.plch))
-            values.append(event.get(key) or event.get_attr(key))
+        # RTA_MULTIPATH
         #
-        spec = 'WHERE %s' % ' AND '.join(keys)
-        s_req = 'SELECT f_route_id FROM routes %s' % spec
-        #
-        # get existing route_id
-        for route_id in schema.execute(s_req, values).fetchall():
+        mp = event.get_attr('RTA_MULTIPATH')
+        if mp:
             #
-            # if exists
-            route_id = route_id[0][0]
-            break
-        else:
+            # create key
+            route_id = route_id or get_route_id(schema, target, event)
             #
-            # or create a new route_id
-            route_id = str(uuid.uuid4())
+            # load multipath
+            for idx in range(len(mp)):
+                mp[idx]['header'] = {}          # for load_netlink()
+                mp[idx]['route_id'] = route_id  # set route_id on NH
+                mp[idx]['nh_id'] = idx          # add NH number
+                post.append(partial(schema.load_netlink, 'nh', target,
+                                    mp[idx], 'routes'))
         #
-        # set route_id on the route itself
+        # RTA_ENCAP
+        #
+        encap = event.get_attr('RTA_ENCAP')
+        encap_type = event.get_attr('RTA_ENCAP_TYPE')
+        if encap_type == LWTUNNEL_ENCAP_MPLS:
+            route_id = route_id or get_route_id(schema, target, event)
+            #
+            encap['header'] = {}
+            encap['route_id'] = route_id
+            post.append(partial(schema.load_netlink, 'enc_mpls', target,
+                                encap, 'routes'))
+        #
+        # RTA_METRICS
+        #
+        metrics = event.get_attr('RTA_METRICS')
+        if metrics:
+            #
+            # create key
+            route_id = route_id or get_route_id(schema, target, event)
+            #
+            metrics['header'] = {}
+            metrics['route_id'] = route_id
+            post.append(partial(schema.load_netlink, 'metrics', target,
+                                metrics, 'routes'))
+    #
+    if route_id is not None:
         event['route_id'] = route_id
-        schema.load_netlink("routes", target, event)
-        #
-        metrics['header'] = {}
-        metrics['route_id'] = route_id
-        schema.load_netlink('metrics', target, metrics, 'routes')
-        return
+    schema.load_netlink('routes', target, event)
     #
-    # ... or work on a regular route
-    schema.load_netlink("routes", target, event)
+    for procedure in post:
+        procedure()
 
 
 def rtmsg_gc_mark(schema, target, event, gc_mark=None):
@@ -250,10 +245,13 @@ init = {'specs': [['routes', OrderedDict(rtmsg.sql_schema() +
                                      [(('route_id', ), 'TEXT'),
                                       (('nh_id', ), 'INTEGER')])],
                   ['metrics', OrderedDict(rtmsg.metrics.sql_schema() +
-                                          [(('route_id', ), 'TEXT'), ])]],
+                                          [(('route_id', ), 'TEXT'), ])],
+                  ['enc_mpls', OrderedDict(rtmsg.mpls_encap_info.sql_schema() +
+                                           [(('route_id', ), 'TEXT'), ])]],
         'classes': [['routes', rtmsg],
                     ['nh', nh],
-                    ['metrics', rtmsg.metrics]],
+                    ['metrics', rtmsg.metrics],
+                    ['enc_mpls', rtmsg.mpls_encap_info]],
         'indices': [['routes', ('family',
                                 'dst_len',
                                 'tos',
@@ -263,7 +261,8 @@ init = {'specs': [['routes', OrderedDict(rtmsg.sql_schema() +
                                 'RTA_VIA',
                                 'RTA_NEWDST')],
                     ['nh', ('route_id', 'nh_id')],
-                    ['metrics', ('route_id', )]],
+                    ['metrics', ('route_id', )],
+                    ['enc_mpls', ('route_id', )]],
         'foreign_keys': [['routes', [{'fields': ('f_target',
                                                  'f_tflags',
                                                  'f_RTA_OIF'),
@@ -292,7 +291,10 @@ init = {'specs': [['routes', OrderedDict(rtmsg.sql_schema() +
                                   'parent': 'interfaces'}]],
                          ['metrics', [{'fields': ('f_route_id', ),
                                        'parent_fields': ('f_route_id', ),
-                                       'parent': 'routes'}]]],
+                                       'parent': 'routes'}]],
+                         ['enc_mpls', [{'fields': ('f_route_id', ),
+                                        'parent_fields': ('f_route_id', ),
+                                        'parent': 'routes'}]]],
         'event_map': {rtmsg: [load_rtmsg]}}
 
 

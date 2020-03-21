@@ -154,7 +154,7 @@ class rtmsg_base(nlflags):
         return self.encaps.get(encap_type, self.hex)
 
     class mpls_encap_info(nla):
-
+        prefix = 'MPLS_IPTUNNEL_'
         __slots__ = ()
 
         nla_map = (('MPLS_IPTUNNEL_UNSPEC', 'none'),
