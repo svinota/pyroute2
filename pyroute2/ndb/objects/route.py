@@ -541,10 +541,21 @@ class Route(RTNL_Object):
                        .schema
                        .fetch('SELECT * FROM metrics WHERE f_route_id = %s' %
                               (self.schema.plch, ), (self['route_id'], )))
+            enc = (self
+                   .schema
+                   .fetch('SELECT * FROM enc_mpls WHERE f_route_id = %s' %
+                          (self.schema.plch, ), (self['route_id'], )))
 
             if len(tuple(metrics)):
                 self['metrics'] = Metrics(self, self.view,
                                           {'route_id': self['route_id']})
+
+            enc = tuple(enc)
+            if len(enc):
+                print(enc)
+                na = [Target(x) for x in json.loads(enc[0][2])]
+                dict.__setitem__(self, 'encap', na)
+
             flush = False
             idx = 0
             for nexthop in tuple(self['multipath']):
