@@ -435,7 +435,7 @@ class Route(RTNL_Object):
             elif '/' in ret_key['dst']:
                 ret_key['dst'], ret_key['dst_len'] = ret_key['dst'].split('/')
 
-        if key.get('family', 0) == AF_MPLS:
+        if ret_key.get('family', 0) == AF_MPLS:
             for field in ('dst', 'src', 'newdst', 'via'):
                 value = ret_key.get(field, key.get(field, None))
                 if isinstance(value, (list, tuple, dict)):
