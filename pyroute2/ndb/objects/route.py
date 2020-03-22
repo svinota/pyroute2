@@ -381,9 +381,13 @@ class Route(RTNL_Object):
     def _cmp_via(self, right):
         return self['via'] == Via(json.loads(right))
 
+    def _cmp_encap(self, right):
+        return all([x[0] == x[1] for x in zip(self.get('encap', []), right)])
+
     fields_cmp = {'dst': partial(_cmp_target, 'dst'),
                   'src': partial(_cmp_target, 'src'),
                   'newdst': partial(_cmp_target, 'newdst'),
+                  'encap': _cmp_encap,
                   'via': _cmp_via}
 
     def mark_tflags(self, mark):
@@ -459,6 +463,9 @@ class Route(RTNL_Object):
             req['multipath'] = self['multipath']
         if self['metrics']:
             req['metrics'] = self['metrics']
+        if self.get('encap') and self.get('encap_type'):
+            req['encap'] = {'type': self['encap_type'],
+                            'labels': self['encap']}
         if self.get('gateway'):
             req['gateway'] = self['gateway']
         return req
@@ -495,6 +502,18 @@ class Route(RTNL_Object):
             super(Route, self).__setitem__('metrics', obj)
             if key in self.changed:
                 self.changed.remove(key)
+        elif key == 'encap':
+            if value.get('type') == 'mpls':
+                na = []
+                for label in value.get('labels', []):
+                    if isinstance(label, int):
+                        na.append(Target({'label': label, 'bos': 0}))
+                    else:
+                        na.append(Target(label))
+                na[-1]['bos'] = 1
+                super(Route, self).__setitem__('encap_type',
+                                               LWTUNNEL_ENCAP_MPLS)
+                super(Route, self).__setitem__('encap', na)
         elif self.get('family', 0) == AF_MPLS and \
                 key in ('dst', 'src', 'newdst'):
             na = []
@@ -530,8 +549,19 @@ class Route(RTNL_Object):
                         na = [Target(x) for x in json.loads(value)]
                     dict.__setitem__(self, field, na)
 
+        if self.get('route_id') is not None:
+            enc = (self
+                   .schema
+                   .fetch('SELECT * FROM enc_mpls WHERE f_route_id = %s' %
+                          (self.schema.plch, ), (self['route_id'], )))
+            enc = tuple(enc)
+            if len(enc):
+                na = [Target(x) for x in json.loads(enc[0][2])]
+                self.load_value('encap', na)
+
         if not self.load_event.is_set():
             return
+
         if 'nh_id' not in self and self.get('route_id') is not None:
             nhs = (self
                    .schema
@@ -541,20 +571,10 @@ class Route(RTNL_Object):
                        .schema
                        .fetch('SELECT * FROM metrics WHERE f_route_id = %s' %
                               (self.schema.plch, ), (self['route_id'], )))
-            enc = (self
-                   .schema
-                   .fetch('SELECT * FROM enc_mpls WHERE f_route_id = %s' %
-                          (self.schema.plch, ), (self['route_id'], )))
 
             if len(tuple(metrics)):
                 self['metrics'] = Metrics(self, self.view,
                                           {'route_id': self['route_id']})
-
-            enc = tuple(enc)
-            if len(enc):
-                print(enc)
-                na = [Target(x) for x in json.loads(enc[0][2])]
-                dict.__setitem__(self, 'encap', na)
 
             flush = False
             idx = 0

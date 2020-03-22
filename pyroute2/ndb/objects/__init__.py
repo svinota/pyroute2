@@ -636,7 +636,9 @@ class RTNL_Object(dict):
         ignore = tuple()
         #
         if state in ('invalid', 'replace'):
-            req = dict([x for x in self.items() if x[1] is not None])
+            for k, v in tuple(self.items()):
+                if k not in req and v is not None:
+                    req[k] = v
             for l_key, r_key in self.match_pairs.items():
                 for src in self.match_src:
                     try:

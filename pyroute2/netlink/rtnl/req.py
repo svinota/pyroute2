@@ -11,6 +11,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import protinfo_bridge
 from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import flags as vlan_flags
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh as nh_header
+from pyroute2.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
 from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 
 
@@ -104,7 +105,7 @@ class IPRouteRequest(IPRequest):
                         {'bos': 1, 'label': 300, 'ttl': 16}]}
         '''
         if isinstance(header['type'], int) or \
-                (header['type'] in ('mpls', AF_MPLS)):
+                (header['type'] in ('mpls', AF_MPLS, LWTUNNEL_ENCAP_MPLS)):
             ret = []
             override_bos = True
             labels = header['labels']

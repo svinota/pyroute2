@@ -576,6 +576,34 @@ class TestRoutesMPLS(Basic):
         assert l3 < l2
         assert rt.state == 'invalid'
 
+    def test_encap_mpls(self):
+        require_kernel(4, 4)
+        require_user('root')
+
+        ifname = self.ifname()
+        ifaddr = self.ifaddr()
+        gateway = self.ifaddr()
+
+        if_spec = self.getspec(ifname=ifname,
+                               kind='dummy',
+                               state='up')
+
+        (self
+         .ndb
+         .interfaces
+         .create(**if_spec)
+         .add_ip('%s/24' % (ifaddr, ))
+         .commit())
+
+        rt_spec = self.getspec(dst='%s/24' % (self.ipranges[1][0], ),
+                               gateway=gateway,
+                               encap={'type': 'mpls', 'labels': [20, 30]})
+        (self
+         .ndb
+         .routes
+         .create(**rt_spec)
+         .commit())
+
 
 class TestRoutes(Basic):
     table = None
