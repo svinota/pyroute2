@@ -78,7 +78,9 @@ from pyroute2.ndb.objects.rule import Rule
 from pyroute2.ndb.objects.netns import NetNS
 from pyroute2.ndb.query import Query
 from pyroute2.ndb.report import (Report,
-                                 Record)
+                                 Record,
+                                 format_json,
+                                 format_csv)
 try:
     from urlparse import urlparse
 except ImportError:
@@ -412,40 +414,12 @@ class View(dict):
     def _csv(self, match=None, dump=None):
         if dump is None:
             dump = self._dump(match)
-        for record in dump:
-            row = []
-            for field in record:
-                if isinstance(field, int):
-                    row.append('%i' % field)
-                elif field is None:
-                    row.append('')
-                else:
-                    row.append("'%s'" % field)
-            yield ','.join(row)
+        return format_csv(dump)
 
     def _json(self, match=None, dump=None):
         if dump is None:
             dump = self._dump(match)
-        fnames = next(dump)
-        buf = []
-        yield '['
-        for record in dump:
-            if buf:
-                buf[-1] += ','
-                for line in buf:
-                    yield line
-                buf = []
-            lines = json.dumps(dict(zip(fnames, record)), indent=4).split('\n')
-            buf.append('    {')
-            for line in sorted(lines[1:-1]):
-                if line[-1] == ',':
-                    line = line[:-1]
-                buf.append('    %s,' % line)
-            buf[-1] = buf[-1][:-1]
-            buf.append('    }')
-        for line in buf:
-            yield line
-        yield ']'
+        return format_json(dump)
 
     def _native(self, match=None, dump=None):
         if dump is None:

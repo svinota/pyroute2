@@ -1,6 +1,58 @@
+import json
 from pyroute2.common import basestring
 
-MAX_REPORT_LINES = 100
+MAX_REPORT_LINES = 10000
+
+
+def format_json(dump, headless=False):
+
+    buf = []
+    fnames = None
+    yield '['
+    for record in dump:
+        if fnames is None:
+            if headless:
+                fnames = record._names
+            else:
+                fnames = record
+                continue
+        if buf:
+            buf[-1] += ','
+            for line in buf:
+                yield line
+            buf = []
+        lines = json.dumps(dict(zip(fnames, record)), indent=4).split('\n')
+        buf.append('    {')
+        for line in sorted(lines[1:-1]):
+            if line[-1] == ',':
+                line = line[:-1]
+            buf.append('    %s,' % line)
+        buf[-1] = buf[-1][:-1]
+        buf.append('    }')
+    for line in buf:
+        yield line
+    yield ']'
+
+
+def format_csv(dump, headless=False):
+
+    def dump_record(rec):
+        row = []
+        for field in rec:
+            if isinstance(field, int):
+                row.append('%i' % field)
+            elif field is None:
+                row.append('')
+            else:
+                row.append("'%s'" % field)
+        return row
+
+    fnames = None
+    for record in dump:
+        if fnames is None and headless:
+            fnames = True
+            yield ','.join(dump_record(record._names))
+        yield ','.join(dump_record(record))
 
 
 class Record(object):
@@ -48,7 +100,7 @@ class Record(object):
         return ret
 
 
-class Report(object):
+class BaseReport(object):
 
     def __init__(self, generator, ellipsis=True):
         self.generator = generator
@@ -74,3 +126,41 @@ class Report(object):
         if ret:
             ret.pop()
         return ''.join(ret)
+
+
+class Report(BaseReport):
+
+    def filter(self, f=None, **kwarg):
+
+        def g():
+            for record in self.generator:
+                m = True
+                for key in kwarg:
+                    if kwarg[key] != getattr(record, key):
+                        m = False
+                if m:
+                    if f is None:
+                        yield record
+                    elif f(record):
+                        yield record
+
+        return Report(g())
+
+    def select(self, *argv):
+
+        def g():
+            for record in self.generator:
+                ret = []
+                for field in argv:
+                    ret.append(getattr(record, field, None))
+                yield Record(argv, ret)
+
+        return Report(g())
+
+    def format(self, kind):
+        if kind == 'json':
+            return BaseReport(format_json(self.generator, headless=True))
+        elif kind == 'csv':
+            return BaseReport(format_csv(self.generator, headless=True))
+        else:
+            raise ValueError()
