@@ -1522,7 +1522,8 @@ class TestSources(TestPreSet):
             s = len(list(self
                          .ndb
                          .interfaces
-                         .summary(match={'target': 'localhost'})))
+                         .summary()
+                         .filter(target='localhost')))
             assert self.count_interfaces('localhost') == s
             assert s == 0
 

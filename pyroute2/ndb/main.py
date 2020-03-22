@@ -381,7 +381,7 @@ class View(dict):
         return Report(self._native(iclass.dump(self)))
 
     @cli.show_result
-    def summary(self, *argv, **kwarg):
+    def summary(self):
         iclass = self.classes[self.table]
         return Report(self._native(iclass.summary(self)))
 
