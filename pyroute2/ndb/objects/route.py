@@ -323,7 +323,11 @@ class Target(OrderedDict):
         super(OrderedDict, self).__init__()
         if prime is None:
             prime = {}
-        elif not isinstance(prime, dict):
+        elif isinstance(prime, int):
+            prime = {'label': prime}
+        elif isinstance(prime, dict):
+            pass
+        else:
             raise TypeError()
         self['label'] = prime.get('label', 16)
         self['tc'] = prime.get('tc', 0)
@@ -505,22 +509,29 @@ class Route(RTNL_Object):
         elif key == 'encap':
             if value.get('type') == 'mpls':
                 na = []
-                for label in value.get('labels', []):
-                    if isinstance(label, int):
-                        na.append(Target({'label': label, 'bos': 0}))
-                    else:
-                        na.append(Target(label))
-                na[-1]['bos'] = 1
+                target = None
+                value = value.get('labels', [])
+                if isinstance(value, (dict, int)):
+                    value = [value, ]
+                for label in value:
+                    target = Target(label)
+                    target['bos'] = 0
+                    na.append(target)
+                target['bos'] = 1
                 super(Route, self).__setitem__('encap_type',
                                                LWTUNNEL_ENCAP_MPLS)
                 super(Route, self).__setitem__('encap', na)
         elif self.get('family', 0) == AF_MPLS and \
                 key in ('dst', 'src', 'newdst'):
-            na = []
-            if isinstance(value, dict):
+            if isinstance(value, (dict, int)):
                 value = [value, ]
-            for tag in value:
-                na.append(Target(tag))
+            na = []
+            target = None
+            for label in value:
+                target = Target(label)
+                target['bos'] = 0
+                na.append(target)
+            target['bos'] = 1
             super(Route, self).__setitem__(key, na)
         else:
             super(Route, self).__setitem__(key, value)
@@ -542,7 +553,7 @@ class Route(RTNL_Object):
         if self.get('family', 0) == AF_MPLS:
             for field in ('newdst', 'dst', 'src', 'via'):
                 value = self.get(field, None)
-                if isinstance(value, basestring):
+                if isinstance(value, basestring) and value != '':
                     if field == 'via':
                         na = json.loads(value)
                     else:
