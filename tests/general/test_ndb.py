@@ -1143,34 +1143,6 @@ class TestNetNS(object):
         assert if_flags & 1
         assert if_addr == '00:11:22:33:44:55'
 
-    def _test_view_constraints_pipeline(self):
-        ifname = uifname()
-        ifaddr = self.ifaddr()
-        (self
-         .ndb
-         .interfaces
-         .constraint('target', self.netns)
-         .create(ifname=ifname, kind='dummy')
-         .set('address', '00:11:22:33:44:55')
-         .set('state', 'up')
-         .ipaddr
-         .create(address=ifaddr, prefixlen=24)
-         .commit())
-        self._assert_test_view(ifname, ifaddr)
-
-    def _test_view_constraints_cmanager(self):
-        ifname = uifname()
-        ifaddr = self.ifaddr()
-        with self.ndb.interfaces as view:
-            view.constraints['target'] = self.netns
-            with view.create(ifname=ifname, kind='dummy') as interface:
-                interface['address'] = '00:11:22:33:44:55'
-                interface['state'] = 'up'
-                with interface.ipaddr as aview:
-                    with aview.create(address=ifaddr, prefixlen=24):
-                        pass
-        self._assert_test_view(ifname, ifaddr)
-
     def test_move(self):
         ifname = uifname()
         ifaddr = self.ifaddr()
