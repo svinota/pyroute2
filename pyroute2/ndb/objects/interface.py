@@ -98,7 +98,6 @@ Create a bridge and add a port, `eth0`::
 
 '''
 
-import weakref
 import traceback
 from collections import OrderedDict
 from pyroute2.config import AF_BRIDGE
@@ -275,22 +274,39 @@ class Interface(RTNL_Object):
     msg_class = ifinfmsg
     api = 'link'
     key_extra_fields = ['IFLA_IFNAME']
-    summary = '''
-              SELECT
-                  a.f_target, a.f_tflags, a.f_index, a.f_IFLA_IFNAME,
-                  a.f_IFLA_ADDRESS, a.f_flags, a.f_IFLA_INFO_KIND
-              FROM
-                  interfaces AS a
-              '''
-    table_alias = 'a'
-    summary_header = ('target',
-                      'tflags',
-                      'index',
-                      'ifname',
-                      'lladdr',
-                      'flags',
-                      'kind')
     fields_cmp = {'master': _cmp_master}
+
+    @classmethod
+    def _dump_where(cls, view):
+        if view.chain:
+            plch = view.ndb.schema.plch
+            where = '''
+                    WHERE
+                        f_target = %s AND
+                        f_IFLA_MASTER = %s
+                    ''' % (plch, plch)
+            values = [view.chain['target'], view.chain['index']]
+        else:
+            where = ''
+            values = []
+        return (where, values)
+
+    @classmethod
+    def summary(cls, view):
+        req = '''
+              SELECT
+                  f_target, f_tflags, f_index,
+                  f_IFLA_IFNAME, f_IFLA_ADDRESS,
+                  f_flags, f_IFLA_INFO_KIND
+              FROM
+                  interfaces
+              '''
+        yield ('target', 'tflags', 'index',
+               'ifname', 'lladdr',
+               'flags', 'kind')
+        where, values = cls._dump_where(view)
+        for record in view.ndb.schema.fetch(req + where, values):
+            yield record
 
     def mark_tflags(self, mark):
         plch = (self.schema.plch, ) * 3
@@ -312,59 +328,37 @@ class Interface(RTNL_Object):
 
     @property
     def ipaddr(self):
-        return (self
-                .view
-                .ndb
-                ._get_view('addresses',
-                           chain=self,
-                           match_src=[weakref.proxy(self),
-                                      {'index':
-                                       self.get('index', 0),
-                                       'target': self['target']}],
-                           match_pairs={'index': 'index',
-                                        'target': 'target'}))
+        return self.view.ndb._get_view('addresses', chain=self)
 
     @property
     def ports(self):
-        return (self
-                .view
-                .ndb
-                ._get_view('interfaces',
-                           chain=self,
-                           match_src=[weakref.proxy(self),
-                                      {'index':
-                                       self.get('index', 0),
-                                       'target': self['target']}],
-                           match_pairs={'master': 'index',
-                                        'target': 'target'}))
+        return self.view.ndb._get_view('interfaces', chain=self)
 
     @property
     def routes(self):
-        return (self
-                .view
-                .ndb
-                ._get_view('routes',
-                           chain=self,
-                           match_src=[weakref.proxy(self),
-                                      {'index':
-                                       self.get('index', 0),
-                                       'target': self['target']}],
-                           match_pairs={'oif': 'index',
-                                        'target': 'target'}))
+        return self.view.ndb._get_view('routes', chain=self)
 
     @property
     def neighbours(self):
-        return (self
-                .view
-                .ndb
-                ._get_view('neighbours',
-                           chain=self,
-                           match_src=[weakref.proxy(self),
-                                      {'index':
-                                       self.get('index', 0),
-                                       'target': self['target']}],
-                           match_pairs={'ifindex': 'index',
-                                        'target': 'target'}))
+        return self.view.ndb._get_view('neighbours', chain=self)
+
+    @property
+    def context(self):
+        ctx = {}
+        if self.get('target'):
+            ctx['target'] = self['target']
+        if self.get('index'):
+            ctx['index'] = self['index']
+        return ctx
+
+    @classmethod
+    def adjust_spec(cls, spec, context):
+        if isinstance(spec, basestring):
+            ret = {'ifname': spec}
+        else:
+            ret = dict(spec)
+        ret.update(context)
+        return ret
 
     def add_ip(self, spec):
         def do_add_ip(self, spec):

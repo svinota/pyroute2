@@ -82,20 +82,40 @@ class Address(RTNL_Object):
     table = 'addresses'
     msg_class = ifaddrmsg
     api = 'addr'
-    summary = '''
+
+    @classmethod
+    def _dump_where(cls, view):
+        if view.chain:
+            plch = view.ndb.schema.plch
+            where = '''
+                    WHERE
+                        main.f_target = %s AND
+                        main.f_index = %s
+                    ''' % (plch, plch)
+            values = [view.chain['target'], view.chain['index']]
+        else:
+            where = ''
+            values = []
+        return (where, values)
+
+    @classmethod
+    def summary(cls, view):
+        req = '''
               SELECT
-                  a.f_target, a.f_tflags,
-                  i.f_IFLA_IFNAME, a.f_IFA_ADDRESS, a.f_prefixlen
+                  main.f_target, main.f_tflags,
+                  intf.f_IFLA_IFNAME, main.f_IFA_ADDRESS, main.f_prefixlen
               FROM
-                  addresses AS a
+                  addresses AS main
               INNER JOIN
-                  interfaces AS i
+                  interfaces AS intf
               ON
-                  a.f_index = i.f_index
-                  AND a.f_target = i.f_target
+                  main.f_index = intf.f_index
+                  AND main.f_target = intf.f_target
               '''
-    table_alias = 'a'
-    summary_header = ('target', 'tflags', 'ifname', 'address', 'prefixlen')
+        yield ('target', 'tflags', 'ifname', 'address', 'prefixlen')
+        where, values = cls._dump_where(view)
+        for record in view.ndb.schema.fetch(req + where, values):
+            yield record
 
     def mark_tflags(self, mark):
         plch = (self.schema.plch, ) * 3
@@ -111,7 +131,7 @@ class Address(RTNL_Object):
         super(Address, self).__init__(*argv, **kwarg)
 
     @classmethod
-    def adjust_spec(cls, spec, context):
+    def adjust_spec(self, spec, context):
         if context is None:
             context = {}
         if isinstance(spec, basestring):

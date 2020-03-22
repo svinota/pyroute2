@@ -56,20 +56,40 @@ class Neighbour(RTNL_Object):
     table = 'neighbours'
     msg_class = ndmsg
     api = 'neigh'
-    summary = '''
+
+    @classmethod
+    def _dump_where(cls, view):
+        if view.chain:
+            plch = view.ndb.schema.plch
+            where = '''
+                    WHERE
+                        main.f_target = %s AND
+                        main.f_ifindex = %s
+                    ''' % (plch, plch)
+            values = [view.chain['target'], view.chain['index']]
+        else:
+            where = ''
+            values = []
+        return (where, values)
+
+    @classmethod
+    def summary(cls, view):
+        req = '''
               SELECT
-                  n.f_target, n.f_tflags,
-                  i.f_IFLA_IFNAME, n.f_NDA_LLADDR, n.f_NDA_DST
+                  main.f_target, main.f_tflags,
+                  intf.f_IFLA_IFNAME, main.f_NDA_LLADDR, main.f_NDA_DST
               FROM
-                  neighbours AS n
+                  neighbours AS main
               INNER JOIN
-                  interfaces AS i
+                  interfaces AS intf
               ON
-                  n.f_ifindex = i.f_index
-                  AND n.f_target = i.f_target
+                  main.f_ifindex = intf.f_index
+                  AND main.f_target = intf.f_target
               '''
-    table_alias = 'n'
-    summary_header = ('target', 'flags', 'ifname', 'lladdr', 'neighbour')
+        yield ('target', 'flags', 'ifname', 'lladdr', 'neighbour')
+        where, values = cls._dump_where(view)
+        for record in view.ndb.schema.fetch(req + where, values):
+            yield record
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ndmsg

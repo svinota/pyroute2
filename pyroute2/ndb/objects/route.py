@@ -85,7 +85,7 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
 from pyroute2.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
 
-_dump_rt = ['rt.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
+_dump_rt = ['main.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
 _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
 
 
@@ -351,32 +351,89 @@ class Route(RTNL_Object):
     msg_class = rtmsg
     hidden_fields = ['route_id']
     api = 'route'
-    summary = '''
-              SELECT
-                  rt.f_target, rt.f_tflags, rt.f_RTA_TABLE, rt.f_RTA_DST,
-                  rt.f_dst_len, rt.f_RTA_GATEWAY, nh.f_RTA_GATEWAY
-              FROM
-                  routes AS rt
-              LEFT JOIN nh
-              ON
-                  rt.f_route_id = nh.f_route_id
-                  AND rt.f_target = nh.f_target
-              '''
-    table_alias = 'rt'
-    summary_header = ('target', 'tflags', 'table', 'dst',
-                      'dst_len', 'gateway', 'nexthop')
-    dump = '''
-           SELECT rt.f_target,rt.f_tflags,%s
-           FROM routes AS rt
-           LEFT JOIN nh AS nh
-           ON rt.f_route_id = nh.f_route_id
-               AND rt.f_target = nh.f_target
-           ''' % ','.join(['%s' % x for x in _dump_rt + _dump_nh])
-    dump_header = (['target', 'tflags'] +
-                   [rtmsg.nla2name(x[5:]) for x in _dump_rt] +
-                   ['nh_%s' % nh.nla2name(x[5:]) for x in _dump_nh])
 
     _replace_on_key_change = True
+
+    @classmethod
+    def _dump_where(cls, view):
+        if view.chain:
+            plch = view.ndb.schema.plch
+            where = '''
+                    WHERE
+                        main.f_target = %s AND
+                        main.f_RTA_OIF = %s
+                    ''' % (plch, plch)
+            values = [view.chain['target'], view.chain['index']]
+        else:
+            where = ''
+            values = []
+        return (where, values)
+
+    @classmethod
+    def summary(cls, view):
+        req = '''
+              SELECT
+                  main.f_target, main.f_tflags, main.f_RTA_TABLE,
+                  main.f_RTA_DST, main.f_dst_len, main.f_RTA_GATEWAY,
+                  nh.f_RTA_GATEWAY
+              FROM
+                  routes AS main
+              LEFT JOIN nh
+              ON
+                  main.f_route_id = nh.f_route_id
+                  AND main.f_target = nh.f_target
+              '''
+        yield ('target', 'tflags', 'table', 'dst',
+               'dst_len', 'gateway', 'nexthop')
+        where, values = cls._dump_where(view)
+        for record in view.ndb.schema.fetch(req + where, values):
+            yield record
+
+    @classmethod
+    def dump(cls, view):
+        req = '''
+              SELECT main.f_target,main.f_tflags,%s
+              FROM routes AS main
+              LEFT JOIN nh AS nh
+              ON main.f_route_id = nh.f_route_id
+                  AND main.f_target = nh.f_target
+              ''' % ','.join(['%s' % x for x in
+                              _dump_rt + _dump_nh + ['main.f_route_id']])
+        header = (['target', 'tflags'] +
+                  [rtmsg.nla2name(x[7:]) for x in _dump_rt] +
+                  ['nh_%s' % nh.nla2name(x[5:]) for x in _dump_nh] +
+                  ['metrics', 'encap'])
+        yield header
+        plch = view.ndb.schema.plch
+        where, values = cls._dump_where(view)
+        for record in view.ndb.schema.fetch(req + where, values):
+            route_id = record[-1]
+            record = list(record[:-1])
+            #
+            # fetch metrics
+            metrics = tuple(view.ndb.schema.fetch('''
+                SELECT * FROM metrics WHERE f_route_id = %s
+            ''' % (plch, ), (route_id, )))
+            if metrics:
+                ret = {}
+                names = view.ndb.schema.compiled['metrics']['norm_names']
+                for k, v in zip(names, metrics[0]):
+                    if v is not None and \
+                            k not in ('target', 'route_id', 'tflags'):
+                        ret[k] = v
+                record.append(json.dumps(ret))
+            else:
+                record.append(None)
+            #
+            # fetch encap
+            enc_mpls = tuple(view.ndb.schema.fetch('''
+                SELECT * FROM enc_mpls WHERE f_route_id = %s
+            ''' % (plch, ), (route_id, )))
+            if enc_mpls:
+                record.append(enc_mpls[0][2])
+            else:
+                record.append(None)
+            yield record
 
     def _cmp_target(key, self, right):
         right = [Target(x) for x in json.loads(right)]

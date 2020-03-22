@@ -39,17 +39,20 @@ class Rule(RTNL_Object):
     table = 'rules'
     msg_class = fibmsg
     api = 'rule'
-    table_alias = 'n'
     _replace_on_key_change = True
-    summary = '''
+
+    @classmethod
+    def summary(cls, view):
+        req = '''
               SELECT
                 f_target, f_tflags, f_family,
                 f_FRA_PRIORITY, f_action, f_FRA_TABLE
               FROM
                 rules
               '''
-    summary_header = ('target', 'tflags', 'family',
-                      'priority', 'action', 'table')
+        yield ('target', 'tflags', 'family', 'priority', 'action', 'table')
+        for record in view.ndb.schema.fetch(req):
+            yield record
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = fibmsg

@@ -103,7 +103,6 @@ class RTNL_Object(dict):
 
     view = None    # (optional) view to load values for the summary etc.
     utable = None  # table to send updates to
-    table_alias = ''
 
     key_extra_fields = []
     hidden_fields = []
@@ -113,10 +112,6 @@ class RTNL_Object(dict):
     event_map = None
     state = None
     log = None
-    summary = None
-    summary_header = None
-    dump = None
-    dump_header = None
     errors = None
     msg_class = None
     reverse_update = None
@@ -191,21 +186,45 @@ class RTNL_Object(dict):
     # 8<------------------------------------------------------------
     #
 
+    @classmethod
+    def _dump_where(cls, view):
+        return '', []
+
+    @classmethod
+    def _sdump(cls, view, names, fnames):
+        req = '''
+              SELECT %s FROM %s AS main
+              ''' % (fnames, cls.table)
+        yield names
+        where, values = cls._dump_where(view)
+        for record in view.ndb.schema.fetch(req + where, values):
+            yield record
+
+    @classmethod
+    def summary(cls, view):
+        return cls._sdump(view,
+                          view.ndb.schema.compiled[cls.table]['norm_idx'],
+                          view.ndb.schema.compiled[cls.table]['knames'])
+
+    @classmethod
+    def dump(cls, view):
+        return cls._sdump(view,
+                          view.ndb.schema.compiled[cls.table]['norm_names'],
+                          view.ndb.schema.compiled[cls.table]['fnames'])
+
     def __init__(self,
                  view,
                  key,
                  iclass,
                  ctxid=None,
-                 match_src=None,
-                 match_pairs=None,
-                 load=True):
+                 load=True,
+                 master=None):
         self.view = view
         self.ndb = view.ndb
         self.sources = view.ndb.sources
+        self.master = master
         self.ctxid = ctxid
         self.schema = view.ndb.schema
-        self.match_src = match_src or tuple()
-        self.match_pairs = match_pairs or dict()
         self.changed = set()
         self.iclass = iclass
         self.utable = self.utable or self.table
@@ -260,9 +279,17 @@ class RTNL_Object(dict):
         return filter(lambda x: x[0] not in self.hidden_fields,
                       dict.items(self))
 
+    @property
+    def context(self):
+        return {'target': self.get('target', 'localhost')}
+
     @classmethod
     def adjust_spec(cls, spec, context):
-        return spec
+        ret = dict(spec)
+        if context is None:
+            context = {}
+        ret.update(context)
+        return ret
 
     @classmethod
     def nla2name(self, name):
@@ -272,10 +299,6 @@ class RTNL_Object(dict):
     def name2nla(self, name):
         return self.msg_class.name2nla(name)
 
-    @property
-    def context(self):
-        return {'target': self.get('target', 'localhost')}
-
     def __enter__(self):
         return self
 
@@ -284,15 +307,6 @@ class RTNL_Object(dict):
 
     def __hash__(self):
         return id(self)
-
-    def __getitem__(self, key):
-        if key in self.match_pairs:
-            for src in self.match_src:
-                try:
-                    return src[self.match_pairs[key]]
-                except:
-                    pass
-        return dict.__getitem__(self, key)
 
     def __setitem__(self, key, value):
         if self.state == 'system' and key in self.knorm:
@@ -639,13 +653,8 @@ class RTNL_Object(dict):
             for k, v in tuple(self.items()):
                 if k not in req and v is not None:
                     req[k] = v
-            for l_key, r_key in self.match_pairs.items():
-                for src in self.match_src:
-                    try:
-                        req[l_key] = src[r_key]
-                        break
-                    except:
-                        pass
+            if self.master is not None:
+                req = self.adjust_spec(req, self.master.context)
             method = 'add'
             ignore = {errno.EEXIST: 'set'}
         elif state == 'system':

@@ -78,9 +78,7 @@ from pyroute2.ndb.objects.rule import Rule
 from pyroute2.ndb.objects.netns import NetNS
 from pyroute2.ndb.query import Query
 from pyroute2.ndb.report import (Report,
-                                 Record,
-                                 format_json,
-                                 format_csv)
+                                 Record)
 try:
     from urlparse import urlparse
 except ImportError:
@@ -134,8 +132,6 @@ class View(dict):
     def __init__(self,
                  ndb,
                  table,
-                 match_src=None,
-                 match_pairs=None,
                  chain=None,
                  default_target='localhost'):
         self.ndb = ndb
@@ -146,8 +142,6 @@ class View(dict):
         self.cache = {}
         self.default_target = default_target
         self.constraints = {}
-        self.match_src = match_src
-        self.match_pairs = match_pairs
         self.classes = OrderedDict()
         self.classes['interfaces'] = Interface
         self.classes['addresses'] = Address
@@ -169,13 +163,6 @@ class View(dict):
         else:
             return {}
 
-    def constraint(self, key, value):
-        if value is None:
-            self.constraints.pop(key)
-        else:
-            self.constraints[key] = value
-        return self
-
     def getmany(self, spec, table=None):
         return self.ndb.schema.get(table or self.table, spec)
 
@@ -191,9 +178,13 @@ class View(dict):
 
     @cli.change_pointer
     def create(self, *argspec, **kwspec):
+        if self.chain:
+            context = self.chain.context
+        else:
+            context = {}
         spec = (self
                 .classes[self.table]
-                .adjust_spec(kwspec or argspec[0], self.context))
+                .adjust_spec(kwspec or argspec[0], context))
         if self.chain:
             spec['ndb_chain'] = self.chain
         spec['create'] = True
@@ -291,23 +282,15 @@ class View(dict):
 
     def __getitem__(self, key, table=None):
 
-        iclass = self.classes[table or self.table]
-        key = iclass.adjust_spec(key, self.context)
-        if self.match_src:
-            match_src = [x for x in self.match_src]
-            match_pairs = dict(self.match_pairs)
+        if self.chain:
+            context = self.chain.context
         else:
-            match_src = []
-            match_pairs = {}
-        if self.constraints:
-            match_src.insert(0, self.constraints)
-            for cskey, csvalue in self.constraints.items():
-                match_pairs[cskey] = cskey
-        ret = iclass(self,
-                     key,
-                     match_src=match_src,
-                     match_pairs=match_pairs,
-                     load=False)
+            context = {}
+        iclass = self.classes[table or self.table]
+        if isinstance(key, Record):
+            key = key._as_dict()
+        key = iclass.adjust_spec(key, context)
+        ret = iclass(self, key, load=False, master=self.chain)
 
         # rtnl_object.key() returns a dcitionary that can not
         # be used as a cache key. Create here a tuple from it.
@@ -387,189 +370,20 @@ class View(dict):
         return (['target', 'tflags'] +
                 self.ndb.schema.compiled[iclass.view or iclass.table]['names'])
 
-    def _dump(self, match=None):
-        iclass = self.classes[self.table]
-        keys = self._keys(iclass)
-
-        spec, values = self._match(match, iclass, keys, iclass.table_alias)
-        if iclass.dump and iclass.dump_header:
-            yield iclass.dump_header
-            for record in (self
-                           .ndb
-                           .schema
-                           .fetch(iclass.dump + spec, values)):
-                yield record
-        else:
-            yield tuple([iclass.nla2name(x) for x in keys])
-            for record in (self
-                           .ndb
-                           .schema
-                           .fetch('SELECT * FROM %s AS %s %s'
-                                  % (iclass.view or iclass.table,
-                                     iclass.table_alias,
-                                     spec),
-                                  values)):
-                yield record
-
-    def _csv(self, match=None, dump=None):
-        if dump is None:
-            dump = self._dump(match)
-        return format_csv(dump)
-
-    def _json(self, match=None, dump=None):
-        if dump is None:
-            dump = self._dump(match)
-        return format_json(dump)
-
-    def _native(self, match=None, dump=None):
-        if dump is None:
-            dump = self._dump(match)
+    def _native(self, dump):
         fnames = next(dump)
         for record in dump:
             yield Record(fnames, record)
 
-    def _details(self, match=None, dump=None, format=None):
-        # get the raw dump generator and get the fields description
-        if dump is None:
-            dump = self._dump(match)
-        fnames = next(dump)
-        if format == 'json':
-            yield '['
-        buf = []
-        # iterate all the records and yield a dict for every record
-        for record in dump:
-            obj = self[dict(zip(fnames, record))]
-            if format == 'json':
-                if buf:
-                    buf[-1] += ','
-                    for line in buf:
-                        yield line
-                    buf = []
-                ret = OrderedDict()
-                for key in sorted(obj):
-                    ret[key] = obj[key]
-                lines = json.dumps(ret, indent=4).split('\n')
-                for line in lines:
-                    buf.append('    %s' % line)
-            else:
-                yield dict(obj)
-        if format == 'json':
-            for line in buf:
-                yield line
-            yield ']'
-
-    def _summary(self, match=None):
-        iclass = self.classes[self.table]
-        keys = self._keys(iclass)
-
-        spec, values = self._match(match, iclass, keys, iclass.table_alias)
-        if iclass.summary is not None:
-            if iclass.summary_header is not None:
-                yield iclass.summary_header
-            for record in (self
-                           .ndb
-                           .schema
-                           .fetch(iclass.summary + spec, values)):
-                yield record
-        else:
-            header = ('target', ) + self.ndb.schema.indices[iclass.table]
-            yield tuple([iclass.nla2name(x) for x in header])
-            key_fields = ','.join(['f_%s' % x for x in header])
-            for record in (self
-                           .ndb
-                           .schema
-                           .fetch('SELECT %s FROM %s AS %s %s'
-                                  % (key_fields,
-                                     iclass.view or iclass.table,
-                                     iclass.table_alias,
-                                     spec), values)):
-                yield record
-
-    def _match(self, match, cls, keys, alias):
-        values = []
-        match = match or {}
-        if self.match_src and self.match_pairs:
-            for l_key, r_key in self.match_pairs.items():
-                for src in self.match_src:
-                    try:
-                        match[l_key] = src[r_key]
-                        break
-                    except:
-                        pass
-
-        if match:
-            spec = ' WHERE '
-            conditions = []
-            for key, value in match.items():
-                keyc = []
-                if cls.name2nla(key) in keys:
-                    keyc.append(cls.name2nla(key))
-                if key in keys:
-                    keyc.append(key)
-                if not keyc:
-                    raise KeyError('key %s not found' % key)
-                if len(keyc) == 1:
-                    conditions.append('%s.f_%s = %s' % (alias, keyc[0],
-                                                        self.ndb.schema.plch))
-                    values.append(value)
-                elif len(keyc) == 2:
-                    conditions.append('(%s.f_%s = %s OR %s.f_%s = %s)'
-                                      % (alias, keyc[0], self.ndb.schema.plch,
-                                         alias, keyc[1], self.ndb.schema.plch))
-                    values.append(value)
-                    values.append(value)
-            spec = ' WHERE %s' % ' AND '.join(conditions)
-        else:
-            spec = ''
-        return spec, values
-
     @cli.show_result
-    def dump(self, *argv, **kwarg):
-        fmt = kwarg.pop('format',
-                        kwarg.pop('fmt',
-                                  self.ndb.config.get('show_format',
-                                                      'native')))
-        if fmt == 'native':
-            return Report(self._native(dump=self._dump(*argv, **kwarg)))
-        elif fmt == 'csv':
-            return Report(self._csv(dump=self._dump(*argv, **kwarg)),
-                          ellipsis=False)
-        elif fmt == 'json':
-            return Report(self._json(dump=self._dump(*argv, **kwarg)),
-                          ellipsis=False)
-        else:
-            raise ValueError('format not supported')
+    def dump(self):
+        iclass = self.classes[self.table]
+        return Report(self._native(iclass.dump(self)))
 
     @cli.show_result
     def summary(self, *argv, **kwarg):
-        fmt = kwarg.pop('format',
-                        kwarg.pop('fmt',
-                                  self.ndb.config.get('show_format',
-                                                      'native')))
-        if fmt == 'native':
-            return Report(self._native(dump=self._summary(*argv, **kwarg)))
-        elif fmt == 'csv':
-            return Report(self._csv(dump=self._summary(*argv, **kwarg)),
-                          ellipsis=False)
-        elif fmt == 'json':
-            return Report(self._json(dump=self._summary(*argv, **kwarg)),
-                          ellipsis=False)
-        else:
-            raise ValueError('format not supported')
-
-    @cli.show_result
-    def details(self, *argv, **kwarg):
-        fmt = kwarg.pop('format',
-                        kwarg.pop('fmt',
-                                  self.ndb.config.get('show_format',
-                                                      'native')))
-        if fmt == 'native':
-            return Report(self._details(*argv, **kwarg))
-        elif fmt == 'json':
-            kwarg['format'] = 'json'
-            return Report(self._details(*argv, **kwarg), ellipsis=False)
-        else:
-            raise ValueError('format not supported')
+        iclass = self.classes[self.table]
+        return Report(self._native(iclass.summary(self)))
 
 
 class SourcesView(View):
@@ -809,8 +623,8 @@ class NDB(object):
         self.netns = View(self, 'netns', default_target='nsmanager')
         self.query = Query(self.schema)
 
-    def _get_view(self, name, match_src=None, match_pairs=None, chain=None):
-        return View(self, name, match_src, match_pairs, chain)
+    def _get_view(self, name, chain=None):
+        return View(self, name, chain)
 
     def __enter__(self):
         return self

@@ -1093,7 +1093,8 @@ class TestNetNS(object):
         assert len(tuple(self
                          .ndb
                          .interfaces
-                         .summary(match={'target': 'netns/%s' % newns}))) == 0
+                         .summary()
+                         .filter(target='netns/%s' % newns))) == 0
         netns.create(newns)
         self.ndb.interfaces.wait(**{'target': 'netns/%s' % newns})
         netns.remove(newns)
@@ -1142,7 +1143,7 @@ class TestNetNS(object):
         assert if_flags & 1
         assert if_addr == '00:11:22:33:44:55'
 
-    def test_view_constraints_pipeline(self):
+    def _test_view_constraints_pipeline(self):
         ifname = uifname()
         ifaddr = self.ifaddr()
         (self
@@ -1157,7 +1158,7 @@ class TestNetNS(object):
          .commit())
         self._assert_test_view(ifname, ifaddr)
 
-    def test_view_constraints_cmanager(self):
+    def _test_view_constraints_cmanager(self):
         ifname = uifname()
         ifaddr = self.ifaddr()
         with self.ndb.interfaces as view:
@@ -1561,7 +1562,11 @@ class TestReports(TestPreSet):
                     assert isinstance(obj, RTNL_Object)
 
     def test_json(self):
-        data = json.loads(''.join(self.ndb.interfaces.summary(format='json')))
+        data = json.loads(''.join(self
+                                  .ndb
+                                  .interfaces
+                                  .summary()
+                                  .format('json')))
         assert isinstance(data, list)
         for row in data:
             assert isinstance(row, dict)
@@ -1575,7 +1580,11 @@ class TestReports(TestPreSet):
             else:
                 assert len(record) == record_length
 
-        reader = csv.reader(self.ndb.routes.dump(format='csv'), dialect=MD())
+        reader = csv.reader(self
+                            .ndb
+                            .routes
+                            .dump()
+                            .format('csv'), dialect=MD())
         for record in reader:
             assert len(record) == record_length
 
