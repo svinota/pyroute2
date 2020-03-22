@@ -130,6 +130,22 @@ class BaseReport(object):
 
 class Report(BaseReport):
 
+    def transform(self, **kwarg):
+
+        def g():
+            for record in self.generator:
+                if isinstance(record, Record):
+                    values = []
+                    names = record._names
+                    for name, value in zip(names, record._values):
+                        if name in kwarg:
+                            value = kwarg[name](value)
+                        values.append(value)
+                    record = Record(names, values)
+                yield record
+
+        return Report(g())
+
     def filter(self, f=None, **kwarg):
 
         def g():

@@ -133,6 +133,7 @@ class TestPreSet(object):
                    .ndb
                    .interfaces
                    .create(ifname=if_bridge, kind='bridge')
+                   .set('state', 'up')
                    .commit()['index'])
 
         ret.append(self
@@ -1533,6 +1534,38 @@ class TestReports(TestPreSet):
                 obj = view.get(key)
                 if obj is not None:
                     assert isinstance(obj, RTNL_Object)
+
+    def test_report_chains(self):
+        ipnet = allocate_network()
+        ifaddr = tuple(self
+                       .ndb
+                       .addresses
+                       .summary()
+                       .filter(ifname=self.if_bridge, prefixlen=24)
+                       .select('address'))[0].address
+
+        (self
+         .ndb
+         .routes
+         .create(dst=str(ipnet),
+                 gateway=ifaddr,
+                 encap={'type': 'mpls', 'labels': [20, 30]})
+         .commit())
+
+        encap = tuple(self
+                      .ndb
+                      .routes
+                      .dump()
+                      .filter(oif=self.ndb.interfaces[self.if_bridge]['index'])
+                      .filter(lambda x: x.encap is not None)
+                      .select('encap')
+                      .transform(encap=lambda x: json.loads(x)))[0].encap
+
+        assert isinstance(encap, list)
+        assert encap[0]['label'] == 20
+        assert encap[0]['bos'] == 0
+        assert encap[1]['label'] == 30
+        assert encap[1]['bos'] == 1
 
     def test_json(self):
         data = json.loads(''.join(self
