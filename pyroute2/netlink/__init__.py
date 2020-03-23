@@ -387,6 +387,7 @@ Please notice, that NLA list *MUST* be mutable.
 '''
 
 import weakref
+import threading
 import traceback
 import logging
 import struct
@@ -565,7 +566,7 @@ NETLINK_TX_RING = 7
 
 NETLINK_LISTEN_ALL_NSID = 8
 
-clean_cbs = {}
+clean_cbs = threading.local()
 
 # Cached results for some struct operations.
 # No cache invalidation required.
@@ -599,6 +600,7 @@ class nlmsg_base(dict):
     is_nla = False
     prefix = None
     own_parent = False
+    header_type = None
     # caches
     __compiled_nla = False
     __compiled_ft = False
@@ -608,6 +610,7 @@ class nlmsg_base(dict):
     __slots__ = (
         "_buf",
         "data",
+        "chain",
         "offset",
         "length",
         "parent",
@@ -638,6 +641,7 @@ class nlmsg_base(dict):
         self.data = data or bytearray()
         self.offset = offset
         self.length = length or 0
+        self.chain = [self, ]
         if parent is not None:
             # some structures use parents, some not,
             # so don't create cycles without need
@@ -730,10 +734,10 @@ class nlmsg_base(dict):
         else:
             # get the msg_seq -- if applicable
             seq = self.get('header', {}).get('sequence_number', None)
-            if seq is not None and seq not in clean_cbs:
-                clean_cbs[seq] = []
+            if seq is not None and seq not in clean_cbs.__dict__:
+                clean_cbs.__dict__[seq] = []
             # attach the callback
-            clean_cbs[seq].append(cb)
+            clean_cbs.__dict__[seq].append(cb)
 
     def unregister_clean_cb(self):
         global clean_cbs
@@ -741,14 +745,14 @@ class nlmsg_base(dict):
         msf = self.get('header', {}).get('flags', 0)
         if (seq is not None) and \
                 (not msf & NLM_F_REQUEST) and \
-                seq in clean_cbs:
-            for cb in clean_cbs[seq]:
+                seq in clean_cbs.__dict__:
+            for cb in clean_cbs.__dict__[seq]:
                 try:
                     cb()
                 except:
                     log.error('Cleanup callback fail: %s' % (cb))
                     log.error(traceback.format_exc())
-            del clean_cbs[seq]
+            del clean_cbs.__dict__[seq]
 
     def _strip_one(self, name):
         for i in tuple(self['attrs']):
@@ -977,7 +981,7 @@ class nlmsg_base(dict):
         else:
             self._ft_decode(self, offset)
 
-        if clean_cbs:
+        if clean_cbs.__dict__:
             self.unregister_clean_cb()
         self.decoded = True
 
@@ -1013,7 +1017,8 @@ class nlmsg_base(dict):
                                   offset=offset,
                                   parent=self)
                 cell._nla_array = False
-                cell['header']['type'] = header_type
+                cell['header']['type'] = self.header_type or \
+                    (header_type | self._nla_flags)
                 header_type += 1
 
                 if cell.cell_header is not None:
@@ -1137,6 +1142,38 @@ class nlmsg_base(dict):
         Return attrs by name or an empty list
         '''
         return [i[1] for i in self['attrs'] if i[0] == attr]
+
+    def nla(self, attr=None, default=NotInitialized):
+        '''
+        '''
+        if default is NotInitialized:
+            response = nlmsg_base()
+            del response['value']
+            del response['attrs']
+            response.value = None
+        chain = self.get('attrs', [])
+        if attr is not None:
+            chain = [i.nla for i in chain if i.name == attr]
+        else:
+            chain = [i.nla for i in chain]
+        if chain:
+            for link in chain:
+                link.chain = chain
+            response = chain[0]
+        return response
+
+    def __getattribute__(self, key):
+        try:
+            return super(nlmsg_base, self).__getattribute__(key)
+        except AttributeError:
+            if ord(key[0]) < 90:
+                return self.nla(key)
+            raise AttributeError(key)
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self.chain[key]
+        return dict.__getitem__(self, key)
 
     def __setstate__(self, state):
         return self.load(state)
@@ -1465,6 +1502,19 @@ class nla_slot(object):
             return self.cell[1]._nla_flags
         return None
 
+    @property
+    def name(self):
+        return self.cell[0]
+
+    @property
+    def value(self):
+        return self.get_value()
+
+    @property
+    def nla(self):
+        self.try_to_decode()
+        return self.cell[1]
+
     def __getitem__(self, key):
         if key == 1:
             return self.get_value()
@@ -1545,14 +1595,14 @@ class nlmsg_atoms(nlmsg_base):
     class uint32(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', 'I')]
 
     class uint64(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', 'Q')]
 
@@ -1573,14 +1623,14 @@ class nlmsg_atoms(nlmsg_base):
     class int32(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', 'i')]
 
     class int64(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', 'q')]
 
@@ -1601,14 +1651,14 @@ class nlmsg_atoms(nlmsg_base):
     class be32(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', '>I')]
 
     class be64(nla_base):
 
         __slots__ = ()
-        sql_type = 'INTEGER'
+        sql_type = 'BIGINT'
 
         fields = [('value', '>Q')]
 

@@ -1,7 +1,4 @@
 '''
-WiSet module
-============
-
 High level ipset support.
 
 When :doc:`ipset` is providing a direct netlink socket with low level
@@ -24,7 +21,8 @@ Listing entries is also easier using :class:`WiSet`, since it parses for you
 netlink messages:
 
 >>> wiset.content
-{'1.2.3.0/24': IPStats(packets=None, bytes=None, comment=None, timeout=None)}
+{'1.2.3.0/24': IPStats(packets=None, bytes=None, comment=None,
+                       timeout=None, skbmark=None, physdev=False)}
 '''
 
 import errno
@@ -34,9 +32,13 @@ from inspect import getcallargs
 from socket import AF_INET
 
 from pyroute2 import IPSet
+from pyroute2.common import basestring
 from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
+from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
+from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_PHYSDEV
+from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_IFACE_WILDCARD
 
 
 # Debug variable to detect netlink socket leaks
@@ -78,7 +80,16 @@ def need_ipset_socket(fun):
     return wrap
 
 
-IPStats = namedtuple("IPStats", ["packets", "bytes", "comment", "timeout"])
+class IPStats(namedtuple("IPStats", ["packets", "bytes", "comment",
+                                     "timeout", "skbmark", "physdev",
+                                     "wildcard"])):
+    __slots__ = ()
+
+    def __new__(cls, packets, bytes, comment, timeout, skbmark, physdev=False,
+                wildcard=False):
+        return super(IPStats, cls).__new__(cls, packets, bytes, comment,
+                                           timeout, skbmark, physdev=physdev,
+                                           wildcard=wildcard)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -128,7 +139,7 @@ class WiSet(object):
     # pylint: disable=too-many-arguments
     def __init__(self, name=None, attr_type='hash:ip', family=AF_INET,
                  sock=None, timeout=None, counters=False, comment=False,
-                 hashsize=None, revision=None):
+                 hashsize=None, revision=None, skbinfo=False):
         self.name = name
         self.hashsize = hashsize
         self._attr_type = None
@@ -141,6 +152,8 @@ class WiSet(object):
         self.counters = counters
         self.comment = comment
         self.revision = revision
+        self.index = None
+        self.skbinfo = skbinfo
 
     def open_netlink(self):
         """ Open manually a netlink socket. You can use "with WiSet()" instead
@@ -185,12 +198,14 @@ class WiSet(object):
         self.hashsize = ndmsg.get_attr("IPSET_ATTR_HASHSIZE")
         self.family = ndmsg.get_attr("IPSET_ATTR_FAMILY")
         self.revision = ndmsg.get_attr("IPSET_ATTR_REVISION")
+        self.index = ndmsg.get_attr("IPSET_ATTR_INDEX")
         data = ndmsg.get_attr("IPSET_ATTR_DATA")
         self.timeout = data.get_attr("IPSET_ATTR_TIMEOUT")
         flags = data.get_attr("IPSET_ATTR_CADT_FLAGS")
         if flags is not None:
             self.counters = bool(flags & IPSET_FLAG_WITH_COUNTERS)
             self.comment = bool(flags & IPSET_FLAG_WITH_COMMENT)
+            self.skbinfo = bool(flags & IPSET_FLAG_WITH_SKBINFO)
 
         if content:
             self.update_dict_content(ndmsg)
@@ -227,16 +242,36 @@ class WiSet(object):
                     key += entry.get_attr("IPSET_ATTR_IFACE")
                 elif parse_type == "set":
                     key += entry.get_attr("IPSET_ATTR_NAME")
+                elif parse_type == "mark":
+                    key += str(hex(entry.get_attr("IPSET_ATTR_MARK")))
                 key += ","
 
             key = key.strip(",")
 
             if self.timeout is not None:
                 timeout = entry.get_attr("IPSET_ATTR_TIMEOUT")
+            skbmark = entry.get_attr("IPSET_ATTR_SKBMARK")
+            if skbmark is not None:
+                # Convert integer to hex for mark/mask
+                # Only display mask if != 0xffffffff
+                if skbmark[1] != (2**32 - 1):
+                    skbmark = "/".join([str(hex(mark)) for mark in skbmark])
+                else:
+                    skbmark = str(hex(skbmark[0]))
+            entry_flag_parsed = {"physdev": False}
+            flags = entry.get_attr("IPSET_ATTR_CADT_FLAGS")
+            if flags is not None:
+                entry_flag_parsed["physdev"] = bool(flags &
+                                                    IPSET_FLAG_PHYSDEV)
+                entry_flag_parsed["wildcard"] = bool(flags &
+                                                     IPSET_FLAG_IFACE_WILDCARD)
+
             value = IPStats(packets=entry.get_attr("IPSET_ATTR_PACKETS"),
                             bytes=entry.get_attr("IPSET_ATTR_BYTES"),
                             comment=entry.get_attr("IPSET_ATTR_COMMENT"),
-                            timeout=timeout)
+                            skbmark=skbmark,
+                            timeout=timeout,
+                            **entry_flag_parsed)
             self._content[key] = value
 
     def create(self, **kwargs):
@@ -249,7 +284,7 @@ class WiSet(object):
         create_ipset(self.name, stype=self.attr_type, family=self.family,
                      sock=self.sock, timeout=self.timeout,
                      comment=self.comment, counters=self.counters,
-                     hashsize=self.hashsize, **kwargs)
+                     hashsize=self.hashsize, skbinfo=self.skbinfo, **kwargs)
 
     def destroy(self):
         """ Destroy this ipset in the kernel list.
@@ -267,9 +302,21 @@ class WiSet(object):
         we add the element. Without this reset, kernel sometimes store old
         values and can add very strange behavior on counters.
         """
+        if isinstance(entry, dict):
+            kwargs.update(entry)
+            entry = kwargs.pop("entry")
         if self.counters:
             kwargs["packets"] = kwargs.pop("packets", 0)
             kwargs["bytes"] = kwargs.pop("bytes", 0)
+        skbmark = kwargs.get("skbmark")
+        if isinstance(skbmark, basestring):
+            skbmark = skbmark.split('/')
+            mark = int(skbmark[0], 16)
+            try:
+                mask = int(skbmark[1], 16)
+            except IndexError:
+                mask = int("0xffffffff", 16)
+            kwargs["skbmark"] = (mark, mask)
         add_ipset_entry(self.name, entry, etype=self.entry_type,
                         sock=self.sock, **kwargs)
 
@@ -323,7 +370,8 @@ class WiSet(object):
         this call is atomic: it creates a temporary ipset and swap the content.
 
         :param new_list: list of entries to add
-        :type new_list: list or :py:class:`set`
+        :type new_list: list or :py:class:`set` of basestring or of
+        keyword arguments dict
         """
         temp_name = str(uuid.uuid4())[0:8]
         # Get a copy of ourself

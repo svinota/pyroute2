@@ -1,11 +1,13 @@
+from pyroute2.netlink.rtnl.tcmsg import em_cmp
 from pyroute2.netlink.rtnl.tcmsg import em_ipset
+from pyroute2.netlink.rtnl.tcmsg import em_meta
 
 plugins = {
     # 0: em_container,
-    # 1: em_cmp,
+    1: em_cmp,
     # 2: em_nbyte,
     # 3: em_u32,
-    # 4: em_meta,
+    4: em_meta,
     # 5: em_text,
     # 6: em_vlan,
     # 7: em_canid,
@@ -69,10 +71,6 @@ def get_tcf_ematches(kwarg):
     header = {'nmatches': 0,
               'progid': 0}
 
-    # Translate string kind into numeric kind
-    kind = kwarg['em_kind']
-    kind = plugins_translate[kind]
-
     # Get the number of expressions
     expr_count = len(kwarg['match'])
     header['nmatches'] = expr_count
@@ -87,13 +85,15 @@ def get_tcf_ematches(kwarg):
 
         cur_match = kwarg['match'][i]
 
+        # Translate string kind into numeric kind
+        kind = plugins_translate[cur_match['kind']]
         match['kind'] = kind
         data = plugins[kind].data()
         data.setvalue(cur_match)
         data.encode()
 
         # Add ematch encoded data
-        match['opt'] = data.data.decode('utf-8')
+        match['opt'] = data.data
 
         # Safety check
         if i == expr_count - 1 and 'relation' in cur_match:

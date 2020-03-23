@@ -83,11 +83,13 @@ classes
 import os
 import sys
 import time
+import errno
 import select
 import struct
 import logging
 import traceback
 import threading
+import collections
 
 from socket import SOCK_DGRAM
 from socket import MSG_PEEK
@@ -121,6 +123,7 @@ except ImportError:
     from queue import Queue
 
 log = logging.getLogger(__name__)
+Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
 
 
 class Marshal(object):
@@ -286,7 +289,10 @@ class NetlinkMixin(object):
                  fileno=None,
                  sndbuf=1048576,
                  rcvbuf=1048576,
-                 all_ns=False):
+                 all_ns=False,
+                 async_qsize=None,
+                 nlm_generator=None,
+                 target='localhost'):
         #
         # That's a trick. Python 2 is not able to construct
         # sockets from an open FD.
@@ -304,6 +310,16 @@ class NetlinkMixin(object):
                                       'on Python < 3.2')
 
         # 8<-----------------------------------------
+        self.config = {'family': family,
+                       'port': port,
+                       'pid': pid,
+                       'fileno': fileno,
+                       'sndbuf': sndbuf,
+                       'rcvbuf': rcvbuf,
+                       'all_ns': all_ns,
+                       'async_qsize': async_qsize,
+                       'nlm_generator': nlm_generator}
+        # 8<-----------------------------------------
         self.addr_pool = AddrPool(minaddr=0x000000ff, maxaddr=0x0000ffff)
         self.epid = None
         self.port = 0
@@ -317,6 +333,7 @@ class NetlinkMixin(object):
         self.pthread = None
         self.closed = False
         self.uname = config.uname
+        self.target = target
         self.capabilities = {'create_bridge': config.kernel > [3, 2, 0],
                              'create_bond': config.kernel > [3, 2, 0],
                              'create_dummy': True,
@@ -328,7 +345,13 @@ class NetlinkMixin(object):
         self.lock = LockFactory()
         self._sock = None
         self._ctrl_read, self._ctrl_write = os.pipe()
-        self.buffer_queue = Queue()
+        if async_qsize is None:
+            async_qsize = config.async_qsize
+        self.async_qsize = async_qsize
+        if nlm_generator is None:
+            nlm_generator = config.nlm_generator
+        self.nlm_generator = nlm_generator
+        self.buffer_queue = Queue(maxsize=async_qsize)
         self.qsize = 0
         self.log = []
         self.get_timeout = 30
@@ -346,7 +369,7 @@ class NetlinkMixin(object):
         self.groups = 0
         self.marshal = Marshal()
         # 8<-----------------------------------------
-        if not config.nlm_generator:
+        if not nlm_generator:
 
             def nlm_request(*argv, **kwarg):
                 return tuple(self._genlm_request(*argv, **kwarg))
@@ -367,12 +390,12 @@ class NetlinkMixin(object):
         pass
 
     def clone(self):
-        return type(self)(family=self.family)
+        return type(self)(**self.config)
 
-    def close(self):
-        if self.pthread:
+    def close(self, code=errno.ECONNRESET):
+        if code > 0 and self.pthread:
             self.buffer_queue.put(struct.pack('IHHQIQQ',
-                                              28, 2, 0, 0, 104, 0, 0))
+                                              28, 2, 0, 0, code, 0, 0))
         try:
             os.close(self._ctrl_write)
             os.close(self._ctrl_read)
@@ -538,9 +561,10 @@ class NetlinkMixin(object):
                     try:
                         data = bytearray(64000)
                         self._sock.recv_into(data, 64000)
-                        self.buffer_queue.put(data)
+                        self.buffer_queue.put_nowait(data)
                     except Exception as e:
                         self.buffer_queue.put(e)
+                        return
                 else:
                     return
 
@@ -756,6 +780,7 @@ class NetlinkMixin(object):
                                 #
                                 current = self.buffer_queue.qsize()
                                 delta = current - self.qsize
+                                delay = 0
                                 if delta > 10:
                                     delay = min(3, max(0.01,
                                                        float(current) / 60000))
@@ -772,6 +797,10 @@ class NetlinkMixin(object):
                                 # We've got the data, lock the backlog again
                                 with self.backlog_lock:
                                     for msg in msgs:
+                                        msg['header']['target'] = self.target
+                                        msg['header']['stats'] = Stats(current,
+                                                                       delta,
+                                                                       delay)
                                         seq = msg['header']['sequence_number']
                                         if seq not in self.backlog:
                                             if msg['header']['type'] == \
@@ -829,29 +858,40 @@ class NetlinkMixin(object):
 
         msg_seq = self.addr_pool.alloc()
         with self.lock[msg_seq]:
-            try:
-                self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
-                for msg in self.get(msg_seq=msg_seq,
-                                    terminate=terminate,
-                                    callback=callback):
-                    yield msg
-
-            except Exception:
-                raise
-            finally:
-                # Ban this msg_seq for 0xff rounds
-                #
-                # It's a long story. Modern kernels for RTM_SET.*
-                # operations always return NLMSG_ERROR(0) == success,
-                # even not setting NLM_F_MULTY flag on other response
-                # messages and thus w/o any NLMSG_DONE. So, how to detect
-                # the response end? One can not rely on NLMSG_ERROR on
-                # old kernels, but we have to support them too. Ty, we
-                # just ban msg_seq for several rounds, and NLMSG_ERROR,
-                # being received, will become orphaned and just dropped.
-                #
-                # Hack, but true.
-                self.addr_pool.free(msg_seq, ban=0xff)
+            retry_count = 0
+            while True:
+                try:
+                    self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
+                    for msg in self.get(msg_seq=msg_seq,
+                                        terminate=terminate,
+                                        callback=callback):
+                        yield msg
+                    break
+                except NetlinkError as e:
+                    if e.code != 16:
+                        raise
+                    if retry_count >= 30:
+                        raise
+                    print('Error 16, retry {}.'.format(retry_count))
+                    time.sleep(0.3)
+                    retry_count += 1
+                    continue
+                except Exception:
+                    raise
+                finally:
+                    # Ban this msg_seq for 0xff rounds
+                    #
+                    # It's a long story. Modern kernels for RTM_SET.*
+                    # operations always return NLMSG_ERROR(0) == success,
+                    # even not setting NLM_F_MULTI flag on other response
+                    # messages and thus w/o any NLMSG_DONE. So, how to detect
+                    # the response end? One can not rely on NLMSG_ERROR on
+                    # old kernels, but we have to support them too. Ty, we
+                    # just ban msg_seq for several rounds, and NLMSG_ERROR,
+                    # being received, will become orphaned and just dropped.
+                    #
+                    # Hack, but true.
+                    self.addr_pool.free(msg_seq, ban=0xff)
 
 
 class BatchAddrPool(object):
@@ -896,10 +936,21 @@ class BatchSocket(NetlinkMixin):
     def reset(self):
         self.batch = bytearray()
 
-    def sendto_gate(self, msg, addr):
+    def nlm_request(self, msg, msg_type,
+                    msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+                    terminate=None,
+                    callback=None):
+        msg_seq = self.addr_pool.alloc()
+        msg_pid = self.epid or os.getpid()
+
+        msg['header']['type'] = msg_type
+        msg['header']['flags'] = msg_flags
+        msg['header']['sequence_number'] = msg_seq
+        msg['header']['pid'] = msg_pid
         msg.data = self.batch
         msg.offset = len(self.batch)
         msg.encode()
+        return []
 
     def get(self, *argv, **kwarg):
         pass
@@ -1019,7 +1070,7 @@ class NetlinkSocket(NetlinkMixin):
     def drop_membership(self, group):
         self.setsockopt(SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, group)
 
-    def close(self):
+    def close(self, code=errno.ECONNRESET):
         '''
         Correctly close the socket and free all resources.
         '''
@@ -1031,7 +1082,7 @@ class NetlinkSocket(NetlinkMixin):
         if self.pthread:
             os.write(self._ctrl_write, b'exit')
             self.pthread.join()
-        super(NetlinkSocket, self).close()
+        super(NetlinkSocket, self).close(code=code)
 
         # Common shutdown procedure
         self._sock.close()

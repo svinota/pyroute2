@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+import json
+import argparse
+from pyroute2 import Console
+from pyroute2 import Server
+
+argp = argparse.ArgumentParser()
+for spec in (('-a', '[S] IP address to listen on'),
+             ('-c', '[C] Command line to run'),
+             ('-l', '[C,S] Log spec'),
+             ('-m', 'set mode (C,S)'),
+             ('-p', '[S] Port to listen on'),
+             ('-r', '[C] Load rc file'),
+             ('-s', '[C,S] Load sources from a json file')):
+    argp.add_argument(spec[0], help=spec[1])
+args = argp.parse_args()
+commands = []
+sources = None
+if args.s:
+    with open(args.s, 'r') as f:
+        sources = json.loads(f.read())
+
+if args.m in ('S', 'server'):
+    if args.p:
+        port = int(args.p)
+    else:
+        port = 8080
+    server = Server(address=args.a or 'localhost',
+                    port=port,
+                    log=args.l,
+                    sources=sources)
+    server.serve_forever()
+else:
+    console = Console(log=args.l, sources=sources)
+    if args.r:
+        console.loadrc(args.r)
+
+    if args.c:
+        commands.append(args.c)
+        console.interact(readfunc=lambda x: commands.pop(0))
+    else:
+        console.interact()

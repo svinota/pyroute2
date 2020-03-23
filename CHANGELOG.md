@@ -1,6 +1,71 @@
 Changelog
 =========
 
+* 0.5.11
+    * ndb.report: filters and transformations
+    * ndb.objects.route: support basic MPLS routes management
+    * ndb.objects.route: support MPLS lwtunnel routes
+    * ndb.schema: reschedule events
+* 0.5.10
+    * general: don't use pkg_resources <https://github.com/svinota/pyroute2/issues/677>
+    * iproute: fix Windows support
+    * netlink: provide the target field
+    * ndb: use the target field from the netlink header
+    * ndb: multiple SQL fixes, transactions fixed with the PostgreSQL backend
+    * ndb: multiple object cache fixes <https://github.com/svinota/pyroute2/issues/683>
+    * ndb.schema: drop DB triggers
+    * ndb.objects: fix object management within a netns <https://github.com/svinota/pyroute2/issues/628>
+    * ndb.objects.route: support route metrics
+    * ndb.objects.route: fix default route syntax
+* 0.5.9
+    * ethtool: fix module setup
+* 0.5.8
+    * ethtool: initial support <https://github.com/svinota/pyroute2/pull/675>
+    * tc: multimatch support <https://github.com/svinota/pyroute2/pull/674>
+    * tc: meta support <https://github.com/svinota/pyroute2/pull/671>
+    * tc: cake: add stats_app decoder <https://github.com/svinota/pyroute2/pull/662>
+    * conntrack: filter <https://github.com/svinota/pyroute2/pull/660>
+    * ndb.objects.interface: reload after setns
+    * ndb.objects.route: create() dst syntax
+    * ndb.objects.route: 'default' syntax
+    * wireguard: basic testing
+* 0.5.7
+    * ndb.objects.netns: prototype
+    * ndb: netns management
+    * ndb: netns sources autoconnect (disabled by default)
+    * wireguard: basic support
+    * netns: fix FD leakage
+        * <https://github.com/svinota/pyroute2/issues/623>
+    * cli: Python3 fixes
+    * iproute: support `route('append', ...)`
+    * ipdb: fix routes cleanup on link down
+        * <https://github.com/svinota/pyroute2/issues/620>
+    * wiset: support "mark" ipset type
+* 0.5.6
+    * ndb.objects.route: multipath routes
+    * ndb.objects.rule: basic support
+    * ndb.objects.interface: veth fixed
+    * ndb.source: fix source restart
+    * ndb.log: logging setup
+* 0.5.5
+    * nftables: rules expressions
+        * <https://github.com/svinota/pyroute2/pull/592>
+    * netns: ns_pids
+        * <https://github.com/svinota/pyroute2/pull/593>
+    * ndb: wait() method
+    * ndb: add extra logging, log state transitions
+    * ndb: nested views, e.g. `ndb.interfaces['br0'].ports
+    * cli: port pyroute2-cli to use NDB instead of IPDB
+    * iproute: basic Windows support (proof of concept only)
+    * remote: support mitogen proxy chains, support remote netns
+* 0.5.4
+    * iproute: basic SR-IOV support, virtual functions setup
+    * ipdb: shutdown logging fixed
+        * <https://github.com/svinota/pyroute2/issues/553>
+    * nftables: fix regression (errata: previously mentioned ipset)
+        * <https://github.com/svinota/pyroute2/issues/575>
+    * netns: pushns() / popns() / dropns() calls
+        * <https://github.com/svinota/pyroute2/pull/590>
 * 0.5.3
     * bsd: parser improvements
     * ndb: PostgreSQL support

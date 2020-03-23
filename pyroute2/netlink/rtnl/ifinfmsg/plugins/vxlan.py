@@ -2,6 +2,7 @@ from pyroute2.netlink import nla
 
 
 class vxlan(nla):
+    prefix = 'IFLA_'
     nla_map = (('IFLA_VXLAN_UNSPEC', 'none'),
                ('IFLA_VXLAN_ID', 'uint32'),
                ('IFLA_VXLAN_GROUP', 'ip4addr'),
@@ -27,7 +28,11 @@ class vxlan(nla):
                ('IFLA_VXLAN_REMCSUM_RX', 'uint8'),
                ('IFLA_VXLAN_GBP', 'flag'),
                ('IFLA_VXLAN_REMCSUM_NOPARTIAL', 'flag'),
-               ('IFLA_VXLAN_COLLECT_METADATA', 'uint8'))
+               ('IFLA_VXLAN_COLLECT_METADATA', 'uint8'),
+               ('IFLA_VXLAN_LABEL', 'uint32'),
+               ('IFLA_VXLAN_GPE', 'flag'),
+               ('IFLA_VXLAN_TTL_INHERIT', 'flag'),
+               ('IFLA_VXLAN_DF', 'uint8'))
 
     class port_range(nla):
         fields = (('low', '>H'),

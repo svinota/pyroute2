@@ -1,4 +1,7 @@
-.. netns:
+.. _netns:
+
+NetNS module
+============
 
 .. automodule:: pyroute2.netns
     :members:

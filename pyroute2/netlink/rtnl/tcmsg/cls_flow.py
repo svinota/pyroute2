@@ -71,15 +71,13 @@ from pyroute2.netlink.rtnl.tcmsg.common import get_tca_mode
 from pyroute2.netlink.rtnl.tcmsg.common import get_tca_keys
 from pyroute2.netlink.rtnl.tcmsg.common import tc_flow_keys
 from pyroute2.netlink.rtnl.tcmsg.common import tc_flow_modes
+from pyroute2.netlink.rtnl.tcmsg.common_act import get_tca_action
+from pyroute2.netlink.rtnl.tcmsg.common_act import tca_act_prio
 
 
 def fix_msg(msg, kwarg):
-    if 'protocol' not in kwarg:
-        msg['info'] = htons(protocols.ETH_P_ALL & 0xffff) |\
-            ((kwarg.get('prio', 0) << 16) & 0xffff0000)
-    else:
-        msg['info'] = htons(kwarg.get('protocol', 0) & 0xffff) |\
-            ((kwarg.get('prio', 0) << 16) & 0xffff0000)
+    msg['info'] = htons(kwarg.get('protocol', protocols.ETH_P_ALL) & 0xffff) |\
+        ((kwarg.get('prio', 0) << 16) & 0xffff0000)
 
 
 def get_parameters(kwarg):
@@ -100,6 +98,9 @@ def get_parameters(kwarg):
             if 'ops' in kwarg:
                 get_tca_ops(kwarg, ret['attrs'])
 
+    if kwarg.get('action'):
+        ret['attrs'].append(['TCA_FLOW_ACT', get_tca_action(kwarg)])
+
     for k, v in attrs_map:
         r = kwarg.get(k, None)
         if r is not None:
@@ -118,7 +119,7 @@ class options(nla):
                ('TCA_FLOW_MASK', 'uint32'),
                ('TCA_FLOW_XOR', 'uint32'),
                ('TCA_FLOW_DIVISOR', 'uint32'),
-               ('TCA_FLOW_ACT', 'hex'),
+               ('TCA_FLOW_ACT', 'tca_act_prio'),
                ('TCA_FLOW_POLICE', 'hex'),
                ('TCA_FLOW_EMATCHES', 'hex'),
                ('TCA_FLOW_PERTURB', 'uint32'),
@@ -156,3 +157,5 @@ class options(nla):
         def encode(self):
             self['flow_keys'] = self['value']
             nla.encode(self)
+
+    tca_act_prio = tca_act_prio

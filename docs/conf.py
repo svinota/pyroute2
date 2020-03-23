@@ -7,7 +7,8 @@ config = configparser.ConfigParser()
 config.read('../setup.ini')
 
 extensions = ['sphinx.ext.autodoc',
-              'sphinx.ext.inheritance_diagram']
+              'sphinx.ext.inheritance_diagram',
+              'aafigure.sphinxext']
 
 
 inheritance_graph_attrs = {'rankdir': 'LR',
@@ -22,6 +23,7 @@ release = config.get('setup', 'release')
 
 exclude_patterns = ['_build']
 pygments_style = 'sphinx'
+autodoc_member_order = 'bysource'
 
 html_theme = 'default'
 html_static_path = ['_static']

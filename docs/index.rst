@@ -22,10 +22,13 @@ Usage
 
     usage
     iproute
-    ipdb
+    remote
+    ndb
+    ipdb_toc
     wiset
     ipset
     netns
+    wireguard
 
 Howtos
 ------
@@ -42,7 +45,6 @@ Development
 .. toctree::
     :maxdepth: 2
 
-    ndb
     devcontribute
     arch
     netlink

@@ -15,9 +15,8 @@ release := $(shell git describe | sed 's/-[^-]*$$//;s/-/.post/')
 python ?= python
 nosetests ?= nosetests
 flake8 ?= flake8
-setuplib ?= distutils.core
+setuplib ?= setuptools
 epydoc ?= epydoc
-civm ?= civm
 ##
 # Python -W flags:
 #
@@ -76,14 +75,18 @@ clean: clean-version
 	@rm -rf tests/bin
 	@rm -rf tests/pyroute2
 	@rm -f  tests/*xml
-	@rm -rf tests/ci/results/test-*
+	@rm -f  tests/tests.json
+	@rm -f  tests/tests.log
 	@rm -rf pyroute2.egg-info
+	@rm -rf tests-workspaces
 	@rm -f python-pyroute2.spec
+	@rm -f pyroute2/config/version.py
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
 	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
 
 setup.ini:
 	@awk 'BEGIN {print "[setup]\nversion=${version}\nrelease=${release}\nsetuplib=${setuplib}"}' >setup.ini
+	@awk 'BEGIN {print "__version__ = \"${release}\""}' >pyroute2/config/version.py
 
 clean-version:
 	@rm -f setup.ini
@@ -92,7 +95,7 @@ force-version: clean-version update-version
 
 update-version: setup.ini
 
-docs: clean force-version
+docs: force-version
 	@cp README.md docs/general.rst
 	@sed -i '1{s/.*docs\//.. image:: /;s/\ ".*/\n\ \ \ \ :align: right/}' docs/general.rst
 	@cp README.make.md docs/makefile.rst
@@ -130,10 +133,11 @@ test: check_parameters
 		export PDB=${pdb}; \
 		export COVERAGE=${coverage}; \
 		export MODULE=${module}; \
+		export LOOP=${loop}; \
+		export REPORT=${report}; \
+		export WORKER=${worker}; \
+		export WORKSPACE=${workspace}; \
 		./tests/run.sh
-
-test-ci:
-	@${civm} tests/ci
 
 test-platform:
 	@${python} -c "\
@@ -147,7 +151,7 @@ upload: clean force-version docs
 	${python} setup.py sdist
 	${python} -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/*
 
-dist: clean force-version docs
+dist: force-version docs
 	@${python} setup.py sdist >/dev/null 2>&1
 
 install: clean force-version
@@ -162,12 +166,3 @@ uninstall: clean
 develop: setuplib = "setuptools"
 develop: clean force-version
 	${python} setup.py develop
-
-# 8<--------------------------------------------------------------------
-#
-# Packages
-#
-rpm: force-version
-	cp packages/RedHat/python-pyroute2.spec .
-	${python} setup.py sdist
-	rpmbuild -ta dist/*tar.gz

@@ -1,5 +1,6 @@
 import errno
 from time import sleep
+from nose.plugins.skip import SkipTest
 from pyroute2.ipset import IPSet, PortRange, PortEntry
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
@@ -13,6 +14,7 @@ import socket
 class TestIPSet(object):
 
     def setup(self):
+        require_user('root')
         self.ip = IPSet()
 
     def teardown(self):
@@ -76,7 +78,6 @@ class TestIPSet(object):
                 if x.get_attr('IPSET_ATTR_SETNAME') == name]
 
     def test_create_exclusive_fail(self):
-        require_user('root')
         name = str(uuid4())[:16]
         self.ip.create(name)
         assert self.get_ipset(name)
@@ -90,7 +91,6 @@ class TestIPSet(object):
         assert not self.get_ipset(name)
 
     def test_create_exclusive_success(self):
-        require_user('root')
         name = str(uuid4())[:16]
         self.ip.create(name)
         assert self.get_ipset(name)
@@ -99,7 +99,6 @@ class TestIPSet(object):
         assert not self.get_ipset(name)
 
     def test_add_exclusive_fail(self):
-        require_user('root')
         name = str(uuid4())[:16]
         ipaddr = '172.16.202.202'
         self.ip.create(name)
@@ -114,7 +113,6 @@ class TestIPSet(object):
         assert not self.get_ipset(name)
 
     def test_add_exclusive_success(self):
-        require_user('root')
         name = str(uuid4())[:16]
         ipaddr = '172.16.202.202'
         self.ip.create(name)
@@ -125,7 +123,6 @@ class TestIPSet(object):
         assert not self.get_ipset(name)
 
     def test_create_destroy(self):
-        require_user('root')
         name = str(uuid4())[:16]
         # create ipset
         self.ip.create(name)
@@ -137,7 +134,6 @@ class TestIPSet(object):
         assert not self.get_ipset(name)
 
     def test_add_delete(self):
-        require_user('root')
         name = str(uuid4())[:16]
         ipaddr = '192.168.1.1'
         # create ipset
@@ -156,7 +152,6 @@ class TestIPSet(object):
         assert not self.get_ipset(name)
 
     def test_swap(self):
-        require_user('root')
         name_a = str(uuid4())[:16]
         name_b = str(uuid4())[:16]
         ipaddr_a = '192.168.1.1'
@@ -181,7 +176,6 @@ class TestIPSet(object):
         assert not self.get_ipset(name_b)
 
     def test_counters(self):
-        require_user('root')
         name = str(uuid4())[:16]
         ipaddr = '172.16.202.202'
         self.ip.create(name, counters=True)
@@ -199,7 +193,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_comments(self):
-        require_user('root')
         name = str(uuid4())[:16]
         ipaddr = '172.16.202.202'
         comment = 'a very simple comment'
@@ -210,7 +203,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_skbmark(self):
-        require_user('root')
         name = str(uuid4())[:16]
         ipaddr = '172.16.202.202'
         skbmark = (0x100, 0xffffffff)
@@ -221,7 +213,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_skbprio(self):
-        require_user('root')
         name = str(uuid4())[:16]
         ipaddr = '172.16.202.202'
         skbprio = (1, 10)
@@ -232,7 +223,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_skbqueue(self):
-        require_user('root')
         name = str(uuid4())[:16]
         ipaddr = '172.16.202.202'
         skbqueue = 1
@@ -243,7 +233,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_maxelem(self):
-        require_user('root')
         name = str(uuid4())[:16]
         self.ip.create(name, maxelem=1)
         data = self.get_ipset(name)[0].get_attr("IPSET_ATTR_DATA")
@@ -252,7 +241,6 @@ class TestIPSet(object):
         assert maxelem == 1
 
     def test_hashsize(self):
-        require_user('root')
         name = str(uuid4())[:16]
         min_size = 64
         self.ip.create(name, hashsize=min_size)
@@ -262,7 +250,6 @@ class TestIPSet(object):
         assert hashsize == min_size
 
     def test_forceadd(self):
-        require_user('root')
         name = str(uuid4())[:16]
         self.ip.create(name, forceadd=True)
         res = self.ip.list(name)[0].get_attr("IPSET_ATTR_DATA")
@@ -273,7 +260,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_flush(self):
-        require_user('root')
         name = str(uuid4())[:16]
         self.ip.create(name)
         ip_a = "1.1.1.1"
@@ -288,7 +274,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_rename(self):
-        require_user('root')
         name = str(uuid4())[:16]
         name_bis = str(uuid4())[:16]
         self.ip.create(name)
@@ -297,7 +282,6 @@ class TestIPSet(object):
         self.ip.destroy(name_bis)
 
     def test_timeout(self):
-        require_user('root')
         name = str(uuid4())[:16]
         ip = "1.2.3.4"
         self.ip.create(name, timeout=1)
@@ -314,7 +298,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_net_and_iface_stypes(self):
-        require_user('root')
         name = str(uuid4())[:16]
         test_values = (('hash:net', ('192.168.1.0/31', '192.168.12.0/24')),
                        ('hash:net,iface', ('192.168.1.0/24,eth0',
@@ -332,7 +315,6 @@ class TestIPSet(object):
             assert not self.get_ipset(name)
 
     def test_tuple_support(self):
-        require_user('root')
         name = str(uuid4())[:16]
         test_values = (('hash:net,iface', (('192.168.1.0/24', 'eth0'),
                                            ('192.168.2.0/24', 'wlan0'))),)
@@ -349,7 +331,6 @@ class TestIPSet(object):
             assert not self.get_ipset(name)
 
     def test_net_with_dash(self):
-        require_user('root')
         name = str(uuid4())[:16]
         stype = "hash:net"
         self.ip.create(name, stype=stype)
@@ -360,7 +341,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_double_net(self):
-        require_user('root')
         name = str(uuid4())[:16]
         stype = "hash:net,port,net"
         etype = "net,port,net"
@@ -372,7 +352,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_custom_hash_values(self):
-        require_user('root')
         name = str(uuid4())[:16]
         stype = "hash:net"
         maxelem = 16384
@@ -388,7 +367,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_list_set(self):
-        require_user('root')
         name = str(uuid4())[:16]
         subname = str(uuid4())[:16]
         subtype = "hash:net"
@@ -409,7 +387,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_bitmap_port(self):
-        require_user('root')
         name = str(uuid4())[:16]
         ipset_type = "bitmap:port"
         etype = "port"
@@ -440,7 +417,6 @@ class TestIPSet(object):
         self.ip.destroy(name)
 
     def test_port_range_with_proto(self):
-        require_user('root')
         name = str(uuid4())[:16]
         ipset_type = "hash:net,port"
         etype = "net,port"
@@ -468,3 +444,29 @@ class TestIPSet(object):
         self.ip.test(name, ("192.0.2.0/24", port_entry), etype=etype)
 
         self.ip.destroy(name)
+
+    def test_set_by(self):
+        name_a = str(uuid4())[:16]
+        old_vers = self.ip._proto_version
+
+        # check revision supported by kernel
+        msg = self.ip.get_proto_version()
+        version = msg[0].get_attr("IPSET_ATTR_PROTOCOL")
+        if version < 7:
+            raise SkipTest("Kernel does not support this feature")
+
+        # set version
+        self.ip._proto_version = 7
+        # create set
+        self.ip.create(name_a)
+        # get index
+        msg = self.ip.get_set_byname(name_a)
+        idx = msg[0].get_attr("IPSET_ATTR_INDEX")
+        # get set name by index
+        msg = self.ip.get_set_byindex(idx)
+        name_b = msg[0].get_attr("IPSET_ATTR_SETNAME")
+        # remove set
+        self.ip.destroy(name_a)
+        # restore version back to original
+        self.ip._proto_version = old_vers
+        assert name_a == name_b

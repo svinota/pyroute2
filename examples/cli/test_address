@@ -1,0 +1,17 @@
+#
+#
+#
+interfaces
+    create {ifname test01}
+        kind dummy
+        address 00:11:22:33:44:55
+        commit
+        #
+        ipaddr
+            create {address 192.168.15.67, prefixlen 24}
+                commit
+            create {address 192.168.15.68, prefixlen 24}
+                commit
+            192.168.15.68/24
+                remove
+                commit

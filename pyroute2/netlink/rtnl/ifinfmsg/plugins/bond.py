@@ -2,6 +2,7 @@ from pyroute2.netlink import nla
 
 
 class bond(nla):
+    prefix = 'IFLA_'
     nla_map = (('IFLA_BOND_UNSPEC', 'none'),
                ('IFLA_BOND_MODE', 'uint8'),
                ('IFLA_BOND_ACTIVE_SLAVE', 'uint32'),

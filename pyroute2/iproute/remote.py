@@ -1,4 +1,5 @@
 import os
+import errno
 import mitogen.core
 import mitogen.master
 import threading
@@ -75,7 +76,7 @@ class Channel(object):
 
 
 @mitogen.core.takes_router
-def MitogenServer(ch_out, router):
+def MitogenServer(ch_out, netns, target, router):
 
     ch_in = mitogen.core.Receiver(router)
     ch_out.send(ch_in.to_sender())
@@ -84,7 +85,7 @@ def MitogenServer(ch_out, router):
     trnsp_in.file_obj.start()
     trnsp_out = Transport(Channel(ch_out))
 
-    return Server(trnsp_in, trnsp_out)
+    return Server(trnsp_in, trnsp_out, netns, target)
 
 
 class RemoteIPRoute(RTNL_API, RemoteSocket):
@@ -99,14 +100,22 @@ class RemoteIPRoute(RTNL_API, RemoteSocket):
         else:
             self._mitogen_broker = mitogen.master.Broker()
             self._mitogen_router = mitogen.master.Router(self._mitogen_broker)
-        self._mitogen_protocol = kwarg.pop('protocol', 'local')
+
+        netns = kwarg.pop('netns', None)
+        target = kwarg.pop('target', 'remote')
         try:
-            context = getattr(self._mitogen_router,
-                              self._mitogen_protocol)(*argv, **kwarg)
+            if 'context' in kwarg:
+                context = kwarg['context']
+            else:
+                protocol = kwarg.pop('protocol', 'local')
+                context = getattr(self._mitogen_router,
+                                  protocol)(*argv, **kwarg)
             ch_in = mitogen.core.Receiver(self._mitogen_router,
                                           respondent=context)
             self._mitogen_call = context.call_async(MitogenServer,
-                                                    ch_out=ch_in.to_sender())
+                                                    ch_out=ch_in.to_sender(),
+                                                    netns=netns,
+                                                    target=target)
             ch_out = ch_in.get().unpickle()
             super(RemoteIPRoute, self).__init__(Transport(Channel(ch_in)),
                                                 Transport(Channel(ch_out)))
@@ -116,14 +125,15 @@ class RemoteIPRoute(RTNL_API, RemoteSocket):
                 self._mitogen_broker.join()
             raise
         self.marshal = MarshalRtnl()
+        self.target = target
 
     def clone(self):
         return type(self)(*self._argv, **self._kwarg)
 
-    def close(self):
+    def close(self, code=errno.ECONNRESET):
         with self.shutdown_lock:
             if not self.closed:
-                super(RemoteIPRoute, self).close()
+                super(RemoteIPRoute, self).close(code=code)
                 self.closed = True
                 try:
                     self._mitogen_call.get()

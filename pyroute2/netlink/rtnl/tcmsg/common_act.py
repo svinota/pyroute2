@@ -1,9 +1,13 @@
+from pyroute2.netlink import nla
+from pyroute2.netlink.rtnl.tcmsg.common import stats2
+from pyroute2.netlink.rtnl.tcmsg.common import TCA_ACT_MAX_PRIO
 from pyroute2.netlink.rtnl.tcmsg import act_gact
 from pyroute2.netlink.rtnl.tcmsg import act_bpf
 from pyroute2.netlink.rtnl.tcmsg import act_police
 from pyroute2.netlink.rtnl.tcmsg import act_mirred
 from pyroute2.netlink.rtnl.tcmsg import act_connmark
 from pyroute2.netlink.rtnl.tcmsg import act_vlan
+from pyroute2.netlink.rtnl.tcmsg import act_skbedit
 
 plugins = {'gact': act_gact,
            'bpf': act_bpf,
@@ -11,6 +15,7 @@ plugins = {'gact': act_gact,
            'mirred': act_mirred,
            'connmark': act_connmark,
            'vlan': act_vlan,
+           'skbedit': act_skbedit,
            }
 
 
@@ -22,6 +27,21 @@ class nla_plus_tca_act_opt(object):
             return plugins[kind].options
 
         return self.hex
+
+
+class tca_act_prio(nla):
+    nla_map = tuple([('TCA_ACT_PRIO_%i' % x, 'tca_act') for x
+                     in range(TCA_ACT_MAX_PRIO)])
+
+    class tca_act(nla,
+                  nla_plus_tca_act_opt):
+        nla_map = (('TCA_ACT_UNSPEC', 'none'),
+                   ('TCA_ACT_KIND', 'asciiz'),
+                   ('TCA_ACT_OPTIONS', 'get_act_options'),
+                   ('TCA_ACT_INDEX', 'hex'),
+                   ('TCA_ACT_STATS', 'stats2'))
+
+        stats2 = stats2
 
 
 def get_act_parms(kwarg):

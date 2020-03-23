@@ -36,7 +36,8 @@ supported_kinds = ('bridge',
                    'macvlan',
                    'macvtap',
                    'ipvlan',
-                   'vrf')
+                   'vrf',
+                   'vti')
 
 groups = rtnl.RTMGRP_LINK |\
     rtnl.RTMGRP_NEIGH |\
@@ -663,6 +664,12 @@ class Interface(Transactional):
             for addr in self.ipdb.ipaddr[self['index']]:
                 transaction['ipaddr'].add(addr)
 
+            # Reload the interface data
+            try:
+                self.load_netlink(self.nl.link('get', **request)[0])
+            except Exception:
+                pass
+
         # now we have our index and IP set and all other stuff
         snapshot = self.pick()
 
@@ -1096,26 +1103,14 @@ class Interface(Transactional):
         '''
         Shortcut: change the interface state to 'up'.
         '''
-        if self['flags'] is None:
-            self['flags'] = 1
-        else:
-            if not self['flags'] & 1:
-                self['flags'] |= 1
-            elif self.current_tx is None:
-                self.begin()
+        self['state'] = 'up'
         return self
 
     def down(self):
         '''
         Shortcut: change the interface state to 'down'.
         '''
-        if self['flags'] is None:
-            self['flags'] = 0
-        else:
-            if self['flags'] & 1:
-                self['flags'] &= ~(self['flags'] & 1)
-            elif self.current_tx is None:
-                self.begin()
+        self['state'] = 'down'
         return self
 
     def remove(self):

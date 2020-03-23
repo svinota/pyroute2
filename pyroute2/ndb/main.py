@@ -1,162 +1,103 @@
 '''
-NDB
-===
+Quick start
+-----------
 
-An experimental module that may obsolete IPDB.
-
-Examples::
-
-    from pyroute2 import NDB
-    from pprint import pprint
-
-    ndb = NDB()
-    # ...
-    for line ndb.routes.csv():
-        print(line)
-    # ...
-    for record in ndb.interfaces.summary():
-        print(record)
-    # ...
-    pprint(ndb.interfaces['eth0'])
-
-    # ...
-    pprint(ndb.interfaces[{'target': 'localhost',
-                           'ifname': 'eth0'}])
-
-    #
-    # change object parameters
-    #
-    eth0 = ndb.interfaces['eth0']
-    eth0['state'] = 'up'
-    eth0.commit()
-
-    #
-    # create objects
-    #
-    test0 = ndb.interfaces.add(ifname='test0', kind='dummy')
-    test0.commit()
-    # ...
-    test0.remove()
-    test0.commit()
-
-    #
-    # it is mandatory to call close()
-    #
-    ndb.close()
-
-Difference with IPDB
---------------------
-
-NDB is designed to work with multiple event sources and with loads of
-network objects.
-
-Multiple sources::
-
-    from pyroute2 import (NDB,
-                          IPRoute,
-                          NetNS,
-                          RemoteIPRoute)
-
-    sources = {'localhost': IPRoute(),
-               'debian.test': RemoteIPRoute(protocol='ssh',
-                                            hostname='192.168.122.54',
-                                            username='netops'),
-               'openbsd.test': RemoteIPRoute(protocol='ssh',
-                                             hostname='192.168.122.60',
-                                             username='netops'),
-               'netns0': NetNS('netns0'),
-               'docker': NetNS('/var/run/docker/netns/f2d2ba3e5987')}
-
-    # NDB supports the context protocol, close() is called automatically
-    with NDB(sources=sources) as ndb:
-        # ...
-
-NDB stores all the data in an SQL database and creates objects on
-demand. Statements like `ndb.interfaces['eth0']` create a new object
-every time you run this statement. Thus::
+Print the routing information in the CSV format::
 
     with NDB() as ndb:
+        for record in ndb.routes.summary().format('csv'):
+            print(record)
 
-        #
-        # This will NOT work, as every line creates a new object
-        #
-        ndb.interfaces['eth0']['state'] = 'up'
-        ndb.interfaces['eth0'].commit()
+.. note:: More on report filtering and formatting: :ref:`ndbreports`
+.. note:: Since 0.5.11; versions 0.5.10 and earlier used
+          syntax `summary(format='csv', match={...})`
 
-        #
-        # This works
-        #
-        eth0 = ndb.interfaces['eth0']  # get the reference
-        eth0['state'] = 'up'
-        eth0.commit()
+Print all the interface names on the system::
 
-        #
-        # The same with a context manager
-        #
-        with ndb.interfaces['eth0'] as eth0:
-            eth0['state'] = 'up'
-        # ---> <--- the context manager runs commit() at __exit__()
+    with NDB() as ndb:
+        print([x.ifname for x in ndb.interfaces.summary()])
 
+Print IP addresses of interfaces in several network namespaces::
 
-DB providers
-------------
+    nslist = ['netns01',
+              'netns02',
+              'netns03']
 
-NDB supports different DB providers, now they are SQLite3 and PostgreSQL.
-PostgreSQL access requires psycopg2 module::
+    with NDB() as ndb:
+        for nsname in nslist:
+            ndb.sources.add(netns=nsname)
+        for record in ndb.interfaces.summary():
+            print(record)
 
-    from pyroute2 import NDB
+Add an IP address on an interface::
 
-    # SQLite3 -- simple in-memory DB
-    ndb = NDB(db_provider='sqlite3')
+    with NDB() as ndb:
+        with ndb.interfaces['eth0'] as i:
+            i.ipaddr.create(address='10.0.0.1', prefixlen=24).commit()
+            # ---> <---  NDB waits until the address actually
+            #            becomes available
 
-    # SQLite3 -- same as above
-    ndb = NDB(db_provider='sqlite3',
-              db_spec=':memory:')
+Change an interface property::
 
-    # SQLite3 -- file DB
-    ndb = NDB(db_provider='sqlite3',
-              db_spec='test.db')
-
-    # PostgreSQL -- local DB
-    ndb = NDB(db_provider='psycopg2',
-              db_spec={'dbname': 'test'})
-
-    # PostgreSQL -- remote DB
-    ndb = NDB(db_provider='psycopg2',
-              db_spec={'dbname': 'test',
-                       'host': 'db1.example.com'})
-
+    with NDB() as ndb:
+        with ndb.interfaces['eth0'] as i:
+            i['state'] = 'up'
+            i['address'] = '00:11:22:33:44:55'
+        # ---> <---  the commit() is called authomatically by
+        #            the context manager's __exit__()
 
 '''
+import gc
+import sys
 import json
 import time
+import errno
 import atexit
 import sqlite3
 import logging
-import weakref
 import threading
 import traceback
+import ctypes
+import ctypes.util
 from functools import partial
+from collections import OrderedDict
 from pyroute2 import config
-from pyroute2 import IPRoute
-from pyroute2.netlink.nlsocket import NetlinkMixin
-from pyroute2.ndb import dbschema
-from pyroute2.ndb.interface import (Interface,
-                                    Bridge,
-                                    Vlan)
-from pyroute2.ndb.address import Address
-from pyroute2.ndb.route import Route
-from pyroute2.ndb.neighbour import Neighbour
+from pyroute2 import cli
+from pyroute2.common import basestring
+from pyroute2.ndb import schema
+from pyroute2.ndb.events import (DBMExitException,
+                                 ShutdownException,
+                                 InvalidateHandlerException,
+                                 RescheduleException)
+from pyroute2.ndb.messages import (cmsg,
+                                   cmsg_event,
+                                   cmsg_failed,
+                                   cmsg_sstart)
+from pyroute2.ndb.source import Source
+from pyroute2.ndb.objects.interface import Interface
+from pyroute2.ndb.objects.address import Address
+from pyroute2.ndb.objects.route import Route
+from pyroute2.ndb.objects.neighbour import Neighbour
+from pyroute2.ndb.objects.rule import Rule
+from pyroute2.ndb.objects.netns import NetNS
 from pyroute2.ndb.query import Query
-from pyroute2.ndb.report import Report
+from pyroute2.ndb.report import (Report,
+                                 Record)
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
+
 try:
     import queue
 except ImportError:
     import Queue as queue
+
 try:
     import psycopg2
 except ImportError:
     psycopg2 = None
+
 log = logging.getLogger(__name__)
 
 
@@ -167,88 +108,235 @@ def target_adapter(value):
     return json.dumps(value)
 
 
+class PostgreSQLAdapter(object):
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def getquoted(self):
+        return "'%s'" % json.dumps(self.obj)
+
+
 sqlite3.register_adapter(list, target_adapter)
-SOURCE_FAIL_PAUSE = 5
+sqlite3.register_adapter(dict, target_adapter)
+if psycopg2 is not None:
+    psycopg2.extensions.register_adapter(list, PostgreSQLAdapter)
+    psycopg2.extensions.register_adapter(dict, PostgreSQLAdapter)
 
 
-class SyncStart(Exception):
-    pass
-
-
-class SchemaFlush(Exception):
-    pass
-
-
-class MarkFailed(Exception):
-    pass
-
-
-class ShutdownException(Exception):
-    pass
-
-
-class InvalidateHandlerException(Exception):
-    pass
-
-
-class Factory(dict):
+class View(dict):
     '''
-    The Factory() object returns RTNL objects on demand::
+    The View() object returns RTNL objects on demand::
 
         ifobj1 = ndb.interfaces['eth0']
         ifobj2 = ndb.interfaces['eth0']
         # ifobj1 != ifobj2
     '''
-    classes = {'interfaces': Interface,
-               'vlan': Vlan,
-               'bridge': Bridge,
-               'addresses': Address,
-               'routes': Route,
-               'neighbours': Neighbour}
 
-    def __init__(self, ndb, table):
+    def __init__(self,
+                 ndb,
+                 table,
+                 chain=None,
+                 default_target='localhost'):
         self.ndb = ndb
+        self.log = ndb.log.channel('view.%s' % table)
         self.table = table
+        self.event = table  # FIXME
+        self.chain = chain
+        self.cache = {}
+        self.default_target = default_target
+        self.constraints = {}
+        self.classes = OrderedDict()
+        self.classes['interfaces'] = Interface
+        self.classes['addresses'] = Address
+        self.classes['neighbours'] = Neighbour
+        self.classes['routes'] = Route
+        self.classes['rules'] = Rule
+        self.classes['netns'] = NetNS
 
-    def get(self, key, table=None):
-        return self.__getitem__(key, table)
+    def __enter__(self):
+        return self
 
-    def add(self, **spec):
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+    @property
+    def context(self):
+        if self.chain is not None:
+            return self.chain.context
+        else:
+            return {}
+
+    def getmany(self, spec, table=None):
+        return self.ndb.schema.get(table or self.table, spec)
+
+    def getone(self, spec, table=None):
+        for obj in self.getmany(spec, table):
+            return obj
+
+    def get(self, spec, table=None):
+        try:
+            return self.__getitem__(spec, table)
+        except KeyError:
+            return None
+
+    @cli.change_pointer
+    def create(self, *argspec, **kwspec):
+        if self.chain:
+            context = self.chain.context
+        else:
+            context = {}
+        spec = (self
+                .classes[self.table]
+                .adjust_spec(kwspec or argspec[0], context))
+        if self.chain:
+            spec['ndb_chain'] = self.chain
         spec['create'] = True
         return self[spec]
 
-    def __getitem__(self, key, table=None):
-        #
-        # Construct a weakref handler for events.
-        #
-        # If the referent doesn't exist, raise the
-        # exception to remove the handler from the
-        # chain.
-        #
+    @cli.change_pointer
+    def add(self, *argspec, **kwspec):
+        self.log.warning('''\n
+        The name add() will be removed in future releases, use create()
+        instead. If you believe that the idea to rename is wrong, please
+        file your opinion to the project's bugtracker.
 
-        def wr_handler(wr, fname, *argv):
+        The reason behind the rename is not to confuse interfaces.add() with
+        bridge and bond port operations, that don't create any new interfaces
+        but work on existing ones.
+        ''')
+        return self.create(*argspec, **kwspec)
+
+    def wait(self, **spec):
+        ret = None
+
+        # install a limited events queue -- for a possible immediate reaction
+        evq = queue.Queue(maxsize=100)
+
+        def handler(evq, target, event):
+            # ignore the "queue full" exception
+            #
+            # if we miss some events here, nothing bad happens: we just
+            # load them from the DB after a timeout, falling back to
+            # the DB polling
+            #
+            # the most important here is not to allocate too much memory
             try:
-                return getattr(wr(), fname)(*argv)
-            except:
-                # check if the weakref became invalid
-                if wr() is None:
-                    raise InvalidateHandlerException()
-                raise
+                evq.put_nowait((target, event))
+            except queue.Full:
+                pass
+        #
+        hdl = partial(handler, evq)
+        (self
+         .ndb
+         .register_handler(self
+                           .ndb
+                           .schema
+                           .classes[self.event], hdl))
+        #
+        try:
+            ret = self.__getitem__(spec)
+            for key in spec:
+                if ret[key] != spec[key]:
+                    ret = None
+                    break
+        except KeyError:
+            ret = None
 
+        while ret is None:
+            try:
+                target, msg = evq.get(timeout=1)
+            except queue.Empty:
+                try:
+                    ret = self.__getitem__(spec)
+                    for key in spec:
+                        if ret[key] != spec[key]:
+                            ret = None
+                            raise KeyError()
+                    break
+                except KeyError:
+                    continue
+
+            #
+            for key, value in spec.items():
+                if key == 'target' and value != target:
+                    break
+                elif value not in (msg.get(key),
+                                   msg.get_attr(msg.name2nla(key))):
+                    break
+            else:
+                while ret is None:
+                    try:
+                        ret = self.__getitem__(spec)
+                    except KeyError:
+                        time.sleep(0.1)
+
+        #
+        (self
+         .ndb
+         .unregister_handler(self
+                             .ndb
+                             .schema
+                             .classes[self.event], hdl))
+
+        del evq
+        del hdl
+        gc.collect()
+        return ret
+
+    def __getitem__(self, key, table=None):
+
+        if self.chain:
+            context = self.chain.context
+        else:
+            context = {}
         iclass = self.classes[table or self.table]
-        ret = iclass(self, key)
-        wr = weakref.ref(ret)
-        self.ndb._rtnl_objects.add(wr)
-        for event, fname in ret.event_map.items():
-            #
-            # Do not trust the implicit scope and pass the
-            # weakref explicitly via partial
-            #
-            (self
-             .ndb
-             .register_handler(event,
-                               partial(wr_handler, wr, fname)))
+        if isinstance(key, Record):
+            key = key._as_dict()
+        key = iclass.adjust_spec(key, context)
+        ret = iclass(self, key, load=False, master=self.chain)
 
+        # rtnl_object.key() returns a dcitionary that can not
+        # be used as a cache key. Create here a tuple from it.
+        # The key order guaranteed by the dictionary.
+        cache_key = tuple(ret.key.items())
+
+        rtime = time.time()
+
+        # Iterate all the cache to remove unused and clean
+        # (without any started transaction) objects.
+        for ckey in tuple(self.cache):
+            # Skip the current cache_key to avoid extra
+            # cache del/add records in the logs
+            if ckey == cache_key:
+                continue
+            # The number of referrers must be > 1, the first
+            # one is the cache itself
+            rcount = len(gc.get_referrers(self.cache[ckey]))
+            # Remove only expired items
+            expired = (rtime - self.cache[ckey].atime) > config.cache_expire
+            # The number of changed rtnl_object fields must
+            # be 0 which means that no transaction is started
+            if rcount == 1 and self.cache[ckey].clean and expired:
+                self.log.debug('cache del %s' % (ckey, ))
+                self.cache.pop(ckey, None)
+
+        if cache_key in self.cache:
+            self.log.debug('cache hit %s' % (cache_key, ))
+            # Explicitly get rid of the created object
+            del ret
+            # The object from the cache has already
+            # registered callbacks, simply return it
+            ret = self.cache[cache_key]
+            ret.atime = rtime
+            return ret
+        else:
+            # Cache only existing objects
+            if ret.load_sql():
+                self.log.debug('cache add %s' % (cache_key, ))
+                self.cache[cache_key] = ret
+
+        ret.register()
         return ret
 
     def __setitem__(self, key, value):
@@ -257,232 +345,221 @@ class Factory(dict):
     def __delitem__(self, key):
         raise NotImplementedError()
 
-    def keys(self):
-        raise NotImplementedError()
+    def __iter__(self):
+        return self.keys()
 
-    def items(self):
-        raise NotImplementedError()
+    def keys(self):
+        for record in self.dump():
+            yield record
 
     def values(self):
+        for key in self.keys():
+            yield self[key]
+
+    def items(self):
+        for key in self.keys():
+            yield (key, self[key])
+
+    @cli.show_result
+    def count(self):
+        return (self
+                .ndb
+                .schema
+                .fetchone('SELECT count(*) FROM %s' % self.table))[0]
+
+    def __len__(self):
+        return self.count()
+
+    def _keys(self, iclass):
+        return (['target', 'tflags'] +
+                self.ndb.schema.compiled[iclass.view or iclass.table]['names'])
+
+    def _native(self, dump):
+        fnames = next(dump)
+        for record in dump:
+            yield Record(fnames, record)
+
+    @cli.show_result
+    def dump(self):
+        iclass = self.classes[self.table]
+        return Report(self._native(iclass.dump(self)))
+
+    @cli.show_result
+    def summary(self):
+        iclass = self.classes[self.table]
+        return Report(self._native(iclass.summary(self)))
+
+
+class SourcesView(View):
+
+    def __init__(self, ndb):
+        super(SourcesView, self).__init__(ndb, 'sources')
+        self.classes['sources'] = Source
+        self.cache = {}
+        self.lock = threading.Lock()
+
+    def async_add(self, **spec):
+        spec = dict(Source.defaults(spec))
+        self.cache[spec['target']] = Source(self.ndb, **spec).start()
+        return self.cache[spec['target']]
+
+    def add(self, **spec):
+        spec = dict(Source.defaults(spec))
+        if 'event' not in spec:
+            sync = True
+            spec['event'] = threading.Event()
+        else:
+            sync = False
+        self.cache[spec['target']] = Source(self.ndb, **spec).start()
+        if sync:
+            self.cache[spec['target']].event.wait()
+        return self.cache[spec['target']]
+
+    def remove(self, target, code=errno.ECONNRESET, sync=True):
+        with self.lock:
+            if target in self.cache:
+                source = self.cache[target]
+                source.close(code=code, sync=sync)
+                return self.cache.pop(target)
+
+    def keys(self):
+        for key in self.cache:
+            yield key
+
+    def _keys(self, iclass):
+        return ['target', 'kind']
+
+    def wait(self, **spec):
         raise NotImplementedError()
 
-    def _dump(self, match=None):
-        iclass = self.classes[self.table]
-        cls = iclass.msg_class or self.ndb.schema.classes[iclass.table]
-        keys = self.ndb.schema.compiled[iclass.view or iclass.table]['names']
-        values = []
+    def _summary(self, *argv, **kwarg):
+        return self._dump(*argv, **kwarg)
 
-        if isinstance(match, dict):
-            spec = ' WHERE '
-            conditions = []
-            for key, value in match.items():
-                if cls.name2nla(key) in keys:
-                    key = cls.name2nla(key)
-                if key not in keys:
-                    raise KeyError('key %s not found' % key)
-                conditions.append('rs.f_%s = %s' % (key, self.ndb.schema.plch))
-                values.append(value)
-            spec = ' WHERE %s' % ' AND '.join(conditions)
+    def __getitem__(self, key, table=None):
+        if isinstance(key, basestring):
+            target = key
+        elif isinstance(key, dict) and 'target' in key.keys():
+            target = key['target']
         else:
-            spec = ''
-        if iclass.dump and iclass.dump_header:
-            yield iclass.dump_header
-            with self.ndb.schema.db_lock:
-                for stmt in iclass.dump_pre:
-                    self.ndb.schema.execute(stmt)
-                for record in (self
-                               .ndb
-                               .schema
-                               .execute(iclass.dump + spec, values)):
-                    yield record
-                for stmt in iclass.dump_post:
-                    self.ndb.schema.execute(stmt)
+            raise ValueError('key format not supported')
+
+        return self.cache[target]
+
+
+class Log(object):
+
+    def __init__(self, log_id=None):
+        self.logger = None
+        self.state = False
+        self.log_id = log_id or id(self)
+        self.logger = logging.getLogger('pyroute2.ndb.%s' % self.log_id)
+        self.main = self.channel('main')
+
+    def __call__(self, target=None):
+        if target is None:
+            return self.logger is not None
+
+        if self.logger is not None:
+            for handler in tuple(self.logger.handlers):
+                self.logger.removeHandler(handler)
+
+        if target in ('off', False):
+            if self.state:
+                self.logger.setLevel(0)
+                self.logger.addHandler(logging.NullHandler())
+            return
+
+        if target in ('on', 'stderr'):
+            handler = logging.StreamHandler()
+        elif isinstance(target, basestring):
+            url = urlparse(target)
+            if not url.scheme and url.path:
+                handler = logging.FileHandler(url.path)
+            elif url.scheme == 'syslog':
+                handler = logging.SysLogHandler(address=url.netloc.split(':'))
+            else:
+                raise ValueError('logging scheme not supported')
         else:
-            yield ('target', 'tflags') + tuple([cls.nla2name(x) for x in keys])
-            with self.ndb.schema.db_lock:
-                for record in (self
-                               .ndb
-                               .schema
-                               .execute('SELECT * FROM %s AS rs %s'
-                                        % (iclass.view or iclass.table, spec),
-                                        values)):
-                    yield record
+            handler = target
 
-    def _csv(self, match=None, dump=None):
-        if dump is None:
-            dump = self._dump(match)
-        for record in dump:
-            row = []
-            for field in record:
-                if isinstance(field, int):
-                    row.append('%i' % field)
-                elif field is None:
-                    row.append('')
-                else:
-                    row.append("'%s'" % field)
-            yield ','.join(row)
+        fmt = '%(asctime)s %(levelname)8s %(name)s: %(message)s'
+        formatter = logging.Formatter(fmt)
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+        self.logger.setLevel(logging.DEBUG)
 
-    def _summary(self):
-        iclass = self.classes[self.table]
-        if iclass.summary is not None:
-            if iclass.summary_header is not None:
-                yield iclass.summary_header
-            for record in (self
-                           .ndb
-                           .schema
-                           .fetch(iclass.summary)):
-                yield record
-        else:
-            header = tuple(['f_%s' % x for x in
-                            ('target', ) +
-                            self.ndb.schema.indices[iclass.table]])
-            yield header
-            key_fields = ','.join(header)
-            for record in (self
-                           .ndb
-                           .schema
-                           .fetch('SELECT %s FROM %s'
-                                  % (key_fields,
-                                     iclass.view or iclass.table))):
-                yield record
+    @property
+    def on(self):
+        self.__call__(target='on')
 
-    def csv(self, *argv, **kwarg):
-        return Report(self._csv(*argv, **kwarg))
+    @property
+    def off(self):
+        self.__call__(target='off')
 
-    def dump(self, *argv, **kwarg):
-        return Report(self._dump(*argv, **kwarg))
+    def channel(self, name):
+        return logging.getLogger('pyroute2.ndb.%s.%s' % (self.log_id, name))
 
-    def summary(self, *argv, **kwarg):
-        return Report(self._summary(*argv, **kwarg))
+    def debug(self, *argv, **kwarg):
+        return self.main.debug(*argv, **kwarg)
+
+    def info(self, *argv, **kwarg):
+        return self.main.info(*argv, **kwarg)
+
+    def warning(self, *argv, **kwarg):
+        return self.main.warning(*argv, **kwarg)
+
+    def error(self, *argv, **kwarg):
+        return self.main.error(*argv, **kwarg)
+
+    def critical(self, *argv, **kwarg):
+        return self.main.critical(*argv, **kwarg)
 
 
-class Source(object):
-    '''
-    The RNTL source. The source that is used to init the object
-    must comply to IPRoute API, must support the async_cache. If
-    the source starts additional threads, they must be joined
-    in the source.close()
-    '''
+class ReadOnly(object):
 
-    def __init__(self, evq, target, source,
-                 event=None,
-                 persistent=False,
-                 **nl_kwarg):
-        self.th = None
-        self.nl = None
-        # the event queue to send events to
-        self.evq = evq
-        # the target id -- just in case
-        self.target = target
-        # RTNL API
-        self.nl_prime = source
-        self.nl_kwarg = nl_kwarg
-        #
-        self.event = event
-        self.shutdown = threading.Event()
-        self.started = threading.Event()
-        self.lock = threading.Lock()
-        self.started.clear()
-        self.persistent = persistent
-        self.status = 'init'
-
-    def __repr__(self):
-        if isinstance(self.nl_prime, NetlinkMixin):
-            name = self.nl_prime.__class__.__name__
-        elif isinstance(self.nl_prime, type):
-            name = self.nl_prime.__name__
-
-        return '[%s] <%s %s>' % (self.status, name, self.nl_kwarg)
-
-    def start(self):
-
-        #
-        # The source thread routine -- get events from the
-        # channel and forward them into the common event queue
-        #
-        # The routine exists on an event with error code == 104
-        #
-        def t(self):
-            while True:
-                if self.nl is not None:
-                    try:
-                        self.nl.close()
-                    except Exception as e:
-                        log.warning('[%s] source restart: %s'
-                                    % (self.target, e))
-                try:
-                    self.status = 'connecting'
-                    if isinstance(self.nl_prime, NetlinkMixin):
-                        self.nl = self.nl_prime
-                    elif isinstance(self.nl_prime, type):
-                        self.nl = self.nl_prime(**self.nl_kwarg)
-                    else:
-                        raise TypeError('source channel not supported')
-                    self.status = 'loading'
-                    #
-                    self.nl.bind(async_cache=True, clone_socket=True)
-                    #
-                    # Initial load -- enqueue the data
-                    #
-                    self.evq.put((self.target, (SchemaFlush(), )))
-                    self.evq.put((self.target, self.nl.get_links()))
-                    self.evq.put((self.target, self.nl.get_addr()))
-                    self.evq.put((self.target, self.nl.get_neighbours()))
-                    self.evq.put((self.target, self.nl.get_routes()))
-                    self.started.set()
-                    self.shutdown.clear()
-                    self.status = 'running'
-                    if self.event is not None:
-                        self.evq.put((self.target, (self.event, )))
-                    while True:
-                        msg = tuple(self.nl.get())
-                        if msg[0]['header']['error'] and \
-                                msg[0]['header']['error'].code == 104:
-                                    self.status = 'stopped'
-                                    return
-                        self.evq.put((self.target, msg))
-                except TypeError:
-                    raise
-                except Exception as e:
-                    self.started.set()
-                    self.status = 'failed'
-                    log.error('[%s] source error: %s' % (self.target, e))
-                    self.evq.put((self.target, (MarkFailed(), )))
-                    if self.persistent:
-                        log.debug('[%s] sleeping before restart' % self.target)
-                        self.shutdown.wait(SOURCE_FAIL_PAUSE)
-                        if self.shutdown.is_set():
-                            log.debug('[%s] source shutdown' % self.target)
-                            return
-                    else:
-                        return
-
-        #
-        # Start source thread
-        with self.lock:
-            if (self.th is not None) and self.th.is_alive():
-                raise RuntimeError('source is running')
-
-            self.th = (threading
-                       .Thread(target=t, args=(self, ),
-                               name='NDB event source: %s' % (self.target)))
-            self.th.start()
-
-    def close(self):
-        with self.lock:
-            if self.nl is not None:
-                try:
-                    self.nl.close()
-                except Exception as e:
-                    log.error('[%s] source close: %s' % (self.target, e))
-            if self.th is not None:
-                self.th.join()
+    def __init__(self, ndb):
+        self.ndb = ndb
 
     def __enter__(self):
+        self.ndb.schema.allow_write(False)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
+        self.ndb.schema.allow_write(True)
+
+
+class DeadEnd(object):
+
+    def put(self, *argv, **kwarg):
+        raise ShutdownException('shutdown in progress')
+
+
+class EventQueue(object):
+
+    def __init__(self, *argv, **kwarg):
+        self._bypass = self._queue = queue.Queue(*argv, **kwarg)
+
+    def put(self, *argv, **kwarg):
+        return self._queue.put(*argv, **kwarg)
+
+    def shutdown(self):
+        self._queue = DeadEnd()
+
+    def bypass(self, *argv, **kwarg):
+        return self._bypass.put(*argv, **kwarg)
+
+    def get(self, *argv, **kwarg):
+        return self._bypass.get(*argv, **kwarg)
+
+    def qsize(self):
+        return self._bypass.qsize()
+
+
+def Events(*argv):
+    for sequence in argv:
+        if sequence is not None:
+            for item in sequence:
+                yield item
 
 
 class NDB(object):
@@ -491,43 +568,67 @@ class NDB(object):
                  sources=None,
                  db_provider='sqlite3',
                  db_spec=':memory:',
-                 rtnl_log=False):
+                 rtnl_debug=False,
+                 log=False,
+                 auto_netns=False,
+                 libc=None):
 
         self.ctime = self.gctime = time.time()
         self.schema = None
+        self.config = {}
+        self.libc = libc or ctypes.CDLL(ctypes.util.find_library('c'),
+                                        use_errno=True)
+        self.log = Log(log_id=id(self))
+        self.readonly = ReadOnly(self)
+        self._auto_netns = auto_netns
         self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
+        self._dbm_shutdown = threading.Event()
         self._global_lock = threading.Lock()
         self._event_map = None
-        self._event_queue = queue.Queue()
+        self._event_queue = EventQueue(maxsize=100)
+        #
+        if log:
+            self.log(log)
         #
         # fix sources prime
         if sources is None:
-            self._nl = {'localhost': IPRoute()}
-        elif isinstance(sources, NetlinkMixin):
-            self._nl = {'localhost': sources}
-        elif isinstance(sources, dict):
-            self._nl = sources
+            sources = [{'target': 'localhost',
+                        'kind': 'local',
+                        'nlm_generator': 1}]
+            if sys.platform.startswith('linux'):
+                sources.append({'target': 'nsmanager',
+                                'kind': 'nsmanager'})
+        elif not isinstance(sources, (list, tuple)):
+            raise ValueError('sources format not supported')
 
-        self.sources = {}
+        self.sources = SourcesView(self)
+        self._nl = sources
         self._db_provider = db_provider
         self._db_spec = db_spec
-        self._db_rtnl_log = rtnl_log
+        self._db_rtnl_log = rtnl_debug
         atexit.register(self.close)
-        self._rtnl_objects = set()
         self._dbm_ready.clear()
+        self._dbm_autoload = set()
         self._dbm_thread = threading.Thread(target=self.__dbm__,
                                             name='NDB main loop')
+        self._dbm_thread.setDaemon(True)
         self._dbm_thread.start()
         self._dbm_ready.wait()
-        self.interfaces = Factory(self, 'interfaces')
-        self.addresses = Factory(self, 'addresses')
-        self.routes = Factory(self, 'routes')
-        self.neighbours = Factory(self, 'neighbours')
-        self.vlans = Factory(self, 'vlan')
-        self.bridges = Factory(self, 'bridge')
+        for event in tuple(self._dbm_autoload):
+            event.wait()
+        self._dbm_autoload = None
+        self.interfaces = View(self, 'interfaces')
+        self.addresses = View(self, 'addresses')
+        self.routes = View(self, 'routes')
+        self.neighbours = View(self, 'neighbours')
+        self.rules = View(self, 'rules')
+        self.netns = View(self, 'netns', default_target='nsmanager')
         self.query = Query(self.schema)
+
+    def _get_view(self, name, chain=None):
+        return View(self, name, chain)
 
     def __enter__(self):
         return self
@@ -540,11 +641,18 @@ class NDB(object):
             self._event_map[event] = []
         self._event_map[event].append(handler)
 
+    def unregister_handler(self, event, handler):
+        self._event_map[event].remove(handler)
+
     def execute(self, *argv, **kwarg):
         return self.schema.execute(*argv, **kwarg)
 
     def close(self):
         with self._global_lock:
+            if self._dbm_shutdown.is_set():
+                return
+            else:
+                self._dbm_shutdown.set()
             if hasattr(atexit, 'unregister'):
                 atexit.unregister(self.close)
             else:
@@ -552,150 +660,111 @@ class NDB(object):
                     atexit._exithandlers.remove((self.close, (), {}))
                 except ValueError:
                     pass
-            if self.schema:
-                self._event_queue.put(('localhost', (ShutdownException(), )))
-                for target, source in self.sources.items():
-                    source.close()
-                self._dbm_thread.join()
-                self.schema.commit()
-                self.schema.close()
-
-    def __initdb__(self):
-        with self._global_lock:
-            #
-            # close the current db, if opened
-            if self.schema:
-                self.schema.commit()
-                self.schema.close()
-            #
-            # ACHTUNG!
-            # check_same_thread=False
-            #
-            # Please be very careful with the DB locks!
-            #
-            if self._db_provider == 'sqlite3':
-                self._db = sqlite3.connect(self._db_spec,
-                                           check_same_thread=False)
-            elif self._db_provider == 'psycopg2':
-                self._db = psycopg2.connect(**self._db_spec)
-
-            if self.schema:
-                self.schema.db = self._db
-
-    def disconnect_source(self, target, flush=True):
-        '''
-        Disconnect an event source from the DB. Raise KeyError if
-        there is no such source.
-
-        :param target: node name or UUID
-        '''
-        # close the source
-        self.sources[target].close()
-        del self.sources[target]
-        #
-        if flush:
-            self.schema.flush(target)
-
-    def connect_source(self, target, source, event=None):
-        '''
-        Connect an event source to the DB. All arguments are required.
-
-        :param target: node name or UUID, any hashable value
-        :param nl: an IPRoute object to init Source() class
-        :param event: an optional Event() to send in the end
-
-        The source connection is an async process so there should be
-        a way to wain until it is registered. One can provide an Event()
-        that will be set by the main NDB loop when the source is
-        connected.
-        '''
-        #
-        # flush the DB
-        self.schema.flush(target)
-        #
-        # register the channel
-        if target in self.sources:
-            self.disconnect_source(target)
-        try:
-            if isinstance(source, NetlinkMixin):
-                self.sources[target] = Source(self._event_queue,
-                                              target, source, event)
-            elif isinstance(source, dict):
-                iclass = source.pop('class')
-                persistent = source.pop('persistent', False)
-                self.sources[target] = Source(self._event_queue,
-                                              target, iclass, event,
-                                              persistent, **source)
-            elif isinstance(source, Source):
-                self.sources[target] = Source
-            else:
-                raise TypeError('source not supported')
-
-            self.sources[target].start()
-        except:
-            if target in self.sources:
-                self.sources[target].close()
-                del self.sources[target]
-            self.schema.flush(target)
-            raise
+            # shutdown the _dbm_thread
+            self._event_queue.shutdown()
+            self._event_queue.bypass((cmsg(None, ShutdownException()), ))
+            self._dbm_thread.join()
 
     def __dbm__(self):
 
         def default_handler(target, event):
-            if isinstance(event, Exception):
-                raise event
-            logging.warning('unsupported event ignored: %s' % type(event))
+            if isinstance(getattr(event, 'payload', None), Exception):
+                raise event.payload
+            log.warning('unsupported event ignored: %s' % type(event))
 
-        def check_sources_started(target, event):
-            if all([x.started.is_set() for x in self.sources.values()]):
-                self._event_queue.put(('localhost', (self._dbm_ready, )))
+        def check_sources_started(self, _locals, target, event):
+            _locals['countdown'] -= 1
+            if _locals['countdown'] == 0:
+                self._dbm_ready.set()
+
+        _locals = {'countdown': len(self._nl)}
 
         # init the events map
-        event_map = {type(self._dbm_ready): [lambda t, x: x.set()],
-                     SchemaFlush: [lambda t, x: self.schema.flush(t)],
-                     MarkFailed: [lambda t, x: self.schema.mark(t, 1)],
-                     SyncStart: [check_sources_started]}
+        event_map = {cmsg_event: [lambda t, x: x.payload.set()],
+                     cmsg_failed: [lambda t, x: (self
+                                                 .schema
+                                                 .mark(t, 1))],
+                     cmsg_sstart: [partial(check_sources_started,
+                                           self, _locals)]}
         self._event_map = event_map
 
         event_queue = self._event_queue
 
-        self.__initdb__()
-        self.schema = dbschema.init(self._db,
-                                    self._db_provider,
-                                    self._db_rtnl_log,
-                                    id(threading.current_thread()))
-        for target, source in self._nl.items():
-            try:
-                self.connect_source(target, source, SyncStart())
-            except Exception as e:
-                log.error('could not connect source %s: %s' % (target, e))
+        if self._db_provider == 'sqlite3':
+            self._db = sqlite3.connect(self._db_spec)
+        elif self._db_provider == 'psycopg2':
+            self._db = psycopg2.connect(**self._db_spec)
+
+        self.schema = schema.init(self,
+                                  self._db,
+                                  self._db_provider,
+                                  self._db_rtnl_log,
+                                  id(threading.current_thread()))
+
+        for spec in self._nl:
+            spec['event'] = None
+            self.sources.add(**spec)
 
         for (event, handlers) in self.schema.event_map.items():
             for handler in handlers:
                 self.register_handler(event, handler)
 
-        while True:
-            target, events = event_queue.get()
-            for event in events:
-                handlers = event_map.get(event.__class__, [default_handler, ])
-                for handler in tuple(handlers):
-                    try:
-                        handler(target, event)
-                    except InvalidateHandlerException:
+        stop = False
+        reschedule = []
+        while not stop:
+            events = Events(event_queue.get(), reschedule)
+            reschedule = []
+            try:
+                for event in events:
+                    handlers = event_map.get(event.__class__,
+                                             [default_handler, ])
+                    for handler in tuple(handlers):
                         try:
-                            handlers.remove(handler)
+                            target = event['header']['target']
+                            handler(target, event)
+                        except RescheduleException:
+                            if 'rcounter' not in event['header']:
+                                event['header']['rcounter'] = 0
+                            if event['header']['rcounter'] < 3:
+                                event['header']['rcounter'] += 1
+                                self.log.debug('reschedule %s' % (event, ))
+                                reschedule.append(event)
+                            else:
+                                self.log.error('drop %s' % (event, ))
+                        except InvalidateHandlerException:
+                            try:
+                                handlers.remove(handler)
+                            except:
+                                self.log.error('could not invalidate '
+                                               'event handler:\n%s'
+                                               % traceback.format_exc())
+                        except ShutdownException:
+                            stop = True
+                            break
+                        except DBMExitException:
+                            return
                         except:
-                            log.error('could not invalidate event handler:\n%s'
-                                      % traceback.format_exc())
-                    except ShutdownException:
-                        for target, source in self.sources.items():
-                            source.shutdown.set()
-                        return
-                    except:
-                        log.error('could not load event:\n%s\n%s'
-                                  % (event, traceback.format_exc()))
-                if time.time() - self.gctime > config.gc_timeout:
-                    self.gctime = time.time()
-                    for wr in tuple(self._rtnl_objects):
-                        if wr() is None:
-                            self._rtnl_objects.remove(wr)
+                            self.log.error('could not load event:\n%s\n%s'
+                                           % (event, traceback.format_exc()))
+                    if time.time() - self.gctime > config.gc_timeout:
+                        self.gctime = time.time()
+            except Exception as e:
+                self.log.error('exception <%s> in source %s' % (e, target))
+                # restart the target
+                try:
+                    self.sources[target].restart(reason=e)
+                except KeyError:
+                    pass
+
+        # release all the sources
+        for target in tuple(self.sources.cache):
+            source = self.sources.remove(target, sync=False)
+            if source is not None and source.th is not None:
+                source.shutdown.set()
+                source.th.join()
+                self.log.debug('flush DB for the target %s' % target)
+                self.schema.flush(target)
+
+        # close the database
+        self.schema.commit()
+        self.schema.close()

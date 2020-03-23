@@ -51,9 +51,11 @@ One can even start `IPDB` on the top of `NetNS`::
 
     from pyroute2 import NetNS
     from pyroute2 import IPDB
-    ipdb = IPDB(nl=NetNS('netns_name'))
+    ns = NetNS('netns_name')
+    ipdb = IPDB(nl=ns)
     # do some stuff within the netns
     ipdb.release()
+    ns.close()
 
 Spawn a process within a netns
 ------------------------------
@@ -113,13 +115,16 @@ MS_REC = 16384
 MS_SHARED = 1 << 20
 NETNS_RUN_DIR = '/var/run/netns'
 
+__saved_ns = []
+
 
 def _get_netnspath(name):
     netnspath = name
     dirname = os.path.dirname(name)
     if not dirname:
         netnspath = '%s/%s' % (NETNS_RUN_DIR, name)
-    netnspath = netnspath.encode('ascii')
+    if hasattr(netnspath, 'encode'):
+        netnspath = netnspath.encode('ascii')
     return netnspath
 
 
@@ -140,6 +145,67 @@ def listnetns(nspath=None):
             raise
 
 
+def _get_ns_by_inode(nspath=NETNS_RUN_DIR):
+    '''
+    Return a dict with inode as key and
+    namespace name as value
+    '''
+    ns_by_dev_inode = {}
+    for ns_name in listnetns(nspath=nspath):
+        ns_path = os.path.join(nspath, ns_name)
+        st = os.stat(ns_path)
+        if st.st_dev not in ns_by_dev_inode:
+            ns_by_dev_inode[st.st_dev] = {}
+        ns_by_dev_inode[st.st_dev][st.st_ino] = ns_name
+
+    return ns_by_dev_inode
+
+
+def ns_pids(nspath=NETNS_RUN_DIR):
+    '''
+    List pids in all netns
+
+    If a pid is in a unknown netns do not return it
+    '''
+    result = {}
+    ns_by_dev_inode = _get_ns_by_inode(nspath)
+
+    for pid in os.listdir('/proc'):
+        if not pid.isdigit():
+            continue
+        try:
+            st = os.stat(os.path.join('/proc', pid, 'ns', 'net'))
+        except OSError as e:
+            if e.errno in (errno.EACCES, errno.ENOENT):
+                continue
+            raise
+        try:
+            ns_name = ns_by_dev_inode[st.st_dev][st.st_ino]
+        except KeyError:
+            continue
+        if ns_name not in result:
+            result[ns_name] = []
+        result[ns_name].append(int(pid))
+    return result
+
+
+def pid_to_ns(pid=1, nspath=NETNS_RUN_DIR):
+    '''
+    Return netns name which matches the given pid,
+    None otherwise
+    '''
+    try:
+        st = os.stat(os.path.join('/proc', str(pid), 'ns', 'net'))
+        ns_by_dev_inode = _get_ns_by_inode(nspath)
+        return ns_by_dev_inode[st.st_dev][st.st_ino]
+    except OSError as e:
+        if e.errno in (errno.EACCES, errno.ENOENT):
+            return None
+        raise
+    except KeyError:
+        return None
+
+
 def _create(netns, libc=None):
     libc = libc or ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
     netnspath = _get_netnspath(netns)
@@ -157,7 +223,8 @@ def _create(netns, libc=None):
     while libc.mount(b'', netnsdir, b'none', MS_SHARED | MS_REC, None) != 0:
         if done:
             raise OSError(ctypes.get_errno(), 'share rundir failed', netns)
-        if libc.mount(netnsdir, netnsdir, b'none', MS_BIND, None) != 0:
+        if libc.mount(netnsdir, netnsdir, b'none', MS_BIND | MS_REC,
+                      None) != 0:
             raise OSError(ctypes.get_errno(), 'mount rundir failed', netns)
         done = True
 
@@ -222,6 +289,13 @@ def setns(netns, flags=os.O_CREAT, libc=None):
         - O_CREAT -- create netns, if doesn't exist
         - O_CREAT | O_EXCL -- create only if doesn't exist
 
+    Note that "main" netns has no name. But you can access it with::
+
+        setns('foo')  # move to netns foo
+        setns('/proc/1/ns/net')  # go back to default netns
+
+    See also `pushns()`/`popns()`/`dropns()`
+
     Changed in 0.5.1: the routine closes the ns fd if it's
     not provided via arguments.
     '''
@@ -248,3 +322,46 @@ def setns(netns, flags=os.O_CREAT, libc=None):
         os.close(nsfd)
     if error != 0:
         raise OSError(ctypes.get_errno(), 'failed to open netns', netns)
+
+
+def pushns(newns=None, libc=None):
+    '''
+    Save the current netns in order to return to it later. If newns is
+    specified, change to it::
+
+        # --> the script in the "main" netns
+        netns.pushns("test")
+        # --> changed to "test", the "main" is saved
+        netns.popns()
+        # --> "test" is dropped, back to the "main"
+    '''
+    global __saved_ns
+    __saved_ns.append(os.open('/proc/self/ns/net', os.O_RDONLY))
+    if newns is not None:
+        setns(newns, libc=libc)
+
+
+def popns(libc=None):
+    '''
+    Restore the previously saved netns.
+    '''
+    global __saved_ns
+    fd = __saved_ns.pop()
+    try:
+        setns(fd, libc=libc)
+    except Exception:
+        __saved_ns.append(fd)
+        raise
+    os.close(fd)
+
+
+def dropns(libc=None):
+    '''
+    Discard the last saved with `pushns()` namespace
+    '''
+    global __saved_ns
+    fd = __saved_ns.pop()
+    try:
+        os.close(fd)
+    except Exception:
+        pass

@@ -49,3 +49,7 @@ class IPSetError(NetlinkError):
     Messages are imported from errcode.c
     '''
     pass
+
+
+class SkipInode(Exception):
+    pass

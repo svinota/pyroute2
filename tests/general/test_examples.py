@@ -42,7 +42,7 @@ class TestExamples(object):
 
     def setup(self):
         self.pwd = os.getcwd()
-        os.chdir('../examples/')
+        os.chdir('./examples/')
         newdir = os.getcwd()
         if newdir not in sys.path:
             sys.path.append(newdir)
@@ -128,10 +128,6 @@ class TestExamples(object):
     def test_ipdb_chain(self):
         require_user('root')
         self.launcher('ipdb_chain')
-
-    def test_ipdb_precb(self):
-        require_user('root')
-        self.launcher('ipdb_precb')
 
     def test_ipdb_routes(self):
         require_user('root')

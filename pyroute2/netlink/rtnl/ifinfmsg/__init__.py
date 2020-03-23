@@ -22,7 +22,9 @@ from pyroute2.netlink.rtnl.ifinfmsg.plugins import (bond,
                                                     vrf,
                                                     vti,
                                                     vti6,
-                                                    vxlan)
+                                                    vxlan,
+                                                    xfrm,
+                                                    ipoib)
 
 log = logging.getLogger(__name__)
 
@@ -217,7 +219,9 @@ for module in (bond,
                vrf,
                vti,
                vti6,
-               vxlan):
+               vxlan,
+               xfrm,
+               ipoib):
     name = module.__name__.split('.')[-1]
     data_plugins[name] = getattr(module, name)
 
@@ -379,6 +383,7 @@ class ifinfbase(object):
     # CREATE UNIQUE INDEX if_idx ON interfaces(f_target, f_index)
     #
     sql_constraints = {'index': 'NOT NULL'}
+    sql_extra_fields = (('state', 'TEXT'), )
 
     fields = (('family', 'B'),
               ('__align', 'x'),
@@ -512,9 +517,41 @@ class ifinfbase(object):
                        ('IFLA_VF_RSS_QUERY_EN', 'vf_rss_query_en'),
                        ('IFLA_VF_STATS', 'vf_stats'),
                        ('IFLA_VF_TRUST', 'vf_trust'),
-                       ('IFLA_VF_IB_NODE_GUID', 'hex'),
-                       ('IFLA_VF_IB_PORT_GUID', 'hex'),
+                       ('IFLA_VF_IB_NODE_GUID', 'vf_ib_node_guid'),
+                       ('IFLA_VF_IB_PORT_GUID', 'vf_ib_port_guid'),
                        ('IFLA_VF_VLAN_LIST', 'vf_vlist'))
+
+            class vf_ib_node_guid(nla):
+                fields = (('vf', 'I'),
+                          ('ib_node_guid', '32B'))
+
+                def decode(self):
+                    nla.decode(self)
+                    self['ib_node_guid'] = ':'.join([
+                        '%02x' % x for x in self['ib_node_guid'][4:12][::-1]])
+
+                def encode(self):
+                    encoded_guid = self['ib_node_guid'].split(':')[::-1]
+                    self['ib_node_guid'] = (
+                        [0] * 4 + [int(x, 16) for x in encoded_guid] +
+                        [0] * 20)
+                    nla.encode(self)
+
+            class vf_ib_port_guid(nla):
+                fields = (('vf', 'I'),
+                          ('ib_port_guid', '32B'))
+
+                def decode(self):
+                    nla.decode(self)
+                    self['ib_port_guid'] = ':'.join([
+                        '%02x' % x for x in self['ib_port_guid'][4:12][::-1]])
+
+                def encode(self):
+                    encoded_guid = self['ib_port_guid'].split(':')[::-1]
+                    self['ib_port_guid'] = (
+                        [0] * 4 + [int(x, 16) for x in encoded_guid] +
+                        [0] * 20)
+                    nla.encode(self)
 
             class vf_mac(nla):
                 fields = (('vf', 'I'),
@@ -697,6 +734,7 @@ class ifinfbase(object):
                        ('IFLA_IP6TNL_FWMARK', 'uint32'))
 
         class gre_data(nla):
+            prefix = 'IFLA_'
             nla_map = (('IFLA_GRE_UNSPEC', 'none'),
                        ('IFLA_GRE_LINK', 'uint32'),
                        ('IFLA_GRE_IFLAGS', 'gre_flags'),
@@ -867,6 +905,7 @@ class ifinfbase(object):
                 nla.encode(self)
 
         class vlan_info(nla):
+            prefix = ''
             fields = (('flags', 'H'),
                       ('vid', 'H'))
 
@@ -1044,7 +1083,13 @@ class ifinfbase(object):
 
 
 class ifinfmsg(ifinfbase, nlmsg):
-    pass
+
+    def decode(self):
+        nlmsg.decode(self)
+        if self['flags'] & 1:
+            self['state'] = 'up'
+        else:
+            self['state'] = 'down'
 
 
 class ifinfveth(ifinfbase, nla):

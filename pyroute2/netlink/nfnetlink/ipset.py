@@ -22,6 +22,8 @@ IPSET_CMD_DEL = 10  # Delete an element from a set
 IPSET_CMD_TEST = 11  # Test an element in a set
 IPSET_CMD_HEADER = 12  # Get set header data only
 IPSET_CMD_TYPE = 13  # 13: Get set type
+IPSET_CMD_GET_BYNAME = 14  # 14: Get set index by name
+IPSET_CMD_GET_BYINDEX = 15  # 15: Get set index by index
 
 # flags at command level (IPSET_ATTR_FLAGS)
 IPSET_FLAG_LIST_SETNAME = 1 << 1
@@ -32,10 +34,13 @@ IPSET_FLAG_MATCH_COUNTERS = 1 << 5
 IPSET_FLAG_RETURN_NOMATCH = 1 << 7
 
 # flags at cadt attribute (IPSET_ATTR_CADT_FLAGS)
+IPSET_FLAG_PHYSDEV = 1 << 1
+IPSET_FLAG_NOMATCH = 1 << 2
 IPSET_FLAG_WITH_COUNTERS = 1 << 3
 IPSET_FLAG_WITH_COMMENT = 1 << 4
 IPSET_FLAG_WITH_FORCEADD = 1 << 5
 IPSET_FLAG_WITH_SKBINFO = 1 << 6
+IPSET_FLAG_IFACE_WILDCARD = 1 << 7
 
 IPSET_ERR_PROTOCOL = 4097
 IPSET_ERR_FIND_TYPE = 4098
@@ -84,7 +89,8 @@ class ipset_msg(nfgen_msg):
                ('IPSET_ATTR_DATA', 'get_data_type'),
                ('IPSET_ATTR_ADT', 'attr_adt'),
                ('IPSET_ATTR_LINENO', 'hex'),
-               ('IPSET_ATTR_PROTOCOL_MIN', 'uint8'))
+               ('IPSET_ATTR_PROTOCOL_MIN', 'uint8'),
+               ('IPSET_ATTR_INDEX', 'be16'))
 
     @staticmethod
     def get_data_type(self, *args, **kwargs):

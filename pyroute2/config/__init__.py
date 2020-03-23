@@ -9,10 +9,12 @@ MpQueue = multiprocessing.Queue
 MpProcess = multiprocessing.Process
 ipdb_nl_async = True
 nlm_generator = False
-
+nla_via_getattr = False
+async_qsize = 4096
 commit_barrier = 0
 gc_timeout = 60
-db_transaction_limit = 10000
+db_transaction_limit = 1
+cache_expire = 60
 
 # save uname() on startup time: it is not so
 # highly possible that the kernel will be
@@ -28,3 +30,6 @@ AF_NETLINK = getattr(socket, 'AF_NETLINK', 16)
 
 data_plugins_pkgs = []
 data_plugins_path = []
+
+netns_path = ['/var/run/netns',
+              '/var/run/docker/netns']

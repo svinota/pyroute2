@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
+import os
 import types
 import logging
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
+from functools import partial
 from pyroute2 import config
 from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink import NLMSG_ERROR
@@ -42,6 +44,9 @@ from pyroute2.netlink.rtnl import RTM_GETNEIGH
 from pyroute2.netlink.rtnl import RTM_DELNEIGH
 from pyroute2.netlink.rtnl import RTM_SETLINK
 from pyroute2.netlink.rtnl import RTM_GETNEIGHTBL
+from pyroute2.netlink.rtnl import RTM_GETNSID
+from pyroute2.netlink.rtnl import RTM_NEWNETNS
+from pyroute2.netlink.rtnl import RTM_GETSTATS
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl import rt_type
 from pyroute2.netlink.rtnl import rt_scope
@@ -58,10 +63,15 @@ from pyroute2.netlink.rtnl import ndmsg
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.ifinfmsg import IFF_NOARP
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pyroute2.netlink.rtnl.ifstatsmsg import ifstatsmsg
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
 from pyroute2.netlink.rtnl.iprsocket import IPBatchSocket
 from pyroute2.netlink.rtnl.riprsocket import RawIPRSocket
+from pyroute2.netlink.rtnl.nsidmsg import nsidmsg
+from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
+from pyroute2.netlink.exceptions import SkipInode
 
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
@@ -116,15 +126,18 @@ class RTNL_API(object):
         ipr.link('set', index=dev, state='up')
     '''
     def __init__(self, *argv, **kwarg):
-        if not config.nlm_generator:
+        if 'netns_path' in kwarg:
+            self.netns_path = kwarg['netns_path']
+        else:
+            self.netns_path = config.netns_path
+        super(RTNL_API, self).__init__(*argv, **kwarg)
+        if not self.nlm_generator:
 
             def _match(*argv, **kwarg):
                 return tuple(self._genmatch(*argv, **kwarg))
 
             self._genmatch = self._match
             self._match = _match
-
-        super(RTNL_API, self).__init__(*argv, **kwarg)
 
     def _match(self, match, msgs):
         # filtered results, the generator version
@@ -149,6 +162,23 @@ class RTNL_API(object):
                                        match[key])
                 if all(matches):
                     yield msg
+
+    # 8<---------------------------------------------------------------
+    #
+    def dump(self):
+        '''
+        Iterate all the objects -- links, routes, addresses etc.
+        '''
+        for method in (self.get_links,
+                       self.get_addr,
+                       self.get_neighbours,
+                       self.get_routes,
+                       self.get_vlans,
+                       partial(self.fdb, 'dump'),
+                       partial(self.get_rules, family=AF_INET),
+                       partial(self.get_rules, family=AF_INET6)):
+            for msg in method():
+                yield msg
 
     # 8<---------------------------------------------------------------
     #
@@ -346,6 +376,125 @@ class RTNL_API(object):
 
     # 8<---------------------------------------------------------------
     #
+    # List NetNS info
+    #
+    def _dump_one_ns(self, path, registry):
+        item = nsinfmsg()
+        item['netnsid'] = 0xffffffff  # default netnsid "unknown"
+        nsfd = 0
+        info = nsidmsg()
+        msg = nsidmsg()
+        try:
+            nsfd = os.open(path, os.O_RDONLY)
+            item['inode'] = os.fstat(nsfd).st_ino
+            #
+            # if the inode is registered, skip it
+            #
+            if item['inode'] in registry:
+                raise SkipInode()
+            registry.add(item['inode'])
+            #
+            # request NETNSA_NSID
+            #
+            # may not work on older kernels ( <4.20 ?)
+            #
+            msg['attrs'] = [('NETNSA_FD', nsfd)]
+            try:
+                for info in self.nlm_request(msg,
+                                             RTM_GETNSID,
+                                             NLM_F_REQUEST):
+                    # response to nlm_request() is a list or a generator,
+                    # that's why loop
+                    item['netnsid'] = info.get_attr('NETNSA_NSID')
+                    break
+            except Exception:
+                pass
+            item['attrs'] = [('NSINFO_PATH', path)]
+        except OSError:
+            raise SkipInode()
+        finally:
+            if nsfd > 0:
+                os.close(nsfd)
+        item['header']['type'] = RTM_NEWNETNS
+        item['header']['target'] = self.target
+        item['event'] = 'RTM_NEWNETNS'
+        return item
+
+    def _dump_dir(self, path, registry):
+        for name in os.listdir(path):
+            # strictly speaking, there is no need to use os.sep,
+            # since the code is not portable outside of Linux
+            nspath = '%s%s%s' % (path, os.sep, name)
+            try:
+                yield self._dump_one_ns(nspath, registry)
+            except SkipInode:
+                pass
+
+    def _dump_proc(self, registry):
+        for name in os.listdir('/proc'):
+            try:
+                int(name)
+            except ValueError:
+                continue
+
+            try:
+                yield self._dump_one_ns('/proc/%s/ns/net' % name, registry)
+            except SkipInode:
+                pass
+
+    def get_netns_info(self, list_proc=False):
+        '''
+        A prototype method to list available netns and associated
+        interfaces. A bit weird to have it here and not under
+        `pyroute2.netns`, but it uses RTNL to get all the info.
+        '''
+        #
+        # register all the ns inodes, not to repeat items in the output
+        #
+        registry = set()
+        #
+        # fetch veth peers
+        #
+        peers = {}
+        for peer in self.get_links():
+            netnsid = peer.get_attr('IFLA_LINK_NETNSID')
+            if netnsid is not None:
+                if netnsid not in peers:
+                    peers[netnsid] = []
+                peers[netnsid].append(peer.get_attr('IFLA_IFNAME'))
+        #
+        # chain iterators:
+        #
+        # * one iterator for every item in self.path
+        # * one iterator for /proc/<pid>/ns/net
+        #
+        views = []
+        for path in self.netns_path:
+            views.append(self._dump_dir(path, registry))
+        if list_proc:
+            views.append(self._dump_proc(registry))
+        #
+        # iterate all the items
+        #
+        for view in views:
+            try:
+                for item in view:
+                    #
+                    # remove uninitialized 'value' field
+                    #
+                    del item['value']
+                    #
+                    # fetch peers for that ns
+                    #
+                    for peer in peers.get(item['netnsid'], []):
+                        item['attrs'].append(('NSINFO_PEER', peer))
+                    yield item
+            except OSError:
+                pass
+    # 8<---------------------------------------------------------------
+
+    # 8<---------------------------------------------------------------
+    #
     # Shortcuts
     #
     def get_default_routes(self, family=AF_UNSPEC, table=DEFAULT_TABLE):
@@ -482,7 +631,7 @@ class RTNL_API(object):
         if match is not None:
             ret = self._match(match, ret)
 
-        if not (command == RTM_GETLINK and config.nlm_generator):
+        if not (command == RTM_GETLINK and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
@@ -807,7 +956,7 @@ class RTNL_API(object):
         if match is not None:
             ret = self._match(match, ret)
 
-        if not (command == RTM_GETNEIGH and config.nlm_generator):
+        if not (command == RTM_GETNEIGH and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
@@ -1023,6 +1172,30 @@ class RTNL_API(object):
         All possible vxlan parameters are listed in the module
         `pyroute2.netlink.rtnl.ifinfmsg:... vxlan_data`.
 
+        ► ipoib
+
+        IPoIB driver provides an ability to create several ip interfaces
+        on one interface.
+        IPoIB interfaces requires the following parameter:
+
+        `link` : The master interface to create IPoIB on.
+
+        The following parameters can also be provided:
+
+        `pkey` : Inifiniband partition key the ip interface is associated with
+        `mode` : Underlying infiniband transport mode.
+                 One of:  ['datagram' ,'connected']
+        `umcast` : If set(1), multicast group membership for this interface is
+                   handled by user space.
+
+        Example::
+
+            ip.link("add",
+                    ifname="ipoib1",
+                    kind="ipoib",
+                    link=ip.link_lookup(ifname="ib0")[0],
+                    pkey=10)
+
         **set**
 
         Set interface attributes::
@@ -1141,6 +1314,12 @@ class RTNL_API(object):
                 flags = 1             # 0 (down) or 1 (up)
             del kwarg['state']
 
+        # arp on/off shortcut
+        if 'arp' in kwarg:
+            mask |= IFF_NOARP
+            if not kwarg.pop('arp'):
+                flags |= IFF_NOARP
+
         msg['flags'] = flags
         msg['change'] = mask
 
@@ -1159,7 +1338,7 @@ class RTNL_API(object):
         if match is not None:
             ret = self._match(match, ret)
 
-        if not (command == RTM_GETLINK and config.nlm_generator):
+        if not (command == RTM_GETLINK and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
@@ -1175,7 +1354,7 @@ class RTNL_API(object):
         * mask -- address mask
         * family -- socket.AF_INET for IPv4 or socket.AF_INET6 for IPv6
         * scope -- the address scope, see /etc/iproute2/rt_scopes
-        * \*\*kwarg -- any ifaddrmsg field or NLA
+        * kwarg -- dictionary, any ifaddrmsg field or NLA
 
         Later the method signature will be changed to::
 
@@ -1213,6 +1392,9 @@ class RTNL_API(object):
                     mask=24,
                     local='10.1.1.1')
         '''
+        if command in ('get', 'set'):
+            return
+
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_create = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
         commands = {'add': (RTM_NEWADDR, flags_create),
@@ -1273,7 +1455,7 @@ class RTNL_API(object):
         if match:
             ret = self._match(match, ret)
 
-        if not (command == RTM_GETADDR and config.nlm_generator):
+        if not (command == RTM_GETADDR and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
@@ -1339,6 +1521,9 @@ class RTNL_API(object):
             help(ip.tc("modules")["htb"])
             print(ip.tc("help", "htb"))
         '''
+        if command == 'set':
+            return
+
         if command == 'modules':
             return tc_plugins
 
@@ -1507,11 +1692,86 @@ class RTNL_API(object):
                        "tc": 0,
                        "ttl": 16}
 
-        **change**, **replace**
+        Create SEG6 tunnel encap mode (kernel >= 4.10)::
 
-        Commands `change` and `replace` have the same meanings, as
-        in ip-route(8): `change` modifies only existing route, while
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6',
+                            'mode': 'encap',
+                            'segs': '2000::5,2000::6'})
+
+        Create SEG6 tunnel inline mode (kernel >= 4.10)::
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6',
+                            'mode': 'inline',
+                            'segs': ['2000::5', '2000::6']})
+
+        Create SEG6 tunnel inline mode with hmac (kernel >= 4.10)::
+
+            ip.route('add',
+                     dst='2001:0:0:22::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6',
+                            'mode': 'inline',
+                            'segs':'2000::5,2000::6,2000::7,2000::8',
+                            'hmac':0xf})
+
+        Create SEG6 tunnel with ip4ip6 encapsulation (kernel >= 4.14)::
+
+            ip.route('add',
+                     dst='172.16.0.0/24',
+                     oif=idx,
+                     encap={'type': 'seg6',
+                            'mode': 'encap',
+                            'segs': '2000::5,2000::6'})
+
+        Create SEG6LOCAL tunnel End.DX4 action (kernel >= 4.14)::
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6local',
+                            'action': 'End.DX4',
+                            'nh4': '172.16.0.10'})
+
+        Create SEG6LOCAL tunnel End.DT6 action (kernel >= 4.14)::
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6local',
+                            'action': 'End.DT6',
+                            'table':'10'})
+
+        Create SEG6LOCAL tunnel End.B6 action (kernel >= 4.14)::
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6local',
+                            'action': 'End.B6',
+                            'srh':{'segs': '2000::5,2000::6'}})
+
+        Create SEG6LOCAL tunnel End.B6 action with hmac (kernel >= 4.14)::
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6local',
+                            'action': 'End.B6',
+                            'srh': {'segs': '2000::5,2000::6',
+                                    'hmac':0xf}})
+
+        **change**, **replace**, **append**
+
+        Commands `change`, `replace` and `append` have the same meanings
+        as in ip-route(8): `change` modifies only existing route, while
         `replace` creates a new one, if there is no such route yet.
+        `append` allows to create an IPv6 multipath route.
 
         **del**
 
@@ -1533,10 +1793,11 @@ class RTNL_API(object):
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_change = flags_base | NLM_F_REPLACE
         flags_replace = flags_change | NLM_F_CREATE
+        flags_append = flags_base | NLM_F_CREATE | NLM_F_APPEND
         # 8<----------------------------------------------------
         # transform kwarg
 
-        if command in ('add', 'set', 'replace', 'change'):
+        if command in ('add', 'set', 'replace', 'change', 'append'):
             kwarg['proto'] = kwarg.get('proto', 'static') or 'static'
             kwarg['type'] = kwarg.get('type', 'unicast') or 'unicast'
         kwarg = IPRouteRequest(kwarg)
@@ -1550,6 +1811,7 @@ class RTNL_API(object):
                     'set': (RTM_NEWROUTE, flags_replace),
                     'replace': (RTM_NEWROUTE, flags_replace),
                     'change': (RTM_NEWROUTE, flags_change),
+                    'append': (RTM_NEWROUTE, flags_append),
                     'del': (RTM_DELROUTE, flags_make),
                     'remove': (RTM_DELROUTE, flags_make),
                     'delete': (RTM_DELROUTE, flags_make),
@@ -1581,6 +1843,8 @@ class RTNL_API(object):
 
         for key in kwarg:
             nla = rtmsg.name2nla(key)
+            if nla == 'RTA_DST' and not kwarg[key]:
+                continue
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
                 # fix IP family, if needed
@@ -1605,7 +1869,7 @@ class RTNL_API(object):
         if match:
             ret = self._match(match, ret)
 
-        if not (command == RTM_GETROUTE and config.nlm_generator):
+        if not (command == RTM_GETROUTE and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
@@ -1677,6 +1941,9 @@ class RTNL_API(object):
                          dst='10.64.75.141',
                          fwmark=10)
         '''
+        if command == 'set':
+            return
+
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_dump = NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC
@@ -1723,7 +1990,35 @@ class RTNL_API(object):
         if 'match' in kwarg:
             ret = self._match(kwarg['match'], ret)
 
-        if not (command == RTM_GETRULE and config.nlm_generator):
+        if not (command == RTM_GETRULE and self.nlm_generator):
+            ret = tuple(ret)
+
+        return ret
+
+    def stats(self, command, **kwarg):
+        '''
+        Stats prototype.
+        '''
+        if (command == 'dump') and ('match' not in kwarg):
+            match = kwarg
+        else:
+            match = kwarg.pop('match', None)
+
+        commands = {'dump': (RTM_GETSTATS, NLM_F_REQUEST | NLM_F_DUMP),
+                    'get': (RTM_GETSTATS, NLM_F_REQUEST | NLM_F_ACK)}
+        command, flags = commands.get(command, command)
+
+        msg = ifstatsmsg()
+        msg['filter_mask'] = kwarg.get('filter_mask', 31)
+        msg['ifindex'] = kwarg.get('ifindex', 0)
+
+        ret = self.nlm_request(msg,
+                               msg_type=command,
+                               msg_flags=flags)
+        if match is not None:
+            ret = self._match(match, ret)
+
+        if not (command == RTM_GETSTATS and self.nlm_generator):
             ret = tuple(ret)
 
         return ret

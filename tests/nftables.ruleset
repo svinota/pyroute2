@@ -1,0 +1,15 @@
+
+flush ruleset
+
+table inet filter {
+	chain coucou {
+		accept
+	}
+	chain input {
+		type filter hook input priority 0; policy accept;
+                meta l4proto tcp tcp dport 1234 accept
+		iifname lo0 oifname wan0 ip saddr 1.2.3.4 ip daddr 1.2.3.4 ip version 3 jump coucou
+		iifname lo0 oifname wan0 (tcp dport | 1234) & 34 == 56 jump coucou
+		iifname lo0 oifname wan0 ether saddr 00:11:22:33:44:55 jump coucou
+	}
+}

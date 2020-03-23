@@ -1,43 +1,52 @@
 #!/bin/bash
 
 cd "$( dirname "${BASH_SOURCE[0]}" )"
-
-export PYTHONPATH="`pwd`:`pwd`/examples:`pwd`/examples/generic"
 TOP=$(readlink -f $(pwd)/..)
-MODULES="general eventlet integration unit"
 
-# Prepare test environment
 #
-# * make dist
-# * install packaged files into /tests
-# * copy examples into /tests
-# * run pep8 checks against /tests -- to cover test code also
-# * run nosetests
+# Load the configuration
 #
-# It is important to test not in-place, but after `make dist`,
-# since in that case only those files will be tested, that are
-# included in the package.
-#
-# Tox installs the package into each environment, so we can safely skip
-# extraction of the packaged files
-if [ -z "$WITHINTOX" ]; then
-    # detect, if we run from git
+. conf.sh
+
+export PYTHONPATH="$WORKSPACE:$WORKSPACE/examples:$WORKSPACE/examples/generic"
+
+function deploy() {
+    # Prepare test environment
+    #
+    # * make dist
+    # * install packaged files into $WORKSPACE
+    # * copy examples into $WORKSPACE
+    # * run pep8 checks against $WORKSPACE -- to cover test code also
+    # * run nosetests
+    #
+    # It is important to test not in-place, but after `make dist`,
+    # since in that case only those files will be tested, that are
+    # included in the package.
+    #
+    curl http://localhost:7623/v1/lock/ >/dev/null 2>&1 && \
+    while [ -z "`curl -s -X POST --data test http://localhost:7623/v1/lock/ 2>/dev/null`" ]; do {
+        sleep 1
+    } done
     cd $TOP
-    [ -d ".git" ] && {
-        # ok, make tarball
-        make dist
-        mkdir "$TOP/tests/bin/"
-        cp -a "$TOP/examples" "$TOP/tests/"
-        cp -a "$TOP/cli/ipdb" "$TOP/tests/bin/"
-        cp -a "$TOP/cli/ss2" "$TOP/tests/bin/"
-        cd "$TOP/dist"
-        tar xf *
-        mv pyroute2*/pyroute2 "$TOP/tests/"
-    } ||:
-    # or just give up and try to run as is
-fi
-
-cd "$TOP/tests/"
+    DIST_NAME=pyroute2-$(git describe | sed 's/-[^-]*$//;s/-/.post/')
+    make dist >/dev/null
+    rm -rf "$WORKSPACE"
+    mkdir -p "$WORKSPACE/bin"
+    cp -a "$TOP/.flake8" "$WORKSPACE/"
+    cp -a "$TOP/tests/"* "$WORKSPACE/"
+    cp -a "$TOP/examples" "$WORKSPACE/"
+    cp -a "$TOP/cli/pyroute2-cli" "$WORKSPACE/bin/"
+    cp -a "$TOP/cli/ss2" "$WORKSPACE/bin/"
+    cd "$TOP/dist"
+    tar xf $DIST_NAME.tar.gz
+    mv $DIST_NAME/pyroute2 "$WORKSPACE/"
+    curl -X DELETE --data test http://localhost:7623/v1/lock/ >/dev/null 2>&1
+    cd "$WORKSPACE/"
+    $FLAKE8_PATH .
+    ret=$?
+    [ $ret -eq 0 ] && echo "flake8 ... ok"
+    return $ret
+}
 
 #
 # Install test requirements, if not installed.
@@ -57,6 +66,9 @@ else
     echo "Running in VirtualEnv"
 fi
 
+#
+# Setup kernel parameters
+#
 [ "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && {
     echo "Running as root"
     ulimit -n 2048
@@ -68,15 +80,10 @@ fi
     sysctl net.mpls.platform_labels=2048 2>/dev/null ||:
 }
 
-[ -z "$PYTHON" ] && export PYTHON=python
-[ -z "$NOSE" ] && export NOSE=nosetests
-[ -z "$FLAKE8" ] && export FLAKE8=flake8
-[ -z "$WLEVEL" ] || export WLEVEL="-W $WLEVEL"
-[ -z "$PDB" ] || export PDB="--pdb --pdb-failures"
-[ -z "$COVERAGE" ] || export COVERAGE="--cover-html"
-[ -z "$SKIP_TESTS" ] || export SKIP_TESTS="--exclude $SKIP_TESTS"
-[ -z "$MODULE" ] || export MODULE=`echo $MODULE | sed -n '/:/{p;q};s/$/:/p'`
 
+#
+# Adjust paths
+#
 if which pyenv 2>&1 >/dev/null; then
     PYTHON_PATH=$(pyenv which $PYTHON)
     FLAKE8_PATH=$(pyenv which $FLAKE8)
@@ -88,14 +95,17 @@ else
 fi
 
 echo "8<------------------------------------------------"
+echo "version: $VERSION"
 echo "kernel: `uname -r`"
-echo "python: $PYTHON_PATH [`$PYTHON --version 2>&1`]"
-echo "flake8: $FLAKE8_PATH [`$FLAKE8 --version 2>&1`]"
-echo "nose: $NOSE_PATH [`$NOSE --version 2>&1`]"
+echo "python: $PYTHON_PATH [`$PYTHON_PATH --version 2>&1`]"
+echo "flake8: $FLAKE8_PATH [`$FLAKE8_PATH --version 2>&1`]"
+echo "nose: $NOSE_PATH [`$NOSE_PATH --version 2>&1`]"
 echo "8<------------------------------------------------"
 
-$PYTHON "$FLAKE8_PATH" . && echo "flake8 ... ok" || exit 254
 
+#
+# Run tests
+#
 function get_module() {
     module=$1
     pattern=$2
@@ -105,23 +115,79 @@ function get_module() {
     echo $pattern
 }
 
-fail=0
-for module in $MODULES; do
-    [ -z "$MODULE" ] || {
-        SUBMODULE="`get_module $module $MODULE`"
-        RETVAL=$?
-        [ $RETVAL -eq 0 ] || continue
+errors=0
+avgtime=0
+for i in `seq $LOOP`; do
 
+    echo "[`date +%s`] iteration $i of $LOOP"
+
+    deploy || {
+        echo "flake 8 failed, sleeping for 30 seconds"
+        sleep 30
+        continue
     }
-    $PYTHON $WLEVEL "$NOSE_PATH" -P -v $PDB \
-        --with-coverage \
-        --with-xunit \
-        --cover-package=pyroute2 \
-        $SKIP_TESTS \
-        $COVERAGE $module/$SUBMODULE
-    ret=$?
-    mv nosetests.xml xunit-$module.xml
-    [ $ret -eq 0 ] || fail=$ret
-done
 
-[ $fail -eq 0 ] || exit $fail
+    for module in $MODULES; do
+        [ -z "$MODULE" ] || {
+            SUBMODULE="`get_module $module $MODULE`"
+            RETVAL=$?
+            [ $RETVAL -eq 0 ] || continue
+
+        }
+        tst1=`date +%s`
+        uuid=`python -c "import uuid; print(str(uuid.uuid4()))"`
+        echo "[$tst1][$uuid][$i/$LOOP]"
+        if [ -z "$PDB" ]; then {
+            $PYTHON $WLEVEL "$NOSE_PATH" -P -v \
+                --with-coverage \
+                --with-xunit \
+                --cover-package=pyroute2 \
+                $SKIP_TESTS \
+                $COVERAGE $module/$SUBMODULE 2>&1 | tee tests.log
+        } else {
+            echo "tests log is not available with pdb" >tests.log
+            $PYTHON $WLEVEL "$NOSE_PATH" -P -v $PDB \
+                --with-coverage \
+                --with-xunit \
+                --cover-package=pyroute2 \
+                $SKIP_TESTS \
+                $COVERAGE $module/$SUBMODULE 2>&1
+        } fi
+        ret=${PIPESTATUS[0]}
+        [ $ret -eq 0 ] || {
+            errors=$(($errors + 1))
+        }
+        mv nosetests.xml xunit-$module.xml
+        tst2=`date +%s`
+        [ $i -eq 1 ] && d=1 || d=2
+        rtime=$(($tst2 - $tst1))
+        avgtime=$((($avgtime + $rtime) / $d))
+        echo "[$tst2][$uuid][$i/$LOOP] avgtime: $avgtime; iterations failed: $errors"
+        [ -z "$REPORT" ] || {
+            cat >tests.json << EOF
+{"worker": "$WORKER",
+ "run_id": "$uuid",
+ "report": {"rtime": $rtime,
+            "avgtime": $avgtime,
+            "code": $ret,
+            "run": $i,
+            "total": $LOOP,
+            "module": "$module/$SUBMODULE",
+            "skip": "$SKIP_TESTS",
+            "errors": $errors,
+            "version": "$VERSION",
+            "kernel": "`uname -r`",
+            "python": "`$PYTHON_PATH --version 2>&1`"
+            }
+}
+EOF
+            curl -X POST \
+                -d @tests.json \
+                $REPORT
+            echo " reports in the DB"
+            curl -X PUT --data-binary @tests.log "$REPORT$WORKER/$uuid/" >/dev/null 2>&1
+        }
+        [ $ret -eq 0 ] || exit $ret
+    done
+done
+exit $errors

@@ -5,7 +5,8 @@ from socket import AF_INET
 from socket import AF_INET6
 from pyroute2 import config
 from pyroute2.common import dqn2int
-from pyroute2.bsd.pf_route import (if_msg,
+from pyroute2.bsd.pf_route import (bsdmsg,
+                                   if_msg,
                                    rt_msg,
                                    if_announcemsg,
                                    ifma_msg,
@@ -93,11 +94,17 @@ def convert_if_announcemsg(msg):
     return ret
 
 
+def convert_bsdmsg(msg):
+    # ignore unknown messages
+    return None
+
+
 convert = {rt_msg: convert_rt_msg,
            ifa_msg: convert_ifa_msg,
            if_msg: convert_if_msg,
            ifma_msg: convert_ifma_msg,
-           if_announcemsg: convert_if_announcemsg}
+           if_announcemsg: convert_if_announcemsg,
+           bsdmsg: convert_bsdmsg}
 
 
 class RTMSocket(RTMSocketBase):

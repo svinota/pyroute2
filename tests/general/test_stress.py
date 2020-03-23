@@ -31,7 +31,6 @@ class _TestIPDBRaces(object):
             assert len(threading.enumerate()) <= tnum
 
     def _ports_mtu_race(self, kind):
-        require_user('root')
         port1 = (self.ip
                  .create(ifname=uifname(), kind='dummy', mtu=1280)
                  .commit())
@@ -53,6 +52,7 @@ class _TestIPDBRaces(object):
             master.remove().commit()
 
     def test_bridge_mtu(self):
+        require_user('root')
         for _ in range(300):
             self._ports_mtu_race('bridge')
 
@@ -81,17 +81,18 @@ class TestRespawn(object):
     def test_respawn_ndb_sqlite3(self):
         for _ in range(RESPAWNS):
             with NDB() as i:
-                assert len(i.interfaces.summary())
-                assert len(i.addresses.summary())
-                assert len(i.routes.summary())
-                assert len(i.interfaces.csv())
-                assert len(i.addresses.csv())
-                assert len(i.routes.csv())
+                assert len(tuple(i.interfaces.summary()))
+                assert len(tuple(i.addresses.summary()))
+                assert len(tuple(i.routes.summary()))
+                assert len(tuple(i.interfaces.dump().format('csv')))
+                assert len(tuple(i.addresses.dump().format('csv')))
+                assert len(tuple(i.routes.dump().format('csv')))
 
 
 class TestIfs(object):
 
     def test_bridge_fd_leaks(self):
+        require_user('root')
         ifs = []
 
         for _ in range(RESPAWNS):
@@ -106,6 +107,7 @@ class TestIfs(object):
                 ipdb.interfaces[name].remove().commit()
 
     def test_tuntap_fd_leaks(self):
+        require_user('root')
         ifs = []
 
         for _ in range(RESPAWNS):
@@ -123,6 +125,7 @@ class TestIfs(object):
 class TestNetNS(object):
 
     def setup(self):
+        require_user('root')
         self._nofile = resource.getrlimit(resource.RLIMIT_NOFILE)
         soft, hard = self._nofile
         new_limit = (min(soft, RESPAWNS / 2), min(hard, RESPAWNS / 2))

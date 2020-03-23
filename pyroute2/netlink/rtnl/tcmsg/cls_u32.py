@@ -58,10 +58,8 @@ import struct
 from socket import htons
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
-from pyroute2.netlink.rtnl.tcmsg.common import stats2
-from pyroute2.netlink.rtnl.tcmsg.common import TCA_ACT_MAX_PRIO
 from pyroute2.netlink.rtnl.tcmsg.common_act import get_tca_action
-from pyroute2.netlink.rtnl.tcmsg.common_act import nla_plus_tca_act_opt
+from pyroute2.netlink.rtnl.tcmsg.common_act import tca_act_prio
 from pyroute2.netlink.rtnl.tcmsg.act_police import nla_plus_police
 from pyroute2.netlink.rtnl.tcmsg.act_police import get_parameters \
     as ap_parameters
@@ -99,20 +97,7 @@ class options(nla, nla_plus_police):
                ('TCA_U32_PCNT', 'u32_pcnt'),
                ('TCA_U32_MARK', 'u32_mark'))
 
-    class tca_act_prio(nla):
-        nla_map = tuple([('TCA_ACT_PRIO_%i' % x, 'tca_act') for x
-                         in range(TCA_ACT_MAX_PRIO)])
-
-        class tca_act(nla,
-                      nla_plus_police,
-                      nla_plus_tca_act_opt):
-            nla_map = (('TCA_ACT_UNSPEC', 'none'),
-                       ('TCA_ACT_KIND', 'asciiz'),
-                       ('TCA_ACT_OPTIONS', 'get_act_options'),
-                       ('TCA_ACT_INDEX', 'hex'),
-                       ('TCA_ACT_STATS', 'stats2'))
-
-            stats2 = stats2
+    tca_act_prio = tca_act_prio
 
     class u32_sel(nla):
         fields = (('flags', 'B'),

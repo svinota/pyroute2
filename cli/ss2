@@ -16,12 +16,17 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import socket
 import re
 import os
 import argparse
-from socket import AF_INET
-import collections
-import psutil
+from socket import (AF_INET,
+                    AF_UNIX
+                    )
+try:
+    import psutil
+except ImportError:
+    psutil = None
 from pyroute2 import DiagSocket
 from pyroute2.netlink.diag import (SS_ESTABLISHED,
                                    SS_SYN_SENT,
@@ -36,9 +41,21 @@ from pyroute2.netlink.diag import (SS_ESTABLISHED,
                                    SS_CLOSING,
                                    SS_ALL,
                                    SS_CONN)
+from pyroute2.netlink.diag import (UDIAG_SHOW_NAME,
+                                   UDIAG_SHOW_VFS,
+                                   UDIAG_SHOW_PEER)
+try:
+    from collections.abc import Mapping
+    from collections.abc import Callable
+except ImportError:
+    from collections import Mapping
+    from collections import Callable
+# UDIAG_SHOW_ICONS,
+# UDIAG_SHOW_RQLEN,
+# UDIAG_SHOW_MEMINFO
 
 
-class UserCtxtMap(collections.Mapping):
+class UserCtxtMap(Mapping):
 
     _data = {}
 
@@ -51,8 +68,8 @@ class UserCtxtMap(collections.Mapping):
                           "pid",
                           "fd"]
 
-    def _parse_inode(self, pid, pconn):
-        sk_path = self._proc_sk_fd_cast % (pid, pconn.fd)
+    def _parse_inode(self, sconn):
+        sk_path = self._proc_sk_fd_cast % (sconn.pid, sconn.fd)
         inode = None
 
         sk_inode_raw = os.readlink(sk_path)
@@ -101,8 +118,13 @@ class UserCtxtMap(collections.Mapping):
                             _ctxt=_ctxt,
                             _recurs_path=_recurs_path)
 
-    def _enter_item(self, usr, pid, flow, ctxt):
-        sk_inode = int(self._parse_inode(pid, flow))
+    def _enter_item(self, usr, flow, ctxt):
+        if not flow.pid:
+            # corner case of eg anonnymous AddressFamily.AF_UNIX
+            # sockets
+            return
+
+        sk_inode = int(self._parse_inode(flow))
         sk_fd = flow.fd
 
         recurs_path = list(self._BUILD_RECURS_PATH)
@@ -110,21 +132,20 @@ class UserCtxtMap(collections.Mapping):
         self.__recurs_enter(_sk_inode=sk_inode,
                             _sk_fd=sk_fd,
                             _usr=usr,
-                            _pid=pid,
+                            _pid=flow.pid,
                             _ctxt=ctxt,
                             _recurs_path=recurs_path)
 
     def _build(self):
-        for pid in psutil.pids():
-            proc = psutil.Process(pid)
+        for flow in psutil.net_connections(kind="all"):
+            proc = psutil.Process(flow.pid)
             usr = proc.username()
 
             ctxt = {"cmd": proc.exe(),
                     "full_cmd": proc.cmdline(),
                     "fds": []}
 
-            for flow in proc.connections():
-                self._enter_item(usr, pid, flow, ctxt)
+            self._enter_item(usr, flow, ctxt)
 
     def __init__(self):
         self._build()
@@ -142,13 +163,94 @@ class UserCtxtMap(collections.Mapping):
         raise RuntimeError("Not implemented")
 
 
-class Protocol(collections.Callable):
+class Protocol(Callable):
+    class Resolver:
+        @staticmethod
+        def getHost(ip):
+            try:
+                data = socket.gethostbyaddr(ip)
+                host = str(data[0])
+                return host
+            except Exception:
+                # gracefully
+                return None
 
-    def __init__(self, fmt='json'):
-        raise RuntimeError('not implemented')
+    def __init__(self, sk_states, fmt='json'):
+        self._states = sk_states
 
-    def __call__(self, nl_diag_sk, usr_ctxt):
-        raise RuntimeError('not implemented')
+        fmter = "_fmt_%s" % fmt
+        self._fmt = getattr(self, fmter, None)
+
+        def __call__(self, nl_diag_sk, args, usr_ctxt):
+            raise RuntimeError('not implemented')
+
+    def _fmt_json(self, refined_stats):
+        return json.dumps(refined_stats, indent=4)
+
+
+class UNIX(Protocol):
+
+    def __init__(self, sk_states=SS_CONN, _fmt='json'):
+        super(UNIX, self).__init__(sk_states, fmt=_fmt)
+
+    def __call__(self, nl_diag_sk, args, usr_ctxt):
+        sstats = nl_diag_sk.get_sock_stats(states=self._states,
+                                           family=AF_UNIX,
+                                           show=(UDIAG_SHOW_NAME |
+                                                 UDIAG_SHOW_VFS |
+                                                 UDIAG_SHOW_PEER))
+        refined_stats = self._refine_diag_raw(sstats,
+                                              usr_ctxt)
+        printable = self._fmt(refined_stats)
+
+        print(printable)
+
+    def _refine_diag_raw(self, raw_stats, usr_ctxt):
+        refined = {'UNIX': {'flows': []}}
+
+        def vfs_cb(raw_val):
+            out = {}
+            out['inode'] = raw_val['udiag_vfs_ino']
+            out['dev'] = raw_val['udiag_vfs_dev']
+
+            return out
+
+        k_idx = 0
+        val_idx = 1
+        cb_idx = 1
+
+        idiag_attr_refine_map = {'UNIX_DIAG_NAME': ('path_name', None),
+                                 'UNIX_DIAG_VFS': ('vfs', vfs_cb),
+                                 'UNIX_DIAG_PEER': ('peer_inode', None),
+                                 'UNIX_DIAG_SHUTDOWN': ('shutdown', None)}
+
+        for raw_flow in raw_stats:
+            vessel = {}
+            vessel['inode'] = raw_flow['udiag_ino']
+
+            for attr in raw_flow['attrs']:
+                attr_k = attr[k_idx]
+                attr_val = attr[val_idx]
+                k = idiag_attr_refine_map[attr_k][k_idx]
+                cb = idiag_attr_refine_map[attr_k][cb_idx]
+
+                if cb:
+                    attr_val = cb(attr_val)
+
+                vessel[k] = attr_val
+
+            refined['UNIX']['flows'].append(vessel)
+
+        if usr_ctxt:
+            for flow in refined['UNIX']['flows']:
+                try:
+                    sk_inode = flow['inode']
+                    flow['usr_ctxt'] = usr_ctxt[sk_inode]
+                except KeyError:
+                    # might define sentinel val
+                    pass
+
+        return refined
 
 
 class TCP(Protocol):
@@ -158,14 +260,8 @@ class TCP(Protocol):
     INET_DIAG_VEGASINFO = 3
     INET_DIAG_CONG = 4
 
-    def __init__(self, sk_states=SS_CONN, fmt='json'):
-        self._states = sk_states
-
-        fmter = "_fmt_%s" % fmt
-        self._fmt = getattr(self, fmter, None)
-
-        if self._fmt is None:
-            raise RuntimeError("unknown formatting")
+    def __init__(self, sk_states=SS_CONN, _fmt='json'):
+        super(TCP, self).__init__(sk_states, fmt=_fmt)
 
         IDIAG_EXT_FLAGS = [self.INET_DIAG_MEMINFO,
                            self.INET_DIAG_INFO,
@@ -176,16 +272,18 @@ class TCP(Protocol):
         for f in IDIAG_EXT_FLAGS:
             self.ext_f |= (1 << (f - 1))
 
-    def __call__(self, nl_diag_sk, usr_ctxt):
+    def __call__(self, nl_diag_sk, args, usr_ctxt):
         sstats = nl_diag_sk.get_sock_stats(states=self._states,
                                            family=AF_INET,
                                            extensions=self.ext_f)
-        refined_stats = self._refine_diag_raw(sstats, usr_ctxt)
+        refined_stats = self._refine_diag_raw(sstats,
+                                              args.resolve,
+                                              usr_ctxt)
         printable = self._fmt(refined_stats)
 
         print(printable)
 
-    def _refine_diag_raw(self, raw_stats, usr_ctxt):
+    def _refine_diag_raw(self, raw_stats, do_resolve, usr_ctxt):
 
         refined = {'TCP': {'flows': []}}
 
@@ -215,6 +313,16 @@ class TCP(Protocol):
                 except KeyError:
                     # might define sentinel val
                     pass
+
+        if do_resolve:
+            for flow in refined['TCP']['flows']:
+                src_host = Protocol.Resolver.getHost(flow['src'])
+                if src_host:
+                    flow['src_host'] = src_host
+
+                dst_host = Protocol.Resolver.getHost(flow['dst'])
+                if dst_host:
+                    flow['dst_host'] = dst_host
 
         return refined
 
@@ -415,15 +523,15 @@ class TCP(Protocol):
 
         return vessel
 
-    def _fmt_json(self, refined_stats):
-        return json.dumps(refined_stats, indent=4)
-
 
 def prepare_args():
     parser = argparse.ArgumentParser(description="""
                                      ss2 - socket statistics depictor meant as
                                      a complete and convenient surrogate for
                                      iproute2/misc/ss2""")
+    parser.add_argument('-x', '--unix',
+                        help='Display Unix domain sockets.',
+                        action='store_true')
     parser.add_argument('-t', '--tcp',
                         help='Display TCP sockets.',
                         action='store_true')
@@ -436,6 +544,9 @@ def prepare_args():
     parser.add_argument('-p', '--process',
                         help='show socket holding context',
                         action='store_true')
+    parser.add_argument('-r', '--resolve',
+                        help='resolve host names in addition',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -444,10 +555,11 @@ def prepare_args():
 
 def run(args=None):
 
+    if psutil is None:
+        raise RuntimeError('ss2 requires python-psutil >= 5.0 to run')
+
     if not args:
         args = prepare_args()
-
-    protocol = None
 
     _states = SS_CONN
     if args.listen:
@@ -455,10 +567,14 @@ def run(args=None):
     if args.all:
         _states = SS_ALL
 
+    protocols = []
     if args.tcp:
-        protocol = TCP(sk_states=_states)
+        protocols.append(TCP(sk_states=_states))
 
-    if not protocol:
+    if args.unix:
+        protocols.append(UNIX(sk_states=_states))
+
+    if not protocols:
         raise RuntimeError('not implemented - ss2 in fledging mode')
 
     _user_ctxt_map = None
@@ -467,7 +583,8 @@ def run(args=None):
 
     with DiagSocket() as ds:
         ds.bind()
-        protocol(ds, _user_ctxt_map)
+        for p in protocols:
+            p(ds, args, _user_ctxt_map)
 
 
 if __name__ == "__main__":

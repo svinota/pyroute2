@@ -3,9 +3,11 @@ import re
 import pwd
 import stat
 import sys
+import uuid
 import errno
 import platform
 import subprocess
+import netaddr
 import ctypes
 import ctypes.util
 from pyroute2 import NetlinkError
@@ -13,6 +15,64 @@ from pyroute2 import IPRoute
 from nose.plugins.skip import SkipTest
 from nose.tools import make_decorator
 from distutils.version import LooseVersion
+try:
+    import httplib
+except ImportError:
+    import http.client as httplib
+
+dtcd_uuid = str(uuid.uuid4())
+# check the dtcd
+try:
+    cx = httplib.HTTPConnection('localhost:7623')
+    cx.request('GET', '/v1/network/')
+    cx.getresponse()
+    has_dtcd = True
+except:
+    has_dtcd = False
+
+supernet = {'ipv4': netaddr.IPNetwork('172.16.0.0/16'),
+            'ipv6': netaddr.IPNetwork('fdb3:84e5:4ff4::/48')}
+network_pool = {'ipv4': list(supernet['ipv4'].subnet(24)),
+                'ipv6': list(supernet['ipv6'].subnet(64))}
+allocations = {}
+
+
+def allocate_network(ipv='ipv4'):
+    global dtcd_uuid
+    global network_pool
+    global allocations
+
+    network = None
+
+    try:
+        cx = httplib.HTTPConnection('localhost:7623')
+        cx.request('POST', '/v1/network/%s/' % ipv, body=dtcd_uuid)
+        resp = cx.getresponse()
+        if resp.status == 200:
+            network = netaddr.IPNetwork(resp.read().decode('utf-8'))
+        cx.close()
+    except Exception:
+        pass
+
+    if network is None:
+        network = network_pool[ipv].pop()
+        allocations[network] = True
+
+    return network
+
+
+def free_network(network, ipv='ipv4'):
+    global network_pool
+    global allocations
+
+    if network in allocations:
+        allocations.pop(network)
+        network_pool[ipv].append(network)
+    else:
+        cx = httplib.HTTPConnection('localhost:7623')
+        cx.request('DELETE', '/v1/network/%s/' % ipv, body=str(network))
+        cx.getresponse()
+        cx.close()
 
 
 def skip_if_not_supported(f):
@@ -33,7 +93,7 @@ def skip_if_not_supported(f):
             elif not getattr(e, 'feature_supported', True):
                 raise SkipTest(e.args[0])
             raise
-        except Exception as e:
+        except Exception:
             raise
     return make_decorator(f)(test_wrapper)
 
@@ -200,15 +260,6 @@ def get_ip_default_routes():
     out = _check_output('ip', '-4', 'ro')
     for string in out:
         if 'default' in string:
-            ret.append(string)
-    return ret
-
-
-def get_ip_route():
-    ret = []
-    out = _check_output('ip', '-4', 'ro', 'li', 'ta', '255')
-    for string in out:
-        if len(string):
             ret.append(string)
     return ret
 

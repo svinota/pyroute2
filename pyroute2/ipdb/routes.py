@@ -876,7 +876,8 @@ class RoutingTable(object):
             if now - route['route']._gctime < 2:
                 continue
             try:
-                self.ipdb.nl.route('get', **route['route'])
+                if not self.ipdb.nl.route('dump', **route['route']):
+                    raise
                 with route['route']._direct_state:
                     route['route']['ipdb_scope'] = 'system'
             except:
@@ -1038,6 +1039,7 @@ class RoutingTableSet(object):
         self.tables = {254: RoutingTable(self.ipdb)}
         self._event_map = {'RTM_NEWROUTE': self.load_netlink,
                            'RTM_DELROUTE': self.load_netlink,
+                           'RTM_NEWLINK': self.gc_mark_link,
                            'RTM_DELLINK': self.gc_mark_link,
                            'RTM_DELADDR': self.gc_mark_addr}
 
@@ -1072,6 +1074,13 @@ class RoutingTableSet(object):
                 spec['family'] = AF_INET
         if not dst:
             raise ValueError('dst not specified')
+        if isinstance(dst, basestring) and \
+                (dst not in ('', 'default')) and \
+                ('/' not in dst):
+            if spec['family'] == AF_INET:
+                spec['dst'] = dst + '/32'
+            elif spec['family'] == AF_INET6:
+                spec['dst'] = dst + '/128'
         if 'priority' not in spec:
             if spec['family'] == AF_INET6:
                 spec['priority'] = IP6_RT_PRIO_USER
@@ -1213,7 +1222,7 @@ class RoutingTableSet(object):
         ###
         # mark route records for GC after link delete
         #
-        if msg['family'] != 0:
+        if msg['family'] != 0 or msg['state'] != 'down':
             return
 
         for record in self.filter({'oif': msg['index']}):

@@ -4,6 +4,8 @@ import fcntl
 import platform
 import subprocess
 import tempfile
+from threading import Thread
+
 from pyroute2 import IPDB
 from pyroute2 import IPRoute
 from pyroute2 import NetNS
@@ -107,6 +109,7 @@ class TestNSPopen(object):
 class TestNetNS(object):
 
     def test_create_tuntap(self):
+        require_user('root')
         # on CentOS 6.5 this test causes kernel panic
         if platform.linux_distribution()[:2] == ('CentOS', '6.5'):
             raise SkipTest('to avoid possible kernel panic')
@@ -129,6 +132,7 @@ class TestNetNS(object):
         netnsmod.remove(foo)
 
     def test_create_peer_attrs(self):
+        require_user('root')
         foo = str(uuid4())
         bar = str(uuid4())
         ifA = uifname()
@@ -159,6 +163,7 @@ class TestNetNS(object):
         netnsmod.remove(bar)
 
     def test_move_ns_pid(self):
+        require_user('root')
         foo = str(uuid4())
         bar = str(uuid4())
         ifA = uifname()
@@ -213,6 +218,7 @@ class TestNetNS(object):
         fd.close()
 
     def test_move_ns_fd(self):
+        require_user('root')
         foo = str(uuid4())
         bar = str(uuid4())
         ifA = uifname()
@@ -289,6 +295,27 @@ class TestNetNS(object):
         assert ret_ping
         assert ret_arp
 
+    def test_pushns(self):
+        require_user('root')
+        foo = str(uuid4())
+        ifA = uifname()
+
+        with IPRoute() as ipr:
+            ipr.link('add', ifname=ifA, kind='dummy')
+
+        netnsmod.pushns(foo)
+        with IPRoute() as ipr:
+            assert ifA not in [x.get_attr('IFLA_IFNAME') for x
+                               in ipr.link('dump')]
+        netnsmod.popns()
+        with IPRoute() as ipr:
+            assert ifA in [x.get_attr('IFLA_IFNAME') for x
+                           in ipr.link('dump')]
+
+            ipr.link('del', index=ipr.link_lookup(ifname=ifA)[0])
+
+        netnsmod.remove(foo)
+
     def test_create(self):
         ns_name = str(uuid4())
         self._test_create(ns_name)
@@ -296,6 +323,7 @@ class TestNetNS(object):
         assert ns_name not in netnsmod.listnetns()
 
     def test_create_from_path(self):
+        require_user('root')
         ns_dir = tempfile.mkdtemp()
         # Create namespace
         ns_name = str(uuid4())
@@ -352,3 +380,74 @@ class TestNetNS(object):
         assert veth.flags & 1
         assert veth.mtu == mtu
         assert veth.txqlen == txqlen
+
+    def test_multithread(self):
+        require_user('root')
+
+        parallel_count = 5
+        test_count = 10
+
+        ns_names = ['testns%i' % i for i in range(parallel_count)]
+
+        success = [True]
+
+        for ns_name in ns_names:
+            NetNS(ns_name)
+
+        for _t in range(test_count):
+            threads = [
+                Thread(target=_ns_worker,
+                       args=(netnsmod._get_netnspath(ns_name), i, success))
+                for i, ns_name in enumerate(ns_names)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+        for ns_name in ns_names:
+            netnsmod.remove(ns_name)
+
+        assert success[0]
+
+    def test_ns_pids(self):
+        def waiting_child(fd):
+            while True:
+                if not os.read(fd, 32):
+                    exit(0)
+
+        require_user('root')
+        foo = str(uuid4())
+        netnsmod.create(foo)
+        netnsmod.pushns(foo)
+        foo_pid, foo_fd = os.forkpty()
+        if not foo_pid:
+            waiting_child(foo_fd)
+        netnsmod.popns()
+
+        pids = netnsmod.ns_pids()
+        ns_name = netnsmod.pid_to_ns(foo_pid)
+        try:
+            assert pids[foo] == [foo_pid]
+            assert ns_name == foo
+        finally:
+            os.close(foo_fd)
+            netnsmod.remove(foo)
+
+
+def _ns_worker(netns_path, worker_index, success):
+    with IPRoute() as ip, NetNS(netns_path) as ns:
+        try:
+            veth_outside = 'veth%s-o' % worker_index
+            veth_inside = 'veth%s-i' % worker_index
+            ip.link('add', ifname=veth_outside, kind='veth', peer=veth_inside)
+            veth_outside_idx = ip.link_lookup(ifname=veth_outside)[0]
+            ip.link('set', index=veth_outside_idx, state='up')
+            veth_inside_idx = ip.link_lookup(ifname=veth_inside)[0]
+            ip.link('set', index=veth_inside_idx, net_ns_fd=netns_path)
+            veth_inside_idx = ns.link_lookup(ifname=veth_inside)[0]
+            ns.link('set', index=veth_inside_idx, state='up')
+        except Exception:
+            success[0] = False
+        finally:
+            if veth_outside_idx is not None:
+                ip.link('del', index=veth_outside_idx)

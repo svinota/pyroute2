@@ -5,6 +5,7 @@ See also: pyroute2.conntrack
 """
 
 import socket
+
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import NLM_F_DUMP
@@ -27,6 +28,15 @@ IPCTNL_MSG_CT_GET_DYING = 6
 IPCTNL_MSG_CT_GET_UNCONFIRMED = 7
 IPCTNL_MSG_MAX = 8
 
+
+try:
+    IP_PROTOCOLS = {num: name[8:]
+                    for name, num in vars(socket).items()
+                    if name.startswith("IPPROTO")}
+except (IOError, OSError):
+    IP_PROTOCOLS = {}
+
+
 # Window scaling is advertised by the sender
 IP_CT_TCP_FLAG_WINDOW_SCALE = 0x01
 
@@ -44,6 +54,96 @@ IP_CT_TCP_FLAG_DATA_UNACKNOWLEDGED = 0x10
 
 # The field td_maxack has been set
 IP_CT_TCP_FLAG_MAXACK_SET = 0x20
+
+
+# From linux/include/net/tcp_states.h
+TCPF_ESTABLISHED = (1 << 1)
+TCPF_SYN_SENT = (1 << 2)
+TCPF_SYN_RECV = (1 << 3)
+TCPF_FIN_WAIT1 = (1 << 4)
+TCPF_FIN_WAIT2 = (1 << 5)
+TCPF_TIME_WAIT = (1 << 6)
+TCPF_CLOSE = (1 << 7)
+TCPF_CLOSE_WAIT = (1 << 8)
+TCPF_LAST_ACK = (1 << 9)
+TCPF_LISTEN = (1 << 10)
+TCPF_CLOSING = (1 << 11)
+TCPF_NEW_SYN_RECV = (1 << 12)
+TCPF_TO_NAME = {
+    TCPF_ESTABLISHED: 'ESTABLISHED',
+    TCPF_SYN_SENT: 'SYN_SENT',
+    TCPF_SYN_RECV: 'SYN_RECV',
+    TCPF_FIN_WAIT1: 'FIN_WAIT1',
+    TCPF_FIN_WAIT2: 'FIN_WAIT2',
+    TCPF_TIME_WAIT: 'TIME_WAIT',
+    TCPF_CLOSE: 'CLOSE',
+    TCPF_CLOSE_WAIT: 'CLOSE_WAIT',
+    TCPF_LAST_ACK: 'LAST_ACK',
+    TCPF_LISTEN: 'LISTEN',
+    TCPF_CLOSING: 'CLOSING',
+    TCPF_NEW_SYN_RECV: 'NEW_SYN_RECV',
+}
+
+
+# From include/uapi/linux/netfilter/nf_conntrack_common.h
+IPS_EXPECTED = (1 << 0)
+IPS_SEEN_REPLY = (1 << 1)
+IPS_ASSURED = (1 << 2)
+IPS_CONFIRMED = (1 << 3)
+IPS_SRC_NAT = (1 << 4)
+IPS_DST_NAT = (1 << 5)
+IPS_NAT_MASK = (IPS_DST_NAT | IPS_SRC_NAT)
+IPS_SEQ_ADJUST = (1 << 6)
+IPS_SRC_NAT_DONE = (1 << 7)
+IPS_DST_NAT_DONE = (1 << 8)
+IPS_NAT_DONE_MASK = (IPS_DST_NAT_DONE | IPS_SRC_NAT_DONE)
+IPS_DYING = (1 << 9)
+IPS_FIXED_TIMEOUT = (1 << 10)
+IPS_TEMPLATE = (1 << 11)
+IPS_UNTRACKED = (1 << 12)
+IPS_HELPER = (1 << 13)
+IPS_OFFLOAD = (1 << 14)
+IPS_UNCHANGEABLE_MASK = (
+    IPS_NAT_DONE_MASK | IPS_NAT_MASK |
+    IPS_EXPECTED | IPS_CONFIRMED | IPS_DYING |
+    IPS_SEQ_ADJUST | IPS_TEMPLATE | IPS_OFFLOAD)
+IPSBIT_TO_NAME = {
+    IPS_EXPECTED: 'EXPECTED',
+    IPS_SEEN_REPLY: 'SEEN_REPLY',
+    IPS_ASSURED: 'ASSURED',
+    IPS_CONFIRMED: 'CONFIRMED',
+    IPS_SRC_NAT: 'SRC_NAT',
+    IPS_DST_NAT: 'DST_NAT',
+    IPS_SEQ_ADJUST: 'SEQ_ADJUST',
+    IPS_SRC_NAT_DONE: 'SRC_NAT_DONE',
+    IPS_DST_NAT_DONE: 'DST_NAT_DONE',
+    IPS_DYING: 'DYING',
+    IPS_FIXED_TIMEOUT: 'FIXED_TIMEOUT',
+    IPS_TEMPLATE: 'TEMPLATE',
+    IPS_UNTRACKED: 'UNTRACKED',
+    IPS_HELPER: 'HELPER',
+    IPS_OFFLOAD: 'OFFLOAD'
+}
+
+# From include/uapi/linux/netfilter/nf_conntrack_tcp.h
+IP_CT_TCP_FLAG_WINDOW_SCALE = 0x01
+IP_CT_TCP_FLAG_SACK_PERM = 0x02
+IP_CT_TCP_FLAG_CLOSE_INIT = 0x04
+IP_CT_TCP_FLAG_BE_LIBERAL = 0x08
+IP_CT_TCP_FLAG_DATA_UNACKNOWLEDGED = 0x10
+IP_CT_TCP_FLAG_MAXACK_SET = 0x20
+IP_CT_EXP_CHALLENGE_ACK = 0x40
+IP_CT_TCP_SIMULTANEOUS_OPEN = 0x80
+IP_CT_TCP_FLAG_TO_NAME = {
+    IP_CT_TCP_FLAG_WINDOW_SCALE: 'WINDOW_SCALE',
+    IP_CT_TCP_FLAG_SACK_PERM: 'SACK_PERM',
+    IP_CT_TCP_FLAG_CLOSE_INIT: 'CLOSE_INIT',
+    IP_CT_TCP_FLAG_BE_LIBERAL: 'BE_LIBERAL',
+    IP_CT_TCP_FLAG_DATA_UNACKNOWLEDGED: 'DATA_UNACKNOWLEDGED',
+    IP_CT_TCP_FLAG_MAXACK_SET: 'MAXACK_SET',
+    IP_CT_EXP_CHALLENGE_ACK: 'CHALLENGE_ACK',
+    IP_CT_TCP_SIMULTANEOUS_OPEN: 'SIMULTANEOUS_OPEN',
+}
 
 
 def terminate_single_msg(msg):
@@ -108,6 +208,7 @@ class nfct_msg(nfgen_msg):
         ('CTA_MARK_MASK', 'be32'),
         ('CTA_LABELS', 'cta_labels'),
         ('CTA_LABELS_MASK', 'cta_labels'),
+        ('CTA_SYNPROXY', 'cta_synproxy'),
     )
 
     @classmethod
@@ -251,6 +352,14 @@ class nfct_msg(nfgen_msg):
                 self['value'] = (self['value'][0] & 0xffffffffffffffff) | \
                                 (self['value'][1] << 64)
 
+    class cta_synproxy(nla):
+        nla_map = (
+            ('CTA_SYNPROXY_UNSPEC', 'none'),
+            ('CTA_SYNPROXY_ISN', 'be32'),
+            ('CTA_SYNPROXY_ITS', 'be32'),
+            ('CTA_SYNPROXY_TSOFF', 'be32'),
+        )
+
 
 class NFCTAttr(object):
     def attrs(self):
@@ -269,11 +378,28 @@ class NFCTAttrTuple(NFCTAttr):
         self.icmp_id = icmp_id
         self.icmp_type = icmp_type
         self.icmp_code = icmp_code
+        self.family = family
 
         self._attr_ip, self._attr_icmp = {
             socket.AF_INET: ['CTA_IP_V4', 'CTA_PROTO_ICMP'],
             socket.AF_INET6: ['CTA_IP_V6', 'CTA_PROTO_ICMPV6'],
-        }[family]
+        }[self.family]
+
+    def proto_name(self):
+        return IP_PROTOCOLS.get(self.proto, None)
+
+    def reverse(self):
+        return NFCTAttrTuple(
+            family=self.family,
+            saddr=self.daddr,
+            daddr=self.saddr,
+            proto=self.proto,
+            sport=self.dport,
+            dport=self.sport,
+            icmp_id=self.icmp_id,
+            icmp_type=self.icmp_type,
+            icmp_code=self.icmp_code,
+        )
 
     def attrs(self):
         cta_ip = []
@@ -311,6 +437,142 @@ class NFCTAttrTuple(NFCTAttr):
             cta_tuple.append(['CTA_TUPLE_PROTO', {'attrs': cta_proto}])
 
         return cta_tuple
+
+    @classmethod
+    def from_netlink(cls, family, ndmsg):
+        cta_ip = ndmsg.get_attr('CTA_TUPLE_IP')
+        cta_proto = ndmsg.get_attr('CTA_TUPLE_PROTO')
+        kwargs = {'family': family}
+
+        if family == socket.AF_INET:
+            kwargs['saddr'] = cta_ip.get_attr('CTA_IP_V4_SRC')
+            kwargs['daddr'] = cta_ip.get_attr('CTA_IP_V4_DST')
+        elif family == socket.AF_INET6:
+            kwargs['saddr'] = cta_ip.get_attr('CTA_IP_V6_SRC')
+            kwargs['daddr'] = cta_ip.get_attr('CTA_IP_V6_DST')
+        else:
+            raise NotImplementedError(family)
+
+        proto = cta_proto.get_attr('CTA_PROTO_NUM')
+        kwargs['proto'] = proto
+
+        if proto == socket.IPPROTO_ICMP:
+            kwargs['icmp_id'] = cta_proto.get_attr('CTA_PROTO_ICMP_ID')
+            kwargs['icmp_type'] = cta_proto.get_attr('CTA_PROTO_ICMP_TYPE')
+            kwargs['icmp_code'] = cta_proto.get_attr('CTA_PROTO_ICMP_CODE')
+        elif proto == socket.IPPROTO_ICMPV6:
+            kwargs['icmp_id'] = cta_proto.get_attr('CTA_PROTO_ICMPV6_ID')
+            kwargs['icmp_type'] = cta_proto.get_attr('CTA_PROTO_ICMPV6_TYPE')
+            kwargs['icmp_code'] = cta_proto.get_attr('CTA_PROTO_ICMPV6_CODE')
+        elif proto in (socket.IPPROTO_TCP, socket.IPPROTO_UDP):
+            kwargs['sport'] = cta_proto.get_attr('CTA_PROTO_SRC_PORT')
+            kwargs['dport'] = cta_proto.get_attr('CTA_PROTO_DST_PORT')
+
+        return cls(**kwargs)
+
+    def is_attr_match(self, other, attrname):
+        l_attr = getattr(self, attrname)
+        if l_attr is not None:
+            r_attr = getattr(other, attrname)
+            if l_attr != r_attr:
+                return False
+        return True
+
+    def nla_eq(self, family, ndmsg):
+        if self.family != family:
+            return False
+
+        test_attr = []
+        cta_ip = ndmsg.get_attr('CTA_TUPLE_IP')
+        if family == socket.AF_INET:
+            test_attr.append((self.saddr, cta_ip, 'CTA_IP_V4_SRC'))
+            test_attr.append((self.daddr, cta_ip, 'CTA_IP_V4_DST'))
+        elif family == socket.AF_INET6:
+            test_attr.append((self.saddr, cta_ip, 'CTA_IP_V6_SRC'))
+            test_attr.append((self.daddr, cta_ip, 'CTA_IP_V6_DST'))
+        else:
+            raise NotImplementedError(family)
+
+        if self.proto is not None:
+            cta_proto = ndmsg.get_attr('CTA_TUPLE_PROTO')
+            if self.proto != cta_proto.get_attr('CTA_PROTO_NUM'):
+                return False
+
+            if self.proto == socket.IPPROTO_ICMP:
+                (test_attr
+                 .append((self.icmp_id, cta_proto, 'CTA_PROTO_ICMP_ID')))
+                (test_attr
+                 .append((self.icmp_type, cta_proto, 'CTA_PROTO_ICMP_TYPE')))
+                (test_attr
+                 .append((self.icmp_code, cta_proto, 'CTA_PROTO_ICMP_CODE')))
+            elif self.proto == socket.IPPROTO_ICMPV6:
+                (test_attr
+                 .append((self.icmp_id, cta_proto, 'CTA_PROTO_ICMPV6_ID')))
+                (test_attr
+                 .append((self.icmp_type, cta_proto, 'CTA_PROTO_ICMPV6_TYPE')))
+                (test_attr
+                 .append((self.icmp_code, cta_proto, 'CTA_PROTO_ICMPV6_CODE')))
+            elif self.proto in (socket.IPPROTO_TCP, socket.IPPROTO_UDP):
+                (test_attr
+                 .append((self.sport, cta_proto, 'CTA_PROTO_SRC_PORT')))
+                (test_attr
+                 .append((self.dport, cta_proto, 'CTA_PROTO_DST_PORT')))
+
+        for val, ndmsg, attrname in test_attr:
+            if val is not None and val != ndmsg.get_attr(attrname):
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            raise NotImplementedError()
+
+        if self.family != other.family:
+            return False
+
+        for attrname in ('saddr', 'daddr'):
+            if not self.is_attr_match(other, attrname):
+                return False
+
+        if self.proto is not None:
+            if self.proto != other.proto:
+                return False
+
+            if self.proto in (socket.IPPROTO_UDP, socket.IPPROTO_TCP):
+                for attrname in ('sport', 'dport'):
+                    if not self.is_attr_match(other, attrname):
+                        return False
+            elif self.proto in (socket.IPPROTO_ICMP, socket.IPPROTO_ICMPV6):
+                for attrname in ('icmp_id', 'icmp_type', 'icmp_code'):
+                    if not self.is_attr_match(other, attrname):
+                        return False
+
+        return True
+
+    def __repr__(self):
+        proto_name = self.proto_name()
+        if proto_name is None:
+            proto_name = 'UNKNOWN'
+
+        if self.family == socket.AF_INET:
+            r = 'IPv4('
+        elif self.family == socket.AF_INET6:
+            r = 'IPv6('
+        else:
+            r = 'Unkown[family={}]('.format(self.family)
+        r += 'saddr={}, daddr={}, '.format(self.saddr, self.daddr)
+
+        r += '{}('.format(proto_name)
+        if self.proto in (socket.IPPROTO_ICMP, socket.IPPROTO_ICMPV6):
+            r += 'id={}, type={}, code={}'.format(self.icmp_id,
+                                                  self.icmp_type,
+                                                  self.icmp_code)
+        elif self.proto in (socket.IPPROTO_TCP, socket.IPPROTO_UDP):
+            r += 'sport={}, dport={}'.format(self.sport, self.dport)
+        return r + '))'
 
 
 class NFCTSocket(NetlinkSocket):

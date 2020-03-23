@@ -1,23 +1,29 @@
 Pyroute2
 ========
 
-Pyroute2 is a pure Python **netlink** library. It requires only Python stdlib,
-no 3rd party libraries. The library was started as an RTNL protocol
+Pyroute2 is a pure Python **netlink** library. The core requires only Python
+stdlib, no 3rd party libraries. The library was started as an RTNL protocol
 implementation, so the name is **pyroute2**, but now it supports many netlink
 protocols. Some supported netlink families and protocols:
 
 * **rtnl**, network settings --- addresses, routes, traffic controls
-* **nfnetlink** --- netfilter API: **ipset**, **nftables**, ...
+* **nfnetlink** --- netfilter API:
+
+    * **ipset** --- IP sets
+    * **nftables** --- packet filtering
+    * **nfct** --- connection tracking
+
 * **ipq** --- simplest userspace packet filtering, iptables QUEUE target
 * **devlink** --- manage and monitor devlink-enabled hardware
-* **generic** --- generic netlink families
+* **generic** --- generic netlink families:
+
+    * **ethtool** --- low-level network interface setup
+    * **wireguard** --- VPN setup
     * **nl80211** --- wireless functions API (basic support)
     * **taskstats** --- extended process statistics
     * **acpi_events** --- ACPI events monitoring
     * **thermal_events** --- thermal events monitoring
     * **VFS_DQUOT** --- disk quota events monitoring
-
-Starting with 0.5.2 the library supports also PF_ROUTE sockets on BSD systems.
 
 Supported systems
 -----------------
@@ -138,61 +144,19 @@ Some examples::
                     'mode': 'inline',
                     'segs': ['2000::5', '2000::6']})
 
-    # create SEG6 tunnel inline mode with hmac
-    # Kernel >= 4.10
+    # create SEG6 tunnel with ip4ip6 encapsulation
+    # Kernel >= 4.14
     ip.route('add',
-             dst='2001:0:0:22::2/128',
+             dst='172.16.0.0/24',
              oif=idx,
              encap={'type': 'seg6',
-                    'mode': 'inline',
-                    'segs':'2000::5,2000::6,2000::7,2000::8',
-                    'hmac':0xf})
+                    'mode': 'encap',
+                    'segs': '2000::5,2000::6'})
+
 
     # release Netlink socket
     ip.close()
 
-
-High-level transactional interface, **IPDB**, a network settings DB::
-
-    from pyroute2 import IPDB
-    #
-    # The `with` statement automatically calls `IPDB.release()`
-    # in the case of an exception.
-    with IPDB() as ip:
-        #
-        # Create bridge and add ports and addresses.
-        #
-        # Transaction will be started by `with` statement
-        # and will be committed at the end of the block
-        with ip.create(kind='bridge', ifname='rhev') as i:
-            i.add_port('em1')
-            i.add_port('em2')
-            i.add_ip('10.0.0.2/24')
-        # --> <-- Here the system state is as described in
-        #         the transaction, if no error occurs. If
-        #         there is an error, all the changes will be
-        #         rolled back.
-
-The IPDB arch allows to use it transparently with network
-namespaces::
-
-    from pyroute2 import IPDB
-    from pyroute2 import NetNS
-
-    # Create IPDB to work with the 'test' ip netns.
-    #
-    # Pls notice, that IPDB itself will work in the
-    # main netns, only the netlink transport is
-    # working in the namespace `test`.
-    ip = IPDB(nl=NetNS('test'))
-
-    # Wait until someone will set up ipaddr 127.0.0.1
-    # in the netns on the loopback device
-    ip.interfaces.lo.wait_ip('127.0.0.1')
-
-    # The IPDB object must be released before exit to
-    # sync all the possible changes that are in progress.
-    ip.release()
 
 The project contains several modules for different types of
 netlink messages, not only RTNL.
@@ -212,16 +176,23 @@ Network namespace manipulation::
 
 Create **veth** interfaces pair and move to **netns**::
 
-    from pyroute2 import IPDB
+    from pyroute2 import IPRoute
 
-    ip = IPDB()
-    # create interface pair
-    ip.create(ifname='v0p0', kind='veth', peer='v0p1').commit()
-    # move peer to netns
-    with ip.interfaces.v0p1 as veth:
-        veth.net_ns_fd = 'test'
-    # don't forget to release before exit
-    ip.release()
+    with IPRoute() as ipr:
+
+        # create interface pair
+        ipr.link('add',
+                 ifname='v0p0',
+                 kind='veth',
+                 peer='v0p1')
+
+        # lookup the peer index
+        idx = ipr.link_lookup(ifname='v0p1')[0]
+
+        # move the peer to the 'test' netns:
+        ipr.link('set',
+                 index='v0p1',
+                 net_ns_fd='test')
 
 List interfaces in some **netns**::
 
@@ -244,8 +215,20 @@ Requirements
 
 Python >= 2.7
 
-The pyroute2 testing framework requires  **flake8**, **coverage**,
-**nosetests**.
+The pyroute2 testing and documentaion framework requirements:
+
+* flake8
+* coverage
+* nosetests
+* sphinx
+* aafigure
+* netaddr
+* dtcd (optional, https://github.com/svinota/dtcd)
+
+Optional dependencies:
+
+* mitogen -- for distributed rtnl
+* psutil -- for ss2 tool
 
 Links
 -----

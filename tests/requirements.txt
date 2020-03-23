@@ -1,4 +1,9 @@
+aafigure
 flake8
 nose
 coverage
 eventlet
+mitogen
+bottle
+sphinx
+netaddr

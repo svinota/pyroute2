@@ -6,14 +6,15 @@
 *~
 build/
 dist/
+tests/bin
 tests/htmlcov
 tests/cover
 tests/.coverage
 tests/udhcpd.leases
 tests/examples
 tests/pyroute2
-tests/ci/results
 tests/*xml
+tests/*log
 output.html
 MANIFEST
 setup.ini
@@ -28,3 +29,5 @@ docs-build.log
 pyroute2.egg-info
 benchmark.log
 .tox
+tests-workspaces/
+pyroute2/config/version.py

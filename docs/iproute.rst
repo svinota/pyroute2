@@ -1,4 +1,4 @@
-.. iproute:
+.. _iproute:
 
 IPRoute module
 ==============
@@ -6,13 +6,21 @@ IPRoute module
 .. automodule:: pyroute2.iproute
     :members:
 
-BSD notes
----------
+BSD systems
+-----------
 
 .. automodule:: pyroute2.iproute.bsd
 
-IPRoute API
------------
+Windows systems
+---------------
+
+.. automodule:: pyroute2.iproute.windows
+
+.. autoclass:: pyroute2.iproute.windows.IPRoute
+    :members:
+
+Linux systems
+-------------
 
 .. automodule:: pyroute2.iproute.linux
     :members:

@@ -1,15 +1,18 @@
 import os
+import errno
 import atexit
 import pickle
 import select
 import struct
 import logging
+import signal
 import threading
 import traceback
 from io import BytesIO
 from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from pyroute2 import config
+from pyroute2 import netns as netnsmod
 from pyroute2.netlink.nlsocket import NetlinkMixin
 if config.uname[0][-3:] == 'BSD':
     from pyroute2.iproute.bsd import IPRoute
@@ -33,6 +36,7 @@ class Transport(object):
         self.lock = threading.Lock()
         self.cmd_queue = queue.Queue()
         self.brd_queue = queue.Queue()
+        self.run = True
 
     def fileno(self):
         return self.file_obj.fileno()
@@ -53,34 +57,47 @@ class Transport(object):
         ret = pickle.load(dump)
         return ret
 
-    def recv(self):
-        while True:
-            with self.lock:
-                if not self.brd_queue.empty():
-                    return self.brd_queue.get()
+    def _m_recv(self, own_queue, other_queue, check):
+        while self.run:
+            if self.lock.acquire(False):
                 try:
-                    ret = self.__recv()
-                except struct.error:
                     try:
-                        return self.brd_queue.get(timeout=5)
+                        ret = own_queue.get(False)
+                        if ret is None:
+                            continue
+                        else:
+                            return ret
                     except queue.Empty:
-                        raise Exception('I/O error')
-                if ret['stage'] == 'broadcast':
+                        pass
+                    ret = self.__recv()
+                    if not check(ret['stage']):
+                        other_queue.put(ret)
+                    else:
+                        other_queue.put(None)
+                        return ret
+                finally:
+                    self.lock.release()
+            else:
+                ret = None
+                try:
+                    ret = own_queue.get(timeout=1)
+                except queue.Empty:
+                    pass
+                if ret is not None:
                     return ret
-                self.cmd_queue.put(ret)
+
+    def recv(self):
+        return self._m_recv(self.brd_queue,
+                            self.cmd_queue,
+                            lambda x: x == 'broadcast')
 
     def recv_cmd(self):
-        while True:
-            with self.lock:
-                if not self.cmd_queue.empty():
-                    return self.cmd_queue.get()
-                ret = self.__recv()
-                if ret['stage'] != 'broadcast':
-                    return ret
-                self.brd_queue.put(ret)
+        return self._m_recv(self.cmd_queue,
+                            self.brd_queue,
+                            lambda x: x != 'broadcast')
 
     def close(self):
-        self.file_obj.close()
+        self.run = False
 
 
 class ProxyChannel(object):
@@ -95,10 +112,18 @@ class ProxyChannel(object):
                                  'error': None})
 
 
-def Server(trnsp_in, trnsp_out):
+def Server(trnsp_in, trnsp_out, netns=None, target='localhost'):
+
+    def stop_server(signum, frame):
+        Server.run = False
+
+    Server.run = True
+    signal.signal(signal.SIGTERM, stop_server)
 
     try:
-        ipr = IPRoute()
+        if netns is not None:
+            netnsmod.setns(netns)
+        ipr = IPRoute(target=target)
         lock = ipr._sproxy.lock
         ipr._s_channel = ProxyChannel(trnsp_out, 'broadcast')
     except Exception as e:
@@ -116,7 +141,7 @@ def Server(trnsp_in, trnsp_out):
                     'error': None})
 
     # 8<-------------------------------------------------------------
-    while True:
+    while Server.run:
         try:
             events, _, _ = select.select(inputs, outputs, inputs)
         except:
@@ -221,6 +246,8 @@ class RemoteSocket(NetlinkMixin):
         msg = None
         while True:
             msg = self.trnsp_in.recv()
+            if msg is None:
+                raise EOFError()
             if msg['stage'] == 'signal':
                 os.kill(os.getpid(), msg['data'])
             else:
@@ -238,7 +265,7 @@ class RemoteSocket(NetlinkMixin):
             except ValueError:
                 pass
 
-    def close(self):
+    def close(self, code=errno.ECONNRESET):
         with self.shutdown_lock:
             if not self.closed:
                 super(RemoteSocket, self).close()
@@ -246,20 +273,29 @@ class RemoteSocket(NetlinkMixin):
                 self._cleanup_atexit()
                 self.trnsp_out.send({'stage': 'shutdown'})
                 # send loopback nlmsg to terminate possible .get()
-                if self.remote_trnsp_out is not None:
-                    data = struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0)
+                if code > 0 and self.remote_trnsp_out is not None:
+                    data = struct.pack('IHHQIQQ', 28, 2, 0, 0, code, 0, 0)
                     self.remote_trnsp_out.send({'stage': 'broadcast',
                                                 'data': data,
                                                 'error': None})
                     with self.trnsp_in.lock:
                         pass
-                for trnsp in (self.trnsp_out,
-                              self.trnsp_in,
-                              self.remote_trnsp_in,
-                              self.remote_trnsp_out):
+
+                transport_objs = (self.trnsp_out, self.trnsp_in,
+                                  self.remote_trnsp_in, self.remote_trnsp_out)
+
+                # Stop the transport objects.
+                for trnsp in transport_objs:
                     try:
                         if hasattr(trnsp, 'close'):
                             trnsp.close()
+                    except Exception:
+                        pass
+
+                # Close the file descriptors.
+                for trnsp in transport_objs:
+                    try:
+                        trnsp.file_obj.close()
                     except Exception:
                         pass
 

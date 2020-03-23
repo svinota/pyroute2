@@ -54,7 +54,7 @@ def ipv4addr(src=None, dst=None):
 
     # run bitwise with masks -- if provided
     if src_mask or dst_mask:
-        mask = ''
+        mask = b''
         if src:
             if not src_mask:
                 src_mask = '32'
@@ -75,7 +75,7 @@ def ipv4addr(src=None, dst=None):
         ret.append(genex('bitwise', kwarg))
 
     # run cmp
-    packed = ''
+    packed = b''
     if src:
         packed += socket.inet_aton(src)
     if dst:

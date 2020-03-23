@@ -147,6 +147,10 @@ RTM_GETNSID = 90
 RTM_NEWSTATS = 92
 RTM_GETSTATS = 94
 RTM_NEWCACHEREPORT = 96
+# fake internal message types
+RTM_NEWNETNS = 500
+RTM_DELNETNS = 501
+RTM_GETNETNS = 502
 (RTM_NAMES, RTM_VALUES) = map_namespace('RTM_', globals())
 
 TC_H_INGRESS = 0xfffffff1
