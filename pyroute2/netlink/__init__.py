@@ -178,6 +178,7 @@ There are several pre-defined NLA types, that you will get with
     - `ip6addr` -- only IPv6 address type
     - `target` -- a univeral target (IPv4, IPv6, MPLS)
     - `l2addr` -- MAC address
+    - `lladdr` -- link layer address (MAC, IPv4, IPv6)
     - `hex` -- hex dump as a string -- useful for debugging
     - `cdata` -- a binary data
     - `string` -- UTF-8 string
@@ -1824,6 +1825,47 @@ class nlmsg_atoms(nlmsg_base):
             nla_base.decode(self)
             self.value = ':'.join('%02x' % (i) for i in
                                   struct.unpack('BBBBBB', self['value']))
+
+    class lladdr(nla_base):
+        '''
+        Decode link layer address: a MAC, IPv4 or IPv6 address. This type
+        depends on the link layer address length:
+
+        * 6: MAC addr, string: "52:ff:ff:ff:ff:03"
+        * 4: IPv4 addr, string: "127.0.0.1"
+        * 16: IPv6 addr, string: "::1"
+        '''
+
+        __slots__ = ()
+        sql_type = 'TEXT'
+
+        fields = [('value', 's')]
+
+        def encode(self):
+            if ':' in self.value:
+                if len(self.value) == 17 and '::' not in self.value:
+                    self['value'] = struct.pack('BBBBBB',
+                                                *[int(i, 16) for i in
+                                                  self.value.split(':')])
+                else:
+                    self['value'] = inet_pton(AF_INET6, self.value)
+            elif '.' in self.value:
+                self['value'] = inet_pton(AF_INET, self.value)
+            else:
+                raise TypeError('Unsupported value {}'.format(self.value))
+            nla_base.encode(self)
+
+        def decode(self):
+            nla_base.decode(self)
+            if len(self['value']) == 6:
+                self.value = ':'.join('%02x' % (i) for i in
+                                      struct.unpack('BBBBBB', self['value']))
+            elif len(self['value']) == 4:
+                self.value = inet_ntop(AF_INET, self['value'])
+            elif len(self['value']) == 16:
+                self.value = inet_ntop(AF_INET6, self['value'])
+            else:
+                raise TypeError('Unsupported link layer address length {}'.format(len(self['value'])))
 
     class hex(nla_base):
         '''
