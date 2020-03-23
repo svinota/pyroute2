@@ -82,6 +82,7 @@ Reference
    :maxdepth: 2
 
    ndb_objects
+   ndb_reports
    ndb_interfaces
    ndb_addresses
    ndb_routes

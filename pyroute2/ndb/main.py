@@ -5,8 +5,12 @@ Quick start
 Print the routing information in the CSV format::
 
     with NDB() as ndb:
-        for record in ndb.routes.summary(format='csv'):
+        for record in ndb.routes.summary().format('csv'):
             print(record)
+
+.. note:: More on report filtering and formatting: :ref:`ndbreports`
+.. note:: Since 0.5.11; versions 0.5.10 and earlier used
+          syntax `summary(format='csv', match={...})`
 
 Print all the interface names on the system::
 
@@ -22,7 +26,7 @@ Print IP addresses of interfaces in several network namespaces::
     with NDB() as ndb:
         for nsname in nslist:
             ndb.sources.add(netns=nsname)
-        for record in ndb.interfaces.summary(format='json'):
+        for record in ndb.interfaces.summary():
             print(record)
 
 Add an IP address on an interface::

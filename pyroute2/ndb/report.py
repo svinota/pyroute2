@@ -1,3 +1,33 @@
+'''
+.. note:: New in verision 0.5.11
+
+Filtering examples::
+
+    # 1. get all the routes
+    # 2. join with interfaces on route.oif == interface.index
+    # 3. select only fields dst, gateway, ifname and mac address
+    # 4. transform the mac address into xxxx.xxxx.xxxx notation
+    # 5. dump the info in the CSV format
+
+    (ndb
+     .routes
+     .dump()
+     .join(ndb.interfaces.dump(),
+           condition=lambda l, r: l.oif == r.index)
+     .select('dst', 'gateway', 'oif', 'ifname', 'address')
+     .transform(address=lambda x: '%s%s.%s%s.%s%s' % tuple(x.split(':')))
+     .format('csv'))
+
+    'dst','gateway','oif','ifname','address'
+    '172.16.20.0','127.0.0.2',1,'lo','0000.0000.0000'
+    '172.16.22.0','127.0.0.4',1,'lo','0000.0000.0000'
+    '','172.16.254.3',3,'wlp58s0','60f2.6289.400e'
+    '10.250.3.0',,39,'lxcbr0','0016.3e00.0000'
+    '10.255.145.0','10.255.152.254',42881,'prdc51e6d5','4a6a.60b1.8448'
+    ...
+
+
+'''
 import json
 from itertools import chain
 from pyroute2.common import basestring
@@ -135,9 +165,35 @@ class BaseReport(object):
 
 
 class Report(BaseReport):
+    '''
+    NDB views return objects of this class with `summary()` and `dump()`
+    methods. Report objects are generator-based, they do not store the
+    data in the memory, but transform them on the fly.
+
+    Report filters also return objects of this class, thus making possible
+    to make chains of filters.
+    '''
 
     def transform(self, **kwarg):
+        '''
+        Transform record fields with a provided functions::
 
+            view.transform(field_name_1=func1,
+                           field_name_2=func2)
+
+        Examples, transform MAC addresses into dots-format and IEEE 802::
+
+            fmt = '%s%s.%s%s.%s%s'
+            (ndb
+             .interfaces
+             .summary()
+             .transform(lladdr=lambda x: fmt % tuple(x.split(':')))
+
+            (ndb
+             .interfaces
+             .summary()
+             .transform(lladdr=lambda x: x.replace(':', '-').upper()))
+        '''
         def g():
             for record in self.generator:
                 if isinstance(record, Record):
@@ -153,7 +209,24 @@ class Report(BaseReport):
         return Report(g())
 
     def filter(self, f=None, **kwarg):
+        '''
+        Filter records. This function may be called in two ways. One way
+        is a simple match. Select ports of `br0` only in the `up` state::
 
+            (ndb
+             .interfaces
+             .dump()
+             .filter(master=ndb.interfaces['br0']['index'],
+                     state='up'))
+
+        When a simple match is not a solution, one can provide a matching
+        function. Select only MPLS lwtunnel routes::
+
+            (ndb
+             .routes
+             .dump()
+             .filter(lambda x: x.encap_type == 1 and x.encap is not None))
+        '''
         def g():
             for record in self.generator:
                 m = True
@@ -169,7 +242,11 @@ class Report(BaseReport):
         return Report(g())
 
     def select(self, *argv):
+        '''
+        Select fields from records::
 
+            ndb.interfaces.dump().select('index', 'ifname', 'state')
+        '''
         def g():
             for record in self.generator:
                 ret = []
@@ -180,6 +257,31 @@ class Report(BaseReport):
         return Report(g())
 
     def join(self, right, condition=lambda r1, r2: True, prefix=''):
+        '''
+        Join two reports.
+
+            * right -- a report to join with
+            * condition -- filter records with a function
+            * prefix -- rename the "right" fields using the prefix
+
+        The condition function must have two arguments, left record and
+        rigth record, and must return True or False. The routine discards
+        joined records when the condition is False.
+
+        Example, provide interface names for routes, don't change field
+        names::
+
+            (ndb
+             .routes
+             .dump()
+             .join(ndb.interfaces.dump(),
+                   condition=lambda l, r: l.oif == r.index)
+             .select('dst', 'gateway', 'ifname'))
+
+        **Warning**: this method loads the whole data of the `right` report
+        into the memory.
+
+        '''
         # fetch all the records from the right
         # ACHTUNG it may consume a lot of memory
         right = tuple(right)
@@ -197,6 +299,19 @@ class Report(BaseReport):
         return Report(g())
 
     def format(self, kind):
+        '''
+        Convert report records into other formats. Supported formats are
+        'json' and 'csv'.
+
+        The resulting report can not use filters, transformations etc.
+        Thus, the `format()` call should be the last in the chain::
+
+            (ndb
+             .addresses
+             .summary()
+             .format('csv'))
+
+        '''
         if kind == 'json':
             return BaseReport(format_json(self.generator, headless=True))
         elif kind == 'csv':

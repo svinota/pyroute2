@@ -16,23 +16,22 @@ MPLS labels
 Possible label formats::
 
     # int
-    "dst": 20
+    "newdst": 20
 
     # list of ints
     "newdst": [20]
     "newdst": [20, 30]
 
     # string
-    "labels": "20/30"
+    "newdst": "20/30"
 
-Any of these notations should be accepted by `pyroute2`, if not -- try
-another format and submit an issue to the project github page. The code
-is quite new, some issues are possible.
+    # dict
+    "newdst": {"label": 20}
 
-Refer also to the test cases, there are many usage samples:
+    # list of dicts
+    "newdst": [{"label": 20, "tc": 0, "bos": 0, "ttl": 16},
+               {"label": 30, "tc": 0, "bos": 1, "ttl": 16}]
 
-* `tests/general/test_ipr.py`
-* `tests/general/test_ipdb.py`
 
 IPRoute
 =======
@@ -56,7 +55,8 @@ Label swap::
     # set up the route
     ipr.route("add", **req)
 
-Notice, that `dst` is a single label, while `newdst` is a stack. Label push::
+Please notice that "dst" can specify only one label, even being a list.
+Label push::
 
     req = {"family": AF_MPLS,
            "oif": idx,
@@ -87,82 +87,44 @@ To inject IP packets into MPLS::
                      "labels": [202, 303]}}
     ipr.route("add", **req)
 
-IPDB
-====
+NDB
+===
 
-MPLS routes
-~~~~~~~~~~~
+.. note:: basic MPLS routes management in NDB since version 0.5.11
 
-The `IPDB` database also supports MPLS routes, they are reflected in the
-`ipdb.routes.tables["mpls"]`::
+List MPLS routes::
 
-    >>> (ipdb
-    ...  .routes
-    ...  .add({"family": AF_MPLS,
-    ...        "oif": ipdb.interfaces["eth0"]["index"],
-    ...        "dst": 20,
-    ...        "newdst": [30]})
-    ...  .commit())
-    <skip>
-    >>> (ipdb
-    ...  .routes
-    ...  .add({"family": AF_MPLS,
-    ...        "oif": ipdb.interfaces["eth0"]["index"],
-    ...        "dst": 22,
-    ...        "newdst": [22, 42]})
-    ...  .commit())
-    <skip>
-    >>> ipdb.routes.tables["mpls"].keys()
-    [20, 22]
+    >>> from pyroute2.common import AF_MPLS
+    >>> ndb.routes.dump().filter(family=AF_MPLS)
+    ('localhost', 0, 28, 20, 0, 0, 254, 4, 0, 1, 0, ...
+    ('localhost', 0, 28, 20, 0, 0, 254, 4, 0, 1, 0, ...
 
-Pls notice, that there is only one MPLS routing table.
+    >>> ndb.routes.dump().filter(family=AF_MPLS).select('oif', 'dst', 'newdst')
+    (40627, '[{"label": 16, "tc": 0, "bos": 1, "ttl": 0}]', '[{"label": 500, ...
+    (40627, '[{"label": 40, "tc": 0, "bos": 1, "ttl": 0}]', '[{"label": 40, ...
 
-Multipath MPLS::
+List lwtunnel routes::
 
-    with IDPB() as ipdb:
-        (ipdb
-         .routes
-         .add({"family": AF_MPLS,
-               "dst": 20,
-               "multipath": [{"via": {"family": AF_INET,
-                                      "addr": "10.0.0.2"},
-                              "oif": ipdb.interfaces["eth0"]["index"],
-                              "newdst": [30]},
-                             {"via": {"family": AF_INET,
-                                      "addr": "10.0.0.3"},
-                              "oif": ipdb.interfaces["eth0"]["index"],
-                              "newdst": [40]}]})
-         .commit())
+    >>> ndb.routes.dump().filter(lambda x: x.encap is not None)
+    ('localhost', 0, 2, 24, 0, 0, 254, 4, 0, 1, 16, '10.255.145.0', ...
+    ('localhost', 0, 2, 24, 0, 0, 254, 4, 0, 1, 0, '192.168.142.0', ...
 
-MPLS lwtunnel
-~~~~~~~~~~~~~
+    >>> ndb.routes.dump().filter(lambda x: x.encap is not None).select('dst', 'encap') 
+    ('10.255.145.0', '[{"label": 20, "tc": 0, "bos": 0, "ttl": 0}, ...
+    ('192.168.142.0', '[{"label": 20, "tc": 0, "bos": 0, "ttl": 0}, ...
 
-LWtunnel routes reside in common route tables::
+Create MPLS routes::
 
-    with IPDB() as ipdb:
-        (ipdb
-         .routes
-         .add({"dst": "1.2.3.0/24",
-               "oif": ipdb.interfaces["eth0"]["index"],
-               "encap": {"type": "mpls",
-                         "labels": [22]}})
-         .commit())
-        print(ipdb.routes["1.2.3.0/24"])
+    >>> from pyroute2.common import AF_MPLS
+    >>> ndb.routes.create(family=AF_MPLS,
+                          dst=128,                       # label
+                          oif=1,                         # output interface
+                          newdst=[128, 132]).commit()    # label stack
 
-Multipath MPLS lwtunnel::
+Create lwtunnel::
 
-    with IPDB() as ipdb:
-        (ipdb
-         .routes
-         .add({"dst": "1.2.3.0/24",
-               "table": 200,
-               "multipath": [{"oif": ipdb.interfaces["eth0"]["index"],
-                              "gateway": "10.0.0.2",
-                              "encap": {"type": "mpls",
-                                        "labels": [200, 300]}},
-                             {"oif": ipdb.interfaces["eth1"]["index"],
-                              "gateway": "172.16.0.2",
-                              "encap": {"type": "mpls",
-                                        "labels": [200, 300]}}]})
-         .commit())
-        print(ipdb.routes.tables[200]["1.2.3.0/24"])
+    >>> ndb.routes.create(dst='192.168.145.0/24',
+                          gateway='192.168.140.5', 
+                          encap={'type': 'mpls',
+                                 'labels': [128, 132]}).commit()
+
