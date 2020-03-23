@@ -99,6 +99,11 @@ class Record(object):
             ret[key] = value
         return ret
 
+    def __eq__(self, right):
+        n = all(x[0] == x[1] for x in zip(self._names, right._names))
+        v = all(x[0] == x[1] for x in zip(self._values, right._values))
+        return n and v
+
 
 class BaseReport(object):
 
@@ -180,3 +185,50 @@ class Report(BaseReport):
             return BaseReport(format_csv(self.generator, headless=True))
         else:
             raise ValueError()
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            if key >= 0:
+                # positive indices
+                for x in range(key):
+                    try:
+                        next(self.generator)
+                    except StopIteration:
+                        raise IndexError('index out of range')
+                try:
+                    return next(self.generator)
+                except StopIteration:
+                    raise IndexError('index out of range')
+            else:
+                # negative indices
+                buf = []
+                for i in self.generator:
+                    buf.append(i)
+                    if len(buf) > abs(key):
+                        buf.pop(0)
+                if len(buf) < abs(key):
+                    raise IndexError('index out of range')
+                return buf[0]
+        elif isinstance(key, slice):
+            count = 0
+            buf = []
+            start = key.start or 0
+            stop = key.stop
+
+            for i in self.generator:
+                buf.append(i)
+                if (start >= 0 and count < start) or \
+                        (start < 0 and len(buf) > abs(start)):
+                    buf.pop(0)
+                count += 1
+                if stop is not None and stop > 0 and count == stop:
+                    if start < 0:
+                        buf.pop(0)
+                    break
+
+            if stop is not None and stop < 0:
+                buf = buf[:stop]
+
+            return buf[::key.step]
+        else:
+            raise TypeError('illegal key format')

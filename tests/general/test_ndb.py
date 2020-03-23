@@ -1535,6 +1535,31 @@ class TestReports(TestPreSet):
                 if obj is not None:
                     assert isinstance(obj, RTNL_Object)
 
+    def test_slices(self):
+        a = list(self.ndb.rules.dump())
+        ln = len(a) - 1
+        # simple indices
+        assert a[0] == self.ndb.rules.dump()[0]
+        assert a[1] == self.ndb.rules.dump()[1]
+        assert a[-1] == self.ndb.rules.dump()[-1]
+        assert self.ndb.rules.dump()[ln] == a[-1]
+        try:
+            self.ndb.rules.dump()[len(a)]
+        except IndexError:
+            pass
+        # slices
+        assert a[0:] == self.ndb.rules.dump()[0:]
+        assert a[:3] == self.ndb.rules.dump()[:3]
+        assert a[0:3] == self.ndb.rules.dump()[0:3]
+        assert a[1:3] == self.ndb.rules.dump()[1:3]
+        # negative slices
+        assert a[-3:] == self.ndb.rules.dump()[-3:]
+        assert a[-3:-1] == self.ndb.rules.dump()[-3:-1]
+        # mixed
+        assert a[-ln:ln - 1] == self.ndb.rules.dump()[-ln:ln - 1]
+        # step
+        assert a[2:ln:2] == self.ndb.rules.dump()[2:ln:2]
+
     def test_report_chains(self):
         ipnet = allocate_network()
         ifaddr = tuple(self
