@@ -1,6 +1,11 @@
 Changelog
 =========
 
+* 0.5.11
+    * ndb.report: filters and transformations
+    * ndb.objects.route: support basic MPLS routes management
+    * ndb.objects.route: support MPLS lwtunnel routes
+    * ndb.schema: reschedule events
 * 0.5.10
     * general: don't use pkg_resources <https://github.com/svinota/pyroute2/issues/677>
     * iproute: fix Windows support
