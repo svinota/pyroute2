@@ -532,7 +532,9 @@ class Route(RTNL_Object):
         return req
 
     def __setitem__(self, key, value):
-        if key in ('dst', 'src') and '/' in value:
+        if key in ('dst', 'src') and \
+                isinstance(value, basestring) and \
+                '/' in value:
             net, net_len = value.split('/')
             if net in ('0', '0.0.0.0'):
                 net = ''
