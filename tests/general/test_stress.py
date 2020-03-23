@@ -84,9 +84,9 @@ class TestRespawn(object):
                 assert len(tuple(i.interfaces.summary()))
                 assert len(tuple(i.addresses.summary()))
                 assert len(tuple(i.routes.summary()))
-                assert len(tuple(i.interfaces.dump(format='csv')))
-                assert len(tuple(i.addresses.dump(format='csv')))
-                assert len(tuple(i.routes.dump(format='csv')))
+                assert len(tuple(i.interfaces.dump().format('csv')))
+                assert len(tuple(i.addresses.dump().format('csv')))
+                assert len(tuple(i.routes.dump().format('csv')))
 
 
 class TestIfs(object):
