@@ -159,6 +159,8 @@ class TestPreSet(object):
          .commit())
 
         self.if_bridge = if_bridge
+        self.if_bridge_addr1 = if_addr1
+        self.if_bridge_addr2 = if_addr2
 
         return ret
 
@@ -1534,6 +1536,25 @@ class TestReports(TestPreSet):
                 obj = view.get(key)
                 if obj is not None:
                     assert isinstance(obj, RTNL_Object)
+
+    def test_join(self):
+        addr = (self
+                .ndb
+                .addresses
+                .dump()
+                .join((self
+                       .ndb
+                       .interfaces
+                       .dump()
+                       .filter(lambda x: x.state == 'up')),
+                      condition=lambda l, r: l.index == r.index and
+                      r.ifname == self.if_bridge,
+                      prefix='if_')
+                .select('address'))
+
+        s1 = set((self.if_bridge_addr1, self.if_bridge_addr2))
+        s2 = set([x.address for x in addr])
+        assert s1 == s2
 
     def test_slices(self):
         a = list(self.ndb.rules.dump())

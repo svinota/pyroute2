@@ -1,4 +1,5 @@
 import json
+from itertools import chain
 from pyroute2.common import basestring
 
 MAX_REPORT_LINES = 10000
@@ -175,6 +176,23 @@ class Report(BaseReport):
                 for field in argv:
                     ret.append(getattr(record, field, None))
                 yield Record(argv, ret)
+
+        return Report(g())
+
+    def join(self, right, condition=lambda r1, r2: True, prefix=''):
+        # fetch all the records from the right
+        # ACHTUNG it may consume a lot of memory
+        right = tuple(right)
+
+        def g():
+
+            for r1 in self.generator:
+                for r2 in right:
+                    if condition(r1, r2):
+                        n = tuple(chain(r1._names, ['%s%s' % (prefix, x)
+                                                    for x in r2._names]))
+                        v = tuple(chain(r1._values, r2._values))
+                        yield Record(n, v)
 
         return Report(g())
 
