@@ -1865,7 +1865,8 @@ class nlmsg_atoms(nlmsg_base):
             elif len(self['value']) == 16:
                 self.value = inet_ntop(AF_INET6, self['value'])
             else:
-                raise TypeError('Unsupported link layer address length {}'.format(len(self['value'])))
+                raise TypeError('Unsupported link layer address length {}'
+                                .format(len(self['value'])))
 
     class hex(nla_base):
         '''
