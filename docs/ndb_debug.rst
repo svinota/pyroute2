@@ -1,3 +1,5 @@
+.. _ndbdebug:
+
 Debug and logging
 =================
 
