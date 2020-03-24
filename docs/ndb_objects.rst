@@ -4,5 +4,6 @@ Views and objects
 =================
 
 .. automodule:: pyroute2.ndb.objects
-    :members:
-    :exclude-members: update
+
+.. autoclass:: pyroute2.ndb.objects.RTNL_Object
+    :members: create, set, snapshot, apply, commit, rollback

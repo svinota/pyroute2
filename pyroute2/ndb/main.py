@@ -2,49 +2,124 @@
 Quick start
 -----------
 
+The goal of NDB is to provide an easy access to RTNL info and entities via
+Python objects, like `pyroute2.ndb.objects.interface` (see also:
+:ref:`ndbinterfaces`), `pyroute2.ndb.objects.route` (see also:
+:ref:`ndbroutes`) etc. These objects do not
+only reflect the system state for the time of their instantiation, but
+continuously monitor the system for relevant updates. The monitoring is
+done via netlink notifications, thus no polling. Also the objects allow
+to apply changes back to the system and rollback the changes.
+
+On the other hand it's too expensive to create Python objects for all the
+available RTNL entities, e.g. when there are hundreds of interfaces and
+thousands of routes. Thus NDB creates objects only upon request, when
+the user calls `.create()` to create new objects or runs
+`ndb.<view>[selector]` (e.g. `ndb.interfaces['eth0']`) to access an
+existing object.
+
+To list existing RTNL entities NDB uses objects of the class `RecordSet`
+that `yield` individual `Record` objects for every entity (see also:
+:ref:`ndbreports`). An object of the `Record` class is immutable, doesn't
+monitor any updates, doesn't contain any links to other objects and essentially
+behaves like a simple named tuple.
+
+.. aafig::
+    :scale: 80
+    :textual:
+
+
+      +---------------------+
+      |                     |
+      | `NDB() instance`    |
+      |                     |
+      +---------------------+
+                 |
+                 |
+        +-------------------+
+      +-------------------+ |
+    +-------------------+ | |-----------+---------------------------+
+    |                   | | |           |                           |
+    | `View()`          | |-+           |                           |
+    |                   |-+             |                           |
+    +-------------------+               |                           |
+                               +------------------+       +-------------------+
+                               |                  |       |                   |
+                               | `.dump()`        |       | `.create()`       |
+                               | `.summary()`     |       | `.__getitem__()`  |
+                               |                  |       |                   |
+                               +------------------+       +-------------------+
+
+                                        |                           |
+                                        v                           v
+                              +-------------------+       +-------------------+
+                              |                   |     +-------------------+ |
+                              | `RecordSet()`     |   +-------------------+ | |
+                              |                   |   | `Interface()`     | | |
+                              +-------------------+   | `Route()`         | |-+
+                                        |             |  ...              |-+
+                                        v             +-------------------+
+                                +-------------------+
+                              +-------------------+ |
+                            +-------------------+ | |
+                            |                   | | |
+                            | `Record()`        | |-+
+                            |                   |-+
+                            +-------------------+
+
+Here are some simple NDB usage examples. More info see in the reference
+documentation below.
+
+Print all the interface names on the system, assume we have an NDB
+instance `ndb`::
+
+    for interface in ndb.interfaces.dump():
+        print(interface.ifname)
+
 Print the routing information in the CSV format::
 
-    with NDB() as ndb:
-        for record in ndb.routes.summary().format('csv'):
-            print(record)
+    for line in ndb.routes.summary().format('csv'):
+        print(record)
 
 .. note:: More on report filtering and formatting: :ref:`ndbreports`
 .. note:: Since 0.5.11; versions 0.5.10 and earlier used
           syntax `summary(format='csv', match={...})`
 
-Print all the interface names on the system::
-
-    with NDB() as ndb:
-        print([x.ifname for x in ndb.interfaces.summary()])
-
-Print IP addresses of interfaces in several network namespaces::
+Print IP addresses of interfaces in several network namespaces as::
 
     nslist = ['netns01',
               'netns02',
               'netns03']
 
-    with NDB() as ndb:
-        for nsname in nslist:
-            ndb.sources.add(netns=nsname)
-        for record in ndb.interfaces.summary():
-            print(record)
+    for nsname in nslist:
+        ndb.sources.add(netns=nsname)
+
+    for line in ndb.addresses.summary().format('json'):
+        print(line)
 
 Add an IP address on an interface::
 
-    with NDB() as ndb:
-        with ndb.interfaces['eth0'] as i:
-            i.ipaddr.create(address='10.0.0.1', prefixlen=24).commit()
-            # ---> <---  NDB waits until the address actually
-            #            becomes available
+    (ndb
+     .interfaces['eth0']
+     .add_ip('10.0.0.1/24')
+     .commit())
+    # ---> <---  NDB waits until the address actually
 
 Change an interface property::
 
-    with NDB() as ndb:
-        with ndb.interfaces['eth0'] as i:
-            i['state'] = 'up'
-            i['address'] = '00:11:22:33:44:55'
-        # ---> <---  the commit() is called authomatically by
-        #            the context manager's __exit__()
+    (ndb
+     .interfaces['eth0']
+     .set('state', 'up')
+     .set('address', '00:11:22:33:44:55')
+     .commit()
+    # ---> <---  NDB waits here for the changes to be applied
+
+    # ... or with another syntax
+    with ndb.interfaces['eth0'] as i:
+        i['state'] = 'up'
+        i['address'] = '00:11:22:33:44:55'
+    # ---> <---  the commit() is called authomatically by
+    #            the context manager's __exit__()
 
 '''
 import gc

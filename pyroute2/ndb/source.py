@@ -1,6 +1,4 @@
 '''
-RTNL sources
-============
 
 Local RTNL
 ----------

@@ -20,9 +20,8 @@ Get interface objects
 
 The keys may be used as selectors to get interface objects::
 
-    with NDB(log='on') as ndb:
-        for key in ndb.interfaces:
-            print(ndb.interfaces[key])
+    for key in ndb.interfaces:
+        print(ndb.interfaces[key])
 
 Also possible selector formats are `dict()` and simple string. The latter
 means the interface name::
@@ -42,44 +41,38 @@ Change nic properties
 
 Changing MTU and MAC address::
 
-    with NDB(log='on') as ndb:
-        with ndb.interfaces['eth0'] as eth0:
-            eth0['mtu'] = 1248
-            eth0['address'] = '00:11:22:33:44:55'
-        # --> <-- eth0.commit() is called by the context manager
-    # --> <-- ndb.close() is called by the context manager
+    with ndb.interfaces['eth0'] as eth0:
+        eth0['mtu'] = 1248
+        eth0['address'] = '00:11:22:33:44:55'
+    # --> <-- eth0.commit() is called by the context manager
 
 One can change a property either using the assignment statement, or
 using the `.set()` routine::
 
     # same code
-    with NDB(log='on') as ndb:
-        with ndb.interfaces['eth0'] as eth0:
-            eth0.set('mtu', 1248)
-            eth0.set('address', '00:11:22:33:44:55')
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.set('mtu', 1248)
+        eth0.set('address', '00:11:22:33:44:55')
 
 The `.set()` routine returns the object itself, that makes possible
 chain calls::
 
     # same as above
-    with NDB(log='on') as ndb:
-        with ndb.interfaces['eth0'] as eth0:
-            eth0.set('mtu', 1248).set('address', '00:11:22:33:44:55')
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.set('mtu', 1248).set('address', '00:11:22:33:44:55')
 
     # or
-    with NDB(log='on') as ndb:
-        with ndb.interfaces['eth0'] as eth0:
-            (eth0
-             .set('mtu', 1248)
-             .set('address', '00:11:22:33:44:55'))
+    with ndb.interfaces['eth0'] as eth0:
+        (eth0
+         .set('mtu', 1248)
+         .set('address', '00:11:22:33:44:55'))
 
     # or without the context manager, call commit() explicitly
-    with NDB(log='on') as ndb:
-        (ndb
-         .interfaces['eth0']
-         .set('mtu', 1248)
-         .set('address', '00:11:22:33:44:55')
-         .commit())
+    (ndb
+     .interfaces['eth0']
+     .set('mtu', 1248)
+     .set('address', '00:11:22:33:44:55')
+     .commit())
 
 Create virtual interfaces
 =========================

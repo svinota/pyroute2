@@ -1,6 +1,6 @@
 '''
-Structure and API
-=================
+Structure
+=========
 
 The NDB objects are dictionary-like structures that represent network
 objects -- interfaces, routes, addresses etc. In addition to the
@@ -80,6 +80,9 @@ not committed changes. To inspect cached objects, use views' `.cache`::
 
 There is no asynchronous cache invalidation, the cache is being cleaned up
 every time when an object is accessed.
+
+API
+===
 '''
 import json
 import time
@@ -97,9 +100,6 @@ from pyroute2.ndb.events import InvalidateHandlerException
 
 
 class RTNL_Object(dict):
-    '''
-    Base RTNL object class.
-    '''
 
     view = None    # (optional) view to load values for the summary etc.
     utable = None  # table to send updates to
@@ -154,7 +154,8 @@ class RTNL_Object(dict):
     @property
     def key(self):
         '''
-        The key of the object, used to fetch it from the DB.
+        The key of the object, used to build SQL requests to fetch
+        the data from the DB.
         '''
         nkey = self._key or {}
         ret = collections.OrderedDict()

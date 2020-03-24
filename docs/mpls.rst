@@ -1,4 +1,4 @@
-.. mpls:
+.. _mpls:
 
 MPLS howto
 ----------

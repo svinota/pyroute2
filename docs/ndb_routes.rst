@@ -1,4 +1,4 @@
-.. ndbroutes:
+.. _ndbroutes:
 
 Routes management
 =================

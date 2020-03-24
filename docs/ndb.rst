@@ -1,4 +1,4 @@
-.. ndb:
+.. _ndb:
 
 NDB module
 ==========
@@ -73,6 +73,8 @@ NDB can work with remote systems via ssh, in that case
 possible to connect also OpenBSD and FreeBSD systems, but in read-only
 mode for now.
 
+.. note:: See also the module choice guide: :ref:`choice`
+
 .. automodule:: pyroute2.ndb.main
 
 Reference
@@ -81,6 +83,7 @@ Reference
 .. toctree::
    :maxdepth: 2
 
+   ndb_init
    ndb_objects
    ndb_reports
    ndb_interfaces

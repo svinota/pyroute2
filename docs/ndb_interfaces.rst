@@ -1,4 +1,4 @@
-.. ndbinterfaces:
+.. _ndbinterfaces:
 
 Network interfaces
 ==================

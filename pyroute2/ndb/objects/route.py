@@ -68,6 +68,11 @@ reflects route metrics like hop limit, mtu etc::
      .set('hoplimit', 20)
      .commit())
 
+MPLS routes
+===========
+
+See here: :ref:`mpls`
+
 '''
 import time
 import uuid

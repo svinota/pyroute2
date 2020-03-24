@@ -1,3 +1,6 @@
-.. ndb_sources:
+.. _ndbsources:
+
+RTNL sources
+============
 
 .. automodule:: pyroute2.ndb.source
