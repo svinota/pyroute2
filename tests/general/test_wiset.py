@@ -354,6 +354,10 @@ class WiSet_test(object):
         assert content["192.168.0.0/24,eth"].wildcard is True
         assert content["192.168.1.0/24,wlan0"].wildcard is False
 
+    @staticmethod
+    def test_invalid_load_ipset():
+        assert load_ipset("ipsetdoesnotexists") is None
+
     def test_ipset_context(self):
         before_count = COUNT["count"]
         func = [self.test_create_one_ipset, self.test_create_ipset_twice,

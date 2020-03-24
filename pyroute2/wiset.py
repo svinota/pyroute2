@@ -443,7 +443,13 @@ def load_ipset(name, content=False, sock=None, inherit_sock=False):
     :type inherit_sock: bool
     """
     res = None
-    for msg in sock.list(name=name):
+    try:
+        messages = sock.list(name=name)
+    except IPSetError as e:
+        if e.code == errno.ENOENT:
+            return res
+        raise
+    for msg in messages:
         if res is None:
             res = WiSet.from_netlink(msg, content=content)
             if inherit_sock:
