@@ -134,8 +134,12 @@ def load_rtmsg(schema, target, event):
         # set f_gc_mark = timestamp for "del" events
         # and clean it for "new" events
         #
-        rtmsg_gc_mark(schema, target, event,
-                      int(time.time()) if (evt % 2) else None)
+        try:
+            rtmsg_gc_mark(schema, target, event,
+                          int(time.time()) if (evt % 2) else None)
+        except Exception as e:
+            schema.log.error('gc_mark event: %s' % (event, ))
+            schema.log.error('gc_mark: %s' % (e, ))
 
     #
     # only for RTM_NEWROUTE events
@@ -228,13 +232,17 @@ def rtmsg_gc_mark(schema, target, event, gc_mark=None):
     for route in routes:
         # get route GW
         gw = route[-1]
-        gwnet = struct.unpack('>I', inet_pton(AF_INET, gw))[0] & net
-        if gwnet == net:
-            (schema
-             .execute('UPDATE routes SET f_gc_mark = %s '
-                      'WHERE f_target = %s AND %s'
-                      % (schema.plch, schema.plch, key_query),
-                      (gc_mark, target) + route[:-1]))
+        try:
+            gwnet = struct.unpack('>I', inet_pton(AF_INET, gw))[0] & net
+            if gwnet == net:
+                (schema
+                 .execute('UPDATE routes SET f_gc_mark = %s '
+                          'WHERE f_target = %s AND %s'
+                          % (schema.plch, schema.plch, key_query),
+                          (gc_mark, target) + route[:-1]))
+        except Exception as e:
+            schema.log.error('gc_mark event: %s' % (event, ))
+            schema.log.error('gc_mark: %s : %s' % (e, route))
 
 
 init = {'specs': [['routes', OrderedDict(rtmsg.sql_schema() +
