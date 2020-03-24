@@ -1,4 +1,4 @@
-from pyroute2.ndb.report import Report
+from pyroute2.ndb.report import RecordSet
 
 
 class Query(object):
@@ -32,22 +32,22 @@ class Query(object):
 
     def nodes(self, fmt=None):
         '''
-        Report all the nodes within the cluster.
+        List all the nodes within the cluster.
         '''
         header = ('nodename',)
-        return Report(self._formatter(self._schema.fetch('''
+        return RecordSet(self._formatter(self._schema.fetch('''
             SELECT DISTINCT f_target
             FROM interfaces
         '''), fmt, header))
 
     def p2p_edges(self, fmt=None):
         '''
-        Report point to point edges within the cluster, like
+        List point to point edges within the cluster, like
         GRE or PPP interfaces.
         '''
         header = ('left_node',
                   'right_node')
-        return Report(self._formatter(self._schema.fetch('''
+        return RecordSet(self._formatter(self._schema.fetch('''
             SELECT DISTINCT
                 l.f_target, r.f_target
             FROM p2p AS l
@@ -59,7 +59,7 @@ class Query(object):
 
     def l2_edges(self, fmt=None):
         '''
-        Report l2 links within the cluster, reconstructed
+        List l2 links within the cluster, reconstructed
         from the ARP caches on the nodes. Works as follows:
 
         1. for every node take the ARP cache
@@ -77,7 +77,7 @@ class Query(object):
                   'right_node',
                   'right_ifname',
                   'right_lladdr')
-        return Report(self._formatter(self._schema.fetch('''
+        return RecordSet(self._formatter(self._schema.fetch('''
         SELECT DISTINCT
             j.f_target, j.f_IFLA_IFNAME, j.f_IFLA_ADDRESS,
             d.f_target, d.f_IFLA_IFNAME, j.f_NDA_LLADDR
@@ -102,7 +102,7 @@ class Query(object):
 
     def l3_edges(self, fmt=None):
         '''
-        Report l3 edges. For every address on every node look
+        List l3 edges. For every address on every node look
         if it is used as a gateway on remote nodes. Such cases
         are reported as l3 edges.
 
@@ -115,7 +115,7 @@ class Query(object):
                   'gateway_address',
                   'dst',
                   'dst_len')
-        return Report(self._formatter(self._schema.fetch('''
+        return RecordSet(self._formatter(self._schema.fetch('''
             SELECT DISTINCT
                 r.f_target, a.f_target, a.f_IFA_ADDRESS,
                 r.f_RTA_DST, r.f_dst_len

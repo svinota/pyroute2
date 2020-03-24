@@ -136,7 +136,7 @@ class Record(object):
         return n and v
 
 
-class BaseReport(object):
+class BaseRecordSet(object):
 
     def __init__(self, generator, ellipsis=True):
         self.generator = generator
@@ -164,13 +164,13 @@ class BaseReport(object):
         return ''.join(ret)
 
 
-class Report(BaseReport):
+class RecordSet(BaseRecordSet):
     '''
     NDB views return objects of this class with `summary()` and `dump()`
-    methods. Report objects are generator-based, they do not store the
+    methods. RecordSet objects are generator-based, they do not store the
     data in the memory, but transform them on the fly.
 
-    Report filters also return objects of this class, thus making possible
+    RecordSet filters also return objects of this class, thus making possible
     to make chains of filters.
     '''
 
@@ -206,7 +206,7 @@ class Report(BaseReport):
                     record = Record(names, values)
                 yield record
 
-        return Report(g())
+        return RecordSet(g())
 
     def filter(self, f=None, **kwarg):
         '''
@@ -239,7 +239,7 @@ class Report(BaseReport):
                     elif f(record):
                         yield record
 
-        return Report(g())
+        return RecordSet(g())
 
     def select(self, *argv):
         '''
@@ -254,7 +254,7 @@ class Report(BaseReport):
                     ret.append(getattr(record, field, None))
                 yield Record(argv, ret)
 
-        return Report(g())
+        return RecordSet(g())
 
     def join(self, right, condition=lambda r1, r2: True, prefix=''):
         '''
@@ -296,7 +296,7 @@ class Report(BaseReport):
                         v = tuple(chain(r1._values, r2._values))
                         yield Record(n, v)
 
-        return Report(g())
+        return RecordSet(g())
 
     def format(self, kind):
         '''
@@ -313,9 +313,9 @@ class Report(BaseReport):
 
         '''
         if kind == 'json':
-            return BaseReport(format_json(self.generator, headless=True))
+            return BaseRecordSet(format_json(self.generator, headless=True))
         elif kind == 'csv':
-            return BaseReport(format_csv(self.generator, headless=True))
+            return BaseRecordSet(format_csv(self.generator, headless=True))
         else:
             raise ValueError()
 

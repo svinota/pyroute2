@@ -81,7 +81,7 @@ from pyroute2.ndb.objects.neighbour import Neighbour
 from pyroute2.ndb.objects.rule import Rule
 from pyroute2.ndb.objects.netns import NetNS
 from pyroute2.ndb.query import Query
-from pyroute2.ndb.report import (Report,
+from pyroute2.ndb.report import (RecordSet,
                                  Record)
 try:
     from urlparse import urlparse
@@ -382,12 +382,12 @@ class View(dict):
     @cli.show_result
     def dump(self):
         iclass = self.classes[self.table]
-        return Report(self._native(iclass.dump(self)))
+        return RecordSet(self._native(iclass.dump(self)))
 
     @cli.show_result
     def summary(self):
         iclass = self.classes[self.table]
-        return Report(self._native(iclass.summary(self)))
+        return RecordSet(self._native(iclass.summary(self)))
 
 
 class SourcesView(View):

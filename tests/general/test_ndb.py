@@ -21,7 +21,7 @@ from pyroute2.common import uifname
 from pyroute2.common import basestring
 from pyroute2.common import AF_MPLS
 from pyroute2.ndb import report
-from pyroute2.ndb.main import (Report,
+from pyroute2.ndb.main import (RecordSet,
                                Record)
 from pyroute2.ndb.objects import RTNL_Object
 
@@ -1517,7 +1517,7 @@ class TestReports(TestPreSet):
         save = report.MAX_REPORT_LINES
         report.MAX_REPORT_LINES = 1
         # check for the report type here
-        assert isinstance(self.ndb.interfaces.summary(), Report)
+        assert isinstance(self.ndb.interfaces.summary(), RecordSet)
         # repr must be a string
         assert isinstance(repr(self.ndb.interfaces.summary()), basestring)
         # header + MAX_REPORT_LINES + (...)
