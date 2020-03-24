@@ -429,8 +429,8 @@ class EthtoolFeaturesList(object):
             self._sfeatures[feature_i].active |= flag_bit
         else:
             # active is ctypes.c_uint32
-            self._gfeatures[feature_i].active &= (flag_bit ^ 0xFFFF)
-            self._sfeatures[feature_i].active &= (flag_bit ^ 0xFFFF)
+            self._gfeatures[feature_i].active &= (flag_bit ^ 0xFFFFFFFF)
+            self._sfeatures[feature_i].active &= (flag_bit ^ 0xFFFFFFFF)
         self._sfeatures[feature_i].changed |= flag_bit
 
 
