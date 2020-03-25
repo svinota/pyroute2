@@ -938,22 +938,14 @@ def init(ndb, connection, mode, rtnl_log, tid):
         # 1. spec
         #
         for name, spec in plugin.init['specs']:
-            DBSchema.spec[name] = spec
+            DBSchema.spec[name] = spec.as_dict()
+            DBSchema.indices[name] = spec.index
+            DBSchema.foreign_keys[name] = spec.foreign_keys
         #
         # 2. classes
         #
         for name, cls in plugin.init['classes']:
             DBSchema.classes[name] = cls
-        #
-        # 3. indices
-        #
-        for name, idx in plugin.init['indices']:
-            DBSchema.indices[name] = idx
-        #
-        # 4. foreign keys
-        #
-        for name, kspec in plugin.init['foreign_keys']:
-            DBSchema.foreign_keys[name] = kspec
 
     ret = DBSchema(ndb, connection, mode, rtnl_log, tid)
 

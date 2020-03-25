@@ -402,6 +402,7 @@ from socket import inet_ntop
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
+from collections import OrderedDict
 from pyroute2.common import AF_MPLS
 from pyroute2.common import hexdump
 from pyroute2.common import basestring
@@ -576,6 +577,65 @@ cache_hdr = {}
 cache_jit = {}
 
 
+class SQLSchema(object):
+
+    def __init__(self, cls):
+        ret = []
+        for field in cls.fields:
+            if field[0][0] != '_':
+                ret.append(((field[0], ),
+                            ' '.join(('BIGINT',
+                                      cls.sql_constraints.get(field[0], '')))))
+        for nla in cls.nla_map:
+            if isinstance(nla[0], basestring):
+                nla_name = nla[0]
+                nla_type = nla[1]
+            else:
+                nla_name = nla[1]
+                nla_type = nla[2]
+            nla_type = getattr(cls, nla_type, None)
+            sql_type = getattr(nla_type, 'sql_type', None)
+            if sql_type:
+                sql_type = ' '.join((sql_type,
+                                     cls.sql_constraints.get(nla_name, '')))
+                ret.append(((nla_name, ), sql_type))
+
+        for (fname, ftype) in cls.sql_extra_fields:
+            if isinstance(fname, basestring):
+                fname = (fname, )
+            ret.append((fname, ftype))
+
+        for (dcls, prefix) in cls.sql_extend:
+            for fname, ftype in dcls.sql_schema():
+                ret.append(((prefix, ) + fname, ftype))
+
+        self.spec = ret
+        self.index = []
+        self.foreign_keys = []
+
+    def unique_index(self, *index):
+        self.index = index
+        return self
+
+    def foreign_key(self, parent, fields, parent_fields):
+        self.foreign_keys.append({'fields': fields,
+                                  'parent_fields': parent_fields,
+                                  'parent': parent})
+        return self
+
+    def push(self, *spec):
+        f_type = spec[-1]
+        f_name = spec[:-1]
+        self.spec.append((f_name, f_type))
+        return self
+
+    def __iter__(self):
+        return iter(self.spec)
+
+    def as_dict(self):
+        return OrderedDict(self.spec)
+
+
 class nlmsg_base(dict):
     '''
     Netlink base class. You do not need to inherit it directly, unless
@@ -607,6 +667,8 @@ class nlmsg_base(dict):
     __compiled_ft = False
     __t_nla_map = None
     __r_nla_map = None
+    # schema
+    __schema = None
 
     __slots__ = (
         "_buf",
@@ -672,36 +734,7 @@ class nlmsg_base(dict):
 
     @classmethod
     def sql_schema(cls):
-        ret = []
-        for field in cls.fields:
-            if field[0][0] != '_':
-                ret.append(((field[0], ),
-                            ' '.join(('BIGINT',
-                                      cls.sql_constraints.get(field[0], '')))))
-        for nla in cls.nla_map:
-            if isinstance(nla[0], basestring):
-                nla_name = nla[0]
-                nla_type = nla[1]
-            else:
-                nla_name = nla[1]
-                nla_type = nla[2]
-            nla_type = getattr(cls, nla_type, None)
-            sql_type = getattr(nla_type, 'sql_type', None)
-            if sql_type:
-                sql_type = ' '.join((sql_type,
-                                     cls.sql_constraints.get(nla_name, '')))
-                ret.append(((nla_name, ), sql_type))
-
-        for (fname, ftype) in cls.sql_extra_fields:
-            if isinstance(fname, basestring):
-                fname = (fname, )
-            ret.append((fname, ftype))
-
-        for (dcls, prefix) in cls.sql_extend:
-            for fname, ftype in dcls.sql_schema():
-                ret.append(((prefix, ) + fname, ftype))
-
-        return ret
+        return SQLSchema(cls)
 
     @property
     def buf(self):

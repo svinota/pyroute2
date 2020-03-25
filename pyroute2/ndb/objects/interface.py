@@ -92,7 +92,6 @@ Create a bridge and add a port, `eth0`::
 '''
 
 import traceback
-from collections import OrderedDict
 from pyroute2.config import AF_BRIDGE
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.common import basestring
@@ -174,43 +173,42 @@ def load_ifinfmsg(schema, target, event):
                 schema.load_netlink(table, target, ifdata)
 
 
-init = {'specs': [['interfaces', OrderedDict(ifinfmsg.sql_schema())],
-                  ['af_bridge_ifs', OrderedDict(ifinfmsg.sql_schema())],
-                  ['af_bridge_vlans', OrderedDict(ifinfmsg
-                                                  .af_spec_bridge
-                                                  .vlan_info
-                                                  .sql_schema() +
-                                                  [(('index', ), 'INTEGER')])],
-                  ['p2p', OrderedDict(p2pmsg.sql_schema())]],
+schema_ifinfmsg = (ifinfmsg
+                   .sql_schema()
+                   .unique_index('index'))
+
+schema_brinfmsg = (ifinfmsg
+                   .sql_schema()
+                   .unique_index('index')
+                   .foreign_key('interface',
+                                ('f_target', 'f_tflags', 'f_index'),
+                                ('f_target', 'f_tflags', 'f_index')))
+
+schema_p2pmsg = (p2pmsg
+                 .sql_schema()
+                 .unique_index('index')
+                 .foreign_key('interfaces',
+                              ('f_target', 'f_tflags', 'f_index'),
+                              ('f_target', 'f_tflags', 'f_index')))
+
+schema_af_bridge_vlans = (ifinfmsg
+                          .af_spec_bridge
+                          .vlan_info
+                          .sql_schema()
+                          .push('index', 'INTEGER')
+                          .unique_index('vid', 'index')
+                          .foreign_key('af_bridge_ifs',
+                                       ('f_target', 'f_tflags', 'f_index'),
+                                       ('f_target', 'f_tflags', 'f_index')))
+
+init = {'specs': [['interfaces', schema_ifinfmsg],
+                  ['af_bridge_ifs', schema_ifinfmsg],
+                  ['af_bridge_vlans', schema_af_bridge_vlans],
+                  ['p2p', schema_p2pmsg]],
         'classes': [['interfaces', ifinfmsg],
                     ['af_bridge_ifs', ifinfmsg],
                     ['af_bridge_vlans', ifinfmsg.af_spec_bridge.vlan_info],
                     ['p2p', p2pmsg]],
-        'indices': [['interfaces', ('index', )],
-                    ['af_bridge_ifs', ('index', )],
-                    ['af_bridge_vlans', ('vid', 'index')],
-                    ['p2p', ('index', )]],
-        'foreign_keys': [['af_bridge_ifs', [{'fields': ('f_target',
-                                                        'f_tflags',
-                                                        'f_index'),
-                                             'parent_fields': ('f_target',
-                                                               'f_tflags',
-                                                               'f_index'),
-                                             'parent': 'interfaces'}]],
-                         ['af_bridge_vlans', [{'fields': ('f_target',
-                                                          'f_tflags',
-                                                          'f_index', ),
-                                               'parent_fields': ('f_target',
-                                                                 'f_tflags',
-                                                                 'f_index', ),
-                                               'parent': 'af_bridge_ifs'}]],
-                         ['p2p', [{'fields': ('f_target',
-                                              'f_tflags',
-                                              'f_index'),
-                                   'parent_fields': ('f_target',
-                                                     'f_tflags',
-                                                     'f_index'),
-                                   'parent': 'interfaces'}]]],
         'event_map': {ifinfmsg: [load_ifinfmsg]}}
 
 ifinfo_names = ('bridge',
@@ -227,29 +225,15 @@ supported_ifinfo = {x: ifinfmsg.ifinfo.data_map[x] for x in ifinfo_names}
 #
 for (name, data) in supported_ifinfo.items():
     name = 'ifinfo_%s' % name
-    #
-    # classes
-    #
     init['classes'].append([name, data])
-    #
-    # indices
-    #
-    init['indices'].append([name, ('index', )])
-    #
-    # spec
-    #
-    init['specs'].append([name, OrderedDict(data.sql_schema() +
-                                            [(('index', ), 'BIGINT')])])
-    #
-    # foreign keys
-    #
-    init['foreign_keys'].append([name, [{'fields': ('f_target',
-                                                    'f_tflags',
-                                                    'f_index'),
-                                         'parent_fields': ('f_target',
-                                                           'f_tflags',
-                                                           'f_index'),
-                                         'parent': 'interfaces'}]])
+    schema = (data
+              .sql_schema()
+              .push('index', 'BIGINT')
+              .unique_index('index')
+              .foreign_key('interfaces',
+                           ('f_target', 'f_tflags', 'f_index'),
+                           ('f_target', 'f_tflags', 'f_index')))
+    init['specs'].append([name, schema])
 
 
 def _cmp_master(self, value):

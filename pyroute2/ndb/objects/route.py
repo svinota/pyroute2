@@ -250,63 +250,57 @@ def rtmsg_gc_mark(schema, target, event, gc_mark=None):
             schema.log.error('gc_mark: %s : %s' % (e, route))
 
 
-init = {'specs': [['routes', OrderedDict(rtmsg.sql_schema() +
-                                         [(('route_id', ), 'TEXT UNIQUE'),
-                                          (('gc_mark', ), 'INTEGER')])],
-                  ['nh', OrderedDict(nh.sql_schema() +
-                                     [(('route_id', ), 'TEXT'),
-                                      (('nh_id', ), 'INTEGER')])],
-                  ['metrics', OrderedDict(rtmsg.metrics.sql_schema() +
-                                          [(('route_id', ), 'TEXT'), ])],
-                  ['enc_mpls', OrderedDict(rtmsg.mpls_encap_info.sql_schema() +
-                                           [(('route_id', ), 'TEXT'), ])]],
+rt_schema = (rtmsg
+             .sql_schema()
+             .push('route_id', 'TEXT UNIQUE')
+             .push('gc_mark', 'INTEGER')
+             .unique_index('family',
+                           'dst_len',
+                           'tos',
+                           'RTA_DST',
+                           'RTA_PRIORITY',
+                           'RTA_TABLE',
+                           'RTA_VIA',
+                           'RTA_NEWDST')
+             .foreign_key('interfaces',
+                          ('f_target', 'f_tflags', 'f_RTA_OIF'),
+                          ('f_target', 'f_tflags', 'f_index'))
+             .foreign_key('interfaces',
+                          ('f_target', 'f_tflags', 'f_RTA_IIF'),
+                          ('f_target', 'f_tflags', 'f_index')))
+
+nh_schema = (nh
+             .sql_schema()
+             .push('route_id', 'TEXT')
+             .push('nh_id', 'INTEGER')
+             .unique_index('route_id', 'nh_id')
+             .foreign_key('routes', ('f_route_id', ), ('f_route_id', ))
+             .foreign_key('interfaces',
+                          ('f_target', 'f_tflags', 'f_oif'),
+                          ('f_target', 'f_tflags', 'f_index')))
+
+metrics_schema = (rtmsg
+                  .metrics
+                  .sql_schema()
+                  .push('route_id', 'TEXT')
+                  .unique_index('route_id')
+                  .foreign_key('routes', ('f_route_id', ), ('f_route_id', )))
+
+mpls_enc_schema = (rtmsg
+                   .mpls_encap_info
+                   .sql_schema()
+                   .push('route_id', 'TEXT')
+                   .unique_index('route_id')
+                   .foreign_key('routes', ('f_route_id', ), ('f_route_id', )))
+
+init = {'specs': [['routes', rt_schema],
+                  ['nh', nh_schema],
+                  ['metrics', metrics_schema],
+                  ['enc_mpls', mpls_enc_schema]],
         'classes': [['routes', rtmsg],
                     ['nh', nh],
                     ['metrics', rtmsg.metrics],
                     ['enc_mpls', rtmsg.mpls_encap_info]],
-        'indices': [['routes', ('family',
-                                'dst_len',
-                                'tos',
-                                'RTA_DST',
-                                'RTA_PRIORITY',
-                                'RTA_TABLE',
-                                'RTA_VIA',
-                                'RTA_NEWDST')],
-                    ['nh', ('route_id', 'nh_id')],
-                    ['metrics', ('route_id', )],
-                    ['enc_mpls', ('route_id', )]],
-        'foreign_keys': [['routes', [{'fields': ('f_target',
-                                                 'f_tflags',
-                                                 'f_RTA_OIF'),
-                                      'parent_fields': ('f_target',
-                                                        'f_tflags',
-                                                        'f_index'),
-                                      'parent': 'interfaces'},
-                                     {'fields': ('f_target',
-                                                 'f_tflags',
-                                                 'f_RTA_IIF'),
-                                      'parent_fields': ('f_target',
-                                                        'f_tflags',
-                                                        'f_index'),
-                                      'parent': 'interfaces'}]],
-                         # man kan not use f_tflags together with f_route_id
-                         # 'cause it breaks ON UPDATE CASCADE for interfaces
-                         ['nh', [{'fields': ('f_route_id', ),
-                                  'parent_fields': ('f_route_id', ),
-                                  'parent': 'routes'},
-                                 {'fields': ('f_target',
-                                             'f_tflags',
-                                             'f_oif'),
-                                  'parent_fields': ('f_target',
-                                                    'f_tflags',
-                                                    'f_index'),
-                                  'parent': 'interfaces'}]],
-                         ['metrics', [{'fields': ('f_route_id', ),
-                                       'parent_fields': ('f_route_id', ),
-                                       'parent': 'routes'}]],
-                         ['enc_mpls', [{'fields': ('f_route_id', ),
-                                        'parent_fields': ('f_route_id', ),
-                                        'parent': 'routes'}]]],
         'event_map': {rtmsg: [load_rtmsg]}}
 
 

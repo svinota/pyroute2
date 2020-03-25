@@ -1,5 +1,4 @@
 import threading
-from collections import OrderedDict
 from pyroute2 import netns
 from pyroute2.common import basestring
 from pyroute2.ndb.objects import RTNL_Object
@@ -39,10 +38,12 @@ def load_nsinfmsg(schema, target, event):
     schema.load_netlink('netns', target, event)
 
 
-init = {'specs': [['netns', OrderedDict(nsinfmsg.sql_schema())]],
+schema = (nsinfmsg
+          .sql_schema()
+          .unique_index('NSINFO_PATH'))
+
+init = {'specs': [['netns', schema]],
         'classes': [['netns', nsinfmsg]],
-        'indices': [['netns', ('NSINFO_PATH', )]],
-        'foreign_keys': [],
         'event_map': {nsinfmsg: [load_nsinfmsg]}}
 
 
