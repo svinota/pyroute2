@@ -25,6 +25,13 @@ protocols. Some supported netlink families and protocols:
     * **thermal_events** --- thermal events monitoring
     * **VFS_DQUOT** --- disk quota events monitoring
 
+On the low level the library provides socket objects with an
+extended API. The additional functionality aims to:
+
+* Help to open/bind netlink sockets
+* Discover generic netlink protocols and multicast groups
+* Construct, encode and decode netlink and PF_ROUTE messages
+
 Supported systems
 -----------------
 
@@ -34,24 +41,44 @@ and standard system tools.
 
 Other platforms are not supported.
 
-The simplest usecase
---------------------
+NDB -- high level RTNL API
+--------------------------
 
-The objects, provided by the library, are socket objects with an
-extended API. The additional functionality aims to:
+Key features:
 
-* Help to open/bind netlink sockets
-* Discover generic netlink protocols and multicast groups
-* Construct, encode and decode netlink and PF_ROUTE messages
+* Data integrity
+* Transactions with commit/rollback changes
+* State synchronization
+* Multiple sources, including netns and remote systems
 
-Maybe the simplest usecase is to monitor events. Disk quota events::
+A "Hello world" example::
 
-    from pyroute2 import DQuotSocket
-    # DQuotSocket automatically performs discovery and binding,
-    # since it has no other functionality beside of the monitoring
-    with DQuotSocket() as ds:
-        for message in ds.get():
-            print(message)
+    from pyroute2 import NDB
+
+    ndb = NDB(log='on')
+    for record in ndb.interfaces.summary():
+        print(record)
+
+    for record in ndb.addresses.summary():
+        print(record)
+
+    (ndb
+     .interfaces
+     .create(ifname='br0', kind='bridge')  # create a bridge
+     .add_port('eth0')                     # add ports
+     .add_port('eth1')                     #
+     .add_ip('10.0.0.1/24')                # add addresses
+     .add_ip('192.168.0.1/24')             #
+     .set('br_stp_state', 1)               # set STP on
+     .set('state', 'up')                   # bring the interface up
+     .commit())                            # commit pending changes
+
+IPRoute -- Low level RTNL API
+-----------------------------
+
+Low-level **IPRoute** utility --- Linux network configuration.
+The **IPRoute** class is a 1-to-1 RTNL mapping. There are no implicit
+interface lookups and so on.
 
 Get notifications about network settings changes with IPRoute::
 
@@ -62,104 +89,31 @@ Get notifications about network settings changes with IPRoute::
         for message in ipr.get():
             print(message)
 
-RTNetlink examples
-------------------
-
-More samples you can read in the project documentation.
-
-Low-level **IPRoute** utility --- Linux network configuration.
-The **IPRoute** class is a 1-to-1 RTNL mapping. There are no implicit
-interface lookups and so on.
-
-Some examples::
+More examples::
 
     from socket import AF_INET
     from pyroute2 import IPRoute
 
     # get access to the netlink socket
     ip = IPRoute()
-
     # no monitoring here -- thus no bind()
 
     # print interfaces
-    print(ip.get_links())
+    for link in ip.get_links():
+        print(link)
 
     # create VETH pair and move v0p1 to netns 'test'
     ip.link('add', ifname='v0p0', peer='v0p1', kind='veth')
     idx = ip.link_lookup(ifname='v0p1')[0]
-    ip.link('set',
-            index=idx,
-            net_ns_fd='test')
+    ip.link('set', index=idx, net_ns_fd='test')
 
     # bring v0p0 up and add an address
     idx = ip.link_lookup(ifname='v0p0')[0]
-    ip.link('set',
-            index=idx,
-            state='up')
-    ip.addr('add',
-            index=idx,
-            address='10.0.0.1',
-            broadcast='10.0.0.255',
-            prefixlen=24)
-
-    # create a route with metrics
-    ip.route('add',
-             dst='172.16.0.0/24',
-             gateway='10.0.0.10',
-             metrics={'mtu': 1400,
-                      'hoplimit': 16})
-
-    # create MPLS lwtunnel
-    # $ sudo modprobe mpls_iptunnel
-    ip.route('add',
-             dst='172.16.0.0/24',
-             oif=idx,
-             encap={'type': 'mpls',
-                    'labels': '200/300'})
-
-    # create MPLS route: push label
-    # $ sudo modprobe mpls_router
-    # $ sudo sysctl net.mpls.platform_labels=1024
-    ip.route('add',
-             family=AF_MPLS,
-             oif=idx,
-             dst=0x200,
-             newdst=[0x200, 0x300])
-
-    # create SEG6 tunnel encap mode
-    # Kernel >= 4.10
-    ip.route('add',
-             dst='2001:0:0:10::2/128',
-             oif=idx,
-             encap={'type': 'seg6',
-                    'mode': 'encap',
-                    'segs': '2000::5,2000::6'})
-
-    # create SEG6 tunnel inline mode
-    # Kernel >= 4.10
-    ip.route('add',
-             dst='2001:0:0:10::2/128',
-             oif=idx,
-             encap={'type': 'seg6',
-                    'mode': 'inline',
-                    'segs': ['2000::5', '2000::6']})
-
-    # create SEG6 tunnel with ip4ip6 encapsulation
-    # Kernel >= 4.14
-    ip.route('add',
-             dst='172.16.0.0/24',
-             oif=idx,
-             encap={'type': 'seg6',
-                    'mode': 'encap',
-                    'segs': '2000::5,2000::6'})
-
+    ip.link('set', index=idx, state='up')
+    ip.addr('add', index=idx, address='10.0.0.1', prefixlen=24)
 
     # release Netlink socket
     ip.close()
-
-
-The project contains several modules for different types of
-netlink messages, not only RTNL.
 
 Network namespace examples
 --------------------------
@@ -181,18 +135,13 @@ Create **veth** interfaces pair and move to **netns**::
     with IPRoute() as ipr:
 
         # create interface pair
-        ipr.link('add',
-                 ifname='v0p0',
-                 kind='veth',
-                 peer='v0p1')
+        ipr.link('add', ifname='v0p0', kind='veth',  peer='v0p1')
 
         # lookup the peer index
         idx = ipr.link_lookup(ifname='v0p1')[0]
 
         # move the peer to the 'test' netns:
-        ipr.link('set',
-                 index='v0p1',
-                 net_ns_fd='test')
+        ipr.link('set', index='v0p1', net_ns_fd='test')
 
 List interfaces in some **netns**::
 

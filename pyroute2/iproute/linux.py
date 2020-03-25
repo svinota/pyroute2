@@ -1649,6 +1649,14 @@ class RTNL_API(object):
                      dst="10.0.0.0/24",
                      type="blackhole")
 
+        Create a route with metrics::
+
+            ip.route('add',
+                     dst='172.16.0.0/24',
+                     gateway='10.0.0.10',
+                     metrics={'mtu': 1400,
+                              'hoplimit': 16})
+
         Multipath route::
 
             ip.route("add",
@@ -1665,6 +1673,16 @@ class RTNL_API(object):
                      oif=idx,
                      encap={"type": "mpls",
                             "labels": "200/300"})
+
+        Create MPLS route: push label::
+
+            # $ sudo modprobe mpls_router
+            # $ sudo sysctl net.mpls.platform_labels=1024
+            ip.route('add',
+                     family=AF_MPLS,
+                     oif=idx,
+                     dst=0x200,
+                     newdst=[0x200, 0x300])
 
         MPLS multipath::
 
