@@ -322,3 +322,6 @@ class Ethtool(object):
         ioctl_coalesce = self._with_ioctl.get_coalesce()
         EthtoolCoalesce.to_ioctl(ioctl_coalesce, coalesce)
         self._with_ioctl.set_coalesce(ioctl_coalesce)
+
+    def close(self):
+        self._with_nl.close()
