@@ -25,6 +25,8 @@ class GenericNetlinkSocket(NetlinkSocket):
     '''
 
     mcast_groups = {}
+    module_err_message = None
+    module_err_level = 'error'
 
     def bind(self, proto, msg_class, groups=0, pid=None, **kwarg):
         '''
@@ -71,7 +73,10 @@ class GenericNetlinkSocket(NetlinkSocket):
         err = msg['header'].get('error', None)
         if err is not None:
             if hasattr(err, 'code') and err.code == errno.ENOENT:
-                logging.error('Generic netlink protocol %s not found' % proto)
-                logging.error('Please check if the protocol module is loaded')
+                logger = getattr(logging, self.module_err_level)
+                logger('Generic netlink protocol %s not found' % proto)
+                logger('Please check if the protocol module is loaded')
+                if self.module_err_message is not None:
+                    logger(self.module_err_message)
             raise err
         return msg
