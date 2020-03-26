@@ -64,6 +64,7 @@ if sys.platform.startswith('linux'):
     from pyroute2.ipset import IPSet
     from pyroute2.iwutil import IW
     from pyroute2.devlink import DL
+    from pyroute2.ethtool import Ethtool
     from pyroute2.conntrack import Conntrack
     from pyroute2.nftables.main import NFTables
     from pyroute2.netns.nslink import NetNS
@@ -140,6 +141,7 @@ if sys.platform.startswith('linux'):
     classes.extend([IPSet,
                     IW,
                     DL,
+                    Ethtool,
                     Conntrack,
                     NFTables,
                     NetNS,
