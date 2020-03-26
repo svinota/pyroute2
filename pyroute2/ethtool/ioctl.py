@@ -378,9 +378,9 @@ class EthtoolFeaturesList(object):
 
         while feature_i:
             feature_i -= 1
-            self._gfeatures[feature_i].active = \
-                self._sfeatures[feature_i].active
-            self._gfeatures[feature_i].changed = 0
+            self._sfeatures[feature_i].active = \
+                self._gfeatures[feature_i].active
+            self._sfeatures[feature_i].changed = 0
 
     def is_available(self, name):
         feature_i, flag_bit = self._offsets[name]
@@ -429,8 +429,8 @@ class EthtoolFeaturesList(object):
             self._sfeatures[feature_i].active |= flag_bit
         else:
             # active is ctypes.c_uint32
-            self._gfeatures[feature_i].active &= (flag_bit ^ 0xFFFF)
-            self._sfeatures[feature_i].active &= (flag_bit ^ 0xFFFF)
+            self._gfeatures[feature_i].active &= (flag_bit ^ 0xFFFFFFFF)
+            self._sfeatures[feature_i].active &= (flag_bit ^ 0xFFFFFFFF)
         self._sfeatures[feature_i].changed |= flag_bit
 
 
