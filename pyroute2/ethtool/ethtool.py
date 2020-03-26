@@ -244,6 +244,7 @@ class Ethtool(object):
     def __init__(self):
         self._with_ioctl = IoctlEthtool()
         self._with_nl = NlEthtool()
+        self._with_nl.module_err_level = 'debug'
         self._is_nl_working = self._with_nl.is_nlethtool_in_kernel()
 
     def _nl_exec(self, f, with_netlink, *args, **kwargs):
