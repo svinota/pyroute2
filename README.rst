@@ -62,10 +62,10 @@ A "Hello world" example:
 
     ndb = NDB(log='on')
     for record in ndb.interfaces.summary():
-        print(record)
+        print(record.ifname, record.address, record.state)
 
     for record in ndb.addresses.summary():
-        print(record)
+        print(record._as_dict())
 
     (ndb
      .interfaces
