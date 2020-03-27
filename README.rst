@@ -7,23 +7,26 @@ implementation, so the name is **pyroute2**, but now it supports many netlink
 protocols. Some supported netlink families and protocols:
 
 * **rtnl**, network settings --- addresses, routes, traffic controls
-* **nfnetlink** --- netfilter API:
-
-    * **ipset** --- IP sets
-    * **nftables** --- packet filtering
-    * **nfct** --- connection tracking
-
+* **nfnetlink** --- netfilter API
 * **ipq** --- simplest userspace packet filtering, iptables QUEUE target
 * **devlink** --- manage and monitor devlink-enabled hardware
-* **generic** --- generic netlink families:
+* **generic** --- generic netlink families
 
-    * **ethtool** --- low-level network interface setup
-    * **wireguard** --- VPN setup
-    * **nl80211** --- wireless functions API (basic support)
-    * **taskstats** --- extended process statistics
-    * **acpi_events** --- ACPI events monitoring
-    * **thermal_events** --- thermal events monitoring
-    * **VFS_DQUOT** --- disk quota events monitoring
+Netfilter API:
+
+* **ipset** --- IP sets
+* **nftables** --- packet filtering
+* **nfct** --- connection tracking
+
+Generic netlink:
+
+* **ethtool** --- low-level network interface setup
+* **wireguard** --- VPN setup
+* **nl80211** --- wireless functions API (basic support)
+* **taskstats** --- extended process statistics
+* **acpi_events** --- ACPI events monitoring
+* **thermal_events** --- thermal events monitoring
+* **VFS_DQUOT** --- disk quota events monitoring
 
 On the low level the library provides socket objects with an
 extended API. The additional functionality aims to:
@@ -51,7 +54,9 @@ Key features:
 * State synchronization
 * Multiple sources, including netns and remote systems
 
-A "Hello world" example::
+A "Hello world" example:
+
+.. code-block:: python
 
     from pyroute2 import NDB
 
@@ -80,7 +85,9 @@ Low-level **IPRoute** utility --- Linux network configuration.
 The **IPRoute** class is a 1-to-1 RTNL mapping. There are no implicit
 interface lookups and so on.
 
-Get notifications about network settings changes with IPRoute::
+Get notifications about network settings changes with IPRoute:
+
+.. code-block:: python
 
     from pyroute2 import IPRoute
     with IPRoute() as ipr:
@@ -89,7 +96,9 @@ Get notifications about network settings changes with IPRoute::
         for message in ipr.get():
             print(message)
 
-More examples::
+More examples:
+
+.. code-block:: python
 
     from socket import AF_INET
     from pyroute2 import IPRoute
@@ -118,7 +127,9 @@ More examples::
 Network namespace examples
 --------------------------
 
-Network namespace manipulation::
+Network namespace manipulation:
+
+.. code-block:: python
 
     from pyroute2 import netns
     # create netns
@@ -128,7 +139,9 @@ Network namespace manipulation::
     # remove netns
     netns.remove('test')
 
-Create **veth** interfaces pair and move to **netns**::
+Create **veth** interfaces pair and move to **netns**:
+
+.. code-block:: python
 
     from pyroute2 import IPRoute
 
@@ -143,7 +156,9 @@ Create **veth** interfaces pair and move to **netns**::
         # move the peer to the 'test' netns:
         ipr.link('set', index='v0p1', net_ns_fd='test')
 
-List interfaces in some **netns**::
+List interfaces in some **netns**:
+
+.. code-block:: python
 
     from pyroute2 import NetNS
     from pprint import pprint
@@ -187,4 +202,3 @@ Links
 * bugs: https://github.com/svinota/pyroute2/issues
 * pypi: https://pypi.python.org/pypi/pyroute2
 * docs: http://docs.pyroute2.org/
-* list: https://groups.google.com/d/forum/pyroute2-dev

@@ -60,6 +60,7 @@ all:
 
 clean: clean-version
 	@rm -rf dist build MANIFEST
+	@rm -f README.md
 	@rm -f docs-build.log
 	@rm -f docs/general.rst
 	@rm -f docs/changelog.rst
@@ -96,8 +97,8 @@ force-version: clean-version update-version
 update-version: setup.ini
 
 docs: force-version
-	@cp README.md docs/general.rst
-	@sed -i '1{s/.*docs\//.. image:: /;s/\ ".*/\n\ \ \ \ :align: right/}' docs/general.rst
+	@cp README.rst docs/general.rst
+	@cat README.rst | python ./docs/conv.py >README.md
 	@cp README.make.md docs/makefile.rst
 	@cp README.report.md docs/report.rst
 	@cp CHANGELOG.md docs/changelog.rst

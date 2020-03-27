@@ -1,6 +1,9 @@
 include python-pyroute2.spec
 include setup.ini
-include README*
+include README.md
+include README.make.md
+include README.report.md
+include README.license.md
 include LICENSE*
 include CHANGELOG.md
 graft docs/html
