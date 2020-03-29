@@ -217,7 +217,8 @@ def rtmsg_gc_mark(schema, target, event, gc_mark=None):
               .execute('''
                        SELECT %s,f_RTA_GATEWAY FROM routes WHERE
                        f_target = %s AND f_RTA_OIF = %s AND
-                       f_RTA_GATEWAY IS NOT NULL %s
+                       f_RTA_GATEWAY IS NOT NULL %s AND
+                       f_family = 2
                        ''' % (key_fields,
                               schema.plch,
                               schema.plch,
