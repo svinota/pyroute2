@@ -552,7 +552,9 @@ class Log(object):
             if not url.scheme and url.path:
                 handler = logging.FileHandler(url.path)
             elif url.scheme == 'syslog':
-                handler = logging.handlers.SysLogHandler(address=url.netloc.split(':'))
+                handler = (logging
+                           .handlers
+                           .SysLogHandler(address=url.netloc.split(':')))
             else:
                 raise ValueError('logging scheme not supported')
         else:
