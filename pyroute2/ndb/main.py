@@ -558,9 +558,12 @@ class Log(object):
         else:
             handler = target
 
-        fmt = '%(asctime)s %(levelname)8s %(name)s: %(message)s'
-        formatter = logging.Formatter(fmt)
-        handler.setFormatter(formatter)
+        # set formatting only for new created logging handlers
+        if handler is not target:
+            fmt = '%(asctime)s %(levelname)8s %(name)s: %(message)s'
+            formatter = logging.Formatter(fmt)
+            handler.setFormatter(formatter)
+
         self.logger.addHandler(handler)
         self.logger.setLevel(level)
 
