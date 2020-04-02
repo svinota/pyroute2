@@ -130,6 +130,7 @@ import errno
 import atexit
 import sqlite3
 import logging
+import logging.handlers
 import threading
 import traceback
 import ctypes
@@ -530,7 +531,7 @@ class Log(object):
         self.logger = logging.getLogger('pyroute2.ndb.%s' % self.log_id)
         self.main = self.channel('main')
 
-    def __call__(self, target=None):
+    def __call__(self, target=None, level=logging.INFO):
         if target is None:
             return self.logger is not None
 
@@ -551,17 +552,20 @@ class Log(object):
             if not url.scheme and url.path:
                 handler = logging.FileHandler(url.path)
             elif url.scheme == 'syslog':
-                handler = logging.SysLogHandler(address=url.netloc.split(':'))
+                handler = logging.handlers.SysLogHandler(address=url.netloc.split(':'))
             else:
                 raise ValueError('logging scheme not supported')
         else:
             handler = target
 
-        fmt = '%(asctime)s %(levelname)8s %(name)s: %(message)s'
-        formatter = logging.Formatter(fmt)
-        handler.setFormatter(formatter)
+        # set formatting only for new created logging handlers
+        if handler is not target:
+            fmt = '%(asctime)s %(levelname)8s %(name)s: %(message)s'
+            formatter = logging.Formatter(fmt)
+            handler.setFormatter(formatter)
+
         self.logger.addHandler(handler)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(level)
 
     @property
     def on(self):
