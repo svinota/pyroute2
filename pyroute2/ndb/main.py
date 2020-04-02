@@ -671,7 +671,14 @@ class NDB(object):
         self._event_queue = EventQueue(maxsize=100)
         #
         if log:
-            self.log(log)
+            if isinstance(log, basestring):
+                self.log(log)
+            elif isinstance(log, (tuple, list)):
+                self.log(*log)
+            elif isinstance(log, dict):
+                self.log(**log)
+            else:
+                raise TypeError('wrong log spec format')
         #
         # fix sources prime
         if sources is None:
