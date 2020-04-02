@@ -130,6 +130,7 @@ import errno
 import atexit
 import sqlite3
 import logging
+import logging.handlers
 import threading
 import traceback
 import ctypes
@@ -551,7 +552,7 @@ class Log(object):
             if not url.scheme and url.path:
                 handler = logging.FileHandler(url.path)
             elif url.scheme == 'syslog':
-                handler = logging.SysLogHandler(address=url.netloc.split(':'))
+                handler = logging.handlers.SysLogHandler(address=url.netloc.split(':'))
             else:
                 raise ValueError('logging scheme not supported')
         else:
