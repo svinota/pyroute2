@@ -531,7 +531,7 @@ class Log(object):
         self.logger = logging.getLogger('pyroute2.ndb.%s' % self.log_id)
         self.main = self.channel('main')
 
-    def __call__(self, target=None):
+    def __call__(self, target=None, level=logging.INFO):
         if target is None:
             return self.logger is not None
 
@@ -562,7 +562,7 @@ class Log(object):
         formatter = logging.Formatter(fmt)
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(level)
 
     @property
     def on(self):
