@@ -88,6 +88,7 @@ There are also some useful views, that join `ifinfo` tables with
     (8 rows)
 
 '''
+import io
 import sys
 import time
 import random
@@ -520,11 +521,13 @@ class DBSchema(object):
                 yield row
 
     @publish_exec
-    def export(self, fname='stdout'):
-        if fname in ('stdout', 'stderr'):
-            f = getattr(sys, fname)
-        else:
-            f = open(fname, 'w')
+    def export(self, f='stdout'):
+        close = False
+        if f in ('stdout', 'stderr'):
+            f = getattr(sys, f)
+        elif isinstance(f, basestring):
+            f = open(f, 'w')
+            close = True
         try:
             for table in self.spec.keys():
                 f.write('\ntable %s\n' % table)
@@ -539,8 +542,13 @@ class DBSchema(object):
                         f.write(' '.join([str(x) for x in record]))
                         f.write('\n')
         finally:
-            if fname not in ('stdout', 'stderr'):
+            if close:
                 f.close()
+
+    def __repr__(self):
+        buf = io.StringIO()
+        self.export(buf)
+        return buf.getvalue()
 
     @publish_exec
     def close(self):
