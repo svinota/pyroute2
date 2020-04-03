@@ -87,6 +87,7 @@ from pyroute2.ndb.messages import (cmsg,
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.exceptions import NetlinkError
 if sys.platform.startswith('linux'):
+    from pyroute2 import netns
     from pyroute2.netns.nslink import NetNS
     from pyroute2.netns.manager import NetNSManager
 else:
@@ -168,6 +169,7 @@ class Source(dict):
         if 'netns' in spec:
             defaults['kind'] = 'netns'
             defaults['target'] = spec['netns']
+            ret['netns'] = netns._get_netnspath(spec['netns'])
         for key in defaults:
             if key not in ret:
                 ret[key] = defaults[key]
