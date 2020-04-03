@@ -11,6 +11,7 @@ protocols. Some supported netlink families and protocols:
 * **ipq** --- simplest userspace packet filtering, iptables QUEUE target
 * **devlink** --- manage and monitor devlink-enabled hardware
 * **generic** --- generic netlink families
+* **uevent** --- same uevent messages as in udev
 
 Netfilter API:
 
