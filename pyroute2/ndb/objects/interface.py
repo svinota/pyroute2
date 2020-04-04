@@ -120,12 +120,18 @@ def load_ifinfmsg(schema, target, event):
     #
     if event['family'] == AF_BRIDGE:
         #
-        # bypass for now
-        #
         schema.load_netlink('af_bridge_ifs', target, event)
         vlans = (event
                  .get_attr('IFLA_AF_SPEC')
                  .get_attrs('IFLA_BRIDGE_VLAN_INFO'))
+        # flush the old vlans info
+        schema.execute('''
+                       DELETE FROM af_bridge_vlans
+                       WHERE
+                           f_target = %s
+                           AND f_index = %s
+                       ''' % (schema.plch, schema.plch),
+                       (target, event['index']))
         for v in vlans:
             v['index'] = event['index']
             v['header'] = {'type': event['header']['type']}
@@ -245,6 +251,64 @@ def _cmp_master(self, value):
     return False
 
 
+class Vlan(RTNL_Object):
+
+    table = 'af_bridge_vlans'
+    msg_class = ifinfmsg.af_spec_bridge.vlan_info
+    api = 'vlan_filter'
+
+    @classmethod
+    def _dump_where(cls, view):
+        if view.chain:
+            plch = view.ndb.schema.plch
+            where = '''
+                    WHERE
+                        main.f_target = %s AND
+                        main.f_index = %s
+                    ''' % (plch, plch)
+            values = [view.chain['target'], view.chain['index']]
+        else:
+            where = ''
+            values = []
+        return (where, values)
+
+    @classmethod
+    def summary(cls, view):
+        req = '''
+              SELECT
+                  main.f_target, main.f_tflags, main.f_vid,
+                  intf.f_IFLA_IFNAME
+              FROM
+                  af_bridge_vlans AS main
+              INNER JOIN
+                  interfaces AS intf
+              ON
+                  main.f_index = intf.f_index
+                  AND main.f_target = intf.f_target
+              '''
+        yield ('target', 'tflags', 'vid', 'ifname')
+        where, values = cls._dump_where(view)
+        for record in view.ndb.schema.fetch(req + where, values):
+            yield record
+
+    def __init__(self, *argv, **kwarg):
+        kwarg['iclass'] = ifinfmsg.af_spec_bridge.vlan_info
+        self.event_map = {ifinfmsg: "load_rtnlmsg"}
+        super(Vlan, self).__init__(*argv, **kwarg)
+
+    def make_req(self, prime):
+        ret = {}
+        if 'index' in self:
+            ret['index'] = self['index']
+        ret['vlan_info'] = {'vid': self['vid']}
+        if 'flags' in self:
+            ret['vlan_info']['flags'] = self['flags']
+        return ret
+
+    def make_idx_req(self, prime):
+        return self.make_req(prime)
+
+
 class Interface(RTNL_Object):
 
     table = 'interfaces'
@@ -320,6 +384,10 @@ class Interface(RTNL_Object):
         return self.view.ndb._get_view('neighbours', chain=self)
 
     @property
+    def vlans(self):
+        return self.view.ndb._get_view('vlans', chain=self)
+
+    @property
     def context(self):
         ctx = {}
         if self.get('target'):
@@ -336,6 +404,27 @@ class Interface(RTNL_Object):
             ret = dict(spec)
         ret.update(context)
         return ret
+
+    def add_vlan(self, spec):
+        def do_add_vlan(self, spec):
+            try:
+                self.vlan.create(spec).apply()
+            except Exception as e_s:
+                e_s.trace = traceback.format_stack()
+                return e_s
+        self._apply_script.append((do_add_vlan, (self, spec), {}))
+        return self
+
+    def del_vlan(self, spec):
+        def do_del_vlan(self, spec):
+            try:
+                ret = self.vlan[spec].remove().apply()
+            except Exception as e_s:
+                e_s.trace = traceback.format_stack()
+                return e_s
+            return ret.last_save
+        self._apply_script.append((do_del_vlan, (self, spec), {}))
+        return self
 
     def add_ip(self, spec):
         def do_add_ip(self, spec):

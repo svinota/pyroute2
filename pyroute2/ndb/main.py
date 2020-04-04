@@ -151,6 +151,7 @@ from pyroute2.ndb.messages import (cmsg,
                                    cmsg_sstart)
 from pyroute2.ndb.source import Source
 from pyroute2.ndb.objects.interface import Interface
+from pyroute2.ndb.objects.interface import Vlan
 from pyroute2.ndb.objects.address import Address
 from pyroute2.ndb.objects.route import Route
 from pyroute2.ndb.objects.neighbour import Neighbour
@@ -229,6 +230,7 @@ class View(dict):
         self.classes['routes'] = Route
         self.classes['rules'] = Rule
         self.classes['netns'] = NetNS
+        self.classes['vlans'] = Vlan
 
     def __enter__(self):
         return self
@@ -713,6 +715,7 @@ class NDB(object):
         self.neighbours = View(self, 'neighbours')
         self.rules = View(self, 'rules')
         self.netns = View(self, 'netns', default_target='nsmanager')
+        self.vlans = View(self, 'vlans')
         self.query = Query(self.schema)
 
     def _get_view(self, name, chain=None):
