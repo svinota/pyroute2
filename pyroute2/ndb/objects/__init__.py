@@ -595,6 +595,9 @@ class RTNL_Object(dict):
             req[key] = self[key]
         return req
 
+    def make_idx_req(self, prime):
+        return prime
+
     def get_count(self):
         conditions = []
         values = []
@@ -643,6 +646,7 @@ class RTNL_Object(dict):
                         in self.schema.compiled[self.table]['idx']
                         if self.iclass.nla2name(x) in self])
         req = self.make_req(idx_req)
+        idx_req = self.make_idx_req(idx_req)
         self.log.debug('apply req: %s' % str(req))
         self.log.debug('apply idx_req: %s' % str(idx_req))
         self.log.debug('apply state: %s' % state)
