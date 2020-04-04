@@ -728,10 +728,11 @@ class RTNL_Object(dict):
         if rollback:
             #
             # Iterate all the snapshot tables and collect the diff
-            for (table, cls) in self.view.classes.items():
+            for cls in self.view.classes.values():
                 if issubclass(type(self), cls) or \
                         issubclass(cls, type(self)):
                     continue
+                table = cls.table
                 # comprare the tables
                 diff = (self
                         .ndb
