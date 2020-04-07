@@ -86,7 +86,7 @@ class TestConntrack(BasicSetup):
         # These values should be pretty the same, but the call is not atomic
         # so some sessions may end or begin that time. Thus the difference
         # may occur, but should not be significant.
-        assert abs(len(self.ct.dump()) - self.ct.count()) < 3
+        assert abs(len(list(self.ct.dump())) - self.ct.count()) < 3
 
 
 class TestNFCTSocket(BasicSetup):
