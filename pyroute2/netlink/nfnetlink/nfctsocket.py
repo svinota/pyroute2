@@ -367,6 +367,11 @@ class NFCTAttr(object):
 
 
 class NFCTAttrTuple(NFCTAttr):
+
+    __slots__ = ('saddr', 'daddr', 'proto', 'sport', 'dport',
+                 'icmp_id', 'icmp_type', 'family', '_attr_ip',
+                 '_attr_icmp')
+
     def __init__(self, family=socket.AF_INET,
                  saddr=None, daddr=None, proto=None, sport=None, dport=None,
                  icmp_id=None, icmp_type=None, icmp_code=None):

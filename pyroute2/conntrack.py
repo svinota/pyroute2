@@ -9,6 +9,9 @@ from pyroute2.netlink.nfnetlink.nfctsocket import NFCTSocket
 
 class NFCTATcpProtoInfo(object):
 
+    __slots__ = ('state', 'wscale_orig', 'wscale_reply', 'flags_orig',
+                 'flags_reply')
+
     def __init__(self, state, wscale_orig=None, wscale_reply=None,
                  flags_orig=None, flags_reply=None):
         self.state = state
@@ -48,6 +51,9 @@ class NFCTATcpProtoInfo(object):
 
 
 class ConntrackEntry(object):
+
+    __slots__ = ('tuple_orig', 'tuple_reply', 'status', 'timeout',
+                 'protoinfo', 'mark', 'id', 'use')
 
     def __init__(self, family, tuple_orig, tuple_reply, cta_status,
                  cta_timeout, cta_protoinfo, cta_mark, cta_id, cta_use):
