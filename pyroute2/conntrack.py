@@ -86,6 +86,8 @@ class Conntrack(NFCTSocket):
     """
     High level conntrack functions
     """
+    def __init__(self, nlm_generator=True, **kwargs):
+        super(Conntrack, self).__init__(nlm_generator=nlm_generator, **kwargs)
 
     def stat(self):
         """ Return current statistics per CPU
@@ -107,16 +109,16 @@ class Conntrack(NFCTSocket):
         Same result than /proc/sys/net/netfilter/nf_conntrack_count file
         or conntrack -C command
         """
-        ndmsg = super(Conntrack, self).count()
-        return ndmsg[0].get_attr('CTA_STATS_GLOBAL_ENTRIES')
+        for ndmsg in super(Conntrack, self).count():
+            return ndmsg.get_attr('CTA_STATS_GLOBAL_ENTRIES')
 
     def conntrack_max_size(self):
         """
         Return the max size of connection tracking table
         /proc/sys/net/netfilter/nf_conntrack_max
         """
-        ndmsg = super(Conntrack, self).conntrack_max_size()
-        return ndmsg[0].get_attr('CTA_STATS_GLOBAL_MAX_ENTRIES')
+        for ndmsg in super(Conntrack, self).conntrack_max_size():
+            return ndmsg.get_attr('CTA_STATS_GLOBAL_MAX_ENTRIES')
 
     def delete(self, entry):
         if isinstance(entry, ConntrackEntry):
@@ -125,7 +127,12 @@ class Conntrack(NFCTSocket):
             tuple_orig = entry
         else:
             raise NotImplementedError()
-        self.entry('del', tuple_orig=tuple_orig)
+        for ndmsg in self.entry('del', tuple_orig=tuple_orig):
+            return ndmsg
+
+    def entry(self, cmd, **kwargs):
+        for res in super(Conntrack, self).entry(cmd, **kwargs):
+            return res
 
     def dump_entries(self, mark=None, mark_mask=0xffffffff, tuple_orig=None,
                      tuple_reply=None):
