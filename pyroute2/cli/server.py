@@ -54,9 +54,9 @@ class Server(HTTPServer):
     def __init__(self,
                  address='localhost',
                  port=8080,
-                 debug=None,
-                 sources=None):
+                 sources=None,
+                 log=None):
         self.sessions = {}
-        self.ndb = NDB(debug=debug, sources=sources)
+        self.ndb = NDB(sources=sources, log=log)
         self.ndb.config = {'show_format': 'json'}
         HTTPServer.__init__(self, (address, port), Handler)
