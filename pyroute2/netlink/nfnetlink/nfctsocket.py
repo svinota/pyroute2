@@ -587,8 +587,8 @@ class NFCTSocket(NetlinkSocket):
         IPCTNL_MSG_CT_GET_UNCONFIRMED: nfct_msg,
     }.items())
 
-    def __init__(self, nfgen_family=socket.AF_INET):
-        super(NFCTSocket, self).__init__(family=NETLINK_NETFILTER)
+    def __init__(self, nfgen_family=socket.AF_INET, **kwargs):
+        super(NFCTSocket, self).__init__(family=NETLINK_NETFILTER, **kwargs)
         self.register_policy(self.policy)
         self._nfgen_family = nfgen_family
 
