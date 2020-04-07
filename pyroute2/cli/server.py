@@ -10,6 +10,18 @@ except ImportError:
     from http.server import BaseHTTPRequestHandler
 
 
+class ProxyEncoder(object):
+
+    def __init__(self, wfile):
+        self.wfile = wfile
+
+    def write(self, data):
+        self.wfile.write(data.encode('utf-8'))
+
+    def flush(self):
+        self.wfile.flush()
+
+
 class Handler(BaseHTTPRequestHandler):
 
     def do_error(self, code, reason):
@@ -42,7 +54,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             request = {'commands': [data]}
 
-        session = Session(ndb=self.server.ndb, stdout=self.wfile)
+        session = Session(ndb=self.server.ndb, stdout=ProxyEncoder(self.wfile))
         self.send_response(200)
         self.end_headers()
         for cmd in request['commands']:
