@@ -150,6 +150,8 @@ from pyroute2.ndb.messages import (cmsg,
                                    cmsg_failed,
                                    cmsg_sstart)
 from pyroute2.ndb.source import Source
+from pyroute2.ndb.auth_manager import check_auth
+from pyroute2.ndb.auth_manager import AuthManager
 from pyroute2.ndb.objects.interface import Interface
 from pyroute2.ndb.objects.interface import Vlan
 from pyroute2.ndb.objects.address import Address
@@ -157,7 +159,7 @@ from pyroute2.ndb.objects.route import Route
 from pyroute2.ndb.objects.neighbour import Neighbour
 from pyroute2.ndb.objects.rule import Rule
 from pyroute2.ndb.objects.netns import NetNS
-from pyroute2.ndb.query import Query
+# from pyroute2.ndb.query import Query
 from pyroute2.ndb.report import (RecordSet,
                                  Record)
 try:
@@ -214,14 +216,20 @@ class View(dict):
                  ndb,
                  table,
                  chain=None,
-                 default_target='localhost'):
+                 default_target='localhost',
+                 auth_managers=None):
         self.ndb = ndb
         self.log = ndb.log.channel('view.%s' % table)
         self.table = table
         self.event = table  # FIXME
         self.chain = chain
         self.cache = {}
+        if auth_managers is None:
+            auth_managers = []
+        if chain:
+            auth_managers += chain.auth_managers
         self.default_target = default_target
+        self.auth_managers = auth_managers
         self.constraints = {}
         self.classes = OrderedDict()
         self.classes['interfaces'] = Interface
@@ -362,6 +370,7 @@ class View(dict):
         gc.collect()
         return ret
 
+    @check_auth('obj:read')
     def __getitem__(self, key, table=None):
 
         if self.chain:
@@ -372,7 +381,11 @@ class View(dict):
         if isinstance(key, Record):
             key = key._as_dict()
         key = iclass.adjust_spec(key, context)
-        ret = iclass(self, key, load=False, master=self.chain)
+        ret = iclass(self,
+                     key,
+                     load=False,
+                     master=self.chain,
+                     auth_managers=self.auth_managers)
 
         # rtnl_object.key() returns a dcitionary that can not
         # be used as a cache key. Create here a tuple from it.
@@ -426,14 +439,17 @@ class View(dict):
     def __iter__(self):
         return self.keys()
 
+    @check_auth('obj:list')
     def keys(self):
         for record in self.dump():
             yield record
 
+    @check_auth('obj:list')
     def values(self):
         for key in self.keys():
             yield self[key]
 
+    @check_auth('obj:list')
     def items(self):
         for key in self.keys():
             yield (key, self[key])
@@ -458,11 +474,13 @@ class View(dict):
             yield Record(fnames, record)
 
     @cli.show_result
+    @check_auth('obj:list')
     def dump(self):
         iclass = self.classes[self.table]
         return RecordSet(self._native(iclass.dump(self)))
 
     @cli.show_result
+    @check_auth('obj:list')
     def summary(self):
         iclass = self.classes[self.table]
         return RecordSet(self._native(iclass.summary(self)))
@@ -549,6 +567,9 @@ class Log(object):
 
         if target in ('on', 'stderr'):
             handler = logging.StreamHandler()
+        elif target == 'debug':
+            handler = logging.StreamHandler()
+            level = logging.DEBUG
         elif isinstance(target, basestring):
             url = urlparse(target)
             if not url.scheme and url.path:
@@ -645,6 +666,26 @@ def Events(*argv):
                 yield item
 
 
+class AuthProxy(object):
+
+    def __init__(self, ndb, auth_managers):
+        self._ndb = ndb
+        self._auth_managers = auth_managers
+
+        for spec in (('interfaces', 'localhost'),
+                     ('addresses', 'localhost'),
+                     ('routes', 'localhost'),
+                     ('neighbours', 'localhost'),
+                     ('rules', 'localhost'),
+                     ('netns', 'nsmanager'),
+                     ('vlans', 'localhost')):
+            view = View(self._ndb,
+                        spec[0],
+                        default_target=spec[1],
+                        auth_managers=self._auth_managers)
+            setattr(self, spec[0], view)
+
+
 class NDB(object):
 
     def __init__(self,
@@ -709,14 +750,23 @@ class NDB(object):
         for event in tuple(self._dbm_autoload):
             event.wait()
         self._dbm_autoload = None
-        self.interfaces = View(self, 'interfaces')
-        self.addresses = View(self, 'addresses')
-        self.routes = View(self, 'routes')
-        self.neighbours = View(self, 'neighbours')
-        self.rules = View(self, 'rules')
-        self.netns = View(self, 'netns', default_target='nsmanager')
-        self.vlans = View(self, 'vlans')
-        self.query = Query(self.schema)
+        am = AuthManager({'obj:list': True,
+                          'obj:read': True,
+                          'obj:modify': True},
+                         self.log.channel('auth'))
+        for spec in (('interfaces', 'localhost'),
+                     ('addresses', 'localhost'),
+                     ('routes', 'localhost'),
+                     ('neighbours', 'localhost'),
+                     ('rules', 'localhost'),
+                     ('netns', 'nsmanager'),
+                     ('vlans', 'localhost')):
+            view = View(self,
+                        spec[0],
+                        default_target=spec[1],
+                        auth_managers=[am])
+            setattr(self, spec[0], view)
+        # self.query = Query(self.schema)
 
     def _get_view(self, name, chain=None):
         return View(self, name, chain)
@@ -726,6 +776,9 @@ class NDB(object):
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
+
+    def auth_proxy(self, auth_manager):
+        return AuthProxy(self, [auth_manager, ])
 
     def register_handler(self, event, handler):
         if event not in self._event_map:

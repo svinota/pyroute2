@@ -95,6 +95,8 @@ from functools import partial
 from pyroute2 import cli
 from pyroute2.ndb.events import State
 from pyroute2.ndb.report import Record
+from pyroute2.ndb.auth_manager import check_auth
+from pyroute2.ndb.auth_manager import AuthManager
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.ndb.events import InvalidateHandlerException
 
@@ -120,6 +122,7 @@ class RTNL_Object(dict):
     _key = None
     _replace = None
     _replace_on_key_change = False
+    _init_complete = False
 
     # 8<------------------------------------------------------------
     #
@@ -219,7 +222,8 @@ class RTNL_Object(dict):
                  iclass,
                  ctxid=None,
                  load=True,
-                 master=None):
+                 master=None,
+                 auth_managers=None):
         self.view = view
         self.ndb = view.ndb
         self.sources = view.ndb.sources
@@ -233,6 +237,9 @@ class RTNL_Object(dict):
         self.atime = time.time()
         self.log = self.ndb.log.channel('rtnl_object')
         self.log.debug('init')
+        if auth_managers is None:
+            auth_managers = [AuthManager(None, self.ndb.log.channel('auth'))]
+        self.auth_managers = auth_managers
         self.state = State()
         self.state.set('invalid')
         self.snapshot_deps = []
@@ -243,6 +250,8 @@ class RTNL_Object(dict):
         self.knorm = self.schema.compiled[self.table]['norm_idx']
         self.spec = self.schema.compiled[self.table]['all_names']
         self.names = self.schema.compiled[self.table]['norm_names']
+        if self.event_map is None:
+            self.event_map = {}
         self._apply_script = []
         if isinstance(key, dict):
             self.chain = key.pop('ndb_chain', None)
@@ -268,6 +277,7 @@ class RTNL_Object(dict):
                     self.load_sql()
                 else:
                     self.load_sql(table=self.table)
+        self._init_complete = True
 
     def mark_tflags(self, mark):
         pass
@@ -309,11 +319,18 @@ class RTNL_Object(dict):
     def __hash__(self):
         return id(self)
 
+    @check_auth('obj:read')
+    def __getitem__(self, key):
+        return dict.__getitem__(self, key)
+
+    @check_auth('obj:modify')
     def __setitem__(self, key, value):
         if self.state == 'system' and key in self.knorm:
             if self._replace_on_key_change:
                 self.log.debug('prepare replace for key %s' % (self.key))
-                self._replace = type(self)(self.view, self.key)
+                self._replace = type(self)(self.view,
+                                           self.key,
+                                           auth_managers=self.auth_managers)
                 self.state.set('replace')
             else:
                 raise ValueError('attempt to change a key field (%s)' % key)
@@ -338,6 +355,7 @@ class RTNL_Object(dict):
         return self.view[spec]
 
     @cli.show_result
+    @check_auth('obj:read')
     def show(self, **kwarg):
         '''
         Return the object in a specified format. The format may be
@@ -405,6 +423,7 @@ class RTNL_Object(dict):
              .register_handler(event,
                                partial(wr_handler, wr, fname)))
 
+    @check_auth('obj:modify')
     def snapshot(self, ctxid=None):
         '''
         Create and return a snapshot of the object. The method creates
@@ -419,7 +438,10 @@ class RTNL_Object(dict):
             key = self.key
         else:
             key = self._replace.key
-        snp = type(self)(self.view, key, ctxid=ctxid)
+        snp = type(self)(self.view,
+                         key,
+                         ctxid=ctxid,
+                         auth_managers=self.auth_managers)
         self.ndb.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
         snp.changed = set(self.changed)
         return snp
@@ -472,6 +494,7 @@ class RTNL_Object(dict):
         self.log.debug('got %s' % key)
         return key
 
+    @check_auth('obj:modify')
     def rollback(self, snapshot=None):
         '''
         Try to rollback the object state using the snapshot provided as
@@ -480,7 +503,9 @@ class RTNL_Object(dict):
         if self._replace is not None:
             self.log.debug('rollback replace: %s :: %s'
                            % (self.key, self._replace.key))
-            new_replace = type(self)(self.view, self.key)
+            new_replace = type(self)(self.view,
+                                     self.key,
+                                     auth_managers=self.auth_managers)
             new_replace.state.set('remove')
             self.state.set('replace')
             self.update(self._replace)
@@ -502,6 +527,7 @@ class RTNL_Object(dict):
             not self.changed and \
             not self._apply_script
 
+    @check_auth('obj:modify')
     def commit(self):
         '''
         Try to commit the pending changes. If the commit fails,
@@ -616,6 +642,7 @@ class RTNL_Object(dict):
     def hook_apply(self, method, **spec):
         pass
 
+    @check_auth('obj:modify')
     def apply(self, rollback=False):
         '''
         Create a snapshot and apply pending changes. Do not revert

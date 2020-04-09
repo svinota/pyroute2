@@ -98,6 +98,8 @@ from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.ndb.auth_manager import AuthManager
+from pyroute2.ndb.auth_manager import check_auth
 
 
 def load_ifinfmsg(schema, target, event):
@@ -293,7 +295,10 @@ class Vlan(RTNL_Object):
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifinfmsg.af_spec_bridge.vlan_info
-        self.event_map = {ifinfmsg: "load_rtnlmsg"}
+        if 'auth_managers' not in kwarg or kwarg['auth_managers'] is None:
+            kwarg['auth_managers'] = []
+        log = argv[0].ndb.log.channel('vlan auth')
+        kwarg['auth_managers'].append(AuthManager({'obj:modify': False}, log))
         super(Vlan, self).__init__(*argv, **kwarg)
 
     def make_req(self, prime):
@@ -405,6 +410,7 @@ class Interface(RTNL_Object):
         ret.update(context)
         return ret
 
+    @check_auth('obj:modify')
     def add_vlan(self, spec):
         def do_add_vlan(self, spec):
             try:
@@ -415,6 +421,7 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_add_vlan, (self, spec), {}))
         return self
 
+    @check_auth('obj:modify')
     def del_vlan(self, spec):
         def do_del_vlan(self, spec):
             try:
@@ -426,6 +433,7 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_del_vlan, (self, spec), {}))
         return self
 
+    @check_auth('obj:modify')
     def add_ip(self, spec):
         def do_add_ip(self, spec):
             try:
@@ -436,6 +444,7 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_add_ip, (self, spec), {}))
         return self
 
+    @check_auth('obj:modify')
     def del_ip(self, spec):
         def do_del_ip(self, spec):
             try:
@@ -447,6 +456,7 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_del_ip, (self, spec), {}))
         return self
 
+    @check_auth('obj:modify')
     def add_port(self, spec):
         def do_add_port(self, spec):
             try:
@@ -461,6 +471,7 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_add_port, (self, spec), {}))
         return self
 
+    @check_auth('obj:modify')
     def del_port(self, spec):
         def do_del_port(self, spec):
             try:
@@ -476,6 +487,7 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_del_port, (self, spec), {}))
         return self
 
+    @check_auth('obj:modify')
     def __setitem__(self, key, value):
         if key == 'peer':
             dict.__setitem__(self, key, value)
@@ -512,7 +524,9 @@ class Interface(RTNL_Object):
                      .interfaces
                      .getmany({'IFLA_MASTER': self['index']})):
             # bridge ports
-            link = type(self)(self.view, spec)
+            link = type(self)(self.view,
+                              spec,
+                              auth_managers=self.auth_managers)
             snp.snapshot_deps.append((link, link.snapshot()))
         for spec in (self
                      .ndb
@@ -520,7 +534,9 @@ class Interface(RTNL_Object):
                      .getmany({'IFLA_LINK': self['index']})):
             # vlans & veth
             if self.get('link') != spec['index']:
-                link = type(self)(self.view, spec)
+                link = type(self)(self.view,
+                                  spec,
+                                  auth_managers=self.auth_managers)
                 snp.snapshot_deps.append((link, link.snapshot()))
         # return the root node
         return snp
@@ -531,6 +547,7 @@ class Interface(RTNL_Object):
             req['master'] = self['master']
         return req
 
+    @check_auth('obj:modify')
     def apply(self, rollback=False, fallback=False):
         # translate string link references into numbers
         for key in ('link', ):
@@ -546,7 +563,9 @@ class Interface(RTNL_Object):
                 key = dict(self)
                 key['create'] = True
                 del key['master']
-                fb = type(self)(self.view, key)
+                fb = type(self)(self.view,
+                                key,
+                                auth_managers=self.auth_managers)
                 fb.register()
                 fb.apply(rollback)
                 fb.set('master', self['master'])

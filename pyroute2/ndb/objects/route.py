@@ -84,6 +84,7 @@ from functools import partial
 from collections import OrderedDict
 from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.ndb.report import Record
+from pyroute2.ndb.auth_manager import check_auth
 from pyroute2.common import basestring
 from pyroute2.common import AF_MPLS
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
@@ -539,6 +540,7 @@ class Route(RTNL_Object):
             req['gateway'] = self['gateway']
         return req
 
+    @check_auth('obj:modify')
     def __setitem__(self, key, value):
         if key in ('dst', 'src') and \
                 isinstance(value, basestring) and \
@@ -559,7 +561,10 @@ class Route(RTNL_Object):
                 mp = dict(mp)
                 if self.state == 'invalid':
                     mp['create'] = True
-                obj = NextHop(self, self.view, mp)
+                obj = NextHop(self,
+                              self.view,
+                              mp,
+                              auth_managers=self.auth_managers)
                 obj.state.set(self.state.get())
                 self['multipath'].append(obj)
             if key in self.changed:
@@ -568,7 +573,10 @@ class Route(RTNL_Object):
             value = dict(value)
             if self.state == 'invalid':
                 value['create'] = True
-            obj = Metrics(self, self.view, value)
+            obj = Metrics(self,
+                          self.view,
+                          value,
+                          auth_managers=self.auth_managers)
             obj.state.set(self.state.get())
             super(Route, self).__setitem__('metrics', obj)
             if key in self.changed:
@@ -603,6 +611,7 @@ class Route(RTNL_Object):
         else:
             super(Route, self).__setitem__(key, value)
 
+    @check_auth('obj:modify')
     def apply(self, rollback=False):
         if (self.get('table') == 255) and \
                 (self.get('family') == 10) and \
@@ -651,8 +660,10 @@ class Route(RTNL_Object):
                               (self.schema.plch, ), (self['route_id'], )))
 
             if len(tuple(metrics)):
-                self['metrics'] = Metrics(self, self.view,
-                                          {'route_id': self['route_id']})
+                self['metrics'] = Metrics(self,
+                                          self.view,
+                                          {'route_id': self['route_id']},
+                                          auth_managers=self.auth_managers)
 
             flush = False
             idx = 0
@@ -678,7 +689,11 @@ class Route(RTNL_Object):
             for nexthop in nhs:
                 key = {'route_id': self['route_id'],
                        'nh_id': nexthop[-1]}
-                self['multipath'].append(NextHop(self, self.view, key))
+                (self['multipath']
+                 .append(NextHop(self,
+                                 self.view,
+                                 key,
+                                 auth_managers=self.auth_managers)))
 
 
 class RouteSub(object):

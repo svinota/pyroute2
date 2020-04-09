@@ -17,14 +17,25 @@ import threading
 log = logging.getLogger(__name__)
 
 try:
+    #
+    # Python2 section
+    #
     basestring = basestring
     reduce = reduce
     file = file
+
+    class PermissionError(Exception):
+        pass
+
 except NameError:
+    #
+    # Python3 section
+    #
     basestring = (str, bytes)
     from functools import reduce
     reduce = reduce
     file = io.BytesIO
+    PermissionError = PermissionError
 
 AF_MPLS = 28
 AF_PIPE = 255  # Right now AF_MAX == 40
