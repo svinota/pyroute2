@@ -30,6 +30,7 @@ Filtering examples::
 '''
 import json
 from itertools import chain
+from pyroute2 import cli
 from pyroute2.common import basestring
 
 MAX_REPORT_LINES = 10000
@@ -174,6 +175,7 @@ class RecordSet(BaseRecordSet):
     to make chains of filters.
     '''
 
+    @cli.show_result
     def transform(self, **kwarg):
         '''
         Transform record fields with a provided functions::
@@ -208,6 +210,7 @@ class RecordSet(BaseRecordSet):
 
         return RecordSet(g())
 
+    @cli.show_result
     def filter(self, f=None, **kwarg):
         '''
         Filter records. This function may be called in two ways. One way
@@ -241,6 +244,7 @@ class RecordSet(BaseRecordSet):
 
         return RecordSet(g())
 
+    @cli.show_result
     def select(self, *argv):
         '''
         Select fields from records::
@@ -256,6 +260,7 @@ class RecordSet(BaseRecordSet):
 
         return RecordSet(g())
 
+    @cli.show_result
     def join(self, right, condition=lambda r1, r2: True, prefix=''):
         '''
         Join two reports.
@@ -298,6 +303,7 @@ class RecordSet(BaseRecordSet):
 
         return RecordSet(g())
 
+    @cli.show_result
     def format(self, kind):
         '''
         Convert report records into other formats. Supported formats are
