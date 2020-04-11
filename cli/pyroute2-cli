@@ -3,15 +3,25 @@ import json
 import argparse
 from pyroute2 import Console
 from pyroute2 import Server
+try:
+    from pyroute2.cli.auth.auth_keystone import OSAuthManager
+except ImportError:
+    OSAuthManager = None
+try:
+    from pyroute2.cli.auth.auth_radius import RadiusAuthManager
+except ImportError:
+    RadiusAuthManager = None
+
 
 argp = argparse.ArgumentParser()
 for spec in (('-a', '[S] IP address to listen on'),
              ('-c', '[C] Command line to run'),
              ('-l', '[C,S] Log spec'),
-             ('-m', 'set mode (C,S)'),
+             ('-m', 'Set mode (C,S)'),
              ('-p', '[S] Port to listen on'),
              ('-r', '[C] Load rc file'),
-             ('-s', '[C,S] Load sources from a json file')):
+             ('-s', '[C,S] Load sources from a json file'),
+             ('-x', '[S] Strict auth')):
     argp.add_argument(spec[0], help=spec[1])
 args = argp.parse_args()
 commands = []
@@ -25,10 +35,19 @@ if args.m in ('S', 'server'):
         port = int(args.p)
     else:
         port = 8080
+
+    auth_plugins = {}
+    if OSAuthManager is not None:
+        auth_plugins['keystone'] = OSAuthManager
+    if RadiusAuthManager is not None:
+        auth_plugins['radius:cleartext'] = RadiusAuthManager
+
     server = Server(address=args.a or 'localhost',
                     port=port,
                     log=args.l,
-                    sources=sources)
+                    sources=sources,
+                    auth_strict=args.x,
+                    auth_plugins=auth_plugins)
     server.serve_forever()
 else:
     console = Console(log=args.l, sources=sources)
