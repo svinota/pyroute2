@@ -3,6 +3,7 @@ import shlex
 from pyroute2.common import basestring
 from pyroute2.cli import (t_stmt,
                           t_dict,
+                          t_pipe,
                           t_comma,
                           t_end_of_dict,
                           t_end_of_sentence,
@@ -94,6 +95,12 @@ class Token(object):
         #
         elif first == ',':
             self.kind = t_comma
+
+        ##
+        # pipe
+        #
+        elif first == '|':
+            self.kind = t_pipe
 
         ##
         # simple statement

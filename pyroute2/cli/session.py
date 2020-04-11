@@ -5,6 +5,7 @@ from collections import namedtuple
 from pyroute2.common import basestring
 from pyroute2.cli import t_dict
 from pyroute2.cli import t_stmt
+from pyroute2.cli import t_pipe
 from pyroute2.cli.parser import Parser
 
 
@@ -72,11 +73,46 @@ class Session(object):
                                       'argv',
                                       'kwarg'))(t_dict, [], {}))
 
-                if nt.kind != t_dict:
-                    raise TypeError('function arguments expected')
+                if nt.kind not in (t_dict, t_pipe):
+                    raise TypeError('function arguments or pipe expected')
+
+                if nt.kind == t_dict:
+                    args = nt
+                    try:
+                        pipe = next(token)
+                        if pipe.kind != t_pipe:
+                            raise TypeError('pipe expected')
+                    except StopIteration:
+                        pipe = None
+                else:
+                    args = (namedtuple('Token',
+                                       ('kind',
+                                        'argv',
+                                        'kwarg'))(t_dict, [], {}))
+                    pipe = nt
+
+                # at this step we have
+                # args -- arguments
+                # pipe -- pipe or None
 
                 try:
-                    ret = obj(*nt.argv, **nt.kwarg)
+                    ret = obj(*args.argv, **args.kwarg)
+                    #
+                    if pipe is not None:
+                        ptr = self.ptr
+                        self.ptr = ret
+                        try:
+                            stmt = next(token)
+                        except StopIteration:
+                            raise TypeError('statement expected')
+                        if stmt.kind != t_stmt:
+                            raise TypeError('statement expected')
+                        try:
+                            self.handle_statement(stmt, token)
+                        except Exception:
+                            pass
+                        self.ptr = ptr
+                        return
                     if hasattr(obj, '__cli_cptr__'):
                         obj = ret
                     elif hasattr(obj, '__cli_publish__'):
