@@ -18,18 +18,28 @@ In other sense any netlink socket is just an ordinary socket
 with `fileno()`, `recv()`, `sendto()` etc. Of course, one
 can use it in `poll()`.
 
-There is an inheritance diagram of netlink sockets, provided
+There is an inheritance diagram of Linux netlink sockets, provided
 by the library:
 
 .. inheritance-diagram:: pyroute2.iproute.linux.IPRoute
     pyroute2.iproute.linux.IPBatch
     pyroute2.iproute.linux.RawIPRoute
-    pyroute2.iproute.bsd.IPRoute
     pyroute2.iproute.RemoteIPRoute
     pyroute2.iwutil.IW
     pyroute2.ipset.IPSet
+    pyroute2.netlink.uevent.UeventSocket
     pyroute2.netlink.taskstats.TaskStats
+    pyroute2.netlink.generic.wireguard.WireGuard
+    pyroute2.netlink.generic.ethtool.NlEthtool
     pyroute2.netlink.ipq.IPQSocket
+    pyroute2.netlink.nfnetlink.nfctsocket.NFCTSocket
+    pyroute2.netlink.nfnetlink.nftsocket.NFTSocket
+    pyroute2.netlink.event.EventSocket
+    pyroute2.netlink.event.acpi_event.AcpiEventSocket
+    pyroute2.netlink.event.dquot.DQuotSocket
+    pyroute2.netlink.event.thermal_event.ThermalEventSocket
+    pyroute2.netlink.devlink.DevlinkSocket
+    pyroute2.netlink.diag.DiagSocket
     pyroute2.remote.RemoteSocket
     pyroute2.remote.shell.ShellIPR
     pyroute2.netns.nslink.NetNS
@@ -132,20 +142,55 @@ type, one should inherit:
 The messages hierarchy:
 
 .. inheritance-diagram:: pyroute2.netlink.rtnl.ndmsg.ndmsg
+    pyroute2.netlink.rtnl.ndtmsg.ndtmsg
     pyroute2.netlink.rtnl.tcmsg.tcmsg
+    pyroute2.netlink.rtnl.rtmsg.nlflags
+    pyroute2.netlink.rtnl.rtmsg.rtmsg_base
     pyroute2.netlink.rtnl.rtmsg.rtmsg
+    pyroute2.netlink.rtnl.rtmsg.nh
     pyroute2.netlink.rtnl.fibmsg.fibmsg
     pyroute2.netlink.rtnl.ifaddrmsg.ifaddrmsg
+    pyroute2.netlink.rtnl.ifstatsmsg.ifstatsmsg
     pyroute2.netlink.rtnl.ifinfmsg.ifinfmsg
     pyroute2.netlink.rtnl.ifinfmsg.ifinfveth
+    pyroute2.netlink.rtnl.iw_event.iw_event
+    pyroute2.netlink.rtnl.nsidmsg.nsidmsg
+    pyroute2.netlink.rtnl.nsinfmsg.nsinfmsg
+    pyroute2.netlink.rtnl.rtgenmsg.rtgenmsg
+    pyroute2.netlink.devlink.devlinkcmd
+    pyroute2.netlink.diag.inet_addr_codec
+    pyroute2.netlink.diag.inet_diag_req
+    pyroute2.netlink.diag.inet_diag_msg
+    pyroute2.netlink.diag.unix_diag_req
+    pyroute2.netlink.diag.unix_diag_msg
+    pyroute2.netlink.event.acpi_event.acpimsg
+    pyroute2.netlink.event.dquot.dquotmsg
+    pyroute2.netlink.event.thermal_event.thermal_msg
     pyroute2.netlink.taskstats.taskstatsmsg
     pyroute2.netlink.taskstats.tcmd
+    pyroute2.netlink.generic.ethtool.ethtool_strset_msg
+    pyroute2.netlink.generic.ethtool.ethtool_linkinfo_msg
+    pyroute2.netlink.generic.ethtool.ethtool_linkmode_msg
+    pyroute2.netlink.generic.ethtool.ethtool_linkstate_msg
+    pyroute2.netlink.generic.ethtool.ethtool_wol_msg
+    pyroute2.netlink.generic.wireguard.wgmsg
     pyroute2.netlink.ctrlmsg
+    pyroute2.netlink.genlmsg
     pyroute2.netlink.nl80211.nl80211cmd
     pyroute2.netlink.nfnetlink.ipset.ipset_msg
+    pyroute2.netlink.nfnetlink.nfgen_msg
+    pyroute2.netlink.nfnetlink.nftsocket.nft_gen_msg
+    pyroute2.netlink.nfnetlink.nftsocket.nft_chain_msg
+    pyroute2.netlink.nfnetlink.nftsocket.nft_rule_msg
+    pyroute2.netlink.nfnetlink.nftsocket.nft_set_msg
+    pyroute2.netlink.nfnetlink.nftsocket.nft_table_msg
+    pyroute2.netlink.nfnetlink.nfctsocket.nfct_stats
+    pyroute2.netlink.nfnetlink.nfctsocket.nfct_stats_cpu
+    pyroute2.netlink.nfnetlink.nfctsocket.nfct_msg
     pyroute2.netlink.ipq.ipq_mode_msg
     pyroute2.netlink.ipq.ipq_packet_msg
     pyroute2.netlink.ipq.ipq_verdict_msg
+    pyroute2.netlink.uevent.ueventmsg
     :parts: 1
 
 PF_ROUTE messages
