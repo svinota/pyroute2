@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import sys
 from collections import namedtuple
+from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.cli import t_dict
 from pyroute2.cli import t_stmt
@@ -10,7 +11,11 @@ from pyroute2.cli.parser import Parser
 
 
 class Session(object):
-    def __init__(self, ndb, stdout=None, ptrname_callback=None):
+    def __init__(self,
+                 ndb,
+                 stdout=None,
+                 ptrname_callback=None,
+                 builtins=None):
         self.db = ndb
         self.ptr = self.db
         self._ptrname = None
@@ -18,6 +23,7 @@ class Session(object):
         self.stack = []
         self.prompt = ''
         self.stdout = stdout or sys.stdout
+        self.builtins = builtins or ('ls', '.', '..', 'version', 'exit')
 
     @property
     def ptrname(self):
@@ -43,129 +49,117 @@ class Session(object):
 
     def handle_statement(self, stmt, token):
         obj = None
-        if stmt.name == 'exit':
-            raise SystemExit()
-        elif stmt.name == 'ls':
-            self.lprint(dir(self.ptr))
-        elif stmt.name == '.':
-            self.lprint(repr(self.ptr))
-        elif stmt.name == '..':
-            if self.stack:
-                self.ptr, self.ptrname = self.stack.pop()
-        else:
-            if stmt.kind == t_dict:
-                obj = self.ptr[stmt.kwarg]
-            elif stmt.kind == t_stmt:
-                if isinstance(self.ptr, dict):
+        if stmt.kind == t_dict:
+            obj = self.ptr[stmt.kwarg]
+        elif stmt.kind == t_stmt:
+            if isinstance(self.ptr, dict):
+                try:
+                    obj = self.ptr.get(stmt.name, None)
+                except Exception:
+                    pass
+            if obj is None:
+                obj = getattr(self.ptr, stmt.name, None)
+
+        if hasattr(obj, '__call__'):
+            try:
+                nt = next(token)
+            except StopIteration:
+                nt = (namedtuple('Token',
+                                 ('kind',
+                                  'argv',
+                                  'kwarg'))(t_dict, [], {}))
+
+            if nt.kind not in (t_dict, t_pipe):
+                raise TypeError('function arguments or pipe expected')
+
+            if nt.kind == t_dict:
+                args = nt
+                try:
+                    pipe = next(token)
+                    if pipe.kind != t_pipe:
+                        raise TypeError('pipe expected')
+                except StopIteration:
+                    pipe = None
+            else:
+                args = (namedtuple('Token',
+                                   ('kind',
+                                    'argv',
+                                    'kwarg'))(t_dict, [], {}))
+                pipe = nt
+
+            # at this step we have
+            # args -- arguments
+            # pipe -- pipe or None
+
+            try:
+                ret = obj(*args.argv, **args.kwarg)
+                #
+                if pipe is not None:
+                    ptr = self.ptr
+                    self.ptr = ret
                     try:
-                        obj = self.ptr.get(stmt.name, None)
+                        stmt = next(token)
+                    except StopIteration:
+                        raise TypeError('statement expected')
+                    if stmt.kind != t_stmt:
+                        raise TypeError('statement expected')
+                    try:
+                        self.handle_statement(stmt, token)
                     except Exception:
                         pass
-                if obj is None:
-                    obj = getattr(self.ptr, stmt.name, None)
-
-            if hasattr(obj, '__call__'):
+                    self.ptr = ptr
+                    return
+                if hasattr(obj, '__cli_cptr__'):
+                    obj = ret
+                elif hasattr(obj, '__cli_publish__'):
+                    if hasattr(ret, 'generator') or hasattr(ret, 'next'):
+                        for line in ret:
+                            if isinstance(line, basestring):
+                                self.lprint(line)
+                            else:
+                                self.lprint(repr(line))
+                    else:
+                        self.lprint(ret)
+                    return
+                elif isinstance(ret, (bool, basestring, int, float)):
+                    self.lprint(ret)
+                    return
+                else:
+                    return
+            except:
+                import traceback
+                traceback.print_exc()
+                return
+        else:
+            if isinstance(self.ptr, dict) and not isinstance(obj, dict):
                 try:
                     nt = next(token)
-                except StopIteration:
-                    nt = (namedtuple('Token',
-                                     ('kind',
-                                      'argv',
-                                      'kwarg'))(t_dict, [], {}))
-
-                if nt.kind not in (t_dict, t_pipe):
-                    raise TypeError('function arguments or pipe expected')
-
-                if nt.kind == t_dict:
-                    args = nt
-                    try:
-                        pipe = next(token)
-                        if pipe.kind != t_pipe:
-                            raise TypeError('pipe expected')
-                    except StopIteration:
-                        pipe = None
-                else:
-                    args = (namedtuple('Token',
-                                       ('kind',
-                                        'argv',
-                                        'kwarg'))(t_dict, [], {}))
-                    pipe = nt
-
-                # at this step we have
-                # args -- arguments
-                # pipe -- pipe or None
-
-                try:
-                    ret = obj(*args.argv, **args.kwarg)
-                    #
-                    if pipe is not None:
-                        ptr = self.ptr
-                        self.ptr = ret
-                        try:
-                            stmt = next(token)
-                        except StopIteration:
-                            raise TypeError('statement expected')
-                        if stmt.kind != t_stmt:
-                            raise TypeError('statement expected')
-                        try:
-                            self.handle_statement(stmt, token)
-                        except Exception:
-                            pass
-                        self.ptr = ptr
-                        return
-                    if hasattr(obj, '__cli_cptr__'):
-                        obj = ret
-                    elif hasattr(obj, '__cli_publish__'):
-                        if hasattr(ret, 'generator') or hasattr(ret, 'next'):
-                            for line in ret:
-                                if isinstance(line, basestring):
-                                    self.lprint(line)
-                                else:
-                                    self.lprint(repr(line))
-                        else:
-                            self.lprint(ret)
-                        return
-                    elif isinstance(ret, (bool, basestring, int, float)):
-                        self.lprint(ret)
-                        return
+                    if nt.kind == t_stmt:
+                        self.ptr[stmt.name] = nt.name
+                    elif nt.kind == t_dict and nt.argv:
+                        self.ptr[stmt.name] = nt.argv
+                    elif nt.kind == t_dict and nt.kwarg:
+                        self.ptr[stmt.name] = nt.kwarg
                     else:
-                        return
-                except:
-                    import traceback
-                    traceback.print_exc()
+                        raise TypeError('failed setting a key/value pair')
                     return
-            else:
-                if isinstance(self.ptr, dict) and not isinstance(obj, dict):
-                    try:
-                        nt = next(token)
-                        if nt.kind == t_stmt:
-                            self.ptr[stmt.name] = nt.name
-                        elif nt.kind == t_dict and nt.argv:
-                            self.ptr[stmt.name] = nt.argv
-                        elif nt.kind == t_dict and nt.kwarg:
-                            self.ptr[stmt.name] = nt.kwarg
-                        else:
-                            raise TypeError('failed setting a key/value pair')
-                        return
-                    except NotImplementedError:
-                        raise KeyError()
-                    except StopIteration:
-                        pass
+                except NotImplementedError:
+                    raise KeyError()
+                except StopIteration:
+                    pass
 
-            if obj is None:
-                raise KeyError()
-            elif isinstance(obj, (basestring, int, float)):
-                self.lprint(obj)
+        if obj is None:
+            raise KeyError()
+        elif isinstance(obj, (basestring, int, float)):
+            self.lprint(obj)
+        else:
+            self.stack.append((self.ptr, self.ptrname))
+            self.ptr = obj
+            if hasattr(obj, 'key_repr'):
+                self.ptrname = obj.key_repr()
             else:
-                self.stack.append((self.ptr, self.ptrname))
-                self.ptr = obj
-                if hasattr(obj, 'key_repr'):
-                    self.ptrname = obj.key_repr()
-                else:
-                    self.ptrname = stmt.name
-                return True
-
-        return
+                self.ptrname = stmt.name
+            return True
 
     def handle_sentence(self, sentence, indent):
         if sentence.indent < indent:
@@ -177,20 +171,36 @@ class Session(object):
         rcounter = 0
         try:
             for stmt in iterator:
-                try:
-                    rcode = self.handle_statement(stmt, iterator)
-                    if rcode:
-                        rcounter += 1
-                except SystemExit:
-                    self.close()
-                    return
-                except KeyError:
-                    self.lprint('object not found')
-                    rcode = False
-                    return indent
-                except:
-                    import traceback
-                    traceback.print_exc()
+                if stmt.name in self.builtins:
+                    if stmt.name == 'exit':
+                        raise SystemExit()
+                    elif stmt.name == 'ls':
+                        self.lprint(dir(self.ptr))
+                    elif stmt.name == '.':
+                        self.lprint(repr(self.ptr))
+                    elif stmt.name == '..':
+                        if self.stack:
+                            self.ptr, self.ptrname = self.stack.pop()
+                    elif stmt.name == 'version':
+                        try:
+                            self.lprint(config.version.__version__)
+                        except:
+                            self.lprint('unknown')
+                    break
+                else:
+                    try:
+                        rcode = self.handle_statement(stmt, iterator)
+                        if rcode:
+                            rcounter += 1
+                    except KeyError:
+                        self.lprint('object not found')
+                        rcode = False
+                        return indent
+                    except:
+                        import traceback
+                        traceback.print_exc()
+        except SystemExit:
+            raise
         finally:
             if not rcode:
                 for _ in range(rcounter):

@@ -80,6 +80,9 @@ class Console(code.InteractiveConsole):
 
             try:
                 indent = self.session.handle(text, indent)
+            except SystemExit:
+                self.close()
+                return
             except:
                 self.showtraceback()
                 continue

@@ -75,7 +75,9 @@ class Handler(BaseHTTPRequestHandler):
         else:
             ndb = self.server.ndb
 
-        session = Session(ndb=ndb, stdout=ProxyEncoder(self.wfile))
+        session = Session(ndb=ndb,
+                          stdout=ProxyEncoder(self.wfile),
+                          builtins=('ls', '.', '..', 'version'))
         self.send_response(200)
         self.end_headers()
         for cmd in request['commands']:
