@@ -76,12 +76,9 @@ import struct
 import threading
 from pyroute2 import IPRoute
 from pyroute2 import RemoteIPRoute
-from pyroute2.ndb.events import (SchemaReadLock,
-                                 SchemaReadUnlock,
-                                 ShutdownException,
+from pyroute2.ndb.events import (ShutdownException,
                                  State)
-from pyroute2.ndb.messages import (cmsg,
-                                   cmsg_event,
+from pyroute2.ndb.messages import (cmsg_event,
                                    cmsg_failed,
                                    cmsg_sstart)
 from pyroute2.netlink.nlsocket import NetlinkMixin
@@ -133,7 +130,7 @@ class Source(dict):
         self.shutdown = threading.Event()
         self.started = threading.Event()
         self.lock = threading.RLock()
-        self.shutdown_lock = threading.Lock()
+        self.shutdown_lock = threading.RLock()
         self.started.clear()
         self.log = ndb.log.channel('sources.%s' % self.target)
         self.state = State(log=self.log)
@@ -357,16 +354,19 @@ class Source(dict):
 
     def restart(self, reason='unknown'):
         with self.lock:
-            if not self.shutdown.is_set():
+            with self.shutdown_lock:
                 self.log.debug('restarting the source, reason <%s>' % (reason))
-                self.evq.put((cmsg(self.target, SchemaReadLock()), ))
+                self.started.clear()
+                self.ndb.schema.allow_read(False)
                 try:
                     self.close()
                     if self.th:
                         self.th.join()
+                    self.shutdown.clear()
                     self.start()
                 finally:
-                    self.evq.put((cmsg(self.target, SchemaReadUnlock()), ))
+                    self.ndb.schema.allow_read(True)
+        self.started.wait()
 
     def __enter__(self):
         return self

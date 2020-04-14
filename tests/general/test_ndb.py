@@ -81,6 +81,40 @@ class TestMisc(object):
         for source in ndb.sources:
             assert ndb.sources[source].nl.closed
 
+    def test_source_localhost_restart(self):
+        require_user('root')
+        ifname = uifname()
+
+        with NDB() as ndb:
+            assert len(list(ndb.interfaces.dump()))
+            ndb.sources['localhost'].restart()
+            assert len(list(ndb.interfaces.dump()))
+            (ndb
+             .interfaces
+             .create(ifname=ifname, kind='dummy', state='up')
+             .commit())
+            assert ndb.interfaces[ifname]['state'] == 'up'
+            ndb.interfaces[ifname].remove().commit()
+
+    def test_source_netns_restart(self):
+        require_user('root')
+        ifname = uifname()
+        nsname = str(uuid.uuid4())
+
+        with NDB() as ndb:
+            ndb.sources.add(netns=nsname)
+            assert len(list(ndb.interfaces.dump().filter(target=nsname)))
+            ndb.sources[nsname].restart()
+            assert len(list(ndb.interfaces.dump().filter(target=nsname)))
+            (ndb
+             .interfaces
+             .create(target=nsname, ifname=ifname, kind='dummy', state='up')
+             .commit())
+            assert ndb.interfaces[{'target': nsname,
+                                   'ifname': ifname}]['state'] == 'up'
+            ndb.interfaces[{'target': nsname,
+                            'ifname': ifname}].remove().commit()
+
 
 class TestPreSet(object):
 
