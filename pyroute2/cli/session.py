@@ -7,6 +7,7 @@ from pyroute2.common import basestring
 from pyroute2.cli import t_dict
 from pyroute2.cli import t_stmt
 from pyroute2.cli import t_pipe
+from pyroute2.cli import t_comma
 from pyroute2.cli.parser import Parser
 
 
@@ -69,9 +70,6 @@ class Session(object):
                                   'argv',
                                   'kwarg'))(t_dict, [], {}))
 
-            if nt.kind not in (t_dict, t_pipe):
-                raise TypeError('function arguments or pipe expected')
-
             if nt.kind == t_dict:
                 args = nt
                 try:
@@ -80,12 +78,47 @@ class Session(object):
                         raise TypeError('pipe expected')
                 except StopIteration:
                     pipe = None
-            else:
+            elif nt.kind == t_stmt:
+                argv = []
+                kwarg = {}
+                arg_name = nt.name
+                pipe = None
+                for nt in token:
+                    if arg_name is None:
+                        if nt.kind == t_stmt:
+                            arg_name = nt.name
+                        elif nt.kind == t_comma:
+                            continue
+                        elif nt.kind == t_pipe:
+                            pipe = nt
+                            break
+                        else:
+                            raise TypeError('stmt expected')
+                    else:
+                        if nt.kind == t_comma:
+                            argv.append(arg_name)
+                        elif nt.kind == t_stmt:
+                            kwarg[arg_name] = nt.name
+                        elif nt.kind == t_pipe:
+                            pipe = nt
+                            break
+                        else:
+                            raise TypeError('stmt or comma expected')
+                        arg_name = None
+                if arg_name is not None:
+                    argv.append(arg_name)
+                args = (namedtuple('Token',
+                                   ('kind',
+                                    'argv',
+                                    'kwarg'))(t_dict, argv, kwarg))
+            elif nt.kind == t_pipe:
                 args = (namedtuple('Token',
                                    ('kind',
                                     'argv',
                                     'kwarg'))(t_dict, [], {}))
                 pipe = nt
+            else:
+                raise TypeError('dict, stmt or comma expected')
 
             # at this step we have
             # args -- arguments
