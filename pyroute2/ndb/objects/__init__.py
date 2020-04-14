@@ -376,7 +376,7 @@ class RTNL_Object(dict):
                 out[key] = self[key]
             return '%s\n' % json.dumps(out, indent=4, separators=(',', ': '))
 
-    def set(self, key, value):
+    def set(self, *argv, **kwarg):
         '''
         Set a field specified by `key` to `value`, and return self. The
         method is useful to write call chains like that::
@@ -388,6 +388,12 @@ class RTNL_Object(dict):
              .set('address', '00:11:22:33:44:55')
              .commit())
         '''
+        key, value = None, None
+        if argv:
+            key, value = argv
+        elif kwarg:
+            for key, value in kwarg.items():
+                break
         self[key] = value
         return self
 
