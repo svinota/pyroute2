@@ -550,7 +550,7 @@ class Interface(RTNL_Object):
     @check_auth('obj:modify')
     def apply(self, rollback=False, fallback=False):
         # translate string link references into numbers
-        for key in ('link', ):
+        for key in ('link', 'master'):
             if key in self and isinstance(self[key], basestring):
                 self[key] = self.ndb.interfaces[self[key]]['index']
         setns = self.state.get() == 'setns'
