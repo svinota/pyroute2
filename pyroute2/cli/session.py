@@ -22,6 +22,7 @@ class Session(object):
         self._ptrname = None
         self._ptrname_callback = ptrname_callback
         self.stack = []
+        self.indent_stack = set()
         self.prompt = ''
         self.stdout = stdout or sys.stdout
         self.builtins = builtins or ('ls', '.', '..', 'version', 'exit')
@@ -196,8 +197,12 @@ class Session(object):
 
     def handle_sentence(self, sentence, indent):
         if sentence.indent < indent:
-            if self.stack:
-                self.ptr, self.ptrname = self.stack.pop()
+            while max(self.indent_stack) > sentence.indent:
+                self.indent_stack.remove(max(self.indent_stack))
+                if self.stack:
+                    self.ptr, self.ptrname = self.stack.pop()
+        else:
+            self.indent_stack.add(sentence.indent)
         indent = sentence.indent
         iterator = iter(sentence)
         rcode = None
