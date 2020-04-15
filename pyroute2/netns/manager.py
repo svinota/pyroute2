@@ -20,7 +20,7 @@ class NetNSManager(Inotify):
                     self.register_path(d)
                 except OSError:
                     pass
-        self.ipr = IPRoute()
+        self.ipr = IPRoute(target=target)
         self.registry = {}
         self.update()
         self.target = target
