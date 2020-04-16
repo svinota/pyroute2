@@ -338,7 +338,7 @@ class Source(dict):
             if self.shutdown.is_set():
                 self.log.debug('already stopped')
                 return
-            self.log.info('source shutdown')
+            self.log.debug('source shutdown')
             self.shutdown.set()
             if self.nl is not None:
                 try:
