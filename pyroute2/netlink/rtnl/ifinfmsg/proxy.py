@@ -170,9 +170,17 @@ def manage_team(msg):
     if msg['header']['type'] != RTM_NEWLINK:
         raise ValueError('wrong command type')
 
-    config = {'device': msg.get_attr('IFLA_IFNAME'),
-              'runner': {'name': 'activebackup'},
-              'link_watch': {'name': 'ethtool'}}
+    try:
+        linkinfo = msg.get_attr('IFLA_LINKINFO')
+        infodata = linkinfo.get_attr('IFLA_INFO_DATA')
+        config = infodata.get_attr('IFLA_TEAM_CONFIG')
+        config = json.loads(config)
+    except AttributeError:
+        config = {'runner': {'name': 'activebackup'},
+                  'link_watch': {'name': 'ethtool'}}
+
+    # fix device
+    config['device'] = msg.get_attr('IFLA_IFNAME')
 
     with open(os.devnull, 'w') as fnull:
         subprocess.check_call(['teamd', '-d', '-n', '-c', json.dumps(config)],
