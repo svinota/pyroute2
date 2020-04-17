@@ -1,6 +1,10 @@
 Changelog
 =========
 
+* 0.5.12
+    * rtnl: implement team config pass <https://github.com/svinota/pyroute2/issues/699>
+    * ndb.auth: example auth modules for RADIUS and OpenStack / Keystone
+    * cli: syntax fixes
 * 0.5.11
     * ndb.report: filters and transformations
     * ndb.objects.route: support basic MPLS routes management
