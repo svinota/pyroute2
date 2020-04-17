@@ -701,7 +701,8 @@ try:
     import queue
 except ImportError:
     import Queue as queue  # The module is called 'Queue' in Python2
-
+# prepare to deprecate the module
+# import warnings
 from functools import partial
 from pprint import pprint
 from pyroute2 import config
@@ -809,6 +810,9 @@ class IPDB(object):
                  nl_bind_groups=RTMGRP_DEFAULTS,
                  ignore_rtables=None, callbacks=None,
                  sort_addresses=False, plugins=None):
+        msg = 'https://docs.pyroute2.org/ipdb_toc.html'
+        log.warning('Deprecation warning ' + msg)
+        # warnings.warn(DeprecationWarning(msg))
         plugins = plugins or ['interfaces', 'routes', 'rules']
         pmap = {'interfaces': interfaces,
                 'routes': routes,
