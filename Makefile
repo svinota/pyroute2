@@ -96,9 +96,8 @@ force-version: clean-version update-version
 
 update-version: setup.ini
 
-docs: force-version
+docs: force-version README.md
 	@cp README.rst docs/general.rst
-	@cat README.rst | python ./docs/conv.py >README.md
 	@cp README.make.md docs/makefile.rst
 	@cp README.report.md docs/report.rst
 	@cp CHANGELOG.md docs/changelog.rst
@@ -155,7 +154,10 @@ upload: clean force-version docs
 dist: force-version docs
 	@${python} setup.py sdist >/dev/null 2>&1
 
-install: clean force-version
+README.md:
+	@cat README.rst | python ./docs/conv.py >README.md
+
+install: clean force-version README.md
 	${python} setup.py install ${root} ${lib}
 
 # in order to get it working, one should install pyroute2
