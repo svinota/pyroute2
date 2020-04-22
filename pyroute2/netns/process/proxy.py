@@ -79,7 +79,7 @@ class NSPopenFile(object):
 def NSPopenServer(nsname, flags, channel_in, channel_out, argv, kwarg):
     # set netns
     try:
-        setns(nsname, flags=flags)
+        setns(nsname, flags=flags, libc=kwarg.pop('libc', None))
     except Exception as e:
         channel_out.put(e)
         return

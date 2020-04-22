@@ -132,7 +132,7 @@ class NetNS(RTNL_API, RemoteSocket):
     Do not forget to call `release()` when the work is done. It will shut
     down `NetNS` instance as well.
     '''
-    def __init__(self, netns, flags=os.O_CREAT, target=None):
+    def __init__(self, netns, flags=os.O_CREAT, target=None, libc=None):
         self.netns = netns
         self.flags = flags
         target = target or netns
@@ -149,7 +149,7 @@ class NetNS(RTNL_API, RemoteSocket):
             trnsp_in.file_obj.close()
             trnsp_out.file_obj.close()
             try:
-                setns(self.netns, self.flags)
+                setns(self.netns, self.flags, libc=None)
             except OSError as e:
                 (self
                  .remote_trnsp_out
