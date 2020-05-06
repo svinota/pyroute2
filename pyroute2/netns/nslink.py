@@ -118,19 +118,6 @@ class NetNS(RTNL_API, RemoteSocket):
     The only difference is the `close()` call. In the case of `NetNS` it
     is **mandatory** to close the socket before exit.
 
-    **NetNS and IPDB**
-
-    It is possible to run IPDB with NetNS::
-
-        from pyroute2 import NetNS
-        from pyroute2 import IPDB
-
-        ip = IPDB(nl=NetNS('somenetns'))
-        ...
-        ip.release()
-
-    Do not forget to call `release()` when the work is done. It will shut
-    down `NetNS` instance as well.
     '''
     def __init__(self, netns, flags=os.O_CREAT, target=None, libc=None):
         self.netns = netns
