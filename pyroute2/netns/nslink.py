@@ -149,7 +149,7 @@ class NetNS(RTNL_API, RemoteSocket):
             trnsp_in.file_obj.close()
             trnsp_out.file_obj.close()
             try:
-                setns(self.netns, self.flags, libc=None)
+                setns(self.netns, self.flags, libc=libc)
             except OSError as e:
                 (self
                  .remote_trnsp_out
