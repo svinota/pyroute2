@@ -212,6 +212,13 @@ class TestIPRoute(object):
         self.ip.addr('add', self.ifaces[0], address=ifaddr, mask=24)
         assert '{0}/24'.format(ifaddr) in get_ip_addr()
 
+    def test_addr_replace(self):
+        require_user('root')
+        ifaddr = self.ifaddr()
+        self.ip.addr('replace', self.ifaces[0], address=ifaddr, mask=24)
+        assert '{0}/24'.format(ifaddr) in get_ip_addr()
+        self.ip.addr('replace', self.ifaces[0], address=ifaddr, mask=24)
+
     def test_vlan_filter_dump(self):
         require_user('root')
         (an, ax) = self.create('bridge')

@@ -1348,7 +1348,7 @@ class RTNL_API(object):
         '''
         Address operations
 
-        * command -- add, delete
+        * command -- add, delete, replace, dump
         * index -- device index
         * address -- IPv4 or IPv6 address
         * mask -- address mask
@@ -1396,11 +1396,14 @@ class RTNL_API(object):
             return
 
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
-        flags_create = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL
+        flags_base = NLM_F_REQUEST | NLM_F_ACK
+        flags_create = flags_base | NLM_F_CREATE | NLM_F_EXCL
+        flags_replace = flags_base | NLM_F_REPLACE | NLM_F_CREATE
         commands = {'add': (RTM_NEWADDR, flags_create),
                     'del': (RTM_DELADDR, flags_create),
                     'remove': (RTM_DELADDR, flags_create),
                     'delete': (RTM_DELADDR, flags_create),
+                    'replace': (RTM_NEWADDR, flags_replace),
                     'dump': (RTM_GETADDR, flags_dump)}
         (command, flags) = commands.get(command, command)
 
