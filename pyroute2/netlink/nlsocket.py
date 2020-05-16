@@ -859,39 +859,40 @@ class NetlinkMixin(object):
         msg_seq = self.addr_pool.alloc()
         with self.lock[msg_seq]:
             retry_count = 0
-            while True:
-                try:
-                    self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
-                    for msg in self.get(msg_seq=msg_seq,
-                                        terminate=terminate,
-                                        callback=callback):
-                        yield msg
-                    break
-                except NetlinkError as e:
-                    if e.code != 16:
+            try:
+                while True:
+                    try:
+                        self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
+                        for msg in self.get(msg_seq=msg_seq,
+                                            terminate=terminate,
+                                            callback=callback):
+                            yield msg
+                        break
+                    except NetlinkError as e:
+                        if e.code != 16:
+                            raise
+                        if retry_count >= 30:
+                            raise
+                        log.warning('Error 16, retry {}.'.format(retry_count))
+                        time.sleep(0.3)
+                        retry_count += 1
+                        continue
+                    except Exception:
                         raise
-                    if retry_count >= 30:
-                        raise
-                    print('Error 16, retry {}.'.format(retry_count))
-                    time.sleep(0.3)
-                    retry_count += 1
-                    continue
-                except Exception:
-                    raise
-                finally:
-                    # Ban this msg_seq for 0xff rounds
-                    #
-                    # It's a long story. Modern kernels for RTM_SET.*
-                    # operations always return NLMSG_ERROR(0) == success,
-                    # even not setting NLM_F_MULTI flag on other response
-                    # messages and thus w/o any NLMSG_DONE. So, how to detect
-                    # the response end? One can not rely on NLMSG_ERROR on
-                    # old kernels, but we have to support them too. Ty, we
-                    # just ban msg_seq for several rounds, and NLMSG_ERROR,
-                    # being received, will become orphaned and just dropped.
-                    #
-                    # Hack, but true.
-                    self.addr_pool.free(msg_seq, ban=0xff)
+            finally:
+                # Ban this msg_seq for 0xff rounds
+                #
+                # It's a long story. Modern kernels for RTM_SET.*
+                # operations always return NLMSG_ERROR(0) == success,
+                # even not setting NLM_F_MULTI flag on other response
+                # messages and thus w/o any NLMSG_DONE. So, how to detect
+                # the response end? One can not rely on NLMSG_ERROR on
+                # old kernels, but we have to support them too. Ty, we
+                # just ban msg_seq for several rounds, and NLMSG_ERROR,
+                # being received, will become orphaned and just dropped.
+                #
+                # Hack, but true.
+                self.addr_pool.free(msg_seq, ban=0xff)
 
 
 class BatchAddrPool(object):
