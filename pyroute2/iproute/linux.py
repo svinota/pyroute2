@@ -520,16 +520,7 @@ class RTNL_API(object):
         Please note, that link_lookup() returns list, not one
         value.
         '''
-        name = tuple(kwarg.keys())[0]
-        value = kwarg[name]
-
-        name = str(name).upper()
-        if not name.startswith('IFLA_'):
-            name = 'IFLA_%s' % (name)
-
-        return [k['index'] for k in
-                [i for i in self.get_links() if 'attrs' in i] if
-                [l for l in k['attrs'] if l[0] == name and l[1] == value]]
+        return [link['index'] for link in self.get_links(match=kwarg)]
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
