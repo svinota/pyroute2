@@ -352,8 +352,8 @@ class BaseRoute(Transactional):
                         ret = []
                         # FIXME: should support encap_types other than MPLS
                         try:
-                            for l in value.get_attr('MPLS_IPTUNNEL_DST'):
-                                ret.append(str(l['label']))
+                            for dst in value.get_attr('MPLS_IPTUNNEL_DST'):
+                                ret.append(str(dst['label']))
                             if ret:
                                 self['encap']['labels'] = '/'.join(ret)
                         except AttributeError:

@@ -687,8 +687,8 @@ class nlmsg_base(dict):
         "__weakref__"
     )
 
-    def msg_align(self, l):
-        return (l + self.align - 1) & ~ (self.align - 1)
+    def msg_align(self, length):
+        return (length + self.align - 1) & ~ (self.align - 1)
 
     def __init__(self,
                  data=None,
