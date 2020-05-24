@@ -1000,6 +1000,19 @@ class RTNL_API(object):
 
         Specific type notes:
 
+        ► geneve
+
+        Create GENEVE tunnel::
+
+            ip.link("add",
+                    ifname="genx",
+                    kind="geneve",
+                    geneve_id=42,
+                    geneve_remote="172.16.0.101")
+
+        Support for GENEVE over IPv6 is also included; use `geneve_remote6`
+        to configure a remote IPv6 address.
+
         ► gre
 
         Create GRE tunnel::
