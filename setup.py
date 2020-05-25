@@ -23,7 +23,7 @@ module = __import__(config.get('setup', 'setuplib'),
                     ['setup'], 0)
 setup = getattr(module, 'setup')
 
-readme = open("README.md", "r")
+readme = open("README.rst", "r")
 
 
 setup(name='pyroute2',
