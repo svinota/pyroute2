@@ -15,6 +15,7 @@ from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nlmsg_atoms
 from pyroute2.netlink.rtnl.iw_event import iw_event
 from pyroute2.netlink.rtnl.ifinfmsg.plugins import (bond,
+                                                    geneve,
                                                     gtp,
                                                     ipvlan,
                                                     team,
@@ -213,6 +214,7 @@ def load_plugins_by_pkg(pkg):
 data_plugins = {}
 
 for module in (bond,
+               geneve,
                gtp,
                ipvlan,
                team,
