@@ -127,6 +127,9 @@ class Source(dict):
         self.nl_prime = self.vmap[self.kind]
         self.nl_kwarg = spec
         #
+        if self.ndb.messenger is not None:
+            self.ndb.messenger.targets.add(self.target)
+        #
         self.shutdown = threading.Event()
         self.started = threading.Event()
         self.lock = threading.RLock()

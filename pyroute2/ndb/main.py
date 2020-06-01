@@ -184,6 +184,7 @@ from pyroute2.ndb.objects.netns import NetNS
 # from pyroute2.ndb.query import Query
 from pyroute2.ndb.report import (RecordSet,
                                  Record)
+from pyroute2.netlink import nlmsg_base
 try:
     from urlparse import urlparse
 except ImportError:
@@ -717,7 +718,8 @@ class NDB(object):
                  rtnl_debug=False,
                  log=False,
                  auto_netns=False,
-                 libc=None):
+                 libc=None,
+                 messenger=None):
 
         self.ctime = self.gctime = time.time()
         self.schema = None
@@ -734,6 +736,12 @@ class NDB(object):
         self._global_lock = threading.Lock()
         self._event_map = None
         self._event_queue = EventQueue(maxsize=100)
+        self.messenger = messenger
+        if messenger is not None:
+            self._mm_thread = threading.Thread(target=self.__mm__,
+                                               name='Messenger')
+            self._mm_thread.setDaemon(True)
+            self._mm_thread.start()
         #
         if log:
             if isinstance(log, basestring):
@@ -831,6 +839,10 @@ class NDB(object):
             self._event_queue.bypass((cmsg(None, ShutdownException()), ))
             self._dbm_thread.join()
 
+    def __mm__(self):
+        while True:
+            print(self.messenger.handle())
+
     def __dbm__(self):
 
         def default_handler(target, event):
@@ -884,6 +896,20 @@ class NDB(object):
                 for event in events:
                     handlers = event_map.get(event.__class__,
                                              [default_handler, ])
+
+                    if self.messenger is not None:
+                        if isinstance(event, nlmsg_base):
+                            if event.data is not None:
+                                data = event.data[event.offset:
+                                                  event.offset + event.length]
+                            else:
+                                event.reset()
+                                event.encode()
+                                data = event.data
+                            data = (type(event), data)
+                            self.messenger.emit(event['header']['target'],
+                                                'update', data)
+
                     for handler in tuple(handlers):
                         try:
                             target = event['header']['target']
