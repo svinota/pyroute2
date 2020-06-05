@@ -72,6 +72,7 @@ from pyroute2.netlink.rtnl.riprsocket import RawIPRSocket
 from pyroute2.netlink.rtnl.nsidmsg import nsidmsg
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
 from pyroute2.netlink.exceptions import SkipInode
+from pyroute2.netlink.exceptions import NetlinkError
 
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
@@ -520,7 +521,15 @@ class RTNL_API(object):
         Please note, that link_lookup() returns list, not one
         value.
         '''
-        return [link['index'] for link in self.get_links(match=kwarg)]
+        if list(kwarg) <= ['index', 'ifname']:
+            # shortcut for index and ifname
+            try:
+                return [self.link('get', **kwarg)[0]['index']]
+            except NetlinkError:
+                return []
+        else:
+            # otherwise fallback to the userspace filter
+            return [link['index'] for link in self.get_links(match=kwarg)]
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
