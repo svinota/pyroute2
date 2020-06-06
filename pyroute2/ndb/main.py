@@ -511,11 +511,14 @@ class View(dict):
 
 class SourcesView(View):
 
-    def __init__(self, ndb):
+    def __init__(self, ndb, auth_managers=None):
         super(SourcesView, self).__init__(ndb, 'sources')
         self.classes['sources'] = Source
         self.cache = {}
         self.lock = threading.Lock()
+        if auth_managers is None:
+            auth_managers = []
+        self.auth_managers = auth_managers
 
     def async_add(self, **spec):
         spec = dict(Source.defaults(spec))
@@ -541,6 +544,7 @@ class SourcesView(View):
                 source.close(code=code, sync=sync)
                 return self.cache.pop(target)
 
+    @check_auth('obj:list')
     def keys(self):
         for key in self.cache:
             yield key
@@ -764,7 +768,11 @@ class NDB(object):
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
 
-        self.sources = SourcesView(self)
+        am = AuthManager({'obj:list': True,
+                          'obj:read': True,
+                          'obj:modify': True},
+                         self.log.channel('auth'))
+        self.sources = SourcesView(self, auth_managers=[am])
         self._nl = sources
         self._db_provider = db_provider
         self._db_spec = db_spec
@@ -780,10 +788,6 @@ class NDB(object):
         for event in tuple(self._dbm_autoload):
             event.wait()
         self._dbm_autoload = None
-        am = AuthManager({'obj:list': True,
-                          'obj:read': True,
-                          'obj:modify': True},
-                         self.log.channel('auth'))
         for spec in (('interfaces', 'localhost'),
                      ('addresses', 'localhost'),
                      ('routes', 'localhost'),
@@ -839,9 +843,26 @@ class NDB(object):
             self._event_queue.bypass((cmsg(None, ShutdownException()), ))
             self._dbm_thread.join()
 
+    def reload(self, kinds=None):
+        for source in self.sources.values():
+            if kinds is not None and source.kind in kinds:
+                source.restart()
+
     def __mm__(self):
-        while True:
-            print(self.messenger.handle())
+        # notify neighbours by sending hello
+        for neighbour in self.messenger.transport.neighbours:
+            self.messenger.hello(*neighbour)
+        # receive events
+        for msg in self.messenger:
+            if msg['protocol'] == 'system' and msg['data'] == 'HELLO':
+                self.reload(kinds=['local', 'netns', 'remote'])
+            elif msg['protocol'] == 'transport':
+                message = msg['data'][0](data=msg['data'][1])
+                message.decode()
+                message['header']['target'] = msg['target']
+                self._event_queue.put((message, ))
+            else:
+                self.log.warning('unknown protocol via messenger')
 
     def __dbm__(self):
 
@@ -897,7 +918,10 @@ class NDB(object):
                     handlers = event_map.get(event.__class__,
                                              [default_handler, ])
 
-                    if self.messenger is not None:
+                    if self.messenger is not None and\
+                            (event
+                             .get('header', {})
+                             .get('target', None) in self.sources.keys()):
                         if isinstance(event, nlmsg_base):
                             if event.data is not None:
                                 data = event.data[event.offset:

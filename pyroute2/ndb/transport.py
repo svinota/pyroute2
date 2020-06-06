@@ -14,7 +14,9 @@ class Transport(object):
     def send(self, data, exclude=None):
         exclude = exclude or []
         ret = []
+        print('exclude', exclude)
         for neighbour in self.neighbours:
+            print('neighbour', neighbour)
             if neighbour not in exclude:
                 ret.append(self.socket.sendto(data, neighbour))
         return ret
@@ -33,16 +35,30 @@ class Messenger(object):
         self.targets = set()
         self.id_cache = {}
 
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        while True:
+            msg = self.handle()
+            if msg is not None:
+                return msg
+
     def handle(self):
         data, address = self.transport.get()
+        print('source', address)
         message = pickle.loads(data)
+
+        if message['protocol'] == 'system':
+            print('control plane')
+            return message
 
         if message['id'] in self.id_cache:
             # discard message
             print('discard message', message)
             return None
 
-        if message['target'] in self.targets:
+        if message['target'] not in self.targets:
             # handle message with a local target
             print('landing message', message)
             return message
@@ -62,9 +78,19 @@ class Messenger(object):
                 self.id_cache[message_id] = time.time()
                 break
 
-        message = {'target': target,
+        message = {'protocol': 'transport',
+                   'target': target,
                    'id': message_id,
                    'op': op,
                    'data': data}
 
         return self.transport.send(pickle.dumps(message))
+
+    def add_neighbour(self, address, port):
+        self.transport.neighbours.add((address, port))
+        self.hello(address, port)
+
+    def hello(self, address, port):
+        data = pickle.dumps({'protocol': 'system',
+                             'data': 'HELLO'})
+        self.transport.socket.sendto(data, (address, port))
