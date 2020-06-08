@@ -14,9 +14,7 @@ class Transport(object):
     def send(self, data, exclude=None):
         exclude = exclude or []
         ret = []
-        print('exclude', exclude)
         for neighbour in self.neighbours:
-            print('neighbour', neighbour)
             if neighbour not in exclude:
                 ret.append(self.socket.sendto(data, neighbour))
         return ret
@@ -46,26 +44,21 @@ class Messenger(object):
 
     def handle(self):
         data, address = self.transport.get()
-        print('source', address)
         message = pickle.loads(data)
 
         if message['protocol'] == 'system':
-            print('control plane')
             return message
 
         if message['id'] in self.id_cache:
             # discard message
-            print('discard message', message)
             return None
 
         if message['target'] not in self.targets:
             # handle message with a local target
-            print('landing message', message)
             return message
 
         else:
             # forward message
-            print('forward message', message)
             self.id_cache[message['id']] = time.time()
             self.transport.send(data, exclude=[address, ])
             return None
