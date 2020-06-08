@@ -1,7 +1,7 @@
 import time
+import uuid
 import socket
 import pickle
-from pyroute2.common import uuid32
 
 
 class Transport(object):
@@ -66,7 +66,7 @@ class Messenger(object):
     def emit(self, target, op, data):
 
         while True:
-            message_id = '%s-%s' % (target, uuid32())
+            message_id = '%s-%s' % (target, uuid.uuid4().hex)
             if message_id not in self.id_cache:
                 self.id_cache[message_id] = time.time()
                 break
