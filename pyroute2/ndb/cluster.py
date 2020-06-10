@@ -21,8 +21,8 @@ def init(config):
     if not messenger.targets:
         messenger.targets.add(hostname)
 
-    for neighbour in config['neighbours']:
-        messenger.add_neighbour(*neighbour)
+    for peer in config.get('peers', []):
+        messenger.add_peer(*peer)
 
     sources = config['local'].get('sources')
     if sources is None:

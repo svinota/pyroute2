@@ -7,16 +7,16 @@ import pickle
 class Transport(object):
 
     def __init__(self, address, port):
-        self.neighbours = set()
+        self.peers = set()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind((address, port))
 
     def send(self, data, exclude=None):
         exclude = exclude or []
         ret = []
-        for neighbour in self.neighbours:
-            if neighbour not in exclude:
-                ret.append(self.socket.sendto(data, neighbour))
+        for peer in self.peers:
+            if peer not in exclude:
+                ret.append(self.socket.sendto(data, peer))
         return ret
 
     def get(self):
@@ -46,21 +46,23 @@ class Messenger(object):
         data, address = self.transport.get()
         message = pickle.loads(data)
 
-        if message['protocol'] == 'system':
-            return message
-
         if message['id'] in self.id_cache:
             # discard message
             return None
 
-        if message['target'] not in self.targets:
-            # handle message with a local target
+        if message['protocol'] == 'system':
+            # forward system messages
+            self.transport.send(data, exclude=[address, ])
             return message
 
+        self.id_cache[message['id']] = time.time()
+        self.transport.send(data, exclude=[address, ])
+
+        if message['target'] not in self.targets:
+            # handle message from remote targets
+            return message
         else:
             # forward message
-            self.id_cache[message['id']] = time.time()
-            self.transport.send(data, exclude=[address, ])
             return None
 
     def emit(self, target, op, data):
@@ -79,11 +81,17 @@ class Messenger(object):
 
         return self.transport.send(pickle.dumps(message))
 
-    def add_neighbour(self, address, port):
-        self.transport.neighbours.add((address, port))
+    def add_peer(self, address, port):
+        self.transport.peers.add((address, port))
         self.hello(address, port)
 
     def hello(self, address, port):
+        while True:
+            message_id = str(uuid.uuid4().hex)
+            if message_id not in self.id_cache:
+                self.id_cache[message_id] = time.time()
+                break
         data = pickle.dumps({'protocol': 'system',
+                             'id': message_id,
                              'data': 'HELLO'})
         self.transport.socket.sendto(data, (address, port))
