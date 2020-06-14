@@ -13,7 +13,8 @@ def init(config):
         config = json.load(config)
     hostname = config['local'].get('hostname', socket.gethostname())
     messenger = Messenger(Transport(config['local']['address'],
-                                    config['local']['port']))
+                                    config['local']['port'],
+                                    socket.SOCK_DGRAM))
 
     for target in config['local'].get('targets', []):
         messenger.targets.add(target)
