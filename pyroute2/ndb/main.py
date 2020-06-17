@@ -917,11 +917,10 @@ class NDB(object):
                 for event in events:
                     handlers = event_map.get(event.__class__,
                                              [default_handler, ])
-
                     if self.messenger is not None and\
                             (event
                              .get('header', {})
-                             .get('target', None) in self.sources.keys()):
+                             .get('target', None) in self.messenger.targets):
                         if isinstance(event, nlmsg_base):
                             if event.data is not None:
                                 data = event.data[event.offset:
