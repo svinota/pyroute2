@@ -851,7 +851,7 @@ class NDB(object):
     def __mm__(self):
         # notify neighbours by sending hello
         for peer in self.messenger.transport.peers:
-            self.messenger.hello(peer)
+            peer.hello()
         # receive events
         for msg in self.messenger:
             if msg['protocol'] == 'system' and msg['data'] == 'HELLO':

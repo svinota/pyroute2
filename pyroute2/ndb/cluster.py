@@ -12,8 +12,8 @@ def init(config):
     else:
         config = json.load(config)
     hostname = config['local'].get('hostname', socket.gethostname())
-    messenger = Messenger(Transport(config['local']['id'],
-                                    config['local']['address'],
+    messenger = Messenger(config['local']['id'],
+                          Transport(config['local']['address'],
                                     config['local']['port'],
                                     socket.SOCK_STREAM))
 
