@@ -129,7 +129,9 @@ class Transport(object):
                                   .index(fd)))
                             continue
                         length, remote_id = struct.unpack('II', data)
-                        data = fd.recv(length)
+                        data = b''
+                        while len(data) < length:
+                            data += fd.recv(length - len(data))
                         return data, remote_id
 
     def close(self):
