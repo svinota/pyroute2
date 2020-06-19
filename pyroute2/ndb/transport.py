@@ -33,6 +33,7 @@ class Peer(object):
         self.remote_id = remote_id
         self.local_id = local_id
         self.cache = cache
+        self.last_exception_time = 0
 
     def __repr__(self):
         return '[%s-%s] %s:%s' % (self.local_id,
@@ -55,12 +56,15 @@ class Peer(object):
         length = len(data)
         data = struct.pack('II', length, self.local_id) + data
         if self.socket is None:
+            if time.time() - self.last_exception_time < 5:
+                return
             self.socket = socket.socket(socket.AF_INET, self.proto)
             if self.proto == socket.SOCK_STREAM:
                 try:
                     self.socket.connect((self.address, self.port))
                     self.hello()
                 except Exception:
+                    self.last_exception_time = time.time()
                     self.socket = None
                     return
         try:
