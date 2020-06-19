@@ -10,10 +10,17 @@ class IdCache(dict):
 
     def invalidate(self):
         current_time = time.time()
-        collect_time = current_time - 120
+        collect_time = current_time - 60
         for mid, meta in tuple(self.items()):
             if meta < collect_time:
                 self.pop(mid)
+
+    def __setitem__(self, key, value):
+        if len(self) > 100:
+            print("invalidate")
+            self.invalidate()
+        print(key, value)
+        dict.__setitem__(self, key, value)
 
 
 class Peer(object):
@@ -145,7 +152,7 @@ class Messenger(object):
         self.transport = transport or \
             Transport('0.0.0.0', 5680, socket.SOCK_STREAM)
         self.targets = set()
-        self.id_cache = {}
+        self.id_cache = IdCache()
 
     def __iter__(self):
         return self
