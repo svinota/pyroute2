@@ -17,9 +17,7 @@ class IdCache(dict):
 
     def __setitem__(self, key, value):
         if len(self) > 100:
-            print("invalidate")
             self.invalidate()
-        print(key, value)
         dict.__setitem__(self, key, value)
 
 
