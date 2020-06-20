@@ -90,12 +90,16 @@ class Server(HTTPServer):
                  address='localhost',
                  port=8080,
                  sources=None,
+                 ndb=None,
                  log=None,
                  auth_strict=False,
                  auth_plugins=None):
         self.sessions = {}
         self.auth_strict = auth_strict
         self.auth_plugins = auth_plugins or {}
-        self.ndb = NDB(sources=sources, log=log)
+        if ndb is not None:
+            self.ndb = ndb
+        else:
+            self.ndb = NDB(sources=sources, log=log)
         self.ndb.config = {'show_format': 'json'}
         HTTPServer.__init__(self, (address, port), Handler)
