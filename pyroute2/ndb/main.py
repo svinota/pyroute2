@@ -773,6 +773,7 @@ class NDB(object):
                           'obj:modify': True},
                          self.log.channel('auth'))
         self.sources = SourcesView(self, auth_managers=[am])
+        self._call_registry = {}
         self._nl = sources
         self._db_provider = db_provider
         self._db_spec = db_spec
@@ -854,13 +855,31 @@ class NDB(object):
             peer.hello()
         # receive events
         for msg in self.messenger:
-            if msg['protocol'] == 'system' and msg['data'] == 'HELLO':
+            if msg['type'] == 'system' and msg['data'] == 'HELLO':
                 self.reload(kinds=['local', 'netns', 'remote'])
-            elif msg['protocol'] == 'transport':
+            elif msg['type'] == 'transport':
                 message = msg['data'][0](data=msg['data'][1])
                 message.decode()
                 message['header']['target'] = msg['target']
                 self._event_queue.put((message, ))
+            elif msg['type'] == 'response':
+                if msg['call_id'] in self._call_registry:
+                    event = self._call_registry.pop(msg['call_id'])
+                    self._call_registry[msg['call_id']] = msg
+                    event.set()
+            elif msg['type'] == 'api':
+                if msg['target'] in self.messenger.targets:
+                    try:
+                        ret = self.sources[msg['target']].api(msg['name'],
+                                                              *msg['argv'],
+                                                              **msg['kwarg'])
+                        self.messenger.emit({'type': 'response',
+                                             'call_id': msg['call_id'],
+                                             'return': ret})
+                    except Exception as e:
+                        self.messenger.emit({'type': 'response',
+                                             'call_id': msg['call_id'],
+                                             'exception': e})
             else:
                 self.log.warning('unknown protocol via messenger')
 
@@ -930,8 +949,10 @@ class NDB(object):
                                 event.encode()
                                 data = event.data
                             data = (type(event), data)
-                            self.messenger.emit(event['header']['target'],
-                                                'update', data)
+                            tgt = event['header']['target']
+                            self.messenger.emit({'type': 'transport',
+                                                 'target': tgt,
+                                                 'data': data})
 
                     for handler in tuple(handlers):
                         try:

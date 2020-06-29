@@ -70,6 +70,8 @@ See also: :ref:`remote`
 '''
 import sys
 import time
+import uuid
+import queue
 import errno
 import socket
 import struct
@@ -92,6 +94,35 @@ else:
     NetNSManager = None
 
 SOURCE_FAIL_PAUSE = 5
+
+
+class SourceProxy(object):
+
+    def __init__(self, ndb, target):
+        self.ndb = ndb
+        self.events = queue.Queue()
+        self.target = target
+
+    def api(self, name, *argv, **kwarg):
+        call_id = str(uuid.uuid4().hex)
+        self.ndb._call_registry[call_id] = event = threading.Event()
+        event.clear()
+        (self
+         .ndb
+         .messenger
+         .emit({'type': 'api',
+                'target': self.target,
+                'call_id': call_id,
+                'name': name,
+                'argv': argv,
+                'kwarg': kwarg}))
+
+        event.wait()
+        response = self.ndb._call_registry.pop(call_id)
+        if 'return' in response:
+            return response['return']
+        elif 'exception' in response:
+            raise response['exception']
 
 
 class Source(dict):

@@ -45,7 +45,7 @@ class Peer(object):
             if message_id not in self.cache:
                 self.cache[message_id] = time.time()
                 break
-        data = pickle.dumps({'protocol': 'system',
+        data = pickle.dumps({'type': 'system',
                              'id': message_id,
                              'data': 'HELLO'})
         self.send(data)
@@ -173,33 +173,34 @@ class Messenger(object):
             # discard message
             return None
 
-        if message['protocol'] == 'system':
+        if message['type'] == 'system':
             # forward system messages
             self.transport.send(data, exclude=[remote_id, ])
             return message
 
         self.id_cache[message['id']] = time.time()
 
-        if message['target'] in self.targets:
-            # forward message
+        if message['type'] == 'transport' and \
+                message['target'] in self.targets:
+            # ignore DB updates with the same target
             message = None
+        elif message['type'] == 'api' and \
+                message['target'] not in self.targets:
+            # ignore API messages with other targets
+            message = None
+
         self.transport.send(data, exclude=[remote_id, ])
         return message
 
-    def emit(self, target, op, data):
-
+    def emit(self, message):
         while True:
-            message_id = '%s-%s' % (target, uuid.uuid4().hex)
+            message_id = '%s-%s' % (message.get('target', '-'),
+                                    uuid.uuid4().hex)
             if message_id not in self.id_cache:
                 self.id_cache[message_id] = time.time()
                 break
 
-        message = {'protocol': 'transport',
-                   'target': target,
-                   'id': message_id,
-                   'op': op,
-                   'data': data}
-
+        message['id'] = message_id
         return self.transport.send(pickle.dumps(message))
 
     def add_peer(self, remote_id, address, port):
