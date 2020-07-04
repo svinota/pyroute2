@@ -171,7 +171,8 @@ from pyroute2.ndb.messages import (cmsg,
                                    cmsg_event,
                                    cmsg_failed,
                                    cmsg_sstart)
-from pyroute2.ndb.source import Source
+from pyroute2.ndb.source import (Source,
+                                 SourceProxy)
 from pyroute2.ndb.auth_manager import check_auth
 from pyroute2.ndb.auth_manager import AuthManager
 from pyroute2.ndb.objects.interface import Interface
@@ -515,6 +516,7 @@ class SourcesView(View):
         super(SourcesView, self).__init__(ndb, 'sources')
         self.classes['sources'] = Source
         self.cache = {}
+        self.proxy = {}
         self.lock = threading.Lock()
         if auth_managers is None:
             auth_managers = []
@@ -566,7 +568,14 @@ class SourcesView(View):
         else:
             raise ValueError('key format not supported')
 
-        return self.cache[target]
+        if target in self.cache:
+            return self.cache[target]
+        elif target in self.proxy:
+            return self.proxy[target]
+        else:
+            proxy = SourceProxy(self.ndb, target)
+            self.proxy[target] = proxy
+            return proxy
 
 
 class Log(object):
