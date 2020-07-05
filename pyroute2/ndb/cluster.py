@@ -14,8 +14,7 @@ def init(config):
     hostname = config['local'].get('hostname', socket.gethostname())
     messenger = Messenger(config['local']['id'],
                           Transport(config['local']['address'],
-                                    config['local']['port'],
-                                    socket.SOCK_STREAM))
+                                    config['local']['port']))
 
     for target in config['local'].get('targets', []):
         messenger.targets.add(target)
