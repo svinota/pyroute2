@@ -865,6 +865,8 @@ class NDB(object):
         # receive events
         for msg in self.messenger:
             if msg['type'] == 'system' and msg['data'] == 'HELLO':
+                for peer in self.messenger.transport.peers:
+                    peer.last_exception_time = 0
                 self.reload(kinds=['local', 'netns', 'remote'])
             elif msg['type'] == 'transport':
                 message = msg['data'][0](data=msg['data'][1])
