@@ -81,7 +81,6 @@ class AuthManager(object):
 
     def check(self, obj, tag):
         ret = self.policy
-        self.log.debug('%s %s auth=%s' % (id(obj), tag, self.auth))
         if isinstance(self.auth, dict):
             ret = self.auth.get(tag, self.policy)
         if not ret and self.exception:

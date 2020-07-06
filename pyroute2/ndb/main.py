@@ -171,7 +171,8 @@ from pyroute2.ndb.messages import (cmsg,
                                    cmsg_event,
                                    cmsg_failed,
                                    cmsg_sstart)
-from pyroute2.ndb.source import Source
+from pyroute2.ndb.source import (Source,
+                                 SourceProxy)
 from pyroute2.ndb.auth_manager import check_auth
 from pyroute2.ndb.auth_manager import AuthManager
 from pyroute2.ndb.objects.interface import Interface
@@ -184,6 +185,7 @@ from pyroute2.ndb.objects.netns import NetNS
 # from pyroute2.ndb.query import Query
 from pyroute2.ndb.report import (RecordSet,
                                  Record)
+from pyroute2.netlink import nlmsg_base
 try:
     from urlparse import urlparse
 except ImportError:
@@ -510,11 +512,15 @@ class View(dict):
 
 class SourcesView(View):
 
-    def __init__(self, ndb):
+    def __init__(self, ndb, auth_managers=None):
         super(SourcesView, self).__init__(ndb, 'sources')
         self.classes['sources'] = Source
         self.cache = {}
+        self.proxy = {}
         self.lock = threading.Lock()
+        if auth_managers is None:
+            auth_managers = []
+        self.auth_managers = auth_managers
 
     def async_add(self, **spec):
         spec = dict(Source.defaults(spec))
@@ -540,6 +546,7 @@ class SourcesView(View):
                 source.close(code=code, sync=sync)
                 return self.cache.pop(target)
 
+    @check_auth('obj:list')
     def keys(self):
         for key in self.cache:
             yield key
@@ -561,7 +568,14 @@ class SourcesView(View):
         else:
             raise ValueError('key format not supported')
 
-        return self.cache[target]
+        if target in self.cache:
+            return self.cache[target]
+        elif target in self.proxy:
+            return self.proxy[target]
+        else:
+            proxy = SourceProxy(self.ndb, target)
+            self.proxy[target] = proxy
+            return proxy
 
 
 class Log(object):
@@ -717,7 +731,8 @@ class NDB(object):
                  rtnl_debug=False,
                  log=False,
                  auto_netns=False,
-                 libc=None):
+                 libc=None,
+                 messenger=None):
 
         self.ctime = self.gctime = time.time()
         self.schema = None
@@ -734,6 +749,12 @@ class NDB(object):
         self._global_lock = threading.Lock()
         self._event_map = None
         self._event_queue = EventQueue(maxsize=100)
+        self.messenger = messenger
+        if messenger is not None:
+            self._mm_thread = threading.Thread(target=self.__mm__,
+                                               name='Messenger')
+            self._mm_thread.setDaemon(True)
+            self._mm_thread.start()
         #
         if log:
             if isinstance(log, basestring):
@@ -756,7 +777,12 @@ class NDB(object):
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
 
-        self.sources = SourcesView(self)
+        am = AuthManager({'obj:list': True,
+                          'obj:read': True,
+                          'obj:modify': True},
+                         self.log.channel('auth'))
+        self.sources = SourcesView(self, auth_managers=[am])
+        self._call_registry = {}
         self._nl = sources
         self._db_provider = db_provider
         self._db_spec = db_spec
@@ -772,10 +798,6 @@ class NDB(object):
         for event in tuple(self._dbm_autoload):
             event.wait()
         self._dbm_autoload = None
-        am = AuthManager({'obj:list': True,
-                          'obj:read': True,
-                          'obj:modify': True},
-                         self.log.channel('auth'))
         for spec in (('interfaces', 'localhost'),
                      ('addresses', 'localhost'),
                      ('routes', 'localhost'),
@@ -831,6 +853,47 @@ class NDB(object):
             self._event_queue.bypass((cmsg(None, ShutdownException()), ))
             self._dbm_thread.join()
 
+    def reload(self, kinds=None):
+        for source in self.sources.values():
+            if kinds is not None and source.kind in kinds:
+                source.restart()
+
+    def __mm__(self):
+        # notify neighbours by sending hello
+        for peer in self.messenger.transport.peers:
+            peer.hello()
+        # receive events
+        for msg in self.messenger:
+            if msg['type'] == 'system' and msg['data'] == 'HELLO':
+                for peer in self.messenger.transport.peers:
+                    peer.last_exception_time = 0
+                self.reload(kinds=['local', 'netns', 'remote'])
+            elif msg['type'] == 'transport':
+                message = msg['data'][0](data=msg['data'][1])
+                message.decode()
+                message['header']['target'] = msg['target']
+                self._event_queue.put((message, ))
+            elif msg['type'] == 'response':
+                if msg['call_id'] in self._call_registry:
+                    event = self._call_registry.pop(msg['call_id'])
+                    self._call_registry[msg['call_id']] = msg
+                    event.set()
+            elif msg['type'] == 'api':
+                if msg['target'] in self.messenger.targets:
+                    try:
+                        ret = self.sources[msg['target']].api(msg['name'],
+                                                              *msg['argv'],
+                                                              **msg['kwarg'])
+                        self.messenger.emit({'type': 'response',
+                                             'call_id': msg['call_id'],
+                                             'return': ret})
+                    except Exception as e:
+                        self.messenger.emit({'type': 'response',
+                                             'call_id': msg['call_id'],
+                                             'exception': e})
+            else:
+                self.log.warning('unknown protocol via messenger')
+
     def __dbm__(self):
 
         def default_handler(target, event):
@@ -884,6 +947,24 @@ class NDB(object):
                 for event in events:
                     handlers = event_map.get(event.__class__,
                                              [default_handler, ])
+                    if self.messenger is not None and\
+                            (event
+                             .get('header', {})
+                             .get('target', None) in self.messenger.targets):
+                        if isinstance(event, nlmsg_base):
+                            if event.data is not None:
+                                data = event.data[event.offset:
+                                                  event.offset + event.length]
+                            else:
+                                event.reset()
+                                event.encode()
+                                data = event.data
+                            data = (type(event), data)
+                            tgt = event['header']['target']
+                            self.messenger.emit({'type': 'transport',
+                                                 'target': tgt,
+                                                 'data': data})
+
                     for handler in tuple(handlers):
                         try:
                             target = event['header']['target']

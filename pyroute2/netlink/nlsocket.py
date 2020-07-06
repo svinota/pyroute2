@@ -318,6 +318,7 @@ class NetlinkMixin(object):
                        'rcvbuf': rcvbuf,
                        'all_ns': all_ns,
                        'async_qsize': async_qsize,
+                       'target': target,
                        'nlm_generator': nlm_generator}
         # 8<-----------------------------------------
         self.addr_pool = AddrPool(minaddr=0x000000ff, maxaddr=0x0000ffff)
