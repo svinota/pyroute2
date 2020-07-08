@@ -32,11 +32,20 @@ class Peer(object):
         self.cache = cache
         self.last_exception_time = 0
 
+    @property
+    def connected(self):
+        return self.socket is not None
+
     def __repr__(self):
-        return '[%s-%s] %s:%s' % (self.local_id,
-                                  self.remote_id,
-                                  self.address,
-                                  self.port)
+        if self.connected:
+            connected = 'not connected'
+        else:
+            connected = 'connected'
+        return '[%s-%s] %s:%s [%s]' % (self.local_id,
+                                       self.remote_id,
+                                       self.address,
+                                       self.port,
+                                       connected)
 
     def hello(self):
         while True:
