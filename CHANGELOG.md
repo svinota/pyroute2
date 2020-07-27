@@ -1,6 +1,11 @@
 Changelog
 =========
 
+* 0.5.13
+    * netns: allow to pass custom libc reference <https://github.com/svinota/pyroute2/issues/702>
+    * generic: att L2TP support <https://github.com/svinota/pyroute2/pull/709>
+    * iproute: link_lookup() optimization <https://github.com/svinota/pyroute2/issues/712>
+    * ndb: basic cluster support
 * 0.5.12
     * rtnl: implement team config pass <https://github.com/svinota/pyroute2/issues/699>
     * ndb.auth: example auth modules for RADIUS and OpenStack / Keystone
