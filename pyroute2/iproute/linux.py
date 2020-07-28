@@ -910,6 +910,15 @@ class RTNL_API(object):
         Dump all the records in the NDB::
 
             ip.neigh('dump')
+
+        **get**
+
+        Get specific record (dst and ifindex are mandatory). Available
+        only on recent kernel::
+
+            ip.neigh('get',
+                     dst='172.16.45.1',
+                     ifindex=idx)
         '''
         if (command == 'dump') and ('match' not in kwarg):
             match = kwarg
@@ -931,6 +940,7 @@ class RTNL_API(object):
                     'remove': (RTM_DELNEIGH, flags_make),
                     'delete': (RTM_DELNEIGH, flags_make),
                     'dump': (RTM_GETNEIGH, flags_dump),
+                    'get': (RTM_GETNEIGH, flags_base),
                     'append': (RTM_NEWNEIGH, flags_append)}
 
         (command, flags) = commands.get(command, command)
