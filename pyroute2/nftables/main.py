@@ -71,14 +71,16 @@ class NFTables(NFTSocket):
         '''
         commands = {'add': NFT_MSG_NEWCHAIN,
                     'del': NFT_MSG_DELCHAIN}
-        # TODO: cover all 6 hooks
-        hooks = {'input': 1,
+        # TODO: What about 'ingress' (netdev family)?
+        hooks = {'prerouting': 0,
+                 'input': 1,
                  'forward': 2,
-                 'output': 3}
+                 'output': 3,
+                 'postrouting': 4}
         if 'hook' in kwarg:
             kwarg['hook'] = {'attrs':
                              [['NFTA_HOOK_HOOKNUM', hooks[kwarg['hook']]],
-                              ['NFTA_HOOK_PRIORITY', 0]]}
+                              ['NFTA_HOOK_PRIORITY', kwarg.pop('priority', 0)]]}
         if 'type' not in kwarg:
             kwarg['type'] = 'filter'
         return self._command(nft_chain_msg, commands, cmd, kwarg)
