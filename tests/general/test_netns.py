@@ -2,6 +2,7 @@ import os
 import time
 import fcntl
 import platform
+import signal
 import subprocess
 import tempfile
 from threading import Thread
@@ -249,7 +250,7 @@ class TestNetNS(object):
         netnsmod.remove(foo)
         netnsmod.remove(bar)
 
-    def _test_create(self, ns_name, ns_fd=None):
+    def _test_create(self, ns_name, ns_fd=None, pid=None):
         require_user('root')
         ipdb_main = IPDB()
         ipdb_test = IPDB(nl=NetNS(ns_name))
@@ -319,6 +320,23 @@ class TestNetNS(object):
     def test_create(self):
         ns_name = str(uuid4())
         self._test_create(ns_name)
+        netnsmod.remove(ns_name)
+        assert ns_name not in netnsmod.listnetns()
+
+    def test_attach(self):
+        ns_name = str(uuid4())
+        pid = os.fork()
+        if pid == 0:
+            # child
+            while True:
+                time.sleep(.1)
+        else:
+            # parent
+            try:
+                self._test_create(ns_name, pid=pid)
+            finally:
+                os.kill(int(pid), signal.SIGTERM)
+                os.waitpid(pid, 0)
         netnsmod.remove(ns_name)
         assert ns_name not in netnsmod.listnetns()
 

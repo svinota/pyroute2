@@ -63,8 +63,8 @@ Spawn a process within a netns
 For that purpose one can use `NSPopen` API. It works just
 as normal `Popen`, but starts a process within a netns.
 
-List, set, create and remove netns
-----------------------------------
+List, set, create, attach and remove netns
+------------------------------------------
 
 These functions are described below. To use them, import
 `netns` module::
@@ -206,7 +206,7 @@ def pid_to_ns(pid=1, nspath=NETNS_RUN_DIR):
         return None
 
 
-def _create(netns, libc=None):
+def _create(netns, libc=None, pid=None):
     libc = libc or ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
     netnspath = _get_netnspath(netns)
     netnsdir = os.path.dirname(netnspath)
@@ -232,11 +232,13 @@ def _create(netns, libc=None):
     os.close(os.open(netnspath, os.O_RDONLY | os.O_CREAT | os.O_EXCL, 0))
 
     # unshare
-    if libc.unshare(CLONE_NEWNET) < 0:
-        raise OSError(ctypes.get_errno(), 'unshare failed', netns)
+    if pid is None:
+        pid = 'self'
+        if libc.unshare(CLONE_NEWNET) < 0:
+            raise OSError(ctypes.get_errno(), 'unshare failed', netns)
 
     # bind the namespace
-    if libc.mount(b'/proc/self/ns/net', netnspath, b'none', MS_BIND, None) < 0:
+    if libc.mount('/proc/{}/ns/net'.format(pid).encode('utf-8'), netnspath, b'none', MS_BIND, None) < 0:
         raise OSError(ctypes.get_errno(), 'mount failed', netns)
 
 
@@ -267,6 +269,14 @@ def create(netns, libc=None):
         os.waitpid(pid, 0)
         if error is not None:
             raise error
+
+
+def attach(netns, pid, libc=None):
+    '''
+    Attach the network namespace of the process `pid`
+    to `netns` as if it were created with `create`.
+    '''
+    _create(netns, libc, pid)
 
 
 def remove(netns, libc=None):
