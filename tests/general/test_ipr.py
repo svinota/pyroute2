@@ -1362,3 +1362,9 @@ class TestIPRoute(object):
         assert len(routes)
         assert all([isinstance(x, dict) for x in routes])
         assert all([x['event'] == 'RTM_NEWROUTE' for x in routes])
+
+    def test_link_lookup(self):
+        ifindex = self._create('dummy')[1]
+        interface = self.ip.get_links(ifindex)[0]
+        res = self.ip.link_lookup(address=interface.get_attr('IFLA_ADDRESS'))
+        assert ifindex == res[0]
