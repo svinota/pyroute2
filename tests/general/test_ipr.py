@@ -604,6 +604,18 @@ class TestIPRoute(object):
         assert len(self.ip.get_neighbours(match=lambda x: x['ifindex'] ==
                                           self.ifaces[0])) == 2
 
+    def test_neigh_get(self):
+        require_user('root')
+        ifaddr1 = self.ifaddr(1)
+        self.ip.neigh('add',
+                      dst=ifaddr1,
+                      lladdr='00:11:22:33:44:55',
+                      ifindex=self.ifaces[0])
+        res = self.ip.neigh('get',
+                            dst=ifaddr1,
+                            ifindex=self.ifaces[0])
+        assert res[0].get_attr("NDA_DST") == ifaddr1
+
     def test_mass_ipv6(self):
         #
         # Achtung! This test is time consuming.
