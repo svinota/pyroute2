@@ -79,8 +79,10 @@ class NFTables(NFTSocket):
                  'postrouting': 4}
         if 'hook' in kwarg:
             kwarg['hook'] = {'attrs':
-                             [['NFTA_HOOK_HOOKNUM', hooks[kwarg['hook']]],
-                              ['NFTA_HOOK_PRIORITY', kwarg.pop('priority', 0)]]}
+                             [['NFTA_HOOK_HOOKNUM',
+                               hooks[kwarg['hook']]],
+                              ['NFTA_HOOK_PRIORITY',
+                               kwarg.pop('priority', 0)]]}
         if 'type' not in kwarg:
             kwarg['type'] = 'filter'
         return self._command(nft_chain_msg, commands, cmd, kwarg)

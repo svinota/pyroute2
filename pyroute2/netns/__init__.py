@@ -238,7 +238,11 @@ def _create(netns, libc=None, pid=None):
             raise OSError(ctypes.get_errno(), 'unshare failed', netns)
 
     # bind the namespace
-    if libc.mount('/proc/{}/ns/net'.format(pid).encode('utf-8'), netnspath, b'none', MS_BIND, None) < 0:
+    if libc.mount('/proc/{}/ns/net'.format(pid).encode('utf-8'),
+                  netnspath,
+                  b'none',
+                  MS_BIND,
+                  None) < 0:
         raise OSError(ctypes.get_errno(), 'mount failed', netns)
 
 
