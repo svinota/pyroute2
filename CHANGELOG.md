@@ -1,6 +1,11 @@
 Changelog
 =========
 
+* 0.5.14
+    * iproute: ip neigh get <https://github.com/svinota/pyroute2/pull/723>
+    * iproute: link_lookup fix <https://github.com/svinota/pyroute2/pull/725>
+    * nftables: missing hooks <https://github.com/svinota/pyroute2/pull/732>
+    * netns: fix <https://github.com/svinota/pyroute2/pull/733>
 * 0.5.13
     * netns: allow to pass custom libc reference <https://github.com/svinota/pyroute2/issues/702>
     * generic: att L2TP support <https://github.com/svinota/pyroute2/pull/709>
