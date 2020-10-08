@@ -963,7 +963,7 @@ class RTNL_API(object):
         ret = self.nlm_request(msg,
                                msg_type=command,
                                msg_flags=flags)
-        if match is not None:
+        if match:
             ret = self._match(match, ret)
 
         if not (command == RTM_GETNEIGH and self.nlm_generator):
