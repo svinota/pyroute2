@@ -39,6 +39,7 @@ from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_PHYSDEV
 from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_IFACE_WILDCARD
+from pyroute2.netlink.nfnetlink.nfctsocket import IP_PROTOCOLS
 
 
 # Debug variable to detect netlink socket leaks
@@ -244,6 +245,12 @@ class WiSet(object):
                     key += entry.get_attr("IPSET_ATTR_NAME")
                 elif parse_type == "mark":
                     key += str(hex(entry.get_attr("IPSET_ATTR_MARK")))
+                elif parse_type == "port":
+                    proto = entry.get_attr('IPSET_ATTR_PROTO')
+                    if proto is not None:
+                        proto = IP_PROTOCOLS.get(proto, str(proto)).lower()
+                        key += '{proto}:'.format(proto=proto)
+                    key += str(entry.get_attr("IPSET_ATTR_PORT_FROM"))
                 key += ","
 
             key = key.strip(",")
