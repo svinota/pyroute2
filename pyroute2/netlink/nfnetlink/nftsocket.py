@@ -106,7 +106,7 @@ class nft_regs(nla):
                0x03: 'NFT_REG_3',
                0x04: 'NFT_REG_4',
                0x08: 'NFT_REG32_00',
-               0x09: 'MFT_REG32_01',
+               0x09: 'NFT_REG32_01',
                0x0a: 'NFT_REG32_02',
                0x0b: 'NFT_REG32_03',
                0x0c: 'NFT_REG32_04',
