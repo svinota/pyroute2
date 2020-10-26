@@ -58,7 +58,7 @@ class nft_chain_msg(nfgen_msg):
     class hook(nla):
         nla_map = (('NFTA_HOOK_UNSPEC', 'none'),
                    ('NFTA_HOOK_HOOKNUM', 'be32'),
-                   ('NFTA_HOOK_PRIORITY', 'be32'),
+                   ('NFTA_HOOK_PRIORITY', 'sbe32'),
                    ('NFTA_HOOK_DEV', 'asciiz'))
 
 
