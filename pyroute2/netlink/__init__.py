@@ -1696,6 +1696,34 @@ class nlmsg_atoms(nlmsg_base):
 
         fields = [('value', '>Q')]
 
+    class sbe8(nla_base):
+
+        __slots__ = ()
+        sql_type = 'INTEGER'
+
+        fields = [('value', '>b')]
+
+    class sbe16(nla_base):
+
+        __slots__ = ()
+        sql_type = 'INTEGER'
+
+        fields = [('value', '>h')]
+
+    class sbe32(nla_base):
+
+        __slots__ = ()
+        sql_type = 'BIGINT'
+
+        fields = [('value', '>i')]
+
+    class sbe64(nla_base):
+
+        __slots__ = ()
+        sql_type = 'BIGINT'
+
+        fields = [('value', '>q')]
+
     class ipXaddr(nla_base):
 
         __slots__ = ()
