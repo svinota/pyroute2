@@ -17,7 +17,6 @@ def show_nftables(family: int = 0) -> None:
         print("\nRules:")
         for rule in rules:
             print(rule, type(rule))
-        print(f"Interfaces:\n{avail_interfaces}")
 
 
 show_nftables(0)
