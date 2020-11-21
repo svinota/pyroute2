@@ -148,7 +148,8 @@ RouteKey = namedtuple('RouteKey',
                        'table',
                        'family',
                        'priority',
-                       'tos'))
+                       'tos',
+                       'oif'))
 
 # IP multipath NH key
 IPNHKey = namedtuple('IPNHKey',
