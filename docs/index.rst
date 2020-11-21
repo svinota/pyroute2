@@ -27,6 +27,7 @@ Usage
     ipdb_toc
     wiset
     ipset
+    nftables
     netns
     wireguard
 
