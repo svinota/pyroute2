@@ -226,18 +226,22 @@ class TestIPRoute(object):
         self.ip.link('set', index=ax, state='up')
         self.ip.link('set', index=bx, state='up')
         assert len(self.ip.get_vlans()) >= 2
-        for name in (an, bn):
-            assert len(self.ip.get_vlans(ifname=name)) == 1
-            assert (self
-                    .ip
-                    .get_vlans(ifname=name)[0]
-                    .get_attr('IFLA_IFNAME')) == name
-            assert (self
-                    .ip
-                    .get_vlans(ifname=name)[0]
-                    .get_nested('IFLA_AF_SPEC',
-                                'IFLA_BRIDGE_VLAN_INFO'))['vid'] == 1
+        try:
+            for name in (an, bn):
+                assert len(self.ip.get_vlans(ifname=name)) == 1
+                assert (self
+                        .ip
+                        .get_vlans(ifname=name)[0]
+                        .get_attr('IFLA_IFNAME')) == name
+                assert (self
+                        .ip
+                        .get_vlans(ifname=name)[0]
+                        .get_nested('IFLA_AF_SPEC',
+                                    'IFLA_BRIDGE_VLAN_INFO'))['vid'] == 1
+        except TypeError:
+            raise SkipTest('feature not supported by platform')
 
+    @skip_if_not_supported
     def test_vlan_filter_add(self):
         require_user('root')
         (bn, bx) = self.create('bridge')
@@ -249,6 +253,7 @@ class TestIPRoute(object):
         self.ip.vlan_filter('del', index=sx, vlan_info={'vid': 568})
         assert not grep('bridge vlan show', pattern=' 568')
 
+    @skip_if_not_supported
     def test_vlan_filter_add_raw(self):
         require_user('root')
         (bn, bx) = self.create('bridge')
