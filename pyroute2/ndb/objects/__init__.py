@@ -266,7 +266,7 @@ class RTNL_Object(dict):
             if exists:
                 raise KeyError('object exists')
             for name in key:
-                self[name] = key[name]
+                self[self.iclass.nla2name(name)] = key[name]
             # FIXME -- merge with complete_key()
             if 'target' not in self:
                 self.load_value('target', self.view.default_target)
