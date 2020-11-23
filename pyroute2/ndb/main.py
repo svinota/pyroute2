@@ -290,6 +290,21 @@ class View(dict):
         except KeyError:
             return None
 
+    def template(self, key, table=None):
+        if self.chain:
+            context = self.chain.context
+        else:
+            context = {}
+        iclass = self.classes[table or self.table]
+        if isinstance(key, Record):
+            key = key._as_dict()
+        key = iclass.adjust_spec(key, context)
+        return iclass(self,
+                      key,
+                      load=False,
+                      master=self.chain,
+                      auth_managers=self.auth_managers)
+
     @cli.change_pointer
     def create(self, *argspec, **kwspec):
         if self.chain:
@@ -397,19 +412,7 @@ class View(dict):
     @check_auth('obj:read')
     def __getitem__(self, key, table=None):
 
-        if self.chain:
-            context = self.chain.context
-        else:
-            context = {}
-        iclass = self.classes[table or self.table]
-        if isinstance(key, Record):
-            key = key._as_dict()
-        key = iclass.adjust_spec(key, context)
-        ret = iclass(self,
-                     key,
-                     load=False,
-                     master=self.chain,
-                     auth_managers=self.auth_managers)
+        ret = self.template(key, table)
 
         # rtnl_object.key() returns a dcitionary that can not
         # be used as a cache key. Create here a tuple from it.
