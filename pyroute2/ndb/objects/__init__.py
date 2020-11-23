@@ -250,6 +250,7 @@ class RTNL_Object(dict):
         self.knorm = self.schema.compiled[self.table]['norm_idx']
         self.spec = self.schema.compiled[self.table]['all_names']
         self.names = self.schema.compiled[self.table]['norm_names']
+        self.last_save = None
         if self.event_map is None:
             self.event_map = {}
         self._apply_script = []
@@ -587,10 +588,11 @@ class RTNL_Object(dict):
                 e_r.chain = None
             raise
         finally:
-            (self
-             .last_save
-             .state
-             .set(self.state.get()))
+            if self.last_save is not None:
+                (self
+                 .last_save
+                 .state
+                 .set(self.state.get()))
         if self._replace is not None:
             self._replace = None
         return self
