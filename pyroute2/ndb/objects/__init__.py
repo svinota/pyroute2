@@ -260,9 +260,10 @@ class RTNL_Object(dict):
         else:
             self.chain = None
             create = False
+        exists = self.exists(key)
         ckey = self.complete_key(key)
         if create:
-            if ckey is not None:
+            if exists:
                 raise KeyError('object exists')
             for name in key:
                 self[name] = key[name]
@@ -270,7 +271,7 @@ class RTNL_Object(dict):
             if 'target' not in self:
                 self.load_value('target', self.view.default_target)
         else:
-            if ckey is None:
+            if not exists:
                 raise KeyError('object does not exists')
             self.key = ckey
             if load:
@@ -500,6 +501,36 @@ class RTNL_Object(dict):
 
         self.log.debug('got %s' % key)
         return key
+
+    def exists(self, key):
+        '''
+        Check if the object exists in the DB
+        '''
+        self.log.debug('check if the key %s exists in table %s' %
+                       (key, self.etable))
+        if isinstance(key, Record):
+            key = key._as_dict()
+
+        keys = []
+        values = []
+        for name, value in key.items():
+            nla_name = self.iclass.name2nla(name)
+            if nla_name in self.spec:
+                name = nla_name
+            if value is not None and name in self.spec:
+                keys.append('f_%s = %s' % (name, self.schema.plch))
+                values.append(value)
+        spec = (self
+                .ndb
+                .schema
+                .fetchone('SELECT * FROM %s WHERE %s' %
+                          (self.table, ' AND '.join(keys)), values))
+        if spec is not None:
+            self.log.debug('exists')
+            return True
+        else:
+            self.log.debug('not exists')
+            return False
 
     @check_auth('obj:modify')
     def rollback(self, snapshot=None):
