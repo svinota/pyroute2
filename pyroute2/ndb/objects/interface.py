@@ -123,9 +123,15 @@ def load_ifinfmsg(schema, target, event):
     if event['family'] == AF_BRIDGE:
         #
         schema.load_netlink('af_bridge_ifs', target, event)
-        vlans = (event
-                 .get_attr('IFLA_AF_SPEC')
-                 .get_attrs('IFLA_BRIDGE_VLAN_INFO'))
+        try:
+            vlans = (event
+                     .get_attr('IFLA_AF_SPEC')
+                     .get_attrs('IFLA_BRIDGE_VLAN_INFO'))
+        except AttributeError:
+            # AttributeError: 'NoneType' object has no attribute 'get_attrs'
+            # -- vlan filters not supported
+            return
+
         # flush the old vlans info
         schema.execute('''
                        DELETE FROM af_bridge_vlans
