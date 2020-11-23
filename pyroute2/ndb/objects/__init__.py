@@ -820,9 +820,14 @@ class RTNL_Object(dict):
                                       record))
                     key = dict([x for x in record.items()
                                 if x[0] in self.schema.compiled[table]['idx']])
-                    obj = self.view.get(key, table)
+                    key['create'] = True
+                    try:
+                        obj = self.view.template(key, table)
+                    except KeyError:
+                        continue
                     obj.load_sql(ctxid=self.ctxid)
                     obj.state.set('invalid')
+                    obj.register()
                     try:
                         obj.apply()
                     except Exception as e:
