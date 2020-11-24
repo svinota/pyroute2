@@ -682,7 +682,7 @@ class RTNL_Object(dict):
         pass
 
     @check_auth('obj:modify')
-    def apply(self, rollback=False):
+    def apply(self, rollback=False, req_filter=None):
         '''
         Create a snapshot and apply pending changes. Do not revert
         the changes in the case of an exception.
@@ -741,6 +741,9 @@ class RTNL_Object(dict):
                       errno.EADDRNOTAVAIL: None}  # addresses
         else:
             raise Exception('state transition not supported')
+
+        if req_filter is not None:
+            req = req_filter(req)
 
         for itn in range(20):
             try:

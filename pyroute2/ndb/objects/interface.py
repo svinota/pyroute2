@@ -554,30 +554,41 @@ class Interface(RTNL_Object):
         return req
 
     @check_auth('obj:modify')
-    def apply(self, rollback=False, fallback=False):
+    def apply(self, rollback=False, req_filter=None):
         # translate string link references into numbers
         for key in ('link', 'master'):
             if key in self and isinstance(self[key], basestring):
                 self[key] = self.ndb.interfaces[self[key]]['index']
         setns = self.state.get() == 'setns'
         try:
-            super(Interface, self).apply(rollback)
+            super(Interface, self).apply(rollback, req_filter)
         except NetlinkError as e:
             if e.code == 95 and \
-                    'master' in self and \
+                    self.get('master') is not None and \
+                    self.get('master') > 0 and \
                     self.state == 'invalid':
-                key = dict(self)
-                key['create'] = True
-                del key['master']
-                fb = type(self)(self.view,
-                                key,
-                                auth_managers=self.auth_managers)
-                fb.register()
-                fb.apply(rollback)
-                fb.set('master', self['master'])
-                fb.apply(rollback)
-                del fb
-                self.apply()
+                #
+                # on some old kernels it is impossible to create
+                # interfaces with master set; attempt to do it in
+                # two steps
+                def req_filter(req):
+                    return dict([x for x in req.items()
+                                 if not x[0].startswith('master')])
+                self.apply(rollback, req_filter)
+                self.apply(rollback)
+
+            elif e.code == 95 and \
+                    self.get('br_vlan_filtering') is not None and \
+                    self.get('br_vlan_filtering') == 0:
+                #
+                # if vlan filtering is not enabled, then the parameter
+                # is reported by netlink, but not accepted upon bridge
+                # creation, so simply strip it
+                def req_filter(req):
+                    return dict([x for x in req.items()
+                                 if not x[0].startswith('br_vlan_')])
+
+                self.apply(rollback, req_filter)
             else:
                 raise
         if setns:
