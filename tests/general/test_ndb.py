@@ -574,6 +574,7 @@ class TestRoutesMPLS(Basic):
                          .routes
                          .getmany({'family': AF_MPLS})))
 
+    @skip_if_not_supported
     def test_via_ipv4(self):
         require_kernel(4, 4)
         require_user('root')
@@ -613,6 +614,7 @@ class TestRoutesMPLS(Basic):
         assert l3 < l2
         assert rt.state == 'invalid'
 
+    @skip_if_not_supported
     def test_encap_mpls(self):
         require_kernel(4, 4)
         require_user('root')
@@ -1615,6 +1617,7 @@ class TestReports(TestPreSet):
         # step
         assert a[2:ln:2] == self.ndb.rules.dump()[2:ln:2]
 
+    @skip_if_not_supported
     def test_report_chains(self):
         ipnet = allocate_network()
         ifaddr = tuple(self

@@ -562,6 +562,10 @@ class TestIPRoute(object):
         require_kernel(4, 4)
         require_user('root')
         require_kernel(4, 4)
+        try:
+            self.test_vlan_filter_add()
+        except SkipTest:
+            raise
         # create bridge
         (bn, bx) = self._create('bridge')
         # create FDB record
