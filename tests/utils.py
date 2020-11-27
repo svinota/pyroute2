@@ -30,7 +30,7 @@ try:
 except:
     has_dtcd = False
 
-supernet = {'ipv4': netaddr.IPNetwork('172.16.0.0/16'),
+supernet = {'ipv4': netaddr.IPNetwork('172.16.0.0/12'),
             'ipv6': netaddr.IPNetwork('fdb3:84e5:4ff4::/48')}
 network_pool = {'ipv4': list(supernet['ipv4'].subnet(24)),
                 'ipv6': list(supernet['ipv6'].subnet(64))}
