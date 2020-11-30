@@ -1678,13 +1678,15 @@ class TestReports(TestPreSet):
             assert len(record) == record_length
 
     def test_nested_ipaddr(self):
-        records = len(repr(self
-                           .ndb
-                           .interfaces[self.if_bridge]
-                           .ipaddr
-                           .summary()).split('\n'))
+        records = repr(self
+                       .ndb
+                       .interfaces[self.if_bridge]
+                       .ipaddr
+                       .dump()
+                       .filter(lambda x: x.family == AF_INET))
+        rlen = len(records.split('\n'))
         # 2 ipaddr
-        assert records == 2
+        assert rlen == 2
 
     def test_nested_ports(self):
         records = len(repr(self
