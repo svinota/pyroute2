@@ -202,6 +202,9 @@ except ImportError:
     psycopg2 = None
 
 log = logging.getLogger(__name__)
+_sql_adapters_lock = threading.Lock()
+_sql_adapters_psycopg2_registered = False
+_sql_adapters_sqlite3_registered = False
 
 
 def target_adapter(value):
@@ -218,13 +221,6 @@ class PostgreSQLAdapter(object):
 
     def getquoted(self):
         return "'%s'" % json.dumps(self.obj)
-
-
-sqlite3.register_adapter(list, target_adapter)
-sqlite3.register_adapter(dict, target_adapter)
-if psycopg2 is not None:
-    psycopg2.extensions.register_adapter(list, PostgreSQLAdapter)
-    psycopg2.extensions.register_adapter(dict, PostgreSQLAdapter)
 
 
 class View(dict):
@@ -736,6 +732,19 @@ class NDB(object):
                  auto_netns=False,
                  libc=None,
                  messenger=None):
+
+        global _sql_adapters_lock
+        global _sql_adapters_sqlite3_registered
+        global _sql_adapters_psycopg2_registered
+        with _sql_adapters_lock:
+            if not _sql_adapters_sqlite3_registered:
+                _sql_adapters_sqlite3_registered = True
+                sqlite3.register_adapter(list, target_adapter)
+                sqlite3.register_adapter(dict, target_adapter)
+            if psycopg2 is not None and not _sql_adapters_psycopg2_registered:
+                _sql_adapters_psycopg2_registered = True
+                psycopg2.extensions.register_adapter(list, PostgreSQLAdapter)
+                psycopg2.extensions.register_adapter(dict, PostgreSQLAdapter)
 
         self.ctime = self.gctime = time.time()
         self.schema = None
