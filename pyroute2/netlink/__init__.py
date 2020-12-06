@@ -1064,6 +1064,22 @@ class nlmsg_base(dict):
             for name, fmt in self.fields:
                 value = self[name]
 
+                if name == "ifa_valid":
+                    for a, v in self.parent.get("attrs", list()):
+                        if a == "IFA_VALID":
+                            value = v
+                            break
+                    else:
+                        value = pow(2, 32) - 1
+
+                if name == "ifa_preferred":
+                    for a, v in self.parent.get("attrs", list()):
+                        if a == "IFA_PREFERRED":
+                            value = v
+                            break
+                    else:
+                        value = pow(2, 32) - 1
+
                 if fmt == 's':
                     length = len(value)
                     efmt = '%is' % (length)
@@ -1427,6 +1443,13 @@ class nlmsg_base(dict):
         it is called from `encode()` routine.
         '''
         r_nla_map = self.__class__.__r_nla_map
+
+        if self.__class__.__name__ == "ifaddrmsg":
+            for name, _ in self.get("attrs", list()):
+                if name in ["IFA_PREFERRED", "IFA_VALID"]:
+                    self["attrs"].append(["IFA_CACHEINFO", True])
+                    break
+
         for i in range(len(self['attrs'])):
             cell = self['attrs'][i]
             if cell[0] in r_nla_map:
