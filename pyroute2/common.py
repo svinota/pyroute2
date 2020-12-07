@@ -39,7 +39,7 @@ except NameError:
 
 AF_MPLS = 28
 AF_PIPE = 255  # Right now AF_MAX == 40
-DEFAULT_RCVBUF = 16384
+DEFAULT_RCVBUF = 32768
 _uuid32 = 0  # (singleton) the last uuid32 value saved to avoid collisions
 _uuid32_lock = threading.Lock()
 
