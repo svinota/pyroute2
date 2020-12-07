@@ -214,7 +214,14 @@ class inet_diag_msg(inet_addr_codec):
                   ('tcpi_delivery_rate', 'Q'),
                   ('tcpi_busy_time', 'Q'),
                   ('tcpi_rwnd_limited', 'Q'),
-                  ('tcpi_sndbuf_limited', 'Q'))
+                  ('tcpi_sndbuf_limited', 'Q'),
+                  ('tcpi_delivered', 'I'),
+                  ('tcpi_delivered_ce', 'I'),
+                  ('tcpi_bytes_sent', 'Q'),
+                  ('tcpi_bytes_retrans', 'Q'),
+                  ('tcpi_dsack_dups', 'I'),
+                  ('tcpi_reord_seen', 'I'),
+                  ('tcpi_snd_wnd', 'I'))
 
         def decode(self):
             # Fix tcpi_rcv_scale amd delivery_rate bit fields.
