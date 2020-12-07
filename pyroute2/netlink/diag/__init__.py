@@ -221,6 +221,7 @@ class inet_diag_msg(inet_addr_codec):
                   ('tcpi_bytes_retrans', 'Q'),
                   ('tcpi_dsack_dups', 'I'),
                   ('tcpi_reord_seen', 'I'),
+                  ('tcpi_rcv_ooopack', 'I'),
                   ('tcpi_snd_wnd', 'I'))
 
         def decode(self):
