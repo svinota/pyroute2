@@ -345,7 +345,15 @@ class rtmsg_base(nlflags):
                    ('SEG6_LOCAL_NH6', 'nh6'),
                    ('SEG6_LOCAL_IIF', 'iif'),
                    ('SEG6_LOCAL_OIF', 'oif'),
-                   ('SEG6_LOCAL_BPF', 'none'))  # Actually not used
+                   ('SEG6_LOCAL_BPF', 'bpf_obj'))
+
+        class bpf_obj(nla):
+
+            __slots__ = ()
+
+            nla_map = (('LWT_BPF_PROG_UNSPEC', 'none'),
+                       ('LWT_BPF_PROG_FD', 'uint32'),
+                       ('LWT_BPF_PROG_NAME', 'asciiz'))
 
         class ipv6_sr_hdr(nla):
 
