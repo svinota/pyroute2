@@ -524,6 +524,9 @@ NLM_F_EXCL = 0x200    # Do not touch, if it exists
 NLM_F_CREATE = 0x400    # Create, if it does not exist
 NLM_F_APPEND = 0x800    # Add to end of list
 
+NLM_F_CAPPED = 0x100
+NLM_F_ACK_TLVS = 0x200
+
 NLMSG_NOOP = 0x1    # Nothing
 NLMSG_ERROR = 0x2    # Error
 NLMSG_DONE = 0x3    # End of a dump
@@ -567,6 +570,7 @@ NETLINK_RX_RING = 6
 NETLINK_TX_RING = 7
 
 NETLINK_LISTEN_ALL_NSID = 8
+NETLINK_EXT_ACK	= 11
 
 clean_cbs = threading.local()
 
@@ -2057,6 +2061,20 @@ class nlmsg(nlmsg_atoms):
               ('flags', 'H'),
               ('sequence_number', 'I'),
               ('pid', 'I'))
+
+
+class nlmsgerr(nlmsg):
+    '''
+    Extended ack error message
+    '''
+
+    __slots__ = ()
+
+    fields = (('error', 'i'),)
+
+    nla_map = (('NLMSGERR_ATTR_UNUSED', 'none'),
+               ('NLMSGERR_ATTR_MSG', 'asciiz'),
+               ('NLMSGERR_ATTR_OFFS', 'uint32'))
 
 
 class genlmsg(nlmsg):

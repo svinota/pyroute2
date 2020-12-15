@@ -102,13 +102,16 @@ from pyroute2.config import AF_NETLINK
 from pyroute2.common import AddrPool
 from pyroute2.common import DEFAULT_RCVBUF
 from pyroute2.netlink import nlmsg
+from pyroute2.netlink import nlmsgerr
 from pyroute2.netlink import mtypes
 from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink import NLMSG_DONE
 from pyroute2.netlink import NETLINK_ADD_MEMBERSHIP
 from pyroute2.netlink import NETLINK_DROP_MEMBERSHIP
+from pyroute2.netlink import NETLINK_EXT_ACK
 from pyroute2.netlink import NETLINK_GENERIC
 from pyroute2.netlink import NETLINK_LISTEN_ALL_NSID
+from pyroute2.netlink import NLM_F_ACK_TLVS
 from pyroute2.netlink import NLM_F_DUMP
 from pyroute2.netlink import NLM_F_MULTI
 from pyroute2.netlink import NLM_F_REQUEST
@@ -175,6 +178,11 @@ class Marshal(object):
 
             try:
                 msg.decode()
+                # TODO: not the good method to do that
+                if msg["header"]["flags"] & NLM_F_ACK_TLVS:
+                    msg = nlmsgerr(data, offset=offset)
+                    msg.decode()
+                    print(msg)  # it's working!
                 msg['header']['error'] = error
                 # try to decode encapsulated error message
                 if error is not None:
@@ -292,7 +300,8 @@ class NetlinkMixin(object):
                  all_ns=False,
                  async_qsize=None,
                  nlm_generator=None,
-                 target='localhost'):
+                 target='localhost',
+                 ext_ack=False):
         #
         # That's a trick. Python 2 is not able to construct
         # sockets from an open FD.
@@ -319,7 +328,8 @@ class NetlinkMixin(object):
                        'all_ns': all_ns,
                        'async_qsize': async_qsize,
                        'target': target,
-                       'nlm_generator': nlm_generator}
+                       'nlm_generator': nlm_generator,
+                       'ext_ack': ext_ack}
         # 8<-----------------------------------------
         self.addr_pool = AddrPool(minaddr=0x000000ff, maxaddr=0x0000ffff)
         self.epid = None
@@ -358,6 +368,7 @@ class NetlinkMixin(object):
         self.get_timeout = 30
         self.get_timeout_exception = None
         self.all_ns = all_ns
+        self.ext_ack = ext_ack
         if pid is None:
             self.pid = os.getpid() & 0x3fffff
             self.port = port
@@ -981,6 +992,8 @@ class NetlinkSocket(NetlinkMixin):
                 self._sock.recv_into = patch
             self.setsockopt(SOL_SOCKET, SO_SNDBUF, self._sndbuf)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, self._rcvbuf)
+            if self.ext_ack:
+                self.setsockopt(SOL_NETLINK, NETLINK_EXT_ACK, 1)
             if self.all_ns:
                 self.setsockopt(SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, 1)
 
