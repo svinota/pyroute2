@@ -447,7 +447,7 @@ class ifinfbase(object):
                ('IFLA_XDP', 'hex'),
                ('IFLA_EVENT', 'hex'),
                ('IFLA_NEW_NETNSID', 'hex'),
-               ('IFLA_IF_NETNSID', 'hex'),
+               ('IFLA_IF_NETNSID', 'uint32'),
                ('IFLA_CARRIER_UP_COUNT', 'uint32'),
                ('IFLA_CARRIER_DOWN_COUNT', 'uint32'),
                ('IFLA_NEW_IFINDEX', 'uint32'),
