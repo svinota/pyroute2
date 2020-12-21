@@ -25,7 +25,7 @@ encap_types = {'mpls': 1,
 class IPRequest(dict):
 
     def __init__(self, obj=None):
-        dict.__init__(self)
+        super(IPRequest, self).__init__()
         if obj is not None:
             self.update(obj)
 
@@ -70,7 +70,7 @@ class IPRuleRequest(IPRequest):
                      .get(value, (FR_ACT_NAMES
                                   .get('FR_ACT_' + value.upper(), value))))
 
-        dict.__setitem__(self, key, value)
+        super(IPRuleRequest, self).__setitem__(key, value)
 
 
 class IPRouteRequest(IPRequest):
@@ -373,18 +373,18 @@ class IPRouteRequest(IPRequest):
             return
         # work on the rest
         if key == 'family' and value == AF_MPLS:
-            dict.__setitem__(self, 'family', value)
-            dict.__setitem__(self, 'dst_len', 20)
-            dict.__setitem__(self, 'table', 254)
-            dict.__setitem__(self, 'type', 1)
+            super(IPRouteRequest, self).__setitem__('family', value)
+            super(IPRouteRequest, self).__setitem__('dst_len', 20)
+            super(IPRouteRequest, self).__setitem__('table', 254)
+            super(IPRouteRequest, self).__setitem__('type', 1)
         elif key == 'flags' and self.get('family', None) == AF_MPLS:
             return
         elif key in ('dst', 'src'):
             if isinstance(value, (tuple, list, dict)):
-                dict.__setitem__(self, key, value)
+                super(IPRouteRequest, self).__setitem__(key, value)
             elif isinstance(value, int):
-                dict.__setitem__(self, key, {'label': value,
-                                             'bos': 1})
+                super(IPRouteRequest, self).__setitem__(key, {'label': value,
+                                                              'bos': 1})
             elif value != 'default':
                 value = value.split('/')
                 mask = None
@@ -402,15 +402,17 @@ class IPRouteRequest(IPRequest):
                     mask = int(value[1])
                 else:
                     raise ValueError('wrong address spec')
-                dict.__setitem__(self, key, dst)
+                super(IPRouteRequest, self).__setitem__(key, dst)
                 if mask is not None:
-                    dict.__setitem__(self, '%s_len' % key, mask)
+                    (super(IPRouteRequest, self)
+                     .__setitem__('%s_len' % key, mask))
         elif key == 'newdst':
-            dict.__setitem__(self, 'newdst', self.mpls_rta(value))
+            (super(IPRouteRequest, self)
+             .__setitem__('newdst', self.mpls_rta(value)))
         elif key in self.resolve.keys():
             if isinstance(value, basestring):
                 value = self.resolve[key][value]
-            dict.__setitem__(self, key, value)
+            super(IPRouteRequest, self).__setitem__(key, value)
         elif key == 'encap':
             if isinstance(value, dict):
                 # human-friendly form:
@@ -420,11 +422,12 @@ class IPRouteRequest(IPRequest):
                 #
                 # 'type' is mandatory
                 if 'type' in value and 'labels' in value:
-                    dict.__setitem__(self, 'encap_type',
-                                     encap_types.get(value['type'],
-                                                     value['type']))
-                    dict.__setitem__(self, 'encap',
-                                     self.encap_header(value))
+                    (super(IPRouteRequest, self)
+                     .__setitem__('encap_type',
+                                  encap_types.get(value['type'],
+                                                  value['type'])))
+                    (super(IPRouteRequest, self)
+                     .__setitem__('encap', self.encap_header(value)))
                 # human-friendly form:
                 #
                 # 'encap': {'type': 'seg6',
@@ -447,18 +450,20 @@ class IPRouteRequest(IPRequest):
                 #
                 # 'type', 'mode' and 'segs' are mandatory
                 if 'type' in value and 'mode' in value and 'segs' in value:
-                    dict.__setitem__(self, 'encap_type',
-                                     encap_types.get(value['type'],
-                                                     value['type']))
-                    dict.__setitem__(self, 'encap',
-                                     self.encap_header(value))
+                    (super(IPRouteRequest, self)
+                     .__setitem__('encap_type',
+                                  encap_types.get(value['type'],
+                                                  value['type'])))
+                    (super(IPRouteRequest, self)
+                     .__setitem__('encap', self.encap_header(value)))
                 elif 'type' in value and ('in' in value or 'out' in value or
                                           'xmit' in value):
-                    dict.__setitem__(self, 'encap_type',
-                                     encap_types.get(value['type'],
-                                                     value['type']))
-                    dict.__setitem__(self, 'encap',
-                                     self.encap_header(value))
+                    (super(IPRouteRequest, self)
+                     .__setitem__('encap_type',
+                                  encap_types.get(value['type'],
+                                                  value['type'])))
+                    (super(IPRouteRequest, self)
+                     .__setitem__('encap', self.encap_header(value)))
                 # human-friendly form:
                 #
                 # 'encap': {'type': 'seg6local',
@@ -479,21 +484,22 @@ class IPRouteRequest(IPRequest):
                 #
                 # 'type' and 'action' are mandatory
                 elif 'type' in value and 'action' in value:
-                    dict.__setitem__(self, 'encap_type',
-                                     encap_types.get(value['type'],
-                                                     value['type']))
-                    dict.__setitem__(self, 'encap',
-                                     self.encap_header(value))
+                    (super(IPRouteRequest, self)
+                     .__setitem__('encap_type',
+                                  encap_types.get(value['type'],
+                                                  value['type'])))
+                    (super(IPRouteRequest, self)
+                     .__setitem__('encap', self.encap_header(value)))
                 # assume it is a ready-to-use NLA
                 elif 'attrs' in value:
-                    dict.__setitem__(self, 'encap', value)
+                    super(IPRouteRequest, self).__setitem__('encap', value)
         elif key == 'via':
             # ignore empty RTA_VIA
             if isinstance(value, dict) and \
                     set(value.keys()) == set(('addr', 'family')) and \
                     value['family'] in (AF_INET, AF_INET6) and \
                     isinstance(value['addr'], basestring):
-                dict.__setitem__(self, 'via', value)
+                super(IPRouteRequest, self).__setitem__('via', value)
         elif key == 'metrics':
             if 'attrs' in value:
                 ret = value
@@ -503,7 +509,7 @@ class IPRouteRequest(IPRequest):
                     rtax = rtmsg.metrics.name2nla(name)
                     ret['attrs'].append([rtax, value[name]])
             if ret['attrs']:
-                dict.__setitem__(self, 'metrics', ret)
+                super(IPRouteRequest, self).__setitem__('metrics', ret)
         elif key == 'multipath':
             ret = []
             for v in value:
@@ -534,18 +540,18 @@ class IPRouteRequest(IPRequest):
                         nh['attrs'].append([rta, v[name]])
                 ret.append(nh)
             if ret:
-                dict.__setitem__(self, 'multipath', ret)
+                super(IPRouteRequest, self).__setitem__('multipath', ret)
         elif key == 'family':
             for d in self._mask:
                 if d not in self:
                     if value == AF_INET:
-                        dict.__setitem__(self, d, 32)
+                        super(IPRouteRequest, self).__setitem__(d, 32)
                     elif value == AF_INET6:
-                        dict.__setitem__(self, d, 128)
+                        super(IPRouteRequest, self).__setitem__(d, 128)
             self._mask = []
-            dict.__setitem__(self, key, value)
+            super(IPRouteRequest, self).__setitem__(key, value)
         else:
-            dict.__setitem__(self, key, value)
+            super(IPRouteRequest, self).__setitem__(key, value)
 
 
 class CBRequest(IPRequest):
@@ -565,7 +571,7 @@ class CBRequest(IPRequest):
             self['commands']['attrs'].\
                 append([self.msg.name2nla(key), value])
         else:
-            dict.__setitem__(self, key, value)
+            super(CBRequest, self).__setitem__(key, value)
 
 
 class IPBridgeRequest(IPRequest):
@@ -573,11 +579,12 @@ class IPBridgeRequest(IPRequest):
     def __setitem__(self, key, value):
         if key in ('vlan_info', 'mode', 'vlan_flags'):
             if 'IFLA_AF_SPEC' not in self:
-                dict.__setitem__(self, 'IFLA_AF_SPEC', {'attrs': []})
+                (super(IPBridgeRequest, self)
+                 .__setitem__('IFLA_AF_SPEC', {'attrs': []}))
             nla = ifinfmsg.af_spec_bridge.name2nla(key)
             self['IFLA_AF_SPEC']['attrs'].append([nla, value])
         else:
-            dict.__setitem__(self, key, value)
+            super(IPBridgeRequest, self).__setitem__(key, value)
 
 
 class IPBrPortRequest(dict):
@@ -641,7 +648,7 @@ class IPLinkRequest(IPRequest):
         # create IFLA_LINKINFO
         linkinfo = {'attrs': []}
         self.linkinfo = linkinfo['attrs']
-        dict.__setitem__(self, 'IFLA_LINKINFO', linkinfo)
+        super(IPLinkRequest, self).__setitem__('IFLA_LINKINFO', linkinfo)
         self.linkinfo.append(['IFLA_INFO_KIND', self.kind])
         # load specific NLA names
         cls = ifinfmsg.ifinfo.data_map.get(self.kind, None)
@@ -654,7 +661,7 @@ class IPLinkRequest(IPRequest):
         # flush deferred NLAs
         for (key, value) in self.deferred:
             if not self.set_specific(key, value):
-                dict.__setitem__(self, key, value)
+                super(IPLinkRequest, self).__setitem__(key, value)
 
         self.deferred = []
 
@@ -691,7 +698,8 @@ class IPLinkRequest(IPRequest):
                               {'vf': vfid,
                                attr: vf[attr]}))
             vflist.append(('IFLA_VF_INFO', {'attrs': vfcfg}))
-        dict.__setitem__(self, 'IFLA_VFINFO_LIST', {'attrs': vflist})
+        (super(IPLinkRequest, self)
+         .__setitem__('IFLA_VFINFO_LIST', {'attrs': vflist}))
 
     def set_specific(self, key, value):
         # FIXME: vlan hack
@@ -765,9 +773,9 @@ class IPLinkRequest(IPRequest):
             self.set_vf(value)
         elif self.kind is None:
             if key in self.common:
-                dict.__setitem__(self, key, value)
+                super(IPLinkRequest, self).__setitem__(key, value)
             else:
                 self.deferred.append((key, value))
         else:
             if not self.set_specific(key, value):
-                dict.__setitem__(self, key, value)
+                super(IPLinkRequest, self).__setitem__(key, value)
