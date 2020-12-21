@@ -220,6 +220,8 @@ class IPRouteRequest(IPRequest):
             srh = {}
             segs = []
             hmac = None
+            prog_fd = None
+            prog_name = None
             # Parse segs
             if srh:
                 segs = header['srh']['segs']
@@ -305,6 +307,10 @@ class IPRouteRequest(IPRequest):
                     # Add to ret the hmac key
                     srh['hmac'] = hmac & 0xffffffff
                 srh['mode'] = 'encap'
+            elif action == 'End.BPF':
+                prog_fd = header['bpf']['fd']
+                prog_name = header['bpf']['name']
+
             # Construct the new object
             ret = []
             ret.append(['SEG6_LOCAL_ACTION', {'value': action}])
@@ -326,6 +332,12 @@ class IPRouteRequest(IPRequest):
             if srh:
                 # Add the srh to ret
                 ret.append(['SEG6_LOCAL_SRH', srh])
+            if prog_fd and prog_name:
+                # Add the prog_fd and prog_name to ret
+                ret.append(['SEG6_LOCAL_BPF', {'attrs': [
+                    ['LWT_BPF_PROG_FD', prog_fd],
+                    ['LWT_BPF_PROG_NAME', prog_name],
+                ]}])
             # Done return the object
             return {'attrs': ret}
 
