@@ -1,5 +1,6 @@
 from socket import AF_INET
 from socket import AF_INET6
+from collections import OrderedDict
 from pyroute2.common import AF_MPLS
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl import rt_type
@@ -22,7 +23,7 @@ encap_types = {'mpls': 1,
                'seg6local': 7}
 
 
-class IPRequest(dict):
+class IPRequest(OrderedDict):
 
     def __init__(self, obj=None):
         super(IPRequest, self).__init__()
