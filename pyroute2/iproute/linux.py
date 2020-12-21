@@ -56,6 +56,7 @@ from pyroute2.netlink.rtnl.req import IPBridgeRequest
 from pyroute2.netlink.rtnl.req import IPBrPortRequest
 from pyroute2.netlink.rtnl.req import IPRouteRequest
 from pyroute2.netlink.rtnl.req import IPRuleRequest
+from pyroute2.netlink.rtnl.req import IPAddrRequest
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
@@ -1417,6 +1418,7 @@ class RTNL_API(object):
         '''
         if command in ('get', 'set'):
             return
+        lrq = kwarg.pop('kwarg_filter', IPAddrRequest)
 
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_base = NLM_F_REQUEST | NLM_F_ACK
@@ -1456,6 +1458,12 @@ class RTNL_API(object):
         msg['family'] = family or 0
         msg['prefixlen'] = prefixlen
         msg['scope'] = scope
+
+        kwarg = lrq(kwarg)
+        try:
+            kwarg.sync_cacheinfo()
+        except AttributeError:
+            pass
 
         # inject IFA_LOCAL, if family is AF_INET and IFA_LOCAL is not set
         if family == AF_INET and \

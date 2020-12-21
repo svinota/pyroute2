@@ -74,6 +74,22 @@ class IPRuleRequest(IPRequest):
         super(IPRuleRequest, self).__setitem__(key, value)
 
 
+class IPAddrRequest(IPRequest):
+
+    def __setitem__(self, key, value):
+        if key in ('preferred_lft', 'valid_lft'):
+            key = key[:-4]
+        if key in ('preferred', 'valid'):
+            super(IPAddrRequest, self).__setitem__('IFA_CACHEINFO', {})
+        super(IPAddrRequest, self).__setitem__(key, value)
+
+    def sync_cacheinfo(self):
+        cacheinfo = self.get('IFA_CACHEINFO', self.get('cacheinfo', None))
+        if cacheinfo is not None:
+            for i in ('preferred', 'valid'):
+                cacheinfo['ifa_%s' % i] = self.get(i, pow(2, 32) - 1)
+
+
 class IPRouteRequest(IPRequest):
     '''
     Utility class, that converts human-readable dictionary
