@@ -259,6 +259,19 @@ def _cmp_master(self, value):
     return False
 
 
+def _norm_address(value):
+    #
+    # lower the case
+    if not value.islower():
+        value = value.lower()
+    #
+    # convert xxxx.xxxx.xxxx to xx:xx:xx:xx:xx:xx
+    if len(value) == 14 and value[4] == value[9] == '.':
+        value = ':'.join([':'.join((x[:2], x[2:])) for x in value.split('.')])
+
+    return value
+
+
 class Vlan(RTNL_Object):
 
     table = 'af_bridge_vlans'
@@ -327,6 +340,7 @@ class Interface(RTNL_Object):
     api = 'link'
     key_extra_fields = ['IFLA_IFNAME']
     fields_cmp = {'master': _cmp_master}
+    fields_normalize = {'address': _norm_address}
 
     @classmethod
     def _dump_where(cls, view):
