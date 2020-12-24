@@ -109,6 +109,7 @@ class RTNL_Object(dict):
     key_extra_fields = []
     hidden_fields = []
     fields_cmp = {}
+    fields_normalize = {}
 
     schema = None
     event_map = None
@@ -327,6 +328,9 @@ class RTNL_Object(dict):
 
     @check_auth('obj:modify')
     def __setitem__(self, key, value):
+        if key in self.fields_normalize:
+            value = self.fields_normalize[key](value)
+
         if self.state == 'system' and key in self.knorm:
             if self._replace_on_key_change:
                 self.log.debug('prepare replace for key %s' % (self.key))
