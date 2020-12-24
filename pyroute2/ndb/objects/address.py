@@ -55,6 +55,7 @@ Please notice that address objects are read-only, you may not change them,
 only remove old ones, and create new.
 '''
 from pyroute2.ndb.objects import RTNL_Object
+from pyroute2.common import dqn2int
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
@@ -74,10 +75,19 @@ init = {'specs': [['addresses', ifaddr_spec]],
         'event_map': {ifaddrmsg: ['addresses']}}
 
 
+def norm_mask(value):
+    if isinstance(value, basestring):
+        if '.' in value:
+            value = dqn2int(value)
+        value = int(value)
+    return value
+
+
 class Address(RTNL_Object):
 
     table = 'addresses'
     msg_class = ifaddrmsg
+    fields_normalize = {'prefixlen': norm_mask}
     api = 'addr'
 
     @classmethod
@@ -133,8 +143,7 @@ class Address(RTNL_Object):
             context = {}
         if isinstance(spec, basestring):
             ret = {}
-            ret['address'], prefixlen = spec.split('/')
-            ret['prefixlen'] = int(prefixlen)
+            ret['address'], ret['prefixlen'] = spec.split('/')
             spec = ret
         for key in context:
             if key not in spec:
