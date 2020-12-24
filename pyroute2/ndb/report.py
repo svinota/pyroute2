@@ -132,9 +132,12 @@ class Record(object):
         return ret
 
     def __eq__(self, right):
-        n = all(x[0] == x[1] for x in zip(self._names, right._names))
-        v = all(x[0] == x[1] for x in zip(self._values, right._values))
-        return n and v
+        if hasattr(right, '_names'):
+            n = all(x[0] == x[1] for x in zip(self._names, right._names))
+            v = all(x[0] == x[1] for x in zip(self._values, right._values))
+            return n and v
+        else:
+            return all(x[0] == x[1] for x in zip(self._values, right))
 
 
 class BaseRecordSet(object):
