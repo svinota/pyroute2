@@ -350,15 +350,13 @@ class BaseRoute(Transactional):
                         self['multipath'].add(nh)
                 elif norm == 'encap':
                     with self['encap']._direct_state:
-                        ret = []
-                        # FIXME: should support encap_types other than MPLS
-                        try:
+                        # WIP: should support encap_types other than MPLS
+                        if value.get_attr('MPLS_IPTUNNEL_DST'):
+                            ret = []
                             for dst in value.get_attr('MPLS_IPTUNNEL_DST'):
                                 ret.append(str(dst['label']))
                             if ret:
                                 self['encap']['labels'] = '/'.join(ret)
-                        except AttributeError:
-                            pass
                 elif norm == 'via':
                     with self['via']._direct_state:
                         self['via'] = value
