@@ -246,6 +246,7 @@ class RTNL_Object(dict):
         self.snapshot_deps = []
         self.load_event = threading.Event()
         self.load_event.set()
+        self.load_debug = False
         self.lock = threading.Lock()
         self.kspec = self.schema.compiled[self.table]['idx']
         self.knorm = self.schema.compiled[self.table]['norm_idx']
@@ -858,12 +859,18 @@ class RTNL_Object(dict):
         Load a value and clean up the `self.changed` set if the
         loaded value matches the expectation.
         '''
+        if self.load_debug:
+            self.log.debug('load %s: %s' % (key, value))
+
         if key not in self.changed:
             dict.__setitem__(self, key, value)
         elif self.get(key) == value:
             self.changed.remove(key)
         elif key in self.fields_cmp and self.fields_cmp[key](self, value):
             self.changed.remove(key)
+        elif self.load_debug:
+            self.log.debug('discard %s: %s not expected (%s)'
+                           % (key, value, self.get(key)))
 
     def load_sql(self, table=None, ctxid=None, set_state=True):
         '''
