@@ -296,6 +296,7 @@ class protinfo_bridge(nla):
 
 
 class macvx_data(nla):
+    prefix = 'IFLA_'
     nla_map = (('IFLA_MACVLAN_UNSPEC', 'none'),
                ('IFLA_MACVLAN_MODE', 'mode'),
                ('IFLA_MACVLAN_FLAGS', 'flags'),
@@ -327,6 +328,7 @@ class macvx_data(nla):
 
 
 class iptnl_data(nla):
+    prefix = 'IFLA_'
     nla_map = (('IFLA_IPIP_UNSPEC', 'none'),
                ('IFLA_IPIP_LINK', 'uint32'),
                ('IFLA_IPIP_LOCAL', 'ip4addr'),
@@ -763,6 +765,7 @@ class ifinfbase(object):
 
             class gre_flags(nla):
                 fields = [('value', '>H')]
+                sql_type = 'INTEGER'
 
                 def encode(self):
                     #
@@ -785,6 +788,7 @@ class ifinfbase(object):
             # Linux uses the same enum names for v6 and v4 (in if_tunnel.h);
             # Here we name them IFLA_IP6GRE_xxx instead to avoid conflicts
             # with gre_data above.
+            prefix = 'IFLA_'
             nla_map = (('IFLA_IP6GRE_UNSPEC', 'none'),
                        ('IFLA_IP6GRE_LINK', 'uint32'),
                        ('IFLA_IP6GRE_IFLAGS', 'uint16'),
