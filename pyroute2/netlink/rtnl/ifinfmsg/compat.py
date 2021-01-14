@@ -1,18 +1,11 @@
 import os
 import json
-import errno
-import select
-import struct
-import threading
 import subprocess
-from fcntl import ioctl
-from pyroute2 import config
 from pyroute2.common import map_enoent
-from pyroute2.netlink.rtnl import RTM_VALUES
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.rtnl.riprsocket import RawIPRSocket
+from pyroute2.netlink.rtnl.ifinfmsg.sync import sync
+from pyroute2.netlink.rtnl.ifinfmsg.tuntap import manage_tuntap
 
 
 # it's simpler to double constants here, than to change all the
@@ -26,37 +19,6 @@ _BONDING_SLAVES = '/sys/class/net/%s/bonding/slaves'
 _BRIDGE_MASTER = '/sys/class/net/%s/brport/bridge/ifindex'
 _BONDING_MASTER = '/sys/class/net/%s/master/ifindex'
 IFNAMSIZ = 16
-
-TUNDEV = '/dev/net/tun'
-if config.machine in ('i386', 'i686', 'x86_64', 's390x'):
-    TUNSETIFF = 0x400454ca
-    TUNSETPERSIST = 0x400454cb
-    TUNSETOWNER = 0x400454cc
-    TUNSETGROUP = 0x400454ce
-elif config.machine in ('ppc64', 'mips'):
-    TUNSETIFF = 0x800454ca
-    TUNSETPERSIST = 0x800454cb
-    TUNSETOWNER = 0x800454cc
-    TUNSETGROUP = 0x800454ce
-else:
-    TUNSETIFF = None
-
-##
-#
-# tuntap flags
-#
-IFT_TUN = 0x0001
-IFT_TAP = 0x0002
-IFT_NO_PI = 0x1000
-IFT_ONE_QUEUE = 0x2000
-IFT_VNET_HDR = 0x4000
-IFT_TUN_EXCL = 0x8000
-IFT_MULTI_QUEUE = 0x0100
-IFT_ATTACH_QUEUE = 0x0200
-IFT_DETACH_QUEUE = 0x0400
-# read-only
-IFT_PERSIST = 0x0800
-IFT_NOFILTER = 0x1000
 
 
 def compat_fix_attrs(msg, nl):
@@ -209,63 +171,6 @@ def proxy_setlink(imsg, nl):
                 'data': imsg.data}
 
 
-def sync(f):
-    '''
-    A decorator to wrap up external utility calls.
-
-    A decorated function receives a netlink message
-    as a parameter, and then:
-
-    1. Starts a monitoring thread
-    2. Performs the external call
-    3. Waits for a netlink event specified by `msg`
-    4. Joins the monitoring thread
-
-    If the wrapped function raises an exception, the
-    monitoring thread will be forced to stop via the
-    control channel pipe. The exception will be then
-    forwarded.
-    '''
-    def monitor(event, ifname, cmd):
-        with RawIPRSocket() as ipr:
-            poll = select.poll()
-            poll.register(ipr, select.POLLIN | select.POLLPRI)
-            poll.register(cmd, select.POLLIN | select.POLLPRI)
-            ipr.bind()
-            while True:
-                events = poll.poll()
-                for (fd, event) in events:
-                    if fd == ipr.fileno():
-                        msgs = ipr.get()
-                        for msg in msgs:
-                            if msg.get('event') == event and \
-                                    msg.get_attr('IFLA_IFNAME') == ifname:
-                                return
-                    else:
-                        return
-
-    def decorated(msg):
-        rcmd, cmd = os.pipe()
-        t = threading.Thread(target=monitor,
-                             args=(RTM_VALUES[msg['header']['type']],
-                                   msg.get_attr('IFLA_IFNAME'),
-                                   rcmd))
-        t.start()
-        ret = None
-        try:
-            ret = f(msg)
-        except Exception:
-            raise
-        finally:
-            os.write(cmd, b'q')
-            t.join()
-            os.close(rcmd)
-            os.close(cmd)
-        return ret
-
-    return decorated
-
-
 def proxy_dellink(imsg, nl):
     orig_msg = ifinfmsg(imsg.data)
     orig_msg.decode()
@@ -340,59 +245,6 @@ def manage_team_port(cmd, master, ifname, nl):
                                'remove' if cmd == 'del' else 'add', ifname],
                               stdout=fnull,
                               stderr=fnull)
-
-
-@sync
-def manage_tuntap(msg):
-
-    if TUNSETIFF is None:
-        raise NetlinkError(errno.EOPNOTSUPP, 'Arch not supported')
-
-    if msg['header']['type'] != RTM_NEWLINK:
-        raise NetlinkError(errno.EOPNOTSUPP, 'Unsupported event')
-
-    ifru_flags = 0
-    linkinfo = msg.get_attr('IFLA_LINKINFO')
-    infodata = linkinfo.get_attr('IFLA_INFO_DATA')
-
-    flags = infodata.get_attr('IFTUN_IFR', None)
-    if infodata.get_attr('IFTUN_MODE') == 'tun':
-        ifru_flags |= IFT_TUN
-    elif infodata.get_attr('IFTUN_MODE') == 'tap':
-        ifru_flags |= IFT_TAP
-    else:
-        raise ValueError('invalid mode')
-    if flags is not None:
-        if flags['no_pi']:
-            ifru_flags |= IFT_NO_PI
-        if flags['one_queue']:
-            ifru_flags |= IFT_ONE_QUEUE
-        if flags['vnet_hdr']:
-            ifru_flags |= IFT_VNET_HDR
-        if flags['multi_queue']:
-            ifru_flags |= IFT_MULTI_QUEUE
-    ifr = msg.get_attr('IFLA_IFNAME')
-    if len(ifr) > IFNAMSIZ:
-        raise ValueError('ifname too long')
-    ifr += (IFNAMSIZ - len(ifr)) * '\0'
-    ifr = ifr.encode('ascii')
-    ifr += struct.pack('H', ifru_flags)
-
-    user = infodata.get_attr('IFTUN_UID')
-    group = infodata.get_attr('IFTUN_GID')
-    #
-    fd = os.open(TUNDEV, os.O_RDWR)
-    try:
-        ioctl(fd, TUNSETIFF, ifr)
-        if user is not None:
-            ioctl(fd, TUNSETOWNER, user)
-        if group is not None:
-            ioctl(fd, TUNSETGROUP, group)
-        ioctl(fd, TUNSETPERSIST, 1)
-    except Exception:
-        raise
-    finally:
-        os.close(fd)
 
 
 @sync

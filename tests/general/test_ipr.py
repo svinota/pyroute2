@@ -491,6 +491,13 @@ class TestIPRoute(object):
         require_user('root')
         self._create('bridge')
 
+    def test_create_tun(self):
+        require_user('root')
+        self._create('tuntap',
+                     mode='tap',
+                     uid=1,
+                     gid=1)
+
     def test_create_team(self):
         require_user('root')
         self._create('team')
