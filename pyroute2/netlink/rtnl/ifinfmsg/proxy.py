@@ -4,6 +4,7 @@ import subprocess
 from pyroute2.common import map_enoent
 from pyroute2.netlink.rtnl.ifinfmsg import RTM_NEWLINK
 from pyroute2.netlink.rtnl.ifinfmsg.sync import sync
+from pyroute2.netlink.rtnl.ifinfmsg.tuntap import manage_tun
 from pyroute2.netlink.rtnl.ifinfmsg.tuntap import manage_tuntap
 
 
@@ -71,6 +72,8 @@ def proxy_newlink(msg, nl):
 
     if kind == 'tuntap':
         return manage_tuntap(msg)
+    elif kind == 'tun':
+        return manage_tun(msg)
     elif kind == 'team':
         return manage_team(msg)
 

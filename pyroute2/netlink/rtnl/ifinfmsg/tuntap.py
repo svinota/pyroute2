@@ -33,6 +33,56 @@ else:
 
 
 @sync
+def manage_tun(msg):
+
+    if TUNSETIFF is None:
+        raise NetlinkError(errno.EOPNOTSUPP, 'Arch not supported')
+
+    if msg['header']['type'] != RTM_NEWLINK:
+        raise NetlinkError(errno.EOPNOTSUPP, 'Unsupported event')
+
+    ifru_flags = 0
+    linkinfo = msg.get_attr('IFLA_LINKINFO')
+    infodata = linkinfo.get_attr('IFLA_INFO_DATA')
+
+    if infodata.get_attr('IFLA_TUN_TYPE') == 1:
+        ifru_flags |= IFT_TUN
+    elif infodata.get_attr('IFLA_TUN_TYPE') == 2:
+        ifru_flags |= IFT_TAP
+    else:
+        raise ValueError('invalid mode')
+    if not infodata.get_attr('IFLA_TUN_PI'):
+        ifru_flags |= IFT_NO_PI
+    if infodata.get_attr('IFLA_TUN_VNET_HDR'):
+        ifru_flags |= IFT_VNET_HDR
+    if infodata.get_attr('IFLA_TUN_MULTI_QUEUE'):
+        ifru_flags |= IFT_MULTI_QUEUE
+
+    ifr = msg.get_attr('IFLA_IFNAME')
+    if len(ifr) > IFNAMSIZ:
+        raise ValueError('ifname too long')
+    ifr += (IFNAMSIZ - len(ifr)) * '\0'
+    ifr = ifr.encode('ascii')
+    ifr += struct.pack('H', ifru_flags)
+
+    user = infodata.get_attr('IFLA_TUN_OWNER')
+    group = infodata.get_attr('IFLA_TUN_GROUP')
+    #
+    fd = os.open(TUNDEV, os.O_RDWR)
+    try:
+        ioctl(fd, TUNSETIFF, ifr)
+        if user is not None:
+            ioctl(fd, TUNSETOWNER, user)
+        if group is not None:
+            ioctl(fd, TUNSETGROUP, group)
+        ioctl(fd, TUNSETPERSIST, 1)
+    except Exception:
+        raise
+    finally:
+        os.close(fd)
+
+
+@sync
 def manage_tuntap(msg):
 
     if TUNSETIFF is None:
