@@ -235,6 +235,7 @@ ifinfo_names = ('bridge',
                 'ip6gretap',
                 'macvlan',
                 'macvtap',
+                'tun',
                 'vrf',
                 'vti',
                 'vti6')
@@ -649,6 +650,13 @@ class Interface(RTNL_Object):
                               .api(self.api, 'get',
                                    **{'index': self['index']}))
                     self.ndb._event_queue.put(update)
+        elif method == 'add':
+            if self['kind'] == 'tun':
+                self.load_sql()
+                update = (self
+                          .sources[self['target']]
+                          .api(self.api, 'get', index=self['index']))
+                self.ndb._event_queue.put(update)
 
     def load_sql(self, *argv, **kwarg):
         spec = super(Interface, self).load_sql(*argv, **kwarg)
