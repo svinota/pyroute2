@@ -83,7 +83,7 @@ class Neighbour(RTNL_Object):
                   main.f_ifindex = intf.f_index
                   AND main.f_target = intf.f_target
               '''
-        yield ('target', 'flags', 'ifname', 'lladdr', 'neighbour')
+        yield ('target', 'tflags', 'ifname', 'lladdr', 'dst')
         where, values = cls._dump_where(view)
         for record in view.ndb.schema.fetch(req + where, values):
             yield record

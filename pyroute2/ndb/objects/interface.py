@@ -374,7 +374,7 @@ class Interface(RTNL_Object):
                   interfaces
               '''
         yield ('target', 'tflags', 'index',
-               'ifname', 'lladdr',
+               'ifname', 'address',
                'flags', 'kind')
         where, values = cls._dump_where(view)
         for record in view.ndb.schema.fetch(req + where, values):
@@ -457,6 +457,12 @@ class Interface(RTNL_Object):
             ret = dict(spec)
         ret.update(context)
         return ret
+
+    @classmethod
+    def compare_record(self, left, right):
+        # specific compare
+        if isinstance(right, basestring):
+            return right == left['ifname'] or right == left['address']
 
     @check_auth('obj:modify')
     def add_vlan(self, spec):

@@ -462,6 +462,9 @@ class View(dict):
     def __iter__(self):
         return self.keys()
 
+    def __contains__(self, key):
+        return key in self.dump()
+
     @check_auth('obj:list')
     def keys(self):
         for record in self.dump():
@@ -494,7 +497,7 @@ class View(dict):
     def _native(self, dump):
         fnames = next(dump)
         for record in dump:
-            yield Record(fnames, record)
+            yield Record(fnames, record, self.classes[self.table])
 
     @cli.show_result
     @check_auth('obj:list')

@@ -311,6 +311,10 @@ class RTNL_Object(dict):
         return self.msg_class.nla2name(name)
 
     @classmethod
+    def compare_record(self, left, right):
+        pass
+
+    @classmethod
     def name2nla(self, name):
         return self.msg_class.name2nla(name)
 

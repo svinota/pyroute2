@@ -89,11 +89,12 @@ def format_csv(dump, headless=False):
 
 class Record(object):
 
-    def __init__(self, names, values):
+    def __init__(self, names, values, ref_class=None):
         if len(names) != len(values):
             raise ValueError('names and values must have the same length')
         self._names = tuple(names)
         self._values = tuple(values)
+        self._ref_class = ref_class
 
     def __getitem__(self, key):
         idx = len(self._names)
@@ -136,6 +137,8 @@ class Record(object):
             n = all(x[0] == x[1] for x in zip(self._names, right._names))
             v = all(x[0] == x[1] for x in zip(self._values, right._values))
             return n and v
+        elif self._ref_class is not None and isinstance(right, basestring):
+            return self._ref_class.compare_record(self, right)
         else:
             return all(x[0] == x[1] for x in zip(self._values, right))
 
@@ -192,12 +195,12 @@ class RecordSet(BaseRecordSet):
             (ndb
              .interfaces
              .summary()
-             .transform(lladdr=lambda x: fmt % tuple(x.split(':')))
+             .transform(address=lambda x: fmt % tuple(x.split(':')))
 
             (ndb
              .interfaces
              .summary()
-             .transform(lladdr=lambda x: x.replace(':', '-').upper()))
+             .transform(address=lambda x: x.replace(':', '-').upper()))
         '''
         def g():
             for record in self.generator:
@@ -208,7 +211,7 @@ class RecordSet(BaseRecordSet):
                         if name in kwarg:
                             value = kwarg[name](value)
                         values.append(value)
-                    record = Record(names, values)
+                    record = Record(names, values, record._ref_class)
                 yield record
 
         return RecordSet(g())
@@ -259,7 +262,7 @@ class RecordSet(BaseRecordSet):
                 ret = []
                 for field in argv:
                     ret.append(getattr(record, field, None))
-                yield Record(argv, ret)
+                yield Record(argv, ret, record._ref_class)
 
         return RecordSet(g())
 
@@ -302,7 +305,7 @@ class RecordSet(BaseRecordSet):
                         n = tuple(chain(r1._names, ['%s%s' % (prefix, x)
                                                     for x in r2._names]))
                         v = tuple(chain(r1._values, r2._values))
-                        yield Record(n, v)
+                        yield Record(n, v, r1._ref_class)
 
         return RecordSet(g())
 
