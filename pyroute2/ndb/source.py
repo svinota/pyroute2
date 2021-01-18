@@ -224,12 +224,9 @@ class Source(dict):
 
     @classmethod
     def summary(cls, view):
-        req = '''
-              SELECT f_target, f_kind FROM sources
-              '''
-        yield ('target', 'kind', 'repr')
-        for record in view.ndb.schema.fetch(req):
-            yield (record[0], record[1], repr(view[record[0]]))
+        yield ('state', 'name', 'spec')
+        for key in view.keys():
+            yield (view[key].state.get(), key, '%s' % (view[key].nl_kwarg, ))
 
     def api(self, name, *argv, **kwarg):
         for _ in range(100):  # FIXME make a constant
