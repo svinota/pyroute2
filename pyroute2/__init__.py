@@ -91,6 +91,7 @@ if sys.platform.startswith('linux'):
 #
 try:
     from pyroute2.ndb.main import NDB
+    from pyroute2.ipdb.noipdb import NoIPDB
     HAS_NDB = True
 except ImportError:
     HAS_NDB = False
@@ -172,6 +173,7 @@ else:
 
 if HAS_NDB:
     classes.append(NDB)
+    classes.append(NoIPDB)
 else:
     log.warning("Couldn't import NDB")
 
