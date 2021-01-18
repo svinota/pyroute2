@@ -393,10 +393,32 @@ class Interface(RTNL_Object):
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
         dict.__setitem__(self, 'flags', 0)
         dict.__setitem__(self, 'state', 'unknown')
-        if isinstance(argv[1], dict) and argv[1].get('create'):
-            if 'ifname' not in argv[1]:
+        warnings = []
+        if isinstance(argv[1], dict):
+            if 'reuse' in argv[1]:
+                warnings.append('ignore IPDB-specific `reuse` keyword')
+                del argv[1]['reuse']
+            if argv[1].get('create') and 'ifname' not in argv[1]:
                 raise Exception('specify at least ifname')
+            # type specific cases
+            if argv[1].get('kind') == 'tuntap':
+                # translate custom tuntap format into the native tun
+                warnings.append('translated tuntap ifinfo into tun, no flags')
+                argv[1]['kind'] = 'tun'
+                if argv[1].get('mode') == 'tun':
+                    argv[1]['tun_type'] = 1
+                elif argv[1].get('mode') == 'tap':
+                    argv[1]['tun_type'] = 2
+                else:
+                    raise TypeError('tun type error')
+                del argv[1]['mode']
+                if 'uid' in argv[1]:
+                    argv[1]['tun_owner'] = argv[1].pop('uid')
+                if 'gid' in argv[1]:
+                    argv[1]['tun_owner'] = argv[1].pop('gid')
         super(Interface, self).__init__(*argv, **kwarg)
+        for line in warnings:
+            self.log.warning(line)
 
     @property
     def ipaddr(self):
