@@ -91,6 +91,7 @@ Create a bridge and add a port, `eth0`::
 
 '''
 
+import errno
 import traceback
 from pyroute2.config import AF_BRIDGE
 from pyroute2.ndb.objects import RTNL_Object
@@ -681,6 +682,9 @@ class Interface(RTNL_Object):
         elif method == 'add':
             if self['kind'] == 'tun':
                 self.load_sql()
+                self.load_event.wait(0.1)
+                if 'index' not in self:
+                    raise NetlinkError(errno.EAGAIN)
                 update = (self
                           .sources[self['target']]
                           .api(self.api, 'get', index=self['index']))

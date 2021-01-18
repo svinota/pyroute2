@@ -740,7 +740,8 @@ class RTNL_Object(dict):
             if self.master is not None:
                 req = self.adjust_spec(req, self.master.context)
             method = 'add'
-            ignore = {errno.EEXIST: 'set'}
+            ignore = {errno.EEXIST: 'set',
+                      errno.EAGAIN: None}
         elif state == 'system':
             method = 'set'
         elif state == 'setns':
