@@ -222,6 +222,15 @@ class Source(dict):
     def name2nla(cls, name):
         return name
 
+    @classmethod
+    def summary(cls, view):
+        req = '''
+              SELECT f_target, f_kind FROM sources
+              '''
+        yield ('target', 'kind', 'repr')
+        for record in view.ndb.schema.fetch(req):
+            yield (record[0], record[1], repr(view[record[0]]))
+
     def api(self, name, *argv, **kwarg):
         for _ in range(100):  # FIXME make a constant
             with self.lock:
