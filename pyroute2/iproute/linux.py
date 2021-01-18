@@ -525,7 +525,8 @@ class RTNL_API(object):
         if set(kwarg) & {'index', 'ifname'}:
             # shortcut for index and ifname
             try:
-                return [self.link('get', **kwarg)[0]['index']]
+                for link in self.link('get', **kwarg):
+                    return [link['index']]
             except NetlinkError:
                 return []
         else:
