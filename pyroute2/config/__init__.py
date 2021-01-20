@@ -20,7 +20,7 @@ cache_expire = 60
 # highly possible that the kernel will be
 # changed in runtime, while calling uname()
 # every time is a bit expensive
-uname = platform.uname()
+uname = tuple(platform.uname())
 machine = platform.machine()
 arch = platform.architecture()[0]
 kernel = LooseVersion(uname[2]).version[:3]
