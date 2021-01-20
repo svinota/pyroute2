@@ -24,6 +24,8 @@ def load_ndmsg(schema, target, event):
             raise RescheduleException()
 
     else:
+        if event.get_attr('NDA_IFINDEX') is None:
+            event['attrs'].append(('NDA_IFINDEX', event['ifindex']))
         schema.load_netlink('neighbours', target, event)
 
 
