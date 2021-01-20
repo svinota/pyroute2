@@ -771,6 +771,21 @@ class RTNL_Object(dict):
                 (self
                  .log
                  .debug('error: %s' % e))
+                ##
+                #
+                # FIXME: performance penalty
+                # required now only in some NDA corner cases
+                # must be moved to objects.neighbour
+                #
+                if e.code == errno.EEXIST:
+                    update = (self
+                              .sources[self['target']]
+                              .api(self.api, 'dump'))
+                    update = list(update)
+                    self.ndb._event_queue.put(update)
+                    self.load_sql()
+                #
+                ##
                 if e.code in ignore:
                     self.log.debug('ignore error %s for %s' % (e.code, self))
                     if ignore[e.code] is not None:
