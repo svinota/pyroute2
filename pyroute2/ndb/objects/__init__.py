@@ -878,7 +878,7 @@ class RTNL_Object(dict):
         elif key in self.fields_cmp and self.fields_cmp[key](self, value):
             self.changed.remove(key)
         elif self.load_debug:
-            self.log.debug('discard %s: %s not expected (%s)'
+            self.log.debug('discard %s: %s (expected %s)'
                            % (key, value, self.get(key)))
 
     def load_sql(self, table=None, ctxid=None, set_state=True):
