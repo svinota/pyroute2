@@ -1353,6 +1353,19 @@ class RTNL_API(object):
         msg['flags'] = flags
         msg['change'] = mask
 
+        if 'altname' in kwarg:
+            altname = kwarg.pop("altname")
+            if command in (RTM_NEWLINKPROP, RTM_DELLINKPROP):
+                if not isinstance(altname, (list, tuple, set)):
+                    altname = [altname]
+
+                kwarg["IFLA_PROP_LIST"] = {"attrs": [
+                    ("IFLA_ALT_IFNAME", alt_ifname)
+                    for alt_ifname in altname
+                ]}
+            else:
+                kwarg["IFLA_ALT_IFNAME"] = altname
+
         # apply filter
         kwarg = lrq(kwarg)
 
