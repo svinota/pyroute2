@@ -13,6 +13,7 @@ from pyroute2.common import basestring
 from pyroute2.netlink import nla
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nlmsg_atoms
+from pyroute2.netlink import NLA_F_NESTED
 from pyroute2.netlink.rtnl.iw_event import iw_event
 from pyroute2.netlink.rtnl.ifinfmsg.plugins import (bond,
                                                     geneve,
@@ -452,7 +453,7 @@ class ifinfbase(object):
                ('IFLA_NEW_IFINDEX', 'uint32'),
                ('IFLA_MIN_MTU', 'uint32'),
                ('IFLA_MAX_MTU', 'uint32'),
-               ('IFLA_PROP_LIST', 'hex'),
+               ('IFLA_PROP_LIST', 'proplist'),
                ('IFLA_ALT_IFNAME', 'asciiz'),
                ('IFLA_PERM_ADDRESS', 'hex'),
                ('IFLA_PROTO_DOWN_REASON', 'hex'),
@@ -515,6 +516,14 @@ class ifinfbase(object):
         def close(self):
             if self.netns_fd is not None:
                 os.close(self.netns_fd)
+
+    class proplist(nla):
+        nla_flags = NLA_F_NESTED
+        # Proplist has currently only IFLA_ALT_IFNAME, but start at same
+        # index than IFLA_ALT_IFNAME in ifinfbase()
+        nla_map = (
+            (53, 'IFLA_ALT_IFNAME', 'asciiz'),
+        )
 
     class vflist(nla):
         nla_map = (('IFLA_VF_INFO_UNSPEC', 'none'),
