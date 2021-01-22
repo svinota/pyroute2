@@ -449,7 +449,14 @@ class ifinfbase(object):
                ('IFLA_IF_NETNSID', 'hex'),
                ('IFLA_CARRIER_UP_COUNT', 'uint32'),
                ('IFLA_CARRIER_DOWN_COUNT', 'uint32'),
-               ('IFLA_NEW_IFINDEX', 'hex'))
+               ('IFLA_NEW_IFINDEX', 'uint32'),
+               ('IFLA_MIN_MTU', 'uint32'),
+               ('IFLA_MAX_MTU', 'uint32'),
+               ('IFLA_PROP_LIST', 'hex'),
+               ('IFLA_ALT_IFNAME', 'asciiz'),
+               ('IFLA_PERM_ADDRESS', 'hex'),
+               ('IFLA_PROTO_DOWN_REASON', 'hex'),
+               )
 
     @staticmethod
     def flags2names(flags, mask=0xffffffff):
