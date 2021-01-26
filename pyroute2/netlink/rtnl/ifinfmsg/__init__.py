@@ -525,6 +525,9 @@ class ifinfbase(object):
             (53, 'IFLA_ALT_IFNAME', 'asciiz'),
         )
 
+        def altnames(self):
+            return (attr[1] for attr in self["attrs"] if attr[0] == "IFLA_ALT_IFNAME")
+
     class vflist(nla):
         nla_map = (('IFLA_VF_INFO_UNSPEC', 'none'),
                    ('IFLA_VF_INFO', 'vfinfo'))
