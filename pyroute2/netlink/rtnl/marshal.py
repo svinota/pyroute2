@@ -44,7 +44,9 @@ class MarshalRtnl(Marshal):
                rtnl.RTM_DELNSID: nsidmsg,
                rtnl.RTM_GETNSID: nsidmsg,
                rtnl.RTM_NEWSTATS: ifstatsmsg,
-               rtnl.RTM_GETSTATS: ifstatsmsg}
+               rtnl.RTM_GETSTATS: ifstatsmsg,
+               rtnl.RTM_NEWLINKPROP: ifinfmsg,
+               rtnl.RTM_DELLINKPROP: ifinfmsg}
 
     def fix_message(self, msg):
         # FIXME: pls do something with it

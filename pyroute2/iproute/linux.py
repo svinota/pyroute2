@@ -22,6 +22,8 @@ from pyroute2.netlink.rtnl import RTM_NEWADDR
 from pyroute2.netlink.rtnl import RTM_GETADDR
 from pyroute2.netlink.rtnl import RTM_DELADDR
 from pyroute2.netlink.rtnl import RTM_NEWLINK
+from pyroute2.netlink.rtnl import RTM_NEWLINKPROP
+from pyroute2.netlink.rtnl import RTM_DELLINKPROP
 from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.netlink.rtnl import RTM_DELLINK
 from pyroute2.netlink.rtnl import RTM_NEWQDISC
@@ -1304,10 +1306,13 @@ class RTNL_API(object):
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_req = NLM_F_REQUEST | NLM_F_ACK
         flags_create = flags_req | NLM_F_CREATE | NLM_F_EXCL
+        flag_append = flags_create | NLM_F_APPEND
         commands = {'set': (RTM_NEWLINK, flags_req),
                     'update': (RTM_SETLINK, flags_create),
                     'add': (RTM_NEWLINK, flags_create),
                     'del': (RTM_DELLINK, flags_create),
+                    'property_add': (RTM_NEWLINKPROP, flag_append),
+                    'property_del': (RTM_DELLINKPROP, flags_req),
                     'remove': (RTM_DELLINK, flags_create),
                     'delete': (RTM_DELLINK, flags_create),
                     'dump': (RTM_GETLINK, flags_dump),
@@ -1347,6 +1352,19 @@ class RTNL_API(object):
 
         msg['flags'] = flags
         msg['change'] = mask
+
+        if 'altname' in kwarg:
+            altname = kwarg.pop("altname")
+            if command in (RTM_NEWLINKPROP, RTM_DELLINKPROP):
+                if not isinstance(altname, (list, tuple, set)):
+                    altname = [altname]
+
+                kwarg["IFLA_PROP_LIST"] = {"attrs": [
+                    ("IFLA_ALT_IFNAME", alt_ifname)
+                    for alt_ifname in altname
+                ]}
+            else:
+                kwarg["IFLA_ALT_IFNAME"] = altname
 
         # apply filter
         kwarg = lrq(kwarg)
