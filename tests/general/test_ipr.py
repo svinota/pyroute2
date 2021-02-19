@@ -1360,17 +1360,22 @@ class TestIPRoute(object):
 
         dev = self.ifaces[0]
 
-        self.ip.link("property_add", index=dev, altname=["kikou", "lesloulous"])
+        self.ip.link("property_add",
+                     index=dev,
+                     altname=["kikou", "lesloulous"])
         assert len(self.ip.link("get", altname="kikou")) == 1
         assert len(self.ip.link("get", altname="lesloulous")) == 1
 
-        self.ip.link("property_del", index=dev, altname=["kikou", "lesloulous"])
+        self.ip.link("property_del",
+                     index=dev,
+                     altname=["kikou", "lesloulous"])
         with assert_raises(NetlinkError):
             self.ip.link("get", altname="kikou")
         with assert_raises(NetlinkError):
             self.ip.link("get", altname="lesloulous")
 
-        weird_name = "test_with_a_very_long_string_and_♄⚕⚚_utf8_symbol"
+        weird_name = ("test_with_a_very_long_string"
+                      "_and_♄⚕⚚_utf8_symbol")
         self.ip.link("property_add", index=dev, altname=weird_name)
         assert len(self.ip.link("get", altname=weird_name)) == 1
         self.ip.link("property_del", index=dev, altname=weird_name)
