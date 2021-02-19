@@ -1578,6 +1578,7 @@ class TestReports(TestPreSet):
                 .ndb
                 .addresses
                 .dump()
+                .filter(lambda x: x.family == AF_INET)
                 .join((self
                        .ndb
                        .interfaces
