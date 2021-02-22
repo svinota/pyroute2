@@ -39,7 +39,7 @@ class NFTables_test(object):
     def test_export_json(self):
         try:
             nft_res = json.loads(
-                check_output([NFT_BIN_PATH, "export", "json"]))
+                check_output([NFT_BIN_PATH, "-j", "list", "ruleset"]))
         except CalledProcessError:
             raise SkipTest(
                 "Please install nft compiled with --with-json option")
