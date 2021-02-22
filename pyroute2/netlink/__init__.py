@@ -395,7 +395,6 @@ import struct
 import types
 import sys
 import io
-import re
 
 from socket import inet_pton
 from socket import inet_ntop
@@ -419,9 +418,6 @@ _de = NetlinkDecodeError  #
 class NotInitialized(Exception):
     pass
 
-
-_letters = re.compile('[A-Za-z]')
-_fmt_letters = re.compile('[^!><@=][!><@=]')
 
 ##
 # That's a hack for the code linter, which works under
@@ -1195,14 +1191,6 @@ class nlmsg_base(dict):
                 link.chain = chain
             response = chain[0]
         return response
-
-    def __getattribute__(self, key):
-        try:
-            return super(nlmsg_base, self).__getattribute__(key)
-        except AttributeError:
-            if ord(key[0]) < 90:
-                return self.nla(key)
-            raise AttributeError(key)
 
     def __getitem__(self, key):
         if isinstance(key, int):
