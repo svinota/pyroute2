@@ -31,35 +31,13 @@ NFT_MSG_DELSETELEM = 14
 NFT_MSG_NEWGEN = 15
 NFT_MSG_GETGEN = 16
 NFT_MSG_TRACE = 17
-
-
-class nft_gen_msg(nfgen_msg):
-    nla_map = (('NFTA_GEN_UNSPEC', 'none'),
-               ('NFTA_GEN_ID', 'be32'))
-
-
-class nft_chain_msg(nfgen_msg):
-    prefix = 'NFTA_CHAIN_'
-    nla_map = (('NFTA_CHAIN_UNSPEC', 'none'),
-               ('NFTA_CHAIN_TABLE', 'asciiz'),
-               ('NFTA_CHAIN_HANDLE', 'be64'),
-               ('NFTA_CHAIN_NAME', 'asciiz'),
-               ('NFTA_CHAIN_HOOK', 'hook'),
-               ('NFTA_CHAIN_POLICY', 'be32'),
-               ('NFTA_CHAIN_USE', 'be32'),
-               ('NFTA_CHAIN_TYPE', 'asciiz'),
-               ('NFTA_CHAIN_COUNTERS', 'counters'))
-
-    class counters(nla):
-        nla_map = (('NFTA_COUNTER_UNSPEC', 'none'),
-                   ('NFTA_COUNTER_BYTES', 'be64'),
-                   ('NFTA_COUNTER_PACKETS', 'be64'))
-
-    class hook(nla):
-        nla_map = (('NFTA_HOOK_UNSPEC', 'none'),
-                   ('NFTA_HOOK_HOOKNUM', 'be32'),
-                   ('NFTA_HOOK_PRIORITY', 'sbe32'),
-                   ('NFTA_HOOK_DEV', 'asciiz'))
+NFT_MSG_NEWOBJ = 18
+NFT_MSG_GETOBJ = 19
+NFT_MSG_DELOBJ = 20
+NFT_MSG_GETOBJ_RESET = 21
+NFT_MSG_NEWFLOWTABLE = 22
+NFT_MSG_GETFLOWTABLE = 23
+NFT_MSG_DELFLOWTABLE = 24
 
 
 class nft_map_uint8(nla):
@@ -89,13 +67,73 @@ class nft_flags_be32(nla):
                                if self['value'] & 1 << i)
 
 
+class nft_flags_be16(nla):
+    fields = [('value', '>H')]
+    ops = None
+
+    def decode(self):
+        nla.decode(self)
+        self.value = frozenset(o for i, o in enumerate(self.ops)
+                               if self['value'] & 1 << i)
+
+
+class nft_device(nla):
+    class device_attributes(nla):
+        nla_map = (
+            ('NFTA_DEVICE_UNSPEC', 'none'),
+            ('NFTA_DEVICE_NAME', 'asciiz'),
+        )
+
+
+class nft_gen_msg(nfgen_msg):
+    nla_map = (('NFTA_GEN_UNSPEC', 'none'),
+               ('NFTA_GEN_ID', 'be32'),
+               ('NFTA_GEN_PROC_PID', 'be32'),
+               ('NFTA_GEN_PROC_NAME', 'asciiz'))
+
+
+class nft_chain_msg(nfgen_msg):
+    prefix = 'NFTA_CHAIN_'
+    nla_map = (('NFTA_CHAIN_UNSPEC', 'none'),
+               ('NFTA_CHAIN_TABLE', 'asciiz'),
+               ('NFTA_CHAIN_HANDLE', 'be64'),
+               ('NFTA_CHAIN_NAME', 'asciiz'),
+               ('NFTA_CHAIN_HOOK', 'hook'),
+               ('NFTA_CHAIN_POLICY', 'be32'),
+               ('NFTA_CHAIN_USE', 'be32'),
+               ('NFTA_CHAIN_TYPE', 'asciiz'),
+               ('NFTA_CHAIN_COUNTERS', 'counters'),
+               ('NFTA_CHAIN_PAD', 'hex'),
+               ('NFTA_CHAIN_FLAGS', 'flags'),
+               ('NFTA_CHAIN_ID', 'be32'),
+               ('NFTA_CHAIN_USERDATA', 'hex'))
+
+    class counters(nla):
+        nla_map = (('NFTA_COUNTER_UNSPEC', 'none'),
+                   ('NFTA_COUNTER_BYTES', 'be64'),
+                   ('NFTA_COUNTER_PACKETS', 'be64'))
+
+    class hook(nft_device):
+        nla_map = (('NFTA_HOOK_UNSPEC', 'none'),
+                   ('NFTA_HOOK_HOOKNUM', 'be32'),
+                   ('NFTA_HOOK_PRIORITY', 'sbe32'),
+                   ('NFTA_HOOK_DEV', 'asciiz'),
+                   ('NFTA_HOOK_DEVS', 'device_attributes'))
+
+    class flags(nft_flags_be32):
+        ops = ('NFT_CHAIN_HW_OFFLOAD',
+               'NFT_CHAIN_BINDING')
+
+
 class nat_flags(nla):
     class nat_range(nft_flags_be32):
         ops = ('NF_NAT_RANGE_MAP_IPS',
                'NF_NAT_RANGE_PROTO_SPECIFIED',
                'NF_NAT_RANGE_PROTO_RANDOM',
                'NF_NAT_RANGE_PERSISTENT',
-               'NF_NAT_RANGE_PROTO_RANDOM_FULLY')
+               'NF_NAT_RANGE_PROTO_RANDOM_FULLY',
+               'NF_NAT_RANGE_PROTO_OFFSET',
+               'NF_NAT_RANGE_NETMAP')
 
 
 class nft_regs(nla):
@@ -148,18 +186,9 @@ class nft_data(nla):
                        -5: 'NFT_RETURN'}
 
 
-class nft_rule_msg(nfgen_msg):
-    prefix = 'NFTA_RULE_'
-    nla_map = (('NFTA_RULE_UNSPEC', 'none'),
-               ('NFTA_RULE_TABLE', 'asciiz'),
-               ('NFTA_RULE_CHAIN', 'asciiz'),
-               ('NFTA_RULE_HANDLE', 'be64'),
-               ('NFTA_RULE_EXPRESSIONS', '*rule_expr'),
-               ('NFTA_RULE_COMPAT', 'hex'),
-               ('NFTA_RULE_POSITION', 'be64'),
-               ('NFTA_RULE_USERDATA', 'hex'))
-
-    class rule_expr(nla):
+# nft_expr struct, used for rules and set
+class nft_contains_expr:
+    class nft_expr(nla):
 
         header_type = 1
 
@@ -173,7 +202,14 @@ class nft_rule_msg(nfgen_msg):
                        ('NFTA_BITWISE_DREG', 'regs'),
                        ('NFTA_BITWISE_LEN', 'be32'),
                        ('NFTA_BITWISE_MASK', 'nfta_data'),
-                       ('NFTA_BITWISE_XOR', 'nfta_data'))
+                       ('NFTA_BITWISE_XOR', 'nfta_data'),
+                       ('NFTA_BITWISE_OP', 'bitwise_op'),
+                       ('NFTA_BITWISE_DATA', 'nfta_data'))
+
+            class bitwise_op(nft_map_be32):
+                ops = {0: 'NFT_BITWISE_BOOL',
+                       1: 'NFT_BITWISE_LSHIFT',
+                       2: 'NFT_BITWISE_RSHIFT'}
 
         class nft_byteorder(nft_regs):
             nla_map = (('NFTA_BYTEORDER_UNSPEC', 'none'),
@@ -217,6 +253,14 @@ class nft_rule_msg(nfgen_msg):
                        ('NFTA_TARGET_PROTOCOL', 'hex'),
                        ('NFTA_TARGET_FLAGS', 'hex'))
 
+        class nft_connlimit(nla):
+            nla_map = (('NFTA_CONNLIMIT_UNSPEC', 'none'),
+                       ('NFTA_CONNLIMIT_COUNT', 'be32'),
+                       ('NFTA_CONNLIMIT_FLAGS', 'connlimit_flags'))
+
+            class connlimit_flags(nft_flags_be32):
+                ops = ('NFT_LIMIT_F_INV',)
+
         class nft_counter(nla):
             nla_map = (('NFTA_COUNTER_UNSPEC', 'none'),
                        ('NFTA_COUNTER_BYTES', 'be64'),
@@ -245,7 +289,20 @@ class nft_rule_msg(nfgen_msg):
                        0x0c: 'NFT_CT_PROTO_DST',
                        0x0d: 'NFT_CT_LABELS',
                        0x0e: 'NFT_CT_PKTS',
-                       0x0f: 'NFT_CT_BYTES'}
+                       0x0f: 'NFT_CT_BYTES',
+                       0x10: 'NFT_CT_AVGPKT',
+                       0x11: 'NFT_CT_ZONE',
+                       0x12: 'NFT_CT_EVENTMASK',
+                       0x13: 'NFT_CT_SRC_IP',
+                       0x14: 'NFT_CT_DST_IP',
+                       0x15: 'NFT_CT_SRC_IP6',
+                       0x16: 'NFT_CT_DST_IP6',
+                       0x17: 'NFT_CT_ID'}
+
+        class nft_dup(nft_regs):
+            nla_map = (('NFTA_DUP_UNSPEC', 'none'),
+                       ('NFTA_DUP_SREG_ADDR', 'regs'),
+                       ('NFTA_DUP_SREG_DEV', 'regs'))
 
         class nft_exthdr(nft_regs):
             nla_map = (('NFTA_EXTHDR_UNSPEC', 'none'),
@@ -262,7 +319,50 @@ class nft_rule_msg(nfgen_msg):
 
             class exthdr_op(nft_map_be32):
                 ops = {0: 'NFT_EXTHDR_OP_IPV6',
-                       1: 'NFT_EXTHDR_OP_TCPOPT'}
+                       1: 'NFT_EXTHDR_OP_TCPOPT',
+                       2: 'NFT_EXTHDR_OP_IPV4'}
+
+        class nft_fib(nft_regs):
+            nla_map = (('NFTA_FIB_UNSPEC', 'none'),
+                       ('NFTA_FIB_DREG', 'regs'),
+                       ('NFTA_FIB_RESULT', 'fib_result'),
+                       ('NFTA_FIB_FLAGS', 'fib_flags'))
+
+            class fib_result(nft_flags_be32):
+                ops = ('NFT_FIB_RESULT_UNSPEC',
+                       'NFT_FIB_RESULT_OIF',
+                       'NFT_FIB_RESULT_OIFNAME',
+                       'NFT_FIB_RESULT_ADDRTYPE')
+
+            class fib_flags(nft_map_be32):
+                ops = {0: 'NFTA_FIB_F_SADDR',
+                       1: 'NFTA_FIB_F_DADDR',
+                       2: 'NFTA_FIB_F_MARK',
+                       3: 'NFTA_FIB_F_IIF',
+                       4: 'NFTA_FIB_F_OIF',
+                       5: 'NFTA_FIB_F_PRESENT'}
+
+        class nft_fwd(nft_regs):
+            nla_map = (('NFTA_FWD_UNSPEC', 'none'),
+                       ('NFTA_FWD_SREG_DEV', 'regs'),
+                       ('NFTA_FWD_SREG_ADDR', 'regs'),
+                       ('NFTA_FWD_NFPROTO', 'u32'))
+
+        class nft_hash(nft_regs):
+            nla_map = (('NFTA_HASH_UNSPEC', 'none'),
+                       ('NFTA_HASH_SREG', 'regs'),
+                       ('NFTA_HASH_DREG', 'regs'),
+                       ('NFTA_HASH_LEN', 'be32'),
+                       ('NFTA_HASH_MODULUS', 'be32'),
+                       ('NFTA_HASH_SEED', 'be32'),
+                       ('NFTA_HASH_OFFSET', 'be32'),
+                       ('NFTA_HASH_TYPE', 'hash_type'),
+                       ('NFTA_HASH_SET_NAME', 'asciiz'),
+                       ('NFTA_HASH_SET_ID', 'be32'))
+
+            class hash_type(nft_map_be32):
+                ops = {0: 'NFT_HASH_JENKINS',
+                       1: 'NFT_HASH_SYM'}
 
         class nft_immediate(nft_data, nft_regs):
             nla_map = (('NFTA_IMMEDIATE_UNSPEC', 'none'),
@@ -287,8 +387,27 @@ class nft_rule_msg(nfgen_msg):
                        ('NFTA_LOG_PREFIX', 'asciiz'),
                        ('NFTA_LOG_SNAPLEN', 'be32'),
                        ('NFTA_LOG_QTHRESHOLD', 'be32'),
-                       ('NFTA_LOG_LEVEL', 'be32'),
-                       ('NFTA_LOG_FLAGS', 'be32'))
+                       ('NFTA_LOG_LEVEL', 'log_level'),
+                       ('NFTA_LOG_FLAGS', 'log_flags'))
+
+            class log_level(nft_map_be32):
+                ops = {0: 'NFT_LOGLEVEL_EMERG',
+                       1: 'NFT_LOGLEVEL_ALERT',
+                       2: 'NFT_LOGLEVEL_CRIT',
+                       3: 'NFT_LOGLEVEL_ERR',
+                       4: 'NFT_LOGLEVEL_WARNING',
+                       5: 'NFT_LOGLEVEL_NOTICE',
+                       6: 'NFT_LOGLEVEL_INFO',
+                       7: 'NFT_LOGLEVEL_DEBUG',
+                       8: 'NFT_LOGLEVEL_AUDIT'}
+
+            class log_flags(nft_flags_be32):
+                ops = ('NF_LOG_TCPSEQ',
+                       'NF_LOG_TCPOPT',
+                       'NF_LOG_IPOPT',
+                       'NF_LOG_UID',
+                       'NF_LOG_NFLOG',
+                       'NF_LOG_MACDECODE')
 
         class nft_lookup(nft_regs):
             nla_map = (('NFTA_LOOKUP_UNSPEC', 'none'),
@@ -338,7 +457,17 @@ class nft_rule_msg(nfgen_msg):
                        21: 'NFT_META_IIFGROUP',
                        22: 'NFT_META_OIFGROUP',
                        23: 'NFT_META_CGROUP',
-                       24: 'NFT_META_PRANDOM'}
+                       24: 'NFT_META_PRANDOM',
+                       25: 'NFT_META_SECPATH',
+                       26: 'NFT_META_IIFKIND',
+                       27: 'NFT_META_OIFKIND',
+                       28: 'NFT_META_BRI_IIFPVID',
+                       29: 'NFT_META_BRI_IIFVPROTO',
+                       30: 'NFT_META_TIME_NS',
+                       31: 'NFT_META_TIME_DAY',
+                       32: 'NFT_META_TIME_HOUR',
+                       33: 'NFT_META_SDIF',
+                       34: 'NFT_META_SDIFNAME'}
 
         class nft_nat(nft_regs, nat_flags):
             nla_map = (('NFTA_NAT_UNSPEC', 'none'),
@@ -354,6 +483,40 @@ class nft_rule_msg(nfgen_msg):
                 ops = {0: 'NFT_NAT_SNAT',
                        1: 'NFT_NAT_DNAT'}
 
+        class nft_numgen(nft_regs):
+            nla_map = (('NFTA_NG_UNSPEC', 'none'),
+                       ('NFTA_NG_DREG', 'regs'),
+                       ('NFTA_NG_MODULUS', 'be32'),
+                       ('NFTA_NG_TYPE', 'types'),
+                       ('NFTA_NG_OFFSET', 'be32'),
+                       ('NFTA_NG_SET_NAME', 'asciiz'),
+                       ('NFTA_NG_SET_ID', 'be32'))
+
+            class types(nft_map_be32):
+                ops = {0: 'NFT_NG_INCREMENTAL',
+                       1: 'NFT_NG_RANDOM'}
+
+        class nft_objref(nft_regs):
+            nla_map = (('NFTA_OBJREF_UNSPEC', 'none'),
+                       ('NFTA_OBJREF_IMM_TYPE', 'regs'),
+                       ('NFTA_OBJREF_IMM_NAME', 'asciiz'),
+                       ('NFTA_OBJREF_SET_SREG', 'regs'),
+                       ('NFTA_OBJREF_SET_NAME', 'asciiz'),
+                       ('NFTA_OBJREF_SET_ID', 'be32'))
+
+        class nft_offload(nla):
+            nla_map = (('NFTA_FLOW_UNSPEC', 'none'),
+                       ('NFTA_FLOW_TABLE_NAME', 'asciiz'))
+
+        class nft_osf(nft_regs):
+            nla_map = (('NFTA_OSF_UNSPEC', 'none'),
+                       ('NFTA_OSF_DREG', 'regs'),
+                       ('NFTA_OSF_TTL', 'uint8'),
+                       ('NFTA_OSF_FLAGS', 'osf_flags'))
+
+            class osf_flags(nft_flags_be32):
+                ops = ('NFT_OSF_F_VERSION',)
+
         class nft_payload(nft_regs):
             nla_map = (('NFTA_PAYLOAD_UNSPEC', 'none'),
                        ('NFTA_PAYLOAD_DREG', 'regs'),
@@ -362,7 +525,8 @@ class nft_rule_msg(nfgen_msg):
                        ('NFTA_PAYLOAD_LEN', 'be32'),
                        ('NFTA_PAYLOAD_SREG', 'regs'),
                        ('NFTA_PAYLOAD_CSUM_TYPE', 'csum_type'),
-                       ('NFTA_PAYLOAD_CSUM_OFFSET', 'be32'))
+                       ('NFTA_PAYLOAD_CSUM_OFFSET', 'be32'),
+                       ('NFTA_PAYLOAD_CSUM_FLAGS', 'csum_flags'))
 
             class base_type(nft_map_be32):
                 ops = {0: 'NFT_PAYLOAD_LL_HEADER',
@@ -371,13 +535,44 @@ class nft_rule_msg(nfgen_msg):
 
             class csum_type(nft_map_be32):
                 ops = {0: 'NFT_PAYLOAD_CSUM_NONE',
-                       1: 'NFT_PAYLOAD_CSUM_INET'}  # RFC 791
+                       1: 'NFT_PAYLOAD_CSUM_INET',  # RFC 791
+                       2: 'NFT_PAYLOAD_CSUM_SCTP'}  # RFC 3309
 
-        class nft_queue(nla):
+            class csum_flags(nft_flags_be32):
+                ops = ('NFT_PAYLOAD_L4CSUM_PSEUDOHDR',)
+
+        class nft_queue(nft_regs):
             nla_map = (('NFTA_QUEUE_UNSPEC', 'none'),
                        ('NFTA_QUEUE_NUM', 'be16'),
                        ('NFTA_QUEUE_TOTAL', 'be16'),
-                       ('NFTA_QUEUE_FLAGS', 'be16'))
+                       ('NFTA_QUEUE_FLAGS', 'queue_flags'),
+                       ('NFTA_QUEUE_SREG_QNUM', 'regs'))
+
+            class queue_flags(nft_flags_be16):
+                ops = ('NFT_QUEUE_FLAG_BYPASS',
+                       'NFT_QUEUE_FLAG_CPU_FANOUT')
+
+        class nft_quota(nla):
+            nla_map = (('NFTA_QUOTA_UNSPEC', 'none'),
+                       ('NFTA_QUOTA_BYTES', 'be16'),
+                       ('NFTA_QUOTA_FLAGS', 'quota_flags'),
+                       ('NFTA_QUOTA_PAD', 'hex'),
+                       ('NFTA_QUOTA_CONSUMED', 'be64'))
+
+            class quota_flags(nft_flags_be32):
+                ops = ('NFT_QUOTA_F_INV',
+                       'NFT_QUOTA_F_DEPLETED')
+
+        class nft_range(nft_regs):
+            nla_map = (('NFTA_RANGE_UNSPEC', 'none'),
+                       ('NFTA_RANGE_SREG', 'regs'),
+                       ('NFTA_RANGE_OP', 'range_op'),
+                       ('NFTA_RANGE_FROM_DATA', 'nfta_data'),
+                       ('NFTA_RANGE_TO_DATA', 'nfta_data'))
+
+            class range_op(nft_map_be32):
+                ops = {0: 'NFT_RANGE_EQ',
+                       1: 'NFT_RANGE_NEQ'}
 
         class nft_redir(nft_regs, nat_flags):
             nla_map = (('NFTA_REDIR_UNSPEC', 'none'),
@@ -401,9 +596,54 @@ class nft_rule_msg(nfgen_msg):
                        2: 'NFT_REJECT_ICMPX_HOST_UNREACH',
                        3: 'NFT_REJECT_ICMPX_ADMIN_PROHIBITED'}
 
+        class nft_rt(nft_regs):
+            nla_map = (('NFTA_RT_UNSPEC', 'none'),
+                       ('NFTA_RT_DREG', 'regs'),
+                       ('NFTA_RT_KEY', 'rt_keys'))
+
+            class rt_keys(nft_map_be32):
+                ops = {0: 'NFT_RT_CLASSID',
+                       1: 'NFT_RT_NEXTHOP4',
+                       2: 'NFT_RT_NEXTHOP6',
+                       3: 'NFT_RT_TCPMSS',
+                       4: 'NFT_RT_XFRM'}
+
+        class nft_secmark(nla):
+            nla_map = (('NFTA_SECMARK_UNSPEC', 'none'),
+                       ('NFTA_SECMARK_CTX', 'asciiz'))
+
+        class nft_socket(nft_regs):
+            nla_map = (('NFTA_SOCKET_UNSPEC', 'none'),
+                       ('NFTA_SOCKET_KEY', 'socket_keys'),
+                       ('NFTA_SOCKET_DREG', 'regs'))
+
+            class socket_keys(nft_map_be32):
+                ops = {0: 'NFT_SOCKET_TRANSPARENT',
+                       1: 'NFT_SOCKET_MARK',
+                       2: 'NFT_SOCKET_WILDCARD'}
+
+        class nft_synproxy(nla):
+            nla_map = (('NFTA_SYNPROXY_UNSPEC', 'none'),
+                       ('NFTA_SYNPROXY_MSS', 'u16'),
+                       ('NFTA_SYNPROXY_WSCALE', 'uint8'),
+                       ('NFTA_SYNPROXY_FLAGS', 'synproxy_flags'))
+
+            class synproxy_flags(nft_flags_be32):
+                ops = ('NF_SYNPROXY_OPT_MSS',
+                       'NF_SYNPROXY_OPT_WSCALE',
+                       'NF_SYNPROXY_OPT_SACK_PERM',
+                       'NF_SYNPROXY_OPT_TIMESTAMP',
+                       'NF_SYNPROXY_OPT_ECN')
+
+        class nft_tproxy(nft_regs):
+            nla_map = (('NFTA_TPROXY_UNSPEC', 'none'),
+                       ('NFTA_TPROXY_FAMILY', 'regs'),
+                       ('NFTA_TPROXY_REG_ADDR', 'regs'),
+                       ('NFTA_TPROXY_REG_PORT', 'regs'))
+
         class nft_dynset(nft_regs):
             rule_expr = None
-            nla_map = (('NFTA_QUEUE_UNSPEC', 'none'),
+            nla_map = (('NFTA_DYNSET_UNSPEC', 'none'),
                        ('NFTA_DYNSET_SET_NAME', 'asciiz'),
                        ('NFTA_DYNSET_SET_ID', 'be32'),
                        ('NFTA_DYNSET_OP', 'dynset_op'),
@@ -419,7 +659,24 @@ class nft_rule_msg(nfgen_msg):
 
             class dynset_op(nft_map_be32):
                 ops = {0: 'NFT_DYNSET_OP_ADD',
-                       1: 'NFT_DYNSET_OP_UPDATE'}
+                       1: 'NFT_DYNSET_OP_UPDATE',
+                       2: 'NFT_DYNSET_OP_DELETE'}
+
+        class nft_xfrm(nft_regs):
+            nla_map = (('NFTA_XFRM_UNSPEC', 'none'),
+                       ('NFTA_XFRM_DREG', 'regs'),
+                       ('NFTA_XFRM_KEY', 'xfrm_key'),
+                       ('NFTA_XFRM_DIR', 'uint8'),
+                       ('NFTA_XFRM_SPNUM', 'be32'))
+
+            class xfrm_key(nft_map_be32):
+                ops = {0: 'NFT_XFRM_KEY_UNSPEC',
+                       1: 'NFT_XFRM_KEY_DADDR_IP4',
+                       2: 'NFT_XFRM_KEY_DADDR_IP6',
+                       3: 'NFT_XFRM_KEY_SADDR_IP4',
+                       4: 'NFT_XFRM_KEY_SADDR_IP6',
+                       5: 'NFT_XFRM_KEY_REQID',
+                       6: 'NFT_XFRM_KEY_SPI'}
 
         @staticmethod
         def expr(self, *argv, **kwarg):
@@ -430,7 +687,23 @@ class nft_rule_msg(nfgen_msg):
             return expr
 
 
-class nft_set_msg(nfgen_msg):
+class nft_rule_msg(nfgen_msg, nft_contains_expr):
+    prefix = 'NFTA_RULE_'
+    nla_map = (('NFTA_RULE_UNSPEC', 'none'),
+               ('NFTA_RULE_TABLE', 'asciiz'),
+               ('NFTA_RULE_CHAIN', 'asciiz'),
+               ('NFTA_RULE_HANDLE', 'be64'),
+               ('NFTA_RULE_EXPRESSIONS', '*nft_expr'),
+               ('NFTA_RULE_COMPAT', 'hex'),
+               ('NFTA_RULE_POSITION', 'be64'),
+               ('NFTA_RULE_USERDATA', 'hex'),
+               ('NFTA_RULE_PAD', 'hex'),
+               ('NFTA_RULE_ID', 'be32'),
+               ('NFTA_RULE_POSITION_ID', 'be32'),
+               ('NFTA_RULE_CHAIN_ID', 'be32'))
+
+
+class nft_set_msg(nfgen_msg, nft_contains_expr):
     nla_map = (('NFTA_SET_UNSPEC', 'none'),
                ('NFTA_SET_TABLE', 'asciiz'),
                ('NFTA_SET_NAME', 'asciiz'),
@@ -439,14 +712,17 @@ class nft_set_msg(nfgen_msg):
                ('NFTA_SET_KEY_LEN', 'be32'),
                ('NFTA_SET_DATA_TYPE', 'be32'),
                ('NFTA_SET_DATA_LEN', 'be32'),
-               ('NFTA_SET_POLICY', 'be32'),
-               ('NFTA_SET_DESC', 'hex'),
+               ('NFTA_SET_POLICY', 'set_policy'),
+               ('NFTA_SET_DESC', 'set_desc'),
                ('NFTA_SET_ID', 'be32'),
                ('NFTA_SET_TIMEOUT', 'be32'),
                ('NFTA_SET_GC_INTERVAL', 'be32'),
                ('NFTA_SET_USERDATA', 'hex'),
                ('NFTA_SET_PAD', 'hex'),
-               ('NFTA_SET_OBJ_TYPE', 'be32'))
+               ('NFTA_SET_OBJ_TYPE', 'be32'),
+               ('NFTA_SET_HANDLE', 'be64'),
+               ('NFTA_SET_EXPR', '*nft_expr')
+               )
 
     class set_flags(nft_flags_be32):
         ops = ('NFT_SET_ANONYMOUS',
@@ -455,15 +731,117 @@ class nft_set_msg(nfgen_msg):
                'NFT_SET_MAP',
                'NFT_SET_TIMEOUT',
                'NFT_SET_EVAL',
-               'NFT_SET_OBJECT')
+               'NFT_SET_OBJECT',
+               'NFT_SET_CONCAT')
+
+    class set_policy(nft_map_be32):
+        ops = {0: 'NFT_SET_POL_PERFORMANCE',
+               1: 'NFT_SET_POL_MEMORY'}
+
+    class set_desc(nla):
+        nla_map = (('NFTA_SET_DESC_UNSPEC', 'none'),
+                   ('NFTA_SET_DESC_SIZE', 'be32'),
+                   ('NFTA_SET_DESC_CONCAT', '*list_elem'))
+
+        class list_elem(nla):
+            nla_map = (('NFTA_LIST_UNSPEC', 'none'),
+                       ('NFTA_LIST_ELEM', '*set_field_attribute'))
+
+            class set_field_attribute(nla):
+                nla_map = (('NFTA_SET_FIELD_UNSPEC', 'none'),
+                           ('NFTA_SET_FIELD_LEN', 'be32'))
 
 
-class nft_table_msg(nfgen_msg):
+class nft_table_msg(nfgen_msg, nft_contains_expr):
     prefix = 'NFTA_TABLE_'
     nla_map = (('NFTA_TABLE_UNSPEC', 'none'),
                ('NFTA_TABLE_NAME', 'asciiz'),
                ('NFTA_TABLE_FLAGS', 'be32'),
-               ('NFTA_TABLE_USE', 'be32'))
+               ('NFTA_TABLE_USE', 'be32'),
+               ('NFTA_TABLE_HANDLE', 'be64'),
+               ('NFTA_TABLE_PAD', 'hex'),
+               ('NFTA_TABLE_USERDATA', 'hex'))
+
+
+class nft_set_elem_list_msg(nfgen_msg):
+    nla_map = (
+        ('NFTA_SET_ELEM_LIST_UNSPEC', 'none'),
+        ('NFTA_SET_TABLE', 'asciiz'),
+        ('NFTA_SET_ELEM_LIST_SET', 'asciiz'),
+        ('NFTA_SET_ELEM_LIST_ELEMENTS', '*set_elem'),
+        ('NFTA_SET_ELEM_LIST_SET_ID', 'be32'),
+    )
+
+    class set_elem(nla, nft_contains_expr):
+        nla_map = (
+            ('NFTA_SET_ELEM_UNSPEC', 'none'),
+            ('NFTA_SET_ELEM_KEY', 'data_attributes'),
+            ('NFTA_SET_ELEM_DATA', 'data_attributes'),
+            ('NFTA_SET_ELEM_FLAGS', 'set_elem_flags'),
+            ('NFTA_SET_ELEM_TIMEOUT', 'be64'),
+            ('NFTA_SET_ELEM_EXPIRATION', 'be64'),
+            ('NFTA_SET_ELEM_USERDATA', 'binary'),
+            ('NFTA_SET_ELEM_EXPR', '*nft_expr'),
+            ('NFTA_SET_ELEM_PAD', 'hex'),
+            ('NFTA_SET_ELEM_OBJREF', 'asciiz'),
+            ('NFTA_SET_ELEM_KEY_END', 'data_attributes'),
+        )
+
+        class set_elem_flags(nft_flags_be32):
+            ops = {1: 'NFT_SET_ELEM_INTERVAL_END'}
+
+        class data_attributes(nla):
+            nla_map = (
+                ('NFTA_DATA_UNSPEC', 'none'),
+                ('NFTA_DATA_VALUE', 'binary'),
+                ('NFTA_DATA_VERDICT', 'verdict_attributes'),
+            )
+
+            class verdict_attributes(nla):
+                nla_map = (
+                    ('NFTA_VERDICT_UNSPEC', 'none'),
+                    ('NFTA_VERDICT_CODE', 'verdict_code'),
+                    ('NFTA_VERDICT_CHAIN', 'asciiz'),
+                    ('NFTA_VERDICT_CHAIN_ID', 'be32'),
+                )
+
+                class verdict_code(nft_map_be32_signed):
+                    ops = {0: 'NF_DROP',
+                           1: 'NF_ACCEPT',
+                           2: 'NF_STOLEN',
+                           3: 'NF_QUEUE',
+                           4: 'NF_REPEAT',
+                           5: 'NF_STOP',
+                           -1: 'NFT_CONTINUE',
+                           -2: 'NFT_BREAK',
+                           -3: 'NFT_JUMP',
+                           -4: 'NFT_GOTO',
+                           -5: 'NFT_RETURN'}
+
+
+class nft_flowtable_msg(nfgen_msg):
+    nla_map = (
+        ('NFTA_FLOWTABLE_UNSPEC', 'none'),
+        ('NFTA_FLOWTABLE_TABLE', 'asciiz'),
+        ('NFTA_FLOWTABLE_NAME', 'asciiz'),
+        ('NFTA_FLOWTABLE_HOOK', 'flowtable_hook'),
+        ('NFTA_FLOWTABLE_USE', 'be32'),
+        ('NFTA_FLOWTABLE_HANDLE', 'be64'),
+        ('NFTA_FLOWTABLE_PAD', 'hex'),
+        ('NFTA_FLOWTABLE_FLAGS', 'nft_flowtable_flags'),
+    )
+
+    class nft_flowtable_flags(nft_flags_be32):
+        ops = ('NFT_FLOWTABLE_HW_OFFLOAD',
+               'NFT_FLOWTABLE_COUNTER')
+
+    class flowtable_hook(nft_device):
+        nla_map = (
+            ('NFTA_FLOWTABLE_HOOK_UNSPEC', 'none'),
+            ('NFTA_FLOWTABLE_HOOK_NUM', 'be32'),
+            ('NFTA_FLOWTABLE_HOOK_PRIORITY', 'be32'),
+            ('NFTA_FLOWTABLE_HOOK_DEVS', 'device_attributes'),
+        )
 
 
 class NFTSocket(NetlinkSocket):
@@ -485,7 +863,13 @@ class NFTSocket(NetlinkSocket):
               NFT_MSG_GETSET: nft_set_msg,
               NFT_MSG_DELSET: nft_set_msg,
               NFT_MSG_NEWGEN: nft_gen_msg,
-              NFT_MSG_GETGEN: nft_gen_msg}
+              NFT_MSG_GETGEN: nft_gen_msg,
+              NFT_MSG_NEWSETELEM: nft_set_elem_list_msg,
+              NFT_MSG_GETSETELEM: nft_set_elem_list_msg,
+              NFT_MSG_DELSETELEM: nft_set_elem_list_msg,
+              NFT_MSG_NEWFLOWTABLE: nft_flowtable_msg,
+              NFT_MSG_GETFLOWTABLE: nft_flowtable_msg,
+              NFT_MSG_DELFLOWTABLE: nft_flowtable_msg}
 
     def __init__(self, version=1, attr_revision=0, nfgen_family=2):
         super(NFTSocket, self).__init__(family=NETLINK_NETFILTER)
