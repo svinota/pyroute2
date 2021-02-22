@@ -162,7 +162,7 @@ def publish(method):
         else:
             # another thread, run via message bus
             self._allow_read.wait()
-            response = queue.Queue(maxsize=4096)
+            response = queue.Queue()
             request = cmsg_req(response, *argv, **kwarg)
             self.ndb._event_queue.put((request, ))
             while True:
