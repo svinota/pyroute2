@@ -176,13 +176,17 @@ class Marshal(object):
             msg_class = self.msg_map.get(msg_type, nlmsg)
             msg = msg_class(data, offset=offset)
 
+            if msg_type == NLMSG_DONE:
+                # get flags
+                flags = struct.unpack_from('H', data, offset + 6)[0]
+                if flags & NLM_F_ACK_TLVS:
+                    msg = nlmsgerr(data, offset=offset)
             try:
                 msg.decode()
-                # TODO: not the good method to do that
-                if msg["header"]["flags"] & NLM_F_ACK_TLVS:
-                    msg = nlmsgerr(data, offset=offset)
-                    msg.decode()
-                    print(msg)  # it's working!
+                if isinstance(msg, nlmsgerr):
+                    error = NetlinkError(msg['error'],
+                                         msg.get_attr('NLMSGERR_ATTR_MSG'))
+
                 msg['header']['error'] = error
                 # try to decode encapsulated error message
                 if error is not None:
