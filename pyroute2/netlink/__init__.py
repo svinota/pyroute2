@@ -720,14 +720,6 @@ class nlmsg_base(dict):
         # work only on non-empty mappings
         if self.nla_map and not self.__class__.__compiled_nla:
             self.compile_nla()
-        # compile fast-track for particular types
-        # if id(self.__class__) in cache_jit:
-        #     self._ft_decode = cache_jit[id(self.__class__)]['ft_decode']
-        # else:
-        #     self.compile_ft()
-        self._r_value_map = dict([
-            (x[1], x[0]) for x in self.value_map.items()
-        ])
         if self.header:
             self['header'] = {}
 
@@ -1128,7 +1120,11 @@ class nlmsg_base(dict):
                     self['attrs'].append([nla[0], nlv.getvalue()])
         else:
             try:
-                value = self._r_value_map.get(value, value)
+                if value in self.value_map.values():
+                    reverse_map = dict([
+                        (x[1], x[0]) for x in self.value_map.items()
+                    ])
+                    value = reverse_map.get(value, value)
             except TypeError:
                 pass
             self['value'] = value
