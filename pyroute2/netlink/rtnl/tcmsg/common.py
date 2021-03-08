@@ -10,6 +10,7 @@ from pyroute2.common import time_suffixes
 from pyroute2.common import rate_suffixes
 from pyroute2.common import basestring
 from pyroute2.netlink import nla
+from pyroute2.netlink import nla_string
 
 log = logging.getLogger(__name__)
 
@@ -343,8 +344,7 @@ class nla_plus_rtab(nla):
                 self.ctab = self.calc_rtab('ceil')
             nla.encode(self)
 
-    class rtab(nla):
-        fields = (('value', 's'), )
+    class rtab(nla_string):
         own_parent = True
 
         def encode(self):
@@ -355,10 +355,10 @@ class nla_plus_rtab(nla):
                 self.value = getattr(parms, self.__class__.__name__)
                 self['value'] = struct.pack('I' * 256,
                                             *(int(x) for x in self.value))
-            nla.encode(self)
+            nla_string.encode(self)
 
         def decode(self):
-            nla.decode(self)
+            nla_string.decode(self)
             parms = self.parent.get_attr('TCA_TBF_PARMS') or \
                 self.parent.get_attr('TCA_HTB_PARMS') or \
                 self.parent.get_attr('TCA_POLICE_TBF')

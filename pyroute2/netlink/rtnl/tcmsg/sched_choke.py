@@ -24,6 +24,7 @@ Example::
 import struct
 import logging
 from pyroute2.netlink import nla
+from pyroute2.netlink import nla_string
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl.tcmsg.common import get_rate
 from pyroute2.netlink.rtnl.tcmsg.common import get_size
@@ -104,13 +105,12 @@ class options(nla):
                   ('Scell_log', 'B'),
                   ('flags', 'B'))
 
-    class stab(nla):
-        fields = (('value', 's'), )
+    class stab(nla_string):
 
         def encode(self):
             self['value'] = struct.pack('B' * 256,
                                         *(int(x) for x in self.value))
-            nla.encode(self)
+            nla_string.encode(self)
 
 
 class stats(nla):

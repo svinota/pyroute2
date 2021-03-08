@@ -682,7 +682,6 @@ class nlmsg_base(dict):
         "_nla_array",
         "_nla_flags",
         "value",
-        "_ft_decode",
         "_r_value_map",
         "__weakref__"
     )
@@ -722,10 +721,10 @@ class nlmsg_base(dict):
         if self.nla_map and not self.__class__.__compiled_nla:
             self.compile_nla()
         # compile fast-track for particular types
-        if id(self.__class__) in cache_jit:
-            self._ft_decode = cache_jit[id(self.__class__)]['ft_decode']
-        else:
-            self.compile_ft()
+        # if id(self.__class__) in cache_jit:
+        #     self._ft_decode = cache_jit[id(self.__class__)]['ft_decode']
+        # else:
+        #     self.compile_ft()
         self._r_value_map = dict([
             (x[1], x[0]) for x in self.value_map.items()
         ])
@@ -1013,7 +1012,7 @@ class nlmsg_base(dict):
                 self.value.append(cell)
                 offset += (cell.length + 4 - 1) & ~ (4 - 1)
         else:
-            self._ft_decode(self, offset)
+            self.ft_decode(offset)
 
         if clean_cbs.__dict__:
             self.unregister_clean_cb()
@@ -1065,10 +1064,7 @@ class nlmsg_base(dict):
                 value = self[name]
 
                 if fmt == 's':
-                    length = len(value)
-                    efmt = '%is' % (length)
-                elif fmt == 'z':
-                    length = len(value) + 1
+                    length = len(value) + self.zstring
                     efmt = '%is' % (length)
                 else:
                     length = struct.calcsize(fmt)
@@ -1272,89 +1268,6 @@ class nlmsg_base(dict):
 
         return self
 
-    @staticmethod
-    def _ft_decode_zstring(self, offset):
-        value, = struct.unpack_from('%is' % (self.length - 4),
-                                    self.data,
-                                    offset)
-        self['value'] = value.strip(b'\0')
-
-    @staticmethod
-    def _ft_decode_string(self, offset):
-        self['value'], = struct.unpack_from('%is' % (self.length - 4),
-                                            self.data,
-                                            offset)
-
-    @staticmethod
-    def _ft_decode_packed(self, offset):
-        names = []
-        fmt = ''
-        for field in self.fields:
-            names.append(field[0])
-            fmt += field[1]
-        value = struct.unpack_from(fmt, self.data, offset)
-        values = list(value)
-        for name in names:
-            if name[0] != '_':
-                self[name] = values.pop(0)
-        # read NLA chain
-        if self.nla_map:
-            offset = (offset + 4 - 1) & ~ (4 - 1)
-            try:
-                self.decode_nlas(offset)
-            except Exception as e:
-                log.warning(traceback.format_exc())
-                raise NetlinkNLADecodeError(e)
-        else:
-            del self['attrs']
-        if self['value'] is NotInitialized:
-            del self['value']
-
-    @staticmethod
-    def _ft_decode_generic(self, offset):
-        global cache_fmt
-        for name, fmt in self.fields:
-            ##
-            # ~~ size = struct.calcsize(efmt)
-            #
-            # The use of the cache gives here a tiny performance
-            # improvement, but it is an improvement anyways
-            #
-            size = cache_fmt.get(fmt, None) or \
-                cache_fmt.__setitem__(fmt, struct.calcsize(fmt)) or \
-                cache_fmt[fmt]
-            ##
-            value = struct.unpack_from(fmt, self.data, offset)
-            offset += size
-            if len(value) == 1:
-                self[name] = value[0]
-            else:
-                self[name] = value
-        # read NLA chain
-        if self.nla_map:
-            offset = (offset + 4 - 1) & ~ (4 - 1)
-            try:
-                self.decode_nlas(offset)
-            except Exception as e:
-                log.warning(traceback.format_exc())
-                raise NetlinkNLADecodeError(e)
-        else:
-            del self['attrs']
-        if self['value'] is NotInitialized:
-            del self['value']
-
-    def compile_ft(self):
-        global cache_jit
-        if self.fields and self.fields[0][1] == 's':
-            self._ft_decode = self._ft_decode_string
-        elif self.fields and self.fields[0][1] == 'z':
-            self._ft_decode = self._ft_decode_zstring
-        elif self.pack == 'struct':
-            self._ft_decode = self._ft_decode_packed
-        else:
-            self._ft_decode = self._ft_decode_generic
-        cache_jit[id(self.__class__)] = {'ft_decode': self._ft_decode}
-
     def compile_nla(self):
         # clean up NLA mappings
         t_nla_map = {}
@@ -1496,6 +1409,88 @@ class nlmsg_base(dict):
             offset += (length + 4 - 1) & ~ (4 - 1)
 
 
+##
+# 8<---------------------------------------------------------------------
+#
+# NLMSG fields decoders, mixin classes
+#
+class nlmsg_decoder_generic(object):
+
+    def ft_decode(self, offset):
+        global cache_fmt
+        for name, fmt in self.fields:
+            ##
+            # ~~ size = struct.calcsize(efmt)
+            #
+            # The use of the cache gives here a tiny performance
+            # improvement, but it is an improvement anyways
+            #
+            size = cache_fmt.get(fmt, None) or \
+                cache_fmt.__setitem__(fmt, struct.calcsize(fmt)) or \
+                cache_fmt[fmt]
+            ##
+            value = struct.unpack_from(fmt, self.data, offset)
+            offset += size
+            if len(value) == 1:
+                self[name] = value[0]
+            else:
+                self[name] = value
+        # read NLA chain
+        if self.nla_map:
+            offset = (offset + 4 - 1) & ~ (4 - 1)
+            try:
+                self.decode_nlas(offset)
+            except Exception as e:
+                log.warning(traceback.format_exc())
+                raise NetlinkNLADecodeError(e)
+        else:
+            del self['attrs']
+        if self['value'] is NotInitialized:
+            del self['value']
+
+
+class nlmsg_decoder_string(object):
+
+    def ft_decode(self, offset):
+        value, = struct.unpack_from('%is' % (self.length - 4),
+                                    self.data,
+                                    offset)
+        if self.zstring == 1:
+            self['value'] = value.strip(b'\0')
+        else:
+            self['value'] = value
+
+
+class nlmsg_decoder_struct(object):
+
+    def ft_decode(self, offset):
+        names = []
+        fmt = ''
+        for field in self.fields:
+            names.append(field[0])
+            fmt += field[1]
+        value = struct.unpack_from(fmt, self.data, offset)
+        values = list(value)
+        for name in names:
+            if name[0] != '_':
+                self[name] = values.pop(0)
+        # read NLA chain
+        if self.nla_map:
+            offset = (offset + 4 - 1) & ~ (4 - 1)
+            try:
+                self.decode_nlas(offset)
+            except Exception as e:
+                log.warning(traceback.format_exc())
+                raise NetlinkNLADecodeError(e)
+        else:
+            del self['attrs']
+        if self['value'] is NotInitialized:
+            del self['value']
+#
+# 8<---------------------------------------------------------------------
+##
+
+
 class nla_slot(object):
 
     __slots__ = (
@@ -1560,19 +1555,45 @@ class nla_slot(object):
         return repr((self.cell[0], self.get_value()))
 
 
-class nla_base(nlmsg_base):
-    '''
-    The NLA base class. Use `nla_header` class as the header.
-    '''
-
+##
+# 8<---------------------------------------------------------------------
+#
+# NLA base classes
+#
+class nla_header(object):
     __slots__ = ()
-
     is_nla = True
     header = (('length', 'H'),
               ('type', 'H'))
 
 
-class nlmsg_atoms(nlmsg_base):
+class nla_base(nla_header, nlmsg_base, nlmsg_decoder_generic):
+    '''
+    Generic NLA base class.
+    '''
+    __slots__ = ()
+
+
+class nla_base_string(nla_header, nlmsg_base, nlmsg_decoder_string):
+    '''
+    NLA base class, string decoder.
+    '''
+    __slots__ = ()
+    fields = [('value', 's')]
+    zstring = 0
+
+
+class nla_base_struct(nla_header, nlmsg_base, nlmsg_decoder_struct):
+    '''
+    NLA base class, packed struct decoder.
+    '''
+    __slots__ = ()
+#
+# 8<---------------------------------------------------------------------
+##
+
+
+class nlmsg_atoms(object):
     '''
     A collection of base NLA types
     '''
@@ -1716,20 +1737,19 @@ class nlmsg_atoms(nlmsg_base):
 
         fields = [('value', '>q')]
 
-    class ipXaddr(nla_base):
+    class ipXaddr(nla_base_string):
 
         __slots__ = ()
         sql_type = 'TEXT'
 
-        fields = [('value', 's')]
         family = None
 
         def encode(self):
             self['value'] = inet_pton(self.family, self.value)
-            nla_base.encode(self)
+            nla_base_string.encode(self)
 
         def decode(self):
-            nla_base.decode(self)
+            nla_base_string.decode(self)
             self.value = inet_ntop(self.family, self['value'])
 
     class ip4addr(ipXaddr):
@@ -1745,12 +1765,10 @@ class nlmsg_atoms(nlmsg_base):
         '''
         Explicit IPv6 address type class.
         '''
-
         __slots__ = ()
-
         family = AF_INET6
 
-    class ipaddr(nla_base):
+    class ipaddr(nla_base_string):
         '''
         This class is used to decode IP addresses according to
         the family. Socket library currently supports only two
@@ -1759,11 +1777,8 @@ class nlmsg_atoms(nlmsg_base):
         We do not specify here the string size, it will be
         calculated in runtime.
         '''
-
         __slots__ = ()
         sql_type = 'TEXT'
-
-        fields = [('value', 's')]
 
         def encode(self):
             # use real provided family, not implicit
@@ -1772,10 +1787,10 @@ class nlmsg_atoms(nlmsg_base):
             else:
                 family = AF_INET
             self['value'] = inet_pton(family, self.value)
-            nla_base.encode(self)
+            nla_base_string.encode(self)
 
         def decode(self):
-            nla_base.decode(self)
+            nla_base_string.decode(self)
             # use real provided family, not implicit
             if self.length > 8:
                 family = AF_INET6
@@ -1783,7 +1798,7 @@ class nlmsg_atoms(nlmsg_base):
                 family = AF_INET
             self.value = inet_ntop(family, self['value'])
 
-    class target(nla_base):
+    class target(nla_base_string):
         '''
         A universal target class. The target type depends on the msg
         family:
@@ -1795,8 +1810,6 @@ class nlmsg_atoms(nlmsg_base):
 
         __slots__ = ()
         sql_type = 'TEXT'
-
-        fields = [('value', 's')]
         family = None
         own_parent = True
 
@@ -1832,10 +1845,10 @@ class nlmsg_atoms(nlmsg_base):
                     self['value'] += struct.pack('>I', label)
             else:
                 raise TypeError('socket family not supported')
-            nla_base.encode(self)
+            nla_base_string.encode(self)
 
         def decode(self):
-            nla_base.decode(self)
+            nla_base_string.decode(self)
             family = self.get_family()
             if family in (AF_INET, AF_INET6):
                 self.value = inet_ntop(family, self['value'])
@@ -1879,7 +1892,7 @@ class nlmsg_atoms(nlmsg_base):
             self.value = ':'.join('%02x' % (i) for i in
                                   struct.unpack('BBBBBB', self['value']))
 
-    class lladdr(nla_base):
+    class lladdr(nla_base_string):
         '''
         Decode link layer address: a MAC, IPv4 or IPv6 address. This type
         depends on the link layer address length:
@@ -1891,8 +1904,6 @@ class nlmsg_atoms(nlmsg_base):
 
         __slots__ = ()
         sql_type = 'TEXT'
-
-        fields = [('value', 's')]
 
         def encode(self):
             if ':' in self.value:
@@ -1906,10 +1917,10 @@ class nlmsg_atoms(nlmsg_base):
                 self['value'] = inet_pton(AF_INET, self.value)
             else:
                 raise TypeError('Unsupported value {}'.format(self.value))
-            nla_base.encode(self)
+            nla_base_string.encode(self)
 
         def decode(self):
-            nla_base.decode(self)
+            nla_base_string.decode(self)
             if len(self['value']) == 6:
                 self.value = ':'.join('%02x' % (i) for i in
                                       struct.unpack('BBBBBB', self['value']))
@@ -1921,29 +1932,23 @@ class nlmsg_atoms(nlmsg_base):
                 raise TypeError('Unsupported link layer address length {}'
                                 .format(len(self['value'])))
 
-    class hex(nla_base):
+    class hex(nla_base_string):
         '''
         Represent NLA's content with header as hex string.
         '''
-
         __slots__ = ()
 
-        fields = [('value', 's')]
-
         def decode(self):
-            nla_base.decode(self)
+            nla_base_string.decode(self)
             self.value = hexdump(self['value'])
 
-    class array(nla_base):
+    class array(nla_base_string):
         '''
         Array of simple data type
         '''
-
         __slots__ = (
             "_fmt",
         )
-
-        fields = [('value', 's')]
         own_parent = True
 
         @property
@@ -1962,10 +1967,10 @@ class nlmsg_atoms(nlmsg_base):
         def encode(self):
             fmt = '%s%i%s' % (self.fmt[:-1], len(self.value), self.fmt[-1:])
             self['value'] = struct.pack(fmt, *self.value)
-            nla_base.encode(self)
+            nla_base_string.encode(self)
 
         def decode(self):
-            nla_base.decode(self)
+            nla_base_string.decode(self)
             data_length = len(self['value'])
             element_size = struct.calcsize(self.fmt)
             array_size = data_length // element_size
@@ -1974,32 +1979,26 @@ class nlmsg_atoms(nlmsg_base):
             fmt = '%s%i%s' % (self.fmt[:-1], array_size, self.fmt[-1:])
             self.value = struct.unpack(fmt, data)
 
-    class cdata(nla_base):
+    class cdata(nla_base_string):
         '''
         Binary data
         '''
-
         __slots__ = ()
 
-        fields = [('value', 's')]
-
-    class string(nla_base):
+    class string(nla_base_string):
         '''
         UTF-8 string.
         '''
-
         __slots__ = ()
         sql_type = 'TEXT'
-
-        fields = [('value', 's')]
 
         def encode(self):
             if isinstance(self['value'], str) and sys.version[0] == '3':
                 self['value'] = bytes(self['value'], 'utf-8')
-            nla_base.encode(self)
+            nla_base_string.encode(self)
 
         def decode(self):
-            nla_base.decode(self)
+            nla_base_string.decode(self)
             self.value = self['value']
             if sys.version_info[0] >= 3:
                 try:
@@ -2011,11 +2010,8 @@ class nlmsg_atoms(nlmsg_base):
         '''
         Zero-terminated string.
         '''
-
         __slots__ = ()
-
-        # FIXME: move z-string hacks from general decode here?
-        fields = [('value', 'z')]
+        zstring = 1
 
     # FIXME: support NLA_FLAG and NLA_MSECS as well.
     #
@@ -2025,6 +2021,11 @@ class nlmsg_atoms(nlmsg_base):
     nul_string = asciiz  # NLA_NUL_STRING
 
 
+##
+# 8<---------------------------------------------------------------------
+#
+# NLA base classes
+#
 class nla(nla_base, nlmsg_atoms):
     '''
     Main NLA class
@@ -2037,7 +2038,34 @@ class nla(nla_base, nlmsg_atoms):
         del self['header']
 
 
-class nlmsg(nlmsg_atoms):
+class nla_string(nla_base_string, nlmsg_atoms):
+    '''
+    NLA + string decoder
+    '''
+
+    __slots__ = ()
+
+    def decode(self):
+        nla_base_string.decode(self)
+        del self['header']
+
+
+class nla_struct(nla_base_struct, nlmsg_atoms):
+    '''
+    NLA + packed struct decoder
+    '''
+
+    __slots__ = ()
+
+    def decode(self):
+        nla_base_struct.decode(self)
+        del self['header']
+#
+# 8<---------------------------------------------------------------------
+##
+
+
+class nlmsg(nlmsg_base, nlmsg_decoder_generic, nlmsg_atoms):
     '''
     Main netlink message class
     '''

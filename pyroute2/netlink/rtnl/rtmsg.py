@@ -9,6 +9,7 @@ from pyroute2.common import hexdump
 from pyroute2.common import map_namespace
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink import nla
+from pyroute2.netlink import nla_string
 
 RTNH_F_DEAD = 1
 RTNH_F_PERVASIVE = 2
@@ -570,42 +571,40 @@ class rtmsg_base(nlflags):
             # Index of the outcoming interface
             fields = (('value', 'I'),)
 
-        class nh4(nla):
+        class nh4(nla_string):
 
             __slots__ = ()
 
             # Nexthop of the IPv4 family
-            fields = (('value', 's'),)
 
             def encode(self):
                 # Convert to network byte order
                 self['value'] = inet_pton(AF_INET, self['value'])
                 # Finally encode as nla
-                nla.encode(self)
+                nla_string.encode(self)
 
             def decode(self):
                 # Decode the data
-                nla.decode(self)
+                nla_string.decode(self)
                 # Convert the packed IP address to its string representation
                 self['value'] = inet_ntop(AF_INET,
                                           self['value'])
 
-        class nh6(nla):
+        class nh6(nla_string):
 
             __slots__ = ()
 
             # Nexthop of the IPv6 family
-            fields = (('value', 's'),)
 
             def encode(self):
                 # Convert to network byte order
                 self['value'] = inet_pton(AF_INET6, self['value'])
                 # Finally encode as nla
-                nla.encode(self)
+                nla_string.encode(self)
 
             def decode(self):
                 # Decode the data
-                nla.decode(self)
+                nla_string.decode(self)
                 # Convert the packed IP address to its string representation
                 self['value'] = inet_ntop(AF_INET6, self['value'])
 
@@ -651,11 +650,9 @@ class rtmsg_base(nlflags):
     def get_nh(self, *argv, **kwarg):
         return nh
 
-    class rtvia(nla):
+    class rtvia(nla_string):
 
         __slots__ = ()
-
-        fields = (('value', 's'), )
         sql_type = 'TEXT'
 
         def encode(self):
@@ -666,10 +663,10 @@ class rtmsg_base(nlflags):
                 raise TypeError('Family %s not supported for RTA_VIA'
                                 % family)
             self['value'] = struct.pack('H', family) + addr
-            nla.encode(self)
+            nla_string.encode(self)
 
         def decode(self):
-            nla.decode(self)
+            nla_string.decode(self)
             family = struct.unpack('H', self['value'][:2])[0]
             addr = self['value'][2:]
             if len(addr):

@@ -16,6 +16,7 @@ usable.
 
 from pyroute2.netlink import NLM_F_REQUEST
 from pyroute2.netlink import nla
+from pyroute2.netlink import nla_struct
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink.generic import GenericNetlinkSocket
 
@@ -32,8 +33,7 @@ class tcmd(genlmsg):
                ('TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK', 'asciiz'))
 
 
-class tstats(nla):
-    pack = "struct"
+class tstats(nla_struct):
     fields = (('version', 'H'),                           # 2
               ('ac_exitcode', 'I'),                       # 4
               ('ac_flag', 'B'),                           # 1
@@ -79,7 +79,7 @@ class tstats(nla):
               ('cpu_scaled_run_real_total', 'Q'))
 
     def decode(self):
-        nla.decode(self)
+        nla_struct.decode(self)
         self['ac_comm'] = self['ac_comm'][:self['ac_comm'].find('\0')]
 
 
