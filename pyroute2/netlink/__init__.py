@@ -1056,7 +1056,7 @@ class nlmsg_base(dict):
                 value = self[name]
 
                 if fmt == 's':
-                    length = len(value) + self.zstring
+                    length = len(value or '') + self.zstring
                     efmt = '%is' % (length)
                 else:
                     length = struct.calcsize(fmt)
