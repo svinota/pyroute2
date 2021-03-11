@@ -751,6 +751,7 @@ class RTNL_Object(dict):
             method = 'del'
             req = idx_req
             ignore = {errno.ENODEV: None,         # interfaces
+                      errno.ENOENT: None,         # rules
                       errno.ESRCH: None,          # routes
                       errno.EADDRNOTAVAIL: None}  # addresses
         else:
