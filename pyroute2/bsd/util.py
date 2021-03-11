@@ -42,6 +42,9 @@ class Route(CMD):
 
         ret = []
         family = 0
+        if isinstance(data, bytes):
+            data = data.decode('utf-8')
+
         for line in data.split('\n'):
             if line == 'Internet:':
                 family = socket.AF_INET
@@ -107,6 +110,9 @@ class ARP(CMD):
         f_dst = 1
         f_addr = 3
         f_ifname = 5
+        if isinstance(data, bytes):
+            data = data.decode('utf-8')
+
         for line in data.split('\n'):
             sl = line.split()
             if not sl:
@@ -171,6 +177,9 @@ class Ifconfig(CMD):
                'addrs': {}}
         idx = 0
         info_data = {'attrs': None}
+
+        if isinstance(data, bytes):
+            data = data.decode('utf-8')
 
         for line in data.split('\n'):
             sl = line.split()
