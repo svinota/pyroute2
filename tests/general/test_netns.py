@@ -3,6 +3,7 @@ import time
 import fcntl
 import signal
 import subprocess
+import traceback
 import tempfile
 from threading import Thread
 
@@ -402,7 +403,7 @@ class TestNetNS(object):
 
         ns_names = ['testns%i' % i for i in range(parallel_count)]
 
-        success = [True]
+        success = []
 
         for ns_name in ns_names:
             NetNS(ns_name)
@@ -420,7 +421,7 @@ class TestNetNS(object):
         for ns_name in ns_names:
             netnsmod.remove(ns_name)
 
-        assert success[0]
+        assert all([x[0] for x in success])
 
     def test_ns_pids(self):
         def waiting_child(fd):
@@ -459,8 +460,9 @@ def _ns_worker(netns_path, worker_index, success):
             ip.link('set', index=veth_inside_idx, net_ns_fd=netns_path)
             veth_inside_idx = ns.link_lookup(ifname=veth_inside)[0]
             ns.link('set', index=veth_inside_idx, state='up')
+            success.append((True, None))
         except Exception:
-            success[0] = False
+            success.append((False, traceback.format_exc(), netns_path))
         finally:
             if veth_outside_idx is not None:
                 ip.link('del', index=veth_outside_idx)
