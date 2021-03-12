@@ -1,7 +1,6 @@
 import os
 import time
 import fcntl
-import platform
 import signal
 import subprocess
 import tempfile
@@ -16,7 +15,6 @@ from pyroute2.netns.process.proxy import NSPopen as NSPopenDirect
 from pyroute2 import netns as netnsmod
 from uuid import uuid4
 from utils import require_user
-from nose.plugins.skip import SkipTest
 
 
 class TestNSPopen(object):
@@ -111,9 +109,6 @@ class TestNetNS(object):
 
     def test_create_tuntap(self):
         require_user('root')
-        # on CentOS 6.5 this test causes kernel panic
-        if platform.linux_distribution()[:2] == ('CentOS', '6.5'):
-            raise SkipTest('to avoid possible kernel panic')
         # actually this test checks the nlsocket plugin feedback
         # in a pair of remote client/server
         foo = str(uuid4())
