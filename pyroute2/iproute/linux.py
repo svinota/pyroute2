@@ -173,14 +173,28 @@ class RTNL_API(object):
         '''
         Iterate all the objects -- links, routes, addresses etc.
         '''
-        for method in (self.get_links,
+        ##
+        # Well, it's the Linux API, why OpenBSD / FreeBSD here?
+        #
+        # 'Cause when you run RemoteIPRoute, it uses this class,
+        # and the code may be run on BSD systems as well, though
+        # BSD systems have only subset of the API
+        #
+        if self.uname[0] == 'OpenBSD':
+            methods = (self.get_links,
+                       self.get_addr,
+                       self.get_neighbours,
+                       self.get_routes)
+        else:
+            methods = (self.get_links,
                        self.get_addr,
                        self.get_neighbours,
                        self.get_routes,
                        self.get_vlans,
                        partial(self.fdb, 'dump'),
                        partial(self.get_rules, family=AF_INET),
-                       partial(self.get_rules, family=AF_INET6)):
+                       partial(self.get_rules, family=AF_INET6))
+        for method in methods:
             for msg in method():
                 yield msg
 
