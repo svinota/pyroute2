@@ -1568,6 +1568,7 @@ class nla_base(nla_header, nlmsg_base, nlmsg_decoder_generic):
     Generic NLA base class.
     '''
     __slots__ = ()
+    zstring = 0
 
 
 class nla_base_string(nla_header, nlmsg_base, nlmsg_decoder_string):
