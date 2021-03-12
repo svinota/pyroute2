@@ -7,3 +7,4 @@ mitogen
 bottle
 sphinx
 netaddr
+psutil
