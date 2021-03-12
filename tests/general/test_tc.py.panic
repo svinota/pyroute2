@@ -1,0 +1,57 @@
+[180409.960124] BUG: kernel NULL pointer dereference, address: 0000000000000000
+[180409.961923] #PF: supervisor instruction fetch in kernel mode
+[180409.961923] #PF: error_code(0x0010) - not-present page
+[180409.961923] PGD 800000000afd8067 P4D 800000000afd8067 PUD 19395067 PMD 0 
+[180409.961923] Oops: 0010 [#1] SMP PTI
+[180409.961923] CPU: 0 PID: 40192 Comm: python Tainted: G           O      5.11.0+ #15
+[180409.961923] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.14.0-1.fc33 04/01/2014
+[180409.961923] RIP: 0010:0x0
+[180409.961923] Code: Unable to access opcode bytes at RIP 0xffffffffffffffd6.
+[180409.961923] RSP: 0018:ffffac55419c7b20 EFLAGS: 00010286
+[180409.961923] RAX: 0000000000000000 RBX: ffff9dff96b3d000 RCX: 0000000000000000
+[180409.961923] RDX: ffffac55419c7b28 RSI: 0000000000000012 RDI: ffff9dff96b3d000
+[180409.961923] RBP: 0000000000000000 R08: ffff9dffa6007000 R09: ffffac55419c7b90
+[180409.961923] R10: 0000000000000002 R11: ffff9dff40892040 R12: ffff9dffa400d400
+[180409.961923] R13: 0000000000010010 R14: ffff9dffa5a67000 R15: ffffffff97763fc0
+[180409.961923] FS:  00007f0cc8d64740(0000) GS:ffff9e007bc00000(0000) knlGS:0000000000000000
+[180409.961923] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[180409.961923] CR2: ffffffffffffffd6 CR3: 000000002442c000 CR4: 00000000000406f0
+[180409.961923] Call Trace:
+[180409.961923]  htb_select_queue+0x79/0xc0 [sch_htb]
+[180409.961923]  tc_modify_qdisc+0x111/0x890
+[180409.961923]  rtnetlink_rcv_msg+0x134/0x380
+[180409.961923]  ? rtnl_calcit.isra.0+0x130/0x130
+[180409.961923]  netlink_rcv_skb+0x50/0xf0
+[180409.961923]  netlink_unicast+0x201/0x2c0
+[180409.961923]  netlink_sendmsg+0x225/0x460
+[180409.961923]  sock_sendmsg+0x5e/0x60
+[180409.961923]  __sys_sendto+0xee/0x150
+[180409.961923]  ? do_user_addr_fault+0x1ce/0x670
+[180409.961923]  ? _copy_to_user+0x1c/0x30
+[180409.961923]  __x64_sys_sendto+0x25/0x30
+[180409.961923]  do_syscall_64+0x33/0x80
+[180409.961923]  entry_SYSCALL_64_after_hwframe+0x44/0xae
+[180409.961923] RIP: 0033:0x7f0cc90dc55c
+[180409.961923] Code: ca f7 ff ff 44 8b 4c 24 2c 4c 8b 44 24 20 89 c5 44 8b 54 24 28 48 8b 54 24 18 b8 2c 00 00 00 48 8b 74 24 10 8b 7c 24 08 0f 05 <48> 3d 00 f0 ff ff 77 34 89 ef 48 89 44 24 08 e8 f0 f7 ff ff 48 8b
+[180409.961923] RSP: 002b:00007ffc690483b0 EFLAGS: 00000293 ORIG_RAX: 000000000000002c
+[180409.961923] RAX: ffffffffffffffda RBX: 00007ffc69048498 RCX: 00007f0cc90dc55c
+[180409.961923] RDX: 0000000000000044 RSI: 00007f0cb474e490 RDI: 000000000000011a
+[180409.961923] RBP: 0000000000000000 R08: 00007ffc69048510 R09: 000000000000000c
+[180409.961923] R10: 0000000000000000 R11: 0000000000000293 R12: 0000000000000000
+[180409.961923] R13: ffffffffc4653600 R14: 00007ffc69048498 R15: 0000000000000001
+[180409.961923] Modules linked in: sch_hfsc act_mirred act_connmark cls_u32 sch_htb l2tp_eth l2tp_netlink l2tp_core ip_set_hash_netport ip_set_hash_netiface ip_set_list_set ip_set_hash_netportnet ip_set_hash_net ip_set_bitmap_port ip_set_hash_ip ip_set dummy macvtap tap macvlan ip6_gre ip_gre gre unix_diag tcp_diag udp_diag inet_diag sha256_ssse3 sha256_generic libsha256 cfg80211 rfkill vrf vxlan ip6_vti xfrm6_tunnel ip_vti tunnel4 veth tun team_mode_activebackup team ipvlan mpls_iptunnel mpls_router bonding netlink_diag xt_conntrack nft_chain_nat xt_MASQUERADE nf_nat nf_conntrack_netlink nf_conntrack nf_defrag_ipv6 nf_defrag_ipv4 xfrm_user nft_counter xt_addrtype nft_compat nf_tables nfnetlink br_netfilter overlay intel_rapl_msr intel_rapl_common crct10dif_pclmul crc32_pclmul ghash_clmulni_intel aesni_intel evdev input_leds crypto_simd led_class cryptd glue_helper serio_raw virtio_balloon virtio_console button drm fuse configfs backlight sunrpc ip_tables x_tables ext4 crc16 mbcache jbd2
+[180409.961923]  virtio_net virtio_blk net_failover failover crc32c_intel 8139cp mii i2c_piix4 virtio_pci virtio_ring virtio [last unloaded: dummy]
+[180409.961923] CR2: 0000000000000000
+[180409.961923] ---[ end trace c1edb4c622bf04ad ]---
+[180409.961923] RIP: 0010:0x0
+[180409.961923] Code: Unable to access opcode bytes at RIP 0xffffffffffffffd6.
+[180409.961923] RSP: 0018:ffffac55419c7b20 EFLAGS: 00010286
+[180409.961923] RAX: 0000000000000000 RBX: ffff9dff96b3d000 RCX: 0000000000000000
+[180409.961923] RDX: ffffac55419c7b28 RSI: 0000000000000012 RDI: ffff9dff96b3d000
+[180409.961923] RBP: 0000000000000000 R08: ffff9dffa6007000 R09: ffffac55419c7b90
+[180409.961923] R10: 0000000000000002 R11: ffff9dff40892040 R12: ffff9dffa400d400
+[180409.961923] R13: 0000000000010010 R14: ffff9dffa5a67000 R15: ffffffff97763fc0
+[180409.961923] FS:  00007f0cc8d64740(0000) GS:ffff9e007bc00000(0000) knlGS:0000000000000000
+[180409.961923] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[180409.961923] CR2: ffffffffffffffd6 CR3: 000000002442c000 CR4: 00000000000406f0
+

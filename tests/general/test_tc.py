@@ -291,7 +291,7 @@ class TestHfsc(BasicTest):
 class TestHtb(BasicTest):
 
     @skip_if_not_supported
-    def test_htb(self):
+    def _test_htb(self):
         # 8<-----------------------------------------------------
         # root queue, '1:0' handle notation
         self.ip.tc('add', 'htb', self.interface, '1:', default='20:0')
@@ -355,7 +355,7 @@ class TestHtb(BasicTest):
         assert len(fls) == 4
 
     @skip_if_not_supported
-    def test_replace(self):
+    def _test_replace(self):
         self.test_htb()
         # change class
         self.ip.tc('replace-class', 'htb', self.interface,
