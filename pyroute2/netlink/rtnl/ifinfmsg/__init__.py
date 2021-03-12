@@ -504,6 +504,8 @@ class ifinfbase(object):
             if isinstance(self.value, int):
                 self['value'] = self.value
             else:
+                if isinstance(self.value, bytes):
+                    self.value = self.value.decode('utf-8')
                 if '/' in self.value:
                     netns_path = self.value
                 else:
