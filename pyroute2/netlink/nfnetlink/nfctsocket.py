@@ -602,7 +602,7 @@ class NFCTSocket(NetlinkSocket):
         msg_type |= (NFNL_SUBSYS_CTNETLINK << 8)
         return self.nlm_request(msg, msg_type, **kwargs)
 
-    def dump(self, mark=None, mark_mask=0xffffffff):
+    def dump(self, mark=None, mark_mask=None):
         msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
         return self.request(msg, IPCTNL_MSG_CT_GET,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
@@ -616,7 +616,7 @@ class NFCTSocket(NetlinkSocket):
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
                             terminate=terminate_single_msg)
 
-    def flush(self, mark=None, mark_mask=0xffffffff):
+    def flush(self, mark=None, mark_mask=None):
         msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
         return self.request(msg, IPCTNL_MSG_CT_DELETE,
                             msg_flags=NLM_F_REQUEST | NLM_F_ACK,
