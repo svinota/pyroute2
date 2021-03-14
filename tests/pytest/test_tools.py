@@ -1,8 +1,11 @@
 from pyroute2 import IPRoute
 
 
-def interface_exists(ifname):
+def interface_exists(ifname, **kwarg):
     ret = 0
     with IPRoute() as ipr:
-        ret = list(ipr.link_lookup(ifname=ifname))
+        spec = {}
+        spec.update(kwarg)
+        spec['ifname'] = ifname
+        ret = list(ipr.link_lookup(**spec))
     return len(ret) == 1
