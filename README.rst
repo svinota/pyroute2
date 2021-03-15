@@ -61,12 +61,21 @@ A "Hello world" example:
 
     from pyroute2 import NDB
 
-    ndb = NDB(log='on')
+    ndb = NDB(log='debug')
+
     for record in ndb.interfaces.summary():
         print(record.ifname, record.address, record.state)
 
-    for record in ndb.addresses.summary():
-        print(record._as_dict())
+    print(ndb
+          .interfaces
+          .dump()
+          .select('index', 'ifname', 'kind')
+          .format('json'))
+
+    print(ndb
+          .addresses
+          .summary()
+          .format('csv'))
 
     (ndb
      .interfaces
