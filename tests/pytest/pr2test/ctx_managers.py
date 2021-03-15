@@ -2,6 +2,8 @@ import os
 import uuid
 import errno
 import logging
+from utils import allocate_network
+from utils import free_network
 from pyroute2 import netns
 from pyroute2 import NDB
 from pyroute2 import NetNS
@@ -38,6 +40,10 @@ class NDBContextManager(object):
         # the cleanup registry
         self.interfaces = {}
         self.namespaces = {}
+        #
+        # IPAM
+        self.ipnets = [allocate_network() for _ in range(5)]
+        self.ipranges = [[str(x) for x in net] for net in self.ipnets]
 
     def getspec(self, **kwarg):
         return dict(kwarg)
@@ -66,6 +72,12 @@ class NDBContextManager(object):
         self.namespaces[netns] = None
         return netns
 
+    def get_ifaddr(self, r=0):
+        '''
+        Returns an ip address from the specified range.
+        '''
+        return str(self.ipranges[r].pop())
+
     @property
     def ifname(self):
         '''
@@ -73,6 +85,13 @@ class NDBContextManager(object):
         registers it to be cleaned up on `self.teardown()`
         '''
         return self.register()
+
+    @property
+    def ifaddr(self):
+        '''
+        Returns a new ipaddr from the configured range
+        '''
+        return self.get_ifaddr()
 
     @property
     def nsname(self):
@@ -119,3 +138,5 @@ class NDBContextManager(object):
                     ipr.close()
         for nsname in self.namespaces:
             netns.remove(nsname)
+        for net in self.ipnets:
+            free_network(net)
