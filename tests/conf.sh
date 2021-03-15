@@ -12,6 +12,7 @@ VERSION=`git describe`
 [ -z "$PYTHON" ] && export PYTHON=python
 [ -z "$NOSE" ] && export NOSE=nosetests
 [ -z "$FLAKE8" ] && export FLAKE8=flake8
+[ -z "$PYTEST" ] && export PYTEST=pytest
 [ -z "$WLEVEL" ] || export WLEVEL="-W $WLEVEL"
 [ -z "$PDB" ] || export PDB="--pdb --pdb-failures"
 [ -z "$COVERAGE" ] || export COVERAGE="--cover-html"

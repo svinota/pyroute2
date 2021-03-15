@@ -17,6 +17,7 @@ nosetests ?= nosetests
 flake8 ?= flake8
 setuplib ?= setuptools
 epydoc ?= epydoc
+pytest ?= pytest
 ##
 # Python -W flags:
 #
@@ -138,6 +139,21 @@ test: check_parameters
 		export WORKER=${worker}; \
 		export WORKSPACE=${workspace}; \
 		./tests/run.sh
+
+pytest: check_parameters
+	@export PYTHON=${python}; \
+		export PYTEST=${pytest}; \
+		export FLAKE8=${flake8}; \
+		export WLEVEL=${wlevel}; \
+		export SKIP_TESTS=${skip}; \
+		export PDB=${pdb}; \
+		export COVERAGE=${coverage}; \
+		export MODULE=${module}; \
+		export LOOP=${loop}; \
+		export REPORT=${report}; \
+		export WORKER=${worker}; \
+		export WORKSPACE=${workspace}; \
+		./tests/run_pytest.sh
 
 test-platform:
 	@${python} -c "\
