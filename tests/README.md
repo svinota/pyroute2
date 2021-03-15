@@ -13,7 +13,9 @@ Requirements
 ============
 
 * flake8
-* nosetests
+* nosetests -- for legacy tests
+* pytest -- for new tests
+* pytest-cov
 * coverage
 * sphinx
 * netaddr
@@ -22,8 +24,8 @@ Optionally:
 
 * dtcd
 
-Run
-===
+Run legacy tests
+================
 
 To run the tests, one can use the root makefile::
 
@@ -44,6 +46,15 @@ tests in loop:
     $ sudo make test module=general:test_ndb.py loop=1000
 
 More details see in `README.make.md`.
+
+Run new tests
+=============
+
+The migration from the legacy nosetests CI to pytest has
+just begun, so the pytest CI has not so many options yet.
+To run the tests::
+
+    $ sudo make pytest
 
 Workspaces
 ==========
