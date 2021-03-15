@@ -1,8 +1,8 @@
 import time
 import pytest
 from utils import require_user
-from test_tools import interface_exists
-from ctx_managers import NDBContextManager
+from pr2test.tools import interface_exists
+from pr2test.ctx_managers import NDBContextManager
 from pyroute2 import config
 from pyroute2 import NDB
 
