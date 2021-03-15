@@ -39,6 +39,9 @@ class NDBContextManager(object):
         self.interfaces = {}
         self.namespaces = {}
 
+    def getspec(self, **kwarg):
+        return dict(kwarg)
+
     def register(self, ifname=None, netns=None):
         '''
         Register an interface in `self.interfaces`. If no interface
