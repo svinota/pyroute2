@@ -538,7 +538,8 @@ class RTNL_API(object):
         Please note, that link_lookup() returns list, not one
         value.
         '''
-        if set(kwarg) & {'index', 'ifname'}:
+        if set(kwarg) in ({'index', }, {'ifname', }, {'index', 'ifname'}):
+            print(kwarg)
             # shortcut for index and ifname
             try:
                 for link in self.link('get', **kwarg):
