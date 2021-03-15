@@ -37,15 +37,15 @@ def test_multiple_sources():
         assert ndb.sources[source].nl.closed
 
 
-def test_source_localhost_restart(local_ctx):
+def test_source_localhost_restart(context):
     '''
     The database must be operational after a complete
     restart of any source.
     '''
     require_user('root')
-    ifname1 = local_ctx.ifname
-    ifname2 = local_ctx.ifname
-    ndb = local_ctx.ndb
+    ifname1 = context.ifname
+    ifname2 = context.ifname
+    ndb = context.ndb
 
     #
     # check that there are existing interfaces
@@ -94,18 +94,18 @@ def test_source_localhost_restart(local_ctx):
     assert not interface_exists(ifname2)
 
 
-def test_source_netns_restart(local_ctx):
+def test_source_netns_restart(context):
     '''
     Netns sources should be operational after restart as well
     '''
     require_user('root')
-    nsname = local_ctx.nsname
+    nsname = context.nsname
     #
-    # simple `local_ctx.ifname` returns ifname only for the main
+    # simple `context.ifname` returns ifname only for the main
     # netns, if we want to register the name in a netns, we should
-    # use `local_ctx.register(netns=...)`
-    ifname = local_ctx.register(netns=nsname)
-    ndb = local_ctx.ndb
+    # use `context.register(netns=...)`
+    ifname = context.register(netns=nsname)
+    ndb = context.ndb
 
     #
     # add a netns source, the netns will be created automatically

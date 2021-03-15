@@ -4,7 +4,7 @@ from pr2test.tools import interface_exists
 from pyroute2 import config
 
 
-def test_view_cache(local_ctx):
+def test_view_cache(context):
     '''
     NDB stores all the info in an SQL database, and instantiates
     python objects only upon request, since it isn't cheap.
@@ -16,10 +16,10 @@ def test_view_cache(local_ctx):
     references are properly cached and expired in time.
     '''
     require_user('root')
-    ifname1 = local_ctx.ifname
-    ifname2 = local_ctx.ifname
+    ifname1 = context.ifname
+    ifname2 = context.ifname
 
-    ndb = local_ctx.ndb
+    ndb = context.ndb
 
     #
     # the cache is empty from the beginning

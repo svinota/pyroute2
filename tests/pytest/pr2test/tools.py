@@ -5,7 +5,7 @@ from pyroute2 import IPRoute
 def interface_exists(ifname, *argv, **kwarg):
     ret = 0
     ipr = None
-    if argv:
+    if argv and argv[0] is not None:
         ipr = NetNS(argv[0])
     else:
         ipr = IPRoute()
@@ -22,7 +22,7 @@ def interface_exists(ifname, *argv, **kwarg):
 def address_exists(ifname, *argv, **kwarg):
     ret = 0
     ipr = None
-    if argv:
+    if argv and argv[0] is not None:
         ipr = NetNS(argv[0])
     else:
         ipr = IPRoute()

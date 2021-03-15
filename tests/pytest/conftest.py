@@ -1,5 +1,5 @@
 import pytest
-from pr2test.fixtures import local_ctx
+from pr2test.fixtures import context
 
 __all__ = [pytest,
-           local_ctx]
+           context]

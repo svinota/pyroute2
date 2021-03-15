@@ -22,31 +22,46 @@ class NDBContextManager(object):
     * automatically remove registered interfaces
     '''
 
-    def __init__(self, tmpdir, **kwarg):
-        # FIXME: use path provided by pytest, don't hardcode it
+    def __init__(self, request, tmpdir, **kwarg):
         log_id = str(uuid.uuid4())
         log_spec = ('%s/ndb-%s-%s.log' % (tmpdir, os.getpid(), log_id),
                     logging.DEBUG)
+        self.netns = None
+        #
+        # the cleanup registry
+        self.interfaces = {}
+        self.namespaces = {}
 
         if 'log' not in kwarg:
             kwarg['log'] = log_spec
         if 'rtnl_debug' not in kwarg:
             kwarg['rtnl_debug'] = True
+
+        if hasattr(request, 'param'):
+            request = request.param
+        else:
+            request = None
+
+        if request == 'local':
+            sources = [{'target': 'localhost', 'kind': 'local'}]
+        elif request == 'netns':
+            self.netns = self.nsname
+            sources = [{'target': 'localhost',
+                        'kind': 'netns',
+                        'netns': self.netns}]
+        else:
+            sources = None
+
+        if sources is not None:
+            kwarg['sources'] = sources
         #
         # this instance is to be tested, so do NOT use it
         # in utility methods
         self.ndb = NDB(**kwarg)
         #
-        # the cleanup registry
-        self.interfaces = {}
-        self.namespaces = {}
-        #
         # IPAM
         self.ipnets = [allocate_network() for _ in range(5)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
-
-    def getspec(self, **kwarg):
-        return dict(kwarg)
 
     def register(self, ifname=None, netns=None):
         '''
