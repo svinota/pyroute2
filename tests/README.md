@@ -56,6 +56,10 @@ To run the tests::
 
     $ sudo make pytest
 
+Get code coverage and run PDB on failures::
+
+    $ sudo make pytest coverage=true pdb=true
+
 Workspaces
 ==========
 

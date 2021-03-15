@@ -10,6 +10,10 @@ TOP=$(readlink -f $(pwd)/..)
 
 export PYTHONPATH="$WORKSPACE:$WORKSPACE/examples:$WORKSPACE/examples/generic"
 
+# patch variables that differ between nosetests an pytest
+[ -z "$PDB" ] || export PDB="--pdb"
+[ -z "$COVERAGE" ] || export COVERAGE="--cov=pyroute2"
+
 function deploy() {
     # Prepare test environment
     #
@@ -113,7 +117,7 @@ for i in `seq $LOOP`; do
         continue
     }
 
-    $PYTHON $WLEVEL "$PYTEST_PATH" --basetemp ./log --cov=pyroute2
+    $PYTHON $WLEVEL "$PYTEST_PATH" --basetemp ./log $PDB $COVERAGE
     ret=$?
     [ $ret -eq 0 ] || {
         errors=$(($errors + 1))
