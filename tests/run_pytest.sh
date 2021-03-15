@@ -113,7 +113,7 @@ for i in `seq $LOOP`; do
         continue
     }
 
-    $PYTHON $WLEVEL "$PYTEST_PATH" --basetemp ./log
+    $PYTHON $WLEVEL "$PYTEST_PATH" --basetemp ./log --cov=pyroute2
     ret=$?
     [ $ret -eq 0 ] || {
         errors=$(($errors + 1))

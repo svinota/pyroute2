@@ -8,3 +8,5 @@ bottle
 sphinx
 netaddr
 psutil
+pytest
+pytest-cov
