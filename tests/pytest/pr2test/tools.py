@@ -17,3 +17,18 @@ def interface_exists(ifname, *argv, **kwarg):
     ipr.close()
 
     return len(ret) == 1
+
+
+def address_exists(ifname, *argv, **kwarg):
+    ret = 0
+    ipr = None
+    if argv:
+        ipr = NetNS(argv[0])
+    else:
+        ipr = IPRoute()
+
+    idx = list(ipr.link_lookup(ifname=ifname))[0]
+    ret = list(ipr.addr('dump', index=idx, match=kwarg))
+    ipr.close()
+
+    return len(ret) == 1
