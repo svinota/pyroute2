@@ -539,7 +539,6 @@ class RTNL_API(object):
         value.
         '''
         if set(kwarg) in ({'index', }, {'ifname', }, {'index', 'ifname'}):
-            print(kwarg)
             # shortcut for index and ifname
             try:
                 for link in self.link('get', **kwarg):
