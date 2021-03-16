@@ -260,6 +260,7 @@ rt_schema = (rtmsg
                            'dst_len',
                            'tos',
                            'RTA_DST',
+                           'RTA_OIF',
                            'RTA_PRIORITY',
                            'RTA_TABLE',
                            'RTA_VIA',

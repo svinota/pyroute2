@@ -85,6 +85,7 @@ from pyroute2.ndb.messages import (cmsg_event,
                                    cmsg_sstart)
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 if sys.platform.startswith('linux'):
     from pyroute2 import netns
     from pyroute2.netns.nslink import NetNS
@@ -247,6 +248,20 @@ class Source(dict):
                     time.sleep(1)
         raise RuntimeError('api call failed')
 
+    def fake_zero_if(self):
+        url = 'https://github.com/svinota/pyroute2/issues/737'
+        zero_if = ifinfmsg()
+        zero_if['index'] = 0
+        zero_if['state'] = 'up'
+        zero_if['flags'] = 1
+        zero_if['header']['flags'] = 2
+        zero_if['header']['type'] = 16
+        zero_if['header']['target'] = self.target
+        zero_if['event'] = 'RTM_NEWLINK'
+        zero_if['attrs'] = [('IFLA_IFNAME', url),
+                            ('IFLA_ADDRESS', '00:00:00:00:00:00')]
+        self.evq.put([zero_if, ])
+
     def receiver(self):
         #
         # The source thread routine -- get events from the
@@ -284,6 +299,8 @@ class Source(dict):
                     self.ndb.schema.allow_read(False)
                     try:
                         self.ndb.schema.flush(self.target)
+                        if self.kind in ('local', 'netns', 'remote'):
+                            self.fake_zero_if()
                         self.evq.put(self.nl.dump())
                     finally:
                         self.ndb.schema.allow_read(True)

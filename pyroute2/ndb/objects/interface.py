@@ -360,7 +360,7 @@ class Interface(RTNL_Object):
                     ''' % (plch, plch)
             values = [view.chain['target'], view.chain['index']]
         else:
-            where = ''
+            where = 'WHERE f_index != 0'
             values = []
         return (where, values)
 
