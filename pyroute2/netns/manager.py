@@ -105,7 +105,7 @@ class NetNSManager(Inotify):
         for item in self.dump():
             if item.get_attr('NSINFO_PATH') == netnspath:
                 return (item, )
-        return tuple()
+        return ()
 
     def dump(self):
         return self.ipr.get_netns_info()

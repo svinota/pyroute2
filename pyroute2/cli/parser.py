@@ -12,7 +12,7 @@ from pyroute2.cli import (t_stmt,
 
 class Token(object):
 
-    def __init__(self, lex, expect=tuple(), prohibit=tuple(), leaf=False):
+    def __init__(self, lex, expect=(), prohibit=(), leaf=False):
         self.lex = lex
         self.leaf = leaf
         self.kind = 0

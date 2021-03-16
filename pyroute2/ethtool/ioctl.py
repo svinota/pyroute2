@@ -399,7 +399,7 @@ class EthtoolFeaturesList(object):
         return self._gfeatures[feature_i].never_changed & flag_bit != 0
 
     def __iter__(self):
-        for name in self._offsets.keys():
+        for name in self._offsets:
             feature_i, flag_bit = self._offsets[name]
             yield (name, self.get_value(name), self.is_available(name),
                    feature_i, flag_bit)

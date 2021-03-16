@@ -581,7 +581,7 @@ class NFCTAttrTuple(NFCTAttr):
 
 
 class NFCTSocket(NetlinkSocket):
-    policy = dict((k | (NFNL_SUBSYS_CTNETLINK << 8), v) for k, v in {
+    policy = {k | (NFNL_SUBSYS_CTNETLINK << 8): v for k, v in {
         IPCTNL_MSG_CT_NEW: nfct_msg,
         IPCTNL_MSG_CT_GET: nfct_msg,
         IPCTNL_MSG_CT_DELETE: nfct_msg,
@@ -590,7 +590,7 @@ class NFCTSocket(NetlinkSocket):
         IPCTNL_MSG_CT_GET_STATS: nfct_stats,
         IPCTNL_MSG_CT_GET_DYING: nfct_msg,
         IPCTNL_MSG_CT_GET_UNCONFIRMED: nfct_msg,
-    }.items())
+    }.items()}
 
     def __init__(self, nfgen_family=socket.AF_INET, **kwargs):
         super(NFCTSocket, self).__init__(family=NETLINK_NETFILTER, **kwargs)
