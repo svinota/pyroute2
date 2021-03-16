@@ -331,6 +331,17 @@ class RecordSet(BaseRecordSet):
         else:
             raise ValueError()
 
+    def count(self):
+        '''
+        Return number of records.
+
+        This method is destructive, as it exhausts the generator.
+        '''
+        counter = 0
+        for record in self.generator:
+            counter += 1
+        return counter
+
     def __getitem__(self, key):
         if isinstance(key, int):
             if key >= 0:
