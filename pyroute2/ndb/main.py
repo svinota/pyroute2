@@ -1024,8 +1024,11 @@ class NDB(object):
             if source is not None and source.th is not None:
                 source.shutdown.set()
                 source.th.join()
-                self.log.debug('flush DB for the target %s' % target)
-                self.schema.flush(target)
+                if self._db_rtnl_log:
+                    self.log.debug('leave DB for debug')
+                else:
+                    self.log.debug('flush DB for the target %s' % target)
+                    self.schema.flush(target)
 
         # close the database
         self.schema.commit()
