@@ -382,19 +382,37 @@ class Route(RTNL_Object):
     @classmethod
     def summary(cls, view):
         req = '''
+              WITH nr AS
+                  (SELECT
+                      main.f_target, main.f_tflags, main.f_RTA_TABLE,
+                      main.f_RTA_DST, main.f_dst_len,
+                      CASE WHEN nh.f_oif > main.f_RTA_OIF
+                          THEN nh.f_oif
+                          ELSE main.f_RTA_OIF
+                      END AS f_RTA_OIF,
+                      CASE WHEN nh.f_RTA_GATEWAY IS NOT NULL
+                          THEN nh.f_RTA_GATEWAY
+                          ELSE main.f_RTA_GATEWAY
+                      END AS f_RTA_GATEWAY
+                   FROM
+                       routes AS main
+                   LEFT JOIN nh
+                   ON
+                       main.f_route_id = nh.f_route_id AND
+                       main.f_target = nh.f_target)
               SELECT
-                  main.f_target, main.f_tflags, main.f_RTA_TABLE,
-                  main.f_RTA_DST, main.f_dst_len, main.f_RTA_GATEWAY,
-                  nh.f_RTA_GATEWAY
+                  nr.f_target, nr.f_tflags, nr.f_RTA_TABLE,
+                  intf.f_IFLA_IFNAME, nr.f_RTA_DST, nr.f_dst_len,
+                  nr.f_RTA_GATEWAY
               FROM
-                  routes AS main
-              LEFT JOIN nh
+                  nr
+              INNER JOIN interfaces AS intf
               ON
-                  main.f_route_id = nh.f_route_id
-                  AND main.f_target = nh.f_target
+                  nr.f_rta_oif = intf.f_index AND
+                  nr.f_target = intf.f_target
               '''
-        yield ('target', 'tflags', 'table', 'dst',
-               'dst_len', 'gateway', 'nexthop')
+        yield ('target', 'tflags', 'table', 'ifname',
+               'dst', 'dst_len', 'gateway')
         where, values = cls._dump_where(view)
         for record in view.ndb.schema.fetch(req + where, values):
             yield record
