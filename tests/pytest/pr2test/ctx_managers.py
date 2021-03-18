@@ -37,14 +37,17 @@ class NDBContextManager(object):
         if 'rtnl_debug' not in kwarg:
             kwarg['rtnl_debug'] = True
 
+        kind = 'local'
+        self.table = None
         if hasattr(request, 'param'):
-            request = request.param
-        else:
-            request = None
+            if isinstance(request.param, (tuple, list)):
+                kind, self.table = request.param
+            else:
+                kind = request.param
 
-        if request == 'local':
+        if kind == 'local':
             sources = [{'target': 'localhost', 'kind': 'local'}]
-        elif request == 'netns':
+        elif kind == 'netns':
             self.netns = self.nsname
             sources = [{'target': 'localhost',
                         'kind': 'netns',
