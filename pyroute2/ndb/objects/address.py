@@ -137,6 +137,28 @@ class Address(RTNL_Object):
         self.event_map = {ifaddrmsg: "load_rtnlmsg"}
         super(Address, self).__init__(*argv, **kwarg)
 
+    @staticmethod
+    def normalize_key(key):
+        '''
+        Address key normalization::
+
+            { ... }        ->  { ... }
+            "10.0.0.1/24"  ->  {"address": "10.0.0.1",
+                                "prefixlen": 24}
+        '''
+        if isinstance(key, dict):
+            ret_key = key
+        else:
+            ret_key = {}
+        if 'target' not in ret_key:
+            ret_key['target'] = 'localhost'
+        if isinstance(key, basestring):
+            addr_spec = key.split('/')
+            ret_key['address'] = addr_spec[0]
+            if len(addr_spec) > 1:
+                ret_key['prefixlen'] = addr_spec[1]
+        return ret_key
+
     @classmethod
     def adjust_spec(self, spec, context):
         if context is None:

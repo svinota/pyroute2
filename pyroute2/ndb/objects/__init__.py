@@ -217,6 +217,12 @@ class RTNL_Object(dict):
                           view.ndb.schema.compiled[cls.table]['norm_names'],
                           view.ndb.schema.compiled[cls.table]['fnames'])
 
+    @staticmethod
+    def normalize_key(key):
+        if 'target' not in key:
+            key['target'] = 'localhost'
+        return key
+
     def __init__(self,
                  view,
                  key,

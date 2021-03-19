@@ -446,12 +446,50 @@ class View(dict):
             return ret
         else:
             # Cache only existing objects
-            if ret.load_sql():
+            if self.exists(key):
+                ret.load_sql()
                 self.log.debug('cache add %s' % (cache_key, ))
                 self.cache[cache_key] = ret
 
         ret.register()
         return ret
+
+    def exists(self, key, table=None):
+        '''
+        Check if the specified object exists in the database::
+
+            ndb.interfaces.exists('eth0')
+            ndb.interfaces.exists({'ifname': 'eth0', 'target': 'localhost'})
+            ndb.addresses.exists('127.0.0.1/8')
+        '''
+
+        key = self.classes[self.table].normalize_key(key)
+
+        table = table or self.table
+        iclass = self.classes[self.table]
+        schema = self.ndb.schema
+        names = schema.compiled[self.table]['all_names']
+
+        self.log.debug('check if the key %s exists in table %s' %
+                       (key, table))
+        keys = []
+        values = []
+        for name, value in key.items():
+            nla_name = iclass.name2nla(name)
+            if nla_name in names:
+                name = nla_name
+            if value is not None and name in names:
+                keys.append('f_%s = %s' % (name, schema.plch))
+                values.append(value)
+        spec = (schema
+                .fetchone('SELECT * FROM %s WHERE %s' %
+                          (self.table, ' AND '.join(keys)), values))
+        if spec is not None:
+            self.log.debug('exists')
+            return True
+        else:
+            self.log.debug('not exists')
+            return False
 
     def __setitem__(self, key, value):
         raise NotImplementedError()

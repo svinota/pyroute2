@@ -557,6 +557,28 @@ class Interface(RTNL_Object):
         else:
             super(Interface, self).__setitem__(key, value)
 
+    @staticmethod
+    def normalize_key(key):
+        '''
+        Interface key normalization::
+
+            { ... }  ->  { ... }
+            "eth0"   ->  {"ifname": "eth0", ...}
+            1        ->  {"index": 1, ...}
+
+        '''
+        if isinstance(key, dict):
+            ret_key = key
+        else:
+            ret_key = {}
+        if 'target' not in ret_key:
+            ret_key['target'] = 'localhost'
+        if isinstance(key, basestring):
+            ret_key['ifname'] = key
+        elif isinstance(key, int):
+            ret_key['index'] = key
+        return ret_key
+
     def complete_key(self, key):
         if isinstance(key, dict):
             ret_key = key

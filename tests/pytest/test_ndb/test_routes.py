@@ -359,11 +359,11 @@ def _test_metrics_update(context, method):
     if context.table:
         spec['table'] = context.table
 
-    r = (context
-         .ndb
-         .routes
-         .create(**spec)
-         .commit())
+    (context
+     .ndb
+     .routes
+     .create(**spec)
+     .commit())
 
     def match_metrics(msg):
         if msg.get_attr('RTA_GATEWAY') != gateway1:
@@ -377,8 +377,14 @@ def _test_metrics_update(context, method):
     assert route_exists(context.netns, match=match_metrics)
 
     target = 1500
-    r['metrics']['mtu'] = target
-    getattr(r, method)()
+    #
+    # referencing the route via full spec instead of a
+    # local variable is important here for the test
+    # purposes: thus we check if the cache is working
+    # properly and by the spec we hit the same object
+    # every time
+    context.ndb.routes[spec]['metrics']['mtu'] = target
+    getattr(context.ndb.routes[spec], method)()
 
     assert route_exists(context.netns, match=match_metrics)
 
