@@ -221,6 +221,121 @@ def test_update_replace(context):
     assert route_exists(context.netns, dst=network, priority=10)
 
 
+@pytest.mark.parametrize('context',
+                         [('local', None),
+                          ('local', 501),
+                          ('local', 5001),
+                          ('netns', None),
+                          ('netns', 501),
+                          ('netns', 5001)], indirect=True)
+def test_same_multipath(context):
+    ifaddr = context.ifaddr
+    gateway1 = context.ifaddr
+    gateway2 = context.ifaddr
+    ifname = context.ifname
+    ipnet1 = str(context.ipnets[1].network)
+    ipnet2 = str(context.ipnets[2].network)
+
+    (context
+     .ndb
+     .interfaces
+     .create(ifname=ifname, kind='dummy', state='up')
+     .add_ip({'address': ifaddr, 'prefixlen': 24})
+     .commit())
+
+    # first route with these gateways
+    (context
+     .ndb
+     .routes
+     .create(dst=ipnet1,
+             dst_len=24,
+             multipath=[{'gateway': gateway1},
+                        {'gateway': gateway2}])
+     .commit())
+
+    # second route with these gateways
+    (context
+     .ndb
+     .routes
+     .create(dst=ipnet2,
+             dst_len=24,
+             multipath=[{'gateway': gateway1},
+                        {'gateway': gateway2}])
+     .commit())
+
+    def match_multipath(msg):
+        if msg.get_attr('RTA_DST') != ipnet2:
+            return False
+        gws_match = set((gateway1, gateway2))
+        mp = msg.get_attr('RTA_MULTIPATH')
+        if mp is None:
+            return False
+        gws_msg = set([x.get_attr('RTA_GATEWAY') for x in mp])
+        return gws_match == gws_msg
+
+    assert address_exists(ifname, context.netns, address=ifaddr)
+    assert route_exists(context.netns, match=match_multipath)
+
+
+@pytest.mark.parametrize('context',
+                         [('local', None),
+                          ('local', 501),
+                          ('local', 5001),
+                          ('netns', None),
+                          ('netns', 501),
+                          ('netns', 5001)], indirect=True)
+def test_same_metrics(context):
+    ifaddr = context.ifaddr
+    gateway1 = context.ifaddr
+    gateway2 = context.ifaddr
+    ifname = context.ifname
+    ipnet1 = str(context.ipnets[1].network)
+    ipnet2 = str(context.ipnets[2].network)
+    target = 1300
+
+    (context
+     .ndb
+     .interfaces
+     .create(ifname=ifname, kind='dummy', state='up')
+     .add_ip({'address': ifaddr, 'prefixlen': 24})
+     .commit())
+
+    # first route with these metrics
+    (context
+     .ndb
+     .routes
+     .create(dst=ipnet1,
+             dst_len=24,
+             gateway=gateway1,
+             metrics={'mtu': target})
+     .commit())
+
+    # second route with these metrics
+    (context
+     .ndb
+     .routes
+     .create(dst=ipnet2,
+             dst_len=24,
+             gateway=gateway2,
+             metrics={'mtu': target})
+     .commit())
+
+    # at this point it's already ok - otherwise the test
+    # would explode on the second routes.create()
+    # but lets double check
+
+    def match_metrics(msg):
+        if msg.get_attr('RTA_GATEWAY') != gateway2:
+            return False
+        mtu = (msg
+               .get_attr('RTA_METRICS', rtmsg())
+               .get_attr('RTAX_MTU', 0))
+        return mtu == target
+
+    assert address_exists(ifname, context.netns, address=ifaddr)
+    assert route_exists(context.netns, match=match_metrics)
+
+
 def _test_metrics_update(context, method):
 
     ifaddr = context.ifaddr
