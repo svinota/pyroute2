@@ -773,4 +773,5 @@ class Metrics(RouteSub, RTNL_Object):
     def __init__(self, route, *argv, **kwarg):
         self.route = route
         kwarg['iclass'] = rtmsg.metrics
+        kwarg['check'] = False
         super(Metrics, self).__init__(*argv, **kwarg)

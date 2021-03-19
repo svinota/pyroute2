@@ -224,6 +224,7 @@ class RTNL_Object(dict):
                  ctxid=None,
                  load=True,
                  master=None,
+                 check=True,
                  auth_managers=None):
         self.view = view
         self.ndb = view.ndb
@@ -265,7 +266,7 @@ class RTNL_Object(dict):
         exists = self.exists(key)
         ckey = self.complete_key(key)
         if create:
-            if exists:
+            if check & exists:
                 raise KeyError('object exists')
             for name in key:
                 self[self.iclass.nla2name(name)] = key[name]
