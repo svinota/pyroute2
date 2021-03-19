@@ -268,9 +268,23 @@ def _test_metrics_update(context, method):
     assert route_exists(context.netns, match=match_metrics)
 
 
+@pytest.mark.parametrize('context',
+                         [('local', None),
+                          ('local', 501),
+                          ('local', 5001),
+                          ('netns', None),
+                          ('netns', 501),
+                          ('netns', 5001)], indirect=True)
 def test_metrics_update_apply(context):
     return _test_metrics_update(context, 'apply')
 
 
+@pytest.mark.parametrize('context',
+                         [('local', None),
+                          ('local', 501),
+                          ('local', 5001),
+                          ('netns', None),
+                          ('netns', 501),
+                          ('netns', 5001)], indirect=True)
 def test_metrics_update_commit(context):
     return _test_metrics_update(context, 'commit')
