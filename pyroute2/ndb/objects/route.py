@@ -747,6 +747,7 @@ class NextHop(RouteSub, RTNL_Object):
     def __init__(self, route, *argv, **kwarg):
         self.route = route
         kwarg['iclass'] = nh
+        kwarg['check'] = False
         super(NextHop, self).__init__(*argv, **kwarg)
 
 
