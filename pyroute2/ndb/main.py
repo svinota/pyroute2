@@ -1071,3 +1071,7 @@ class NDB(object):
         # close the database
         self.schema.commit()
         self.schema.close()
+
+        # close the logging
+        for handler in self.log.logger.handlers:
+            handler.close()
