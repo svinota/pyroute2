@@ -2,7 +2,6 @@ import threading
 from pyroute2 import netns
 from pyroute2.common import basestring
 from pyroute2.ndb.objects import RTNL_Object
-from pyroute2.ndb.report import Record
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
 
 
@@ -59,24 +58,22 @@ class NetNS(RTNL_Object):
         self.event_map = {nsinfmsg: "load_rtnlmsg"}
         super(NetNS, self).__init__(*argv, **kwarg)
 
-    @classmethod
-    def adjust_spec(cls, spec, context):
+    @staticmethod
+    def spec_normalize(spec):
         if isinstance(spec, dict):
-            ret_spec = spec
+            ret = dict(spec)
         else:
-            ret_spec = {'target': 'localhost/netns'}
+            ret = {'target': 'localhost/netns'}
         if isinstance(spec, basestring):
-            ret_spec['path'] = spec
-        elif isinstance(spec, Record):
-            ret_spec.update(spec._as_dict())
-        path = netns._get_netnspath(ret_spec['path'])
+            ret['path'] = spec
+        path = netns._get_netnspath(ret['path'])
         # on Python3 _get_netnspath() returns bytes, not str, so
         # we have to decode it here in order to avoid issues with
         # cache keys and DB inserts
         if hasattr(path, 'decode'):
             path = path.decode('utf-8')
-        ret_spec['path'] = path
-        return ret_spec
+        ret['path'] = path
+        return ret
 
     def __setitem__(self, key, value):
         if self.state == 'system':

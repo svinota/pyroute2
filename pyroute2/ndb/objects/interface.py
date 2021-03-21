@@ -451,15 +451,6 @@ class Interface(RTNL_Object):
         return ctx
 
     @classmethod
-    def adjust_spec(cls, spec, context):
-        if isinstance(spec, basestring):
-            ret = {'ifname': spec}
-        else:
-            ret = dict(spec)
-        ret.update(context)
-        return ret
-
-    @classmethod
     def compare_record(self, left, right):
         # specific compare
         if isinstance(right, basestring):
@@ -558,7 +549,7 @@ class Interface(RTNL_Object):
             super(Interface, self).__setitem__(key, value)
 
     @staticmethod
-    def normalize_key(key):
+    def spec_normalize(spec):
         '''
         Interface key normalization::
 
@@ -567,17 +558,23 @@ class Interface(RTNL_Object):
             1        ->  {"index": 1, ...}
 
         '''
-        if isinstance(key, dict):
-            ret_key = key
+        if isinstance(spec, dict):
+            ret = dict(spec)
         else:
-            ret_key = {}
-        if 'target' not in ret_key:
-            ret_key['target'] = 'localhost'
-        if isinstance(key, basestring):
-            ret_key['ifname'] = key
-        elif isinstance(key, int):
-            ret_key['index'] = key
-        return ret_key
+            ret = {}
+        if 'target' not in ret:
+            ret['target'] = 'localhost'
+        if isinstance(spec, basestring):
+            ret['ifname'] = spec
+        elif isinstance(spec, int):
+            ret['index'] = spec
+        #
+        # fix the master interface reference
+        for key in ('vxlan_link', 'link', 'master'):
+            if isinstance(ret.get(key), dict):
+                ret[key] = ret[key]['index']
+
+        return ret
 
     def complete_key(self, key):
         if isinstance(key, dict):
@@ -617,6 +614,12 @@ class Interface(RTNL_Object):
                 snp.snapshot_deps.append((link, link.snapshot()))
         # return the root node
         return snp
+
+    def resolve(self):
+        for key in ('vxlan_link', 'link', 'master'):
+            if isinstance(self.get[key], dict):
+                self[key] = self[key]['index']
+        return self
 
     def sync_req(self, prime):
         req = super(Interface, self).sync_req(prime)

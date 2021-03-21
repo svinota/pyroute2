@@ -292,24 +292,32 @@ class View(dict):
         else:
             context = {}
         iclass = self.classes[table or self.table]
-        if isinstance(key, Record):
-            key = key._as_dict()
-        key = iclass.adjust_spec(key, context)
+
+        spec = (iclass
+                .new_spec(key)
+                .load_context(context)
+                .get_spec)
+
         return iclass(self,
-                      key,
+                      spec,
                       load=False,
                       master=self.chain,
                       auth_managers=self.auth_managers)
 
     @cli.change_pointer
     def create(self, *argspec, **kwspec):
+        iclass = self.classes[self.table]
+
         if self.chain:
             context = self.chain.context
         else:
             context = {}
-        spec = (self
-                .classes[self.table]
-                .adjust_spec(kwspec or argspec[0], context))
+
+        spec = (iclass
+                .new_spec(kwspec or argspec[0])
+                .load_context(context)
+                .get_spec)
+
         if self.chain:
             spec['ndb_chain'] = self.chain
         spec['create'] = True
@@ -463,7 +471,7 @@ class View(dict):
             ndb.addresses.exists('127.0.0.1/8')
         '''
 
-        key = self.classes[self.table].normalize_key(key)
+        key = self.classes[self.table].new_spec(key).get_spec
 
         table = table or self.table
         iclass = self.classes[self.table]

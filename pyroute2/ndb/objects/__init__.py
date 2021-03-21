@@ -101,6 +101,30 @@ from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.ndb.events import InvalidateHandlerException
 
 
+class Spec(object):
+    '''
+    A universal NDB object spec
+    '''
+    def __init__(self, iclass, spec):
+        if isinstance(spec, Record):
+            spec = spec._as_dict()
+        self.spec = spec
+        self.iclass = iclass
+        self.normalize()
+
+    def normalize(self):
+        self.spec = self.iclass.spec_normalize(self.spec)
+        return self
+
+    def load_context(self, context):
+        self.spec.update(context)
+        return self
+
+    @property
+    def get_spec(self):
+        return self.spec
+
+
 class RTNL_Object(dict):
 
     view = None    # (optional) view to load values for the summary etc.
@@ -218,9 +242,13 @@ class RTNL_Object(dict):
                           view.ndb.schema.compiled[cls.table]['fnames'])
 
     @staticmethod
-    def normalize_key(key):
-        if 'target' not in key:
-            key['target'] = 'localhost'
+    def spec_normalize(spec):
+        if 'target' not in spec:
+            spec['target'] = 'localhost'
+        return spec
+
+    @staticmethod
+    def key_load_context(key, context):
         return key
 
     def __init__(self,
@@ -290,6 +318,13 @@ class RTNL_Object(dict):
                     self.load_sql(table=self.table)
         self._init_complete = True
 
+    @classmethod
+    def new_spec(cls, spec):
+        return Spec(cls, spec)
+
+    def resolve(self):
+        return self
+
     def mark_tflags(self, mark):
         pass
 
@@ -304,14 +339,6 @@ class RTNL_Object(dict):
     @property
     def context(self):
         return {'target': self.get('target', 'localhost')}
-
-    @classmethod
-    def adjust_spec(cls, spec, context):
-        ret = dict(spec)
-        if context is None:
-            context = {}
-        ret.update(context)
-        return ret
 
     @classmethod
     def nla2name(self, name):
@@ -745,7 +772,12 @@ class RTNL_Object(dict):
                 if k not in req and v is not None:
                     req[k] = v
             if self.master is not None:
-                req = self.adjust_spec(req, self.master.context)
+                self.resolve()
+                req = (self
+                       .new_spec(req)
+                       .load_context(self.master.context)
+                       .get_spec)
+
             method = 'add'
             ignore = {errno.EEXIST: 'set',
                       errno.EAGAIN: None}

@@ -138,7 +138,7 @@ class Address(RTNL_Object):
         super(Address, self).__init__(*argv, **kwarg)
 
     @staticmethod
-    def normalize_key(key):
+    def spec_normalize(spec):
         '''
         Address key normalization::
 
@@ -146,31 +146,18 @@ class Address(RTNL_Object):
             "10.0.0.1/24"  ->  {"address": "10.0.0.1",
                                 "prefixlen": 24}
         '''
-        if isinstance(key, dict):
-            ret_key = key
+        if isinstance(spec, dict):
+            ret = spec
         else:
-            ret_key = {}
-        if 'target' not in ret_key:
-            ret_key['target'] = 'localhost'
-        if isinstance(key, basestring):
-            addr_spec = key.split('/')
-            ret_key['address'] = addr_spec[0]
-            if len(addr_spec) > 1:
-                ret_key['prefixlen'] = addr_spec[1]
-        return ret_key
-
-    @classmethod
-    def adjust_spec(self, spec, context):
-        if context is None:
-            context = {}
-        if isinstance(spec, basestring):
             ret = {}
-            ret['address'], ret['prefixlen'] = spec.split('/')
-            spec = ret
-        for key in context:
-            if key not in spec:
-                spec[key] = context[key]
-        return spec
+        if 'target' not in ret:
+            ret['target'] = 'localhost'
+        if isinstance(spec, basestring):
+            addr_spec = spec.split('/')
+            ret['address'] = addr_spec[0]
+            if len(addr_spec) > 1:
+                ret['prefixlen'] = addr_spec[1]
+        return ret
 
     def key_repr(self):
         return '%s/%s %s/%s' % (self.get('target', ''),
