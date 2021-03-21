@@ -16,8 +16,8 @@ def test_add_del_ip_dict(context):
      .add_ip({'address': ifaddr2, 'prefixlen': 24})
      .commit())
 
-    assert address_exists(ifname, context.netns, address=ifaddr1)
-    assert address_exists(ifname, context.netns, address=ifaddr2)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr1)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr2)
 
     (context
      .ndb
@@ -26,8 +26,8 @@ def test_add_del_ip_dict(context):
      .del_ip({'address': ifaddr1, 'prefixlen': 24})
      .commit())
 
-    assert not address_exists(ifname, context.netns, address=ifaddr1)
-    assert not address_exists(ifname, context.netns, address=ifaddr2)
+    assert not address_exists(context.netns, ifname=ifname, address=ifaddr1)
+    assert not address_exists(context.netns, ifname=ifname, address=ifaddr2)
 
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
@@ -44,8 +44,8 @@ def test_add_del_ip_string(context):
      .add_ip(ifaddr2)
      .commit())
 
-    assert address_exists(ifname, context.netns, address=ifaddr1)
-    assert address_exists(ifname, context.netns, address=ifaddr2)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr1)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr2)
 
     (context
      .ndb
@@ -54,5 +54,5 @@ def test_add_del_ip_string(context):
      .del_ip(ifaddr1)
      .commit())
 
-    assert not address_exists(ifname, context.netns, address=ifaddr1)
-    assert not address_exists(ifname, context.netns, address=ifaddr2)
+    assert not address_exists(context.netns, ifname=ifname, address=ifaddr1)
+    assert not address_exists(context.netns, ifname=ifname, address=ifaddr2)

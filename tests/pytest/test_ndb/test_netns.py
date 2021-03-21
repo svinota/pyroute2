@@ -33,8 +33,8 @@ def test_move(context):
      .add_ip('%s/24' % ifaddr)
      .commit())
 
-    assert interface_exists(ifname,
-                            nsname,
+    assert interface_exists(nsname,
+                            ifname=ifname,
                             state='up',
                             address='00:11:22:33:44:55')
 

@@ -42,8 +42,8 @@ def test_basic(context):
      .create(**spec)
      .commit())
 
-    assert interface_exists(ifname, context.netns)
-    assert address_exists(ifname, context.netns, address=ifaddr)
+    assert interface_exists(context.netns, ifname=ifname)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, dst=ipnet, table=table or 254)
 
 
@@ -84,7 +84,7 @@ def test_default(context):
      .create(**spec)
      .commit())
 
-    assert address_exists(ifname, context.netns, address=ifaddr)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, gateway=router, table=table)
 
 
@@ -135,7 +135,7 @@ def test_multipath_ipv4(context):
         gws_msg = set([x.get_attr('RTA_GATEWAY') for x in mp])
         return gws_match == gws_msg
 
-    assert address_exists(ifname, context.netns, address=ifaddr)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, match=match_multipath)
 
 
@@ -174,7 +174,7 @@ def test_update_set(context):
          .create(**spec)
          .commit())
 
-    assert address_exists(ifname, context.netns, address=ifaddr)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, dst=network, gateway=router1)
 
     r.set('gateway', router2).commit()
@@ -217,7 +217,7 @@ def test_update_replace(context):
      .create(**spec)
      .commit())
 
-    assert address_exists(ifname, context.netns, address=ifaddr)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, dst=network, priority=10)
 
 
@@ -273,7 +273,7 @@ def test_same_multipath(context):
         gws_msg = set([x.get_attr('RTA_GATEWAY') for x in mp])
         return gws_match == gws_msg
 
-    assert address_exists(ifname, context.netns, address=ifaddr)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, match=match_multipath)
 
 
@@ -332,7 +332,7 @@ def test_same_metrics(context):
                .get_attr('RTAX_MTU', 0))
         return mtu == target
 
-    assert address_exists(ifname, context.netns, address=ifaddr)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, match=match_metrics)
 
 
@@ -373,7 +373,7 @@ def _test_metrics_update(context, method):
                .get_attr('RTAX_MTU', 0))
         return mtu == target
 
-    assert address_exists(ifname, context.netns, address=ifaddr)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, match=match_metrics)
 
     target = 1500

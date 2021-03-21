@@ -2,30 +2,31 @@ from pyroute2 import NetNS
 from pyroute2 import IPRoute
 
 
-def interface_exists(ifname, *argv, **kwarg):
+def interface_exists(netns=None, **kwarg):
     ret = 0
     ipr = None
-    if argv and argv[0] is not None:
-        ipr = NetNS(argv[0])
-    else:
+
+    if netns is None:
         ipr = IPRoute()
+    else:
+        ipr = NetNS(netns)
 
     spec = {}
     spec.update(kwarg)
-    spec['ifname'] = ifname
     ret = list(ipr.link_lookup(**spec))
     ipr.close()
 
-    return len(ret) == 1
+    return len(ret) >= 1
 
 
-def address_exists(ifname, *argv, **kwarg):
+def address_exists(netns=None, **kwarg):
     ret = 0
     ipr = None
-    if argv and argv[0] is not None:
-        ipr = NetNS(argv[0])
-    else:
+
+    if netns is None:
         ipr = IPRoute()
+    else:
+        ipr = NetNS(netns)
 
     if 'match' in kwarg:
         nkw = kwarg['match']
@@ -35,8 +36,11 @@ def address_exists(ifname, *argv, **kwarg):
             if key in nkw:
                 nkw[key] = nkw[key].split('/')[0]
 
-    idx = list(ipr.link_lookup(ifname=ifname))[0]
-    ret = list(ipr.addr('dump', index=idx, match=nkw))
+    if 'ifname' in kwarg:
+        nkw['index'] = list(ipr.link_lookup(ifname=kwarg['ifname']))[0]
+        nkw.pop('ifname')
+
+    ret = list(ipr.addr('dump', match=nkw))
     ipr.close()
 
     return len(ret) == 1

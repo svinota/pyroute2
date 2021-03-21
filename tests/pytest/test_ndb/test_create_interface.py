@@ -16,18 +16,20 @@ def test_context_manager(context):
     with ifobj:
         pass
 
-    assert interface_exists(ifname, context.netns, state='down')
+    assert interface_exists(context.netns, ifname=ifname, state='down')
 
     with ifobj:
         ifobj['state'] = 'up'
         ifobj['address'] = address
 
-    assert interface_exists(ifname, context.netns, address=address, state='up')
+    assert interface_exists(context.netns,
+                            ifname=ifname,
+                            address=address, state='up')
 
     with ifobj:
         ifobj.remove()
 
-    assert not interface_exists(ifname, context.netns)
+    assert not interface_exists(context.netns, ifname=ifname)
 
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
@@ -46,7 +48,7 @@ def test_fail(context):
 
     assert save == dict(ifobj)
     assert ifobj.state == 'invalid'
-    assert not interface_exists(ifname, context.netns)
+    assert not interface_exists(context.netns, ifname=ifname)
 
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
@@ -65,13 +67,13 @@ def test_veth_simple(context):
 
     assert iflink == context.ndb.interfaces[spec_pl]['index']
     assert plink == context.ndb.interfaces[spec_ifl]['index']
-    assert interface_exists(ifname, context.netns)
-    assert interface_exists(peername, context.netns)
+    assert interface_exists(context.netns, ifname=ifname)
+    assert interface_exists(context.netns, ifname=peername)
 
     context.ndb.interfaces[spec_ifl].remove().commit()
 
-    assert not interface_exists(ifname, context.netns)
-    assert not interface_exists(peername, context.netns)
+    assert not interface_exists(context.netns, ifname=ifname)
+    assert not interface_exists(context.netns, ifname=peername)
 
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
@@ -110,10 +112,10 @@ def test_veth_spec(context):
                      .ndb
                      .interfaces[{'ifname': ifname}]['index'])
 
-    assert interface_exists(ifname, context.netns)
-    assert interface_exists(peername, nsname)
-    assert not interface_exists(ifname, nsname)
-    assert not interface_exists(peername, context.netns)
+    assert interface_exists(context.netns, ifname=ifname)
+    assert interface_exists(nsname, ifname=peername)
+    assert not interface_exists(nsname, ifname=ifname)
+    assert not interface_exists(context.netns, ifname=peername)
 
     (context
      .ndb
@@ -121,10 +123,10 @@ def test_veth_spec(context):
      .remove()
      .commit())
 
-    assert not interface_exists(ifname, context.netns)
-    assert not interface_exists(ifname, nsname)
-    assert not interface_exists(peername, context.netns)
-    assert not interface_exists(peername, nsname)
+    assert not interface_exists(context.netns, ifname=ifname)
+    assert not interface_exists(nsname, ifname=ifname)
+    assert not interface_exists(context.netns, ifname=peername)
+    assert not interface_exists(nsname, ifname=peername)
 
     context.ndb.sources.remove(nsname)
 
@@ -137,7 +139,9 @@ def test_dummy(context):
             'kind': 'dummy',
             'address': '00:11:22:33:44:55'}
     context.ndb.interfaces.create(**spec).commit()
-    assert interface_exists(ifname, context.netns, address='00:11:22:33:44:55')
+    assert interface_exists(context.netns,
+                            ifname=ifname,
+                            address='00:11:22:33:44:55')
 
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
@@ -161,8 +165,8 @@ def test_bridge(context):
      .set('master', context.ndb.interfaces[spec_br]['index'])
      .commit())
 
-    assert interface_exists(bridge, context.netns)
-    assert interface_exists(brport, context.netns,
+    assert interface_exists(context.netns, ifname=bridge)
+    assert interface_exists(context.netns, ifname=brport,
                             master=context.ndb.interfaces[spec_br]['index'])
 
 
@@ -176,7 +180,7 @@ def test_vrf(context):
      .create(**spec)
      .set('vrf_table', 42)
      .commit())
-    assert interface_exists(vrf, context.netns)
+    assert interface_exists(context.netns, ifname=vrf)
 
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
@@ -197,7 +201,7 @@ def test_vlan(context):
      .set('link', context.ndb.interfaces[spec_host]['index'])
      .set('vlan_id', 101)
      .commit())
-    assert interface_exists(vlan, context.netns)
+    assert interface_exists(context.netns, ifname=vlan)
 
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
@@ -220,7 +224,7 @@ def test_vxlan(context):
      .set('vxlan_group', '239.1.1.1')
      .set('vxlan_ttl', 16)
      .commit())
-    assert interface_exists(vxlan, context.netns)
+    assert interface_exists(context.netns, ifname=vxlan)
 
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
@@ -241,5 +245,5 @@ def test_basic_address(context):
          .addresses
          .create(**spec_ad))
     a.commit()
-    assert interface_exists(ifname, context.netns)
-    assert address_exists(ifname, context.netns, address=ifaddr)
+    assert interface_exists(context.netns, ifname=ifname)
+    assert address_exists(context.netns, ifname=ifname, address=ifaddr)

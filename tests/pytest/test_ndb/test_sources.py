@@ -60,7 +60,7 @@ def test_source_localhost_restart(context):
      .commit())
     #
     # an external check
-    assert interface_exists(ifname1, state='up')
+    assert interface_exists(ifname=ifname1, state='up')
     #
     # internal checks
     assert ifname1 in ndb.interfaces
@@ -81,7 +81,7 @@ def test_source_localhost_restart(context):
      .commit())
     #
     # check the interface both externally and internally
-    assert interface_exists(ifname2, state='down')
+    assert interface_exists(ifname=ifname2, state='down')
     assert ifname2 in ndb.interfaces
     assert ndb.interfaces[ifname2]['state'] == 'down'
     #
@@ -90,8 +90,8 @@ def test_source_localhost_restart(context):
     ndb.interfaces[ifname2].remove().commit()
     #
     # check
-    assert not interface_exists(ifname1)
-    assert not interface_exists(ifname2)
+    assert not interface_exists(ifname=ifname1)
+    assert not interface_exists(ifname=ifname2)
 
 
 def test_source_netns_restart(context):
@@ -127,7 +127,7 @@ def test_source_netns_restart(context):
      .commit())
     #
     # check the interface
-    assert interface_exists(ifname, nsname)
+    assert interface_exists(nsname, ifname=ifname)
     assert ndb.interfaces[{'target': nsname,
                            'ifname': ifname}]['state'] == 'up'
     #

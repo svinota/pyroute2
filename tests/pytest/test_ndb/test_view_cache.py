@@ -28,8 +28,8 @@ def test_view_cache(context):
     # create test interfaces
     ndb.interfaces.create(ifname=ifname1, kind='dummy').commit()
     ndb.interfaces.create(ifname=ifname2, kind='dummy').commit()
-    assert interface_exists(ifname1)
-    assert interface_exists(ifname2)
+    assert interface_exists(ifname=ifname1)
+    assert interface_exists(ifname=ifname2)
     #
     # the interface object must not be cached, as they
     # weren't referenced yet
@@ -71,5 +71,5 @@ def test_view_cache(context):
 
     #
     # check that the interfaces are cleaned up from the system
-    assert not interface_exists(ifname1)
-    assert not interface_exists(ifname2)
+    assert not interface_exists(ifname=ifname1)
+    assert not interface_exists(ifname=ifname2)
