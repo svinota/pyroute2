@@ -1,5 +1,5 @@
 import pytest
-from pr2test.ctx_managers import NDBContextManager
+from pr2test.context_manager import NDBContextManager
 
 
 @pytest.fixture
