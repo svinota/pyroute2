@@ -15,9 +15,9 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
                           ('netns', 5001)], indirect=True)
 def test_basic(context):
 
-    ifaddr = context.ifaddr
-    router = context.ifaddr
-    ifname = context.ifname
+    ifaddr = context.new_ipaddr
+    router = context.new_ipaddr
+    ifname = context.new_ifname
     ipnet = str(context.ipnets[1].network)
     table = context.table
 
@@ -56,9 +56,9 @@ def test_basic(context):
                           ('netns', 5001)], indirect=True)
 def test_default(context):
 
-    ifaddr = context.ifaddr
-    router = context.ifaddr
-    ifname = context.ifname
+    ifaddr = context.new_ipaddr
+    router = context.new_ipaddr
+    ifname = context.new_ifname
     random.seed()
     tnum = random.randint(500, 600)
 
@@ -97,10 +97,10 @@ def test_default(context):
                           ('netns', 5001)], indirect=True)
 def test_multipath_ipv4(context):
 
-    ifname = context.ifname
-    ifaddr = context.ifaddr
-    hop1 = context.ifaddr
-    hop2 = context.ifaddr
+    ifname = context.new_ifname
+    ifaddr = context.new_ipaddr
+    hop1 = context.new_ipaddr
+    hop2 = context.new_ipaddr
     ipnet = str(context.ipnets[1].network)
 
     (context
@@ -147,10 +147,10 @@ def test_multipath_ipv4(context):
                           ('netns', 501),
                           ('netns', 5001)], indirect=True)
 def test_update_set(context):
-    ifaddr = context.ifaddr
-    router1 = context.ifaddr
-    router2 = context.ifaddr
-    ifname = context.ifname
+    ifaddr = context.new_ipaddr
+    router1 = context.new_ipaddr
+    router2 = context.new_ipaddr
+    ifname = context.new_ifname
     network = str(context.ipnets[1].network)
 
     (context
@@ -190,9 +190,9 @@ def test_update_set(context):
                           ('netns', 501),
                           ('netns', 5001)], indirect=True)
 def test_update_replace(context):
-    ifaddr = context.ifaddr
-    router = context.ifaddr
-    ifname = context.ifname
+    ifaddr = context.new_ipaddr
+    router = context.new_ipaddr
+    ifname = context.new_ifname
     network = str(context.ipnets[1].network)
 
     (context
@@ -229,10 +229,10 @@ def test_update_replace(context):
                           ('netns', 501),
                           ('netns', 5001)], indirect=True)
 def test_same_multipath(context):
-    ifaddr = context.ifaddr
-    gateway1 = context.ifaddr
-    gateway2 = context.ifaddr
-    ifname = context.ifname
+    ifaddr = context.new_ipaddr
+    gateway1 = context.new_ipaddr
+    gateway2 = context.new_ipaddr
+    ifname = context.new_ifname
     ipnet1 = str(context.ipnets[1].network)
     ipnet2 = str(context.ipnets[2].network)
 
@@ -285,10 +285,10 @@ def test_same_multipath(context):
                           ('netns', 501),
                           ('netns', 5001)], indirect=True)
 def test_same_metrics(context):
-    ifaddr = context.ifaddr
-    gateway1 = context.ifaddr
-    gateway2 = context.ifaddr
-    ifname = context.ifname
+    ifaddr = context.new_ipaddr
+    gateway1 = context.new_ipaddr
+    gateway2 = context.new_ipaddr
+    ifname = context.new_ifname
     ipnet1 = str(context.ipnets[1].network)
     ipnet2 = str(context.ipnets[2].network)
     target = 1300
@@ -338,9 +338,9 @@ def test_same_metrics(context):
 
 def _test_metrics_update(context, method):
 
-    ifaddr = context.ifaddr
-    gateway1 = context.ifaddr
-    ifname = context.ifname
+    ifaddr = context.new_ipaddr
+    gateway1 = context.new_ipaddr
+    ifname = context.new_ifname
     ipnet = str(context.ipnets[1].network)
     target = 1300
     (context

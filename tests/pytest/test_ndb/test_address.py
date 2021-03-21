@@ -4,9 +4,9 @@ from pr2test.tools import address_exists
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_add_del_ip_dict(context):
-    ifname = context.ifname
-    ifaddr1 = context.ifaddr
-    ifaddr2 = context.ifaddr
+    ifname = context.new_ifname
+    ifaddr1 = context.new_ipaddr
+    ifaddr2 = context.new_ipaddr
 
     (context
      .ndb
@@ -32,9 +32,9 @@ def test_add_del_ip_dict(context):
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_add_del_ip_string(context):
-    ifname = context.ifname
-    ifaddr1 = '%s/24' % context.ifaddr
-    ifaddr2 = '%s/24' % context.ifaddr
+    ifname = context.new_ifname
+    ifaddr1 = '%s/24' % context.new_ipaddr
+    ifaddr2 = '%s/24' % context.new_ipaddr
 
     (context
      .ndb

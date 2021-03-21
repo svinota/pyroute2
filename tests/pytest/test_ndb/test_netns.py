@@ -3,9 +3,9 @@ from pr2test.tools import interface_exists
 
 
 def test_move(context):
-    ifname = context.ifname
-    ifaddr = context.ifaddr
-    nsname = context.nsname
+    ifname = context.new_ifname
+    ifaddr = context.new_ipaddr
+    nsname = context.new_nsname
 
     context.ndb.sources.add(netns=nsname)
 
@@ -40,11 +40,11 @@ def test_move(context):
 
 
 def test_basic(context):
-    ifname = context.ifname
-    ifaddr1 = context.ifaddr
-    ifaddr2 = context.ifaddr
-    ifaddr3 = context.ifaddr
-    nsname = context.nsname
+    ifname = context.new_ifname
+    ifaddr1 = context.new_ipaddr
+    ifaddr2 = context.new_ipaddr
+    ifaddr3 = context.new_ipaddr
+    nsname = context.new_nsname
 
     context.ndb.sources.add(netns=nsname)
 

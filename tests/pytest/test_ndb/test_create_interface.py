@@ -7,7 +7,7 @@ from pr2test.tools import interface_exists
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_context_manager(context):
 
-    ifname = context.ifname
+    ifname = context.new_ifname
     address = '00:11:22:36:47:58'
     spec = {'ifname': ifname, 'kind': 'dummy'}
 
@@ -35,8 +35,8 @@ def test_context_manager(context):
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_fail(context):
 
-    ifname = context.ifname
-    kind = context.ifname
+    ifname = context.new_ifname
+    kind = context.new_ifname
     spec = {'ifname': ifname, 'kind': kind}
     ifobj = context.ndb.interfaces.create(**spec)
     save = dict(ifobj)
@@ -53,8 +53,8 @@ def test_fail(context):
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_veth_simple(context):
-    ifname = context.ifname
-    peername = context.ifname
+    ifname = context.new_ifname
+    peername = context.new_ifname
     spec = {'ifname': ifname, 'peer': peername, 'kind': 'veth'}
 
     context.ndb.interfaces.create(**spec).commit()
@@ -78,9 +78,9 @@ def test_veth_simple(context):
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_veth_spec(context):
-    ifname = context.ifname
-    peername = context.ifname
-    nsname = context.nsname
+    ifname = context.new_ifname
+    peername = context.new_ifname
+    nsname = context.new_nsname
 
     context.ndb.sources.add(netns=nsname)
 
@@ -134,7 +134,7 @@ def test_veth_spec(context):
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_dummy(context):
 
-    ifname = context.ifname
+    ifname = context.new_ifname
     spec = {'ifname': ifname,
             'kind': 'dummy',
             'address': '00:11:22:33:44:55'}
@@ -147,8 +147,8 @@ def test_dummy(context):
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_bridge(context):
 
-    bridge = context.ifname
-    brport = context.ifname
+    bridge = context.new_ifname
+    brport = context.new_ifname
     spec_br = {'ifname': bridge, 'kind': 'bridge'}
     spec_pt = {'ifname': brport, 'kind': 'dummy'}
 
@@ -172,7 +172,7 @@ def test_bridge(context):
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_vrf(context):
-    vrf = context.ifname
+    vrf = context.new_ifname
     spec = {'ifname': vrf, 'kind': 'vrf'}
     (context
      .ndb
@@ -185,8 +185,8 @@ def test_vrf(context):
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_vlan(context):
-    host = context.ifname
-    vlan = context.ifname
+    host = context.new_ifname
+    vlan = context.new_ifname
     spec_host = {'ifname': host, 'kind': 'dummy'}
     spec_vlan = {'ifname': vlan, 'kind': 'vlan'}
     (context
@@ -206,8 +206,8 @@ def test_vlan(context):
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_vxlan(context):
-    host = context.ifname
-    vxlan = context.ifname
+    host = context.new_ifname
+    vxlan = context.new_ifname
     spec_host = {'ifname': host, 'kind': 'dummy'}
     spec_vxlan = {'ifname': vxlan, 'kind': 'vxlan'}
     (context
@@ -230,8 +230,8 @@ def test_vxlan(context):
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_basic_address(context):
 
-    ifaddr = context.ifaddr
-    ifname = context.ifname
+    ifaddr = context.new_ipaddr
+    ifname = context.new_ifname
     spec_if = {'ifname': ifname, 'kind': 'dummy', 'state': 'up'}
     i = (context
          .ndb

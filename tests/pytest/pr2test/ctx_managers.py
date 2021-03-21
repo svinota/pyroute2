@@ -48,7 +48,7 @@ class NDBContextManager(object):
         if kind == 'local':
             sources = [{'target': 'localhost', 'kind': 'local'}]
         elif kind == 'netns':
-            self.netns = self.nsname
+            self.netns = self.new_nsname
             sources = [{'target': 'localhost',
                         'kind': 'netns',
                         'netns': self.netns}]
@@ -90,32 +90,32 @@ class NDBContextManager(object):
         self.namespaces[netns] = None
         return netns
 
-    def get_ifaddr(self, r=0):
+    def get_ipaddr(self, r=0):
         '''
         Returns an ip address from the specified range.
         '''
         return str(self.ipranges[r].pop())
 
     @property
-    def ifname(self):
+    def new_ifname(self):
         '''
-        Property `self.ifname` returns a new unique ifname and
-        registers it to be cleaned up on `self.teardown()`
+        Returns a new unique ifname and registers it to be
+        cleaned up on `self.teardown()`
         '''
         return self.register()
 
     @property
-    def ifaddr(self):
+    def new_ipaddr(self):
         '''
         Returns a new ipaddr from the configured range
         '''
-        return self.get_ifaddr()
+        return self.get_ipaddr()
 
     @property
-    def nsname(self):
+    def new_nsname(self):
         '''
-        Property `self.nsname` returns a new unique nsname and
-        registers it to be removed on `self.teardown()`
+        Returns a new unique nsname and registers it to be
+        removed on `self.teardown()`
         '''
         return self.register_netns()
 

@@ -43,8 +43,8 @@ def test_source_localhost_restart(context):
     restart of any source.
     '''
     require_user('root')
-    ifname1 = context.ifname
-    ifname2 = context.ifname
+    ifname1 = context.new_ifname
+    ifname2 = context.new_ifname
     ndb = context.ndb
 
     #
@@ -99,9 +99,9 @@ def test_source_netns_restart(context):
     Netns sources should be operational after restart as well
     '''
     require_user('root')
-    nsname = context.nsname
+    nsname = context.new_nsname
     #
-    # simple `context.ifname` returns ifname only for the main
+    # simple `context.new_ifname` returns ifname only for the main
     # netns, if we want to register the name in a netns, we should
     # use `context.register(netns=...)`
     ifname = context.register(netns=nsname)
@@ -151,7 +151,7 @@ def test_disconnect_localhost(context):
     Disconnecting the `localhost` source should not break the DB
     '''
     require_user('root')
-    nsname = context.nsname
+    nsname = context.new_nsname
     localhost_ifnum = 0
     nsname_ifnum = 0
     total_ifnum = 0

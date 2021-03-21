@@ -16,8 +16,8 @@ def test_view_cache(context):
     references are properly cached and expired in time.
     '''
     require_user('root')
-    ifname1 = context.ifname
-    ifname2 = context.ifname
+    ifname1 = context.new_ifname
+    ifname2 = context.new_ifname
 
     ndb = context.ndb
 
