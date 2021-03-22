@@ -480,7 +480,12 @@ class Interface(RTNL_Object):
         return self
 
     @check_auth('obj:modify')
-    def add_ip(self, spec):
+    def add_ip(self, spec=None, **kwarg):
+        if spec is None and not kwarg:
+            raise TypeError('ip spec is required')
+        if kwarg:
+            spec = dict(kwarg)
+
         def do_add_ip(self, spec):
             try:
                 self.ipaddr.create(spec).apply()
@@ -491,7 +496,12 @@ class Interface(RTNL_Object):
         return self
 
     @check_auth('obj:modify')
-    def del_ip(self, spec):
+    def del_ip(self, spec=None, **kwarg):
+        if spec is None and not kwarg:
+            raise TypeError('ip spec is required')
+        if kwarg:
+            spec = dict(kwarg)
+
         def do_del_ip(self, spec):
             try:
                 ret = self.ipaddr[spec].remove().apply()
