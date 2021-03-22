@@ -37,8 +37,13 @@ def address_exists(netns=None, **kwarg):
                 nkw[key] = nkw[key].split('/')[0]
 
     if 'ifname' in kwarg:
-        nkw['index'] = list(ipr.link_lookup(ifname=kwarg['ifname']))[0]
-        nkw.pop('ifname')
+        links = list(ipr.link_lookup(ifname=kwarg['ifname']))
+        if links:
+            nkw['index'] = links[0]
+            nkw.pop('ifname')
+        else:
+            ipr.close()
+            return 0
 
     ret = list(ipr.addr('dump', match=nkw))
     ipr.close()
