@@ -259,6 +259,7 @@ rt_schema = (rtmsg
              .unique_index('family',
                            'dst_len',
                            'tos',
+                           'scope',
                            'RTA_DST',
                            'RTA_OIF',
                            'RTA_PRIORITY',
