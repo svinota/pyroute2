@@ -54,6 +54,45 @@ def test_basic(context):
                           ('netns', None),
                           ('netns', 501),
                           ('netns', 5001)], indirect=True)
+def test_scopes(context):
+
+    ipaddr = context.new_ipaddr
+    ifname = context.new_ifname
+    table = context.table
+    dst = '172.24.200.142'
+
+    (context
+     .ndb
+     .interfaces
+     .create(ifname=ifname, kind='dummy', state='up')
+     .add_ip(address=ipaddr, prefixlen=24)
+     .commit())
+
+    spec = {'dst': dst,
+            'oif': context.ndb.interfaces[ifname]['index'],
+            'dst_len': 32,
+            'scope': 253}
+
+    if table:
+        spec['table'] = table
+
+    (context
+     .ndb
+     .routes
+     .create(**spec)
+     .commit())
+
+    assert interface_exists(context.netns, ifname=ifname)
+    assert route_exists(context.netns, dst=dst, scope=253, table=table or 254)
+
+
+@pytest.mark.parametrize('context',
+                         [('local', None),
+                          ('local', 501),
+                          ('local', 5001),
+                          ('netns', None),
+                          ('netns', 501),
+                          ('netns', 5001)], indirect=True)
 def test_default(context):
 
     ifaddr = context.new_ipaddr
