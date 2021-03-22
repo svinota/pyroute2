@@ -83,7 +83,15 @@ def test_scopes(context):
      .commit())
 
     assert interface_exists(context.netns, ifname=ifname)
-    assert route_exists(context.netns, dst=dst, scope=253, table=table or 254)
+    assert route_exists(context.netns, **spec)
+
+    (context
+     .ndb
+     .routes[spec]
+     .remove()
+     .commit())
+
+    assert not route_exists(context.netns, **spec)
 
 
 @pytest.mark.parametrize('context',
