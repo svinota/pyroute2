@@ -594,11 +594,14 @@ class RTNL_Object(dict):
             self._replace = new_replace
         self.log.debug('rollback: %s' % str(self.state.events))
         snapshot = snapshot or self.last_save
-        snapshot.state.set(self.state.get())
-        snapshot.apply(rollback=True)
-        for link, snp in snapshot.snapshot_deps:
-            link.rollback(snapshot=snp)
-        return self
+        if snapshot == -1:
+            return self.remove().apply()
+        else:
+            snapshot.state.set(self.state.get())
+            snapshot.apply(rollback=True)
+            for link, snp in snapshot.snapshot_deps:
+                link.rollback(snapshot=snp)
+            return self
 
     def clear(self):
         pass
@@ -736,8 +739,11 @@ class RTNL_Object(dict):
         '''
 
         # Save the context
-        if not rollback and self.state != 'invalid':
-            self.last_save = self.snapshot()
+        if not rollback:
+            if self.state == 'invalid':
+                self.last_save = -1
+            else:
+                self.last_save = self.snapshot()
 
         self.log.debug('apply: %s' % str(self.state.events))
         self.load_event.clear()
