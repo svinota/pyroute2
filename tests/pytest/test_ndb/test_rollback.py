@@ -5,6 +5,68 @@ from pr2test.tools import route_exists
 
 
 @pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+def test_create(context):
+    ifname = context.new_ifname
+    iface = (context
+             .ndb
+             .interfaces
+             .create(ifname=ifname, kind='dummy')
+             .commit())
+    assert interface_exists(context.netns, ifname=ifname)
+    iface.rollback()
+    assert not interface_exists(context.netns, ifname=ifname)
+
+
+@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+def test_remove(context):
+    ifname = context.new_ifname
+    iface = (context
+             .ndb
+             .interfaces
+             .create(ifname=ifname, kind='dummy')
+             .commit())
+    assert interface_exists(context.netns, ifname=ifname)
+    iface.remove().commit()
+    assert not interface_exists(context.netns, ifname=ifname)
+    iface.rollback()
+    assert interface_exists(context.netns, ifname=ifname)
+
+
+@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+def test_set(context):
+    ifname = context.new_ifname
+    (context
+     .ndb
+     .interfaces
+     .create(ifname=ifname, kind='dummy', address='00:11:22:33:44:55')
+     .commit())
+    assert interface_exists(context.netns,
+                            ifname=ifname,
+                            address='00:11:22:33:44:55')
+    (context
+     .ndb
+     .interfaces[ifname]
+     .set('address', '00:11:22:aa:aa:aa')
+     .commit())
+    assert not interface_exists(context.netns,
+                                ifname=ifname,
+                                address='00:11:22:33:44:55')
+    assert interface_exists(context.netns,
+                            ifname=ifname,
+                            address='00:11:22:aa:aa:aa')
+    (context
+     .ndb
+     .interfaces[ifname]
+     .rollback())
+    assert not interface_exists(context.netns,
+                                ifname=ifname,
+                                address='00:11:22:aa:aa:aa')
+    assert interface_exists(context.netns,
+                            ifname=ifname,
+                            address='00:11:22:33:44:55')
+
+
+@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
 def test_simple_deps(context):
 
     ifname = context.new_ifname
