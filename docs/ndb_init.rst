@@ -18,6 +18,7 @@ There are several debug options that may be useful:
 * `sources={<spec>}` -- RTNL sources to use
 * `db_provider=<spec>` -- which DB backend to use
 * `db_spec=<spec>` -- this spec will be passed to the DB provider
+* `db_cleanup=<True|False>` -- cleanup the DB upon exit
 * `auto_netns=<True|False>` -- [experimental] discover and connect to netns
 
 Some options explained:
@@ -25,16 +26,25 @@ Some options explained:
 log
 ~~~
 
-The simplest case is `log='on'`, it turns on stdio logging.
+The simplest is `log='on'`, it turns on stdio logging on the default level.
+To force the debug level, use `log='debug'`.
 
 More log alternatives: :ref:`ndbdebug`
+
+db_cleanup
+~~~~~~~~~~
+
+Default is `True`. Setting this to `False` forces NDB to leave the data in the
+connected database upon exit. This may have side effects on the next start, use
+it only for debug purposes.
 
 rtnl_debug
 ~~~~~~~~~~
 
-This option tell NDB if it must create and use the log tables. Normally
-all the incoming events become aggregated, thus `RTM_NEWLINK` and `RTM_DELLINK`
-will result in zero records -- an interface was created and destroyed.
+This option tells NDB if it must create and use the log tables. Normally
+all the incoming events become aggregated, thus `RTM_NEWLINK` + `RTM_DELLINK`
+will result in zero records -- an interface was created, destroyed and removed
+from the database.
 
 But in the log tables all the records will be stored, so it is what it looks
 like -- the events log. The log tables are not used to create objects, they

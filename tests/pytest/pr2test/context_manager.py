@@ -12,6 +12,21 @@ from pyroute2 import NetlinkError
 from pyroute2.common import uifname
 
 
+class SpecContextManager(object):
+    '''
+    Prepare simple common variables
+    '''
+
+    def __init__(self, request, tmpdir):
+        self.uid = str(uuid.uuid4())
+        self.log_spec = ('%s/ndb-%s-%s.log' % (tmpdir, os.getpid(), self.uid),
+                         logging.DEBUG)
+        self.db_spec = '%s/ndb-%s-%s.sql' % (tmpdir, os.getpid(), self.uid)
+
+    def teardown(self):
+        pass
+
+
 class NDBContextManager(object):
     '''
     This class is used to manage fixture contexts.
@@ -23,9 +38,8 @@ class NDBContextManager(object):
     '''
 
     def __init__(self, request, tmpdir, **kwarg):
-        log_id = str(uuid.uuid4())
-        log_spec = ('%s/ndb-%s-%s.log' % (tmpdir, os.getpid(), log_id),
-                    logging.DEBUG)
+
+        self.spec = SpecContextManager(request, tmpdir)
         self.netns = None
         #
         # the cleanup registry
@@ -33,7 +47,7 @@ class NDBContextManager(object):
         self.namespaces = {}
 
         if 'log' not in kwarg:
-            kwarg['log'] = log_spec
+            kwarg['log'] = self.spec.log_spec
         if 'rtnl_debug' not in kwarg:
             kwarg['rtnl_debug'] = True
 

@@ -1,4 +1,5 @@
 import pytest
+from pr2test.context_manager import SpecContextManager
 from pr2test.context_manager import NDBContextManager
 
 
@@ -15,3 +16,13 @@ def context(request, tmpdir):
     ctx = NDBContextManager(request, tmpdir)  # setup
     yield ctx                                 # execute
     ctx.teardown()                            # cleanup
+
+
+@pytest.fixture
+def spec(request, tmpdir):
+    '''
+    A simple fixture with only some variables set
+    '''
+    ctx = SpecContextManager(request, tmpdir)
+    yield ctx
+    ctx.teardown()

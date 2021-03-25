@@ -133,8 +133,15 @@ Change an interface property::
      .interfaces['eth0']
      .set('state', 'up')
      .set('address', '00:11:22:33:44:55')
-     .commit()
+     .commit())
     # ---> <---  NDB waits here for the changes to be applied
+
+    # same as above, but using properties as argument names
+    (ndb
+     .interfaces['eth0']
+     .set(state='up')
+     .set(address='00:11:22:33:44:55')
+     .commit())
 
     # ... or with another syntax
     with ndb.interfaces['eth0'] as i:
@@ -835,6 +842,7 @@ class NDB(object):
                  sources=None,
                  db_provider='sqlite3',
                  db_spec=':memory:',
+                 db_cleanup=True,
                  rtnl_debug=False,
                  log=False,
                  auto_netns=False,
@@ -866,6 +874,7 @@ class NDB(object):
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
         self._dbm_shutdown = threading.Event()
+        self._db_cleanup = db_cleanup
         self._global_lock = threading.Lock()
         self._event_map = None
         self._event_queue = EventQueue(maxsize=100)
@@ -909,12 +918,15 @@ class NDB(object):
         self._db_rtnl_log = rtnl_debug
         atexit.register(self.close)
         self._dbm_ready.clear()
+        self._dbm_error = None
         self._dbm_autoload = set()
         self._dbm_thread = threading.Thread(target=self.__dbm__,
                                             name='NDB main loop')
         self._dbm_thread.setDaemon(True)
         self._dbm_thread.start()
         self._dbm_ready.wait()
+        if self._dbm_error is not None:
+            raise self._dbm_error
         for event in tuple(self._dbm_autoload):
             event.wait()
         self._dbm_autoload = None
@@ -1042,16 +1054,21 @@ class NDB(object):
 
         event_queue = self._event_queue
 
-        if self._db_provider == 'sqlite3':
-            self._db = sqlite3.connect(self._db_spec)
-        elif self._db_provider == 'psycopg2':
-            self._db = psycopg2.connect(**self._db_spec)
+        try:
+            if self._db_provider == 'sqlite3':
+                self._db = sqlite3.connect(self._db_spec)
+            elif self._db_provider in ('psycopg2', 'postgres'):
+                self._db = psycopg2.connect(**self._db_spec)
 
-        self.schema = schema.init(self,
-                                  self._db,
-                                  self._db_provider,
-                                  self._db_rtnl_log,
-                                  id(threading.current_thread()))
+            self.schema = schema.init(self,
+                                      self._db,
+                                      self._db_provider,
+                                      self._db_rtnl_log,
+                                      id(threading.current_thread()))
+        except Exception as e:
+            self._dbm_error = e
+            self._dbm_ready.set()
+            return
 
         for spec in self._nl:
             spec['event'] = None
@@ -1132,11 +1149,11 @@ class NDB(object):
             if source is not None and source.th is not None:
                 source.shutdown.set()
                 source.th.join()
-                if self._db_rtnl_log:
-                    self.log.debug('leave DB for debug')
-                else:
-                    self.log.debug('flush DB for the target %s' % target)
+                if self._db_cleanup:
+                    self.log.debug('X flush DB for the target %s' % target)
                     self.schema.flush(target)
+                else:
+                    self.log.debug('leave DB for debug')
 
         # close the database
         self.schema.commit()
