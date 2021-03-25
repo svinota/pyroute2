@@ -126,6 +126,10 @@ class Spec(object):
 
 
 class RTNL_Object(dict):
+    '''
+    The common base class for NDB objects -- interfaces, routes, rules
+    addresses etc.
+    '''
 
     view = None    # (optional) view to load values for the summary etc.
     utable = None  # table to send updates to
@@ -156,8 +160,10 @@ class RTNL_Object(dict):
     @property
     def table(self):
         '''
-        The main reference table for the object. The SQL schema of the
-        table is used to build the key and to verify the fields.
+        Main reference table for the object. The SQL schema of this
+        table is used to build the object key and to verify fields.
+
+        Read-write property.
         '''
         return self._table
 
@@ -168,8 +174,8 @@ class RTNL_Object(dict):
     @property
     def etable(self):
         '''
-        The table where the object actually fetches the data from. It
-        is not always equal `self.table`, e.g. snapshot objects fetch
+        Effective table where the object actually fetches the data from.
+        It is not always equal `self.table`, e.g. snapshot objects fetch
         the data from snapshot tables.
 
         Read-only property.
@@ -182,8 +188,10 @@ class RTNL_Object(dict):
     @property
     def key(self):
         '''
-        The key of the object, used to build SQL requests to fetch
+        Key of the object, used to build SQL requests to fetch
         the data from the DB.
+
+        Read-write property.
         '''
         nkey = self._key or {}
         ret = collections.OrderedDict()
@@ -323,6 +331,9 @@ class RTNL_Object(dict):
         return Spec(cls, spec)
 
     def resolve(self):
+        '''
+        Resolve specific fields e.g. convert port ifname into index::
+        '''
         return self
 
     def mark_tflags(self, mark):
