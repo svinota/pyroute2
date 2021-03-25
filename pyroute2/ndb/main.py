@@ -230,6 +230,26 @@ class PostgreSQLAdapter(object):
         return "'%s'" % json.dumps(self.obj)
 
 
+def register_sqlite3_adapters():
+    global _sql_adapters_lock
+    global _sql_adapters_sqlite3_registered
+    with _sql_adapters_lock:
+        if not _sql_adapters_sqlite3_registered:
+            _sql_adapters_sqlite3_registered = True
+            sqlite3.register_adapter(list, target_adapter)
+            sqlite3.register_adapter(dict, target_adapter)
+
+
+def regsiter_postgres_adapters():
+    global _sql_adapters_lock
+    global _sql_adapters_psycopg2_registered
+    with _sql_adapters_lock:
+        if psycopg2 is not None and not _sql_adapters_psycopg2_registered:
+            _sql_adapters_psycopg2_registered = True
+            psycopg2.extensions.register_adapter(list, PostgreSQLAdapter)
+            psycopg2.extensions.register_adapter(dict, PostgreSQLAdapter)
+
+
 class Transaction(object):
 
     def __init__(self, log):
@@ -849,18 +869,13 @@ class NDB(object):
                  libc=None,
                  messenger=None):
 
-        global _sql_adapters_lock
-        global _sql_adapters_sqlite3_registered
-        global _sql_adapters_psycopg2_registered
-        with _sql_adapters_lock:
-            if not _sql_adapters_sqlite3_registered:
-                _sql_adapters_sqlite3_registered = True
-                sqlite3.register_adapter(list, target_adapter)
-                sqlite3.register_adapter(dict, target_adapter)
-            if psycopg2 is not None and not _sql_adapters_psycopg2_registered:
-                _sql_adapters_psycopg2_registered = True
-                psycopg2.extensions.register_adapter(list, PostgreSQLAdapter)
-                psycopg2.extensions.register_adapter(dict, PostgreSQLAdapter)
+        if db_provider == 'postgres':
+            db_provider = 'psycopg2'
+
+        if db_provider == 'sqlite3':
+            register_sqlite3_adapters()
+        elif db_provider == 'psycopg2':
+            regsiter_postgres_adapters()
 
         self.ctime = self.gctime = time.time()
         self.schema = None
@@ -1055,10 +1070,11 @@ class NDB(object):
         event_queue = self._event_queue
 
         try:
-            if self._db_provider == 'sqlite3':
-                self._db = sqlite3.connect(self._db_spec)
-            elif self._db_provider in ('psycopg2', 'postgres'):
-                self._db = psycopg2.connect(**self._db_spec)
+            with _sql_adapters_lock:
+                if self._db_provider == 'sqlite3':
+                    self._db = sqlite3.connect(self._db_spec)
+                elif self._db_provider == 'psycopg2':
+                    self._db = psycopg2.connect(**self._db_spec)
 
             self.schema = schema.init(self,
                                       self._db,
