@@ -627,8 +627,14 @@ class Interface(RTNL_Object):
 
     def resolve(self):
         for key in ('vxlan_link', 'link', 'master'):
-            if isinstance(self.get[key], dict):
-                self[key] = self[key]['index']
+            ref = self.get(key)
+            if isinstance(ref, dict):
+                if 'index' in ref:
+                    self[key] = ref['index']
+                else:
+                    self[key] = self.view[ref]['index']
+            elif isinstance(ref, basestring):
+                self[key] = self.view[ref]['index']
         return self
 
     def sync_req(self, prime):
