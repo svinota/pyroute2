@@ -1,6 +1,12 @@
 Changelog
 =========
 
+* 0.5.15
+    * ndb: don't mess with SQL adapters unless really needed
+    * ndb: support more virtual interface types
+    * ndb: support `in` for views and record sets
+    * ndb: fix nested fetches from DB
+    * tests: start migration to pytest
 * 0.5.14
     * iproute: ip neigh get <https://github.com/svinota/pyroute2/pull/723>
     * iproute: link_lookup fix <https://github.com/svinota/pyroute2/pull/725>
