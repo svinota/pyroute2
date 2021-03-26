@@ -100,6 +100,11 @@ from pyroute2.ndb.auth_manager import AuthManager
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.ndb.events import InvalidateHandlerException
 
+RSLV_IGNORE = 0
+RSLV_RAISE = 1
+RSLV_NONE = 2
+RSLV_DELETE = 3
+
 
 class Spec(object):
     '''
@@ -134,6 +139,7 @@ class RTNL_Object(dict):
     view = None    # (optional) view to load values for the summary etc.
     utable = None  # table to send updates to
 
+    resolve_fields = []
     key_extra_fields = []
     hidden_fields = []
     fields_cmp = {}
@@ -330,11 +336,29 @@ class RTNL_Object(dict):
     def new_spec(cls, spec):
         return Spec(cls, spec)
 
-    def resolve(self):
+    @staticmethod
+    def resolve(view, spec, fields, policy=RSLV_IGNORE):
         '''
         Resolve specific fields e.g. convert port ifname into index::
         '''
-        return self
+        for field in fields:
+            ref = spec.get(field)
+            if ref is not None and not isinstance(ref, int):
+                try:
+                    spec[field] = view[ref]['index']
+                except KeyError:
+                    if policy == RSLV_RAISE:
+                        raise
+                    elif policy == RSLV_NONE:
+                        spec[field] = None
+                    elif policy == RSLV_DELETE:
+                        del spec[field]
+                    elif policy == RSLV_IGNORE:
+                        pass
+                    else:
+                        raise TypeError('unknown rslv policy')
+
+        return spec
 
     def mark_tflags(self, mark):
         pass
@@ -525,6 +549,14 @@ class RTNL_Object(dict):
         fetch = []
         if isinstance(key, Record):
             key = key._as_dict()
+        else:
+            key = dict(key)
+
+        self.resolve(view=self.view,
+                     spec=key,
+                     fields=self.resolve_fields,
+                     policy=RSLV_DELETE)
+
         for name in self.kspec:
             if name not in key:
                 fetch.append('f_%s' % name)
@@ -560,32 +592,7 @@ class RTNL_Object(dict):
         '''
         Check if the object exists in the DB
         '''
-        if isinstance(key, Record):
-            key = key._as_dict()
-
-        key = self.sync_req(key)
-        self.log.debug('check if the key %s exists in table %s' %
-                       (key, self.etable))
-        keys = []
-        values = []
-        for name, value in key.items():
-            nla_name = self.iclass.name2nla(name)
-            if nla_name in self.spec:
-                name = nla_name
-            if value is not None and name in self.spec:
-                keys.append('f_%s = %s' % (name, self.schema.plch))
-                values.append(value)
-        spec = (self
-                .ndb
-                .schema
-                .fetchone('SELECT * FROM %s WHERE %s' %
-                          (self.table, ' AND '.join(keys)), values))
-        if spec is not None:
-            self.log.debug('exists')
-            return True
-        else:
-            self.log.debug('not exists')
-            return False
+        return self.view.exists(key)
 
     @check_auth('obj:modify')
     def rollback(self, snapshot=None):
@@ -749,6 +756,12 @@ class RTNL_Object(dict):
         the changes in the case of an exception.
         '''
 
+        # Resolve the fields
+        self.resolve(view=self.view,
+                     spec=self,
+                     fields=self.resolve_fields,
+                     policy=RSLV_RAISE)
+
         # Save the context
         if not rollback:
             if self.state == 'invalid':
@@ -789,7 +802,6 @@ class RTNL_Object(dict):
                 if k not in req and v is not None:
                     req[k] = v
             if self.master is not None:
-                self.resolve()
                 req = (self
                        .new_spec(req)
                        .load_context(self.master.context)

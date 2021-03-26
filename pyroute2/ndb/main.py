@@ -182,6 +182,7 @@ from pyroute2.ndb.source import (Source,
                                  SourceProxy)
 from pyroute2.ndb.auth_manager import check_auth
 from pyroute2.ndb.auth_manager import AuthManager
+from pyroute2.ndb.objects import RSLV_DELETE
 from pyroute2.ndb.objects.interface import Interface
 from pyroute2.ndb.objects.interface import Vlan
 from pyroute2.ndb.objects.address import Address
@@ -556,11 +557,15 @@ class View(dict):
             ndb.interfaces.exists({'ifname': 'eth0', 'target': 'localhost'})
             ndb.addresses.exists('127.0.0.1/8')
         '''
+        iclass = self.classes[self.table]
+        key = iclass.new_spec(key).get_spec
 
-        key = self.classes[self.table].new_spec(key).get_spec
+        iclass.resolve(view=self,
+                       spec=key,
+                       fields=iclass.resolve_fields,
+                       policy=RSLV_DELETE)
 
         table = table or self.table
-        iclass = self.classes[self.table]
         schema = self.ndb.schema
         names = schema.compiled[self.table]['all_names']
 

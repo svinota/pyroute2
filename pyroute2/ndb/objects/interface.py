@@ -346,6 +346,7 @@ class Interface(RTNL_Object):
     msg_class = ifinfmsg
     api = 'link'
     key_extra_fields = ['IFLA_IFNAME']
+    resolve_fields = ['vxlan_link', 'link', 'master']
     fields_cmp = {'master': _cmp_master}
     fields_normalize = {'address': _norm_address}
 
@@ -624,18 +625,6 @@ class Interface(RTNL_Object):
                 snp.snapshot_deps.append((link, link.snapshot()))
         # return the root node
         return snp
-
-    def resolve(self):
-        for key in ('vxlan_link', 'link', 'master'):
-            ref = self.get(key)
-            if isinstance(ref, dict):
-                if 'index' in ref:
-                    self[key] = ref['index']
-                else:
-                    self[key] = self.view[ref]['index']
-            elif isinstance(ref, basestring):
-                self[key] = self.view[ref]['index']
-        return self
 
     def sync_req(self, prime):
         req = super(Interface, self).sync_req(prime)
