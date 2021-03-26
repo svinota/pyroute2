@@ -10,6 +10,7 @@ from pyroute2 import NetNS
 from pyroute2 import IPRoute
 from pyroute2 import NetlinkError
 from pyroute2.common import uifname
+from pyroute2.common import basestring
 
 
 class SpecContextManager(object):
@@ -74,7 +75,7 @@ class NDBContextManager(object):
         #
         # select the DB to work on
         db_name = os.environ.get('PYROUTE2_TEST_DBNAME')
-        if db_name is not None:
+        if isinstance(db_name, basestring) and len(db_name):
             kwarg['db_provider'] = 'psycopg2'
             kwarg['db_spec'] = {'dbname': db_name}
         #
