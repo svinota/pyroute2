@@ -153,6 +153,7 @@ pytest: check_parameters
 		export REPORT=${report}; \
 		export WORKER=${worker}; \
 		export WORKSPACE=${workspace}; \
+		export PYROUTE2_TEST_DBNAME=${dbname}; \
 		./tests/run_pytest.sh
 
 test-platform:

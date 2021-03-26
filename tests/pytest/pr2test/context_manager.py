@@ -72,6 +72,12 @@ class NDBContextManager(object):
         if sources is not None:
             kwarg['sources'] = sources
         #
+        # select the DB to work on
+        db_name = os.environ.get('PYROUTE2_TEST_DBNAME')
+        if db_name is not None:
+            kwarg['db_provider'] = 'psycopg2'
+            kwarg['db_spec'] = {'dbname': db_name}
+        #
         # this instance is to be tested, so do NOT use it
         # in utility methods
         self.ndb = NDB(**kwarg)
