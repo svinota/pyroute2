@@ -1,4 +1,6 @@
+sudo: required
 language: python
 python:
-    - "2.7"
-script: make test
+    - "3.6"
+    - "3.9"
+script: sudo make pytest
