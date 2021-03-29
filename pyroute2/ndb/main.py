@@ -304,7 +304,7 @@ class Transaction(object):
                     try:
                         rb.rollback()
                     except Exception as e:
-                        self.log.warning(f'ignore rollback exception: {e}')
+                        self.log.warning('ignore rollback exception: %s' % e)
                 raise
         self.event.set()
         return self
