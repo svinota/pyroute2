@@ -1,6 +1,8 @@
 Changelog
 =========
 
+* 0.5.16
+    * ndb: fix syntax for Python < 3.6 <https://github.com/svinota/pyroute2/pull/776>
 * 0.5.15
     * ndb: don't mess with SQL adapters unless really needed
     * ndb: support more virtual interface types
