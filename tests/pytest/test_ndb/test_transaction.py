@@ -1,9 +1,14 @@
 import pytest
 from pr2test.tools import interface_exists
 from pr2test.tools import address_exists
+from pr2test.context_manager import make_test_matrix
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+test_matrix = make_test_matrix(targets=['local', 'netns'],
+                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_multiple_interfaces(context):
 
     ifname1 = context.new_ifname

@@ -3,16 +3,16 @@ import pytest
 from pr2test.tools import route_exists
 from pr2test.tools import address_exists
 from pr2test.tools import interface_exists
+from pr2test.context_manager import make_test_matrix
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
 
-@pytest.mark.parametrize('context',
-                         [('local', None),
-                          ('local', 501),
-                          ('local', 5001),
-                          ('netns', None),
-                          ('netns', 501),
-                          ('netns', 5001)], indirect=True)
+test_matrix = make_test_matrix(targets=['local', 'netns'],
+                               tables=[None, 501, 5001],
+                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_basic(context):
 
     ifaddr = context.new_ipaddr
@@ -47,13 +47,7 @@ def test_basic(context):
     assert route_exists(context.netns, dst=ipnet, table=table or 254)
 
 
-@pytest.mark.parametrize('context',
-                         [('local', None),
-                          ('local', 501),
-                          ('local', 5001),
-                          ('netns', None),
-                          ('netns', 501),
-                          ('netns', 5001)], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_scopes(context):
 
     ipaddr = context.new_ipaddr
@@ -94,13 +88,7 @@ def test_scopes(context):
     assert not route_exists(context.netns, **spec)
 
 
-@pytest.mark.parametrize('context',
-                         [('local', None),
-                          ('local', 501),
-                          ('local', 5001),
-                          ('netns', None),
-                          ('netns', 501),
-                          ('netns', 5001)], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_default(context):
 
     ifaddr = context.new_ipaddr
@@ -135,13 +123,7 @@ def test_default(context):
     assert route_exists(context.netns, gateway=router, table=table)
 
 
-@pytest.mark.parametrize('context',
-                         [('local', None),
-                          ('local', 501),
-                          ('local', 5001),
-                          ('netns', None),
-                          ('netns', 501),
-                          ('netns', 5001)], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_multipath_ipv4(context):
 
     ifname = context.new_ifname
@@ -186,13 +168,7 @@ def test_multipath_ipv4(context):
     assert route_exists(context.netns, match=match_multipath)
 
 
-@pytest.mark.parametrize('context',
-                         [('local', None),
-                          ('local', 501),
-                          ('local', 5001),
-                          ('netns', None),
-                          ('netns', 501),
-                          ('netns', 5001)], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_update_set(context):
     ifaddr = context.new_ipaddr
     router1 = context.new_ipaddr
@@ -229,13 +205,7 @@ def test_update_set(context):
     assert route_exists(context.netns, dst=network, gateway=router2)
 
 
-@pytest.mark.parametrize('context',
-                         [('local', None),
-                          ('local', 501),
-                          ('local', 5001),
-                          ('netns', None),
-                          ('netns', 501),
-                          ('netns', 5001)], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_update_replace(context):
     ifaddr = context.new_ipaddr
     router = context.new_ipaddr
@@ -268,13 +238,7 @@ def test_update_replace(context):
     assert route_exists(context.netns, dst=network, priority=10)
 
 
-@pytest.mark.parametrize('context',
-                         [('local', None),
-                          ('local', 501),
-                          ('local', 5001),
-                          ('netns', None),
-                          ('netns', 501),
-                          ('netns', 5001)], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_same_multipath(context):
     ifaddr = context.new_ipaddr
     gateway1 = context.new_ipaddr
@@ -324,13 +288,7 @@ def test_same_multipath(context):
     assert route_exists(context.netns, match=match_multipath)
 
 
-@pytest.mark.parametrize('context',
-                         [('local', None),
-                          ('local', 501),
-                          ('local', 5001),
-                          ('netns', None),
-                          ('netns', 501),
-                          ('netns', 5001)], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_same_metrics(context):
     ifaddr = context.new_ipaddr
     gateway1 = context.new_ipaddr
@@ -436,23 +394,11 @@ def _test_metrics_update(context, method):
     assert route_exists(context.netns, match=match_metrics)
 
 
-@pytest.mark.parametrize('context',
-                         [('local', None),
-                          ('local', 501),
-                          ('local', 5001),
-                          ('netns', None),
-                          ('netns', 501),
-                          ('netns', 5001)], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_metrics_update_apply(context):
     return _test_metrics_update(context, 'apply')
 
 
-@pytest.mark.parametrize('context',
-                         [('local', None),
-                          ('local', 501),
-                          ('local', 5001),
-                          ('netns', None),
-                          ('netns', 501),
-                          ('netns', 5001)], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_metrics_update_commit(context):
     return _test_metrics_update(context, 'commit')

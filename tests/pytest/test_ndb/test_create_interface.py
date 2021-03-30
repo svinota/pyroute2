@@ -2,9 +2,14 @@ import pytest
 from pyroute2 import NetlinkError
 from pr2test.tools import address_exists
 from pr2test.tools import interface_exists
+from pr2test.context_manager import make_test_matrix
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+test_matrix = make_test_matrix(targets=['local', 'netns'],
+                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_context_manager(context):
 
     ifname = context.new_ifname
@@ -32,7 +37,7 @@ def test_context_manager(context):
     assert not interface_exists(context.netns, ifname=ifname)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_fail(context):
 
     ifname = context.new_ifname
@@ -51,7 +56,7 @@ def test_fail(context):
     assert not interface_exists(context.netns, ifname=ifname)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_veth_simple(context):
     ifname = context.new_ifname
     peername = context.new_ifname
@@ -76,7 +81,7 @@ def test_veth_simple(context):
     assert not interface_exists(context.netns, ifname=peername)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_veth_spec(context):
     ifname = context.new_ifname
     peername = context.new_ifname
@@ -131,7 +136,7 @@ def test_veth_spec(context):
     context.ndb.sources.remove(nsname)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_dummy(context):
 
     ifname = context.new_ifname
@@ -144,7 +149,7 @@ def test_dummy(context):
                             address='00:11:22:33:44:55')
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_bridge(context):
 
     bridge = context.new_ifname
@@ -170,7 +175,7 @@ def test_bridge(context):
                             master=context.ndb.interfaces[spec_br]['index'])
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_vrf(context):
     vrf = context.new_ifname
     spec = {'ifname': vrf, 'kind': 'vrf'}
@@ -183,7 +188,7 @@ def test_vrf(context):
     assert interface_exists(context.netns, ifname=vrf)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_vlan(context):
     host = context.new_ifname
     vlan = context.new_ifname
@@ -204,7 +209,7 @@ def test_vlan(context):
     assert interface_exists(context.netns, ifname=vlan)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_vxlan(context):
     host = context.new_ifname
     vxlan = context.new_ifname
@@ -227,7 +232,7 @@ def test_vxlan(context):
     assert interface_exists(context.netns, ifname=vxlan)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_basic_address(context):
 
     ifaddr = context.new_ipaddr

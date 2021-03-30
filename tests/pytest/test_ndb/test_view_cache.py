@@ -1,9 +1,16 @@
 import time
+import pytest
 from utils import require_user
 from pr2test.tools import interface_exists
+from pr2test.context_manager import make_test_matrix
 from pyroute2 import config
 
 
+test_matrix = make_test_matrix(targets=['local', 'netns'],
+                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_view_cache(context):
     '''
     NDB stores all the info in an SQL database, and instantiates
@@ -28,8 +35,8 @@ def test_view_cache(context):
     # create test interfaces
     ndb.interfaces.create(ifname=ifname1, kind='dummy').commit()
     ndb.interfaces.create(ifname=ifname2, kind='dummy').commit()
-    assert interface_exists(ifname=ifname1)
-    assert interface_exists(ifname=ifname2)
+    assert interface_exists(context.netns, ifname=ifname1)
+    assert interface_exists(context.netns, ifname=ifname2)
     #
     # the interface object must not be cached, as they
     # weren't referenced yet
@@ -71,5 +78,5 @@ def test_view_cache(context):
 
     #
     # check that the interfaces are cleaned up from the system
-    assert not interface_exists(ifname=ifname1)
-    assert not interface_exists(ifname=ifname2)
+    assert not interface_exists(context.netns, ifname=ifname1)
+    assert not interface_exists(context.netns, ifname=ifname2)

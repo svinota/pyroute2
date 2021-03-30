@@ -7,8 +7,14 @@ from pyroute2.common import basestring
 from pyroute2.ndb.main import Record
 from pyroute2.ndb.main import RecordSet
 from pyroute2.ndb.objects import RTNL_Object
+from pr2test.context_manager import make_test_matrix
 
 
+test_matrix = make_test_matrix(targets=['local', 'netns'],
+                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_types(context):
     save = report.MAX_REPORT_LINES
     report.MAX_REPORT_LINES = 1
@@ -21,6 +27,7 @@ def test_types(context):
     report.MAX_REPORT_LINES = save
 
 
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_iter_keys(context):
     for name in ('interfaces',
                  'addresses',
@@ -35,7 +42,7 @@ def test_iter_keys(context):
                 assert isinstance(obj, RTNL_Object)
 
 
-@pytest.mark.parametrize('context', ['local', 'context'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_join(context):
 
     ifname = context.new_ifname
@@ -70,6 +77,7 @@ def test_join(context):
     assert s1 == s2
 
 
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_slices(context):
     a = list(context.ndb.rules.dump())
     ln = len(a) - 1
@@ -96,7 +104,7 @@ def test_slices(context):
     assert a[2:ln:2] == context.ndb.rules.dump()[2:ln:2]
 
 
-@pytest.mark.parametrize('context', ['local', 'context'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_report_chains(context):
     ipnet = str(context.ipnets[1].network)
     ipaddr = context.new_ipaddr
@@ -135,6 +143,7 @@ def test_report_chains(context):
     assert encap[1]['bos'] == 1
 
 
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_json(context):
     data = json.loads(''.join(context
                               .ndb
@@ -154,6 +163,7 @@ class MD(csv.Dialect):
     lineterminator = "\n"
 
 
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_csv(context):
     record_length = 0
 
@@ -172,7 +182,7 @@ def test_csv(context):
         assert len(record) == record_length
 
 
-@pytest.mark.parametrize('context', ['local', 'context'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_nested_ipaddr(context):
     ifname = context.new_ifname
     ipaddr1 = context.new_ipaddr
@@ -197,7 +207,7 @@ def test_nested_ipaddr(context):
     assert rlen == 2
 
 
-@pytest.mark.parametrize('context', ['local', 'context'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_nested_ports(context):
     ifbr0 = context.new_ifname
     ifbr0p0 = context.new_ifname

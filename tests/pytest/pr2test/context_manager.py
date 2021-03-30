@@ -1,7 +1,9 @@
 import os
 import uuid
 import errno
+import pytest
 import logging
+from collections import namedtuple
 from utils import allocate_network
 from utils import free_network
 from pyroute2 import netns
@@ -11,6 +13,30 @@ from pyroute2 import IPRoute
 from pyroute2 import NetlinkError
 from pyroute2.common import uifname
 from pyroute2.common import basestring
+
+
+def make_test_matrix(targets=None, tables=None, dbs=None):
+    targets = targets or ['local', ]
+    tables = tables or [None, ]
+    dbs = dbs or ['sqlite3/:memory:', ]
+    ret = []
+    for db in dbs:
+        db_provider, db_spec = db.split('/')
+        if db_provider != 'sqlite3':
+            db_spec = {'dbname': db_spec}
+        for target in targets:
+            for table in tables:
+                param_id = 'db=%s target=%s table=%s' % (db, target, table)
+                param = pytest.param(
+                    ContextParams(db_provider, db_spec, target, table),
+                    id=param_id
+                )
+                ret.append(param)
+    return ret
+
+
+ContextParams = namedtuple('ContextParams',
+                           ('db_provider', 'db_spec', 'target', 'table'))
 
 
 class SpecContextManager(object):
@@ -54,8 +80,15 @@ class NDBContextManager(object):
 
         kind = 'local'
         self.table = None
+        kwarg['db_provider'] = 'sqlite3'
+        kwarg['db_spec'] = ':memory:'
         if hasattr(request, 'param'):
-            if isinstance(request.param, (tuple, list)):
+            if isinstance(request.param, ContextParams):
+                kind = request.param.target
+                self.table = request.param.table
+                kwarg['db_provider'] = request.param.db_provider
+                kwarg['db_spec'] = request.param.db_spec
+            elif isinstance(request.param, (tuple, list)):
                 kind, self.table = request.param
             else:
                 kind = request.param

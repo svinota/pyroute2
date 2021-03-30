@@ -2,9 +2,14 @@ import pytest
 from pr2test.tools import interface_exists
 from pr2test.tools import address_exists
 from pr2test.tools import route_exists
+from pr2test.context_manager import make_test_matrix
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+test_matrix = make_test_matrix(targets=['local', 'netns'],
+                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_create(context):
     ifname = context.new_ifname
     iface = (context
@@ -17,7 +22,7 @@ def test_create(context):
     assert not interface_exists(context.netns, ifname=ifname)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_remove(context):
     ifname = context.new_ifname
     iface = (context
@@ -32,7 +37,7 @@ def test_remove(context):
     assert interface_exists(context.netns, ifname=ifname)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_set(context):
     ifname = context.new_ifname
     (context
@@ -66,7 +71,7 @@ def test_set(context):
                             address='00:11:22:33:44:55')
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_simple_deps(context):
 
     ifname = context.new_ifname
@@ -113,7 +118,7 @@ def test_simple_deps(context):
     assert route_exists(context.netns, gateway=router, dst=dst, dst_len=24)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_bridge_deps(context):
 
     if_br0 = context.new_ifname
@@ -165,7 +170,7 @@ def test_bridge_deps(context):
     assert route_exists(context.netns, gateway=router, dst=dst, dst_len=24)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_vlan_deps(context):
 
     if_host = context.new_ifname

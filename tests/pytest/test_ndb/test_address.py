@@ -1,8 +1,13 @@
 import pytest
 from pr2test.tools import address_exists
+from pr2test.context_manager import make_test_matrix
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+test_matrix = make_test_matrix(targets=['local', 'netns'],
+                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_add_del_ip_dict(context):
     ifname = context.new_ifname
     ifaddr1 = context.new_ipaddr
@@ -30,7 +35,7 @@ def test_add_del_ip_dict(context):
     assert not address_exists(context.netns, ifname=ifname, address=ifaddr2)
 
 
-@pytest.mark.parametrize('context', ['local', 'netns'], indirect=True)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_add_del_ip_string(context):
     ifname = context.new_ifname
     ifaddr1 = '%s/24' % context.new_ipaddr

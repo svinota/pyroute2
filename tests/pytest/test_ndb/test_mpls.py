@@ -1,5 +1,10 @@
+import pytest
 from socket import AF_INET
 from pyroute2.common import AF_MPLS
+from pr2test.context_manager import make_test_matrix
+
+
+test_matrix = make_test_matrix(dbs=['sqlite3/:memory:', 'postgres/pr2test'])
 
 
 def get_mpls_routes(context):
@@ -9,6 +14,7 @@ def get_mpls_routes(context):
                      .getmany({'family': AF_MPLS})))
 
 
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_via_ipv4(context):
 
     ifname = context.new_ifname
@@ -43,6 +49,7 @@ def test_via_ipv4(context):
     assert rt.state == 'invalid'
 
 
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_encap_mpls(context):
 
     ifname = context.new_ifname

@@ -1,7 +1,13 @@
+import pytest
 from pyroute2 import NDB
 from pr2test.tools import interface_exists
+from pr2test.context_manager import make_test_matrix
 
 
+test_matrix = make_test_matrix(dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_move(context):
     ifname = context.new_ifname
     ifaddr = context.new_ipaddr
@@ -39,6 +45,7 @@ def test_move(context):
                             address='00:11:22:33:44:55')
 
 
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_basic(context):
     ifname = context.new_ifname
     ifaddr1 = context.new_ipaddr

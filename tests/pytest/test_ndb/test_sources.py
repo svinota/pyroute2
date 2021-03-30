@@ -1,6 +1,12 @@
+import pytest
 from utils import require_user
 from pr2test.tools import interface_exists
+from pr2test.context_manager import make_test_matrix
 from pyroute2 import NDB
+
+
+test_matrix = make_test_matrix(targets=['local', 'netns'],
+                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
 
 
 def test_multiple_sources():
@@ -37,6 +43,7 @@ def test_multiple_sources():
         assert ndb.sources[source].nl.closed
 
 
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_source_localhost_restart(context):
     '''
     The database must be operational after a complete
@@ -60,7 +67,7 @@ def test_source_localhost_restart(context):
      .commit())
     #
     # an external check
-    assert interface_exists(ifname=ifname1, state='up')
+    assert interface_exists(context.netns, ifname=ifname1, state='up')
     #
     # internal checks
     assert ifname1 in ndb.interfaces
@@ -81,7 +88,7 @@ def test_source_localhost_restart(context):
      .commit())
     #
     # check the interface both externally and internally
-    assert interface_exists(ifname=ifname2, state='down')
+    assert interface_exists(context.netns, ifname=ifname2, state='down')
     assert ifname2 in ndb.interfaces
     assert ndb.interfaces[ifname2]['state'] == 'down'
     #
@@ -94,6 +101,7 @@ def test_source_localhost_restart(context):
     assert not interface_exists(ifname=ifname2)
 
 
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_source_netns_restart(context):
     '''
     Netns sources should be operational after restart as well
@@ -146,6 +154,7 @@ def count_interfaces(ndb, target):
                       ''' % target))[0]
 
 
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_disconnect_localhost(context):
     '''
     Disconnecting the `localhost` source should not break the DB
