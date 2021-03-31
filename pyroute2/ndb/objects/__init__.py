@@ -110,15 +110,18 @@ class Spec(object):
     '''
     A universal NDB object spec
     '''
-    def __init__(self, iclass, spec):
+    def __init__(self, iclass, spec, localhost):
         if isinstance(spec, Record):
             spec = spec._as_dict()
         self.spec = spec
         self.iclass = iclass
+        self.localhost = localhost
         self.normalize()
 
     def normalize(self):
         self.spec = self.iclass.spec_normalize(self.spec)
+        if 'target' not in self.spec:
+            self.spec['target'] = self.localhost
         return self
 
     def load_context(self, context):
@@ -257,8 +260,6 @@ class RTNL_Object(dict):
 
     @staticmethod
     def spec_normalize(spec):
-        if 'target' not in spec:
-            spec['target'] = 'localhost'
         return spec
 
     @staticmethod
@@ -333,8 +334,8 @@ class RTNL_Object(dict):
         self._init_complete = True
 
     @classmethod
-    def new_spec(cls, spec):
-        return Spec(cls, spec)
+    def new_spec(cls, spec, localhost):
+        return Spec(cls, spec, localhost)
 
     @staticmethod
     def resolve(view, spec, fields, policy=RSLV_IGNORE):
@@ -373,7 +374,7 @@ class RTNL_Object(dict):
 
     @property
     def context(self):
-        return {'target': self.get('target', 'localhost')}
+        return {'target': self.get('target', self.ndb.localhost)}
 
     @classmethod
     def nla2name(self, name):
@@ -803,7 +804,7 @@ class RTNL_Object(dict):
                     req[k] = v
             if self.master is not None:
                 req = (self
-                       .new_spec(req)
+                       .new_spec(req, self.ndb.localhost)
                        .load_context(self.master.context)
                        .get_spec)
 

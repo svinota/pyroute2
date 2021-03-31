@@ -60,12 +60,10 @@ class NetNS(RTNL_Object):
 
     @staticmethod
     def spec_normalize(spec):
-        if isinstance(spec, dict):
-            ret = dict(spec)
-        else:
-            ret = {'target': 'localhost/netns'}
         if isinstance(spec, basestring):
-            ret['path'] = spec
+            ret = {'path': spec}
+        else:
+            ret = dict(spec)
         path = netns._get_netnspath(ret['path'])
         # on Python3 _get_netnspath() returns bytes, not str, so
         # we have to decode it here in order to avoid issues with

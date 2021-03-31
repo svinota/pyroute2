@@ -573,8 +573,6 @@ class Interface(RTNL_Object):
             ret = dict(spec)
         else:
             ret = {}
-        if 'target' not in ret:
-            ret['target'] = 'localhost'
         if isinstance(spec, basestring):
             ret['ifname'] = spec
         elif isinstance(spec, int):
@@ -591,7 +589,7 @@ class Interface(RTNL_Object):
         if isinstance(key, dict):
             ret_key = key
         else:
-            ret_key = {'target': 'localhost'}
+            ret_key = {'target': self.ndb.localhost}
 
         if isinstance(key, basestring):
             ret_key['ifname'] = key

@@ -99,7 +99,7 @@ class Neighbour(RTNL_Object):
         if isinstance(key, dict):
             ret_key = key
         else:
-            ret_key = {'target': 'localhost'}
+            ret_key = {'target': self.ndb.localhost}
 
         if isinstance(key, basestring):
             ret_key['NDA_DST'] = key

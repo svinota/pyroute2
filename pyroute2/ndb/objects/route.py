@@ -513,7 +513,7 @@ class Route(RTNL_Object):
             raise TypeError('unsupported key type')
 
         if 'target' not in ret_key:
-            ret_key['target'] = 'localhost'
+            ret_key['target'] = self.ndb.localhost
 
         table = ret_key.get('table', ret_key.get('RTA_TABLE', 254))
         if 'table' not in ret_key:

@@ -381,7 +381,7 @@ class View(dict):
         iclass = self.classes[table or self.table]
 
         spec = (iclass
-                .new_spec(key)
+                .new_spec(key, self.default_target)
                 .load_context(context)
                 .get_spec)
 
@@ -401,7 +401,7 @@ class View(dict):
             context = {}
 
         spec = (iclass
-                .new_spec(kwspec or argspec[0])
+                .new_spec(kwspec or argspec[0], self.default_target)
                 .load_context(context)
                 .get_spec)
 
@@ -565,7 +565,7 @@ class View(dict):
             ndb.addresses.exists('127.0.0.1/8')
         '''
         iclass = self.classes[self.table]
-        key = iclass.new_spec(key).get_spec
+        key = iclass.new_spec(key, self.default_target).get_spec
 
         iclass.resolve(view=self,
                        spec=key,
@@ -854,13 +854,13 @@ class AuthProxy(object):
         self._ndb = ndb
         self._auth_managers = auth_managers
 
-        for spec in (('interfaces', 'localhost'),
-                     ('addresses', 'localhost'),
-                     ('routes', 'localhost'),
-                     ('neighbours', 'localhost'),
-                     ('rules', 'localhost'),
-                     ('netns', 'nsmanager'),
-                     ('vlans', 'localhost')):
+        for spec in (('interfaces', ndb.localhost),
+                     ('addresses', ndb.localhost),
+                     ('routes', ndb.localhost),
+                     ('neighbours', ndb.localhost),
+                     ('rules', ndb.localhost),
+                     ('netns', ndb.nsmanager),
+                     ('vlans', ndb.localhost)):
             view = View(self._ndb,
                         spec[0],
                         default_target=spec[1],
@@ -870,8 +870,13 @@ class AuthProxy(object):
 
 class NDB(object):
 
+    @property
+    def nsmanager(self):
+        return '%s/nsmanager' % self.localhost
+
     def __init__(self,
                  sources=None,
+                 localhost='localhost',
                  db_provider='sqlite3',
                  db_spec=':memory:',
                  db_cleanup=True,
@@ -889,6 +894,7 @@ class NDB(object):
         elif db_provider == 'psycopg2':
             regsiter_postgres_adapters()
 
+        self.localhost = localhost
         self.ctime = self.gctime = time.time()
         self.schema = None
         self.config = {}
@@ -924,14 +930,19 @@ class NDB(object):
         #
         # fix sources prime
         if sources is None:
-            sources = [{'target': 'localhost',
+            sources = [{'target': self.localhost,
                         'kind': 'local',
                         'nlm_generator': 1}]
             if sys.platform.startswith('linux'):
-                sources.append({'target': 'nsmanager',
+                sources.append({'target': self.nsmanager,
                                 'kind': 'nsmanager'})
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
+
+        for spec in sources:
+            if 'target' not in spec:
+                spec['target'] = self.localhost
+                break
 
         am = AuthManager({'obj:list': True,
                           'obj:read': True,
@@ -957,13 +968,13 @@ class NDB(object):
         for event in tuple(self._dbm_autoload):
             event.wait()
         self._dbm_autoload = None
-        for spec in (('interfaces', 'localhost'),
-                     ('addresses', 'localhost'),
-                     ('routes', 'localhost'),
-                     ('neighbours', 'localhost'),
-                     ('rules', 'localhost'),
-                     ('netns', 'nsmanager'),
-                     ('vlans', 'localhost')):
+        for spec in (('interfaces', self.localhost),
+                     ('addresses', self.localhost),
+                     ('routes', self.localhost),
+                     ('neighbours', self.localhost),
+                     ('rules', self.localhost),
+                     ('netns', self.nsmanager),
+                     ('vlans', self.localhost)):
             view = View(self,
                         spec[0],
                         default_target=spec[1],

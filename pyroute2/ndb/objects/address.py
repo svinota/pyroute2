@@ -150,8 +150,6 @@ class Address(RTNL_Object):
             ret = spec
         else:
             ret = {}
-        if 'target' not in ret:
-            ret['target'] = 'localhost'
         if isinstance(spec, basestring):
             addr_spec = spec.split('/')
             ret['address'] = addr_spec[0]
