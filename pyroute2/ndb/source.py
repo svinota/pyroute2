@@ -260,6 +260,7 @@ class Source(dict):
         zero_if['event'] = 'RTM_NEWLINK'
         zero_if['attrs'] = [('IFLA_IFNAME', url),
                             ('IFLA_ADDRESS', '00:00:00:00:00:00')]
+        zero_if.encode()
         self.evq.put([zero_if, ])
 
     def receiver(self):
