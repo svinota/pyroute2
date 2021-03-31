@@ -425,6 +425,8 @@ class View(dict):
 
     def wait(self, **spec):
         ret = None
+        timeout = spec.pop('timeout', None)
+        ctime = time.time()
 
         # install a limited events queue -- for a possible immediate reaction
         evq = queue.Queue(maxsize=100)
@@ -460,6 +462,9 @@ class View(dict):
             ret = None
 
         while ret is None:
+            if timeout is not None:
+                if ctime + timeout < time.time():
+                    break
             try:
                 target, msg = evq.get(timeout=1)
             except queue.Empty:
@@ -498,6 +503,8 @@ class View(dict):
         del evq
         del hdl
         gc.collect()
+        if ret is None:
+            raise TimeoutError()
         return ret
 
     @check_auth('obj:read')
