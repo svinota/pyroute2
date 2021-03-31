@@ -115,6 +115,7 @@ class NDBContextManager(object):
         # this instance is to be tested, so do NOT use it
         # in utility methods
         self.ndb = NDB(**kwarg)
+        self.ipr = self.ndb.sources['localhost'].nl
         #
         # IPAM
         self.ipnets = [allocate_network() for _ in range(5)]
