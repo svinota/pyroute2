@@ -115,7 +115,7 @@ class NDBContextManager(object):
         # this instance is to be tested, so do NOT use it
         # in utility methods
         self.ndb = NDB(**kwarg)
-        self.ipr = self.ndb.sources['localhost'].nl
+        self.ipr = self.ndb.sources['localhost'].nl.clone()
         #
         # IPAM
         self.ipnets = [allocate_network() for _ in range(5)]
@@ -180,6 +180,7 @@ class NDBContextManager(object):
         2. remove the registered interfaces, ignore not existing
         '''
         self.ndb.close()
+        self.ipr.close()
         for (ifname, nsname) in self.interfaces.items():
             try:
                 ipr = None
