@@ -10,3 +10,4 @@ netaddr
 psutil
 pytest
 pytest-cov
+psycopg2
