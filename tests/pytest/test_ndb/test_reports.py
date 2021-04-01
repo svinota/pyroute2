@@ -2,7 +2,6 @@ import csv
 import json
 import pytest
 from socket import AF_INET
-from pyroute2.ndb import report
 from pyroute2.common import basestring
 from pyroute2.ndb.main import Record
 from pyroute2.ndb.main import RecordSet
@@ -16,15 +15,10 @@ test_matrix = make_test_matrix(targets=['local', 'netns'],
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_types(context):
-    save = report.MAX_REPORT_LINES
-    report.MAX_REPORT_LINES = 1
     # check for the report type here
     assert isinstance(context.ndb.interfaces.summary(), RecordSet)
     # repr must be a string
     assert isinstance(repr(context.ndb.interfaces.summary()), basestring)
-    # header + MAX_REPORT_LINES + (...)
-    assert len(repr(context.ndb.interfaces.summary()).split('\n')) == 3
-    report.MAX_REPORT_LINES = save
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
