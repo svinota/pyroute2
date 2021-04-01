@@ -31,4 +31,5 @@ def init(config):
 
     return NDB(log=config.get('log', 'debug'),
                sources=sources,
+               localhost=sources[0]['target'],
                messenger=messenger)
