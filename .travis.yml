@@ -7,7 +7,6 @@ addons:
     apt:
       packages:
         - postgresql-13
-        - postgresql-13-client
         - postgresql-server-dev-13
 env:
     global:
