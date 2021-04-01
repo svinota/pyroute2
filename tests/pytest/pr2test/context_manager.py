@@ -23,6 +23,8 @@ def make_test_matrix(targets=None, tables=None, dbs=None):
     for db in dbs:
         db_provider, db_spec = db.split('/')
         if db_provider != 'sqlite3':
+            if os.environ.get('TRAVIS') == 'true':
+                continue
             db_spec = {'dbname': db_spec}
         for target in targets:
             for table in tables:
