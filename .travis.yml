@@ -1,12 +1,28 @@
 sudo: required
 language: python
+services:
+    - postgresql
+addons:
+    postgresql: "13"
+    apt:
+      packages:
+        - postgresql-13
+        - postgresql-13-client
+        - postgresql-server-dev-13
+env:
+    global:
+        - PGPORT=5433
+        - PGUSER=postgres
+before_install:
+    - >-
+      sudo sed -i
+      -e '/local.*peer/s/postgres/all/'
+      -e 's/peer\|md5/trust/g'
+      /etc/postgresql/13/main/pg_hba.conf
+    - sudo systemctl restart postgresql@13-main
+before_script:
+    - psql -p 5433 -U postgres -c 'create database pr2test;'
 python:
     - "3.6"
     - "3.9"
-before_install:
-    - sudo apt-get install postgresql-13
-    - sudo apt-get install postgresql-server-dev-13
-    - sudo systemctl start postgresql
-    - sudo -u postgres createuser root
-    - sudo -u postgres createdb -O root pr2test
 script: sudo make pytest

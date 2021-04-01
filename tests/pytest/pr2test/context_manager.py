@@ -36,9 +36,21 @@ def make_test_matrix(targets=None, tables=None, dbs=None):
     for db in dbs:
         db_provider, db_spec = db.split('/')
         if db_provider != 'sqlite3':
-            if os.environ.get('TRAVIS') == 'true':
-                continue
             db_spec = {'dbname': db_spec}
+            user = os.environ.get('PGUSER')
+            port = os.environ.get('PGPORT')
+            host = os.environ.get('PGHOST')
+            if user:
+                db_spec['user'] = user
+            if host:
+                if not port:
+                    db_spec['port'] = 5432
+                db_spec['host'] = host
+            if port:
+                if not host:
+                    db_spec['host'] = 'localhost'
+                db_spec['port'] = port
+
         for target in targets:
             for table in tables:
                 param_id = 'db=%s target=%s table=%s' % (db, target, table)
