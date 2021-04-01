@@ -3,6 +3,7 @@ import uuid
 import errno
 import pytest
 import logging
+import functools
 from collections import namedtuple
 from utils import allocate_network
 from utils import free_network
@@ -13,6 +14,18 @@ from pyroute2 import IPRoute
 from pyroute2 import NetlinkError
 from pyroute2.common import uifname
 from pyroute2.common import basestring
+
+
+def skip_if_not_supported(func):
+    @functools.wraps(func)
+    def test_wrapper(context):
+        try:
+            return func(context)
+        except NetlinkError as e:
+            if e.code == errno.EOPNOTSUPP:
+                pytest.skip('feature not supported by platform')
+            raise
+    return test_wrapper
 
 
 def make_test_matrix(targets=None, tables=None, dbs=None):

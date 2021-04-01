@@ -3,6 +3,7 @@ from pyroute2 import NetlinkError
 from pr2test.tools import address_exists
 from pr2test.tools import interface_exists
 from pr2test.context_manager import make_test_matrix
+from pr2test.context_manager import skip_if_not_supported
 
 
 test_matrix = make_test_matrix(targets=['local', 'netns'],
@@ -176,6 +177,7 @@ def test_bridge(context):
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
+@skip_if_not_supported
 def test_vrf(context):
     vrf = context.new_ifname
     spec = {'ifname': vrf, 'kind': 'vrf'}

@@ -15,6 +15,7 @@ def get_mpls_routes(context):
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
+@skip_if_not_supported
 def test_via_ipv4(context):
 
     ifname = context.new_ifname
@@ -50,6 +51,7 @@ def test_via_ipv4(context):
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
+@skip_if_not_supported
 def test_encap_mpls(context):
 
     ifname = context.new_ifname
