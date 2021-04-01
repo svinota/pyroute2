@@ -113,8 +113,8 @@ for i in `seq $LOOP`; do
 
     deploy || {
         echo "flake 8 failed, sleeping for 30 seconds"
-        sleep 30
-        continue
+        errors=$(($errors + 1))
+        break
     }
 
     $PYTHON $WLEVEL "$PYTEST_PATH" --basetemp ./log $PDB $COVERAGE
