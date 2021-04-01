@@ -7,6 +7,7 @@ from pyroute2.ndb.main import Record
 from pyroute2.ndb.main import RecordSet
 from pyroute2.ndb.objects import RTNL_Object
 from pr2test.context_manager import make_test_matrix
+from pr2test.context_manager import skip_if_not_supported
 
 
 test_matrix = make_test_matrix(targets=['local', 'netns'],
@@ -99,6 +100,7 @@ def test_slices(context):
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
+@skip_if_not_supported
 def test_report_chains(context):
     ipnet = str(context.ipnets[1].network)
     ipaddr = context.new_ipaddr
