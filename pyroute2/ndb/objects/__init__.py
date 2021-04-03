@@ -936,11 +936,11 @@ class RTNL_Object(dict):
                         self.errors.append((time.time(), obj, e))
         else:
             for op, argv, kwarg in self._apply_script:
-                ret = op(*argv, **kwarg)
-                if isinstance(ret, Exception):
-                    raise ret
-                elif ret is not None:
-                    self._apply_script_snapshots.append(ret)
+                for ret in op(*argv, **kwarg):
+                    if isinstance(ret, Exception):
+                        raise ret
+                    elif ret is not None:
+                        self._apply_script_snapshots.append(ret)
             self._apply_script = []
         return self
 

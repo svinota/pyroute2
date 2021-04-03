@@ -462,9 +462,10 @@ class Interface(RTNL_Object):
         def do_add_vlan(self, spec):
             try:
                 self.vlan.create(spec).apply()
+                return []
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
-                return e_s
+                return [e_s]
         self._apply_script.append((do_add_vlan, (self, spec), {}))
         return self
 
@@ -473,10 +474,10 @@ class Interface(RTNL_Object):
         def do_del_vlan(self, spec):
             try:
                 ret = self.vlan[spec].remove().apply()
+                return [ret.last_save]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
-                return e_s
-            return ret.last_save
+                return [e_s]
         self._apply_script.append((do_del_vlan, (self, spec), {}))
         return self
 
@@ -490,26 +491,38 @@ class Interface(RTNL_Object):
         def do_add_ip(self, spec):
             try:
                 self.ipaddr.create(spec).apply()
+                return []
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
-                return e_s
+                return [e_s]
         self._apply_script.append((do_add_ip, (self, spec), {}))
         return self
 
     @check_auth('obj:modify')
     def del_ip(self, spec=None, **kwarg):
-        if spec is None and not kwarg:
-            raise TypeError('ip spec is required')
         if kwarg:
             spec = dict(kwarg)
+        if spec is None and not kwarg:
+            spec = {}
 
-        def do_del_ip(self, spec):
-            try:
-                ret = self.ipaddr[spec].remove().apply()
-            except Exception as e_s:
-                e_s.trace = traceback.format_stack()
-                return e_s
-            return ret.last_save
+        def do_del_ip(self, match):
+            ret = []
+            if isinstance(match, basestring):
+                specs = [match]
+            else:
+                specs = self.ipaddr.dump().filter(**match)
+            for spec in specs:
+                try:
+                    ret.append(self.ipaddr[spec].remove().apply())
+                except KeyError:
+                    pass
+                except Exception as e_s:
+                    e_s.trace = traceback.format_stack()
+                    ret.append(e_s)
+            if not ret:
+                ret = [KeyError('no address records matched')]
+            return ret
+
         self._apply_script.append((do_del_ip, (self, spec), {}))
         return self
 
@@ -521,10 +534,10 @@ class Interface(RTNL_Object):
                 assert port['target'] == self['target']
                 port['master'] = self['index']
                 port.apply()
+                return [port.last_save]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
-                return e_s
-            return port.last_save
+                return [e_s]
         self._apply_script.append((do_add_port, (self, spec), {}))
         return self
 
@@ -537,10 +550,10 @@ class Interface(RTNL_Object):
                 assert port['target'] == self['target']
                 port['master'] = 0
                 port.apply()
+                return [port.last_save]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
-                return e_s
-            return port.last_save
+                return [e_s]
         self._apply_script.append((do_del_port, (self, spec), {}))
         return self
 
