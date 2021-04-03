@@ -808,8 +808,18 @@ class DBSchema(object):
                 if wref() is None:
                     del self.snapshots[name]
                     if name.startswith('ifinfo_'):
-                        self.execute('DROP VIEW %s' % name[7:])
-                    self.execute('DROP TABLE %s' % name)
+                        try:
+                            self.execute('DROP VIEW %s' % name[7:])
+                        except Exception as e:
+                            self.log.debug(
+                                'failed to remove view %s: %s'
+                                % (name[7:], e))
+                    try:
+                        self.execute('DROP TABLE %s' % name)
+                    except Exception as e:
+                        self.log.debug(
+                            'failed to remove table %s: %s'
+                            % (name, e))
 
             # clean marked routes
             self.execute('DELETE FROM routes WHERE '
