@@ -85,8 +85,28 @@ A "Hello world" example:
      .add_ip('10.0.0.1/24')                # add addresses
      .add_ip('192.168.0.1/24')             #
      .set('br_stp_state', 1)               # set STP on
+     .set('br_group_fwd_mask', 0x4000)     # set LLDP forwarding
      .set('state', 'up')                   # bring the interface up
      .commit())                            # commit pending changes
+
+    # operate on netns:
+    ndb.sources.add(netns='testns')                 # connect to a namespace
+    
+    (ndb.interfaces.create(
+        **{'ifname': 'veth0',                       # create veth
+           'kind': 'veth',                          #
+           'peer': {'ifname': 'eth0',               # setup peer
+                    'net_ns_fd': 'testns'}})        # in the namespace
+     .set('state', 'up')                            #
+     .add_ip(address='172.16.230.1', prefixlen=24)  # add address
+     .commit())
+
+    (ndb
+     .interfaces
+     .wait(**{'target': 'testns', 'ifname': 'eth0'}) # wait for the peer
+     .set('state', 'up')                             # bring it up
+     .add_ip(address='172.16.230.2', prefixlen=24)   # add address
+     .commit())
 
 IPRoute -- Low level RTNL API
 -----------------------------
