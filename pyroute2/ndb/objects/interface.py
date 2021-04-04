@@ -509,6 +509,8 @@ class Interface(RTNL_Object):
             ret = []
             if isinstance(match, basestring):
                 specs = [match]
+            elif callable(match):
+                specs = self.ipaddr.dump().filter(match)
             else:
                 specs = self.ipaddr.dump().filter(**match)
             for spec in specs:
