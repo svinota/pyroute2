@@ -7,7 +7,7 @@ NDB is a high level network management module. IT allows to manage interfaces,
 routes, addresses etc. of connected systems, containers and network
 namespaces.
 
-In a nuthsell, NDB collects and aggregates netlink events in an SQL database,
+In a nutshell, NDB collects and aggregates netlink events in an SQL database,
 provides Python objects to reflect the system state, and applies changes back
 to the system. The database expects updates only from the sources, no manual
 SQL updates are expected normally.

@@ -1,7 +1,7 @@
 '''
 
-Using the view
-==============
+Using the global view
+=====================
 
 The `addresses` view provides access to all the addresses registered in the DB,
 as well as methods to create and remove them::
@@ -25,23 +25,72 @@ as well as methods to create and remove them::
      .addresses
      .summary())  # see also other view dump methods
 
-Using interfaces
-================
+Using ipaddr views
+==================
 
-One can use interface objects to inspect addresses as well::
+Interfaces also provide address views as subsets of the global
+address view::
 
     (ndb
      .interfaces['eth0']
      .ipaddr
-     .summary())  # see also other view dump methods
+     .summary())
 
-Or to manage them::
+It is possible use the same API as with the global address view::
 
     (ndb
      .interfaces['eth0']
-     .add_ip('10.0.0.1/24')    # add a new IP address
-     .del_ip('172.16.0.1/24')  # remove an existing address
+     .ipaddr
+     .create(address='10.0.0.1', prefixlen=24)  # index is implied
+     .commit())
+
+Using interface methods
+=======================
+
+Interfaces provide also simple methods to manage addresses::
+
+    (ndb
+     .interfaces['eth0']
+     .del_ip('172.16.0.1/24')                   # remove an existing address
+     .del_ip(family=AF_INET)                    # remove all IPv4 addresses
+     .add_ip('10.0.0.1/24')                     # add a new IP address
+     .add_ip(address='10.0.0.2', prefixlen=24)  # if you prefer keyword args
      .set('state', 'up')
+     .commit())
+
+Functions `add_ip()` and `del_ip()` return the interface object, so they
+can be chained as in the example above, and the final `commit()` will
+commit all the changes in the chain.
+
+The keywords to `del_ip()` are the same object field names that may be used
+in the selectors or report filters::
+
+    (ndb
+     .interfaces['eth0']
+     .del_ip(prefixlen=25)    # remove all addresses with mask /25
+     .commit())
+
+A match function that may be passed to the `del_ip()` is the same as for
+`addresses.dump().filter()`, and it gets a named tuple as the argument.
+The fields are named in the same way as address objects fields. So if you
+want to filter addresses by a pattern or the `prefixlen` field with a
+match function, you may use::
+
+    (ndb
+     .interfaces['eth0']
+     .del_ip(lambda x: x.address.startswith('192.168'))
+     .commit())
+
+    (ndb
+     .interfaces['eth1']
+     .del_ip(lambda x: x.prefixlen == 25)
+     .commit())
+
+An empty `del_ip()` removes all the IP addresses on the interface::
+
+    (ndb
+     .interfaces['eth0']
+     .del_ip()                # flush all the IP:s
      .commit())
 
 Accessing one address details
