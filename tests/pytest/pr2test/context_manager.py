@@ -33,8 +33,11 @@ def make_test_matrix(targets=None, tables=None, dbs=None):
     tables = tables or [None, ]
     dbs = dbs or ['sqlite3/:memory:', ]
     ret = []
+    skipdb = list(filter(lambda x: x, os.environ.get('SKIPDB', '').split(':')))
     for db in dbs:
         db_provider, db_spec = db.split('/')
+        if any(map(db_provider.startswith, skipdb)):
+            continue
         if db_provider != 'sqlite3':
             db_spec = {'dbname': db_spec}
             user = os.environ.get('PGUSER')
