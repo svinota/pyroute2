@@ -30,6 +30,7 @@ class Peer(object):
         self.remote_id = remote_id
         self.local_id = local_id
         self.cache = cache
+        self.version = 0
         self.last_exception_time = 0
 
     @property
@@ -60,7 +61,7 @@ class Peer(object):
 
     def send(self, data):
         length = len(data)
-        data = struct.pack('II', length, self.local_id) + data
+        data = struct.pack('III', length, self.version, self.local_id) + data
         if self.socket is None:
             if time.time() - self.last_exception_time < 5:
                 return
@@ -91,6 +92,7 @@ class Transport(object):
         self.peers = []
         self.address = address
         self.port = port
+        self.version = 0
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -133,7 +135,9 @@ class Transport(object):
                               .stream_endpoints
                               .index(fd)))
                         continue
-                    length, remote_id = struct.unpack('II', data)
+                    length, version, remote_id = struct.unpack('III', data)
+                    if version != self.version:
+                        continue
                     data = b''
                     while len(data) < length:
                         data += fd.recv(length - len(data))
