@@ -1,6 +1,10 @@
 Changelog
 =========
 
+* 0.5.17
+    * license: aligned cli/ss2 <https://github.com/svinota/pyroute2/pull/777>
+    * ndb: `del_ip()` improvements
+    * ndb: `wait(timeout=...)`
 * 0.5.16
     * ndb: fix syntax for Python < 3.6 <https://github.com/svinota/pyroute2/pull/776>
 * 0.5.15
