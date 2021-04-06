@@ -24,7 +24,7 @@ def get_parameters(kwarg):
                  'fqc_target': get_time,
                  'fqc_ce_threshold': get_time,
                  'fqc_interval': get_time}
-    for key in transform.keys():
+    for key in transform:
         if key in kwarg:
             log.warning('fq_codel parameters naming will be changed '
                         'in next releases (%s)' % key)

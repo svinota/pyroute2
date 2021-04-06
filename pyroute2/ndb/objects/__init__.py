@@ -796,7 +796,7 @@ class RTNL_Object(dict):
         self.log.debug('apply state: %s' % state)
 
         method = None
-        ignore = tuple()
+        ignore = ()
         #
         if state in ('invalid', 'replace'):
             for k, v in tuple(self.items()):

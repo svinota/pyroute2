@@ -192,8 +192,8 @@ class TestExplicit(BasicSetup):
 
         if1 = self.get_ifname()
 
-        primaries = list()
-        secondaries = list()
+        primaries = []
+        secondaries = []
         with self.ip.create(ifname=if1, kind='dummy') as i:
             for o3 in reversed(range(1, 6)):
                 for o4 in range(1, 4):
@@ -207,7 +207,7 @@ class TestExplicit(BasicSetup):
         truth = primaries + secondaries
 
         self.ip.ipaddr.reload()
-        addresses = list('%s/%d' % a for a in self.ip.interfaces[if1].ipaddr)
+        addresses = ['%s/%d' % a for a in self.ip.interfaces[if1].ipaddr]
 
         assert truth == addresses
 

@@ -20,7 +20,7 @@ def get_parameters(kwarg):
                  'cdl_target': get_time,
                  'cdl_ce_threshold': get_time,
                  'cdl_interval': get_time}
-    for key in transform.keys():
+    for key in transform:
         if key in kwarg:
             log.warning('codel parameters naming will be changed '
                         'in next releases (%s)' % key)

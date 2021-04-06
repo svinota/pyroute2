@@ -647,15 +647,15 @@ class nlmsg_base(dict):
     only `decode()` and `encode()`.
     '''
 
-    fields = tuple()
-    header = tuple()
+    fields = ()
+    header = ()
     pack = None                  # pack pragma
     cell_header = None
     align = 4
     nla_map = {}                 # NLA mapping
     sql_constraints = {}
-    sql_extra_fields = tuple()
-    sql_extend = tuple()
+    sql_extra_fields = ()
+    sql_extend = ()
     nla_flags = 0        # NLA flags
     value_map = {}
     is_nla = False
@@ -828,14 +828,14 @@ class nlmsg_base(dict):
                         # operator &, intersection
                         if rvalue.get_attr(attr[0]) == attr[1]:
                             res['attrs'].append(attr)
-        if not len(res):
+        if not res:
             return None
         else:
             if 'header' in res:
                 del res['header']
             if 'value' in res:
                 del res['value']
-            if 'attrs' in res and not len(res['attrs']):
+            if 'attrs' in res and not res['attrs']:
                 del res['attrs']
             return res
 

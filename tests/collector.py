@@ -41,7 +41,7 @@ def put_report(worker, run_id):
 @bottle.get('/v1/report/')
 def get_report():
     global stats
-    ret = {x: [] for x in stats.keys()}
+    ret = {x: [] for x in stats}
     for worker in stats:
         for run in stats[worker]:
             ret[worker].append((run, stats[worker][run]))

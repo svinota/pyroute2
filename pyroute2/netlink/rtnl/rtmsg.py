@@ -670,7 +670,7 @@ class rtmsg_base(nlflags):
             nla_string.decode(self)
             family = struct.unpack('H', self['value'][:2])[0]
             addr = self['value'][2:]
-            if len(addr):
+            if addr:
                 if (family == AF_INET and len(addr) == 4) or \
                         (family == AF_INET6 and len(addr) == 16):
                     addr = inet_ntop(family, addr)

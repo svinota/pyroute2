@@ -168,7 +168,7 @@ class IPSet(NetlinkSocket):
         Be warned: netlink does not return an error if given name does not
         exit, you will receive an empty list.
         '''
-        if len(argv):
+        if argv:
             kwargs['name'] = argv[0]
         return self._list_or_headers(IPSET_CMD_LIST, **kwargs)
 

@@ -138,7 +138,7 @@ states = ('UNKNOWN',
           'TESTING',
           'DORMANT',
           'UP')
-state_by_name = dict(((i[1], i[0]) for i in enumerate(states)))
+state_by_name = {i[1]: i[0] for i in enumerate(states)}
 state_by_code = dict(enumerate(states))
 stats_names = ('rx_packets',
                'tx_packets',
