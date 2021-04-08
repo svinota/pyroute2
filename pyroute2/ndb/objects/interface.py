@@ -515,7 +515,7 @@ class Interface(RTNL_Object):
                 specs = self.ipaddr.dump().filter(**match)
             for spec in specs:
                 try:
-                    ret.append(self.ipaddr[spec].remove().apply())
+                    ret.append(self.ipaddr.locate(spec).remove().apply())
                 except KeyError:
                     pass
                 except Exception as e_s:

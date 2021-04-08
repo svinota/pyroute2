@@ -508,6 +508,44 @@ class View(dict):
         return ret
 
     @check_auth('obj:read')
+    def locate(self, spec=None, table=None, **kwarg):
+        '''
+        This method works like `__getitem__()`, but the important
+        difference is that it uses only key fields to locate the
+        object in the DB, ignoring all other keys.
+
+        It is useful to locate objects that may change attributes
+        during request, like an interface may come up/down, or an
+        address may become primary/secondary, so plain
+        `__getitem__()` will not match while the object still
+        exists.
+        '''
+        if isinstance(spec, Record):
+            spec = spec._as_dict()
+        spec = spec or kwarg
+        if not spec:
+            raise TypeError('got an empty spec')
+
+        table = table or self.table
+        iclass = self.classes[table]
+        spec = iclass.spec_normalize(spec)
+        kspec = (self
+                 .ndb
+                 .schema
+                 .compiled[table]['norm_idx'])
+
+        request = {}
+        for name in kspec:
+            name = iclass.nla2name(name)
+            if name in spec:
+                request[name] = spec[name]
+
+        if not request:
+            raise KeyError('got an empty key')
+
+        return self[request]
+
+    @check_auth('obj:read')
     def __getitem__(self, key, table=None):
 
         ret = self.template(key, table)
