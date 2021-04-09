@@ -1897,6 +1897,7 @@ class nlmsg_atoms(object):
         * 6: MAC addr, string: "52:ff:ff:ff:ff:03"
         * 4: IPv4 addr, string: "127.0.0.1"
         * 16: IPv6 addr, string: "::1"
+        * any other length: hex dump
         '''
 
         __slots__ = ()
@@ -1926,8 +1927,18 @@ class nlmsg_atoms(object):
             elif len(self['value']) == 16:
                 self.value = inet_ntop(AF_INET6, self['value'])
             else:
-                raise TypeError('Unsupported link layer address length {}'
-                                .format(len(self['value'])))
+                # unknown / invalid lladdr
+                # extract data for the whole message
+                offset = self.parent.offset
+                length = self.parent.length
+                data = self.parent.data[offset:offset + length]
+                # report
+                logging.warning(
+                    'unknown or invalid lladdr, please report to: '
+                    'https://github.com/svinota/pyroute2/issues/717 \n'
+                    'packet data: %s' % hexdump(data))
+                # continue with hex dump as the value
+                self.value = hexdump(self['value'])
 
     class hex(nla_base_string):
         '''
