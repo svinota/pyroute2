@@ -586,13 +586,13 @@ class SQLSchema(object):
                 ret.append(((field[0], ),
                             ' '.join(('BIGINT',
                                       cls.sql_constraints.get(field[0], '')))))
-        for nla in cls.nla_map:
-            if isinstance(nla[0], basestring):
-                nla_name = nla[0]
-                nla_type = nla[1]
+        for nla_tuple in cls.nla_map:
+            if isinstance(nla_tuple[0], basestring):
+                nla_name = nla_tuple[0]
+                nla_type = nla_tuple[1]
             else:
-                nla_name = nla[1]
-                nla_type = nla[2]
+                nla_name = nla_tuple[1]
+                nla_type = nla_tuple[2]
             nla_type = getattr(cls, nla_type, None)
             sql_type = getattr(nla_type, 'sql_type', None)
             if sql_type:
@@ -866,11 +866,11 @@ class nlmsg_base(dict):
             for key in self:
                 try:
                     if key == 'attrs':
-                        for nla in self[key]:
-                            lv = self.get_attr(nla[0])
+                        for nla_tuple in self[key]:
+                            lv = self.get_attr(nla_tuple[0])
                             if isinstance(lv, dict):
                                 lv = nlmsg().setvalue(lv)
-                            rv = rvalue.get_attr(nla[0])
+                            rv = rvalue.get_attr(nla_tuple[0])
                             if isinstance(rv, dict):
                                 rv = nlmsg().setvalue(rv)
                             # this strange condition means a simple thing:
@@ -1114,10 +1114,10 @@ class nlmsg_base(dict):
             self.update(value)
             if 'attrs' in value:
                 self['attrs'] = []
-                for nla in value['attrs']:
+                for nla_tuple in value['attrs']:
                     nlv = nlmsg_base()
-                    nlv.setvalue(nla[1])
-                    self['attrs'].append([nla[0], nlv.getvalue()])
+                    nlv.setvalue(nla_tuple[1])
+                    self['attrs'].append([nla_tuple[0], nlv.getvalue()])
         else:
             try:
                 if value in self.value_map.values():
@@ -1338,24 +1338,26 @@ class nlmsg_base(dict):
                     # if it is a function -- use it to get the class
                     msg_class = msg_class(self)
                 # encode NLA
-                nla = msg_class(data=self.data,
-                                offset=offset,
-                                parent=self,
-                                init=prime['init'])
-                nla._nla_flags |= prime['nla_flags']
+                nla_instance = msg_class(
+                    data=self.data,
+                    offset=offset,
+                    parent=self,
+                    init=prime['init'])
+                nla_instance._nla_flags |= prime['nla_flags']
                 if isinstance(cell, tuple) and len(cell) > 2:
-                    nla._nla_flags |= cell[2]
-                nla._nla_array = prime['nla_array']
-                nla['header']['type'] = prime['type'] | nla._nla_flags
-                nla.setvalue(cell[1])
+                    nla_instance._nla_flags |= cell[2]
+                nla_instance._nla_array = prime['nla_array']
+                nla_instance['header']['type'] = prime['type'] |\
+                    nla_instance._nla_flags
+                nla_instance.setvalue(cell[1])
                 try:
-                    nla.encode()
+                    nla_instance.encode()
                 except:
                     raise
                 else:
-                    nla.decoded = True
-                    self['attrs'][i] = nla_slot(prime['name'], nla)
-                offset += (nla.length + 4 - 1) & ~ (4 - 1)
+                    nla_instance.decoded = True
+                    self['attrs'][i] = nla_slot(prime['name'], nla_instance)
+                offset += (nla_instance.length + 4 - 1) & ~ (4 - 1)
         return offset
 
     def decode_nlas(self, offset):
@@ -1365,7 +1367,7 @@ class nlmsg_base(dict):
         '''
         t_nla_map = self.__class__.__t_nla_map
         while offset - self.offset <= self.length - 4:
-            nla = None
+            nla_instance = None
             # pick the length and the type
             (length, base_msg_type) = struct.unpack_from('HH', self.data,
                                                          offset)
@@ -1386,22 +1388,24 @@ class nlmsg_base(dict):
                                           data=self.data,
                                           offset=offset)
                 # decode NLA
-                nla = msg_class(data=self.data,
-                                offset=offset,
-                                parent=self,
-                                length=length,
-                                init=prime['init'])
-                nla._nla_array = prime['nla_array']
-                nla._nla_flags = base_msg_type & (NLA_F_NESTED |
-                                                  NLA_F_NET_BYTEORDER)
+                nla_instance = msg_class(
+                    data=self.data,
+                    offset=offset,
+                    parent=self,
+                    length=length,
+                    init=prime['init'])
+                nla_instance._nla_array = prime['nla_array']
+                nla_instance._nla_flags = base_msg_type & (NLA_F_NESTED |
+                                                           NLA_F_NET_BYTEORDER)
                 name = prime['name']
             else:
                 name = 'UNKNOWN'
-                nla = nla_base(data=self.data,
-                               offset=offset,
-                               length=length)
+                nla_instance = nla_base(
+                    data=self.data,
+                    offset=offset,
+                    length=length)
 
-            self['attrs'].append(nla_slot(name, nla))
+            self['attrs'].append(nla_slot(name, nla_instance))
             offset += (length + 4 - 1) & ~ (4 - 1)
 
 
@@ -1934,9 +1938,9 @@ class nlmsg_atoms(object):
                 data = self.parent.data[offset:offset + length]
                 # report
                 logging.warning(
-                    'unknown or invalid lladdr, please report to: '
+                    'unknown or invalid lladdr size, please report to: '
                     'https://github.com/svinota/pyroute2/issues/717 \n'
-                    'packet data: %s' % hexdump(data))
+                    'packet data: %s', hexdump(data))
                 # continue with hex dump as the value
                 self.value = hexdump(self['value'])
 
