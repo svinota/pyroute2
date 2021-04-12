@@ -1,6 +1,8 @@
 Changelog
 =========
 
+* 0.5.18
+    * netlink: support zero length lladdr: <https://github.com/svinota/pyroute2/issues/717>
 * 0.5.17
     * license: aligned cli/ss2 <https://github.com/svinota/pyroute2/pull/777>
     * ndb: `del_ip()` improvements
