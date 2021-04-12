@@ -8,6 +8,7 @@ namespace support.
 
 '''
 
+import os
 import sys
 import fcntl
 import types
@@ -289,6 +290,10 @@ class NSPopen(ObjNS):
             self.channel_out.close()
             self.channel_in.close()
             self.server.join()
+            # clean leftover pipes that would be closed at program exit
+            os.close(self.server.sentinel)
+            self.channel_out._writer.close()
+            self.channel_in._writer.close()
 
     def __dir__(self):
         return list(self.api.keys()) + ['release']
