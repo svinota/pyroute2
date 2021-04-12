@@ -2,6 +2,7 @@ from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl.tcmsg.common import time2tick
 from pyroute2.netlink.rtnl.tcmsg.common import percent2u32
+from pyroute2.netlink.rtnl.tcmsg.common import get_rate
 
 parent = TC_H_ROOT
 
@@ -73,6 +74,21 @@ def get_parameters(kwarg):
         raise Exception('corr_corrupt can only be set when '
                         'prob_corrupt is set')
 
+    # rate (rate, packet_overhead, cell_size, cell_overhead)
+    rate = get_rate(kwarg.get('rate', None))
+    packet_overhead = kwarg.get('packet_overhead', 0)
+    cell_size = kwarg.get('cell_size', 0)
+    cell_overhead = kwarg.get('cell_overhead', 0)
+    if rate is not None:
+        opts['attrs'].append(['TCA_NETEM_RATE',
+                             {'rate': rate,
+                              'packet_overhead': packet_overhead,
+                              'cell_size': cell_size,
+                              'cell_overhead': cell_overhead}])
+    elif packet_overhead != 0 or cell_size != 0 or cell_overhead != 0:
+        raise Exception('packet_overhead, cell_size and cell_overhead'
+                        'can only be set when rate is set')
+
     # TODO
     # delay distribution (dist_size, dist_data)
     return opts
@@ -85,7 +101,7 @@ class options(nla):
                ('TCA_NETEM_REORDER', 'netem_reorder'),
                ('TCA_NETEM_CORRUPT', 'netem_corrupt'),
                ('TCA_NETEM_LOSS', 'none'),
-               ('TCA_NETEM_RATE', 'none'))
+               ('TCA_NETEM_RATE', 'netem_rate'))
 
     fields = (('delay', 'I'),
               ('limit', 'I'),
@@ -109,3 +125,10 @@ class options(nla):
         '''corruption has probability and correlation'''
         fields = (('prob_corrupt', 'I'),
                   ('corr_corrupt', 'I'))
+
+    class netem_rate(nla):
+        ''' rate '''
+        fields = (('rate', 'I'),
+                  ('packet_overhead', 'i'),
+                  ('cell_size', 'I'),
+                  ('cell_overhead', 'i'))
