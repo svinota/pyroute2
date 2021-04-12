@@ -1930,6 +1930,8 @@ class nlmsg_atoms(object):
                 self.value = inet_ntop(AF_INET, self['value'])
             elif len(self['value']) == 16:
                 self.value = inet_ntop(AF_INET6, self['value'])
+            elif len(self['value']) == 0:
+                self.value = ''
             else:
                 # unknown / invalid lladdr
                 # extract data for the whole message
