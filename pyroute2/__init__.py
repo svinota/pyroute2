@@ -80,6 +80,7 @@ if sys.platform.startswith('linux'):
     from pyroute2.netlink.uevent import UeventSocket
     from pyroute2.netlink.generic import GenericNetlinkSocket
     from pyroute2.netlink.generic.l2tp import L2tp
+    from pyroute2.netlink.generic.mptcp import MPTCP
     from pyroute2.netlink.generic.wireguard import WireGuard
     from pyroute2.netlink.nfnetlink.nftsocket import NFTSocket
     from pyroute2.netlink.nfnetlink.nfctsocket import NFCTSocket
@@ -159,6 +160,7 @@ if sys.platform.startswith('linux'):
                     UeventSocket,
                     GenericNetlinkSocket,
                     L2tp,
+                    MPTCP,
                     WireGuard,
                     NFTSocket,
                     NFCTSocket,
