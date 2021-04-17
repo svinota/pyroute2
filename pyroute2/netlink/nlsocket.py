@@ -176,7 +176,7 @@ class Marshal(object):
             msg_class = self.msg_map.get(msg_type, nlmsg)
             msg = msg_class(data, offset=offset)
 
-            if msg_type == NLMSG_DONE:
+            if msg_type in (NLMSG_DONE, NLMSG_ERROR):
                 # get flags
                 flags = struct.unpack_from('H', data, offset + 6)[0]
                 if flags & NLM_F_ACK_TLVS:
