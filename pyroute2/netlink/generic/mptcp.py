@@ -20,6 +20,7 @@ MPTCP_PM_CMD_SET_FLAGS = 7
 
 
 class mptcp_msg(genlmsg):
+    prefix = 'MPTCP_PM_ATTR_'
     nla_map = (('MPTCP_PM_ATTR_UNSPEC', 'none'),
                ('MPTCP_PM_ATTR_ADDR', 'pm_addr'),
                ('MPTCP_PM_ATTR_RCV_ADD_ADDRS', 'uint32'),
@@ -39,8 +40,8 @@ class mptcp_msg(genlmsg):
 
 class MPTCP(GenericNetlinkSocket):
 
-    def __init__(self):
-        super(MPTCP, self).__init__()
+    def __init__(self, ext_ack=True):
+        super(MPTCP, self).__init__(ext_ack=ext_ack)
         self.bind(MPTCP_GENL_NAME, mptcp_msg)
 
     def endpoint(self, cmd, **kwarg):
@@ -50,22 +51,22 @@ class MPTCP(GenericNetlinkSocket):
             mptcp.endpoint('show')
             mptcp.endpoint('add', addr='172.17.20.2')
             mptcp.endpoint('del', id=4)
+            mptcp.endpoint('flush')
 
         Argument `addr` is equal to `addr4` and implies `family=AF_INET`,
         while `addr6` implies `family=AF_INET6`
         '''
-
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         commands = {'show': (MPTCP_PM_CMD_GET_ADDR, flags_dump),
                     'add': (MPTCP_PM_CMD_ADD_ADDR, flags_base),
-                    'del': (MPTCP_PM_CMD_DEL_ADDR, flags_base)}
+                    'del': (MPTCP_PM_CMD_DEL_ADDR, flags_base),
+                    'flush': (MPTCP_PM_CMD_FLUSH_ADDRS, flags_base)}
 
         (command, flags) = commands.get(cmd, cmd)
         msg = mptcp_msg()
         msg['cmd'] = command
         msg['version'] = 1
-        print(msg)
 
         if cmd in ('add', 'del'):
             addr_info = {'attrs': []}
@@ -79,6 +80,38 @@ class MPTCP(GenericNetlinkSocket):
                 addr_info['attrs'].append(
                     (mptcp_msg.pm_addr.name2nla(key), value))
             msg['attrs'] = [('MPTCP_PM_ATTR_ADDR', addr_info, 0x8000)]
+
+        return self.nlm_request(
+            msg,
+            msg_type=self.prid,
+            msg_flags=flags)
+
+    def limits(self, cmd, **kwarg):
+        '''
+        Usage::
+
+            mptcp.limits('show')
+            mptcp.limits('set', subflows=10)
+        '''
+        flags_dump = NLM_F_REQUEST
+        flags_base = NLM_F_REQUEST | NLM_F_ACK
+        commands = {'show': (MPTCP_PM_CMD_GET_LIMITS, flags_dump),
+                    'set': (MPTCP_PM_CMD_SET_LIMITS, flags_base)}
+
+        (command, flags) = commands.get(cmd, cmd)
+        msg = mptcp_msg()
+        msg['cmd'] = command
+        msg['version'] = 1
+
+        if cmd == 'set':
+            if not set(kwarg) < set(('subflows',
+                                     'rcv_add_addrs',
+                                     'add_addr_accepted')):
+                raise TypeError('invalid parameter')
+            for key, value in kwarg.items():
+                if key == 'add_addr_accepted':
+                    key = 'rcv_add_addrs'
+                msg['attrs'].append((mptcp_msg.name2nla(key), value))
 
         return self.nlm_request(
             msg,
