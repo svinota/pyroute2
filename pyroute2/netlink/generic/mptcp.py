@@ -42,7 +42,11 @@ class MPTCP(GenericNetlinkSocket):
 
     def __init__(self, ext_ack=True):
         super(MPTCP, self).__init__(ext_ack=ext_ack)
-        self.bind(MPTCP_GENL_NAME, mptcp_msg)
+        try:
+            self.bind(MPTCP_GENL_NAME, mptcp_msg)
+        except Exception as e:
+            self.close()
+            raise e
 
     def endpoint(self, cmd, **kwarg):
         '''
