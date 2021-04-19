@@ -22,7 +22,7 @@ def skip_if_not_supported(func):
         try:
             return func(context)
         except NetlinkError as e:
-            if e.code == errno.EOPNOTSUPP:
+            if set((e.code, e.extra_code)) >= {errno.EOPNOTSUPP}:
                 pytest.skip('feature not supported by platform')
             raise
     return test_wrapper

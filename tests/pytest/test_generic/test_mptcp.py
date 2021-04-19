@@ -1,4 +1,5 @@
 from pyroute2 import MPTCP
+from pr2test.context_manager import skip_if_not_supported
 
 
 def get_endpoints(mptcp):
@@ -15,6 +16,7 @@ def get_limits(mptcp):
             for x in mptcp.limits('show')][0]
 
 
+@skip_if_not_supported
 def test_enpoint_add_addr4(context):
     with MPTCP() as mptcp:
         ipaddrs = [context.new_ipaddr for _ in range(3)]
@@ -27,7 +29,8 @@ def test_enpoint_add_addr4(context):
         assert not set(get_endpoints(mptcp)).intersection(set(ipaddrs))
 
 
-def test_limits():
+@skip_if_not_supported
+def test_limits(context):
     with MPTCP() as mptcp:
         save_subflows, save_rcv_add = get_limits(mptcp)
         mptcp.limits('set', subflows=2, rcv_add_addrs=3)
