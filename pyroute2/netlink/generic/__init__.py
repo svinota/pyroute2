@@ -73,6 +73,7 @@ class GenericNetlinkSocket(NetlinkSocket):
         err = msg['header'].get('error', None)
         if err is not None:
             if hasattr(err, 'code') and err.code == errno.ENOENT:
+                err.extra_code = errno.ENOTSUP
                 logger = getattr(logging, self.module_err_level)
                 logger('Generic netlink protocol %s not found' % proto)
                 logger('Please check if the protocol module is loaded')

@@ -9,6 +9,7 @@ class NetlinkError(Exception):
         msg = msg or os.strerror(code)
         super(NetlinkError, self).__init__(code, msg)
         self.code = code
+        self.extra_code = 0
 
 
 class NetlinkDecodeError(Exception):
