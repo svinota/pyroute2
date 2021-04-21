@@ -172,7 +172,7 @@ dist: force-version docs
 	@${python} setup.py sdist >/dev/null 2>&1
 
 README.md:
-	@cat README.rst | python ./docs/conv.py >README.md
+	@cat README.rst | ${python} ./docs/conv.py >README.md
 
 install: clean force-version README.md
 	${python} setup.py install ${root} ${lib}
