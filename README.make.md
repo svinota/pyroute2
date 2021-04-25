@@ -19,6 +19,9 @@ Build documentation. Requires `sphinx`.
 target: test
 ------------
 
+NB: nosetests CI will be obsoleted as soon as the new CI (pytest/tox)
+will be ready.
+
 Run tests against current code. Command line options:
 
 * python -- path to the Python to use
@@ -75,6 +78,21 @@ the collected data one can use curl::
 
     $ sudo make test report=http://localhost:8080/v1/report/
     $ curl http://localhost:8080/v1/report/ | python -m json.tool
+
+target: pytest
+--------------
+
+Run the pytest CI. Specific options:
+
+* coverage -- set `coverage=true` to create the coverage report
+* pdb -- set `pdb=true` to run pdb in the case of test failure
+* skipdb -- skip tests that use a specific DB, `postgres` or `sqlite3`
+* dbname -- set the PostgreSQL DB name (if used)
+
+The NDB module uses a DB as the storage, it may be SQLite3 or PostgreSQL.
+By default it uses in-memory SQLite3, but tests cover all the providers
+as the SQL code may differ. One can skip DB-specific tests by setting
+the `skipdb` option.
 
 target: dist
 ------------

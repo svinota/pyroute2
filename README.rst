@@ -207,13 +207,16 @@ Installation
 Requirements
 ------------
 
-Python >= 2.7
+Python >= 3.6
+
+Python 2.7 or above also may work, but neither supported nor tested anymore.
 
 The pyroute2 testing and documentaion framework requirements:
 
 * flake8
 * coverage
 * nosetests
+* pytest
 * sphinx
 * aafigure
 * netaddr

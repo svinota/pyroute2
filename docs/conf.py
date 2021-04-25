@@ -1,10 +1,4 @@
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
-
-config = configparser.ConfigParser()
-config.read('../setup.ini')
+import pyroute2
 
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.inheritance_diagram',
@@ -18,8 +12,7 @@ master_doc = 'index'
 project = u'pyroute2'
 copyright = u'2013, Peter V. Saveliev'
 
-version = config.get('setup', 'version')
-release = config.get('setup', 'release')
+release = pyroute2.__version__
 
 exclude_patterns = ['_build']
 pygments_style = 'sphinx'

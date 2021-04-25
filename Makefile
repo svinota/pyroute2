@@ -5,18 +5,11 @@
 #
 
 ##
-# Pyroute version and release
-#
-version ?= 0.5
-release := $(shell git describe | sed 's/-[^-]*$$//;s/-/.post/')
-##
 # Python-related configuration
 #
 python ?= python
 nosetests ?= nosetests
 flake8 ?= flake8
-setuplib ?= setuptools
-epydoc ?= epydoc
 pytest ?= pytest
 ##
 # Python -W flags:
@@ -59,9 +52,8 @@ all:
 	@echo \* develop -- run \"setup.py develop\" \(requires setuptools\)
 	@echo
 
-clean: clean-version
+clean:
 	@rm -rf dist build MANIFEST
-	@rm -f README.md
 	@rm -f docs-build.log
 	@rm -f docs/general.rst
 	@rm -f docs/changelog.rst
@@ -86,18 +78,10 @@ clean: clean-version
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
 	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
 
-setup.ini:
-	@awk 'BEGIN {print "[setup]\nversion=${version}\nrelease=${release}\nsetuplib=${setuplib}"}' >setup.ini
-	@awk 'BEGIN {print "__version__ = \"${release}\""}' >pyroute2/config/version.py
+pyroute2/config/version.py:
+	@${python} util/update_version.py
 
-clean-version:
-	@rm -f setup.ini
-
-force-version: clean-version update-version
-
-update-version: setup.ini
-
-docs: force-version README.md
+docs/html: pyroute2/config/version.py
 	@cp README.rst docs/general.rst
 	@cp README.make.md docs/makefile.rst
 	@cp README.report.md docs/report.rst
@@ -106,20 +90,13 @@ docs: force-version README.md
 	    mv -f docs/_templates/layout.html docs/_templates/layout.html.orig; \
 		cp docs/_templates/private.layout.html docs/_templates/layout.html; ) ||:
 	@export PYTHONPATH=`pwd`; \
-		make -C docs html >docs-build.log 2>&1 || export FAIL=true ; \
+		make -C docs html || export FAIL=true ; \
 		[ -f docs/_templates/layout.html.orig ] && ( \
 			mv -f docs/_templates/layout.html.orig docs/_templates/layout.html; ) ||: ;\
 		unset PYTHONPATH ;\
 		[ -z "$$FAIL" ] || false
 
-epydoc: docs
-	${epydoc} -v \
-		--no-frames \
-		-o docs/api \
-		--html \
-		--graph all \
-		--fail-on-docstring-warning \
-		pyroute2/
+docs: docs/html
 
 check_parameters:
 	@if [ ! -z "${skip_tests}" ]; then \
@@ -154,6 +131,7 @@ pytest: check_parameters
 		export WORKER=${worker}; \
 		export WORKSPACE=${workspace}; \
 		export PYROUTE2_TEST_DBNAME=${dbname}; \
+		export SKIPDB=${skipdb}; \
 		./tests/run_pytest.sh
 
 test-platform:
@@ -164,25 +142,22 @@ from pyroute2.config.test_platform import TestCapsRtnl;\
 from pprint import pprint;\
 pprint(TestCapsRtnl().collect())"
 
-upload: clean force-version docs
+upload: dist
+	${python} -m twine upload dist/*
+
+dist: clean pyroute2/config/version.py docs
 	${python} setup.py sdist
-	${python} -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/*
+	${python} -m twine check dist/*
 
-dist: force-version docs
-	@${python} setup.py sdist >/dev/null 2>&1
-
-README.md:
-	@cat README.rst | ${python} ./docs/conv.py >README.md
-
-install: clean force-version README.md
+install: clean pyroute2/config/version.py
 	${python} setup.py install ${root} ${lib}
 
-# in order to get it working, one should install pyroute2
-# with setuplib=setuptools, otherwise the project files
-# will be silently left not uninstalled
 uninstall: clean
 	${python} -m pip uninstall pyroute2
 
-develop: setuplib = "setuptools"
-develop: clean force-version
+develop: clean pyroute2/config/version.py
 	${python} setup.py develop
+
+# deprecated:
+epydoc clean-version update-version force-version README.md setup.ini:
+	@echo Deprecated target, see README.make.md

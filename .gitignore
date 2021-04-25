@@ -18,8 +18,6 @@ tests/*xml
 tests/*log
 output.html
 MANIFEST
-README.md
-setup.ini
 docs/changelog.rst
 docs/makefile.rst
 docs/general.rst

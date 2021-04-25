@@ -34,7 +34,7 @@ function deploy() {
     cd $TOP
     DIST_NAME=pyroute2-$(git describe | sed 's/-[^-]*$//;s/-/.post/')
     echo -n "dist ... "
-    make dist >/dev/null
+    make dist >/dev/null 2>&1
     rm -rf "$WORKSPACE"
     mkdir -p "$WORKSPACE/bin"
     cp -a "$TOP/.flake8" "$WORKSPACE/"
