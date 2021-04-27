@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import subprocess
 
-version_file = 'pyroute2/config/version.py'
+version_module = 'pyroute2/config/version.py'
+version_file = 'VERSION'
 
 
 def get_project_version():
@@ -24,13 +25,9 @@ def get_project_version():
     return version
 
 
-def write_version_file(version_file, version):
-    '''
-    Create and (over)write the version file
-    '''
-    with open(version_file, 'w') as f:
-        f.write('__version__ = "%s"\n' % version)
-
-
 if __name__ == '__main__':
-    write_version_file(version_file, get_project_version())
+    version = get_project_version()
+    with open(version_module, 'w') as f:
+        f.write('__version__ = "%s"\n' % version)
+    with open(version_file, 'w') as f:
+        f.write('%s\n' % version)

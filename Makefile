@@ -53,6 +53,8 @@ all:
 	@echo
 
 clean:
+	@for package in `ls -1 | sed -n '/egg-info/n; /pyroute2\./p'`; do make -C $$package clean; done
+	@rm -f VERSION
 	@rm -rf dist build MANIFEST
 	@rm -f docs-build.log
 	@rm -f docs/general.rst
@@ -78,8 +80,9 @@ clean:
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
 	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
 
-pyroute2/config/version.py:
+VERSION:
 	@${python} util/update_version.py
+	@for package in `ls -1 | sed -n '/egg-info/n; /pyroute2\./p'`; do cp VERSION $$package; done
 
 docs/html: pyroute2/config/version.py
 	@cp README.rst docs/general.rst
@@ -145,17 +148,17 @@ pprint(TestCapsRtnl().collect())"
 upload: dist
 	${python} -m twine upload dist/*
 
-dist: clean pyroute2/config/version.py docs
+dist: clean VERSION docs
 	${python} setup.py sdist
 	${python} -m twine check dist/*
 
-install: clean pyroute2/config/version.py
+install: clean VERSION
 	${python} setup.py install ${root} ${lib}
 
 uninstall: clean
 	${python} -m pip uninstall pyroute2
 
-develop: clean pyroute2/config/version.py
+develop: clean VERSION
 	${python} setup.py develop
 
 # deprecated:
