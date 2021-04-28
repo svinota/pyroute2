@@ -9,7 +9,7 @@ test_matrix = make_test_matrix(targets=['local', 'netns'],
                                dbs=['sqlite3/:memory:', 'postgres/pr2test'])
 
 
-def test_multiple_sources():
+def test_multiple_sources(context):
     '''
     NDB should work with multiple netlink sources
 
@@ -17,12 +17,13 @@ def test_multiple_sources():
     * with multiple sources of different kind
     * without the default "localhost" RTNL source
     '''
+    nsname = context.new_nsname
 
     #
     # NB: no 'localhost' record -- important !
     sources = [{'target': 'localhost0', 'kind': 'local'},
-               {'target': 'localhost1', 'kind': 'remote'},
-               {'target': 'localhost2', 'kind': 'remote'}]
+               {'target': 'localhost1', 'kind': 'netns', 'netns': nsname},
+               {'target': 'localhost2', 'kind': 'local'}]
     ndb = None
     #
     # check that all the view has length > 0
