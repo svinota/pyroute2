@@ -1,6 +1,6 @@
 from collections import OrderedDict
-from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
+from ..objects import RTNL_Object
 
 
 schema = (fibmsg

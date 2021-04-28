@@ -82,14 +82,14 @@ from socket import AF_INET
 from socket import inet_pton
 from functools import partial
 from collections import OrderedDict
-from pyroute2.ndb.objects import RTNL_Object
-from pyroute2.ndb.report import Record
-from pyroute2.ndb.auth_manager import check_auth
 from pyroute2.common import basestring
 from pyroute2.common import AF_MPLS
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.rtmsg import nh
 from pyroute2.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
+from ..objects import RTNL_Object
+from ..report import Record
+from ..auth_manager import check_auth
 
 _dump_rt = ['main.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
 _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]

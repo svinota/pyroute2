@@ -1,8 +1,8 @@
 from pyroute2.config import AF_BRIDGE
-from pyroute2.ndb.objects import RTNL_Object
-from pyroute2.ndb.events import RescheduleException
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
+from ..objects import RTNL_Object
+from ..events import RescheduleException
 
 
 def load_ndmsg(schema, target, event):

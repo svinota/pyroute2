@@ -1,4 +1,4 @@
-from pyroute2.ndb.report import RecordSet
+from .report import RecordSet
 
 
 class Query(object):

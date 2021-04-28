@@ -100,16 +100,15 @@ from collections import OrderedDict
 from pyroute2 import config
 from pyroute2.common import uuid32
 from pyroute2.common import basestring
-# plugins
-from pyroute2.ndb.objects import address
-from pyroute2.ndb.objects import interface
-from pyroute2.ndb.objects import neighbour
-from pyroute2.ndb.objects import netns
-from pyroute2.ndb.objects import route
-from pyroute2.ndb.objects import rule
+from .objects import address
+from .objects import interface
+from .objects import neighbour
+from .objects import netns
+from .objects import route
+from .objects import rule
 
 #
-from pyroute2.ndb.messages import cmsg
+from .messages import cmsg
 
 try:
     import queue

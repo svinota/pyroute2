@@ -94,13 +94,13 @@ Create a bridge and add a port, `eth0`::
 import errno
 import traceback
 from pyroute2.config import AF_BRIDGE
-from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.ndb.auth_manager import AuthManager
-from pyroute2.ndb.auth_manager import check_auth
+from ..objects import RTNL_Object
+from ..auth_manager import AuthManager
+from ..auth_manager import check_auth
 
 
 def load_ifinfmsg(schema, target, event):

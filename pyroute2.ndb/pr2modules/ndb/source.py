@@ -78,14 +78,14 @@ import struct
 import threading
 from pyroute2 import IPRoute
 from pyroute2 import RemoteIPRoute
-from pyroute2.ndb.events import (ShutdownException,
-                                 State)
-from pyroute2.ndb.messages import (cmsg_event,
-                                   cmsg_failed,
-                                   cmsg_sstart)
 from pyroute2.netlink.nlsocket import NetlinkMixin
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from .events import (ShutdownException,
+                     State)
+from .messages import (cmsg_event,
+                       cmsg_failed,
+                       cmsg_sstart)
 if sys.platform.startswith('linux'):
     from pyroute2 import netns
     from pyroute2.netns.nslink import NetNS

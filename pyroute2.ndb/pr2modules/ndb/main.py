@@ -169,31 +169,32 @@ from collections import OrderedDict
 from pyroute2 import config
 from pyroute2 import cli
 from pyroute2.common import basestring
-from pyroute2.ndb import schema
-from pyroute2.ndb.events import (DBMExitException,
-                                 ShutdownException,
-                                 InvalidateHandlerException,
-                                 RescheduleException)
-from pyroute2.ndb.messages import (cmsg,
-                                   cmsg_event,
-                                   cmsg_failed,
-                                   cmsg_sstart)
-from pyroute2.ndb.source import (Source,
-                                 SourceProxy)
-from pyroute2.ndb.auth_manager import check_auth
-from pyroute2.ndb.auth_manager import AuthManager
-from pyroute2.ndb.objects import RSLV_DELETE
-from pyroute2.ndb.objects.interface import Interface
-from pyroute2.ndb.objects.interface import Vlan
-from pyroute2.ndb.objects.address import Address
-from pyroute2.ndb.objects.route import Route
-from pyroute2.ndb.objects.neighbour import Neighbour
-from pyroute2.ndb.objects.rule import Rule
-from pyroute2.ndb.objects.netns import NetNS
-# from pyroute2.ndb.query import Query
-from pyroute2.ndb.report import (RecordSet,
-                                 Record)
 from pyroute2.netlink import nlmsg_base
+##
+# NDB stuff
+from . import schema
+from .events import (DBMExitException,
+                     ShutdownException,
+                     InvalidateHandlerException,
+                     RescheduleException)
+from .messages import (cmsg,
+                       cmsg_event,
+                       cmsg_failed,
+                       cmsg_sstart)
+from .source import (Source,
+                     SourceProxy)
+from .auth_manager import check_auth
+from .auth_manager import AuthManager
+from .objects import RSLV_DELETE
+from .objects.interface import Interface
+from .objects.interface import Vlan
+from .objects.address import Address
+from .objects.route import Route
+from .objects.neighbour import Neighbour
+from .objects.rule import Rule
+from .objects.netns import NetNS
+from .report import (RecordSet,
+                     Record)
 try:
     from urlparse import urlparse
 except ImportError:
@@ -1198,7 +1199,7 @@ class NDB(object):
                         except InvalidateHandlerException:
                             try:
                                 handlers.remove(handler)
-                            except:
+                            except Exception:
                                 self.log.error('could not invalidate '
                                                'event handler:\n%s'
                                                % traceback.format_exc())
@@ -1207,7 +1208,7 @@ class NDB(object):
                             break
                         except DBMExitException:
                             return
-                        except:
+                        except Exception:
                             self.log.error('could not load event:\n%s\n%s'
                                            % (event, traceback.format_exc()))
                     if time.time() - self.gctime > config.gc_timeout:
@@ -1227,7 +1228,7 @@ class NDB(object):
                 source.shutdown.set()
                 source.th.join()
                 if self._db_cleanup:
-                    self.log.debug('X flush DB for the target %s' % target)
+                    self.log.debug('flush DB for the target %s' % target)
                     self.schema.flush(target)
                 else:
                     self.log.debug('leave DB for debug')

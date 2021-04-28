@@ -3,9 +3,9 @@ import json
 import pytest
 from socket import AF_INET
 from pyroute2.common import basestring
-from pyroute2.ndb.main import Record
-from pyroute2.ndb.main import RecordSet
-from pyroute2.ndb.objects import RTNL_Object
+from pr2modules.ndb.main import Record
+from pr2modules.ndb.main import RecordSet
+from pr2modules.ndb.objects import RTNL_Object
 from pr2test.context_manager import make_test_matrix
 from pr2test.context_manager import skip_if_not_supported
 

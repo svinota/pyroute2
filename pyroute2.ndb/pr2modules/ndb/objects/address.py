@@ -103,7 +103,7 @@ Access an address as a separate RTNL object::
 Please notice that address objects are read-only, you may not change them,
 only remove old ones, and create new.
 '''
-from pyroute2.ndb.objects import RTNL_Object
+from ..objects import RTNL_Object
 from pyroute2.common import dqn2int
 from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg

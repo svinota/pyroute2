@@ -1,8 +1,8 @@
 import threading
 from pyroute2 import netns
 from pyroute2.common import basestring
-from pyroute2.ndb.objects import RTNL_Object
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
+from ..objects import RTNL_Object
 
 
 def load_nsinfmsg(schema, target, event):

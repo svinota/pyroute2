@@ -93,12 +93,12 @@ import threading
 import collections
 from functools import partial
 from pyroute2 import cli
-from pyroute2.ndb.events import State
-from pyroute2.ndb.report import Record
-from pyroute2.ndb.auth_manager import check_auth
-from pyroute2.ndb.auth_manager import AuthManager
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.ndb.events import InvalidateHandlerException
+from ..report import Record
+from ..auth_manager import check_auth
+from ..auth_manager import AuthManager
+from ..events import State
+from ..events import InvalidateHandlerException
 
 RSLV_IGNORE = 0
 RSLV_RAISE = 1
@@ -493,7 +493,7 @@ class RTNL_Object(dict):
         def wr_handler(wr, fname, *argv):
             try:
                 return getattr(wr(), fname)(*argv)
-            except:
+            except Exception:
                 # check if the weakref became invalid
                 if wr() is None:
                     raise InvalidateHandlerException()
@@ -777,7 +777,7 @@ class RTNL_Object(dict):
         # Load the current state
         try:
             self.schema.commit()
-        except:
+        except Exception:
             pass
         self.load_sql(set_state=False)
         if self.state == 'system' and self.get_count() == 0:
