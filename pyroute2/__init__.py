@@ -86,17 +86,6 @@ if sys.platform.startswith('linux'):
     from pyroute2.netlink.nfnetlink.nfctsocket import NFCTSocket
     from pyroute2.netns.manager import NetNSManager
 #
-# The NDB module has extra requirements that may not be present.
-# It is not the core functionality, so simply skip the import if
-# requirements are not met.
-#
-try:
-    from pyroute2.ndb.main import NDB
-    from pyroute2.ipdb.noipdb import NoIPDB
-    HAS_NDB = True
-except ImportError:
-    HAS_NDB = False
-#
 # The Console class is a bit special, it tries to engage
 # modules from stdlib, that are sometimes stripped. Some
 # of them are optional, but some aren't. So catch possible
@@ -107,6 +96,14 @@ try:
     HAS_CONSOLE = True
 except ImportError:
     HAS_CONSOLE = False
+
+#
+#
+try:
+    from importlib import metadata
+except ImportError:
+    import importlib_metadata as metadata
+
 
 try:
     # probe, if the bytearray can be used in struct.unpack_from()
@@ -173,11 +170,11 @@ if HAS_CONSOLE:
 else:
     log.warning("Couldn't import the Console class")
 
-if HAS_NDB:
-    classes.append(NDB)
-    classes.append(NoIPDB)
-else:
-    log.warning("Couldn't import NDB")
+# load entry_points
+modules = []
+for entry_point in metadata.entry_points().get('pr2modules', []):
+    globals()[entry_point.name] = entry_point.load()
+    modules.append(entry_point.name)
 
 __all__ = []
 __all__.extend([x.__name__ for x in exceptions])
