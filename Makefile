@@ -42,6 +42,21 @@ ifdef lib
 	override lib := "--install-lib=${lib}"
 endif
 
+define list_modules
+	`ls -1 | sed -n '/egg-info/n; /pyroute2\./p'`
+endef
+
+define make_modules
+	for module in $(call list_modules); do make -C $$module $(1) python=${python}; done
+endef
+
+define fetch_modules_dist
+	for module in $(call list_modules); do cp $$module/dist/* dist; done
+endef
+
+bala:
+	for i in $(call list_modules); do echo $$i; done
+
 all:
 	@echo targets:
 	@echo
@@ -53,7 +68,7 @@ all:
 	@echo
 
 clean:
-	@for package in `ls -1 | sed -n '/egg-info/n; /pyroute2\./p'`; do make -C $$package clean; done
+	$(call make_modules, clean)
 	@rm -f VERSION
 	@rm -rf dist build MANIFEST
 	@rm -f docs-build.log
@@ -151,15 +166,20 @@ upload: dist
 dist: clean VERSION docs
 	${python} setup.py sdist
 	${python} -m twine check dist/*
+	$(call make_modules, dist)
+	$(call fetch_modules_dist)
 
 install: clean VERSION
 	${python} setup.py install ${root} ${lib}
+	$(call make_modules, install, ${root}, {lib})
 
 uninstall: clean
 	${python} -m pip uninstall pyroute2
+	$(call make_modules, uninstall)
 
 develop: clean VERSION
 	${python} setup.py develop
+	$(call make_modules, develop)
 
 # deprecated:
 epydoc clean-version update-version force-version README.md setup.ini:
