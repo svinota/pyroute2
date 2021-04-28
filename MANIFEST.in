@@ -1,3 +1,4 @@
+include VERSION
 include README.rst
 include README.make.md
 include README.report.md
