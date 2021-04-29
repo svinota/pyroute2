@@ -5,6 +5,8 @@
 .v2
 .v3
 *~
+VERSION
+*/VERSION
 build/
 dist/
 tests/bin
@@ -26,8 +28,9 @@ docs/html
 docs/doctrees
 docs/_templates/private.layout.html
 docs-build.log
-pyroute2.egg-info
+*.egg-info
+*/*.egg-info
 benchmark.log
 .tox
 tests-workspaces/
-pyroute2/config/version.py
+pyroute2.core/pr2modules/config/version.py
