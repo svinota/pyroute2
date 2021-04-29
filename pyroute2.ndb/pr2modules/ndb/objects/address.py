@@ -104,9 +104,9 @@ Please notice that address objects are read-only, you may not change them,
 only remove old ones, and create new.
 '''
 from ..objects import RTNL_Object
-from pyroute2.common import dqn2int
-from pyroute2.common import basestring
-from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pr2modules.common import dqn2int
+from pr2modules.common import basestring
+from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
 ifaddr_spec = (ifaddrmsg
                .sql_schema()

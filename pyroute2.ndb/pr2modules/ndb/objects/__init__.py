@@ -92,8 +92,8 @@ import traceback
 import threading
 import collections
 from functools import partial
-from pyroute2 import cli
-from pyroute2.netlink.exceptions import NetlinkError
+from pr2modules import cli
+from pr2modules.netlink.exceptions import NetlinkError
 from ..report import Record
 from ..auth_manager import check_auth
 from ..auth_manager import AuthManager

@@ -1,7 +1,7 @@
 import threading
-from pyroute2 import netns
-from pyroute2.common import basestring
-from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
+from pr2modules import netns
+from pr2modules.common import basestring
+from pr2modules.netlink.rtnl.nsinfmsg import nsinfmsg
 from ..objects import RTNL_Object
 
 

@@ -76,20 +76,20 @@ import errno
 import socket
 import struct
 import threading
-from pyroute2 import IPRoute
-from pyroute2 import RemoteIPRoute
-from pyroute2.netlink.nlsocket import NetlinkMixin
-from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pr2modules.iproute.linux import IPRoute
+from pr2modules.iproute.remote import RemoteIPRoute
+from pr2modules.netlink.nlsocket import NetlinkMixin
+from pr2modules.netlink.exceptions import NetlinkError
+from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from .events import (ShutdownException,
                      State)
 from .messages import (cmsg_event,
                        cmsg_failed,
                        cmsg_sstart)
 if sys.platform.startswith('linux'):
-    from pyroute2 import netns
-    from pyroute2.netns.nslink import NetNS
-    from pyroute2.netns.manager import NetNSManager
+    from pr2modules import netns
+    from pr2modules.netns.manager import NetNSManager
+    from pr2modules.nslink.nslink import NetNS
 else:
     NetNS = None
     NetNSManager = None

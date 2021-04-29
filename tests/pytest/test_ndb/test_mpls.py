@@ -1,6 +1,6 @@
 import pytest
 from socket import AF_INET
-from pyroute2.common import AF_MPLS
+from pr2modules.common import AF_MPLS
 from pr2test.context_manager import make_test_matrix
 from pr2test.context_manager import skip_if_not_supported
 

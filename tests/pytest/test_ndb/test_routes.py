@@ -4,7 +4,7 @@ from pr2test.tools import route_exists
 from pr2test.tools import address_exists
 from pr2test.tools import interface_exists
 from pr2test.context_manager import make_test_matrix
-from pyroute2.netlink.rtnl.rtmsg import rtmsg
+from pr2modules.netlink.rtnl.rtmsg import rtmsg
 
 
 test_matrix = make_test_matrix(targets=['local', 'netns'],

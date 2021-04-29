@@ -68,6 +68,8 @@ if [ -z "$VIRTUAL_ENV" -a -z "$PR2TEST_FORCE_RUN"]; then {
     exit 1
 } fi
 
+install_test_reqs
+
 #
 # Adjust paths
 #
@@ -84,7 +86,6 @@ fi
 echo "Version: $VERSION"
 echo "Kernel: `uname -r`"
 
-install_test_reqs
 deploy || exit 1
 
 #

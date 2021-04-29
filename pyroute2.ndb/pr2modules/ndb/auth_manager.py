@@ -51,7 +51,7 @@ must provide `.check(self, obj, tag)` routine, which returns `True` or
 `False` or raises an exception.
 
 '''
-from pyroute2.common import PermissionError
+from pr2modules.common import PermissionError
 
 
 class check_auth(object):

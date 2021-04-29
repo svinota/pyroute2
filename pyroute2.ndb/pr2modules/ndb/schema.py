@@ -97,9 +97,9 @@ import threading
 import traceback
 from functools import partial
 from collections import OrderedDict
-from pyroute2 import config
-from pyroute2.common import uuid32
-from pyroute2.common import basestring
+from pr2modules import config
+from pr2modules.common import uuid32
+from pr2modules.common import basestring
 from .objects import address
 from .objects import interface
 from .objects import neighbour

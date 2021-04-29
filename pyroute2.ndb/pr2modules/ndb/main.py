@@ -166,10 +166,10 @@ import ctypes
 import ctypes.util
 from functools import partial
 from collections import OrderedDict
-from pyroute2 import config
-from pyroute2 import cli
-from pyroute2.common import basestring
-from pyroute2.netlink import nlmsg_base
+from pr2modules import config
+from pr2modules import cli
+from pr2modules.common import basestring
+from pr2modules.netlink import nlmsg_base
 ##
 # NDB stuff
 from . import schema

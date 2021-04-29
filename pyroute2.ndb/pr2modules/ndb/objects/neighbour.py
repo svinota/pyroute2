@@ -1,6 +1,6 @@
-from pyroute2.config import AF_BRIDGE
-from pyroute2.common import basestring
-from pyroute2.netlink.rtnl.ndmsg import ndmsg
+from pr2modules.config import AF_BRIDGE
+from pr2modules.common import basestring
+from pr2modules.netlink.rtnl.ndmsg import ndmsg
 from ..objects import RTNL_Object
 from ..events import RescheduleException
 

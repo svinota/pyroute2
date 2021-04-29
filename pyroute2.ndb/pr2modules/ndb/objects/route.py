@@ -82,11 +82,11 @@ from socket import AF_INET
 from socket import inet_pton
 from functools import partial
 from collections import OrderedDict
-from pyroute2.common import basestring
-from pyroute2.common import AF_MPLS
-from pyroute2.netlink.rtnl.rtmsg import rtmsg
-from pyroute2.netlink.rtnl.rtmsg import nh
-from pyroute2.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
+from pr2modules.common import basestring
+from pr2modules.common import AF_MPLS
+from pr2modules.netlink.rtnl.rtmsg import rtmsg
+from pr2modules.netlink.rtnl.rtmsg import nh
+from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
 from ..objects import RTNL_Object
 from ..report import Record
 from ..auth_manager import check_auth

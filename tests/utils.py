@@ -10,8 +10,8 @@ import subprocess
 import netaddr
 import ctypes
 import ctypes.util
-from pyroute2 import NetlinkError
-from pyroute2 import IPRoute
+from pr2modules.netlink.exceptions import NetlinkError
+from pr2modules.iproute.linux import IPRoute
 from nose.plugins.skip import SkipTest
 from nose.tools import make_decorator
 from distutils.version import LooseVersion

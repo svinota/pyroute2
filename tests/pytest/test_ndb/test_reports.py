@@ -2,7 +2,7 @@ import csv
 import json
 import pytest
 from socket import AF_INET
-from pyroute2.common import basestring
+from pr2modules.common import basestring
 from pr2modules.ndb.main import Record
 from pr2modules.ndb.main import RecordSet
 from pr2modules.ndb.objects import RTNL_Object

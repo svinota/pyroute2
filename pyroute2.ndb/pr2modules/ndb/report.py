@@ -30,8 +30,8 @@ Filtering examples::
 '''
 import json
 from itertools import chain
-from pyroute2 import cli
-from pyroute2.common import basestring
+from pr2modules import cli
+from pr2modules.common import basestring
 
 MAX_REPORT_LINES = 10000
 

@@ -1,5 +1,5 @@
 import pytest
-from pyroute2 import NetlinkError
+from pr2modules.netlink.exceptions import NetlinkError
 from pr2test.tools import address_exists
 from pr2test.tools import interface_exists
 from pr2test.context_manager import make_test_matrix

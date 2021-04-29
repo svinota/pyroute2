@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from pyroute2.netlink.rtnl.fibmsg import fibmsg
+from pr2modules.netlink.rtnl.fibmsg import fibmsg
 from ..objects import RTNL_Object
 
 
