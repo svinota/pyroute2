@@ -163,7 +163,7 @@ pprint(TestCapsRtnl().collect())"
 upload: dist
 	${python} -m twine upload dist/*
 
-dist: clean VERSION docs
+dist: clean VERSION
 	${python} setup.py sdist
 	${python} -m twine check dist/*
 	$(call make_modules, dist)
