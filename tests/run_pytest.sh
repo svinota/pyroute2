@@ -34,7 +34,7 @@ function deploy() {
     cd $TOP
     DIST_VERSION=$(git describe | sed 's/-[^-]*$//;s/-/.post/')
     echo -n "dist ... "
-    make dist >/dev/null 2>&1
+    make dist python=$PYTHON_PATH >/dev/null 2>&1
     rm -rf "$WORKSPACE"
     mkdir -p "$WORKSPACE/bin"
     cp -a "$TOP/.flake8" "$WORKSPACE/"
@@ -56,19 +56,12 @@ function deploy() {
     return $ret
 }
 
-#
-# Install test requirements, if not installed.
-#
-function install_test_reqs() {
-    which pip >/dev/null 2>&1 && pip install -q -r requirements.txt
-}
-
-if [ -z "$VIRTUAL_ENV" -a -z "$PR2TEST_FORCE_RUN"]; then {
+if [ -z "$VIRTUAL_ENV" -a -z "$PR2TEST_FORCE_RUN" ]; then {
     echo "Not in VirtualEnv and PR2TEST_FORCE_RUN is not set"
     exit 1
 } fi
 
-install_test_reqs
+pip install -q -r requirements.txt
 
 #
 # Adjust paths
@@ -78,9 +71,9 @@ if which pyenv 2>&1 >/dev/null; then
     FLAKE8_PATH=$(pyenv which $FLAKE8)
     PYTEST_PATH=$(pyenv which $PYTEST)
 else
-    PYTHON_PATH=$(which $PYTHON)
-    FLAKE8_PATH=$(which $FLAKE8)
-    PYTEST_PATH=$(which $PYTEST)
+    PYTHON_PATH=$PYTHON
+    FLAKE8_PATH=$FLAKE8
+    PYTEST_PATH=$PYTEST
 fi
 
 echo "Version: $VERSION"
