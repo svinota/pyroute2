@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 cd "$( dirname "${BASH_SOURCE[0]}" )"
 TOP=$(readlink -f $(pwd)/..)
