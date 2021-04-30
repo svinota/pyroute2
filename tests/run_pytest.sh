@@ -34,7 +34,7 @@ function deploy() {
     cd $TOP
     DIST_VERSION=$(git describe | sed 's/-[^-]*$//;s/-/.post/')
     echo -n "dist ... "
-    make dist python=$PYTHON_PATH >/dev/null 2>&1
+    make dist python=$PYTHON >/dev/null 2>&1
     rm -rf "$WORKSPACE"
     mkdir -p "$WORKSPACE/bin"
     cp -a "$TOP/.flake8" "$WORKSPACE/"
@@ -44,13 +44,13 @@ function deploy() {
     cp -a "$TOP/cli/ss2" "$WORKSPACE/bin/"
     cd "$TOP/dist"
     for i in pyroute2*$DIST_VERSION*; do {
-        pip install $i
+        $PYTHON -m pip install $i
     } done
     curl -X DELETE --data test http://localhost:7623/v1/lock/ >/dev/null 2>&1
     echo "ok"
     cd "$WORKSPACE/"
     echo -n "flake8 ... "
-    $FLAKE8_PATH .
+    $PYTHON -m flake8 .
     ret=$?
     [ $ret -eq 0 ] && echo "ok"
     return $ret
@@ -61,20 +61,7 @@ if [ -z "$VIRTUAL_ENV" -a -z "$PR2TEST_FORCE_RUN" ]; then {
     exit 1
 } fi
 
-pip install -q -r requirements.txt
-
-#
-# Adjust paths
-#
-if which pyenv 2>&1 >/dev/null; then
-    PYTHON_PATH=$(pyenv which $PYTHON)
-    FLAKE8_PATH=$(pyenv which $FLAKE8)
-    PYTEST_PATH=$(pyenv which $PYTEST)
-else
-    PYTHON_PATH=$PYTHON
-    FLAKE8_PATH=$FLAKE8
-    PYTEST_PATH=$PYTEST
-fi
+$PYTHON -m pip install -q -r requirements.txt
 
 echo "Version: $VERSION"
 echo "Kernel: `uname -r`"
@@ -102,14 +89,14 @@ for i in `seq $LOOP`; do
 
     echo "[`date +%s`] iteration $i of $LOOP"
 
-    $PYTHON $WLEVEL "$PYTEST_PATH" --basetemp ./log $PDB $COVERAGE
+    $PYTHON $WLEVEL -m $PYTEST --basetemp ./log $PDB $COVERAGE
     ret=$?
     [ $ret -eq 0 ] || {
         errors=$(($errors + 1))
     }
 
 done
-for i in `pip list | awk '/pyroute2/ {print $1}'`; do {
-    pip uninstall -y $i
+for i in `$PYTHON -m pip list | awk '/pyroute2/ {print $1}'`; do {
+    $PYTHON -m pip uninstall -y $i
 } done
 exit $errors
