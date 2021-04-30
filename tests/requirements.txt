@@ -1,3 +1,4 @@
+twine
 aafigure
 flake8
 nose
