@@ -24,4 +24,4 @@ before_script:
 python:
     - "3.6"
     - "3.9"
-script: sudo make pytest
+script: sudo env PATH=$PATH VIRTUAL_ENV=$VIRTUAL_ENV make pytest
