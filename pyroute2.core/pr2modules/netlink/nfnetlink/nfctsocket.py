@@ -1,22 +1,22 @@
 """
 NFCTSocket -- low level connection tracking API
 
-See also: pyroute2.conntrack
+See also: pr2modules.conntrack
 """
 
 import socket
 
-from pyroute2.netlink import NLMSG_ERROR
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import NLM_F_DUMP
-from pyroute2.netlink import NLM_F_ACK
-from pyroute2.netlink import NLM_F_EXCL
-from pyroute2.netlink import NLM_F_CREATE
-from pyroute2.netlink import NETLINK_NETFILTER
-from pyroute2.netlink import nla
-from pyroute2.netlink.nlsocket import NetlinkSocket
-from pyroute2.netlink.nfnetlink import nfgen_msg
-from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_CTNETLINK
+from pr2modules.netlink import NLMSG_ERROR
+from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink import NLM_F_DUMP
+from pr2modules.netlink import NLM_F_ACK
+from pr2modules.netlink import NLM_F_EXCL
+from pr2modules.netlink import NLM_F_CREATE
+from pr2modules.netlink import NETLINK_NETFILTER
+from pr2modules.netlink import nla
+from pr2modules.netlink.nlsocket import NetlinkSocket
+from pr2modules.netlink.nfnetlink import nfgen_msg
+from pr2modules.netlink.nfnetlink import NFNL_SUBSYS_CTNETLINK
 
 IPCTNL_MSG_CT_NEW = 0
 IPCTNL_MSG_CT_GET = 1

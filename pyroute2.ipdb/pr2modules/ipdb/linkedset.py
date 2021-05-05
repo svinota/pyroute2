@@ -6,7 +6,7 @@ from collections import OrderedDict
 from socket import inet_pton
 from socket import AF_INET
 from socket import AF_INET6
-from pyroute2.common import basestring
+from pr2modules.common import basestring
 
 
 class LinkedSet(set):

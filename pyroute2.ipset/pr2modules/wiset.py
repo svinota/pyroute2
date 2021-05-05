@@ -5,7 +5,7 @@ When :doc:`ipset` is providing a direct netlink socket with low level
 functions, a :class:`WiSet` object is built to map ipset objects from kernel.
 It helps to add/remove entries, list content, etc.
 
-For example, adding an entry with :class:`pyroute2.ipset.IPSet` object
+For example, adding an entry with :class:`pr2modules.ipset.IPSet` object
 implies to set a various number of parameters:
 
 >>> ipset = IPSet()
@@ -31,15 +31,15 @@ from collections import namedtuple
 from inspect import getcallargs
 from socket import AF_INET
 
-from pyroute2 import IPSet
-from pyroute2.common import basestring
-from pyroute2.netlink.exceptions import IPSetError
-from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
-from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
-from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
-from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_PHYSDEV
-from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_IFACE_WILDCARD
-from pyroute2.netlink.nfnetlink.nfctsocket import IP_PROTOCOLS
+from pr2modules.ipset import IPSet
+from pr2modules.common import basestring
+from pr2modules.netlink.exceptions import IPSetError
+from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
+from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
+from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
+from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_PHYSDEV
+from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_IFACE_WILDCARD
+from pr2modules.netlink.nfnetlink.nfctsocket import IP_PROTOCOLS
 
 
 # Debug variable to detect netlink socket leaks

@@ -13,7 +13,7 @@ nf-queue
 Netfilter protocol for NFQUEUE iptables target.
 '''
 
-from pyroute2.netlink import nlmsg
+from pr2modules.netlink import nlmsg
 
 
 NFNL_SUBSYS_NONE = 0

@@ -4,11 +4,11 @@ import threading
 from socket import AF_INET
 from socket import AF_INET6
 from collections import namedtuple
-from pyroute2.netlink import rtnl
-from pyroute2.netlink.rtnl.fibmsg import fibmsg
-from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
-from pyroute2.ipdb.exceptions import CommitException
-from pyroute2.ipdb.transactional import Transactional
+from pr2modules.netlink import rtnl
+from pr2modules.netlink.rtnl.fibmsg import fibmsg
+from pr2modules.netlink.rtnl.fibmsg import FR_ACT_NAMES
+from pr2modules.ipdb.exceptions import CommitException
+from pr2modules.ipdb.transactional import Transactional
 
 log = logging.getLogger(__name__)
 groups = rtnl.RTMGRP_IPV4_RULE |\

@@ -705,21 +705,21 @@ except ImportError:
 # import warnings
 from functools import partial
 from pprint import pprint
-from pyroute2 import config
-from pyroute2.common import uuid32
-from pyroute2.common import basestring
-from pyroute2.iproute import IPRoute
-from pyroute2.netlink.rtnl import RTM_GETLINK, RTMGRP_DEFAULTS
-from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.ipdb import rules
-from pyroute2.ipdb import routes
-from pyroute2.ipdb import interfaces
-from pyroute2.ipdb.routes import BaseRoute
-from pyroute2.ipdb.exceptions import ShutdownException
-from pyroute2.ipdb.transactional import SYNC_TIMEOUT
-from pyroute2.ipdb.linkedset import IPaddrSet
-from pyroute2.ipdb.linkedset import SortedIPaddrSet
-from pyroute2.ipdb.utils import test_reachable_icmp
+from pr2modules import config
+from pr2modules.common import uuid32
+from pr2modules.common import basestring
+from pr2modules.iproute import IPRoute
+from pr2modules.netlink.rtnl import RTM_GETLINK, RTMGRP_DEFAULTS
+from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
+from pr2modules.ipdb import rules
+from pr2modules.ipdb import routes
+from pr2modules.ipdb import interfaces
+from pr2modules.ipdb.routes import BaseRoute
+from pr2modules.ipdb.exceptions import ShutdownException
+from pr2modules.ipdb.transactional import SYNC_TIMEOUT
+from pr2modules.ipdb.linkedset import IPaddrSet
+from pr2modules.ipdb.linkedset import SortedIPaddrSet
+from pr2modules.ipdb.utils import test_reachable_icmp
 
 log = logging.getLogger(__name__)
 

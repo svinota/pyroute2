@@ -11,7 +11,7 @@ install:
 	${python} setup.py install ${root} ${lib}
 
 uninstall:
-	${python} -m pip uninstall pyroute2.ndb
+	${python} -m pip uninstall -y pyroute2.ndb
 
 develop:
 	${python} setup.py develop

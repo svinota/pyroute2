@@ -169,17 +169,16 @@ dist: clean VERSION
 	$(call make_modules, dist)
 	$(call fetch_modules_dist)
 
-install: clean VERSION
-	${python} setup.py install ${root} ${lib}
-	$(call make_modules, install, ${root}, {lib})
+install: dist
+	${python} -m pip install dist/*
 
 uninstall: clean
-	${python} -m pip uninstall pyroute2
+	${python} -m pip uninstall -y pyroute2
 	$(call make_modules, uninstall)
 
 develop: clean VERSION
-	${python} setup.py develop
 	$(call make_modules, develop)
+	${python} setup.py develop
 
 # deprecated:
 epydoc clean-version update-version force-version README.md setup.ini:

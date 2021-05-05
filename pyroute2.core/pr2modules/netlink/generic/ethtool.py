@@ -1,9 +1,9 @@
-from pyroute2.netlink import genlmsg
-from pyroute2.netlink import nla
-from pyroute2.netlink import NLA_F_NESTED
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.generic import GenericNetlinkSocket
+from pr2modules.netlink import genlmsg
+from pr2modules.netlink import nla
+from pr2modules.netlink import NLA_F_NESTED
+from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink.exceptions import NetlinkError
+from pr2modules.netlink.generic import GenericNetlinkSocket
 
 ETHTOOL_GENL_NAME = "ethtool"
 ETHTOOL_GENL_VERSION = 1

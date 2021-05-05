@@ -43,9 +43,7 @@ function deploy() {
     cp -a "$TOP/cli/pyroute2-cli" "$WORKSPACE/bin/"
     cp -a "$TOP/cli/ss2" "$WORKSPACE/bin/"
     cd "$TOP/dist"
-    for i in pyroute2*$DIST_VERSION*; do {
-        $PYTHON -m pip install $i
-    } done
+    $PYTHON -m pip install pyroute2*$DIST_VERSION*
     curl -X DELETE --data test http://localhost:7623/v1/lock/ >/dev/null 2>&1
     echo "ok"
     cd "$WORKSPACE/"

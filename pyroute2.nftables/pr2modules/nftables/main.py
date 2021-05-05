@@ -1,7 +1,7 @@
 '''
 '''
-from pyroute2.netlink.nfnetlink import nfgen_msg
-from pyroute2.netlink.nfnetlink.nftsocket import \
+from pr2modules.netlink.nfnetlink import nfgen_msg
+from pr2modules.netlink.nfnetlink.nftsocket import \
     (NFTSocket,
      nft_table_msg,
      nft_chain_msg,
@@ -91,7 +91,7 @@ class NFTables(NFTSocket):
         '''
         Example::
 
-            from pyroute2.nftables.expressions import ipv4addr, verdict
+            from pr2modules.nftables.expressions import ipv4addr, verdict
             #
             # allow all traffic from 192.168.0.0/24
             #

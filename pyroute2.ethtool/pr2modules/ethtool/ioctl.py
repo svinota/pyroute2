@@ -2,7 +2,7 @@ import ctypes
 import socket
 import fcntl
 import errno
-from pyroute2.ethtool.common import LinkModeBits
+from pr2modules.ethtool.common import LinkModeBits
 
 # ethtool/ethtool-copy.h
 IFNAMSIZ = 16

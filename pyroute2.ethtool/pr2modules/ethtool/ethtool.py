@@ -1,17 +1,17 @@
 from collections import namedtuple
 import logging
 
-from pyroute2.netlink.generic.ethtool import NlEthtool
-from pyroute2.ethtool.ioctl import IoctlEthtool
-from pyroute2.ethtool.common import LMBTypePort
-from pyroute2.ethtool.common import LMBTypeMode
-from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.ethtool.common import LinkModeBits_by_index
-from pyroute2.ethtool.common import LINK_DUPLEX_NAMES
-from pyroute2.ethtool.common import LINK_PORT_NAMES
-from pyroute2.ethtool.common import LINK_TRANSCEIVER_NAMES
-from pyroute2.ethtool.common import LINK_TP_MDI_NAMES
-from pyroute2.ethtool.ioctl import WAKE_NAMES
+from pr2modules.netlink.generic.ethtool import NlEthtool
+from pr2modules.netlink.exceptions import NetlinkError
+from pr2modules.ethtool.ioctl import IoctlEthtool
+from pr2modules.ethtool.common import LMBTypePort
+from pr2modules.ethtool.common import LMBTypeMode
+from pr2modules.ethtool.common import LinkModeBits_by_index
+from pr2modules.ethtool.common import LINK_DUPLEX_NAMES
+from pr2modules.ethtool.common import LINK_PORT_NAMES
+from pr2modules.ethtool.common import LINK_TRANSCEIVER_NAMES
+from pr2modules.ethtool.common import LINK_TP_MDI_NAMES
+from pr2modules.ethtool.ioctl import WAKE_NAMES
 
 
 from ctypes import c_uint32

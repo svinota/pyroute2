@@ -6,23 +6,23 @@ from socket import AF_INET6
 from socket import inet_ntop
 from socket import inet_pton
 from socket import error as socket_error
-from pyroute2 import config
-from pyroute2.config import AF_BRIDGE
-from pyroute2.common import basestring
-from pyroute2.common import dqn2int
-from pyroute2.common import View
-from pyroute2.common import Dotkeys
-from pyroute2.netlink import rtnl
-from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.rtnl.ifinfmsg import IFF_MASK
-from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.ipdb.transactional import Transactional
-from pyroute2.ipdb.transactional import with_transaction
-from pyroute2.ipdb.transactional import SYNC_TIMEOUT
-from pyroute2.ipdb.linkedset import LinkedSet
-from pyroute2.ipdb.exceptions import CreateException
-from pyroute2.ipdb.exceptions import CommitException
-from pyroute2.ipdb.exceptions import PartialCommitException
+from pr2modules import config
+from pr2modules.config import AF_BRIDGE
+from pr2modules.common import basestring
+from pr2modules.common import dqn2int
+from pr2modules.common import View
+from pr2modules.common import Dotkeys
+from pr2modules.netlink import rtnl
+from pr2modules.netlink.exceptions import NetlinkError
+from pr2modules.netlink.rtnl.ifinfmsg import IFF_MASK
+from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
+from pr2modules.ipdb.transactional import Transactional
+from pr2modules.ipdb.transactional import with_transaction
+from pr2modules.ipdb.transactional import SYNC_TIMEOUT
+from pr2modules.ipdb.linkedset import LinkedSet
+from pr2modules.ipdb.exceptions import CreateException
+from pr2modules.ipdb.exceptions import CommitException
+from pr2modules.ipdb.exceptions import PartialCommitException
 
 
 supported_kinds = ('bridge',

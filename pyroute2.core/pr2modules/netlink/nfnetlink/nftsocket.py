@@ -1,17 +1,17 @@
 """
 NFTSocket -- low level nftables API
 
-See also: pyroute2.nftables
+See also: pr2modules.nftables
 """
 
 import threading
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import NLM_F_DUMP
-from pyroute2.netlink import NETLINK_NETFILTER
-from pyroute2.netlink import nla
-from pyroute2.netlink.nlsocket import NetlinkSocket
-from pyroute2.netlink.nfnetlink import nfgen_msg
-from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_NFTABLES
+from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink import NLM_F_DUMP
+from pr2modules.netlink import NETLINK_NETFILTER
+from pr2modules.netlink import nla
+from pr2modules.netlink.nlsocket import NetlinkSocket
+from pr2modules.netlink.nfnetlink import nfgen_msg
+from pr2modules.netlink.nfnetlink import NFNL_SUBSYS_NFTABLES
 
 NFT_MSG_NEWTABLE = 0
 NFT_MSG_GETTABLE = 1

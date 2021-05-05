@@ -11,7 +11,7 @@ install:
 	${python} setup.py install ${root} ${lib}
 
 uninstall:
-	${python} -m pip uninstall -y pyroute2.core
+	${python} -m pip uninstall -y pyroute2.ethtool
 
 develop:
 	${python} setup.py develop

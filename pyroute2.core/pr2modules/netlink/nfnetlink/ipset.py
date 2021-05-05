@@ -1,8 +1,8 @@
-from pyroute2.netlink import nla
-from pyroute2.netlink import NLA_F_NESTED
-from pyroute2.netlink import NLA_F_NET_BYTEORDER
-from pyroute2.netlink.nfnetlink import nfgen_msg
-from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_IPSET
+from pr2modules.netlink import nla
+from pr2modules.netlink import NLA_F_NESTED
+from pr2modules.netlink import NLA_F_NET_BYTEORDER
+from pr2modules.netlink.nfnetlink import nfgen_msg
+from pr2modules.netlink.nfnetlink import NFNL_SUBSYS_IPSET
 
 
 IPSET_MAXNAMELEN = 32

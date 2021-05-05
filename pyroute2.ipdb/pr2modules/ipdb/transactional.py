@@ -2,10 +2,10 @@
 '''
 import logging
 import threading
-from pyroute2.common import uuid32
-from pyroute2.common import Dotkeys
-from pyroute2.ipdb.linkedset import LinkedSet
-from pyroute2.ipdb.exceptions import CommitException
+from pr2modules.common import uuid32
+from pr2modules.common import Dotkeys
+from pr2modules.ipdb.linkedset import LinkedSet
+from pr2modules.ipdb.exceptions import CommitException
 
 # How long should we wait on EACH commit() checkpoint: for ipaddr,
 # ports etc. That's not total commit() timeout.
