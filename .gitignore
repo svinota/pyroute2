@@ -37,3 +37,7 @@ pyroute2.core/pr2modules/config/version.py
 pyroute2.*/setup.cfg
 pyroute2.*/setup.py
 pyroute2.*/Makefile
+pyroute2.*/MANIFEST.in
+*/LICENSE*
+*/README.license.md
+*/CHANGELOG.md

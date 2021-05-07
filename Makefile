@@ -43,7 +43,7 @@ ifdef lib
 endif
 
 define list_modules
-	`ls -1 | sed -n '/egg-info/n; /pyroute2\./p'`
+	`ls -1 | sed -n '/egg-info/n; /pyroute2/p'`
 endef
 
 define make_modules
@@ -55,8 +55,9 @@ define fetch_modules_dist
 endef
 
 define clean_module
-	for i in `ls -1 templates`; do rm -f $$module/$$i; done; \
-	rm -f $$module/MANIFEST.in; \
+	if [ -f $$module/setup.json ]; then \
+		for i in `ls -1 templates`; do rm -f $$module/$$i; done; \
+	fi; \
 	rm -f $$module/LICENSE.*; \
 	rm -f $$module/README.license.md; \
 	rm -f $$module/CHANGELOG.md; \
@@ -85,7 +86,6 @@ define deploy_license
 	cp README.license.md $$module/ ; \
 	cp CHANGELOG.md $$module/
 endef
-
 
 all:
 	@echo targets:
@@ -127,7 +127,7 @@ clean:
 
 VERSION:
 	@${python} util/update_version.py
-	@for package in `ls -1 | sed -n '/egg-info/n; /pyroute2\./p'`; do cp VERSION $$package; done
+	@for package in $(call list_modules); do cp VERSION $$package; done
 
 docs/html: pyroute2/config/version.py
 	@cp README.rst docs/general.rst
@@ -198,16 +198,16 @@ setup:
 	@for module in $(call list_modules); do $(call deploy_license); done
 
 dist: clean VERSION setup
-	${python} setup.py sdist
-	${python} -m twine check dist/*
+	pushd pyroute2; ${python} setup.py sdist; popd
+	mkdir dist
 	$(call make_modules, dist)
 	$(call fetch_modules_dist)
+	${python} -m twine check dist/*
 
 install: dist
 	${python} -m pip install dist/*
 
 uninstall: clean setup
-	${python} -m pip uninstall -y pyroute2
 	$(call make_modules, uninstall)
 
 develop: clean VERSION
