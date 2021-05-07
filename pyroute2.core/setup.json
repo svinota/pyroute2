@@ -1,0 +1,9 @@
+{
+ "name": "pyroute2.core",
+ "description": "the core",
+ "requires": "",
+ "entry_points": [
+     "netns = pr2modules.netns",
+     "config = pr2modules.config",
+     "IPRoute = pr2modules.iproute.linux:IPRoute"]
+}

@@ -54,8 +54,28 @@ define fetch_modules_dist
 	for module in $(call list_modules); do cp $$module/dist/* dist; done
 endef
 
-bala:
-	for i in $(call list_modules); do echo $$i; done
+define clean_module
+	for i in `ls -1 templates`; do rm -f $$module/$$i; done; \
+	rm -f $$module/VERSION; \
+	rm -rf $$module/build; \
+	rm -rf $$module/dist; \
+	rm -rf $$module/*egg-info
+endef
+
+define process_templates
+	for module in $(call list_modules); do \
+		if [ -f $$module/setup.json ]; then \
+			for template in `ls -1 templates`; do \
+				python \
+					util/process_template.py \
+					templates/$$template \
+					$$module/setup.json \
+					$$module/$$template; \
+			done; \
+		fi; \
+	done
+endef
+
 
 all:
 	@echo targets:
@@ -68,7 +88,7 @@ all:
 	@echo
 
 clean:
-	$(call make_modules, clean)
+	@for module in $(call list_modules); do $(call clean_module); done
 	@rm -f VERSION
 	@rm -rf dist build MANIFEST
 	@rm -f docs-build.log
@@ -163,7 +183,10 @@ pprint(TestCapsRtnl().collect())"
 upload: dist
 	${python} -m twine upload dist/*
 
-dist: clean VERSION
+setup:
+	$(call process_templates)
+
+dist: clean VERSION setup
 	${python} setup.py sdist
 	${python} -m twine check dist/*
 	$(call make_modules, dist)
@@ -172,7 +195,7 @@ dist: clean VERSION
 install: dist
 	${python} -m pip install dist/*
 
-uninstall: clean
+uninstall: clean setup
 	${python} -m pip uninstall -y pyroute2
 	$(call make_modules, uninstall)
 

@@ -1,0 +1,6 @@
+{
+ "name": "pyroute2.ndb",
+ "description": "NDB module",
+ "requires": "pyroute2.core",
+ "entry_points": "NDB = pr2modules.ndb.main:NDB"
+}
