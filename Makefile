@@ -198,7 +198,7 @@ setup:
 	@for module in $(call list_modules); do $(call deploy_license); done
 
 dist: clean VERSION setup
-	pushd pyroute2; ${python} setup.py sdist; popd
+	cd pyroute2; ${python} setup.py sdist
 	mkdir dist
 	$(call make_modules, dist)
 	$(call fetch_modules_dist)
