@@ -1,5 +1,0 @@
-include VERSION
-include README.rst
-include README.license.md
-include LICENSE*
-include CHANGELOG.md

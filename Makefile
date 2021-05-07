@@ -56,6 +56,10 @@ endef
 
 define clean_module
 	for i in `ls -1 templates`; do rm -f $$module/$$i; done; \
+	rm -f $$module/MANIFEST.in; \
+	rm -f $$module/LICENSE.*; \
+	rm -f $$module/README.license.md; \
+	rm -f $$module/CHANGELOG.md; \
 	rm -f $$module/VERSION; \
 	rm -rf $$module/build; \
 	rm -rf $$module/dist; \
@@ -74,6 +78,12 @@ define process_templates
 			done; \
 		fi; \
 	done
+endef
+
+define deploy_license
+	cp LICENSE.* $$module/ ; \
+	cp README.license.md $$module/ ; \
+	cp CHANGELOG.md $$module/
 endef
 
 
@@ -185,6 +195,7 @@ upload: dist
 
 setup:
 	$(call process_templates)
+	@for module in $(call list_modules); do $(call deploy_license); done
 
 dist: clean VERSION setup
 	${python} setup.py sdist
