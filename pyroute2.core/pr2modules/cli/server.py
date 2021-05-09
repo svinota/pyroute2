@@ -1,6 +1,6 @@
 import json
-from pyroute2 import NDB
-from pyroute2.cli.session import Session
+from pr2modules.ndb.main import NDB
+from pr2modules.cli.session import Session
 
 try:
     from BaseHTTPServer import HTTPServer as HTTPServer

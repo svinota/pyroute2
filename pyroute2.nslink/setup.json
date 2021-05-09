@@ -4,5 +4,6 @@
  "requires": "pyroute2.core",
  "entry_points": ["NetNS = pr2modules.nslink.nslink:NetNS",
                   "NSPopen = pr2modules.nslink.process.proxy:NSPopen",
-                  "RemoteSocket = pr2modules.remote:RemoteSocket"]
+                  "RemoteSocket = pr2modules.remote:RemoteSocket"],
+ "scripts": ""
 }

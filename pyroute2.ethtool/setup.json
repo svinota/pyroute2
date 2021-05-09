@@ -2,5 +2,6 @@
  "name": "pyroute2.ethtool",
  "description": "ethtool",
  "requires": "pyroute2.core",
- "entry_points": "Ethtool = pr2modules.ethtool.ethtool:Ethtool"
+ "entry_points": "Ethtool = pr2modules.ethtool.ethtool:Ethtool",
+ "scripts": ""
 }

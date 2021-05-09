@@ -2,5 +2,6 @@
  "name": "pyroute2.ipdb",
  "description": "IPDB module",
  "requires": "pyroute2.core",
- "entry_points": "IPDB = pr2modules.ipdb.main:IPDB"
+ "entry_points": "IPDB = pr2modules.ipdb.main:IPDB",
+ "scripts": ""
 }

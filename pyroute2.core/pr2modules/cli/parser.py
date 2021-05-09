@@ -1,13 +1,13 @@
 import re
 import shlex
-from pyroute2.common import basestring
-from pyroute2.cli import (t_stmt,
-                          t_dict,
-                          t_pipe,
-                          t_comma,
-                          t_end_of_dict,
-                          t_end_of_sentence,
-                          t_end_of_stream)
+from pr2modules.common import basestring
+from pr2modules.cli import (t_stmt,
+                            t_dict,
+                            t_pipe,
+                            t_comma,
+                            t_end_of_dict,
+                            t_end_of_sentence,
+                            t_end_of_stream)
 
 
 class Token(object):

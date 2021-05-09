@@ -3,5 +3,6 @@
  "description": "ipset",
  "requires": "pyroute2.core",
  "entry_points": ["IPSet = pr2modules.ipset:IPSet",
-                  "WiSet = pr2modules.wiset:WiSet"]
+                  "WiSet = pr2modules.wiset:WiSet"],
+ "scripts": ""
 }

@@ -2,13 +2,13 @@ from __future__ import print_function
 
 import sys
 from collections import namedtuple
-from pyroute2 import config
-from pyroute2.common import basestring
-from pyroute2.cli import t_dict
-from pyroute2.cli import t_stmt
-from pyroute2.cli import t_pipe
-from pyroute2.cli import t_comma
-from pyroute2.cli.parser import Parser
+from pr2modules import config
+from pr2modules.common import basestring
+from pr2modules.cli import t_dict
+from pr2modules.cli import t_stmt
+from pr2modules.cli import t_pipe
+from pr2modules.cli import t_comma
+from pr2modules.cli.parser import Parser
 
 
 class Session(object):
