@@ -4,14 +4,14 @@ from socket import AF_UNIX
 from socket import AF_INET
 from socket import AF_INET6
 from socket import IPPROTO_TCP
-from pyroute2.netlink import nlmsg
-from pyroute2.netlink import nla
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import NLM_F_ROOT
-from pyroute2.netlink import NLM_F_MATCH
-from pyroute2.netlink import NETLINK_SOCK_DIAG
-from pyroute2.netlink.nlsocket import Marshal
-from pyroute2.netlink.nlsocket import NetlinkSocket
+from pr2modules.netlink import nlmsg
+from pr2modules.netlink import nla
+from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink import NLM_F_ROOT
+from pr2modules.netlink import NLM_F_MATCH
+from pr2modules.netlink import NETLINK_SOCK_DIAG
+from pr2modules.netlink.nlsocket import Marshal
+from pr2modules.netlink.nlsocket import NetlinkSocket
 
 SOCK_DIAG_BY_FAMILY = 20
 SOCK_DESTROY = 21

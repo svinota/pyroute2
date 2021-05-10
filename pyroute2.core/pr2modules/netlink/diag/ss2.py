@@ -29,23 +29,23 @@ try:
     import psutil
 except ImportError:
     psutil = None
-from pyroute2 import DiagSocket
-from pyroute2.netlink.diag import (SS_ESTABLISHED,
-                                   SS_SYN_SENT,
-                                   SS_SYN_RECV,
-                                   SS_FIN_WAIT1,
-                                   SS_FIN_WAIT2,
-                                   SS_TIME_WAIT,
-                                   SS_CLOSE,
-                                   SS_CLOSE_WAIT,
-                                   SS_LAST_ACK,
-                                   SS_LISTEN,
-                                   SS_CLOSING,
-                                   SS_ALL,
-                                   SS_CONN)
-from pyroute2.netlink.diag import (UDIAG_SHOW_NAME,
-                                   UDIAG_SHOW_VFS,
-                                   UDIAG_SHOW_PEER)
+from pr2modules.netlink.diag import DiagSocket
+from pr2modules.netlink.diag import (SS_ESTABLISHED,
+                                     SS_SYN_SENT,
+                                     SS_SYN_RECV,
+                                     SS_FIN_WAIT1,
+                                     SS_FIN_WAIT2,
+                                     SS_TIME_WAIT,
+                                     SS_CLOSE,
+                                     SS_CLOSE_WAIT,
+                                     SS_LAST_ACK,
+                                     SS_LISTEN,
+                                     SS_CLOSING,
+                                     SS_ALL,
+                                     SS_CONN)
+from pr2modules.netlink.diag import (UDIAG_SHOW_NAME,
+                                     UDIAG_SHOW_VFS,
+                                     UDIAG_SHOW_PEER)
 try:
     from collections.abc import Mapping
     from collections.abc import Callable

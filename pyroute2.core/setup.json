@@ -8,5 +8,5 @@
      "IPRoute = pr2modules.iproute.linux:IPRoute",
      "Console = pr2modules.cli.console:Console",
      "Server = pr2modules.cli.server:Server"],
- "scripts": ""
+ "scripts": "ss2 = pr2modules.netlink.diag.ss2:run [psutil]"
 }
