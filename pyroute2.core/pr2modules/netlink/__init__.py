@@ -75,11 +75,11 @@ packets
 
 To simplify the development, pyroute2 provides an easy way to
 describe packet structure. As an example, you can take the
-ifaddrmsg description -- `pyroute2/netlink/rtnl/ifaddrmsg.py`.
+ifaddrmsg description -- `pr2modules/netlink/rtnl/ifaddrmsg.py`.
 
 To describe a packet, you need to inherit from `nlmsg` class::
 
-    from pyroute2.netlink import nlmsg
+    from pr2modules.netlink import nlmsg
 
     class foo_msg(nlmsg):
         fields = ( ... )
@@ -185,7 +185,7 @@ There are several pre-defined NLA types, that you will get with
     - `asciiz` -- zero-terminated ASCII string, no decoding
     - `array` -- array of simple types (uint8, uint16 etc.)
 
-Please refer to `pyroute2/netlink/__init__.py` for details.
+Please refer to `pr2modules/netlink/__init__.py` for details.
 
 You can also make your own NLA descriptions::
 
@@ -344,12 +344,12 @@ Having a description class, like `ifaddrmsg` from above, you need to:
 
 The code::
 
-    from pyroute2.netlink import NLM_F_REQUEST
-    from pyroute2.netlink import NLM_F_ACK
-    from pyroute2.netlink import NLM_F_CREATE
-    from pyroute2.netlink import NLM_F_EXCL
-    from pyroute2.iproute import RTM_NEWADDR
-    from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
+    from pr2modules.netlink import NLM_F_REQUEST
+    from pr2modules.netlink import NLM_F_ACK
+    from pr2modules.netlink import NLM_F_CREATE
+    from pr2modules.netlink import NLM_F_EXCL
+    from pr2modules.iproute import RTM_NEWADDR
+    from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
     ##
     # add an addr to an interface

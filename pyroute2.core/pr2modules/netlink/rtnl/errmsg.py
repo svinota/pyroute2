@@ -1,4 +1,4 @@
-from pyroute2.netlink import nlmsg
+from pr2modules.netlink import nlmsg
 
 
 class errmsg(nlmsg):

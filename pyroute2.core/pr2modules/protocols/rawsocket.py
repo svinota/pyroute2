@@ -14,7 +14,7 @@ from socket import SOCK_RAW
 from socket import SOL_SOCKET
 from socket import error
 from socket import errno
-from pyroute2 import IPRoute
+from pr2modules.iproute.linux import IPRoute
 
 ETH_P_ALL = 3
 SO_ATTACH_FILTER = 26

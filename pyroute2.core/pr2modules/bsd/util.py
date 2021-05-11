@@ -162,8 +162,8 @@ class Ifconfig(CMD):
         '''
         Parse ifconfig output into netlink-compatible dicts::
 
-            from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-            from pyroute2.bsd.util import Ifconfig
+            from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
+            from pr2modules.bsd.util import Ifconfig
 
             def links()
                 ifc = Ifconfig()

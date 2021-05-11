@@ -1,4 +1,4 @@
-from pyroute2.common import map_namespace
+from pr2modules.common import map_namespace
 
 # ARP protocol HARDWARE identifiers.
 ARPHRD_NETROM = 0    # from KA9Q: NET/ROM pseudo

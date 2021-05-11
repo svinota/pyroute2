@@ -6,10 +6,10 @@ import sys
 import select
 import struct
 import threading
-from pyroute2 import config
-from pyroute2.common import uifname
-from pyroute2 import RawIPRoute
-from pyroute2.netlink.rtnl import RTMGRP_LINK
+from pr2modules import config
+from pr2modules.common import uifname
+from pr2modules import RawIPRoute
+from pr2modules.netlink.rtnl import RTMGRP_LINK
 
 
 class SkipTest(Exception):
@@ -46,7 +46,7 @@ class TestCapsRtnl(object):
     dictionary, you can use them directly or by setting the
     `config.capabilities` singletone::
 
-        from pyroute2 import config
+        from pr2modules import config
         # ...
         tce.collect()
         config.capabilities = tce.capabilities

@@ -2,10 +2,10 @@
 devlink module
 ==============
 '''
-from pyroute2.common import map_namespace
-from pyroute2.netlink import genlmsg, nla
-from pyroute2.netlink.generic import GenericNetlinkSocket
-from pyroute2.netlink.nlsocket import Marshal
+from pr2modules.common import map_namespace
+from pr2modules.netlink import genlmsg, nla
+from pr2modules.netlink.generic import GenericNetlinkSocket
+from pr2modules.netlink.nlsocket import Marshal
 
 # devlink commands
 DEVLINK_CMD_UNSPEC = 0

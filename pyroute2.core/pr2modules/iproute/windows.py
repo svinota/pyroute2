@@ -14,27 +14,27 @@ import os
 import ctypes
 from socket import AF_INET
 
-from pyroute2.netlink import (NLM_F_REQUEST,
-                              NLM_F_DUMP,
-                              NLM_F_MULTI,
-                              NLMSG_DONE)
+from pr2modules.netlink import (NLM_F_REQUEST,
+                                NLM_F_DUMP,
+                                NLM_F_MULTI,
+                                NLMSG_DONE)
 
-from pyroute2.netlink.rtnl import (RTM_NEWLINK,
-                                   RTM_GETLINK,
-                                   RTM_NEWADDR,
-                                   RTM_GETADDR,
-                                   RTM_NEWROUTE,
-                                   RTM_GETROUTE,
-                                   RTM_NEWNEIGH,
-                                   RTM_GETNEIGH)
+from pr2modules.netlink.rtnl import (RTM_NEWLINK,
+                                     RTM_GETLINK,
+                                     RTM_NEWADDR,
+                                     RTM_GETADDR,
+                                     RTM_NEWROUTE,
+                                     RTM_GETROUTE,
+                                     RTM_NEWNEIGH,
+                                     RTM_GETNEIGH)
 
-from pyroute2.netlink.rtnl.marshal import MarshalRtnl
-from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
-from pyroute2.common import AddrPool
-from pyroute2.common import Namespace
-from pyroute2.common import dqn2int
-from pyroute2.proxy import NetlinkProxy
+from pr2modules.netlink.rtnl.marshal import MarshalRtnl
+from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
+from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pr2modules.common import AddrPool
+from pr2modules.common import Namespace
+from pr2modules.common import dqn2int
+from pr2modules.proxy import NetlinkProxy
 
 MAX_ADAPTER_NAME_LENGTH = 256
 MAX_ADAPTER_DESCRIPTION_LENGTH = 128

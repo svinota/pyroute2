@@ -19,7 +19,7 @@ Messages
 
 nl80211 messages are defined here::
 
-    pyroute2/netlink/nl80211/__init__.py
+    pr2modules/netlink/nl80211/__init__.py
 
 Pls notice NLAs of type `hex`. On the early development stage
 `hex` allows to inspect incoming data as a hex dump and,
@@ -35,7 +35,7 @@ request on github.
 If you're not familiar with NLA types, take a look at RTNL
 definitions::
 
-    pyroute2/netlink/rtnl/ndmsg.py
+    pr2modules/netlink/rtnl/ndmsg.py
 
 and so on.
 
@@ -90,7 +90,7 @@ from `msg_iov` to a file, let's say `data`, and run the decoder::
     $ pwd
     /home/user/Projects/pyroute2
     $ export PYTHONPATH=`pwd`
-    $ python scripts/decoder.py pyroute2.netlink.nl80211.nl80211cmd data
+    $ python scripts/decoder.py pr2modules.netlink.nl80211.nl80211cmd data
 
 You will get the session decoded::
 
@@ -131,16 +131,16 @@ Please do not hesitate to submit the changes on github. Without
 your patches this module will not evolve.
 '''
 import logging
-from pyroute2.netlink import NLM_F_ACK
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import NLM_F_DUMP
-from pyroute2.netlink.nl80211 import NL80211
-from pyroute2.netlink.nl80211 import nl80211cmd
-from pyroute2.netlink.nl80211 import NL80211_NAMES
-from pyroute2.netlink.nl80211 import IFTYPE_NAMES
-from pyroute2.netlink.nl80211 import CHAN_WIDTH
-from pyroute2.netlink.nl80211 import BSS_STATUS_NAMES
-from pyroute2.netlink.nl80211 import SCAN_FLAGS_NAMES
+from pr2modules.netlink import NLM_F_ACK
+from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink import NLM_F_DUMP
+from pr2modules.netlink.nl80211 import NL80211
+from pr2modules.netlink.nl80211 import nl80211cmd
+from pr2modules.netlink.nl80211 import NL80211_NAMES
+from pr2modules.netlink.nl80211 import IFTYPE_NAMES
+from pr2modules.netlink.nl80211 import CHAN_WIDTH
+from pr2modules.netlink.nl80211 import BSS_STATUS_NAMES
+from pr2modules.netlink.nl80211 import SCAN_FLAGS_NAMES
 
 log = logging.getLogger(__name__)
 

@@ -1,9 +1,9 @@
 '''
 TODO: add THERMAL_GENL_ATTR_EVENT structure
 '''
-from pyroute2.netlink import genlmsg
-from pyroute2.netlink.nlsocket import Marshal
-from pyroute2.netlink.event import EventSocket
+from pr2modules.netlink import genlmsg
+from pr2modules.netlink.nlsocket import Marshal
+from pr2modules.netlink.event import EventSocket
 
 THERMAL_GENL_CMD_UNSPEC = 0
 THERMAL_GENL_CMD_EVENT = 1

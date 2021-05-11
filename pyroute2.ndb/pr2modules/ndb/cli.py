@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 import json
 import argparse
-from pyroute2 import Console
-from pyroute2 import Server
+from pr2modules.cli.console import Console
+from pr2modules.cli.server import Server
 try:
-    from pyroute2.cli.auth.auth_keystone import OSAuthManager
+    from pr2modules.cli.auth.auth_keystone import OSAuthManager
 except ImportError:
     OSAuthManager = None
 try:
-    from pyroute2.cli.auth.auth_radius import RadiusAuthManager
+    from pr2modules.cli.auth.auth_radius import RadiusAuthManager
 except ImportError:
     RadiusAuthManager = None
 

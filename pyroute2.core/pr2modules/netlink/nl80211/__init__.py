@@ -6,12 +6,12 @@ TODO
 '''
 import struct
 import datetime
-from pyroute2.common import map_namespace
-from pyroute2.netlink import genlmsg
-from pyroute2.netlink.generic import GenericNetlinkSocket
-from pyroute2.netlink.nlsocket import Marshal
-from pyroute2.netlink import nla
-from pyroute2.netlink import nla_base
+from pr2modules.common import map_namespace
+from pr2modules.netlink import genlmsg
+from pr2modules.netlink.generic import GenericNetlinkSocket
+from pr2modules.netlink.nlsocket import Marshal
+from pr2modules.netlink import nla
+from pr2modules.netlink import nla_base
 
 # nl80211 commands
 

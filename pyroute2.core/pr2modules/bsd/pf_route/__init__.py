@@ -1,27 +1,27 @@
 import socket
 import struct
-from pyroute2 import config
-from pyroute2.common import hexdump
-from pyroute2.netlink import nlmsg_base
+from pr2modules import config
+from pr2modules.common import hexdump
+from pr2modules.netlink import nlmsg_base
 
 if config.uname[0] == 'OpenBSD':
-    from pyroute2.bsd.pf_route.openbsd import (bsdmsg,
-                                               if_msg,
-                                               rt_msg_base,
-                                               ifa_msg_base,
-                                               ifma_msg_base,
-                                               if_announcemsg,
-                                               IFF_NAMES,
-                                               IFF_VALUES)
+    from pr2modules.bsd.pf_route.openbsd import (bsdmsg,
+                                                 if_msg,
+                                                 rt_msg_base,
+                                                 ifa_msg_base,
+                                                 ifma_msg_base,
+                                                 if_announcemsg,
+                                                 IFF_NAMES,
+                                                 IFF_VALUES)
 else:
-    from pyroute2.bsd.pf_route.freebsd import (bsdmsg,
-                                               if_msg,
-                                               rt_msg_base,
-                                               ifa_msg_base,
-                                               ifma_msg_base,
-                                               if_announcemsg,
-                                               IFF_NAMES,
-                                               IFF_VALUES)
+    from pr2modules.bsd.pf_route.freebsd import (bsdmsg,
+                                                 if_msg,
+                                                 rt_msg_base,
+                                                 ifa_msg_base,
+                                                 ifma_msg_base,
+                                                 if_announcemsg,
+                                                 IFF_NAMES,
+                                                 IFF_VALUES)
 
 
 RTAX_MAX = 8

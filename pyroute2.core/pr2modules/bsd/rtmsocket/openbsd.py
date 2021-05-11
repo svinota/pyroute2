@@ -1,8 +1,8 @@
-from pyroute2.bsd.pf_route import (bsdmsg,
-                                   if_msg,
-                                   rt_msg,
-                                   if_announcemsg,
-                                   ifa_msg)
+from pr2modules.bsd.pf_route import (bsdmsg,
+                                     if_msg,
+                                     rt_msg,
+                                     if_announcemsg,
+                                     ifa_msg)
 
 RTM_ADD = 0x1          # Add Route
 RTM_DELETE = 0x2       # Delete Route

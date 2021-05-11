@@ -1,8 +1,8 @@
 from socket import inet_pton
 from socket import inet_ntop
 from socket import AF_INET
-from pyroute2.dhcp import dhcpmsg
-from pyroute2.dhcp import option
+from pr2modules.dhcp import dhcpmsg
+from pr2modules.dhcp import option
 
 
 class dhcp4msg(dhcpmsg):

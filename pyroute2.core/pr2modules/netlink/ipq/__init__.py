@@ -11,10 +11,10 @@ case the packet will be silently dropped, or
 `NF_ACCEPT`, and the packet will be pass the
 rule.
 '''
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import nlmsg
-from pyroute2.netlink.nlsocket import NetlinkSocket
-from pyroute2.netlink.nlsocket import Marshal
+from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink import nlmsg
+from pr2modules.netlink.nlsocket import NetlinkSocket
+from pr2modules.netlink.nlsocket import Marshal
 # constants
 IFNAMSIZ = 16
 IPQ_MAX_PAYLOAD = 0x800

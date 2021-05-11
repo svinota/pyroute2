@@ -1,7 +1,7 @@
-from pyroute2.netlink import nlmsg
-from pyroute2.netlink import NETLINK_KOBJECT_UEVENT
-from pyroute2.netlink.nlsocket import Marshal
-from pyroute2.netlink.nlsocket import NetlinkSocket
+from pr2modules.netlink import nlmsg
+from pr2modules.netlink import NETLINK_KOBJECT_UEVENT
+from pr2modules.netlink.nlsocket import Marshal
+from pr2modules.netlink.nlsocket import NetlinkSocket
 
 
 class ueventmsg(nlmsg):

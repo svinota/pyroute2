@@ -3,10 +3,10 @@ import struct
 import atexit
 import logging
 import subprocess
-from pyroute2.remote import Transport
-from pyroute2.remote import RemoteSocket
-from pyroute2.iproute import RTNL_API
-from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
+from pr2modules.remote import Transport
+from pr2modules.remote import RemoteSocket
+from pr2modules.iproute import RTNL_API
+from pr2modules.netlink.rtnl.iprsocket import MarshalRtnl
 
 log = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class ShellIPR(RTNL_API, RemoteSocket):
     def __init__(self, target):
 
         self.target = target
-        cmd = '%s python -m pyroute2.remote' % target
+        cmd = '%s python -m pr2modules.remote' % target
         self.shell = subprocess.Popen(cmd.split(),
                                       bufsize=0,
                                       stdin=subprocess.PIPE,

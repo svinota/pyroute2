@@ -1,6 +1,6 @@
 
-from pyroute2.config import kernel
-from pyroute2.netlink.generic import GenericNetlinkSocket
+from pr2modules.config import kernel
+from pr2modules.netlink.generic import GenericNetlinkSocket
 
 
 class EventSocket(GenericNetlinkSocket):

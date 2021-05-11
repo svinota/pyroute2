@@ -1,10 +1,10 @@
 import socket
 
-from pyroute2.netlink.nfnetlink.nfctsocket import IP_CT_TCP_FLAG_TO_NAME
-from pyroute2.netlink.nfnetlink.nfctsocket import IPSBIT_TO_NAME
-from pyroute2.netlink.nfnetlink.nfctsocket import TCPF_TO_NAME
-from pyroute2.netlink.nfnetlink.nfctsocket import NFCTAttrTuple
-from pyroute2.netlink.nfnetlink.nfctsocket import NFCTSocket
+from pr2modules.netlink.nfnetlink.nfctsocket import IP_CT_TCP_FLAG_TO_NAME
+from pr2modules.netlink.nfnetlink.nfctsocket import IPSBIT_TO_NAME
+from pr2modules.netlink.nfnetlink.nfctsocket import TCPF_TO_NAME
+from pr2modules.netlink.nfnetlink.nfctsocket import NFCTAttrTuple
+from pr2modules.netlink.nfnetlink.nfctsocket import NFCTSocket
 
 
 class NFCTATcpProtoInfo(object):

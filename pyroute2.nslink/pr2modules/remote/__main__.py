@@ -1,6 +1,6 @@
 import sys
-from pyroute2.remote import Server
-from pyroute2.remote import Transport
+from pr2modules.remote import Server
+from pr2modules.remote import Transport
 
 
 Server(Transport(sys.stdin), Transport(sys.stdout))

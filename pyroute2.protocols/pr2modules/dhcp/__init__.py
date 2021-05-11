@@ -34,7 +34,7 @@ as for the struct module, like `B` for `uint8`, or `i` for
 `int32`, or `>Q` for big-endian uint64. There are also
 aliases defined, so one can write `uint8` or `be16`, or
 like that. Possible aliases can be seen in the
-`pyroute2.protocols` module.
+`pr2modules.protocols` module.
 
 The `policy` is a bit complicated. It can be a number or
 literal, and it will mean that it is a default value, that
@@ -70,8 +70,8 @@ DHCP options are described in a similar way::
 
 Code is a `uint8` value, name can be any string literal. Format
 is a string, that must have a corresponding class, inherited from
-`pyroute2.dhcp.option`. One can find these classes in
-`pyroute2.dhcp` (more generic) or in `pyroute2.dhcp.dhcp4msg`
+`pr2modules.dhcp.option`. One can find these classes in
+`pr2modules.dhcp` (more generic) or in `pr2modules.dhcp.dhcp4msg`
 (IPv4-specific). The option class must reside within dhcp message
 class.
 
@@ -91,7 +91,7 @@ policy just like for the fields above::
                   'encode': lambda x: array('B', x).tobytes(),
                   'decode': lambda x: array('B', x).tolist()}
 
-In the corresponding modules, like in `pyroute2.dhcp.dhcp4msg`,
+In the corresponding modules, like in `pr2modules.dhcp.dhcp4msg`,
 one can define as many custom DHCP options, as one need. Just
 be sure, that they are compatible with the DHCP server and all
 fit into 1..254 (`uint8`) -- the 0 code is used for padding and
@@ -101,8 +101,8 @@ the code 255 is the end of options code.
 import sys
 import struct
 from array import array
-from pyroute2.common import basestring
-from pyroute2.protocols import msg
+from pr2modules.common import basestring
+from pr2modules.protocols import msg
 
 BOOTREQUEST = 1
 BOOTREPLY = 2

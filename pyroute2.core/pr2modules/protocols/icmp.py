@@ -1,4 +1,4 @@
-from pyroute2.protocols import msg
+from pr2modules.protocols import msg
 
 
 class icmpmsg(msg):

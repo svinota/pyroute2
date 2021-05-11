@@ -1,10 +1,10 @@
-from pyroute2.netlink import NLA_F_NESTED
-from pyroute2.netlink import NLM_F_ACK
-from pyroute2.netlink import NLM_F_DUMP
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import genlmsg
-from pyroute2.netlink import nla
-from pyroute2.netlink.generic import GenericNetlinkSocket
+from pr2modules.netlink import NLA_F_NESTED
+from pr2modules.netlink import NLM_F_ACK
+from pr2modules.netlink import NLM_F_DUMP
+from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink import genlmsg
+from pr2modules.netlink import nla
+from pr2modules.netlink.generic import GenericNetlinkSocket
 
 # Defines from uapi/linux/l2tp.h
 L2TP_GENL_NAME = "l2tp"

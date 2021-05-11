@@ -464,7 +464,7 @@ class RTNL_API(object):
         '''
         A prototype method to list available netns and associated
         interfaces. A bit weird to have it here and not under
-        `pyroute2.netns`, but it uses RTNL to get all the info.
+        `pr2modules.netns`, but it uses RTNL to get all the info.
         '''
         #
         # register all the ns inodes, not to repeat items in the output
@@ -747,7 +747,7 @@ class RTNL_API(object):
 
         More details:
             * kernel:Documentation/networking/switchdev.txt
-            * pyroute2.netlink.rtnl.ifinfmsg:... vlan_info
+            * pr2modules.netlink.rtnl.ifinfmsg:... vlan_info
 
         One can specify `flags` as int or as a list of flag names:
             * `master` == 0x1
@@ -797,7 +797,7 @@ class RTNL_API(object):
 
         More details:
             * kernel:Documentation/networking/switchdev.txt
-            * pyroute2.netlink.rtnl.ndmsg
+            * pr2modules.netlink.rtnl.ndmsg
 
         **add**
 
@@ -893,7 +893,7 @@ class RTNL_API(object):
         Add a neighbour record, e.g.::
 
             from pyroute2 import IPRoute
-            from pyroute2.netlink.rtnl import ndmsg
+            from pr2modules.netlink.rtnl import ndmsg
 
             # add a permanent record on veth0
             idx = ip.link_lookup(ifname='veth0')[0]
@@ -1013,7 +1013,7 @@ class RTNL_API(object):
             ip.link("add", ifname="test",
                     IFLA_LINKINFO={'attrs': [['IFLA_INFO_KIND', 'dummy']]})
 
-        Filters are implemented in the `pyroute2.netlink.rtnl.req` module.
+        Filters are implemented in the `pr2modules.netlink.rtnl.req` module.
         You can contribute your own if you miss shortcuts.
 
         Commands:
@@ -1211,7 +1211,7 @@ class RTNL_API(object):
                     vxlan_ttl=16)
 
         All possible vxlan parameters are listed in the module
-        `pyroute2.netlink.rtnl.ifinfmsg:... vxlan_data`.
+        `pr2modules.netlink.rtnl.ifinfmsg:... vxlan_data`.
 
         ► ipoib
 
@@ -1667,7 +1667,7 @@ class RTNL_API(object):
         * scope -- routing realm
         * type -- `unicast`, `local`, etc. (see `rt_type`)
 
-        `pyroute2/netlink/rtnl/rtmsg.py` rtmsg.nla_map:
+        `pr2modules/netlink/rtnl/rtmsg.py` rtmsg.nla_map:
 
         * table -- routing table to use (default: 254)
         * gateway -- via address

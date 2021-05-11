@@ -3,13 +3,13 @@ IPv4 DHCP socket
 ================
 
 '''
-from pyroute2.common import AddrPool
-from pyroute2.protocols import udpmsg
-from pyroute2.protocols import udp4_pseudo_header
-from pyroute2.protocols import ethmsg
-from pyroute2.protocols import ip4msg
-from pyroute2.protocols.rawsocket import RawSocket
-from pyroute2.dhcp.dhcp4msg import dhcp4msg
+from pr2modules.common import AddrPool
+from pr2modules.protocols import udpmsg
+from pr2modules.protocols import udp4_pseudo_header
+from pr2modules.protocols import ethmsg
+from pr2modules.protocols import ip4msg
+from pr2modules.protocols.rawsocket import RawSocket
+from pr2modules.dhcp.dhcp4msg import dhcp4msg
 
 
 def listen_udp_port(port=68):

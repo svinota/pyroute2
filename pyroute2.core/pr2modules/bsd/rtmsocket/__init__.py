@@ -3,33 +3,33 @@ from socket import AF_ROUTE
 from socket import SOCK_RAW
 from socket import AF_INET
 from socket import AF_INET6
-from pyroute2 import config
-from pyroute2.common import dqn2int
-from pyroute2.bsd.pf_route import (bsdmsg,
-                                   if_msg,
-                                   rt_msg,
-                                   if_announcemsg,
-                                   ifma_msg,
-                                   ifa_msg)
+from pr2modules import config
+from pr2modules.common import dqn2int
+from pr2modules.bsd.pf_route import (bsdmsg,
+                                     if_msg,
+                                     rt_msg,
+                                     if_announcemsg,
+                                     ifma_msg,
+                                     ifa_msg)
 
-from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
-from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtnl.rtmsg import rtmsg
-from pyroute2.netlink.rtnl import (RTM_NEWLINK as RTNL_NEWLINK,
-                                   RTM_DELLINK as RTNL_DELLINK,
-                                   RTM_NEWADDR as RTNL_NEWADDR,
-                                   RTM_DELADDR as RTNL_DELADDR,
-                                   RTM_NEWROUTE as RTNL_NEWROUTE,
-                                   RTM_DELROUTE as RTNL_DELROUTE)
+from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
+from pr2modules.netlink.rtnl.rtmsg import rtmsg
+from pr2modules.netlink.rtnl import (RTM_NEWLINK as RTNL_NEWLINK,
+                                     RTM_DELLINK as RTNL_DELLINK,
+                                     RTM_NEWADDR as RTNL_NEWADDR,
+                                     RTM_DELADDR as RTNL_DELADDR,
+                                     RTM_NEWROUTE as RTNL_NEWROUTE,
+                                     RTM_DELROUTE as RTNL_DELROUTE)
 
 if config.uname[0] == 'OpenBSD':
-    from pyroute2.bsd.rtmsocket.openbsd import (RTMSocketBase,
-                                                RTM_ADD,
-                                                RTM_NEWADDR)
+    from pr2modules.bsd.rtmsocket.openbsd import (RTMSocketBase,
+                                                  RTM_ADD,
+                                                  RTM_NEWADDR)
 else:
-    from pyroute2.bsd.rtmsocket.freebsd import (RTMSocketBase,
-                                                RTM_ADD,
-                                                RTM_NEWADDR)
+    from pr2modules.bsd.rtmsocket.freebsd import (RTMSocketBase,
+                                                  RTM_ADD,
+                                                  RTM_NEWADDR)
 
 
 def convert_rt_msg(msg):

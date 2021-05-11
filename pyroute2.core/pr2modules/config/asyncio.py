@@ -15,7 +15,7 @@ try:
 except ImportError:
     import pickle
 
-from pyroute2 import config as config
+from pr2modules import config as config
 
 
 _socketmethods = (

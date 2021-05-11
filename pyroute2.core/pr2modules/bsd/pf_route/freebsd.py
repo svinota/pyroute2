@@ -1,5 +1,5 @@
-from pyroute2.common import map_namespace
-from pyroute2.netlink import nlmsg_base
+from pr2modules.common import map_namespace
+from pr2modules.netlink import nlmsg_base
 
 IFNAMSIZ = 16
 

@@ -1,9 +1,9 @@
 import logging
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import NLM_F_DUMP
-from pyroute2.netlink.devlink import DevlinkSocket
-from pyroute2.netlink.devlink import devlinkcmd
-from pyroute2.netlink.devlink import DEVLINK_NAMES
+from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink import NLM_F_DUMP
+from pr2modules.netlink.devlink import DevlinkSocket
+from pr2modules.netlink.devlink import devlinkcmd
+from pr2modules.netlink.devlink import DEVLINK_NAMES
 
 log = logging.getLogger(__name__)
 

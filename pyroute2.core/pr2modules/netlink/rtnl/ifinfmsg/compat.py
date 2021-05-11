@@ -1,11 +1,11 @@
 import os
 import json
 import subprocess
-from pyroute2.common import map_enoent
-from pyroute2.netlink.rtnl.marshal import MarshalRtnl
-from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.netlink.rtnl.ifinfmsg.sync import sync
-from pyroute2.netlink.rtnl.ifinfmsg.tuntap import manage_tuntap
+from pr2modules.common import map_enoent
+from pr2modules.netlink.rtnl.marshal import MarshalRtnl
+from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
+from pr2modules.netlink.rtnl.ifinfmsg.sync import sync
+from pr2modules.netlink.rtnl.ifinfmsg.tuntap import manage_tuntap
 
 
 # it's simpler to double constants here, than to change all the

@@ -186,7 +186,7 @@ test-platform:
 	@${python} -c "\
 import logging;\
 logging.basicConfig();\
-from pyroute2.config.test_platform import TestCapsRtnl;\
+from pr2modules.config.test_platform import TestCapsRtnl;\
 from pprint import pprint;\
 pprint(TestCapsRtnl().collect())"
 
