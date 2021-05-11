@@ -124,6 +124,41 @@ def test_default(context):
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_spec(context):
+
+    ipaddr = context.new_ipaddr
+    router = context.new_ipaddr
+    ifname = context.new_ifname
+    net = str(context.ipnets[1].network)
+    table = context.table or 24000
+
+    (context
+     .ndb
+     .interfaces
+     .create(ifname=ifname, kind='dummy', state='up')
+     .add_ip('%s/24' % ipaddr)
+     .commit())
+
+    (context
+     .ndb
+     .routes
+     .create(table=table, dst='default', gateway=router)
+     .commit())
+
+    (context
+     .ndb
+     .routes
+     .create(dst=net, dst_len=24, gateway=router)
+     .commit())
+
+    assert route_exists(context.netns, gateway=router, table=table)
+    assert context.ndb.routes['default']  # !!! the system must have this
+    assert context.ndb.routes[{'dst': 'default', 'table': table}]
+    assert context.ndb.routes['%s/24' % net]
+    assert context.ndb.routes[{'dst': net, 'dst_len': 24}]
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_multipath_ipv4(context):
 
     ifname = context.new_ifname
