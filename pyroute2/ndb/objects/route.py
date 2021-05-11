@@ -464,6 +464,23 @@ class Route(RTNL_Object):
                 record.append(None)
             yield record
 
+    @staticmethod
+    def spec_normalize(spec):
+        if isinstance(spec, dict):
+            ret = dict(spec)
+        elif isinstance(spec, basestring):
+            dst_spec = spec.split('/')
+            ret = {'dst': dst_spec[0]}
+            if len(dst_spec) == 2:
+                ret['dst_len'] = int(dst_spec[1])
+            elif len(dst_spec) > 2:
+                raise TypeError('invalid spec format')
+        else:
+            raise TypeError('invalid spec type')
+        if ret.get('dst') == 'default':
+            ret['dst'] = ''
+        return ret
+
     def _cmp_target(key, self, right):
         right = [Target(x) for x in json.loads(right)]
         return all([x[0] == x[1] for x in zip(self[key], right)])
