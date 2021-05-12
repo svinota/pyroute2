@@ -6,6 +6,8 @@
      "netns = pr2modules.netns",
      "config = pr2modules.config",
      "IPRoute = pr2modules.iproute.linux:IPRoute",
+     "common = pr2modules.common",
+     "netlink = pr2modules.netlink",
      "NetlinkError = pr2modules.netlink.exceptions:NetlinkError",
      "NetlinkDecodeError = pr2modules.netlink.exceptions:NetlinkDecodeError",
      "IPRouteRequest = pr2modules.netlink.rtnl.req:IPRouteRequest",

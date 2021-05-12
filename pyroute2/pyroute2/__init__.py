@@ -4,6 +4,7 @@
 #
 import sys
 import struct
+import importlib
 
 ##
 #
@@ -63,9 +64,50 @@ except Exception:
 
 # load entry_points
 modules = []
+namespace_inject = {}
 for entry_point in metadata.entry_points().get('pr2modules', []):
-    globals()[entry_point.name] = entry_point.load()
+    globals()[entry_point.name] = loaded = entry_point.load()
     modules.append(entry_point.name)
+    if len(entry_point.value.split(':')) == 1:
+        key = 'pyroute2.%s' % entry_point.name
+        namespace_inject[key] = loaded
 
 __all__ = []
 __all__.extend(modules)
+
+
+class PyRoute2ModuleSpec(importlib.machinery.ModuleSpec):
+
+    def __init__(self, name, loader, *argv,
+                 origin=None, loader_state=None, is_package=None):
+        self.name = name
+        self.loader = loader
+        self.origin = None
+        self.submodule_search_locations = None
+        self.loader_state = None
+        self.cached = None
+        self.has_location = False
+
+
+class PyRoute2ModuleFinder(importlib.abc.MetaPathFinder):
+
+    @staticmethod
+    def find_spec(fullname, path, target=None):
+        if target is not None:
+            return None
+        if fullname not in namespace_inject:
+            return None
+        return PyRoute2ModuleSpec(fullname, PyRoute2ModuleFinder)
+
+    @staticmethod
+    def create_module(spec):
+        if spec.name not in namespace_inject:
+            return None
+        return namespace_inject[spec.name]
+
+    @staticmethod
+    def exec_module(spec):
+        pass
+
+
+sys.meta_path.append(PyRoute2ModuleFinder())

@@ -1,4 +1,4 @@
-from pr2modules.netlink.generic.mptcp import MPTCP
+from pyroute2 import MPTCP
 from pr2test.context_manager import skip_if_not_supported
 
 
