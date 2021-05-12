@@ -1,5 +1,5 @@
 import logging
-from pyroute2 import NDB
+from pr2modules.ndb.main import NDB
 
 log = logging.getLogger(__name__)
 
