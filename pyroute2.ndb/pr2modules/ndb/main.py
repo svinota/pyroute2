@@ -324,7 +324,6 @@ class View(dict):
                  ndb,
                  table,
                  chain=None,
-                 default_target='localhost',
                  auth_managers=None):
         self.ndb = ndb
         self.log = ndb.log.channel('view.%s' % table)
@@ -336,7 +335,6 @@ class View(dict):
             auth_managers = []
         if chain:
             auth_managers += chain.auth_managers
-        self.default_target = default_target
         self.auth_managers = auth_managers
         self.constraints = {}
         self.classes = OrderedDict()
@@ -353,6 +351,13 @@ class View(dict):
 
     def __exit__(self, exc_type, exc_value, traceback):
         pass
+
+    @property
+    def default_target(self):
+        if self.table == 'netns':
+            return self.ndb.nsmanager
+        else:
+            return self.ndb.localhost
 
     @property
     def context(self):
@@ -893,18 +898,16 @@ class AuthProxy(object):
         self._ndb = ndb
         self._auth_managers = auth_managers
 
-        for spec in (('interfaces', ndb.localhost),
-                     ('addresses', ndb.localhost),
-                     ('routes', ndb.localhost),
-                     ('neighbours', ndb.localhost),
-                     ('rules', ndb.localhost),
-                     ('netns', ndb.nsmanager),
-                     ('vlans', ndb.localhost)):
-            view = View(self._ndb,
-                        spec[0],
-                        default_target=spec[1],
+        for spec in ('interfaces',
+                     'addresses',
+                     'routes',
+                     'neighbours',
+                     'rules',
+                     'netns',
+                     'vlans'):
+            view = View(self._ndb, spec,
                         auth_managers=self._auth_managers)
-            setattr(self, spec[0], view)
+            setattr(self, spec, view)
 
 
 class NDB(object):
@@ -1007,18 +1010,17 @@ class NDB(object):
         for event in tuple(self._dbm_autoload):
             event.wait()
         self._dbm_autoload = None
-        for spec in (('interfaces', self.localhost),
-                     ('addresses', self.localhost),
-                     ('routes', self.localhost),
-                     ('neighbours', self.localhost),
-                     ('rules', self.localhost),
-                     ('netns', self.nsmanager),
-                     ('vlans', self.localhost)):
+        for spec in ('interfaces',
+                     'addresses',
+                     'routes',
+                     'neighbours',
+                     'rules',
+                     'netns',
+                     'vlans'):
             view = View(self,
-                        spec[0],
-                        default_target=spec[1],
+                        spec,
                         auth_managers=[am])
-            setattr(self, spec[0], view)
+            setattr(self, spec, view)
         # self.query = Query(self.schema)
 
     def _get_view(self, name, chain=None):
