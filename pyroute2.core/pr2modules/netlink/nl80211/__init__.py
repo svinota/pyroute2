@@ -232,7 +232,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_STA_SUPPORTED_RATES', 'hex'),
                ('NL80211_ATTR_STA_VLAN', 'hex'),
                ('NL80211_ATTR_STA_INFO', 'STAInfo'),
-               ('NL80211_ATTR_WIPHY_BANDS', 'hex'),
+               ('NL80211_ATTR_WIPHY_BANDS', '*band'),
                ('NL80211_ATTR_MNTR_FLAGS', 'hex'),
                ('NL80211_ATTR_MESH_ID', 'hex'),
                ('NL80211_ATTR_STA_PLINK_ACTION', 'hex'),
@@ -428,6 +428,171 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_MAC_MASK', 'hex'),
                ('NL80211_ATTR_WIPHY_SELF_MANAGED_REG', 'hex'),
                ('NUM_NL80211_ATTR', 'hex'))
+
+    class band(nla):
+        class bitrate(nla):
+            prefix = 'NL80211_BITRATE_ATTR_'
+            nla_map = (('__NL80211_BITRATE_ATTR_INVALID', 'hex'),
+                       ('NL80211_BITRATE_ATTR_RATE', 'uint32'),  # 10x Mbps
+                       ('NL80211_BITRATE_ATTR_2GHZ_SHORTPREAMBLE', 'flag'),
+                       )
+
+        class frequency(nla):
+            class wmm_rule(nla):
+                prefix = 'NL80211_WMMR_'
+                nla_map = (('__NL80211_WMMR_INVALID', 'hex'),
+                           ('NL80211_WMMR_CW_MIN', 'uint16'),
+                           ('NL80211_WMMR_CW_MAX', 'uint16'),
+                           ('NL80211_WMMR_AIFSN', 'uint8'),
+                           ('NL80211_WMMR_TXOP', 'uint16'),
+                           )
+
+            prefix = 'NL80211_FREQUENCY_ATTR_'
+            nla_map = (('__NL80211_FREQUENCY_ATTR_INVALID', 'hex'),
+                       ('NL80211_FREQUENCY_ATTR_FREQ', 'uint32'),
+                       ('NL80211_FREQUENCY_ATTR_DISABLED', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_NO_IR', 'flag'),
+                       ('__NL80211_FREQUENCY_ATTR_NO_IBSS', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_RADAR', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_MAX_TX_POWER', 'uint32'),
+                       ('NL80211_FREQUENCY_ATTR_DFS_STATE', 'uint32'),
+                       ('NL80211_FREQUENCY_ATTR_DFS_TIME', 'uint32'),
+                       ('NL80211_FREQUENCY_ATTR_NO_HT40_MINUS', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_NO_HT40_PLUS', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_NO_80MHZ', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_NO_160MHZ', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_DFS_CAC_TIME', 'uint32'),
+                       ('NL80211_FREQUENCY_ATTR_INDOOR_ONLY', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_IR_CONCURRENT', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_NO_20MHZ', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_NO_10MHZ', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_WMM', '*wmm_rule'),
+                       ('NL80211_FREQUENCY_ATTR_NO_HE', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_OFFSET', 'uint32'),
+                       ('NL80211_FREQUENCY_ATTR_1MHZ', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_2MHZ', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_4MHZ', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_8MHZ', 'flag'),
+                       ('NL80211_FREQUENCY_ATTR_16MHZ', 'flag'),
+                       )
+
+        class iftype_data(nla):
+            class iftype(nla):
+                prefix = 'NL80211_IFTYPE_'
+                nla_map = (('NL80211_IFTYPE_UNSPECIFIED', 'flag'),
+                           ('NL80211_IFTYPE_ADHOC', 'flag'),
+                           ('NL80211_IFTYPE_STATION', 'flag'),
+                           ('NL80211_IFTYPE_AP', 'flag'),
+                           ('NL80211_IFTYPE_AP_VLAN', 'flag'),
+                           ('NL80211_IFTYPE_WDS', 'flag'),
+                           ('NL80211_IFTYPE_MONITOR', 'flag'),
+                           ('NL80211_IFTYPE_MESH_POINT', 'flag'),
+                           ('NL80211_IFTYPE_P2P_CLIENT', 'flag'),
+                           ('NL80211_IFTYPE_P2P_GO', 'flag'),
+                           ('NL80211_IFTYPE_P2P_DEVICE', 'flag'),
+                           ('NL80211_IFTYPE_OCB', 'flag'),
+                           ('NL80211_IFTYPE_NAN', 'flag'),
+                           )
+
+            class mcs_nss(nla):
+                '''
+                HE Tx/Rx HE MCS NSS Support Field
+
+                C structure::
+
+                struct ieee80211_he_mcs_nss_supp {
+                    __le16 rx_mcs_80;
+                    __le16 tx_mcs_80;
+                    __le16 rx_mcs_160;
+                    __le16 tx_mcs_160;
+                    __le16 rx_mcs_80p80;
+                    __le16 tx_mcs_80p80;
+                } __packed;
+                '''
+                fields = (('rx_mcs_80', '<H'),
+                          ('tx_mcs_80', '<H'),
+                          ('rx_mcs_160', '<H'),
+                          ('tx_mcs_160', '<H'),
+                          ('rx_mcs_80p80', '<H'),
+                          ('tx_mcs_80p80', '<H'),
+                          )
+
+            class he_6ghz_capa(nla):
+                '''
+                HE 6 GHz band capabilities
+
+                C structure::
+
+                struct ieee80211_he_6ghz_capa {
+                    __le16 capa;
+                } __packed;
+                '''
+                fields = (('capa', '<H'),
+                          )
+
+            prefix = 'NL80211_BAND_IFTYPE_ATTR_'
+            nla_map = (('__NL80211_BAND_IFTYPE_ATTR_INVALID', 'hex'),
+                       ('NL80211_BAND_IFTYPE_ATTR_IFTYPES', 'iftype'),
+                       ('NL80211_BAND_IFTYPE_ATTR_HE_CAP_MAC', 'array(uint8)'),
+                       ('NL80211_BAND_IFTYPE_ATTR_HE_CAP_PHY', 'array(uint8)'),
+                       ('NL80211_BAND_IFTYPE_ATTR_HE_CAP_MCS_SET', 'mcs_nss'),
+                       ('NL80211_BAND_IFTYPE_ATTR_HE_CAP_PPE', 'array(uint8)'),
+                       ('NL80211_BAND_IFTYPE_ATTR_HE_6GHZ_CAPA',
+                        'he_6ghz_capa'),
+                       )
+
+        class mcs(nla):
+            '''
+            MCS information
+
+            C structure::
+
+            struct ieee80211_mcs_info {
+                u8 rx_mask[IEEE80211_HT_MCS_MASK_LEN];
+                __le16 rx_highest;
+                u8 tx_params;
+                u8 reserved[3];
+            } __packed;
+            '''
+            fields = (('rx_mask', '=10B'),
+                      ('rx_highest', '<H'),
+                      ('tx_params', '=B'),
+                      ('reserved', '=3B'),
+                      )
+
+        class vht_mcs(nla):
+            '''
+            VHT MCS information
+
+            C structure::
+
+            struct ieee80211_vht_mcs_info {
+                __le16 rx_mcs_map;
+                __le16 rx_highest;
+                __le16 tx_mcs_map;
+                __le16 tx_highest;
+            } __packed;
+            '''
+            fields = (('rx_mcs_map', '<H'),
+                      ('rx_highest', '<H'),
+                      ('tx_mcs_map', '<H'),
+                      ('tx_highest', '<H'),
+                      )
+
+        prefix = 'NL80211_BAND_ATTR_'
+        nla_map = (('__NL80211_BAND_ATTR_INVALID', 'hex'),
+                   ('NL80211_BAND_ATTR_FREQS', '*frequency'),
+                   ('NL80211_BAND_ATTR_RATES', '*bitrate'),
+                   ('NL80211_BAND_ATTR_HT_MCS_SET', 'mcs'),
+                   ('NL80211_BAND_ATTR_HT_CAPA', 'uint16'),
+                   ('NL80211_BAND_ATTR_HT_AMPDU_FACTOR', 'uint8'),
+                   ('NL80211_BAND_ATTR_HT_AMPDU_DENSITY', 'uint8'),
+                   ('NL80211_BAND_ATTR_VHT_MCS_SET', 'vht_mcs'),
+                   ('NL80211_BAND_ATTR_VHT_CAPA', 'uint32'),
+                   ('NL80211_BAND_ATTR_IFTYPE_DATA', '*iftype_data'),
+                   ('NL80211_BAND_ATTR_EDMG_CHANNELS', 'uint8'),
+                   ('NL80211_BAND_ATTR_EDMG_BW_CONFIG', 'uint8'),
+                   )
 
     class bss(nla):
         class elementsBinary(nla_base):
