@@ -179,6 +179,8 @@ if HAS_NDB:
 else:
     log.warning("Couldn't import NDB")
 
+log.warning("Beware of the coming changes in the project packaging")
+log.warning("https://github.com/svinota/pyroute2/discussions/786")
 __all__ = []
 __all__.extend([x.__name__ for x in exceptions])
 __all__.extend([x.__name__ for x in classes])
