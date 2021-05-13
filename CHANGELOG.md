@@ -1,6 +1,12 @@
 Changelog
 =========
 
+* 0.5.19
+    * ndb: fix default routes keys: <https://github.com/svinota/pyroute2/issues/790>
+    * mptcp: basic support: <https://github.com/svinota/pyroute2/issues/782>
+    * netlink: ext_ack support fix: <https://github.com/svinota/pyroute2/pull/759>
+    * tc: netem rate setting: <https://github.com/svinota/pyroute2/pull/780>
+    * NSPopen: fix fd leak: <https://github.com/svinota/pyroute2/issues/622>
 * 0.5.18
     * netlink: support zero length lladdr: <https://github.com/svinota/pyroute2/issues/717>
 * 0.5.17
