@@ -79,6 +79,7 @@ import uuid
 import json
 import struct
 from socket import AF_INET
+from socket import AF_INET6
 from socket import inet_pton
 from functools import partial
 from collections import OrderedDict
@@ -479,6 +480,9 @@ class Route(RTNL_Object):
             raise TypeError('invalid spec type')
         if ret.get('dst') == 'default':
             ret['dst'] = ''
+        elif ret.get('dst') in ('::', '::/0'):
+            ret['dst'] = ''
+            ret['family'] = AF_INET6
         return ret
 
     def _cmp_target(key, self, right):
