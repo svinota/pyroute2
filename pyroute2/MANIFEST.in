@@ -1,0 +1,10 @@
+include VERSION
+include README.rst
+include README.make.md
+include README.report.md
+include README.license.md
+include LICENSE*
+include CHANGELOG.md
+graft docs/html
+graft tests/unit
+graft examples

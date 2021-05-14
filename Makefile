@@ -42,6 +42,51 @@ ifdef lib
 	override lib := "--install-lib=${lib}"
 endif
 
+define list_modules
+	`ls -1 | sed -n '/egg-info/n; /pyroute2/p'`
+endef
+
+define make_modules
+	for module in $(call list_modules); do make -C $$module $(1) python=${python}; done
+endef
+
+define fetch_modules_dist
+	for module in $(call list_modules); do cp $$module/dist/* dist; done
+endef
+
+define clean_module
+	if [ -f $$module/setup.json ]; then \
+		for i in `ls -1 templates`; do rm -f $$module/$$i; done; \
+	fi; \
+	rm -f $$module/LICENSE.*; \
+	rm -f $$module/README.license.md; \
+	rm -f $$module/CHANGELOG.md; \
+	rm -f $$module/VERSION; \
+	rm -rf $$module/build; \
+	rm -rf $$module/dist; \
+	rm -rf $$module/*egg-info
+endef
+
+define process_templates
+	for module in $(call list_modules); do \
+		if [ -f $$module/setup.json ]; then \
+			for template in `ls -1 templates`; do \
+				python \
+					util/process_template.py \
+					templates/$$template \
+					$$module/setup.json \
+					$$module/$$template; \
+			done; \
+		fi; \
+	done
+endef
+
+define deploy_license
+	cp LICENSE.* $$module/ ; \
+	cp README.license.md $$module/ ; \
+	cp CHANGELOG.md $$module/
+endef
+
 all:
 	@echo targets:
 	@echo
@@ -53,6 +98,8 @@ all:
 	@echo
 
 clean:
+	@for module in $(call list_modules); do $(call clean_module); done
+	@rm -f VERSION
 	@rm -rf dist build MANIFEST
 	@rm -f docs-build.log
 	@rm -f docs/general.rst
@@ -78,8 +125,9 @@ clean:
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
 	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
 
-pyroute2/config/version.py:
+VERSION:
 	@${python} util/update_version.py
+	@for package in $(call list_modules); do cp VERSION $$package; done
 
 docs/html: pyroute2/config/version.py
 	@cp README.rst docs/general.rst
@@ -138,24 +186,36 @@ test-platform:
 	@${python} -c "\
 import logging;\
 logging.basicConfig();\
-from pyroute2.config.test_platform import TestCapsRtnl;\
+from pr2modules.config.test_platform import TestCapsRtnl;\
 from pprint import pprint;\
 pprint(TestCapsRtnl().collect())"
 
 upload: dist
 	${python} -m twine upload dist/*
 
-dist: clean pyroute2/config/version.py docs
-	${python} setup.py sdist
+setup:
+	$(call process_templates)
+	@for module in $(call list_modules); do $(call deploy_license); done
+
+dist: clean VERSION setup
+	cd pyroute2; ${python} setup.py sdist
+	mkdir dist
+	$(call make_modules, dist)
+	$(call fetch_modules_dist)
 	${python} -m twine check dist/*
 
-install: clean pyroute2/config/version.py
-	${python} setup.py install ${root} ${lib}
+install: dist
+	rm -f dist/pyroute2.minimal*
+	${python} -m pip install dist/*
 
-uninstall: clean
-	${python} -m pip uninstall pyroute2
+install-minimal: dist
+	${python} -m pip install dist/pyroute2.minimal* dist/pyroute2.core*
 
-develop: clean pyroute2/config/version.py
+uninstall: clean setup
+	$(call make_modules, uninstall)
+
+develop: clean VERSION
+	$(call make_modules, develop)
 	${python} setup.py develop
 
 # deprecated:

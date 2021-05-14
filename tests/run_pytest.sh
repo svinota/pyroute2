@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 cd "$( dirname "${BASH_SOURCE[0]}" )"
 TOP=$(readlink -f $(pwd)/..)
@@ -32,9 +32,9 @@ function deploy() {
         sleep 1
     } done
     cd $TOP
-    DIST_NAME=pyroute2-$(git describe | sed 's/-[^-]*$//;s/-/.post/')
+    DIST_VERSION=$(git describe | sed 's/-[^-]*$//;s/-/.post/')
     echo -n "dist ... "
-    make dist >/dev/null 2>&1
+    make dist python=$PYTHON
     rm -rf "$WORKSPACE"
     mkdir -p "$WORKSPACE/bin"
     cp -a "$TOP/.flake8" "$WORKSPACE/"
@@ -43,35 +43,28 @@ function deploy() {
     cp -a "$TOP/cli/pyroute2-cli" "$WORKSPACE/bin/"
     cp -a "$TOP/cli/ss2" "$WORKSPACE/bin/"
     cd "$TOP/dist"
-    tar xf $DIST_NAME.tar.gz
-    mv $DIST_NAME/pyroute2 "$WORKSPACE/"
+    $PYTHON -m pip install pyroute2*$DIST_VERSION*
     curl -X DELETE --data test http://localhost:7623/v1/lock/ >/dev/null 2>&1
     echo "ok"
     cd "$WORKSPACE/"
     echo -n "flake8 ... "
-    $FLAKE8_PATH .
+    $PYTHON -m flake8 .
     ret=$?
     [ $ret -eq 0 ] && echo "ok"
     return $ret
 }
 
-#
-# Install test requirements, if not installed.
-#
-function install_test_reqs() {
-    which pip >/dev/null 2>&1 && pip install -q -r requirements.txt
-}
+if [ -z "$VIRTUAL_ENV" -a -z "$PR2TEST_FORCE_RUN" ]; then {
+    echo "Not in VirtualEnv and PR2TEST_FORCE_RUN is not set"
+    exit 1
+} fi
 
-if [ -z "$VIRTUAL_ENV" ]; then
-    install_test_reqs
-else
-    # Install requirements only into manually-made virtualenvs.
-    if [ -f "$VIRTUAL_ENV/bin/activate" ]; then
-        source "$VIRTUAL_ENV/bin/activate"
-        install_test_reqs
-    fi
-    echo "Running in VirtualEnv"
-fi
+$PYTHON -m pip install -q -r requirements.txt
+
+echo "Version: $VERSION"
+echo "Kernel: `uname -r`"
+
+deploy || exit 1
 
 #
 # Setup kernel parameters
@@ -88,40 +81,20 @@ fi
 }
 
 
-#
-# Adjust paths
-#
-if which pyenv 2>&1 >/dev/null; then
-    PYTHON_PATH=$(pyenv which $PYTHON)
-    FLAKE8_PATH=$(pyenv which $FLAKE8)
-    PYTEST_PATH=$(pyenv which $PYTEST)
-else
-    PYTHON_PATH=$(which $PYTHON)
-    FLAKE8_PATH=$(which $FLAKE8)
-    PYTEST_PATH=$(which $PYTEST)
-fi
-
-echo "Version: $VERSION"
-echo "Kernel: `uname -r`"
-
-
 errors=0
 avgtime=0
 for i in `seq $LOOP`; do
 
     echo "[`date +%s`] iteration $i of $LOOP"
 
-    deploy || {
-        echo "flake 8 failed, sleeping for 30 seconds"
-        errors=$(($errors + 1))
-        break
-    }
-
-    $PYTHON $WLEVEL "$PYTEST_PATH" --basetemp ./log $PDB $COVERAGE
+    $PYTHON $WLEVEL -m $PYTEST --basetemp ./log $PDB $COVERAGE
     ret=$?
     [ $ret -eq 0 ] || {
         errors=$(($errors + 1))
     }
 
 done
+for i in `$PYTHON -m pip list | awk '/pyroute2/ {print $1}'`; do {
+    $PYTHON -m pip uninstall -y $i
+} done
 exit $errors

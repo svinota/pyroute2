@@ -7,13 +7,13 @@ import functools
 from collections import namedtuple
 from utils import allocate_network
 from utils import free_network
-from pyroute2 import netns
-from pyroute2 import NDB
-from pyroute2 import NetNS
-from pyroute2 import IPRoute
-from pyroute2 import NetlinkError
-from pyroute2.common import uifname
-from pyroute2.common import basestring
+from pr2modules import netns
+from pr2modules.ndb.main import NDB
+from pr2modules.nslink.nslink import NetNS
+from pr2modules.iproute.linux import IPRoute
+from pr2modules.netlink.exceptions import NetlinkError
+from pr2modules.common import uifname
+from pr2modules.common import basestring
 
 
 def skip_if_not_supported(func):

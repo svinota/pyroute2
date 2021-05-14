@@ -1,0 +1,11 @@
+{
+ "name": "pyroute2.ipdb",
+ "description": "IPDB module",
+ "requires": "pyroute2.core",
+ "entry_points": ["IPDB = pr2modules.ipdb.main:IPDB",
+                  "DeprecationException = pr2modules.ipdb.exceptions:DeprecationException",
+                  "CommitException = pr2modules.ipdb.exceptions:CommitException",
+                  "CreateException = pr2modules.ipdb.exceptions:CreateException",
+                  "PartialCommitException = pr2modules.ipdb.exceptions:PartialCommitException"],
+ "scripts": ""
+}

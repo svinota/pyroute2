@@ -1,6 +1,8 @@
+import uuid
 import pytest
 from pyroute2 import NDB
 from pr2test.tools import interface_exists
+from pr2test.tools import address_exists
 from pr2test.context_manager import make_test_matrix
 
 
@@ -74,3 +76,44 @@ def test_basic(context):
         addr3_idx = ndb.addresses['%s/24' % ifaddr3]['index']
 
     assert if_idx == addr1_idx == addr2_idx == addr3_idx
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_localhost_implicit(context):
+    ifname = context.new_ifname
+    ipaddr = context.new_ipaddr
+    nsname = context.new_nsname
+
+    context.ndb.sources.add(netns=nsname)
+    context.ndb.localhost = nsname
+
+    (context
+     .ndb
+     .interfaces
+     .create(ifname=ifname, kind='dummy')
+     .add_ip(address=ipaddr, prefixlen=24)
+     .commit())
+
+    assert interface_exists(nsname, ifname=ifname)
+    assert address_exists(nsname, ifname=ifname, address=ipaddr)
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_localhost_explicit(context):
+    ifname = context.new_ifname
+    ipaddr = context.new_ipaddr
+    nsname = context.new_nsname
+    target = str(uuid.uuid4())
+
+    context.ndb.sources.add(netns=nsname, target=target)
+    context.ndb.localhost = target
+
+    (context
+     .ndb
+     .interfaces
+     .create(ifname=ifname, kind='dummy')
+     .add_ip(address=ipaddr, prefixlen=24)
+     .commit())
+
+    assert interface_exists(nsname, ifname=ifname)
+    assert address_exists(nsname, ifname=ifname, address=ipaddr)
