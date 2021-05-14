@@ -205,7 +205,11 @@ dist: clean VERSION setup
 	${python} -m twine check dist/*
 
 install: dist
+	rm -f dist/pyroute2.minimal*
 	${python} -m pip install dist/*
+
+install-minimal: dist
+	${python} -m pip install dist/pyroute2.minimal* dist/pyroute2.core*
 
 uninstall: clean setup
 	$(call make_modules, uninstall)
