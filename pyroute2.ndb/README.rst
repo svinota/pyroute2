@@ -11,7 +11,7 @@ standalone service or may be used as a Python module.
 links
 =====
 
-DB docs: <https://docs.pyroute2.org/ndb.html>
-Home: <https://github.com/svinota/pyroute2/>
-PyPI: <https://pypi.org/project/pyroute2/>
-Usage: <https://github.com/svinota/pyroute2/discussions/796>
+* DB docs: <https://docs.pyroute2.org/ndb.html>
+* Home: <https://github.com/svinota/pyroute2/>
+* PyPI: <https://pypi.org/project/pyroute2/>
+* Usage: <https://github.com/svinota/pyroute2/discussions/796>
