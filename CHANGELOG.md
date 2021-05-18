@@ -1,6 +1,8 @@
 Changelog
 =========
 
+* 0.6.0
+    * packaging: new layout: <https://github.com/svinota/pyroute2/discussions/786>
 * 0.5.19
     * ndb: fix default routes keys: <https://github.com/svinota/pyroute2/issues/790>
     * mptcp: basic support: <https://github.com/svinota/pyroute2/issues/782>

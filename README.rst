@@ -1,4 +1,4 @@
-.. warning:: Please read about the coming changes in the packaging: https://github.com/svinota/pyroute2/discussions/786
+.. warning:: Please read about the changes in the packaging: https://github.com/svinota/pyroute2/discussions/786
 
 Pyroute2
 ========
