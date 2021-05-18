@@ -129,7 +129,7 @@ VERSION:
 	@${python} util/update_version.py
 	@for package in $(call list_modules); do cp VERSION $$package; done
 
-docs/html: pyroute2/config/version.py
+docs/html:
 	@cp README.rst docs/general.rst
 	@cp README.make.md docs/makefile.rst
 	@cp README.report.md docs/report.rst
@@ -144,7 +144,7 @@ docs/html: pyroute2/config/version.py
 		unset PYTHONPATH ;\
 		[ -z "$$FAIL" ] || false
 
-docs: docs/html
+docs: install docs/html
 
 check_parameters:
 	@if [ ! -z "${skip_tests}" ]; then \
