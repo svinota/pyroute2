@@ -1,9 +1,9 @@
-pyroute2.protocols
-==================
+pyroute2.nftables
+=================
 
 PyRoute2 is a pure Python **netlink** library.
 
-Supplementary module with some related protocols.
+This module provides very basic nftables API.
 
 links
 =====
