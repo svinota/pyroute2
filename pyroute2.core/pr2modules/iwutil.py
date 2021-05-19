@@ -564,3 +564,33 @@ class IW(NL80211):
                     return x
 
         return None
+
+    def get_regulatory_domain(self, attr=None):
+        '''
+        Get regulatory domain information. If attr specified, get regulatory
+        domain information for this device
+        ( use x.get_attr('NL80211_ATTR_WIPHY') ).
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_REG']
+        flags = NLM_F_REQUEST
+        if attr is None:
+            flags |= NLM_F_DUMP
+        else:
+            msg['attrs'] = [['NL80211_ATTR_WIPHY', attr]]
+
+        return self.nlm_request(msg,
+                                msg_type=self.prid,
+                                msg_flags=flags)
+
+    def set_regulatory_domain(self, alpha2):
+        '''
+        Set regulatory domain.
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_REQ_SET_REG']
+        msg['attrs'] = [['NL80211_ATTR_REG_ALPHA2', alpha2]]
+
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)

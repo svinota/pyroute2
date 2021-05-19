@@ -243,8 +243,8 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_BSS_SHORT_SLOT_TIME', 'hex'),
                ('NL80211_ATTR_HT_CAPABILITY', 'hex'),
                ('NL80211_ATTR_SUPPORTED_IFTYPES', 'hex'),
-               ('NL80211_ATTR_REG_ALPHA2', 'hex'),
-               ('NL80211_ATTR_REG_RULES', 'hex'),
+               ('NL80211_ATTR_REG_ALPHA2', 'asciiz'),
+               ('NL80211_ATTR_REG_RULES', '*reg_rule'),
                ('NL80211_ATTR_MESH_CONFIG', 'hex'),
                ('NL80211_ATTR_BSS_BASIC_RATES', 'hex'),
                ('NL80211_ATTR_WIPHY_TXQ_PARAMS', 'hex'),
@@ -786,6 +786,18 @@ class nl80211cmd(genlmsg):
                    ('NL80211_BSS_BEACON_TSF', 'uint64'),
                    ('NL80211_BSS_PRESP_DATA', 'hex'),
                    ('NL80211_BSS_MAX', 'hex')
+                   )
+
+    class reg_rule(nla):
+        prefix = 'NL80211_ATTR_'
+        nla_map = (('__NL80211_REG_RULE_ATTR_INVALID', 'hex'),
+                   ('NL80211_ATTR_REG_RULE_FLAGS', 'uint32'),
+                   ('NL80211_ATTR_FREQ_RANGE_START', 'uint32'),
+                   ('NL80211_ATTR_FREQ_RANGE_END', 'uint32'),
+                   ('NL80211_ATTR_FREQ_RANGE_MAX_BW', 'uint32'),
+                   ('NL80211_ATTR_POWER_RULE_MAX_ANT_GAIN', 'uint32'),
+                   ('NL80211_ATTR_POWER_RULE_MAX_EIRP', 'uint32'),
+                   ('NL80211_ATTR_DFS_CAC_TIME', 'uint32')
                    )
 
     class STAInfo(nla):
