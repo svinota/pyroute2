@@ -594,3 +594,29 @@ class IW(NL80211):
         self.nlm_request(msg,
                          msg_type=self.prid,
                          msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
+    def set_wiphy_netns_by_pid(self, wiphy, pid):
+        '''
+        Set wiphy network namespace to process network namespace.
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_SET_WIPHY_NETNS']
+        msg['attrs'] = [['NL80211_ATTR_WIPHY', wiphy],
+                        ['NL80211_ATTR_PID', pid]]
+
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
+    def set_wiphy_netns_by_fd(self, wiphy, netns_fd):
+        '''
+        Set wiphy network namespace to namespace referenced by fd.
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_SET_WIPHY_NETNS']
+        msg['attrs'] = [['NL80211_ATTR_WIPHY', wiphy],
+                        ['NL80211_ATTR_NETNS_FD', netns_fd]]
+
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
