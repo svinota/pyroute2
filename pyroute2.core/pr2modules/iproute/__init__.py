@@ -128,7 +128,6 @@ from them -- unlike PF_ROUTE messages.
 '''
 import sys
 from pr2modules import config
-from pr2modules.common import failed_class
 from pr2modules.iproute.linux import RTNL_API
 from pr2modules.iproute.linux import IPBatch
 # compatibility fix -- LNST:
@@ -138,10 +137,6 @@ from pr2modules.netlink.rtnl import (RTM_GETLINK,
                                      RTM_GETADDR,
                                      RTM_NEWADDR,
                                      RTM_DELADDR)
-try:
-    from pr2modules.iproute.remote import RemoteIPRoute
-except ImportError:
-    RemoteIPRoute = failed_class('missing mitogen library')
 
 if sys.platform.startswith('win'):
     from pr2modules.iproute.windows import IPRoute
@@ -156,8 +151,7 @@ else:
 classes = [RTNL_API,
            IPBatch,
            IPRoute,
-           RawIPRoute,
-           RemoteIPRoute]
+           RawIPRoute]
 
 constants = [RTM_GETLINK,
              RTM_NEWLINK,

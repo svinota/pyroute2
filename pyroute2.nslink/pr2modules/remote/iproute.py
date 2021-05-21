@@ -3,9 +3,9 @@ import errno
 import mitogen.core
 import mitogen.master
 import threading
-from pr2modules.remote import (Transport,
-                             Server,
-                             RemoteSocket)
+from .transport import (Transport,
+                        Server,
+                        RemoteSocket)
 from pr2modules.iproute.linux import RTNL_API
 from pr2modules.netlink.rtnl.iprsocket import MarshalRtnl
 

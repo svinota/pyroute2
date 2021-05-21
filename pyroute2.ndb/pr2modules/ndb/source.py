@@ -77,7 +77,7 @@ import socket
 import struct
 import threading
 from pr2modules.iproute.linux import IPRoute
-from pr2modules.iproute.remote import RemoteIPRoute
+from pr2modules.remote import RemoteIPRoute
 from pr2modules.netlink.nlsocket import NetlinkMixin
 from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg

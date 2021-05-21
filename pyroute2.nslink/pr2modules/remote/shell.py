@@ -3,9 +3,9 @@ import struct
 import atexit
 import logging
 import subprocess
-from pr2modules.remote import Transport
-from pr2modules.remote import RemoteSocket
 from pr2modules.iproute import RTNL_API
+from pr2modules.remote.transport import Transport
+from pr2modules.remote.transport import RemoteSocket
 from pr2modules.netlink.rtnl.iprsocket import MarshalRtnl
 
 log = logging.getLogger(__name__)

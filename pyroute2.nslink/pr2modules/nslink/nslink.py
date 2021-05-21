@@ -74,9 +74,9 @@ from pr2modules.netlink.rtnl.iprsocket import MarshalRtnl
 from pr2modules.iproute import RTNL_API
 from pr2modules.netns import setns
 from pr2modules.netns import remove
-from ..remote import Server
-from ..remote import Transport
-from ..remote import RemoteSocket
+from ..remote.transport import Server
+from ..remote.transport import Transport
+from ..remote.transport import RemoteSocket
 
 log = logging.getLogger(__name__)
 

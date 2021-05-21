@@ -24,7 +24,6 @@ by the library:
 .. inheritance-diagram:: pyroute2.iproute.linux.IPRoute
     pyroute2.iproute.linux.IPBatch
     pyroute2.iproute.linux.RawIPRoute
-    pyroute2.iproute.RemoteIPRoute
     pyroute2.iwutil.IW
     pyroute2.ipset.IPSet
     pyroute2.netlink.uevent.UeventSocket
@@ -40,7 +39,8 @@ by the library:
     pyroute2.netlink.event.thermal_event.ThermalEventSocket
     pyroute2.netlink.devlink.DevlinkSocket
     pyroute2.netlink.diag.DiagSocket
-    pyroute2.remote.RemoteSocket
+    pyroute2.remote.RemoteIPRoute
+    pyroute2.remote.transport.RemoteSocket
     pyroute2.remote.shell.ShellIPR
     pyroute2.netns.nslink.NetNS
     :parts: 1
