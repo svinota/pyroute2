@@ -98,7 +98,7 @@ A list of low-level utility classes:
 * `IPRoute` [`pyroute2.iproute`], RTNL utility like ip/tc
 * `IPSet` [`pyroute2.ipset`], manipulate IP sets
 * `IW` [`pyroute2.iwutil`], basic nl80211 support
-* `NetNS` [`pyroute2.netns`], netns-enabled `IPRoute`
+* `NetNS` [`pyroute2.nslink`], netns-enabled `IPRoute`
 * `TaskStats` [`pyroute2.netlink.taskstats`], taskstats utility
 
 High-level utilities:

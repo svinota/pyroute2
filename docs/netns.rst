@@ -1,13 +1,13 @@
 .. _netns:
 
-NetNS module
-============
+netns management
+================
 
 .. automodule:: pyroute2.netns
     :members:
 
-.. automodule:: pyroute2.netns.nslink
+.. automodule:: pyroute2.nslink
     :members:
 
-.. automodule:: pyroute2.netns.process.proxy
+.. automodule:: pyroute2.NSPopen
     :members:
