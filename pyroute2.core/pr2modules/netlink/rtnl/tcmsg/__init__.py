@@ -19,6 +19,7 @@ from pr2modules.netlink.rtnl.tcmsg import sched_hfsc
 from pr2modules.netlink.rtnl.tcmsg import sched_htb
 from pr2modules.netlink.rtnl.tcmsg import sched_ingress
 from pr2modules.netlink.rtnl.tcmsg import sched_netem
+from pr2modules.netlink.rtnl.tcmsg import sched_pfifo
 from pr2modules.netlink.rtnl.tcmsg import sched_pfifo_fast
 from pr2modules.netlink.rtnl.tcmsg import sched_plug
 from pr2modules.netlink.rtnl.tcmsg import sched_sfq
@@ -41,6 +42,7 @@ plugins = {'plug': sched_plug,
            'basic': cls_basic,
            'flow': cls_flow,
            'ingress': sched_ingress,
+           'pfifo': sched_pfifo,
            'pfifo_fast': sched_pfifo_fast,
            'choke': sched_choke,
            'drr': sched_drr,
