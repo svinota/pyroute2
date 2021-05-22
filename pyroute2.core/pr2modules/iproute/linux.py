@@ -5,6 +5,7 @@ import logging
 from socket import AF_INET
 from socket import AF_INET6
 from socket import AF_UNSPEC
+from itertools import chain
 from functools import partial
 from pr2modules import config
 from pr2modules.config import AF_BRIDGE
@@ -1622,6 +1623,12 @@ class RTNL_API(object):
                     'replace-filter': (RTM_NEWTFILTER, flags_replace)}
         if isinstance(command, int):
             command = (command, flags_make)
+        if command == 'del':
+            if index == 0:
+                index = [x['index'] for x in self.get_links()
+                         if x['index'] != 1]
+            if isinstance(index, (list, tuple, set)):
+                return list(chain(*(self.tc('del', index=x) for x in index)))
         command, flags = commands.get(command, command)
         msg = tcmsg()
         # transform handle, parent and target, if needed:
