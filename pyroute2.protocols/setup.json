@@ -2,6 +2,6 @@
  "name": "pyroute2.protocols",
  "description": "supplementary protocols",
  "requires": "pyroute2.core",
- "entry_points": "",
+ "entry_points": ["dhcp = pr2modules.dhcp"],
  "scripts": ""
 }
