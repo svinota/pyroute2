@@ -62,3 +62,28 @@ def route_exists(netns=None, **kwarg):
     ret = list(ipr.route('dump', **kwarg))
     ipr.close()
     return len(ret) >= 1
+
+
+def qdisc_exists(netns=None, kind=None, **kwarg):
+    if netns is None:
+        ipr = IPRoute()
+    else:
+        ipr = NetNS(netns)
+    opts = {}
+    with ipr:
+        if 'ifname' in kwarg:
+            opts['index'] = ipr.link_lookup(ifname=kwarg.pop('ifname'))[0]
+        ret = list(ipr.get_qdiscs(**opts))
+        if kind is not None:
+            ret = [x for x in ret if x.get_attr('TCA_KIND') == kind]
+        if kwarg:
+            pre = ret
+            ret = []
+            for qdisc in pre:
+                options = qdisc.get_attr('TCA_OPTIONS')
+                for opt in kwarg:
+                    if options[opt] != kwarg[opt]:
+                        break
+                else:
+                    ret.append(qdisc)
+        return len(ret) > 0
