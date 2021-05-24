@@ -151,11 +151,11 @@ class wgmsg(genlmsg):
                    ('WGPEER_A_PROTOCOL_VERSION', 'uint32'))
 
         class parse_peer_key(nla):
-            fields = (('key', 's'), )
+            fields = (('key', '32s'), )
 
             def decode(self):
                 nla.decode(self)
-                self['value'] = b64encode(self['value'])
+                self['value'] = b64encode(self['key'])
 
             def encode(self):
                 self['key'] = b64decode(self['value'])
@@ -220,11 +220,11 @@ class wgmsg(genlmsg):
                 self['addr'] = '{0}/{1}'.format(self['addr'], wgaddr)
 
     class parse_wg_key(nla):
-        fields = (('key', 's'), )
+        fields = (('key', '32s'), )
 
         def decode(self):
             nla.decode(self)
-            self['value'] = b64encode(self['value'])
+            self['value'] = b64encode(self['key'])
 
         def encode(self):
             self['key'] = b64decode(self['value'])
