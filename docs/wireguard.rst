@@ -1,4 +1,4 @@
-.. _netns:
+.. _wireguard:
 
 WireGuard module
 ================
