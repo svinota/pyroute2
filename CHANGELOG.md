@@ -1,6 +1,11 @@
 Changelog
 =========
 
+* 0.6.2
+    * core: relocate RemoteIPRoute: <https://github.com/svinota/pyroute2/issues/798>
+    * wireguard: fix key parsing: <https://github.com/svinota/pyroute2/pull/804>
+    * packaging: fix importlib-metadata deps: <https://github.com/svinota/pyroute2/issues/797>
+    * tc: support pfifo qdisc: <https://github.com/svinota/pyroute2/issues/801>
 * 0.6.1
     * packaging: new layout: <https://github.com/svinota/pyroute2/discussions/786>
 * 0.5.19
