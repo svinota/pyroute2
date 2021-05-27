@@ -483,6 +483,9 @@ class Route(RTNL_Object):
         elif ret.get('dst') in ('::', '::/0'):
             ret['dst'] = ''
             ret['family'] = AF_INET6
+        elif ret.get('dst', '').find('/') >= 0:
+            ret['dst'], dst_len = ret['dst'].split('/')
+            ret['dst_len'] = int(dst_len)
         return ret
 
     def _cmp_target(key, self, right):
