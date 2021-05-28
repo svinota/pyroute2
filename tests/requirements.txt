@@ -12,3 +12,4 @@ psutil
 pytest
 pytest-cov
 psycopg2
+findimports
