@@ -214,10 +214,7 @@ install-minimal: dist
 uninstall: clean setup
 	$(call make_modules, uninstall)
 
-develop: clean VERSION
-	$(call make_modules, develop)
-	${python} setup.py develop
 
 # deprecated:
-epydoc clean-version update-version force-version README.md setup.ini:
+epydoc clean-version update-version force-version README.md setup.ini develop:
 	@echo Deprecated target, see README.make.md

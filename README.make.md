@@ -110,17 +110,6 @@ Build and install the package into the system. Command line options:
 * root -- root install directory
 * lib -- where to install lib files
 
-target: develop
----------------
-
-Build the package and deploy the egg-link with setuptools. No code
-will be deployed into the system directories, but instead the local
-package directory will be visible to the python. In that case one
-can change the code locally and immediately test it system-wide
-without running `make install`.
-
-* python -- the Python to use
-
 other targets
 -------------
 
