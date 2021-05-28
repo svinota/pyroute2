@@ -217,7 +217,7 @@ uninstall: clean setup
 audit-imports:
 	for module in $(call list_modules); do \
 		echo $$module; \
-		findimports -n pyroute2.core/pr2modules/ 2>/dev/null | awk -f util/imports_dict.awk | awk '{printf("\t"$$0"\n")}'; \
+		findimports -n $$module/pr2modules/ 2>/dev/null | awk -f util/imports_dict.awk | awk '{printf("\t"$$0"\n")}'; \
 	done
 
 # deprecated:
