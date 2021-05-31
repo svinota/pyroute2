@@ -122,6 +122,10 @@ clean:
 	@rm -rf tests-workspaces
 	@rm -f python-pyroute2.spec
 	@rm -f pyroute2/config/version.py
+	@rm -f pyroute2/config.json
+	@rm -f pyroute2/setup.cfg
+	@rm -f pyroute2.minimal/config.json
+	@rm -f pyroute2.minimal/setup.cfg
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
 	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
 
@@ -221,7 +225,7 @@ install: dist
 install-minimal: dist
 	${python} -m pip install dist/pyroute2.minimal* dist/pyroute2.core*
 
-uninstall: clean setup
+uninstall: clean VERSION setup
 	$(call make_modules, uninstall)
 
 audit-imports:
