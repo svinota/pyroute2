@@ -38,6 +38,8 @@ pyroute2.*/setup.cfg
 pyroute2.*/setup.py
 pyroute2.*/Makefile
 pyroute2.*/MANIFEST.in
+pyroute2/config.json
+pyroute2.minimal/config.json
 */LICENSE*
 */README.license.md
 */CHANGELOG.md
