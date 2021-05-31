@@ -1,7 +1,7 @@
 [metadata]
-name = pyroute2.minimal
+name = pyroute2
 version = file: VERSION
-description = Python Netlink library: minimal installation
+description = Python Netlink library
 long_description = file: README.rst
 long_description_content_type = text/x-rst
 url = https://github.com/svinota/pyroute2
@@ -28,7 +28,13 @@ classifiers =
 install_requires =
     win_inet_pton ; platform_system == "Windows"
     importlib-metadata ; python_version < "3.8"
-    pyroute2.core
+    pyroute2.core=={version}
+    pyroute2.nslink=={version}
+    pyroute2.nftables=={version}
+    pyroute2.ethtool=={version}
+    pyroute2.ipset=={version}
+    pyroute2.ipdb=={version}
+    pyroute2.ndb=={version}
 packages_dir =
     =pyroute2
 packages = find:

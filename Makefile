@@ -128,6 +128,9 @@ clean:
 VERSION:
 	@${python} util/update_version.py
 	@for package in $(call list_modules); do cp VERSION $$package; done
+	@for package in pyroute2 pyroute2.minimal; do \
+		echo '{"version": "'`cat $$package/VERSION`'"}' >$$package/config.json; \
+	done
 
 docs/html:
 	@cp README.rst docs/general.rst
@@ -196,6 +199,13 @@ upload: dist
 setup:
 	$(call process_templates)
 	@for module in $(call list_modules); do $(call deploy_license); done
+	@for module in pyroute2 pyroute2.minimal; do \
+		${python} \
+		    util/process_template.py \
+			$$module/setup.cfg.in \
+			$$module/config.json \
+			$$module/setup.cfg ; \
+	done
 
 dist: clean VERSION setup
 	cd pyroute2; ${python} setup.py sdist
