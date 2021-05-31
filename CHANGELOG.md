@@ -1,6 +1,9 @@
 Changelog
 =========
 
+* 0.6.3
+    * ndb: route spec fixes: <https://github.com/svinota/pyroute2/issues/808>
+    * packaging: force virtual packages to require same versions
 * 0.6.2
     * core: relocate RemoteIPRoute: <https://github.com/svinota/pyroute2/issues/798>
     * wireguard: fix key parsing: <https://github.com/svinota/pyroute2/pull/804>
