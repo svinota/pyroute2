@@ -1988,6 +1988,9 @@ class RTNL_API(object):
                 routing's rule
             - oifname — Output interface for Interface Based (Policy Based)
                 routing's rule
+            - uid_range — Range of user identifiers, as a string like "1000:1234"
+            - dport_range — Range of destination ports, as a string like "80-120"
+            - sport_range — Range of source ports, as a string like "80-120"
 
         All packets route via table 10::
 
