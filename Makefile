@@ -71,7 +71,7 @@ define process_templates
 	for module in $(call list_modules); do \
 		if [ -f $$module/setup.json ]; then \
 			for template in `ls -1 templates`; do \
-				python \
+				${python} \
 					util/process_template.py \
 					templates/$$template \
 					$$module/setup.json \
@@ -220,10 +220,10 @@ dist: clean VERSION setup
 
 install: dist
 	rm -f dist/pyroute2.minimal*
-	${python} -m pip install dist/*
+	${python} -m pip install dist/* ${root}
 
 install-minimal: dist
-	${python} -m pip install dist/pyroute2.minimal* dist/pyroute2.core*
+	${python} -m pip install dist/pyroute2.minimal* dist/pyroute2.core* ${root}
 
 uninstall: clean VERSION setup
 	$(call make_modules, uninstall)
