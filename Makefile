@@ -71,7 +71,7 @@ define process_templates
 	for module in $(call list_modules); do \
 		if [ -f $$module/setup.json ]; then \
 			for template in `ls -1 templates`; do \
-				python \
+				${python} \
 					util/process_template.py \
 					templates/$$template \
 					$$module/setup.json \
