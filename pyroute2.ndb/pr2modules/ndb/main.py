@@ -826,6 +826,24 @@ class Log(object):
     def off(self):
         self.__call__(target='off')
 
+    def close(self):
+        manager = self.logger.manager
+        name = self.logger.name
+        # the loggerDict can be huge, so don't
+        # cache all the keys -- cache only the
+        # needed ones
+        purge_list = []
+        for logger in manager.loggerDict.keys():
+            if logger.startswith(name):
+                purge_list.append(logger)
+        # now shoot them one by one
+        for logger in purge_list:
+            del manager.loggerDict[logger]
+        # don't force GC, leave it to the user
+        del manager
+        del name
+        del purge_list
+
     def channel(self, name):
         return logging.getLogger('pyroute2.ndb.%s.%s' % (self.log_id, name))
 
@@ -1066,6 +1084,8 @@ class NDB(object):
             self._event_queue.shutdown()
             self._event_queue.bypass((cmsg(None, ShutdownException()), ))
             self._dbm_thread.join()
+            # shutdown the logger -- free the resources
+            self.log.close()
 
     def reload(self, kinds=None):
         for source in self.sources.values():
