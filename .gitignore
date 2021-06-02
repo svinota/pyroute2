@@ -34,6 +34,7 @@ benchmark.log
 .tox
 tests-workspaces/
 pyroute2.core/pr2modules/config/version.py
+pyroute2/setup.cfg
 pyroute2.*/setup.cfg
 pyroute2.*/setup.py
 pyroute2.*/Makefile
