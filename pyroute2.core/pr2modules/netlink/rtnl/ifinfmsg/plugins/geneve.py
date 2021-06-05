@@ -9,7 +9,7 @@ class geneve(nla):
                ('IFLA_GENEVE_TTL', 'uint8'),
                ('IFLA_GENEVE_TOS', 'uint8'),
                ('IFLA_GENEVE_PORT', 'be16'),
-               ('IFLA_GENEVE_COLLECT_METADATA', 'none'),
+               ('IFLA_GENEVE_COLLECT_METADATA', 'flag'),
                ('IFLA_GENEVE_REMOTE6', 'ip6addr'),
                ('IFLA_GENEVE_UDP_CSUM', 'uint8'),
                ('IFLA_GENEVE_UDP_ZERO_CSUM6_TX', 'uint8'),
