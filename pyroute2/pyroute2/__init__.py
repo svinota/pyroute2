@@ -66,11 +66,13 @@ except Exception:
 modules = []
 namespace_inject = {}
 for entry_point in metadata.entry_points().get('pr2modules', []):
-    globals()[entry_point.name] = loaded = entry_point.load()
+    loaded = entry_point.load()
     modules.append(entry_point.name)
     if len(entry_point.value.split(':')) == 1:
         key = 'pyroute2.%s' % entry_point.name
         namespace_inject[key] = loaded
+    else:
+        globals()[entry_point.name] = loaded
 
 __all__ = []
 __all__.extend(modules)
