@@ -1,6 +1,11 @@
 Changelog
 =========
 
+* 0.6.4
+    * ndb: memory leak fix: <https://github.com/svinota/pyroute2/issues/789>
+    * packaging: fix internal modules import
+    * netlink: DEFAULT_RCVBUF size increased: <https://github.com/svinota/pyroute2/issues/813>
+    * rtnl: fix COLLECT_METADATA for geneve devices: <https://github.com/svinota/pyroute2/issues/795>
 * 0.6.3
     * ndb: route spec fixes: <https://github.com/svinota/pyroute2/issues/808>
     * packaging: force virtual packages to require same versions
