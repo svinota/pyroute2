@@ -294,7 +294,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_KEYS', 'hex'),
                ('NL80211_ATTR_PID', 'uint32'),
                ('NL80211_ATTR_4ADDR', 'hex'),
-               ('NL80211_ATTR_SURVEY_INFO', 'hex'),
+               ('NL80211_ATTR_SURVEY_INFO', 'survey_info'),
                ('NL80211_ATTR_PMKID', 'hex'),
                ('NL80211_ATTR_MAX_NUM_PMKIDS', 'uint8'),
                ('NL80211_ATTR_DURATION', 'hex'),
@@ -513,6 +513,22 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_SAR_SPEC', 'hex'),
                ('NL80211_ATTR_DISABLE_HE', 'hex'),
                ('NUM_NL80211_ATTR', 'hex'))
+
+    class survey_info(nla):
+        prefix = 'NL80211_SURVEY_INFO_'
+        nla_map = (('__NL80211_SURVEY_INFO_INVALID', 'none'),
+                   ('NL80211_SURVEY_INFO_FREQUENCY', 'uint32'),
+                   ('NL80211_SURVEY_INFO_NOISE', 'uint8'),
+                   ('NL80211_SURVEY_INFO_IN_USE', 'flag'),
+                   ('NL80211_SURVEY_INFO_TIME', 'uint64'),
+                   ('NL80211_SURVEY_INFO_TIME_BUSY', 'uint64'),
+                   ('NL80211_SURVEY_INFO_TIME_EXT_BUSY', 'uint64'),
+                   ('NL80211_SURVEY_INFO_TIME_RX', 'uint64'),
+                   ('NL80211_SURVEY_INFO_TIME_TX', 'uint64'),
+                   ('NL80211_SURVEY_INFO_TIME_SCAN', 'uint64'),
+                   ('NL80211_SURVEY_INFO_PAD', 'hex'),
+                   ('NL80211_SURVEY_INFO_TIME_BSS_RX', 'uint64'),
+                   ('NL80211_SURVEY_INFO_FREQUENCY_OFFSET', 'hex'))
 
     class band(nla):
         class bitrate(nla):
