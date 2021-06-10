@@ -482,6 +482,17 @@ class IW(NL80211):
                          msg_type=self.prid,
                          msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
+    def survey(self, ifindex):
+        '''
+        Return the survey info.
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_SURVEY']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
+        return self.nlm_request(msg,
+                                msg_type=self.prid,
+                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+
     def scan(self, ifindex, ssids=None, flush_cache=False):
         '''
         Trigger scan and get results.
