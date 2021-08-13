@@ -251,6 +251,8 @@ class WiSet(object):
                         proto = IP_PROTOCOLS.get(proto, str(proto)).lower()
                         key += '{proto}:'.format(proto=proto)
                     key += str(entry.get_attr("IPSET_ATTR_PORT_FROM"))
+                elif parse_type == "mac":
+                    key += entry.get_attr("IPSET_ATTR_ETHER")
                 key += ","
 
             key = key.strip(",")
