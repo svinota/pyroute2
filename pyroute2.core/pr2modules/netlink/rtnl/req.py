@@ -788,6 +788,9 @@ class IPLinkRequest(IPRequest):
             self.flush_deferred()
         elif key == 'vf':  # SR-IOV virtual function setup
             self.set_vf(value)
+        elif key == 'xdp_fd':
+            attrs = [ ('IFLA_XDP_FD', value) ]
+            super(IPLinkRequest, self).__setitem__('xdp', { 'attrs': attrs })
         elif self.kind is None:
             if key in self.common:
                 super(IPLinkRequest, self).__setitem__(key, value)

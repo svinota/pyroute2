@@ -613,6 +613,12 @@ class Interface(RTNL_Object):
 
         return super(Interface, self).complete_key(ret_key)
 
+    def set_xdp_fd(self, fd):
+        self.sources[self['target']].api('link', 'set',
+            index=self['index'],
+            xdp_fd=fd
+        )
+
     def snapshot(self, ctxid=None):
         # 1. make own snapshot
         snp = super(Interface, self).snapshot(ctxid=ctxid)
