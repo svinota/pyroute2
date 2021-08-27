@@ -199,6 +199,20 @@ class NetNS(RTNL_API, RemoteSocket):
         except OSError:
             pass
 
+    def open_file(self, path):
+        '''Proxy the open_file method if we are the parent.'''
+        if self.child != 0:
+            return self.proxy('open_file', path)
+
+        return super(NetNS, self).open_file(path)
+
+    def close_file(self, fd):
+        '''Proxy the close_file method if we are the parent.'''
+        if self.child != 0:
+            return self.proxy('close_file', fd)
+
+        return super(NetNS, self).close_file(fd)
+
     def post_init(self):
         pass
 
