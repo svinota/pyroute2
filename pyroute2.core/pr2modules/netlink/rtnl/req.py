@@ -213,7 +213,7 @@ class IPRouteRequest(IPRequest):
                     if 'headroom' in value:
                         attrs['LWT_BPF_XMIT_HEADROOM'] = value['headroom']
 
-            return {'attrs': attrs.items()}
+            return {'attrs': list(attrs.items())}
         '''
         Seg6 encap header transform. Format samples:
 
