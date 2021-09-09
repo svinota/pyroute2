@@ -190,6 +190,20 @@ class Source(dict):
 
         self.load_sql()
 
+    def __del__(self):
+        try:
+            self.ndb.schema.execute('''
+                                    DELETE FROM sources_options
+                                    WHERE f_target = %s
+                                    ''' % self.ndb.schema.plch, (self.target, ))
+
+            self.ndb.schema.execute('''
+                                    DELETE FROM sources
+                                    WHERE f_target = %s
+                                    ''' % self.ndb.schema.plch, (self.target, ))
+        except:
+            pass
+
     @classmethod
     def defaults(cls, spec):
         ret = dict(spec)
