@@ -608,8 +608,13 @@ class View(dict):
             ndb.interfaces.exists({'ifname': 'eth0', 'target': 'localhost'})
             ndb.addresses.exists('127.0.0.1/8')
         '''
+        if self.chain:
+            context = self.chain.context
+        else:
+            context = {}
+
         iclass = self.classes[self.table]
-        key = iclass.new_spec(key, self.default_target).get_spec
+        key = iclass.new_spec(key, self.default_target).load_context(context).get_spec
 
         iclass.resolve(view=self,
                        spec=key,
