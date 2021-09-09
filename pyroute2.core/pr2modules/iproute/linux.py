@@ -394,6 +394,18 @@ class RTNL_API(object):
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
+    @staticmethod
+    def open_file(path):
+        '''Open a file (read only) and return its (fd, inode).'''
+        fd = os.open(path, os.O_RDONLY)
+        inode = os.fstat(fd).st_ino
+        return (fd, inode)
+
+    @staticmethod
+    def close_file(fd):
+        '''Close a file that was previously opened with open_file().'''
+        os.close(fd)
+
     #
     # List NetNS info
     #
@@ -404,8 +416,8 @@ class RTNL_API(object):
         info = nsidmsg()
         msg = nsidmsg()
         try:
-            nsfd = os.open(path, os.O_RDONLY)
-            item['inode'] = os.fstat(nsfd).st_ino
+            (nsfd, inode) = self.open_file(path)
+            item['inode'] = inode
             #
             # if the inode is registered, skip it
             #
@@ -433,7 +445,7 @@ class RTNL_API(object):
             raise SkipInode()
         finally:
             if nsfd > 0:
-                os.close(nsfd)
+                self.close_file(nsfd)
         item['header']['type'] = RTM_NEWNETNS
         item['header']['target'] = self.target
         item['event'] = 'RTM_NEWNETNS'
