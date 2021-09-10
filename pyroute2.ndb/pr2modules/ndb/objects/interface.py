@@ -661,7 +661,7 @@ class Interface(RTNL_Object):
                      .interfaces
                      .getmany({'IFLA_LINK': self['index']})):
             # vlans & veth
-            if self.is_peer(spec) and not spec.is_peer(self):
+            if self.get('link') != spec['index']:
                 link = type(self)(self.view,
                                   spec,
                                   auth_managers=self.auth_managers)
