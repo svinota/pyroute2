@@ -406,6 +406,11 @@ class RTNL_API(object):
         '''Close a file that was previously opened with open_file().'''
         os.close(fd)
 
+    @staticmethod
+    def get_pid():
+        '''Return the PID of the current process.'''
+        return os.getpid()
+
     #
     # List NetNS info
     #
@@ -472,6 +477,32 @@ class RTNL_API(object):
                 yield self._dump_one_ns('/proc/%s/ns/net' % name, registry)
             except SkipInode:
                 pass
+
+    def get_netnsid(self, nsid=None, pid=None, fd=None, target_nsid=None):
+        '''Return a dict containing the result of a RTM_GETNSID query.
+           This loosely corresponds to the "ip netns list-id" command.
+        '''
+        msg = nsidmsg()
+
+        if nsid is not None:
+            msg['attrs'].append(('NETNSA_NSID', nsid))
+
+        if pid is not None:
+            msg['attrs'].append(('NETNSA_PID', pid))
+
+        if fd is not None:
+            msg['attrs'].append(('NETNSA_FD', fd))
+
+        if target_nsid is not None:
+            msg['attrs'].append(('NETNSA_TARGET_NSID', target_nsid))
+
+        response = self.nlm_request(msg, RTM_GETNSID, NLM_F_REQUEST)
+        for r in response:
+            return { 'nsid':         r.get_attr('NETNSA_NSID'),
+                     'current_nsid': r.get_attr('NETNSA_CURRENT_NSID'),
+                   }
+
+        return None
 
     def get_netns_info(self, list_proc=False):
         '''
