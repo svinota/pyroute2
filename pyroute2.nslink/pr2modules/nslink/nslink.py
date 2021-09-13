@@ -213,6 +213,13 @@ class NetNS(RTNL_API, RemoteSocket):
 
         return super(NetNS, self).close_file(fd)
 
+    def get_pid(self):
+        '''Proxy the get_pid method if we are the parent.'''
+        if self.child != 0:
+            return self.proxy('get_pid')
+
+        return super(NetNS, self).get_pid()
+
     def post_init(self):
         pass
 

@@ -623,17 +623,12 @@ class Interface(RTNL_Object):
         other_link_netnsid = other.get('link_netnsid')
         if other_link_netnsid is not None:
             self_source = self.sources[self['target']]
-            if not hasattr(self_source.nl, 'netns'):
-                # The other interface is linked to a namespaced
-                # interface, but this interface is not namespaced.
-                return False
-
             other_source = other.sources[other['target']]
-            other_netns_dump = other_source.api('get_netns_info')
-            for netns in other_netns_dump:
-                if netns['netnsid'] == other_link_netnsid:
-                    ns_path = netns.get_attr('NSINFO_PATH')
-                    return self_source.nl.netns == ns_path.encode()
+            info = other_source.api('get_netnsid',
+                                    pid=self_source.api('get_pid'),
+                                    target_nsid=other_link_netnsid,
+                                   )
+            return info['current_nsid'] == other_link_netnsid
 
         return self['target'] == other['target']
 
@@ -661,7 +656,7 @@ class Interface(RTNL_Object):
                      .interfaces
                      .getmany({'IFLA_LINK': self['index']})):
             # vlans & veth
-            if self.get('link') != spec['index']:
+            if self.is_peer(spec) and not spec.is_peer(self):
                 link = type(self)(self.view,
                                   spec,
                                   auth_managers=self.auth_managers)
