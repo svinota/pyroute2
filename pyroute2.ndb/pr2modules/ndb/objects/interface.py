@@ -615,22 +615,30 @@ class Interface(RTNL_Object):
 
     def is_peer(self, other):
         '''Evaluate whether the given interface "points at" this one.'''
-        other_link = other.get('link')
+        if other['kind'] == 'vlan':
+            return other['target'] == self['target'] \
+                and other['link'] == self['index']
 
-        if other_link != self['index']:
-            return False
+        elif other['kind'] == 'vxlan':
+            return other['target'] == self['target'] \
+                and other['vxlan_link'] == self['index']
 
-        other_link_netnsid = other.get('link_netnsid')
-        if other_link_netnsid is not None:
-            self_source = self.sources[self['target']]
-            other_source = other.sources[other['target']]
-            info = other_source.api('get_netnsid',
-                                    pid=self_source.api('get_pid'),
-                                    target_nsid=other_link_netnsid,
-                                   )
-            return info['current_nsid'] == other_link_netnsid
+        elif other['kind'] == self['kind'] == 'veth':
+            other_link = other.get('link')
 
-        return self['target'] == other['target']
+            if other_link != self['index']:
+                return False
+
+            other_link_netnsid = other.get('link_netnsid')
+            if other_link_netnsid is not None:
+                self_source = self.sources[self['target']]
+                other_source = other.sources[other['target']]
+                info = other_source.api('get_netnsid',
+                                        pid=self_source.api('get_pid'),
+                                        target_nsid=other_link_netnsid)
+                return info['current_nsid'] == other_link_netnsid
+
+            return self['target'] == other['target']
 
     def set_xdp_fd(self, fd):
         self.sources[self['target']].api('link', 'set',
@@ -655,11 +663,11 @@ class Interface(RTNL_Object):
                      .ndb
                      .interfaces
                      .getmany({'IFLA_LINK': self['index']})):
+            link = type(self)(self.view,
+                              spec,
+                              auth_managers=self.auth_managers)
             # vlans & veth
-            if self.is_peer(spec) and not spec.is_peer(self):
-                link = type(self)(self.view,
-                                  spec,
-                                  auth_managers=self.auth_managers)
+            if self.is_peer(link) and not link.is_peer(self):
                 snp.snapshot_deps.append((link, link.snapshot()))
         # return the root node
         return snp
