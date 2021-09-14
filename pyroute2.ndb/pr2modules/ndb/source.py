@@ -76,6 +76,7 @@ import errno
 import socket
 import struct
 import threading
+from pr2modules.common import basestring
 from pr2modules.iproute.linux import IPRoute
 from pr2modules.remote import RemoteIPRoute
 from pr2modules.netlink.nlsocket import NetlinkMixin
@@ -134,9 +135,7 @@ class Source(dict):
     in the source.close()
     '''
     table_alias = 'src'
-    dump = None
     dump_header = None
-    summary = None
     summary_header = None
     view = None
     table = 'sources'
@@ -242,6 +241,16 @@ class Source(dict):
         yield ('state', 'name', 'spec')
         for key in view.keys():
             yield (view[key].state.get(), key, '%s' % (view[key].nl_kwarg, ))
+
+    @classmethod
+    def dump(cls, view):
+        return cls.summary(view)
+
+    @classmethod
+    def compare_record(self, left, right):
+        # specific compare
+        if isinstance(right, basestring):
+            return right == left['name']
 
     def api(self, name, *argv, **kwarg):
         for _ in range(100):  # FIXME make a constant
