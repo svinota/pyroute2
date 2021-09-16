@@ -38,6 +38,10 @@ if sys.platform.startswith('win'):  # noqa: E402
 #
 from pr2modules.config import log
 
+##
+#
+from pr2modules.config import entry_points_aliases
+
 #
 #
 try:
@@ -76,6 +80,11 @@ for entry_point in metadata.entry_points().get('pr2modules', []):
 
 __all__ = []
 __all__.extend(modules)
+
+# alias exceptions
+for key, value in entry_points_aliases.items():
+    if key in sys.modules:
+        sys.modules[value] = sys.modules[key]
 
 
 class PyRoute2ModuleSpec(importlib.machinery.ModuleSpec):
