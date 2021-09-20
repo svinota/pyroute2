@@ -1,6 +1,10 @@
 Changelog
 =========
 
+* 0.6.5
+    * ndb: fix `in` for sources: <https://github.com/svinota/pyroute2/issues/843>
+    * core: provide entry_points aliases for legacy code: <https://github.com/svinota/pyroute2/issues/845>
+    * packaging: fix missing exports: <https://github.com/svinota/pyroute2/issues/816>
 * 0.6.4
     * ndb: memory leak fix: <https://github.com/svinota/pyroute2/issues/789>
     * packaging: fix internal modules import
