@@ -606,6 +606,25 @@ class IW(NL80211):
                          msg_type=self.prid,
                          msg_flags=NLM_F_REQUEST | NLM_F_ACK)
 
+    def set_tx_power(self, dev, mode, mbm=None):
+        '''
+        Set TX power of interface.
+
+            - dev — device index
+            - mode — TX power setting (0 - auto, 1 - limit, 2 - fixed)
+            - mbm — TX power in mBm (dBm * 100)
+        '''
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_SET_WIPHY']
+        msg['attrs'] = [['NL80211_ATTR_IFINDEX', dev],
+                        ['NL80211_ATTR_WIPHY_TX_POWER_SETTING', mode]]
+        if mbm is not None:
+            msg['attrs'].append(['NL80211_ATTR_WIPHY_TX_POWER_LEVEL', mbm])
+
+        self.nlm_request(msg,
+                         msg_type=self.prid,
+                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+
     def set_wiphy_netns_by_pid(self, wiphy, pid):
         '''
         Set wiphy network namespace to process network namespace.

@@ -186,6 +186,14 @@ NL80211_BSS_STATUS_IBSS_JOINED = 2    # Joined to this IBSS
                                                       globals(),
                                                       normalize=True)
 
+# TX power adjustment
+NL80211_TX_POWER_AUTOMATIC = 0  # automatically determine transmit power
+NL80211_TX_POWER_LIMITED = 1    # limit TX power by the mBm parameter
+NL80211_TX_POWER_FIXED = 2      # fix TX power to the mBm parameter
+(TX_POWER_NAMES, TX_POWER_VALUES) = map_namespace('NL80211_TX_POWER_',
+                                                  globals(),
+                                                  normalize=True)
+
 NL80211_SCAN_FLAG_LOW_PRIORITY = 1 << 0
 NL80211_SCAN_FLAG_FLUSH = 1 << 1
 NL80211_SCAN_FLAG_AP = 1 << 2
@@ -307,8 +315,8 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_CQM', 'hex'),
                ('NL80211_ATTR_LOCAL_STATE_CHANGE', 'hex'),
                ('NL80211_ATTR_AP_ISOLATE', 'hex'),
-               ('NL80211_ATTR_WIPHY_TX_POWER_SETTING', 'hex'),
-               ('NL80211_ATTR_WIPHY_TX_POWER_LEVEL', 'hex'),
+               ('NL80211_ATTR_WIPHY_TX_POWER_SETTING', 'uint32'),
+               ('NL80211_ATTR_WIPHY_TX_POWER_LEVEL', 'uint32'),
                ('NL80211_ATTR_TX_FRAME_TYPES', 'hex'),
                ('NL80211_ATTR_RX_FRAME_TYPES', 'hex'),
                ('NL80211_ATTR_FRAME_TYPE', 'hex'),
