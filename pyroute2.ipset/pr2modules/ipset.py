@@ -292,7 +292,7 @@ class IPSet(NetlinkSocket):
             return attrs
 
         # We support string (for one element, and for users calling this
-        # function like a command line), and tupple/list
+        # function like a command line), and tuple/list
         if isinstance(entry, basestring):
             entry = entry.split(',')
         if isinstance(entry, (int, PortRange, PortEntry)):

@@ -147,7 +147,7 @@ Change an interface property::
     with ndb.interfaces['eth0'] as i:
         i['state'] = 'up'
         i['address'] = '00:11:22:33:44:55'
-    # ---> <---  the commit() is called authomatically by
+    # ---> <---  the commit() is called automatically by
     #            the context manager's __exit__()
 
 '''

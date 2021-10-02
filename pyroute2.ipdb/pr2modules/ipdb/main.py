@@ -214,7 +214,7 @@ managers in the same way as IPDB does itself::
         i.add_ip('10.0.0.1', 24)
         i.add_ip('10.0.0.1', 24)
 
-On exit, the context manager will authomatically `commit()`
+On exit, the context manager will automatically `commit()`
 the transaction.
 
 Read-only interface views
@@ -275,7 +275,7 @@ notation, or a pair of `'address', mask`::
         eth.del_ip('172.16.12.5', 24)
 
 The `ipaddr` attribute contains all the IP addresses of the
-interface, which are acessible in different ways. Getting an
+interface, which are accessible in different ways. Getting an
 iterator from `ipaddr` gives you a sequence of tuples
 `('address', mask)`::
 
@@ -1098,7 +1098,7 @@ class IPDB(object):
         '''
         Initializes event queue and returns event queue context manager.
         Once the context manager is initialized, events start to be collected,
-        so it is possible to read initial state from the system witout losing
+        so it is possible to read initial state from the system without losing
         last moment changes, and once that is done, start processing events.
 
         Example:
