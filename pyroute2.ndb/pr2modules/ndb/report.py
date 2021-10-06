@@ -276,7 +276,7 @@ class RecordSet(BaseRecordSet):
             * prefix -- rename the "right" fields using the prefix
 
         The condition function must have two arguments, left record and
-        rigth record, and must return True or False. The routine discards
+        right record, and must return True or False. The routine discards
         joined records when the condition is False.
 
         Example, provide interface names for routes, don't change field

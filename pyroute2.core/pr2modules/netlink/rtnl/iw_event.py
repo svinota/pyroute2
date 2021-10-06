@@ -57,7 +57,7 @@ class iw_event(nla):
                # and multicast)
                (0xB2C, 'SIOCSIWPOWER', 'hex'),
                (0xB2D, 'SIOCGIWPOWER', 'hex'),
-               # WPA : Generic IEEE 802.11 informatiom element
+               # WPA : Generic IEEE 802.11 information element
                # (e.g., for WPA/RSN/WMM).
                (0xB30, 'SIOCSIWGENIE', 'hex'),
                (0xB31, 'SIOCGIWGENIE', 'hex'),
