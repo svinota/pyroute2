@@ -1957,11 +1957,13 @@ class RTNL_API(object):
         (command, flags) = commands.get(command, command)
         msg = rtmsg()
 
-        # table is mandatory; by default == 254
+        # table is mandatory without strict_check; by default == 254
         # if table is not defined in kwarg, save it there
-        # also for nla_attr:
-        table = kwarg.get('table', 254)
-        msg['table'] = table if table <= 255 else 252
+        # also for nla_attr. Do not set it in strict_check, use
+        # NLA instead
+        if not self.strict_check:
+            table = kwarg.get('table', 254)
+            msg['table'] = table if table <= 255 else 252
         msg['family'] = kwarg.pop('family', AF_INET)
         msg['scope'] = kwarg.pop('scope', rt_scope['universe'])
         msg['dst_len'] = kwarg.pop('dst_len', None) or kwarg.pop('mask', 0)
