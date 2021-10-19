@@ -94,7 +94,6 @@ all:
 	@echo \* docs -- generate project docs \(requires sphinx\)
 	@echo \* test -- run functional tests \(see README.make.md\)
 	@echo \* install -- install lib into the system
-	@echo \* develop -- run \"setup.py develop\" \(requires setuptools\)
 	@echo
 
 clean:
