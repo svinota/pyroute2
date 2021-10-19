@@ -2120,6 +2120,9 @@ class RTNL_API(object):
         msg['attrs'] = []
 
         for key in kwarg:
+            if command == RTM_GETRULE and self.strict_check:
+                if key in ("match", "priority"):
+                    continue
             nla = fibmsg.name2nla(key)
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
