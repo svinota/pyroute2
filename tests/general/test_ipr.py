@@ -1417,3 +1417,12 @@ class TestIPRoute(object):
         interface = self.ip.get_links(ifindex)[0]
         res = self.ip.link_lookup(address=interface.get_attr('IFLA_ADDRESS'))
         assert ifindex == res[0]
+
+    def test_extended_error_on_route(self):
+        require_kernel(4, 20)
+        with IPRoute(ext_ack=True, strict_check=True) as ip:  # specific flags, cannot use self.ip
+            with assert_raises(NetlinkError) as e:
+                ip.route("get", dst="1.2.3.4", table=254, dst_len=0)
+        assert abs(e.exception.code) == errno.EINVAL
+        # on 5.10 kernel, full message is 'ipv4: rtm_src_len and rtm_dst_len must be 32 for IPv4'
+        assert "rtm_dst_len" in str(e.exception)
