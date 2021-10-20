@@ -110,6 +110,7 @@ from pr2modules.netlink import NETLINK_ADD_MEMBERSHIP
 from pr2modules.netlink import NETLINK_DROP_MEMBERSHIP
 from pr2modules.netlink import NETLINK_EXT_ACK
 from pr2modules.netlink import NETLINK_GENERIC
+from pr2modules.netlink import NETLINK_GET_STRICT_CHK
 from pr2modules.netlink import NETLINK_LISTEN_ALL_NSID
 from pr2modules.netlink import NLM_F_ACK_TLVS
 from pr2modules.netlink import NLM_F_DUMP
@@ -305,7 +306,8 @@ class NetlinkMixin(object):
                  async_qsize=None,
                  nlm_generator=None,
                  target='localhost',
-                 ext_ack=False):
+                 ext_ack=False,
+                 strict_check=False):
         #
         # That's a trick. Python 2 is not able to construct
         # sockets from an open FD.
@@ -333,7 +335,8 @@ class NetlinkMixin(object):
                        'async_qsize': async_qsize,
                        'target': target,
                        'nlm_generator': nlm_generator,
-                       'ext_ack': ext_ack}
+                       'ext_ack': ext_ack,
+                       'strict_check': strict_check}
         # 8<-----------------------------------------
         self.addr_pool = AddrPool(minaddr=0x000000ff, maxaddr=0x0000ffff)
         self.epid = None
@@ -373,6 +376,7 @@ class NetlinkMixin(object):
         self.get_timeout_exception = None
         self.all_ns = all_ns
         self.ext_ack = ext_ack
+        self.strict_check = strict_check
         if pid is None:
             self.pid = os.getpid() & 0x3fffff
             self.port = port
@@ -1000,6 +1004,8 @@ class NetlinkSocket(NetlinkMixin):
                 self.setsockopt(SOL_NETLINK, NETLINK_EXT_ACK, 1)
             if self.all_ns:
                 self.setsockopt(SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, 1)
+            if self.strict_check:
+                self.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
 
     def __getattr__(self, attr):
         if attr in ('getsockname', 'getsockopt', 'makefile',
