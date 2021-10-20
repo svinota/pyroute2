@@ -108,6 +108,39 @@ from pr2modules.common import dqn2int
 from pr2modules.common import basestring
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
+
+def load_ifaddrmsg(schema, target, event):
+    #
+    # bypass
+    #
+    schema.load_netlink('addresses', target, event)
+    #
+    # last address removal should trigger routes flush
+    # Bug-Url: https://github.com/svinota/pyroute2/issues/849
+    #
+    if event['header']['type'] % 2 and event.get('index'):
+        #
+        # check IPv4 addresses on the interface
+        #
+        addresses = (schema
+                     .execute('''
+                              SELECT * FROM addresses WHERE
+                              f_target = %s AND
+                              f_index = %s AND
+                              f_family = 2
+                              ''' % (schema.plch, schema.plch),
+                              (target, event['index']))
+                     .fetchmany())
+        if not len(addresses):
+            schema.execute('''
+                           DELETE FROM routes WHERE
+                           f_target = %s AND
+                           f_RTA_OIF = %s OR
+                           f_RTA_IIF = %s
+                           ''' % (schema.plch, schema.plch, schema.plch),
+                           (target, event['index'], event['index']))
+
+
 ifaddr_spec = (ifaddrmsg
                .sql_schema()
                .unique_index('family',
@@ -121,7 +154,7 @@ ifaddr_spec = (ifaddrmsg
 
 init = {'specs': [['addresses', ifaddr_spec]],
         'classes': [['addresses', ifaddrmsg]],
-        'event_map': {ifaddrmsg: ['addresses']}}
+        'event_map': {ifaddrmsg: [load_ifaddrmsg]}}
 
 
 def norm_mask(value):
