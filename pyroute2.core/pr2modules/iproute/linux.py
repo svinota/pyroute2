@@ -368,9 +368,10 @@ class RTNL_API(object):
     def get_routes(self, family=255, match=None, **kwarg):
         '''
         Get all routes. You can specify the table. There
-        are 255 routing classes (tables), and the kernel
+        are up to 4294967295 routing classes (tables), and the kernel
         returns all the routes on each request. So the
-        routine filters routes from full output.
+        routine filters routes from full output. Note the number of
+        tables is increased from 255 in Linux 2.6+.
 
         Example::
 
