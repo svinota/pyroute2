@@ -757,6 +757,16 @@ class TestIPRoute(object):
                                  table=254)
         assert len(rts) > 0
 
+    def test_route_get_target_strict_check(self):
+        if not self.ip.get_default_routes(table=254):
+            raise SkipTest('no default IPv4 routes')
+        require_kernel(4, 20)
+        with IPRoute(strict_check=True) as ip:
+            rts = ip.get_routes(family=socket.AF_INET,
+                                dst='8.8.8.8',
+                                table=254)
+            assert len(rts) > 0
+
     def test_route_get_target_default_ipv4(self):
         rts = self.ip.get_routes(dst='127.0.0.1')
         assert len(rts) > 0

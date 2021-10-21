@@ -387,7 +387,8 @@ class RTNL_API(object):
         '''
         # get a particular route?
         if isinstance(kwarg.get('dst'), basestring):
-            return self.route('get', dst=kwarg['dst'])
+            kwarg = {"dst": kwarg['dst'], "family": family}
+            return self.route('get', **kwarg)
         else:
             return self.route('dump',
                               family=family,
