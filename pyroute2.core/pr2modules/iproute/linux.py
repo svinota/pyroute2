@@ -995,6 +995,12 @@ class RTNL_API(object):
         flags_change = flags_base | NLM_F_REPLACE
         flags_replace = flags_change | NLM_F_CREATE
 
+        msg = ndmsg.ndmsg()
+        for field in msg.fields:
+            if command == "dump" and self.strict_check and field[0] == "ifindex":
+                continue
+            msg[field[0]] = kwarg.pop(field[0], 0)
+
         commands = {'add': (RTM_NEWNEIGH, flags_make),
                     'set': (RTM_NEWNEIGH, flags_replace),
                     'replace': (RTM_NEWNEIGH, flags_replace),
@@ -1009,9 +1015,6 @@ class RTNL_API(object):
         (command, flags) = commands.get(command, command)
         if 'nud' in kwarg:
             kwarg['state'] = kwarg.pop('nud')
-        msg = ndmsg.ndmsg()
-        for field in msg.fields:
-            msg[field[0]] = kwarg.pop(field[0], 0)
         msg['family'] = msg['family'] or AF_INET
         msg['attrs'] = []
         # fix nud kwarg
