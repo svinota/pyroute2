@@ -185,7 +185,7 @@ class Marshal(object):
             try:
                 msg.decode()
                 if isinstance(msg, nlmsgerr):
-                    error = NetlinkError(msg['error'],
+                    error = NetlinkError(abs(msg['error']),
                                          msg.get_attr('NLMSGERR_ATTR_MSG'))
 
                 msg['header']['error'] = error

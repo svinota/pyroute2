@@ -2105,7 +2105,8 @@ class nlmsgerr(nlmsg):
 
     nla_map = (('NLMSGERR_ATTR_UNUSED', 'none'),
                ('NLMSGERR_ATTR_MSG', 'asciiz'),
-               ('NLMSGERR_ATTR_OFFS', 'uint32'))
+               ('NLMSGERR_ATTR_OFFS', 'uint32'),
+               ('NLMSGERR_ATTR_COOKIE', 'uint8'))
 
 
 class genlmsg(nlmsg):

@@ -387,7 +387,8 @@ class RTNL_API(object):
         '''
         # get a particular route?
         if isinstance(kwarg.get('dst'), basestring):
-            return self.route('get', dst=kwarg['dst'])
+            kwarg = {"dst": kwarg['dst'], "family": family}
+            return self.route('get', **kwarg)
         else:
             return self.route('dump',
                               family=family,
@@ -995,6 +996,12 @@ class RTNL_API(object):
         flags_change = flags_base | NLM_F_REPLACE
         flags_replace = flags_change | NLM_F_CREATE
 
+        msg = ndmsg.ndmsg()
+        for field in msg.fields:
+            if command == "dump" and self.strict_check and field[0] == "ifindex":
+                continue
+            msg[field[0]] = kwarg.pop(field[0], 0)
+
         commands = {'add': (RTM_NEWNEIGH, flags_make),
                     'set': (RTM_NEWNEIGH, flags_replace),
                     'replace': (RTM_NEWNEIGH, flags_replace),
@@ -1009,9 +1016,6 @@ class RTNL_API(object):
         (command, flags) = commands.get(command, command)
         if 'nud' in kwarg:
             kwarg['state'] = kwarg.pop('nud')
-        msg = ndmsg.ndmsg()
-        for field in msg.fields:
-            msg[field[0]] = kwarg.pop(field[0], 0)
         msg['family'] = msg['family'] or AF_INET
         msg['attrs'] = []
         # fix nud kwarg
@@ -1957,11 +1961,13 @@ class RTNL_API(object):
         (command, flags) = commands.get(command, command)
         msg = rtmsg()
 
-        # table is mandatory; by default == 254
+        # table is mandatory without strict_check; by default == 254
         # if table is not defined in kwarg, save it there
-        # also for nla_attr:
-        table = kwarg.get('table', 254)
-        msg['table'] = table if table <= 255 else 252
+        # also for nla_attr. Do not set it in strict_check, use
+        # NLA instead
+        if not self.strict_check:
+            table = kwarg.get('table', 254)
+            msg['table'] = table if table <= 255 else 252
         msg['family'] = kwarg.pop('family', AF_INET)
         msg['scope'] = kwarg.pop('scope', rt_scope['universe'])
         msg['dst_len'] = kwarg.pop('dst_len', None) or kwarg.pop('mask', 0)
@@ -2118,6 +2124,9 @@ class RTNL_API(object):
         msg['attrs'] = []
 
         for key in kwarg:
+            if command == RTM_GETRULE and self.strict_check:
+                if key in ("match", "priority"):
+                    continue
             nla = fibmsg.name2nla(key)
             if kwarg[key] is not None:
                 msg['attrs'].append([nla, kwarg[key]])
