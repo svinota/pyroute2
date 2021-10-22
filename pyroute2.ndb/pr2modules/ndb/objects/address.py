@@ -103,6 +103,7 @@ Access an address as a separate RTNL object::
 Please notice that address objects are read-only, you may not change them,
 only remove old ones, and create new.
 '''
+import ipaddress
 from ..objects import RTNL_Object
 from pr2modules.common import dqn2int
 from pr2modules.common import basestring
@@ -237,6 +238,9 @@ class Address(RTNL_Object):
             ret['address'] = addr_spec[0]
             if len(addr_spec) > 1:
                 ret['prefixlen'] = addr_spec[1]
+        # compress IPv6 addresses
+        if 'address' in ret and ret['address'] and ':' in ret['address']:
+            ret['address'] = ipaddress.ip_address(ret['address']).compressed
         return ret
 
     def key_repr(self):

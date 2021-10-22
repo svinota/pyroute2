@@ -78,6 +78,7 @@ import time
 import uuid
 import json
 import struct
+import ipaddress
 from socket import AF_INET
 from socket import AF_INET6
 from socket import inet_pton
@@ -486,6 +487,10 @@ class Route(RTNL_Object):
         elif ret.get('dst', '').find('/') >= 0:
             ret['dst'], dst_len = ret['dst'].split('/')
             ret['dst_len'] = int(dst_len)
+        # compress IPv6 addresses
+        for key in ('dst', 'src', 'gateway'):
+            if key in ret and ret[key] is not None and ':' in ret[key]:
+                ret[key] = ipaddress.ip_address(ret[key]).compressed
         return ret
 
     def _cmp_target(key, self, right):
