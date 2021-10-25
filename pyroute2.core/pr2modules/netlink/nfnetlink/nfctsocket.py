@@ -644,6 +644,34 @@ class NFCTSocket(NetlinkSocket):
         return self.nlm_request(msg, msg_type, **kwargs)
 
     def dump(self, mark=None, mark_mask=0xffffffff, tuple_orig=None, tuple_reply=None):
+        """ Dump conntrack entries
+
+        Several kernel side filtering are supported:
+          * mark and mark_mask, for almost all kernel
+          * tuple_orig and tuple_reply, since kernel 5.8 and newer.
+            Warning: tuple_reply has a bug in kernel, fixed only recently.
+
+        tuple_orig and tuple_reply are type NFCTAttrTuple.
+        You can give only some attribute for filtering.
+
+        Example::
+            # Get only connections from 192.168.1.1
+            filter = NFCTAttrTuple(saddr='192.168.1.1')
+            ct.dump_entries(tuple_orig=filter)
+
+            # Get HTTPS connections
+            filter = NFCTAttrTuple(proto=socket.IPPROTO_TCP, dport=443)
+            ct.dump_entries(tuple_orig=filter)
+
+        Note that NFCTAttrTuple attributes are working like one AND operator.
+
+        Example::
+           # Get connections from 192.168.1.1 AND on port 443
+           TCP = socket.IPPROTO_TCP
+           filter = NFCTAttrTuple(saddr='192.168.1.1', proto=TCP, dport=443)
+           ct.dump_entries(tuple_orig=filter)
+
+        """
         if tuple_orig is not None:
             tuple_orig.attrs() # for creating flags
             cta_filter = {
