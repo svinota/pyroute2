@@ -684,8 +684,10 @@ class NFCTSocket(NetlinkSocket):
                 'attrs': [['CTA_FILTER_REPLY_FLAGS', tuple_reply.flags]]
             }
             msg = nfct_msg.create_from(tuple_reply=tuple_reply, cta_filter=cta_filter)
-        else:
+        elif mark:
             msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
+        else:
+            msg = nfct_msg.create_from()
         return self.request(msg, IPCTNL_MSG_CT_GET,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
