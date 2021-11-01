@@ -6,6 +6,7 @@ See also: pr2modules.conntrack
 
 import socket
 
+from pr2modules.netlink import NLA_F_NESTED
 from pr2modules.netlink import NLMSG_ERROR
 from pr2modules.netlink import NLM_F_REQUEST
 from pr2modules.netlink import NLM_F_DUMP
@@ -209,6 +210,7 @@ class nfct_msg(nfgen_msg):
         ('CTA_LABELS', 'cta_labels'),
         ('CTA_LABELS_MASK', 'cta_labels'),
         ('CTA_SYNPROXY', 'cta_synproxy'),
+        ('CTA_FILTER', 'cta_filter'),
     )
 
     @classmethod
@@ -337,6 +339,14 @@ class nfct_msg(nfgen_msg):
             ('CTA_TIMESTAMP_STOP', 'be64'),
         )
 
+    class cta_filter(nla):
+        nla_flags = NLA_F_NESTED
+        nla_map = (
+            ('CTA_FILTER_UNSPEC', 'none'),
+            ('CTA_FILTER_ORIG_FLAGS', 'uint32'),
+            ('CTA_FILTER_REPLY_FLAGS', 'uint32'),
+        )
+
     class cta_labels(nla):
         fields = [('value', 'QQ')]
 
@@ -359,6 +369,30 @@ class nfct_msg(nfgen_msg):
             ('CTA_SYNPROXY_ITS', 'be32'),
             ('CTA_SYNPROXY_TSOFF', 'be32'),
         )
+
+
+FILTER_FLAG_CTA_IP_SRC = 1 << 0
+FILTER_FLAG_CTA_IP_DST = 1 << 1
+FILTER_FLAG_CTA_TUPLE_ZONE = 1 << 2
+FILTER_FLAG_CTA_PROTO_NUM = 1 << 3
+FILTER_FLAG_CTA_PROTO_SRC_PORT = 1 << 4
+FILTER_FLAG_CTA_PROTO_DST_PORT = 1 << 5
+FILTER_FLAG_CTA_PROTO_ICMP_TYPE = 1 << 6
+FILTER_FLAG_CTA_PROTO_ICMP_CODE = 1 << 7
+FILTER_FLAG_CTA_PROTO_ICMP_ID = 1 << 8
+FILTER_FLAG_CTA_PROTO_ICMPV6_TYPE = 1 << 9
+FILTER_FLAG_CTA_PROTO_ICMPV6_CODE = 1 << 10
+FILTER_FLAG_CTA_PROTO_ICMPV6_ID = 1 << 11
+
+FILTER_FLAG_ALL_CTA_PROTO = FILTER_FLAG_CTA_PROTO_SRC_PORT | \
+    FILTER_FLAG_CTA_PROTO_DST_PORT | \
+    FILTER_FLAG_CTA_PROTO_ICMP_TYPE | \
+    FILTER_FLAG_CTA_PROTO_ICMP_CODE | \
+    FILTER_FLAG_CTA_PROTO_ICMP_ID | \
+    FILTER_FLAG_CTA_PROTO_ICMPV6_TYPE | \
+    FILTER_FLAG_CTA_PROTO_ICMPV6_CODE | \
+    FILTER_FLAG_CTA_PROTO_ICMPV6_ID
+FILTER_FLAG_ALL = 0xFFFFFFFF
 
 
 class NFCTAttr(object):
@@ -411,20 +445,27 @@ class NFCTAttrTuple(NFCTAttr):
         cta_proto = []
         cta_tuple = []
 
+        self.flags = 0
+
         if self.saddr is not None:
             cta_ip.append([self._attr_ip + '_SRC', self.saddr])
+            self.flags |= FILTER_FLAG_CTA_IP_SRC
 
         if self.daddr is not None:
             cta_ip.append([self._attr_ip + '_DST', self.daddr])
+            self.flags |= FILTER_FLAG_CTA_IP_DST
 
         if self.proto is not None:
             cta_proto.append(['CTA_PROTO_NUM', self.proto])
+            self.flags |= FILTER_FLAG_CTA_PROTO_NUM
 
         if self.sport is not None:
             cta_proto.append(['CTA_PROTO_SRC_PORT', self.sport])
+            self.flags |= FILTER_FLAG_CTA_PROTO_SRC_PORT
 
         if self.dport is not None:
             cta_proto.append(['CTA_PROTO_DST_PORT', self.dport])
+            self.flags |= FILTER_FLAG_CTA_PROTO_DST_PORT
 
         if self.icmp_id is not None:
             cta_proto.append([self._attr_icmp + '_ID', self.icmp_id])
@@ -602,8 +643,51 @@ class NFCTSocket(NetlinkSocket):
         msg_type |= (NFNL_SUBSYS_CTNETLINK << 8)
         return self.nlm_request(msg, msg_type, **kwargs)
 
-    def dump(self, mark=None, mark_mask=None):
-        msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
+    def dump(self, mark=None, mark_mask=0xffffffff, tuple_orig=None, tuple_reply=None):
+        """ Dump conntrack entries
+
+        Several kernel side filtering are supported:
+          * mark and mark_mask, for almost all kernel
+          * tuple_orig and tuple_reply, since kernel 5.8 and newer.
+            Warning: tuple_reply has a bug in kernel, fixed only recently.
+
+        tuple_orig and tuple_reply are type NFCTAttrTuple.
+        You can give only some attribute for filtering.
+
+        Example::
+            # Get only connections from 192.168.1.1
+            filter = NFCTAttrTuple(saddr='192.168.1.1')
+            ct.dump_entries(tuple_orig=filter)
+
+            # Get HTTPS connections
+            filter = NFCTAttrTuple(proto=socket.IPPROTO_TCP, dport=443)
+            ct.dump_entries(tuple_orig=filter)
+
+        Note that NFCTAttrTuple attributes are working like one AND operator.
+
+        Example::
+           # Get connections from 192.168.1.1 AND on port 443
+           TCP = socket.IPPROTO_TCP
+           filter = NFCTAttrTuple(saddr='192.168.1.1', proto=TCP, dport=443)
+           ct.dump_entries(tuple_orig=filter)
+
+        """
+        if tuple_orig is not None:
+            tuple_orig.attrs() # for creating flags
+            cta_filter = {
+                'attrs': [['CTA_FILTER_ORIG_FLAGS', tuple_orig.flags]]
+            }
+            msg = nfct_msg.create_from(tuple_orig=tuple_orig, cta_filter=cta_filter)
+        elif tuple_reply is not None:
+            tuple_reply.attrs()
+            cta_filter = {
+                'attrs': [['CTA_FILTER_REPLY_FLAGS', tuple_reply.flags]]
+            }
+            msg = nfct_msg.create_from(tuple_reply=tuple_reply, cta_filter=cta_filter)
+        elif mark:
+            msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
+        else:
+            msg = nfct_msg.create_from()
         return self.request(msg, IPCTNL_MSG_CT_GET,
                             msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
