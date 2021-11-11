@@ -390,6 +390,10 @@ class RouteIPRouteFilter(IPRouteFilter):
              'vrf_table': 10}
 
             {'type': 'seg6local',
+             'action': 'End.DT46',
+             'vrf_table': 10}
+
+            {'type': 'seg6local',
              'action': 'End.B6',
              'table': '10'
              'srh': {'segs': '2000::5,2000::6'}}
