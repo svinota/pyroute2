@@ -576,6 +576,7 @@ class rtmsg_base(nlflags):
             SEG6_LOCAL_ACTION_END_AS = 13
             SEG6_LOCAL_ACTION_END_AM = 14
             SEG6_LOCAL_ACTION_END_BPF = 15
+            SEG6_LOCAL_ACTION_END_DT46 = 16
 
             actions = {
                 'End': SEG6_LOCAL_ACTION_END,
@@ -593,6 +594,7 @@ class rtmsg_base(nlflags):
                 'End.AS': SEG6_LOCAL_ACTION_END_AS,
                 'End.AM': SEG6_LOCAL_ACTION_END_AM,
                 'End.BPF': SEG6_LOCAL_ACTION_END_BPF,
+                'End.DT46': SEG6_LOCAL_ACTION_END_DT46,
             }
 
             def encode(self):
