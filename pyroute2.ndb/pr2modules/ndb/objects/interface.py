@@ -169,17 +169,22 @@ def load_ifinfmsg(schema, target, event):
                 schema.load_netlink('p2p', target, p2p)
             elif iftype == 'veth':
                 link = event.get_attr('IFLA_LINK')
+                ifname = event.get_attr('IFLA_IFNAME')
                 # for veth interfaces, IFLA_LINK points to
                 # the peer -- but NOT in automatic updates
                 if (not link) and \
                         (target in schema.ndb.sources.keys()):
                     schema.log.debug('reload veth %s' % event['index'])
-                    update = (schema
-                              .ndb
-                              .sources[target]
-                              .api('link', 'get', index=event['index']))
-                    update = tuple(update)[0]
-                    return schema.load_netlink('interfaces', target, update)
+                    try:
+                        update = (schema
+                                  .ndb
+                                  .sources[target]
+                                  .api('link', 'get', index=event['index']))
+                        update = tuple(update)[0]
+                        return schema.load_netlink('interfaces', target, update)
+                    except NetlinkError as e:
+                        if e.code == errno.ENODEV:
+                            schema.log.debug(f"interface disappeared: {ifname}")
 
             if table in schema.spec:
                 ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
