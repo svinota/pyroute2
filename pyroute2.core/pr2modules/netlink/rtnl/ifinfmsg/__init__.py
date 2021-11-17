@@ -311,7 +311,13 @@ class protinfo_bridge(nla):
                ('IFLA_BRPORT_MCAST_FLOOD', 'uint8'),
                ('IFLA_BRPORT_MCAST_TO_UCAST', 'uint8'),
                ('IFLA_BRPORT_VLAN_TUNNEL', 'uint8'),
-               ('IFLA_BRPORT_BCAST_FLOOD', 'uint8'))
+               ('IFLA_BRPORT_BCAST_FLOOD', 'uint8'),
+               ('IFLA_BRPORT_GROUP_FWD_MASK', 'uint16'),
+               ('IFLA_BRPORT_NEIGH_SUPPRESS', 'uint8'),
+               ('IFLA_BRPORT_ISOLATED', 'uint8'),
+               ('IFLA_BRPORT_BACKUP_PORT', 'uint32'),
+               ('IFLA_BRPORT_MRP_RING_OPEN', 'uint8'),
+               ('IFLA_BRPORT_MRP_IN_OPEN', 'uint8'))
 
     class br_id(ifla_bridge_id):
         pass
