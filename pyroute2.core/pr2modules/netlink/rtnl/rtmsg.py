@@ -347,7 +347,8 @@ class rtmsg_base(nlflags):
                    ('SEG6_LOCAL_NH6', 'nh6'),
                    ('SEG6_LOCAL_IIF', 'iif'),
                    ('SEG6_LOCAL_OIF', 'oif'),
-                   ('SEG6_LOCAL_BPF', 'bpf_obj'))
+                   ('SEG6_LOCAL_BPF', 'bpf_obj'),
+                   ('SEG6_LOCAL_VRFTABLE', 'vrf_table'))
 
         class bpf_obj(nla):
 
@@ -608,6 +609,13 @@ class rtmsg_base(nlflags):
                 nla_string.decode(self)
                 # Convert the packed IP address to its string representation
                 self['value'] = inet_ntop(AF_INET6, self['value'])
+
+        class vrf_table(nla):
+
+            __slots__ = ()
+
+            # VRF Table ID
+            fields = (('value', 'I'),)
 
     #
     # TODO: add here other lwtunnel types
