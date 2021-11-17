@@ -239,6 +239,7 @@ class IPRouteRequest(IPRequest):
             hmac = None
             prog_fd = None
             prog_name = None
+            vrf_table = None
             # Parse segs
             if srh:
                 segs = header['srh']['segs']
@@ -277,8 +278,8 @@ class IPRouteRequest(IPRequest):
                 # Retrieve table
                 table = header['table']
             elif action == 'End.DT4':
-                # Retrieve table
-                table = header['table']
+                # Retrieve vrf_table
+                vrf_table = header['vrf_table']
             elif action == 'End.B6':
                 # Parse segs
                 segs = header['srh']['segs']
@@ -334,6 +335,9 @@ class IPRouteRequest(IPRequest):
             if table:
                 # Add the table to ret
                 ret.append(['SEG6_LOCAL_TABLE', {'value': table}])
+            if vrf_table:
+                # Add the vrf_table to ret
+                ret.append(['SEG6_LOCAL_VRFTABLE', {'value': vrf_table}])
             if nh4:
                 # Add the nh4 to ret
                 ret.append(['SEG6_LOCAL_NH4', {'value': nh4}])
@@ -489,6 +493,10 @@ class IPRouteRequest(IPRequest):
                 # 'encap': {'type': 'seg6local',
                 #           'action': 'End.DT6',
                 #           'table': '10'}
+                #
+                # 'encap': {'type': 'seg6local',
+                #           'action': 'End.DT4',
+                #           'vrf_table': 10}
                 #
                 # 'encap': {'type': 'seg6local',
                 #           'action': 'End.DX6',
