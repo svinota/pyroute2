@@ -754,10 +754,13 @@ class ifinfbase(object):
         def info_slave_data(self, *argv, **kwarg):
             '''
             Return IFLA_INFO_SLAVE_DATA type based on
-            IFLA_INFO_SLAVE_KIND.
+            IFLA_INFO_SLAVE_KIND or IFLA_INFO_KIND.
             '''
             kind = self.get_attr('IFLA_INFO_SLAVE_KIND')
+            if kind is None:
+                kind = self.get_attr('IFLA_INFO_KIND')
             data_map = {'bridge': self.bridge_slave_data,
+                        'bridge_slave': self.bridge_slave_data,
                         'bond': self.bond_slave_data}
             return data_map.get(kind, self.hex)
 
@@ -960,7 +963,8 @@ class ifinfbase(object):
                     'ip6gre': ip6gre_data,
                     'ip6gretap': ip6gre_data,
                     'veth': veth_data,
-                    'bridge': bridge_data}
+                    'bridge': bridge_data,
+                    'bridge_slave': bridge_slave_data}
         # expand supported interface types
         data_map.update(data_plugins)
 

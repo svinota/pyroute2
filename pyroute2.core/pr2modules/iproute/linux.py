@@ -669,26 +669,28 @@ class RTNL_API(object):
         Possible keywords are NLA names for the `protinfo_bridge` class,
         without the prefix and in lower letters.
         '''
+        if command == 'set':
+            linkkwarg = dict()
+            linkkwarg['index'] = kwarg.pop('index', 0)
+            linkkwarg['kind'] = 'bridge_slave'
+            for key in kwarg:
+                linkkwarg[key] = kwarg[key]
+            return self.link(command, **linkkwarg)
         if (command in ('dump', 'show')) and ('match' not in kwarg):
             match = kwarg
         else:
             match = kwarg.pop('match', None)
 
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
-        flags_req = NLM_F_REQUEST | NLM_F_ACK
-        commands = {'set': (RTM_SETLINK, flags_req),
-                    'dump': (RTM_GETLINK, flags_dump),
+        commands = {'dump': (RTM_GETLINK, flags_dump),
                     'show': (RTM_GETLINK, flags_dump)}
         (command, msg_flags) = commands.get(command, command)
 
         msg = ifinfmsg()
-        if command == RTM_GETLINK:
-            msg['index'] = kwarg.get('index', 0)
-        else:
-            msg['index'] = kwarg.pop('index', 0)
+        msg['index'] = kwarg.get('index', 0)
         msg['family'] = AF_BRIDGE
         protinfo = IPBrPortRequest(kwarg)
-        msg['attrs'].append(('IFLA_PROTINFO', protinfo, 0x8000))
+        msg['attrs'].append(('IFLA_PROTINFO', dict(protinfo), 0x8000))
         ret = self.nlm_request(msg,
                                msg_type=command,
                                msg_flags=msg_flags)
