@@ -894,7 +894,7 @@ class NetlinkMixin(object):
                         if retry_count >= 30:
                             raise
                         log.warning('Error 16, retry {}.'.format(retry_count))
-                        time.sleep(0.3)
+                        time.sleep(0.055)
                         retry_count += 1
                         continue
                     except Exception:
