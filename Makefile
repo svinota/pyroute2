@@ -28,14 +28,14 @@ wlevel ?= once
 ##
 # Other options
 #
-# root      -- install root (default: platform default)
+# prefix      -- install prefix (default: platform default)
 # lib       -- lib installation target (default: platform default)
 # coverage  -- whether to produce html coverage (default: false)
 # pdb       -- whether to run pdb on errors (default: false)
 # module    -- run only the specified test module (default: run all)
 #
-ifdef root
-	override root := "--root=${root}"
+ifdef prefix
+	override prefix := "--prefix=${prefix}"
 endif
 
 ifdef lib
@@ -211,18 +211,18 @@ setup:
 			$$module/setup.cfg ; \
 	done
 
-dist: clean VERSION setup
+dist:
 	cd pyroute2; ${python} setup.py sdist
 	mkdir dist
 	$(call make_modules, dist)
 	$(call fetch_modules_dist)
 
-install: dist
+install:
 	rm -f dist/pyroute2.minimal*
-	${python} -m pip install dist/* ${root}
+	${python} -m pip install --no-deps --no-index dist/* ${prefix}
 
 install-minimal: dist
-	${python} -m pip install dist/pyroute2.minimal* dist/pyroute2.core* ${root}
+	${python} -m pip install --no-deps --no-index dist/pyroute2.minimal* dist/pyroute2.core* ${prefix}
 
 uninstall: clean VERSION setup
 	$(call make_modules, uninstall)
