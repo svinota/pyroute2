@@ -197,6 +197,7 @@ from pprint import pprint;\
 pprint(TestCapsRtnl().collect())"
 
 upload: dist
+	${python} -m twine check dist/*
 	${python} -m twine upload dist/*
 
 setup:
@@ -215,7 +216,6 @@ dist: clean VERSION setup
 	mkdir dist
 	$(call make_modules, dist)
 	$(call fetch_modules_dist)
-	${python} -m twine check dist/*
 
 install: dist
 	rm -f dist/pyroute2.minimal*
