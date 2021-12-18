@@ -661,6 +661,7 @@ class IPLinkRequest(IPRequest):
         self.specific = {}
         self.linkinfo = None
         self._info_data = None
+        self._info_slave_data = None
         IPRequest.__init__(self, *argv, **kwarg)
         if 'index' not in self:
             self['index'] = 0
@@ -672,6 +673,14 @@ class IPLinkRequest(IPRequest):
             self._info_data = info_data[1]['attrs']
             self.linkinfo.append(info_data)
         return self._info_data
+
+    @property
+    def info_slave_data(self):
+        if self._info_slave_data is None:
+            info_slave_data = ('IFLA_INFO_SLAVE_DATA', {'attrs': []})
+            self._info_slave_data = info_slave_data[1]['attrs']
+            self.linkinfo.append(info_slave_data)
+        return self._info_slave_data
 
     def flush_deferred(self):
         # create IFLA_LINKINFO
@@ -755,7 +764,11 @@ class IPLinkRequest(IPRequest):
                 raise ValueError()
         # the kind is known: lookup the NLA
         if key in self.specific:
-            self.info_data.append((self.specific[key], value))
+            # FIXME: slave hack
+            if self.kind.endswith('_slave'):
+                self.info_slave_data.append((self.specific[key], value))
+            else:
+                self.info_data.append((self.specific[key], value))
             return True
         elif key == 'peer' and self.kind == 'veth':
             # FIXME: veth hack
