@@ -11,7 +11,7 @@ class bond(nla):
                ('IFLA_BOND_DOWNDELAY', 'uint32'),
                ('IFLA_BOND_USE_CARRIER', 'uint8'),
                ('IFLA_BOND_ARP_INTERVAL', 'uint32'),
-               ('IFLA_BOND_ARP_IP_TARGET', 'arp_ip_target'),
+               ('IFLA_BOND_ARP_IP_TARGET', '*ipaddr'),
                ('IFLA_BOND_ARP_VALIDATE', 'uint32'),
                ('IFLA_BOND_ARP_ALL_TARGETS', 'uint32'),
                ('IFLA_BOND_PRIMARY', 'uint32'),
@@ -39,6 +39,3 @@ class bond(nla):
                    ('IFLA_BOND_AD_INFO_ACTOR_KEY', 'uint16'),
                    ('IFLA_BOND_AD_INFO_PARTNER_KEY', 'uint16'),
                    ('IFLA_BOND_AD_INFO_PARTNER_MAC', 'l2addr'))
-
-    class arp_ip_target(nla):
-        fields = (('targets', '16I'), )
