@@ -1255,6 +1255,11 @@ class nlmsg_base(dict):
         Atomic NLAs return their value in the 'value' field,
         not as a dictionary. Complex NLAs return whole dictionary.
         '''
+        if self._nla_array and \
+                len(self.value) and \
+                hasattr(self.value[0], 'getvalue'):
+            return [x.getvalue() for x in self.value]
+
         if self.value != NotInitialized:
             # value decoded by custom decoder
             return self.value
@@ -1791,8 +1796,8 @@ class nlmsg_atoms(object):
             self['value'] = inet_pton(family, self.value)
             nla_base_string.encode(self)
 
-        def decode(self):
-            nla_base_string.decode(self)
+        def ft_decode(self, offset):
+            nla_base_string.ft_decode(self, offset)
             # use real provided family, not implicit
             if self.length > 8:
                 family = AF_INET6
