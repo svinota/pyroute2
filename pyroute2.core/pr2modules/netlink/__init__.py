@@ -1053,47 +1053,7 @@ class nlmsg_base(dict):
                 cell.encode()
                 offset += (cell.length + 4 - 1) & ~ (4 - 1)
         elif self.getvalue() is not None:
-            for name, fmt in self.fields:
-                value = self[name]
-
-                if fmt == 's':
-                    length = len(value or '') + self.zstring
-                    efmt = '%is' % (length)
-                else:
-                    length = struct.calcsize(fmt)
-                    efmt = fmt
-
-                self.data.extend([0] * length)
-
-                # in python3 we should force it
-                if sys.version[0] == '3':
-                    if isinstance(value, str):
-                        value = bytes(value, 'utf-8')
-                    elif isinstance(value, float):
-                        value = int(value)
-                elif sys.version[0] == '2':
-                    if isinstance(value, unicode):
-                        value = value.encode('utf-8')
-
-                try:
-                    if fmt[-1] == 'x':
-                        struct.pack_into(efmt, self.data, offset)
-                    elif type(value) in (list, tuple, set):
-                        struct.pack_into(efmt, self.data, offset, *value)
-                    else:
-                        struct.pack_into(efmt, self.data, offset, value)
-                except struct.error:
-                    log.error(''.join(traceback.format_stack()))
-                    log.error(traceback.format_exc())
-                    log.error("error pack: %s %s %s" %
-                              (efmt, value, type(value)))
-                    raise
-
-                offset += length
-
-            diff = ((offset + 4 - 1) & ~ (4 - 1)) - offset
-            offset += diff
-            self.data.extend([0] * diff)
+            offset, diff = self.ft_encode(offset)
         # write NLA chain
         if self.nla_map:
             offset = self.encode_nlas(offset)
@@ -1418,7 +1378,7 @@ class nlmsg_base(dict):
 ##
 # 8<---------------------------------------------------------------------
 #
-# NLMSG fields decoders, mixin classes
+# NLMSG fields codecs, mixin classes
 #
 class nlmsg_decoder_generic(object):
 
@@ -1492,6 +1452,54 @@ class nlmsg_decoder_struct(object):
             del self['attrs']
         if self['value'] is NotInitialized:
             del self['value']
+
+
+class nlmsg_encoder_generic(object):
+
+    def ft_encode(self, offset):
+        for name, fmt in self.fields:
+            value = self[name]
+
+            if fmt == 's':
+                length = len(value or '') + self.zstring
+                efmt = '%is' % (length)
+            else:
+                length = struct.calcsize(fmt)
+                efmt = fmt
+
+            self.data.extend([0] * length)
+
+            # in python3 we should force it
+            if sys.version[0] == '3':
+                if isinstance(value, str):
+                    value = bytes(value, 'utf-8')
+                elif isinstance(value, float):
+                    value = int(value)
+            elif sys.version[0] == '2':
+                if isinstance(value, unicode):
+                    value = value.encode('utf-8')
+
+            try:
+                if fmt[-1] == 'x':
+                    struct.pack_into(efmt, self.data, offset)
+                elif type(value) in (list, tuple, set):
+                    struct.pack_into(efmt, self.data, offset, *value)
+                else:
+                    struct.pack_into(efmt, self.data, offset, value)
+            except struct.error:
+                log.error(''.join(traceback.format_stack()))
+                log.error(traceback.format_exc())
+                log.error("error pack: %s %s %s" %
+                          (efmt, value, type(value)))
+                raise
+
+            offset += length
+
+        diff = ((offset + 4 - 1) & ~ (4 - 1)) - offset
+        offset += diff
+        self.data.extend([0] * diff)
+
+        return offset, diff
 #
 # 8<---------------------------------------------------------------------
 ##
@@ -1573,7 +1581,10 @@ class nla_header(object):
               ('type', 'H'))
 
 
-class nla_base(nla_header, nlmsg_base, nlmsg_decoder_generic):
+class nla_base(nla_header,
+               nlmsg_base,
+               nlmsg_encoder_generic,
+               nlmsg_decoder_generic):
     '''
     Generic NLA base class.
     '''
@@ -1581,7 +1592,10 @@ class nla_base(nla_header, nlmsg_base, nlmsg_decoder_generic):
     zstring = 0
 
 
-class nla_base_string(nla_header, nlmsg_base, nlmsg_decoder_string):
+class nla_base_string(nla_header,
+                      nlmsg_base,
+                      nlmsg_encoder_generic,
+                      nlmsg_decoder_string):
     '''
     NLA base class, string decoder.
     '''
@@ -1590,7 +1604,10 @@ class nla_base_string(nla_header, nlmsg_base, nlmsg_decoder_string):
     zstring = 0
 
 
-class nla_base_struct(nla_header, nlmsg_base, nlmsg_decoder_struct):
+class nla_base_struct(nla_header,
+                      nlmsg_base,
+                      nlmsg_encoder_generic,
+                      nlmsg_decoder_struct):
     '''
     NLA base class, packed struct decoder.
     '''
@@ -1787,14 +1804,14 @@ class nlmsg_atoms(object):
         __slots__ = ()
         sql_type = 'TEXT'
 
-        def encode(self):
+        def ft_encode(self, offset):
             # use real provided family, not implicit
             if self.value.find(':') > -1:
                 family = AF_INET6
             else:
                 family = AF_INET
             self['value'] = inet_pton(family, self.value)
-            nla_base_string.encode(self)
+            return nla_base_string.ft_encode(self, offset)
 
         def ft_decode(self, offset):
             nla_base_string.ft_decode(self, offset)
@@ -2085,7 +2102,10 @@ class nla_struct(nla_base_struct, nlmsg_atoms):
 ##
 
 
-class nlmsg(nlmsg_base, nlmsg_decoder_generic, nlmsg_atoms):
+class nlmsg(nlmsg_base,
+            nlmsg_encoder_generic,
+            nlmsg_decoder_generic,
+            nlmsg_atoms):
     '''
     Main netlink message class
     '''
