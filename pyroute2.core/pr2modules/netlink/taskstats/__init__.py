@@ -80,7 +80,10 @@ class tstats(nla_struct):
 
     def decode(self):
         nla_struct.decode(self)
-        self['ac_comm'] = self['ac_comm'][:self['ac_comm'].find('\0')]
+        command = self['ac_comm']
+        if isinstance(command, bytes):
+            command = command.decode('utf-8')
+        self['ac_comm'] = command[:command.find('\0')]
 
 
 class taskstatsmsg(genlmsg):
