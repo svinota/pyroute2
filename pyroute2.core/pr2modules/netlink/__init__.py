@@ -509,6 +509,9 @@ NLM_F_REQUEST = 1    # It is request message.
 NLM_F_MULTI = 2    # Multipart message, terminated by NLMSG_DONE
 NLM_F_ACK = 4    # Reply with ack, with zero or error code
 NLM_F_ECHO = 8    # Echo this request
+NLM_F_DUMP_INTR = 0x10    # Dump was inconsistent due to sequence change
+NLM_F_DUMP_FILTERED = 0x20    # Dump was filtered as requested
+
 # Modifiers to GET request
 NLM_F_ROOT = 0x100    # specify tree    root
 NLM_F_MATCH = 0x200    # return all matching
