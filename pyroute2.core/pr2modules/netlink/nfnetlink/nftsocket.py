@@ -704,6 +704,7 @@ class nft_rule_msg(nfgen_msg, nft_contains_expr):
 
 
 class nft_set_msg(nfgen_msg, nft_contains_expr):
+    prefix = 'NFTA_SET_'
     nla_map = (('NFTA_SET_UNSPEC', 'none'),
                ('NFTA_SET_TABLE', 'asciiz'),
                ('NFTA_SET_NAME', 'asciiz'),
@@ -820,6 +821,7 @@ class nft_set_elem_list_msg(nfgen_msg):
 
 
 class nft_flowtable_msg(nfgen_msg):
+    prefix = 'NFTA_FLOWTABLE_'
     nla_map = (
         ('NFTA_FLOWTABLE_UNSPEC', 'none'),
         ('NFTA_FLOWTABLE_TABLE', 'asciiz'),
