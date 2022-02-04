@@ -52,5 +52,13 @@ class IPSetError(NetlinkError):
     pass
 
 
+class NetlinkDumpInterrupted(NetlinkError):
+    '''
+    Raised when NLM_F_DUMP_INTR is set in the flags.
+    '''
+    def __init__(self):
+        super(NetlinkError, self).__init__(-1, 'dump interrupted')
+
+
 class SkipInode(Exception):
     pass

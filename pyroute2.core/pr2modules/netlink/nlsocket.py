@@ -116,8 +116,10 @@ from pr2modules.netlink import NLM_F_ACK_TLVS
 from pr2modules.netlink import NLM_F_DUMP
 from pr2modules.netlink import NLM_F_MULTI
 from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink import NLM_F_DUMP_INTR
 from pr2modules.netlink import SOL_NETLINK
 from pr2modules.netlink.exceptions import NetlinkError
+from pr2modules.netlink.exceptions import NetlinkDumpInterrupted
 from pr2modules.netlink.exceptions import NetlinkDecodeError
 from pr2modules.netlink.exceptions import NetlinkHeaderDecodeError
 
@@ -196,6 +198,8 @@ class Marshal(object):
                     enc = enc_class(data, offset=offset + 20)
                     enc.decode()
                     msg['header']['errmsg'] = enc
+                if msg['header']['flags'] & NLM_F_DUMP_INTR:
+                    msg['header']['error'] = NetlinkDumpInterrupted()
                 if callback and seq == msg['header']['sequence_number']:
                     if callback(msg):
                         offset += msg.length
