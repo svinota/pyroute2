@@ -198,8 +198,6 @@ class Marshal(object):
                     enc = enc_class(data, offset=offset + 20)
                     enc.decode()
                     msg['header']['errmsg'] = enc
-                if msg['header']['flags'] & NLM_F_DUMP_INTR:
-                    msg['header']['error'] = NetlinkDumpInterrupted()
                 if callback and seq == msg['header']['sequence_number']:
                     if callback(msg):
                         offset += msg.length
@@ -881,6 +879,7 @@ class NetlinkMixin(object):
                     callback=None):
 
         msg_seq = self.addr_pool.alloc()
+        defer = None
         with self.lock[msg_seq]:
             retry_count = 0
             try:
@@ -890,6 +889,10 @@ class NetlinkMixin(object):
                         for msg in self.get(msg_seq=msg_seq,
                                             terminate=terminate,
                                             callback=callback):
+                            # analyze the response for effects to be deferred
+                            if defer is None and \
+                                    msg['header']['flags'] & NLM_F_DUMP_INTR:
+                                defer = NetlinkDumpInterrupted()
                             yield msg
                         break
                     except NetlinkError as e:
@@ -917,6 +920,8 @@ class NetlinkMixin(object):
                 #
                 # Hack, but true.
                 self.addr_pool.free(msg_seq, ban=0xff)
+            if defer is not None:
+                raise defer
 
 
 class BatchAddrPool(object):
