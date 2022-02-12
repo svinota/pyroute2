@@ -1,7 +1,6 @@
 import socket
 import platform
 import multiprocessing
-from distutils.version import LooseVersion
 
 SocketBase = socket.socket
 MpPipe = multiprocessing.Pipe
@@ -23,7 +22,7 @@ cache_expire = 60
 uname = tuple(platform.uname())
 machine = platform.machine()
 arch = platform.architecture()[0]
-kernel = LooseVersion(uname[2]).version[:3]
+kernel = [int(x) for x in uname[2].split('-')[0].split('.')]
 
 AF_BRIDGE = getattr(socket, 'AF_BRIDGE', 7)
 AF_NETLINK = getattr(socket, 'AF_NETLINK', 16)

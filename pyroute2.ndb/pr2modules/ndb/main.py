@@ -1025,7 +1025,7 @@ class NDB(object):
         self._dbm_autoload = set()
         self._dbm_thread = threading.Thread(target=self.__dbm__,
                                             name='NDB main loop')
-        self._dbm_thread.setDaemon(True)
+        self._dbm_thread.daemon = True
         self._dbm_thread.start()
         self._dbm_ready.wait()
         if self._dbm_error is not None:

@@ -10,11 +10,11 @@ import subprocess
 import netaddr
 import ctypes
 import ctypes.util
+from pr2modules import config
 from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.iproute.linux import IPRoute
 from nose.plugins.skip import SkipTest
 from nose.tools import make_decorator
-from distutils.version import LooseVersion
 try:
     import httplib
 except ImportError:
@@ -105,12 +105,11 @@ def conflict_arch(arch):
 
 def kernel_version_ge(major, minor):
     # True if running kernel is >= X.Y
-    version = LooseVersion(os.uname()[2]).version
-    if version[0] > major:
+    if config.kernel[0] > major:
         return True
-    if version[0] < major:
+    if config.kernel[0] < major:
         return False
-    if minor and version[1] < minor:
+    if minor and config.kernel[1] < minor:
         return False
     return True
 

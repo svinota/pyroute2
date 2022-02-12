@@ -69,7 +69,12 @@ except Exception:
 # load entry_points
 modules = []
 namespace_inject = {}
-for entry_point in metadata.entry_points().get('pr2modules', []):
+groups = metadata.entry_points()
+if hasattr(groups, 'select'):
+    pr2modules_group = groups.select(group='pr2modules')
+else:
+    pr2modules_group = groups.get('pr2modules', [])
+for entry_point in pr2modules_group:
     loaded = entry_point.load()
     modules.append(entry_point.name)
     if len(entry_point.value.split(':')) == 1:

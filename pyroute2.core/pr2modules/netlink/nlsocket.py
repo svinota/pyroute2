@@ -1090,7 +1090,7 @@ class NetlinkSocket(NetlinkMixin):
             self.recv_ft = recv_plugin
             self.pthread = threading.Thread(name="Netlink async cache",
                                             target=self.async_recv)
-            self.pthread.setDaemon(True)
+            self.pthread.daemon = True
             self.pthread.start()
 
     def add_membership(self, group):
