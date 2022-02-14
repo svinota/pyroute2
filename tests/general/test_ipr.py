@@ -18,8 +18,6 @@ from utils import grep
 from utils import require_user
 from utils import require_python
 from utils import require_kernel
-from utils import get_ip_brd
-from utils import get_ip_addr
 from utils import get_ip_default_routes
 from utils import get_ip_rules
 from utils import remove_link
@@ -206,19 +204,6 @@ class TestIPRoute(object):
         assert intersection['prefixlen'] == 24
         assert intersection['index'] == self.ifaces[0]
 
-    def test_addr_add(self):
-        require_user('root')
-        ifaddr = self.ifaddr()
-        self.ip.addr('add', self.ifaces[0], address=ifaddr, mask=24)
-        assert '{0}/24'.format(ifaddr) in get_ip_addr()
-
-    def test_addr_replace(self):
-        require_user('root')
-        ifaddr = self.ifaddr()
-        self.ip.addr('replace', self.ifaces[0], address=ifaddr, mask=24)
-        assert '{0}/24'.format(ifaddr) in get_ip_addr()
-        self.ip.addr('replace', self.ifaces[0], address=ifaddr, mask=24)
-
     def test_vlan_filter_dump(self):
         require_user('root')
         (an, ax) = self.create('bridge')
@@ -289,56 +274,6 @@ class TestIPRoute(object):
         assert protinfo.get_attr('IFLA_BRPORT_PROXYARP') == 1
         assert protinfo.get_attr('IFLA_BRPORT_UNICAST_FLOOD') == 0
 
-    def test_local_add(self):
-        require_user('root')
-        ifaddr1 = self.ifaddr()
-        ifaddr2 = self.ifaddr()
-        self.ip.addr('add', self.ifaces[0],
-                     address=ifaddr1,
-                     local=ifaddr2,
-                     mask=24)
-        link = self.ip.get_addr(index=self.ifaces[0])[0]
-        address = link.get_attr('IFA_ADDRESS')
-        local = link.get_attr('IFA_LOCAL')
-        assert address == ifaddr1
-        assert local == ifaddr2
-
-    def test_addr_broadcast(self):
-        require_user('root')
-        ifaddr1 = self.ifaddr()
-        ifaddr2 = self.ifaddr()
-        self.ip.addr('add', self.ifaces[0],
-                     address=ifaddr1,
-                     mask=24,
-                     broadcast=ifaddr2)
-        assert ifaddr2 in get_ip_brd()
-
-    def test_addr_broadcast_default(self):
-        require_user('root')
-        ifaddr1 = self.ifaddr()  # -> 255
-        ifaddr2 = self.ifaddr()  # -> 254
-        self.ip.addr('add', self.ifaces[0],
-                     address=ifaddr2,
-                     mask=24,
-                     broadcast=True)
-        assert ifaddr1 in get_ip_brd()
-
-    def test_flush_addr(self):
-        require_user('root')
-        ifaddr1 = self.ifaddr(0)
-        ifaddr2 = self.ifaddr(0)
-        ifaddr3 = self.ifaddr(1)
-        ifaddr4 = self.ifaddr(1)
-        self.ip.addr('add', self.ifaces[0], address=ifaddr1, mask=24)
-        self.ip.addr('add', self.ifaces[0], address=ifaddr2, mask=24)
-        self.ip.addr('add', self.ifaces[0], address=ifaddr3, mask=24)
-        self.ip.addr('add', self.ifaces[0], address=ifaddr4, mask=24)
-        assert len(self.ip.get_addr(index=self.ifaces[0],
-                                    family=socket.AF_INET)) == 4
-        self.ip.flush_addr(index=self.ifaces[0])
-        assert len(self.ip.get_addr(index=self.ifaces[0],
-                                    family=socket.AF_INET)) == 0
-
     def test_flush_rules(self):
         require_user('root')
         ifaddr1 = self.ifaddr(0)
@@ -373,27 +308,6 @@ class TestIPRoute(object):
 
     def test_match_callable(self):
         assert len(self.ip.get_links(match=partial(lambda x: x))) > 0
-
-    def test_addr_filter(self):
-        require_user('root')
-        ifaddr_brd = self.ifaddr()
-        ifaddr1 = self.ifaddr()
-        ifaddr2 = self.ifaddr()
-        self.ip.addr('add',
-                     index=self.ifaces[0],
-                     address=ifaddr1,
-                     prefixlen=24,
-                     broadcast=ifaddr_brd)
-        self.ip.addr('add',
-                     index=self.ifaces[0],
-                     address=ifaddr2,
-                     prefixlen=24,
-                     broadcast=ifaddr_brd)
-        assert len(self.ip.get_addr(index=self.ifaces[0])) == 2
-        assert len(self.ip.get_addr(address=ifaddr1)) == 1
-        assert len(self.ip.get_addr(broadcast=ifaddr_brd)) == 2
-        assert len(self.ip.get_addr(match=lambda x: x['index'] ==
-                                    self.ifaces[0])) == 2
 
     @skip_if_not_supported
     def _create_ipvlan(self, smode):
