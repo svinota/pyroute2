@@ -220,6 +220,12 @@ class Address(RTNL_Object):
         self.event_map = {ifaddrmsg: "load_rtnlmsg"}
         super(Address, self).__init__(*argv, **kwarg)
 
+    @classmethod
+    def compare_record(self, left, right):
+        if isinstance(right, basestring):
+            return right == left['address'] or \
+                right == '%s/%i' % (left['address'], left['prefixlen'])
+
     @staticmethod
     def spec_normalize(spec):
         '''
