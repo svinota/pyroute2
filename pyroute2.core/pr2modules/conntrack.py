@@ -162,7 +162,9 @@ class Conntrack(NFCTSocket):
                                              daddr='8.8.8.8')):
                 print("This entry is icmp to 8.8.8.8: {}".format(entry))
         """
-        for ndmsg in self.dump(mark=mark, mark_mask=mark_mask, tuple_orig=tuple_orig,
+        for ndmsg in self.dump(mark=mark,
+                               mark_mask=mark_mask,
+                               tuple_orig=tuple_orig,
                                tuple_reply=tuple_reply):
 
             if tuple_orig is not None and not tuple_orig.nla_eq(

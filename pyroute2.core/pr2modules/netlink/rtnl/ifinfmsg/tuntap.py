@@ -17,7 +17,14 @@ from pr2modules.netlink.rtnl.ifinfmsg.sync import sync
 IFNAMSIZ = 16
 
 TUNDEV = '/dev/net/tun'
-PLATFORMS = ('i386', 'i686', 'x86_64', 'armv6l', 'armv7l', 's390x', 'aarch64', 'loongarch64')
+PLATFORMS = ('i386',
+             'i686',
+             'x86_64',
+             'armv6l',
+             'armv7l',
+             's390x',
+             'aarch64',
+             'loongarch64')
 if config.machine in PLATFORMS:
     TUNSETIFF = 0x400454ca
     TUNSETPERSIST = 0x400454cb

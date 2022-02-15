@@ -643,7 +643,11 @@ class NFCTSocket(NetlinkSocket):
         msg_type |= (NFNL_SUBSYS_CTNETLINK << 8)
         return self.nlm_request(msg, msg_type, **kwargs)
 
-    def dump(self, mark=None, mark_mask=0xffffffff, tuple_orig=None, tuple_reply=None):
+    def dump(self,
+             mark=None,
+             mark_mask=0xffffffff,
+             tuple_orig=None,
+             tuple_reply=None):
         """ Dump conntrack entries
 
         Several kernel side filtering are supported:
@@ -673,17 +677,19 @@ class NFCTSocket(NetlinkSocket):
 
         """
         if tuple_orig is not None:
-            tuple_orig.attrs() # for creating flags
+            tuple_orig.attrs()  # for creating flags
             cta_filter = {
                 'attrs': [['CTA_FILTER_ORIG_FLAGS', tuple_orig.flags]]
             }
-            msg = nfct_msg.create_from(tuple_orig=tuple_orig, cta_filter=cta_filter)
+            msg = nfct_msg.create_from(tuple_orig=tuple_orig,
+                                       cta_filter=cta_filter)
         elif tuple_reply is not None:
             tuple_reply.attrs()
             cta_filter = {
                 'attrs': [['CTA_FILTER_REPLY_FLAGS', tuple_reply.flags]]
             }
-            msg = nfct_msg.create_from(tuple_reply=tuple_reply, cta_filter=cta_filter)
+            msg = nfct_msg.create_from(tuple_reply=tuple_reply,
+                                       cta_filter=cta_filter)
         elif mark:
             msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
         else:

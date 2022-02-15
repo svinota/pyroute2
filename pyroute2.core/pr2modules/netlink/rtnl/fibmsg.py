@@ -72,7 +72,8 @@ class fibmsg(nlmsg):
         sql_type = 'TEXT'
 
         def encode(self):
-            self['start'], self['end'] = [int(x) for x in self.value.split(':')]
+            self['start'], self['end'] = [int(x) for x
+                                          in self.value.split(':')]
             nla.encode(self)
 
         def decode(self):

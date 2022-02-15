@@ -614,7 +614,10 @@ class View(dict):
             context = {}
 
         iclass = self.classes[self.table]
-        key = iclass.new_spec(key, self.default_target).load_context(context).get_spec
+        key = (iclass
+               .new_spec(key, self.default_target)
+               .load_context(context)
+               .get_spec)
 
         iclass.resolve(view=self,
                        spec=key,

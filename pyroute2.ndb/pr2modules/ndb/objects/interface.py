@@ -181,10 +181,12 @@ def load_ifinfmsg(schema, target, event):
                                   .sources[target]
                                   .api('link', 'get', index=event['index']))
                         update = tuple(update)[0]
-                        return schema.load_netlink('interfaces', target, update)
+                        return schema.load_netlink('interfaces',
+                                                   target,
+                                                   update)
                     except NetlinkError as e:
                         if e.code == errno.ENODEV:
-                            schema.log.debug(f"interface disappeared: {ifname}")
+                            schema.log.debug(f"interface has gone: {ifname}")
 
             if table in schema.spec:
                 ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
@@ -647,9 +649,8 @@ class Interface(RTNL_Object):
 
     def set_xdp_fd(self, fd):
         self.sources[self['target']].api('link', 'set',
-            index=self['index'],
-            xdp_fd=fd
-        )
+                                         index=self['index'],
+                                         xdp_fd=fd)
 
     def snapshot(self, ctxid=None):
         # 1. make own snapshot

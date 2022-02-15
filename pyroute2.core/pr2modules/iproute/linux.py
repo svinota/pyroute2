@@ -500,9 +500,8 @@ class RTNL_API(object):
 
         response = self.nlm_request(msg, RTM_GETNSID, NLM_F_REQUEST)
         for r in response:
-            return { 'nsid':         r.get_attr('NETNSA_NSID'),
-                     'current_nsid': r.get_attr('NETNSA_CURRENT_NSID'),
-                   }
+            return {'nsid': r.get_attr('NETNSA_NSID'),
+                    'current_nsid': r.get_attr('NETNSA_CURRENT_NSID')}
 
         return None
 
@@ -1001,7 +1000,9 @@ class RTNL_API(object):
 
         msg = ndmsg.ndmsg()
         for field in msg.fields:
-            if command == "dump" and self.strict_check and field[0] == "ifindex":
+            if command == "dump" and \
+                    self.strict_check and \
+                    field[0] == "ifindex":
                 continue
             msg[field[0]] = kwarg.pop(field[0], 0)
 
@@ -2055,8 +2056,8 @@ class RTNL_API(object):
                 routing's rule
             - oifname — Output interface for Interface Based (Policy Based)
                 routing's rule
-            - uid_range — Range of user identifiers, as a string like "1000:1234"
-            - dport_range — Range of destination ports, as a string like "80-120"
+            - uid_range — Range of user identifiers, a string like "1000:1234"
+            - dport_range — Range of destination ports, a string like "80-120"
             - sport_range — Range of source ports, as a string like "80-120"
 
         All packets route via table 10::

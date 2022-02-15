@@ -136,16 +136,16 @@ BRIDGE_FLAGS_SELF = 2
 # XDP flags
 #
 XDP_FLAGS_UPDATE_IF_NOEXIST = 1 << 0
-XDP_FLAGS_SKB_MODE          = 1 << 1
-XDP_FLAGS_DRV_MODE          = 1 << 2
-XDP_FLAGS_HW_MODE           = 1 << 3
-XDP_FLAGS_REPLACE           = 1 << 4
-XDP_FLAGS_MODES             = XDP_FLAGS_SKB_MODE \
-                              | XDP_FLAGS_DRV_MODE \
-                              | XDP_FLAGS_HW_MODE
-XDP_FLAGS_MASK              = XDP_FLAGS_UPDATE_IF_NOEXIST \
-                              | XDP_FLAGS_MODES \
-                              | XDP_FLAGS_REPLACE
+XDP_FLAGS_SKB_MODE = 1 << 1
+XDP_FLAGS_DRV_MODE = 1 << 2
+XDP_FLAGS_HW_MODE = 1 << 3
+XDP_FLAGS_REPLACE = 1 << 4
+XDP_FLAGS_MODES = XDP_FLAGS_SKB_MODE \
+    | XDP_FLAGS_DRV_MODE \
+    | XDP_FLAGS_HW_MODE
+XDP_FLAGS_MASK = XDP_FLAGS_UPDATE_IF_NOEXIST \
+    | XDP_FLAGS_MODES \
+    | XDP_FLAGS_REPLACE
 
 (XDP_FLAGS_NAMES, XDP_FLAGS_VALUES) = \
     map_namespace('XDP_FLAGS', globals())
@@ -548,15 +548,15 @@ class ifinfbase(object):
         nla_flags = NLA_F_NESTED
         prefix = 'IFLA_'
         nla_map = (
-            ('IFLA_XDP_UNSPEC'     , 'none'     ),
-            ('IFLA_XDP_FD'         , 'xdp_fd'   ),
-            ('IFLA_XDP_ATTACHED'   , 'xdp_mode' ),
-            ('IFLA_XDP_FLAGS'      , 'xdp_flags'),
-            ('IFLA_XDP_PROG_ID'    , 'uint32'   ),
-            ('IFLA_XDP_DRV_PROG_ID', 'uint32'   ),
-            ('IFLA_XDP_SKB_PROG_ID', 'uint32'   ),
-            ('IFLA_XDP_HW_PROG_ID' , 'uint32'   ),
-            ('IFLA_XDP_EXPECTED_FD', 'xdp_fd'   ),
+            ('IFLA_XDP_UNSPEC', 'none'),
+            ('IFLA_XDP_FD', 'xdp_fd'),
+            ('IFLA_XDP_ATTACHED', 'xdp_mode'),
+            ('IFLA_XDP_FLAGS', 'xdp_flags'),
+            ('IFLA_XDP_PROG_ID', 'uint32'),
+            ('IFLA_XDP_DRV_PROG_ID', 'uint32'),
+            ('IFLA_XDP_SKB_PROG_ID', 'uint32'),
+            ('IFLA_XDP_HW_PROG_ID', 'uint32'),
+            ('IFLA_XDP_EXPECTED_FD', 'xdp_fd'),
         )
 
         class xdp_fd(nlmsg_atoms.int32):
@@ -577,12 +577,11 @@ class ifinfbase(object):
                 nla.encode(self)
 
         class xdp_mode(nlmsg_atoms.uint8):
-            value_map = { 0: None,
-                          1: 'xdp',
-                          2: 'xdpgeneric',
-                          3: 'xdpoffload',
-                          4: 'xdpmulti',
-                        }
+            value_map = {0: None,
+                         1: 'xdp',
+                         2: 'xdpgeneric',
+                         3: 'xdpoffload',
+                         4: 'xdpmulti'}
 
     class proplist(nla):
         nla_flags = NLA_F_NESTED

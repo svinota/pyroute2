@@ -7,12 +7,12 @@
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; If not, see <http://www.gnu.org/licenses/>.
 
@@ -394,19 +394,19 @@ class TCP(Protocol):
         # converter
         @staticmethod
         def state_c_cb(key, value, **ctx):
-                state_str_map = {SS_ESTABLISHED: "established",
-                                 SS_SYN_SENT: "syn-sent",
-                                 SS_SYN_RECV: "syn-recv",
-                                 SS_FIN_WAIT1: "fin-wait-1",
-                                 SS_FIN_WAIT2: "fin-wait-2",
-                                 SS_TIME_WAIT: "time-wait",
-                                 SS_CLOSE: "unconnected",
-                                 SS_CLOSE_WAIT: "close-wait",
-                                 SS_LAST_ACK: "last-ack",
-                                 SS_LISTEN: "listening",
-                                 SS_CLOSING: "closing"}
+            state_str_map = {SS_ESTABLISHED: "established",
+                             SS_SYN_SENT: "syn-sent",
+                             SS_SYN_RECV: "syn-recv",
+                             SS_FIN_WAIT1: "fin-wait-1",
+                             SS_FIN_WAIT2: "fin-wait-2",
+                             SS_TIME_WAIT: "time-wait",
+                             SS_CLOSE: "unconnected",
+                             SS_CLOSE_WAIT: "close-wait",
+                             SS_LAST_ACK: "last-ack",
+                             SS_LISTEN: "listening",
+                             SS_CLOSING: "closing"}
 
-                return state_str_map[value]
+            return state_str_map[value]
 
         @staticmethod
         def opts_c_cb(key, value, **ctx):

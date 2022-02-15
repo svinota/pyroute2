@@ -194,12 +194,14 @@ class Source(dict):
             self.ndb.schema.execute('''
                                     DELETE FROM sources_options
                                     WHERE f_target = %s
-                                    ''' % self.ndb.schema.plch, (self.target, ))
+                                    ''' % self.ndb.schema.plch,
+                                    (self.target, ))
 
             self.ndb.schema.execute('''
                                     DELETE FROM sources
                                     WHERE f_target = %s
-                                    ''' % self.ndb.schema.plch, (self.target, ))
+                                    ''' % self.ndb.schema.plch,
+                                    (self.target, ))
         except:
             pass
 
