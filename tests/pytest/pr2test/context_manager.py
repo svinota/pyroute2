@@ -28,9 +28,10 @@ def skip_if_not_supported(func):
     return test_wrapper
 
 
-def make_test_matrix(targets=None, tables=None, dbs=None):
+def make_test_matrix(targets=None, tables=None, dbs=None, types=None):
     targets = targets or ['local', ]
     tables = tables or [None, ]
+    types = types or [None, ]
     dbs = dbs or ['sqlite3/:memory:', ]
     ret = []
     skipdb = list(filter(lambda x: x, os.environ.get('SKIPDB', '').split(':')))
@@ -56,17 +57,29 @@ def make_test_matrix(targets=None, tables=None, dbs=None):
 
         for target in targets:
             for table in tables:
-                param_id = 'db=%s target=%s table=%s' % (db, target, table)
-                param = pytest.param(
-                    ContextParams(db_provider, db_spec, target, table),
-                    id=param_id
-                )
-                ret.append(param)
+                for kind in types:
+                    param_id = (f'db={db} '
+                                f'target={target} '
+                                f'table={table} '
+                                f'kind={kind}')
+                    param = pytest.param(
+                        ContextParams(db_provider,
+                                      db_spec,
+                                      target,
+                                      table,
+                                      kind),
+                        id=param_id
+                    )
+                    ret.append(param)
     return ret
 
 
 ContextParams = namedtuple('ContextParams',
-                           ('db_provider', 'db_spec', 'target', 'table'))
+                           ('db_provider',
+                            'db_spec',
+                            'target',
+                            'table',
+                            'kind'))
 
 
 class SpecContextManager(object):
@@ -108,24 +121,26 @@ class NDBContextManager(object):
         if 'rtnl_debug' not in kwarg:
             kwarg['rtnl_debug'] = True
 
-        kind = 'local'
+        target = 'local'
         self.table = None
+        self.kind = None
         kwarg['db_provider'] = 'sqlite3'
         kwarg['db_spec'] = ':memory:'
         if hasattr(request, 'param'):
             if isinstance(request.param, ContextParams):
-                kind = request.param.target
+                target = request.param.target
                 self.table = request.param.table
+                self.kind = request.param.kind
                 kwarg['db_provider'] = request.param.db_provider
                 kwarg['db_spec'] = request.param.db_spec
             elif isinstance(request.param, (tuple, list)):
-                kind, self.table = request.param
+                target, self.table = request.param
             else:
-                kind = request.param
+                target = request.param
 
-        if kind == 'local':
+        if target == 'local':
             sources = [{'target': 'localhost', 'kind': 'local'}]
-        elif kind == 'netns':
+        elif target == 'netns':
             self.netns = self.new_nsname
             sources = [{'target': 'localhost',
                         'kind': 'netns',
