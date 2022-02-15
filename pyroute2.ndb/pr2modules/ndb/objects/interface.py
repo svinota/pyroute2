@@ -697,18 +697,28 @@ class Interface(RTNL_Object):
             req['master'] = self['master']
             #
             # FIXME: make type plugins?
-            if self['kind'] == 'gre':
-                req['kind'] = 'gre'
+            kind = self['kind']
+            if kind in ('gre',
+                        'gretap',
+                        'ip6gre',
+                        'ip6gretap',
+                        'ip6tnl',
+                        'sit',
+                        'ipip'):
+                req['kind'] = kind
                 for key in self:
-                    if key.startswith('gre_') and \
+                    if key.startswith(f'{kind}_') and \
                             key not in req and self[key]:
                         req[key] = self[key]
                 #
-                # GRE doesn't send updates on a down interface
+                # tunnels don't send updates on a down interface
                 if self['state'] == 'down' \
                         and req.get('state', 'down') == 'down':
+                    #
+                    # so don't wait for updates on any changed
+                    # type specific attribute
                     for key in tuple(self.changed):
-                        if key.startswith('gre_'):
+                        if key.startswith(f'{kind}_'):
                             self.changed.remove(key)
         return req
 
