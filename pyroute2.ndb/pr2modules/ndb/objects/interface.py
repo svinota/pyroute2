@@ -694,6 +694,21 @@ class Interface(RTNL_Object):
         # --> link('set', ...)
         if self.state == 'system':
             req['master'] = self['master']
+            #
+            # FIXME: make type plugins?
+            if self['kind'] == 'gre':
+                req['kind'] = 'gre'
+                for key in self:
+                    if key.startswith('gre_') and \
+                            key not in req and self[key]:
+                        req[key] = self[key]
+                #
+                # GRE doesn't send updates on a down interface
+                if self['state'] == 'down' \
+                        and req.get('state', 'down') == 'down':
+                    for key in tuple(self.changed):
+                        if key.startswith('gre_'):
+                            self.changed.remove(key)
         return req
 
     @check_auth('obj:modify')
