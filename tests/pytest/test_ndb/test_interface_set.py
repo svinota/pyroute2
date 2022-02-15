@@ -12,32 +12,32 @@ def _test_gre_endpoints(context, state):
     ipaddr_local1 = context.new_ipaddr
     ipaddr_local2 = context.new_ipaddr
     ipaddr_remote = context.new_ipaddr
+    kind = context.kind
 
     (context
      .ndb
      .interfaces
-     .create(ifname=ifname,
-             state=state,
-             kind='gre',
-             gre_local=ipaddr_local1,
-             gre_remote=ipaddr_remote,
-             gre_ttl=254)
+     .create(**{'ifname': ifname,
+                'state': state,
+                'kind': kind,
+                f'{kind}_local': ipaddr_local1,
+                f'{kind}_remote': ipaddr_remote})
      .commit())
 
     def match(ifname, ipaddr):
         return lambda x: x.get_nested('IFLA_LINKINFO',
-                                      'IFLA_INFO_KIND') == 'gre' and \
+                                      'IFLA_INFO_KIND') == kind and \
             x.get_attr('IFLA_IFNAME') == ifname and \
             x.get_nested('IFLA_LINKINFO',
                          'IFLA_INFO_DATA',
-                         'IFLA_GRE_LOCAL') == ipaddr
+                         'IFLA_%s_LOCAL' % kind.upper()) == ipaddr
 
     assert interface_exists(context.netns, match(ifname, ipaddr_local1))
 
     (context
      .ndb
      .interfaces[ifname]
-     .set(gre_local=ipaddr_local2)
+     .set(f'{kind}_local', ipaddr_local2)
      .commit())
 
     assert interface_exists(context.netns, match(ifname, ipaddr_local2))

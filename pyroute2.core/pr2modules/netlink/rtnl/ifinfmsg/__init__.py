@@ -808,6 +808,7 @@ class ifinfbase(object):
                        for x in iptnl_data.nla_map]
 
         class ip6tnl_data(nla):
+            prefix = 'IFLA_'
             nla_map = (('IFLA_IP6TNL_UNSPEC', 'none'),
                        ('IFLA_IP6TNL_LINK', 'uint32'),
                        ('IFLA_IP6TNL_LOCAL', 'ip6addr'),
