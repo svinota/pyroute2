@@ -2,7 +2,7 @@ from pr2modules.nslink.nslink import NetNS
 from pr2modules.iproute.linux import IPRoute
 
 
-def interface_exists(netns=None, **kwarg):
+def interface_exists(netns=None, *argv, **kwarg):
     ret = 0
     ipr = None
 
@@ -13,7 +13,7 @@ def interface_exists(netns=None, **kwarg):
 
     spec = {}
     spec.update(kwarg)
-    ret = list(ipr.link_lookup(**spec))
+    ret = list(ipr.link_lookup(*argv, **spec))
     ipr.close()
 
     return len(ret) >= 1
