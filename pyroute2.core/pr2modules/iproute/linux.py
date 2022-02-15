@@ -570,7 +570,7 @@ class RTNL_API(object):
                 if (x.get_attr('RTA_DST', None) is None and
                     x['dst_len'] == 0)]
 
-    def link_lookup(self, **kwarg):
+    def link_lookup(self, match=None, **kwarg):
         '''
         Lookup interface index (indeces) by first level NLA
         value.
@@ -593,7 +593,8 @@ class RTNL_API(object):
                 return []
         else:
             # otherwise fallback to the userspace filter
-            return [link['index'] for link in self.get_links(match=kwarg)]
+            return [link['index'] for link
+                    in self.get_links(match=match or kwarg)]
     # 8<---------------------------------------------------------------
 
     # 8<---------------------------------------------------------------
