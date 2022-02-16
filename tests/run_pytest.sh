@@ -37,7 +37,6 @@ function deploy() {
     make dist python=$PYTHON
     rm -rf "$WORKSPACE"
     mkdir -p "$WORKSPACE/bin"
-    cp -a "$TOP/.flake8" "$WORKSPACE/"
     cp -a "$TOP/tests/"* "$WORKSPACE/"
     cp -a "$TOP/examples" "$WORKSPACE/"
     cp -a "$TOP/cli/pyroute2-cli" "$WORKSPACE/bin/"
@@ -48,11 +47,6 @@ function deploy() {
     curl -X DELETE --data test http://localhost:7623/v1/lock/ >/dev/null 2>&1
     echo "ok"
     cd "$WORKSPACE/"
-    echo -n "flake8 ... "
-    $PYTHON -m flake8 .
-    ret=$?
-    [ $ret -eq 0 ] && echo "ok"
-    return $ret
 }
 
 if [ -z "$VIRTUAL_ENV" -a -z "$PR2TEST_FORCE_RUN" ]; then {

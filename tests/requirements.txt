@@ -1,3 +1,4 @@
+black
 twine
 aafigure
 flake8

@@ -10,6 +10,7 @@
 python ?= python
 nosetests ?= nosetests
 flake8 ?= flake8
+black ?= black
 pytest ?= pytest
 ##
 # Python -W flags:
@@ -156,6 +157,12 @@ check_parameters:
 	@if [ ! -z "${skip_tests}" ]; then \
 		echo "'skip_tests' is deprecated, use 'skip=...' instead"; false; fi
 
+format:
+	@black -C -S -l 79 --extend-exclude setup.py pyroute2* examples tests/pytest
+
+test-format:
+	@black -C -S -l 79 --extend-exclude setup.py --check pyroute2* examples tests/pytest
+
 test: check_parameters
 	@export PYTHON=${python}; \
 		export NOSE=${nosetests}; \
@@ -171,7 +178,7 @@ test: check_parameters
 		export WORKSPACE=${workspace}; \
 		./tests/run.sh
 
-pytest: check_parameters
+pytest: check_parameters test-format
 	@export PYTHON=${python}; \
 		export PYTEST=${pytest}; \
 		export FLAKE8=${flake8}; \
