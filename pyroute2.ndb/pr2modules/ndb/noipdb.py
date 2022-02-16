@@ -5,15 +5,16 @@ log = logging.getLogger(__name__)
 
 
 class ObjectProxy(dict):
-
     def __init__(self, obj):
         self._obj = obj
 
     def __getattribute__(self, key):
         if key[:4] == 'set_':
+
             def set_value(value):
                 self[key[4:]] = value
                 return self
+
             return set_value
         try:
             return self[key]
@@ -66,7 +67,6 @@ class ObjectProxy(dict):
 
 
 class Interface(ObjectProxy):
-
     def add_ip(self, *argv, **kwarg):
         self._obj.add_ip(*argv, **kwarg)
         return self
@@ -105,11 +105,7 @@ class Interface(ObjectProxy):
 
     @property
     def ipaddr(self):
-        return tuple(self
-                     ._obj
-                     .ipaddr
-                     .dump()
-                     .select('address', 'prefixlen'))
+        return tuple(self._obj.ipaddr.dump().select('address', 'prefixlen'))
 
 
 class Interfaces(ObjectProxy):
@@ -169,12 +165,16 @@ referenced as `localhost`::
 
     def __init__(self, *argv, **kwarg):
         if argv or kwarg:
-            log.warning('%s does not support IPDB parameters, ignoring',
-                        self.__class__.__name__)
+            log.warning(
+                '%s does not support IPDB parameters, ignoring',
+                self.__class__.__name__,
+            )
         if len(argv) > 0 or 'nl' in kwarg:
-            log.warning('%s does not support shared netlink sources,'
-                        ' ignoring `nl` and starting with local IPRoute',
-                        self.__class__.__name__)
+            log.warning(
+                '%s does not support shared netlink sources,'
+                ' ignoring `nl` and starting with local IPRoute',
+                self.__class__.__name__,
+            )
 
         self._ndb = NDB()
         self.interfaces = Interfaces(self._ndb.interfaces)

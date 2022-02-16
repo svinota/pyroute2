@@ -26,10 +26,9 @@ TIME_UNITS_PER_SEC = 1000000
 
 try:
     with open('/proc/net/psched', 'r') as psched:
-        [t2us,
-         us2t,
-         clock_res,
-         wee] = [int(i, 16) for i in psched.read().split()]
+        [t2us, us2t, clock_res, wee] = [
+            int(i, 16) for i in psched.read().split()
+        ]
     clock_factor = float(clock_res) / TIME_UNITS_PER_SEC
     tick_in_usec = float(t2us) / us2t * clock_factor
 except IOError as e:
@@ -65,19 +64,17 @@ def get_by_suffix(value, default, func):
 
 
 def get_size(size):
-    return get_by_suffix(size, 'b',
-                         lambda x, y: x * size_suffixes[y])
+    return get_by_suffix(size, 'b', lambda x, y: x * size_suffixes[y])
 
 
 def get_time(lat):
-    return get_by_suffix(lat, 'ms',
-                         lambda x, y: (x * TIME_UNITS_PER_SEC) /
-                         time_suffixes[y])
+    return get_by_suffix(
+        lat, 'ms', lambda x, y: (x * TIME_UNITS_PER_SEC) / time_suffixes[y]
+    )
 
 
 def get_rate(rate):
-    return get_by_suffix(rate, 'bit',
-                         lambda x, y: (x * rate_suffixes[y]) / 8)
+    return get_by_suffix(rate, 'bit', lambda x, y: (x * rate_suffixes[y]) / 8)
 
 
 def time2tick(time):
@@ -94,7 +91,7 @@ def percent2u32(pct):
     '''xlate a percentage to an uint32 value
     0% -> 0
     100% -> 2**32 - 1'''
-    return int((2 ** 32 - 1) * pct / 100)
+    return int((2**32 - 1) * pct / 100)
 
 
 def red_eval_ewma(qmin, burst, avpkt):
@@ -107,7 +104,7 @@ def red_eval_ewma(qmin, burst, avpkt):
     while wlog < 32:
         wlog += 1
         W /= 2
-        if (a <= (1 - pow(1 - W, burst)) / W):
+        if a <= (1 - pow(1 - W, burst)) / W:
             return wlog
     return -1
 
@@ -134,7 +131,7 @@ def red_eval_idle_damping(Wlog, avpkt, bps):
     maxtime = 31.0 / lW
     sbuf = []
     for clog in range(32):
-        if (maxtime / (1 << clog) < 512):
+        if maxtime / (1 << clog) < 512:
             break
     if clog >= 32:
         return -1, sbuf
@@ -164,40 +161,41 @@ def get_rate_parameters(kwarg):
 
     # calculate limit from latency
     if limit is None:
-        rate_limit = rate * float(latency) /\
-            TIME_UNITS_PER_SEC + burst
+        rate_limit = rate * float(latency) / TIME_UNITS_PER_SEC + burst
         if peak:
-            peak_limit = peak * float(latency) /\
-                TIME_UNITS_PER_SEC + mtu
+            peak_limit = peak * float(latency) / TIME_UNITS_PER_SEC + mtu
             if rate_limit > peak_limit:
                 rate_limit = peak_limit
         limit = rate_limit
 
-    return {'rate': int(rate),
-            'mtu': mtu,
-            'buffer': calc_xmittime(rate, burst),
-            'limit': int(limit)}
+    return {
+        'rate': int(rate),
+        'mtu': mtu,
+        'buffer': calc_xmittime(rate, burst),
+        'limit': int(limit),
+    }
 
 
-tc_flow_keys = {'src': 0x01,
-                'dst': 0x02,
-                'proto': 0x04,
-                'proto-src': 0x08,
-                'proto-dst': 0x10,
-                'iif': 0x20,
-                'priority': 0x40,
-                'mark': 0x80,
-                'nfct': 0x0100,
-                'nfct-src': 0x0200,
-                'nfct-dst': 0x0400,
-                'nfct-proto-src': 0x0800,
-                'nfct-proto-dst': 0x1000,
-                'rt-classid': 0x2000,
-                'sk-uid': 0x4000,
-                'sk-gid': 0x8000,
-                'vlan-tag': 0x010000,
-                'rxhash': 0x020000,
-                }
+tc_flow_keys = {
+    'src': 0x01,
+    'dst': 0x02,
+    'proto': 0x04,
+    'proto-src': 0x08,
+    'proto-dst': 0x10,
+    'iif': 0x20,
+    'priority': 0x40,
+    'mark': 0x80,
+    'nfct': 0x0100,
+    'nfct-src': 0x0200,
+    'nfct-dst': 0x0400,
+    'nfct-proto-src': 0x0800,
+    'nfct-proto-dst': 0x1000,
+    'rt-classid': 0x2000,
+    'sk-uid': 0x4000,
+    'sk-gid': 0x8000,
+    'vlan-tag': 0x010000,
+    'rxhash': 0x020000,
+}
 
 
 def get_tca_keys(kwarg, name):
@@ -216,8 +214,7 @@ def get_tca_keys(kwarg, name):
     return res
 
 
-tc_flow_modes = {'map': 0,
-                 'hash': 1, }
+tc_flow_modes = {'map': 0, 'hash': 1}
 
 
 def get_tca_mode(kwarg):
@@ -281,17 +278,18 @@ def get_tca_ops(kwarg, attrs):
             attrs.append(['TCA_FLOW_ADDEND', addend_value])
 
 
-tc_actions = {'unspec': -1,     # TC_ACT_UNSPEC
-              'ok': 0,          # TC_ACT_OK
-              'reclassify': 1,  # TC_ACT_RECLASSIFY
-              'shot': 2,        # TC_ACT_SHOT
-              'drop': 2,        # TC_ACT_SHOT
-              'pipe': 3,        # TC_ACT_PIPE
-              'stolen': 4,      # TC_ACT_STOLEN
-              'queued': 5,      # TC_ACT_QUEUED
-              'repeat': 6,      # TC_ACT_REPEAT
-              'redirect': 7,    # TC_ACT_REDIRECT
-              }
+tc_actions = {
+    'unspec': -1,  # TC_ACT_UNSPEC
+    'ok': 0,  # TC_ACT_OK
+    'reclassify': 1,  # TC_ACT_RECLASSIFY
+    'shot': 2,  # TC_ACT_SHOT
+    'drop': 2,  # TC_ACT_SHOT
+    'pipe': 3,  # TC_ACT_PIPE
+    'stolen': 4,  # TC_ACT_STOLEN
+    'queued': 5,  # TC_ACT_QUEUED
+    'repeat': 6,  # TC_ACT_REPEAT
+    'redirect': 7,  # TC_ACT_REDIRECT
+}
 
 
 class nla_plus_rtab(nla):
@@ -324,9 +322,9 @@ class nla_plus_rtab(nla):
 
             # fill up the table
             for i in range(256):
-                size = self.adjust_size((i + 1) << cell_log,
-                                        mpu,
-                                        LINKLAYER_ETHERNET)
+                size = self.adjust_size(
+                    (i + 1) << cell_log, mpu, LINKLAYER_ETHERNET
+                )
                 rtab.append(calc_xmittime(rate, size))
 
             self['%s_cell_align' % (kind)] = -1
@@ -348,23 +346,29 @@ class nla_plus_rtab(nla):
         own_parent = True
 
         def encode(self):
-            parms = self.parent.get_encoded('TCA_TBF_PARMS') or \
-                self.parent.get_encoded('TCA_HTB_PARMS') or \
-                self.parent.get_encoded('TCA_POLICE_TBF')
+            parms = (
+                self.parent.get_encoded('TCA_TBF_PARMS')
+                or self.parent.get_encoded('TCA_HTB_PARMS')
+                or self.parent.get_encoded('TCA_POLICE_TBF')
+            )
             if parms is not None:
                 self.value = getattr(parms, self.__class__.__name__)
-                self['value'] = struct.pack('I' * 256,
-                                            *(int(x) for x in self.value))
+                self['value'] = struct.pack(
+                    'I' * 256, *(int(x) for x in self.value)
+                )
             nla_string.encode(self)
 
         def decode(self):
             nla_string.decode(self)
-            parms = self.parent.get_attr('TCA_TBF_PARMS') or \
-                self.parent.get_attr('TCA_HTB_PARMS') or \
-                self.parent.get_attr('TCA_POLICE_TBF')
+            parms = (
+                self.parent.get_attr('TCA_TBF_PARMS')
+                or self.parent.get_attr('TCA_HTB_PARMS')
+                or self.parent.get_attr('TCA_POLICE_TBF')
+            )
             if parms is not None:
-                rtab = struct.unpack('I' * (len(self['value']) / 4),
-                                     self['value'])
+                rtab = struct.unpack(
+                    'I' * (len(self['value']) / 4), self['value']
+                )
                 self.value = rtab
                 setattr(parms, self.__class__.__name__, rtab)
 
@@ -376,26 +380,28 @@ class nla_plus_rtab(nla):
 
 
 class stats2(nla):
-    nla_map = (('TCA_STATS_UNSPEC', 'none'),
-               ('TCA_STATS_BASIC', 'basic'),
-               ('TCA_STATS_RATE_EST', 'rate_est'),
-               ('TCA_STATS_QUEUE', 'queue'),
-               ('TCA_STATS_APP', 'stats_app'))
+    nla_map = (
+        ('TCA_STATS_UNSPEC', 'none'),
+        ('TCA_STATS_BASIC', 'basic'),
+        ('TCA_STATS_RATE_EST', 'rate_est'),
+        ('TCA_STATS_QUEUE', 'queue'),
+        ('TCA_STATS_APP', 'stats_app'),
+    )
 
     class basic(nla):
-        fields = (('bytes', 'Q'),
-                  ('packets', 'I'))
+        fields = (('bytes', 'Q'), ('packets', 'I'))
 
     class rate_est(nla):
-        fields = (('bps', 'I'),
-                  ('pps', 'I'))
+        fields = (('bps', 'I'), ('pps', 'I'))
 
     class queue(nla):
-        fields = (('qlen', 'I'),
-                  ('backlog', 'I'),
-                  ('drops', 'I'),
-                  ('requeues', 'I'),
-                  ('overlimits', 'I'))
+        fields = (
+            ('qlen', 'I'),
+            ('backlog', 'I'),
+            ('drops', 'I'),
+            ('requeues', 'I'),
+            ('overlimits', 'I'),
+        )
 
     class stats_app(nla.hex):
         pass

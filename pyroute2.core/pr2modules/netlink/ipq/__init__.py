@@ -15,6 +15,7 @@ from pr2modules.netlink import NLM_F_REQUEST
 from pr2modules.netlink import nlmsg
 from pr2modules.netlink.nlsocket import NetlinkSocket
 from pr2modules.netlink.nlsocket import Marshal
+
 # constants
 IFNAMSIZ = 16
 IPQ_MAX_PAYLOAD = 0x800
@@ -53,44 +54,52 @@ class ipq_base_msg(nlmsg):
 
 
 class ipq_packet_msg(ipq_base_msg):
-    fields = (('packet_id', 'L'),
-              ('mark', 'L'),
-              ('timestamp_sec', 'l'),
-              ('timestamp_usec', 'l'),
-              ('hook', 'I'),
-              ('indev_name', '%is' % IFNAMSIZ),
-              ('outdev_name', '%is' % IFNAMSIZ),
-              ('hw_protocol', '>H'),
-              ('hw_type', 'H'),
-              ('hw_addrlen', 'B'),
-              ('hw_addr', '6B'),
-              ('__pad', '9x'),
-              ('data_len', 'I'),
-              ('__pad', '4x'))
+    fields = (
+        ('packet_id', 'L'),
+        ('mark', 'L'),
+        ('timestamp_sec', 'l'),
+        ('timestamp_usec', 'l'),
+        ('hook', 'I'),
+        ('indev_name', '%is' % IFNAMSIZ),
+        ('outdev_name', '%is' % IFNAMSIZ),
+        ('hw_protocol', '>H'),
+        ('hw_type', 'H'),
+        ('hw_addrlen', 'B'),
+        ('hw_addr', '6B'),
+        ('__pad', '9x'),
+        ('data_len', 'I'),
+        ('__pad', '4x'),
+    )
 
 
 class ipq_mode_msg(nlmsg):
     pack = 'struct'
-    fields = (('value', 'B'),
-              ('__pad', '7x'),
-              ('range', 'I'),
-              ('__pad', '12x'))
+    fields = (
+        ('value', 'B'),
+        ('__pad', '7x'),
+        ('range', 'I'),
+        ('__pad', '12x'),
+    )
 
 
 class ipq_verdict_msg(ipq_base_msg):
     pack = 'struct'
-    fields = (('value', 'I'),
-              ('__pad', '4x'),
-              ('id', 'L'),
-              ('data_len', 'I'),
-              ('__pad', '4x'))
+    fields = (
+        ('value', 'I'),
+        ('__pad', '4x'),
+        ('id', 'L'),
+        ('data_len', 'I'),
+        ('__pad', '4x'),
+    )
 
 
 class MarshalIPQ(Marshal):
 
-    msg_map = {IPQM_MODE: ipq_mode_msg,
-               IPQM_VERDICT: ipq_verdict_msg,
-               IPQM_PACKET: ipq_packet_msg}
+    msg_map = {
+        IPQM_MODE: ipq_mode_msg,
+        IPQM_VERDICT: ipq_verdict_msg,
+        IPQM_PACKET: ipq_packet_msg,
+    }
 
 
 class IPQSocket(NetlinkSocket):

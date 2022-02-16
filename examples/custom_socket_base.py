@@ -26,11 +26,28 @@ from pyroute2 import NetNS
 class SocketWrapper(object):
     def __init__(self, *args, **kwargs):
         _socketmethods = (
-            'bind', 'close', 'connect', 'connect_ex', 'listen',
-            'getpeername', 'getsockname', 'getsockopt', 'makefile',
-            'recv', 'recvfrom', 'recv_into', 'recvfrom_into',
-            'send', 'sendto', 'sendall', 'setsockopt', 'setblocking',
-            'settimeout', 'gettimeout', 'shutdown')
+            'bind',
+            'close',
+            'connect',
+            'connect_ex',
+            'listen',
+            'getpeername',
+            'getsockname',
+            'getsockopt',
+            'makefile',
+            'recv',
+            'recvfrom',
+            'recv_into',
+            'recvfrom_into',
+            'send',
+            'sendto',
+            'sendall',
+            'setsockopt',
+            'setblocking',
+            'settimeout',
+            'gettimeout',
+            'shutdown',
+        )
         _sock = kwargs.get('_sock', None) or socket(*args, **kwargs)
         self._sock = _sock
         print("Custom socket wrapper init done")

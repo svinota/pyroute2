@@ -9,7 +9,6 @@ log = logging.getLogger(__name__)
 
 
 class DL(DevlinkSocket):
-
     def __init__(self, *argv, **kwarg):
         # get specific groups kwarg
         if 'groups' in kwarg:
@@ -23,8 +22,10 @@ class DL(DevlinkSocket):
             # FIXME
             # raise deprecation error after 0.5.3
             #
-            log.warning('use "async_cache" instead of "async", '
-                        '"async" is a keyword from Python 3.7')
+            log.warning(
+                'use "async_cache" instead of "async", '
+                '"async" is a keyword from Python 3.7'
+            )
             kwarg['async_cache'] = kwarg.pop('async')
 
         if 'async_cache' in kwarg:
@@ -55,9 +56,9 @@ class DL(DevlinkSocket):
     def get_dump(self):
         msg = devlinkcmd()
         msg['cmd'] = DEVLINK_NAMES['DEVLINK_CMD_GET']
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )
 
     def port_list(self):
         return self.get_port_dump()
@@ -65,6 +66,6 @@ class DL(DevlinkSocket):
     def get_port_dump(self):
         msg = devlinkcmd()
         msg['cmd'] = DEVLINK_NAMES['DEVLINK_CMD_PORT_GET']
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )

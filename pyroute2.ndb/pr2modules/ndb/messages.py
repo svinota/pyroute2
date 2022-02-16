@@ -1,7 +1,4 @@
-
-
 class cmsg(dict):
-
     def __init__(self, target, payload=None):
         self['header'] = {'target': target}
         self.payload = payload

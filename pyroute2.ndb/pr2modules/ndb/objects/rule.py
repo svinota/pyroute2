@@ -3,37 +3,39 @@ from pr2modules.netlink.rtnl.fibmsg import fibmsg
 from ..objects import RTNL_Object
 
 
-schema = (fibmsg
-          .sql_schema()
-          .unique_index('family',
-                        'dst_len',
-                        'src_len',
-                        'tos',
-                        'action',
-                        'flags',
-                        'FRA_DST',
-                        'FRA_SRC',
-                        'FRA_IIFNAME',
-                        'FRA_GOTO',
-                        'FRA_PRIORITY',
-                        'FRA_FWMARK',
-                        'FRA_FLOW',
-                        'FRA_TUN_ID',
-                        'FRA_SUPPRESS_IFGROUP',
-                        'FRA_SUPPRESS_PREFIXLEN',
-                        'FRA_TABLE',
-                        'FRA_FWMASK',
-                        'FRA_OIFNAME',
-                        'FRA_L3MDEV',
-                        'FRA_UID_RANGE',
-                        'FRA_PROTOCOL',
-                        'FRA_IP_PROTO',
-                        'FRA_SPORT_RANGE',
-                        'FRA_DPORT_RANGE'))
+schema = fibmsg.sql_schema().unique_index(
+    'family',
+    'dst_len',
+    'src_len',
+    'tos',
+    'action',
+    'flags',
+    'FRA_DST',
+    'FRA_SRC',
+    'FRA_IIFNAME',
+    'FRA_GOTO',
+    'FRA_PRIORITY',
+    'FRA_FWMARK',
+    'FRA_FLOW',
+    'FRA_TUN_ID',
+    'FRA_SUPPRESS_IFGROUP',
+    'FRA_SUPPRESS_PREFIXLEN',
+    'FRA_TABLE',
+    'FRA_FWMASK',
+    'FRA_OIFNAME',
+    'FRA_L3MDEV',
+    'FRA_UID_RANGE',
+    'FRA_PROTOCOL',
+    'FRA_IP_PROTO',
+    'FRA_SPORT_RANGE',
+    'FRA_DPORT_RANGE',
+)
 
-init = {'specs': [['rules', schema]],
-        'classes': [['rules', fibmsg]],
-        'event_map': {fibmsg: ['rules']}}
+init = {
+    'specs': [['rules', schema]],
+    'classes': [['rules', fibmsg]],
+    'event_map': {fibmsg: ['rules']},
+}
 
 
 class Rule(RTNL_Object):

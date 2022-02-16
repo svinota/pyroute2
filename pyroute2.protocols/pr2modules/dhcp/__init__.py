@@ -132,8 +132,9 @@ class option(msg):
     value = None
 
     def __init__(self, content=None, buf=b'', offset=0, value=None, code=0):
-        msg.__init__(self, content=content, buf=buf,
-                     offset=offset, value=value)
+        msg.__init__(
+            self, content=content, buf=buf, offset=offset, value=value
+        )
         self.code = code
 
     @property
@@ -174,22 +175,26 @@ class option(msg):
         return self
 
     def decode(self):
-        self.data_length = struct.unpack('B', self.buf[self.offset + 1:
-                                                       self.offset + 2])[0]
+        self.data_length = struct.unpack(
+            'B', self.buf[self.offset + 1 : self.offset + 2]
+        )[0]
         if self.policy is not None:
             if self.policy['format'] == 'string':
                 fmt = '%is' % self.data_length
             else:
                 fmt = self.policy['format']
-            value = struct.unpack(fmt, self.buf[self.offset + 2:
-                                                self.offset + 2 +
-                                                self.data_length])
+            value = struct.unpack(
+                fmt,
+                self.buf[self.offset + 2 : self.offset + 2 + self.data_length],
+            )
             if len(value) == 1:
                 value = value[0]
             value = self.policy.get('decode', lambda x: x)(value)
-            if isinstance(value, basestring) and \
-                    self.policy['format'] == 'string':
-                value = value[:value.find('\x00')]
+            if (
+                isinstance(value, basestring)
+                and self.policy['format'] == 'string'
+            ):
+                value = value[: value.find('\x00')]
             self.value = value
         else:
             # remember current offset as msg.decode() will advance it
@@ -213,17 +218,20 @@ class dhcpmsg(msg):
     def _register_options(self):
         for option in self.options:
             code, name, fmt = option[:3]
-            self._decode_map[code] =\
-                self._encode_map[name] = {'name': name,
-                                          'code': code,
-                                          'format': fmt}
+            self._decode_map[code] = self._encode_map[name] = {
+                'name': name,
+                'code': code,
+                'format': fmt,
+            }
 
     def decode(self):
         msg.decode(self)
         self._register_options()
         self['options'] = {}
         while self.offset < len(self.buf):
-            code = struct.unpack('B', self.buf[self.offset:self.offset + 1])[0]
+            code = struct.unpack('B', self.buf[self.offset : self.offset + 1])[
+                0
+            ]
             if code == 0:
                 self.offset += 1
                 continue
@@ -231,8 +239,9 @@ class dhcpmsg(msg):
                 return self
             # code is unknown -- bypass it
             if code not in self._decode_map:
-                length = struct.unpack('B', self.buf[self.offset + 1:
-                                                     self.offset + 2])[0]
+                length = struct.unpack(
+                    'B', self.buf[self.offset + 1 : self.offset + 2]
+                )[0]
                 self.offset += length + 2
                 continue
 
@@ -252,15 +261,19 @@ class dhcpmsg(msg):
         msg.encode(self)
         self._register_options()
         # put message type
-        options = self.get('options') or {'message_type': DHCPDISCOVER,
-                                          'parameter_list': [1, 3, 6,
-                                                             12, 15, 28]}
+        options = self.get('options') or {
+            'message_type': DHCPDISCOVER,
+            'parameter_list': [1, 3, 6, 12, 15, 28],
+        }
 
-        self.buf += self.uint8(code=53,
-                               value=options['message_type']).encode().buf
-        self.buf += self.client_id({'type': 1,
-                                    'key': self['chaddr']},
-                                   code=61).encode().buf
+        self.buf += (
+            self.uint8(code=53, value=options['message_type']).encode().buf
+        )
+        self.buf += (
+            self.client_id({'type': 1, 'key': self['chaddr']}, code=61)
+            .encode()
+            .buf
+        )
         self.buf += self.string(code=60, value='pyroute2').encode().buf
 
         for (name, value) in options.items():
@@ -272,11 +285,13 @@ class dhcpmsg(msg):
             # name is known, ok
             option_class = getattr(self, fmt)
             if isinstance(value, dict):
-                option = option_class(value,
-                                      code=self._encode_map[name]['code'])
+                option = option_class(
+                    value, code=self._encode_map[name]['code']
+                )
             else:
-                option = option_class(code=self._encode_map[name]['code'],
-                                      value=value)
+                option = option_class(
+                    code=self._encode_map[name]['code'], value=value
+                )
             self.buf += option.encode().buf
 
         self.buf += self.none(code=255).encode().buf
@@ -298,10 +313,11 @@ class dhcpmsg(msg):
         policy = {'format': 'string'}
 
     class array8(option):
-        policy = {'format': 'string',
-                  'encode': lambda x: array('B', x).tobytes(),
-                  'decode': lambda x: array('B', x).tolist()}
+        policy = {
+            'format': 'string',
+            'encode': lambda x: array('B', x).tobytes(),
+            'decode': lambda x: array('B', x).tolist(),
+        }
 
     class client_id(option):
-        fields = (('type', 'uint8'),
-                  ('key', 'l2addr'))
+        fields = (('type', 'uint8'), ('key', 'l2addr'))

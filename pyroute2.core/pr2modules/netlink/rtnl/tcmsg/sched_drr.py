@@ -22,12 +22,11 @@ def get_class_parameters(kwarg):
 
 
 class options(nla):
-    nla_map = (('TCA_DRR_UNSPEC', 'none'),
-               ('TCA_DRR_QUANTUM', 'uint32'))
+    nla_map = (('TCA_DRR_UNSPEC', 'none'), ('TCA_DRR_QUANTUM', 'uint32'))
 
 
 class stats(nla):
-    fields = (('deficit', 'I'), )
+    fields = (('deficit', 'I'),)
 
 
 class stats2(c_stats2):

@@ -5,23 +5,27 @@ from pr2modules.common import hexdump
 from pr2modules.netlink import nlmsg_base
 
 if config.uname[0] == 'OpenBSD':
-    from pr2modules.bsd.pf_route.openbsd import (bsdmsg,
-                                                 if_msg,
-                                                 rt_msg_base,
-                                                 ifa_msg_base,
-                                                 ifma_msg_base,
-                                                 if_announcemsg,
-                                                 IFF_NAMES,
-                                                 IFF_VALUES)
+    from pr2modules.bsd.pf_route.openbsd import (
+        bsdmsg,
+        if_msg,
+        rt_msg_base,
+        ifa_msg_base,
+        ifma_msg_base,
+        if_announcemsg,
+        IFF_NAMES,
+        IFF_VALUES,
+    )
 else:
-    from pr2modules.bsd.pf_route.freebsd import (bsdmsg,
-                                                 if_msg,
-                                                 rt_msg_base,
-                                                 ifa_msg_base,
-                                                 ifma_msg_base,
-                                                 if_announcemsg,
-                                                 IFF_NAMES,
-                                                 IFF_VALUES)
+    from pr2modules.bsd.pf_route.freebsd import (
+        bsdmsg,
+        if_msg,
+        rt_msg_base,
+        ifa_msg_base,
+        ifma_msg_base,
+        if_announcemsg,
+        IFF_NAMES,
+        IFF_VALUES,
+    )
 
 
 RTAX_MAX = 8
@@ -30,8 +34,7 @@ RTAX_MAX = 8
 class rt_slot(nlmsg_base):
 
     __slots__ = ()
-    header = (('length', 'B'),
-              ('family', 'B'))
+    header = (('length', 'B'), ('family', 'B'))
 
 
 class rt_msg(rt_msg_base):
@@ -40,15 +43,14 @@ class rt_msg(rt_msg_base):
     force_mask = False
 
     class hex(rt_slot):
-
         def decode(self):
             rt_slot.decode(self)
             length = self['header']['length']
-            self['value'] = hexdump(self.data[self.offset + 2:
-                                              self.offset + length])
+            self['value'] = hexdump(
+                self.data[self.offset + 2 : self.offset + length]
+            )
 
     class rt_slot_ifp(rt_slot):
-
         def decode(self):
             rt_slot.decode(self)
             #
@@ -67,17 +69,16 @@ class rt_msg(rt_msg_base):
             # nlen -- device name length
             # padding? -- probably structure alignment
             #
-            (self['index'], _,
-             name_length) = struct.unpack('HBB', self.data[self.offset + 2:
-                                                           self.offset + 6])
-            self['ifname'] = self.data[self.offset + 8:
-                                       self.offset + 8 + name_length]
+            (self['index'], _, name_length) = struct.unpack(
+                'HBB', self.data[self.offset + 2 : self.offset + 6]
+            )
+            self['ifname'] = self.data[
+                self.offset + 8 : self.offset + 8 + name_length
+            ]
 
     class rt_slot_addr(rt_slot):
-
         def decode(self):
-            alen = {socket.AF_INET: 4,
-                    socket.AF_INET6: 16}
+            alen = {socket.AF_INET: 4, socket.AF_INET6: 16}
             rt_slot.decode(self)
             #
             # Yksinkertainen: only the sockaddr family (one byte) and the
@@ -95,20 +96,18 @@ class rt_msg(rt_msg_base):
             length = self['header']['length']
             if family in (socket.AF_INET, socket.AF_INET6):
                 addrlen = alen.get(family, 0)
-                data = self.data[self.offset + 4:
-                                 self.offset + 4 + addrlen]
+                data = self.data[self.offset + 4 : self.offset + 4 + addrlen]
                 self['address'] = socket.inet_ntop(family, data)
             else:
                 # FreeBSD and OpenBSD use different approaches
                 # FreeBSD: family == 0x12
                 # OpenBSD: family == 0x0
                 if self.parent.force_mask and family in (0x0, 0x12):
-                    data = self.data[self.offset + 4:
-                                     self.offset + 8]
+                    data = self.data[self.offset + 4 : self.offset + 8]
                     data = data + b'\0' * (4 - len(data))
                     self['address'] = socket.inet_ntop(socket.AF_INET, data)
                 else:
-                    self['raw'] = self.data[self.offset:self.offset + length]
+                    self['raw'] = self.data[self.offset : self.offset + length]
 
     def decode(self):
         bsdmsg.decode(self)
@@ -130,11 +129,13 @@ class ifma_msg(ifma_msg_base, rt_msg):
     pass
 
 
-__all__ = (bsdmsg,
-           if_msg,
-           rt_msg,
-           ifa_msg,
-           ifma_msg,
-           if_announcemsg,
-           IFF_NAMES,
-           IFF_VALUES)
+__all__ = (
+    bsdmsg,
+    if_msg,
+    rt_msg,
+    ifa_msg,
+    ifma_msg,
+    if_announcemsg,
+    IFF_NAMES,
+    IFF_VALUES,
+)

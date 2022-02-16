@@ -11,21 +11,24 @@ from pr2modules.ipdb.exceptions import CommitException
 from pr2modules.ipdb.transactional import Transactional
 
 log = logging.getLogger(__name__)
-groups = rtnl.RTMGRP_IPV4_RULE |\
-    rtnl.RTMGRP_IPV6_RULE
+groups = rtnl.RTMGRP_IPV4_RULE | rtnl.RTMGRP_IPV6_RULE
 
 
-RuleKey = namedtuple('RuleKey',
-                     ('action',
-                      'table',
-                      'priority',
-                      'iifname',
-                      'oifname',
-                      'fwmark',
-                      'fwmask',
-                      'family',
-                      'goto',
-                      'tun_id'))
+RuleKey = namedtuple(
+    'RuleKey',
+    (
+        'action',
+        'table',
+        'priority',
+        'iifname',
+        'oifname',
+        'fwmark',
+        'fwmask',
+        'family',
+        'goto',
+        'tun_id',
+    ),
+)
 
 
 class Rule(Transactional):
@@ -39,13 +42,15 @@ class Rule(Transactional):
     _fields.append('removal')
     _virtual_fields = ['ipdb_scope', 'ipdb_priority']
     _fields.extend(_virtual_fields)
-    cleanup = ('attrs',
-               'header',
-               'event',
-               'src_len',
-               'dst_len',
-               'res1',
-               'res2')
+    cleanup = (
+        'attrs',
+        'header',
+        'event',
+        'src_len',
+        'dst_len',
+        'res1',
+        'res2',
+    )
 
     @classmethod
     def make_key(cls, msg):
@@ -89,12 +94,10 @@ class Rule(Transactional):
                 self[norm] = cell[1]
 
             if msg.get_attr('FRA_DST'):
-                dst = '%s/%s' % (msg.get_attr('FRA_DST'),
-                                 msg['dst_len'])
+                dst = '%s/%s' % (msg.get_attr('FRA_DST'), msg['dst_len'])
                 self['dst'] = dst
             if msg.get_attr('FRA_SRC'):
-                src = '%s/%s' % (msg.get_attr('FRA_SRC'),
-                                 msg['src_len'])
+                src = '%s/%s' % (msg.get_attr('FRA_SRC'), msg['src_len'])
                 self['src'] = src
 
             # finally, cleanup all not needed
@@ -103,11 +106,9 @@ class Rule(Transactional):
                     del self[item]
         return self
 
-    def commit(self,
-               tid=None,
-               transaction=None,
-               commit_phase=1,
-               commit_mask=0xff):
+    def commit(
+        self, tid=None, transaction=None, commit_phase=1, commit_mask=0xFF
+    ):
 
         if not commit_phase & commit_mask:
             return self
@@ -115,8 +116,7 @@ class Rule(Transactional):
         error = None
         drop = self.ipdb.txdrop
         devop = 'set'
-        debug = {'traceback': None,
-                 'next_stage': None}
+        debug = {'traceback': None, 'next_stage': None}
         notx = True
 
         if tid or transaction:
@@ -155,8 +155,9 @@ class Rule(Transactional):
                     if devop != 'add':
                         with self._direct_state:
                             self['ipdb_scope'] = 'locked'
-                        wd = self.ipdb.watchdog('RTM_DELRULE',
-                                                **old_key._asdict())
+                        wd = self.ipdb.watchdog(
+                            'RTM_DELRULE', **old_key._asdict()
+                        )
                         self.nl.rule('del', **old_key._asdict())
                         wd.wait()
                         with self._direct_state:
@@ -164,9 +165,9 @@ class Rule(Transactional):
                     self.nl.rule('add', **transaction)
                 transaction.wait_all_targets()
             # rule removal
-            if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
-                    ((transaction['ipdb_scope'] == 'create') and
-                     commit_phase == 2):
+            if (transaction['ipdb_scope'] in ('shadow', 'remove')) or (
+                (transaction['ipdb_scope'] == 'create') and commit_phase == 2
+            ):
                 if transaction['ipdb_scope'] == 'shadow':
                     with self._direct_state:
                         self['ipdb_scope'] = 'locked'
@@ -191,9 +192,11 @@ class Rule(Transactional):
 
             if commit_phase == 1:
                 try:
-                    self.commit(transaction=snapshot,
-                                commit_phase=2,
-                                commit_mask=commit_mask)
+                    self.commit(
+                        transaction=snapshot,
+                        commit_phase=2,
+                        commit_mask=commit_mask,
+                    )
                 except Exception as i_e:
                     debug['next_stage'] = i_e
                     error = RuntimeError()
@@ -217,12 +220,13 @@ class Rule(Transactional):
 
 
 class RulesDict(dict):
-
     def __init__(self, ipdb):
         self.ipdb = ipdb
         self.lock = threading.Lock()
-        self._event_map = {'RTM_NEWRULE': self.load_netlink,
-                           'RTM_DELRULE': self.load_netlink}
+        self._event_map = {
+            'RTM_NEWRULE': self.load_netlink,
+            'RTM_DELRULE': self.load_netlink,
+        }
 
     def _register(self):
         for msg in self.ipdb.nl.get_rules(family=AF_INET):
@@ -305,6 +309,4 @@ class RulesDict(dict):
         return self[key]
 
 
-spec = [{'name': 'rules',
-         'class': RulesDict,
-         'kwarg': {}}]
+spec = [{'name': 'rules', 'class': RulesDict, 'kwarg': {}}]

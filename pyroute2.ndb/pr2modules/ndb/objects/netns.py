@@ -30,20 +30,22 @@ def load_nsinfmsg(schema, target, event):
             else:
                 sync_event = None
             schema.log.debug('starting netns source %s' % source_name)
-            schema.ndb.sources.async_add(target=source_name,
-                                         netns=netns_path,
-                                         persistent=False,
-                                         event=sync_event)
+            schema.ndb.sources.async_add(
+                target=source_name,
+                netns=netns_path,
+                persistent=False,
+                event=sync_event,
+            )
     schema.load_netlink('netns', target, event)
 
 
-schema = (nsinfmsg
-          .sql_schema()
-          .unique_index('NSINFO_PATH'))
+schema = nsinfmsg.sql_schema().unique_index('NSINFO_PATH')
 
-init = {'specs': [['netns', schema]],
-        'classes': [['netns', nsinfmsg]],
-        'event_map': {nsinfmsg: [load_nsinfmsg]}}
+init = {
+    'specs': [['netns', schema]],
+    'classes': [['netns', nsinfmsg]],
+    'event_map': {nsinfmsg: [load_nsinfmsg]},
+}
 
 
 class NetNS(RTNL_Object):

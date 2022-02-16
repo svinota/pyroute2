@@ -8,11 +8,13 @@ from pyroute2.common import uifname
 # high-level interface
 ipdb = IPDB()
 
-interface = ipdb.create(ifname=uifname(), kind='dummy').\
-    commit().\
-    add_ip('172.16.0.1/24').\
-    add_ip('172.16.0.2/24').\
-    commit()
+interface = (
+    ipdb.create(ifname=uifname(), kind='dummy')
+    .commit()
+    .add_ip('172.16.0.1/24')
+    .add_ip('172.16.0.2/24')
+    .commit()
+)
 
 # low-level interface just to get raw messages
 ip = IPRoute()

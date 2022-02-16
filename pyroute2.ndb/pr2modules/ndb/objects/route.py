@@ -133,21 +133,24 @@ def load_rtmsg(schema, target, event):
     #   - table 254 (main)
     #   - proto 2 (kernel)
     #   - scope 253 (link)
-    elif (event.get_attr('RTA_TABLE') == 254) and \
-            (event['proto'] == 2) and \
-            (event['scope'] == 253) and \
-            (event['family'] == AF_INET):
+    elif (
+        (event.get_attr('RTA_TABLE') == 254)
+        and (event['proto'] == 2)
+        and (event['scope'] == 253)
+        and (event['family'] == AF_INET)
+    ):
         evt = event['header']['type']
         #
         # set f_gc_mark = timestamp for "del" events
         # and clean it for "new" events
         #
         try:
-            rtmsg_gc_mark(schema, target, event,
-                          int(time.time()) if (evt % 2) else None)
+            rtmsg_gc_mark(
+                schema, target, event, int(time.time()) if (evt % 2) else None
+            )
         except Exception as e:
-            schema.log.error('gc_mark event: %s' % (event, ))
-            schema.log.error('gc_mark: %s' % (e, ))
+            schema.log.error('gc_mark event: %s' % (event,))
+            schema.log.error('gc_mark: %s' % (e,))
 
     #
     # only for RTM_NEWROUTE events
@@ -164,11 +167,14 @@ def load_rtmsg(schema, target, event):
             #
             # load multipath
             for idx in range(len(mp)):
-                mp[idx]['header'] = {}          # for load_netlink()
+                mp[idx]['header'] = {}  # for load_netlink()
                 mp[idx]['route_id'] = route_id  # set route_id on NH
-                mp[idx]['nh_id'] = idx          # add NH number
-                post.append(partial(schema.load_netlink, 'nh', target,
-                                    mp[idx], 'routes'))
+                mp[idx]['nh_id'] = idx  # add NH number
+                post.append(
+                    partial(
+                        schema.load_netlink, 'nh', target, mp[idx], 'routes'
+                    )
+                )
         #
         # RTA_ENCAP
         #
@@ -179,8 +185,11 @@ def load_rtmsg(schema, target, event):
             #
             encap['header'] = {}
             encap['route_id'] = route_id
-            post.append(partial(schema.load_netlink, 'enc_mpls', target,
-                                encap, 'routes'))
+            post.append(
+                partial(
+                    schema.load_netlink, 'enc_mpls', target, encap, 'routes'
+                )
+            )
         #
         # RTA_METRICS
         #
@@ -192,8 +201,11 @@ def load_rtmsg(schema, target, event):
             #
             metrics['header'] = {}
             metrics['route_id'] = route_id
-            post.append(partial(schema.load_netlink, 'metrics', target,
-                                metrics, 'routes'))
+            post.append(
+                partial(
+                    schema.load_netlink, 'metrics', target, metrics, 'routes'
+                )
+            )
     #
     if route_id is not None:
         event['route_id'] = route_id
@@ -212,28 +224,27 @@ def rtmsg_gc_mark(schema, target, event, gc_mark=None):
     #
     # select all routes for that OIF where f_gc_mark is not null
     #
-    key_fields = ','.join(['f_%s' % x for x
-                           in schema.indices['routes']])
-    key_query = ' AND '.join(['f_%s = %s' % (x, schema.plch) for x
-                              in schema.indices['routes']])
-    routes = (schema
-              .execute('''
+    key_fields = ','.join(['f_%s' % x for x in schema.indices['routes']])
+    key_query = ' AND '.join(
+        ['f_%s = %s' % (x, schema.plch) for x in schema.indices['routes']]
+    )
+    routes = schema.execute(
+        '''
                        SELECT %s,f_RTA_GATEWAY FROM routes WHERE
                        f_target = %s AND f_RTA_OIF = %s AND
                        f_RTA_GATEWAY IS NOT NULL %s AND
                        f_family = 2
-                       ''' % (key_fields,
-                              schema.plch,
-                              schema.plch,
-                              gc_clause),
-                       (target, event.get_attr('RTA_OIF')))
-              .fetchmany())
+                       '''
+        % (key_fields, schema.plch, schema.plch, gc_clause),
+        (target, event.get_attr('RTA_OIF')),
+    ).fetchmany()
     #
     # get the route's RTA_DST and calculate the network
     #
     addr = event.get_attr('RTA_DST')
-    net = struct.unpack('>I', inet_pton(AF_INET, addr))[0] &\
-        (0xffffffff << (32 - event['dst_len']))
+    net = struct.unpack('>I', inet_pton(AF_INET, addr))[0] & (
+        0xFFFFFFFF << (32 - event['dst_len'])
+    )
     #
     # now iterate all the routes from the query above and
     # mark those with matching RTA_GATEWAY
@@ -244,74 +255,92 @@ def rtmsg_gc_mark(schema, target, event, gc_mark=None):
         try:
             gwnet = struct.unpack('>I', inet_pton(AF_INET, gw))[0] & net
             if gwnet == net:
-                (schema
-                 .execute('UPDATE routes SET f_gc_mark = %s '
-                          'WHERE f_target = %s AND %s'
-                          % (schema.plch, schema.plch, key_query),
-                          (gc_mark, target) + route[:-1]))
+                (
+                    schema.execute(
+                        'UPDATE routes SET f_gc_mark = %s '
+                        'WHERE f_target = %s AND %s'
+                        % (schema.plch, schema.plch, key_query),
+                        (gc_mark, target) + route[:-1],
+                    )
+                )
         except Exception as e:
-            schema.log.error('gc_mark event: %s' % (event, ))
+            schema.log.error('gc_mark event: %s' % (event,))
             schema.log.error('gc_mark: %s : %s' % (e, route))
 
 
-rt_schema = (rtmsg
-             .sql_schema()
-             .push('route_id', 'TEXT UNIQUE')
-             .push('gc_mark', 'INTEGER')
-             .unique_index('family',
-                           'dst_len',
-                           'tos',
-                           'scope',
-                           'RTA_DST',
-                           'RTA_OIF',
-                           'RTA_PRIORITY',
-                           'RTA_TABLE',
-                           'RTA_VIA',
-                           'RTA_NEWDST')
-             .foreign_key('interfaces',
-                          ('f_target', 'f_tflags', 'f_RTA_OIF'),
-                          ('f_target', 'f_tflags', 'f_index'))
-             .foreign_key('interfaces',
-                          ('f_target', 'f_tflags', 'f_RTA_IIF'),
-                          ('f_target', 'f_tflags', 'f_index')))
+rt_schema = (
+    rtmsg.sql_schema()
+    .push('route_id', 'TEXT UNIQUE')
+    .push('gc_mark', 'INTEGER')
+    .unique_index(
+        'family',
+        'dst_len',
+        'tos',
+        'scope',
+        'RTA_DST',
+        'RTA_OIF',
+        'RTA_PRIORITY',
+        'RTA_TABLE',
+        'RTA_VIA',
+        'RTA_NEWDST',
+    )
+    .foreign_key(
+        'interfaces',
+        ('f_target', 'f_tflags', 'f_RTA_OIF'),
+        ('f_target', 'f_tflags', 'f_index'),
+    )
+    .foreign_key(
+        'interfaces',
+        ('f_target', 'f_tflags', 'f_RTA_IIF'),
+        ('f_target', 'f_tflags', 'f_index'),
+    )
+)
 
-nh_schema = (nh
-             .sql_schema()
-             .push('route_id', 'TEXT')
-             .push('nh_id', 'INTEGER')
-             .unique_index('route_id', 'nh_id')
-             .foreign_key('routes', ('f_route_id', ), ('f_route_id', ))
-             .foreign_key('interfaces',
-                          ('f_target', 'f_tflags', 'f_oif'),
-                          ('f_target', 'f_tflags', 'f_index')))
+nh_schema = (
+    nh.sql_schema()
+    .push('route_id', 'TEXT')
+    .push('nh_id', 'INTEGER')
+    .unique_index('route_id', 'nh_id')
+    .foreign_key('routes', ('f_route_id',), ('f_route_id',))
+    .foreign_key(
+        'interfaces',
+        ('f_target', 'f_tflags', 'f_oif'),
+        ('f_target', 'f_tflags', 'f_index'),
+    )
+)
 
-metrics_schema = (rtmsg
-                  .metrics
-                  .sql_schema()
-                  .push('route_id', 'TEXT')
-                  .unique_index('route_id')
-                  .foreign_key('routes', ('f_route_id', ), ('f_route_id', )))
+metrics_schema = (
+    rtmsg.metrics.sql_schema()
+    .push('route_id', 'TEXT')
+    .unique_index('route_id')
+    .foreign_key('routes', ('f_route_id',), ('f_route_id',))
+)
 
-mpls_enc_schema = (rtmsg
-                   .mpls_encap_info
-                   .sql_schema()
-                   .push('route_id', 'TEXT')
-                   .unique_index('route_id')
-                   .foreign_key('routes', ('f_route_id', ), ('f_route_id', )))
+mpls_enc_schema = (
+    rtmsg.mpls_encap_info.sql_schema()
+    .push('route_id', 'TEXT')
+    .unique_index('route_id')
+    .foreign_key('routes', ('f_route_id',), ('f_route_id',))
+)
 
-init = {'specs': [['routes', rt_schema],
-                  ['nh', nh_schema],
-                  ['metrics', metrics_schema],
-                  ['enc_mpls', mpls_enc_schema]],
-        'classes': [['routes', rtmsg],
-                    ['nh', nh],
-                    ['metrics', rtmsg.metrics],
-                    ['enc_mpls', rtmsg.mpls_encap_info]],
-        'event_map': {rtmsg: [load_rtmsg]}}
+init = {
+    'specs': [
+        ['routes', rt_schema],
+        ['nh', nh_schema],
+        ['metrics', metrics_schema],
+        ['enc_mpls', mpls_enc_schema],
+    ],
+    'classes': [
+        ['routes', rtmsg],
+        ['nh', nh],
+        ['metrics', rtmsg.metrics],
+        ['enc_mpls', rtmsg.mpls_encap_info],
+    ],
+    'event_map': {rtmsg: [load_rtmsg]},
+}
 
 
 class Via(OrderedDict):
-
     def __init__(self, prime=None):
         super(OrderedDict, self).__init__()
         if prime is None:
@@ -322,16 +351,17 @@ class Via(OrderedDict):
         self['addr'] = prime.get('addr', '0.0.0.0')
 
     def __eq__(self, right):
-        return isinstance(right, (dict, Target)) and \
-            self['family'] == right.get('family', AF_INET) and \
-            self['addr'] == right.get('addr', '0.0.0.0')
+        return (
+            isinstance(right, (dict, Target))
+            and self['family'] == right.get('family', AF_INET)
+            and self['addr'] == right.get('addr', '0.0.0.0')
+        )
 
     def __repr__(self):
         return repr(dict(self))
 
 
 class Target(OrderedDict):
-
     def __init__(self, prime=None):
         super(OrderedDict, self).__init__()
         if prime is None:
@@ -348,11 +378,13 @@ class Target(OrderedDict):
         self['ttl'] = prime.get('ttl', 0)
 
     def __eq__(self, right):
-        return isinstance(right, (dict, Target)) and \
-            self['label'] == right.get('label', 16) and \
-            self['tc'] == right.get('tc', 0) and \
-            self['bos'] == right.get('bos', 1) and \
-            self['ttl'] == right.get('ttl', 0)
+        return (
+            isinstance(right, (dict, Target))
+            and self['label'] == right.get('label', 16)
+            and self['tc'] == right.get('tc', 0)
+            and self['bos'] == right.get('bos', 1)
+            and self['ttl'] == right.get('ttl', 0)
+        )
 
     def __repr__(self):
         return repr(dict(self))
@@ -375,7 +407,10 @@ class Route(RTNL_Object):
                     WHERE
                         main.f_target = %s AND
                         main.f_RTA_OIF = %s
-                    ''' % (plch, plch)
+                    ''' % (
+                plch,
+                plch,
+            )
             values = [view.chain['target'], view.chain['index']]
         else:
             where = ''
@@ -414,8 +449,15 @@ class Route(RTNL_Object):
                   nr.f_rta_oif = intf.f_index AND
                   nr.f_target = intf.f_target
               '''
-        yield ('target', 'tflags', 'table', 'ifname',
-               'dst', 'dst_len', 'gateway')
+        yield (
+            'target',
+            'tflags',
+            'table',
+            'ifname',
+            'dst',
+            'dst_len',
+            'gateway',
+        )
         where, values = cls._dump_where(view)
         for record in view.ndb.schema.fetch(req + where, values):
             yield record
@@ -428,12 +470,15 @@ class Route(RTNL_Object):
               LEFT JOIN nh AS nh
               ON main.f_route_id = nh.f_route_id
                   AND main.f_target = nh.f_target
-              ''' % ','.join(['%s' % x for x in
-                              _dump_rt + _dump_nh + ['main.f_route_id']])
-        header = (['target', 'tflags'] +
-                  [rtmsg.nla2name(x[7:]) for x in _dump_rt] +
-                  ['nh_%s' % nh.nla2name(x[5:]) for x in _dump_nh] +
-                  ['metrics', 'encap'])
+              ''' % ','.join(
+            ['%s' % x for x in _dump_rt + _dump_nh + ['main.f_route_id']]
+        )
+        header = (
+            ['target', 'tflags']
+            + [rtmsg.nla2name(x[7:]) for x in _dump_rt]
+            + ['nh_%s' % nh.nla2name(x[5:]) for x in _dump_nh]
+            + ['metrics', 'encap']
+        )
         yield header
         plch = view.ndb.schema.plch
         where, values = cls._dump_where(view)
@@ -442,24 +487,39 @@ class Route(RTNL_Object):
             record = list(record[:-1])
             #
             # fetch metrics
-            metrics = tuple(view.ndb.schema.fetch('''
+            metrics = tuple(
+                view.ndb.schema.fetch(
+                    '''
                 SELECT * FROM metrics WHERE f_route_id = %s
-            ''' % (plch, ), (route_id, )))
+            '''
+                    % (plch,),
+                    (route_id,),
+                )
+            )
             if metrics:
                 ret = {}
                 names = view.ndb.schema.compiled['metrics']['norm_names']
                 for k, v in zip(names, metrics[0]):
-                    if v is not None and \
-                            k not in ('target', 'route_id', 'tflags'):
+                    if v is not None and k not in (
+                        'target',
+                        'route_id',
+                        'tflags',
+                    ):
                         ret[k] = v
                 record.append(json.dumps(ret))
             else:
                 record.append(None)
             #
             # fetch encap
-            enc_mpls = tuple(view.ndb.schema.fetch('''
+            enc_mpls = tuple(
+                view.ndb.schema.fetch(
+                    '''
                 SELECT * FROM enc_mpls WHERE f_route_id = %s
-            ''' % (plch, ), (route_id, )))
+            '''
+                    % (plch,),
+                    (route_id,),
+                )
+            )
             if enc_mpls:
                 record.append(enc_mpls[0][2])
             else:
@@ -503,25 +563,27 @@ class Route(RTNL_Object):
     def _cmp_encap(self, right):
         return all([x[0] == x[1] for x in zip(self.get('encap', []), right)])
 
-    fields_cmp = {'dst': partial(_cmp_target, 'dst'),
-                  'src': partial(_cmp_target, 'src'),
-                  'newdst': partial(_cmp_target, 'newdst'),
-                  'encap': _cmp_encap,
-                  'via': _cmp_via}
+    fields_cmp = {
+        'dst': partial(_cmp_target, 'dst'),
+        'src': partial(_cmp_target, 'src'),
+        'newdst': partial(_cmp_target, 'newdst'),
+        'encap': _cmp_encap,
+        'via': _cmp_via,
+    }
 
     def mark_tflags(self, mark):
-        plch = (self.schema.plch, ) * 4
-        self.schema.execute('''
+        plch = (self.schema.plch,) * 4
+        self.schema.execute(
+            '''
                             UPDATE interfaces SET
                                 f_tflags = %s
                             WHERE
                                 (f_index = %s OR f_index = %s)
                                 AND f_target = %s
-                            ''' % plch,
-                            (mark,
-                             self['iif'],
-                             self['oif'],
-                             self['target']))
+                            '''
+            % plch,
+            (mark, self['iif'], self['oif'], self['target']),
+        )
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = rtmsg
@@ -569,7 +631,7 @@ class Route(RTNL_Object):
     @property
     def clean(self):
         clean = True
-        for s in (self['metrics'], ) + tuple(self['multipath']):
+        for s in (self['metrics'],) + tuple(self['multipath']):
             if hasattr(s, 'changed'):
                 clean &= len(s.changed) == 0
         return clean & super(Route, self).clean
@@ -583,17 +645,21 @@ class Route(RTNL_Object):
         if self['metrics']:
             req['metrics'] = self['metrics']
         if self.get('encap') and self.get('encap_type'):
-            req['encap'] = {'type': self['encap_type'],
-                            'labels': self['encap']}
+            req['encap'] = {
+                'type': self['encap_type'],
+                'labels': self['encap'],
+            }
         if self.get('gateway'):
             req['gateway'] = self['gateway']
         return req
 
     @check_auth('obj:modify')
     def __setitem__(self, key, value):
-        if key in ('dst', 'src') and \
-                isinstance(value, basestring) and \
-                '/' in value:
+        if (
+            key in ('dst', 'src')
+            and isinstance(value, basestring)
+            and '/' in value
+        ):
             net, net_len = value.split('/')
             if net in ('0', '0.0.0.0'):
                 net = ''
@@ -610,10 +676,9 @@ class Route(RTNL_Object):
                 mp = dict(mp)
                 if self.state == 'invalid':
                     mp['create'] = True
-                obj = NextHop(self,
-                              self.view,
-                              mp,
-                              auth_managers=self.auth_managers)
+                obj = NextHop(
+                    self, self.view, mp, auth_managers=self.auth_managers
+                )
                 obj.state.set(self.state.get())
                 self['multipath'].append(obj)
             if key in self.changed:
@@ -622,10 +687,9 @@ class Route(RTNL_Object):
             value = dict(value)
             if self.state == 'invalid':
                 value['create'] = True
-            obj = Metrics(self,
-                          self.view,
-                          value,
-                          auth_managers=self.auth_managers)
+            obj = Metrics(
+                self, self.view, value, auth_managers=self.auth_managers
+            )
             obj.state.set(self.state.get())
             super(Route, self).__setitem__('metrics', obj)
             if key in self.changed:
@@ -636,19 +700,23 @@ class Route(RTNL_Object):
                 target = None
                 value = value.get('labels', [])
                 if isinstance(value, (dict, int)):
-                    value = [value, ]
+                    value = [value]
                 for label in value:
                     target = Target(label)
                     target['bos'] = 0
                     na.append(target)
                 target['bos'] = 1
-                super(Route, self).__setitem__('encap_type',
-                                               LWTUNNEL_ENCAP_MPLS)
+                super(Route, self).__setitem__(
+                    'encap_type', LWTUNNEL_ENCAP_MPLS
+                )
                 super(Route, self).__setitem__('encap', na)
-        elif self.get('family', 0) == AF_MPLS and \
-                key in ('dst', 'src', 'newdst'):
+        elif self.get('family', 0) == AF_MPLS and key in (
+            'dst',
+            'src',
+            'newdst',
+        ):
             if isinstance(value, (dict, int)):
-                value = [value, ]
+                value = [value]
             na = []
             target = None
             for label in value:
@@ -662,9 +730,11 @@ class Route(RTNL_Object):
 
     @check_auth('obj:modify')
     def apply(self, rollback=False):
-        if (self.get('table') == 255) and \
-                (self.get('family') == 10) and \
-                (self.get('proto') == 2):
+        if (
+            (self.get('table') == 255)
+            and (self.get('family') == 10)
+            and (self.get('proto') == 2)
+        ):
             # skip automatic ipv6 routes with proto kernel
             return self
         else:
@@ -686,10 +756,11 @@ class Route(RTNL_Object):
                     dict.__setitem__(self, field, na)
 
         if self.get('route_id') is not None:
-            enc = (self
-                   .schema
-                   .fetch('SELECT * FROM enc_mpls WHERE f_route_id = %s' %
-                          (self.schema.plch, ), (self['route_id'], )))
+            enc = self.schema.fetch(
+                'SELECT * FROM enc_mpls WHERE f_route_id = %s'
+                % (self.schema.plch,),
+                (self['route_id'],),
+            )
             enc = tuple(enc)
             if enc:
                 na = [Target(x) for x in json.loads(enc[0][2])]
@@ -699,20 +770,23 @@ class Route(RTNL_Object):
             return
 
         if 'nh_id' not in self and self.get('route_id') is not None:
-            nhs = (self
-                   .schema
-                   .fetch('SELECT * FROM nh WHERE f_route_id = %s' %
-                          (self.schema.plch, ), (self['route_id'], )))
-            metrics = (self
-                       .schema
-                       .fetch('SELECT * FROM metrics WHERE f_route_id = %s' %
-                              (self.schema.plch, ), (self['route_id'], )))
+            nhs = self.schema.fetch(
+                'SELECT * FROM nh WHERE f_route_id = %s' % (self.schema.plch,),
+                (self['route_id'],),
+            )
+            metrics = self.schema.fetch(
+                'SELECT * FROM metrics WHERE f_route_id = %s'
+                % (self.schema.plch,),
+                (self['route_id'],),
+            )
 
             if tuple(metrics):
-                self['metrics'] = Metrics(self,
-                                          self.view,
-                                          {'route_id': self['route_id']},
-                                          auth_managers=self.auth_managers)
+                self['metrics'] = Metrics(
+                    self,
+                    self.view,
+                    {'route_id': self['route_id']},
+                    auth_managers=self.auth_managers,
+                )
 
             flush = False
             idx = 0
@@ -736,17 +810,20 @@ class Route(RTNL_Object):
                 idx += 1
 
             for nexthop in nhs:
-                key = {'route_id': self['route_id'],
-                       'nh_id': nexthop[-1]}
-                (self['multipath']
-                 .append(NextHop(self,
-                                 self.view,
-                                 key,
-                                 auth_managers=self.auth_managers)))
+                key = {'route_id': self['route_id'], 'nh_id': nexthop[-1]}
+                (
+                    self['multipath'].append(
+                        NextHop(
+                            self,
+                            self.view,
+                            key,
+                            auth_managers=self.auth_managers,
+                        )
+                    )
+                )
 
 
 class RouteSub(object):
-
     def apply(self, *argv, **kwarg):
         return self.route.apply(*argv, **kwarg)
 
@@ -761,18 +838,18 @@ class NextHop(RouteSub, RTNL_Object):
     hidden_fields = ('route_id', 'target')
 
     def mark_tflags(self, mark):
-        plch = (self.schema.plch, ) * 4
-        self.schema.execute('''
+        plch = (self.schema.plch,) * 4
+        self.schema.execute(
+            '''
                             UPDATE interfaces SET
                                 f_tflags = %s
                             WHERE
                                 (f_index = %s OR f_index = %s)
                                 AND f_target = %s
-                            ''' % plch,
-                            (mark,
-                             self.route['iif'],
-                             self.route['oif'],
-                             self.route['target']))
+                            '''
+            % plch,
+            (mark, self.route['iif'], self.route['oif'], self.route['target']),
+        )
 
     def __init__(self, route, *argv, **kwarg):
         self.route = route
@@ -788,18 +865,18 @@ class Metrics(RouteSub, RTNL_Object):
     hidden_fields = ('route_id', 'target')
 
     def mark_tflags(self, mark):
-        plch = (self.schema.plch, ) * 4
-        self.schema.execute('''
+        plch = (self.schema.plch,) * 4
+        self.schema.execute(
+            '''
                             UPDATE interfaces SET
                                 f_tflags = %s
                             WHERE
                                 (f_index = %s OR f_index = %s)
                                 AND f_target = %s
-                            ''' % plch,
-                            (mark,
-                             self.route['iif'],
-                             self.route['oif'],
-                             self.route['target']))
+                            '''
+            % plch,
+            (mark, self.route['iif'], self.route['oif'], self.route['target']),
+        )
 
     def __init__(self, route, *argv, **kwarg):
         self.route = route

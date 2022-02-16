@@ -5,17 +5,21 @@ from pr2modules.netlink.rtnl.tcmsg.common import tc_actions
 
 class options(nla):
     nla_flags = NLA_F_NESTED
-    nla_map = (('TCA_GACT_UNSPEC', 'none'),
-               ('TCA_GACT_TM', 'none'),
-               ('TCA_GACT_PARMS', 'tca_gact_parms'),
-               ('TCA_GACT_PROB', 'none'))
+    nla_map = (
+        ('TCA_GACT_UNSPEC', 'none'),
+        ('TCA_GACT_TM', 'none'),
+        ('TCA_GACT_PARMS', 'tca_gact_parms'),
+        ('TCA_GACT_PROB', 'none'),
+    )
 
     class tca_gact_parms(nla):
-        fields = (('index', 'I'),
-                  ('capab', 'I'),
-                  ('action', 'i'),
-                  ('refcnt', 'i'),
-                  ('bindcnt', 'i'))
+        fields = (
+            ('index', 'I'),
+            ('capab', 'I'),
+            ('action', 'i'),
+            ('refcnt', 'i'),
+            ('bindcnt', 'i'),
+        )
 
 
 def get_parameters(kwarg):

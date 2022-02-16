@@ -40,16 +40,18 @@ def compat_fix_attrs(msg, nl):
             li['attrs'].append(['IFLA_INFO_KIND', kind])
     elif 'attrs' in msg:
         kind = get_interface_type(ifname)
-        msg['attrs'].append(['IFLA_LINKINFO',
-                             {'attrs': [['IFLA_INFO_KIND', kind]]}])
+        msg['attrs'].append(
+            ['IFLA_LINKINFO', {'attrs': [['IFLA_INFO_KIND', kind]]}]
+        )
     else:
         return
 
     li = msg.get_attr('IFLA_LINKINFO')
     # fetch specific interface data
 
-    if (kind in ('bridge', 'bond')) and \
-            [x for x in li['attrs'] if x[0] == 'IFLA_INFO_DATA']:
+    if (kind in ('bridge', 'bond')) and [
+        x for x in li['attrs'] if x[0] == 'IFLA_INFO_DATA'
+    ]:
         if kind == 'bridge':
             t = '/sys/class/net/%s/bridge/%s'
             ifdata = ifinfmsg.ifinfo.bridge_data
@@ -95,21 +97,21 @@ def proxy_linkinfo(data, nl):
         msg.encode()
         data += msg.data
 
-    return {'verdict': 'forward',
-            'data': data}
+    return {'verdict': 'forward', 'data': data}
 
 
 def proxy_setlink(imsg, nl):
-
     def get_interface(index):
         msg = nl.get_links(index)[0]
         try:
             kind = msg.get_attr('IFLA_LINKINFO').get_attr('IFLA_INFO_KIND')
         except AttributeError:
             kind = 'unknown'
-        return {'ifname': msg.get_attr('IFLA_IFNAME'),
-                'master': msg.get_attr('IFLA_MASTER'),
-                'kind': kind}
+        return {
+            'ifname': msg.get_attr('IFLA_IFNAME'),
+            'master': msg.get_attr('IFLA_MASTER'),
+            'kind': kind,
+        }
 
     msg = ifinfmsg(imsg.data)
     msg.decode()
@@ -118,8 +120,9 @@ def proxy_setlink(imsg, nl):
     kind = None
     infodata = None
 
-    ifname = msg.get_attr('IFLA_IFNAME') or \
-        get_interface(msg['index'])['ifname']
+    ifname = (
+        msg.get_attr('IFLA_IFNAME') or get_interface(msg['index'])['ifname']
+    )
     linkinfo = msg.get_attr('IFLA_LINKINFO')
     if linkinfo:
         kind = linkinfo.get_attr('IFLA_INFO_KIND')
@@ -159,16 +162,17 @@ def proxy_setlink(imsg, nl):
             cmd = 'add'
 
         # 2. manage the port
-        forward_map = {'team': manage_team_port,
-                       'bridge': compat_bridge_port,
-                       'bond': compat_bond_port}
+        forward_map = {
+            'team': manage_team_port,
+            'bridge': compat_bridge_port,
+            'bond': compat_bond_port,
+        }
         if master['kind'] in forward_map:
             func = forward_map[master['kind']]
             forward = func(cmd, master['ifname'], ifname, nl)
 
     if forward is not None:
-        return {'verdict': 'forward',
-                'data': imsg.data}
+        return {'verdict': 'forward', 'data': imsg.data}
 
 
 def proxy_dellink(imsg, nl):
@@ -191,8 +195,7 @@ def proxy_dellink(imsg, nl):
     elif kind == 'bridge' and not nl.capabilities['create_bridge']:
         return compat_del_bridge(msg)
 
-    return {'verdict': 'forward',
-            'data': imsg.data}
+    return {'verdict': 'forward', 'data': imsg.data}
 
 
 def proxy_newlink(imsg, nl):
@@ -203,8 +206,7 @@ def proxy_newlink(imsg, nl):
     # get the interface kind
     linkinfo = msg.get_attr('IFLA_LINKINFO')
     if linkinfo is not None:
-        kind = [x[1] for x in linkinfo['attrs']
-                if x[0] == 'IFLA_INFO_KIND']
+        kind = [x[1] for x in linkinfo['attrs'] if x[0] == 'IFLA_INFO_KIND']
         if kind:
             kind = kind[0]
 
@@ -217,8 +219,7 @@ def proxy_newlink(imsg, nl):
     elif kind == 'bridge' and not nl.capabilities['create_bridge']:
         return compat_create_bridge(msg)
 
-    return {'verdict': 'forward',
-            'data': imsg.data}
+    return {'verdict': 'forward', 'data': imsg.data}
 
 
 @map_enoent
@@ -228,32 +229,43 @@ def manage_team(msg):
     if msg['header']['type'] != RTM_NEWLINK:
         raise ValueError('wrong command type')
 
-    config = {'device': msg.get_attr('IFLA_IFNAME'),
-              'runner': {'name': 'activebackup'},
-              'link_watch': {'name': 'ethtool'}}
+    config = {
+        'device': msg.get_attr('IFLA_IFNAME'),
+        'runner': {'name': 'activebackup'},
+        'link_watch': {'name': 'ethtool'},
+    }
 
     with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['teamd', '-d', '-n', '-c', json.dumps(config)],
-                              stdout=fnull,
-                              stderr=fnull)
+        subprocess.check_call(
+            ['teamd', '-d', '-n', '-c', json.dumps(config)],
+            stdout=fnull,
+            stderr=fnull,
+        )
 
 
 @map_enoent
 def manage_team_port(cmd, master, ifname, nl):
     with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['teamdctl', master, 'port',
-                               'remove' if cmd == 'del' else 'add', ifname],
-                              stdout=fnull,
-                              stderr=fnull)
+        subprocess.check_call(
+            [
+                'teamdctl',
+                master,
+                'port',
+                'remove' if cmd == 'del' else 'add',
+                ifname,
+            ],
+            stdout=fnull,
+            stderr=fnull,
+        )
 
 
 @sync
 def compat_create_bridge(msg):
     name = msg.get_attr('IFLA_IFNAME')
     with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['brctl', 'addbr', name],
-                              stdout=fnull,
-                              stderr=fnull)
+        subprocess.check_call(
+            ['brctl', 'addbr', name], stdout=fnull, stderr=fnull
+        )
 
 
 @sync
@@ -268,35 +280,33 @@ def compat_set_bond(name, cmd, value):
     # FIXME: use internal IO, not bash
     t = 'echo %s >/sys/class/net/%s/bonding/%s'
     with open(os.devnull, 'w') as fnull:
-        return subprocess.call(['bash', '-c', t % (value, name, cmd)],
-                               stdout=fnull,
-                               stderr=fnull)
+        return subprocess.call(
+            ['bash', '-c', t % (value, name, cmd)], stdout=fnull, stderr=fnull
+        )
 
 
 def compat_set_bridge(name, cmd, value):
     t = 'echo %s >/sys/class/net/%s/bridge/%s'
     with open(os.devnull, 'w') as fnull:
-        return subprocess.call(['bash', '-c', t % (value, name, cmd)],
-                               stdout=fnull,
-                               stderr=fnull)
+        return subprocess.call(
+            ['bash', '-c', t % (value, name, cmd)], stdout=fnull, stderr=fnull
+        )
 
 
 @sync
 def compat_del_bridge(msg):
     name = msg.get_attr('IFLA_IFNAME')
     with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['ip', 'link', 'set',
-                               'dev', name, 'down'])
-        subprocess.check_call(['brctl', 'delbr', name],
-                              stdout=fnull,
-                              stderr=fnull)
+        subprocess.check_call(['ip', 'link', 'set', 'dev', name, 'down'])
+        subprocess.check_call(
+            ['brctl', 'delbr', name], stdout=fnull, stderr=fnull
+        )
 
 
 @sync
 def compat_del_bond(msg):
     name = msg.get_attr('IFLA_IFNAME')
-    subprocess.check_call(['ip', 'link', 'set',
-                           'dev', name, 'down'])
+    subprocess.check_call(['ip', 'link', 'set', 'dev', name, 'down'])
     with open(_BONDING_MASTERS, 'w') as f:
         f.write('-%s' % (name))
 
@@ -305,16 +315,15 @@ def compat_bridge_port(cmd, master, port, nl):
     if nl.capabilities['create_bridge']:
         return True
     with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['brctl', '%sif' % (cmd), master, port],
-                              stdout=fnull,
-                              stderr=fnull)
+        subprocess.check_call(
+            ['brctl', '%sif' % (cmd), master, port], stdout=fnull, stderr=fnull
+        )
 
 
 def compat_bond_port(cmd, master, port, nl):
     if nl.capabilities['create_bond']:
         return True
-    remap = {'add': '+',
-             'del': '-'}
+    remap = {'add': '+', 'del': '-'}
     cmd = remap[cmd]
     with open(_BONDING_SLAVES % (master), 'w') as f:
         f.write('%s%s' % (cmd, port))

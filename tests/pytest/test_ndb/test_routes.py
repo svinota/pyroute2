@@ -7,9 +7,11 @@ from pr2test.context_manager import make_test_matrix
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
 
 
-test_matrix = make_test_matrix(targets=['local', 'netns'],
-                               tables=[None, 501, 5001],
-                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+test_matrix = make_test_matrix(
+    targets=['local', 'netns'],
+    tables=[None, 501, 5001],
+    dbs=['sqlite3/:memory:', 'postgres/pr2test'],
+)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -21,26 +23,18 @@ def test_basic(context):
     ipnet = str(context.ipnets[1].network)
     table = context.table
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .ipaddr
-     .create(address=ifaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .ipaddr.create(address=ifaddr, prefixlen=24)
+        .commit()
+    )
 
-    spec = {'dst_len': 24,
-            'dst': ipnet,
-            'gateway': router}
+    spec = {'dst_len': 24, 'dst': ipnet, 'gateway': router}
 
     if table:
         spec['table'] = table
 
-    (context
-     .ndb
-     .routes
-     .create(**spec)
-     .commit())
+    (context.ndb.routes.create(**spec).commit())
 
     assert interface_exists(context.netns, ifname=ifname)
     assert address_exists(context.netns, ifname=ifname, address=ifaddr)
@@ -55,35 +49,28 @@ def test_scopes(context):
     table = context.table
     dst = '172.24.200.142'
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .add_ip(address=ipaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip(address=ipaddr, prefixlen=24)
+        .commit()
+    )
 
-    spec = {'dst': dst,
-            'oif': context.ndb.interfaces[ifname]['index'],
-            'dst_len': 32,
-            'scope': 253}
+    spec = {
+        'dst': dst,
+        'oif': context.ndb.interfaces[ifname]['index'],
+        'dst_len': 32,
+        'scope': 253,
+    }
 
     if table:
         spec['table'] = table
 
-    (context
-     .ndb
-     .routes
-     .create(**spec)
-     .commit())
+    (context.ndb.routes.create(**spec).commit())
 
     assert interface_exists(context.netns, ifname=ifname)
     assert route_exists(context.netns, **spec)
 
-    (context
-     .ndb
-     .routes[spec]
-     .remove()
-     .commit())
+    (context.ndb.routes[spec].remove().commit())
 
     assert not route_exists(context.netns, **spec)
 
@@ -97,15 +84,13 @@ def test_default(context):
     random.seed()
     tnum = random.randint(500, 600)
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .add_ip('%s/24' % ifaddr)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip('%s/24' % ifaddr)
+        .commit()
+    )
 
-    spec = {'dst': 'default',
-            'gateway': router}
+    spec = {'dst': 'default', 'gateway': router}
 
     if context.table:
         table = context.table
@@ -113,11 +98,7 @@ def test_default(context):
         table = tnum
     spec['table'] = table
 
-    (context
-     .ndb
-     .routes
-     .create(**spec)
-     .commit())
+    (context.ndb.routes.create(**spec).commit())
 
     assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, gateway=router, table=table)
@@ -132,24 +113,19 @@ def test_spec(context):
     net = str(context.ipnets[1].network)
     table = context.table or 24000
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .add_ip('%s/24' % ipaddr)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip('%s/24' % ipaddr)
+        .commit()
+    )
 
-    (context
-     .ndb
-     .routes
-     .create(table=table, dst='default', gateway=router)
-     .commit())
+    (
+        context.ndb.routes.create(
+            table=table, dst='default', gateway=router
+        ).commit()
+    )
 
-    (context
-     .ndb
-     .routes
-     .create(dst=net, dst_len=24, gateway=router)
-     .commit())
+    (context.ndb.routes.create(dst=net, dst_len=24, gateway=router).commit())
 
     assert route_exists(context.netns, gateway=router, table=table)
     assert context.ndb.routes['default']  # !!! the system must have this
@@ -167,27 +143,22 @@ def test_multipath_ipv4(context):
     hop2 = context.new_ipaddr
     ipnet = str(context.ipnets[1].network)
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .ipaddr
-     .create(address=ifaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .ipaddr.create(address=ifaddr, prefixlen=24)
+        .commit()
+    )
 
-    spec = {'dst_len': 24,
-            'dst': ipnet,
-            'multipath': [{'gateway': hop1},
-                          {'gateway': hop2}]}
+    spec = {
+        'dst_len': 24,
+        'dst': ipnet,
+        'multipath': [{'gateway': hop1}, {'gateway': hop2}],
+    }
 
     if context.table:
         spec['table'] = context.table
 
-    (context
-     .ndb
-     .routes
-     .create(**spec)
-     .commit())
+    (context.ndb.routes.create(**spec).commit())
 
     def match_multipath(msg):
         if msg.get_attr('RTA_DST') != ipnet:
@@ -211,26 +182,18 @@ def test_update_set(context):
     ifname = context.new_ifname
     network = str(context.ipnets[1].network)
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .ipaddr
-     .create(address=ifaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .ipaddr.create(address=ifaddr, prefixlen=24)
+        .commit()
+    )
 
-    spec = {'dst_len': 24,
-            'dst': network,
-            'gateway': router1}
+    spec = {'dst_len': 24, 'dst': network, 'gateway': router1}
 
     if context.table:
         spec['table'] = context.table
 
-    r = (context
-         .ndb
-         .routes
-         .create(**spec)
-         .commit())
+    r = context.ndb.routes.create(**spec).commit()
 
     assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, dst=network, gateway=router1)
@@ -247,27 +210,18 @@ def test_update_replace(context):
     ifname = context.new_ifname
     network = str(context.ipnets[1].network)
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .ipaddr
-     .create(address=ifaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .ipaddr.create(address=ifaddr, prefixlen=24)
+        .commit()
+    )
 
-    spec = {'dst_len': 24,
-            'dst': network,
-            'priority': 10,
-            'gateway': router}
+    spec = {'dst_len': 24, 'dst': network, 'priority': 10, 'gateway': router}
 
     if context.table:
         spec['table'] = context.table
 
-    (context
-     .ndb
-     .routes
-     .create(**spec)
-     .commit())
+    (context.ndb.routes.create(**spec).commit())
 
     assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, dst=network, priority=10)
@@ -282,32 +236,29 @@ def test_same_multipath(context):
     ipnet1 = str(context.ipnets[1].network)
     ipnet2 = str(context.ipnets[2].network)
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .add_ip({'address': ifaddr, 'prefixlen': 24})
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip({'address': ifaddr, 'prefixlen': 24})
+        .commit()
+    )
 
     # first route with these gateways
-    (context
-     .ndb
-     .routes
-     .create(dst=ipnet1,
-             dst_len=24,
-             multipath=[{'gateway': gateway1},
-                        {'gateway': gateway2}])
-     .commit())
+    (
+        context.ndb.routes.create(
+            dst=ipnet1,
+            dst_len=24,
+            multipath=[{'gateway': gateway1}, {'gateway': gateway2}],
+        ).commit()
+    )
 
     # second route with these gateways
-    (context
-     .ndb
-     .routes
-     .create(dst=ipnet2,
-             dst_len=24,
-             multipath=[{'gateway': gateway1},
-                        {'gateway': gateway2}])
-     .commit())
+    (
+        context.ndb.routes.create(
+            dst=ipnet2,
+            dst_len=24,
+            multipath=[{'gateway': gateway1}, {'gateway': gateway2}],
+        ).commit()
+    )
 
     def match_multipath(msg):
         if msg.get_attr('RTA_DST') != ipnet2:
@@ -333,32 +284,25 @@ def test_same_metrics(context):
     ipnet2 = str(context.ipnets[2].network)
     target = 1300
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .add_ip({'address': ifaddr, 'prefixlen': 24})
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip({'address': ifaddr, 'prefixlen': 24})
+        .commit()
+    )
 
     # first route with these metrics
-    (context
-     .ndb
-     .routes
-     .create(dst=ipnet1,
-             dst_len=24,
-             gateway=gateway1,
-             metrics={'mtu': target})
-     .commit())
+    (
+        context.ndb.routes.create(
+            dst=ipnet1, dst_len=24, gateway=gateway1, metrics={'mtu': target}
+        ).commit()
+    )
 
     # second route with these metrics
-    (context
-     .ndb
-     .routes
-     .create(dst=ipnet2,
-             dst_len=24,
-             gateway=gateway2,
-             metrics={'mtu': target})
-     .commit())
+    (
+        context.ndb.routes.create(
+            dst=ipnet2, dst_len=24, gateway=gateway2, metrics={'mtu': target}
+        ).commit()
+    )
 
     # at this point it's already ok - otherwise the test
     # would explode on the second routes.create()
@@ -367,9 +311,7 @@ def test_same_metrics(context):
     def match_metrics(msg):
         if msg.get_attr('RTA_GATEWAY') != gateway2:
             return False
-        mtu = (msg
-               .get_attr('RTA_METRICS', rtmsg())
-               .get_attr('RTAX_MTU', 0))
+        mtu = msg.get_attr('RTA_METRICS', rtmsg()).get_attr('RTAX_MTU', 0)
         return mtu == target
 
     assert address_exists(context.netns, ifname=ifname, address=ifaddr)
@@ -383,34 +325,28 @@ def _test_metrics_update(context, method):
     ifname = context.new_ifname
     ipnet = str(context.ipnets[1].network)
     target = 1300
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .ipaddr
-     .create(address=ifaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .ipaddr.create(address=ifaddr, prefixlen=24)
+        .commit()
+    )
 
-    spec = {'dst_len': 24,
-            'dst': ipnet,
-            'gateway': gateway1,
-            'metrics': {'mtu': target}}
+    spec = {
+        'dst_len': 24,
+        'dst': ipnet,
+        'gateway': gateway1,
+        'metrics': {'mtu': target},
+    }
 
     if context.table:
         spec['table'] = context.table
 
-    (context
-     .ndb
-     .routes
-     .create(**spec)
-     .commit())
+    (context.ndb.routes.create(**spec).commit())
 
     def match_metrics(msg):
         if msg.get_attr('RTA_GATEWAY') != gateway1:
             return False
-        mtu = (msg
-               .get_attr('RTA_METRICS', rtmsg())
-               .get_attr('RTAX_MTU', 0))
+        mtu = msg.get_attr('RTA_METRICS', rtmsg()).get_attr('RTAX_MTU', 0)
         return mtu == target
 
     assert address_exists(context.netns, ifname=ifname, address=ifaddr)

@@ -3,20 +3,24 @@ from pr2modules.netlink.rtnl.tcmsg.common import tc_actions
 
 
 class options(nla):
-    nla_map = (('TCA_ACT_BPF_UNSPEC', 'none'),
-               ('TCA_ACT_BPF_TM,', 'none'),
-               ('TCA_ACT_BPF_PARMS', 'tca_act_bpf_parms'),
-               ('TCA_ACT_BPF_OPS_LEN', 'uint16'),
-               ('TCA_ACT_BPF_OPS', 'hex'),
-               ('TCA_ACT_BPF_FD', 'uint32'),
-               ('TCA_ACT_BPF_NAME', 'asciiz'))
+    nla_map = (
+        ('TCA_ACT_BPF_UNSPEC', 'none'),
+        ('TCA_ACT_BPF_TM,', 'none'),
+        ('TCA_ACT_BPF_PARMS', 'tca_act_bpf_parms'),
+        ('TCA_ACT_BPF_OPS_LEN', 'uint16'),
+        ('TCA_ACT_BPF_OPS', 'hex'),
+        ('TCA_ACT_BPF_FD', 'uint32'),
+        ('TCA_ACT_BPF_NAME', 'asciiz'),
+    )
 
     class tca_act_bpf_parms(nla):
-        fields = (('index', 'I'),
-                  ('capab', 'I'),
-                  ('action', 'i'),
-                  ('refcnt', 'i'),
-                  ('bindcnt', 'i'))
+        fields = (
+            ('index', 'I'),
+            ('capab', 'I'),
+            ('action', 'i'),
+            ('refcnt', 'i'),
+            ('bindcnt', 'i'),
+        )
 
 
 def get_parameters(kwarg):

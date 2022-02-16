@@ -7,4 +7,5 @@ class errmsg(nlmsg):
 
     Error ersatz-message
     '''
-    fields = (('code', 'i'), )
+
+    fields = (('code', 'i'),)

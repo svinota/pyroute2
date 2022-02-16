@@ -14,8 +14,8 @@ def context(request, tmpdir):
     #                                       test stage:
     #
     ctx = NDBContextManager(request, tmpdir)  # setup
-    yield ctx                                 # execute
-    ctx.teardown()                            # cleanup
+    yield ctx  # execute
+    ctx.teardown()  # cleanup
 
 
 @pytest.fixture

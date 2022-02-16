@@ -9,15 +9,17 @@ class nsinfmsg(nlmsg):
     This is a prototype, the NLA layout is subject to change without
     notification.
     '''
+
     __slots__ = ()
     prefix = 'NSINFO_'
 
-    fields = (('inode', 'I'),
-              ('netnsid', 'I'))
+    fields = (('inode', 'I'), ('netnsid', 'I'))
 
-    nla_map = (('NSINFO_UNSPEC', 'none'),
-               ('NSINFO_PATH', 'string'),
-               ('NSINFO_PEER', 'peer'))
+    nla_map = (
+        ('NSINFO_UNSPEC', 'none'),
+        ('NSINFO_PATH', 'string'),
+        ('NSINFO_PEER', 'peer'),
+    )
 
     class peer(nlmsg_atoms.string):
         sql_type = None

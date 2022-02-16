@@ -31,9 +31,11 @@ IPCTNL_MSG_MAX = 8
 
 
 try:
-    IP_PROTOCOLS = {num: name[8:]
-                    for name, num in vars(socket).items()
-                    if name.startswith("IPPROTO")}
+    IP_PROTOCOLS = {
+        num: name[8:]
+        for name, num in vars(socket).items()
+        if name.startswith("IPPROTO")
+    }
 except (IOError, OSError):
     IP_PROTOCOLS = {}
 
@@ -58,18 +60,18 @@ IP_CT_TCP_FLAG_MAXACK_SET = 0x20
 
 
 # From linux/include/net/tcp_states.h
-TCPF_ESTABLISHED = (1 << 1)
-TCPF_SYN_SENT = (1 << 2)
-TCPF_SYN_RECV = (1 << 3)
-TCPF_FIN_WAIT1 = (1 << 4)
-TCPF_FIN_WAIT2 = (1 << 5)
-TCPF_TIME_WAIT = (1 << 6)
-TCPF_CLOSE = (1 << 7)
-TCPF_CLOSE_WAIT = (1 << 8)
-TCPF_LAST_ACK = (1 << 9)
-TCPF_LISTEN = (1 << 10)
-TCPF_CLOSING = (1 << 11)
-TCPF_NEW_SYN_RECV = (1 << 12)
+TCPF_ESTABLISHED = 1 << 1
+TCPF_SYN_SENT = 1 << 2
+TCPF_SYN_RECV = 1 << 3
+TCPF_FIN_WAIT1 = 1 << 4
+TCPF_FIN_WAIT2 = 1 << 5
+TCPF_TIME_WAIT = 1 << 6
+TCPF_CLOSE = 1 << 7
+TCPF_CLOSE_WAIT = 1 << 8
+TCPF_LAST_ACK = 1 << 9
+TCPF_LISTEN = 1 << 10
+TCPF_CLOSING = 1 << 11
+TCPF_NEW_SYN_RECV = 1 << 12
 TCPF_TO_NAME = {
     TCPF_ESTABLISHED: 'ESTABLISHED',
     TCPF_SYN_SENT: 'SYN_SENT',
@@ -87,27 +89,33 @@ TCPF_TO_NAME = {
 
 
 # From include/uapi/linux/netfilter/nf_conntrack_common.h
-IPS_EXPECTED = (1 << 0)
-IPS_SEEN_REPLY = (1 << 1)
-IPS_ASSURED = (1 << 2)
-IPS_CONFIRMED = (1 << 3)
-IPS_SRC_NAT = (1 << 4)
-IPS_DST_NAT = (1 << 5)
-IPS_NAT_MASK = (IPS_DST_NAT | IPS_SRC_NAT)
-IPS_SEQ_ADJUST = (1 << 6)
-IPS_SRC_NAT_DONE = (1 << 7)
-IPS_DST_NAT_DONE = (1 << 8)
-IPS_NAT_DONE_MASK = (IPS_DST_NAT_DONE | IPS_SRC_NAT_DONE)
-IPS_DYING = (1 << 9)
-IPS_FIXED_TIMEOUT = (1 << 10)
-IPS_TEMPLATE = (1 << 11)
-IPS_UNTRACKED = (1 << 12)
-IPS_HELPER = (1 << 13)
-IPS_OFFLOAD = (1 << 14)
+IPS_EXPECTED = 1 << 0
+IPS_SEEN_REPLY = 1 << 1
+IPS_ASSURED = 1 << 2
+IPS_CONFIRMED = 1 << 3
+IPS_SRC_NAT = 1 << 4
+IPS_DST_NAT = 1 << 5
+IPS_NAT_MASK = IPS_DST_NAT | IPS_SRC_NAT
+IPS_SEQ_ADJUST = 1 << 6
+IPS_SRC_NAT_DONE = 1 << 7
+IPS_DST_NAT_DONE = 1 << 8
+IPS_NAT_DONE_MASK = IPS_DST_NAT_DONE | IPS_SRC_NAT_DONE
+IPS_DYING = 1 << 9
+IPS_FIXED_TIMEOUT = 1 << 10
+IPS_TEMPLATE = 1 << 11
+IPS_UNTRACKED = 1 << 12
+IPS_HELPER = 1 << 13
+IPS_OFFLOAD = 1 << 14
 IPS_UNCHANGEABLE_MASK = (
-    IPS_NAT_DONE_MASK | IPS_NAT_MASK |
-    IPS_EXPECTED | IPS_CONFIRMED | IPS_DYING |
-    IPS_SEQ_ADJUST | IPS_TEMPLATE | IPS_OFFLOAD)
+    IPS_NAT_DONE_MASK
+    | IPS_NAT_MASK
+    | IPS_EXPECTED
+    | IPS_CONFIRMED
+    | IPS_DYING
+    | IPS_SEQ_ADJUST
+    | IPS_TEMPLATE
+    | IPS_OFFLOAD
+)
 IPSBIT_TO_NAME = {
     IPS_EXPECTED: 'EXPECTED',
     IPS_SEEN_REPLY: 'SEEN_REPLY',
@@ -123,7 +131,7 @@ IPSBIT_TO_NAME = {
     IPS_TEMPLATE: 'TEMPLATE',
     IPS_UNTRACKED: 'UNTRACKED',
     IPS_HELPER: 'HELPER',
-    IPS_OFFLOAD: 'OFFLOAD'
+    IPS_OFFLOAD: 'OFFLOAD',
 }
 
 # From include/uapi/linux/netfilter/nf_conntrack_tcp.h
@@ -352,15 +360,18 @@ class nfct_msg(nfgen_msg):
 
         def encode(self):
             if not isinstance(self['value'], tuple):
-                self['value'] = (self['value'] & 0xffffffffffffffff,
-                                 self['value'] >> 64)
+                self['value'] = (
+                    self['value'] & 0xFFFFFFFFFFFFFFFF,
+                    self['value'] >> 64,
+                )
             nla.encode(self)
 
         def decode(self):
             nla.decode(self)
             if isinstance(self['value'], tuple):
-                self['value'] = (self['value'][0] & 0xffffffffffffffff) | \
-                                (self['value'][1] << 64)
+                self['value'] = (self['value'][0] & 0xFFFFFFFFFFFFFFFF) | (
+                    self['value'][1] << 64
+                )
 
     class cta_synproxy(nla):
         nla_map = (
@@ -384,14 +395,16 @@ FILTER_FLAG_CTA_PROTO_ICMPV6_TYPE = 1 << 9
 FILTER_FLAG_CTA_PROTO_ICMPV6_CODE = 1 << 10
 FILTER_FLAG_CTA_PROTO_ICMPV6_ID = 1 << 11
 
-FILTER_FLAG_ALL_CTA_PROTO = FILTER_FLAG_CTA_PROTO_SRC_PORT | \
-    FILTER_FLAG_CTA_PROTO_DST_PORT | \
-    FILTER_FLAG_CTA_PROTO_ICMP_TYPE | \
-    FILTER_FLAG_CTA_PROTO_ICMP_CODE | \
-    FILTER_FLAG_CTA_PROTO_ICMP_ID | \
-    FILTER_FLAG_CTA_PROTO_ICMPV6_TYPE | \
-    FILTER_FLAG_CTA_PROTO_ICMPV6_CODE | \
-    FILTER_FLAG_CTA_PROTO_ICMPV6_ID
+FILTER_FLAG_ALL_CTA_PROTO = (
+    FILTER_FLAG_CTA_PROTO_SRC_PORT
+    | FILTER_FLAG_CTA_PROTO_DST_PORT
+    | FILTER_FLAG_CTA_PROTO_ICMP_TYPE
+    | FILTER_FLAG_CTA_PROTO_ICMP_CODE
+    | FILTER_FLAG_CTA_PROTO_ICMP_ID
+    | FILTER_FLAG_CTA_PROTO_ICMPV6_TYPE
+    | FILTER_FLAG_CTA_PROTO_ICMPV6_CODE
+    | FILTER_FLAG_CTA_PROTO_ICMPV6_ID
+)
 FILTER_FLAG_ALL = 0xFFFFFFFF
 
 
@@ -402,13 +415,31 @@ class NFCTAttr(object):
 
 class NFCTAttrTuple(NFCTAttr):
 
-    __slots__ = ('saddr', 'daddr', 'proto', 'sport', 'dport',
-                 'icmp_id', 'icmp_type', 'family', '_attr_ip',
-                 '_attr_icmp')
+    __slots__ = (
+        'saddr',
+        'daddr',
+        'proto',
+        'sport',
+        'dport',
+        'icmp_id',
+        'icmp_type',
+        'family',
+        '_attr_ip',
+        '_attr_icmp',
+    )
 
-    def __init__(self, family=socket.AF_INET,
-                 saddr=None, daddr=None, proto=None, sport=None, dport=None,
-                 icmp_id=None, icmp_type=None, icmp_code=None):
+    def __init__(
+        self,
+        family=socket.AF_INET,
+        saddr=None,
+        daddr=None,
+        proto=None,
+        sport=None,
+        dport=None,
+        icmp_id=None,
+        icmp_type=None,
+        icmp_code=None,
+    ):
         self.saddr = saddr
         self.daddr = daddr
         self.proto = proto
@@ -545,24 +576,48 @@ class NFCTAttrTuple(NFCTAttr):
                 return False
 
             if self.proto == socket.IPPROTO_ICMP:
-                (test_attr
-                 .append((self.icmp_id, cta_proto, 'CTA_PROTO_ICMP_ID')))
-                (test_attr
-                 .append((self.icmp_type, cta_proto, 'CTA_PROTO_ICMP_TYPE')))
-                (test_attr
-                 .append((self.icmp_code, cta_proto, 'CTA_PROTO_ICMP_CODE')))
+                (
+                    test_attr.append(
+                        (self.icmp_id, cta_proto, 'CTA_PROTO_ICMP_ID')
+                    )
+                )
+                (
+                    test_attr.append(
+                        (self.icmp_type, cta_proto, 'CTA_PROTO_ICMP_TYPE')
+                    )
+                )
+                (
+                    test_attr.append(
+                        (self.icmp_code, cta_proto, 'CTA_PROTO_ICMP_CODE')
+                    )
+                )
             elif self.proto == socket.IPPROTO_ICMPV6:
-                (test_attr
-                 .append((self.icmp_id, cta_proto, 'CTA_PROTO_ICMPV6_ID')))
-                (test_attr
-                 .append((self.icmp_type, cta_proto, 'CTA_PROTO_ICMPV6_TYPE')))
-                (test_attr
-                 .append((self.icmp_code, cta_proto, 'CTA_PROTO_ICMPV6_CODE')))
+                (
+                    test_attr.append(
+                        (self.icmp_id, cta_proto, 'CTA_PROTO_ICMPV6_ID')
+                    )
+                )
+                (
+                    test_attr.append(
+                        (self.icmp_type, cta_proto, 'CTA_PROTO_ICMPV6_TYPE')
+                    )
+                )
+                (
+                    test_attr.append(
+                        (self.icmp_code, cta_proto, 'CTA_PROTO_ICMPV6_CODE')
+                    )
+                )
             elif self.proto in (socket.IPPROTO_TCP, socket.IPPROTO_UDP):
-                (test_attr
-                 .append((self.sport, cta_proto, 'CTA_PROTO_SRC_PORT')))
-                (test_attr
-                 .append((self.dport, cta_proto, 'CTA_PROTO_DST_PORT')))
+                (
+                    test_attr.append(
+                        (self.sport, cta_proto, 'CTA_PROTO_SRC_PORT')
+                    )
+                )
+                (
+                    test_attr.append(
+                        (self.dport, cta_proto, 'CTA_PROTO_DST_PORT')
+                    )
+                )
 
         for val, ndmsg, attrname in test_attr:
             if val is not None and val != ndmsg.get_attr(attrname):
@@ -613,25 +668,28 @@ class NFCTAttrTuple(NFCTAttr):
 
         r += '{}('.format(proto_name)
         if self.proto in (socket.IPPROTO_ICMP, socket.IPPROTO_ICMPV6):
-            r += 'id={}, type={}, code={}'.format(self.icmp_id,
-                                                  self.icmp_type,
-                                                  self.icmp_code)
+            r += 'id={}, type={}, code={}'.format(
+                self.icmp_id, self.icmp_type, self.icmp_code
+            )
         elif self.proto in (socket.IPPROTO_TCP, socket.IPPROTO_UDP):
             r += 'sport={}, dport={}'.format(self.sport, self.dport)
         return r + '))'
 
 
 class NFCTSocket(NetlinkSocket):
-    policy = {k | (NFNL_SUBSYS_CTNETLINK << 8): v for k, v in {
-        IPCTNL_MSG_CT_NEW: nfct_msg,
-        IPCTNL_MSG_CT_GET: nfct_msg,
-        IPCTNL_MSG_CT_DELETE: nfct_msg,
-        IPCTNL_MSG_CT_GET_CTRZERO: nfct_msg,
-        IPCTNL_MSG_CT_GET_STATS_CPU: nfct_stats_cpu,
-        IPCTNL_MSG_CT_GET_STATS: nfct_stats,
-        IPCTNL_MSG_CT_GET_DYING: nfct_msg,
-        IPCTNL_MSG_CT_GET_UNCONFIRMED: nfct_msg,
-    }.items()}
+    policy = {
+        k | (NFNL_SUBSYS_CTNETLINK << 8): v
+        for k, v in {
+            IPCTNL_MSG_CT_NEW: nfct_msg,
+            IPCTNL_MSG_CT_GET: nfct_msg,
+            IPCTNL_MSG_CT_DELETE: nfct_msg,
+            IPCTNL_MSG_CT_GET_CTRZERO: nfct_msg,
+            IPCTNL_MSG_CT_GET_STATS_CPU: nfct_stats_cpu,
+            IPCTNL_MSG_CT_GET_STATS: nfct_stats,
+            IPCTNL_MSG_CT_GET_DYING: nfct_msg,
+            IPCTNL_MSG_CT_GET_UNCONFIRMED: nfct_msg,
+        }.items()
+    }
 
     def __init__(self, nfgen_family=socket.AF_INET, **kwargs):
         super(NFCTSocket, self).__init__(family=NETLINK_NETFILTER, **kwargs)
@@ -640,15 +698,17 @@ class NFCTSocket(NetlinkSocket):
 
     def request(self, msg, msg_type, **kwargs):
         msg['nfgen_family'] = self._nfgen_family
-        msg_type |= (NFNL_SUBSYS_CTNETLINK << 8)
+        msg_type |= NFNL_SUBSYS_CTNETLINK << 8
         return self.nlm_request(msg, msg_type, **kwargs)
 
-    def dump(self,
-             mark=None,
-             mark_mask=0xffffffff,
-             tuple_orig=None,
-             tuple_reply=None):
-        """ Dump conntrack entries
+    def dump(
+        self,
+        mark=None,
+        mark_mask=0xFFFFFFFF,
+        tuple_orig=None,
+        tuple_reply=None,
+    ):
+        """Dump conntrack entries
 
         Several kernel side filtering are supported:
           * mark and mark_mask, for almost all kernel
@@ -681,41 +741,56 @@ class NFCTSocket(NetlinkSocket):
             cta_filter = {
                 'attrs': [['CTA_FILTER_ORIG_FLAGS', tuple_orig.flags]]
             }
-            msg = nfct_msg.create_from(tuple_orig=tuple_orig,
-                                       cta_filter=cta_filter)
+            msg = nfct_msg.create_from(
+                tuple_orig=tuple_orig, cta_filter=cta_filter
+            )
         elif tuple_reply is not None:
             tuple_reply.attrs()
             cta_filter = {
                 'attrs': [['CTA_FILTER_REPLY_FLAGS', tuple_reply.flags]]
             }
-            msg = nfct_msg.create_from(tuple_reply=tuple_reply,
-                                       cta_filter=cta_filter)
+            msg = nfct_msg.create_from(
+                tuple_reply=tuple_reply, cta_filter=cta_filter
+            )
         elif mark:
             msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
         else:
             msg = nfct_msg.create_from()
-        return self.request(msg, IPCTNL_MSG_CT_GET,
-                            msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return self.request(
+            msg, IPCTNL_MSG_CT_GET, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )
 
     def stat(self):
-        return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS_CPU,
-                            msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return self.request(
+            nfct_msg(),
+            IPCTNL_MSG_CT_GET_STATS_CPU,
+            msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        )
 
     def count(self):
-        return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS,
-                            msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-                            terminate=terminate_single_msg)
+        return self.request(
+            nfct_msg(),
+            IPCTNL_MSG_CT_GET_STATS,
+            msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+            terminate=terminate_single_msg,
+        )
 
     def flush(self, mark=None, mark_mask=None):
         msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
-        return self.request(msg, IPCTNL_MSG_CT_DELETE,
-                            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
-                            terminate=terminate_error_msg)
+        return self.request(
+            msg,
+            IPCTNL_MSG_CT_DELETE,
+            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+            terminate=terminate_error_msg,
+        )
 
     def conntrack_max_size(self):
-        return self.request(nfct_msg(), IPCTNL_MSG_CT_GET_STATS,
-                            msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-                            terminate=terminate_single_msg)
+        return self.request(
+            nfct_msg(),
+            IPCTNL_MSG_CT_GET_STATS,
+            msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+            terminate=terminate_single_msg,
+        )
 
     def entry(self, cmd, **kwargs):
         """
@@ -756,10 +831,14 @@ class NFCTSocket(NetlinkSocket):
             'del': [IPCTNL_MSG_CT_DELETE, NLM_F_ACK],
         }[cmd]
 
-        if msg_type == IPCTNL_MSG_CT_DELETE and \
-           not ('tuple_orig' in kwargs or 'tuple_reply' in kwargs):
+        if msg_type == IPCTNL_MSG_CT_DELETE and not (
+            'tuple_orig' in kwargs or 'tuple_reply' in kwargs
+        ):
             raise ValueError('Deletion requires a tuple at least')
 
-        return self.request(nfct_msg.create_from(**kwargs), msg_type,
-                            msg_flags=NLM_F_REQUEST | msg_flags,
-                            terminate=terminate_error_msg)
+        return self.request(
+            nfct_msg.create_from(**kwargs),
+            msg_type,
+            msg_flags=NLM_F_REQUEST | msg_flags,
+            terminate=terminate_error_msg,
+        )

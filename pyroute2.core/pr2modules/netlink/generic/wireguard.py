@@ -123,35 +123,38 @@ WG_MAX_ALLOWEDIPS = 1000
 class wgmsg(genlmsg):
     prefix = 'WGDEVICE_A_'
 
-    nla_map = (('WGDEVICE_A_UNSPEC', 'none'),
-               ('WGDEVICE_A_IFINDEX', 'uint32'),
-               ('WGDEVICE_A_IFNAME', 'asciiz'),
-               ('WGDEVICE_A_PRIVATE_KEY', 'parse_wg_key'),
-               ('WGDEVICE_A_PUBLIC_KEY', 'parse_wg_key'),
-               ('WGDEVICE_A_FLAGS', 'uint32'),
-               ('WGDEVICE_A_LISTEN_PORT', 'uint16'),
-               ('WGDEVICE_A_FWMARK', 'uint32'),
-               ('WGDEVICE_A_PEERS', '*wgdevice_peer'))
+    nla_map = (
+        ('WGDEVICE_A_UNSPEC', 'none'),
+        ('WGDEVICE_A_IFINDEX', 'uint32'),
+        ('WGDEVICE_A_IFNAME', 'asciiz'),
+        ('WGDEVICE_A_PRIVATE_KEY', 'parse_wg_key'),
+        ('WGDEVICE_A_PUBLIC_KEY', 'parse_wg_key'),
+        ('WGDEVICE_A_FLAGS', 'uint32'),
+        ('WGDEVICE_A_LISTEN_PORT', 'uint16'),
+        ('WGDEVICE_A_FWMARK', 'uint32'),
+        ('WGDEVICE_A_PEERS', '*wgdevice_peer'),
+    )
 
     class wgdevice_peer(nla):
         prefix = 'WGPEER_A_'
 
         nla_flags = NLA_F_NESTED
-        nla_map = (('WGPEER_A_UNSPEC', 'none'),
-                   ('WGPEER_A_PUBLIC_KEY', 'parse_peer_key'),
-                   ('WGPEER_A_PRESHARED_KEY', 'parse_peer_key'),
-                   ('WGPEER_A_FLAGS', 'uint32'),
-                   ('WGPEER_A_ENDPOINT', 'parse_endpoint'),
-                   ('WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL', 'uint16'),
-                   ('WGPEER_A_LAST_HANDSHAKE_TIME',
-                    'parse_handshake_time'),
-                   ('WGPEER_A_RX_BYTES', 'uint64'),
-                   ('WGPEER_A_TX_BYTES', 'uint64'),
-                   ('WGPEER_A_ALLOWEDIPS', '*wgpeer_allowedip'),
-                   ('WGPEER_A_PROTOCOL_VERSION', 'uint32'))
+        nla_map = (
+            ('WGPEER_A_UNSPEC', 'none'),
+            ('WGPEER_A_PUBLIC_KEY', 'parse_peer_key'),
+            ('WGPEER_A_PRESHARED_KEY', 'parse_peer_key'),
+            ('WGPEER_A_FLAGS', 'uint32'),
+            ('WGPEER_A_ENDPOINT', 'parse_endpoint'),
+            ('WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL', 'uint16'),
+            ('WGPEER_A_LAST_HANDSHAKE_TIME', 'parse_handshake_time'),
+            ('WGPEER_A_RX_BYTES', 'uint64'),
+            ('WGPEER_A_TX_BYTES', 'uint64'),
+            ('WGPEER_A_ALLOWEDIPS', '*wgpeer_allowedip'),
+            ('WGPEER_A_PROTOCOL_VERSION', 'uint32'),
+        )
 
         class parse_peer_key(nla):
-            fields = (('key', '32s'), )
+            fields = (('key', '32s'),)
 
             def decode(self):
                 nla.decode(self)
@@ -162,10 +165,12 @@ class wgmsg(genlmsg):
                 nla.encode(self)
 
         class parse_endpoint(nla):
-            fields = (('family', 'H'),
-                      ('port', '>H'),
-                      ('addr4', '>I'),
-                      ('addr6', 's'))
+            fields = (
+                ('family', 'H'),
+                ('port', '>H'),
+                ('addr4', '>I'),
+                ('addr6', 's'),
+            )
 
             def decode(self):
                 nla.decode(self)
@@ -183,15 +188,13 @@ class wgmsg(genlmsg):
                     self['addr6'] = inet_pton(AF_INET6, self['addr'])
                 else:
                     self['family'] = AF_INET
-                    self['addr4'] = unpack('>I',
-                                           inet_aton(self['addr']))[0]
+                    self['addr4'] = unpack('>I', inet_aton(self['addr']))[0]
                     self['addr6'] = b'\x00\x00\x00\x00\x00\x00\x00\x00'
                 self['port'] = int(self['port'])
                 nla.encode(self)
 
         class parse_handshake_time(nla):
-            fields = (('tv_sec', 'Q'),
-                      ('tv_nsec', 'Q'))
+            fields = (('tv_sec', 'Q'), ('tv_nsec', 'Q'))
 
             def decode(self):
                 nla.decode(self)
@@ -201,26 +204,27 @@ class wgmsg(genlmsg):
             prefix = 'WGALLOWEDIP_A_'
 
             nla_flags = NLA_F_NESTED
-            nla_map = (('WGALLOWEDIP_A_UNSPEC', 'none'),
-                       ('WGALLOWEDIP_A_FAMILY', 'uint16'),
-                       ('WGALLOWEDIP_A_IPADDR', 'hex'),
-                       ('WGALLOWEDIP_A_CIDR_MASK', 'uint8'))
+            nla_map = (
+                ('WGALLOWEDIP_A_UNSPEC', 'none'),
+                ('WGALLOWEDIP_A_FAMILY', 'uint16'),
+                ('WGALLOWEDIP_A_IPADDR', 'hex'),
+                ('WGALLOWEDIP_A_CIDR_MASK', 'uint8'),
+            )
 
             def decode(self):
                 nla.decode(self)
                 if self.get_attr('WGALLOWEDIP_A_FAMILY') == AF_INET:
-                    pre = (self
-                           .get_attr('WGALLOWEDIP_A_IPADDR')
-                           .replace(':', ''))
+                    pre = self.get_attr('WGALLOWEDIP_A_IPADDR').replace(
+                        ':', ''
+                    )
                     self['addr'] = inet_ntoa(a2b_hex(pre))
                 else:
-                    self['addr'] = (self
-                                    .get_attr('WGALLOWEDIP_A_IPADDR'))
+                    self['addr'] = self.get_attr('WGALLOWEDIP_A_IPADDR')
                 wgaddr = self.get_attr('WGALLOWEDIP_A_CIDR_MASK')
                 self['addr'] = '{0}/{1}'.format(self['addr'], wgaddr)
 
     class parse_wg_key(nla):
-        fields = (('key', '32s'), )
+        fields = (('key', '32s'),)
 
         def decode(self):
             nla.decode(self)
@@ -232,26 +236,26 @@ class wgmsg(genlmsg):
 
 
 class WireGuard(GenericNetlinkSocket):
-
     def __init__(self):
         GenericNetlinkSocket.__init__(self)
         self.bind(WG_GENL_NAME, wgmsg)
 
-    def info(self,
-             interface):
+    def info(self, interface):
         msg = wgmsg()
         msg['cmd'] = WG_CMD_GET_DEVICE
         msg['attrs'].append(['WGDEVICE_A_IFNAME', interface])
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )
 
-    def set(self,
-            interface,
-            listen_port=None,
-            fwmark=None,
-            private_key=None,
-            peer=None):
+    def set(
+        self,
+        interface,
+        listen_port=None,
+        fwmark=None,
+        private_key=None,
+        peer=None,
+    ):
         msg = wgmsg()
         msg['attrs'].append(['WGDEVICE_A_IFNAME', interface])
 
@@ -280,8 +284,9 @@ class WireGuard(GenericNetlinkSocket):
         err = msg['header'].get('error', None)
         if err is not None:
             if hasattr(err, 'code') and err.code == errno.ENOENT:
-                logging.error('Generic netlink protocol %s not found'
-                              % self.prid)
+                logging.error(
+                    'Generic netlink protocol %s not found' % self.prid
+                )
                 logging.error('Please check if the protocol module is loaded')
             raise err
         return msg
@@ -312,9 +317,15 @@ class WireGuard(GenericNetlinkSocket):
 
         # Set Endpoint
         if 'endpoint_addr' in peer and 'endpoint_port' in peer:
-            attrs.append(['WGPEER_A_ENDPOINT',
-                          {'addr': peer['endpoint_addr'],
-                           'port': peer['endpoint_port']}])
+            attrs.append(
+                [
+                    'WGPEER_A_ENDPOINT',
+                    {
+                        'addr': peer['endpoint_addr'],
+                        'port': peer['endpoint_port'],
+                    },
+                ]
+            )
 
         # Set Preshared key
         if 'preshared_key' in peer:
@@ -325,8 +336,7 @@ class WireGuard(GenericNetlinkSocket):
         # Set Persistent Keepalive time
         if 'persistent_keepalive' in peer:
             keepalive = peer['persistent_keepalive']
-            attrs.append(['WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL',
-                          keepalive])
+            attrs.append(['WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL', keepalive])
 
         # Set Peer flags
         attrs.append(['WGPEER_A_FLAGS', WGPEER_F_UPDATE_ONLY])
@@ -351,8 +361,9 @@ class WireGuard(GenericNetlinkSocket):
             addr, mask = ip.split('/')
             if addr.find(":") > -1:
                 allowed_ip.append(['WGALLOWEDIP_A_FAMILY', AF_INET6])
-                allowed_ip.append(['WGALLOWEDIP_A_IPADDR', inet_pton(AF_INET6,
-                                                                     addr)])
+                allowed_ip.append(
+                    ['WGALLOWEDIP_A_IPADDR', inet_pton(AF_INET6, addr)]
+                )
             else:
                 allowed_ip.append(['WGALLOWEDIP_A_FAMILY', AF_INET])
                 allowed_ip.append(['WGALLOWEDIP_A_IPADDR', inet_aton(addr)])

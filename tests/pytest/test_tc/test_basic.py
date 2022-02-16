@@ -10,15 +10,17 @@ def test_qdisc_pfifo(context):
     ifname = context.new_ifname
     ipr = context.ipr
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .commit())
+    (
+        context.ndb.interfaces.create(
+            ifname=ifname, kind='dummy', state='up'
+        ).commit()
+    )
 
-    ipr.tc('add',
-           'pfifo',
-           index=context.ndb.interfaces[ifname]['index'],
-           limit=700)
+    ipr.tc(
+        'add',
+        'pfifo',
+        index=context.ndb.interfaces[ifname]['index'],
+        limit=700,
+    )
 
     assert qdisc_exists(context.netns, 'pfifo', ifname=ifname, limit=700)

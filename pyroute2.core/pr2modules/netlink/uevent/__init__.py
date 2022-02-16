@@ -28,11 +28,10 @@ class MarshalUevent(Marshal):
                 ret[line[0]] = '='.join(line[1:])
 
         del ret['value']
-        return [ret, ]
+        return [ret]
 
 
 class UeventSocket(NetlinkSocket):
-
     def __init__(self):
         super(UeventSocket, self).__init__(NETLINK_KOBJECT_UEVENT)
         self.marshal = MarshalUevent()

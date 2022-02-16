@@ -29,4 +29,4 @@ parent = TC_H_CLSACT
 
 
 def fix_msg(msg, kwarg):
-    msg['handle'] = 0xffff0000
+    msg['handle'] = 0xFFFF0000

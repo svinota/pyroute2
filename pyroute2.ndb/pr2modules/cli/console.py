@@ -4,8 +4,10 @@ import socket
 import getpass
 from pr2modules.ndb.main import NDB
 from pr2modules.cli.session import Session
+
 try:
     import readline
+
     HAS_READLINE = True
 except ImportError:
     HAS_READLINE = False
@@ -32,11 +34,13 @@ class Console(code.InteractiveConsole):
         self.db.close()
 
     def help(self):
-        self.session.lprint("Built-in commands: \n"
-                            "exit\t-- exit cli\n"
-                            "ls\t-- list current namespace\n"
-                            ".\t-- print the current object\n"
-                            ".. or Ctrl-D\t-- one level up\n")
+        self.session.lprint(
+            "Built-in commands: \n"
+            "exit\t-- exit cli\n"
+            "ls\t-- list current namespace\n"
+            ".\t-- print the current object\n"
+            ".. or Ctrl-D\t-- one level up\n"
+        )
 
     def set_prompt(self, prompt=None):
         if self.isatty:
@@ -44,11 +48,11 @@ class Console(code.InteractiveConsole):
                 self.prompt = '%s > ' % (prompt)
             else:
                 self.prompt = '%s > ' % (self.session.ptr.__class__.__name__)
-            self.prompt = '%s@%s : %s' % (getpass.getuser(),
-                                          (socket
-                                           .gethostname()
-                                           .split('.')[0]),
-                                          self.prompt)
+            self.prompt = '%s@%s : %s' % (
+                getpass.getuser(),
+                (socket.gethostname().split('.')[0]),
+                self.prompt,
+            )
 
     def loadrc(self, fname):
         with open(fname, 'r') as f:

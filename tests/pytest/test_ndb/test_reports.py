@@ -10,8 +10,9 @@ from pr2test.context_manager import make_test_matrix
 from pr2test.context_manager import skip_if_not_supported
 
 
-test_matrix = make_test_matrix(targets=['local', 'netns'],
-                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+test_matrix = make_test_matrix(
+    targets=['local', 'netns'], dbs=['sqlite3/:memory:', 'postgres/pr2test']
+)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -24,11 +25,7 @@ def test_types(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_iter_keys(context):
-    for name in ('interfaces',
-                 'addresses',
-                 'neighbours',
-                 'routes',
-                 'rules'):
+    for name in ('interfaces', 'addresses', 'neighbours', 'routes', 'rules'):
         view = getattr(context.ndb, name)
         for key in view:
             assert isinstance(key, Record)
@@ -44,28 +41,23 @@ def test_join(context):
     ipaddr1 = context.new_ipaddr
     ipaddr2 = context.new_ipaddr
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .add_ip(address=ipaddr1, prefixlen=24)
-     .add_ip(address=ipaddr2, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip(address=ipaddr1, prefixlen=24)
+        .add_ip(address=ipaddr2, prefixlen=24)
+        .commit()
+    )
 
-    addr = (context
-            .ndb
-            .addresses
-            .dump()
-            .filter(lambda x: x.family == AF_INET)
-            .join((context
-                   .ndb
-                   .interfaces
-                   .dump()
-                   .filter(lambda x: x.state == 'up')),
-                  condition=lambda l, r: l.index == r.index and
-                  r.ifname == ifname,
-                  prefix='if_')
-            .select('address'))
+    addr = (
+        context.ndb.addresses.dump()
+        .filter(lambda x: x.family == AF_INET)
+        .join(
+            (context.ndb.interfaces.dump().filter(lambda x: x.state == 'up')),
+            condition=lambda l, r: l.index == r.index and r.ifname == ifname,
+            prefix='if_',
+        )
+        .select('address')
+    )
 
     s1 = set((ipaddr1, ipaddr2))
     s2 = set([x.address for x in addr])
@@ -94,7 +86,7 @@ def test_slices(context):
     assert a[-3:] == context.ndb.rules.dump()[-3:]
     assert a[-3:-1] == context.ndb.rules.dump()[-3:-1]
     # mixed
-    assert a[-ln:ln - 1] == context.ndb.rules.dump()[-ln:ln - 1]
+    assert a[-ln : ln - 1] == context.ndb.rules.dump()[-ln : ln - 1]
     # step
     assert a[2:ln:2] == context.ndb.rules.dump()[2:ln:2]
 
@@ -107,30 +99,28 @@ def test_report_chains(context):
     router = context.new_ipaddr
     ifname = context.new_ifname
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .add_ip(address=ipaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip(address=ipaddr, prefixlen=24)
+        .commit()
+    )
 
-    (context
-     .ndb
-     .routes
-     .create(dst=ipnet,
-             dst_len=24,
-             gateway=router,
-             encap={'type': 'mpls', 'labels': [20, 30]})
-     .commit())
+    (
+        context.ndb.routes.create(
+            dst=ipnet,
+            dst_len=24,
+            gateway=router,
+            encap={'type': 'mpls', 'labels': [20, 30]},
+        ).commit()
+    )
 
-    encap = tuple(context
-                  .ndb
-                  .routes
-                  .dump()
-                  .filter(oif=context.ndb.interfaces[ifname]['index'])
-                  .filter(lambda x: x.encap is not None)
-                  .select('encap')
-                  .transform(encap=lambda x: json.loads(x)))[0].encap
+    encap = tuple(
+        context.ndb.routes.dump()
+        .filter(oif=context.ndb.interfaces[ifname]['index'])
+        .filter(lambda x: x.encap is not None)
+        .select('encap')
+        .transform(encap=lambda x: json.loads(x))
+    )[0].encap
 
     assert isinstance(encap, list)
     assert encap[0]['label'] == 20
@@ -141,11 +131,7 @@ def test_report_chains(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_json(context):
-    data = json.loads(''.join(context
-                              .ndb
-                              .interfaces
-                              .summary()
-                              .format('json')))
+    data = json.loads(''.join(context.ndb.interfaces.summary().format('json')))
     assert isinstance(data, list)
     for row in data:
         assert isinstance(row, dict)
@@ -169,11 +155,7 @@ def test_csv(context):
         else:
             assert len(record) == record_length
 
-    reader = csv.reader(context
-                        .ndb
-                        .routes
-                        .dump()
-                        .format('csv'), dialect=MD())
+    reader = csv.reader(context.ndb.routes.dump().format('csv'), dialect=MD())
     for record in reader:
         assert len(record) == record_length
 
@@ -184,20 +166,18 @@ def test_nested_ipaddr(context):
     ipaddr1 = context.new_ipaddr
     ipaddr2 = context.new_ipaddr
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .add_ip(address=ipaddr1, prefixlen=24)
-     .add_ip(address=ipaddr2, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip(address=ipaddr1, prefixlen=24)
+        .add_ip(address=ipaddr2, prefixlen=24)
+        .commit()
+    )
 
-    records = repr(context
-                   .ndb
-                   .interfaces[ifname]
-                   .ipaddr
-                   .dump()
-                   .filter(lambda x: x.family == AF_INET))
+    records = repr(
+        context.ndb.interfaces[ifname]
+        .ipaddr.dump()
+        .filter(lambda x: x.family == AF_INET)
+    )
     rlen = len(records.split('\n'))
     # 2 ipaddr
     assert rlen == 2
@@ -212,15 +192,15 @@ def test_nested_ports(context):
     with context.ndb.interfaces as i:
         i.create(ifname=ifbr0p0, kind='dummy').commit()
         i.create(ifname=ifbr0p1, kind='dummy').commit()
-        (i.create(ifname=ifbr0, kind='bridge')
-         .add_port(ifbr0p0)
-         .add_port(ifbr0p1)
-         .commit())
+        (
+            i.create(ifname=ifbr0, kind='bridge')
+            .add_port(ifbr0p0)
+            .add_port(ifbr0p1)
+            .commit()
+        )
 
-    records = len(repr(context
-                       .ndb
-                       .interfaces[ifbr0]
-                       .ports
-                       .summary()).split('\n'))
+    records = len(
+        repr(context.ndb.interfaces[ifbr0].ports.summary()).split('\n')
+    )
     # 1 port
     assert records == 2

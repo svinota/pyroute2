@@ -10,13 +10,17 @@ THERMAL_GENL_CMD_EVENT = 1
 
 
 class thermal_msg(genlmsg):
-    nla_map = (('THERMAL_GENL_ATTR_UNSPEC', 'none'),
-               ('THERMAL_GENL_ATTR_EVENT', 'hex'))  # to be done
+    nla_map = (
+        ('THERMAL_GENL_ATTR_UNSPEC', 'none'),
+        ('THERMAL_GENL_ATTR_EVENT', 'hex'),
+    )  # to be done
 
 
 class MarshalThermalEvent(Marshal):
-    msg_map = {THERMAL_GENL_CMD_UNSPEC: thermal_msg,
-               THERMAL_GENL_CMD_EVENT: thermal_msg}
+    msg_map = {
+        THERMAL_GENL_CMD_UNSPEC: thermal_msg,
+        THERMAL_GENL_CMD_EVENT: thermal_msg,
+    }
 
 
 class ThermalEventSocket(EventSocket):

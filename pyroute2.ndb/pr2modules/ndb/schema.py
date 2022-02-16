@@ -118,12 +118,7 @@ except ImportError:
 #
 # the order is important
 #
-plugins = [interface,
-           address,
-           neighbour,
-           route,
-           netns,
-           rule]
+plugins = [interface, address, neighbour, route, netns, rule]
 
 MAX_ATTEMPTS = 5
 
@@ -163,7 +158,7 @@ def publish(method):
             self._allow_read.wait()
             response = queue.Queue()
             request = cmsg_req(response, *argv, **kwarg)
-            self.ndb._event_queue.put((request, ))
+            self.ndb._event_queue.put((request,))
             while True:
                 item = response.get()
                 if isinstance(item, StopIteration):
@@ -187,13 +182,13 @@ def publish_exec(method):
     #
     def _do_local(self, target, request):
         try:
-            (request
-             .response
-             .put(method(self, *request.argv, **request.kwarg)))
+            (
+                request.response.put(
+                    method(self, *request.argv, **request.kwarg)
+                )
+            )
         except Exception as e:
-            (request
-             .response
-             .put(e))
+            (request.response.put(e))
 
     #
     # this class will be used to map the requests
@@ -216,7 +211,7 @@ def publish_exec(method):
             # another thread, run via message bus
             response = queue.Queue(maxsize=1)
             request = cmsg_req(response, *argv, **kwarg)
-            self.ndb._event_queue.put((request, ))
+            self.ndb._event_queue.put((request,))
             ret = response.get()
             if isinstance(ret, Exception):
                 raise ret
@@ -289,27 +284,33 @@ class DBSchema(object):
         #
         self.compiled = {}
         for table in self.spec.keys():
-            self.compiled[table] = (self
-                                    .compile_spec(table,
-                                                  self.spec[table],
-                                                  self.indices[table]))
+            self.compiled[table] = self.compile_spec(
+                table, self.spec[table], self.indices[table]
+            )
             self.create_table(table)
 
         #
         # service tables
         #
-        self.execute('''
+        self.execute(
+            '''
                      DROP TABLE IF EXISTS sources_options
-                     ''')
-        self.execute('''
+                     '''
+        )
+        self.execute(
+            '''
                      DROP TABLE IF EXISTS sources
-                     ''')
-        self.execute('''
+                     '''
+        )
+        self.execute(
+            '''
                      CREATE TABLE IF NOT EXISTS sources
                      (f_target TEXT PRIMARY KEY,
                       f_kind TEXT NOT NULL)
-                     ''')
-        self.execute('''
+                     '''
+        )
+        self.execute(
+            '''
                      CREATE TABLE IF NOT EXISTS sources_options
                      (f_target TEXT NOT NULL,
                       f_name TEXT NOT NULL,
@@ -319,7 +320,8 @@ class DBSchema(object):
                           REFERENCES sources(f_target)
                           ON UPDATE CASCADE
                           ON DELETE CASCADE)
-                     ''')
+                     '''
+        )
 
     def merge_spec(self, table1, table2, table, schema_idx):
         spec1 = self.compiled[table1]
@@ -333,15 +335,17 @@ class DBSchema(object):
         f_idx = ['f_%s' % x for x in idx]
         f_idx_match = ['%s.%s = %s' % (table2, x, self.plch) for x in f_idx]
         plchs = [self.plch] * len(f_names)
-        return {'names': names,
-                'all_names': all_names,
-                'norm_names': norm_names,
-                'idx': idx,
-                'fnames': ','.join(f_names),
-                'plchs': ','.join(plchs),
-                'fset': ','.join(f_set),
-                'knames': ','.join(f_idx),
-                'fidx': ' AND '.join(f_idx_match)}
+        return {
+            'names': names,
+            'all_names': all_names,
+            'norm_names': norm_names,
+            'idx': idx,
+            'fnames': ','.join(f_names),
+            'plchs': ','.join(plchs),
+            'fset': ','.join(f_set),
+            'knames': ','.join(f_idx),
+            'fidx': ' AND '.join(f_idx_match),
+        }
 
     def compile_spec(self, table, schema_names, schema_idx):
         # e.g.: index, flags, IFLA_IFNAME
@@ -412,16 +416,18 @@ class DBSchema(object):
         #
         f_idx_match = ['%s.%s = %s' % (table, x, self.plch) for x in f_idx]
 
-        return {'names': names,
-                'all_names': all_names,
-                'norm_names': norm_names,
-                'idx': idx,
-                'norm_idx': norm_idx,
-                'fnames': ','.join(f_names),
-                'plchs': ','.join(plchs),
-                'fset': ','.join(f_set),
-                'knames': ','.join(f_idx),
-                'fidx': ' AND '.join(f_idx_match)}
+        return {
+            'names': names,
+            'all_names': all_names,
+            'norm_names': norm_names,
+            'idx': idx,
+            'norm_idx': norm_idx,
+            'fnames': ','.join(f_names),
+            'plchs': ','.join(plchs),
+            'fset': ','.join(f_set),
+            'knames': ','.join(f_idx),
+            'fidx': ' AND '.join(f_idx_match),
+        }
 
     @publish_exec
     def execute(self, *argv, **kwarg):
@@ -530,14 +536,12 @@ class DBSchema(object):
         try:
             for table in self.spec.keys():
                 f.write('\ntable %s\n' % table)
-                for record in (self
-                               .execute('SELECT * FROM %s' % table)):
+                for record in self.execute('SELECT * FROM %s' % table):
                     f.write(' '.join([str(x) for x in record]))
                     f.write('\n')
                 if self.rtnl_log:
                     f.write('\ntable %s_log\n' % table)
-                    for record in (self
-                                   .execute('SELECT * FROM %s_log' % table)):
+                    for record in self.execute('SELECT * FROM %s_log' % table):
                         f.write(' '.join([str(x) for x in record]))
                         f.write('\n')
         finally:
@@ -560,8 +564,7 @@ class DBSchema(object):
         self.connection.commit()
 
     def create_table(self, table):
-        req = ['f_target TEXT NOT NULL',
-               'f_tflags BIGINT NOT NULL DEFAULT 0']
+        req = ['f_target TEXT NOT NULL', 'f_tflags BIGINT NOT NULL DEFAULT 0']
         fields = []
         self.key_defaults[table] = {}
         for field in self.spec[table].items():
@@ -579,12 +582,15 @@ class DBSchema(object):
                 self.key_defaults[table][field[0]] = 0
         if table in self.foreign_keys:
             for key in self.foreign_keys[table]:
-                spec = ('(%s)' % ','.join(key['fields']),
-                        '%s(%s)' % (key['parent'],
-                                    ','.join(key['parent_fields'])))
-                req.append('FOREIGN KEY %s REFERENCES %s '
-                           'ON UPDATE CASCADE '
-                           'ON DELETE CASCADE ' % spec)
+                spec = (
+                    '(%s)' % ','.join(key['fields']),
+                    '%s(%s)' % (key['parent'], ','.join(key['parent_fields'])),
+                )
+                req.append(
+                    'FOREIGN KEY %s REFERENCES %s '
+                    'ON UPDATE CASCADE '
+                    'ON DELETE CASCADE ' % spec
+                )
                 #
                 # make a unique index for compound keys on
                 # the parent table
@@ -592,23 +598,30 @@ class DBSchema(object):
                 # https://sqlite.org/foreignkeys.html
                 #
                 if len(key['fields']) > 1:
-                    idxname = 'uidx_%s_%s' % (key['parent'],
-                                              '_'.join(key['parent_fields']))
-                    self.execute('CREATE UNIQUE INDEX '
-                                 'IF NOT EXISTS %s ON %s' %
-                                 (idxname, spec[1]))
+                    idxname = 'uidx_%s_%s' % (
+                        key['parent'],
+                        '_'.join(key['parent_fields']),
+                    )
+                    self.execute(
+                        'CREATE UNIQUE INDEX '
+                        'IF NOT EXISTS %s ON %s' % (idxname, spec[1])
+                    )
 
         req = ','.join(req)
-        req = ('CREATE TABLE IF NOT EXISTS '
-               '%s (%s)' % (table, req))
+        req = 'CREATE TABLE IF NOT EXISTS ' '%s (%s)' % (table, req)
         # self.execute('DROP TABLE IF EXISTS %s %s'
         #              % (table, 'CASCADE' if self.mode == 'psycopg2' else ''))
         self.execute(req)
 
-        index = ','.join(['f_target', 'f_tflags'] + ['f_%s' % x for x
-                                                     in self.indices[table]])
-        req = ('CREATE UNIQUE INDEX IF NOT EXISTS '
-               '%s_idx ON %s (%s)' % (table, table, index))
+        index = ','.join(
+            ['f_target', 'f_tflags']
+            + ['f_%s' % x for x in self.indices[table]]
+        )
+        req = 'CREATE UNIQUE INDEX IF NOT EXISTS ' '%s_idx ON %s (%s)' % (
+            table,
+            table,
+            index,
+        )
         self.execute(req)
 
         #
@@ -626,28 +639,37 @@ class DBSchema(object):
         # create the log table, if required
         #
         if self.rtnl_log:
-            req = ['f_tstamp BIGINT NOT NULL',
-                   'f_target TEXT NOT NULL',
-                   'f_event INTEGER NOT NULL'] + fields
+            req = [
+                'f_tstamp BIGINT NOT NULL',
+                'f_target TEXT NOT NULL',
+                'f_event INTEGER NOT NULL',
+            ] + fields
             req = ','.join(req)
-            self.execute('CREATE TABLE IF NOT EXISTS '
-                         '%s_log (%s)' % (table, req))
+            self.execute(
+                'CREATE TABLE IF NOT EXISTS ' '%s_log (%s)' % (table, req)
+            )
 
     def mark(self, target, mark):
         for table in self.spec:
-            self.execute('''
+            self.execute(
+                '''
                          UPDATE %s SET f_tflags = %s
                          WHERE f_target = %s
-                         ''' % (table, self.plch, self.plch),
-                         (mark, target))
+                         '''
+                % (table, self.plch, self.plch),
+                (mark, target),
+            )
 
     @publish_exec
     def flush(self, target):
         for table in self.spec:
-            self.execute('''
+            self.execute(
+                '''
                          DELETE FROM %s WHERE f_target = %s
-                         ''' % (table, self.plch),
-                         (target, ))
+                         '''
+                % (table, self.plch),
+                (target,),
+            )
 
     @publish_exec
     def save_deps(self, ctxid, weak_ref, iclass):
@@ -666,15 +688,14 @@ class DBSchema(object):
         #
         # save the old f_tflags value
         #
-        tflags = (self
-                  .execute('''
+        tflags = self.execute(
+            '''
                            SELECT f_tflags FROM %s
                            WHERE %s
                            '''
-                           % (obj.table,
-                              ' AND '.join(conditions)),
-                           values)
-                  .fetchone()[0])
+            % (obj.table, ' AND '.join(conditions)),
+            values,
+        ).fetchone()[0]
         #
         # mark tflags for obj
         #
@@ -689,34 +710,41 @@ class DBSchema(object):
             #
             # create the snapshot table
             #
-            self.execute('''
+            self.execute(
+                '''
                          CREATE TABLE IF NOT EXISTS %s_%s
                          AS SELECT * FROM %s
                          WHERE
                              f_tflags IS NULL
                          '''
-                         % (table, ctxid, table))
+                % (table, ctxid, table)
+            )
             #
             # copy the data -- is it possible to do it in one step?
             #
-            self.execute('''
+            self.execute(
+                '''
                          INSERT INTO %s_%s
                          SELECT * FROM %s
                          WHERE
                              f_tflags = %s
                          '''
-                         % (table, ctxid, table, self.plch),
-                         [uuid])
+                % (table, ctxid, table, self.plch),
+                [uuid],
+            )
         #
         # unmark all the data
         #
         obj.mark_tflags(tflags)
 
         for table in self.spec:
-            self.execute('''
+            self.execute(
+                '''
                          UPDATE %s_%s SET f_tflags = %s
-                         ''' % (table, ctxid, self.plch),
-                         [tflags])
+                         '''
+                % (table, ctxid, self.plch),
+                [tflags],
+            )
             self.snapshots['%s_%s' % (table, ctxid)] = weak_ref
 
     def purge_snapshots(self):
@@ -773,19 +801,24 @@ class DBSchema(object):
         # RTNL Logs
         #
         fkeys = self.compiled[table]['names']
-        fields = ','.join(['f_tstamp', 'f_target', 'f_event'] +
-                          ['f_%s' % x for x in fkeys])
+        fields = ','.join(
+            ['f_tstamp', 'f_target', 'f_event'] + ['f_%s' % x for x in fkeys]
+        )
         pch = ','.join([self.plch] * (len(fkeys) + 3))
-        values = [int(time.time() * 1000),
-                  target,
-                  event.get('header', {}).get('type', 0)]
+        values = [
+            int(time.time() * 1000),
+            target,
+            event.get('header', {}).get('type', 0),
+        ]
         for field in fkeys:
             value = event.get_attr(field) or event.get(field)
             if value is None and field in self.indices[ctable or table]:
                 value = self.key_defaults[table][field]
             values.append(value)
-        self.execute('INSERT INTO %s_log (%s) VALUES (%s)'
-                     % (table, fields, pch), values)
+        self.execute(
+            'INSERT INTO %s_log (%s) VALUES (%s)' % (table, fields, pch),
+            values,
+        )
 
     def load_netlink(self, table, target, event, ctable=None, propagate=False):
         #
@@ -811,19 +844,20 @@ class DBSchema(object):
                             self.execute('DROP VIEW %s' % name[7:])
                         except Exception as e:
                             self.log.debug(
-                                'failed to remove view %s: %s'
-                                % (name[7:], e))
+                                'failed to remove view %s: %s' % (name[7:], e)
+                            )
                     try:
                         self.execute('DROP TABLE %s' % name)
                     except Exception as e:
                         self.log.debug(
-                            'failed to remove table %s: %s'
-                            % (name, e))
+                            'failed to remove table %s: %s' % (name, e)
+                        )
 
             # clean marked routes
-            self.execute('DELETE FROM routes WHERE '
-                         '(f_gc_mark + 5) < %s' % self.plch,
-                         (int(time.time()), ))
+            self.execute(
+                'DELETE FROM routes WHERE ' '(f_gc_mark + 5) < %s' % self.plch,
+                (int(time.time()),),
+            )
         #
         # The event type
         #
@@ -839,8 +873,11 @@ class DBSchema(object):
                 if value is None:
                     value = self.key_defaults[table][key]
                 values.append(value)
-            self.execute('DELETE FROM %s WHERE'
-                         ' %s' % (table, ' AND '.join(conditions)), values)
+            self.execute(
+                'DELETE FROM %s WHERE'
+                ' %s' % (table, ' AND '.join(conditions)),
+                values,
+            )
         else:
             #
             # Create or set an object
@@ -878,8 +915,7 @@ class DBSchema(object):
                 value = node.get_attr(fname[-1])
                 if value is None:
                     value = node.get(fname[-1])
-                if value is None and \
-                        fname[-1] in self.compiled[table]['idx']:
+                if value is None and fname[-1] in self.compiled[table]['idx']:
                     value = self.key_defaults[table][fname[-1]]
                 if fname[-1] in compiled['idx']:
                     ivalues.append(value)
@@ -890,17 +926,22 @@ class DBSchema(object):
                     #
                     # run UPSERT -- the DB provider must support it
                     #
-                    (self
-                     .execute('INSERT INTO %s (%s) VALUES (%s) '
-                              'ON CONFLICT (%s) '
-                              'DO UPDATE SET %s WHERE %s'
-                              % (table,
-                                 compiled['fnames'],
-                                 compiled['plchs'],
-                                 compiled['knames'],
-                                 compiled['fset'],
-                                 compiled['fidx']),
-                              (values + values + ivalues)))
+                    (
+                        self.execute(
+                            'INSERT INTO %s (%s) VALUES (%s) '
+                            'ON CONFLICT (%s) '
+                            'DO UPDATE SET %s WHERE %s'
+                            % (
+                                table,
+                                compiled['fnames'],
+                                compiled['plchs'],
+                                compiled['knames'],
+                                compiled['fset'],
+                                compiled['fidx'],
+                            ),
+                            (values + values + ivalues),
+                        )
+                    )
                     #
                 elif self.mode == 'sqlite3':
                     #
@@ -910,27 +951,31 @@ class DBSchema(object):
                     # it drops (almost always) records with foreign key
                     # dependencies. Maybe a bug in SQLite3, who knows.
                     #
-                    count = (self
-                             .execute('''
+                    count = (
+                        self.execute(
+                            '''
                                       SELECT count(*) FROM %s WHERE %s
-                                      ''' % (table,
-                                             compiled['fidx']),
-                                      ivalues)
-                             .fetchone())[0]
+                                      '''
+                            % (table, compiled['fidx']),
+                            ivalues,
+                        ).fetchone()
+                    )[0]
                     if count == 0:
-                        self.execute('''
+                        self.execute(
+                            '''
                                      INSERT INTO %s (%s) VALUES (%s)
-                                     ''' % (table,
-                                            compiled['fnames'],
-                                            compiled['plchs']),
-                                     values)
+                                     '''
+                            % (table, compiled['fnames'], compiled['plchs']),
+                            values,
+                        )
                     else:
-                        self.execute('''
+                        self.execute(
+                            '''
                                      UPDATE %s SET %s WHERE %s
-                                     ''' % (table,
-                                            compiled['fset'],
-                                            compiled['fidx']),
-                                     (values + ivalues))
+                                     '''
+                            % (table, compiled['fset'], compiled['fidx']),
+                            (values + ivalues),
+                        )
                 else:
                     raise NotImplementedError()
                 #
@@ -940,10 +985,10 @@ class DBSchema(object):
                     raise e
                 #
                 # A good question, what should we do here
-                self.log.debug('load_netlink: %s %s %s'
-                               % (table, target, event))
-                self.log.error('load_netlink: %s'
-                               % traceback.format_exc())
+                self.log.debug(
+                    'load_netlink: %s %s %s' % (table, target, event)
+                )
+                self.log.error('load_netlink: %s' % traceback.format_exc())
 
 
 def init(ndb, connection, mode, rtnl_log, tid):

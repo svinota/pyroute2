@@ -17,56 +17,70 @@ def get_parameters(kwarg):
     # Parameters naming scheme WILL be changed in next releases
     #
     ret = {'attrs': []}
-    transform = {'fqc_limit': lambda x: x,
-                 'fqc_flows': lambda x: x,
-                 'fqc_quantum': lambda x: x,
-                 'fqc_ecn': lambda x: x,
-                 'fqc_target': get_time,
-                 'fqc_ce_threshold': get_time,
-                 'fqc_interval': get_time}
+    transform = {
+        'fqc_limit': lambda x: x,
+        'fqc_flows': lambda x: x,
+        'fqc_quantum': lambda x: x,
+        'fqc_ecn': lambda x: x,
+        'fqc_target': get_time,
+        'fqc_ce_threshold': get_time,
+        'fqc_interval': get_time,
+    }
     for key in transform:
         if key in kwarg:
-            log.warning('fq_codel parameters naming will be changed '
-                        'in next releases (%s)' % key)
-            ret['attrs'].append(['TCA_FQ_CODEL_%s' % key[4:].upper(),
-                                 transform[key](kwarg[key])])
+            log.warning(
+                'fq_codel parameters naming will be changed '
+                'in next releases (%s)' % key
+            )
+            ret['attrs'].append(
+                [
+                    'TCA_FQ_CODEL_%s' % key[4:].upper(),
+                    transform[key](kwarg[key]),
+                ]
+            )
     return ret
 
 
 class options(nla):
-    nla_map = (('TCA_FQ_CODEL_UNSPEC', 'none'),
-               ('TCA_FQ_CODEL_TARGET', 'uint32'),
-               ('TCA_FQ_CODEL_LIMIT', 'uint32'),
-               ('TCA_FQ_CODEL_INTERVAL', 'uint32'),
-               ('TCA_FQ_CODEL_ECN', 'uint32'),
-               ('TCA_FQ_CODEL_FLOWS', 'uint32'),
-               ('TCA_FQ_CODEL_QUANTUM', 'uint32'),
-               ('TCA_FQ_CODEL_CE_THRESHOLD', 'uint32'),
-               ('TCA_FQ_CODEL_DROP_BATCH_SIZE', 'uint32'),
-               ('TCA_FQ_CODEL_MEMORY_LIMIT', 'uint32'))
+    nla_map = (
+        ('TCA_FQ_CODEL_UNSPEC', 'none'),
+        ('TCA_FQ_CODEL_TARGET', 'uint32'),
+        ('TCA_FQ_CODEL_LIMIT', 'uint32'),
+        ('TCA_FQ_CODEL_INTERVAL', 'uint32'),
+        ('TCA_FQ_CODEL_ECN', 'uint32'),
+        ('TCA_FQ_CODEL_FLOWS', 'uint32'),
+        ('TCA_FQ_CODEL_QUANTUM', 'uint32'),
+        ('TCA_FQ_CODEL_CE_THRESHOLD', 'uint32'),
+        ('TCA_FQ_CODEL_DROP_BATCH_SIZE', 'uint32'),
+        ('TCA_FQ_CODEL_MEMORY_LIMIT', 'uint32'),
+    )
 
 
 class qdisc_stats(nla):
-    fields = (('type', 'I'),
-              ('maxpacket', 'I'),
-              ('drop_overlimit', 'I'),
-              ('ecn_mark', 'I'),
-              ('new_flow_count', 'I'),
-              ('new_flows_len', 'I'),
-              ('old_flows_len', 'I'),
-              ('ce_mark', 'I'),
-              ('memory_usage', 'I'),
-              ('drop_overmemory', 'I'))
+    fields = (
+        ('type', 'I'),
+        ('maxpacket', 'I'),
+        ('drop_overlimit', 'I'),
+        ('ecn_mark', 'I'),
+        ('new_flow_count', 'I'),
+        ('new_flows_len', 'I'),
+        ('old_flows_len', 'I'),
+        ('ce_mark', 'I'),
+        ('memory_usage', 'I'),
+        ('drop_overmemory', 'I'),
+    )
 
 
 class class_stats(nla):
-    fields = (('type', 'I'),
-              ('deficit', 'i'),
-              ('ldelay', 'I'),
-              ('count', 'I'),
-              ('lastcount', 'I'),
-              ('dropping', 'I'),
-              ('drop_next', 'i'))
+    fields = (
+        ('type', 'I'),
+        ('deficit', 'i'),
+        ('ldelay', 'I'),
+        ('count', 'I'),
+        ('lastcount', 'I'),
+        ('dropping', 'I'),
+        ('drop_next', 'i'),
+    )
 
 
 class qdisc_stats2(stats2):

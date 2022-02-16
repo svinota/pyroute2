@@ -11,7 +11,6 @@ except ImportError:
 
 
 class ProxyEncoder(object):
-
     def __init__(self, wfile):
         self.wfile = wfile
 
@@ -23,7 +22,6 @@ class ProxyEncoder(object):
 
 
 class Handler(BaseHTTPRequestHandler):
-
     def do_error(self, code, reason):
         self.send_error(code, reason)
         self.end_headers()
@@ -59,10 +57,9 @@ class Handler(BaseHTTPRequestHandler):
 
         # auth plugins
         if 'X-Auth-Mech' in self.headers:
-            auth_plugin = (self
-                           .server
-                           .auth_plugins
-                           .get(self.headers['X-Auth-Mech']))
+            auth_plugin = self.server.auth_plugins.get(
+                self.headers['X-Auth-Mech']
+            )
             if auth_plugin is None:
                 return self.do_error(501, 'Authentication mechanism not found')
             try:
@@ -75,9 +72,11 @@ class Handler(BaseHTTPRequestHandler):
         else:
             ndb = self.server.ndb
 
-        session = Session(ndb=ndb,
-                          stdout=ProxyEncoder(self.wfile),
-                          builtins=('ls', '.', '..', 'version'))
+        session = Session(
+            ndb=ndb,
+            stdout=ProxyEncoder(self.wfile),
+            builtins=('ls', '.', '..', 'version'),
+        )
         self.send_response(200)
         self.end_headers()
         for cmd in request['commands']:
@@ -85,15 +84,16 @@ class Handler(BaseHTTPRequestHandler):
 
 
 class Server(HTTPServer):
-
-    def __init__(self,
-                 address='localhost',
-                 port=8080,
-                 sources=None,
-                 ndb=None,
-                 log=None,
-                 auth_strict=False,
-                 auth_plugins=None):
+    def __init__(
+        self,
+        address='localhost',
+        port=8080,
+        sources=None,
+        ndb=None,
+        log=None,
+        auth_strict=False,
+        auth_plugins=None,
+    ):
         self.sessions = {}
         self.auth_strict = auth_strict
         self.auth_plugins = auth_plugins or {}

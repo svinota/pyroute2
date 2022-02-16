@@ -25,24 +25,28 @@ from pr2modules.ipdb.exceptions import CommitException
 from pr2modules.ipdb.exceptions import PartialCommitException
 
 
-supported_kinds = ('bridge',
-                   'bond',
-                   'tuntap',
-                   'vxlan',
-                   'gre',
-                   'gretap',
-                   'ip6gre',
-                   'ip6gretap',
-                   'macvlan',
-                   'macvtap',
-                   'ipvlan',
-                   'vrf',
-                   'vti')
+supported_kinds = (
+    'bridge',
+    'bond',
+    'tuntap',
+    'vxlan',
+    'gre',
+    'gretap',
+    'ip6gre',
+    'ip6gretap',
+    'macvlan',
+    'macvtap',
+    'ipvlan',
+    'vrf',
+    'vti',
+)
 
-groups = rtnl.RTMGRP_LINK |\
-    rtnl.RTMGRP_NEIGH |\
-    rtnl.RTMGRP_IPV4_IFADDR |\
-    rtnl.RTMGRP_IPV6_IFADDR
+groups = (
+    rtnl.RTMGRP_LINK
+    | rtnl.RTMGRP_NEIGH
+    | rtnl.RTMGRP_IPV4_IFADDR
+    | rtnl.RTMGRP_IPV6_IFADDR
+)
 
 
 def _get_data_fields():
@@ -84,26 +88,31 @@ class Interface(Transactional):
     exception will be raised. Failed transaction review
     will be attached to the exception.
     '''
-    _fields_cmp = {'flags': lambda x, y: x & y & IFF_MASK == y & IFF_MASK,
-                   'br_hello_time': _br_time_check,
-                   'br_max_age': _br_time_check,
-                   'br_ageing_time': _br_time_check,
-                   'br_forward_delay': _br_time_check,
-                   'br_mcast_membership_intvl': _br_time_check,
-                   'br_mcast_querier_intvl': _br_time_check,
-                   'br_mcast_query_intvl': _br_time_check,
-                   'br_mcast_query_response_intvl': _br_time_check,
-                   'br_mcast_startup_query_intvl': _br_time_check}
-    _virtual_fields = ['ipdb_scope',
-                       'ipdb_priority',
-                       'vlans',
-                       'ipaddr',
-                       'ports',
-                       'vlan_flags',
-                       'net_ns_fd',
-                       'net_ns_pid']
+
+    _fields_cmp = {
+        'flags': lambda x, y: x & y & IFF_MASK == y & IFF_MASK,
+        'br_hello_time': _br_time_check,
+        'br_max_age': _br_time_check,
+        'br_ageing_time': _br_time_check,
+        'br_forward_delay': _br_time_check,
+        'br_mcast_membership_intvl': _br_time_check,
+        'br_mcast_querier_intvl': _br_time_check,
+        'br_mcast_query_intvl': _br_time_check,
+        'br_mcast_query_response_intvl': _br_time_check,
+        'br_mcast_startup_query_intvl': _br_time_check,
+    }
+    _virtual_fields = [
+        'ipdb_scope',
+        'ipdb_priority',
+        'vlans',
+        'ipaddr',
+        'ports',
+        'vlan_flags',
+        'net_ns_fd',
+        'net_ns_pid',
+    ]
     _fields = [ifinfmsg.nla2name(i[0]) for i in ifinfmsg.nla_map]
-    for name in ('bridge_slave_data', ):
+    for name in ('bridge_slave_data',):
         data = getattr(ifinfmsg.ifinfo, name)
         _fields.extend([ifinfmsg.nla2name(i[0]) for i in data.nla_map])
     _fields.append('index')
@@ -125,17 +134,19 @@ class Interface(Transactional):
         * mode -- transaction mode
         '''
         Transactional.__init__(self, ipdb, mode)
-        self.cleanup = ('header',
-                        'linkinfo',
-                        'protinfo',
-                        'af_spec',
-                        'attrs',
-                        'event',
-                        'map',
-                        'stats',
-                        'stats64',
-                        'change',
-                        '__align')
+        self.cleanup = (
+            'header',
+            'linkinfo',
+            'protinfo',
+            'af_spec',
+            'attrs',
+            'event',
+            'map',
+            'stats',
+            'stats64',
+            'change',
+            '__align',
+        )
         self.ingress = None
         self.egress = None
         self.nlmsg = None
@@ -186,9 +197,9 @@ class Interface(Transactional):
                 try:
                     # important: that's a rollback, so do not
                     # try to revert changes in the case of failure
-                    self.commit(transaction=dump,
-                                commit_phase=2,
-                                commit_mask=2)
+                    self.commit(
+                        transaction=dump, commit_phase=2, commit_mask=2
+                    )
                 except Exception:
                     pass
 
@@ -228,7 +239,7 @@ class Interface(Transactional):
                     self.del_ip(*addr)
                 for addr in data[key]:
                     if isinstance(addr, basestring):
-                        addr = (addr, )
+                        addr = (addr,)
                     self.add_ip(*addr)
             elif key == 'ports':
                 for port in self['ports']:
@@ -277,8 +288,9 @@ class Interface(Transactional):
                 if dev['header']['sequence_number'] != 0:
                     return
                 # ignore ghost RTM_NEWLINK messages
-                if (config.kernel[0] < 3) and \
-                        (not dev.get_attr('IFLA_AF_SPEC')):
+                if (config.kernel[0] < 3) and (
+                    not dev.get_attr('IFLA_AF_SPEC')
+                ):
                     return
 
             for (name, value) in dev.items():
@@ -304,11 +316,12 @@ class Interface(Transactional):
                     if kind == 'vlan':
                         data = linkinfo.get_attr('IFLA_INFO_DATA')
                         self['vlan_id'] = data.get_attr('IFLA_VLAN_ID')
-                        self['vlan_protocol'] = data\
-                            .get_attr('IFLA_VLAN_PROTOCOL')
-                        self['vlan_flags'] = data\
-                            .get_attr('IFLA_VLAN_FLAGS', {})\
-                            .get('flags', 0)
+                        self['vlan_protocol'] = data.get_attr(
+                            'IFLA_VLAN_PROTOCOL'
+                        )
+                        self['vlan_flags'] = data.get_attr(
+                            'IFLA_VLAN_FLAGS', {}
+                        ).get('flags', 0)
                     if kind in supported_kinds:
                         data = linkinfo.get_attr('IFLA_INFO_DATA') or {}
                         for nla in data.get('attrs', []):
@@ -324,9 +337,9 @@ class Interface(Transactional):
                         vmap[vlan['vid']] = vlan
                     vids = set(vmap.keys())
                     # remove vids we do not have anymore
-                    for vid in (self['vlans'] - vids):
+                    for vid in self['vlans'] - vids:
                         self.del_vlan(vid)
-                    for vid in (vids - self['vlans']):
+                    for vid in vids - self['vlans']:
                         self.add_vlan(vmap[vid])
                 protinfo = dev.get_attr('IFLA_PROTINFO')
                 if protinfo is not None:
@@ -511,12 +524,14 @@ class Interface(Transactional):
         else:
             return self.ipdb.interfaces.get(port, {}).get('index', None)
 
-    def commit(self,
-               tid=None,
-               transaction=None,
-               commit_phase=1,
-               commit_mask=0xff,
-               newif=False):
+    def commit(
+        self,
+        tid=None,
+        transaction=None,
+        commit_phase=1,
+        commit_mask=0xFF,
+        newif=False,
+    ):
         '''
         Commit transaction. In the case of exception all
         changes applied during commit will be reverted.
@@ -532,9 +547,7 @@ class Interface(Transactional):
         notx = True
 
         init = None
-        debug = {'traceback': None,
-                 'transaction': None,
-                 'next_stage': None}
+        debug = {'traceback': None, 'transaction': None, 'next_stage': None}
 
         if tid or transaction:
             notx = False
@@ -552,8 +565,10 @@ class Interface(Transactional):
             if self['ipdb_scope'] != 'system':
 
                 # a special case: transition "create" -> "remove"
-                if transaction['ipdb_scope'] == 'remove' and \
-                        self['ipdb_scope'] == 'create':
+                if (
+                    transaction['ipdb_scope'] == 'remove'
+                    and self['ipdb_scope'] == 'create'
+                ):
                     self.invalidate()
                     return self
 
@@ -576,11 +591,15 @@ class Interface(Transactional):
                     # 8<----------------------------------------------------
                     init = self.pick()
                     try:
-                        request = {key: transaction[key] for key in
-                                   filter(lambda x: x[:5] != 'bond_' and
-                                          x[:7] != 'brport_' and
-                                          x[:3] != 'br_',
-                                          transaction)}
+                        request = {
+                            key: transaction[key]
+                            for key in filter(
+                                lambda x: x[:5] != 'bond_'
+                                and x[:7] != 'brport_'
+                                and x[:3] != 'br_',
+                                transaction,
+                            )
+                        }
                         for key in ('net_ns_fd', 'net_ns_pid'):
                             if key in request:
                                 with self._direct_state:
@@ -680,13 +699,15 @@ class Interface(Transactional):
                 # For MPLS routes the key is an integer
                 # They should match anyways
                 if getattr(record['key'], 'table', None) != 255:
-                    self.routes.append((record['route'],
-                                        record['route'].pick()))
+                    self.routes.append(
+                        (record['route'], record['route'].pick())
+                    )
 
         # resolve all delayed ports
         def resolve_ports(transaction, ports, callback, self, drop):
             def error(x):
                 return KeyError('can not resolve port %s' % x)
+
             for port in tuple(ports):
                 ifindex = self._resolve_port(port)
                 if not ifindex:
@@ -700,14 +721,21 @@ class Interface(Transactional):
                     ports.remove(port)
                     with transaction._direct_state:  # ????
                         callback(ifindex)
-        resolve_ports(transaction,
-                      transaction._delay_add_port,
-                      transaction.add_port,
-                      self, drop and notx)
-        resolve_ports(transaction,
-                      transaction._delay_del_port,
-                      transaction.del_port,
-                      self, drop and notx)
+
+        resolve_ports(
+            transaction,
+            transaction._delay_add_port,
+            transaction.add_port,
+            self,
+            drop and notx,
+        )
+        resolve_ports(
+            transaction,
+            transaction._delay_del_port,
+            transaction.del_port,
+            self,
+            drop and notx,
+        )
 
         try:
             removed, added = snapshot // transaction
@@ -723,16 +751,18 @@ class Interface(Transactional):
 
                 for i in removed['vlans']:
                     # remove vlan from the port
-                    run(nl.vlan_filter, 'del',
+                    run(
+                        nl.vlan_filter,
+                        'del',
                         index=self['index'],
-                        vlan_info=self['vlans'][i][0])
+                        vlan_info=self['vlans'][i][0],
+                    )
 
                 for i in added['vlans']:
                     # add vlan to the port
                     vinfo = transaction['vlans'][i][0]
                     flags = transaction['vlans'][i][1]
-                    req = {'index': self['index'],
-                           'vlan_info': vinfo}
+                    req = {'index': self['index'], 'vlan_info': vinfo}
                     if flags == 'self':
                         req['vlan_flags'] = flags
                         # this request will NOT give echo,
@@ -753,9 +783,11 @@ class Interface(Transactional):
                 for i in removed['ports']:
                     # detach port
                     if i in self.ipdb.interfaces:
-                        (self.ipdb.interfaces[i]
-                         .set_target('master', None)
-                         .mirror_target('master', 'link'))
+                        (
+                            self.ipdb.interfaces[i]
+                            .set_target('master', None)
+                            .mirror_target('master', 'link')
+                        )
                         run(nl.link, 'update', index=i, master=0)
                     else:
                         transaction.errors.append(KeyError(i))
@@ -763,9 +795,11 @@ class Interface(Transactional):
                 for i in added['ports']:
                     # attach port
                     if i in self.ipdb.interfaces:
-                        (self.ipdb.interfaces[i]
-                         .set_target('master', self['index'])
-                         .mirror_target('master', 'link'))
+                        (
+                            self.ipdb.interfaces[i]
+                            .set_target('master', self['index'])
+                            .mirror_target('master', 'link')
+                        )
                         run(nl.link, 'update', index=i, master=self['index'])
                     else:
                         transaction.errors.append(KeyError(i))
@@ -830,8 +864,9 @@ class Interface(Transactional):
             brequest['kind'] = None
 
             # apply changes only if there is something to apply
-            if (self['kind'] == 'bridge') and \
-                    any([brequest[item] is not None for item in brequest]):
+            if (self['kind'] == 'bridge') and any(
+                [brequest[item] is not None for item in brequest]
+            ):
                 brequest['index'] = self['index']
                 brequest['kind'] = self['kind']
                 brequest['family'] = AF_BRIDGE
@@ -861,10 +896,15 @@ class Interface(Transactional):
             # 8<---------------------------------------------
             # VLAN flags -- a dirty hack, pls do something with it
             if added.get('vlan_flags') is not None:
-                run(nl.link, 'set',
-                    **{'kind': 'vlan',
-                       'index': self['index'],
-                       'vlan_flags': added['vlan_flags']})
+                run(
+                    nl.link,
+                    'set',
+                    **{
+                        'kind': 'vlan',
+                        'index': self['index'],
+                        'vlan_flags': added['vlan_flags'],
+                    }
+                )
 
             # 8<---------------------------------------------
             # IP address changes
@@ -888,9 +928,11 @@ class Interface(Transactional):
                 #
                 # One simple way to work that around is to remove
                 # secondaries first.
-                rip = sorted(ip2remove,
-                             key=lambda x: self['ipaddr'][x]['flags'],
-                             reverse=True)
+                rip = sorted(
+                    ip2remove,
+                    key=lambda x: self['ipaddr'][x]['flags'],
+                    reverse=True,
+                )
                 # 8<--------------------------------------
                 for i in rip:
                     # When you remove a primary IP addr, all the
@@ -905,8 +947,9 @@ class Interface(Transactional):
                             raise
                     except socket_error as x:
                         # bypass illegal IP requests
-                        if isinstance(x.args[0], basestring) and \
-                                x.args[0].startswith('illegal IP'):
+                        if isinstance(x.args[0], basestring) and x.args[
+                            0
+                        ].startswith('illegal IP'):
                             continue
                         raise
                 ###
@@ -915,17 +958,25 @@ class Interface(Transactional):
                 for i in ip2add:
                     # Try to fetch additional address attributes
                     try:
-                        kwarg = dict([k for k
-                                      in transaction['ipaddr'][i].items()
-                                      if k[0] in ('broadcast',
-                                                  'anycast',
-                                                  'scope')])
+                        kwarg = dict(
+                            [
+                                k
+                                for k in transaction['ipaddr'][i].items()
+                                if k[0] in ('broadcast', 'anycast', 'scope')
+                            ]
+                        )
                     except KeyError:
                         kwarg = None
                     try:
                         # feed the address to the OS
-                        run(nl.addr, 'add', self['index'], i[0], i[1],
-                            **kwarg if kwarg else {})
+                        run(
+                            nl.addr,
+                            'add',
+                            self['index'],
+                            i[0],
+                            i[1],
+                            **kwarg if kwarg else {}
+                        )
                     except NetlinkError as x:
                         if x.code != errno.EEXIST:
                             raise
@@ -948,8 +999,9 @@ class Interface(Transactional):
                     for addr in list(self['ipaddr'].ipv6):
                         self['ipaddr'].remove(addr)
                     # 2. reload addresses
-                    for addr in self.nl.get_addr(index=self['index'],
-                                                 family=AF_INET6):
+                    for addr in self.nl.get_addr(
+                        index=self['index'], family=AF_INET6
+                    ):
                         self.ipdb.ipaddr._new(addr)
                     # if there are tons of IPv6 addresses, it may take a
                     # really long time, and that's bad, but it's broken in
@@ -1039,10 +1091,12 @@ class Interface(Transactional):
                 if newif:
                     drop = False
                 try:
-                    self.commit(transaction=init if newif else snapshot,
-                                commit_phase=2,
-                                commit_mask=commit_mask,
-                                newif=newif)
+                    self.commit(
+                        transaction=init if newif else snapshot,
+                        commit_phase=2,
+                        commit_mask=commit_mask,
+                        newif=newif,
+                    )
 
                 except Exception as i_e:
                     debug['next_stage'] = i_e
@@ -1083,14 +1137,16 @@ class Interface(Transactional):
                 with route[0]._direct_state:
                     route[0]['ipdb_scope'] = 'restore'
                 try:
-                    route[0].commit(transaction=route[1],
-                                    commit_phase=2,
-                                    commit_mask=2)
+                    route[0].commit(
+                        transaction=route[1], commit_phase=2, commit_mask=2
+                    )
                 except RuntimeError as x:
                     # RuntimeError is raised due to phase 2, so
                     # an additional check is required
-                    if isinstance(x.cause, NetlinkError) and \
-                            x.cause.code == errno.EEXIST:
+                    if (
+                        isinstance(x.cause, NetlinkError)
+                        and x.cause.code == errno.EEXIST
+                    ):
                         pass
 
         time.sleep(config.commit_barrier)
@@ -1135,11 +1191,9 @@ class Interface(Transactional):
 
 
 class InterfacesDict(Dotkeys):
-
     def __init__(self, ipdb):
         self.ipdb = ipdb
-        self._event_map = {'RTM_NEWLINK': self._new,
-                           'RTM_DELLINK': self._del}
+        self._event_map = {'RTM_NEWLINK': self._new, 'RTM_DELLINK': self._del}
 
     def _register(self):
         links = self.ipdb.nl.get_links()
@@ -1169,18 +1223,19 @@ class InterfacesDict(Dotkeys):
                             device['ipdb_scope'] = 'create'
                     device.begin()
                 else:
-                    raise CreateException("interface %s exists" %
-                                          ifname)
+                    raise CreateException("interface %s exists" % ifname)
             else:
-                device = self[ifname] = Interface(ipdb=self.ipdb,
-                                                  mode='snapshot')
+                device = self[ifname] = Interface(
+                    ipdb=self.ipdb, mode='snapshot'
+                )
                 # delay link resolve?
                 for key in kwarg:
                     # any /.+link$/ attr
                     if key[-4:] == 'link':
                         if isinstance(kwarg[key], Interface):
-                            kwarg[key] = kwarg[key].get('index') or \
-                                kwarg[key].get('ifname')
+                            kwarg[key] = kwarg[key].get('index') or kwarg[
+                                key
+                            ].get('ifname')
                         if not isinstance(kwarg[key], int):
                             device._deferred_link = (key, kwarg[key])
                 device._mode = self.ipdb.mode
@@ -1190,13 +1245,15 @@ class InterfacesDict(Dotkeys):
                     device['ifname'] = ifname
                     device['ipdb_scope'] = 'create'
                     # set some specific attrs
-                    for attr in ('peer',
-                                 'uid',
-                                 'gid',
-                                 'ifr',
-                                 'mode',
-                                 'bond_mode',
-                                 'address'):
+                    for attr in (
+                        'peer',
+                        'uid',
+                        'gid',
+                        'ifr',
+                        'mode',
+                        'bond_mode',
+                        'address',
+                    ):
                         if attr in kwarg:
                             device[attr] = kwarg.pop(attr)
                 device.begin()
@@ -1244,9 +1301,7 @@ class InterfacesDict(Dotkeys):
 
         if (index not in self) and (ifname not in self):
             # scenario #1, new interface
-            device = \
-                self[index] = \
-                self[ifname] = Interface(ipdb=self.ipdb)
+            device = self[index] = self[ifname] = Interface(ipdb=self.ipdb)
         elif (index not in self) and (ifname in self):
             # scenario #2, index change
             old_index = self[ifname]['index']
@@ -1255,13 +1310,11 @@ class InterfacesDict(Dotkeys):
                 cleanup = old_index
 
             if old_index in self.ipdb.ipaddr:
-                self.ipdb.ipaddr[index] = \
-                    self.ipdb.ipaddr[old_index]
+                self.ipdb.ipaddr[index] = self.ipdb.ipaddr[old_index]
                 del self.ipdb.ipaddr[old_index]
 
             if old_index in self.ipdb.neighbours:
-                self.ipdb.neighbours[index] = \
-                    self.ipdb.neighbours[old_index]
+                self.ipdb.neighbours[index] = self.ipdb.neighbours[old_index]
                 del self.ipdb.neighbours[old_index]
         else:
             # scenario #3, interface rename
@@ -1305,8 +1358,10 @@ class InterfacesDict(Dotkeys):
     def _detach(self, name, idx, msg=None):
         with self.ipdb.exclusive:
             if msg is not None:
-                if msg['event'] == 'RTM_DELLINK' and \
-                        msg['change'] != 0xffffffff:
+                if (
+                    msg['event'] == 'RTM_DELLINK'
+                    and msg['change'] != 0xFFFFFFFF
+                ):
                     return
             if idx is None or idx < 1:
                 target = self[name]
@@ -1328,11 +1383,9 @@ class InterfacesDict(Dotkeys):
 
 
 class AddressesDict(dict):
-
     def __init__(self, ipdb):
         self.ipdb = ipdb
-        self._event_map = {'RTM_NEWADDR': self._new,
-                           'RTM_DELADDR': self._del}
+        self._event_map = {'RTM_NEWADDR': self._new, 'RTM_DELADDR': self._del}
 
     def _register(self):
         for msg in self.ipdb.nl.get_addr():
@@ -1357,17 +1410,17 @@ class AddressesDict(dict):
             addr = msg.get_attr('IFA_ADDRESS')
         else:
             return
-        raw = {'local': msg.get_attr('IFA_LOCAL'),
-               'broadcast': msg.get_attr('IFA_BROADCAST'),
-               'address': msg.get_attr('IFA_ADDRESS'),
-               'flags': msg.get_attr('IFA_FLAGS') or msg.get('flags'),
-               'prefixlen': msg['prefixlen'],
-               'family': msg['family'],
-               'cacheinfo': msg.get_attr('IFA_CACHEINFO')}
+        raw = {
+            'local': msg.get_attr('IFA_LOCAL'),
+            'broadcast': msg.get_attr('IFA_BROADCAST'),
+            'address': msg.get_attr('IFA_ADDRESS'),
+            'flags': msg.get_attr('IFA_FLAGS') or msg.get('flags'),
+            'prefixlen': msg['prefixlen'],
+            'family': msg['family'],
+            'cacheinfo': msg.get_attr('IFA_CACHEINFO'),
+        }
         try:
-            self[msg['index']].add(key=(addr,
-                                        raw['prefixlen']),
-                                   raw=raw)
+            self[msg['index']].add(key=(addr, raw['prefixlen']), raw=raw)
         except:
             pass
 
@@ -1379,18 +1432,18 @@ class AddressesDict(dict):
         else:
             return
         try:
-            self[msg['index']].remove((addr,
-                                       msg['prefixlen']))
+            self[msg['index']].remove((addr, msg['prefixlen']))
         except:
             pass
 
 
 class NeighboursDict(dict):
-
     def __init__(self, ipdb):
         self.ipdb = ipdb
-        self._event_map = {'RTM_NEWNEIGH': self._new,
-                           'RTM_DELNEIGH': self._del}
+        self._event_map = {
+            'RTM_NEWNEIGH': self._new,
+            'RTM_DELNEIGH': self._del,
+        }
 
     def _register(self):
         for msg in self.ipdb.nl.get_neighbours():
@@ -1401,9 +1454,12 @@ class NeighboursDict(dict):
             return
 
         try:
-            (self[msg['ifindex']]
-             .add(key=msg.get_attr('NDA_DST'),
-                  raw={'lladdr': msg.get_attr('NDA_LLADDR')}))
+            (
+                self[msg['ifindex']].add(
+                    key=msg.get_attr('NDA_DST'),
+                    raw={'lladdr': msg.get_attr('NDA_LLADDR')},
+                )
+            )
         except:
             pass
 
@@ -1411,26 +1467,29 @@ class NeighboursDict(dict):
         if msg['family'] == AF_BRIDGE:
             return
         try:
-            (self[msg['ifindex']]
-             .remove(msg.get_attr('NDA_DST')))
+            (self[msg['ifindex']].remove(msg.get_attr('NDA_DST')))
         except:
             pass
 
 
-spec = [{'name': 'interfaces',
-         'class': InterfacesDict,
-         'kwarg': {}},
-        {'name': 'by_name',
-         'class': View,
-         'kwarg': {'path': 'interfaces',
-                   'constraint': lambda k, v: isinstance(k, basestring)}},
-        {'name': 'by_index',
-         'class': View,
-         'kwarg': {'path': 'interfaces',
-                   'constraint': lambda k, v: isinstance(k, int)}},
-        {'name': 'ipaddr',
-         'class': AddressesDict,
-         'kwarg': {}},
-        {'name': 'neighbours',
-         'class': NeighboursDict,
-         'kwarg': {}}]
+spec = [
+    {'name': 'interfaces', 'class': InterfacesDict, 'kwarg': {}},
+    {
+        'name': 'by_name',
+        'class': View,
+        'kwarg': {
+            'path': 'interfaces',
+            'constraint': lambda k, v: isinstance(k, basestring),
+        },
+    },
+    {
+        'name': 'by_index',
+        'class': View,
+        'kwarg': {
+            'path': 'interfaces',
+            'constraint': lambda k, v: isinstance(k, int),
+        },
+    },
+    {'name': 'ipaddr', 'class': AddressesDict, 'kwarg': {}},
+    {'name': 'neighbours', 'class': NeighboursDict, 'kwarg': {}},
+]

@@ -39,21 +39,26 @@ class GenericNetlinkSocket(NetlinkSocket):
         self.marshal.msg_map[GENL_ID_CTRL] = ctrlmsg
         msg = self.discovery(proto)
         self.prid = msg.get_attr('CTRL_ATTR_FAMILY_ID')
-        self.mcast_groups = \
-            dict([(x.get_attr('CTRL_ATTR_MCAST_GRP_NAME'),
-                   x.get_attr('CTRL_ATTR_MCAST_GRP_ID')) for x
-                  in msg.get_attr('CTRL_ATTR_MCAST_GROUPS', [])])
+        self.mcast_groups = dict(
+            [
+                (
+                    x.get_attr('CTRL_ATTR_MCAST_GRP_NAME'),
+                    x.get_attr('CTRL_ATTR_MCAST_GRP_ID'),
+                )
+                for x in msg.get_attr('CTRL_ATTR_MCAST_GROUPS', [])
+            ]
+        )
         self.marshal.msg_map[self.prid] = msg_class
 
     def add_membership(self, group):
-        self.setsockopt(SOL_NETLINK,
-                        NETLINK_ADD_MEMBERSHIP,
-                        self.mcast_groups[group])
+        self.setsockopt(
+            SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, self.mcast_groups[group]
+        )
 
     def drop_membership(self, group):
-        self.setsockopt(SOL_NETLINK,
-                        NETLINK_DROP_MEMBERSHIP,
-                        self.mcast_groups[group])
+        self.setsockopt(
+            SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, self.mcast_groups[group]
+        )
 
     def discovery(self, proto):
         '''

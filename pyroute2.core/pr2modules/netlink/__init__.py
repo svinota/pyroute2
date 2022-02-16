@@ -411,7 +411,7 @@ from pr2modules.netlink.exceptions import NetlinkNLADecodeError
 
 log = logging.getLogger(__name__)
 # make pep8 happy
-_ne = NetlinkError        # reexport for compatibility
+_ne = NetlinkError  # reexport for compatibility
 _de = NetlinkDecodeError  #
 
 
@@ -427,7 +427,7 @@ if sys.version[0] == '3':
 
 NLMSG_MIN_TYPE = 0x10
 
-GENL_NAMSIZ = 16    # length of family name
+GENL_NAMSIZ = 16  # length of family name
 GENL_MIN_ID = NLMSG_MIN_TYPE
 GENL_MAX_ID = 1023
 
@@ -478,25 +478,25 @@ CTRL_ATTR_MCAST_GRP_ID = 0x2
 
 #  Different Netlink families
 #
-NETLINK_ROUTE = 0            # Routing/device hook
-NETLINK_UNUSED = 1           # Unused number
-NETLINK_USERSOCK = 2         # Reserved for user mode socket protocols
-NETLINK_FIREWALL = 3         # Firewalling hook
-NETLINK_SOCK_DIAG = 4        # INET socket monitoring
-NETLINK_NFLOG = 5            # netfilter/iptables ULOG
-NETLINK_XFRM = 6             # ipsec
-NETLINK_SELINUX = 7          # SELinux event notifications
-NETLINK_ISCSI = 8            # Open-iSCSI
-NETLINK_AUDIT = 9            # auditing
+NETLINK_ROUTE = 0  # Routing/device hook
+NETLINK_UNUSED = 1  # Unused number
+NETLINK_USERSOCK = 2  # Reserved for user mode socket protocols
+NETLINK_FIREWALL = 3  # Firewalling hook
+NETLINK_SOCK_DIAG = 4  # INET socket monitoring
+NETLINK_NFLOG = 5  # netfilter/iptables ULOG
+NETLINK_XFRM = 6  # ipsec
+NETLINK_SELINUX = 7  # SELinux event notifications
+NETLINK_ISCSI = 8  # Open-iSCSI
+NETLINK_AUDIT = 9  # auditing
 NETLINK_FIB_LOOKUP = 10
 NETLINK_CONNECTOR = 11
-NETLINK_NETFILTER = 12       # netfilter subsystem
+NETLINK_NETFILTER = 12  # netfilter subsystem
 NETLINK_IP6_FW = 13
-NETLINK_DNRTMSG = 14         # DECnet routing messages
+NETLINK_DNRTMSG = 14  # DECnet routing messages
 NETLINK_KOBJECT_UEVENT = 15  # Kernel messages to userspace
 NETLINK_GENERIC = 16
 # leave room for NETLINK_DM (DM Events)
-NETLINK_SCSITRANSPORT = 18   # SCSI Transports
+NETLINK_SCSITRANSPORT = 18  # SCSI Transports
 
 # NLA flags
 NLA_F_NESTED = 1 << 15
@@ -505,40 +505,42 @@ NLA_F_NET_BYTEORDER = 1 << 14
 
 # Netlink message flags values (nlmsghdr.flags)
 #
-NLM_F_REQUEST = 1    # It is request message.
-NLM_F_MULTI = 2    # Multipart message, terminated by NLMSG_DONE
-NLM_F_ACK = 4    # Reply with ack, with zero or error code
-NLM_F_ECHO = 8    # Echo this request
-NLM_F_DUMP_INTR = 0x10    # Dump was inconsistent due to sequence change
-NLM_F_DUMP_FILTERED = 0x20    # Dump was filtered as requested
+NLM_F_REQUEST = 1  # It is request message.
+NLM_F_MULTI = 2  # Multipart message, terminated by NLMSG_DONE
+NLM_F_ACK = 4  # Reply with ack, with zero or error code
+NLM_F_ECHO = 8  # Echo this request
+NLM_F_DUMP_INTR = 0x10  # Dump was inconsistent due to sequence change
+NLM_F_DUMP_FILTERED = 0x20  # Dump was filtered as requested
 
 # Modifiers to GET request
-NLM_F_ROOT = 0x100    # specify tree    root
-NLM_F_MATCH = 0x200    # return all matching
-NLM_F_ATOMIC = 0x400    # atomic GET
-NLM_F_DUMP = (NLM_F_ROOT | NLM_F_MATCH)
+NLM_F_ROOT = 0x100  # specify tree    root
+NLM_F_MATCH = 0x200  # return all matching
+NLM_F_ATOMIC = 0x400  # atomic GET
+NLM_F_DUMP = NLM_F_ROOT | NLM_F_MATCH
 # Modifiers to NEW request
-NLM_F_REPLACE = 0x100    # Override existing
-NLM_F_EXCL = 0x200    # Do not touch, if it exists
-NLM_F_CREATE = 0x400    # Create, if it does not exist
-NLM_F_APPEND = 0x800    # Add to end of list
+NLM_F_REPLACE = 0x100  # Override existing
+NLM_F_EXCL = 0x200  # Do not touch, if it exists
+NLM_F_CREATE = 0x400  # Create, if it does not exist
+NLM_F_APPEND = 0x800  # Add to end of list
 
 NLM_F_CAPPED = 0x100
 NLM_F_ACK_TLVS = 0x200
 
-NLMSG_NOOP = 0x1    # Nothing
-NLMSG_ERROR = 0x2    # Error
-NLMSG_DONE = 0x3    # End of a dump
-NLMSG_OVERRUN = 0x4    # Data lost
-NLMSG_CONTROL = 0xe    # Custom message type for messaging control
-NLMSG_TRANSPORT = 0xf    # Custom message type for NL as a transport
-NLMSG_MIN_TYPE = 0x10    # < 0x10: reserved control messages
-NLMSG_MAX_LEN = 0xffff  # Max message length
+NLMSG_NOOP = 0x1  # Nothing
+NLMSG_ERROR = 0x2  # Error
+NLMSG_DONE = 0x3  # End of a dump
+NLMSG_OVERRUN = 0x4  # Data lost
+NLMSG_CONTROL = 0xE  # Custom message type for messaging control
+NLMSG_TRANSPORT = 0xF  # Custom message type for NL as a transport
+NLMSG_MIN_TYPE = 0x10  # < 0x10: reserved control messages
+NLMSG_MAX_LEN = 0xFFFF  # Max message length
 
-mtypes = {1: 'NLMSG_NOOP',
-          2: 'NLMSG_ERROR',
-          3: 'NLMSG_DONE',
-          4: 'NLMSG_OVERRUN'}
+mtypes = {
+    1: 'NLMSG_NOOP',
+    2: 'NLMSG_ERROR',
+    3: 'NLMSG_DONE',
+    4: 'NLMSG_OVERRUN',
+}
 
 IPRCMD_NOOP = 0
 IPRCMD_STOP = 1
@@ -582,14 +584,18 @@ cache_jit = {}
 
 
 class SQLSchema(object):
-
     def __init__(self, cls):
         ret = []
         for field in cls.fields:
             if field[0][0] != '_':
-                ret.append(((field[0], ),
-                            ' '.join(('BIGINT',
-                                      cls.sql_constraints.get(field[0], '')))))
+                ret.append(
+                    (
+                        (field[0],),
+                        ' '.join(
+                            ('BIGINT', cls.sql_constraints.get(field[0], ''))
+                        ),
+                    )
+                )
         for nla_tuple in cls.nla_map:
             if isinstance(nla_tuple[0], basestring):
                 nla_name = nla_tuple[0]
@@ -600,18 +606,19 @@ class SQLSchema(object):
             nla_type = getattr(cls, nla_type, None)
             sql_type = getattr(nla_type, 'sql_type', None)
             if sql_type:
-                sql_type = ' '.join((sql_type,
-                                     cls.sql_constraints.get(nla_name, '')))
-                ret.append(((nla_name, ), sql_type))
+                sql_type = ' '.join(
+                    (sql_type, cls.sql_constraints.get(nla_name, ''))
+                )
+                ret.append(((nla_name,), sql_type))
 
         for (fname, ftype) in cls.sql_extra_fields:
             if isinstance(fname, basestring):
-                fname = (fname, )
+                fname = (fname,)
             ret.append((fname, ftype))
 
         for (dcls, prefix) in cls.sql_extend:
             for fname, ftype in dcls.sql_schema():
-                ret.append(((prefix, ) + fname, ftype))
+                ret.append(((prefix,) + fname, ftype))
 
         self.spec = ret
         self.index = []
@@ -622,9 +629,13 @@ class SQLSchema(object):
         return self
 
     def foreign_key(self, parent, fields, parent_fields):
-        self.foreign_keys.append({'fields': fields,
-                                  'parent_fields': parent_fields,
-                                  'parent': parent})
+        self.foreign_keys.append(
+            {
+                'fields': fields,
+                'parent_fields': parent_fields,
+                'parent': parent,
+            }
+        )
         return self
 
     def push(self, *spec):
@@ -653,14 +664,14 @@ class nlmsg_base(dict):
 
     fields = ()
     header = ()
-    pack = None                  # pack pragma
+    pack = None  # pack pragma
     cell_header = None
     align = 4
-    nla_map = {}                 # NLA mapping
+    nla_map = {}  # NLA mapping
     sql_constraints = {}
     sql_extra_fields = ()
     sql_extend = ()
-    nla_flags = 0        # NLA flags
+    nla_flags = 0  # NLA flags
     value_map = {}
     is_nla = False
     prefix = None
@@ -687,18 +698,15 @@ class nlmsg_base(dict):
         "_nla_flags",
         "value",
         "_r_value_map",
-        "__weakref__"
+        "__weakref__",
     )
 
     def msg_align(self, length):
-        return (length + self.align - 1) & ~ (self.align - 1)
+        return (length + self.align - 1) & ~(self.align - 1)
 
-    def __init__(self,
-                 data=None,
-                 offset=0,
-                 length=None,
-                 parent=None,
-                 init=None):
+    def __init__(
+        self, data=None, offset=0, length=None, parent=None, init=None
+    ):
         global cache_jit
         dict.__init__(self)
         for i in self.fields:
@@ -707,7 +715,7 @@ class nlmsg_base(dict):
         self.data = data or bytearray()
         self.offset = offset
         self.length = length or 0
-        self.chain = [self, ]
+        self.chain = [self]
         if parent is not None:
             # some structures use parents, some not,
             # so don't create cycles without need
@@ -733,11 +741,12 @@ class nlmsg_base(dict):
 
     @property
     def buf(self):
-        logging.error('nlmsg.buf is deprecated:\n%s',
-                      ''.join(traceback.format_stack()))
+        logging.error(
+            'nlmsg.buf is deprecated:\n%s', ''.join(traceback.format_stack())
+        )
         if self._buf is None:
             self._buf = io.BytesIO()
-            self._buf.write(self.data[self.offset:self.length or None])
+            self._buf.write(self.data[self.offset : self.length or None])
             self._buf.seek(0)
         return self._buf
 
@@ -772,9 +781,11 @@ class nlmsg_base(dict):
         global clean_cbs
         seq = self.get('header', {}).get('sequence_number', None)
         msf = self.get('header', {}).get('flags', 0)
-        if (seq is not None) and \
-                (not msf & NLM_F_REQUEST) and \
-                seq in clean_cbs.__dict__:
+        if (
+            (seq is not None)
+            and (not msf & NLM_F_REQUEST)
+            and seq in clean_cbs.__dict__
+        ):
             for cb in clean_cbs.__dict__[seq]:
                 try:
                     cb()
@@ -880,16 +891,18 @@ class nlmsg_base(dict):
                             # this strange condition means a simple thing:
                             # None, 0, empty container and NotInitialized in
                             # that context should be treated as equal.
-                            if (lv != rv) and not \
-                                    ((not lv or lv is NotInitialized) and
-                                     (not rv or rv is NotInitialized)):
+                            if (lv != rv) and not (
+                                (not lv or lv is NotInitialized)
+                                and (not rv or rv is NotInitialized)
+                            ):
                                 return False
                     else:
                         lv = self.get(key)
                         rv = rvalue.get(key)
-                        if (lv != rv) and not \
-                                ((not lv or lv is NotInitialized) and
-                                 (not rv or rv is NotInitialized)):
+                        if (lv != rv) and not (
+                            (not lv or lv is NotInitialized)
+                            and (not rv or rv is NotInitialized)
+                        ):
                             return False
                 except Exception:
                     # on any error -- is not equal
@@ -914,7 +927,7 @@ class nlmsg_base(dict):
 
         Requires self.prefix to be set
         '''
-        return name[(name.find(self.prefix) + 1) * len(self.prefix):].lower()
+        return name[(name.find(self.prefix) + 1) * len(self.prefix) :].lower()
 
     @classmethod
     def name2nla(self, name):
@@ -972,23 +985,32 @@ class nlmsg_base(dict):
             # If the key exists, the statement after the first `or` is not
             # executed.
             if self.is_nla:
-                key = tuple(self.data[offset:offset + 4])
-                self['header'] = cache_hdr.get(key, None) or \
-                    (cache_hdr
-                     .__setitem__(key,
-                                  dict(zip(('length', 'type'),
-                                           struct.unpack_from('HH',
-                                                              self.data,
-                                                              offset))))) or \
-                    cache_hdr[key]
+                key = tuple(self.data[offset : offset + 4])
+                self['header'] = (
+                    cache_hdr.get(key, None)
+                    or (
+                        cache_hdr.__setitem__(
+                            key,
+                            dict(
+                                zip(
+                                    ('length', 'type'),
+                                    struct.unpack_from(
+                                        'HH', self.data, offset
+                                    ),
+                                )
+                            ),
+                        )
+                    )
+                    or cache_hdr[key]
+                )
                 ##
                 offset += 4
                 self.length = self['header']['length']
             else:
                 for name, fmt in self.header:
-                    self['header'][name] = struct.unpack_from(fmt,
-                                                              self.data,
-                                                              offset)[0]
+                    self['header'][name] = struct.unpack_from(
+                        fmt, self.data, offset
+                    )[0]
                     offset += struct.calcsize(fmt)
                 # update length from header
                 # it can not be less than 4
@@ -998,15 +1020,13 @@ class nlmsg_base(dict):
         if self._nla_array:
             self.setvalue([])
             while offset < self.offset + self.length:
-                cell = type(self)(data=self.data,
-                                  offset=offset,
-                                  parent=self)
+                cell = type(self)(data=self.data, offset=offset, parent=self)
                 cell._nla_array = False
                 if cell.cell_header is not None:
                     cell.header = cell.cell_header
                 cell.decode()
                 self.value.append(cell)
-                offset += (cell.length + 4 - 1) & ~ (4 - 1)
+                offset += (cell.length + 4 - 1) & ~(4 - 1)
         else:
             self.ft_decode(offset)
 
@@ -1042,19 +1062,18 @@ class nlmsg_base(dict):
         if self._nla_array:
             header_type = 1
             for value in self.getvalue():
-                cell = type(self)(data=self.data,
-                                  offset=offset,
-                                  parent=self)
+                cell = type(self)(data=self.data, offset=offset, parent=self)
                 cell._nla_array = False
-                cell['header']['type'] = self.header_type or \
-                    (header_type | self._nla_flags)
+                cell['header']['type'] = self.header_type or (
+                    header_type | self._nla_flags
+                )
                 header_type += 1
 
                 if cell.cell_header is not None:
                     cell.header = cell.cell_header
                 cell.setvalue(value)
                 cell.encode()
-                offset += (cell.length + 4 - 1) & ~ (4 - 1)
+                offset += (cell.length + 4 - 1) & ~(4 - 1)
         elif self.getvalue() is not None:
             offset, diff = self.ft_encode(offset)
         # write NLA chain
@@ -1062,15 +1081,14 @@ class nlmsg_base(dict):
             offset = self.encode_nlas(offset)
         # calculate the size and write it
         if 'header' in self and self.header is not None:
-            self.length = self['header']['length'] = (offset -
-                                                      self.offset -
-                                                      diff)
+            self.length = self['header']['length'] = (
+                offset - self.offset - diff
+            )
             offset = self.offset
             for name, fmt in self.header:
-                struct.pack_into(fmt,
-                                 self.data,
-                                 offset,
-                                 self['header'].get(name, 0))
+                struct.pack_into(
+                    fmt, self.data, offset, self['header'].get(name, 0)
+                )
                 offset += struct.calcsize(fmt)
 
     def setvalue(self, value):
@@ -1085,9 +1103,9 @@ class nlmsg_base(dict):
         else:
             try:
                 if value in self.value_map.values():
-                    reverse_map = dict([
-                        (x[1], x[0]) for x in self.value_map.items()
-                    ])
+                    reverse_map = dict(
+                        [(x[1], x[0]) for x in self.value_map.items()]
+                    )
                     value = reverse_map.get(value, value)
             except TypeError:
                 pass
@@ -1134,8 +1152,7 @@ class nlmsg_base(dict):
         return [i[1] for i in self['attrs'] if i[0] == attr]
 
     def nla(self, attr=None, default=NotInitialized):
-        '''
-        '''
+        ''' '''
         if default is NotInitialized:
             response = nlmsg_base()
             del response['value']
@@ -1218,9 +1235,11 @@ class nlmsg_base(dict):
         Atomic NLAs return their value in the 'value' field,
         not as a dictionary. Complex NLAs return whole dictionary.
         '''
-        if self._nla_array and \
-                len(self.value) and \
-                hasattr(self.value[0], 'getvalue'):
+        if (
+            self._nla_array
+            and len(self.value)
+            and hasattr(self.value[0], 'getvalue')
+        ):
             return [x.getvalue() for x in self.value]
 
         if self.value != NotInitialized:
@@ -1253,8 +1272,10 @@ class nlmsg_base(dict):
             # that's a little bit tricky, but to reduce
             # the required amount of code in modules, we have
             # to jump over the head
-            zipped = [(k[1][0], k[0][0], k[0][1], k[0][2]) for k in
-                      zip(nla_map, nla_types)]
+            zipped = [
+                (k[1][0], k[0][0], k[0][1], k[0][2])
+                for k in zip(nla_map, nla_types)
+            ]
         else:
             zipped = nla_map
 
@@ -1269,7 +1290,7 @@ class nlmsg_base(dict):
             lb = nla_class.find('(')
             rb = nla_class.find(')')
             if 0 < lb < rb:
-                init = nla_class[lb + 1:rb]
+                init = nla_class[lb + 1 : rb]
                 nla_class = nla_class[:lb]
             else:
                 init = None
@@ -1279,12 +1300,14 @@ class nlmsg_base(dict):
             else:
                 nla_class = getattr(self, nla_class)
             # update mappings
-            prime = {'class': nla_class,
-                     'type': key,
-                     'name': name,
-                     'nla_flags': nla_flags,
-                     'nla_array': nla_array,
-                     'init': init}
+            prime = {
+                'class': nla_class,
+                'type': key,
+                'name': name,
+                'nla_flags': nla_flags,
+                'nla_array': nla_array,
+                'init': init,
+            }
             t_nla_map[key] = r_nla_map[name] = prime
 
         self.__class__.__t_nla_map = t_nla_map
@@ -1311,13 +1334,15 @@ class nlmsg_base(dict):
                     data=self.data,
                     offset=offset,
                     parent=self,
-                    init=prime['init'])
+                    init=prime['init'],
+                )
                 nla_instance._nla_flags |= prime['nla_flags']
                 if isinstance(cell, tuple) and len(cell) > 2:
                     nla_instance._nla_flags |= cell[2]
                 nla_instance._nla_array = prime['nla_array']
-                nla_instance['header']['type'] = prime['type'] |\
-                    nla_instance._nla_flags
+                nla_instance['header']['type'] = (
+                    prime['type'] | nla_instance._nla_flags
+                )
                 nla_instance.setvalue(cell[1])
                 try:
                     nla_instance.encode()
@@ -1326,7 +1351,7 @@ class nlmsg_base(dict):
                 else:
                     nla_instance.decoded = True
                     self['attrs'][i] = nla_slot(prime['name'], nla_instance)
-                offset += (nla_instance.length + 4 - 1) & ~ (4 - 1)
+                offset += (nla_instance.length + 4 - 1) & ~(4 - 1)
         return offset
 
     def decode_nlas(self, offset):
@@ -1338,8 +1363,9 @@ class nlmsg_base(dict):
         while offset - self.offset <= self.length - 4:
             nla_instance = None
             # pick the length and the type
-            (length, base_msg_type) = struct.unpack_from('HH', self.data,
-                                                         offset)
+            (length, base_msg_type) = struct.unpack_from(
+                'HH', self.data, offset
+            )
             # first two bits of msg_type are flags:
             msg_type = base_msg_type & ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
             # rewind to the beginning
@@ -1353,29 +1379,28 @@ class nlmsg_base(dict):
                 # is it a class or a function?
                 if isinstance(msg_class, types.FunctionType):
                     # if it is a function -- use it to get the class
-                    msg_class = msg_class(self,
-                                          data=self.data,
-                                          offset=offset)
+                    msg_class = msg_class(self, data=self.data, offset=offset)
                 # decode NLA
                 nla_instance = msg_class(
                     data=self.data,
                     offset=offset,
                     parent=self,
                     length=length,
-                    init=prime['init'])
+                    init=prime['init'],
+                )
                 nla_instance._nla_array = prime['nla_array']
-                nla_instance._nla_flags = base_msg_type & (NLA_F_NESTED |
-                                                           NLA_F_NET_BYTEORDER)
+                nla_instance._nla_flags = base_msg_type & (
+                    NLA_F_NESTED | NLA_F_NET_BYTEORDER
+                )
                 name = prime['name']
             else:
                 name = 'UNKNOWN'
                 nla_instance = nla_base(
-                    data=self.data,
-                    offset=offset,
-                    length=length)
+                    data=self.data, offset=offset, length=length
+                )
 
             self['attrs'].append(nla_slot(name, nla_instance))
-            offset += (length + 4 - 1) & ~ (4 - 1)
+            offset += (length + 4 - 1) & ~(4 - 1)
 
 
 ##
@@ -1384,7 +1409,6 @@ class nlmsg_base(dict):
 # NLMSG fields codecs, mixin classes
 #
 class nlmsg_decoder_generic(object):
-
     def ft_decode(self, offset):
         global cache_fmt
         for name, fmt in self.fields:
@@ -1394,9 +1418,11 @@ class nlmsg_decoder_generic(object):
             # The use of the cache gives here a tiny performance
             # improvement, but it is an improvement anyways
             #
-            size = cache_fmt.get(fmt, None) or \
-                cache_fmt.__setitem__(fmt, struct.calcsize(fmt)) or \
-                cache_fmt[fmt]
+            size = (
+                cache_fmt.get(fmt, None)
+                or cache_fmt.__setitem__(fmt, struct.calcsize(fmt))
+                or cache_fmt[fmt]
+            )
             ##
             value = struct.unpack_from(fmt, self.data, offset)
             offset += size
@@ -1406,7 +1432,7 @@ class nlmsg_decoder_generic(object):
                 self[name] = value
         # read NLA chain
         if self.nla_map:
-            offset = (offset + 4 - 1) & ~ (4 - 1)
+            offset = (offset + 4 - 1) & ~(4 - 1)
             try:
                 self.decode_nlas(offset)
             except Exception as e:
@@ -1419,11 +1445,10 @@ class nlmsg_decoder_generic(object):
 
 
 class nlmsg_decoder_string(object):
-
     def ft_decode(self, offset):
-        value, = struct.unpack_from('%is' % (self.length - 4),
-                                    self.data,
-                                    offset)
+        (value,) = struct.unpack_from(
+            '%is' % (self.length - 4), self.data, offset
+        )
         if self.zstring == 1:
             self['value'] = value.strip(b'\0')
         else:
@@ -1431,7 +1456,6 @@ class nlmsg_decoder_string(object):
 
 
 class nlmsg_decoder_struct(object):
-
     def ft_decode(self, offset):
         names = []
         fmt = ''
@@ -1445,7 +1469,7 @@ class nlmsg_decoder_struct(object):
                 self[name] = values.pop(0)
         # read NLA chain
         if self.nla_map:
-            offset = (offset + 4 - 1) & ~ (4 - 1)
+            offset = (offset + 4 - 1) & ~(4 - 1)
             try:
                 self.decode_nlas(offset)
             except Exception as e:
@@ -1458,7 +1482,6 @@ class nlmsg_decoder_struct(object):
 
 
 class nlmsg_encoder_generic(object):
-
     def ft_encode(self, offset):
         for name, fmt in self.fields:
             value = self[name]
@@ -1492,17 +1515,18 @@ class nlmsg_encoder_generic(object):
             except struct.error:
                 log.error(''.join(traceback.format_stack()))
                 log.error(traceback.format_exc())
-                log.error("error pack: %s %s %s" %
-                          (efmt, value, type(value)))
+                log.error("error pack: %s %s %s" % (efmt, value, type(value)))
                 raise
 
             offset += length
 
-        diff = ((offset + 4 - 1) & ~ (4 - 1)) - offset
+        diff = ((offset + 4 - 1) & ~(4 - 1)) - offset
         offset += diff
         self.data.extend([0] * diff)
 
         return offset, diff
+
+
 #
 # 8<---------------------------------------------------------------------
 ##
@@ -1510,9 +1534,7 @@ class nlmsg_encoder_generic(object):
 
 class nla_slot(object):
 
-    __slots__ = (
-        "cell",
-    )
+    __slots__ = ("cell",)
 
     def __init__(self, name, value):
         self.cell = (name, value)
@@ -1533,7 +1555,7 @@ class nla_slot(object):
         if self.try_to_decode():
             return cell.getvalue()
         else:
-            return cell.data[cell.offset:cell.offset + cell.length]
+            return cell.data[cell.offset : cell.offset + cell.length]
 
     def get_flags(self):
         if self.try_to_decode():
@@ -1580,41 +1602,42 @@ class nla_slot(object):
 class nla_header(object):
     __slots__ = ()
     is_nla = True
-    header = (('length', 'H'),
-              ('type', 'H'))
+    header = (('length', 'H'), ('type', 'H'))
 
 
-class nla_base(nla_header,
-               nlmsg_base,
-               nlmsg_encoder_generic,
-               nlmsg_decoder_generic):
+class nla_base(
+    nla_header, nlmsg_base, nlmsg_encoder_generic, nlmsg_decoder_generic
+):
     '''
     Generic NLA base class.
     '''
+
     __slots__ = ()
     zstring = 0
 
 
-class nla_base_string(nla_header,
-                      nlmsg_base,
-                      nlmsg_encoder_generic,
-                      nlmsg_decoder_string):
+class nla_base_string(
+    nla_header, nlmsg_base, nlmsg_encoder_generic, nlmsg_decoder_string
+):
     '''
     NLA base class, string decoder.
     '''
+
     __slots__ = ()
     fields = [('value', 's')]
     zstring = 0
 
 
-class nla_base_struct(nla_header,
-                      nlmsg_base,
-                      nlmsg_encoder_generic,
-                      nlmsg_decoder_struct):
+class nla_base_struct(
+    nla_header, nlmsg_base, nlmsg_encoder_generic, nlmsg_decoder_struct
+):
     '''
     NLA base class, packed struct decoder.
     '''
+
     __slots__ = ()
+
+
 #
 # 8<---------------------------------------------------------------------
 ##
@@ -1792,6 +1815,7 @@ class nlmsg_atoms(object):
         '''
         Explicit IPv6 address type class.
         '''
+
         __slots__ = ()
         family = AF_INET6
 
@@ -1804,6 +1828,7 @@ class nlmsg_atoms(object):
         We do not specify here the string size, it will be
         calculated in runtime.
         '''
+
         __slots__ = ()
         sql_type = 'TEXT'
 
@@ -1858,17 +1883,23 @@ class nlmsg_atoms(object):
                     labels = self.value
                 else:
                     if 'label' in self:
-                        labels = [{'label': self.get('label', 0),
-                                   'tc': self.get('tc', 0),
-                                   'bos': self.get('bos', 0),
-                                   'ttl': self.get('ttl', 0)}]
+                        labels = [
+                            {
+                                'label': self.get('label', 0),
+                                'tc': self.get('tc', 0),
+                                'bos': self.get('bos', 0),
+                                'ttl': self.get('ttl', 0),
+                            }
+                        ]
                     else:
                         labels = []
                 for record in labels:
-                    label = (record.get('label', 0) << 12) |\
-                        (record.get('tc', 0) << 9) |\
-                        ((1 if record.get('bos') else 0) << 8) |\
-                        record.get('ttl', 0)
+                    label = (
+                        (record.get('label', 0) << 12)
+                        | (record.get('tc', 0) << 9)
+                        | ((1 if record.get('bos') else 0) << 8)
+                        | record.get('ttl', 0)
+                    )
                     self['value'] += struct.pack('>I', label)
             else:
                 raise TypeError('socket family not supported')
@@ -1882,12 +1913,15 @@ class nlmsg_atoms(object):
             elif family == AF_MPLS:
                 self.value = []
                 for i in range(len(self['value']) // 4):
-                    label = struct.unpack('>I',
-                                          self['value'][i * 4:i * 4 + 4])[0]
-                    record = {'label': (label & 0xFFFFF000) >> 12,
-                              'tc': (label & 0x00000E00) >> 9,
-                              'bos': (label & 0x00000100) >> 8,
-                              'ttl': label & 0x000000FF}
+                    label = struct.unpack(
+                        '>I', self['value'][i * 4 : i * 4 + 4]
+                    )[0]
+                    record = {
+                        'label': (label & 0xFFFFF000) >> 12,
+                        'tc': (label & 0x00000E00) >> 9,
+                        'bos': (label & 0x00000100) >> 8,
+                        'ttl': label & 0x000000FF,
+                    }
                     self.value.append(record)
             else:
                 raise TypeError('socket family not supported')
@@ -1909,15 +1943,16 @@ class nlmsg_atoms(object):
         fields = [('value', '=6s')]
 
         def encode(self):
-            self['value'] = struct.pack('BBBBBB',
-                                        *[int(i, 16) for i in
-                                          self.value.split(':')])
+            self['value'] = struct.pack(
+                'BBBBBB', *[int(i, 16) for i in self.value.split(':')]
+            )
             nla_base.encode(self)
 
         def decode(self):
             nla_base.decode(self)
-            self.value = ':'.join('%02x' % (i) for i in
-                                  struct.unpack('BBBBBB', self['value']))
+            self.value = ':'.join(
+                '%02x' % (i) for i in struct.unpack('BBBBBB', self['value'])
+            )
 
     class lladdr(nla_base_string):
         '''
@@ -1936,9 +1971,9 @@ class nlmsg_atoms(object):
         def encode(self):
             if ':' in self.value:
                 if len(self.value) == 17 and '::' not in self.value:
-                    self['value'] = struct.pack('BBBBBB',
-                                                *[int(i, 16) for i in
-                                                  self.value.split(':')])
+                    self['value'] = struct.pack(
+                        'BBBBBB', *[int(i, 16) for i in self.value.split(':')]
+                    )
                 else:
                     self['value'] = inet_pton(AF_INET6, self.value)
             elif '.' in self.value:
@@ -1950,8 +1985,10 @@ class nlmsg_atoms(object):
         def decode(self):
             nla_base_string.decode(self)
             if len(self['value']) == 6:
-                self.value = ':'.join('%02x' % (i) for i in
-                                      struct.unpack('BBBBBB', self['value']))
+                self.value = ':'.join(
+                    '%02x' % (i)
+                    for i in struct.unpack('BBBBBB', self['value'])
+                )
             elif len(self['value']) == 4:
                 self.value = inet_ntop(AF_INET, self['value'])
             elif len(self['value']) == 16:
@@ -1963,12 +2000,14 @@ class nlmsg_atoms(object):
                 # extract data for the whole message
                 offset = self.parent.offset
                 length = self.parent.length
-                data = self.parent.data[offset:offset + length]
+                data = self.parent.data[offset : offset + length]
                 # report
                 logging.warning(
                     'unknown or invalid lladdr size, please report to: '
                     'https://github.com/svinota/pyroute2/issues/717 \n'
-                    'packet data: %s', hexdump(data))
+                    'packet data: %s',
+                    hexdump(data),
+                )
                 # continue with hex dump as the value
                 self.value = hexdump(self['value'])
 
@@ -1976,6 +2015,7 @@ class nlmsg_atoms(object):
         '''
         Represent NLA's content with header as hex string.
         '''
+
         __slots__ = ()
 
         def decode(self):
@@ -1986,9 +2026,8 @@ class nlmsg_atoms(object):
         '''
         Array of simple data type
         '''
-        __slots__ = (
-            "_fmt",
-        )
+
+        __slots__ = ("_fmt",)
         own_parent = True
 
         @property
@@ -2023,12 +2062,14 @@ class nlmsg_atoms(object):
         '''
         Binary data
         '''
+
         __slots__ = ()
 
     class string(nla_base_string):
         '''
         UTF-8 string.
         '''
+
         __slots__ = ()
         sql_type = 'TEXT'
 
@@ -2050,6 +2091,7 @@ class nlmsg_atoms(object):
         '''
         Zero-terminated string.
         '''
+
         __slots__ = ()
         zstring = 1
 
@@ -2057,7 +2099,7 @@ class nlmsg_atoms(object):
     #
     # aliases to support standard kernel attributes:
     #
-    binary = cdata       # NLA_BINARY
+    binary = cdata  # NLA_BINARY
     nul_string = asciiz  # NLA_NUL_STRING
 
 
@@ -2100,26 +2142,29 @@ class nla_struct(nla_base_struct, nlmsg_atoms):
     def decode(self):
         nla_base_struct.decode(self)
         del self['header']
+
+
 #
 # 8<---------------------------------------------------------------------
 ##
 
 
-class nlmsg(nlmsg_base,
-            nlmsg_encoder_generic,
-            nlmsg_decoder_generic,
-            nlmsg_atoms):
+class nlmsg(
+    nlmsg_base, nlmsg_encoder_generic, nlmsg_decoder_generic, nlmsg_atoms
+):
     '''
     Main netlink message class
     '''
 
     __slots__ = ()
 
-    header = (('length', 'I'),
-              ('type', 'H'),
-              ('flags', 'H'),
-              ('sequence_number', 'I'),
-              ('pid', 'I'))
+    header = (
+        ('length', 'I'),
+        ('type', 'H'),
+        ('flags', 'H'),
+        ('sequence_number', 'I'),
+        ('pid', 'I'),
+    )
 
 
 class nlmsgerr(nlmsg):
@@ -2131,10 +2176,12 @@ class nlmsgerr(nlmsg):
 
     fields = (('error', 'i'),)
 
-    nla_map = (('NLMSGERR_ATTR_UNUSED', 'none'),
-               ('NLMSGERR_ATTR_MSG', 'asciiz'),
-               ('NLMSGERR_ATTR_OFFS', 'uint32'),
-               ('NLMSGERR_ATTR_COOKIE', 'uint8'))
+    nla_map = (
+        ('NLMSGERR_ATTR_UNUSED', 'none'),
+        ('NLMSGERR_ATTR_MSG', 'asciiz'),
+        ('NLMSGERR_ATTR_OFFS', 'uint32'),
+        ('NLMSGERR_ATTR_COOKIE', 'uint8'),
+    )
 
 
 class genlmsg(nlmsg):
@@ -2144,9 +2191,7 @@ class genlmsg(nlmsg):
 
     __slots__ = ()
 
-    fields = (('cmd', 'B'),
-              ('version', 'B'),
-              ('reserved', 'H'))
+    fields = (('cmd', 'B'), ('version', 'B'), ('reserved', 'H'))
 
 
 class ctrlmsg(genlmsg):
@@ -2157,27 +2202,33 @@ class ctrlmsg(genlmsg):
     __slots__ = ()
 
     # FIXME: to be extended
-    nla_map = (('CTRL_ATTR_UNSPEC', 'none'),
-               ('CTRL_ATTR_FAMILY_ID', 'uint16'),
-               ('CTRL_ATTR_FAMILY_NAME', 'asciiz'),
-               ('CTRL_ATTR_VERSION', 'uint32'),
-               ('CTRL_ATTR_HDRSIZE', 'uint32'),
-               ('CTRL_ATTR_MAXATTR', 'uint32'),
-               ('CTRL_ATTR_OPS', '*ops'),
-               ('CTRL_ATTR_MCAST_GROUPS', '*mcast_groups'))
+    nla_map = (
+        ('CTRL_ATTR_UNSPEC', 'none'),
+        ('CTRL_ATTR_FAMILY_ID', 'uint16'),
+        ('CTRL_ATTR_FAMILY_NAME', 'asciiz'),
+        ('CTRL_ATTR_VERSION', 'uint32'),
+        ('CTRL_ATTR_HDRSIZE', 'uint32'),
+        ('CTRL_ATTR_MAXATTR', 'uint32'),
+        ('CTRL_ATTR_OPS', '*ops'),
+        ('CTRL_ATTR_MCAST_GROUPS', '*mcast_groups'),
+    )
 
     class ops(nla):
 
         __slots__ = ()
 
-        nla_map = (('CTRL_ATTR_OP_UNSPEC', 'none'),
-                   ('CTRL_ATTR_OP_ID', 'uint32'),
-                   ('CTRL_ATTR_OP_FLAGS', 'uint32'))
+        nla_map = (
+            ('CTRL_ATTR_OP_UNSPEC', 'none'),
+            ('CTRL_ATTR_OP_ID', 'uint32'),
+            ('CTRL_ATTR_OP_FLAGS', 'uint32'),
+        )
 
     class mcast_groups(nla):
 
         __slots__ = ()
 
-        nla_map = (('CTRL_ATTR_MCAST_GRP_UNSPEC', 'none'),
-                   ('CTRL_ATTR_MCAST_GRP_NAME', 'asciiz'),
-                   ('CTRL_ATTR_MCAST_GRP_ID', 'uint32'))
+        nla_map = (
+            ('CTRL_ATTR_MCAST_GRP_UNSPEC', 'none'),
+            ('CTRL_ATTR_MCAST_GRP_NAME', 'asciiz'),
+            ('CTRL_ATTR_MCAST_GRP_ID', 'uint32'),
+        )

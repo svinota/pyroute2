@@ -6,8 +6,9 @@ from pr2test.context_manager import make_test_matrix
 from pyroute2 import config
 
 
-test_matrix = make_test_matrix(targets=['local', 'netns'],
-                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+test_matrix = make_test_matrix(
+    targets=['local', 'netns'], dbs=['sqlite3/:memory:', 'postgres/pr2test']
+)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -44,7 +45,7 @@ def test_view_cache(context):
     #
     # setup the cache expiration time
     ce = config.cache_expire  # save the old value
-    config.cache_expire = 1   # set the new one
+    config.cache_expire = 1  # set the new one
     #
     # access the interfaces via __getitem__() -- this must
     # create objects and cache the references
@@ -66,10 +67,7 @@ def test_view_cache(context):
     #
     # only ifname2 must remain
     assert len(list(ndb.interfaces.cache)) == 1
-    assert list(ndb
-                .interfaces
-                .cache
-                .items())[0][1]['ifname'] == ifname2
+    assert list(ndb.interfaces.cache.items())[0][1]['ifname'] == ifname2
     #
     # restore the environment
     config.cache_expire = ce

@@ -157,15 +157,14 @@ from pr2modules.netlink.rtnl.tcmsg.common_ematch import nla_plus_tcf_ematch_opt
 
 
 def fix_msg(msg, kwarg):
-    msg['info'] = htons(kwarg.get('protocol', protocols.ETH_P_ALL) & 0xffff) |\
-        ((kwarg.get('prio', 0) << 16) & 0xffff0000)
+    msg['info'] = htons(
+        kwarg.get('protocol', protocols.ETH_P_ALL) & 0xFFFF
+    ) | ((kwarg.get('prio', 0) << 16) & 0xFFFF0000)
 
 
 def get_parameters(kwarg):
     ret = {'attrs': []}
-    attrs_map = (
-        ('classid', 'TCA_BASIC_CLASSID'),
-    )
+    attrs_map = (('classid', 'TCA_BASIC_CLASSID'),)
 
     if kwarg.get('match'):
         ret['attrs'].append(['TCA_BASIC_EMATCHES', get_tcf_ematches(kwarg)])
@@ -182,31 +181,32 @@ def get_parameters(kwarg):
 
 
 class options(nla):
-    nla_map = (('TCA_BASIC_UNSPEC', 'none'),
-               ('TCA_BASIC_CLASSID', 'uint32'),
-               ('TCA_BASIC_EMATCHES', 'parse_basic_ematch_tree'),
-               ('TCA_BASIC_ACT', 'tca_act_prio'),
-               ('TCA_BASIC_POLICE', 'hex'),
-               )
+    nla_map = (
+        ('TCA_BASIC_UNSPEC', 'none'),
+        ('TCA_BASIC_CLASSID', 'uint32'),
+        ('TCA_BASIC_EMATCHES', 'parse_basic_ematch_tree'),
+        ('TCA_BASIC_ACT', 'tca_act_prio'),
+        ('TCA_BASIC_POLICE', 'hex'),
+    )
 
     class parse_basic_ematch_tree(nla):
-        nla_map = (('TCA_EMATCH_TREE_UNSPEC', 'none'),
-                   ('TCA_EMATCH_TREE_HDR', 'tcf_parse_header'),
-                   ('TCA_EMATCH_TREE_LIST', '*tcf_parse_list'),
-                   )
+        nla_map = (
+            ('TCA_EMATCH_TREE_UNSPEC', 'none'),
+            ('TCA_EMATCH_TREE_HDR', 'tcf_parse_header'),
+            ('TCA_EMATCH_TREE_LIST', '*tcf_parse_list'),
+        )
 
         class tcf_parse_header(nla):
-            fields = (('nmatches', 'H'),
-                      ('progid', 'H'),
-                      )
+            fields = (('nmatches', 'H'), ('progid', 'H'))
 
         class tcf_parse_list(nla, nla_plus_tcf_ematch_opt):
-            fields = (('matchid', 'H'),
-                      ('kind', 'H'),
-                      ('flags', 'H'),
-                      ('pad', 'H'),
-                      ('opt', 's'),
-                      )
+            fields = (
+                ('matchid', 'H'),
+                ('kind', 'H'),
+                ('flags', 'H'),
+                ('pad', 'H'),
+                ('opt', 's'),
+            )
 
             def decode(self):
                 nla.decode(self)

@@ -17,24 +17,26 @@ from pr2modules.netlink.rtnl.ifinfmsg.sync import sync
 IFNAMSIZ = 16
 
 TUNDEV = '/dev/net/tun'
-PLATFORMS = ('i386',
-             'i686',
-             'x86_64',
-             'armv6l',
-             'armv7l',
-             's390x',
-             'aarch64',
-             'loongarch64')
+PLATFORMS = (
+    'i386',
+    'i686',
+    'x86_64',
+    'armv6l',
+    'armv7l',
+    's390x',
+    'aarch64',
+    'loongarch64',
+)
 if config.machine in PLATFORMS:
-    TUNSETIFF = 0x400454ca
-    TUNSETPERSIST = 0x400454cb
-    TUNSETOWNER = 0x400454cc
-    TUNSETGROUP = 0x400454ce
+    TUNSETIFF = 0x400454CA
+    TUNSETPERSIST = 0x400454CB
+    TUNSETOWNER = 0x400454CC
+    TUNSETGROUP = 0x400454CE
 elif config.machine in ('ppc64', 'mips'):
-    TUNSETIFF = 0x800454ca
-    TUNSETPERSIST = 0x800454cb
-    TUNSETOWNER = 0x800454cc
-    TUNSETGROUP = 0x800454ce
+    TUNSETIFF = 0x800454CA
+    TUNSETPERSIST = 0x800454CB
+    TUNSETOWNER = 0x800454CC
+    TUNSETGROUP = 0x800454CE
 else:
     TUNSETIFF = None
 

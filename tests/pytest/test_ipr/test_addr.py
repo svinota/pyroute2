@@ -49,11 +49,7 @@ def test_addr_add_local(context):
 
     ipr.link('add', ifname=ifname, kind='dummy')
     index = ndb.interfaces.wait(ifname=ifname, timeout=5)['index']
-    ipr.addr('add',
-             index=index,
-             address=ipaddr1,
-             local=ipaddr2,
-             prefixlen=24)
+    ipr.addr('add', index=index, address=ipaddr1, local=ipaddr2, prefixlen=24)
     ndb.addresses.wait(index=index, address=ipaddr1, local=ipaddr2, timeout=5)
 
 
@@ -68,15 +64,12 @@ def test_addr_add_broadcast(context):
 
     ipr.link('add', ifname=ifname, kind='dummy')
     index = ndb.interfaces.wait(ifname=ifname, timeout=5)['index']
-    ipr.addr('add',
-             index=index,
-             address=ipaddr1,
-             broadcast=ipaddr2,
-             prefixlen=24)
-    ndb.addresses.wait(index=index,
-                       address=ipaddr1,
-                       broadcast=ipaddr2,
-                       timeout=5)
+    ipr.addr(
+        'add', index=index, address=ipaddr1, broadcast=ipaddr2, prefixlen=24
+    )
+    ndb.addresses.wait(
+        index=index, address=ipaddr1, broadcast=ipaddr2, timeout=5
+    )
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -89,14 +82,8 @@ def test_addr_add_broadcast_default(context):
 
     ipr.link('add', ifname=ifname, kind='dummy')
     index = ndb.interfaces.wait(ifname=ifname, timeout=5)['index']
-    ipr.addr('add',
-             index=index,
-             address=ipaddr,
-             broadcast=True,
-             prefixlen=24)
-    interface = ndb.addresses.wait(index=index,
-                                   address=ipaddr,
-                                   timeout=5)
+    ipr.addr('add', index=index, address=ipaddr, broadcast=True, prefixlen=24)
+    interface = ndb.addresses.wait(index=index, address=ipaddr, timeout=5)
     assert interface['broadcast'] is not None
 
 
@@ -112,16 +99,12 @@ def test_addr_filter(context):
 
     ipr.link('add', ifname=ifname, kind='dummy')
     index = ndb.interfaces.wait(ifname=ifname, timeout=5)['index']
-    ipr.addr('add',
-             index=index,
-             address=ipaddr1,
-             broadcast=ipaddrB,
-             prefixlen=24)
-    ipr.addr('add',
-             index=index,
-             address=ipaddr2,
-             broadcast=ipaddrB,
-             prefixlen=24)
+    ipr.addr(
+        'add', index=index, address=ipaddr1, broadcast=ipaddrB, prefixlen=24
+    )
+    ipr.addr(
+        'add', index=index, address=ipaddr2, broadcast=ipaddrB, prefixlen=24
+    )
     ndb.addresses.wait(index=index, address=ipaddr1, timeout=5)
     ndb.addresses.wait(index=index, address=ipaddr2, timeout=5)
     assert len(ipr.get_addr(index=index)) == 2
@@ -134,10 +117,12 @@ def test_addr_filter(context):
 @skip_if_not_supported
 def test_addr_flush(context):
     ifname = context.new_ifname
-    addresses = [context.new_ipaddr,
-                 context.new_ipaddr,
-                 context.new_ipaddr,
-                 context.new_ipaddr]
+    addresses = [
+        context.new_ipaddr,
+        context.new_ipaddr,
+        context.new_ipaddr,
+        context.new_ipaddr,
+    ]
     ipr = context.ipr
     ndb = context.ndb
     counter = 5

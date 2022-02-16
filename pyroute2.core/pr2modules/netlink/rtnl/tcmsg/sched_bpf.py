@@ -11,16 +11,18 @@ from pr2modules.netlink.rtnl.tcmsg.common import TCA_ACT_MAX_PRIO
 from pr2modules.netlink.rtnl.tcmsg.common_act import get_tca_action
 from pr2modules.netlink.rtnl.tcmsg.common_act import nla_plus_tca_act_opt
 from pr2modules.netlink.rtnl.tcmsg.act_police import nla_plus_police
-from pr2modules.netlink.rtnl.tcmsg.act_police import get_parameters \
-    as ap_parameters
+from pr2modules.netlink.rtnl.tcmsg.act_police import (
+    get_parameters as ap_parameters,
+)
 
 parent = TC_H_ROOT
 TCA_BPF_FLAG_ACT_DIRECT = 1
 
 
 def fix_msg(msg, kwarg):
-    msg['info'] = htons(kwarg.pop('protocol', ETH_P_ALL) & 0xffff) |\
-        ((kwarg.pop('prio', 0) << 16) & 0xffff0000)
+    msg['info'] = htons(kwarg.pop('protocol', ETH_P_ALL) & 0xFFFF) | (
+        (kwarg.pop('prio', 0) << 16) & 0xFFFF0000
+    )
 
 
 def get_parameters(kwarg):
@@ -54,28 +56,35 @@ def get_parameters(kwarg):
 
 
 class options(nla, nla_plus_police):
-    nla_map = (('TCA_BPF_UNSPEC', 'none'),
-               ('TCA_BPF_ACT', 'bpf_act'),
-               ('TCA_BPF_POLICE', 'police'),
-               ('TCA_BPF_CLASSID', 'uint32'),
-               ('TCA_BPF_OPS_LEN', 'uint32'),
-               ('TCA_BPF_OPS', 'uint32'),
-               ('TCA_BPF_FD', 'uint32'),
-               ('TCA_BPF_NAME', 'asciiz'),
-               ('TCA_BPF_FLAGS', 'uint32'))
+    nla_map = (
+        ('TCA_BPF_UNSPEC', 'none'),
+        ('TCA_BPF_ACT', 'bpf_act'),
+        ('TCA_BPF_POLICE', 'police'),
+        ('TCA_BPF_CLASSID', 'uint32'),
+        ('TCA_BPF_OPS_LEN', 'uint32'),
+        ('TCA_BPF_OPS', 'uint32'),
+        ('TCA_BPF_FD', 'uint32'),
+        ('TCA_BPF_NAME', 'asciiz'),
+        ('TCA_BPF_FLAGS', 'uint32'),
+    )
 
     class bpf_act(nla):
         nla_flags = NLA_F_NESTED
-        nla_map = tuple([('TCA_ACT_PRIO_%i' % x, 'tca_act_bpf') for x
-                         in range(TCA_ACT_MAX_PRIO)])
+        nla_map = tuple(
+            [
+                ('TCA_ACT_PRIO_%i' % x, 'tca_act_bpf')
+                for x in range(TCA_ACT_MAX_PRIO)
+            ]
+        )
 
-        class tca_act_bpf(nla,
-                          nla_plus_tca_act_opt):
-            nla_map = (('TCA_ACT_UNSPEC', 'none'),
-                       ('TCA_ACT_KIND', 'asciiz'),
-                       ('TCA_ACT_OPTIONS', 'get_act_options'),
-                       ('TCA_ACT_INDEX', 'hex'),
-                       ('TCA_ACT_STATS', 'get_stats2'))
+        class tca_act_bpf(nla, nla_plus_tca_act_opt):
+            nla_map = (
+                ('TCA_ACT_UNSPEC', 'none'),
+                ('TCA_ACT_KIND', 'asciiz'),
+                ('TCA_ACT_OPTIONS', 'get_act_options'),
+                ('TCA_ACT_INDEX', 'hex'),
+                ('TCA_ACT_STATS', 'get_stats2'),
+            )
 
             @staticmethod
             def get_stats2(self, *argv, **kwarg):

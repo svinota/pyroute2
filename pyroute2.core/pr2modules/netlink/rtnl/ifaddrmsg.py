@@ -50,31 +50,38 @@ class ifaddrmsg(nlmsg):
         };
 
     '''
+
     prefix = 'IFA_'
 
     sql_constraints = {'IFA_LOCAL': "NOT NULL DEFAULT ''"}
 
-    fields = (('family', 'B'),
-              ('prefixlen', 'B'),
-              ('flags', 'B'),
-              ('scope', 'B'),
-              ('index', 'I'))
+    fields = (
+        ('family', 'B'),
+        ('prefixlen', 'B'),
+        ('flags', 'B'),
+        ('scope', 'B'),
+        ('index', 'I'),
+    )
 
-    nla_map = (('IFA_UNSPEC', 'hex'),
-               ('IFA_ADDRESS', 'ipaddr'),
-               ('IFA_LOCAL', 'ipaddr'),
-               ('IFA_LABEL', 'asciiz'),
-               ('IFA_BROADCAST', 'ipaddr'),
-               ('IFA_ANYCAST', 'ipaddr'),
-               ('IFA_CACHEINFO', 'cacheinfo'),
-               ('IFA_MULTICAST', 'ipaddr'),
-               ('IFA_FLAGS', 'uint32'))
+    nla_map = (
+        ('IFA_UNSPEC', 'hex'),
+        ('IFA_ADDRESS', 'ipaddr'),
+        ('IFA_LOCAL', 'ipaddr'),
+        ('IFA_LABEL', 'asciiz'),
+        ('IFA_BROADCAST', 'ipaddr'),
+        ('IFA_ANYCAST', 'ipaddr'),
+        ('IFA_CACHEINFO', 'cacheinfo'),
+        ('IFA_MULTICAST', 'ipaddr'),
+        ('IFA_FLAGS', 'uint32'),
+    )
 
     class cacheinfo(nla):
-        fields = (('ifa_preferred', 'I'),
-                  ('ifa_valid', 'I'),
-                  ('cstamp', 'I'),
-                  ('tstamp', 'I'))
+        fields = (
+            ('ifa_preferred', 'I'),
+            ('ifa_valid', 'I'),
+            ('cstamp', 'I'),
+            ('tstamp', 'I'),
+        )
 
     @staticmethod
     def flags2names(flags, family=socket.AF_INET):

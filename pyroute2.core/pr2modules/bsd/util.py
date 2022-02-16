@@ -62,8 +62,7 @@ class Route(CMD):
                     fmap['Netif'] = fmap['Iface']
                 continue
 
-            route = {'family': family,
-                     'attrs': []}
+            route = {'family': family, 'attrs': []}
 
             #
             # RTA_DST
@@ -130,11 +129,12 @@ class ARP(CMD):
                 continue
 
             ifname = sl[f_ifname]
-            neighbour = {'ifindex': 0,
-                         'ifname': ifname,
-                         'family': 2,
-                         'attrs': [['NDA_DST', dst],
-                                   ['NDA_LLADDR', addr]]}
+            neighbour = {
+                'ifindex': 0,
+                'ifname': ifname,
+                'family': 2,
+                'attrs': [['NDA_DST', dst], ['NDA_LLADDR', addr]],
+            }
             ret.append(neighbour)
         return ret
 
@@ -173,8 +173,7 @@ class Ifconfig(CMD):
         '''
         ifname = None
         kind = None
-        ret = {'links': {},
-               'addrs': {}}
+        ret = {'links': {}, 'addrs': {}}
         idx = 0
         info_data = {'attrs': None}
 
@@ -197,8 +196,10 @@ class Ifconfig(CMD):
                     except ValueError:
                         continue
                 if arrow is not None:
-                    info_data['attrs'] = [('IFLA_GRE_LOCAL', sl[arrow - 1]),
-                                          ('IFLA_GRE_REMOTE', sl[arrow + 1])]
+                    info_data['attrs'] = [
+                        ('IFLA_GRE_LOCAL', sl[arrow - 1]),
+                        ('IFLA_GRE_REMOTE', sl[arrow + 1]),
+                    ]
                 continue
 
             # first line -- ifname, flags, mtu
@@ -206,16 +207,19 @@ class Ifconfig(CMD):
                 ifname = sl[0][:-1]
                 kind = None
                 idx += 1
-                ret['links'][ifname] = link = {'index': idx,
-                                               'attrs': []}
+                ret['links'][ifname] = link = {'index': idx, 'attrs': []}
                 ret['addrs'][ifname] = addrs = []
                 link['attrs'].append(['IFLA_IFNAME', ifname])
                 #
                 if ifname[:3] == 'gre':
                     kind = 'gre'
                     info_data = {'attrs': []}
-                    linkinfo = {'attrs': [('IFLA_INFO_KIND', kind),
-                                          ('IFLA_INFO_DATA', info_data)]}
+                    linkinfo = {
+                        'attrs': [
+                            ('IFLA_INFO_KIND', kind),
+                            ('IFLA_INFO_DATA', info_data),
+                        ]
+                    }
                     link['attrs'].append(['IFLA_LINKINFO', linkinfo])
 
                 # extract flags
@@ -239,26 +243,28 @@ class Ifconfig(CMD):
                 link['index'] = int(pl['index'])
 
             elif 'inet' in pl:
-                if ('netmask' not in pl) or \
-                        ('inet' not in pl):
+                if ('netmask' not in pl) or ('inet' not in pl):
                     print(pl)
                     continue
-                addr = {'index': idx,
-                        'family': socket.AF_INET,
-                        'prefixlen': bin(int(pl['netmask'], 16)).count('1'),
-                        'attrs': [['IFA_ADDRESS', pl['inet']]]}
+                addr = {
+                    'index': idx,
+                    'family': socket.AF_INET,
+                    'prefixlen': bin(int(pl['netmask'], 16)).count('1'),
+                    'attrs': [['IFA_ADDRESS', pl['inet']]],
+                }
                 if 'broadcast' in pl:
                     addr['attrs'].append(['IFA_BROADCAST', pl['broadcast']])
                 addrs.append(addr)
             elif 'inet6' in pl:
-                if ('prefixlen' not in pl) or \
-                        ('inet6' not in pl):
+                if ('prefixlen' not in pl) or ('inet6' not in pl):
                     print(pl)
                     continue
-                addr = {'index': idx,
-                        'family': socket.AF_INET6,
-                        'prefixlen': int(pl['prefixlen']),
-                        'attrs': [['IFA_ADDRESS', pl['inet6'].split('%')[0]]]}
+                addr = {
+                    'index': idx,
+                    'family': socket.AF_INET6,
+                    'prefixlen': int(pl['prefixlen']),
+                    'attrs': [['IFA_ADDRESS', pl['inet6'].split('%')[0]]],
+                }
                 if 'scopeid' in pl:
                     addr['scope'] = int(pl['scopeid'], 16)
                 addrs.append(addr)

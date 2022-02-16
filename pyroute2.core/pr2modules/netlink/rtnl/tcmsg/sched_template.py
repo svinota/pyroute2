@@ -44,6 +44,7 @@ class options(nla.hex):
     '''
     The `TCA_OPTIONS` struct, by default not decoded.
     '''
+
     pass
 
 
@@ -51,6 +52,7 @@ class stats(nla.hex):
     '''
     The struct to decode `TCA_XSTATS`.
     '''
+
     pass
 
 
@@ -58,4 +60,5 @@ class stats2(common.stats2):
     '''
     The struct to decode `TCA_STATS2`.
     '''
+
     pass

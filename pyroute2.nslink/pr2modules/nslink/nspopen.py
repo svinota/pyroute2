@@ -32,18 +32,21 @@ def _handle(result):
 def _make_fcntl(prime, target):
     def func(*argv, **kwarg):
         return target(prime.fileno(), *argv, **kwarg)
+
     return func
 
 
 def _make_func(target):
     def func(*argv, **kwarg):
         return target(*argv, **kwarg)
+
     return func
 
 
 def _make_property(name):
     def func(self):
         return getattr(self.prime, name)
+
     return property(func)
 
 
@@ -52,8 +55,9 @@ def _map_api(api, obj):
         attr = getattr(obj, attr_name)
         api[attr_name] = {'api': None}
         api[attr_name]['callable'] = hasattr(attr, '__call__')
-        api[attr_name]['doc'] = attr.__doc__ \
-            if hasattr(attr, '__doc__') else None
+        api[attr_name]['doc'] = (
+            attr.__doc__ if hasattr(attr, '__doc__') else None
+        )
 
 
 class MetaPopen(type):
@@ -62,6 +66,7 @@ class MetaPopen(type):
 
     All this stuff is required to make `help()` function happy.
     '''
+
     def __init__(cls, *argv, **kwarg):
         super(MetaPopen, cls).__init__(*argv, **kwarg)
         # copy docstrings and create proxy slots
@@ -69,13 +74,14 @@ class MetaPopen(type):
         _map_api(cls.api, subprocess.Popen)
         for fname in ('stdin', 'stdout', 'stderr'):
             m = {}
-            cls.api[fname] = {'callable': False,
-                              'api': m}
+            cls.api[fname] = {'callable': False, 'api': m}
             _map_api(m, file)
             for ename in ('fcntl', 'ioctl', 'flock', 'lockf'):
-                m[ename] = {'api': None,
-                            'callable': True,
-                            'doc': getattr(fcntl, ename).__doc__}
+                m[ename] = {
+                    'api': None,
+                    'callable': True,
+                    'doc': getattr(fcntl, ename).__doc__,
+                }
 
     def __dir__(cls):
         return list(cls.api.keys()) + ['release']
@@ -86,8 +92,10 @@ class MetaPopen(type):
         except AttributeError:
             attr = getattr(subprocess.Popen, key)
             if isinstance(attr, (types.MethodType, types.FunctionType)):
+
                 def proxy(*argv, **kwarg):
                     return attr(*argv, **kwarg)
+
                 proxy.__doc__ = attr.__doc__
                 proxy.__objclass__ = cls
                 return proxy
@@ -96,7 +104,6 @@ class MetaPopen(type):
 
 
 class NSPopenFile(object):
-
     def __init__(self, prime):
         self.prime = prime
 
@@ -105,8 +112,7 @@ class NSPopenFile(object):
                 continue
 
             target = getattr(prime, aname)
-            if isinstance(target, (types.BuiltinMethodType,
-                                   types.MethodType)):
+            if isinstance(target, (types.BuiltinMethodType, types.MethodType)):
                 func = _make_func(target)
                 func.__name__ = aname
                 func.__doc__ = getattr(target, '__doc__', '')
@@ -168,9 +174,14 @@ def NSPopenServer(nsname, flags, channel_in, channel_out, argv, kwarg):
                 for step in ns.split('.'):
                     obj = getattr(obj, step)
             attr = getattr(obj, call['name'])
-            if isinstance(attr, (types.MethodType,
-                                 types.FunctionType,
-                                 types.BuiltinMethodType)):
+            if isinstance(
+                attr,
+                (
+                    types.MethodType,
+                    types.FunctionType,
+                    types.BuiltinMethodType,
+                ),
+            ):
                 result = attr(*call['argv'], **call['kwarg'])
             else:
                 result = attr
@@ -199,13 +210,19 @@ class ObjNS(object):
                 if self.released:
                     raise RuntimeError('the object is released')
 
-                if (self.api.get(key) and self.api[key]['callable']):
+                if self.api.get(key) and self.api[key]['callable']:
+
                     def proxy(*argv, **kwarg):
-                        self.channel_out.put({'name': key,
-                                              'argv': argv,
-                                              'namespace': self.ns,
-                                              'kwarg': kwarg})
+                        self.channel_out.put(
+                            {
+                                'name': key,
+                                'argv': argv,
+                                'namespace': self.ns,
+                                'kwarg': kwarg,
+                            }
+                        )
                         return _handle(self.channel_in.get())
+
                     if key in self.api:
                         proxy.__doc__ = self.api[key]['doc']
                     return proxy
@@ -220,8 +237,9 @@ class ObjNS(object):
                         objns.lock = self.lock
                         return objns
                     else:
-                        self.channel_out.put({'name': key,
-                                              'namespace': self.ns})
+                        self.channel_out.put(
+                            {'name': key, 'namespace': self.ns}
+                        )
                         return _handle(self.channel_in.get())
 
 
@@ -308,12 +326,17 @@ class NSPopen(ObjNS):
         self.channel_in = config.MpQueue()
         self.lock = threading.Lock()
         self.released = False
-        self.server = config.MpProcess(target=NSPopenServer,
-                                       args=(self.nsname,
-                                             self.flags,
-                                             self.channel_out,
-                                             self.channel_in,
-                                             argv, kwarg))
+        self.server = config.MpProcess(
+            target=NSPopenServer,
+            args=(
+                self.nsname,
+                self.flags,
+                self.channel_out,
+                self.channel_in,
+                argv,
+                kwarg,
+            ),
+        )
         # start the child and check the status
         self.server.start()
         response = self.channel_in.get()

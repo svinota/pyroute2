@@ -66,11 +66,11 @@ IPSET_ERR_TYPE_SPECIFIC = 4352
 class ipset_base(nla):
     class ipset_ip(nla):
         nla_flags = NLA_F_NESTED
-        nla_map = (('IPSET_ATTR_UNSPEC', 'none'),
-                   ('IPSET_ATTR_IPADDR_IPV4', 'ip4addr',
-                    NLA_F_NET_BYTEORDER),
-                   ('IPSET_ATTR_IPADDR_IPV6', 'ip6addr',
-                    NLA_F_NET_BYTEORDER))
+        nla_map = (
+            ('IPSET_ATTR_UNSPEC', 'none'),
+            ('IPSET_ATTR_IPADDR_IPV4', 'ip4addr', NLA_F_NET_BYTEORDER),
+            ('IPSET_ATTR_IPADDR_IPV6', 'ip6addr', NLA_F_NET_BYTEORDER),
+        )
 
 
 class ipset_msg(nfgen_msg):
@@ -79,18 +79,21 @@ class ipset_msg(nfgen_msg):
     many attrs are still in `hex` format -- just to
     dump the content.
     '''
-    nla_map = (('IPSET_ATTR_UNSPEC', 'none'),
-               ('IPSET_ATTR_PROTOCOL', 'uint8'),
-               ('IPSET_ATTR_SETNAME', 'asciiz'),
-               ('IPSET_ATTR_TYPENAME', 'asciiz'),
-               ('IPSET_ATTR_REVISION', 'uint8'),
-               ('IPSET_ATTR_FAMILY', 'uint8'),
-               ('IPSET_ATTR_FLAGS', 'be32'),
-               ('IPSET_ATTR_DATA', 'get_data_type'),
-               ('IPSET_ATTR_ADT', 'attr_adt'),
-               ('IPSET_ATTR_LINENO', 'hex'),
-               ('IPSET_ATTR_PROTOCOL_MIN', 'uint8'),
-               ('IPSET_ATTR_INDEX', 'be16'))
+
+    nla_map = (
+        ('IPSET_ATTR_UNSPEC', 'none'),
+        ('IPSET_ATTR_PROTOCOL', 'uint8'),
+        ('IPSET_ATTR_SETNAME', 'asciiz'),
+        ('IPSET_ATTR_TYPENAME', 'asciiz'),
+        ('IPSET_ATTR_REVISION', 'uint8'),
+        ('IPSET_ATTR_FAMILY', 'uint8'),
+        ('IPSET_ATTR_FLAGS', 'be32'),
+        ('IPSET_ATTR_DATA', 'get_data_type'),
+        ('IPSET_ATTR_ADT', 'attr_adt'),
+        ('IPSET_ATTR_LINENO', 'hex'),
+        ('IPSET_ATTR_PROTOCOL_MIN', 'uint8'),
+        ('IPSET_ATTR_INDEX', 'be16'),
+    )
 
     @staticmethod
     def get_data_type(self, *args, **kwargs):
@@ -105,37 +108,35 @@ class ipset_msg(nfgen_msg):
     class ipset_generic(ipset_base):
         class adt_data(ipset_base):
             nla_flags = NLA_F_NESTED
-            nla_map = ((0, 'IPSET_ATTR_UNSPEC', 'none'),
-                       (1, 'IPSET_ATTR_IP', 'ipset_ip'),
-                       (1, 'IPSET_ATTR_IP_FROM', 'ipset_ip'),
-                       (2, 'IPSET_ATTR_IP_TO', 'ipset_ip'),
-                       (3, 'IPSET_ATTR_CIDR', 'be8', NLA_F_NET_BYTEORDER),
-                       (4, 'IPSET_ATTR_PORT', 'be16', NLA_F_NET_BYTEORDER),
-                       (4, 'IPSET_ATTR_PORT_FROM', 'be16',
-                        NLA_F_NET_BYTEORDER),
-                       (5, 'IPSET_ATTR_PORT_TO', 'be16', NLA_F_NET_BYTEORDER),
-                       (6, 'IPSET_ATTR_TIMEOUT', 'be32', NLA_F_NET_BYTEORDER),
-                       (7, 'IPSET_ATTR_PROTO', 'be8', NLA_F_NET_BYTEORDER),
-                       (8, 'IPSET_ATTR_CADT_FLAGS', 'be32',
-                        NLA_F_NET_BYTEORDER),
-                       (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
-                       (10, 'IPSET_ATTR_MARK', 'be32', NLA_F_NET_BYTEORDER),
-                       (11, 'IPSET_ATTR_MARKMASK', 'be32',
-                        NLA_F_NET_BYTEORDER),
-                       (17, 'IPSET_ATTR_ETHER', 'l2addr'),
-                       (18, 'IPSET_ATTR_NAME', 'asciiz'),
-                       (19, 'IPSET_ATTR_NAMEREF', 'be32'),
-                       (20, 'IPSET_ATTR_IP2', 'ipset_ip'),
-                       (21, 'IPSET_ATTR_CIDR2', 'be8', NLA_F_NET_BYTEORDER),
-                       (22, 'IPSET_ATTR_IP2_TO', 'ipset_ip'),
-                       (23, 'IPSET_ATTR_IFACE', 'asciiz'),
-                       (24, 'IPSET_ATTR_BYTES', 'be64', NLA_F_NET_BYTEORDER),
-                       (25, 'IPSET_ATTR_PACKETS', 'be64', NLA_F_NET_BYTEORDER),
-                       (26, 'IPSET_ATTR_COMMENT', 'asciiz'),
-                       (27, 'IPSET_ATTR_SKBMARK', 'skbmark'),
-                       (28, 'IPSET_ATTR_SKBPRIO', 'skbprio'),
-                       (29, 'IPSET_ATTR_SKBQUEUE', 'be16',
-                        NLA_F_NET_BYTEORDER))
+            nla_map = (
+                (0, 'IPSET_ATTR_UNSPEC', 'none'),
+                (1, 'IPSET_ATTR_IP', 'ipset_ip'),
+                (1, 'IPSET_ATTR_IP_FROM', 'ipset_ip'),
+                (2, 'IPSET_ATTR_IP_TO', 'ipset_ip'),
+                (3, 'IPSET_ATTR_CIDR', 'be8', NLA_F_NET_BYTEORDER),
+                (4, 'IPSET_ATTR_PORT', 'be16', NLA_F_NET_BYTEORDER),
+                (4, 'IPSET_ATTR_PORT_FROM', 'be16', NLA_F_NET_BYTEORDER),
+                (5, 'IPSET_ATTR_PORT_TO', 'be16', NLA_F_NET_BYTEORDER),
+                (6, 'IPSET_ATTR_TIMEOUT', 'be32', NLA_F_NET_BYTEORDER),
+                (7, 'IPSET_ATTR_PROTO', 'be8', NLA_F_NET_BYTEORDER),
+                (8, 'IPSET_ATTR_CADT_FLAGS', 'be32', NLA_F_NET_BYTEORDER),
+                (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
+                (10, 'IPSET_ATTR_MARK', 'be32', NLA_F_NET_BYTEORDER),
+                (11, 'IPSET_ATTR_MARKMASK', 'be32', NLA_F_NET_BYTEORDER),
+                (17, 'IPSET_ATTR_ETHER', 'l2addr'),
+                (18, 'IPSET_ATTR_NAME', 'asciiz'),
+                (19, 'IPSET_ATTR_NAMEREF', 'be32'),
+                (20, 'IPSET_ATTR_IP2', 'ipset_ip'),
+                (21, 'IPSET_ATTR_CIDR2', 'be8', NLA_F_NET_BYTEORDER),
+                (22, 'IPSET_ATTR_IP2_TO', 'ipset_ip'),
+                (23, 'IPSET_ATTR_IFACE', 'asciiz'),
+                (24, 'IPSET_ATTR_BYTES', 'be64', NLA_F_NET_BYTEORDER),
+                (25, 'IPSET_ATTR_PACKETS', 'be64', NLA_F_NET_BYTEORDER),
+                (26, 'IPSET_ATTR_COMMENT', 'asciiz'),
+                (27, 'IPSET_ATTR_SKBMARK', 'skbmark'),
+                (28, 'IPSET_ATTR_SKBPRIO', 'skbprio'),
+                (29, 'IPSET_ATTR_SKBQUEUE', 'be16', NLA_F_NET_BYTEORDER),
+            )
 
             class skbmark(nla):
                 nla_flags = NLA_F_NET_BYTEORDER
@@ -147,30 +148,32 @@ class ipset_msg(nfgen_msg):
 
     class cadt_data(ipset_base):
         nla_flags = NLA_F_NESTED
-        nla_map = ((0, 'IPSET_ATTR_UNSPEC', 'none'),
-                   (1, 'IPSET_ATTR_IP', 'ipset_ip'),
-                   (1, 'IPSET_ATTR_IP_FROM', 'ipset_ip'),
-                   (2, 'IPSET_ATTR_IP_TO', 'ipset_ip'),
-                   (3, 'IPSET_ATTR_CIDR', 'be8', NLA_F_NET_BYTEORDER),
-                   (4, 'IPSET_ATTR_PORT', 'be16', NLA_F_NET_BYTEORDER),
-                   (4, 'IPSET_ATTR_PORT_FROM', 'be16', NLA_F_NET_BYTEORDER),
-                   (5, 'IPSET_ATTR_PORT_TO', 'be16', NLA_F_NET_BYTEORDER),
-                   (6, 'IPSET_ATTR_TIMEOUT', 'be32', NLA_F_NET_BYTEORDER),
-                   (7, 'IPSET_ATTR_PROTO', 'be8', NLA_F_NET_BYTEORDER),
-                   (8, 'IPSET_ATTR_CADT_FLAGS', 'be32', NLA_F_NET_BYTEORDER),
-                   (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
-                   (10, 'IPSET_ATTR_MARK', 'be32', NLA_F_NET_BYTEORDER),
-                   (11, 'IPSET_ATTR_MARKMASK', 'be32', NLA_F_NET_BYTEORDER),
-                   (17, 'IPSET_ATTR_INITVAL', 'be32', NLA_F_NET_BYTEORDER),
-                   (18, 'IPSET_ATTR_HASHSIZE', 'be32', NLA_F_NET_BYTEORDER),
-                   (19, 'IPSET_ATTR_MAXELEM', 'be32', NLA_F_NET_BYTEORDER),
-                   (20, 'IPSET_ATTR_NETMASK', 'hex'),
-                   (21, 'IPSET_ATTR_BUCKETSIZE', 'uint8'),
-                   (22, 'IPSET_ATTR_RESIZE', 'hex'),
-                   (23, 'IPSET_ATTR_SIZE', 'be32', NLA_F_NET_BYTEORDER),
-                   (24, 'IPSET_ATTR_ELEMENTS', 'be32', NLA_F_NET_BYTEORDER),
-                   (25, 'IPSET_ATTR_REFERENCES', 'be32', NLA_F_NET_BYTEORDER),
-                   (26, 'IPSET_ATTR_MEMSIZE', 'be32', NLA_F_NET_BYTEORDER))
+        nla_map = (
+            (0, 'IPSET_ATTR_UNSPEC', 'none'),
+            (1, 'IPSET_ATTR_IP', 'ipset_ip'),
+            (1, 'IPSET_ATTR_IP_FROM', 'ipset_ip'),
+            (2, 'IPSET_ATTR_IP_TO', 'ipset_ip'),
+            (3, 'IPSET_ATTR_CIDR', 'be8', NLA_F_NET_BYTEORDER),
+            (4, 'IPSET_ATTR_PORT', 'be16', NLA_F_NET_BYTEORDER),
+            (4, 'IPSET_ATTR_PORT_FROM', 'be16', NLA_F_NET_BYTEORDER),
+            (5, 'IPSET_ATTR_PORT_TO', 'be16', NLA_F_NET_BYTEORDER),
+            (6, 'IPSET_ATTR_TIMEOUT', 'be32', NLA_F_NET_BYTEORDER),
+            (7, 'IPSET_ATTR_PROTO', 'be8', NLA_F_NET_BYTEORDER),
+            (8, 'IPSET_ATTR_CADT_FLAGS', 'be32', NLA_F_NET_BYTEORDER),
+            (9, 'IPSET_ATTR_CADT_LINENO', 'be32'),
+            (10, 'IPSET_ATTR_MARK', 'be32', NLA_F_NET_BYTEORDER),
+            (11, 'IPSET_ATTR_MARKMASK', 'be32', NLA_F_NET_BYTEORDER),
+            (17, 'IPSET_ATTR_INITVAL', 'be32', NLA_F_NET_BYTEORDER),
+            (18, 'IPSET_ATTR_HASHSIZE', 'be32', NLA_F_NET_BYTEORDER),
+            (19, 'IPSET_ATTR_MAXELEM', 'be32', NLA_F_NET_BYTEORDER),
+            (20, 'IPSET_ATTR_NETMASK', 'hex'),
+            (21, 'IPSET_ATTR_BUCKETSIZE', 'uint8'),
+            (22, 'IPSET_ATTR_RESIZE', 'hex'),
+            (23, 'IPSET_ATTR_SIZE', 'be32', NLA_F_NET_BYTEORDER),
+            (24, 'IPSET_ATTR_ELEMENTS', 'be32', NLA_F_NET_BYTEORDER),
+            (25, 'IPSET_ATTR_REFERENCES', 'be32', NLA_F_NET_BYTEORDER),
+            (26, 'IPSET_ATTR_MEMSIZE', 'be32', NLA_F_NET_BYTEORDER),
+        )
 
     class attr_adt(ipset_generic):
         nla_flags = NLA_F_NESTED

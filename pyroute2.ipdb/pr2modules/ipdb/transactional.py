@@ -14,7 +14,6 @@ log = logging.getLogger(__name__)
 
 
 class State(object):
-
     def __init__(self, lock=None):
         self.lock = lock or threading.Lock()
         self.flag = 0
@@ -66,6 +65,7 @@ def update(f):
                     raise TypeError('transaction mode not supported')
                 # now that the transaction _is_ open
             return f(self, direct, *argv, **kwarg)
+
     decorated.__doc__ = f.__doc__
     return decorated
 
@@ -78,6 +78,7 @@ def with_transaction(f):
             transaction = self.current_tx
             f(transaction, *argv, **kwarg)
         return self
+
     return update(decorated)
 
 
@@ -85,6 +86,7 @@ class Transactional(Dotkeys):
     '''
     Utility class that implements common transactional logic.
     '''
+
     _fields = []
     _virtual_fields = []
     _fields_cmp = {}
@@ -131,13 +133,11 @@ class Transactional(Dotkeys):
         return self.pick(detached=False, readonly=True)
 
     def register_commit_hook(self, hook):
-        '''
-        '''
+        ''' '''
         self._commit_hooks.append(hook)
 
     def unregister_commit_hook(self, hook):
-        '''
-        '''
+        ''' '''
         with self._write_lock:
             for cb in tuple(self._commit_hooks):
                 if hook == cb:
@@ -146,8 +146,7 @@ class Transactional(Dotkeys):
     ##
     # Object serialization: dump, pick
     def dump(self, not_none=True):
-        '''
-        '''
+        ''' '''
         with self._write_lock:
             res = {}
             for key in self:
@@ -172,10 +171,9 @@ class Transactional(Dotkeys):
         used as transactions.
         '''
         with self._write_lock:
-            res = self.__class__(ipdb=self.ipdb,
-                                 mode='snapshot',
-                                 parent=parent,
-                                 uid=uid)
+            res = self.__class__(
+                ipdb=self.ipdb, mode='snapshot', parent=parent, uid=uid
+            )
             for (key, value) in self.items():
                 if self[key] is not None:
                     if key in self._fields:
@@ -229,8 +227,8 @@ class Transactional(Dotkeys):
         with self._direct_state:
             # simple keys
             for key in self:
-                if (key in self._fields):
-                    if ((key not in vs) or (self[key] != vs[key])):
+                if key in self._fields:
+                    if (key not in vs) or (self[key] != vs[key]):
                         res[key] = self[key]
         for key in self._linked_sets:
             diff = type(self[key])(self[key] - vs[key])
@@ -406,8 +404,9 @@ class Transactional(Dotkeys):
             else:
                 log.warning('the "create" scope without transaction')
                 prime = self
-            return dict([(x[0], x[1]) for x in prime.items()
-                         if x[1] is not None])
+            return dict(
+                [(x[0], x[1]) for x in prime.items() if x[1] is not None]
+            )
 
         with self._write_lock:
             added = self.global_tx[tid] - self
@@ -474,8 +473,9 @@ class Transactional(Dotkeys):
             # cascade update on nested targets
             for tn in tuple(self.global_tx.values()):
                 if (key in tn._targets) and (key in tn):
-                    if self._fields_cmp.\
-                            get(key, lambda x, y: x == y)(value, tn[key]):
+                    if self._fields_cmp.get(key, lambda x, y: x == y)(
+                        value, tn[key]
+                    ):
                         tn._targets[key].set()
 
     @update

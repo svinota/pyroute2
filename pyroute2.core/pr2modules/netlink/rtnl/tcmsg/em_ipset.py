@@ -19,7 +19,7 @@ def get_parameters(kwarg):
         ('matchid', 'TCF_EM_MATCHID'),
         ('kind', 'TCF_EM_KIND'),
         ('flags', 'TCF_EM_FLAGS'),
-        ('pad', 'TCF_EM_PAD')
+        ('pad', 'TCF_EM_PAD'),
     )
 
     for k, v in attrs_map:
@@ -31,10 +31,11 @@ def get_parameters(kwarg):
 
 
 class data(nlmsg_base):
-    fields = (('ip_set_index', 'H'),
-              ('ip_set_dim', 'B'),
-              ('ip_set_flags', 'B'),
-              )
+    fields = (
+        ('ip_set_index', 'H'),
+        ('ip_set_dim', 'B'),
+        ('ip_set_flags', 'B'),
+    )
 
     def encode(self):
         flags, dim = self._get_ip_set_parms()
@@ -53,8 +54,11 @@ class data(nlmsg_base):
         modes = mode.split(',')
         dim = len(modes)
         if dim > IPSET_DIM['IPSET_DIM_MAX']:
-            raise ValueError('IPSet dimension could not be greater than {0}'.
-                             format(IPSET_DIM['IPSET_DIM_MAX']))
+            raise ValueError(
+                'IPSet dimension could not be greater than {0}'.format(
+                    IPSET_DIM['IPSET_DIM_MAX']
+                )
+            )
 
         for i in range(0, dim):
             if modes[i] == 'dst':

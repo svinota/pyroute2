@@ -5,7 +5,7 @@ parent = TC_H_ROOT
 
 
 class options(nla):
-    fields = (('limit', 'i'), )
+    fields = (('limit', 'i'),)
 
 
 def get_parameters(kwarg):

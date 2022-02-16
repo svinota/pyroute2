@@ -1,4 +1,3 @@
-
 import os
 import select
 import socket
@@ -9,7 +8,6 @@ from pr2modules.inotify.inotify_msg import inotify_msg
 
 
 class Inotify(object):
-
     def __init__(self, libc=None, path=None):
         self.fd = None
         self.wd = {}
@@ -18,8 +16,9 @@ class Inotify(object):
         self._poll = select.poll()
         self._poll.register(self.ctlr)
         self.lock = threading.RLock()
-        self.libc = libc or ctypes.CDLL(ctypes.util.find_library('c'),
-                                        use_errno=True)
+        self.libc = libc or ctypes.CDLL(
+            ctypes.util.find_library('c'), use_errno=True
+        )
 
     def bind(self, *argv, **kwarg):
         with self.lock:
@@ -37,11 +36,9 @@ class Inotify(object):
                 return
             if self.fd is not None:
                 s_path = ctypes.create_string_buffer(path.encode('utf-8'))
-                wd = (self
-                      .libc
-                      .inotify_add_watch(self.fd,
-                                         ctypes.byref(s_path),
-                                         mask))
+                wd = self.libc.inotify_add_watch(
+                    self.fd, ctypes.byref(s_path), mask
+                )
                 self.wd[wd] = path
             self.path.add(path)
 
@@ -63,9 +60,7 @@ class Inotify(object):
         with self.lock:
             if self.fd is not None:
                 os.write(self.ctlw, b'\0')
-            for fd in (self.fd,
-                       self.ctlw,
-                       self.ctlr):
+            for fd in (self.fd, self.ctlw, self.ctlr):
                 if fd is not None:
                     try:
                         os.close(fd)

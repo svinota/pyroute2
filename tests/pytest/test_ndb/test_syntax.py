@@ -9,9 +9,8 @@ def test_cm_interface_create(context):
     '''
     ifname = context.new_ifname
     with context.ndb.interfaces.create(
-            ifname=ifname,
-            kind='dummy',
-            state='down'):
+        ifname=ifname, kind='dummy', state='down'
+    ):
         pass
     assert interface_exists(context.netns, ifname=ifname, state='down')
     return ifname
@@ -24,9 +23,10 @@ def test_cm_address_create(context):
     ifname = test_cm_interface_create(context)
     ipaddr = context.new_ipaddr
     with context.ndb.addresses.create(
-            index=context.ndb.interfaces[ifname]['index'],
-            address=ipaddr,
-            prefixlen=24):
+        index=context.ndb.interfaces[ifname]['index'],
+        address=ipaddr,
+        prefixlen=24,
+    ):
         pass
     assert address_exists(context.netns, ifname=ifname, address=ipaddr)
 
@@ -75,18 +75,17 @@ def test_routes_spec_dst_len(context):
     ipnet = str(context.ipnets[1].network)
     table = 24000
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .add_ip(address=ipaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip(address=ipaddr, prefixlen=24)
+        .commit()
+    )
 
-    (context
-     .ndb
-     .routes
-     .create(dst=ipnet, dst_len=24, gateway=gateway, table=table)
-     .commit())
+    (
+        context.ndb.routes.create(
+            dst=ipnet, dst_len=24, gateway=gateway, table=table
+        ).commit()
+    )
 
     assert route_exists(context.netns, dst=ipnet, table=table)
     r1 = context.ndb.routes.get('%s/24' % ipnet)
@@ -105,11 +104,11 @@ def test_string_key_in_interfaces(context):
     f_ifname = context.new_ifname
     f_address = '00:11:22:33:66:66'
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up', address=address)
-     .commit())
+    (
+        context.ndb.interfaces.create(
+            ifname=ifname, kind='dummy', state='up', address=address
+        ).commit()
+    )
 
     assert ifname in context.ndb.interfaces
     assert address in context.ndb.interfaces
@@ -123,12 +122,11 @@ def test_string_key_in_addresses(context):
     ipaddr = context.new_ipaddr
     f_ipaddr = context.new_ipaddr
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', state='up')
-     .add_ip(address=ipaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip(address=ipaddr, prefixlen=24)
+        .commit()
+    )
 
     assert ipaddr in context.ndb.addresses
     assert '%s/%i' % (ipaddr, 24) in context.ndb.addresses

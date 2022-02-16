@@ -14,6 +14,7 @@ from socket import SO_RCVBUF
 from pr2modules import config
 from pr2modules import netns as netnsmod
 from pr2modules.netlink.nlsocket import NetlinkMixin
+
 if config.uname[0][-3:] == 'BSD':
     from pr2modules.iproute.bsd import IPRoute
 else:
@@ -31,6 +32,7 @@ class Transport(object):
     A simple transport protocols to send objects between two
     end-points. Requires an open file-like object at init.
     '''
+
     def __init__(self, file_obj):
         self.file_obj = file_obj
         self.lock = threading.Lock()
@@ -87,33 +89,31 @@ class Transport(object):
                     return ret
 
     def recv(self):
-        return self._m_recv(self.brd_queue,
-                            self.cmd_queue,
-                            lambda x: x == 'broadcast')
+        return self._m_recv(
+            self.brd_queue, self.cmd_queue, lambda x: x == 'broadcast'
+        )
 
     def recv_cmd(self):
-        return self._m_recv(self.cmd_queue,
-                            self.brd_queue,
-                            lambda x: x != 'broadcast')
+        return self._m_recv(
+            self.cmd_queue, self.brd_queue, lambda x: x != 'broadcast'
+        )
 
     def close(self):
         self.run = False
 
 
 class ProxyChannel(object):
-
     def __init__(self, channel, stage):
         self.target = channel
         self.stage = stage
 
     def send(self, data):
-        return self.target.send({'stage': self.stage,
-                                 'data': data,
-                                 'error': None})
+        return self.target.send(
+            {'stage': self.stage, 'data': data, 'error': None}
+        )
 
 
 def Server(trnsp_in, trnsp_out, netns=None, target='localhost'):
-
     def stop_server(signum, frame):
         Server.run = False
 
@@ -127,8 +127,7 @@ def Server(trnsp_in, trnsp_out, netns=None, target='localhost'):
         lock = ipr._sproxy.lock
         ipr._s_channel = ProxyChannel(trnsp_out, 'broadcast')
     except Exception as e:
-        trnsp_out.send({'stage': 'init',
-                        'error': e})
+        trnsp_out.send({'stage': 'init', 'error': e})
         return 255
 
     inputs = [ipr.fileno(), trnsp_in.fileno()]
@@ -136,9 +135,7 @@ def Server(trnsp_in, trnsp_out, netns=None, target='localhost'):
     outputs = []
 
     # all is OK so far
-    trnsp_out.send({'stage': 'init',
-                    'uname': config.uname,
-                    'error': None})
+    trnsp_out.send({'stage': 'init', 'uname': config.uname, 'error': None})
 
     # 8<-------------------------------------------------------------
     while Server.run:
@@ -158,17 +155,17 @@ def Server(trnsp_in, trnsp_out, netns=None, target='localhost'):
                     except Exception as e:
                         error = e
                         error.tb = traceback.format_exc()
-                    trnsp_out.send({'stage': 'broadcast',
-                                    'data': data,
-                                    'error': error})
+                    trnsp_out.send(
+                        {'stage': 'broadcast', 'data': data, 'error': error}
+                    )
             elif fd == trnsp_in.fileno():
                 cmd = trnsp_in.recv_cmd()
                 if cmd['stage'] == 'shutdown':
                     ipr.close()
                     data = struct.pack('IHHQIQQ', 28, 2, 0, 0, 104, 0, 0)
-                    trnsp_out.send({'stage': 'broadcast',
-                                    'data': data,
-                                    'error': None})
+                    trnsp_out.send(
+                        {'stage': 'broadcast', 'data': data, 'error': None}
+                    )
                     return
                 elif cmd['stage'] == 'reconstruct':
                     error = None
@@ -179,29 +176,41 @@ def Server(trnsp_in, trnsp_out, netns=None, target='localhost'):
                     except Exception as e:
                         error = e
                         error.tb = traceback.format_exc()
-                    trnsp_out.send({'stage': 'reconstruct',
-                                    'error': error,
-                                    'return': None,
-                                    'cookie': cmd['cookie']})
+                    trnsp_out.send(
+                        {
+                            'stage': 'reconstruct',
+                            'error': error,
+                            'return': None,
+                            'cookie': cmd['cookie'],
+                        }
+                    )
 
                 elif cmd['stage'] == 'command':
                     error = None
                     try:
-                        ret = getattr(ipr, cmd['name'])(*cmd['argv'],
-                                                        **cmd['kwarg'])
-                        if cmd['name'] == 'bind' and \
-                                ipr._brd_socket is not None:
+                        ret = getattr(ipr, cmd['name'])(
+                            *cmd['argv'], **cmd['kwarg']
+                        )
+                        if (
+                            cmd['name'] == 'bind'
+                            and ipr._brd_socket is not None
+                        ):
                             inputs.append(ipr._brd_socket.fileno())
-                            broadcasts[ipr._brd_socket.fileno()] = \
-                                ipr._brd_socket
+                            broadcasts[
+                                ipr._brd_socket.fileno()
+                            ] = ipr._brd_socket
                     except Exception as e:
                         ret = None
                         error = e
                         error.tb = traceback.format_exc()
-                    trnsp_out.send({'stage': 'command',
-                                    'error': error,
-                                    'return': ret,
-                                    'cookie': cmd['cookie']})
+                    trnsp_out.send(
+                        {
+                            'stage': 'command',
+                            'error': error,
+                            'return': ret,
+                            'cookie': cmd['cookie'],
+                        }
+                    )
 
 
 class RemoteSocket(NetlinkMixin):
@@ -230,13 +239,15 @@ class RemoteSocket(NetlinkMixin):
 
     def _gate(self, msg, addr):
         with self.cmdlock:
-            self.trnsp_out.send({'stage': 'reconstruct',
-                                 'cookie': None,
-                                 'name': None,
-                                 'argv': [type(msg),
-                                          pickle.dumps(msg.dump()),
-                                          addr],
-                                 'kwarg': None})
+            self.trnsp_out.send(
+                {
+                    'stage': 'reconstruct',
+                    'cookie': None,
+                    'name': None,
+                    'argv': [type(msg), pickle.dumps(msg.dump()), addr],
+                    'kwarg': None,
+                }
+            )
             ret = self.trnsp_in.recv_cmd()
             if ret['error'] is not None:
                 raise ret['error']
@@ -275,14 +286,18 @@ class RemoteSocket(NetlinkMixin):
                 # send loopback nlmsg to terminate possible .get()
                 if code > 0 and self.remote_trnsp_out is not None:
                     data = struct.pack('IHHQIQQ', 28, 2, 0, 0, code, 0, 0)
-                    self.remote_trnsp_out.send({'stage': 'broadcast',
-                                                'data': data,
-                                                'error': None})
+                    self.remote_trnsp_out.send(
+                        {'stage': 'broadcast', 'data': data, 'error': None}
+                    )
                     with self.trnsp_in.lock:
                         pass
 
-                transport_objs = (self.trnsp_out, self.trnsp_in,
-                                  self.remote_trnsp_in, self.remote_trnsp_out)
+                transport_objs = (
+                    self.trnsp_out,
+                    self.trnsp_in,
+                    self.remote_trnsp_in,
+                    self.remote_trnsp_out,
+                )
 
                 # Stop the transport objects.
                 for trnsp in transport_objs:
@@ -301,11 +316,15 @@ class RemoteSocket(NetlinkMixin):
 
     def proxy(self, cmd, *argv, **kwarg):
         with self.cmdlock:
-            self.trnsp_out.send({'stage': 'command',
-                                 'cookie': None,
-                                 'name': cmd,
-                                 'argv': argv,
-                                 'kwarg': kwarg})
+            self.trnsp_out.send(
+                {
+                    'stage': 'command',
+                    'cookie': None,
+                    'name': cmd,
+                    'argv': argv,
+                    'kwarg': kwarg,
+                }
+            )
             ret = self.trnsp_in.recv_cmd()
             if ret['error'] is not None:
                 raise ret['error']
@@ -319,8 +338,10 @@ class RemoteSocket(NetlinkMixin):
             # FIXME
             # raise deprecation error after 0.5.3
             #
-            log.warning('use "async_cache" instead of "async", '
-                        '"async" is a keyword from Python 3.7')
+            log.warning(
+                'use "async_cache" instead of "async", '
+                '"async" is a keyword from Python 3.7'
+            )
             del kwarg['async']
         # do not work with async servers
         kwarg['async_cache'] = False

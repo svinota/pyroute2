@@ -23,16 +23,23 @@ def genex(name, kwarg):
     exp_data = []
     for key, value in kwarg.items():
         exp_data.append(('NFTA_%s_%s' % (name.upper(), key.upper()), value))
-    return {'attrs': [('NFTA_EXPR_NAME', name),
-                      ('NFTA_EXPR_DATA', {'attrs': exp_data})]}
+    return {
+        'attrs': [
+            ('NFTA_EXPR_NAME', name),
+            ('NFTA_EXPR_DATA', {'attrs': exp_data}),
+        ]
+    }
 
 
 def verdict(code):
     kwarg = OrderedDict()
     kwarg['dreg'] = 0  # NFT_REG_VERDICT
-    kwarg['data'] = {'attrs': [('NFTA_DATA_VERDICT',
-                                {'attrs': [('NFTA_VERDICT_CODE', code)]})]}
-    return [genex('immediate', kwarg), ]
+    kwarg['data'] = {
+        'attrs': [
+            ('NFTA_DATA_VERDICT', {'attrs': [('NFTA_VERDICT_CODE', code)]})
+        ]
+    }
+    return [genex('immediate', kwarg)]
 
 
 def ipv4addr(src=None, dst=None):

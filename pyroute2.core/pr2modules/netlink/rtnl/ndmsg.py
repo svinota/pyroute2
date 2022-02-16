@@ -68,15 +68,19 @@ class ndmsg(nlmsg):
     __slots__ = ()
 
     prefix = 'NDA_'
-    sql_constraints = {'NDA_LLADDR': "NOT NULL DEFAULT ''",
-                       'NDA_VLAN': "NOT NULL DEFAULT 0"}
+    sql_constraints = {
+        'NDA_LLADDR': "NOT NULL DEFAULT ''",
+        'NDA_VLAN': "NOT NULL DEFAULT 0",
+    }
 
-    fields = (('family', 'B'),
-              ('__pad', '3x'),
-              ('ifindex', 'i'),
-              ('state', 'H'),
-              ('flags', 'B'),
-              ('ndm_type', 'B'))
+    fields = (
+        ('family', 'B'),
+        ('__pad', '3x'),
+        ('ifindex', 'i'),
+        ('state', 'H'),
+        ('flags', 'B'),
+        ('ndm_type', 'B'),
+    )
 
     # Please note, that nla_map creates implicit
     # enumeration. In this case it will be:
@@ -88,22 +92,26 @@ class ndmsg(nlmsg):
     # NDA_PROBES = 4
     # ...
     #
-    nla_map = (('NDA_UNSPEC', 'none'),
-               ('NDA_DST', 'ipaddr'),
-               ('NDA_LLADDR', 'lladdr'),
-               ('NDA_CACHEINFO', 'cacheinfo'),
-               ('NDA_PROBES', 'uint32'),
-               ('NDA_VLAN', 'uint16'),
-               ('NDA_PORT', 'be16'),
-               ('NDA_VNI', 'uint32'),
-               ('NDA_IFINDEX', 'uint32'),
-               ('NDA_MASTER', 'uint32'))
+    nla_map = (
+        ('NDA_UNSPEC', 'none'),
+        ('NDA_DST', 'ipaddr'),
+        ('NDA_LLADDR', 'lladdr'),
+        ('NDA_CACHEINFO', 'cacheinfo'),
+        ('NDA_PROBES', 'uint32'),
+        ('NDA_VLAN', 'uint16'),
+        ('NDA_PORT', 'be16'),
+        ('NDA_VNI', 'uint32'),
+        ('NDA_IFINDEX', 'uint32'),
+        ('NDA_MASTER', 'uint32'),
+    )
 
     class cacheinfo(nla):
 
         __slots__ = ()
 
-        fields = (('ndm_confirmed', 'I'),
-                  ('ndm_used', 'I'),
-                  ('ndm_updated', 'I'),
-                  ('ndm_refcnt', 'I'))
+        fields = (
+            ('ndm_confirmed', 'I'),
+            ('ndm_used', 'I'),
+            ('ndm_updated', 'I'),
+            ('ndm_refcnt', 'I'),
+        )

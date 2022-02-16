@@ -28,8 +28,8 @@ ETH_P_X25 = 0x0805  # CCITT X.25
 ETH_P_ARP = 0x0806  # Address Resolution packet
 ETH_P_BPQ = 0x08FF  # G8BPQ AX.25 Ethernet Packet
 # ^^^ [ NOT AN OFFICIALLY REGISTERED ID ]
-ETH_P_IEEEPUP = 0x0a00  # Xerox IEEE802.3 PUP packet
-ETH_P_IEEEPUPAT = 0x0a01  # Xerox IEEE802.3 PUP Addr Trans packet
+ETH_P_IEEEPUP = 0x0A00  # Xerox IEEE802.3 PUP packet
+ETH_P_IEEEPUPAT = 0x0A01  # Xerox IEEE802.3 PUP Addr Trans packet
 ETH_P_DEC = 0x6000  # DEC Assigned proto
 ETH_P_DNA_DL = 0x6001  # DEC DNA Dump/Load
 ETH_P_DNA_RC = 0x6002  # DEC DNA Remote Console
@@ -53,8 +53,8 @@ ETH_P_PPP_DISC = 0x8863  # PPPoE discovery messages
 ETH_P_PPP_SES = 0x8864  # PPPoE session messages
 ETH_P_MPLS_UC = 0x8847  # MPLS Unicast traffic
 ETH_P_MPLS_MC = 0x8848  # MPLS Multicast traffic
-ETH_P_ATMMPOA = 0x884c  # MultiProtocol Over ATM
-ETH_P_LINK_CTL = 0x886c  # HPNA, wlan link local tunnel
+ETH_P_ATMMPOA = 0x884C  # MultiProtocol Over ATM
+ETH_P_LINK_CTL = 0x886C  # HPNA, wlan link local tunnel
 ETH_P_ATMFATE = 0x8884  # Frame-based ATM Transport over Ethernet
 
 ETH_P_PAE = 0x888E  # Port Access Entity (IEEE = 802.1X)
@@ -112,22 +112,28 @@ class msg(dict):
     data_len = None
     fields = ()
     _fields_names = ()
-    types = {'uint8': 'B',
-             'uint16': 'H',
-             'uint32': 'I',
-             'be16': '>H',
-             'ip4addr': {'format': '4s',
-                         'decode': lambda x: inet_ntop(AF_INET, x),
-                         'encode': lambda x: [inet_pton(AF_INET, x)]},
-             'l2addr': {'format': '6B',
-                        'decode': lambda x: ':'.join(['%x' % i for i in x]),
-                        'encode': lambda x: [int(i, 16) for i in
-                                             x.split(':')]},
-             'l2paddr': {'format': '6B10s',
-                         'decode': lambda x: ':'.join(['%x' % i for i in
-                                                       x[:6]]),
-                         'encode': lambda x: [int(i, 16) for i in
-                                              x.split(':')] + [10 * b'\x00']}}
+    types = {
+        'uint8': 'B',
+        'uint16': 'H',
+        'uint32': 'I',
+        'be16': '>H',
+        'ip4addr': {
+            'format': '4s',
+            'decode': lambda x: inet_ntop(AF_INET, x),
+            'encode': lambda x: [inet_pton(AF_INET, x)],
+        },
+        'l2addr': {
+            'format': '6B',
+            'decode': lambda x: ':'.join(['%x' % i for i in x]),
+            'encode': lambda x: [int(i, 16) for i in x.split(':')],
+        },
+        'l2paddr': {
+            'format': '6B10s',
+            'decode': lambda x: ':'.join(['%x' % i for i in x[:6]]),
+            'encode': lambda x: [int(i, 16) for i in x.split(':')]
+            + [10 * b'\x00'],
+        },
+    }
 
     def __init__(self, content=None, buf=b'', offset=0, value=None):
         content = content or {}
@@ -143,8 +149,7 @@ class msg(dict):
     def _get_routine(self, mode, fmt):
         fmt = self.types.get(fmt, fmt)
         if isinstance(fmt, dict):
-            return (fmt['format'],
-                    fmt.get(mode, lambda x: x))
+            return (fmt['format'], fmt.get(mode, lambda x: x))
         else:
             return (fmt, lambda x: x)
 
@@ -157,12 +162,13 @@ class msg(dict):
             name, sfmt = field[:2]
             fmt, routine = self._get_routine('decode', sfmt)
             size = struct.calcsize(fmt)
-            value = struct.unpack(fmt, self.buf[self.offset:
-                                                self.offset + size])
+            value = struct.unpack(
+                fmt, self.buf[self.offset : self.offset + size]
+            )
             if len(value) == 1:
                 value = value[0]
             if isinstance(value, basestring) and sfmt[-1] == 's':
-                value = value[:value.find(b'\x00')]
+                value = value[: value.find(b'\x00')]
             self[name] = routine(value)
             self.offset += size
         return self
@@ -200,46 +206,52 @@ class msg(dict):
 
 
 class ethmsg(msg):
-    fields = (('dst', 'l2addr'),
-              ('src', 'l2addr'),
-              ('type', 'be16'))
+    fields = (('dst', 'l2addr'), ('src', 'l2addr'), ('type', 'be16'))
 
 
 class ip6msg(msg):
-    fields = (('version', 'uint8', 6 << 4),
-              ('_flow0', 'uint8'),
-              ('_flow1', 'uint8'),
-              ('_flow2', 'uint8'),
-              ('plen', 'uin16'),
-              ('next_header', 'uint8'),
-              ('hop_limit', 'uint8'),
-              ('src', 'ip6addr'),
-              ('dst', 'ip6addr'))
+    fields = (
+        ('version', 'uint8', 6 << 4),
+        ('_flow0', 'uint8'),
+        ('_flow1', 'uint8'),
+        ('_flow2', 'uint8'),
+        ('plen', 'uin16'),
+        ('next_header', 'uint8'),
+        ('hop_limit', 'uint8'),
+        ('src', 'ip6addr'),
+        ('dst', 'ip6addr'),
+    )
 
 
 class ip4msg(msg):
-    fields = (('verlen', 'uint8', 0x45),
-              ('dsf', 'uint8'),
-              ('len', 'be16'),
-              ('id', 'be16'),
-              ('flags', 'uint16'),
-              ('ttl', 'uint8', 128),
-              ('proto', 'uint8'),
-              ('csum', 'be16'),
-              ('src', 'ip4addr'),
-              ('dst', 'ip4addr'))
+    fields = (
+        ('verlen', 'uint8', 0x45),
+        ('dsf', 'uint8'),
+        ('len', 'be16'),
+        ('id', 'be16'),
+        ('flags', 'uint16'),
+        ('ttl', 'uint8', 128),
+        ('proto', 'uint8'),
+        ('csum', 'be16'),
+        ('src', 'ip4addr'),
+        ('dst', 'ip4addr'),
+    )
 
 
 class udp4_pseudo_header(msg):
-    fields = (('src', 'ip4addr'),
-              ('dst', 'ip4addr'),
-              ('pad', 'uint8'),
-              ('proto', 'uint8', 17),
-              ('len', 'be16'))
+    fields = (
+        ('src', 'ip4addr'),
+        ('dst', 'ip4addr'),
+        ('pad', 'uint8'),
+        ('proto', 'uint8', 17),
+        ('len', 'be16'),
+    )
 
 
 class udpmsg(msg):
-    fields = (('sport', 'be16'),
-              ('dport', 'be16'),
-              ('len', 'be16'),
-              ('csum', 'be16'))
+    fields = (
+        ('sport', 'be16'),
+        ('dport', 'be16'),
+        ('len', 'be16'),
+        ('csum', 'be16'),
+    )

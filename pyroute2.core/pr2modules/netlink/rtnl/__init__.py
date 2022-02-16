@@ -156,72 +156,83 @@ RTM_DELNETNS = 501
 RTM_GETNETNS = 502
 (RTM_NAMES, RTM_VALUES) = map_namespace('RTM_', globals())
 
-TC_H_INGRESS = 0xfffffff1
+TC_H_INGRESS = 0xFFFFFFF1
 TC_H_CLSACT = TC_H_INGRESS
-TC_H_ROOT = 0xffffffff
+TC_H_ROOT = 0xFFFFFFFF
 
 
-RTMGRP_DEFAULTS = RTMGRP_IPV4_IFADDR |\
-    RTMGRP_IPV6_IFADDR |\
-    RTMGRP_IPV4_ROUTE |\
-    RTMGRP_IPV6_ROUTE |\
-    RTMGRP_IPV4_RULE |\
-    RTMGRP_IPV6_RULE |\
-    RTMGRP_NEIGH |\
-    RTMGRP_LINK |\
-    RTMGRP_TC |\
-    RTMGRP_MPLS_ROUTE
+RTMGRP_DEFAULTS = (
+    RTMGRP_IPV4_IFADDR
+    | RTMGRP_IPV6_IFADDR
+    | RTMGRP_IPV4_ROUTE
+    | RTMGRP_IPV6_ROUTE
+    | RTMGRP_IPV4_RULE
+    | RTMGRP_IPV6_RULE
+    | RTMGRP_NEIGH
+    | RTMGRP_LINK
+    | RTMGRP_TC
+    | RTMGRP_MPLS_ROUTE
+)
 
-encap_type = {'unspec': 0,
-              'mpls': 1,
-              0: 'unspec',
-              1: 'mpls'}
+encap_type = {'unspec': 0, 'mpls': 1, 0: 'unspec', 1: 'mpls'}
 
-rtypes = {'RTN_UNSPEC': 0,
-          'RTN_UNICAST': 1,      # Gateway or direct route
-          'RTN_LOCAL': 2,        # Accept locally
-          'RTN_BROADCAST': 3,    # Accept locally as broadcast
-          #                        send as broadcast
-          'RTN_ANYCAST': 4,      # Accept locally as broadcast,
-          #                        but send as unicast
-          'RTN_MULTICAST': 5,    # Multicast route
-          'RTN_BLACKHOLE': 6,    # Drop
-          'RTN_UNREACHABLE': 7,  # Destination is unreachable
-          'RTN_PROHIBIT': 8,     # Administratively prohibited
-          'RTN_THROW': 9,        # Not in this table
-          'RTN_NAT': 10,         # Translate this address
-          'RTN_XRESOLVE': 11}    # Use external resolver
+rtypes = {
+    'RTN_UNSPEC': 0,
+    'RTN_UNICAST': 1,  # Gateway or direct route
+    'RTN_LOCAL': 2,  # Accept locally
+    'RTN_BROADCAST': 3,  # Accept locally as broadcast
+    #                        send as broadcast
+    'RTN_ANYCAST': 4,  # Accept locally as broadcast,
+    #                        but send as unicast
+    'RTN_MULTICAST': 5,  # Multicast route
+    'RTN_BLACKHOLE': 6,  # Drop
+    'RTN_UNREACHABLE': 7,  # Destination is unreachable
+    'RTN_PROHIBIT': 8,  # Administratively prohibited
+    'RTN_THROW': 9,  # Not in this table
+    'RTN_NAT': 10,  # Translate this address
+    'RTN_XRESOLVE': 11,
+}  # Use external resolver
 # normalized
-rt_type = dict([(x[0][4:].lower(), x[1]) for x in rtypes.items()] +
-               [(x[1], x[0][4:].lower()) for x in rtypes.items()])
+rt_type = dict(
+    [(x[0][4:].lower(), x[1]) for x in rtypes.items()]
+    + [(x[1], x[0][4:].lower()) for x in rtypes.items()]
+)
 
-rtprotos = {'RTPROT_UNSPEC': 0,
-            'RTPROT_REDIRECT': 1,  # Route installed by ICMP redirects;
-            #                        not used by current IPv4
-            'RTPROT_KERNEL': 2,    # Route installed by kernel
-            'RTPROT_BOOT': 3,      # Route installed during boot
-            'RTPROT_STATIC': 4,    # Route installed by administrator
-            # Values of protocol >= RTPROT_STATIC are not
-            # interpreted by kernel;
-            # keep in sync with iproute2 !
-            'RTPROT_GATED': 8,      # gated
-            'RTPROT_RA': 9,         # RDISC/ND router advertisements
-            'RTPROT_MRT': 10,       # Merit MRT
-            'RTPROT_ZEBRA': 11,     # Zebra
-            'RTPROT_BIRD': 12,      # BIRD
-            'RTPROT_DNROUTED': 13,  # DECnet routing daemon
-            'RTPROT_XORP': 14,      # XORP
-            'RTPROT_NTK': 15,       # Netsukuku
-            'RTPROT_DHCP': 16}      # DHCP client
+rtprotos = {
+    'RTPROT_UNSPEC': 0,
+    'RTPROT_REDIRECT': 1,  # Route installed by ICMP redirects;
+    #                        not used by current IPv4
+    'RTPROT_KERNEL': 2,  # Route installed by kernel
+    'RTPROT_BOOT': 3,  # Route installed during boot
+    'RTPROT_STATIC': 4,  # Route installed by administrator
+    # Values of protocol >= RTPROT_STATIC are not
+    # interpreted by kernel;
+    # keep in sync with iproute2 !
+    'RTPROT_GATED': 8,  # gated
+    'RTPROT_RA': 9,  # RDISC/ND router advertisements
+    'RTPROT_MRT': 10,  # Merit MRT
+    'RTPROT_ZEBRA': 11,  # Zebra
+    'RTPROT_BIRD': 12,  # BIRD
+    'RTPROT_DNROUTED': 13,  # DECnet routing daemon
+    'RTPROT_XORP': 14,  # XORP
+    'RTPROT_NTK': 15,  # Netsukuku
+    'RTPROT_DHCP': 16,
+}  # DHCP client
 # normalized
-rt_proto = dict([(x[0][7:].lower(), x[1]) for x in rtprotos.items()] +
-                [(x[1], x[0][7:].lower()) for x in rtprotos.items()])
+rt_proto = dict(
+    [(x[0][7:].lower(), x[1]) for x in rtprotos.items()]
+    + [(x[1], x[0][7:].lower()) for x in rtprotos.items()]
+)
 
-rtscopes = {'RT_SCOPE_UNIVERSE': 0,
-            'RT_SCOPE_SITE': 200,
-            'RT_SCOPE_LINK': 253,
-            'RT_SCOPE_HOST': 254,
-            'RT_SCOPE_NOWHERE': 255}
+rtscopes = {
+    'RT_SCOPE_UNIVERSE': 0,
+    'RT_SCOPE_SITE': 200,
+    'RT_SCOPE_LINK': 253,
+    'RT_SCOPE_HOST': 254,
+    'RT_SCOPE_NOWHERE': 255,
+}
 # normalized
-rt_scope = dict([(x[0][9:].lower(), x[1]) for x in rtscopes.items()] +
-                [(x[1], x[0][9:].lower()) for x in rtscopes.items()])
+rt_scope = dict(
+    [(x[0][9:].lower(), x[1]) for x in rtscopes.items()]
+    + [(x[1], x[0][9:].lower()) for x in rtscopes.items()]
+)

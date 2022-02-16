@@ -19,6 +19,7 @@ class LinkedSet(set):
     member should be counted in target checks (target methods
     see below), or `False` if it should be ignored.
     '''
+
     def target_filter(self, x):
         return True
 
@@ -27,11 +28,13 @@ class LinkedSet(set):
 
         def _check_default_target(self):
             if self._ct is not None:
-                if set(filter(self.target_filter, self)) == \
-                        set(filter(self.target_filter, self._ct)):
+                if set(filter(self.target_filter, self)) == set(
+                    filter(self.target_filter, self._ct)
+                ):
                     self._ct = None
                     return True
             return False
+
         self.lock = threading.RLock()
         self.target = threading.Event()
         self.targets = {self.target: _check_default_target}
@@ -166,6 +169,7 @@ class IPaddrSet(LinkedSet):
     IPv6 addresses, but it may be changed with the `ignore_link_local`
     argument.
     '''
+
     @property
     def ipv4(self):
         ret = IPaddrSet()
@@ -200,10 +204,12 @@ class IPaddrSet(LinkedSet):
                 rfamily = AF_INET6 if rnet.find(':') >= 0 else AF_INET
                 if family != rfamily:
                     continue
-                if family == AF_INET6 and \
-                        ignore_link_local and \
-                        rnet[:4] == 'fe80' and \
-                        rmask == 64:
+                if (
+                    family == AF_INET6
+                    and ignore_link_local
+                    and rnet[:4] == 'fe80'
+                    and rmask == 64
+                ):
                     continue
                 rnet = inet_pton(family, rnet)
                 if family == AF_INET:
@@ -214,6 +220,7 @@ class IPaddrSet(LinkedSet):
                 if (rnet & (((1 << mask) - 1) << (alen - mask))) == match:
                     return True
             return False
+
         target = self.set_target(match_ip)
         target.wait(timeout)
         ret = target.is_set()

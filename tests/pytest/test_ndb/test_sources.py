@@ -5,8 +5,9 @@ from pr2test.context_manager import make_test_matrix
 from pyroute2 import NDB
 
 
-test_matrix = make_test_matrix(targets=['local', 'netns'],
-                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+test_matrix = make_test_matrix(
+    targets=['local', 'netns'], dbs=['sqlite3/:memory:', 'postgres/pr2test']
+)
 
 
 def test_multiple_sources(context):
@@ -21,9 +22,11 @@ def test_multiple_sources(context):
 
     #
     # NB: no 'localhost' record -- important !
-    sources = [{'target': 'localhost0', 'kind': 'local'},
-               {'target': 'localhost1', 'kind': 'netns', 'netns': nsname},
-               {'target': 'localhost2', 'kind': 'local'}]
+    sources = [
+        {'target': 'localhost0', 'kind': 'local'},
+        {'target': 'localhost1', 'kind': 'netns', 'netns': nsname},
+        {'target': 'localhost2', 'kind': 'local'},
+    ]
     ndb = None
     #
     # check that all the view has length > 0
@@ -62,10 +65,7 @@ def test_source_localhost_restart(context):
     #
     # create a dummy interface to prove the
     # source working
-    (ndb
-     .interfaces
-     .create(ifname=ifname1, kind='dummy', state='up')
-     .commit())
+    (ndb.interfaces.create(ifname=ifname1, kind='dummy', state='up').commit())
     #
     # an external check
     assert interface_exists(context.netns, ifname=ifname1, state='up')
@@ -83,10 +83,11 @@ def test_source_localhost_restart(context):
     assert ifname1 in ndb.interfaces
     #
     # create another one
-    (ndb
-     .interfaces
-     .create(ifname=ifname2, kind='dummy', state='down')
-     .commit())
+    (
+        ndb.interfaces.create(
+            ifname=ifname2, kind='dummy', state='down'
+        ).commit()
+    )
     #
     # check the interface both externally and internally
     assert interface_exists(context.netns, ifname=ifname2, state='down')
@@ -130,29 +131,34 @@ def test_source_netns_restart(context):
     assert len(list(ndb.interfaces.dump().filter(target=nsname)))
     #
     # create an interface in the netns
-    (ndb
-     .interfaces
-     .create(target=nsname, ifname=ifname, kind='dummy', state='up')
-     .commit())
+    (
+        ndb.interfaces.create(
+            target=nsname, ifname=ifname, kind='dummy', state='up'
+        ).commit()
+    )
     #
     # check the interface
     assert interface_exists(nsname, ifname=ifname)
-    assert ndb.interfaces[{'target': nsname,
-                           'ifname': ifname}]['state'] == 'up'
+    assert (
+        ndb.interfaces[{'target': nsname, 'ifname': ifname}]['state'] == 'up'
+    )
     #
     # netns will be remove automatically by the fixture as well
     # as interfaces inside the netns
 
 
 def count_interfaces(ndb, target):
-    return (ndb
-            .schema
-            .fetchone('''
+    return (
+        ndb.schema.fetchone(
+            '''
                       SELECT count(*) FROM interfaces
                       WHERE
                           f_target = '%s' AND
                           f_index != 0
-                      ''' % target))[0]
+                      '''
+            % target
+        )
+    )[0]
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -173,23 +179,13 @@ def test_disconnect_localhost(context):
     #
     # lock the DB
     with context.ndb.readonly:
-        total_ifnum = (context
-                       .ndb
-                       .interfaces
-                       .dump()
-                       .count())
-        localhost_ifnum = (context
-                           .ndb
-                           .interfaces
-                           .dump()
-                           .filter(target='localhost')
-                           .count())
-        nsname_ifnum = (context
-                        .ndb
-                        .interfaces
-                        .dump()
-                        .filter(target=nsname)
-                        .count())
+        total_ifnum = context.ndb.interfaces.dump().count()
+        localhost_ifnum = (
+            context.ndb.interfaces.dump().filter(target='localhost').count()
+        )
+        nsname_ifnum = (
+            context.ndb.interfaces.dump().filter(target=nsname).count()
+        )
 
         assert localhost_ifnum == count_interfaces(context.ndb, 'localhost')
         assert nsname_ifnum == count_interfaces(context.ndb, nsname)
@@ -201,19 +197,11 @@ def test_disconnect_localhost(context):
     with context.ndb.readonly:
         #
         # the number of 'localhost' interfaces must be 0 here
-        s = len(list(context
-                     .ndb
-                     .interfaces
-                     .dump()
-                     .filter(target='localhost')))
+        s = len(list(context.ndb.interfaces.dump().filter(target='localhost')))
         assert s == 0
         assert count_interfaces(context.ndb, 'localhost') == 0
         #
         # the number of `nsname` interfaces must remain the same as before
-        s = len(list(context
-                     .ndb
-                     .interfaces
-                     .dump()
-                     .filter(target=nsname)))
+        s = len(list(context.ndb.interfaces.dump().filter(target=nsname)))
         assert s > 0
         assert count_interfaces(context.ndb, nsname) == s

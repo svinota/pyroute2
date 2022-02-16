@@ -1,17 +1,18 @@
 import re
 import shlex
 from pr2modules.common import basestring
-from pr2modules.cli import (t_stmt,
-                            t_dict,
-                            t_pipe,
-                            t_comma,
-                            t_end_of_dict,
-                            t_end_of_sentence,
-                            t_end_of_stream)
+from pr2modules.cli import (
+    t_stmt,
+    t_dict,
+    t_pipe,
+    t_comma,
+    t_end_of_dict,
+    t_end_of_sentence,
+    t_end_of_stream,
+)
 
 
 class Token(object):
-
     def __init__(self, lex, expect=(), prohibit=(), leaf=False):
         self.lex = lex
         self.leaf = leaf
@@ -23,7 +24,7 @@ class Token(object):
         if expect and self.kind not in expect:
             raise SyntaxError('expected %s, got %s' % (expect, self.kind))
         if prohibit and self.kind in prohibit:
-            raise SyntaxError('unexpected %s' % (self.name, ))
+            raise SyntaxError('unexpected %s' % (self.name,))
 
     def convert(self, arg):
         if re.match('^[0-9]+$', arg):
@@ -53,10 +54,9 @@ class Token(object):
         elif first == '{':
             arg_name = None
             while True:
-                nt = Token(self.lex, expect=(t_stmt,
-                                             t_dict,
-                                             t_comma,
-                                             t_end_of_dict))
+                nt = Token(
+                    self.lex, expect=(t_stmt, t_dict, t_comma, t_end_of_dict)
+                )
                 if arg_name is None:
                     if nt.kind == t_dict:
                         self.argv.append(nt.kwarg)
@@ -119,7 +119,6 @@ class Token(object):
 
 
 class Sentence(object):
-
     def __init__(self, text, indent=0, master=None):
         self.offset = 0
         self.statements = []
@@ -162,7 +161,6 @@ class Sentence(object):
 
 
 class Parser(object):
-
     def __init__(self, stream):
         self.stream = stream
         self.indent = None

@@ -2,15 +2,17 @@ from socket import htons
 from pr2modules import protocols
 from pr2modules.netlink import nla
 from pr2modules.netlink.rtnl.tcmsg.act_police import nla_plus_police
-from pr2modules.netlink.rtnl.tcmsg.act_police import get_parameters \
-    as ap_parameters
+from pr2modules.netlink.rtnl.tcmsg.act_police import (
+    get_parameters as ap_parameters,
+)
 from pr2modules.netlink.rtnl.tcmsg.common_act import tca_act_prio
 from pr2modules.netlink.rtnl.tcmsg.common_act import get_tca_action
 
 
 def fix_msg(msg, kwarg):
-    msg['info'] = htons(kwarg.get('protocol', protocols.ETH_P_ALL) & 0xffff) |\
-        ((kwarg.get('prio', 0) << 16) & 0xffff0000)
+    msg['info'] = htons(
+        kwarg.get('protocol', protocols.ETH_P_ALL) & 0xFFFF
+    ) | ((kwarg.get('prio', 0) << 16) & 0xFFFF0000)
 
 
 def get_parameters(kwarg):
@@ -38,11 +40,13 @@ def get_parameters(kwarg):
 
 
 class options(nla, nla_plus_police):
-    nla_map = (('TCA_FW_UNSPEC', 'none'),
-               ('TCA_FW_CLASSID', 'uint32'),
-               ('TCA_FW_POLICE', 'police'),  # TODO string?
-               ('TCA_FW_INDEV', 'hex'),  # TODO string
-               ('TCA_FW_ACT', 'tca_act_prio'),
-               ('TCA_FW_MASK', 'uint32'))
+    nla_map = (
+        ('TCA_FW_UNSPEC', 'none'),
+        ('TCA_FW_CLASSID', 'uint32'),
+        ('TCA_FW_POLICE', 'police'),  # TODO string?
+        ('TCA_FW_INDEV', 'hex'),  # TODO string
+        ('TCA_FW_ACT', 'tca_act_prio'),
+        ('TCA_FW_MASK', 'uint32'),
+    )
 
     tca_act_prio = tca_act_prio

@@ -3,15 +3,12 @@ import errno
 import mitogen.core
 import mitogen.master
 import threading
-from .transport import (Transport,
-                        Server,
-                        RemoteSocket)
+from .transport import Transport, Server, RemoteSocket
 from pr2modules.iproute.linux import RTNL_API
 from pr2modules.netlink.rtnl.iprsocket import MarshalRtnl
 
 
 class Channel(object):
-
     def __init__(self, ch):
         self.ch = ch
         self._pfdr, self._pfdw = os.pipe()
@@ -49,8 +46,10 @@ class Channel(object):
         with self.lock:
             if self.th is None:
                 self.read = self._read_async
-                self.th = threading.Thread(target=self._monitor_thread,
-                                           name='Channel <%s> I/O' % self.ch)
+                self.th = threading.Thread(
+                    target=self._monitor_thread,
+                    name='Channel <%s> I/O' % self.ch,
+                )
                 self.th.start()
 
     def fileno(self):
@@ -89,7 +88,6 @@ def MitogenServer(ch_out, netns, target, router):
 
 
 class RemoteIPRoute(RTNL_API, RemoteSocket):
-
     def __init__(self, *argv, **kwarg):
 
         self._argv = tuple(argv)
@@ -108,17 +106,22 @@ class RemoteIPRoute(RTNL_API, RemoteSocket):
                 context = kwarg['context']
             else:
                 protocol = kwarg.pop('protocol', 'local')
-                context = getattr(self._mitogen_router,
-                                  protocol)(*argv, **kwarg)
-            ch_in = mitogen.core.Receiver(self._mitogen_router,
-                                          respondent=context)
-            self._mitogen_call = context.call_async(MitogenServer,
-                                                    ch_out=ch_in.to_sender(),
-                                                    netns=netns,
-                                                    target=target)
+                context = getattr(self._mitogen_router, protocol)(
+                    *argv, **kwarg
+                )
+            ch_in = mitogen.core.Receiver(
+                self._mitogen_router, respondent=context
+            )
+            self._mitogen_call = context.call_async(
+                MitogenServer,
+                ch_out=ch_in.to_sender(),
+                netns=netns,
+                target=target,
+            )
             ch_out = ch_in.get().unpickle()
-            super(RemoteIPRoute, self).__init__(Transport(Channel(ch_in)),
-                                                Transport(Channel(ch_out)))
+            super(RemoteIPRoute, self).__init__(
+                Transport(Channel(ch_in)), Transport(Channel(ch_out))
+            )
         except Exception:
             if self._mitogen_broker is not None:
                 self._mitogen_broker.shutdown()

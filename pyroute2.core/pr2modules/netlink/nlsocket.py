@@ -164,13 +164,13 @@ class Marshal(object):
         # 'IHHII' == 16 bytes
         while offset <= len(data) - 16:
             # pick type and length
-            length, = struct.unpack_from('I', data, offset)
+            (length,) = struct.unpack_from('I', data, offset)
             if length == 0:
                 break
             error = None
-            msg_type, = struct.unpack_from(self.type_format,
-                                           data,
-                                           offset + self.type_offset)
+            (msg_type,) = struct.unpack_from(
+                self.type_format, data, offset + self.type_offset
+            )
             if msg_type == self.error_type:
                 code = abs(struct.unpack_from('i', data, offset + 16)[0])
                 if code > 0:
@@ -187,8 +187,9 @@ class Marshal(object):
             try:
                 msg.decode()
                 if isinstance(msg, nlmsgerr):
-                    error = NetlinkError(abs(msg['error']),
-                                         msg.get_attr('NLMSGERR_ATTR_MSG'))
+                    error = NetlinkError(
+                        abs(msg['error']), msg.get_attr('NLMSGERR_ATTR_MSG')
+                    )
 
                 msg['header']['error'] = error
                 # try to decode encapsulated error message
@@ -232,14 +233,11 @@ class Marshal(object):
 # so we can use the rest to modify the pid field.
 #
 # See also libnl library, lib/socket.c:generate_local_port()
-sockets = AddrPool(minaddr=0x0,
-                   maxaddr=0x3ff,
-                   reverse=True)
+sockets = AddrPool(minaddr=0x0, maxaddr=0x3FF, reverse=True)
 # 8<-----------------------------------------------------------
 
 
 class LockProxy(object):
-
     def __init__(self, factory, key):
         self.factory = factory
         self.refcount = 0
@@ -270,7 +268,6 @@ class LockProxy(object):
 
 
 class LockFactory(object):
-
     def __init__(self, klass=threading.RLock):
         self.klass = klass
         self.locks = {0: LockProxy(self, 0)}
@@ -297,19 +294,21 @@ class NetlinkMixin(object):
     Generic netlink socket
     '''
 
-    def __init__(self,
-                 family=NETLINK_GENERIC,
-                 port=None,
-                 pid=None,
-                 fileno=None,
-                 sndbuf=1048576,
-                 rcvbuf=1048576,
-                 all_ns=False,
-                 async_qsize=None,
-                 nlm_generator=None,
-                 target='localhost',
-                 ext_ack=False,
-                 strict_check=False):
+    def __init__(
+        self,
+        family=NETLINK_GENERIC,
+        port=None,
+        pid=None,
+        fileno=None,
+        sndbuf=1048576,
+        rcvbuf=1048576,
+        all_ns=False,
+        async_qsize=None,
+        nlm_generator=None,
+        target='localhost',
+        ext_ack=False,
+        strict_check=False,
+    ):
         #
         # That's a trick. Python 2 is not able to construct
         # sockets from an open FD.
@@ -323,24 +322,27 @@ class NetlinkMixin(object):
         #
         super(NetlinkMixin, self).__init__()
         if fileno is not None and sys.version_info[0] < 3:
-            raise NotImplementedError('fileno parameter is not supported '
-                                      'on Python < 3.2')
+            raise NotImplementedError(
+                'fileno parameter is not supported ' 'on Python < 3.2'
+            )
 
         # 8<-----------------------------------------
-        self.config = {'family': family,
-                       'port': port,
-                       'pid': pid,
-                       'fileno': fileno,
-                       'sndbuf': sndbuf,
-                       'rcvbuf': rcvbuf,
-                       'all_ns': all_ns,
-                       'async_qsize': async_qsize,
-                       'target': target,
-                       'nlm_generator': nlm_generator,
-                       'ext_ack': ext_ack,
-                       'strict_check': strict_check}
+        self.config = {
+            'family': family,
+            'port': port,
+            'pid': pid,
+            'fileno': fileno,
+            'sndbuf': sndbuf,
+            'rcvbuf': rcvbuf,
+            'all_ns': all_ns,
+            'async_qsize': async_qsize,
+            'target': target,
+            'nlm_generator': nlm_generator,
+            'ext_ack': ext_ack,
+            'strict_check': strict_check,
+        }
         # 8<-----------------------------------------
-        self.addr_pool = AddrPool(minaddr=0x000000ff, maxaddr=0x0000ffff)
+        self.addr_pool = AddrPool(minaddr=0x000000FF, maxaddr=0x0000FFFF)
         self.epid = None
         self.port = 0
         self.fixed = True
@@ -349,15 +351,17 @@ class NetlinkMixin(object):
         self._sndbuf = sndbuf
         self._rcvbuf = rcvbuf
         self.backlog = {0: []}
-        self.callbacks = []     # [(predicate, callback, args), ...]
+        self.callbacks = []  # [(predicate, callback, args), ...]
         self.pthread = None
         self.closed = False
         self.uname = config.uname
         self.target = target
-        self.capabilities = {'create_bridge': config.kernel > [3, 2, 0],
-                             'create_bond': config.kernel > [3, 2, 0],
-                             'create_dummy': True,
-                             'provide_master': config.kernel[0] > 2}
+        self.capabilities = {
+            'create_bridge': config.kernel > [3, 2, 0],
+            'create_bond': config.kernel > [3, 2, 0],
+            'create_dummy': True,
+            'provide_master': config.kernel[0] > 2,
+        }
         self.backlog_lock = threading.Lock()
         self.read_lock = threading.Lock()
         self.sys_lock = threading.RLock()
@@ -380,7 +384,7 @@ class NetlinkMixin(object):
         self.ext_ack = ext_ack
         self.strict_check = strict_check
         if pid is None:
-            self.pid = os.getpid() & 0x3fffff
+            self.pid = os.getpid() & 0x3FFFFF
             self.port = port
             self.fixed = self.port is not None
         elif pid == 0:
@@ -416,8 +420,9 @@ class NetlinkMixin(object):
 
     def close(self, code=errno.ECONNRESET):
         if code > 0 and self.pthread:
-            self.buffer_queue.put(struct.pack('IHHQIQQ',
-                                              28, 2, 0, 0, code, 0, 0))
+            self.buffer_queue.put(
+                struct.pack('IHHQIQQ', 28, 2, 0, 0, code, 0, 0)
+            )
         try:
             os.close(self._ctrl_write)
             os.close(self._ctrl_read)
@@ -436,8 +441,7 @@ class NetlinkMixin(object):
         log.warning("Use `close()` instead")
         self.close()
 
-    def register_callback(self, callback,
-                          predicate=lambda x: True, args=None):
+    def register_callback(self, callback, predicate=lambda x: True, args=None):
         '''
         Register a callback to run on a message arrival.
 
@@ -590,11 +594,15 @@ class NetlinkMixin(object):
                 else:
                     return
 
-    def put(self, msg, msg_type,
-            msg_flags=NLM_F_REQUEST,
-            addr=(0, 0),
-            msg_seq=0,
-            msg_pid=None):
+    def put(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST,
+        addr=(0, 0),
+        msg_seq=0,
+        msg_pid=None,
+    ):
         '''
         Construct a message from a dictionary and send it to
         the socket. Parameters:
@@ -643,10 +651,9 @@ class NetlinkMixin(object):
     def sendto_gate(self, msg, addr):
         raise NotImplementedError()
 
-    def get(self, bufsize=DEFAULT_RCVBUF,
-            msg_seq=0,
-            terminate=None,
-            callback=None):
+    def get(
+        self, bufsize=DEFAULT_RCVBUF, msg_seq=0, terminate=None, callback=None
+    ):
         '''
         Get parsed messages list. If `msg_seq` is given, return
         only messages with that `msg['header']['sequence_number']`,
@@ -772,8 +779,9 @@ class NetlinkMixin(object):
                         # function more than TIMEOUT seconds. All the locks
                         # MUST be released here.
                         #
-                        if (msg_seq != 0) and \
-                                (time.time() - ctime > self.get_timeout):
+                        if (msg_seq != 0) and (
+                            time.time() - ctime > self.get_timeout
+                        ):
                             # requeue already received for that msg_seq
                             self.backlog[0].extend(self.backlog[msg_seq])
                             del self.backlog[msg_seq]
@@ -793,9 +801,9 @@ class NetlinkMixin(object):
                                 # locks, except the read lock must be released
                                 data = self.recv_ft(bufsize)
                                 # Parse data
-                                msgs = self.marshal.parse(data,
-                                                          msg_seq,
-                                                          callback)
+                                msgs = self.marshal.parse(
+                                    data, msg_seq, callback
+                                )
                                 # Reset ctime -- timeout should be measured
                                 # for every turn separately
                                 ctime = time.time()
@@ -804,11 +812,14 @@ class NetlinkMixin(object):
                                 delta = current - self.qsize
                                 delay = 0
                                 if delta > 10:
-                                    delay = min(3, max(0.01,
-                                                       float(current) / 60000))
-                                    message = ("Packet burst: "
-                                               "delta=%s qsize=%s delay=%s"
-                                               % (delta, current, delay))
+                                    delay = min(
+                                        3, max(0.01, float(current) / 60000)
+                                    )
+                                    message = (
+                                        "Packet burst: "
+                                        "delta=%s qsize=%s delay=%s"
+                                        % (delta, current, delay)
+                                    )
                                     if delay < 1:
                                         log.debug(message)
                                     else:
@@ -820,13 +831,15 @@ class NetlinkMixin(object):
                                 with self.backlog_lock:
                                     for msg in msgs:
                                         msg['header']['target'] = self.target
-                                        msg['header']['stats'] = Stats(current,
-                                                                       delta,
-                                                                       delay)
+                                        msg['header']['stats'] = Stats(
+                                            current, delta, delay
+                                        )
                                         seq = msg['header']['sequence_number']
                                         if seq not in self.backlog:
-                                            if msg['header']['type'] == \
-                                                    NLMSG_ERROR:
+                                            if (
+                                                msg['header']['type']
+                                                == NLMSG_ERROR
+                                            ):
                                                 # Drop orphaned NLMSG_ERROR
                                                 # messages
                                                 continue
@@ -873,10 +886,14 @@ class NetlinkMixin(object):
                 if backlog_acquired:
                     self.backlog_lock.release()
 
-    def nlm_request(self, msg, msg_type,
-                    msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-                    terminate=None,
-                    callback=None):
+    def nlm_request(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        terminate=None,
+        callback=None,
+    ):
 
         msg_seq = self.addr_pool.alloc()
         defer = None
@@ -886,12 +903,16 @@ class NetlinkMixin(object):
                 while True:
                     try:
                         self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
-                        for msg in self.get(msg_seq=msg_seq,
-                                            terminate=terminate,
-                                            callback=callback):
+                        for msg in self.get(
+                            msg_seq=msg_seq,
+                            terminate=terminate,
+                            callback=callback,
+                        ):
                             # analyze the response for effects to be deferred
-                            if defer is None and \
-                                    msg['header']['flags'] & NLM_F_DUMP_INTR:
+                            if (
+                                defer is None
+                                and msg['header']['flags'] & NLM_F_DUMP_INTR
+                            ):
                                 defer = NetlinkDumpInterrupted()
                             yield msg
                         break
@@ -919,13 +940,12 @@ class NetlinkMixin(object):
                 # being received, will become orphaned and just dropped.
                 #
                 # Hack, but true.
-                self.addr_pool.free(msg_seq, ban=0xff)
+                self.addr_pool.free(msg_seq, ban=0xFF)
             if defer is not None:
                 raise defer
 
 
 class BatchAddrPool(object):
-
     def alloc(self, *argv, **kwarg):
         return 0
 
@@ -934,7 +954,6 @@ class BatchAddrPool(object):
 
 
 class BatchBacklogQueue(list):
-
     def append(self, *argv, **kwarg):
         pass
 
@@ -943,7 +962,6 @@ class BatchBacklogQueue(list):
 
 
 class BatchBacklog(dict):
-
     def __getitem__(self, key):
         return BatchBacklogQueue()
 
@@ -955,7 +973,6 @@ class BatchBacklog(dict):
 
 
 class BatchSocket(NetlinkMixin):
-
     def post_init(self):
 
         self.backlog = BatchBacklog()
@@ -966,10 +983,14 @@ class BatchSocket(NetlinkMixin):
     def reset(self):
         self.batch = bytearray()
 
-    def nlm_request(self, msg, msg_type,
-                    msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-                    terminate=None,
-                    callback=None):
+    def nlm_request(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        terminate=None,
+        callback=None,
+    ):
         msg_seq = self.addr_pool.alloc()
         msg_pid = self.epid or os.getpid()
 
@@ -987,16 +1008,14 @@ class BatchSocket(NetlinkMixin):
 
 
 class NetlinkSocket(NetlinkMixin):
-
     def post_init(self):
         # recreate the underlying socket
         with self.sys_lock:
             if self._sock is not None:
                 self._sock.close()
-            self._sock = config.SocketBase(AF_NETLINK,
-                                           SOCK_DGRAM,
-                                           self.family,
-                                           self._fileno)
+            self._sock = config.SocketBase(
+                AF_NETLINK, SOCK_DGRAM, self.family, self._fileno
+            )
             self.sendto_gate = self._gate
 
             # monkey patch recv_into on Python 2.6
@@ -1006,6 +1025,7 @@ class NetlinkSocket(NetlinkMixin):
 
                 def patch(data, bsize):
                     data[0:] = self._sock.recv(bsize)
+
                 self._sock.recv_into = patch
             self.setsockopt(SOL_SOCKET, SO_SNDBUF, self._sndbuf)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, self._rcvbuf)
@@ -1017,10 +1037,19 @@ class NetlinkSocket(NetlinkMixin):
                 self.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
 
     def __getattr__(self, attr):
-        if attr in ('getsockname', 'getsockopt', 'makefile',
-                    'setsockopt', 'setblocking', 'settimeout',
-                    'gettimeout', 'shutdown', 'recvfrom',
-                    'recvfrom_into', 'fileno'):
+        if attr in (
+            'getsockname',
+            'getsockopt',
+            'makefile',
+            'setsockopt',
+            'setblocking',
+            'settimeout',
+            'gettimeout',
+            'shutdown',
+            'recvfrom',
+            'recvfrom_into',
+            'fileno',
+        ):
             return getattr(self._sock, attr)
         elif attr in ('_sendto', '_recv', '_recv_into'):
             return getattr(self._sock, attr.lstrip("_"))
@@ -1052,8 +1081,10 @@ class NetlinkSocket(NetlinkMixin):
             # FIXME
             # raise deprecation error after 0.5.3
             #
-            log.warning('use "async_cache" instead of "async", '
-                        '"async" is a keyword from Python 3.7')
+            log.warning(
+                'use "async_cache" instead of "async", '
+                '"async" is a keyword from Python 3.7'
+            )
         async_cache = kwarg.get('async_cache') or kwarg.get('async')
 
         self.groups = groups
@@ -1076,6 +1107,7 @@ class NetlinkSocket(NetlinkMixin):
                 raise KeyError('no free address available')
         # all is OK till now, so start async recv, if we need
         if async_cache:
+
             def recv_plugin(*argv, **kwarg):
                 data_in = self.buffer_queue.get()
                 if isinstance(data_in, Exception):
@@ -1090,11 +1122,13 @@ class NetlinkSocket(NetlinkMixin):
                 else:
                     data[:] = data_in
                     return len(data_in)
+
             self._recv = recv_plugin
             self._recv_into = recv_into_plugin
             self.recv_ft = recv_plugin
-            self.pthread = threading.Thread(name="Netlink async cache",
-                                            target=self.async_recv)
+            self.pthread = threading.Thread(
+                name="Netlink async cache", target=self.async_recv
+            )
             self.pthread.daemon = True
             self.pthread.start()
 

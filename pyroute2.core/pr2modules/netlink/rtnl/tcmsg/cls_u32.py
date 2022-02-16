@@ -61,13 +61,15 @@ from pr2modules.netlink import nlmsg
 from pr2modules.netlink.rtnl.tcmsg.common_act import get_tca_action
 from pr2modules.netlink.rtnl.tcmsg.common_act import tca_act_prio
 from pr2modules.netlink.rtnl.tcmsg.act_police import nla_plus_police
-from pr2modules.netlink.rtnl.tcmsg.act_police import get_parameters \
-    as ap_parameters
+from pr2modules.netlink.rtnl.tcmsg.act_police import (
+    get_parameters as ap_parameters,
+)
 
 
 def fix_msg(msg, kwarg):
-    msg['info'] = htons(kwarg.get('protocol', 0) & 0xffff) |\
-        ((kwarg.get('prio', 0) << 16) & 0xffff0000)
+    msg['info'] = htons(kwarg.get('protocol', 0) & 0xFFFF) | (
+        (kwarg.get('prio', 0) << 16) & 0xFFFF0000
+    )
 
 
 def get_parameters(kwarg):
@@ -85,37 +87,43 @@ def get_parameters(kwarg):
 
 
 class options(nla, nla_plus_police):
-    nla_map = (('TCA_U32_UNSPEC', 'none'),
-               ('TCA_U32_CLASSID', 'uint32'),
-               ('TCA_U32_HASH', 'uint32'),
-               ('TCA_U32_LINK', 'hex'),
-               ('TCA_U32_DIVISOR', 'uint32'),
-               ('TCA_U32_SEL', 'u32_sel'),
-               ('TCA_U32_POLICE', 'police'),
-               ('TCA_U32_ACT', 'tca_act_prio'),
-               ('TCA_U32_INDEV', 'hex'),
-               ('TCA_U32_PCNT', 'u32_pcnt'),
-               ('TCA_U32_MARK', 'u32_mark'))
+    nla_map = (
+        ('TCA_U32_UNSPEC', 'none'),
+        ('TCA_U32_CLASSID', 'uint32'),
+        ('TCA_U32_HASH', 'uint32'),
+        ('TCA_U32_LINK', 'hex'),
+        ('TCA_U32_DIVISOR', 'uint32'),
+        ('TCA_U32_SEL', 'u32_sel'),
+        ('TCA_U32_POLICE', 'police'),
+        ('TCA_U32_ACT', 'tca_act_prio'),
+        ('TCA_U32_INDEV', 'hex'),
+        ('TCA_U32_PCNT', 'u32_pcnt'),
+        ('TCA_U32_MARK', 'u32_mark'),
+    )
 
     tca_act_prio = tca_act_prio
 
     class u32_sel(nla):
-        fields = (('flags', 'B'),
-                  ('offshift', 'B'),
-                  ('nkeys', 'B'),
-                  ('__align', 'x'),
-                  ('offmask', '>H'),
-                  ('off', 'H'),
-                  ('offoff', 'h'),
-                  ('hoff', 'h'),
-                  ('hmask', '>I'))
+        fields = (
+            ('flags', 'B'),
+            ('offshift', 'B'),
+            ('nkeys', 'B'),
+            ('__align', 'x'),
+            ('offmask', '>H'),
+            ('off', 'H'),
+            ('offoff', 'h'),
+            ('hoff', 'h'),
+            ('hmask', '>I'),
+        )
 
         class u32_key(nlmsg):
             header = None
-            fields = (('key_mask', '>I'),
-                      ('key_val', '>I'),
-                      ('key_off', 'i'),
-                      ('key_offmask', 'i'))
+            fields = (
+                ('key_mask', '>I'),
+                ('key_val', '>I'),
+                ('key_off', 'i'),
+                ('key_offmask', 'i'),
+            )
 
         def encode(self):
             '''
@@ -139,7 +147,7 @@ class options(nla, nla_plus_police):
                 pos = key.find(separator)
                 new_key = key
                 if pos > 0:
-                    field = key[pos + 1:]
+                    field = key[pos + 1 :]
                     new_key = key[:pos]
                 return (new_key, field)
 
@@ -198,7 +206,7 @@ class options(nla, nla_plus_police):
                     key['key_mask'] |= bmask << bits
                     key['key_val'] |= bvalue << bits
                     bits -= 8
-                    if (bits < 0 or offset == 255):
+                    if bits < 0 or offset == 255:
                         keys.append(key)
                         key = None
 
@@ -214,10 +222,7 @@ class options(nla, nla_plus_police):
                 key.encode()
                 offset += 16  # keys haven't header
             self.length = offset - self.offset
-            struct.pack_into('H',
-                             self.data,
-                             self.offset,
-                             offset - self.offset)
+            struct.pack_into('H', self.data, self.offset, offset - self.offset)
 
         def decode(self):
             nla.decode(self)
@@ -232,11 +237,7 @@ class options(nla, nla_plus_police):
                 nkeys -= 1
 
     class u32_mark(nla):
-        fields = (('val', 'I'),
-                  ('mask', 'I'),
-                  ('success', 'I'))
+        fields = (('val', 'I'), ('mask', 'I'), ('success', 'I'))
 
     class u32_pcnt(nla):
-        fields = (('rcnt', 'Q'),
-                  ('rhit', 'Q'),
-                  ('kcnts', 'Q'))
+        fields = (('rcnt', 'Q'), ('rhit', 'Q'), ('kcnts', 'Q'))

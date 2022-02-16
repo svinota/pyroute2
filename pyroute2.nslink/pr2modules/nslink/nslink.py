@@ -82,7 +82,6 @@ log = logging.getLogger(__name__)
 
 
 class FD(object):
-
     def __init__(self, fd):
         self.fd = fd
         for name in ('read', 'write', 'close'):
@@ -119,14 +118,13 @@ class NetNS(RTNL_API, RemoteSocket):
     is **mandatory** to close the socket before exit.
 
     '''
+
     def __init__(self, netns, flags=os.O_CREAT, target=None, libc=None):
         self.netns = netns
         self.flags = flags
         target = target or netns
-        trnsp_in, self.remote_trnsp_out = [Transport(FD(x))
-                                           for x in os.pipe()]
-        self.remote_trnsp_in, trnsp_out = [Transport(FD(x))
-                                           for x in os.pipe()]
+        trnsp_in, self.remote_trnsp_out = [Transport(FD(x)) for x in os.pipe()]
+        self.remote_trnsp_in, trnsp_out = [Transport(FD(x)) for x in os.pipe()]
 
         self.child = os.fork()
         if self.child == 0:
@@ -138,23 +136,23 @@ class NetNS(RTNL_API, RemoteSocket):
             try:
                 setns(self.netns, self.flags, libc=libc)
             except OSError as e:
-                (self
-                 .remote_trnsp_out
-                 .send({'stage': 'init', 'error': e}))
+                (self.remote_trnsp_out.send({'stage': 'init', 'error': e}))
                 os._exit(e.errno)
             except Exception as e:
-                (self.
-                 remote_trnsp_out
-                 .send({'stage': 'init',
-                        'error': OSError(errno.ECOMM,
-                                         str(e),
-                                         self.netns)}))
+                (
+                    self.remote_trnsp_out.send(
+                        {
+                            'stage': 'init',
+                            'error': OSError(errno.ECOMM, str(e), self.netns),
+                        }
+                    )
+                )
                 os._exit(255)
 
             try:
-                Server(self.remote_trnsp_in,
-                       self.remote_trnsp_out,
-                       target=target)
+                Server(
+                    self.remote_trnsp_in, self.remote_trnsp_out, target=target
+                )
             finally:
                 os._exit(0)
 

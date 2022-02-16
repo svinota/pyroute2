@@ -1,5 +1,3 @@
-
-
 class DeprecationException(Exception):
     pass
 

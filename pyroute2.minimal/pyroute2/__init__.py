@@ -23,7 +23,7 @@ except ImportError:
 #   pip install win-inet-pton
 #
 if sys.platform.startswith('win'):  # noqa: E402
-    import win_inet_pton            # noqa: F401
+    import win_inet_pton  # noqa: F401
 
 ##
 #
@@ -56,6 +56,7 @@ except Exception:
 
         def wrapped(fmt, buf, offset=0):
             return struct._u_f_orig(fmt, str(buf), offset)
+
         struct._u_f_orig = struct.unpack_from
         struct.unpack_from = wrapped
     else:
@@ -77,9 +78,15 @@ __all__.extend(modules)
 
 
 class PyRoute2ModuleSpec(importlib.machinery.ModuleSpec):
-
-    def __init__(self, name, loader, *argv,
-                 origin=None, loader_state=None, is_package=None):
+    def __init__(
+        self,
+        name,
+        loader,
+        *argv,
+        origin=None,
+        loader_state=None,
+        is_package=None
+    ):
         self.name = name
         self.loader = loader
         self.origin = None
@@ -90,7 +97,6 @@ class PyRoute2ModuleSpec(importlib.machinery.ModuleSpec):
 
 
 class PyRoute2ModuleFinder(importlib.abc.MetaPathFinder):
-
     @staticmethod
     def find_spec(fullname, path, target=None):
         if target is not None:

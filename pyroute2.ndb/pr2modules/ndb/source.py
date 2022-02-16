@@ -82,11 +82,9 @@ from pr2modules.remote import RemoteIPRoute
 from pr2modules.netlink.nlsocket import NetlinkMixin
 from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
-from .events import (ShutdownException,
-                     State)
-from .messages import (cmsg_event,
-                       cmsg_failed,
-                       cmsg_sstart)
+from .events import ShutdownException, State
+from .messages import cmsg_event, cmsg_failed, cmsg_sstart
+
 if sys.platform.startswith('linux'):
     from pr2modules import netns
     from pr2modules.netns.manager import NetNSManager
@@ -99,7 +97,6 @@ SOURCE_FAIL_PAUSE = 5
 
 
 class SourceProxy(object):
-
     def __init__(self, ndb, target):
         self.ndb = ndb
         self.events = queue.Queue()
@@ -109,15 +106,18 @@ class SourceProxy(object):
         call_id = str(uuid.uuid4().hex)
         self.ndb._call_registry[call_id] = event = threading.Event()
         event.clear()
-        (self
-         .ndb
-         .messenger
-         .emit({'type': 'api',
-                'target': self.target,
-                'call_id': call_id,
-                'name': name,
-                'argv': argv,
-                'kwarg': kwarg}))
+        (
+            self.ndb.messenger.emit(
+                {
+                    'type': 'api',
+                    'target': self.target,
+                    'call_id': call_id,
+                    'name': name,
+                    'argv': argv,
+                    'kwarg': kwarg,
+                }
+            )
+        )
 
         event.wait()
         response = self.ndb._call_registry.pop(call_id)
@@ -134,15 +134,18 @@ class Source(dict):
     the source starts additional threads, they must be joined
     in the source.close()
     '''
+
     table_alias = 'src'
     dump_header = None
     summary_header = None
     view = None
     table = 'sources'
-    vmap = {'local': IPRoute,
-            'netns': NetNS,
-            'remote': RemoteIPRoute,
-            'nsmanager': NetNSManager}
+    vmap = {
+        'local': IPRoute,
+        'netns': NetNS,
+        'remote': RemoteIPRoute,
+        'nsmanager': NetNSManager,
+    }
 
     def __init__(self, ndb, **spec):
         self.th = None
@@ -169,39 +172,52 @@ class Source(dict):
         self.log = ndb.log.channel('sources.%s' % self.target)
         self.state = State(log=self.log)
         self.state.set('init')
-        self.ndb.schema.execute('''
+        self.ndb.schema.execute(
+            '''
                                 INSERT INTO sources (f_target, f_kind)
                                 VALUES (%s, %s)
-                                ''' % (self.ndb.schema.plch,
-                                       self.ndb.schema.plch),
-                                (self.target, self.kind))
+                                '''
+            % (self.ndb.schema.plch, self.ndb.schema.plch),
+            (self.target, self.kind),
+        )
         for key, value in spec.items():
             vtype = 'int' if isinstance(value, int) else 'str'
-            self.ndb.schema.execute('''
+            self.ndb.schema.execute(
+                '''
                                     INSERT INTO sources_options
                                     (f_target, f_name, f_type, f_value)
                                     VALUES (%s, %s, %s, %s)
-                                    ''' % (self.ndb.schema.plch,
-                                           self.ndb.schema.plch,
-                                           self.ndb.schema.plch,
-                                           self.ndb.schema.plch),
-                                    (self.target, key, vtype, value))
+                                    '''
+                % (
+                    self.ndb.schema.plch,
+                    self.ndb.schema.plch,
+                    self.ndb.schema.plch,
+                    self.ndb.schema.plch,
+                ),
+                (self.target, key, vtype, value),
+            )
 
         self.load_sql()
 
     def __del__(self):
         try:
-            self.ndb.schema.execute('''
+            self.ndb.schema.execute(
+                '''
                                     DELETE FROM sources_options
                                     WHERE f_target = %s
-                                    ''' % self.ndb.schema.plch,
-                                    (self.target, ))
+                                    '''
+                % self.ndb.schema.plch,
+                (self.target,),
+            )
 
-            self.ndb.schema.execute('''
+            self.ndb.schema.execute(
+                '''
                                     DELETE FROM sources
                                     WHERE f_target = %s
-                                    ''' % self.ndb.schema.plch,
-                                    (self.target, ))
+                                    '''
+                % self.ndb.schema.plch,
+                (self.target,),
+            )
         except:
             pass
 
@@ -242,7 +258,7 @@ class Source(dict):
     def summary(cls, view):
         yield ('state', 'name', 'spec')
         for key in view.keys():
-            yield (view[key].state.get(), key, '%s' % (view[key].nl_kwarg, ))
+            yield (view[key].state.get(), key, '%s' % (view[key].nl_kwarg,))
 
     @classmethod
     def dump(cls, view):
@@ -259,13 +275,15 @@ class Source(dict):
             with self.lock:
                 try:
                     return getattr(self.nl, name)(*argv, **kwarg)
-                except (NetlinkError,
-                        AttributeError,
-                        ValueError,
-                        KeyError,
-                        TypeError,
-                        socket.error,
-                        struct.error):
+                except (
+                    NetlinkError,
+                    AttributeError,
+                    ValueError,
+                    KeyError,
+                    TypeError,
+                    socket.error,
+                    struct.error,
+                ):
                     raise
                 except Exception as e:
                     # probably the source is restarting
@@ -283,10 +301,12 @@ class Source(dict):
         zero_if['header']['type'] = 16
         zero_if['header']['target'] = self.target
         zero_if['event'] = 'RTM_NEWLINK'
-        zero_if['attrs'] = [('IFLA_IFNAME', url),
-                            ('IFLA_ADDRESS', '00:00:00:00:00:00')]
+        zero_if['attrs'] = [
+            ('IFLA_IFNAME', url),
+            ('IFLA_ADDRESS', '00:00:00:00:00:00'),
+        ]
         zero_if.encode()
-        self.evq.put([zero_if, ])
+        self.evq.put([zero_if])
 
     def receiver(self):
         #
@@ -311,7 +331,7 @@ class Source(dict):
                     if isinstance(self.nl_prime, type):
                         spec = {}
                         spec.update(self.nl_kwarg)
-                        if self.kind in ('nsmanager', ):
+                        if self.kind in ('nsmanager',):
                             spec['libc'] = self.ndb.libc
                         self.nl = self.nl_prime(**spec)
                     else:
@@ -334,15 +354,15 @@ class Source(dict):
                     self.shutdown.clear()
                     self.state.set('running')
                     if self.event is not None:
-                        self.evq.put((cmsg_event(self.target, self.event), ))
+                        self.evq.put((cmsg_event(self.target, self.event),))
                     else:
-                        self.evq.put((cmsg_sstart(self.target), ))
+                        self.evq.put((cmsg_sstart(self.target),))
                 except Exception as e:
                     self.started.set()
                     self.state.set('failed')
                     self.log.error('source error: %s %s' % (type(e), e))
                     try:
-                        self.evq.put((cmsg_failed(self.target), ))
+                        self.evq.put((cmsg_failed(self.target),))
                     except ShutdownException:
                         stop = True
                         break
@@ -398,7 +418,7 @@ class Source(dict):
     def sync(self):
         self.log.debug('sync')
         sync = threading.Event()
-        self.evq.put((cmsg_event(self.target, sync), ))
+        self.evq.put((cmsg_event(self.target, sync),))
         sync.wait()
 
     def start(self):
@@ -410,9 +430,10 @@ class Source(dict):
             if (self.th is not None) and self.th.is_alive():
                 raise RuntimeError('source is running')
 
-            self.th = (threading
-                       .Thread(target=self.receiver,
-                               name='NDB event source: %s' % (self.target)))
+            self.th = threading.Thread(
+                target=self.receiver,
+                name='NDB event source: %s' % (self.target),
+            )
             self.th.start()
             return self
 
@@ -459,16 +480,22 @@ class Source(dict):
 
     def load_sql(self):
         #
-        spec = self.ndb.schema.fetchone('''
+        spec = self.ndb.schema.fetchone(
+            '''
                                         SELECT * FROM sources
                                         WHERE f_target = %s
-                                        ''' % self.ndb.schema.plch,
-                                        (self.target, ))
+                                        '''
+            % self.ndb.schema.plch,
+            (self.target,),
+        )
         self['target'], self['kind'] = spec
-        for spec in self.ndb.schema.fetch('''
+        for spec in self.ndb.schema.fetch(
+            '''
                                           SELECT * FROM sources_options
                                           WHERE f_target = %s
-                                          ''' % self.ndb.schema.plch,
-                                          (self.target, )):
+                                          '''
+            % self.ndb.schema.plch,
+            (self.target,),
+        ):
             f_target, f_name, f_type, f_value = spec
             self[f_name] = int(f_value) if f_type == 'int' else f_value

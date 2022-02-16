@@ -25,14 +25,15 @@ def skip_if_not_supported(func):
             if set((e.code, e.extra_code)) >= {errno.EOPNOTSUPP}:
                 pytest.skip('feature not supported by platform')
             raise
+
     return test_wrapper
 
 
 def make_test_matrix(targets=None, tables=None, dbs=None, types=None):
-    targets = targets or ['local', ]
-    tables = tables or [None, ]
-    types = types or [None, ]
-    dbs = dbs or ['sqlite3/:memory:', ]
+    targets = targets or ['local']
+    tables = tables or [None]
+    types = types or [None]
+    dbs = dbs or ['sqlite3/:memory:']
     ret = []
     skipdb = list(filter(lambda x: x, os.environ.get('SKIPDB', '').split(':')))
     for db in dbs:
@@ -58,28 +59,25 @@ def make_test_matrix(targets=None, tables=None, dbs=None, types=None):
         for target in targets:
             for table in tables:
                 for kind in types:
-                    param_id = (f'db={db} '
-                                f'target={target} '
-                                f'table={table} '
-                                f'kind={kind}')
+                    param_id = (
+                        f'db={db} '
+                        f'target={target} '
+                        f'table={table} '
+                        f'kind={kind}'
+                    )
                     param = pytest.param(
-                        ContextParams(db_provider,
-                                      db_spec,
-                                      target,
-                                      table,
-                                      kind),
-                        id=param_id
+                        ContextParams(
+                            db_provider, db_spec, target, table, kind
+                        ),
+                        id=param_id,
                     )
                     ret.append(param)
     return ret
 
 
-ContextParams = namedtuple('ContextParams',
-                           ('db_provider',
-                            'db_spec',
-                            'target',
-                            'table',
-                            'kind'))
+ContextParams = namedtuple(
+    'ContextParams', ('db_provider', 'db_spec', 'target', 'table', 'kind')
+)
 
 
 class SpecContextManager(object):
@@ -89,8 +87,10 @@ class SpecContextManager(object):
 
     def __init__(self, request, tmpdir):
         self.uid = str(uuid.uuid4())
-        self.log_spec = ('%s/ndb-%s-%s.log' % (tmpdir, os.getpid(), self.uid),
-                         logging.DEBUG)
+        self.log_spec = (
+            '%s/ndb-%s-%s.log' % (tmpdir, os.getpid(), self.uid),
+            logging.DEBUG,
+        )
         self.db_spec = '%s/ndb-%s-%s.sql' % (tmpdir, os.getpid(), self.uid)
 
     def teardown(self):
@@ -142,9 +142,9 @@ class NDBContextManager(object):
             sources = [{'target': 'localhost', 'kind': 'local'}]
         elif target == 'netns':
             self.netns = self.new_nsname
-            sources = [{'target': 'localhost',
-                        'kind': 'netns',
-                        'netns': self.netns}]
+            sources = [
+                {'target': 'localhost', 'kind': 'netns', 'netns': self.netns}
+            ]
         else:
             sources = None
 

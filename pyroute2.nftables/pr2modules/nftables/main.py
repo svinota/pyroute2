@@ -1,21 +1,22 @@
 '''
 '''
 from pr2modules.netlink.nfnetlink import nfgen_msg
-from pr2modules.netlink.nfnetlink.nftsocket import \
-    (NFTSocket,
-     nft_table_msg,
-     nft_chain_msg,
-     nft_rule_msg,
-     NFT_MSG_NEWTABLE,
-     NFT_MSG_GETTABLE,
-     NFT_MSG_DELTABLE,
-     NFT_MSG_NEWCHAIN,
-     NFT_MSG_GETCHAIN,
-     NFT_MSG_DELCHAIN,
-     NFT_MSG_NEWRULE,
-     NFT_MSG_GETRULE,
-     NFT_MSG_DELRULE,
-     NFT_MSG_GETSET)
+from pr2modules.netlink.nfnetlink.nftsocket import (
+    NFTSocket,
+    nft_table_msg,
+    nft_chain_msg,
+    nft_rule_msg,
+    NFT_MSG_NEWTABLE,
+    NFT_MSG_GETTABLE,
+    NFT_MSG_DELTABLE,
+    NFT_MSG_NEWCHAIN,
+    NFT_MSG_GETCHAIN,
+    NFT_MSG_DELCHAIN,
+    NFT_MSG_NEWRULE,
+    NFT_MSG_GETRULE,
+    NFT_MSG_DELRULE,
+    NFT_MSG_GETSET,
+)
 
 
 class NFTables(NFTSocket):
@@ -48,8 +49,7 @@ class NFTables(NFTSocket):
 
             nft.table('add', name='test0')
         '''
-        commands = {'add': NFT_MSG_NEWTABLE,
-                    'del': NFT_MSG_DELTABLE}
+        commands = {'add': NFT_MSG_NEWTABLE, 'del': NFT_MSG_DELTABLE}
         # fix default kwargs
         if 'flags' not in kwarg:
             kwarg['flags'] = 0
@@ -69,20 +69,22 @@ class NFTables(NFTSocket):
                       type='filter',
                       policy=0)
         '''
-        commands = {'add': NFT_MSG_NEWCHAIN,
-                    'del': NFT_MSG_DELCHAIN}
+        commands = {'add': NFT_MSG_NEWCHAIN, 'del': NFT_MSG_DELCHAIN}
         # TODO: What about 'ingress' (netdev family)?
-        hooks = {'prerouting': 0,
-                 'input': 1,
-                 'forward': 2,
-                 'output': 3,
-                 'postrouting': 4}
+        hooks = {
+            'prerouting': 0,
+            'input': 1,
+            'forward': 2,
+            'output': 3,
+            'postrouting': 4,
+        }
         if 'hook' in kwarg:
-            kwarg['hook'] = {'attrs':
-                             [['NFTA_HOOK_HOOKNUM',
-                               hooks[kwarg['hook']]],
-                              ['NFTA_HOOK_PRIORITY',
-                               kwarg.pop('priority', 0)]]}
+            kwarg['hook'] = {
+                'attrs': [
+                    ['NFTA_HOOK_HOOKNUM', hooks[kwarg['hook']]],
+                    ['NFTA_HOOK_PRIORITY', kwarg.pop('priority', 0)],
+                ]
+            }
         if 'type' not in kwarg:
             kwarg['type'] = 'filter'
         return self._command(nft_chain_msg, commands, cmd, kwarg)
@@ -102,8 +104,7 @@ class NFTables(NFTSocket):
                                   verdict(code=1)))
         '''
         # TODO: more operations
-        commands = {'add': NFT_MSG_NEWRULE,
-                    'del': NFT_MSG_DELRULE}
+        commands = {'add': NFT_MSG_NEWRULE, 'del': NFT_MSG_DELRULE}
 
         if 'expressions' in kwarg:
             expressions = []

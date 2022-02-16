@@ -12,9 +12,10 @@ def init(config):
     else:
         config = json.load(config)
     hostname = config['local'].get('hostname', socket.gethostname())
-    messenger = Messenger(config['local']['id'],
-                          Transport(config['local']['address'],
-                                    config['local']['port']))
+    messenger = Messenger(
+        config['local']['id'],
+        Transport(config['local']['address'], config['local']['port']),
+    )
 
     for target in config['local'].get('targets', []):
         messenger.targets.add(target)
@@ -29,7 +30,9 @@ def init(config):
     if sources is None:
         sources = [{'target': hostname, 'kind': 'local'}]
 
-    return NDB(log=config.get('log', 'debug'),
-               sources=sources,
-               localhost=sources[0]['target'],
-               messenger=messenger)
+    return NDB(
+        log=config.get('log', 'debug'),
+        sources=sources,
+        localhost=sources[0]['target'],
+        messenger=messenger,
+    )

@@ -66,20 +66,21 @@ def _nlmsg_error(msg):
 
 
 class PortRange(object):
-    """ A simple container for port range with optional protocol
+    """A simple container for port range with optional protocol
 
-        Note that optional protocol parameter is not supported by all
-        kernel ipset modules using ports. On the other hand, it's sometimes
-        mandatory to set it (like for hash:net,port ipsets)
+    Note that optional protocol parameter is not supported by all
+    kernel ipset modules using ports. On the other hand, it's sometimes
+    mandatory to set it (like for hash:net,port ipsets)
 
-        Example::
+    Example::
 
-            udp_proto = socket.getprotobyname("udp")
-            port_range = PortRange(1000, 2000, protocol=udp_proto)
-            ipset.create("foo", stype="hash:net,port")
-            ipset.add("foo", ("192.0.2.0/24", port_range), etype="net,port")
-            ipset.test("foo", ("192.0.2.0/24", port_range), etype="net,port")
-        """
+        udp_proto = socket.getprotobyname("udp")
+        port_range = PortRange(1000, 2000, protocol=udp_proto)
+        ipset.create("foo", stype="hash:net,port")
+        ipset.add("foo", ("192.0.2.0/24", port_range), etype="net,port")
+        ipset.test("foo", ("192.0.2.0/24", port_range), etype="net,port")
+    """
+
     def __init__(self, begin, end, protocol=None):
         self.begin = begin
         self.end = end
@@ -87,7 +88,8 @@ class PortRange(object):
 
 
 class PortEntry(object):
-    """ A simple container for port entry with optional protocol """
+    """A simple container for port entry with optional protocol"""
+
     def __init__(self, port, protocol=None):
         self.port = port
         self.protocol = protocol
@@ -100,29 +102,37 @@ class IPSet(NetlinkSocket):
     Implements API to the ipset functionality.
     '''
 
-    policy = {IPSET_CMD_PROTOCOL: ipset_msg,
-              IPSET_CMD_LIST: ipset_msg,
-              IPSET_CMD_TYPE: ipset_msg,
-              IPSET_CMD_HEADER: ipset_msg,
-              IPSET_CMD_GET_BYNAME: ipset_msg,
-              IPSET_CMD_GET_BYINDEX: ipset_msg}
+    policy = {
+        IPSET_CMD_PROTOCOL: ipset_msg,
+        IPSET_CMD_LIST: ipset_msg,
+        IPSET_CMD_TYPE: ipset_msg,
+        IPSET_CMD_HEADER: ipset_msg,
+        IPSET_CMD_GET_BYNAME: ipset_msg,
+        IPSET_CMD_GET_BYINDEX: ipset_msg,
+    }
 
-    attr_map = {'iface': 'IPSET_ATTR_IFACE',
-                'mark': 'IPSET_ATTR_MARK',
-                'set': 'IPSET_ATTR_NAME',
-                'mac': 'IPSET_ATTR_ETHER',
-                'port': 'IPSET_ATTR_PORT',
-                ('ip_from', 1): 'IPSET_ATTR_IP_FROM',
-                ('ip_from', 2): 'IPSET_ATTR_IP2',
-                ('cidr', 1): 'IPSET_ATTR_CIDR',
-                ('cidr', 2): 'IPSET_ATTR_CIDR2',
-                ('ip_to', 1): 'IPSET_ATTR_IP_TO',
-                ('ip_to', 2): 'IPSET_ATTR_IP2_TO'}
+    attr_map = {
+        'iface': 'IPSET_ATTR_IFACE',
+        'mark': 'IPSET_ATTR_MARK',
+        'set': 'IPSET_ATTR_NAME',
+        'mac': 'IPSET_ATTR_ETHER',
+        'port': 'IPSET_ATTR_PORT',
+        ('ip_from', 1): 'IPSET_ATTR_IP_FROM',
+        ('ip_from', 2): 'IPSET_ATTR_IP2',
+        ('cidr', 1): 'IPSET_ATTR_CIDR',
+        ('cidr', 2): 'IPSET_ATTR_CIDR2',
+        ('ip_to', 1): 'IPSET_ATTR_IP_TO',
+        ('ip_to', 2): 'IPSET_ATTR_IP2_TO',
+    }
 
     def __init__(self, version=None, attr_revision=None, nfgen_family=2):
         super(IPSet, self).__init__(family=NETLINK_NETFILTER)
-        policy = dict([(x | (NFNL_SUBSYS_IPSET << 8), y)
-                       for (x, y) in self.policy.items()])
+        policy = dict(
+            [
+                (x | (NFNL_SUBSYS_IPSET << 8), y)
+                for (x, y) in self.policy.items()
+            ]
+        )
         self.register_policy(policy)
         self._nfgen_family = nfgen_family
         if version is None:
@@ -131,14 +141,21 @@ class IPSet(NetlinkSocket):
         self._proto_version = version
         self._attr_revision = attr_revision
 
-    def request(self, msg, msg_type,
-                msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-                terminate=None):
+    def request(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        terminate=None,
+    ):
         msg['nfgen_family'] = self._nfgen_family
         try:
-            return self.nlm_request(msg,
-                                    msg_type | (NFNL_SUBSYS_IPSET << 8),
-                                    msg_flags, terminate=terminate)
+            return self.nlm_request(
+                msg,
+                msg_type | (NFNL_SUBSYS_IPSET << 8),
+                msg_flags,
+                terminate=terminate,
+            )
         except NetlinkError as err:
             raise _IPSetError(err.code, cmd=msg_type)
 
@@ -189,15 +206,29 @@ class IPSet(NetlinkSocket):
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version]]
         if name is not None:
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
-        return self.request(msg, IPSET_CMD_DESTROY,
-                            msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
-                            terminate=_nlmsg_error)
+        return self.request(
+            msg,
+            IPSET_CMD_DESTROY,
+            msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
+            terminate=_nlmsg_error,
+        )
 
-    def create(self, name, stype='hash:ip', family=socket.AF_INET,
-               exclusive=True, counters=False, comment=False,
-               maxelem=None, forceadd=False,
-               hashsize=None, timeout=None, bitmap_ports_range=None,
-               size=None, skbinfo=False):
+    def create(
+        self,
+        name,
+        stype='hash:ip',
+        family=socket.AF_INET,
+        exclusive=True,
+        counters=False,
+        comment=False,
+        maxelem=None,
+        forceadd=False,
+        hashsize=None,
+        timeout=None,
+        bitmap_ports_range=None,
+        size=None,
+        skbinfo=False,
+    ):
         '''
         Create an ipset `name` of type `stype`, by default
         `hash:ip`.
@@ -246,31 +277,40 @@ class IPSet(NetlinkSocket):
             # Set the bitmap range A bitmap type of set
             # can store up to 65536 entries
             if isinstance(bitmap_ports_range, PortRange):
-                data['attrs'] += [['IPSET_ATTR_PORT_FROM',
-                                   bitmap_ports_range.begin]]
-                data['attrs'] += [['IPSET_ATTR_PORT_TO',
-                                   bitmap_ports_range.end]]
+                data['attrs'] += [
+                    ['IPSET_ATTR_PORT_FROM', bitmap_ports_range.begin]
+                ]
+                data['attrs'] += [
+                    ['IPSET_ATTR_PORT_TO', bitmap_ports_range.end]
+                ]
             else:
-                data['attrs'] += [['IPSET_ATTR_PORT_FROM',
-                                   bitmap_ports_range[0]]]
-                data['attrs'] += [['IPSET_ATTR_PORT_TO',
-                                   bitmap_ports_range[1]]]
+                data['attrs'] += [
+                    ['IPSET_ATTR_PORT_FROM', bitmap_ports_range[0]]
+                ]
+                data['attrs'] += [
+                    ['IPSET_ATTR_PORT_TO', bitmap_ports_range[1]]
+                ]
 
         if self._attr_revision is None:
             # Get the last revision supported by kernel
             revision = self.get_supported_revisions(stype)[1]
         else:
             revision = self._attr_revision
-        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
-                        ['IPSET_ATTR_SETNAME', name],
-                        ['IPSET_ATTR_TYPENAME', stype],
-                        ['IPSET_ATTR_FAMILY', family],
-                        ['IPSET_ATTR_REVISION', revision],
-                        ["IPSET_ATTR_DATA", data]]
+        msg['attrs'] = [
+            ['IPSET_ATTR_PROTOCOL', self._proto_version],
+            ['IPSET_ATTR_SETNAME', name],
+            ['IPSET_ATTR_TYPENAME', stype],
+            ['IPSET_ATTR_FAMILY', family],
+            ['IPSET_ATTR_REVISION', revision],
+            ["IPSET_ATTR_DATA", data],
+        ]
 
-        return self.request(msg, IPSET_CMD_CREATE,
-                            msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,
-                            terminate=_nlmsg_error)
+        return self.request(
+            msg,
+            IPSET_CMD_CREATE,
+            msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,
+            terminate=_nlmsg_error,
+        )
 
     @staticmethod
     def _family_to_version(family):
@@ -304,14 +344,23 @@ class IPSet(NetlinkSocket):
                 if t == 'net':
                     if '/' in e:
                         e, cidr = e.split('/')
-                        attrs += [[self.attr_map[('cidr', ip_count)],
-                                   int(cidr)]]
+                        attrs += [
+                            [self.attr_map[('cidr', ip_count)], int(cidr)]
+                        ]
                     elif '-' in e:
                         e, to = e.split('-')
-                        attrs += [[self.attr_map[('ip_to', ip_count)],
-                                   {'attrs': [[ip_version, to]]}]]
-                attrs += [[self.attr_map[('ip_from', ip_count)],
-                           {'attrs': [[ip_version, e]]}]]
+                        attrs += [
+                            [
+                                self.attr_map[('ip_to', ip_count)],
+                                {'attrs': [[ip_version, to]]},
+                            ]
+                        ]
+                attrs += [
+                    [
+                        self.attr_map[('ip_from', ip_count)],
+                        {'attrs': [[ip_version, e]]},
+                    ]
+                ]
             elif t == "port":
                 if isinstance(e, PortRange):
                     attrs += [['IPSET_ATTR_PORT_FROM', e.begin]]
@@ -329,11 +378,24 @@ class IPSet(NetlinkSocket):
 
         return attrs
 
-    def _add_delete_test(self, name, entry, family, cmd, exclusive,
-                         comment=None, timeout=None, etype="ip",
-                         packets=None, bytes=None, skbmark=None,
-                         skbprio=None, skbqueue=None, wildcard=False,
-                         physdev=False):
+    def _add_delete_test(
+        self,
+        name,
+        entry,
+        family,
+        cmd,
+        exclusive,
+        comment=None,
+        timeout=None,
+        etype="ip",
+        packets=None,
+        bytes=None,
+        skbmark=None,
+        skbprio=None,
+        skbqueue=None,
+        wildcard=False,
+        physdev=False,
+    ):
         excl_flag = NLM_F_EXCL if exclusive else 0
         adt_flags = 0
         if wildcard:
@@ -344,8 +406,10 @@ class IPSet(NetlinkSocket):
         ip_version = self._family_to_version(family)
         data_attrs = self._entry_to_data_attrs(entry, etype, ip_version)
         if comment is not None:
-            data_attrs += [["IPSET_ATTR_COMMENT", comment],
-                           ["IPSET_ATTR_CADT_LINENO", 0]]
+            data_attrs += [
+                ["IPSET_ATTR_COMMENT", comment],
+                ["IPSET_ATTR_CADT_LINENO", 0],
+            ]
         if timeout is not None:
             data_attrs += [["IPSET_ATTR_TIMEOUT", timeout]]
         if bytes is not None:
@@ -361,17 +425,34 @@ class IPSet(NetlinkSocket):
         if adt_flags:
             data_attrs += [["IPSET_ATTR_CADT_FLAGS", adt_flags]]
         msg = ipset_msg()
-        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
-                        ['IPSET_ATTR_SETNAME', name],
-                        ['IPSET_ATTR_DATA', {'attrs': data_attrs}]]
+        msg['attrs'] = [
+            ['IPSET_ATTR_PROTOCOL', self._proto_version],
+            ['IPSET_ATTR_SETNAME', name],
+            ['IPSET_ATTR_DATA', {'attrs': data_attrs}],
+        ]
 
-        return self.request(msg, cmd,
-                            msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,
-                            terminate=_nlmsg_error)
+        return self.request(
+            msg,
+            cmd,
+            msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,
+            terminate=_nlmsg_error,
+        )
 
-    def add(self, name, entry, family=socket.AF_INET, exclusive=True,
-            comment=None, timeout=None, etype="ip", skbmark=None,
-            skbprio=None, skbqueue=None, wildcard=False, **kwargs):
+    def add(
+        self,
+        name,
+        entry,
+        family=socket.AF_INET,
+        exclusive=True,
+        comment=None,
+        timeout=None,
+        etype="ip",
+        skbmark=None,
+        skbprio=None,
+        skbqueue=None,
+        wildcard=False,
+        **kwargs
+    ):
         '''
         Add a member to the ipset.
 
@@ -411,22 +492,33 @@ class IPSet(NetlinkSocket):
         wildcard option enable kernel wildcard matching on interface
         name for net,iface entries.
         '''
-        return self._add_delete_test(name, entry, family, IPSET_CMD_ADD,
-                                     exclusive, comment=comment,
-                                     timeout=timeout, etype=etype,
-                                     skbmark=skbmark, skbprio=skbprio,
-                                     skbqueue=skbqueue, wildcard=wildcard,
-                                     **kwargs)
+        return self._add_delete_test(
+            name,
+            entry,
+            family,
+            IPSET_CMD_ADD,
+            exclusive,
+            comment=comment,
+            timeout=timeout,
+            etype=etype,
+            skbmark=skbmark,
+            skbprio=skbprio,
+            skbqueue=skbqueue,
+            wildcard=wildcard,
+            **kwargs
+        )
 
-    def delete(self, name, entry, family=socket.AF_INET, exclusive=True,
-               etype="ip"):
+    def delete(
+        self, name, entry, family=socket.AF_INET, exclusive=True, etype="ip"
+    ):
         '''
         Delete a member from the ipset.
 
         See :func:`add` method for more information on etype.
         '''
-        return self._add_delete_test(name, entry, family, IPSET_CMD_DEL,
-                                     exclusive, etype=etype)
+        return self._add_delete_test(
+            name, entry, family, IPSET_CMD_DEL, exclusive, etype=etype
+        )
 
     def test(self, name, entry, family=socket.AF_INET, etype="ip"):
         '''
@@ -435,8 +527,9 @@ class IPSet(NetlinkSocket):
         See :func:`add` method for more information on etype.
         '''
         try:
-            self._add_delete_test(name, entry, family, IPSET_CMD_TEST,
-                                  False, etype=etype)
+            self._add_delete_test(
+                name, entry, family, IPSET_CMD_TEST, False, etype=etype
+            )
             return True
         except IPSetError as e:
             if e.code == IPSET_ERR_EXIST:
@@ -448,12 +541,17 @@ class IPSet(NetlinkSocket):
         Swap two ipsets. They must have compatible content type.
         '''
         msg = ipset_msg()
-        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
-                        ['IPSET_ATTR_SETNAME', set_a],
-                        ['IPSET_ATTR_TYPENAME', set_b]]
-        return self.request(msg, IPSET_CMD_SWAP,
-                            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
-                            terminate=_nlmsg_error)
+        msg['attrs'] = [
+            ['IPSET_ATTR_PROTOCOL', self._proto_version],
+            ['IPSET_ATTR_SETNAME', set_a],
+            ['IPSET_ATTR_TYPENAME', set_b],
+        ]
+        return self.request(
+            msg,
+            IPSET_CMD_SWAP,
+            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+            terminate=_nlmsg_error,
+        )
 
     def flush(self, name=None):
         '''
@@ -463,21 +561,29 @@ class IPSet(NetlinkSocket):
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version]]
         if name is not None:
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
-        return self.request(msg, IPSET_CMD_FLUSH,
-                            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
-                            terminate=_nlmsg_error)
+        return self.request(
+            msg,
+            IPSET_CMD_FLUSH,
+            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+            terminate=_nlmsg_error,
+        )
 
     def rename(self, name_src, name_dst):
         '''
         Rename the ipset.
         '''
         msg = ipset_msg()
-        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
-                        ['IPSET_ATTR_SETNAME', name_src],
-                        ['IPSET_ATTR_TYPENAME', name_dst]]
-        return self.request(msg, IPSET_CMD_RENAME,
-                            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
-                            terminate=_nlmsg_error)
+        msg['attrs'] = [
+            ['IPSET_ATTR_PROTOCOL', self._proto_version],
+            ['IPSET_ATTR_SETNAME', name_src],
+            ['IPSET_ATTR_TYPENAME', name_dst],
+        ]
+        return self.request(
+            msg,
+            IPSET_CMD_RENAME,
+            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+            terminate=_nlmsg_error,
+        )
 
     def _get_set_by(self, cmd, value):
         # Check that IPSet version is supported
@@ -486,12 +592,16 @@ class IPSet(NetlinkSocket):
 
         msg = ipset_msg()
         if cmd == IPSET_CMD_GET_BYNAME:
-            msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
-                            ['IPSET_ATTR_SETNAME', value]]
+            msg['attrs'] = [
+                ['IPSET_ATTR_PROTOCOL', self._proto_version],
+                ['IPSET_ATTR_SETNAME', value],
+            ]
 
         if cmd == IPSET_CMD_GET_BYINDEX:
-            msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
-                            ['IPSET_ATTR_INDEX', value]]
+            msg['attrs'] = [
+                ['IPSET_ATTR_PROTOCOL', self._proto_version],
+                ['IPSET_ATTR_INDEX', value],
+            ]
         return self.request(msg, cmd)
 
     def get_set_byname(self, name):
@@ -527,12 +637,17 @@ class IPSet(NetlinkSocket):
             ipset.get_supported_revisions("hash:net,port,net")
         '''
         msg = ipset_msg()
-        msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version],
-                        ['IPSET_ATTR_TYPENAME', stype],
-                        ['IPSET_ATTR_FAMILY', family]]
-        response = self.request(msg, IPSET_CMD_TYPE,
-                                msg_flags=NLM_F_REQUEST | NLM_F_ACK,
-                                terminate=_nlmsg_error)
+        msg['attrs'] = [
+            ['IPSET_ATTR_PROTOCOL', self._proto_version],
+            ['IPSET_ATTR_TYPENAME', stype],
+            ['IPSET_ATTR_FAMILY', family],
+        ]
+        response = self.request(
+            msg,
+            IPSET_CMD_TYPE,
+            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+            terminate=_nlmsg_error,
+        )
 
         min_revision = response[0].get_attr("IPSET_ATTR_PROTOCOL_MIN")
         max_revision = response[0].get_attr("IPSET_ATTR_REVISION")
@@ -545,6 +660,7 @@ class _IPSetError(IPSetError):
 
     Out of the ipset module, a caller should use parent class instead
     '''
+
     def __init__(self, code, msg=None, cmd=None):
         if code in self.base_map:
             msg = self.base_map[code]
@@ -554,57 +670,72 @@ class _IPSetError(IPSetError):
                 msg = error_map[code]
         super(_IPSetError, self).__init__(code, msg)
 
-    base_map = {IPSET_ERR_PROTOCOL: "Kernel error received:"
-                                    " ipset protocol error",
-                IPSET_ERR_INVALID_CIDR: "The value of the CIDR parameter of"
-                                        " the IP address is invalid",
-                IPSET_ERR_TIMEOUT: "Timeout cannot be used: set was created"
-                                   " without timeout support",
-                IPSET_ERR_IPADDR_IPV4: "An IPv4 address is expected, but"
-                                       " not received",
-                IPSET_ERR_IPADDR_IPV6: "An IPv6 address is expected, but"
-                                       " not received",
-                IPSET_ERR_COUNTER: "Packet/byte counters cannot be used:"
-                                   " set was created without counter support",
-                IPSET_ERR_COMMENT: "Comment string is too long!",
-                IPSET_ERR_SKBINFO: "Skbinfo mapping cannot be used: "
-                                   " set was created without skbinfo support"}
+    base_map = {
+        IPSET_ERR_PROTOCOL: "Kernel error received:" " ipset protocol error",
+        IPSET_ERR_INVALID_CIDR: "The value of the CIDR parameter of"
+        " the IP address is invalid",
+        IPSET_ERR_TIMEOUT: "Timeout cannot be used: set was created"
+        " without timeout support",
+        IPSET_ERR_IPADDR_IPV4: "An IPv4 address is expected, but"
+        " not received",
+        IPSET_ERR_IPADDR_IPV6: "An IPv6 address is expected, but"
+        " not received",
+        IPSET_ERR_COUNTER: "Packet/byte counters cannot be used:"
+        " set was created without counter support",
+        IPSET_ERR_COMMENT: "Comment string is too long!",
+        IPSET_ERR_SKBINFO: "Skbinfo mapping cannot be used: "
+        " set was created without skbinfo support",
+    }
 
-    c_map = {errno.EEXIST: "Set cannot be created: set with the same"
-                           " name already exists",
-             IPSET_ERR_FIND_TYPE: "Kernel error received: "
-                                  "set type not supported",
-             IPSET_ERR_MAX_SETS: "Kernel error received: maximal number of"
-                                 " sets reached, cannot create more.",
-             IPSET_ERR_INVALID_NETMASK: "The value of the netmask parameter"
-                                        " is invalid",
-             IPSET_ERR_INVALID_MARKMASK: "The value of the markmask parameter"
-                                         " is invalid",
-             IPSET_ERR_INVALID_FAMILY: "Protocol family not supported by the"
-                                       " set type"}
+    c_map = {
+        errno.EEXIST: "Set cannot be created: set with the same"
+        " name already exists",
+        IPSET_ERR_FIND_TYPE: "Kernel error received: "
+        "set type not supported",
+        IPSET_ERR_MAX_SETS: "Kernel error received: maximal number of"
+        " sets reached, cannot create more.",
+        IPSET_ERR_INVALID_NETMASK: "The value of the netmask parameter"
+        " is invalid",
+        IPSET_ERR_INVALID_MARKMASK: "The value of the markmask parameter"
+        " is invalid",
+        IPSET_ERR_INVALID_FAMILY: "Protocol family not supported by the"
+        " set type",
+    }
 
-    destroy_map = {IPSET_ERR_BUSY: "Set cannot be destroyed: it is in use"
-                                   " by a kernel component"}
+    destroy_map = {
+        IPSET_ERR_BUSY: "Set cannot be destroyed: it is in use"
+        " by a kernel component"
+    }
 
-    r_map = {IPSET_ERR_EXIST_SETNAME2: "Set cannot be renamed: a set with the"
-                                       " new name already exists",
-             IPSET_ERR_REFERENCED: "Set cannot be renamed: it is in use by"
-                                   " another system"}
+    r_map = {
+        IPSET_ERR_EXIST_SETNAME2: "Set cannot be renamed: a set with the"
+        " new name already exists",
+        IPSET_ERR_REFERENCED: "Set cannot be renamed: it is in use by"
+        " another system",
+    }
 
-    s_map = {IPSET_ERR_EXIST_SETNAME2: "Sets cannot be swapped: the second set"
-                                       " does not exist",
-             IPSET_ERR_TYPE_MISMATCH: "The sets cannot be swapped: their type"
-                                      " does not match"}
+    s_map = {
+        IPSET_ERR_EXIST_SETNAME2: "Sets cannot be swapped: the second set"
+        " does not exist",
+        IPSET_ERR_TYPE_MISMATCH: "The sets cannot be swapped: their type"
+        " does not match",
+    }
 
-    a_map = {IPSET_ERR_EXIST: "Element cannot be added to the set: it's"
-                              " already added"}
+    a_map = {
+        IPSET_ERR_EXIST: "Element cannot be added to the set: it's"
+        " already added"
+    }
 
-    del_map = {IPSET_ERR_EXIST: "Element cannot be deleted from the set:"
-                                " it's not added"}
+    del_map = {
+        IPSET_ERR_EXIST: "Element cannot be deleted from the set:"
+        " it's not added"
+    }
 
-    cmd_map = {IPSET_CMD_CREATE: c_map,
-               IPSET_CMD_DESTROY: destroy_map,
-               IPSET_CMD_RENAME: r_map,
-               IPSET_CMD_SWAP: s_map,
-               IPSET_CMD_ADD: a_map,
-               IPSET_CMD_DEL: del_map}
+    cmd_map = {
+        IPSET_CMD_CREATE: c_map,
+        IPSET_CMD_DESTROY: destroy_map,
+        IPSET_CMD_RENAME: r_map,
+        IPSET_CMD_SWAP: s_map,
+        IPSET_CMD_ADD: a_map,
+        IPSET_CMD_DEL: del_map,
+    }

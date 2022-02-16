@@ -5,7 +5,6 @@ from pr2modules.netlink.rtnl.marshal import MarshalRtnl
 
 
 class RawIPRSocketMixin(object):
-
     def __init__(self, fileno=None):
         super(RawIPRSocketMixin, self).__init__(NETLINK_ROUTE, fileno=fileno)
         self.marshal = MarshalRtnl()

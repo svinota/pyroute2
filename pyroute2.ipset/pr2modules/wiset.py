@@ -47,7 +47,7 @@ COUNT = {"count": 0}
 
 
 def need_ipset_socket(fun):
-    """ Decorator to create netlink socket if needed.
+    """Decorator to create netlink socket if needed.
 
     In many of our helpers, we need to open a netlink socket. This can
     be expensive for someone using many times the functions: instead to have
@@ -63,6 +63,7 @@ def need_ipset_socket(fun):
     Note that all functions using this helper *must* use ipset as variable
     name for the socket.
     """
+
     def wrap(*args, **kwargs):
         callargs = getcallargs(fun, *args, **kwargs)
         if callargs["sock"] is None:
@@ -81,21 +82,47 @@ def need_ipset_socket(fun):
     return wrap
 
 
-class IPStats(namedtuple("IPStats", ["packets", "bytes", "comment",
-                                     "timeout", "skbmark", "physdev",
-                                     "wildcard"])):
+class IPStats(
+    namedtuple(
+        "IPStats",
+        [
+            "packets",
+            "bytes",
+            "comment",
+            "timeout",
+            "skbmark",
+            "physdev",
+            "wildcard",
+        ],
+    )
+):
     __slots__ = ()
 
-    def __new__(cls, packets, bytes, comment, timeout, skbmark, physdev=False,
-                wildcard=False):
-        return super(IPStats, cls).__new__(cls, packets, bytes, comment,
-                                           timeout, skbmark, physdev=physdev,
-                                           wildcard=wildcard)
+    def __new__(
+        cls,
+        packets,
+        bytes,
+        comment,
+        timeout,
+        skbmark,
+        physdev=False,
+        wildcard=False,
+    ):
+        return super(IPStats, cls).__new__(
+            cls,
+            packets,
+            bytes,
+            comment,
+            timeout,
+            skbmark,
+            physdev=physdev,
+            wildcard=wildcard,
+        )
 
 
 # pylint: disable=too-many-instance-attributes
 class WiSet(object):
-    """ Main high level ipset manipulation class.
+    """Main high level ipset manipulation class.
 
     Every high level ipset operation should be possible with this class,
     you probably don't need other helpers of this module, except tools
@@ -138,9 +165,19 @@ class WiSet(object):
     """
 
     # pylint: disable=too-many-arguments
-    def __init__(self, name=None, attr_type='hash:ip', family=AF_INET,
-                 sock=None, timeout=None, counters=False, comment=False,
-                 hashsize=None, revision=None, skbinfo=False):
+    def __init__(
+        self,
+        name=None,
+        attr_type='hash:ip',
+        family=AF_INET,
+        sock=None,
+        timeout=None,
+        counters=False,
+        comment=False,
+        hashsize=None,
+        revision=None,
+        skbinfo=False,
+    ):
         self.name = name
         self.hashsize = hashsize
         self._attr_type = None
@@ -157,13 +194,12 @@ class WiSet(object):
         self.skbinfo = skbinfo
 
     def open_netlink(self):
-        """ Open manually a netlink socket. You can use "with WiSet()" instead
-        """
+        """Open manually a netlink socket. You can use "with WiSet()" instead"""
         if self.sock is None:
             self.sock = IPSet()
 
     def close_netlink(self):
-        """ Clone any opened netlink socket """
+        """Clone any opened netlink socket"""
         if self.sock is not None:
             self.sock.close()
             self.sock = None
@@ -186,7 +222,7 @@ class WiSet(object):
 
     @classmethod
     def from_netlink(cls, ndmsg, content=False):
-        """ Create a ipset objects based on a parsed netlink message
+        """Create a ipset objects based on a parsed netlink message
 
         :param ndmsg: the netlink message to parse
         :param content: should we fill (and parse) entries info (can be slow
@@ -214,7 +250,7 @@ class WiSet(object):
         return self
 
     def update_dict_content(self, ndmsg):
-        """ Update a dictionary statistics with values sent in netlink message
+        """Update a dictionary statistics with values sent in netlink message
 
         :param ndmsg: the netlink message
         :type ndmsg: netlink message
@@ -270,33 +306,43 @@ class WiSet(object):
             entry_flag_parsed = {"physdev": False}
             flags = entry.get_attr("IPSET_ATTR_CADT_FLAGS")
             if flags is not None:
-                entry_flag_parsed["physdev"] = bool(flags &
-                                                    IPSET_FLAG_PHYSDEV)
-                entry_flag_parsed["wildcard"] = bool(flags &
-                                                     IPSET_FLAG_IFACE_WILDCARD)
+                entry_flag_parsed["physdev"] = bool(flags & IPSET_FLAG_PHYSDEV)
+                entry_flag_parsed["wildcard"] = bool(
+                    flags & IPSET_FLAG_IFACE_WILDCARD
+                )
 
-            value = IPStats(packets=entry.get_attr("IPSET_ATTR_PACKETS"),
-                            bytes=entry.get_attr("IPSET_ATTR_BYTES"),
-                            comment=entry.get_attr("IPSET_ATTR_COMMENT"),
-                            skbmark=skbmark,
-                            timeout=timeout,
-                            **entry_flag_parsed)
+            value = IPStats(
+                packets=entry.get_attr("IPSET_ATTR_PACKETS"),
+                bytes=entry.get_attr("IPSET_ATTR_BYTES"),
+                comment=entry.get_attr("IPSET_ATTR_COMMENT"),
+                skbmark=skbmark,
+                timeout=timeout,
+                **entry_flag_parsed
+            )
             self._content[key] = value
 
     def create(self, **kwargs):
-        """ Insert this Set in the kernel
+        """Insert this Set in the kernel
 
         Many options are set with python object attributes (like comments,
         counters, etc). For non-supported type, kwargs are provided. See
         :doc:`ipset` documentation for more information.
         """
-        create_ipset(self.name, stype=self.attr_type, family=self.family,
-                     sock=self.sock, timeout=self.timeout,
-                     comment=self.comment, counters=self.counters,
-                     hashsize=self.hashsize, skbinfo=self.skbinfo, **kwargs)
+        create_ipset(
+            self.name,
+            stype=self.attr_type,
+            family=self.family,
+            sock=self.sock,
+            timeout=self.timeout,
+            comment=self.comment,
+            counters=self.counters,
+            hashsize=self.hashsize,
+            skbinfo=self.skbinfo,
+            **kwargs
+        )
 
     def destroy(self):
-        """ Destroy this ipset in the kernel list.
+        """Destroy this ipset in the kernel list.
 
         It does not delete this python object (any content or other stored
         values are keep in memory). This function will fail if the ipset is
@@ -305,7 +351,7 @@ class WiSet(object):
         destroy_ipset(self.name, sock=self.sock)
 
     def add(self, entry, **kwargs):
-        """ Add an entry in this ipset.
+        """Add an entry in this ipset.
 
         If counters are enabled on the set, reset by default the value when
         we add the element. Without this reset, kernel sometimes store old
@@ -326,39 +372,43 @@ class WiSet(object):
             except IndexError:
                 mask = int("0xffffffff", 16)
             kwargs["skbmark"] = (mark, mask)
-        add_ipset_entry(self.name, entry, etype=self.entry_type,
-                        sock=self.sock, **kwargs)
+        add_ipset_entry(
+            self.name, entry, etype=self.entry_type, sock=self.sock, **kwargs
+        )
 
     def delete(self, entry, **kwargs):
-        """ Delete/remove an entry in this ipset """
-        delete_ipset_entry(self.name, entry, etype=self.entry_type,
-                           sock=self.sock, **kwargs)
+        """Delete/remove an entry in this ipset"""
+        delete_ipset_entry(
+            self.name, entry, etype=self.entry_type, sock=self.sock, **kwargs
+        )
 
     def test(self, entry, **kwargs):
-        """ Test if an entry is in this ipset """
-        return test_ipset_entry(self.name, entry, etype=self.entry_type,
-                                sock=self.sock, **kwargs)
+        """Test if an entry is in this ipset"""
+        return test_ipset_entry(
+            self.name, entry, etype=self.entry_type, sock=self.sock, **kwargs
+        )
 
     def test_list(self, entries, **kwargs):
-        """ Test if a list of a set of entries is in this ipset
+        """Test if a list of a set of entries is in this ipset
 
         Return a set of entries found in the IPSet
         """
-        return test_ipset_entries(self.name, entries, etype=self.entry_type,
-                                  sock=self.sock, **kwargs)
+        return test_ipset_entries(
+            self.name, entries, etype=self.entry_type, sock=self.sock, **kwargs
+        )
 
     def update_content(self):
-        """ Update the content dictionary with values from kernel """
+        """Update the content dictionary with values from kernel"""
         self._content = {}
         update_wiset_content(self, sock=self.sock)
 
     def flush(self):
-        """ Flush entries of the ipset """
+        """Flush entries of the ipset"""
         flush_ipset(self.name, sock=self.sock)
 
     @property
     def content(self):
-        """ Dictionary of entries in the set.
+        """Dictionary of entries in the set.
 
         Keys are IP addresses (as string), values are IPStats tuples.
         """
@@ -368,12 +418,12 @@ class WiSet(object):
         return self._content
 
     def insert_list(self, entries):
-        """ Just a small helper to reduce the number of loops in main code. """
+        """Just a small helper to reduce the number of loops in main code."""
         for entry in entries:
             self.add(entry)
 
     def replace_entries(self, new_list):
-        """ Replace the content of an ipset with a new list of entries.
+        """Replace the content of an ipset with a new list of entries.
 
         This operation is like a flush() and adding all entries one by one. But
         this call is atomic: it creates a temporary ipset and swap the content.
@@ -394,16 +444,18 @@ class WiSet(object):
 
 
 @need_ipset_socket
-def create_ipset(name, stype=None, family=AF_INET, exclusive=False,
-                 sock=None, **kwargs):
-    """ Create an ipset. """
-    sock.create(name, stype=stype, family=family, exclusive=exclusive,
-                **kwargs)
+def create_ipset(
+    name, stype=None, family=AF_INET, exclusive=False, sock=None, **kwargs
+):
+    """Create an ipset."""
+    sock.create(
+        name, stype=stype, family=family, exclusive=exclusive, **kwargs
+    )
 
 
 @need_ipset_socket
 def load_all_ipsets(content=False, sock=None, inherit_sock=False, prefix=None):
-    """ List all ipset as WiSet objects.
+    """List all ipset as WiSet objects.
 
     Get full ipset data from kernel and parse it in WiSet objects. Result is
     a dictionary with ipset names as keys, and WiSet objects as values.
@@ -436,7 +488,7 @@ def load_all_ipsets(content=False, sock=None, inherit_sock=False, prefix=None):
 
 @need_ipset_socket
 def load_ipset(name, content=False, sock=None, inherit_sock=False):
-    """ Get one ipset as WiSet object
+    """Get one ipset as WiSet object
 
     Helper to get current WiSet object. More efficient that
     :func:`load_all_ipsets` since the kernel does the filtering itself.
@@ -470,7 +522,7 @@ def load_ipset(name, content=False, sock=None, inherit_sock=False):
 
 @need_ipset_socket
 def update_wiset_content(wiset, sock=None):
-    """ Update content/statistics of a wiset.
+    """Update content/statistics of a wiset.
 
     You should never call yourself this function. It is only a helper to use
     the :func:`need_ipset_socket` decorator out of WiSet object.
@@ -481,25 +533,25 @@ def update_wiset_content(wiset, sock=None):
 
 @need_ipset_socket
 def destroy_ipset(name, sock=None):
-    """ Remove an ipset in the kernel. """
+    """Remove an ipset in the kernel."""
     sock.destroy(name)
 
 
 @need_ipset_socket
 def add_ipset_entry(name, entry, sock=None, **kwargs):
-    """ Add an entry """
+    """Add an entry"""
     sock.add(name, entry, **kwargs)
 
 
 @need_ipset_socket
 def delete_ipset_entry(name, entry, sock=None, **kwargs):
-    """ Remove one entry """
+    """Remove one entry"""
     sock.delete(name, entry, **kwargs)
 
 
 @need_ipset_socket
 def test_ipset_exist(name, sock=None):
-    """ Test if the given ipset exist """
+    """Test if the given ipset exist"""
     try:
         sock.headers(name)
         return True
@@ -511,14 +563,13 @@ def test_ipset_exist(name, sock=None):
 
 @need_ipset_socket
 def test_ipset_entry(name, entry, sock=None, **kwargs):
-    """ Test if an entry is in one ipset """
+    """Test if an entry is in one ipset"""
     return sock.test(name, entry, **kwargs)
 
 
 @need_ipset_socket
 def test_ipset_entries(name, entries, sock=None, **kwargs):
-    """ Test a list (or a set) of entries.
-    """
+    """Test a list (or a set) of entries."""
     res = set()
     for entry in entries:
         if sock.test(name, entry, **kwargs):
@@ -528,13 +579,13 @@ def test_ipset_entries(name, entries, sock=None, **kwargs):
 
 @need_ipset_socket
 def flush_ipset(name, sock=None):
-    """ Flush all ipset content """
+    """Flush all ipset content"""
     sock.flush(name)
 
 
 @need_ipset_socket
 def swap_ipsets(name_a, name_b, sock=None):
-    """ Swap the content of ipset a and b.
+    """Swap the content of ipset a and b.
 
     ipsets must have compatible content.
     """
@@ -542,5 +593,5 @@ def swap_ipsets(name_a, name_b, sock=None):
 
 
 def get_ipset_socket(**kwargs):
-    """ Get a socket that one can pass to several WiSet objects """
+    """Get a socket that one can pass to several WiSet objects"""
     return IPSet(**kwargs)

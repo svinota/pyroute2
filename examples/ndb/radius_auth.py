@@ -40,13 +40,15 @@ from pyroute2 import NDB
 
 
 class RadiusAuthManager(object):
-
     def __init__(self, user, password, log):
-        client = Client(server=os.environ.get('RADIUS_SERVER'),
-                        secret=os.environ.get('RADIUS_SECRET').encode('ascii'),
-                        dict=Dictionary('dictionary'))
-        req = client.CreateAuthPacket(code=pyrad.packet.AccessRequest,
-                                      User_Name=user)
+        client = Client(
+            server=os.environ.get('RADIUS_SERVER'),
+            secret=os.environ.get('RADIUS_SECRET').encode('ascii'),
+            dict=Dictionary('dictionary'),
+        )
+        req = client.CreateAuthPacket(
+            code=pyrad.packet.AccessRequest, User_Name=user
+        )
         req['User-Password'] = req.PwCrypt(password)
         reply = client.SendPacket(req)
         self.auth = reply.code
@@ -54,7 +56,7 @@ class RadiusAuthManager(object):
 
     def check(self, obj, tag):
         #
-        self.log.info('%s access' % (tag, ))
+        self.log.info('%s access' % (tag,))
         return self.auth == pyrad.packet.AccessAccept
 
 
@@ -64,9 +66,7 @@ with NDB(log='debug') as ndb:
 
     # create an AuthManager-compatible object
     log.info('request radius auth')
-    am = RadiusAuthManager(sys.argv[1],
-                           sys.argv[2],
-                           ndb.log.channel('radius'))
+    am = RadiusAuthManager(sys.argv[1], sys.argv[2], ndb.log.channel('radius'))
     log.info('radius auth complete')
 
     # create an auth proxy for these credentials

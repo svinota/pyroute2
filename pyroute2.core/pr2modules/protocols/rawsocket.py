@@ -25,15 +25,16 @@ total_filter = [[0x06, 0, 0, 0]]
 
 
 class sock_filter(Structure):
-    _fields_ = [('code', c_ushort),  # u16
-                ('jt', c_ubyte),     # u8
-                ('jf', c_ubyte),     # u8
-                ('k', c_uint)]       # u32
+    _fields_ = [
+        ('code', c_ushort),  # u16
+        ('jt', c_ubyte),  # u8
+        ('jf', c_ubyte),  # u8
+        ('k', c_uint),
+    ]  # u32
 
 
 class sock_fprog(Structure):
-    _fields_ = [('len', c_ushort),
-                ('filter', c_void_p)]
+    _fields_ = [('len', c_ushort), ('filter', c_void_p)]
 
 
 def compile_bpf(code):
@@ -104,14 +105,19 @@ class RawSocket(socket):
         self.setblocking(1)
         if remove_total_filter:
             # total_fstring ignored
-            socket.setsockopt(self, SOL_SOCKET, SO_DETACH_FILTER,
-                              total_fstring)
+            socket.setsockopt(
+                self, SOL_SOCKET, SO_DETACH_FILTER, total_fstring
+            )
 
     def csum(self, data):
         if len(data) % 2:
             data += b'\x00'
-        csum = sum([struct.unpack('>H', data[x * 2:x * 2 + 2])[0] for x
-                    in range(len(data) // 2)])
-        csum = (csum >> 16) + (csum & 0xffff)
+        csum = sum(
+            [
+                struct.unpack('>H', data[x * 2 : x * 2 + 2])[0]
+                for x in range(len(data) // 2)
+            ]
+        )
+        csum = (csum >> 16) + (csum & 0xFFFF)
         csum += csum >> 16
-        return ~csum & 0xffff
+        return ~csum & 0xFFFF

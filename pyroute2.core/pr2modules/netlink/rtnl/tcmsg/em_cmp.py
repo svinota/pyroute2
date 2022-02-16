@@ -4,39 +4,46 @@ TCF_EM_OPND_EQ = 0
 TCF_EM_OPND_GT = 1
 TCF_EM_OPND_LT = 2
 
-OPERANDS_DICT = {TCF_EM_OPND_EQ: ('eq', '='),
-                 TCF_EM_OPND_GT: ('gt', '>'),
-                 TCF_EM_OPND_LT: ('lt', '<')}
+OPERANDS_DICT = {
+    TCF_EM_OPND_EQ: ('eq', '='),
+    TCF_EM_OPND_GT: ('gt', '>'),
+    TCF_EM_OPND_LT: ('lt', '<'),
+}
 
 # align types
 TCF_EM_ALIGN_U8 = 1
 TCF_EM_ALIGN_U16 = 2
 TCF_EM_ALIGN_U32 = 4
 
-ALIGNS_DICT = {TCF_EM_ALIGN_U8: 'u8',
-               TCF_EM_ALIGN_U16: 'u16',
-               TCF_EM_ALIGN_U32: 'u32'}
+ALIGNS_DICT = {
+    TCF_EM_ALIGN_U8: 'u8',
+    TCF_EM_ALIGN_U16: 'u16',
+    TCF_EM_ALIGN_U32: 'u32',
+}
 
 # layer types
 TCF_LAYER_LINK = 0
 TCF_LAYER_NETWORK = 1
 TCF_LAYER_TRANSPORT = 2
 
-LAYERS_DICT = {TCF_LAYER_LINK: ('link', 'eth'),
-               TCF_LAYER_NETWORK: ('network', 'ip'),
-               TCF_LAYER_TRANSPORT: ('transport', 'tcp')}
+LAYERS_DICT = {
+    TCF_LAYER_LINK: ('link', 'eth'),
+    TCF_LAYER_NETWORK: ('network', 'ip'),
+    TCF_LAYER_TRANSPORT: ('transport', 'tcp'),
+}
 
 # see tc_em_cmp.h
 TCF_EM_CMP_TRANS = 1
 
 
 class data(nla):
-    fields = (('val', 'I'),
-              ('mask', 'I'),
-              ('off', 'H'),
-              ('align_flags', 'B'),
-              ('layer_opnd', 'B')
-              )
+    fields = (
+        ('val', 'I'),
+        ('mask', 'I'),
+        ('off', 'H'),
+        ('align_flags', 'B'),
+        ('layer_opnd', 'B'),
+    )
 
     def decode(self):
         self.header = None
@@ -50,12 +57,15 @@ class data(nla):
         del self['align_flags']
 
         # Perform translation for readability with nldecap
-        self['layer'] = 'TCF_LAYER_{}'.format(LAYERS_DICT[self['layer']][0])\
-                                      .upper()
-        self['align'] = 'TCF_EM_ALIGN_{}'.format(ALIGNS_DICT[self['align']])\
-                                         .upper()
-        self['opnd'] = 'TCF_EM_OPND_{}'.format(OPERANDS_DICT[self['opnd']][0])\
-                                       .upper()
+        self['layer'] = 'TCF_LAYER_{}'.format(
+            LAYERS_DICT[self['layer']][0]
+        ).upper()
+        self['align'] = 'TCF_EM_ALIGN_{}'.format(
+            ALIGNS_DICT[self['align']]
+        ).upper()
+        self['opnd'] = 'TCF_EM_OPND_{}'.format(
+            OPERANDS_DICT[self['opnd']][0]
+        ).upper()
 
     def encode(self):
         # Set default values

@@ -5,44 +5,54 @@ from socket import AF_INET
 from socket import AF_INET6
 from pr2modules import config
 from pr2modules.common import dqn2int
-from pr2modules.bsd.pf_route import (bsdmsg,
-                                     if_msg,
-                                     rt_msg,
-                                     if_announcemsg,
-                                     ifma_msg,
-                                     ifa_msg)
+from pr2modules.bsd.pf_route import (
+    bsdmsg,
+    if_msg,
+    rt_msg,
+    if_announcemsg,
+    ifma_msg,
+    ifa_msg,
+)
 
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
-from pr2modules.netlink.rtnl import (RTM_NEWLINK as RTNL_NEWLINK,
-                                     RTM_DELLINK as RTNL_DELLINK,
-                                     RTM_NEWADDR as RTNL_NEWADDR,
-                                     RTM_DELADDR as RTNL_DELADDR,
-                                     RTM_NEWROUTE as RTNL_NEWROUTE,
-                                     RTM_DELROUTE as RTNL_DELROUTE)
+from pr2modules.netlink.rtnl import (
+    RTM_NEWLINK as RTNL_NEWLINK,
+    RTM_DELLINK as RTNL_DELLINK,
+    RTM_NEWADDR as RTNL_NEWADDR,
+    RTM_DELADDR as RTNL_DELADDR,
+    RTM_NEWROUTE as RTNL_NEWROUTE,
+    RTM_DELROUTE as RTNL_DELROUTE,
+)
 
 if config.uname[0] == 'OpenBSD':
-    from pr2modules.bsd.rtmsocket.openbsd import (RTMSocketBase,
-                                                  RTM_ADD,
-                                                  RTM_NEWADDR)
+    from pr2modules.bsd.rtmsocket.openbsd import (
+        RTMSocketBase,
+        RTM_ADD,
+        RTM_NEWADDR,
+    )
 else:
-    from pr2modules.bsd.rtmsocket.freebsd import (RTMSocketBase,
-                                                  RTM_ADD,
-                                                  RTM_NEWADDR)
+    from pr2modules.bsd.rtmsocket.freebsd import (
+        RTMSocketBase,
+        RTM_ADD,
+        RTM_NEWADDR,
+    )
 
 
 def convert_rt_msg(msg):
     ret = rtmsg()
-    ret['header']['type'] = RTNL_NEWROUTE if \
-        msg['header']['type'] == RTM_ADD else \
-        RTNL_DELROUTE
+    ret['header']['type'] = (
+        RTNL_NEWROUTE if msg['header']['type'] == RTM_ADD else RTNL_DELROUTE
+    )
     ret['family'] = msg['DST']['header']['family']
     ret['attrs'] = []
     if 'address' in msg['DST']:
         ret['attrs'].append(['RTA_DST', msg['DST']['address']])
-    if 'NETMASK' in msg and \
-            msg['NETMASK']['header']['family'] == ret['family']:
+    if (
+        'NETMASK' in msg
+        and msg['NETMASK']['header']['family'] == ret['family']
+    ):
         ret['dst_len'] = dqn2int(msg['NETMASK']['address'], ret['family'])
     if 'GATEWAY' in msg:
         if msg['GATEWAY']['header']['family'] not in (AF_INET, AF_INET6):
@@ -67,15 +77,17 @@ def convert_if_msg(msg):
 
 def convert_ifa_msg(msg):
     ret = ifaddrmsg()
-    ret['header']['type'] = RTNL_NEWADDR if \
-        msg['header']['type'] == RTM_NEWADDR else \
-        RTNL_DELADDR
+    ret['header']['type'] = (
+        RTNL_NEWADDR if msg['header']['type'] == RTM_NEWADDR else RTNL_DELADDR
+    )
     ret['index'] = msg['IFP']['index']
     ret['family'] = msg['IFA']['header']['family']
     ret['prefixlen'] = dqn2int(msg['NETMASK']['address'], ret['family'])
-    ret['attrs'] = [['IFA_ADDRESS', msg['IFA']['address']],
-                    ['IFA_BROADCAST', msg['BRD']['address']],
-                    ['IFA_LABEL', msg['IFP']['ifname']]]
+    ret['attrs'] = [
+        ['IFA_ADDRESS', msg['IFA']['address']],
+        ['IFA_BROADCAST', msg['BRD']['address']],
+        ['IFA_LABEL', msg['IFP']['ifname']],
+    ]
     del ret['value']
     return ret
 
@@ -99,16 +111,17 @@ def convert_bsdmsg(msg):
     return None
 
 
-convert = {rt_msg: convert_rt_msg,
-           ifa_msg: convert_ifa_msg,
-           if_msg: convert_if_msg,
-           ifma_msg: convert_ifma_msg,
-           if_announcemsg: convert_if_announcemsg,
-           bsdmsg: convert_bsdmsg}
+convert = {
+    rt_msg: convert_rt_msg,
+    ifa_msg: convert_ifa_msg,
+    if_msg: convert_if_msg,
+    ifma_msg: convert_ifma_msg,
+    if_announcemsg: convert_if_announcemsg,
+    bsdmsg: convert_bsdmsg,
+}
 
 
 class RTMSocket(RTMSocketBase):
-
     def __init__(self, output='pf_route'):
         self._sock = config.SocketBase(AF_ROUTE, SOCK_RAW)
         self._output = output
@@ -138,4 +151,4 @@ class RTMSocket(RTMSocketBase):
         self.close()
 
 
-__all__ = [RTMSocket, ]
+__all__ = [RTMSocket]

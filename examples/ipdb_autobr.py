@@ -26,8 +26,7 @@ def cb(ipdb, msg, action):
     global p0
     global br0
 
-    if action == 'RTM_NEWLINK' and \
-            msg.get_attr('IFLA_IFNAME', '') == p0:
+    if action == 'RTM_NEWLINK' and msg.get_attr('IFLA_IFNAME', '') == p0:
         # get corresponding interface -- in the case of
         # post-callbacks it is created already
         interface = ipdb.interfaces[msg['index']]

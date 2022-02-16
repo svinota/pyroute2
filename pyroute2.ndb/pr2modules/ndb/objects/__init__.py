@@ -110,6 +110,7 @@ class Spec(object):
     '''
     A universal NDB object spec
     '''
+
     def __init__(self, iclass, spec, localhost):
         if isinstance(spec, Record):
             spec = spec._as_dict()
@@ -139,7 +140,7 @@ class RTNL_Object(dict):
     addresses etc.
     '''
 
-    view = None    # (optional) view to load values for the summary etc.
+    view = None  # (optional) view to load values for the summary etc.
     utable = None  # table to send updates to
 
     resolve_fields = []
@@ -240,7 +241,10 @@ class RTNL_Object(dict):
     def _sdump(cls, view, names, fnames):
         req = '''
               SELECT %s FROM %s AS main
-              ''' % (fnames, cls.table)
+              ''' % (
+            fnames,
+            cls.table,
+        )
         yield names
         where, values = cls._dump_where(view)
         for record in view.ndb.schema.fetch(req + where, values):
@@ -248,15 +252,19 @@ class RTNL_Object(dict):
 
     @classmethod
     def summary(cls, view):
-        return cls._sdump(view,
-                          view.ndb.schema.compiled[cls.table]['norm_idx'],
-                          view.ndb.schema.compiled[cls.table]['knames'])
+        return cls._sdump(
+            view,
+            view.ndb.schema.compiled[cls.table]['norm_idx'],
+            view.ndb.schema.compiled[cls.table]['knames'],
+        )
 
     @classmethod
     def dump(cls, view):
-        return cls._sdump(view,
-                          view.ndb.schema.compiled[cls.table]['norm_names'],
-                          view.ndb.schema.compiled[cls.table]['fnames'])
+        return cls._sdump(
+            view,
+            view.ndb.schema.compiled[cls.table]['norm_names'],
+            view.ndb.schema.compiled[cls.table]['fnames'],
+        )
 
     @staticmethod
     def spec_normalize(spec):
@@ -266,15 +274,17 @@ class RTNL_Object(dict):
     def key_load_context(key, context):
         return key
 
-    def __init__(self,
-                 view,
-                 key,
-                 iclass,
-                 ctxid=None,
-                 load=True,
-                 master=None,
-                 check=True,
-                 auth_managers=None):
+    def __init__(
+        self,
+        view,
+        key,
+        iclass,
+        ctxid=None,
+        load=True,
+        master=None,
+        check=True,
+        auth_managers=None,
+    ):
         self.view = view
         self.ndb = view.ndb
         self.sources = view.ndb.sources
@@ -365,12 +375,12 @@ class RTNL_Object(dict):
         pass
 
     def keys(self):
-        return filter(lambda x: x not in self.hidden_fields,
-                      dict.keys(self))
+        return filter(lambda x: x not in self.hidden_fields, dict.keys(self))
 
     def items(self):
-        return filter(lambda x: x[0] not in self.hidden_fields,
-                      dict.items(self))
+        return filter(
+            lambda x: x[0] not in self.hidden_fields, dict.items(self)
+        )
 
     @property
     def context(self):
@@ -409,9 +419,9 @@ class RTNL_Object(dict):
         if self.state == 'system' and key in self.knorm:
             if self._replace_on_key_change:
                 self.log.debug('prepare replace for key %s' % (self.key))
-                self._replace = type(self)(self.view,
-                                           self.key,
-                                           auth_managers=self.auth_managers)
+                self._replace = type(self)(
+                    self.view, self.key, auth_managers=self.auth_managers
+                )
                 self.state.set('replace')
             else:
                 raise ValueError('attempt to change a key field (%s)' % key)
@@ -445,10 +455,12 @@ class RTNL_Object(dict):
 
         TODO: document different formats
         '''
-        fmt = kwarg.pop('format',
-                        kwarg.pop('fmt',
-                                  self.view.ndb.config.get('show_format',
-                                                           'native')))
+        fmt = kwarg.pop(
+            'format',
+            kwarg.pop(
+                'fmt', self.view.ndb.config.get('show_format', 'native')
+            ),
+        )
         if fmt == 'native':
             return dict(self)
         else:
@@ -479,8 +491,7 @@ class RTNL_Object(dict):
         return self
 
     def wtime(self, itn=1):
-        return max(min(itn * 0.1, 1),
-                   self.view.ndb._event_queue.qsize() / 10)
+        return max(min(itn * 0.1, 1), self.view.ndb._event_queue.qsize() / 10)
 
     def register(self):
         #
@@ -505,10 +516,7 @@ class RTNL_Object(dict):
             # Do not trust the implicit scope and pass the
             # weakref explicitly via partial
             #
-            (self
-             .ndb
-             .register_handler(event,
-                               partial(wr_handler, wr, fname)))
+            (self.ndb.register_handler(event, partial(wr_handler, wr, fname)))
 
     @check_auth('obj:modify')
     def snapshot(self, ctxid=None):
@@ -525,10 +533,9 @@ class RTNL_Object(dict):
             key = self.key
         else:
             key = self._replace.key
-        snp = type(self)(self.view,
-                         key,
-                         ctxid=ctxid,
-                         auth_managers=self.auth_managers)
+        snp = type(self)(
+            self.view, key, ctxid=ctxid, auth_managers=self.auth_managers
+        )
         self.ndb.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
         snp.changed = set(self.changed)
         return snp
@@ -553,10 +560,12 @@ class RTNL_Object(dict):
         else:
             key = dict(key)
 
-        self.resolve(view=self.view,
-                     spec=key,
-                     fields=self.resolve_fields,
-                     policy=RSLV_DELETE)
+        self.resolve(
+            view=self.view,
+            spec=key,
+            fields=self.resolve_fields,
+            policy=RSLV_DELETE,
+        )
 
         for name in self.kspec:
             if name not in key:
@@ -572,14 +581,11 @@ class RTNL_Object(dict):
                 if value is not None and name in self.spec:
                     keys.append('f_%s = %s' % (name, self.schema.plch))
                     values.append(value)
-            spec = (self
-                    .ndb
-                    .schema
-                    .fetchone('SELECT %s FROM %s WHERE %s' %
-                              (' , '.join(fetch),
-                               self.etable,
-                               ' AND '.join(keys)),
-                              values))
+            spec = self.ndb.schema.fetchone(
+                'SELECT %s FROM %s WHERE %s'
+                % (' , '.join(fetch), self.etable, ' AND '.join(keys)),
+                values,
+            )
             if spec is None:
                 self.log.debug('got none')
                 return None
@@ -602,11 +608,12 @@ class RTNL_Object(dict):
         an argument or using `self.last_save`.
         '''
         if self._replace is not None:
-            self.log.debug('rollback replace: %s :: %s'
-                           % (self.key, self._replace.key))
-            new_replace = type(self)(self.view,
-                                     self.key,
-                                     auth_managers=self.auth_managers)
+            self.log.debug(
+                'rollback replace: %s :: %s' % (self.key, self._replace.key)
+            )
+            new_replace = type(self)(
+                self.view, self.key, auth_managers=self.auth_managers
+            )
             new_replace.state.set('remove')
             self.state.set('replace')
             self.update(self._replace)
@@ -627,9 +634,11 @@ class RTNL_Object(dict):
 
     @property
     def clean(self):
-        return self.state == 'system' and \
-            not self.changed and \
-            not self._apply_script
+        return (
+            self.state == 'system'
+            and not self.changed
+            and not self._apply_script
+        )
 
     @check_auth('obj:modify')
     def commit(self):
@@ -686,10 +695,7 @@ class RTNL_Object(dict):
             raise
         finally:
             if self.last_save is not None:
-                (self
-                 .last_save
-                 .state
-                 .set(self.state.get()))
+                (self.last_save.state.set(self.state.get()))
         if self._replace is not None:
             self._replace = None
         return self
@@ -700,11 +706,13 @@ class RTNL_Object(dict):
             return self
 
     def check(self):
-        state_map = (('invalid', 'system'),
-                     ('remove', 'invalid'),
-                     ('setns', 'invalid'),
-                     ('setns', 'system'),
-                     ('replace', 'system'))
+        state_map = (
+            ('invalid', 'system'),
+            ('remove', 'invalid'),
+            ('setns', 'invalid'),
+            ('setns', 'system'),
+            ('replace', 'system'),
+        )
 
         self.load_sql()
         self.log.debug('check: %s' % str(self.state.events))
@@ -738,14 +746,15 @@ class RTNL_Object(dict):
         for name in self.kspec:
             conditions.append('f_%s = %s' % (name, self.schema.plch))
             values.append(self.get(self.iclass.nla2name(name), None))
-        return (self
-                .ndb
-                .schema
-                .fetchone('''
+        return (
+            self.ndb.schema.fetchone(
+                '''
                           SELECT count(*) FROM %s WHERE %s
-                          ''' % (self.table,
-                                 ' AND '.join(conditions)),
-                          values))[0]
+                          '''
+                % (self.table, ' AND '.join(conditions)),
+                values,
+            )
+        )[0]
 
     def hook_apply(self, method, **spec):
         pass
@@ -758,10 +767,12 @@ class RTNL_Object(dict):
         '''
 
         # Resolve the fields
-        self.resolve(view=self.view,
-                     spec=self,
-                     fields=self.resolve_fields,
-                     policy=RSLV_RAISE)
+        self.resolve(
+            view=self.view,
+            spec=self,
+            fields=self.resolve_fields,
+            policy=RSLV_RAISE,
+        )
 
         # Save the context
         if not rollback:
@@ -786,9 +797,13 @@ class RTNL_Object(dict):
             state = self.state.get()
 
         # Create the request.
-        idx_req = dict([(x, self[self.iclass.nla2name(x)]) for x
-                        in self.schema.compiled[self.table]['idx']
-                        if self.iclass.nla2name(x) in self])
+        idx_req = dict(
+            [
+                (x, self[self.iclass.nla2name(x)])
+                for x in self.schema.compiled[self.table]['idx']
+                if self.iclass.nla2name(x) in self
+            ]
+        )
         req = self.sync_req(self.make_req(idx_req))
         idx_req = self.make_idx_req(idx_req)
         self.log.debug('apply req: %s' % str(req))
@@ -803,14 +818,14 @@ class RTNL_Object(dict):
                 if k not in req and v is not None:
                     req[k] = v
             if self.master is not None:
-                req = (self
-                       .new_spec(req, self.ndb.localhost)
-                       .load_context(self.master.context)
-                       .get_spec)
+                req = (
+                    self.new_spec(req, self.ndb.localhost)
+                    .load_context(self.master.context)
+                    .get_spec
+                )
 
             method = 'add'
-            ignore = {errno.EEXIST: 'set',
-                      errno.EAGAIN: None}
+            ignore = {errno.EEXIST: 'set', errno.EAGAIN: None}
         elif state == 'system':
             method = 'set'
         elif state == 'setns':
@@ -819,10 +834,12 @@ class RTNL_Object(dict):
         elif state == 'remove':
             method = 'del'
             req = idx_req
-            ignore = {errno.ENODEV: None,         # interfaces
-                      errno.ENOENT: None,         # rules
-                      errno.ESRCH: None,          # routes
-                      errno.EADDRNOTAVAIL: None}  # addresses
+            ignore = {
+                errno.ENODEV: None,  # interfaces
+                errno.ENOENT: None,  # rules
+                errno.ESRCH: None,  # routes
+                errno.EADDRNOTAVAIL: None,
+            }  # addresses
         else:
             raise Exception('state transition not supported')
 
@@ -832,15 +849,10 @@ class RTNL_Object(dict):
         for itn in range(20):
             try:
                 self.log.debug('run %s (%s)' % (method, req))
-                (self
-                 .sources[self['target']]
-                 .api(self.api, method, **req))
-                (self
-                 .hook_apply(method, **req))
+                (self.sources[self['target']].api(self.api, method, **req))
+                (self.hook_apply(method, **req))
             except NetlinkError as e:
-                (self
-                 .log
-                 .debug('error: %s' % e))
+                (self.log.debug('error: %s' % e))
                 ##
                 #
                 # FIXME: performance penalty
@@ -848,9 +860,7 @@ class RTNL_Object(dict):
                 # must be moved to objects.neighbour
                 #
                 if e.code == errno.EEXIST:
-                    update = (self
-                              .sources[self['target']]
-                              .api(self.api, 'dump'))
+                    update = self.sources[self['target']].api(self.api, 'dump')
                     update = list(update)
                     self.ndb._event_queue.put(update)
                     self.load_sql()
@@ -859,12 +869,15 @@ class RTNL_Object(dict):
                 if e.code in ignore:
                     self.log.debug('ignore error %s for %s' % (e.code, self))
                     if ignore[e.code] is not None:
-                        self.log.debug('run fallback %s (%s)'
-                                       % (ignore[e.code], req))
+                        self.log.debug(
+                            'run fallback %s (%s)' % (ignore[e.code], req)
+                        )
                         try:
-                            (self
-                             .sources[self['target']]
-                             .api(self.api, ignore[e.code], **req))
+                            (
+                                self.sources[self['target']].api(
+                                    self.api, ignore[e.code], **req
+                                )
+                            )
                         except NetlinkError:
                             pass
                 else:
@@ -877,10 +890,12 @@ class RTNL_Object(dict):
                 nqsize = nq.qsize
             else:
                 nqsize = 0
-            self.log.debug('stats: apply %s {'
-                           'objid %s, wtime %s, '
-                           'mqsize %s, nqsize %s'
-                           '}' % (method, id(self), wtime, mqsize, nqsize))
+            self.log.debug(
+                'stats: apply %s {'
+                'objid %s, wtime %s, '
+                'mqsize %s, nqsize %s'
+                '}' % (method, id(self), wtime, mqsize, nqsize)
+            )
             if self.check():
                 self.log.debug('checked')
                 break
@@ -901,27 +916,29 @@ class RTNL_Object(dict):
             #
             # Iterate all the snapshot tables and collect the diff
             for cls in self.view.classes.values():
-                if issubclass(type(self), cls) or \
-                        issubclass(cls, type(self)):
+                if issubclass(type(self), cls) or issubclass(cls, type(self)):
                     continue
                 table = cls.table
                 # comprare the tables
-                diff = (self
-                        .ndb
-                        .schema
-                        .fetch('''
+                diff = self.ndb.schema.fetch(
+                    '''
                                SELECT * FROM %s_%s
                                  EXCEPT
                                SELECT * FROM %s
                                '''
-                               % (table, self.ctxid, table)))
+                    % (table, self.ctxid, table)
+                )
                 for record in diff:
-                    record = dict(zip((self
-                                       .schema
-                                       .compiled[table]['all_names']),
-                                      record))
-                    key = dict([x for x in record.items()
-                                if x[0] in self.schema.compiled[table]['idx']])
+                    record = dict(
+                        zip((self.schema.compiled[table]['all_names']), record)
+                    )
+                    key = dict(
+                        [
+                            x
+                            for x in record.items()
+                            if x[0] in self.schema.compiled[table]['idx']
+                        ]
+                    )
                     key['create'] = True
                     try:
                         obj = self.view.template(key, table)
@@ -963,8 +980,9 @@ class RTNL_Object(dict):
         elif key in self.fields_cmp and self.fields_cmp[key](self, value):
             self.changed.remove(key)
         elif self.load_debug:
-            self.log.debug('discard %s: %s (expected %s)'
-                           % (key, value, self.get(key)))
+            self.log.debug(
+                'discard %s: %s (expected %s)' % (key, value, self.get(key))
+            )
 
     def load_sql(self, table=None, ctxid=None, set_state=True):
         '''
@@ -988,11 +1006,9 @@ class RTNL_Object(dict):
                 value = json.dumps(value)
             values.append(value)
 
-        spec = (self
-                .ndb
-                .schema
-                .fetchone('SELECT * FROM %s WHERE %s' %
-                          (table, ' AND '.join(keys)), values))
+        spec = self.ndb.schema.fetchone(
+            'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(keys)), values
+        )
         self.log.debug('load_sql: %s' % str(spec))
         if set_state:
             with self.lock:

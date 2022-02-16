@@ -14,19 +14,23 @@ import os
 import ctypes
 from socket import AF_INET
 
-from pr2modules.netlink import (NLM_F_REQUEST,
-                                NLM_F_DUMP,
-                                NLM_F_MULTI,
-                                NLMSG_DONE)
+from pr2modules.netlink import (
+    NLM_F_REQUEST,
+    NLM_F_DUMP,
+    NLM_F_MULTI,
+    NLMSG_DONE,
+)
 
-from pr2modules.netlink.rtnl import (RTM_NEWLINK,
-                                     RTM_GETLINK,
-                                     RTM_NEWADDR,
-                                     RTM_GETADDR,
-                                     RTM_NEWROUTE,
-                                     RTM_GETROUTE,
-                                     RTM_NEWNEIGH,
-                                     RTM_GETNEIGH)
+from pr2modules.netlink.rtnl import (
+    RTM_NEWLINK,
+    RTM_GETLINK,
+    RTM_NEWADDR,
+    RTM_GETADDR,
+    RTM_NEWROUTE,
+    RTM_GETROUTE,
+    RTM_NEWNEIGH,
+    RTM_GETNEIGH,
+)
 
 from pr2modules.netlink.rtnl.marshal import MarshalRtnl
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -46,10 +50,12 @@ class IP_ADDRESS_STRING(ctypes.Structure):
 
 
 PIP_ADDRESS_STRING = ctypes.POINTER(IP_ADDRESS_STRING)
-IP_ADDRESS_STRING._fields_ = [('Next', PIP_ADDRESS_STRING),
-                              ('IpAddress', ctypes.c_byte * 16),
-                              ('IpMask', ctypes.c_byte * 16),
-                              ('Context', ctypes.c_ulong)]
+IP_ADDRESS_STRING._fields_ = [
+    ('Next', PIP_ADDRESS_STRING),
+    ('IpAddress', ctypes.c_byte * 16),
+    ('IpMask', ctypes.c_byte * 16),
+    ('Context', ctypes.c_ulong),
+]
 
 
 class IP_ADAPTER_INFO(ctypes.Structure):
@@ -57,32 +63,34 @@ class IP_ADAPTER_INFO(ctypes.Structure):
 
 
 PIP_ADAPTER_INFO = ctypes.POINTER(IP_ADAPTER_INFO)
-IP_ADAPTER_INFO._fields_ = [('Next', PIP_ADAPTER_INFO),
-                            ('ComboIndex', ctypes.c_ulong),
-                            ('AdapterName', ctypes.c_byte * (256 + 4)),
-                            ('Description', ctypes.c_byte * (128 + 4)),
-                            ('AddressLength', ctypes.c_uint),
-                            ('Address', ctypes.c_ubyte * 8),
-                            ('Index', ctypes.c_ulong),
-                            ('Type', ctypes.c_uint),
-                            ('DhcpEnabled', ctypes.c_uint),
-                            ('CurrentIpAddress', PIP_ADDRESS_STRING),
-                            ('IpAddressList', IP_ADDRESS_STRING),
-                            ('GatewayList', IP_ADDRESS_STRING),
-                            ('DhcpServer', IP_ADDRESS_STRING),
-                            ('HaveWins', ctypes.c_byte),
-                            ('PrimaryWinsServer', IP_ADDRESS_STRING),
-                            ('SecondaryWinsServer', IP_ADDRESS_STRING),
-                            ('LeaseObtained', ctypes.c_ulong),
-                            ('LeaseExpires', ctypes.c_ulong)]
+IP_ADAPTER_INFO._fields_ = [
+    ('Next', PIP_ADAPTER_INFO),
+    ('ComboIndex', ctypes.c_ulong),
+    ('AdapterName', ctypes.c_byte * (256 + 4)),
+    ('Description', ctypes.c_byte * (128 + 4)),
+    ('AddressLength', ctypes.c_uint),
+    ('Address', ctypes.c_ubyte * 8),
+    ('Index', ctypes.c_ulong),
+    ('Type', ctypes.c_uint),
+    ('DhcpEnabled', ctypes.c_uint),
+    ('CurrentIpAddress', PIP_ADDRESS_STRING),
+    ('IpAddressList', IP_ADDRESS_STRING),
+    ('GatewayList', IP_ADDRESS_STRING),
+    ('DhcpServer', IP_ADDRESS_STRING),
+    ('HaveWins', ctypes.c_byte),
+    ('PrimaryWinsServer', IP_ADDRESS_STRING),
+    ('SecondaryWinsServer', IP_ADDRESS_STRING),
+    ('LeaseObtained', ctypes.c_ulong),
+    ('LeaseExpires', ctypes.c_ulong),
+]
 
 
 class IPRoute(object):
-
     def __init__(self, *argv, **kwarg):
         self.marshal = MarshalRtnl()
-        send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000, 0x1ffff),
-                                   'monitor': False})
+        send_ns = Namespace(
+            self, {'addr_pool': AddrPool(0x10000, 0x1FFFF), 'monitor': False}
+        )
         self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
 
     def __enter__(self):
@@ -152,26 +160,26 @@ class IPRoute(object):
         os.write(self._pfdw, b'\0')
 
     def _GetAdaptersInfo(self):
-        ret = {'interfaces': [],
-               'addresses': []}
+        ret = {'interfaces': [], 'addresses': []}
 
         # prepare buffer
         buf = ctypes.create_string_buffer(15000)
         buf_len = ctypes.c_ulong(15000)
-        (ctypes
-         .windll
-         .iphlpapi
-         .GetAdaptersInfo(ctypes.byref(buf),
-                          ctypes.byref(buf_len)))
+        (
+            ctypes.windll.iphlpapi.GetAdaptersInfo(
+                ctypes.byref(buf), ctypes.byref(buf_len)
+            )
+        )
         adapter = IP_ADAPTER_INFO.from_address(ctypes.addressof(buf))
         while True:
             mac = ':'.join(['%02x' % x for x in adapter.Address][:6])
-            ifname = (ctypes
-                      .string_at(ctypes.addressof(adapter.AdapterName))
-                      .decode('utf-8'))
-            spec = {'index': adapter.Index,
-                    'attrs': (['IFLA_ADDRESS', mac],
-                              ['IFLA_IFNAME', ifname])}
+            ifname = ctypes.string_at(
+                ctypes.addressof(adapter.AdapterName)
+            ).decode('utf-8')
+            spec = {
+                'index': adapter.Index,
+                'attrs': (['IFLA_ADDRESS', mac], ['IFLA_IFNAME', ifname]),
+            }
 
             msg = ifinfmsg().load(spec)
             del msg['value']
@@ -179,18 +187,22 @@ class IPRoute(object):
 
             ipaddr = adapter.IpAddressList
             while True:
-                addr = (ctypes
-                        .string_at(ctypes.addressof(ipaddr.IpAddress))
-                        .decode('utf-8'))
-                mask = (ctypes
-                        .string_at(ctypes.addressof(ipaddr.IpMask))
-                        .decode('utf-8'))
-                spec = {'index': adapter.Index,
-                        'family': AF_INET,
-                        'prefixlen': dqn2int(mask),
-                        'attrs': (['IFA_ADDRESS', addr],
-                                  ['IFA_LOCAL', addr],
-                                  ['IFA_LABEL', ifname])}
+                addr = ctypes.string_at(
+                    ctypes.addressof(ipaddr.IpAddress)
+                ).decode('utf-8')
+                mask = ctypes.string_at(
+                    ctypes.addressof(ipaddr.IpMask)
+                ).decode('utf-8')
+                spec = {
+                    'index': adapter.Index,
+                    'family': AF_INET,
+                    'prefixlen': dqn2int(mask),
+                    'attrs': (
+                        ['IFA_ADDRESS', addr],
+                        ['IFA_LOCAL', addr],
+                        ['IFA_LABEL', ifname],
+                    ),
+                }
                 msg = ifaddrmsg().load(spec)
                 del msg['value']
                 ret['addresses'].append(msg)
@@ -207,34 +219,34 @@ class IPRoute(object):
 
     def get_links(self, *argv, **kwarg):
         '''
-Get network interfaces list::
+        Get network interfaces list::
 
-    >>> pprint(ipr.get_links())
-    [{'attrs': (['IFLA_ADDRESS', '52:54:00:7a:8a:49'],
-                ['IFLA_IFNAME', '{F444467B-3549-455D-81F2-AB617C7421AB}']),
-      'change': 0,
-      'family': 0,
-      'flags': 0,
-      'header': {},
-      'ifi_type': 0,
-      'index': 7}]
+            >>> pprint(ipr.get_links())
+            [{'attrs': (['IFLA_ADDRESS', '52:54:00:7a:8a:49'],
+                        ['IFLA_IFNAME', '{F444467B-3549-455D-81F2-AB617C7421AB}']),
+              'change': 0,
+              'family': 0,
+              'flags': 0,
+              'header': {},
+              'ifi_type': 0,
+              'index': 7}]
         '''
         return self._GetAdaptersInfo()['interfaces']
 
     def get_addr(self, *argv, **kwarg):
         '''
-Get IP addresses::
+        Get IP addresses::
 
-    >>> pprint(ipr.get_addr())
-    [{'attrs': (['IFA_ADDRESS', '192.168.122.81'],
-                ['IFA_LOCAL', '192.168.122.81'],
-                ['IFA_LABEL', '{F444467B-3549-455D-81F2-AB617C7421AB}']),
-      'family': <AddressFamily.AF_INET: 2>,
-      'flags': 0,
-      'header': {},
-      'index': 7,
-      'prefixlen': 24,
-      'scope': 0}]
+            >>> pprint(ipr.get_addr())
+            [{'attrs': (['IFA_ADDRESS', '192.168.122.81'],
+                        ['IFA_LOCAL', '192.168.122.81'],
+                        ['IFA_LABEL', '{F444467B-3549-455D-81F2-AB617C7421AB}']),
+              'family': <AddressFamily.AF_INET: 2>,
+              'flags': 0,
+              'header': {},
+              'index': 7,
+              'prefixlen': 24,
+              'scope': 0}]
         '''
         return self._GetAdaptersInfo()['addresses']
 

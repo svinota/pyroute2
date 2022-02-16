@@ -51,8 +51,7 @@ class NetlinkProxy(object):
                         newmsg += struct.pack('I', 0)
                         # nlmsgerr struct alignment
                         newmsg += b'\0' * 20
-                        return {'verdict': self.policy,
-                                'data': newmsg}
+                        return {'verdict': self.policy, 'data': newmsg}
                     else:
                         return ret
 
@@ -71,6 +70,5 @@ class NetlinkProxy(object):
                     newmsg += struct.pack('I', code)
                     newmsg += msg.data
                     newmsg = struct.pack('I', len(newmsg) + 4) + newmsg
-                    return {'verdict': 'error',
-                            'data': newmsg}
+                    return {'verdict': 'error', 'data': newmsg}
         return None

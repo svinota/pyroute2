@@ -1,4 +1,3 @@
-
 from pr2modules.common import map_namespace
 from pr2modules.netlink import nlmsg
 from pr2modules.netlink import nla
@@ -31,49 +30,55 @@ class fibmsg(nlmsg):
             __u32       flags;
         };
     '''
+
     prefix = 'FRA_'
 
-    fields = (('family', 'B'),
-              ('dst_len', 'B'),
-              ('src_len', 'B'),
-              ('tos', 'B'),
-              ('table', 'B'),
-              ('res1', 'B'),
-              ('res2', 'B'),
-              ('action', 'B'),
-              ('flags', 'I'))
+    fields = (
+        ('family', 'B'),
+        ('dst_len', 'B'),
+        ('src_len', 'B'),
+        ('tos', 'B'),
+        ('table', 'B'),
+        ('res1', 'B'),
+        ('res2', 'B'),
+        ('action', 'B'),
+        ('flags', 'I'),
+    )
 
     # fibmsg NLA numbers are not sequential, so
     # give them here explicitly
-    nla_map = ((0, 'FRA_UNSPEC', 'none'),
-               (1, 'FRA_DST', 'ipaddr'),
-               (2, 'FRA_SRC', 'ipaddr'),
-               (3, 'FRA_IIFNAME', 'asciiz'),
-               (4, 'FRA_GOTO', 'uint32'),
-               (6, 'FRA_PRIORITY', 'uint32'),
-               (10, 'FRA_FWMARK', 'uint32'),
-               (11, 'FRA_FLOW', 'uint32'),
-               (12, 'FRA_TUN_ID', 'be64'),
-               (13, 'FRA_SUPPRESS_IFGROUP', 'uint32'),
-               (14, 'FRA_SUPPRESS_PREFIXLEN', 'uint32'),
-               (15, 'FRA_TABLE', 'uint32'),
-               (16, 'FRA_FWMASK', 'uint32'),
-               (17, 'FRA_OIFNAME', 'asciiz'),
-               (18, 'FRA_PAD', 'hex'),
-               (19, 'FRA_L3MDEV', 'uint8'),
-               (20, 'FRA_UID_RANGE', 'uid_range'),
-               (21, 'FRA_PROTOCOL', 'uint8'),
-               (22, 'FRA_IP_PROTO', 'uint8'),
-               (23, 'FRA_SPORT_RANGE', 'port_range'),
-               (24, 'FRA_DPORT_RANGE', 'port_range'))
+    nla_map = (
+        (0, 'FRA_UNSPEC', 'none'),
+        (1, 'FRA_DST', 'ipaddr'),
+        (2, 'FRA_SRC', 'ipaddr'),
+        (3, 'FRA_IIFNAME', 'asciiz'),
+        (4, 'FRA_GOTO', 'uint32'),
+        (6, 'FRA_PRIORITY', 'uint32'),
+        (10, 'FRA_FWMARK', 'uint32'),
+        (11, 'FRA_FLOW', 'uint32'),
+        (12, 'FRA_TUN_ID', 'be64'),
+        (13, 'FRA_SUPPRESS_IFGROUP', 'uint32'),
+        (14, 'FRA_SUPPRESS_PREFIXLEN', 'uint32'),
+        (15, 'FRA_TABLE', 'uint32'),
+        (16, 'FRA_FWMASK', 'uint32'),
+        (17, 'FRA_OIFNAME', 'asciiz'),
+        (18, 'FRA_PAD', 'hex'),
+        (19, 'FRA_L3MDEV', 'uint8'),
+        (20, 'FRA_UID_RANGE', 'uid_range'),
+        (21, 'FRA_PROTOCOL', 'uint8'),
+        (22, 'FRA_IP_PROTO', 'uint8'),
+        (23, 'FRA_SPORT_RANGE', 'port_range'),
+        (24, 'FRA_DPORT_RANGE', 'port_range'),
+    )
 
     class fra_range(nla):
         __slots__ = ()
         sql_type = 'TEXT'
 
         def encode(self):
-            self['start'], self['end'] = [int(x) for x
-                                          in self.value.split(':')]
+            self['start'], self['end'] = [
+                int(x) for x in self.value.split(':')
+            ]
             nla.encode(self)
 
         def decode(self):
@@ -81,9 +86,7 @@ class fibmsg(nlmsg):
             self.value = '%s:%s' % (self['start'], self['end'])
 
     class uid_range(fra_range):
-        fields = (('start', 'I'),
-                  ('end', 'I'))
+        fields = (('start', 'I'), ('end', 'I'))
 
     class port_range(fra_range):
-        fields = (('start', 'H'),
-                  ('end', 'H'))
+        fields = (('start', 'H'), ('end', 'H'))

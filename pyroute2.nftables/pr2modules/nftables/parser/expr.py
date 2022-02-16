@@ -9,7 +9,6 @@ from pyroute2.nftables.parser.parser import nfta_nla_parser, conv_map_tuple
 
 
 class NFTReg(object):
-
     def __init__(self, num):
         self.num = num
 
@@ -42,7 +41,6 @@ class NFTReg(object):
 
 
 class NFTVerdict(object):
-
     def __init__(self, verdict, chain):
         self.verdict = verdict
         self.chain = chain
@@ -50,8 +48,9 @@ class NFTVerdict(object):
     @classmethod
     def from_netlink(cls, ndmsg):
         if ndmsg.get_attr('NFTA_VERDICT_CODE') is not None:
-            verdict = ndmsg.get_attr(
-                'NFTA_VERDICT_CODE').split('_')[-1].lower()
+            verdict = (
+                ndmsg.get_attr('NFTA_VERDICT_CODE').split('_')[-1].lower()
+            )
         else:
             verdict = None
         chain = ndmsg.get_attr('NFTA_VERDICT_CHAIN')
@@ -75,7 +74,6 @@ class NFTVerdict(object):
 
 
 class NFTData(object):
-
     def __init__(self, data_type, data):
         self.type = data_type
         self.data = data
@@ -90,12 +88,17 @@ class NFTData(object):
     @classmethod
     def from_netlink(cls, ndmsg):
         if ndmsg.get_attr('NFTA_DATA_VALUE') is not None:
-            kwargs = {'data_type': 'value',
-                      'data': ndmsg.get_attr('NFTA_DATA_VALUE')}
+            kwargs = {
+                'data_type': 'value',
+                'data': ndmsg.get_attr('NFTA_DATA_VALUE'),
+            }
         elif ndmsg.get_attr('NFTA_DATA_VERDICT') is not None:
-            kwargs = {'data_type': 'verdict',
-                      'data': NFTVerdict.from_netlink(
-                          ndmsg.get_attr('NFTA_DATA_VERDICT'))}
+            kwargs = {
+                'data_type': 'verdict',
+                'data': NFTVerdict.from_netlink(
+                    ndmsg.get_attr('NFTA_DATA_VERDICT')
+                ),
+            }
         else:
             raise NotImplementedError(ndmsg)
         return cls(**kwargs)
@@ -128,7 +131,7 @@ class NFTData(object):
             len_data = len(self.data)
             d = {'type': 'value', 'len': len_data}
             for i in range(0, len_data, 4):
-                d['data{0}'.format(i / 4)] = to_32hex(self.data[i:i + 4])
+                d['data{0}'.format(i / 4)] = to_32hex(self.data[i : i + 4])
         elif self.type == 'verdict':
             d = self.data.to_dict()
             d['type'] = 'verdict'
@@ -140,9 +143,7 @@ class NFTData(object):
 class NFTRuleExpr(nfta_nla_parser):
 
     #######################################################################
-    conv_maps = (
-        conv_map_tuple('name', 'NFTA_EXPR_NAME', 'type', 'raw'),
-    )
+    conv_maps = (conv_map_tuple('name', 'NFTA_EXPR_NAME', 'type', 'raw'),)
     #######################################################################
 
     @classmethod
@@ -162,9 +163,9 @@ class NFTRuleExpr(nfta_nla_parser):
             magic = '{0}'
             left, right = cls.STRVAL.split(magic, 1)
             if right:
-                val = val[len(left):-len(right)]
+                val = val[len(left) : -len(right)]
             else:
-                val = val[len(left):]
+                val = val[len(left) :]
             return val.lower()
 
         @classmethod
@@ -250,8 +251,9 @@ class ExprPayload(NFTRuleExpr):
 
         @classmethod
         def from_netlink(cls, ndmsg):
-            val = super(
-                ExprPayload.cparser_payload_base, cls).from_netlink(ndmsg)
+            val = super(ExprPayload.cparser_payload_base, cls).from_netlink(
+                ndmsg
+            )
             if val == 'll':
                 return 'link'
             return val
@@ -285,10 +287,12 @@ class ExprNat(NFTRuleExpr):
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('nat_type', 'NFTA_NAT_TYPE', 'nat_type', 'nat_type'),
         conv_map_tuple('family', 'NFTA_NAT_FAMILY', 'family', 'inet_family'),
-        conv_map_tuple('sreg_addr_min', 'NFTA_NAT_REG_ADDR_MIN',
-                       'sreg_addr_min', 'reg'),
-        conv_map_tuple('sreg_addr_max', 'NFTA_NAT_REG_ADDR_MAX',
-                       'sreg_addr_max', 'reg'),
+        conv_map_tuple(
+            'sreg_addr_min', 'NFTA_NAT_REG_ADDR_MIN', 'sreg_addr_min', 'reg'
+        ),
+        conv_map_tuple(
+            'sreg_addr_max', 'NFTA_NAT_REG_ADDR_MAX', 'sreg_addr_max', 'reg'
+        ),
     )
 
     class cparser_nat_type(NFTRuleExpr.cparser_extract_str):
@@ -349,7 +353,9 @@ def get_expression_from_netlink(ndmsg):
     except KeyError:
         raise NotImplementedError(
             "can't load rule expression {0} from netlink {1}".format(
-                name, ndmsg))
+                name, ndmsg
+            )
+        )
     return expr_cls.from_netlink(name, ndmsg.get_attr('NFTA_EXPR_DATA'))
 
 
@@ -359,5 +365,6 @@ def get_expression_from_dict(d):
         expr_cls = NFTA_EXPR_NAME_MAP[name]
     else:
         raise NotImplementedError(
-            "can't load rule expression {0} from json {1}".format(name, d))
+            "can't load rule expression {0} from json {1}".format(name, d)
+        )
     return expr_cls.from_dict(d)

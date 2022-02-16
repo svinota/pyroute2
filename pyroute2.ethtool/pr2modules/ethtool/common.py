@@ -4,12 +4,12 @@ from collections import namedtuple
 
 DUPLEX_HALF = 0x0
 DUPLEX_FULL = 0x1
-DUPLEX_UNKNOWN = 0xff
+DUPLEX_UNKNOWN = 0xFF
 
 LINK_DUPLEX_NAMES = {
     DUPLEX_HALF: "Half",
     DUPLEX_FULL: "Full",
-    DUPLEX_UNKNOWN: "Unknown"
+    DUPLEX_UNKNOWN: "Unknown",
 }
 
 # Which connector port.
@@ -19,8 +19,8 @@ PORT_MII = 0x02
 PORT_FIBRE = 0x03
 PORT_BNC = 0x04
 PORT_DA = 0x05
-PORT_NONE = 0xef
-PORT_OTHER = 0xff
+PORT_NONE = 0xEF
+PORT_OTHER = 0xFF
 LINK_PORT_NAMES = {
     PORT_TP: "Twisted Pair",
     PORT_AUI: "AUI",
@@ -35,18 +35,12 @@ LINK_PORT_NAMES = {
 # Which transceiver to use.
 XCVR_INTERNAL = 0x00  # PHY and MAC are in the same package
 XCVR_EXTERNAL = 0x01  # PHY and MAC are in different packages
-LINK_TRANSCEIVER_NAMES = {
-    XCVR_INTERNAL: "Internal",
-    XCVR_EXTERNAL: "External",
-}
+LINK_TRANSCEIVER_NAMES = {XCVR_INTERNAL: "Internal", XCVR_EXTERNAL: "External"}
 
 # Enable or disable autonegotiation.
 AUTONEG_DISABLE = 0x00
 AUTONEG_ENABLE = 0x01
-LINK_AUTONEG_NAMES = {
-    AUTONEG_DISABLE: "off",
-    AUTONEG_ENABLE: "on",
-}
+LINK_AUTONEG_NAMES = {AUTONEG_DISABLE: "off", AUTONEG_ENABLE: "on"}
 
 # MDI or MDI-X status/control - if MDI/MDI_X/AUTO is set then
 # the driver is required to renegotiate link
@@ -126,13 +120,15 @@ LinkModeBits = (
     LinkModeBit(bit_index=57, name='100000baseKR2/Full', type=LMBTypeMode),
     LinkModeBit(bit_index=58, name='100000baseSR2/Full', type=LMBTypeMode),
     LinkModeBit(bit_index=59, name='100000baseCR2/Full', type=LMBTypeMode),
-    LinkModeBit(bit_index=60, name='100000baseLR2_ER2_FR2/Full',
-                type=LMBTypeMode),
+    LinkModeBit(
+        bit_index=60, name='100000baseLR2_ER2_FR2/Full', type=LMBTypeMode
+    ),
     LinkModeBit(bit_index=61, name='100000baseDR2/Full', type=LMBTypeMode),
     LinkModeBit(bit_index=62, name='200000baseKR4/Full', type=LMBTypeMode),
     LinkModeBit(bit_index=63, name='200000baseSR4/Full', type=LMBTypeMode),
-    LinkModeBit(bit_index=64, name='200000baseLR4_ER4_FR4/Full',
-                type=LMBTypeMode),
+    LinkModeBit(
+        bit_index=64, name='200000baseLR4_ER4_FR4/Full', type=LMBTypeMode
+    ),
     LinkModeBit(bit_index=65, name='200000baseDR4/Full', type=LMBTypeMode),
     LinkModeBit(bit_index=66, name='200000baseCR4/Full', type=LMBTypeMode),
     LinkModeBit(bit_index=67, name='100baseT1/Full', type=LMBTypeMode),

@@ -30,9 +30,9 @@ from pr2modules.ipdb.transactional import SYNC_TIMEOUT
 from pr2modules.ipdb.linkedset import LinkedSet
 
 log = logging.getLogger(__name__)
-groups = rtnl.RTMGRP_IPV4_ROUTE |\
-    rtnl.RTMGRP_IPV6_ROUTE |\
-    rtnl.RTMGRP_MPLS_ROUTE
+groups = (
+    rtnl.RTMGRP_IPV4_ROUTE | rtnl.RTMGRP_IPV6_ROUTE | rtnl.RTMGRP_MPLS_ROUTE
+)
 IP6_RT_PRIO_USER = 1024
 
 
@@ -49,7 +49,6 @@ class Via(Transactional):
 
 
 class NextHopSet(LinkedSet):
-
     def __init__(self, prime=None):
         super(NextHopSet, self).__init__()
         prime = prime or []
@@ -83,13 +82,14 @@ class NextHopSet(LinkedSet):
         def NHIterator():
             for x in tuple(self.raw.values()):
                 yield x
+
         return NHIterator()
 
     def add(self, prime, raw=None, cascade=False):
         key = self.__make_nh(prime)
         req = key._required
         fields = key._fields
-        skey = key[:req] + (None, ) * (len(fields) - req)
+        skey = key[:req] + (None,) * (len(fields) - req)
         if skey in self.raw:
             del self.raw[skey]
         return super(NextHopSet, self).add(key, raw=prime)
@@ -101,9 +101,9 @@ class NextHopSet(LinkedSet):
         except KeyError as e:
             req = key._required
             fields = key._fields
-            skey = key[:req] + (None, ) * (len(fields) - req)
+            skey = key[:req] + (None,) * (len(fields) - req)
             for rkey in tuple(self.raw.keys()):
-                if skey == rkey[:req] + (None, ) * (len(fields) - req):
+                if skey == rkey[:req] + (None,) * (len(fields) - req):
                     break
             else:
                 raise e
@@ -111,7 +111,6 @@ class NextHopSet(LinkedSet):
 
 
 class WatchdogMPLSKey(dict):
-
     def __init__(self, route):
         dict.__init__(self)
         self['oif'] = route['oif']
@@ -123,16 +122,27 @@ class WatchdogKey(dict):
     Construct from a route a dictionary that could be used as
     a match for IPDB watchdogs.
     '''
+
     def __init__(self, route):
-        dict.__init__(self, [x for x in IPRouteRequest(route).items()
-                             if x[0] in ('dst',
-                                         'dst_len',
-                                         'src',
-                                         'src_len',
-                                         'tos',
-                                         'priority',
-                                         'gateway',
-                                         'table') and x[1]])
+        dict.__init__(
+            self,
+            [
+                x
+                for x in IPRouteRequest(route).items()
+                if x[0]
+                in (
+                    'dst',
+                    'dst_len',
+                    'src',
+                    'src_len',
+                    'tos',
+                    'priority',
+                    'gateway',
+                    'table',
+                )
+                and x[1]
+            ],
+        )
 
 
 # Universal route key
@@ -143,25 +153,16 @@ class WatchdogKey(dict):
 # https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/ipv4/fib_trie.c#n1147
 # and fib6_add_rt2node() in
 # https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/ipv6/ip6_fib.c#n765
-RouteKey = namedtuple('RouteKey',
-                      ('dst',
-                       'table',
-                       'family',
-                       'priority',
-                       'tos'))
+RouteKey = namedtuple(
+    'RouteKey', ('dst', 'table', 'family', 'priority', 'tos')
+)
 
 # IP multipath NH key
-IPNHKey = namedtuple('IPNHKey',
-                     ('gateway',
-                      'encap',
-                      'oif'))
+IPNHKey = namedtuple('IPNHKey', ('gateway', 'encap', 'oif'))
 IPNHKey._required = 2
 
 # MPLS multipath NH key
-MPLSNHKey = namedtuple('MPLSNHKey',
-                       ('newdst',
-                        'via',
-                        'oif'))
+MPLSNHKey = namedtuple('MPLSNHKey', ('newdst', 'via', 'oif'))
 MPLSNHKey._required = 2
 
 
@@ -197,17 +198,16 @@ class BaseRoute(Transactional):
     _fields.append('removal')
     _virtual_fields = ['ipdb_scope', 'ipdb_priority']
     _fields.extend(_virtual_fields)
-    _linked_sets = ['multipath', ]
+    _linked_sets = ['multipath']
     _nested = []
     _gctime = None
-    cleanup = ('attrs',
-               'header',
-               'event',
-               'cacheinfo')
-    _fields_cmp = {'src': _normalize_ipnet,
-                   'dst': _normalize_ipnet,
-                   'gateway': _normalize_ipaddr,
-                   'prefsrc': _normalize_ipaddr}
+    cleanup = ('attrs', 'header', 'event', 'cacheinfo')
+    _fields_cmp = {
+        'src': _normalize_ipnet,
+        'dst': _normalize_ipnet,
+        'gateway': _normalize_ipaddr,
+        'prefsrc': _normalize_ipaddr,
+    }
 
     def __init__(self, ipdb, mode=None, parent=None, uid=None):
         Transactional.__init__(self, ipdb, mode, parent, uid)
@@ -244,8 +244,9 @@ class BaseRoute(Transactional):
     def del_nh(self, prime):
         with self._write_lock:
             if not self['multipath']:
-                raise KeyError('attempt to delete nexthop from '
-                               'non-multipath route')
+                raise KeyError(
+                    'attempt to delete nexthop from ' 'non-multipath route'
+                )
             nh = dict(prime)
             if self['family'] == AF_MPLS:
                 nh['family'] = AF_MPLS
@@ -283,10 +284,9 @@ class BaseRoute(Transactional):
                     # to endless night.
                     #
                     clean_mp = False
-                    msgs = self.nl.route('show',
-                                         table=table,
-                                         dst=dst,
-                                         family=family)
+                    msgs = self.nl.route(
+                        'show', table=table, dst=dst, family=family
+                    )
                     for nhmsg in msgs:
                         nh = type(self)(ipdb=self.ipdb, parent=self)
                         nh.load_netlink(nhmsg)
@@ -370,8 +370,7 @@ class BaseRoute(Transactional):
                     dst = dst[0]['label']
             else:
                 if msg.get_attr('RTA_DST'):
-                    dst = '%s/%s' % (msg.get_attr('RTA_DST'),
-                                     msg['dst_len'])
+                    dst = '%s/%s' % (msg.get_attr('RTA_DST'), msg['dst_len'])
                 else:
                     dst = 'default'
             self['dst'] = dst
@@ -401,9 +400,11 @@ class BaseRoute(Transactional):
             # one hop -> multihop transition
             if not msg.get_attr('RTA_GATEWAY') and self['gateway'] is not None:
                 self['gateway'] = None
-            if 'oif' not in msg and \
-                    not msg.get_attr('RTA_OIF') and \
-                    self['oif'] is not None:
+            if (
+                'oif' not in msg
+                and not msg.get_attr('RTA_OIF')
+                and self['oif'] is not None
+            ):
                 self['oif'] = None
 
             # finally, cleanup all not needed
@@ -411,11 +412,9 @@ class BaseRoute(Transactional):
                 if item in self:
                     del self[item]
 
-    def commit(self,
-               tid=None,
-               transaction=None,
-               commit_phase=1,
-               commit_mask=0xff):
+    def commit(
+        self, tid=None, transaction=None, commit_phase=1, commit_mask=0xFF
+    ):
 
         if not commit_phase & commit_mask:
             return self
@@ -425,8 +424,7 @@ class BaseRoute(Transactional):
         devop = 'set'
         cleanup = []
         # FIXME -- make a debug object
-        debug = {'traceback': None,
-                 'next_stage': None}
+        debug = {'traceback': None, 'next_stage': None}
         notx = True
 
         if tid or transaction:
@@ -454,14 +452,18 @@ class BaseRoute(Transactional):
         try:
             # route set
             if self['family'] != AF_MPLS:
-                cleanup = [any(snapshot['metrics'].values()) and
-                           not any(added.get('metrics', {}).values()),
-                           any(snapshot['encap'].values()) and
-                           not any(added.get('encap', {}).values())]
-            if any(added.values()) or \
-                    any(cleanup) or \
-                    removed.get('multipath', None) or \
-                    devop == 'add':
+                cleanup = [
+                    any(snapshot['metrics'].values())
+                    and not any(added.get('metrics', {}).values()),
+                    any(snapshot['encap'].values())
+                    and not any(added.get('encap', {}).values()),
+                ]
+            if (
+                any(added.values())
+                or any(cleanup)
+                or removed.get('multipath', None)
+                or devop == 'add'
+            ):
                 # prepare multipath target sync
                 wlist = []
                 if transaction['multipath']:
@@ -478,6 +480,7 @@ class BaseRoute(Transactional):
 
                         def mpcheck(mpset):
                             return len(mpset) == mplen
+
                         mpt = self['multipath'].set_target(mpcheck, True)
                 else:
                     mpt = None
@@ -490,16 +493,14 @@ class BaseRoute(Transactional):
                     if self['family'] == AF_MPLS:
                         route_index = self.ipdb.routes.tables['mpls'].idx
                     else:
-                        route_index = (self.ipdb
-                                       .routes
-                                       .tables[self['table'] or 254]
-                                       .idx)
+                        route_index = self.ipdb.routes.tables[
+                            self['table'] or 254
+                        ].idx
                     # re-link the route record
                     if new_key in route_index:
                         raise CommitException('route idx conflict')
                     else:
-                        route_index[new_key] = {'key': new_key,
-                                                'route': self}
+                        route_index[new_key] = {'key': new_key, 'route': self}
                     # wipe the old key, if needed
                     if old_key in route_index:
                         del route_index[old_key]
@@ -526,15 +527,16 @@ class BaseRoute(Transactional):
                 for key in wlist:
                     self.wait_target(key)
             # route removal
-            if (transaction['ipdb_scope'] in ('shadow', 'remove')) or\
-                    ((transaction['ipdb_scope'] == 'create') and
-                     commit_phase == 2):
+            if (transaction['ipdb_scope'] in ('shadow', 'remove')) or (
+                (transaction['ipdb_scope'] == 'create') and commit_phase == 2
+            ):
                 if transaction['ipdb_scope'] == 'shadow':
                     with self._direct_state:
                         self['ipdb_scope'] = 'locked'
                 # create watchdog
-                wd = self.ipdb.watchdog('RTM_DELROUTE',
-                                        **self.wd_key(snapshot))
+                wd = self.ipdb.watchdog(
+                    'RTM_DELROUTE', **self.wd_key(snapshot)
+                )
                 for route in self.nl.route('delete', **snapshot):
                     self.ipdb.routes.load_netlink(route)
                 wd.wait()
@@ -555,9 +557,11 @@ class BaseRoute(Transactional):
 
             if commit_phase == 1:
                 try:
-                    self.commit(transaction=snapshot,
-                                commit_phase=2,
-                                commit_mask=commit_mask)
+                    self.commit(
+                        transaction=snapshot,
+                        commit_phase=2,
+                        commit_mask=commit_mask,
+                    )
                 except Exception as i_e:
                     debug['next_stage'] = i_e
                     error = RuntimeError()
@@ -599,13 +603,17 @@ class Route(BaseRoute):
         '''
         labels = encap.get('labels', None)
         if isinstance(labels, (list, tuple, set)):
-            labels = '/'.join(map(lambda x: str(x['label'])
-                                  if isinstance(x, dict)
-                                  else str(x), labels))
+            labels = '/'.join(
+                map(
+                    lambda x: str(x['label'])
+                    if isinstance(x, dict)
+                    else str(x),
+                    labels,
+                )
+            )
         if not isinstance(labels, basestring):
             raise TypeError('labels struct not supported')
-        return {'type': encap.get('type', 'mpls'),
-                'labels': labels}
+        return {'type': encap.get('type', 'mpls'), 'labels': labels}
 
     @classmethod
     def make_nh_key(cls, msg):
@@ -622,8 +630,12 @@ class Route(BaseRoute):
                         values.append(None)
                         continue
                     # 2. encap_type == 'mpls'
-                    v = '/'.join([str(x['label']) for x
-                                  in v.get_attr('MPLS_IPTUNNEL_DST')])
+                    v = '/'.join(
+                        [
+                            str(x['label'])
+                            for x in v.get_attr('MPLS_IPTUNNEL_DST')
+                        ]
+                    )
                 elif v is None:
                     v = msg.get(field, None)
                 values.append(v)
@@ -632,23 +644,34 @@ class Route(BaseRoute):
                 v = msg.get(field, None)
                 if field == 'encap' and v and v['labels']:
                     v = v['labels']
-                elif (field == 'encap') and \
-                        (len(msg.get('multipath', []) or []) == 1):
-                    v = (tuple(msg['multipath'].raw.values())[0]
-                         .get('encap', {})
-                         .get('labels', None))
+                elif (field == 'encap') and (
+                    len(msg.get('multipath', []) or []) == 1
+                ):
+                    v = (
+                        tuple(msg['multipath'].raw.values())[0]
+                        .get('encap', {})
+                        .get('labels', None)
+                    )
                 elif field == 'encap':
                     v = None
-                elif (field == 'gateway') and \
-                        (len(msg.get('multipath', []) or []) == 1) and \
-                        not v:
-                    v = (tuple(msg['multipath'].raw.values())[0]
-                         .get('gateway', None))
+                elif (
+                    (field == 'gateway')
+                    and (len(msg.get('multipath', []) or []) == 1)
+                    and not v
+                ):
+                    v = tuple(msg['multipath'].raw.values())[0].get(
+                        'gateway', None
+                    )
 
                 if field == 'encap' and isinstance(v, (list, tuple, set)):
-                    v = '/'.join(map(lambda x: str(x['label'])
-                                     if isinstance(x, dict)
-                                     else str(x), v))
+                    v = '/'.join(
+                        map(
+                            lambda x: str(x['label'])
+                            if isinstance(x, dict)
+                            else str(x),
+                            v,
+                        )
+                    )
                 values.append(v)
         else:
             raise TypeError('prime not supported: %s' % type(msg))
@@ -679,9 +702,11 @@ class Route(BaseRoute):
         elif isinstance(msg, dict):
             for field in RouteKey._fields:
                 v = msg.get(field, None)
-                if field == 'dst' and \
-                        isinstance(v, basestring) and \
-                        v.find(':') > -1:
+                if (
+                    field == 'dst'
+                    and isinstance(v, basestring)
+                    and v.find(':') > -1
+                ):
                     v = v.split('/')
                     ip = inet_ntop(AF_INET6, inet_pton(AF_INET6, v[0]))
                     if len(v) > 1:
@@ -722,8 +747,11 @@ class Route(BaseRoute):
                 if any(value.values()):
                     if self._mode in ('implicit', 'explicit'):
                         ret._begin(tid=self.current_tx.uid)
-                    [ret.__setitem__(k, v) for k, v
-                     in value.items() if v is not None]
+                    [
+                        ret.__setitem__(k, v)
+                        for k, v in value.items()
+                        if v is not None
+                    ]
             # corresponding transactional exists
             else:
                 # set fields
@@ -749,9 +777,11 @@ class Route(BaseRoute):
             ret = rt_type.get(value, value)
         elif key == 'proto' and not isinstance(value, int):
             ret = rt_proto.get(value, value)
-        elif key == 'dst' and \
-                isinstance(value, basestring) and \
-                value in ('0.0.0.0/0', '::/0'):
+        elif (
+            key == 'dst'
+            and isinstance(value, basestring)
+            and value in ('0.0.0.0/0', '::/0')
+        ):
             ret = 'default'
         Transactional.__setitem__(self, key, ret)
 
@@ -773,9 +803,11 @@ class MPLSRoute(BaseRoute):
         '''
         Construct from a netlink message a multipath nexthop key
         '''
-        return MPLSNHKey(newdst=tuple(msg['newdst']),
-                         via=msg.get('via', {}).get('addr', None),
-                         oif=msg.get('oif', None))
+        return MPLSNHKey(
+            newdst=tuple(msg['newdst']),
+            via=msg.get('via', {}).get('addr', None),
+            oif=msg.get('oif', None),
+        )
 
     @classmethod
     def make_key(cls, msg):
@@ -812,8 +844,11 @@ class MPLSRoute(BaseRoute):
                 if any(value.values()):
                     if self._mode in ('implicit', 'explicit'):
                         ret._begin(tid=self.current_tx.uid)
-                    [ret.__setitem__(k, v) for k, v
-                     in value.items() if v is not None]
+                    [
+                        ret.__setitem__(k, v)
+                        for k, v in value.items()
+                        if v is not None
+                    ]
             else:
                 # load value into existing object
                 for k in ret:
@@ -903,8 +938,9 @@ class RoutingTable(object):
         ret = []
         for record in tuple(self.idx.values()):
             for key, value in tuple(target.items()):
-                if (key not in record['route']) or \
-                        (value != record['route'][key]):
+                if (key not in record['route']) or (
+                    value != record['route'][key]
+                ):
                     break
             else:
                 ret.append(record)
@@ -957,8 +993,7 @@ class RoutingTable(object):
         if not ret:
             raise KeyError('record not found')
         route.load_netlink(ret[0])
-        return {'route': route,
-                'key': None}
+        return {'route': route, 'key': None}
 
     def __delitem__(self, key):
         with self.lock:
@@ -975,8 +1010,7 @@ class RoutingTable(object):
             try:
                 record = self.describe(key, forward=False)
             except KeyError:
-                record = {'route': self.route_class(self.ipdb),
-                          'key': None}
+                record = {'route': self.route_class(self.ipdb), 'key': None}
 
             if isinstance(value, nlmsg):
                 record['route'].load_netlink(value)
@@ -988,8 +1022,7 @@ class RoutingTable(object):
 
             key = self.route_class.make_key(record['route'])
             if record['key'] is None:
-                self.idx[key] = {'route': record['route'],
-                                 'key': key}
+                self.idx[key] = {'route': record['route'], 'key': key}
             else:
                 self.idx[key] = record
                 if record['key'] != key:
@@ -1029,27 +1062,31 @@ class MPLSTable(RoutingTable):
 
 
 class RoutingTableSet(object):
-
     def __init__(self, ipdb):
         self.ipdb = ipdb
         self._gctime = time.time()
         self.ignore_rtables = ipdb._ignore_rtables or []
         self.tables = {254: RoutingTable(self.ipdb)}
-        self._event_map = {'RTM_NEWROUTE': self.load_netlink,
-                           'RTM_DELROUTE': self.load_netlink,
-                           'RTM_NEWLINK': self.gc_mark_link,
-                           'RTM_DELLINK': self.gc_mark_link,
-                           'RTM_DELADDR': self.gc_mark_addr}
+        self._event_map = {
+            'RTM_NEWROUTE': self.load_netlink,
+            'RTM_DELROUTE': self.load_netlink,
+            'RTM_NEWLINK': self.gc_mark_link,
+            'RTM_DELLINK': self.gc_mark_link,
+            'RTM_DELADDR': self.gc_mark_addr,
+        }
 
     def _register(self):
-        for msg in self.ipdb.nl.get_routes(family=AF_INET,
-                                           match={'family': AF_INET}):
+        for msg in self.ipdb.nl.get_routes(
+            family=AF_INET, match={'family': AF_INET}
+        ):
             self.load_netlink(msg)
-        for msg in self.ipdb.nl.get_routes(family=AF_INET6,
-                                           match={'family': AF_INET6}):
+        for msg in self.ipdb.nl.get_routes(
+            family=AF_INET6, match={'family': AF_INET6}
+        ):
             self.load_netlink(msg)
-        for msg in self.ipdb.nl.get_routes(family=AF_MPLS,
-                                           match={'family': AF_MPLS}):
+        for msg in self.ipdb.nl.get_routes(
+            family=AF_MPLS, match={'family': AF_MPLS}
+        ):
             self.load_netlink(msg)
 
     def add(self, spec=None, **kwarg):
@@ -1072,9 +1109,11 @@ class RoutingTableSet(object):
                 spec['family'] = AF_INET
         if not dst:
             raise ValueError('dst not specified')
-        if isinstance(dst, basestring) and \
-                (dst not in ('', 'default')) and \
-                ('/' not in dst):
+        if (
+            isinstance(dst, basestring)
+            and (dst not in ('', 'default'))
+            and ('/' not in dst)
+        ):
             if spec['family'] == AF_INET:
                 spec['dst'] = dst + '/32'
             elif spec['family'] == AF_INET6:
@@ -1194,8 +1233,9 @@ class RoutingTableSet(object):
 
         if family == AF_INET:
             addr = msg.get_attr('IFA_LOCAL')
-            net = struct.unpack('>I', inet_pton(family, addr))[0] &\
-                (0xffffffff << (32 - msg['prefixlen']))
+            net = struct.unpack('>I', inet_pton(family, addr))[0] & (
+                0xFFFFFFFF << (32 - msg['prefixlen'])
+            )
 
             # now iterate all registered routes and mark those with
             # gateway from that network
@@ -1260,9 +1300,11 @@ class RoutingTableSet(object):
         return self.tables[table][dst]
 
     def keys(self, table=254, family=AF_UNSPEC):
-        return [x['dst'] for x in self.tables[table]
-                if (x.get('family') == family) or
-                (family == AF_UNSPEC)]
+        return [
+            x['dst']
+            for x in self.tables[table]
+            if (x.get('family') == family) or (family == AF_UNSPEC)
+        ]
 
     def has_key(self, key, table=254):
         return key in self.tables[table]
@@ -1285,6 +1327,4 @@ class RoutingTableSet(object):
         return repr(self.tables[254])
 
 
-spec = [{'name': 'routes',
-         'class': RoutingTableSet,
-         'kwarg': {}}]
+spec = [{'name': 'routes', 'class': RoutingTableSet, 'kwarg': {}}]

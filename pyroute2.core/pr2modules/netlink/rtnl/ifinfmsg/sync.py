@@ -22,6 +22,7 @@ def sync(f):
     control channel pipe. The exception will be then
     forwarded.
     '''
+
     def monitor(event, ifname, cmd):
         with RawIPRSocket() as ipr:
             poll = select.poll()
@@ -34,18 +35,24 @@ def sync(f):
                     if fd == ipr.fileno():
                         msgs = ipr.get()
                         for msg in msgs:
-                            if msg.get('event') == event and \
-                                    msg.get_attr('IFLA_IFNAME') == ifname:
+                            if (
+                                msg.get('event') == event
+                                and msg.get_attr('IFLA_IFNAME') == ifname
+                            ):
                                 return
                     else:
                         return
 
     def decorated(msg):
         rcmd, cmd = os.pipe()
-        t = threading.Thread(target=monitor,
-                             args=(RTM_VALUES[msg['header']['type']],
-                                   msg.get_attr('IFLA_IFNAME'),
-                                   rcmd))
+        t = threading.Thread(
+            target=monitor,
+            args=(
+                RTM_VALUES[msg['header']['type']],
+                msg.get_attr('IFLA_IFNAME'),
+                rcmd,
+            ),
+        )
         t.start()
         ret = None
         try:

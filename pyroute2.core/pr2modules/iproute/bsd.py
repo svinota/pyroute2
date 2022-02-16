@@ -50,26 +50,28 @@ import select
 import threading
 
 from pr2modules import config
-from pr2modules.netlink import (NLM_F_REQUEST,
-                                NLM_F_DUMP,
-                                NLM_F_MULTI,
-                                NLMSG_DONE)
+from pr2modules.netlink import (
+    NLM_F_REQUEST,
+    NLM_F_DUMP,
+    NLM_F_MULTI,
+    NLMSG_DONE,
+)
 
-from pr2modules.netlink.rtnl import (RTM_NEWLINK,
-                                     RTM_GETLINK,
-                                     RTM_NEWADDR,
-                                     RTM_GETADDR,
-                                     RTM_NEWROUTE,
-                                     RTM_GETROUTE,
-                                     RTM_NEWNEIGH,
-                                     RTM_GETNEIGH)
+from pr2modules.netlink.rtnl import (
+    RTM_NEWLINK,
+    RTM_GETLINK,
+    RTM_NEWADDR,
+    RTM_GETADDR,
+    RTM_NEWROUTE,
+    RTM_GETROUTE,
+    RTM_NEWNEIGH,
+    RTM_GETNEIGH,
+)
 
 from pr2modules.bsd.rtmsocket import RTMSocket
 from pr2modules.bsd.pf_route import IFF_VALUES
 from pr2modules.netlink.rtnl.ifinfmsg import IFF_NAMES
-from pr2modules.bsd.util import (ARP,
-                                 Route,
-                                 Ifconfig)
+from pr2modules.bsd.util import ARP, Route, Ifconfig
 from pr2modules.netlink.rtnl.marshal import MarshalRtnl
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
@@ -78,6 +80,7 @@ from pr2modules.netlink.rtnl.rtmsg import rtmsg
 from pr2modules.common import AddrPool
 from pr2modules.common import Namespace
 from pr2modules.proxy import NetlinkProxy
+
 try:
     import queue
 except ImportError:
@@ -85,7 +88,6 @@ except ImportError:
 
 
 class IPRoute(object):
-
     def __init__(self, *argv, **kwarg):
         if 'ssh' in kwarg:
             self._ssh = ['ssh', kwarg.pop('ssh')]
@@ -96,8 +98,9 @@ class IPRoute(object):
         self._arp = ARP(cmd=self._ssh + ['arp', '-an'])
         self._route = Route(cmd=self._ssh + ['netstat', '-rn'])
         self.marshal = MarshalRtnl()
-        send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000, 0x1ffff),
-                                   'monitor': False})
+        send_ns = Namespace(
+            self, {'addr_pool': AddrPool(0x10000, 0x1FFFF), 'monitor': False}
+        )
         self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
         self._mon_th = None
         self._rtm = None
@@ -145,8 +148,9 @@ class IPRoute(object):
             if self._ssh:
                 return
 
-            self._mon_th = threading.Thread(target=self._monitor_thread,
-                                            name='PF_ROUTE monitoring')
+            self._mon_th = threading.Thread(
+                target=self._monitor_thread, name='PF_ROUTE monitoring'
+            )
             self._mon_th.setDaemon(True)
             self._mon_th.start()
 
@@ -249,12 +253,15 @@ class IPRoute(object):
         '''
         Iterate all the objects -- links, routes, addresses etc.
         '''
-        for method in (self.get_links,
-                       self.get_addr,
-                       self.get_neighbours,
-                       self.get_routes):
+        for method in (
+            self.get_links,
+            self.get_addr,
+            self.get_neighbours,
+            self.get_routes,
+        ):
             for msg in method():
                 yield msg
+
     # 8<---------------------------------------------------------------
 
     def get_links(self, *argv, **kwarg):

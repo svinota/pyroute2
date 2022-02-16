@@ -170,19 +170,18 @@ from pr2modules import config
 from pr2modules import cli
 from pr2modules.common import basestring
 from pr2modules.netlink import nlmsg_base
+
 ##
 # NDB stuff
 from . import schema
-from .events import (DBMExitException,
-                     ShutdownException,
-                     InvalidateHandlerException,
-                     RescheduleException)
-from .messages import (cmsg,
-                       cmsg_event,
-                       cmsg_failed,
-                       cmsg_sstart)
-from .source import (Source,
-                     SourceProxy)
+from .events import (
+    DBMExitException,
+    ShutdownException,
+    InvalidateHandlerException,
+    RescheduleException,
+)
+from .messages import cmsg, cmsg_event, cmsg_failed, cmsg_sstart
+from .source import Source, SourceProxy
 from .auth_manager import check_auth
 from .auth_manager import AuthManager
 from .objects import RSLV_DELETE
@@ -193,8 +192,8 @@ from .objects.route import Route
 from .objects.neighbour import Neighbour
 from .objects.rule import Rule
 from .objects.netns import NetNS
-from .report import (RecordSet,
-                     Record)
+from .report import RecordSet, Record
+
 try:
     from urlparse import urlparse
 except ImportError:
@@ -224,7 +223,6 @@ def target_adapter(value):
 
 
 class PostgreSQLAdapter(object):
-
     def __init__(self, obj):
         self.obj = obj
 
@@ -253,7 +251,6 @@ def regsiter_postgres_adapters():
 
 
 class Transaction(object):
-
     def __init__(self, log):
         self.queue = []
         self.event = threading.Event()
@@ -320,11 +317,7 @@ class View(dict):
         # ifobj1 != ifobj2
     '''
 
-    def __init__(self,
-                 ndb,
-                 table,
-                 chain=None,
-                 auth_managers=None):
+    def __init__(self, ndb, table, chain=None, auth_managers=None):
         self.ndb = ndb
         self.log = ndb.log.channel('view.%s' % table)
         self.table = table
@@ -386,16 +379,19 @@ class View(dict):
             context = {}
         iclass = self.classes[table or self.table]
 
-        spec = (iclass
-                .new_spec(key, self.default_target)
-                .load_context(context)
-                .get_spec)
+        spec = (
+            iclass.new_spec(key, self.default_target)
+            .load_context(context)
+            .get_spec
+        )
 
-        return iclass(self,
-                      spec,
-                      load=False,
-                      master=self.chain,
-                      auth_managers=self.auth_managers)
+        return iclass(
+            self,
+            spec,
+            load=False,
+            master=self.chain,
+            auth_managers=self.auth_managers,
+        )
 
     @cli.change_pointer
     def create(self, *argspec, **kwspec):
@@ -406,10 +402,11 @@ class View(dict):
         else:
             context = {}
 
-        spec = (iclass
-                .new_spec(kwspec or argspec[0], self.default_target)
-                .load_context(context)
-                .get_spec)
+        spec = (
+            iclass.new_spec(kwspec or argspec[0], self.default_target)
+            .load_context(context)
+            .get_spec
+        )
 
         if self.chain:
             spec['ndb_chain'] = self.chain
@@ -418,7 +415,8 @@ class View(dict):
 
     @cli.change_pointer
     def add(self, *argspec, **kwspec):
-        self.log.warning('''\n
+        self.log.warning(
+            '''\n
         The name add() will be removed in future releases, use create()
         instead. If you believe that the idea to rename is wrong, please
         file your opinion to the project's bugtracker.
@@ -426,7 +424,8 @@ class View(dict):
         The reason behind the rename is not to confuse interfaces.add() with
         bridge and bond port operations, that don't create any new interfaces
         but work on existing ones.
-        ''')
+        '''
+        )
         return self.create(*argspec, **kwspec)
 
     def wait(self, **spec):
@@ -449,14 +448,10 @@ class View(dict):
                 evq.put_nowait((target, event))
             except queue.Full:
                 pass
+
         #
         hdl = partial(handler, evq)
-        (self
-         .ndb
-         .register_handler(self
-                           .ndb
-                           .schema
-                           .classes[self.event], hdl))
+        (self.ndb.register_handler(self.ndb.schema.classes[self.event], hdl))
         #
         try:
             ret = self.__getitem__(spec)
@@ -488,8 +483,10 @@ class View(dict):
             for key, value in spec.items():
                 if key == 'target' and value != target:
                     break
-                elif value not in (msg.get(key),
-                                   msg.get_attr(msg.name2nla(key))):
+                elif value not in (
+                    msg.get(key),
+                    msg.get_attr(msg.name2nla(key)),
+                ):
                     break
             else:
                 while ret is None:
@@ -499,12 +496,7 @@ class View(dict):
                         time.sleep(0.1)
 
         #
-        (self
-         .ndb
-         .unregister_handler(self
-                             .ndb
-                             .schema
-                             .classes[self.event], hdl))
+        (self.ndb.unregister_handler(self.ndb.schema.classes[self.event], hdl))
 
         del evq
         del hdl
@@ -535,10 +527,7 @@ class View(dict):
         table = table or self.table
         iclass = self.classes[table]
         spec = iclass.spec_normalize(spec)
-        kspec = (self
-                 .ndb
-                 .schema
-                 .compiled[table]['norm_idx'])
+        kspec = self.ndb.schema.compiled[table]['norm_idx']
 
         request = {}
         for name in kspec:
@@ -578,11 +567,11 @@ class View(dict):
             # The number of changed rtnl_object fields must
             # be 0 which means that no transaction is started
             if rcount == 1 and self.cache[ckey].clean and expired:
-                self.log.debug('cache del %s' % (ckey, ))
+                self.log.debug('cache del %s' % (ckey,))
                 self.cache.pop(ckey, None)
 
         if cache_key in self.cache:
-            self.log.debug('cache hit %s' % (cache_key, ))
+            self.log.debug('cache hit %s' % (cache_key,))
             # Explicitly get rid of the created object
             del ret
             # The object from the cache has already
@@ -594,7 +583,7 @@ class View(dict):
             # Cache only existing objects
             if self.exists(key):
                 ret.load_sql()
-                self.log.debug('cache add %s' % (cache_key, ))
+                self.log.debug('cache add %s' % (cache_key,))
                 self.cache[cache_key] = ret
 
         ret.register()
@@ -614,22 +603,24 @@ class View(dict):
             context = {}
 
         iclass = self.classes[self.table]
-        key = (iclass
-               .new_spec(key, self.default_target)
-               .load_context(context)
-               .get_spec)
+        key = (
+            iclass.new_spec(key, self.default_target)
+            .load_context(context)
+            .get_spec
+        )
 
-        iclass.resolve(view=self,
-                       spec=key,
-                       fields=iclass.resolve_fields,
-                       policy=RSLV_DELETE)
+        iclass.resolve(
+            view=self,
+            spec=key,
+            fields=iclass.resolve_fields,
+            policy=RSLV_DELETE,
+        )
 
         table = table or self.table
         schema = self.ndb.schema
         names = schema.compiled[self.table]['all_names']
 
-        self.log.debug('check if the key %s exists in table %s' %
-                       (key, table))
+        self.log.debug('check if the key %s exists in table %s' % (key, table))
         keys = []
         values = []
         for name, value in key.items():
@@ -639,9 +630,10 @@ class View(dict):
             if value is not None and name in names:
                 keys.append('f_%s = %s' % (name, schema.plch))
                 values.append(value)
-        spec = (schema
-                .fetchone('SELECT * FROM %s WHERE %s' %
-                          (self.table, ' AND '.join(keys)), values))
+        spec = schema.fetchone(
+            'SELECT * FROM %s WHERE %s' % (self.table, ' AND '.join(keys)),
+            values,
+        )
         if spec is not None:
             self.log.debug('exists')
             return True
@@ -678,17 +670,17 @@ class View(dict):
 
     @cli.show_result
     def count(self):
-        return (self
-                .ndb
-                .schema
-                .fetchone('SELECT count(*) FROM %s' % self.table))[0]
+        return (
+            self.ndb.schema.fetchone('SELECT count(*) FROM %s' % self.table)
+        )[0]
 
     def __len__(self):
         return self.count()
 
     def _keys(self, iclass):
-        return (['target', 'tflags'] +
-                self.ndb.schema.compiled[iclass.view or iclass.table]['names'])
+        return ['target', 'tflags'] + self.ndb.schema.compiled[
+            iclass.view or iclass.table
+        ]['names']
 
     def _native(self, dump):
         fnames = next(dump)
@@ -709,7 +701,6 @@ class View(dict):
 
 
 class SourcesView(View):
-
     def __init__(self, ndb, auth_managers=None):
         super(SourcesView, self).__init__(ndb, 'sources')
         self.classes['sources'] = Source
@@ -777,7 +768,6 @@ class SourcesView(View):
 
 
 class Log(object):
-
     def __init__(self, log_id=None):
         self.logger = None
         self.state = False
@@ -809,9 +799,9 @@ class Log(object):
             if not url.scheme and url.path:
                 handler = logging.FileHandler(url.path)
             elif url.scheme == 'syslog':
-                handler = (logging
-                           .handlers
-                           .SysLogHandler(address=url.netloc.split(':')))
+                handler = logging.handlers.SysLogHandler(
+                    address=url.netloc.split(':')
+                )
             else:
                 raise ValueError('logging scheme not supported')
         else:
@@ -872,7 +862,6 @@ class Log(object):
 
 
 class ReadOnly(object):
-
     def __init__(self, ndb):
         self.ndb = ndb
 
@@ -885,13 +874,11 @@ class ReadOnly(object):
 
 
 class DeadEnd(object):
-
     def put(self, *argv, **kwarg):
         raise ShutdownException('shutdown in progress')
 
 
 class EventQueue(object):
-
     def __init__(self, *argv, **kwarg):
         self._bypass = self._queue = queue.Queue(*argv, **kwarg)
 
@@ -919,40 +906,41 @@ def Events(*argv):
 
 
 class AuthProxy(object):
-
     def __init__(self, ndb, auth_managers):
         self._ndb = ndb
         self._auth_managers = auth_managers
 
-        for spec in ('interfaces',
-                     'addresses',
-                     'routes',
-                     'neighbours',
-                     'rules',
-                     'netns',
-                     'vlans'):
-            view = View(self._ndb, spec,
-                        auth_managers=self._auth_managers)
+        for spec in (
+            'interfaces',
+            'addresses',
+            'routes',
+            'neighbours',
+            'rules',
+            'netns',
+            'vlans',
+        ):
+            view = View(self._ndb, spec, auth_managers=self._auth_managers)
             setattr(self, spec, view)
 
 
 class NDB(object):
-
     @property
     def nsmanager(self):
         return '%s/nsmanager' % self.localhost
 
-    def __init__(self,
-                 sources=None,
-                 localhost='localhost',
-                 db_provider='sqlite3',
-                 db_spec=':memory:',
-                 db_cleanup=True,
-                 rtnl_debug=False,
-                 log=False,
-                 auto_netns=False,
-                 libc=None,
-                 messenger=None):
+    def __init__(
+        self,
+        sources=None,
+        localhost='localhost',
+        db_provider='sqlite3',
+        db_spec=':memory:',
+        db_cleanup=True,
+        rtnl_debug=False,
+        log=False,
+        auto_netns=False,
+        libc=None,
+        messenger=None,
+    ):
 
         if db_provider == 'postgres':
             db_provider = 'psycopg2'
@@ -966,8 +954,9 @@ class NDB(object):
         self.ctime = self.gctime = time.time()
         self.schema = None
         self.config = {}
-        self.libc = libc or ctypes.CDLL(ctypes.util.find_library('c'),
-                                        use_errno=True)
+        self.libc = libc or ctypes.CDLL(
+            ctypes.util.find_library('c'), use_errno=True
+        )
         self.log = Log(log_id=id(self))
         self.readonly = ReadOnly(self)
         self._auto_netns = auto_netns
@@ -981,8 +970,9 @@ class NDB(object):
         self._event_queue = EventQueue(maxsize=100)
         self.messenger = messenger
         if messenger is not None:
-            self._mm_thread = threading.Thread(target=self.__mm__,
-                                               name='Messenger')
+            self._mm_thread = threading.Thread(
+                target=self.__mm__, name='Messenger'
+            )
             self._mm_thread.setDaemon(True)
             self._mm_thread.start()
         #
@@ -998,12 +988,11 @@ class NDB(object):
         #
         # fix sources prime
         if sources is None:
-            sources = [{'target': self.localhost,
-                        'kind': 'local',
-                        'nlm_generator': 1}]
+            sources = [
+                {'target': self.localhost, 'kind': 'local', 'nlm_generator': 1}
+            ]
             if sys.platform.startswith('linux'):
-                sources.append({'target': self.nsmanager,
-                                'kind': 'nsmanager'})
+                sources.append({'target': self.nsmanager, 'kind': 'nsmanager'})
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
 
@@ -1012,10 +1001,10 @@ class NDB(object):
                 spec['target'] = self.localhost
                 break
 
-        am = AuthManager({'obj:list': True,
-                          'obj:read': True,
-                          'obj:modify': True},
-                         self.log.channel('auth'))
+        am = AuthManager(
+            {'obj:list': True, 'obj:read': True, 'obj:modify': True},
+            self.log.channel('auth'),
+        )
         self.sources = SourcesView(self, auth_managers=[am])
         self._call_registry = {}
         self._nl = sources
@@ -1026,8 +1015,9 @@ class NDB(object):
         self._dbm_ready.clear()
         self._dbm_error = None
         self._dbm_autoload = set()
-        self._dbm_thread = threading.Thread(target=self.__dbm__,
-                                            name='NDB main loop')
+        self._dbm_thread = threading.Thread(
+            target=self.__dbm__, name='NDB main loop'
+        )
         self._dbm_thread.daemon = True
         self._dbm_thread.start()
         self._dbm_ready.wait()
@@ -1036,16 +1026,16 @@ class NDB(object):
         for event in tuple(self._dbm_autoload):
             event.wait()
         self._dbm_autoload = None
-        for spec in ('interfaces',
-                     'addresses',
-                     'routes',
-                     'neighbours',
-                     'rules',
-                     'netns',
-                     'vlans'):
-            view = View(self,
-                        spec,
-                        auth_managers=[am])
+        for spec in (
+            'interfaces',
+            'addresses',
+            'routes',
+            'neighbours',
+            'rules',
+            'netns',
+            'vlans',
+        ):
+            view = View(self, spec, auth_managers=[am])
             setattr(self, spec, view)
         # self.query = Query(self.schema)
 
@@ -1062,7 +1052,7 @@ class NDB(object):
         return Transaction(self.log)
 
     def auth_proxy(self, auth_manager):
-        return AuthProxy(self, [auth_manager, ])
+        return AuthProxy(self, [auth_manager])
 
     def register_handler(self, event, handler):
         if event not in self._event_map:
@@ -1090,7 +1080,7 @@ class NDB(object):
                     pass
             # shutdown the _dbm_thread
             self._event_queue.shutdown()
-            self._event_queue.bypass((cmsg(None, ShutdownException()), ))
+            self._event_queue.bypass((cmsg(None, ShutdownException()),))
             self._dbm_thread.join()
             # shutdown the logger -- free the resources
             self.log.close()
@@ -1114,7 +1104,7 @@ class NDB(object):
                 message = msg['data'][0](data=msg['data'][1])
                 message.decode()
                 message['header']['target'] = msg['target']
-                self._event_queue.put((message, ))
+                self._event_queue.put((message,))
             elif msg['type'] == 'response':
                 if msg['call_id'] in self._call_registry:
                     event = self._call_registry.pop(msg['call_id'])
@@ -1123,21 +1113,28 @@ class NDB(object):
             elif msg['type'] == 'api':
                 if msg['target'] in self.messenger.targets:
                     try:
-                        ret = self.sources[msg['target']].api(msg['name'],
-                                                              *msg['argv'],
-                                                              **msg['kwarg'])
-                        self.messenger.emit({'type': 'response',
-                                             'call_id': msg['call_id'],
-                                             'return': ret})
+                        ret = self.sources[msg['target']].api(
+                            msg['name'], *msg['argv'], **msg['kwarg']
+                        )
+                        self.messenger.emit(
+                            {
+                                'type': 'response',
+                                'call_id': msg['call_id'],
+                                'return': ret,
+                            }
+                        )
                     except Exception as e:
-                        self.messenger.emit({'type': 'response',
-                                             'call_id': msg['call_id'],
-                                             'exception': e})
+                        self.messenger.emit(
+                            {
+                                'type': 'response',
+                                'call_id': msg['call_id'],
+                                'exception': e,
+                            }
+                        )
             else:
                 self.log.warning('unknown protocol via messenger')
 
     def __dbm__(self):
-
         def default_handler(target, event):
             if isinstance(getattr(event, 'payload', None), Exception):
                 raise event.payload
@@ -1151,12 +1148,11 @@ class NDB(object):
         _locals = {'countdown': len(self._nl)}
 
         # init the events map
-        event_map = {cmsg_event: [lambda t, x: x.payload.set()],
-                     cmsg_failed: [lambda t, x: (self
-                                                 .schema
-                                                 .mark(t, 1))],
-                     cmsg_sstart: [partial(check_sources_started,
-                                           self, _locals)]}
+        event_map = {
+            cmsg_event: [lambda t, x: x.payload.set()],
+            cmsg_failed: [lambda t, x: (self.schema.mark(t, 1))],
+            cmsg_sstart: [partial(check_sources_started, self, _locals)],
+        }
         self._event_map = event_map
 
         event_queue = self._event_queue
@@ -1168,11 +1164,13 @@ class NDB(object):
                 elif self._db_provider == 'psycopg2':
                     self._db = psycopg2.connect(**self._db_spec)
 
-            self.schema = schema.init(self,
-                                      self._db,
-                                      self._db_provider,
-                                      self._db_rtnl_log,
-                                      id(threading.current_thread()))
+            self.schema = schema.init(
+                self,
+                self._db,
+                self._db_provider,
+                self._db_rtnl_log,
+                id(threading.current_thread()),
+            )
         except Exception as e:
             self._dbm_error = e
             self._dbm_ready.set()
@@ -1193,25 +1191,31 @@ class NDB(object):
             reschedule = []
             try:
                 for event in events:
-                    handlers = event_map.get(event.__class__,
-                                             [default_handler, ])
-                    if self.messenger is not None and\
-                            (event
-                             .get('header', {})
-                             .get('target', None) in self.messenger.targets):
+                    handlers = event_map.get(
+                        event.__class__, [default_handler]
+                    )
+                    if self.messenger is not None and (
+                        event.get('header', {}).get('target', None)
+                        in self.messenger.targets
+                    ):
                         if isinstance(event, nlmsg_base):
                             if event.data is not None:
-                                data = event.data[event.offset:
-                                                  event.offset + event.length]
+                                data = event.data[
+                                    event.offset : event.offset + event.length
+                                ]
                             else:
                                 event.reset()
                                 event.encode()
                                 data = event.data
                             data = (type(event), data)
                             tgt = event['header']['target']
-                            self.messenger.emit({'type': 'transport',
-                                                 'target': tgt,
-                                                 'data': data})
+                            self.messenger.emit(
+                                {
+                                    'type': 'transport',
+                                    'target': tgt,
+                                    'data': data,
+                                }
+                            )
 
                     for handler in tuple(handlers):
                         try:
@@ -1222,25 +1226,29 @@ class NDB(object):
                                 event['header']['rcounter'] = 0
                             if event['header']['rcounter'] < 3:
                                 event['header']['rcounter'] += 1
-                                self.log.debug('reschedule %s' % (event, ))
+                                self.log.debug('reschedule %s' % (event,))
                                 reschedule.append(event)
                             else:
-                                self.log.error('drop %s' % (event, ))
+                                self.log.error('drop %s' % (event,))
                         except InvalidateHandlerException:
                             try:
                                 handlers.remove(handler)
                             except Exception:
-                                self.log.error('could not invalidate '
-                                               'event handler:\n%s'
-                                               % traceback.format_exc())
+                                self.log.error(
+                                    'could not invalidate '
+                                    'event handler:\n%s'
+                                    % traceback.format_exc()
+                                )
                         except ShutdownException:
                             stop = True
                             break
                         except DBMExitException:
                             return
                         except Exception:
-                            self.log.error('could not load event:\n%s\n%s'
-                                           % (event, traceback.format_exc()))
+                            self.log.error(
+                                'could not load event:\n%s\n%s'
+                                % (event, traceback.format_exc())
+                            )
                     if time.time() - self.gctime > config.gc_timeout:
                         self.gctime = time.time()
             except Exception as e:

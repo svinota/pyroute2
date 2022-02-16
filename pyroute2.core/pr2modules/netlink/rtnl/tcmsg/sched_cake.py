@@ -110,10 +110,7 @@ def fix_msg(msg, kwarg):
 
 
 def convert_bandwidth(value):
-    types = [('kbit', 1000),
-             ('mbit', 1000000),
-             ('gbit', 1000000000)
-             ]
+    types = [('kbit', 1000), ('mbit', 1000000), ('gbit', 1000000000)]
 
     if 'unlimited' == value:
         return 0
@@ -129,21 +126,24 @@ def convert_bandwidth(value):
                 x = int(value.split(t)[0]) * mul
                 return x >> 3
 
-    raise ValueError('Invalid bandwidth value. Specify either an integer, '
-                     '"unlimited" or a value with "kbit", "mbit" or '
-                     '"gbit" appended')
+    raise ValueError(
+        'Invalid bandwidth value. Specify either an integer, '
+        '"unlimited" or a value with "kbit", "mbit" or '
+        '"gbit" appended'
+    )
 
 
 def convert_rtt(value):
-    types = {'datacentre': 100,
-             'lan': 1000,
-             'metro': 10000,
-             'regional': 30000,
-             'internet': 100000,
-             'oceanic': 300000,
-             'satellite': 1000000,
-             'interplanetary': 3600000000,
-             }
+    types = {
+        'datacentre': 100,
+        'lan': 1000,
+        'metro': 10000,
+        'regional': 30000,
+        'internet': 100000,
+        'oceanic': 300000,
+        'satellite': 1000000,
+        'interplanetary': 3600000000,
+    }
 
     try:
         # Value is passed as an int
@@ -153,9 +153,11 @@ def convert_rtt(value):
         rtt = types.get(value.lower())
         if rtt is not None:
             return rtt
-        raise ValueError('Invalid rtt value. Specify either an integer (us), '
-                         'or datacentre, lan, metro, regional, internet, '
-                         'oceanic or interplanetary.')
+        raise ValueError(
+            'Invalid rtt value. Specify either an integer (us), '
+            'or datacentre, lan, metro, regional, internet, '
+            'oceanic or interplanetary.'
+        )
 
 
 def convert_atm(value):
@@ -172,36 +174,42 @@ def convert_atm(value):
 
 
 def convert_flowmode(value):
-    modes = {'flowblind': CAKE_FLOW_NONE,
-             'srchost': CAKE_FLOW_SRC_IP,
-             'dsthost': CAKE_FLOW_DST_IP,
-             'hosts': CAKE_FLOW_HOSTS,
-             'flows': CAKE_FLOW_FLOWS,
-             'dual-srchost': CAKE_FLOW_DUAL_SRC,
-             'dual-dsthost': CAKE_FLOW_DUAL_DST,
-             'triple-isolate': CAKE_FLOW_TRIPLE,
-             }
+    modes = {
+        'flowblind': CAKE_FLOW_NONE,
+        'srchost': CAKE_FLOW_SRC_IP,
+        'dsthost': CAKE_FLOW_DST_IP,
+        'hosts': CAKE_FLOW_HOSTS,
+        'flows': CAKE_FLOW_FLOWS,
+        'dual-srchost': CAKE_FLOW_DUAL_SRC,
+        'dual-dsthost': CAKE_FLOW_DUAL_DST,
+        'triple-isolate': CAKE_FLOW_TRIPLE,
+    }
 
     res = modes.get(value.lower())
     if res:
         return res
-    raise ValueError('Invalid flow mode specified! See tc-cake man '
-                     'page for valid values.')
+    raise ValueError(
+        'Invalid flow mode specified! See tc-cake man '
+        'page for valid values.'
+    )
 
 
 def convert_diffserv(value):
-    modes = {'diffserv3': CAKE_DIFFSERV_DIFFSERV3,
-             'diffserv4': CAKE_DIFFSERV_DIFFSERV4,
-             'diffserv8': CAKE_DIFFSERV_DIFFSERV8,
-             'besteffort': CAKE_DIFFSERV_BESTEFFORT,
-             'precedence': CAKE_DIFFSERV_PRECEDENCE,
-             }
+    modes = {
+        'diffserv3': CAKE_DIFFSERV_DIFFSERV3,
+        'diffserv4': CAKE_DIFFSERV_DIFFSERV4,
+        'diffserv8': CAKE_DIFFSERV_DIFFSERV8,
+        'besteffort': CAKE_DIFFSERV_BESTEFFORT,
+        'precedence': CAKE_DIFFSERV_PRECEDENCE,
+    }
 
     res = modes.get(value.lower())
     if res is not None:
         return res
-    raise ValueError('Invalid diffserv mode specified! See tc-cake man '
-                     'page for valid values.')
+    raise ValueError(
+        'Invalid diffserv mode specified! See tc-cake man '
+        'page for valid values.'
+    )
 
 
 def convert_ackfilter(value):
@@ -222,30 +230,33 @@ def check_range(name, value, start, end):
         raise ValueError('{} value must be an integer'.format(name))
 
     if not start <= value <= end:
-        raise ValueError('{0} value must be between {1} and {2} '
-                         'inclusive.'.format(name, start, end))
+        raise ValueError(
+            '{0} value must be between {1} and {2} '
+            'inclusive.'.format(name, start, end)
+        )
 
 
 def get_parameters(kwarg):
     ret = {'attrs': []}
-    attrs_map = (('ack_filter', 'TCA_CAKE_ACK_FILTER'),
-                 ('atm_mode', 'TCA_CAKE_ATM'),
-                 ('autorate', 'TCA_CAKE_AUTORATE'),
-                 ('bandwidth', 'TCA_CAKE_BASE_RATE64'),
-                 ('diffserv_mode', 'TCA_CAKE_DIFFSERV_MODE'),
-                 ('ingress', 'TCA_CAKE_INGRESS'),
-                 ('overhead', 'TCA_CAKE_OVERHEAD'),
-                 ('flow_mode', 'TCA_CAKE_FLOW_MODE'),
-                 ('fwmark', 'TCA_CAKE_FWMARK'),
-                 ('memlimit', 'TCA_CAKE_MEMORY'),
-                 ('mpu', 'TCA_CAKE_MPU'),
-                 ('nat', 'TCA_CAKE_NAT'),
-                 ('raw', 'TCA_CAKE_RAW'),
-                 ('rtt', 'TCA_CAKE_RTT'),
-                 ('split_gso', 'TCA_CAKE_SPLIT_GSO'),
-                 ('target', 'TCA_CAKE_TARGET'),
-                 ('wash', 'TCA_CAKE_WASH'),
-                 )
+    attrs_map = (
+        ('ack_filter', 'TCA_CAKE_ACK_FILTER'),
+        ('atm_mode', 'TCA_CAKE_ATM'),
+        ('autorate', 'TCA_CAKE_AUTORATE'),
+        ('bandwidth', 'TCA_CAKE_BASE_RATE64'),
+        ('diffserv_mode', 'TCA_CAKE_DIFFSERV_MODE'),
+        ('ingress', 'TCA_CAKE_INGRESS'),
+        ('overhead', 'TCA_CAKE_OVERHEAD'),
+        ('flow_mode', 'TCA_CAKE_FLOW_MODE'),
+        ('fwmark', 'TCA_CAKE_FWMARK'),
+        ('memlimit', 'TCA_CAKE_MEMORY'),
+        ('mpu', 'TCA_CAKE_MPU'),
+        ('nat', 'TCA_CAKE_NAT'),
+        ('raw', 'TCA_CAKE_RAW'),
+        ('rtt', 'TCA_CAKE_RTT'),
+        ('split_gso', 'TCA_CAKE_SPLIT_GSO'),
+        ('target', 'TCA_CAKE_TARGET'),
+        ('wash', 'TCA_CAKE_WASH'),
+    )
 
     for k, v in attrs_map:
         r = kwarg.get(k, None)
@@ -272,26 +283,27 @@ def get_parameters(kwarg):
 
 
 class options(nla):
-    nla_map = (('TCA_CAKE_UNSPEC', 'none'),
-               ('TCA_CAKE_PAD', 'uint64'),
-               ('TCA_CAKE_BASE_RATE64', 'uint64'),
-               ('TCA_CAKE_DIFFSERV_MODE', 'uint32'),
-               ('TCA_CAKE_ATM', 'uint32'),
-               ('TCA_CAKE_FLOW_MODE', 'uint32'),
-               ('TCA_CAKE_OVERHEAD', 'int32'),
-               ('TCA_CAKE_RTT', 'uint32'),
-               ('TCA_CAKE_TARGET', 'uint32'),
-               ('TCA_CAKE_AUTORATE', 'uint32'),
-               ('TCA_CAKE_MEMORY', 'uint32'),
-               ('TCA_CAKE_NAT', 'uint32'),
-               ('TCA_CAKE_RAW', 'uint32'),
-               ('TCA_CAKE_WASH', 'uint32'),
-               ('TCA_CAKE_MPU', 'uint32'),
-               ('TCA_CAKE_INGRESS', 'uint32'),
-               ('TCA_CAKE_ACK_FILTER', 'uint32'),
-               ('TCA_CAKE_SPLIT_GSO', 'uint32'),
-               ('TCA_CAKE_FWMARK', 'uint32'),
-               )
+    nla_map = (
+        ('TCA_CAKE_UNSPEC', 'none'),
+        ('TCA_CAKE_PAD', 'uint64'),
+        ('TCA_CAKE_BASE_RATE64', 'uint64'),
+        ('TCA_CAKE_DIFFSERV_MODE', 'uint32'),
+        ('TCA_CAKE_ATM', 'uint32'),
+        ('TCA_CAKE_FLOW_MODE', 'uint32'),
+        ('TCA_CAKE_OVERHEAD', 'int32'),
+        ('TCA_CAKE_RTT', 'uint32'),
+        ('TCA_CAKE_TARGET', 'uint32'),
+        ('TCA_CAKE_AUTORATE', 'uint32'),
+        ('TCA_CAKE_MEMORY', 'uint32'),
+        ('TCA_CAKE_NAT', 'uint32'),
+        ('TCA_CAKE_RAW', 'uint32'),
+        ('TCA_CAKE_WASH', 'uint32'),
+        ('TCA_CAKE_MPU', 'uint32'),
+        ('TCA_CAKE_INGRESS', 'uint32'),
+        ('TCA_CAKE_ACK_FILTER', 'uint32'),
+        ('TCA_CAKE_SPLIT_GSO', 'uint32'),
+        ('TCA_CAKE_FWMARK', 'uint32'),
+    )
 
     def encode(self):
         # Set default Auto-Rate value
@@ -301,79 +313,84 @@ class options(nla):
 
 
 class stats2(nla):
-    nla_map = (('TCA_STATS_UNSPEC', 'none'),
-               ('TCA_STATS_BASIC', 'basic'),
-               ('TCA_STATS_RATE_EST', 'rate_est'),
-               ('TCA_STATS_QUEUE', 'queue'),
-               ('TCA_STATS_APP', 'stats_app'))
+    nla_map = (
+        ('TCA_STATS_UNSPEC', 'none'),
+        ('TCA_STATS_BASIC', 'basic'),
+        ('TCA_STATS_RATE_EST', 'rate_est'),
+        ('TCA_STATS_QUEUE', 'queue'),
+        ('TCA_STATS_APP', 'stats_app'),
+    )
 
     class basic(nla):
-        fields = (('bytes', 'Q'),
-                  ('packets', 'I'))
+        fields = (('bytes', 'Q'), ('packets', 'I'))
 
     class rate_est(nla):
-        fields = (('bps', 'I'),
-                  ('pps', 'I'))
+        fields = (('bps', 'I'), ('pps', 'I'))
 
     class queue(nla):
-        fields = (('qlen', 'I'),
-                  ('backlog', 'I'),
-                  ('drops', 'I'),
-                  ('requeues', 'I'),
-                  ('overlimits', 'I'))
+        fields = (
+            ('qlen', 'I'),
+            ('backlog', 'I'),
+            ('drops', 'I'),
+            ('requeues', 'I'),
+            ('overlimits', 'I'),
+        )
 
     class stats_app(nla):
-        nla_map = (('__TCA_CAKE_STATS_INVALID', 'none'),
-                   ('TCA_CAKE_STATS_PAD', 'hex'),
-                   ('TCA_CAKE_STATS_CAPACITY_ESTIMATE64', 'uint64'),
-                   ('TCA_CAKE_STATS_MEMORY_LIMIT', 'uint32'),
-                   ('TCA_CAKE_STATS_MEMORY_USED', 'uint32'),
-                   ('TCA_CAKE_STATS_AVG_NETOFF', 'uint32'),
-                   ('TCA_CAKE_STATS_MAX_NETLEN', 'uint32'),
-                   ('TCA_CAKE_STATS_MAX_ADJLEN', 'uint32'),
-                   ('TCA_CAKE_STATS_MIN_NETLEN', 'uint32'),
-                   ('TCA_CAKE_STATS_MIN_ADJLEN', 'uint32'),
-                   ('TCA_CAKE_STATS_TIN_STATS', 'tca_parse_tins'),
-                   ('TCA_CAKE_STATS_DEFICIT', 'uint32'),
-                   ('TCA_CAKE_STATS_COBALT_COUNT', 'uint32'),
-                   ('TCA_CAKE_STATS_DROPPING', 'uint32'),
-                   ('TCA_CAKE_STATS_DROP_NEXT_US', 'uint32'),
-                   ('TCA_CAKE_STATS_P_DROP', 'uint32'),
-                   ('TCA_CAKE_STATS_BLUE_TIMER_US', 'uint32'),
-                   )
+        nla_map = (
+            ('__TCA_CAKE_STATS_INVALID', 'none'),
+            ('TCA_CAKE_STATS_PAD', 'hex'),
+            ('TCA_CAKE_STATS_CAPACITY_ESTIMATE64', 'uint64'),
+            ('TCA_CAKE_STATS_MEMORY_LIMIT', 'uint32'),
+            ('TCA_CAKE_STATS_MEMORY_USED', 'uint32'),
+            ('TCA_CAKE_STATS_AVG_NETOFF', 'uint32'),
+            ('TCA_CAKE_STATS_MAX_NETLEN', 'uint32'),
+            ('TCA_CAKE_STATS_MAX_ADJLEN', 'uint32'),
+            ('TCA_CAKE_STATS_MIN_NETLEN', 'uint32'),
+            ('TCA_CAKE_STATS_MIN_ADJLEN', 'uint32'),
+            ('TCA_CAKE_STATS_TIN_STATS', 'tca_parse_tins'),
+            ('TCA_CAKE_STATS_DEFICIT', 'uint32'),
+            ('TCA_CAKE_STATS_COBALT_COUNT', 'uint32'),
+            ('TCA_CAKE_STATS_DROPPING', 'uint32'),
+            ('TCA_CAKE_STATS_DROP_NEXT_US', 'uint32'),
+            ('TCA_CAKE_STATS_P_DROP', 'uint32'),
+            ('TCA_CAKE_STATS_BLUE_TIMER_US', 'uint32'),
+        )
 
         class tca_parse_tins(nla):
-            nla_map = tuple([('TCA_CAKE_TIN_STATS_%i' % x,
-                              'tca_parse_tin_stats') for x
-                             in range(TCA_CAKE_MAX_TINS)])
+            nla_map = tuple(
+                [
+                    ('TCA_CAKE_TIN_STATS_%i' % x, 'tca_parse_tin_stats')
+                    for x in range(TCA_CAKE_MAX_TINS)
+                ]
+            )
 
             class tca_parse_tin_stats(nla):
-                nla_map = (('__TCA_CAKE_TIN_STATS_INVALID', 'none'),
-                           ('TCA_CAKE_TIN_STATS_PAD', 'hex'),
-                           ('TCA_CAKE_TIN_STATS_SENT_PACKETS', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_SENT_BYTES64', 'uint64'),
-                           ('TCA_CAKE_TIN_STATS_DROPPED_PACKETS', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_DROPPED_BYTES64', 'uint64'),
-                           ('TCA_CAKE_TIN_STATS_ACKS_DROPPED_PACKETS',
-                            'uint32'),
-                           ('TCA_CAKE_TIN_STATS_ACKS_DROPPED_BYTES64',
-                            'uint64'),
-                           ('TCA_CAKE_TIN_STATS_ECN_MARKED_PACKETS', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_ECN_MARKED_BYTES64', 'uint64'),
-                           ('TCA_CAKE_TIN_STATS_BACKLOG_PACKETS', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_BACKLOG_BYTES', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_THRESHOLD_RATE64', 'uint64'),
-                           ('TCA_CAKE_TIN_STATS_TARGET_US', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_INTERVAL_US', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_WAY_INDIRECT_HITS', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_WAY_MISSES', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_WAY_COLLISIONS', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_PEAK_DELAY_US', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_AVG_DELAY_US', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_BASE_DELAY_US', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_SPARSE_FLOWS', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_BULK_FLOWS', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_UNRESPONSIVE_FLOWS', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_MAX_SKBLEN', 'uint32'),
-                           ('TCA_CAKE_TIN_STATS_FLOW_QUANTUM', 'uint32'),
-                           )
+                nla_map = (
+                    ('__TCA_CAKE_TIN_STATS_INVALID', 'none'),
+                    ('TCA_CAKE_TIN_STATS_PAD', 'hex'),
+                    ('TCA_CAKE_TIN_STATS_SENT_PACKETS', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_SENT_BYTES64', 'uint64'),
+                    ('TCA_CAKE_TIN_STATS_DROPPED_PACKETS', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_DROPPED_BYTES64', 'uint64'),
+                    ('TCA_CAKE_TIN_STATS_ACKS_DROPPED_PACKETS', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_ACKS_DROPPED_BYTES64', 'uint64'),
+                    ('TCA_CAKE_TIN_STATS_ECN_MARKED_PACKETS', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_ECN_MARKED_BYTES64', 'uint64'),
+                    ('TCA_CAKE_TIN_STATS_BACKLOG_PACKETS', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_BACKLOG_BYTES', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_THRESHOLD_RATE64', 'uint64'),
+                    ('TCA_CAKE_TIN_STATS_TARGET_US', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_INTERVAL_US', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_WAY_INDIRECT_HITS', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_WAY_MISSES', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_WAY_COLLISIONS', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_PEAK_DELAY_US', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_AVG_DELAY_US', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_BASE_DELAY_US', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_SPARSE_FLOWS', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_BULK_FLOWS', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_UNRESPONSIVE_FLOWS', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_MAX_SKBLEN', 'uint32'),
+                    ('TCA_CAKE_TIN_STATS_FLOW_QUANTUM', 'uint32'),
+                )

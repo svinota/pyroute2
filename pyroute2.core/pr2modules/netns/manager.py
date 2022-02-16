@@ -10,7 +10,6 @@ from pr2modules.netlink.exceptions import SkipInode
 
 
 class NetNSManager(Inotify):
-
     def __init__(self, libc=None, path=None, target='netns_manager'):
         path = set(path or [])
         super(NetNSManager, self).__init__(libc, path)
@@ -72,7 +71,7 @@ class NetNSManager(Inotify):
         info['header']['target'] = self.target
         info['event'] = 'RTM_NEWNETNS'
         del info['value']
-        return info,
+        return (info,)
 
     def remove(self, path):
         netnspath = netns._get_netnspath(path)
@@ -89,7 +88,7 @@ class NetNSManager(Inotify):
             netns.remove(netnspath, self.libc)
         except OSError as e:
             raise NetlinkError(e.errno)
-        return info,
+        return (info,)
 
     def netns(self, cmd, *argv, **kwarg):
         path = kwarg.get('path', kwarg.get('NSINFO_PATH'))
@@ -104,7 +103,7 @@ class NetNSManager(Inotify):
             raise ValueError('method not supported')
         for item in self.dump():
             if item.get_attr('NSINFO_PATH') == netnspath:
-                return (item, )
+                return (item,)
         return ()
 
     def dump(self):

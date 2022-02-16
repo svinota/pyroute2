@@ -1,7 +1,8 @@
 from collections import namedtuple
 
 conv_map_tuple = namedtuple(
-    'conv_map_tuple', 'has_attr has_netlink has_dict parser_cls')
+    'conv_map_tuple', 'has_attr has_netlink has_dict parser_cls'
+)
 
 
 class nfta_nla_parser(object):
@@ -29,8 +30,9 @@ class nfta_nla_parser(object):
             if nl_val is None:
                 kwargs[c.has_attr] = None
             else:
-                kwargs[c.has_attr] = p.from_netlink(ndmsg.get_attr(
-                    c.has_netlink))
+                kwargs[c.has_attr] = p.from_netlink(
+                    ndmsg.get_attr(c.has_netlink)
+                )
         return cls(**kwargs)
 
     def to_netlink(self):
@@ -40,8 +42,10 @@ class nfta_nla_parser(object):
             if val is None:
                 continue
             nla['attrs'].append(
-                (c.has_netlink, getattr(
-                    self, 'cparser_' + c.parser_cls).to_netlink(val))
+                (
+                    c.has_netlink,
+                    getattr(self, 'cparser_' + c.parser_cls).to_netlink(val),
+                )
             )
         return nla
 
@@ -51,7 +55,8 @@ class nfta_nla_parser(object):
         for c in cls.conv_maps:
             if c.has_dict in d:
                 kwargs[c.has_attr] = getattr(
-                    cls, 'cparser_' + c.parser_cls).from_dict(d[c.has_dict])
+                    cls, 'cparser_' + c.parser_cls
+                ).from_dict(d[c.has_dict])
             else:
                 kwargs[c.has_attr] = None
         return cls(**kwargs)
@@ -67,7 +72,6 @@ class nfta_nla_parser(object):
         return d
 
     class cparser_raw(object):
-
         @staticmethod
         def from_netlink(val):
             return val

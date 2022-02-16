@@ -55,7 +55,6 @@ from pr2modules.common import PermissionError
 
 
 class check_auth(object):
-
     def __init__(self, tag):
         self.tag = tag
 
@@ -68,11 +67,11 @@ class check_auth(object):
             if all([x.check(obj, self.tag) for x in obj.auth_managers]):
                 return f(obj, *argv, **kwarg)
             raise PermissionError('access rejected')
+
         return guard
 
 
 class AuthManager(object):
-
     def __init__(self, auth, log, policy=False):
         self.auth = auth
         self.log = log
@@ -84,5 +83,5 @@ class AuthManager(object):
         if isinstance(self.auth, dict):
             ret = self.auth.get(tag, self.policy)
         if not ret and self.exception:
-            raise self.exception('%s access rejected' % (tag, ))
+            raise self.exception('%s access rejected' % (tag,))
         return ret

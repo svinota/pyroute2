@@ -146,7 +146,6 @@ log = logging.getLogger(__name__)
 
 
 class IW(NL80211):
-
     def __init__(self, *argv, **kwarg):
         # get specific groups kwarg
         if 'groups' in kwarg:
@@ -160,8 +159,10 @@ class IW(NL80211):
             # FIXME
             # raise deprecation error after 0.5.3
             #
-            log.warning('use "async_cache" instead of "async", '
-                        '"async" is a keyword from Python 3.7')
+            log.warning(
+                'use "async_cache" instead of "async", '
+                '"async" is a keyword from Python 3.7'
+            )
             kwarg['async_cache'] = kwarg.pop('async')
 
         if 'async_cache' in kwarg:
@@ -189,9 +190,9 @@ class IW(NL80211):
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_DEL_INTERFACE']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', dev]]
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def add_interface(self, ifname, iftype, dev=None, phy=0):
         '''
@@ -225,17 +226,19 @@ class IW(NL80211):
 
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_NEW_INTERFACE']
-        msg['attrs'] = [['NL80211_ATTR_IFNAME', ifname],
-                        ['NL80211_ATTR_IFTYPE', iftype]]
+        msg['attrs'] = [
+            ['NL80211_ATTR_IFNAME', ifname],
+            ['NL80211_ATTR_IFTYPE', iftype],
+        ]
         if dev is not None:
             msg['attrs'].append(['NL80211_ATTR_IFINDEX', dev])
         elif phy is not None:
             msg['attrs'].append(['NL80211_ATTR_WIPHY', phy])
         else:
             raise TypeError('no device specified')
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def list_dev(self):
         '''
@@ -249,9 +252,9 @@ class IW(NL80211):
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_WIPHY']
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )
 
     def _get_phy_name(self, attr):
         return 'phy%i' % attr.get_attr('NL80211_ATTR_WIPHY')
@@ -268,10 +271,13 @@ class IW(NL80211):
             chan_width = wif.get_attr('NL80211_ATTR_CHANNEL_WIDTH')
             freq = self._get_frequency(wif) if chan_width is not None else 0
             wifname = wif.get_attr('NL80211_ATTR_IFNAME')
-            ret[wifname] = [wif.get_attr('NL80211_ATTR_IFINDEX'),
-                            self._get_phy_name(wif),
-                            wif.get_attr('NL80211_ATTR_MAC'),
-                            freq, chan_width]
+            ret[wifname] = [
+                wif.get_attr('NL80211_ATTR_IFINDEX'),
+                self._get_phy_name(wif),
+                wif.get_attr('NL80211_ATTR_MAC'),
+                freq,
+                chan_width,
+            ]
         return ret
 
     def get_interfaces_dump(self):
@@ -280,9 +286,9 @@ class IW(NL80211):
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )
 
     def get_interface_by_phy(self, attr):
         '''
@@ -291,9 +297,9 @@ class IW(NL80211):
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
         msg['attrs'] = [['NL80211_ATTR_WIPHY', attr]]
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )
 
     def get_interface_by_ifindex(self, ifindex):
         '''
@@ -302,9 +308,9 @@ class IW(NL80211):
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST)
+        return self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST
+        )
 
     def get_stations(self, ifindex):
         '''
@@ -313,12 +319,21 @@ class IW(NL80211):
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_STATION']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )
 
-    def join_ibss(self, ifindex, ssid, freq, bssid=None,
-                  channel_fixed=False, width=None, center=None, center2=None):
+    def join_ibss(
+        self,
+        ifindex,
+        ssid,
+        freq,
+        bssid=None,
+        channel_fixed=False,
+        width=None,
+        center=None,
+        center2=None,
+    ):
         '''
         Connect to network by ssid
             - ifindex - IFINDEX of the interface to perform the connection
@@ -347,9 +362,11 @@ class IW(NL80211):
 
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_JOIN_IBSS']
-        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
-                        ['NL80211_ATTR_SSID', ssid],
-                        ['NL80211_ATTR_WIPHY_FREQ', freq]]
+        msg['attrs'] = [
+            ['NL80211_ATTR_IFINDEX', ifindex],
+            ['NL80211_ATTR_SSID', ssid],
+            ['NL80211_ATTR_WIPHY_FREQ', freq],
+        ]
 
         if channel_fixed:
             msg['attrs'].append(['NL80211_ATTR_FREQ_FIXED', None])
@@ -370,9 +387,9 @@ class IW(NL80211):
         if bssid is not None:
             msg['attrs'].append(['NL80211_ATTR_MAC', bssid])
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def leave_ibss(self, ifindex):
         '''
@@ -382,9 +399,9 @@ class IW(NL80211):
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_LEAVE_IBSS']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def authenticate(self, ifindex, bssid, ssid, freq, auth_type=0):
 
@@ -394,15 +411,17 @@ class IW(NL80211):
 
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_AUTHENTICATE']
-        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
-                        ['NL80211_ATTR_MAC', bssid],
-                        ['NL80211_ATTR_SSID', ssid],
-                        ['NL80211_ATTR_WIPHY_FREQ', freq],
-                        ['NL80211_ATTR_AUTH_TYPE', auth_type]]
+        msg['attrs'] = [
+            ['NL80211_ATTR_IFINDEX', ifindex],
+            ['NL80211_ATTR_MAC', bssid],
+            ['NL80211_ATTR_SSID', ssid],
+            ['NL80211_ATTR_WIPHY_FREQ', freq],
+            ['NL80211_ATTR_AUTH_TYPE', auth_type],
+        ]
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def deauthenticate(self, ifindex, bssid, reason_code=0x01):
 
@@ -412,13 +431,15 @@ class IW(NL80211):
 
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_DEAUTHENTICATE']
-        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
-                        ['NL80211_ATTR_MAC', bssid],
-                        ['NL80211_ATTR_REASON_CODE', reason_code]]
+        msg['attrs'] = [
+            ['NL80211_ATTR_IFINDEX', ifindex],
+            ['NL80211_ATTR_MAC', bssid],
+            ['NL80211_ATTR_REASON_CODE', reason_code],
+        ]
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def associate(self, ifindex, bssid, ssid, freq, info_elements=None):
 
@@ -428,17 +449,19 @@ class IW(NL80211):
 
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_ASSOCIATE']
-        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
-                        ['NL80211_ATTR_MAC', bssid],
-                        ['NL80211_ATTR_SSID', ssid],
-                        ['NL80211_ATTR_WIPHY_FREQ', freq]]
+        msg['attrs'] = [
+            ['NL80211_ATTR_IFINDEX', ifindex],
+            ['NL80211_ATTR_MAC', bssid],
+            ['NL80211_ATTR_SSID', ssid],
+            ['NL80211_ATTR_WIPHY_FREQ', freq],
+        ]
 
         if info_elements is not None:
             msg['attrs'].append(['NL80211_ATTR_IE', info_elements])
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def disassociate(self, ifindex, bssid, reason_code=0x03):
 
@@ -448,13 +471,15 @@ class IW(NL80211):
 
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_DISASSOCIATE']
-        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
-                        ['NL80211_ATTR_MAC', bssid],
-                        ['NL80211_ATTR_REASON_CODE', reason_code]]
+        msg['attrs'] = [
+            ['NL80211_ATTR_IFINDEX', ifindex],
+            ['NL80211_ATTR_MAC', bssid],
+            ['NL80211_ATTR_REASON_CODE', reason_code],
+        ]
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def connect(self, ifindex, ssid, bssid=None):
         '''
@@ -462,14 +487,16 @@ class IW(NL80211):
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_CONNECT']
-        msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex],
-                        ['NL80211_ATTR_SSID', ssid]]
+        msg['attrs'] = [
+            ['NL80211_ATTR_IFINDEX', ifindex],
+            ['NL80211_ATTR_SSID', ssid],
+        ]
         if bssid is not None:
             msg['attrs'].append(['NL80211_ATTR_MAC', bssid])
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def disconnect(self, ifindex):
         '''
@@ -478,9 +505,9 @@ class IW(NL80211):
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_DISCONNECT']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def survey(self, ifindex):
         '''
@@ -489,9 +516,9 @@ class IW(NL80211):
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_SURVEY']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )
 
     def scan(self, ifindex, ssids=None, flush_cache=False):
         '''
@@ -523,9 +550,9 @@ class IW(NL80211):
             scan_flags |= SCAN_FLAGS_NAMES['NL80211_SCAN_FLAG_FLUSH']
             msg['attrs'].append(['NL80211_ATTR_SCAN_FLAGS', scan_flags])
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
         # monitor the results notification on the secondary socket
         scanResultNotFound = True
@@ -542,8 +569,9 @@ class IW(NL80211):
         msg2 = nl80211cmd()
         msg2['cmd'] = NL80211_NAMES['NL80211_CMD_GET_SCAN']
         msg2['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        return self.nlm_request(msg2, msg_type=self.prid,
-                                msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return self.nlm_request(
+            msg2, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )
 
     def get_associated_bss(self, ifindex):
         '''
@@ -562,15 +590,18 @@ class IW(NL80211):
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_SCAN']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
 
-        res = self.nlm_request(msg, msg_type=self.prid,
-                               msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        res = self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )
 
         for x in res:
             attr_bss = x.get_attr('NL80211_ATTR_BSS')
             if attr_bss is not None:
                 status = attr_bss.get_attr('NL80211_BSS_STATUS')
-                if status in (BSS_STATUS_NAMES['associated'],
-                              BSS_STATUS_NAMES['ibss_joined']):
+                if status in (
+                    BSS_STATUS_NAMES['associated'],
+                    BSS_STATUS_NAMES['ibss_joined'],
+                ):
 
                     return x
 
@@ -590,9 +621,7 @@ class IW(NL80211):
         else:
             msg['attrs'] = [['NL80211_ATTR_WIPHY', attr]]
 
-        return self.nlm_request(msg,
-                                msg_type=self.prid,
-                                msg_flags=flags)
+        return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
 
     def set_regulatory_domain(self, alpha2):
         '''
@@ -602,9 +631,9 @@ class IW(NL80211):
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_REQ_SET_REG']
         msg['attrs'] = [['NL80211_ATTR_REG_ALPHA2', alpha2]]
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def set_tx_power(self, dev, mode, mbm=None):
         '''
@@ -616,14 +645,16 @@ class IW(NL80211):
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_SET_WIPHY']
-        msg['attrs'] = [['NL80211_ATTR_IFINDEX', dev],
-                        ['NL80211_ATTR_WIPHY_TX_POWER_SETTING', mode]]
+        msg['attrs'] = [
+            ['NL80211_ATTR_IFINDEX', dev],
+            ['NL80211_ATTR_WIPHY_TX_POWER_SETTING', mode],
+        ]
         if mbm is not None:
             msg['attrs'].append(['NL80211_ATTR_WIPHY_TX_POWER_LEVEL', mbm])
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def set_wiphy_netns_by_pid(self, wiphy, pid):
         '''
@@ -631,12 +662,14 @@ class IW(NL80211):
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_SET_WIPHY_NETNS']
-        msg['attrs'] = [['NL80211_ATTR_WIPHY', wiphy],
-                        ['NL80211_ATTR_PID', pid]]
+        msg['attrs'] = [
+            ['NL80211_ATTR_WIPHY', wiphy],
+            ['NL80211_ATTR_PID', pid],
+        ]
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def set_wiphy_netns_by_fd(self, wiphy, netns_fd):
         '''
@@ -644,9 +677,11 @@ class IW(NL80211):
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_SET_WIPHY_NETNS']
-        msg['attrs'] = [['NL80211_ATTR_WIPHY', wiphy],
-                        ['NL80211_ATTR_NETNS_FD', netns_fd]]
+        msg['attrs'] = [
+            ['NL80211_ATTR_WIPHY', wiphy],
+            ['NL80211_ATTR_NETNS_FD', netns_fd],
+        ]
 
-        self.nlm_request(msg,
-                         msg_type=self.prid,
-                         msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )

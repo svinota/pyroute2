@@ -3,17 +3,23 @@ from pr2test.context_manager import skip_if_not_supported
 
 
 def get_endpoints(mptcp):
-    return dict((x.get_nested('MPTCP_PM_ATTR_ADDR',
-                              'MPTCP_PM_ADDR_ATTR_ADDR4'),
-                 x.get_nested('MPTCP_PM_ATTR_ADDR',
-                              'MPTCP_PM_ADDR_ATTR_ID'))
-                for x in mptcp.endpoint('show'))
+    return dict(
+        (
+            x.get_nested('MPTCP_PM_ATTR_ADDR', 'MPTCP_PM_ADDR_ATTR_ADDR4'),
+            x.get_nested('MPTCP_PM_ATTR_ADDR', 'MPTCP_PM_ADDR_ATTR_ID'),
+        )
+        for x in mptcp.endpoint('show')
+    )
 
 
 def get_limits(mptcp):
-    return [(x.get_attr('MPTCP_PM_ATTR_SUBFLOWS'),
-             x.get_attr('MPTCP_PM_ATTR_RCV_ADD_ADDRS'))
-            for x in mptcp.limits('show')][0]
+    return [
+        (
+            x.get_attr('MPTCP_PM_ATTR_SUBFLOWS'),
+            x.get_attr('MPTCP_PM_ATTR_RCV_ADD_ADDRS'),
+        )
+        for x in mptcp.limits('show')
+    ][0]
 
 
 @skip_if_not_supported

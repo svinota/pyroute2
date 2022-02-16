@@ -76,16 +76,18 @@ from pr2modules.netlink.rtnl.tcmsg.common_act import tca_act_prio
 
 
 def fix_msg(msg, kwarg):
-    msg['info'] = htons(kwarg.get('protocol', protocols.ETH_P_ALL) & 0xffff) |\
-        ((kwarg.get('prio', 0) << 16) & 0xffff0000)
+    msg['info'] = htons(
+        kwarg.get('protocol', protocols.ETH_P_ALL) & 0xFFFF
+    ) | ((kwarg.get('prio', 0) << 16) & 0xFFFF0000)
 
 
 def get_parameters(kwarg):
     ret = {'attrs': []}
-    attrs_map = (('baseclass', 'TCA_FLOW_BASECLASS'),
-                 ('divisor', 'TCA_FLOW_DIVISOR'),
-                 ('perturb', 'TCA_FLOW_PERTURB'),
-                 )
+    attrs_map = (
+        ('baseclass', 'TCA_FLOW_BASECLASS'),
+        ('divisor', 'TCA_FLOW_DIVISOR'),
+        ('perturb', 'TCA_FLOW_PERTURB'),
+    )
 
     if kwarg.get('mode'):
         ret['attrs'].append(['TCA_FLOW_MODE', get_tca_mode(kwarg)])
@@ -110,24 +112,24 @@ def get_parameters(kwarg):
 
 
 class options(nla):
-    nla_map = (('TCA_FLOW_UNSPEC', 'none'),
-               ('TCA_FLOW_KEYS', 'tca_parse_keys'),
-               ('TCA_FLOW_MODE', 'tca_parse_mode'),
-               ('TCA_FLOW_BASECLASS', 'uint32'),
-               ('TCA_FLOW_RSHIFT', 'uint32'),
-               ('TCA_FLOW_ADDEND', 'uint32'),
-               ('TCA_FLOW_MASK', 'uint32'),
-               ('TCA_FLOW_XOR', 'uint32'),
-               ('TCA_FLOW_DIVISOR', 'uint32'),
-               ('TCA_FLOW_ACT', 'tca_act_prio'),
-               ('TCA_FLOW_POLICE', 'hex'),
-               ('TCA_FLOW_EMATCHES', 'hex'),
-               ('TCA_FLOW_PERTURB', 'uint32'),
-               )
+    nla_map = (
+        ('TCA_FLOW_UNSPEC', 'none'),
+        ('TCA_FLOW_KEYS', 'tca_parse_keys'),
+        ('TCA_FLOW_MODE', 'tca_parse_mode'),
+        ('TCA_FLOW_BASECLASS', 'uint32'),
+        ('TCA_FLOW_RSHIFT', 'uint32'),
+        ('TCA_FLOW_ADDEND', 'uint32'),
+        ('TCA_FLOW_MASK', 'uint32'),
+        ('TCA_FLOW_XOR', 'uint32'),
+        ('TCA_FLOW_DIVISOR', 'uint32'),
+        ('TCA_FLOW_ACT', 'tca_act_prio'),
+        ('TCA_FLOW_POLICE', 'hex'),
+        ('TCA_FLOW_EMATCHES', 'hex'),
+        ('TCA_FLOW_PERTURB', 'uint32'),
+    )
 
     class tca_parse_mode(nla):
-        fields = (('flow_mode', 'I'),
-                  )
+        fields = (('flow_mode', 'I'),)
 
         def decode(self):
             nla.decode(self)
@@ -141,8 +143,7 @@ class options(nla):
             nla.encode(self)
 
     class tca_parse_keys(nla):
-        fields = (('flow_keys', 'I'),
-                  )
+        fields = (('flow_keys', 'I'),)
 
         def decode(self):
             nla.decode(self)

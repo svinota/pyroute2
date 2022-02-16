@@ -16,16 +16,17 @@ IFNAMSIZ = 16
 
 
 def proxy_setlink(msg, nl):
-
     def get_interface(index):
         msg = nl.get_links(index)[0]
         try:
             kind = msg.get_attr('IFLA_LINKINFO').get_attr('IFLA_INFO_KIND')
         except AttributeError:
             kind = 'unknown'
-        return {'ifname': msg.get_attr('IFLA_IFNAME'),
-                'master': msg.get_attr('IFLA_MASTER'),
-                'kind': kind}
+        return {
+            'ifname': msg.get_attr('IFLA_IFNAME'),
+            'master': msg.get_attr('IFLA_MASTER'),
+            'kind': kind,
+        }
 
     forward = True
 
@@ -45,8 +46,10 @@ def proxy_setlink(msg, nl):
             master = get_interface(master)
             cmd = 'add'
 
-        ifname = msg.get_attr('IFLA_IFNAME') or \
-            get_interface(msg['index'])['ifname']
+        ifname = (
+            msg.get_attr('IFLA_IFNAME')
+            or get_interface(msg['index'])['ifname']
+        )
 
         # 2. manage the port
         forward_map = {'team': manage_team_port}
@@ -55,8 +58,7 @@ def proxy_setlink(msg, nl):
             forward = func(cmd, master['ifname'], ifname, nl)
 
     if forward is not None:
-        return {'verdict': 'forward',
-                'data': msg.data}
+        return {'verdict': 'forward', 'data': msg.data}
 
 
 def proxy_newlink(msg, nl):
@@ -65,8 +67,7 @@ def proxy_newlink(msg, nl):
     # get the interface kind
     linkinfo = msg.get_attr('IFLA_LINKINFO')
     if linkinfo is not None:
-        kind = [x[1] for x in linkinfo['attrs']
-                if x[0] == 'IFLA_INFO_KIND']
+        kind = [x[1] for x in linkinfo['attrs'] if x[0] == 'IFLA_INFO_KIND']
         if kind:
             kind = kind[0]
 
@@ -77,8 +78,7 @@ def proxy_newlink(msg, nl):
     elif kind == 'team':
         return manage_team(msg)
 
-    return {'verdict': 'forward',
-            'data': msg.data}
+    return {'verdict': 'forward', 'data': msg.data}
 
 
 @map_enoent
@@ -94,22 +94,33 @@ def manage_team(msg):
         config = infodata.get_attr('IFLA_TEAM_CONFIG')
         config = json.loads(config)
     except AttributeError:
-        config = {'runner': {'name': 'activebackup'},
-                  'link_watch': {'name': 'ethtool'}}
+        config = {
+            'runner': {'name': 'activebackup'},
+            'link_watch': {'name': 'ethtool'},
+        }
 
     # fix device
     config['device'] = msg.get_attr('IFLA_IFNAME')
 
     with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['teamd', '-d', '-n', '-c', json.dumps(config)],
-                              stdout=fnull,
-                              stderr=fnull)
+        subprocess.check_call(
+            ['teamd', '-d', '-n', '-c', json.dumps(config)],
+            stdout=fnull,
+            stderr=fnull,
+        )
 
 
 @map_enoent
 def manage_team_port(cmd, master, ifname, nl):
     with open(os.devnull, 'w') as fnull:
-        subprocess.check_call(['teamdctl', master, 'port',
-                               'remove' if cmd == 'del' else 'add', ifname],
-                              stdout=fnull,
-                              stderr=fnull)
+        subprocess.check_call(
+            [
+                'teamdctl',
+                master,
+                'port',
+                'remove' if cmd == 'del' else 'add',
+                ifname,
+            ],
+            stdout=fnull,
+            stderr=fnull,
+        )

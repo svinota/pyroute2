@@ -33,12 +33,14 @@ TCF_EM_REL_AND = 1
 TCF_EM_REL_OR = 2
 TCF_EM_INVERSE_MASK = 4
 
-RELATIONS_DICT = {'and': TCF_EM_REL_AND,
-                  'AND': TCF_EM_REL_AND,
-                  '&&': TCF_EM_REL_AND,
-                  'or': TCF_EM_REL_OR,
-                  'OR': TCF_EM_REL_OR,
-                  '||': TCF_EM_REL_OR}
+RELATIONS_DICT = {
+    'and': TCF_EM_REL_AND,
+    'AND': TCF_EM_REL_AND,
+    '&&': TCF_EM_REL_AND,
+    'or': TCF_EM_REL_OR,
+    'OR': TCF_EM_REL_OR,
+    '||': TCF_EM_REL_OR,
+}
 
 
 class nla_plus_tcf_ematch_opt(object):
@@ -68,8 +70,7 @@ def get_ematch_parms(kwarg):
 def get_tcf_ematches(kwarg):
     ret = {'attrs': []}
     matches = []
-    header = {'nmatches': 0,
-              'progid': 0}
+    header = {'nmatches': 0, 'progid': 0}
 
     # Get the number of expressions
     expr_count = len(kwarg['match'])
@@ -77,11 +78,7 @@ def get_tcf_ematches(kwarg):
 
     # Load plugin and transfer data
     for i in range(0, expr_count):
-        match = {'matchid': 0,
-                 'kind': None,
-                 'flags': 0,
-                 'pad': 0,
-                 'opt': None}
+        match = {'matchid': 0, 'kind': None, 'flags': 0, 'pad': 0, 'opt': None}
 
         cur_match = kwarg['match'][i]
 
@@ -100,8 +97,10 @@ def get_tcf_ematches(kwarg):
             raise ValueError('Could not set a relation to the last expression')
 
         if i < expr_count - 1 and 'relation' not in cur_match:
-            raise ValueError('You must specify a relation for every expression'
-                             ' except the last one')
+            raise ValueError(
+                'You must specify a relation for every expression'
+                ' except the last one'
+            )
 
         # Set relation to flags
         if 'relation' in cur_match:

@@ -12,11 +12,7 @@ from pr2modules.cli.parser import Parser
 
 
 class Session(object):
-    def __init__(self,
-                 ndb,
-                 stdout=None,
-                 ptrname_callback=None,
-                 builtins=None):
+    def __init__(self, ndb, stdout=None, ptrname_callback=None, builtins=None):
         self.db = ndb
         self.ptr = self.db
         self._ptrname = None
@@ -66,10 +62,9 @@ class Session(object):
             try:
                 nt = next(token)
             except StopIteration:
-                nt = (namedtuple('Token',
-                                 ('kind',
-                                  'argv',
-                                  'kwarg'))(t_dict, [], {}))
+                nt = namedtuple('Token', ('kind', 'argv', 'kwarg'))(
+                    t_dict, [], {}
+                )
 
             if nt.kind == t_dict:
                 args = nt
@@ -108,15 +103,13 @@ class Session(object):
                         arg_name = None
                 if arg_name is not None:
                     argv.append(arg_name)
-                args = (namedtuple('Token',
-                                   ('kind',
-                                    'argv',
-                                    'kwarg'))(t_dict, argv, kwarg))
+                args = namedtuple('Token', ('kind', 'argv', 'kwarg'))(
+                    t_dict, argv, kwarg
+                )
             elif nt.kind == t_pipe:
-                args = (namedtuple('Token',
-                                   ('kind',
-                                    'argv',
-                                    'kwarg'))(t_dict, [], {}))
+                args = namedtuple('Token', ('kind', 'argv', 'kwarg'))(
+                    t_dict, [], {}
+                )
                 pipe = nt
             else:
                 raise TypeError('dict, stmt or comma expected')
@@ -162,6 +155,7 @@ class Session(object):
                     return
             except:
                 import traceback
+
                 traceback.print_exc()
                 return
         else:
@@ -236,6 +230,7 @@ class Session(object):
                         return indent
                     except:
                         import traceback
+
                         traceback.print_exc()
         except SystemExit:
             raise

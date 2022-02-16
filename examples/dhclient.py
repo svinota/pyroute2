@@ -37,19 +37,31 @@ def action(ifname):
     poll.register(s, select.POLLIN | select.POLLPRI)
 
     # DISCOVER
-    discover = dhcp4msg({'op': BOOTREQUEST,
-                         'chaddr': s.l2addr,
-                         'options': {'message_type': DHCPDISCOVER,
-                                     'parameter_list': [1, 3, 6, 12, 15, 28]}})
+    discover = dhcp4msg(
+        {
+            'op': BOOTREQUEST,
+            'chaddr': s.l2addr,
+            'options': {
+                'message_type': DHCPDISCOVER,
+                'parameter_list': [1, 3, 6, 12, 15, 28],
+            },
+        }
+    )
     reply = req(s, poll, discover, expect=DHCPOFFER)
 
     # REQUEST
-    request = dhcp4msg({'op': BOOTREQUEST,
-                        'chaddr': s.l2addr,
-                        'options': {'message_type': DHCPREQUEST,
-                                    'requested_ip': reply['yiaddr'],
-                                    'server_id': reply['options']['server_id'],
-                                    'parameter_list': [1, 3, 6, 12, 15, 28]}})
+    request = dhcp4msg(
+        {
+            'op': BOOTREQUEST,
+            'chaddr': s.l2addr,
+            'options': {
+                'message_type': DHCPREQUEST,
+                'requested_ip': reply['yiaddr'],
+                'server_id': reply['options']['server_id'],
+                'parameter_list': [1, 3, 6, 12, 15, 28],
+            },
+        }
+    )
     reply = req(s, poll, request, expect=DHCPACK)
     pprint(reply)
     s.close()

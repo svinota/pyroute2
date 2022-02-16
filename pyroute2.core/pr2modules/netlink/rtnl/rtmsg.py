@@ -29,7 +29,6 @@ LWTUNNEL_ENCAP_SEG6_LOCAL = 7
 
 
 class nlflags(object):
-
     def encode(self):
         if isinstance(self['flags'], (set, tuple, list)):
             self['flags'] = self.names2flags(self['flags'])
@@ -73,47 +72,53 @@ class rtmsg_base(nlflags):
     __slots__ = ()
 
     prefix = 'RTA_'
-    sql_constraints = {'RTA_TABLE': 'NOT NULL DEFAULT 0',
-                       'RTA_DST': "NOT NULL DEFAULT ''",
-                       'RTA_OIF': 'NOT NULL DEFAULT 0',
-                       'RTA_PRIORITY': 'NOT NULL DEFAULT 0',
-                       'RTA_VIA': "NOT NULL DEFAULT ''",
-                       'RTA_NEWDST': "NOT NULL DEFAULT ''"}
+    sql_constraints = {
+        'RTA_TABLE': 'NOT NULL DEFAULT 0',
+        'RTA_DST': "NOT NULL DEFAULT ''",
+        'RTA_OIF': 'NOT NULL DEFAULT 0',
+        'RTA_PRIORITY': 'NOT NULL DEFAULT 0',
+        'RTA_VIA': "NOT NULL DEFAULT ''",
+        'RTA_NEWDST': "NOT NULL DEFAULT ''",
+    }
 
-    fields = (('family', 'B'),
-              ('dst_len', 'B'),
-              ('src_len', 'B'),
-              ('tos', 'B'),
-              ('table', 'B'),
-              ('proto', 'B'),
-              ('scope', 'B'),
-              ('type', 'B'),
-              ('flags', 'I'))
+    fields = (
+        ('family', 'B'),
+        ('dst_len', 'B'),
+        ('src_len', 'B'),
+        ('tos', 'B'),
+        ('table', 'B'),
+        ('proto', 'B'),
+        ('scope', 'B'),
+        ('type', 'B'),
+        ('flags', 'I'),
+    )
 
-    nla_map = (('RTA_UNSPEC', 'none'),
-               ('RTA_DST', 'target'),
-               ('RTA_SRC', 'target'),
-               ('RTA_IIF', 'uint32'),
-               ('RTA_OIF', 'uint32'),
-               ('RTA_GATEWAY', 'target'),
-               ('RTA_PRIORITY', 'uint32'),
-               ('RTA_PREFSRC', 'target'),
-               ('RTA_METRICS', 'metrics'),
-               ('RTA_MULTIPATH', '*get_nh'),
-               ('RTA_PROTOINFO', 'uint32'),
-               ('RTA_FLOW', 'uint32'),
-               ('RTA_CACHEINFO', 'cacheinfo'),
-               ('RTA_SESSION', 'hex'),
-               ('RTA_MP_ALGO', 'hex'),
-               ('RTA_TABLE', 'uint32'),
-               ('RTA_MARK', 'uint32'),
-               ('RTA_MFC_STATS', 'rta_mfc_stats'),
-               ('RTA_VIA', 'rtvia'),
-               ('RTA_NEWDST', 'target'),
-               ('RTA_PREF', 'uint8'),
-               ('RTA_ENCAP_TYPE', 'uint16'),
-               ('RTA_ENCAP', 'encap_info'),
-               ('RTA_EXPIRES', 'hex'))
+    nla_map = (
+        ('RTA_UNSPEC', 'none'),
+        ('RTA_DST', 'target'),
+        ('RTA_SRC', 'target'),
+        ('RTA_IIF', 'uint32'),
+        ('RTA_OIF', 'uint32'),
+        ('RTA_GATEWAY', 'target'),
+        ('RTA_PRIORITY', 'uint32'),
+        ('RTA_PREFSRC', 'target'),
+        ('RTA_METRICS', 'metrics'),
+        ('RTA_MULTIPATH', '*get_nh'),
+        ('RTA_PROTOINFO', 'uint32'),
+        ('RTA_FLOW', 'uint32'),
+        ('RTA_CACHEINFO', 'cacheinfo'),
+        ('RTA_SESSION', 'hex'),
+        ('RTA_MP_ALGO', 'hex'),
+        ('RTA_TABLE', 'uint32'),
+        ('RTA_MARK', 'uint32'),
+        ('RTA_MFC_STATS', 'rta_mfc_stats'),
+        ('RTA_VIA', 'rtvia'),
+        ('RTA_NEWDST', 'target'),
+        ('RTA_PREF', 'uint8'),
+        ('RTA_ENCAP_TYPE', 'uint16'),
+        ('RTA_ENCAP', 'encap_info'),
+        ('RTA_EXPIRES', 'hex'),
+    )
 
     @staticmethod
     def encap_info(self, *argv, **kwarg):
@@ -139,13 +144,16 @@ class rtmsg_base(nlflags):
                 # uint16 type
                 #
                 try:
-                    offset += struct.unpack('H', data[offset:offset + 2])[0]
+                    offset += struct.unpack('H', data[offset : offset + 2])[0]
                     # 21 == RTA_ENCAP_TYPE
                     # FIXME: should not be hardcoded
-                    if struct.unpack('H', data[offset + 2:
-                                               offset + 4])[0] == 21:
-                        encap_type = struct.unpack('H', data[offset + 4:
-                                                             offset + 6])[0]
+                    if (
+                        struct.unpack('H', data[offset + 2 : offset + 4])[0]
+                        == 21
+                    ):
+                        encap_type = struct.unpack(
+                            'H', data[offset + 4 : offset + 6]
+                        )[0]
                         break
                 except:
                     # in the case of any decoding error return self.hex
@@ -159,32 +167,38 @@ class rtmsg_base(nlflags):
         prefix = 'MPLS_IPTUNNEL_'
         __slots__ = ()
 
-        nla_map = (('MPLS_IPTUNNEL_UNSPEC', 'none'),
-                   ('MPLS_IPTUNNEL_DST', 'mpls_target'),
-                   ('MPLS_IPTUNNEL_TTL', 'uint8'))
+        nla_map = (
+            ('MPLS_IPTUNNEL_UNSPEC', 'none'),
+            ('MPLS_IPTUNNEL_DST', 'mpls_target'),
+            ('MPLS_IPTUNNEL_TTL', 'uint8'),
+        )
 
     class seg6_encap_info(nla):
 
         __slots__ = ()
 
-        nla_map = (('SEG6_IPTUNNEL_UNSPEC', 'none'),
-                   ('SEG6_IPTUNNEL_SRH', 'ipv6_sr_hdr'))
+        nla_map = (
+            ('SEG6_IPTUNNEL_UNSPEC', 'none'),
+            ('SEG6_IPTUNNEL_SRH', 'ipv6_sr_hdr'),
+        )
 
         class ipv6_sr_hdr(nla):
 
             __slots__ = ()
 
-            fields = (('encapmode', 'I'),
-                      ('nexthdr', 'B'),
-                      ('hdrlen', 'B'),
-                      ('type', 'B'),
-                      ('segments_left', 'B'),
-                      ('first_segment', 'B'),
-                      ('flags', 'B'),
-                      ('reserved', 'H'),
-                      ('segs', 's'),
-                      # Potentially several type-length-value
-                      ('tlvs', 's'))
+            fields = (
+                ('encapmode', 'I'),
+                ('nexthdr', 'B'),
+                ('hdrlen', 'B'),
+                ('type', 'B'),
+                ('segments_left', 'B'),
+                ('first_segment', 'B'),
+                ('flags', 'B'),
+                ('reserved', 'H'),
+                ('segs', 's'),
+                # Potentially several type-length-value
+                ('tlvs', 's'),
+            )
 
             # Corresponding values for seg6 encap modes
             SEG6_IPTUN_MODE_INLINE = 0
@@ -193,7 +207,7 @@ class rtmsg_base(nlflags):
             # Mapping string to nla value
             encapmodes = {
                 "inline": SEG6_IPTUN_MODE_INLINE,
-                "encap": SEG6_IPTUN_MODE_ENCAP
+                "encap": SEG6_IPTUN_MODE_ENCAP,
             }
 
             # Reverse mapping: mapping nla value to string
@@ -232,10 +246,9 @@ class rtmsg_base(nlflags):
                         # Add :: to segs
                         segs.insert(0, "::")
                     # Add mode to value
-                    self['encapmode'] = (self
-                                         .encapmodes
-                                         .get(mode,
-                                              self.SEG6_IPTUN_MODE_ENCAP))
+                    self['encapmode'] = self.encapmodes.get(
+                        mode, self.SEG6_IPTUN_MODE_ENCAP
+                    )
                     # Calculate srlen
                     srhlen = 8 + 16 * len(segs)
                     # If we are using hmac we have a tlv as trailer data
@@ -275,8 +288,9 @@ class rtmsg_base(nlflags):
                         # Put hmac
                         self['tlvs'] += struct.pack('QQQQ', 0, 0, 0, 0)
                 else:
-                    raise TypeError('Family %s not supported for seg6 tunnel'
-                                    % family)
+                    raise TypeError(
+                        'Family %s not supported for seg6 tunnel' % family
+                    )
                 # Finally encode as nla
                 nla.encode(self)
 
@@ -289,8 +303,9 @@ class rtmsg_base(nlflags):
                 # Decode the data
                 nla.decode(self)
                 # Extract the encap mode
-                self['mode'] = (self.r_encapmodes
-                                .get(self['encapmode'], "encap"))
+                self['mode'] = self.r_encapmodes.get(
+                    self['encapmode'], "encap"
+                )
                 # Calculate offset of the segs
                 offset = self.offset + 16
                 # Point the addresses
@@ -302,8 +317,9 @@ class rtmsg_base(nlflags):
                 # Move 128 bit in each step
                 for i in range(n_segs):
                     # Save the segment
-                    segs.append(inet_ntop(AF_INET6,
-                                          addresses[i * 16:i * 16 + 16]))
+                    segs.append(
+                        inet_ntop(AF_INET6, addresses[i * 16 : i * 16 + 16])
+                    )
                 # Save segs
                 self['segs'] = segs
                 # Init tlvs
@@ -311,7 +327,7 @@ class rtmsg_base(nlflags):
                 # If hmac is used
                 if self.has_hmac():
                     # Point to the start of hmac
-                    hmac = addresses[n_segs * 16:n_segs * 16 + 40]
+                    hmac = addresses[n_segs * 16 : n_segs * 16 + 40]
                     # Save tlvs section
                     self['tlvs'] = hexdump(hmac)
                     # Show also the hmac key
@@ -321,57 +337,67 @@ class rtmsg_base(nlflags):
 
         __slots__ = ()
 
-        nla_map = (('LWT_BPF_UNSPEC', 'none'),
-                   ('LWT_BPF_IN', 'bpf_obj'),
-                   ('LWT_BPF_OUT', 'bpf_obj'),
-                   ('LWT_BPF_XMIT', 'bpf_obj'),
-                   ('LWT_BPF_XMIT_HEADROOM', 'uint32'))
+        nla_map = (
+            ('LWT_BPF_UNSPEC', 'none'),
+            ('LWT_BPF_IN', 'bpf_obj'),
+            ('LWT_BPF_OUT', 'bpf_obj'),
+            ('LWT_BPF_XMIT', 'bpf_obj'),
+            ('LWT_BPF_XMIT_HEADROOM', 'uint32'),
+        )
 
         class bpf_obj(nla):
 
             __slots__ = ()
 
-            nla_map = (('LWT_BPF_PROG_UNSPEC', 'none'),
-                       ('LWT_BPF_PROG_FD', 'uint32'),
-                       ('LWT_BPF_PROG_NAME', 'asciiz'))
+            nla_map = (
+                ('LWT_BPF_PROG_UNSPEC', 'none'),
+                ('LWT_BPF_PROG_FD', 'uint32'),
+                ('LWT_BPF_PROG_NAME', 'asciiz'),
+            )
 
     class seg6local_encap_info(nla):
 
         __slots__ = ()
 
-        nla_map = (('SEG6_LOCAL_UNSPEC', 'none'),
-                   ('SEG6_LOCAL_ACTION', 'action'),
-                   ('SEG6_LOCAL_SRH', 'ipv6_sr_hdr'),
-                   ('SEG6_LOCAL_TABLE', 'table'),
-                   ('SEG6_LOCAL_NH4', 'nh4'),
-                   ('SEG6_LOCAL_NH6', 'nh6'),
-                   ('SEG6_LOCAL_IIF', 'iif'),
-                   ('SEG6_LOCAL_OIF', 'oif'),
-                   ('SEG6_LOCAL_BPF', 'bpf_obj'),
-                   ('SEG6_LOCAL_VRFTABLE', 'vrf_table'))
+        nla_map = (
+            ('SEG6_LOCAL_UNSPEC', 'none'),
+            ('SEG6_LOCAL_ACTION', 'action'),
+            ('SEG6_LOCAL_SRH', 'ipv6_sr_hdr'),
+            ('SEG6_LOCAL_TABLE', 'table'),
+            ('SEG6_LOCAL_NH4', 'nh4'),
+            ('SEG6_LOCAL_NH6', 'nh6'),
+            ('SEG6_LOCAL_IIF', 'iif'),
+            ('SEG6_LOCAL_OIF', 'oif'),
+            ('SEG6_LOCAL_BPF', 'bpf_obj'),
+            ('SEG6_LOCAL_VRFTABLE', 'vrf_table'),
+        )
 
         class bpf_obj(nla):
 
             __slots__ = ()
 
-            nla_map = (('LWT_BPF_PROG_UNSPEC', 'none'),
-                       ('LWT_BPF_PROG_FD', 'uint32'),
-                       ('LWT_BPF_PROG_NAME', 'asciiz'))
+            nla_map = (
+                ('LWT_BPF_PROG_UNSPEC', 'none'),
+                ('LWT_BPF_PROG_FD', 'uint32'),
+                ('LWT_BPF_PROG_NAME', 'asciiz'),
+            )
 
         class ipv6_sr_hdr(nla):
 
             __slots__ = ()
 
-            fields = (('nexthdr', 'B'),
-                      ('hdrlen', 'B'),
-                      ('type', 'B'),
-                      ('segments_left', 'B'),
-                      ('first_segment', 'B'),
-                      ('flags', 'B'),
-                      ('reserved', 'H'),
-                      ('segs', 's'),
-                      # Potentially several type-length-value
-                      ('tlvs', 's'))
+            fields = (
+                ('nexthdr', 'B'),
+                ('hdrlen', 'B'),
+                ('type', 'B'),
+                ('segments_left', 'B'),
+                ('first_segment', 'B'),
+                ('flags', 'B'),
+                ('reserved', 'H'),
+                ('segs', 's'),
+                # Potentially several type-length-value
+                ('tlvs', 's'),
+            )
 
             # Corresponding values for seg6 encap modes
             SEG6_IPTUN_MODE_INLINE = 0
@@ -380,7 +406,7 @@ class rtmsg_base(nlflags):
             # Mapping string to nla value
             encapmodes = {
                 "inline": SEG6_IPTUN_MODE_INLINE,
-                "encap": SEG6_IPTUN_MODE_ENCAP
+                "encap": SEG6_IPTUN_MODE_ENCAP,
             }
 
             # Reverse mapping: mapping nla value to string
@@ -419,10 +445,9 @@ class rtmsg_base(nlflags):
                         # Add :: to segs
                         segs.insert(0, "::")
                     # Add mode to value
-                    self['encapmode'] = (self
-                                         .encapmodes
-                                         .get(mode,
-                                              self.SEG6_IPTUN_MODE_ENCAP))
+                    self['encapmode'] = self.encapmodes.get(
+                        mode, self.SEG6_IPTUN_MODE_ENCAP
+                    )
                     # Calculate srlen
                     srhlen = 8 + 16 * len(segs)
                     # If we are using hmac we have a tlv as trailer data
@@ -462,8 +487,9 @@ class rtmsg_base(nlflags):
                         # Put hmac
                         self['tlvs'] += struct.pack('QQQQ', 0, 0, 0, 0)
                 else:
-                    raise TypeError('Family %s not supported for seg6 tunnel'
-                                    % family)
+                    raise TypeError(
+                        'Family %s not supported for seg6 tunnel' % family
+                    )
                 # Finally encode as nla
                 nla.encode(self)
 
@@ -476,8 +502,9 @@ class rtmsg_base(nlflags):
                 # Decode the data
                 nla.decode(self)
                 # Extract the encap mode
-                self['mode'] = (self.r_encapmodes
-                                .get(self['encapmode'], "encap"))
+                self['mode'] = self.r_encapmodes.get(
+                    self['encapmode'], "encap"
+                )
                 # Calculate offset of the segs
                 offset = self.offset + 16
                 # Point the addresses
@@ -489,8 +516,9 @@ class rtmsg_base(nlflags):
                 # Move 128 bit in each step
                 for i in range(n_segs):
                     # Save the segment
-                    segs.append(inet_ntop(AF_INET6,
-                                          addresses[i * 16:i * 16 + 16]))
+                    segs.append(
+                        inet_ntop(AF_INET6, addresses[i * 16 : i * 16 + 16])
+                    )
                 # Save segs
                 self['segs'] = segs
                 # Init tlvs
@@ -498,7 +526,7 @@ class rtmsg_base(nlflags):
                 # If hmac is used
                 if self.has_hmac():
                     # Point to the start of hmac
-                    hmac = addresses[n_segs * 16:n_segs * 16 + 40]
+                    hmac = addresses[n_segs * 16 : n_segs * 16 + 40]
                     # Save tlvs section
                     self['tlvs'] = hexdump(hmac)
                     # Show also the hmac key
@@ -531,31 +559,32 @@ class rtmsg_base(nlflags):
             SEG6_LOCAL_ACTION_END_AM = 14
             SEG6_LOCAL_ACTION_END_BPF = 15
 
-            actions = {'End': SEG6_LOCAL_ACTION_END,
-                       'End.X': SEG6_LOCAL_ACTION_END_X,
-                       'End.T': SEG6_LOCAL_ACTION_END_T,
-                       'End.DX2': SEG6_LOCAL_ACTION_END_DX2,
-                       'End.DX6': SEG6_LOCAL_ACTION_END_DX6,
-                       'End.DX4': SEG6_LOCAL_ACTION_END_DX4,
-                       'End.DT6': SEG6_LOCAL_ACTION_END_DT6,
-                       'End.DT4': SEG6_LOCAL_ACTION_END_DT4,
-                       'End.B6': SEG6_LOCAL_ACTION_END_B6,
-                       'End.B6.Encaps': SEG6_LOCAL_ACTION_END_B6_ENCAP,
-                       'End.BM': SEG6_LOCAL_ACTION_END_BM,
-                       'End.S': SEG6_LOCAL_ACTION_END_S,
-                       'End.AS': SEG6_LOCAL_ACTION_END_AS,
-                       'End.AM': SEG6_LOCAL_ACTION_END_AM,
-                       'End.BPF': SEG6_LOCAL_ACTION_END_BPF}
+            actions = {
+                'End': SEG6_LOCAL_ACTION_END,
+                'End.X': SEG6_LOCAL_ACTION_END_X,
+                'End.T': SEG6_LOCAL_ACTION_END_T,
+                'End.DX2': SEG6_LOCAL_ACTION_END_DX2,
+                'End.DX6': SEG6_LOCAL_ACTION_END_DX6,
+                'End.DX4': SEG6_LOCAL_ACTION_END_DX4,
+                'End.DT6': SEG6_LOCAL_ACTION_END_DT6,
+                'End.DT4': SEG6_LOCAL_ACTION_END_DT4,
+                'End.B6': SEG6_LOCAL_ACTION_END_B6,
+                'End.B6.Encaps': SEG6_LOCAL_ACTION_END_B6_ENCAP,
+                'End.BM': SEG6_LOCAL_ACTION_END_BM,
+                'End.S': SEG6_LOCAL_ACTION_END_S,
+                'End.AS': SEG6_LOCAL_ACTION_END_AS,
+                'End.AM': SEG6_LOCAL_ACTION_END_AM,
+                'End.BPF': SEG6_LOCAL_ACTION_END_BPF,
+            }
 
             def encode(self):
                 # Get action type and convert string to value
                 action = self['value']
-                self['value'] = (self
-                                 .actions
-                                 .get(action,
-                                      self.SEG6_LOCAL_ACTION_UNSPEC))
+                self['value'] = self.actions.get(
+                    action, self.SEG6_LOCAL_ACTION_UNSPEC
+                )
                 # Convert action type to u32
-                self['value'] = self['value'] & 0xffffffff
+                self['value'] = self['value'] & 0xFFFFFFFF
                 # Finally encode as nla
                 nla.encode(self)
 
@@ -589,8 +618,7 @@ class rtmsg_base(nlflags):
                 # Decode the data
                 nla_string.decode(self)
                 # Convert the packed IP address to its string representation
-                self['value'] = inet_ntop(AF_INET,
-                                          self['value'])
+                self['value'] = inet_ntop(AF_INET, self['value'])
 
         class nh6(nla_string):
 
@@ -620,40 +648,46 @@ class rtmsg_base(nlflags):
     #
     # TODO: add here other lwtunnel types
     #
-    encaps = {LWTUNNEL_ENCAP_MPLS: mpls_encap_info,
-              LWTUNNEL_ENCAP_SEG6: seg6_encap_info,
-              LWTUNNEL_ENCAP_BPF: bpf_encap_info,
-              LWTUNNEL_ENCAP_SEG6_LOCAL: seg6local_encap_info}
+    encaps = {
+        LWTUNNEL_ENCAP_MPLS: mpls_encap_info,
+        LWTUNNEL_ENCAP_SEG6: seg6_encap_info,
+        LWTUNNEL_ENCAP_BPF: bpf_encap_info,
+        LWTUNNEL_ENCAP_SEG6_LOCAL: seg6local_encap_info,
+    }
 
     class rta_mfc_stats(nla):
 
         __slots__ = ()
 
-        fields = (('mfcs_packets', 'uint64'),
-                  ('mfcs_bytes', 'uint64'),
-                  ('mfcs_wrong_if', 'uint64'))
+        fields = (
+            ('mfcs_packets', 'uint64'),
+            ('mfcs_bytes', 'uint64'),
+            ('mfcs_wrong_if', 'uint64'),
+        )
 
     class metrics(nla):
 
         __slots__ = ()
 
         prefix = 'RTAX_'
-        nla_map = (('RTAX_UNSPEC', 'none'),
-                   ('RTAX_LOCK', 'uint32'),
-                   ('RTAX_MTU', 'uint32'),
-                   ('RTAX_WINDOW', 'uint32'),
-                   ('RTAX_RTT', 'uint32'),
-                   ('RTAX_RTTVAR', 'uint32'),
-                   ('RTAX_SSTHRESH', 'uint32'),
-                   ('RTAX_CWND', 'uint32'),
-                   ('RTAX_ADVMSS', 'uint32'),
-                   ('RTAX_REORDERING', 'uint32'),
-                   ('RTAX_HOPLIMIT', 'uint32'),
-                   ('RTAX_INITCWND', 'uint32'),
-                   ('RTAX_FEATURES', 'uint32'),
-                   ('RTAX_RTO_MIN', 'uint32'),
-                   ('RTAX_INITRWND', 'uint32'),
-                   ('RTAX_QUICKACK', 'uint32'))
+        nla_map = (
+            ('RTAX_UNSPEC', 'none'),
+            ('RTAX_LOCK', 'uint32'),
+            ('RTAX_MTU', 'uint32'),
+            ('RTAX_WINDOW', 'uint32'),
+            ('RTAX_RTT', 'uint32'),
+            ('RTAX_RTTVAR', 'uint32'),
+            ('RTAX_SSTHRESH', 'uint32'),
+            ('RTAX_CWND', 'uint32'),
+            ('RTAX_ADVMSS', 'uint32'),
+            ('RTAX_REORDERING', 'uint32'),
+            ('RTAX_HOPLIMIT', 'uint32'),
+            ('RTAX_INITCWND', 'uint32'),
+            ('RTAX_FEATURES', 'uint32'),
+            ('RTAX_RTO_MIN', 'uint32'),
+            ('RTAX_INITRWND', 'uint32'),
+            ('RTAX_QUICKACK', 'uint32'),
+        )
 
     @staticmethod
     def get_nh(self, *argv, **kwarg):
@@ -669,8 +703,7 @@ class rtmsg_base(nlflags):
             if family in (AF_INET, AF_INET6):
                 addr = inet_pton(family, self['addr'])
             else:
-                raise TypeError('Family %s not supported for RTA_VIA'
-                                % family)
+                raise TypeError('Family %s not supported for RTA_VIA' % family)
             self['value'] = struct.pack('H', family) + addr
             nla_string.encode(self)
 
@@ -679,8 +712,9 @@ class rtmsg_base(nlflags):
             family = struct.unpack('H', self['value'][:2])[0]
             addr = self['value'][2:]
             if addr:
-                if (family == AF_INET and len(addr) == 4) or \
-                        (family == AF_INET6 and len(addr) == 16):
+                if (family == AF_INET and len(addr) == 4) or (
+                    family == AF_INET6 and len(addr) == 16
+                ):
                     addr = inet_ntop(family, addr)
                 else:
                     addr = hexdump(addr)
@@ -690,14 +724,16 @@ class rtmsg_base(nlflags):
 
         __slots__ = ()
 
-        fields = (('rta_clntref', 'I'),
-                  ('rta_lastuse', 'I'),
-                  ('rta_expires', 'i'),
-                  ('rta_error', 'I'),
-                  ('rta_used', 'I'),
-                  ('rta_id', 'I'),
-                  ('rta_ts', 'I'),
-                  ('rta_tsage', 'I'))
+        fields = (
+            ('rta_clntref', 'I'),
+            ('rta_lastuse', 'I'),
+            ('rta_expires', 'i'),
+            ('rta_error', 'I'),
+            ('rta_used', 'I'),
+            ('rta_id', 'I'),
+            ('rta_ts', 'I'),
+            ('rta_tsage', 'I'),
+        )
 
 
 class rtmsg(rtmsg_base, nlmsg):
@@ -712,11 +748,13 @@ class rtmsg(rtmsg_base, nlmsg):
             self['type'] = 1
             # assert NLA types
             for n in self.get('attrs', []):
-                if n[0] not in ('RTA_OIF',
-                                'RTA_DST',
-                                'RTA_VIA',
-                                'RTA_NEWDST',
-                                'RTA_MULTIPATH'):
+                if n[0] not in (
+                    'RTA_OIF',
+                    'RTA_DST',
+                    'RTA_VIA',
+                    'RTA_NEWDST',
+                    'RTA_MULTIPATH',
+                ):
                     raise TypeError('Incorrect NLA type %s for AF_MPLS' % n[0])
         super(rtmsg_base, self).encode()
 
@@ -728,7 +766,5 @@ class nh(rtmsg_base, nla):
     is_nla = False
 
     sql_constraints = {}
-    cell_header = (('length', 'H'), )
-    fields = (('flags', 'B'),
-              ('hops', 'B'),
-              ('oif', 'i'))
+    cell_header = (('length', 'H'),)
+    fields = (('flags', 'B'), ('hops', 'B'), ('oif', 'i'))

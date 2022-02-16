@@ -67,7 +67,6 @@ def format_json(dump, headless=False):
 
 
 def format_csv(dump, headless=False):
-
     def dump_record(rec):
         row = []
         for field in rec:
@@ -88,7 +87,6 @@ def format_csv(dump, headless=False):
 
 
 class Record(object):
-
     def __init__(self, names, values, ref_class=None):
         if len(names) != len(values):
             raise ValueError('names and values must have the same length')
@@ -144,7 +142,6 @@ class Record(object):
 
 
 class BaseRecordSet(object):
-
     def __init__(self, generator, ellipsis=True):
         self.generator = generator
         self.ellipsis = ellipsis
@@ -202,6 +199,7 @@ class RecordSet(BaseRecordSet):
              .summary()
              .transform(address=lambda x: x.replace(':', '-').upper()))
         '''
+
         def g():
             for record in self.generator:
                 if isinstance(record, Record):
@@ -236,6 +234,7 @@ class RecordSet(BaseRecordSet):
              .dump()
              .filter(lambda x: x.encap_type == 1 and x.encap is not None))
         '''
+
         def g():
             for record in self.generator:
                 m = True
@@ -257,6 +256,7 @@ class RecordSet(BaseRecordSet):
 
             ndb.interfaces.dump().select('index', 'ifname', 'state')
         '''
+
         def g():
             for record in self.generator:
                 ret = []
@@ -302,8 +302,12 @@ class RecordSet(BaseRecordSet):
             for r1 in self.generator:
                 for r2 in right:
                     if condition(r1, r2):
-                        n = tuple(chain(r1._names, ['%s%s' % (prefix, x)
-                                                    for x in r2._names]))
+                        n = tuple(
+                            chain(
+                                r1._names,
+                                ['%s%s' % (prefix, x) for x in r2._names],
+                            )
+                        )
                         v = tuple(chain(r1._values, r2._values))
                         yield Record(n, v, r1._ref_class)
 
@@ -373,8 +377,9 @@ class RecordSet(BaseRecordSet):
 
             for i in self.generator:
                 buf.append(i)
-                if (start >= 0 and count < start) or \
-                        (start < 0 and len(buf) > abs(start)):
+                if (start >= 0 and count < start) or (
+                    start < 0 and len(buf) > abs(start)
+                ):
                     buf.pop(0)
                 count += 1
                 if stop is not None and stop > 0 and count == stop:
@@ -385,6 +390,6 @@ class RecordSet(BaseRecordSet):
             if stop is not None and stop < 0:
                 buf = buf[:stop]
 
-            return buf[::key.step]
+            return buf[:: key.step]
         else:
             raise TypeError('illegal key format')

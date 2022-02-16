@@ -90,23 +90,24 @@ import struct
 import traceback
 from pr2modules import config
 from pr2modules.common import basestring
+
 try:
     file = file
 except NameError:
     file = io.IOBase
 
 # FIXME: arch reference
-__NR = {'x86_': {'64bit': 308},
-        'i386': {'32bit': 346},
-        'i686': {'32bit': 346},
-        'mips': {'32bit': 4344,
-                 '64bit': 5303},  # FIXME: NABI32?
-        'loon': {'64bit': 268},
-        'armv': {'32bit': 375},
-        'aarc': {'32bit': 375,
-                 '64bit': 268},  # FIXME: EABI vs. OABI?
-        'ppc6': {'64bit': 350},
-        's390': {'64bit': 339}}
+__NR = {
+    'x86_': {'64bit': 308},
+    'i386': {'32bit': 346},
+    'i686': {'32bit': 346},
+    'mips': {'32bit': 4344, '64bit': 5303},  # FIXME: NABI32?
+    'loon': {'64bit': 268},
+    'armv': {'32bit': 375},
+    'aarc': {'32bit': 375, '64bit': 268},  # FIXME: EABI vs. OABI?
+    'ppc6': {'64bit': 350},
+    's390': {'64bit': 339},
+}
 __NR_setns = __NR.get(config.machine[:4], {}).get(config.arch, 308)
 
 CLONE_NEWNET = 0x40000000
@@ -224,8 +225,10 @@ def _create(netns, libc=None, pid=None):
     while libc.mount(b'', netnsdir, b'none', MS_SHARED | MS_REC, None) != 0:
         if done:
             raise OSError(ctypes.get_errno(), 'share rundir failed', netns)
-        if libc.mount(netnsdir, netnsdir, b'none', MS_BIND | MS_REC,
-                      None) != 0:
+        if (
+            libc.mount(netnsdir, netnsdir, b'none', MS_BIND | MS_REC, None)
+            != 0
+        ):
             raise OSError(ctypes.get_errno(), 'mount rundir failed', netns)
         done = True
 
@@ -239,11 +242,16 @@ def _create(netns, libc=None, pid=None):
             raise OSError(ctypes.get_errno(), 'unshare failed', netns)
 
     # bind the namespace
-    if libc.mount('/proc/{}/ns/net'.format(pid).encode('utf-8'),
-                  netnspath,
-                  b'none',
-                  MS_BIND,
-                  None) < 0:
+    if (
+        libc.mount(
+            '/proc/{}/ns/net'.format(pid).encode('utf-8'),
+            netnspath,
+            b'none',
+            MS_BIND,
+            None,
+        )
+        < 0
+    ):
         raise OSError(ctypes.get_errno(), 'mount failed', netns)
 
 

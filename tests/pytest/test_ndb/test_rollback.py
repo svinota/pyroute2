@@ -5,18 +5,15 @@ from pr2test.tools import route_exists
 from pr2test.context_manager import make_test_matrix
 
 
-test_matrix = make_test_matrix(targets=['local', 'netns'],
-                               dbs=['sqlite3/:memory:', 'postgres/pr2test'])
+test_matrix = make_test_matrix(
+    targets=['local', 'netns'], dbs=['sqlite3/:memory:', 'postgres/pr2test']
+)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_create(context):
     ifname = context.new_ifname
-    iface = (context
-             .ndb
-             .interfaces
-             .create(ifname=ifname, kind='dummy')
-             .commit())
+    iface = context.ndb.interfaces.create(ifname=ifname, kind='dummy').commit()
     assert interface_exists(context.netns, ifname=ifname)
     iface.rollback()
     assert not interface_exists(context.netns, ifname=ifname)
@@ -25,11 +22,7 @@ def test_create(context):
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_remove(context):
     ifname = context.new_ifname
-    iface = (context
-             .ndb
-             .interfaces
-             .create(ifname=ifname, kind='dummy')
-             .commit())
+    iface = context.ndb.interfaces.create(ifname=ifname, kind='dummy').commit()
     assert interface_exists(context.netns, ifname=ifname)
     iface.remove().commit()
     assert not interface_exists(context.netns, ifname=ifname)
@@ -40,35 +33,32 @@ def test_remove(context):
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_set(context):
     ifname = context.new_ifname
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy', address='00:11:22:33:44:55')
-     .commit())
-    assert interface_exists(context.netns,
-                            ifname=ifname,
-                            address='00:11:22:33:44:55')
-    (context
-     .ndb
-     .interfaces[ifname]
-     .set('address', '00:11:22:aa:aa:aa')
-     .commit())
-    assert not interface_exists(context.netns,
-                                ifname=ifname,
-                                address='00:11:22:33:44:55')
-    assert interface_exists(context.netns,
-                            ifname=ifname,
-                            address='00:11:22:aa:aa:aa')
-    (context
-     .ndb
-     .interfaces[ifname]
-     .rollback())
-    assert not interface_exists(context.netns,
-                                ifname=ifname,
-                                address='00:11:22:aa:aa:aa')
-    assert interface_exists(context.netns,
-                            ifname=ifname,
-                            address='00:11:22:33:44:55')
+    (
+        context.ndb.interfaces.create(
+            ifname=ifname, kind='dummy', address='00:11:22:33:44:55'
+        ).commit()
+    )
+    assert interface_exists(
+        context.netns, ifname=ifname, address='00:11:22:33:44:55'
+    )
+    (
+        context.ndb.interfaces[ifname]
+        .set('address', '00:11:22:aa:aa:aa')
+        .commit()
+    )
+    assert not interface_exists(
+        context.netns, ifname=ifname, address='00:11:22:33:44:55'
+    )
+    assert interface_exists(
+        context.netns, ifname=ifname, address='00:11:22:aa:aa:aa'
+    )
+    (context.ndb.interfaces[ifname].rollback())
+    assert not interface_exists(
+        context.netns, ifname=ifname, address='00:11:22:aa:aa:aa'
+    )
+    assert interface_exists(
+        context.netns, ifname=ifname, address='00:11:22:33:44:55'
+    )
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -83,19 +73,14 @@ def test_simple_deps(context):
     # simple dummy interface with one address and
     # one dependent route
     #
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy')
-     .set('state', 'up')
-     .add_ip(address=ipaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy')
+        .set('state', 'up')
+        .add_ip(address=ipaddr, prefixlen=24)
+        .commit()
+    )
 
-    (context
-     .ndb
-     .routes
-     .create(dst=dst, dst_len=24, gateway=router)
-     .commit())
+    (context.ndb.routes.create(dst=dst, dst_len=24, gateway=router).commit())
 
     # check everything is in place
     assert interface_exists(context.netns, ifname=ifname)
@@ -132,18 +117,16 @@ def test_bridge_deps(context):
     with context.ndb.interfaces as i:
         i.create(ifname=if_br0p0, kind='dummy', state='up').commit()
         i.create(ifname=if_br0p1, kind='dummy', state='up').commit()
-        (i.create(ifname=if_br0, kind='bridge', state='up')
-         .add_port(if_br0p0)
-         .add_port(if_br0p1)
-         .add_ip(address=ifaddr1, prefixlen=24)
-         .add_ip(address=ifaddr2, prefixlen=24)
-         .commit())
+        (
+            i.create(ifname=if_br0, kind='bridge', state='up')
+            .add_port(if_br0p0)
+            .add_port(if_br0p1)
+            .add_ip(address=ifaddr1, prefixlen=24)
+            .add_ip(address=ifaddr2, prefixlen=24)
+            .commit()
+        )
 
-    (context
-     .ndb
-     .routes
-     .create(dst=dst, dst_len=24, gateway=router)
-     .commit())
+    (context.ndb.routes.create(dst=dst, dst_len=24, gateway=router).commit())
 
     assert interface_exists(context.netns, ifname=if_br0)
     assert interface_exists(context.netns, ifname=if_br0p0)
@@ -180,29 +163,22 @@ def test_vlan_deps(context):
     router = context.new_ipaddr
     dst = str(context.ipnets[1].network)
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=if_host, kind='dummy', state='up')
-     .commit())
+    (
+        context.ndb.interfaces.create(
+            ifname=if_host, kind='dummy', state='up'
+        ).commit()
+    )
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=if_vlan,
-             kind='vlan',
-             state='up',
-             vlan_id=1001,
-             link=if_host)
-     .add_ip(address=ifaddr1, prefixlen=24)
-     .add_ip(address=ifaddr2, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(
+            ifname=if_vlan, kind='vlan', state='up', vlan_id=1001, link=if_host
+        )
+        .add_ip(address=ifaddr1, prefixlen=24)
+        .add_ip(address=ifaddr2, prefixlen=24)
+        .commit()
+    )
 
-    (context
-     .ndb
-     .routes
-     .create(dst=dst, dst_len=24, gateway=router)
-     .commit())
+    (context.ndb.routes.create(dst=dst, dst_len=24, gateway=router).commit())
 
     # check everything is in place
     assert interface_exists(context.netns, ifname=if_host)

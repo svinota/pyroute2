@@ -9,14 +9,15 @@ from pr2modules.netlink.rtnl.tcmsg import act_connmark
 from pr2modules.netlink.rtnl.tcmsg import act_vlan
 from pr2modules.netlink.rtnl.tcmsg import act_skbedit
 
-plugins = {'gact': act_gact,
-           'bpf': act_bpf,
-           'police': act_police,
-           'mirred': act_mirred,
-           'connmark': act_connmark,
-           'vlan': act_vlan,
-           'skbedit': act_skbedit,
-           }
+plugins = {
+    'gact': act_gact,
+    'bpf': act_bpf,
+    'police': act_police,
+    'mirred': act_mirred,
+    'connmark': act_connmark,
+    'vlan': act_vlan,
+    'skbedit': act_skbedit,
+}
 
 
 class nla_plus_tca_act_opt(object):
@@ -30,16 +31,18 @@ class nla_plus_tca_act_opt(object):
 
 
 class tca_act_prio(nla):
-    nla_map = tuple([('TCA_ACT_PRIO_%i' % x, 'tca_act') for x
-                     in range(TCA_ACT_MAX_PRIO)])
+    nla_map = tuple(
+        [('TCA_ACT_PRIO_%i' % x, 'tca_act') for x in range(TCA_ACT_MAX_PRIO)]
+    )
 
-    class tca_act(nla,
-                  nla_plus_tca_act_opt):
-        nla_map = (('TCA_ACT_UNSPEC', 'none'),
-                   ('TCA_ACT_KIND', 'asciiz'),
-                   ('TCA_ACT_OPTIONS', 'get_act_options'),
-                   ('TCA_ACT_INDEX', 'hex'),
-                   ('TCA_ACT_STATS', 'stats2'))
+    class tca_act(nla, nla_plus_tca_act_opt):
+        nla_map = (
+            ('TCA_ACT_UNSPEC', 'none'),
+            ('TCA_ACT_KIND', 'asciiz'),
+            ('TCA_ACT_OPTIONS', 'get_act_options'),
+            ('TCA_ACT_INDEX', 'hex'),
+            ('TCA_ACT_STATS', 'stats2'),
+        )
 
         stats2 = stats2
 
@@ -68,8 +71,12 @@ def get_tca_action(kwarg):
     acts = act if isinstance(act, list) else [act]
 
     for i, act in enumerate(acts, start=1):
-        opt = {'attrs': [['TCA_ACT_KIND', act['kind']],
-                         ['TCA_ACT_OPTIONS', get_act_parms(act)]]}
+        opt = {
+            'attrs': [
+                ['TCA_ACT_KIND', act['kind']],
+                ['TCA_ACT_OPTIONS', get_act_parms(act)],
+            ]
+        }
         ret['attrs'].append(['TCA_ACT_PRIO_%d' % i, opt])
 
     return ret

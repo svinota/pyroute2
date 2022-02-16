@@ -7,7 +7,6 @@ import struct
 
 
 class IdCache(dict):
-
     def invalidate(self):
         current_time = time.time()
         collect_time = current_time - 60
@@ -22,7 +21,6 @@ class IdCache(dict):
 
 
 class Peer(object):
-
     def __init__(self, remote_id, local_id, address, port, cache):
         self.address = address
         self.port = port
@@ -42,11 +40,13 @@ class Peer(object):
             connected = 'not connected'
         else:
             connected = 'connected'
-        return '[%s-%s] %s:%s [%s]' % (self.local_id,
-                                       self.remote_id,
-                                       self.address,
-                                       self.port,
-                                       connected)
+        return '[%s-%s] %s:%s [%s]' % (
+            self.local_id,
+            self.remote_id,
+            self.address,
+            self.port,
+            connected,
+        )
 
     def hello(self):
         while True:
@@ -54,9 +54,9 @@ class Peer(object):
             if message_id not in self.cache:
                 self.cache[message_id] = time.time()
                 break
-        data = pickle.dumps({'type': 'system',
-                             'id': message_id,
-                             'data': 'HELLO'})
+        data = pickle.dumps(
+            {'type': 'system', 'id': message_id, 'data': 'HELLO'}
+        )
         self.send(data)
 
     def send(self, data):
@@ -87,7 +87,6 @@ class Peer(object):
 
 
 class Transport(object):
-
     def __init__(self, address, port):
         self.peers = []
         self.address = address
@@ -117,11 +116,11 @@ class Transport(object):
             [rlist, wlist, xlist] = select.select(fds, [], fds)
             for fd in xlist:
                 if fd in self.stream_endpoints:
-                    (self
-                     .stream_endpoints
-                     .pop(self
-                          .stream_endpoints
-                          .index(fd)))
+                    (
+                        self.stream_endpoints.pop(
+                            self.stream_endpoints.index(fd)
+                        )
+                    )
             for fd in rlist:
                 if fd == self.socket:
                     new_fd, raddr = self.socket.accept()
@@ -129,11 +128,11 @@ class Transport(object):
                 else:
                     data = fd.recv(8)
                     if len(data) == 0:
-                        (self
-                         .stream_endpoints
-                         .pop(self
-                              .stream_endpoints
-                              .index(fd)))
+                        (
+                            self.stream_endpoints.pop(
+                                self.stream_endpoints.index(fd)
+                            )
+                        )
                         continue
                     length, version, remote_id = struct.unpack('III', data)
                     if version != self.version:
@@ -148,7 +147,6 @@ class Transport(object):
 
 
 class Messenger(object):
-
     def __init__(self, local_id, transport=None):
         self.local_id = local_id
         self.transport = transport or Transport('0.0.0.0', 5680)
@@ -174,27 +172,32 @@ class Messenger(object):
 
         if message['type'] == 'system':
             # forward system messages
-            self.transport.send(data, exclude=[remote_id, ])
+            self.transport.send(data, exclude=[remote_id])
             return message
 
         self.id_cache[message['id']] = time.time()
 
-        if message['type'] == 'transport' and \
-                message['target'] in self.targets:
+        if (
+            message['type'] == 'transport'
+            and message['target'] in self.targets
+        ):
             # ignore DB updates with the same target
             message = None
-        elif message['type'] == 'api' and \
-                message['target'] not in self.targets:
+        elif (
+            message['type'] == 'api' and message['target'] not in self.targets
+        ):
             # ignore API messages with other targets
             message = None
 
-        self.transport.send(data, exclude=[remote_id, ])
+        self.transport.send(data, exclude=[remote_id])
         return message
 
     def emit(self, message):
         while True:
-            message_id = '%s-%s' % (message.get('target', '-'),
-                                    uuid.uuid4().hex)
+            message_id = '%s-%s' % (
+                message.get('target', '-'),
+                uuid.uuid4().hex,
+            )
             if message_id not in self.id_cache:
                 self.id_cache[message_id] = time.time()
                 break
@@ -203,9 +206,5 @@ class Messenger(object):
         return self.transport.send(pickle.dumps(message))
 
     def add_peer(self, remote_id, address, port):
-        peer = Peer(remote_id,
-                    self.local_id,
-                    address,
-                    port,
-                    self.id_cache)
+        peer = Peer(remote_id, self.local_id, address, port, self.id_cache)
         self.transport.add_peer(peer)

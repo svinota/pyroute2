@@ -18,33 +18,23 @@ def test_move(context):
     context.ndb.sources.add(netns=nsname)
 
     # create the interface
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy')
-     .commit())
+    (context.ndb.interfaces.create(ifname=ifname, kind='dummy').commit())
 
     # move it to a netns
-    (context
-     .ndb
-     .interfaces[ifname]
-     .set('net_ns_fd', nsname)
-     .commit())
+    (context.ndb.interfaces[ifname].set('net_ns_fd', nsname).commit())
 
     # setup the interface only when it is moved
-    (context
-     .ndb
-     .interfaces
-     .wait(target=nsname, ifname=ifname)
-     .set('state', 'up')
-     .set('address', '00:11:22:33:44:55')
-     .add_ip('%s/24' % ifaddr)
-     .commit())
+    (
+        context.ndb.interfaces.wait(target=nsname, ifname=ifname)
+        .set('state', 'up')
+        .set('address', '00:11:22:33:44:55')
+        .add_ip('%s/24' % ifaddr)
+        .commit()
+    )
 
-    assert interface_exists(nsname,
-                            ifname=ifname,
-                            state='up',
-                            address='00:11:22:33:44:55')
+    assert interface_exists(
+        nsname, ifname=ifname, state='up', address='00:11:22:33:44:55'
+    )
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -57,19 +47,19 @@ def test_basic(context):
 
     context.ndb.sources.add(netns=nsname)
 
-    (context
-     .ndb
-     .interfaces
-     .create(target=nsname, ifname=ifname, kind='dummy')
-     .ipaddr
-     .create(address=ifaddr1, prefixlen=24)
-     .create(address=ifaddr2, prefixlen=24)
-     .create(address=ifaddr3, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(
+            target=nsname, ifname=ifname, kind='dummy'
+        )
+        .ipaddr.create(address=ifaddr1, prefixlen=24)
+        .create(address=ifaddr2, prefixlen=24)
+        .create(address=ifaddr3, prefixlen=24)
+        .commit()
+    )
 
-    with NDB(sources=[{'target': 'localhost',
-                       'netns': nsname,
-                       'kind': 'netns'}]) as ndb:
+    with NDB(
+        sources=[{'target': 'localhost', 'netns': nsname, 'kind': 'netns'}]
+    ) as ndb:
         if_idx = ndb.interfaces[ifname]['index']
         addr1_idx = ndb.addresses['%s/24' % ifaddr1]['index']
         addr2_idx = ndb.addresses['%s/24' % ifaddr2]['index']
@@ -87,12 +77,11 @@ def test_localhost_implicit(context):
     context.ndb.sources.add(netns=nsname)
     context.ndb.localhost = nsname
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy')
-     .add_ip(address=ipaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy')
+        .add_ip(address=ipaddr, prefixlen=24)
+        .commit()
+    )
 
     assert interface_exists(nsname, ifname=ifname)
     assert address_exists(nsname, ifname=ifname, address=ipaddr)
@@ -108,12 +97,11 @@ def test_localhost_explicit(context):
     context.ndb.sources.add(netns=nsname, target=target)
     context.ndb.localhost = target
 
-    (context
-     .ndb
-     .interfaces
-     .create(ifname=ifname, kind='dummy')
-     .add_ip(address=ipaddr, prefixlen=24)
-     .commit())
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy')
+        .add_ip(address=ipaddr, prefixlen=24)
+        .commit()
+    )
 
     assert interface_exists(nsname, ifname=ifname)
     assert address_exists(nsname, ifname=ifname, address=ipaddr)

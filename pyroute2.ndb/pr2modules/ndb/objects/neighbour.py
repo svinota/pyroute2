@@ -29,25 +29,31 @@ def load_ndmsg(schema, target, event):
         schema.load_netlink('neighbours', target, event)
 
 
-ndmsg_schema = (ndmsg
-                .sql_schema()
-                .unique_index('ifindex', 'NDA_LLADDR', 'NDA_VLAN')
-                .foreign_key('interfaces',
-                             ('f_target', 'f_tflags', 'f_ifindex'),
-                             ('f_target', 'f_tflags', 'f_index')))
+ndmsg_schema = (
+    ndmsg.sql_schema()
+    .unique_index('ifindex', 'NDA_LLADDR', 'NDA_VLAN')
+    .foreign_key(
+        'interfaces',
+        ('f_target', 'f_tflags', 'f_ifindex'),
+        ('f_target', 'f_tflags', 'f_index'),
+    )
+)
 
-brmsg_schema = (ndmsg
-                .sql_schema()
-                .unique_index('ifindex', 'NDA_LLADDR', 'NDA_VLAN')
-                .foreign_key('interfaces',
-                             ('f_target', 'f_tflags', 'f_ifindex'),
-                             ('f_target', 'f_tflags', 'f_index')))
+brmsg_schema = (
+    ndmsg.sql_schema()
+    .unique_index('ifindex', 'NDA_LLADDR', 'NDA_VLAN')
+    .foreign_key(
+        'interfaces',
+        ('f_target', 'f_tflags', 'f_ifindex'),
+        ('f_target', 'f_tflags', 'f_index'),
+    )
+)
 
-init = {'specs': [['neighbours', ndmsg_schema],
-                  ['af_bridge_fdb', brmsg_schema]],
-        'classes': [['neighbours', ndmsg],
-                    ['af_bridge_fdb', ndmsg]],
-        'event_map': {ndmsg: [load_ndmsg]}}
+init = {
+    'specs': [['neighbours', ndmsg_schema], ['af_bridge_fdb', brmsg_schema]],
+    'classes': [['neighbours', ndmsg], ['af_bridge_fdb', ndmsg]],
+    'event_map': {ndmsg: [load_ndmsg]},
+}
 
 
 class Neighbour(RTNL_Object):
@@ -64,7 +70,10 @@ class Neighbour(RTNL_Object):
                     WHERE
                         main.f_target = %s AND
                         main.f_ifindex = %s
-                    ''' % (plch, plch)
+                    ''' % (
+                plch,
+                plch,
+            )
             values = [view.chain['target'], view.chain['index']]
         else:
             where = ''

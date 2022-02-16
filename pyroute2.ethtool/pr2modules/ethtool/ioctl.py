@@ -8,17 +8,17 @@ from pr2modules.ethtool.common import LinkModeBits
 IFNAMSIZ = 16
 SIOCETHTOOL = 0x8946
 ETHTOOL_GSET = 0x1
-ETHTOOL_GCOALESCE = 0xe
-ETHTOOL_SCOALESCE = 0xf
+ETHTOOL_GCOALESCE = 0xE
+ETHTOOL_SCOALESCE = 0xF
 ETHTOOL_GSSET_INFO = 0x37
 ETHTOOL_GWOL = 0x00000005
 
 ETHTOOL_GFLAGS = 0x00000025
-ETHTOOL_GFEATURES = 0x0000003a
-ETHTOOL_SFEATURES = 0x0000003b
-ETHTOOL_GLINKSETTINGS = 0x0000004c
+ETHTOOL_GFEATURES = 0x0000003A
+ETHTOOL_SFEATURES = 0x0000003B
+ETHTOOL_GLINKSETTINGS = 0x0000004C
 
-ETHTOOL_GSTRINGS = 0x0000001b
+ETHTOOL_GSTRINGS = 0x0000001B
 ETH_GSTRING_LEN = 32
 
 ETHTOOL_GRXCSUM = 0x00000014
@@ -27,47 +27,52 @@ ETHTOOL_GTXCSUM = 0x00000016
 ETHTOOL_STXCSUM = 0x00000017
 ETHTOOL_GSG = 0x00000018
 ETHTOOL_SSG = 0x00000019
-ETHTOOL_GTSO = 0x0000001e
-ETHTOOL_STSO = 0x0000001f
+ETHTOOL_GTSO = 0x0000001E
+ETHTOOL_STSO = 0x0000001F
 ETHTOOL_GUFO = 0x00000021
 ETHTOOL_SUFO = 0x00000022
 ETHTOOL_GGSO = 0x00000023
 ETHTOOL_SGSO = 0x00000024
-ETHTOOL_GGRO = 0x0000002b
-ETHTOOL_SGRO = 0x0000002c
+ETHTOOL_GGRO = 0x0000002B
+ETHTOOL_SGRO = 0x0000002C
 
 SOPASS_MAX = 6
 
 ETH_SS_FEATURES = 4
 
-ETH_FLAG_RXCSUM = (1 << 0)
-ETH_FLAG_TXCSUM = (1 << 1)
-ETH_FLAG_SG = (1 << 2)
-ETH_FLAG_TSO = (1 << 3)
-ETH_FLAG_UFO = (1 << 4)
-ETH_FLAG_GSO = (1 << 5)
-ETH_FLAG_GRO = (1 << 6)
-ETH_FLAG_TXVLAN = (1 << 7)
-ETH_FLAG_RXVLAN = (1 << 8)
-ETH_FLAG_LRO = (1 << 15)
-ETH_FLAG_NTUPLE = (1 << 27)
-ETH_FLAG_RXHASH = (1 << 28)
-ETH_FLAG_EXT_MASK = ETH_FLAG_LRO | ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN | \
-    ETH_FLAG_NTUPLE | ETH_FLAG_RXHASH
+ETH_FLAG_RXCSUM = 1 << 0
+ETH_FLAG_TXCSUM = 1 << 1
+ETH_FLAG_SG = 1 << 2
+ETH_FLAG_TSO = 1 << 3
+ETH_FLAG_UFO = 1 << 4
+ETH_FLAG_GSO = 1 << 5
+ETH_FLAG_GRO = 1 << 6
+ETH_FLAG_TXVLAN = 1 << 7
+ETH_FLAG_RXVLAN = 1 << 8
+ETH_FLAG_LRO = 1 << 15
+ETH_FLAG_NTUPLE = 1 << 27
+ETH_FLAG_RXHASH = 1 << 28
+ETH_FLAG_EXT_MASK = (
+    ETH_FLAG_LRO
+    | ETH_FLAG_RXVLAN
+    | ETH_FLAG_TXVLAN
+    | ETH_FLAG_NTUPLE
+    | ETH_FLAG_RXHASH
+)
 
 SCHAR_MAX = 127
 ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32 = SCHAR_MAX
 
 
 # Wake-On-Lan options.
-WAKE_PHY = (1 << 0)
-WAKE_UCAST = (1 << 1)
-WAKE_MCAST = (1 << 2)
-WAKE_BCAST = (1 << 3)
-WAKE_ARP = (1 << 4)
-WAKE_MAGIC = (1 << 5)
-WAKE_MAGICSECURE = (1 << 6)  # only meaningful if WAKE_MAGIC
-WAKE_FILTER = (1 << 7)
+WAKE_PHY = 1 << 0
+WAKE_UCAST = 1 << 1
+WAKE_MCAST = 1 << 2
+WAKE_BCAST = 1 << 3
+WAKE_ARP = 1 << 4
+WAKE_MAGIC = 1 << 5
+WAKE_MAGICSECURE = 1 << 6  # only meaningful if WAKE_MAGIC
+WAKE_FILTER = 1 << 7
 WAKE_NAMES = {
     WAKE_PHY: "phy",
     WAKE_UCAST: "ucast",
@@ -93,13 +98,15 @@ class NoSuchDevice(EthtoolError):
 
 
 class DictStruct(ctypes.Structure):
-
     def __init__(self, *args, **kwargs):
         super(DictStruct, self).__init__(*args, **kwargs)
         self._fields_as_dict = {
-            name: [lambda k: getattr(self, k),
-                   lambda k, v: setattr(self, k, v)]
-            for name, ct in self._fields_}
+            name: [
+                lambda k: getattr(self, k),
+                lambda k, v: setattr(self, k, v),
+            ]
+            for name, ct in self._fields_
+        }
 
     def __getitem__(self, key):
         return self._fields_as_dict[key][0](key)
@@ -170,62 +177,55 @@ class IoctlEthtoolLinkSettings(DictStruct):
         ("transceiver", ctypes.c_uint8),
         ("reserved1", ctypes.c_uint8 * 3),
         ("reserved", ctypes.c_uint32 * 7),
-        ("link_mode_data", ctypes.c_uint32 *
-         (3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32)),
+        (
+            "link_mode_data",
+            ctypes.c_uint32 * (3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32),
+        ),
     ]
 
 
 class EthtoolCoalesce(DictStruct):
     _pack_ = 1
     _fields_ = [
-
         # ETHTOOL_{G,S}COALESCE
         ("cmd", ctypes.c_uint32),
-
         # How many usecs to delay an RX interrupt after
         # a packet arrives.  If 0, only rx_max_coalesced_frames
         # is used.
         ("rx_coalesce_usecs", ctypes.c_uint32),
-
         # How many packets to delay an RX interrupt after
         # a packet arrives.  If 0, only rx_coalesce_usecs is
         # used.  It is illegal to set both usecs and max frames
         # to zero as this would cause RX interrupts to never be
         # generated.
         ("rx_max_coalesced_frames", ctypes.c_uint32),
-
         # Same as above two parameters, except that these values
         # apply while an IRQ is being serviced by the host.  Not
         # all cards support this feature and the values are ignored
         # in that case.
         ("rx_coalesce_usecs_irq", ctypes.c_uint32),
         ("rx_max_coalesced_frames_irq", ctypes.c_uint32),
-
         # How many usecs to delay a TX interrupt after
         # a packet is sent.  If 0, only tx_max_coalesced_frames
         # is used.
         ("tx_coalesce_usecs", ctypes.c_uint32),
-
         # How many packets to delay a TX interrupt after
         # a packet is sent.  If 0, only tx_coalesce_usecs is
         # used.  It is illegal to set both usecs and max frames
         # to zero as this would cause TX interrupts to never be
         # generated.
         ("tx_max_coalesced_frames", ctypes.c_uint32),
-
         # Same as above two parameters, except that these values
         # apply while an IRQ is being serviced by the host.  Not
         # all cards support this feature and the values are ignored
         # in that case.
         ("tx_coalesce_usecs_irq", ctypes.c_uint32),
         ("tx_max_coalesced_frames_irq", ctypes.c_uint32),
-
         # How many usecs to delay in-memory statistics
         # block updates.  Some drivers do not have an in-memory
         # statistic block, and in such cases this value is ignored.
         # This value must not be zero.
         ("stats_block_coalesce_usecs", ctypes.c_uint32),
-
         # Adaptive RX/TX coalescing is an algorithm implemented by
         # some drivers to improve latency under low packet rates and
         # improve throughput under high packet rates.  Some drivers
@@ -234,7 +234,6 @@ class EthtoolCoalesce(DictStruct):
         # silently ignored.
         ("use_adaptive_rx_coalesce", ctypes.c_uint32),
         ("use_adaptive_tx_coalesce", ctypes.c_uint32),
-
         # When the packet rate (measured in packets per second)
         # is below pkt_rate_low, the {rx,tx}_*_low parameters are
         # used.
@@ -243,11 +242,9 @@ class EthtoolCoalesce(DictStruct):
         ("rx_max_coalesced_frames_low", ctypes.c_uint32),
         ("tx_coalesce_usecs_low", ctypes.c_uint32),
         ("tx_max_coalesced_frames_low", ctypes.c_uint32),
-
         # When the packet rate is below pkt_rate_high but above
         # pkt_rate_low (both measured in packets per second) the
         # normal {rx,tx}_* coalescing parameters are used.
-
         # When the packet rate is (measured in packets per second)
         # is above pkt_rate_high, the {rx,tx}_*_high parameters are
         # used.
@@ -256,7 +253,6 @@ class EthtoolCoalesce(DictStruct):
         ("rx_max_coalesced_frames_high", ctypes.c_uint32),
         ("tx_coalesce_usecs_high", ctypes.c_uint32),
         ("tx_max_coalesced_frames_high", ctypes.c_uint32),
-
         # How often to do adaptive coalescing packet rate sampling,
         # measured in seconds.  Must not be zero.
         ("rate_sample_interval", ctypes.c_uint32),
@@ -264,10 +260,7 @@ class EthtoolCoalesce(DictStruct):
 
 
 class EthtoolValue(ctypes.Structure):
-    _fields_ = [
-        ("cmd", ctypes.c_uint32),
-        ("data", ctypes.c_uint32),
-    ]
+    _fields_ = [("cmd", ctypes.c_uint32), ("data", ctypes.c_uint32)]
 
 
 class EthtoolSsetInfo(ctypes.Structure):
@@ -287,7 +280,7 @@ class EthtoolGstrings(ctypes.Structure):
         ("len", ctypes.c_uint32),
         # If you have more than 256 features on your NIC
         # they will not be seen by it
-        ("strings", ctypes.c_ubyte * ETH_GSTRING_LEN * 256)
+        ("strings", ctypes.c_ubyte * ETH_GSTRING_LEN * 256),
     ]
 
 
@@ -301,10 +294,7 @@ class EthtoolGetFeaturesBlock(ctypes.Structure):
 
 
 class EthtoolSetFeaturesBlock(ctypes.Structure):
-    _fields_ = [
-        ("changed", ctypes.c_uint32),
-        ("active", ctypes.c_uint32),
-    ]
+    _fields_ = [("changed", ctypes.c_uint32), ("active", ctypes.c_uint32)]
 
 
 def div_round_up(n, d):
@@ -332,10 +322,7 @@ class EthtoolSfeatures(ctypes.Structure):
 
 
 class FeatureState(ctypes.Structure):
-    _fields_ = [
-        ("off_flags", ctypes.c_uint32),
-        ("features", EthtoolGfeatures),
-    ]
+    _fields_ = [("off_flags", ctypes.c_uint32), ("features", EthtoolGfeatures)]
 
 
 class IfReqData(ctypes.Union):
@@ -355,14 +342,10 @@ class IfReqData(ctypes.Union):
 class IfReq(ctypes.Structure):
     _pack_ = 1
     _anonymous_ = ("u",)
-    _fields_ = [
-        ("ifr_name", ctypes.c_uint8 * IFNAMSIZ),
-        ("u", IfReqData)
-    ]
+    _fields_ = [("ifr_name", ctypes.c_uint8 * IFNAMSIZ), ("u", IfReqData)]
 
 
 class EthtoolFeaturesList(object):
-
     def __init__(self, cmd, stringsset):
         self._offsets = {}
         self._cmd = cmd
@@ -378,8 +361,9 @@ class EthtoolFeaturesList(object):
 
         while feature_i:
             feature_i -= 1
-            self._sfeatures[feature_i].active = \
-                self._gfeatures[feature_i].active
+            self._sfeatures[feature_i].active = self._gfeatures[
+                feature_i
+            ].active
             self._sfeatures[feature_i].changed = 0
 
     def is_available(self, name):
@@ -401,8 +385,13 @@ class EthtoolFeaturesList(object):
     def __iter__(self):
         for name in self._offsets:
             feature_i, flag_bit = self._offsets[name]
-            yield (name, self.get_value(name), self.is_available(name),
-                   feature_i, flag_bit)
+            yield (
+                name,
+                self.get_value(name),
+                self.is_available(name),
+                feature_i,
+                flag_bit,
+            )
 
     def keys(self):
         return self._offsets.keys()
@@ -429,13 +418,12 @@ class EthtoolFeaturesList(object):
             self._sfeatures[feature_i].active |= flag_bit
         else:
             # active is ctypes.c_uint32
-            self._gfeatures[feature_i].active &= (flag_bit ^ 0xFFFFFFFF)
-            self._sfeatures[feature_i].active &= (flag_bit ^ 0xFFFFFFFF)
+            self._gfeatures[feature_i].active &= flag_bit ^ 0xFFFFFFFF
+            self._sfeatures[feature_i].active &= flag_bit ^ 0xFFFFFFFF
         self._sfeatures[feature_i].changed |= flag_bit
 
 
 class IoctlEthtool(object):
-
     def __init__(self, ifname=None):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.ifname = None
@@ -461,13 +449,12 @@ class IoctlEthtool(object):
                 raise NoSuchDevice(self.ifname.decode("utf-8"))
             raise
 
-    def get_stringset(self,
-                      set_id=ETH_SS_FEATURES,
-                      drvinfo_offset=0,
-                      null_terminate=1):
-        sset_info = EthtoolSsetInfo(cmd=ETHTOOL_GSSET_INFO,
-                                    reserved=0,
-                                    sset_mask=1 << set_id)
+    def get_stringset(
+        self, set_id=ETH_SS_FEATURES, drvinfo_offset=0, null_terminate=1
+    ):
+        sset_info = EthtoolSsetInfo(
+            cmd=ETHTOOL_GSSET_INFO, reserved=0, sset_mask=1 << set_id
+        )
         self.ifreq.sset_info = ctypes.pointer(sset_info)
         fcntl.ioctl(self.sock, SIOCETHTOOL, self.ifreq)
         if sset_info.sset_mask:
@@ -476,9 +463,9 @@ class IoctlEthtool(object):
             length = 0
 
         strings_found = []
-        gstrings = EthtoolGstrings(cmd=ETHTOOL_GSTRINGS,
-                                   string_set=set_id,
-                                   len=length)
+        gstrings = EthtoolGstrings(
+            cmd=ETHTOOL_GSTRINGS, string_set=set_id, len=length
+        )
         self.ifreq.gstrings = ctypes.pointer(gstrings)
         self.ioctl()
 
@@ -553,8 +540,10 @@ class IoctlEthtool(object):
         self.ioctl()
 
         # see above: we expect a strictly negative value from kernel.
-        if ecmd.link_mode_masks_nwords >= 0 or \
-           ecmd.cmd != ETHTOOL_GLINKSETTINGS:
+        if (
+            ecmd.link_mode_masks_nwords >= 0
+            or ecmd.cmd != ETHTOOL_GLINKSETTINGS
+        ):
             raise NotSupportedError()
 
         # got the real ecmd.req.link_mode_masks_nwords,
@@ -562,8 +551,10 @@ class IoctlEthtool(object):
         ecmd.link_mode_masks_nwords = -ecmd.link_mode_masks_nwords
         self.ioctl()
 
-        if ecmd.link_mode_masks_nwords <= 0 or \
-           ecmd.cmd != ETHTOOL_GLINKSETTINGS:
+        if (
+            ecmd.link_mode_masks_nwords <= 0
+            or ecmd.cmd != ETHTOOL_GLINKSETTINGS
+        ):
             raise NotSupportedError()
 
         return ecmd

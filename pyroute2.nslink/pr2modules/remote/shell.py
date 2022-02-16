@@ -12,15 +12,16 @@ log = logging.getLogger(__name__)
 
 
 class ShellIPR(RTNL_API, RemoteSocket):
-
     def __init__(self, target):
 
         self.target = target
         cmd = '%s python -m pr2modules.remote' % target
-        self.shell = subprocess.Popen(cmd.split(),
-                                      bufsize=0,
-                                      stdin=subprocess.PIPE,
-                                      stdout=subprocess.PIPE)
+        self.shell = subprocess.Popen(
+            cmd.split(),
+            bufsize=0,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
         trnsp_in = Transport(self.shell.stdout)
         trnsp_out = Transport(self.shell.stdin)
 
@@ -50,10 +51,11 @@ class ShellIPR(RTNL_API, RemoteSocket):
         try:
             self.trnsp_out.send({'stage': 'shutdown'})
             if code > 0:
-                data = {'stage': 'broadcast',
-                        'data': struct.pack('IHHQIQQ', 28,
-                                            2, 0, 0, code, 0, 0),
-                        'error': None}
+                data = {
+                    'stage': 'broadcast',
+                    'data': struct.pack('IHHQIQQ', 28, 2, 0, 0, code, 0, 0),
+                    'error': None,
+                }
                 self.trnsp_in.brd_queue.put(data)
         except Exception:
             pass

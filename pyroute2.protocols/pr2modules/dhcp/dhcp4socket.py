@@ -14,17 +14,19 @@ from pr2modules.dhcp.dhcp4msg import dhcp4msg
 
 def listen_udp_port(port=68):
     # pre-scripted BPF code that matches UDP port
-    bpf_code = [[40, 0, 0, 12],
-                [21, 0, 8, 2048],
-                [48, 0, 0, 23],
-                [21, 0, 6, 17],
-                [40, 0, 0, 20],
-                [69, 4, 0, 8191],
-                [177, 0, 0, 14],
-                [72, 0, 0, 16],
-                [21, 0, 1, port],
-                [6, 0, 0, 65535],
-                [6, 0, 0, 0]]
+    bpf_code = [
+        [40, 0, 0, 12],
+        [21, 0, 8, 2048],
+        [48, 0, 0, 23],
+        [21, 0, 6, 17],
+        [40, 0, 0, 20],
+        [69, 4, 0, 8191],
+        [177, 0, 0, 14],
+        [72, 0, 0, 16],
+        [21, 0, 1, port],
+        [6, 0, 0, 65535],
+        [6, 0, 0, 0],
+    ]
     return bpf_code
 
 
@@ -92,30 +94,28 @@ class DHCP4Socket(RawSocket):
         data = dhcp.encode().buf
 
         # UDP layer
-        udp = udpmsg({'sport': self.port,
-                      'dport': dport,
-                      'len': 8 + len(data)})
-        udph = udp4_pseudo_header({'dst': '255.255.255.255',
-                                   'len': 8 + len(data)})
+        udp = udpmsg(
+            {'sport': self.port, 'dport': dport, 'len': 8 + len(data)}
+        )
+        udph = udp4_pseudo_header(
+            {'dst': '255.255.255.255', 'len': 8 + len(data)}
+        )
         udp['csum'] = self.csum(udph.encode().buf + udp.encode().buf + data)
         udp.reset()
 
         # IPv4 layer
-        ip4 = ip4msg({'len': 20 + 8 + len(data),
-                      'proto': 17,
-                      'dst': '255.255.255.255'})
+        ip4 = ip4msg(
+            {'len': 20 + 8 + len(data), 'proto': 17, 'dst': '255.255.255.255'}
+        )
         ip4['csum'] = self.csum(ip4.encode().buf)
         ip4.reset()
 
         # MAC layer
-        eth = ethmsg({'dst': 'ff:ff:ff:ff:ff:ff',
-                      'src': self.l2addr,
-                      'type': 0x800})
+        eth = ethmsg(
+            {'dst': 'ff:ff:ff:ff:ff:ff', 'src': self.l2addr, 'type': 0x800}
+        )
 
-        data = eth.encode().buf +\
-            ip4.encode().buf +\
-            udp.encode().buf +\
-            data
+        data = eth.encode().buf + ip4.encode().buf + udp.encode().buf + data
         self.send(data)
         dhcp.reset()
         return dhcp

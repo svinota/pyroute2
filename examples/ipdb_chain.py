@@ -15,13 +15,16 @@ with IPDB() as ip:
     ip.create(ifname=p0, kind='dummy').commit()
     ip.create(ifname=p1, kind='dummy').commit()
     # set up bonding
-    ip.interfaces[bo0].add_port(ip.interfaces[p0]).\
-        add_port(ip.interfaces[p1]).\
-        add_ip('172.16.0.1/24').\
-        add_ip('172.16.0.2/24').\
-        option('mtu', 1400).\
-        up().\
-        commit()
+    (
+        ip.interfaces[bo0]
+        .add_port(ip.interfaces[p0])
+        .add_port(ip.interfaces[p1])
+        .add_ip('172.16.0.1/24')
+        .add_ip('172.16.0.2/24')
+        .option('mtu', 1400)
+        .up()
+        .commit()
+    )
 
     for i in (p0, p1, bo0):
         try:

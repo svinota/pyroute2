@@ -1,7 +1,8 @@
 from pyroute2.nftables.parser.parser import nfta_nla_parser, conv_map_tuple
 from pyroute2.nftables.parser.expr import (
     get_expression_from_netlink,
-    get_expression_from_dict)
+    get_expression_from_dict,
+)
 
 
 NAME_2_NFPROTO = {
@@ -24,22 +25,24 @@ class NFTRule(nfta_nla_parser):
         conv_map_tuple('table', 'NFTA_RULE_TABLE', 'table', 'raw'),
         conv_map_tuple('chain', 'NFTA_RULE_CHAIN', 'chain', 'raw'),
         conv_map_tuple('handle', 'NFTA_RULE_HANDLE', 'handle', 'raw'),
-        conv_map_tuple('expressions', 'NFTA_RULE_EXPRESSIONS', 'expr',
-                       'expressions_list'),
+        conv_map_tuple(
+            'expressions', 'NFTA_RULE_EXPRESSIONS', 'expr', 'expressions_list'
+        ),
         conv_map_tuple('compat', 'NFTA_RULE_COMPAT', 'compat', 'raw'),
         conv_map_tuple('position', 'NFTA_RULE_POSITION', 'position', 'raw'),
-        conv_map_tuple('userdata', 'NFTA_RULE_USERDATA', 'userdata',
-                       'user_data'),
+        conv_map_tuple(
+            'userdata', 'NFTA_RULE_USERDATA', 'userdata', 'user_data'
+        ),
         conv_map_tuple('rule_id', 'NFTA_RULE_ID', 'rule_id', 'raw'),
-        conv_map_tuple('position_id', 'NFTA_RULE_POSITION_ID', 'position_id',
-                       'raw'),
+        conv_map_tuple(
+            'position_id', 'NFTA_RULE_POSITION_ID', 'position_id', 'raw'
+        ),
     )
 
     @classmethod
     def from_netlink(cls, ndmsg):
         obj = super(NFTRule, cls).from_netlink(ndmsg)
-        obj.family = cls.cparser_nfproto.from_netlink(
-            ndmsg['nfgen_family'])
+        obj.family = cls.cparser_nfproto.from_netlink(ndmsg['nfgen_family'])
         return obj
 
     class cparser_user_data(object):
@@ -52,7 +55,9 @@ class NFTRule(nfta_nla_parser):
             userdata = [int(d, 16) for d in userdata.split(':')]
             udata_type = userdata[0]
             udata_len = userdata[1]
-            udata_value = ''.join([chr(d) for d in userdata[2:udata_len + 2]])
+            udata_value = ''.join(
+                [chr(d) for d in userdata[2 : udata_len + 2]]
+            )
             if udata_type == 0:
                 # 0 == COMMENT
                 return cls('comment', udata_value)
@@ -64,7 +69,8 @@ class NFTRule(nfta_nla_parser):
                 userdata = '00:'
             else:
                 raise NotImplementedError(
-                    "userdata type: {0}".format(udata.type))
+                    "userdata type: {0}".format(udata.type)
+                )
             userdata += "%0.2X:" % len(udata.value)
             userdata += ':'.join(["%0.2X" % ord(d) for d in udata.value])
             return userdata
@@ -83,7 +89,6 @@ class NFTRule(nfta_nla_parser):
             return None
 
     class cparser_expressions_list(object):
-
         @staticmethod
         def from_netlink(expressions):
             return [get_expression_from_netlink(e) for e in expressions]
@@ -101,7 +106,6 @@ class NFTRule(nfta_nla_parser):
             return [e.to_dict() for e in expressions]
 
     class cparser_nfproto(object):
-
         @staticmethod
         def from_netlink(val):
             return NFPROTO_2_NAME[val]

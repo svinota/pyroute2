@@ -10,6 +10,7 @@ from __future__ import absolute_import
 import functools
 import socket
 import types
+
 try:
     import cPickle as pickle
 except ImportError:
@@ -19,11 +20,28 @@ from pr2modules import config as config
 
 
 _socketmethods = (
-    'bind', 'close', 'connect', 'connect_ex', 'listen',
-    'getpeername', 'getsockname', 'getsockopt', 'makefile',
-    'recv', 'recvfrom', 'recv_into', 'recvfrom_into',
-    'send', 'sendto', 'sendall', 'setsockopt', 'setblocking',
-    'settimeout', 'gettimeout', 'shutdown')
+    'bind',
+    'close',
+    'connect',
+    'connect_ex',
+    'listen',
+    'getpeername',
+    'getsockname',
+    'getsockopt',
+    'makefile',
+    'recv',
+    'recvfrom',
+    'recv_into',
+    'recvfrom_into',
+    'send',
+    'sendto',
+    'sendall',
+    'setsockopt',
+    'setblocking',
+    'settimeout',
+    'gettimeout',
+    'shutdown',
+)
 
 
 def _forward(name, self, *args, **kwargs):
@@ -50,6 +68,7 @@ class _SocketWrapper(object):
 
 class _MpConnection(object):
     """Highly limited multiprocessing.Connection alternative"""
+
     def __init__(self, sock):
         sock.setblocking(True)
         self.sock = sock

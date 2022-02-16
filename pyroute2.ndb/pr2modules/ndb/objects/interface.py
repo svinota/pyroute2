@@ -108,11 +108,13 @@ def load_ifinfmsg(schema, target, event):
     # link goes down: flush all related routes
     #
     if not event['flags'] & 1:
-        schema.execute('DELETE FROM routes WHERE '
-                       'f_target = %s AND '
-                       'f_RTA_OIF = %s OR f_RTA_IIF = %s'
-                       % (schema.plch, schema.plch, schema.plch),
-                       (target, event['index'], event['index']))
+        schema.execute(
+            'DELETE FROM routes WHERE '
+            'f_target = %s AND '
+            'f_RTA_OIF = %s OR f_RTA_IIF = %s'
+            % (schema.plch, schema.plch, schema.plch),
+            (target, event['index'], event['index']),
+        )
     #
     # ignore wireless updates
     #
@@ -125,22 +127,25 @@ def load_ifinfmsg(schema, target, event):
         #
         schema.load_netlink('af_bridge_ifs', target, event)
         try:
-            vlans = (event
-                     .get_attr('IFLA_AF_SPEC')
-                     .get_attrs('IFLA_BRIDGE_VLAN_INFO'))
+            vlans = event.get_attr('IFLA_AF_SPEC').get_attrs(
+                'IFLA_BRIDGE_VLAN_INFO'
+            )
         except AttributeError:
             # AttributeError: 'NoneType' object has no attribute 'get_attrs'
             # -- vlan filters not supported
             return
 
         # flush the old vlans info
-        schema.execute('''
+        schema.execute(
+            '''
                        DELETE FROM af_bridge_vlans
                        WHERE
                            f_target = %s
                            AND f_index = %s
-                       ''' % (schema.plch, schema.plch),
-                       (target, event['index']))
+                       '''
+            % (schema.plch, schema.plch),
+            (target, event['index']),
+        )
         for v in vlans:
             v['index'] = event['index']
             v['header'] = {'type': event['header']['type']}
@@ -164,26 +169,23 @@ def load_ifinfmsg(schema, target, event):
                 p2p = p2pmsg()
                 p2p['index'] = event['index']
                 p2p['family'] = 2
-                p2p['attrs'] = [('P2P_LOCAL', local),
-                                ('P2P_REMOTE', remote)]
+                p2p['attrs'] = [('P2P_LOCAL', local), ('P2P_REMOTE', remote)]
                 schema.load_netlink('p2p', target, p2p)
             elif iftype == 'veth':
                 link = event.get_attr('IFLA_LINK')
                 ifname = event.get_attr('IFLA_IFNAME')
                 # for veth interfaces, IFLA_LINK points to
                 # the peer -- but NOT in automatic updates
-                if (not link) and \
-                        (target in schema.ndb.sources.keys()):
+                if (not link) and (target in schema.ndb.sources.keys()):
                     schema.log.debug('reload veth %s' % event['index'])
                     try:
-                        update = (schema
-                                  .ndb
-                                  .sources[target]
-                                  .api('link', 'get', index=event['index']))
+                        update = schema.ndb.sources[target].api(
+                            'link', 'get', index=event['index']
+                        )
                         update = tuple(update)[0]
-                        return schema.load_netlink('interfaces',
-                                                   target,
-                                                   update)
+                        return schema.load_netlink(
+                            'interfaces', target, update
+                        )
                     except NetlinkError as e:
                         if e.code == errno.ENODEV:
                             schema.log.debug(f"interface has gone: {ifname}")
@@ -195,61 +197,74 @@ def load_ifinfmsg(schema, target, event):
                 schema.load_netlink(table, target, ifdata)
 
 
-schema_ifinfmsg = (ifinfmsg
-                   .sql_schema()
-                   .unique_index('index'))
+schema_ifinfmsg = ifinfmsg.sql_schema().unique_index('index')
 
-schema_brinfmsg = (ifinfmsg
-                   .sql_schema()
-                   .unique_index('index')
-                   .foreign_key('interface',
-                                ('f_target', 'f_tflags', 'f_index'),
-                                ('f_target', 'f_tflags', 'f_index')))
+schema_brinfmsg = (
+    ifinfmsg.sql_schema()
+    .unique_index('index')
+    .foreign_key(
+        'interface',
+        ('f_target', 'f_tflags', 'f_index'),
+        ('f_target', 'f_tflags', 'f_index'),
+    )
+)
 
-schema_p2pmsg = (p2pmsg
-                 .sql_schema()
-                 .unique_index('index')
-                 .foreign_key('interfaces',
-                              ('f_target', 'f_tflags', 'f_index'),
-                              ('f_target', 'f_tflags', 'f_index')))
+schema_p2pmsg = (
+    p2pmsg.sql_schema()
+    .unique_index('index')
+    .foreign_key(
+        'interfaces',
+        ('f_target', 'f_tflags', 'f_index'),
+        ('f_target', 'f_tflags', 'f_index'),
+    )
+)
 
-schema_af_bridge_vlans = (ifinfmsg
-                          .af_spec_bridge
-                          .vlan_info
-                          .sql_schema()
-                          .push('index', 'INTEGER')
-                          .unique_index('vid', 'index')
-                          .foreign_key('af_bridge_ifs',
-                                       ('f_target', 'f_tflags', 'f_index'),
-                                       ('f_target', 'f_tflags', 'f_index')))
+schema_af_bridge_vlans = (
+    ifinfmsg.af_spec_bridge.vlan_info.sql_schema()
+    .push('index', 'INTEGER')
+    .unique_index('vid', 'index')
+    .foreign_key(
+        'af_bridge_ifs',
+        ('f_target', 'f_tflags', 'f_index'),
+        ('f_target', 'f_tflags', 'f_index'),
+    )
+)
 
-init = {'specs': [['interfaces', schema_ifinfmsg],
-                  ['af_bridge_ifs', schema_ifinfmsg],
-                  ['af_bridge_vlans', schema_af_bridge_vlans],
-                  ['p2p', schema_p2pmsg]],
-        'classes': [['interfaces', ifinfmsg],
-                    ['af_bridge_ifs', ifinfmsg],
-                    ['af_bridge_vlans', ifinfmsg.af_spec_bridge.vlan_info],
-                    ['p2p', p2pmsg]],
-        'event_map': {ifinfmsg: [load_ifinfmsg]}}
+init = {
+    'specs': [
+        ['interfaces', schema_ifinfmsg],
+        ['af_bridge_ifs', schema_ifinfmsg],
+        ['af_bridge_vlans', schema_af_bridge_vlans],
+        ['p2p', schema_p2pmsg],
+    ],
+    'classes': [
+        ['interfaces', ifinfmsg],
+        ['af_bridge_ifs', ifinfmsg],
+        ['af_bridge_vlans', ifinfmsg.af_spec_bridge.vlan_info],
+        ['p2p', p2pmsg],
+    ],
+    'event_map': {ifinfmsg: [load_ifinfmsg]},
+}
 
-ifinfo_names = ('bridge',
-                'bond',
-                'vlan',
-                'vxlan',
-                'gre',
-                'gretap',
-                'ip6gre',
-                'ip6gretap',
-                'ip6tnl',
-                'ipip',
-                'sit',
-                'macvlan',
-                'macvtap',
-                'tun',
-                'vrf',
-                'vti',
-                'vti6')
+ifinfo_names = (
+    'bridge',
+    'bond',
+    'vlan',
+    'vxlan',
+    'gre',
+    'gretap',
+    'ip6gre',
+    'ip6gretap',
+    'ip6tnl',
+    'ipip',
+    'sit',
+    'macvlan',
+    'macvtap',
+    'tun',
+    'vrf',
+    'vti',
+    'vti6',
+)
 supported_ifinfo = {x: ifinfmsg.ifinfo.data_map[x] for x in ifinfo_names}
 #
 # load supported ifinfo
@@ -257,13 +272,16 @@ supported_ifinfo = {x: ifinfmsg.ifinfo.data_map[x] for x in ifinfo_names}
 for (name, data) in supported_ifinfo.items():
     name = 'ifinfo_%s' % name
     init['classes'].append([name, data])
-    schema = (data
-              .sql_schema()
-              .push('index', 'BIGINT')
-              .unique_index('index')
-              .foreign_key('interfaces',
-                           ('f_target', 'f_tflags', 'f_index'),
-                           ('f_target', 'f_tflags', 'f_index')))
+    schema = (
+        data.sql_schema()
+        .push('index', 'BIGINT')
+        .unique_index('index')
+        .foreign_key(
+            'interfaces',
+            ('f_target', 'f_tflags', 'f_index'),
+            ('f_target', 'f_tflags', 'f_index'),
+        )
+    )
     init['specs'].append([name, schema])
 
 
@@ -303,7 +321,10 @@ class Vlan(RTNL_Object):
                     WHERE
                         main.f_target = %s AND
                         main.f_index = %s
-                    ''' % (plch, plch)
+                    ''' % (
+                plch,
+                plch,
+            )
             values = [view.chain['target'], view.chain['index']]
         else:
             where = ''
@@ -368,7 +389,10 @@ class Interface(RTNL_Object):
                     WHERE
                         f_target = %s AND
                         f_IFLA_MASTER = %s
-                    ''' % (plch, plch)
+                    ''' % (
+                plch,
+                plch,
+            )
             values = [view.chain['target'], view.chain['index']]
         else:
             where = 'WHERE f_index != 0'
@@ -385,20 +409,30 @@ class Interface(RTNL_Object):
               FROM
                   interfaces
               '''
-        yield ('target', 'tflags', 'index',
-               'ifname', 'address',
-               'flags', 'kind')
+        yield (
+            'target',
+            'tflags',
+            'index',
+            'ifname',
+            'address',
+            'flags',
+            'kind',
+        )
         where, values = cls._dump_where(view)
         for record in view.ndb.schema.fetch(req + where, values):
             yield record
 
     def mark_tflags(self, mark):
-        plch = (self.schema.plch, ) * 3
-        self.schema.execute('''
+        plch = (self.schema.plch,) * 3
+        self.schema.execute(
+            '''
                             UPDATE interfaces SET
                                 f_tflags = %s
                             WHERE f_index = %s AND f_target = %s
-                            ''' % plch, (mark, self['index'], self['target']))
+                            '''
+            % plch,
+            (mark, self['index'], self['target']),
+        )
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifinfmsg
@@ -476,6 +510,7 @@ class Interface(RTNL_Object):
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
+
         self._apply_script.append((do_add_vlan, (self, spec), {}))
         return self
 
@@ -488,6 +523,7 @@ class Interface(RTNL_Object):
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
+
         self._apply_script.append((do_del_vlan, (self, spec), {}))
         return self
 
@@ -505,6 +541,7 @@ class Interface(RTNL_Object):
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
+
         self._apply_script.append((do_add_ip, (self, spec), {}))
         return self
 
@@ -550,6 +587,7 @@ class Interface(RTNL_Object):
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
+
         self._apply_script.append((do_add_port, (self, spec), {}))
         return self
 
@@ -566,6 +604,7 @@ class Interface(RTNL_Object):
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
+
         self._apply_script.append((do_del_port, (self, spec), {}))
         return self
 
@@ -577,9 +616,9 @@ class Interface(RTNL_Object):
             dict.__setitem__(self, key, value)
         elif key == 'net_ns_fd' and self.state == 'invalid':
             dict.__setitem__(self, 'target', value)
-        elif key == 'target' and \
-                self.get('target') and \
-                self['target'] != value:
+        elif (
+            key == 'target' and self.get('target') and self['target'] != value
+        ):
             super(Interface, self).__setitem__('net_ns_fd', value)
         else:
             super(Interface, self).__setitem__(key, value)
@@ -626,12 +665,16 @@ class Interface(RTNL_Object):
     def is_peer(self, other):
         '''Evaluate whether the given interface "points at" this one.'''
         if other['kind'] == 'vlan':
-            return other['target'] == self['target'] \
+            return (
+                other['target'] == self['target']
                 and other['link'] == self['index']
+            )
 
         elif other['kind'] == 'vxlan':
-            return other['target'] == self['target'] \
+            return (
+                other['target'] == self['target']
                 and other['vxlan_link'] == self['index']
+            )
 
         elif other['kind'] == self['kind'] == 'veth':
             other_link = other.get('link')
@@ -643,38 +686,36 @@ class Interface(RTNL_Object):
             if other_link_netnsid is not None:
                 self_source = self.sources[self['target']]
                 other_source = other.sources[other['target']]
-                info = other_source.api('get_netnsid',
-                                        pid=self_source.api('get_pid'),
-                                        target_nsid=other_link_netnsid)
+                info = other_source.api(
+                    'get_netnsid',
+                    pid=self_source.api('get_pid'),
+                    target_nsid=other_link_netnsid,
+                )
                 return info['current_nsid'] == other_link_netnsid
 
             return self['target'] == other['target']
 
     def set_xdp_fd(self, fd):
-        self.sources[self['target']].api('link', 'set',
-                                         index=self['index'],
-                                         xdp_fd=fd)
+        self.sources[self['target']].api(
+            'link', 'set', index=self['index'], xdp_fd=fd
+        )
 
     def snapshot(self, ctxid=None):
         # 1. make own snapshot
         snp = super(Interface, self).snapshot(ctxid=ctxid)
         # 2. collect dependencies and store in self.snapshot_deps
-        for spec in (self
-                     .ndb
-                     .interfaces
-                     .getmany({'IFLA_MASTER': self['index']})):
+        for spec in self.ndb.interfaces.getmany(
+            {'IFLA_MASTER': self['index']}
+        ):
             # bridge ports
-            link = type(self)(self.view,
-                              spec,
-                              auth_managers=self.auth_managers)
+            link = type(self)(
+                self.view, spec, auth_managers=self.auth_managers
+            )
             snp.snapshot_deps.append((link, link.snapshot()))
-        for spec in (self
-                     .ndb
-                     .interfaces
-                     .getmany({'IFLA_LINK': self['index']})):
-            link = type(self)(self.view,
-                              spec,
-                              auth_managers=self.auth_managers)
+        for spec in self.ndb.interfaces.getmany({'IFLA_LINK': self['index']}):
+            link = type(self)(
+                self.view, spec, auth_managers=self.auth_managers
+            )
             # vlans & veth
             if self.is_peer(link) and not link.is_peer(self):
                 snp.snapshot_deps.append((link, link.snapshot()))
@@ -701,22 +742,29 @@ class Interface(RTNL_Object):
             #
             # FIXME: make type plugins?
             kind = self['kind']
-            if kind in ('gre',
-                        'gretap',
-                        'ip6gre',
-                        'ip6gretap',
-                        'ip6tnl',
-                        'sit',
-                        'ipip'):
+            if kind in (
+                'gre',
+                'gretap',
+                'ip6gre',
+                'ip6gretap',
+                'ip6tnl',
+                'sit',
+                'ipip',
+            ):
                 req['kind'] = kind
                 for key in self:
-                    if key.startswith(f'{kind}_') and \
-                            key not in req and self[key]:
+                    if (
+                        key.startswith(f'{kind}_')
+                        and key not in req
+                        and self[key]
+                    ):
                         req[key] = self[key]
                 #
                 # tunnels don't send updates on a down interface
-                if self['state'] == 'down' \
-                        and req.get('state', 'down') == 'down':
+                if (
+                    self['state'] == 'down'
+                    and req.get('state', 'down') == 'down'
+                ):
                     #
                     # so don't wait for updates on any changed
                     # type specific attribute
@@ -735,30 +783,45 @@ class Interface(RTNL_Object):
         try:
             super(Interface, self).apply(rollback, req_filter)
         except NetlinkError as e:
-            if e.code == 95 and \
-                    self.get('master') is not None and \
-                    self.get('master') > 0 and \
-                    self.state == 'invalid':
+            if (
+                e.code == 95
+                and self.get('master') is not None
+                and self.get('master') > 0
+                and self.state == 'invalid'
+            ):
                 #
                 # on some old kernels it is impossible to create
                 # interfaces with master set; attempt to do it in
                 # two steps
                 def req_filter(req):
-                    return dict([x for x in req.items()
-                                 if not x[0].startswith('master')])
+                    return dict(
+                        [
+                            x
+                            for x in req.items()
+                            if not x[0].startswith('master')
+                        ]
+                    )
+
                 self.apply(rollback, req_filter)
                 self.apply(rollback)
 
-            elif e.code == 95 and \
-                    self.get('br_vlan_filtering') is not None and \
-                    self.get('br_vlan_filtering') == 0:
+            elif (
+                e.code == 95
+                and self.get('br_vlan_filtering') is not None
+                and self.get('br_vlan_filtering') == 0
+            ):
                 #
                 # if vlan filtering is not enabled, then the parameter
                 # is reported by netlink, but not accepted upon bridge
                 # creation, so simply strip it
                 def req_filter(req):
-                    return dict([x for x in req.items()
-                                 if not x[0].startswith('br_vlan_')])
+                    return dict(
+                        [
+                            x
+                            for x in req.items()
+                            if not x[0].startswith('br_vlan_')
+                        ]
+                    )
 
                 self.apply(rollback, req_filter)
             else:
@@ -776,18 +839,17 @@ class Interface(RTNL_Object):
             if self['kind'] == 'bridge':
                 keys = filter(lambda x: x.startswith('br_'), self.changed)
                 if keys:
-                    req = {'index': self['index'],
-                           'kind': 'bridge',
-                           'family': AF_BRIDGE}
+                    req = {
+                        'index': self['index'],
+                        'kind': 'bridge',
+                        'family': AF_BRIDGE,
+                    }
                     for key in keys:
                         req[key] = self[key]
-                    (self
-                     .sources[self['target']]
-                     .api(self.api, method, **req))
-                    update = (self
-                              .sources[self['target']]
-                              .api(self.api, 'get',
-                                   **{'index': self['index']}))
+                    (self.sources[self['target']].api(self.api, method, **req))
+                    update = self.sources[self['target']].api(
+                        self.api, 'get', **{'index': self['index']}
+                    )
                     self.ndb._event_queue.put(update)
         elif method == 'add':
             if self['kind'] == 'tun':
@@ -795,9 +857,9 @@ class Interface(RTNL_Object):
                 self.load_event.wait(0.1)
                 if 'index' not in self:
                     raise NetlinkError(errno.EAGAIN)
-                update = (self
-                          .sources[self['target']]
-                          .api(self.api, 'get', index=self['index']))
+                update = self.sources[self['target']].api(
+                    self.api, 'get', index=self['index']
+                )
                 self.ndb._event_queue.put(update)
 
     def load_sql(self, *argv, **kwarg):
@@ -806,12 +868,11 @@ class Interface(RTNL_Object):
             tname = 'ifinfo_%s' % self['kind']
             if tname in self.schema.compiled:
                 names = self.schema.compiled[tname]['norm_names']
-                spec = (self
-                        .ndb
-                        .schema
-                        .fetchone('SELECT * from %s WHERE f_index = %s' %
-                                  (tname, self.schema.plch),
-                                  (self['index'], )))
+                spec = self.ndb.schema.fetchone(
+                    'SELECT * from %s WHERE f_index = %s'
+                    % (tname, self.schema.plch),
+                    (self['index'],),
+                )
                 if spec:
                     self.update(dict(zip(names, spec)))
         return spec
@@ -820,5 +881,7 @@ class Interface(RTNL_Object):
         super(Interface, self).load_rtnlmsg(*argv, **kwarg)
 
     def key_repr(self):
-        return '%s/%s' % (self.get('target', ''),
-                          self.get('ifname', self.get('index', '')))
+        return '%s/%s' % (
+            self.get('target', ''),
+            self.get('ifname', self.get('index', '')),
+        )

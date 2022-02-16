@@ -123,39 +123,44 @@ def load_ifaddrmsg(schema, target, event):
         #
         # check IPv4 addresses on the interface
         #
-        addresses = (schema
-                     .execute('''
+        addresses = schema.execute(
+            '''
                               SELECT * FROM addresses WHERE
                               f_target = %s AND
                               f_index = %s AND
                               f_family = 2
-                              ''' % (schema.plch, schema.plch),
-                              (target, event['index']))
-                     .fetchmany())
+                              '''
+            % (schema.plch, schema.plch),
+            (target, event['index']),
+        ).fetchmany()
         if not len(addresses):
-            schema.execute('''
+            schema.execute(
+                '''
                            DELETE FROM routes WHERE
                            f_target = %s AND
                            f_RTA_OIF = %s OR
                            f_RTA_IIF = %s
-                           ''' % (schema.plch, schema.plch, schema.plch),
-                           (target, event['index'], event['index']))
+                           '''
+                % (schema.plch, schema.plch, schema.plch),
+                (target, event['index'], event['index']),
+            )
 
 
-ifaddr_spec = (ifaddrmsg
-               .sql_schema()
-               .unique_index('family',
-                             'prefixlen',
-                             'index',
-                             'IFA_ADDRESS',
-                             'IFA_LOCAL')
-               .foreign_key('interfaces',
-                            ('f_target', 'f_tflags', 'f_index'),
-                            ('f_target', 'f_tflags', 'f_index')))
+ifaddr_spec = (
+    ifaddrmsg.sql_schema()
+    .unique_index('family', 'prefixlen', 'index', 'IFA_ADDRESS', 'IFA_LOCAL')
+    .foreign_key(
+        'interfaces',
+        ('f_target', 'f_tflags', 'f_index'),
+        ('f_target', 'f_tflags', 'f_index'),
+    )
+)
 
-init = {'specs': [['addresses', ifaddr_spec]],
-        'classes': [['addresses', ifaddrmsg]],
-        'event_map': {ifaddrmsg: [load_ifaddrmsg]}}
+init = {
+    'specs': [['addresses', ifaddr_spec]],
+    'classes': [['addresses', ifaddrmsg]],
+    'event_map': {ifaddrmsg: [load_ifaddrmsg]},
+}
 
 
 def norm_mask(value):
@@ -181,7 +186,10 @@ class Address(RTNL_Object):
                     WHERE
                         main.f_target = %s AND
                         main.f_index = %s
-                    ''' % (plch, plch)
+                    ''' % (
+                plch,
+                plch,
+            )
             values = [view.chain['target'], view.chain['index']]
         else:
             where = ''
@@ -208,12 +216,16 @@ class Address(RTNL_Object):
             yield record
 
     def mark_tflags(self, mark):
-        plch = (self.schema.plch, ) * 3
-        self.schema.execute('''
+        plch = (self.schema.plch,) * 3
+        self.schema.execute(
+            '''
                             UPDATE interfaces SET
                                 f_tflags = %s
                             WHERE f_index = %s AND f_target = %s
-                            ''' % plch, (mark, self['index'], self['target']))
+                            '''
+            % plch,
+            (mark, self['index'], self['target']),
+        )
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifaddrmsg
@@ -223,8 +235,10 @@ class Address(RTNL_Object):
     @classmethod
     def compare_record(self, left, right):
         if isinstance(right, basestring):
-            return right == left['address'] or \
-                right == '%s/%i' % (left['address'], left['prefixlen'])
+            return right == left['address'] or right == '%s/%i' % (
+                left['address'],
+                left['prefixlen'],
+            )
 
     @staticmethod
     def spec_normalize(spec):
@@ -250,7 +264,9 @@ class Address(RTNL_Object):
         return ret
 
     def key_repr(self):
-        return '%s/%s %s/%s' % (self.get('target', ''),
-                                self.get('label', self.get('index', '')),
-                                self.get('local', self.get('address', '')),
-                                self.get('prefixlen', ''))
+        return '%s/%s %s/%s' % (
+            self.get('target', ''),
+            self.get('label', self.get('index', '')),
+            self.get('local', self.get('address', '')),
+            self.get('prefixlen', ''),
+        )

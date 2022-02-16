@@ -2,7 +2,6 @@ from .report import RecordSet
 
 
 class Query(object):
-
     def __init__(self, schema, fmt='raw'):
         self._schema = schema
         self._fmt = fmt
@@ -35,19 +34,29 @@ class Query(object):
         List all the nodes within the cluster.
         '''
         header = ('nodename',)
-        return RecordSet(self._formatter(self._schema.fetch('''
+        return RecordSet(
+            self._formatter(
+                self._schema.fetch(
+                    '''
             SELECT DISTINCT f_target
             FROM interfaces
-        '''), fmt, header))
+        '''
+                ),
+                fmt,
+                header,
+            )
+        )
 
     def p2p_edges(self, fmt=None):
         '''
         List point to point edges within the cluster, like
         GRE or PPP interfaces.
         '''
-        header = ('left_node',
-                  'right_node')
-        return RecordSet(self._formatter(self._schema.fetch('''
+        header = ('left_node', 'right_node')
+        return RecordSet(
+            self._formatter(
+                self._schema.fetch(
+                    '''
             SELECT DISTINCT
                 l.f_target, r.f_target
             FROM p2p AS l
@@ -55,7 +64,12 @@ class Query(object):
             ON
                 l.f_p2p_local = r.f_p2p_remote
                 AND l.f_target != r.f_target
-        '''), fmt, header))
+        '''
+                ),
+                fmt,
+                header,
+            )
+        )
 
     def l2_edges(self, fmt=None):
         '''
@@ -71,13 +85,18 @@ class Query(object):
         Issues: does not filter out fake lladdr, so CARP interfaces
         produce fake l2 edges within the cluster.
         '''
-        header = ('left_node',
-                  'left_ifname',
-                  'left_lladdr',
-                  'right_node',
-                  'right_ifname',
-                  'right_lladdr')
-        return RecordSet(self._formatter(self._schema.fetch('''
+        header = (
+            'left_node',
+            'left_ifname',
+            'left_lladdr',
+            'right_node',
+            'right_ifname',
+            'right_lladdr',
+        )
+        return RecordSet(
+            self._formatter(
+                self._schema.fetch(
+                    '''
         SELECT DISTINCT
             j.f_target, j.f_IFLA_IFNAME, j.f_IFLA_ADDRESS,
             d.f_target, d.f_IFLA_IFNAME, j.f_NDA_LLADDR
@@ -98,7 +117,12 @@ class Query(object):
         ON
             j.f_NDA_LLADDR = d.f_IFLA_ADDRESS
             AND j.f_target != d.f_target
-        '''), fmt, header))
+        '''
+                ),
+                fmt,
+                header,
+            )
+        )
 
     def l3_edges(self, fmt=None):
         '''
@@ -110,12 +134,17 @@ class Query(object):
         connections like GRE where local addresses are used as
         gateways. To be fixed.
         '''
-        header = ('source_node',
-                  'gateway_node',
-                  'gateway_address',
-                  'dst',
-                  'dst_len')
-        return RecordSet(self._formatter(self._schema.fetch('''
+        header = (
+            'source_node',
+            'gateway_node',
+            'gateway_address',
+            'dst',
+            'dst_len',
+        )
+        return RecordSet(
+            self._formatter(
+                self._schema.fetch(
+                    '''
             SELECT DISTINCT
                 r.f_target, a.f_target, a.f_IFA_ADDRESS,
                 r.f_RTA_DST, r.f_dst_len
@@ -133,4 +162,9 @@ class Query(object):
                 addresses
              WHERE
                 f_target = r.f_target)
-        '''), fmt, header))
+        '''
+                ),
+                fmt,
+                header,
+            )
+        )

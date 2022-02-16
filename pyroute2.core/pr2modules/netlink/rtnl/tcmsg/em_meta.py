@@ -5,9 +5,11 @@ TCF_EM_OPND_EQ = 0
 TCF_EM_OPND_GT = 1
 TCF_EM_OPND_LT = 2
 
-OPERANDS_DICT = {TCF_EM_OPND_EQ: ('eq', '='),
-                 TCF_EM_OPND_GT: ('gt', '>'),
-                 TCF_EM_OPND_LT: ('lt', '<')}
+OPERANDS_DICT = {
+    TCF_EM_OPND_EQ: ('eq', '='),
+    TCF_EM_OPND_GT: ('gt', '>'),
+    TCF_EM_OPND_LT: ('lt', '<'),
+}
 
 # meta types
 TCF_META_TYPE_VAR = 0
@@ -72,11 +74,12 @@ strings_meta = ('dev', 'sk_bound_if')
 
 
 class data(nla):
-    nla_map = (('TCA_EM_META_UNSPEC', 'none'),
-               ('TCA_EM_META_HDR', 'tca_em_meta_header_parse'),
-               ('TCA_EM_META_LVALUE', 'uint32'),
-               ('TCA_EM_META_RVALUE', 'hex')
-               )
+    nla_map = (
+        ('TCA_EM_META_UNSPEC', 'none'),
+        ('TCA_EM_META_HDR', 'tca_em_meta_header_parse'),
+        ('TCA_EM_META_LVALUE', 'uint32'),
+        ('TCA_EM_META_RVALUE', 'hex'),
+    )
 
     def decode(self):
         self.header = None
@@ -113,14 +116,18 @@ class data(nla):
         else:
             if kind in strings_meta:
                 if not isinstance(value, str):
-                    raise ValueError('{} kinds have to use string value!'
-                                     .format(' and '.join(strings_meta)))
+                    raise ValueError(
+                        '{} kinds have to use string value!'.format(
+                            ' and '.join(strings_meta)
+                        )
+                    )
                 else:
                     value = value.encode('utf-8')
             else:
                 if not isinstance(value, int):
-                    raise ValueError('Invalid value specified, it must '
-                                     'be an integer')
+                    raise ValueError(
+                        'Invalid value specified, it must ' 'be an integer'
+                    )
                 else:
                     value = pack('<I', value)
 
@@ -134,12 +141,13 @@ class data(nla):
         self.data = self.data[4:]
 
     class tca_em_meta_header_parse(nla):
-        fields = (('kind', 'H'),
-                  ('shift', 'B'),
-                  ('opnd', 'B'),
-                  ('id', 'H'),
-                  ('pad', 'H')
-                  )
+        fields = (
+            ('kind', 'H'),
+            ('shift', 'B'),
+            ('opnd', 'B'),
+            ('id', 'H'),
+            ('pad', 'H'),
+        )
 
         def decode(self):
             nla.decode(self)
@@ -157,8 +165,9 @@ class data(nla):
                 if self['kind'] == v:
                     self['kind'] = 'TCF_META_ID_{}'.format(k.upper())
 
-            fmt = 'TCF_EM_OPND_{}'.format(OPERANDS_DICT[self['opnd']][0]
-                                          .upper())
+            fmt = 'TCF_EM_OPND_{}'.format(
+                OPERANDS_DICT[self['opnd']][0].upper()
+            )
             self['opnd'] = fmt
             del self['pad']
 
@@ -190,6 +199,7 @@ class data(nla):
                 # which is what we want
                 self['shift'] = int(self['shift'])
             if not 0 <= self['shift'] <= 255:
-                raise ValueError("'shift' value must be between"
-                                 "0 and 255 included!")
+                raise ValueError(
+                    "'shift' value must be between" "0 and 255 included!"
+                )
             nla.encode(self)

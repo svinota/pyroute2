@@ -22,30 +22,34 @@ import socket
 import re
 import os
 import argparse
-from socket import (AF_INET,
-                    AF_UNIX
-                    )
+from socket import AF_INET, AF_UNIX
+
 try:
     import psutil
 except ImportError:
     psutil = None
 from pr2modules.netlink.diag import DiagSocket
-from pr2modules.netlink.diag import (SS_ESTABLISHED,
-                                     SS_SYN_SENT,
-                                     SS_SYN_RECV,
-                                     SS_FIN_WAIT1,
-                                     SS_FIN_WAIT2,
-                                     SS_TIME_WAIT,
-                                     SS_CLOSE,
-                                     SS_CLOSE_WAIT,
-                                     SS_LAST_ACK,
-                                     SS_LISTEN,
-                                     SS_CLOSING,
-                                     SS_ALL,
-                                     SS_CONN)
-from pr2modules.netlink.diag import (UDIAG_SHOW_NAME,
-                                     UDIAG_SHOW_VFS,
-                                     UDIAG_SHOW_PEER)
+from pr2modules.netlink.diag import (
+    SS_ESTABLISHED,
+    SS_SYN_SENT,
+    SS_SYN_RECV,
+    SS_FIN_WAIT1,
+    SS_FIN_WAIT2,
+    SS_TIME_WAIT,
+    SS_CLOSE,
+    SS_CLOSE_WAIT,
+    SS_LAST_ACK,
+    SS_LISTEN,
+    SS_CLOSING,
+    SS_ALL,
+    SS_CONN,
+)
+from pr2modules.netlink.diag import (
+    UDIAG_SHOW_NAME,
+    UDIAG_SHOW_VFS,
+    UDIAG_SHOW_PEER,
+)
+
 try:
     from collections.abc import Mapping
     from collections.abc import Callable
@@ -65,10 +69,7 @@ class UserCtxtMap(Mapping):
 
     _proc_sk_fd_cast = "/proc/%d/fd/%d"
 
-    _BUILD_RECURS_PATH = ["inode",
-                          "usr",
-                          "pid",
-                          "fd"]
+    _BUILD_RECURS_PATH = ["inode", "usr", "pid", "fd"]
 
     def _parse_inode(self, sconn):
         sk_path = self._proc_sk_fd_cast % (sconn.pid, sconn.fd)
@@ -82,13 +83,15 @@ class UserCtxtMap(Mapping):
 
         return inode
 
-    def __recurs_enter(self,
-                       _sk_inode=None,
-                       _sk_fd=None,
-                       _usr=None,
-                       _pid=None,
-                       _ctxt=None,
-                       _recurs_path=[]):
+    def __recurs_enter(
+        self,
+        _sk_inode=None,
+        _sk_fd=None,
+        _usr=None,
+        _pid=None,
+        _ctxt=None,
+        _recurs_path=[],
+    ):
 
         step = _recurs_path.pop(0)
 
@@ -113,12 +116,14 @@ class UserCtxtMap(Mapping):
             raise RuntimeError("Unexpected step in recursion")
 
         # descend
-        self.__recurs_enter(_sk_inode=_sk_inode,
-                            _sk_fd=_sk_fd,
-                            _usr=_usr,
-                            _pid=_pid,
-                            _ctxt=_ctxt,
-                            _recurs_path=_recurs_path)
+        self.__recurs_enter(
+            _sk_inode=_sk_inode,
+            _sk_fd=_sk_fd,
+            _usr=_usr,
+            _pid=_pid,
+            _ctxt=_ctxt,
+            _recurs_path=_recurs_path,
+        )
 
     def _enter_item(self, usr, flow, ctxt):
         if not flow.pid:
@@ -131,21 +136,21 @@ class UserCtxtMap(Mapping):
 
         recurs_path = list(self._BUILD_RECURS_PATH)
 
-        self.__recurs_enter(_sk_inode=sk_inode,
-                            _sk_fd=sk_fd,
-                            _usr=usr,
-                            _pid=flow.pid,
-                            _ctxt=ctxt,
-                            _recurs_path=recurs_path)
+        self.__recurs_enter(
+            _sk_inode=sk_inode,
+            _sk_fd=sk_fd,
+            _usr=usr,
+            _pid=flow.pid,
+            _ctxt=ctxt,
+            _recurs_path=recurs_path,
+        )
 
     def _build(self):
         for flow in psutil.net_connections(kind="all"):
             proc = psutil.Process(flow.pid)
             usr = proc.username()
 
-            ctxt = {"cmd": proc.exe(),
-                    "full_cmd": proc.cmdline(),
-                    "fds": []}
+            ctxt = {"cmd": proc.exe(), "full_cmd": proc.cmdline(), "fds": []}
 
             self._enter_item(usr, flow, ctxt)
 
@@ -191,18 +196,16 @@ class Protocol(Callable):
 
 
 class UNIX(Protocol):
-
     def __init__(self, sk_states=SS_CONN, _fmt='json'):
         super(UNIX, self).__init__(sk_states, fmt=_fmt)
 
     def __call__(self, nl_diag_sk, args, usr_ctxt):
-        sstats = nl_diag_sk.get_sock_stats(states=self._states,
-                                           family=AF_UNIX,
-                                           show=(UDIAG_SHOW_NAME |
-                                                 UDIAG_SHOW_VFS |
-                                                 UDIAG_SHOW_PEER))
-        refined_stats = self._refine_diag_raw(sstats,
-                                              usr_ctxt)
+        sstats = nl_diag_sk.get_sock_stats(
+            states=self._states,
+            family=AF_UNIX,
+            show=(UDIAG_SHOW_NAME | UDIAG_SHOW_VFS | UDIAG_SHOW_PEER),
+        )
+        refined_stats = self._refine_diag_raw(sstats, usr_ctxt)
         printable = self._fmt(refined_stats)
 
         print(printable)
@@ -221,10 +224,12 @@ class UNIX(Protocol):
         val_idx = 1
         cb_idx = 1
 
-        idiag_attr_refine_map = {'UNIX_DIAG_NAME': ('path_name', None),
-                                 'UNIX_DIAG_VFS': ('vfs', vfs_cb),
-                                 'UNIX_DIAG_PEER': ('peer_inode', None),
-                                 'UNIX_DIAG_SHUTDOWN': ('shutdown', None)}
+        idiag_attr_refine_map = {
+            'UNIX_DIAG_NAME': ('path_name', None),
+            'UNIX_DIAG_VFS': ('vfs', vfs_cb),
+            'UNIX_DIAG_PEER': ('peer_inode', None),
+            'UNIX_DIAG_SHUTDOWN': ('shutdown', None),
+        }
 
         for raw_flow in raw_stats:
             vessel = {}
@@ -265,22 +270,22 @@ class TCP(Protocol):
     def __init__(self, sk_states=SS_CONN, _fmt='json'):
         super(TCP, self).__init__(sk_states, fmt=_fmt)
 
-        IDIAG_EXT_FLAGS = [self.INET_DIAG_MEMINFO,
-                           self.INET_DIAG_INFO,
-                           self.INET_DIAG_VEGASINFO,
-                           self.INET_DIAG_CONG]
+        IDIAG_EXT_FLAGS = [
+            self.INET_DIAG_MEMINFO,
+            self.INET_DIAG_INFO,
+            self.INET_DIAG_VEGASINFO,
+            self.INET_DIAG_CONG,
+        ]
 
         self.ext_f = 0
         for f in IDIAG_EXT_FLAGS:
-            self.ext_f |= (1 << (f - 1))
+            self.ext_f |= 1 << (f - 1)
 
     def __call__(self, nl_diag_sk, args, usr_ctxt):
-        sstats = nl_diag_sk.get_sock_stats(states=self._states,
-                                           family=AF_INET,
-                                           extensions=self.ext_f)
-        refined_stats = self._refine_diag_raw(sstats,
-                                              args.resolve,
-                                              usr_ctxt)
+        sstats = nl_diag_sk.get_sock_stats(
+            states=self._states, family=AF_INET, extensions=self.ext_f
+        )
+        refined_stats = self._refine_diag_raw(sstats, args.resolve, usr_ctxt)
         printable = self._fmt(refined_stats)
 
         print(printable)
@@ -289,13 +294,15 @@ class TCP(Protocol):
 
         refined = {'TCP': {'flows': []}}
 
-        idiag_refine_map = {'src': 'idiag_src',
-                            'dst': 'idiag_dst',
-                            'src_port': 'idiag_sport',
-                            'dst_port': 'idiag_dport',
-                            'inode': 'idiag_inode',
-                            'iface_idx': 'idiag_if',
-                            'retrans': 'idiag_retrans'}
+        idiag_refine_map = {
+            'src': 'idiag_src',
+            'dst': 'idiag_dst',
+            'src_port': 'idiag_sport',
+            'dst_port': 'idiag_dport',
+            'inode': 'idiag_inode',
+            'iface_idx': 'idiag_if',
+            'retrans': 'idiag_retrans',
+        }
 
         for raw_flow in raw_stats:
             vessel = {}
@@ -330,10 +337,14 @@ class TCP(Protocol):
 
     def _refine_extension(self, vessel, raw_ext):
         k, content = raw_ext
-        ext_refine_map = {'meminfo': {'r': 'idiag_rmem',
-                                      'w': 'idiag_wmem',
-                                      'f': 'idiag_fmem',
-                                      't': 'idiag_tmem'}}
+        ext_refine_map = {
+            'meminfo': {
+                'r': 'idiag_rmem',
+                'w': 'idiag_wmem',
+                'f': 'idiag_fmem',
+                't': 'idiag_tmem',
+            }
+        }
 
         if k == 'INET_DIAG_MEMINFO':
             mem_k = 'meminfo'
@@ -382,8 +393,10 @@ class TCP(Protocol):
             tcp_info_raw = ctx['raw']
 
             try:
-                if tcp_info_raw['tcpv_enabled'] != 0 and \
-                        tcp_info_raw['tcpv_rtt'] != 0x7fffffff:
+                if (
+                    tcp_info_raw['tcpv_enabled'] != 0
+                    and tcp_info_raw['tcpv_rtt'] != 0x7FFFFFFF
+                ):
                     return tcp_info_raw['tcpv_rtt']
             except KeyError:
                 # ill practice, yet except quicker path
@@ -394,17 +407,19 @@ class TCP(Protocol):
         # converter
         @staticmethod
         def state_c_cb(key, value, **ctx):
-            state_str_map = {SS_ESTABLISHED: "established",
-                             SS_SYN_SENT: "syn-sent",
-                             SS_SYN_RECV: "syn-recv",
-                             SS_FIN_WAIT1: "fin-wait-1",
-                             SS_FIN_WAIT2: "fin-wait-2",
-                             SS_TIME_WAIT: "time-wait",
-                             SS_CLOSE: "unconnected",
-                             SS_CLOSE_WAIT: "close-wait",
-                             SS_LAST_ACK: "last-ack",
-                             SS_LISTEN: "listening",
-                             SS_CLOSING: "closing"}
+            state_str_map = {
+                SS_ESTABLISHED: "established",
+                SS_SYN_SENT: "syn-sent",
+                SS_SYN_RECV: "syn-recv",
+                SS_FIN_WAIT1: "fin-wait-1",
+                SS_FIN_WAIT2: "fin-wait-2",
+                SS_TIME_WAIT: "time-wait",
+                SS_CLOSE: "unconnected",
+                SS_CLOSE_WAIT: "close-wait",
+                SS_LAST_ACK: "last-ack",
+                SS_LISTEN: "listening",
+                SS_CLOSING: "closing",
+            }
 
             return state_str_map[value]
 
@@ -420,11 +435,11 @@ class TCP(Protocol):
             out = []
 
             opts = tcp_info_raw['tcpi_options']
-            if (opts & TCPI_OPT_TIMESTAMPS):
+            if opts & TCPI_OPT_TIMESTAMPS:
                 out.append("ts")
-            if (opts & TCPI_OPT_SACK):
+            if opts & TCPI_OPT_SACK:
                 out.append("sack")
-            if (opts & TCPI_OPT_ECN):
+            if opts & TCPI_OPT_ECN:
                 out.append("ecn")
 
             return out
@@ -433,76 +448,79 @@ class TCP(Protocol):
 
         ti = TCP.InfoCbCore
 
-        info_refine_tabl = {'tcpi_state': ('state', ti.state_c_cb),
-                            'tcpi_pmtu': ('pmtu', None),
-                            'tcpi_retrans': ('retrans', None),
-                            'tcpi_ato': ('ato', ti.generic_1k_n_cb),
-                            'tcpi_rto': ('rto', ti.rto_n_cb),
-                            # TODO consider wscale baking
-                            'tcpi_snd_wscale': ('snd_wscale', None),
-                            'tcpi_rcv_wscale': ('rcv_wscale', None),
-                            # TODO bps baking
-                            'tcpi_snd_mss': ('snd_mss', None),
-                            'tcpi_snd_cwnd': ('snd_cwnd', None),
-                            'tcpi_snd_ssthresh': ('snd_ssthresh',
-                                                  ti.snd_thresh_p_cb),
-                            # TODO consider rtt agglomeration - needs nesting
-                            'tcpi_rtt': ('rtt', ti.rtt_p_cb),
-                            'tcpi_rttvar': ('rttvar', ti.generic_1k_n_cb),
-                            'tcpi_rcv_rtt': ('rcv_rtt', ti.generic_1k_n_cb),
-                            'tcpi_rcv_space': ('rcv_space', None),
-                            'tcpi_options': ('opts', ti.opts_c_cb),
-                            # unclear, NB not in use by iproute2 ss latest
-                            'tcpi_last_data_sent': ('last_data_sent', None),
-                            'tcpi_rcv_ssthresh': ('rcv_ssthresh', None),
-                            'tcpi_rcv_ssthresh': ('rcv_ssthresh', None),
-                            'tcpi_segs_in': ('segs_in', None),
-                            'tcpi_segs_out': ('segs_out', None),
-                            'tcpi_data_segs_in': ('data_segs_in', None),
-                            'tcpi_data_segs_out': ('data_segs_out', None),
-                            'tcpi_lost': ('lost', None),
-                            'tcpi_notsent_bytes': ('notsent_bytes', None),
-                            'tcpi_rcv_mss': ('rcv_mss', None),
-                            'tcpi_pacing_rate': ('pacing_rate', None),
-                            'tcpi_retransmits': ('retransmits', None),
-                            'tcpi_min_rtt': ('min_rtt', None),
-                            'tcpi_rwnd_limited': ('rwnd_limited', None),
-                            'tcpi_max_pacing_rate': ('max_pacing_rate', None),
-                            'tcpi_probes': ('probes', None),
-                            'tcpi_reordering': ('reordering', None),
-                            'tcpi_last_data_recv': ('last_data_recv', None),
-                            'tcpi_bytes_received': ('bytes_received', None),
-                            'tcpi_fackets': ('fackets', None),
-                            'tcpi_last_ack_recv': ('last_ack_recv', None),
-                            'tcpi_last_ack_sent': ('last_ack_sent', None),
-                            'tcpi_unacked': ('unacked', None),
-                            'tcpi_sacked': ('sacked', None),
-                            'tcpi_bytes_acked': ('bytes_acked', None),
-                            'tcpi_delivery_rate_app_limited':
-                                ('delivery_rate_app_limited', None),
-                            'tcpi_delivery_rate': ('delivery_rate', None),
-                            'tcpi_sndbuf_limited': ('sndbuf_limited', None),
-                            'tcpi_ca_state': ('ca_state', None),
-                            'tcpi_busy_time': ('busy_time', None),
-                            'tcpi_total_retrans': ('total_retrans', None),
-                            'tcpi_advmss': ('advmss', None),
-                            'tcpi_backoff': (None, None),
-                            'tcpv_enabled': (None, 'skip'),
-                            'tcpv_rttcnt': (None, 'skip'),
-                            'tcpv_rtt': (None, 'skip'),
-                            'tcpv_minrtt': (None, 'skip'),
-                            # BBR
-                            'bbr_bw_lo': ('bbr_bw_lo', None),
-                            'bbr_bw_hi': ('bbr_bw_hi', None),
-                            'bbr_min_rtt': ('bbr_min_rtt', None),
-                            'bbr_pacing_gain': ('bbr_pacing_gain', None),
-                            'bbr_cwnd_gain': ('bbr_cwnd_gain', None),
-                            # DCTCP
-                            'dctcp_enabled': ('dctcp_enabled', None),
-                            'dctcp_ce_state': ('dctcp_ce_state', None),
-                            'dctcp_alpha': ('dctcp_alpha', None),
-                            'dctcp_ab_ecn': ('dctcp_ab_ecn', None),
-                            'dctcp_ab_tot': ('dctcp_ab_tot', None)}
+        info_refine_tabl = {
+            'tcpi_state': ('state', ti.state_c_cb),
+            'tcpi_pmtu': ('pmtu', None),
+            'tcpi_retrans': ('retrans', None),
+            'tcpi_ato': ('ato', ti.generic_1k_n_cb),
+            'tcpi_rto': ('rto', ti.rto_n_cb),
+            # TODO consider wscale baking
+            'tcpi_snd_wscale': ('snd_wscale', None),
+            'tcpi_rcv_wscale': ('rcv_wscale', None),
+            # TODO bps baking
+            'tcpi_snd_mss': ('snd_mss', None),
+            'tcpi_snd_cwnd': ('snd_cwnd', None),
+            'tcpi_snd_ssthresh': ('snd_ssthresh', ti.snd_thresh_p_cb),
+            # TODO consider rtt agglomeration - needs nesting
+            'tcpi_rtt': ('rtt', ti.rtt_p_cb),
+            'tcpi_rttvar': ('rttvar', ti.generic_1k_n_cb),
+            'tcpi_rcv_rtt': ('rcv_rtt', ti.generic_1k_n_cb),
+            'tcpi_rcv_space': ('rcv_space', None),
+            'tcpi_options': ('opts', ti.opts_c_cb),
+            # unclear, NB not in use by iproute2 ss latest
+            'tcpi_last_data_sent': ('last_data_sent', None),
+            'tcpi_rcv_ssthresh': ('rcv_ssthresh', None),
+            'tcpi_rcv_ssthresh': ('rcv_ssthresh', None),
+            'tcpi_segs_in': ('segs_in', None),
+            'tcpi_segs_out': ('segs_out', None),
+            'tcpi_data_segs_in': ('data_segs_in', None),
+            'tcpi_data_segs_out': ('data_segs_out', None),
+            'tcpi_lost': ('lost', None),
+            'tcpi_notsent_bytes': ('notsent_bytes', None),
+            'tcpi_rcv_mss': ('rcv_mss', None),
+            'tcpi_pacing_rate': ('pacing_rate', None),
+            'tcpi_retransmits': ('retransmits', None),
+            'tcpi_min_rtt': ('min_rtt', None),
+            'tcpi_rwnd_limited': ('rwnd_limited', None),
+            'tcpi_max_pacing_rate': ('max_pacing_rate', None),
+            'tcpi_probes': ('probes', None),
+            'tcpi_reordering': ('reordering', None),
+            'tcpi_last_data_recv': ('last_data_recv', None),
+            'tcpi_bytes_received': ('bytes_received', None),
+            'tcpi_fackets': ('fackets', None),
+            'tcpi_last_ack_recv': ('last_ack_recv', None),
+            'tcpi_last_ack_sent': ('last_ack_sent', None),
+            'tcpi_unacked': ('unacked', None),
+            'tcpi_sacked': ('sacked', None),
+            'tcpi_bytes_acked': ('bytes_acked', None),
+            'tcpi_delivery_rate_app_limited': (
+                'delivery_rate_app_limited',
+                None,
+            ),
+            'tcpi_delivery_rate': ('delivery_rate', None),
+            'tcpi_sndbuf_limited': ('sndbuf_limited', None),
+            'tcpi_ca_state': ('ca_state', None),
+            'tcpi_busy_time': ('busy_time', None),
+            'tcpi_total_retrans': ('total_retrans', None),
+            'tcpi_advmss': ('advmss', None),
+            'tcpi_backoff': (None, None),
+            'tcpv_enabled': (None, 'skip'),
+            'tcpv_rttcnt': (None, 'skip'),
+            'tcpv_rtt': (None, 'skip'),
+            'tcpv_minrtt': (None, 'skip'),
+            # BBR
+            'bbr_bw_lo': ('bbr_bw_lo', None),
+            'bbr_bw_hi': ('bbr_bw_hi', None),
+            'bbr_min_rtt': ('bbr_min_rtt', None),
+            'bbr_pacing_gain': ('bbr_pacing_gain', None),
+            'bbr_cwnd_gain': ('bbr_cwnd_gain', None),
+            # DCTCP
+            'dctcp_enabled': ('dctcp_enabled', None),
+            'dctcp_ce_state': ('dctcp_ce_state', None),
+            'dctcp_alpha': ('dctcp_alpha', None),
+            'dctcp_ab_ecn': ('dctcp_ab_ecn', None),
+            'dctcp_ab_tot': ('dctcp_ab_tot', None),
+        }
         k_idx = 0
         cb_idx = 1
 
@@ -529,28 +547,42 @@ class TCP(Protocol):
 
 
 def prepare_args():
-    parser = argparse.ArgumentParser(description="""
+    parser = argparse.ArgumentParser(
+        description="""
                                      ss2 - socket statistics depictor meant as
                                      a complete and convenient surrogate for
-                                     iproute2/misc/ss2""")
-    parser.add_argument('-x', '--unix',
-                        help='Display Unix domain sockets.',
-                        action='store_true')
-    parser.add_argument('-t', '--tcp',
-                        help='Display TCP sockets.',
-                        action='store_true')
-    parser.add_argument('-l', '--listen',
-                        help='Display listening sockets.',
-                        action='store_true')
-    parser.add_argument('-a', '--all',
-                        help='Display all sockets.',
-                        action='store_true')
-    parser.add_argument('-p', '--process',
-                        help='show socket holding context',
-                        action='store_true')
-    parser.add_argument('-r', '--resolve',
-                        help='resolve host names in addition',
-                        action='store_true')
+                                     iproute2/misc/ss2"""
+    )
+    parser.add_argument(
+        '-x',
+        '--unix',
+        help='Display Unix domain sockets.',
+        action='store_true',
+    )
+    parser.add_argument(
+        '-t', '--tcp', help='Display TCP sockets.', action='store_true'
+    )
+    parser.add_argument(
+        '-l',
+        '--listen',
+        help='Display listening sockets.',
+        action='store_true',
+    )
+    parser.add_argument(
+        '-a', '--all', help='Display all sockets.', action='store_true'
+    )
+    parser.add_argument(
+        '-p',
+        '--process',
+        help='show socket holding context',
+        action='store_true',
+    )
+    parser.add_argument(
+        '-r',
+        '--resolve',
+        help='resolve host names in addition',
+        action='store_true',
+    )
 
     args = parser.parse_args()
 
@@ -567,7 +599,7 @@ def run(args=None):
 
     _states = SS_CONN
     if args.listen:
-        _states = (1 << SS_LISTEN)
+        _states = 1 << SS_LISTEN
     if args.all:
         _states = SS_ALL
 

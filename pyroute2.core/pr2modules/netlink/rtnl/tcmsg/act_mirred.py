@@ -1,6 +1,7 @@
 from pr2modules.netlink import nla
 from pr2modules.netlink import NLA_F_NESTED
 from pr2modules.netlink.rtnl.tcmsg.common import tc_actions
+
 """
 Mirred - mirror/redirect action
 see tc-mirred(8)
@@ -14,29 +15,31 @@ Use like any other action, with the following parameters available:
 
 # see tc_mirred.h
 MIRRED_EACTIONS = {
-    ("egress", "redirect"): 1,   # redirect packet to egress
-    ("egress", "mirror"): 2,     # mirror packet to egress
+    ("egress", "redirect"): 1,  # redirect packet to egress
+    ("egress", "mirror"): 2,  # mirror packet to egress
     ("ingress", "redirect"): 3,  # redirect packet to ingress
-    ("ingress", "mirror"): 4,    # mirror packet to ingress
+    ("ingress", "mirror"): 4,  # mirror packet to ingress
 }
 
 
 class options(nla):
     nla_flags = NLA_F_NESTED
-    nla_map = (('TCA_MIRRED_UNSPEC', 'none'),
-               ('TCA_MIRRED_TM', 'none'),
-               ('TCA_MIRRED_PARMS', 'tca_mirred_parms'),
-               )
+    nla_map = (
+        ('TCA_MIRRED_UNSPEC', 'none'),
+        ('TCA_MIRRED_TM', 'none'),
+        ('TCA_MIRRED_PARMS', 'tca_mirred_parms'),
+    )
 
     class tca_mirred_parms(nla):
-        fields = (('index', 'I'),
-                  ('capab', 'I'),
-                  ('action', 'i'),
-                  ('refcnt', 'i'),
-                  ('bindcnt', 'i'),
-                  ('eaction', 'i'),
-                  ('ifindex', 'I'),
-                  )
+        fields = (
+            ('index', 'I'),
+            ('capab', 'I'),
+            ('action', 'i'),
+            ('refcnt', 'i'),
+            ('bindcnt', 'i'),
+            ('eaction', 'i'),
+            ('ifindex', 'I'),
+        )
 
 
 def get_parameters(kwarg):

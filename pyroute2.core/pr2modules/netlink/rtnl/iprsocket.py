@@ -24,7 +24,6 @@ if sys.platform.startswith('linux'):
 
 
 class IPRSocketMixin(object):
-
     def __init__(self, *argv, **kwarg):
         if 'family' in kwarg:
             kwarg.pop('family')
@@ -34,17 +33,23 @@ class IPRSocketMixin(object):
         if sys.platform.startswith('linux'):
             self._gate = self._gate_linux
             self.sendto_gate = self._gate_linux
-            send_ns = Namespace(self, {'addr_pool': AddrPool(0x10000,
-                                                             0x1ffff),
-                                       'monitor': False})
+            send_ns = Namespace(
+                self,
+                {'addr_pool': AddrPool(0x10000, 0x1FFFF), 'monitor': False},
+            )
             self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
-            self._sproxy.pmap = {rtnl.RTM_NEWLINK: proxy_newlink,
-                                 rtnl.RTM_SETLINK: proxy_setlink}
+            self._sproxy.pmap = {
+                rtnl.RTM_NEWLINK: proxy_newlink,
+                rtnl.RTM_SETLINK: proxy_setlink,
+            }
             if config.kernel < [3, 3, 0]:
-                self._recv_ns = Namespace(self,
-                                          {'addr_pool': AddrPool(0x20000,
-                                                                 0x2ffff),
-                                           'monitor': False})
+                self._recv_ns = Namespace(
+                    self,
+                    {
+                        'addr_pool': AddrPool(0x20000, 0x2FFFF),
+                        'monitor': False,
+                    },
+                )
                 self._sproxy.pmap[rtnl.RTM_DELLINK] = proxy_dellink
                 # inject proxy hooks into recv() and...
                 self.__recv = self._recv
@@ -161,26 +166,28 @@ class IPRSocket(IPRSocketMixin, NetlinkSocket):
           'type': 1}]
         >>>
     '''
+
     _brd_socket = None
 
     def bind(self, *argv, **kwarg):
         if kwarg.pop('clone_socket', False):
             self._brd_socket = self.clone()
 
-            def get(self, bufsize=DEFAULT_RCVBUF,
-                    msg_seq=0,
-                    terminate=None,
-                    callback=None):
+            def get(
+                self,
+                bufsize=DEFAULT_RCVBUF,
+                msg_seq=0,
+                terminate=None,
+                callback=None,
+            ):
                 if msg_seq == 0:
-                    return self._brd_socket.get(bufsize,
-                                                msg_seq,
-                                                terminate,
-                                                callback)
+                    return self._brd_socket.get(
+                        bufsize, msg_seq, terminate, callback
+                    )
                 else:
-                    return super(IPRSocket, self).get(bufsize,
-                                                      msg_seq,
-                                                      terminate,
-                                                      callback)
+                    return super(IPRSocket, self).get(
+                        bufsize, msg_seq, terminate, callback
+                    )
 
             def close(self, code=errno.ECONNRESET):
                 with self.sys_lock:

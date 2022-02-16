@@ -5,14 +5,10 @@ p0 = uifname()
 ip = IPDB()
 
 # create dummy interface to host routes on
-ip.create(kind='dummy', ifname=p0).\
-    add_ip('172.16.1.1/24').\
-    up().\
-    commit()
+ip.create(kind='dummy', ifname=p0).add_ip('172.16.1.1/24').up().commit()
 
 # create a route
-with ip.routes.add({'dst': '172.16.0.0/24',
-                    'gateway': '172.16.1.2'}) as r:
+with ip.routes.add({'dst': '172.16.0.0/24', 'gateway': '172.16.1.2'}) as r:
     pass
 
 # modify it

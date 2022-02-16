@@ -9,11 +9,22 @@ from pr2modules.netlink.nfnetlink.nfctsocket import NFCTSocket
 
 class NFCTATcpProtoInfo(object):
 
-    __slots__ = ('state', 'wscale_orig', 'wscale_reply', 'flags_orig',
-                 'flags_reply')
+    __slots__ = (
+        'state',
+        'wscale_orig',
+        'wscale_reply',
+        'flags_orig',
+        'flags_reply',
+    )
 
-    def __init__(self, state, wscale_orig=None, wscale_reply=None,
-                 flags_orig=None, flags_reply=None):
+    def __init__(
+        self,
+        state,
+        wscale_orig=None,
+        wscale_reply=None,
+        flags_orig=None,
+        flags_reply=None,
+    ):
         self.state = state
         self.wscale_orig = wscale_orig
         self.wscale_reply = wscale_reply
@@ -21,9 +32,9 @@ class NFCTATcpProtoInfo(object):
         self.flags_reply = flags_reply
 
     def state_name(self):
-        return ','.join([name
-                         for bit, name in TCPF_TO_NAME.items()
-                         if self.state & bit])
+        return ','.join(
+            [name for bit, name in TCPF_TO_NAME.items() if self.state & bit]
+        )
 
     def flags_name(self, flags):
         if flags is None:
@@ -46,17 +57,37 @@ class NFCTATcpProtoInfo(object):
 
     def __repr__(self):
         return 'TcpInfo(state={}, orig_flags={}, reply_flags={})'.format(
-            self.state_name(), self.flags_name(self.flags_orig),
-            self.flags_name(self.flags_reply))
+            self.state_name(),
+            self.flags_name(self.flags_orig),
+            self.flags_name(self.flags_reply),
+        )
 
 
 class ConntrackEntry(object):
 
-    __slots__ = ('tuple_orig', 'tuple_reply', 'status', 'timeout',
-                 'protoinfo', 'mark', 'id', 'use')
+    __slots__ = (
+        'tuple_orig',
+        'tuple_reply',
+        'status',
+        'timeout',
+        'protoinfo',
+        'mark',
+        'id',
+        'use',
+    )
 
-    def __init__(self, family, tuple_orig, tuple_reply, cta_status,
-                 cta_timeout, cta_protoinfo, cta_mark, cta_id, cta_use):
+    def __init__(
+        self,
+        family,
+        tuple_orig,
+        tuple_reply,
+        cta_status,
+        cta_timeout,
+        cta_protoinfo,
+        cta_mark,
+        cta_id,
+        cta_use,
+    ):
         self.tuple_orig = NFCTAttrTuple.from_netlink(family, tuple_orig)
         self.tuple_reply = NFCTAttrTuple.from_netlink(family, tuple_reply)
 
@@ -81,7 +112,8 @@ class ConntrackEntry(object):
 
     def __repr__(self):
         s = 'Entry(orig={}, reply={}, status={}'.format(
-            self.tuple_orig, self.tuple_reply, self.status_name())
+            self.tuple_orig, self.tuple_reply, self.status_name()
+        )
         if self.protoinfo is not None:
             s += ', protoinfo={}'.format(self.protoinfo)
         s += ')'
@@ -92,11 +124,12 @@ class Conntrack(NFCTSocket):
     """
     High level conntrack functions
     """
+
     def __init__(self, nlm_generator=True, **kwargs):
         super(Conntrack, self).__init__(nlm_generator=nlm_generator, **kwargs)
 
     def stat(self):
-        """ Return current statistics per CPU
+        """Return current statistics per CPU
 
         Same result than conntrack -S command but a list of dictionaries
         """
@@ -104,13 +137,16 @@ class Conntrack(NFCTSocket):
 
         for msg in super(Conntrack, self).stat():
             stats.append({'cpu': msg['res_id']})
-            stats[-1].update((k[10:].lower(), v) for k, v in msg['attrs']
-                             if k.startswith('CTA_STATS_'))
+            stats[-1].update(
+                (k[10:].lower(), v)
+                for k, v in msg['attrs']
+                if k.startswith('CTA_STATS_')
+            )
 
         return stats
 
     def count(self):
-        """ Return current number of conntrack entries
+        """Return current number of conntrack entries
 
         Same result than /proc/sys/net/netfilter/nf_conntrack_count file
         or conntrack -C command
@@ -140,8 +176,9 @@ class Conntrack(NFCTSocket):
         for res in super(Conntrack, self).entry(cmd, **kwargs):
             return res
 
-    def dump_entries(self, mark=None, mark_mask=None, tuple_orig=None,
-                     tuple_reply=None):
+    def dump_entries(
+        self, mark=None, mark_mask=None, tuple_orig=None, tuple_reply=None
+    ):
         """
         Dump all entries from conntrack table with filters
 
@@ -162,17 +199,21 @@ class Conntrack(NFCTSocket):
                                              daddr='8.8.8.8')):
                 print("This entry is icmp to 8.8.8.8: {}".format(entry))
         """
-        for ndmsg in self.dump(mark=mark,
-                               mark_mask=mark_mask,
-                               tuple_orig=tuple_orig,
-                               tuple_reply=tuple_reply):
+        for ndmsg in self.dump(
+            mark=mark,
+            mark_mask=mark_mask,
+            tuple_orig=tuple_orig,
+            tuple_reply=tuple_reply,
+        ):
 
             if tuple_orig is not None and not tuple_orig.nla_eq(
-                    ndmsg['nfgen_family'], ndmsg.get_attr('CTA_TUPLE_ORIG')):
+                ndmsg['nfgen_family'], ndmsg.get_attr('CTA_TUPLE_ORIG')
+            ):
                 continue
 
             if tuple_reply is not None and not tuple_reply.nla_eq(
-                    ndmsg['nfgen_family'], ndmsg.get_attr('CTA_TUPLE_REPLY')):
+                ndmsg['nfgen_family'], ndmsg.get_attr('CTA_TUPLE_REPLY')
+            ):
                 continue
 
             yield ConntrackEntry(

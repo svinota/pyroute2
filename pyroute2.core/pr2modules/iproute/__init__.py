@@ -130,13 +130,16 @@ import sys
 from pr2modules import config
 from pr2modules.iproute.linux import RTNL_API
 from pr2modules.iproute.linux import IPBatch
+
 # compatibility fix -- LNST:
-from pr2modules.netlink.rtnl import (RTM_GETLINK,
-                                     RTM_NEWLINK,
-                                     RTM_DELLINK,
-                                     RTM_GETADDR,
-                                     RTM_NEWADDR,
-                                     RTM_DELADDR)
+from pr2modules.netlink.rtnl import (
+    RTM_GETLINK,
+    RTM_NEWLINK,
+    RTM_DELLINK,
+    RTM_GETADDR,
+    RTM_NEWADDR,
+    RTM_DELADDR,
+)
 
 if sys.platform.startswith('win'):
     from pr2modules.iproute.windows import IPRoute
@@ -148,14 +151,13 @@ else:
     from pr2modules.iproute.linux import IPRoute
     from pr2modules.iproute.linux import RawIPRoute
 
-classes = [RTNL_API,
-           IPBatch,
-           IPRoute,
-           RawIPRoute]
+classes = [RTNL_API, IPBatch, IPRoute, RawIPRoute]
 
-constants = [RTM_GETLINK,
-             RTM_NEWLINK,
-             RTM_DELLINK,
-             RTM_GETADDR,
-             RTM_NEWADDR,
-             RTM_DELADDR]
+constants = [
+    RTM_GETLINK,
+    RTM_NEWLINK,
+    RTM_DELLINK,
+    RTM_GETADDR,
+    RTM_NEWADDR,
+    RTM_DELADDR,
+]
