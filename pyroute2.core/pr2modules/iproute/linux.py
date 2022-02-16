@@ -1305,6 +1305,20 @@ class RTNL_API(object):
             # bring link up
             ip.link("set", index=x, state="up")
 
+        Seting bridge or tunnel attributes require `kind` to be
+        specified in order to properly encode `IFLA_LINKINFO`::
+
+            ip.link("set",
+                    index=x,
+                    kind="bridge",
+                    br_forward_delay=2000)
+
+            ip.link("set",
+                    index=x,
+                    kind="gre",
+                    gre_local="10.0.0.1",
+                    gre_remote="10.1.0.103")
+
         Keyword "state" is reserved. State can be "up" or "down",
         it is a shortcut::
 
