@@ -197,6 +197,8 @@ def load_ifinfmsg(schema, target, event):
                 schema.load_netlink(table, target, ifdata)
 
 
+ip_tunnels = ('gre', 'gretap', 'ip6gre', 'ip6gretap', 'ip6tnl', 'sit', 'ipip')
+
 schema_ifinfmsg = ifinfmsg.sql_schema().unique_index('index')
 
 schema_brinfmsg = (
@@ -742,15 +744,7 @@ class Interface(RTNL_Object):
             #
             # FIXME: make type plugins?
             kind = self['kind']
-            if kind in (
-                'gre',
-                'gretap',
-                'ip6gre',
-                'ip6gretap',
-                'ip6tnl',
-                'sit',
-                'ipip',
-            ):
+            if kind in ip_tunnels:
                 req['kind'] = kind
                 for key in self:
                     if (
@@ -759,18 +753,6 @@ class Interface(RTNL_Object):
                         and self[key]
                     ):
                         req[key] = self[key]
-                #
-                # tunnels don't send updates on a down interface
-                if (
-                    self['state'] == 'down'
-                    and req.get('state', 'down') == 'down'
-                ):
-                    #
-                    # so don't wait for updates on any changed
-                    # type specific attribute
-                    for key in tuple(self.changed):
-                        if key.startswith(f'{kind}_'):
-                            self.changed.remove(key)
         return req
 
     @check_auth('obj:modify')
@@ -851,6 +833,12 @@ class Interface(RTNL_Object):
                         self.api, 'get', **{'index': self['index']}
                     )
                     self.ndb._event_queue.put(update)
+            elif self['kind'] in ip_tunnels and self['state'] == 'down':
+                # force reading attributes for tunnels in the down state
+                update = self.sources[self['target']].api(
+                    self.api, 'get', index=self['index']
+                )
+                self.ndb._event_queue.put(update)
         elif method == 'add':
             if self['kind'] == 'tun':
                 self.load_sql()
