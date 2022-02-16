@@ -10,13 +10,11 @@ test_matrix = make_test_matrix(targets=['local', 'netns'])
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 @skip_if_not_supported
 def test_addr_add(context):
-    ifname = context.new_ifname
+    index, ifname = context.default_interface
     ipaddr = context.new_ipaddr
     ipr = context.ipr
     ndb = context.ndb
 
-    ipr.link('add', ifname=ifname, kind='dummy')
-    index = ndb.interfaces.wait(ifname=ifname, timeout=5)['index']
     ipr.addr('add', index=index, address=ipaddr, prefixlen=24)
     ndb.addresses.wait(index=index, address=ipaddr, timeout=5)
 
@@ -24,14 +22,12 @@ def test_addr_add(context):
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 @skip_if_not_supported
 def test_addr_replace(context):
-    ifname = context.new_ifname
+    index, ifname = context.default_interface
     ipaddr1 = context.new_ipaddr
     ipaddr2 = context.new_ipaddr
     ipr = context.ipr
     ndb = context.ndb
 
-    ipr.link('add', ifname=ifname, kind='dummy')
-    index = ndb.interfaces.wait(ifname=ifname, timeout=5)['index']
     ipr.addr('add', index=index, address=ipaddr1, prefixlen=24)
     ndb.addresses.wait(index=index, address=ipaddr1, timeout=5)
     ipr.addr('replace', index=index, address=ipaddr2, prefixlen=24)
@@ -41,14 +37,12 @@ def test_addr_replace(context):
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 @skip_if_not_supported
 def test_addr_add_local(context):
-    ifname = context.new_ifname
+    index, ifname = context.default_interface
     ipaddr1 = context.new_ipaddr
     ipaddr2 = context.new_ipaddr
     ipr = context.ipr
     ndb = context.ndb
 
-    ipr.link('add', ifname=ifname, kind='dummy')
-    index = ndb.interfaces.wait(ifname=ifname, timeout=5)['index']
     ipr.addr('add', index=index, address=ipaddr1, local=ipaddr2, prefixlen=24)
     ndb.addresses.wait(index=index, address=ipaddr1, local=ipaddr2, timeout=5)
 
@@ -56,14 +50,12 @@ def test_addr_add_local(context):
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 @skip_if_not_supported
 def test_addr_add_broadcast(context):
-    ifname = context.new_ifname
+    index, ifname = context.default_interface
     ipaddr1 = context.new_ipaddr
     ipaddr2 = context.new_ipaddr
     ipr = context.ipr
     ndb = context.ndb
 
-    ipr.link('add', ifname=ifname, kind='dummy')
-    index = ndb.interfaces.wait(ifname=ifname, timeout=5)['index']
     ipr.addr(
         'add', index=index, address=ipaddr1, broadcast=ipaddr2, prefixlen=24
     )
@@ -75,13 +67,11 @@ def test_addr_add_broadcast(context):
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 @skip_if_not_supported
 def test_addr_add_broadcast_default(context):
-    ifname = context.new_ifname
+    index, ifname = context.default_interface
     ipaddr = context.new_ipaddr
     ipr = context.ipr
     ndb = context.ndb
 
-    ipr.link('add', ifname=ifname, kind='dummy')
-    index = ndb.interfaces.wait(ifname=ifname, timeout=5)['index']
     ipr.addr('add', index=index, address=ipaddr, broadcast=True, prefixlen=24)
     interface = ndb.addresses.wait(index=index, address=ipaddr, timeout=5)
     assert interface['broadcast'] is not None
@@ -90,15 +80,13 @@ def test_addr_add_broadcast_default(context):
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 @skip_if_not_supported
 def test_addr_filter(context):
-    ifname = context.new_ifname
+    index, ifname = context.default_interface
     ipaddr1 = context.new_ipaddr
     ipaddr2 = context.new_ipaddr
     ipaddrB = context.new_ipaddr
     ipr = context.ipr
     ndb = context.ndb
 
-    ipr.link('add', ifname=ifname, kind='dummy')
-    index = ndb.interfaces.wait(ifname=ifname, timeout=5)['index']
     ipr.addr(
         'add', index=index, address=ipaddr1, broadcast=ipaddrB, prefixlen=24
     )
@@ -116,7 +104,7 @@ def test_addr_filter(context):
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 @skip_if_not_supported
 def test_addr_flush(context):
-    ifname = context.new_ifname
+    index, ifname = context.default_interface
     addresses = [
         context.new_ipaddr,
         context.new_ipaddr,
@@ -127,8 +115,6 @@ def test_addr_flush(context):
     ndb = context.ndb
     counter = 5
 
-    ipr.link('add', ifname=ifname, kind='dummy')
-    index = ndb.interfaces.wait(ifname=ifname, timeout=5)['index']
     for ipaddr in addresses:
         ipr.addr('add', index=index, address=ipaddr, prefixlen=24)
     for ipaddr in addresses:

@@ -2,6 +2,7 @@ import os
 import uuid
 import errno
 import pytest
+import getpass
 import logging
 import functools
 from collections import namedtuple
@@ -78,6 +79,8 @@ def make_test_matrix(targets=None, tables=None, dbs=None, types=None):
 ContextParams = namedtuple(
     'ContextParams', ('db_provider', 'db_spec', 'target', 'table', 'kind')
 )
+
+Interface = namedtuple('Interface', ('index', 'ifname'))
 
 
 class SpecContextManager(object):
@@ -165,6 +168,16 @@ class NDBContextManager(object):
         # IPAM
         self.ipnets = [allocate_network() for _ in range(5)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
+        #
+        # default interface (if running as root)
+        if getpass.getuser() == 'root':
+            ifname = self.new_ifname
+            index = self.ndb.interfaces.create(
+                ifname=ifname, kind='dummy'
+            ).commit()['index']
+            self.default_interface = Interface(index, ifname)
+        else:
+            self.default_interface = None
 
     def register(self, ifname=None, netns=None):
         '''
