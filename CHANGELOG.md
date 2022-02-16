@@ -1,6 +1,12 @@
 Changelog
 =========
 
+* 0.6.6
+    * tuntap: support loongarch <https://github.com/svinota/pyroute2/pull/824>
+    * ndb: fix routes cleanup <https://github.com/svinota/pyroute2/issues/849>
+    * ndb: support `in` for sources, interfaces and addresses
+    * ndb: support changing tunnel (gre, ipip, ...) attributes
+    * netlink: support NLM_F_DUMP_INTR <https://github.com/svinota/pyroute2/issues/874>
 * 0.6.5
     * ndb: fix `in` for sources: <https://github.com/svinota/pyroute2/issues/843>
     * core: provide entry_points aliases for legacy code: <https://github.com/svinota/pyroute2/issues/845>
