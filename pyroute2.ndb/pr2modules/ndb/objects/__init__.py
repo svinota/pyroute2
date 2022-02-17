@@ -925,10 +925,10 @@ class RTNL_Object(dict):
                 # comprare the tables
                 diff = self.ndb.schema.fetch(
                     '''
-                               SELECT * FROM %s_%s
-                                 EXCEPT
-                               SELECT * FROM %s
-                               '''
+                    SELECT * FROM %s_%s
+                      EXCEPT
+                    SELECT * FROM %s
+                    '''
                     % (table, self.ctxid, table)
                 )
                 for record in diff:
