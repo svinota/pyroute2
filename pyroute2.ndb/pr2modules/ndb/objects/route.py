@@ -96,6 +96,10 @@ from ..auth_manager import check_auth
 _dump_rt = ['main.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
 _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
 
+F_RTA_MULTIPATH = 1
+F_RTA_ENCAP = 2
+F_RTA_METRICS = 4
+
 
 def get_route_id(schema, target, event):
     keys = ['f_target = %s' % schema.plch]
@@ -156,6 +160,7 @@ def load_rtmsg(schema, target, event):
     # only for RTM_NEWROUTE events
     #
     if not event['header']['type'] % 2:
+        event['deps'] = 0
         #
         # RTA_MULTIPATH
         #
@@ -175,6 +180,7 @@ def load_rtmsg(schema, target, event):
                         schema.load_netlink, 'nh', target, mp[idx], 'routes'
                     )
                 )
+                event['deps'] |= F_RTA_MULTIPATH
         #
         # RTA_ENCAP
         #
@@ -190,6 +196,7 @@ def load_rtmsg(schema, target, event):
                     schema.load_netlink, 'enc_mpls', target, encap, 'routes'
                 )
             )
+            event['deps'] |= F_RTA_ENCAP
         #
         # RTA_METRICS
         #
@@ -206,6 +213,7 @@ def load_rtmsg(schema, target, event):
                     schema.load_netlink, 'metrics', target, metrics, 'routes'
                 )
             )
+            event['deps'] |= F_RTA_METRICS
     #
     if route_id is not None:
         event['route_id'] = route_id
@@ -272,6 +280,7 @@ rt_schema = (
     rtmsg.sql_schema()
     .push('route_id', 'TEXT UNIQUE')
     .push('gc_mark', 'INTEGER')
+    .push('deps', 'INTEGER')
     .unique_index(
         'family',
         'dst_len',
@@ -590,6 +599,7 @@ class Route(RTNL_Object):
         self.event_map = {rtmsg: "load_rtnlmsg"}
         dict.__setitem__(self, 'multipath', [])
         dict.__setitem__(self, 'metrics', {})
+        dict.__setitem__(self, 'deps', 0)
         super(Route, self).__init__(*argv, **kwarg)
 
     def complete_key(self, key):
@@ -754,39 +764,61 @@ class Route(RTNL_Object):
                     else:
                         na = [Target(x) for x in json.loads(value)]
                     dict.__setitem__(self, field, na)
-
-        if self.get('route_id') is not None:
-            enc = self.schema.fetch(
-                'SELECT * FROM enc_mpls WHERE f_route_id = %s'
-                % (self.schema.plch,),
-                (self['route_id'],),
-            )
-            enc = tuple(enc)
-            if enc:
-                na = [Target(x) for x in json.loads(enc[0][2])]
-                self.load_value('encap', na)
-
+        #
+        # fetch encap deps
+        if self['deps'] & F_RTA_ENCAP:
+            for _ in range(5):
+                enc = tuple(
+                    self.schema.fetch(
+                        'SELECT * FROM enc_mpls WHERE f_route_id = %s'
+                        % (self.schema.plch,),
+                        (self['route_id'],),
+                    )
+                )
+                if enc:
+                    na = [Target(x) for x in json.loads(enc[0][2])]
+                    self.load_value('encap', na)
+                    break
+                time.sleep(0.1)
+            else:
+                self.log.error('no encap loaded for %s' % (self['route_id'],))
+        #
+        #
         if not self.load_event.is_set():
             return
-
+        #
+        # fetch metrics
+        if self['deps'] & F_RTA_METRICS:
+            for _ in range(5):
+                metrics = tuple(
+                    self.schema.fetch(
+                        'SELECT * FROM metrics WHERE f_route_id = %s'
+                        % (self.schema.plch,),
+                        (self['route_id'],),
+                    )
+                )
+                if metrics:
+                    self['metrics'] = Metrics(
+                        self,
+                        self.view,
+                        {'route_id': self['route_id']},
+                        auth_managers=self.auth_managers,
+                    )
+                    break
+                time.sleep(0.1)
+            else:
+                self.log.error(
+                    'no metrics loaded for %s' % (self['route_id'],)
+                )
+        #
+        # fetch multipath
+        #
+        # FIXME: use self['deps']
         if 'nh_id' not in self and self.get('route_id') is not None:
             nhs = self.schema.fetch(
                 'SELECT * FROM nh WHERE f_route_id = %s' % (self.schema.plch,),
                 (self['route_id'],),
             )
-            metrics = self.schema.fetch(
-                'SELECT * FROM metrics WHERE f_route_id = %s'
-                % (self.schema.plch,),
-                (self['route_id'],),
-            )
-
-            if tuple(metrics):
-                self['metrics'] = Metrics(
-                    self,
-                    self.view,
-                    {'route_id': self['route_id']},
-                    auth_managers=self.auth_managers,
-                )
 
             flush = False
             idx = 0
