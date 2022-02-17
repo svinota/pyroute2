@@ -1,3 +1,4 @@
+import errno
 from pr2modules.config import AF_BRIDGE
 from pr2modules.common import basestring
 from pr2modules.netlink.rtnl.ndmsg import ndmsg
@@ -103,6 +104,15 @@ class Neighbour(RTNL_Object):
         kwarg['iclass'] = ndmsg
         self.event_map = {ndmsg: "load_rtnlmsg"}
         super(Neighbour, self).__init__(*argv, **kwarg)
+        self.fallback_for['add'][errno.EEXIST] = self.fallback_add
+
+    def fallback_add(self):
+        (
+            self.ndb._event_queue.put(
+                list(self.sources[self['target']].api(self.api, 'dump'))
+            )
+        )
+        self.load_sql()
 
     def complete_key(self, key):
         if isinstance(key, dict):

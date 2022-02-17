@@ -149,6 +149,7 @@ class RTNL_Object(dict):
     fields_cmp = {}
     fields_normalize = {}
 
+    fallback_for = None
     schema = None
     event_map = None
     state = None
@@ -316,6 +317,16 @@ class RTNL_Object(dict):
         if self.event_map is None:
             self.event_map = {}
         self._apply_script = []
+        self.fallback_for = {
+            'add': {errno.EEXIST: 'set', errno.EAGAIN: None},
+            'set': {errno.ENODEV: None},
+            'del': {
+                errno.ENODEV: None,  # interfaces
+                errno.ENOENT: None,  # rules
+                errno.ESRCH: None,  # routes
+                errno.EADDRNOTAVAIL: None,  # addresses
+            },
+        }
         if isinstance(key, dict):
             self.chain = key.pop('ndb_chain', None)
             create = key.pop('create', False)
@@ -811,7 +822,6 @@ class RTNL_Object(dict):
         self.log.debug('apply state: %s' % state)
 
         method = None
-        ignore = ()
         #
         if state in ('invalid', 'replace'):
             for k, v in tuple(self.items()):
@@ -825,21 +835,13 @@ class RTNL_Object(dict):
                 )
 
             method = 'add'
-            ignore = {errno.EEXIST: 'set', errno.EAGAIN: None}
         elif state == 'system':
             method = 'set'
         elif state == 'setns':
             method = 'set'
-            ignore = {errno.ENODEV: None}
         elif state == 'remove':
             method = 'del'
             req = idx_req
-            ignore = {
-                errno.ENODEV: None,  # interfaces
-                errno.ENOENT: None,  # rules
-                errno.ESRCH: None,  # routes
-                errno.EADDRNOTAVAIL: None,
-            }  # addresses
         else:
             raise Exception('state transition not supported')
 
@@ -859,25 +861,26 @@ class RTNL_Object(dict):
                 # required now only in some NDA corner cases
                 # must be moved to objects.neighbour
                 #
-                if e.code == errno.EEXIST:
-                    update = self.sources[self['target']].api(self.api, 'dump')
-                    update = list(update)
-                    self.ndb._event_queue.put(update)
-                    self.load_sql()
                 #
                 ##
-                if e.code in ignore:
+                if e.code in self.fallback_for[method]:
                     self.log.debug('ignore error %s for %s' % (e.code, self))
-                    if ignore[e.code] is not None:
+                    if self.fallback_for[method][e.code] is not None:
                         self.log.debug(
-                            'run fallback %s (%s)' % (ignore[e.code], req)
+                            'run fallback %s (%s)'
+                            % (self.fallback_for[method][e.code], req)
                         )
                         try:
-                            (
+                            if isinstance(
+                                self.fallback_for[method][e.code], str
+                            ):
                                 self.sources[self['target']].api(
-                                    self.api, ignore[e.code], **req
+                                    self.api,
+                                    self.fallback_for[method][e.code],
+                                    **req
                                 )
-                            )
+                            else:
+                                self.fallback_for[method][e.code]()
                         except NetlinkError:
                             pass
                 else:
