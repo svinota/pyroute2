@@ -828,17 +828,12 @@ class Interface(RTNL_Object):
                     }
                     for key in keys:
                         req[key] = self[key]
-                    (self.sources[self['target']].api(self.api, method, **req))
-                    update = self.sources[self['target']].api(
-                        self.api, 'get', **{'index': self['index']}
-                    )
-                    self.ndb._event_queue.put(update)
+                    self.sources[self['target']].api(self.api, method, **req)
+                    # FIXME: make a reasonable shortcut for this
+                    self.load_from_system()
             elif self['kind'] in ip_tunnels and self['state'] == 'down':
                 # force reading attributes for tunnels in the down state
-                update = self.sources[self['target']].api(
-                    self.api, 'get', index=self['index']
-                )
-                self.ndb._event_queue.put(update)
+                self.load_from_system()
         elif method == 'add':
             if self['kind'] == 'tun':
                 self.load_sql()
@@ -849,6 +844,15 @@ class Interface(RTNL_Object):
                     self.api, 'get', index=self['index']
                 )
                 self.ndb._event_queue.put(update)
+
+    def load_from_system(self):
+        (
+            self.ndb._event_queue.put(
+                self.sources[self['target']].api(
+                    self.api, 'get', index=self['index']
+                )
+            )
+        )
 
     def load_sql(self, *argv, **kwarg):
         spec = super(Interface, self).load_sql(*argv, **kwarg)
