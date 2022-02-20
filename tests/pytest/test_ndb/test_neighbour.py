@@ -45,6 +45,7 @@ def test_add_neighbour_chain(context):
     (
         context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
         .ipaddr.create(address=ipaddr, prefixlen=24)
+        .commit()
         .chain.neighbours.create(dst=neighbour, lladdr='00:11:22:33:44:55')
         .commit()
     )
