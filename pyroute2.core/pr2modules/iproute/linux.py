@@ -1013,6 +1013,18 @@ class RTNL_API(object):
         flags_replace = flags_change | NLM_F_CREATE
 
         msg = ndmsg.ndmsg()
+        # fix kwarg
+        # FIXME: move to req?
+        if 'nud' in kwarg:
+            kwarg['state'] = kwarg.pop('nud')
+        if 'state' not in kwarg:
+            kwarg['state'] = 'permanent'
+        if 'family' not in kwarg and 'dst' in kwarg:
+            if '.' in kwarg['dst']:
+                kwarg['family'] = AF_INET
+            elif ':' in kwarg['dst']:
+                kwarg['family'] = AF_INET6
+
         for field in msg.fields:
             if (
                 command == "dump"
@@ -1036,8 +1048,6 @@ class RTNL_API(object):
         }
 
         (command, flags) = commands.get(command, command)
-        if 'nud' in kwarg:
-            kwarg['state'] = kwarg.pop('nud')
         msg['family'] = msg['family'] or AF_INET
         msg['attrs'] = []
         # fix nud kwarg
