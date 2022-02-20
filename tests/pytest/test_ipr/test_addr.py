@@ -3,7 +3,7 @@ import pytest
 from pr2test.context_manager import make_test_matrix
 from pr2test.context_manager import skip_if_not_supported
 
-
+wait_timeout = 30
 test_matrix = make_test_matrix(targets=['local', 'netns'])
 
 
@@ -16,7 +16,7 @@ def test_addr_add(context):
     ndb = context.ndb
 
     ipr.addr('add', index=index, address=ipaddr, prefixlen=24)
-    ndb.addresses.wait(index=index, address=ipaddr, timeout=5)
+    ndb.addresses.wait(index=index, address=ipaddr, timeout=wait_timeout)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -29,9 +29,9 @@ def test_addr_replace(context):
     ndb = context.ndb
 
     ipr.addr('add', index=index, address=ipaddr1, prefixlen=24)
-    ndb.addresses.wait(index=index, address=ipaddr1, timeout=5)
+    ndb.addresses.wait(index=index, address=ipaddr1, timeout=wait_timeout)
     ipr.addr('replace', index=index, address=ipaddr2, prefixlen=24)
-    ndb.addresses.wait(index=index, address=ipaddr2, timeout=5)
+    ndb.addresses.wait(index=index, address=ipaddr2, timeout=wait_timeout)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -44,7 +44,9 @@ def test_addr_add_local(context):
     ndb = context.ndb
 
     ipr.addr('add', index=index, address=ipaddr1, local=ipaddr2, prefixlen=24)
-    ndb.addresses.wait(index=index, address=ipaddr1, local=ipaddr2, timeout=5)
+    ndb.addresses.wait(
+        index=index, address=ipaddr1, local=ipaddr2, timeout=wait_timeout
+    )
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -60,7 +62,7 @@ def test_addr_add_broadcast(context):
         'add', index=index, address=ipaddr1, broadcast=ipaddr2, prefixlen=24
     )
     ndb.addresses.wait(
-        index=index, address=ipaddr1, broadcast=ipaddr2, timeout=5
+        index=index, address=ipaddr1, broadcast=ipaddr2, timeout=wait_timeout
     )
 
 
@@ -73,7 +75,9 @@ def test_addr_add_broadcast_default(context):
     ndb = context.ndb
 
     ipr.addr('add', index=index, address=ipaddr, broadcast=True, prefixlen=24)
-    interface = ndb.addresses.wait(index=index, address=ipaddr, timeout=5)
+    interface = ndb.addresses.wait(
+        index=index, address=ipaddr, timeout=wait_timeout
+    )
     assert interface['broadcast'] is not None
 
 
@@ -93,8 +97,8 @@ def test_addr_filter(context):
     ipr.addr(
         'add', index=index, address=ipaddr2, broadcast=ipaddrB, prefixlen=24
     )
-    ndb.addresses.wait(index=index, address=ipaddr1, timeout=5)
-    ndb.addresses.wait(index=index, address=ipaddr2, timeout=5)
+    ndb.addresses.wait(index=index, address=ipaddr1, timeout=wait_timeout)
+    ndb.addresses.wait(index=index, address=ipaddr2, timeout=wait_timeout)
     assert len(ipr.get_addr(index=index)) == 2
     assert len(ipr.get_addr(address=ipaddr1)) == 1
     assert len(ipr.get_addr(broadcast=ipaddrB)) == 2
@@ -118,7 +122,7 @@ def test_addr_flush(context):
     for ipaddr in addresses:
         ipr.addr('add', index=index, address=ipaddr, prefixlen=24)
     for ipaddr in addresses:
-        ndb.addresses.wait(index=index, address=ipaddr, timeout=5)
+        ndb.addresses.wait(index=index, address=ipaddr, timeout=wait_timeout)
     ipr.flush_addr(index=index)
     while counter:
         for ipaddr in tuple(addresses):
