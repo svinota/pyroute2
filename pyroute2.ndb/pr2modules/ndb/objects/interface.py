@@ -530,6 +530,48 @@ class Interface(RTNL_Object):
         return self
 
     @check_auth('obj:modify')
+    def add_neighbour(self, spec=None, **kwarg):
+        spec = spec or dict(kwarg)
+
+        def do_add_neighbour(self, spec):
+            try:
+                self.neighbours.create(spec).apply()
+                return []
+            except Exception as e_s:
+                e_s.trace = traceback.format_stack()
+                return [e_s]
+
+        self._apply_script.append((do_add_neighbour, (self, spec), {}))
+        return self
+
+    @check_auth('obj:modify')
+    def del_neighbour(self, spec=None, **kwarg):
+        spec = spec or dict(kwarg)
+
+        def do_del_neighbour(self, spec):
+            ret = []
+            if isinstance(spec, basestring):
+                specs = [spec]
+            elif callable(spec):
+                specs = self.ipaddr.dump().filter(spec)
+            else:
+                specs = self.ipaddr.dump().filter(**spec)
+            for sp in specs:
+                try:
+                    ret.append(self.neighbours.locate(sp).remove().apply())
+                except KeyError:
+                    pass
+                except Exception as e_s:
+                    e_s.trace = traceback.format_stack()
+                    ret.append(e_s)
+            if not ret:
+                ret = [KeyError('no neighbour records matched')]
+            return ret
+
+        self._apply_script.append((do_del_neighbour, (self, spec), {}))
+        return self
+
+    @check_auth('obj:modify')
     def add_ip(self, spec=None, **kwarg):
         if spec is None and not kwarg:
             raise TypeError('ip spec is required')
