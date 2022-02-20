@@ -17,6 +17,17 @@ from pr2modules.common import uifname
 from pr2modules.common import basestring
 
 
+def skip_if_not_implemented(func):
+    @functools.wraps(func)
+    def test_wrapper(context):
+        try:
+            return func(context)
+        except (AttributeError, NotImplementedError) as e:
+            pytest.skip('feature not implemented')
+
+    return test_wrapper
+
+
 def skip_if_not_supported(func):
     @functools.wraps(func)
     def test_wrapper(context):
