@@ -51,6 +51,23 @@ def address_exists(netns=None, **kwarg):
     return len(ret) == 1
 
 
+def neighbour_exists(netns=None, *argv, **kwarg):
+    ret = 0
+    ipr = None
+
+    if netns is None:
+        ipr = IPRoute()
+    else:
+        ipr = NetNS(netns)
+
+    spec = {}
+    spec.update(kwarg)
+    ret = list(ipr.get_neighbours(*argv, **spec))
+    ipr.close()
+
+    return len(ret) >= 1
+
+
 def route_exists(netns=None, **kwarg):
     ret = 0
     ipr = None
