@@ -114,6 +114,12 @@ class Neighbour(RTNL_Object):
         )
         self.load_sql()
 
+    @staticmethod
+    def spec_normalize(spec):
+        if 'index' in spec:
+            spec['ifindex'] = spec.pop('index')
+        return spec
+
     def complete_key(self, key):
         if isinstance(key, dict):
             ret_key = key
