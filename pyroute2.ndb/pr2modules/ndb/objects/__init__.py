@@ -127,6 +127,7 @@ class Spec(object):
 
     def load_context(self, context):
         self.spec.update(context)
+        self.normalize()
         return self
 
     @property
