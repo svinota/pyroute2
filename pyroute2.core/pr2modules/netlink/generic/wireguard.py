@@ -217,6 +217,11 @@ class wgmsg(genlmsg):
             def decode(self):
                 nla.decode(self)
                 family = self.get_attr('WGALLOWEDIP_A_FAMILY')
+                if family is None:
+                    # Prevent when decode() is called without attrs because all
+                    # datas transfered to 'value' entry.
+                    #  {'attrs': [], 'value': [{'attrs' ...
+                    return
                 ipaddr = self.get_attr('WGALLOWEDIP_A_IPADDR')
                 cidr = self.get_attr('WGALLOWEDIP_A_CIDR_MASK')
                 self['addr'] = '{ipaddr}/{cidr}'.format(
