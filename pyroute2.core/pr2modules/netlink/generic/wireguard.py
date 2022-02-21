@@ -184,7 +184,7 @@ class wgmsg(genlmsg):
                 if self['family'] == AF_INET:
                     self['addr'] = inet_ntoa(pack('>I', self['addr4']))
                 else:
-                    self['addr'] = inet_ntoa(AF_INET6, self['addr6'])
+                    self['addr'] = inet_ntop(AF_INET6, self['addr6'])
                 del self['addr4']
                 del self['addr6']
 
