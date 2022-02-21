@@ -176,6 +176,7 @@ class wgmsg(genlmsg):
                 ('port', '>H'),
                 ('addr4', '>I'),
                 ('addr6', 's'),
+                ('scope_id', '>I'),
             )
 
             def decode(self):
