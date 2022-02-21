@@ -64,22 +64,27 @@ NOTES:
 '''
 
 
-from base64 import b64encode, b64decode
-from binascii import a2b_hex
 import errno
 import logging
-from socket import inet_ntoa, inet_aton, inet_pton, AF_INET, AF_INET6
-from struct import pack, unpack
+from base64 import b64decode
+from base64 import b64encode
+from binascii import a2b_hex
+from socket import AF_INET
+from socket import AF_INET6
+from socket import inet_aton
+from socket import inet_ntoa
+from socket import inet_pton
+from struct import pack
+from struct import unpack
 from time import ctime
 
-from pr2modules.netlink import genlmsg
-from pr2modules.netlink import nla
+from pr2modules.netlink import NLA_F_NESTED
 from pr2modules.netlink import NLM_F_ACK
 from pr2modules.netlink import NLM_F_DUMP
-from pr2modules.netlink import NLA_F_NESTED
 from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink import genlmsg
+from pr2modules.netlink import nla
 from pr2modules.netlink.generic import GenericNetlinkSocket
-
 
 # Defines from uapi/wireguard.h
 WG_GENL_NAME = "wireguard"
