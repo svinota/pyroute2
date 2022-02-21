@@ -71,12 +71,8 @@ from base64 import b64encode
 from binascii import a2b_hex
 from socket import AF_INET
 from socket import AF_INET6
-from socket import inet_aton
-from socket import inet_ntoa
 from socket import inet_ntop
 from socket import inet_pton
-from struct import pack
-from struct import unpack
 from time import ctime
 
 from pr2modules.netlink import NLA_F_NESTED
@@ -174,7 +170,7 @@ class wgmsg(genlmsg):
             fields = (
                 ('family', 'H'),
                 ('port', '>H'),
-                ('addr4', '>I'),
+                ('addr4', '4s'),
                 ('addr6', '16s'),
                 ('scope_id', '>I'),
             )
@@ -182,7 +178,7 @@ class wgmsg(genlmsg):
             def decode(self):
                 nla.decode(self)
                 if self['family'] == AF_INET:
-                    self['addr'] = inet_ntoa(pack('>I', self['addr4']))
+                    self['addr'] = inet_ntop(AF_INET, self['addr4'])
                 else:
                     self['addr'] = inet_ntop(AF_INET6, self['addr6'])
                 del self['addr4']
@@ -191,11 +187,11 @@ class wgmsg(genlmsg):
             def encode(self):
                 if self['addr'].find(":") > -1:
                     self['family'] = AF_INET6
-                    self['addr4'] = 0  # Set to NULL
+                    self['addr4'] = b'\x00\x00\x00\x00'
                     self['addr6'] = inet_pton(AF_INET6, self['addr'])
                 else:
                     self['family'] = AF_INET
-                    self['addr4'] = unpack('>I', inet_aton(self['addr']))[0]
+                    self['addr4'] = inet_pton(AF_INET, self['addr'])
                     self['addr6'] = b'\x00\x00\x00\x00\x00\x00\x00\x00'
                 self['port'] = int(self['port'])
                 nla.encode(self)
@@ -364,14 +360,10 @@ class WireGuard(GenericNetlinkSocket):
                 raise ValueError('No CIDR set in allowed ip #{}'.format(index))
 
             addr, mask = ip.split('/')
-            if addr.find(":") > -1:
-                allowed_ip.append(['WGALLOWEDIP_A_FAMILY', AF_INET6])
-                allowed_ip.append(
-                    ['WGALLOWEDIP_A_IPADDR', inet_pton(AF_INET6, addr)]
-                )
-            else:
-                allowed_ip.append(['WGALLOWEDIP_A_FAMILY', AF_INET])
-                allowed_ip.append(['WGALLOWEDIP_A_IPADDR', inet_aton(addr)])
+
+            family = AF_INET if addr.find(":") == -1 else AF_INET6
+            allowed_ip.append(['WGALLOWEDIP_A_FAMILY', family])
+            allowed_ip.append(['WGALLOWEDIP_A_IPADDR', inet_pton(family, addr)])
             allowed_ip.append(['WGALLOWEDIP_A_CIDR_MASK', int(mask)])
 
         return ret
