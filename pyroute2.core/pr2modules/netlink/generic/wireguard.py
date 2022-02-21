@@ -73,6 +73,7 @@ from socket import AF_INET
 from socket import AF_INET6
 from socket import inet_aton
 from socket import inet_ntoa
+from socket import inet_ntop
 from socket import inet_pton
 from struct import pack
 from struct import unpack
@@ -218,15 +219,13 @@ class wgmsg(genlmsg):
 
             def decode(self):
                 nla.decode(self)
-                if self.get_attr('WGALLOWEDIP_A_FAMILY') == AF_INET:
-                    pre = self.get_attr('WGALLOWEDIP_A_IPADDR').replace(
-                        ':', ''
-                    )
-                    self['addr'] = inet_ntoa(a2b_hex(pre))
-                else:
-                    self['addr'] = self.get_attr('WGALLOWEDIP_A_IPADDR')
-                wgaddr = self.get_attr('WGALLOWEDIP_A_CIDR_MASK')
-                self['addr'] = '{0}/{1}'.format(self['addr'], wgaddr)
+                family = self.get_attr('WGALLOWEDIP_A_FAMILY')
+                ipaddr = self.get_attr('WGALLOWEDIP_A_IPADDR')
+                cidr = self.get_attr('WGALLOWEDIP_A_CIDR_MASK')
+                self['addr'] = '{ipaddr}/{cidr}'.format(
+                    ipaddr=inet_ntop(family, a2b_hex(ipaddr.replace(':', ''))),
+                    cidr=cidr
+                )
 
     class parse_wg_key(nla):
         fields = (('key', '32s'),)
