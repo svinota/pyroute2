@@ -175,7 +175,7 @@ class wgmsg(genlmsg):
                 ('family', 'H'),
                 ('port', '>H'),
                 ('addr4', '>I'),
-                ('addr6', 's'),
+                ('addr6', '16s'),
                 ('scope_id', '>I'),
             )
 
