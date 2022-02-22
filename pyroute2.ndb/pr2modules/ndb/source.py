@@ -76,6 +76,7 @@ import errno
 import socket
 import struct
 import threading
+import importlib
 from pr2modules.common import basestring
 from pr2modules.iproute.linux import IPRoute
 from pr2modules.remote import RemoteIPRoute
@@ -158,7 +159,7 @@ class Source(dict):
         self.persistent = spec.pop('persistent', True)
         self.event = spec.pop('event')
         # RTNL API
-        self.nl_prime = self.vmap[self.kind]
+        self.nl_prime = self.get_prime(self.kind)
         self.nl_kwarg = spec
         #
         if self.ndb.messenger is not None:
@@ -269,6 +270,11 @@ class Source(dict):
         # specific compare
         if isinstance(right, basestring):
             return right == left['name']
+
+    def get_prime(self, name):
+        return self.vmap.get(self.kind, None) or getattr(
+            importlib.import_module('pyroute2'), self.kind
+        )
 
     def api(self, name, *argv, **kwarg):
         for _ in range(100):  # FIXME make a constant
