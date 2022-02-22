@@ -312,7 +312,7 @@ class Source(dict):
             ('IFLA_ADDRESS', '00:00:00:00:00:00'),
         ]
         zero_if.encode()
-        self.evq.put([zero_if])
+        self.evq.put([zero_if], source=self.target)
 
     def receiver(self):
         #
@@ -321,8 +321,7 @@ class Source(dict):
         #
         # The routine exists on an event with error code == 104
         #
-        stop = False
-        while not stop:
+        while self.state.get() != 'stop':
             with self.lock:
                 if self.shutdown.is_set():
                     break
@@ -353,45 +352,58 @@ class Source(dict):
                         self.ndb.schema.flush(self.target)
                         if self.kind in ('local', 'netns', 'remote'):
                             self.fake_zero_if()
-                        self.evq.put(self.nl.dump())
+                        self.evq.put(self.nl.dump(), source=self.target)
                     finally:
                         self.ndb.schema.allow_read(True)
-                    self.started.set()
-                    self.shutdown.clear()
-                    self.state.set('running')
-                    if self.event is not None:
-                        self.evq.put((cmsg_event(self.target, self.event),))
-                    else:
-                        self.evq.put((cmsg_sstart(self.target),))
                 except Exception as e:
                     self.started.set()
                     self.state.set('failed')
                     self.log.error('source error: %s %s' % (type(e), e))
                     try:
-                        self.evq.put((cmsg_failed(self.target),))
+                        self.evq.put(
+                            (cmsg_failed(self.target),), source=self.target
+                        )
                     except ShutdownException:
-                        stop = True
+                        self.state.set('stop')
                         break
                     if self.persistent:
                         self.log.debug('sleeping before restart')
+                        self.state.set('restart')
                         self.shutdown.wait(SOURCE_FAIL_PAUSE)
                         if self.shutdown.is_set():
                             self.log.debug('source shutdown')
-                            stop = True
+                            self.state.set('stop')
                             break
                     else:
                         self.event.set()
                         return
                     continue
 
-            while not stop:
+            with self.lock:
+                if self.state.get() == 'loading':
+                    if self.event is not None:
+                        self.evq.put(
+                            (cmsg_event(self.target, self.event),),
+                            source=self.target,
+                        )
+                    else:
+                        self.evq.put(
+                            (cmsg_sstart(self.target),), source=self.target
+                        )
+                    self.started.set()
+                    self.shutdown.clear()
+                    self.state.set('running')
+
+            while self.state.get() not in ('stop', 'restart'):
                 try:
                     msg = tuple(self.nl.get())
                 except Exception as e:
                     self.log.error('source error: %s %s' % (type(e), e))
                     msg = None
-                    if not self.persistent:
-                        stop = True
+                    if self.persistent:
+                        self.state.set('restart')
+                    else:
+                        self.state.set('stop')
                     break
 
                 code = 0
@@ -399,14 +411,14 @@ class Source(dict):
                     code = msg[0]['header']['error'].code
 
                 if msg is None or code == errno.ECONNRESET:
-                    stop = True
+                    self.state.set('stop')
                     break
 
                 self.ndb.schema._allow_write.wait()
                 try:
-                    self.evq.put(msg)
+                    self.evq.put(msg, source=self.target)
                 except ShutdownException:
-                    stop = True
+                    self.state.set('stop')
                     break
 
         # thus we make sure that all the events from
@@ -424,7 +436,7 @@ class Source(dict):
     def sync(self):
         self.log.debug('sync')
         sync = threading.Event()
-        self.evq.put((cmsg_event(self.target, sync),))
+        self.evq.put((cmsg_event(self.target, sync),), source=self.target)
         sync.wait()
 
     def start(self):

@@ -755,7 +755,7 @@ class SourcesView(View):
         elif isinstance(key, dict) and 'target' in key.keys():
             target = key['target']
         else:
-            raise ValueError('key format not supported')
+            raise KeyError()
 
         if target in self.cache:
             return self.cache[target]
@@ -1254,11 +1254,13 @@ class NDB(object):
                     if time.time() - self.gctime > config.gc_timeout:
                         self.gctime = time.time()
             except Exception as e:
-                self.log.error('exception <%s> in source %s' % (e, target))
+                self.log.error(f'exception <{e}> in source {source}')
                 # restart the target
                 try:
-                    self.sources[target].restart(reason=e)
+                    self.log.debug(f'requesting source {source} restart')
+                    self.sources[source].state.set('restart')
                 except KeyError:
+                    self.log.debug(f'key error for {source}')
                     pass
 
         # release all the sources
