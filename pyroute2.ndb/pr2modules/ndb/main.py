@@ -882,14 +882,14 @@ class EventQueue(object):
     def __init__(self, *argv, **kwarg):
         self._bypass = self._queue = queue.Queue(*argv, **kwarg)
 
-    def put(self, *argv, **kwarg):
-        return self._queue.put(*argv, **kwarg)
+    def put(self, msg, source=None):
+        return self._queue.put((source, msg))
 
     def shutdown(self):
         self._queue = DeadEnd()
 
-    def bypass(self, *argv, **kwarg):
-        return self._bypass.put(*argv, **kwarg)
+    def bypass(self, msg, source=None):
+        return self._bypass.put((source, msg))
 
     def get(self, *argv, **kwarg):
         return self._bypass.get(*argv, **kwarg)
@@ -1185,9 +1185,11 @@ class NDB(object):
                 self.register_handler(event, handler)
 
         stop = False
+        source = None
         reschedule = []
         while not stop:
-            events = Events(event_queue.get(), reschedule)
+            source, events = event_queue.get()
+            events = Events(events, reschedule)
             reschedule = []
             try:
                 for event in events:
