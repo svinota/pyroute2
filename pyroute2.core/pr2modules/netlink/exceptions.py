@@ -69,3 +69,7 @@ class NetlinkDumpInterrupted(NetlinkError):
 
 class SkipInode(Exception):
     pass
+
+
+class ChaoticException(Exception):
+    pass

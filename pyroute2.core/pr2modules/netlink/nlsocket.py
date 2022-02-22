@@ -84,6 +84,7 @@ import os
 import sys
 import time
 import errno
+import random
 import select
 import struct
 import logging
@@ -118,6 +119,7 @@ from pr2modules.netlink import NLM_F_MULTI
 from pr2modules.netlink import NLM_F_REQUEST
 from pr2modules.netlink import NLM_F_DUMP_INTR
 from pr2modules.netlink import SOL_NETLINK
+from pr2modules.netlink.exceptions import ChaoticException
 from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.netlink.exceptions import NetlinkDumpInterrupted
 from pr2modules.netlink.exceptions import NetlinkDecodeError
@@ -1154,3 +1156,13 @@ class NetlinkSocket(NetlinkMixin):
 
         # Common shutdown procedure
         self._sock.close()
+
+
+class ChaoticNetlinkSocket(NetlinkSocket):
+
+    success_rate = 0.7
+
+    def get(self, *argv, **kwarg):
+        if random.random() > self.success_rate:
+            raise ChaoticException()
+        return super(ChaoticNetlinkSocket, self).get(*argv, **kwarg)

@@ -9,6 +9,7 @@ from pr2modules.proxy import NetlinkProxy
 from pr2modules.netlink import NETLINK_ROUTE
 from pr2modules.netlink.nlsocket import NetlinkSocket
 from pr2modules.netlink.nlsocket import BatchSocket
+from pr2modules.netlink.nlsocket import ChaoticNetlinkSocket
 from pr2modules.netlink import rtnl
 from pr2modules.netlink.rtnl.marshal import MarshalRtnl
 
@@ -109,6 +110,10 @@ class IPRSocketMixin(object):
 
 
 class IPBatchSocket(IPRSocketMixin, BatchSocket):
+    pass
+
+
+class ChaoticIPRSocket(IPRSocketMixin, ChaoticNetlinkSocket):
     pass
 
 

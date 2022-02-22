@@ -72,6 +72,7 @@ from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pr2modules.netlink.rtnl.ifstatsmsg import ifstatsmsg
 from pr2modules.netlink.rtnl.iprsocket import IPRSocket
 from pr2modules.netlink.rtnl.iprsocket import IPBatchSocket
+from pr2modules.netlink.rtnl.iprsocket import ChaoticIPRSocket
 from pr2modules.netlink.rtnl.riprsocket import RawIPRSocket
 from pr2modules.netlink.rtnl.nsidmsg import nsidmsg
 from pr2modules.netlink.rtnl.nsinfmsg import nsinfmsg
@@ -2307,6 +2308,14 @@ class RawIPRoute(RTNL_API, RawIPRSocket):
     '''
     The same as `IPRoute`, but does not use the netlink proxy.
     Thus it can not manage e.g. tun/tap interfaces.
+    '''
+
+    pass
+
+
+class ChaoticIPRoute(RTNL_API, ChaoticIPRSocket):
+    '''
+    IPRoute interface for chaotic tests - raising exceptions randomly.
     '''
 
     pass
