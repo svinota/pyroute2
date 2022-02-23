@@ -338,7 +338,7 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_WOWLAN_TRIGGERS', 'hex'),
                ('NL80211_ATTR_WOWLAN_TRIGGERS_SUPPORTED', 'hex'),
                ('NL80211_ATTR_SCHED_SCAN_INTERVAL', 'hex'),
-               ('NL80211_ATTR_INTERFACE_COMBINATIONS', 'hex'),
+               ('NL80211_ATTR_INTERFACE_COMBINATIONS', '*combination'),
                ('NL80211_ATTR_SOFTWARE_IFTYPES', 'hex'),
                ('NL80211_ATTR_REKEY_DATA', 'hex'),
                ('NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS', 'uint8'),
@@ -521,6 +521,42 @@ class nl80211cmd(genlmsg):
                ('NL80211_ATTR_SAR_SPEC', 'hex'),
                ('NL80211_ATTR_DISABLE_HE', 'hex'),
                ('NUM_NL80211_ATTR', 'hex'))
+
+    class combination(nla):
+
+        class limits(nla):
+            class iftype(nla):
+                prefix = 'NL80211_IFTYPE_'
+                nla_map = (('NL80211_IFTYPE_UNSPECIFIED', 'flag'),
+                           ('NL80211_IFTYPE_ADHOC', 'flag'),
+                           ('NL80211_IFTYPE_STATION', 'flag'),
+                           ('NL80211_IFTYPE_AP', 'flag'),
+                           ('NL80211_IFTYPE_AP_VLAN', 'flag'),
+                           ('NL80211_IFTYPE_WDS', 'flag'),
+                           ('NL80211_IFTYPE_MONITOR', 'flag'),
+                           ('NL80211_IFTYPE_MESH_POINT', 'flag'),
+                           ('NL80211_IFTYPE_P2P_CLIENT', 'flag'),
+                           ('NL80211_IFTYPE_P2P_GO', 'flag'),
+                           ('NL80211_IFTYPE_P2P_DEVICE', 'flag'),
+                           ('NL80211_IFTYPE_OCB', 'flag'),
+                           ('NL80211_IFTYPE_NAN', 'flag'),
+                           )
+
+            prefix = 'NL80211_IFACE_LIMIT_'
+            nla_map = (('__NL80211_IFACE_LIMIT_INVALID', 'hex'),
+                       ('NL80211_IFACE_LIMIT_MAX', 'uint32'),
+                       ('NL80211_IFACE_LIMIT_TYPES', 'iftype'),
+                       )
+
+        prefix = 'NL80211_IFACE_COMB_'
+        nla_map = (('__NL80211_IFACE_COMB_INVALID', 'hex'),
+                   ('NL80211_IFACE_COMB_LIMITS', '*limits'),
+                   ('NL80212_IFACE_COMB_MAXNUM', 'uint32'),
+                   ('NL80212_IFACE_COMB_STA_AP_BI_MATCH', 'flag'),
+                   ('NL80211_IFACE_COMB_NUM_CHANNELS', 'uint32'),
+                   ('NL80211_IFACE_COMB_RADAR_DETECT_WIDTHS', 'uint32'),
+                   ('NL80211_IFACE_COMB_RADAR_DETECT_REGIONS', 'uint32'),
+                   ('NL80211_IFACE_COMB_BI_MIN_GCD', 'uint32'))
 
     class survey_info(nla):
         prefix = 'NL80211_SURVEY_INFO_'
