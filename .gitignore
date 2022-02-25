@@ -37,9 +37,16 @@ tests-workspaces/
 pyroute2.core/pr2modules/config/version.py
 pyroute2/setup.cfg
 pyroute2.*/setup.cfg
-pyroute2.*/setup.py
 pyroute2.*/Makefile
 pyroute2.*/MANIFEST.in
+pyroute2.core/setup.py
+pyroute2.ethtool/setup.py
+pyroute2.ipdb/setup.py
+pyroute2.ipset/setup.py
+pyroute2.ndb/setup.py
+pyroute2.nftables/setup.py
+pyroute2.nslink/setup.py
+pyroute2.protocols/setup.py
 pyroute2/config.json
 pyroute2.minimal/config.json
 */LICENSE*
