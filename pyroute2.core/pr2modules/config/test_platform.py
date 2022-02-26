@@ -8,7 +8,7 @@ import struct
 import threading
 from pr2modules import config
 from pr2modules.common import uifname
-from pr2modules import RawIPRoute
+from pr2modules.iproute.linux import RawIPRoute
 from pr2modules.netlink.rtnl import RTMGRP_LINK
 
 
@@ -172,6 +172,24 @@ class TestCapsRtnl(object):
         Return collected uname
         '''
         return config.uname
+
+    def test_machine(self):
+        '''
+        Return machine, arch and byte order
+        '''
+        return (config.machine, config.arch, sys.byteorder)
+
+    def test_parsed_kernel_version(self):
+        '''
+        Returned parsed kernel
+        '''
+        return config.kernel
+
+    def test_uid_gid(self):
+        '''
+        Return current user/group id
+        '''
+        return (os.getuid(), os.getgid())
 
     def test_python_version(self):
         '''

@@ -196,7 +196,7 @@ pytest: check_parameters test-format
 		./tests/run_pytest.sh
 
 test-platform:
-	@${python} -c "\
+	@cd pyroute2.core; ${python} -c "\
 import logging;\
 logging.basicConfig();\
 from pr2modules.config.test_platform import TestCapsRtnl;\
