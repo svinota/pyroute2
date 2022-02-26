@@ -1,6 +1,17 @@
 import socket
 import platform
 import multiprocessing
+import re
+
+kernel_version_re = re.compile('^[0-9.]+')
+
+
+def parse_kernel_version(kernel_name):
+    match_obj = kernel_version_re.match(kernel_name)
+    if match_obj is None:
+        return []
+    return [int(x) for x in kernel_name[0 : match_obj.end()].split('.') if x]
+
 
 SocketBase = socket.socket
 MpPipe = multiprocessing.Pipe
@@ -22,7 +33,7 @@ cache_expire = 60
 uname = tuple(platform.uname())
 machine = platform.machine()
 arch = platform.architecture()[0]
-kernel = [int(x) for x in uname[2].split('-')[0].split('.')]
+kernel = parse_kernel_version(uname[2])
 
 AF_BRIDGE = getattr(socket, 'AF_BRIDGE', 7)
 AF_NETLINK = getattr(socket, 'AF_NETLINK', 16)
