@@ -319,7 +319,7 @@ class RTNL_Object(dict):
             self.event_map = {}
         self._apply_script = []
         self.fallback_for = {
-            'add': {errno.EEXIST: 'set', errno.EAGAIN: None},
+            'add': {errno.EEXIST: self.fallback_add, errno.EAGAIN: None},
             'set': {errno.ENODEV: None},
             'del': {
                 errno.ENODEV: None,  # interfaces
@@ -771,6 +771,21 @@ class RTNL_Object(dict):
     def hook_apply(self, method, **spec):
         pass
 
+    def fallback_add(self, idx_req, req):
+        (
+            self.ndb._event_queue.put(
+                self.sources[self['target']].api(self.api, 'set', **req),
+                source=self['target'],
+            )
+        )
+        (
+            self.ndb._event_queue.put(
+                self.sources[self['target']].api(self.api, 'get', **idx_req),
+                source=self['target'],
+            )
+        )
+        self.load_sql()
+
     @check_auth('obj:modify')
     def apply(self, rollback=False, req_filter=None):
         '''
@@ -878,10 +893,10 @@ class RTNL_Object(dict):
                                 self.sources[self['target']].api(
                                     self.api,
                                     self.fallback_for[method][e.code],
-                                    **req
+                                    **req,
                                 )
                             else:
-                                self.fallback_for[method][e.code]()
+                                self.fallback_for[method][e.code](idx_req, req)
                         except NetlinkError:
                             pass
                 else:

@@ -106,10 +106,11 @@ class Neighbour(RTNL_Object):
         super(Neighbour, self).__init__(*argv, **kwarg)
         self.fallback_for['add'][errno.EEXIST] = self.fallback_add
 
-    def fallback_add(self):
+    def fallback_add(self, idx_req, req):
         (
             self.ndb._event_queue.put(
-                list(self.sources[self['target']].api(self.api, 'dump'))
+                self.sources[self['target']].api(self.api, 'dump'),
+                source=self['target'],
             )
         )
         self.load_sql()
