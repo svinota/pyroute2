@@ -171,7 +171,7 @@ class Source(dict):
         self.shutdown_lock = threading.RLock()
         self.started.clear()
         self.log = ndb.log.channel('sources.%s' % self.target)
-        self.state = State(log=self.log)
+        self.state = State(log=self.log, wait_list=['running'])
         self.state.set('init')
         self.ndb.schema.execute(
             '''
@@ -280,6 +280,7 @@ class Source(dict):
         for _ in range(100):  # FIXME make a constant
             with self.lock:
                 try:
+                    self.log.debug(f'source api run {name} {argv} {kwarg}')
                     return getattr(self.nl, name)(*argv, **kwarg)
                 except (
                     NetlinkError,
@@ -293,7 +294,7 @@ class Source(dict):
                     raise
                 except Exception as e:
                     # probably the source is restarting
-                    self.log.debug('source api error: %s' % e)
+                    self.log.debug(f'source api error: <{e}>')
                     time.sleep(1)
         raise RuntimeError('api call failed')
 

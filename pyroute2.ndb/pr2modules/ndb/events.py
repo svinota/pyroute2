@@ -1,4 +1,5 @@
 import time
+import threading
 
 
 class SyncStart(Exception):
@@ -48,11 +49,16 @@ class State(object):
 
     events = None
 
-    def __init__(self, prime=None, log=None):
+    def __init__(self, prime=None, log=None, wait_list=None):
+        wait_list = wait_list or []
         self.events = []
         self.log = log
+        self.wait_list = {x: threading.Event() for x in wait_list}
         if prime is not None:
             self.load(prime)
+
+    def wait(self, state, *argv, **kwarg):
+        return self.wait_list[state].wait(*argv, **kwarg)
 
     def load(self, prime):
         self.events = []
@@ -70,6 +76,11 @@ class State(object):
         return self.events[-1][1]
 
     def set(self, state):
+        for key in self.wait_list:
+            if key == state:
+                self.wait_list[key].set()
+            else:
+                self.wait_list[key].clear()
         if self.log is not None:
             self.log.debug(state)
         if self.events and self.events[-1][1] == state:
