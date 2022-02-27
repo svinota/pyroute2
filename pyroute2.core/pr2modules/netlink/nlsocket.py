@@ -1160,7 +1160,11 @@ class NetlinkSocket(NetlinkMixin):
 
 class ChaoticNetlinkSocket(NetlinkSocket):
 
-    success_rate = 0.7
+    success_rate = 1
+
+    def __init__(self, *argv, **kwarg):
+        self.success_rate = kwarg.pop('success_rate', 0.7)
+        super(ChaoticNetlinkSocket, self).__init__(*argv, **kwarg)
 
     def get(self, *argv, **kwarg):
         if random.random() > self.success_rate:
