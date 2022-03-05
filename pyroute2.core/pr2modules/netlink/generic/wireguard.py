@@ -226,7 +226,7 @@ class wgmsg(genlmsg):
                 cidr = self.get_attr('WGALLOWEDIP_A_CIDR_MASK')
                 self['addr'] = '{ipaddr}/{cidr}'.format(
                     ipaddr=inet_ntop(family, a2b_hex(ipaddr.replace(':', ''))),
-                    cidr=cidr
+                    cidr=cidr,
                 )
 
     class parse_wg_key(nla):
@@ -368,7 +368,9 @@ class WireGuard(GenericNetlinkSocket):
 
             family = AF_INET if addr.find(":") == -1 else AF_INET6
             allowed_ip.append(['WGALLOWEDIP_A_FAMILY', family])
-            allowed_ip.append(['WGALLOWEDIP_A_IPADDR', inet_pton(family, addr)])
+            allowed_ip.append(
+                ['WGALLOWEDIP_A_IPADDR', inet_pton(family, addr)]
+            )
             allowed_ip.append(['WGALLOWEDIP_A_CIDR_MASK', int(mask)])
 
         return ret
