@@ -99,11 +99,28 @@ from ..auth_manager import check_auth
 from ..auth_manager import AuthManager
 from ..events import State
 from ..events import InvalidateHandlerException
+from ..messages import cmsg_event
 
 RSLV_IGNORE = 0
 RSLV_RAISE = 1
 RSLV_NONE = 2
 RSLV_DELETE = 3
+
+
+def fallback_add(self, idx_req, req):
+    (
+        self.ndb._event_queue.put(
+            self.sources[self['target']].api(self.api, 'set', **req),
+            source=self['target'],
+        )
+    )
+    (
+        self.ndb._event_queue.put(
+            self.sources[self['target']].api(self.api, 'get', **idx_req),
+            source=self['target'],
+        )
+    )
+    self.load_sql()
 
 
 class Spec(object):
@@ -319,7 +336,7 @@ class RTNL_Object(dict):
             self.event_map = {}
         self._apply_script = []
         self.fallback_for = {
-            'add': {errno.EEXIST: self.fallback_add, errno.EAGAIN: None},
+            'add': {errno.EEXIST: fallback_add, errno.EAGAIN: None},
             'set': {errno.ENODEV: None},
             'del': {
                 errno.ENODEV: None,  # interfaces
@@ -740,6 +757,15 @@ class RTNL_Object(dict):
         self.log.debug('check: True')
         return True
 
+    def make_prime(self):
+        return dict(
+            [
+                (x, self[self.iclass.nla2name(x)])
+                for x in self.schema.compiled[self.table]['idx']
+                if self.iclass.nla2name(x) in self
+            ]
+        )
+
     def make_req(self, prime):
         req = dict(prime)
         for key in self.changed:
@@ -771,21 +797,6 @@ class RTNL_Object(dict):
     def hook_apply(self, method, **spec):
         pass
 
-    def fallback_add(self, idx_req, req):
-        (
-            self.ndb._event_queue.put(
-                self.sources[self['target']].api(self.api, 'set', **req),
-                source=self['target'],
-            )
-        )
-        (
-            self.ndb._event_queue.put(
-                self.sources[self['target']].api(self.api, 'get', **idx_req),
-                source=self['target'],
-            )
-        )
-        self.load_sql()
-
     @check_auth('obj:modify')
     def apply(self, rollback=False, req_filter=None):
         '''
@@ -808,7 +819,8 @@ class RTNL_Object(dict):
             else:
                 self.last_save = self.snapshot()
 
-        self.log.debug('apply: %s' % str(self.state.events))
+        self.log.debug('events log: %s' % str(self.state.events))
+        self.log.debug('run apply')
         self.load_event.clear()
         self._apply_script_snapshots = []
 
@@ -824,19 +836,11 @@ class RTNL_Object(dict):
             state = self.state.get()
 
         # Create the request.
-        idx_req = dict(
-            [
-                (x, self[self.iclass.nla2name(x)])
-                for x in self.schema.compiled[self.table]['idx']
-                if self.iclass.nla2name(x) in self
-            ]
-        )
-        req = self.sync_req(self.make_req(idx_req))
-        idx_req = self.make_idx_req(idx_req)
+        prime = self.make_prime()
+        req = self.sync_req(self.make_req(prime))
+        idx_req = self.make_idx_req(prime)
         self.log.debug('apply req: %s' % str(req))
         self.log.debug('apply idx_req: %s' % str(idx_req))
-        self.log.debug('apply state: %s' % state)
-
         method = None
         #
         if state in ('invalid', 'replace'):
@@ -860,13 +864,15 @@ class RTNL_Object(dict):
             req = idx_req
         else:
             raise Exception('state transition not supported')
+        self.log.debug(f'apply transition from: {state}')
+        self.log.debug(f'apply method: {method}')
 
         if req_filter is not None:
             req = req_filter(req)
 
-        for itn in range(20):
+        for itn in range(10):
             try:
-                self.log.debug('run %s (%s)' % (method, req))
+                self.log.debug('API call %s (%s)' % (method, req))
                 (self.sources[self['target']].api(self.api, method, **req))
                 (self.hook_apply(method, **req))
             except NetlinkError as e:
@@ -896,7 +902,9 @@ class RTNL_Object(dict):
                                     **req,
                                 )
                             else:
-                                self.fallback_for[method][e.code](idx_req, req)
+                                self.fallback_for[method][e.code](
+                                    self, idx_req, req
+                                )
                         except NetlinkError:
                             pass
                 else:
@@ -923,7 +931,25 @@ class RTNL_Object(dict):
             self.load_event.clear()
         else:
             self.log.debug('stats: %s apply %s fail' % (id(self), method))
-            raise Exception('lost sync in apply()')
+            self.log.debug('resync the DB')
+            self.load_event.clear()
+            (
+                self.ndb._event_queue.put(
+                    self.sources[self['target']].api('dump'),
+                    source=self['target'],
+                )
+            )
+            (
+                self.ndb._event_queue.put(
+                    (cmsg_event(self['target'], self.load_event),),
+                    source=self['target'],
+                )
+            )
+            self.load_event.wait(self.wtime(1))
+            self.load_event.clear()
+            if not self.check():
+                self._apply_script = []
+                raise Exception('could not apply the changes')
 
         self.log.debug('stats: %s pass' % (id(self)))
         #
@@ -971,13 +997,14 @@ class RTNL_Object(dict):
                     except Exception as e:
                         self.errors.append((time.time(), obj, e))
         else:
-            for op, argv, kwarg in self._apply_script:
+            apply_script = self._apply_script
+            self._apply_script = []
+            for op, argv, kwarg in apply_script:
                 for ret in op(*argv, **kwarg):
                     if isinstance(ret, Exception):
                         raise ret
                     elif ret is not None:
                         self._apply_script_snapshots.append(ret)
-            self._apply_script = []
         return self
 
     def update(self, data):

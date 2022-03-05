@@ -57,6 +57,16 @@ init = {
 }
 
 
+def fallback_add(self, idx_req, req):
+    (
+        self.ndb._event_queue.put(
+            self.sources[self['target']].api(self.api, 'dump'),
+            source=self['target'],
+        )
+    )
+    self.load_sql()
+
+
 class Neighbour(RTNL_Object):
 
     table = 'neighbours'
@@ -104,16 +114,7 @@ class Neighbour(RTNL_Object):
         kwarg['iclass'] = ndmsg
         self.event_map = {ndmsg: "load_rtnlmsg"}
         super(Neighbour, self).__init__(*argv, **kwarg)
-        self.fallback_for['add'][errno.EEXIST] = self.fallback_add
-
-    def fallback_add(self, idx_req, req):
-        (
-            self.ndb._event_queue.put(
-                self.sources[self['target']].api(self.api, 'dump'),
-                source=self['target'],
-            )
-        )
-        self.load_sql()
+        self.fallback_for['add'][errno.EEXIST] = fallback_add
 
     @staticmethod
     def spec_normalize(spec):
