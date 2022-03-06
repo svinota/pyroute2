@@ -565,7 +565,7 @@ class Interface(RTNL_Object):
                     e_s.trace = traceback.format_stack()
                     ret.append(e_s)
             if not ret:
-                ret = [KeyError('no neighbour records matched')]
+                ret = KeyError('no neighbour records matched')
             return ret
 
         self._apply_script.append((do_del_neighbour, (self, spec), {}))
@@ -613,7 +613,7 @@ class Interface(RTNL_Object):
                     e_s.trace = traceback.format_stack()
                     ret.append(e_s)
             if not ret:
-                ret = [KeyError('no address records matched')]
+                ret = KeyError('no address records matched')
             return ret
 
         self._apply_script.append((do_del_ip, (self, spec), {}))

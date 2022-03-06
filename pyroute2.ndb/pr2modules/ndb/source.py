@@ -165,6 +165,7 @@ class Source(dict):
         if self.ndb.messenger is not None:
             self.ndb.messenger.targets.add(self.target)
         #
+        self.errors_counter = 0
         self.shutdown = threading.Event()
         self.started = threading.Event()
         self.lock = threading.RLock()
@@ -294,6 +295,7 @@ class Source(dict):
                     raise
                 except Exception as e:
                     # probably the source is restarting
+                    self.errors_counter += 1
                     self.log.debug(f'source api error: <{e}>')
                     time.sleep(1)
         raise RuntimeError('api call failed')
@@ -340,6 +342,7 @@ class Source(dict):
                         if self.kind in ('nsmanager',):
                             spec['libc'] = self.ndb.libc
                         self.nl = self.nl_prime(**spec)
+                        self.errors_counter = 0
                     else:
                         raise TypeError('source channel not supported')
                     self.state.set('loading')
@@ -357,6 +360,7 @@ class Source(dict):
                     finally:
                         self.ndb.schema.allow_read(True)
                 except Exception as e:
+                    self.errors_counter += 1
                     self.started.set()
                     self.state.set('failed')
                     self.log.error('source error: %s %s' % (type(e), e))
@@ -399,6 +403,7 @@ class Source(dict):
                 try:
                     msg = tuple(self.nl.get())
                 except Exception as e:
+                    self.errors_counter += 1
                     self.log.error('source error: %s %s' % (type(e), e))
                     msg = None
                     if self.persistent:

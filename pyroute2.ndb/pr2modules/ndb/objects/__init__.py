@@ -931,23 +931,7 @@ class RTNL_Object(dict):
             self.load_event.clear()
         else:
             self.log.debug('stats: %s apply %s fail' % (id(self), method))
-            self.log.debug('resync the DB')
-            self.load_event.clear()
-            (
-                self.ndb._event_queue.put(
-                    self.sources[self['target']].api('dump'),
-                    source=self['target'],
-                )
-            )
-            (
-                self.ndb._event_queue.put(
-                    (cmsg_event(self['target'], self.load_event),),
-                    source=self['target'],
-                )
-            )
-            self.load_event.wait(self.wtime(1))
-            self.load_event.clear()
-            if not self.check():
+            if not self.use_db_resync(lambda x: x, self.check):
                 self._apply_script = []
                 raise Exception('could not apply the changes')
 
@@ -1000,12 +984,46 @@ class RTNL_Object(dict):
             apply_script = self._apply_script
             self._apply_script = []
             for op, argv, kwarg in apply_script:
-                for ret in op(*argv, **kwarg):
-                    if isinstance(ret, Exception):
-                        raise ret
-                    elif ret is not None:
-                        self._apply_script_snapshots.append(ret)
+                ret = self.use_db_resync(
+                    lambda x: not isinstance(x, KeyError), op, *argv, **kwarg
+                )
+                if not isinstance(ret, list):
+                    ret = [ret]
+                for obj in ret:
+                    if isinstance(obj, Exception):
+                        raise obj
+                    elif obj is not None:
+                        self._apply_script_snapshots.append(obj)
         return self
+
+    def use_db_resync(self, criteria, method, *argv, **kwarg):
+        ret = None
+        self.log.debug(f'criteria {criteria}')
+        self.log.debug(f'method {method}, {argv}, {kwarg}')
+        for attempt in range(3):
+            ret = method(*argv, **kwarg)
+            self.log.debug(f'ret {ret}')
+            if criteria(ret):
+                self.log.debug('criteria matched')
+                return ret
+            self.log.debug(f'resync the DB attempt {attempt}')
+            self.ndb.schema.flush(self['target'])
+            self.load_event.clear()
+            (
+                self.ndb._event_queue.put(
+                    self.sources[self['target']].api('dump'),
+                    source=self['target'],
+                )
+            )
+            (
+                self.ndb._event_queue.put(
+                    (cmsg_event(self['target'], self.load_event),),
+                    source=self['target'],
+                )
+            )
+            self.load_event.wait(self.wtime(1))
+            self.load_event.clear()
+        return ret
 
     def update(self, data):
         for key, value in data.items():
