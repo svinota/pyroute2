@@ -204,7 +204,6 @@ def load_plugins_by_path(path):
             if not x.startswith('_')
         ]
     )
-    print('files', files)
     sys.path.append(path)
     for name in files:
         try:
