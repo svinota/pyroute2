@@ -417,6 +417,15 @@ class RTNL_API(object):
         '''Return the PID of the current process.'''
         return os.getpid()
 
+    def register_link_kind(self, path=None, pkg=None, module=None):
+        return ifinfmsg.ifinfo.register_link_kind(path, pkg, module)
+
+    def unregister_link_kind(self, kind):
+        return ifinfmsg.ifinfo.unregister_link_kind(kind)
+
+    def list_link_kind(self):
+        return ifinfmsg.ifinfo.list_link_kind()
+
     #
     # List NetNS info
     #

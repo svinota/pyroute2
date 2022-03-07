@@ -204,11 +204,13 @@ def load_plugins_by_path(path):
             if not x.startswith('_')
         ]
     )
+    print('files', files)
     sys.path.append(path)
     for name in files:
         try:
             module = __import__(name, globals(), locals(), [], 0)
-            plugins[name] = getattr(module, name)
+            register_kind = getattr(module, 'register_kind', name)
+            plugins[register_kind] = getattr(module, register_kind)
         except:
             pass
     sys.path.pop()
@@ -216,6 +218,7 @@ def load_plugins_by_path(path):
 
 
 def load_plugins_by_pkg(pkg):
+    plugins = {}
     plugin_modules = {
         name: name.split('.')[-1]
         for loader, name, ispkg in pkgutil.iter_modules(
@@ -239,11 +242,14 @@ def load_plugins_by_pkg(pkg):
         if element.startswith(pkg.__name__) and element != pkg.__name__:
             plugin_modules[element] = element.split('.')[-1]
 
-    return {
-        mod_name: getattr(importlib.import_module(mod_path), mod_name)
-        for mod_path, mod_name in plugin_modules.items()
-        if not mod_name.startswith('_')
-    }
+    for mod_path, mod_name in plugin_modules.items():
+        if mod_name.startswith('_'):
+            continue
+        module = importlib.import_module(mod_path)
+        register_kind = getattr(module, 'register_kind', mod_name)
+        plugins[register_kind] = getattr(module, register_kind)
+
+    return plugins
 
 
 data_plugins = {}
@@ -1028,6 +1034,27 @@ class ifinfbase(object):
         }
         # expand supported interface types
         data_map.update(data_plugins)
+
+        @classmethod
+        def register_link_kind(cls, path=None, pkg=None, module=None):
+            cls.data_map.update(data_plugins)
+            if path is not None:
+                cls.data_map.update(load_plugins_by_path(path))
+            elif pkg is not None:
+                cls.data_map.update(load_plugins_by_pkg(pkg))
+            elif module is not None:
+                for name, link_class in module.items():
+                    cls.data_map[name] = link_class
+            else:
+                raise TypeError('path or pkg required')
+
+        @classmethod
+        def unregister_link_kind(cls, kind):
+            return cls.data_map.pop(kind)
+
+        @classmethod
+        def list_link_kind(cls):
+            return cls.data_map
 
     sql_extend = ((ifinfo, 'IFLA_LINKINFO'), (xdp, 'IFLA_XDP'))
 
