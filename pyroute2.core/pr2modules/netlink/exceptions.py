@@ -64,8 +64,8 @@ class NetlinkDumpInterrupted(NetlinkError):
     Raised when NLM_F_DUMP_INTR is set in the flags.
     '''
 
-    def __init__(self):
-        super(NetlinkDumpInterrupted, self).__init__(-1, 'dump interrupted')
+    def __init__(self, code=-1, msg='dump interrupted'):
+        super(NetlinkDumpInterrupted, self).__init__(code, msg)
 
 
 class SkipInode(Exception):
