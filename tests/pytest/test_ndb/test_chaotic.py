@@ -17,7 +17,7 @@ def test_add_del_ip_dict(context):
             {
                 'target': 'localhost',
                 'kind': 'ChaoticIPRoute',
-                'success_rate': 0.8,
+                'success_rate': 0.98,
             }
         ],
     ) as test_ndb:
