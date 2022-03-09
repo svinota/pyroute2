@@ -1,4 +1,5 @@
 import os
+import time
 
 
 class NetlinkError(Exception):
@@ -72,4 +73,7 @@ class SkipInode(Exception):
 
 
 class ChaoticException(Exception):
-    pass
+    def __init__(self):
+        chaotic_id = str(time.time())
+        super(ChaoticException, self).__init__(chaotic_id)
+        self.chaotic_id = chaotic_id
