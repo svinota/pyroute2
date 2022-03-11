@@ -1,6 +1,14 @@
 Changelog
 =========
 
+* 0.6.8
+    * wireguard: IPv6 fixes: <https://github.com/svinota/pyroute2/pull/882>
+    * ndb: support arbitrary IPRoute-compatible source classes
+    * ndb: tolerate source failures
+    * ndb: chaotic tests
+    * general: kernel version parser: <https://github.com/svinota/pyroute2/issues/885>
+    * package: static version file: <https://github.com/svinota/pyroute2/discussions/884>
+    * iproute: support custom link kind classes: <https://github.com/svinota/pyroute2/issues/886>
 * 0.6.7
     * ndb: reload of tunnels in the down state <https://github.com/svinota/pyroute2/issues/878>
     * ndb: improved reliability in the state sync, affected multihop and encap routes
