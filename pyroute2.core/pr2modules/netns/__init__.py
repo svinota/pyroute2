@@ -118,7 +118,7 @@ MS_SHARED = 1 << 20
 NETNS_RUN_DIR = '/var/run/netns'
 
 __saved_ns = []
-
+__libc = None
 
 def _get_netnspath(name):
     netnspath = name
@@ -209,7 +209,8 @@ def pid_to_ns(pid=1, nspath=NETNS_RUN_DIR):
 
 
 def _create(netns, libc=None, pid=None):
-    libc = libc or ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
+    global __libc
+    libc = libc or __libc or (__libc := ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True))
     netnspath = _get_netnspath(netns)
     netnsdir = os.path.dirname(netnspath)
 
@@ -296,7 +297,8 @@ def remove(netns, libc=None):
     '''
     Remove a network namespace.
     '''
-    libc = libc or ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
+    global __libc
+    libc = libc or __libc or (__libc := ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True))
     netnspath = _get_netnspath(netns)
     libc.umount2(netnspath, MNT_DETACH)
     os.unlink(netnspath)
@@ -322,8 +324,9 @@ def setns(netns, flags=os.O_CREAT, libc=None):
     Changed in 0.5.1: the routine closes the ns fd if it's
     not provided via arguments.
     '''
+    global __libc
     newfd = False
-    libc = libc or ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
+    libc = libc or __libc or (__libc := ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True))
     if isinstance(netns, basestring):
         netnspath = _get_netnspath(netns)
         if os.path.basename(netns) in listnetns(os.path.dirname(netns)):
