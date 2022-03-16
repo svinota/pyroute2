@@ -12,6 +12,7 @@ from pr2modules import netns
 from pr2modules.ndb.main import NDB
 from pr2modules.nslink.nslink import NetNS
 from pr2modules.iproute.linux import IPRoute
+from pr2modules.netlink.generic.wireguard import WireGuard
 from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.common import uifname
 from pr2modules.common import basestring
@@ -175,6 +176,7 @@ class NDBContextManager(object):
         # in utility methods
         self.ndb = NDB(**kwarg)
         self.ipr = self.ndb.sources['localhost'].nl.clone()
+        self.wg = WireGuard()
         #
         # IPAM
         self.ipnets = [allocate_network() for _ in range(5)]
@@ -250,6 +252,7 @@ class NDBContextManager(object):
         '''
         self.ndb.close()
         self.ipr.close()
+        self.wg.close()
         for (ifname, nsname) in self.interfaces.items():
             try:
                 ipr = None
