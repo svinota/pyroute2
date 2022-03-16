@@ -1328,7 +1328,7 @@ class nlmsg_base(dict):
                 # is it a class or a function?
                 if isinstance(msg_class, types.FunctionType):
                     # if it is a function -- use it to get the class
-                    msg_class = msg_class(self)
+                    msg_class = msg_class(self, value=cell[1])
                 # encode NLA
                 nla_instance = msg_class(
                     data=self.data,
