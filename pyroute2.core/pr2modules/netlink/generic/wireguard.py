@@ -65,6 +65,7 @@ NOTES:
 
 
 import errno
+import struct
 import logging
 from base64 import b64decode
 from base64 import b64encode
@@ -166,34 +167,56 @@ class wgmsg(genlmsg):
                 self['key'] = b64decode(self['value'])
                 nla.encode(self)
 
-        class parse_endpoint(nla):
+        @staticmethod
+        def parse_endpoint(nla, *argv, **kwarg):
+            family = AF_INET
+            if 'data' in kwarg:
+                # decoding, fetch the famliy from the NLA data
+                data = kwarg['data']
+                offset = kwarg['offset']
+                family = struct.unpack('H', data[offset + 4 : offset + 6])[0]
+            elif kwarg['value']['addr'].find(':') > -1:
+                # encoding, setup family from the addr format
+                family = AF_INET6
+
+            if family == AF_INET:
+                return nla.endpoint_ipv4
+            else:
+                return nla.endpoint_ipv6
+
+        class endpoint_ipv4(nla):
             fields = (
                 ('family', 'H'),
                 ('port', '>H'),
-                ('addr4', '4s'),
-                ('addr6', '16s'),
+                ('addr', '4s'),
+                ('__pad', '8x'),
+            )
+
+            def decode(self):
+                nla.decode(self)
+                self['addr'] = inet_ntop(AF_INET, self['addr'])
+
+            def encode(self):
+                self['family'] = AF_INET
+                self['addr'] = inet_pton(AF_INET, self['addr'])
+                nla.encode(self)
+
+        class endpoint_ipv6(nla):
+            fields = (
+                ('family', 'H'),
+                ('port', '>H'),
+                ('flowinfo', '>I'),
+                ('addr', '16s'),
                 ('scope_id', '>I'),
             )
 
             def decode(self):
                 nla.decode(self)
-                if self['family'] == AF_INET:
-                    self['addr'] = inet_ntop(AF_INET, self['addr4'])
-                else:
-                    self['addr'] = inet_ntop(AF_INET6, self['addr6'])
-                del self['addr4']
-                del self['addr6']
+                self['addr'] = inet_ntop(AF_INET6, self['addr'])
 
             def encode(self):
-                if self['addr'].find(":") > -1:
-                    self['family'] = AF_INET6
-                    self['addr4'] = b'\x00\x00\x00\x00'
-                    self['addr6'] = inet_pton(AF_INET6, self['addr'])
-                else:
-                    self['family'] = AF_INET
-                    self['addr4'] = inet_pton(AF_INET, self['addr'])
-                    self['addr6'] = b'\x00\x00\x00\x00\x00\x00\x00\x00'
-                self['port'] = int(self['port'])
+                self['family'] = AF_INET6
+                self['addr'] = inet_pton(AF_INET6, self['addr'])
                 nla.encode(self)
 
         class parse_handshake_time(nla):
