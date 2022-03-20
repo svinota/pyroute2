@@ -1407,7 +1407,9 @@ class AddressesDict(dict):
         if msg['family'] == AF_INET:
             addr = msg.get_attr('IFA_LOCAL')
         elif msg['family'] == AF_INET6:
-            addr = msg.get_attr('IFA_ADDRESS')
+            addr = msg.get_attr('IFA_LOCAL')
+            if not addr:
+                addr = msg.get_attr('IFA_ADDRESS')
         else:
             return
         raw = {
