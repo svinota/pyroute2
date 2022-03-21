@@ -1,6 +1,9 @@
 Changelog
 =========
 
+* 0.6.9
+    * wireguard peer fix for both IPv4 and IPv6: <https://github.com/svinota/pyroute2/issues/888>
+    * netns: avoid extra libc reloads: <https://github.com/svinota/pyroute2/pull/887>
 * 0.6.8
     * wireguard: IPv6 fixes: <https://github.com/svinota/pyroute2/pull/882>
     * ndb: support arbitrary IPRoute-compatible source classes
