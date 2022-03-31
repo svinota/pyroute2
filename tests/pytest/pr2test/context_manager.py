@@ -23,7 +23,7 @@ def skip_if_not_implemented(func):
     def test_wrapper(context):
         try:
             return func(context)
-        except (AttributeError, NotImplementedError) as e:
+        except (AttributeError, NotImplementedError):
             pytest.skip('feature not implemented')
 
     return test_wrapper

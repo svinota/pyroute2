@@ -194,7 +194,11 @@ class WiSet(object):
         self.skbinfo = skbinfo
 
     def open_netlink(self):
-        """Open manually a netlink socket. You can use "with WiSet()" instead"""
+        """
+        Open manually a netlink socket.
+
+        You can use "with WiSet()" statement instead.
+        """
         if self.sock is None:
             self.sock = IPSet()
 

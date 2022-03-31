@@ -223,7 +223,8 @@ class IPRoute(object):
 
             >>> pprint(ipr.get_links())
             [{'attrs': (['IFLA_ADDRESS', '52:54:00:7a:8a:49'],
-                        ['IFLA_IFNAME', '{F444467B-3549-455D-81F2-AB617C7421AB}']),
+                        ['IFLA_IFNAME',
+                         '{F444467B-3549-455D-81F2-AB617C7421AB}']),
               'change': 0,
               'family': 0,
               'flags': 0,
@@ -240,7 +241,8 @@ class IPRoute(object):
             >>> pprint(ipr.get_addr())
             [{'attrs': (['IFA_ADDRESS', '192.168.122.81'],
                         ['IFA_LOCAL', '192.168.122.81'],
-                        ['IFA_LABEL', '{F444467B-3549-455D-81F2-AB617C7421AB}']),
+                        ['IFA_LABEL',
+                         '{F444467B-3549-455D-81F2-AB617C7421AB}']),
               'family': <AddressFamily.AF_INET: 2>,
               'flags': 0,
               'header': {},
