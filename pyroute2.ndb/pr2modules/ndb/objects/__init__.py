@@ -108,18 +108,25 @@ RSLV_DELETE = 3
 
 
 def fallback_add(self, idx_req, req):
+    # ignore all set/get for objects with incomplete idx_req
+    if set(idx_req.keys()) != set(self.kspec):
+        self.log.debug('ignore incomplete idx_req in the fallback')
+        return
+    # try to set the object
     (
         self.ndb._event_queue.put(
             self.sources[self['target']].api(self.api, 'set', **req),
             source=self['target'],
         )
     )
+    # try to get the object
     (
         self.ndb._event_queue.put(
             self.sources[self['target']].api(self.api, 'get', **idx_req),
             source=self['target'],
         )
     )
+    # reload the collected data
     self.load_sql()
 
 
