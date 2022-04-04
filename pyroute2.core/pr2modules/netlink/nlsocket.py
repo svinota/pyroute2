@@ -727,8 +727,15 @@ class NetlinkMixin(object):
                             self.backlog[msg_seq].remove(msg)
 
                             # If there is an error, raise exception
-                            if msg['header'].get('error', None) is not None:
-                                self.backlog[0].extend(self.backlog[msg_seq])
+                            if msg['header']['error'] is not None:
+                                # reschedule all the remaining messages except
+                                # of errors
+                                self.backlog[0].extend(
+                                    filter(
+                                        lambda x: x['header']['error'] is None,
+                                        self.backlog[msg_seq],
+                                    )
+                                )
                                 del self.backlog[msg_seq]
                                 # The loop is done
                                 raise msg['header']['error']
