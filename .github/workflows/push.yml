@@ -1,15 +1,13 @@
-name: CI
+name: Code quality
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
     branches: [ master ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: code
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
