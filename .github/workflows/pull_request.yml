@@ -10,4 +10,4 @@ jobs:
     runs-on: functional
     steps:
       - uses: actions/checkout@v3
-      - run: sudo tox -e py38,py39,py310
+      - run: sudo tox -e py38
