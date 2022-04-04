@@ -1064,14 +1064,15 @@ class nlmsg_base(dict):
             for value in self.getvalue():
                 cell = type(self)(data=self.data, offset=offset, parent=self)
                 cell._nla_array = False
-                cell['header']['type'] = self.header_type or (
-                    header_type | self._nla_flags
-                )
-                header_type += 1
 
                 if cell.cell_header is not None:
                     cell.header = cell.cell_header
                 cell.setvalue(value)
+                # overwrite header type after calling setvalue
+                cell['header']['type'] = self.header_type or (
+                    header_type | self._nla_flags
+                )
+                header_type += 1
                 cell.encode()
                 offset += (cell.length + 4 - 1) & ~(4 - 1)
         elif self.getvalue() is not None:
@@ -1340,10 +1341,11 @@ class nlmsg_base(dict):
                 if isinstance(cell, tuple) and len(cell) > 2:
                     nla_instance._nla_flags |= cell[2]
                 nla_instance._nla_array = prime['nla_array']
+                nla_instance.setvalue(cell[1])
+                # overwrite header type after calling setvalue
                 nla_instance['header']['type'] = (
                     prime['type'] | nla_instance._nla_flags
                 )
-                nla_instance.setvalue(cell[1])
                 try:
                     nla_instance.encode()
                 except:
