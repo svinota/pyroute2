@@ -6,7 +6,6 @@ nose
 coverage
 eventlet
 mitogen
-bottle
 sphinx
 netaddr
 psutil

@@ -43,6 +43,9 @@ ifdef lib
 	override lib := "--install-lib=${lib}"
 endif
 
+##
+# Functions
+#
 define list_modules
 	`ls -1 | sed -n '/egg-info/n; /pyroute2/p'`
 endef
@@ -88,6 +91,7 @@ define deploy_license
 	cp CHANGELOG.md $$module/
 endef
 
+.PHONY: all
 all:
 	@echo targets:
 	@echo
@@ -97,6 +101,7 @@ all:
 	@echo \* install -- install lib into the system
 	@echo
 
+.PHONY: clean
 clean:
 	@for module in $(call list_modules); do $(call clean_module); done
 	@rm -f VERSION
@@ -157,44 +162,24 @@ check_parameters:
 	@if [ ! -z "${skip_tests}" ]; then \
 		echo "'skip_tests' is deprecated, use 'skip=...' instead"; false; fi
 
+.PHONY: format
 format:
-	@black -C -S -l 79 --extend-exclude setup.py pyroute2* examples tests/pytest
+	@pre-commit run -a
 
-test-format:
-	@black -C -S -l 79 --extend-exclude setup.py --check pyroute2* examples tests/pytest
-
-test: check_parameters
-	@export PYTHON=${python}; \
-		export NOSE=${nosetests}; \
-		export FLAKE8=${flake8}; \
-		export WLEVEL=${wlevel}; \
-		export SKIP_TESTS=${skip}; \
-		export PDB=${pdb}; \
-		export COVERAGE=${coverage}; \
-		export MODULE=${module}; \
-		export LOOP=${loop}; \
-		export REPORT=${report}; \
-		export WORKER=${worker}; \
-		export WORKSPACE=${workspace}; \
-		./tests/run.sh
-
-pytest: check_parameters test-format
+.PHONY: test
+test: check_parameters test-format
 	@export PYTHON=${python}; \
 		export PYTEST=${pytest}; \
-		export FLAKE8=${flake8}; \
 		export WLEVEL=${wlevel}; \
-		export SKIP_TESTS=${skip}; \
 		export PDB=${pdb}; \
 		export COVERAGE=${coverage}; \
-		export MODULE=${module}; \
 		export LOOP=${loop}; \
-		export REPORT=${report}; \
-		export WORKER=${worker}; \
 		export WORKSPACE=${workspace}; \
 		export PYROUTE2_TEST_DBNAME=${dbname}; \
 		export SKIPDB=${skipdb}; \
 		./tests/run_pytest.sh
 
+.PHONY: test-platform
 test-platform:
 	@cd pyroute2.core; ${python} -c "\
 import logging;\
@@ -203,9 +188,11 @@ from pr2modules.config.test_platform import TestCapsRtnl;\
 from pprint import pprint;\
 pprint(TestCapsRtnl().collect())"
 
+.PHONY: upload
 upload: dist
 	${python} -m twine upload dist/*
 
+.PHONY: setup
 setup:
 	$(call process_templates)
 	@for module in $(call list_modules); do $(call deploy_license); done
@@ -217,6 +204,7 @@ setup:
 			$$module/setup.cfg ; \
 	done
 
+.PHONY: dist
 dist: clean VERSION setup
 	cd pyroute2; ${python} setup.py sdist
 	mkdir dist
@@ -224,16 +212,20 @@ dist: clean VERSION setup
 	$(call fetch_modules_dist)
 	${python} -m twine check dist/*
 
+.PHONY: install
 install: dist
 	rm -f dist/pyroute2.minimal*
 	${python} -m pip install dist/* ${root}
 
+.PHONY: install-minimal
 install-minimal: dist
 	${python} -m pip install dist/pyroute2.minimal* dist/pyroute2.core* ${root}
 
+.PHONY: uninstall
 uninstall: clean VERSION setup
 	$(call make_modules, uninstall)
 
+.PHONY: audit-imports
 audit-imports:
 	for module in $(call list_modules); do \
 		echo $$module; \
@@ -241,5 +233,5 @@ audit-imports:
 	done
 
 # deprecated:
-epydoc clean-version update-version force-version README.md setup.ini develop:
+epydoc clean-version update-version force-version README.md setup.ini develop pytest test-format:
 	@echo Deprecated target, see README.make.md

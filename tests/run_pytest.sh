@@ -56,7 +56,7 @@ if [ -z "$VIRTUAL_ENV" -a -z "$PR2TEST_FORCE_RUN" ]; then {
 
 $PYTHON -m pip install -q -r requirements.txt
 
-echo "Version: $VERSION"
+echo "Version: `cat $TOP/VERSION`"
 echo "Kernel: `uname -r`"
 
 deploy || exit 1
