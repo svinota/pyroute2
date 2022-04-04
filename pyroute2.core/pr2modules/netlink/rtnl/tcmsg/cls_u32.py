@@ -37,7 +37,7 @@ filter types::
     ip.tc("add-filter", "u32", eth0,
         parent=0x10000,
         prio=10,
-        protocol=socket.AF_INET,
+        protocol=protocols.ETH_P_IP,
         target=0x10010,
         keys=["0xc0a80001/0xffffffff+12"])
         # 0xc0a800010 = 192.168.0.1
@@ -47,7 +47,7 @@ filter types::
     ip.tc("add-filter", "u32", eth0,
         parent=0x10000,
         prio=10,
-        protocol=socket.AF_INET,
+        protocol=protocols.ETH_P_IP,
         target=0x10020,
         keys=["0xc0a80000/0xffffff00+16"])
         # 0xc0a80000 = 192.168.0.0
