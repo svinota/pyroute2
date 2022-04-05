@@ -118,7 +118,7 @@ def Server(trnsp_in, trnsp_out, netns=None, target='localhost'):
         Server.run = False
 
     Server.run = True
-    signal.signal(signal.SIGTERM, stop_server)
+    signal.signal(config.signal_stop_remote, stop_server)
 
     try:
         if netns is not None:
@@ -313,6 +313,11 @@ class RemoteSocket(NetlinkMixin):
                         trnsp.file_obj.close()
                     except Exception:
                         pass
+                try:
+                    os.kill(self.child, config.signal_stop_remote)
+                    os.waitpid(self.child, 0)
+                except OSError:
+                    pass
 
     def proxy(self, cmd, *argv, **kwarg):
         with self.cmdlock:

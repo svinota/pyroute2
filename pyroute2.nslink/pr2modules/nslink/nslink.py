@@ -66,7 +66,6 @@ run `remove()`.
 
 import os
 import errno
-import signal
 import atexit
 import logging
 from functools import partial
@@ -190,12 +189,6 @@ class NetNS(RTNL_API, RemoteSocket):
             except Exception:
                 pass
             log.error('forced shutdown procedure, clean up netns manually')
-
-        try:
-            os.kill(self.child, signal.SIGTERM)
-            os.waitpid(self.child, 0)
-        except OSError:
-            pass
 
     def open_file(self, path):
         '''Proxy the open_file method if we are the parent.'''

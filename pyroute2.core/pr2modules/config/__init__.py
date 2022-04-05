@@ -1,4 +1,5 @@
 import socket
+import signal
 import platform
 import multiprocessing
 import re
@@ -25,6 +26,8 @@ commit_barrier = 0
 gc_timeout = 60
 db_transaction_limit = 1
 cache_expire = 60
+
+signal_stop_remote = signal.SIGUSR1
 
 # save uname() on startup time: it is not so
 # highly possible that the kernel will be
