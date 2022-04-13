@@ -900,9 +900,10 @@ class nft_table_msg(nfgen_msg, nft_contains_expr):
 
 
 class nft_set_elem_list_msg(nfgen_msg):
+    prefix = 'NFTA_SET_ELEM_LIST_'
     nla_map = (
         ('NFTA_SET_ELEM_LIST_UNSPEC', 'none'),
-        ('NFTA_SET_TABLE', 'asciiz'),
+        ('NFTA_SET_ELEM_LIST_TABLE', 'asciiz'),
         ('NFTA_SET_ELEM_LIST_SET', 'asciiz'),
         ('NFTA_SET_ELEM_LIST_ELEMENTS', '*set_elem'),
         ('NFTA_SET_ELEM_LIST_SET_ID', 'be32'),
