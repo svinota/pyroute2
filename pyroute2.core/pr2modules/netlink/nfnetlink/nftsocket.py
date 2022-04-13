@@ -653,7 +653,7 @@ class nft_contains_expr:
             class quota_flags(nft_flags_be32):
                 ops = ('NFT_QUOTA_F_INV', 'NFT_QUOTA_F_DEPLETED')
 
-        class nft_range(nft_regs):
+        class nft_range(nft_regs, nft_data):
             nla_map = (
                 ('NFTA_RANGE_UNSPEC', 'none'),
                 ('NFTA_RANGE_SREG', 'regs'),
