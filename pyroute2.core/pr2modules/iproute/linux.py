@@ -1815,82 +1815,94 @@ class RTNL_API(object):
 
         Example::
 
-            ip.route("add", dst="10.0.0.0/24", gateway="192.168.0.1")
-
-        It is possible to set also route metrics. There are two ways
-        to do so. The first is to use 'raw' NLA notation::
-
-            ip.route("add",
-                     dst="10.0.0.0",
-                     mask=24,
-                     gateway="192.168.0.1",
-                     metrics={"attrs": [["RTAX_MTU", 1400],
-                                        ["RTAX_HOPLIMIT", 16]]})
-
-        The second way is to use shortcuts, provided by `IPRouteRequest`
-        class, which is applied to `**kwarg` automatically::
-
-            ip.route("add",
-                     dst="10.0.0.0/24",
-                     gateway="192.168.0.1",
-                     metrics={"mtu": 1400,
-                              "hoplimit": 16})
+            ipr.route("add", dst="10.0.0.0/24", gateway="192.168.0.1")
 
         ...
 
         More `route()` examples. Blackhole route::
 
-            ip.route("add",
-                     dst="10.0.0.0/24",
-                     type="blackhole")
+            ipr.route(
+                "add",
+                dst="10.0.0.0/24",
+                type="blackhole",
+            )
 
         Create a route with metrics::
 
-            ip.route('add',
-                     dst='172.16.0.0/24',
-                     gateway='10.0.0.10',
-                     metrics={'mtu': 1400,
-                              'hoplimit': 16})
+            ipr.route(
+                "add",
+                dst="172.16.0.0/24",
+                gateway="10.0.0.10",
+                metrics={
+                    "mtu": 1400,
+                    "hoplimit": 16,
+                },
+            )
 
         Multipath route::
 
-            ip.route("add",
-                     dst="10.0.0.0/24",
-                     multipath=[{"gateway": "192.168.0.1", "hops": 2},
-                                {"gateway": "192.168.0.2", "hops": 1},
-                                {"gateway": "192.168.0.3"}])
+            ipr.route(
+                "add",
+                dst="10.0.0.0/24",
+                multipath=[
+                    {"gateway": "192.168.0.1", "hops": 2},
+                    {"gateway": "192.168.0.2", "hops": 1},
+                    {"gateway": "192.168.0.3"},
+                ],
+            )
 
         MPLS lwtunnel on eth0::
 
-            idx = ip.link_lookup(ifname='eth0')[0]
-            ip.route("add",
-                     dst="10.0.0.0/24",
-                     oif=idx,
-                     encap={"type": "mpls",
-                            "labels": "200/300"})
+            ipr.route(
+                "add",
+                dst="10.0.0.0/24",
+                oif=ip.link_lookup(ifname="eth0"),
+                encap={
+                    "type": "mpls",
+                    "labels": "200/300",
+                },
+            )
+
+        IPv6 next hop for IPv4 dst::
+
+            ipr.route(
+                "add",
+                prefsrc="10.127.30.4",
+                dst="172.16.0.0/24",
+                via={"family": AF_INET6, "addr": "fe80::1337"},
+                oif=ipr.link_lookup(ifname="eth0"),
+                table=100,
+            )
 
         Create MPLS route: push label::
 
             # $ sudo modprobe mpls_router
             # $ sudo sysctl net.mpls.platform_labels=1024
-            ip.route('add',
-                     family=AF_MPLS,
-                     oif=idx,
-                     dst=0x200,
-                     newdst=[0x200, 0x300])
+            ipr.route(
+                "add",
+                family=AF_MPLS,
+                oif=ipr.link_lookup(ifname="eth0"),
+                dst=0x200,
+                newdst=[0x200, 0x300],
+            )
 
         MPLS multipath::
 
-            idx = ip.link_lookup(ifname='eth0')[0]
-            ip.route("add",
-                     dst="10.0.0.0/24",
-                     table=20,
-                     multipath=[{"gateway": "192.168.0.1",
-                                 "encap": {"type": "mpls",
-                                           "labels": 200}},
-                                {"ifindex": idx,
-                                 "encap": {"type": "mpls",
-                                           "labels": 300}}])
+            ipr.route(
+                "add",
+                dst="10.0.0.0/24",
+                table=20,
+                multipath=[
+                    {
+                        "gateway": "192.168.0.1",
+                        "encap": {"type": "mpls", "labels": 200},
+                    },
+                    {
+                        "ifindex": ipr.link_lookup(ifname="eth0"),
+                        "encap": {"type": "mpls", "labels": 300},
+                    },
+                ],
+            )
 
         MPLS target can be int, string, dict or list::
 
@@ -1900,98 +1912,141 @@ class RTNL_API(object):
             "labels": "200/300"   # the same
 
             # explicit label definition
-            "labels": {"bos": 1,
-                       "label": 300,
-                       "tc": 0,
-                       "ttl": 16}
+            "labels": {
+                "bos": 1,
+                "label": 300,
+                "tc": 0,
+                "ttl": 16,
+            }
 
         Create SEG6 tunnel encap mode (kernel >= 4.10)::
 
-            ip.route('add',
-                     dst='2001:0:0:10::2/128',
-                     oif=idx,
-                     encap={'type': 'seg6',
-                            'mode': 'encap',
-                            'segs': '2000::5,2000::6'})
+            ipr.route(
+                "add",
+                dst="2001:0:0:10::2/128",
+                oif=idx,
+                encap={
+                    "type": "seg6",
+                    "mode": "encap",
+                    "segs": "2000::5,2000::6",
+                },
+            )
 
         Create SEG6 tunnel inline mode (kernel >= 4.10)::
 
-            ip.route('add',
-                     dst='2001:0:0:10::2/128',
-                     oif=idx,
-                     encap={'type': 'seg6',
-                            'mode': 'inline',
-                            'segs': ['2000::5', '2000::6']})
+            ipr.route(
+                "add",
+                dst="2001:0:0:10::2/128",
+                oif=idx,
+                encap={
+                    "type": "seg6",
+                    "mode": "inline",
+                    "segs": ["2000::5", "2000::6"],
+                },
+            )
 
         Create SEG6 tunnel inline mode with hmac (kernel >= 4.10)::
 
-            ip.route('add',
-                     dst='2001:0:0:22::2/128',
-                     oif=idx,
-                     encap={'type': 'seg6',
-                            'mode': 'inline',
-                            'segs':'2000::5,2000::6,2000::7,2000::8',
-                            'hmac':0xf})
+            ipr.route(
+                "add",
+                dst="2001:0:0:22::2/128",
+                oif=idx,
+                encap={
+                    "type": "seg6",
+                    "mode": "inline",
+                    "segs": "2000::5,2000::6,2000::7,2000::8",
+                    "hmac": 0xf,
+                },
+            )
 
         Create SEG6 tunnel with ip4ip6 encapsulation (kernel >= 4.14)::
 
-            ip.route('add',
-                     dst='172.16.0.0/24',
-                     oif=idx,
-                     encap={'type': 'seg6',
-                            'mode': 'encap',
-                            'segs': '2000::5,2000::6'})
+            ipr.route(
+                "add",
+                dst="172.16.0.0/24",
+                oif=idx,
+                encap={
+                    "type": "seg6",
+                    "mode": "encap",
+                    "segs": "2000::5,2000::6",
+                },
+            )
 
         Create SEG6LOCAL tunnel End.DX4 action (kernel >= 4.14)::
 
-            ip.route('add',
-                     dst='2001:0:0:10::2/128',
-                     oif=idx,
-                     encap={'type': 'seg6local',
-                            'action': 'End.DX4',
-                            'nh4': '172.16.0.10'})
+            ipr.route(
+                "add",
+                dst="2001:0:0:10::2/128",
+                oif=idx,
+                encap={
+                    "type": "seg6local",
+                    "action": "End.DX4",
+                    "nh4": "172.16.0.10",
+                },
+            )
 
         Create SEG6LOCAL tunnel End.DT6 action (kernel >= 4.14)::
 
-            ip.route('add',
-                     dst='2001:0:0:10::2/128',
-                     oif=idx,
-                     encap={'type': 'seg6local',
-                            'action': 'End.DT6',
-                            'table':'10'})
+            ipr.route(
+                "add",
+                dst="2001:0:0:10::2/128",
+                oif=idx,
+                encap={
+                    "type": "seg6local",
+                    "action": "End.DT6",
+                    "table": "10",
+                },
+            )
 
         Create SEG6LOCAL tunnel End.DT4 action (kernel >= 5.11)::
+
             # $ sudo modprobe vrf
             # $ sudo sysctl -w net.vrf.strict_mode=1
-            ip.link('add',
-                    ifname='vrf-foo',
-                    kind='vrf',
-                    vrf_table=10)
-            ip.route('add',
-                     dst='2001:0:0:10::2/128',
-                     oif=idx,
-                     encap={'type': 'seg6local',
-                            'action': 'End.DT4',
-                            'vrf_table': 10})
+            ipr.link(
+                "add",
+                ifname="vrf-foo",
+                kind="vrf",
+                vrf_table=10,
+            )
+            ipr.route(
+                "add",
+                dst="2001:0:0:10::2/128",
+                oif=idx,
+                encap={
+                    "type": "seg6local",
+                    "action": "End.DT4",
+                    "vrf_table": 10,
+                },
+            )
 
         Create SEG6LOCAL tunnel End.B6 action (kernel >= 4.14)::
 
-            ip.route('add',
-                     dst='2001:0:0:10::2/128',
-                     oif=idx,
-                     encap={'type': 'seg6local',
-                            'action': 'End.B6',
-                            'srh':{'segs': '2000::5,2000::6'}})
+            ipr.route(
+                "add",
+                dst="2001:0:0:10::2/128",
+                oif=idx,
+                encap={
+                    "type": "seg6local",
+                    "action": "End.B6",
+                    "srh": {"segs": "2000::5,2000::6"},
+                },
+            )
 
         Create SEG6LOCAL tunnel End.B6 action with hmac (kernel >= 4.14)::
 
-            ip.route('add',
-                     dst='2001:0:0:10::2/128',
-                     oif=idx,
-                     encap={'type': 'seg6local',
-                            'action': 'End.B6',
-                            'srh': {'segs': '2000::5,2000::6',
-                                    'hmac':0xf}})
+            ipr.route(
+                "add",
+                dst="2001:0:0:10::2/128",
+                oif=idx,
+                encap={
+                    "type": "seg6local",
+                    "action": "End.B6",
+                    "srh": {
+                        "segs": "2000::5,2000::6",
+                        "hmac": 0xf,
+                    },
+                },
+            )
 
         **change**, **replace**, **append**
 
