@@ -353,6 +353,7 @@ class NetlinkMixin(object):
         self._sndbuf = sndbuf
         self._rcvbuf = rcvbuf
         self.backlog = {0: []}
+        self.error_deque = collections.deque(maxlen=1000)
         self.callbacks = []  # [(predicate, callback, args), ...]
         self.pthread = None
         self.closed = False
@@ -728,14 +729,11 @@ class NetlinkMixin(object):
 
                             # If there is an error, raise exception
                             if msg['header']['error'] is not None:
-                                # reschedule all the remaining messages except
-                                # of errors
-                                self.backlog[0].extend(
-                                    filter(
-                                        lambda x: x['header']['error'] is None,
-                                        self.backlog[msg_seq],
-                                    )
-                                )
+                                # reschedule all the remaining messages,
+                                # including errors and acks, into a
+                                # separate deque
+                                self.error_deque.extend(self.backlog[msg_seq])
+                                # flush the backlog for this msg_seq
                                 del self.backlog[msg_seq]
                                 # The loop is done
                                 raise msg['header']['error']
