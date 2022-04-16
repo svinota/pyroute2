@@ -24,11 +24,11 @@ if sys.platform.startswith('linux'):
         from pr2modules.netlink.rtnl.ifinfmsg.proxy import proxy_setlink
 
 
-class IPRSocketMixin(object):
+class IPRSocketBase(object):
     def __init__(self, *argv, **kwarg):
         if 'family' in kwarg:
             kwarg.pop('family')
-        super(IPRSocketMixin, self).__init__(NETLINK_ROUTE, *argv[1:], **kwarg)
+        super(IPRSocketBase, self).__init__(NETLINK_ROUTE, *argv[1:], **kwarg)
         self.marshal = MarshalRtnl()
         self._s_channel = None
         if sys.platform.startswith('linux'):
@@ -60,7 +60,7 @@ class IPRSocketMixin(object):
                 self.recv_ft = self._p_recv_ft
 
     def bind(self, groups=rtnl.RTMGRP_DEFAULTS, **kwarg):
-        super(IPRSocketMixin, self).bind(groups, **kwarg)
+        super(IPRSocketBase, self).bind(groups, **kwarg)
 
     def _gate_linux(self, msg, addr):
         msg.reset()
@@ -109,15 +109,15 @@ class IPRSocketMixin(object):
         return data
 
 
-class IPBatchSocket(IPRSocketMixin, BatchSocket):
+class IPBatchSocket(IPRSocketBase, BatchSocket):
     pass
 
 
-class ChaoticIPRSocket(IPRSocketMixin, ChaoticNetlinkSocket):
+class ChaoticIPRSocket(IPRSocketBase, ChaoticNetlinkSocket):
     pass
 
 
-class IPRSocket(IPRSocketMixin, NetlinkSocket):
+class IPRSocket(IPRSocketBase, NetlinkSocket):
     '''
     The simplest class, that connects together the netlink parser and
     a generic Python socket implementation. Provides method get() to

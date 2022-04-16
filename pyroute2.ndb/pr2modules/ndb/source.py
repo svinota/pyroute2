@@ -80,7 +80,7 @@ import importlib
 from pr2modules.common import basestring
 from pr2modules.iproute.linux import IPRoute
 from pr2modules.remote import RemoteIPRoute
-from pr2modules.netlink.nlsocket import NetlinkMixin
+from pr2modules.netlink.nlsocket import NetlinkSocketBase
 from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from .events import ShutdownException, State
@@ -241,7 +241,7 @@ class Source(dict):
         return ret
 
     def __repr__(self):
-        if isinstance(self.nl_prime, NetlinkMixin):
+        if isinstance(self.nl_prime, NetlinkSocketBase):
             name = self.nl_prime.__class__.__name__
         elif isinstance(self.nl_prime, type):
             name = self.nl_prime.__name__

@@ -4,14 +4,14 @@ from pr2modules.netlink.nlsocket import NetlinkSocket
 from pr2modules.netlink.rtnl.marshal import MarshalRtnl
 
 
-class RawIPRSocketMixin(object):
+class RawIPRSocketBase(object):
     def __init__(self, fileno=None):
-        super(RawIPRSocketMixin, self).__init__(NETLINK_ROUTE, fileno=fileno)
+        super(RawIPRSocketBase, self).__init__(NETLINK_ROUTE, fileno=fileno)
         self.marshal = MarshalRtnl()
 
     def bind(self, groups=rtnl.RTMGRP_DEFAULTS, **kwarg):
-        super(RawIPRSocketMixin, self).bind(groups, **kwarg)
+        super(RawIPRSocketBase, self).bind(groups, **kwarg)
 
 
-class RawIPRSocket(RawIPRSocketMixin, NetlinkSocket):
+class RawIPRSocket(RawIPRSocketBase, NetlinkSocket):
     pass

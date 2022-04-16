@@ -13,7 +13,7 @@ from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from pr2modules import config
 from pr2modules import netns as netnsmod
-from pr2modules.netlink.nlsocket import NetlinkMixin
+from pr2modules.netlink.nlsocket import NetlinkSocketBase
 
 if config.uname[0][-3:] == 'BSD':
     from pr2modules.iproute.bsd import IPRoute
@@ -213,7 +213,7 @@ def Server(trnsp_in, trnsp_out, netns=None, target='localhost'):
                     )
 
 
-class RemoteSocket(NetlinkMixin):
+class RemoteSocket(NetlinkSocketBase):
 
     trnsp_in = None
     trnsp_out = None

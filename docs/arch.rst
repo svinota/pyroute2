@@ -62,7 +62,7 @@ required fields and passes it to the next layer::
 
     result.extend(self.nlm_request(msg, RTM_GETLINK, msg_flags))
 
-The `nlm_request()` is a method of the `NetlinkMixin` class.
+The `nlm_request()` is a method of the `NetlinkSocketBase` class.
 It wraps the pair request/response in one method. The request
 is done via `put()`, response comes with `get()`. These
 methods hide under the hood the asynchronous nature of the
@@ -76,7 +76,7 @@ cache thread
 
 Sometimes it is preferrable to get incoming messages asap
 and parse them only when there is time for that. For that
-case the `NetlinkMixin` provides a possibility to start a
+case the `NetlinkSocketBase` provides a possibility to start a
 dedicated cache thread, that will collect and queue incoming
 messages as they arrive. The thread doesn't affect the
 socket behaviour: it will behave exactly in the same way,
@@ -92,7 +92,7 @@ one should call `bind()` with `async_cache=True`::
 message mangling
 ----------------
 
-An interesting feature of the `IPRSocketMixin` is a netlink
+An interesting feature of the `IPRSocketBase` is a netlink
 proxy code, that allows to register callbacks for different
 message types. The callback API is simple. The callback
 must accept the message as a binary data, and must return
@@ -123,7 +123,7 @@ ovs, teamd, tuntap calls via netlink. The corresponding
 callbacks transparently route the call to an external
 utility or to `ioctl()` API.
 
-How to register callbacks, see `IPRSocketMixin` init.
+How to register callbacks, see `IPRSocketBase` init.
 The `_sproxy` serves `sendto()` mangling, the `_rproxy`
 serves the `recv()` mangling. Later this API can become
 public.

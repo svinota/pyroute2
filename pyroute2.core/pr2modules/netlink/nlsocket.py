@@ -291,7 +291,7 @@ class LockFactory(object):
         del self.locks[key]
 
 
-class NetlinkMixin(object):
+class NetlinkSocketBase(object):
     '''
     Generic netlink socket
     '''
@@ -322,7 +322,7 @@ class NetlinkMixin(object):
         # since the core should be both Python 2 and 3
         # compatible.
         #
-        super(NetlinkMixin, self).__init__()
+        super(NetlinkSocketBase, self).__init__()
         if fileno is not None and sys.version_info[0] < 3:
             raise NotImplementedError(
                 'fileno parameter is not supported ' 'on Python < 3.2'
@@ -979,7 +979,7 @@ class BatchBacklog(dict):
         pass
 
 
-class BatchSocket(NetlinkMixin):
+class BatchSocket(NetlinkSocketBase):
     def post_init(self):
 
         self.backlog = BatchBacklog()
@@ -1014,7 +1014,7 @@ class BatchSocket(NetlinkMixin):
         pass
 
 
-class NetlinkSocket(NetlinkMixin):
+class NetlinkSocket(NetlinkSocketBase):
     def post_init(self):
         # recreate the underlying socket
         with self.sys_lock:
