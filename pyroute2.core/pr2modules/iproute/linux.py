@@ -2245,11 +2245,11 @@ class RTNL_API(object):
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_dump = NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC
 
-        kwarg = IPRuleRequest(kwarg)
         if 'match' not in kwarg and command == 'dump':
             match = kwarg
         else:
             match = kwarg.pop('match', None)
+        kwarg = IPRuleRequest(kwarg)
 
         commands = {
             'add': (RTM_NEWRULE, flags_make),
