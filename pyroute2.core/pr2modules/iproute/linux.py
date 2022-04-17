@@ -2168,7 +2168,7 @@ class RTNL_API(object):
 
         return ret
 
-    def rule(self, command, *argv, **kwarg):
+    def rule(self, command, **kwarg):
         '''
         Rule operations
 
@@ -2245,6 +2245,12 @@ class RTNL_API(object):
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_dump = NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC
 
+        kwarg = IPRuleRequest(kwarg)
+        if 'match' not in kwarg and command == 'dump':
+            match = kwarg
+        else:
+            match = kwarg.pop('match', None)
+
         commands = {
             'add': (RTM_NEWRULE, flags_make),
             'del': (RTM_DELRULE, flags_make),
@@ -2256,25 +2262,6 @@ class RTNL_API(object):
             command = (command, flags_make)
         command, flags = commands.get(command, command)
 
-        if argv:
-            # this code block will be removed in some release
-            log.error('rule(): positional parameters are deprecated')
-            names = [
-                'table',
-                'priority',
-                'action',
-                'family',
-                'src',
-                'src_len',
-                'dst',
-                'dst_len',
-                'fwmark',
-                'iifname',
-                'oifname',
-            ]
-            kwarg.update(dict(zip(names, argv)))
-
-        kwarg = IPRuleRequest(kwarg)
         msg = fibmsg()
         table = kwarg.get('table', 0)
         msg['table'] = table if table <= 255 else 252
@@ -2292,8 +2279,8 @@ class RTNL_API(object):
 
         ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
 
-        if 'match' in kwarg:
-            ret = self._match(kwarg['match'], ret)
+        if match:
+            ret = self._match(match, ret)
 
         if not (command == RTM_GETRULE and self.nlm_generator):
             ret = tuple(ret)
