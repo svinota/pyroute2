@@ -72,12 +72,11 @@ def make_test_matrix(targets=None, tables=None, dbs=None, types=None):
         for target in targets:
             for table in tables:
                 for kind in types:
-                    param_id = (
-                        f'db={db} '
-                        f'target={target} '
-                        f'table={table} '
-                        f'kind={kind}'
-                    )
+                    param_id = f'db={db} ' f'target={target}'
+                    if table is not None:
+                        param_id += f' table={table}'
+                    if kind is not None:
+                        param_id += f' kind={kind}'
                     param = pytest.param(
                         ContextParams(
                             db_provider, db_spec, target, table, kind
