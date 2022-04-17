@@ -10,6 +10,8 @@ import subprocess
 import netaddr
 import ctypes
 import ctypes.util
+from socket import AF_INET
+from socket import AF_INET6
 from pr2modules import config
 from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.iproute.linux import IPRoute
@@ -30,14 +32,22 @@ try:
 except:
     has_dtcd = False
 
-supernet = {'ipv4': netaddr.IPNetwork('172.16.0.0/12'),
-            'ipv6': netaddr.IPNetwork('fdb3:84e5:4ff4::/48')}
-network_pool = {'ipv4': list(supernet['ipv4'].subnet(24)),
-                'ipv6': list(supernet['ipv6'].subnet(64))}
+supernet = {
+    AF_INET: netaddr.IPNetwork('172.16.0.0/12'),
+    AF_INET6: netaddr.IPNetwork('fdb3:84e5:4ff4::/48'),
+}
+network_pool = {
+    AF_INET: list(supernet[AF_INET].subnet(24)),
+    AF_INET6: list(supernet[AF_INET6].subnet(64)),
+}
 allocations = {}
+family_url = {
+    AF_INET: 'ipv4',
+    AF_INET6: 'ipv6',
+}
 
 
-def allocate_network(ipv='ipv4'):
+def allocate_network(family=AF_INET):
     global dtcd_uuid
     global network_pool
     global allocations
@@ -46,7 +56,7 @@ def allocate_network(ipv='ipv4'):
 
     try:
         cx = httplib.HTTPConnection('localhost:7623')
-        cx.request('POST', '/v1/network/%s/' % ipv, body=dtcd_uuid)
+        cx.request('POST', '/v1/network/%s/' % family_url[family], body=dtcd_uuid)
         resp = cx.getresponse()
         if resp.status == 200:
             network = netaddr.IPNetwork(resp.read().decode('utf-8'))
@@ -55,22 +65,22 @@ def allocate_network(ipv='ipv4'):
         pass
 
     if network is None:
-        network = network_pool[ipv].pop()
+        network = network_pool[family].pop()
         allocations[network] = True
 
     return network
 
 
-def free_network(network, ipv='ipv4'):
+def free_network(network, family=AF_INET):
     global network_pool
     global allocations
 
     if network in allocations:
         allocations.pop(network)
-        network_pool[ipv].append(network)
+        network_pool[family].append(network)
     else:
         cx = httplib.HTTPConnection('localhost:7623')
-        cx.request('DELETE', '/v1/network/%s/' % ipv, body=str(network))
+        cx.request('DELETE', '/v1/network/%s/' % family_url[family], body=str(network))
         cx.getresponse()
         cx.close()
 
