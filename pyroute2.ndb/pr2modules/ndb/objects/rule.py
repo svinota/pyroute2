@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from pr2modules.common import get_address_family
 from pr2modules.netlink.rtnl.fibmsg import fibmsg
 from ..objects import RTNL_Object
 
@@ -62,6 +63,18 @@ class Rule(RTNL_Object):
         kwarg['iclass'] = fibmsg
         self._fields = [x[0] for x in fibmsg.fields]
         self.event_map = {fibmsg: "load_rtnlmsg"}
+        key = argv[1]
+        families = set(
+            [
+                get_address_family(x)
+                for x in (key.get('src'), key.get('dst'))
+                if x != '' and x is not None
+            ]
+        )
+        if len(families) > 1:
+            raise TypeError('src and dst must be of the same IP family')
+        elif len(families) == 1:
+            key['family'] = families.pop()
         super(Rule, self).__init__(*argv, **kwarg)
 
     def load_sql(self, *argv, **kwarg):

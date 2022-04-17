@@ -317,6 +317,13 @@ def dqn2int(mask, family=socket.AF_INET):
     return ret
 
 
+def get_address_family(address):
+    if address.find(':') > -1:
+        return socket.AF_INET6
+    else:
+        return socket.AF_INET
+
+
 def hexdump(payload, length=0):
     '''
     Represent byte string as hex -- for debug purposes
