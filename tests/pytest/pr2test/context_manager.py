@@ -5,6 +5,8 @@ import pytest
 import getpass
 import logging
 import functools
+from socket import AF_INET
+from socket import AF_INET6
 from collections import namedtuple
 from utils import allocate_network
 from utils import free_network
@@ -92,6 +94,7 @@ ContextParams = namedtuple(
 )
 
 Interface = namedtuple('Interface', ('index', 'ifname'))
+Network = namedtuple('Network', ('family', 'network', 'netmask'))
 
 
 class SpecContextManager(object):
@@ -180,6 +183,10 @@ class NDBContextManager(object):
         # IPAM
         self.ipnets = [allocate_network() for _ in range(5)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
+        self.allocated_networks = {AF_INET: [], AF_INET6: []}
+        #
+        # RPDB objects for cleanup
+        self.rules = []
         #
         # default interface (if running as root)
         if getpass.getuser() == 'root':
@@ -215,6 +222,26 @@ class NDBContextManager(object):
         self.namespaces[netns] = None
         return netns
 
+    def register_rule(self, spec, netns=None):
+        '''
+        Register IP rule for cleanup on `teardown()`.
+        '''
+        self.rules.append((netns, spec))
+        return spec
+
+    def register_network(self, family=AF_INET, network=None):
+        '''
+        Register or allocate a network.
+
+        All the allocated networks should be deallocated on `teardown()`.
+        '''
+        if network is None:
+            network = allocate_network(family)
+        # regsiter for cleanup
+        self.allocated_networks[family].append(network)
+        # return a simple convenient named tuple
+        return Network(family, network.network.format(), network.prefixlen)
+
     def get_ipaddr(self, r=0):
         '''
         Returns an ip address from the specified range.
@@ -235,6 +262,13 @@ class NDBContextManager(object):
         Returns a new ipaddr from the configured range
         '''
         return self.get_ipaddr()
+
+    @property
+    def new_ip6net(self):
+        '''
+        Returns a new IPv6 network
+        '''
+        return self.register_network(family=AF_INET6)
 
     @property
     def new_nsname(self):
@@ -283,5 +317,22 @@ class NDBContextManager(object):
                     ipr.close()
         for nsname in self.namespaces:
             netns.remove(nsname)
+        for nsname, rule in self.rules:
+            try:
+                ipr = None
+                if nsname is not None:
+                    ipr = NetNS(nsname)
+                else:
+                    ipr = IPRoute()
+                ipr.rule('del', **rule)
+            except NetlinkError as e:
+                if e.code != errno.ENOENT:
+                    raise
+            finally:
+                if ipr is not None:
+                    ipr.close()
         for net in self.ipnets:
             free_network(net)
+        for family, networks in self.allocated_networks.items():
+            for net in networks:
+                free_network(net, family)

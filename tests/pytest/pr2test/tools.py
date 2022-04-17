@@ -81,6 +81,19 @@ def route_exists(netns=None, **kwarg):
     return len(ret) >= 1
 
 
+def rule_exists(netns=None, **kwarg):
+    ret = 0
+    ipr = None
+    if netns is not None:
+        ipr = NetNS(netns)
+    else:
+        ipr = IPRoute()
+
+    ret = list(ipr.rule('dump', **kwarg))
+    ipr.close()
+    return len(ret) >= 1
+
+
 def qdisc_exists(netns=None, kind=None, **kwarg):
     if netns is None:
         ipr = IPRoute()
