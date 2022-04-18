@@ -653,7 +653,7 @@ class nft_contains_expr:
             class quota_flags(nft_flags_be32):
                 ops = ('NFT_QUOTA_F_INV', 'NFT_QUOTA_F_DEPLETED')
 
-        class nft_range(nft_regs):
+        class nft_range(nft_regs, nft_data):
             nla_map = (
                 ('NFTA_RANGE_UNSPEC', 'none'),
                 ('NFTA_RANGE_SREG', 'regs'),
@@ -900,9 +900,10 @@ class nft_table_msg(nfgen_msg, nft_contains_expr):
 
 
 class nft_set_elem_list_msg(nfgen_msg):
+    prefix = 'NFTA_SET_ELEM_LIST_'
     nla_map = (
         ('NFTA_SET_ELEM_LIST_UNSPEC', 'none'),
-        ('NFTA_SET_TABLE', 'asciiz'),
+        ('NFTA_SET_ELEM_LIST_TABLE', 'asciiz'),
         ('NFTA_SET_ELEM_LIST_SET', 'asciiz'),
         ('NFTA_SET_ELEM_LIST_ELEMENTS', '*set_elem'),
         ('NFTA_SET_ELEM_LIST_SET_ID', 'be32'),
