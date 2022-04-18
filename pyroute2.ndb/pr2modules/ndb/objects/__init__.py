@@ -338,6 +338,7 @@ class RTNL_Object(dict):
         self.knorm = self.schema.compiled[self.table]['norm_idx']
         self.spec = self.schema.compiled[self.table]['all_names']
         self.names = self.schema.compiled[self.table]['norm_names']
+        self.names_count = [self.names.count(x) for x in self.names]
         self.last_save = None
         if self.event_map is None:
             self.event_map = {}
@@ -1036,6 +1037,15 @@ class RTNL_Object(dict):
         for key, value in data.items():
             self.load_value(key, value)
 
+    def update_from_sql(self, spec):
+        '''
+        A bit special case: we can have several fields with
+        non unique names.
+        '''
+        for key, count, value in zip(self.names, self.names_count, spec):
+            if count == 1 or value is not None:
+                self.load_value(key, value)
+
     def load_value(self, key, value):
         '''
         Load a value and clean up the `self.changed` set if the
@@ -1080,7 +1090,8 @@ class RTNL_Object(dict):
         spec = self.ndb.schema.fetchone(
             'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(keys)), values
         )
-        self.log.debug('load_sql: %s' % str(spec))
+        self.log.debug('load_sql load: %s' % str(spec))
+        self.log.debug('load_sql names: %s' % str(self.names))
         if set_state:
             with self.lock:
                 if spec is None:
@@ -1089,7 +1100,7 @@ class RTNL_Object(dict):
                         self.state.set('invalid')
                         self.changed = set()
                 elif self.state not in ('remove', 'setns'):
-                    self.update(dict(zip(self.names, spec)))
+                    self.update_from_sql(spec)
                     self.state.set('system')
         return spec
 
