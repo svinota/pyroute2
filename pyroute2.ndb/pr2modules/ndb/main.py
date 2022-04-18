@@ -190,6 +190,7 @@ from .objects.interface import Vlan
 from .objects.address import Address
 from .objects.route import Route
 from .objects.neighbour import Neighbour
+from .objects.neighbour import FDBRecord
 from .objects.rule import Rule
 from .objects.netns import NetNS
 from .report import RecordSet, Record
@@ -334,6 +335,7 @@ class View(dict):
         self.classes['interfaces'] = Interface
         self.classes['addresses'] = Address
         self.classes['neighbours'] = Neighbour
+        self.classes['af_bridge_fdb'] = FDBRecord
         self.classes['routes'] = Route
         self.classes['rules'] = Rule
         self.classes['netns'] = NetNS
@@ -1027,16 +1029,17 @@ class NDB(object):
             event.wait()
         self._dbm_autoload = None
         for spec in (
-            'interfaces',
-            'addresses',
-            'routes',
-            'neighbours',
-            'rules',
-            'netns',
-            'vlans',
+            ('interfaces', 'interfaces'),
+            ('addresses', 'addresses'),
+            ('routes', 'routes'),
+            ('neighbours', 'neighbours'),
+            ('af_bridge_fdb', 'fdb'),
+            ('rules', 'rules'),
+            ('netns', 'netns'),
+            ('vlans', 'vlans'),
         ):
-            view = View(self, spec, auth_managers=[am])
-            setattr(self, spec, view)
+            view = View(self, spec[0], auth_managers=[am])
+            setattr(self, spec[1], view)
         # self.query = Query(self.schema)
 
     def _get_view(self, name, chain=None):

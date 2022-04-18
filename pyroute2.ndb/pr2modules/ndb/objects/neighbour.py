@@ -13,6 +13,9 @@ def load_ndmsg(schema, target, event):
     if event['ifindex'] == 0:
         return
     #
+    if event.get_attr('NDA_IFINDEX') is None:
+        event['attrs'].append(('NDA_IFINDEX', event['ifindex']))
+    #
     # AF_BRIDGE events
     #
     if event['family'] == AF_BRIDGE:
@@ -25,8 +28,6 @@ def load_ndmsg(schema, target, event):
             raise RescheduleException()
 
     else:
-        if event.get_attr('NDA_IFINDEX') is None:
-            event['attrs'].append(('NDA_IFINDEX', event['ifindex']))
         schema.load_netlink('neighbours', target, event)
 
 
@@ -93,12 +94,12 @@ class Neighbour(RTNL_Object):
 
     @classmethod
     def summary(cls, view):
-        req = '''
+        req = f'''
               SELECT
                   main.f_target, main.f_tflags,
                   intf.f_IFLA_IFNAME, main.f_NDA_LLADDR, main.f_NDA_DST
               FROM
-                  neighbours AS main
+                  {cls.table} AS main
               INNER JOIN
                   interfaces AS intf
               ON
@@ -137,4 +138,22 @@ class Neighbour(RTNL_Object):
         req = super(Neighbour, self).make_req(prime)
         if 'vlan' in req and req['vlan'] == 0:
             req.pop('vlan')
+        return req
+
+
+class FDBRecord(Neighbour):
+
+    table = 'af_bridge_fdb'
+    msg_class = ndmsg
+    api = 'fdb'
+
+    @classmethod
+    def summary(cls, view):
+        for record in super(FDBRecord, cls).summary(view):
+            yield record[:-1]
+
+    def make_idx_req(self, prime):
+        req = super(FDBRecord, self).make_req(prime)
+        if 'NDA_VLAN' in req and req['NDA_VLAN'] == 0:
+            req.pop('NDA_VLAN')
         return req
