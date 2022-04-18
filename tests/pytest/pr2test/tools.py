@@ -51,7 +51,7 @@ def address_exists(netns=None, **kwarg):
     return len(ret) == 1
 
 
-def neighbour_exists(netns=None, *argv, **kwarg):
+def rtnl_object_exists(api, netns, record_filter):
     ret = 0
     ipr = None
 
@@ -60,38 +60,25 @@ def neighbour_exists(netns=None, *argv, **kwarg):
     else:
         ipr = NetNS(netns)
 
-    spec = {}
-    spec.update(kwarg)
-    ret = list(ipr.get_neighbours(*argv, **spec))
+    ret = list(getattr(ipr, api)('dump', **record_filter))
     ipr.close()
-
     return len(ret) >= 1
+
+
+def neighbour_exists(netns=None, **kwarg):
+    return rtnl_object_exists('neigh', netns, kwarg)
 
 
 def route_exists(netns=None, **kwarg):
-    ret = 0
-    ipr = None
-    if netns is not None:
-        ipr = NetNS(netns)
-    else:
-        ipr = IPRoute()
-
-    ret = list(ipr.route('dump', **kwarg))
-    ipr.close()
-    return len(ret) >= 1
+    return rtnl_object_exists('route', netns, kwarg)
 
 
 def rule_exists(netns=None, **kwarg):
-    ret = 0
-    ipr = None
-    if netns is not None:
-        ipr = NetNS(netns)
-    else:
-        ipr = IPRoute()
+    return rtnl_object_exists('rule', netns, kwarg)
 
-    ret = list(ipr.rule('dump', **kwarg))
-    ipr.close()
-    return len(ret) >= 1
+
+def fdb_record_exists(netns=None, **kwarg):
+    return rtnl_object_exists('fdb', netns, kwarg)
 
 
 def qdisc_exists(netns=None, kind=None, **kwarg):
