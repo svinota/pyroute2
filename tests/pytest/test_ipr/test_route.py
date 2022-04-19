@@ -11,9 +11,7 @@ def test_route_get_target_strict_check(context):
         pytest.skip('no default IPv4 routes')
     require_kernel(4, 20)
     with IPRoute(strict_check=True) as ip:
-        rts = ip.get_routes(family=socket.AF_INET,
-                            dst='8.8.8.8',
-                            table=254)
+        rts = ip.get_routes(family=socket.AF_INET, dst='8.8.8.8', table=254)
         assert len(rts) > 0
 
 
