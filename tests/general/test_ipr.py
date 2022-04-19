@@ -671,16 +671,6 @@ class TestIPRoute(object):
                                  table=254)
         assert len(rts) > 0
 
-    def test_route_get_target_strict_check(self):
-        if not self.ip.get_default_routes(table=254):
-            raise SkipTest('no default IPv4 routes')
-        require_kernel(4, 20)
-        with IPRoute(strict_check=True) as ip:
-            rts = ip.get_routes(family=socket.AF_INET,
-                                dst='8.8.8.8',
-                                table=254)
-            assert len(rts) > 0
-
     def test_route_get_target_default_ipv4(self):
         rts = self.ip.get_routes(dst='127.0.0.1')
         assert len(rts) > 0
@@ -1315,40 +1305,3 @@ class TestIPRoute(object):
         assert not self.ip.get_links(dev)[0]['flags'] & IFF_NOARP
         self.ip.link('set', index=dev, arp=False)
         assert self.ip.get_links(dev)[0]['flags'] & IFF_NOARP
-
-    def test_rules(self):
-        assert len(get_ip_rules('-4')) == \
-            len(self.ip.get_rules(socket.AF_INET))
-        assert len(get_ip_rules('-6')) == \
-            len(self.ip.get_rules(socket.AF_INET6))
-
-    def test_one_link(self):
-        lo = self.ip.get_links(1)[0]
-        assert lo.get_attr('IFLA_IFNAME') == 'lo'
-
-    def test_default_routes(self):
-        assert len(get_ip_default_routes()) == \
-            len(self.ip.get_default_routes(family=socket.AF_INET, table=254))
-
-    def test_routes(self):
-        routes = list(self.ip.get_routes(family=socket.AF_INET, table=255))
-        assert len(routes)
-        assert all([isinstance(x, dict) for x in routes])
-        assert all([x['event'] == 'RTM_NEWROUTE' for x in routes])
-
-    def test_link_lookup(self):
-        ifindex = self._create('dummy')[1]
-        interface = self.ip.get_links(ifindex)[0]
-        res = self.ip.link_lookup(address=interface.get_attr('IFLA_ADDRESS'))
-        assert ifindex == res[0]
-
-    def test_extended_error_on_route(self):
-        require_kernel(4, 20)
-        # specific flags, cannot use self.ip
-        with IPRoute(ext_ack=True, strict_check=True) as ip:
-            with assert_raises(NetlinkError) as e:
-                ip.route("get", dst="1.2.3.4", table=254, dst_len=0)
-        assert abs(e.exception.code) == errno.EINVAL
-        # on 5.10 kernel, full message is 'ipv4: rtm_src_len and
-        # rtm_dst_len must be 32 for IPv4'
-        assert "rtm_dst_len" in str(e.exception)
