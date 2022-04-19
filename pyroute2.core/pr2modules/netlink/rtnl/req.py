@@ -1,21 +1,20 @@
+import logging
 from socket import AF_INET
 from socket import AF_INET6
 from collections import OrderedDict
-from pr2modules.common import AF_MPLS
-from pr2modules.common import basestring
-from pr2modules.netlink.rtnl import rt_type
-from pr2modules.netlink.rtnl import rt_proto
-from pr2modules.netlink.rtnl import rt_scope
-from pr2modules.netlink.rtnl import encap_type
-from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
-from pr2modules.netlink.rtnl.ifinfmsg import protinfo_bridge
-from pr2modules.netlink.rtnl.ifinfmsg.plugins.vlan import flags as vlan_flags
-from pr2modules.netlink.rtnl.rtmsg import rtmsg
-from pr2modules.netlink.rtnl.rtmsg import nh as nh_header
-from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
+from pr2modules.common import AF_MPLS, basestring, get_address_family
+from pr2modules.netlink.rtnl import rt_type, rt_proto, rt_scope, encap_type
+from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg, protinfo_bridge
+from pr2modules.netlink.rtnl.rtmsg import (
+    rtmsg,
+    nh as nh_header,
+    LWTUNNEL_ENCAP_MPLS,
+)
+from pr2modules.netlink.rtnl.ndmsg import ndmsg, NUD_PERMANENT
 from pr2modules.netlink.rtnl.fibmsg import FR_ACT_NAMES
+from pr2modules.netlink.rtnl.ifinfmsg.plugins.vlan import flags as vlan_flags
 
-
+log = logging.getLogger(__name__)
 encap_types = {'mpls': 1, AF_MPLS: 1, 'seg6': 5, 'bpf': 6, 'seg6local': 7}
 
 
@@ -36,11 +35,29 @@ class IPRequest(OrderedDict):
                 self[key] = dict((x for x in v.items() if x[1] is not None))
             elif v is not None:
                 self[key] = v
+        self.fix_request()
+
+    def fix_request(self):
+        pass
+
+
+class IPNeighRequest(IPRequest):
+    def fix_request(self):
+        if 'nud' in self:
+            self['state'] = self.pop('nud')
+            log.warning('use `state` instead of `nud`')
+        if 'state' not in self:
+            self['state'] = NUD_PERMANENT
+        if 'dst' in self and 'family' not in self:
+            self['family'] = get_address_family(self['dst'])
+        if isinstance(self['state'], basestring):
+            self['state'] = ndmsg.states_a2n(self['state'])
+        if 'family' not in self:
+            self['family'] = AF_INET
 
 
 class IPRuleRequest(IPRequest):
-    def update(self, obj):
-        super(IPRuleRequest, self).update(obj)
+    def fix_request(self):
         # now fix the rest
         if 'family' not in self:
             self['family'] = AF_INET

@@ -60,6 +60,7 @@ from pr2modules.netlink.rtnl.req import IPBrPortRequest
 from pr2modules.netlink.rtnl.req import IPRouteRequest
 from pr2modules.netlink.rtnl.req import IPRuleRequest
 from pr2modules.netlink.rtnl.req import IPAddrRequest
+from pr2modules.netlink.rtnl.req import IPNeighRequest
 from pr2modules.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pr2modules.netlink.rtnl.tcmsg import tcmsg
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
@@ -85,6 +86,22 @@ from pr2modules.common import getbroadcast
 
 DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)
+
+
+def get_dump_filter(kwarg):
+    if 'match' in kwarg:
+        return kwarg['match']
+    else:
+        return kwarg
+
+
+def get_msg_type(command, command_map):
+    if isinstance(command, basestring):
+        return command_map[command]
+    elif isinstance(command, (list, tuple)):
+        return command
+    else:
+        raise TypeError('command must be a string or a tuple')
 
 
 def transform_handle(handle):
@@ -1010,41 +1027,13 @@ class RTNL_API(object):
                      dst='172.16.45.1',
                      ifindex=idx)
         '''
-        if (command == 'dump') and ('match' not in kwarg):
-            match = kwarg
-        else:
-            match = kwarg.pop('match', None)
-
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_make = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_append = flags_base | NLM_F_CREATE | NLM_F_APPEND
         flags_change = flags_base | NLM_F_REPLACE
         flags_replace = flags_change | NLM_F_CREATE
-
-        msg = ndmsg.ndmsg()
-        # fix kwarg
-        # FIXME: move to req?
-        if 'nud' in kwarg:
-            kwarg['state'] = kwarg.pop('nud')
-        if 'state' not in kwarg:
-            kwarg['state'] = 'permanent'
-        if 'family' not in kwarg and 'dst' in kwarg:
-            if '.' in kwarg['dst']:
-                kwarg['family'] = AF_INET
-            elif ':' in kwarg['dst']:
-                kwarg['family'] = AF_INET6
-
-        for field in msg.fields:
-            if (
-                command == "dump"
-                and self.strict_check
-                and field[0] == "ifindex"
-            ):
-                continue
-            msg[field[0]] = kwarg.pop(field[0], 0)
-
-        commands = {
+        command_map = {
             'add': (RTM_NEWNEIGH, flags_make),
             'set': (RTM_NEWNEIGH, flags_replace),
             'replace': (RTM_NEWNEIGH, flags_replace),
@@ -1057,23 +1046,33 @@ class RTNL_API(object):
             'append': (RTM_NEWNEIGH, flags_append),
         }
 
-        (command, flags) = commands.get(command, command)
-        msg['family'] = msg['family'] or AF_INET
-        msg['attrs'] = []
-        # fix nud kwarg
-        if isinstance(msg['state'], basestring):
-            msg['state'] = ndmsg.states_a2n(msg['state'])
+        msg = ndmsg.ndmsg()
+        request = IPNeighRequest(kwarg)
+        dump_filter = get_dump_filter(kwarg)
+        msg_type, msg_flags = get_msg_type(command, command_map)
 
-        for key in kwarg:
+        # fill the fields
+        for field in msg.fields:
+            if (
+                command == "dump"
+                and self.strict_check
+                and field[0] == "ifindex"
+            ):
+                # is dump & strict_check, leave ifindex for NLA
+                continue
+            msg[field[0]] = request.pop(field[0], 0)
+
+        for key, value in request.items():
             nla = ndmsg.ndmsg.name2nla(key)
-            if kwarg[key] is not None:
-                msg['attrs'].append([nla, kwarg[key]])
+            if msg.valid_nla(nla) and value is not None:
+                msg['attrs'].append([nla, value])
 
-        ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
-        if match:
-            ret = self._match(match, ret)
+        ret = self.nlm_request(msg, msg_type=msg_type, msg_flags=msg_flags)
 
-        if not (command == RTM_GETNEIGH and self.nlm_generator):
+        if command == 'dump' and dump_filter:
+            ret = self._match(dump_filter, ret)
+
+        if not (msg_type == RTM_GETNEIGH and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
