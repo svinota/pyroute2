@@ -1315,6 +1315,9 @@ class nlmsg_base(dict):
         self.__class__.__r_nla_map = r_nla_map
         self.__class__.__compiled_nla = True
 
+    def valid_nla(self, nla):
+        return nla in self.__class__.__r_nla_map.keys()
+
     def encode_nlas(self, offset):
         '''
         Encode the NLA chain. Should not be called manually, since
