@@ -21,7 +21,7 @@ from pr2modules.netlink.rtnl import rt_type
 from pr2modules.netlink.rtnl import rt_proto
 from pr2modules.netlink.rtnl import encap_type
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
-from pr2modules.netlink.rtnl.req import IPRouteRequest
+from pr2modules.iproute.req import IPRouteRequest
 from pr2modules.netlink.rtnl.ifaddrmsg import IFA_F_SECONDARY
 from pr2modules.ipdb.exceptions import CommitException
 from pr2modules.ipdb.transactional import Transactional

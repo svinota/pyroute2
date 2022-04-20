@@ -2,65 +2,69 @@
 import os
 import types
 import logging
-from socket import AF_INET
-from socket import AF_INET6
-from socket import AF_UNSPEC
+from socket import AF_INET, AF_INET6, AF_UNSPEC
 from itertools import chain
 from functools import partial
 from pr2modules import config
 from pr2modules.config import AF_BRIDGE
-from pr2modules.netlink import NLMSG_ERROR
-from pr2modules.netlink import NLM_F_ATOMIC
-from pr2modules.netlink import NLM_F_ROOT
-from pr2modules.netlink import NLM_F_REPLACE
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import NLM_F_ACK
-from pr2modules.netlink import NLM_F_DUMP
-from pr2modules.netlink import NLM_F_CREATE
-from pr2modules.netlink import NLM_F_EXCL
-from pr2modules.netlink import NLM_F_APPEND
-from pr2modules.netlink.rtnl import RTM_NEWADDR
-from pr2modules.netlink.rtnl import RTM_GETADDR
-from pr2modules.netlink.rtnl import RTM_DELADDR
-from pr2modules.netlink.rtnl import RTM_NEWLINK
-from pr2modules.netlink.rtnl import RTM_NEWLINKPROP
-from pr2modules.netlink.rtnl import RTM_DELLINKPROP
-from pr2modules.netlink.rtnl import RTM_GETLINK
-from pr2modules.netlink.rtnl import RTM_DELLINK
-from pr2modules.netlink.rtnl import RTM_NEWQDISC
-from pr2modules.netlink.rtnl import RTM_GETQDISC
-from pr2modules.netlink.rtnl import RTM_DELQDISC
-from pr2modules.netlink.rtnl import RTM_NEWTFILTER
-from pr2modules.netlink.rtnl import RTM_GETTFILTER
-from pr2modules.netlink.rtnl import RTM_DELTFILTER
-from pr2modules.netlink.rtnl import RTM_NEWTCLASS
-from pr2modules.netlink.rtnl import RTM_GETTCLASS
-from pr2modules.netlink.rtnl import RTM_DELTCLASS
-from pr2modules.netlink.rtnl import RTM_NEWRULE
-from pr2modules.netlink.rtnl import RTM_GETRULE
-from pr2modules.netlink.rtnl import RTM_DELRULE
-from pr2modules.netlink.rtnl import RTM_NEWROUTE
-from pr2modules.netlink.rtnl import RTM_GETROUTE
-from pr2modules.netlink.rtnl import RTM_DELROUTE
-from pr2modules.netlink.rtnl import RTM_NEWNEIGH
-from pr2modules.netlink.rtnl import RTM_GETNEIGH
-from pr2modules.netlink.rtnl import RTM_DELNEIGH
-from pr2modules.netlink.rtnl import RTM_SETLINK
-from pr2modules.netlink.rtnl import RTM_GETNEIGHTBL
-from pr2modules.netlink.rtnl import RTM_GETNSID
-from pr2modules.netlink.rtnl import RTM_NEWNETNS
-from pr2modules.netlink.rtnl import RTM_GETSTATS
-from pr2modules.netlink.rtnl import TC_H_ROOT
-from pr2modules.netlink.rtnl import rt_type
-from pr2modules.netlink.rtnl import rt_scope
-from pr2modules.netlink.rtnl import rt_proto
-from pr2modules.netlink.rtnl.req import IPLinkRequest
-from pr2modules.netlink.rtnl.req import IPBridgeRequest
-from pr2modules.netlink.rtnl.req import IPBrPortRequest
-from pr2modules.netlink.rtnl.req import IPRouteRequest
-from pr2modules.netlink.rtnl.req import IPRuleRequest
-from pr2modules.netlink.rtnl.req import IPAddrRequest
-from pr2modules.netlink.rtnl.req import IPNeighRequest
+from pr2modules.netlink import (
+    NLMSG_ERROR,
+    NLM_F_ATOMIC,
+    NLM_F_ROOT,
+    NLM_F_REPLACE,
+    NLM_F_REQUEST,
+    NLM_F_ACK,
+    NLM_F_DUMP,
+    NLM_F_CREATE,
+    NLM_F_EXCL,
+    NLM_F_APPEND,
+)
+from pr2modules.netlink.rtnl import (
+    RTM_NEWADDR,
+    RTM_GETADDR,
+    RTM_DELADDR,
+    RTM_NEWLINK,
+    RTM_NEWLINKPROP,
+    RTM_DELLINKPROP,
+    RTM_GETLINK,
+    RTM_DELLINK,
+    RTM_NEWQDISC,
+    RTM_GETQDISC,
+    RTM_DELQDISC,
+    RTM_NEWTFILTER,
+    RTM_GETTFILTER,
+    RTM_DELTFILTER,
+    RTM_NEWTCLASS,
+    RTM_GETTCLASS,
+    RTM_DELTCLASS,
+    RTM_NEWRULE,
+    RTM_GETRULE,
+    RTM_DELRULE,
+    RTM_NEWROUTE,
+    RTM_GETROUTE,
+    RTM_DELROUTE,
+    RTM_NEWNEIGH,
+    RTM_GETNEIGH,
+    RTM_DELNEIGH,
+    RTM_SETLINK,
+    RTM_GETNEIGHTBL,
+    RTM_GETNSID,
+    RTM_NEWNETNS,
+    RTM_GETSTATS,
+    TC_H_ROOT,
+    rt_type,
+    rt_scope,
+    rt_proto,
+)
+from .req import (
+    IPLinkRequest,
+    IPBridgeRequest,
+    IPBrPortRequest,
+    IPRouteRequest,
+    IPRuleRequest,
+    IPAddrRequest,
+    IPNeighRequest,
+)
 from pr2modules.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pr2modules.netlink.rtnl.tcmsg import tcmsg
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
@@ -71,14 +75,15 @@ from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.ifinfmsg import IFF_NOARP
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pr2modules.netlink.rtnl.ifstatsmsg import ifstatsmsg
-from pr2modules.netlink.rtnl.iprsocket import IPRSocket
-from pr2modules.netlink.rtnl.iprsocket import IPBatchSocket
-from pr2modules.netlink.rtnl.iprsocket import ChaoticIPRSocket
+from pr2modules.netlink.rtnl.iprsocket import (
+    IPRSocket,
+    IPBatchSocket,
+    ChaoticIPRSocket,
+)
 from pr2modules.netlink.rtnl.riprsocket import RawIPRSocket
 from pr2modules.netlink.rtnl.nsidmsg import nsidmsg
 from pr2modules.netlink.rtnl.nsinfmsg import nsinfmsg
-from pr2modules.netlink.exceptions import SkipInode
-from pr2modules.netlink.exceptions import NetlinkError
+from pr2modules.netlink.exceptions import SkipInode, NetlinkError
 
 from pr2modules.common import AF_MPLS
 from pr2modules.common import basestring
@@ -1101,7 +1106,7 @@ class RTNL_API(object):
             ip.link("add", ifname="test",
                     IFLA_LINKINFO={'attrs': [['IFLA_INFO_KIND', 'dummy']]})
 
-        Filters are implemented in the `pr2modules.netlink.rtnl.req` module.
+        Filters are implemented in the `pr2modules.iproute.req` module.
         You can contribute your own if you miss shortcuts.
 
         Commands:
