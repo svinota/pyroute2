@@ -439,7 +439,6 @@ class Interface(RTNL_Object):
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifinfmsg
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
-        dict.__setitem__(self, 'flags', 0)
         dict.__setitem__(self, 'state', 'unknown')
         warnings = []
         if isinstance(argv[1], dict):
