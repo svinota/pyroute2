@@ -4,7 +4,11 @@ from socket import AF_INET6
 from collections import OrderedDict
 from pr2modules.common import AF_MPLS, basestring, get_address_family
 from pr2modules.netlink.rtnl import rt_type, rt_proto, rt_scope, encap_type
-from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg, protinfo_bridge
+from pr2modules.netlink.rtnl.ifinfmsg import (
+    ifinfmsg,
+    protinfo_bridge,
+    IFF_NOARP,
+)
 from pr2modules.netlink.rtnl.rtmsg import (
     rtmsg,
     nh as nh_header,
@@ -691,9 +695,9 @@ class IPLinkRequest(IPRequest):
         self.linkinfo = None
         self._info_data = None
         self._info_slave_data = None
+        for key in ('index', 'change', 'flags'):
+            self.set(key, 0)
         IPRequest.__init__(self, *argv, **kwarg)
-        if 'index' not in self:
-            self['index'] = 0
 
     @property
     def info_data(self):
@@ -843,6 +847,16 @@ class IPLinkRequest(IPRequest):
         elif key == 'xdp_fd':
             attrs = [('IFLA_XDP_FD', value)]
             self.set('xdp', {'attrs': attrs})
+        elif key == 'state':
+            if value == 'up':
+                self.set('flags', self['flags'] | 1)
+            self.set('change', self['change'] | 1)
+        elif key == 'mask':
+            self.set('change', value)
+        elif key == 'arp':
+            if value:
+                self.set('flags', self['flags'] | IFF_NOARP)
+            self.set('change', self['change'] | IFF_NOARP)
         elif self.kind is None:
             if key in self.common:
                 self.set(key, value)

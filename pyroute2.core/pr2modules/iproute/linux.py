@@ -72,7 +72,6 @@ from pr2modules.netlink.rtnl import ndmsg
 from pr2modules.netlink.rtnl.ndtmsg import ndtmsg
 from pr2modules.netlink.rtnl.fibmsg import fibmsg
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
-from pr2modules.netlink.rtnl.ifinfmsg import IFF_NOARP
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pr2modules.netlink.rtnl.ifstatsmsg import ifstatsmsg
 from pr2modules.netlink.rtnl.iprsocket import (
@@ -308,7 +307,8 @@ class RTNL_API(object):
             cmd = 'get'
 
         for index in links:
-            kwarg['index'] = index
+            if index > 0:
+                kwarg['index'] = index
             result.extend(self.link(cmd, **kwarg))
         return result
 
@@ -1414,21 +1414,11 @@ class RTNL_API(object):
 
             ip.link("get", index=3, ext_mask=1)
         '''
-        if (command == 'dump') and ('match' not in kwarg):
-            match = kwarg
-        else:
-            match = kwarg.pop('match', None)
-
-        if command[:4] == 'vlan':
-            log.warning('vlan filters are managed via `vlan_filter()`')
-            log.warning('this compatibility hack will be removed soon')
-            return self.vlan_filter(command[5:], **kwarg)
-
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_req = NLM_F_REQUEST | NLM_F_ACK
         flags_create = flags_req | NLM_F_CREATE | NLM_F_EXCL
         flag_append = flags_create | NLM_F_APPEND
-        commands = {
+        command_map = {
             'set': (RTM_NEWLINK, flags_req),
             'update': (RTM_SETLINK, flags_create),
             'add': (RTM_NEWLINK, flags_create),
@@ -1442,69 +1432,40 @@ class RTNL_API(object):
         }
 
         msg = ifinfmsg()
-        # ifinfmsg fields
-        #
-        # ifi_family
-        # ifi_type
-        # ifi_index
-        # ifi_flags
-        # ifi_change
-        #
-        msg['family'] = kwarg.pop('family', 0)
-        lrq = kwarg.pop('kwarg_filter', IPLinkRequest)
-        (command, msg_flags) = commands.get(command, command)
-        # index
-        msg['index'] = kwarg.pop('index', 0)
-        # flags
-        flags = kwarg.pop('flags', 0) or 0
-        # change
-        mask = kwarg.pop('mask', 0) or kwarg.pop('change', 0) or 0
+        request = IPLinkRequest(kwarg)
+        dump_filter = get_dump_filter(kwarg)
+        msg_type, msg_flags = get_msg_type(command, command_map)
 
-        # UP/DOWN shortcut
-        if 'state' in kwarg:
-            mask = 1  # IFF_UP mask
-            if kwarg['state'].lower() == 'up':
-                flags = 1  # 0 (down) or 1 (up)
-            del kwarg['state']
-
-        # arp on/off shortcut
-        if 'arp' in kwarg:
-            mask |= IFF_NOARP
-            if not kwarg.pop('arp'):
-                flags |= IFF_NOARP
-
-        msg['flags'] = flags
-        msg['change'] = mask
-
-        if 'altname' in kwarg:
-            altname = kwarg.pop("altname")
-            if command in (RTM_NEWLINKPROP, RTM_DELLINKPROP):
+        if 'altname' in request:
+            altname = request.pop("altname")
+            if msg_type in (RTM_NEWLINKPROP, RTM_DELLINKPROP):
                 if not isinstance(altname, (list, tuple, set)):
                     altname = [altname]
 
-                kwarg["IFLA_PROP_LIST"] = {
+                request["IFLA_PROP_LIST"] = {
                     "attrs": [
                         ("IFLA_ALT_IFNAME", alt_ifname)
                         for alt_ifname in altname
                     ]
                 }
             else:
-                kwarg["IFLA_ALT_IFNAME"] = altname
+                request["IFLA_ALT_IFNAME"] = altname
 
-        # apply filter
-        kwarg = lrq(kwarg)
+        for field in msg.fields:
+            msg[field[0]] = request.pop(field[0], 0)
 
         # attach NLA
-        for key in kwarg:
+        for key, value in request.items():
             nla = type(msg).name2nla(key)
-            if kwarg[key] is not None:
-                msg['attrs'].append([nla, kwarg[key]])
+            if msg.valid_nla(nla) and value is not None:
+                msg['attrs'].append([nla, value])
 
-        ret = self.nlm_request(msg, msg_type=command, msg_flags=msg_flags)
-        if match is not None:
-            ret = self._match(match, ret)
+        ret = self.nlm_request(msg, msg_type=msg_type, msg_flags=msg_flags)
 
-        if not (command == RTM_GETLINK and self.nlm_generator):
+        if command == 'dump' and dump_filter is not None:
+            ret = self._match(dump_filter, ret)
+
+        if not (msg_type == RTM_GETLINK and self.nlm_generator):
             ret = tuple(ret)
 
         return ret
