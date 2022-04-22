@@ -665,7 +665,7 @@ class RTNL_API(object):
             # flush all addresses with IFA_LABEL='eth0':
             ipr.flush_addr(label='eth0')
         '''
-        flags = NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST
+        flags = NLM_F_CREATE | NLM_F_REQUEST
         ret = []
         for addr in self.get_addr(*argv, **kwarg):
             self.put(addr, msg_type=RTM_DELADDR, msg_flags=flags)
@@ -686,7 +686,7 @@ class RTNL_API(object):
             # flush all IPv6 rules that point to table 250:
             ipr.flush_rules(family=socket.AF_INET6, table=250)
         '''
-        flags = NLM_F_CREATE | NLM_F_EXCL | NLM_F_REQUEST
+        flags = NLM_F_CREATE | NLM_F_REQUEST
         ret = []
         for rule in self.get_rules(*argv, **kwarg):
             self.put(rule, msg_type=RTM_DELRULE, msg_flags=flags)
@@ -1043,9 +1043,9 @@ class RTNL_API(object):
             'set': (RTM_NEWNEIGH, flags_replace),
             'replace': (RTM_NEWNEIGH, flags_replace),
             'change': (RTM_NEWNEIGH, flags_change),
-            'del': (RTM_DELNEIGH, flags_make),
-            'remove': (RTM_DELNEIGH, flags_make),
-            'delete': (RTM_DELNEIGH, flags_make),
+            'del': (RTM_DELNEIGH, flags_base),
+            'remove': (RTM_DELNEIGH, flags_base),
+            'delete': (RTM_DELNEIGH, flags_base),
             'dump': (RTM_GETNEIGH, flags_dump),
             'get': (RTM_GETNEIGH, flags_base),
             'append': (RTM_NEWNEIGH, flags_append),
@@ -1422,11 +1422,11 @@ class RTNL_API(object):
             'set': (RTM_NEWLINK, flags_req),
             'update': (RTM_SETLINK, flags_create),
             'add': (RTM_NEWLINK, flags_create),
-            'del': (RTM_DELLINK, flags_create),
+            'del': (RTM_DELLINK, flags_req),
             'property_add': (RTM_NEWLINKPROP, flag_append),
             'property_del': (RTM_DELLINKPROP, flags_req),
-            'remove': (RTM_DELLINK, flags_create),
-            'delete': (RTM_DELLINK, flags_create),
+            'remove': (RTM_DELLINK, flags_req),
+            'delete': (RTM_DELLINK, flags_req),
             'dump': (RTM_GETLINK, flags_dump),
             'get': (RTM_GETLINK, NLM_F_REQUEST),
         }
@@ -1538,9 +1538,9 @@ class RTNL_API(object):
         flags_replace = flags_base | NLM_F_REPLACE | NLM_F_CREATE
         commands = {
             'add': (RTM_NEWADDR, flags_create),
-            'del': (RTM_DELADDR, flags_create),
-            'remove': (RTM_DELADDR, flags_create),
-            'delete': (RTM_DELADDR, flags_create),
+            'del': (RTM_DELADDR, flags_base),
+            'remove': (RTM_DELADDR, flags_base),
+            'delete': (RTM_DELADDR, flags_base),
             'replace': (RTM_NEWADDR, flags_replace),
             'dump': (RTM_GETADDR, flags_dump),
         }
@@ -1692,17 +1692,17 @@ class RTNL_API(object):
 
         commands = {
             'add': (RTM_NEWQDISC, flags_make),
-            'del': (RTM_DELQDISC, flags_make),
-            'remove': (RTM_DELQDISC, flags_make),
-            'delete': (RTM_DELQDISC, flags_make),
+            'del': (RTM_DELQDISC, flags_base),
+            'remove': (RTM_DELQDISC, flags_base),
+            'delete': (RTM_DELQDISC, flags_base),
             'change': (RTM_NEWQDISC, flags_change),
             'replace': (RTM_NEWQDISC, flags_replace),
             'add-class': (RTM_NEWTCLASS, flags_make),
-            'del-class': (RTM_DELTCLASS, flags_make),
+            'del-class': (RTM_DELTCLASS, flags_base),
             'change-class': (RTM_NEWTCLASS, flags_change),
             'replace-class': (RTM_NEWTCLASS, flags_replace),
             'add-filter': (RTM_NEWTFILTER, flags_make),
-            'del-filter': (RTM_DELTFILTER, flags_make),
+            'del-filter': (RTM_DELTFILTER, flags_base),
             'change-filter': (RTM_NEWTFILTER, flags_change),
             'replace-filter': (RTM_NEWTFILTER, flags_replace),
         }
@@ -2060,9 +2060,9 @@ class RTNL_API(object):
             'replace': (RTM_NEWROUTE, flags_replace),
             'change': (RTM_NEWROUTE, flags_change),
             'append': (RTM_NEWROUTE, flags_append),
-            'del': (RTM_DELROUTE, flags_make),
-            'remove': (RTM_DELROUTE, flags_make),
-            'delete': (RTM_DELROUTE, flags_make),
+            'del': (RTM_DELROUTE, flags_base),
+            'remove': (RTM_DELROUTE, flags_base),
+            'delete': (RTM_DELROUTE, flags_base),
             'get': (RTM_GETROUTE, NLM_F_REQUEST),
             'show': (RTM_GETROUTE, flags_dump),
             'dump': (RTM_GETROUTE, flags_dump),
@@ -2218,9 +2218,9 @@ class RTNL_API(object):
 
         commands = {
             'add': (RTM_NEWRULE, flags_make),
-            'del': (RTM_DELRULE, flags_make),
-            'remove': (RTM_DELRULE, flags_make),
-            'delete': (RTM_DELRULE, flags_make),
+            'del': (RTM_DELRULE, flags_base),
+            'remove': (RTM_DELRULE, flags_base),
+            'delete': (RTM_DELRULE, flags_base),
             'dump': (RTM_GETRULE, flags_dump),
         }
         if isinstance(command, int):
