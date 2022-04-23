@@ -676,8 +676,12 @@ class NetlinkSocketBase(object):
         raise NotImplementedError()
 
     def get(
-        self, bufsize=DEFAULT_RCVBUF, msg_seq=0, terminate=None, callback=None,
-            noraise=False
+        self,
+        bufsize=DEFAULT_RCVBUF,
+        msg_seq=0,
+        terminate=None,
+        callback=None,
+        noraise=False,
     ):
         '''
         Get parsed messages list. If `msg_seq` is given, return
@@ -753,7 +757,10 @@ class NetlinkSocketBase(object):
                             self.backlog[msg_seq].remove(msg)
 
                             # If there is an error, raise exception
-                            if msg['header']['error'] is not None and not noraise:
+                            if (
+                                msg['header']['error'] is not None
+                                and not noraise
+                            ):
                                 # reschedule all the remaining messages,
                                 # including errors and acks, into a
                                 # separate deque
@@ -935,7 +942,8 @@ class NetlinkSocketBase(object):
                 if 'pid' not in msg['header']:
                     msg['header']['pid'] = self.epid or os.getpid()
                 if (msg['header']['flags'] & NLM_F_ACK) or (
-                        msg['header']['flags'] & NLM_F_DUMP):
+                    msg['header']['flags'] & NLM_F_DUMP
+                ):
                     expected_responses.append(seq)
             self._send_batch(msgs)
 
@@ -947,7 +955,7 @@ class NetlinkSocketBase(object):
                     yield msg
         finally:
             # Release locks in reverse order.
-            for seq in seqs[acquired - 1::-1]:
+            for seq in seqs[acquired - 1 :: -1]:
                 self.lock[seq].release()
 
             with self.backlog_lock:

@@ -5,7 +5,14 @@ See also: pr2modules.nftables
 """
 
 import threading
-from pr2modules.netlink import NLM_F_REQUEST, NLM_F_ACK, NLM_F_CREATE, NLM_F_APPEND, NLM_F_EXCL, NLM_F_REPLACE
+from pr2modules.netlink import (
+    NLM_F_REQUEST,
+    NLM_F_ACK,
+    NLM_F_CREATE,
+    NLM_F_APPEND,
+    NLM_F_EXCL,
+    NLM_F_REPLACE,
+)
 from pr2modules.netlink import NLM_F_DUMP
 from pr2modules.netlink import NETLINK_NETFILTER
 from pr2modules.netlink import nla
@@ -1103,7 +1110,7 @@ class NFTSocket(NetlinkSocket):
             'add': NLM_F_CREATE | NLM_F_APPEND,
             'create': NLM_F_CREATE | NLM_F_APPEND | NLM_F_EXCL,
             'insert': NLM_F_CREATE,
-            'replace': NLM_F_REPLACE
+            'replace': NLM_F_REPLACE,
         }
         flags |= cmd_flags.get(cmd, 0)
         flags |= NLM_F_REQUEST

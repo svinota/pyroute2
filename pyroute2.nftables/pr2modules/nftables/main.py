@@ -53,7 +53,7 @@ class NFTables(NFTSocket):
             'add': NFT_MSG_NEWTABLE,
             'create': NFT_MSG_NEWTABLE,
             'del': NFT_MSG_DELTABLE,
-            'get': NFT_MSG_GETTABLE
+            'get': NFT_MSG_GETTABLE,
         }
         return self._command(nft_table_msg, commands, cmd, kwarg)
 
@@ -75,7 +75,7 @@ class NFTables(NFTSocket):
             'add': NFT_MSG_NEWCHAIN,
             'create': NFT_MSG_NEWCHAIN,
             'del': NFT_MSG_DELCHAIN,
-            'get': NFT_MSG_GETCHAIN
+            'get': NFT_MSG_GETCHAIN,
         }
         # TODO: What about 'ingress' (netdev family)?
         hooks = {
@@ -116,7 +116,7 @@ class NFTables(NFTSocket):
             'insert': NFT_MSG_NEWRULE,
             'replace': NFT_MSG_NEWRULE,
             'del': NFT_MSG_DELRULE,
-            'get': NFT_MSG_GETRULE
+            'get': NFT_MSG_GETRULE,
         }
 
         if 'expressions' in kwarg:
