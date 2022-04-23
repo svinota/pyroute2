@@ -942,7 +942,8 @@ class NetlinkSocketBase(object):
             for seq in expected_responses:
                 for msg in self.get(msg_seq=seq, noraise=noraise):
                     if msg['header']['flags'] & NLM_F_DUMP_INTR:
-                        raise NetlinkDumpInterrupted()  # Leave error handling to the caller
+                        # Leave error handling to the caller
+                        raise NetlinkDumpInterrupted()
                     yield msg
         finally:
             # Release locks in reverse order.

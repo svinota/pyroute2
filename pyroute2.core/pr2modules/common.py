@@ -486,7 +486,9 @@ class AddrPool(object):
                     addr = self.alloc()
                     try:
                         addresses.append(addr)
-                    except:  # In case of a MemoryError during appending, the finally block would not free the address.
+                    except:
+                        # In case of a MemoryError during appending,
+                        # the finally block would not free the address.
                         self.free(addr)
                 return addresses
             except:

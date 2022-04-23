@@ -1,6 +1,5 @@
 '''
 '''
-from pr2modules.netlink import NLM_F_REQUEST, NLM_F_ACK, NLM_F_CREATE, NLM_F_APPEND, NLM_F_REPLACE, NLM_F_EXCL
 from pr2modules.netlink.nfnetlink import nfgen_msg
 from pr2modules.netlink.nfnetlink.nftsocket import (
     NFTSocket,
