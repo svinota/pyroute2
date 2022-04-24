@@ -1,8 +1,10 @@
+import errno
 import pytest
 from pr2test.context_manager import SpecContextManager
 from pr2test.context_manager import NDBContextManager
-from pyroute2.ipset import IPSet
+from pyroute2.ipset import IPSet, IPSetError
 from utils import require_user
+from uuid import uuid4
 
 
 @pytest.fixture
@@ -36,3 +38,14 @@ def ipset():
     sock = IPSet()
     yield sock
     sock.close()
+
+
+@pytest.fixture
+def ipset_name(ipset):
+    name = str(uuid4())[:16]
+    yield name
+    try:
+        ipset.destroy(name)
+    except IPSetError as e:
+        if e.code != errno.ENOENT:
+            raise
