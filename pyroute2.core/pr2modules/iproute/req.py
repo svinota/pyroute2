@@ -51,15 +51,16 @@ class IPRequest(OrderedDict):
 
 class IPNeighRequest(IPRequest):
     def fix_request(self):
-        if 'nud' in self:
-            self['state'] = self.pop('nud')
-            log.warning('use `state` instead of `nud`')
-        if 'state' not in self:
-            self['state'] = NUD_PERMANENT
-        if 'dst' in self and 'family' not in self:
-            self['family'] = get_address_family(self['dst'])
-        if isinstance(self['state'], basestring):
-            self['state'] = ndmsg.states_a2n(self['state'])
+        if self.command != 'dump':
+            if 'nud' in self:
+                self['state'] = self.pop('nud')
+                log.warning('use `state` instead of `nud`')
+            if 'state' not in self:
+                self['state'] = NUD_PERMANENT
+            if 'dst' in self and 'family' not in self:
+                self['family'] = get_address_family(self['dst'])
+            if isinstance(self['state'], basestring):
+                self['state'] = ndmsg.states_a2n(self['state'])
         if 'family' not in self:
             self['family'] = AF_INET
 

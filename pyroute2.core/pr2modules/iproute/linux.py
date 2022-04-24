@@ -1052,7 +1052,7 @@ class RTNL_API(object):
         }
 
         msg = ndmsg.ndmsg()
-        request = IPNeighRequest(kwarg)
+        request = IPNeighRequest(kwarg, command)
         dump_filter = get_dump_filter(kwarg)
         msg_type, msg_flags = get_msg_type(command, command_map)
 
