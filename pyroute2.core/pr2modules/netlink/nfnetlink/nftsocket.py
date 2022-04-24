@@ -5,7 +5,14 @@ See also: pr2modules.nftables
 """
 
 import threading
-from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink import (
+    NLM_F_REQUEST,
+    NLM_F_ACK,
+    NLM_F_CREATE,
+    NLM_F_APPEND,
+    NLM_F_EXCL,
+    NLM_F_REPLACE,
+)
 from pr2modules.netlink import NLM_F_DUMP
 from pr2modules.netlink import NETLINK_NETFILTER
 from pr2modules.netlink import nla
@@ -1096,7 +1103,17 @@ class NFTSocket(NetlinkSocket):
         if one_shot:
             self.commit()
 
-    def _command(self, msg_class, commands, cmd, kwarg, flags=NLM_F_REQUEST):
+    def _command(self, msg_class, commands, cmd, kwarg):
+        flags = kwarg.pop('flags', NLM_F_ACK)
+        cmd_name = cmd
+        cmd_flags = {
+            'add': NLM_F_CREATE | NLM_F_APPEND,
+            'create': NLM_F_CREATE | NLM_F_APPEND | NLM_F_EXCL,
+            'insert': NLM_F_CREATE,
+            'replace': NLM_F_REPLACE,
+        }
+        flags |= cmd_flags.get(cmd, 0)
+        flags |= NLM_F_REQUEST
         cmd = commands[cmd]
         msg = msg_class()
         msg['attrs'] = []
@@ -1115,5 +1132,24 @@ class NFTSocket(NetlinkSocket):
         for key, value in kwarg.items():
             nla = msg_class.name2nla(key)
             msg['attrs'].append([nla, value])
-        #
-        return self.request_put(msg, msg_type=cmd, msg_flags=flags)
+        msg['header']['type'] = (NFNL_SUBSYS_NFTABLES << 8) | cmd
+        msg['header']['flags'] = flags | NLM_F_REQUEST
+        msg['nfgen_family'] = self._nfgen_family
+
+        if cmd_name != 'get':
+            trans_start = nfgen_msg()
+            trans_start['res_id'] = NFNL_SUBSYS_NFTABLES
+            trans_start['header']['type'] = 0x10
+            trans_start['header']['flags'] = NLM_F_REQUEST
+
+            trans_end = nfgen_msg()
+            trans_end['res_id'] = NFNL_SUBSYS_NFTABLES
+            trans_end['header']['type'] = 0x11
+            trans_end['header']['flags'] = NLM_F_REQUEST
+
+            messages = [trans_start, msg, trans_end]
+            self.nlm_request_batch(messages, noraise=(flags & NLM_F_ACK) == 0)
+            # Only throw an error when the request fails. For now,
+            # do not return anything.
+        else:
+            return self.request_get(msg, msg['header']['type'], flags)[0]

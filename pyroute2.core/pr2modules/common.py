@@ -477,6 +477,28 @@ class AddrPool(object):
             else:
                 raise KeyError('no free address available')
 
+    def alloc_multi(self, count):
+        with self.lock:
+            addresses = []
+            raised = False
+            try:
+                for _ in range(count):
+                    addr = self.alloc()
+                    try:
+                        addresses.append(addr)
+                    except:
+                        # In case of a MemoryError during appending,
+                        # the finally block would not free the address.
+                        self.free(addr)
+                return addresses
+            except:
+                raised = True
+                raise
+            finally:
+                if raised:
+                    for addr in addresses:
+                        self.free(addr)
+
     def locate(self, addr):
         if self.reverse:
             addr = self.maxaddr - addr

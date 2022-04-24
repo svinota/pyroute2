@@ -102,7 +102,7 @@ from pr2modules import config
 from pr2modules.config import AF_NETLINK
 from pr2modules.common import AddrPool
 from pr2modules.common import DEFAULT_RCVBUF
-from pr2modules.netlink import nlmsg
+from pr2modules.netlink import nlmsg, NLM_F_ACK
 from pr2modules.netlink import nlmsgerr
 from pr2modules.netlink import mtypes
 from pr2modules.netlink import NLMSG_ERROR
@@ -412,6 +412,12 @@ class NetlinkSocketBase(object):
             self.nlm_request = nlm_request
             self.get = get
 
+            def nlm_request_batch(*argv, **kwarg):
+                return tuple(self._genlm_request_batch(*argv, **kwarg))
+
+            self._genlm_request_batch = self.nlm_request_batch
+            self.nlm_request_batch = nlm_request_batch
+
         # Set defaults
         self.post_init()
 
@@ -597,6 +603,21 @@ class NetlinkSocketBase(object):
                 else:
                     return
 
+    def _send_batch(self, msgs, addr=(0, 0)):
+        with self.backlog_lock:
+            for msg in msgs:
+                self.backlog[msg['header']['sequence_number']] = []
+        # We have locked the message locks in the caller already.
+        data = bytearray()
+        for msg in msgs:
+            if not isinstance(msg, nlmsg):
+                msg_class = self.marshal.msg_map[msg['header']['type']]
+                msg = msg_class(msg)
+            msg.reset()
+            msg.encode()
+            data += msg.data
+        self._sock.sendto(data, addr)
+
     def put(
         self,
         msg,
@@ -655,7 +676,12 @@ class NetlinkSocketBase(object):
         raise NotImplementedError()
 
     def get(
-        self, bufsize=DEFAULT_RCVBUF, msg_seq=0, terminate=None, callback=None
+        self,
+        bufsize=DEFAULT_RCVBUF,
+        msg_seq=0,
+        terminate=None,
+        callback=None,
+        noraise=False,
     ):
         '''
         Get parsed messages list. If `msg_seq` is given, return
@@ -670,6 +696,9 @@ class NetlinkSocketBase(object):
                 the network data
             - 0: bufsize will be calculated from SO_RCVBUF sockopt
             - int >= 0: just a bufsize
+
+        If `noraise` is true, error messages will be treated as any
+        other message.
         '''
         ctime = time.time()
 
@@ -728,7 +757,10 @@ class NetlinkSocketBase(object):
                             self.backlog[msg_seq].remove(msg)
 
                             # If there is an error, raise exception
-                            if msg['header']['error'] is not None:
+                            if (
+                                msg['header']['error'] is not None
+                                and not noraise
+                            ):
                                 # reschedule all the remaining messages,
                                 # including errors and acks, into a
                                 # separate deque
@@ -893,6 +925,47 @@ class NetlinkSocketBase(object):
                 if backlog_acquired:
                     self.backlog_lock.release()
 
+    def nlm_request_batch(self, msgs, noraise=False):
+        """
+        This function is for messages which are expected to have side effects.
+        Do not blindly retry in case of errors as this might duplicate them.
+        """
+        expected_responses = []
+        acquired = 0
+        seqs = self.addr_pool.alloc_multi(len(msgs))
+        try:
+            for seq in seqs:
+                self.lock[seq].acquire()
+                acquired += 1
+            for seq, msg in zip(seqs, msgs):
+                msg['header']['sequence_number'] = seq
+                if 'pid' not in msg['header']:
+                    msg['header']['pid'] = self.epid or os.getpid()
+                if (msg['header']['flags'] & NLM_F_ACK) or (
+                    msg['header']['flags'] & NLM_F_DUMP
+                ):
+                    expected_responses.append(seq)
+            self._send_batch(msgs)
+
+            for seq in expected_responses:
+                for msg in self.get(msg_seq=seq, noraise=noraise):
+                    if msg['header']['flags'] & NLM_F_DUMP_INTR:
+                        # Leave error handling to the caller
+                        raise NetlinkDumpInterrupted()
+                    yield msg
+        finally:
+            # Release locks in reverse order.
+            for seq in seqs[acquired - 1 :: -1]:
+                self.lock[seq].release()
+
+            with self.backlog_lock:
+                for seq in seqs:
+                    # Clear the backlog. We may have raised an error
+                    # causing the backlog to not be consumed entirely.
+                    if seq in self.backlog:
+                        del self.backlog[seq]
+                    self.addr_pool.free(seq, ban=0xFF)
+
     def nlm_request(
         self,
         msg,
@@ -924,7 +997,7 @@ class NetlinkSocketBase(object):
                             yield msg
                         break
                     except NetlinkError as e:
-                        if e.code != 16:
+                        if e.code != errno.EBUSY:
                             raise
                         if retry_count >= 30:
                             raise

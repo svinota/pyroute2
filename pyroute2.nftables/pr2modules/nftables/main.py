@@ -49,10 +49,12 @@ class NFTables(NFTSocket):
 
             nft.table('add', name='test0')
         '''
-        commands = {'add': NFT_MSG_NEWTABLE, 'del': NFT_MSG_DELTABLE}
-        # fix default kwargs
-        if 'flags' not in kwarg:
-            kwarg['flags'] = 0
+        commands = {
+            'add': NFT_MSG_NEWTABLE,
+            'create': NFT_MSG_NEWTABLE,
+            'del': NFT_MSG_DELTABLE,
+            'get': NFT_MSG_GETTABLE,
+        }
         return self._command(nft_table_msg, commands, cmd, kwarg)
 
     def chain(self, cmd, **kwarg):
@@ -69,7 +71,12 @@ class NFTables(NFTSocket):
                       type='filter',
                       policy=0)
         '''
-        commands = {'add': NFT_MSG_NEWCHAIN, 'del': NFT_MSG_DELCHAIN}
+        commands = {
+            'add': NFT_MSG_NEWCHAIN,
+            'create': NFT_MSG_NEWCHAIN,
+            'del': NFT_MSG_DELCHAIN,
+            'get': NFT_MSG_GETCHAIN,
+        }
         # TODO: What about 'ingress' (netdev family)?
         hooks = {
             'prerouting': 0,
@@ -103,13 +110,18 @@ class NFTables(NFTSocket):
                      expressions=(ipv4addr(src='192.168.0.0/24'),
                                   verdict(code=1)))
         '''
-        # TODO: more operations
-        commands = {'add': NFT_MSG_NEWRULE, 'del': NFT_MSG_DELRULE}
+        commands = {
+            'add': NFT_MSG_NEWRULE,
+            'create': NFT_MSG_NEWRULE,
+            'insert': NFT_MSG_NEWRULE,
+            'replace': NFT_MSG_NEWRULE,
+            'del': NFT_MSG_DELRULE,
+            'get': NFT_MSG_GETRULE,
+        }
 
         if 'expressions' in kwarg:
             expressions = []
             for exp in kwarg['expressions']:
                 expressions.extend(exp)
             kwarg['expressions'] = expressions
-        # FIXME: flags!!!
-        return self._command(nft_rule_msg, commands, cmd, kwarg, flags=3585)
+        return self._command(nft_rule_msg, commands, cmd, kwarg)
