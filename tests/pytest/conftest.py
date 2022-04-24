@@ -1,6 +1,8 @@
 import pytest
 from pr2test.context_manager import SpecContextManager
 from pr2test.context_manager import NDBContextManager
+from pyroute2.ipset import IPSet
+from utils import require_user
 
 
 @pytest.fixture
@@ -26,3 +28,11 @@ def spec(request, tmpdir):
     ctx = SpecContextManager(request, tmpdir)
     yield ctx
     ctx.teardown()
+
+
+@pytest.fixture
+def ipset():
+    require_user('root')
+    sock = IPSet()
+    yield sock
+    sock.close()
