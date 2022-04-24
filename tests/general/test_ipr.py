@@ -596,27 +596,6 @@ class TestIPRoute(object):
             except:
                 pass
 
-    def test_fail_no_such_device(self):
-        require_user('root')
-        ifaddr = self.ifaddr()
-        dev = sorted([i['index'] for i in self.ip.get_links()])[-1] + 10
-        try:
-            self.ip.addr('add',
-                         dev,
-                         address=ifaddr,
-                         mask=24)
-        except NetlinkError as e:
-            if e.code != errno.ENODEV:  # No such device
-                raise
-
-    def test_remove_link(self):
-        require_user('root')
-        try:
-            self.ip.link('del', index=self.ifaces[0])
-        except NetlinkError:
-            pass
-        assert len(self.ip.link_lookup(ifname=self.dev)) == 0
-
     def _test_route_proto(self, proto, fake, spec=''):
         require_user('root')
         naddr = str(self.ipnets[1].network)
@@ -1182,30 +1161,6 @@ class TestIPRoute(object):
                 if x.get_attr('IFA_LOCAL') == ifaddr][0]
         assert 'IFA_F_PERMANENT' in addr.flags2names(addr['flags'])
 
-    def test_symbolic_flags_ifinfmsg(self):
-        require_user('root')
-        self.ip.link('set', index=self.ifaces[0], flags=['IFF_UP'])
-        iface = self.ip.get_links(self.ifaces[0])[0]
-        assert iface['flags'] & 1
-        assert 'IFF_UP' in iface.flags2names(iface['flags'])
-        self.ip.link('set', index=self.ifaces[0], flags=['!IFF_UP'])
-        assert not (self.ip.get_links(self.ifaces[0])[0]['flags'] & 1)
-
-    def test_updown_link(self):
-        require_user('root')
-        try:
-            for i in self.ifaces:
-                self.ip.link('set', index=i, state='up')
-        except NetlinkError:
-            pass
-        assert self.ip.get_links(*self.ifaces)[0]['flags'] & 1
-        try:
-            for i in self.ifaces:
-                self.ip.link('set', index=i, state='down')
-        except NetlinkError:
-            pass
-        assert not (self.ip.get_links(*self.ifaces)[0]['flags'] & 1)
-
     def test_callbacks_positive(self):
         require_user('root')
         dev = self.ifaces[0]
@@ -1228,80 +1183,3 @@ class TestIPRoute(object):
         self.test_updown_link()
         assert self.cb_counter == 0
         self.ip.unregister_callback(_callback)
-
-    def test_link_filter(self):
-        links = self.ip.link('dump', ifname='lo')
-        assert len(links) == 1
-        assert links[0].get_attr('IFLA_IFNAME') == 'lo'
-
-    def test_link_legacy_nla(self):
-        require_user('root')
-        dev = self.ifaces[0]
-        try:
-            self.ip.link('set', index=dev, state='down')
-            self.ip.link('set', index=dev, IFLA_IFNAME='bala')
-        except NetlinkError:
-            pass
-        assert len(self.ip.link_lookup(ifname='bala')) == 1
-        try:
-            self.ip.link('set', index=dev, ifname=self.dev)
-        except NetlinkError:
-            pass
-        assert len(self.ip.link_lookup(ifname=self.dev)) == 1
-
-    def test_link_rename(self):
-        require_user('root')
-        dev = self.ifaces[0]
-        try:
-            self.ip.link('set', index=dev, ifname='bala')
-        except NetlinkError:
-            pass
-        assert len(self.ip.link_lookup(ifname='bala')) == 1
-        try:
-            self.ip.link('set', index=dev, ifname=self.dev)
-        except NetlinkError:
-            pass
-        assert len(self.ip.link_lookup(ifname=self.dev)) == 1
-
-    def test_link_altname(self):
-        require_kernel(5, 5)
-        require_user('root')
-
-        with assert_raises(NetlinkError):
-            self.ip.link("get", altname="kikou")
-        with assert_raises(NetlinkError):
-            self.ip.link("get", altname="lesloulous")
-
-        dev = self.ifaces[0]
-
-        self.ip.link("property_add",
-                     index=dev,
-                     altname=["kikou", "lesloulous"])
-        assert len(self.ip.link("get", altname="kikou")) == 1
-        assert len(self.ip.link("get", altname="lesloulous")) == 1
-
-        self.ip.link("property_del",
-                     index=dev,
-                     altname=["kikou", "lesloulous"])
-        with assert_raises(NetlinkError):
-            self.ip.link("get", altname="kikou")
-        with assert_raises(NetlinkError):
-            self.ip.link("get", altname="lesloulous")
-
-        weird_name = ("test_with_a_very_long_string"
-                      "_and_♄⚕⚚_utf8_symbol")
-        self.ip.link("property_add", index=dev, altname=weird_name)
-        assert len(self.ip.link("get", altname=weird_name)) == 1
-        self.ip.link("property_del", index=dev, altname=weird_name)
-        with assert_raises(NetlinkError):
-            self.ip.link("get", altname=weird_name)
-
-    def test_link_arp_flag(self):
-        require_user('root')
-        dev = self.ifaces[0]
-        # by default dummy interface have NOARP set
-        assert self.ip.get_links(dev)[0]['flags'] & IFF_NOARP
-        self.ip.link('set', index=dev, arp=True)
-        assert not self.ip.get_links(dev)[0]['flags'] & IFF_NOARP
-        self.ip.link('set', index=dev, arp=False)
-        assert self.ip.get_links(dev)[0]['flags'] & IFF_NOARP

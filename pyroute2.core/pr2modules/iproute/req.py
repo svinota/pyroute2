@@ -23,8 +23,9 @@ encap_types = {'mpls': 1, AF_MPLS: 1, 'seg6': 5, 'bpf': 6, 'seg6local': 7}
 
 
 class IPRequest(OrderedDict):
-    def __init__(self, obj=None):
+    def __init__(self, obj=None, command=None):
         super(IPRequest, self).__init__()
+        self.command = command
         if obj is not None:
             self.update(obj)
 
@@ -854,9 +855,28 @@ class IPLinkRequest(IPRequest):
         elif key == 'mask':
             self.set('change', value)
         elif key == 'arp':
+            if not value:
+                self.set('flags', self['flags'] | IFF_NOARP)
+            self.set('change', self['change'] | IFF_NOARP)
+        elif key == 'noarp':
             if value:
                 self.set('flags', self['flags'] | IFF_NOARP)
             self.set('change', self['change'] | IFF_NOARP)
+        elif key == 'altname':
+            if self.command in ('property_add', 'property_del'):
+                if not isinstance(value, (list, tuple, set)):
+                    value = [value]
+                self.set(
+                    'IFLA_PROP_LIST',
+                    {
+                        'attrs': [
+                            ('IFLA_ALT_IFNAME', alt_ifname)
+                            for alt_ifname in value
+                        ]
+                    },
+                )
+            else:
+                self.set('IFLA_ALT_IFNAME', value)
         elif self.kind is None:
             if key in self.common:
                 self.set(key, value)

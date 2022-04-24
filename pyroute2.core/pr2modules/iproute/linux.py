@@ -1432,24 +1432,9 @@ class RTNL_API(object):
         }
 
         msg = ifinfmsg()
-        request = IPLinkRequest(kwarg)
+        request = IPLinkRequest(kwarg, command)
         dump_filter = get_dump_filter(kwarg)
         msg_type, msg_flags = get_msg_type(command, command_map)
-
-        if 'altname' in request:
-            altname = request.pop("altname")
-            if msg_type in (RTM_NEWLINKPROP, RTM_DELLINKPROP):
-                if not isinstance(altname, (list, tuple, set)):
-                    altname = [altname]
-
-                request["IFLA_PROP_LIST"] = {
-                    "attrs": [
-                        ("IFLA_ALT_IFNAME", alt_ifname)
-                        for alt_ifname in altname
-                    ]
-                }
-            else:
-                request["IFLA_ALT_IFNAME"] = altname
 
         for field in msg.fields:
             msg[field[0]] = request.pop(field[0], 0)

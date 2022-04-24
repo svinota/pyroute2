@@ -1,5 +1,7 @@
 import time
+import errno
 import pytest
+from pyroute2 import NetlinkError
 from pr2test.context_manager import make_test_matrix
 from pr2test.context_manager import skip_if_not_supported
 
@@ -134,3 +136,12 @@ def test_addr_flush(context):
         counter -= 1
     else:
         raise Exception()
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_fail_no_such_device(context):
+    ifaddr = context.new_ipaddr
+    index = sorted([i['index'] for i in context.ipr.get_links()])[-1] + 10
+    with pytest.raises(NetlinkError) as e:
+        context.ipr.addr('add', index, address=ifaddr, mask=24)
+    assert e.value.code == errno.ENODEV
