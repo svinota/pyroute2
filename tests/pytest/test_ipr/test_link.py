@@ -3,9 +3,7 @@ from pyroute2 import NetlinkError
 from pr2modules.netlink.rtnl.ifinfmsg import IFF_NOARP
 from pr2test.context_manager import make_test_matrix
 
-test_matrix = make_test_matrix(
-    targets=['local', 'netns'],
-)
+test_matrix = make_test_matrix(targets=['local', 'netns'])
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -20,36 +18,31 @@ def test_updown_link(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_link_altname(context):
-        altname1 = context.new_ifname
-        altname2 = context.new_ifname
-        weird_name = ("test_with_a_very_long_string"
-                      "_and_♄⚕⚚_utf8_symbol")
-        index, ifname = context.default_interface
+    altname1 = context.new_ifname
+    altname2 = context.new_ifname
+    weird_name = "test_with_a_very_long_string" "_and_♄⚕⚚_utf8_symbol"
+    index, ifname = context.default_interface
 
-        for name in (altname1, altname2, weird_name):
-            with pytest.raises(NetlinkError):
-                context.ipr.link("get", altname=name)
-
-        context.ipr.link("property_add",
-                     index=index,
-                     altname=[altname1, altname2])
-        assert len(context.ipr.link("get", altname=altname1)) == 1
-        assert len(context.ipr.link("get", altname=altname2)) == 1
-
-        context.ipr.link("property_del",
-                     index=index,
-                     altname=[altname1, altname2])
-
-        for name in (altname1, altname2):
-            with pytest.raises(NetlinkError):
-                context.ipr.link("get", altname=name)
-
-        context.ipr.link("property_add", index=index, altname=weird_name)
-        assert len(context.ipr.link("get", altname=weird_name)) == 1
-        context.ipr.link("property_del", index=index, altname=weird_name)
-        assert len(context.ipr.link("dump", altname=weird_name)) == 0
+    for name in (altname1, altname2, weird_name):
         with pytest.raises(NetlinkError):
-            context.ipr.link("get", altname=weird_name)
+            context.ipr.link("get", altname=name)
+
+    context.ipr.link("property_add", index=index, altname=[altname1, altname2])
+    assert len(context.ipr.link("get", altname=altname1)) == 1
+    assert len(context.ipr.link("get", altname=altname2)) == 1
+
+    context.ipr.link("property_del", index=index, altname=[altname1, altname2])
+
+    for name in (altname1, altname2):
+        with pytest.raises(NetlinkError):
+            context.ipr.link("get", altname=name)
+
+    context.ipr.link("property_add", index=index, altname=weird_name)
+    assert len(context.ipr.link("get", altname=weird_name)) == 1
+    context.ipr.link("property_del", index=index, altname=weird_name)
+    assert len(context.ipr.link("dump", altname=weird_name)) == 0
+    with pytest.raises(NetlinkError):
+        context.ipr.link("get", altname=weird_name)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
