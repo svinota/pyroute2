@@ -11,55 +11,57 @@ import socket
 
 
 def parse_ip(entry):
-    ip_from = entry.get_attr('IPSET_ATTR_IP_FROM')
-    return ip_from.get_attr('IPSET_ATTR_IPADDR_IPV4')
+    ip_from = entry.get_attr("IPSET_ATTR_IP_FROM")
+    return ip_from.get_attr("IPSET_ATTR_IPADDR_IPV4")
 
 
 def parse_net(entry):
     net = parse_ip(entry)
     cidr = entry.get_attr("IPSET_ATTR_CIDR")
     if cidr is not None:
-        net += '/{0}'.format(cidr)
+        net += "/{0}".format(cidr)
     return net
 
 
 def ipset_type_to_entry_type(ipset_type):
-    return ipset_type.split(':', 1)[1].split(',')
+    return ipset_type.split(":", 1)[1].split(",")
 
 
 def list_ipset(ipset_name):
     with IPSet() as sock:
         res = {}
         msg_list = sock.list(ipset_name)
-        adt = 'IPSET_ATTR_ADT'
-        proto = 'IPSET_ATTR_DATA'
-        stype = 'IPSET_ATTR_TYPENAME'
+        adt = "IPSET_ATTR_ADT"
+        proto = "IPSET_ATTR_DATA"
+        stype = "IPSET_ATTR_TYPENAME"
         for msg in msg_list:
             for x in msg.get_attr(adt).get_attrs(proto):
-                entry = ''
+                entry = ""
                 msg_stypes = msg.get_attr(stype)
                 if msg_stypes is None:
-                    msg_stypes = 'hash:ip'
+                    msg_stypes = "hash:ip"
                 for st in ipset_type_to_entry_type(msg_stypes):
                     if st == "ip":
                         entry = parse_ip(x)
                     elif st == "net":
                         entry = parse_net(x)
-                    elif st == 'iface':
-                        entry += x.get_attr('IPSET_ATTR_IFACE')
-                    elif st == 'set':
+                    elif st == "iface":
+                        entry += x.get_attr("IPSET_ATTR_IFACE")
+                    elif st == "set":
                         entry += x.get_attr("IPSET_ATTR_NAME")
                     entry += ","
 
                 entry = entry.strip(",")
 
-                res[entry] = (x.get_attr("IPSET_ATTR_PACKETS"),
-                              x.get_attr("IPSET_ATTR_BYTES"),
-                              x.get_attr("IPSET_ATTR_COMMENT"),
-                              x.get_attr("IPSET_ATTR_TIMEOUT"),
-                              x.get_attr("IPSET_ATTR_SKBMARK"),
-                              x.get_attr("IPSET_ATTR_SKBPRIO"),
-                              x.get_attr("IPSET_ATTR_SKBQUEUE"))
+                res[entry] = (
+                    x.get_attr("IPSET_ATTR_PACKETS"),
+                    x.get_attr("IPSET_ATTR_BYTES"),
+                    x.get_attr("IPSET_ATTR_COMMENT"),
+                    x.get_attr("IPSET_ATTR_TIMEOUT"),
+                    x.get_attr("IPSET_ATTR_SKBMARK"),
+                    x.get_attr("IPSET_ATTR_SKBPRIO"),
+                    x.get_attr("IPSET_ATTR_SKBQUEUE"),
+                )
         return res
 
 
@@ -91,7 +93,7 @@ def test_create_exclusive_success(ipset, ipset_name):
 
 
 def test_add_exclusive_fail(ipset, ipset_name):
-    ipaddr = '172.16.202.202'
+    ipaddr = "172.16.202.202"
     ipset.create(ipset_name)
     ipset.add(ipset_name, ipaddr)
     assert ipaddr in list_ipset(ipset_name)
@@ -102,7 +104,7 @@ def test_add_exclusive_fail(ipset, ipset_name):
 
 
 def test_add_exclusive_success(ipset, ipset_name):
-    ipaddr = '172.16.202.202'
+    ipaddr = "172.16.202.202"
     ipset.create(ipset_name)
     ipset.add(ipset_name, ipaddr)
     assert ipaddr in list_ipset(ipset_name)
@@ -121,7 +123,7 @@ def test_create_destroy(ipset, ipset_name):
 
 
 def test_add_delete(ipset, ipset_name):
-    ipaddr = '192.168.1.1'
+    ipaddr = "192.168.1.1"
     # create ipset
     ipset.create(ipset_name)
     assert ipset_exists(ipset_name)
@@ -138,8 +140,8 @@ def test_add_delete(ipset, ipset_name):
 def test_swap(ipset):
     ipset_name_a = str(uuid4())[:16]
     ipset_name_b = str(uuid4())[:16]
-    ipaddr_a = '192.168.1.1'
-    ipaddr_b = '10.0.0.1'
+    ipaddr_a = "192.168.1.1"
+    ipaddr_b = "10.0.0.1"
 
     # create sets
     ipset.create(ipset_name_a)
@@ -159,7 +161,7 @@ def test_swap(ipset):
 
 
 def test_counters(ipset, ipset_name):
-    ipaddr = '172.16.202.202'
+    ipaddr = "172.16.202.202"
     ipset.create(ipset_name, counters=True)
     ipset.add(ipset_name, ipaddr)
     assert ipaddr in list_ipset(ipset_name)
@@ -175,8 +177,8 @@ def test_counters(ipset, ipset_name):
 
 
 def test_comments(ipset, ipset_name):
-    ipaddr = '172.16.202.202'
-    comment = 'a very simple comment'
+    ipaddr = "172.16.202.202"
+    comment = "a very simple comment"
     ipset.create(ipset_name, comment=True)
     ipset.add(ipset_name, ipaddr, comment=comment)
     assert ipaddr in list_ipset(ipset_name)
@@ -184,8 +186,8 @@ def test_comments(ipset, ipset_name):
 
 
 def test_skbmark(ipset, ipset_name):
-    ipaddr = '172.16.202.202'
-    skbmark = (0x100, 0xffffffff)
+    ipaddr = "172.16.202.202"
+    skbmark = (0x100, 0xFFFFFFFF)
     ipset.create(ipset_name, skbinfo=True)
     ipset.add(ipset_name, ipaddr, skbmark=skbmark)
     assert ipaddr in list_ipset(ipset_name)
@@ -193,7 +195,7 @@ def test_skbmark(ipset, ipset_name):
 
 
 def test_skbprio(ipset, ipset_name):
-    ipaddr = '172.16.202.202'
+    ipaddr = "172.16.202.202"
     skbprio = (1, 10)
     ipset.create(ipset_name, skbinfo=True)
     ipset.add(ipset_name, ipaddr, skbprio=skbprio)
@@ -202,7 +204,7 @@ def test_skbprio(ipset, ipset_name):
 
 
 def test_skbqueue(ipset, ipset_name):
-    ipaddr = '172.16.202.202'
+    ipaddr = "172.16.202.202"
     skbqueue = 1
     ipset.create(ipset_name, skbinfo=True)
     ipset.add(ipset_name, ipaddr, skbqueue=skbqueue)
@@ -269,12 +271,13 @@ def test_timeout(ipset, ipset_name):
 
 
 def test_net_and_iface_stypes(ipset, ipset_name):
-    test_values = (('hash:net', ('192.168.1.0/31', '192.168.12.0/24')),
-                   ('hash:net,iface', ('192.168.1.0/24,eth0',
-                                       '192.168.2.0/24,wlan0')))
+    test_values = (
+        ("hash:net", ("192.168.1.0/31", "192.168.12.0/24")),
+        ("hash:net,iface", ("192.168.1.0/24,eth0", "192.168.2.0/24,wlan0")),
+    )
     for stype, test_values in test_values:
         ipset.create(ipset_name, stype=stype)
-        etype = stype.split(':', 1)[1]
+        etype = stype.split(":", 1)[1]
         assert ipset_exists(ipset_name)
         for entry in test_values:
             ipset.add(ipset_name, entry, etype=etype)
@@ -286,11 +289,15 @@ def test_net_and_iface_stypes(ipset, ipset_name):
 
 
 def test_tuple_support(ipset, ipset_name):
-    test_values = (('hash:net,iface', (('192.168.1.0/24', 'eth0'),
-                                       ('192.168.2.0/24', 'wlan0'))),)
+    test_values = (
+        (
+            "hash:net,iface",
+            (("192.168.1.0/24", "eth0"), ("192.168.2.0/24", "wlan0")),
+        ),
+    )
     for stype, test_values in test_values:
         ipset.create(ipset_name, stype=stype)
-        etype = stype.split(':', 1)[1]
+        etype = stype.split(":", 1)[1]
         assert ipset_exists(ipset_name)
         for entry in test_values:
             ipset.add(ipset_name, entry, etype=etype)
@@ -315,8 +322,9 @@ def test_double_net(ipset, ipset_name):
     ipset.create(ipset_name, stype=stype)
     port = PortEntry(80, protocol=socket.getprotobyname("tcp"))
 
-    ipset.add(ipset_name, ("192.168.0.0/24", port, "192.168.2.0/24"),
-              etype=etype)
+    ipset.add(
+        ipset_name, ("192.168.0.0/24", port, "192.168.2.0/24"), etype=etype
+    )
 
 
 def test_custom_hash_values(ipset, ipset_name):
@@ -393,11 +401,13 @@ def test_port_range_with_proto(ipset, ipset_name):
     assert ipset.test(ipset_name, ("192.0.2.2/32", port_entry), etype=etype)
     # change protocol, that should not be in
     port_range.protocol = socket.IPPROTO_TCP
-    assert not ipset.test(ipset_name, ("192.0.2.0/24", port_range),
-                          etype="net,port")
+    assert not ipset.test(
+        ipset_name, ("192.0.2.0/24", port_range), etype="net,port"
+    )
     port_entry.port = 2
-    assert not ipset.test(ipset_name, ("192.0.2.0/24", port_entry),
-                          etype="net,port")
+    assert not ipset.test(
+        ipset_name, ("192.0.2.0/24", port_entry), etype="net,port"
+    )
 
     # same example than in ipset man pages
     proto = socket.getprotobyname("vrrp")
