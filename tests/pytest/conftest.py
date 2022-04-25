@@ -1,6 +1,11 @@
+import errno
 import pytest
 from pr2test.context_manager import SpecContextManager
 from pr2test.context_manager import NDBContextManager
+from pyroute2.ipset import IPSet, IPSetError
+from pyroute2.wiset import COUNT
+from utils import require_user
+from uuid import uuid4
 
 
 @pytest.fixture
@@ -26,3 +31,33 @@ def spec(request, tmpdir):
     ctx = SpecContextManager(request, tmpdir)
     yield ctx
     ctx.teardown()
+
+
+@pytest.fixture
+def ipset():
+    require_user('root')
+    sock = IPSet()
+    yield sock
+    sock.close()
+
+
+@pytest.fixture
+def ipset_name(ipset):
+    name = str(uuid4())[:16]
+    yield name
+    try:
+        ipset.destroy(name)
+    except IPSetError as e:
+        if e.code != errno.ENOENT:
+            raise
+
+
+@pytest.fixture(params=(None, IPSet))
+def wiset_sock(request):
+    if request.param is None:
+        yield None
+    else:
+        before_count = COUNT["count"]
+        with IPSet() as sock:
+            yield sock
+        assert before_count == COUNT['count']
