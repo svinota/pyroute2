@@ -3,6 +3,7 @@ import pytest
 from pr2test.context_manager import SpecContextManager
 from pr2test.context_manager import NDBContextManager
 from pyroute2.ipset import IPSet, IPSetError
+from pyroute2.wiset import COUNT
 from utils import require_user
 from uuid import uuid4
 
@@ -49,3 +50,14 @@ def ipset_name(ipset):
     except IPSetError as e:
         if e.code != errno.ENOENT:
             raise
+
+
+@pytest.fixture(params=(None, IPSet))
+def wiset_sock(request):
+    if request.param is None:
+        yield None
+    else:
+        before_count = COUNT["count"]
+        with IPSet() as sock:
+            yield sock
+        assert before_count == COUNT['count']
