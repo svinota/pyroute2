@@ -59,7 +59,7 @@ class IPRequest(OrderedDict):
 
 class IPNeighRequest(IPRequest):
     def fix_request(self):
-        if self.command != 'dump':
+        if self.command not in ('dump', 'get'):
             if 'nud' in self:
                 self['state'] = self.pop('nud')
                 log.warning('use `state` instead of `nud`')
