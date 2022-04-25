@@ -10,13 +10,12 @@ import subprocess
 import netaddr
 import ctypes
 import ctypes.util
+import pytest
 from socket import AF_INET
 from socket import AF_INET6
 from pr2modules import config
-from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.iproute.linux import IPRoute
-from nose.plugins.skip import SkipTest
-from nose.tools import make_decorator
+
 try:
     import httplib
 except ImportError:
@@ -41,10 +40,7 @@ network_pool = {
     AF_INET6: list(supernet[AF_INET6].subnet(64)),
 }
 allocations = {}
-family_url = {
-    AF_INET: 'ipv4',
-    AF_INET6: 'ipv6',
-}
+family_url = {AF_INET: 'ipv4', AF_INET6: 'ipv6'}
 
 
 def allocate_network(family=AF_INET):
@@ -56,7 +52,9 @@ def allocate_network(family=AF_INET):
 
     try:
         cx = httplib.HTTPConnection('localhost:7623')
-        cx.request('POST', '/v1/network/%s/' % family_url[family], body=dtcd_uuid)
+        cx.request(
+            'POST', '/v1/network/%s/' % family_url[family], body=dtcd_uuid
+        )
         resp = cx.getresponse()
         if resp.status == 200:
             network = netaddr.IPNetwork(resp.read().decode('utf-8'))
@@ -80,37 +78,16 @@ def free_network(network, family=AF_INET):
         network_pool[family].append(network)
     else:
         cx = httplib.HTTPConnection('localhost:7623')
-        cx.request('DELETE', '/v1/network/%s/' % family_url[family], body=str(network))
+        cx.request(
+            'DELETE', '/v1/network/%s/' % family_url[family], body=str(network)
+        )
         cx.getresponse()
         cx.close()
 
 
-def skip_if_not_supported(f):
-    def test_wrapper(self, *argv, **kwarg):
-        try:
-            return f(self, *argv, **kwarg)
-        except NetlinkError as e:
-            if e.code == errno.EOPNOTSUPP:
-                raise SkipTest('feature not supported by platform')
-            raise
-        except RuntimeError as e:
-            if hasattr(e, 'client_error'):
-                if ((isinstance(e.client_error, NetlinkError) and
-                     e.client_error.code == errno.EOPNOTSUPP) or
-                    (isinstance(e.server_error, NetlinkError) and
-                     e.server_error.code == errno.EOPNOTSUPP)):
-                    raise SkipTest('feature not supported by platform')
-            elif not getattr(e, 'feature_supported', True):
-                raise SkipTest(e.args[0])
-            raise
-        except Exception:
-            raise
-    return make_decorator(f)(test_wrapper)
-
-
 def conflict_arch(arch):
     if platform.machine().find(arch) >= 0:
-        raise SkipTest('conflict with architecture %s' % (arch))
+        pytest.skip('conflict with architecture %s' % (arch))
 
 
 def kernel_version_ge(major, minor):
@@ -126,12 +103,12 @@ def kernel_version_ge(major, minor):
 
 def require_kernel(major, minor=None):
     if not kernel_version_ge(major, minor):
-        raise SkipTest('incompatible kernel version')
+        pytest.skip('incompatible kernel version')
 
 
 def require_python(target):
     if sys.version_info[0] != target:
-        raise SkipTest('test requires Python %i' % target)
+        pytest.skip('test requires Python %i' % target)
 
 
 def require_8021q():
@@ -140,7 +117,7 @@ def require_8021q():
     except OSError as e:
         # errno 2 'No such file or directory'
         if e.errno == 2:
-            raise SkipTest('missing 8021q support, or module is not loaded')
+            pytest.skip('missing 8021q support, or module is not loaded')
         raise
 
 
@@ -149,10 +126,10 @@ def require_bridge():
         try:
             ip.link('add', ifname='test_req', kind='bridge')
         except Exception:
-            raise SkipTest('can not create <bridge>')
+            pytest.skip('can not create <bridge>')
         idx = ip.link_lookup(ifname='test_req')
         if not idx:
-            raise SkipTest('can not create <bridge>')
+            pytest.skip('can not create <bridge>')
         ip.link('del', index=idx)
 
 
@@ -161,37 +138,35 @@ def require_bond():
         try:
             ip.link('add', ifname='test_req', kind='bond')
         except Exception:
-            raise SkipTest('can not create <bond>')
+            pytest.skip('can not create <bond>')
         idx = ip.link_lookup(ifname='test_req')
         if not idx:
-            raise SkipTest('can not create <bond>')
+            pytest.skip('can not create <bond>')
         ip.link('del', index=idx)
 
 
 def require_user(user):
     if bool(os.environ.get('PYROUTE2_TESTS_RO', False)):
-        raise SkipTest('read-only tests requested')
+        pytest.skip('read-only tests requested')
     if pwd.getpwuid(os.getuid()).pw_name != user:
-        raise SkipTest('required user %s' % (user))
+        pytest.skip('required user %s' % (user))
 
 
 def require_executable(name):
     try:
         with open(os.devnull, 'w') as fnull:
-            subprocess.check_call(['which', name],
-                                  stdout=fnull,
-                                  stderr=fnull)
+            subprocess.check_call(['which', name], stdout=fnull, stderr=fnull)
     except Exception:
-        raise SkipTest('required %s not found' % (name))
+        pytest.skip('required %s not found' % (name))
 
 
 def remove_link(name):
     if os.getuid() != 0:
         return
     with open(os.devnull, 'w') as fnull:
-        subprocess.call(['ip', 'link', 'del', 'dev', name],
-                        stdout=fnull,
-                        stderr=fnull)
+        subprocess.call(
+            ['ip', 'link', 'del', 'dev', name], stdout=fnull, stderr=fnull
+        )
     while True:
         links = get_ip_link()
         if name not in links:
@@ -295,7 +270,7 @@ def get_bpf_syscall_num():
     out = gcc.communicate(input=prog.encode('ascii'))[1]
     m = re.search('__NR_bpf=([0-9]+)', str(out))
     if not m:
-        raise SkipTest('bpf syscall not available')
+        pytest.skip('bpf syscall not available')
     return int(m.group(1))
 
 
@@ -303,32 +278,40 @@ def get_simple_bpf_program(prog_type):
     NR_bpf = get_bpf_syscall_num()
 
     class BPFAttr(ctypes.Structure):
-        _fields_ = [('prog_type', ctypes.c_uint),
-                    ('insn_cnt', ctypes.c_uint),
-                    ('insns', ctypes.POINTER(ctypes.c_ulonglong)),
-                    ('license', ctypes.c_char_p),
-                    ('log_level', ctypes.c_uint),
-                    ('log_size', ctypes.c_uint),
-                    ('log_buf', ctypes.c_char_p),
-                    ('kern_version', ctypes.c_uint)]
+        _fields_ = [
+            ('prog_type', ctypes.c_uint),
+            ('insn_cnt', ctypes.c_uint),
+            ('insns', ctypes.POINTER(ctypes.c_ulonglong)),
+            ('license', ctypes.c_char_p),
+            ('log_level', ctypes.c_uint),
+            ('log_size', ctypes.c_uint),
+            ('log_buf', ctypes.c_char_p),
+            ('kern_version', ctypes.c_uint),
+        ]
 
     BPF_PROG_TYPE_SCHED_CLS = 3
     BPF_PROG_TYPE_SCHED_ACT = 4
     BPF_PROG_LOAD = 5
     insns = (ctypes.c_ulonglong * 2)()
     # equivalent to: int my_func(void *) { return 1; }
-    insns[0] = 0x00000001000000b7
+    insns[0] = 0x00000001000000B7
     insns[1] = 0x0000000000000095
     license = ctypes.c_char_p(b'GPL')
     if prog_type.lower() == "sched_cls":
-        attr = BPFAttr(BPF_PROG_TYPE_SCHED_CLS, len(insns),
-                       insns, license, 0, 0, None, 0)
+        attr = BPFAttr(
+            BPF_PROG_TYPE_SCHED_CLS, len(insns), insns, license, 0, 0, None, 0
+        )
     elif prog_type.lower() == "sched_act":
-        attr = BPFAttr(BPF_PROG_TYPE_SCHED_ACT, len(insns),
-                       insns, license, 0, 0, None, 0)
+        attr = BPFAttr(
+            BPF_PROG_TYPE_SCHED_ACT, len(insns), insns, license, 0, 0, None, 0
+        )
     libc = ctypes.CDLL(ctypes.util.find_library('c'))
-    libc.syscall.argtypes = [ctypes.c_long, ctypes.c_int,
-                             ctypes.POINTER(type(attr)), ctypes.c_uint]
+    libc.syscall.argtypes = [
+        ctypes.c_long,
+        ctypes.c_int,
+        ctypes.POINTER(type(attr)),
+        ctypes.c_uint,
+    ]
     libc.syscall.restype = ctypes.c_int
     fd = libc.syscall(NR_bpf, BPF_PROG_LOAD, attr, ctypes.sizeof(attr))
     return fd
