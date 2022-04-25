@@ -1,4 +1,5 @@
 from pr2modules.netlink import nlmsg_base
+from pr2modules.netlink import nlmsg_encoder_generic
 
 # see em_ipset.c
 IPSET_DIM = {
@@ -30,7 +31,7 @@ def get_parameters(kwarg):
     return ret
 
 
-class data(nlmsg_base):
+class data(nlmsg_base, nlmsg_encoder_generic):
     fields = (
         ('ip_set_index', 'H'),
         ('ip_set_dim', 'B'),
