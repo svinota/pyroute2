@@ -143,5 +143,5 @@ def test_fail_no_such_device(context):
     ifaddr = context.new_ipaddr
     index = sorted([i['index'] for i in context.ipr.get_links()])[-1] + 10
     with pytest.raises(NetlinkError) as e:
-        context.ipr.addr('add', index, address=ifaddr, mask=24)
+        context.ipr.addr('add', index=index, address=ifaddr, prefixlen=24)
     assert e.value.code == errno.ENODEV

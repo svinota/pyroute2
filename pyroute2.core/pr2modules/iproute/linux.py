@@ -2,6 +2,7 @@
 import os
 import types
 import logging
+import warnings
 from socket import AF_INET, AF_INET6, AF_UNSPEC
 from itertools import chain
 from functools import partial
@@ -86,7 +87,6 @@ from pr2modules.netlink.exceptions import SkipInode, NetlinkError
 
 from pr2modules.common import AF_MPLS
 from pr2modules.common import basestring
-from pr2modules.common import getbroadcast
 
 DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)
@@ -1455,17 +1455,7 @@ class RTNL_API(object):
 
         return ret
 
-    def addr(
-        self,
-        command,
-        index=None,
-        address=None,
-        mask=None,
-        family=None,
-        scope=None,
-        match=None,
-        **kwarg
-    ):
+    def addr(self, command, *argv, **kwarg):
         '''
         Address operations
 
@@ -1514,14 +1504,30 @@ class RTNL_API(object):
                     local='10.1.1.1')
         '''
         if command in ('get', 'set'):
-            return
-        lrq = kwarg.pop('kwarg_filter', IPAddrRequest)
-
+            return []
+        ##
+        # This block will be deprecated in a short term
+        if argv:
+            warnings.warn(
+                'positional arguments for IPRoute.addr() are deprecated, '
+                'use keyword arguments',
+                DeprecationWarning,
+            )
+            converted_argv = zip(
+                ('index', 'address', 'prefixlen', 'family', 'scope', 'match'),
+                argv,
+            )
+            kwarg.update(converted_argv)
+        if 'mask' in kwarg:
+            warnings.warn(
+                'usage of mask is deprecated, use prefixlen instead',
+                DeprecationWarning,
+            )
         flags_dump = NLM_F_REQUEST | NLM_F_DUMP
         flags_base = NLM_F_REQUEST | NLM_F_ACK
         flags_create = flags_base | NLM_F_CREATE | NLM_F_EXCL
         flags_replace = flags_base | NLM_F_REPLACE | NLM_F_CREATE
-        commands = {
+        command_map = {
             'add': (RTM_NEWADDR, flags_create),
             'del': (RTM_DELADDR, flags_base),
             'remove': (RTM_DELADDR, flags_base),
@@ -1529,67 +1535,30 @@ class RTNL_API(object):
             'replace': (RTM_NEWADDR, flags_replace),
             'dump': (RTM_GETADDR, flags_dump),
         }
-        (command, flags) = commands.get(command, command)
 
-        # fetch args
-        index = index or kwarg.pop('index', 0)
-        family = family or kwarg.pop('family', None)
-        prefixlen = mask or kwarg.pop('mask', 0) or kwarg.pop('prefixlen', 0)
-        scope = scope or kwarg.pop('scope', 0)
-
-        # move address to kwarg
-        # FIXME: add deprecation notice
-        if address:
-            kwarg['address'] = address
-
-        # try to guess family, if it is not forced
-        if kwarg.get('address') and family is None:
-            if address.find(":") > -1:
-                family = AF_INET6
-                mask = mask or 128
-            else:
-                family = AF_INET
-                mask = mask or 32
-
-        # setup the message
         msg = ifaddrmsg()
-        msg['index'] = index
-        msg['family'] = family or 0
-        msg['prefixlen'] = prefixlen
-        msg['scope'] = scope
+        request = IPAddrRequest(kwarg, command)
+        request.sync_cacheinfo()
+        dump_filter = get_dump_filter(kwarg)
+        msg_type, msg_flags = get_msg_type(command, command_map)
 
-        kwarg = lrq(kwarg)
-        try:
-            kwarg.sync_cacheinfo()
-        except AttributeError:
-            pass
-
-        # inject IFA_LOCAL, if family is AF_INET and IFA_LOCAL is not set
-        if (
-            family == AF_INET
-            and kwarg.get('address')
-            and kwarg.get('local') is None
-        ):
-            kwarg['local'] = kwarg['address']
-
-        # patch broadcast, if needed
-        if kwarg.get('broadcast') is True:
-            kwarg['broadcast'] = getbroadcast(address, mask, family)
+        for field in msg.fields:
+            msg[field[0]] = request.pop(field[0], 0)
 
         # work on NLA
-        for key in kwarg:
+        for key, value in request.items():
             nla = ifaddrmsg.name2nla(key)
-            if kwarg[key] not in (None, ''):
-                msg['attrs'].append([nla, kwarg[key]])
+            if msg.valid_nla(nla) and value is not None:
+                msg['attrs'].append([nla, value])
 
         ret = self.nlm_request(
             msg,
-            msg_type=command,
-            msg_flags=flags,
+            msg_type=msg_type,
+            msg_flags=msg_flags,
             terminate=lambda x: x['header']['type'] == NLMSG_ERROR,
         )
-        if match:
-            ret = self._match(match, ret)
+        if command == 'dump' and dump_filter is not None:
+            ret = self._match(dump_filter, ret)
 
         if not (command == RTM_GETADDR and self.nlm_generator):
             ret = tuple(ret)

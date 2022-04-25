@@ -2,7 +2,12 @@ import logging
 from socket import AF_INET
 from socket import AF_INET6
 from collections import OrderedDict
-from pr2modules.common import AF_MPLS, basestring, get_address_family
+from pr2modules.common import (
+    AF_MPLS,
+    basestring,
+    get_address_family,
+    getbroadcast,
+)
 from pr2modules.netlink.rtnl import rt_type, rt_proto, rt_scope, encap_type
 from pr2modules.netlink.rtnl.ifinfmsg import (
     ifinfmsg,
@@ -47,6 +52,9 @@ class IPRequest(OrderedDict):
 
     def set(self, key, value):
         return super(IPRequest, self).__setitem__(key, value)
+
+    def sync_cacheinfo(self):
+        pass
 
 
 class IPNeighRequest(IPRequest):
@@ -95,6 +103,35 @@ class IPRuleRequest(IPRequest):
 
 
 class IPAddrRequest(IPRequest):
+    def fix_request(self):
+        prefixlen = 0
+        if self.command != 'dump':
+            if 'mask' in self:
+                self['prefixlen'] = self.pop('mask')
+            if not self.get('family'):
+                self['family'] = get_address_family(self['address'])
+            if 'prefixlen' not in self:
+                if self['family'] == AF_INET:
+                    prefixlen = 32
+                elif self['family'] == AF_INET6:
+                    prefixlen = 128
+                log.warning(
+                    f'prefixlen not specified, forcing to /{prefixlen}'
+                )
+                self['prefixlen'] = prefixlen
+            if (
+                self['family'] == AF_INET
+                and 'local' not in self
+                and 'address' in self
+            ):
+                # inject IFA_LOCAL, if family is AF_INET and
+                # IFA_LOCAL is not set
+                self['local'] = self['address']
+            if self.get('broadcast') is True:
+                self['broadcast'] = getbroadcast(
+                    self['address'], self['prefixlen'], self['family']
+                )
+
     def __setitem__(self, key, value):
         if key in ('preferred_lft', 'valid_lft'):
             key = key[:-4]
