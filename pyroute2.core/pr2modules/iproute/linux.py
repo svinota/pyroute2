@@ -1543,7 +1543,8 @@ class RTNL_API(object):
         msg_type, msg_flags = get_msg_type(command, command_map)
 
         for field in msg.fields:
-            msg[field[0]] = request.pop(field[0], 0)
+            if field[0] != 'flags':  # Flags are supplied as NLA
+                msg[field[0]] = request.pop(field[0], 0)
 
         # work on NLA
         for key, value in request.items():
