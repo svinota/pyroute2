@@ -1113,14 +1113,14 @@ class RTNL_Object(dict):
         # ...
 
         # full match
-        for name in self.knorm:
-            value = self.get(name)
+        for norm, name in zip(self.knorm, self.kspec):
+            value = self.get(norm)
             if name == 'target':
                 if value != target:
                     return
             elif name == 'tflags':
                 continue
-            elif value != (event.get_attr(name) or event.get(name)):
+            elif value not in (event.get_attr(name), event.get(norm)):
                 return
 
         self.log.debug('load_rtnl: %s' % str(event.get('header')))
