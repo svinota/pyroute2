@@ -917,6 +917,7 @@ class DBSchema(object):
                     value = node.get(fname[-1])
                 if value is None and fname[-1] in self.compiled[table]['idx']:
                     value = self.key_defaults[table][fname[-1]]
+                    node['attrs'].append((fname[-1], value))
                 if fname[-1] in compiled['idx']:
                     ivalues.append(value)
                 values.append(value)
