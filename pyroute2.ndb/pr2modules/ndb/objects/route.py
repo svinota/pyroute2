@@ -86,6 +86,7 @@ from functools import partial
 from collections import OrderedDict
 from pr2modules.common import basestring
 from pr2modules.common import AF_MPLS
+from pr2modules.netlink.rtnl import rt_proto
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
 from pr2modules.netlink.rtnl.rtmsg import nh
 from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
@@ -548,6 +549,8 @@ class Route(RTNL_Object):
                 raise TypeError('invalid spec format')
         else:
             raise TypeError('invalid spec type')
+        if isinstance(ret.get('proto'), basestring):
+            ret['proto'] = rt_proto[ret['proto']]
         if ret.get('dst') == 'default':
             ret['dst'] = ''
         elif ret.get('dst') in ('::', '::/0'):
