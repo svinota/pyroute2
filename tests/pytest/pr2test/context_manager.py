@@ -264,6 +264,13 @@ class NDBContextManager(object):
         return self.get_ipaddr()
 
     @property
+    def new_ip4net(self):
+        '''
+        Returns a new IPv4 network
+        '''
+        return self.register_network(family=AF_INET)
+
+    @property
     def new_ip6net(self):
         '''
         Returns a new IPv6 network
