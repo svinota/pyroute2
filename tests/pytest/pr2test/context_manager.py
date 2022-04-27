@@ -192,7 +192,7 @@ class NDBContextManager(object):
         if getpass.getuser() == 'root':
             ifname = self.new_ifname
             index = self.ndb.interfaces.create(
-                ifname=ifname, kind='dummy'
+                ifname=ifname, kind='dummy', state='up'
             ).commit()['index']
             self.default_interface = Interface(index, ifname)
         else:

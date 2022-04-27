@@ -69,6 +69,7 @@ def test_link_legacy_nla(context):
 def test_link_rename(context):
     index, ifname = context.default_interface
     new_ifname = context.new_ifname
+    context.ndb.interfaces[ifname].set('state', 'down').commit()
 
     context.ipr.link('set', index=index, ifname=new_ifname)
     assert context.ipr.link_lookup(ifname=new_ifname) == [index]
