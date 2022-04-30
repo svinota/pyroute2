@@ -135,7 +135,9 @@ class Record(object):
             n = all(x[0] == x[1] for x in zip(self._names, right._names))
             v = all(x[0] == x[1] for x in zip(self._values, right._values))
             return n and v
-        elif self._ref_class is not None and isinstance(right, basestring):
+        elif self._ref_class is not None and isinstance(
+            right, (basestring, int)
+        ):
             return self._ref_class.compare_record(self, right)
         else:
             return all(x[0] == x[1] for x in zip(self._values, right))

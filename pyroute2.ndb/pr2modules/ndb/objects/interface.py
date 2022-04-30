@@ -242,6 +242,7 @@ init = {
     'classes': [
         ['interfaces', ifinfmsg],
         ['af_bridge_ifs', ifinfmsg],
+        ['vlans', ifinfmsg],
         ['af_bridge_vlans', ifinfmsg.af_spec_bridge.vlan_info],
         ['p2p', p2pmsg],
     ],
@@ -353,12 +354,21 @@ class Vlan(RTNL_Object):
         for record in view.ndb.schema.fetch(req + where, values):
             yield record
 
+    @staticmethod
+    def compare_record(left, right):
+        if isinstance(right, int):
+            return right == left['vid']
+
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifinfmsg.af_spec_bridge.vlan_info
         if 'auth_managers' not in kwarg or kwarg['auth_managers'] is None:
             kwarg['auth_managers'] = []
         log = argv[0].ndb.log.channel('vlan auth')
-        kwarg['auth_managers'].append(AuthManager({'obj:modify': False}, log))
+        kwarg['auth_managers'].append(
+            AuthManager(
+                {'obj:read': True, 'obj:list': True, 'obj:modify': False}, log
+            )
+        )
         super(Vlan, self).__init__(*argv, **kwarg)
 
     def make_req(self, prime):

@@ -339,7 +339,7 @@ class View(dict):
         self.classes['routes'] = Route
         self.classes['rules'] = Rule
         self.classes['netns'] = NetNS
-        self.classes['vlans'] = Vlan
+        self.classes['af_bridge_vlans'] = Vlan
 
     def __enter__(self):
         return self
@@ -1036,7 +1036,7 @@ class NDB(object):
             ('af_bridge_fdb', 'fdb'),
             ('rules', 'rules'),
             ('netns', 'netns'),
-            ('vlans', 'vlans'),
+            ('af_bridge_vlans', 'vlans'),
         ):
             view = View(self, spec[0], auth_managers=[am])
             setattr(self, spec[1], view)
