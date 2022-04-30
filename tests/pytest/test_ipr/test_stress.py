@@ -1,0 +1,24 @@
+import os
+import socket
+
+
+def test_mass_ipv6(context):
+    #
+    ipv6net = context.new_ip6net
+    base = str(ipv6net.network) + '{0}'
+    limit = int(os.environ.get('PYROUTE2_SLIMIT', '0x800'), 16)
+    index, ifname = context.default_interface
+
+    # add addresses
+    for idx in range(limit):
+        context.ipr.addr(
+            'add',
+            index=index,
+            family=socket.AF_INET6,
+            address=base.format(hex(idx)[2:]),
+            prefixlen=48,
+        )
+
+    # assert addresses in two steps, to ease debug
+    addrs = context.ipr.get_addr(family=socket.AF_INET6)
+    assert len(addrs) >= limit

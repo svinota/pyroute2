@@ -145,3 +145,15 @@ def test_fail_no_such_device(context):
     with pytest.raises(NetlinkError) as e:
         context.ipr.addr('add', index=index, address=ifaddr, prefixlen=24)
     assert e.value.code == errno.ENODEV
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_symbolic_flags(context):
+    ipaddr = context.new_ipaddr
+    index, ifname = context.default_interface
+    context.ipr.link('set', index=index, state='up')
+    context.ipr.addr('add', index=index, address=ipaddr, prefixlen=24)
+    addr = [
+        x for x in context.ipr.get_addr() if x.get_attr('IFA_LOCAL') == ipaddr
+    ][0]
+    assert 'IFA_F_PERMANENT' in addr.flags2names(addr['flags'])

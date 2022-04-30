@@ -22,3 +22,14 @@ def test_nla_operators(context):
     assert intersection.get_attr('IFA_LABEL') == ifname
     assert intersection['prefixlen'] == 24
     assert intersection['index'] == context.ndb.interfaces[ifname]['index']
+
+
+def test_nla_compare(context):
+    lvalue = context.ipr.get_links()
+    rvalue = context.ipr.get_links()
+    assert lvalue is not rvalue
+    if lvalue == rvalue:
+        pass
+    if lvalue != rvalue:
+        pass
+    assert lvalue != 42

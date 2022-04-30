@@ -116,3 +116,39 @@ def test_remove_link(context):
     context.ipr.link('del', index=index)
     assert len(context.ipr.link_lookup(ifname=ifname)) == 0
     assert len(context.ipr.link_lookup(index=index)) == 0
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_brport_basic(context):
+
+    bridge = context.new_ifname
+    port = context.new_ifname
+
+    context.ndb.interfaces.create(
+        ifname=bridge, kind='bridge', state='up'
+    ).commit()
+    context.ndb.interfaces.create(
+        ifname=port, kind='dummy', state='up'
+    ).commit()
+
+    context.ipr.link(
+        'set',
+        index=context.ndb.interfaces[port]['index'],
+        master=context.ndb.interfaces[bridge]['index'],
+    )
+
+    context.ipr.brport(
+        'set',
+        index=context.ndb.interfaces[port]['index'],
+        unicast_flood=0,
+        cost=200,
+        proxyarp=1,
+    )
+
+    port = context.ipr.brport(
+        'dump', index=context.ndb.interfaces[port]['index']
+    )[0]
+    protinfo = port.get_attr('IFLA_PROTINFO')
+    assert protinfo.get_attr('IFLA_BRPORT_COST') == 200
+    assert protinfo.get_attr('IFLA_BRPORT_PROXYARP') == 1
+    assert protinfo.get_attr('IFLA_BRPORT_UNICAST_FLOOD') == 0
