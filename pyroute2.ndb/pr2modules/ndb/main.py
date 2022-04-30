@@ -432,7 +432,8 @@ class View(dict):
 
     def wait(self, **spec):
         ret = None
-        timeout = spec.pop('timeout', None)
+        timeout = spec.pop('timeout', -1)
+        action = spec.pop('action', 'add')
         ctime = time.time()
 
         # install a limited events queue -- for a possible immediate reaction
@@ -451,61 +452,20 @@ class View(dict):
             except queue.Full:
                 pass
 
-        #
-        hdl = partial(handler, evq)
-        (self.ndb.register_handler(self.ndb.schema.classes[self.event], hdl))
-        #
-        try:
-            ret = self.__getitem__(spec)
-            for key in spec:
-                if ret[key] != spec[key]:
-                    ret = None
-                    break
-        except KeyError:
-            ret = None
-
-        while ret is None:
-            if timeout is not None:
-                if ctime + timeout < time.time():
-                    break
-            try:
-                target, msg = evq.get(timeout=1)
-            except queue.Empty:
-                try:
-                    ret = self.__getitem__(spec)
-                    for key in spec:
-                        if ret[key] != spec[key]:
-                            ret = None
-                            raise KeyError()
-                    break
-                except KeyError:
-                    continue
-
-            #
-            for key, value in spec.items():
-                if key == 'target' and value != target:
-                    break
-                elif value not in (
-                    msg.get(key),
-                    msg.get_attr(msg.name2nla(key)),
+        with TmpHandler(self.ndb, self.event, partial(handler, evq)):
+            while True:
+                ret = self.get(spec)
+                if (ret and action == 'add') or (
+                    ret is None and action == 'remove'
                 ):
-                    break
-            else:
-                while ret is None:
-                    try:
-                        ret = self.__getitem__(spec)
-                    except KeyError:
-                        time.sleep(0.1)
-
-        #
-        (self.ndb.unregister_handler(self.ndb.schema.classes[self.event], hdl))
-
-        del evq
-        del hdl
-        gc.collect()
-        if ret is None:
-            raise TimeoutError()
-        return ret
+                    return ret
+                try:
+                    target, msg = evq.get(timeout=1)
+                except queue.Empty:
+                    pass
+                if timeout > -1:
+                    if ctime + timeout < time.time():
+                        raise TimeoutError()
 
     @check_auth('obj:read')
     def locate(self, spec=None, table=None, **kwarg):
@@ -767,6 +727,24 @@ class SourcesView(View):
             proxy = SourceProxy(self.ndb, target)
             self.proxy[target] = proxy
             return proxy
+
+
+class TmpHandler:
+    def __init__(self, ndb, event, handler):
+        self.ndb = ndb
+        self.event = event
+        self.handler = handler
+
+    def __enter__(self):
+        self.ndb.register_handler(
+            self.ndb.schema.classes[self.event], self.handler
+        )
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.ndb.unregister_handler(
+            self.ndb.schema.classes[self.event], self.handler
+        )
 
 
 class Log(object):
