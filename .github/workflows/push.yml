@@ -11,9 +11,5 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
-        with:
-          python-version: '3.10'
-          cache: 'pip'
       - run: pip install pre-commit
       - run: pre-commit run -a
