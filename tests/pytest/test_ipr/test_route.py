@@ -7,6 +7,7 @@ from pyroute2 import IPRoute
 from pyroute2 import NetlinkError
 from pyroute2.common import AF_MPLS
 from pyroute2.netlink.rtnl.rtmsg import RTNH_F_ONLINK
+from pr2test.context_manager import skip_if_not_supported
 
 
 def test_route_get_target_strict_check(context):
@@ -98,6 +99,7 @@ def test_route_get_target_default_ipv6(context):
     assert len(rts) > 0
 
 
+@skip_if_not_supported
 @pytest.mark.parametrize('family', (socket.AF_INET, socket.AF_INET6))
 def test_route_mpls_via(context, family):
     if family == socket.AF_INET:
@@ -136,6 +138,7 @@ def test_route_mpls_via(context, family):
     assert len(context.ipr.get_routes(oif=index, family=AF_MPLS)) == 0
 
 
+@skip_if_not_supported
 @pytest.mark.parametrize(
     'newdst', ({'label': 0x21, 'bos': 1}, [{'label': 0x21, 'bos': 1}])
 )
@@ -232,6 +235,7 @@ def test_route_onlink_multipath(context, flags):
     route.remove().commit()
 
 
+@skip_if_not_supported
 def _test_lwtunnel_multipath_mpls(context):
     ip4net = context.new_ip4net
     index, ifname = context.default_interface
@@ -273,6 +277,7 @@ def _test_lwtunnel_multipath_mpls(context):
     assert labels[1]['label'] == 700
 
 
+@skip_if_not_supported
 @pytest.mark.parametrize(
     'lid,lnum,labels',
     (

@@ -33,9 +33,9 @@ def skip_if_not_implemented(func):
 
 def skip_if_not_supported(func):
     @functools.wraps(func)
-    def test_wrapper(context):
+    def test_wrapper(*argv, **kwarg):
         try:
-            return func(context)
+            return func(*argv, **kwarg)
         except NetlinkError as e:
             if set((e.code, e.extra_code)) >= {errno.EOPNOTSUPP}:
                 pytest.skip('feature not supported by platform')
