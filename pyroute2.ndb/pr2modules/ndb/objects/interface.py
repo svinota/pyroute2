@@ -259,6 +259,7 @@ ifinfo_names = (
     'ip6gretap',
     'ip6tnl',
     'ipip',
+    'ipvlan',
     'sit',
     'macvlan',
     'macvtap',
