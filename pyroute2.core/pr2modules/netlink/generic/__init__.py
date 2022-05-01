@@ -27,6 +27,17 @@ class GenericNetlinkSocket(NetlinkSocket):
     mcast_groups = {}
     module_err_message = None
     module_err_level = 'error'
+    _prid = None
+
+    @property
+    def prid(self):
+        if self._prid is None:
+            raise RuntimeError(
+                'generic netlink protocol id is not obtained'
+                ' yet, run bind() before placing any requests'
+            )
+        else:
+            return self._prid
 
     def bind(self, proto, msg_class, groups=0, pid=None, **kwarg):
         '''
@@ -38,7 +49,7 @@ class GenericNetlinkSocket(NetlinkSocket):
         NetlinkSocket.bind(self, groups, pid, **kwarg)
         self.marshal.msg_map[GENL_ID_CTRL] = ctrlmsg
         msg = self.discovery(proto)
-        self.prid = msg.get_attr('CTRL_ATTR_FAMILY_ID')
+        self._prid = msg.get_attr('CTRL_ATTR_FAMILY_ID')
         self.mcast_groups = dict(
             [
                 (
