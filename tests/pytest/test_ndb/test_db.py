@@ -1,6 +1,11 @@
+import pytest
 import sqlite3
-import psycopg2
 from pyroute2 import NDB
+
+try:
+    import psycopg2
+except ImportError:
+    pytest.skip('no psycopg2 module installed', allow_module_level=True)
 
 
 def test_no_cleanup(spec):

@@ -167,7 +167,7 @@ format:
 	@pre-commit run -a
 
 .PHONY: test
-test: check_parameters test-format
+test: check_parameters
 	@export PYTHON=${python}; \
 		export PYTEST=${pytest}; \
 		export WLEVEL=${wlevel}; \

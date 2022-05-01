@@ -1,0 +1,10 @@
+black
+twine
+aafigure
+flake8
+netaddr
+psutil
+pytest
+pytest-cov
+findimports
+pre-commit
