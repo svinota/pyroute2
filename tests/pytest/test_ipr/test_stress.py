@@ -1,5 +1,6 @@
 import os
 import socket
+from pyroute2 import NetlinkDumpInterrupted
 
 
 def test_mass_ipv6(context):
@@ -20,5 +21,13 @@ def test_mass_ipv6(context):
         )
 
     # assert addresses in two steps, to ease debug
-    addrs = context.ipr.get_addr(family=socket.AF_INET6)
+    addrs = []
+    for _ in range(3):
+        try:
+            addrs = context.ipr.get_addr(family=socket.AF_INET6)
+            break
+        except NetlinkDumpInterrupted:
+            pass
+    else:
+        raise Exception('could not dump addresses')
     assert len(addrs) >= limit

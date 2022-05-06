@@ -1,3 +1,6 @@
+import time
+
+
 def test_real_links(context):
     links = set([x['index'] for x in context.ipr.get_links()])
     neigh = set([x['ifindex'] for x in context.ipr.get_neighbours()])
@@ -9,6 +12,8 @@ def test_filter(context):
     ipaddr2 = context.new_ipaddr
     index, ifname = context.default_interface
     lladdr = '00:11:22:33:44:55'
+    # this is required -- the default interface takes time to setup
+    time.sleep(0.5)
     # inject arp records
     context.ipr.neigh('add', dst=ipaddr1, lladdr=lladdr, ifindex=index)
     context.ipr.neigh('add', dst=ipaddr2, lladdr=lladdr, ifindex=index)
@@ -27,6 +32,8 @@ def test_get(context):
     ipaddr1 = context.new_ipaddr
     index, ifname = context.default_interface
     lladdr = '00:11:22:33:44:55'
+    # this is required -- the default interface takes time to setup
+    time.sleep(0.5)
     context.ipr.neigh('add', dst=ipaddr1, lladdr=lladdr, ifindex=index)
     res = context.ipr.neigh('get', dst=ipaddr1, ifindex=index)
     assert res[0].get_attr("NDA_DST") == ipaddr1
