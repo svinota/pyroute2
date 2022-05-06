@@ -153,11 +153,9 @@ Change an interface property::
 '''
 import gc
 import sys
-import json
 import time
 import errno
 import atexit
-import sqlite3
 import logging
 import logging.handlers
 import threading
@@ -205,50 +203,8 @@ try:
 except ImportError:
     import Queue as queue
 
-try:
-    import psycopg2
-except ImportError:
-    psycopg2 = None
 
 log = logging.getLogger(__name__)
-_sql_adapters_lock = threading.Lock()
-_sql_adapters_psycopg2_registered = False
-_sql_adapters_sqlite3_registered = False
-
-
-def target_adapter(value):
-    #
-    # MPLS target adapter for SQLite3
-    #
-    return json.dumps(value)
-
-
-class PostgreSQLAdapter(object):
-    def __init__(self, obj):
-        self.obj = obj
-
-    def getquoted(self):
-        return "'%s'" % json.dumps(self.obj)
-
-
-def register_sqlite3_adapters():
-    global _sql_adapters_lock
-    global _sql_adapters_sqlite3_registered
-    with _sql_adapters_lock:
-        if not _sql_adapters_sqlite3_registered:
-            _sql_adapters_sqlite3_registered = True
-            sqlite3.register_adapter(list, target_adapter)
-            sqlite3.register_adapter(dict, target_adapter)
-
-
-def regsiter_postgres_adapters():
-    global _sql_adapters_lock
-    global _sql_adapters_psycopg2_registered
-    with _sql_adapters_lock:
-        if psycopg2 is not None and not _sql_adapters_psycopg2_registered:
-            _sql_adapters_psycopg2_registered = True
-            psycopg2.extensions.register_adapter(list, PostgreSQLAdapter)
-            psycopg2.extensions.register_adapter(dict, PostgreSQLAdapter)
 
 
 class Transaction(object):
@@ -925,11 +881,6 @@ class NDB(object):
         if db_provider == 'postgres':
             db_provider = 'psycopg2'
 
-        if db_provider == 'sqlite3':
-            register_sqlite3_adapters()
-        elif db_provider == 'psycopg2':
-            regsiter_postgres_adapters()
-
         self.localhost = localhost
         self.ctime = self.gctime = time.time()
         self.schema = None
@@ -1139,19 +1090,18 @@ class NDB(object):
         event_queue = self._event_queue
 
         try:
-            with _sql_adapters_lock:
-                if self._db_provider == 'sqlite3':
-                    self._db = sqlite3.connect(self._db_spec)
-                elif self._db_provider == 'psycopg2':
-                    self._db = psycopg2.connect(**self._db_spec)
-
-            self.schema = schema.init(
+            dbconfig = schema.DBConfig()
+            dbconfig.provider = schema.DBProvider(self._db_provider)
+            dbconfig.spec = self._db_spec
+            self.schema = schema.DBSchema(
+                dbconfig,
                 self,
-                self._db,
-                self._db_provider,
+                self._event_queue,
+                self._event_map,
                 self._db_rtnl_log,
-                id(threading.current_thread()),
+                self.log.channel('schema'),
             )
+
         except Exception as e:
             self._dbm_error = e
             self._dbm_ready.set()

@@ -88,9 +88,10 @@ There are also some useful views, that join `ifinfo` tables with
     (8 rows)
 
 '''
-import io
 import sys
+import json
 import time
+import enum
 import random
 import sqlite3
 import threading
@@ -115,12 +116,67 @@ try:
 except ImportError:
     import Queue as queue
 
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
+
+_sql_adapters_lock = threading.Lock()
+_sql_adapters_psycopg2_registered = False
+_sql_adapters_sqlite3_registered = False
+
+
+def target_adapter(value):
+    #
+    # MPLS target adapter for SQLite3
+    #
+    return json.dumps(value)
+
+
+class PostgreSQLAdapter(object):
+    def __init__(self, obj):
+        self.obj = obj
+
+    def getquoted(self):
+        return "'%s'" % json.dumps(self.obj)
+
+
+def register_sqlite3_adapters():
+    global _sql_adapters_lock
+    global _sql_adapters_sqlite3_registered
+    with _sql_adapters_lock:
+        if not _sql_adapters_sqlite3_registered:
+            _sql_adapters_sqlite3_registered = True
+            sqlite3.register_adapter(list, target_adapter)
+            sqlite3.register_adapter(dict, target_adapter)
+
+
+def regsiter_postgres_adapters():
+    global _sql_adapters_lock
+    global _sql_adapters_psycopg2_registered
+    with _sql_adapters_lock:
+        if psycopg2 is not None and not _sql_adapters_psycopg2_registered:
+            _sql_adapters_psycopg2_registered = True
+            psycopg2.extensions.register_adapter(list, PostgreSQLAdapter)
+            psycopg2.extensions.register_adapter(dict, PostgreSQLAdapter)
+
+
 #
 # the order is important
 #
 plugins = [interface, address, neighbour, route, netns, rule]
 
 MAX_ATTEMPTS = 5
+
+
+class DBProvider(enum.Enum):
+    sqlite3 = 'sqlite3'
+    psycopg2 = 'psycopg2'
+
+
+class DBConfig:
+    provider = DBProvider.sqlite3
+    spec = ':memory:'
 
 
 def publish(method):
@@ -158,7 +214,7 @@ def publish(method):
             self._allow_read.wait()
             response = queue.Queue()
             request = cmsg_req(response, *argv, **kwarg)
-            self.ndb._event_queue.put((request,))
+            self.event_queue.put((request,))
             while True:
                 item = response.get()
                 if isinstance(item, StopIteration):
@@ -211,7 +267,7 @@ def publish_exec(method):
             # another thread, run via message bus
             response = queue.Queue(maxsize=1)
             request = cmsg_req(response, *argv, **kwarg)
-            self.ndb._event_queue.put((request,))
+            self.event_queue.put((request,))
             ret = response.get()
             if isinstance(ret, Exception):
                 raise ret
@@ -226,7 +282,7 @@ def publish_exec(method):
     return _do_dispatch
 
 
-class DBSchema(object):
+class DBSchema:
 
     connection = None
     thread = None
@@ -244,41 +300,79 @@ class DBSchema(object):
     indices = {}
     foreign_keys = {}
 
-    def __init__(self, ndb, connection, mode, rtnl_log, tid):
-        self.ndb = ndb
+    def __init__(
+        self, config, ndb, event_queue, event_map, rtnl_log, log_channel
+    ):
         # collect all the dispatched methods and publish them
         for name in dir(self):
             obj = getattr(self, name, None)
             if hasattr(obj, 'publish'):
                 event, fbody = obj.publish
-                self.ndb._event_map[event] = [partial(fbody, self)]
+                event_map[event] = [partial(fbody, self)]
 
-        self.mode = mode
+        global plugins
+        self.ndb = ndb
+        self.config = config
+        self.event_queue = event_queue
         self.stats = {}
-        self.thread = tid
-        self.connection = connection
+        self.thread = id(threading.current_thread())
+        self.connection = None
+        self.cursor = None
         self.rtnl_log = rtnl_log
-        self.log = ndb.log.channel('schema')
+        self.log = log_channel
         self.snapshots = {}
         self.key_defaults = {}
         self.event_map = {}
-        self._cursor = None
-        self._counter = 0
         self._allow_read = threading.Event()
         self._allow_read.set()
         self._allow_write = threading.Event()
         self._allow_write.set()
-        self.share_cursor()
-        if self.mode == 'sqlite3':
-            # SQLite3
-            self.connection.execute('PRAGMA foreign_keys = ON')
+        for plugin in plugins:
+            #
+            # 1. spec
+            #
+            for name, spec in plugin.init['specs']:
+                self.spec[name] = spec.as_dict()
+                self.indices[name] = spec.index
+                self.foreign_keys[name] = spec.foreign_keys
+            #
+            # 2. classes
+            #
+            for name, cls in plugin.init['classes']:
+                self.classes[name] = cls
+        #
+        self.initdb()
+        #
+        for plugin in plugins:
+            #
+            emap = plugin.init['event_map']
+            #
+            for etype, ehndl in emap.items():
+                handlers = []
+                for h in ehndl:
+                    if isinstance(h, basestring):
+                        handlers.append(partial(self.load_netlink, h))
+                    else:
+                        handlers.append(partial(h, self))
+                self.event_map[etype] = handlers
+
+        self.gctime = self.ctime = time.time()
+
+    def initdb(self):
+        if self.connection is not None:
+            self.close()
+        if self.config.provider == DBProvider.sqlite3:
+            register_sqlite3_adapters()
+            self.connection = sqlite3.connect(self.config.spec)
             self.plch = '?'
-        elif self.mode == 'psycopg2':
-            # PostgreSQL
+            self.connection.execute('PRAGMA foreign_keys = ON')
+        elif self.config.provider == DBProvider.psycopg2:
+            regsiter_postgres_adapters()
+            self.connection = psycopg2.connect(**self.config.spec)
             self.plch = '%s'
         else:
-            raise NotImplementedError('database provider not supported')
-        self.gctime = self.ctime = time.time()
+            raise TypeError('DB provider not supported')
+        self.cursor = self.connection.cursor()
         #
         # compile request lines
         #
@@ -288,7 +382,6 @@ class DBSchema(object):
                 table, self.spec[table], self.indices[table]
             )
             self.create_table(table)
-
         #
         # service tables
         #
@@ -431,19 +524,13 @@ class DBSchema(object):
 
     @publish_exec
     def execute(self, *argv, **kwarg):
-        if self._cursor:
-            cursor = self._cursor
-        else:
-            cursor = self.connection.cursor()
-            self._counter = config.db_transaction_limit
         try:
             #
             # FIXME: add logging
             #
             for _ in range(MAX_ATTEMPTS):
                 try:
-                    self._counter += 1
-                    cursor.execute(*argv, **kwarg)
+                    self.cursor.execute(*argv, **kwarg)
                     break
                 except (sqlite3.InterfaceError, sqlite3.OperationalError) as e:
                     self.log.debug('%s' % e)
@@ -456,24 +543,10 @@ class DBSchema(object):
             else:
                 raise Exception('DB execute error: %s %s' % (argv, kwarg))
         except Exception:
-            self.connection.commit()
-            if self._cursor:
-                self._cursor = self.connection.cursor()
             raise
         finally:
-            if self._counter > config.db_transaction_limit:
-                self.connection.commit()  # no performance optimisation yet
-                self._counter = 0
-        return cursor
-
-    def share_cursor(self):
-        self._cursor = self.connection.cursor()
-        self._counter = 0
-
-    def unshare_cursor(self):
-        self._cursor = None
-        self._counter = 0
-        self.connection.commit()
+            self.connection.commit()  # no performance optimisation yet
+        return self.cursor
 
     def fetchone(self, *argv, **kwarg):
         for row in self.fetch(*argv, **kwarg):
@@ -517,9 +590,9 @@ class DBSchema(object):
 
     @publish
     def fetch(self, *argv, **kwarg):
-        cursor = self.execute(*argv, **kwarg)
+        self.execute(*argv, **kwarg)
         while True:
-            row_set = cursor.fetchmany()
+            row_set = self.cursor.fetchmany()
             if not row_set:
                 return
             for row in row_set:
@@ -547,11 +620,6 @@ class DBSchema(object):
         finally:
             if close:
                 f.close()
-
-    def __repr__(self):
-        buf = io.StringIO()
-        self.export(buf)
-        return buf.getvalue()
 
     @publish_exec
     def close(self):
@@ -609,8 +677,6 @@ class DBSchema(object):
 
         req = ','.join(req)
         req = 'CREATE TABLE IF NOT EXISTS ' '%s (%s)' % (table, req)
-        # self.execute('DROP TABLE IF EXISTS %s %s'
-        #              % (table, 'CASCADE' if self.mode == 'psycopg2' else ''))
         self.execute(req)
 
         index = ','.join(
@@ -758,9 +824,9 @@ class DBSchema(object):
                         except Exception:
                             # GC collision?
                             pass
-                    if self.mode == 'sqlite3':
+                    if self.config.provider == DBProvider.sqlite3:
                         self.execute('DROP TABLE %s' % table)
-                    elif self.mode == 'psycopg2':
+                    elif self.config.provider == DBProvider.psycopg2:
                         self.execute('DROP TABLE %s CASCADE' % table)
                     self.connection.commit()
                     del self.snapshots[table]
@@ -923,7 +989,7 @@ class DBSchema(object):
                 values.append(value)
 
             try:
-                if self.mode == 'psycopg2':
+                if self.config.provider == DBProvider.psycopg2:
                     #
                     # run UPSERT -- the DB provider must support it
                     #
@@ -944,7 +1010,7 @@ class DBSchema(object):
                         )
                     )
                     #
-                elif self.mode == 'sqlite3':
+                elif self.config.provider == DBProvider.sqlite3:
                     #
                     # SQLite3 >= 3.24 actually has UPSERT, but ...
                     #
@@ -990,42 +1056,3 @@ class DBSchema(object):
                     'load_netlink: %s %s %s' % (table, target, event)
                 )
                 self.log.error('load_netlink: %s' % traceback.format_exc())
-
-
-def init(ndb, connection, mode, rtnl_log, tid):
-    #
-    # first prepare the schema and init the DB
-    #
-    for plugin in plugins:
-        #
-        # 1. spec
-        #
-        for name, spec in plugin.init['specs']:
-            DBSchema.spec[name] = spec.as_dict()
-            DBSchema.indices[name] = spec.index
-            DBSchema.foreign_keys[name] = spec.foreign_keys
-        #
-        # 2. classes
-        #
-        for name, cls in plugin.init['classes']:
-            DBSchema.classes[name] = cls
-
-    ret = DBSchema(ndb, connection, mode, rtnl_log, tid)
-
-    #
-    # init the event mapping
-    #
-    for plugin in plugins:
-        #
-        emap = plugin.init['event_map']
-        #
-        for etype, ehndl in emap.items():
-            handlers = []
-            for h in ehndl:
-                if isinstance(h, basestring):
-                    handlers.append(partial(ret.load_netlink, h))
-                else:
-                    handlers.append(partial(h, ret))
-            ret.event_map[etype] = handlers
-
-    return ret
