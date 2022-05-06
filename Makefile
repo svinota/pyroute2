@@ -177,6 +177,7 @@ test: check_parameters
 		export WORKSPACE=${workspace}; \
 		export PYROUTE2_TEST_DBNAME=${dbname}; \
 		export SKIPDB=${skipdb}; \
+		export BREAK_ON_ERRORS=${break}; \
 		./tests/run_pytest.sh
 
 .PHONY: test-platform

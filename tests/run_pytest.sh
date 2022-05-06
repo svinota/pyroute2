@@ -85,6 +85,7 @@ for i in `seq $LOOP`; do
     [ $ret -eq 0 ] || {
         errors=$(($errors + 1))
     }
+    [ "$BREAK_ON_ERRORS" = "true" -a $errors -gt 0 ] && break ||:
 
 done
 for i in `$PYTHON -m pip list | awk '/pyroute2/ {print $1}'`; do {
