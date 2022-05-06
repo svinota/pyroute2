@@ -19,6 +19,7 @@
      "NetlinkError = pr2modules.netlink.exceptions:NetlinkError",
      "ChaoticException = pr2modules.netlink.exceptions:ChaoticException",
      "NetlinkDecodeError = pr2modules.netlink.exceptions:NetlinkDecodeError",
+     "NetlinkDumpInterrupted = pr2modules.netlink.exceptions:NetlinkDumpInterrupted",
      "IPRouteRequest = pr2modules.iproute.req:IPRouteRequest",
      "IPLinkRequest = pr2modules.iproute.req:IPLinkRequest",
      "Conntrack = pr2modules.conntrack:Conntrack",
