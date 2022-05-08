@@ -194,9 +194,6 @@ class NDBContextManager(object):
             index = self.ndb.interfaces.create(
                 ifname=ifname, kind='dummy', state='up'
             ).commit()['index']
-            # wait for the interface to set up IPv6 link local so no tests
-            # using the default interface will interfere with the setup
-            self.ndb.addresses.wait(index=index, family=AF_INET6)
             self.default_interface = Interface(index, ifname)
         else:
             self.default_interface = None
