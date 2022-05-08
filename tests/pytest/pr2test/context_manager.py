@@ -176,6 +176,7 @@ class NDBContextManager(object):
         #
         # this instance is to be tested, so do NOT use it
         # in utility methods
+        self.db_provider = kwarg['db_provider']
         self.ndb = NDB(**kwarg)
         self.ipr = self.ndb.sources['localhost'].nl.clone()
         self.wg = WireGuard()
@@ -290,6 +291,9 @@ class NDBContextManager(object):
         1. close the test NDB
         2. remove the registered interfaces, ignore not existing
         '''
+        # save postmortem DB for SQLite3
+        if self.db_provider == 'sqlite3':
+            self.ndb.backup(f'{self.spec.uid}-post.db')
         self.ndb.close()
         self.ipr.close()
         self.wg.close()
