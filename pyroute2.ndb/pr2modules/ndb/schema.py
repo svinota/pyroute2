@@ -9,6 +9,9 @@ extra packages are required::
     # SQLite3 -- simple in-memory DB
     ndb = NDB()
 
+    # SQLite3 -- same as above with explicit arguments
+    ndb = NDB(db_provider='sqlite3', db_spec=':memory:')
+
     # SQLite3 -- file DB
     ndb = NDB(db_provider='sqlite3', db_spec='test.db')
 
@@ -23,6 +26,19 @@ module::
     ndb = NDB(db_provider='psycopg2',
               db_spec={'dbname': 'test',
                        'host': 'db1.example.com'})
+
+Database backup
+---------------
+
+Built-in database backup is implemented now only for SQLite3 backend.
+For the PostgresSQL backend you have to use external utilities like
+`pg_dump`::
+
+    # create an NDB instance
+    ndb = NDB()  # the defaults: db_provider='sqlite3', db_spec=':memory:'
+    ...
+    # dump the DB to a file
+    ndb.backup('backup.db')
 
 SQL schema
 ----------
@@ -597,6 +613,15 @@ class DBSchema:
                 return
             for row in row_set:
                 yield row
+
+    @publish_exec
+    def backup(self, spec):
+        if self.config.provider == DBProvider.sqlite3:
+            backup_connection = sqlite3.connect(spec)
+            self.connection.backup(backup_connection)
+            backup_connection.close()
+        else:
+            raise NotImplementedError()
 
     @publish_exec
     def export(self, f='stdout'):

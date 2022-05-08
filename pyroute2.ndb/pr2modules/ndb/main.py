@@ -1017,6 +1017,9 @@ class NDB(object):
             # shutdown the logger -- free the resources
             self.log.close()
 
+    def backup(self, spec):
+        self.schema.backup(spec)
+
     def reload(self, kinds=None):
         for source in self.sources.values():
             if kinds is not None and source.kind in kinds:
