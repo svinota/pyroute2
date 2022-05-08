@@ -1,6 +1,6 @@
 '''
-Netns management overview
-=========================
+Basic network namespace management
+==================================
 
 Pyroute2 provides basic namespaces management support.
 Here's a quick overview of typical netns tasks and

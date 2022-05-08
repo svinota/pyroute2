@@ -43,29 +43,48 @@ For the PostgresSQL backend you have to use external utilities like
 SQL schema
 ----------
 
-A file based SQLite3 DB or PostgreSQL may be useful for inspection
-of the collected data. Here is an example schema::
+By default NDB deletes the data from the DB upon exit. In order to preserve
+the data, use `NDB(db_cleanup=False, ...)`
 
-    rtnl=# \\dt
+Here is an example schema (may be changed with releases)::
+
                 List of relations
-     Schema |      Name       | Type  | Owner
-    --------+-----------------+-------+-------
-     public | addresses       | table | root
-     public | ifinfo_bond     | table | root
-     public | ifinfo_bridge   | table | root
-     public | ifinfo_gre      | table | root
-     public | ifinfo_vlan     | table | root
-     public | ifinfo_vrf      | table | root
-     public | ifinfo_vti      | table | root
-     public | ifinfo_vti6     | table | root
-     public | ifinfo_vxlan    | table | root
-     public | interfaces      | table | root
-     public | neighbours      | table | root
-     public | nh              | table | root
-     public | routes          | table | root
-     public | sources         | table | root
-     public | sources_options | table | root
-    (15 rows)
+     Schema |       Name       | Type  | Owner
+    --------+------------------+-------+-------
+     public | addresses        | table | root
+     public | af_bridge_fdb    | table | root
+     public | af_bridge_ifs    | table | root
+     public | af_bridge_vlans  | table | root
+     public | enc_mpls         | table | root
+     public | ifinfo_bond      | table | root
+     public | ifinfo_bridge    | table | root
+     public | ifinfo_gre       | table | root
+     public | ifinfo_gretap    | table | root
+     public | ifinfo_ip6gre    | table | root
+     public | ifinfo_ip6gretap | table | root
+     public | ifinfo_ip6tnl    | table | root
+     public | ifinfo_ipip      | table | root
+     public | ifinfo_ipvlan    | table | root
+     public | ifinfo_macvlan   | table | root
+     public | ifinfo_macvtap   | table | root
+     public | ifinfo_sit       | table | root
+     public | ifinfo_tun       | table | root
+     public | ifinfo_vlan      | table | root
+     public | ifinfo_vrf       | table | root
+     public | ifinfo_vti       | table | root
+     public | ifinfo_vti6      | table | root
+     public | ifinfo_vxlan     | table | root
+     public | interfaces       | table | root
+     public | metrics          | table | root
+     public | neighbours       | table | root
+     public | netns            | table | root
+     public | nh               | table | root
+     public | p2p              | table | root
+     public | routes           | table | root
+     public | rules            | table | root
+     public | sources          | table | root
+     public | sources_options  | table | root
+    (33 rows)
 
     rtnl=# select f_index, f_ifla_ifname from interfaces;
      f_index | f_ifla_ifname
@@ -86,23 +105,16 @@ of the collected data. Here is an example schema::
        36445 |                   0
     (1 row)
 
-There are also some useful views, that join `ifinfo` tables with
-`interfaces`::
+Database upgrade
+----------------
 
-    rtnl=# \\dv
-           List of relations
-     Schema |  Name  | Type | Owner
-    --------+--------+------+-------
-     public | bond   | view | root
-     public | bridge | view | root
-     public | gre    | view | root
-     public | vlan   | view | root
-     public | vrf    | view | root
-     public | vti    | view | root
-     public | vti6   | view | root
-     public | vxlan  | view | root
-    (8 rows)
+There is no DB schema upgrade from release to release. All the
+data stored in the DB is being fetched from the OS in the runtime,
+thus no persistence required.
 
+If you're using a PostgreSQL DB or a file based SQLite, simply drop
+all the tables from the DB, and NDB will create them from scratch
+on startup.
 '''
 import sys
 import json

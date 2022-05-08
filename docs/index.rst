@@ -22,9 +22,7 @@ Usage
 
     usage
     iproute
-    remote
     ndb
-    ipdb_toc
     wiset
     ipset
     netns
@@ -49,6 +47,22 @@ Development
     arch
     netlink
     nlsocket
+
+Experimental
+------------
+
+.. toctree::
+   :maxdepth: 1
+
+   remote
+
+Deprecated
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   ipdb_toc
 
 Indices and tables
 ==================
