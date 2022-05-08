@@ -386,15 +386,19 @@ class Source(dict):
 
             with self.lock:
                 if self.state.get() == 'loading':
-                    if self.event is not None:
-                        self.evq.put(
-                            (cmsg_event(self.target, self.event),),
-                            source=self.target,
-                        )
-                    else:
-                        self.evq.put(
-                            (cmsg_sstart(self.target),), source=self.target
-                        )
+                    try:
+                        if self.event is not None:
+                            self.evq.put(
+                                (cmsg_event(self.target, self.event),),
+                                source=self.target,
+                            )
+                        else:
+                            self.evq.put(
+                                (cmsg_sstart(self.target),), source=self.target
+                            )
+                    except ShutdownException:
+                        self.state.set('stop')
+                        break
                     self.started.set()
                     self.shutdown.clear()
                     self.state.set('running')
