@@ -12,7 +12,9 @@ Create dev env
 
 It is better to use a dedicated VM to run the tests, as the
 CI requires root privileges to manage network settings and
-network namespaces::
+network namespaces.
+
+.. code-block:: bash
 
     git clone https://github.com/svinota/pyroute2.git
     cd pyroute2
@@ -37,7 +39,9 @@ network namespaces::
     # OBS! ACHTUNG! tests MUST be run under root
     make test skipdb=postgres
 
-Alternatively, one can use tox::
+Alternatively, one can use tox.
+
+.. code-block:: bash
 
     #
     tox -e skipdb

@@ -2,7 +2,6 @@ black
 twine
 aafigure
 flake8
-nose
 coverage
 eventlet
 mitogen
