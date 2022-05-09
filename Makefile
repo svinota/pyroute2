@@ -155,6 +155,7 @@ docs/html:
 			mv -f docs/_templates/layout.html.orig docs/_templates/layout.html; ) ||: ;\
 		unset PYTHONPATH ;\
 		[ -z "$$FAIL" ] || false
+	@find docs -name 'aafig-*svg' -exec ${python} util/aafigure_mapper.py docs/aafigure.map '{}' \;
 
 docs: install docs/html
 
