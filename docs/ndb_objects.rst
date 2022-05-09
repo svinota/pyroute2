@@ -1,7 +1,7 @@
 .. ndbobjects:
 
-Views and objects
-=================
+Views and RTNL objects
+======================
 
 .. automodule:: pyroute2.ndb.objects
 

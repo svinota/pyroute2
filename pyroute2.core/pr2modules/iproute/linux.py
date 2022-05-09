@@ -1221,10 +1221,10 @@ class RTNL_API(object):
 
         Possible `tuntap` keywords:
 
-            - `mode` — "tun" or "tap"
-            - `uid` — integer
-            - `gid` — integer
-            - `ifr` — dict of tuntap flags (see ifinfmsg:... tuntap_data)
+        * `mode` — "tun" or "tap"
+        * `uid` — integer
+        * `gid` — integer
+        * `ifr` — dict of tuntap flags (see ifinfmsg:... tuntap_data)
 
         Create a tap interface::
 
@@ -1316,11 +1316,11 @@ class RTNL_API(object):
 
         The following parameters can also be provided:
 
-        `pkey` : Inifiniband partition key the ip interface is associated with
-        `mode` : Underlying infiniband transport mode.
-                 One of:  ['datagram' ,'connected']
-        `umcast` : If set(1), multicast group membership for this interface is
-                   handled by user space.
+        * `pkey`- Inifiniband partition key the ip interface is associated with
+        * `mode`- Underlying infiniband transport mode. One
+          of:  ['datagram' ,'connected']
+        * `umcast`- If set(1), multicast group membership for this interface is
+          handled by user space.
 
         Example::
 

@@ -1118,7 +1118,7 @@ class IPDB(object):
         so it is possible to read initial state from the system without losing
         last moment changes, and once that is done, start processing events.
 
-        Example:
+        Example::
 
             ipdb = IPDB()
             with ipdb.eventqueue() as evq:

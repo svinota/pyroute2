@@ -6,10 +6,11 @@ Classes
 The RTNL API is provided by the class `RTNL_API`. It is a
 mixin class that works on top of any RTNL-compatible socket,
 so several classes with almost the same API are available:
-    * `IPRoute` -- simple RTNL API
-    * `NetNS` -- RTNL API in a network namespace
-    * `IPBatch` -- RTNL packet compiler
-    * `RemoteIPRoute` -- run RTNL remotely (no deployment required)
+
+* `IPRoute` -- simple RTNL API
+* `NetNS` -- RTNL API in a network namespace
+* `IPBatch` -- RTNL packet compiler
+* `RemoteIPRoute` -- run RTNL remotely (no deployment required)
 
 Responses as lists
 ------------------

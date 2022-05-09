@@ -1,6 +1,70 @@
 '''
-Quick start
------------
+NDB is a high level network management module. IT allows to manage interfaces,
+routes, addresses etc. of connected systems, containers and network
+namespaces.
+
+.. note:: See also the module choice guide: :ref:`choice`
+
+In a nutshell, NDB collects and aggregates netlink events in an SQL database,
+provides Python objects to reflect the system state, and applies changes back
+to the system. The database expects updates only from the sources, no manual
+SQL updates are expected normally.
+
+.. aafig::
+    :scale: 80
+    :textual:
+
+        +----------------------------------------------------------------+
+      +----------------------------------------------------------------+ |
+    +----------------------------------------------------------------+ | |
+    |                                                                | | |
+    |                              kernel                            | |-+
+    |                                                                |-+
+    +----------------------------------------------------------------+
+            |                      | ^                     | ^
+            | `netlink events`     | |                     | |
+            | `inotify events`     | |                     | |
+            | `...`                | |                     | |
+            v                      v |                     v |
+     +--------------+        +--------------+        +--------------+
+     |     source   |        |     source   |        |     source   |<--\\
+     +--------------+        +--------------+        +--------------+   |
+            |                       |                       |           |
+            |                       |                       |           |
+            \\-----------------------+-----------------------/           |
+                                    |                                   |
+              parsed netlink events | `NDB._event_queue`                |
+                                    |                                   |
+                                    v                                   |
+                        +------------------------+                      |
+                        | `NDB.__dbm__()` thread |                      |
+                        +------------------------+                      |
+                                    |                                   |
+                                    v                                   |
+                     +-----------------------------+                    |
+                     | `NDB.schema.load_netlink()` |                    |
+                     | `NDB.objects.*.load*()`     |                    |
+                     +-----------------------------+                    |
+                                    |                                   |
+                                    v                                   |
+                         +----------------------+                       |
+                         |  SQL database        |                       |
+                         |     `SQLite`         |                       |
+                         |     `PostgreSQL`     |                       |
+                         +----------------------+                       |
+                                    |                                   |
+                                    |                                   |
+                                    V                                   |
+                              +---------------+                         |
+                            +---------------+ |                         |
+                          +---------------+ | |  `RTNL_Object.apply()`  |
+                          | NDB object:   | | |-------------------------/
+                          |  `interface`  | | |
+                          |  `address`    | | |
+                          |  `route`      | |-+
+                          |  `...`        |-+
+                          +---------------+
+
 
 The goal of NDB is to provide an easy access to RTNL info and entities via
 Python objects, like `pyroute2.ndb.objects.interface` (see also:

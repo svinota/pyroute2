@@ -128,7 +128,7 @@ Changelog
         * <https://github.com/svinota/pyroute2/pull/593>
     * ndb: wait() method
     * ndb: add extra logging, log state transitions
-    * ndb: nested views, e.g. `ndb.interfaces['br0'].ports
+    * ndb: nested views, e.g. `ndb.interfaces['br0'].ports`
     * cli: port pyroute2-cli to use NDB instead of IPDB
     * iproute: basic Windows support (proof of concept only)
     * remote: support mitogen proxy chains, support remote netns
