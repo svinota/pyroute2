@@ -12,7 +12,7 @@ export PYTHONPATH="$WORKSPACE:$WORKSPACE/examples:$WORKSPACE/examples/generic"
 
 # patch variables that differ between nosetests an pytest
 [ -z "$PDB" ] || export PDB="--pdb"
-[ -z "$COVERAGE" ] || export COVERAGE="--cov-report html --cov=pyroute2"
+[ -z "$COVERAGE" ] || export COVERAGE="--cov-report html --cov=pyroute2 --cov=pr2modules"
 
 function deploy() {
     # Prepare test environment
