@@ -1,10 +1,8 @@
 import os
-import pytest
 import socket
 from pyroute2 import NetlinkDumpInterrupted
 
 
-@pytest.mark.skip('temporary skip until github runners fixed')
 def test_mass_ipv6(context):
     #
     ipv6net = context.new_ip6net
