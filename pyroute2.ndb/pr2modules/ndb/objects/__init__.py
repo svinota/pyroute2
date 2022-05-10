@@ -812,6 +812,8 @@ class RTNL_Object(dict):
         the changes in the case of an exception.
         '''
 
+        self.ndb.schema.commit()
+
         # Resolve the fields
         self.resolve(
             view=self.view,
