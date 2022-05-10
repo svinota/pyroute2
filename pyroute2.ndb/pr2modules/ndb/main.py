@@ -1137,7 +1137,7 @@ class NDB(object):
         def default_handler(target, event):
             if isinstance(getattr(event, 'payload', None), Exception):
                 raise event.payload
-            log.warning('unsupported event ignored: %s' % type(event))
+            log.debug('unsupported event ignored: %s' % type(event))
 
         def check_sources_started(self, _locals, target, event):
             _locals['countdown'] -= 1
