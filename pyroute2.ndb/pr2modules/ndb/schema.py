@@ -637,7 +637,10 @@ class DBSchema:
 
     @publish_exec
     def backup(self, spec):
-        if self.config.provider == DBProvider.sqlite3:
+        if (
+            sys.version_info >= (3, 7)
+            and self.config.provider == DBProvider.sqlite3
+        ):
             backup_connection = sqlite3.connect(spec)
             self.connection.commit()
             self.connection.backup(backup_connection)
