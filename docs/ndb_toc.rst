@@ -5,6 +5,7 @@
 
    ndb_init
    ndb_objects
+   ndb_transactions
    ndb_reports
    ndb_interfaces
    ndb_addresses

@@ -1,3 +1,102 @@
+'''
+
+General description.
+
+One object
+----------
+
+All the changes done via one object are applied
+in the order defined by the corresponding class.
+
+.. code-block:: python
+
+    eth0 = ndb.interfaces["eth0"]
+    eth0.add_ip(address="10.0.0.1", prefixlen=24)
+    eth0.set(state="up")
+    eth0.commit()
+
+In the example above first the interface
+attributes like state, mtu, ifname etc. will be
+applied, and only then IP addresses, bridge ports
+and like that, despite the order they are written
+before `commit()` call.
+
+The order is ok for most of cases. But if not,
+one can control it by calling `commit()` in the
+required places, breaking one transaction into
+several sequential transactions.
+
+And since RTNL object methods return itself, it
+is possible to write chains with multiple
+`commit()`:
+
+.. code-block:: python
+
+    (
+        ndb.interfaces
+        .create(ifname="test", kind="dummy")
+        .add_ip(address="10.0.0.1", prefixlen=24)
+        .commit()
+        .set(state="up")
+        .commit()
+    )
+
+Here the order is forced by explicit commits.
+
+Multiple objects
+----------------
+
+An important functionality of NDB are rollbacks.
+And there is a way to batch changes on multiple
+objects so one failure will trigger rollback of
+all the changes on all the objects.
+
+.. code-block:: python
+
+    ctx = ndb.begin()
+    ctx.push(
+        (
+            ndb.interfaces
+            .create(ifname="br0", kind="bridge")
+            .add_port("eth0")
+            .add_port("eth1")
+            .set(state="up")
+            .add_ip("10.0.0.2/24")
+        ),
+        (
+            ndb.routes
+            .create(
+                dst="192.168.0.0",
+                dst_len=24,
+                gateway="10.0.0.1"
+            )
+        )
+    )
+    ctx.commit()
+
+
+Check external processes
+------------------------
+
+The simplest usecase for external checks is to
+test if a remote IP is still reachable after
+the changes are applied:
+
+
+.. code-block:: python
+
+    from pyroute2.ndb.transaction import PingAddress
+
+    ctx = ndb.begin()
+    ctx.push(
+        ndb.routes.create(
+          dst="10.0.0.0",
+          dst_len=24,
+          gateway="172.16.0.1"
+        ),
+        PingAddress("10.0.0.1")
+    )
+'''
 import shlex
 import shutil
 import logging
