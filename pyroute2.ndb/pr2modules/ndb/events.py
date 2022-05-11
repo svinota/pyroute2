@@ -45,10 +45,6 @@ class InvalidateHandlerException(Exception):
     pass
 
 
-class FakeException(Exception):
-    pass
-
-
 class State(object):
 
     events = None

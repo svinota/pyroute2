@@ -146,10 +146,8 @@ except ImportError:
 
 try:
     import psycopg2
-    from psycopg2.errors import InFailedSqlTransaction
 except ImportError:
     psycopg2 = None
-    from .events import FakeException as InFailedSqlTransaction
 
 _sql_adapters_lock = threading.Lock()
 _sql_adapters_psycopg2_registered = False
@@ -570,19 +568,12 @@ class DBSchema:
                     # -- OperationalError: SQL logic error
                     #
                     pass
-                except InFailedSqlTransaction as e:
-                    self.log.debug(f'{e}')
-                    #
-                    # PostgreSQL transaction aborted, create
-                    # the cursor from scratch
-                    #
-                    self.connection.commit()
-                    self.cursor.close()
-                    self.cursor = self.connection.cursor()
             else:
                 raise Exception('DB execute error: %s %s' % (argv, kwarg))
         except Exception:
             raise
+        finally:
+            self.connection.commit()  # no performance optimisation yet
         return self.cursor
 
     def fetchone(self, *argv, **kwarg):
@@ -642,7 +633,6 @@ class DBSchema:
             and self.config.provider == DBProvider.sqlite3
         ):
             backup_connection = sqlite3.connect(spec)
-            self.connection.commit()
             self.connection.backup(backup_connection)
             backup_connection.close()
         else:
@@ -650,7 +640,6 @@ class DBSchema:
 
     @publish_exec
     def export(self, f='stdout'):
-        self.connection.commit()
         close = False
         if f in ('stdout', 'stderr'):
             f = getattr(sys, f)
