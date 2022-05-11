@@ -173,6 +173,7 @@ class RTNL_Object(dict):
     hidden_fields = []
     fields_cmp = {}
     fields_normalize = {}
+    rollback_chain = []
 
     fallback_for = None
     schema = None
@@ -184,6 +185,7 @@ class RTNL_Object(dict):
     reverse_update = None
     _table = None
     _apply_script = None
+    _apply_script_snapshots = []
     _key = None
     _replace = None
     _replace_on_key_change = False
@@ -661,6 +663,7 @@ class RTNL_Object(dict):
             return self.remove().apply()
         else:
             snapshot.state.set(self.state.get())
+            snapshot.rollback_chain = self._apply_script_snapshots
             snapshot.apply(rollback=True)
             for link, snp in snapshot.snapshot_deps:
                 link.rollback(snapshot=snp)
@@ -988,6 +991,8 @@ class RTNL_Object(dict):
                         obj.apply()
                     except Exception as e:
                         self.errors.append((time.time(), obj, e))
+            for obj in reversed(self.rollback_chain):
+                obj.rollback()
         else:
             apply_script = self._apply_script
             self._apply_script = []

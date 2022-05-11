@@ -517,8 +517,7 @@ class Interface(RTNL_Object):
     def add_vlan(self, spec):
         def do_add_vlan(self, spec):
             try:
-                self.vlan.create(spec).apply()
-                return []
+                return [self.vlan.create(spec).apply()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
@@ -530,8 +529,7 @@ class Interface(RTNL_Object):
     def del_vlan(self, spec):
         def do_del_vlan(self, spec):
             try:
-                ret = self.vlan[spec].remove().apply()
-                return [ret.last_save]
+                return [self.vlan[spec].remove().apply()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
@@ -545,8 +543,7 @@ class Interface(RTNL_Object):
 
         def do_add_neighbour(self, spec):
             try:
-                self.neighbours.create(spec).apply()
-                return []
+                return [self.neighbours.create(spec).apply()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
@@ -590,8 +587,7 @@ class Interface(RTNL_Object):
 
         def do_add_ip(self, spec):
             try:
-                self.ipaddr.create(spec).apply()
-                return []
+                return [self.ipaddr.create(spec).apply()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
@@ -637,7 +633,7 @@ class Interface(RTNL_Object):
                 assert port['target'] == self['target']
                 port['master'] = self['index']
                 port.apply()
-                return [port.last_save]
+                return [port]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
@@ -654,7 +650,7 @@ class Interface(RTNL_Object):
                 assert port['target'] == self['target']
                 port['master'] = 0
                 port.apply()
-                return [port.last_save]
+                return [port]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
