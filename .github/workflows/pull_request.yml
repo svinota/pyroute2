@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  linux:
     runs-on: functional
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: sudo tox -e skipdb
+      - run: sudo tox -e py36,py37,py38,py39,py310
