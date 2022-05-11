@@ -1,10 +1,68 @@
+import shlex
+import shutil
 import logging
 import threading
+import subprocess
 
-log = logging.getLogger(__name__)
+global_log = logging.getLogger(__name__)
 
 
-class Transaction(object):
+class CheckProcessException(Exception):
+    pass
+
+
+class CheckProcess:
+    def __init__(self, command, log=None, timeout=None):
+        if not isinstance(command, str):
+            raise TypeError('command must be a non empty string')
+        if not len(command) > 0:
+            raise TypeError('command must be a non empty string')
+        self.log = log or global_log
+        self.command = command
+        self.args = shlex.split(command)
+        self.timeout = timeout
+        self.return_code = None
+
+    def commit(self):
+        self.args[0] = shutil.which(self.args[0])
+        if self.args[0] is None:
+            raise FileNotFoundError()
+        process = subprocess.Popen(
+            self.args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        try:
+            self.log.debug(f'process check {self.args}')
+            out, err = process.communicate(timeout=self.timeout)
+            self.log.debug(f'process output: {out}')
+            self.log.debug(f'process stderr: {err}')
+        except subprocess.TimeoutExpired:
+            self.log.debug('process timeout expired')
+            process.terminate()
+            process.stdout.close()
+            process.stderr.close()
+        finally:
+            self.return_code = process.wait()
+        if self.return_code != 0:
+            raise CheckProcessException('CheckProcess failed')
+
+    def rollback(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, ext_type, exc_value, traceback):
+        pass
+
+
+class PingAddress(CheckProcess):
+    def __init__(self, address, log=None, timeout=1):
+        super(PingAddress, self).__init__(
+            f'ping -c 1 -W {timeout} {address}', log=log
+        )
+
+
+class Transaction:
     def __init__(self, log):
         self.queue = []
         self.event = threading.Event()
