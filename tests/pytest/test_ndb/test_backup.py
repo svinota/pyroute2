@@ -6,7 +6,7 @@ import sqlite3
 
 @pytest.mark.skipif(
     sys.version_info < (3, 7),
-    reason='SQLite3 not supported on this Python version',
+    reason='SQLite3 backup not supported on this Python version',
 )
 def test_file_backup(context):
     filename = str(uuid.uuid4()) + '-backup.db'
