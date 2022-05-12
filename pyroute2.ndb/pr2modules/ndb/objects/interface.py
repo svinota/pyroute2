@@ -93,14 +93,15 @@ Create a bridge and add a port, `eth0`::
 
 import errno
 import traceback
-from pr2modules.config import AF_BRIDGE
+
 from pr2modules.common import basestring
+from pr2modules.config import AF_BRIDGE
+from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.p2pmsg import p2pmsg
-from pr2modules.netlink.exceptions import NetlinkError
-from ..objects import RTNL_Object
-from ..auth_manager import AuthManager
-from ..auth_manager import check_auth
+
+from ..auth_manager import AuthManager, check_auth
+from ..objects import FieldFilter, ObjectData, RTNL_Object
 
 
 def load_ifinfmsg(schema, target, event):
@@ -299,17 +300,18 @@ def _cmp_master(self, value):
     return False
 
 
-def _norm_address(value):
-    #
-    # lower the case
-    if not value.islower():
-        value = value.lower()
-    #
-    # convert xxxx.xxxx.xxxx to xx:xx:xx:xx:xx:xx
-    if len(value) == 14 and value[4] == value[9] == '.':
-        value = ':'.join([':'.join((x[:2], x[2:])) for x in value.split('.')])
-
-    return value
+class InterfaceFieldFilter(FieldFilter):
+    def address(self, key, value):
+        if isinstance(value, str):
+            # lower the case
+            if not value.islower():
+                value = value.lower()
+            # convert xxxx.xxxx.xxxx to xx:xx:xx:xx:xx:xx
+            if len(value) == 14 and value[4] == value[9] == '.':
+                value = ':'.join(
+                    [':'.join((x[:2], x[2:])) for x in value.split('.')]
+                )
+        return {key: value}
 
 
 class Vlan(RTNL_Object):
@@ -393,7 +395,7 @@ class Interface(RTNL_Object):
     key_extra_fields = ['IFLA_IFNAME']
     resolve_fields = ['vxlan_link', 'link', 'master']
     fields_cmp = {'master': _cmp_master}
-    fields_normalize = {'address': _norm_address}
+    field_filter = InterfaceFieldFilter
 
     @classmethod
     def _dump_where(cls, view):
@@ -674,8 +676,8 @@ class Interface(RTNL_Object):
         else:
             super(Interface, self).__setitem__(key, value)
 
-    @staticmethod
-    def spec_normalize(spec):
+    @classmethod
+    def spec_normalize(cls, spec):
         '''
         Interface key normalization::
 
@@ -684,20 +686,15 @@ class Interface(RTNL_Object):
             1        ->  {"index": 1, ...}
 
         '''
-        if isinstance(spec, dict):
-            ret = dict(spec)
-        else:
-            ret = {}
+        ret = ObjectData(cls.field_filter(), spec)
         if isinstance(spec, basestring):
             ret['ifname'] = spec
         elif isinstance(spec, int):
             ret['index'] = spec
-        #
         # fix the master interface reference
         for key in ('vxlan_link', 'link', 'master'):
             if isinstance(ret.get(key), dict):
                 ret[key] = ret[key]['index']
-
         return ret
 
     def complete_key(self, key):

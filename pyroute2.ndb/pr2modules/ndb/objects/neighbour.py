@@ -1,9 +1,12 @@
 import errno
-from pr2modules.config import AF_BRIDGE
+import ipaddress
+
 from pr2modules.common import basestring
+from pr2modules.config import AF_BRIDGE
 from pr2modules.netlink.rtnl.ndmsg import ndmsg
-from ..objects import RTNL_Object
+
 from ..events import RescheduleException
+from ..objects import RTNL_Object
 
 
 def load_ndmsg(schema, target, event):
@@ -121,6 +124,13 @@ class Neighbour(RTNL_Object):
     def spec_normalize(spec):
         if 'index' in spec:
             spec['ifindex'] = spec.pop('index')
+
+        if (
+            'dst' in spec
+            and isinstance(spec['dst'], str)
+            and ':' in spec['dst']
+        ):
+            spec['dst'] = ipaddress.ip_address(spec['dst']).compressed
         return spec
 
     def complete_key(self, key):

@@ -74,25 +74,22 @@ MPLS routes
 See here: :ref:`mpls`
 
 '''
-import time
-import uuid
+import ipaddress
 import json
 import struct
-import ipaddress
-from socket import AF_INET
-from socket import AF_INET6
-from socket import inet_pton
-from functools import partial
+import time
+import uuid
 from collections import OrderedDict
-from pr2modules.common import basestring
-from pr2modules.common import AF_MPLS
+from functools import partial
+from socket import AF_INET, AF_INET6, inet_pton
+
+from pr2modules.common import AF_MPLS, basestring
 from pr2modules.netlink.rtnl import rt_proto
-from pr2modules.netlink.rtnl.rtmsg import rtmsg
-from pr2modules.netlink.rtnl.rtmsg import nh
-from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
-from ..objects import RTNL_Object
-from ..report import Record
+from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS, nh, rtmsg
+
 from ..auth_manager import check_auth
+from ..objects import FieldFilter, ObjectData, RTNL_Object
+from ..report import Record
 
 _dump_rt = ['main.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
 _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
@@ -350,6 +347,32 @@ init = {
 }
 
 
+class RouteFieldFilter(FieldFilter):
+    def _target(self, key, value):
+        if isinstance(value, str) and ':' in value:
+            return {key: ipaddress.ip_address(value).compressed}
+        return {key: value}
+
+    def dst(self, key, value):
+        return self._target(key, value)
+
+    def src(self, key, value):
+        return self._target(key, value)
+
+    def gateway(self, key, value):
+        return self._target(key, value)
+
+    def flags(self, key, value):
+        if isinstance(value, (list, tuple, str)):
+            return {key: rtmsg.names2flags(value)}
+        return {key: value}
+
+    def scope(self, key, value):
+        if isinstance(value, str):
+            return {key: rtmsg.name2scope(value)}
+        return {key: value}
+
+
 class Via(OrderedDict):
     def __init__(self, prime=None):
         super(OrderedDict, self).__init__()
@@ -406,6 +429,7 @@ class Route(RTNL_Object):
     msg_class = rtmsg
     hidden_fields = ['route_id']
     api = 'route'
+    field_filter = RouteFieldFilter
 
     _replace_on_key_change = True
 
@@ -536,19 +560,16 @@ class Route(RTNL_Object):
                 record.append(None)
             yield record
 
-    @staticmethod
-    def spec_normalize(spec):
-        if isinstance(spec, dict):
-            ret = dict(spec)
-        elif isinstance(spec, basestring):
+    @classmethod
+    def spec_normalize(cls, spec):
+        ret = ObjectData(cls.field_filter(), spec)
+        if isinstance(spec, basestring):
             dst_spec = spec.split('/')
             ret = {'dst': dst_spec[0]}
             if len(dst_spec) == 2:
                 ret['dst_len'] = int(dst_spec[1])
             elif len(dst_spec) > 2:
                 raise TypeError('invalid spec format')
-        else:
-            raise TypeError('invalid spec type')
         if isinstance(ret.get('proto'), basestring):
             ret['proto'] = rt_proto[ret['proto']]
         if ret.get('dst') == 'default':
@@ -559,10 +580,6 @@ class Route(RTNL_Object):
         elif ret.get('dst', '').find('/') >= 0:
             ret['dst'], dst_len = ret['dst'].split('/')
             ret['dst_len'] = int(dst_len)
-        # compress IPv6 addresses
-        for key in ('dst', 'src', 'gateway'):
-            if key in ret and ret[key] is not None and ':' in ret[key]:
-                ret[key] = ipaddress.ip_address(ret[key]).compressed
         return ret
 
     def _cmp_target(key, self, right):
@@ -668,6 +685,8 @@ class Route(RTNL_Object):
 
     @check_auth('obj:modify')
     def __setitem__(self, key, value):
+        #
+        # split mask
         if (
             key in ('dst', 'src')
             and isinstance(value, basestring)
@@ -676,9 +695,11 @@ class Route(RTNL_Object):
             net, net_len = value.split('/')
             if net in ('0', '0.0.0.0'):
                 net = ''
-            super(Route, self).__setitem__(key, net)
+            value = net
             super(Route, self).__setitem__('%s_len' % key, int(net_len))
-        elif key == 'dst' and value == 'default':
+        #
+        # the rest
+        if key == 'dst' and value == 'default':
             super(Route, self).__setitem__('dst', '')
             super(Route, self).__setitem__('dst_len', 0)
         elif key == 'route_id':

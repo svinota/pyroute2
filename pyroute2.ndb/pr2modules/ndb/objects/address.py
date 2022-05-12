@@ -104,10 +104,11 @@ Please notice that address objects are read-only, you may not change them,
 only remove old ones, and create new.
 '''
 import ipaddress
-from ..objects import RTNL_Object
-from pr2modules.common import dqn2int
-from pr2modules.common import basestring
+
+from pr2modules.common import basestring, dqn2int
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
+
+from ..objects import FieldFilter, ObjectData, RTNL_Object
 
 
 def load_ifaddrmsg(schema, target, event):
@@ -163,19 +164,33 @@ init = {
 }
 
 
-def norm_mask(value):
-    if isinstance(value, basestring):
-        if '.' in value:
-            value = dqn2int(value)
-        value = int(value)
-    return value
+class AddressFieldFilter(FieldFilter):
+    def prefixlen(self, key, value):
+        if isinstance(value, basestring):
+            if '.' in value:
+                value = dqn2int(value)
+            value = int(value)
+        return {key: value}
+
+    def address(self, key, value):
+        ret = {'address': value}
+        if isinstance(value, str):
+            addr_spec = value.split('/')
+            ret['address'] = addr_spec[0]
+            if len(addr_spec) > 1:
+                ret.update(self.prefixlen('prefixlen', addr_spec[1]))
+            if ':' in ret['address']:
+                ret['address'] = ipaddress.ip_address(
+                    ret['address']
+                ).compressed
+        return ret
 
 
 class Address(RTNL_Object):
 
     table = 'addresses'
     msg_class = ifaddrmsg
-    fields_normalize = {'prefixlen': norm_mask}
+    field_filter = AddressFieldFilter
     api = 'addr'
 
     @classmethod
@@ -232,16 +247,16 @@ class Address(RTNL_Object):
         self.event_map = {ifaddrmsg: "load_rtnlmsg"}
         super(Address, self).__init__(*argv, **kwarg)
 
-    @classmethod
-    def compare_record(self, left, right):
+    @staticmethod
+    def compare_record(left, right):
         if isinstance(right, basestring):
             return right == left['address'] or right == '%s/%i' % (
                 left['address'],
                 left['prefixlen'],
             )
 
-    @staticmethod
-    def spec_normalize(spec):
+    @classmethod
+    def spec_normalize(cls, spec):
         '''
         Address key normalization::
 
@@ -249,18 +264,9 @@ class Address(RTNL_Object):
             "10.0.0.1/24"  ->  {"address": "10.0.0.1",
                                 "prefixlen": 24}
         '''
-        if isinstance(spec, dict):
-            ret = spec
-        else:
-            ret = {}
+        ret = ObjectData(cls.field_filter(), spec)
         if isinstance(spec, basestring):
-            addr_spec = spec.split('/')
-            ret['address'] = addr_spec[0]
-            if len(addr_spec) > 1:
-                ret['prefixlen'] = addr_spec[1]
-        # compress IPv6 addresses
-        if 'address' in ret and ret['address'] and ':' in ret['address']:
-            ret['address'] = ipaddress.ip_address(ret['address']).compressed
+            ret['address'] = spec
         return ret
 
     def key_repr(self):

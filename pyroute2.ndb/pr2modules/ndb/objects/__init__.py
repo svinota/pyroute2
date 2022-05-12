@@ -84,22 +84,22 @@ every time when an object is accessed.
 API
 ===
 '''
-import json
-import time
-import errno
-import weakref
-import traceback
-import threading
 import collections
+import errno
+import json
+import threading
+import time
+import traceback
+import weakref
 from functools import partial
+
 from pr2modules import cli
 from pr2modules.netlink.exceptions import NetlinkError
-from ..report import Record
-from ..auth_manager import check_auth
-from ..auth_manager import AuthManager
-from ..events import State
-from ..events import InvalidateHandlerException
+
+from ..auth_manager import AuthManager, check_auth
+from ..events import InvalidateHandlerException, State
 from ..messages import cmsg_event
+from ..report import Record
 
 RSLV_IGNORE = 0
 RSLV_RAISE = 1
@@ -159,6 +159,34 @@ class Spec(object):
         return self.spec
 
 
+class FieldFilter:
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __contains__(self, key):
+        return key in vars(type(self))
+
+
+class ObjectData(dict):
+    def __init__(self, field_filter, prime=None):
+        self.field_filter = field_filter
+        if isinstance(prime, dict):
+            self.update(prime)
+
+    def __setitem__(self, key, value):
+        for nkey, nvalue in self.filter(key, value).items():
+            super(ObjectData, self).__setitem__(nkey, nvalue)
+
+    def filter(self, key, value):
+        if key in self.field_filter:
+            return self.field_filter[key](key, value)
+        return {key: value}
+
+    def update(self, prime):
+        for key, value in prime.items():
+            self[key] = value
+
+
 class RTNL_Object(dict):
     '''
     The common base class for NDB objects -- interfaces, routes, rules
@@ -172,7 +200,7 @@ class RTNL_Object(dict):
     key_extra_fields = []
     hidden_fields = []
     fields_cmp = {}
-    fields_normalize = {}
+    field_filter = FieldFilter
     rollback_chain = []
 
     fallback_for = None
@@ -336,6 +364,7 @@ class RTNL_Object(dict):
         self.load_event.set()
         self.load_debug = False
         self.lock = threading.Lock()
+        self.object_data = ObjectData(self.field_filter())
         self.kspec = self.schema.compiled[self.table]['idx']
         self.knorm = self.schema.compiled[self.table]['norm_idx']
         self.spec = self.schema.compiled[self.table]['all_names']
@@ -452,24 +481,24 @@ class RTNL_Object(dict):
 
     @check_auth('obj:modify')
     def __setitem__(self, key, value):
-        if key in self.fields_normalize:
-            value = self.fields_normalize[key](value)
-
-        if self.state == 'system' and key in self.knorm:
-            if self._replace_on_key_change:
-                self.log.debug('prepare replace for key %s' % (self.key))
-                self._replace = type(self)(
-                    self.view, self.key, auth_managers=self.auth_managers
-                )
-                self.state.set('replace')
-            else:
-                raise ValueError('attempt to change a key field (%s)' % key)
-        if key in ('net_ns_fd', 'net_ns_pid'):
-            self.state.set('setns')
-        if value != self.get(key, None):
-            if key != 'target':
-                self.changed.add(key)
-            dict.__setitem__(self, key, value)
+        for nkey, nvalue in self.object_data.filter(key, value).items():
+            if self.state == 'system' and key in self.knorm:
+                if self._replace_on_key_change:
+                    self.log.debug('prepare replace for key %s' % (self.key))
+                    self._replace = type(self)(
+                        self.view, self.key, auth_managers=self.auth_managers
+                    )
+                    self.state.set('replace')
+                else:
+                    raise ValueError(
+                        'attempt to change a key field (%s)' % key
+                    )
+            if key in ('net_ns_fd', 'net_ns_pid'):
+                self.state.set('setns')
+            if value != self.get(key, None):
+                if key != 'target':
+                    self.changed.add(key)
+                dict.__setitem__(self, key, value)
 
     def fields(self, *argv):
         Fields = collections.namedtuple('Fields', argv)
@@ -1050,6 +1079,9 @@ class RTNL_Object(dict):
         for key, count, value in zip(self.names, self.names_count, spec):
             if count == 1 or value is not None:
                 self.load_value(key, value)
+
+    def load_direct(self, key, value):
+        super(RTNL_Object, self).__setitem__(key, value)
 
     def load_value(self, key, value):
         '''
