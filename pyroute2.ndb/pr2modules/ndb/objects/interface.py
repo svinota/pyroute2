@@ -192,9 +192,10 @@ def load_ifinfmsg(schema, target, event):
 
             if table in schema.spec:
                 ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
-                ifdata['header'] = {}
-                ifdata['index'] = event['index']
-                schema.load_netlink(table, target, ifdata)
+                if ifdata is not None:
+                    ifdata['header'] = {}
+                    ifdata['index'] = event['index']
+                    schema.load_netlink(table, target, ifdata)
 
 
 ip_tunnels = ('gre', 'gretap', 'ip6gre', 'ip6gretap', 'ip6tnl', 'sit', 'ipip')
