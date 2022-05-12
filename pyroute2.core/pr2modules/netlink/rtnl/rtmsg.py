@@ -16,7 +16,14 @@ RTNH_F_PERVASIVE = 2
 RTNH_F_ONLINK = 4
 RTNH_F_OFFLOAD = 8
 RTNH_F_LINKDOWN = 16
-(RTNH_F_NAMES, RTNH_F_VALUES) = map_namespace('RTNH_F', globals())
+(RTNH_F_NAMES, RTNH_F_VALUES) = map_namespace('RTNH_F_', globals())
+
+RT_SCOPE_UNIVERSE = 0
+RT_SCOPE_SITE = 200
+RT_SCOPE_LINK = 253
+RT_SCOPE_HOST = 254
+RT_SCOPE_NOWHERE = 255
+(RT_SCOPE_NAMES, RT_SCOPE_VALUES) = map_namespace('RT_SCOPE_', globals())
 
 LWTUNNEL_ENCAP_NONE = 0
 LWTUNNEL_ENCAP_MPLS = 1
@@ -30,12 +37,25 @@ LWTUNNEL_ENCAP_SEG6_LOCAL = 7
 
 class nlflags(object):
     def encode(self):
+        if isinstance(self['flags'], str):
+            self['flags'] = self['flags'].split(',')
         if isinstance(self['flags'], (set, tuple, list)):
             self['flags'] = self.names2flags(self['flags'])
+        if isinstance(self.get('scope'), str):
+            self['scope'] = self.name2scope(self['scope'])
         return super(nlflags, self).encode()
+
+    @staticmethod
+    def scope2name(scope):
+        return RT_SCOPE_VALUES[scope].lower()[9:]
+
+    @staticmethod
+    def name2scope(scope):
+        return RT_SCOPE_NAMES['RT_SCOPE_' + scope.upper()]
 
     def flags2names(self, flags=None):
         ret = []
+        flags = flags or self['flags']
         for flag in RTNH_F_VALUES:
             if (flag & flags) == flag:
                 ret.append(RTNH_F_VALUES[flag].lower()[7:])
