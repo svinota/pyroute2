@@ -987,7 +987,7 @@ class NDB(object):
         self.close()
 
     def begin(self):
-        return Transaction(self.log)
+        return Transaction(self.log.channel('transaction'))
 
     def auth_proxy(self, auth_manager):
         return AuthProxy(self, [auth_manager])

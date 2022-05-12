@@ -4,6 +4,7 @@ from pr2test.tools import interface_exists
 from pr2test.tools import address_exists
 from pr2test.context_manager import make_test_matrix
 from pyroute2.ndb.transaction import (
+    Not,
     CheckProcess,
     PingAddress,
     CheckProcessException,
@@ -44,6 +45,13 @@ def test_check_process_timeout():
 def test_check_process_wrong_command(command):
     with pytest.raises(TypeError):
         CheckProcess(command)
+
+
+def test_negation():
+    test = CheckProcess('false')
+    with pytest.raises(CheckProcessException):
+        test.commit()
+    Not(test).commit()
 
 
 def test_ping_ok():
@@ -99,6 +107,17 @@ def test_multiple_interfaces(context):
     )
     assert address_exists(context.netns, ifname=ifname1, address=ipaddr1)
     assert address_exists(context.netns, ifname=ifname2, address=ipaddr2)
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_check_context_manager(context):
+    ifname1 = context.new_ifname
+    ifname2 = context.new_ifname
+    with context.ndb.begin() as ctx:
+        ctx.push(context.ndb.interfaces.create(ifname=ifname1, kind='dummy'))
+        ctx.push(context.ndb.interfaces.create(ifname=ifname2, kind='dummy'))
+    assert interface_exists(context.netns, ifname=ifname1)
+    assert interface_exists(context.netns, ifname=ifname2)
 
 
 def test_intrefaces_ping(context):
