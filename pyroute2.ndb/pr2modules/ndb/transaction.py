@@ -16,14 +16,14 @@ the corresponding object class.
 
 In the example above first the interface attributes like state, mtu, ifname
 etc. will be applied, and only then IP addresses, bridge ports and like that,
-regardless the order they are used before the `commit()` call.
+regardless the order they are referenced before the `commit()` call.
 
 The order is ok for most of cases. But if not, one can control it by calling
 `commit()` in the required places, breaking one transaction into several
 sequential transactions.
 
-And since RTNL object methods return itself, it is possible to write chains
-with multiple `commit()`:
+And since RTNL object methods return the object itself, it is possible to
+write chains with multiple `commit()`:
 
 .. code-block:: python
 
@@ -178,6 +178,9 @@ It is possible to negate the check for `CheckProcess` and child classes
 
     check = Not(CheckProcess('/path/to/script.sh'))
     check.commit()
+
+API
+---
 
 '''
 import shlex
