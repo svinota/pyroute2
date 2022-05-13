@@ -348,19 +348,34 @@ init = {
 
 
 class RouteFieldFilter(FieldFilter):
-    def _target(self, context, key, value):
-        if isinstance(value, str) and ':' in value:
-            return {key: ipaddress.ip_address(value).compressed}
-        return {key: value}
+    def _net(self, key, context, value):
+        ret = {key: value}
+        if isinstance(value, str):
+            if value.find('/') >= 0:
+                value, prefixlen = value.split('/')
+                ret[key] = value
+                ret[f'{key}_len'] = int(prefixlen)
+            if ':' in value:
+                ret[key] = value = ipaddress.ip_address(value).compressed
+                ret['family'] = AF_INET6
+            if value in ('0', '0.0.0.0', '::', '::/0'):
+                ret[key] = ''
+        return ret
 
     def dst(self, context, value):
-        return self._target(context, 'dst', value)
+        if value == 'default':
+            return {'dst': ''}
+        elif value in ('::', '::/0'):
+            return {'dst': '', 'family': AF_INET6}
+        return self._net('dst', context, value)
 
     def src(self, context, value):
-        return self._target(context, 'src', value)
+        return self._net('src', context, value)
 
     def gateway(self, context, value):
-        return self._target(context, 'gateway', value)
+        if isinstance(value, str) and ':' in value:
+            return {'gateway': ipaddress.ip_address(value).compressed}
+        return {'gateway': value}
 
     def flags(self, context, value):
         if isinstance(value, (list, tuple, str)):
@@ -371,6 +386,11 @@ class RouteFieldFilter(FieldFilter):
         if isinstance(value, str):
             return {'scope': rtmsg.name2scope(value)}
         return {'scope': value}
+
+    def proto(self, context, value):
+        if isinstance(value, str):
+            return {'proto': rt_proto[value]}
+        return {'proto': value}
 
     def encap(self, context, value):
         if isinstance(value, dict) and value.get('type') == 'mpls':
@@ -579,22 +599,7 @@ class Route(RTNL_Object):
     def spec_normalize(cls, spec):
         ret = ObjectData(cls.field_filter(), context=spec, prime=spec)
         if isinstance(spec, basestring):
-            dst_spec = spec.split('/')
-            ret = {'dst': dst_spec[0]}
-            if len(dst_spec) == 2:
-                ret['dst_len'] = int(dst_spec[1])
-            elif len(dst_spec) > 2:
-                raise TypeError('invalid spec format')
-        if isinstance(ret.get('proto'), basestring):
-            ret['proto'] = rt_proto[ret['proto']]
-        if ret.get('dst') == 'default':
-            ret['dst'] = ''
-        elif ret.get('dst') in ('::', '::/0'):
-            ret['dst'] = ''
-            ret['family'] = AF_INET6
-        elif ret.get('dst', '').find('/') >= 0:
-            ret['dst'], dst_len = ret['dst'].split('/')
-            ret['dst_len'] = int(dst_len)
+            ret['dst'] = spec
         return ret
 
     def _cmp_target(key, self, right):
