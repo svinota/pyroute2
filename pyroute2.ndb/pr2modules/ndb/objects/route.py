@@ -348,29 +348,44 @@ init = {
 
 
 class RouteFieldFilter(FieldFilter):
-    def _target(self, key, value):
+    def _target(self, context, key, value):
         if isinstance(value, str) and ':' in value:
             return {key: ipaddress.ip_address(value).compressed}
         return {key: value}
 
-    def dst(self, key, value):
-        return self._target(key, value)
+    def dst(self, context, value):
+        return self._target(context, 'dst', value)
 
-    def src(self, key, value):
-        return self._target(key, value)
+    def src(self, context, value):
+        return self._target(context, 'src', value)
 
-    def gateway(self, key, value):
-        return self._target(key, value)
+    def gateway(self, context, value):
+        return self._target(context, 'gateway', value)
 
-    def flags(self, key, value):
+    def flags(self, context, value):
         if isinstance(value, (list, tuple, str)):
-            return {key: rtmsg.names2flags(value)}
-        return {key: value}
+            return {'flags': rtmsg.names2flags(value)}
+        return {'flags': value}
 
-    def scope(self, key, value):
+    def scope(self, context, value):
         if isinstance(value, str):
-            return {key: rtmsg.name2scope(value)}
-        return {key: value}
+            return {'scope': rtmsg.name2scope(value)}
+        return {'scope': value}
+
+    def encap(self, context, value):
+        if isinstance(value, dict) and value.get('type') == 'mpls':
+            na = []
+            target = None
+            value = value.get('labels', [])
+            if isinstance(value, (dict, int)):
+                value = [value]
+            for label in value:
+                target = Target(label)
+                target['bos'] = 0
+                na.append(target)
+            target['bos'] = 1
+            return {'encap_type': LWTUNNEL_ENCAP_MPLS, 'encap': na}
+        return {'encap': value}
 
 
 class Via(OrderedDict):
@@ -562,7 +577,7 @@ class Route(RTNL_Object):
 
     @classmethod
     def spec_normalize(cls, spec):
-        ret = ObjectData(cls.field_filter(), spec)
+        ret = ObjectData(cls.field_filter(), context=spec, prime=spec)
         if isinstance(spec, basestring):
             dst_spec = spec.split('/')
             ret = {'dst': dst_spec[0]}
@@ -728,22 +743,6 @@ class Route(RTNL_Object):
             super(Route, self).__setitem__('metrics', obj)
             if key in self.changed:
                 self.changed.remove(key)
-        elif key == 'encap':
-            if value.get('type') == 'mpls':
-                na = []
-                target = None
-                value = value.get('labels', [])
-                if isinstance(value, (dict, int)):
-                    value = [value]
-                for label in value:
-                    target = Target(label)
-                    target['bos'] = 0
-                    na.append(target)
-                target['bos'] = 1
-                super(Route, self).__setitem__(
-                    'encap_type', LWTUNNEL_ENCAP_MPLS
-                )
-                super(Route, self).__setitem__('encap', na)
         elif self.get('family', 0) == AF_MPLS and key in (
             'dst',
             'src',

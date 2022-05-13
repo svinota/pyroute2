@@ -301,7 +301,7 @@ def _cmp_master(self, value):
 
 
 class InterfaceFieldFilter(FieldFilter):
-    def address(self, key, value):
+    def address(self, context, value):
         if isinstance(value, str):
             # lower the case
             if not value.islower():
@@ -311,7 +311,7 @@ class InterfaceFieldFilter(FieldFilter):
                 value = ':'.join(
                     [':'.join((x[:2], x[2:])) for x in value.split('.')]
                 )
-        return {key: value}
+        return {'address': value}
 
 
 class Vlan(RTNL_Object):
@@ -686,7 +686,7 @@ class Interface(RTNL_Object):
             1        ->  {"index": 1, ...}
 
         '''
-        ret = ObjectData(cls.field_filter(), spec)
+        ret = ObjectData(cls.field_filter(), context=spec, prime=spec)
         if isinstance(spec, basestring):
             ret['ifname'] = spec
         elif isinstance(spec, int):

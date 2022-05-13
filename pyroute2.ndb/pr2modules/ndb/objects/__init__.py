@@ -168,8 +168,11 @@ class FieldFilter:
 
 
 class ObjectData(dict):
-    def __init__(self, field_filter, prime=None):
+    def __init__(self, field_filter, context=None, prime=None):
         self.field_filter = field_filter
+        self.context = (
+            context if isinstance(context, (dict, weakref.ProxyType)) else {}
+        )
         if isinstance(prime, dict):
             self.update(prime)
 
@@ -179,7 +182,7 @@ class ObjectData(dict):
 
     def filter(self, key, value):
         if key in self.field_filter:
-            return self.field_filter[key](key, value)
+            return self.field_filter[key](self.context, value)
         return {key: value}
 
     def update(self, prime):
@@ -364,7 +367,9 @@ class RTNL_Object(dict):
         self.load_event.set()
         self.load_debug = False
         self.lock = threading.Lock()
-        self.object_data = ObjectData(self.field_filter())
+        self.object_data = ObjectData(
+            self.field_filter(), context=weakref.proxy(self)
+        )
         self.kspec = self.schema.compiled[self.table]['idx']
         self.knorm = self.schema.compiled[self.table]['norm_idx']
         self.spec = self.schema.compiled[self.table]['all_names']

@@ -165,14 +165,14 @@ init = {
 
 
 class AddressFieldFilter(FieldFilter):
-    def prefixlen(self, key, value):
+    def prefixlen(self, context, value):
         if isinstance(value, basestring):
             if '.' in value:
                 value = dqn2int(value)
             value = int(value)
-        return {key: value}
+        return {'prefixlen': value}
 
-    def address(self, key, value):
+    def address(self, context, value):
         ret = {'address': value}
         if isinstance(value, str):
             addr_spec = value.split('/')
@@ -264,7 +264,7 @@ class Address(RTNL_Object):
             "10.0.0.1/24"  ->  {"address": "10.0.0.1",
                                 "prefixlen": 24}
         '''
-        ret = ObjectData(cls.field_filter(), spec)
+        ret = ObjectData(cls.field_filter(), context=spec, prime=spec)
         if isinstance(spec, basestring):
             ret['address'] = spec
         return ret
