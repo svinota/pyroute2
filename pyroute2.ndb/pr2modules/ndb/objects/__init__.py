@@ -487,7 +487,7 @@ class RTNL_Object(dict):
     @check_auth('obj:modify')
     def __setitem__(self, key, value):
         for nkey, nvalue in self.object_data.filter(key, value).items():
-            if self.state == 'system' and key in self.knorm:
+            if self.state == 'system' and nkey in self.knorm:
                 if self._replace_on_key_change:
                     self.log.debug('prepare replace for key %s' % (self.key))
                     self._replace = type(self)(
@@ -496,14 +496,14 @@ class RTNL_Object(dict):
                     self.state.set('replace')
                 else:
                     raise ValueError(
-                        'attempt to change a key field (%s)' % key
+                        'attempt to change a key field (%s)' % nkey
                     )
-            if key in ('net_ns_fd', 'net_ns_pid'):
+            if nkey in ('net_ns_fd', 'net_ns_pid'):
                 self.state.set('setns')
-            if value != self.get(key, None):
-                if key != 'target':
-                    self.changed.add(key)
-                dict.__setitem__(self, key, value)
+            if nvalue != self.get(nkey, None):
+                if nkey != 'target':
+                    self.changed.add(nkey)
+                dict.__setitem__(self, nkey, nvalue)
 
     def fields(self, *argv):
         Fields = collections.namedtuple('Fields', argv)
