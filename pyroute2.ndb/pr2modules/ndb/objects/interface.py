@@ -301,6 +301,20 @@ def _cmp_master(self, value):
 
 
 class InterfaceFieldFilter(FieldFilter):
+    def _link(self, key, context, value):
+        if isinstance(value, dict):
+            return {key: value[key]['index']}
+        return {key: value}
+
+    def vxlan_link(self, context, value):
+        return self._link('vxlan_link', context, value)
+
+    def link(self, context, value):
+        return self._link('link', context, value)
+
+    def master(self, context, value):
+        return self._link('master', context, value)
+
     def address(self, context, value):
         if isinstance(value, str):
             # lower the case
@@ -691,10 +705,6 @@ class Interface(RTNL_Object):
             ret['ifname'] = spec
         elif isinstance(spec, int):
             ret['index'] = spec
-        # fix the master interface reference
-        for key in ('vxlan_link', 'link', 'master'):
-            if isinstance(ret.get(key), dict):
-                ret[key] = ret[key]['index']
         return ret
 
     def complete_key(self, key):
@@ -702,12 +712,10 @@ class Interface(RTNL_Object):
             ret_key = key
         else:
             ret_key = {'target': self.ndb.localhost}
-
         if isinstance(key, basestring):
             ret_key['ifname'] = key
         elif isinstance(key, int):
             ret_key['index'] = key
-
         return super(Interface, self).complete_key(ret_key)
 
     def is_peer(self, other):
