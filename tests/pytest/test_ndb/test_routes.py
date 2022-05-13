@@ -7,6 +7,95 @@ from pr2test.context_manager import make_test_matrix
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
 
 
+test_matrix_scopes = make_test_matrix(
+    targets=['local', 'netns'],
+    tables=[
+        (None, 0),
+        (None, 200),
+        (None, 253),
+        (6001, 0),
+        (6001, 200),
+        (6001, 253),
+        (None, 'universe'),
+        (None, 'site'),
+        (None, 'link'),
+        (6001, 'universe'),
+        (6001, 'site'),
+        (6001, 'link'),
+    ],
+    dbs=['sqlite3/:memory:', 'postgres/pr2test'],
+)
+
+
+@pytest.mark.parametrize('context', test_matrix_scopes, indirect=True)
+def test_scopes(context):
+    ipaddr = context.new_ipaddr
+    ifname = context.new_ifname
+    table, scope = context.table
+    dst = '172.24.200.142'
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip(address=ipaddr, prefixlen=24)
+        .commit()
+    )
+    spec = {
+        'dst': dst,
+        'oif': context.ndb.interfaces[ifname]['index'],
+        'dst_len': 32,
+        'scope': scope,
+    }
+    if table:
+        spec['table'] = table
+    (context.ndb.routes.create(**spec).commit())
+    assert interface_exists(context.netns, ifname=ifname)
+    assert route_exists(context.netns, **spec)
+    (context.ndb.routes[spec].remove().commit())
+    assert not route_exists(context.netns, **spec)
+
+
+test_matrix_flags = make_test_matrix(
+    targets=['local', 'netns'],
+    tables=[
+        (None, 0),
+        (None, 4),
+        (None, 'onlink'),
+        (None, ['onlink']),
+        (6001, 0),
+        (6001, 4),
+        (6001, 'onlink'),
+        (6001, ['onlink']),
+    ],
+    dbs=['sqlite3/:memory:', 'postgres/pr2test'],
+)
+
+
+@pytest.mark.parametrize('context', test_matrix_flags, indirect=True)
+def test_flags(context):
+    ipaddr = context.new_ipaddr
+    ifname = context.new_ifname
+    table, flags = context.table
+    dst = '172.24.200.142'
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip(address=ipaddr, prefixlen=24)
+        .commit()
+    )
+    spec = {
+        'dst': dst,
+        'oif': context.ndb.interfaces[ifname]['index'],
+        'dst_len': 32,
+        'flags': flags,
+        'gateway': context.new_ipaddr,
+    }
+    if table:
+        spec['table'] = table
+    (context.ndb.routes.create(**spec).commit())
+    assert interface_exists(context.netns, ifname=ifname)
+    assert route_exists(context.netns, **spec)
+    (context.ndb.routes[spec].remove().commit())
+    assert not route_exists(context.netns, **spec)
+
+
 test_matrix = make_test_matrix(
     targets=['local', 'netns'],
     tables=[None, 501, 5001],
@@ -39,40 +128,6 @@ def test_basic(context):
     assert interface_exists(context.netns, ifname=ifname)
     assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(context.netns, dst=ipnet, table=table or 254)
-
-
-@pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_scopes(context):
-
-    ipaddr = context.new_ipaddr
-    ifname = context.new_ifname
-    table = context.table
-    dst = '172.24.200.142'
-
-    (
-        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
-        .add_ip(address=ipaddr, prefixlen=24)
-        .commit()
-    )
-
-    spec = {
-        'dst': dst,
-        'oif': context.ndb.interfaces[ifname]['index'],
-        'dst_len': 32,
-        'scope': 253,
-    }
-
-    if table:
-        spec['table'] = table
-
-    (context.ndb.routes.create(**spec).commit())
-
-    assert interface_exists(context.netns, ifname=ifname)
-    assert route_exists(context.netns, **spec)
-
-    (context.ndb.routes[spec].remove().commit())
-
-    assert not route_exists(context.netns, **spec)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
