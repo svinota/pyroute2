@@ -705,24 +705,7 @@ class Route(RTNL_Object):
 
     @check_auth('obj:modify')
     def __setitem__(self, key, value):
-        #
-        # split mask
-        if (
-            key in ('dst', 'src')
-            and isinstance(value, basestring)
-            and '/' in value
-        ):
-            net, net_len = value.split('/')
-            if net in ('0', '0.0.0.0'):
-                net = ''
-            value = net
-            super(Route, self).__setitem__('%s_len' % key, int(net_len))
-        #
-        # the rest
-        if key == 'dst' and value == 'default':
-            super(Route, self).__setitem__('dst', '')
-            super(Route, self).__setitem__('dst_len', 0)
-        elif key == 'route_id':
+        if key == 'route_id':
             raise ValueError('route_id is read only')
         elif key == 'multipath':
             super(Route, self).__setitem__('multipath', [])
