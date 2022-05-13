@@ -53,17 +53,20 @@ class nlflags(object):
     def name2scope(scope):
         return RT_SCOPE_NAMES['RT_SCOPE_' + scope.upper()]
 
-    def flags2names(self, flags=None):
+    @staticmethod
+    def flags2names(flags):
         ret = []
-        flags = flags or self['flags']
         for flag in RTNH_F_VALUES:
             if (flag & flags) == flag:
                 ret.append(RTNH_F_VALUES[flag].lower()[7:])
         return ret
 
-    def names2flags(self, flags=None):
+    @staticmethod
+    def names2flags(flags):
         ret = 0
-        for flag in flags or self['flags']:
+        if isinstance(flags, str):
+            flags = [flags]
+        for flag in flags:
             ret |= RTNH_F_NAMES['RTNH_F_' + flag.upper()]
         return ret
 
