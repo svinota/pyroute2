@@ -6,7 +6,7 @@ from pr2modules.config import AF_BRIDGE
 from pr2modules.netlink.rtnl.ndmsg import ndmsg
 
 from ..events import RescheduleException
-from ..objects import RTNL_Object
+from ..objects import FieldFilter, RTNL_Object, ObjectData
 
 
 def load_ndmsg(schema, target, event):
@@ -71,10 +71,21 @@ def fallback_add(self, idx_req, req):
     self.load_sql()
 
 
+class NeighbourFieldFilter(FieldFilter):
+    def index(self, context, value):
+        return {'ifindex': value}
+
+    def dst(self, context, value):
+        if isinstance(value, str) and ':' in value:
+            return {'dst': ipaddress.ip_address(value).compressed}
+        return {'dst': value}
+
+
 class Neighbour(RTNL_Object):
 
     table = 'neighbours'
     msg_class = ndmsg
+    field_filter = NeighbourFieldFilter
     api = 'neigh'
 
     @classmethod
@@ -120,19 +131,6 @@ class Neighbour(RTNL_Object):
         super(Neighbour, self).__init__(*argv, **kwarg)
         self.fallback_for['add'][errno.EEXIST] = fallback_add
 
-    @staticmethod
-    def spec_normalize(spec):
-        if 'index' in spec:
-            spec['ifindex'] = spec.pop('index')
-
-        if (
-            'dst' in spec
-            and isinstance(spec['dst'], str)
-            and ':' in spec['dst']
-        ):
-            spec['dst'] = ipaddress.ip_address(spec['dst']).compressed
-        return spec
-
     def complete_key(self, key):
         if isinstance(key, dict):
             ret_key = key
@@ -143,6 +141,10 @@ class Neighbour(RTNL_Object):
             ret_key['NDA_DST'] = key
 
         return super(Neighbour, self).complete_key(ret_key)
+
+    @classmethod
+    def spec_normalize(cls, spec):
+        return ObjectData(cls.field_filter(), context=spec, prime=spec)
 
     def make_req(self, prime):
         req = super(Neighbour, self).make_req(prime)
