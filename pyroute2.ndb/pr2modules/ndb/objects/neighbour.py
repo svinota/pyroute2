@@ -1,12 +1,13 @@
 import errno
-import ipaddress
 
 from pr2modules.common import basestring
 from pr2modules.config import AF_BRIDGE
 from pr2modules.netlink.rtnl.ndmsg import ndmsg
+from pr2modules.requests.main import RequestProcessor
+from pr2modules.requests.neighbour import NeighbourFieldFilter
 
 from ..events import RescheduleException
-from ..objects import FieldFilter, RTNL_Object, ObjectData
+from ..objects import RTNL_Object
 
 
 def load_ndmsg(schema, target, event):
@@ -69,16 +70,6 @@ def fallback_add(self, idx_req, req):
         )
     )
     self.load_sql()
-
-
-class NeighbourFieldFilter(FieldFilter):
-    def index(self, context, value):
-        return {'ifindex': value}
-
-    def dst(self, context, value):
-        if isinstance(value, str) and ':' in value:
-            return {'dst': ipaddress.ip_address(value).compressed}
-        return {'dst': value}
 
 
 class Neighbour(RTNL_Object):
@@ -144,7 +135,7 @@ class Neighbour(RTNL_Object):
 
     @classmethod
     def spec_normalize(cls, spec):
-        return ObjectData(cls.field_filter(), context=spec, prime=spec)
+        return RequestProcessor(cls.field_filter(), context=spec, prime=spec)
 
     def make_req(self, prime):
         req = super(Neighbour, self).make_req(prime)

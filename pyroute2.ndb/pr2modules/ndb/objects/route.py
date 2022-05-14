@@ -74,21 +74,21 @@ MPLS routes
 See here: :ref:`mpls`
 
 '''
-import ipaddress
 import json
 import struct
 import time
 import uuid
 from collections import OrderedDict
 from functools import partial
-from socket import AF_INET, AF_INET6, inet_pton
+from socket import AF_INET, inet_pton
 
 from pr2modules.common import AF_MPLS, basestring
-from pr2modules.netlink.rtnl import rt_proto
 from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS, nh, rtmsg
+from pr2modules.requests.main import RequestProcessor
+from pr2modules.requests.route import RouteFieldFilter, Target
 
 from ..auth_manager import check_auth
-from ..objects import FieldFilter, ObjectData, RTNL_Object
+from ..objects import RTNL_Object
 from ..report import Record
 
 _dump_rt = ['main.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
@@ -347,67 +347,6 @@ init = {
 }
 
 
-class RouteFieldFilter(FieldFilter):
-    def _net(self, key, context, value):
-        ret = {key: value}
-        if isinstance(value, str):
-            if value.find('/') >= 0:
-                value, prefixlen = value.split('/')
-                ret[key] = value
-                ret[f'{key}_len'] = int(prefixlen)
-            if ':' in value:
-                ret[key] = value = ipaddress.ip_address(value).compressed
-                ret['family'] = AF_INET6
-            if value in ('0', '0.0.0.0', '::', '::/0'):
-                ret[key] = ''
-        return ret
-
-    def dst(self, context, value):
-        if value == 'default':
-            return {'dst': ''}
-        elif value in ('::', '::/0'):
-            return {'dst': '', 'family': AF_INET6}
-        return self._net('dst', context, value)
-
-    def src(self, context, value):
-        return self._net('src', context, value)
-
-    def gateway(self, context, value):
-        if isinstance(value, str) and ':' in value:
-            return {'gateway': ipaddress.ip_address(value).compressed}
-        return {'gateway': value}
-
-    def flags(self, context, value):
-        if isinstance(value, (list, tuple, str)):
-            return {'flags': rtmsg.names2flags(value)}
-        return {'flags': value}
-
-    def scope(self, context, value):
-        if isinstance(value, str):
-            return {'scope': rtmsg.name2scope(value)}
-        return {'scope': value}
-
-    def proto(self, context, value):
-        if isinstance(value, str):
-            return {'proto': rt_proto[value]}
-        return {'proto': value}
-
-    def encap(self, context, value):
-        if isinstance(value, dict) and value.get('type') == 'mpls':
-            na = []
-            target = None
-            value = value.get('labels', [])
-            if isinstance(value, (dict, int)):
-                value = [value]
-            for label in value:
-                target = Target(label)
-                target['bos'] = 0
-                na.append(target)
-            target['bos'] = 1
-            return {'encap_type': LWTUNNEL_ENCAP_MPLS, 'encap': na}
-        return {'encap': value}
-
-
 class Via(OrderedDict):
     def __init__(self, prime=None):
         super(OrderedDict, self).__init__()
@@ -423,35 +362,6 @@ class Via(OrderedDict):
             isinstance(right, (dict, Target))
             and self['family'] == right.get('family', AF_INET)
             and self['addr'] == right.get('addr', '0.0.0.0')
-        )
-
-    def __repr__(self):
-        return repr(dict(self))
-
-
-class Target(OrderedDict):
-    def __init__(self, prime=None):
-        super(OrderedDict, self).__init__()
-        if prime is None:
-            prime = {}
-        elif isinstance(prime, int):
-            prime = {'label': prime}
-        elif isinstance(prime, dict):
-            pass
-        else:
-            raise TypeError()
-        self['label'] = prime.get('label', 16)
-        self['tc'] = prime.get('tc', 0)
-        self['bos'] = prime.get('bos', 1)
-        self['ttl'] = prime.get('ttl', 0)
-
-    def __eq__(self, right):
-        return (
-            isinstance(right, (dict, Target))
-            and self['label'] == right.get('label', 16)
-            and self['tc'] == right.get('tc', 0)
-            and self['bos'] == right.get('bos', 1)
-            and self['ttl'] == right.get('ttl', 0)
         )
 
     def __repr__(self):
@@ -597,7 +507,7 @@ class Route(RTNL_Object):
 
     @classmethod
     def spec_normalize(cls, spec):
-        ret = ObjectData(cls.field_filter(), context=spec, prime=spec)
+        ret = RequestProcessor(cls.field_filter(), context=spec, prime=spec)
         if isinstance(spec, basestring):
             ret['dst'] = spec
         return ret

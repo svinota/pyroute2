@@ -95,6 +95,7 @@ from functools import partial
 
 from pr2modules import cli
 from pr2modules.netlink.exceptions import NetlinkError
+from pr2modules.requests.main import FilterDict, RequestProcessor
 
 from ..auth_manager import AuthManager, check_auth
 from ..events import InvalidateHandlerException, State
@@ -159,37 +160,6 @@ class Spec(object):
         return self.spec
 
 
-class FieldFilter:
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __contains__(self, key):
-        return key in vars(type(self))
-
-
-class ObjectData(dict):
-    def __init__(self, field_filter, context=None, prime=None):
-        self.field_filter = field_filter
-        self.context = (
-            context if isinstance(context, (dict, weakref.ProxyType)) else {}
-        )
-        if isinstance(prime, dict):
-            self.update(prime)
-
-    def __setitem__(self, key, value):
-        for nkey, nvalue in self.filter(key, value).items():
-            super(ObjectData, self).__setitem__(nkey, nvalue)
-
-    def filter(self, key, value):
-        if key in self.field_filter:
-            return self.field_filter[key](self.context, value)
-        return {key: value}
-
-    def update(self, prime):
-        for key, value in prime.items():
-            self[key] = value
-
-
 class RTNL_Object(dict):
     '''
     The common base class for NDB objects -- interfaces, routes, rules
@@ -203,7 +173,7 @@ class RTNL_Object(dict):
     key_extra_fields = []
     hidden_fields = []
     fields_cmp = {}
-    field_filter = FieldFilter
+    field_filter = FilterDict
     rollback_chain = []
 
     fallback_for = None
@@ -367,7 +337,7 @@ class RTNL_Object(dict):
         self.load_event.set()
         self.load_debug = False
         self.lock = threading.Lock()
-        self.object_data = ObjectData(
+        self.object_data = RequestProcessor(
             self.field_filter(), context=weakref.proxy(self)
         )
         self.kspec = self.schema.compiled[self.table]['idx']

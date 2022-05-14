@@ -99,9 +99,11 @@ from pr2modules.config import AF_BRIDGE
 from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.p2pmsg import p2pmsg
+from pr2modules.requests.interface import InterfaceFieldFilter
+from pr2modules.requests.main import RequestProcessor
 
 from ..auth_manager import AuthManager, check_auth
-from ..objects import FieldFilter, ObjectData, RTNL_Object
+from ..objects import RTNL_Object
 
 
 def load_ifinfmsg(schema, target, event):
@@ -298,34 +300,6 @@ def _cmp_master(self, value):
         dict.__setitem__(self, 'master', None)
         return True
     return False
-
-
-class InterfaceFieldFilter(FieldFilter):
-    def _link(self, key, context, value):
-        if isinstance(value, dict):
-            return {key: value[key]['index']}
-        return {key: value}
-
-    def vxlan_link(self, context, value):
-        return self._link('vxlan_link', context, value)
-
-    def link(self, context, value):
-        return self._link('link', context, value)
-
-    def master(self, context, value):
-        return self._link('master', context, value)
-
-    def address(self, context, value):
-        if isinstance(value, str):
-            # lower the case
-            if not value.islower():
-                value = value.lower()
-            # convert xxxx.xxxx.xxxx to xx:xx:xx:xx:xx:xx
-            if len(value) == 14 and value[4] == value[9] == '.':
-                value = ':'.join(
-                    [':'.join((x[:2], x[2:])) for x in value.split('.')]
-                )
-        return {'address': value}
 
 
 class Vlan(RTNL_Object):
@@ -700,7 +674,7 @@ class Interface(RTNL_Object):
             1        ->  {"index": 1, ...}
 
         '''
-        ret = ObjectData(cls.field_filter(), context=spec, prime=spec)
+        ret = RequestProcessor(cls.field_filter(), context=spec, prime=spec)
         if isinstance(spec, basestring):
             ret['ifname'] = spec
         elif isinstance(spec, int):

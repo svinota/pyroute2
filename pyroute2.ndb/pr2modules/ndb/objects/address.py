@@ -103,12 +103,11 @@ Access an address as a separate RTNL object::
 Please notice that address objects are read-only, you may not change them,
 only remove old ones, and create new.
 '''
-import ipaddress
-
-from pr2modules.common import basestring, dqn2int
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pr2modules.requests.address import AddressFieldFilter
+from pr2modules.requests.main import RequestProcessor
 
-from ..objects import FieldFilter, ObjectData, RTNL_Object
+from ..objects import RTNL_Object
 
 
 def load_ifaddrmsg(schema, target, event):
@@ -162,28 +161,6 @@ init = {
     'classes': [['addresses', ifaddrmsg]],
     'event_map': {ifaddrmsg: [load_ifaddrmsg]},
 }
-
-
-class AddressFieldFilter(FieldFilter):
-    def prefixlen(self, context, value):
-        if isinstance(value, basestring):
-            if '.' in value:
-                value = dqn2int(value)
-            value = int(value)
-        return {'prefixlen': value}
-
-    def address(self, context, value):
-        ret = {'address': value}
-        if isinstance(value, str):
-            addr_spec = value.split('/')
-            ret['address'] = addr_spec[0]
-            if len(addr_spec) > 1:
-                ret.update(self.prefixlen('prefixlen', addr_spec[1]))
-            if ':' in ret['address']:
-                ret['address'] = ipaddress.ip_address(
-                    ret['address']
-                ).compressed
-        return ret
 
 
 class Address(RTNL_Object):
@@ -249,7 +226,7 @@ class Address(RTNL_Object):
 
     @staticmethod
     def compare_record(left, right):
-        if isinstance(right, basestring):
+        if isinstance(right, str):
             return right == left['address'] or right == '%s/%i' % (
                 left['address'],
                 left['prefixlen'],
@@ -264,8 +241,8 @@ class Address(RTNL_Object):
             "10.0.0.1/24"  ->  {"address": "10.0.0.1",
                                 "prefixlen": 24}
         '''
-        ret = ObjectData(cls.field_filter(), context=spec, prime=spec)
-        if isinstance(spec, basestring):
+        ret = RequestProcessor(cls.field_filter(), context=spec, prime=spec)
+        if isinstance(spec, str):
             ret['address'] = spec
         return ret
 
