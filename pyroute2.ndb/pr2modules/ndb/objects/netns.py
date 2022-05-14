@@ -1,7 +1,9 @@
 import threading
+
 from pr2modules import netns
 from pr2modules.common import basestring
 from pr2modules.netlink.rtnl.nsinfmsg import nsinfmsg
+
 from ..objects import RTNL_Object
 
 

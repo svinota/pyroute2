@@ -1,4 +1,5 @@
 import pytest
+
 from pyroute2.common import AddrPool
 
 

@@ -1,8 +1,10 @@
-from pr2modules.netlink.rtnl.tcmsg.common import get_size
-from pr2modules.netlink.rtnl.tcmsg.common import red_eval_ewma
-from pr2modules.netlink.rtnl.tcmsg.common import red_eval_P
 from pr2modules.netlink import nla
 from pr2modules.netlink.rtnl import TC_H_ROOT
+from pr2modules.netlink.rtnl.tcmsg.common import (
+    get_size,
+    red_eval_ewma,
+    red_eval_P,
+)
 
 parent = TC_H_ROOT
 

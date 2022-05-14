@@ -1,30 +1,30 @@
 import types
 
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink import nla
-
-from pr2modules.netlink.rtnl.tcmsg import cls_fw
-from pr2modules.netlink.rtnl.tcmsg import cls_u32
-from pr2modules.netlink.rtnl.tcmsg import cls_matchall
-from pr2modules.netlink.rtnl.tcmsg import cls_basic
-from pr2modules.netlink.rtnl.tcmsg import cls_flow
-from pr2modules.netlink.rtnl.tcmsg import sched_bpf
-from pr2modules.netlink.rtnl.tcmsg import sched_cake
-from pr2modules.netlink.rtnl.tcmsg import sched_choke
-from pr2modules.netlink.rtnl.tcmsg import sched_clsact
-from pr2modules.netlink.rtnl.tcmsg import sched_codel
-from pr2modules.netlink.rtnl.tcmsg import sched_drr
-from pr2modules.netlink.rtnl.tcmsg import sched_fq_codel
-from pr2modules.netlink.rtnl.tcmsg import sched_hfsc
-from pr2modules.netlink.rtnl.tcmsg import sched_htb
-from pr2modules.netlink.rtnl.tcmsg import sched_ingress
-from pr2modules.netlink.rtnl.tcmsg import sched_netem
-from pr2modules.netlink.rtnl.tcmsg import sched_pfifo
-from pr2modules.netlink.rtnl.tcmsg import sched_pfifo_fast
-from pr2modules.netlink.rtnl.tcmsg import sched_plug
-from pr2modules.netlink.rtnl.tcmsg import sched_sfq
-from pr2modules.netlink.rtnl.tcmsg import sched_tbf
-from pr2modules.netlink.rtnl.tcmsg import sched_template
+from pr2modules.netlink import nla, nlmsg
+from pr2modules.netlink.rtnl.tcmsg import (
+    cls_basic,
+    cls_flow,
+    cls_fw,
+    cls_matchall,
+    cls_u32,
+    sched_bpf,
+    sched_cake,
+    sched_choke,
+    sched_clsact,
+    sched_codel,
+    sched_drr,
+    sched_fq_codel,
+    sched_hfsc,
+    sched_htb,
+    sched_ingress,
+    sched_netem,
+    sched_pfifo,
+    sched_pfifo_fast,
+    sched_plug,
+    sched_sfq,
+    sched_tbf,
+    sched_template,
+)
 
 plugins = {
     'plug': sched_plug,

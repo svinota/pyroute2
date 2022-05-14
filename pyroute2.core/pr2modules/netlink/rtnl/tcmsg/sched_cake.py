@@ -76,7 +76,6 @@ NOTES:
 from pr2modules.netlink import nla
 from pr2modules.netlink.rtnl import TC_H_ROOT
 
-
 # Defines from pkt_sched.h
 CAKE_FLOW_NONE = 0
 CAKE_FLOW_SRC_IP = 1

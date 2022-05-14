@@ -1,16 +1,18 @@
-import re
-import os
-import struct
 import logging
+import os
+import re
+import struct
 from math import log as logfm
 from socket import inet_aton
+
 from pr2modules import config
-from pr2modules.common import size_suffixes
-from pr2modules.common import time_suffixes
-from pr2modules.common import rate_suffixes
-from pr2modules.common import basestring
-from pr2modules.netlink import nla
-from pr2modules.netlink import nla_string
+from pr2modules.common import (
+    basestring,
+    rate_suffixes,
+    size_suffixes,
+    time_suffixes,
+)
+from pr2modules.netlink import nla, nla_string
 
 log = logging.getLogger(__name__)
 

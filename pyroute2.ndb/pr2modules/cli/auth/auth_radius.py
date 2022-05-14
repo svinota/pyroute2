@@ -1,7 +1,8 @@
 import os
+
+import pyrad.packet
 from pyrad.client import Client
 from pyrad.dictionary import Dictionary
-import pyrad.packet
 
 
 class RadiusAuthManager(object):

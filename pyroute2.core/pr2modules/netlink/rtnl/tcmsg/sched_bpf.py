@@ -2,18 +2,19 @@
 '''
 
 from socket import htons
-from pr2modules.netlink import nla
+
+from pr2modules.netlink import NLA_F_NESTED, nla
 from pr2modules.netlink.rtnl import TC_H_ROOT
-from pr2modules.netlink import NLA_F_NESTED
-from pr2modules.protocols import ETH_P_ALL
-from pr2modules.netlink.rtnl.tcmsg.common import stats2
-from pr2modules.netlink.rtnl.tcmsg.common import TCA_ACT_MAX_PRIO
-from pr2modules.netlink.rtnl.tcmsg.common_act import get_tca_action
-from pr2modules.netlink.rtnl.tcmsg.common_act import nla_plus_tca_act_opt
-from pr2modules.netlink.rtnl.tcmsg.act_police import nla_plus_police
 from pr2modules.netlink.rtnl.tcmsg.act_police import (
     get_parameters as ap_parameters,
 )
+from pr2modules.netlink.rtnl.tcmsg.act_police import nla_plus_police
+from pr2modules.netlink.rtnl.tcmsg.common import TCA_ACT_MAX_PRIO, stats2
+from pr2modules.netlink.rtnl.tcmsg.common_act import (
+    get_tca_action,
+    nla_plus_tca_act_opt,
+)
+from pr2modules.protocols import ETH_P_ALL
 
 parent = TC_H_ROOT
 TCA_BPF_FLAG_ACT_DIRECT = 1

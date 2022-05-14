@@ -3,9 +3,8 @@
 import struct
 import threading
 from collections import OrderedDict
-from socket import inet_pton
-from socket import AF_INET
-from socket import AF_INET6
+from socket import AF_INET, AF_INET6, inet_pton
+
 from pr2modules.common import basestring
 
 

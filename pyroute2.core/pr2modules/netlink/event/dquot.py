@@ -18,8 +18,8 @@ only one message arrived. To get NLA values::
     minor = msg.get_attr('QUOTA_NL_A_DEV_MINOR')
 '''
 from pr2modules.netlink import genlmsg
-from pr2modules.netlink.nlsocket import Marshal
 from pr2modules.netlink.event import EventSocket
+from pr2modules.netlink.nlsocket import Marshal
 
 QUOTA_NL_C_UNSPEC = 0
 QUOTA_NL_C_WARNING = 1

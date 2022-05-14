@@ -1,6 +1,6 @@
 import struct
-from pr2modules.netlink import nlmsg_base
-from pr2modules.netlink import nlmsg_decoder_generic
+
+from pr2modules.netlink import nlmsg_base, nlmsg_decoder_generic
 
 
 class inotify_msg(nlmsg_base, nlmsg_decoder_generic):

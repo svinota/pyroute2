@@ -1,29 +1,27 @@
-import time
 import errno
+import time
 import traceback
-from socket import AF_INET
-from socket import AF_INET6
-from socket import inet_ntop
-from socket import inet_pton
+from socket import AF_INET, AF_INET6
 from socket import error as socket_error
+from socket import inet_ntop, inet_pton
+
 from pr2modules import config
+from pr2modules.common import Dotkeys, View, basestring, dqn2int
 from pr2modules.config import AF_BRIDGE
-from pr2modules.common import basestring
-from pr2modules.common import dqn2int
-from pr2modules.common import View
-from pr2modules.common import Dotkeys
+from pr2modules.ipdb.exceptions import (
+    CommitException,
+    CreateException,
+    PartialCommitException,
+)
+from pr2modules.ipdb.linkedset import LinkedSet
+from pr2modules.ipdb.transactional import (
+    SYNC_TIMEOUT,
+    Transactional,
+    with_transaction,
+)
 from pr2modules.netlink import rtnl
 from pr2modules.netlink.exceptions import NetlinkError
-from pr2modules.netlink.rtnl.ifinfmsg import IFF_MASK
-from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
-from pr2modules.ipdb.transactional import Transactional
-from pr2modules.ipdb.transactional import with_transaction
-from pr2modules.ipdb.transactional import SYNC_TIMEOUT
-from pr2modules.ipdb.linkedset import LinkedSet
-from pr2modules.ipdb.exceptions import CreateException
-from pr2modules.ipdb.exceptions import CommitException
-from pr2modules.ipdb.exceptions import PartialCommitException
-
+from pr2modules.netlink.rtnl.ifinfmsg import IFF_MASK, ifinfmsg
 
 supported_kinds = (
     'bridge',

@@ -2,9 +2,9 @@
 #
 # This module contains all the public symbols from the library.
 #
-import sys
-import struct
 import importlib
+import struct
+import sys
 
 ##
 #

@@ -1,5 +1,7 @@
-import pytest
 import socket
+
+import pytest
+
 from pyroute2 import IPRoute
 from pyroute2.netlink import nlmsg
 

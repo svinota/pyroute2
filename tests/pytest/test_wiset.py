@@ -1,14 +1,16 @@
 from time import sleep
 
-from pyroute2.netlink.exceptions import IPSetError
-from pyroute2.wiset import IPStats
-from pyroute2.wiset import WiSet
-from pyroute2.wiset import get_ipset_socket
-from pyroute2.wiset import load_all_ipsets
-from pyroute2.wiset import load_ipset
-from pyroute2.wiset import test_ipset_exist as ipset_exists
-
 from utils import require_kernel
+
+from pyroute2.netlink.exceptions import IPSetError
+from pyroute2.wiset import (
+    IPStats,
+    WiSet,
+    get_ipset_socket,
+    load_all_ipsets,
+    load_ipset,
+)
+from pyroute2.wiset import test_ipset_exist as ipset_exists
 
 
 def test_create_one_ipset(ipset_name, wiset_sock):

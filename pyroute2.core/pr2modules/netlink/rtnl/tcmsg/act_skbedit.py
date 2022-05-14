@@ -46,7 +46,6 @@ NOTES:
 from pr2modules.netlink import nla
 from pr2modules.netlink.rtnl.tcmsg.common import tc_actions
 
-
 # Packet types defined in if_packet.h
 PACKET_HOST = 0
 PACKET_BROADCAST = 1

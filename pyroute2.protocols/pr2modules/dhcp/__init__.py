@@ -98,9 +98,10 @@ fit into 1..254 (`uint8`) -- the 0 code is used for padding and
 the code 255 is the end of options code.
 '''
 
-import sys
 import struct
+import sys
 from array import array
+
 from pr2modules.common import basestring
 from pr2modules.protocols import msg
 

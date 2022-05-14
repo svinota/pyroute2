@@ -1,12 +1,11 @@
-import os
 import json
+import os
 import subprocess
+
 from pr2modules.common import map_enoent
 from pr2modules.netlink.rtnl.ifinfmsg import RTM_NEWLINK
 from pr2modules.netlink.rtnl.ifinfmsg.sync import sync
-from pr2modules.netlink.rtnl.ifinfmsg.tuntap import manage_tun
-from pr2modules.netlink.rtnl.ifinfmsg.tuntap import manage_tuntap
-
+from pr2modules.netlink.rtnl.ifinfmsg.tuntap import manage_tun, manage_tuntap
 
 _BONDING_MASTERS = '/sys/class/net/bonding_masters'
 _BONDING_SLAVES = '/sys/class/net/%s/bonding/slaves'

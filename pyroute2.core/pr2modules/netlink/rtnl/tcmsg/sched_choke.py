@@ -21,16 +21,18 @@ Example::
           ecn=True)
 
 '''
-import struct
 import logging
-from pr2modules.netlink import nla
-from pr2modules.netlink import nla_string
+import struct
+
+from pr2modules.netlink import nla, nla_string
 from pr2modules.netlink.rtnl import TC_H_ROOT
-from pr2modules.netlink.rtnl.tcmsg.common import get_rate
-from pr2modules.netlink.rtnl.tcmsg.common import get_size
-from pr2modules.netlink.rtnl.tcmsg.common import red_eval_ewma
-from pr2modules.netlink.rtnl.tcmsg.common import red_eval_P
-from pr2modules.netlink.rtnl.tcmsg.common import red_eval_idle_damping
+from pr2modules.netlink.rtnl.tcmsg.common import (
+    get_rate,
+    get_size,
+    red_eval_ewma,
+    red_eval_idle_damping,
+    red_eval_P,
+)
 from pr2modules.netlink.rtnl.tcmsg.common import stats2 as c_stats2
 
 log = logging.getLogger(__name__)

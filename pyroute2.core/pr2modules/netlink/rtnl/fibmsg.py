@@ -1,6 +1,5 @@
 from pr2modules.common import map_namespace
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink import nla
+from pr2modules.netlink import nla, nlmsg
 
 FR_ACT_UNSPEC = 0
 FR_ACT_TO_TBL = 1

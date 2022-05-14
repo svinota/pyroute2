@@ -1,18 +1,18 @@
-import os
-import re
-import pwd
-import stat
-import sys
-import uuid
-import errno
-import platform
-import subprocess
-import netaddr
 import ctypes
 import ctypes.util
+import errno
+import os
+import platform
+import pwd
+import re
+import stat
+import subprocess
+import sys
+import uuid
+from socket import AF_INET, AF_INET6
+
+import netaddr
 import pytest
-from socket import AF_INET
-from socket import AF_INET6
 from pr2modules import config
 from pr2modules.iproute.linux import IPRoute
 

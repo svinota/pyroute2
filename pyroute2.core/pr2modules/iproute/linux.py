@@ -1,92 +1,92 @@
 # -*- coding: utf-8 -*-
+import logging
 import os
 import types
-import logging
 import warnings
-from socket import AF_INET, AF_INET6, AF_UNSPEC
-from itertools import chain
 from functools import partial
+from itertools import chain
+from socket import AF_INET, AF_INET6, AF_UNSPEC
+
 from pr2modules import config
+from pr2modules.common import AF_MPLS, basestring
 from pr2modules.config import AF_BRIDGE
 from pr2modules.netlink import (
-    NLMSG_ERROR,
+    NLM_F_ACK,
+    NLM_F_APPEND,
     NLM_F_ATOMIC,
-    NLM_F_ROOT,
+    NLM_F_CREATE,
+    NLM_F_DUMP,
+    NLM_F_EXCL,
     NLM_F_REPLACE,
     NLM_F_REQUEST,
-    NLM_F_ACK,
-    NLM_F_DUMP,
-    NLM_F_CREATE,
-    NLM_F_EXCL,
-    NLM_F_APPEND,
+    NLM_F_ROOT,
+    NLMSG_ERROR,
 )
+from pr2modules.netlink.exceptions import NetlinkError, SkipInode
 from pr2modules.netlink.rtnl import (
-    RTM_NEWADDR,
-    RTM_GETADDR,
     RTM_DELADDR,
-    RTM_NEWLINK,
-    RTM_NEWLINKPROP,
-    RTM_DELLINKPROP,
-    RTM_GETLINK,
     RTM_DELLINK,
-    RTM_NEWQDISC,
-    RTM_GETQDISC,
-    RTM_DELQDISC,
-    RTM_NEWTFILTER,
-    RTM_GETTFILTER,
-    RTM_DELTFILTER,
-    RTM_NEWTCLASS,
-    RTM_GETTCLASS,
-    RTM_DELTCLASS,
-    RTM_NEWRULE,
-    RTM_GETRULE,
-    RTM_DELRULE,
-    RTM_NEWROUTE,
-    RTM_GETROUTE,
-    RTM_DELROUTE,
-    RTM_NEWNEIGH,
-    RTM_GETNEIGH,
+    RTM_DELLINKPROP,
     RTM_DELNEIGH,
-    RTM_SETLINK,
+    RTM_DELQDISC,
+    RTM_DELROUTE,
+    RTM_DELRULE,
+    RTM_DELTCLASS,
+    RTM_DELTFILTER,
+    RTM_GETADDR,
+    RTM_GETLINK,
+    RTM_GETNEIGH,
     RTM_GETNEIGHTBL,
     RTM_GETNSID,
-    RTM_NEWNETNS,
+    RTM_GETQDISC,
+    RTM_GETROUTE,
+    RTM_GETRULE,
     RTM_GETSTATS,
+    RTM_GETTCLASS,
+    RTM_GETTFILTER,
+    RTM_NEWADDR,
+    RTM_NEWLINK,
+    RTM_NEWLINKPROP,
+    RTM_NEWNEIGH,
+    RTM_NEWNETNS,
+    RTM_NEWQDISC,
+    RTM_NEWROUTE,
+    RTM_NEWRULE,
+    RTM_NEWTCLASS,
+    RTM_NEWTFILTER,
+    RTM_SETLINK,
     TC_H_ROOT,
-    rt_type,
-    rt_scope,
+    ndmsg,
     rt_proto,
+    rt_scope,
+    rt_type,
 )
-from .req import (
-    IPLinkRequest,
-    IPBridgeRequest,
-    IPBrPortRequest,
-    IPRouteRequest,
-    IPRuleRequest,
-    IPAddrRequest,
-    IPNeighRequest,
-)
-from pr2modules.netlink.rtnl.tcmsg import plugins as tc_plugins
-from pr2modules.netlink.rtnl.tcmsg import tcmsg
-from pr2modules.netlink.rtnl.rtmsg import rtmsg
-from pr2modules.netlink.rtnl import ndmsg
-from pr2modules.netlink.rtnl.ndtmsg import ndtmsg
 from pr2modules.netlink.rtnl.fibmsg import fibmsg
-from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.ifstatsmsg import ifstatsmsg
 from pr2modules.netlink.rtnl.iprsocket import (
-    IPRSocket,
-    IPBatchSocket,
     ChaoticIPRSocket,
+    IPBatchSocket,
+    IPRSocket,
 )
-from pr2modules.netlink.rtnl.riprsocket import RawIPRSocket
+from pr2modules.netlink.rtnl.ndtmsg import ndtmsg
 from pr2modules.netlink.rtnl.nsidmsg import nsidmsg
 from pr2modules.netlink.rtnl.nsinfmsg import nsinfmsg
-from pr2modules.netlink.exceptions import SkipInode, NetlinkError
+from pr2modules.netlink.rtnl.riprsocket import RawIPRSocket
+from pr2modules.netlink.rtnl.rtmsg import rtmsg
+from pr2modules.netlink.rtnl.tcmsg import plugins as tc_plugins
+from pr2modules.netlink.rtnl.tcmsg import tcmsg
 
-from pr2modules.common import AF_MPLS
-from pr2modules.common import basestring
+from .req import (
+    IPAddrRequest,
+    IPBridgeRequest,
+    IPBrPortRequest,
+    IPLinkRequest,
+    IPNeighRequest,
+    IPRouteRequest,
+    IPRuleRequest,
+)
 
 DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)

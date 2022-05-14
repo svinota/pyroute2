@@ -14,10 +14,7 @@ It is not implemented normally yet, but some methods are already
 usable.
 '''
 
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import nla
-from pr2modules.netlink import nla_struct
-from pr2modules.netlink import genlmsg
+from pr2modules.netlink import NLM_F_REQUEST, genlmsg, nla, nla_struct
 from pr2modules.netlink.generic import GenericNetlinkSocket
 
 TASKSTATS_CMD_UNSPEC = 0  # Reserved

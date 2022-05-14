@@ -1,27 +1,25 @@
 import logging
-from socket import AF_INET
-from socket import AF_INET6
 from collections import OrderedDict
+from socket import AF_INET, AF_INET6
+
 from pr2modules.common import (
     AF_MPLS,
     basestring,
     get_address_family,
     getbroadcast,
 )
-from pr2modules.netlink.rtnl import rt_type, rt_proto, rt_scope, encap_type
+from pr2modules.netlink.rtnl import encap_type, rt_proto, rt_scope, rt_type
+from pr2modules.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pr2modules.netlink.rtnl.ifinfmsg import (
+    IFF_NOARP,
     ifinfmsg,
     protinfo_bridge,
-    IFF_NOARP,
 )
-from pr2modules.netlink.rtnl.rtmsg import (
-    rtmsg,
-    nh as nh_header,
-    LWTUNNEL_ENCAP_MPLS,
-)
-from pr2modules.netlink.rtnl.ndmsg import ndmsg, NUD_PERMANENT
-from pr2modules.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pr2modules.netlink.rtnl.ifinfmsg.plugins.vlan import flags as vlan_flags
+from pr2modules.netlink.rtnl.ndmsg import NUD_PERMANENT, ndmsg
+from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
+from pr2modules.netlink.rtnl.rtmsg import nh as nh_header
+from pr2modules.netlink.rtnl.rtmsg import rtmsg
 
 log = logging.getLogger(__name__)
 encap_types = {'mpls': 1, AF_MPLS: 1, 'seg6': 5, 'bpf': 6, 'seg6local': 7}

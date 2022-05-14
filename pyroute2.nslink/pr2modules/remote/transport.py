@@ -1,16 +1,16 @@
-import os
-import errno
 import atexit
+import errno
+import logging
+import os
 import pickle
 import select
-import struct
-import logging
 import signal
+import struct
 import threading
 import traceback
 from io import BytesIO
-from socket import SOL_SOCKET
-from socket import SO_RCVBUF
+from socket import SO_RCVBUF, SOL_SOCKET
+
 from pr2modules import config
 from pr2modules import netns as netnsmod
 from pr2modules.netlink.nlsocket import NetlinkSocketBase

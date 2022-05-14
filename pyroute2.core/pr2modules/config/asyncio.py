@@ -18,7 +18,6 @@ except ImportError:
 
 from pr2modules import config as config
 
-
 _socketmethods = (
     'bind',
     'close',

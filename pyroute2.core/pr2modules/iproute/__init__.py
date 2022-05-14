@@ -128,32 +128,26 @@ from them -- unlike PF_ROUTE messages.
 
 '''
 import sys
+
 from pr2modules import config
-from pr2modules.iproute.linux import RTNL_API
-from pr2modules.iproute.linux import IPBatch
+from pr2modules.iproute.linux import RTNL_API, IPBatch
 
 # compatibility fix -- LNST:
 from pr2modules.netlink.rtnl import (
-    RTM_GETLINK,
-    RTM_NEWLINK,
+    RTM_DELADDR,
     RTM_DELLINK,
     RTM_GETADDR,
+    RTM_GETLINK,
     RTM_NEWADDR,
-    RTM_DELADDR,
+    RTM_NEWLINK,
 )
 
 if sys.platform.startswith('win'):
-    from pr2modules.iproute.windows import IPRoute
-    from pr2modules.iproute.windows import RawIPRoute
-    from pr2modules.iproute.windows import ChaoticIPRoute
+    from pr2modules.iproute.windows import ChaoticIPRoute, IPRoute, RawIPRoute
 elif config.uname[0][-3:] == 'BSD':
-    from pr2modules.iproute.bsd import IPRoute
-    from pr2modules.iproute.bsd import RawIPRoute
-    from pr2modules.iproute.bsd import ChaoticIPRoute
+    from pr2modules.iproute.bsd import ChaoticIPRoute, IPRoute, RawIPRoute
 else:
-    from pr2modules.iproute.linux import IPRoute
-    from pr2modules.iproute.linux import RawIPRoute
-    from pr2modules.iproute.linux import ChaoticIPRoute
+    from pr2modules.iproute.linux import ChaoticIPRoute, IPRoute, RawIPRoute
 
 classes = [RTNL_API, IPBatch, IPRoute, RawIPRoute, ChaoticIPRoute]
 

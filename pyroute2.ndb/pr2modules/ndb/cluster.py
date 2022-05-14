@@ -1,6 +1,8 @@
 import json
 import socket
+
 from pyroute2.common import basestring
+
 from .main import NDB
 from .transport import Messenger, Transport
 

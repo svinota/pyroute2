@@ -1,8 +1,6 @@
 import pytest
+from pr2test.context_manager import make_test_matrix, skip_if_not_implemented
 from pr2test.tools import neighbour_exists
-from pr2test.context_manager import make_test_matrix
-from pr2test.context_manager import skip_if_not_implemented
-
 
 test_matrix = make_test_matrix(
     targets=['local', 'netns'], dbs=['sqlite3/:memory:', 'postgres/pr2test']

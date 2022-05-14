@@ -1,14 +1,13 @@
 import csv
 import json
-import pytest
 from socket import AF_INET
-from pyroute2.common import basestring
-from pr2modules.ndb.main import Record
-from pr2modules.ndb.main import RecordSet
-from pr2modules.ndb.objects import RTNL_Object
-from pr2test.context_manager import make_test_matrix
-from pr2test.context_manager import skip_if_not_supported
 
+import pytest
+from pr2modules.ndb.main import Record, RecordSet
+from pr2modules.ndb.objects import RTNL_Object
+from pr2test.context_manager import make_test_matrix, skip_if_not_supported
+
+from pyroute2.common import basestring
 
 test_matrix = make_test_matrix(
     targets=['local', 'netns'], dbs=['sqlite3/:memory:', 'postgres/pr2test']

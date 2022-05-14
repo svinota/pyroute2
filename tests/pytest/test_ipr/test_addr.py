@@ -1,9 +1,10 @@
-import time
 import errno
+import time
+
 import pytest
+from pr2test.context_manager import make_test_matrix, skip_if_not_supported
+
 from pyroute2 import NetlinkError
-from pr2test.context_manager import make_test_matrix
-from pr2test.context_manager import skip_if_not_supported
 
 wait_timeout = 30
 test_matrix = make_test_matrix(targets=['local', 'netns'])

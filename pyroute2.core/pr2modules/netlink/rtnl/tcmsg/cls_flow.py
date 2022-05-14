@@ -64,15 +64,20 @@ NOTES:
 '''
 
 from socket import htons
+
 from pr2modules import protocols
 from pr2modules.netlink import nla
-from pr2modules.netlink.rtnl.tcmsg.common import get_tca_ops
-from pr2modules.netlink.rtnl.tcmsg.common import get_tca_mode
-from pr2modules.netlink.rtnl.tcmsg.common import get_tca_keys
-from pr2modules.netlink.rtnl.tcmsg.common import tc_flow_keys
-from pr2modules.netlink.rtnl.tcmsg.common import tc_flow_modes
-from pr2modules.netlink.rtnl.tcmsg.common_act import get_tca_action
-from pr2modules.netlink.rtnl.tcmsg.common_act import tca_act_prio
+from pr2modules.netlink.rtnl.tcmsg.common import (
+    get_tca_keys,
+    get_tca_mode,
+    get_tca_ops,
+    tc_flow_keys,
+    tc_flow_modes,
+)
+from pr2modules.netlink.rtnl.tcmsg.common_act import (
+    get_tca_action,
+    tca_act_prio,
+)
 
 
 def fix_msg(msg, kwarg):

@@ -1,10 +1,8 @@
 import logging
+
 from pr2modules.netlink import nla
-from pr2modules.netlink.rtnl import TC_H_ROOT
-from pr2modules.netlink.rtnl.tcmsg.common import stats2
-from pr2modules.netlink.rtnl.tcmsg.common import get_time
-from pr2modules.netlink.rtnl import RTM_NEWQDISC
-from pr2modules.netlink.rtnl import RTM_DELQDISC
+from pr2modules.netlink.rtnl import RTM_DELQDISC, RTM_NEWQDISC, TC_H_ROOT
+from pr2modules.netlink.rtnl.tcmsg.common import get_time, stats2
 
 log = logging.getLogger(__name__)
 parent = TC_H_ROOT

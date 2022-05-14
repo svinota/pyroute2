@@ -1,11 +1,13 @@
-import os
 import errno
+import os
+import threading
+
 import mitogen.core
 import mitogen.master
-import threading
-from .transport import Transport, Server, RemoteSocket
 from pr2modules.iproute.linux import RTNL_API
 from pr2modules.netlink.rtnl.iprsocket import MarshalRtnl
+
+from .transport import RemoteSocket, Server, Transport
 
 
 class Channel(object):

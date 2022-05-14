@@ -1,9 +1,10 @@
+import ctypes
+import ctypes.util
 import os
 import select
 import socket
-import ctypes
-import ctypes.util
 import threading
+
 from pr2modules.inotify.inotify_msg import inotify_msg
 
 

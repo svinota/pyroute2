@@ -1,13 +1,14 @@
-import time
 import errno
-import pytest
 import socket
+import time
+
+import pytest
+from pr2test.context_manager import skip_if_not_supported
 from utils import require_kernel
-from pyroute2 import IPRoute
-from pyroute2 import NetlinkError
+
+from pyroute2 import IPRoute, NetlinkError
 from pyroute2.common import AF_MPLS
 from pyroute2.netlink.rtnl.rtmsg import RTNH_F_ONLINK
-from pr2test.context_manager import skip_if_not_supported
 
 
 def test_route_get_target_strict_check(context):

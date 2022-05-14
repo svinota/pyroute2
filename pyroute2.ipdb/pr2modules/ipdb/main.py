@@ -691,11 +691,11 @@ after some delay.
 The class API
 -------------
 '''
-import sys
 import atexit
 import logging
-import traceback
+import sys
 import threading
+import traceback
 import weakref
 
 try:
@@ -706,21 +706,18 @@ except ImportError:
 # import warnings
 from functools import partial
 from pprint import pprint
+
 from pr2modules import config
-from pr2modules.common import uuid32
-from pr2modules.common import basestring
+from pr2modules.common import basestring, uuid32
+from pr2modules.ipdb import interfaces, routes, rules
+from pr2modules.ipdb.exceptions import ShutdownException
+from pr2modules.ipdb.linkedset import IPaddrSet, SortedIPaddrSet
+from pr2modules.ipdb.routes import BaseRoute
+from pr2modules.ipdb.transactional import SYNC_TIMEOUT
+from pr2modules.ipdb.utils import test_reachable_icmp
 from pr2modules.iproute import IPRoute
 from pr2modules.netlink.rtnl import RTM_GETLINK, RTMGRP_DEFAULTS
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
-from pr2modules.ipdb import rules
-from pr2modules.ipdb import routes
-from pr2modules.ipdb import interfaces
-from pr2modules.ipdb.routes import BaseRoute
-from pr2modules.ipdb.exceptions import ShutdownException
-from pr2modules.ipdb.transactional import SYNC_TIMEOUT
-from pr2modules.ipdb.linkedset import IPaddrSet
-from pr2modules.ipdb.linkedset import SortedIPaddrSet
-from pr2modules.ipdb.utils import test_reachable_icmp
 
 log = logging.getLogger(__name__)
 

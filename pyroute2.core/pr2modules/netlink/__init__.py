@@ -387,27 +387,23 @@ Please notice, that NLA list *MUST* be mutable.
 
 '''
 
-import weakref
-import threading
-import traceback
+import io
 import logging
 import struct
-import types
 import sys
-import io
-
-from socket import inet_pton
-from socket import inet_ntop
-from socket import AF_INET
-from socket import AF_INET6
-from socket import AF_UNSPEC
+import threading
+import traceback
+import types
+import weakref
 from collections import OrderedDict
-from pr2modules.common import AF_MPLS
-from pr2modules.common import hexdump
-from pr2modules.common import basestring
-from pr2modules.netlink.exceptions import NetlinkError
-from pr2modules.netlink.exceptions import NetlinkDecodeError
-from pr2modules.netlink.exceptions import NetlinkNLADecodeError
+from socket import AF_INET, AF_INET6, AF_UNSPEC, inet_ntop, inet_pton
+
+from pr2modules.common import AF_MPLS, basestring, hexdump
+from pr2modules.netlink.exceptions import (
+    NetlinkDecodeError,
+    NetlinkError,
+    NetlinkNLADecodeError,
+)
 
 log = logging.getLogger(__name__)
 # make pep8 happy

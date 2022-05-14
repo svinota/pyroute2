@@ -1,9 +1,8 @@
-from pyroute2.nftables.parser.parser import nfta_nla_parser, conv_map_tuple
 from pyroute2.nftables.parser.expr import (
-    get_expression_from_netlink,
     get_expression_from_dict,
+    get_expression_from_netlink,
 )
-
+from pyroute2.nftables.parser.parser import conv_map_tuple, nfta_nla_parser
 
 NAME_2_NFPROTO = {
     "unspec": 0,

@@ -1,12 +1,12 @@
-import errno
-import struct
 import atexit
+import errno
 import logging
+import struct
 import subprocess
+
 from pr2modules.iproute import RTNL_API
-from pr2modules.remote.transport import Transport
-from pr2modules.remote.transport import RemoteSocket
 from pr2modules.netlink.rtnl.iprsocket import MarshalRtnl
+from pr2modules.remote.transport import RemoteSocket, Transport
 
 log = logging.getLogger(__name__)
 

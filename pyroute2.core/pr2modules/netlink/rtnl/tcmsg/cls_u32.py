@@ -56,13 +56,15 @@ filter types::
 '''
 import struct
 from socket import htons
-from pr2modules.netlink import nla
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink.rtnl.tcmsg.common_act import get_tca_action
-from pr2modules.netlink.rtnl.tcmsg.common_act import tca_act_prio
-from pr2modules.netlink.rtnl.tcmsg.act_police import nla_plus_police
+
+from pr2modules.netlink import nla, nlmsg
 from pr2modules.netlink.rtnl.tcmsg.act_police import (
     get_parameters as ap_parameters,
+)
+from pr2modules.netlink.rtnl.tcmsg.act_police import nla_plus_police
+from pr2modules.netlink.rtnl.tcmsg.common_act import (
+    get_tca_action,
+    tca_act_prio,
 )
 
 

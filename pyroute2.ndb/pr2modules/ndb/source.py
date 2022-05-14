@@ -68,21 +68,23 @@ In some more extended form::
 
 See also: :ref:`remote`
 '''
-import sys
-import time
-import uuid
-import queue
 import errno
+import importlib
+import queue
 import socket
 import struct
+import sys
 import threading
-import importlib
+import time
+import uuid
+
 from pr2modules.common import basestring
 from pr2modules.iproute.linux import IPRoute
-from pr2modules.remote import RemoteIPRoute
-from pr2modules.netlink.nlsocket import NetlinkSocketBase
 from pr2modules.netlink.exceptions import NetlinkError
+from pr2modules.netlink.nlsocket import NetlinkSocketBase
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
+from pr2modules.remote import RemoteIPRoute
+
 from .events import ShutdownException, State
 from .messages import cmsg_event, cmsg_failed, cmsg_sstart
 

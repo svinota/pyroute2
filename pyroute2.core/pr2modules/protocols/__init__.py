@@ -1,7 +1,6 @@
 import struct
-from socket import inet_ntop
-from socket import inet_pton
-from socket import AF_INET
+from socket import AF_INET, inet_ntop, inet_pton
+
 from pr2modules.common import basestring
 
 #

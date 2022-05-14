@@ -1,8 +1,4 @@
-from pyroute2.common import hexdump
-from pyroute2.common import hexload
-from pyroute2.common import uuid32
-from pyroute2.common import uifname
-from pyroute2.common import dqn2int
+from pyroute2.common import dqn2int, hexdump, hexload, uifname, uuid32
 
 
 def test_hexdump():

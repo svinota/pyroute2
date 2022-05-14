@@ -59,15 +59,15 @@ An example with htb qdisc, lets assume eth0 == 2::
           target=0x10020,
           keys=["0x5/0xf+0", "0x10/0xff+33"])
 '''
-from pr2modules.netlink.rtnl.tcmsg.common import get_hz
-from pr2modules.netlink.rtnl.tcmsg.common import get_rate
-from pr2modules.netlink.rtnl.tcmsg.common import calc_xmittime
-from pr2modules.netlink.rtnl.tcmsg.common import nla_plus_rtab
-from pr2modules.netlink.rtnl.tcmsg.common import stats2
-from pr2modules.netlink.rtnl import RTM_NEWQDISC
-from pr2modules.netlink.rtnl import RTM_DELQDISC
 from pr2modules.netlink import nla
-from pr2modules.netlink.rtnl import TC_H_ROOT
+from pr2modules.netlink.rtnl import RTM_DELQDISC, RTM_NEWQDISC, TC_H_ROOT
+from pr2modules.netlink.rtnl.tcmsg.common import (
+    calc_xmittime,
+    get_hz,
+    get_rate,
+    nla_plus_rtab,
+    stats2,
+)
 
 parent = TC_H_ROOT
 

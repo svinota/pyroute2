@@ -1,13 +1,14 @@
 import uuid
+
 import pytest
-from pr2test.tools import interface_exists
-from pr2test.tools import address_exists
 from pr2test.context_manager import make_test_matrix
+from pr2test.tools import address_exists, interface_exists
+
 from pyroute2.ndb.transaction import (
-    Not,
     CheckProcess,
-    PingAddress,
     CheckProcessException,
+    Not,
+    PingAddress,
 )
 
 

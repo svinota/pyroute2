@@ -1,42 +1,37 @@
 import struct
-from socket import AF_ROUTE
-from socket import SOCK_RAW
-from socket import AF_INET
-from socket import AF_INET6
+from socket import AF_INET, AF_INET6, AF_ROUTE, SOCK_RAW
+
 from pr2modules import config
-from pr2modules.common import dqn2int
 from pr2modules.bsd.pf_route import (
     bsdmsg,
-    if_msg,
-    rt_msg,
     if_announcemsg,
-    ifma_msg,
+    if_msg,
     ifa_msg,
+    ifma_msg,
+    rt_msg,
 )
-
+from pr2modules.common import dqn2int
+from pr2modules.netlink.rtnl import RTM_DELADDR as RTNL_DELADDR
+from pr2modules.netlink.rtnl import RTM_DELLINK as RTNL_DELLINK
+from pr2modules.netlink.rtnl import RTM_DELROUTE as RTNL_DELROUTE
+from pr2modules.netlink.rtnl import RTM_NEWADDR as RTNL_NEWADDR
+from pr2modules.netlink.rtnl import RTM_NEWLINK as RTNL_NEWLINK
+from pr2modules.netlink.rtnl import RTM_NEWROUTE as RTNL_NEWROUTE
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
-from pr2modules.netlink.rtnl import (
-    RTM_NEWLINK as RTNL_NEWLINK,
-    RTM_DELLINK as RTNL_DELLINK,
-    RTM_NEWADDR as RTNL_NEWADDR,
-    RTM_DELADDR as RTNL_DELADDR,
-    RTM_NEWROUTE as RTNL_NEWROUTE,
-    RTM_DELROUTE as RTNL_DELROUTE,
-)
 
 if config.uname[0] == 'OpenBSD':
     from pr2modules.bsd.rtmsocket.openbsd import (
-        RTMSocketBase,
         RTM_ADD,
         RTM_NEWADDR,
+        RTMSocketBase,
     )
 else:
     from pr2modules.bsd.rtmsocket.freebsd import (
-        RTMSocketBase,
         RTM_ADD,
         RTM_NEWADDR,
+        RTMSocketBase,
     )
 
 

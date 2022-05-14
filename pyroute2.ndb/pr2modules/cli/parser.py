@@ -1,15 +1,16 @@
 import re
 import shlex
-from pr2modules.common import basestring
+
 from pr2modules.cli import (
-    t_stmt,
-    t_dict,
-    t_pipe,
     t_comma,
+    t_dict,
     t_end_of_dict,
     t_end_of_sentence,
     t_end_of_stream,
+    t_pipe,
+    t_stmt,
 )
+from pr2modules.common import basestring
 
 
 class Token(object):

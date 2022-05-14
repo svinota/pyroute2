@@ -1,24 +1,22 @@
+import errno
+import functools
+import getpass
+import logging
 import os
 import sys
 import uuid
-import errno
-import pytest
-import getpass
-import logging
-import functools
-from socket import AF_INET
-from socket import AF_INET6
 from collections import namedtuple
-from utils import allocate_network
-from utils import free_network
+from socket import AF_INET, AF_INET6
+
+import pytest
 from pr2modules import netns
-from pr2modules.ndb.main import NDB
-from pr2modules.nslink.nslink import NetNS
+from pr2modules.common import basestring, uifname
 from pr2modules.iproute.linux import IPRoute
-from pr2modules.netlink.generic.wireguard import WireGuard
+from pr2modules.ndb.main import NDB
 from pr2modules.netlink.exceptions import NetlinkError
-from pr2modules.common import uifname
-from pr2modules.common import basestring
+from pr2modules.netlink.generic.wireguard import WireGuard
+from pr2modules.nslink.nslink import NetNS
+from utils import allocate_network, free_network
 
 
 def skip_if_not_implemented(func):

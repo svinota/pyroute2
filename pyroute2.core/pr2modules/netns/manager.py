@@ -1,12 +1,11 @@
 import errno
+
 from pr2modules import netns
 from pr2modules.inotify.inotify_fd import Inotify
 from pr2modules.iproute.linux import IPRoute
-from pr2modules.netlink.rtnl import RTM_NEWNETNS
-from pr2modules.netlink.rtnl import RTM_DELNETNS
+from pr2modules.netlink.exceptions import NetlinkError, SkipInode
+from pr2modules.netlink.rtnl import RTM_DELNETNS, RTM_NEWNETNS
 from pr2modules.netlink.rtnl.nsinfmsg import nsinfmsg
-from pr2modules.netlink.exceptions import NetlinkError
-from pr2modules.netlink.exceptions import SkipInode
 
 
 class NetNSManager(Inotify):

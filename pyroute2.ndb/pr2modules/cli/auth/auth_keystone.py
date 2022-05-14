@@ -1,8 +1,9 @@
 import os
 import time
+
 from dateutil.parser import parse as isodate
-from keystoneauth1.identity import v3
 from keystoneauth1 import session
+from keystoneauth1.identity import v3
 from keystoneclient.v3 import client as ksclient
 from keystoneclient.v3.tokens import TokenManager
 

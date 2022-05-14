@@ -116,28 +116,23 @@ If you're using a PostgreSQL DB or a file based SQLite, simply drop
 all the tables from the DB, and NDB will create them from scratch
 on startup.
 '''
-import sys
-import json
-import time
 import enum
+import json
 import random
 import sqlite3
+import sys
 import threading
+import time
 import traceback
-from functools import partial
 from collections import OrderedDict
+from functools import partial
+
 from pr2modules import config
-from pr2modules.common import uuid32
-from pr2modules.common import basestring
-from .objects import address
-from .objects import interface
-from .objects import neighbour
-from .objects import netns
-from .objects import route
-from .objects import rule
+from pr2modules.common import basestring, uuid32
 
 #
 from .messages import cmsg
+from .objects import address, interface, neighbour, netns, route, rule
 
 try:
     import queue

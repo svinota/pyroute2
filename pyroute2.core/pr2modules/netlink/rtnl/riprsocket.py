@@ -1,5 +1,4 @@
-from pr2modules.netlink import rtnl
-from pr2modules.netlink import NETLINK_ROUTE
+from pr2modules.netlink import NETLINK_ROUTE, rtnl
 from pr2modules.netlink.nlsocket import NetlinkSocket
 from pr2modules.netlink.rtnl.marshal import MarshalRtnl
 

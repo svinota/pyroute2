@@ -1,4 +1,5 @@
 import pytest
+
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
 

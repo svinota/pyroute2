@@ -1,7 +1,5 @@
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink import NETLINK_KOBJECT_UEVENT
-from pr2modules.netlink.nlsocket import Marshal
-from pr2modules.netlink.nlsocket import NetlinkSocket
+from pr2modules.netlink import NETLINK_KOBJECT_UEVENT, nlmsg
+from pr2modules.netlink.nlsocket import Marshal, NetlinkSocket
 
 
 class ueventmsg(nlmsg):

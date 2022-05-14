@@ -1,8 +1,6 @@
-from socket import inet_pton
-from socket import inet_ntop
-from socket import AF_INET
-from pr2modules.dhcp import dhcpmsg
-from pr2modules.dhcp import option
+from socket import AF_INET, inet_ntop, inet_pton
+
+from pr2modules.dhcp import dhcpmsg, option
 
 
 class dhcp4msg(dhcpmsg):

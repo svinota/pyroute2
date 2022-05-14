@@ -1,5 +1,6 @@
-from pr2modules.netlink import nla
 from struct import pack, unpack
+
+from pr2modules.netlink import nla
 
 TCF_EM_OPND_EQ = 0
 TCF_EM_OPND_GT = 1

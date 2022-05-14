@@ -1,8 +1,10 @@
 from pr2modules.netlink import nla
 from pr2modules.netlink.rtnl import TC_H_ROOT
-from pr2modules.netlink.rtnl.tcmsg.common import time2tick
-from pr2modules.netlink.rtnl.tcmsg.common import percent2u32
-from pr2modules.netlink.rtnl.tcmsg.common import get_rate
+from pr2modules.netlink.rtnl.tcmsg.common import (
+    get_rate,
+    percent2u32,
+    time2tick,
+)
 
 parent = TC_H_ROOT
 

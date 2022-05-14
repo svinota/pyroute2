@@ -1,6 +1,4 @@
-from pr2test.tools import interface_exists
-from pr2test.tools import address_exists
-from pr2test.tools import route_exists
+from pr2test.tools import address_exists, interface_exists, route_exists
 
 
 def test_cm_interface_create(context):

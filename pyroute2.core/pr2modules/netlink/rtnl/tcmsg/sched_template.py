@@ -5,9 +5,9 @@ registered in `__init__.py`, see the `plugins` dict.
 All the methods, variables and classes are optional,
 but the naming scheme is fixed.
 '''
-from pr2modules.netlink.rtnl.tcmsg import common
 from pr2modules.netlink import nla
 from pr2modules.netlink.rtnl import TC_H_ROOT
+from pr2modules.netlink.rtnl.tcmsg import common
 
 # if you define the `parent` variable, it will be used
 # as the default parent value if no other value is

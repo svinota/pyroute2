@@ -1,7 +1,8 @@
+import sqlite3
 import sys
 import uuid
+
 import pytest
-import sqlite3
 
 
 @pytest.mark.skipif(

@@ -43,42 +43,38 @@ On all the supported platforms, be it Linux or BSD, the
 `IPRoute.recv(...)` method returns valid netlink RTNL raw binary
 payload and `IPRoute.get(...)` returns parsed RTNL messages.
 '''
-import os
 import errno
-import struct
+import os
 import select
+import struct
 import threading
 
 from pr2modules import config
+from pr2modules.bsd.pf_route import IFF_VALUES
+from pr2modules.bsd.rtmsocket import RTMSocket
+from pr2modules.bsd.util import ARP, Ifconfig, Route
+from pr2modules.common import AddrPool, Namespace
 from pr2modules.netlink import (
-    NLM_F_REQUEST,
     NLM_F_DUMP,
     NLM_F_MULTI,
+    NLM_F_REQUEST,
     NLMSG_DONE,
 )
-
 from pr2modules.netlink.rtnl import (
-    RTM_NEWLINK,
-    RTM_GETLINK,
-    RTM_NEWADDR,
     RTM_GETADDR,
-    RTM_NEWROUTE,
-    RTM_GETROUTE,
-    RTM_NEWNEIGH,
+    RTM_GETLINK,
     RTM_GETNEIGH,
+    RTM_GETROUTE,
+    RTM_NEWADDR,
+    RTM_NEWLINK,
+    RTM_NEWNEIGH,
+    RTM_NEWROUTE,
 )
-
-from pr2modules.bsd.rtmsocket import RTMSocket
-from pr2modules.bsd.pf_route import IFF_VALUES
-from pr2modules.netlink.rtnl.ifinfmsg import IFF_NAMES
-from pr2modules.bsd.util import ARP, Route, Ifconfig
-from pr2modules.netlink.rtnl.marshal import MarshalRtnl
-from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pr2modules.netlink.rtnl.ifinfmsg import IFF_NAMES, ifinfmsg
+from pr2modules.netlink.rtnl.marshal import MarshalRtnl
 from pr2modules.netlink.rtnl.ndmsg import ndmsg
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
-from pr2modules.common import AddrPool
-from pr2modules.common import Namespace
 from pr2modules.proxy import NetlinkProxy
 
 try:

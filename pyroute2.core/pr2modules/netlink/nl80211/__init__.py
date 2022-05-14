@@ -4,14 +4,13 @@ NL80211 module
 
 TODO
 '''
-import struct
 import datetime
+import struct
+
 from pr2modules.common import map_namespace
-from pr2modules.netlink import genlmsg
+from pr2modules.netlink import genlmsg, nla, nla_base
 from pr2modules.netlink.generic import GenericNetlinkSocket
 from pr2modules.netlink.nlsocket import Marshal
-from pr2modules.netlink import nla
-from pr2modules.netlink import nla_base
 
 # nl80211 commands
 

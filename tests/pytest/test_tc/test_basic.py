@@ -1,6 +1,6 @@
 import pytest
-from pr2test.tools import qdisc_exists
 from pr2test.context_manager import make_test_matrix
+from pr2test.tools import qdisc_exists
 
 test_matrix = make_test_matrix(targets=['local', 'netns'])
 

@@ -1,5 +1,5 @@
-import time
 import threading
+import time
 
 
 class SyncStart(Exception):

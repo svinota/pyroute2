@@ -1,7 +1,8 @@
 import pytest
-from pyroute2 import NetlinkError
 from pr2modules.netlink.rtnl.ifinfmsg import IFF_NOARP
 from pr2test.context_manager import make_test_matrix
+
+from pyroute2 import NetlinkError
 
 test_matrix = make_test_matrix(targets=['local', 'netns'])
 

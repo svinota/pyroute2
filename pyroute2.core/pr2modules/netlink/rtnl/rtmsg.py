@@ -1,15 +1,8 @@
 import struct
-from socket import inet_ntop
-from socket import inet_pton
-from socket import AF_UNSPEC
-from socket import AF_INET
-from socket import AF_INET6
-from pr2modules.common import AF_MPLS
-from pr2modules.common import hexdump
-from pr2modules.common import map_namespace
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink import nla
-from pr2modules.netlink import nla_string
+from socket import AF_INET, AF_INET6, AF_UNSPEC, inet_ntop, inet_pton
+
+from pr2modules.common import AF_MPLS, hexdump, map_namespace
+from pr2modules.netlink import nla, nla_string, nlmsg
 
 RTNH_F_DEAD = 1
 RTNH_F_PERVASIVE = 2

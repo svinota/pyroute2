@@ -1,6 +1,8 @@
 from pr2modules.netlink.rtnl import TC_H_ROOT
-from pr2modules.netlink.rtnl.tcmsg.common import get_rate_parameters
-from pr2modules.netlink.rtnl.tcmsg.common import nla_plus_rtab
+from pr2modules.netlink.rtnl.tcmsg.common import (
+    get_rate_parameters,
+    nla_plus_rtab,
+)
 
 parent = TC_H_ROOT
 

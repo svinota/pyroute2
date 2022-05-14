@@ -1,11 +1,9 @@
 import random
-import pytest
-from pr2test.tools import route_exists
-from pr2test.tools import address_exists
-from pr2test.tools import interface_exists
-from pr2test.context_manager import make_test_matrix
-from pr2modules.netlink.rtnl.rtmsg import rtmsg
 
+import pytest
+from pr2modules.netlink.rtnl.rtmsg import rtmsg
+from pr2test.context_manager import make_test_matrix
+from pr2test.tools import address_exists, interface_exists, route_exists
 
 test_matrix_scopes = make_test_matrix(
     targets=['local', 'netns'],

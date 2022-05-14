@@ -10,34 +10,30 @@ extending the functionality, you're welcome to propose PRs.
     Using pyroute2 on Windows requires installing `win_inet_pton` module,
     you can use `pip install win_inet_pton`.
 '''
-import os
 import ctypes
+import os
 from socket import AF_INET
 
+from pr2modules.common import AddrPool, Namespace, dqn2int
 from pr2modules.netlink import (
-    NLM_F_REQUEST,
     NLM_F_DUMP,
     NLM_F_MULTI,
+    NLM_F_REQUEST,
     NLMSG_DONE,
 )
-
 from pr2modules.netlink.rtnl import (
-    RTM_NEWLINK,
-    RTM_GETLINK,
-    RTM_NEWADDR,
     RTM_GETADDR,
-    RTM_NEWROUTE,
-    RTM_GETROUTE,
-    RTM_NEWNEIGH,
+    RTM_GETLINK,
     RTM_GETNEIGH,
+    RTM_GETROUTE,
+    RTM_NEWADDR,
+    RTM_NEWLINK,
+    RTM_NEWNEIGH,
+    RTM_NEWROUTE,
 )
-
-from pr2modules.netlink.rtnl.marshal import MarshalRtnl
-from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
-from pr2modules.common import AddrPool
-from pr2modules.common import Namespace
-from pr2modules.common import dqn2int
+from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
+from pr2modules.netlink.rtnl.marshal import MarshalRtnl
 from pr2modules.proxy import NetlinkProxy
 
 MAX_ADAPTER_NAME_LENGTH = 256

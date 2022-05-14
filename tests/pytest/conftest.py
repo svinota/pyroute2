@@ -1,11 +1,12 @@
 import errno
+from uuid import uuid4
+
 import pytest
-from pr2test.context_manager import SpecContextManager
-from pr2test.context_manager import NDBContextManager
+from pr2test.context_manager import NDBContextManager, SpecContextManager
+from utils import require_user
+
 from pyroute2.ipset import IPSet, IPSetError
 from pyroute2.wiset import COUNT
-from utils import require_user
-from uuid import uuid4
 
 
 @pytest.fixture

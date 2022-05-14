@@ -1,19 +1,16 @@
 import struct
-from ctypes import Structure
-from ctypes import addressof
-from ctypes import string_at
-from ctypes import sizeof
-from ctypes import c_ushort
-from ctypes import c_ubyte
-from ctypes import c_uint
-from ctypes import c_void_p
-from socket import socket
-from socket import htons
-from socket import AF_PACKET
-from socket import SOCK_RAW
-from socket import SOL_SOCKET
-from socket import error
-from socket import errno
+from ctypes import (
+    Structure,
+    addressof,
+    c_ubyte,
+    c_uint,
+    c_ushort,
+    c_void_p,
+    sizeof,
+    string_at,
+)
+from socket import AF_PACKET, SOCK_RAW, SOL_SOCKET, errno, error, htons, socket
+
 from pr2modules.iproute.linux import IPRoute
 
 ETH_P_ALL = 3

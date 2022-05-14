@@ -1,8 +1,8 @@
-import socket
-import signal
-import platform
 import multiprocessing
+import platform
 import re
+import signal
+import socket
 
 kernel_version_re = re.compile('^[0-9.]+')
 

@@ -1,5 +1,7 @@
-import pytest
 import sqlite3
+
+import pytest
+
 from pyroute2 import NDB
 
 try:

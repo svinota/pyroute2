@@ -15,7 +15,6 @@ Netfilter protocol for NFQUEUE iptables target.
 
 from pr2modules.netlink import nlmsg
 
-
 NFNL_SUBSYS_NONE = 0
 NFNL_SUBSYS_CTNETLINK = 1
 NFNL_SUBSYS_CTNETLINK_EXP = 2

@@ -10,55 +10,60 @@ rename, swap, test...)
 '''
 import errno
 import socket
+
 from pr2modules.common import basestring
-from pr2modules.netlink import NLMSG_ERROR
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import NLM_F_DUMP
-from pr2modules.netlink import NLM_F_ACK
-from pr2modules.netlink import NLM_F_EXCL
-from pr2modules.netlink import NETLINK_NETFILTER
-from pr2modules.netlink.exceptions import NetlinkError, IPSetError
-from pr2modules.netlink.nlsocket import NetlinkSocket
+from pr2modules.netlink import (
+    NETLINK_NETFILTER,
+    NLM_F_ACK,
+    NLM_F_DUMP,
+    NLM_F_EXCL,
+    NLM_F_REQUEST,
+    NLMSG_ERROR,
+)
+from pr2modules.netlink.exceptions import IPSetError, NetlinkError
 from pr2modules.netlink.nfnetlink import NFNL_SUBSYS_IPSET
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_PROTOCOL
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_CREATE
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_DESTROY
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_SWAP
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_LIST
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_ADD
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_DEL
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_FLUSH
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_RENAME
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_TEST
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_TYPE
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_HEADER
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_GET_BYNAME
-from pr2modules.netlink.nfnetlink.ipset import IPSET_CMD_GET_BYINDEX
-from pr2modules.netlink.nfnetlink.ipset import ipset_msg
-from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
-from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
-from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
-from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
-from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_IFACE_WILDCARD
-from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_PHYSDEV
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_PROTOCOL
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_FIND_TYPE
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_MAX_SETS
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_BUSY
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_EXIST_SETNAME2
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_TYPE_MISMATCH
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_EXIST
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_INVALID_CIDR
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_INVALID_NETMASK
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_INVALID_FAMILY
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_TIMEOUT
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_REFERENCED
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_IPADDR_IPV4
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_IPADDR_IPV6
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_COUNTER
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_COMMENT
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_INVALID_MARKMASK
-from pr2modules.netlink.nfnetlink.ipset import IPSET_ERR_SKBINFO
+from pr2modules.netlink.nfnetlink.ipset import (
+    IPSET_CMD_ADD,
+    IPSET_CMD_CREATE,
+    IPSET_CMD_DEL,
+    IPSET_CMD_DESTROY,
+    IPSET_CMD_FLUSH,
+    IPSET_CMD_GET_BYINDEX,
+    IPSET_CMD_GET_BYNAME,
+    IPSET_CMD_HEADER,
+    IPSET_CMD_LIST,
+    IPSET_CMD_PROTOCOL,
+    IPSET_CMD_RENAME,
+    IPSET_CMD_SWAP,
+    IPSET_CMD_TEST,
+    IPSET_CMD_TYPE,
+    IPSET_ERR_BUSY,
+    IPSET_ERR_COMMENT,
+    IPSET_ERR_COUNTER,
+    IPSET_ERR_EXIST,
+    IPSET_ERR_EXIST_SETNAME2,
+    IPSET_ERR_FIND_TYPE,
+    IPSET_ERR_INVALID_CIDR,
+    IPSET_ERR_INVALID_FAMILY,
+    IPSET_ERR_INVALID_MARKMASK,
+    IPSET_ERR_INVALID_NETMASK,
+    IPSET_ERR_IPADDR_IPV4,
+    IPSET_ERR_IPADDR_IPV6,
+    IPSET_ERR_MAX_SETS,
+    IPSET_ERR_PROTOCOL,
+    IPSET_ERR_REFERENCED,
+    IPSET_ERR_SKBINFO,
+    IPSET_ERR_TIMEOUT,
+    IPSET_ERR_TYPE_MISMATCH,
+    IPSET_FLAG_IFACE_WILDCARD,
+    IPSET_FLAG_PHYSDEV,
+    IPSET_FLAG_WITH_COMMENT,
+    IPSET_FLAG_WITH_COUNTERS,
+    IPSET_FLAG_WITH_FORCEADD,
+    IPSET_FLAG_WITH_SKBINFO,
+    ipset_msg,
+)
+from pr2modules.netlink.nlsocket import NetlinkSocket
 
 
 def _nlmsg_error(msg):

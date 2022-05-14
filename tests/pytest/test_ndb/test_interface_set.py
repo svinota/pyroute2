@@ -1,6 +1,6 @@
 import pytest
-from pr2test.tools import interface_exists
 from pr2test.context_manager import make_test_matrix
+from pr2test.tools import interface_exists
 
 tnl_matrix = make_test_matrix(
     targets=['local', 'netns'],

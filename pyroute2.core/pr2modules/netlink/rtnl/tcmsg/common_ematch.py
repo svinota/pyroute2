@@ -1,6 +1,4 @@
-from pr2modules.netlink.rtnl.tcmsg import em_cmp
-from pr2modules.netlink.rtnl.tcmsg import em_ipset
-from pr2modules.netlink.rtnl.tcmsg import em_meta
+from pr2modules.netlink.rtnl.tcmsg import em_cmp, em_ipset, em_meta
 
 plugins = {
     # 0: em_container,

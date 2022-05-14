@@ -2,8 +2,8 @@
 TODO: add THERMAL_GENL_ATTR_EVENT structure
 '''
 from pr2modules.netlink import genlmsg
-from pr2modules.netlink.nlsocket import Marshal
 from pr2modules.netlink.event import EventSocket
+from pr2modules.netlink.nlsocket import Marshal
 
 THERMAL_GENL_CMD_UNSPEC = 0
 THERMAL_GENL_CMD_EVENT = 1

@@ -1,37 +1,36 @@
-import pytest
 import select
 
-# IPRSocket
-from pyroute2 import IPRSocket as IPRSocket0
-from pr2modules.netlink.rtnl.iprsocket import IPRSocket as IPRSocket1
-from pyroute2.netlink.rtnl.iprsocket import IPRSocket as IPRSocket2
-
-# IPRoute
-from pyroute2 import IPRoute as IPRoute0
+import pytest
 from pr2modules.iproute import IPRoute as IPRoute1
-from pyroute2.iproute import IPRoute as IPRoute2
-
-# NetlinkError, NetlinkDecodeError
-from pyroute2 import NetlinkError as NetlinkError0
-from pyroute2 import NetlinkDecodeError as NetlinkDecodeError0
-from pyroute2.netlink import NetlinkError as NetlinkError1
-from pyroute2.netlink import NetlinkDecodeError as NetlinkDecodeError1
-
-# flags
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import NLM_F_DUMP
-from pyroute2.netlink import NLM_F_ROOT
-from pyroute2.netlink import NLM_F_MATCH
-from pyroute2.netlink import NLMSG_DONE
-from pyroute2.netlink import NLMSG_ERROR
-from pyroute2.iproute import RTM_GETLINK
-from pyroute2.iproute import RTM_NEWLINK
-
-# nlmsg
-from pyroute2.netlink import nlmsg
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
+from pr2modules.netlink.rtnl.iprsocket import IPRSocket as IPRSocket1
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
+
+# NetlinkError, NetlinkDecodeError
+# IPRoute
+# IPRSocket
+from pyroute2 import IPRoute as IPRoute0
+from pyroute2 import IPRSocket as IPRSocket0
+from pyroute2 import NetlinkDecodeError as NetlinkDecodeError0
+from pyroute2 import NetlinkError as NetlinkError0
+from pyroute2.iproute import RTM_GETLINK, RTM_NEWLINK
+from pyroute2.iproute import IPRoute as IPRoute2
+
+# nlmsg
+# flags
+from pyroute2.netlink import (
+    NLM_F_DUMP,
+    NLM_F_MATCH,
+    NLM_F_REQUEST,
+    NLM_F_ROOT,
+    NLMSG_DONE,
+    NLMSG_ERROR,
+)
+from pyroute2.netlink import NetlinkDecodeError as NetlinkDecodeError1
+from pyroute2.netlink import NetlinkError as NetlinkError1
+from pyroute2.netlink import nlmsg
+from pyroute2.netlink.rtnl.iprsocket import IPRSocket as IPRSocket2
 
 
 def test_exceptions_compat():

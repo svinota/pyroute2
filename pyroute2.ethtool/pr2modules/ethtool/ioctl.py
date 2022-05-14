@@ -1,7 +1,8 @@
 import ctypes
-import socket
-import fcntl
 import errno
+import fcntl
+import socket
+
 from pr2modules.ethtool.common import LinkModeBits
 
 # ethtool/ethtool-copy.h

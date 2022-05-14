@@ -65,23 +65,21 @@ NOTES:
 
 
 import errno
-import struct
 import logging
-from base64 import b64decode
-from base64 import b64encode
+import struct
+from base64 import b64decode, b64encode
 from binascii import a2b_hex
-from socket import AF_INET
-from socket import AF_INET6
-from socket import inet_ntop
-from socket import inet_pton
+from socket import AF_INET, AF_INET6, inet_ntop, inet_pton
 from time import ctime
 
-from pr2modules.netlink import NLA_F_NESTED
-from pr2modules.netlink import NLM_F_ACK
-from pr2modules.netlink import NLM_F_DUMP
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import genlmsg
-from pr2modules.netlink import nla
+from pr2modules.netlink import (
+    NLA_F_NESTED,
+    NLM_F_ACK,
+    NLM_F_DUMP,
+    NLM_F_REQUEST,
+    genlmsg,
+    nla,
+)
 from pr2modules.netlink.generic import GenericNetlinkSocket
 
 # Defines from uapi/wireguard.h

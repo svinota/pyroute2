@@ -19,13 +19,10 @@ HFSC curve nla types:
 * `fsc`: link-share curve
 * `usc`: upper-limit curve
 '''
-from pr2modules.netlink.rtnl.tcmsg.common import stats2 as c_stats2
-from pr2modules.netlink.rtnl.tcmsg.common import get_rate
-from pr2modules.netlink.rtnl.tcmsg.common import get_time
 from pr2modules.netlink import nla
-from pr2modules.netlink.rtnl import RTM_NEWQDISC
-from pr2modules.netlink.rtnl import RTM_DELQDISC
-from pr2modules.netlink.rtnl import TC_H_ROOT
+from pr2modules.netlink.rtnl import RTM_DELQDISC, RTM_NEWQDISC, TC_H_ROOT
+from pr2modules.netlink.rtnl.tcmsg.common import get_rate, get_time
+from pr2modules.netlink.rtnl.tcmsg.common import stats2 as c_stats2
 
 parent = TC_H_ROOT
 

@@ -1,13 +1,14 @@
 from pr2modules.netlink import nla
-from pr2modules.netlink.rtnl.tcmsg.common import stats2
-from pr2modules.netlink.rtnl.tcmsg.common import TCA_ACT_MAX_PRIO
-from pr2modules.netlink.rtnl.tcmsg import act_gact
-from pr2modules.netlink.rtnl.tcmsg import act_bpf
-from pr2modules.netlink.rtnl.tcmsg import act_police
-from pr2modules.netlink.rtnl.tcmsg import act_mirred
-from pr2modules.netlink.rtnl.tcmsg import act_connmark
-from pr2modules.netlink.rtnl.tcmsg import act_vlan
-from pr2modules.netlink.rtnl.tcmsg import act_skbedit
+from pr2modules.netlink.rtnl.tcmsg import (
+    act_bpf,
+    act_connmark,
+    act_gact,
+    act_mirred,
+    act_police,
+    act_skbedit,
+    act_vlan,
+)
+from pr2modules.netlink.rtnl.tcmsg.common import TCA_ACT_MAX_PRIO, stats2
 
 plugins = {
     'gact': act_gact,

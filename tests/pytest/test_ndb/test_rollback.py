@@ -1,9 +1,6 @@
 import pytest
-from pr2test.tools import interface_exists
-from pr2test.tools import address_exists
-from pr2test.tools import route_exists
 from pr2test.context_manager import make_test_matrix
-
+from pr2test.tools import address_exists, interface_exists, route_exists
 
 test_matrix = make_test_matrix(
     targets=['local', 'netns'], dbs=['sqlite3/:memory:', 'postgres/pr2test']

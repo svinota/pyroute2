@@ -5,7 +5,8 @@ See EXPRESSIONS in nft(8).
 """
 
 from socket import AF_INET, AF_INET6
-from pyroute2.nftables.parser.parser import nfta_nla_parser, conv_map_tuple
+
+from pyroute2.nftables.parser.parser import conv_map_tuple, nfta_nla_parser
 
 
 class NFTReg(object):

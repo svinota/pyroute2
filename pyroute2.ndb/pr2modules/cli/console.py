@@ -1,9 +1,10 @@
-import sys
 import code
-import socket
 import getpass
-from pr2modules.ndb.main import NDB
+import socket
+import sys
+
 from pr2modules.cli.session import Session
+from pr2modules.ndb.main import NDB
 
 try:
     import readline

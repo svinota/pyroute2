@@ -1,5 +1,6 @@
-from pyroute2 import MPTCP
 from pr2test.context_manager import skip_if_not_supported
+
+from pyroute2 import MPTCP
 
 
 def get_endpoints(mptcp):

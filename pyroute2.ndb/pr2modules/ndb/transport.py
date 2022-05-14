@@ -1,9 +1,9 @@
-import time
-import uuid
-import socket
 import pickle
 import select
+import socket
 import struct
+import time
+import uuid
 
 
 class IdCache(dict):

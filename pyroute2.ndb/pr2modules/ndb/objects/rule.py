@@ -1,8 +1,9 @@
 from collections import OrderedDict
+
 from pr2modules.common import get_address_family
 from pr2modules.netlink.rtnl.fibmsg import fibmsg
-from ..objects import RTNL_Object
 
+from ..objects import RTNL_Object
 
 schema = fibmsg.sql_schema().unique_index(
     'family',

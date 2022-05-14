@@ -1,17 +1,15 @@
+from socket import AF_INET, AF_INET6, AF_UNIX, IPPROTO_TCP, inet_ntop
 from struct import pack
-from socket import inet_ntop
-from socket import AF_UNIX
-from socket import AF_INET
-from socket import AF_INET6
-from socket import IPPROTO_TCP
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink import nla
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import NLM_F_ROOT
-from pr2modules.netlink import NLM_F_MATCH
-from pr2modules.netlink import NETLINK_SOCK_DIAG
-from pr2modules.netlink.nlsocket import Marshal
-from pr2modules.netlink.nlsocket import NetlinkSocket
+
+from pr2modules.netlink import (
+    NETLINK_SOCK_DIAG,
+    NLM_F_MATCH,
+    NLM_F_REQUEST,
+    NLM_F_ROOT,
+    nla,
+    nlmsg,
+)
+from pr2modules.netlink.nlsocket import Marshal, NetlinkSocket
 
 SOCK_DIAG_BY_FAMILY = 20
 SOCK_DESTROY = 21

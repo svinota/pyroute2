@@ -2,17 +2,17 @@
 '''
 Common utilities
 '''
-import io
-import re
-import os
-import time
-import sys
 import errno
-import types
-import struct
-import socket
+import io
 import logging
+import os
+import re
+import socket
+import struct
+import sys
 import threading
+import time
+import types
 
 log = logging.getLogger(__name__)
 

@@ -1,5 +1,7 @@
-from pr2modules.netlink.rtnl.tcmsg.common import nla_plus_rtab
-from pr2modules.netlink.rtnl.tcmsg.common import get_rate_parameters
+from pr2modules.netlink.rtnl.tcmsg.common import (
+    get_rate_parameters,
+    nla_plus_rtab,
+)
 
 actions = {
     'unspec': -1,  # TC_POLICE_UNSPEC

@@ -5,20 +5,20 @@ See also: pr2modules.nftables
 """
 
 import threading
+
 from pr2modules.netlink import (
-    NLM_F_REQUEST,
+    NETLINK_NETFILTER,
     NLM_F_ACK,
-    NLM_F_CREATE,
     NLM_F_APPEND,
+    NLM_F_CREATE,
+    NLM_F_DUMP,
     NLM_F_EXCL,
     NLM_F_REPLACE,
+    NLM_F_REQUEST,
+    nla,
 )
-from pr2modules.netlink import NLM_F_DUMP
-from pr2modules.netlink import NETLINK_NETFILTER
-from pr2modules.netlink import nla
+from pr2modules.netlink.nfnetlink import NFNL_SUBSYS_NFTABLES, nfgen_msg
 from pr2modules.netlink.nlsocket import NetlinkSocket
-from pr2modules.netlink.nfnetlink import nfgen_msg
-from pr2modules.netlink.nfnetlink import NFNL_SUBSYS_NFTABLES
 
 NFT_MSG_NEWTABLE = 0
 NFT_MSG_GETTABLE = 1

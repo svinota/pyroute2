@@ -2,10 +2,11 @@
 Platform tests to discover the system capabilities.
 '''
 import os
-import sys
 import select
 import struct
+import sys
 import threading
+
 from pr2modules import config
 from pr2modules.common import uifname
 from pr2modules.iproute.linux import RawIPRoute

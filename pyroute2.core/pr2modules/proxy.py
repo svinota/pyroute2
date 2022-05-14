@@ -2,10 +2,11 @@
 Netlink proxy engine
 '''
 import errno
-import struct
 import logging
-import traceback
+import struct
 import threading
+import traceback
+
 from pr2modules.netlink.exceptions import NetlinkError
 
 log = logging.getLogger(__name__)

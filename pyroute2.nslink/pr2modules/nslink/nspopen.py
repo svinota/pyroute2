@@ -8,16 +8,16 @@ namespace support.
 
 '''
 
-import sys
-import fcntl
-import types
 import atexit
-import threading
+import fcntl
 import subprocess
+import sys
+import threading
+import types
+
 from pr2modules import config
+from pr2modules.common import file, metaclass
 from pr2modules.netns import setns
-from pr2modules.common import file
-from pr2modules.common import metaclass
 
 
 def _handle(result):

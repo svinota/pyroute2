@@ -183,11 +183,11 @@ API
 ---
 
 '''
+import logging
 import shlex
 import shutil
-import logging
-import threading
 import subprocess
+import threading
 
 global_log = logging.getLogger(__name__)
 

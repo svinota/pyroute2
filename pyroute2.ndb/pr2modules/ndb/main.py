@@ -215,47 +215,44 @@ Change an interface property::
     #            the context manager's __exit__()
 
 '''
-import gc
-import sys
-import time
-import errno
 import atexit
-import logging
-import logging.handlers
-import threading
-import traceback
 import ctypes
 import ctypes.util
-from functools import partial
+import errno
+import gc
+import logging
+import logging.handlers
+import sys
+import threading
+import time
+import traceback
 from collections import OrderedDict
-from pr2modules import config
-from pr2modules import cli
+from functools import partial
+
+from pr2modules import cli, config
 from pr2modules.common import basestring
 from pr2modules.netlink import nlmsg_base
 
 ##
 # NDB stuff
 from . import schema
+from .auth_manager import AuthManager, check_auth
 from .events import (
     DBMExitException,
-    ShutdownException,
     InvalidateHandlerException,
     RescheduleException,
+    ShutdownException,
 )
 from .messages import cmsg, cmsg_event, cmsg_failed, cmsg_sstart
-from .source import Source, SourceProxy
-from .auth_manager import check_auth
-from .auth_manager import AuthManager
 from .objects import RSLV_DELETE
-from .objects.interface import Interface
-from .objects.interface import Vlan
 from .objects.address import Address
-from .objects.route import Route
-from .objects.neighbour import Neighbour
-from .objects.neighbour import FDBRecord
-from .objects.rule import Rule
+from .objects.interface import Interface, Vlan
+from .objects.neighbour import FDBRecord, Neighbour
 from .objects.netns import NetNS
-from .report import RecordSet, Record
+from .objects.route import Route
+from .objects.rule import Rule
+from .report import Record, RecordSet
+from .source import Source, SourceProxy
 from .transaction import Transaction
 
 try:

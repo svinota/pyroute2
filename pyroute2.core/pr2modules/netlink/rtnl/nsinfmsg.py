@@ -1,5 +1,4 @@
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink import nlmsg_atoms
+from pr2modules.netlink import nlmsg, nlmsg_atoms
 
 
 class nsinfmsg(nlmsg):

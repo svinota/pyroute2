@@ -2,20 +2,20 @@
 '''
 from pr2modules.netlink.nfnetlink import nfgen_msg
 from pr2modules.netlink.nfnetlink.nftsocket import (
+    NFT_MSG_DELCHAIN,
+    NFT_MSG_DELRULE,
+    NFT_MSG_DELTABLE,
+    NFT_MSG_GETCHAIN,
+    NFT_MSG_GETRULE,
+    NFT_MSG_GETSET,
+    NFT_MSG_GETTABLE,
+    NFT_MSG_NEWCHAIN,
+    NFT_MSG_NEWRULE,
+    NFT_MSG_NEWTABLE,
     NFTSocket,
-    nft_table_msg,
     nft_chain_msg,
     nft_rule_msg,
-    NFT_MSG_NEWTABLE,
-    NFT_MSG_GETTABLE,
-    NFT_MSG_DELTABLE,
-    NFT_MSG_NEWCHAIN,
-    NFT_MSG_GETCHAIN,
-    NFT_MSG_DELCHAIN,
-    NFT_MSG_NEWRULE,
-    NFT_MSG_GETRULE,
-    NFT_MSG_DELRULE,
-    NFT_MSG_GETSET,
+    nft_table_msg,
 )
 
 

@@ -1,33 +1,31 @@
-import time
-import types
-import struct
 import logging
-import traceback
+import struct
 import threading
+import time
+import traceback
+import types
 from collections import namedtuple
-from socket import AF_UNSPEC
-from socket import AF_INET6
-from socket import AF_INET
-from socket import inet_pton
-from socket import inet_ntop
-from pr2modules.common import AF_MPLS
-from pr2modules.common import basestring
-from pr2modules.netlink import rtnl
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink import nlmsg_base
-from pr2modules.netlink import NLM_F_MULTI
-from pr2modules.netlink import NLM_F_CREATE
-from pr2modules.netlink.rtnl import rt_type
-from pr2modules.netlink.rtnl import rt_proto
-from pr2modules.netlink.rtnl import encap_type
-from pr2modules.netlink.rtnl.rtmsg import rtmsg
-from pr2modules.iproute.req import IPRouteRequest
-from pr2modules.netlink.rtnl.ifaddrmsg import IFA_F_SECONDARY
+from socket import AF_INET, AF_INET6, AF_UNSPEC, inet_ntop, inet_pton
+
+from pr2modules.common import AF_MPLS, basestring
 from pr2modules.ipdb.exceptions import CommitException
-from pr2modules.ipdb.transactional import Transactional
-from pr2modules.ipdb.transactional import with_transaction
-from pr2modules.ipdb.transactional import SYNC_TIMEOUT
 from pr2modules.ipdb.linkedset import LinkedSet
+from pr2modules.ipdb.transactional import (
+    SYNC_TIMEOUT,
+    Transactional,
+    with_transaction,
+)
+from pr2modules.iproute.req import IPRouteRequest
+from pr2modules.netlink import (
+    NLM_F_CREATE,
+    NLM_F_MULTI,
+    nlmsg,
+    nlmsg_base,
+    rtnl,
+)
+from pr2modules.netlink.rtnl import encap_type, rt_proto, rt_type
+from pr2modules.netlink.rtnl.ifaddrmsg import IFA_F_SECONDARY
+from pr2modules.netlink.rtnl.rtmsg import rtmsg
 
 log = logging.getLogger(__name__)
 groups = (

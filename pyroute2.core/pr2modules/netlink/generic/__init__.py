@@ -7,13 +7,16 @@ Describe
 '''
 import errno
 import logging
-from pr2modules.netlink import CTRL_CMD_GETFAMILY
-from pr2modules.netlink import GENL_ID_CTRL
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import SOL_NETLINK
-from pr2modules.netlink import NETLINK_ADD_MEMBERSHIP
-from pr2modules.netlink import NETLINK_DROP_MEMBERSHIP
-from pr2modules.netlink import ctrlmsg
+
+from pr2modules.netlink import (
+    CTRL_CMD_GETFAMILY,
+    GENL_ID_CTRL,
+    NETLINK_ADD_MEMBERSHIP,
+    NETLINK_DROP_MEMBERSHIP,
+    NLM_F_REQUEST,
+    SOL_NETLINK,
+    ctrlmsg,
+)
 from pr2modules.netlink.nlsocket import NetlinkSocket
 
 

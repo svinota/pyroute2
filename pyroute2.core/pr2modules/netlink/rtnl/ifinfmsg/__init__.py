@@ -1,36 +1,32 @@
-import os
-import sys
-import struct
-import pkgutil
-import logging
 import importlib
-from socket import AF_INET
-from socket import AF_INET6
+import logging
+import os
+import pkgutil
+import struct
+import sys
+from socket import AF_INET, AF_INET6
+
 from pr2modules import config
+from pr2modules.common import basestring, map_namespace
 from pr2modules.config import AF_BRIDGE
-from pr2modules.common import map_namespace
-from pr2modules.common import basestring
-from pr2modules.netlink import nla
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink import nlmsg_atoms
-from pr2modules.netlink import NLA_F_NESTED
-from pr2modules.netlink.rtnl.iw_event import iw_event
+from pr2modules.netlink import NLA_F_NESTED, nla, nlmsg, nlmsg_atoms
 from pr2modules.netlink.rtnl.ifinfmsg.plugins import (
     bond,
     geneve,
     gtp,
+    ipoib,
     ipvlan,
     team,
-    tuntap,
     tun,
+    tuntap,
     vlan,
     vrf,
     vti,
     vti6,
     vxlan,
     xfrm,
-    ipoib,
 )
+from pr2modules.netlink.rtnl.iw_event import iw_event
 
 log = logging.getLogger(__name__)
 

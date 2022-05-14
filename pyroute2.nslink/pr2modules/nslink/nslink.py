@@ -64,18 +64,17 @@ run `remove()`.
 
 '''
 
-import os
-import errno
 import atexit
+import errno
 import logging
+import os
 from functools import partial
-from pr2modules.netlink.rtnl.iprsocket import MarshalRtnl
+
 from pr2modules.iproute import RTNL_API
-from pr2modules.netns import setns
-from pr2modules.netns import remove
-from ..remote.transport import Server
-from ..remote.transport import Transport
-from ..remote.transport import RemoteSocket
+from pr2modules.netlink.rtnl.iprsocket import MarshalRtnl
+from pr2modules.netns import remove, setns
+
+from ..remote.transport import RemoteSocket, Server, Transport
 
 log = logging.getLogger(__name__)
 

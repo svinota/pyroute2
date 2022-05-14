@@ -11,10 +11,8 @@ case the packet will be silently dropped, or
 `NF_ACCEPT`, and the packet will be pass the
 rule.
 '''
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink.nlsocket import NetlinkSocket
-from pr2modules.netlink.nlsocket import Marshal
+from pr2modules.netlink import NLM_F_REQUEST, nlmsg
+from pr2modules.netlink.nlsocket import Marshal, NetlinkSocket
 
 # constants
 IFNAMSIZ = 16

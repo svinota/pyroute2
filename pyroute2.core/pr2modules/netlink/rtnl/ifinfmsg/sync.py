@@ -1,6 +1,7 @@
 import os
 import select
 import threading
+
 from pr2modules.netlink.rtnl import RTM_VALUES
 from pr2modules.netlink.rtnl.riprsocket import RawIPRSocket
 

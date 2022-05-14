@@ -17,45 +17,41 @@
 # along with this program; If not, see <http://www.gnu.org/licenses/>.
 
 
-import json
-import socket
-import re
-import os
 import argparse
+import json
+import os
+import re
+import socket
 from socket import AF_INET, AF_UNIX
 
 try:
     import psutil
 except ImportError:
     psutil = None
-from pr2modules.netlink.diag import DiagSocket
 from pr2modules.netlink.diag import (
-    SS_ESTABLISHED,
-    SS_SYN_SENT,
-    SS_SYN_RECV,
-    SS_FIN_WAIT1,
-    SS_FIN_WAIT2,
-    SS_TIME_WAIT,
+    SS_ALL,
     SS_CLOSE,
     SS_CLOSE_WAIT,
+    SS_CLOSING,
+    SS_CONN,
+    SS_ESTABLISHED,
+    SS_FIN_WAIT1,
+    SS_FIN_WAIT2,
     SS_LAST_ACK,
     SS_LISTEN,
-    SS_CLOSING,
-    SS_ALL,
-    SS_CONN,
-)
-from pr2modules.netlink.diag import (
+    SS_SYN_RECV,
+    SS_SYN_SENT,
+    SS_TIME_WAIT,
     UDIAG_SHOW_NAME,
-    UDIAG_SHOW_VFS,
     UDIAG_SHOW_PEER,
+    UDIAG_SHOW_VFS,
+    DiagSocket,
 )
 
 try:
-    from collections.abc import Mapping
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 except ImportError:
-    from collections import Mapping
-    from collections import Callable
+    from collections import Callable, Mapping
 # UDIAG_SHOW_ICONS,
 # UDIAG_SHOW_RQLEN,
 # UDIAG_SHOW_MEMINFO

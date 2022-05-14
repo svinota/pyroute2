@@ -1,14 +1,14 @@
 from pr2modules.netlink import rtnl
 from pr2modules.netlink.nlsocket import Marshal
-from pr2modules.netlink.rtnl.tcmsg import tcmsg
-from pr2modules.netlink.rtnl.rtmsg import rtmsg
+from pr2modules.netlink.rtnl.fibmsg import fibmsg
+from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
+from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
+from pr2modules.netlink.rtnl.ifstatsmsg import ifstatsmsg
 from pr2modules.netlink.rtnl.ndmsg import ndmsg
 from pr2modules.netlink.rtnl.ndtmsg import ndtmsg
 from pr2modules.netlink.rtnl.nsidmsg import nsidmsg
-from pr2modules.netlink.rtnl.fibmsg import fibmsg
-from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
-from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
-from pr2modules.netlink.rtnl.ifstatsmsg import ifstatsmsg
+from pr2modules.netlink.rtnl.rtmsg import rtmsg
+from pr2modules.netlink.rtnl.tcmsg import tcmsg
 
 
 class MarshalRtnl(Marshal):

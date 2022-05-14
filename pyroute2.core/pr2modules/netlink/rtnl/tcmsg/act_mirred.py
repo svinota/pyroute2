@@ -1,5 +1,4 @@
-from pr2modules.netlink import nla
-from pr2modules.netlink import NLA_F_NESTED
+from pr2modules.netlink import NLA_F_NESTED, nla
 from pr2modules.netlink.rtnl.tcmsg.common import tc_actions
 
 """

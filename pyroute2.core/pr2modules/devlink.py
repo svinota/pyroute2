@@ -1,9 +1,7 @@
 import logging
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import NLM_F_DUMP
-from pr2modules.netlink.devlink import DevlinkSocket
-from pr2modules.netlink.devlink import devlinkcmd
-from pr2modules.netlink.devlink import DEVLINK_NAMES
+
+from pr2modules.netlink import NLM_F_DUMP, NLM_F_REQUEST
+from pr2modules.netlink.devlink import DEVLINK_NAMES, DevlinkSocket, devlinkcmd
 
 log = logging.getLogger(__name__)
 

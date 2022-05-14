@@ -2,9 +2,9 @@
 #
 # This module contains all the public symbols from the library.
 #
-import sys
-import struct
 import importlib
+import struct
+import sys
 
 ##
 #
@@ -26,6 +26,8 @@ if sys.platform.startswith('win'):  # noqa: E402
     import win_inet_pton  # noqa: F401
 
 ##
+##
+#
 #
 # Logging setup
 #
@@ -36,11 +38,7 @@ if sys.platform.startswith('win'):  # noqa: E402
 #  * https://github.com/svinota/pyroute2/issues/573
 #  * https://github.com/svinota/pyroute2/issues/601
 #
-from pr2modules.config import log
-
-##
-#
-from pr2modules.config import entry_points_aliases
+from pr2modules.config import entry_points_aliases, log
 
 #
 #

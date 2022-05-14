@@ -1,13 +1,16 @@
 import errno
-import pytest
+import socket
 from time import sleep
-from pyroute2.ipset import IPSet, IPSetError, PortRange, PortEntry
-from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_FORCEADD
-from pyroute2.netlink.nfnetlink.ipset import IPSET_ERR_TYPE_SPECIFIC
 from uuid import uuid4
 
-import socket
+import pytest
+
+from pyroute2.ipset import IPSet, IPSetError, PortEntry, PortRange
+from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.nfnetlink.ipset import (
+    IPSET_ERR_TYPE_SPECIFIC,
+    IPSET_FLAG_WITH_FORCEADD,
+)
 
 
 def parse_ip(entry):

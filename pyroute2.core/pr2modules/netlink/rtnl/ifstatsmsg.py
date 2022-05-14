@@ -1,5 +1,4 @@
-from pr2modules.netlink import nla
-from pr2modules.netlink import nlmsg
+from pr2modules.netlink import nla, nlmsg
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 
 

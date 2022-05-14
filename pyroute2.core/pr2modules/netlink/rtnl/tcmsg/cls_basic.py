@@ -148,12 +148,17 @@ NOTES:
 
 import struct
 from socket import htons
+
 from pr2modules import protocols
 from pr2modules.netlink import nla
-from pr2modules.netlink.rtnl.tcmsg.common_act import get_tca_action
-from pr2modules.netlink.rtnl.tcmsg.common_act import tca_act_prio
-from pr2modules.netlink.rtnl.tcmsg.common_ematch import get_tcf_ematches
-from pr2modules.netlink.rtnl.tcmsg.common_ematch import nla_plus_tcf_ematch_opt
+from pr2modules.netlink.rtnl.tcmsg.common_act import (
+    get_tca_action,
+    tca_act_prio,
+)
+from pr2modules.netlink.rtnl.tcmsg.common_ematch import (
+    get_tcf_ematches,
+    nla_plus_tcf_ematch_opt,
+)
 
 
 def fix_msg(msg, kwarg):

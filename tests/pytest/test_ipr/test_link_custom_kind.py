@@ -1,6 +1,7 @@
-from pyroute2 import NetlinkError
 from pr2test import custom_link_kind
 from pr2test.custom_link_kind.foo import vlan as foo_vlan
+
+from pyroute2 import NetlinkError
 
 
 def test_register_fail(context):

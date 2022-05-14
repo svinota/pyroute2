@@ -1,7 +1,4 @@
-from pr2modules.netlink import genlmsg
-from pr2modules.netlink import nla
-from pr2modules.netlink import NLA_F_NESTED
-from pr2modules.netlink import NLM_F_REQUEST
+from pr2modules.netlink import NLA_F_NESTED, NLM_F_REQUEST, genlmsg, nla
 from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.netlink.generic import GenericNetlinkSocket
 

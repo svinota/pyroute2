@@ -1,18 +1,20 @@
-import os
 import errno
+import os
 import struct
 from fcntl import ioctl
-from pr2modules import config
-from pr2modules.netlink.rtnl.ifinfmsg import IFT_TUN
-from pr2modules.netlink.rtnl.ifinfmsg import IFT_TAP
-from pr2modules.netlink.rtnl.ifinfmsg import IFT_NO_PI
-from pr2modules.netlink.rtnl.ifinfmsg import IFT_ONE_QUEUE
-from pr2modules.netlink.rtnl.ifinfmsg import IFT_VNET_HDR
-from pr2modules.netlink.rtnl.ifinfmsg import IFT_MULTI_QUEUE
-from pr2modules.netlink.rtnl.ifinfmsg import RTM_NEWLINK
-from pr2modules.netlink.exceptions import NetlinkError
-from pr2modules.netlink.rtnl.ifinfmsg.sync import sync
 
+from pr2modules import config
+from pr2modules.netlink.exceptions import NetlinkError
+from pr2modules.netlink.rtnl.ifinfmsg import (
+    IFT_MULTI_QUEUE,
+    IFT_NO_PI,
+    IFT_ONE_QUEUE,
+    IFT_TAP,
+    IFT_TUN,
+    IFT_VNET_HDR,
+    RTM_NEWLINK,
+)
+from pr2modules.netlink.rtnl.ifinfmsg.sync import sync
 
 IFNAMSIZ = 16
 

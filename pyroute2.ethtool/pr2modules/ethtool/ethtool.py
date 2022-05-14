@@ -1,21 +1,19 @@
-from collections import namedtuple
 import logging
+from collections import namedtuple
+from ctypes import c_uint16, c_uint32
 
-from pr2modules.netlink.generic.ethtool import NlEthtool
+from pr2modules.ethtool.common import (
+    LINK_DUPLEX_NAMES,
+    LINK_PORT_NAMES,
+    LINK_TP_MDI_NAMES,
+    LINK_TRANSCEIVER_NAMES,
+    LinkModeBits_by_index,
+    LMBTypeMode,
+    LMBTypePort,
+)
+from pr2modules.ethtool.ioctl import WAKE_NAMES, IoctlEthtool
 from pr2modules.netlink.exceptions import NetlinkError
-from pr2modules.ethtool.ioctl import IoctlEthtool
-from pr2modules.ethtool.common import LMBTypePort
-from pr2modules.ethtool.common import LMBTypeMode
-from pr2modules.ethtool.common import LinkModeBits_by_index
-from pr2modules.ethtool.common import LINK_DUPLEX_NAMES
-from pr2modules.ethtool.common import LINK_PORT_NAMES
-from pr2modules.ethtool.common import LINK_TRANSCEIVER_NAMES
-from pr2modules.ethtool.common import LINK_TP_MDI_NAMES
-from pr2modules.ethtool.ioctl import WAKE_NAMES
-
-
-from ctypes import c_uint32
-from ctypes import c_uint16
+from pr2modules.netlink.generic.ethtool import NlEthtool
 
 INT32MINUS_UINT32 = c_uint32(-1).value
 INT16MINUS_UINT16 = c_uint16(-1).value

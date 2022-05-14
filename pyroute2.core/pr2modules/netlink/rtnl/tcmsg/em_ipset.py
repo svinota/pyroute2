@@ -1,5 +1,4 @@
-from pr2modules.netlink import nlmsg_base
-from pr2modules.netlink import nlmsg_encoder_generic
+from pr2modules.netlink import nlmsg_base, nlmsg_encoder_generic
 
 # see em_ipset.c
 IPSET_DIM = {

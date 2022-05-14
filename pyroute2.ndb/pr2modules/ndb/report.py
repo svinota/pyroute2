@@ -30,6 +30,7 @@ Filtering examples::
 '''
 import json
 from itertools import chain
+
 from pr2modules import cli
 from pr2modules.common import basestring
 

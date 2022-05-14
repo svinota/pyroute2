@@ -31,16 +31,17 @@ from collections import namedtuple
 from inspect import getcallargs
 from socket import AF_INET
 
-from pr2modules.ipset import IPSet
 from pr2modules.common import basestring
+from pr2modules.ipset import IPSet
 from pr2modules.netlink.exceptions import IPSetError
-from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COUNTERS
-from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_COMMENT
-from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_WITH_SKBINFO
-from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_PHYSDEV
-from pr2modules.netlink.nfnetlink.ipset import IPSET_FLAG_IFACE_WILDCARD
+from pr2modules.netlink.nfnetlink.ipset import (
+    IPSET_FLAG_IFACE_WILDCARD,
+    IPSET_FLAG_PHYSDEV,
+    IPSET_FLAG_WITH_COMMENT,
+    IPSET_FLAG_WITH_COUNTERS,
+    IPSET_FLAG_WITH_SKBINFO,
+)
 from pr2modules.netlink.nfnetlink.nfctsocket import IP_PROTOCOLS
-
 
 # Debug variable to detect netlink socket leaks
 COUNT = {"count": 0}

@@ -1,7 +1,8 @@
-import pytest
 from socket import AF_INET6
-from pr2test.tools import rule_exists
+
+import pytest
 from pr2test.context_manager import make_test_matrix
+from pr2test.tools import rule_exists
 
 test_matrix = make_test_matrix(
     targets=['local', 'netns'],

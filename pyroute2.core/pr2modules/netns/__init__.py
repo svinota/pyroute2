@@ -79,15 +79,16 @@ loading this module, dumps the core, one can check the
 SELinux state with `getenforce` command.
 
 '''
+import ctypes
+import ctypes.util
+import errno
 import io
 import os
 import os.path
-import errno
-import ctypes
-import ctypes.util
 import pickle
 import struct
 import traceback
+
 from pr2modules import config
 from pr2modules.common import basestring
 

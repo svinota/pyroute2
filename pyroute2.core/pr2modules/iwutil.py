@@ -131,16 +131,17 @@ Please do not hesitate to submit the changes on github. Without
 your patches this module will not evolve.
 '''
 import logging
-from pr2modules.netlink import NLM_F_ACK
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import NLM_F_DUMP
-from pr2modules.netlink.nl80211 import NL80211
-from pr2modules.netlink.nl80211 import nl80211cmd
-from pr2modules.netlink.nl80211 import NL80211_NAMES
-from pr2modules.netlink.nl80211 import IFTYPE_NAMES
-from pr2modules.netlink.nl80211 import CHAN_WIDTH
-from pr2modules.netlink.nl80211 import BSS_STATUS_NAMES
-from pr2modules.netlink.nl80211 import SCAN_FLAGS_NAMES
+
+from pr2modules.netlink import NLM_F_ACK, NLM_F_DUMP, NLM_F_REQUEST
+from pr2modules.netlink.nl80211 import (
+    BSS_STATUS_NAMES,
+    CHAN_WIDTH,
+    IFTYPE_NAMES,
+    NL80211,
+    NL80211_NAMES,
+    SCAN_FLAGS_NAMES,
+    nl80211cmd,
+)
 
 log = logging.getLogger(__name__)
 

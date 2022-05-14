@@ -1,8 +1,9 @@
 import os
-import pytest
 from contextlib import ExitStack
-from pyroute2 import GenericNetlinkSocket
-from pyroute2 import TaskStats
+
+import pytest
+
+from pyroute2 import GenericNetlinkSocket, TaskStats
 from pyroute2.netlink import nlmsg
 
 

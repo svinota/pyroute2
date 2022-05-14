@@ -1,9 +1,8 @@
 '''
 '''
-from pr2modules.netlink import nla
-from pr2modules.netlink import genlmsg
-from pr2modules.netlink.nlsocket import Marshal
+from pr2modules.netlink import genlmsg, nla
 from pr2modules.netlink.event import EventSocket
+from pr2modules.netlink.nlsocket import Marshal
 
 ACPI_GENL_CMD_UNSPEC = 0
 ACPI_GENL_CMD_EVENT = 1

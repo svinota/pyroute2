@@ -1,10 +1,8 @@
 import pytest
-from pyroute2 import NetlinkError
-from pr2test.tools import address_exists
-from pr2test.tools import interface_exists
-from pr2test.context_manager import make_test_matrix
-from pr2test.context_manager import skip_if_not_supported
+from pr2test.context_manager import make_test_matrix, skip_if_not_supported
+from pr2test.tools import address_exists, interface_exists
 
+from pyroute2 import NetlinkError
 
 test_matrix = make_test_matrix(
     targets=['local', 'netns'], dbs=['sqlite3/:memory:', 'postgres/pr2test']

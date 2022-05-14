@@ -1,27 +1,31 @@
-import sys
 import errno
+import sys
 import types
+
 from pr2modules import config
-from pr2modules.common import Namespace
-from pr2modules.common import AddrPool
-from pr2modules.common import DEFAULT_RCVBUF
-from pr2modules.proxy import NetlinkProxy
-from pr2modules.netlink import NETLINK_ROUTE
-from pr2modules.netlink.nlsocket import NetlinkSocket
-from pr2modules.netlink.nlsocket import BatchSocket
-from pr2modules.netlink.nlsocket import ChaoticNetlinkSocket
-from pr2modules.netlink import rtnl
+from pr2modules.common import DEFAULT_RCVBUF, AddrPool, Namespace
+from pr2modules.netlink import NETLINK_ROUTE, rtnl
+from pr2modules.netlink.nlsocket import (
+    BatchSocket,
+    ChaoticNetlinkSocket,
+    NetlinkSocket,
+)
 from pr2modules.netlink.rtnl.marshal import MarshalRtnl
+from pr2modules.proxy import NetlinkProxy
 
 if sys.platform.startswith('linux'):
     if config.kernel < [3, 3, 0]:
-        from pr2modules.netlink.rtnl.ifinfmsg.compat import proxy_newlink
-        from pr2modules.netlink.rtnl.ifinfmsg.compat import proxy_setlink
-        from pr2modules.netlink.rtnl.ifinfmsg.compat import proxy_dellink
-        from pr2modules.netlink.rtnl.ifinfmsg.compat import proxy_linkinfo
+        from pr2modules.netlink.rtnl.ifinfmsg.compat import (
+            proxy_dellink,
+            proxy_linkinfo,
+            proxy_newlink,
+            proxy_setlink,
+        )
     else:
-        from pr2modules.netlink.rtnl.ifinfmsg.proxy import proxy_newlink
-        from pr2modules.netlink.rtnl.ifinfmsg.proxy import proxy_setlink
+        from pr2modules.netlink.rtnl.ifinfmsg.proxy import (
+            proxy_newlink,
+            proxy_setlink,
+        )
 
 
 class IPRSocketBase(object):

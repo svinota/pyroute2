@@ -1,30 +1,31 @@
 import socket
 import struct
+
 from pr2modules import config
 from pr2modules.common import hexdump
 from pr2modules.netlink import nlmsg_base
 
 if config.uname[0] == 'OpenBSD':
     from pr2modules.bsd.pf_route.openbsd import (
-        bsdmsg,
-        if_msg,
-        rt_msg_base,
-        ifa_msg_base,
-        ifma_msg_base,
-        if_announcemsg,
         IFF_NAMES,
         IFF_VALUES,
+        bsdmsg,
+        if_announcemsg,
+        if_msg,
+        ifa_msg_base,
+        ifma_msg_base,
+        rt_msg_base,
     )
 else:
     from pr2modules.bsd.pf_route.freebsd import (
-        bsdmsg,
-        if_msg,
-        rt_msg_base,
-        ifa_msg_base,
-        ifma_msg_base,
-        if_announcemsg,
         IFF_NAMES,
         IFF_VALUES,
+        bsdmsg,
+        if_announcemsg,
+        if_msg,
+        ifa_msg_base,
+        ifma_msg_base,
+        rt_msg_base,
     )
 
 

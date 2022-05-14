@@ -1,14 +1,13 @@
 import logging
-import traceback
 import threading
-from socket import AF_INET
-from socket import AF_INET6
+import traceback
 from collections import namedtuple
-from pr2modules.netlink import rtnl
-from pr2modules.netlink.rtnl.fibmsg import fibmsg
-from pr2modules.netlink.rtnl.fibmsg import FR_ACT_NAMES
+from socket import AF_INET, AF_INET6
+
 from pr2modules.ipdb.exceptions import CommitException
 from pr2modules.ipdb.transactional import Transactional
+from pr2modules.netlink import rtnl
+from pr2modules.netlink.rtnl.fibmsg import FR_ACT_NAMES, fibmsg
 
 log = logging.getLogger(__name__)
 groups = rtnl.RTMGRP_IPV4_RULE | rtnl.RTMGRP_IPV6_RULE

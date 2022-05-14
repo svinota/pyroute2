@@ -1,9 +1,5 @@
-from pr2modules.netlink import nla
-from pr2modules.netlink import NLA_F_NESTED
-from pr2modules.netlink import NLA_F_NET_BYTEORDER
-from pr2modules.netlink.nfnetlink import nfgen_msg
-from pr2modules.netlink.nfnetlink import NFNL_SUBSYS_IPSET
-
+from pr2modules.netlink import NLA_F_NESTED, NLA_F_NET_BYTEORDER, nla
+from pr2modules.netlink.nfnetlink import NFNL_SUBSYS_IPSET, nfgen_msg
 
 IPSET_MAXNAMELEN = 32
 IPSET_DEFAULT_MAXELEM = 65536

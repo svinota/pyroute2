@@ -1,9 +1,9 @@
 import pytest
-from utils import require_user
-from pr2test.tools import interface_exists
 from pr2test.context_manager import make_test_matrix
-from pyroute2 import NDB
+from pr2test.tools import interface_exists
+from utils import require_user
 
+from pyroute2 import NDB
 
 test_matrix = make_test_matrix(
     targets=['local', 'netns'], dbs=['sqlite3/:memory:', 'postgres/pr2test']

@@ -6,18 +6,19 @@ See also: pr2modules.conntrack
 
 import socket
 
-from pr2modules.netlink import NLA_F_NESTED
-from pr2modules.netlink import NLMSG_ERROR
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import NLM_F_DUMP
-from pr2modules.netlink import NLM_F_ACK
-from pr2modules.netlink import NLM_F_EXCL
-from pr2modules.netlink import NLM_F_CREATE
-from pr2modules.netlink import NETLINK_NETFILTER
-from pr2modules.netlink import nla
+from pr2modules.netlink import (
+    NETLINK_NETFILTER,
+    NLA_F_NESTED,
+    NLM_F_ACK,
+    NLM_F_CREATE,
+    NLM_F_DUMP,
+    NLM_F_EXCL,
+    NLM_F_REQUEST,
+    NLMSG_ERROR,
+    nla,
+)
+from pr2modules.netlink.nfnetlink import NFNL_SUBSYS_CTNETLINK, nfgen_msg
 from pr2modules.netlink.nlsocket import NetlinkSocket
-from pr2modules.netlink.nfnetlink import nfgen_msg
-from pr2modules.netlink.nfnetlink import NFNL_SUBSYS_CTNETLINK
 
 IPCTNL_MSG_CT_NEW = 0
 IPCTNL_MSG_CT_GET = 1

@@ -1,6 +1,5 @@
 from pr2modules.common import map_namespace
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink import nla
+from pr2modules.netlink import nla, nlmsg
 
 # neighbor cache entry flags
 NTF_USE = 0x01

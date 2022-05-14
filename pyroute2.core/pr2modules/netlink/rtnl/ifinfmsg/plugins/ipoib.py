@@ -1,5 +1,4 @@
-from pr2modules.netlink import nla
-from pr2modules.netlink import nlmsg_atoms
+from pr2modules.netlink import nla, nlmsg_atoms
 
 
 class ipoib(nla):

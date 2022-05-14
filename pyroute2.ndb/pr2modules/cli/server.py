@@ -1,13 +1,14 @@
 import json
-from pr2modules.ndb.main import NDB
+
 from pr2modules.cli.session import Session
+from pr2modules.ndb.main import NDB
 
 try:
-    from BaseHTTPServer import HTTPServer as HTTPServer
     from BaseHTTPServer import BaseHTTPRequestHandler
+    from BaseHTTPServer import HTTPServer as HTTPServer
 except ImportError:
-    from http.server import HTTPServer as HTTPServer
     from http.server import BaseHTTPRequestHandler
+    from http.server import HTTPServer as HTTPServer
 
 
 class ProxyEncoder(object):

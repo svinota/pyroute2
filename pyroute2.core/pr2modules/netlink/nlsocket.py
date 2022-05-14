@@ -80,50 +80,49 @@ classes
 -------
 '''
 
-import os
-import sys
-import time
+import collections
 import errno
+import logging
+import os
 import random
 import select
 import struct
-import logging
-import traceback
+import sys
 import threading
-import collections
-
-from socket import SOCK_DGRAM
-from socket import MSG_PEEK
-from socket import SOL_SOCKET
-from socket import SO_RCVBUF
-from socket import SO_SNDBUF
+import time
+import traceback
+from socket import MSG_PEEK, SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
 
 from pr2modules import config
+from pr2modules.common import DEFAULT_RCVBUF, AddrPool
 from pr2modules.config import AF_NETLINK
-from pr2modules.common import AddrPool
-from pr2modules.common import DEFAULT_RCVBUF
-from pr2modules.netlink import nlmsg, NLM_F_ACK
-from pr2modules.netlink import nlmsgerr
-from pr2modules.netlink import mtypes
-from pr2modules.netlink import NLMSG_ERROR
-from pr2modules.netlink import NLMSG_DONE
-from pr2modules.netlink import NETLINK_ADD_MEMBERSHIP
-from pr2modules.netlink import NETLINK_DROP_MEMBERSHIP
-from pr2modules.netlink import NETLINK_EXT_ACK
-from pr2modules.netlink import NETLINK_GENERIC
-from pr2modules.netlink import NETLINK_GET_STRICT_CHK
-from pr2modules.netlink import NETLINK_LISTEN_ALL_NSID
-from pr2modules.netlink import NLM_F_ACK_TLVS
-from pr2modules.netlink import NLM_F_DUMP
-from pr2modules.netlink import NLM_F_MULTI
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import NLM_F_DUMP_INTR
-from pr2modules.netlink import SOL_NETLINK
-from pr2modules.netlink.exceptions import ChaoticException
-from pr2modules.netlink.exceptions import NetlinkError
-from pr2modules.netlink.exceptions import NetlinkDumpInterrupted
-from pr2modules.netlink.exceptions import NetlinkDecodeError
-from pr2modules.netlink.exceptions import NetlinkHeaderDecodeError
+from pr2modules.netlink import (
+    NETLINK_ADD_MEMBERSHIP,
+    NETLINK_DROP_MEMBERSHIP,
+    NETLINK_EXT_ACK,
+    NETLINK_GENERIC,
+    NETLINK_GET_STRICT_CHK,
+    NETLINK_LISTEN_ALL_NSID,
+    NLM_F_ACK,
+    NLM_F_ACK_TLVS,
+    NLM_F_DUMP,
+    NLM_F_DUMP_INTR,
+    NLM_F_MULTI,
+    NLM_F_REQUEST,
+    NLMSG_DONE,
+    NLMSG_ERROR,
+    SOL_NETLINK,
+    mtypes,
+    nlmsg,
+    nlmsgerr,
+)
+from pr2modules.netlink.exceptions import (
+    ChaoticException,
+    NetlinkDecodeError,
+    NetlinkDumpInterrupted,
+    NetlinkError,
+    NetlinkHeaderDecodeError,
+)
 
 try:
     from Queue import Queue

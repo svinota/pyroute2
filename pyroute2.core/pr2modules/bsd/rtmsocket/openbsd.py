@@ -1,9 +1,9 @@
 from pr2modules.bsd.pf_route import (
     bsdmsg,
-    if_msg,
-    rt_msg,
     if_announcemsg,
+    if_msg,
     ifa_msg,
+    rt_msg,
 )
 
 RTM_ADD = 0x1  # Add Route

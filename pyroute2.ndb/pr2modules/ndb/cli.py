@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-import json
 import argparse
+import json
+
 from pr2modules.cli.console import Console
 from pr2modules.cli.server import Server
 

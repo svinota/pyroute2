@@ -1,10 +1,12 @@
-from socket import AF_INET
-from socket import AF_INET6
-from pr2modules.netlink import NLM_F_ACK
-from pr2modules.netlink import NLM_F_DUMP
-from pr2modules.netlink import NLM_F_REQUEST
-from pr2modules.netlink import genlmsg
-from pr2modules.netlink import nla
+from socket import AF_INET, AF_INET6
+
+from pr2modules.netlink import (
+    NLM_F_ACK,
+    NLM_F_DUMP,
+    NLM_F_REQUEST,
+    genlmsg,
+    nla,
+)
 from pr2modules.netlink.generic import GenericNetlinkSocket
 
 MPTCP_GENL_NAME = 'mptcp_pm'

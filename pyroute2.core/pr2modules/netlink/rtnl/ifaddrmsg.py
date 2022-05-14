@@ -1,7 +1,7 @@
 import socket
+
 from pr2modules.common import map_namespace
-from pr2modules.netlink import nlmsg
-from pr2modules.netlink import nla
+from pr2modules.netlink import nla, nlmsg
 
 # address attributes
 #

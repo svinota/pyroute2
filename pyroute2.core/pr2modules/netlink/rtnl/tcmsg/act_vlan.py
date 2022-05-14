@@ -1,6 +1,7 @@
+from socket import htons
+
 from pr2modules.netlink import nla
 from pr2modules.netlink.rtnl.tcmsg.common import tc_actions
-from socket import htons
 
 v_actions = {'pop': 1, 'push': 2, 'modify': 3}
 
