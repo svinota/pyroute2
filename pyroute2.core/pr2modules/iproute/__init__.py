@@ -145,14 +145,17 @@ from pr2modules.netlink.rtnl import (
 if sys.platform.startswith('win'):
     from pr2modules.iproute.windows import IPRoute
     from pr2modules.iproute.windows import RawIPRoute
+    from pr2modules.iproute.windows import ChaoticIPRoute
 elif config.uname[0][-3:] == 'BSD':
     from pr2modules.iproute.bsd import IPRoute
     from pr2modules.iproute.bsd import RawIPRoute
+    from pr2modules.iproute.bsd import ChaoticIPRoute
 else:
     from pr2modules.iproute.linux import IPRoute
     from pr2modules.iproute.linux import RawIPRoute
+    from pr2modules.iproute.linux import ChaoticIPRoute
 
-classes = [RTNL_API, IPBatch, IPRoute, RawIPRoute]
+classes = [RTNL_API, IPBatch, IPRoute, RawIPRoute, ChaoticIPRoute]
 
 constants = [
     RTM_GETLINK,

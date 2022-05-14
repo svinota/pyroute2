@@ -325,3 +325,8 @@ class IPRoute(object):
 
 class RawIPRoute(IPRoute):
     pass
+
+
+class ChaoticIPRoute:
+    def __init__(self, *argv, **kwarg):
+        raise NotImplementedError()
