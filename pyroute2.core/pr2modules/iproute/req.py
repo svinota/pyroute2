@@ -16,7 +16,6 @@ from pr2modules.netlink.rtnl.ifinfmsg import (
     protinfo_bridge,
 )
 from pr2modules.netlink.rtnl.ifinfmsg.plugins.vlan import flags as vlan_flags
-from pr2modules.netlink.rtnl.ndmsg import NUD_PERMANENT, ndmsg
 from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
 from pr2modules.netlink.rtnl.rtmsg import nh as nh_header
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
@@ -53,22 +52,6 @@ class IPRequest(OrderedDict):
 
     def sync_cacheinfo(self):
         pass
-
-
-class IPNeighRequest(IPRequest):
-    def fix_request(self):
-        if self.command not in ('dump', 'get'):
-            if 'nud' in self:
-                self['state'] = self.pop('nud')
-                log.warning('use `state` instead of `nud`')
-            if 'state' not in self:
-                self['state'] = NUD_PERMANENT
-            if 'dst' in self and 'family' not in self:
-                self['family'] = get_address_family(self['dst'])
-            if isinstance(self['state'], basestring):
-                self['state'] = ndmsg.states_a2n(self['state'])
-        if 'family' not in self:
-            self['family'] = AF_INET
 
 
 class IPRuleRequest(IPRequest):

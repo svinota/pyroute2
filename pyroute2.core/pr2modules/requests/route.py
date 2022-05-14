@@ -1,11 +1,9 @@
-import ipaddress
 from collections import OrderedDict
-from socket import AF_INET6
 
 from pr2modules.netlink.rtnl import rt_proto
 from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS, rtmsg
 
-from .main import FilterDict
+from .common import IPTargets
 
 
 class Target(OrderedDict):
@@ -37,40 +35,22 @@ class Target(OrderedDict):
         return repr(dict(self))
 
 
-class RouteFieldFilter(FilterDict):
-    def _net(self, key, context, value):
-        ret = {key: value}
-        if isinstance(value, str):
-            if value.find('/') >= 0:
-                value, prefixlen = value.split('/')
-                ret[key] = value
-                ret[f'{key}_len'] = int(prefixlen)
-            if ':' in value:
-                ret[key] = value = ipaddress.ip_address(value).compressed
-                ret['family'] = AF_INET6
-            if value in ('0', '0.0.0.0', '::', '::/0'):
-                ret[key] = ''
-        return ret
-
-    def dst(self, context, value):
-        if value == 'default':
-            return {'dst': ''}
-        elif value in ('::', '::/0'):
-            return {'dst': '', 'family': AF_INET6}
-        return self._net('dst', context, value)
-
-    def src(self, context, value):
-        return self._net('src', context, value)
-
-    def gateway(self, context, value):
-        if isinstance(value, str) and ':' in value:
-            return {'gateway': ipaddress.ip_address(value).compressed}
-        return {'gateway': value}
-
+class RouteFieldFilter(IPTargets):
     def flags(self, context, value):
         if isinstance(value, (list, tuple, str)):
             return {'flags': rtmsg.names2flags(value)}
         return {'flags': value}
+
+    def _index(self, key, context, value):
+        if isinstance(value, (list, tuple)):
+            value = value[0]
+        return {key: value}
+
+    def oif(self, context, value):
+        return self._index('oif', context, value)
+
+    def iif(self, context, value):
+        return self._index('iif', context, value)
 
     def scope(self, context, value):
         if isinstance(value, str):

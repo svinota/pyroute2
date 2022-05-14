@@ -2,10 +2,10 @@ import ipaddress
 
 from pr2modules.common import dqn2int
 
-from .main import FilterDict
+from .common import Index
 
 
-class AddressFieldFilter(FilterDict):
+class AddressFieldFilter(Index):
     def prefixlen(self, context, value):
         if isinstance(value, str):
             if '.' in value:

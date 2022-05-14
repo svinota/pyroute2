@@ -1,7 +1,7 @@
-from .main import FilterDict
+from .common import Index
 
 
-class InterfaceFieldFilter(FilterDict):
+class InterfaceFieldFilter(Index):
     def _link(self, key, context, value):
         if isinstance(value, dict):
             return {key: value[key]['index']}

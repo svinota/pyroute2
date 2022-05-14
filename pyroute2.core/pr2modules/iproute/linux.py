@@ -77,13 +77,14 @@ from pr2modules.netlink.rtnl.riprsocket import RawIPRSocket
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
 from pr2modules.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pr2modules.netlink.rtnl.tcmsg import tcmsg
+from pr2modules.requests.main import RequestProcessor
+from pr2modules.requests.neighbour import NeighbourFieldFilter
 
 from .req import (
     IPAddrRequest,
     IPBridgeRequest,
     IPBrPortRequest,
     IPLinkRequest,
-    IPNeighRequest,
     IPRouteRequest,
     IPRuleRequest,
 )
@@ -1052,7 +1053,9 @@ class RTNL_API(object):
         }
 
         msg = ndmsg.ndmsg()
-        request = IPNeighRequest(kwarg, command)
+        request = RequestProcessor(
+            NeighbourFieldFilter(), context=kwarg, prime=kwarg
+        ).finalize(command)
         dump_filter = get_dump_filter(kwarg)
         msg_type, msg_flags = get_msg_type(command, command_map)
 

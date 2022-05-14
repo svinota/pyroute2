@@ -95,7 +95,7 @@ from functools import partial
 
 from pr2modules import cli
 from pr2modules.netlink.exceptions import NetlinkError
-from pr2modules.requests.main import FilterDict, RequestProcessor
+from pr2modules.requests.main import RequestProcessor
 
 from ..auth_manager import AuthManager, check_auth
 from ..events import InvalidateHandlerException, State
@@ -173,7 +173,7 @@ class RTNL_Object(dict):
     key_extra_fields = []
     hidden_fields = []
     fields_cmp = {}
-    field_filter = FilterDict
+    field_filter = object
     rollback_chain = []
 
     fallback_for = None

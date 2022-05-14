@@ -2,14 +2,7 @@
 General request and RTNL object data filters.
 '''
 import weakref
-
-
-class FilterDict:
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __contains__(self, key):
-        return key in vars(type(self))
+from collections import ChainMap
 
 
 class RequestProcessor(dict):
@@ -18,6 +11,7 @@ class RequestProcessor(dict):
         self.context = (
             context if isinstance(context, (dict, weakref.ProxyType)) else {}
         )
+        self.combined = ChainMap(self, self.context)
         if isinstance(prime, dict):
             self.update(prime)
 
@@ -26,10 +20,15 @@ class RequestProcessor(dict):
             super(RequestProcessor, self).__setitem__(nkey, nvalue)
 
     def filter(self, key, value):
-        if key in self.field_filter:
-            return self.field_filter[key](self.context, value)
-        return {key: value}
+        return getattr(self.field_filter, key, lambda *argv: {key: value})(
+            self.combined, value
+        )
 
     def update(self, prime):
         for key, value in prime.items():
             self[key] = value
+
+    def finalize(self, cmd_context):
+        if hasattr(self.field_filter, 'finalize'):
+            self.field_filter.finalize(self.combined, cmd_context)
+        return self
