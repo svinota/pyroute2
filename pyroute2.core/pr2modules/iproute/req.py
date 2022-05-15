@@ -2,12 +2,7 @@ import logging
 from collections import OrderedDict
 from socket import AF_INET, AF_INET6
 
-from pr2modules.common import (
-    AF_MPLS,
-    basestring,
-    get_address_family,
-    getbroadcast,
-)
+from pr2modules.common import AF_MPLS, basestring
 from pr2modules.netlink.rtnl import encap_type, rt_proto, rt_scope, rt_type
 from pr2modules.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pr2modules.netlink.rtnl.ifinfmsg import (
@@ -81,50 +76,6 @@ class IPRuleRequest(IPRequest):
             )
 
         self.set(key, value)
-
-
-class IPAddrRequest(IPRequest):
-    def fix_request(self):
-        prefixlen = 0
-        if self.command != 'dump':
-            if 'mask' in self:
-                self['prefixlen'] = self.pop('mask')
-            if not self.get('family'):
-                self['family'] = get_address_family(self['address'])
-            if 'prefixlen' not in self:
-                if self['family'] == AF_INET:
-                    prefixlen = 32
-                elif self['family'] == AF_INET6:
-                    prefixlen = 128
-                log.warning(
-                    f'prefixlen not specified, forcing to /{prefixlen}'
-                )
-                self['prefixlen'] = prefixlen
-            if (
-                self['family'] == AF_INET
-                and 'local' not in self
-                and 'address' in self
-            ):
-                # inject IFA_LOCAL, if family is AF_INET and
-                # IFA_LOCAL is not set
-                self['local'] = self['address']
-            if self.get('broadcast') is True:
-                self['broadcast'] = getbroadcast(
-                    self['address'], self['prefixlen'], self['family']
-                )
-
-    def __setitem__(self, key, value):
-        if key in ('preferred_lft', 'valid_lft'):
-            key = key[:-4]
-        if key in ('preferred', 'valid'):
-            self.set('IFA_CACHEINFO', {})
-        self.set(key, value)
-
-    def sync_cacheinfo(self):
-        cacheinfo = self.get('IFA_CACHEINFO', self.get('cacheinfo', None))
-        if cacheinfo is not None:
-            for i in ('preferred', 'valid'):
-                cacheinfo['ifa_%s' % i] = self.get(i, pow(2, 32) - 1)
 
 
 class IPRouteRequest(IPRequest):
