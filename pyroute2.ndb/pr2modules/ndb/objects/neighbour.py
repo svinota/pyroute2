@@ -3,7 +3,6 @@ import errno
 from pr2modules.common import basestring
 from pr2modules.config import AF_BRIDGE
 from pr2modules.netlink.rtnl.ndmsg import ndmsg
-from pr2modules.requests.main import RequestProcessor
 from pr2modules.requests.neighbour import NeighbourFieldFilter
 
 from ..events import RescheduleException
@@ -132,10 +131,6 @@ class Neighbour(RTNL_Object):
             ret_key['NDA_DST'] = key
 
         return super(Neighbour, self).complete_key(ret_key)
-
-    @classmethod
-    def spec_normalize(cls, spec):
-        return RequestProcessor(cls.field_filter(), context=spec, prime=spec)
 
     def make_req(self, prime):
         req = super(Neighbour, self).make_req(prime)

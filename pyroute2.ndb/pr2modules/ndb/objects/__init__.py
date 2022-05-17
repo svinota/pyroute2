@@ -131,35 +131,6 @@ def fallback_add(self, idx_req, req):
     self.load_sql()
 
 
-class Spec(object):
-    '''
-    A universal NDB object spec
-    '''
-
-    def __init__(self, iclass, spec, localhost):
-        if isinstance(spec, Record):
-            spec = spec._as_dict()
-        self.spec = spec
-        self.iclass = iclass
-        self.localhost = localhost
-        self.normalize()
-
-    def normalize(self):
-        self.spec = self.iclass.spec_normalize(self.spec)
-        if 'target' not in self.spec:
-            self.spec['target'] = self.localhost
-        return self
-
-    def load_context(self, context):
-        self.spec.update(context)
-        self.normalize()
-        return self
-
-    @property
-    def get_spec(self):
-        return self.spec
-
-
 class RTNL_Object(dict):
     '''
     The common base class for NDB objects -- interfaces, routes, rules
@@ -295,9 +266,9 @@ class RTNL_Object(dict):
             view.ndb.schema.compiled[cls.table]['fnames'],
         )
 
-    @staticmethod
-    def spec_normalize(spec):
-        return spec
+    @classmethod
+    def spec_normalize(cls, processed, spec):
+        return processed
 
     @staticmethod
     def key_load_context(key, context):
@@ -387,8 +358,13 @@ class RTNL_Object(dict):
         self._init_complete = True
 
     @classmethod
-    def new_spec(cls, spec, localhost):
-        return Spec(cls, spec, localhost)
+    def new_spec(cls, spec, context=None, localhost=None):
+        rp = RequestProcessor(cls.field_filter(), context=spec, prime=spec)
+        if isinstance(context, dict):
+            rp.update(context)
+        if 'target' not in rp and localhost is not None:
+            rp['target'] = localhost
+        return cls.spec_normalize(rp, spec)
 
     @staticmethod
     def resolve(view, spec, fields, policy=RSLV_IGNORE):
@@ -863,10 +839,8 @@ class RTNL_Object(dict):
                 if k not in req and v is not None:
                     req[k] = v
             if self.master is not None:
-                req = (
-                    self.new_spec(req, self.ndb.localhost)
-                    .load_context(self.master.context)
-                    .get_spec
+                req = self.new_spec(
+                    req, self.master.context, self.ndb.localhost
                 )
 
             method = 'add'

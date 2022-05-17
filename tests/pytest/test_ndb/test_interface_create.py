@@ -98,9 +98,8 @@ def test_veth_spec(context):
             'net_ns_fd': nsname,
         },
     }
-    (context.ndb.interfaces.create(**spec).commit())
-
-    (context.ndb.interfaces.wait(target=nsname, ifname=peername))
+    context.ndb.interfaces.create(**spec).commit()
+    context.ndb.interfaces.wait(target=nsname, ifname=peername, timeout=5)
 
     iflink = context.ndb.interfaces[{'ifname': ifname}]['link']
     plink = context.ndb.interfaces[{'target': nsname, 'ifname': peername}][

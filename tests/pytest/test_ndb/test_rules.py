@@ -45,7 +45,7 @@ def test_implicit_ipv6_src(context):
     }
     search_spec = spec.copy()
     search_spec['family'] = AF_INET6
-    context.register_rule(spec)
+    context.register_rule(search_spec)
 
     context.ndb.rules.create(**spec).commit()
     assert rule_exists(context.netns, **search_spec)

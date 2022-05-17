@@ -80,14 +80,9 @@ from pr2modules.netlink.rtnl.tcmsg import tcmsg
 from pr2modules.requests.address import AddressFieldFilter
 from pr2modules.requests.main import RequestProcessor
 from pr2modules.requests.neighbour import NeighbourFieldFilter
+from pr2modules.requests.route import RouteFieldFilter
 
-from .req import (
-    IPBridgeRequest,
-    IPBrPortRequest,
-    IPLinkRequest,
-    IPRouteRequest,
-    IPRuleRequest,
-)
+from .req import IPBridgeRequest, IPBrPortRequest, IPLinkRequest, IPRuleRequest
 
 DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)
@@ -2006,12 +2001,15 @@ class RTNL_API(object):
         if command in ('add', 'set', 'replace', 'change', 'append'):
             kwarg['proto'] = kwarg.get('proto', 'static') or 'static'
             kwarg['type'] = kwarg.get('type', 'unicast') or 'unicast'
-        kwarg = IPRouteRequest(kwarg)
         if 'match' not in kwarg and command in ('dump', 'show'):
             match = kwarg
         else:
             match = kwarg.pop('match', None)
         callback = kwarg.pop('callback', None)
+        request = RequestProcessor(
+            RouteFieldFilter(), context=kwarg, prime=kwarg
+        ).finalize(command)
+        kwarg = request
 
         commands = {
             'add': (RTM_NEWROUTE, flags_make),
@@ -2085,6 +2083,12 @@ class RTNL_API(object):
             msg, msg_type=command, msg_flags=flags, callback=callback
         )
         if match:
+            if isinstance(match, dict):
+                match = RequestProcessor(
+                    RouteFieldFilter(add_defaults=False),
+                    context=match,
+                    prime=match,
+                ).finalize()
             ret = self._match(match, ret)
 
         if not (command == RTM_GETROUTE and self.nlm_generator):

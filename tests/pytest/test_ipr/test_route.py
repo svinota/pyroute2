@@ -77,7 +77,9 @@ def test_route_oif_as_iterable(context):
     spec = {'dst': ipnet.network, 'dst_len': ipnet.netmask, 'oif': (index,)}
     context.ndb.interfaces[ifname].set('state', 'up').commit()
     context.ipr.route('add', **spec)
-    route = context.ndb.routes.wait(dst=ipnet.network, dst_len=ipnet.netmask)
+    route = context.ndb.routes.wait(
+        dst=ipnet.network, dst_len=ipnet.netmask, timeout=5
+    )
     assert route['oif'] == index
 
 
@@ -183,7 +185,9 @@ def test_route_multipath(context, mode):
         'add', dst=ip4net.network, dst_len=ip4net.netmask, multipath=multipath
     )
 
-    route = context.ndb.routes.wait(dst=ip4net.network)
+    route = context.ndb.routes.wait(
+        dst=ip4net.network, dst_len=ip4net.netmask, timeout=5
+    )
     nh1 = route['multipath'][0]
     nh2 = route['multipath'][1]
 
@@ -205,7 +209,9 @@ def test_route_onlink(context, flags):
         oif=index,
         flags=flags,
     )
-    route = context.ndb.routes.wait(dst=ip4net.network, dst_len=ip4net.netmask)
+    route = context.ndb.routes.wait(
+        dst=ip4net.network, dst_len=ip4net.netmask, timeout=5
+    )
     assert route['oif'] == index
     route.remove().commit()
 
@@ -226,7 +232,9 @@ def test_route_onlink_multipath(context, flags):
         ],
     )
 
-    route = context.ndb.routes.wait(dst=ip4net.network, dst_len=ip4net.netmask)
+    route = context.ndb.routes.wait(
+        dst=ip4net.network, dst_len=ip4net.netmask, timeout=5
+    )
     nh1 = route['multipath'][0]
     nh2 = route['multipath'][1]
 
@@ -339,14 +347,14 @@ def test_route_change_existing(context):
         'add', dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway1
     )
     context.ndb.routes.wait(
-        dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway1
+        dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway1, timeout=5
     )
 
     context.ipr.route(
         'change', dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway2
     )
     context.ndb.routes.wait(
-        dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway2
+        dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway2, timeout=5
     )
 
 
@@ -382,14 +390,14 @@ def test_route_replace_existing(context):
         'add', dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway1
     )
     context.ndb.routes.wait(
-        dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway1
+        dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway1, timeout=5
     )
 
     context.ipr.route(
         'replace', dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway2
     )
     context.ndb.routes.wait(
-        dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway2
+        dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway2, timeout=5
     )
 
 
@@ -405,7 +413,7 @@ def test_route_replace_not_existing(context):
         'replace', dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway2
     )
     context.ndb.routes.wait(
-        dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway2
+        dst=ip4net.network, dst_len=ip4net.netmask, gateway=gateway2, timeout=5
     )
 
 
@@ -426,7 +434,7 @@ def test_flush_routes(context):
             oif=index,
         )
         context.ndb.routes.wait(
-            dst=net.network, dst_len=net.netmask, table=10101
+            dst=net.network, dst_len=net.netmask, table=10101, timeout=5
         )
 
     assert context.ndb.routes.summary().filter(table=10101).count() == 10

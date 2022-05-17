@@ -62,20 +62,18 @@ class NetNS(RTNL_Object):
         self.event_map = {nsinfmsg: "load_rtnlmsg"}
         super(NetNS, self).__init__(*argv, **kwarg)
 
-    @staticmethod
-    def spec_normalize(spec):
+    @classmethod
+    def spec_normalize(cls, processed, spec):
         if isinstance(spec, basestring):
-            ret = {'path': spec}
-        else:
-            ret = dict(spec)
-        path = netns._get_netnspath(ret['path'])
+            processed['path'] = spec
+        path = netns._get_netnspath(processed['path'])
         # on Python3 _get_netnspath() returns bytes, not str, so
         # we have to decode it here in order to avoid issues with
         # cache keys and DB inserts
         if hasattr(path, 'decode'):
             path = path.decode('utf-8')
-        ret['path'] = path
-        return ret
+        processed['path'] = path
+        return processed
 
     def __setitem__(self, key, value):
         if self.state == 'system':

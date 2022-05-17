@@ -84,8 +84,8 @@ from socket import AF_INET, inet_pton
 
 from pr2modules.common import AF_MPLS, basestring
 from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS, nh, rtmsg
-from pr2modules.requests.main import RequestProcessor
-from pr2modules.requests.route import RouteFieldFilter, Target
+from pr2modules.requests.common import MPLSTarget
+from pr2modules.requests.route import RouteFieldFilter
 
 from ..auth_manager import check_auth
 from ..objects import RTNL_Object
@@ -359,7 +359,7 @@ class Via(OrderedDict):
 
     def __eq__(self, right):
         return (
-            isinstance(right, (dict, Target))
+            isinstance(right, (dict))
             and self['family'] == right.get('family', AF_INET)
             and self['addr'] == right.get('addr', '0.0.0.0')
         )
@@ -506,14 +506,13 @@ class Route(RTNL_Object):
             yield record
 
     @classmethod
-    def spec_normalize(cls, spec):
-        ret = RequestProcessor(cls.field_filter(), context=spec, prime=spec)
+    def spec_normalize(cls, processed, spec):
         if isinstance(spec, basestring):
-            ret['dst'] = spec
-        return ret
+            processed['dst'] = spec
+        return processed
 
     def _cmp_target(key, self, right):
-        right = [Target(x) for x in json.loads(right)]
+        right = [MPLSTarget(x) for x in json.loads(right)]
         return all([x[0] == x[1] for x in zip(self[key], right)])
 
     def _cmp_via(self, right):
@@ -651,7 +650,7 @@ class Route(RTNL_Object):
             na = []
             target = None
             for label in value:
-                target = Target(label)
+                target = MPLSTarget(label)
                 target['bos'] = 0
                 na.append(target)
             target['bos'] = 1
@@ -670,7 +669,7 @@ class Route(RTNL_Object):
             return self
         else:
             if self.get('family', AF_INET) == AF_MPLS and not self.get('dst'):
-                dict.__setitem__(self, 'dst', [Target()])
+                dict.__setitem__(self, 'dst', [MPLSTarget()])
             return super(Route, self).apply(rollback)
 
     def load_sql(self, *argv, **kwarg):
@@ -683,7 +682,7 @@ class Route(RTNL_Object):
                     if field == 'via':
                         na = json.loads(value)
                     else:
-                        na = [Target(x) for x in json.loads(value)]
+                        na = [MPLSTarget(x) for x in json.loads(value)]
                     dict.__setitem__(self, field, na)
         #
         # fetch encap deps
@@ -697,7 +696,7 @@ class Route(RTNL_Object):
                     )
                 )
                 if enc:
-                    na = [Target(x) for x in json.loads(enc[0][2])]
+                    na = [MPLSTarget(x) for x in json.loads(enc[0][2])]
                     self.load_value('encap', na)
                     break
                 time.sleep(0.1)

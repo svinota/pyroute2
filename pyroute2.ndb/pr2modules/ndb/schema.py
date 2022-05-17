@@ -973,6 +973,8 @@ class DBSchema:
                 value = event.get(key) or event.get_attr(key)
                 if value is None:
                     value = self.key_defaults[table][key]
+                if isinstance(value, (dict, list, tuple, set)):
+                    value = json.dumps(value)
                 values.append(value)
             self.execute(
                 'DELETE FROM %s WHERE'
@@ -1021,6 +1023,8 @@ class DBSchema:
                     node['attrs'].append((fname[-1], value))
                 if fname[-1] in compiled['idx']:
                     ivalues.append(value)
+                if isinstance(value, (dict, list, tuple, set)):
+                    value = json.dumps(value)
                 values.append(value)
 
             try:

@@ -105,7 +105,6 @@ only remove old ones, and create new.
 '''
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pr2modules.requests.address import AddressFieldFilter
-from pr2modules.requests.main import RequestProcessor
 
 from ..objects import RTNL_Object
 
@@ -233,7 +232,7 @@ class Address(RTNL_Object):
             )
 
     @classmethod
-    def spec_normalize(cls, spec):
+    def spec_normalize(cls, processed, spec):
         '''
         Address key normalization::
 
@@ -241,10 +240,9 @@ class Address(RTNL_Object):
             "10.0.0.1/24"  ->  {"address": "10.0.0.1",
                                 "prefixlen": 24}
         '''
-        ret = RequestProcessor(cls.field_filter(), context=spec, prime=spec)
         if isinstance(spec, str):
-            ret['address'] = spec
-        return ret
+            processed['address'] = spec
+        return processed
 
     def key_repr(self):
         return '%s/%s %s/%s' % (

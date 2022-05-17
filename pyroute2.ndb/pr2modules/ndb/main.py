@@ -220,6 +220,7 @@ import ctypes
 import ctypes.util
 import errno
 import gc
+import json
 import logging
 import logging.handlers
 import sys
@@ -339,13 +340,7 @@ class View(dict):
         else:
             context = {}
         iclass = self.classes[table or self.table]
-
-        spec = (
-            iclass.new_spec(key, self.default_target)
-            .load_context(context)
-            .get_spec
-        )
-
+        spec = iclass.new_spec(key, context, self.default_target)
         return iclass(
             self,
             spec,
@@ -357,18 +352,13 @@ class View(dict):
     @cli.change_pointer
     def create(self, *argspec, **kwspec):
         iclass = self.classes[self.table]
-
         if self.chain:
             context = self.chain.context
         else:
             context = {}
-
-        spec = (
-            iclass.new_spec(kwspec or argspec[0], self.default_target)
-            .load_context(context)
-            .get_spec
+        spec = iclass.new_spec(
+            kwspec or argspec[0], context, self.default_target
         )
-
         if self.chain:
             spec['ndb_chain'] = self.chain
         spec['create'] = True
@@ -447,18 +437,15 @@ class View(dict):
 
         table = table or self.table
         iclass = self.classes[table]
-        spec = iclass.spec_normalize(spec)
+        spec = iclass.new_spec(spec)
         kspec = self.ndb.schema.compiled[table]['norm_idx']
-
         request = {}
         for name in kspec:
             name = iclass.nla2name(name)
             if name in spec:
                 request[name] = spec[name]
-
         if not request:
             raise KeyError('got an empty key')
-
         return self[request]
 
     @check_auth('obj:read')
@@ -524,11 +511,7 @@ class View(dict):
             context = {}
 
         iclass = self.classes[self.table]
-        key = (
-            iclass.new_spec(key, self.default_target)
-            .load_context(context)
-            .get_spec
-        )
+        key = iclass.new_spec(key, context, self.default_target)
 
         iclass.resolve(
             view=self,
@@ -550,6 +533,8 @@ class View(dict):
                 name = nla_name
             if value is not None and name in names:
                 keys.append('f_%s = %s' % (name, schema.plch))
+                if isinstance(value, (dict, list, tuple, set)):
+                    value = json.dumps(value)
                 values.append(value)
         spec = schema.fetchone(
             'SELECT * FROM %s WHERE %s' % (self.table, ' AND '.join(keys)),

@@ -20,15 +20,17 @@ class RequestProcessor(dict):
             super(RequestProcessor, self).__setitem__(nkey, nvalue)
 
     def filter(self, key, value):
-        return getattr(self.field_filter, key, lambda *argv: {key: value})(
-            self.combined, value
-        )
+        if hasattr(self.field_filter, '_key_transform'):
+            key = self.field_filter._key_transform(key)
+        return getattr(
+            self.field_filter, f'set_{key}', lambda *argv: {key: value}
+        )(self.combined, value)
 
     def update(self, prime):
         for key, value in prime.items():
             self[key] = value
 
-    def finalize(self, cmd_context):
-        if hasattr(self.field_filter, 'finalize'):
-            self.field_filter.finalize(self.combined, cmd_context)
+    def finalize(self, cmd_context=None):
+        if hasattr(self.field_filter, 'finalize_for_iproute'):
+            self.field_filter.finalize_for_iproute(self.combined, cmd_context)
         return self

@@ -15,7 +15,6 @@ from pr2modules.ipdb.transactional import (
     Transactional,
     with_transaction,
 )
-from pr2modules.iproute.req import IPRouteRequest
 from pr2modules.netlink import (
     NLM_F_CREATE,
     NLM_F_MULTI,
@@ -26,6 +25,8 @@ from pr2modules.netlink import (
 from pr2modules.netlink.rtnl import encap_type, rt_proto, rt_type
 from pr2modules.netlink.rtnl.ifaddrmsg import IFA_F_SECONDARY
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
+from pr2modules.requests.main import RequestProcessor
+from pr2modules.requests.route import RouteFieldFilter
 
 log = logging.getLogger(__name__)
 groups = (
@@ -126,7 +127,9 @@ class WatchdogKey(dict):
             self,
             [
                 x
-                for x in IPRouteRequest(route).items()
+                for x in RequestProcessor(
+                    RouteFieldFilter(), context=route, prime=route
+                ).items()
                 if x[0]
                 in (
                     'dst',

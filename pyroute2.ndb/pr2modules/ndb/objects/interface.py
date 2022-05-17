@@ -100,7 +100,6 @@ from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.p2pmsg import p2pmsg
 from pr2modules.requests.interface import InterfaceFieldFilter
-from pr2modules.requests.main import RequestProcessor
 
 from ..auth_manager import AuthManager, check_auth
 from ..objects import RTNL_Object
@@ -665,7 +664,7 @@ class Interface(RTNL_Object):
             super(Interface, self).__setitem__(key, value)
 
     @classmethod
-    def spec_normalize(cls, spec):
+    def spec_normalize(cls, processed, spec):
         '''
         Interface key normalization::
 
@@ -674,12 +673,11 @@ class Interface(RTNL_Object):
             1        ->  {"index": 1, ...}
 
         '''
-        ret = RequestProcessor(cls.field_filter(), context=spec, prime=spec)
         if isinstance(spec, basestring):
-            ret['ifname'] = spec
+            processed['ifname'] = spec
         elif isinstance(spec, int):
-            ret['index'] = spec
-        return ret
+            processed['index'] = spec
+        return processed
 
     def complete_key(self, key):
         if isinstance(key, dict):

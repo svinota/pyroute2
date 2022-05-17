@@ -3,11 +3,9 @@ from socket import AF_INET
 from pr2modules.common import get_address_family
 from pr2modules.netlink.rtnl.ndmsg import NUD_PERMANENT, ndmsg
 
-from .common import IPTargets
 
-
-class NeighbourFieldFilter(IPTargets):
-    def index(self, context, value):
+class NeighbourFieldFilter:
+    def set_index(self, context, value):
         return {'ifindex': value}
 
     def _state(self, value):
@@ -15,13 +13,13 @@ class NeighbourFieldFilter(IPTargets):
             value = ndmsg.states_a2n(self['state'])
         return {'state': value}
 
-    def nud(self, context, value):
+    def set_nud(self, context, value):
         return self._state(value)
 
-    def state(self, context, value):
+    def set_state(self, context, value):
         return self._state(value)
 
-    def finalize(self, context, cmd_context):
+    def finalize_for_iproute(self, context, cmd_context):
         if cmd_context not in ('dump', 'get'):
             if 'state' not in context:
                 context['state'] = NUD_PERMANENT
