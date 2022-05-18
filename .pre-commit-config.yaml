@@ -1,4 +1,4 @@
-files: '^(pyroute2|tests/pytest|tests/utils.py)'
+files: '^(pyroute2|tests/test_linux|tests/test_openbsd|tests/utils.py)'
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.2.0

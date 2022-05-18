@@ -4,6 +4,7 @@
 #
 #
 
+make ?= make
 ##
 # Python-related configuration
 #
@@ -51,7 +52,7 @@ define list_modules
 endef
 
 define make_modules
-	for module in $(call list_modules); do make -C $$module $(1) python=${python}; done
+	for module in $(call list_modules); do ${make} -C $$module $(1) python=${python}; done
 endef
 
 define fetch_modules_dist
@@ -150,7 +151,7 @@ docs/html:
 	    mv -f docs/_templates/layout.html docs/_templates/layout.html.orig; \
 		cp docs/_templates/private.layout.html docs/_templates/layout.html; ) ||:
 	@export PYTHONPATH=`pwd`; \
-		make -C docs html || export FAIL=true ; \
+		${make} -C docs html || export FAIL=true ; \
 		[ -f docs/_templates/layout.html.orig ] && ( \
 			mv -f docs/_templates/layout.html.orig docs/_templates/layout.html; ) ||: ;\
 		unset PYTHONPATH ;\

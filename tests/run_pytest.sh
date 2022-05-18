@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/usr/bin/env bash
 
 cd "$( dirname "${BASH_SOURCE[0]}" )"
 TOP=$(readlink -f $(pwd)/..)
@@ -7,6 +7,20 @@ TOP=$(readlink -f $(pwd)/..)
 # Load the configuration
 #
 . conf.sh
+
+#
+# Choose the tests to run on this platform
+#
+case `uname -s` in
+    OpenBSD)
+        export PYTEST_PATH=test_openbsd
+        export MAKE=gmake
+        ;;
+    Linux)
+        export PYTEST_PATH=test_linux
+        export MAKE=make
+        ;;
+esac
 
 export PYTHONPATH="$WORKSPACE:$WORKSPACE/examples:$WORKSPACE/examples/generic"
 
@@ -34,7 +48,7 @@ function deploy() {
     cd $TOP
     DIST_VERSION=$(git describe | sed 's/-[^-]*$//;s/-/.post/')
     echo -n "dist ... "
-    make dist python=$PYTHON
+    $MAKE dist python=$PYTHON make=$MAKE
     rm -rf "$WORKSPACE"
     mkdir -p "$WORKSPACE/bin"
     cp -a "$TOP/tests/"* "$WORKSPACE/"
@@ -62,8 +76,8 @@ deploy || exit 1
 #
 # Setup kernel parameters
 #
-[ "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && {
-    echo "Running as root"
+[ "`uname -s`" = "Linux" -a "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && {
+    echo "Running as root on Linux"
     ulimit -n 2048
     modprobe dummy 2>/dev/null ||:
     modprobe bonding 2>/dev/null ||:
@@ -80,7 +94,14 @@ for i in `seq $LOOP`; do
 
     echo "[`date +%s`] iteration $i of $LOOP"
 
-    $PYTHON $WLEVEL -m $PYTEST --basetemp ./log $PDB $COVERAGE
+    $PYTHON $WLEVEL \
+        -m $PYTEST \
+        --basetemp ./log \
+        $PDB \
+        $COVERAGE \
+        --exitfirst \
+        --verbose \
+        $PYTEST_PATH
     ret=$?
     [ $ret -eq 0 ] || {
         errors=$(($errors + 1))

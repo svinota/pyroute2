@@ -94,6 +94,7 @@ class IPRoute(object):
         self._arp = ARP(cmd=self._ssh + ['arp', '-an'])
         self._route = Route(cmd=self._ssh + ['netstat', '-rn'])
         self.marshal = MarshalRtnl()
+        self.target = kwarg.get('target') or 'localhost'
         send_ns = Namespace(
             self, {'addr_pool': AddrPool(0x10000, 0x1FFFF), 'monitor': False}
         )
@@ -267,6 +268,7 @@ class IPRoute(object):
         for name, spec in parsed['links'].items():
             msg = ifinfmsg().load(spec)
             msg['header']['type'] = RTM_NEWLINK
+            msg['header']['target'] = self.target
             del msg['value']
             flags = msg['flags']
             new_flags = 0
@@ -285,6 +287,7 @@ class IPRoute(object):
             for spec in specs:
                 msg = ifaddrmsg().load(spec)
                 msg['header']['type'] = RTM_NEWADDR
+                msg['header']['target'] = self.target
                 del msg['value']
                 ret.append(msg)
         return ret
@@ -299,6 +302,7 @@ class IPRoute(object):
             spec['ifindex'] = ifc['links'][spec['ifname']]['index']
             msg = ndmsg().load(spec)
             msg['header']['type'] = RTM_NEWNEIGH
+            msg['header']['target'] = self.target
             del msg['value']
             ret.append(msg)
         return ret
@@ -314,6 +318,7 @@ class IPRoute(object):
             spec['attrs'].append(['RTA_OIF', idx])
             msg = rtmsg().load(spec)
             msg['header']['type'] = RTM_NEWROUTE
+            msg['header']['target'] = self.target
             del msg['value']
             ret.append(msg)
         return ret

@@ -117,7 +117,8 @@ convert = {
 
 
 class RTMSocket(RTMSocketBase):
-    def __init__(self, output='pf_route'):
+    def __init__(self, output='pf_route', target='localhost'):
+        self.target = target
         self._sock = config.SocketBase(AF_ROUTE, SOCK_RAW)
         self._output = output
 
@@ -134,6 +135,7 @@ class RTMSocket(RTMSocketBase):
             if self._output == 'netlink':
                 # convert messages to the Netlink format
                 msg = convert[type(msg)](msg)
+                msg['header']['target'] = self.target
         return msg
 
     def close(self):
