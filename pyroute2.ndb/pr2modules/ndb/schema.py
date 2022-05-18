@@ -144,46 +144,6 @@ try:
 except ImportError:
     psycopg2 = None
 
-_sql_adapters_lock = threading.Lock()
-_sql_adapters_psycopg2_registered = False
-_sql_adapters_sqlite3_registered = False
-
-
-def target_adapter(value):
-    #
-    # MPLS target adapter for SQLite3
-    #
-    return json.dumps(value)
-
-
-class PostgreSQLAdapter(object):
-    def __init__(self, obj):
-        self.obj = obj
-
-    def getquoted(self):
-        return "'%s'" % json.dumps(self.obj)
-
-
-def register_sqlite3_adapters():
-    global _sql_adapters_lock
-    global _sql_adapters_sqlite3_registered
-    with _sql_adapters_lock:
-        if not _sql_adapters_sqlite3_registered:
-            _sql_adapters_sqlite3_registered = True
-            sqlite3.register_adapter(list, target_adapter)
-            sqlite3.register_adapter(dict, target_adapter)
-
-
-def regsiter_postgres_adapters():
-    global _sql_adapters_lock
-    global _sql_adapters_psycopg2_registered
-    with _sql_adapters_lock:
-        if psycopg2 is not None and not _sql_adapters_psycopg2_registered:
-            _sql_adapters_psycopg2_registered = True
-            psycopg2.extensions.register_adapter(list, PostgreSQLAdapter)
-            psycopg2.extensions.register_adapter(dict, PostgreSQLAdapter)
-
-
 #
 # the order is important
 #
@@ -385,12 +345,10 @@ class DBSchema:
         if self.connection is not None:
             self.close()
         if self.config.provider == DBProvider.sqlite3:
-            register_sqlite3_adapters()
             self.connection = sqlite3.connect(self.config.spec)
             self.plch = '?'
             self.connection.execute('PRAGMA foreign_keys = ON')
         elif self.config.provider == DBProvider.psycopg2:
-            regsiter_postgres_adapters()
             self.connection = psycopg2.connect(**self.config.spec)
             self.plch = '%s'
         else:
@@ -915,6 +873,8 @@ class DBSchema:
             value = event.get_attr(field) or event.get(field)
             if value is None and field in self.indices[ctable or table]:
                 value = self.key_defaults[table][field]
+            if isinstance(value, (dict, list, tuple, set)):
+                value = json.dumps(value)
             values.append(value)
         self.execute(
             'INSERT INTO %s_log (%s) VALUES (%s)' % (table, fields, pch),
@@ -1021,10 +981,10 @@ class DBSchema:
                 if value is None and fname[-1] in self.compiled[table]['idx']:
                     value = self.key_defaults[table][fname[-1]]
                     node['attrs'].append((fname[-1], value))
-                if fname[-1] in compiled['idx']:
-                    ivalues.append(value)
                 if isinstance(value, (dict, list, tuple, set)):
                     value = json.dumps(value)
+                if fname[-1] in compiled['idx']:
+                    ivalues.append(value)
                 values.append(value)
 
             try:
