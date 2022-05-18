@@ -1,4 +1,5 @@
 import time
+from socket import AF_INET
 
 
 def test_real_links(context):
@@ -18,12 +19,17 @@ def test_filter(context):
     context.ipr.neigh('add', dst=ipaddr1, lladdr=lladdr, ifindex=index)
     context.ipr.neigh('add', dst=ipaddr2, lladdr=lladdr, ifindex=index)
     # assert two arp records on the interface
-    assert len(context.ipr.get_neighbours(ifindex=index)) == 2
+    assert len(context.ipr.get_neighbours(ifindex=index, family=AF_INET)) == 2
     # filter by dst
     assert len(context.ipr.get_neighbours(dst=ipaddr1)) == 1
     # filter with lambda
     assert (
-        len(context.ipr.get_neighbours(match=lambda x: x['ifindex'] == index))
+        len(
+            context.ipr.get_neighbours(
+                match=lambda x: x['ifindex'] == index
+                and x['family'] == AF_INET
+            )
+        )
         == 2
     )
 
