@@ -25,7 +25,7 @@ def test_register_path(context):
     ifname = context.new_ifname
 
     old = context.ipr.list_link_kind()['vlan']
-    context.ipr.register_link_kind(path='pytest/pr2test/custom_link_kind/')
+    context.ipr.register_link_kind(path='test_linux/pr2test/custom_link_kind/')
     context.ipr.link(
         'add',
         ifname=ifname,
