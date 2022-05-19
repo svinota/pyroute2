@@ -12,3 +12,9 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: sudo tox -e py36,py37,py38,py39,py310
+  openbsd:
+    runs-on: OpenBSD
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: /home/github/openbsd_runner.sh
