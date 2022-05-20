@@ -1430,7 +1430,10 @@ class RTNL_API(object):
         }
 
         msg = ifinfmsg()
-        request = IPLinkRequest(kwarg, command)
+        if 'kwarg_filter' in kwarg:
+            request = kwarg['kwarg_filter'](kwarg, command)
+        else:
+            request = IPLinkRequest(kwarg, command)
         dump_filter = get_dump_filter(kwarg)
         msg_type, msg_flags = get_msg_type(command, command_map)
 
