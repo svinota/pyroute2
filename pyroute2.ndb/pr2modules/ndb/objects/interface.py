@@ -89,6 +89,59 @@ Create a bridge and add a port, `eth0`::
      .set('master', ndb.interfaces['br0']['index'])
      .commit())
 
+Bridge and bond ports
+=====================
+
+Add bridge and bond ports one can use specific API:
+
+.. code-block:: python
+
+    (
+        ndb.interfaces['br0']
+        .add_port('eth0')
+        .add_port('eth1')
+        .set('br_max_age', 1024)
+        .set('br_forward_delay', 1500)
+        .commit()
+    )
+
+    (
+        ndb.interfaces['bond0']
+        .add_port('eth0')
+        .add_port('eth1')
+        .commit()
+    )
+
+To remove a port:
+
+.. code-block:: python
+
+    (
+        ndb.interfaces['br0']
+        .del_port('eth0')
+        .commit()
+    )
+
+Or by setting the master property on a port, in the same
+way as with `IPRoute`:
+
+.. code-block:: python
+
+    index = ndb.interfaces['br0']['index']
+
+    # add a port to a bridge
+    (
+        ndb.interfaces['eth0']
+        .set('master', index)
+        .commit()
+    )
+
+    # remove a port from a bridge
+    (
+        ndb.interfaces['eth0']
+        .set('master', 0)
+        .commit()
+    )
 '''
 
 import errno
