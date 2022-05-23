@@ -5,7 +5,7 @@ from socket import AF_INET
 def test_real_links(context):
     links = set([x['index'] for x in context.ipr.get_links()])
     neigh = set([x['ifindex'] for x in context.ipr.get_neighbours()])
-    assert neigh < links
+    assert neigh <= links
 
 
 def test_filter(context):
