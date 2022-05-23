@@ -235,6 +235,12 @@ audit-imports:
 		findimports -n $$module/pr2modules/ 2>/dev/null | awk -f util/imports_dict.awk | awk '{printf("\t"$$0"\n")}'; \
 	done
 
+.PHONY: stubs
+stubs:
+	for module in $(call list_modules); do \
+		[ -d $$module/pr2modules/ ] && { echo "--> $$module"; stubgen -o stubs $$module/pr2modules/; } ; \
+	done
+
 # deprecated:
 epydoc clean-version update-version force-version README.md setup.ini develop pytest test-format:
 	@echo Deprecated target, see README.make.md
