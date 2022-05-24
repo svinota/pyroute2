@@ -78,11 +78,12 @@ from pr2modules.netlink.rtnl.rtmsg import rtmsg
 from pr2modules.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pr2modules.netlink.rtnl.tcmsg import tcmsg
 from pr2modules.requests.address import AddressFieldFilter
+from pr2modules.requests.link import LinkFieldFilter
 from pr2modules.requests.main import RequestProcessor
 from pr2modules.requests.neighbour import NeighbourFieldFilter
 from pr2modules.requests.route import RouteFieldFilter
 
-from .req import IPBridgeRequest, IPBrPortRequest, IPLinkRequest, IPRuleRequest
+from .req import IPBridgeRequest, IPBrPortRequest, IPRuleRequest
 
 DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)
@@ -1433,7 +1434,9 @@ class RTNL_API(object):
         if 'kwarg_filter' in kwarg:
             request = kwarg['kwarg_filter'](kwarg, command)
         else:
-            request = IPLinkRequest(kwarg, command)
+            request = RequestProcessor(
+                LinkFieldFilter(), context=kwarg, prime=kwarg
+            ).finalize(command)
         dump_filter = get_dump_filter(kwarg)
         msg_type, msg_flags = get_msg_type(command, command_map)
 

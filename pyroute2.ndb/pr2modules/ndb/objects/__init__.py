@@ -113,7 +113,7 @@ class RTNL_Object(dict):
     key_extra_fields = []
     hidden_fields = []
     fields_cmp = {}
-    field_filter = None
+    field_filter = object
     rollback_chain = []
 
     fallback_for = None
@@ -277,8 +277,6 @@ class RTNL_Object(dict):
         self.load_event.set()
         self.load_debug = False
         self.lock = threading.Lock()
-        if self.field_filter is None:
-            self.field_filter = object
         self.object_data = RequestProcessor(
             self.field_filter(), context=weakref.proxy(self)
         )

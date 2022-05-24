@@ -152,7 +152,7 @@ from pr2modules.config import AF_BRIDGE
 from pr2modules.netlink.exceptions import NetlinkError
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg
 from pr2modules.netlink.rtnl.p2pmsg import p2pmsg
-from pr2modules.requests.interface import InterfaceFieldFilter
+from pr2modules.requests.link import LinkFieldFilter
 
 from ..auth_manager import AuthManager, check_auth
 from ..objects import RTNL_Object
@@ -435,7 +435,7 @@ class Interface(RTNL_Object):
     key_extra_fields = ['IFLA_IFNAME']
     resolve_fields = ['vxlan_link', 'link', 'master']
     fields_cmp = {'master': _cmp_master}
-    field_filter = InterfaceFieldFilter
+    field_filter = LinkFieldFilter
 
     @classmethod
     def _dump_where(cls, view):
