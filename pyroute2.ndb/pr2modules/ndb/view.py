@@ -1,3 +1,51 @@
+'''
+Accessing objects
+=================
+
+NDB objects are grouped into "views":
+
+    * interfaces
+    * addresses
+    * routes
+    * neighbours
+    * rules
+    * netns
+    * ...
+
+Views are dictionary-like objects that accept strings or dict selectors::
+
+    # access eth0
+    ndb.interfaces["eth0"]
+
+    # access eth0 in the netns test01
+    ndb.sources.add(netns="test01")
+    ndb.interfaces[{"target": "test01", "ifname": "eth0"}]
+
+    # access a route to 10.4.0.0/24
+    ndb.routes["10.4.0.0/24"]
+
+    # same with a dict selector
+    ndb.routes[{"dst": "10.4.0.0", "dst_len": 24}]
+
+Objects cache
+=============
+
+NDB create objects on demand, it doesn't create thousands of route objects
+for thousands of routes by default. The object is being created only when
+accessed for the first time, and stays in the cache as long as it has any
+not committed changes. To inspect cached objects, use views' `.cache`::
+
+    >>> ndb.interfaces.cache.keys()
+    [(('target', u'localhost'), ('tflags', 0), ('index', 1)),  # lo
+     (('target', u'localhost'), ('tflags', 0), ('index', 5))]  # eth3
+
+There is no asynchronous cache invalidation, the cache is being cleaned up
+every time when an object is accessed.
+
+API
+===
+'''
+
 import errno
 import gc
 import json

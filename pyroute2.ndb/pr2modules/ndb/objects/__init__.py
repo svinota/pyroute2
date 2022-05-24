@@ -1,11 +1,21 @@
 '''
-Structure
-=========
+General structure
+=================
 
 The NDB objects are dictionary-like structures that represent network
-objects -- interfaces, routes, addresses etc. In addition to the
-usual dictionary API they have some NDB-specific methods, see the
-`RTNL_Object` class description below.
+objects -- interfaces, routes, addresses etc. They support the common
+dict API, like item getting, setting, iteration through key and values.
+In addition to that, NDB object add specific calls, see the API section
+below.
+
+Most of the NDB object types store all attributes in a flat one level
+dictionary. Some, like multihop routes, implement nested structures.
+In addition to that, some objects like `Interface` provide views on the
+DB that list only related objects -- addresses, routes and neighbours.
+More on these topic see in the corresponding sections.
+
+NDB objects and RTNL API
+========================
 
 The dictionary fields represent RTNL messages fields and NLA names,
 and the objects are used as argument dictionaries to normal `IPRoute`
@@ -14,7 +24,7 @@ the `IPRoute` methods is valid here as well.
 
 See also: :ref:`iproute`
 
-E.g.::
+.. code-block:: python
 
     # create a vlan interface with IPRoute
     with IPRoute() as ipr:
@@ -37,49 +47,6 @@ E.g.::
 Slightly simplifying, if a network object doesn't exist, NDB will run
 an RTNL method with "add" argument, if exists -- "set", and to remove
 an object NDB will call the method with "del" argument.
-
-Accessing objects
-=================
-
-NDB objects are grouped into "views":
-
-    * interfaces
-    * addresses
-    * routes
-    * neighbours
-    * rules
-    * netns
-    * ...
-
-Views are dictionary-like objects that accept strings or dict selectors::
-
-    # access eth0
-    ndb.interfaces["eth0"]
-
-    # access eth0 in the netns test01
-    ndb.sources.add(netns="test01")
-    ndb.interfaces[{"target": "test01", "ifname": "eth0"}]
-
-    # access a route to 10.4.0.0/24
-    ndb.routes["10.4.0.0/24"]
-
-    # same with a dict selector
-    ndb.routes[{"dst": "10.4.0.0", "dst_len": 24}]
-
-Objects cache
-=============
-
-NDB create objects on demand, it doesn't create thousands of route objects
-for thousands of routes by default. The object is being created only when
-accessed for the first time, and stays in the cache as long as it has any
-not committed changes. To inspect cached objects, use views' `.cache`::
-
-    >>> ndb.interfaces.cache.keys()
-    [(('target', u'localhost'), ('tflags', 0), ('index', 1)),  # lo
-     (('target', u'localhost'), ('tflags', 0), ('index', 5))]  # eth3
-
-There is no asynchronous cache invalidation, the cache is being cleaned up
-every time when an object is accessed.
 
 API
 ===
@@ -134,7 +101,9 @@ def fallback_add(self, idx_req, req):
 class RTNL_Object(dict):
     '''
     The common base class for NDB objects -- interfaces, routes, rules
-    addresses etc.
+    addresses etc. Implements common logic for all the classes, like
+    item setting, commit/rollback, RTNL event filters, loading values
+    from the DB backend etc.
     '''
 
     view = None  # (optional) view to load values for the summary etc.
@@ -144,7 +113,7 @@ class RTNL_Object(dict):
     key_extra_fields = []
     hidden_fields = []
     fields_cmp = {}
-    field_filter = object
+    field_filter = None
     rollback_chain = []
 
     fallback_for = None
@@ -308,6 +277,8 @@ class RTNL_Object(dict):
         self.load_event.set()
         self.load_debug = False
         self.lock = threading.Lock()
+        if self.field_filter is None:
+            self.field_filter = object
         self.object_data = RequestProcessor(
             self.field_filter(), context=weakref.proxy(self)
         )
@@ -369,7 +340,7 @@ class RTNL_Object(dict):
     @staticmethod
     def resolve(view, spec, fields, policy=RSLV_IGNORE):
         '''
-        Resolve specific fields e.g. convert port ifname into index::
+        Resolve specific fields e.g. convert port ifname into index.
         '''
         for field in fields:
             ref = spec.get(field)
@@ -452,6 +423,7 @@ class RTNL_Object(dict):
                 dict.__setitem__(self, nkey, nvalue)
 
     def fields(self, *argv):
+        # TODO: deprecate and move to show()
         Fields = collections.namedtuple('Fields', argv)
         return Fields(*[self[key] for key in argv])
 
@@ -460,13 +432,41 @@ class RTNL_Object(dict):
 
     @cli.change_pointer
     def create(self, **spec):
+        '''
+        Create an RTNL object of the same type, and add it to the
+        commit chain. The spec format depends on the object.
+
+        The method allows to chain creation of multiple objects sharing
+        the same context.
+
+        .. code-block:: python
+
+            (
+                ndb.interfaces['eth0']                     # 1.
+                .set(state="up")                           # 2.
+                .ipaddr                                    # 3.
+                .create(address='10.0.0.1', prefixlen=24)  # 4. <- create()
+                .create(address='10.0.0.2', prefixlen=24)  # 5. <- create()
+                .commit()                                  # 6.
+            )
+        
+        Here:
+
+        1. returns an interface object `eth0`
+        2. sets `state="up"` and returns the object itself
+        3. returns an address view, that uses `eth0` as the context
+        4. creates an IP address, the interface lookup is done via context
+        5. creates another IP address -- same type, same context
+        6. commits the changes in the order: (interface `state="up"`;
+           address `10.0.0.1/24`; address `10.0.0.2/24`)
+        '''
         spec['create'] = True
         spec['ndb_chain'] = self
         return self.view[spec]
 
     @cli.show_result
     @check_auth('obj:read')
-    def show(self, **kwarg):
+    def show(self, fmt='native', **kwarg):
         '''
         Return the object in a specified format. The format may be
         specified with the keyword argument `format` or in the
@@ -663,8 +663,8 @@ class RTNL_Object(dict):
     @check_auth('obj:modify')
     def commit(self):
         '''
-        Try to commit the pending changes. If the commit fails,
-        automatically revert the state.
+        Commit the pending changes. If an exception is raised during
+        `commit()`, automatically `rollback()` to the latest saved snapshot.
         '''
         if self.clean:
             return self
@@ -721,6 +721,10 @@ class RTNL_Object(dict):
         return self
 
     def remove(self):
+        '''
+        Set the desired state to `remove`, so the next `apply()` call will
+        delete the object from the system.
+        '''
         with self.lock:
             self.state.set('remove')
             return self
@@ -791,8 +795,10 @@ class RTNL_Object(dict):
     @check_auth('obj:modify')
     def apply(self, rollback=False, req_filter=None):
         '''
-        Create a snapshot and apply pending changes. Do not revert
-        the changes in the case of an exception.
+        Apply the pending changes. If an exception is raised during
+        `apply()`, no `rollback()` is called, you have to call
+        `rollback()` manually in order to revert partially applied
+        changes.
         '''
 
         # Resolve the fields

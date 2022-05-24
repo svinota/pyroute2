@@ -3,7 +3,7 @@ import json
 from socket import AF_INET
 
 import pytest
-from pr2modules.ndb.main import Record, RecordSet
+from pr2modules.ndb.report import Record, RecordSet
 from pr2modules.ndb.objects import RTNL_Object
 from pr2test.context_manager import make_test_matrix, skip_if_not_supported
 
