@@ -68,6 +68,7 @@ class check_auth(object):
                 return f(obj, *argv, **kwarg)
             raise PermissionError('access rejected')
 
+        guard.__doc__ = f.__doc__
         return guard
 
 
