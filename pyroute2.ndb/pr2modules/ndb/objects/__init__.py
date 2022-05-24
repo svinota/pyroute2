@@ -449,7 +449,7 @@ class RTNL_Object(dict):
                 .create(address='10.0.0.2', prefixlen=24)  # 5. <- create()
                 .commit()                                  # 6.
             )
-        
+
         Here:
 
         1. returns an interface object `eth0`
