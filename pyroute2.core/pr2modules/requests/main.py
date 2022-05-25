@@ -6,7 +6,7 @@ from collections import ChainMap
 
 
 class RequestProcessor(dict):
-    def __init__(self, field_filter, context=None, prime=None):
+    def __init__(self, field_filter=None, context=None, prime=None):
         self.field_filter = field_filter
         self.context = (
             context if isinstance(context, (dict, weakref.ProxyType)) else {}
@@ -16,6 +16,8 @@ class RequestProcessor(dict):
             self.update(prime)
 
     def __setitem__(self, key, value):
+        if key in self:
+            del self[key]
         for nkey, nvalue in self.filter(key, value).items():
             super(RequestProcessor, self).__setitem__(nkey, nvalue)
 
@@ -27,10 +29,23 @@ class RequestProcessor(dict):
         )(self.combined, value)
 
     def update(self, prime):
-        for key, value in prime.items():
+        for key, value in tuple(prime.items()):
             self[key] = value
+
+    def set_filter(self, field_filter):
+        self.field_filter = field_filter
+        return self
+
+    def apply_filter(self, field_filter):
+        self.field_filter = field_filter
+        self.update(self)
+        return self
 
     def finalize(self, cmd_context=None):
         if hasattr(self.field_filter, 'finalize_for_iproute'):
+            # old interface
             self.field_filter.finalize_for_iproute(self.combined, cmd_context)
+        if hasattr(self.field_filter, 'finalize'):
+            # new interface
+            self.field_filter.finalize(self.combined)
         return self

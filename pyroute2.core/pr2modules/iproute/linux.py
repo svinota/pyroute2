@@ -77,7 +77,10 @@ from pr2modules.netlink.rtnl.riprsocket import RawIPRSocket
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
 from pr2modules.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pr2modules.netlink.rtnl.tcmsg import tcmsg
-from pr2modules.requests.address import AddressFieldFilter
+from pr2modules.requests.address import (
+    AddressFieldFilter,
+    AddressIPRouteFilter,
+)
 from pr2modules.requests.link import LinkFieldFilter
 from pr2modules.requests.main import RequestProcessor
 from pr2modules.requests.neighbour import NeighbourFieldFilter
@@ -1541,9 +1544,12 @@ class RTNL_API(object):
         }
 
         msg = ifaddrmsg()
-        request = RequestProcessor(
-            AddressFieldFilter(), context=kwarg, prime=kwarg
-        ).finalize(command)
+        request = (
+            RequestProcessor(context=kwarg, prime=kwarg)
+            .apply_filter(AddressFieldFilter())
+            .apply_filter(AddressIPRouteFilter(command))
+            .finalize()
+        )
         dump_filter = get_dump_filter(kwarg)
         msg_type, msg_flags = get_msg_type(command, command_map)
 

@@ -179,7 +179,9 @@ test: check_parameters
 		export WORKSPACE=${workspace}; \
 		export PYROUTE2_TEST_DBNAME=${dbname}; \
 		export SKIPDB=${skipdb}; \
+		export PYTEST_PATH=${module}; \
 		export BREAK_ON_ERRORS=${break}; \
+		export NODEPLOY=${nodeploy}; \
 		./tests/run_pytest.sh
 
 .PHONY: test-platform

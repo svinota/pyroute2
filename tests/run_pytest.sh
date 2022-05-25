@@ -13,11 +13,15 @@ TOP=$(readlink -f $(pwd)/..)
 #
 case `uname -s` in
     OpenBSD)
-        export PYTEST_PATH=test_openbsd
+        if [ -z "$PYTEST_PATH" ]; then
+            export PYTEST_PATH=test_openbsd
+        fi
         export MAKE=gmake
         ;;
     Linux)
-        export PYTEST_PATH=test_linux
+        if [ -z "$PYTEST_PATH" ]; then
+            export PYTEST_PATH=test_linux
+        fi
         export MAKE=make
         ;;
 esac
@@ -71,7 +75,9 @@ if [ -z "$VIRTUAL_ENV" -a -z "$PR2TEST_FORCE_RUN" ]; then {
 echo "Version: `cat $TOP/VERSION`"
 echo "Kernel: `uname -r`"
 
-deploy || exit 1
+if [ -z "$NODEPLOY" ]; then
+    deploy || exit 1
+fi
 
 #
 # Setup kernel parameters
@@ -109,7 +115,10 @@ for i in `seq $LOOP`; do
     [ "$BREAK_ON_ERRORS" = "true" -a $errors -gt 0 ] && break ||:
 
 done
-for i in `$PYTHON -m pip list | awk '/pyroute2/ {print $1}'`; do {
-    $PYTHON -m pip uninstall -y $i
-} done
+
+if [ -z "$NODEPLOY" ]; then
+    for i in `$PYTHON -m pip list | awk '/pyroute2/ {print $1}'`; do {
+        $PYTHON -m pip uninstall -y $i
+    } done
+fi
 exit $errors

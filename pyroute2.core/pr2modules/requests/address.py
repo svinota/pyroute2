@@ -48,24 +48,51 @@ class AddressFieldFilter(Index, NLAKeyTransform):
     def set_valid(self, context, value):
         return self._cacheinfo('valid', value)
 
-    def finalize_for_iproute(self, context, cmd_context):
-        if cmd_context != 'dump':
-            if 'cacheinfo' in context:
-                cacheinfo = context['cacheinfo']
-                for i in ('preferred', 'valid'):
-                    cacheinfo[f'ifa_{i}'] = context.get(i, pow(2, 32) - 1)
-            if 'family' not in context:
+
+class AddressIPRouteFilter:
+    def __init__(self, command):
+        self.command = command
+
+    def set_cacheinfo(self, context, value):
+        cacheinfo = value.copy()
+        if self.command != 'dump':
+            for i in ('preferred', 'valid'):
+                cacheinfo[f'ifa_{i}'] = cacheinfo.get(i, pow(2, 32) - 1)
+            return {'cacheinfo': cacheinfo}
+        return {}
+
+    def set_broadcast(self, context, value):
+        ret = {}
+        if self.command != 'dump' and isinstance(value, bool):
+            keys = set(context.keys())
+            if value and 'address' in keys and 'prefixlen' in keys:
+                if 'family' in keys:
+                    family = context['family']
+                else:
+                    ret['family'] = family = get_address_family(
+                        context['address']
+                    )
+                ret['broadcast'] = getbroadcast(
+                    context['address'], context['prefixlen'], family
+                )
+        else:
+            ret['broadcast'] = value
+        return ret
+
+    def finalize(self, context):
+        if self.command != 'dump':
+            if 'family' not in context and 'address' in context:
                 context['family'] = get_address_family(context['address'])
             if 'prefixlen' not in context:
                 if context['family'] == AF_INET:
                     context['prefixlen'] = 32
                 elif context['family'] == AF_INET6:
                     context['prefixlen'] = 128
-            if 'local' not in context and context['family'] == AF_INET:
+            if (
+                'local' not in context
+                and 'address' in context
+                and context['family'] == AF_INET
+            ):
                 # inject IFA_LOCAL, if family is AF_INET and
                 # IFA_LOCAL is not set
                 context['local'] = context['address']
-            if context.get('broadcast') is True:
-                context['broadcast'] = getbroadcast(
-                    context['address'], context['prefixlen'], context['family']
-                )
