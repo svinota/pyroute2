@@ -90,6 +90,14 @@ for key, value in entry_points_aliases.items():
     if key in sys.modules:
         sys.modules[value] = sys.modules[key]
 
+# alias every `pr2modules` entry, in addition to the block above
+#
+# Bug-Url: https://github.com/svinota/pyroute2/issues/913
+#
+for key, value in list(sys.modules.items()):
+    if key.startswith('pr2modules.'):
+        sys.modules[key.replace('pr2modules', 'pyroute2')] = value
+
 
 class PyRoute2ModuleSpec(importlib.machinery.ModuleSpec):
     def __init__(
