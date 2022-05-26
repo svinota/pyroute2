@@ -1,7 +1,7 @@
 from socket import AF_INET
 
 from pr2modules.common import get_address_family
-from pr2modules.netlink.rtnl.ndmsg import NUD_PERMANENT, ndmsg
+from pr2modules.netlink.rtnl import ndmsg
 
 from .common import Index, IPRouteFilter
 
@@ -14,9 +14,12 @@ class NeighbourFieldFilter(Index):
             )['index']
         }
 
+    def set_ifindex(self, context, value):
+        return self.set_index(context, value)
+
     def _state(self, value):
         if isinstance(value, str):
-            value = ndmsg.states_a2n(self['state'])
+            value = ndmsg.states_a2n(value)
         return {'state': value}
 
     def set_nud(self, context, value):
@@ -36,6 +39,6 @@ class NeighbourIPRouteFilter(IPRouteFilter):
     def finalize(self, context):
         if self.command not in ('dump', 'get'):
             if 'state' not in context:
-                context['state'] = NUD_PERMANENT
+                context['state'] = ndmsg.NUD_PERMANENT
         if 'family' not in context:
             context['family'] = AF_INET
