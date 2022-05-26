@@ -81,10 +81,13 @@ from pr2modules.requests.address import (
     AddressFieldFilter,
     AddressIPRouteFilter,
 )
-from pr2modules.requests.link import LinkFieldFilter
+from pr2modules.requests.link import LinkFieldFilter, LinkIPRouteFilter
 from pr2modules.requests.main import RequestProcessor
-from pr2modules.requests.neighbour import NeighbourFieldFilter
-from pr2modules.requests.route import RouteFieldFilter
+from pr2modules.requests.neighbour import (
+    NeighbourFieldFilter,
+    NeighbourIPRouteFilter,
+)
+from pr2modules.requests.route import RouteFieldFilter, RouteIPRouteFilter
 
 from .req import IPBridgeRequest, IPBrPortRequest, IPRuleRequest
 
@@ -1052,9 +1055,12 @@ class RTNL_API(object):
         }
 
         msg = ndmsg.ndmsg()
-        request = RequestProcessor(
-            NeighbourFieldFilter(), context=kwarg, prime=kwarg
-        ).finalize(command)
+        request = (
+            RequestProcessor(context=kwarg, prime=kwarg)
+            .apply_filter(NeighbourFieldFilter())
+            .apply_filter(NeighbourIPRouteFilter(command))
+            .finalize()
+        )
         dump_filter = get_dump_filter(kwarg)
         msg_type, msg_flags = get_msg_type(command, command_map)
 
@@ -1437,9 +1443,12 @@ class RTNL_API(object):
         if 'kwarg_filter' in kwarg:
             request = kwarg['kwarg_filter'](kwarg, command)
         else:
-            request = RequestProcessor(
-                LinkFieldFilter(), context=kwarg, prime=kwarg
-            ).finalize(command)
+            request = (
+                RequestProcessor(context=kwarg, prime=kwarg)
+                .apply_filter(LinkFieldFilter())
+                .apply_filter(LinkIPRouteFilter(command))
+                .finalize()
+            )
         dump_filter = get_dump_filter(kwarg)
         msg_type, msg_flags = get_msg_type(command, command_map)
 
@@ -2018,9 +2027,12 @@ class RTNL_API(object):
         else:
             match = kwarg.pop('match', None)
         callback = kwarg.pop('callback', None)
-        request = RequestProcessor(
-            RouteFieldFilter(), context=kwarg, prime=kwarg
-        ).finalize(command)
+        request = (
+            RequestProcessor(context=kwarg, prime=kwarg)
+            .apply_filter(RouteFieldFilter())
+            .apply_filter(RouteIPRouteFilter(command))
+            .finalize()
+        )
         kwarg = request
 
         commands = {
@@ -2096,11 +2108,12 @@ class RTNL_API(object):
         )
         if match:
             if isinstance(match, dict):
-                match = RequestProcessor(
-                    RouteFieldFilter(add_defaults=False),
-                    context=match,
-                    prime=match,
-                ).finalize()
+                match = (
+                    RequestProcessor(context=match, prime=match)
+                    .apply_filter(RouteFieldFilter(add_defaults=False))
+                    .apply_filter(RouteIPRouteFilter('dump'))
+                    .finalize()
+                )
             ret = self._match(match, ret)
 
         if not (command == RTM_GETROUTE and self.nlm_generator):

@@ -4,7 +4,7 @@ from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
 from pr2modules.netlink.rtnl.rtmsg import nh as nh_header
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
 
-from .common import IPTargets, MPLSTarget, NLAKeyTransform
+from .common import IPRouteFilter, IPTargets, MPLSTarget, NLAKeyTransform
 
 encap_types = {'mpls': 1, AF_MPLS: 1, 'seg6': 5, 'bpf': 6, 'seg6local': 7}
 
@@ -20,6 +20,215 @@ class RouteFieldFilter(IPTargets, NLAKeyTransform):
         if isinstance(value, (list, tuple)):
             value = value[0]
         return {key: value}
+
+    def set_oif(self, context, value):
+        return self.index('oif', context, value)
+
+    def set_iif(self, context, value):
+        return self.index('iif', context, value)
+
+    def set_family(self, context, value):
+        if value == AF_MPLS:
+            return {'family': AF_MPLS, 'dst_len': 20, 'table': 254, 'type': 1}
+        return {'family': value}
+
+    def set_flags(self, context, value):
+        if context.get('family') == AF_MPLS:
+            return {}
+        if isinstance(value, (list, tuple, str)):
+            return {'flags': rtmsg.names2flags(value)}
+        return {'flags': value}
+
+    def set_encap(self, context, value):
+        # FIXME: planned for the next refactoring cycle
+        if isinstance(value, dict) and value.get('type') == 'mpls':
+            na = []
+            target = None
+            labels = value.get('labels', [])
+            if isinstance(labels, (dict, int)):
+                labels = [labels]
+            if isinstance(labels, str):
+                labels = labels.split('/')
+            for label in labels:
+                target = MPLSTarget(label)
+                target['bos'] = 0
+                na.append(target)
+            target['bos'] = 1
+            return {'encap_type': LWTUNNEL_ENCAP_MPLS, 'encap': na}
+        return {'encap': value}
+
+    def set_scope(self, context, value):
+        if isinstance(value, str):
+            return {'scope': rt_scope[value]}
+        return {'scope': value}
+
+    def set_proto(self, context, value):
+        if isinstance(value, str):
+            return {'proto': rt_proto[value]}
+        return {'proto': value}
+
+    def set_encap_type(self, context, value):
+        if isinstance(value, str):
+            return {'encap_type': encap_type[value]}
+        return {'encap_type': value}
+
+    def set_type(self, context, value):
+        if isinstance(value, str):
+            return {'type': rt_type[value]}
+        return {'type': value}
+
+
+class RouteIPRouteFilter(IPRouteFilter):
+    def set_metrics(self, context, value):
+        if value and 'attrs' not in value:
+            metrics = {'attrs': []}
+            for name, metric in value.items():
+                rtax = rtmsg.metrics.name2nla(name)
+                if metric is not None:
+                    metrics['attrs'].append([rtax, metric])
+            if metrics['attrs']:
+                return {'metrics': metrics}
+        return {}
+
+    def set_multipath(self, context, value):
+        if value:
+            ret = []
+            for v in value:
+                if 'attrs' in v:
+                    ret.append(v)
+                    continue
+                nh = {'attrs': []}
+                nh_fields = [x[0] for x in nh_header.fields]
+                for name in nh_fields:
+                    nh[name] = v.get(name, 0)
+                for name in v:
+                    if name in nh_fields or v[name] is None:
+                        continue
+                    if name == 'encap' and isinstance(v[name], dict):
+                        if (
+                            v[name].get('type', None) is None
+                            or v[name].get('labels', None) is None
+                        ):
+                            continue
+                        nh['attrs'].append(
+                            [
+                                'RTA_ENCAP_TYPE',
+                                encap_types.get(
+                                    v[name]['type'], v[name]['type']
+                                ),
+                            ]
+                        )
+                        nh['attrs'].append(
+                            ['RTA_ENCAP', self.encap_header(v[name])]
+                        )
+                    elif name == 'newdst':
+                        nh['attrs'].append(
+                            ['RTA_NEWDST', self.mpls_rta(v[name])]
+                        )
+                    else:
+                        rta = rtmsg.name2nla(name)
+                        nh['attrs'].append([rta, v[name]])
+                ret.append(nh)
+            if ret:
+                return {'multipath': ret}
+        return {}
+
+    def set_encap(self, context, value):
+        if (
+            isinstance(value, (list, tuple))
+            and context.get('encap_type') == LWTUNNEL_ENCAP_MPLS
+        ):
+            return {'encap': {'attrs': [['MPLS_IPTUNNEL_DST', value]]}}
+        elif isinstance(value, dict):
+            # human-friendly form:
+            #
+            # 'encap': {'type': 'mpls',
+            #           'labels': '200/300'}
+            #
+            # 'type' is mandatory
+            if 'type' in value and 'labels' in value:
+                return {
+                    'encap_type': encap_types.get(
+                        value['type'], value['type']
+                    ),
+                    'encap': self.encap_header(value),
+                }
+            # human-friendly form:
+            #
+            # 'encap': {'type': 'seg6',
+            #           'mode': 'encap'
+            #           'segs': '2000::5,2000::6'}
+            #
+            # 'encap': {'type': 'seg6',
+            #           'mode': 'inline'
+            #           'segs': '2000::5,2000::6'
+            #           'hmac': 1}
+            #
+            # 'encap': {'type': 'seg6',
+            #           'mode': 'encap'
+            #           'segs': '2000::5,2000::6'
+            #           'hmac': 0xf}
+            #
+            # 'encap': {'type': 'seg6',
+            #           'mode': 'inline'
+            #           'segs': ['2000::5', '2000::6']}
+            #
+            # 'type', 'mode' and 'segs' are mandatory
+            if 'type' in value and 'mode' in value and 'segs' in value:
+                return {
+                    'encap_type': encap_types.get(
+                        value['type'], value['type']
+                    ),
+                    'encap': self.encap_header(value),
+                }
+            elif 'type' in value and (
+                'in' in value or 'out' in value or 'xmit' in value
+            ):
+                return {
+                    'encap_type': encap_types.get(
+                        value['type'], value['type']
+                    ),
+                    'encap': self.encap_header(value),
+                }
+            # human-friendly form:
+            #
+            # 'encap': {'type': 'seg6local',
+            #           'action': 'End'}
+            #
+            # 'encap': {'type': 'seg6local',
+            #           'action': 'End.DT6',
+            #           'table': '10'}
+            #
+            # 'encap': {'type': 'seg6local',
+            #           'action': 'End.DT4',
+            #           'vrf_table': 10}
+            #
+            # 'encap': {'type': 'seg6local',
+            #           'action': 'End.DX6',
+            #           'nh6': '2000::5'}
+            #
+            # 'encap': {'type': 'seg6local',
+            #           'action': 'End.B6'
+            #           'srh': {'segs': '2000::5,2000::6',
+            #                   'hmac': 0xf}}
+            #
+            # 'type' and 'action' are mandatory
+            elif 'type' in value and 'action' in value:
+                return {
+                    'encap_type': encap_types.get(
+                        value['type'], value['type']
+                    ),
+                    'encap': self.encap_header(value),
+                }
+        return {}
+
+    def finalize(self, context):
+        for key in context:
+            if context[key] == '':
+                try:
+                    del context[key]
+                except KeyError:
+                    pass
 
     def mpls_rta(self, value):
         # FIXME: planned for the next refactoring cycle
@@ -303,203 +512,3 @@ class RouteFieldFilter(IPTargets, NLAKeyTransform):
                 )
             # Done return the object
             return {'attrs': ret}
-
-    def set_oif(self, context, value):
-        return self.index('oif', context, value)
-
-    def set_iif(self, context, value):
-        return self.index('iif', context, value)
-
-    def set_family(self, context, value):
-        if value == AF_MPLS:
-            return {'family': AF_MPLS, 'dst_len': 20, 'table': 254, 'type': 1}
-        return {'family': value}
-
-    def set_flags(self, context, value):
-        if context.get('family') == AF_MPLS:
-            return {}
-        if isinstance(value, (list, tuple, str)):
-            return {'flags': rtmsg.names2flags(value)}
-        return {'flags': value}
-
-    def set_encap(self, context, value):
-        # FIXME: planned for the next refactoring cycle
-        if isinstance(value, dict) and value.get('type') == 'mpls':
-            na = []
-            target = None
-            labels = value.get('labels', [])
-            if isinstance(labels, (dict, int)):
-                labels = [labels]
-            if isinstance(labels, str):
-                labels = labels.split('/')
-            for label in labels:
-                target = MPLSTarget(label)
-                target['bos'] = 0
-                na.append(target)
-            target['bos'] = 1
-            return {'encap_type': LWTUNNEL_ENCAP_MPLS, 'encap': na}
-        return {'encap': value}
-
-    def set_scope(self, context, value):
-        if isinstance(value, str):
-            return {'scope': rt_scope[value]}
-        return {'scope': value}
-
-    def set_proto(self, context, value):
-        if isinstance(value, str):
-            return {'proto': rt_proto[value]}
-        return {'proto': value}
-
-    def set_encap_type(self, context, value):
-        if isinstance(value, str):
-            return {'encap_type': encap_type[value]}
-        return {'encap_type': value}
-
-    def set_type(self, context, value):
-        if isinstance(value, str):
-            return {'type': rt_type[value]}
-        return {'type': value}
-
-    def finalize_for_iproute(self, context, cmd_context):
-        for key in context:
-            if context[key] == '':
-                try:
-                    del context[key]
-                except KeyError:
-                    pass
-        if 'metrics' in context:
-            if context['metrics']:
-                if 'attrs' not in context['metrics']:
-                    metrics = {'attrs': []}
-                    for name, value in context['metrics'].items():
-                        rtax = rtmsg.metrics.name2nla(name)
-                        if value is not None:
-                            metrics['attrs'].append([rtax, value])
-                    if metrics['attrs']:
-                        context['metrics'] = metrics
-            else:
-                del context['metrics']
-        if 'multipath' in context:
-            if context['multipath']:
-                ret = []
-                for v in context['multipath']:
-                    if 'attrs' in v:
-                        ret.append(v)
-                        continue
-                    nh = {'attrs': []}
-                    nh_fields = [x[0] for x in nh_header.fields]
-                    for name in nh_fields:
-                        nh[name] = v.get(name, 0)
-                    for name in v:
-                        if name in nh_fields or v[name] is None:
-                            continue
-                        if name == 'encap' and isinstance(v[name], dict):
-                            if (
-                                v[name].get('type', None) is None
-                                or v[name].get('labels', None) is None
-                            ):
-                                continue
-                            nh['attrs'].append(
-                                [
-                                    'RTA_ENCAP_TYPE',
-                                    encap_types.get(
-                                        v[name]['type'], v[name]['type']
-                                    ),
-                                ]
-                            )
-                            nh['attrs'].append(
-                                ['RTA_ENCAP', self.encap_header(v[name])]
-                            )
-                        elif name == 'newdst':
-                            nh['attrs'].append(
-                                ['RTA_NEWDST', self.mpls_rta(v[name])]
-                            )
-                        else:
-                            rta = rtmsg.name2nla(name)
-                            nh['attrs'].append([rta, v[name]])
-                    ret.append(nh)
-                if ret:
-                    context['multipath'] = ret
-            else:
-                del context['multipath']
-        if 'encap' in context:
-            value = context['encap']
-            if (
-                isinstance(value, (list, tuple))
-                and context.get('encap_type') == LWTUNNEL_ENCAP_MPLS
-            ):
-                labels = context['encap']
-                context['encap'] = {'attrs': [['MPLS_IPTUNNEL_DST', labels]]}
-            elif isinstance(value, dict):
-                # human-friendly form:
-                #
-                # 'encap': {'type': 'mpls',
-                #           'labels': '200/300'}
-                #
-                # 'type' is mandatory
-                if 'type' in value and 'labels' in value:
-                    context['encap_type'] = encap_types.get(
-                        value['type'], value['type']
-                    )
-                    context['encap'] = self.encap_header(value)
-                # human-friendly form:
-                #
-                # 'encap': {'type': 'seg6',
-                #           'mode': 'encap'
-                #           'segs': '2000::5,2000::6'}
-                #
-                # 'encap': {'type': 'seg6',
-                #           'mode': 'inline'
-                #           'segs': '2000::5,2000::6'
-                #           'hmac': 1}
-                #
-                # 'encap': {'type': 'seg6',
-                #           'mode': 'encap'
-                #           'segs': '2000::5,2000::6'
-                #           'hmac': 0xf}
-                #
-                # 'encap': {'type': 'seg6',
-                #           'mode': 'inline'
-                #           'segs': ['2000::5', '2000::6']}
-                #
-                # 'type', 'mode' and 'segs' are mandatory
-                if 'type' in value and 'mode' in value and 'segs' in value:
-                    context['encap_type'] = encap_types.get(
-                        value['type'], value['type']
-                    )
-                    context['encap'] = self.encap_header(value)
-                elif 'type' in value and (
-                    'in' in value or 'out' in value or 'xmit' in value
-                ):
-                    context['encap_type'] = encap_types.get(
-                        value['type'], value['type']
-                    )
-                    context['encap'] = self.encap_header(value)
-                # human-friendly form:
-                #
-                # 'encap': {'type': 'seg6local',
-                #           'action': 'End'}
-                #
-                # 'encap': {'type': 'seg6local',
-                #           'action': 'End.DT6',
-                #           'table': '10'}
-                #
-                # 'encap': {'type': 'seg6local',
-                #           'action': 'End.DT4',
-                #           'vrf_table': 10}
-                #
-                # 'encap': {'type': 'seg6local',
-                #           'action': 'End.DX6',
-                #           'nh6': '2000::5'}
-                #
-                # 'encap': {'type': 'seg6local',
-                #           'action': 'End.B6'
-                #           'srh': {'segs': '2000::5,2000::6',
-                #                   'hmac': 0xf}}
-                #
-                # 'type' and 'action' are mandatory
-                elif 'type' in value and 'action' in value:
-                    context['encap_type'] = encap_types.get(
-                        value['type'], value['type']
-                    )
-                    context['encap'] = self.encap_header(value)

@@ -1,7 +1,7 @@
 from pr2modules.netlink.rtnl.ifinfmsg import IFF_NOARP, ifinfmsg
 from pr2modules.netlink.rtnl.ifinfmsg.plugins.vlan import flags as vlan_flags
 
-from .common import Index, NLAKeyTransform
+from .common import Index, IPRouteFilter, NLAKeyTransform
 
 
 class LinkFieldFilter(Index, NLAKeyTransform):
@@ -49,58 +49,88 @@ class LinkFieldFilter(Index, NLAKeyTransform):
     def set_info_kind(self, context, value):
         return {'kind': value}
 
-    def get_vf(self, spec):
-        vflist = []
-        if not isinstance(spec, (list, tuple)):
-            spec = (spec,)
-        for vf in spec:
-            vfcfg = []
-            # pop VF index
-            vfid = vf.pop('vf')  # mandatory
-            # pop VLAN spec
-            vlan = vf.pop('vlan', None)  # optional
-            if isinstance(vlan, int):
-                vfcfg.append(('IFLA_VF_VLAN', {'vf': vfid, 'vlan': vlan}))
-            elif isinstance(vlan, dict):
-                vlan['vf'] = vfid
-                vfcfg.append(('IFLA_VF_VLAN', vlan))
-            elif isinstance(vlan, (list, tuple)):
-                vlist = []
-                for vspec in vlan:
-                    vspec['vf'] = vfid
-                    vlist.append(('IFLA_VF_VLAN_INFO', vspec))
-                vfcfg.append(('IFLA_VF_VLAN_LIST', {'attrs': vlist}))
-            # pop rate spec
-            rate = vf.pop('rate', None)  # optional
-            if rate is not None:
-                rate['vf'] = vfid
-                vfcfg.append(('IFLA_VF_RATE', rate))
-            # create simple VF attrs
-            for attr in vf:
-                vfcfg.append(
-                    (
-                        ifinfmsg.vflist.vfinfo.name2nla(attr),
-                        {'vf': vfid, attr: vf[attr]},
-                    )
-                )
-            vflist.append(('IFLA_VF_INFO', {'attrs': vfcfg}))
-        return {'attrs': vflist}
 
-    @property
-    def info_data(self):
-        if self._info_data is None:
-            info_data = ('IFLA_INFO_DATA', {'attrs': []})
-            self._info_data = info_data[1]['attrs']
-            self.linkinfo.append(info_data)
-        return self._info_data
+class LinkIPRouteFilter(IPRouteFilter):
+    def set_altname(self, context, value):
+        if self.command in ('property_add', 'property_del'):
+            if not isinstance(value, (list, tuple, set)):
+                value = [value]
+            return {
+                'IFLA_PROP_LIST': {
+                    'attrs': [
+                        ('IFLA_ALT_IFNAME', alt_ifname) for alt_ifname in value
+                    ]
+                }
+            }
+        else:
+            return {'IFLA_ALT_IFNAME': value}
 
-    @property
-    def info_slave_data(self):
-        if self._info_slave_data is None:
-            info_slave_data = ('IFLA_INFO_SLAVE_DATA', {'attrs': []})
-            self._info_slave_data = info_slave_data[1]['attrs']
-            self.linkinfo.append(info_slave_data)
-        return self._info_slave_data
+    def set_xdp_fd(self, context, value):
+        return {'xdp': {'attrs': [('IFLA_XDP_FD', value)]}}
+
+    def set_vf(self, context, value):
+        return {'IFLA_VFINFO_LIST': self.get_vf(value)}
+
+    def set_state(self, context, value):
+        ret = {}
+        if value == 'up':
+            ret['flags'] = context.get('flags', 0) | 1
+        ret['change'] = context.get('change', 0) | 1
+        return ret
+
+    def set_arp(self, context, value):
+        ret = {}
+        if not value:
+            ret['flags'] = context.get('flags', 0) | IFF_NOARP
+        ret['change'] = context.get('change', 0) | IFF_NOARP
+        return ret
+
+    def set_noarp(self, context, value):
+        ret = {}
+        if value:
+            ret['flags'] = context.get('flags', 0) | IFF_NOARP
+        ret['change'] = context.get('change', 0) | IFF_NOARP
+        return ret
+
+    def finalize(self, context):
+        # set interface type specific attributes
+        # create IFLA_LINKINFO
+
+        # get common ifinfmsg NLAs
+        self.common = []
+        for (key, _) in ifinfmsg.nla_map:
+            self.common.append(key)
+            self.common.append(key[len(ifinfmsg.prefix) :].lower())
+        self.common.append('family')
+        self.common.append('ifi_type')
+        self.common.append('index')
+        self.common.append('flags')
+        self.common.append('change')
+        for key in ('index', 'change', 'flags'):
+            if key not in context:
+                context[key] = 0
+
+        linkinfo = {'attrs': []}
+        self.linkinfo = linkinfo['attrs']
+        self.specific = {}
+        self.kind = context.pop('kind', None)
+        if self.kind is None:
+            return
+        self._info_data = None
+        self._info_slave_data = None
+        context['IFLA_LINKINFO'] = linkinfo
+        self.linkinfo.append(['IFLA_INFO_KIND', self.kind])
+        # load specific NLA names
+        cls = ifinfmsg.ifinfo.data_map.get(self.kind, None)
+        if cls is not None:
+            prefix = cls.prefix or 'IFLA_'
+            for nla, _ in cls.nla_map:
+                self.specific[nla] = nla
+                self.specific[nla[len(prefix) :].lower()] = nla
+        # flush deferred NLAs
+        for (key, value) in tuple(context.items()):
+            if self.push_specific(key, value):
+                del context[key]
 
     def push_specific(self, key, value):
         # FIXME: vlan hack
@@ -152,70 +182,55 @@ class LinkFieldFilter(Index, NLAKeyTransform):
 
         return False
 
-    def finalize_for_iproute(self, context, cmd_context):
-        if 'altname' in context:
-            value = context['altname']
-            if cmd_context in ('property_add', 'property_del'):
-                if not isinstance(value, (list, tuple, set)):
-                    value = [value]
-                context['IFLA_PROP_LIST'] = {
-                    'attrs': [
-                        ('IFLA_ALT_IFNAME', alt_ifname) for alt_ifname in value
-                    ]
-                }
-            else:
-                context['IFLA_ALT_IFNAME'] = value
-        if 'xdp_fd' in context:
-            context['xdp'] = {'attrs': [('IFLA_XDP_FD', context['xdp_fd'])]}
-        if 'vf' in context:
-            context['IFLA_VFINFO_LIST'] = self.get_vf(context['vf'])
-        if 'state' in context:
-            if context['state'] == 'up':
-                context['flags'] = context.get('flags', 0) | 1
-            context['change'] = context.get('change', 0) | 1
-        if 'arp' in context:
-            if not context['arp']:
-                context['flags'] = context.get('flags', 0) | IFF_NOARP
-            context['change'] = context.get('change', 0) | IFF_NOARP
-        if 'noarp' in context:
-            if context['noarp']:
-                context['flags'] = context.get('flags', 0) | IFF_NOARP
-            context['change'] = context.get('change', 0) | IFF_NOARP
-        # set interface type specific attributes
-        # create IFLA_LINKINFO
+    @property
+    def info_data(self):
+        if self._info_data is None:
+            info_data = ('IFLA_INFO_DATA', {'attrs': []})
+            self._info_data = info_data[1]['attrs']
+            self.linkinfo.append(info_data)
+        return self._info_data
 
-        # get common ifinfmsg NLAs
-        self.common = []
-        for (key, _) in ifinfmsg.nla_map:
-            self.common.append(key)
-            self.common.append(key[len(ifinfmsg.prefix) :].lower())
-        self.common.append('family')
-        self.common.append('ifi_type')
-        self.common.append('index')
-        self.common.append('flags')
-        self.common.append('change')
-        for key in ('index', 'change', 'flags'):
-            if key not in context:
-                context[key] = 0
+    @property
+    def info_slave_data(self):
+        if self._info_slave_data is None:
+            info_slave_data = ('IFLA_INFO_SLAVE_DATA', {'attrs': []})
+            self._info_slave_data = info_slave_data[1]['attrs']
+            self.linkinfo.append(info_slave_data)
+        return self._info_slave_data
 
-        linkinfo = {'attrs': []}
-        self.linkinfo = linkinfo['attrs']
-        self.specific = {}
-        self.kind = context.get('kind')
-        if self.kind is None:
-            return
-        self._info_data = None
-        self._info_slave_data = None
-        context['IFLA_LINKINFO'] = linkinfo
-        self.linkinfo.append(['IFLA_INFO_KIND', self.kind])
-        # load specific NLA names
-        cls = ifinfmsg.ifinfo.data_map.get(self.kind, None)
-        if cls is not None:
-            prefix = cls.prefix or 'IFLA_'
-            for nla, _ in cls.nla_map:
-                self.specific[nla] = nla
-                self.specific[nla[len(prefix) :].lower()] = nla
-        # flush deferred NLAs
-        for (key, value) in tuple(context.items()):
-            if self.push_specific(key, value):
-                del context[key]
+    def get_vf(self, spec):
+        vflist = []
+        if not isinstance(spec, (list, tuple)):
+            spec = (spec,)
+        for vf in spec:
+            vfcfg = []
+            # pop VF index
+            vfid = vf.pop('vf')  # mandatory
+            # pop VLAN spec
+            vlan = vf.pop('vlan', None)  # optional
+            if isinstance(vlan, int):
+                vfcfg.append(('IFLA_VF_VLAN', {'vf': vfid, 'vlan': vlan}))
+            elif isinstance(vlan, dict):
+                vlan['vf'] = vfid
+                vfcfg.append(('IFLA_VF_VLAN', vlan))
+            elif isinstance(vlan, (list, tuple)):
+                vlist = []
+                for vspec in vlan:
+                    vspec['vf'] = vfid
+                    vlist.append(('IFLA_VF_VLAN_INFO', vspec))
+                vfcfg.append(('IFLA_VF_VLAN_LIST', {'attrs': vlist}))
+            # pop rate spec
+            rate = vf.pop('rate', None)  # optional
+            if rate is not None:
+                rate['vf'] = vfid
+                vfcfg.append(('IFLA_VF_RATE', rate))
+            # create simple VF attrs
+            for attr in vf:
+                vfcfg.append(
+                    (
+                        ifinfmsg.vflist.vfinfo.name2nla(attr),
+                        {'vf': vfid, attr: vf[attr]},
+                    )
+                )
+            vflist.append(('IFLA_VF_INFO', {'attrs': vfcfg}))
+        return {'attrs': vflist}

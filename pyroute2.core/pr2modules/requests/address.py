@@ -3,7 +3,7 @@ from socket import AF_INET, AF_INET6
 
 from pr2modules.common import dqn2int, get_address_family, getbroadcast
 
-from .common import Index, NLAKeyTransform
+from .common import Index, IPRouteFilter, NLAKeyTransform
 
 
 class AddressFieldFilter(Index, NLAKeyTransform):
@@ -49,10 +49,7 @@ class AddressFieldFilter(Index, NLAKeyTransform):
         return self._cacheinfo('valid', value)
 
 
-class AddressIPRouteFilter:
-    def __init__(self, command):
-        self.command = command
-
+class AddressIPRouteFilter(IPRouteFilter):
     def set_cacheinfo(self, context, value):
         cacheinfo = value.copy()
         if self.command != 'dump':

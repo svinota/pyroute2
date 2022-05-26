@@ -130,6 +130,11 @@ class Index:
         return {'index': value}
 
 
+class IPRouteFilter:
+    def __init__(self, command):
+        self.command = command
+
+
 class NLAKeyTransform:
 
     _nla_prefix = ''
