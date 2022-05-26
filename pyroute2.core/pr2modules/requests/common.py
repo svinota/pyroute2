@@ -3,7 +3,7 @@ import json
 from collections import OrderedDict
 from socket import AF_INET, AF_INET6
 
-from pr2modules.common import AF_MPLS, dqn2int
+from pr2modules.common import AF_MPLS, dqn2int, get_address_family
 
 
 class MPLSTarget(OrderedDict):
@@ -77,12 +77,13 @@ class IPTargets:
                 # only simple IP targets are left
                 value, prefixlen = labels
                 ret[key] = value
-                if prefixlen.find('.') > 0:
-                    prefixlen = dqn2int(prefixlen, AF_INET)
-                elif prefixlen.find(':') >= 0:
-                    prefixlen = dqn2int(prefixlen, AF_INET6)
                 if self.add_defaults:
-                    ret[f'{key}_len'] = int(prefixlen)
+                    if prefixlen.find('.') > 0:
+                        ret[f'{key}_len'] = dqn2int(prefixlen, AF_INET)
+                    elif prefixlen.find(':') >= 0:
+                        ret[f'{key}_len'] = dqn2int(prefixlen, AF_INET6)
+                    else:
+                        ret[f'{key}_len'] = int(prefixlen)
             else:
                 if (
                     self.add_defaults
@@ -90,13 +91,16 @@ class IPTargets:
                     and f'{key}_len' not in context
                 ):
                     set_full_mask = True
-                if ':' in value:
-                    ret[key] = value = ipaddress.ip_address(value).compressed
-                    ret['family'] = AF_INET6
-                    if set_full_mask:
+
+            if self.add_defaults:
+                ret['family'] = get_address_family(value)
+                if ret['family'] == AF_INET6:
+                    ret[key] = ipaddress.ip_address(value).compressed
+                if set_full_mask:
+                    if ret['family'] == AF_INET6:
                         ret[f'{key}_len'] = 128
-                elif set_full_mask:
-                    ret[f'{key}_len'] = 32
+                    elif ret['family'] == AF_INET:
+                        ret[f'{key}_len'] = 32
         return ret
 
     def set_dst(self, context, value):
@@ -118,9 +122,7 @@ class IPTargets:
         return self.parse_target('newdst', context, value)
 
     def set_gateway(self, context, value):
-        if isinstance(value, str) and ':' in value:
-            return {'gateway': ipaddress.ip_address(value).compressed}
-        return {'gateway': value}
+        return self.parse_target('gateway', context, value)
 
 
 class Index:

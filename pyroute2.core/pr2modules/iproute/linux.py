@@ -416,9 +416,8 @@ class RTNL_API(object):
         the kernel team will not fix this bug.
         '''
         # get a particular route?
-        if isinstance(kwarg.get('dst'), basestring):
-            kwarg = {"dst": kwarg['dst'], "family": family}
-            return self.route('get', **kwarg)
+        if isinstance(kwarg.get('dst'), str):
+            return self.route('get', dst=kwarg['dst'])
         else:
             return self.route('dump', family=family, match=match or kwarg)
 
@@ -2081,17 +2080,7 @@ class RTNL_API(object):
                 msg['attrs'].append([nla, kwarg[key]])
                 # fix IP family, if needed
                 if msg['family'] in (AF_UNSPEC, 255):
-                    if key in (
-                        'dst',
-                        'src',
-                        'gateway',
-                        'prefsrc',
-                        'newdst',
-                    ) and isinstance(kwarg[key], basestring):
-                        msg['family'] = (
-                            AF_INET6 if kwarg[key].find(':') >= 0 else AF_INET
-                        )
-                    elif key == 'multipath' and len(kwarg[key]) > 0:
+                    if key == 'multipath' and len(kwarg[key]) > 0:
                         hop = kwarg[key][0]
                         attrs = hop.get('attrs', [])
                         for attr in attrs:

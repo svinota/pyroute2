@@ -70,7 +70,7 @@ config = {
                     'broadcast': '10.0.0.15',
                 }
             ),
-            Request(
+            Result(
                 {
                     'index': 1,
                     'address': '10.0.0.1',
