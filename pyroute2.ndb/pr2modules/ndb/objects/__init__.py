@@ -402,9 +402,13 @@ class RTNL_Object(dict):
     @check_auth('obj:modify')
     def __setitem__(self, key, value):
         for nkey, nvalue in self.object_data.filter(key, value).items():
+            if self.get(nkey) == nvalue:
+                continue
             if self.state == 'system' and nkey in self.knorm:
                 if self._replace_on_key_change:
-                    self.log.debug('prepare replace for key %s' % (self.key))
+                    self.log.debug(
+                        f'prepare replace {nkey} = {nvalue} in {self.key}'
+                    )
                     self._replace = type(self)(
                         self.view, self.key, auth_managers=self.auth_managers
                     )
