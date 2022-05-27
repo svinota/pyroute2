@@ -3,6 +3,7 @@ import threading
 from pr2modules import netns
 from pr2modules.common import basestring
 from pr2modules.netlink.rtnl.nsinfmsg import nsinfmsg
+from pr2modules.requests.netns import NetNSFieldFilter
 
 from ..objects import RTNL_Object
 
@@ -56,6 +57,7 @@ class NetNS(RTNL_Object):
     msg_class = nsinfmsg
     table_alias = 'n'
     api = 'netns'
+    field_filter = NetNSFieldFilter
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = nsinfmsg
@@ -79,5 +81,5 @@ class NetNS(RTNL_Object):
         if self.state == 'system':
             raise ValueError('attempt to change a readonly object')
         if key == 'path':
-            value = netns._get_netnspath(value)
+            value = netns._get_netnspath(value).decode('utf-8')
         return super(NetNS, self).__setitem__(key, value)

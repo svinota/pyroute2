@@ -103,11 +103,10 @@ class SpecContextManager(object):
 
     def __init__(self, request, tmpdir):
         self.uid = str(uuid.uuid4())
-        self.log_spec = (
-            '%s/ndb-%s-%s.log' % (tmpdir, os.getpid(), self.uid),
-            logging.DEBUG,
-        )
-        self.db_spec = '%s/ndb-%s-%s.sql' % (tmpdir, os.getpid(), self.uid)
+        pid = os.getpid()
+        self.log_base = f'{tmpdir}/ndb-{pid}'
+        self.log_spec = (f'{self.log_base}-{self.uid}.log', logging.DEBUG)
+        self.db_spec = f'{self.log_base}-{self.uid}.sql'
 
     def teardown(self):
         pass
@@ -249,6 +248,11 @@ class NDBContextManager(object):
         return str(self.ipranges[r].pop())
 
     @property
+    def new_log(self, uid=None):
+        uid = uid or str(uuid.uuid4())
+        return f'{self.spec.log_base}-{uid}.log'
+
+    @property
     def new_ifname(self):
         '''
         Returns a new unique ifname and registers it to be
@@ -326,7 +330,10 @@ class NDBContextManager(object):
                 if ipr is not None:
                     ipr.close()
         for nsname in self.namespaces:
-            netns.remove(nsname)
+            try:
+                netns.remove(nsname)
+            except FileNotFoundError:
+                pass
         for nsname, rule in self.rules:
             try:
                 ipr = None

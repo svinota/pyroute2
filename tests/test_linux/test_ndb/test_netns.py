@@ -1,6 +1,8 @@
+import logging
 import uuid
 
 import pytest
+from pr2modules import netns
 from pr2test.context_manager import make_test_matrix
 from pr2test.tools import address_exists, interface_exists
 
@@ -10,7 +12,19 @@ test_matrix = make_test_matrix(dbs=['sqlite3/:memory:', 'postgres/pr2test'])
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_move(context):
+def test_create_remove(context):
+    nsname = context.new_nsname
+    with NDB(log=(context.new_log, logging.DEBUG)) as ndb:
+        # create a netns via ndb.netns
+        ndb.netns.create(nsname).commit()
+        assert nsname in netns.listnetns()
+        # remove the netns
+        ndb.netns[nsname].remove().commit()
+        assert nsname not in netns.listnetns()
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_interface_move(context):
     ifname = context.new_ifname
     ifaddr = context.new_ipaddr
     nsname = context.new_nsname
@@ -38,7 +52,7 @@ def test_move(context):
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_basic(context):
+def test_source_basic(context):
     ifname = context.new_ifname
     ifaddr1 = context.new_ipaddr
     ifaddr2 = context.new_ipaddr
