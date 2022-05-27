@@ -69,7 +69,9 @@ class NetlinkDumpInterrupted(NetlinkError):
 
 
 class SkipInode(Exception):
-    pass
+    def __init__(self, code=0, msg=None):
+        super(SkipInode, self).__init__(code, msg)
+        self.code = code
 
 
 class ChaoticException(Exception):

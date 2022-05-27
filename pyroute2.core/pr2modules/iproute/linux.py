@@ -483,8 +483,8 @@ class RTNL_API(object):
             except Exception:
                 pass
             item['attrs'] = [('NSINFO_PATH', path)]
-        except OSError:
-            raise SkipInode()
+        except OSError as e:
+            raise SkipInode(e.errno)
         finally:
             if nsfd > 0:
                 self.close_file(nsfd)

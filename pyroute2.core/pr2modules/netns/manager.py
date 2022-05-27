@@ -77,8 +77,8 @@ class NetNSManager(Inotify):
         info = None
         try:
             info = self.ipr._dump_one_ns(netnspath, set())
-        except SkipInode:
-            raise NetlinkError(errno.EEXIST)
+        except SkipInode as e:
+            raise NetlinkError(e.code)
         info['header']['type'] = RTM_DELNETNS
         info['header']['target'] = self.target
         info['event'] = 'RTM_DELNETNS'
