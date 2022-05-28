@@ -28,6 +28,7 @@ def run():
         ('-x', '[S] Strict auth'),
     ):
         argp.add_argument(spec[0], help=spec[1])
+    argp.add_argument('script', nargs='*', help='script to run')
     args = argp.parse_args()
     commands = []
     sources = None
@@ -61,10 +62,13 @@ def run():
         if args.r:
             console.loadrc(args.r)
 
+        for script in args.script:
+            console.loadrc(script)
+
         if args.c:
             commands.append(args.c)
             console.interact(readfunc=lambda x: commands.pop(0))
-        else:
+        elif not args.script:
             console.interact()
 
 
