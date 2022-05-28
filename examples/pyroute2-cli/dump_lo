@@ -1,6 +1,4 @@
 !
 ! Just dump the loopback interface.
 !
-interfaces
-    lo
-        show
+interfaces lo show
