@@ -73,7 +73,6 @@ class Console(code.InteractiveConsole):
                 text = readfunc(self.prompt)
             except EOFError:
                 if self.session.stack:
-                    self.session.lprint()
                     self.session.stack_pop()
                     continue
                 else:

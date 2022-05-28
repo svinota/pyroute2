@@ -10,7 +10,7 @@ class LinkFieldFilter(Index, NLAKeyTransform):
 
     def _link(self, key, context, value):
         if isinstance(value, dict):
-            return {key: value[key]['index']}
+            return {key: value['index']}
         return {key: value}
 
     def set_vxlan_link(self, context, value):

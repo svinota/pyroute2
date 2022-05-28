@@ -103,6 +103,15 @@ class Token(object):
         elif first == '|':
             self.kind = t_pipe
 
+        elif first == '=':
+            lookahead = self.lex.get_token()
+            if lookahead == '>':
+                self.name = '=>'
+                self.kind = t_pipe
+            else:
+                self.lex.push_token(lookahead)
+                self.kind = t_stmt
+
         ##
         # simple statement
         #

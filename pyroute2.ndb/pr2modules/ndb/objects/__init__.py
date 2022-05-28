@@ -468,7 +468,7 @@ class RTNL_Object(dict):
 
     @cli.show_result
     @check_auth('obj:read')
-    def show(self, fmt='native', **kwarg):
+    def show(self, fmt=None):
         '''
         Return the object in a specified format. The format may be
         specified with the keyword argument `format` or in the
@@ -476,12 +476,7 @@ class RTNL_Object(dict):
 
         TODO: document different formats
         '''
-        fmt = kwarg.pop(
-            'format',
-            kwarg.pop(
-                'fmt', self.view.ndb.config.get('show_format', 'native')
-            ),
-        )
+        fmt = fmt or self.view.ndb.config.get('show_format', 'native')
         if fmt == 'native':
             return dict(self)
         else:

@@ -1,4 +1,6 @@
 '''
+:notest:
+
 An example of using RADIUS authentication with NDB.
 
 In order to run the example you can setup a FreeRADIUS server::

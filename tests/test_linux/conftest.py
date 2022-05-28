@@ -8,6 +8,8 @@ from utils import require_user
 from pyroute2.ipset import IPSet, IPSetError
 from pyroute2.wiset import COUNT
 
+pytest_plugins = "pytester"
+
 
 @pytest.fixture
 def context(request, tmpdir):

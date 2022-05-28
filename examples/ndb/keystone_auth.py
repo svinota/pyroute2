@@ -1,4 +1,6 @@
 '''
+:notest:
+
 A simplest example of a custom AuthManager and its usage
 with `AuthProxy` objects.
 

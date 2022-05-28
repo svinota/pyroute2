@@ -19,7 +19,14 @@ class Session(object):
         self.indent_stack = set()
         self.prompt = ''
         self.stdout = stdout or sys.stdout
-        self.builtins = builtins or ('ls', '.', '..', 'version', 'exit')
+        self.builtins = builtins or (
+            'ls',
+            '.',
+            '..',
+            'version',
+            'exit',
+            ':stack',
+        )
 
     @property
     def ptrname(self):
@@ -179,13 +186,7 @@ class Session(object):
         elif isinstance(obj, (basestring, int, float)):
             self.lprint(obj)
         else:
-            self.stack.append((self.ptr, self.ptrname))
-            self.ptr = obj
-            if hasattr(obj, 'key_repr'):
-                self.ptrname = obj.key_repr()
-            else:
-                self.ptrname = stmt.name
-            return True
+            return obj
 
     def handle_sentence(self, sentence, indent):
         if sentence.indent < indent:
@@ -197,8 +198,9 @@ class Session(object):
             self.indent_stack.add(sentence.indent)
         indent = sentence.indent
         iterator = iter(sentence)
-        rcode = None
-        rcounter = 0
+        obj = None
+        save_ptr = self.ptr
+        save_ptrname = self.ptrname
         try:
             for stmt in iterator:
                 if stmt.name in self.builtins:
@@ -206,11 +208,16 @@ class Session(object):
                         raise SystemExit()
                     elif stmt.name == 'ls':
                         self.lprint(dir(self.ptr))
+                    elif stmt.name == ':stack':
+                        self.lprint('stack:')
+                        for item in self.stack:
+                            self.lprint(item)
+                        self.lprint('end')
                     elif stmt.name == '.':
                         self.lprint(repr(self.ptr))
                     elif stmt.name == '..':
                         if self.stack:
-                            self.ptr, self.ptrname = self.stack.pop()
+                            save_ptr, save_ptrname = self.stack.pop()
                     elif stmt.name == 'version':
                         try:
                             self.lprint(config.version.__version__)
@@ -219,12 +226,15 @@ class Session(object):
                     break
                 else:
                     try:
-                        rcode = self.handle_statement(stmt, iterator)
-                        if rcode:
-                            rcounter += 1
+                        obj = self.handle_statement(stmt, iterator)
+                        if obj is not None:
+                            self.ptr = obj
+                            if hasattr(obj, 'key_repr'):
+                                self.ptrname = obj.key_repr()
+                            else:
+                                self.ptrname = stmt.name
                     except KeyError:
                         self.lprint('object not found')
-                        rcode = False
                         return indent
                     except:
                         import traceback
@@ -233,9 +243,10 @@ class Session(object):
         except SystemExit:
             raise
         finally:
-            if not rcode:
-                for _ in range(rcounter):
-                    self.ptr, self.ptrname = self.stack.pop()
+            if obj is not None:
+                self.stack.append((save_ptr, save_ptrname))
+            else:
+                self.ptr, self.ptrname = save_ptr, save_ptrname
         return indent
 
     def handle(self, text, indent=0):
