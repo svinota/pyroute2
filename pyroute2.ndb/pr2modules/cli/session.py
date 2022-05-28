@@ -55,13 +55,12 @@ class Session(object):
         if stmt.kind == t_dict:
             obj = self.ptr[stmt.kwarg]
         elif stmt.kind == t_stmt:
-            if isinstance(self.ptr, dict):
+            obj = getattr(self.ptr, stmt.name, None)
+            if obj is None and isinstance(self.ptr, dict):
                 try:
                     obj = self.ptr.get(stmt.name, None)
-                except Exception:
+                except KeyError:
                     pass
-            if obj is None:
-                obj = getattr(self.ptr, stmt.name, None)
 
         if hasattr(obj, '__call__'):
             try:
