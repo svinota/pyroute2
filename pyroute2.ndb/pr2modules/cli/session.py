@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import sys
+import traceback
 from collections import namedtuple
 
 from pr2modules import config
@@ -16,6 +17,7 @@ class Session(object):
         self._ptrname = None
         self._ptrname_callback = ptrname_callback
         self.stack = []
+        self.errors = 0
         self.indent_stack = set()
         self.prompt = ''
         self.stdout = stdout or sys.stdout
@@ -157,9 +159,8 @@ class Session(object):
                     return
                 else:
                     return
-            except:
-                import traceback
-
+            except Exception:
+                self.errors += 1
                 traceback.print_exc()
                 return
         else:
@@ -234,10 +235,10 @@ class Session(object):
                                 self.ptrname = stmt.name
                     except KeyError:
                         self.lprint('object not found')
+                        self.errors += 1
                         return indent
                     except:
-                        import traceback
-
+                        self.errors += 1
                         traceback.print_exc()
         except SystemExit:
             raise

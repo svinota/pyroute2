@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import json
+import sys
 
 from pr2modules.cli.console import Console
 from pr2modules.cli.server import Server
@@ -57,6 +58,7 @@ def run():
             auth_plugins=auth_plugins,
         )
         server.serve_forever()
+        return 0
     else:
         console = Console(log=args.l, sources=sources)
         if args.r:
@@ -70,7 +72,9 @@ def run():
             console.interact(readfunc=lambda x: commands.pop(0))
         elif not args.script:
             console.interact()
+        return 1 if console.session.errors > 0 else 0
 
 
 if __name__ == '__main__':
-    run()
+    rcode = run()
+    sys.exit(rcode)
