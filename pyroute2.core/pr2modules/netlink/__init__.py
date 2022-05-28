@@ -624,6 +624,17 @@ class SQLSchema(object):
         self.index = index
         return self
 
+    def constraint(self, name, spec):
+        idx = 0
+        for field, tspec in self.spec:
+            if field[0] == name:
+                break
+            idx += 1
+        else:
+            raise KeyError()
+        self.spec[idx] = (field, f'{tspec} {spec}')
+        return self
+
     def foreign_key(self, parent, fields, parent_fields):
         self.foreign_keys.append(
             {

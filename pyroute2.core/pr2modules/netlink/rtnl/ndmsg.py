@@ -67,10 +67,6 @@ class ndmsg(nlmsg):
     __slots__ = ()
 
     prefix = 'NDA_'
-    sql_constraints = {
-        'NDA_LLADDR': "NOT NULL DEFAULT ''",
-        'NDA_VLAN': "NOT NULL DEFAULT 0",
-    }
 
     fields = (
         ('family', 'B'),
