@@ -149,7 +149,10 @@ class View(dict):
         for obj in self.getmany(spec, table):
             return obj
 
-    def get(self, spec, table=None):
+    @cli.change_pointer
+    @check_auth('obj:read')
+    def get(self, spec=None, table=None, **kwarg):
+        spec = spec or kwarg
         try:
             return self.__getitem__(spec, table)
         except KeyError:
