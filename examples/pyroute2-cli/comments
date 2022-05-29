@@ -1,3 +1,4 @@
+#!/usr/bin/env pyroute2-cli
 #
 ! Test mixed comments, both ! and #
 #
