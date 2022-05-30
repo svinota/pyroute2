@@ -291,14 +291,16 @@ class View(dict):
             # cache del/add records in the logs
             if ckey == cache_key:
                 continue
-            # The number of referrers must be > 1, the first
-            # one is the cache itself
-            rcount = len(gc.get_referrers(self.cache[ckey]))
-            # Remove only expired items
-            expired = (rtime - self.cache[ckey].atime) > config.cache_expire
-            # The number of changed rtnl_object fields must
-            # be 0 which means that no transaction is started
-            if rcount == 1 and self.cache[ckey].clean and expired:
+            # 1. Remove only expired items
+            # 2. The number of changed rtnl_object fields must
+            #    be 0 which means that no transaction is started
+            # 3. The number of referrers must be > 1, the first
+            #    one is the cache itself        <- this op is expensive!
+            if (
+                rtime - self.cache[ckey].atime > config.cache_expire
+                and self.cache[ckey].clean
+                and gc.get_referrers(self.cache[ckey])
+            ):
                 self.log.debug('cache del %s' % (ckey,))
                 self.cache.pop(ckey, None)
 
