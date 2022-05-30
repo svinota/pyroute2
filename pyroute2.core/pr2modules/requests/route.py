@@ -224,7 +224,7 @@ class RouteIPRouteFilter(IPRouteFilter):
 
     def finalize(self, context):
         for key in context:
-            if context[key] == '':
+            if context[key] in ('', None):
                 try:
                     del context[key]
                 except KeyError:

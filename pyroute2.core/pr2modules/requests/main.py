@@ -16,6 +16,8 @@ class RequestProcessor(dict):
             self.update(prime)
 
     def __setitem__(self, key, value):
+        if value is None:
+            return
         if key in self:
             del self[key]
         for nkey, nvalue in self.filter(key, value).items():
