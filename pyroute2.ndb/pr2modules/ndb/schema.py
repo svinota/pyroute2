@@ -616,8 +616,10 @@ class DBSchema:
 
     @publish_exec
     def close(self):
-        self.purge_snapshots()
-        self.connection.commit()
+        if self.config.spec != ':memory:':
+            # simply discard in-memory sqlite db on exit
+            self.purge_snapshots()
+            self.connection.commit()
         self.connection.close()
 
     @publish_exec
@@ -806,6 +808,7 @@ class DBSchema:
             )
             self.snapshots['%s_%s' % (table, ctxid)] = weak_ref
 
+    @publish_exec
     def purge_snapshots(self):
         for table in tuple(self.snapshots):
             for _ in range(MAX_ATTEMPTS):
