@@ -328,6 +328,8 @@ class RTNL_Object(dict):
 
     @classmethod
     def new_spec(cls, spec, context=None, localhost=None):
+        if isinstance(spec, Record):
+            spec = spec._as_dict()
         rp = RequestProcessor(cls.field_filter(), context=spec, prime=spec)
         if isinstance(context, dict):
             rp.update(context)
