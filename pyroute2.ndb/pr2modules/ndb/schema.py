@@ -813,13 +813,6 @@ class DBSchema:
         for table in tuple(self.snapshots):
             for _ in range(MAX_ATTEMPTS):
                 try:
-                    if table.startswith('ifinfo_'):
-                        try:
-                            self.execute('DROP VIEW %s' % table[7:])
-                            self.connection.commit()
-                        except Exception:
-                            # GC collision?
-                            pass
                     if self.config.provider == DBProvider.sqlite3:
                         self.execute('DROP TABLE %s' % table)
                     elif self.config.provider == DBProvider.psycopg2:
@@ -903,13 +896,6 @@ class DBSchema:
             for name, wref in tuple(self.snapshots.items()):
                 if wref() is None:
                     del self.snapshots[name]
-                    if name.startswith('ifinfo_'):
-                        try:
-                            self.execute('DROP VIEW %s' % name[7:])
-                        except Exception as e:
-                            self.log.debug(
-                                'failed to remove view %s: %s' % (name[7:], e)
-                            )
                     try:
                         self.execute('DROP TABLE %s' % name)
                     except Exception as e:
