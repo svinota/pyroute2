@@ -149,7 +149,7 @@ class Transport(object):
 class Messenger(object):
     def __init__(self, local_id, transport=None):
         self.local_id = local_id
-        self.transport = transport or Transport('0.0.0.0', 5680)
+        self.transport = transport or Transport('127.0.0.1', 5680)
         self.targets = set()
         self.id_cache = IdCache()
 
