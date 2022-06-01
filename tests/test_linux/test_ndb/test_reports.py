@@ -14,6 +14,20 @@ test_matrix = make_test_matrix(
 )
 
 
+@pytest.mark.parametrize(
+    'view,item',
+    (
+        ('interfaces', 'lo'),
+        ('routes', '127.0.0.0/8'),
+        ('addresses', '127.0.0.1/8'),
+    ),
+)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_contains(context, view, item):
+    context.ndb.interfaces['lo'].set('state', 'up').commit()
+    assert item in getattr(context.ndb, view)
+
+
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_types(context):
     # check for the report type here

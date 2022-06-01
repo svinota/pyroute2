@@ -511,6 +511,11 @@ class Route(RTNL_Object):
             processed['dst'] = spec
         return processed
 
+    @classmethod
+    def compare_record(self, left, right):
+        if isinstance(right, str):
+            return right == f'{left["dst"]}/{left["dst_len"]}'
+
     def _cmp_target(key, self, right):
         right = [MPLSTarget(x) for x in json.loads(right)]
         return all([x[0] == x[1] for x in zip(self[key], right)])
