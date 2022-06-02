@@ -257,6 +257,18 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
+NDB_VIEWS_SPECS = (
+    ('interfaces', 'interfaces'),
+    ('addresses', 'addresses'),
+    ('routes', 'routes'),
+    ('neighbours', 'neighbours'),
+    ('af_bridge_fdb', 'fdb'),
+    ('rules', 'rules'),
+    ('netns', 'netns'),
+    ('af_bridge_vlans', 'vlans'),
+)
+
+
 class Log(object):
     def __init__(self, log_id=None):
         self.logger = None
@@ -388,17 +400,9 @@ class AuthProxy(object):
         self._ndb = ndb
         self._auth_managers = auth_managers
 
-        for spec in (
-            'interfaces',
-            'addresses',
-            'routes',
-            'neighbours',
-            'rules',
-            'netns',
-            'vlans',
-        ):
-            view = View(self._ndb, spec, auth_managers=self._auth_managers)
-            setattr(self, spec, view)
+        for vtable, vname in NDB_VIEWS_SPECS:
+            view = View(self._ndb, vtable, auth_managers=self._auth_managers)
+            setattr(self, vname, view)
 
 
 class NDB(object):
@@ -498,18 +502,9 @@ class NDB(object):
         for event in tuple(self._dbm_autoload):
             event.wait()
         self._dbm_autoload = None
-        for spec in (
-            ('interfaces', 'interfaces'),
-            ('addresses', 'addresses'),
-            ('routes', 'routes'),
-            ('neighbours', 'neighbours'),
-            ('af_bridge_fdb', 'fdb'),
-            ('rules', 'rules'),
-            ('netns', 'netns'),
-            ('af_bridge_vlans', 'vlans'),
-        ):
-            view = View(self, spec[0], auth_managers=[am])
-            setattr(self, spec[1], view)
+        for vtable, vname in NDB_VIEWS_SPECS:
+            view = View(self, vtable, auth_managers=[am])
+            setattr(self, vname, view)
         # self.query = Query(self.schema)
 
     def _get_view(self, name, chain=None):
@@ -523,6 +518,14 @@ class NDB(object):
 
     def begin(self):
         return Transaction(self.log.channel('transaction'))
+
+    def readonly(self):
+        return self.auth_proxy(
+            AuthManager(
+                {'obj:list': True, 'obj:read': True, 'obj:modify': False},
+                self.log.channel('auth'),
+            )
+        )
 
     def auth_proxy(self, auth_manager):
         return AuthProxy(self, [auth_manager])
