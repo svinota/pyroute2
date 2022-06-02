@@ -343,23 +343,23 @@ class RTNL_Object(dict):
         Resolve specific fields e.g. convert port ifname into index.
         '''
         for field in fields:
-            ref = spec.get(field)
-            if ref is not None and not isinstance(ref, int):
-                try:
-                    spec[field] = view[ref]['index']
-                except KeyError:
-                    if policy == RSLV_RAISE:
-                        raise
-                    elif policy == RSLV_NONE:
-                        spec[field] = None
-                    elif policy == RSLV_DELETE:
-                        del spec[field]
-                    elif policy == RSLV_IGNORE:
-                        pass
-                    else:
-                        raise TypeError('unknown rslv policy')
-
-        return spec
+            reference = spec.get(field)
+            try:
+                if isinstance(reference, dict) and 'index' in reference:
+                    spec[field] = reference['index']
+                elif reference is not None and not isinstance(reference, int):
+                    spec[field] = view[reference]['index']
+            except (KeyError, TypeError):
+                if policy == RSLV_RAISE:
+                    raise
+                elif policy == RSLV_NONE:
+                    spec[field] = None
+                elif policy == RSLV_DELETE:
+                    del spec[field]
+                elif policy == RSLV_IGNORE:
+                    pass
+                else:
+                    raise TypeError('unknown rslv policy')
 
     def mark_tflags(self, mark):
         pass
@@ -751,15 +751,6 @@ class RTNL_Object(dict):
         self.log.debug('check: True')
         return True
 
-    def make_prime(self):
-        return dict(
-            [
-                (x, self[self.iclass.nla2name(x)])
-                for x in self.schema.compiled[self.table]['idx']
-                if self.iclass.nla2name(x) in self
-            ]
-        )
-
     def make_req(self, prime):
         req = dict(prime)
         for key in self.changed:
@@ -767,9 +758,6 @@ class RTNL_Object(dict):
         return req
 
     def make_idx_req(self, prime):
-        return prime
-
-    def sync_req(self, prime):
         return prime
 
     def get_count(self):
@@ -832,8 +820,12 @@ class RTNL_Object(dict):
             state = self.state.get()
 
         # Create the request.
-        prime = self.make_prime()
-        req = self.sync_req(self.make_req(prime))
+        prime = {
+            x: self[x]
+            for x in self.schema.compiled[self.table]['norm_idx']
+            if self.get(x) is not None
+        }
+        req = self.make_req(prime)
         idx_req = self.make_idx_req(prime)
         self.log.debug('apply req: %s' % str(req))
         self.log.debug('apply idx_req: %s' % str(idx_req))

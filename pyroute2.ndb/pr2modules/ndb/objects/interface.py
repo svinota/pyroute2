@@ -803,17 +803,6 @@ class Interface(RTNL_Object):
         # return the root node
         return snp
 
-    def sync_req(self, prime):
-        req = super(Interface, self).sync_req(prime)
-        #
-        # fix the master interface reference
-        for key in ('vxlan_link', 'link', 'master'):
-            if isinstance(req.get(key), dict):
-                req[key] = req[key]['index']
-            if isinstance(self.get(key), dict):
-                self[key] = self[key]['index']
-        return req
-
     def make_req(self, prime):
         req = super(Interface, self).make_req(prime)
         #
