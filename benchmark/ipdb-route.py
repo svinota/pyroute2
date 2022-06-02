@@ -15,10 +15,8 @@ def main():
         finally:
             # remove static routes
             for i in range(2, 10):
-                for k in range(2, 254):
-                    if '10.%i.%i.0/24' % (i, k) in ip.routes:
-                        with ip.routes['10.%i.%i.0/24' % (i, k)] as t:
-                            t.remove()
+               for k in range(2, 254):
+                   ip.routes['10.%i.%i.0/24' % (i, k)].remove().commit()
 
 
 main()
