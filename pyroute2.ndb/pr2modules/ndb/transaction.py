@@ -302,8 +302,8 @@ class Transaction:
     .. code-block:: python
 
         with ndb.begin() as tx:
-            tx.push(ndb.interfaces["eth0"].set(state="up")
-            tx.push(ndb.interfaces["eth1"].set(state="up")
+            tx.push(ndb.interfaces["eth0"].set(state="up"))
+            tx.push(ndb.interfaces["eth1"].set(state="up"))
     '''
 
     def __init__(self, log=None):
