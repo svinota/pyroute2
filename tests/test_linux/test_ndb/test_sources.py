@@ -178,7 +178,7 @@ def test_disconnect_localhost(context):
 
     #
     # lock the DB
-    with context.ndb.readonly:
+    with context.ndb.schema.readonly:
         total_ifnum = context.ndb.interfaces.dump().count()
         localhost_ifnum = (
             context.ndb.interfaces.dump().filter(target='localhost').count()
@@ -194,7 +194,7 @@ def test_disconnect_localhost(context):
 
     context.ndb.sources.remove('localhost')
 
-    with context.ndb.readonly:
+    with context.ndb.schema.readonly:
         #
         # the number of 'localhost' interfaces must be 0 here
         s = len(list(context.ndb.interfaces.dump().filter(target='localhost')))

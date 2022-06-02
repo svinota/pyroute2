@@ -351,18 +351,6 @@ class Log(object):
         return self.main.critical(*argv, **kwarg)
 
 
-class ReadOnly(object):
-    def __init__(self, ndb):
-        self.ndb = ndb
-
-    def __enter__(self):
-        self.ndb.schema.allow_write(False)
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.ndb.schema.allow_write(True)
-
-
 class DeadEnd(object):
     def put(self, *argv, **kwarg):
         raise ShutdownException('shutdown in progress')
@@ -443,7 +431,6 @@ class NDB(object):
             ctypes.util.find_library('c'), use_errno=True
         )
         self.log = Log(log_id=id(self))
-        self.readonly = ReadOnly(self)
         self._auto_netns = auto_netns
         self._db = None
         self._dbm_thread = None

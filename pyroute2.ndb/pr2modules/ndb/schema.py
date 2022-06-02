@@ -265,6 +265,18 @@ def publish_exec(method):
     return _do_dispatch
 
 
+class ReadOnly(object):
+    def __init__(self, schema):
+        self._schema = schema
+
+    def __enter__(self):
+        self._schema.allow_write(False)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._schema.allow_write(True)
+
+
 class DBSchema:
 
     connection = None
@@ -299,6 +311,7 @@ class DBSchema:
         self.event_queue = event_queue
         self.stats = {}
         self.thread = id(threading.current_thread())
+        self.readonly = ReadOnly(self)
         self.connection = None
         self.cursor = None
         self.rtnl_log = rtnl_log
