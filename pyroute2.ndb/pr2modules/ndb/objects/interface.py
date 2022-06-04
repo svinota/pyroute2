@@ -558,47 +558,50 @@ class Interface(RTNL_Object):
 
     @check_auth('obj:modify')
     def add_vlan(self, spec):
-        def do_add_vlan(self, spec):
+        def do_add_vlan(self, mode, spec):
             try:
-                return [self.vlan.create(spec).apply()]
+                method = getattr(self.vlan.create(spec), mode)
+                return [method()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
 
-        self._apply_script.append((do_add_vlan, (self, spec), {}))
+        self._apply_script.append((do_add_vlan, {'spec': spec}))
         return self
 
     @check_auth('obj:modify')
     def del_vlan(self, spec):
-        def do_del_vlan(self, spec):
+        def do_del_vlan(self, mode, spec):
             try:
-                return [self.vlan[spec].remove().apply()]
+                method = getattr(self.vlan[spec].remove(), mode)
+                return [method()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
 
-        self._apply_script.append((do_del_vlan, (self, spec), {}))
+        self._apply_script.append((do_del_vlan, {'spec': spec}))
         return self
 
     @check_auth('obj:modify')
     def add_neighbour(self, spec=None, **kwarg):
-        spec = spec or dict(kwarg)
+        spec = spec or kwarg
 
-        def do_add_neighbour(self, spec):
+        def do_add_neighbour(self, mode, spec):
             try:
-                return [self.neighbours.create(spec).apply()]
+                method = getattr(self.neighbours.create(spec), mode)
+                return [method()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
 
-        self._apply_script.append((do_add_neighbour, (self, spec), {}))
+        self._apply_script.append((do_add_neighbour, {'spec': spec}))
         return self
 
     @check_auth('obj:modify')
     def del_neighbour(self, spec=None, **kwarg):
         spec = spec or dict(kwarg)
 
-        def do_del_neighbour(self, spec):
+        def do_del_neighbour(self, mode, spec):
             ret = []
             if isinstance(spec, basestring):
                 specs = [spec]
@@ -608,7 +611,8 @@ class Interface(RTNL_Object):
                 specs = self.ipaddr.dump().filter(**spec)
             for sp in specs:
                 try:
-                    ret.append(self.neighbours.locate(sp).remove().apply())
+                    method = getattr(self.neighbours.locate(sp).remove(), mode)
+                    ret.append(method())
                 except KeyError:
                     pass
                 except Exception as e_s:
@@ -618,44 +622,40 @@ class Interface(RTNL_Object):
                 ret = KeyError('no neighbour records matched')
             return ret
 
-        self._apply_script.append((do_del_neighbour, (self, spec), {}))
+        self._apply_script.append((do_del_neighbour, {'spec': spec}))
         return self
 
     @check_auth('obj:modify')
     def add_ip(self, spec=None, **kwarg):
-        if spec is None and not kwarg:
-            raise TypeError('ip spec is required')
-        if kwarg:
-            spec = dict(kwarg)
+        spec = spec or kwarg
 
-        def do_add_ip(self, spec):
+        def do_add_ip(self, mode, spec):
             try:
-                return [self.ipaddr.create(spec).apply()]
+                method = getattr(self.ipaddr.create(spec), mode)
+                return [method()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
 
-        self._apply_script.append((do_add_ip, (self, spec), {}))
+        self._apply_script.append((do_add_ip, {'spec': spec}))
         return self
 
     @check_auth('obj:modify')
     def del_ip(self, spec=None, **kwarg):
-        if kwarg:
-            spec = dict(kwarg)
-        if spec is None and not kwarg:
-            spec = {}
+        spec = spec or kwarg
 
-        def do_del_ip(self, match):
+        def do_del_ip(self, mode, spec):
             ret = []
-            if isinstance(match, basestring):
-                specs = [match]
-            elif callable(match):
-                specs = self.ipaddr.dump().filter(match)
+            if isinstance(spec, basestring):
+                specs = [spec]
+            elif callable(spec):
+                specs = self.ipaddr.dump().filter(spec)
             else:
-                specs = self.ipaddr.dump().filter(**match)
-            for spec in specs:
+                specs = self.ipaddr.dump().filter(**spec)
+            for sp in specs:
                 try:
-                    ret.append(self.ipaddr.locate(spec).remove().apply())
+                    method = getattr(self.ipaddr.locate(sp).remove(), mode)
+                    ret.append(method())
                 except KeyError:
                     pass
                 except Exception as e_s:
@@ -665,40 +665,40 @@ class Interface(RTNL_Object):
                 ret = KeyError('no address records matched')
             return ret
 
-        self._apply_script.append((do_del_ip, (self, spec), {}))
+        self._apply_script.append((do_del_ip, {'spec': spec}))
         return self
 
     @check_auth('obj:modify')
     def add_port(self, spec):
-        def do_add_port(self, spec):
+        def do_add_port(self, mode, spec):
             try:
                 port = self.view[spec]
                 assert port['target'] == self['target']
                 port['master'] = self['index']
-                port.apply()
+                getattr(port, mode)()
                 return [port]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
 
-        self._apply_script.append((do_add_port, (self, spec), {}))
+        self._apply_script.append((do_add_port, {'spec': spec}))
         return self
 
     @check_auth('obj:modify')
     def del_port(self, spec):
-        def do_del_port(self, spec):
+        def do_del_port(self, mode, spec):
             try:
                 port = self.view[spec]
                 assert port['master'] == self['index']
                 assert port['target'] == self['target']
                 port['master'] = 0
-                port.apply()
+                getattr(port, mode)()
                 return [port]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
 
-        self._apply_script.append((do_del_port, (self, spec), {}))
+        self._apply_script.append((do_del_port, {'spec': spec}))
         return self
 
     @check_auth('obj:modify')
@@ -824,14 +824,14 @@ class Interface(RTNL_Object):
         return req
 
     @check_auth('obj:modify')
-    def apply(self, rollback=False, req_filter=None):
+    def apply(self, rollback=False, req_filter=None, mode='apply'):
         # translate string link references into numbers
         for key in ('link', 'master'):
             if key in self and isinstance(self[key], basestring):
                 self[key] = self.ndb.interfaces[self[key]]['index']
         setns = self.state.get() == 'setns'
         try:
-            super(Interface, self).apply(rollback, req_filter)
+            super(Interface, self).apply(rollback, req_filter, mode)
         except NetlinkError as e:
             if (
                 e.code == 95
@@ -852,8 +852,8 @@ class Interface(RTNL_Object):
                         ]
                     )
 
-                self.apply(rollback, req_filter)
-                self.apply(rollback)
+                self.apply(rollback, req_filter, mode)
+                self.apply(rollback, None, mode)
 
             elif (
                 e.code == 95
@@ -873,7 +873,7 @@ class Interface(RTNL_Object):
                         ]
                     )
 
-                self.apply(rollback, req_filter)
+                self.apply(rollback, req_filter, mode)
             else:
                 raise
         if setns:

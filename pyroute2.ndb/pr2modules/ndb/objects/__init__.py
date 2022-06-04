@@ -675,8 +675,9 @@ class RTNL_Object(dict):
         if self.state == 'invalid':
             # Save values, try to apply
             save = dict(self)
+            self.last_save = -1
             try:
-                return self.apply()
+                return self.apply(mode='commit')
             except Exception as e_i:
                 # Save the debug info
                 e_i.trace = traceback.format_exc()
@@ -699,9 +700,10 @@ class RTNL_Object(dict):
         # manually by `ndb.schema.purge_snapshots()` -- to invalidate all
         # the snapshots and to drop the associated tables.
 
+        self.last_save = self.snapshot()
         # Apply the changes
         try:
-            self.apply()
+            self.apply(mode='commit')
         except Exception as e_c:
             # Rollback in the case of any error
             try:
@@ -780,12 +782,27 @@ class RTNL_Object(dict):
         pass
 
     @check_auth('obj:modify')
-    def apply(self, rollback=False, req_filter=None):
+    def save_context(self):
+        if self.state == 'invalid':
+            self.last_save = -1
+        else:
+            self.last_save = self.snapshot()
+        return self
+
+    @check_auth('obj:modify')
+    def apply(self, rollback=False, req_filter=None, mode='apply'):
         '''
         Apply the pending changes. If an exception is raised during
-        `apply()`, no `rollback()` is called, you have to call
-        `rollback()` manually in order to revert partially applied
-        changes.
+        `apply()`, no `rollback()` is called. No automatic snapshots
+        are madre.
+
+        In order to properly revert the changes, you have to run::
+
+            obj.save_context()
+            try:
+                obj.apply()
+            except Exception:
+                obj.rollback()
         '''
 
         # Resolve the fields
@@ -795,13 +812,6 @@ class RTNL_Object(dict):
             fields=self.resolve_fields,
             policy=RSLV_RAISE,
         )
-
-        # Save the context
-        if not rollback:
-            if self.state == 'invalid':
-                self.last_save = -1
-            else:
-                self.last_save = self.snapshot()
 
         self.log.debug('events log: %s' % str(self.state.events))
         self.log.debug('run apply')
@@ -971,9 +981,11 @@ class RTNL_Object(dict):
         else:
             apply_script = self._apply_script
             self._apply_script = []
-            for op, argv, kwarg in apply_script:
+            for op, kwarg in apply_script:
+                kwarg['self'] = self
+                kwarg['mode'] = mode
                 ret = self.use_db_resync(
-                    lambda x: not isinstance(x, KeyError), op, *argv, **kwarg
+                    lambda x: not isinstance(x, KeyError), op, tuple(), kwarg
                 )
                 if not isinstance(ret, list):
                     ret = [ret]
@@ -984,8 +996,10 @@ class RTNL_Object(dict):
                         self._apply_script_snapshots.append(obj)
         return self
 
-    def use_db_resync(self, criteria, method, *argv, **kwarg):
+    def use_db_resync(self, criteria, method, argv=None, kwarg=None):
         ret = None
+        argv = argv or []
+        kwarg = kwarg or {}
         self.log.debug(f'criteria {criteria}')
         self.log.debug(f'method {method}, {argv}, {kwarg}')
         for attempt in range(3):

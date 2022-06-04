@@ -664,7 +664,7 @@ class Route(RTNL_Object):
             super(Route, self).__setitem__(key, value)
 
     @check_auth('obj:modify')
-    def apply(self, rollback=False):
+    def apply(self, rollback=False, req_filter=None, mode='apply'):
         if (
             (self.get('table') == 255)
             and (self.get('family') == 10)
@@ -675,7 +675,7 @@ class Route(RTNL_Object):
         else:
             if self.get('family', AF_INET) == AF_MPLS and not self.get('dst'):
                 dict.__setitem__(self, 'dst', [MPLSTarget()])
-            return super(Route, self).apply(rollback)
+            return super(Route, self).apply(rollback, req_filter, mode)
 
     def load_sql(self, *argv, **kwarg):
         super(Route, self).load_sql(*argv, **kwarg)
@@ -781,11 +781,11 @@ class Route(RTNL_Object):
 
 
 class RouteSub(object):
-    def apply(self, *argv, **kwarg):
-        return self.route.apply(*argv, **kwarg)
+    def apply(self, rollback=False, req_filter=None, mode='apply'):
+        return self.route.apply(rollback, req_filter, mode)
 
-    def commit(self, *argv, **kwarg):
-        return self.route.commit(*argv, **kwarg)
+    def commit(self):
+        return self.route.commit()
 
 
 class NextHop(RouteSub, RTNL_Object):
