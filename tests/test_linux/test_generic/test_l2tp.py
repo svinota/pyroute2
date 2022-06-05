@@ -1,13 +1,19 @@
+import errno
 import time
 
 import pytest
 
-from pyroute2 import L2tp
+from pyroute2 import L2tp, NetlinkError
 
 
 @pytest.fixture
 def l2ctx(context):
-    context.l2tp = L2tp()
+    try:
+        context.l2tp = L2tp()
+    except NetlinkError as e:
+        if e.code == errno.ENOENT:
+            pytest.skip('L2TP netlink API not available')
+        raise
     context.local_ip = context.get_ipaddr(r=0)
     context.remote_ip = context.get_ipaddr(r=1)
     context.l2tpeth0 = context.new_ifname
