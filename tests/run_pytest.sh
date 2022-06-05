@@ -90,6 +90,9 @@ fi
     modprobe 8021q 2>/dev/null ||:
     modprobe mpls_router 2>/dev/null ||:
     modprobe mpls_iptunnel 2>/dev/null ||:
+    modprobe l2tp_ip 2>/dev/null ||:
+    modprobe l2tp_eth 2>/dev/null ||:
+    modprobe l2tp_netlink 2>/dev/null ||:
     sysctl net.mpls.platform_labels=2048 >/dev/null 2>&1 ||:
 }
 
