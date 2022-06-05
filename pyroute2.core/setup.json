@@ -14,6 +14,7 @@
      "protocols = pr2modules.protocols",
      "IW = pr2modules.iwutil:IW",
      "IPRoute = pr2modules.iproute:IPRoute",
+     "IPBatch = pr2modules.iproute:IPBatch",
      "RawIPRoute = pr2modules.iproute:RawIPRoute",
      "ChaoticIPRoute = pr2modules.iproute:ChaoticIPRoute",
      "NetlinkError = pr2modules.netlink.exceptions:NetlinkError",

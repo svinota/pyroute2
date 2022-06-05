@@ -174,6 +174,7 @@ class View(dict):
         )
 
     @cli.change_pointer
+    @check_auth('obj:modify')
     def create(self, *argspec, **kwspec):
         iclass = self.classes[self.table]
         if self.chain:
@@ -189,6 +190,7 @@ class View(dict):
         return self[spec]
 
     @cli.change_pointer
+    @check_auth('obj:modify')
     def add(self, *argspec, **kwspec):
         self.log.warning(
             '''\n
@@ -203,6 +205,7 @@ class View(dict):
         )
         return self.create(*argspec, **kwspec)
 
+    @check_auth('obj:read')
     def wait(self, **spec):
         ret = None
         timeout = spec.pop('timeout', -1)

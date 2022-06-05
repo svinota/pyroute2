@@ -79,3 +79,17 @@ def test_view_cache(context):
     # check that the interfaces are cleaned up from the system
     assert not interface_exists(context.netns, ifname=ifname1)
     assert not interface_exists(context.netns, ifname=ifname2)
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_readonly(context):
+    readonly = context.ndb.readonly()
+
+    with pytest.raises(PermissionError):
+        readonly.interfaces.create(ifname='test', kind='dummy')
+
+    selection = list(readonly.interfaces.summary().filter(ifname='lo'))
+    assert len(selection) == 1
+    assert selection[0].ifname == 'lo'
+    assert selection[0].address == '00:00:00:00:00:00'
+    assert selection[0].target == 'localhost'

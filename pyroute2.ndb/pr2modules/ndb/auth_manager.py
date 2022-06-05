@@ -51,7 +51,6 @@ must provide `.check(self, obj, tag)` routine, which returns `True` or
 `False` or raises an exception.
 
 '''
-from pr2modules.common import PermissionError
 
 
 class check_auth(object):
