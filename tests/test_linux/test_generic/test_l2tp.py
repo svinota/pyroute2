@@ -84,7 +84,7 @@ def test_complete(l2ctx):
         try:
             assert not l2ctx.l2tp.get_session(tunnel_id=2324, session_id=3435)
         except AssertionError:
-            time.wait(0.1)
+            time.sleep(0.1)
             continue
         break
     else:
@@ -96,7 +96,7 @@ def test_complete(l2ctx):
         try:
             assert not l2ctx.l2tp.get_tunnel(tunnel_id=2324)
         except AssertionError:
-            time.wait(0.1)
+            time.sleep(0.1)
             continue
         break
     else:
