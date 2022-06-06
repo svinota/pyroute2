@@ -942,7 +942,13 @@ class Interface(Transactional):
                     # subnetwork can be removed. In this case you
                     # will fail, but it is OK, no need to roll back
                     try:
-                        run(nl.addr, 'delete', self['index'], i[0], i[1])
+                        run(
+                            nl.addr,
+                            'delete',
+                            index=self['index'],
+                            address=i[0],
+                            prefixlen=i[1],
+                        )
                     except NetlinkError as x:
                         # bypass only errno 99,
                         # 'Cannot assign address'
@@ -972,14 +978,11 @@ class Interface(Transactional):
                         kwarg = None
                     try:
                         # feed the address to the OS
-                        run(
-                            nl.addr,
-                            'add',
-                            self['index'],
-                            i[0],
-                            i[1],
-                            **kwarg if kwarg else {}
-                        )
+                        kwarg = kwarg or {}
+                        kwarg['index'] = self['index']
+                        kwarg['address'] = i[0]
+                        kwarg['prefixlen'] = i[1]
+                        run(nl.addr, 'add', **kwarg)
                     except NetlinkError as x:
                         if x.code != errno.EEXIST:
                             raise

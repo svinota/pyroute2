@@ -1008,7 +1008,7 @@ class IPDB(object):
                         name=tspec[2], target=getattr(self, tspec[1])
                     )
                     setattr(self, tspec[0], tx)
-                    tx.setDaemon(True)
+                    tx.daemon = True
                     tx.start()
 
     def __getattribute__(self, name):
