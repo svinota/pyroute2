@@ -1,6 +1,9 @@
 Changelog
 =========
 
+* 0.6.11
+    * ipdb: fix requests compatibility: <https://github.com/svinota/pyroute2/issues/920>
+    * ipdb: added deprecation warning
 * 0.6.10
     * ndb: fix DB reload on incomplete requests in the IPRoute API fallbacks: <https://github.com/svinota/pyroute2/issues/890>
     * ndb: basic ipvlan support
