@@ -5,7 +5,7 @@ from pyroute2 import IPDB
 
 @pytest.fixture
 def ictx(context):
-    context.ipdb = IPDB()
+    context.ipdb = IPDB(deprecation_warning=False)
     yield context
     context.ipdb.release()
 

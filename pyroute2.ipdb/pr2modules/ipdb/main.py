@@ -696,6 +696,7 @@ import logging
 import sys
 import threading
 import traceback
+import warnings
 import weakref
 
 try:
@@ -819,10 +820,19 @@ class IPDB(object):
         callbacks=None,
         sort_addresses=False,
         plugins=None,
+        deprecation_warning=True,
     ):
         msg = 'https://docs.pyroute2.org/ipdb_toc.html'
         log.warning('Deprecation warning ' + msg)
-        # warnings.warn(DeprecationWarning(msg))
+        if deprecation_warning:
+            log.warning(
+                'To remove this DeprecationWarning exception, '
+                'start IPDB(deprecation_warning=False, ...)'
+            )
+            warnings.warn(
+                'IPDB module is deprecated and will be removed in 0.7.0',
+                DeprecationWarning,
+            )
         plugins = plugins or ['interfaces', 'routes', 'rules']
         pmap = {'interfaces': interfaces, 'routes': routes, 'rules': rules}
         self.mode = mode
