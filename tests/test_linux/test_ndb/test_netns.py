@@ -24,6 +24,27 @@ def test_create_remove(context):
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_views_contain(context):
+    nsname = context.new_nsname
+    v0 = context.new_ifname
+    v1 = context.new_ifname
+
+    context.ndb.sources.add(netns=nsname)
+    context.ndb.interfaces.create(
+        **{
+            'ifname': v0,
+            'kind': 'veth',
+            'peer': {'ifname': v1, 'net_ns_fd': nsname},
+        }
+    ).commit()
+
+    assert v0 in context.ndb.interfaces
+    assert v1 in context.ndb.interfaces  # should be fixed?
+    assert {'ifname': v0, 'target': 'localhost'} in context.ndb.interfaces
+    assert {'ifname': v1, 'target': nsname} in context.ndb.interfaces
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_interface_move(context):
     ifname = context.new_ifname
     ifaddr = context.new_ipaddr

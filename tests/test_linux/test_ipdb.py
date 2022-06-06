@@ -19,10 +19,22 @@ def test_interface_dummy(ictx):
     interface.add_ip(f'{ipaddr}/24')
     interface.commit()
 
-    assert ifname in ictx.ndb.interfaces
+    ictx.ndb.interfaces.wait(action='add', ifname=ifname, timeout=3)
     assert ictx.ndb.interfaces[ifname]['state'] == 'up'
     assert f'{ipaddr}/24' in ictx.ndb.addresses
-    assert ictx.ndb.addresses[f'{ipaddr}/24']['index'] == interface['index']
+    assert (
+        ictx.ndb.addresses.wait(action='add', address=ipaddr, prefixlen=24)[
+            'index'
+        ]
+        == interface['index']
+    )
+
+    interface.del_ip(f'{ipaddr}/24')
+    interface.commit()
+
+    ictx.ndb.addresses.wait(
+        action='remove', address=ipaddr, prefixlen=24, timeout=3
+    )
 
 
 def test_interface_veth(ictx):
@@ -39,11 +51,8 @@ def test_interface_veth(ictx):
     veth1['net_ns_fd'] = netns
     veth1.commit()
 
-    assert v0 in ictx.ndb.interfaces
-    assert (
-        len(list(ictx.ndb.interfaces.dump().filter(target=netns, ifname=v1)))
-        == 1
-    )
+    ictx.ndb.interfaces.wait(ifname=v0, target='localhost', timeout=3)
+    ictx.ndb.interfaces.wait(ifname=v1, target=netns, timeout=3)
 
 
 def test_interface_bridge(ictx):
@@ -56,11 +65,11 @@ def test_interface_bridge(ictx):
         i['br_stp_state'] = 1
         i['br_forward_delay'] = 1000
 
-    with ictx.ndb.interfaces[ifname] as i:
-        assert i['state'] == 'up'
-        assert i['address'] == '00:11:22:33:44:55'
-        assert i['br_stp_state'] == 1
-        assert i['br_forward_delay'] == 1000
+    i = ictx.ndb.interfaces.wait(ifname=ifname, timeout=3)
+    assert i['state'] == 'up'
+    assert i['address'] == '00:11:22:33:44:55'
+    assert i['br_stp_state'] == 1
+    assert i['br_forward_delay'] == 1000
 
 
 def test_route_basic(ictx):

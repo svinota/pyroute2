@@ -32,7 +32,6 @@ import json
 from itertools import chain
 
 from pr2modules import cli
-from pr2modules.common import basestring
 
 MAX_REPORT_LINES = 10000
 
@@ -87,7 +86,7 @@ def format_csv(dump, headless=False):
         yield ','.join(dump_record(record))
 
 
-class Record(object):
+class Record:
     def __init__(self, names, values, ref_class=None):
         if len(names) != len(values):
             raise ValueError('names and values must have the same length')
@@ -136,9 +135,14 @@ class Record(object):
             n = all(x[0] == x[1] for x in zip(self._names, right._names))
             v = all(x[0] == x[1] for x in zip(self._values, right._values))
             return n and v
-        elif self._ref_class is not None and isinstance(
-            right, (basestring, int)
-        ):
+        elif isinstance(right, dict):
+            for key, value in right.items():
+                if value != self[key]:
+                    break
+            else:
+                return True
+            return False
+        elif self._ref_class is not None and isinstance(right, (str, int)):
             return self._ref_class.compare_record(self, right)
         else:
             return all(x[0] == x[1] for x in zip(self._values, right))
@@ -157,7 +161,7 @@ class BaseRecordSet(object):
         counter = 0
         ret = []
         for record in self.generator:
-            if isinstance(record, basestring):
+            if isinstance(record, str):
                 ret.append(record)
             else:
                 ret.append(repr(record))
