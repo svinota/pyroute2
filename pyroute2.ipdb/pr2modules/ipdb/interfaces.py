@@ -597,6 +597,7 @@ class Interface(Transactional):
                                 and x[:3] != 'br_',
                                 transaction,
                             )
+                            if transaction[key] is not None
                         }
                         for key in ('net_ns_fd', 'net_ns_pid'):
                             if key in request:
@@ -846,8 +847,12 @@ class Interface(Transactional):
             request['kind'] = self['kind']
             brequest['kind'] = self['kind']
             wait_all = False
-            for key in added:
-                if (key not in self._virtual_fields) and (key != 'kind'):
+            for key, value in added.items():
+                if (
+                    value is not None
+                    and (key not in self._virtual_fields)
+                    and (key != 'kind')
+                ):
                     if key[:3] == 'br_':
                         brequest[key] = added[key]
                     elif key[:7] == 'brport_':

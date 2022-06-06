@@ -74,22 +74,22 @@ class LinkIPRouteFilter(IPRouteFilter):
     def set_state(self, context, value):
         ret = {}
         if value == 'up':
-            ret['flags'] = context.get('flags', 0) | 1
-        ret['change'] = context.get('change', 0) | 1
+            ret['flags'] = context.get('flags', 0) or 0 | 1
+        ret['change'] = context.get('change', 0) or 0 | 1
         return ret
 
     def set_arp(self, context, value):
         ret = {}
         if not value:
-            ret['flags'] = context.get('flags', 0) | IFF_NOARP
-        ret['change'] = context.get('change', 0) | IFF_NOARP
+            ret['flags'] = context.get('flags', 0) or 0 | IFF_NOARP
+        ret['change'] = context.get('change', 0) or 0 | IFF_NOARP
         return ret
 
     def set_noarp(self, context, value):
         ret = {}
         if value:
-            ret['flags'] = context.get('flags', 0) | IFF_NOARP
-        ret['change'] = context.get('change', 0) | IFF_NOARP
+            ret['flags'] = context.get('flags', 0) or 0 | IFF_NOARP
+        ret['change'] = context.get('change', 0) or 0 | IFF_NOARP
         return ret
 
     def finalize(self, context):
@@ -130,7 +130,10 @@ class LinkIPRouteFilter(IPRouteFilter):
         # flush deferred NLAs
         for (key, value) in tuple(context.items()):
             if self.push_specific(key, value):
-                del context[key]
+                try:
+                    del context[key]
+                except KeyError:
+                    pass
 
     def push_specific(self, key, value):
         # FIXME: vlan hack
