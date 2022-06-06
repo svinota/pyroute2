@@ -830,7 +830,7 @@ class IPDB(object):
                 'start IPDB(deprecation_warning=False, ...)'
             )
             warnings.warn(
-                'IPDB module is deprecated and will be removed in 0.7.0',
+                'IPDB module is deprecated and will be removed in 0.7.1',
                 DeprecationWarning,
             )
         plugins = plugins or ['interfaces', 'routes', 'rules']
