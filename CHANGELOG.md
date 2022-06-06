@@ -1,6 +1,22 @@
 Changelog
 =========
 
+* 0.6.10
+    * ndb: fix DB reload on incomplete requests in the IPRoute API fallbacks: <https://github.com/svinota/pyroute2/issues/890>
+    * ndb: basic ipvlan support
+    * ndb: support `ndb.schema.backup("filename")` fro SQLite3 backend
+    * ndb: transactions, CheckProcess, PingAddress, see `test_ndb/test_transaction.py` and docs
+    * ndb: make snapshots only for `commit()` calls, no automatic snapshots for `apply()`
+    * netlink: filter out all the subsequent messages starting from the first error: <https://github.com/svinota/pyroute2/issues/892>
+    * protocols: fix arp module export
+    * iproute: deprecate positional arguments to `IPRoute.rule()`
+    * iproute, ndb: use `pyroute2.requests` to filter and transform API call arguments
+    * conntrack: fix exports: <https://github.com/svinota/pyroute2/pull/900>
+    * nftables: multiple fixes: <https://github.com/svinota/pyroute2/pull/902>
+    * tc: fix em_ipset crash: <https://github.com/svinota/pyroute2/pull/905>
+    * tests: integrated pre-commit, github actions and more
+    * tests: support basic OpenBSD tests
+    * pyroute2-cli: parser fixes
 * 0.6.9
     * wireguard peer fix for both IPv4 and IPv6: <https://github.com/svinota/pyroute2/issues/888>
     * netns: avoid extra libc reloads: <https://github.com/svinota/pyroute2/pull/887>
