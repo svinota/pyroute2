@@ -12,6 +12,7 @@
      "netlink = pr2modules.netlink",
      "iwutil = pr2modules.iwutil",
      "protocols = pr2modules.protocols",
+     "requests = pr2modules.requests",
      "IW = pr2modules.iwutil:IW",
      "IPRoute = pr2modules.iproute:IPRoute",
      "IPBatch = pr2modules.iproute:IPBatch",
