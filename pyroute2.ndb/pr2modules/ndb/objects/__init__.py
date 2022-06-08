@@ -201,6 +201,9 @@ class RTNL_Object(dict):
     #
     # 8<------------------------------------------------------------
     #
+    @classmethod
+    def _count(cls, view):
+        return view.ndb.schema.fetchone('SELECT count(*) FROM %s' % view.table)
 
     @classmethod
     def _dump_where(cls, view):

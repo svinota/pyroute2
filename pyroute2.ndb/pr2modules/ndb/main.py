@@ -507,8 +507,8 @@ class NDB(object):
             setattr(self, vname, view)
         # self.query = Query(self.schema)
 
-    def _get_view(self, name, chain=None):
-        return View(self, name, chain)
+    def _get_view(self, table, chain=None, auth_managers=None):
+        return View(self, table, chain, auth_managers)
 
     def __enter__(self):
         return self

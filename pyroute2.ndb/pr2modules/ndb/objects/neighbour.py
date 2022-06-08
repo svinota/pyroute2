@@ -83,6 +83,19 @@ class Neighbour(RTNL_Object):
     api = 'neigh'
 
     @classmethod
+    def _count(cls, view):
+        if view.chain:
+            return view.ndb.schema.fetchone(
+                'SELECT count(*) FROM %s WHERE f_ifindex = %s'
+                % (view.table, view.ndb.schema.plch),
+                [view.chain['index']],
+            )
+        else:
+            return view.ndb.schema.fetchone(
+                'SELECT count(*) FROM %s' % view.table
+            )
+
+    @classmethod
     def _dump_where(cls, view):
         if view.chain:
             plch = view.ndb.schema.plch

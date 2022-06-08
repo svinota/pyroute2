@@ -405,9 +405,7 @@ class View(dict):
 
     @cli.show_result
     def count(self):
-        return (
-            self.ndb.schema.fetchone('SELECT count(*) FROM %s' % self.table)
-        )[0]
+        return self.classes[self.table]._count(self)[0]
 
     def __len__(self):
         return self.count()
@@ -433,6 +431,24 @@ class View(dict):
     def summary(self):
         iclass = self.classes[self.table]
         return RecordSet(self._native(iclass.summary(self)))
+
+    def __repr__(self):
+        if self.chain and 'ifname' in self.chain:
+            parent = f'{self.chain["ifname"]}/'
+        else:
+            parent = ''
+        return f'''
+NDB view for {parent}{self.table}
+Number of objects: {self.count()}
+
+to list objects use .summary() or .dump()
+    -> RecordSet (generator)
+        -> Record
+
+key: Union[Record, dict, spec]
+to get objects use ...[key] / .__getitem__(key)
+    -> RTNL_Object
+'''
 
 
 class SourcesView(View):

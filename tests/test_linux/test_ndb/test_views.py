@@ -1,4 +1,5 @@
 import time
+from functools import partial
 
 import pytest
 from pr2test.context_manager import make_test_matrix
@@ -93,3 +94,53 @@ def test_readonly(context):
     assert selection[0].ifname == 'lo'
     assert selection[0].address == '00:00:00:00:00:00'
     assert selection[0].target == 'localhost'
+
+
+@pytest.mark.parametrize('method', ('dump', 'summary'))
+@pytest.mark.parametrize(
+    'view,sub,func',
+    (
+        ('routes', 'routes', lambda index, x: x.oif == index),
+        ('addresses', 'ipaddr', lambda index, x: x.index == index),
+        ('interfaces', 'ports', lambda index, x: x.master == index),
+        ('neighbours', 'neighbours', lambda index, x: x.ifindex == index),
+        ('vlans', 'vlans', lambda index, x: x.index == index),
+    ),
+)
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_nested_count(context, view, sub, func, method):
+    br0 = context.new_ifname
+    br0p0 = context.new_ifname
+    br0p1 = context.new_ifname
+    ipaddr1 = context.new_ipaddr
+    ipaddr2 = context.new_ipaddr
+    gateway = context.new_ipaddr
+    net = context.new_ip4net
+
+    context.ndb.interfaces.create(
+        ifname=br0p0, kind='dummy', state='up'
+    ).commit()
+    context.ndb.interfaces.create(
+        ifname=br0p1, kind='dummy', state='up'
+    ).commit()
+    (
+        context.ndb.interfaces.create(ifname=br0, kind='bridge', state='up')
+        .add_port(br0p0)
+        .add_port(br0p1)
+        .add_ip(f'{ipaddr1}/24')
+        .add_ip(f'{ipaddr2}/24')
+        .commit()
+    )
+    context.ndb.routes.create(
+        dst=net.network, dst_len=net.netmask, gateway=gateway
+    ).commit()
+
+    records_a = (
+        getattr(context.ndb, view)
+        .dump()
+        .filter(partial(func, context.ndb.interfaces[br0]['index']))
+    )
+    records_b = getattr(getattr(context.ndb.interfaces[br0], sub), method)()
+    count = getattr(context.ndb.interfaces[br0], sub).count()
+    assert records_b.count() == records_a.count() == count
+    assert count < getattr(context.ndb, view).count() or count == 0

@@ -361,6 +361,19 @@ class Vlan(RTNL_Object):
     api = 'vlan_filter'
 
     @classmethod
+    def _count(cls, view):
+        if view.chain:
+            return view.ndb.schema.fetchone(
+                'SELECT count(*) FROM %s WHERE f_index = %s'
+                % (view.table, view.ndb.schema.plch),
+                [view.chain['index']],
+            )
+        else:
+            return view.ndb.schema.fetchone(
+                'SELECT count(*) FROM %s' % view.table
+            )
+
+    @classmethod
     def _dump_where(cls, view):
         if view.chain:
             plch = view.ndb.schema.plch
@@ -436,6 +449,19 @@ class Interface(RTNL_Object):
     resolve_fields = ['vxlan_link', 'link', 'master']
     fields_cmp = {'master': _cmp_master}
     field_filter = LinkFieldFilter
+
+    @classmethod
+    def _count(cls, view):
+        if view.chain:
+            return view.ndb.schema.fetchone(
+                'SELECT count(*) FROM %s WHERE f_IFLA_MASTER = %s'
+                % (view.table, view.ndb.schema.plch),
+                [view.chain['index']],
+            )
+        else:
+            return view.ndb.schema.fetchone(
+                'SELECT count(*) FROM %s' % view.table
+            )
 
     @classmethod
     def _dump_where(cls, view):
@@ -539,7 +565,7 @@ class Interface(RTNL_Object):
 
     @property
     def vlans(self):
-        return self.view.ndb._get_view('vlans', chain=self)
+        return self.view.ndb._get_view('af_bridge_vlans', chain=self)
 
     @property
     def context(self):

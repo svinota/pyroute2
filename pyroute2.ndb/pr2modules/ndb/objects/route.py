@@ -379,6 +379,19 @@ class Route(RTNL_Object):
     _replace_on_key_change = True
 
     @classmethod
+    def _count(cls, view):
+        if view.chain:
+            return view.ndb.schema.fetchone(
+                'SELECT count(*) FROM %s WHERE f_RTA_OIF = %s'
+                % (view.table, view.ndb.schema.plch),
+                [view.chain['index']],
+            )
+        else:
+            return view.ndb.schema.fetchone(
+                'SELECT count(*) FROM %s' % view.table
+            )
+
+    @classmethod
     def _dump_where(cls, view):
         if view.chain:
             plch = view.ndb.schema.plch
@@ -399,34 +412,34 @@ class Route(RTNL_Object):
     @classmethod
     def summary(cls, view):
         req = '''
-              WITH nr AS
+              WITH main AS
                   (SELECT
-                      main.f_target, main.f_tflags, main.f_RTA_TABLE,
-                      main.f_RTA_DST, main.f_dst_len,
-                      CASE WHEN nh.f_oif > main.f_RTA_OIF
+                      nr.f_target, nr.f_tflags, nr.f_RTA_TABLE,
+                      nr.f_RTA_DST, nr.f_dst_len,
+                      CASE WHEN nh.f_oif > nr.f_RTA_OIF
                           THEN nh.f_oif
-                          ELSE main.f_RTA_OIF
+                          ELSE nr.f_RTA_OIF
                       END AS f_RTA_OIF,
                       CASE WHEN nh.f_RTA_GATEWAY IS NOT NULL
                           THEN nh.f_RTA_GATEWAY
-                          ELSE main.f_RTA_GATEWAY
+                          ELSE nr.f_RTA_GATEWAY
                       END AS f_RTA_GATEWAY
                    FROM
-                       routes AS main
+                       routes AS nr
                    LEFT JOIN nh
                    ON
-                       main.f_route_id = nh.f_route_id AND
-                       main.f_target = nh.f_target)
+                       nr.f_route_id = nh.f_route_id AND
+                       nr.f_target = nh.f_target)
               SELECT
-                  nr.f_target, nr.f_tflags, nr.f_RTA_TABLE,
-                  intf.f_IFLA_IFNAME, nr.f_RTA_DST, nr.f_dst_len,
-                  nr.f_RTA_GATEWAY
+                  main.f_target, main.f_tflags, main.f_RTA_TABLE,
+                  intf.f_IFLA_IFNAME, main.f_RTA_DST, main.f_dst_len,
+                  main.f_RTA_GATEWAY
               FROM
-                  nr
+                  main
               INNER JOIN interfaces AS intf
               ON
-                  nr.f_rta_oif = intf.f_index AND
-                  nr.f_target = intf.f_target
+                  main.f_rta_oif = intf.f_index AND
+                  main.f_target = intf.f_target
               '''
         yield (
             'target',
