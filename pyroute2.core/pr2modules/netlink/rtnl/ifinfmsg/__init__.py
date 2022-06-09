@@ -497,8 +497,8 @@ class ifinfbase(object):
         ('IFLA_GSO_MAX_SIZE', 'uint32'),
         ('IFLA_PAD', 'hex'),
         ('IFLA_XDP', 'xdp'),
-        ('IFLA_EVENT', 'hex'),
-        ('IFLA_NEW_NETNSID', 'hex'),
+        ('IFLA_EVENT', 'uint32'),
+        ('IFLA_NEW_NETNSID', 'be32'),
         ('IFLA_IF_NETNSID', 'uint32'),
         ('IFLA_CARRIER_UP_COUNT', 'uint32'),
         ('IFLA_CARRIER_DOWN_COUNT', 'uint32'),
@@ -508,7 +508,12 @@ class ifinfbase(object):
         ('IFLA_PROP_LIST', 'proplist'),
         ('IFLA_ALT_IFNAME', 'asciiz'),
         ('IFLA_PERM_ADDRESS', 'hex'),
-        ('IFLA_PROTO_DOWN_REASON', 'hex'),
+        ('IFLA_PROTO_DOWN_REASON', 'down_reason'),
+        ('IFLA_PARENT_DEV_NAME', 'asciiz'),
+        ('IFLA_PARENT_DEV_BUS_NAME', 'asciiz'),
+        ('IFLA_GRO_MAX_SIZE', 'uint32'),
+        ('IFLA_TSO_MAX_SIZE', 'uint32'),
+        ('IFLA_TSO_MAX_SEGS', 'uint32'),
     )
 
     @staticmethod
@@ -536,6 +541,15 @@ class ifinfbase(object):
         if isinstance(self['flags'], (set, tuple, list)):
             self['flags'], self['change'] = self.names2flags(self['flags'])
         return super(ifinfbase, self).encode()
+
+    class down_reason(nla):
+        nla_flags = NLA_F_NESTED
+        prefix = 'IFLA_'
+        nla_map = (
+            ('IFLA_PROTO_DOWN_REASON_UNSPEC', 'none'),
+            ('IFLA_PROTO_DOWN_REASON_MASK', 'uint32'),
+            ('IFLA_PROTO_DOWN_REASON_VALUE', 'uint32'),
+        )
 
     class netns_fd(nla):
         fields = [('value', 'I')]
