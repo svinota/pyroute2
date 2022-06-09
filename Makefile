@@ -48,7 +48,11 @@ endif
 # Functions
 #
 define list_modules
-	`ls -1 | sed -n '/egg-info/n; /pyroute2/p'`
+	`find . -maxdepth 1 -mindepth 1 -type d -iname 'pyroute2*' -print0 | xargs -0 -n1 basename`
+endef
+
+define list_templates
+	`find templates -maxdepth 1 -mindepth 1 -type f -print0 | xargs -0 -n1 basename`
 endef
 
 define make_modules
@@ -61,7 +65,7 @@ endef
 
 define clean_module
 	if [ -f $$module/setup.json ]; then \
-		for i in `ls -1 templates`; do rm -f $$module/$$i; done; \
+		for i in $(call list_templates); do rm -f $$module/$$i; done; \
 	fi; \
 	rm -f $$module/LICENSE.*; \
 	rm -f $$module/README.license.md; \
@@ -75,7 +79,7 @@ endef
 define process_templates
 	for module in $(call list_modules); do \
 		if [ -f $$module/setup.json ]; then \
-			for template in `ls -1 templates`; do \
+			for template in $(call list_templates); do \
 				${python} \
 					util/process_template.py \
 					templates/$$template \
@@ -199,6 +203,8 @@ upload: dist
 
 .PHONY: setup
 setup:
+	$(MAKE) clean
+	$(MAKE) VERSION
 	$(call process_templates)
 	@for module in $(call list_modules); do $(call deploy_license); done
 	@for module in pyroute2 pyroute2.minimal; do \
@@ -210,7 +216,7 @@ setup:
 	done
 
 .PHONY: dist
-dist: clean VERSION setup
+dist: setup
 	cd pyroute2; ${python} setup.py sdist
 	mkdir dist
 	$(call make_modules, dist)
@@ -227,7 +233,7 @@ install-minimal: dist
 	${python} -m pip install dist/pyroute2.minimal* dist/pyroute2.core* ${root}
 
 .PHONY: uninstall
-uninstall: clean VERSION setup
+uninstall: setup
 	$(call make_modules, uninstall)
 
 .PHONY: audit-imports
