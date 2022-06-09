@@ -20,8 +20,8 @@ def test_interface_dummy(ictx):
     interface.commit()
 
     ictx.ndb.interfaces.wait(action='add', ifname=ifname, timeout=3)
+    ictx.ndb.addresses.wait(action='add', address=ipaddr, timeout=3)
     assert ictx.ndb.interfaces[ifname]['state'] == 'up'
-    assert f'{ipaddr}/24' in ictx.ndb.addresses
     assert (
         ictx.ndb.addresses.wait(action='add', address=ipaddr, prefixlen=24)[
             'index'
