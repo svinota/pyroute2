@@ -18,6 +18,8 @@ class AddressFieldFilter(Index, NLAKeyTransform):
         return {'prefixlen': value}
 
     def set_address(self, context, value):
+        if not value:
+            return {}
         ret = {'address': value}
         if isinstance(value, str):
             addr_spec = value.split('/')
@@ -29,6 +31,11 @@ class AddressFieldFilter(Index, NLAKeyTransform):
                     ret['address']
                 ).compressed
         return ret
+
+    def set_local(self, context, value):
+        if not value:
+            return {}
+        return {'local': value}
 
     def set_mask(self, context, value):
         return {'prefixlen': value}

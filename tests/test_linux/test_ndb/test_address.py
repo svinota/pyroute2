@@ -1,4 +1,4 @@
-from socket import AF_INET
+from socket import AF_INET, AF_INET6
 
 import pytest
 from pr2test.context_manager import make_test_matrix
@@ -9,18 +9,21 @@ test_matrix = make_test_matrix(
 )
 
 
+@pytest.mark.parametrize(
+    'ipam,prefixlen', (('new_ipaddr', 24), ('new_ip6addr', 64))
+)
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_add_del_ip_dict(context):
+def test_add_del_ip_dict(context, ipam, prefixlen):
     ifname = context.new_ifname
-    ifaddr1 = context.new_ipaddr
-    ifaddr2 = context.new_ipaddr
+    ifaddr1 = getattr(context, ipam)
+    ifaddr2 = getattr(context, ipam)
 
     (
         context.ndb.interfaces.create(
             ifname=ifname, kind='dummy', state='down'
         )
-        .add_ip({'address': ifaddr1, 'prefixlen': 24})
-        .add_ip({'address': ifaddr2, 'prefixlen': 24})
+        .add_ip({'address': ifaddr1, 'prefixlen': prefixlen})
+        .add_ip({'address': ifaddr2, 'prefixlen': prefixlen})
         .commit()
     )
 
@@ -29,8 +32,8 @@ def test_add_del_ip_dict(context):
 
     (
         context.ndb.interfaces[{'ifname': ifname}]
-        .del_ip({'address': ifaddr2, 'prefixlen': 24})
-        .del_ip({'address': ifaddr1, 'prefixlen': 24})
+        .del_ip({'address': ifaddr2, 'prefixlen': prefixlen})
+        .del_ip({'address': ifaddr1, 'prefixlen': prefixlen})
         .commit()
     )
 
@@ -38,11 +41,14 @@ def test_add_del_ip_dict(context):
     assert not address_exists(context.netns, ifname=ifname, address=ifaddr2)
 
 
+@pytest.mark.parametrize(
+    'ipam,prefixlen', (('new_ipaddr', 24), ('new_ip6addr', 64))
+)
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_add_del_ip_string(context):
+def test_add_del_ip_string(context, ipam, prefixlen):
     ifname = context.new_ifname
-    ifaddr1 = '%s/24' % context.new_ipaddr
-    ifaddr2 = '%s/24' % context.new_ipaddr
+    ifaddr1 = f'{getattr(context, ipam)}/{prefixlen}'
+    ifaddr2 = f'{getattr(context, ipam)}/{prefixlen}'
 
     (
         context.ndb.interfaces.create(
@@ -67,18 +73,22 @@ def test_add_del_ip_string(context):
     assert not address_exists(context.netns, ifname=ifname, address=ifaddr2)
 
 
+@pytest.mark.parametrize(
+    'ipam,prefixlen,family',
+    (('new_ipaddr', 24, AF_INET), ('new_ip6addr', 64, AF_INET6)),
+)
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_del_ip_match(context):
+def test_del_ip_match(context, ipam, prefixlen, family):
     ifname = context.new_ifname
-    ipaddr1 = context.new_ipaddr
-    ipaddr2 = context.new_ipaddr
-    ipaddr3 = context.new_ipaddr
+    ipaddr1 = getattr(context, ipam)
+    ipaddr2 = getattr(context, ipam)
+    ipaddr3 = getattr(context, ipam)
 
     (
         context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
-        .add_ip(address=ipaddr1, prefixlen=24)
-        .add_ip(address=ipaddr2, prefixlen=24)
-        .add_ip(address=ipaddr3, prefixlen=24)
+        .add_ip(address=ipaddr1, prefixlen=prefixlen)
+        .add_ip(address=ipaddr2, prefixlen=prefixlen)
+        .add_ip(address=ipaddr3, prefixlen=prefixlen)
         .commit()
     )
 
@@ -86,18 +96,21 @@ def test_del_ip_match(context):
     assert address_exists(context.netns, ifname=ifname, address=ipaddr2)
     assert address_exists(context.netns, ifname=ifname, address=ipaddr3)
 
-    (context.ndb.interfaces[ifname].del_ip(family=AF_INET).commit())
+    (context.ndb.interfaces[ifname].del_ip(family=family).commit())
 
     assert not address_exists(context.netns, ifname=ifname, address=ipaddr1)
     assert not address_exists(context.netns, ifname=ifname, address=ipaddr2)
     assert not address_exists(context.netns, ifname=ifname, address=ipaddr3)
 
 
+@pytest.mark.parametrize(
+    'ipam,prefixlen', (('new_ipaddr', 24), ('new_ip6addr', 64))
+)
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_del_ip_fail(context):
+def test_del_ip_fail(context, ipam, prefixlen):
     ifname = context.new_ifname
-    ipaddr = '%s/24' % context.new_ipaddr
-    ipaddr_fail = '%s/24' % context.new_ipaddr
+    ipaddr = f'{getattr(context, ipam)}/{prefixlen}'
+    ipaddr_fail = f'{getattr(context, ipam)}/{prefixlen}'
 
     (
         context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
@@ -108,36 +121,33 @@ def test_del_ip_fail(context):
     assert interface_exists(context.netns, ifname=ifname)
     assert address_exists(context.netns, ifname=ifname, address=ipaddr)
 
-    try:
+    with pytest.raises(KeyError):
         (context.ndb.interfaces[ifname].del_ip(ipaddr_fail).commit())
-        raise Exception('shall not pass')
-    except KeyError:
-        pass
 
     assert interface_exists(context.netns, ifname=ifname)
     assert address_exists(context.netns, ifname=ifname, address=ipaddr)
 
 
+@pytest.mark.parametrize(
+    'ipam,prefixlen', (('new_ipaddr', 24), ('new_ip6addr', 64))
+)
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_del_ip_match_fail(context):
+def test_del_ip_match_fail(context, ipam, prefixlen):
     ifname = context.new_ifname
-    ipaddr = context.new_ipaddr
-    ipaddr_fail = context.new_ipaddr
+    ipaddr = getattr(context, ipam)
+    ipaddr_fail = getattr(context, ipam)
 
     (
         context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
-        .add_ip(address=ipaddr, prefixlen=24)
+        .add_ip(address=ipaddr, prefixlen=prefixlen)
         .commit()
     )
 
     assert interface_exists(context.netns, ifname=ifname)
     assert address_exists(context.netns, ifname=ifname, address=ipaddr)
 
-    try:
+    with pytest.raises(KeyError):
         (context.ndb.interfaces[ifname].del_ip(address=ipaddr_fail).commit())
-        raise Exception('shall not pass')
-    except KeyError:
-        pass
 
     assert interface_exists(context.netns, ifname=ifname)
     assert address_exists(context.netns, ifname=ifname, address=ipaddr)

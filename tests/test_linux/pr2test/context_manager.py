@@ -1,6 +1,7 @@
 import errno
 import functools
 import getpass
+import itertools
 import logging
 import os
 import sys
@@ -180,8 +181,10 @@ class NDBContextManager(object):
         self.wg = WireGuard()
         #
         # IPAM
-        self.ipnets = [allocate_network() for _ in range(5)]
+        self.ipnets = [allocate_network() for _ in range(3)]
         self.ipranges = [[str(x) for x in net] for net in self.ipnets]
+        self.ip6net = allocate_network(AF_INET6)
+        self.ip6counter = itertools.count(1024)
         self.allocated_networks = {AF_INET: [], AF_INET6: []}
         #
         # RPDB objects for cleanup
@@ -247,6 +250,12 @@ class NDBContextManager(object):
         '''
         return str(self.ipranges[r].pop())
 
+    def get_ip6addr(self, r=0):
+        '''
+        Returns an ip6 address from the specified range.
+        '''
+        return str(self.ip6net[next(self.ip6counter)])
+
     @property
     def new_log(self, uid=None):
         uid = uid or str(uuid.uuid4())
@@ -266,6 +275,13 @@ class NDBContextManager(object):
         Returns a new ipaddr from the configured range
         '''
         return self.get_ipaddr()
+
+    @property
+    def new_ip6addr(self):
+        '''
+        Returns a new ip6addr from the configured range
+        '''
+        return self.get_ip6addr()
 
     @property
     def new_ip4net(self):
