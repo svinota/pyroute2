@@ -64,9 +64,6 @@ define fetch_modules_dist
 endef
 
 define clean_module
-	if [ -f $$module/setup.json ]; then \
-		for i in $(call list_templates); do rm -f $$module/$$i; done; \
-	fi; \
 	rm -f $$module/LICENSE.*; \
 	rm -f $$module/README.license.md; \
 	rm -f $$module/CHANGELOG.md; \
@@ -130,21 +127,12 @@ clean:
 	@rm -f  tests/tests.log
 	@rm -rf pyroute2.egg-info
 	@rm -rf tests-workspaces
-	@rm -f python-pyroute2.spec
-	@rm -f pyroute2/config/version.py
-	@rm -f pyroute2/config.json
-	@rm -f pyroute2/setup.cfg
-	@rm -f pyroute2.minimal/config.json
-	@rm -f pyroute2.minimal/setup.cfg
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
 	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
 
 VERSION:
 	@${python} util/update_version.py
 	@for package in $(call list_modules); do cp VERSION $$package; done
-	@for package in pyroute2 pyroute2.minimal; do \
-		echo '{"version": "'`cat $$package/VERSION`'"}' >$$package/config.json; \
-	done
 
 docs/html:
 	@cp README.rst docs/general.rst
