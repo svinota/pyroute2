@@ -21,9 +21,10 @@ TCA_BPF_FLAG_ACT_DIRECT = 1
 
 
 def fix_msg(msg, kwarg):
-    msg['info'] = htons(kwarg.pop('protocol', ETH_P_ALL) & 0xFFFF) | (
-        (kwarg.pop('prio', 0) << 16) & 0xFFFF0000
-    )
+    if 'info' not in kwarg:
+        msg['info'] = htons(kwarg.pop('protocol', ETH_P_ALL) & 0xFFFF) | (
+            (kwarg.pop('prio', 0) << 16) & 0xFFFF0000
+        )
 
 
 def get_parameters(kwarg):

@@ -254,8 +254,8 @@ class RTNL_API(object):
         msg = tcmsg()
         msg['family'] = AF_UNSPEC
         msg['index'] = index
-        msg['handle'] = handle
-        msg['parent'] = parent
+        msg['handle'] = transform_handle(handle)
+        msg['parent'] = transform_handle(parent)
         return self.nlm_request(msg, RTM_GETTFILTER)
 
     def get_classes(self, index=0):
@@ -1698,6 +1698,8 @@ class RTNL_API(object):
                 kwarg[item] = transform_handle(kwarg[item])
         msg['index'] = index
         msg['handle'] = handle
+        if 'info' in kwarg:
+            msg['info'] = kwarg['info']
         opts = kwarg.get('opts', None)
         ##
         #
