@@ -1,6 +1,6 @@
 import pytest
 from pr2modules.netlink.rtnl.ifinfmsg import IFF_NOARP
-from pr2test.context_manager import make_test_matrix
+from pr2test.context_manager import make_test_matrix, skip_if_not_supported
 
 from pyroute2 import NetlinkError
 
@@ -17,6 +17,7 @@ def test_updown_link(context):
     assert not (context.ipr.get_links(ifname=ifname)[0]['flags'] & 1)
 
 
+@skip_if_not_supported
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_link_altname(context):
     altname1 = context.new_ifname

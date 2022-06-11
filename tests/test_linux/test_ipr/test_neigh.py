@@ -1,6 +1,8 @@
 import time
 from socket import AF_INET
 
+from pr2test.context_manager import skip_if_not_supported
+
 
 def test_real_links(context):
     links = set([x['index'] for x in context.ipr.get_links()])
@@ -34,6 +36,7 @@ def test_filter(context):
     )
 
 
+@skip_if_not_supported
 def test_get(context):
     ipaddr1 = context.new_ipaddr
     index, ifname = context.default_interface

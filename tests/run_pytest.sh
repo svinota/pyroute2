@@ -110,6 +110,7 @@ for i in `seq $LOOP`; do
         $COVERAGE \
         --exitfirst \
         --verbose \
+        --junitxml=junit.xml \
         $PYTEST_PATH
     ret=$?
     [ $ret -eq 0 ] || {
