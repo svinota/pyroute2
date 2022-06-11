@@ -15,12 +15,18 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: tox -e unit
-  linux:
-    runs-on: functional
+  linux-latest:
+    runs-on: linux-latest
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: sudo tox -e py36,py310
+  linux-ubuntu-18:
+    runs-on: linux-ubuntu-18
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: sudo tox -e skipdb
   openbsd:
     runs-on: OpenBSD
     steps:
