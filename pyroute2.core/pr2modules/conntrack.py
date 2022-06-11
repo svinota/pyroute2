@@ -179,7 +179,11 @@ class Conntrack(NFCTSocket):
             return res
 
     def dump_entries(
-        self, mark=None, mark_mask=None, tuple_orig=None, tuple_reply=None
+        self,
+        mark=None,
+        mark_mask=0xFFFFFFFF,
+        tuple_orig=None,
+        tuple_reply=None,
     ):
         """
         Dump all entries from conntrack table with filters
