@@ -1,6 +1,12 @@
 Changelog
 =========
 
+* 0.6.12
+    * ndb: allow dict as keys in `__contains__`
+    * ndb: fixed `count()` on nested views
+    * ndb: fix IPv6 addr removal: <https://github.com/svinota/pyroute2/issues/926>
+    * ifinfmsg: fixed IFLA_IPTUN_FLAGS: <https://github.com/svinota/pyroute2/pull/924>
+    * tc: fix tcm_info setting: <https://github.com/svinota/pyroute2/issues/928>
 * 0.6.11
     * ipdb: fix requests compatibility: <https://github.com/svinota/pyroute2/issues/920>
     * ipdb: added deprecation warning
