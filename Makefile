@@ -4,15 +4,20 @@
 #
 #
 
-make ?= make
+# python ?= python
+
+setup_check := $(shell util/check_setup.sh ${python})
+
+include Makefile.in
+
+ifeq ("${has_pip}", "false")
+	exit 1
+endif
+
 ##
 # Python-related configuration
 #
-python ?= python
-nosetests ?= nosetests
-flake8 ?= flake8
-black ?= black
-pytest ?= pytest
+
 ##
 # Python -W flags:
 #
@@ -56,7 +61,7 @@ define list_templates
 endef
 
 define make_modules
-	for module in $(call list_modules); do ${make} -C $$module $(1) python=${python}; done
+	for module in $(call list_modules); do ${MAKE} -C $$module $(1) python=${python}; done
 endef
 
 define fetch_modules_dist
@@ -64,9 +69,6 @@ define fetch_modules_dist
 endef
 
 define clean_module
-	if [ -f $$module/setup.json ]; then \
-		for i in $(call list_templates); do rm -f $$module/$$i; done; \
-	fi; \
 	rm -f $$module/LICENSE.*; \
 	rm -f $$module/README.license.md; \
 	rm -f $$module/CHANGELOG.md; \
@@ -110,6 +112,7 @@ all:
 clean:
 	@for module in $(call list_modules); do $(call clean_module); done
 	@rm -f VERSION
+	@rm -f Makefile.in
 	@rm -rf dist build MANIFEST
 	@rm -f docs-build.log
 	@rm -f docs/general.rst
@@ -130,21 +133,12 @@ clean:
 	@rm -f  tests/tests.log
 	@rm -rf pyroute2.egg-info
 	@rm -rf tests-workspaces
-	@rm -f python-pyroute2.spec
-	@rm -f pyroute2/config/version.py
-	@rm -f pyroute2/config.json
-	@rm -f pyroute2/setup.cfg
-	@rm -f pyroute2.minimal/config.json
-	@rm -f pyroute2.minimal/setup.cfg
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
 	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
 
 VERSION:
 	@${python} util/update_version.py
 	@for package in $(call list_modules); do cp VERSION $$package; done
-	@for package in pyroute2 pyroute2.minimal; do \
-		echo '{"version": "'`cat $$package/VERSION`'"}' >$$package/config.json; \
-	done
 
 docs/html:
 	@cp README.rst docs/general.rst
@@ -155,7 +149,7 @@ docs/html:
 	    mv -f docs/_templates/layout.html docs/_templates/layout.html.orig; \
 		cp docs/_templates/private.layout.html docs/_templates/layout.html; ) ||:
 	@export PYTHONPATH=`pwd`; \
-		${make} -C docs html || export FAIL=true ; \
+		${MAKE} -C docs html || export FAIL=true ; \
 		[ -f docs/_templates/layout.html.orig ] && ( \
 			mv -f docs/_templates/layout.html.orig docs/_templates/layout.html; ) ||: ;\
 		unset PYTHONPATH ;\
@@ -206,14 +200,8 @@ setup:
 	$(MAKE) clean
 	$(MAKE) VERSION
 	$(call process_templates)
+	${python} util/validate_config.py `find pyroute2* -maxdepth 1 -mindepth 1 -name setup.cfg`
 	@for module in $(call list_modules); do $(call deploy_license); done
-	@for module in pyroute2 pyroute2.minimal; do \
-		${python} \
-		    util/process_template.py \
-			$$module/setup.cfg.in \
-			$$module/config.json \
-			$$module/setup.cfg ; \
-	done
 
 .PHONY: dist
 dist: setup
