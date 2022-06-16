@@ -4,15 +4,20 @@
 #
 #
 
-make ?= make
+# python ?= python
+
+setup_check := $(shell util/check_setup.sh ${python})
+
+include Makefile.in
+
+ifeq ("${has_pip}", "false")
+	exit 1
+endif
+
 ##
 # Python-related configuration
 #
-python ?= python
-nosetests ?= nosetests
-flake8 ?= flake8
-black ?= black
-pytest ?= pytest
+
 ##
 # Python -W flags:
 #
@@ -56,7 +61,7 @@ define list_templates
 endef
 
 define make_modules
-	for module in $(call list_modules); do ${make} -C $$module $(1) python=${python}; done
+	for module in $(call list_modules); do ${MAKE} -C $$module $(1) python=${python}; done
 endef
 
 define fetch_modules_dist
@@ -107,6 +112,7 @@ all:
 clean:
 	@for module in $(call list_modules); do $(call clean_module); done
 	@rm -f VERSION
+	@rm -f Makefile.in
 	@rm -rf dist build MANIFEST
 	@rm -f docs-build.log
 	@rm -f docs/general.rst
@@ -143,7 +149,7 @@ docs/html:
 	    mv -f docs/_templates/layout.html docs/_templates/layout.html.orig; \
 		cp docs/_templates/private.layout.html docs/_templates/layout.html; ) ||:
 	@export PYTHONPATH=`pwd`; \
-		${make} -C docs html || export FAIL=true ; \
+		${MAKE} -C docs html || export FAIL=true ; \
 		[ -f docs/_templates/layout.html.orig ] && ( \
 			mv -f docs/_templates/layout.html.orig docs/_templates/layout.html; ) ||: ;\
 		unset PYTHONPATH ;\
@@ -194,14 +200,8 @@ setup:
 	$(MAKE) clean
 	$(MAKE) VERSION
 	$(call process_templates)
+	${python} util/validate_config.py `find pyroute2* -maxdepth 1 -mindepth 1 -name setup.cfg`
 	@for module in $(call list_modules); do $(call deploy_license); done
-	@for module in pyroute2 pyroute2.minimal; do \
-		${python} \
-		    util/process_template.py \
-			$$module/setup.cfg.in \
-			$$module/config.json \
-			$$module/setup.cfg ; \
-	done
 
 .PHONY: dist
 dist: setup

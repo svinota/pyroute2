@@ -46,7 +46,6 @@ def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='*', help='Filenames to fix')
     args = parser.parse_args(argv)
-    ret = 0
     metadata = MetadataValidator()
     options = OptionsValidator()
     entry_points = OptionsValidator()
@@ -59,21 +58,23 @@ def main(argv):
         if 'metadata' in config:
             metadata.update(config['metadata'])
         else:
-            ret |= 1
+            print('error in metadata')
+            return 1
         if 'options' in config:
             options.update(config['options'])
         else:
-            ret |= 1
+            print('error in options')
+            return 2
         if 'options.entry_points' in config:
             entry_points.update(config['options.entry_points'])
-        for section in (metadata, options, entry_points):
+        for sname, section in zip(('metadata', 'options', 'entry_points'), (metadata, options, entry_points)):
             print('.', end='')
             x = section.validate()
             if x:
-                print(f'{filename} {x}')
-                ret |= 1
+                print(f'error in {sname}')
+                return 1
         print('')
-    return ret
+    return 0
 
 
 if __name__ == '__main__':
