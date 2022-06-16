@@ -34,8 +34,6 @@ benchmark.log
 .tox
 venv
 tests-workspaces/
-pyroute2.*/Makefile
-pyroute2.*/MANIFEST.in
 */LICENSE*
 */README.license.md
 */CHANGELOG.md
