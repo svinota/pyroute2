@@ -32,14 +32,11 @@ export PYTHONPATH="$WORKSPACE:$WORKSPACE/examples:$WORKSPACE/examples/generic"
 [ -z "$PDB" ] || export PDB="--pdb"
 [ -z "$COVERAGE" ] || export COVERAGE="--cov-report html --cov=pyroute2 --cov=pr2modules"
 
-function deploy() {
+
+function setup_test() {
+    ##
     # Prepare test environment
     #
-    # * make dist
-    # * install packaged files into $WORKSPACE
-    # * copy examples into $WORKSPACE
-    # * run pep8 checks against $WORKSPACE -- to cover test code also
-    # * run tests
     #
     # It is important to test not in-place, but after `make dist`,
     # since in that case only those files will be tested, that are
@@ -49,23 +46,69 @@ function deploy() {
     while [ -z "`curl -s -X POST --data test http://localhost:7623/v1/lock/ 2>/dev/null`" ]; do {
         sleep 1
     } done
-    cd $TOP
-    DIST_VERSION=$(git describe | sed 's/-[^-]*$//;s/-/.post/')
-    echo -n "dist ... "
-    $MAKE dist python=$PYTHON make=$MAKE
-    rm -rf "$WORKSPACE"
-    mkdir -p "$WORKSPACE/bin"
+    cd "$TOP"
+    if [ "$1" = "test_minimal" ]; then {
+        MAKE_TARGET="install-minimal"
+    } else {
+        MAKE_TARGET="install"
+    } fi
+    $MAKE $MAKE_TARGET python=$PYTHON make=$MAKE || return 1
+    mkdir -p "$WORKSPACE"
     cp -a "$TOP/tests/"* "$WORKSPACE/"
     cp -a "$TOP/examples" "$WORKSPACE/"
-    cp -a "$TOP/cli/pyroute2-cli" "$WORKSPACE/bin/"
-    cp -a "$TOP/cli/ss2" "$WORKSPACE/bin/"
-    cd "$TOP/dist"
-    rm -f pyroute2.minimal*$DIST_VERSION*
-    $PYTHON -m pip install pyroute2*$DIST_VERSION*
     curl -X DELETE --data test http://localhost:7623/v1/lock/ >/dev/null 2>&1
-    echo "ok"
-    cd "$WORKSPACE/"
+    cd "$WORKSPACE"
+
+    ##
+    # Setup kernel parameters
+    #
+    [ "`uname -s`" = "Linux" -a "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && {
+        echo "Running as root on Linux"
+        ulimit -n 2048
+        modprobe dummy 2>/dev/null ||:
+        modprobe bonding 2>/dev/null ||:
+        modprobe 8021q 2>/dev/null ||:
+        modprobe mpls_router 2>/dev/null ||:
+        modprobe mpls_iptunnel 2>/dev/null ||:
+        modprobe l2tp_ip 2>/dev/null ||:
+        modprobe l2tp_eth 2>/dev/null ||:
+        modprobe l2tp_netlink 2>/dev/null ||:
+        sysctl net.mpls.platform_labels=2048 >/dev/null 2>&1 ||:
+    }
 }
+
+
+function cleanup_test() {
+    cd "$TOP"
+    $MAKE uninstall
+}
+
+
+function run_test() {
+    errors=0
+    avgtime=0
+    for i in `seq $LOOP`; do
+
+        echo "[`date +%s`] iteration $i of $LOOP"
+
+        $PYTHON $WLEVEL \
+            -m $PYTEST \
+            --basetemp ./log \
+            $PDB \
+            $COVERAGE \
+            --exitfirst \
+            --verbose \
+            --junitxml=junit.xml \
+            $1
+        ret=$?
+        [ $ret -eq 0 ] || {
+            errors=$(($errors + 1))
+        }
+        [ "$BREAK_ON_ERRORS" = "true" -a $errors -gt 0 ] && break ||:
+    done
+    return $errors
+}
+
 
 if [ -z "$VIRTUAL_ENV" -a -z "$PR2TEST_FORCE_RUN" ]; then {
     echo "Not in VirtualEnv and PR2TEST_FORCE_RUN is not set"
@@ -75,54 +118,10 @@ if [ -z "$VIRTUAL_ENV" -a -z "$PR2TEST_FORCE_RUN" ]; then {
 echo "Version: `cat $TOP/VERSION`"
 echo "Kernel: `uname -r`"
 
-if [ -z "$NODEPLOY" ]; then
-    deploy || exit 1
-fi
-
-#
-# Setup kernel parameters
-#
-[ "`uname -s`" = "Linux" -a "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && {
-    echo "Running as root on Linux"
-    ulimit -n 2048
-    modprobe dummy 2>/dev/null ||:
-    modprobe bonding 2>/dev/null ||:
-    modprobe 8021q 2>/dev/null ||:
-    modprobe mpls_router 2>/dev/null ||:
-    modprobe mpls_iptunnel 2>/dev/null ||:
-    modprobe l2tp_ip 2>/dev/null ||:
-    modprobe l2tp_eth 2>/dev/null ||:
-    modprobe l2tp_netlink 2>/dev/null ||:
-    sysctl net.mpls.platform_labels=2048 >/dev/null 2>&1 ||:
-}
-
-
-errors=0
-avgtime=0
-for i in `seq $LOOP`; do
-
-    echo "[`date +%s`] iteration $i of $LOOP"
-
-    $PYTHON $WLEVEL \
-        -m $PYTEST \
-        --basetemp ./log \
-        $PDB \
-        $COVERAGE \
-        --exitfirst \
-        --verbose \
-        --junitxml=junit.xml \
-        $PYTEST_PATH
-    ret=$?
-    [ $ret -eq 0 ] || {
-        errors=$(($errors + 1))
-    }
-    [ "$BREAK_ON_ERRORS" = "true" -a $errors -gt 0 ] && break ||:
-
-done
-
-if [ -z "$NODEPLOY" ]; then
-    for i in `$PYTHON -m pip list | awk '/pyroute2/ {print $1}'`; do {
-        $PYTHON -m pip uninstall -y $i
-    } done
-fi
-exit $errors
+echo -n "Setup: $PYTEST_PATH ... "
+setup_test $PYTEST_PATH >/dev/null 2>&1 || exit 1
+echo "ok"
+run_test $PYTEST_PATH || exit 1
+echo -n "Cleanup ... "
+cleanup_test >/dev/null 2>&1
+echo "ok"
