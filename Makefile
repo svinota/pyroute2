@@ -200,7 +200,10 @@ setup:
 	$(MAKE) clean
 	$(MAKE) VERSION
 	$(call process_templates)
+	# check that metadata in cfg files are identical
 	${python} util/validate_config.py `find pyroute2* -maxdepth 1 -mindepth 1 -name setup.cfg`
+	# check that inits in both main packages are identical
+	diff pyroute2/pyroute2/__init__.py pyroute2.minimal/pyroute2/__init__.py
 	@for module in $(call list_modules); do $(call deploy_license); done
 
 .PHONY: dist

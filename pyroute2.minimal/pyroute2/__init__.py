@@ -26,6 +26,8 @@ if sys.platform.startswith('win'):  # noqa: E402
     import win_inet_pton  # noqa: F401
 
 ##
+##
+#
 #
 # Logging setup
 #
@@ -36,7 +38,7 @@ if sys.platform.startswith('win'):  # noqa: E402
 #  * https://github.com/svinota/pyroute2/issues/573
 #  * https://github.com/svinota/pyroute2/issues/601
 #
-from pr2modules.config import log
+from pr2modules.config import entry_points_aliases, log
 
 #
 #
@@ -66,15 +68,35 @@ except Exception:
 # load entry_points
 modules = []
 namespace_inject = {}
-for entry_point in metadata.entry_points().get('pr2modules', []):
-    globals()[entry_point.name] = loaded = entry_point.load()
+groups = metadata.entry_points()
+if hasattr(groups, 'select'):
+    pr2modules_group = groups.select(group='pr2modules')
+else:
+    pr2modules_group = groups.get('pr2modules', [])
+for entry_point in pr2modules_group:
+    loaded = entry_point.load()
     modules.append(entry_point.name)
     if len(entry_point.value.split(':')) == 1:
         key = 'pyroute2.%s' % entry_point.name
         namespace_inject[key] = loaded
+    else:
+        globals()[entry_point.name] = loaded
 
 __all__ = []
 __all__.extend(modules)
+
+# alias exceptions
+for key, value in entry_points_aliases.items():
+    if key in sys.modules:
+        sys.modules[value] = sys.modules[key]
+
+# alias every `pr2modules` entry, in addition to the block above
+#
+# Bug-Url: https://github.com/svinota/pyroute2/issues/913
+#
+for key, value in list(sys.modules.items()):
+    if key.startswith('pr2modules.'):
+        sys.modules[key.replace('pr2modules', 'pyroute2')] = value
 
 
 class PyRoute2ModuleSpec(importlib.machinery.ModuleSpec):
