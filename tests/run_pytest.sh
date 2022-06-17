@@ -74,7 +74,7 @@ function setup_test() {
         modprobe l2tp_eth 2>/dev/null ||:
         modprobe l2tp_netlink 2>/dev/null ||:
         sysctl net.mpls.platform_labels=2048 >/dev/null 2>&1 ||:
-    }
+    } ||:
 }
 
 
