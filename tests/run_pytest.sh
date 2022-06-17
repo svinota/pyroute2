@@ -116,11 +116,11 @@ if [ -z "$VIRTUAL_ENV" -a -z "$PR2TEST_FORCE_RUN" ]; then {
 } fi
 
 echo -n "Setup: $PYTEST_PATH ... "
-setup_test $PYTEST_PATH >/dev/null 2>&1 || exit 1
+setup_test $PYTEST_PATH || exit 1
 echo "ok"
 echo "Version: `cat $TOP/VERSION`"
 echo "Kernel: `uname -r`"
 run_test $PYTEST_PATH || exit 1
 echo -n "Cleanup ... "
-cleanup_test >/dev/null 2>&1
+cleanup_test
 echo "ok"

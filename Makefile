@@ -180,7 +180,7 @@ test: check_parameters
 		export PYTEST_PATH=${module}; \
 		export BREAK_ON_ERRORS=${break}; \
 		export NODEPLOY=${nodeploy}; \
-		./tests/run_pytest.sh
+		/usr/bin/env bash -x ./tests/run_pytest.sh
 
 .PHONY: test-platform
 test-platform:
