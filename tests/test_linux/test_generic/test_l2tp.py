@@ -14,11 +14,15 @@ def l2ctx(context):
         if e.code == errno.ENOENT:
             pytest.skip('L2TP netlink API not available')
         raise
-    context.local_ip = context.get_ipaddr(r=0)
+    context.local_ip = context.get_ipaddr(r=0)  # <- 0.255
+    gateway = context.get_ipaddr(r=0)  # <- 0.254 (gateway can not be 0.255)
     context.remote_ip = context.get_ipaddr(r=1)
     context.l2tpeth0 = context.new_ifname
     context.ndb.interfaces[context.default_interface.ifname].add_ip(
         f'{context.local_ip}/24'
+    ).commit()
+    context.ndb.routes.create(
+        dst=str(context.ipnets[1].network), dst_len=24, gateway=gateway
     ).commit()
     yield context
     try:
