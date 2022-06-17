@@ -6,7 +6,7 @@ IPv4 DHCP socket
 from pr2modules.common import AddrPool
 from pr2modules.dhcp.dhcp4msg import dhcp4msg
 from pr2modules.protocols import ethmsg, ip4msg, udp4_pseudo_header, udpmsg
-from pr2modules.protocols.rawsocket import RawSocket
+from pr2modules.ext.rawsocket import RawSocket
 
 
 def listen_udp_port(port=68):
