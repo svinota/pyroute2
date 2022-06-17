@@ -14,8 +14,8 @@ from pr2modules.netlink.rtnl.tcmsg.common_act import (
     get_tca_action,
     nla_plus_tca_act_opt,
 )
-from pr2modules.protocols import ETH_P_ALL
 
+ETH_P_ALL = 0x0003  # redefine constant from protocols -- not importing
 parent = TC_H_ROOT
 TCA_BPF_FLAG_ACT_DIRECT = 1
 
