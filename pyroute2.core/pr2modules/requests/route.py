@@ -1,6 +1,8 @@
+from socket import AF_INET6
+
 from pr2modules.common import AF_MPLS
 from pr2modules.netlink.rtnl import encap_type, rt_proto, rt_scope, rt_type
-from pr2modules.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS
+from pr2modules.netlink.rtnl.rtmsg import IP6_RT_PRIO_USER, LWTUNNEL_ENCAP_MPLS
 from pr2modules.netlink.rtnl.rtmsg import nh as nh_header
 from pr2modules.netlink.rtnl.rtmsg import rtmsg
 
@@ -31,6 +33,24 @@ class RouteFieldFilter(IPTargets, NLAKeyTransform):
         if value == AF_MPLS:
             return {'family': AF_MPLS, 'dst_len': 20, 'table': 254, 'type': 1}
         return {'family': value}
+
+    def set_priority(self, context, value):
+        '''
+        In the kernel:
+
+        .. code-block:: c
+
+            static int inet6_rtm_newroute(...)
+            {
+                ...
+                if (cfg.fc_metric == 0)
+                    cfg.fc_metric = IP6_RT_PRIO_USER;
+                ...
+            }
+        '''
+        if context.get('family') == AF_INET6 and value == 0:
+            return {'priority': IP6_RT_PRIO_USER}
+        return {'priority': value}
 
     def set_flags(self, context, value):
         if context.get('family') == AF_MPLS:

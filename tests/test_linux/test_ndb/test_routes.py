@@ -1,7 +1,7 @@
 import random
 
 import pytest
-from pr2modules.netlink.rtnl.rtmsg import rtmsg
+from pr2modules.netlink.rtnl.rtmsg import IP6_RT_PRIO_USER, rtmsg
 from pr2test.context_manager import make_test_matrix
 from pr2test.tools import address_exists, interface_exists, route_exists
 
@@ -99,6 +99,28 @@ test_matrix = make_test_matrix(
     tables=[None, 501, 5001],
     dbs=['sqlite3/:memory:', 'postgres/pr2test'],
 )
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_ipv6_default_priority(context):
+    ifname = context.new_ifname
+    ipaddr = context.new_ip6addr
+    table = context.table
+    (
+        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
+        .add_ip(f'{ipaddr}/64')
+        .commit()
+    )
+    dst = 'beef:feed:fade::'
+    parameters = {
+        'dst': f'{dst}/112',
+        'oif': context.ndb.interfaces[ifname]['index'],
+        'priority': 0,
+        'table': table,
+    }
+    context.ndb.routes.create(**parameters).commit()
+    assert route_exists(context.netns, dst=dst, table=table or 254)
+    assert context.ndb.routes[parameters]['priority'] == IP6_RT_PRIO_USER
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)

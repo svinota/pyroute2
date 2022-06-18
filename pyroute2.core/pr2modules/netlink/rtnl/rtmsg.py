@@ -27,6 +27,8 @@ LWTUNNEL_ENCAP_SEG6 = 5
 LWTUNNEL_ENCAP_BPF = 6
 LWTUNNEL_ENCAP_SEG6_LOCAL = 7
 
+IP6_RT_PRIO_USER = 1024
+
 
 class nlflags(object):
     def encode(self):
