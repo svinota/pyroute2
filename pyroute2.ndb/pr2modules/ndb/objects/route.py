@@ -284,6 +284,7 @@ rt_schema = (
         'dst_len',
         'tos',
         'scope',
+        'type',
         'RTA_DST',
         'RTA_OIF',
         'RTA_PRIORITY',
