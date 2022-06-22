@@ -124,7 +124,7 @@ def test_check_context_manager(context):
     assert interface_exists(context.netns, ifname=ifname2)
 
 
-def test_intrefaces_ping(context):
+def test_interfaces_ping(context):
 
     ifname1 = context.new_ifname
     ifname2 = context.new_ifname
@@ -158,7 +158,7 @@ def test_intrefaces_ping(context):
     assert address_exists(ifname=ifname2, address=ipaddr2)
 
 
-def test_intrefaces_ping_fail(context):
+def test_interfaces_ping_fail(context):
 
     ifname1 = context.new_ifname
     ifname2 = context.new_ifname
