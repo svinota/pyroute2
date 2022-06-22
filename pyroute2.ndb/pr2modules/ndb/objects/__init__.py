@@ -869,13 +869,18 @@ class RTNL_Object(dict):
         if req_filter is not None:
             req = req_filter(req)
 
+        first_call_success = False
         for itn in range(10):
             try:
                 self.log.debug('API call %s (%s)' % (method, req))
                 (self.sources[self['target']].api(self.api, method, **req))
+                first_call_success = True
                 (self.hook_apply(method, **req))
             except NetlinkError as e:
                 (self.log.debug('error: %s' % e))
+                if not first_call_success:
+                    self.log.debug('error on the first API call, escalate')
+                    raise
                 ##
                 #
                 # FIXME: performance penalty
