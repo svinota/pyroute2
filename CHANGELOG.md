@@ -1,6 +1,9 @@
 Changelog
 =========
 
+* 0.6.13
+    * requests: IPv6 routes default priority <https://github.com/svinota/pyroute2/issues/934>
+    * ndb: fix NetlinkError escalation routine on apply <https://github.com/svinota/pyroute2/issues/934>
 * 0.6.12
     * ndb: allow dict as keys in `__contains__`
     * ndb: fixed `count()` on nested views
