@@ -2,6 +2,9 @@ import os
 import pathlib
 
 import pytest
+from pr2test.marks import require_root
+
+pytestmark = [require_root()]
 
 
 def get_examples(*argv):

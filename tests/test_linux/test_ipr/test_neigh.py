@@ -2,6 +2,9 @@ import time
 from socket import AF_INET
 
 from pr2test.context_manager import skip_if_not_supported
+from pr2test.marks import require_root
+
+pytestmark = [require_root()]
 
 
 def test_real_links(context):

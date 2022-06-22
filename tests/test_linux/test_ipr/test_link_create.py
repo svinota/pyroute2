@@ -1,6 +1,9 @@
 import pytest
+from pr2test.marks import require_root
 
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+
+pytestmark = [require_root()]
 
 
 @pytest.mark.parametrize('smode', ('IPVLAN_MODE_L2', 'IPVLAN_MODE_L3'))

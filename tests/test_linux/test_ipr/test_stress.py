@@ -1,7 +1,11 @@
 import os
 import socket
 
+from pr2test.marks import require_root
+
 from pyroute2 import NetlinkDumpInterrupted
+
+pytestmark = [require_root()]
 
 
 def test_mass_ipv6(context):

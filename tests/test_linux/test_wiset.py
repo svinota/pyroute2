@@ -1,5 +1,6 @@
 from time import sleep
 
+from pr2test.marks import require_root
 from utils import require_kernel
 
 from pyroute2.netlink.exceptions import IPSetError
@@ -11,6 +12,8 @@ from pyroute2.wiset import (
     load_ipset,
 )
 from pyroute2.wiset import test_ipset_exist as ipset_exists
+
+pytestmark = [require_root()]
 
 
 def test_create_one_ipset(ipset_name, wiset_sock):

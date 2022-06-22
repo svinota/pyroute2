@@ -3,8 +3,11 @@ import os
 import subprocess
 
 import pytest
+from pr2test.marks import require_root
 
 from pyroute2 import NSPopen
+
+pytestmark = [require_root()]
 
 
 def test_basic(context):

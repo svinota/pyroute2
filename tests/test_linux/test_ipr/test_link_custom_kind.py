@@ -1,7 +1,10 @@
 from pr2test import custom_link_kind
 from pr2test.custom_link_kind.foo import vlan as foo_vlan
+from pr2test.marks import require_root
 
 from pyroute2 import NetlinkError
+
+pytestmark = [require_root()]
 
 
 def test_register_fail(context):

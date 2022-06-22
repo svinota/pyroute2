@@ -1,8 +1,11 @@
 import pytest
 from pr2modules.netlink.rtnl.ifinfmsg import IFF_NOARP
 from pr2test.context_manager import make_test_matrix, skip_if_not_supported
+from pr2test.marks import require_root
 
 from pyroute2 import NetlinkError
+
+pytestmark = [require_root()]
 
 test_matrix = make_test_matrix(targets=['local', 'netns'])
 

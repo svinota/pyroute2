@@ -198,7 +198,7 @@ class NDBContextManager(object):
             ).commit()['index']
             self.default_interface = Interface(index, ifname)
         else:
-            self.default_interface = None
+            self.default_interface = Interface(1, 'lo')
 
     def register(self, ifname=None, netns=None):
         '''

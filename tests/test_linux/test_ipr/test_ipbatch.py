@@ -1,4 +1,8 @@
+from pr2test.marks import require_root
+
 from pyroute2 import IPBatch
+
+pytestmark = [require_root()]
 
 
 def test_link_add(context):

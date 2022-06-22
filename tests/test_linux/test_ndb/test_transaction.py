@@ -2,6 +2,7 @@ import uuid
 
 import pytest
 from pr2test.context_manager import make_test_matrix
+from pr2test.marks import require_root
 from pr2test.tools import address_exists, interface_exists
 
 from pyroute2.ndb.transaction import (
@@ -10,6 +11,8 @@ from pyroute2.ndb.transaction import (
     Not,
     PingAddress,
 )
+
+pytestmark = [require_root()]
 
 
 def test_check_process_basic():

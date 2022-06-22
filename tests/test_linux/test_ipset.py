@@ -4,6 +4,7 @@ from time import sleep
 from uuid import uuid4
 
 import pytest
+from pr2test.marks import require_root
 
 from pyroute2.ipset import IPSet, IPSetError, PortEntry, PortRange
 from pyroute2.netlink.exceptions import NetlinkError
@@ -11,6 +12,8 @@ from pyroute2.netlink.nfnetlink.ipset import (
     IPSET_ERR_TYPE_SPECIFIC,
     IPSET_FLAG_WITH_FORCEADD,
 )
+
+pytestmark = [require_root()]
 
 
 def parse_ip(entry):

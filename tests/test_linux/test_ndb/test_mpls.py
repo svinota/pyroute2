@@ -2,8 +2,11 @@ from socket import AF_INET
 
 import pytest
 from pr2test.context_manager import make_test_matrix, skip_if_not_supported
+from pr2test.marks import require_root
 
 from pyroute2.common import AF_MPLS
+
+pytestmark = [require_root()]
 
 test_matrix = make_test_matrix(dbs=['sqlite3/:memory:', 'postgres/pr2test'])
 

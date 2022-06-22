@@ -1,4 +1,7 @@
 import pytest
+from pr2test.marks import require_root
+
+pytestmark = [require_root()]
 
 
 def test_vlan_filter_dump(context):

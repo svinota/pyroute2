@@ -1,4 +1,7 @@
+from pr2test.marks import require_root
 from pr2test.tools import address_exists, interface_exists, route_exists
+
+pytestmark = [require_root()]
 
 
 def test_cm_interface_create(context):

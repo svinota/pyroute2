@@ -1,5 +1,9 @@
 from socket import AF_INET, AF_INET6
 
+from pr2test.marks import require_root
+
+pytestmark = [require_root()]
+
 
 def test_peer_ipv4(context):
 

@@ -1,4 +1,8 @@
+from pr2test.marks import require_root
+
 from pyroute2 import NetNS
+
+pytestmark = [require_root()]
 
 
 def test_get_netns_info(context):

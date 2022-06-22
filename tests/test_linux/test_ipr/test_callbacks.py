@@ -1,3 +1,8 @@
+from pr2test.marks import require_root
+
+pytestmark = [require_root()]
+
+
 def callback(msg, cb_context):
     cb_context['counter'] += 1
 

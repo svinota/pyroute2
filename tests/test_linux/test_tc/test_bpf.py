@@ -1,8 +1,11 @@
 import pytest
 from pr2test.context_manager import skip_if_not_supported
+from pr2test.marks import require_root
 from utils import get_simple_bpf_program
 
 from pyroute2.netlink.rtnl import TC_H_INGRESS
+
+pytestmark = [require_root()]
 
 
 @pytest.fixture

@@ -1,3 +1,8 @@
+from pr2test.marks import require_root
+
+pytestmark = [require_root()]
+
+
 def test_fdb_vxlan(context):
     ipaddr = context.new_ipaddr
     host_if = context.new_ifname

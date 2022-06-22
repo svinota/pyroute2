@@ -1,3 +1,8 @@
+from pr2test.marks import require_root
+
+pytestmark = [require_root()]
+
+
 def test_nla_operators(context):
     ifname = context.new_ifname
     ipaddr1 = context.new_ipaddr

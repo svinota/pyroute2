@@ -1,6 +1,9 @@
 import pytest
+from pr2test.marks import require_root
 
 from pyroute2 import IPDB
+
+pytestmark = [require_root()]
 
 
 @pytest.fixture

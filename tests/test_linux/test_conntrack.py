@@ -4,14 +4,18 @@ import threading
 import time
 
 import pytest
+from pr2test.marks import require_root
 
 from pyroute2 import Conntrack, NFCTSocket, config
 from pyroute2.netlink.nfnetlink.nfctsocket import NFCTAttrTuple
 
-pytestmark = pytest.mark.skipif(
-    int(config.uname[2][0]) < 5,
-    reason='skip conntrack tests on kernels < 5 for the time being',
-)
+pytestmark = [
+    pytest.mark.skipif(
+        int(config.uname[2][0]) < 5,
+        reason='skip conntrack tests on kernels < 5 for the time being',
+    ),
+    require_root(),
+]
 
 
 def server(address, port, env):

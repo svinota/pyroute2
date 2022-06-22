@@ -2,6 +2,9 @@ import socket
 import struct
 
 import pytest
+from pr2test.marks import require_root
+
+pytestmark = [require_root()]
 
 
 def test_flush_rules(context):

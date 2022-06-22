@@ -1,6 +1,9 @@
+from pr2test.marks import require_root
 from pr2test.tools import address_exists
 
 from pyroute2 import NDB
+
+pytestmark = [require_root()]
 
 
 def test_add_del_ip_dict(context):

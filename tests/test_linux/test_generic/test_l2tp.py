@@ -2,8 +2,11 @@ import errno
 import time
 
 import pytest
+from pr2test.marks import require_root
 
 from pyroute2 import L2tp, NetlinkError
+
+pytestmark = [require_root()]
 
 
 @pytest.fixture

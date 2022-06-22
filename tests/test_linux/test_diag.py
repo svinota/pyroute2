@@ -1,6 +1,10 @@
 from socket import AF_UNIX
 
+from pr2test.marks import require_root
+
 from pyroute2 import DiagSocket
+
+pytestmark = [require_root()]
 
 
 def test_basic():

@@ -4,11 +4,14 @@ import time
 
 import pytest
 from pr2test.context_manager import skip_if_not_supported
+from pr2test.marks import require_root
 from utils import require_kernel
 
 from pyroute2 import IPRoute, NetlinkError
 from pyroute2.common import AF_MPLS
 from pyroute2.netlink.rtnl.rtmsg import RTNH_F_ONLINK
+
+pytestmark = [require_root()]
 
 
 def test_route_get_target_strict_check(context):

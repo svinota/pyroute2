@@ -6,9 +6,11 @@ import pytest
 from pr2modules.ndb.objects import RTNL_Object
 from pr2modules.ndb.report import Record, RecordSet
 from pr2test.context_manager import make_test_matrix, skip_if_not_supported
+from pr2test.marks import require_root
 
 from pyroute2.common import basestring
 
+pytestmark = [require_root()]
 test_matrix = make_test_matrix(
     targets=['local', 'netns'], dbs=['sqlite3/:memory:', 'postgres/pr2test']
 )
