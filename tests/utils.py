@@ -13,6 +13,7 @@ from socket import AF_INET, AF_INET6
 
 import netaddr
 import pytest
+
 from pr2modules import config
 from pr2modules.iproute.linux import IPRoute
 

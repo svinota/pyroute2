@@ -49,55 +49,6 @@ ifdef lib
 	override lib := "--install-lib=${lib}"
 endif
 
-##
-# Functions
-#
-define list_modules
-	`find . -maxdepth 1 -mindepth 1 -type d -iname 'pyroute2*' -print0 | xargs -0 -n1 basename`
-endef
-
-define list_templates
-	`find templates -maxdepth 1 -mindepth 1 -type f -print0 | xargs -0 -n1 basename`
-endef
-
-define make_modules
-	for module in $(call list_modules); do ${MAKE} -C $$module $(1) python=${python}; done
-endef
-
-define fetch_modules_dist
-	for module in $(call list_modules); do cp $$module/dist/* dist; done
-endef
-
-define clean_module
-	rm -f $$module/LICENSE.*; \
-	rm -f $$module/README.license.md; \
-	rm -f $$module/CHANGELOG.md; \
-	rm -f $$module/VERSION; \
-	rm -rf $$module/build; \
-	rm -rf $$module/dist; \
-	rm -rf $$module/*egg-info
-endef
-
-define process_templates
-	for module in $(call list_modules); do \
-		if [ -f $$module/setup.json ]; then \
-			for template in $(call list_templates); do \
-				${python} \
-					util/process_template.py \
-					templates/$$template \
-					$$module/setup.json \
-					$$module/$$template; \
-			done; \
-		fi; \
-	done
-endef
-
-define deploy_license
-	cp LICENSE.* $$module/ ; \
-	cp README.license.md $$module/ ; \
-	cp CHANGELOG.md $$module/
-endef
-
 .PHONY: all
 all:
 	@echo targets:
@@ -110,7 +61,6 @@ all:
 
 .PHONY: clean
 clean:
-	@for module in $(call list_modules); do $(call clean_module); done
 	@rm -f VERSION
 	@rm -f Makefile.in
 	@rm -rf dist build MANIFEST
@@ -138,7 +88,6 @@ clean:
 
 VERSION:
 	@${python} util/update_version.py
-	@for package in $(call list_modules); do cp VERSION $$package; done
 
 docs/html:
 	@cp README.rst docs/general.rst
@@ -184,7 +133,7 @@ test: check_parameters
 
 .PHONY: test-platform
 test-platform:
-	@cd pyroute2.core; ${python} -c "\
+	@${python} -c "\
 import logging;\
 logging.basicConfig();\
 from pr2modules.config.test_platform import TestCapsRtnl;\
@@ -199,46 +148,28 @@ upload: dist
 setup:
 	$(MAKE) clean
 	$(MAKE) VERSION
-	$(call process_templates)
-	# check that metadata in cfg files are identical
-	${python} util/validate_config.py `find pyroute2* -maxdepth 1 -mindepth 1 -name setup.cfg`
-	# check that inits in both main packages are identical
-	diff pyroute2/pyroute2/__init__.py pyroute2.minimal/pyroute2/__init__.py
-	@for module in $(call list_modules); do $(call deploy_license); done
 
 .PHONY: dist
 dist: setup
-	cd pyroute2; ${python} setup.py sdist
-	mkdir dist
-	$(call make_modules, dist)
-	$(call fetch_modules_dist)
+	${python} setup.py sdist
 	${python} -m twine check dist/*
 
 .PHONY: install
 install: dist
 	rm -f dist/pyroute2.minimal*
-	${python} -m pip install dist/* ${root}
+	${python} -m pip install dist/pyroute2* ${root}
 
 .PHONY: install-minimal
 install-minimal: dist
-	${python} -m pip install dist/pyroute2.minimal* dist/pyroute2.core* ${root}
+	${python} -m pip install dist/pyroute2.minimal* ${root}
 
 .PHONY: uninstall
 uninstall: setup
-	$(call make_modules, uninstall)
+	${python} -m pip uninstall -y pyroute2
 
 .PHONY: audit-imports
 audit-imports:
-	for module in $(call list_modules); do \
-		echo $$module; \
-		findimports -n $$module/pr2modules/ 2>/dev/null | awk -f util/imports_dict.awk | awk '{printf("\t"$$0"\n")}'; \
-	done
-
-.PHONY: stubs
-stubs:
-	for module in $(call list_modules); do \
-		[ -d $$module/pr2modules/ ] && { echo "--> $$module"; stubgen -o stubs $$module/pr2modules/; } ; \
-	done
+	findimports -n pyroute2 2>/dev/null | awk -f util/imports_dict.awk
 
 # deprecated:
 epydoc clean-version update-version force-version README.md setup.ini develop pytest test-format:

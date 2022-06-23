@@ -2,6 +2,7 @@ from socket import AF_INET, AF_INET6
 
 import pytest
 from common import Request, Result, run_test
+
 from pr2modules.requests.route import RouteFieldFilter, RouteIPRouteFilter
 
 config = {

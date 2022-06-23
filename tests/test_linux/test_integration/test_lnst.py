@@ -1,6 +1,7 @@
 import select
 
 import pytest
+
 from pr2modules.iproute import IPRoute as IPRoute1
 from pr2modules.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pr2modules.netlink.rtnl.ifinfmsg import ifinfmsg

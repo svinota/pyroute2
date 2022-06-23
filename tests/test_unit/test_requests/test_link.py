@@ -1,5 +1,6 @@
 import pytest
 from common import Request, Result, run_test
+
 from pr2modules.requests.link import LinkFieldFilter, LinkIPRouteFilter
 
 config = {

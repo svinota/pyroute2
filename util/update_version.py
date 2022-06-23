@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import subprocess
 
-version_module = "pyroute2.core/pr2modules/config/version.py"
+version_module = "pyroute2/config/version.py"
 version_file = "VERSION"
 
 
