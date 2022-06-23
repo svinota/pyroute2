@@ -584,9 +584,23 @@ class Route(RTNL_Object):
         if 'target' not in ret_key:
             ret_key['target'] = self.ndb.localhost
 
-        table = ret_key.get('table', ret_key.get('RTA_TABLE', 254))
-        if 'table' not in ret_key:
-            ret_key['table'] = table
+        ##
+        # previously here was a code that injected the default
+        # table == 254 into the key:
+        #
+        # table = ret_key.get('table', ret_key.get('RTA_TABLE', 254))
+        # if 'table' not in ret_key:
+        #     ret_key['table'] = table
+        #
+        # the issue with the code is that self.exists() didn't use
+        # it, thus it was possible to get self.exists() == True and
+        # at the same time loading from the DB resulted in an empty
+        # record
+        #
+        # probably more correct behaviour would be to raise KeyError
+        # if a route spec has no table defined, and the route is
+        # in another table than 254; but for now routes['ipaddr/mask']
+        # returns records even outside of the main table
 
         if isinstance(ret_key.get('dst_len'), basestring):
             ret_key['dst_len'] = int(ret_key['dst_len'])

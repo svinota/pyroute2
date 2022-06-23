@@ -8,6 +8,29 @@ from pr2test.tools import address_exists, interface_exists, route_exists
 
 pytestmark = [require_root()]
 
+
+test_matrix_simple = make_test_matrix(
+    targets=['local', 'netns'], dbs=['sqlite3/:memory:', 'postgres/pr2test']
+)
+
+
+@pytest.mark.parametrize('context', test_matrix_simple, indirect=True)
+def test_table_undef(context):
+    ipaddr1 = context.new_ip6addr
+    ipaddr2 = context.new_ip6addr
+    index, ifname = context.default_interface
+    (
+        context.ndb.routes.create(
+            dst=ipaddr1, dst_len=128, table=5000, oif=index
+        ).commit()
+    )
+    assert route_exists(context.netns, dst=ipaddr1, table=5000)
+    assert not route_exists(context.netns, dst=ipaddr2, table=5000)
+    assert context.ndb.routes[f'{ipaddr1}/128']['oif'] == index
+    with pytest.raises(KeyError):
+        context.ndb.routes[f'{ipaddr2}/128']
+
+
 test_matrix_scopes = make_test_matrix(
     targets=['local', 'netns'],
     tables=[
@@ -124,6 +147,25 @@ def test_ipv6_default_priority(context):
     context.ndb.routes.create(**parameters).commit()
     assert route_exists(context.netns, dst=dst, table=table or 254)
     assert context.ndb.routes[parameters]['priority'] == IP6_RT_PRIO_USER
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_empty_target(context):
+    ipaddr = context.new_ip6addr
+    table = context.table
+    index, ifname = context.default_interface
+    (
+        context.ndb.routes.create(
+            dst=ipaddr, dst_len=128, oif=index, table=table
+        ).commit()
+    )
+    assert route_exists(context.netns, dst=ipaddr, table=table or 254)
+    (
+        context.ndb.routes[{'table': table, 'dst': f'{ipaddr}/128'}]
+        .remove()
+        .commit()
+    )
+    assert not route_exists(context.netns, dst=ipaddr, table=table or 254)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
