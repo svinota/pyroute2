@@ -67,6 +67,8 @@ class IPTargets:
         except (json.JSONDecodeError, TypeError):
             pass
         if isinstance(value, str):
+            if value == '':
+                return {}
             labels = value.split('/')
             if len(labels) > 1:
                 # MPLS label stack simple syntax? e.g.: 16/24, 200/300 etc.

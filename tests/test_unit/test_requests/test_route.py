@@ -92,3 +92,54 @@ result_dst_ipv6 = Result(
 )
 def test_dst(spec, result):
     return run_test(config, spec, result)
+
+
+@pytest.mark.parametrize(
+    'spec,result',
+    (
+        (
+            Request({'dst': 'fd12::3', 'dst_len': 128, 'via': ''}),
+            Result({'dst': 'fd12::3', 'dst_len': 128, 'family': AF_INET6}),
+        ),
+        (
+            Request({'dst': 'fd12::3/128', 'via': ''}),
+            Result({'dst': 'fd12::3', 'dst_len': 128, 'family': AF_INET6}),
+        ),
+        (
+            Request({'dst': 'fd12::3', 'dst_len': 128, 'newdst': ''}),
+            Result({'dst': 'fd12::3', 'dst_len': 128, 'family': AF_INET6}),
+        ),
+        (
+            Request({'dst': 'fd12::3/128', 'newdst': ''}),
+            Result({'dst': 'fd12::3', 'dst_len': 128, 'family': AF_INET6}),
+        ),
+        (
+            Request({'dst': '10.0.0.0', 'dst_len': 24, 'via': ''}),
+            Result({'dst': '10.0.0.0', 'dst_len': 24, 'family': AF_INET}),
+        ),
+        (
+            Request({'dst': '10.0.0.0/24', 'via': ''}),
+            Result({'dst': '10.0.0.0', 'dst_len': 24, 'family': AF_INET}),
+        ),
+        (
+            Request({'dst': '10.0.0.0', 'dst_len': 24, 'newdst': ''}),
+            Result({'dst': '10.0.0.0', 'dst_len': 24, 'family': AF_INET}),
+        ),
+        (
+            Request({'dst': '10.0.0.0/24', 'newdst': ''}),
+            Result({'dst': '10.0.0.0', 'dst_len': 24, 'family': AF_INET}),
+        ),
+    ),
+    ids=[
+        'explicit-ipv6-via',
+        'split-ipv6-via',
+        'explicit-ipv6-newdst',
+        'split-ipv6-newdst',
+        'explicit-ipv4-via',
+        'split-ipv4-via',
+        'explicit-ipv4-newdst',
+        'split-ipv4-newdst',
+    ],
+)
+def test_empty_target(spec, result):
+    return run_test(config, spec, result)
