@@ -3,6 +3,7 @@ Changelog
 
 * 0.6.13
     * requests: IPv6 routes default priority <https://github.com/svinota/pyroute2/issues/934>
+    * requests: fix wrong family on empty IP targets <https://github.com/svinota/pyroute2/issues/937>
     * ndb: fix NetlinkError escalation routine on apply <https://github.com/svinota/pyroute2/issues/934>
 * 0.6.12
     * ndb: allow dict as keys in `__contains__`
