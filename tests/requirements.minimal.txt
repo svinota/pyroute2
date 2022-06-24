@@ -1,3 +1,4 @@
+build
 netaddr
 pytest
 pytest-cov
