@@ -151,21 +151,28 @@ setup:
 
 .PHONY: dist
 dist: setup
-	${python} setup.py sdist
+	${python} -m build
 	${python} -m twine check dist/*
+
+.PHONY: dist-minimal
+dist-minimal:
+	mv -f setup.cfg setup.cfg.orig
+	cp setup.minimal.cfg setup.cfg
+	$(MAKE) dist
+	mv -f setup.cfg.orig setup.cfg
 
 .PHONY: install
 install: dist
-	rm -f dist/pyroute2.minimal*
-	${python} -m pip install dist/pyroute2* ${root}
+	${python} -m pip install dist/pyroute2*whl ${root}
 
 .PHONY: install-minimal
-install-minimal: dist
-	${python} -m pip install dist/pyroute2.minimal* ${root}
+install-minimal: dist-minimal
+	${python} -m pip install dist/pyroute2.minimal*whl ${root}
 
 .PHONY: uninstall
-uninstall: setup
+uninstall:
 	${python} -m pip uninstall -y pyroute2
+	${python} -m pip uninstall -y pyroute2-minimal
 
 .PHONY: audit-imports
 audit-imports:
