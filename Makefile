@@ -4,15 +4,7 @@
 #
 #
 
-# python ?= python
-
-setup_check := $(shell util/check_setup.sh ${python})
-
-include Makefile.in
-
-ifeq ("${has_pip}", "false")
-	exit 1
-endif
+python ?= python
 
 ##
 # Python-related configuration
@@ -49,20 +41,23 @@ ifdef lib
 	override lib := "--install-lib=${lib}"
 endif
 
+module ?= test_linux
+
 .PHONY: all
 all:
 	@echo targets:
 	@echo
 	@echo \* clean -- clean all generated files
 	@echo \* docs -- generate project docs \(requires sphinx\)
+	@echo \* dist -- create the package file
 	@echo \* test -- run functional tests \(see README.make.md\)
-	@echo \* install -- install lib into the system
+	@echo \* install -- install lib into the system or the current virtualenv
+	@echo \* uninstall -- uninstall lib
 	@echo
 
 .PHONY: clean
 clean:
 	@rm -f VERSION
-	@rm -f Makefile.in
 	@rm -rf dist build MANIFEST
 	@rm -f docs-build.log
 	@rm -f docs/general.rst
@@ -107,16 +102,12 @@ docs/html:
 
 docs: install docs/html
 
-check_parameters:
-	@if [ ! -z "${skip_tests}" ]; then \
-		echo "'skip_tests' is deprecated, use 'skip=...' instead"; false; fi
-
 .PHONY: format
 format:
 	@pre-commit run -a
 
 .PHONY: test
-test: check_parameters
+test: install
 	@export PYTHON=${python}; \
 		export PYTEST=${pytest}; \
 		export WLEVEL=${wlevel}; \
@@ -125,7 +116,7 @@ test: check_parameters
 		export LOOP=${loop}; \
 		export WORKSPACE=${workspace}; \
 		export PYROUTE2_TEST_DBNAME=${dbname}; \
-		export SKIPDB=${skipdb}; \
+		export SKIPDB=postgres; \
 		export PYTEST_PATH=${module}; \
 		export BREAK_ON_ERRORS=${break}; \
 		export NODEPLOY=${nodeploy}; \

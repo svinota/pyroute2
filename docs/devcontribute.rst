@@ -30,10 +30,9 @@ Linux
    pip install --upgrade pip
    pip install tox
 
-   # run the fast test cycle
+   # run the test cycle on Python 3.10
    #
-   # OBS! ACHTUNG! functional tests require root on Linux
-   sudo tox -e skipdb
+   sudo tox -e py310
 
 Or using the same virtualenv for the tests:
 
@@ -41,19 +40,19 @@ Or using the same virtualenv for the tests:
 
    git clone ${pyroute2_git_url}
    cd pyroute2
+
    python -m venv venv
    . venv/bin/activate
    pip install --upgrade pip
 
    # dependencies:
-   pip install -r tests/requirements.skipdb.txt
+   pip install -r tests/requirements.minimal.txt
 
    # basic code quality checks
    make format
 
-   # fast test cycle
-   # OBS! ACHTUNG! functional tests require root on Linux
-   sudo make test wlevel=error skipdb=postgres
+   # run CI
+   sudo make test wlevel=once
 
 OpenBSD
 +++++++
@@ -89,13 +88,13 @@ Or using the same virtualenv for the tests:
    pip install --upgrade pip
 
    # dependencies:
-   pip install -r tests/requirements.skipdb.txt
+   pip install -r tests/requirements.minimal.txt
 
    # basic code quality checks
    gmake format
 
    # test cycle
-   gmake test wlevel=error make=gmake
+   gmake test wlevel=once module=test_openbsd
 
 Step 2: make a change
 ---------------------
@@ -104,37 +103,14 @@ The project is designed to work on the bare standard library.
 But some embedded environments strip even the stdlib, removing
 modules like sqlite3.
 
-So to run pyroute2 even in such environments, the project is
-divided into separate modules, one can install the very minimal
-pyroute2 core.
+So to run pyroute2 even in such environments, the project provdes
+to packages, `pyroute2` and `pyroute2.minimal`, with the latter
+providing a minimal distribution, but using no sqlite3 or pickle.
 
-The repo layout is as follows:
-
-.. code-block::
-
-   * pyroute2
-     * requires all the project modules
-     * contains the main init file
-   * pyroute2.minimal
-     * requires only the core
-     * same init file
-   * pyroute2.core
-     * the main module, core netlink protocols
-   * pyroute2.{module}
-     * extensions, user-friendly APIs etc.
-
-All the modules except `pyroute2` and `pyroute2.minimal` install the code
-into the same `pr2modules` namespace.
-
-Modules `pyroute2` and `pyroute2.minimal` are mutually exclusive, their
-goal is to provide correct dependencies and re-export modules from the
-`pr2modules` namespace to `pyroute2`.
+Modules `pyroute2` and `pyroute2.minimal` are mutually exclusive.
 
 Each module provides it's own pypi package.
 More details: https://github.com/svinota/pyroute2/discussions/786
-
-The tradeoff of this approach is that it's a bit tricky to use autocomplete
-and symbols lookup in IDEs.
 
 Step 3: test the change
 -----------------------
@@ -143,12 +119,11 @@ Assume the environment is already set up on the step 1. Thus:
 
 .. code-block:: bash
 
-   # fast check on Linux
-   # skip NDB PostgreSQL integration tests
-   tox -e skipdb
+   # * run under root to check all the functional tests
+   # * run in clear tox environments, thus `-r`
+   sudo tox -r
 
-   # on OpenBSD
-   tox -e openbsd
+.. warning:: pyroute2 CI does not support parallel tox run, `tox -p`
 
 Step 4: submit a PR
 -------------------
@@ -162,6 +137,6 @@ Requirements to a PR
 The code must comply some requirements:
 
 * the library must work on Python >= 3.6.
-* the code must pass `make format`
+* the code must pass `tox -e linter`
 * the code must not break existing functional tests
 * the `ctypes` usage must not break the library on SELinux

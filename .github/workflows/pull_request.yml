@@ -1,4 +1,4 @@
-name: Functional tests
+name: Main CI
 
 on:
   pull_request:
@@ -9,14 +9,20 @@ permissions:
   contents: read
 
 jobs:
+  linter:
+    runs-on: code
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: tox -e linter
   unit:
     runs-on: code
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: tox -e unit
-  linux-latest:
-    runs-on: linux-latest
+  linux-fedora-35:
+    runs-on: linux-fedora-35
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
@@ -26,7 +32,7 @@ jobs:
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: sudo tox -e skipdb
+      - run: sudo tox -e py38
   openbsd:
     runs-on: OpenBSD
     steps:

@@ -19,8 +19,6 @@ Build documentation. Requires `sphinx`.
 target: test
 ------------
 
-.. warning:: `make test` requires root privileges to run
-
 Run the pytest CI. Specific options:
 
 * break -- set `break=true` to break CI loops, see comment below

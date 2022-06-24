@@ -8,24 +8,6 @@ TOP=$(readlink -f $(pwd)/..)
 #
 . conf.sh
 
-#
-# Choose the tests to run on this platform
-#
-case `uname -s` in
-    OpenBSD)
-        if [ -z "$PYTEST_PATH" ]; then
-            export PYTEST_PATH=test_openbsd
-        fi
-        export MAKE=gmake
-        ;;
-    Linux)
-        if [ -z "$PYTEST_PATH" ]; then
-            export PYTEST_PATH=test_linux
-        fi
-        export MAKE=make
-        ;;
-esac
-
 export PYTHONPATH="$WORKSPACE:$WORKSPACE/examples:$WORKSPACE/examples/generic"
 
 # patch variables that differ between nosetests an pytest
@@ -34,25 +16,11 @@ export PYTHONPATH="$WORKSPACE:$WORKSPACE/examples:$WORKSPACE/examples/generic"
 
 
 function setup_test() {
-    ##
-    # Prepare test environment
-    #
-    #
-    # It is important to test not in-place, but after `make dist`,
-    # since in that case only those files will be tested, that are
-    # included in the package.
-    #
     curl http://localhost:7623/v1/lock/ >/dev/null 2>&1 && \
     while [ -z "`curl -s -X POST --data test http://localhost:7623/v1/lock/ 2>/dev/null`" ]; do {
         sleep 1
     } done
     cd "$TOP"
-    if [ "$1" = "test_minimal" ]; then {
-        MAKE_TARGET="install-minimal"
-    } else {
-        MAKE_TARGET="install"
-    } fi
-    $MAKE $MAKE_TARGET python=$PYTHON make=$MAKE || return 1
     mkdir -p "$WORKSPACE"
     cp -a "$TOP/tests/"* "$WORKSPACE/"
     cp -a "$TOP/examples" "$WORKSPACE/"
@@ -76,13 +44,6 @@ function setup_test() {
         sysctl net.mpls.platform_labels=2048 >/dev/null 2>&1 ||:
     } ||:
 }
-
-
-function cleanup_test() {
-    cd "$TOP"
-    $MAKE uninstall
-}
-
 
 function run_test() {
     errors=0
@@ -121,6 +82,4 @@ echo "ok"
 echo "Version: `cat $TOP/VERSION`"
 echo "Kernel: `uname -r`"
 run_test $PYTEST_PATH || exit 1
-echo -n "Cleanup ... "
-cleanup_test
 echo "ok"
