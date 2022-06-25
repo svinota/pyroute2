@@ -2,7 +2,8 @@
 import subprocess
 
 version_module = "pyroute2/config/version.py"
-version_file = "VERSION"
+version_output_file = "VERSION"
+version_input_file = "VERSION"
 
 
 def get_project_version():
@@ -17,7 +18,7 @@ def get_project_version():
             ("git", "describe"), stderr=subprocess.DEVNULL
         ).decode("utf-8")
     except (FileNotFoundError, subprocess.CalledProcessError):
-        with open("version", "r") as f:
+        with open(version_input_file, "r") as f:
             version = f.read()
 
     version = version.strip().split("-")
@@ -33,5 +34,5 @@ if __name__ == "__main__":
     version = get_project_version()
     with open(version_module, "w") as f:
         f.write('__version__ = "%s"\n' % version)
-    with open(version_file, "w") as f:
+    with open(version_output_file, "w") as f:
         f.write("%s\n" % version)

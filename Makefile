@@ -57,7 +57,6 @@ all:
 
 .PHONY: clean
 clean:
-	@rm -f VERSION
 	@rm -rf dist build MANIFEST
 	@rm -f docs-build.log
 	@rm -f docs/general.rst
@@ -80,7 +79,9 @@ clean:
 	@rm -rf tests-workspaces
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
 	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;
+	@git checkout VERSION 2>/dev/null ||:
 
+.PHONY: VERSION
 VERSION:
 	@${python} util/update_version.py
 
