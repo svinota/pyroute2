@@ -764,6 +764,7 @@ class ifinfbase(object):
 
     class state(nla):
         fields = (('value', 'B'),)
+        sql_type = 'TEXT'
 
         def encode(self):
             self['value'] = state_by_name[self.value]
