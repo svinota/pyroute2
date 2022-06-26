@@ -32,7 +32,6 @@ function setup_test() {
     #
     [ "`uname -s`" = "Linux" -a "`id | sed 's/uid=[0-9]\+(\([A-Za-z]\+\)).*/\1/'`" = "root" ] && {
         echo "Running as root on Linux"
-        ulimit -n 2048
         modprobe dummy 2>/dev/null ||:
         modprobe bonding 2>/dev/null ||:
         modprobe 8021q 2>/dev/null ||:
