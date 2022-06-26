@@ -1,3 +1,4 @@
+import pytest
 from pr2test.marks import require_root
 from pr2test.tools import address_exists
 
@@ -6,6 +7,7 @@ from pyroute2 import NDB
 pytestmark = [require_root()]
 
 
+@pytest.mark.xfail(reason='flaky test, only to collect failure logs')
 def test_add_del_ip_dict(context):
     ifname = context.new_ifname
     ifaddr1 = context.new_ipaddr
