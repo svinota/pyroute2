@@ -1,0 +1,5 @@
+build
+twine
+aafigure
+sphinx
+pre-commit

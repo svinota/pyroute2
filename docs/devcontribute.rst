@@ -46,7 +46,7 @@ Or using the same virtualenv for the tests:
    pip install --upgrade pip
 
    # dependencies:
-   pip install -r tests/requirements.minimal.txt
+   pip install -r requirements.dev.txt
 
    # basic code quality checks
    make format
@@ -88,7 +88,7 @@ Or using the same virtualenv for the tests:
    pip install --upgrade pip
 
    # dependencies:
-   pip install -r tests/requirements.minimal.txt
+   pip install -r requirements.dev.txt
 
    # basic code quality checks
    gmake format

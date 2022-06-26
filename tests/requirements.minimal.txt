@@ -1,6 +1,0 @@
-build
-netaddr
-pytest
-pytest-cov
-pre-commit
-twine
