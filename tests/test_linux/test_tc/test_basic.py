@@ -9,20 +9,6 @@ test_matrix = make_test_matrix(targets=['local', 'netns'])
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_qdisc_pfifo(context):
-    ifname = context.new_ifname
-    ipr = context.ipr
-
-    (
-        context.ndb.interfaces.create(
-            ifname=ifname, kind='dummy', state='up'
-        ).commit()
-    )
-
-    ipr.tc(
-        'add',
-        'pfifo',
-        index=context.ndb.interfaces[ifname]['index'],
-        limit=700,
-    )
-
+    index, ifname = context.default_interface
+    context.ipr.tc('add', 'pfifo', index=index, limit=700)
     assert qdisc_exists(context.netns, 'pfifo', ifname=ifname, limit=700)
