@@ -1,64 +1,44 @@
 Warning
 =======
 
-Network tests require root access to create, destroy
-and set up network objects -- routes, addresses, interfaces,
-etc. They use mainly dummy interfaces, thus are
-non-destructive. But the integration test cycle includes
-stress-tests as well, can take ~20-30 minutes, and should
-NOT be run on any production system, since can seriously
-affect overall OS performance for a long time.
+Functional tests under `test_linux` directory require root
+access to create, destroy and set up network objects --
+routes, addresses, interfaces, etc. They use mainly dummy
+interfaces, but the main OS setup may be affected.
 
 Requirements
 ============
 
 * flake8
-* nosetests -- for legacy tests
 * pytest -- for new tests
 * pytest-cov
 * coverage
-* sphinx
 * netaddr
 
 Optionally:
 
 * dtcd
 
-Run legacy tests
-================
+Run tests
+=========
 
-To run the tests, one can use the root makefile::
+There are two ways to run the CI sessions. One is tox,
+another is to directly run `make test`::
 
-    $ sudo make test coverage=html pdb=true
+    # using tox
+    $ tox -e unit     # run only unit tests
+    $ tox -e linter   # run only code checks
+    $ sudo tox        # run all the test under root
 
-This will also output the coverage in html format and run
-pdb debugger in case of errors and failures. Please note,
-that by default test cycle runs python with `-W error`. This
-causes python 2.x to fail on many systems because of badly
-packed system libraries. In that case one can explicitly use
-any custom python path (e.g. to python3 or even virtualenv)::
-
-    $ sudo make test python=/usr/bin/python3 ...
-
-It is possible to run only one separate test module, and run
-tests in loop:
-
-    $ sudo make test module=general:test_ndb.py loop=1000
-
-More details see in `README.make.md`.
-
-Run new tests
-=============
-
-The migration from the legacy nosetests CI to pytest has
-just begun, so the pytest CI has not so many options yet.
-To run the tests::
-
-    $ sudo make pytest
+    # using make
+    $ sudo make test                 # Linux functional tests
+    $ make test module=test_openbsd  # OpenBSD tests
+    $ make test module=test_unit
 
 Get code coverage and run PDB on failures::
 
     $ sudo make pytest coverage=true pdb=true
+
 
 Workspaces
 ==========
