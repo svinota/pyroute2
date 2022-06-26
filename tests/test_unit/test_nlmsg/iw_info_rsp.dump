@@ -1,0 +1,50 @@
+\x58\x00\x00\x00\x1b\x00\x00\x00\x32\xfa\xdd\x54\xf2\x7b\x00\x2e\x07\x01\x00\x00\x08\x00\x03\x00\x03\x00\x00\x00\x09\x00\x04\x00\x77\x6c\x6f\x31\x00\x00\x00\x00\x08\x00\x01\x00\x00\x00\x00\x00\x08\x00\x05\x00\x02\x00\x00\x00\x0c\x00\x99\x00\x01\x00\x00\x00\x00\x00\x00\x00\x0a\x00\x06\x00\xa4\x4e\x31\x43\x1c\x7d\x00\x00\x08\x00\x2e\x00\x05\x00\x00\x00
+
+# parsed data should match primes below
+#: application/json
+[
+    {
+        "attrs": [
+            [
+                "NL80211_ATTR_IFINDEX",
+                3
+            ],
+            [
+                "NL80211_ATTR_IFNAME",
+                "wlo1"
+            ],
+            [
+                "NL80211_ATTR_WIPHY",
+                0
+            ],
+            [
+                "NL80211_ATTR_IFTYPE",
+                2
+            ],
+            [
+                "NL80211_ATTR_WDEV",
+                1
+            ],
+            [
+                "NL80211_ATTR_MAC",
+                "a4:4e:31:43:1c:7d"
+            ],
+            [
+                "NL80211_ATTR_GENERATION",
+                5
+            ]
+        ],
+        "cmd": 7,
+        "event": "NL80211_CMD_NEW_INTERFACE",
+        "header": {
+            "error": null,
+            "flags": 0,
+            "length": 88,
+            "pid": 771783666,
+            "sequence_number": 1423833650,
+            "type": 27
+        },
+        "reserved": 0,
+        "version": 1
+    }
+]

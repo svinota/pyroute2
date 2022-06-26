@@ -361,9 +361,15 @@ def load_dump(f, meta=None):
     '''
     data = ''
     code = None
+    meta_data = None
+    meta_label = None
     for a in f.readlines():
         if code is not None:
             code += a
+            continue
+
+        if meta_data is not None:
+            meta_data += a
             continue
 
         offset = 0
@@ -373,9 +379,12 @@ def load_dump(f, meta=None):
                 offset += 1
             elif a[offset] == '#':
                 if a[offset : offset + 2] == '#!':
-                    # read and save the code block;
-                    # do not parse it here
+                    # read the code block until EOF
                     code = ''
+                elif a[offset : offset + 2] == '#:':
+                    # read data block until EOF
+                    meta_label = a.split(':')[1].strip()
+                    meta_data = ''
                 break
             elif a[offset] == '.':
                 return data
@@ -389,7 +398,10 @@ def load_dump(f, meta=None):
                 offset += 3
 
     if isinstance(meta, dict):
-        meta['code'] = code
+        if code is not None:
+            meta['code'] = code
+        if meta_data is not None:
+            meta[meta_label] = meta_data
 
     if sys.version[0] == '3':
         return bytes(data, 'iso8859-1')

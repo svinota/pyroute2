@@ -1,0 +1,52 @@
+# pyroute2 hex dump sample
+#
+# lo: 127.0.0.1/8
+4c:00:00:00:14:00:02:00:02:01:00:00:c5:4e:00:00:02:08:80:fe:01:00:00:00:08:00:01:00:7f:00:00:01:08:00:02:00:7f:00:00:01:07:00:03:00:6c:6f:00:00:08:00:08:00:80:00:00:00:14:00:06:00:ff:ff:ff:ff:ff:ff:ff:ff:05:01:00:00:05:01:00:00
+
+# parsed data should match messages below
+#: application/json
+[
+    {
+        "attrs": [
+            [
+                "IFA_ADDRESS",
+                "127.0.0.1"
+            ],
+            [
+                "IFA_LOCAL",
+                "127.0.0.1"
+            ],
+            [
+                "IFA_LABEL",
+                "lo"
+            ],
+            [
+                "IFA_FLAGS",
+                128
+            ],
+            [
+                "IFA_CACHEINFO",
+                {
+                    "cstamp": 261,
+                    "ifa_preferred": 4294967295,
+                    "ifa_valid": 4294967295,
+                    "tstamp": 261
+                }
+            ]
+        ],
+        "event": "RTM_NEWADDR",
+        "family": 2,
+        "flags": 128,
+        "header": {
+            "error": null,
+            "flags": 2,
+            "length": 76,
+            "pid": 20165,
+            "sequence_number": 258,
+            "type": 20
+        },
+        "index": 1,
+        "prefixlen": 8,
+        "scope": 254
+    }
+]

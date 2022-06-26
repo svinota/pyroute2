@@ -1,0 +1,162 @@
+# strace hex dump sample
+#
+# ip link add mgre0 type gre local 192.168.122.1 remote 192.168.122.60 ttl 16
+#
+# nlmsg header
+\x84\x00\x00\x00  # length
+\x10\x00          # type
+\x05\x06          # flags
+\x49\x61\x03\x55  # sequence number
+\x00\x00\x00\x00  # pid
+# RTNL header
+\x00\x00          # ifi_family
+\x00\x00          # ifi_type
+\x00\x00\x00\x00  # ifi_index
+\x00\x00\x00\x00  # ifi_flags
+\x00\x00\x00\x00  # ifi_change
+# NLA chain
+\x0a\x00          # len
+\x03\x00          # type
+\x6d\x67\x72\x65\x30\x00\x00\x00
+
+\x58\x00          # len
+\x12\x00          # type
+
+    \x08\x00
+    \x01\x00
+    \x67\x72\x65\x00
+
+    \x4c\x00
+    \x02\x00
+
+        \x08\x00
+        \x04\x00
+        \x00\x00\x00\x00
+
+        \x08\x00
+        \x05\x00
+        \x00\x00\x00\x00
+
+        \x06\x00
+        \x02\x00
+        \x00\x00\x00\x00
+
+        \x06\x00
+        \x03\x00
+        \x00\x00\x00\x00
+
+        \x08\x00
+        \x06\x00
+        \xc0\xa8\x7a\x01
+
+        \x08\x00
+        \x07\x00
+        \xc0\xa8\x7a\x3c
+
+        \x05\x00
+        \x0a\x00
+        \x01\x00\x00\x00
+
+        \x05\x00
+        \x08\x00
+        \x10\x00\x00\x00
+
+        \x05\x00
+        \x09\x00
+        \x00\x00\x00\x00
+
+# the response packet
+\x24\x00\x00\x00\x02\x00\x00\x00\x49\x61\x03\x55\xf5\x2f\x00\x00\x00\x00\x00\x00\x84\x00\x00\x00\x10\x00\x05\x06\x49\x61\x03\x55\x00\x00\x00\x00
+
+# parsed data should match primes below
+#: application/json
+[
+    {
+        "attrs": [
+            [
+                "IFLA_IFNAME",
+                "mgre0"
+            ],
+            [
+                "IFLA_LINKINFO",
+                {
+                    "attrs": [
+                        [
+                            "IFLA_INFO_KIND",
+                            "gre"
+                        ],
+                        [
+                            "IFLA_INFO_DATA",
+                            {
+                                "attrs": [
+                                    [
+                                        "IFLA_GRE_IKEY",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_GRE_OKEY",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_GRE_IFLAGS",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_GRE_OFLAGS",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_GRE_LOCAL",
+                                        "192.168.122.1"
+                                    ],
+                                    [
+                                        "IFLA_GRE_REMOTE",
+                                        "192.168.122.60"
+                                    ],
+                                    [
+                                        "IFLA_GRE_PMTUDISC",
+                                        1
+                                    ],
+                                    [
+                                        "IFLA_GRE_TTL",
+                                        16
+                                    ],
+                                    [
+                                        "IFLA_GRE_TOS",
+                                        0
+                                    ]
+                                ]
+                            }
+                        ]
+                    ]
+                }
+            ]
+        ],
+        "change": 0,
+        "event": "RTM_NEWLINK",
+        "family": 0,
+        "flags": 0,
+        "header": {
+            "error": null,
+            "flags": 1541,
+            "length": 132,
+            "pid": 0,
+            "sequence_number": 1426284873,
+            "type": 16
+        },
+        "ifi_type": 0,
+        "index": 0,
+        "state": "down"
+    },
+    {
+        "event": "NLMSG_ERROR",
+        "header": {
+            "error": null,
+            "flags": 0,
+            "length": 36,
+            "pid": 12277,
+            "sequence_number": 1426284873,
+            "type": 2
+        }
+    }
+]
