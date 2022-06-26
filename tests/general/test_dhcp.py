@@ -1,17 +1,16 @@
 import gc
 import os
 import subprocess
+
 import dhclient
-from utils import require_user
-from utils import require_executable
+from utils import require_executable, require_user
+
 from pyroute2 import IPDB
-from pyroute2.dhcp import BOOTREPLY
-from pyroute2.dhcp import DHCPACK
 from pyroute2.common import uifname
+from pyroute2.dhcp import BOOTREPLY, DHCPACK
 
 
 class _TestDhcpClient(object):
-
     def setup(self):
         require_user('root')
         require_executable('busybox')
@@ -34,9 +33,11 @@ class _TestDhcpClient(object):
                 conf_out.write(conf_in.read())
         # run busybox dhcp server on $if1
         with open(os.devnull, 'w') as fnull:
-            subprocess.check_call(['busybox', 'udhcpd', 'udhcpd.conf'],
-                                  stdout=fnull,
-                                  stderr=fnull)
+            subprocess.check_call(
+                ['busybox', 'udhcpd', 'udhcpd.conf'],
+                stdout=fnull,
+                stderr=fnull,
+            )
 
     def teardown(self):
         # read pid from file and kill the server
@@ -60,5 +61,6 @@ class _TestDhcpClient(object):
         assert msg['options']['router'] == ['172.16.101.1']
         assert msg['options']['server_id'] == '172.16.101.1'
         assert msg['options']['subnet_mask'] == '255.255.255.0'
-        assert set(msg['options']['name_server']) ==\
-            set(('172.16.101.1', '172.16.101.2'))
+        assert set(msg['options']['name_server']) == set(
+            ('172.16.101.1', '172.16.101.2')
+        )

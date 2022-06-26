@@ -1,11 +1,13 @@
 import os
 import socket
 import struct
+
 from netl import Rlink  # examples/generic/netl.py
 from netl import rcmd
-from utils import require_user
-from pyroute2 import NetlinkError
 from nose.plugins.skip import SkipTest
+from utils import require_user
+
+from pyroute2 import NetlinkError
 
 _cwd = None
 
@@ -29,7 +31,6 @@ def teardown_module():
 
 
 class TestGeneric(object):
-
     def setup(self):
         require_user('root')
         self.rlink = Rlink()

@@ -1,11 +1,12 @@
 import errno
+
+from nose.plugins.skip import SkipTest
+
 from pyroute2 import DL
 from pyroute2.netlink.exceptions import NetlinkError
-from nose.plugins.skip import SkipTest
 
 
 class TestDL(object):
-
     def setup(self):
         try:
             self.dl = DL()

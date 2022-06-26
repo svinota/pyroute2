@@ -1,6 +1,8 @@
-import pytest
-import socket
 import resource
+import socket
+
+import pytest
+
 from pyroute2.netlink.nlsocket import NetlinkSocket
 
 

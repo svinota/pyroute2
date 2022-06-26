@@ -1,10 +1,9 @@
-from pyroute2 import IPRoute
-from pyroute2 import RemoteIPRoute
 from utils import skip_if_not_supported
+
+from pyroute2 import IPRoute, RemoteIPRoute
 
 
 class TestLocal(object):
-
     @skip_if_not_supported
     def test_links(self):
         with IPRoute() as ipr:

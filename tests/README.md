@@ -62,7 +62,7 @@ Some modules are ready for concurrent testing. It means that one
 can run multiple tests in parallel. To do that one should have
 dtcd installed, running and listening on port 7623. Sample config::
 
-    $ cat dtcd.conf 
+    $ cat dtcd.conf
     {
      "version": 1,
      "supernet": "10.0.0.0/8",

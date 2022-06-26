@@ -1,13 +1,13 @@
 import errno
-from utils import require_user
-from pyroute2 import IW
-from pyroute2 import IPRoute
-from pyroute2.netlink.exceptions import NetlinkError
+
 from nose.plugins.skip import SkipTest
+from utils import require_user
+
+from pyroute2 import IW, IPRoute
+from pyroute2.netlink.exceptions import NetlinkError
 
 
 class TestIW(object):
-
     def setup(self):
         try:
             self.iw = IW()
