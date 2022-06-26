@@ -1,12 +1,19 @@
 import os
 import subprocess
+import sys
 
 import pytest
 from pr2test.marks import require_root
 
 from pyroute2 import DQuotSocket
 
-pytestmark = [require_root()]
+pytestmark = [
+    pytest.mark.skipif(
+        sys.version_info < (3, 7),
+        reason='the test module requires Python > 3.6',
+    ),
+    require_root(),
+]
 
 
 class DQuotContextManager:
@@ -17,6 +24,8 @@ class DQuotContextManager:
         self.loop = None
         self.mnt = f'{self.root}/mnt'
         self.ds = DQuotSocket()
+
+    def setup(self):
         self.run(f'gunzip -c {self.gz_image} >{self.image}', shell=True)
         self.loop = self.run(['losetup', '-f']).stdout.strip().decode('utf-8')
         st_rdev = os.stat(self.loop).st_rdev
@@ -34,11 +43,18 @@ class DQuotContextManager:
         )
 
     def teardown(self):
-        self.run(['quotaoff', self.mnt])
-        self.run(['umount', self.mnt])
-        self.run(['losetup', '-d', self.loop])
-        os.unlink(self.image)
         self.ds.close()
+        self.run(['quotaoff', self.mnt], check=False)
+        self.run(['umount', self.mnt], check=False)
+        self.run(['losetup', '-d', self.loop], check=False)
+        os.unlink(self.image)
+
+    def __enter__(self):
+        self.setup()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.teardown()
 
     def get_one_msg(self):
         for msg in self.ds.get():
@@ -50,9 +66,8 @@ class DQuotContextManager:
 
 @pytest.fixture
 def mnt():
-    context_manager = DQuotContextManager()
-    yield context_manager
-    context_manager.teardown()
+    with DQuotContextManager() as cm:
+        yield cm
 
 
 def test_basic(mnt):
