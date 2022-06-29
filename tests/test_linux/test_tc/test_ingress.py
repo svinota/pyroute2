@@ -4,7 +4,8 @@ import pytest
 from pr2test.context_manager import make_test_matrix
 from pr2test.marks import require_root
 
-from pyroute2.netlink.rtnl import TC_H_INGRESS
+from pyroute2 import protocols
+from pyroute2.netlink.rtnl import TC_H_INGRESS, TC_H_ROOT
 
 pytestmark = [require_root()]
 test_matrix = make_test_matrix(targets=['local', 'netns'])
@@ -69,3 +70,36 @@ def test_filter(context):
     police_tbf = police_u32.get_attr('TCA_POLICE_TBF')
     assert police_tbf['rate'] == 1250
     assert police_tbf['mtu'] == 2040
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_action_stats(context):
+    index, ifname = test_simple(context)
+    context.ipr.tc(
+        'add-filter',
+        'u32',
+        index=index,
+        parent='ffff:',
+        protocol=protocols.ETH_P_ALL,
+        keys=['0x0/0x0+0'],
+        target=TC_H_ROOT,
+        action={'kind': 'gact', 'action:': 'ok'},
+    )
+    fls = context.ipr.get_filters(index=index, parent=TC_H_INGRESS)
+
+    act = [
+        x
+        for x in fls
+        if x.get_attr('TCA_OPTIONS') is not None
+        and (x.get_attr('TCA_OPTIONS').get_attr('TCA_U32_ACT') is not None)
+    ][0]
+    # assert we have a u32 filter with a gact action
+    assert act.get_attr('TCA_KIND') == 'u32'
+    gact = (
+        act.get_attr("TCA_OPTIONS")
+        .get_attr("TCA_U32_ACT")
+        .get_attr("TCA_ACT_PRIO_1")
+    )
+    assert gact.get_attr('TCA_ACT_KIND') == 'gact'
+    # assert our gact has stats
+    assert gact.get_attr('TCA_ACT_STATS')
