@@ -1,5 +1,3 @@
-.. warning:: Please read about the changes in the packaging: https://github.com/svinota/pyroute2/discussions/786
-
 Pyroute2
 ========
 
@@ -210,28 +208,6 @@ Requirements
 ------------
 
 Python >= 3.6
-
-Python 2.7 or above also may work, but neither supported nor tested anymore.
-
-The pyroute2 testing and documentaion framework requirements:
-
-* black
-* twine
-* aafigure
-* flake8
-* coverage
-* sphinx
-* netaddr
-* pytest
-* pytest-cov
-* findimports
-* pre-commit
-
-Optional dependencies:
-
-* mitogen -- for distributed rtnl
-* psutil -- for ss2 tool
-* psycopg2 -- NDB PostgreSQL backend testing
 
 Links
 -----

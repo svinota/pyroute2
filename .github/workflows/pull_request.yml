@@ -14,25 +14,27 @@ jobs:
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: tox -e linter
+      - run: make nox session=linter python=python3.8
   unit:
     runs-on: code
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: tox -e unit
+      - run: make nox session=unit python=python3.8
   linux-fedora-35:
     runs-on: linux-fedora-35
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: sudo tox -e py36,py310
+      - run: sudo make nox session=linux-3.6
+      - run: sudo make nox session=linux-3.10
   linux-ubuntu-18:
     runs-on: linux-ubuntu-18
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: sudo tox -e py38
+      - run: sudo make nox session=linux-3.6 python=python3.6
+      - run: sudo make nox session=linux-3.10 python=python3.6
   openbsd:
     runs-on: OpenBSD
     steps:
