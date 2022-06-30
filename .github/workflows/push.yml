@@ -14,4 +14,4 @@ jobs:
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: nox -e linter
+      - run: make nox session=linter python=python3.8
