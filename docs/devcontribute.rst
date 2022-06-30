@@ -26,33 +26,13 @@ Linux
    python -m venv venv
    . venv/bin/activate
 
-   # update pip and install tox
+   # update pip and install nox
    pip install --upgrade pip
-   pip install tox
+   pip install nox
 
    # run the test cycle on Python 3.10
    #
-   sudo tox -e py310
-
-Or using the same virtualenv for the tests:
-
-.. code-block:: bash
-
-   git clone ${pyroute2_git_url}
-   cd pyroute2
-
-   python -m venv venv
-   . venv/bin/activate
-   pip install --upgrade pip
-
-   # dependencies:
-   pip install -r requirements.dev.txt
-
-   # basic code quality checks
-   make format
-
-   # run CI
-   sudo make test wlevel=once
+   sudo nox -e py310
 
 OpenBSD
 +++++++
@@ -70,31 +50,12 @@ OpenBSD
    python3.10 -m venv venv
    . venv/bin/activate
 
-   # update pip and install tox
+   # update pip and install nox
    pip install --upgrade pip
-   pip install tox
+   pip install nox
 
    # run the platform specific environment
-   tox -e openbsd
-
-Or using the same virtualenv for the tests:
-
-.. code-block:: bash
-
-   git clone ${pyroute2_git_url}
-   cd pyroute2
-   python -m venv venv
-   . venv/bin/activate
-   pip install --upgrade pip
-
-   # dependencies:
-   pip install -r requirements.dev.txt
-
-   # basic code quality checks
-   gmake format
-
-   # test cycle
-   gmake test wlevel=once module=test_openbsd
+   nox -e openbsd
 
 Step 2: make a change
 ---------------------
@@ -119,11 +80,14 @@ Assume the environment is already set up on the step 1. Thus:
 
 .. code-block:: bash
 
-   # * run under root to check all the functional tests
-   # * run in clear tox environments, thus `-r`
-   sudo tox -r
+   # run code checks
+   nox -e linter
 
-.. warning:: pyroute2 CI does not support parallel tox run, `tox -p`
+   # run unit tests
+   nox -e unit
+
+   # * run under root to check all the functional tests
+   sudo nox -e linux-3.10
 
 Step 4: submit a PR
 -------------------
@@ -137,6 +101,6 @@ Requirements to a PR
 The code must comply some requirements:
 
 * the library must work on Python >= 3.6.
-* the code must pass `tox -e linter`
-* the code must not break existing functional tests
+* the code must pass `nox -e linter`
+* the code must not break existing unit and functional tests
 * the `ctypes` usage must not break the library on SELinux

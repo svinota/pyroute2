@@ -1,6 +1,8 @@
+#!/usr/bin/env python
 '''
 Platform tests to discover the system capabilities.
 '''
+import json
 import os
 import select
 import struct
@@ -271,3 +273,11 @@ class TestCapsRtnl(object):
         # there is no guarantee it will come; it *may* come
         self.rtm_events[self.ghost].wait(0.5)
         return max(len(self.rtm_newlink.get(self.ghost, [])) - 1, 0)
+
+
+def run():
+    print(json.dumps(TestCapsRtnl().collect(), indent=4))
+
+
+if __name__ == '__main__':
+    run()
