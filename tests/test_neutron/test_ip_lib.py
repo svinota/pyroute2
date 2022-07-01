@@ -19,9 +19,19 @@ def test_imports():
     assert netlink.nla_slot
     assert netlink.nla_base
     assert parameters(rtnl.rt_scope.get) == set(('key', 'default'))
-    assert isinstance(rtnl.rt_proto, dict) and 'proto' in rtnl.rt_proto
+    assert isinstance(rtnl.rt_proto, dict) and 'static' in rtnl.rt_proto
     assert parameters(netns._create) == set(('netns', 'libc', 'pid'))
     assert parameters(netns.remove) == set(('netns', 'libc'))
-    assert parameters(netns.listnetns) == set(('nspath'))
-    assert issubclass(ifinfmsg, netlink.nlmsg)
-    assert issubclass(ndmsg, netlink.nlmsg)
+    assert parameters(netns.listnetns) == set(('nspath',))
+    assert ifinfmsg.IFF_ALLMULTI == 0x200
+    assert {state[1]: state[0] for state in ndmsg.states.items()} == {
+        0: 'none',
+        1: 'incomplete',
+        2: 'reachable',
+        4: 'stale',
+        8: 'delay',
+        16: 'probe',
+        32: 'failed',
+        64: 'noarp',
+        128: 'permanent',
+    }
