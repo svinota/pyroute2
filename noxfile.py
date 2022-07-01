@@ -28,7 +28,6 @@ def options(module):
         'pytest',
         '--basetemp',
         './log',
-        '--pdb',
         '--cov-report=html',
         '--cov=pyroute2',
         '--exitfirst',
