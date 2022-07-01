@@ -134,3 +134,10 @@ def openbsd(session):
     '''Run OpenBSD tests. Requires OpenBSD >= 7.1'''
     setup_venv_dev(session)
     session.run(*options('test_openbsd'))
+
+
+@nox.session(python=['3.10'])
+def neutron(session):
+    '''Run Neutron integration tests.'''
+    setup_venv_dev(session)
+    session.run(*options('test_neutron'))
