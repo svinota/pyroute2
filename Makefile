@@ -54,13 +54,11 @@ upload: dist
 
 .PHONY: setup
 setup:
-	$(MAKE) clean
 	$(MAKE) VERSION
 
 .PHONY: dist
 dist: setup
-	${python} -m build
-	${python} -m twine check dist/*
+	@nox -e build
 
 .PHONY: dist-minimal
 dist-minimal:
@@ -71,7 +69,7 @@ dist-minimal:
 
 .PHONY: install
 install: dist
-	${python} -m pip install dist/pyroute2*whl ${root}
+	${python} -m pip install dist/pyroute2-*whl ${root}
 
 .PHONY: install-minimal
 install-minimal: dist-minimal

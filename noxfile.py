@@ -141,3 +141,12 @@ def neutron(session):
     '''Run Neutron integration tests.'''
     setup_venv_dev(session)
     session.run(*options('test_neutron'))
+
+
+@nox.session
+def build(session):
+    '''Run package build.'''
+    session.install('build')
+    session.install('twine')
+    session.run('python', '-m', 'build')
+    session.run('python', '-m', 'twine', 'check', 'dist/*')
