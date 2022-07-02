@@ -49,8 +49,6 @@ def test_client_module(ctx):
         'index': ctx.index,
     } in ctx.ndb.addresses
     assert options['lease_time'] > 0
-    assert options['rebinding_time'] > 0
-    assert options['renewal_time'] > 0
     return response
 
 
