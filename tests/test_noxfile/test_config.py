@@ -1,6 +1,7 @@
 import ast
 import collections
 import inspect
+import os
 
 import nox
 import pytest
@@ -46,3 +47,37 @@ def test_session_parameters(session):
         assert args == ['session', 'config']
     else:
         assert args == ['session']
+
+
+@pytest.mark.parametrize('session', nox_sessions, indirect=True)
+def test_requirements_files(session):
+    for node in ast.walk(ast.parse(inspect.getsource(session.src_func))):
+        #
+        # inspect function calls, filter direct or indirect install
+        if isinstance(node, ast.Call):
+            if (
+                isinstance(node.func, ast.Name)
+                and node.func.id == 'setup_venv_common'
+            ):
+                #
+                # inspect calls `setup_venv_common(...)` -- indirect install
+                assert len(node.args) in (1, 2)
+                if len(node.args) == 2:
+                    assert isinstance(node.args[1], ast.Constant)
+                    flavour = node.args[1].value
+                else:
+                    flavour = (
+                        inspect.signature(noxfile.setup_venv_common)
+                        .parameters['flavour']
+                        .default
+                    )
+                assert os.stat(f'requirements.{flavour}.txt')
+            elif (
+                isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.attr == 'install'
+                and node.args[0].value == '-r'
+            ):
+                #
+                # inspect call `session.install('-r', ...)` -- direct install
+                assert os.stat(node.args[1].value)

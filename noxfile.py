@@ -1,6 +1,7 @@
 import getpass
 import json
 import os
+import subprocess
 import sys
 
 import nox
@@ -120,6 +121,12 @@ def setup_venv_nox(session):
     tmpdir = setup_venv_common(session, 'noxtest')
     session.run('cp', '-a', 'tests', tmpdir, external=True)
     session.run('cp', '-a', 'noxfile.py', tmpdir, external=True)
+    git_ls_files = subprocess.run(
+        ['git', 'ls-files', 'requirements*'], stdout=subprocess.PIPE
+    )
+    files = [x.decode('utf-8') for x in git_ls_files.stdout.split()]
+    for fname in files:
+        session.run('cp', '-a', fname, tmpdir, external=True)
     session.chdir(tmpdir)
     return tmpdir
 
