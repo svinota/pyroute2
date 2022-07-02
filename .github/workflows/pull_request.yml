@@ -15,12 +15,24 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: make nox session=linter python=python3.8
+  noxtest:
+    runs-on: code
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: make nox session=noxtest python=python3.8
   unit:
     runs-on: code
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: make nox session=unit python=python3.8
+  neutron:
+    runs-on: code
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: make nox session=neutron python=python3.8
   linux-fedora-35:
     runs-on: linux-fedora-35
     steps:
