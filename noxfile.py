@@ -1,12 +1,20 @@
 import getpass
+import json
 import os
 import sys
 
 import nox
 
 nox.options.envdir = f'./.nox-{getpass.getuser()}'
-nox.options.reuse_existing_virtualenvs = True
-nox.options.sessions = ['linter', 'unit', 'linux-3.6', 'linux-3.10']
+nox.options.reuse_existing_virtualenvs = False
+nox.options.sessions = [
+    'linter',
+    'noxtest',
+    'unit',
+    'neutron',
+    'linux-3.6',
+    'linux-3.10',
+]
 
 linux_kernel_modules = [
     'dummy',
@@ -20,21 +28,58 @@ linux_kernel_modules = [
 ]
 
 
-def options(module):
+def add_session_config(func):
+    '''Decorator to load the session config.
+
+    Usage::
+
+        @nox.session
+        @load_session_config
+        def my_session_func(session, config):
+            pass
+
+    Command line usage::
+
+        nox -e my_session_name -- '{"option": value}'
+
+    The session config must be a valid JSON dictionary of options.
+    '''
+
+    def wrapper(session):
+        if session.posargs:
+            config = json.loads(session.posargs[0])
+        else:
+            config = {}
+        session.debug(f'session config: {config}')
+        return func(session, config)
+
+    wrapper.__name__ = func.__name__
+    wrapper.__doc__ = func.__doc__
+    wrapper.__has_user_config__ = True
+    return wrapper
+
+
+def options(module, config):
     '''Return pytest options set.'''
-    return [
+    ret = [
         'python',
         '-m',
         'pytest',
         '--basetemp',
         './log',
-        '--cov-report=html',
-        '--cov=pyroute2',
         '--exitfirst',
         '--verbose',
         '--junitxml=junit.xml',
-        module,
     ]
+    if config.get('pdb'):
+        ret.append('--pdb')
+    if config.get('coverage'):
+        ret.append('--cov-report=html')
+        ret.append('--cov=pyroute2')
+    if config.get('tests_prefix'):
+        module = f'{config["tests_prefix"]}/{module}'
+    ret.append(module)
+    return ret
 
 
 def setup_linux(session):
@@ -68,6 +113,14 @@ def setup_venv_dev(session):
     session.run('cp', '-a', 'tests', tmpdir, external=True)
     session.run('cp', '-a', 'examples', tmpdir, external=True)
     session.chdir(f'{tmpdir}/tests')
+    return tmpdir
+
+
+def setup_venv_nox(session):
+    tmpdir = setup_venv_common(session, 'noxtest')
+    session.run('cp', '-a', 'tests', tmpdir, external=True)
+    session.run('cp', '-a', 'noxfile.py', tmpdir, external=True)
+    session.chdir(tmpdir)
     return tmpdir
 
 
@@ -112,34 +165,47 @@ def linter(session):
 
 
 @nox.session
-def unit(session):
+@add_session_config
+def unit(session, config):
     '''Run unit tests.'''
     setup_venv_dev(session)
-    session.run(*options('test_unit'))
+    session.run(*options('test_unit', config))
 
 
 @nox.session(python=['3.6', '3.10'])
-def linux(session):
+@add_session_config
+def linux(session, config):
     '''Run Linux functional tests. Requires root to run all the tests.'''
     setup_linux(session)
     session.run(
-        *options('test_linux'),
+        *options('test_linux', config),
         env={'WORKSPACE': setup_venv_dev(session), 'SKIPDB': 'postgres'},
     )
 
 
-@nox.session(python=['3.10'])
-def openbsd(session):
+@nox.session
+@add_session_config
+def openbsd(session, config):
     '''Run OpenBSD tests. Requires OpenBSD >= 7.1'''
     setup_venv_dev(session)
-    session.run(*options('test_openbsd'))
+    session.run(*options('test_openbsd', config))
 
 
-@nox.session(python=['3.10'])
-def neutron(session):
+@nox.session
+@add_session_config
+def neutron(session, config):
     '''Run Neutron integration tests.'''
     setup_venv_dev(session)
-    session.run(*options('test_neutron'))
+    session.run(*options('test_neutron', config))
+
+
+@nox.session
+@add_session_config
+def noxtest(session, config):
+    '''Run noxfile self tests.'''
+    setup_venv_nox(session)
+    config['tests_prefix'] = 'tests'
+    session.run(*options('test_noxfile', config))
 
 
 @nox.session
