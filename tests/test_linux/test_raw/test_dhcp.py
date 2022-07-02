@@ -6,7 +6,7 @@ import pytest
 from pr2test.marks import require_root
 
 from pyroute2 import NDB
-from pyroute2.common import dqn2int
+from pyroute2.common import dqn2int, hexdump, hexload
 from pyroute2.dhcp import client
 
 pytestmark = [require_root()]
@@ -38,7 +38,10 @@ def test_client_module(ctx):
     address = response['yiaddr']
     l2addr = response['chaddr']
 
-    assert l2addr == ctx.ndb.interfaces[ctx.ifname]['address']
+    # convert addresses like 96:0:1:45:fa:6c into 96:00:01:45:fa:6c
+    assert (
+        hexdump(hexload(l2addr)) == ctx.ndb.interfaces[ctx.ifname]['address']
+    )
     assert router == ctx.ndb.routes['default']['gateway']
     assert {
         'address': address,
