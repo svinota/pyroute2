@@ -79,6 +79,8 @@ def options(module, config):
         ret.append('--cov=pyroute2')
     if config.get('tests_prefix'):
         module = f'{config["tests_prefix"]}/{module}'
+    if config.get('sub'):
+        module = f'{module}/{config["sub"]}'
     ret.append(module)
     return ret
 
