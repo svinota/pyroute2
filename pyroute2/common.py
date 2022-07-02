@@ -324,22 +324,11 @@ def hexdump(payload, length=0):
     '''
     Represent byte string as hex -- for debug purposes
     '''
-    if sys.version[0] == '3':
-        return ':'.join(
-            '{0:02x}'.format(c) for c in payload[:length] or payload
-        )
-    else:
-        return ':'.join(
-            '{0:02x}'.format(ord(c)) for c in payload[:length] or payload
-        )
+    return ':'.join('{0:02x}'.format(c) for c in payload[:length] or payload)
 
 
 def hexload(data):
-    ret = ''.join(chr(int(x, 16)) for x in data.split(':'))
-    if sys.version[0] == '3':
-        return bytes(ret, 'ascii')
-    else:
-        return bytes(ret)
+    return bytes(bytearray((int(x, 16) for x in data.split(':'))))
 
 
 def load_dump(f, meta=None):
