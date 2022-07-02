@@ -3,10 +3,13 @@ import json
 import subprocess
 
 import pytest
+from pr2test.marks import require_root
 
 from pyroute2 import NDB
 from pyroute2.common import dqn2int
 from pyroute2.dhcp import client
+
+pytestmark = [require_root()]
 
 
 @pytest.fixture
