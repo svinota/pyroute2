@@ -1,11 +1,14 @@
-import sys
+import json
 import select
-from pprint import pprint
-from pyroute2.dhcp import BOOTREQUEST
-from pyroute2.dhcp import DHCPDISCOVER
-from pyroute2.dhcp import DHCPOFFER
-from pyroute2.dhcp import DHCPREQUEST
-from pyroute2.dhcp import DHCPACK
+import sys
+
+from pyroute2.dhcp import (
+    BOOTREQUEST,
+    DHCPACK,
+    DHCPDISCOVER,
+    DHCPOFFER,
+    DHCPREQUEST,
+)
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.dhcp4socket import DHCP4Socket
 
@@ -63,14 +66,17 @@ def action(ifname):
         }
     )
     reply = req(s, poll, request, expect=DHCPACK)
-    pprint(reply)
     s.close()
     return reply
 
 
-if __name__ == '__main__':
+def run():
     if len(sys.argv) > 1:
         ifname = sys.argv[1]
     else:
         ifname = 'eth0'
-    action(ifname)
+    print(json.dumps(action(ifname), indent=4))
+
+
+if __name__ == '__main__':
+    run()

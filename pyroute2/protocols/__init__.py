@@ -1,7 +1,7 @@
 import struct
 from socket import AF_INET, inet_ntop, inet_pton
 
-from pyroute2.common import basestring
+from pyroute2.common import basestring, hexdump
 
 #
 # IEEE = 802.3 Ethernet magic constants. The frame sizes omit
@@ -168,6 +168,11 @@ class msg(dict):
                 value = value[0]
             if isinstance(value, basestring) and sfmt[-1] == 's':
                 value = value[: value.find(b'\x00')]
+            if isinstance(sfmt, str) and sfmt[-1] == 's':
+                try:
+                    value = value.decode('utf-8')
+                except UnicodeDecodeError:
+                    value = hexdump(value)
             self[name] = routine(value)
             self.offset += size
         return self
