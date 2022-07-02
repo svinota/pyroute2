@@ -68,7 +68,10 @@ dist-minimal:
 	mv -f setup.cfg.orig setup.cfg
 
 .PHONY: install
-install: dist
+install:
+	$(MAKE) uninstall
+	$(MAKE) clean
+	$(MAKE) dist
 	${python} -m pip install dist/pyroute2-*whl ${root}
 
 .PHONY: install-minimal
