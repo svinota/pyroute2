@@ -202,7 +202,25 @@ More details and samples see in the documentation.
 Installation
 ------------
 
-`make install` or `pip install pyroute2`
+Using pypi:
+
+.. code-block:: bash
+
+    pip install pyroute2
+
+Using git:
+
+.. code-block:: bash
+
+    pip install git+https://github.com/svinota/pyroute2.git
+
+Using source, requires make and nox
+
+.. code-block:: bash
+
+    git clone https://github.com/svinota/pyroute2.git
+    cd pyroute2
+    make install
 
 Requirements
 ------------
@@ -213,7 +231,7 @@ Links
 -----
 
 * home: https://pyroute2.org/
-* srcs: https://github.com/svinota/pyroute2
+* source: https://github.com/svinota/pyroute2
 * bugs: https://github.com/svinota/pyroute2/issues
 * pypi: https://pypi.python.org/pypi/pyroute2
 * docs: http://docs.pyroute2.org/
