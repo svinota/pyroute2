@@ -3,7 +3,6 @@ from socket import AF_INET
 import pytest
 from pr2test.context_manager import make_test_matrix
 from pr2test.marks import require_root
-from utils import get_simple_bpf_program
 
 from pyroute2 import protocols
 from pyroute2.netlink.rtnl import TC_H_INGRESS, TC_H_ROOT
@@ -104,92 +103,3 @@ def test_action_stats(context):
     assert gact.get_attr('TCA_ACT_KIND') == 'gact'
     # assert our gact has stats
     assert gact.get_attr('TCA_ACT_STATS')
-
-
-def test_bpf_filter(context):
-    index, ifname = test_simple(context)
-    fd1 = get_simple_bpf_program('sched_cls')
-    fd2 = get_simple_bpf_program('sched_act')
-    if fd1 == -1 or fd2 == -1:
-        # to get bpf filter working, one should have:
-        # kernel >= 4.1
-        # CONFIG_EXPERT=y
-        # CONFIG_BPF_SYSCALL=y
-        # CONFIG_NET_CLS_BPF=m/y
-        #
-        # see `grep -rn BPF_PROG_TYPE_SCHED_CLS kernel_sources`
-        pytest.skip('bpf syscall error')
-    context.ipr.tc(
-        'add-filter',
-        'bpf',
-        index=index,
-        handle=0,
-        fd=fd1,
-        name='my_func',
-        parent=0xFFFF0000,
-        action='ok',
-        classid=1,
-    )
-    action = {'kind': 'bpf', 'fd': fd2, 'name': 'my_func', 'action': 'ok'}
-    context.ipr.tc(
-        'add-filter',
-        'u32',
-        index=index,
-        handle=1,
-        protocol=protocols.ETH_P_ALL,
-        parent=0xFFFF0000,
-        target=0x10002,
-        keys=['0x0/0x0+0'],
-        action=action,
-    )
-    fls = context.ipr.get_filters(index=index, parent=0xFFFF0000)
-    assert fls
-    bpf_filter = [
-        x
-        for x in fls
-        if x.get_attr('TCA_OPTIONS') is not None
-        and (x.get_attr('TCA_OPTIONS').get_attr('TCA_BPF_ACT') is not None)
-    ][0]
-    bpf_options = bpf_filter.get_attr('TCA_OPTIONS')
-    assert bpf_options.get_attr('TCA_BPF_NAME') == 'my_func'
-    gact_parms = (
-        bpf_options.get_attr('TCA_BPF_ACT')
-        .get_attr('TCA_ACT_PRIO_1')
-        .get_attr('TCA_ACT_OPTIONS')
-        .get_attr('TCA_GACT_PARMS')
-    )
-    assert gact_parms['action'] == 0
-
-
-def test_bpf_filter_policer(context):
-    index, ifname = test_simple(context)
-    fd = get_simple_bpf_program('sched_cls')
-    if fd == -1:
-        # see comment above about kernel requirements
-        pytest.skip('bpf syscall error')
-    context.ipr.tc(
-        'add-filter',
-        'bpf',
-        index=index,
-        handle=0,
-        fd=fd,
-        name='my_func',
-        parent=0xFFFF0000,
-        action='ok',
-        classid=1,
-        rate='10kbit',
-        burst=10240,
-        mtu=2040,
-    )
-    fls = context.ipr.get_filters(index=index, parent=0xFFFF0000)
-    # assert the supplied policer is returned to us intact
-    plcs = [
-        x
-        for x in fls
-        if x.get_attr('TCA_OPTIONS') is not None
-        and (x.get_attr('TCA_OPTIONS').get_attr('TCA_BPF_POLICE') is not None)
-    ][0]
-    options = plcs.get_attr('TCA_OPTIONS')
-    police = options.get_attr('TCA_BPF_POLICE').get_attr('TCA_POLICE_TBF')
-    assert police['rate'] == 1250
-    assert police['mtu'] == 2040

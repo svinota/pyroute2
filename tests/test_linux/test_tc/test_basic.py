@@ -12,14 +12,14 @@ test_matrix = make_test_matrix(targets=['local', 'netns'])
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_qdisc_pfifo(context):
+def test_pfifo(context):
     index, ifname = context.default_interface
     context.ipr.tc('add', 'pfifo', index=index, limit=700)
     assert qdisc_exists(context.netns, 'pfifo', ifname=ifname, limit=700)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_pfifo(context):
+def test_pfifo_fast(context):
     index, ifname = context.default_interface
     context.ipr.tc('add', 'pfifo_fast', index=index, handle=0)
     ret = qdisc_exists(context.netns, 'pfifo_fast', ifname=ifname)[0]
@@ -100,23 +100,3 @@ def test_choke(context):
     assert opts['limit'] == 5500
     assert opts['qth_max'] == 1375
     assert opts['qth_min'] == 458
-
-
-@pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_drr(context):
-    index, ifname = context.default_interface
-    try:
-        context.ipr.tc('add', 'drr', index=index, handle='1:')
-    except NetlinkError as e:
-        if e.code == errno.ENOENT:
-            pytest.skip('qdisc not supported: drr')
-        raise
-    context.ipr.tc('add-class', 'drr', index=index, handle='1:20', quantum=20)
-    context.ipr.tc('add-class', 'drr', index=index, handle='1:30', quantum=30)
-    assert qdisc_exists(context.netns, 'drr', ifname=ifname)
-    cls = context.ipr.get_classes(index=index)
-    assert len(cls) == 2
-    assert cls[0].get_attr('TCA_KIND') == 'drr'
-    assert cls[1].get_attr('TCA_KIND') == 'drr'
-    assert cls[0].get_attr('TCA_OPTIONS').get_attr('TCA_DRR_QUANTUM') == 20
-    assert cls[1].get_attr('TCA_OPTIONS').get_attr('TCA_DRR_QUANTUM') == 30

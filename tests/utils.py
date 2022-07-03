@@ -1,5 +1,3 @@
-import ctypes
-import ctypes.util
 import errno
 import os
 import platform
@@ -256,66 +254,6 @@ def get_ip_rules(proto='-4'):
         if len(string):
             ret.append(string)
     return ret
-
-
-def get_bpf_syscall_num():
-    # determine bpf syscall number
-    prog = """
-#include <asm/unistd.h>
-#define XSTR(x) STR(x)
-#define STR(x) #x
-#pragma message "__NR_bpf=" XSTR(__NR_bpf)
-"""
-    cmd = ['gcc', '-x', 'c', '-c', '-', '-o', '/dev/null']
-    gcc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-    out = gcc.communicate(input=prog.encode('ascii'))[1]
-    m = re.search('__NR_bpf=([0-9]+)', str(out))
-    if not m:
-        pytest.skip('bpf syscall not available')
-    return int(m.group(1))
-
-
-def get_simple_bpf_program(prog_type):
-    NR_bpf = get_bpf_syscall_num()
-
-    class BPFAttr(ctypes.Structure):
-        _fields_ = [
-            ('prog_type', ctypes.c_uint),
-            ('insn_cnt', ctypes.c_uint),
-            ('insns', ctypes.POINTER(ctypes.c_ulonglong)),
-            ('license', ctypes.c_char_p),
-            ('log_level', ctypes.c_uint),
-            ('log_size', ctypes.c_uint),
-            ('log_buf', ctypes.c_char_p),
-            ('kern_version', ctypes.c_uint),
-        ]
-
-    BPF_PROG_TYPE_SCHED_CLS = 3
-    BPF_PROG_TYPE_SCHED_ACT = 4
-    BPF_PROG_LOAD = 5
-    insns = (ctypes.c_ulonglong * 2)()
-    # equivalent to: int my_func(void *) { return 1; }
-    insns[0] = 0x00000001000000B7
-    insns[1] = 0x0000000000000095
-    license = ctypes.c_char_p(b'GPL')
-    if prog_type.lower() == "sched_cls":
-        attr = BPFAttr(
-            BPF_PROG_TYPE_SCHED_CLS, len(insns), insns, license, 0, 0, None, 0
-        )
-    elif prog_type.lower() == "sched_act":
-        attr = BPFAttr(
-            BPF_PROG_TYPE_SCHED_ACT, len(insns), insns, license, 0, 0, None, 0
-        )
-    libc = ctypes.CDLL(ctypes.util.find_library('c'))
-    libc.syscall.argtypes = [
-        ctypes.c_long,
-        ctypes.c_int,
-        ctypes.POINTER(type(attr)),
-        ctypes.c_uint,
-    ]
-    libc.syscall.restype = ctypes.c_int
-    fd = libc.syscall(NR_bpf, BPF_PROG_LOAD, attr, ctypes.sizeof(attr))
-    return fd
 
 
 def count_socket_fds():
