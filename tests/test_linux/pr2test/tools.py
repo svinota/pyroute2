@@ -98,9 +98,14 @@ def qdisc_exists(netns=None, kind=None, **kwarg):
             ret = []
             for qdisc in pre:
                 options = qdisc.get_attr('TCA_OPTIONS')
+                if 'attrs' in options:
+                    options = dict(options['attrs'])
                 for opt in kwarg:
-                    if options[opt] != kwarg[opt]:
+                    if kwarg[opt] not in (
+                        options.get(opt),
+                        options.get(qdisc.name2nla(opt)),
+                    ):
                         break
                 else:
                     ret.append(qdisc)
-        return len(ret) > 0
+        return ret

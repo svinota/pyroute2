@@ -1,16 +1,89 @@
+import ctypes
+import ctypes.util
+import re
+import subprocess
+
 import pytest
 from pr2test.context_manager import skip_if_not_supported
 from pr2test.marks import require_root
-from utils import get_simple_bpf_program
 
+from pyroute2 import protocols
 from pyroute2.netlink.rtnl import TC_H_INGRESS
 
 pytestmark = [require_root()]
 
 
+def get_bpf_syscall_num():
+    # determine bpf syscall number
+    prog = """
+#include <asm/unistd.h>
+#define XSTR(x) STR(x)
+#define STR(x) #x
+#pragma message "__NR_bpf=" XSTR(__NR_bpf)
+"""
+    cmd = ['gcc', '-x', 'c', '-c', '-', '-o', '/dev/null']
+    gcc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    out = gcc.communicate(input=prog.encode('ascii'))[1]
+    m = re.search('__NR_bpf=([0-9]+)', str(out))
+    if not m:
+        pytest.skip('bpf syscall not available')
+    return int(m.group(1))
+
+
+def get_simple_bpf_program(prog_type):
+    NR_bpf = get_bpf_syscall_num()
+
+    class BPFAttr(ctypes.Structure):
+        _fields_ = [
+            ('prog_type', ctypes.c_uint),
+            ('insn_cnt', ctypes.c_uint),
+            ('insns', ctypes.POINTER(ctypes.c_ulonglong)),
+            ('license', ctypes.c_char_p),
+            ('log_level', ctypes.c_uint),
+            ('log_size', ctypes.c_uint),
+            ('log_buf', ctypes.c_char_p),
+            ('kern_version', ctypes.c_uint),
+        ]
+
+    BPF_PROG_TYPE_SCHED_CLS = 3
+    BPF_PROG_TYPE_SCHED_ACT = 4
+    BPF_PROG_LOAD = 5
+    insns = (ctypes.c_ulonglong * 2)()
+    # equivalent to: int my_func(void *) { return 1; }
+    insns[0] = 0x00000001000000B7
+    insns[1] = 0x0000000000000095
+    license = ctypes.c_char_p(b'GPL')
+    if prog_type.lower() == "sched_cls":
+        attr = BPFAttr(
+            BPF_PROG_TYPE_SCHED_CLS, len(insns), insns, license, 0, 0, None, 0
+        )
+    elif prog_type.lower() == "sched_act":
+        attr = BPFAttr(
+            BPF_PROG_TYPE_SCHED_ACT, len(insns), insns, license, 0, 0, None, 0
+        )
+    libc = ctypes.CDLL(ctypes.util.find_library('c'))
+    libc.syscall.argtypes = [
+        ctypes.c_long,
+        ctypes.c_int,
+        ctypes.POINTER(type(attr)),
+        ctypes.c_uint,
+    ]
+    libc.syscall.restype = ctypes.c_int
+    fd = libc.syscall(NR_bpf, BPF_PROG_LOAD, attr, ctypes.sizeof(attr))
+    return fd
+
+
 @pytest.fixture
-def bpf():
+def bpf_cls():
     fd = get_simple_bpf_program('sched_cls')
+    if fd == -1:
+        pytest.skip('bpf syscall error')
+    yield fd
+
+
+@pytest.fixture
+def bpf_act():
+    fd = get_simple_bpf_program('sched_act')
     if fd == -1:
         pytest.skip('bpf syscall error')
     yield fd
@@ -48,13 +121,13 @@ def test_simple(ingress):
 
 
 @skip_if_not_supported
-def test_filter_policer(ingress, bpf):
+def test_filter_sched_cls(ingress, bpf_cls):
     ingress.ipr.tc(
         'add-filter',
         kind='bpf',
         index=ingress.default_interface.index,
         handle=0,
-        fd=bpf,
+        fd=bpf_cls,
         name='my_func',
         parent=0xFFFF0000,
         action='ok',
@@ -80,13 +153,58 @@ def test_filter_policer(ingress, bpf):
 
 
 @skip_if_not_supported
-def test_filter_delete(context, bpf):
+def test_filter_sched_act(ingress, bpf_cls, bpf_act):
+    index, ifname = ingress.default_interface
+    ingress.ipr.tc(
+        'add-filter',
+        'bpf',
+        index=index,
+        handle=0,
+        fd=bpf_cls,
+        name='my_func',
+        parent=0xFFFF0000,
+        action='ok',
+        classid=1,
+    )
+    action = {'kind': 'bpf', 'fd': bpf_act, 'name': 'my_func', 'action': 'ok'}
+    ingress.ipr.tc(
+        'add-filter',
+        'u32',
+        index=index,
+        handle=1,
+        protocol=protocols.ETH_P_ALL,
+        parent=0xFFFF0000,
+        target=0x10002,
+        keys=['0x0/0x0+0'],
+        action=action,
+    )
+    fls = ingress.ipr.get_filters(index=index, parent=0xFFFF0000)
+    assert fls
+    bpf_filter = [
+        x
+        for x in fls
+        if x.get_attr('TCA_OPTIONS') is not None
+        and (x.get_attr('TCA_OPTIONS').get_attr('TCA_BPF_ACT') is not None)
+    ][0]
+    bpf_options = bpf_filter.get_attr('TCA_OPTIONS')
+    assert bpf_options.get_attr('TCA_BPF_NAME') == 'my_func'
+    gact_parms = (
+        bpf_options.get_attr('TCA_BPF_ACT')
+        .get_attr('TCA_ACT_PRIO_1')
+        .get_attr('TCA_ACT_OPTIONS')
+        .get_attr('TCA_GACT_PARMS')
+    )
+    assert gact_parms['action'] == 0
+
+
+@skip_if_not_supported
+def test_filter_delete(context, bpf_cls):
     context.ipr.tc('add', kind='clsact', index=context.default_interface.index)
     context.ipr.tc(
         'add-filter',
         kind='bpf',
         index=context.default_interface.index,
-        fd=bpf,
+        fd=bpf_cls,
         name='my_func',
         parent='ffff:fff2',
         classid=1,
