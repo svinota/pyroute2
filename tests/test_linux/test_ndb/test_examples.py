@@ -1,5 +1,6 @@
 import os
 import pathlib
+import sys
 
 import pytest
 from pr2test.marks import require_root
@@ -30,11 +31,15 @@ def test_cli_examples(example, pytester, context):
 
 @pytest.mark.parametrize(**get_examples('examples', 'ndb'))
 def test_ndb_examples(example, pytester, context):
+    argv = []
     with example.open('r') as text:
         for line in text.readlines():
-            if line.strip() == ':notest:':
+            line = line.strip()
+            if line == ':notest:':
                 pytest.skip()
-    result = pytester.runpython(example.as_posix())
+            elif line.startswith(':test:argv:'):
+                argv.append(line.split(':')[-1])
+    result = pytester.run(sys.executable, example.as_posix(), *argv)
     assert result.ret == 0
 
 
