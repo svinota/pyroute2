@@ -39,6 +39,9 @@ def test_ndb_examples(example, pytester, context):
                 pytest.skip()
             elif line.startswith(':test:argv:'):
                 argv.append(line.split(':')[-1])
+            elif line.startswith(':test:environ:'):
+                key, value = line.split(':')[-1].split('=')
+                os.environ[key] = value
     result = pytester.run(sys.executable, example.as_posix(), *argv)
     assert result.ret == 0
 
