@@ -186,9 +186,14 @@ def unit(session, config):
 def linux(session, config):
     '''Run Linux functional tests. Requires root to run all the tests.'''
     setup_linux(session)
+    workspace = setup_venv_dev(session)
     session.run(
         *options('test_linux', config),
-        env={'WORKSPACE': setup_venv_dev(session), 'SKIPDB': 'postgres'},
+        env={
+            'WORKSPACE': workspace,
+            'SKIPDB': 'postgres',
+            'PYTHONPATH': f'{workspace}/tests/mocklib',
+        },
     )
 
 
