@@ -61,6 +61,23 @@ A "Hello world" example:
 
     from pyroute2 import NDB
 
+    with NDB() as ndb:
+        (
+            ndb.interfaces['eth0']
+            .set('state', 'down')
+            .commit()  # make sure that the interface is down
+            .set('ifname', 'hello_world!')
+            .set('state', 'up')
+            .commit()  # rename, bring up and wait for success
+        )
+        # --> <-- here you can be sure that the interface is up & renamed
+
+More examples:
+
+.. code-block:: python
+
+    from pyroute2 import NDB
+
     ndb = NDB(log='debug')
 
     for record in ndb.interfaces.summary():
