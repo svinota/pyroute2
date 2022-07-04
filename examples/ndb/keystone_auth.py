@@ -1,5 +1,5 @@
 '''
-:notest:
+:test:argv:14080769fe05e1f8b837fb43ca0f0ba4
 
 A simplest example of a custom AuthManager and its usage
 with `AuthProxy` objects.

@@ -1,5 +1,8 @@
 '''
-:notest:
+:test:argv:testing
+:test:argv:secret
+:test:environ:RADIUS_SERVER=127.0.0.1
+:test:environ:RADIUS_SECRET=secret
 
 An example of using RADIUS authentication with NDB.
 
