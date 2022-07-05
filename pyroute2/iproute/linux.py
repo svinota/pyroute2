@@ -78,6 +78,11 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.requests.address import AddressFieldFilter, AddressIPRouteFilter
+from pyroute2.requests.bridge import (
+    BridgeFieldFilter,
+    BridgeIPRouteFilter,
+    BridgePortFieldFilter,
+)
 from pyroute2.requests.link import LinkFieldFilter, LinkIPRouteFilter
 from pyroute2.requests.main import RequestProcessor
 from pyroute2.requests.neighbour import (
@@ -86,8 +91,6 @@ from pyroute2.requests.neighbour import (
 )
 from pyroute2.requests.route import RouteFieldFilter, RouteIPRouteFilter
 from pyroute2.requests.rule import RuleFieldFilter, RuleIPRouteFilter
-
-from .req import IPBridgeRequest, IPBrPortRequest
 
 DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)
@@ -732,8 +735,14 @@ class RTNL_API(object):
         msg = ifinfmsg()
         msg['index'] = kwarg.get('index', 0)
         msg['family'] = AF_BRIDGE
-        protinfo = IPBrPortRequest(kwarg)
-        msg['attrs'].append(('IFLA_PROTINFO', dict(protinfo), 0x8000))
+        protinfo = (
+            RequestProcessor(context=match, prime=match)
+            .apply_filter(BridgePortFieldFilter(command))
+            .finalize()
+        )
+        msg['attrs'].append(
+            ('IFLA_PROTINFO', {'attrs': protinfo['attrs']}, 0x8000)
+        )
         ret = self.nlm_request(msg, msg_type=command, msg_flags=msg_flags)
         if match is not None:
             ret = self._match(match, ret)
@@ -877,7 +886,10 @@ class RTNL_API(object):
         }
 
         kwarg['family'] = AF_BRIDGE
-        kwarg['kwarg_filter'] = IPBridgeRequest
+        kwarg['kwarg_filter'] = [
+            BridgeFieldFilter(),
+            BridgeIPRouteFilter(command),
+        ]
 
         (command, flags) = commands.get(command, command)
         return tuple(self.link((command, flags), **kwarg))
@@ -1437,15 +1449,15 @@ class RTNL_API(object):
         }
 
         msg = ifinfmsg()
-        if 'kwarg_filter' in kwarg:
-            request = kwarg['kwarg_filter'](kwarg, command)
+        if kwarg.get('kwarg_filter'):
+            filters = kwarg['kwarg_filter']
         else:
-            request = (
-                RequestProcessor(context=kwarg, prime=kwarg)
-                .apply_filter(LinkFieldFilter())
-                .apply_filter(LinkIPRouteFilter(command))
-                .finalize()
-            )
+            filters = [LinkFieldFilter(), LinkIPRouteFilter(command)]
+        request = RequestProcessor(context=kwarg, prime=kwarg)
+        for rfilter in filters:
+            request.apply_filter(rfilter)
+        request.finalize()
+
         dump_filter = get_dump_filter(kwarg)
         msg_type, msg_flags = get_msg_type(command, command_map)
 
