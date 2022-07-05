@@ -26,6 +26,11 @@ class RequestProcessor(dict):
     def filter(self, key, value):
         if hasattr(self.field_filter, '_key_transform'):
             key = self.field_filter._key_transform(key)
+        if (
+            hasattr(self.field_filter, '_allowed')
+            and key not in self.field_filter._allowed
+        ):
+            return {}
         return getattr(
             self.field_filter, f'set_{key}', lambda *argv: {key: value}
         )(self.combined, value)

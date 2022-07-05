@@ -78,6 +78,11 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.requests.address import AddressFieldFilter, AddressIPRouteFilter
+from pyroute2.requests.bridge import (
+    BridgeFieldFilter,
+    BridgeIPRouteFilter,
+    BridgePortFieldFilter,
+)
 from pyroute2.requests.link import LinkFieldFilter, LinkIPRouteFilter
 from pyroute2.requests.main import RequestProcessor
 from pyroute2.requests.neighbour import (
@@ -85,8 +90,7 @@ from pyroute2.requests.neighbour import (
     NeighbourIPRouteFilter,
 )
 from pyroute2.requests.route import RouteFieldFilter, RouteIPRouteFilter
-
-from .req import IPBridgeRequest, IPBrPortRequest, IPRuleRequest
+from pyroute2.requests.rule import RuleFieldFilter, RuleIPRouteFilter
 
 DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)
@@ -731,8 +735,14 @@ class RTNL_API(object):
         msg = ifinfmsg()
         msg['index'] = kwarg.get('index', 0)
         msg['family'] = AF_BRIDGE
-        protinfo = IPBrPortRequest(kwarg)
-        msg['attrs'].append(('IFLA_PROTINFO', dict(protinfo), 0x8000))
+        protinfo = (
+            RequestProcessor(context=match, prime=match)
+            .apply_filter(BridgePortFieldFilter(command))
+            .finalize()
+        )
+        msg['attrs'].append(
+            ('IFLA_PROTINFO', {'attrs': protinfo['attrs']}, 0x8000)
+        )
         ret = self.nlm_request(msg, msg_type=command, msg_flags=msg_flags)
         if match is not None:
             ret = self._match(match, ret)
@@ -876,7 +886,10 @@ class RTNL_API(object):
         }
 
         kwarg['family'] = AF_BRIDGE
-        kwarg['kwarg_filter'] = IPBridgeRequest
+        kwarg['kwarg_filter'] = [
+            BridgeFieldFilter(),
+            BridgeIPRouteFilter(command),
+        ]
 
         (command, flags) = commands.get(command, command)
         return tuple(self.link((command, flags), **kwarg))
@@ -1436,15 +1449,15 @@ class RTNL_API(object):
         }
 
         msg = ifinfmsg()
-        if 'kwarg_filter' in kwarg:
-            request = kwarg['kwarg_filter'](kwarg, command)
+        if kwarg.get('kwarg_filter'):
+            filters = kwarg['kwarg_filter']
         else:
-            request = (
-                RequestProcessor(context=kwarg, prime=kwarg)
-                .apply_filter(LinkFieldFilter())
-                .apply_filter(LinkIPRouteFilter(command))
-                .finalize()
-            )
+            filters = [LinkFieldFilter(), LinkIPRouteFilter(command)]
+        request = RequestProcessor(context=kwarg, prime=kwarg)
+        for rfilter in filters:
+            request.apply_filter(rfilter)
+        request.finalize()
+
         dump_filter = get_dump_filter(kwarg)
         msg_type, msg_flags = get_msg_type(command, command_map)
 
@@ -2190,7 +2203,12 @@ class RTNL_API(object):
             match = kwarg
         else:
             match = kwarg.pop('match', None)
-        kwarg = IPRuleRequest(kwarg)
+        request = (
+            RequestProcessor(context=kwarg, prime=kwarg)
+            .apply_filter(RuleFieldFilter())
+            .apply_filter(RuleIPRouteFilter(command))
+            .finalize()
+        )
 
         commands = {
             'add': (RTM_NEWRULE, flags_make),
@@ -2204,23 +2222,30 @@ class RTNL_API(object):
         command, flags = commands.get(command, command)
 
         msg = fibmsg()
-        table = kwarg.get('table', 0)
+        table = request.get('table', 0)
         msg['table'] = table if table <= 255 else 252
         for key in ('family', 'src_len', 'dst_len', 'action', 'tos', 'flags'):
-            msg[key] = kwarg.pop(key, 0)
+            msg[key] = request.pop(key, 0)
         msg['attrs'] = []
 
-        for key in kwarg:
+        for key in request:
             if command == RTM_GETRULE and self.strict_check:
                 if key in ("match", "priority"):
                     continue
             nla = fibmsg.name2nla(key)
-            if kwarg[key] is not None:
-                msg['attrs'].append([nla, kwarg[key]])
+            if request[key] is not None:
+                msg['attrs'].append([nla, request[key]])
 
         ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
 
         if match:
+            if isinstance(match, dict):
+                match = (
+                    RequestProcessor(context=match, prime=match)
+                    .apply_filter(RuleFieldFilter())
+                    .apply_filter(RuleIPRouteFilter('dump'))
+                    .finalize()
+                )
             ret = self._match(match, ret)
 
         if not (command == RTM_GETRULE and self.nlm_generator):
