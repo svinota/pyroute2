@@ -85,8 +85,9 @@ from pyroute2.requests.neighbour import (
     NeighbourIPRouteFilter,
 )
 from pyroute2.requests.route import RouteFieldFilter, RouteIPRouteFilter
+from pyroute2.requests.rule import RuleFieldFilter, RuleIPRouteFilter
 
-from .req import IPBridgeRequest, IPBrPortRequest, IPRuleRequest
+from .req import IPBridgeRequest, IPBrPortRequest
 
 DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)
@@ -2190,7 +2191,12 @@ class RTNL_API(object):
             match = kwarg
         else:
             match = kwarg.pop('match', None)
-        kwarg = IPRuleRequest(kwarg)
+        request = (
+            RequestProcessor(context=kwarg, prime=kwarg)
+            .apply_filter(RuleFieldFilter())
+            .apply_filter(RuleIPRouteFilter(command))
+            .finalize()
+        )
 
         commands = {
             'add': (RTM_NEWRULE, flags_make),
@@ -2204,23 +2210,30 @@ class RTNL_API(object):
         command, flags = commands.get(command, command)
 
         msg = fibmsg()
-        table = kwarg.get('table', 0)
+        table = request.get('table', 0)
         msg['table'] = table if table <= 255 else 252
         for key in ('family', 'src_len', 'dst_len', 'action', 'tos', 'flags'):
-            msg[key] = kwarg.pop(key, 0)
+            msg[key] = request.pop(key, 0)
         msg['attrs'] = []
 
-        for key in kwarg:
+        for key in request:
             if command == RTM_GETRULE and self.strict_check:
                 if key in ("match", "priority"):
                     continue
             nla = fibmsg.name2nla(key)
-            if kwarg[key] is not None:
-                msg['attrs'].append([nla, kwarg[key]])
+            if request[key] is not None:
+                msg['attrs'].append([nla, request[key]])
 
         ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
 
         if match:
+            if isinstance(match, dict):
+                match = (
+                    RequestProcessor(context=match, prime=match)
+                    .apply_filter(RuleFieldFilter())
+                    .apply_filter(RuleIPRouteFilter('dump'))
+                    .finalize()
+                )
             ret = self._match(match, ret)
 
         if not (command == RTM_GETRULE and self.nlm_generator):

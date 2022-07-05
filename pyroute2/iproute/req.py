@@ -1,9 +1,6 @@
 import logging
 from collections import OrderedDict
-from socket import AF_INET, AF_INET6
 
-from pyroute2.common import basestring
-from pyroute2.netlink.rtnl.fibmsg import FR_ACT_NAMES
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg, protinfo_bridge
 
 log = logging.getLogger(__name__)
@@ -37,35 +34,6 @@ class IPRequest(OrderedDict):
 
     def sync_cacheinfo(self):
         pass
-
-
-class IPRuleRequest(IPRequest):
-    def fix_request(self):
-        # now fix the rest
-        if 'family' not in self:
-            self['family'] = AF_INET
-        if ('priority' not in self) and ('FRA_PRIORITY' not in self):
-            self['priority'] = 32000
-        if 'table' in self and 'action' not in self:
-            self['action'] = 'to_tbl'
-        for key in ('src_len', 'dst_len'):
-            if self.get(key, None) is None and key[:3] in self:
-                self[key] = {AF_INET6: 128, AF_INET: 32}[self['family']]
-
-    def __setitem__(self, key, value):
-        if key.startswith('ipdb_'):
-            return
-
-        if key in ('src', 'dst'):
-            v = value.split('/')
-            if len(v) == 2:
-                value, self['%s_len' % key] = v[0], int(v[1])
-        elif key == 'action' and isinstance(value, basestring):
-            value = FR_ACT_NAMES.get(
-                value, (FR_ACT_NAMES.get('FR_ACT_' + value.upper(), value))
-            )
-
-        self.set(key, value)
 
 
 class CBRequest(IPRequest):
