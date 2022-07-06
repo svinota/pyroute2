@@ -50,7 +50,7 @@ Options
 
 .. rubric:: **Server mode options**
 
-.. options:: -a <ipaddr>
+.. option:: -a <ipaddr>
 
    IP address to listen on
 
