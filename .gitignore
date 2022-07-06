@@ -8,6 +8,8 @@ build/
 dist/
 MANIFEST
 docs/html
+docs/man
+docs/doctrees
 docs/_templates/private.layout.html
 docs-build.log
 *.egg-info

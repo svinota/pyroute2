@@ -4,13 +4,14 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.inheritance_diagram',
               'aafigure.sphinxext']
 
+aafig_format = {'html': 'svg', 'man': None}
 
 inheritance_graph_attrs = {'rankdir': 'LR',
                            'ratio': 'auto'}
 source_suffix = '.rst'
 master_doc = 'index'
 project = u'pyroute2'
-copyright = u'2013, Peter V. Saveliev'
+copyright = u'Peter Saveliev and PyRoute2 team'
 
 release = pyroute2.__version__
 
@@ -24,25 +25,11 @@ htmlhelp_basename = 'pyroute2doc'
 templates_path = ['_templates']
 
 
-latex_elements = {}
-latex_documents = [('index',
-                    'pyroute2.tex',
-                    u'pyroute2 Documentation',
-                    u'Peter V. Saveliev',
-                    'manual'), ]
+man_pages = [('pyroute2-cli',
+              'pyroute2-cli',
+              'pyroute2 command line interface ',
+              ['Peter Saveliev'], 1), ]
 
-man_pages = [('index',
-              'pyroute2',
-              u'pyroute2 Documentation',
-              [u'Peter V. Saveliev'], 1), ]
-
-texinfo_documents = [('index',
-                      'pyroute2',
-                      u'pyroute2 Documentation',
-                      u'Peter V. Saveliev',
-                      'pyroute2',
-                      'One line description of project.',
-                      'Miscellaneous'), ]
 
 
 def setup(app):
