@@ -1,4 +1,4 @@
-files: '^(noxfile.py|pyroute2|pr2modules|examlpes/ndb|examples/pyroute2-cli|tests)'
+files: '^(noxfile.py|pyroute2|pr2modules|examlpes/ndb|docs/conf.py|examples/pyroute2-cli|tests)'
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.2.0

@@ -1,13 +1,14 @@
 import pyroute2
 
-extensions = ['sphinx.ext.autodoc',
-              'sphinx.ext.inheritance_diagram',
-              'aafigure.sphinxext']
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.inheritance_diagram',
+    'aafigure.sphinxext',
+]
 
 aafig_format = {'html': 'svg', 'man': None}
 
-inheritance_graph_attrs = {'rankdir': 'LR',
-                           'ratio': 'auto'}
+inheritance_graph_attrs = {'rankdir': 'LR', 'ratio': 'auto'}
 source_suffix = '.rst'
 master_doc = 'index'
 project = u'pyroute2'
@@ -25,11 +26,22 @@ htmlhelp_basename = 'pyroute2doc'
 templates_path = ['_templates']
 
 
-man_pages = [('pyroute2-cli',
-              'pyroute2-cli',
-              'pyroute2 command line interface ',
-              ['Peter Saveliev'], 1), ]
-
+man_pages = [
+    (
+        'pyroute2-cli',
+        'pyroute2-cli',
+        'pyroute2 command line interface',
+        ['Peter Saveliev'],
+        1,
+    ),
+    (
+        'pyroute2-dhcp-client',
+        'pyroute2-dhcp-client',
+        'pyroute2 dhcp client',
+        ['Peter Saveliev'],
+        1,
+    ),
+]
 
 
 def setup(app):
