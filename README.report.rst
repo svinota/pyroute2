@@ -11,15 +11,19 @@ with your report:
 * Python version
 * Specific environment, if used -- gevent, eventlet etc.
 
-Sometimes it is needed to measure specific system parameters.
-There is a code to do that, e.g.::
+The project provides a script to print the system summary:
 
-    $ sudo make test-platform
+.. code-block:: sh
+
+    pyroute2-test-platform
 
 Please keep in mind, that this command will try to create
-and delete different interface types.
+and delete different interface types, and this requires
+root access.
 
-It is possible also to run the test in your code::
+It is possible also to run the test in your code:
+
+.. code-block:: python
 
     from pprint import pprint
     from pyroute2.config.test_platform import TestCapsRtnl

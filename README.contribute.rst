@@ -9,14 +9,13 @@ Step 1: setup the environment
 Linux
 +++++
 
-.. code-block:: bash
+.. code-block:: sh
 
    # make sure you have installed:
    #   bash
    #   git
    #   python
-   #   GNU make
-   #   GNU sed
+   #   GNU make, sed, awk
    #
    # then clone the repo
    git clone ${pyroute2_git_url}
@@ -30,14 +29,13 @@ Linux
    pip install --upgrade pip
    pip install nox
 
-   # run the test cycle on Python 3.10
-   #
-   sudo nox -e py310
+   # run the test cycle
+   nox
 
 OpenBSD
 +++++++
 
-.. code-block:: bash
+.. code-block:: sh
 
    # install required tools
    pkg_add bash git gmake gsed python
@@ -65,7 +63,7 @@ But some embedded environments strip even the stdlib, removing
 modules like sqlite3.
 
 So to run pyroute2 even in such environments, the project provdes
-to packages, `pyroute2` and `pyroute2.minimal`, with the latter
+two packages, `pyroute2` and `pyroute2.minimal`, with the latter
 providing a minimal distribution, but using no sqlite3 or pickle.
 
 Modules `pyroute2` and `pyroute2.minimal` are mutually exclusive.
@@ -78,7 +76,7 @@ Step 3: test the change
 
 Assume the environment is already set up on the step 1. Thus:
 
-.. code-block:: bash
+.. code-block:: sh
 
    # run code checks
    nox -e linter
@@ -86,8 +84,8 @@ Assume the environment is already set up on the step 1. Thus:
    # run unit tests
    nox -e unit
 
-   # * run under root to check all the functional tests
-   sudo nox -e linux-3.10
+   # run functional test, some require root
+   nox -e linux-3.10
 
 Step 4: submit a PR
 -------------------
