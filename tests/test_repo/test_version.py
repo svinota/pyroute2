@@ -8,7 +8,7 @@ from setuptools._vendor import packaging
 @pytest.fixture
 def files():
     context = {}
-    for file in ('VERSION', 'CHANGELOG.md'):
+    for file in ('VERSION', 'CHANGELOG.rst'):
         with open(file, 'r') as f:
             obj = io.StringIO()
             obj.write(f.read())
@@ -25,7 +25,7 @@ def test_static_version_file(files):
 
 def test_changelog(files):
     line = ''
-    for line in files['CHANGELOG.md'].readlines():
+    for line in files['CHANGELOG.rst'].readlines():
         if line[0] == '*':
             break
     static_version = packaging.version.parse(files['VERSION'].getvalue())

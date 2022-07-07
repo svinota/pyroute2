@@ -125,7 +125,7 @@ def setup_venv_repo(session):
         ('tests', tmpdir),
         ('noxfile.py', tmpdir),
         ('VERSION', tmpdir),
-        ('CHANGELOG.md', tmpdir),
+        ('CHANGELOG.rst', tmpdir),
     ):
         session.run('cp', '-a', *item, external=True)
     git_ls_files = subprocess.run(
@@ -146,8 +146,9 @@ def setup_venv_docs(session):
         session.run('cp', src, dst, external=True)
         for (src, dst) in (
             ('README.rst', f'{tmpdir}/docs/general.rst'),
-            ('README.report.md', f'{tmpdir}/docs/report.rst'),
-            ('CHANGELOG.md', f'{tmpdir}/docs/changelog.rst'),
+            ('README.report.rst', f'{tmpdir}/docs/report.rst'),
+            ('README.contribute.rst', f'{tmpdir}/docs/devcontribute.rst'),
+            ('CHANGELOG.rst', f'{tmpdir}/docs/changelog.rst'),
         )
     ]
     return tmpdir

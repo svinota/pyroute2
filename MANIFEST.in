@@ -1,10 +1,11 @@
 include VERSION
 include README.rst
-include README.minimal.md
-include README.report.md
-include README.license.md
+include README.contribute.rst
+include README.minimal.rst
+include README.report.rst
+include README.license.rst
 include LICENSE*
-include CHANGELOG.md
+include CHANGELOG.rst
 graft docs/html
 graft tests/test_unit
 graft examples
