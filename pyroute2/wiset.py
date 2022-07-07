@@ -435,7 +435,7 @@ class WiSet(object):
 
         :param new_list: list of entries to add
         :type new_list: list or :py:class:`set` of basestring or of
-        keyword arguments dict
+            keyword arguments dict
         """
         temp_name = str(uuid.uuid4())[0:8]
         # Get a copy of ourself

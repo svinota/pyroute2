@@ -1,5 +1,13 @@
-Warning
-=======
+Test modules
+============
+
+* `test_limits` -- resource limits, fd leaks, etc
+* `test_linux` -- functional tests for Linux, may require root
+* `test_minimal` -- test pyroute2.minimal package
+* `test_neutron` -- integration with OpenStack Neutron
+* `test_noxfile` -- noxfile.py static checks
+* `test_openbsd` -- functional tests for OpenBSD
+* `test_unit` -- unittests
 
 Functional tests under `test_linux` directory require root
 access to create, destroy and set up network objects --
@@ -11,7 +19,7 @@ Requirements
 
 * nox
 * python >= 3.6
-* -r requirements.dev.txt
+* `-r requirements.dev.txt`
 
 Run tests
 =========

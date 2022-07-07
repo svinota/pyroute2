@@ -136,6 +136,7 @@ def setup_venv_nox(session):
 def setup_venv_docs(session):
     tmpdir = setup_venv_common(session, 'docs')
     session.run('cp', '-a', 'docs', tmpdir, external=True)
+    session.run('cp', '-a', 'examples', tmpdir, external=True)
     [
         session.run('cp', src, dst, external=True)
         for (src, dst) in (
@@ -169,6 +170,11 @@ def docs(session):
     session.run('cp', '-a', 'html', f'{cwd}/docs/', external=True)
     session.chdir(cwd)
     session.run('bash', 'util/aafigure_mapper.sh', external=True)
+    #
+    session.log('8<---------------------------------------------------------')
+    session.log('compiled docs:')
+    session.log(f'html pages -> {cwd}/docs/html')
+    session.log(f'man pages -> {cwd}/docs/man')
 
 
 @nox.session

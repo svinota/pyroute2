@@ -31,10 +31,9 @@ clean:
 VERSION:
 	@${python} util/update_version.py
 
-docs/html:
+.PHONY: docs
+docs:
 	@nox -e docs
-
-docs: install docs/html
 
 .PHONY: format
 format:

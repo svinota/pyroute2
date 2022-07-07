@@ -1,7 +1,6 @@
 include VERSION
 include README.rst
 include README.minimal.md
-include README.make.md
 include README.report.md
 include README.license.md
 include LICENSE*

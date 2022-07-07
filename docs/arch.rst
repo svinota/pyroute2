@@ -42,7 +42,7 @@ by the library:
     pyroute2.remote.RemoteIPRoute
     pyroute2.remote.transport.RemoteSocket
     pyroute2.remote.shell.ShellIPR
-    pyroute2.nslink.NetNS
+    pyroute2.nslink.nslink.NetNS
     :parts: 1
 
 under the hood

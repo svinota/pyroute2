@@ -11,7 +11,6 @@ General information
 
     general
     changelog
-    makefile
     report
 
 Usage
@@ -36,6 +35,15 @@ Howtos
 
     mpls
     debug
+
+Man pages
+---------
+
+.. toctree::
+   :maxdepth: 1
+
+   pyroute2-cli
+   pyroute2-dhcp-client
 
 Development
 -----------
