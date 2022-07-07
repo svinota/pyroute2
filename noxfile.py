@@ -10,7 +10,7 @@ nox.options.envdir = f'./.nox-{getpass.getuser()}'
 nox.options.reuse_existing_virtualenvs = False
 nox.options.sessions = [
     'linter',
-    'noxtest',
+    'repo',
     'unit',
     'neutron',
     'linux-3.6',
@@ -119,10 +119,15 @@ def setup_venv_dev(session):
     return tmpdir
 
 
-def setup_venv_nox(session):
-    tmpdir = setup_venv_common(session, 'noxtest')
-    session.run('cp', '-a', 'tests', tmpdir, external=True)
-    session.run('cp', '-a', 'noxfile.py', tmpdir, external=True)
+def setup_venv_repo(session):
+    tmpdir = setup_venv_common(session, 'repo')
+    for item in (
+        ('tests', tmpdir),
+        ('noxfile.py', tmpdir),
+        ('VERSION', tmpdir),
+        ('CHANGELOG.md', tmpdir),
+    ):
+        session.run('cp', '-a', *item, external=True)
     git_ls_files = subprocess.run(
         ['git', 'ls-files', 'requirements*'], stdout=subprocess.PIPE
     )
@@ -226,11 +231,11 @@ def neutron(session, config):
 
 @nox.session
 @add_session_config
-def noxtest(session, config):
-    '''Run noxfile self tests.'''
-    setup_venv_nox(session)
+def repo(session, config):
+    '''Run repo tests.'''
+    setup_venv_repo(session)
     config['tests_prefix'] = 'tests'
-    session.run(*options('test_noxfile', config))
+    session.run(*options('test_repo', config))
 
 
 @nox.session

@@ -5,7 +5,7 @@ Test modules
 * `test_linux` -- functional tests for Linux, may require root
 * `test_minimal` -- test pyroute2.minimal package
 * `test_neutron` -- integration with OpenStack Neutron
-* `test_noxfile` -- noxfile.py static checks
+* `test_repo` -- repository checks
 * `test_openbsd` -- functional tests for OpenBSD
 * `test_unit` -- unittests
 

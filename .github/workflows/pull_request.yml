@@ -15,12 +15,12 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: make nox session=linter python=python3.8
-  noxtest:
+  repo:
     runs-on: code
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: make nox session=noxtest python=python3.8
+      - run: make nox session=repo python=python3.8
   unit:
     runs-on: code
     steps:
