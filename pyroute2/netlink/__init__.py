@@ -1135,9 +1135,14 @@ class nlmsg_base(dict):
         '''
         pointer = self
         for attr in attrs:
-            pointer = pointer.get_attr(attr)
-            if pointer is None:
-                return
+            nla = attr
+            if pointer.prefix:
+                nla = pointer.name2nla(attr)
+            value = pointer.get_attr(nla)
+            if value is None:
+                return pointer.get(attr)
+            else:
+                pointer = value
         return pointer
 
     def get_attr(self, attr, default=None):
