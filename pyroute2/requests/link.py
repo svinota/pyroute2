@@ -73,6 +73,8 @@ class LinkIPRouteFilter(IPRouteFilter):
 
     def set_state(self, context, value):
         ret = {}
+        if self.command == 'dump':
+            return {'state': value}
         if value == 'up':
             ret['flags'] = context.get('flags', 0) or 0 | 1
         ret['change'] = context.get('change', 0) or 0 | 1
@@ -92,10 +94,17 @@ class LinkIPRouteFilter(IPRouteFilter):
         ret['change'] = context.get('change', 0) or 0 | IFF_NOARP
         return ret
 
+    def set_kind(self, context, value):
+        if self.command == 'dump':
+            return {('linkinfo', 'kind'): value}
+        return {'kind': value}
+
     def finalize(self, context):
         # set interface type specific attributes
         # create IFLA_LINKINFO
 
+        if self.command == 'dump':
+            return
         # get common ifinfmsg NLAs
         self.common = []
         for (key, _) in ifinfmsg.nla_map:
