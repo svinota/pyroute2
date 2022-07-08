@@ -144,6 +144,6 @@ class NLAKeyTransform:
     _nla_prefix = ''
 
     def _key_transform(self, key):
-        if key.startswith(self._nla_prefix):
+        if isinstance(key, str) and key.startswith(self._nla_prefix):
             key = key[len(self._nla_prefix) :].lower()
         return key
