@@ -19,7 +19,8 @@ def files():
 
 def test_static_version_file(files):
     assert re.match(
-        r'[0-9]\.[0-9]\.[0-9]{1,2}\.post1', files['VERSION'].getvalue().strip()
+        r'^[0-9]\.[0-9]\.[0-9]{1,2}(\.post[0-9]+|\.rc[0-9]+){0,1}$',
+        files['VERSION'].getvalue().strip(),
     )
 
 
