@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
+import time
 import warnings
 from functools import partial
 from itertools import chain
@@ -21,7 +22,11 @@ from pyroute2.netlink import (
     NLM_F_ROOT,
     NLMSG_ERROR,
 )
-from pyroute2.netlink.exceptions import NetlinkError, SkipInode
+from pyroute2.netlink.exceptions import (
+    NetlinkDumpInterrupted,
+    NetlinkError,
+    SkipInode,
+)
 from pyroute2.netlink.rtnl import (
     RTM_DELADDR,
     RTM_DELLINK,
@@ -228,6 +233,22 @@ class RTNL_API(object):
         for method in methods:
             for msg in method():
                 yield msg
+
+    def poll(self, method, command, timeout=10, **spec):
+        '''
+        Poll an IPRoute object using `method(command, **spec)`
+        '''
+        ctime = time.time()
+        ret = tuple()
+        while ctime + timeout > time.time():
+            try:
+                ret = method(command, **spec)
+                if ret:
+                    return ret
+                time.sleep(0.2)
+            except NetlinkDumpInterrupted:
+                pass
+        raise TimeoutError()
 
     # 8<---------------------------------------------------------------
     #
