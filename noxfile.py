@@ -104,6 +104,19 @@ def setup_linux(session):
         )
 
 
+def setup_venv_minimal(session):
+    session.install('--upgrade', 'pip')
+    session.install('-r', 'requirements.dev.txt')
+    session.run('mv', '-f', 'setup.cfg', 'setup.cfg.orig', external=True)
+    session.run('cp', 'setup.minimal.cfg', 'setup.cfg', external=True)
+    session.install('.')
+    session.run('mv', '-f', 'setup.cfg.orig', 'setup.cfg', external=True)
+    tmpdir = os.path.abspath(session.create_tmp())
+    session.run('cp', '-a', 'tests', tmpdir, external=True)
+    session.chdir(f'{tmpdir}/tests')
+    return tmpdir
+
+
 def setup_venv_common(session, flavour='dev'):
     session.install('--upgrade', 'pip')
     session.install('-r', f'requirements.{flavour}.txt')
@@ -212,6 +225,14 @@ def linux(session, config):
             'PYTHONPATH': f'{workspace}/tests/mocklib',
         },
     )
+
+
+@nox.session
+@add_session_config
+def minimal(session, config):
+    '''Run tests on pyroute2.minimal package.'''
+    setup_venv_minimal(session)
+    session.run(*options('test_minimal', config))
 
 
 @nox.session
