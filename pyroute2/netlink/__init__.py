@@ -1135,6 +1135,8 @@ class nlmsg_base(dict):
         '''
         pointer = self
         for attr in attrs:
+            if not isinstance(pointer, nlmsg_base):
+                return
             nla = attr
             if pointer.prefix:
                 nla = pointer.name2nla(attr)
