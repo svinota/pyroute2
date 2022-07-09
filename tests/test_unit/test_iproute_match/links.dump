@@ -1,0 +1,1277 @@
+[
+    {
+        "family": 0,
+        "__align": [],
+        "ifi_type": 772,
+        "index": 1,
+        "flags": 65609,
+        "change": 0,
+        "attrs": [
+            [
+                "IFLA_IFNAME",
+                "lo"
+            ],
+            [
+                "IFLA_TXQLEN",
+                1000
+            ],
+            [
+                "IFLA_OPERSTATE",
+                "UNKNOWN"
+            ],
+            [
+                "IFLA_LINKMODE",
+                0
+            ],
+            [
+                "IFLA_MTU",
+                65536
+            ],
+            [
+                "IFLA_MIN_MTU",
+                0
+            ],
+            [
+                "IFLA_MAX_MTU",
+                0
+            ],
+            [
+                "IFLA_GROUP",
+                0
+            ],
+            [
+                "IFLA_PROMISCUITY",
+                0
+            ],
+            [
+                "IFLA_NUM_TX_QUEUES",
+                1
+            ],
+            [
+                "IFLA_GSO_MAX_SEGS",
+                65535
+            ],
+            [
+                "IFLA_GSO_MAX_SIZE",
+                65536
+            ],
+            [
+                "IFLA_GRO_MAX_SIZE",
+                65536
+            ],
+            [
+                "IFLA_NUM_RX_QUEUES",
+                1
+            ],
+            [
+                "IFLA_CARRIER",
+                1
+            ],
+            [
+                "IFLA_QDISC",
+                "noqueue"
+            ],
+            [
+                "IFLA_CARRIER_CHANGES",
+                0
+            ],
+            [
+                "IFLA_CARRIER_UP_COUNT",
+                0
+            ],
+            [
+                "IFLA_CARRIER_DOWN_COUNT",
+                0
+            ],
+            [
+                "IFLA_PROTO_DOWN",
+                0
+            ],
+            [
+                "IFLA_MAP",
+                {
+                    "mem_start": 0,
+                    "mem_end": 0,
+                    "base_addr": 0,
+                    "irq": 0,
+                    "dma": 0,
+                    "port": 0
+                }
+            ],
+            [
+                "IFLA_ADDRESS",
+                "00:00:00:00:00:00"
+            ],
+            [
+                "IFLA_BROADCAST",
+                "00:00:00:00:00:00"
+            ],
+            [
+                "IFLA_STATS64",
+                {
+                    "rx_packets": 120,
+                    "tx_packets": 120,
+                    "rx_bytes": 11110,
+                    "tx_bytes": 11110,
+                    "rx_errors": 0,
+                    "tx_errors": 0,
+                    "rx_dropped": 0,
+                    "tx_dropped": 0,
+                    "multicast": 0,
+                    "collisions": 0,
+                    "rx_length_errors": 0,
+                    "rx_over_errors": 0,
+                    "rx_crc_errors": 0,
+                    "rx_frame_errors": 0,
+                    "rx_fifo_errors": 0,
+                    "rx_missed_errors": 0,
+                    "tx_aborted_errors": 0,
+                    "tx_carrier_errors": 0,
+                    "tx_fifo_errors": 0,
+                    "tx_heartbeat_errors": 0,
+                    "tx_window_errors": 0,
+                    "rx_compressed": 0,
+                    "tx_compressed": 0
+                }
+            ],
+            [
+                "IFLA_STATS",
+                {
+                    "rx_packets": 120,
+                    "tx_packets": 120,
+                    "rx_bytes": 11110,
+                    "tx_bytes": 11110,
+                    "rx_errors": 0,
+                    "tx_errors": 0,
+                    "rx_dropped": 0,
+                    "tx_dropped": 0,
+                    "multicast": 0,
+                    "collisions": 0,
+                    "rx_length_errors": 0,
+                    "rx_over_errors": 0,
+                    "rx_crc_errors": 0,
+                    "rx_frame_errors": 0,
+                    "rx_fifo_errors": 0,
+                    "rx_missed_errors": 0,
+                    "tx_aborted_errors": 0,
+                    "tx_carrier_errors": 0,
+                    "tx_fifo_errors": 0,
+                    "tx_heartbeat_errors": 0,
+                    "tx_window_errors": 0,
+                    "rx_compressed": 0,
+                    "tx_compressed": 0
+                }
+            ],
+            [
+                "IFLA_XDP",
+                {
+                    "attrs": [
+                        [
+                            "IFLA_XDP_ATTACHED",
+                            null
+                        ]
+                    ]
+                }
+            ],
+            [
+                "IFLA_AF_SPEC",
+                {
+                    "attrs": [
+                        [
+                            "UNKNOWN",
+                            {
+                                "header": {
+                                    "length": 12,
+                                    "type": 45
+                                }
+                            }
+                        ],
+                        [
+                            "AF_INET",
+                            {
+                                "dummy": 65672,
+                                "forwarding": 1,
+                                "mc_forwarding": 0,
+                                "proxy_arp": 0,
+                                "accept_redirects": 1,
+                                "secure_redirects": 1,
+                                "send_redirects": 1,
+                                "shared_media": 1,
+                                "rp_filter": 2,
+                                "accept_source_route": 0,
+                                "bootp_relay": 0,
+                                "log_martians": 0,
+                                "tag": 0,
+                                "arpfilter": 0,
+                                "medium_id": 0,
+                                "noxfrm": 1,
+                                "nopolicy": 1,
+                                "force_igmp_version": 0,
+                                "arp_announce": 0,
+                                "arp_ignore": 0,
+                                "promote_secondaries": 1,
+                                "arp_accept": 0,
+                                "arp_notify": 0,
+                                "accept_local": 0,
+                                "src_vmark": 0,
+                                "proxy_arp_pvlan": 0,
+                                "route_localnet": 0,
+                                "igmpv2_unsolicited_report_interval": 10000,
+                                "igmpv3_unsolicited_report_interval": 1000
+                            }
+                        ],
+                        [
+                            "AF_INET6",
+                            {
+                                "attrs": [
+                                    [
+                                        "IFLA_INET6_FLAGS",
+                                        2147483648
+                                    ],
+                                    [
+                                        "IFLA_INET6_CACHEINFO",
+                                        {
+                                            "max_reasm_len": 65535,
+                                            "tstamp": 155,
+                                            "reachable_time": 43862,
+                                            "retrans_time": 1000
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_CONF",
+                                        {
+                                            "forwarding": 0,
+                                            "hop_limit": 64,
+                                            "mtu": 65536,
+                                            "accept_ra": 1,
+                                            "accept_redirects": 1,
+                                            "autoconf": 1,
+                                            "dad_transmits": 1,
+                                            "router_solicitations": 4294967295,
+                                            "router_solicitation_interval": 4000,
+                                            "router_solicitation_delay": 1000,
+                                            "use_tempaddr": 4294967295,
+                                            "temp_valid_lft": 604800,
+                                            "temp_preferred_lft": 86400,
+                                            "regen_max_retry": 3,
+                                            "max_desync_factor": 600,
+                                            "max_addresses": 16,
+                                            "force_mld_version": 0,
+                                            "accept_ra_defrtr": 1,
+                                            "accept_ra_pinfo": 1,
+                                            "accept_ra_rtr_pref": 1,
+                                            "router_probe_interval": 60000,
+                                            "accept_ra_rt_info_max_plen": 0,
+                                            "proxy_ndp": 0,
+                                            "optimistic_dad": 0,
+                                            "accept_source_route": 0,
+                                            "mc_forwarding": 0,
+                                            "disable_ipv6": 0,
+                                            "accept_dad": 4294967295,
+                                            "force_tllao": 0,
+                                            "ndisc_notify": 0
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_STATS",
+                                        {
+                                            "num": 37,
+                                            "inpkts": 97,
+                                            "inoctets": 8657,
+                                            "indelivers": 97,
+                                            "outforwdatagrams": 0,
+                                            "outpkts": 97,
+                                            "outoctets": 8657,
+                                            "inhdrerrors": 0,
+                                            "intoobigerrors": 0,
+                                            "innoroutes": 0,
+                                            "inaddrerrors": 0,
+                                            "inunknownprotos": 0,
+                                            "intruncatedpkts": 0,
+                                            "indiscards": 0,
+                                            "outdiscards": 0,
+                                            "outnoroutes": 0,
+                                            "reasmtimeout": 0,
+                                            "reasmreqds": 0,
+                                            "reasmoks": 0,
+                                            "reasmfails": 0,
+                                            "fragoks": 0,
+                                            "fragfails": 0,
+                                            "fragcreates": 0,
+                                            "inmcastpkts": 0,
+                                            "outmcastpkts": 2,
+                                            "inbcastpkts": 0,
+                                            "outbcastpkts": 0,
+                                            "inmcastoctets": 0,
+                                            "outmcastoctets": 152,
+                                            "inbcastoctets": 0,
+                                            "outbcastoctets": 0,
+                                            "csumerrors": 0,
+                                            "noectpkts": 97,
+                                            "ect1pkts": 0,
+                                            "ect0pkts": 0,
+                                            "cepkts": 0
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_ICMP6STATS",
+                                        {
+                                            "num": 6,
+                                            "inmsgs": 2,
+                                            "inerrors": 0,
+                                            "outmsgs": 2,
+                                            "outerrors": 0,
+                                            "csumerrors": 0
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_TOKEN",
+                                        "::"
+                                    ],
+                                    [
+                                        "IFLA_INET6_ADDR_GEN_MODE",
+                                        0
+                                    ]
+                                ]
+                            }
+                        ]
+                    ]
+                }
+            ]
+        ],
+        "header": {
+            "length": 1364,
+            "type": 16,
+            "flags": 2,
+            "sequence_number": 258,
+            "pid": 7728,
+            "error": null,
+            "target": "localhost",
+            "stats": [
+                0,
+                0,
+                0
+            ]
+        },
+        "state": "up",
+        "event": "RTM_NEWLINK"
+    },
+    {
+        "family": 0,
+        "__align": [],
+        "ifi_type": 1,
+        "index": 2,
+        "flags": 69699,
+        "change": 0,
+        "attrs": [
+            [
+                "IFLA_IFNAME",
+                "wl0"
+            ],
+            [
+                "IFLA_TXQLEN",
+                1000
+            ],
+            [
+                "IFLA_OPERSTATE",
+                "UP"
+            ],
+            [
+                "IFLA_LINKMODE",
+                1
+            ],
+            [
+                "IFLA_MTU",
+                1500
+            ],
+            [
+                "IFLA_MIN_MTU",
+                256
+            ],
+            [
+                "IFLA_MAX_MTU",
+                2304
+            ],
+            [
+                "IFLA_GROUP",
+                0
+            ],
+            [
+                "IFLA_PROMISCUITY",
+                0
+            ],
+            [
+                "IFLA_NUM_TX_QUEUES",
+                1
+            ],
+            [
+                "IFLA_GSO_MAX_SEGS",
+                65535
+            ],
+            [
+                "IFLA_GSO_MAX_SIZE",
+                65536
+            ],
+            [
+                "IFLA_GRO_MAX_SIZE",
+                65536
+            ],
+            [
+                "IFLA_NUM_RX_QUEUES",
+                1
+            ],
+            [
+                "IFLA_CARRIER",
+                1
+            ],
+            [
+                "IFLA_QDISC",
+                "noqueue"
+            ],
+            [
+                "IFLA_CARRIER_CHANGES",
+                2
+            ],
+            [
+                "IFLA_CARRIER_UP_COUNT",
+                1
+            ],
+            [
+                "IFLA_CARRIER_DOWN_COUNT",
+                1
+            ],
+            [
+                "IFLA_PROTO_DOWN",
+                0
+            ],
+            [
+                "IFLA_MAP",
+                {
+                    "mem_start": 0,
+                    "mem_end": 0,
+                    "base_addr": 0,
+                    "irq": 0,
+                    "dma": 0,
+                    "port": 0
+                }
+            ],
+            [
+                "IFLA_ADDRESS",
+                "18:56:80:11:ff:a3"
+            ],
+            [
+                "IFLA_BROADCAST",
+                "ff:ff:ff:ff:ff:ff"
+            ],
+            [
+                "IFLA_STATS64",
+                {
+                    "rx_packets": 835511,
+                    "tx_packets": 463567,
+                    "rx_bytes": 908228126,
+                    "tx_bytes": 181325506,
+                    "rx_errors": 0,
+                    "tx_errors": 0,
+                    "rx_dropped": 0,
+                    "tx_dropped": 0,
+                    "multicast": 0,
+                    "collisions": 0,
+                    "rx_length_errors": 0,
+                    "rx_over_errors": 0,
+                    "rx_crc_errors": 0,
+                    "rx_frame_errors": 0,
+                    "rx_fifo_errors": 0,
+                    "rx_missed_errors": 0,
+                    "tx_aborted_errors": 0,
+                    "tx_carrier_errors": 0,
+                    "tx_fifo_errors": 0,
+                    "tx_heartbeat_errors": 0,
+                    "tx_window_errors": 0,
+                    "rx_compressed": 0,
+                    "tx_compressed": 0
+                }
+            ],
+            [
+                "IFLA_STATS",
+                {
+                    "rx_packets": 835511,
+                    "tx_packets": 463567,
+                    "rx_bytes": 908228126,
+                    "tx_bytes": 181325506,
+                    "rx_errors": 0,
+                    "tx_errors": 0,
+                    "rx_dropped": 0,
+                    "tx_dropped": 0,
+                    "multicast": 0,
+                    "collisions": 0,
+                    "rx_length_errors": 0,
+                    "rx_over_errors": 0,
+                    "rx_crc_errors": 0,
+                    "rx_frame_errors": 0,
+                    "rx_fifo_errors": 0,
+                    "rx_missed_errors": 0,
+                    "tx_aborted_errors": 0,
+                    "tx_carrier_errors": 0,
+                    "tx_fifo_errors": 0,
+                    "tx_heartbeat_errors": 0,
+                    "tx_window_errors": 0,
+                    "rx_compressed": 0,
+                    "tx_compressed": 0
+                }
+            ],
+            [
+                "IFLA_XDP",
+                {
+                    "attrs": [
+                        [
+                            "IFLA_XDP_ATTACHED",
+                            null
+                        ]
+                    ]
+                }
+            ],
+            [
+                "IFLA_PERM_ADDRESS",
+                "18:56:80:11:ff:a3"
+            ],
+            [
+                "IFLA_AF_SPEC",
+                {
+                    "attrs": [
+                        [
+                            "AF_INET",
+                            {
+                                "dummy": 65672,
+                                "forwarding": 1,
+                                "mc_forwarding": 0,
+                                "proxy_arp": 0,
+                                "accept_redirects": 1,
+                                "secure_redirects": 1,
+                                "send_redirects": 1,
+                                "shared_media": 1,
+                                "rp_filter": 2,
+                                "accept_source_route": 0,
+                                "bootp_relay": 0,
+                                "log_martians": 0,
+                                "tag": 0,
+                                "arpfilter": 0,
+                                "medium_id": 0,
+                                "noxfrm": 0,
+                                "nopolicy": 0,
+                                "force_igmp_version": 0,
+                                "arp_announce": 0,
+                                "arp_ignore": 0,
+                                "promote_secondaries": 1,
+                                "arp_accept": 0,
+                                "arp_notify": 0,
+                                "accept_local": 0,
+                                "src_vmark": 0,
+                                "proxy_arp_pvlan": 0,
+                                "route_localnet": 0,
+                                "igmpv2_unsolicited_report_interval": 10000,
+                                "igmpv3_unsolicited_report_interval": 1000
+                            }
+                        ],
+                        [
+                            "AF_INET6",
+                            {
+                                "attrs": [
+                                    [
+                                        "IFLA_INET6_FLAGS",
+                                        2147483648
+                                    ],
+                                    [
+                                        "IFLA_INET6_CACHEINFO",
+                                        {
+                                            "max_reasm_len": 65535,
+                                            "tstamp": 1982,
+                                            "reachable_time": 37034,
+                                            "retrans_time": 1000
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_CONF",
+                                        {
+                                            "forwarding": 0,
+                                            "hop_limit": 64,
+                                            "mtu": 1500,
+                                            "accept_ra": 0,
+                                            "accept_redirects": 1,
+                                            "autoconf": 1,
+                                            "dad_transmits": 1,
+                                            "router_solicitations": 4294967295,
+                                            "router_solicitation_interval": 4000,
+                                            "router_solicitation_delay": 1000,
+                                            "use_tempaddr": 0,
+                                            "temp_valid_lft": 604800,
+                                            "temp_preferred_lft": 86400,
+                                            "regen_max_retry": 3,
+                                            "max_desync_factor": 600,
+                                            "max_addresses": 16,
+                                            "force_mld_version": 0,
+                                            "accept_ra_defrtr": 1,
+                                            "accept_ra_pinfo": 1,
+                                            "accept_ra_rtr_pref": 1,
+                                            "router_probe_interval": 60000,
+                                            "accept_ra_rt_info_max_plen": 0,
+                                            "proxy_ndp": 0,
+                                            "optimistic_dad": 0,
+                                            "accept_source_route": 0,
+                                            "mc_forwarding": 0,
+                                            "disable_ipv6": 0,
+                                            "accept_dad": 1,
+                                            "force_tllao": 0,
+                                            "ndisc_notify": 0
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_STATS",
+                                        {
+                                            "num": 37,
+                                            "inpkts": 3986,
+                                            "inoctets": 325147,
+                                            "indelivers": 3986,
+                                            "outforwdatagrams": 0,
+                                            "outpkts": 40,
+                                            "outoctets": 4306,
+                                            "inhdrerrors": 0,
+                                            "intoobigerrors": 0,
+                                            "innoroutes": 0,
+                                            "inaddrerrors": 0,
+                                            "inunknownprotos": 0,
+                                            "intruncatedpkts": 0,
+                                            "indiscards": 0,
+                                            "outdiscards": 0,
+                                            "outnoroutes": 0,
+                                            "reasmtimeout": 0,
+                                            "reasmreqds": 0,
+                                            "reasmoks": 0,
+                                            "reasmfails": 0,
+                                            "fragoks": 0,
+                                            "fragfails": 0,
+                                            "fragcreates": 0,
+                                            "inmcastpkts": 3978,
+                                            "outmcastpkts": 36,
+                                            "inbcastpkts": 0,
+                                            "outbcastpkts": 0,
+                                            "inmcastoctets": 324235,
+                                            "outmcastoctets": 4034,
+                                            "inbcastoctets": 0,
+                                            "outbcastoctets": 0,
+                                            "csumerrors": 0,
+                                            "noectpkts": 3986,
+                                            "ect1pkts": 0,
+                                            "ect0pkts": 0,
+                                            "cepkts": 0
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_ICMP6STATS",
+                                        {
+                                            "num": 6,
+                                            "inmsgs": 19,
+                                            "inerrors": 0,
+                                            "outmsgs": 18,
+                                            "outerrors": 0,
+                                            "csumerrors": 0
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_TOKEN",
+                                        "::"
+                                    ],
+                                    [
+                                        "IFLA_INET6_ADDR_GEN_MODE",
+                                        1
+                                    ]
+                                ]
+                            }
+                        ]
+                    ]
+                }
+            ],
+            [
+                "IFLA_PARENT_DEV_NAME",
+                "0000:03:00.0"
+            ],
+            [
+                "IFLA_PARENT_DEV_BUS_NAME",
+                "pci"
+            ]
+        ],
+        "header": {
+            "length": 1396,
+            "type": 16,
+            "flags": 2,
+            "sequence_number": 258,
+            "pid": 7728,
+            "error": null,
+            "target": "localhost",
+            "stats": [
+                0,
+                0,
+                0
+            ]
+        },
+        "state": "up",
+        "event": "RTM_NEWLINK"
+    },
+    {
+        "family": 0,
+        "__align": [],
+        "ifi_type": 1,
+        "index": 3,
+        "flags": 4099,
+        "change": 0,
+        "attrs": [
+            [
+                "IFLA_IFNAME",
+                "br0"
+            ],
+            [
+                "IFLA_TXQLEN",
+                0
+            ],
+            [
+                "IFLA_OPERSTATE",
+                "DOWN"
+            ],
+            [
+                "IFLA_LINKMODE",
+                0
+            ],
+            [
+                "IFLA_MTU",
+                1500
+            ],
+            [
+                "IFLA_MIN_MTU",
+                68
+            ],
+            [
+                "IFLA_MAX_MTU",
+                65535
+            ],
+            [
+                "IFLA_GROUP",
+                0
+            ],
+            [
+                "IFLA_PROMISCUITY",
+                0
+            ],
+            [
+                "IFLA_NUM_TX_QUEUES",
+                1
+            ],
+            [
+                "IFLA_GSO_MAX_SEGS",
+                65535
+            ],
+            [
+                "IFLA_GSO_MAX_SIZE",
+                65536
+            ],
+            [
+                "IFLA_GRO_MAX_SIZE",
+                65536
+            ],
+            [
+                "IFLA_NUM_RX_QUEUES",
+                1
+            ],
+            [
+                "IFLA_CARRIER",
+                0
+            ],
+            [
+                "IFLA_QDISC",
+                "noqueue"
+            ],
+            [
+                "IFLA_CARRIER_CHANGES",
+                1
+            ],
+            [
+                "IFLA_CARRIER_UP_COUNT",
+                0
+            ],
+            [
+                "IFLA_CARRIER_DOWN_COUNT",
+                1
+            ],
+            [
+                "IFLA_PROTO_DOWN",
+                0
+            ],
+            [
+                "IFLA_MAP",
+                {
+                    "mem_start": 0,
+                    "mem_end": 0,
+                    "base_addr": 0,
+                    "irq": 0,
+                    "dma": 0,
+                    "port": 0
+                }
+            ],
+            [
+                "IFLA_ADDRESS",
+                "02:42:f5:f1:32:bc"
+            ],
+            [
+                "IFLA_BROADCAST",
+                "ff:ff:ff:ff:ff:ff"
+            ],
+            [
+                "IFLA_STATS64",
+                {
+                    "rx_packets": 0,
+                    "tx_packets": 0,
+                    "rx_bytes": 0,
+                    "tx_bytes": 0,
+                    "rx_errors": 0,
+                    "tx_errors": 0,
+                    "rx_dropped": 0,
+                    "tx_dropped": 0,
+                    "multicast": 0,
+                    "collisions": 0,
+                    "rx_length_errors": 0,
+                    "rx_over_errors": 0,
+                    "rx_crc_errors": 0,
+                    "rx_frame_errors": 0,
+                    "rx_fifo_errors": 0,
+                    "rx_missed_errors": 0,
+                    "tx_aborted_errors": 0,
+                    "tx_carrier_errors": 0,
+                    "tx_fifo_errors": 0,
+                    "tx_heartbeat_errors": 0,
+                    "tx_window_errors": 0,
+                    "rx_compressed": 0,
+                    "tx_compressed": 0
+                }
+            ],
+            [
+                "IFLA_STATS",
+                {
+                    "rx_packets": 0,
+                    "tx_packets": 0,
+                    "rx_bytes": 0,
+                    "tx_bytes": 0,
+                    "rx_errors": 0,
+                    "tx_errors": 0,
+                    "rx_dropped": 0,
+                    "tx_dropped": 0,
+                    "multicast": 0,
+                    "collisions": 0,
+                    "rx_length_errors": 0,
+                    "rx_over_errors": 0,
+                    "rx_crc_errors": 0,
+                    "rx_frame_errors": 0,
+                    "rx_fifo_errors": 0,
+                    "rx_missed_errors": 0,
+                    "tx_aborted_errors": 0,
+                    "tx_carrier_errors": 0,
+                    "tx_fifo_errors": 0,
+                    "tx_heartbeat_errors": 0,
+                    "tx_window_errors": 0,
+                    "rx_compressed": 0,
+                    "tx_compressed": 0
+                }
+            ],
+            [
+                "IFLA_XDP",
+                {
+                    "attrs": [
+                        [
+                            "IFLA_XDP_ATTACHED",
+                            null
+                        ]
+                    ]
+                }
+            ],
+            [
+                "IFLA_LINKINFO",
+                {
+                    "attrs": [
+                        [
+                            "IFLA_INFO_KIND",
+                            "bridge"
+                        ],
+                        [
+                            "IFLA_INFO_DATA",
+                            {
+                                "attrs": [
+                                    [
+                                        "IFLA_BR_HELLO_TIMER",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_TCN_TIMER",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_TOPOLOGY_CHANGE_TIMER",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_GC_TIMER",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_FORWARD_DELAY",
+                                        1500
+                                    ],
+                                    [
+                                        "IFLA_BR_HELLO_TIME",
+                                        200
+                                    ],
+                                    [
+                                        "IFLA_BR_MAX_AGE",
+                                        2000
+                                    ],
+                                    [
+                                        "IFLA_BR_AGEING_TIME",
+                                        30000
+                                    ],
+                                    [
+                                        "IFLA_BR_STP_STATE",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_PRIORITY",
+                                        32768
+                                    ],
+                                    [
+                                        "IFLA_BR_VLAN_FILTERING",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_GROUP_FWD_MASK",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_BRIDGE_ID",
+                                        {
+                                            "prio": 128,
+                                            "addr": "02:42:f5:f1:32:bc"
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_BR_ROOT_ID",
+                                        {
+                                            "prio": 128,
+                                            "addr": "02:42:f5:f1:32:bc"
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_BR_ROOT_PORT",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_ROOT_PATH_COST",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_TOPOLOGY_CHANGE",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_TOPOLOGY_CHANGE_DETECTED",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_GROUP_ADDR",
+                                        "01:80:c2:00:00:00"
+                                    ],
+                                    [
+                                        "UNKNOWN",
+                                        {
+                                            "header": {
+                                                "length": 12,
+                                                "type": 46
+                                            }
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_BR_VLAN_PROTOCOL",
+                                        33024
+                                    ],
+                                    [
+                                        "IFLA_BR_VLAN_DEFAULT_PVID",
+                                        1
+                                    ],
+                                    [
+                                        "IFLA_BR_VLAN_STATS_ENABLED",
+                                        0
+                                    ],
+                                    [
+                                        "UNKNOWN",
+                                        {
+                                            "header": {
+                                                "length": 5,
+                                                "type": 45
+                                            }
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_ROUTER",
+                                        1
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_SNOOPING",
+                                        1
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_QUERY_USE_IFADDR",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_QUERIER",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_STATS_ENABLED",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_HASH_ELASTICITY",
+                                        16
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_HASH_MAX",
+                                        4096
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_LAST_MEMBER_CNT",
+                                        2
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_STARTUP_QUERY_CNT",
+                                        2
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_IGMP_VERSION",
+                                        2
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_MLD_VERSION",
+                                        1
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_LAST_MEMBER_INTVL",
+                                        100
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_MEMBERSHIP_INTVL",
+                                        26000
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_QUERIER_INTVL",
+                                        25500
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_QUERY_INTVL",
+                                        12500
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_QUERY_RESPONSE_INTVL",
+                                        1000
+                                    ],
+                                    [
+                                        "IFLA_BR_MCAST_STARTUP_QUERY_INTVL",
+                                        3125
+                                    ],
+                                    [
+                                        "IFLA_BR_NF_CALL_IPTABLES",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_NF_CALL_IP6TABLES",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_BR_NF_CALL_ARPTABLES",
+                                        0
+                                    ]
+                                ]
+                            }
+                        ]
+                    ]
+                }
+            ],
+            [
+                "IFLA_AF_SPEC",
+                {
+                    "attrs": [
+                        [
+                            "AF_INET",
+                            {
+                                "dummy": 65672,
+                                "forwarding": 1,
+                                "mc_forwarding": 0,
+                                "proxy_arp": 0,
+                                "accept_redirects": 1,
+                                "secure_redirects": 1,
+                                "send_redirects": 1,
+                                "shared_media": 1,
+                                "rp_filter": 2,
+                                "accept_source_route": 0,
+                                "bootp_relay": 0,
+                                "log_martians": 0,
+                                "tag": 0,
+                                "arpfilter": 0,
+                                "medium_id": 0,
+                                "noxfrm": 0,
+                                "nopolicy": 0,
+                                "force_igmp_version": 0,
+                                "arp_announce": 0,
+                                "arp_ignore": 0,
+                                "promote_secondaries": 1,
+                                "arp_accept": 0,
+                                "arp_notify": 0,
+                                "accept_local": 0,
+                                "src_vmark": 0,
+                                "proxy_arp_pvlan": 0,
+                                "route_localnet": 0,
+                                "igmpv2_unsolicited_report_interval": 10000,
+                                "igmpv3_unsolicited_report_interval": 1000
+                            }
+                        ],
+                        [
+                            "AF_INET6",
+                            {
+                                "attrs": [
+                                    [
+                                        "IFLA_INET6_FLAGS",
+                                        0
+                                    ],
+                                    [
+                                        "IFLA_INET6_CACHEINFO",
+                                        {
+                                            "max_reasm_len": 65535,
+                                            "tstamp": 2068,
+                                            "reachable_time": 25102,
+                                            "retrans_time": 1000
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_CONF",
+                                        {
+                                            "forwarding": 0,
+                                            "hop_limit": 64,
+                                            "mtu": 1500,
+                                            "accept_ra": 0,
+                                            "accept_redirects": 1,
+                                            "autoconf": 1,
+                                            "dad_transmits": 1,
+                                            "router_solicitations": 4294967295,
+                                            "router_solicitation_interval": 4000,
+                                            "router_solicitation_delay": 1000,
+                                            "use_tempaddr": 0,
+                                            "temp_valid_lft": 604800,
+                                            "temp_preferred_lft": 86400,
+                                            "regen_max_retry": 3,
+                                            "max_desync_factor": 600,
+                                            "max_addresses": 16,
+                                            "force_mld_version": 0,
+                                            "accept_ra_defrtr": 1,
+                                            "accept_ra_pinfo": 1,
+                                            "accept_ra_rtr_pref": 1,
+                                            "router_probe_interval": 60000,
+                                            "accept_ra_rt_info_max_plen": 0,
+                                            "proxy_ndp": 0,
+                                            "optimistic_dad": 0,
+                                            "accept_source_route": 0,
+                                            "mc_forwarding": 0,
+                                            "disable_ipv6": 0,
+                                            "accept_dad": 1,
+                                            "force_tllao": 0,
+                                            "ndisc_notify": 0
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_STATS",
+                                        {
+                                            "num": 37,
+                                            "inpkts": 0,
+                                            "inoctets": 0,
+                                            "indelivers": 0,
+                                            "outforwdatagrams": 0,
+                                            "outpkts": 0,
+                                            "outoctets": 0,
+                                            "inhdrerrors": 0,
+                                            "intoobigerrors": 0,
+                                            "innoroutes": 0,
+                                            "inaddrerrors": 0,
+                                            "inunknownprotos": 0,
+                                            "intruncatedpkts": 0,
+                                            "indiscards": 0,
+                                            "outdiscards": 0,
+                                            "outnoroutes": 0,
+                                            "reasmtimeout": 0,
+                                            "reasmreqds": 0,
+                                            "reasmoks": 0,
+                                            "reasmfails": 0,
+                                            "fragoks": 0,
+                                            "fragfails": 0,
+                                            "fragcreates": 0,
+                                            "inmcastpkts": 0,
+                                            "outmcastpkts": 0,
+                                            "inbcastpkts": 0,
+                                            "outbcastpkts": 0,
+                                            "inmcastoctets": 0,
+                                            "outmcastoctets": 0,
+                                            "inbcastoctets": 0,
+                                            "outbcastoctets": 0,
+                                            "csumerrors": 0,
+                                            "noectpkts": 0,
+                                            "ect1pkts": 0,
+                                            "ect0pkts": 0,
+                                            "cepkts": 0
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_ICMP6STATS",
+                                        {
+                                            "num": 6,
+                                            "inmsgs": 0,
+                                            "inerrors": 0,
+                                            "outmsgs": 0,
+                                            "outerrors": 0,
+                                            "csumerrors": 0
+                                        }
+                                    ],
+                                    [
+                                        "IFLA_INET6_TOKEN",
+                                        "::"
+                                    ],
+                                    [
+                                        "IFLA_INET6_ADDR_GEN_MODE",
+                                        0
+                                    ]
+                                ]
+                            }
+                        ]
+                    ]
+                }
+            ]
+        ],
+        "header": {
+            "length": 1784,
+            "type": 16,
+            "flags": 2,
+            "sequence_number": 258,
+            "pid": 7728,
+            "error": null,
+            "target": "localhost",
+            "stats": [
+                0,
+                0,
+                0
+            ]
+        },
+        "state": "up",
+        "event": "RTM_NEWLINK"
+    }
+]
