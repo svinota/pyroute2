@@ -35,9 +35,9 @@ for those who prefer::
     $ nox                             # run all the tests
 
     # using make
-    $ sudo make test                 # run the default sessions
-    $ make test session=unit         # run only unit tests
-    $ make test session=openbsd      # OpenBSD tests
+    $ sudo make test                  # run the default sessions
+    $ make nox session=unit           # run only unit tests
+    $ make nox session=openbsd        # OpenBSD tests
 
 Get code coverage and run PDB on failures::
 
