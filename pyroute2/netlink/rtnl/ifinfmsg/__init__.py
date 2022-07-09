@@ -1181,6 +1181,7 @@ class ifinfbase(object):
             fields = [(i, 'I') for i in field_names]
 
         class inet6(nla):
+            prefix = 'IFLA_'
             nla_map = (
                 ('IFLA_INET6_UNSPEC', 'none'),
                 ('IFLA_INET6_FLAGS', 'uint32'),
