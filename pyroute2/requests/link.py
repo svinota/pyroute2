@@ -94,17 +94,31 @@ class LinkIPRouteFilter(IPRouteFilter):
         ret['change'] = context.get('change', 0) or 0 | IFF_NOARP
         return ret
 
-    def set_kind(self, context, value):
-        if self.command == 'dump':
-            return {('linkinfo', 'kind'): value}
-        return {'kind': value}
-
     def finalize(self, context):
         # set interface type specific attributes
-        # create IFLA_LINKINFO
+        self.kind = context.pop('kind', None)
+        if self.kind is None:
+            return
+        # load specific NLA names
+        self.specific = {}
+        cls = ifinfmsg.ifinfo.data_map.get(self.kind, None)
+        if cls is not None:
+            prefix = cls.prefix or 'IFLA_'
+            for nla, _ in cls.nla_map:
+                self.specific[nla] = nla
+                self.specific[nla[len(prefix) :].lower()] = nla
 
         if self.command == 'dump':
+            context[('linkinfo', 'kind')] = self.kind
+            for (key, value) in tuple(context.items()):
+                if key in self.specific:
+                    context[('linkinfo', 'data', key)] = value
+                    try:
+                        del context[key]
+                    except KeyError:
+                        pass
             return
+
         # get common ifinfmsg NLAs
         self.common = []
         for (key, _) in ifinfmsg.nla_map:
@@ -121,21 +135,10 @@ class LinkIPRouteFilter(IPRouteFilter):
 
         linkinfo = {'attrs': []}
         self.linkinfo = linkinfo['attrs']
-        self.specific = {}
-        self.kind = context.pop('kind', None)
-        if self.kind is None:
-            return
         self._info_data = None
         self._info_slave_data = None
         context['IFLA_LINKINFO'] = linkinfo
         self.linkinfo.append(['IFLA_INFO_KIND', self.kind])
-        # load specific NLA names
-        cls = ifinfmsg.ifinfo.data_map.get(self.kind, None)
-        if cls is not None:
-            prefix = cls.prefix or 'IFLA_'
-            for nla, _ in cls.nla_map:
-                self.specific[nla] = nla
-                self.specific[nla[len(prefix) :].lower()] = nla
         # flush deferred NLAs
         for (key, value) in tuple(context.items()):
             if self.push_specific(key, value):
