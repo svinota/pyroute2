@@ -33,6 +33,12 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: make nox session=neutron python=python3.8
+  minimal:
+    runs-on: code
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: sudo make nox session=minimal python=python3.8
   linux-fedora-35:
     runs-on: linux-fedora-35
     steps:
