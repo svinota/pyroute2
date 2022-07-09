@@ -1135,16 +1135,28 @@ class nlmsg_base(dict):
         '''
         pointer = self
         for attr in attrs:
-            if not isinstance(pointer, nlmsg_base):
-                return
-            nla = attr
-            if pointer.prefix:
-                nla = pointer.name2nla(attr)
-            value = pointer.get_attr(nla)
-            if value is None:
-                return pointer.get(attr)
-            else:
+            if isinstance(pointer, nlmsg_base):
+                # descendant nodes: NLA or fields
+                #
+                nla = attr
+                if pointer.prefix:
+                    nla = pointer.name2nla(attr)
+                else:
+                    nla = attr.upper()
+                # try to descend to NLA
+                value = pointer.get_attr(nla)
+                # try to descend to a field
+                if value is None:
+                    value = pointer.get(attr)
+                # replace pointer
                 pointer = value
+            elif isinstance(pointer, dict):
+                # descendant nodes: dict values
+                #
+                pointer = pointer.get(attr)
+            else:
+                # stop descending; search failed
+                return
         return pointer
 
     def get_attr(self, attr, default=None):
