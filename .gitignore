@@ -15,4 +15,5 @@ docs-build.log
 *.egg-info
 benchmark.log
 venv
+.venv
 .nox*
