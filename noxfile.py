@@ -15,6 +15,7 @@ nox.options.sessions = [
     'neutron',
     'linux-3.6',
     'linux-3.10',
+    'minimal',
 ]
 
 linux_kernel_modules = [
