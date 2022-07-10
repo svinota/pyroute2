@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v3
       - run: make nox session=linter
   repo:
-    runs-on: Linux
+    runs-on: Python3.8
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v3
       - run: make nox session=unit
   neutron:
-    runs-on: Linux
+    runs-on: Python3.8
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
