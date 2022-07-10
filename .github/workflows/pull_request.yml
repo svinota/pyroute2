@@ -10,31 +10,31 @@ permissions:
 
 jobs:
   linter:
-    runs-on: code
+    runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: make nox session=linter
   repo:
-    runs-on: code
+    runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: make nox session=repo
   unit:
-    runs-on: code
+    runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: make nox session=unit
   neutron:
-    runs-on: code
+    runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: make nox session=neutron
   minimal:
-    runs-on: code
+    runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
