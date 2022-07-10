@@ -3,7 +3,7 @@
 #   The pyroute2 project is dual licensed, see README.license.md for details
 #
 #
-python ?= python
+python ?= $(shell util/find_python.sh)
 
 .PHONY: all
 all:

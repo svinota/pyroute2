@@ -1,8 +1,14 @@
+import getpass
+
 import pytest
 
 from pyroute2 import IPRoute
 from pyroute2.common import uifname
 from pyroute2.netlink import nlmsg
+
+pytestmark = [
+    pytest.mark.skipif(getpass.getuser() != 'root', reason='no root access')
+]
 
 
 @pytest.fixture
