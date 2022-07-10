@@ -14,31 +14,31 @@ jobs:
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: make nox session=linter python=python3.8
+      - run: make nox session=linter
   repo:
     runs-on: code
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: make nox session=repo python=python3.8
+      - run: make nox session=repo
   unit:
     runs-on: code
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: make nox session=unit python=python3.8
+      - run: make nox session=unit
   neutron:
     runs-on: code
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: make nox session=neutron python=python3.8
+      - run: make nox session=neutron
   minimal:
     runs-on: code
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: sudo make nox session=minimal python=python3.8
+      - run: sudo make nox session=minimal
   linux-fedora-35:
     runs-on: linux-fedora-35
     steps:
@@ -51,8 +51,8 @@ jobs:
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
-      - run: sudo make nox session=linux-3.6 python=python3.6
-      - run: sudo make nox session=linux-3.10 python=python3.6
+      - run: sudo make nox session=linux-3.6
+      - run: sudo make nox session=linux-3.10
   openbsd:
     runs-on: OpenBSD
     steps:
