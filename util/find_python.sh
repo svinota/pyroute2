@@ -23,8 +23,8 @@ function check_valid_python() {
     # This is required to sort versions correctly. The last version
     # byte is ignored.
     #
-    for MODULE in ensurepip; do
-        $1 -m $MODULE --version >/dev/null 2>&1 || return
+    for MODULE in ensurepip sqlite3; do
+        $1 -c "import $MODULE" >/dev/null 2>&1 || return
     done
     VERSION=$( $1 -V 2>/dev/null |\
         grep -E '^Python [0-9a-z.]+$' |\
