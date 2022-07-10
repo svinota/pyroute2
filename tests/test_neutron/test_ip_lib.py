@@ -1,5 +1,7 @@
 from inspect import signature
 
+import pytest
+
 import pyroute2
 from pyroute2 import netlink, netns
 from pyroute2.netlink import exceptions, rtnl
@@ -7,7 +9,10 @@ from pyroute2.netlink.rtnl import ifinfmsg, ndmsg
 
 
 def parameters(func):
-    return set(signature(func).parameters.keys())
+    try:
+        return set(signature(func).parameters.keys())
+    except ValueError:
+        pytest.skip('ginature check error, skip test')
 
 
 def test_imports():
