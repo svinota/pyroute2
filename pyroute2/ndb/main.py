@@ -63,6 +63,9 @@ SQL updates are expected normally.
                           |  `...`        |-+
                           +---------------+
 
+.. container:: aafig-caption
+
+    object names on the diagram are clickable
 
 The goal of NDB is to provide an easy access to RTNL info and entities via
 Python objects, like `pyroute2.ndb.objects.interface` (see also:
@@ -150,6 +153,10 @@ behaves like a simple named tuple.
                             |                   | |-+
                             |                   |-+
                             +-------------------+
+
+.. container:: aafig-caption
+
+    object names on the diagram are clickable
 
 Here are some simple NDB usage examples. More info see in the reference
 documentation below.

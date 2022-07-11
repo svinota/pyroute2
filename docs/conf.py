@@ -22,6 +22,8 @@ autodoc_member_order = 'bysource'
 
 html_theme = 'default'
 html_static_path = ['_static']
+html_js_files = ['fixup.js']
+html_css_files = ['custom.css']
 htmlhelp_basename = 'pyroute2doc'
 templates_path = ['_templates']
 
@@ -42,7 +44,3 @@ man_pages = [
         1,
     ),
 ]
-
-
-def setup(app):
-    app.add_css_file('custom.css')
