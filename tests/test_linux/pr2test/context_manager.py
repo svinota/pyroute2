@@ -12,13 +12,13 @@ from socket import AF_INET, AF_INET6
 import pytest
 from utils import allocate_network, free_network
 
-from pr2modules import netns
-from pr2modules.common import basestring, uifname
-from pr2modules.iproute.linux import IPRoute
-from pr2modules.ndb.main import NDB
-from pr2modules.netlink.exceptions import NetlinkError
-from pr2modules.netlink.generic.wireguard import WireGuard
-from pr2modules.nslink.nslink import NetNS
+from pyroute2 import netns
+from pyroute2.common import basestring, uifname
+from pyroute2.iproute.linux import IPRoute
+from pyroute2.ndb.main import NDB
+from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.generic.wireguard import WireGuard
+from pyroute2.nslink.nslink import NetNS
 
 
 def skip_if_not_implemented(func):

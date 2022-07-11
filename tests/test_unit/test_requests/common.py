@@ -1,4 +1,4 @@
-from pr2modules.requests.main import RequestProcessor
+from pyroute2.requests.main import RequestProcessor
 
 
 class Request(dict):

@@ -6,9 +6,9 @@ import pytest
 from pr2test.context_manager import make_test_matrix, skip_if_not_supported
 from pr2test.marks import require_root
 
-from pr2modules.ndb.objects import RTNL_Object
-from pr2modules.ndb.report import Record, RecordSet
 from pyroute2.common import basestring
+from pyroute2.ndb.objects import RTNL_Object
+from pyroute2.ndb.report import Record, RecordSet
 
 pytestmark = [require_root()]
 test_matrix = make_test_matrix(
