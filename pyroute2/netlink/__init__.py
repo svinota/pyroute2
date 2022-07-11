@@ -394,6 +394,7 @@ import sys
 import threading
 import traceback
 import types
+import typing
 import weakref
 from collections import OrderedDict
 from socket import AF_INET, AF_INET6, AF_UNSPEC, inet_ntop, inet_pton
@@ -1129,12 +1130,24 @@ class nlmsg_base(dict):
         if cells:
             return cells[0]
 
-    def get_nested(self, *attrs):
+    def get(self, key, default=None):
+        '''
+        Universal get() for a netlink message.
+        '''
+        if isinstance(key, str) and key in self:
+            ret = self[key]
+        else:
+            if not isinstance(key, typing.Iterable):
+                key = (key,)
+            ret = self.get_nested(*key)
+        return ret if ret is not None else default
+
+    def get_nested(self, *keys):
         '''
         Return nested NLA or None
         '''
         pointer = self
-        for attr in attrs:
+        for attr in keys:
             if isinstance(pointer, nlmsg_base):
                 # descendant nodes: NLA or fields
                 #
@@ -1146,8 +1159,8 @@ class nlmsg_base(dict):
                 # try to descend to NLA
                 value = pointer.get_attr(nla)
                 # try to descend to a field
-                if value is None:
-                    value = pointer.get(attr)
+                if value is None and attr in pointer:
+                    value = pointer[attr]
                 # replace pointer
                 pointer = value
             elif isinstance(pointer, dict):
