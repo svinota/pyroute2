@@ -66,6 +66,6 @@ def test_get_leaf(ipr, spec, query, result):
     spec.apply_filter(LinkIPRouteFilter('dump'))
     spec.finalize()
 
-    msg = ipr._match(spec, ifinfmsg_sample)
+    msg = ipr.filter_messages(spec, ifinfmsg_sample)
     assert len(msg) == 1
     assert msg[0].get_nested(*query) == result
