@@ -169,21 +169,65 @@ class RTNL_API(object):
         super(RTNL_API, self).__init__(*argv, **kwarg)
         if not self.nlm_generator:
 
-            def _match(*argv, **kwarg):
+            def filter_messages(*argv, **kwarg):
                 return tuple(self._genmatch(*argv, **kwarg))
 
-            self._genmatch = self._match
-            self._match = _match
+            self._genmatch = self.filter_messages
+            self.filter_messages = filter_messages
 
-    def _match(self, match, msgs):
+    def filter_messages(self, dump_filter, msgs):
+        '''
+        Filter messages using `dump_filter`. The filter might be a
+        callable, then it will be called for every message in the list.
+        Or it might be a dict, where keys are used to get values
+        from messages, and dict values are used to match the message.
+
+        The method might be called directly. It is also used by calls
+        like `ipr.link('dump', ....)`, where keyword arguments work as
+        `dump_filter` for `ipr.filter_messages()`.
+
+        A callable `dump_filter` must return True or False:
+
+        .. code-block:: python
+
+            # get all links with names starting with eth:
+            #
+            ipr.filter_messages(
+                lambda x: x.get_attr('IFLA_IFNAME').startswith('eth'),
+                ipr.link('dump')
+            )
+
+        A dict `dump_filter` can have callables as values:
+
+        .. code-block:: python
+
+            # get all links with names starting with eth, and
+            # MAC address in a database:
+            #
+            ipr.filter_messages(
+                {
+                    'ifname': lambda x: x.startswith('eth'),
+                    'address': lambda x: x in database,
+                },
+                ipr.link('dump')
+            )
+
+        ... or constants to compare with:
+
+        .. code-block:: python
+
+            # get all links in state up:
+            #
+            ipr.filter_message({'state': 'up'}, ipr.link('dump'))
+        '''
         # filtered results, the generator version
         for msg in msgs:
-            if hasattr(match, '__call__'):
-                if match(msg):
+            if hasattr(dump_filter, '__call__'):
+                if dump_filter(msg):
                     yield msg
-            elif isinstance(match, dict):
+            elif isinstance(dump_filter, dict):
                 matches = []
-                for key in match:
+                for key in dump_filter:
                     # get the attribute
                     if isinstance(key, str):
                         nkey = (key,)
@@ -192,10 +236,10 @@ class RTNL_API(object):
                     else:
                         continue
                     value = msg.get_nested(*nkey)
-                    if value is not None and callable(match[key]):
-                        matches.append(match[key](value))
+                    if value is not None and callable(dump_filter[key]):
+                        matches.append(dump_filter[key](value))
                     else:
-                        matches.append(match[key] == value)
+                        matches.append(dump_filter[key] == value)
                 if all(matches):
                     yield msg
 
@@ -203,7 +247,23 @@ class RTNL_API(object):
     #
     def dump(self):
         '''
-        Iterate all the objects -- links, routes, addresses etc.
+        Dump network objects.
+
+        On OpenBSD:
+
+        * get_links()
+        * get_addr()
+        * get_neighbours()
+        * get_routes()
+
+        On Linux:
+
+        * get_links()
+        * get_addr()
+        * get_neighbours()
+        * get_vlans()
+        * dump FDB
+        * IPv4 and IPv6 rules
         '''
         ##
         # Well, it's the Linux API, why OpenBSD / FreeBSD here?
@@ -766,7 +826,7 @@ class RTNL_API(object):
         )
         ret = self.nlm_request(msg, msg_type=command, msg_flags=msg_flags)
         if match is not None:
-            ret = self._match(match, ret)
+            ret = self.filter_messages(match, ret)
 
         if not (command == RTM_GETLINK and self.nlm_generator):
             ret = tuple(ret)
@@ -1121,7 +1181,7 @@ class RTNL_API(object):
         ret = self.nlm_request(msg, msg_type=msg_type, msg_flags=msg_flags)
 
         if command == 'dump' and dump_filter:
-            ret = self._match(dump_filter, ret)
+            ret = self.filter_messages(dump_filter, ret)
 
         if not (msg_type == RTM_GETNEIGH and self.nlm_generator):
             ret = tuple(ret)
@@ -1514,7 +1574,7 @@ class RTNL_API(object):
                     .apply_filter(LinkIPRouteFilter('dump'))
                     .finalize()
                 )
-            ret = self._match(dump_filter, ret)
+            ret = self.filter_messages(dump_filter, ret)
 
         if not (msg_type == RTM_GETLINK and self.nlm_generator):
             ret = tuple(ret)
@@ -1631,7 +1691,7 @@ class RTNL_API(object):
             terminate=lambda x: x['header']['type'] == NLMSG_ERROR,
         )
         if command == 'dump' and dump_filter is not None:
-            ret = self._match(dump_filter, ret)
+            ret = self.filter_messages(dump_filter, ret)
 
         if not (command == RTM_GETADDR and self.nlm_generator):
             ret = tuple(ret)
@@ -2158,7 +2218,7 @@ class RTNL_API(object):
                     .apply_filter(RouteIPRouteFilter('dump'))
                     .finalize()
                 )
-            ret = self._match(match, ret)
+            ret = self.filter_messages(match, ret)
 
         if not (command == RTM_GETROUTE and self.nlm_generator):
             ret = tuple(ret)
@@ -2289,7 +2349,7 @@ class RTNL_API(object):
                     .apply_filter(RuleIPRouteFilter('dump'))
                     .finalize()
                 )
-            ret = self._match(match, ret)
+            ret = self.filter_messages(match, ret)
 
         if not (command == RTM_GETRULE and self.nlm_generator):
             ret = tuple(ret)
@@ -2317,7 +2377,7 @@ class RTNL_API(object):
 
         ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
         if match is not None:
-            ret = self._match(match, ret)
+            ret = self.filter_messages(match, ret)
 
         if not (command == RTM_GETSTATS and self.nlm_generator):
             ret = tuple(ret)
