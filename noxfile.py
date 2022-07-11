@@ -13,6 +13,7 @@ nox.options.sessions = [
     'repo',
     'unit',
     'neutron',
+    'integration',
     'linux-3.6',
     'linux-3.10',
     'minimal',
@@ -210,6 +211,14 @@ def unit(session, config):
     '''Run unit tests.'''
     setup_venv_dev(session)
     session.run(*options('test_unit', config))
+
+
+@nox.session
+@add_session_config
+def integration(session, config):
+    '''Run integration tests (lnst, kuryr, ...).'''
+    setup_venv_dev(session)
+    session.run(*options('test_integration', config))
 
 
 @nox.session(python=['3.6', '3.10'])
