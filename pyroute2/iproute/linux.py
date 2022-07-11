@@ -294,9 +294,31 @@ class RTNL_API(object):
             for msg in method():
                 yield msg
 
-    def poll(self, method, command, timeout=10, **spec):
+    def poll(self, method, command, timeout=10, interval=0.2, **spec):
         '''
-        Poll an IPRoute object using `method(command, **spec)`
+        Run `method` with a positional argument `command` and keyword
+        arguments `**spec` every `interval` seconds, but not more than
+        `timeout`, until it returns a result which doesn't evaluate to
+        `False`.
+
+        Example:
+
+        .. code-block:: python
+
+            # create a bridge interface and wait for it:
+            #
+            spec = {
+                'ifname': 'br0',
+                'kind': 'bridge',
+                'state': 'up',
+                'br_stp_state': 1,
+            }
+            ipr.link('add', **spec)
+            ret = ipr.poll(ipr.link, 'dump', **spec)
+
+            assert ret[0].get('ifname') == 'br0'
+            assert ret[0].get('state') == 'up'
+            assert ret[0].get(('linkinfo', 'data', 'br_stp_state')) == 1
         '''
         ctime = time.time()
         ret = tuple()
@@ -305,7 +327,7 @@ class RTNL_API(object):
                 ret = method(command, **spec)
                 if ret:
                     return ret
-                time.sleep(0.2)
+                time.sleep(interval)
             except NetlinkDumpInterrupted:
                 pass
         raise TimeoutError()
