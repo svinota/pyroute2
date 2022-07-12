@@ -1,7 +1,10 @@
-window.addEventListener("load", function () {
-  const images = document.getElementsByTagName("img")
-  for (let i = 0; i < images.length; i++) {
-      images[i].removeAttribute("width");
-      images[i].removeAttribute("height");
-  }
+window.addEventListener("load", function() {
+    Array.from(
+        document.getElementsByTagName("img")
+    ).map(
+        function(img) {
+            img.removeAttribute("width");
+            img.removeAttribute("height");
+        }
+    )
 })
