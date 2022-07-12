@@ -1,4 +1,4 @@
-from pr2modules.netlink import nla
+from pyroute2.netlink import nla
 
 register_kind = 'vlan'
 

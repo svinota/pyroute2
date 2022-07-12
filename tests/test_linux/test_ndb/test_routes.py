@@ -5,7 +5,7 @@ from pr2test.context_manager import make_test_matrix
 from pr2test.marks import require_root
 from pr2test.tools import address_exists, interface_exists, route_exists
 
-from pr2modules.netlink.rtnl.rtmsg import IP6_RT_PRIO_USER, rtmsg
+from pyroute2.netlink.rtnl.rtmsg import IP6_RT_PRIO_USER, rtmsg
 
 pytestmark = [require_root()]
 

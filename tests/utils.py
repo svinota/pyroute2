@@ -12,8 +12,8 @@ from socket import AF_INET, AF_INET6
 import netaddr
 import pytest
 
-from pr2modules import config
-from pr2modules.iproute.linux import IPRoute
+from pyroute2 import config
+from pyroute2.iproute.linux import IPRoute
 
 try:
     import httplib

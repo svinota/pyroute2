@@ -6,8 +6,7 @@ from pr2test.context_manager import make_test_matrix
 from pr2test.marks import require_root
 from pr2test.tools import address_exists, interface_exists
 
-from pr2modules import netns
-from pyroute2 import NDB
+from pyroute2 import NDB, netns
 
 pytestmark = [require_root()]
 

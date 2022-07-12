@@ -1,5 +1,5 @@
-from pr2modules.common import get_address_family
-from pr2modules.netlink.rtnl import (
+from pyroute2.common import get_address_family
+from pyroute2.netlink.rtnl import (
     RTM_NEWADDR,
     RTM_NEWLINK,
     RTM_NEWNEIGH,

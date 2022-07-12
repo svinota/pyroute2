@@ -71,7 +71,7 @@ DHCP options are described in a similar way::
 Code is a `uint8` value, name can be any string literal. Format
 is a string, that must have a corresponding class, inherited from
 `pyroute2.dhcp.option`. One can find these classes in
-`pyroute2.dhcp` (more generic) or in `pr2modules.dhcp.dhcp4msg`
+`pyroute2.dhcp` (more generic) or in `pyroute2.dhcp.dhcp4msg`
 (IPv4-specific). The option class must reside within dhcp message
 class.
 

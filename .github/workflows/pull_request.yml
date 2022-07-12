@@ -33,6 +33,12 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: make nox session=neutron
+  integration:
+    runs-on: Linux
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: make nox session=integration
   minimal:
     runs-on: Linux
     steps:

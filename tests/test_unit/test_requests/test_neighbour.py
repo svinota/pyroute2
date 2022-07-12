@@ -3,8 +3,8 @@ from socket import AF_INET, AF_INET6
 import pytest
 from common import Request, Result, run_test
 
-from pr2modules.netlink.rtnl.ndmsg import NUD_FAILED, NUD_PERMANENT
-from pr2modules.requests.neighbour import (
+from pyroute2.netlink.rtnl.ndmsg import NUD_FAILED, NUD_PERMANENT
+from pyroute2.requests.neighbour import (
     NeighbourFieldFilter,
     NeighbourIPRouteFilter,
 )
