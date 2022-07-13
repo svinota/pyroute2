@@ -29,6 +29,7 @@ Filtering examples::
 
 '''
 import json
+import warnings
 from itertools import chain
 
 from pyroute2 import cli
@@ -258,10 +259,17 @@ class RecordSet(BaseRecordSet):
 
     @cli.show_result
     def select(self, *argv):
-        '''
-        Select fields from records::
+        warnings.warn(
+            'RecordSet.select is renamed to .fields', DeprecationWarning
+        )
+        return self.fields(*argv)
 
-            ndb.interfaces.dump().select('index', 'ifname', 'state')
+    @cli.show_result
+    def fields(self, *argv):
+        '''
+        Show selected fields from records::
+
+            ndb.interfaces.dump().fields('index', 'ifname', 'state')
         '''
 
         def g():
