@@ -1,6 +1,11 @@
 Changelog
 =========
 
+* 0.7.1
+    * packaging: back to single package layout <https://github.com/svinota/pyroute2/issues/935>
+    * packaging: static version <https://github.com/svinota/pyroute2/issues/939>
+    * ci: use nox, finish migration from nose
+    * netlink: universal nlmsg.get()
 * 0.6.13
     * requests: IPv6 routes default priority <https://github.com/svinota/pyroute2/issues/934>
     * requests: fix wrong family on empty IP targets <https://github.com/svinota/pyroute2/issues/937>
