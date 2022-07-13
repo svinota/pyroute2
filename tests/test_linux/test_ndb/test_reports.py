@@ -17,16 +17,17 @@ test_matrix = make_test_matrix(
 
 
 @pytest.mark.parametrize(
-    'view,item',
+    'view,key,item',
     (
-        ('interfaces', 'lo'),
-        ('routes', '127.0.0.0/8'),
-        ('addresses', '127.0.0.1/8'),
+        ('interfaces', 'ifname', 'lo'),
+        ('routes', 'dst', '127.0.0.0/8'),
+        ('addresses', 'address', '127.0.0.1/8'),
     ),
 )
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_contains(context, view, item):
+def test_contains(context, view, key, item):
     context.ndb.interfaces['lo'].set('state', 'up').commit()
+    getattr(context.ndb, view).wait(**{key: item, 'timeout': 10})
     assert item in getattr(context.ndb, view)
 
 
