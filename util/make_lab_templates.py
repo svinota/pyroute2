@@ -1,8 +1,10 @@
+#!/usr/bin/env python
+
 import pathlib
 
 from jinja2 import Environment, FileSystemLoader
 
-env = Environment(loader=FileSystemLoader('lab'))
+env = Environment(loader=FileSystemLoader('lab/_templates/'))
 template = env.get_template('form_template.html')
 root = pathlib.Path('examples/lab')
 for example in root.iterdir():
