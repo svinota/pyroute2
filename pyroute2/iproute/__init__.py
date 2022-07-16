@@ -142,10 +142,10 @@ from pyroute2.netlink.rtnl import (
     RTM_NEWLINK,
 )
 
-if sys.platform.startswith('win'):
-    from pyroute2.iproute.windows import ChaoticIPRoute, IPRoute, RawIPRoute
-elif sys.platform.startswith('emscripten'):
+if sys.platform.startswith('emscripten'):
     from pyroute2.iproute.pyodide import ChaoticIPRoute, IPRoute, RawIPRoute
+elif sys.platform.startswith('win'):
+    from pyroute2.iproute.windows import ChaoticIPRoute, IPRoute, RawIPRoute
 elif config.uname[0][-3:] == 'BSD':
     from pyroute2.iproute.bsd import ChaoticIPRoute, IPRoute, RawIPRoute
 else:

@@ -2,6 +2,7 @@ import errno
 import queue
 import struct
 
+from pyroute2.lab import LAB_API
 from pyroute2.netlink.nlsocket import Stats
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -198,8 +199,9 @@ DUMP_ADDRS = [
 ]
 
 
-class IPRoute:
-    def __init__(self):
+class IPRoute(LAB_API):
+    def __init__(self, *argv, **kwarg):
+        super().__init__(*argv, **kwarg)
         self.output_queue = queue.Queue(maxsize=512)
 
     def __enter__(self):
