@@ -13,7 +13,6 @@ docs/doctrees
 docs/_templates/private.layout.html
 docs-build.log
 lab/_build
-lab/*html
 *.egg-info
 benchmark.log
 venv
