@@ -1,5 +1,6 @@
-from jinja2 import Environment, FileSystemLoader
 import pathlib
+
+from jinja2 import Environment, FileSystemLoader
 
 env = Environment(loader=FileSystemLoader('lab'))
 template = env.get_template('form_template.html')
@@ -14,5 +15,7 @@ for example in root.iterdir():
                 check += line
     name = example.name
     with open(f'lab/{name}.html', 'w') as f:
-        f.write(template.render(setup=setup, task=task, check=check, name=name))
+        f.write(
+            template.render(setup=setup, task=task, check=check, name=name)
+        )
         print(f'created lab/{name}.html')

@@ -1,7 +1,6 @@
+import contextlib
 import io
 import sys
-import contextlib
-
 
 ret = io.StringIO()
 
