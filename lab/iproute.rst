@@ -1,9 +1,9 @@
 IPRoute lab
 -----------
 
-.. _load:
+.. _dmesg:
 
-loading Python ...
+Starting system
 
 .. raw:: html
    :file: example1.html

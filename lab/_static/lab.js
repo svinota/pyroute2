@@ -1,3 +1,23 @@
+const log = console.log;
+const log_buffer = [];
+const log_size_max = 16;
+console.log = (...argv) => {
+    let ctime = new Date();
+    log.apply(console, argv);
+    log_buffer.push([ctime, argv]);
+    if (log_buffer.length > log_size_max) {
+        log_buffer.shift();
+    };
+    dmesg = document.getElementById("dmesg");
+    if (dmesg) {
+        let log_output = "";
+        log_buffer.map(function (x) {
+            log_output += `<span class="log_record">${x[1]}</span>`;
+        });
+        dmesg.innerHTML = log_output;
+    };
+};
+
 let context = {};
 let base_url = "";
 
@@ -36,13 +56,19 @@ function execute_example(name) {
     let task = document.getElementById(name + "-task").value;
     let check = document.getElementById(name + "-check").value;
 
-    context.pyodide.runPython(pre_load, { globals: context.namespace });
-    context.pyodide.runPython(setup, { globals: context.namespace });
-    context.pyodide.runPython(task, { globals: context.namespace });
-    context.pyodide.runPython(check, { globals: context.namespace });
-    context.pyodide.runPython(post_load, { globals: context.namespace });
-    let data = context.namespace.get("result");
-    document.getElementById(name + "-data").innerHTML = "<pre>" + data + "</pre>";
+    log_buffer.length = 0;
+    try {
+        context.pyodide.runPython(pre_load, { globals: context.namespace });
+        context.pyodide.runPython(setup, { globals: context.namespace });
+        context.pyodide.runPython(task, { globals: context.namespace });
+        context.pyodide.runPython(check, { globals: context.namespace });
+        context.pyodide.runPython(post_load, { globals: context.namespace });
+        let data = context.namespace.get("result");
+        document.getElementById(name + "-data").innerHTML = "<pre>" + data + "</pre>";
+        console.log('Check successful');
+    } catch(exception) {
+        console.log(`Exception <pre>${exception}</pre>`);
+    };
 }
 
 function clear_example_output(name) {
@@ -50,13 +76,15 @@ function clear_example_output(name) {
 }
 
 async function main() {
+    console.log("Loading Python, be patient");
     let pyodide = await loadPyodide();
     let namespace = pyodide.globals.get("dict")();
     await pyodide.loadPackage("micropip");
     await pyodide.runPythonAsync(bootstrap, { globals: namespace });
-    context.pyodide = pyodide
-    context.namespace = namespace
-    document.getElementById("load").innerHTML = "loaded";
+    context.pyodide = pyodide;
+    context.namespace = namespace;
+    log_buffer.length = 0;
+    console.log("System loaded");
     Array.from(
         document.getElementsByClassName("loading")
     ).map(function(x) {

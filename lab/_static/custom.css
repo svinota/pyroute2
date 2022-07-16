@@ -319,3 +319,15 @@ div.aafig-caption p {
 .hidden {
     display: none;
 }
+
+p#dmesg {
+    border: dashed 1px #c0c0c0;
+}
+
+.log_record {
+    display: block;
+    color: #909090;
+    margin: 0px;
+    padding: 2px;
+    padding-left: 1em;
+}
