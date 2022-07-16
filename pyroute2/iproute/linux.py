@@ -10,6 +10,7 @@ from socket import AF_INET, AF_INET6, AF_UNSPEC
 from pyroute2 import config
 from pyroute2.common import AF_MPLS, basestring
 from pyroute2.config import AF_BRIDGE
+from pyroute2.lab import LAB_API
 from pyroute2.netlink import (
     NLM_F_ACK,
     NLM_F_APPEND,
@@ -123,7 +124,7 @@ def transform_handle(handle):
     return handle
 
 
-class RTNL_API(object):
+class RTNL_API:
     '''
     `RTNL_API` should not be instantiated by itself. It is intended
     to be used as a mixin class. Following classes use `RTNL_API`:
@@ -166,7 +167,7 @@ class RTNL_API(object):
             self.netns_path = kwarg['netns_path']
         else:
             self.netns_path = config.netns_path
-        super(RTNL_API, self).__init__(*argv, **kwarg)
+        super().__init__(*argv, **kwarg)
         if not self.nlm_generator:
 
             def filter_messages(*argv, **kwarg):
@@ -2438,7 +2439,7 @@ class IPBatch(RTNL_API, IPBatchSocket):
     pass
 
 
-class IPRoute(RTNL_API, IPRSocket):
+class IPRoute(LAB_API, RTNL_API, IPRSocket):
     '''
     Regular ordinary utility class, see RTNL API for the list of methods.
     '''
