@@ -115,6 +115,7 @@ def setup_venv_minimal(session):
     session.run('mv', '-f', 'setup.cfg.orig', 'setup.cfg', external=True)
     tmpdir = os.path.abspath(session.create_tmp())
     session.run('cp', '-a', 'tests', tmpdir, external=True)
+    session.run('cp', '-a', 'examples', tmpdir, external=True)
     session.chdir(f'{tmpdir}/tests')
     return tmpdir
 
@@ -243,6 +244,14 @@ def minimal(session, config):
     '''Run tests on pyroute2.minimal package.'''
     setup_venv_minimal(session)
     session.run(*options('test_minimal', config))
+
+
+@nox.session
+@add_session_config
+def lab(session, config):
+    '''Test lab code blocks.'''
+    workspace = setup_venv_minimal(session)
+    session.run(*options('test_lab', config), env={'WORKSPACE': workspace})
 
 
 @nox.session
