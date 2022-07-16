@@ -12,6 +12,7 @@ nox.options.sessions = [
     'linter',
     'repo',
     'unit',
+    'lab',
     'neutron',
     'integration',
     'linux-3.6',
