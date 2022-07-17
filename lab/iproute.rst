@@ -3,6 +3,10 @@ IPRoute -- work with interfaces, addresses and routes
 
 .. _dmesg:
 
+The lab requires JavaScript to be enabled, as it runs Python over JS. It
+may be also incompatible with your browser, so consider using FireFox,
+Chrome or like that.
+
 
 Create IPRoute and get network objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

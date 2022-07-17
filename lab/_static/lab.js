@@ -90,7 +90,8 @@ async function main() {
     if (!document.getElementById("dmesg")) {
         return;
     };
-    console.log("Loading python, be patient");
+    console.log("Booting the system, be patient");
+    console.log("Starting python");
     let pyodide = await loadPyodide();
     let namespace = pyodide.globals.get("dict")();
     await pyodide.loadPackage("micropip");
@@ -100,6 +101,11 @@ async function main() {
     log_buffer.length = 0;
     python_loaded = true;
     console.log(`System loaded [ ${distfile} ]`);
+    Array.from(
+        document.getElementsByTagName("section")
+    ).map(function(x) {
+        x.style['display'] = 'block';
+    });
     Array.from(
         document.getElementsByClassName("loading")
     ).map(function(x) {

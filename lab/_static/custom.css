@@ -316,6 +316,10 @@ div.aafig-caption p {
     float: right;
 }
 
+section section {
+    display: none;
+}
+
 .hidden {
     display: none;
 }
