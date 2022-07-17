@@ -296,13 +296,13 @@ div.aafig-caption p {
 .loading {
     background: #f0f0f0;
     color: #909090;
-    width: 100%;
+    width: 99%;
 }
 
 .loaded {
     background: #ffffff;
     color: #000000;
-    width: 100%;
+    width: 99%;
 }
 
 .button, .button-right {
@@ -320,8 +320,9 @@ div.aafig-caption p {
     display: none;
 }
 
-p#dmesg {
+#dmesg {
     border: dashed 1px #c0c0c0;
+    display: block;
 }
 
 .log_record {

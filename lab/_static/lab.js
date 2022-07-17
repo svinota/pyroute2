@@ -29,17 +29,24 @@ let bootstrap = `
 import io
 import micropip
 import sys
-from pprint import pprint
+import pprint
+import builtins
 
 await micropip.install("${base_url}/${distfile}")
 
 from pyroute2.netlink import nlmsg
 
-def print(data):
-    if isinstance(data, nlmsg):
-        return pprint(data.dump())
-    return pprint(data)
 
+def print(*argv, end='\\n'):
+    for data in argv:
+        if isinstance(data, nlmsg):
+            pprint.pprint(data.dump())
+        elif isinstance(data, (str, int, float)):
+            builtins.print(data, end='')
+        else:
+            pprint.pprint(data)
+        builtins.print(' ', end='')
+    builtins.print(end=end)
 `;
 
 let pre_load = `
@@ -55,20 +62,19 @@ function execute_example(name) {
     let setup = document.getElementById(name + "-setup").value;
     let task = document.getElementById(name + "-task").value;
     let check = document.getElementById(name + "-check").value;
+    let data = "";
 
-    log_buffer.length = 0;
     try {
         context.pyodide.runPython(pre_load, { globals: context.namespace });
         context.pyodide.runPython(setup, { globals: context.namespace });
         context.pyodide.runPython(task, { globals: context.namespace });
         context.pyodide.runPython(check, { globals: context.namespace });
         context.pyodide.runPython(post_load, { globals: context.namespace });
-        let data = context.namespace.get("result");
-        document.getElementById(name + "-data").innerHTML = "<pre>" + data + "</pre>";
-        console.log('Check successful');
+        data = context.namespace.get("result");
     } catch(exception) {
-        console.log(`Exception <pre>${exception}</pre>`);
+        data = `${exception}`
     };
+    document.getElementById(name + "-data").innerHTML = `<pre>${data}</pre>`;
 }
 
 function clear_example_output(name) {
@@ -76,7 +82,10 @@ function clear_example_output(name) {
 }
 
 async function main() {
-    console.log("Loading Python, be patient");
+    if (!document.getElementById("dmesg")) {
+        return;
+    };
+    console.log("Loading python, be patient");
     let pyodide = await loadPyodide();
     let namespace = pyodide.globals.get("dict")();
     await pyodide.loadPackage("micropip");
@@ -84,7 +93,7 @@ async function main() {
     context.pyodide = pyodide;
     context.namespace = namespace;
     log_buffer.length = 0;
-    console.log("System loaded");
+    console.log(`System loaded [ ${distfile} ]`);
     Array.from(
         document.getElementsByClassName("loading")
     ).map(function(x) {
