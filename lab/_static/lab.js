@@ -26,7 +26,7 @@ if (window.hostname) {
     base_url = `${window.protocol}//${window.hostname}`
 };
 
-let bootstrap = `
+const bootstrap = `
 import io
 import micropip
 import sys
@@ -50,11 +50,11 @@ def print(*argv, end='\\n'):
     builtins.print(end=end)
 `;
 
-let pre_load = `
+const exercise_pre = `
 sys.stdout = io.StringIO()
 `;
 
-let post_load = `
+const exercise_post = `
 result = sys.stdout.getvalue()
 `;
 
@@ -69,11 +69,11 @@ async function execute_example(name) {
         return;
     } else {
         try {
-            context.pyodide.runPython(pre_load, { globals: context.namespace });
+            context.pyodide.runPython(exercise_pre, { globals: context.namespace });
             context.pyodide.runPython(setup, { globals: context.namespace });
             context.pyodide.runPython(task, { globals: context.namespace });
             context.pyodide.runPython(check, { globals: context.namespace });
-            context.pyodide.runPython(post_load, { globals: context.namespace });
+            context.pyodide.runPython(exercise_post, { globals: context.namespace });
             data = context.namespace.get("result");
         } catch(exception) {
             data = `${exception}`
@@ -92,26 +92,39 @@ async function main() {
     };
     console.log("Booting the system, be patient");
     console.log("Starting python");
-    let pyodide = await loadPyodide();
-    let namespace = pyodide.globals.get("dict")();
-    await pyodide.loadPackage("micropip");
-    await pyodide.runPythonAsync(bootstrap, { globals: namespace });
+    let pyodide = null;
+    let namespace = null;
+    // try to load python
+    try {
+        pyodide = await loadPyodide();
+        namespace = pyodide.globals.get("dict")();
+        await pyodide.loadPackage("micropip");
+        await pyodide.runPythonAsync(bootstrap, { globals: namespace });
+    } catch(exception) {
+        console.log(`<pre>${exception}</pre>`);
+        console.log("Please report this bug to the project <a href='https://github.com/svinota/pyroute2/issues'>bug tracker</a>, and don't forget to specify your browser.");
+        return;
+    };
+    // setup global context
     context.pyodide = pyodide;
     context.namespace = namespace;
+    // reset log
     log_buffer.length = 0;
     python_loaded = true;
-    console.log(`System loaded [ ${distfile} ]`);
+    // make exercises visible
     Array.from(
         document.getElementsByTagName("section")
     ).map(function(x) {
         x.style['display'] = 'block';
     });
+    // unlock code blocks
     Array.from(
         document.getElementsByClassName("loading")
     ).map(function(x) {
         x.removeAttribute("readonly");
         x.className = "loaded";
     });
+    console.log(`System loaded [ ${distfile} ]`);
 };
 
 
