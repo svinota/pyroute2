@@ -58,6 +58,18 @@ const exercise_post = `
 result = sys.stdout.getvalue()
 `;
 
+function escape_untrusted(data) {
+    return data.replace(/[<>&'"]/g, function (x) {
+        switch (x) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+            case "'": return '&apos;';
+            case '"': return '&quot;';
+        }
+    });
+}
+
 async function execute_example(name) {
     let setup = document.getElementById(name + "-setup").value;
     let task = document.getElementById(name + "-task").value;
@@ -79,6 +91,8 @@ async function execute_example(name) {
             data = `${exception}`
         };
     };
+    // recode untrusted output
+    data = escape_untrusted(data)
     document.getElementById(name + "-data").innerHTML = `<pre>${data}</pre>`;
 }
 
