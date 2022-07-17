@@ -20,6 +20,7 @@ console.log = (...argv) => {
 
 let context = {};
 let base_url = "";
+let python_loaded = false;
 
 if (window.hostname) {
     base_url = `${window.protocol}//${window.hostname}`
@@ -57,22 +58,26 @@ let post_load = `
 result = sys.stdout.getvalue()
 `;
 
-
-function execute_example(name) {
+async function execute_example(name) {
     let setup = document.getElementById(name + "-setup").value;
     let task = document.getElementById(name + "-task").value;
     let check = document.getElementById(name + "-check").value;
     let data = "";
-
-    try {
-        context.pyodide.runPython(pre_load, { globals: context.namespace });
-        context.pyodide.runPython(setup, { globals: context.namespace });
-        context.pyodide.runPython(task, { globals: context.namespace });
-        context.pyodide.runPython(check, { globals: context.namespace });
-        context.pyodide.runPython(post_load, { globals: context.namespace });
-        data = context.namespace.get("result");
-    } catch(exception) {
-        data = `${exception}`
+    if (!python_loaded) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await execute_example(name);
+        return;
+    } else {
+        try {
+            context.pyodide.runPython(pre_load, { globals: context.namespace });
+            context.pyodide.runPython(setup, { globals: context.namespace });
+            context.pyodide.runPython(task, { globals: context.namespace });
+            context.pyodide.runPython(check, { globals: context.namespace });
+            context.pyodide.runPython(post_load, { globals: context.namespace });
+            data = context.namespace.get("result");
+        } catch(exception) {
+            data = `${exception}`
+        };
     };
     document.getElementById(name + "-data").innerHTML = `<pre>${data}</pre>`;
 }
@@ -93,6 +98,7 @@ async function main() {
     context.pyodide = pyodide;
     context.namespace = namespace;
     log_buffer.length = 0;
+    python_loaded = true;
     console.log(`System loaded [ ${distfile} ]`);
     Array.from(
         document.getElementsByClassName("loading")
