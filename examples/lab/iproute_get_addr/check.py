@@ -7,5 +7,5 @@ if not isinstance(lab.registry[0], IPRoute):
     raise AssertionError('expected IPRoute instance')
 
 ipr = lab.registry[0]
-ipr.get_links.assert_called()
+ipr.get_addr.assert_called()
 ipr.close.assert_called_once()
