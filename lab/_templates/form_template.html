@@ -1,0 +1,14 @@
+<form class="exercise">
+<textarea id="{{ name }}-setup" class="hidden" readonly="true" spellcheck="false">
+{{ setup }}
+</textarea>
+<textarea rows="10" id="{{ name }}-task" class="loading" readonly="true" spellcheck="false">
+{{ task }}
+</textarea>
+<textarea id="{{ name }}-check" class="hidden" readonly="true" spellcheck="false">
+{{ check }}
+</textarea>
+<input type="button" class="button-right" onclick="execute_example('{{ name }}')" value="execute &amp; check">
+<input type="button" class="button" onclick="clear_example_output('{{ name }}')" value="clear output">
+</form>
+<div id="{{ name }}-data"></div>

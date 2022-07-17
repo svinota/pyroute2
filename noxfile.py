@@ -107,17 +107,23 @@ def setup_linux(session):
         )
 
 
-def setup_venv_minimal(session):
-    session.install('--upgrade', 'pip')
-    session.install('-r', 'requirements.dev.txt')
-    session.run('mv', '-f', 'setup.cfg', 'setup.cfg.orig', external=True)
-    session.run('cp', 'setup.minimal.cfg', 'setup.cfg', external=True)
-    session.install('.')
-    session.run('mv', '-f', 'setup.cfg.orig', 'setup.cfg', external=True)
+def setup_venv_minimal(session, config):
+    if not config.get('reuse'):
+        session.install('--upgrade', 'pip')
+        session.install('build')
+        session.install('twine')
+        session.install('-r', 'requirements.dev.txt')
+        session.install('-r', 'requirements.docs.txt')
+        session.run('mv', '-f', 'setup.cfg', 'setup.cfg.orig', external=True)
+        session.run('cp', 'setup.minimal.cfg', 'setup.cfg', external=True)
+        session.run('python', '-m', 'build')
+        session.run('python', '-m', 'twine', 'check', 'dist/*')
+        session.install('.')
+        session.run('mv', '-f', 'setup.cfg.orig', 'setup.cfg', external=True)
     tmpdir = os.path.abspath(session.create_tmp())
+    session.run('cp', '-a', 'lab', tmpdir, external=True)
     session.run('cp', '-a', 'tests', tmpdir, external=True)
     session.run('cp', '-a', 'examples', tmpdir, external=True)
-    session.chdir(f'{tmpdir}/tests')
     return tmpdir
 
 
@@ -243,7 +249,8 @@ def linux(session, config):
 @add_session_config
 def minimal(session, config):
     '''Run tests on pyroute2.minimal package.'''
-    setup_venv_minimal(session)
+    tmpdir = setup_venv_minimal(session, config)
+    session.chdir(f'{tmpdir}/tests')
     session.run(*options('test_minimal', config))
 
 
@@ -251,7 +258,15 @@ def minimal(session, config):
 @add_session_config
 def lab(session, config):
     '''Test lab code blocks.'''
-    workspace = setup_venv_minimal(session)
+    workspace = setup_venv_minimal(session, config)
+    for fname in os.listdir('dist'):
+        if fname.startswith('pyroute2.minimal') and fname.endswith('whl'):
+            break
+    session.run('python', 'util/make_lab_templates.py', fname, external=True)
+    session.run('make', '-C', 'lab', 'html', external=True)
+    session.run('cp', f'dist/{fname}', 'lab/_build/html/', external=True)
+    # make tests
+    session.chdir(f'{workspace}/tests')
     session.run(*options('test_lab', config), env={'WORKSPACE': workspace})
 
 
