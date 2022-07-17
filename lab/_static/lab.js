@@ -31,7 +31,7 @@ import micropip
 import sys
 from pprint import pprint
 
-await micropip.install("${base_url}/pyroute2.minimal-0.7.1.post3-py3-none-any.whl")
+await micropip.install("${base_url}/${distfile}")
 
 from pyroute2.netlink import nlmsg
 

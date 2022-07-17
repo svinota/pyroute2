@@ -1,10 +1,18 @@
 #!/usr/bin/env python
 
 import pathlib
+import sys
 
 from jinja2 import Environment, FileSystemLoader
 
 env = Environment(loader=FileSystemLoader('lab/_templates/'))
+# js template
+template = env.get_template('conf.js')
+with open('lab/_static/conf.js', 'w') as f:
+    f.write(template.render(distfile=sys.argv[1]))
+    print('created lab/_static/conf.js')
+
+# html template
 template = env.get_template('form_template.html')
 root = pathlib.Path('examples/lab')
 for example in root.iterdir():

@@ -14,6 +14,7 @@ docs/_templates/private.layout.html
 docs-build.log
 lab/_build
 lab/*html
+lab/_static/conf.js
 *.egg-info
 benchmark.log
 venv

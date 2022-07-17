@@ -19,5 +19,5 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'default'
 html_css_files = ['custom.css']
-html_js_files = ['lab.js', 'fixup.js']
+html_js_files = ['conf.js', 'lab.js', 'fixup.js']
 html_static_path = ['_static']
