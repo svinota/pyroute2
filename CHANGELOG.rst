@@ -1,6 +1,10 @@
 Changelog
 =========
 
+* 0.7.2
+    * iproute: fix neighbours dump <https://github.com/svinota/pyroute2/issues/962>
+    * iproute: fix rule add <https://github.com/svinota/pyroute2/issues/964>
+    * setup: fix build-backend <https://github.com/svinota/pyroute2/pull/961>
 * 0.7.1
     * packaging: back to single package layout <https://github.com/svinota/pyroute2/issues/935>
     * packaging: static version <https://github.com/svinota/pyroute2/issues/939>
