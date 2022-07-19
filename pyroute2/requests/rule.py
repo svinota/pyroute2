@@ -28,7 +28,7 @@ class RuleIPRouteFilter(IPRouteFilter):
                 context['family'] = socket.AF_INET
             if 'priority' not in context:
                 context['priority'] = DEFAULT_FRA_PRIORITY
-            if 'table' not in context and 'action' not in context:
+            if 'table' in context and 'action' not in context:
                 context['action'] = 'to_tbl'
             for key in ('src_len', 'dst_len'):
                 if context.get(key, None) is None and key[:3] in context:
