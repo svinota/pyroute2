@@ -105,7 +105,10 @@ def get_dump_filter(kwarg):
     if 'match' in kwarg:
         return kwarg.pop('match'), kwarg
     else:
-        return kwarg, {}
+        new_kwarg = {}
+        if 'family' in kwarg:
+            new_kwarg['family'] = kwarg.pop('family')
+        return kwarg, new_kwarg
 
 
 def get_msg_type(command, command_map):
