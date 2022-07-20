@@ -1,9 +1,10 @@
 const log = console.log;
 const log_buffer = [];
 const log_size_max = 16;
-console.log = (...argv) => {
+
+
+function lab_page_log(argv) {
     let ctime = new Date();
-    log.apply(console, argv);
     log_buffer.push([ctime, argv]);
     if (log_buffer.length > log_size_max) {
         log_buffer.shift();
@@ -104,8 +105,8 @@ async function main() {
     if (!document.getElementById("dmesg")) {
         return;
     };
-    console.log("Booting the system, be patient");
-    console.log("Starting python");
+    lab_page_log("Booting the system, be patient");
+    lab_page_log("Starting python");
     let pyodide = null;
     let namespace = null;
     // try to load python
@@ -115,8 +116,8 @@ async function main() {
         await pyodide.loadPackage("micropip");
         await pyodide.runPythonAsync(bootstrap, { globals: namespace });
     } catch(exception) {
-        console.log(`<pre>${exception}</pre>`);
-        console.log("Please report this bug to the project <a href='https://github.com/svinota/pyroute2/issues'>bug tracker</a>, and don't forget to specify your browser.");
+        lab_page_log(`<pre>${exception}</pre>`);
+        lab_page_log("Please report this bug to the project <a href='https://github.com/svinota/pyroute2/issues'>bug tracker</a>, and don't forget to specify your browser.");
         return;
     };
     // setup global context
@@ -138,7 +139,7 @@ async function main() {
         x.removeAttribute("readonly");
         x.className = "loaded";
     });
-    console.log(`System loaded [ ${distfile} ]`);
+    lab_page_log(`System loaded [ ${distfile} ]`);
 };
 
 
