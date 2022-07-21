@@ -1,40 +1,18 @@
-const log = console.log;
-const log_buffer = [];
-const log_size_max = 16;
 
-
-function lab_page_log(argv) {
-    let ctime = new Date();
-    log_buffer.push([ctime, argv]);
-    if (log_buffer.length > log_size_max) {
-        log_buffer.shift();
-    };
-    dmesg = document.getElementById("dmesg");
-    if (dmesg) {
-        let log_output = "";
-        log_buffer.map(function (x) {
-            log_output += `<span class="log_record">${x[1]}</span>`;
-        });
-        dmesg.innerHTML = log_output;
-    };
-};
-
-let context = {};
-let base_url = "";
-let python_loaded = false;
-
-if (window.hostname) {
-    base_url = `${window.protocol}//${window.hostname}`
-};
-
-const bootstrap = `
+const pyroute2_lab_context = {
+    log_buffer: [],
+    log_size_max: 16,
+    pyodide: null,
+    python_namespace: null,
+    python_loaded: false,
+    bootstrap: `
 import io
 import micropip
 import sys
 import pprint
 import builtins
 
-await micropip.install("${base_url}/${distfile}")
+await micropip.install("${pyroute2_base_url}/${pyroute2_distfile}")
 
 from pyroute2.netlink import nlmsg
 
@@ -49,17 +27,29 @@ def print(*argv, end='\\n'):
             pprint.pprint(data)
         builtins.print(' ', end='')
     builtins.print(end=end)
-`;
+`,
+    exercise_pre: "sys.stdout = io.StringIO()",
+    exercise_post: "result = sys.stdout.getvalue()",
+};
 
-const exercise_pre = `
-sys.stdout = io.StringIO()
-`;
 
-const exercise_post = `
-result = sys.stdout.getvalue()
-`;
+function pyroute2_log_record(argv) {
+    let ctime = new Date();
+    pyroute2_lab_context.log_buffer.push([ctime, argv]);
+    if (pyroute2_lab_context.log_buffer.length > pyroute2_lab_context.log_size_max) {
+        pyroute2_lab_context.log_buffer.shift();
+    };
+    dmesg = document.getElementById("dmesg");
+    if (dmesg) {
+        let log_output = "";
+        pyroute2_lab_context.log_buffer.map(function (x) {
+            log_output += `<span class="pyroute2_log_record">${x[1]}</span>`;
+        });
+        dmesg.innerHTML = log_output;
+    };
+};
 
-function escape_untrusted(data) {
+function pyroute2_escape_untrusted(data) {
     return data.replace(/[<>&'"]/g, function (x) {
         switch (x) {
             case '<': return '&lt;';
@@ -71,42 +61,59 @@ function escape_untrusted(data) {
     });
 }
 
-async function execute_example(name) {
+async function pyroute2_execute_example(name) {
     let setup = document.getElementById(name + "-setup").value;
     let task = document.getElementById(name + "-task").value;
     let check = document.getElementById(name + "-check").value;
     let data = "";
-    if (!python_loaded) {
+    if (!pyroute2_lab_context.python_loaded) {
+        // if python is not loaded yet, wait a second...
         await new Promise(resolve => setTimeout(resolve, 1000));
-        await execute_example(name);
+        // and try again
+        await pyroute2_execute_example(name);
         return;
     } else {
         try {
-            context.pyodide.runPython(exercise_pre, { globals: context.namespace });
-            context.pyodide.runPython(setup, { globals: context.namespace });
-            context.pyodide.runPython(task, { globals: context.namespace });
-            context.pyodide.runPython(check, { globals: context.namespace });
-            context.pyodide.runPython(exercise_post, { globals: context.namespace });
-            data = context.namespace.get("result");
+            pyroute2_lab_context.pyodide.runPython(
+                pyroute2_lab_context.exercise_pre,
+                { globals: pyroute2_lab_context.python_namespace }
+            );
+            pyroute2_lab_context.pyodide.runPython(
+                setup,
+                { globals: pyroute2_lab_context.python_namespace }
+            );
+            pyroute2_lab_context.pyodide.runPython(
+                task,
+                { globals: pyroute2_lab_context.python_namespace }
+            );
+            pyroute2_lab_context.pyodide.runPython(
+                check,
+                { globals: pyroute2_lab_context.python_namespace }
+            );
+            pyroute2_lab_context.pyodide.runPython(
+                pyroute2_lab_context.exercise_post,
+                { globals: pyroute2_lab_context.python_namespace }
+            );
+            data = pyroute2_lab_context.python_namespace.get("result");
         } catch(exception) {
             data = `${exception}`
         };
     };
     // recode untrusted output
-    data = escape_untrusted(data)
+    data = pyroute2_escape_untrusted(data)
     document.getElementById(name + "-data").innerHTML = `<pre>${data}</pre>`;
 }
 
-function clear_example_output(name) {
+function pyroute2_clear_example_output(name) {
     document.getElementById(name + "-data").innerHTML = "";
 }
 
-async function main() {
+async function pyroute2_lab_main() {
     if (!document.getElementById("dmesg")) {
         return;
     };
-    lab_page_log("Booting the system, be patient");
-    lab_page_log("Starting python");
+    pyroute2_log_record("Booting the system, be patient");
+    pyroute2_log_record("Starting python");
     let pyodide = null;
     let namespace = null;
     // try to load python
@@ -114,18 +121,18 @@ async function main() {
         pyodide = await loadPyodide();
         namespace = pyodide.globals.get("dict")();
         await pyodide.loadPackage("micropip");
-        await pyodide.runPythonAsync(bootstrap, { globals: namespace });
+        await pyodide.runPythonAsync(pyroute2_lab_context.bootstrap, { globals: namespace });
     } catch(exception) {
-        lab_page_log(`<pre>${exception}</pre>`);
-        lab_page_log("Please report this bug to the project <a href='https://github.com/svinota/pyroute2/issues'>bug tracker</a>, and don't forget to specify your browser.");
+        pyroute2_log_record(`<pre>${exception}</pre>`);
+        pyroute2_log_record("Please report this bug to the project <a href='https://github.com/svinota/pyroute2/issues'>bug tracker</a>, and don't forget to specify your browser.");
         return;
     };
     // setup global context
-    context.pyodide = pyodide;
-    context.namespace = namespace;
+    pyroute2_lab_context.pyodide = pyodide;
+    pyroute2_lab_context.python_namespace = namespace;
     // reset log
-    log_buffer.length = 0;
-    python_loaded = true;
+    pyroute2_lab_context.log_buffer.length = 0;
+    pyroute2_lab_context.python_loaded = true;
     // make exercises visible
     Array.from(
         document.getElementsByTagName("section")
@@ -139,8 +146,7 @@ async function main() {
         x.removeAttribute("readonly");
         x.className = "loaded";
     });
-    lab_page_log(`System loaded [ ${distfile} ]`);
+    pyroute2_log_record(`System loaded [ ${pyroute2_distfile} ]`);
 };
 
-
-window.addEventListener("load", main);
+window.addEventListener("load", pyroute2_lab_main);
