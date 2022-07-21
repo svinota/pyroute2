@@ -329,7 +329,7 @@ section section {
     display: block;
 }
 
-.log_record {
+.pyroute2_log_record {
     display: block;
     color: #909090;
     margin: 0px;
