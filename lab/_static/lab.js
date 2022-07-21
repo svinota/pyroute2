@@ -66,6 +66,8 @@ async function pyroute2_execute_example(name) {
     let task = document.getElementById(name + "-task").value;
     let check = document.getElementById(name + "-check").value;
     let data = "";
+    let namespace = { globals: pyroute2_lab_context.python_namespace };
+    let pyodide = pyroute2_lab_context.pyodide;
     if (!pyroute2_lab_context.python_loaded) {
         // if python is not loaded yet, wait a second...
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -74,26 +76,11 @@ async function pyroute2_execute_example(name) {
         return;
     } else {
         try {
-            pyroute2_lab_context.pyodide.runPython(
-                pyroute2_lab_context.exercise_pre,
-                { globals: pyroute2_lab_context.python_namespace }
-            );
-            pyroute2_lab_context.pyodide.runPython(
-                setup,
-                { globals: pyroute2_lab_context.python_namespace }
-            );
-            pyroute2_lab_context.pyodide.runPython(
-                task,
-                { globals: pyroute2_lab_context.python_namespace }
-            );
-            pyroute2_lab_context.pyodide.runPython(
-                check,
-                { globals: pyroute2_lab_context.python_namespace }
-            );
-            pyroute2_lab_context.pyodide.runPython(
-                pyroute2_lab_context.exercise_post,
-                { globals: pyroute2_lab_context.python_namespace }
-            );
+            pyodide.runPython(pyroute2_lab_context.exercise_pre, namespace);
+            pyodide.runPython(setup, namespace);
+            pyodide.runPython(task, namespace);
+            pyodide.runPython(check, namespace);
+            pyodide.runPython(pyroute2_lab_context.exercise_post, namespace);
             data = pyroute2_lab_context.python_namespace.get("result");
         } catch(exception) {
             data = `${exception}`
