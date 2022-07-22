@@ -151,11 +151,8 @@ def listnetns(nspath=None):
         nsdir = NETNS_RUN_DIR
     try:
         return os.listdir(nsdir)
-    except OSError as e:
-        if e.errno == errno.ENOENT:
-            return []
-        else:
-            raise
+    except FileNotFoundError:
+        return []
 
 
 def _get_ns_by_inode(nspath=NETNS_RUN_DIR):
