@@ -329,10 +329,21 @@ section section {
     display: block;
 }
 
-.pyroute2_log_record {
+.pyroute2-log-record {
     display: block;
     color: #909090;
     margin: 0px;
     padding: 2px;
     padding-left: 1em;
+}
+
+.pyroute2-example-description {
+    border: solid 1px #c0c0c0;
+    background-color: #ffffe0;
+    font-family: monospace;
+}
+
+.pyroute2-example-description::before {
+    content: "Exercise:";
+    font-weight: bold;
 }

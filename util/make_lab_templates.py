@@ -3,6 +3,7 @@
 import pathlib
 import sys
 
+from docutils.core import publish_parts
 from jinja2 import Environment, FileSystemLoader
 
 env = Environment(loader=FileSystemLoader('lab/_templates/'))
@@ -16,6 +17,11 @@ with open('lab/_static/conf.js', 'w') as f:
 template = env.get_template('form_template.html')
 root = pathlib.Path('examples/lab')
 for example in root.iterdir():
+    if not example.is_dir():
+        continue
+    readme = publish_parts(
+        example.joinpath('README.rst').read_text(), writer_name='html'
+    )['html_body']
     setup = example.joinpath('setup.py').read_text()
     task = example.joinpath('task.py').read_text()
     check = ''
@@ -26,6 +32,8 @@ for example in root.iterdir():
     name = example.name
     with open(f'lab/{name}.html', 'w') as f:
         f.write(
-            template.render(setup=setup, task=task, check=check, name=name)
+            template.render(
+                readme=readme, setup=setup, task=task, check=check, name=name
+            )
         )
         print(f'created lab/{name}.html')

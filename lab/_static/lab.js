@@ -43,7 +43,7 @@ function pyroute2_log_record(argv) {
     if (dmesg) {
         let log_output = "";
         pyroute2_lab_context.log_buffer.map(function (x) {
-            log_output += `<span class="pyroute2_log_record">${x[1]}</span>`;
+            log_output += `<span class="pyroute2-log-record">${x[1]}</span>`;
         });
         dmesg.innerHTML = log_output;
     };

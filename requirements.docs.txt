@@ -3,3 +3,4 @@ twine
 aafigure
 sphinx
 pre-commit
+docutils
