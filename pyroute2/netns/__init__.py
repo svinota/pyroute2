@@ -163,7 +163,11 @@ def _get_ns_by_inode(nspath=NETNS_RUN_DIR):
     ns_by_dev_inode = {}
     for ns_name in listnetns(nspath=nspath):
         ns_path = os.path.join(nspath, ns_name)
-        st = os.stat(ns_path)
+        try:
+            st = os.stat(ns_path)
+        except FileNotFoundError:
+            # The path disappeared from the FS while listing, ignore it
+            continue
         if st.st_dev not in ns_by_dev_inode:
             ns_by_dev_inode[st.st_dev] = {}
         ns_by_dev_inode[st.st_dev][st.st_ino] = ns_name
