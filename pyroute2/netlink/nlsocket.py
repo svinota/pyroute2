@@ -87,7 +87,6 @@ import os
 import random
 import select
 import struct
-import sys
 import threading
 import time
 import traceback
@@ -133,7 +132,7 @@ log = logging.getLogger(__name__)
 Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
 
 
-class Marshal(object):
+class Marshal:
     '''
     Generic marshalling class
     '''
@@ -238,7 +237,7 @@ sockets = AddrPool(minaddr=0x0, maxaddr=0x3FF, reverse=True)
 # 8<-----------------------------------------------------------
 
 
-class LockProxy(object):
+class LockProxy:
     def __init__(self, factory, key):
         self.factory = factory
         self.refcount = 0
@@ -268,7 +267,7 @@ class LockProxy(object):
         self.release()
 
 
-class LockFactory(object):
+class LockFactory:
     def __init__(self, klass=threading.RLock):
         self.klass = klass
         self.locks = {0: LockProxy(self, 0)}
@@ -290,7 +289,7 @@ class LockFactory(object):
         del self.locks[key]
 
 
-class NetlinkSocketBase(object):
+class NetlinkSocketBase:
     '''
     Generic netlink socket
     '''
@@ -310,23 +309,6 @@ class NetlinkSocketBase(object):
         ext_ack=False,
         strict_check=False,
     ):
-        #
-        # That's a trick. Python 2 is not able to construct
-        # sockets from an open FD.
-        #
-        # So raise an exception, if the major version is < 3
-        # and fileno is not None.
-        #
-        # Do NOT use fileno in a core pyroute2 functionality,
-        # since the core should be both Python 2 and 3
-        # compatible.
-        #
-        super(NetlinkSocketBase, self).__init__()
-        if fileno is not None and sys.version_info[0] < 3:
-            raise NotImplementedError(
-                'fileno parameter is not supported ' 'on Python < 3.2'
-            )
-
         # 8<-----------------------------------------
         self.config = {
             'family': family,
@@ -1032,7 +1014,7 @@ class NetlinkSocketBase(object):
                 raise defer
 
 
-class BatchAddrPool(object):
+class BatchAddrPool:
     def alloc(self, *argv, **kwarg):
         return 0
 
