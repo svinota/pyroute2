@@ -90,6 +90,7 @@ import struct
 import threading
 import time
 import traceback
+import warnings
 from socket import MSG_PEEK, SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
 
 from pyroute2 import config
@@ -380,6 +381,12 @@ class NetlinkSocketBase:
         self.marshal = Marshal()
         # 8<-----------------------------------------
         if not nlm_generator:
+            warnings.warn(
+                '\n\nplease note: some netlink socket methods will soon '
+                'return iterators instead of lists.\nsee more: '
+                'https://github.com/svinota/pyroute2/discussions/972\n',
+                UserWarning,
+            )
 
             def nlm_request(*argv, **kwarg):
                 return tuple(self._genlm_request(*argv, **kwarg))
