@@ -12,7 +12,7 @@ buffer_settings = (
 def test_create_buffer(mode, size, page_size):
     try:
         buffer = Buffer(mode, size, page_size)
-    except ValueError:
+    except ModuleNotFoundError:
         pytest.skip(f'buffer mode "{mode}" not supported')
     assert buffer.mode == mode
     assert buffer.size == size
@@ -30,7 +30,10 @@ def test_create_buffer(mode, size, page_size):
 
 @pytest.mark.parametrize(*buffer_settings)
 def test_use_all_pages(mode, size, page_size):
-    buffer = Buffer(mode, size, page_size)
+    try:
+        buffer = Buffer(mode, size, page_size)
+    except ModuleNotFoundError:
+        pytest.skip(f'buffer mode "{mode}" not supported')
     maximal_index = size // page_size
     marker = 0x05
     for _ in range(maximal_index):
@@ -47,3 +50,12 @@ def test_use_all_pages(mode, size, page_size):
     with pytest.raises(MemoryError):
         buffer.get_free_page()
     buffer.close()
+
+
+@pytest.mark.parametrize(*buffer_settings)
+def test_context_manager(mode, size, page_size):
+    try:
+        with Buffer(mode, size, page_size) as buffer:
+            assert buffer.mode == mode
+    except ModuleNotFoundError:
+        pytest.skip(f'buffer mode "{mode}" not supported')
