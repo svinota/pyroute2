@@ -6,13 +6,19 @@ class Page:
     Memory page.
     '''
 
-    def __init__(self, buffer, offset):
-        self.buffer = buffer
+    def __init__(self, view, offset):
+        self.view = view
         self.offset = offset
-        self.free = True
+        self.is_free = True
+
+    def use(self):
+        self.is_free = False
+
+    def free(self):
+        self.is_free = True
 
     def close(self):
-        self.buffer.release()
+        self.view.release()
 
 
 class Buffer:
@@ -38,11 +44,18 @@ class Buffer:
                 self.view[offset : offset + self.page_size], offset
             )
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     def get_free_page(self):
         for index, page in self.directory.items():
-            if page.free:
+            if page.is_free:
+                page.use()
                 return page
-        raise KeyError('no free memory pages available')
+        raise MemoryError('no free memory pages available')
 
     def close(self):
         for page in self.directory.values():

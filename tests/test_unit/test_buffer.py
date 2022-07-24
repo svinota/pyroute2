@@ -21,5 +21,25 @@ def test_create_buffer(mode, size, page_size):
         assert minimal_index <= index <= maximal_index
         assert isinstance(page, Page)
         assert page.offset == index * page_size
-        assert page.free is True
+        assert page.is_free is True
     buffer.close()
+
+
+@pytest.mark.parametrize(*buffer_settings)
+def test_use_all_pages(mode, size, page_size):
+    with Buffer(mode, size, page_size) as buffer:
+        maximal_index = size // page_size
+        marker = 0x05
+        for _ in range(maximal_index):
+            page = buffer.get_free_page()
+            assert not page.is_free
+            page.view[0] = marker
+            assert page.view[0] == marker
+            assert buffer.view[page.offset] == marker
+            assert buffer.buf[page.offset] == marker
+            marker += 1
+            if marker == 0xFF:
+                marker = 0x05
+
+        with pytest.raises(MemoryError):
+            buffer.get_free_page()
