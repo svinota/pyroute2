@@ -1,4 +1,7 @@
-from multiprocessing import shared_memory
+try:
+    from multiprocessing import shared_memory
+except ImportError:
+    shared_memory = None
 
 
 class Page:
@@ -34,6 +37,8 @@ class Buffer:
             self.mem = None
             self.buf = bytearray(self.size)
         elif self.mode == 'shared':
+            if shared_memory is None:
+                raise ModuleNotFoundError('shared memory buffer not supported')
             self.mem = shared_memory.SharedMemory(create=True, size=self.size)
             self.buf = self.mem.buf
         self.view = memoryview(self.buf)
