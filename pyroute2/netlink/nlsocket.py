@@ -1103,8 +1103,6 @@ class NetlinkSocket(NetlinkSocketBase):
             self._sock = config.SocketBase(
                 AF_NETLINK, SOCK_DGRAM, self.family, self._fileno
             )
-            self.sendto_gate = self._gate
-
             self.setsockopt(SOL_SOCKET, SO_SNDBUF, self._sndbuf)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, self._rcvbuf)
             if self.ext_ack:
@@ -1134,7 +1132,7 @@ class NetlinkSocket(NetlinkSocketBase):
 
         raise AttributeError(attr)
 
-    def _gate(self, msg, addr):
+    def sendto_gate(self, msg, addr):
         msg.reset()
         msg.encode()
         return self._sock.sendto(msg.data, addr)

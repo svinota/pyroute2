@@ -27,8 +27,6 @@ class IPRSocketBase(object):
         self.marshal = MarshalRtnl()
         self._s_channel = None
         if sys.platform.startswith('linux'):
-            self._gate = self._gate_linux
-            self.sendto_gate = self._gate_linux
             send_ns = Namespace(
                 self,
                 {'addr_pool': AddrPool(0x10000, 0x1FFFF), 'monitor': False},
@@ -42,7 +40,7 @@ class IPRSocketBase(object):
     def bind(self, groups=rtnl.RTMGRP_DEFAULTS, **kwarg):
         super(IPRSocketBase, self).bind(groups, **kwarg)
 
-    def _gate_linux(self, msg, addr):
+    def sendto_gate(self, msg, addr):
         msg.reset()
         msg.encode()
         ret = self._sproxy.handle(msg)

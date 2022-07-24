@@ -235,9 +235,8 @@ class RemoteSocket(NetlinkSocketBase):
         else:
             self.uname = init['uname']
             atexit.register(self.close)
-        self.sendto_gate = self._gate
 
-    def _gate(self, msg, addr):
+    def sendto_gate(self, msg, addr):
         with self.cmdlock:
             self.trnsp_out.send(
                 {
