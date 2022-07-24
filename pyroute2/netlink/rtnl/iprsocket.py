@@ -2,7 +2,6 @@ import errno
 import sys
 import types
 
-from pyroute2 import config
 from pyroute2.common import DEFAULT_RCVBUF, AddrPool, Namespace
 from pyroute2.netlink import NETLINK_ROUTE, rtnl
 from pyroute2.netlink.nlsocket import (
@@ -14,18 +13,10 @@ from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.proxy import NetlinkProxy
 
 if sys.platform.startswith('linux'):
-    if config.kernel < [3, 3, 0]:
-        from pyroute2.netlink.rtnl.ifinfmsg.compat import (
-            proxy_dellink,
-            proxy_linkinfo,
-            proxy_newlink,
-            proxy_setlink,
-        )
-    else:
-        from pyroute2.netlink.rtnl.ifinfmsg.proxy import (
-            proxy_newlink,
-            proxy_setlink,
-        )
+    from pyroute2.netlink.rtnl.ifinfmsg.proxy import (
+        proxy_newlink,
+        proxy_setlink,
+    )
 
 
 class IPRSocketBase(object):
@@ -47,21 +38,6 @@ class IPRSocketBase(object):
                 rtnl.RTM_NEWLINK: proxy_newlink,
                 rtnl.RTM_SETLINK: proxy_setlink,
             }
-            if config.kernel < [3, 3, 0]:
-                self._recv_ns = Namespace(
-                    self,
-                    {
-                        'addr_pool': AddrPool(0x20000, 0x2FFFF),
-                        'monitor': False,
-                    },
-                )
-                self._sproxy.pmap[rtnl.RTM_DELLINK] = proxy_dellink
-                # inject proxy hooks into recv() and...
-                self.__recv = self._recv
-                self._recv = self._p_recv
-                # ... recv_into()
-                self._recv_ft = self.recv_ft
-                self.recv_ft = self._p_recv_ft
 
     def bind(self, groups=rtnl.RTMGRP_DEFAULTS, **kwarg):
         super(IPRSocketBase, self).bind(groups, **kwarg)
@@ -89,28 +65,6 @@ class IPRSocketBase(object):
                 ValueError('Incorrect verdict')
 
         return self._sendto(msg.data, addr)
-
-    def _p_recv_ft(self, bufsize, flags=0):
-        data = self._recv_ft(bufsize, flags)
-        ret = proxy_linkinfo(data, self._recv_ns)
-        if ret is not None:
-            if ret['verdict'] in ('forward', 'error'):
-                return ret['data']
-            else:
-                ValueError('Incorrect verdict')
-
-        return data
-
-    def _p_recv(self, bufsize, flags=0):
-        data = self.__recv(bufsize, flags)
-        ret = proxy_linkinfo(data, self._recv_ns)
-        if ret is not None:
-            if ret['verdict'] in ('forward', 'error'):
-                return ret['data']
-            else:
-                ValueError('Incorrect verdict')
-
-        return data
 
 
 class IPBatchSocket(IPRSocketBase, BatchSocket):

@@ -575,13 +575,21 @@ class NetlinkSocketBase(object):
         return self._sendto(*argv, **kwarg)
 
     def recv(self, *argv, **kwarg):
-        return self._recv(*argv, **kwarg)
+        if self.pthread is not None:
+            data_in = self.buffer_queue.get()
+            if isinstance(data_in, Exception):
+                raise data_in
+            return data_in
+        return self._sock.recv(*argv, **kwarg)
 
-    def recv_into(self, *argv, **kwarg):
-        return self._recv_into(*argv, **kwarg)
-
-    def recv_ft(self, *argv, **kwarg):
-        return self._recv(*argv, **kwarg)
+    def recv_into(self, data, *argv, **kwarg):
+        if self.pthread is not None:
+            data_in = self.buffer_queue.get()
+            if isinstance(data, Exception):
+                raise data_in
+            data[:] = data_in
+            return len(data_in)
+        return self._sock.recv_into(data, *argv, **kwarg)
 
     def async_recv(self):
         poll = select.poll()
@@ -837,7 +845,7 @@ class NetlinkSocketBase(object):
                                 #
                                 # This is a time consuming process, so all the
                                 # locks, except the read lock must be released
-                                data = self.recv_ft(bufsize)
+                                data = self.recv(bufsize)
                                 # Parse data
                                 msgs = self.marshal.parse(
                                     data, msg_seq, callback
@@ -1097,15 +1105,6 @@ class NetlinkSocket(NetlinkSocketBase):
             )
             self.sendto_gate = self._gate
 
-            # monkey patch recv_into on Python 2.6
-            if sys.version_info[0] == 2 and sys.version_info[1] < 7:
-                # --> monkey patch the socket
-                log.warning('patching socket.recv_into()')
-
-                def patch(data, bsize):
-                    data[0:] = self._sock.recv(bsize)
-
-                self._sock.recv_into = patch
             self.setsockopt(SOL_SOCKET, SO_SNDBUF, self._sndbuf)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, self._rcvbuf)
             if self.ext_ack:
@@ -1132,8 +1131,6 @@ class NetlinkSocket(NetlinkSocketBase):
             return getattr(self._sock, attr)
         elif attr in ('_sendto', '_recv', '_recv_into'):
             return getattr(self._sock, attr.lstrip("_"))
-        elif attr == "recv_ft":
-            return self._sock.recv
 
         raise AttributeError(attr)
 
@@ -1186,25 +1183,6 @@ class NetlinkSocket(NetlinkSocketBase):
                 raise KeyError('no free address available')
         # all is OK till now, so start async recv, if we need
         if async_cache:
-
-            def recv_plugin(*argv, **kwarg):
-                data_in = self.buffer_queue.get()
-                if isinstance(data_in, Exception):
-                    raise data_in
-                else:
-                    return data_in
-
-            def recv_into_plugin(data, *argv, **kwarg):
-                data_in = self.buffer_queue.get()
-                if isinstance(data_in, Exception):
-                    raise data_in
-                else:
-                    data[:] = data_in
-                    return len(data_in)
-
-            self._recv = recv_plugin
-            self._recv_into = recv_into_plugin
-            self.recv_ft = recv_plugin
             self.pthread = threading.Thread(
                 name="Netlink async cache", target=self.async_recv
             )
