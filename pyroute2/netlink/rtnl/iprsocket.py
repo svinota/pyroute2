@@ -9,8 +9,8 @@ from pyroute2.netlink.nlsocket import (
     ChaoticNetlinkSocket,
     NetlinkSocket,
 )
+from pyroute2.netlink.proxy import NetlinkProxy
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
-from pyroute2.proxy import NetlinkProxy
 
 if sys.platform.startswith('linux'):
     from pyroute2.netlink.rtnl.ifinfmsg.proxy import (

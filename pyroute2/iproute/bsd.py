@@ -55,6 +55,7 @@ from pyroute2.bsd.rtmsocket import RTMSocket
 from pyroute2.bsd.util import ARP, Ifconfig, Route
 from pyroute2.common import AddrPool, Namespace
 from pyroute2.netlink import NLM_F_DUMP, NLM_F_MULTI, NLM_F_REQUEST, NLMSG_DONE
+from pyroute2.netlink.proxy import NetlinkProxy
 from pyroute2.netlink.rtnl import (
     RTM_GETADDR,
     RTM_GETLINK,
@@ -70,7 +71,6 @@ from pyroute2.netlink.rtnl.ifinfmsg import IFF_NAMES, ifinfmsg
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
-from pyroute2.proxy import NetlinkProxy
 
 try:
     import queue
