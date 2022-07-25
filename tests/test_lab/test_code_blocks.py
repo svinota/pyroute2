@@ -8,9 +8,9 @@ import pytest
 def get_examples(*argv):
     root = pathlib.Path(os.environ['WORKSPACE'])
     examples = [
-        fname
-        for fname in root.joinpath(*argv).iterdir()
-        if not fname.name.endswith('.swp')
+        example
+        for example in root.joinpath(*argv).iterdir()
+        if example.is_dir()
     ]
     return {
         'argnames': 'example',
