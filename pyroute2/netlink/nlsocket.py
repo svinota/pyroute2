@@ -452,8 +452,7 @@ class NetlinkSocketBase:
         self.close()
 
     def release(self):
-        log.warning("The `release()` call is deprecated")
-        log.warning("Use `close()` instead")
+        warnings.warn('deprecated, use close() instead', DeprecationWarning)
         self.close()
 
     def register_callback(self, callback, predicate=lambda x: True, args=None):
