@@ -16,6 +16,7 @@ from socket import AF_INET
 
 from pyroute2.common import AddrPool, Namespace, dqn2int
 from pyroute2.netlink import NLM_F_DUMP, NLM_F_MULTI, NLM_F_REQUEST, NLMSG_DONE
+from pyroute2.netlink.proxy import NetlinkProxy
 from pyroute2.netlink.rtnl import (
     RTM_GETADDR,
     RTM_GETLINK,
@@ -29,7 +30,6 @@ from pyroute2.netlink.rtnl import (
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
-from pyroute2.proxy import NetlinkProxy
 
 MAX_ADAPTER_NAME_LENGTH = 256
 MAX_ADAPTER_DESCRIPTION_LENGTH = 128

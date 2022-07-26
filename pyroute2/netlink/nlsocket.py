@@ -87,10 +87,10 @@ import os
 import random
 import select
 import struct
-import sys
 import threading
 import time
 import traceback
+import warnings
 from socket import MSG_PEEK, SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
 
 from pyroute2 import config
@@ -133,7 +133,7 @@ log = logging.getLogger(__name__)
 Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
 
 
-class Marshal(object):
+class Marshal:
     '''
     Generic marshalling class
     '''
@@ -238,7 +238,7 @@ sockets = AddrPool(minaddr=0x0, maxaddr=0x3FF, reverse=True)
 # 8<-----------------------------------------------------------
 
 
-class LockProxy(object):
+class LockProxy:
     def __init__(self, factory, key):
         self.factory = factory
         self.refcount = 0
@@ -268,7 +268,7 @@ class LockProxy(object):
         self.release()
 
 
-class LockFactory(object):
+class LockFactory:
     def __init__(self, klass=threading.RLock):
         self.klass = klass
         self.locks = {0: LockProxy(self, 0)}
@@ -290,7 +290,7 @@ class LockFactory(object):
         del self.locks[key]
 
 
-class NetlinkSocketBase(object):
+class NetlinkSocketBase:
     '''
     Generic netlink socket
     '''
@@ -310,23 +310,6 @@ class NetlinkSocketBase(object):
         ext_ack=False,
         strict_check=False,
     ):
-        #
-        # That's a trick. Python 2 is not able to construct
-        # sockets from an open FD.
-        #
-        # So raise an exception, if the major version is < 3
-        # and fileno is not None.
-        #
-        # Do NOT use fileno in a core pyroute2 functionality,
-        # since the core should be both Python 2 and 3
-        # compatible.
-        #
-        super(NetlinkSocketBase, self).__init__()
-        if fileno is not None and sys.version_info[0] < 3:
-            raise NotImplementedError(
-                'fileno parameter is not supported ' 'on Python < 3.2'
-            )
-
         # 8<-----------------------------------------
         self.config = {
             'family': family,
@@ -398,6 +381,12 @@ class NetlinkSocketBase(object):
         self.marshal = Marshal()
         # 8<-----------------------------------------
         if not nlm_generator:
+            warnings.warn(
+                '\n\nplease note: some netlink socket methods will soon '
+                'return iterators instead of lists.\nsee more: '
+                'https://github.com/svinota/pyroute2/discussions/972\n',
+                UserWarning,
+            )
 
             def nlm_request(*argv, **kwarg):
                 return tuple(self._genlm_request(*argv, **kwarg))
@@ -575,13 +564,21 @@ class NetlinkSocketBase(object):
         return self._sendto(*argv, **kwarg)
 
     def recv(self, *argv, **kwarg):
-        return self._recv(*argv, **kwarg)
+        if self.pthread is not None:
+            data_in = self.buffer_queue.get()
+            if isinstance(data_in, Exception):
+                raise data_in
+            return data_in
+        return self._sock.recv(*argv, **kwarg)
 
-    def recv_into(self, *argv, **kwarg):
-        return self._recv_into(*argv, **kwarg)
-
-    def recv_ft(self, *argv, **kwarg):
-        return self._recv(*argv, **kwarg)
+    def recv_into(self, data, *argv, **kwarg):
+        if self.pthread is not None:
+            data_in = self.buffer_queue.get()
+            if isinstance(data, Exception):
+                raise data_in
+            data[:] = data_in
+            return len(data_in)
+        return self._sock.recv_into(data, *argv, **kwarg)
 
     def async_recv(self):
         poll = select.poll()
@@ -837,7 +834,7 @@ class NetlinkSocketBase(object):
                                 #
                                 # This is a time consuming process, so all the
                                 # locks, except the read lock must be released
-                                data = self.recv_ft(bufsize)
+                                data = self.recv(bufsize)
                                 # Parse data
                                 msgs = self.marshal.parse(
                                     data, msg_seq, callback
@@ -1024,7 +1021,7 @@ class NetlinkSocketBase(object):
                 raise defer
 
 
-class BatchAddrPool(object):
+class BatchAddrPool:
     def alloc(self, *argv, **kwarg):
         return 0
 
@@ -1095,17 +1092,6 @@ class NetlinkSocket(NetlinkSocketBase):
             self._sock = config.SocketBase(
                 AF_NETLINK, SOCK_DGRAM, self.family, self._fileno
             )
-            self.sendto_gate = self._gate
-
-            # monkey patch recv_into on Python 2.6
-            if sys.version_info[0] == 2 and sys.version_info[1] < 7:
-                # --> monkey patch the socket
-                log.warning('patching socket.recv_into()')
-
-                def patch(data, bsize):
-                    data[0:] = self._sock.recv(bsize)
-
-                self._sock.recv_into = patch
             self.setsockopt(SOL_SOCKET, SO_SNDBUF, self._sndbuf)
             self.setsockopt(SOL_SOCKET, SO_RCVBUF, self._rcvbuf)
             if self.ext_ack:
@@ -1132,12 +1118,10 @@ class NetlinkSocket(NetlinkSocketBase):
             return getattr(self._sock, attr)
         elif attr in ('_sendto', '_recv', '_recv_into'):
             return getattr(self._sock, attr.lstrip("_"))
-        elif attr == "recv_ft":
-            return self._sock.recv
 
         raise AttributeError(attr)
 
-    def _gate(self, msg, addr):
+    def sendto_gate(self, msg, addr):
         msg.reset()
         msg.encode()
         return self._sock.sendto(msg.data, addr)
@@ -1186,25 +1170,6 @@ class NetlinkSocket(NetlinkSocketBase):
                 raise KeyError('no free address available')
         # all is OK till now, so start async recv, if we need
         if async_cache:
-
-            def recv_plugin(*argv, **kwarg):
-                data_in = self.buffer_queue.get()
-                if isinstance(data_in, Exception):
-                    raise data_in
-                else:
-                    return data_in
-
-            def recv_into_plugin(data, *argv, **kwarg):
-                data_in = self.buffer_queue.get()
-                if isinstance(data_in, Exception):
-                    raise data_in
-                else:
-                    data[:] = data_in
-                    return len(data_in)
-
-            self._recv = recv_plugin
-            self._recv_into = recv_into_plugin
-            self.recv_ft = recv_plugin
             self.pthread = threading.Thread(
                 name="Netlink async cache", target=self.async_recv
             )
