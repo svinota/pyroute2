@@ -132,6 +132,23 @@ except ImportError:
 log = logging.getLogger(__name__)
 Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
 
+NL_BUFSIZE = 32768
+
+
+class CompileContext:
+    def __init__(self, netlink_socket):
+        self.netlink_socket = netlink_socket
+        self.netlink_socket.compiled = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+    def close(self):
+        self.netlink_socket.compiled = None
+
 
 class Marshal:
     '''
@@ -339,6 +356,7 @@ class NetlinkSocketBase:
         self.callbacks = []  # [(predicate, callback, args), ...]
         self.pthread = None
         self.closed = False
+        self.compiled = None
         self.uname = config.uname
         self.target = target
         self.capabilities = {
@@ -599,6 +617,9 @@ class NetlinkSocketBase:
                 else:
                     return
 
+    def compile(self):
+        return CompileContext(self)
+
     def _send_batch(self, msgs, addr=(0, 0)):
         with self.backlog_lock:
             for msg in msgs:
@@ -612,6 +633,8 @@ class NetlinkSocketBase:
             msg.reset()
             msg.encode()
             data += msg.data
+        if self.compiled is not None:
+            return self.compiled.append(data)
         self._sock.sendto(data, addr)
 
     def put(
@@ -669,7 +692,11 @@ class NetlinkSocketBase:
                 self.lock[msg_seq].release()
 
     def sendto_gate(self, msg, addr):
-        raise NotImplementedError()
+        msg.reset()
+        msg.encode()
+        if self.compiled is not None:
+            return self.compiled.append(msg.data)
+        return self._sock.sendto(msg.data, addr)
 
     def get(
         self,
@@ -942,13 +969,16 @@ class NetlinkSocketBase:
                 ):
                     expected_responses.append(seq)
             self._send_batch(msgs)
-
-            for seq in expected_responses:
-                for msg in self.get(msg_seq=seq, noraise=noraise):
-                    if msg['header']['flags'] & NLM_F_DUMP_INTR:
-                        # Leave error handling to the caller
-                        raise NetlinkDumpInterrupted()
-                    yield msg
+            if self.compiled is not None:
+                for data in self.compiled:
+                    yield data
+            else:
+                for seq in expected_responses:
+                    for msg in self.get(msg_seq=seq, noraise=noraise):
+                        if msg['header']['flags'] & NLM_F_DUMP_INTR:
+                            # Leave error handling to the caller
+                            raise NetlinkDumpInterrupted()
+                        yield msg
         finally:
             # Release locks in reverse order.
             for seq in seqs[acquired - 1 :: -1]:
@@ -979,18 +1009,24 @@ class NetlinkSocketBase:
                 while True:
                     try:
                         self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
-                        for msg in self.get(
-                            msg_seq=msg_seq,
-                            terminate=terminate,
-                            callback=callback,
-                        ):
-                            # analyze the response for effects to be deferred
-                            if (
-                                defer is None
-                                and msg['header']['flags'] & NLM_F_DUMP_INTR
+                        if self.compiled is not None:
+                            for data in self.compiled:
+                                yield data
+                        else:
+                            for msg in self.get(
+                                msg_seq=msg_seq,
+                                terminate=terminate,
+                                callback=callback,
                             ):
-                                defer = NetlinkDumpInterrupted()
-                            yield msg
+                                # analyze the response for effects to be
+                                # deferred
+                                if (
+                                    defer is None
+                                    and msg['header']['flags']
+                                    & NLM_F_DUMP_INTR
+                                ):
+                                    defer = NetlinkDumpInterrupted()
+                                yield msg
                         break
                     except NetlinkError as e:
                         if e.code != errno.EBUSY:
@@ -1120,11 +1156,6 @@ class NetlinkSocket(NetlinkSocketBase):
             return getattr(self._sock, attr.lstrip("_"))
 
         raise AttributeError(attr)
-
-    def sendto_gate(self, msg, addr):
-        msg.reset()
-        msg.encode()
-        return self._sock.sendto(msg.data, addr)
 
     def bind(self, groups=0, pid=None, **kwarg):
         '''
