@@ -91,7 +91,14 @@ import threading
 import time
 import traceback
 import warnings
-from socket import MSG_PEEK, SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
+from socket import (
+    MSG_DONTWAIT,
+    MSG_PEEK,
+    SO_RCVBUF,
+    SO_SNDBUF,
+    SOCK_DGRAM,
+    SOL_SOCKET,
+)
 
 from pyroute2 import config
 from pyroute2.common import DEFAULT_RCVBUF, AddrPool
@@ -615,6 +622,24 @@ class NetlinkSocketBase:
                         return
                 else:
                     return
+
+    def recv_all(self, bufsize=NL_BUFSIZE):
+        buffers = []
+        while True:
+            try:
+                buffers.append(self._sock.recv(bufsize, MSG_DONTWAIT))
+            except BlockingIOError:
+                return buffers
+
+    def recv_all_into(self, buffer):
+        count = 0
+        while True:
+            page = buffer.get_free_page()
+            try:
+                count += self._sock.recv_into(page.view, 0, MSG_DONTWAIT)
+            except BlockingIOError:
+                page.free()
+                return count
 
     def compile(self):
         return CompileContext(self)
