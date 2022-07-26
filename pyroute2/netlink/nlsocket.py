@@ -89,16 +89,9 @@ import select
 import struct
 import threading
 import time
-import traceback
 import warnings
-from socket import (
-    MSG_DONTWAIT,
-    MSG_PEEK,
-    SO_RCVBUF,
-    SO_SNDBUF,
-    SOCK_DGRAM,
-    SOL_SOCKET,
-)
+from queue import Queue
+from socket import MSG_DONTWAIT, SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
 
 from pyroute2 import config
 from pyroute2.common import DEFAULT_RCVBUF, AddrPool
@@ -131,15 +124,14 @@ from pyroute2.netlink.exceptions import (
     NetlinkHeaderDecodeError,
 )
 
-try:
-    from Queue import Queue
-except ImportError:
-    from queue import Queue
-
 log = logging.getLogger(__name__)
 Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
 
 NL_BUFSIZE = 32768
+
+
+class Enough:
+    pass
 
 
 class CompileContext:
@@ -605,25 +597,6 @@ class NetlinkSocketBase:
             return len(data_in)
         return self._sock.recv_into(data, *argv, **kwarg)
 
-    def async_recv(self):
-        poll = select.poll()
-        poll.register(self._sock, select.POLLIN | select.POLLPRI)
-        poll.register(self._ctrl_read, select.POLLIN | select.POLLPRI)
-        sockfd = self._sock.fileno()
-        while True:
-            events = poll.poll()
-            for (fd, event) in events:
-                if fd == sockfd:
-                    try:
-                        data = bytearray(64000)
-                        self._sock.recv_into(data, 64000)
-                        self.buffer_queue.put_nowait(data)
-                    except Exception as e:
-                        self.buffer_queue.put(e)
-                        return
-                else:
-                    return
-
     def recv_all(self, bufsize=NL_BUFSIZE):
         buffers = []
         while True:
@@ -723,6 +696,93 @@ class NetlinkSocketBase:
             return self.compiled.append(msg.data)
         return self._sock.sendto(msg.data, addr)
 
+    def load_backlog(self, chunk, msg_seq=0, callback=None):
+        '''
+        Parse a chunk and load messages into the backlog
+        '''
+        seqs = set()
+        for msg in self.marshal.parse(chunk, msg_seq, callback):
+            seq = msg['header']['sequence_number']
+            msg['header']['target'] = self.target
+            msg['header']['stats'] = Stats(0, 0, 0)
+            if seq not in self.backlog:
+                seq = 0
+            seqs.add(seq)
+            self.backlog[seq].append(msg)
+            for cr in self.callbacks:
+                try:
+                    if cr[0](msg):
+                        cr[1](msg, *cr[2])
+                except Exception as e:
+                    log.warning(f'Callback fail: {cr} -> {e}')
+        for seq in seqs:
+            os.write(self._ctrl_write, b'\x01')
+
+    def fetch_backlog(self, msg_seq=0, terminate=None, noraise=False):
+        '''
+        Fetch and yield already parsed messages from the backlog.
+        '''
+        enough = False
+        tmsg = None
+        with self.lock[msg_seq]:
+            ret = self.backlog[msg_seq]
+            self.backlog[msg_seq] = []
+
+        if ret:
+            os.read(self._ctrl_read, 1)
+
+        # Collect messages up to the terminator.
+        # Terminator conditions:
+        #  * NLMSG_ERROR != 0
+        #  * NLMSG_DONE
+        #  * terminate() function (if defined)
+        #  * not NLM_F_MULTI
+        for index in range(len(ret)):
+            msg = ret[index]
+
+            if msg_seq == 0:
+                yield msg
+                continue
+
+            # If there is an error, raise exception
+            if msg['header']['error'] is not None and not noraise:
+                with self.lock[msg_seq]:
+                    # reschedule all the remaining messages, including
+                    # errors and acks, into a separate deque
+                    self.error_deque.extend(ret[index + 1 :])
+                    self.error_deque.extend(self.backlog[msg_seq])
+                    del self.backlog[msg_seq]
+                raise msg['header']['error']
+
+            # If it is a terminator message, say "enough"
+            # and requeue all the rest into the backlog zero
+            if callable(terminate):
+                tmsg = terminate(msg)
+                if isinstance(tmsg, nlmsg):
+                    yield msg
+
+            if (msg['header']['type'] == NLMSG_DONE) or tmsg:
+                enough = True
+
+            # If it is just a normal message, append it to
+            # the response
+            if not enough:
+                # finish the loop on single messages
+                if not msg['header']['flags'] & NLM_F_MULTI:
+                    enough = True
+                yield msg
+
+            # Enough is enough, requeue the rest and delete
+            # our backlog
+            if enough:
+                with self.lock[0]:
+                    self.backlog[0].extend(ret[index + 1 :])
+                    del self.backlog[msg_seq]
+                break
+
+        if enough or msg_seq == 0:
+            yield Enough
+
     def get(
         self,
         bufsize=DEFAULT_RCVBUF,
@@ -748,230 +808,20 @@ class NetlinkSocketBase:
         If `noraise` is true, error messages will be treated as any
         other message.
         '''
-        ctime = time.time()
+        while True:
+            with self.read_lock:
+                fdlist = (self.fileno(), self._ctrl_read)
+                rlist, _, _ = select.select(fdlist, [], fdlist)
 
-        with self.lock[msg_seq]:
-            if bufsize == -1:
-                # get bufsize from the network data
-                bufsize = struct.unpack("I", self.recv(4, MSG_PEEK))[0]
-            elif bufsize == 0:
-                # get bufsize from SO_RCVBUF
-                bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
+                if self.fileno() in rlist:
+                    chunk = self.recv(32768)
+                    self.load_backlog(chunk, msg_seq, callback)
+                    continue
 
-            tmsg = None
-            enough = False
-            backlog_acquired = False
-            try:
-                while not enough:
-                    # 8<-----------------------------------------------------------
-                    #
-                    # This stage changes the backlog, so use mutex to
-                    # prevent side changes
-                    self.backlog_lock.acquire()
-                    backlog_acquired = True
-                    ##
-                    # Stage 1. BEGIN
-                    #
-                    # 8<-----------------------------------------------------------
-                    #
-                    # Check backlog and return already collected
-                    # messages.
-                    #
-                    if msg_seq == 0 and self.backlog[0]:
-                        # Zero queue.
-                        #
-                        # Load the backlog, if there is valid
-                        # content in it
-                        for msg in self.backlog[0]:
-                            yield msg
-                        self.backlog[0] = []
-                        # And just exit
-                        break
-                    elif msg_seq != 0 and len(self.backlog.get(msg_seq, [])):
-                        # Any other msg_seq.
-                        #
-                        # Collect messages up to the terminator.
-                        # Terminator conditions:
-                        #  * NLMSG_ERROR != 0
-                        #  * NLMSG_DONE
-                        #  * terminate() function (if defined)
-                        #  * not NLM_F_MULTI
-                        #
-                        # Please note, that if terminator not occured,
-                        # more `recv()` rounds CAN be required.
-                        for msg in tuple(self.backlog[msg_seq]):
-
-                            # Drop the message from the backlog, if any
-                            self.backlog[msg_seq].remove(msg)
-
-                            # If there is an error, raise exception
-                            if (
-                                msg['header']['error'] is not None
-                                and not noraise
-                            ):
-                                # reschedule all the remaining messages,
-                                # including errors and acks, into a
-                                # separate deque
-                                self.error_deque.extend(self.backlog[msg_seq])
-                                # flush the backlog for this msg_seq
-                                del self.backlog[msg_seq]
-                                # The loop is done
-                                raise msg['header']['error']
-
-                            # If it is the terminator message, say "enough"
-                            # and requeue all the rest into Zero queue
-                            if terminate is not None:
-                                tmsg = terminate(msg)
-                                if isinstance(tmsg, nlmsg):
-                                    yield msg
-                            if (msg['header']['type'] == NLMSG_DONE) or tmsg:
-                                # The loop is done
-                                enough = True
-
-                            # If it is just a normal message, append it to
-                            # the response
-                            if not enough:
-                                # finish the loop on single messages
-                                if not msg['header']['flags'] & NLM_F_MULTI:
-                                    enough = True
-                                yield msg
-
-                            # Enough is enough, requeue the rest and delete
-                            # our backlog
-                            if enough:
-                                self.backlog[0].extend(self.backlog[msg_seq])
-                                del self.backlog[msg_seq]
-                                break
-
-                        # Next iteration
-                        self.backlog_lock.release()
-                        backlog_acquired = False
-                    else:
-                        # Stage 1. END
-                        #
-                        # 8<-------------------------------------------------------
-                        #
-                        # Stage 2. BEGIN
-                        #
-                        # 8<-------------------------------------------------------
-                        #
-                        # Receive the data from the socket and put the messages
-                        # into the backlog
-                        #
-                        self.backlog_lock.release()
-                        backlog_acquired = False
-                        ##
-                        #
-                        # Control the timeout. We should not be within the
-                        # function more than TIMEOUT seconds. All the locks
-                        # MUST be released here.
-                        #
-                        if (msg_seq != 0) and (
-                            time.time() - ctime > self.get_timeout
-                        ):
-                            # requeue already received for that msg_seq
-                            self.backlog[0].extend(self.backlog[msg_seq])
-                            del self.backlog[msg_seq]
-                            # throw an exception
-                            if self.get_timeout_exception:
-                                raise self.get_timeout_exception()
-                            else:
-                                return
-                        #
-                        if self.read_lock.acquire(False):
-                            try:
-                                self.change_master.clear()
-                                # If the socket is free to read from, occupy
-                                # it and wait for the data
-                                #
-                                # This is a time consuming process, so all the
-                                # locks, except the read lock must be released
-                                data = self.recv(bufsize)
-                                # Parse data
-                                msgs = self.marshal.parse(
-                                    data, msg_seq, callback
-                                )
-                                # Reset ctime -- timeout should be measured
-                                # for every turn separately
-                                ctime = time.time()
-                                #
-                                current = self.buffer_queue.qsize()
-                                delta = current - self.qsize
-                                delay = 0
-                                if delta > 10:
-                                    delay = min(
-                                        3, max(0.01, float(current) / 60000)
-                                    )
-                                    message = (
-                                        "Packet burst: "
-                                        "delta=%s qsize=%s delay=%s"
-                                        % (delta, current, delay)
-                                    )
-                                    if delay < 1:
-                                        log.debug(message)
-                                    else:
-                                        log.warning(message)
-                                    time.sleep(delay)
-                                self.qsize = current
-
-                                # We've got the data, lock the backlog again
-                                with self.backlog_lock:
-                                    for msg in msgs:
-                                        msg['header']['target'] = self.target
-                                        msg['header']['stats'] = Stats(
-                                            current, delta, delay
-                                        )
-                                        seq = msg['header']['sequence_number']
-                                        if seq not in self.backlog:
-                                            if (
-                                                msg['header']['type']
-                                                == NLMSG_ERROR
-                                            ):
-                                                # Drop orphaned NLMSG_ERROR
-                                                # messages
-                                                continue
-                                            seq = 0
-                                        # 8<-----------------------------------
-                                        # Callbacks section
-                                        for cr in self.callbacks:
-                                            try:
-                                                if cr[0](msg):
-                                                    cr[1](msg, *cr[2])
-                                            except:
-                                                # FIXME
-                                                #
-                                                # Usually such code formatting
-                                                # means that the method should
-                                                # be refactored to avoid such
-                                                # indentation.
-                                                #
-                                                # Plz do something with it.
-                                                #
-                                                lw = log.warning
-                                                lw("Callback fail: %s" % (cr))
-                                                lw(traceback.format_exc())
-                                        # 8<-----------------------------------
-                                        self.backlog[seq].append(msg)
-
-                                # Now wake up other threads
-                                self.change_master.set()
-                            finally:
-                                # Finally, release the read lock: all data
-                                # processed
-                                self.read_lock.release()
-                        else:
-                            # If the socket is occupied and there is still no
-                            # data for us, wait for the next master change or
-                            # for a timeout
-                            self.change_master.wait(1)
-                        # 8<-------------------------------------------------------
-                        #
-                        # Stage 2. END
-                        #
-                        # 8<-------------------------------------------------------
-            finally:
-                if backlog_acquired:
-                    self.backlog_lock.release()
+            for msg in self.fetch_backlog(msg_seq, terminate, noraise):
+                if msg is Enough:
+                    return
+                yield msg
 
     def nlm_request_batch(self, msgs, noraise=False):
         """
@@ -1204,7 +1054,6 @@ class NetlinkSocket(NetlinkSocketBase):
                 'use "async_cache" instead of "async", '
                 '"async" is a keyword from Python 3.7'
             )
-        async_cache = kwarg.get('async_cache') or kwarg.get('async')
 
         self.groups = groups
         # if we have pre-defined port, use it strictly
@@ -1224,13 +1073,6 @@ class NetlinkSocket(NetlinkSocketBase):
                     self.post_init()
             else:
                 raise KeyError('no free address available')
-        # all is OK till now, so start async recv, if we need
-        if async_cache:
-            self.pthread = threading.Thread(
-                name="Netlink async cache", target=self.async_recv
-            )
-            self.pthread.daemon = True
-            self.pthread.start()
 
     def add_membership(self, group):
         self.setsockopt(SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, group)
