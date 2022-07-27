@@ -43,6 +43,8 @@ class IPRSocketBase(object):
     def sendto_gate(self, msg, addr):
         msg.reset()
         msg.encode()
+        if self.compiled is not None:
+            return self.compiled.append(msg.data)
         ret = self._sproxy.handle(msg)
         if ret is not None:
             if ret['verdict'] == 'forward':
