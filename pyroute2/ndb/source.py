@@ -327,10 +327,10 @@ class Source(dict):
         # The routine exists on an event with error code == 104
         #
         while self.state.get() != 'stop':
-            with self.lock:
-                if self.shutdown.is_set():
-                    break
+            if self.shutdown.is_set():
+                break
 
+            with self.lock:
                 if self.nl is not None:
                     try:
                         self.nl.close(code=0)
