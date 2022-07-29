@@ -750,8 +750,8 @@ class NDB(object):
         for target in tuple(self.sources.cache):
             source = self.sources.remove(target, sync=False)
             if source is not None and source.th is not None:
-                source.shutdown.set()
-                source.th.join()
+                self.log.debug(f'closing source {source}')
+                source.close()
                 if self._db_cleanup:
                     self.log.debug('flush DB for the target %s' % target)
                     self.schema.flush(target)
