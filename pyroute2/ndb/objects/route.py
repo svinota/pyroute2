@@ -478,45 +478,48 @@ class Route(RTNL_Object):
         for record in view.ndb.schema.fetch(req + where, values):
             route_id = record[-1]
             record = list(record[:-1])
-            #
-            # fetch metrics
-            metrics = tuple(
-                view.ndb.schema.fetch(
-                    '''
-                SELECT * FROM metrics WHERE f_route_id = %s
-            '''
-                    % (plch,),
-                    (route_id,),
+            if route_id is not None:
+                #
+                # fetch metrics
+                metrics = tuple(
+                    view.ndb.schema.fetch(
+                        '''
+                    SELECT * FROM metrics WHERE f_route_id = %s
+                '''
+                        % (plch,),
+                        (route_id,),
+                    )
                 )
-            )
-            if metrics:
-                ret = {}
-                names = view.ndb.schema.compiled['metrics']['norm_names']
-                for k, v in zip(names, metrics[0]):
-                    if v is not None and k not in (
-                        'target',
-                        'route_id',
-                        'tflags',
-                    ):
-                        ret[k] = v
-                record.append(json.dumps(ret))
-            else:
-                record.append(None)
-            #
-            # fetch encap
-            enc_mpls = tuple(
-                view.ndb.schema.fetch(
-                    '''
-                SELECT * FROM enc_mpls WHERE f_route_id = %s
-            '''
-                    % (plch,),
-                    (route_id,),
+                if metrics:
+                    ret = {}
+                    names = view.ndb.schema.compiled['metrics']['norm_names']
+                    for k, v in zip(names, metrics[0]):
+                        if v is not None and k not in (
+                            'target',
+                            'route_id',
+                            'tflags',
+                        ):
+                            ret[k] = v
+                    record.append(json.dumps(ret))
+                else:
+                    record.append(None)
+                #
+                # fetch encap
+                enc_mpls = tuple(
+                    view.ndb.schema.fetch(
+                        '''
+                    SELECT * FROM enc_mpls WHERE f_route_id = %s
+                '''
+                        % (plch,),
+                        (route_id,),
+                    )
                 )
-            )
-            if enc_mpls:
-                record.append(enc_mpls[0][2])
+                if enc_mpls:
+                    record.append(enc_mpls[0][2])
+                else:
+                    record.append(None)
             else:
-                record.append(None)
+                record.extend((None, None))
             yield record
 
     @classmethod
