@@ -2457,17 +2457,27 @@ class ctrlmsg(genlmsg):
 
         __slots__ = ()
 
-        nla_map = tuple(
-            (i, f'POLICY({i})', 'attribute_nest') for i in range(65535)
-        )
+        nla_map = {
+            'decode': NlaMapAdapter(
+                lambda x: NlaSpec('attribute_nest', x, f'POLICY({x})')
+            ),
+            'encode': NlaMapAdapter(
+                lambda x: NlaSpec('attribute_nest', int(x[7:-1]), x)
+            ),
+        }
 
         class attribute_nest(nla):
 
             __slots__ = ()
 
-            nla_map = tuple(
-                (i, f'ATTR({i})', 'nl_policy_type_attr') for i in range(65535)
-            )
+            nla_map = {
+                'decode': NlaMapAdapter(
+                    lambda x: NlaSpec('nl_policy_type_attr', x, f'ATTR({x})')
+                ),
+                'encode': NlaMapAdapter(
+                    lambda x: NlaSpec('nl_policy_type_attr', int(x[5:-1]), x)
+                ),
+            }
 
             class nl_policy_type_attr(nla):
 
@@ -2493,9 +2503,14 @@ class ctrlmsg(genlmsg):
 
         __slots__ = ()
 
-        nla_map = tuple(
-            (i, f'OP({i})', 'command_nest_attrs') for i in range(65535)
-        )
+        nla_map = {
+            'decode': NlaMapAdapter(
+                lambda x: NlaSpec('command_nest_attrs', x, f'OP({x})')
+            ),
+            'encode': NlaMapAdapter(
+                lambda x: NlaSpec('command_nest_attrs', int(x[3:-1]), x)
+            ),
+        }
 
         class command_nest_attrs(nla):
 
