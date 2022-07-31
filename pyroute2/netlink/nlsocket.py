@@ -165,7 +165,7 @@ class Marshal:
         self.lock = threading.Lock()
         # one marshal instance can be used to parse one
         # message at once
-        self.msg_map = self.msg_map or {}
+        self.msg_map = self.msg_map.copy()
         self.defragmentation = {}
 
     def parse(self, data, seq=None, callback=None):
