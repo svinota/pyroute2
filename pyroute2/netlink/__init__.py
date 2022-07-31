@@ -724,12 +724,16 @@ class NlaMapAdapter:
     def __init__(self, api_get, api_contains=lambda x: True):
         self.api_get = api_get
         self.api_contains = api_contains
+        self.types = None
 
     def __contains__(self, key):
         return self.api_contains(key)
 
     def __getitem__(self, key):
-        return self.api_get(key)
+        ret = self.api_get(key)
+        if isinstance(ret['class'], str):
+            ret['class'] = getattr(self.types, ret['class'])
+        return ret
 
 
 class SQLSchema:
@@ -1449,11 +1453,14 @@ class nlmsg_base(dict):
         # Bug-Url: https://github.com/svinota/pyroute2/issues/980
         # Bug-Url: https://github.com/svinota/pyroute2/pull/981
         if isinstance(self.nla_map, NlaMapAdapter):
+            self.nla_map.types = self
             self.__class__.__t_nla_map = self.nla_map
             self.__class__.__r_nla_map = self.nla_map
             self.__class__.__compiled_nla = True
             return
         elif isinstance(self.nla_map, dict):
+            self.nla_map['decode'].types = self
+            self.nla_map['encode'].types = self
             self.__class__.__t_nla_map = self.nla_map['decode']
             self.__class__.__r_nla_map = self.nla_map['encode']
             self.__class__.__compiled_nla = True
