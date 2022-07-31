@@ -1459,8 +1459,10 @@ class nlmsg_base(dict):
             self.__class__.__compiled_nla = True
             return
         elif isinstance(self.nla_map, dict):
-            self.nla_map['decode'].types = self
-            self.nla_map['encode'].types = self
+            if isinstance(self.nla_map['decode'], NlaMapAdapter):
+                self.nla_map['decode'].types = self
+            if isinstance(self.nla_map['encode'], NlaMapAdapter):
+                self.nla_map['encode'].types = self
             self.__class__.__t_nla_map = self.nla_map['decode']
             self.__class__.__r_nla_map = self.nla_map['encode']
             self.__class__.__compiled_nla = True
