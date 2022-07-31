@@ -724,12 +724,16 @@ class NlaMapAdapter:
     def __init__(self, api_get, api_contains=lambda x: True):
         self.api_get = api_get
         self.api_contains = api_contains
+        self.types = None
 
     def __contains__(self, key):
         return self.api_contains(key)
 
     def __getitem__(self, key):
-        return self.api_get(key)
+        ret = self.api_get(key)
+        if isinstance(ret['class'], str):
+            ret['class'] = getattr(self.types, ret['class'])
+        return ret
 
 
 class SQLSchema:
@@ -1449,11 +1453,16 @@ class nlmsg_base(dict):
         # Bug-Url: https://github.com/svinota/pyroute2/issues/980
         # Bug-Url: https://github.com/svinota/pyroute2/pull/981
         if isinstance(self.nla_map, NlaMapAdapter):
+            self.nla_map.types = self
             self.__class__.__t_nla_map = self.nla_map
             self.__class__.__r_nla_map = self.nla_map
             self.__class__.__compiled_nla = True
             return
         elif isinstance(self.nla_map, dict):
+            if isinstance(self.nla_map['decode'], NlaMapAdapter):
+                self.nla_map['decode'].types = self
+            if isinstance(self.nla_map['encode'], NlaMapAdapter):
+                self.nla_map['encode'].types = self
             self.__class__.__t_nla_map = self.nla_map['decode']
             self.__class__.__r_nla_map = self.nla_map['encode']
             self.__class__.__compiled_nla = True
@@ -2450,17 +2459,27 @@ class ctrlmsg(genlmsg):
 
         __slots__ = ()
 
-        nla_map = tuple(
-            (i, f'POLICY({i})', 'attribute_nest') for i in range(65535)
-        )
+        nla_map = {
+            'decode': NlaMapAdapter(
+                lambda x: NlaSpec('attribute_nest', x, f'POLICY({x})')
+            ),
+            'encode': NlaMapAdapter(
+                lambda x: NlaSpec('attribute_nest', int(x[7:-1]), x)
+            ),
+        }
 
         class attribute_nest(nla):
 
             __slots__ = ()
 
-            nla_map = tuple(
-                (i, f'ATTR({i})', 'nl_policy_type_attr') for i in range(65535)
-            )
+            nla_map = {
+                'decode': NlaMapAdapter(
+                    lambda x: NlaSpec('nl_policy_type_attr', x, f'ATTR({x})')
+                ),
+                'encode': NlaMapAdapter(
+                    lambda x: NlaSpec('nl_policy_type_attr', int(x[5:-1]), x)
+                ),
+            }
 
             class nl_policy_type_attr(nla):
 
@@ -2486,9 +2505,14 @@ class ctrlmsg(genlmsg):
 
         __slots__ = ()
 
-        nla_map = tuple(
-            (i, f'OP({i})', 'command_nest_attrs') for i in range(65535)
-        )
+        nla_map = {
+            'decode': NlaMapAdapter(
+                lambda x: NlaSpec('command_nest_attrs', x, f'OP({x})')
+            ),
+            'encode': NlaMapAdapter(
+                lambda x: NlaSpec('command_nest_attrs', int(x[3:-1]), x)
+            ),
+        }
 
         class command_nest_attrs(nla):
 
