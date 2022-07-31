@@ -14,9 +14,9 @@ from pyroute2.netlink import (
     GENL_ID_CTRL,
     NETLINK_ADD_MEMBERSHIP,
     NETLINK_DROP_MEMBERSHIP,
-    NLM_F_REQUEST,
     NLM_F_ACK,
     NLM_F_DUMP,
+    NLM_F_REQUEST,
     SOL_NETLINK,
     ctrlmsg,
 )
@@ -114,5 +114,7 @@ class GenericNetlinkSocket(NetlinkSocket):
         msg['cmd'] = CTRL_CMD_GETPOLICY
         msg['attrs'].append(['CTRL_ATTR_FAMILY_NAME', proto])
         return self.nlm_request(
-            msg, msg_type = GENL_ID_CTRL, msg_flags = NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK
+            msg,
+            msg_type=GENL_ID_CTRL,
+            msg_flags=NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK,
         )
