@@ -453,6 +453,7 @@ CTRL_CMD_GETOPS = 0x6
 CTRL_CMD_NEWMCAST_GRP = 0x7
 CTRL_CMD_DELMCAST_GRP = 0x8
 CTRL_CMD_GETMCAST_GRP = 0x9  # unused
+CTRL_CMD_GETPOLICY = 0xA
 
 
 CTRL_ATTR_UNSPEC = 0x0
@@ -463,6 +464,9 @@ CTRL_ATTR_HDRSIZE = 0x4
 CTRL_ATTR_MAXATTR = 0x5
 CTRL_ATTR_OPS = 0x6
 CTRL_ATTR_MCAST_GROUPS = 0x7
+CTRL_ATTR_POLICY = 0x8
+CTRL_ATTR_OP_POLICY = 0x9
+CTRL_ATTR_OP = 0xA
 
 CTRL_ATTR_OP_UNSPEC = 0x0
 CTRL_ATTR_OP_ID = 0x1
@@ -472,6 +476,36 @@ CTRL_ATTR_MCAST_GRP_UNSPEC = 0x0
 CTRL_ATTR_MCAST_GRP_NAME = 0x1
 CTRL_ATTR_MCAST_GRP_ID = 0x2
 
+NL_ATTR_TYPE_INVALID = 0
+NL_ATTR_TYPE_FLAG = 1
+NL_ATTR_TYPE_U8 = 2
+NL_ATTR_TYPE_U16 = 3
+NL_ATTR_TYPE_U32 = 4
+NL_ATTR_TYPE_U64 = 5
+NL_ATTR_TYPE_S8 = 6
+NL_ATTR_TYPE_S16 = 7
+NL_ATTR_TYPE_S32 = 8
+NL_ATTR_TYPE_S64 = 9
+NL_ATTR_TYPE_BINARY = 10
+NL_ATTR_TYPE_STRING = 11
+NL_ATTR_TYPE_NUL_STRING = 12
+NL_ATTR_TYPE_NESTED = 13
+NL_ATTR_TYPE_NESTED_ARRAY = 14
+NL_ATTR_TYPE_BITFIELD32 = 15
+
+NL_POLICY_TYPE_ATTR_UNSPEC = 0
+NL_POLICY_TYPE_ATTR_TYPE = 1
+NL_POLICY_TYPE_ATTR_MIN_VALUE_S = 2
+NL_POLICY_TYPE_ATTR_MAX_VALUE_S = 3
+NL_POLICY_TYPE_ATTR_MIN_VALUE_U = 4
+NL_POLICY_TYPE_ATTR_MAX_VALUE_U = 5
+NL_POLICY_TYPE_ATTR_MIN_LENGTH = 6
+NL_POLICY_TYPE_ATTR_MAX_LENGTH = 7
+NL_POLICY_TYPE_ATTR_POLICY_IDX = 8
+NL_POLICY_TYPE_ATTR_POLICY_MAXTYPE = 9
+NL_POLICY_TYPE_ATTR_BITFIELD32_MASK = 10
+NL_POLICY_TYPE_ATTR_PAD = 11
+NL_POLICY_TYPE_ATTR_MASK = 12
 
 #  Different Netlink families
 #
@@ -2255,6 +2289,9 @@ class ctrlmsg(genlmsg):
         ('CTRL_ATTR_MAXATTR', 'uint32'),
         ('CTRL_ATTR_OPS', '*ops'),
         ('CTRL_ATTR_MCAST_GROUPS', '*mcast_groups'),
+        ('CTRL_ATTR_POLICY', 'policy_nest'),
+        ('CTRL_ATTR_OP_POLICY', 'command_nest'),
+        ('CTRL_ATTR_OP', 'uint32'),
     )
 
     class ops(nla):
@@ -2276,3 +2313,57 @@ class ctrlmsg(genlmsg):
             ('CTRL_ATTR_MCAST_GRP_NAME', 'asciiz'),
             ('CTRL_ATTR_MCAST_GRP_ID', 'uint32'),
         )
+
+    class policy_nest(nla):
+
+        __slots__ = ()
+
+        nla_map = tuple(
+            (i, f'POLICY({i})', 'attribute_nest') for i in range(65535)
+        )
+
+        class attribute_nest(nla):
+
+            __slots__ = ()
+
+            nla_map = tuple(
+                (i, f'ATTR({i})', 'nl_policy_type_attr') for i in range(65535)
+            )
+
+            class nl_policy_type_attr(nla):
+
+                __slots__ = ()
+
+                nla_map = (
+                    ('NL_POLICY_TYPE_ATTR_UNSPEC', 'none'),
+                    ('NL_POLICY_TYPE_ATTR_TYPE', 'uint32'),
+                    ('NL_POLICY_TYPE_ATTR_MIN_VALUE_S', 'int64'),
+                    ('NL_POLICY_TYPE_ATTR_MAX_VALUE_S', 'int64'),
+                    ('NL_POLICY_TYPE_ATTR_MIN_VALUE_U', 'int64'),
+                    ('NL_POLICY_TYPE_ATTR_MAX_VALUE_U', 'int64'),
+                    ('NL_POLICY_TYPE_ATTR_MIN_LENGTH', 'uint32'),
+                    ('NL_POLICY_TYPE_ATTR_MAX_LENGTH', 'uint32'),
+                    ('NL_POLICY_TYPE_ATTR_POLICY_IDX', 'uint32'),
+                    ('NL_POLICY_TYPE_ATTR_POLICY_MAXTYPE', 'uint32'),
+                    ('NL_POLICY_TYPE_ATTR_BITFIELD32_MASK', 'uint32'),
+                    ('NL_POLICY_TYPE_ATTR_PAD', 'uint64'),
+                    ('NL_POLICY_TYPE_ATTR_MASK', 'uint64'),
+                )
+
+    class command_nest(nla):
+
+        __slots__ = ()
+
+        nla_map = tuple(
+            (i, f'OP({i})', 'command_nest_attrs') for i in range(65535)
+        )
+
+        class command_nest_attrs(nla):
+
+            __slots__ = ()
+
+            nla_map = (
+                ('CTRL_ATTR_POLICY_UNSPEC', 'none'),
+                ('CTRL_ATTR_POLICY_DO', 'uint32'),
+                ('CTRL_ATTR_POLICY_DUMP', 'uint32'),
+            )
