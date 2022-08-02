@@ -19,10 +19,11 @@ all:
 
 .PHONY: clean
 clean:
-	@$(MAKE) -C lab clean
-	@$(MAKE) -C docs clean
 	@rm -f lab/*html
 	@rm -f lab/_static/conf.js
+	@rm -rf lab/_build
+	@rm -rf docs/html
+	@rm -rf docs/man
 	@rm -rf dist build MANIFEST
 	@rm -f docs-build.log
 	@rm -rf pyroute2.egg-info
