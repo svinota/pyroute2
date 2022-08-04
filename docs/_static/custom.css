@@ -287,3 +287,25 @@ div.aafig-caption p {
     text-align: center;
     color: #a0a0a0;
 }
+
+div.hidden {
+    display: none;
+}
+
+div.source-switch {
+    cursor: pointer;
+    border-radius: 10px;
+    background-color: #f9f9f9;
+}
+
+span.source-title {
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 120%;
+}
+
+span.source-hint {
+    font-weight: normal;
+    font-size: 100%;
+    color: #909090;
+}

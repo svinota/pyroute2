@@ -2,5 +2,6 @@ build
 twine
 aafigure
 sphinx
+sphinx-code-include
 pre-commit
 docutils

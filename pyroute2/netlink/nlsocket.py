@@ -91,6 +91,7 @@ import threading
 import time
 import traceback
 import warnings
+from functools import partial
 from socket import MSG_PEEK, SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
 
 from pyroute2 import config
@@ -167,7 +168,9 @@ class Marshal:
         self.msg_map = self.msg_map.copy()
         self.defragmentation = {}
 
-    def parse_one_message(self, data, key, flags, offset, length):
+    def parse_one_message(
+        self, key, flags, sequence_number, data, offset, length
+    ):
         msg = None
         error = None
         msg_class = self.msg_map.get(key, self.default_message_class)
@@ -201,6 +204,9 @@ class Marshal:
         msg['header']['error'] = error
         return msg
 
+    def get_parser(self, key, flags, sequence_number):
+        return partial(self.parse_one_message, key, flags, sequence_number)
+
     def parse(self, data, seq=None, callback=None):
         '''
         Parse string data.
@@ -228,7 +234,8 @@ class Marshal:
                     self.key_format, data, offset + self.key_offset
                 )
 
-            msg = self.parse_one_message(data, key, flags, offset, length)
+            parser = self.get_parser(key, flags, sequence_number)
+            msg = parser(data, offset, length)
 
             if callable(callback) and seq == sequence_number:
                 if callback(msg):
