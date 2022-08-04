@@ -299,10 +299,10 @@ class unix_diag_msg(nlmsg):
 
 
 class MarshalDiag(Marshal):
-    type_format = 'B'
+    key_format = 'B'
     # The family goes after the nlmsg header,
     # IHHII = 4 + 2 + 2 + 4 + 4 = 16 bytes
-    type_offset = 16
+    key_offset = 16
     # Please notice that the SOCK_DIAG Marshal
     # uses not the nlmsg type, but sdiag_family
     # to choose the proper class
