@@ -4,6 +4,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.inheritance_diagram',
     'aafigure.sphinxext',
+    'code_include.extension',
 ]
 
 aafig_format = {'html': 'svg', 'man': None}

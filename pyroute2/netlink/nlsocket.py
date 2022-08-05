@@ -91,6 +91,7 @@ import threading
 import time
 import traceback
 import warnings
+from functools import partial
 from socket import MSG_PEEK, SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
 
 from pyroute2 import config
@@ -156,17 +157,56 @@ class Marshal:
     '''
 
     msg_map = {}
-    type_offset = 4
-    type_format = 'H'
-    error_type = NLMSG_ERROR
+    key_offset = None
+    key_format = None
+    key_mask = None
     debug = False
+    default_message_class = nlmsg
+    error_type = NLMSG_ERROR
 
     def __init__(self):
         self.lock = threading.Lock()
-        # one marshal instance can be used to parse one
-        # message at once
         self.msg_map = self.msg_map.copy()
         self.defragmentation = {}
+
+    def parse_one_message(
+        self, key, flags, sequence_number, data, offset, length
+    ):
+        msg = None
+        error = None
+        msg_class = self.msg_map.get(key, self.default_message_class)
+        # ignore length for a while
+        # get the message
+        if (key == self.error_type) or (
+            key == NLMSG_DONE and flags & NLM_F_ACK_TLVS
+        ):
+            msg = nlmsgerr(data, offset=offset)
+        else:
+            msg = msg_class(data, offset=offset)
+
+        try:
+            msg.decode()
+        except NetlinkHeaderDecodeError as e:
+            msg = nlmsg()
+            msg['header']['error'] = e
+        except NetlinkDecodeError as e:
+            msg['header']['error'] = e
+
+        if isinstance(msg, nlmsgerr) and msg['error'] != 0:
+            error = NetlinkError(
+                abs(msg['error']), msg.get_attr('NLMSGERR_ATTR_MSG')
+            )
+            enc_type = struct.unpack_from('H', data, offset + 24)[0]
+            enc_class = self.msg_map.get(enc_type, nlmsg)
+            enc = enc_class(data, offset=offset + 20)
+            enc.decode()
+            msg['header']['errmsg'] = enc
+
+        msg['header']['error'] = error
+        return msg
+
+    def get_parser(self, key, flags, sequence_number):
+        return partial(self.parse_one_message, key, flags, sequence_number)
 
     def parse(self, data, seq=None, callback=None):
         '''
@@ -178,56 +218,32 @@ class Marshal:
         '''
         offset = 0
         result = []
+
         # there must be at least one header in the buffer,
         # 'IHHII' == 16 bytes
         while offset <= len(data) - 16:
             # pick type and length
-            (length,) = struct.unpack_from('I', data, offset)
-            if length == 0:
-                break
-            error = None
-            (msg_type,) = struct.unpack_from(
-                self.type_format, data, offset + self.type_offset
+            (length, key, flags, sequence_number) = struct.unpack_from(
+                'IHHI', data, offset
             )
-            if msg_type == self.error_type:
-                code = abs(struct.unpack_from('i', data, offset + 16)[0])
-                if code > 0:
-                    error = NetlinkError(code)
+            if not 0 < length <= len(data):
+                break
+            # support custom parser keys
+            # see also: pyroute2.netlink.diag.MarshalDiag
+            if self.key_format is not None:
+                (key,) = struct.unpack_from(
+                    self.key_format, data, offset + self.key_offset
+                )
+                if self.key_mask is not None:
+                    key &= self.key_mask
 
-            msg_class = self.msg_map.get(msg_type, nlmsg)
-            msg = msg_class(data, offset=offset)
+            parser = self.get_parser(key, flags, sequence_number)
+            msg = parser(data, offset, length)
 
-            if msg_type in (NLMSG_DONE, NLMSG_ERROR):
-                # get flags
-                flags = struct.unpack_from('H', data, offset + 6)[0]
-                if flags & NLM_F_ACK_TLVS:
-                    msg = nlmsgerr(data, offset=offset)
-            try:
-                msg.decode()
-                if isinstance(msg, nlmsgerr):
-                    error = NetlinkError(
-                        abs(msg['error']), msg.get_attr('NLMSGERR_ATTR_MSG')
-                    )
-
-                msg['header']['error'] = error
-                # try to decode encapsulated error message
-                if error is not None:
-                    enc_type = struct.unpack_from('H', data, offset + 24)[0]
-                    enc_class = self.msg_map.get(enc_type, nlmsg)
-                    enc = enc_class(data, offset=offset + 20)
-                    enc.decode()
-                    msg['header']['errmsg'] = enc
-                if callback and seq == msg['header']['sequence_number']:
-                    if callback(msg):
-                        offset += msg.length
-                        continue
-            except NetlinkHeaderDecodeError as e:
-                # in the case of header decoding error,
-                # create an empty message
-                msg = nlmsg()
-                msg['header']['error'] = e
-            except NetlinkDecodeError as e:
-                msg['header']['error'] = e
+            if callable(callback) and seq == sequence_number:
+                if callback(msg):
+                    offset += msg.length
+                    continue
 
             mtype = msg['header'].get('type', None)
             if mtype in (1, 2, 3, 4):
@@ -354,7 +370,7 @@ class NetlinkSocketBase:
         self.backlog = {0: []}
         self.error_deque = collections.deque(maxlen=1000)
         self.callbacks = []  # [(predicate, callback, args), ...]
-        self.pthread = None
+        self.buffer_thread = None
         self.closed = False
         self.compiled = None
         self.uname = config.uname
@@ -434,7 +450,7 @@ class NetlinkSocketBase:
         return type(self)(**self.config)
 
     def close(self, code=errno.ECONNRESET):
-        if code > 0 and self.pthread:
+        if code > 0 and self.buffer_thread:
             self.buffer_queue.put(
                 struct.pack('IHHQIQQ', 28, 2, 0, 0, code, 0, 0)
             )
@@ -581,7 +597,7 @@ class NetlinkSocketBase:
         return self._sendto(*argv, **kwarg)
 
     def recv(self, *argv, **kwarg):
-        if self.pthread is not None:
+        if self.buffer_thread is not None:
             data_in = self.buffer_queue.get()
             if isinstance(data_in, Exception):
                 raise data_in
@@ -589,7 +605,7 @@ class NetlinkSocketBase:
         return self._sock.recv(*argv, **kwarg)
 
     def recv_into(self, data, *argv, **kwarg):
-        if self.pthread is not None:
+        if self.buffer_thread is not None:
             data_in = self.buffer_queue.get()
             if isinstance(data, Exception):
                 raise data_in
@@ -597,7 +613,7 @@ class NetlinkSocketBase:
             return len(data_in)
         return self._sock.recv_into(data, *argv, **kwarg)
 
-    def async_recv(self):
+    def buffer_thread_routine(self):
         poll = select.poll()
         poll.register(self._sock, select.POLLIN | select.POLLPRI)
         poll.register(self._ctrl_read, select.POLLIN | select.POLLPRI)
@@ -1200,11 +1216,11 @@ class NetlinkSocket(NetlinkSocketBase):
                 raise KeyError('no free address available')
         # all is OK till now, so start async recv, if we need
         if async_cache:
-            self.pthread = threading.Thread(
-                name="Netlink async cache", target=self.async_recv
+            self.buffer_thread = threading.Thread(
+                name="Netlink async cache", target=self.buffer_thread_routine
             )
-            self.pthread.daemon = True
-            self.pthread.start()
+            self.buffer_thread.daemon = True
+            self.buffer_thread.start()
 
     def add_membership(self, group):
         self.setsockopt(SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, group)
@@ -1221,9 +1237,9 @@ class NetlinkSocket(NetlinkSocketBase):
                 return
             self.closed = True
 
-        if self.pthread:
+        if self.buffer_thread:
             os.write(self._ctrl_write, b'exit')
-            self.pthread.join()
+            self.buffer_thread.join()
         super(NetlinkSocket, self).close(code=code)
 
         # Common shutdown procedure

@@ -53,6 +53,7 @@ Development
 
     devcontribute
     arch
+    parser
     netlink
     nlsocket
 
