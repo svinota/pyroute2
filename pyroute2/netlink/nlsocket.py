@@ -159,6 +159,7 @@ class Marshal:
     msg_map = {}
     key_offset = None
     key_format = None
+    key_mask = None
     debug = False
     default_message_class = nlmsg
     error_type = NLMSG_ERROR
@@ -233,6 +234,8 @@ class Marshal:
                 (key,) = struct.unpack_from(
                     self.key_format, data, offset + self.key_offset
                 )
+                if self.key_mask is not None:
+                    key &= self.key_mask
 
             parser = self.get_parser(key, flags, sequence_number)
             msg = parser(data, offset, length)
