@@ -16,16 +16,18 @@ window.addEventListener("load", function() {
         function(node) {
             let div_id = Math.round(Math.random() * 10000);
             let parent_node = node.parentElement;
-            let function_name = node.firstChild.firstChild.children[2].textContent;
+            let function_node = node.firstChild.firstChild.children[2];
+            if (function_node.className != 'nf') return;
+            let function_name = function_node.textContent;
             div_clickable = document.createElement("div");
             div_switchable = document.createElement("div");
             source_header = document.createElement("div");
             source_title = document.createElement("span");
             source_hint = document.createElement("span");
             source_title.className = "source-title";
-            source_title.textContent = function_name + "():";
+            source_title.textContent = function_name + "()";
             source_hint.className = "source-hint";
-            source_hint.textContent = "  (click to toggle the source)";
+            source_hint.textContent = ": (click to toggle the source)";
             source_header.appendChild(source_title);
             source_header.appendChild(source_hint);
             div_clickable.appendChild(source_header);

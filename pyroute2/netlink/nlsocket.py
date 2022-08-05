@@ -367,7 +367,7 @@ class NetlinkSocketBase:
         self.backlog = {0: []}
         self.error_deque = collections.deque(maxlen=1000)
         self.callbacks = []  # [(predicate, callback, args), ...]
-        self.pthread = None
+        self.buffer_thread = None
         self.closed = False
         self.compiled = None
         self.uname = config.uname
@@ -447,7 +447,7 @@ class NetlinkSocketBase:
         return type(self)(**self.config)
 
     def close(self, code=errno.ECONNRESET):
-        if code > 0 and self.pthread:
+        if code > 0 and self.buffer_thread:
             self.buffer_queue.put(
                 struct.pack('IHHQIQQ', 28, 2, 0, 0, code, 0, 0)
             )
@@ -594,7 +594,7 @@ class NetlinkSocketBase:
         return self._sendto(*argv, **kwarg)
 
     def recv(self, *argv, **kwarg):
-        if self.pthread is not None:
+        if self.buffer_thread is not None:
             data_in = self.buffer_queue.get()
             if isinstance(data_in, Exception):
                 raise data_in
@@ -602,7 +602,7 @@ class NetlinkSocketBase:
         return self._sock.recv(*argv, **kwarg)
 
     def recv_into(self, data, *argv, **kwarg):
-        if self.pthread is not None:
+        if self.buffer_thread is not None:
             data_in = self.buffer_queue.get()
             if isinstance(data, Exception):
                 raise data_in
@@ -610,7 +610,7 @@ class NetlinkSocketBase:
             return len(data_in)
         return self._sock.recv_into(data, *argv, **kwarg)
 
-    def async_recv(self):
+    def buffer_thread_routine(self):
         poll = select.poll()
         poll.register(self._sock, select.POLLIN | select.POLLPRI)
         poll.register(self._ctrl_read, select.POLLIN | select.POLLPRI)
@@ -1213,11 +1213,11 @@ class NetlinkSocket(NetlinkSocketBase):
                 raise KeyError('no free address available')
         # all is OK till now, so start async recv, if we need
         if async_cache:
-            self.pthread = threading.Thread(
-                name="Netlink async cache", target=self.async_recv
+            self.buffer_thread = threading.Thread(
+                name="Netlink async cache", target=self.buffer_thread_routine
             )
-            self.pthread.daemon = True
-            self.pthread.start()
+            self.buffer_thread.daemon = True
+            self.buffer_thread.start()
 
     def add_membership(self, group):
         self.setsockopt(SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, group)
@@ -1234,9 +1234,9 @@ class NetlinkSocket(NetlinkSocketBase):
                 return
             self.closed = True
 
-        if self.pthread:
+        if self.buffer_thread:
             os.write(self._ctrl_write, b'exit')
-            self.pthread.join()
+            self.buffer_thread.join()
         super(NetlinkSocket, self).close(code=code)
 
         # Common shutdown procedure
