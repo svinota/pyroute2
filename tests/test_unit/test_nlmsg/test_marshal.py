@@ -13,7 +13,7 @@ def run_using_marshal(sample, marshal):
     parsed = []
     with open(sample, 'r') as buf:
         meta = {}
-        parsed = marshal.parse(load_dump(buf, meta))
+        parsed = tuple(marshal.parse(load_dump(buf, meta)))
         if 'application/json' in meta:
             messages = json.loads(meta['application/json'])
         elif 'application/x-python-code' in meta:

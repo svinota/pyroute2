@@ -43,7 +43,7 @@ class ifaddrmsg_dict_decode(ifaddrmsg):
 def test_decode_adapter(nlmsg_class, data):
     marshal = MarshalRtnl()
     marshal.msg_map[rtnl.RTM_NEWADDR] = nlmsg_class
-    msgs = marshal.parse(data)
+    msgs = tuple(marshal.parse(data))
     msg = msgs[0]
     assert len(msgs) == 1
     assert msg.get_attr('IFA_NLA_1') == '7f:00:00:01'  # IFA_ADDRESS
