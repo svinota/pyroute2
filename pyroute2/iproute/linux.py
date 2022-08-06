@@ -97,6 +97,8 @@ from pyroute2.requests.neighbour import (
 from pyroute2.requests.route import RouteFieldFilter, RouteIPRouteFilter
 from pyroute2.requests.rule import RuleFieldFilter, RuleIPRouteFilter
 
+from .parsers import default_routes
+
 DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)
 
@@ -710,12 +712,20 @@ class RTNL_API:
         '''
         Get default routes
         '''
-        # according to iproute2/ip/iproute.c:print_route()
-        return [
-            x
-            for x in self.get_routes(family, table=table)
-            if (x.get_attr('RTA_DST', None) is None and x['dst_len'] == 0)
-        ]
+        msg = rtmsg()
+        msg['family'] = family
+
+        routes = self.nlm_request(
+            msg,
+            msg_type=RTM_GETROUTE,
+            msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
+            parser=default_routes,
+        )
+
+        if table is None:
+            return routes
+        else:
+            return self.filter_messages({'table': table}, routes)
 
     def link_lookup(self, match=None, **kwarg):
         '''
