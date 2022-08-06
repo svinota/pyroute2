@@ -157,6 +157,7 @@ class Marshal:
     '''
 
     msg_map = {}
+    seq_map = None
     key_offset = None
     key_format = None
     key_mask = None
@@ -167,6 +168,7 @@ class Marshal:
     def __init__(self):
         self.lock = threading.Lock()
         self.msg_map = self.msg_map.copy()
+        self.seq_map = {}
         self.defragmentation = {}
 
     def parse_one_message(
@@ -206,7 +208,10 @@ class Marshal:
         return msg
 
     def get_parser(self, key, flags, sequence_number):
-        return partial(self.parse_one_message, key, flags, sequence_number)
+        return self.seq_map.get(
+            sequence_number,
+            partial(self.parse_one_message, key, flags, sequence_number),
+        )
 
     def parse(self, data, seq=None, callback=None):
         '''
@@ -217,7 +222,6 @@ class Marshal:
         not support any defragmentation on that level
         '''
         offset = 0
-        result = []
 
         # there must be at least one header in the buffer,
         # 'IHHII' == 16 bytes
@@ -239,20 +243,22 @@ class Marshal:
 
             parser = self.get_parser(key, flags, sequence_number)
             msg = parser(data, offset, length)
+            offset += length
+            if msg is None:
+                continue
 
             if callable(callback) and seq == sequence_number:
-                if callback(msg):
-                    offset += msg.length
-                    continue
+                try:
+                    if callback(msg):
+                        continue
+                except Exception:
+                    pass
 
             mtype = msg['header'].get('type', None)
             if mtype in (1, 2, 3, 4):
                 msg['event'] = mtypes.get(mtype, 'none')
             self.fix_message(msg)
-            offset += msg.length
-            result.append(msg)
-
-        return result
+            yield msg
 
     def fix_message(self, msg):
         pass
@@ -878,8 +884,8 @@ class NetlinkSocketBase:
                                 # locks, except the read lock must be released
                                 data = self.recv(bufsize)
                                 # Parse data
-                                msgs = self.marshal.parse(
-                                    data, msg_seq, callback
+                                msgs = tuple(
+                                    self.marshal.parse(data, msg_seq, callback)
                                 )
                                 # Reset ctime -- timeout should be measured
                                 # for every turn separately
@@ -1014,10 +1020,13 @@ class NetlinkSocketBase:
         msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
         terminate=None,
         callback=None,
+        parser=None,
     ):
 
         msg_seq = self.addr_pool.alloc()
         defer = None
+        if callable(parser):
+            self.marshal.seq_map[msg_seq] = parser
         with self.lock[msg_seq]:
             retry_count = 0
             try:
@@ -1068,6 +1077,8 @@ class NetlinkSocketBase:
                 #
                 # Hack, but true.
                 self.addr_pool.free(msg_seq, ban=0xFF)
+                if msg_seq in self.marshal.seq_map:
+                    self.marshal.seq_map.pop(msg_seq)
             if defer is not None:
                 raise defer
 
