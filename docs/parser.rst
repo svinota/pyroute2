@@ -123,6 +123,12 @@ Marshal should choose a proper parser depending on the `key`, `flags` and
 .. code-include:: :func:`pyroute2.netlink.nlsocket.Marshal.parse`
     :language: python
 
+The message parser routine must accept `data, offset, length` as the
+arguments, and must return a valid `nlmsg` or `dict`, with the mandatory
+fields, see the spec below. The parser can also return `None` which tells
+the marshal to skip this message. The parser must parse data for one
+message.
+
 Mandatory message fields, expected by NetlinkSocketBase methods:
 
 .. code-block:: python
@@ -188,6 +194,56 @@ Mandatory message fields, expected by NetlinkSocketBase methods:
               |         +-------------------------------+ |
               |                                           |
               +-------------------------------------------+
+
+Per-request parsers
+-------------------
+
+Sometimes it may be reasonable to handle a particular response with a
+spcific parser, rather than a generic one. An example is
+`IPRoute.get_default_routes()`, which could be slow on systems with
+huge amounts of routes.
+
+Instead of parsing every route record as `rtmsg`, this method assigns
+a specific parser to its request. The custom parser doesn't parse records
+blindly, but looks up only for default route records in the dump, and
+then parses only matched records with the standard routine:
+
+**pyroute2.iproute.linux.IPRoute**
+
+.. code-include:: :func:`pyroute2.iproute.linux.RTNL_API.get_default_routes`
+    :language: python
+
+**pyroute2.iproute.parsers**
+
+.. code-include:: :func:`pyroute2.iproute.parsers.default_routes`
+    :language: python
+
+To assign a custom parser to a request/response communication, you should
+know first `sequence_number`, be it allocated dynamically with
+`NetlinkSocketBase.addr_pool.alloc()` or assigned statically. Then you
+can create a record in `NetlinkSocketBase.seq_map`:
+
+.. code-block:: python
+
+    #
+    def my_parser(data, offset, length):
+        ...
+        return parsed_message
+
+    msg_seq = nlsocket.addr_pool.alloc()
+    msg = nlmsg()
+    msg['header'] = {
+        'type': my_type,
+        'flags': NLM_F_REQUEST | NLM_F_ACK,
+        'sequence_number': msg_seq,
+    }
+    msg['data'] = my_data
+    msg.encode()
+    nlsocket.seq_map[msg_seq] = my_parser
+    nlsocket.sendto(msg.data, (0, 0))
+    for reponse_message in nlsocket.get(msg_seq=msg_seq):
+        handle(response_message)
+
 
 NetlinkSocketBase: pick correct messages
 ----------------------------------------

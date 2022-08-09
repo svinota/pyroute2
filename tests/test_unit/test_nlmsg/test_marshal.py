@@ -1,25 +1,33 @@
 # required by iw_scan_rsp.dump
 import datetime  # noqa: F401
 import json
+import struct
 
 import pytest
 
 from pyroute2.common import load_dump
+from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink.nl80211 import MarshalNl80211
+from pyroute2.netlink.rtnl import RTM_NEWADDR, RTM_NEWLINK
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
 
 
-def run_using_marshal(sample, marshal):
-    parsed = []
+def load_sample(sample):
     with open(sample, 'r') as buf:
         meta = {}
-        parsed = marshal.parse(load_dump(buf, meta))
+        data = load_dump(buf, meta)
         if 'application/json' in meta:
             messages = json.loads(meta['application/json'])
         elif 'application/x-python-code' in meta:
             messages = eval(meta['application/x-python-code'])
         else:
             raise KeyError('sample messages not found')
+        return messages, data
+
+
+def run_using_marshal(sample, marshal):
+    messages, data = load_sample(sample)
+    parsed = tuple(marshal.parse(data))
     assert len(parsed) == len(messages)
     for parsed_msg, sample_value in zip(parsed, messages):
         sample_msg = type(parsed_msg)()
@@ -94,3 +102,45 @@ def test_custom_key_fail(sample, marshal):
     marshal.key_mask = 0xFFFF0000
     with pytest.raises(AssertionError):
         return run_using_marshal(sample, marshal)
+
+
+def custom_parser(data, offset, length):
+    return dict(
+        header=dict(
+            zip(
+                ('type', 'flags', 'sequence_number'),
+                struct.unpack_from('HHI', data, offset + 4),
+            ),
+            error=None,
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    'sample,parser,parser_id,msg_seq,msg_type',
+    (
+        (
+            'test_unit/test_nlmsg/addrmsg_ipv4.dump',
+            lambda a, b, c: dict(custom_parser(a, b, c), parser='addr'),
+            'addr',
+            258,
+            (RTM_NEWADDR,),
+        ),
+        (
+            'test_unit/test_nlmsg/gre_01.dump',
+            lambda a, b, c: dict(custom_parser(a, b, c), parser='link'),
+            'link',
+            1426284873,
+            (RTM_NEWLINK, NLMSG_ERROR),
+        ),
+    ),
+    ids=('custom_addr_parser', 'custom_link_parser'),
+)
+def test_custom_parser(sample, parser, parser_id, msg_seq, msg_type):
+    marshal = MarshalRtnl()
+    marshal.msg_map = {}
+    marshal.seq_map = {msg_seq: parser}
+    messages, data = load_sample(sample)
+    for msg in marshal.parse(data):
+        assert msg['parser'] == parser_id
+        assert msg['header']['type'] in msg_type
