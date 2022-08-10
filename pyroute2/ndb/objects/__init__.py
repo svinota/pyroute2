@@ -492,23 +492,26 @@ class RTNL_Object(dict):
 
     def set(self, *argv, **kwarg):
         '''
-        Set a field specified by `key` to `value`, and return self. The
-        method is useful to write call chains like that::
+        Call formats:
 
-            (ndb
-             .interfaces["eth0"]
-             .set('mtu', 1200)
-             .set('state', 'up')
-             .set('address', '00:11:22:33:44:55')
-             .commit())
+        * `set(key, value)`
+        * `set(key=value)`
+        * `set(key1=value1, key2=value2)`
+
+        .. code-block:: python
+
+            with ndb.interfaces["eth0"] as eth0:
+                eth0.set(
+                    mtu=1200,
+                    state='up',
+                    address='00:11:22:33:44:55',
+                )
         '''
-        key, value = None, None
         if argv:
-            key, value = argv
+            self[argv[0]] = argv[1]
         elif kwarg:
             for key, value in kwarg.items():
-                break
-        self[key] = value
+                self[key] = value
         return self
 
     def wtime(self, itn=1):
