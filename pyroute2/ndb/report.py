@@ -89,10 +89,10 @@ def format_csv(dump, headless=False):
 
 class Record:
     def __init__(self, names, values, ref_class=None):
-        if len(names) != len(values):
-            raise ValueError('names and values must have the same length')
         self._names = tuple(names)
         self._values = tuple(values)
+        if len(self._names) != len(self._values):
+            raise ValueError('names and values must have the same length')
         self._ref_class = ref_class
 
     def __getitem__(self, key):
@@ -124,6 +124,9 @@ class Record:
 
     def __len__(self):
         return len(self._values)
+
+    def _select_fields(self, *fields):
+        return Record(fields, map(lambda x: self[x], fields), self._ref_class)
 
     def _as_dict(self):
         ret = {}
@@ -265,7 +268,7 @@ class RecordSet(BaseRecordSet):
         return self.fields(*argv)
 
     @cli.show_result
-    def fields(self, *argv):
+    def fields(self, *fields):
         '''
         Show selected fields from records::
 
@@ -274,10 +277,7 @@ class RecordSet(BaseRecordSet):
 
         def g():
             for record in self.generator:
-                ret = []
-                for field in argv:
-                    ret.append(getattr(record, field, None))
-                yield Record(argv, ret, record._ref_class)
+                yield record._select_fields(*fields)
 
         return RecordSet(g())
 
