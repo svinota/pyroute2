@@ -388,3 +388,6 @@ class RecordSet(BaseRecordSet):
         for record in self:
             counter += 1
         return counter
+
+    def __getitem__(self, key):
+        return list(self)[key]
