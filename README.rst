@@ -62,14 +62,13 @@ A "Hello world" example:
     from pyroute2 import NDB
 
     with NDB() as ndb:
-        (
-            ndb.interfaces['eth0']
-            .set('state', 'down')
-            .commit()  # make sure that the interface is down
-            .set('ifname', 'hello_world!')
-            .set('state', 'up')
-            .commit()  # rename, bring up and wait for success
-        )
+        with ndb.interfaces['eth0'] as eth0
+            # set one parameter
+            eth0.set(state='down')
+            eth0.commit()  # make sure that the interface is down
+            # or multiple parameters at once
+            eth0.set(ifname='hello_world!', state='up')
+            eth0.commit()  # rename, bring up and wait for success
         # --> <-- here you can be sure that the interface is up & renamed
 
 More examples:
@@ -83,47 +82,50 @@ More examples:
     for record in ndb.interfaces.summary():
         print(record.ifname, record.address, record.state)
 
-    print(ndb
-          .interfaces
-          .dump()
-          .select('index', 'ifname', 'kind')
-          .format('json'))
+    if_dump = ndb.interfaces.dump()
+    if_dump.select_records(state='up')
+    if_dump.select_fields('index', 'ifname', 'kind')
+    for line in if_dump.format('json'):
+        print(line)
 
-    print(ndb
-          .addresses
-          .summary()
-          .format('csv'))
+    addr_summary = nsb.addresses.summary()
+    addr_summary.select_records(ifname='eth0')
+    for line in addr_summary.format('csv'):
+        print(line)
 
-    (ndb
-     .interfaces
-     .create(ifname='br0', kind='bridge')  # create a bridge
-     .add_port('eth0')                     # add ports
-     .add_port('eth1')                     #
-     .add_ip('10.0.0.1/24')                # add addresses
-     .add_ip('192.168.0.1/24')             #
-     .set('br_stp_state', 1)               # set STP on
-     .set('br_group_fwd_mask', 0x4000)     # set LLDP forwarding
-     .set('state', 'up')                   # bring the interface up
-     .commit())                            # commit pending changes
+    with ndb.interfaces.create(ifname='br0', kind='bridge') as br0:
+        br0.add_port('eth0')
+        br0.add_port('eth1')
+        br0.add_ip('10.0.0.1/24')
+        br0.add_ip('192.168.0.1/24')
+        br0.set(
+            br_stp_state=1,  # set STP on
+            br_group_fwd_mask=0x4000,  # set LLDP forwarding
+            state='up',  # bring the interface up
+        )
+    # --> <-- commit() will be run by the context manager
 
     # operate on netns:
-    ndb.sources.add(netns='testns')                 # connect to a namespace
-    
-    (ndb.interfaces.create(
-        **{'ifname': 'veth0',                       # create veth
-           'kind': 'veth',                          #
-           'peer': {'ifname': 'eth0',               # setup peer
-                    'net_ns_fd': 'testns'}})        # in the namespace
-     .set('state', 'up')                            #
-     .add_ip(address='172.16.230.1', prefixlen=24)  # add address
-     .commit())
+    ndb.sources.add(netns='testns')  # connect to a namespace
 
-    (ndb
-     .interfaces
-     .wait(**{'target': 'testns', 'ifname': 'eth0'}) # wait for the peer
-     .set('state', 'up')                             # bring it up
-     .add_ip(address='172.16.230.2', prefixlen=24)   # add address
-     .commit())
+    with (
+        ndb.interfaces.create(
+            ifname='veth0',  # create veth
+            kind='veth',
+            peer={
+                'ifname': 'eth0',  # setup peer
+                'net_ns_fd': 'testns',  # in a namespace
+            },
+            state='up',
+        )
+    ) as veth0:
+        veth0.add_ip(address='172.16.230.1', prefixlen=24)
+
+    with ndb.interfaces.wait(
+        target='testns', ifname='eth0'
+    ) as peer:  # wait for the peer
+        peer.set(state='up')  # bring it up
+        peer.add_ip('172.16.230.2/24')  # add address
 
 IPRoute -- Low level RTNL API
 -----------------------------
@@ -151,22 +153,24 @@ More examples:
     from pyroute2 import IPRoute
 
     # get access to the netlink socket
-    ip = IPRoute()
+    ipr = IPRoute()
     # no monitoring here -- thus no bind()
 
     # print interfaces
-    for link in ip.get_links():
+    for link in ipr.get_links():
         print(link)
 
     # create VETH pair and move v0p1 to netns 'test'
-    ip.link('add', ifname='v0p0', peer='v0p1', kind='veth')
-    idx = ip.link_lookup(ifname='v0p1')[0]
-    ip.link('set', index=idx, net_ns_fd='test')
+    ipr.link('add', ifname='v0p0', peer='v0p1', kind='veth')
+    # wait for the devices:
+    peer, veth = ipr.poll(
+        ipr.link, 'dump', timeout=5, ifname=lambda x: x in ('v0p0', 'v0p1')
+    )
+    ipr.link('set', index=peer['index'], net_ns_fd='test')
 
     # bring v0p0 up and add an address
-    idx = ip.link_lookup(ifname='v0p0')[0]
-    ip.link('set', index=idx, state='up')
-    ip.addr('add', index=idx, address='10.0.0.1', prefixlen=24)
+    ipr.link('set', index=veth['index'], state='up')
+    ipr.addr('add', index=veth['index'], address='10.0.0.1', prefixlen=24)
 
     # release Netlink socket
     ip.close()
@@ -197,11 +201,11 @@ Create **veth** interfaces pair and move to **netns**:
         # create interface pair
         ipr.link('add', ifname='v0p0', kind='veth',  peer='v0p1')
 
-        # lookup the peer index
-        idx = ipr.link_lookup(ifname='v0p1')[0]
+        # wait for the peer
+        (peer,) = ipr.poll(ipr.link, 'dump', timeout=5, ifname='v0p1')
 
         # move the peer to the 'test' netns:
-        ipr.link('set', index='v0p1', net_ns_fd='test')
+        ipr.link('set', index=peer['index'], net_ns_fd='test')
 
 List interfaces in some **netns**:
 

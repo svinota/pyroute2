@@ -36,6 +36,10 @@ from pyroute2 import cli
 
 MAX_REPORT_LINES = 10000
 
+deprecation_notice = '''
+RecordSet API is deprecated, pls refer to:
+'''
+
 
 def format_json(dump, headless=False):
 
@@ -89,10 +93,10 @@ def format_csv(dump, headless=False):
 
 class Record:
     def __init__(self, names, values, ref_class=None):
-        if len(names) != len(values):
-            raise ValueError('names and values must have the same length')
         self._names = tuple(names)
         self._values = tuple(values)
+        if len(self._names) != len(self._values):
+            raise ValueError('names and values must have the same length')
         self._ref_class = ref_class
 
     def __getitem__(self, key):
@@ -125,6 +129,19 @@ class Record:
     def __len__(self):
         return len(self._values)
 
+    def _select_fields(self, *fields):
+        return Record(fields, map(lambda x: self[x], fields), self._ref_class)
+
+    def _match(self, f=None, **spec):
+        if callable(f):
+            return f(self)
+        for key, value in spec.items():
+            if not (
+                value(self[key]) if callable(value) else (self[key] == value)
+            ):
+                return False
+        return True
+
     def _as_dict(self):
         ret = {}
         for key, value in zip(self._names, self._values):
@@ -150,13 +167,15 @@ class Record:
 
 
 class BaseRecordSet(object):
-    def __init__(self, generator, ellipsis=True):
+    def __init__(self, generator, ellipsis='(...)'):
         self.generator = generator
         self.ellipsis = ellipsis
-        self.cached = []
 
     def __iter__(self):
-        return self.generator
+        return self
+
+    def __next__(self):
+        return next(self.generator)
 
     def __repr__(self):
         counter = 0
@@ -169,7 +188,7 @@ class BaseRecordSet(object):
             ret.append('\n')
             counter += 1
             if self.ellipsis and counter > MAX_REPORT_LINES:
-                ret.append('(...)')
+                ret.append(self.ellipsis)
                 break
         if ret:
             ret.pop()
@@ -185,6 +204,26 @@ class RecordSet(BaseRecordSet):
     RecordSet filters also return objects of this class, thus making possible
     to make chains of filters.
     '''
+
+    def __init__(self, generator, ellipsis=True):
+        super().__init__(generator, ellipsis)
+        self.filters = []
+
+    def __next__(self):
+        while True:
+            record = next(self.generator)
+            for f in self.filters:
+                record = f(record)
+                if record is None:
+                    break
+            else:
+                return record
+
+    def select_fields(self, *fields):
+        self.filters.append(lambda x: x._select_fields(*fields))
+
+    def select_records(self, f=None, **spec):
+        self.filters.append(lambda x: x if x._match(f, **spec) else None)
 
     @cli.show_result
     def transform(self, **kwarg):
@@ -259,25 +298,21 @@ class RecordSet(BaseRecordSet):
 
     @cli.show_result
     def select(self, *argv):
-        warnings.warn(
-            'RecordSet.select is renamed to .fields', DeprecationWarning
-        )
+        warnings.warn(deprecation_notice, DeprecationWarning)
         return self.fields(*argv)
 
     @cli.show_result
-    def fields(self, *argv):
+    def fields(self, *fields):
         '''
         Show selected fields from records::
 
             ndb.interfaces.dump().fields('index', 'ifname', 'state')
         '''
+        warnings.warn(deprecation_notice, DeprecationWarning)
 
         def g():
             for record in self.generator:
-                ret = []
-                for field in argv:
-                    ret.append(getattr(record, field, None))
-                yield Record(argv, ret, record._ref_class)
+                yield record._select_fields(*fields)
 
         return RecordSet(g())
 
@@ -308,6 +343,7 @@ class RecordSet(BaseRecordSet):
         into the memory.
 
         '''
+        warnings.warn(deprecation_notice, DeprecationWarning)
         # fetch all the records from the right
         # ACHTUNG it may consume a lot of memory
         right = tuple(right)
@@ -331,22 +367,14 @@ class RecordSet(BaseRecordSet):
     @cli.show_result
     def format(self, kind):
         '''
-        Convert report records into other formats. Supported formats are
-        'json' and 'csv'.
+        Return an iterator over text lines in the chosen format.
 
-        The resulting report can not use filters, transformations etc.
-        Thus, the `format()` call should be the last in the chain::
-
-            (ndb
-             .addresses
-             .summary()
-             .format('csv'))
-
+        Supported formats: 'json', 'csv'.
         '''
         if kind == 'json':
-            return BaseRecordSet(format_json(self.generator, headless=True))
+            return BaseRecordSet(format_json(self, headless=True))
         elif kind == 'csv':
-            return BaseRecordSet(format_csv(self.generator, headless=True))
+            return BaseRecordSet(format_csv(self, headless=True))
         else:
             raise ValueError()
 
@@ -354,57 +382,12 @@ class RecordSet(BaseRecordSet):
         '''
         Return number of records.
 
-        This method is destructive, as it exhausts the generator.
+        The method exhausts the generator.
         '''
         counter = 0
-        for record in self.generator:
+        for record in self:
             counter += 1
         return counter
 
     def __getitem__(self, key):
-        if isinstance(key, int):
-            if key >= 0:
-                # positive indices
-                for x in range(key):
-                    try:
-                        next(self.generator)
-                    except StopIteration:
-                        raise IndexError('index out of range')
-                try:
-                    return next(self.generator)
-                except StopIteration:
-                    raise IndexError('index out of range')
-            else:
-                # negative indices
-                buf = []
-                for i in self.generator:
-                    buf.append(i)
-                    if len(buf) > abs(key):
-                        buf.pop(0)
-                if len(buf) < abs(key):
-                    raise IndexError('index out of range')
-                return buf[0]
-        elif isinstance(key, slice):
-            count = 0
-            buf = []
-            start = key.start or 0
-            stop = key.stop
-
-            for i in self.generator:
-                buf.append(i)
-                if (start >= 0 and count < start) or (
-                    start < 0 and len(buf) > abs(start)
-                ):
-                    buf.pop(0)
-                count += 1
-                if stop is not None and stop > 0 and count == stop:
-                    if start < 0:
-                        buf.pop(0)
-                    break
-
-            if stop is not None and stop < 0:
-                buf = buf[:stop]
-
-            return buf[:: key.step]
-        else:
-            raise TypeError('illegal key format')
+        return list(self)[key]
