@@ -3,7 +3,7 @@ import socket
 from pyroute2.netlink.nfnetlink.nfctsocket import (
     IP_CT_TCP_FLAG_TO_NAME,
     IPSBIT_TO_NAME,
-    TCPF_TO_NAME,
+    TCP_CONNTRACK_TO_NAME,
     NFCTAttrTuple,
     NFCTSocket,
 )
@@ -34,9 +34,7 @@ class NFCTATcpProtoInfo(object):
         self.flags_reply = flags_reply
 
     def state_name(self):
-        return ','.join(
-            [name for bit, name in TCPF_TO_NAME.items() if self.state & bit]
-        )
+        return TCP_CONNTRACK_TO_NAME.get(self.state, "UNKNOWN")
 
     def flags_name(self, flags):
         if flags is None:
