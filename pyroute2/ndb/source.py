@@ -96,7 +96,8 @@ else:
     NetNS = None
     NetNSManager = None
 
-SOURCE_FAIL_PAUSE = 5
+SOURCE_FAIL_PAUSE = 1
+SOURCE_MAX_ERRORS = 3
 
 
 class SourceProxy(object):
@@ -158,7 +159,7 @@ class Source(dict):
         # the target id -- just in case
         self.target = spec['target']
         self.kind = spec.pop('kind', 'local')
-        self.persistent = spec.pop('persistent', True)
+        self.max_errors = spec.pop('max_errors', SOURCE_MAX_ERRORS)
         self.event = spec.pop('event')
         # RTNL API
         self.nl_prime = self.get_prime(self.kind)
@@ -224,6 +225,25 @@ class Source(dict):
             )
         except:
             pass
+
+    @property
+    def must_restart(self):
+        if self.max_errors < 0 or self.errors_counter <= self.max_errors:
+            return True
+        return False
+
+    def set_ready(self):
+        try:
+            if self.event is not None:
+                self.evq.put(
+                    (cmsg_event(self.target, self.event),), source=self.target
+                )
+            else:
+                self.evq.put((cmsg_sstart(self.target),), source=self.target)
+        except ShutdownException:
+            self.state.set('stop')
+            return False
+        return True
 
     @classmethod
     def defaults(cls, spec):
@@ -344,7 +364,6 @@ class Source(dict):
                         if self.kind in ('nsmanager',):
                             spec['libc'] = self.ndb.libc
                         self.nl = self.nl_prime(**spec)
-                        self.errors_counter = 0
                     else:
                         raise TypeError('source channel not supported')
                     self.state.set('loading')
@@ -361,11 +380,12 @@ class Source(dict):
                         self.evq.put(self.nl.dump(), source=self.target)
                     finally:
                         self.ndb.schema.allow_read(True)
+                    self.errors_counter = 0
                 except Exception as e:
                     self.errors_counter += 1
                     self.started.set()
-                    self.state.set('failed')
-                    self.log.error('source error: %s %s' % (type(e), e))
+                    self.state.set(f'failed, counter {self.errors_counter}')
+                    self.log.error(f'source error: {type(e)} {e}')
                     try:
                         self.evq.put(
                             (cmsg_failed(self.target),), source=self.target
@@ -373,7 +393,7 @@ class Source(dict):
                     except ShutdownException:
                         self.state.set('stop')
                         break
-                    if self.persistent:
+                    if self.must_restart:
                         self.log.debug('sleeping before restart')
                         self.state.set('restart')
                         self.shutdown.wait(SOURCE_FAIL_PAUSE)
@@ -382,24 +402,12 @@ class Source(dict):
                             self.state.set('stop')
                             break
                     else:
-                        self.event.set()
-                        return
+                        return self.set_ready()
                     continue
 
             with self.lock:
                 if self.state.get() == 'loading':
-                    try:
-                        if self.event is not None:
-                            self.evq.put(
-                                (cmsg_event(self.target, self.event),),
-                                source=self.target,
-                            )
-                        else:
-                            self.evq.put(
-                                (cmsg_sstart(self.target),), source=self.target
-                            )
-                    except ShutdownException:
-                        self.state.set('stop')
+                    if not self.set_ready():
                         break
                     self.started.set()
                     self.shutdown.clear()
@@ -412,7 +420,7 @@ class Source(dict):
                     self.errors_counter += 1
                     self.log.error('source error: %s %s' % (type(e), e))
                     msg = None
-                    if self.persistent:
+                    if self.must_restart:
                         self.state.set('restart')
                     else:
                         self.state.set('stop')
