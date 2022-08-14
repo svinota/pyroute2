@@ -277,7 +277,10 @@ notation, or a pair of `'address', mask`::
 The `ipaddr` attribute contains all the IP addresses of the
 interface, which are accessible in different ways. Getting an
 iterator from `ipaddr` gives you a sequence of tuples
-`('address', mask)`::
+`('address', mask)`:
+
+.. doctest::
+    :skipif: True
 
     >>> for addr in ipdb.interfaces['eth0'].ipaddr:
     ...    print(ipaddr)
@@ -287,7 +290,10 @@ iterator from `ipaddr` gives you a sequence of tuples
 
 Getting one IP from `ipaddr` returns a dict object with full spec:
 
-    >>> ipdb.interfaces['eth0'].ipaddr[0]:
+.. doctest::
+    :skipif: True
+
+    >>> ipdb.interfaces['eth0'].ipaddr[0]
         {'family': 2,
          'broadcast': None,
          'flags': 128,
@@ -295,7 +301,7 @@ Getting one IP from `ipaddr` returns a dict object with full spec:
          'prefixlen': 24,
          'local': '10.0.0.2'}
 
-    >>> ipdb.intefaces['eth0'].ipaddr['10.0.0.2/24']:
+    >>> ipdb.intefaces['eth0'].ipaddr['10.0.0.2/24']
         {'family': 2,
          'broadcast': None,
          'flags': 128,
@@ -306,7 +312,10 @@ Getting one IP from `ipaddr` returns a dict object with full spec:
 The API is a bit weird, but it's because of historical reasons. In
 the future it may be changed.
 
-Another feature of the `ipaddr` attribute is views::
+Another feature of the `ipaddr` attribute is views:
+
+.. doctest::
+    :skipif: True
 
     >>> ipdb.interfaces['eth0'].ipaddr.ipv4:
         (('10.0.0.2', 24), ('10.0.0.1', 24))

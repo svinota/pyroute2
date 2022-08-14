@@ -2,12 +2,13 @@ import pyroute2
 
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.doctest',
     'sphinx.ext.inheritance_diagram',
     'aafigure.sphinxext',
     'code_include.extension',
 ]
 
-aafig_format = {'html': 'svg', 'man': None}
+aafig_format = {'html': 'svg', 'man': None, '': None}
 
 inheritance_graph_attrs = {'rankdir': 'LR', 'ratio': 'auto'}
 source_suffix = '.rst'

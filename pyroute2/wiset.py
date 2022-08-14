@@ -8,21 +8,30 @@ It helps to add/remove entries, list content, etc.
 For example, adding an entry with :class:`pyroute2.ipset.IPSet` object
 implies to set a various number of parameters:
 
->>> ipset = IPSet()
->>> ipset.add("foo", "1.2.3.4/24", etype="net")
->>> ipset.close()
+.. doctest::
+    :skipif: True
+
+    >>> ipset = IPSet()
+    >>> ipset.add("foo", "1.2.3.4/24", etype="net")
+    >>> ipset.close()
 
 When they are discovered by a :class:`WiSet`:
 
->>> wiset = load_ipset("foo")
->>> wiset.add("1.2.3.4/24")
+.. doctest::
+    :skipif: True
+
+    >>> wiset = load_ipset("foo")
+    >>> wiset.add("1.2.3.4/24")
 
 Listing entries is also easier using :class:`WiSet`, since it parses for you
 netlink messages:
 
->>> wiset.content
-{'1.2.3.0/24': IPStats(packets=None, bytes=None, comment=None,
-                       timeout=None, skbmark=None, physdev=False)}
+.. doctest::
+    :skipif: True
+
+    >>> wiset.content
+    {'1.2.3.0/24': IPStats(packets=None, bytes=None, comment=None,
+                           timeout=None, skbmark=None, physdev=False)}
 '''
 
 import errno
@@ -131,9 +140,12 @@ class WiSet(object):
 
     For example, you can create and an entry in a ipset just with:
 
-    >>> with WiSet(name="mysuperipset") as myset:
-    >>>    myset.create()             # add the ipset in the kernel
-    >>>    myset.add("198.51.100.1")  # add one IP to the set
+    .. doctest::
+        :skipif: True
+
+        >>> with WiSet(name="mysuperipset") as myset:
+        >>>    myset.create()             # add the ipset in the kernel
+        >>>    myset.add("198.51.100.1")  # add one IP to the set
 
     Netlink sockets are opened by __enter__ and __exit__ function, so you don't
     have to manage it manually if you use the "with" keyword.
@@ -141,16 +153,22 @@ class WiSet(object):
     If you want to manage it manually (for example for long operation in
     a daemon), you can do the following:
 
-    >>> myset = WiSet(name="mysuperipset")
-    >>> myset.open_netlink()
-    >>> # do stuff
-    >>> myset.close_netlink()
+    .. doctest::
+        :skipif: True
+
+        >>> myset = WiSet(name="mysuperipset")
+        >>> myset.open_netlink()
+        >>> # do stuff
+        >>> myset.close_netlink()
 
     You can also don't initiate at all any netlink socket, this code will work:
 
-    >>> myset = WiSet(name="mysuperipset")
-    >>> myset.create()
-    >>> myset.destroy()
+    .. doctest::
+        :skipif: True
+
+        >>> myset = WiSet(name="mysuperipset")
+        >>> myset.create()
+        >>> myset.destroy()
 
     But do it very carefully. In that case, a netlink socket will be opened
     in background for any operation. No socket will be leaked, but that
@@ -159,8 +177,11 @@ class WiSet(object):
     You can also instantiate WiSet objects with :func:`load_all_ipsets` and
     :func:`load_ipset`:
 
-    >>> all_sets_dict = load_all_ipsets()
-    >>> one_set = load_ipset(name="myset")
+    .. doctest::
+        :skipif: True
+
+        >>> all_sets_dict = load_all_ipsets()
+        >>> one_set = load_ipset(name="myset")
 
     Have a look on content variable if you need list of entries in the Set.
     """
