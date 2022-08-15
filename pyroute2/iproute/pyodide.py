@@ -3,11 +3,15 @@ import queue
 import struct
 
 from pyroute2.lab import LAB_API
-from pyroute2.netlink import nlmsg
+from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nlsocket import Stats
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
+from pyroute2.requests.address import AddressFieldFilter, AddressIPRouteFilter
+from pyroute2.requests.link import LinkFieldFilter
+from pyroute2.requests.main import RequestProcessor
 
 
 class MockLink:
@@ -196,7 +200,15 @@ class MockLink:
 
 class MockAddress:
     def __init__(
-        self, index, label, address, broadcast, prefixlen, family=2, local=None
+        self,
+        index,
+        address,
+        prefixlen,
+        broadcast=None,
+        label=None,
+        family=2,
+        local=None,
+        **kwarg
     ):
         self.address = address
         self.local = local
@@ -207,7 +219,7 @@ class MockAddress:
         self.family = family
 
     def export(self):
-        return {
+        ret = {
             'family': self.family,
             'prefixlen': self.prefixlen,
             'flags': 0,
@@ -216,8 +228,6 @@ class MockAddress:
             'attrs': [
                 ('IFA_ADDRESS', self.address),
                 ('IFA_LOCAL', self.local if self.local else self.address),
-                ('IFA_BROADCAST', self.broadcast),
-                ('IFA_LABEL', self.label),
                 ('IFA_FLAGS', 512),
                 (
                     'IFA_CACHEINFO',
@@ -241,6 +251,11 @@ class MockAddress:
             },
             'event': 'RTM_NEWADDR',
         }
+        if self.label is not None:
+            ret['attrs'].append(('IFA_LABEL', self.label))
+        if self.broadcast is not None:
+            ret['attrs'].append(('IFA_BROADCAST', self.broadcast))
+        return ret
 
 
 class MockRoute:
@@ -301,73 +316,140 @@ class MockRoute:
         return ret
 
 
-REGISTRY_LINKS = [
-    MockLink(
-        index=1,
-        ifname='lo',
-        address='00:00:00:00:00:00',
-        broadcast='00:00:00:00:00:00',
-        rx_bytes=43309665,
-        tx_bytes=43309665,
-        rx_packets=173776,
-        tx_packets=173776,
-        mtu=65536,
-        qdisc='noqueue',
-    ),
-    MockLink(
-        index=2,
-        ifname='eth0',
-        address='52:54:00:72:58:b2',
-        broadcast='ff:ff:ff:ff:ff:ff',
-        rx_bytes=175340,
-        tx_bytes=175340,
-        rx_packets=10251,
-        tx_packets=10251,
-        mtu=1500,
-        qdisc='fq_codel',
-    ),
-]
-
-REGISTRY_ADDRS = [
-    MockAddress(
-        index=1,
-        label='lo',
-        address='127.0.0.1',
-        broadcast='127.255.255.255',
-        prefixlen=8,
-    ),
-    MockAddress(
-        index=2,
-        label='eth0',
-        address='192.168.122.28',
-        broadcast='192.168.122.255',
-        prefixlen=24,
-    ),
-]
-
-REGISTRY_ROUTES = [
-    MockRoute(
-        dst=None, gateway='192.168.122.1', oif=2, dst_len=0, table=254, scope=0
-    ),
-    MockRoute(dst='192.168.122.0', oif=2, dst_len=24, table=254),
-    MockRoute(dst='127.0.0.0', oif=1, dst_len=8, table=255, route_type=2),
-    MockRoute(dst='127.0.0.1', oif=1, dst_len=32, table=255, route_type=2),
-    MockRoute(
-        dst='127.255.255.255', oif=1, dst_len=32, table=255, route_type=3
-    ),
-    MockRoute(
-        dst='192.168.122.28', oif=2, dst_len=32, table=255, route_type=2
-    ),
-    MockRoute(
-        dst='192.168.122.255', oif=2, dst_len=32, table=255, route_type=3
-    ),
-]
+presets = {
+    'default': {
+        'links': [
+            MockLink(
+                index=1,
+                ifname='lo',
+                address='00:00:00:00:00:00',
+                broadcast='00:00:00:00:00:00',
+                rx_bytes=43309665,
+                tx_bytes=43309665,
+                rx_packets=173776,
+                tx_packets=173776,
+                mtu=65536,
+                qdisc='noqueue',
+            ),
+            MockLink(
+                index=2,
+                ifname='eth0',
+                address='52:54:00:72:58:b2',
+                broadcast='ff:ff:ff:ff:ff:ff',
+                rx_bytes=175340,
+                tx_bytes=175340,
+                rx_packets=10251,
+                tx_packets=10251,
+                mtu=1500,
+                qdisc='fq_codel',
+            ),
+        ],
+        'addr': [
+            MockAddress(
+                index=1,
+                label='lo',
+                address='127.0.0.1',
+                broadcast='127.255.255.255',
+                prefixlen=8,
+            ),
+            MockAddress(
+                index=2,
+                label='eth0',
+                address='192.168.122.28',
+                broadcast='192.168.122.255',
+                prefixlen=24,
+            ),
+        ],
+        'routes': [
+            MockRoute(
+                dst=None,
+                gateway='192.168.122.1',
+                oif=2,
+                dst_len=0,
+                table=254,
+                scope=0,
+            ),
+            MockRoute(dst='192.168.122.0', oif=2, dst_len=24, table=254),
+            MockRoute(
+                dst='127.0.0.0', oif=1, dst_len=8, table=255, route_type=2
+            ),
+            MockRoute(
+                dst='127.0.0.1', oif=1, dst_len=32, table=255, route_type=2
+            ),
+            MockRoute(
+                dst='127.255.255.255',
+                oif=1,
+                dst_len=32,
+                table=255,
+                route_type=3,
+            ),
+            MockRoute(
+                dst='192.168.122.28',
+                oif=2,
+                dst_len=32,
+                table=255,
+                route_type=2,
+            ),
+            MockRoute(
+                dst='192.168.122.255',
+                oif=2,
+                dst_len=32,
+                table=255,
+                route_type=3,
+            ),
+        ],
+    },
+    'netns': {
+        'links': [
+            MockLink(
+                index=1,
+                ifname='lo',
+                address='00:00:00:00:00:00',
+                broadcast='00:00:00:00:00:00',
+                rx_bytes=43309665,
+                tx_bytes=43309665,
+                rx_packets=173776,
+                tx_packets=173776,
+                mtu=65536,
+                qdisc='noqueue',
+            )
+        ],
+        'addr': [
+            MockAddress(
+                index=1,
+                label='lo',
+                address='127.0.0.1',
+                broadcast='127.255.255.255',
+                prefixlen=8,
+            )
+        ],
+        'routes': [
+            MockRoute(
+                dst='127.0.0.0', oif=1, dst_len=8, table=255, route_type=2
+            ),
+            MockRoute(
+                dst='127.0.0.1', oif=1, dst_len=32, table=255, route_type=2
+            ),
+            MockRoute(
+                dst='127.255.255.255',
+                oif=1,
+                dst_len=32,
+                table=255,
+                route_type=3,
+            ),
+        ],
+    },
+}
 
 
 class IPRoute(LAB_API):
     def __init__(self, *argv, **kwarg):
         super().__init__()
+        self.marshal = MarshalRtnl()
         self.target = kwarg.get('target')
+        self.preset = presets[
+            kwarg['preset'] if 'preset' in kwarg else 'default'
+        ]
         self.output_queue = queue.Queue(maxsize=512)
 
     def __enter__(self):
@@ -399,23 +481,90 @@ class IPRoute(LAB_API):
                 msg['header']['target'] = self.target
             yield msg
 
+    def _match(self, mode, obj, spec):
+        keys = {
+            'address': ['address', 'prefixlen', 'index', 'family'],
+            'link': ['index'],
+        }
+        for key in keys[mode]:
+            if spec[key] != getattr(obj, key):
+                return False
+        return True
+
     def get(self):
-        msg = nlmsg()
-        msg.data = self.output_queue.get()
-        msg.decode()
-        msg['header']['error'] = None
-        if self.target is not None:
+        data = self.output_queue.get()
+        ret = []
+        for msg in self.marshal.parse(data):
             msg['header']['target'] = self.target
-        return (msg,)
+            ret.append(msg)
+        return ret
+
+    def addr(self, command, **spec):
+        request = RequestProcessor(context=spec, prime=spec)
+        request.apply_filter(AddressFieldFilter())
+        request.apply_filter(AddressIPRouteFilter(command))
+        request.finalize()
+
+        for address in self.preset['addr']:
+            if self._match('address', address, request):
+                if command == 'add':
+                    raise NetlinkError(errno.EEXIST, 'address exists')
+                break
+        else:
+            address = MockAddress(**request)
+
+        if command == 'add':
+            for link in self.preset['links']:
+                if link.index == request['index']:
+                    break
+            else:
+                raise NetlinkError(errno.ENOENT, 'link not found')
+            address.label = link.ifname
+            self.preset['addr'].append(address)
+            for msg in self._get_dump([address], ifaddrmsg):
+                msg.encode()
+                self.output_queue.put(msg.data)
+
+        return self._get_dump([address], ifaddrmsg)
+
+    def link(self, command, **spec):
+        if 'state' in spec:
+            spec['flags'] = 1 if spec.pop('state') == 'up' else 0
+        request = RequestProcessor(context=spec, prime=spec)
+        request.apply_filter(LinkFieldFilter())
+        request.finalize()
+
+        for interface in self.preset['links']:
+            if self._match('link', interface, request):
+                if command == 'add':
+                    raise NetlinkError(errno.EEXIST, 'interface exists')
+                break
+        else:
+            interface = MockLink(**request)
+
+        if command == 'add':
+            self.preset['links'].append(interface)
+            for msg in self._get_dump([interface], ifinfmsg):
+                msg.encode()
+                self.output_queue.put(msg.data)
+        elif command == 'set':
+            for key, value in request.items():
+                if hasattr(interface, key):
+                    setattr(interface, key, value)
+            for msg in self._get_dump([interface], ifinfmsg):
+                msg.encode()
+                self.output_queue.put(msg.data)
+
+        return self._get_dump([interface], ifinfmsg)
 
     def get_addr(self):
-        return self._get_dump(REGISTRY_ADDRS, ifaddrmsg)
+        return self._get_dump(self.preset['addr'], ifaddrmsg)
 
     def get_links(self):
-        return self._get_dump(REGISTRY_LINKS, ifinfmsg)
+        return self._get_dump(self.preset['links'], ifinfmsg)
 
     def get_routes(self):
-        return self._get_dump(REGISTRY_ROUTES, rtmsg)
+        return self._get_dump(self.preset['routes'], rtmsg)
 
 
 class ChaoticIPRoute:
