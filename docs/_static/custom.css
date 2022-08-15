@@ -237,6 +237,12 @@ pre {
     border-radius: 10px;
 }
 
+div.highlight-none > div.highlight > pre {
+    border: none;
+    margin-top: -1.5em;
+    padding-top: 1.5em;
+}
+
 tt {
     background-color: #ecf0f3;
     padding: 0 1px 0 1px;

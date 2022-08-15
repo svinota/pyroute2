@@ -1,4 +1,15 @@
 '''
+.. testsetup::
+
+    from pyroute2 import NDB
+    ndb = NDB(sources=[{'target': 'localhost', 'kind': 'IPMock'}])
+
+.. testcleanup::
+
+    for key, value in tuple(globals().items()):
+        if key.startswith('ndb') and hasattr(value, 'close'):
+            value.close()
+
 NDB is a high level network management module. IT allows to manage interfaces,
 routes, addresses etc. of connected systems, containers and network
 namespaces.
@@ -162,15 +173,35 @@ Here are some simple NDB usage examples. More info see in the reference
 documentation below.
 
 Print all the interface names on the system, assume we have an NDB
-instance `ndb`::
+instance `ndb`:
+
+.. testcode::
 
     for interface in ndb.interfaces.dump():
         print(interface.ifname)
 
-Print the routing information in the CSV format::
+.. testoutput::
 
-    for line in ndb.routes.summary().format('csv'):
+    lo
+    eth0
+
+Print the routing information in the CSV format:
+
+.. testcode::
+
+    for record in ndb.routes.summary().format('csv'):
         print(record)
+
+.. testoutput::
+
+    'target','tflags','table','ifname','dst','dst_len','gateway'
+    'localhost',0,254,'eth0','',0,'192.168.122.1'
+    'localhost',0,254,'eth0','192.168.122.0',24,
+    'localhost',0,255,'lo','127.0.0.0',8,
+    'localhost',0,255,'lo','127.0.0.1',32,
+    'localhost',0,255,'lo','127.255.255.255',32,
+    'localhost',0,255,'eth0','192.168.122.28',32,
+    'localhost',0,255,'eth0','192.168.122.255',32,
 
 .. note:: More on report filtering and formatting: :ref:`ndbreports`
 .. note:: Since 0.5.11; versions 0.5.10 and earlier used
