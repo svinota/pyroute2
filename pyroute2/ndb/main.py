@@ -4,7 +4,21 @@
     from pyroute2 import NDB
     ndb = NDB(sources=[{'target': 'localhost', 'kind': 'IPMock'}])
 
-.. testcleanup::
+.. testsetup:: netns
+
+    from types import MethodType
+
+    from pyroute2 import NDB
+
+    ndb = NDB(sources=[{'target': 'localhost', 'kind': 'IPMock'}])
+
+    def add_mock_netns(self, netns):
+        return self.add_orig(target=netns, kind='IPMock', preset='netns')
+
+    ndb.sources.add_orig = ndb.sources.add
+    ndb.sources.add = MethodType(add_mock_netns, ndb.sources)
+
+.. testcleanup:: *
 
     for key, value in tuple(globals().items()):
         if key.startswith('ndb') and hasattr(value, 'close'):
@@ -204,10 +218,10 @@ Print the routing information in the CSV format:
     'localhost',0,255,'eth0','192.168.122.255',32,
 
 .. note:: More on report filtering and formatting: :ref:`ndbreports`
-.. note:: Since 0.5.11; versions 0.5.10 and earlier used
-          syntax `summary(format='csv', match={...})`
 
-Print IP addresses of interfaces in several network namespaces as::
+Print IP addresses of interfaces in several network namespaces as:
+
+.. testcode:: netns
 
     nslist = ['netns01',
               'netns02',
@@ -216,39 +230,52 @@ Print IP addresses of interfaces in several network namespaces as::
     for nsname in nslist:
         ndb.sources.add(netns=nsname)
 
-    for line in ndb.addresses.summary().format('json'):
+    report = ndb.addresses.summary()
+    report.select_records(target=lambda x: x.startswith('netns'))
+    report.select_fields('address', 'ifname', 'target')
+    for line in report.format('json'):
         print(line)
 
-Add an IP address on an interface::
+.. testoutput:: netns
 
-    (ndb
-     .interfaces['eth0']
-     .add_ip('10.0.0.1/24')
-     .commit())
+    [
+        {
+            "address": "127.0.0.1",
+            "ifname": "lo",
+            "target": "netns01"
+        },
+        {
+            "address": "127.0.0.1",
+            "ifname": "lo",
+            "target": "netns02"
+        },
+        {
+            "address": "127.0.0.1",
+            "ifname": "lo",
+            "target": "netns03"
+        }
+    ]
+
+Add an IP address on an interface:
+
+.. testcode::
+
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.add_ip('10.0.0.1/24')
     # ---> <---  NDB waits until the address actually
 
-Change an interface property::
+Change an interface property:
 
-    (ndb
-     .interfaces['eth0']
-     .set('state', 'up')
-     .set('address', '00:11:22:33:44:55')
-     .commit())
+.. testcode::
+
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.set(
+            state='up',
+            address='00:11:22:33:44:55',
+        )
     # ---> <---  NDB waits here for the changes to be applied
-
-    # same as above, but using properties as argument names
-    (ndb
-     .interfaces['eth0']
-     .set(state='up')
-     .set(address='00:11:22:33:44:55')
-     .commit())
-
-    # ... or with another syntax
-    with ndb.interfaces['eth0'] as i:
-        i['state'] = 'up'
-        i['address'] = '00:11:22:33:44:55'
-    # ---> <---  the commit() is called automatically by
-    #            the context manager's __exit__()
+    #            the commit() is called automatically by the
+    #            context manager's __exit__()
 
 '''
 import atexit
