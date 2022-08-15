@@ -1,31 +1,34 @@
 '''
 .. note:: New in verision 0.5.11
 
-Filtering examples::
+.. testsetup::
 
-    # 1. get all the routes
-    # 2. join with interfaces on route.oif == interface.index
-    # 3. select only fields dst, gateway, ifname and mac address
-    # 4. transform the mac address into xxxx.xxxx.xxxx notation
-    # 5. dump the info in the CSV format
+    from pyroute2 import NDB
+    ndb = NDB(sources=[{'target': 'localhost', 'kind': 'IPMock'}])
 
-    (ndb
-     .routes
-     .dump()
-     .join(ndb.interfaces.dump(),
-           condition=lambda l, r: l.oif == r.index)
-     .select('dst', 'gateway', 'oif', 'ifname', 'address')
-     .transform(address=lambda x: '%s%s.%s%s.%s%s' % tuple(x.split(':')))
-     .format('csv'))
+.. testcleanup:: *
 
-    'dst','gateway','oif','ifname','address'
-    '172.16.20.0','127.0.0.2',1,'lo','0000.0000.0000'
-    '172.16.22.0','127.0.0.4',1,'lo','0000.0000.0000'
-    '','172.16.254.3',3,'wlp58s0','60f2.6289.400e'
-    '10.250.3.0',,39,'lxcbr0','0016.3e00.0000'
-    '10.255.145.0','10.255.152.254',42881,'prdc51e6d5','4a6a.60b1.8448'
-    ...
+    for key, value in tuple(globals().items()):
+        if key.startswith('ndb') and hasattr(value, 'close'):
+            value.close()
 
+Filtering example:
+
+.. testcode::
+
+    report = ndb.interfaces.dump()
+    report.select_fields('index', 'ifname', 'address', 'state')
+    report.transform_fields(
+        address=lambda r: '%s%s.%s%s.%s%s' % tuple(r.address.split(':'))
+    )
+    for record in report.format('csv'):
+        print(record)
+
+.. testoutput::
+
+    'index','ifname','address','state'
+    1,'lo','0000.0000.0000','up'
+    2,'eth0','5254.0072.58b2','up'
 
 '''
 import json
@@ -38,6 +41,8 @@ MAX_REPORT_LINES = 10000
 
 deprecation_notice = '''
 RecordSet API is deprecated, pls refer to:
+
+https://docs.pyroute2.org/ndb_reports.html
 '''
 
 
@@ -132,6 +137,12 @@ class Record:
     def _select_fields(self, *fields):
         return Record(fields, map(lambda x: self[x], fields), self._ref_class)
 
+    def _transform_fields(self, **spec):
+        data = self._as_dict()
+        for key, func in spec.items():
+            data[key] = func(self)
+        return Record(data.keys(), data.values(), self._ref_class)
+
     def _match(self, f=None, **spec):
         if callable(f):
             return f(self)
@@ -220,32 +231,69 @@ class RecordSet(BaseRecordSet):
                 return record
 
     def select_fields(self, *fields):
+        '''
+        Select only chosen fields for every record:
+
+        .. testcode::
+
+            report = ndb.interfaces.dump()
+            report.select_fields('index', 'ifname')
+            for line in report.format('csv'):
+                print(line)
+
+        .. testoutput::
+
+            'index','ifname'
+            1,'lo'
+            2,'eth0'
+        '''
         self.filters.append(lambda x: x._select_fields(*fields))
 
     def select_records(self, f=None, **spec):
+        '''
+        Select records based on a function f() or a spec match. A spec
+        is dictionary of pairs `field: constant` or `field: callable`:
+
+        .. testcode::
+
+            report = ndb.addresses.summary()
+            report.select_records(ifname=lambda x: x.startswith('eth'))
+            for line in report.format('csv'):
+                print(line)
+
+        .. testoutput::
+
+            'target','tflags','ifname','address','prefixlen'
+            'localhost',0,'eth0','192.168.122.28',24
+        '''
         self.filters.append(lambda x: x if x._match(f, **spec) else None)
+
+    def transform_fields(self, **kwarg):
+        '''
+        Transform fields with a function. Function must accept
+        the record as the only argument:
+
+        .. testcode::
+
+            report = ndb.addresses.summary()
+            report.transform_fields(
+                address=lambda r: f'{r.address}/{r.prefixlen}'
+            )
+            report.select_fields('ifname', 'address')
+            for line in report.format('csv'):
+                print(line)
+
+        .. testoutput::
+
+            'ifname','address'
+            'lo','127.0.0.1/8'
+            'eth0','192.168.122.28/24'
+        '''
+        self.filters.append(lambda x: x._transform_fields(**kwarg))
 
     @cli.show_result
     def transform(self, **kwarg):
-        '''
-        Transform record fields with a provided functions::
-
-            view.transform(field_name_1=func1,
-                           field_name_2=func2)
-
-        Examples, transform MAC addresses into dots-format and IEEE 802::
-
-            fmt = '%s%s.%s%s.%s%s'
-            (ndb
-             .interfaces
-             .summary()
-             .transform(address=lambda x: fmt % tuple(x.split(':')))
-
-            (ndb
-             .interfaces
-             .summary()
-             .transform(address=lambda x: x.replace(':', '-').upper()))
-        '''
+        warnings.warn(deprecation_notice, DeprecationWarning)
 
         def g():
             for record in self.generator:
@@ -263,24 +311,7 @@ class RecordSet(BaseRecordSet):
 
     @cli.show_result
     def filter(self, f=None, **kwarg):
-        '''
-        Filter records. This function may be called in two ways. One way
-        is a simple match. Select ports of `br0` only in the `up` state::
-
-            (ndb
-             .interfaces
-             .dump()
-             .filter(master=ndb.interfaces['br0']['index'],
-                     state='up'))
-
-        When a simple match is not a solution, one can provide a matching
-        function. Select only MPLS lwtunnel routes::
-
-            (ndb
-             .routes
-             .dump()
-             .filter(lambda x: x.encap_type == 1 and x.encap is not None))
-        '''
+        warnings.warn(deprecation_notice, DeprecationWarning)
 
         def g():
             for record in self.generator:
@@ -303,11 +334,6 @@ class RecordSet(BaseRecordSet):
 
     @cli.show_result
     def fields(self, *fields):
-        '''
-        Show selected fields from records::
-
-            ndb.interfaces.dump().fields('index', 'ifname', 'state')
-        '''
         warnings.warn(deprecation_notice, DeprecationWarning)
 
         def g():
@@ -318,31 +344,6 @@ class RecordSet(BaseRecordSet):
 
     @cli.show_result
     def join(self, right, condition=lambda r1, r2: True, prefix=''):
-        '''
-        Join two reports.
-
-            * right -- a report to join with
-            * condition -- filter records with a function
-            * prefix -- rename the "right" fields using the prefix
-
-        The condition function must have two arguments, left record and
-        right record, and must return True or False. The routine discards
-        joined records when the condition is False.
-
-        Example, provide interface names for routes, don't change field
-        names::
-
-            (ndb
-             .routes
-             .dump()
-             .join(ndb.interfaces.dump(),
-                   condition=lambda l, r: l.oif == r.index)
-             .select('dst', 'gateway', 'ifname'))
-
-        **Warning**: this method loads the whole data of the `right` report
-        into the memory.
-
-        '''
         warnings.warn(deprecation_notice, DeprecationWarning)
         # fetch all the records from the right
         # ACHTUNG it may consume a lot of memory
