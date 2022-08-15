@@ -1,3 +1,4 @@
+import copy
 import errno
 import queue
 import struct
@@ -447,9 +448,9 @@ class IPRoute(LAB_API):
         super().__init__()
         self.marshal = MarshalRtnl()
         self.target = kwarg.get('target')
-        self.preset = presets[
-            kwarg['preset'] if 'preset' in kwarg else 'default'
-        ]
+        self.preset = copy.deepcopy(
+            presets[kwarg['preset'] if 'preset' in kwarg else 'default']
+        )
         self.output_queue = queue.Queue(maxsize=512)
 
     def __enter__(self):
