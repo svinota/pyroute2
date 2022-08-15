@@ -197,6 +197,7 @@ def docs(session):
     session.chdir(f'{tmpdir}/docs/')
     session.run('make', 'html', external=True)
     session.run('cp', '-a', 'html', f'{cwd}/docs/', external=True)
+    session.run('make', 'doctest', external=True)
     session.chdir(cwd)
     session.run('bash', 'util/aafigure_mapper.sh', external=True)
     #
