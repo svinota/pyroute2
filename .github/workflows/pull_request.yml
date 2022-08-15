@@ -33,6 +33,12 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v3
       - run: make nox session=lab
+  docs:
+    runs-on: Linux
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: make nox session=docs
   neutron:
     runs-on: Python3.8
     steps:
