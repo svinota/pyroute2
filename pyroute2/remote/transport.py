@@ -113,7 +113,9 @@ class ProxyChannel(object):
         )
 
 
-def Server(trnsp_in, trnsp_out, netns=None, target='localhost'):
+def Server(
+    trnsp_in, trnsp_out, netns=None, target='localhost', netlink_groups=0
+):
     def stop_server(signum, frame):
         Server.run = False
 
@@ -123,7 +125,7 @@ def Server(trnsp_in, trnsp_out, netns=None, target='localhost'):
     try:
         if netns is not None:
             netnsmod.setns(netns)
-        ipr = IPRoute(target=target)
+        ipr = IPRoute(target=target, netlink_groups=netlink_groups)
         lock = ipr._sproxy.lock
         ipr._s_channel = ProxyChannel(trnsp_out, 'broadcast')
     except Exception as e:
@@ -220,8 +222,8 @@ class RemoteSocket(NetlinkSocketBase):
     remote_trnsp_in = None
     remote_trnsp_out = None
 
-    def __init__(self, trnsp_in, trnsp_out):
-        super(RemoteSocket, self).__init__()
+    def __init__(self, trnsp_in, trnsp_out, netlink_groups=0):
+        super(RemoteSocket, self).__init__(netlink_groups=netlink_groups)
         self.trnsp_in = trnsp_in
         self.trnsp_out = trnsp_out
         self.cmdlock = threading.Lock()

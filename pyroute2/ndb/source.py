@@ -232,6 +232,19 @@ class Source(dict):
             return True
         return False
 
+    @property
+    def bind_arguments(self):
+        return dict(
+            filter(
+                lambda x: x[1] is not None,
+                (
+                    ('async_cache', True),
+                    ('clone_socket', True),
+                    ('groups', self.nl_kwarg.get('netlink_groups')),
+                ),
+            )
+        )
+
     def set_ready(self):
         try:
             if self.event is not None:
@@ -368,7 +381,7 @@ class Source(dict):
                         raise TypeError('source channel not supported')
                     self.state.set('loading')
                     #
-                    self.nl.bind(async_cache=True, clone_socket=True)
+                    self.nl.bind(**self.bind_arguments)
                     #
                     # Initial load -- enqueue the data
                     #
