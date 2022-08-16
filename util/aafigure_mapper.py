@@ -13,8 +13,9 @@ with contextlib.ExitStack() as ctx:
         for (key, value) in [x.split('|') for x in map_file.readlines()]
     }
     for line in img_file.readlines():
-        for key, value in mapping.items():
-            line = line.replace(key, f'  <a href="{value}">{key}</a>')
+        if 'a href' not in line:
+            for key, value in mapping.items():
+                line = line.replace(key, f'  <a href="{value}">{key}</a>')
         ret.write(line)
 
 with open(sys.argv[2], 'w') as img_file:
