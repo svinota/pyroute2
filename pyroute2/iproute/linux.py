@@ -259,7 +259,7 @@ class RTNL_API:
 
     # 8<---------------------------------------------------------------
     #
-    def dump(self):
+    def dump(self, groups=0xFFFFFFFF):
         '''
         Dump network objects.
 
@@ -311,7 +311,7 @@ class RTNL_API:
                 RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
             }
         for group, methods in groups_map.items():
-            if group & self.netlink_groups:
+            if group & groups:
                 for method in methods:
                     for msg in method():
                         yield msg

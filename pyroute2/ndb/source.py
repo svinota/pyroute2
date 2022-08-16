@@ -390,7 +390,12 @@ class Source(dict):
                         self.ndb.schema.flush(self.target)
                         if self.kind in ('local', 'netns', 'remote'):
                             self.fake_zero_if()
-                        self.evq.put(self.nl.dump(), source=self.target)
+                        self.evq.put(
+                            self.nl.dump(
+                                self.nl_kwarg.get('netlink_groups', 0xFFFFFFFF)
+                            ),
+                            source=self.target,
+                        )
                     finally:
                         self.ndb.schema.allow_read(True)
                     self.errors_counter = 0

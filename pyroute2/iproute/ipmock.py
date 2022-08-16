@@ -456,7 +456,7 @@ class IPRoute(LAB_API, NetlinkSocketBase):
     def bind(self, async_cache=True, clone_socket=True):
         pass
 
-    def dump(self):
+    def dump(self, groups=None):
         for method in (self.get_links, self.get_addr, self.get_routes):
             for msg in method():
                 yield msg
