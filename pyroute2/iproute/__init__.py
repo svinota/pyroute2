@@ -143,7 +143,7 @@ from pyroute2.netlink.rtnl import (
 )
 
 if sys.platform.startswith('emscripten'):
-    from pyroute2.iproute.pyodide import ChaoticIPRoute, IPRoute, RawIPRoute
+    from pyroute2.iproute.ipmock import ChaoticIPRoute, IPRoute, RawIPRoute
 elif sys.platform.startswith('win'):
     from pyroute2.iproute.windows import ChaoticIPRoute, IPRoute, RawIPRoute
 elif config.uname[0][-3:] == 'BSD':
