@@ -334,6 +334,8 @@ class NetlinkSocketBase:
     Generic netlink socket
     '''
 
+    input_from_buffer_queue = False
+
     def __init__(
         self,
         family=NETLINK_GENERIC,
@@ -456,7 +458,7 @@ class NetlinkSocketBase:
         return type(self)(**self.config)
 
     def close(self, code=errno.ECONNRESET):
-        if code > 0 and self.buffer_thread:
+        if code > 0 and self.input_from_buffer_queue:
             self.buffer_queue.put(
                 struct.pack('IHHQIQQ', 28, 2, 0, 0, code, 0, 0)
             )
@@ -603,7 +605,7 @@ class NetlinkSocketBase:
         return self._sendto(*argv, **kwarg)
 
     def recv(self, *argv, **kwarg):
-        if self.buffer_thread is not None:
+        if self.input_from_buffer_queue:
             data_in = self.buffer_queue.get()
             if isinstance(data_in, Exception):
                 raise data_in
@@ -611,7 +613,7 @@ class NetlinkSocketBase:
         return self._sock.recv(*argv, **kwarg)
 
     def recv_into(self, data, *argv, **kwarg):
-        if self.buffer_thread is not None:
+        if self.input_from_buffer_queue:
             data_in = self.buffer_queue.get()
             if isinstance(data, Exception):
                 raise data_in
@@ -1230,6 +1232,7 @@ class NetlinkSocket(NetlinkSocketBase):
             self.buffer_thread = threading.Thread(
                 name="Netlink async cache", target=self.buffer_thread_routine
             )
+            self.input_from_buffer_queue = True
             self.buffer_thread.daemon = True
             self.buffer_thread.start()
 

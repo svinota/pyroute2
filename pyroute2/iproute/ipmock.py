@@ -1,11 +1,10 @@
 import copy
 import errno
 import queue
-import struct
 
 from pyroute2.lab import LAB_API
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.nlsocket import Stats
+from pyroute2.netlink.nlsocket import NetlinkSocketBase, Stats
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
@@ -443,7 +442,7 @@ presets = {
 }
 
 
-class IPRoute(LAB_API):
+class IPRoute(LAB_API, NetlinkSocketBase):
     def __init__(self, *argv, **kwarg):
         super().__init__()
         self.marshal = MarshalRtnl()
@@ -451,16 +450,8 @@ class IPRoute(LAB_API):
         self.preset = copy.deepcopy(
             presets[kwarg['preset'] if 'preset' in kwarg else 'default']
         )
-        self.output_queue = queue.Queue(maxsize=512)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
-
-    def close(self, code=errno.ECONNRESET):
-        self.output_queue.put(struct.pack('IHHQIQQ', 28, 2, 0, 0, code, 0, 0))
+        self.buffer_queue = queue.Queue(maxsize=512)
+        self.input_from_buffer_queue = True
 
     def bind(self, async_cache=True, clone_socket=True):
         pass
@@ -492,14 +483,6 @@ class IPRoute(LAB_API):
                 return False
         return True
 
-    def get(self):
-        data = self.output_queue.get()
-        ret = []
-        for msg in self.marshal.parse(data):
-            msg['header']['target'] = self.target
-            ret.append(msg)
-        return ret
-
     def addr(self, command, **spec):
         request = RequestProcessor(context=spec, prime=spec)
         request.apply_filter(AddressFieldFilter())
@@ -524,7 +507,7 @@ class IPRoute(LAB_API):
             self.preset['addr'].append(address)
             for msg in self._get_dump([address], ifaddrmsg):
                 msg.encode()
-                self.output_queue.put(msg.data)
+                self.buffer_queue.put(msg.data)
 
         return self._get_dump([address], ifaddrmsg)
 
@@ -547,14 +530,14 @@ class IPRoute(LAB_API):
             self.preset['links'].append(interface)
             for msg in self._get_dump([interface], ifinfmsg):
                 msg.encode()
-                self.output_queue.put(msg.data)
+                self.buffer_queue.put(msg.data)
         elif command == 'set':
             for key, value in request.items():
                 if hasattr(interface, key):
                     setattr(interface, key, value)
             for msg in self._get_dump([interface], ifinfmsg):
                 msg.encode()
-                self.output_queue.put(msg.data)
+                self.buffer_queue.put(msg.data)
 
         return self._get_dump([interface], ifinfmsg)
 
