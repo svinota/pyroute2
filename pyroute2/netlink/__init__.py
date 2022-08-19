@@ -478,7 +478,6 @@ import sys
 import threading
 import traceback
 import types
-import typing
 import weakref
 from collections import OrderedDict
 from socket import AF_INET, AF_INET6, AF_UNSPEC, inet_ntop, inet_pton
@@ -1290,12 +1289,9 @@ class nlmsg_base(dict):
         '''
         Universal get() for a netlink message.
         '''
-        if isinstance(key, str) and key in self:
-            ret = self[key]
-        else:
-            if not isinstance(key, typing.Iterable):
-                key = (key,)
-            ret = self.get_nested(*key)
+        if isinstance(key, str):
+            key = (key,)
+        ret = self.get_nested(*key)
         return ret if ret is not None else default
 
     def get_nested(self, *keys):

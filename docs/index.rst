@@ -26,6 +26,7 @@ Usage
     ipset
     netns
     wireguard
+    event
 
 Howtos
 ------

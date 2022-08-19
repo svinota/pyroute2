@@ -333,7 +333,7 @@ def hexload(data):
 
 def load_dump(f, meta=None):
     '''
-    Load a packet dump from an open file-like object.
+    Load a packet dump from an open file-like object or a string.
 
     Supported dump formats:
 
@@ -352,7 +352,14 @@ def load_dump(f, meta=None):
     code = None
     meta_data = None
     meta_label = None
-    for a in f.readlines():
+    if isinstance(f, str):
+        io_obj = io.StringIO()
+        io_obj.write(f)
+        io_obj.seek(0)
+    else:
+        io_obj = f
+
+    for a in io_obj.readlines():
         if code is not None:
             code += a
             continue

@@ -1,22 +1,30 @@
 '''
-VFS_DQUOT module
-================
 
-Usage::
+Usage:
+
+.. testsetup::
+
+    from pyroute2.netlink.event import dquot
+    import pyroute2
+    pyroute2.DQuotSocket = dquot.DQuotMock
+
+.. testcode::
 
     from pyroute2 import DQuotSocket
 
-    ds = DQuotSocket()
-    msgs = ds.get()
+    with DQuotSocket() as ds:
+        for message in ds.get():
+            uid = message.get('QUOTA_NL_A_EXCESS_ID')
+            major = message.get('QUOTA_NL_A_DEV_MAJOR')
+            minor = message.get('QUOTA_NL_A_DEV_MINOR')
+            warning = message.get('QUOTA_NL_A_WARNING')
+            print(f'quota warning {warning} for uid {uid} on {major}:{minor}')
 
-Please notice, that `.get()` always returns a list, even if
-only one message arrived. To get NLA values::
+.. testoutput::
 
-    msg = msgs[0]
-    uid = msg.get_attr('QUOTA_NL_A_EXCESS_ID')
-    major = msg.get_attr('QUOTA_NL_A_DEV_MAJOR')
-    minor = msg.get_attr('QUOTA_NL_A_DEV_MINOR')
+    quota warning 8 for uid 0 on 7:0
 '''
+from pyroute2.common import load_dump
 from pyroute2.netlink import genlmsg
 from pyroute2.netlink.event import EventSocket
 from pyroute2.netlink.nlsocket import Marshal
@@ -46,3 +54,21 @@ class MarshalDQuot(Marshal):
 class DQuotSocket(EventSocket):
     marshal_class = MarshalDQuot
     genl_family = 'VFS_DQUOT'
+
+
+class DQuotMock(DQuotSocket):
+    input_from_buffer_queue = True
+    sample_data = '''
+        4c:00:00:00  11:00:00:00  06:00:00:00  00:00:00:00
+        01:01:00:00  08:00:01:00  00:00:00:00  0c:00:02:00
+        00:00:00:00  00:00:00:00  08:00:03:00  08:00:00:00
+        08:00:04:00  07:00:00:00  08:00:05:00  00:00:00:00
+        0c:00:06:00  00:00:00:00  00:00:00:00
+    '''
+
+    def bind(self, groups=0, **kwarg):
+        self.marshal.msg_map[17] = dquotmsg
+
+    def get(self):
+        self.buffer_queue.put(load_dump(self.sample_data))
+        return super().get()
