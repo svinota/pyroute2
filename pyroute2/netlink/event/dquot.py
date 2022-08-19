@@ -1,6 +1,5 @@
 '''
-
-Usage:
+Disk quota events monitoring:
 
 .. testsetup::
 
