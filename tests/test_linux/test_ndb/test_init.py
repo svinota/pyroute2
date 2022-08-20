@@ -15,7 +15,7 @@ def test_netlink_groups(kind):
     spec = {
         'target': 'localhost',
         'kind': kind,
-        'netlink_groups': RTMGRP_LINK | RTMGRP_IPV4_IFADDR,
+        'groups': RTMGRP_LINK | RTMGRP_IPV4_IFADDR,
     }
     if kind == 'netns':
         spec['netns'] = str(uuid.uuid4())

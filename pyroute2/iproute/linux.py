@@ -311,7 +311,7 @@ class RTNL_API:
                 RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
             }
         for group, methods in groups_map.items():
-            if group & (groups if groups is not None else self.netlink_groups):
+            if group & (groups if groups is not None else self.groups):
                 for method in methods:
                     for msg in method():
                         yield msg

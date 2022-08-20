@@ -124,7 +124,7 @@ class NetNS(RTNL_API, RemoteSocket):
         flags=os.O_CREAT,
         target=None,
         libc=None,
-        netlink_groups=RTMGRP_DEFAULTS,
+        groups=RTMGRP_DEFAULTS,
     ):
         self.netns = netns
         self.flags = flags
@@ -160,7 +160,7 @@ class NetNS(RTNL_API, RemoteSocket):
                     self.remote_trnsp_in,
                     self.remote_trnsp_out,
                     target=target,
-                    netlink_groups=netlink_groups,
+                    groups=groups,
                 )
             finally:
                 os._exit(0)
@@ -168,9 +168,7 @@ class NetNS(RTNL_API, RemoteSocket):
         try:
             self.remote_trnsp_in.close()
             self.remote_trnsp_out.close()
-            super(NetNS, self).__init__(
-                trnsp_in, trnsp_out, netlink_groups=netlink_groups
-            )
+            super(NetNS, self).__init__(trnsp_in, trnsp_out, groups=groups)
             self.target = target
         except Exception:
             self.close()
