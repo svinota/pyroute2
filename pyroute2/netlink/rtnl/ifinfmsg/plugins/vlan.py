@@ -19,6 +19,8 @@ class vlan(nla):
         fields = (('flags', 'I'), ('mask', 'I'))
 
     class qos(nla):
+        prefix = 'IFLA_'
+
         nla_map = (
             ('IFLA_VLAN_QOS_UNSPEC', 'none'),
             ('IFLA_VLAN_QOS_MAPPING', 'qos_mapping'),
