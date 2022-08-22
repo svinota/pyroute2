@@ -71,6 +71,7 @@ import os
 from functools import partial
 
 from pyroute2.iproute import RTNL_API
+from pyroute2.netlink.rtnl import RTMGRP_DEFAULTS
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
 from pyroute2.netns import remove, setns
 
@@ -117,7 +118,14 @@ class NetNS(RTNL_API, RemoteSocket):
 
     '''
 
-    def __init__(self, netns, flags=os.O_CREAT, target=None, libc=None):
+    def __init__(
+        self,
+        netns,
+        flags=os.O_CREAT,
+        target=None,
+        libc=None,
+        groups=RTMGRP_DEFAULTS,
+    ):
         self.netns = netns
         self.flags = flags
         target = target or netns
@@ -149,7 +157,10 @@ class NetNS(RTNL_API, RemoteSocket):
 
             try:
                 Server(
-                    self.remote_trnsp_in, self.remote_trnsp_out, target=target
+                    self.remote_trnsp_in,
+                    self.remote_trnsp_out,
+                    target=target,
+                    groups=groups,
                 )
             finally:
                 os._exit(0)
@@ -157,7 +168,7 @@ class NetNS(RTNL_API, RemoteSocket):
         try:
             self.remote_trnsp_in.close()
             self.remote_trnsp_out.close()
-            super(NetNS, self).__init__(trnsp_in, trnsp_out)
+            super(NetNS, self).__init__(trnsp_in, trnsp_out, groups=groups)
             self.target = target
         except Exception:
             self.close()

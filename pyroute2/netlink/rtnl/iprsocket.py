@@ -25,6 +25,8 @@ class IPRSocketBase(object):
             kwarg.pop('family')
         super(IPRSocketBase, self).__init__(NETLINK_ROUTE, *argv[1:], **kwarg)
         self.marshal = MarshalRtnl()
+        if self.groups == 0:
+            self.groups = rtnl.RTMGRP_DEFAULTS
         self._s_channel = None
         if sys.platform.startswith('linux'):
             send_ns = Namespace(
@@ -37,8 +39,10 @@ class IPRSocketBase(object):
                 rtnl.RTM_SETLINK: proxy_setlink,
             }
 
-    def bind(self, groups=rtnl.RTMGRP_DEFAULTS, **kwarg):
-        super(IPRSocketBase, self).bind(groups, **kwarg)
+    def bind(self, groups=None, **kwarg):
+        super(IPRSocketBase, self).bind(
+            groups if groups is not None else self.groups, **kwarg
+        )
 
     def sendto_gate(self, msg, addr):
         msg.reset()

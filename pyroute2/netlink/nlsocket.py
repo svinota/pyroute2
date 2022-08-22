@@ -350,6 +350,7 @@ class NetlinkSocketBase:
         target='localhost',
         ext_ack=False,
         strict_check=False,
+        groups=0,
     ):
         # 8<-----------------------------------------
         self.config = {
@@ -365,6 +366,7 @@ class NetlinkSocketBase:
             'nlm_generator': nlm_generator,
             'ext_ack': ext_ack,
             'strict_check': strict_check,
+            'groups': groups,
         }
         # 8<-----------------------------------------
         self.addr_pool = AddrPool(minaddr=0x000000FF, maxaddr=0x0000FFFF)
@@ -383,6 +385,7 @@ class NetlinkSocketBase:
         self.compiled = None
         self.uname = config.uname
         self.target = target
+        self.groups = groups
         self.capabilities = {
             'create_bridge': config.kernel > [3, 2, 0],
             'create_bond': config.kernel > [3, 2, 0],
@@ -419,7 +422,6 @@ class NetlinkSocketBase:
         else:
             self.pid = pid
         # 8<-----------------------------------------
-        self.groups = 0
         self.marshal = Marshal()
         # 8<-----------------------------------------
         if not nlm_generator:

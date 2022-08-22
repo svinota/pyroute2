@@ -105,5 +105,5 @@ class NetNSManager(Inotify):
                 return (item,)
         return ()
 
-    def dump(self):
+    def dump(self, groups=None):
         return self.ipr.get_netns_info()

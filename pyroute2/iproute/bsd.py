@@ -241,7 +241,7 @@ class IPRoute(object):
 
     # 8<---------------------------------------------------------------
     #
-    def dump(self):
+    def dump(self, groups=None):
         '''
         Iterate all the objects -- links, routes, addresses etc.
         '''

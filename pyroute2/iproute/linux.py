@@ -60,6 +60,14 @@ from pyroute2.netlink.rtnl import (
     RTM_NEWTCLASS,
     RTM_NEWTFILTER,
     RTM_SETLINK,
+    RTMGRP_IPV4_IFADDR,
+    RTMGRP_IPV4_ROUTE,
+    RTMGRP_IPV4_RULE,
+    RTMGRP_IPV6_IFADDR,
+    RTMGRP_IPV6_ROUTE,
+    RTMGRP_IPV6_RULE,
+    RTMGRP_LINK,
+    RTMGRP_NEIGH,
     TC_H_ROOT,
     ndmsg,
     rt_proto,
@@ -251,7 +259,7 @@ class RTNL_API:
 
     # 8<---------------------------------------------------------------
     #
-    def dump(self):
+    def dump(self, groups=None):
         '''
         Dump network objects.
 
@@ -279,26 +287,34 @@ class RTNL_API:
         # BSD systems have only subset of the API
         #
         if self.uname[0] == 'OpenBSD':
-            methods = (
-                self.get_links,
-                self.get_addr,
-                self.get_neighbours,
-                self.get_routes,
-            )
+            groups_map = {
+                1: [
+                    self.get_links,
+                    self.get_addr,
+                    self.get_neighbours,
+                    self.get_routes,
+                ]
+            }
         else:
-            methods = (
-                self.get_links,
-                self.get_addr,
-                self.get_neighbours,
-                self.get_routes,
-                self.get_vlans,
-                partial(self.fdb, 'dump'),
-                partial(self.get_rules, family=AF_INET),
-                partial(self.get_rules, family=AF_INET6),
-            )
-        for method in methods:
-            for msg in method():
-                yield msg
+            groups_map = {
+                RTMGRP_LINK: [
+                    self.get_links,
+                    self.get_vlans,
+                    partial(self.fdb, 'dump'),
+                ],
+                RTMGRP_IPV4_IFADDR: [partial(self.get_addr, family=AF_INET)],
+                RTMGRP_IPV6_IFADDR: [partial(self.get_addr, family=AF_INET6)],
+                RTMGRP_NEIGH: [self.get_neighbours],
+                RTMGRP_IPV4_ROUTE: [partial(self.get_routes, family=AF_INET)],
+                RTMGRP_IPV6_ROUTE: [partial(self.get_routes, family=AF_INET6)],
+                RTMGRP_IPV4_RULE: [partial(self.get_rules, family=AF_INET)],
+                RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
+            }
+        for group, methods in groups_map.items():
+            if group & (groups if groups is not None else self.groups):
+                for method in methods:
+                    for msg in method():
+                        yield msg
 
     def poll(self, method, command, timeout=10, interval=0.2, **spec):
         '''
