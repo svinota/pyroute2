@@ -117,6 +117,7 @@ all the tables from the DB, and NDB will create them from scratch
 on startup.
 '''
 import enum
+import inspect
 import json
 import random
 import sqlite3
@@ -166,7 +167,7 @@ def publish(method):
     #
     # this wrapper will be published in the DBM thread
     #
-    def _do_local(self, target, request):
+    def _do_local_generator(self, target, request):
         try:
             for item in method(self, *request.argv, **request.kwarg):
                 request.response.put(item)
@@ -174,52 +175,7 @@ def publish(method):
         except Exception as e:
             request.response.put(e)
 
-    #
-    # this class will be used to map the requests
-    #
-    class cmsg_req(cmsg):
-        def __init__(self, response, *argv, **kwarg):
-            self['header'] = {'target': None}
-            self.response = response
-            self.argv = argv
-            self.kwarg = kwarg
-
-    #
-    # this method will replace the source one
-    #
-    def _do_dispatch(self, *argv, **kwarg):
-        if self.thread == id(threading.current_thread()):
-            # same thread, run method locally
-            for item in method(self, *argv, **kwarg):
-                yield item
-        else:
-            # another thread, run via message bus
-            self._allow_read.wait()
-            response = queue.Queue()
-            request = cmsg_req(response, *argv, **kwarg)
-            self.event_queue.put((request,))
-            while True:
-                item = response.get()
-                if isinstance(item, StopIteration):
-                    return
-                elif isinstance(item, Exception):
-                    raise item
-                else:
-                    yield item
-
-    #
-    # announce the function so it will be published
-    #
-    _do_dispatch.publish = (cmsg_req, _do_local)
-
-    return _do_dispatch
-
-
-def publish_exec(method):
-    #
-    # this wrapper will be published in the DBM thread
-    #
-    def _do_local(self, target, request):
+    def _do_local_single(self, target, request):
         try:
             (
                 request.response.put(
@@ -242,7 +198,27 @@ def publish_exec(method):
     #
     # this method will replace the source one
     #
-    def _do_dispatch(self, *argv, **kwarg):
+    def _do_dispatch_generator(self, *argv, **kwarg):
+        if self.thread == id(threading.current_thread()):
+            # same thread, run method locally
+            for item in method(self, *argv, **kwarg):
+                yield item
+        else:
+            # another thread, run via message bus
+            self._allow_read.wait()
+            response = queue.Queue()
+            request = cmsg_req(response, *argv, **kwarg)
+            self.event_queue.put((request,))
+            while True:
+                item = response.get()
+                if isinstance(item, StopIteration):
+                    return
+                elif isinstance(item, Exception):
+                    raise item
+                else:
+                    yield item
+
+    def _do_dispatch_single(self, *argv, **kwarg):
         if self.thread == id(threading.current_thread()):
             # same thread, run method locally
             return method(self, *argv, **kwarg)
@@ -260,9 +236,12 @@ def publish_exec(method):
     #
     # announce the function so it will be published
     #
-    _do_dispatch.publish = (cmsg_req, _do_local)
+    if inspect.isgeneratorfunction(method):
+        _do_dispatch_generator.publish = (cmsg_req, _do_local_generator)
+        return _do_dispatch_generator
 
-    return _do_dispatch
+    _do_dispatch_single.publish = (cmsg_req, _do_local_single)
+    return _do_dispatch_single
 
 
 class ReadOnly(object):
@@ -516,7 +495,49 @@ class DBSchema:
             'fidx': ' AND '.join(f_idx_match),
         }
 
-    @publish_exec
+    @publish
+    def add_nl_source(self, target, kind, spec):
+        '''
+        A temprorary method, to be moved out
+        '''
+        # flush
+        self.execute(
+            '''
+                DELETE FROM sources_options
+                WHERE f_target = %s
+            '''
+            % self.plch,
+            (target,),
+        )
+        self.execute(
+            '''
+                DELETE FROM sources
+                WHERE f_target = %s
+            '''
+            % self.plch,
+            (target,),
+        )
+        # add
+        self.execute(
+            '''
+                INSERT INTO sources (f_target, f_kind)
+                VALUES (%s, %s)
+            '''
+            % (self.plch, self.plch),
+            (target, kind),
+        )
+        for key, value in spec.items():
+            vtype = 'int' if isinstance(value, int) else 'str'
+            self.execute(
+                '''
+                    INSERT INTO sources_options
+                    (f_target, f_name, f_type, f_value)
+                    VALUES (%s, %s, %s, %s)
+                '''
+                % (self.plch, self.plch, self.plch, self.plch),
+                (target, key, vtype, value),
+            )
+
     def execute(self, *argv, **kwarg):
         try:
             #
@@ -547,11 +568,11 @@ class DBSchema:
             return row
         return None
 
-    @publish_exec
+    @publish
     def wait_read(self, timeout=None):
         return self._allow_read.wait(timeout)
 
-    @publish_exec
+    @publish
     def wait_write(self, timeout=None):
         return self._allow_write.wait(timeout)
 
@@ -563,7 +584,7 @@ class DBSchema:
         # in the case of different threads, or simply run stage2
         self._r_allow_read(flag)
 
-    @publish_exec
+    @publish
     def _r_allow_read(self, flag):
         if flag:
             self._allow_read.set()
@@ -575,7 +596,7 @@ class DBSchema:
             self._allow_write.clear()
         self._r_allow_write(flag)
 
-    @publish_exec
+    @publish
     def _r_allow_write(self, flag):
         if flag:
             self._allow_write.set()
@@ -592,7 +613,7 @@ class DBSchema:
             for row in row_set:
                 yield row
 
-    @publish_exec
+    @publish
     def backup(self, spec):
         if (
             sys.version_info >= (3, 7)
@@ -604,7 +625,7 @@ class DBSchema:
         else:
             raise NotImplementedError()
 
-    @publish_exec
+    @publish
     def export(self, f='stdout'):
         close = False
         if f in ('stdout', 'stderr'):
@@ -627,7 +648,6 @@ class DBSchema:
             if close:
                 f.close()
 
-    @publish_exec
     def close(self):
         if self.config.spec != ':memory:':
             # simply discard in-memory sqlite db on exit
@@ -635,7 +655,7 @@ class DBSchema:
             self.connection.commit()
         self.connection.close()
 
-    @publish_exec
+    @publish
     def commit(self):
         self.connection.commit()
 
@@ -734,7 +754,7 @@ class DBSchema:
                 (mark, target),
             )
 
-    @publish_exec
+    @publish
     def flush(self, target):
         for table in self.spec:
             self.execute(
@@ -745,7 +765,7 @@ class DBSchema:
                 (target,),
             )
 
-    @publish_exec
+    @publish
     def save_deps(self, ctxid, weak_ref, iclass):
         uuid = uuid32()
         obj = weak_ref()
@@ -821,7 +841,7 @@ class DBSchema:
             )
             self.snapshots['%s_%s' % (table, ctxid)] = weak_ref
 
-    @publish_exec
+    @publish
     def purge_snapshots(self):
         for table in tuple(self.snapshots):
             for _ in range(MAX_ATTEMPTS):
