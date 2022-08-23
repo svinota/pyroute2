@@ -469,6 +469,9 @@ class SourcesView(View):
 
     def add(self, **spec):
         spec = dict(Source.defaults(spec))
+        target = spec['target']
+        if target in self:
+            raise KeyError(f'source {target} exists')
         if 'event' not in spec:
             sync = True
             spec['event'] = threading.Event()
@@ -480,6 +483,8 @@ class SourcesView(View):
         return self.cache[spec['target']]
 
     def remove(self, target, code=errno.ECONNRESET, sync=True):
+        if target not in self:
+            raise KeyError(f'source {target} does not exist')
         with self.lock:
             if target in self.cache:
                 source = self.cache[target]
