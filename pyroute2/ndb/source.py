@@ -177,54 +177,8 @@ class Source(dict):
         self.log = ndb.log.channel('sources.%s' % self.target)
         self.state = State(log=self.log, wait_list=['running'])
         self.state.set('init')
-        self.ndb.schema.execute(
-            '''
-                                INSERT INTO sources (f_target, f_kind)
-                                VALUES (%s, %s)
-                                '''
-            % (self.ndb.schema.plch, self.ndb.schema.plch),
-            (self.target, self.kind),
-        )
-        for key, value in spec.items():
-            vtype = 'int' if isinstance(value, int) else 'str'
-            self.ndb.schema.execute(
-                '''
-                                    INSERT INTO sources_options
-                                    (f_target, f_name, f_type, f_value)
-                                    VALUES (%s, %s, %s, %s)
-                                    '''
-                % (
-                    self.ndb.schema.plch,
-                    self.ndb.schema.plch,
-                    self.ndb.schema.plch,
-                    self.ndb.schema.plch,
-                ),
-                (self.target, key, vtype, value),
-            )
-
+        self.ndb.schema.add_nl_source(self.target, self.kind, spec)
         self.load_sql()
-
-    def __del__(self):
-        try:
-            self.ndb.schema.execute(
-                '''
-                                    DELETE FROM sources_options
-                                    WHERE f_target = %s
-                                    '''
-                % self.ndb.schema.plch,
-                (self.target,),
-            )
-
-            self.ndb.schema.execute(
-                '''
-                                    DELETE FROM sources
-                                    WHERE f_target = %s
-                                    '''
-                % self.ndb.schema.plch,
-                (self.target,),
-            )
-        except:
-            pass
 
     @property
     def must_restart(self):

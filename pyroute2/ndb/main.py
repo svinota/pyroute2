@@ -601,9 +601,6 @@ class NDB(object):
     def unregister_handler(self, event, handler):
         self._event_map[event].remove(handler)
 
-    def execute(self, *argv, **kwarg):
-        return self.schema.execute(*argv, **kwarg)
-
     def close(self):
         with self._global_lock:
             if self._dbm_shutdown.is_set():
