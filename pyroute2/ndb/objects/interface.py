@@ -699,7 +699,8 @@ class Interface(RTNL_Object):
         def do_add_port(self, mode, spec):
             try:
                 port = self.view[spec]
-                assert port['target'] == self['target']
+                if port['target'] != self['target']:
+                    raise ValueError('target must be the same')
                 port['master'] = self['index']
                 getattr(port, mode)()
                 return [port]
@@ -715,8 +716,10 @@ class Interface(RTNL_Object):
         def do_del_port(self, mode, spec):
             try:
                 port = self.view[spec]
-                assert port['master'] == self['index']
-                assert port['target'] == self['target']
+                if port['master'] != self['index']:
+                    raise ValueError('wrong port master index')
+                if port['target'] != self['target']:
+                    raise ValueError('target must be the same')
                 port['master'] = 0
                 getattr(port, mode)()
                 return [port]

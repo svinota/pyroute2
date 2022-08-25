@@ -223,7 +223,8 @@ class IW(NL80211):
         '''
         # lookup the interface type
         iftype = IFTYPE_NAMES.get(iftype, iftype)
-        assert isinstance(iftype, int)
+        if not isinstance(iftype, int):
+            raise TypeError('iftype must be int')
 
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_NEW_INTERFACE']
@@ -372,7 +373,8 @@ class IW(NL80211):
         if channel_fixed:
             msg['attrs'].append(['NL80211_ATTR_FREQ_FIXED', None])
             width = CHAN_WIDTH.get(width, width)
-            assert isinstance(width, int)
+            if not isinstance(width, int):
+                raise TypeError('width must be int')
             if width in [2, 3, 5] and center:
                 msg['attrs'].append(['NL80211_ATTR_CHANNEL_WIDTH', width])
                 msg['attrs'].append(['NL80211_ATTR_CENTER_FREQ1', center])

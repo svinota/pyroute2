@@ -553,7 +553,8 @@ class NetlinkSocketBase:
         if isinstance(policy, int) and msg_class is not None:
             policy = {policy: msg_class}
 
-        assert isinstance(policy, dict)
+        if not isinstance(policy, dict):
+            raise TypeError('wrong policy type')
         for key in policy:
             self.marshal.msg_map[key] = policy[key]
 
@@ -576,7 +577,8 @@ class NetlinkSocketBase:
         elif isinstance(policy, dict):
             policy = list(policy)
 
-        assert isinstance(policy, (tuple, list, set))
+        if not isinstance(policy, (tuple, list, set)):
+            raise TypeError('wrong policy type')
 
         for key in policy:
             del self.marshal.msg_map[key]
@@ -595,7 +597,8 @@ class NetlinkSocketBase:
         if isinstance(policy, int):
             policy = [policy]
 
-        assert isinstance(policy, (list, tuple, set))
+        if not isinstance(policy, (list, tuple, set)):
+            raise TypeError('wrong policy type')
 
         ret = {}
         for key in policy:
