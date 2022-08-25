@@ -38,14 +38,18 @@ def get_parameters(kwarg):
         kwarg['burst'] = kwarg['burst'] or (2 * qth_min + qth_max) / (
             3 * avpkt
         )
-        assert limit > qth_max
-        assert qth_max > qth_min
+        if limit <= qth_max:
+            raise ValueError('limit must be > qth_max')
+        if qth_max <= qth_min:
+            raise ValueError('qth_max must be > qth_min')
         kwarg['qth_min'] = qth_min
         kwarg['qth_max'] = qth_max
         kwarg['Wlog'] = red_eval_ewma(qth_min, kwarg['burst'], avpkt)
         kwarg['Plog'] = red_eval_P(qth_min, qth_max, probability)
-        assert kwarg['Wlog'] >= 0
-        assert kwarg['Plog'] >= 0
+        if kwarg['Wlog'] < 0:
+            raise ValueError('Wlog must be > 0')
+        if kwarg['Plog'] < 0:
+            raise ValueError('Plog must be > 0')
         kwarg['max_P'] = int(probability * pow(2, 23))
 
     return kwarg

@@ -209,7 +209,8 @@ class options(nla, nla_plus_police):
                         keys.append(key)
                         key = None
 
-            assert keys
+            if not keys:
+                raise ValueError('no keys specified')
             self['nkeys'] = len(keys)
             # FIXME: do not hardcode flags :)
             self['flags'] = 1
