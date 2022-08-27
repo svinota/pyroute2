@@ -25,4 +25,4 @@ class MarshalThermalEvent(Marshal):
 
 class ThermalEventSocket(EventSocket):
     marshal_class = MarshalThermalEvent
-    genl_family = 'thermal_event'
+    genl_family = 'thermal'
