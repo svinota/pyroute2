@@ -1508,6 +1508,9 @@ class nlmsg_base(dict):
             # lookup NLA class
             if nla_class == 'recursive':
                 nla_class = type(self)
+            elif nla_class == 'nested':
+                nla_class = type(self)
+                nla_flags |= NLA_F_NESTED
             else:
                 nla_class = getattr(self, nla_class)
             # update mappings
