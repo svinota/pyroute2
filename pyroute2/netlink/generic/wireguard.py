@@ -3,16 +3,15 @@
 Usage::
 
     # Imports
-    from pyroute2 import IPDB, WireGuard
+    from pyroute2 import NDB, WireGuard
 
     IFNAME = 'wg1'
 
     # Create a WireGuard interface
-    with IPDB() as ip:
-        wg1 = ip.create(kind='wireguard', ifname=IFNAME)
-        wg1.add_ip('10.0.0.1/24')
-        wg1.up()
-        wg1.commit()
+    with NDB() as ndb:
+        with ndb.interfaces.create(kind='wireguard', ifname=IFNAME) as link:
+            link.add_ip('10.0.0.1/24')
+            link.set(state='up')
 
     # Create WireGuard object
     wg = WireGuard()
